@@ -824,7 +824,7 @@ async function fun(event, context) {
         <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;pointer-events:none;margin:0;padding:0;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
         <script>
           window.acBootCanvas=(function(){var c=document.getElementById('boot-canvas');if(!c)return{};var x=c.getContext('2d');x.imageSmoothingEnabled=false;
-          var SCL=1,targetSCL=3,W=Math.ceil(window.innerWidth/SCL),H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;
+          var SCL=1,targetSCL=2,W=Math.ceil(window.innerWidth/SCL),H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;
           function updateScale(newSCL){SCL=newSCL;W=Math.ceil(window.innerWidth/SCL);H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;x.imageSmoothingEnabled=false;for(var k in scrollYs)scrollYs[k]=0;}
           window.addEventListener('resize',function(){W=Math.ceil(window.innerWidth/SCL);H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;x.imageSmoothingEnabled=false;});
           var PM=7,HH=8,CW=80,CHW=1.8,LH=4,FNT=3;
@@ -842,7 +842,7 @@ async function fun(event, context) {
           function tok(ln){var r=[],i=0,s=ln;while(i<s.length){if(s.slice(i,i+2)==='//'){ r.push([s.slice(i),'cmt']);break;}var fk=false;for(var k=0;k<KWS.length;k++){var kw=KWS[k];if(s.slice(i,i+kw.length)===kw){var nc=s[i+kw.length]||'';if(!/[a-zA-Z0-9_]/.test(nc)){r.push([kw,'kw']);i+=kw.length;fk=true;break;}}}if(fk)continue;var ch=s[i];if(ch==='"'||ch==="'"||ch==='\`'){var q=ch,j=i+1;while(j<s.length&&s[j]!==q){if(s[j]==='\\\\')j++;j++;}r.push([s.slice(i,j+1),'str']);i=j+1;continue;}if(/[0-9]/.test(ch)){var j=i;while(/[0-9.]/.test(s[j]))j++;r.push([s.slice(i,j),'num']);i=j;continue;}if(/[a-zA-Z_$]/.test(ch)){var j=i;while(/[a-zA-Z0-9_$]/.test(s[j]))j++;var w=s.slice(i,j);r.push([w,s[j]==='('?'fn':'vr']);i=j;continue;}r.push([ch,'op']);i++;}return r;}
           var scrollSpds={};function addFile(name,src){if(shownFiles[name])return;shownFiles[name]=true;netAct=1;var ls=src.split('\\n').slice(0,100),ext=(name.match(/\\.[^.]+$/)||[''])[0];var toks=ls.map(tok);fileQ.push({name:name,toks:toks});files.push({name:name,lines:ls,ext:ext,toks:toks,total:ls.length,cH:(ls.length+3)*LH});scrollYs[name]=0;scrollSpds[name]=2+Math.floor(Math.random()*5);}
           function netPulse(){netAct=Math.min(1,netAct+0.5);}
-          function add(m){var now=performance.now(),dt=now-lastLog;lastLog=now;lb=Math.min(1,500/Math.max(50,dt))*0.5+0.5;if(lines.length>0)lines[0].text=lines[0].text.replace(/_$/,'');lines.unshift({text:m+'_',time:now,burst:lb});if(lines.length>mL)lines.pop();lc++;bp=Math.min(1,lc/10);}
+          function add(m){var now=performance.now(),dt=now-lastLog;lastLog=now;lb=Math.min(1,500/Math.max(50,dt))*0.5+0.5;if(lines.length>0)lines[0].text=lines[0].text.replace(/_$/,'');lines.unshift({text:m+'_',time:now,burst:lb});if(lines.length>mL)lines.pop();lc++;bp=Math.min(1,lc/25);}
           function setH(h){uH=h;hST=performance.now();}
           var lastSCL=1;
           function anim(){if(!run||!c)return;f++;lb*=0.94;var chaos=0.3+bp*0.4+lb*0.3;var t=f*0.05;
