@@ -91,8 +91,21 @@
       const lineHeight = 14;
       const maxLines = 18;
       
+      // Load SVG asynchronously to avoid blocking and keep bundle small
       const img = new Image();
-      img.src = '/purple-pals.svg';
+      let imgLoaded = false;
+      (async () => {
+        try {
+          const r = await fetch('/purple-pals.svg');
+          const svg = await r.text();
+          const blob = new Blob([svg], { type: 'image/svg+xml' });
+          const url = URL.createObjectURL(blob);
+          img.onload = () => { imgLoaded = true; URL.revokeObjectURL(url); };
+          img.src = url;
+        } catch (e) {
+          // silent fail — placeholder will be used
+        }
+      })();
       
       // Boot state
       let lines = [];
@@ -276,13 +289,22 @@
         });
         ctx.globalAlpha = 1;
         
-        // Draw logo with wobble
-        if (img.complete) {
-          const logoShake = baseShake * 0.8 + chaos * chaos * 3;
+        // Draw logo with wobble; use placeholder until SVG finishes loading
+        const logoShake = baseShake * 0.8 + chaos * chaos * 3;
+        if (imgLoaded || img.complete) {
           ctx.drawImage(img, 
             logoX + shakeX * 0.5 + (Math.random() - 0.5) * logoShake, 
             logoY + shakeY * 0.5 + (Math.random() - 0.5) * logoShake, 
             logoSize, logoSize);
+        } else {
+          // Quick placeholder circle so users see something instantly
+          ctx.save();
+          ctx.globalAlpha = 0.95;
+          ctx.fillStyle = `rgb(${140 + (Math.random()*80|0)}, ${60 + (Math.random()*40|0)}, ${150 + (Math.random()*80|0)})`;
+          ctx.beginPath();
+          ctx.arc(logoX + logoSize/2, logoY + logoSize/2, logoSize/2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
         }
         
         // Live ms timer under logo
