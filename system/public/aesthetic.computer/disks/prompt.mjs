@@ -5778,16 +5778,16 @@ function paint($) {
     const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
     if (isWinter && screen.height >= 120) {
       // Position symbol centered horizontally, above the MOTD area
-      const symbolWidth = 16; // unifont character width
+      const symbolWidth = 32; // doubled from 16 for 2x scale
       let symbolX = Math.floor((screen.width - symbolWidth) / 2);
       // MOTD is at screen.height/2 - 48, so put symbol above that
-      let symbolY = Math.floor(screen.height / 2 - 72); // 24px above MOTD baseline
+      let symbolY = Math.floor(screen.height / 2 - 84); // adjusted for larger size
       
       // Only draw if there's enough space from top
       if (symbolY > 20) {
         // Shake animation for angry effect
-        const shakeX = Math.sin(motdFrame * 0.3) * 2;
-        const shakeY = Math.cos(motdFrame * 0.4) * 1;
+        const shakeX = Math.sin(motdFrame * 0.3) * 3;
+        const shakeY = Math.cos(motdFrame * 0.4) * 2;
         
         // Draw angry face using unifont (😡 or ಠ_ಠ alternative: ☹ frowning face)
         // Cycle through angry/fiery colors
@@ -5801,14 +5801,65 @@ function paint($) {
         const symbolColor = angryColors[colorIndex];
         const symbolAlpha = 200 + Math.sin(motdFrame * 0.1) * 55; // 145-255 pulsing
         
+        const faceX = Math.floor(symbolX + shakeX);
+        const faceY = Math.floor(symbolY + shakeY);
+        
+        // Draw the face at 2x scale using pan transformation
+        pan({ x: faceX, y: faceY, scale: 2 });
         ink(...symbolColor, symbolAlpha).write(
           "☹", // Frowning face (U+2639) - works in unifont
-          { x: Math.floor(symbolX + shakeX), y: Math.floor(symbolY + shakeY) },
+          { x: 0, y: 0 },
           undefined,
           undefined,
           false,
           "unifont"
         );
+        unpan();
+        
+        // Red sparks flying off the head!
+        const sparkCount = 8;
+        for (let i = 0; i < sparkCount; i++) {
+          // Each spark has a phase offset for continuous emission
+          const sparkPhase = (motdFrame * 0.15 + i * 0.7) % 3; // 0-3 lifecycle
+          const sparkLife = sparkPhase / 3; // 0-1 normalized
+          
+          // Sparks fly upward and outward
+          const sparkAngle = -Math.PI / 2 + (i - sparkCount / 2) * 0.25 + Math.sin(motdFrame * 0.1 + i) * 0.1;
+          const sparkSpeed = 15 + i * 3;
+          const sparkDist = sparkLife * sparkSpeed;
+          
+          // Start from top of head (center-top of face)
+          const sparkStartX = faceX + symbolWidth / 2;
+          const sparkStartY = faceY;
+          
+          const sparkX = sparkStartX + Math.cos(sparkAngle) * sparkDist + Math.sin(motdFrame * 0.2 + i) * 3;
+          const sparkY = sparkStartY + Math.sin(sparkAngle) * sparkDist - sparkLife * 8; // extra upward drift
+          
+          // Spark color cycles through reds/oranges/yellows
+          const sparkColors = [
+            [255, 50, 50],   // Bright red
+            [255, 100, 30],  // Orange
+            [255, 200, 50],  // Yellow-orange
+            [255, 80, 80],   // Red
+          ];
+          const sparkColorIdx = (i + Math.floor(motdFrame * 0.1)) % sparkColors.length;
+          const sparkColor = sparkColors[sparkColorIdx];
+          
+          // Fade out as spark ages
+          const sparkAlpha = Math.floor((1 - sparkLife) * 255);
+          
+          // Spark size shrinks as it ages
+          const sparkSize = Math.max(1, Math.floor((1 - sparkLife * 0.7) * 3));
+          
+          if (sparkAlpha > 20) {
+            ink(...sparkColor, sparkAlpha).box(
+              Math.floor(sparkX),
+              Math.floor(sparkY),
+              sparkSize,
+              sparkSize
+            );
+          }
+        }
       }
     }
   }
