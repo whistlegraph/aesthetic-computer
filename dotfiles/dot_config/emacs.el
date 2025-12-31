@@ -226,6 +226,14 @@ Returns: 'ready, 'restarted, 'dead, or 'not-found"
 (defvar ac-notify-flash-timer nil "Timer for notification flashing.")
 (defvar ac-notify-flash-count 0 "Number of flash cycles completed.")
 (defvar ac-notify-original-bg nil "Original background color before flash.")
+(defvar ac-notify-flash-colors
+  '("#1a3a1a"   ; dark green
+    "#3a1a3a"   ; dark magenta
+    "#1a1a3a"   ; dark blue
+    "#3a3a1a"   ; dark yellow
+    "#3a1a1a"   ; dark red
+    "#1a3a3a")  ; dark cyan
+  "Colors to cycle through during notification flash.")
 
 (defun ac-notify-stop-flash ()
   "Stop the notification flash and restore original background."
@@ -243,12 +251,15 @@ Returns: 'ready, 'restarted, 'dead, or 'not-found"
   (redisplay t))
 
 (defun ac-notify-do-flash ()
-  "Perform one flash cycle."
+  "Perform one flash cycle with rainbow colors."
   (when ac-notify-flash-active
     (setq ac-notify-flash-count (1+ ac-notify-flash-count))
-    ;; Alternate between flash color and original
+    ;; Alternate between flash colors and original
     (if (= (mod ac-notify-flash-count 2) 1)
-        (set-face-background 'default "#1a3a1a") ; Dark green flash
+        ;; Pick a color from the list, cycling through
+        (let* ((color-idx (mod (/ ac-notify-flash-count 2) (length ac-notify-flash-colors)))
+               (flash-color (nth color-idx ac-notify-flash-colors)))
+          (set-face-background 'default flash-color))
       (set-face-background 'default ac-notify-original-bg))
     (redisplay t)
     ;; Continue flashing
