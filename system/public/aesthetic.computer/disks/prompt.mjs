@@ -5824,27 +5824,34 @@ function paint($) {
       const motdY = screen.height / 2 - 48 + swayY; // Moved up 12px closer to top (changed from -36 back to -48)
       
       // Parse MOTD for interactive elements (handles, URLs, prompts, etc.)
-      // In FUNDING_MODE, dynamically set the MOTD text (line 1 = English)
+      // In FUNDING_MODE, toggle languages every 1.5 seconds
       let displayMotd = motd;
+      const langPhase = Math.floor(Date.now() / 1500) % 2; // Toggle every 1.5s
       if (FUNDING_MODE) {
-        displayMotd = "CRITICAL MEDIA SERVICES OFFLINE"; // Line 1 is always English
+        // Line 1: EN when phase=0, DA when phase=1
+        displayMotd = langPhase === 0 
+          ? "CRITICAL MEDIA SERVICES OFFLINE" 
+          : "KRITISKE MEDIETJENESTER OFFLINE";
       }
       const motdElements = parseMessageElements(displayMotd);
       const hasLinks = motdElements.length > 0;
       
       let coloredText = "";
       const rainbowColors = ["pink", "cyan", "yellow", "lime", "orange", "magenta"];
-      const alertColors = ["red", "yellow", "orange", "255,100,50"]; // Red/yellow for funding mode
+      
+      // Color schemes: EN = red/orange, DA = cyan/blue
+      const enColors = ["red", "255,100,50", "yellow", "orange"];
+      const daColors = ["cyan", "0,150,255", "white", "lime"];
       
       if (hasLinks) {
         // Use syntax highlighting for interactive elements
         coloredText = colorizeText(displayMotd, "white");
       } else if (FUNDING_MODE) {
-        // Funding mode - English in red/orange colors
-        const enColors = ["red", "255,100,50", "yellow", "orange"];
+        // Use color scheme matching the current language
+        const line1Colors = langPhase === 0 ? enColors : daColors;
         for (let i = 0; i < displayMotd.length; i++) {
-          const colorIndex = Math.floor((i + motdFrame * 0.15) % enColors.length);
-          const color = enColors[colorIndex];
+          const colorIndex = Math.floor((i + motdFrame * 0.15) % line1Colors.length);
+          const color = line1Colors[colorIndex];
           coloredText += `\\${color}\\${displayMotd[i]}`;
         }
       } else {
@@ -5882,17 +5889,19 @@ function paint($) {
         motdMaxWidth,
       );
       
-      // Add Danish help line below MOTD in funding mode (Line 2 = Danish always)
+      // Add help line below MOTD in funding mode (opposite language from line 1)
       if (FUNDING_MODE) {
-        // Line 2 is always Danish
-        const helpText = "SKRIV 'give' FOR HJAELP";
+        // Line 2: DA when phase=0, EN when phase=1 (opposite of line 1)
+        const helpTextEN = "ENTER 'give' TO HELP";
+        const helpTextDA = "SKRIV 'give' FOR HJAELP";
+        const helpText = langPhase === 0 ? helpTextDA : helpTextEN;
         const giveStart = helpText.indexOf("'give'");
         const giveEnd = giveStart + 6; // length of 'give'
         
-        // Danish uses cyan/blue color scheme
-        const daColors = ["cyan", "0,150,255", "white", "lime"];
+        // Use opposite color scheme from line 1
+        const line2Colors = langPhase === 0 ? daColors : enColors;
         
-        // Build text with 'give' highlighted, rest in Danish colors
+        // Build text with 'give' highlighted, rest in language colors
         let coloredHelpText = "";
         for (let i = 0; i < helpText.length; i++) {
           const isGive = i >= giveStart && i < giveEnd;
@@ -5902,9 +5911,9 @@ function paint($) {
             const colorIndex = Math.floor(((i - giveStart) + motdFrame * 0.2) % giveColors.length);
             coloredHelpText += `\\${giveColors[colorIndex]}\\${helpText[i]}`;
           } else {
-            // Rest uses Danish cyan/blue color scheme
-            const colorIndex = Math.floor((i + motdFrame * 0.15 + 5) % daColors.length);
-            const color = daColors[colorIndex];
+            // Rest uses language-specific color scheme
+            const colorIndex = Math.floor((i + motdFrame * 0.15 + 5) % line2Colors.length);
+            const color = line2Colors[colorIndex];
             coloredHelpText += `\\${color}\\${helpText[i]}`;
           }
         }
