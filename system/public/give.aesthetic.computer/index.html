@@ -430,6 +430,11 @@
       margin: 0;
     }
 
+    .gift-controls input[type="range"] {
+      position: relative;
+      z-index: 10;
+    }
+
     .gift-controls input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 24px;
@@ -438,6 +443,8 @@
       border-radius: 50%;
       cursor: grab;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      position: relative;
+      z-index: 20;
     }
 
     .gift-controls input[type="range"]::-moz-range-thumb {
@@ -481,11 +488,19 @@
       font-weight: bold;
     }
 
+    .mode-btn[data-mode="once"].active {
+      background: var(--cyan);
+    }
+
+    .mode-btn[data-mode="monthly"].active {
+      background: var(--gold);
+    }
+
     .gift-btn {
       font-family: 'ywft', sans-serif;
       font-size: 1.2em;
       padding: 1em 1.5em;
-      background: var(--pink);
+      background: var(--green);
       color: var(--bg);
       border: none;
       border-radius: 0;
@@ -497,7 +512,7 @@
     }
 
     .gift-btn:hover {
-      background: var(--cyan);
+      background: var(--pink);
     }
 
     .gift-btn:disabled {
@@ -1004,12 +1019,12 @@
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount">$25</div>
+                  <div class="gift-amount">$50</div>
                 </div>
               </div>
               <div class="gift-controls">
-                <input type="range" min="5" max="100" step="5" value="25">
-                <button class="gift-btn" data-currency="usd">Give $25</button>
+                <input type="range" min="5" max="100" step="5" value="50">
+                <button class="gift-btn" data-currency="usd">Give $50</button>
                 <div class="gift-mode-toggle">
                   <button class="mode-btn active" data-mode="once">One-time</button>
                   <button class="mode-btn" data-mode="monthly">Monthly</button>
