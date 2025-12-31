@@ -8622,6 +8622,9 @@ async function makeFrame({ data: { type, content } }) {
       console.log("💬 Chat disabled, just grabbing screenshots. 😃");
     } else if (getPackMode()) {
       // Skip chat connection in PACK mode - offline bundle
+    } else if (globalThis.AC_FUNDING_MODE) {
+      // Skip chat connection in FUNDING_MODE - show ransom message instead
+      console.log("💬 Chat disabled - FUNDING_MODE active");
     } else {
       chatClient.connect("system"); // Connect to `system` chat.
     }
