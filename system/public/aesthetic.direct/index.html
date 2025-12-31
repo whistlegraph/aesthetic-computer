@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invest — Aesthetic Inc.</title>
+  <meta name="description" content="Invest in Aesthetic Computer — equity opportunities for believers in creative computing.">
+  <link rel="icon" href="https://aesthetic.computer/aesthetic.computer/favicon.ico">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+    
+    :root {
+      --bg: #0a0a0a;
+      --fg: #f0f0f0;
+      --dim: #888;
+      --accent: #6bff9f;
+      --accent-glow: rgba(107, 255, 159, 0.3);
+      --blue: #6b9fff;
+      --yellow: #ffeb6b;
+      --purple: #b06bff;
+      --card: #151515;
+      --card-border: #2a2a2a;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'IBM Plex Mono', monospace;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      line-height: 1.7;
+      font-size: 14px;
+    }
+    
+    .page {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+    
+    .logo {
+      font-size: 0.9rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 1rem;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 400;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
+    }
+    
+    h1 .highlight {
+      color: var(--accent);
+    }
+    
+    .tagline {
+      color: var(--dim);
+      font-size: 1rem;
+    }
+    
+    /* Intro */
+    .intro {
+      margin-bottom: 3rem;
+      padding: 2rem;
+      background: linear-gradient(135deg, var(--card) 0%, transparent 100%);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+    }
+    
+    .intro h2 {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--accent);
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    
+    .intro p {
+      margin-bottom: 1rem;
+      color: var(--fg);
+    }
+    
+    .intro p:last-child {
+      margin-bottom: 0;
+    }
+    
+    .intro a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+    
+    .intro a:hover {
+      text-decoration: underline;
+    }
+    
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+    
+    .stat {
+      text-align: center;
+      padding: 1.25rem 0.5rem;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+    }
+    
+    .stat-num {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--yellow);
+      display: block;
+    }
+    
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    /* Why Invest */
+    .section {
+      margin-bottom: 3rem;
+    }
+    
+    .section h2 {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--dim);
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .card {
+      padding: 1.25rem;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      transition: border-color 0.2s;
+    }
+    
+    .card:hover {
+      border-color: var(--accent);
+    }
+    
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+    
+    .card h3 .emoji {
+      margin-right: 0.5rem;
+    }
+    
+    .card p {
+      font-size: 0.85rem;
+      color: var(--dim);
+      margin: 0;
+    }
+    
+    .card a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+    
+    .card a:hover {
+      text-decoration: underline;
+    }
+    
+    /* CTA */
+    .cta-section {
+      margin-bottom: 3rem;
+    }
+    
+    .cta-card {
+      background: linear-gradient(135deg, rgba(107, 255, 159, 0.1) 0%, var(--card) 100%);
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      padding: 2rem;
+      text-align: center;
+    }
+    
+    .cta-card h2 {
+      font-size: 1.25rem;
+      font-weight: 500;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+    
+    .cta-card p {
+      color: var(--dim);
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+    }
+    
+    .cta-btn {
+      display: inline-block;
+      background: var(--accent);
+      color: var(--bg);
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.15s;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    
+    .cta-btn:hover {
+      background: var(--fg);
+      box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Gift alternative */
+    .gift-alt {
+      text-align: center;
+      padding: 1.5rem;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      margin-bottom: 3rem;
+    }
+    
+    .gift-alt p {
+      color: var(--dim);
+      font-size: 0.9rem;
+    }
+    
+    .gift-alt a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+    
+    .gift-alt a:hover {
+      text-decoration: underline;
+    }
+    
+    /* Team */
+    .team-card {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 1.5rem;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+    }
+    
+    .team-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: var(--purple);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      flex-shrink: 0;
+    }
+    
+    .team-info h3 {
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+    
+    .team-info .title {
+      color: var(--accent);
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .team-info p {
+      color: var(--dim);
+      font-size: 0.85rem;
+    }
+    
+    .team-info a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+    
+    .team-info a:hover {
+      text-decoration: underline;
+    }
+    
+    /* Footer */
+    footer {
+      text-align: center;
+      padding-top: 2rem;
+      border-top: 1px solid var(--card-border);
+      color: var(--dim);
+      font-size: 0.85rem;
+    }
+    
+    footer a {
+      color: var(--fg);
+      text-decoration: none;
+    }
+    
+    footer a:hover {
+      color: var(--accent);
+    }
+    
+    footer .links {
+      margin-bottom: 1rem;
+    }
+    
+    footer .links a {
+      margin: 0 0.5rem;
+    }
+    
+    .legal {
+      font-size: 0.7rem;
+      color: #555;
+      margin-top: 1rem;
+    }
+    
+    /* Responsive */
+    @media (max-width: 600px) {
+      .page {
+        padding: 2rem 1rem;
+      }
+      
+      h1 {
+        font-size: 2rem;
+      }
+      
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .card-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .team-card {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="logo">aesthetic.direct</div>
+      <h1>invest in <span class="highlight">aesthetic</span></h1>
+      <p class="tagline">equity for believers in creative computing</p>
+    </header>
+
+    <section class="intro">
+      <h2>Why Equity?</h2>
+      <p>Aesthetic Computer is building the future of creative coding—a platform where anyone can make, share, and play with interactive software. We're not a nonprofit, and we're looking for investors who believe in this mission.</p>
+      <p>If you want more than a gift—if you want to be part of building something lasting—we're offering equity to aligned investors. Your investment helps scale infrastructure, accelerate development, and bring <a href="https://kidlisp.com">kidlisp.com</a> to every classroom.</p>
+    </section>
+
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-num">4.2K</span>
+        <span class="stat-label">Users</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">27K</span>
+        <span class="stat-label">Messages</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">4.3K</span>
+        <span class="stat-label">Paintings</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">12.9K</span>
+        <span class="stat-label">Programs</span>
+      </div>
+    </div>
+
+    <section class="section">
+      <h2>The Opportunity</h2>
+      <div class="card-grid">
+        <div class="card">
+          <h3><span class="emoji">🧒</span>KidLisp</h3>
+          <p>A new visual programming language launching soon. Simple enough for kids, powerful enough for artists. Zero installation.</p>
+        </div>
+        <div class="card">
+          <h3><span class="emoji">🌍</span>Global Community</h3>
+          <p>Organic growth in Denmark, with teachers & kids using AC daily. Proving product-market fit in education.</p>
+        </div>
+        <div class="card">
+          <h3><span class="emoji">🎹</span>Proven Virality</h3>
+          <p>Notepat featured on Hacker News. No Paint reached HN front page in 2020. The platform creates shareable hits.</p>
+        </div>
+        <div class="card">
+          <h3><span class="emoji">📖</span>Open Source</h3>
+          <p>Full codebase on <a href="https://github.com/whistlegraph/aesthetic-computer">GitHub</a>. Transparent development. Community-driven growth.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Founder</h2>
+      <div class="team-card">
+        <div class="team-avatar">👤</div>
+        <div class="team-info">
+          <h3>Jeffrey Scudder</h3>
+          <div class="title">Founder & CEO, Aesthetic Inc.</div>
+          <p>Artist, educator, and engineer. Previously taught at UCLA, NYU, and RISD. Built No Paint (2020 HN feature). Building tools for creative computing since 2010. <a href="https://jas.life">jas.life</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-section">
+      <div class="cta-card">
+        <h2>Interested in Investing?</h2>
+        <p>We're currently raising a small round from aligned investors.<br>Reach out to discuss terms and vision.</p>
+        <a href="mailto:jeffrey@aesthetic.computer?subject=Investment%20Inquiry" class="cta-btn">Contact Jeffrey</a>
+      </div>
+    </section>
+
+    <div class="gift-alt">
+      <p>Not ready for equity? You can still support the project with a <a href="https://gift.aesthetic.computer">one-time gift</a>.</p>
+    </div>
+
+    <footer>
+      <div class="links">
+        <a href="https://aesthetic.computer">aesthetic.computer</a>
+        <a href="https://gift.aesthetic.computer">gift</a>
+        <a href="https://kidlisp.com">kidlisp.com</a>
+        <a href="https://github.com/whistlegraph/aesthetic-computer">github</a>
+      </div>
+      <p>Aesthetic Inc. · Delaware C-Corp</p>
+      <p class="legal">This is not a public offering. Investment opportunities are available to accredited investors only.</p>
+    </footer>
+  </div>
+</body>
+</html>
