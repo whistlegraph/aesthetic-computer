@@ -1,618 +1,1495 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gift — Aesthetic Computer</title>
-  <meta name="description" content="Support Aesthetic Computer — a creative coding platform and community for everyone.">
-  <link rel="icon" href="https://aesthetic.computer/aesthetic.computer/favicon.ico">
+  <meta name="description" content="Support Aesthetic Computer / Støt Aesthetic Computer" />
+  <link rel="icon" href="https://aesthetic.computer/aesthetic.computer/favicon.ico" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-    
+    @font-face {
+      font-family: 'ywft';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2'),
+           url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff') format('woff');
+    }
+    @font-face {
+      font-family: 'berkeley';
+      src: url('https://aesthetic.computer/type/webfonts/BerkeleyMonoVariable-Regular.woff2') format('woff2');
+    }
+
     :root {
-      --bg: #0a0a0a;
-      --fg: #f0f0f0;
-      --dim: #888;
-      --accent: #ff6b6b;
-      --accent-glow: rgba(255, 107, 107, 0.3);
-      --blue: #6b9fff;
-      --green: #6bff9f;
-      --yellow: #ffeb6b;
-      --purple: #b06bff;
-      --card: #151515;
-      --card-border: #2a2a2a;
+      --bg: #f4f4f0;
+      --text: #1a1a1a;
+      --dim: #666;
+      --pink: #e84a8a;
+      --cyan: #2a9d8f;
+      --gold: #d4a017;
+      --green: #4a9e5b;
+      --box-bg: rgba(0,0,0,0.03);
+      --box-border: rgba(0,0,0,0.08);
+      --mono: 'berkeley', 'Menlo', monospace;
     }
-    
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1a2e;
+        --text: #e8e8e8;
+        --dim: #888;
+        --pink: #ff6b9d;
+        --cyan: #4ecdc4;
+        --gold: #ffd93d;
+        --green: #6bcb77;
+        --box-bg: rgba(255,255,255,0.03);
+        --box-border: rgba(255,255,255,0.1);
+      }
     }
-    
+
+    * { box-sizing: border-box; }
+
     body {
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: var(--mono);
       background: var(--bg);
-      color: var(--fg);
-      min-height: 100vh;
-      line-height: 1.7;
-      font-size: 14px;
-    }
-    
-    .page {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 3rem 1.5rem;
-    }
-    
-    /* Header */
-    header {
-      text-align: center;
-      margin-bottom: 4rem;
-      position: relative;
-    }
-    
-    .logo {
-      font-size: 0.9rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--dim);
-      margin-bottom: 1rem;
-    }
-    
-    h1 {
-      font-size: 2.5rem;
-      font-weight: 400;
-      margin-bottom: 0.75rem;
-      letter-spacing: -0.02em;
-    }
-    
-    h1 .highlight {
-      color: var(--accent);
-    }
-    
-    .tagline {
-      color: var(--dim);
-      font-size: 1rem;
-    }
-    
-    /* Story Section */
-    .story {
-      margin-bottom: 3rem;
-      padding: 2rem;
-      background: linear-gradient(135deg, var(--card) 0%, transparent 100%);
-      border-left: 3px solid var(--accent);
-      border-radius: 0 8px 8px 0;
-    }
-    
-    .story h2 {
-      font-size: 1rem;
-      font-weight: 500;
-      color: var(--accent);
-      margin-bottom: 1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-    
-    .story p {
-      margin-bottom: 1rem;
-      color: var(--fg);
-    }
-    
-    .story p:last-child {
-      margin-bottom: 0;
-    }
-    
-    .story a {
-      color: var(--blue);
-      text-decoration: none;
-    }
-    
-    .story a:hover {
-      text-decoration: underline;
-    }
-    
-    /* Stats Grid */
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1rem;
-      margin-bottom: 3rem;
-    }
-    
-    .stat {
-      text-align: center;
-      padding: 1.25rem 0.5rem;
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
-    }
-    
-    .stat-num {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: var(--yellow);
-      display: block;
-    }
-    
-    .stat-label {
-      font-size: 0.7rem;
-      color: var(--dim);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    
-    /* Highlights */
-    .highlights {
-      margin-bottom: 3rem;
-    }
-    
-    .highlights h2 {
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: var(--dim);
-      margin-bottom: 1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-    
-    .highlight-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-    
-    .highlight-card {
-      padding: 1.25rem;
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
-      transition: border-color 0.2s;
-    }
-    
-    .highlight-card:hover {
-      border-color: var(--accent);
-    }
-    
-    .highlight-card h3 {
-      font-size: 1rem;
-      font-weight: 500;
-      margin-bottom: 0.5rem;
-    }
-    
-    .highlight-card h3 .emoji {
-      margin-right: 0.5rem;
-    }
-    
-    .highlight-card p {
-      font-size: 0.85rem;
-      color: var(--dim);
+      color: var(--text);
       margin: 0;
+      padding: 2em;
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
     }
-    
-    .highlight-card a {
-      color: var(--blue);
-      text-decoration: none;
-    }
-    
-    .highlight-card a:hover {
-      text-decoration: underline;
-    }
-    
-    .coming-soon {
-      border-color: var(--purple);
-      background: linear-gradient(135deg, rgba(176, 107, 255, 0.1) 0%, var(--card) 100%);
-    }
-    
-    .coming-soon h3 {
-      color: var(--purple);
-    }
-    
-    /* Gift Section */
-    .gift-section {
-      margin-bottom: 2rem;
-    }
-    
-    .gift-section h2 {
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: var(--dim);
-      margin-bottom: 1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-    
-    .gift-card {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 1rem;
-    }
-    
-    .gift-card h3 {
-      font-size: 1rem;
-      margin-bottom: 1rem;
+
+    /* Top bar with logo and language chooser */
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
       display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    
-    .gift-options {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-    }
-    
-    .gift-btn {
-      background: #222;
-      border: 1px solid #333;
-      color: var(--fg);
-      padding: 0.75rem 0.5rem;
-      border-radius: 6px;
-      font-family: inherit;
-      font-size: 0.95rem;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    
-    .gift-btn:hover {
-      background: #333;
-      border-color: var(--accent);
-    }
-    
-    .gift-btn.selected {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: var(--bg);
-    }
-    
-    .custom-input {
-      display: none;
-      margin-bottom: 1rem;
-    }
-    
-    .custom-input input {
-      width: 100%;
-      background: #222;
-      border: 1px solid #333;
-      color: var(--fg);
-      padding: 0.75rem 1rem;
-      border-radius: 6px;
-      font-family: inherit;
-      font-size: 1rem;
-    }
-    
-    .custom-input input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-    
-    .pay-btn {
-      width: 100%;
-      background: var(--accent);
-      border: none;
-      color: var(--bg);
-      padding: 1rem;
-      border-radius: 8px;
-      font-family: inherit;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-      box-shadow: 0 0 20px var(--accent-glow);
-    }
-    
-    .pay-btn:hover {
-      background: var(--fg);
-      box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
-    }
-    
-    .pay-btn:disabled {
-      background: #333;
-      color: #666;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-    
-    .note {
-      font-size: 0.75rem;
-      color: #555;
-      margin-top: 0.75rem;
-    }
-    
-    /* Crypto */
-    .crypto-row {
-      display: flex;
-      align-items: center;
       justify-content: space-between;
-      padding: 0.75rem 1rem;
-      background: #222;
-      border-radius: 6px;
-      margin-bottom: 0.5rem;
+      align-items: center;
+      padding: 10px 16px;
+      z-index: 10;
+      background: var(--bg);
     }
-    
-    .crypto-row strong {
-      color: var(--green);
-    }
-    
-    .crypto-row code {
-      background: #333;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.8rem;
-      margin-left: 0.5rem;
-    }
-    
-    .copy-btn {
-      background: #444;
-      border: none;
-      color: var(--fg);
-      padding: 0.4rem 0.6rem;
-      border-radius: 4px;
-      font-family: inherit;
-      font-size: 0.75rem;
+
+    /* Simple gift label */
+    .logo {
+      font-family: 'ywft', sans-serif;
+      font-size: 18px;
       cursor: pointer;
+      user-select: none;
+      color: var(--pink);
     }
-    
-    .copy-btn:hover {
-      background: #555;
+
+    .logo:hover {
+      color: var(--cyan);
     }
-    
-    /* Shop link */
-    .shop-link {
-      display: block;
-      padding: 1rem 1.25rem;
-      background: linear-gradient(90deg, var(--card) 0%, rgba(107, 159, 255, 0.1) 100%);
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
-      text-decoration: none;
-      color: var(--fg);
-      transition: border-color 0.2s;
-    }
-    
-    .shop-link:hover {
-      border-color: var(--blue);
-    }
-    
-    .shop-link span {
-      color: var(--blue);
-    }
-    
-    /* Footer */
-    footer {
-      text-align: center;
-      padding-top: 2rem;
-      border-top: 1px solid var(--card-border);
+
+    .logo-sep {
       color: var(--dim);
-      font-size: 0.85rem;
+      margin: 0 0.3em;
     }
-    
-    footer a {
-      color: var(--fg);
-      text-decoration: none;
+
+    /* Language chooser */
+    .language-tab {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 4px 10px;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      font-size: 13px;
+      user-select: none;
     }
-    
-    footer a:hover {
-      color: var(--accent);
+
+    .language-tab:hover {
+      border-color: var(--cyan);
     }
-    
-    footer .links {
-      margin-bottom: 1rem;
+
+    .lang-flag { font-size: 14px; }
+    .lang-text { color: var(--text); }
+    .lang-arrow { 
+      font-size: 10px; 
+      color: var(--dim);
+      transition: transform 0.15s;
     }
-    
-    footer .links a {
-      margin: 0 0.5rem;
+
+    .language-tab.open .lang-arrow {
+      transform: rotate(180deg);
     }
-    
-    /* Responsive */
-    @media (max-width: 600px) {
-      .page {
-        padding: 2rem 1rem;
-      }
-      
-      h1 {
-        font-size: 2rem;
-      }
-      
-      .stats {
+
+    .language-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      background: var(--bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      display: none;
+      min-width: 120px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      z-index: 100;
+    }
+
+    .language-tab.open .language-dropdown {
+      display: block;
+    }
+
+    .lang-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+    }
+    }
+
+    .lang-option:hover {
+      background: var(--box-bg);
+    }
+
+    .lang-option.active {
+      color: var(--cyan);
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding-top: 3.5em;
+    }
+
+    /* Grid layout for wider screens */
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1em;
+    }
+
+    @media (min-width: 700px) {
+      .content-grid {
         grid-template-columns: repeat(2, 1fr);
       }
-      
-      .highlight-grid {
-        grid-template-columns: 1fr;
+      .content-grid .full-width {
+        grid-column: 1 / -1;
       }
-      
-      .gift-options {
+    }
+
+    @media (min-width: 1000px) {
+      .content-grid {
         grid-template-columns: repeat(3, 1fr);
       }
+      .content-grid .span-2 {
+        grid-column: span 2;
+      }
+    }
+
+    h1 {
+      font-family: 'ywft', sans-serif;
+      font-weight: normal;
+      font-size: 1.8em;
+      margin: 0 0 0.5em 0;
+      color: var(--text);
+      grid-column: 1 / -1;
+    }
+
+    h1::before {
+      content: "❄ ";
+      opacity: 0.6;
+    }
+
+    h1::after {
+      content: " ✦";
+      opacity: 0.6;
+    }
+
+    h1 .bounce-dot {
+      display: inline-block;
+      font-weight: 900;
+      font-size: 1.1em;
+      color: var(--pink);
+      animation: dotBounce 1.2s ease-in-out 3;
+    }
+
+    @keyframes dotBounce {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-6px) scale(1.2); }
+    }
+
+    .holiday-banner {
+      font-family: var(--mono);
+      font-size: 0.75em;
+      color: var(--dim);
+      padding: 0.6em;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 3px;
+      text-align: center;
+      grid-column: 1 / -1;
+    }
+
+    .holiday-banner span { color: var(--gold); }
+
+    /* Prose blocks - language-switchable */
+    .prose {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      padding: 1em 1.2em;
+      font-size: 0.9em;
+      line-height: 1.7;
+    }
+
+    .prose.full-width {
+      grid-column: 1 / -1;
+    }
+
+    /* Language content visibility - Danish hidden by default */
+    /* Exclude dropdown options from language hiding */
+    [data-lang="da"]:not(.lang-option):not(.curr-option) { display: none !important; }
+    [data-lang="en"]:not(.lang-option):not(.curr-option) { display: block; }
+    
+    /* When Danish is selected, flip visibility */
+    body.lang-da [data-lang="da"]:not(.lang-option):not(.curr-option) { display: block !important; }
+    body.lang-da [data-lang="en"]:not(.lang-option):not(.curr-option) { display: none !important; }
+
+    /* Link description spans */
+    .link-desc { display: inline; }
+    .link-desc[data-lang="da"] { display: none !important; }
+    body.lang-da .link-desc[data-lang="da"] { display: inline !important; }
+    body.lang-da .link-desc[data-lang="en"] { display: none !important; }
+
+    /* Feature module list items */
+    .feature-module li[data-lang="da"] { display: none !important; }
+    body.lang-da .feature-module li[data-lang="da"] { display: block !important; }
+    body.lang-da .feature-module li[data-lang="en"] { display: none !important; }
+
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    a.handle-link { color: var(--pink); }
+
+    code {
+      background: var(--box-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 2px;
+      color: var(--pink);
+    }
+
+    code a { color: var(--pink); }
+
+    /* Stats Section */
+    .stats-section {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.6em;
+      grid-column: 1 / -1;
+    }
+
+    @media (min-width: 800px) {
+      .stats-section {
+        grid-template-columns: repeat(8, 1fr);
+      }
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 0.6em 0.4em;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+    }
+
+    .stat-value {
+      font-family: 'ywft', var(--mono);
+      font-size: 1.2em;
+      color: var(--gold);
+    }
+
+    .stat-label {
+      font-size: 0.6em;
+      color: var(--dim);
+      margin-top: 0.2em;
+    }
+
+    /* Fiat Currency Section */
+    .fiat-section {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      padding: 1.2em;
+    }
+
+    .fiat-section.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .fiat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1em;
+    }
+
+    .fiat-header h2 {
+      font-family: 'ywft', sans-serif;
+      font-size: 1em;
+      margin: 0;
+      color: var(--cyan);
+    }
+
+    /* Currency selector in fiat section */
+    .currency-selector {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 4px 8px;
+      background: var(--bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .currency-selector:hover {
+      border-color: var(--cyan);
+    }
+
+    .curr-flag { font-size: 12px; }
+    .curr-text { color: var(--text); font-weight: bold; }
+    .curr-arrow { font-size: 8px; color: var(--dim); }
+
+    .currency-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      background: var(--bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      display: none;
+      min-width: 80px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      z-index: 100;
+    }
+
+    .currency-selector.open .currency-dropdown {
+      display: block;
+    }
+
+    .curr-option {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .curr-option:hover {
+      background: var(--box-bg);
+    }
+
+    .curr-option.active {
+      color: var(--cyan);
+    }
+
+    .currency-pickers {
+      width: 100%;
+    }
+
+    .currency-picker {
+      padding: 0;
+    }
+
+    .currency-picker h3 {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      margin: 0 0 0.8em 0;
+      color: var(--dim);
+    }
+
+    .gift-widget {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .gift-visual {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2em 1em;
+      background: linear-gradient(135deg, rgba(205, 92, 155, 0.1) 0%, rgba(0, 255, 255, 0.05) 100%);
+      border: 1px solid var(--box-border);
+      border-radius: 8px 8px 0 0;
+    }
+
+    .gift-logo-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    .gift-logo {
+      width: 160px;
+      height: 160px;
+      opacity: 0.7;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    .gift-widget:hover .gift-logo {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+
+    .gift-amount {
+      position: absolute;
+      top: -0.5em;
+      right: -2em;
+      font-family: 'ywft', var(--mono);
+      font-size: 1.3em;
+      color: var(--gold);
+      background: linear-gradient(135deg, #2a5a3a 0%, #1a3a2a 100%);
+      border: 2px solid #4a8a5a;
+      border-radius: 4px;
+      padding: 0.3em 0.6em;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+      white-space: nowrap;
+    }
+
+    .gift-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .gift-controls input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 12px;
+      background: var(--pink);
+      border-radius: 0;
+      outline: none;
+      cursor: pointer;
+      margin: 0;
+    }
+
+    .gift-controls input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      background: var(--text);
+      border-radius: 50%;
+      cursor: grab;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .gift-controls input[type="range"]::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      background: var(--text);
+      border-radius: 50%;
+      cursor: grab;
+      border: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    /* Gift mode toggle (one-time vs monthly) */
+    .gift-mode-toggle {
+      display: flex;
+      background: var(--box-bg);
+      border-left: 1px solid var(--box-border);
+      border-right: 1px solid var(--box-border);
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 0.6em 1em;
+      font-family: var(--mono);
+      font-size: 0.8em;
+      background: transparent;
+      border: none;
+      color: var(--dim);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .mode-btn:hover {
+      color: var(--text);
+    }
+
+    .mode-btn.active {
+      background: var(--pink);
+      color: var(--bg);
+      font-weight: bold;
+    }
+
+    .gift-btn {
+      font-family: 'ywft', sans-serif;
+      font-size: 1.2em;
+      padding: 1em 1.5em;
+      background: var(--pink);
+      color: var(--bg);
+      border: none;
+      border-radius: 0 0 8px 8px;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s;
+      font-weight: bold;
+      letter-spacing: 0.02em;
+    }
+
+    .gift-btn:hover {
+      background: var(--cyan);
+    }
+
+    .gift-btn:disabled {
+      opacity: 0.7;
+      cursor: wait;
+    }
+
+    /* Crypto controls */
+    .crypto-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .crypto-address {
+      background: var(--box-bg);
+      padding: 1em;
+      text-align: center;
+      border-left: 1px solid var(--box-border);
+      border-right: 1px solid var(--box-border);
+    }
+
+    .crypto-label {
+      display: block;
+      font-family: 'ywft', sans-serif;
+      font-size: 1.1em;
+      color: var(--cyan);
+      margin-bottom: 0.5em;
+    }
+
+    .crypto-addr {
+      display: block;
+      font-family: var(--mono);
+      font-size: 0.7em;
+      color: var(--dim);
+      word-break: break-all;
+      background: transparent;
+      padding: 0;
+    }
+
+    .crypto-amount {
+      background: linear-gradient(135deg, #3a2a5a 0%, #2a1a4a 100%);
+      border-color: #6a4a8a;
+    }
+
+    .crypto-usd {
+      position: absolute;
+      bottom: 0.5em;
+      right: 0.5em;
+      font-family: var(--mono);
+      font-size: 0.85em;
+      color: var(--gold);
+      opacity: 0.9;
+    }
+
+    .gift-widget.crypto .gift-visual {
+      background: linear-gradient(135deg, rgba(106, 74, 138, 0.2) 0%, rgba(0, 255, 255, 0.05) 100%);
+    }
+
+    .crypto-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 12px;
+      background: linear-gradient(90deg, var(--pink) 0%, #6a4a8a 100%);
+      border-radius: 0;
+      outline: none;
+      cursor: pointer;
+      margin: 0;
+      border-left: 1px solid var(--box-border);
+      border-right: 1px solid var(--box-border);
+    }
+
+    .crypto-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      background: var(--text);
+      border-radius: 50%;
+      cursor: grab;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .crypto-slider::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      background: var(--text);
+      border-radius: 50%;
+      cursor: grab;
+      border: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .crypto-buttons {
+      display: flex;
+      gap: 0;
+    }
+
+    .crypto-send {
+      flex: 2;
+      border-radius: 0 0 0 8px;
+      background: linear-gradient(135deg, #6a4a8a 0%, #4a2a6a 100%);
+    }
+
+    .crypto-send:hover {
+      background: linear-gradient(135deg, #8a6aaa 0%, #6a4a8a 100%);
+    }
+
+    .crypto-copy {
+      flex: 1;
+      border-radius: 0 0 8px 0;
+      background: var(--dim);
+      font-size: 0.9em;
+    }
+
+    .crypto-copy:hover {
+      background: var(--text);
+      color: var(--bg);
+    }
+
+    small {
+      display: block;
+      font-size: 0.7em;
+      color: var(--dim);
+      text-align: center;
+      grid-column: 1 / -1;
+      margin: 0.5em 0;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px dashed var(--box-border);
+      grid-column: 1 / -1;
+      margin: 0.5em 0;
+    }
+
+    .digital-currency {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      padding: 1em 1.2em;
+    }
+
+    .digital-currency h3 {
+      font-family: 'ywft', sans-serif;
+      font-size: 0.9em;
+      margin: 0 0 0.8em 0;
+      color: var(--cyan);
+    }
+
+    .crypto-row {
+      display: flex;
+      gap: 1em;
+      flex-wrap: wrap;
+    }
+
+    .crypto-item {
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .link-block {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      padding: 1em 1.2em;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3em;
+    }
+
+    .link-block strong {
+      color: var(--pink);
+      font-family: 'ywft', sans-serif;
+      font-size: 0.9em;
+    }
+
+    .link-block a {
+      color: var(--cyan);
+      font-family: var(--mono);
+      font-size: 0.9em;
+    }
+
+    .link-block .link-desc {
+      font-size: 0.8em;
+      color: var(--dim);
+      margin-top: 0.2em;
+    }
+
+    .feature-module {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      padding: 1em 1.2em;
+    }
+
+    .feature-module h3 {
+      font-family: 'ywft', sans-serif;
+      font-size: 0.95em;
+      margin: 0 0 0.7em 0;
+      color: var(--cyan);
+    }
+
+    .feature-module ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5em;
+    }
+
+    .feature-module li {
+      font-size: 0.85em;
+      line-height: 1.4;
+      padding-left: 0.5em;
+      border-left: 2px solid var(--box-border);
+    }
+
+    .feature-module li strong {
+      color: var(--pink);
+    }
+
+    .feature-module li a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .feature-module li a:hover {
+      text-decoration: underline;
+    }
+
+    .feature-module li a strong {
+      color: var(--pink);
+    }
+
+    .addr {
+      font-size: 0.85em;
+      background: var(--box-bg);
+      padding: 0.3em 0.5em;
+      border-radius: 2px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5em;
+      margin-top: 0.2em;
+    }
+
+    .addr button {
+      font-family: var(--mono);
+      font-size: 0.75em;
+      padding: 0.2em 0.4em;
+      background: transparent;
+      border: 1px solid var(--dim);
+      color: var(--dim);
+      border-radius: 2px;
+      cursor: pointer;
+    }
+
+    .addr button:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    #pals {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      grid-column: 1 / -1;
+    }
+
+    #pals img {
+      width: 48px;
+      opacity: 0.3;
+    }
+
+    #pals:hover img {
+      opacity: 1;
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 699px) {
+      .stats-section {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 400px) {
+      .stats-section {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .stat-item { min-width: unset; }
     }
   </style>
 </head>
+
 <body>
-  <div class="page">
-    <header>
-      <div class="logo">aesthetic.computer</div>
-      <h1>help <span class="highlight">jeffrey</span> keep building</h1>
-      <p class="tagline">creative coding for everyone</p>
-    </header>
-
-    <section class="story">
-      <h2>Why AC Matters</h2>
-      <p>Aesthetic Computer started in 2021 as one person's answer to a problem: how do we make creative coding accessible to <em>everyone</em>—not just developers?</p>
-      <p>Since then, it's grown into a platform used by artists, teachers, kids, and curious people around the world. A community in Denmark uses it to <a href="https://aesthetic.computer/laer-klokken">teach children how to read clocks</a>. Musicians use <a href="https://aesthetic.computer/notepat">notepat</a> (featured on <a href="https://news.ycombinator.com/item?id=41526754">Hacker News</a>) to make melodies. And thousands of people have saved paintings, programs, and creative experiments to the platform.</p>
-      <p><strong>Your gift keeps the servers running and development moving.</strong> Every dollar helps pay for databases, hosting, and the time to make creative tools free for everyone.</p>
-    </section>
-
-    <div class="stats">
-      <div class="stat">
-        <span class="stat-num">4.2K</span>
-        <span class="stat-label">Users</span>
-      </div>
-      <div class="stat">
-        <span class="stat-num">27K</span>
-        <span class="stat-label">Messages</span>
-      </div>
-      <div class="stat">
-        <span class="stat-num">4.3K</span>
-        <span class="stat-label">Paintings</span>
-      </div>
-      <div class="stat">
-        <span class="stat-num">12.9K</span>
-        <span class="stat-label">Programs</span>
+  <div class="top-bar">
+    <div class="logo" onclick="window.location.href='https://aesthetic.computer'">gift<span class="logo-sep">—</span>Aesthetic<span class="bounce-dot">.</span>Computer</div>
+    <div class="language-tab" id="langTab">
+      <span class="lang-flag">🇺🇸</span>
+      <span class="lang-text">English</span>
+      <span class="lang-arrow">▼</span>
+      <div class="language-dropdown">
+        <div class="lang-option active" data-lang="en">
+          <span class="lang-flag">🇺🇸</span>
+          <span>English</span>
+        </div>
+        <div class="lang-option" data-lang="da">
+          <span class="lang-flag">🇩🇰</span>
+          <span>Dansk</span>
+        </div>
       </div>
     </div>
-
-    <section class="highlights">
-      <h2>Recent & Upcoming</h2>
-      <div class="highlight-grid">
-        <div class="highlight-card coming-soon">
-          <h3><span class="emoji">🧒</span>kidlisp.com</h3>
-          <p>A new visual programming language for kids launching soon. 118 functions. Zero friction. <a href="https://kidlisp.com">Preview →</a></p>
-        </div>
-        <div class="highlight-card">
-          <h3><span class="emoji">🇩🇰</span>Danish Community</h3>
-          <p>9,400+ chat messages from teachers & kids in Denmark using AC to learn. Organic growth.</p>
-        </div>
-        <div class="highlight-card">
-          <h3><span class="emoji">🎹</span>Notepat</h3>
-          <p>Musical toy featured on Hacker News. Tap to make melodies. <a href="https://aesthetic.computer/notepat">Try it →</a></p>
-        </div>
-        <div class="highlight-card">
-          <h3><span class="emoji">🖼️</span>Painting Tools</h3>
-          <p>4,200+ paintings saved. Export, print, or mint as NFTs. <a href="https://aesthetic.computer/new">Make one →</a></p>
-        </div>
-      </div>
-    </section>
-
-    <section class="gift-section">
-      <h2>Ways to Give</h2>
-      
-      <div class="gift-card">
-        <h3>💳 Card Payment</h3>
-        <div class="gift-options">
-          <button class="gift-btn" data-amount="5">$5</button>
-          <button class="gift-btn" data-amount="10">$10</button>
-          <button class="gift-btn selected" data-amount="25">$25</button>
-          <button class="gift-btn" data-amount="50">$50</button>
-          <button class="gift-btn" data-amount="100">$100</button>
-          <button class="gift-btn" data-amount="custom">...</button>
-        </div>
-        <div class="custom-input" id="custom-input">
-          <input type="number" id="custom-amount" placeholder="Enter any amount" min="1">
-        </div>
-        <button class="pay-btn" id="pay-btn">Gift $25</button>
-        <p class="note">Secure payment via Stripe. Aesthetic Inc. is not a nonprofit—gifts are not tax-deductible.</p>
-      </div>
-
-      <div class="gift-card">
-        <h3>🔮 Tezos</h3>
-        <div class="crypto-row">
-          <div>
-            <strong>aesthetic.tez</strong>
-            <code id="tez-address">tz1Wqv...NKPCT</code>
-          </div>
-          <button class="copy-btn" onclick="copyAddress()">copy</button>
-        </div>
-        <p class="note">Send XTZ or FA2 tokens directly.</p>
-      </div>
-
-      <a href="https://shop.aesthetic.computer" target="_blank" class="shop-link">
-        📚 <strong>Shop</strong> — Buy a book, record, or artwork. <span>shop.aesthetic.computer →</span>
-      </a>
-    </section>
-
-    <section class="invest-alt" style="text-align: center; padding: 1.5rem; background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; margin-bottom: 2rem;">
-      <p style="color: var(--dim); font-size: 0.9rem; margin: 0;">Want equity instead? <a href="https://aesthetic.direct" style="color: var(--green); text-decoration: none;">Invest in Aesthetic Inc. →</a></p>
-    </section>
-
-    <footer>
-      <div class="links">
-        <a href="https://aesthetic.computer">aesthetic.computer</a>
-        <a href="https://kidlisp.com">kidlisp.com</a>
-        <a href="https://github.com/whistlegraph/aesthetic-computer">github</a>
-      </div>
-      <p>made with care by <a href="https://jas.life">@jeffrey</a></p>
-    </footer>
   </div>
 
+  <main>
+    <div class="content-grid">
+      <div class="fiat-section full-width">
+        <div class="fiat-header">
+          <h2 data-lang="en">🎁 Gift</h2>
+          <h2 data-lang="da">🎁 Giv</h2>
+          <div class="currency-selector" id="currencySelector">
+            <span class="curr-flag">🇺🇸</span>
+            <span class="curr-text">USD</span>
+            <span class="curr-arrow">▼</span>
+            <div class="currency-dropdown">
+              <div class="curr-option active" data-curr="usd">
+                <span>🇺🇸</span> <span>USD</span>
+              </div>
+              <div class="curr-option" data-curr="dkk">
+                <span>🇩🇰</span> <span>DKK</span>
+              </div>
+              <div class="curr-option" data-curr="xtz">
+                <span>🔮</span> <span>Tezos</span>
+              </div>
+              <div class="curr-option" data-curr="eth">
+                <span>💎</span> <span>Ethereum</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="currency-pickers">
+          <div class="currency-picker" data-for="usd">
+            <div class="gift-widget" data-currency="usd">
+              <div class="gift-visual">
+                <div class="gift-logo-wrap">
+                  <img src="https://assets.aesthetic.computer/images/purple-pals.svg" class="gift-logo" alt="">
+                  <div class="gift-amount">$25</div>
+                </div>
+              </div>
+              <div class="gift-controls">
+                <div class="gift-mode-toggle">
+                  <button class="mode-btn active" data-mode="once">One-time</button>
+                  <button class="mode-btn" data-mode="monthly">Monthly</button>
+                </div>
+                <input type="range" min="5" max="100" step="5" value="25">
+                <button class="gift-btn" data-currency="usd">Gift $25</button>
+              </div>
+            </div>
+          </div>
+          <div class="currency-picker" data-for="dkk" style="display: none;">
+            <div class="gift-widget" data-currency="dkk">
+              <div class="gift-visual">
+                <div class="gift-logo-wrap">
+                  <img src="https://assets.aesthetic.computer/images/purple-pals.svg" class="gift-logo" alt="">
+                  <div class="gift-amount">200 kr</div>
+                </div>
+              </div>
+              <div class="gift-controls">
+                <input type="range" min="25" max="7000" step="25" value="200">
+                <button class="gift-btn" data-currency="dkk">Giv 200 kr</button>
+              </div>
+            </div>
+          </div>
+          <div class="currency-picker" data-for="xtz" style="display: none;">
+            <div class="gift-widget crypto" data-currency="xtz">
+              <div class="gift-visual">
+                <div class="gift-logo-wrap">
+                  <img src="https://assets.aesthetic.computer/images/purple-pals.svg" class="gift-logo" alt="">
+                  <div class="gift-amount crypto-amount">🔮 10 ꜩ</div>
+                </div>
+                <div class="crypto-usd" data-currency="xtz">≈ $—</div>
+              </div>
+              <div class="crypto-controls">
+                <input type="range" class="crypto-slider" min="1" max="100" step="1" value="10" data-currency="xtz">
+                <div class="crypto-address">
+                  <span class="crypto-label">aesthetic.tez</span>
+                  <code class="crypto-addr">tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT</code>
+                </div>
+                <div class="crypto-buttons">
+                  <button class="gift-btn crypto-send" data-currency="xtz">Send 10 ꜩ</button>
+                  <button class="gift-btn crypto-copy" onclick="copy('tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT', this)">Copy</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="currency-picker" data-for="eth" style="display: none;">
+            <div class="gift-widget crypto" data-currency="eth">
+              <div class="gift-visual">
+                <div class="gift-logo-wrap">
+                  <img src="https://assets.aesthetic.computer/images/purple-pals.svg" class="gift-logo" alt="">
+                  <div class="gift-amount crypto-amount">💎 0.05 Ξ</div>
+                </div>
+                <div class="crypto-usd" data-currency="eth">≈ $—</div>
+              </div>
+              <div class="crypto-controls">
+                <input type="range" class="crypto-slider" min="0.01" max="1" step="0.01" value="0.05" data-currency="eth">
+                <div class="crypto-address">
+                  <span class="crypto-label">4esthetic.eth</span>
+                  <code class="crypto-addr">0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023</code>
+                </div>
+                <div class="crypto-buttons">
+                  <button class="gift-btn crypto-send" data-currency="eth">Send 0.05 Ξ</button>
+                  <button class="gift-btn crypto-copy" onclick="copy('0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023', this)">Copy</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <small class="fiat-note" data-lang="en">Card payments via Stripe. Crypto sent directly. Not tax-deductible.</small>
+        <small class="fiat-note" data-lang="da">Kortbetalinger via Stripe. Crypto sendes direkte. Ikke fradragsberettiget.</small>
+      </div>
+
+      <div class="prose full-width" data-lang="en">
+        <a href="https://aesthetic.computer">Aesthetic Computer</a> is a runtime and social network for creative computing—an instrument for making and sharing interactive software. It's the full-time work of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, who has been building experimental software instruments for over a decade. <strong>Your gift keeps it alive.</strong>
+      </div>
+      <div class="prose full-width" data-lang="da">
+        <a href="https://aesthetic.computer">Aesthetic Computer</a> er en runtime og socialt netværk for kreativ computing—et instrument til at lave og dele interaktiv software. Det er fuldtidsarbejdet af <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, som har bygget eksperimentelle software-instrumenter i over et årti. <strong>Din gave holder det i live.</strong>
+      </div>
+
+      <div class="stats-section">
+        <div class="stat-item">
+          <div class="stat-value">4,217</div>
+          <div class="stat-label">users</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">4,108</div>
+          <div class="stat-label">paintings</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">2,827</div>
+          <div class="stat-label">moods</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">12,933</div>
+          <div class="stat-label">kidlisp</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">847</div>
+          <div class="stat-label">pieces</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">156</div>
+          <div class="stat-label">prompts</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">3</div>
+          <div class="stat-label">years</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">1</div>
+          <div class="stat-label">developer</div>
+        </div>
+      </div>
+
+      <div class="link-block">
+        <strong>🧒 kidlisp.com</strong>
+        <a href="https://kidlisp.com">kidlisp.com</a>
+        <span class="link-desc" data-lang="en">A creative coding language for all ages</span>
+        <span class="link-desc" data-lang="da">Et kreativt kodesprog for alle aldre</span>
+      </div>
+
+      <div class="link-block">
+        <strong>🕐 laer-klokken</strong>
+        <a href="https://aesthetic.computer/laer-klokken">aesthetic.computer/laer-klokken</a>
+        <span class="link-desc" data-lang="en">Clock lessons for Danish schools</span>
+        <span class="link-desc" data-lang="da">Klokke-lektioner til danske skoler</span>
+      </div>
+
+      <div class="link-block">
+        <strong>🎹 notepat</strong>
+        <a href="https://aesthetic.computer/notepat">aesthetic.computer/notepat</a>
+        <span class="link-desc" data-lang="en">A visual music sequencer</span>
+        <span class="link-desc" data-lang="da">En visuel musik-sequencer</span>
+      </div>
+
+      <div class="link-block">
+        <strong>🎨 painting</strong>
+        <a href="https://aesthetic.computer/painting">aesthetic.computer/painting</a>
+        <span class="link-desc" data-lang="en">Infinite canvas drawing tool</span>
+        <span class="link-desc" data-lang="da">Uendeligt lærred tegneværktøj</span>
+      </div>
+
+      <div class="link-block">
+        <strong>📺 tv</strong>
+        <a href="https://aesthetic.computer/tv">aesthetic.computer/tv</a>
+        <span class="link-desc" data-lang="en">Community video feed</span>
+        <span class="link-desc" data-lang="da">Fællesskabets video-feed</span>
+      </div>
+
+      <div class="link-block">
+        <strong>🖥️ desktop</strong>
+        <a href="https://aesthetic.computer/desktop">aesthetic.computer/desktop</a>
+        <span class="link-desc" data-lang="en">Native apps for Mac, Windows & Linux</span>
+        <span class="link-desc" data-lang="da">Native apps til Mac, Windows & Linux</span>
+      </div>
+
+      <div class="link-block">
+        <strong>📚 Shop</strong>
+        <a href="https://shop.aesthetic.computer">shop.aesthetic.computer</a>
+        <span class="link-desc" data-lang="en">Books, prints, and objects</span>
+        <span class="link-desc" data-lang="da">Bøger, print og objekter</span>
+      </div>
+
+      <div class="link-block">
+        <strong>📈</strong> <span data-lang="en"><strong>Invest</strong></span><span data-lang="da"><strong>Investér</strong></span>
+        <a href="https://aesthetic.direct">aesthetic.direct</a>
+        <span class="link-desc" data-lang="en">Equity investment opportunities</span>
+        <span class="link-desc" data-lang="da">Aktieinvesteringsmuligheder</span>
+      </div>
+
+      <a id="pals" href="https://aesthetic.computer">
+        <img src="https://assets.aesthetic.computer/images/purple-pals.svg" alt="AC">
+      </a>
+    </div>
+  </main>
+
   <script>
-    let selectedAmount = 25;
-    const buttons = document.querySelectorAll('.gift-btn');
-    const payBtn = document.getElementById('pay-btn');
-    const customInput = document.getElementById('custom-input');
-    const customAmountInput = document.getElementById('custom-amount');
+    // Language switching
+    const langTab = document.getElementById('langTab');
+    const langOptions = langTab.querySelectorAll('.lang-option');
+    const langFlag = langTab.querySelector('.lang-flag');
+    const langText = langTab.querySelector('.lang-text');
 
-    buttons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        buttons.forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        
-        const amount = btn.dataset.amount;
-        if (amount === 'custom') {
-          customInput.style.display = 'block';
-          customAmountInput.focus();
-          selectedAmount = parseInt(customAmountInput.value) || 0;
-        } else {
-          customInput.style.display = 'none';
-          selectedAmount = parseInt(amount);
-        }
-        updatePayButton();
-      });
-    });
+    // Currency selector
+    const currSelector = document.getElementById('currencySelector');
+    const currFlag = currSelector.querySelector('.curr-flag');
+    const currText = currSelector.querySelector('.curr-text');
+    const currOptions = currSelector.querySelectorAll('.curr-option');
+    const currencyPickers = document.querySelectorAll('.currency-picker');
 
-    customAmountInput.addEventListener('input', () => {
-      selectedAmount = parseInt(customAmountInput.value) || 0;
-      updatePayButton();
-    });
-
-    function updatePayButton() {
-      if (selectedAmount > 0) {
-        payBtn.textContent = `Gift $${selectedAmount}`;
-        payBtn.disabled = false;
+    currSelector.addEventListener('click', (e) => {
+      if (e.target.closest('.curr-option')) {
+        const option = e.target.closest('.curr-option');
+        const curr = option.dataset.curr;
+        setCurrency(curr);
+        currSelector.classList.remove('open');
       } else {
-        payBtn.textContent = 'Enter an amount';
-        payBtn.disabled = true;
+        currSelector.classList.toggle('open');
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!currSelector.contains(e.target)) {
+        currSelector.classList.remove('open');
+      }
+      if (!langTab.contains(e.target)) {
+        langTab.classList.remove('open');
+      }
+    });
+
+    function setCurrency(curr) {
+      currOptions.forEach(opt => opt.classList.toggle('active', opt.dataset.curr === curr));
+      currencyPickers.forEach(picker => {
+        picker.style.display = picker.dataset.for === curr ? '' : 'none';
+      });
+      
+      const currencyMap = {
+        usd: { flag: '🇺🇸', text: 'USD', lang: 'en' },
+        dkk: { flag: '🇩🇰', text: 'DKK', lang: 'da' },
+        xtz: { flag: '🔮', text: 'Tezos', lang: null },
+        eth: { flag: '💎', text: 'Ethereum', lang: null }
+      };
+      
+      const info = currencyMap[curr] || currencyMap.usd;
+      currFlag.textContent = info.flag;
+      currText.textContent = info.text;
+      
+      // Only switch language for fiat currencies
+      if (info.lang) {
+        setLanguage(info.lang);
+        localStorage.setItem('gift-lang', info.lang);
       }
     }
 
-    payBtn.addEventListener('click', async () => {
-      if (selectedAmount <= 0) return;
-      
-      payBtn.textContent = 'Redirecting...';
-      payBtn.disabled = true;
+    // Load saved language or detect from browser
+    let currentLang = localStorage.getItem('gift-lang');
+    if (!currentLang) {
+      currentLang = navigator.language.startsWith('da') ? 'da' : 'en';
+    }
+    setLanguage(currentLang);
 
-      try {
-        const res = await fetch('/api/gift', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: selectedAmount * 100 })
-        });
-        
-        const data = await res.json();
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          throw new Error(data.error || 'Failed to create checkout');
-        }
-      } catch (err) {
-        console.error(err);
-        payBtn.textContent = `Gift $${selectedAmount}`;
-        payBtn.disabled = false;
-        alert('Something went wrong. Please try again.');
+    langTab.addEventListener('click', (e) => {
+      if (e.target.closest('.lang-option')) {
+        const option = e.target.closest('.lang-option');
+        const lang = option.dataset.lang;
+        setLanguage(lang);
+        localStorage.setItem('gift-lang', lang);
+        langTab.classList.remove('open');
+      } else {
+        langTab.classList.toggle('open');
       }
     });
 
-    async function copyAddress() {
-      const address = 'tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT';
-      try {
-        await navigator.clipboard.writeText(address);
-        const btn = event.target;
-        btn.textContent = 'copied!';
-        setTimeout(() => btn.textContent = 'copy', 2000);
-      } catch (err) {
-        console.error('Copy failed:', err);
+    function setLanguage(lang) {
+      currentLang = lang;
+      document.body.classList.toggle('lang-da', lang === 'da');
+      
+      langOptions.forEach(opt => opt.classList.toggle('active', opt.dataset.lang === lang));
+      
+      if (lang === 'da') {
+        langFlag.textContent = '🇩🇰';
+        langText.textContent = 'Dansk';
+      } else {
+        langFlag.textContent = '🇺🇸';
+        langText.textContent = 'English';
       }
+
+      // Update fiat button text (skip crypto widgets)
+      document.querySelectorAll('.gift-widget:not(.crypto)').forEach(widget => {
+        const currency = widget.dataset.currency;
+        const slider = widget.querySelector('input[type="range"]');
+        if (!slider) return;
+        const value = parseInt(slider.value);
+        const btn = widget.querySelector('.gift-btn');
+        const isMonthly = widget._isMonthly ? widget._isMonthly() : false;
+        if (currency === 'dkk') {
+          btn.textContent = lang === 'da' ? `Giv ${value} kr` : `Gift ${value} kr`;
+        } else if (isMonthly) {
+          btn.textContent = lang === 'da' ? `Giv $${value}/måned` : `Gift $${value}/month`;
+        } else {
+          btn.textContent = lang === 'da' ? `Giv $${value}` : `Gift $${value}`;
+        }
+      });
+      
+      // Update crypto button text
+      document.querySelectorAll('.gift-widget.crypto .crypto-copy').forEach(btn => {
+        btn.textContent = lang === 'da' ? 'Kopiér' : 'Copy';
+      });
+      
+      // Update crypto send button text
+      document.querySelectorAll('.gift-widget.crypto').forEach(widget => {
+        const slider = widget.querySelector('.crypto-slider');
+        const sendBtn = widget.querySelector('.crypto-send');
+        if (slider && sendBtn) {
+          const currency = slider.dataset.currency;
+          const value = currency === 'eth' ? parseFloat(slider.value).toFixed(2) : parseInt(slider.value);
+          const symbol = currency === 'eth' ? 'Ξ' : 'ꜩ';
+          sendBtn.textContent = lang === 'da' ? `Send ${value} ${symbol}` : `Send ${value} ${symbol}`;
+        }
+      });
+    }
+
+    // Slider functionality
+    document.querySelectorAll('.gift-widget:not(.crypto)').forEach(widget => {
+      const currency = widget.dataset.currency;
+      const slider = widget.querySelector('input[type="range"]');
+      const amountEl = widget.querySelector('.gift-amount');
+      const btn = widget.querySelector('.gift-btn');
+      const modeToggle = widget.querySelector('.gift-mode-toggle');
+      let isMonthly = false;
+
+      // Mode toggle for USD
+      if (modeToggle) {
+        modeToggle.querySelectorAll('.mode-btn').forEach(modeBtn => {
+          modeBtn.addEventListener('click', () => {
+            modeToggle.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            modeBtn.classList.add('active');
+            isMonthly = modeBtn.dataset.mode === 'monthly';
+            
+            // Adjust slider range for monthly vs one-time
+            if (isMonthly) {
+              slider.min = 5;
+              slider.max = 100;
+              slider.step = 5;
+              if (parseInt(slider.value) > 100) slider.value = 25;
+            } else {
+              slider.min = 5;
+              slider.max = 500;
+              slider.step = 5;
+            }
+            update();
+          });
+        });
+      }
+
+      function format(v) {
+        return currency === 'dkk' ? `${v} kr` : `$${v}`;
+      }
+
+      function update() {
+        const value = parseInt(slider.value);
+        const suffix = isMonthly ? '/mo' : '';
+        amountEl.textContent = format(value) + suffix;
+        const lang = document.body.classList.contains('lang-da') ? 'da' : 'en';
+        if (currency === 'dkk') {
+          btn.textContent = lang === 'da' ? `Giv ${format(value)}` : `Gift ${format(value)}`;
+        } else if (isMonthly) {
+          btn.textContent = lang === 'da' ? `Giv ${format(value)}/måned` : `Gift ${format(value)}/month`;
+        } else {
+          btn.textContent = lang === 'da' ? `Giv ${format(value)}` : `Gift ${format(value)}`;
+        }
+      }
+
+      slider.addEventListener('input', update);
+      update();
+      
+      // Store isMonthly state on widget for button handler
+      widget._isMonthly = () => isMonthly;
+    });
+
+    document.querySelectorAll('.gift-widget:not(.crypto) .gift-btn').forEach(btn => {
+      btn.onclick = async () => {
+        const currency = btn.dataset.currency;
+        const widget = btn.closest('.gift-widget');
+        const slider = widget.querySelector('input[type="range"]');
+        const value = parseInt(slider.value);
+        const isMonthly = widget._isMonthly ? widget._isMonthly() : false;
+        
+        btn.textContent = currentLang === 'da' ? 'Omdirigerer...' : 'Redirecting...';
+        btn.disabled = true;
+
+        try {
+          const res = await fetch('/api/gift', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: value * 100, currency, recurring: isMonthly })
+          });
+          const data = await res.json();
+          if (data.url) window.location.href = data.url;
+          else throw new Error(data.error || 'No URL returned');
+        } catch (err) {
+          console.error('Gift error:', err);
+          const fmt = currency === 'dkk' ? `${value} kr` : `$${value}`;
+          const suffix = isMonthly ? '/month' : '';
+          btn.textContent = currentLang === 'da' ? `Giv ${fmt}${isMonthly ? '/måned' : ''}` : `Gift ${fmt}${suffix}`;
+          btn.disabled = false;
+          alert(currentLang === 'da' ? 'Noget gik galt' : 'Something went wrong');
+        }
+      };
+    });
+
+    function copy(text, btn) {
+      navigator.clipboard.writeText(text);
+      const origText = btn.textContent;
+      btn.textContent = currentLang === 'da' ? 'Kopieret!' : 'Copied!';
+      setTimeout(() => btn.textContent = currentLang === 'da' ? 'Kopiér' : 'Copy', 1500);
+    }
+
+    // Crypto prices
+    let cryptoPrices = { xtz: null, eth: null };
+    
+    async function fetchCryptoPrices() {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=tezos,ethereum&vs_currencies=usd');
+        const data = await res.json();
+        cryptoPrices.xtz = data.tezos?.usd || null;
+        cryptoPrices.eth = data.ethereum?.usd || null;
+        updateAllCryptoDisplays();
+      } catch (e) {
+        console.log('Could not fetch crypto prices');
+      }
+    }
+    
+    function updateAllCryptoDisplays() {
+      document.querySelectorAll('.crypto-slider').forEach(slider => {
+        const currency = slider.dataset.currency;
+        const widget = slider.closest('.gift-widget');
+        updateCryptoDisplay(widget, slider, currency);
+      });
+    }
+    
+    function updateCryptoDisplay(widget, slider, currency) {
+      const amountEl = widget.querySelector('.gift-amount');
+      const sendBtn = widget.querySelector('.crypto-send');
+      const usdEl = widget.querySelector('.crypto-usd');
+      
+      const value = currency === 'eth' ? parseFloat(slider.value).toFixed(2) : parseInt(slider.value);
+      const symbol = currency === 'eth' ? 'Ξ' : 'ꜩ';
+      const emoji = currency === 'eth' ? '💎' : '🔮';
+      
+      amountEl.textContent = `${emoji} ${value} ${symbol}`;
+      sendBtn.textContent = `Send ${value} ${symbol}`;
+      
+      const price = cryptoPrices[currency];
+      if (price && usdEl) {
+        const usdValue = (parseFloat(value) * price).toFixed(2);
+        usdEl.textContent = `≈ $${usdValue}`;
+      }
+    }
+
+    // Crypto slider functionality
+    document.querySelectorAll('.crypto-slider').forEach(slider => {
+      const widget = slider.closest('.gift-widget');
+      const currency = slider.dataset.currency;
+      
+      slider.addEventListener('input', () => updateCryptoDisplay(widget, slider, currency));
+      updateCryptoDisplay(widget, slider, currency);
+    });
+    
+    // Fetch prices on load
+    fetchCryptoPrices();
+
+    // Tezos wallet connect (Beacon)
+    async function sendTezos(amount) {
+      const btn = document.querySelector('[data-currency="xtz"].crypto-send');
+      const origText = btn.textContent;
+      
+      try {
+        btn.textContent = currentLang === 'da' ? 'Forbinder...' : 'Connecting...';
+        btn.disabled = true;
+        
+        // Use Beacon SDK via script tag approach
+        if (!window.beacon) {
+          // Load Beacon SDK
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/@airgap/beacon-sdk@4.0.12/dist/walletbeacon.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+        
+        const client = new window.beacon.DAppClient({ name: 'Aesthetic Computer Gift' });
+        
+        btn.textContent = currentLang === 'da' ? 'Vælg tegnebog...' : 'Select wallet...';
+        await client.requestPermissions();
+        
+        btn.textContent = currentLang === 'da' ? 'Bekræft i tegnebog...' : 'Confirm in wallet...';
+        const response = await client.requestOperation({
+          operationDetails: [{
+            kind: 'transaction',
+            destination: 'tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT',
+            amount: String(Math.floor(amount * 1000000)) // mutez
+          }]
+        });
+        
+        btn.textContent = currentLang === 'da' ? '✓ Sendt!' : '✓ Sent!';
+        console.log('TX:', response.transactionHash);
+        setTimeout(() => {
+          btn.textContent = origText;
+          btn.disabled = false;
+        }, 3000);
+        
+      } catch (err) {
+        console.error('Tezos error:', err);
+        btn.textContent = err.message?.includes('Aborted') 
+          ? (currentLang === 'da' ? 'Annulleret' : 'Cancelled')
+          : (currentLang === 'da' ? 'Fejl - prøv igen' : 'Error - try again');
+        setTimeout(() => {
+          btn.textContent = origText;
+          btn.disabled = false;
+        }, 2000);
+      }
+    }
+
+    // Ethereum wallet connect
+    async function sendEthereum(amount) {
+      const btn = document.querySelector('[data-currency="eth"].crypto-send');
+      const origText = btn.textContent;
+      
+      try {
+        btn.textContent = currentLang === 'da' ? 'Forbinder...' : 'Connecting...';
+        btn.disabled = true;
+        
+        if (!window.ethereum) {
+          alert(currentLang === 'da' ? 'Installér MetaMask eller en anden Ethereum-tegnebog' : 'Please install MetaMask or another Ethereum wallet');
+          throw new Error('No wallet');
+        }
+        
+        btn.textContent = currentLang === 'da' ? 'Godkend forbindelse...' : 'Approve connection...';
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        
+        if (!accounts.length) throw new Error('No account');
+        
+        const amountWei = '0x' + (BigInt(Math.floor(amount * 1e18))).toString(16);
+        
+        btn.textContent = currentLang === 'da' ? 'Bekræft i tegnebog...' : 'Confirm in wallet...';
+        const txHash = await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: accounts[0],
+            to: '0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023',
+            value: amountWei
+          }]
+        });
+        
+        btn.textContent = currentLang === 'da' ? '✓ Sendt!' : '✓ Sent!';
+        console.log('TX:', txHash);
+        setTimeout(() => {
+          btn.textContent = origText;
+          btn.disabled = false;
+        }, 3000);
+        
+      } catch (err) {
+        console.error('Ethereum error:', err);
+        if (err.message !== 'No wallet') {
+          btn.textContent = currentLang === 'da' ? 'Annulleret' : 'Cancelled';
+        }
+        setTimeout(() => {
+          btn.textContent = origText;
+          btn.disabled = false;
+        }, 2000);
+      }
+    }
+
+    // Wire up crypto send buttons
+    document.querySelectorAll('.crypto-send').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const widget = btn.closest('.gift-widget');
+        const slider = widget.querySelector('.crypto-slider');
+        const currency = slider.dataset.currency;
+        const value = currency === 'eth' ? parseFloat(slider.value) : parseInt(slider.value);
+        
+        if (currency === 'xtz') {
+          sendTezos(value);
+        } else if (currency === 'eth') {
+          sendEthereum(value);
+        }
+      });
+    });
+
+    // Live reload in dev mode
+    if (location.hostname === 'localhost' || location.hostname.includes('local')) {
+      const wsUrl = location.protocol === 'https:' 
+        ? 'wss://localhost:8889' 
+        : 'ws://localhost:8889';
+      
+      function connectWS() {
+        const ws = new WebSocket(wsUrl);
+        ws.onopen = () => console.log('🔄 Live reload connected');
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === 'reload' && msg.content?.piece === '*refresh*') {
+              console.log('🔄 Reloading...');
+              location.reload();
+            }
+          } catch {}
+        };
+        ws.onclose = () => setTimeout(connectWS, 2000);
+        ws.onerror = () => ws.close();
+      }
+      connectWS();
     }
   </script>
 </body>
