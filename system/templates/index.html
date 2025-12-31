@@ -110,34 +110,54 @@
       let logBurst = 0;
       const bootStartTime = performance.now();
       
-      // Code stripe colors (VSCode-ish palette)
-      const STRIPE_COLORS = [
-        [197, 134, 192],  // purple
-        [220, 220, 170],  // yellow
-        [206, 145, 120],  // orange
-        [181, 206, 168],  // green
-        [78, 201, 176],   // teal
-        [156, 220, 254],  // light blue
+      // Syntax highlighting colors (VSCode dark theme)
+      const SYN = {
+        kw: [197, 134, 192],   // purple - keywords
+        fn: [220, 220, 170],   // yellow - functions
+        str: [206, 145, 120],  // orange - strings
+        num: [181, 206, 168],  // green - numbers
+        cmt: [106, 153, 85],   // dark green - comments
+        op: [212, 212, 212],   // white - operators
+        tp: [78, 201, 176],    // teal - types
+        vr: [156, 220, 254],   // light blue - variables
+      };
+      
+      // Code snippets with syntax tokens [text, colorKey]
+      const codeSnippets = [
+        [[' const ', 'kw'], ['boot', 'vr'], [' = ', 'op'], ['async', 'kw'], [' () => {', 'op']],
+        [['  await ', 'kw'], ['loadSystem', 'fn'], ['();', 'op']],
+        [[' import ', 'kw'], ['{ disk }', 'vr'], [' from ', 'kw'], ['"./lib"', 'str'], [';', 'op']],
+        [[' function ', 'kw'], ['paint', 'fn'], ['(api) {', 'op']],
+        [['  ', 'op'], ['wipe', 'fn'], ['(', 'op'], ['32', 'num'], [');', 'op']],
+        [['  ', 'op'], ['ink', 'fn'], ['(', 'op'], ['255', 'num'], [').', 'op'], ['box', 'fn'], ['();', 'op']],
+        [[' if ', 'kw'], ['(event.', 'vr'], ['is', 'fn'], ['(', 'op'], ['"touch"', 'str'], ['))', 'op']],
+        [[' return ', 'kw'], ['{ boot, act };', 'vr']],
+        [[' class ', 'kw'], ['Aesthetic', 'tp'], [' {', 'op']],
+        [['  ', 'op'], ['constructor', 'fn'], ['() {}', 'op']],
+        [[' }', 'op']],
+        [[' // boot sequence', 'cmt']],
+        [[' ctx.', 'vr'], ['fillRect', 'fn'], ['(x, y);', 'op']],
+        [[' for ', 'kw'], ['(let i=', 'vr'], ['0', 'num'], ['; i<n; i++)', 'op']],
+        [[' Promise', 'tp'], ['.all(tasks);', 'op']],
+        [[' /* render */', 'cmt']],
       ];
       
-      // Simple stripe system - just colored bars, no text measurement
-      let stripes = [];
-      const STRIPE_MAX = 80;
-      const STRIPE_SPEED = 3;
+      // Single column of code lines
+      let codeLines = [];
+      const CODE_MAX = 40;
+      const CODE_SPEED = 2.5;
       
       let frame = 0;
       let running = true;
       
-      // Pre-populate stripes for instant visual
-      for (let i = 0; i < 50; i++) {
-        stripes.push({
-          x: Math.random() * W,
-          y: H - i * 16 - Math.random() * 10,
-          w: 30 + Math.random() * 120,
-          h: 2 + Math.random() * 4,
-          color: STRIPE_COLORS[Math.random() * STRIPE_COLORS.length | 0],
-          alpha: 0.15 + Math.random() * 0.35,
-          speed: STRIPE_SPEED + Math.random() * 2
+      // Pre-populate code for instant visual
+      for (let i = 0; i < 30; i++) {
+        codeLines.push({
+          tokens: codeSnippets[Math.random() * codeSnippets.length | 0],
+          y: H - i * 18 - Math.random() * 10,
+          alpha: 0.2 + Math.random() * 0.4,
+          speed: CODE_SPEED + Math.random() * 1.5,
+          size: 10 + (Math.random() * 4 | 0)
         });
       }
       
@@ -177,40 +197,46 @@
         const shakeX = (Math.random() - 0.5) * shakeAmount;
         const shakeY = (Math.random() - 0.5) * shakeAmount;
         
-        // Spawn new stripes continuously
+        // Spawn new code lines
         const spawnCount = 1 + (chaos * 1.5) | 0;
         for (let s = 0; s < spawnCount; s++) {
-          stripes.push({
-            x: Math.random() * W * 0.9,
+          codeLines.push({
+            tokens: codeSnippets[Math.random() * codeSnippets.length | 0],
             y: H + 5,
-            w: 40 + Math.random() * 150,
-            h: 2 + Math.random() * 5,
-            color: STRIPE_COLORS[Math.random() * STRIPE_COLORS.length | 0],
-            alpha: 0.2 + Math.random() * 0.4,
-            speed: STRIPE_SPEED + Math.random() * 2.5 + chaos
+            alpha: 0.25 + Math.random() * 0.45,
+            speed: CODE_SPEED + Math.random() * 1.5 + chaos,
+            size: 10 + (Math.random() * 4 | 0)
           });
-          if (stripes.length > STRIPE_MAX) stripes.shift();
+          if (codeLines.length > CODE_MAX) codeLines.shift();
         }
         
-        // Update stripe positions
-        stripes.forEach(s => s.y -= s.speed);
-        stripes = stripes.filter(s => s.y > -10);
+        // Update code positions
+        codeLines.forEach(c => c.y -= c.speed);
+        codeLines = codeLines.filter(c => c.y > -20);
         
         // === DRAW ===
         ctx.clearRect(0, 0, W, H);
         
-        // Draw stripes - simple colored rectangles, very fast
-        stripes.forEach(s => {
-          if (s.y < 0 || s.y > H) return;
-          const [r, g, b] = s.color;
-          const shake = 0.5 + chaos * 2;
-          ctx.globalAlpha = s.alpha * (0.5 + chaos * 0.5);
-          ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-          ctx.fillRect(
-            s.x + (Math.random() - 0.5) * shake,
-            s.y + (Math.random() - 0.5) * shake,
-            s.w, s.h
-          );
+        // Draw streaming code with syntax highlighting
+        codeLines.forEach(line => {
+          if (line.y < 0 || line.y > H) return;
+          const codeAlpha = line.alpha * (0.4 + chaos * 0.5);
+          ctx.font = `${line.size}px "Courier New", monospace`;
+          ctx.globalAlpha = codeAlpha;
+          
+          // Slight shake
+          const codeShake = 0.5 + chaos * 2;
+          const baseX = 10 + (Math.random() - 0.5) * codeShake;
+          const y = line.y + (Math.random() - 0.5) * codeShake;
+          
+          // Draw each token
+          let xOff = 0;
+          line.tokens.forEach(([text, colorKey]) => {
+            const [r, g, b] = SYN[colorKey] || SYN.op;
+            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            ctx.fillText(text, baseX + xOff, y);
+            xOff += ctx.measureText(text).width;
+          });
         });
         ctx.globalAlpha = 1;
         
