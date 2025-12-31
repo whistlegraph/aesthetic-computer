@@ -1136,6 +1136,7 @@ function paint(
   }
   
   // 💸 GIVE button + recovery ticker in yikes mode (when connected, not just connecting)
+  console.log("🎁 GIVE check:", { showFundingEffectsFlag, connecting: client.connecting });
   if (showFundingEffectsFlag && !client.connecting) {
     const btn = paintGiveButton({ screen, ink, ui: api.ui }, { paddingTop: 8, paddingRight: 12 });
     const btnBox = btn?.btn?.box;
