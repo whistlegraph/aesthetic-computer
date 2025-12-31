@@ -1,10 +1,35 @@
 // Billing Aggregation, 25.12.30
 // 🧾 Aggregates billing data from AC's SaaS providers
+// Credentials stored in MongoDB to avoid Netlify's 4KB env var limit
 // Endpoint: /api/billing
 
 import { respond } from "../../backend/http.mjs";
+import { connect } from "../../backend/database.mjs";
 
 const dev = process.env.CONTEXT === "dev";
+
+// Cache credentials in memory for warm function invocations
+let cachedCredentials = null;
+
+async function getBillingCredentials() {
+  if (cachedCredentials) return cachedCredentials;
+  
+  const { db } = await connect();
+  const secrets = await db.collection("secrets").findOne({ _id: "billing" });
+  
+  if (!secrets) {
+    console.log("Billing credentials not found in database - using static estimates only");
+    return null;
+  }
+  
+  cachedCredentials = {
+    digitalocean: secrets.digitalocean, // { token }
+    cloudflare: secrets.cloudflare,     // { email, apiKey, accountId }
+    pinata: secrets.pinata,             // { apiKey, apiSecret }
+  };
+  
+  return cachedCredentials;
+}
 
 // Provider configurations
 const PROVIDERS = {
@@ -73,9 +98,9 @@ const PROVIDERS = {
 /**
  * Fetch DigitalOcean billing data
  */
-async function fetchDigitalOcean() {
-  const token = process.env.DO_API_TOKEN || process.env.DO_TOKEN;
-  if (!token) return { provider: "digitalocean", name: PROVIDERS.digitalocean.name, skipped: true, reason: "No DO_API_TOKEN configured" };
+async function fetchDigitalOcean(credentials) {
+  const token = credentials?.digitalocean?.token;
+  if (!token) return { provider: "digitalocean", name: PROVIDERS.digitalocean.name, skipped: true, reason: "No credentials configured" };
 
   try {
     const headers = { Authorization: `Bearer ${token}` };
@@ -113,10 +138,10 @@ async function fetchDigitalOcean() {
 /**
  * Fetch Cloudflare billing data
  */
-async function fetchCloudflare() {
-  const email = process.env.CLOUDFLARE_EMAIL;
-  const apiKey = process.env.CLOUDFLARE_API_KEY;
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+async function fetchCloudflare(credentials) {
+  const email = credentials?.cloudflare?.email;
+  const apiKey = credentials?.cloudflare?.apiKey;
+  const accountId = credentials?.cloudflare?.accountId;
   
   if (!email || !apiKey || !accountId) {
     return { provider: "cloudflare", name: PROVIDERS.cloudflare.name, skipped: true, reason: "Cloudflare credentials not configured" };
@@ -151,9 +176,9 @@ async function fetchCloudflare() {
 /**
  * Fetch Pinata usage data
  */
-async function fetchPinata() {
-  const apiKey = process.env.PINATA_API_KEY;
-  const apiSecret = process.env.PINATA_API_SECRET;
+async function fetchPinata(credentials) {
+  const apiKey = credentials?.pinata?.apiKey;
+  const apiSecret = credentials?.pinata?.apiSecret;
   
   if (!apiKey || !apiSecret) {
     return { provider: "pinata", name: PROVIDERS.pinata.name, skipped: true, reason: "Pinata credentials not configured" };
@@ -255,11 +280,14 @@ export async function handler(event, context) {
   const provider = query.provider; // Optional: filter by provider
 
   try {
+    // Get credentials from MongoDB
+    const credentials = await getBillingCredentials();
+    
     // Fetch from all providers in parallel
     const [digitalocean, cloudflare, pinata, openai] = await Promise.all([
-      fetchDigitalOcean(),
-      fetchCloudflare(),
-      fetchPinata(),
+      fetchDigitalOcean(credentials),
+      fetchCloudflare(credentials),
+      fetchPinata(credentials),
       fetchOpenAI(),
     ]);
 
