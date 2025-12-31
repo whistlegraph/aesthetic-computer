@@ -11523,6 +11523,12 @@ async function makeFrame({ data: { type, content } }) {
               console.log(`⏱️ [DISK] first piece paint at +${diskTimings.firstPaint}ms`);
             }
             
+            // 🎨 Signal to hide boot canvas when piece's paint takes over from default noise16
+            // Only signal once when piece has a custom paint function (not defaults.paint)
+            if (pieceFrameCount === 1 && paint !== defaults.paint) {
+              send({ type: "piece-paint-ready" });
+            }
+            
             // TODO: Remove old embedded layer rendering - using simplified approach now
             // globalThis.renderKidlispProgrammaticLayers();
           } else {

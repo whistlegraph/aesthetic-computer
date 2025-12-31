@@ -12,6 +12,211 @@ import { checkPackMode } from "./pack-mode.mjs";
 import { KidLisp, tokenize } from "./kidlisp.mjs";
 import { cssColors } from "./num.mjs";
 import { log } from "./logs.mjs";
+import { openDB } from "../dep/idb.js";
+
+// 🗄️ Global Glyph Cache System (IndexedDB-backed)
+// Provides fast glyph loading on subsequent visits
+let glyphDbPromise = null;
+const GLYPH_CACHE_VERSION = 2; // Increment to invalidate all cached glyphs
+const GLYPH_STORE_NAME = "glyphs";
+const META_STORE_NAME = "glyph-meta";
+
+// In-memory cache for immediate access (populated from IDB on init)
+const glyphMemoryCache = new Map(); // key: "fontName:char" → glyphData
+let glyphCacheInitialized = false;
+let glyphCacheInitPromise = null;
+
+// Initialize the glyph cache database
+async function initGlyphCache() {
+  if (glyphCacheInitialized) return glyphDbPromise;
+  if (glyphCacheInitPromise) return glyphCacheInitPromise;
+  
+  glyphCacheInitPromise = (async () => {
+    try {
+      glyphDbPromise = await openDB("ac-glyph-cache", GLYPH_CACHE_VERSION, {
+        upgrade(db, oldVersion, newVersion) {
+          // Clear old stores on version change
+          if (db.objectStoreNames.contains(GLYPH_STORE_NAME)) {
+            db.deleteObjectStore(GLYPH_STORE_NAME);
+          }
+          if (db.objectStoreNames.contains(META_STORE_NAME)) {
+            db.deleteObjectStore(META_STORE_NAME);
+          }
+          // Create fresh stores
+          db.createObjectStore(GLYPH_STORE_NAME);
+          db.createObjectStore(META_STORE_NAME);
+          console.log(`🔤 Glyph cache upgraded: v${oldVersion} → v${newVersion}`);
+        },
+      });
+      glyphCacheInitialized = true;
+      return glyphDbPromise;
+    } catch (err) {
+      console.warn("🔤 Glyph cache unavailable:", err.message);
+      glyphCacheInitialized = true;
+      return null;
+    }
+  })();
+  
+  return glyphCacheInitPromise;
+}
+
+// Get a glyph from cache (memory first, then IDB)
+async function getCachedGlyph(fontName, char) {
+  const key = `${fontName}:${char}`;
+  
+  // Check memory cache first (instant)
+  if (glyphMemoryCache.has(key)) {
+    return glyphMemoryCache.get(key);
+  }
+  
+  // Check IndexedDB
+  const db = await initGlyphCache();
+  if (!db) return null;
+  
+  try {
+    const data = await db.get(GLYPH_STORE_NAME, key);
+    if (data) {
+      // Populate memory cache for next access
+      glyphMemoryCache.set(key, data);
+      return data;
+    }
+  } catch (err) {
+    // Silently fail - cache miss
+  }
+  return null;
+}
+
+// Save a glyph to both memory and IDB cache
+async function cacheGlyph(fontName, char, glyphData) {
+  if (!glyphData) return;
+  
+  const key = `${fontName}:${char}`;
+  
+  // Always update memory cache
+  glyphMemoryCache.set(key, glyphData);
+  
+  // Persist to IndexedDB (non-blocking)
+  const db = await initGlyphCache();
+  if (!db) return;
+  
+  try {
+    await db.put(GLYPH_STORE_NAME, glyphData, key);
+  } catch (err) {
+    // Silently fail - cache write error
+  }
+}
+
+// Bulk save multiple glyphs (more efficient for batch loads)
+async function cacheGlyphsBulk(fontName, glyphsMap) {
+  if (!glyphsMap || typeof glyphsMap !== 'object') return;
+  
+  const db = await initGlyphCache();
+  
+  // Update memory cache immediately
+  for (const [char, data] of Object.entries(glyphsMap)) {
+    if (data) {
+      glyphMemoryCache.set(`${fontName}:${char}`, data);
+    }
+  }
+  
+  if (!db) return;
+  
+  // Batch write to IndexedDB
+  try {
+    const tx = db.transaction(GLYPH_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(GLYPH_STORE_NAME);
+    
+    const promises = Object.entries(glyphsMap).map(([char, data]) => {
+      if (data) {
+        return store.put(data, `${fontName}:${char}`);
+      }
+    }).filter(Boolean);
+    
+    await Promise.all([...promises, tx.done]);
+  } catch (err) {
+    console.warn("🔤 Bulk glyph cache write failed:", err.message);
+  }
+}
+
+// Pre-warm the memory cache from IndexedDB for a specific font
+async function preWarmGlyphCache(fontName) {
+  const db = await initGlyphCache();
+  if (!db) return 0;
+  
+  try {
+    const tx = db.transaction(GLYPH_STORE_NAME, 'readonly');
+    const store = tx.objectStore(GLYPH_STORE_NAME);
+    const allKeys = await store.getAllKeys();
+    
+    // Filter keys for this font
+    const fontKeys = allKeys.filter(k => typeof k === 'string' && k.startsWith(`${fontName}:`));
+    
+    if (fontKeys.length === 0) return 0;
+    
+    // Load all glyphs for this font into memory
+    const loadPromises = fontKeys.map(async (key) => {
+      const data = await db.get(GLYPH_STORE_NAME, key);
+      if (data) {
+        glyphMemoryCache.set(key, data);
+      }
+    });
+    
+    await Promise.all(loadPromises);
+    return fontKeys.length;
+  } catch (err) {
+    console.warn("🔤 Glyph cache pre-warm failed:", err.message);
+    return 0;
+  }
+}
+
+// Clear glyph cache for a specific font (useful for dev/debugging)
+async function clearGlyphCache(fontName) {
+  const db = await initGlyphCache();
+  
+  // Clear from memory
+  for (const key of glyphMemoryCache.keys()) {
+    if (!fontName || key.startsWith(`${fontName}:`)) {
+      glyphMemoryCache.delete(key);
+    }
+  }
+  
+  if (!db) return;
+  
+  try {
+    if (fontName) {
+      // Clear only specific font
+      const tx = db.transaction(GLYPH_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(GLYPH_STORE_NAME);
+      const allKeys = await store.getAllKeys();
+      
+      for (const key of allKeys) {
+        if (typeof key === 'string' && key.startsWith(`${fontName}:`)) {
+          await store.delete(key);
+        }
+      }
+      await tx.done;
+    } else {
+      // Clear all
+      await db.clear(GLYPH_STORE_NAME);
+    }
+    console.log(`🔤 Glyph cache cleared${fontName ? ` for ${fontName}` : ''}`);
+  } catch (err) {
+    console.warn("🔤 Glyph cache clear failed:", err.message);
+  }
+}
+
+// Export cache utilities for debugging
+if (typeof window !== 'undefined') {
+  window.acGlyphCache = {
+    preWarm: preWarmGlyphCache,
+    clear: clearGlyphCache,
+    stats: () => ({
+      memorySize: glyphMemoryCache.size,
+      initialized: glyphCacheInitialized,
+    }),
+  };
+}
+
 function matrixDebugEnabled() {
   if (typeof window !== "undefined" && window?.acMatrixDebug) return true;
   if (typeof globalThis !== "undefined" && globalThis?.acMatrixDebug) return true;
@@ -172,17 +377,40 @@ class Typeface {
     // TODO: Add support for on-demand character loading here using this api that
     //       gets the json for the glyphs: https://localhost:8888/api/bdf-glyph?char=h
     if (this.name === "font_1") {
+      // Try to pre-warm from IndexedDB cache first
+      const cachedCount = await preWarmGlyphCache(this.name);
+      if (cachedCount > 0) {
+        // Populate glyphs from memory cache
+        for (const [key, data] of glyphMemoryCache.entries()) {
+          if (key.startsWith(`${this.name}:`)) {
+            const char = key.slice(this.name.length + 1);
+            this.glyphs[char] = data;
+          }
+        }
+        console.log(`🔤 [${this.name}] Loaded ${cachedCount} glyphs from cache`);
+      }
+      
       // 1. Ignore any keys with a "glyph" prefix because these are settings.
       const glyphsToLoad = entries(this.data).filter(
         ([g, loc]) => !g.startsWith("glyph") && typeof loc === "string" && loc !== "false" && loc.length > 0,
       );
-      const promises = glyphsToLoad.map(([glyph, location], i) => {
+      
+      // Filter out already-cached glyphs
+      const glyphsNeedingFetch = glyphsToLoad.filter(([glyph]) => !this.glyphs[glyph]);
+      
+      if (glyphsNeedingFetch.length < glyphsToLoad.length) {
+        console.log(`🔤 [${this.name}] Skipping ${glyphsToLoad.length - glyphsNeedingFetch.length} cached glyphs`);
+      }
+      
+      const glyphsToCache = {};
+      const promises = glyphsNeedingFetch.map(([glyph, location], i) => {
         // 2. Load all other keys / glyphs over the network.
         return $preload(
           `aesthetic.computer/disks/drawings/${this.name}/${location}.json`,
         )
           .then((res) => {
             this.glyphs[glyph] = res;
+            glyphsToCache[glyph] = res;
           })
           .catch((err) => {
             // Silently handle missing glyph files - some glyphs may not exist
@@ -190,22 +418,49 @@ class Typeface {
           });
       }); // Wait for all the promises to resolve before returning
       await Promise.all(promises);
+      
+      // Cache newly loaded glyphs to IndexedDB
+      if (Object.keys(glyphsToCache).length > 0) {
+        cacheGlyphsBulk(this.name, glyphsToCache);
+      }
     } else if (this.name === "microtype") {
+      // Try to pre-warm from IndexedDB cache first
+      const cachedCount = await preWarmGlyphCache(this.name);
+      if (cachedCount > 0) {
+        for (const [key, data] of glyphMemoryCache.entries()) {
+          if (key.startsWith(`${this.name}:`)) {
+            const char = key.slice(this.name.length + 1);
+            this.glyphs[char] = data;
+          }
+        }
+      }
+      
       // Load microtype 3x5 font
       const glyphsToLoad = entries(this.data).filter(
         ([g, loc]) => !g.startsWith("glyph") && typeof loc === "string" && loc !== "false" && loc.length > 0,
       );
-      const promises = glyphsToLoad.map(([glyph, location], i) => {
+      
+      // Filter out already-cached glyphs
+      const glyphsNeedingFetch = glyphsToLoad.filter(([glyph]) => !this.glyphs[glyph]);
+      
+      const glyphsToCache = {};
+      const promises = glyphsNeedingFetch.map(([glyph, location], i) => {
         const path = `aesthetic.computer/disks/drawings/${location}.json`;
         return $preload(path)
           .then((res) => {
             this.glyphs[glyph] = res;
+            glyphsToCache[glyph] = res;
           })
           .catch((err) => {
             console.error(`❌ Couldn't load microtype glyph "${glyph}":`, err);
           });
       });
       await Promise.all(promises);
+      
+      // Cache newly loaded glyphs
+      if (Object.keys(glyphsToCache).length > 0) {
+        cacheGlyphsBulk(this.name, glyphsToCache);
+      }
     } else if (this.name === "unifont" || this.data.bdfFont) {
       // 🗺️ BDF Font support - includes UNIFONT and other BDF fonts
       // Determine which font to use - for unifont use the name, for others use bdfFont property
@@ -363,11 +618,13 @@ class Typeface {
             console.log(`🔤 [glyph-batch] ${codePointStrs.length} glyphs in ${batchDuration.toFixed(1)}ms (font: ${this.name})`);
           }
           
-          // Process results
+          // Process results and cache them
+          const glyphsToCache = {};
           for (const item of batch) {
             const glyphData = glyphs[item.codePointStr];
             if (glyphData) {
               item.target[item.char] = glyphData;
+              glyphsToCache[item.char] = glyphData;
               this.invalidateAdvance(item.char);
               if (needsPaintCallback && typeof needsPaintCallback === "function") {
                 needsPaintCallback();
@@ -376,6 +633,11 @@ class Typeface {
               failedGlyphs.add(item.char);
             }
             loadingGlyphs.delete(item.char);
+          }
+          
+          // Bulk cache all fetched glyphs to IndexedDB (non-blocking)
+          if (Object.keys(glyphsToCache).length > 0) {
+            cacheGlyphsBulk(this.name, glyphsToCache);
           }
         } catch (err) {
           console.warn(`Batch glyph fetch failed:`, err);
@@ -407,6 +669,32 @@ class Typeface {
           batchTimeout = setTimeout(flushBatch, BATCH_DELAY);
         }
       };
+      
+      // Pre-warm glyph cache from IndexedDB for this font (non-blocking)
+      preWarmGlyphCache(this.name).then(count => {
+        if (count > 0) {
+          // Populate glyphs object from memory cache
+          for (const [key, data] of glyphMemoryCache.entries()) {
+            if (key.startsWith(`${this.name}:`)) {
+              const char = key.slice(this.name.length + 1);
+              if (!this.glyphs[char]) {
+                // Directly set on underlying target to avoid proxy
+                Object.defineProperty(this.glyphs, char, {
+                  value: data,
+                  writable: true,
+                  enumerable: true,
+                  configurable: true,
+                });
+              }
+            }
+          }
+          console.log(`🔤 [${this.name}] Pre-warmed ${count} glyphs from cache`);
+          // Trigger repaint if callback available
+          if (needsPaintCallback && typeof needsPaintCallback === "function") {
+            needsPaintCallback();
+          }
+        }
+      });
 
       // Wrap the glyphs object with a Proxy for automatic loading
       this.glyphs = new Proxy(this.glyphs, {
@@ -416,6 +704,14 @@ class Typeface {
           // If glyph exists, return it immediately
           if (target[char]) {
             return target[char];
+          }
+          
+          // Check memory cache (populated from IndexedDB pre-warm)
+          const cacheKey = `${this.name}:${char}`;
+          if (glyphMemoryCache.has(cacheKey)) {
+            const cached = glyphMemoryCache.get(cacheKey);
+            target[char] = cached;
+            return cached;
           }
 
           // If glyph has failed to load before, don't try again

@@ -8,9 +8,8 @@ if (window === window.top) {
 const bootStartTime = performance.now();
 window.acBOOT_START_TIME = bootStartTime;
 
-// Get the boot log overlay element (if present in the DOM)
-const bootLogEl = document.getElementById("boot-log");
-const bootLogLinesEl = document.getElementById("boot-log-lines");
+// Get the boot canvas element (if present in the DOM)
+const bootCanvas = document.getElementById("boot-canvas");
 const MAX_BOOT_LINES = 12; // Maximum lines to show
 let lastBootMessage = ""; // Track last message to prevent duplicates
 
@@ -27,21 +26,9 @@ function bootLog(message) {
   console.log(`🚀 [BOOT] ${message} (+${elapsed}ms)`);
   window._bootTimings.push({ message, elapsed });
   
-  // Update the boot log overlay in the DOM - prepend new line (newest on top)
-  if (bootLogLinesEl) {
-    // Remove the blinking cursor from previous first line
-    const prevCursor = bootLogLinesEl.querySelector('.blink');
-    if (prevCursor) prevCursor.remove();
-    
-    // Create new line with cursor
-    const newLine = document.createElement('div');
-    newLine.innerHTML = `${message}<span class="blink">_</span>`;
-    bootLogLinesEl.insertBefore(newLine, bootLogLinesEl.firstChild);
-    
-    // Keep only the last N lines
-    while (bootLogLinesEl.children.length > MAX_BOOT_LINES) {
-      bootLogLinesEl.removeChild(bootLogLinesEl.lastChild);
-    }
+  // Update the boot canvas (via the canvas animation system)
+  if (window.acBOOT_LOG_CANVAS) {
+    window.acBOOT_LOG_CANVAS(message);
   }
   
   // Also send to parent for embedded contexts
@@ -52,12 +39,8 @@ function bootLog(message) {
 
 // Hide the boot log overlay (called when boot completes)
 function hideBootLog() {
-  if (bootLogEl) {
-    bootLogEl.classList.add("hidden");
-    // Remove from DOM after transition
-    setTimeout(() => {
-      bootLogEl.remove();
-    }, 500);
+  if (window.acBootCanvas?.hide) {
+    window.acBootCanvas.hide();
   }
 }
 
