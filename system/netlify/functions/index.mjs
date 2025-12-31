@@ -49,6 +49,26 @@ async function fun(event, context) {
       return { statusCode: 500 };
     }
 
+  // Serve system .mjs files directly as static assets
+  // These get caught by the catch-all redirect but shouldn't go through piece loading
+  if (event.path.endsWith(".mjs") && !event.path.startsWith("/disks/")) {
+    try {
+      const filePath = path.join(process.cwd(), "public/aesthetic.computer", event.path.slice(1));
+      const content = await fs.readFile(filePath, "utf8");
+      return {
+        statusCode: 200,
+        headers: { 
+          "Content-Type": "application/javascript",
+          "Cache-Control": "public, max-age=60"
+        },
+        body: content,
+      };
+    } catch (err) {
+      console.log(`⚡ System .mjs file not found: ${event.path}`);
+      return { statusCode: 404, body: `File not found: ${event.path}` };
+    }
+  }
+
   if (event.headers["host"] === "sotce.local:8888") {
     return respond(
       302,
