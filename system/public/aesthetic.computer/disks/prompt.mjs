@@ -174,6 +174,9 @@ let startupSfx, keyboardSfx;
 // 🎆 Corner particles (for cursor effect)
 let cornerParticles = [];
 
+// ✨ Sparkle particles for GIVE button
+let giveBtnParticles = [];
+
 let tapePromiseResolve, tapePromiseReject;
 let promptSend;
 let promptNeedsPaint;
@@ -3640,26 +3643,84 @@ function paint($) {
     };
     
     // Bright saturated fill that cycles through rainbow
-    const fillColor = hslToRgb(hue, 100, 45 + pulse * 15); // 45-60% lightness
+    const fillColor = hslToRgb(hue, 100, 50 + pulse * 10); // 50-60% lightness
     
-    // Always white text for maximum contrast and readability
-    const textColor = [255, 255, 255];
+    // Scheme format: [fill, outline, textInk, textParam] - match login button format
+    // Using 255 for outline and text makes them white
+    const normalScheme = [fillColor, 255, 255, fillColor];
     
-    // Outline slightly darker than fill
-    const outlineColor = hslToRgb(hue, 100, 30);
-    
-    // Normal scheme: [fill, outline, text, textAlpha]
-    const normalScheme = [fillColor, outlineColor, textColor, 255];
-    
-    // Hover scheme: white fill with colored text
-    const hoverFill = [255, 255, 255];
-    const hoverOutline = hslToRgb(hue, 100, 50);
-    const hoverText = hslToRgb(hue, 100, 35);
-    const hoverScheme = [hoverFill, hoverOutline, hoverText, 255];
+    // Hover scheme: brighter fill
+    const hoverFill = hslToRgb(hue, 100, 70);
+    const hoverScheme = [hoverFill, 255, 255, hoverFill];
     
     giveBtn?.paint($, normalScheme, hoverScheme);
+    
+    // ✨ Spawn sparkle particles around the button
+    const btnBox = giveBtn?.btn?.box;
+    if (btnBox && Math.random() < 0.4) { // 40% chance per frame to spawn
+      const sparkleHue = (hue + Math.random() * 60 - 30) % 360; // Vary hue slightly
+      const sparkleColor = hslToRgb(sparkleHue, 100, 70);
+      
+      // Spawn from random edge of button
+      const edge = Math.floor(Math.random() * 4);
+      let px, py, vx, vy;
+      
+      switch(edge) {
+        case 0: // Top
+          px = btnBox.x + Math.random() * btnBox.w;
+          py = btnBox.y;
+          vx = (Math.random() - 0.5) * 2;
+          vy = -Math.random() * 2 - 1;
+          break;
+        case 1: // Right
+          px = btnBox.x + btnBox.w;
+          py = btnBox.y + Math.random() * btnBox.h;
+          vx = Math.random() * 2 + 1;
+          vy = (Math.random() - 0.5) * 2;
+          break;
+        case 2: // Bottom
+          px = btnBox.x + Math.random() * btnBox.w;
+          py = btnBox.y + btnBox.h;
+          vx = (Math.random() - 0.5) * 2;
+          vy = Math.random() * 2 + 1;
+          break;
+        case 3: // Left
+          px = btnBox.x;
+          py = btnBox.y + Math.random() * btnBox.h;
+          vx = -Math.random() * 2 - 1;
+          vy = (Math.random() - 0.5) * 2;
+          break;
+      }
+      
+      giveBtnParticles.push({
+        x: px,
+        y: py,
+        vx: vx,
+        vy: vy,
+        life: 1.0,
+        color: sparkleColor,
+        size: Math.random() < 0.3 ? 2 : 1, // 30% chance of 2px particle
+      });
+    }
+    
+    // Update and draw sparkle particles
+    giveBtnParticles = giveBtnParticles.filter(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.96; // Slow down
+      p.vy *= 0.96;
+      p.life -= 0.03;
+      
+      if (p.life > 0) {
+        const alpha = Math.floor(p.life * 255);
+        ink(...p.color, alpha).box(Math.round(p.x), Math.round(p.y), p.size, p.size);
+      }
+      
+      return p.life > 0;
+    });
   } else {
     giveBtn = null;
+    giveBtnParticles = []; // Clear particles when button hidden
   }
   
   // 📦 Paint product (book or record) in top-right corner (only on login curtain)
