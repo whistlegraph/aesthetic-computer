@@ -91,11 +91,14 @@
       const lineHeight = 14;
       const maxLines = 18;
       
-      // Inline SVG (base64) for instant load - small simplified logo
+      // Tiny 16x16 PNG placeholder (loads instantly), then swap to full SVG
+      const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABWUlEQVR4nN2Ru0pDQRCGg3fUzk5bEVS0ELxVwQsYTRBvJ5ed3VgZVBB8g1Q+gCDIzq6IluclUktmT1Kk8mWUWT2RTcBep1nmZ//vn53NZP5XOWU3ndTlOIoHe/UE8MxJM8s9SdxuVR9nAnMneph0Up+25esECSwEAGFK3gh4SwIvnDQ5UrgXAN5v7kcJ9HUjWx/iKZwyJ6RsxMkEWPzSTY7A5psVsxaYG+fPYyTNFZ8+qaaHSRjhzcpGrSou+knKdprH70t2Ci+Z7qS56wIAj9M7DPkJskcBIAG96gHKzKdv/X5vkU+/E7B5AtxI4GnBKasSpXf5brBIqulxB/qQjZzO4/uxwe68qZep7l6EXmKNQemv+GIzE5vKHKTL87owpbbCOQK9wj1Jvc59prcSwAqnd6J4hM0pgGGsf9TrA32mACD0Pu/Dp1bNcqJ01gMEFkjYrV/Nf7s+AS1XxDy7PXOrAAAAAElFTkSuQmCC';
       const img = new Image();
-      let imgLoaded = false;
-      img.onload = () => { imgLoaded = true; };
-      img.src = '/purple-pals.svg';
+      const imgFull = new Image();
+      let imgFullLoaded = false;
+      img.src = tinyPng; // Instant load
+      imgFull.onload = () => { imgFullLoaded = true; };
+      imgFull.src = '/purple-pals.svg';
       
       // Boot state
       let lines = [];
@@ -279,15 +282,17 @@
         });
         ctx.globalAlpha = 1;
         
-        // Draw logo with wobble; use placeholder until SVG finishes loading
+        // Draw logo with wobble; use tiny pixelated PNG until full SVG loads
         const logoShake = baseShake * 0.8 + chaos * chaos * 3;
-        if (imgLoaded || img.complete) {
-          ctx.drawImage(img, 
-            logoX + shakeX * 0.5 + (Math.random() - 0.5) * logoShake, 
-            logoY + shakeY * 0.5 + (Math.random() - 0.5) * logoShake, 
-            logoSize, logoSize);
-        } else {
-          // Quick placeholder circle so users see something instantly
+        ctx.imageSmoothingEnabled = !imgFullLoaded; // Pixelated for tiny, smooth for full
+        if (!imgFullLoaded) ctx.imageSmoothingEnabled = false; // Nearest neighbor scaling
+        const logoImg = imgFullLoaded ? imgFull : img;
+        ctx.drawImage(logoImg, 
+          logoX + shakeX * 0.5 + (Math.random() - 0.5) * logoShake, 
+          logoY + shakeY * 0.5 + (Math.random() - 0.5) * logoShake, 
+          logoSize, logoSize);
+        ctx.imageSmoothingEnabled = true;
+        if (false) { // Placeholder circle disabled - using tiny PNG instead
           ctx.save();
           ctx.globalAlpha = 0.95;
           ctx.fillStyle = `rgb(${140 + (Math.random()*80|0)}, ${60 + (Math.random()*40|0)}, ${150 + (Math.random()*80|0)})`;
