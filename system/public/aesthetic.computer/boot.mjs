@@ -412,8 +412,28 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES) {
 // In PACK_MODE, use bare specifiers (no ./) so import maps work from blob URLs
 const cacheBust = window.acPACK_MODE ? '' : `?v=${Date.now()}`;
 const pathPrefix = window.acPACK_MODE ? '' : './';
+
+// Helper to fetch and display source file in boot canvas
+async function fetchAndShowSource(path, displayName) {
+  if (window.acPACK_MODE) return; // Skip in PACK mode
+  try {
+    const response = await fetch(path);
+    if (response.ok) {
+      const text = await response.text();
+      if (window.acBOOT_ADD_FILE) {
+        window.acBOOT_ADD_FILE(displayName || path, text);
+      }
+    }
+  } catch (e) {
+    // Ignore fetch errors - this is just visual
+  }
+}
+
 let boot, parse, slug;
 try {
+  bootLog("loading bios.mjs" + cacheBust);
+  bootLog("loading parse.mjs" + cacheBust);
+  
   const [biosModule, parseModule] = await Promise.all([
     importWithRetry(`${pathPrefix}bios.mjs${cacheBust}`),
     importWithRetry(`${pathPrefix}lib/parse.mjs${cacheBust}`)
@@ -421,6 +441,10 @@ try {
   boot = biosModule.boot;
   parse = parseModule.parse;
   slug = parseModule.slug;
+  
+  // Show source files in boot canvas (non-blocking)
+  fetchAndShowSource(`${pathPrefix}bios.mjs`, 'bios.mjs');
+  fetchAndShowSource(`${pathPrefix}lib/parse.mjs`, 'lib/parse.mjs');
 } catch (err) {
   bootLog(`❌ critical module load failed`);
   showConnectionError(err);
