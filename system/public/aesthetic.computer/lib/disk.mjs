@@ -4560,19 +4560,46 @@ const $paintApi = {
         ? JSON.stringify(text)
         : text.toString();
     
-    // 💵 FUNDING MODE: Randomly replace S/s with $ for financial vibes
+    // 💵 FUNDING MODE: Randomly replace S/s with green $ for financial vibes
     if (typeof globalThis !== "undefined" && globalThis.AC_FUNDING_MODE) {
       // Use a seeded random based on text position to keep it stable per frame
       // but change over time (every ~500ms)
       const timeSlot = Math.floor(Date.now() / 500);
-      text = text.split('').map((char, i) => {
+      // Track if we're inside a color code to restore it after $
+      let result = '';
+      let currentColor = null;
+      let i = 0;
+      while (i < text.length) {
+        // Check for color code start
+        if (text[i] === '\\' && i + 1 < text.length) {
+          // Find the end of the color code
+          const endSlash = text.indexOf('\\', i + 1);
+          if (endSlash !== -1) {
+            currentColor = text.substring(i + 1, endSlash);
+            result += text.substring(i, endSlash + 1);
+            i = endSlash + 1;
+            continue;
+          }
+        }
+        
+        const char = text[i];
         if (char === 'S' || char === 's') {
           // Use a pseudo-random based on char position and time
           const hash = ((i * 17 + timeSlot * 31) % 100) / 100;
-          if (hash < 0.25) return '$'; // 25% chance
+          if (hash < 0.25) {
+            // Replace with lime green $ and restore original color after
+            result += '\\lime\\$';
+            if (currentColor) {
+              result += '\\' + currentColor + '\\';
+            }
+            i++;
+            continue;
+          }
         }
-        return char;
-      }).join('');
+        result += char;
+        i++;
+      }
+      text = result;
     }
     
     // Assume: text, x, y, options, wordWrap, customTypeface
