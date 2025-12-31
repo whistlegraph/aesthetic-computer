@@ -19,11 +19,9 @@ import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
 
 // Fire-and-forget piece hit tracking (don't await, don't block page load)
-// Disabled in dev mode to avoid MongoDB connection noise
 async function trackPieceHit(piece, type, headers) {
-  if (dev) return; // Skip tracking in dev mode
   try {
-    const baseUrl = "https://aesthetic.computer";
+    const baseUrl = dev ? "https://localhost:8888" : "https://aesthetic.computer";
     const { got } = await import("got");
     await got.post(`${baseUrl}/api/piece-hit`, {
       json: { piece, type },
@@ -31,11 +29,11 @@ async function trackPieceHit(piece, type, headers) {
         Authorization: headers.authorization || headers.Authorization || "",
       },
       https: { rejectUnauthorized: false },
-      timeout: { request: 3000 },
+      timeout: { request: 5000 },
     });
   } catch (e) {
     // Silent fail - don't let tracking break page loads
-    // console.log("📊 Hit tracking failed:", e.message);
+    if (dev) console.log("📊 Hit tracking failed:", e.message);
   }
 }
 
