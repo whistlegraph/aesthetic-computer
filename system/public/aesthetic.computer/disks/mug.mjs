@@ -198,11 +198,11 @@ async function fetchCheckout(apiCode, api) {
     );
 
     const data = await res.json();
-    if (data.location) {
+    if (data?.location) {
       checkoutUrl = data.location;
       checkoutReady = true;
     } else {
-      checkoutError = data.message || "Checkout failed";
+      checkoutError = data?.message || "Checkout failed";
     }
   } catch (e) {
     checkoutError = e.message;
