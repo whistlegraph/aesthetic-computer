@@ -16511,15 +16511,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           await window.auth0Client.getUser();
           console.log("✅🔐 Token validation succeeded!");
         } catch (error) {
-          console.error("🔴🔐 Token is invalid or expired - triggering logout");
+          console.error("🔴🔐 Token is invalid or expired - clearing token");
+          // Clear the invalid token to prevent infinite loop
+          window.acTOKEN = null;
           // Trigger logout to clear the invalid session
           if (window.parent) {
             window.parent.postMessage({ type: "logout" }, "*");
-          } else {
-            // If not in iframe, reload to clear session
-            window.location.reload();
           }
-          // Return null immediately - don't continue with invalid token
+          // Return null - don't reload, just continue without auth
           return null;
         }
       } else {

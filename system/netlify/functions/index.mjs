@@ -19,15 +19,14 @@ import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
 
 // Fire-and-forget piece hit tracking (don't await, don't block page load)
-async function trackPieceHit(piece, type, headers) {
+async function trackPieceHit(piece, type) {
   try {
     const baseUrl = dev ? "https://localhost:8888" : "https://aesthetic.computer";
     const { got } = await import("got");
     await got.post(`${baseUrl}/api/piece-hit`, {
       json: { piece, type },
-      headers: {
-        Authorization: headers.authorization || headers.Authorization || "",
-      },
+      // Don't pass auth header - piece hits are anonymous for now
+      // This avoids Auth0 calls on every page load
       https: { rejectUnauthorized: false },
       timeout: { request: 5000 },
     });
@@ -925,9 +924,10 @@ async function fun(event, context) {
   console.log(`✨ ${_path} ${meta?.title || "~"} ${_ms}ms`);
 
   // 📊 Track piece hit (fire-and-forget, don't block response)
-  if (statusCode === 200 && parsed?.text && !previewOrIcon) {
+  // Skip hit tracking in dev mode
+  if (!dev && statusCode === 200 && parsed?.text && !previewOrIcon) {
     const pieceType = parsed.path?.startsWith("@") ? "user" : "system";
-    trackPieceHit(parsed.text, pieceType, event.headers).catch(() => {});
+    trackPieceHit(parsed.text, pieceType).catch(() => {});
   }
 
   return {
