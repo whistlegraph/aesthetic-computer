@@ -4298,10 +4298,16 @@ function paint($) {
     const rotation = activeProduct ? activeProduct.rotation : 0;
     
     if (FUNDING_MODE) {
-      // 🚨 FUNDING MODE: Animated glittering border with primary colors
+      // 🚨 FUNDING MODE: Animated glittering border with primary colors + BLINK
       const stripeWidth = 3; // Slightly narrower stripes
       const borderThickness = 2; // 2px border for visibility
       const t = performance.now() / 1000;
+      
+      // Blink effect - border blinks on/off rapidly
+      const blinkPhase = Math.floor(t * 4) % 2; // Blink 4 times per second
+      if (blinkPhase === 0) {
+        // Skip drawing border during "off" phase
+      } else {
       
       // Primary colors - pure RGB (fully saturated)
       const alertColors = [
@@ -4386,6 +4392,7 @@ function paint($) {
           }
         }
       }
+      } // End blink "on" phase
     } else {
       // Normal mode: pink/purple/green gradient border
       // Cycle through pink, purple, green phases
@@ -5810,7 +5817,8 @@ function paint($) {
     }
 
     // MOTD (Mood of the Day) - show above login/signup buttons with animation
-    if (motd && screen.height >= 180) {
+    // In FUNDING_MODE, always show regardless of screen height
+    if (motd && (FUNDING_MODE || screen.height >= 180)) {
       // Subtle sway (up and down)
       const swayY = Math.sin(motdFrame * 0.05) * 2; // 2 pixel sway range
       const motdY = screen.height / 2 - 48 + swayY; // Moved up 12px closer to top (changed from -36 back to -48)
@@ -5827,10 +5835,15 @@ function paint($) {
         // Use syntax highlighting for interactive elements
         coloredText = colorizeText(motd, "white");
       } else if (FUNDING_MODE) {
-        // Funding mode - use red/yellow alert colors
+        // Funding mode - alternate EN/DA every 3 seconds with different color schemes
+        const langPhase = Math.floor(Date.now() / 3000) % 2;
+        // English = red/orange, Danish = cyan/blue
+        const enColors = ["red", "255,100,50", "yellow", "orange"];
+        const daColors = ["cyan", "0,150,255", "white", "lime"];
+        const currentColors = langPhase === 0 ? enColors : daColors;
         for (let i = 0; i < motd.length; i++) {
-          const colorIndex = Math.floor((i + motdFrame * 0.15) % alertColors.length);
-          const color = alertColors[colorIndex];
+          const colorIndex = Math.floor((i + motdFrame * 0.15) % currentColors.length);
+          const color = currentColors[colorIndex];
           coloredText += `\\${color}\\${motd[i]}`;
         }
       } else {
@@ -5870,35 +5883,39 @@ function paint($) {
       
       // Add "ENTER 'give' TO HELP" line below MOTD in funding mode
       if (FUNDING_MODE) {
-        // Alternate English/Danish every 10 seconds
-        const langPhase = Math.floor(Date.now() / 10000) % 2;
+        // Alternate English/Danish every 3 seconds (synced with MOTD)
+        const langPhase = Math.floor(Date.now() / 3000) % 2;
         const helpTextEN = "ENTER 'give' TO HELP";
         const helpTextDA = "SKRIV 'give' FOR HJAELP";
         const helpText = langPhase === 0 ? helpTextEN : helpTextDA;
         const giveStart = helpText.indexOf("'give'");
         const giveEnd = giveStart + 6; // length of 'give'
         
-        // Build text with 'give' in cyan, rest in cycling red/yellow
+        // Color scheme matches language: EN = red/orange, DA = cyan/blue
+        const enColors = ["red", "255,100,50", "yellow", "orange"];
+        const daColors = ["cyan", "0,150,255", "white", "lime"];
+        const currentColors = langPhase === 0 ? enColors : daColors;
+        
+        // Build text with 'give' highlighted, rest in language-specific colors
         let coloredHelpText = "";
         for (let i = 0; i < helpText.length; i++) {
           const isGive = i >= giveStart && i < giveEnd;
           if (isGive) {
-            // 'give' in bright cyan/white cycling
-            const giveColors = ["cyan", "white", "lime"];
+            // 'give' always bright and attention-grabbing
+            const giveColors = ["white", "lime", "yellow"];
             const colorIndex = Math.floor(((i - giveStart) + motdFrame * 0.2) % giveColors.length);
             coloredHelpText += `\\${giveColors[colorIndex]}\\${helpText[i]}`;
           } else {
-            // Rest in red/yellow cycling
-            const colorIndex = Math.floor((i + motdFrame * 0.15 + 5) % alertColors.length);
-            const color = alertColors[colorIndex];
+            // Rest uses language-specific color scheme
+            const colorIndex = Math.floor((i + motdFrame * 0.15 + 5) % currentColors.length);
+            const color = currentColors[colorIndex];
             coloredHelpText += `\\${color}\\${helpText[i]}`;
           }
         }
-        // Use same positioning logic as MOTD, but further down to avoid overlap
-        // Add extra spacing (24px instead of 12px) to account for potential text wrapping
+        // Use same positioning logic as MOTD, but directly below (10px spacing)
         const helpWritePos = writePos.x !== undefined 
-          ? { x: writePos.x, y: (writePos.y || Math.floor(motdY)) + 24 }
-          : { center: "x", y: (writePos.y || Math.floor(motdY)) + 24 };
+          ? { x: writePos.x, y: (writePos.y || Math.floor(motdY)) + 10 }
+          : { center: "x", y: (writePos.y || Math.floor(motdY)) + 10 };
         ink(pal.handleColor).write(
           coloredHelpText,
           helpWritePos,
@@ -7077,9 +7094,9 @@ export const scheme = {
 let motdController;
 
 async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) {
-  // Use funding mode message or default (alternate EN/DA every 10 seconds)
+  // Use funding mode message or default (alternate EN/DA every 3 seconds)
   if (FUNDING_MODE) {
-    const langPhase = Math.floor(Date.now() / 10000) % 2;
+    const langPhase = Math.floor(Date.now() / 3000) % 2;
     motd = langPhase === 0 ? "CRITICAL MEDIA SERVICES OFFLINE" : "KRITISKE MEDIETJENESTER OFFLINE";
   } else {
     motd = "aesthetic.computer";
