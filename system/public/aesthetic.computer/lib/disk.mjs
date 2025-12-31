@@ -3849,6 +3849,7 @@ async function processMessage(msg) {
     const newHandle = msg.split(":").pop();
     HANDLE = "@" + newHandle;
     window.acHANDLE = HANDLE; // Expose for UDP identity
+    if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
     send({ type: "handle", content: HANDLE });
     store["handle:received"] = true;
     store["handle"] = newHandle;
@@ -13708,6 +13709,7 @@ async function handle(retryCount = 0) {
       if (HANDLE === newHandle) return;
       HANDLE = "@" + storedHandle;
       window.acHANDLE = HANDLE; // Expose for UDP identity
+      if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
       send({ type: "handle", content: HANDLE });
       store["handle:received"] = true;
       // console.log("Retrieved handle from store:", storedHandle);
@@ -13723,6 +13725,7 @@ async function handle(retryCount = 0) {
         if (newHandle === HANDLE) return;
         HANDLE = newHandle;
         if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
+        if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
         send({ type: "handle", content: HANDLE });
         store["handle:received"] = true;
         store["handle"] = data.handle;
