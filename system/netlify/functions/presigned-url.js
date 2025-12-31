@@ -257,6 +257,8 @@ export async function handler(event, context) {
     statusCode: 200,
     body: JSON.stringify({
       uploadURL: uploadURL,
+      slug: fileName,
+      code: loadCode,
     }),
   };
   } catch (error) {

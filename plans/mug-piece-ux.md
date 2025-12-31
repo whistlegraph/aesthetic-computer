@@ -1,6 +1,6 @@
 # Mug Piece UX Plan
 
-## Status: ✅ Core Complete, KidLisp.com Integration Pending
+## Status: ✅ Core Complete
 
 ### Completed Features
 - ✅ `mug.mjs` piece with animated WebP preview
@@ -13,10 +13,10 @@
 - ✅ WebP color decoding fix (RGBA format)
 - ✅ URL `#` preservation via `§HASH§` placeholder
 
-### Pending: KidLisp.com Integration
-- [ ] Add ☕ mug button to screenshot console
-- [ ] Upload screenshot as provisional painting
-- [ ] Open mug preview with uploaded code
+### KidLisp.com Integration (2025.01)
+- ✅ Added ☕ mug button to console screenshot entries
+- ✅ Added ☕ Mug button to screenshot popup modal
+- ✅ `openMugFromScreenshot()` uploads to guest bucket → opens mug piece
 
 ---
 
@@ -26,7 +26,7 @@ When user enters `mug` command, jump to a `mug.mjs` piece that:
 2. Displays purchase button with price
 3. Handles the Stripe checkout flow
 
-**ALSO:** Add ☕ mug emoji button to KidLisp.com console screenshots for instant mug ordering.
+**ALSO:** ✅ Add ☕ mug emoji button to KidLisp.com console screenshots for instant mug ordering.
 
 ---
 
