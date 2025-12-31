@@ -993,6 +993,77 @@ let lastPaintOut = undefined; // Store last paintOut to preserve correct noPaint
 let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
+// 🧬 GOL Transition: noise16 → piece paint
+let golTransition = {
+  active: false,
+  fromPixels: null, // Captured noise16 frame
+  toPixels: null,   // Captured first piece paint frame
+  currentPixels: null, // Working GOL buffer
+  generation: 0,
+  maxGenerations: 300, // ~5s at 60fps - slow ambient transition
+  width: 0,
+  height: 0,
+};
+
+// 🧬 GOL step function - blend from noise16 toward target pixels
+function golStep(current, target, w, h) {
+  const next = new Uint8ClampedArray(current.length);
+  
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      
+      // Count live neighbors (brightness > 128)
+      let liveNeighbors = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = (x + dx + w) % w;
+          const ny = (y + dy + h) % h;
+          const ni = (ny * w + nx) * 4;
+          const brightness = (current[ni] + current[ni + 1] + current[ni + 2]) / 3;
+          if (brightness > 80) liveNeighbors++;
+        }
+      }
+      
+      const curBrightness = (current[i] + current[i + 1] + current[i + 2]) / 3;
+      const isAlive = curBrightness > 80;
+      
+      // GOL rules with bias toward target
+      const targetR = target[i], targetG = target[i + 1], targetB = target[i + 2];
+      const targetBrightness = (targetR + targetG + targetB) / 3;
+      const shouldBeAlive = targetBrightness > 80;
+      
+      // Standard GOL with target attraction
+      let willLive = false;
+      if (isAlive) {
+        willLive = liveNeighbors === 2 || liveNeighbors === 3;
+      } else {
+        willLive = liveNeighbors === 3;
+      }
+      
+      // Bias toward target state - random chance to match target
+      if (Math.random() < 0.03) willLive = shouldBeAlive; // Very slow convergence
+      
+      // Blend colors toward target - keep cells brighter
+      const blend = 0.015; // Very slow blend for ambient 5s transition
+      if (willLive) {
+        // Living cells: bright, blend slowly toward target
+        next[i] = Math.min(255, current[i] * 1.02 + (targetR - current[i]) * blend);
+        next[i + 1] = Math.min(255, current[i + 1] * 1.02 + (targetG - current[i + 1]) * blend);
+        next[i + 2] = Math.min(255, current[i + 2] * 1.02 + (targetB - current[i + 2]) * blend);
+      } else {
+        // Dead cells: slow fade, keep some color
+        next[i] = current[i] * 0.95 + targetR * 0.02;
+        next[i + 1] = current[i + 1] * 0.95 + targetG * 0.02;
+        next[i + 2] = current[i + 2] * 0.95 + targetB * 0.02;
+      }
+      next[i + 3] = 255;
+    }
+  }
+  return next;
+}
+
 let boot = defaults.boot;
 let sim = defaults.sim;
 let paint = defaults.paint;
@@ -6300,7 +6371,7 @@ async function load(
 ) {
   const loadFunctionStartTime = performance.now();
   diskTimings.loadStarted = Math.round(loadFunctionStartTime - diskTimingStart);
-  if (!getPackMode()) console.log(`⏱️ [DISK] load() started at +${diskTimings.loadStarted}ms`);
+  // Silent: load() started
   
   let fullUrl, source;
   let params,
@@ -6571,7 +6642,7 @@ async function load(
         response = await fetch(fullUrl, { cache: 'no-store' });
         const fetchEndTime = performance.now();
         diskTimings.fetchComplete = Math.round(fetchEndTime - diskTimingStart);
-        if (!getPackMode()) console.log(`⏱️ [DISK] fetch completed in ${Math.round(fetchEndTime - fetchStartTime)}ms for ${path}`);
+        // Silent: fetch completed
         if (response.status === 404 || response.status === 403) {
           const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
           // Handle sandboxed environments for anon URL construction
@@ -6659,7 +6730,7 @@ async function load(
         const compileEndTime = performance.now();
         const compileElapsed = Math.round(compileEndTime - compileStartTime);
         diskTimings.compileComplete = Math.round(compileEndTime - diskTimingStart);
-        if (!getPackMode()) console.log(`⏱️ [DISK] KidLisp compiled in ${compileElapsed}ms`);
+        // Silent: KidLisp compiled
         log.lisp.success(`KidLisp module loaded (${compileElapsed}ms)`);
         
         // Notify boot progress
@@ -6667,6 +6738,12 @@ async function load(
         send({
           type: "boot-log",
           content: `kidlisp compiled (${compileElapsed}ms)`
+        });
+        
+        // Send source file to boot canvas for display
+        send({
+          type: "boot-file",
+          content: { filename: path, source: sourceCode.slice(0, 8000) }
         });
 
         if (devReload) {
@@ -6716,11 +6793,17 @@ async function load(
         const importEndTime = performance.now();
         const importElapsed = Math.round(importEndTime - importStartTime);
         diskTimings.compileComplete = Math.round(importEndTime - diskTimingStart);
-        if (!getPackMode()) console.log(`⏱️ [DISK] JS module imported in ${importElapsed}ms`);
+        // Silent: JS module imported
         if (logs.loading) console.log(`✅ Module imported (${importElapsed}ms)`);
         send({
           type: "boot-log",
           content: `module imported (${importElapsed}ms)`
+        });
+        
+        // Send source file to boot canvas for display
+        send({
+          type: "boot-file",
+          content: { filename: path, source: sourceCode.slice(0, 8000) } // Limit size
         });
       }
     }
@@ -8142,6 +8225,13 @@ async function load(
     shouldSkipPaint = false;
     pieceFrameCount = 0;
     
+    // 🧬 Reset GOL transition state (but keep fromPixels if we have it - it's the last noise16 frame!)
+    golTransition.active = false;
+    // golTransition.fromPixels preserved - it's the captured noise16 before piece loads
+    golTransition.toPixels = null;
+    golTransition.currentPixels = null;
+    golTransition.generation = 0;
+    
     formsSent = {}; // Clear 3D list for GPU.
     currentPath = path;
     currentHost = host;
@@ -8605,7 +8695,7 @@ async function makeFrame({ data: { type, content } }) {
     }
     sessionStarted = true;
     diskTimings.sessionStarted = Math.round(performance.now() - diskTimingStart);
-    if (!getPackMode()) console.log(`⏱️ [DISK] sessionStarted at +${diskTimings.sessionStarted}ms`);
+    // Silent: sessionStarted
     return;
   }
 
@@ -11319,7 +11409,7 @@ async function makeFrame({ data: { type, content } }) {
         try {
           const bootStartTime = performance.now();
           diskTimings.bootStarted = Math.round(bootStartTime - diskTimingStart);
-          if (!getPackMode()) console.log(`⏱️ [DISK] boot() starting at +${diskTimings.bootStarted}ms`);
+          // Silent: boot() starting
           
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
@@ -11335,7 +11425,7 @@ async function makeFrame({ data: { type, content } }) {
           await boot($api);
           const bootEndTime = performance.now();
           diskTimings.bootComplete = Math.round(bootEndTime - diskTimingStart);
-          if (!getPackMode()) console.log(`⏱️ [DISK] boot() completed in ${Math.round(bootEndTime - bootStartTime)}ms`);
+          // Silent: boot() completed
           booted = true;
           log.boot.success("Boot completed, booted =", booted, "pending events:", pendingExportEvents.length);
           
@@ -11515,14 +11605,66 @@ async function makeFrame({ data: { type, content } }) {
           if (shouldPaint) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
+            
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
             
+            // 🧬 GOL Transition: Capture noise16 frame AFTER defaults.paint runs
+            if (paint === defaults.paint) {
+              // Continuously capture the noise16 state - we want the LAST frame before piece loads
+              golTransition.fromPixels = new Uint8ClampedArray(graph.pixels);
+              golTransition.width = $api.screen.width;
+              golTransition.height = $api.screen.height;
+            }
+            
+            // 🧬 GOL Transition: Capture first piece paint and start transition
+            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.fromPixels && !golTransition.active) {
+              // Capture the first piece paint as the "to" pixels
+              golTransition.toPixels = new Uint8ClampedArray(graph.pixels);
+              golTransition.currentPixels = new Uint8ClampedArray(golTransition.fromPixels);
+              golTransition.generation = 0;
+              golTransition.active = true;
+              // Minimal log
+              console.log("🧬 GOL: start");
+            }
+            
+            // 🧬 GOL Transition: Run GOL and blend result
+            if (golTransition.active && graph.pixels && golTransition.currentPixels && golTransition.toPixels) {
+              const { currentPixels, toPixels, width, height } = golTransition;
+              const nextPixels = golStep(currentPixels, toPixels, width, height);
+              if (nextPixels) {
+                golTransition.currentPixels = nextPixels;
+                golTransition.generation++;
+                
+                // Blend GOL result with actual piece paint (decreasing GOL influence)
+                const golInfluence = 1 - (golTransition.generation / golTransition.maxGenerations);
+                const pixels = graph.pixels;
+                const gol = golTransition.currentPixels;
+                
+                if (pixels && gol && pixels.length === gol.length) {
+                  for (let i = 0; i < pixels.length; i += 4) {
+                    pixels[i] = pixels[i] * (1 - golInfluence) + gol[i] * golInfluence;
+                    pixels[i + 1] = pixels[i + 1] * (1 - golInfluence) + gol[i + 1] * golInfluence;
+                    pixels[i + 2] = pixels[i + 2] * (1 - golInfluence) + gol[i + 2] * golInfluence;
+                  }
+                }
+              }
+              
+              // End transition
+              if (golTransition.generation >= golTransition.maxGenerations) {
+                golTransition.active = false;
+                golTransition.fromPixels = null;
+                golTransition.toPixels = null;
+                golTransition.currentPixels = null;
+                console.log("🧬 GOL: done");
+              }
+            }
+            
             // Log first piece paint
             if (pieceFrameCount === 1) {
               diskTimings.firstPaint = Math.round(performance.now() - diskTimingStart);
-              console.log(`⏱️ [DISK] first piece paint at +${diskTimings.firstPaint}ms`);
+              // Silent: first piece paint
             }
             
             // 🎨 Signal to hide boot canvas when piece's paint takes over from default noise16
@@ -13596,7 +13738,7 @@ async function makeFrame({ data: { type, content } }) {
       if (!globalThis._firstRenderSent) {
         globalThis._firstRenderSent = true;
         diskTimings.firstRenderSent = Math.round(performance.now() - diskTimingStart);
-        if (!getPackMode()) console.log(`⏱️ [DISK] first render sent to main at +${diskTimings.firstRenderSent}ms`);
+        // Silent: first render sent
         
         // Send timing data to main thread (only in dev mode)
         if (!getPackMode()) send({ type: "disk-timings", content: diskTimings });
@@ -13661,7 +13803,7 @@ async function makeFrame({ data: { type, content } }) {
       if (paintCount === 9n) {
         const preambleTime = Math.round(performance.now() - diskTimingStart);
         diskTimings.preambleComplete = preambleTime;
-        console.log(`⏱️ [DISK] preamble complete (9 frames) at +${preambleTime}ms`);
+        // Silent: preamble complete
       }
       if (typeof window !== 'undefined' && window.acSPIDER) {
         console.log("🕷️ SPIDER: Calling loadAfterPreamble now!");

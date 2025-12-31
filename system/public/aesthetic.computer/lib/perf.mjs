@@ -30,7 +30,6 @@ function sinceBoot() {
 export function markBootStart() {
   bootStart = performance.now();
   timings.boot.start = bootStart;
-  if (enabled) console.log(`⏱️ [+0ms] Boot started`);
 }
 
 // Mark a boot milestone
@@ -38,7 +37,7 @@ export function markBoot(name) {
   if (!enabled) return;
   const now = performance.now();
   timings.boot[name] = now;
-  console.log(`⏱️ [+${sinceBoot()}ms] 🥾 ${name}`);
+  // Silent - use printReport() for summary
 }
 
 // Track a network request - two ways to call:
@@ -53,7 +52,6 @@ export function trackRequest(url, durationOrOptions = {}, successOrNothing) {
   if (typeof durationOrOptions === 'number') {
     const duration = durationOrOptions;
     const status = successOrNothing ? "ok" : "error";
-    console.log(`⏱️ [+${sinceBoot()}ms] 🌐 REQ completed in ${duration.toFixed(0)}ms: ${shortUrl}`);
     
     timings.network.push({
       url: shortUrl,
@@ -73,14 +71,11 @@ export function trackRequest(url, durationOrOptions = {}, successOrNothing) {
   maxConcurrentRequests = Math.max(maxConcurrentRequests, inFlightRequests);
   
   const reqId = totalRequests;
-  console.log(`⏱️ [+${sinceBoot()}ms] 🌐 REQ #${reqId} START (${inFlightRequests} in-flight): ${shortUrl}`);
   
   return {
     end: (status = "ok", size = null) => {
       inFlightRequests--;
       const duration = (performance.now() - start).toFixed(0);
-      const sizeStr = size ? ` (${(size/1024).toFixed(1)}KB)` : "";
-      console.log(`⏱️ [+${sinceBoot()}ms] 🌐 REQ #${reqId} ${status.toUpperCase()} in ${duration}ms${sizeStr}: ${shortUrl}`);
       
       timings.network.push({
         url: shortUrl,
@@ -103,7 +98,6 @@ export function trackGlyphBatch(countOrChars, durationOrFont, fontOrNothing) {
     const count = countOrChars;
     const duration = durationOrFont;
     const font = fontOrNothing || "unknown";
-    console.log(`⏱️ [+${sinceBoot()}ms] 🔤 GLYPH batch: ${count} chars in ${duration.toFixed(0)}ms (${font})`);
     
     timings.glyphs.push({
       font,
@@ -120,12 +114,10 @@ export function trackGlyphBatch(countOrChars, durationOrFont, fontOrNothing) {
   const font = durationOrFont;
   const start = performance.now();
   const count = Array.isArray(chars) ? chars.length : chars;
-  console.log(`⏱️ [+${sinceBoot()}ms] 🔤 GLYPH batch START: ${count} chars for ${font}`);
   
   return {
     end: (cached = 0, fetched = 0) => {
       const duration = (performance.now() - start).toFixed(0);
-      console.log(`⏱️ [+${sinceBoot()}ms] 🔤 GLYPH batch END in ${duration}ms: ${cached} cached, ${fetched} fetched`);
       
       timings.glyphs.push({
         font,
@@ -143,12 +135,10 @@ export function trackFont(name) {
   if (!enabled) return { end: () => {} };
   
   const start = performance.now();
-  console.log(`⏱️ [+${sinceBoot()}ms] 🔠 FONT load START: ${name}`);
   
   return {
     end: () => {
       const duration = (performance.now() - start).toFixed(0);
-      console.log(`⏱️ [+${sinceBoot()}ms] 🔠 FONT load END in ${duration}ms: ${name}`);
       timings.fonts[name] = parseFloat(duration);
     }
   };
@@ -158,75 +148,23 @@ export function trackFont(name) {
 export function markFirstPaint() {
   if (!enabled) return;
   timings.render.firstPaint = performance.now();
-  console.log(`⏱️ [+${sinceBoot()}ms] 🎨 First paint`);
 }
 
 // Mark interactive (all glyphs loaded, UI responsive)
 export function markInteractive() {
   if (!enabled) return;
   timings.render.interactive = performance.now();
-  console.log(`⏱️ [+${sinceBoot()}ms] ✅ Interactive`);
 }
 
-// Print summary report
+// Print summary report (minimal)
 export function printReport() {
   if (!enabled) return;
   
   const totalTime = performance.now() - bootStart;
-  
-  console.log(`\n📊 ═══════════════════════════════════════════════════════`);
-  console.log(`📊 PERFORMANCE REPORT`);
-  console.log(`📊 ═══════════════════════════════════════════════════════`);
-  
-  // Boot milestones
-  console.log(`📊 Boot Milestones:`);
   const bootKeys = Object.keys(timings.boot).filter(k => k !== 'start');
-  bootKeys.forEach(key => {
-    const ms = (timings.boot[key] - bootStart).toFixed(0);
-    console.log(`📊   ${key}: +${ms}ms`);
-  });
+  const lastMilestone = bootKeys.length > 0 ? bootKeys[bootKeys.length - 1] : 'start';
   
-  // Network summary
-  console.log(`📊 Network:`);
-  console.log(`📊   Total requests: ${totalRequests}`);
-  console.log(`📊   Max concurrent: ${maxConcurrentRequests}`);
-  if (timings.network.length > 0) {
-    const avgDuration = (timings.network.reduce((a, b) => a + b.duration, 0) / timings.network.length).toFixed(0);
-    const maxDuration = Math.max(...timings.network.map(r => r.duration)).toFixed(0);
-    console.log(`📊   Avg request time: ${avgDuration}ms`);
-    console.log(`📊   Max request time: ${maxDuration}ms`);
-    
-    // Show slowest requests
-    const slowest = [...timings.network].sort((a, b) => b.duration - a.duration).slice(0, 5);
-    console.log(`📊   Slowest requests:`);
-    slowest.forEach(r => {
-      console.log(`📊     ${r.duration}ms - ${r.url}`);
-    });
-  }
-  
-  // Glyph summary
-  if (timings.glyphs.length > 0) {
-    console.log(`📊 Glyphs:`);
-    const totalGlyphs = timings.glyphs.reduce((a, b) => a + b.count, 0);
-    const totalCached = timings.glyphs.reduce((a, b) => a + b.cached, 0);
-    const totalFetched = timings.glyphs.reduce((a, b) => a + b.fetched, 0);
-    const avgBatchTime = (timings.glyphs.reduce((a, b) => a + b.duration, 0) / timings.glyphs.length).toFixed(0);
-    console.log(`📊   Total batches: ${timings.glyphs.length}`);
-    console.log(`📊   Total glyphs: ${totalGlyphs} (${totalCached} cached, ${totalFetched} fetched)`);
-    console.log(`📊   Avg batch time: ${avgBatchTime}ms`);
-  }
-  
-  // Render timing
-  console.log(`📊 Render:`);
-  if (timings.render.firstPaint) {
-    console.log(`📊   First paint: +${(timings.render.firstPaint - bootStart).toFixed(0)}ms`);
-  }
-  if (timings.render.interactive) {
-    console.log(`📊   Interactive: +${(timings.render.interactive - bootStart).toFixed(0)}ms`);
-  }
-  
-  console.log(`📊 Total time: ${totalTime.toFixed(0)}ms`);
-  console.log(`📊 ═══════════════════════════════════════════════════════\n`);
+  console.log(`⏱️ Boot: ${totalTime.toFixed(0)}ms (${lastMilestone})`);
   
   // Expose to window for debugging
   if (typeof window !== 'undefined') {
