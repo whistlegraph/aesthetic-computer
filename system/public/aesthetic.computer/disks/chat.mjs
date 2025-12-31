@@ -362,37 +362,35 @@ function paint(
       ];
       
       const lineHeight = 12;
-      const totalHeight = offlineMsg.length * lineHeight;
+      const totalLines = offlineMsg.length;
+      const halfBlock = Math.floor((totalLines * lineHeight) / 2);
       const shakeFrame = help.repeat ?? 0;
       
       offlineMsg.forEach((line, i) => {
         // High contrast colors that cycle
         let color = [200, 200, 200]; // Default fallback
         if (i === 0) {
-          // Title line - cycles between bright colors
           const titleColors = [[255, 100, 150], [255, 150, 100], [255, 200, 100]];
           color = titleColors[Math.floor(shakeFrame * 0.15) % titleColors.length] || color;
         } else if (i === 5) {
-          // "give" line - bright lime/yellow cycling
           const giveColors = [[100, 255, 100], [150, 255, 50], [200, 255, 100]];
           color = giveColors[Math.floor(shakeFrame * 0.2) % giveColors.length] || color;
         } else if (line !== "") {
-          // Other text lines - cycle through contrasting colors
           const textColors = [[255, 220, 150], [200, 220, 255], [255, 200, 200]];
           color = textColors[(i + Math.floor(shakeFrame * 0.1)) % textColors.length] || color;
         } else {
-          color = [100, 100, 100]; // Empty lines
+          color = [100, 100, 100];
         }
         
-        // Calculate Y position: center of screen, offset by line index from center of block
-        const centerY = Math.floor(screen.height / 2);
-        const blockCenterOffset = Math.floor(totalHeight / 2);
-        const lineY = centerY - blockCenterOffset + (i * lineHeight);
-        
-        // Gentle vertical shake
+        // Calculate offset from center: line 0 is at top of block
+        const offsetFromCenter = (i * lineHeight) - halfBlock;
         const shakeY = line !== "" ? Math.cos(shakeFrame * 0.25 + i * 0.5) * 1 : 0;
         
-        ink(color[0], color[1], color[2]).write(line, { center: "x", y: lineY + shakeY }, undefined, undefined, false, typefaceName);
+        // Use center:"xy" approach - y offset from screen center
+        ink(color[0], color[1], color[2]).write(line, { 
+          center: "xy",
+          y: Math.floor(screen.height / 2) + offsetFromCenter + shakeY
+        }, undefined, undefined, false, typefaceName);
       });
     } else {
       // Normal connecting message
