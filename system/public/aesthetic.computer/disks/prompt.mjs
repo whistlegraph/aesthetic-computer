@@ -5772,14 +5772,15 @@ function paint($) {
       $.needsPaint();
     }
     
-    // 😡 Angry face stamp - positioned above MOTD (funding mode vibes)
+    // 😡 Sad face stamp - positioned above MOTD (funding mode vibes)
     // Check if we're in December, January, or February for winter vibes
     const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
     const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
     if (isWinter && screen.height >= 120) {
-      // Position symbol centered horizontally, above the MOTD area
-      const symbolWidth = 32; // doubled from 16 for 2x scale
-      let symbolX = Math.floor((screen.width - symbolWidth) / 2);
+      // Face dimensions (will be scaled 2x)
+      const faceSize = 16;
+      const scaledSize = faceSize * 2;
+      let symbolX = Math.floor((screen.width - scaledSize) / 2);
       // MOTD is at screen.height/2 - 48, so put symbol above that
       let symbolY = Math.floor(screen.height / 2 - 84); // adjusted for larger size
       
@@ -5789,7 +5790,6 @@ function paint($) {
         const shakeX = Math.sin(motdFrame * 0.3) * 3;
         const shakeY = Math.cos(motdFrame * 0.4) * 2;
         
-        // Draw angry face using unifont (😡 or ಠ_ಠ alternative: ☹ frowning face)
         // Cycle through angry/fiery colors
         const angryColors = [
           [255, 80, 80],   // Red
@@ -5798,22 +5798,43 @@ function paint($) {
           [255, 100, 100], // Lighter red
         ];
         const colorIndex = Math.floor(motdFrame * 0.08) % angryColors.length;
-        const symbolColor = angryColors[colorIndex];
-        const symbolAlpha = 200 + Math.sin(motdFrame * 0.1) * 55; // 145-255 pulsing
+        const faceColor = angryColors[colorIndex];
+        const faceAlpha = 200 + Math.sin(motdFrame * 0.1) * 55; // 145-255 pulsing
         
         const faceX = Math.floor(symbolX + shakeX);
         const faceY = Math.floor(symbolY + shakeY);
         
-        // Draw the face at 2x scale using pan transformation
+        // Draw custom sad face at 2x scale using pan transformation
+        // Face is drawn at base size then scaled up
         pan({ x: faceX, y: faceY, scale: 2 });
-        ink(...symbolColor, symbolAlpha).write(
-          "☹", // Frowning face (U+2639) - works in unifont
-          { x: 0, y: 0 },
-          undefined,
-          undefined,
-          false,
-          "unifont"
-        );
+        
+        // Face outline (circle approximation - rounded square)
+        ink(...faceColor, faceAlpha);
+        // Top edge
+        box(4, 0, 8, 1);
+        // Upper sides
+        box(2, 1, 2, 1); box(12, 1, 2, 1);
+        // Side edges
+        box(1, 2, 1, 2); box(14, 2, 1, 2);
+        box(0, 4, 1, 8); box(15, 4, 1, 8);
+        box(1, 12, 1, 2); box(14, 12, 1, 2);
+        // Lower sides
+        box(2, 14, 2, 1); box(12, 14, 2, 1);
+        // Bottom edge
+        box(4, 15, 8, 1);
+        
+        // Eyes (2x2 pixels each, positioned in upper third)
+        box(4, 5, 2, 2);  // Left eye
+        box(10, 5, 2, 2); // Right eye
+        
+        // Sad frown (curved down) - at bottom third of face
+        // Frown shape: endpoints up, middle down
+        box(4, 11, 1, 1);   // Left corner up
+        box(5, 12, 1, 1);   // Left slope
+        box(6, 13, 4, 1);   // Bottom of frown
+        box(10, 12, 1, 1);  // Right slope
+        box(11, 11, 1, 1);  // Right corner up
+        
         unpan();
         
         // Red sparks flying off the head!
@@ -5829,7 +5850,7 @@ function paint($) {
           const sparkDist = sparkLife * sparkSpeed;
           
           // Start from top of head (center-top of face)
-          const sparkStartX = faceX + symbolWidth / 2;
+          const sparkStartX = faceX + scaledSize / 2;
           const sparkStartY = faceY;
           
           const sparkX = sparkStartX + Math.cos(sparkAngle) * sparkDist + Math.sin(motdFrame * 0.2 + i) * 3;
