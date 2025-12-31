@@ -7601,7 +7601,6 @@ class KidLisp {
             if (alpha === undefined || alpha === null) {
               alpha = 255;
             }
-            console.log(`🔍 embed parsed alpha: ${alpha} from args[5]:`, args[5]);
           }
         }
 

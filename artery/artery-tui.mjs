@@ -450,6 +450,7 @@ class ArteryTUI {
     this.menuItems = [
       { key: 'p', label: 'Toggle Panel', desc: 'Toggle AC sidebar in VS Code', action: () => this.togglePanel() },
       { key: 'k', label: 'KidLisp.com', desc: 'Open KidLisp editor window', action: () => this.openKidLisp() },
+      { key: 'g', label: 'KidLisp Dev', desc: 'Develop KidLisp.com with console mirroring', action: () => this.enterKidLispDevMode() },
       { key: 'd', label: 'Deck Control', desc: 'Control KidLisp.com card deck via CDP', action: () => this.enterKidLispCardsMode() },
       { key: 'o', label: 'Oven', desc: 'Bake thumbnails, previews, videos', action: () => this.enterOvenMode() },
       { key: 'v', label: 'Devices', desc: 'Connected devices (LAN)', action: () => this.enterDevicesMode() },
@@ -551,6 +552,14 @@ class ArteryTUI {
     this.flashActive = false;
     this.flashCount = 0;
     this.flashInterval = null;
+    
+    // KidLisp Dev state (console mirroring)
+    this.kidlispDevLogs = [];
+    this.kidlispDevMaxLogs = 100;
+    this.kidlispDevCdpWs = null;
+    this.kidlispDevPageId = null;
+    this.kidlispDevConnected = false;
+    this.kidlispDevScrollOffset = 0;
     
     // KidLisp Cards state
     this.kidlispCardsMenu = [
@@ -1571,6 +1580,9 @@ class ArteryTUI {
         break;
       case 'kidlisp-cards':
         this.handleKidLispCardsInput(key);
+        break;
+      case 'kidlisp-dev':
+        this.handleKidLispDevInput(key);
         break;
       case 'devices':
         this.handleDevicesInput(key);
@@ -2882,6 +2894,321 @@ class ArteryTUI {
       }
     }
     this.render();
+  }
+
+  // 🎨 KidLisp Dev Mode - Develop with console mirroring
+  async enterKidLispDevMode() {
+    this.mode = 'kidlisp-dev';
+    this.kidlispDevLogs = [];
+    this.kidlispDevScrollOffset = 0;
+    this.setStatus('Starting KidLisp Dev mode...', 'info');
+    this.render();
+    
+    // First, open the KidLisp window if not already open
+    try {
+      await Artery.openKidLispWindow();
+      this.addKidLispDevLog('🌈 KidLisp.com window opened', 'info');
+    } catch (e) {
+      this.addKidLispDevLog(`Window open failed: ${e.message}`, 'error');
+    }
+    
+    // Wait a moment for the window to initialize
+    await new Promise(r => setTimeout(r, 1500));
+    
+    // Connect to CDP and subscribe to console events
+    await this.connectKidLispDevCDP();
+    
+    this.render();
+  }
+  
+  async connectKidLispDevCDP() {
+    const http = await import('http');
+    const WebSocket = (await import('ws')).default;
+    
+    // Use the dynamically detected CDP host/port
+    const cdpHost = this.cdpHost || CDP_HOST || 'host.docker.internal';
+    const cdpPort = this.cdpPort || CDP_PORT || 9222;
+    
+    this.addKidLispDevLog(`Connecting to CDP at ${cdpHost}:${cdpPort}...`, 'info');
+    
+    // Find the KidLisp.com iframe page
+    const pageId = await new Promise((resolve) => {
+      const req = http.get({
+        hostname: cdpHost, port: cdpPort, path: '/json',
+        headers: { 'Host': 'localhost' }, timeout: 3000
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const targets = JSON.parse(data);
+            const kidlisp = targets.find(t => t.url?.includes('kidlisp.com'));
+            resolve(kidlisp?.id || null);
+          } catch { resolve(null); }
+        });
+      });
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+    });
+    
+    if (!pageId) {
+      this.kidlispDevConnected = false;
+      this.addKidLispDevLog('⚠ Could not find KidLisp.com iframe via CDP', 'warn');
+      this.addKidLispDevLog('Press [O] to open the KidLisp window first', 'info');
+      this.setStatus('CDP: KidLisp page not found', 'warn');
+      return;
+    }
+    
+    this.kidlispDevPageId = pageId;
+    this.addKidLispDevLog(`📡 Found KidLisp page: ${pageId.slice(0, 16)}...`, 'info');
+    
+    // Connect WebSocket to the page
+    try {
+      if (this.kidlispDevCdpWs) {
+        this.kidlispDevCdpWs.close();
+      }
+      
+      this.kidlispDevCdpWs = new WebSocket(
+        `ws://${cdpHost}:${cdpPort}/devtools/page/${pageId}`,
+        { headers: { Host: 'localhost' } }
+      );
+      
+      let messageId = 1;
+      
+      this.kidlispDevCdpWs.on('open', () => {
+        this.kidlispDevConnected = true;
+        this.addKidLispDevLog('✓ CDP WebSocket connected', 'success');
+        
+        // Enable Runtime and Console domains to receive console events
+        this.kidlispDevCdpWs.send(JSON.stringify({ id: messageId++, method: 'Runtime.enable' }));
+        this.kidlispDevCdpWs.send(JSON.stringify({ id: messageId++, method: 'Console.enable' }));
+        this.kidlispDevCdpWs.send(JSON.stringify({ id: messageId++, method: 'Log.enable' }));
+        
+        this.setStatus('KidLisp Dev: Console connected!', 'success');
+        this.render();
+      });
+      
+      this.kidlispDevCdpWs.on('message', (data) => {
+        try {
+          const msg = JSON.parse(data);
+          
+          // Handle console events
+          if (msg.method === 'Runtime.consoleAPICalled') {
+            const params = msg.params;
+            const text = params.args.map(arg => {
+              if (arg.value !== undefined) return String(arg.value);
+              if (arg.description) return arg.description;
+              if (arg.preview?.properties) {
+                return '{' + arg.preview.properties.map(p => `${p.name}: ${p.value}`).join(', ') + '}';
+              }
+              return JSON.stringify(arg);
+            }).join(' ');
+            this.addKidLispDevLog(text, params.type || 'log');
+            this.render();
+          }
+          
+          if (msg.method === 'Console.messageAdded') {
+            const message = msg.params.message;
+            this.addKidLispDevLog(message.text, message.level || 'log');
+            this.render();
+          }
+          
+          if (msg.method === 'Log.entryAdded') {
+            const entry = msg.params.entry;
+            this.addKidLispDevLog(entry.text, entry.level || 'log');
+            this.render();
+          }
+          
+          // Handle exceptions
+          if (msg.method === 'Runtime.exceptionThrown') {
+            const ex = msg.params.exceptionDetails;
+            const text = ex.exception?.description || ex.text || 'Unknown error';
+            this.addKidLispDevLog(`❌ ${text}`, 'error');
+            this.render();
+          }
+          
+        } catch (e) {
+          // Ignore parse errors
+        }
+      });
+      
+      this.kidlispDevCdpWs.on('close', () => {
+        this.kidlispDevConnected = false;
+        this.addKidLispDevLog('⚡ CDP connection closed', 'warn');
+        this.render();
+      });
+      
+      this.kidlispDevCdpWs.on('error', (e) => {
+        this.addKidLispDevLog(`CDP error: ${e.message}`, 'error');
+      });
+      
+    } catch (e) {
+      this.kidlispDevConnected = false;
+      this.addKidLispDevLog(`CDP connect failed: ${e.message}`, 'error');
+      this.setStatus('CDP connection failed', 'error');
+    }
+  }
+  
+  addKidLispDevLog(text, level = 'log') {
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+    this.kidlispDevLogs.push({ timestamp, text, level });
+    
+    // Trim to max logs
+    if (this.kidlispDevLogs.length > this.kidlispDevMaxLogs) {
+      this.kidlispDevLogs.shift();
+    }
+    
+    // Auto-scroll to bottom if we're at the bottom
+    if (this.kidlispDevScrollOffset === 0) {
+      // Already at bottom, stay there
+    }
+  }
+  
+  handleKidLispDevInput(key) {
+    if (key === 'escape' || key === 'q') {
+      // Cleanup CDP connection
+      if (this.kidlispDevCdpWs) {
+        this.kidlispDevCdpWs.close();
+        this.kidlispDevCdpWs = null;
+      }
+      this.kidlispDevConnected = false;
+      this.mode = 'menu';
+      this.render();
+      return;
+    }
+    
+    // Scroll controls
+    if (key === 'up' || key === 'k') {
+      this.kidlispDevScrollOffset = Math.min(
+        this.kidlispDevScrollOffset + 1,
+        Math.max(0, this.kidlispDevLogs.length - 5)
+      );
+    } else if (key === 'down' || key === 'j') {
+      this.kidlispDevScrollOffset = Math.max(0, this.kidlispDevScrollOffset - 1);
+    } else if (key === 'pageup') {
+      this.kidlispDevScrollOffset = Math.min(
+        this.kidlispDevScrollOffset + 10,
+        Math.max(0, this.kidlispDevLogs.length - 5)
+      );
+    } else if (key === 'pagedown') {
+      this.kidlispDevScrollOffset = Math.max(0, this.kidlispDevScrollOffset - 10);
+    } else if (key === 'home' || key === 'g') {
+      this.kidlispDevScrollOffset = Math.max(0, this.kidlispDevLogs.length - 5);
+    } else if (key === 'end' || key === 'G') {
+      this.kidlispDevScrollOffset = 0;
+    }
+    
+    // 'c' to clear logs
+    if (key === 'c') {
+      this.kidlispDevLogs = [];
+      this.kidlispDevScrollOffset = 0;
+      this.addKidLispDevLog('Console cleared', 'info');
+    }
+    
+    // 'r' to reconnect CDP
+    if (key === 'r') {
+      this.addKidLispDevLog('Reconnecting CDP...', 'info');
+      this.render();
+      this.connectKidLispDevCDP();
+    }
+    
+    // 'o' to re-open window
+    if (key === 'o') {
+      this.openKidLisp();
+    }
+    
+    this.render();
+  }
+  
+  renderKidLispDev() {
+    const boxWidth = this.innerWidth;
+    
+    // Header
+    this.writeLine(`${DOS_TITLE}${'═'.repeat(boxWidth)}${RESET}`);
+    this.writeLine(`${DOS_TITLE}  🎨 KidLisp Dev - Console Mirror${' '.repeat(Math.max(0, boxWidth - 35))}${RESET}`);
+    this.writeLine(`${DOS_TITLE}${'═'.repeat(boxWidth)}${RESET}`);
+    this.writeLine('');
+    
+    // Connection status
+    const connStatus = this.kidlispDevConnected 
+      ? `${FG_BRIGHT_GREEN}● Connected${RESET}` 
+      : `${FG_BRIGHT_RED}○ Disconnected${RESET}`;
+    const pageIdShort = this.kidlispDevPageId ? this.kidlispDevPageId.slice(0, 12) + '...' : 'none';
+    this.writeLine(`${FG_CYAN}CDP: ${connStatus}${BG_BLUE}  ${DIM}Page: ${pageIdShort}${RESET}`);
+    this.writeLine(`${DIM}[C]lear  [R]econnect  [O]pen Window  ↑↓/JK Scroll  Q=Back${RESET}`);
+    this.writeLine('');
+    
+    // Console log area
+    this.writeLine(`${FG_CYAN}${'─'.repeat(boxWidth)}${RESET}`);
+    this.writeLine(`${FG_BRIGHT_CYAN}Console Output:${RESET} ${DIM}(${this.kidlispDevLogs.length} entries)${RESET}`);
+    this.writeLine('');
+    
+    // Calculate visible area
+    const headerLines = 9;
+    const footerLines = 3;
+    const availableLines = this.innerHeight - headerLines - footerLines;
+    
+    // Get logs to display (from end, with scroll offset)
+    const endIndex = this.kidlispDevLogs.length - this.kidlispDevScrollOffset;
+    const startIndex = Math.max(0, endIndex - availableLines);
+    const visibleLogs = this.kidlispDevLogs.slice(startIndex, endIndex);
+    
+    // Render logs
+    for (const log of visibleLogs) {
+      let levelColor = FG_WHITE;
+      let prefix = '  ';
+      
+      switch (log.level) {
+        case 'error':
+          levelColor = FG_BRIGHT_RED;
+          prefix = '❌';
+          break;
+        case 'warn':
+        case 'warning':
+          levelColor = FG_BRIGHT_YELLOW;
+          prefix = '⚠️';
+          break;
+        case 'info':
+          levelColor = FG_BRIGHT_CYAN;
+          prefix = 'ℹ️';
+          break;
+        case 'success':
+          levelColor = FG_BRIGHT_GREEN;
+          prefix = '✓';
+          break;
+        case 'debug':
+          levelColor = FG_MAGENTA;
+          prefix = '🐛';
+          break;
+        default:
+          levelColor = FG_WHITE;
+          prefix = '  ';
+      }
+      
+      const timestamp = `${DIM}${log.timestamp}${RESET}`;
+      let text = log.text;
+      
+      // Truncate long lines
+      const maxTextLen = boxWidth - 15;
+      if (text.length > maxTextLen) {
+        text = text.slice(0, maxTextLen - 3) + '...';
+      }
+      
+      this.writeLine(`${timestamp} ${prefix} ${levelColor}${text}${RESET}`);
+    }
+    
+    // Fill remaining space
+    const logsShown = visibleLogs.length;
+    for (let i = logsShown; i < availableLines; i++) {
+      this.writeLine('');
+    }
+    
+    // Footer
+    this.writeLine(`${FG_CYAN}${'─'.repeat(boxWidth)}${RESET}`);
+    const scrollInfo = this.kidlispDevScrollOffset > 0 
+      ? `${FG_YELLOW}↑ ${this.kidlispDevScrollOffset} more${RESET}` 
+      : `${FG_GREEN}(latest)${RESET}`;
+    this.writeLine(`${scrollInfo}  ${DIM}Logs from kidlisp.com iframe${RESET}`);
   }
 
   // 🧠 Emacs Integration Mode
@@ -5524,6 +5851,9 @@ class ArteryTUI {
         break;
       case 'kidlisp-cards':
         this.renderKidLispCards();
+        break;
+      case 'kidlisp-dev':
+        this.renderKidLispDev();
         break;
       case 'devices':
         this.renderDevices();

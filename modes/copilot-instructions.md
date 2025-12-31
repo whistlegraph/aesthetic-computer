@@ -154,11 +154,33 @@ The CDP tunnel forwards localhost:9333 to host's VS Code for remote control:
 - **`ac-cdp-status`** — check if tunnel is running and port accessible
 - Artery TUI header shows CDP status (● online / ○ offline)
 
-## KidLisp.com Development via CDP
+## KidLisp.com Development 🎨
+
+### Quick Start (Artery TUI)
+Press **`G`** in Artery TUI → **KidLisp Dev** mode:
+1. Opens the KidLisp.com VS Code webview panel
+2. Connects to the iframe via CDP WebSocket
+3. Mirrors all `console.log`, `console.error`, etc. to Artery TUI
+4. Live scrollable log viewer with color-coded levels
+
+**Controls in KidLisp Dev mode:**
+- `C` — Clear console
+- `R` — Reconnect CDP if disconnected
+- `O` — Re-open KidLisp window
+- `↑/↓` or `J/K` — Scroll logs
+- `Q` or `Esc` — Exit to main menu
+
+### Key Files
+- **Main**: [system/public/kidlisp.com/index.html](system/public/kidlisp.com/index.html)
+- **JS modules**: `system/public/kidlisp.com/js/` (state, events, playback, logger)
+- **CSS modules**: `system/public/kidlisp.com/css/` (modular styles)
+- **Test suite**: [artery/test-kidlisp.mjs](artery/test-kidlisp.mjs)
+
+### CDP Testing (Advanced)
 
 When modifying `system/public/kidlisp.com/index.html`, test via Chrome DevTools Protocol:
 
-### Finding the KidLisp.com Page
+#### Finding the KidLisp.com Page
 ```bash
 # List available CDP targets (with Host header for container)
 curl -s -H "Host: localhost" http://host.docker.internal:9222/json | jq '.[] | select(.url | contains("kidlisp.com"))'
