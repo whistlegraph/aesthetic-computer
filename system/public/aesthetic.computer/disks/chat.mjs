@@ -983,22 +983,21 @@ function paint(
 
   if (!input.canType) {
     // Online counter - cycles through realtime online handles from server
-    const onlineColor = theme?.timestamp || 160;
     const chatterCount = client?.chatterCount ?? 0;
-    
-    // Use realtime online handles from server
     const onlineHandles = client?.onlineHandles || [];
     
     // Cycle through handles every 2 seconds, or show count if no handles
     let onlineText;
     if (onlineHandles.length > 0) {
       const handleIndex = Math.floor(Date.now() / 2000) % onlineHandles.length;
-      onlineText = chatterCount + " online: " + onlineHandles[handleIndex];
+      onlineText = chatterCount + " online " + onlineHandles[handleIndex];
     } else {
       onlineText = chatterCount + " online";
     }
     
-    ink(onlineColor).write(onlineText, {
+    // Draw online counter (no background)
+    const onlineFgColor = theme?.timestamp || 160;
+    ink(onlineFgColor).write(onlineText, {
       left: leftMargin,
       top: 18,
     }, false, undefined, false, "MatrixChunky8");
@@ -1157,8 +1156,10 @@ function paint(
     // Position with even margins: 10px from right edge, centered in top bar (topMargin=30)
     const btn = paintGiveButton({ screen, ink, ui: api.ui }, { paddingTop: 7, paddingRight: 10, theme });
     const btnBox = btn?.btn?.box;
-    if (btnBox) {
-      paintRecoveryTicker({ ink }, getRecoveryTicker(), btnBox, theme);
+    
+    // Paint news ticker to the left of GIVE button
+    if (btnBox && !input.canType) {
+      paintRecoveryTicker({ ink, screen }, getRecoveryTicker(), btnBox, theme);
     }
     needsPaint();
   }
