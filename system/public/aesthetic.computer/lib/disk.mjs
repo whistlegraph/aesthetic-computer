@@ -999,69 +999,73 @@ let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
 // 🧬 GOL Transition: noise16 → piece paint
+// Each pixel gets a random "reveal time" - pixels with neighbors that revealed
+// are more likely to reveal next (cellular propagation effect)
 let golTransition = {
   active: false,
   fromPixels: null, // Captured noise16 frame
   toPixels: null,   // Captured first piece paint frame
-  currentPixels: null, // Working GOL buffer
+  currentPixels: null, // Working buffer
+  revealMap: null,  // Float32Array: 0 = noise, 1 = revealed as piece
   generation: 0,
-  maxGenerations: 300, // ~5s at 60fps - slow ambient transition
+  maxGenerations: 45, // ~0.75s at 60fps - quick but visible
   width: 0,
   height: 0,
 };
 
-// 🧬 GOL step function - blend from noise16 toward target pixels
+// 🧬 GOL step function - cellular automata dissolve from noise to piece
 function golStep(current, target, w, h) {
+  const { revealMap, generation, maxGenerations } = golTransition;
   const next = new Uint8ClampedArray(current.length);
+  const progress = generation / maxGenerations;
+  
+  // Base reveal probability increases over time (S-curve for smooth transition)
+  const baseProb = progress * progress * (3 - 2 * progress); // smoothstep
   
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
+      const idx = y * w + x;
+      const i = idx * 4;
       
-      // Count live neighbors (brightness > 128)
-      let liveNeighbors = 0;
+      // Already revealed? Keep as target
+      if (revealMap[idx] >= 1) {
+        next[i] = target[i];
+        next[i + 1] = target[i + 1];
+        next[i + 2] = target[i + 2];
+        next[i + 3] = 255;
+        continue;
+      }
+      
+      // Count revealed neighbors (GOL-style neighbor influence)
+      let revealedNeighbors = 0;
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           if (dx === 0 && dy === 0) continue;
           const nx = (x + dx + w) % w;
           const ny = (y + dy + h) % h;
-          const ni = (ny * w + nx) * 4;
-          const brightness = (current[ni] + current[ni + 1] + current[ni + 2]) / 3;
-          if (brightness > 80) liveNeighbors++;
+          const ni = ny * w + nx;
+          if (revealMap[ni] >= 1) revealedNeighbors++;
         }
       }
       
-      const curBrightness = (current[i] + current[i + 1] + current[i + 2]) / 3;
-      const isAlive = curBrightness > 80;
+      // Probability to reveal: base + neighbor boost + some randomness
+      const neighborBoost = revealedNeighbors * 0.08; // More neighbors = more likely
+      const revealProb = baseProb + neighborBoost + (Math.random() * 0.05);
       
-      // GOL rules with bias toward target
-      const targetR = target[i], targetG = target[i + 1], targetB = target[i + 2];
-      const targetBrightness = (targetR + targetG + targetB) / 3;
-      const shouldBeAlive = targetBrightness > 80;
-      
-      // Standard GOL with target attraction
-      let willLive = false;
-      if (isAlive) {
-        willLive = liveNeighbors === 2 || liveNeighbors === 3;
+      if (Math.random() < revealProb) {
+        // Reveal this pixel - transition to target with brief flash
+        revealMap[idx] = 1;
+        // Brief white flash effect on reveal
+        const flash = Math.random() < 0.3 ? 40 : 0;
+        next[i] = Math.min(255, target[i] + flash);
+        next[i + 1] = Math.min(255, target[i + 1] + flash);
+        next[i + 2] = Math.min(255, target[i + 2] + flash);
       } else {
-        willLive = liveNeighbors === 3;
-      }
-      
-      // Bias toward target state - random chance to match target
-      if (Math.random() < 0.03) willLive = shouldBeAlive; // Very slow convergence
-      
-      // Blend colors toward target - keep cells brighter
-      const blend = 0.015; // Very slow blend for ambient 5s transition
-      if (willLive) {
-        // Living cells: bright, blend slowly toward target
-        next[i] = Math.min(255, current[i] * 1.02 + (targetR - current[i]) * blend);
-        next[i + 1] = Math.min(255, current[i + 1] * 1.02 + (targetG - current[i + 1]) * blend);
-        next[i + 2] = Math.min(255, current[i + 2] * 1.02 + (targetB - current[i + 2]) * blend);
-      } else {
-        // Dead cells: slow fade, keep some color
-        next[i] = current[i] * 0.95 + targetR * 0.02;
-        next[i + 1] = current[i + 1] * 0.95 + targetG * 0.02;
-        next[i + 2] = current[i + 2] * 0.95 + targetB * 0.02;
+        // Still showing noise - but shift it slightly toward purple for continuity
+        const noiseShift = progress * 0.3;
+        next[i] = current[i] * (1 - noiseShift) + target[i] * noiseShift;
+        next[i + 1] = current[i + 1] * (1 - noiseShift) + target[i + 1] * noiseShift;
+        next[i + 2] = current[i + 2] * (1 - noiseShift) + target[i + 2] * noiseShift;
       }
       next[i + 3] = 255;
     }
@@ -8300,6 +8304,7 @@ async function load(
     // golTransition.fromPixels preserved - it's the captured noise16 before piece loads
     golTransition.toPixels = null;
     golTransition.currentPixels = null;
+    golTransition.revealMap = null;
     golTransition.generation = 0;
     
     formsSent = {}; // Clear 3D list for GPU.
@@ -11684,43 +11689,40 @@ async function makeFrame({ data: { type, content } }) {
             pieceFrameCount++;
             
             // 🧬 GOL Transition: Capture noise16 frame AFTER defaults.paint runs
-            if (paint === defaults.paint) {
+            if (paint === defaults.paint && $api.screen?.pixels) {
               // Continuously capture the noise16 state - we want the LAST frame before piece loads
-              golTransition.fromPixels = new Uint8ClampedArray(graph.pixels);
+              golTransition.fromPixels = new Uint8ClampedArray($api.screen.pixels);
               golTransition.width = $api.screen.width;
               golTransition.height = $api.screen.height;
             }
             
             // 🧬 GOL Transition: Capture first piece paint and start transition
-            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.fromPixels && !golTransition.active) {
+            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.fromPixels && !golTransition.active && $api.screen?.pixels) {
               // Capture the first piece paint as the "to" pixels
-              golTransition.toPixels = new Uint8ClampedArray(graph.pixels);
+              golTransition.toPixels = new Uint8ClampedArray($api.screen.pixels);
               golTransition.currentPixels = new Uint8ClampedArray(golTransition.fromPixels);
+              // Initialize reveal map - all pixels start unrevealed (0)
+              golTransition.revealMap = new Float32Array(golTransition.width * golTransition.height);
               golTransition.generation = 0;
               golTransition.active = true;
-              // Minimal log
-              console.log("🧬 GOL: start");
+              console.log("🧬 GOL: start", golTransition.width, "x", golTransition.height);
             }
             
-            // 🧬 GOL Transition: Run GOL and blend result
-            if (golTransition.active && graph.pixels && golTransition.currentPixels && golTransition.toPixels) {
+            // 🧬 GOL Transition: Run cellular dissolve and write directly to screen
+            if (golTransition.active && $api.screen?.pixels && golTransition.currentPixels && golTransition.toPixels) {
               const { currentPixels, toPixels, width, height } = golTransition;
               const nextPixels = golStep(currentPixels, toPixels, width, height);
               if (nextPixels) {
                 golTransition.currentPixels = nextPixels;
                 golTransition.generation++;
                 
-                // Blend GOL result with actual piece paint (decreasing GOL influence)
-                const golInfluence = 1 - (golTransition.generation / golTransition.maxGenerations);
-                const pixels = graph.pixels;
+                // Copy GOL result directly to screen (no blending needed - golStep handles it)
+                const pixels = $api.screen.pixels;
                 const gol = golTransition.currentPixels;
                 
+                // Copy GOL dissolve result directly to screen
                 if (pixels && gol && pixels.length === gol.length) {
-                  for (let i = 0; i < pixels.length; i += 4) {
-                    pixels[i] = pixels[i] * (1 - golInfluence) + gol[i] * golInfluence;
-                    pixels[i + 1] = pixels[i + 1] * (1 - golInfluence) + gol[i + 1] * golInfluence;
-                    pixels[i + 2] = pixels[i + 2] * (1 - golInfluence) + gol[i + 2] * golInfluence;
-                  }
+                  pixels.set(gol);
                 }
               }
               
@@ -11730,6 +11732,7 @@ async function makeFrame({ data: { type, content } }) {
                 golTransition.fromPixels = null;
                 golTransition.toPixels = null;
                 golTransition.currentPixels = null;
+                golTransition.revealMap = null;
                 console.log("🧬 GOL: done");
               }
             }
