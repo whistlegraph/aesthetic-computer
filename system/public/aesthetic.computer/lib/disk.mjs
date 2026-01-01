@@ -4555,7 +4555,8 @@ const $paintApi = {
       bounds,
       wordWrap = true,
       customTypeface = null,
-      rotation = 0;
+      rotation = 0,
+      noFunding = false;
     
     if (text === undefined || text === null || text === "" || !tf)
       return $activePaintApi; // Fail silently if no text.
@@ -4565,9 +4566,18 @@ const $paintApi = {
         ? JSON.stringify(text)
         : text.toString();
     
+    // Check for noFunding option early (before funding mode processing)
+    // Support both object-style pos.noFunding and options.noFunding
+    if (typeof arguments[1] === "number") {
+      noFunding = arguments[3]?.noFunding ?? false;
+    } else {
+      noFunding = arguments[1]?.noFunding ?? false;
+    }
+    
     // 💵 FUNDING MODE: Randomly replace S/s with green $ for financial vibes
-    // Skip for shadow text to avoid double-replacement
-    if (typeof globalThis !== "undefined" && globalThis.AC_FUNDING_MODE && !_isRenderingShadow) {
+    // For shadows: replace character but don't add color codes (shadow uses shadow color)
+    // Skip if noFunding option is set
+    if (typeof globalThis !== "undefined" && globalThis.AC_FUNDING_MODE && !noFunding) {
       // Use a seeded random based on text position to keep it stable per frame
       // but change over time (every ~500ms)
       const timeSlot = Math.floor(Date.now() / 500);
@@ -4593,13 +4603,22 @@ const $paintApi = {
           // Use a pseudo-random based on char position and time
           const hash = ((i * 17 + timeSlot * 31) % 100) / 100;
           if (hash < 0.25) {
-            // Replace with lime green $ and restore original color after
-            result += '\\lime\\$';
-            // Restore previous color, or reset to default if no color was set
-            if (currentColor) {
-              result += '\\' + currentColor + '\\';
+            if (_isRenderingShadow) {
+              // For shadows: just replace the character, no color codes
+              result += '$';
             } else {
-              result += '\\reset\\';
+              // Pick a random green shade based on position
+              const greens = ['lime', 'green', '0,200,0', '100,255,100', '50,220,50'];
+              const greenIndex = (i * 7 + timeSlot * 13) % greens.length;
+              const greenColor = greens[greenIndex];
+              // Replace with green $ and restore original color after
+              result += '\\' + greenColor + '\\$';
+              // Restore previous color, or reset to default if no color was set
+              if (currentColor) {
+                result += '\\' + currentColor + '\\';
+              } else {
+                result += '\\reset\\';
+              }
             }
             i++;
             continue;
