@@ -191,8 +191,12 @@ export function paintRecoveryTicker($, recoveryText, btnBox, theme) {
   const tickerPadding = 4;
   const tickerGap = 8;
   
+  // Static "News: " prefix
+  const newsPrefix = "News: ";
+  const newsPrefixWidth = newsPrefix.length * tickerCharWidth;
+  
   const tickerRight = btnBox.x - tickerGap;
-  const tickerMaxWidth = Math.min(180, tickerRight - 10);
+  const tickerMaxWidth = Math.min(180, tickerRight - 10 - newsPrefixWidth);
   if (tickerMaxWidth < 50) return;
   
   const tickerY = btnBox.y + (btnBox.h - tickerHeight) / 2;
@@ -201,18 +205,23 @@ export function paintRecoveryTicker($, recoveryText, btnBox, theme) {
   const textFullWidth = recoveryText.length * tickerCharWidth;
   const scrollOffset = (performance.now() * scrollSpeed / 16) % (textFullWidth + tickerMaxWidth);
   
-  const tickerBgX = tickerRight - tickerMaxWidth;
+  const tickerBgX = tickerRight - tickerMaxWidth - newsPrefixWidth;
   const bgColor = theme?.background ? darkenColor(normalizeColor(theme.background), 0.3) : [0, 0, 0];
-  ink(...bgColor, 180).box(tickerBgX - tickerPadding, tickerY - 2, tickerMaxWidth + tickerPadding * 2, tickerHeight + 4);
+  ink(...bgColor, 180).box(tickerBgX - tickerPadding, tickerY - 2, tickerMaxWidth + newsPrefixWidth + tickerPadding * 2, tickerHeight + 4);
   
   const textColor = theme?.messageText ? normalizeColor(theme.messageText) : 
                     theme?.handle ? lightenColor(normalizeColor(theme.handle), 0.3) : [255, 255, 255];
   
+  // Draw static "News: " prefix
+  ink(...textColor).write(newsPrefix, { x: tickerBgX, y: Math.round(tickerY) }, undefined, undefined, false, "MatrixChunky8");
+  
+  // Draw scrolling text (clipped to area after prefix)
+  const scrollAreaLeft = tickerBgX + newsPrefixWidth;
   const textX = tickerRight - scrollOffset;
   
   for (let i = 0; i < recoveryText.length; i++) {
     const charX = textX + i * tickerCharWidth;
-    if (charX >= tickerBgX - tickerPadding && charX < tickerRight) {
+    if (charX >= scrollAreaLeft && charX < tickerRight) {
       ink(...textColor).write(recoveryText[i], { x: Math.round(charX), y: Math.round(tickerY) }, undefined, undefined, false, "MatrixChunky8");
     }
   }
