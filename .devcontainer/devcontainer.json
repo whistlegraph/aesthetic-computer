@@ -160,24 +160,13 @@
         // Force Copilot extensions to run on UI (host) side, not in container.
         // Installing copilot-chat in container causes crashes - see commit aff03abf
         // This also keeps API keys on host rather than in container
-        "remote.extensionKind": {
-          // "github.copilot-chat": ["ui"],
-          // "github.copilot": ["ui"]
-        },
-        "settingsSync.ignoredExtensions": [
-          // "github.copilot-chat",
-          // "github.copilot"
-        ],
-
         // Don't auto-update extensions - prevents mid-session breakage
         "extensions.autoUpdate": false,
         "extensions.ignoreRecommendations": true,
         "settingsSync.keybindingsPerPlatform": false
       },
       "extensions": [
-        "mongodb.mongodb-vscode",
-        "GitHub.copilot",
-        "GitHub.copilot-chat"
+        "mongodb.mongodb-vscode"
       ]
     }
   },
