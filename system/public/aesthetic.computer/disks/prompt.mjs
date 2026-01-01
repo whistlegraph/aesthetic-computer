@@ -3632,14 +3632,28 @@ function paint($) {
   
   // 💸 GIVE button in top-right corner during funding effects (critical or yikes)
   if (showFundingEffects && showLoginCurtain) {
-    // Cycle through currencies every 2 seconds
-    // Note: Use U$D instead of USD to avoid random $ replacement on the S
-    const currencies = ["U$D", "TEZ", "DKK", "ETH"];
-    const currencyIndex = Math.floor(Date.now() / 2000) % currencies.length;
-    const giveBtnText = "GIVE " + currencies[currencyIndex];
+    // Sync GIVE button with emotional face - angry = GIVE UP, others = currencies
+    const now = Date.now();
+    
+    // Match the face emotion cycle: every 3 seconds, 0=angry, 1=sad, 2=crying
+    const emotionPhase = Math.floor(now / 3000) % 3;
+    const isGiveUpMode = emotionPhase === 0; // Angry face = GIVE UP mode
+    
+    // Randomly pick ? or ! based on fast oscillation (only used in GIVE UP mode)
+    const punctuation = Math.floor(now / 150) % 2 === 0 ? "?" : "!";
+    
+    let giveBtnText;
+    if (isGiveUpMode) {
+      giveBtnText = "GIVE UP" + punctuation;
+    } else {
+      const currencies = ["U$D", "TEZ", "DKK", "ETH", "BTC"];
+      const currencyIndex = Math.floor(now / 3000) % currencies.length;
+      giveBtnText = "GIVE " + currencies[currencyIndex];
+    }
+    
     const btnPaddingTop = 8; // Moved down 2px
-    const btnPaddingRight = 12; // More padding from right edge
-    const btnWidth = 52; // Wider button for "GIVE XXX"
+    const btnPaddingRight = 10; // Uniform margin with top
+    const btnWidth = 56; // Fixed width for consistent right alignment
     const giveBtnY = btnPaddingTop;
     const giveBtnX = screen.width - btnWidth - btnPaddingRight; // Right-aligned with padding
     
@@ -3687,35 +3701,74 @@ function paint($) {
     if (btnBox) {
       // Draw button background and outline manually
       const isDown = giveBtn.btn.down;
-      const bgColor = isDown ? hslToRgb(hue, 100, 70) : fillColor;
       
-      ink(...bgColor).box(btnBox, "fill");
-      ink(255, 255, 255).box(btnBox, "outline");
-      
-      // 💥 Draw each letter with individual shake and color!
-      const chars = giveBtnText.split('');
-      const charWidth = 6; // font_1 char width
-      const textStartX = btnBox.x + 4; // padding
-      const textY = btnBox.y + 4; // padding
-      
-      chars.forEach((char, i) => {
-        // Each letter gets different hue offset
-        const letterHue = (hue + i * 90) % 360;
-        const letterColor = hslToRgb(letterHue, 100, isDown ? 40 : 75);
+      // 🔴⚪⚫ Special GIVE UP? mode - super fast red/white/black blinking
+      if (isGiveUpMode) {
+        // Fast oscillation at ~20Hz (50ms per cycle) between red, white, black
+        const blinkPhase = Math.floor(performance.now() / 50) % 3;
+        const blinkColors = [
+          [255, 0, 0],    // red
+          [255, 255, 255], // white
+          [0, 0, 0],      // black
+        ];
+        const bgColor = blinkColors[blinkPhase];
+        const textColor = blinkColors[(blinkPhase + 1) % 3]; // Offset text color for contrast
+        const outlineColor = blinkColors[(blinkPhase + 2) % 3];
         
-        // Shake offset - each letter shakes independently
-        const shakeX = Math.sin(t * 20 + i * 2) * 1;
-        const shakeY = Math.cos(t * 25 + i * 3) * 1;
+        // Special colors for punctuation
+        const punctColors = {
+          "?": [0, 255, 255],   // cyan for ?
+          "!": [255, 255, 0],   // yellow for !
+        };
         
-        const x = textStartX + i * charWidth + shakeX;
-        const y = textY + shakeY;
+        ink(...bgColor).box(btnBox, "fill");
+        ink(...outlineColor).box(btnBox, "outline");
         
-        ink(...letterColor).write(char, { x: Math.round(x), y: Math.round(y) });
-      });
-    }
-    
-    // ✨ Spawn sparkle particles around the button
-    if (btnBox && Math.random() < 0.4) { // 40% chance per frame to spawn
+        // Shake text aggressively
+        const chars = giveBtnText.split('');
+        const charWidth = 6;
+        const textStartX = btnBox.x + 4;
+        const textY = btnBox.y + 4;
+        
+        chars.forEach((char, i) => {
+          const shakeX = (Math.random() - 0.5) * 3;
+          const shakeY = (Math.random() - 0.5) * 3;
+          // Use special color for ? or !
+          const charColor = punctColors[char] || textColor;
+          ink(...charColor).write(char, { x: Math.round(textStartX + i * charWidth + shakeX), y: Math.round(textY + shakeY) });
+        });
+        
+        // No particles in GIVE UP? mode - too chaotic already
+      } else {
+        // Normal rainbow mode
+        const bgColor = isDown ? hslToRgb(hue, 100, 70) : fillColor;
+        
+        ink(...bgColor).box(btnBox, "fill");
+        ink(255, 255, 255).box(btnBox, "outline");
+        
+        // 💥 Draw each letter with individual shake and color!
+        const chars = giveBtnText.split('');
+        const charWidth = 6; // font_1 char width
+        const textStartX = btnBox.x + 4; // padding
+        const textY = btnBox.y + 4; // padding
+        
+        chars.forEach((char, i) => {
+          // Each letter gets different hue offset
+          const letterHue = (hue + i * 90) % 360;
+          const letterColor = hslToRgb(letterHue, 100, isDown ? 40 : 75);
+          
+          // Shake offset - each letter shakes independently
+          const shakeX = Math.sin(t * 20 + i * 2) * 1;
+          const shakeY = Math.cos(t * 25 + i * 3) * 1;
+        
+          const x = textStartX + i * charWidth + shakeX;
+          const y = textY + shakeY;
+        
+          ink(...letterColor).write(char, { x: Math.round(x), y: Math.round(y) });
+        });
+        
+        // ✨ Spawn sparkle particles around the button (only in normal mode)
+        if (Math.random() < 0.4) { // 40% chance per frame to spawn
       const sparkleHue = (hue + Math.random() * 60 - 30) % 360; // Vary hue slightly
       const sparkleColor = hslToRgb(sparkleHue, 100, 70);
       
@@ -3759,6 +3812,8 @@ function paint($) {
         color: sparkleColor,
         size: Math.random() < 0.3 ? 2 : 1, // 30% chance of 2px particle
       });
+        }
+      } // End of normal rainbow mode else block
     }
     
     // Update and draw sparkle particles
