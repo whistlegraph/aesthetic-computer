@@ -244,7 +244,13 @@ export class ChatManager {
         `💬 [${instance.config.name}] Connection ${id} closed, online: ${Object.keys(instance.connections).length}`
       );
 
-      this.broadcast(instance, this.pack("left", { chatters: Object.keys(instance.connections).length }, id));
+      // Broadcast updated online handles after removing this connection
+      this.broadcastOnlineHandles(instance);
+      
+      this.broadcast(instance, this.pack("left", { 
+        chatters: Object.keys(instance.connections).length,
+        handles: this.getOnlineHandles(instance)
+      }, id));
     });
 
     // Send welcome message
@@ -254,6 +260,7 @@ export class ChatManager {
         {
           message: `Joined \`${instance.config.name}\` • 🧑‍🤝‍🧑 ${Object.keys(instance.connections).length}`,
           chatters: Object.keys(instance.connections).length,
+          handles: this.getOnlineHandles(instance),
           messages: instance.messages,
           id,
         },
@@ -267,6 +274,7 @@ export class ChatManager {
       {
         text: `${id} has joined. Connections open: ${Object.keys(instance.connections).length}`,
         chatters: Object.keys(instance.connections).length,
+        handles: this.getOnlineHandles(instance),
       },
       id,
     ));
@@ -329,6 +337,12 @@ export class ChatManager {
     let handle, subscribed;
     if (authorized) {
       handle = await this.getHandleFromSub(instance, authorized.sub);
+      
+      // Store handle in authorizedConnections for online list
+      instance.authorizedConnections[id].handle = handle;
+      
+      // Broadcast updated online handles to all clients
+      this.broadcastOnlineHandles(instance);
       
       // Subscription check for sotce
       if (instance.config.name === "chat-sotce") {
@@ -634,6 +648,23 @@ export class ChatManager {
     Object.values(instance.connections).forEach((c) => {
       if (c !== exclude && c?.readyState === WebSocket.OPEN) c.send(message);
     });
+  }
+
+  // Get list of online handles for an instance
+  getOnlineHandles(instance) {
+    const handles = [];
+    for (const [id, auth] of Object.entries(instance.authorizedConnections)) {
+      if (auth.handle && instance.connections[id]) {
+        handles.push(auth.handle);
+      }
+    }
+    return [...new Set(handles)]; // Remove duplicates
+  }
+
+  // Broadcast online handles to all clients
+  broadcastOnlineHandles(instance) {
+    const handles = this.getOnlineHandles(instance);
+    this.broadcast(instance, this.pack("online-handles", { handles }));
   }
 
   // Get status for a specific instance or all
