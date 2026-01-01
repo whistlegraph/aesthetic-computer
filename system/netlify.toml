@@ -140,6 +140,11 @@ external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "CONTEXT"]
 
+[functions.tv-tapes]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "CONTEXT"]
+
 [functions.ask]
 included_env_vars = ["CONTEXT", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
 
@@ -833,6 +838,10 @@ status = 200
 [[redirects]]
 from = "/api/tv"
 to = "/.netlify/functions/tv"
+status = 200
+[[redirects]]
+from = "/api/tv-tapes"
+to = "/.netlify/functions/tv-tapes"
 status = 200
 [[redirects]]
 from = "/api/say"
