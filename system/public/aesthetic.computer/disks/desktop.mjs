@@ -1,5 +1,6 @@
-// Desktop, 2024.12.27
+// Desktop, 2024.12.27 → 2026.01.01
 // Download page for the Aesthetic Computer desktop app.
+// Redesigned with animation, better colors, and responsive layout.
 
 const APP_VERSION = "0.1.0";
 
@@ -10,12 +11,18 @@ const DOWNLOADS = {
   linux: `/desktop/linux`,
 };
 
-let platform, downloadUrl, platformLabel;
-let mainBtn, altBtns;
+let platform, downloadUrl, platformLabel, platformIcon;
+let buttons = [];
+let animFrame = 0;
+let hoverPlatform = null;
+let pulsePhase = 0;
+let TB;
 
 // 🥾 Boot
-function boot({ wipe, cursor, screen, ui: { TextButton: TB } }) {
-  wipe(20, 10, 40);
+function boot($) {
+  const { wipe, cursor, screen, ui: { TextButton } } = $;
+  TB = TextButton;
+  wipe(15, 8, 25);
   cursor("native");
   
   // Detect platform
@@ -27,141 +34,234 @@ function boot({ wipe, cursor, screen, ui: { TextButton: TB } }) {
       platform = "mac";
       downloadUrl = DOWNLOADS.mac;
       platformLabel = "macOS";
+      platformIcon = "🍎";
     } else if (plat.includes("win") || ua.includes("win")) {
       platform = "win";
       downloadUrl = DOWNLOADS.win;
       platformLabel = "Windows";
+      platformIcon = "🪟";
     } else if (plat.includes("linux") || ua.includes("linux")) {
       platform = "linux";
       downloadUrl = DOWNLOADS.linux;
       platformLabel = "Linux";
+      platformIcon = "🐧";
     } else {
       platform = "other";
       downloadUrl = DOWNLOADS.mac;
       platformLabel = "macOS";
+      platformIcon = "🍎";
     }
   }
   
+  createButtons(screen);
+}
+
+function createButtons(screen) {
   const cx = screen.width / 2;
-  const compact = screen.height < 300;
-  const btnY = compact ? 90 : 120;
+  const isMobile = screen.width < 400;
+  const isCompact = screen.height < 280;
   
-  // Create main download button - centered
-  mainBtn = new TB("Download", { center: "x", y: btnY, screen });
+  buttons = [];
   
-  // Create alt platform buttons
-  const altY = btnY + 50;
-  const spacing = 60;
-  const startX = cx - spacing;
+  // Main platform buttons - horizontal row
+  const btnWidth = isMobile ? 80 : 100;
+  const btnGap = isMobile ? 8 : 16;
+  const totalWidth = btnWidth * 3 + btnGap * 2;
+  const startX = cx - totalWidth / 2;
+  const btnY = isCompact ? 100 : 130;
   
-  altBtns = [
-    { btn: new TB("Mac", { x: startX, y: altY }), url: DOWNLOADS.mac, name: "mac" },
-    { btn: new TB("Win", { x: startX + spacing, y: altY }), url: DOWNLOADS.win, name: "win" },
-    { btn: new TB("Linux", { x: startX + spacing * 2, y: altY }), url: DOWNLOADS.linux, name: "linux" },
+  const platforms = [
+    { name: "mac", label: "Mac", icon: "🍎", url: DOWNLOADS.mac },
+    { name: "win", label: "Windows", icon: "🪟", url: DOWNLOADS.win },
+    { name: "linux", label: "Linux", icon: "🐧", url: DOWNLOADS.linux },
   ];
+  
+  platforms.forEach((p, i) => {
+    const x = startX + i * (btnWidth + btnGap) + btnWidth / 2;
+    buttons.push({
+      ...p,
+      btn: new TB(`${p.icon} ${p.label}`, { x, y: btnY, center: "x" }),
+      isPrimary: p.name === platform,
+    });
+  });
 }
 
 // 🎨 Paint
 function paint($) {
-  const { wipe, ink, write, screen, line } = $;
+  const { wipe, ink, write, screen, line, box, num: { wave } } = $;
   
-  wipe(20, 10, 40);
+  // Animated background gradient
+  const bgPulse = wave(pulsePhase * 0.02) * 3;
+  wipe(15 + bgPulse, 8 + bgPulse, 25 + bgPulse * 2);
   
   const cx = screen.width / 2;
-  const compact = screen.height < 300;
+  const isMobile = screen.width < 400;
+  const isCompact = screen.height < 280;
   
-  // Layout calculations - responsive
-  let y = compact ? 12 : 24;
-  const spacing = compact ? 10 : 14;
-  
-  // Title
-  ink(255, 100, 255).write("AESTHETIC COMPUTER", { x: cx, y, center: "x" });
-  y += spacing;
-  ink(180, 180, 200).write("DESKTOP", { x: cx, y, center: "x" });
-  y += spacing + 4;
-  
-  // Version
-  ink(80, 80, 120).write(`v${APP_VERSION}`, { x: cx, y, center: "x" });
-  y += spacing + 8;
-  
-  // Platform detected
-  const icon = platform === "mac" ? "🍎" : platform === "win" ? "🪟" : "🐧";
-  ink(120, 120, 160).write(`${icon} ${platformLabel} detected`, { x: cx, y, center: "x" });
-  
-  // Main download button
-  mainBtn.paint($, 
-    [[100, 50, 150], [200, 100, 255], 255, 255],  // normal: bg, border, text, textAlpha
-    [[140, 80, 200], [255, 150, 255], 255, 255],  // hover
-    [[60, 30, 90], [100, 50, 150], 150, 200]      // disabled
-  );
-  
-  // Subtext under main button
-  const subY = (compact ? 90 : 120) + 28;
-  const subtext = platform === "mac" ? "Universal (Apple Silicon + Intel)" :
-                  platform === "win" ? "64-bit Installer" : "AppImage";
-  ink(100, 100, 140).write(subtext, { x: cx, y: subY, center: "x" });
-  
-  // Alt buttons label
-  const altLabelY = (compact ? 90 : 120) + 46;
-  ink(80, 80, 120).write("Other platforms:", { x: cx, y: altLabelY, center: "x" });
-  
-  // Alt platform buttons
-  altBtns.forEach((alt) => {
-    const isActive = alt.name === platform;
-    alt.btn.paint($, 
-      isActive ? [[60, 30, 90], [100, 60, 140], 140, 180] : [[40, 20, 60], [80, 50, 120], 200, 255],
-      [[80, 50, 120], [140, 80, 180], 255, 255],
-      [[30, 15, 45], [60, 30, 90], 100, 150]
-    );
-  });
-  
-  // Divider
-  const divY = (compact ? 90 : 120) + 90;
-  ink(50, 30, 70);
-  line([20, divY], [screen.width - 20, divY]);
-  
-  // Install hint based on platform
-  if (!compact) {
-    const hintY = divY + 14;
-    ink(100, 180, 120);
-    if (platform === "mac") {
-      write("First run: Right-click → Open → Open", { x: cx, y: hintY, center: "x" });
-    } else if (platform === "linux") {
-      write("chmod +x *.AppImage && ./AC.AppImage", { x: cx, y: hintY, center: "x" });
-    } else {
-      write("Run installer and follow prompts", { x: cx, y: hintY, center: "x" });
-    }
+  // Floating particles (subtle animation)
+  ink(255, 100, 255, 0.1);
+  for (let i = 0; i < 8; i++) {
+    const px = (animFrame * 0.3 + i * 120) % (screen.width + 40) - 20;
+    const py = (Math.sin((animFrame + i * 50) * 0.01) * 20 + 40 + i * 30) % screen.height;
+    box(px, py, 2, 2);
   }
   
-  // Features (only if space)
-  if (screen.height > 280) {
-    const featY = divY + (compact ? 14 : 30);
-    ink(80, 80, 120);
-    write("✨ Web + Terminal • Cmd+/- Zoom • Alt+Scroll Drag", { x: cx, y: featY, center: "x" });
+  // Layout
+  let y = isCompact ? 16 : 28;
+  const spacing = isCompact ? 12 : 16;
+  
+  // Animated title with color cycling
+  const titleHue = (animFrame * 0.5) % 360;
+  const r = 180 + Math.sin(titleHue * 0.017) * 75;
+  const g = 100 + Math.sin(titleHue * 0.017 + 2) * 50;
+  const b = 255;
+  ink(r, g, b).write("AESTHETIC COMPUTER", { x: cx, y, center: "x" });
+  y += spacing;
+  
+  // Subtitle with subtle pulse
+  const subAlpha = 180 + wave(pulsePhase * 0.05) * 40;
+  ink(200, 180, 220, subAlpha / 255).write("DESKTOP", { x: cx, y, center: "x" });
+  y += spacing + 4;
+  
+  // Version badge
+  ink(100, 80, 140).write(`v${APP_VERSION}`, { x: cx, y, center: "x" });
+  y += spacing + 8;
+  
+  // Platform detection with animated indicator
+  const detectPulse = wave(pulsePhase * 0.08) * 0.3 + 0.7;
+  ink(100 * detectPulse, 200 * detectPulse, 150 * detectPulse);
+  write(`${platformIcon} ${platformLabel} detected`, { x: cx, y, center: "x" });
+  y += spacing + 12;
+  
+  // Download label
+  ink(140, 130, 160).write("Download for:", { x: cx, y, center: "x" });
+  
+  // Platform buttons
+  buttons.forEach((b) => {
+    const isPrimary = b.isPrimary;
+    const isHover = hoverPlatform === b.name;
+    
+    // Animated glow for primary button
+    if (isPrimary && !isHover) {
+      const glow = wave(pulsePhase * 0.06) * 30;
+      b.btn.paint($, 
+        [[60 + glow, 180 + glow, 120 + glow], [100 + glow, 255, 180 + glow], 255, 255],
+        [[100, 255, 180], [150, 255, 220], 255, 255],
+        [[40, 120, 80], [60, 180, 100], 180, 200]
+      );
+    } else if (isHover) {
+      b.btn.paint($,
+        [[80, 200, 255], [120, 220, 255], 255, 255],
+        [[100, 220, 255], [150, 240, 255], 255, 255],
+        [[40, 100, 140], [60, 140, 180], 180, 200]
+      );
+    } else {
+      b.btn.paint($,
+        [[40, 30, 60], [80, 60, 120], 200, 240],
+        [[70, 50, 100], [120, 90, 160], 255, 255],
+        [[30, 20, 45], [50, 35, 75], 140, 180]
+      );
+    }
+  });
+  
+  // File type hint under buttons
+  const hintY = (isCompact ? 100 : 130) + 32;
+  ink(90, 80, 110);
+  const fileHint = hoverPlatform === "mac" ? ".dmg (Universal)" :
+                   hoverPlatform === "win" ? ".exe (64-bit)" :
+                   hoverPlatform === "linux" ? ".AppImage" :
+                   platform === "mac" ? ".dmg (Universal)" :
+                   platform === "win" ? ".exe (64-bit)" : ".AppImage";
+  write(fileHint, { x: cx, y: hintY, center: "x" });
+  
+  // Divider with gradient effect
+  const divY = (isCompact ? 100 : 130) + 54;
+  for (let dx = 0; dx < screen.width - 40; dx++) {
+    const alpha = Math.sin((dx / (screen.width - 40)) * Math.PI) * 0.5;
+    ink(100, 60, 140, alpha);
+    box(20 + dx, divY, 1, 1);
+  }
+  
+  // Features section
+  if (!isCompact && screen.height > 240) {
+    const featY = divY + 16;
+    
+    // Feature icons with staggered fade-in
+    const features = [
+      { icon: "🌐", text: "Web + Terminal" },
+      { icon: "🔍", text: "Zoom Controls" },
+      { icon: "🖱️", text: "Drag & Scroll" },
+    ];
+    
+    const featSpacing = isMobile ? 90 : 120;
+    const featStart = cx - (features.length - 1) * featSpacing / 2;
+    
+    features.forEach((f, i) => {
+      const fadeIn = Math.min(1, (animFrame - i * 15) / 30);
+      if (fadeIn > 0) {
+        const fx = featStart + i * featSpacing;
+        ink(180, 150, 220, fadeIn);
+        write(f.icon, { x: fx, y: featY, center: "x" });
+        ink(120, 100, 150, fadeIn * 0.8);
+        write(f.text, { x: fx, y: featY + 14, center: "x" });
+      }
+    });
+  }
+  
+  // Install instructions (context-sensitive)
+  if (!isCompact && screen.height > 280) {
+    const instY = divY + (isMobile ? 50 : 56);
+    ink(80, 180, 120);
+    const instText = hoverPlatform === "mac" || (!hoverPlatform && platform === "mac") 
+      ? "First run: Right-click → Open → Open"
+      : hoverPlatform === "linux" || (!hoverPlatform && platform === "linux")
+      ? "chmod +x *.AppImage && ./AC.AppImage"
+      : "Run installer and follow prompts";
+    write(instText, { x: cx, y: instY, center: "x" });
   }
   
   // Footer
-  ink(60, 60, 100);
-  write("Requires Docker Desktop", { x: cx, y: screen.height - (compact ? 12 : 18), center: "x" });
+  const footY = screen.height - (isCompact ? 12 : 20);
+  ink(60, 50, 80);
+  write("Requires Docker Desktop", { x: cx, y: footY, center: "x" });
+  
+  // Decorative corner accents
+  ink(100, 60, 140, 0.3);
+  line([0, 0], [20, 0]);
+  line([0, 0], [0, 20]);
+  line([screen.width - 1, 0], [screen.width - 21, 0]);
+  line([screen.width - 1, 0], [screen.width - 1, 20]);
+  line([0, screen.height - 1], [20, screen.height - 1]);
+  line([0, screen.height - 1], [0, screen.height - 21]);
+  line([screen.width - 1, screen.height - 1], [screen.width - 21, screen.height - 1]);
+  line([screen.width - 1, screen.height - 1], [screen.width - 1, screen.height - 21]);
 }
 
 // 🎪 Act
-function act({ event: e, jump, net: { web } }) {
-  // Main button
-  mainBtn.btn.act(e, () => web(downloadUrl));
+function act({ event: e, jump, net: { web }, screen }) {
+  // Track hover state
+  hoverPlatform = null;
   
-  // Alt buttons
-  altBtns.forEach(alt => {
-    alt.btn.btn.act(e, () => web(alt.url));
+  buttons.forEach(b => {
+    if (b.btn.btn.box?.contains(e.pointer)) {
+      hoverPlatform = b.name;
+    }
+    b.btn.btn.act(e, () => web(b.url));
   });
   
   // Escape to go back
   if (e.is("keyboard:down:escape")) jump("prompt");
+  
+  // Recreate buttons on resize
+  if (e.is("reframed")) {
+    createButtons(screen);
+  }
 }
 
 // 🧮 Sim
 function sim() {
-  // Nothing needed
+  animFrame++;
+  pulsePhase++;
 }
 
 export { boot, paint, act, sim };
