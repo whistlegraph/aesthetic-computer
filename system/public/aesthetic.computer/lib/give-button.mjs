@@ -71,9 +71,12 @@ export function paintGiveButton($, options = {}) {
   const theme = options.theme;
   const useRainbow = !theme;
   
-  const currencies = ["U$D", "TEZ", "DKK", "ETH"];
-  const currencyIndex = Math.floor(Date.now() / 2000) % currencies.length;
+  // Determine button text - cycles through currencies every 2 seconds
+  const now = Date.now();
+  const currencies = ["U$D", "TEZ", "DKK", "ETH", "BTC"];
+  const currencyIndex = Math.floor(now / 2000) % currencies.length;
   const giveBtnText = "GIVE " + currencies[currencyIndex];
+  
   const btnWidth = 52;
   const giveBtnY = paddingTop;
   const giveBtnX = screen.width - btnWidth - paddingRight;

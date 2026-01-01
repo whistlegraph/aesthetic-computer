@@ -1993,6 +1993,7 @@ if (dev) {
       "../system/public/aesthetic.computer/style.css",
       "../system/public/kidlisp.com",
       "../system/public/gift.aesthetic.computer",
+      "../system/public/give.aesthetic.computer",
     ])
     .on("all", (event, path) => {
       if (event === "change")
