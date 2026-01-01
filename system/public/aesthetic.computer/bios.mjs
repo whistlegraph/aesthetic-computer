@@ -968,7 +968,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let dimensionMismatchCount = 0; // Track freeze loop iterations during reframe
   let freezeFrame = false,
     freezeFrameFrozen = false,
-    freezeFrameGlaze = false;
+    freezeFrameGlaze = false,
+    glazeReady = true; // Track when glaze shaders have finished loading after resize
 
   const screen = apiObject("pixels", "width", "height");
   let subdivisions = 1; // Gets set in frame.
@@ -1538,6 +1539,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // A native resolution canvas for drawing cursors, system UI, and effects.
     if (glaze.on) {
+      glazeReady = false; // Mark glaze as not ready during shader reload
       currentGlaze = Glaze.on(
         canvas.width,
         canvas.height,
@@ -1547,8 +1549,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         wrapper,
         glaze.type,
         () => {
+          glazeReady = true; // Glaze shaders loaded, safe to show
           send({ type: "needs-paint" }); // Once all the glaze shaders load, render a single frame.
-          // canvas.style.opacity = 0;
         },
       );
     } else {
@@ -15934,8 +15936,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // console.log("Cached...");
     }
 
-    // Hide the freezeFrame.
-    if (freezeFrame && freezeFrameFrozen) {
+    // Hide the freezeFrame - wait for glaze to be ready if it's enabled
+    if (freezeFrame && freezeFrameFrozen && (!glaze.on || glazeReady)) {
       if (glaze.on === false) {
         canvas.style.removeProperty("opacity");
       }
@@ -15946,9 +15948,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       freezeFrameFrozen = false;
     }
 
-    if (glaze.on) {
+    if (glaze.on && glazeReady) {
       Glaze.unfreeze();
-    } else {
+    } else if (!glaze.on) {
       canvas.style.removeProperty("opacity");
     }
 

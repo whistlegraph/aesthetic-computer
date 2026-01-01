@@ -45,7 +45,7 @@ let inputTypefaceName; // Store the typeface name for text input
 
 let rowHeight;
 const lineGap = 1,
-  topMargin = 22,
+  topMargin = 30,
   bottomMargin = 33,
   leftMargin = 6;
 
@@ -64,7 +64,7 @@ let paintingAnimations = new Map(); // Track Ken Burns animation state for each 
 let modalPainting = null; // Track fullscreen modal painting { painting, code, metadata }
 let draftMessage = ""; // Store draft message text persistently
 
-// 🔗 Link confirmation modal system
+//  Link confirmation modal system
 // { type: "prompt"|"url"|"handle"|"kidlisp"|"painting", text: string, action: function }
 let linkConfirmModal = null;
 
@@ -982,10 +982,28 @@ function paint(
   );
 
   if (!input.canType) {
-    ink(160).write("Online: " + (client?.chatterCount ?? 0), {
-      right: leftMargin,
-      top: 6,
-    }); // Use default font for online count
+    // Online counter - cycles through handles from recent messages
+    const onlineColor = theme?.timestamp || 160;
+    const chatterCount = client?.chatterCount ?? 0;
+    
+    // Extract unique handles from recent messages (last 20)
+    const recentHandles = [...new Set(
+      (client?.messages || []).slice(-20).map(m => m.from).filter(h => h && h !== "deleted")
+    )];
+    
+    // Cycle through handles every 2 seconds, or show count if no handles
+    let onlineText;
+    if (recentHandles.length > 0) {
+      const handleIndex = Math.floor(Date.now() / 2000) % recentHandles.length;
+      onlineText = chatterCount + " online: " + recentHandles[handleIndex];
+    } else {
+      onlineText = chatterCount + " online";
+    }
+    
+    ink(onlineColor).write(onlineText, {
+      left: leftMargin,
+      top: 18,
+    }, false, undefined, false, "MatrixChunky8");
   }
 
   if (input.canType && !leaving()) {
@@ -1001,12 +1019,13 @@ function paint(
       height: screen.height / 2, // - 18
     });
 
-    // Character limit.
+    // Character limit - position below GIVE button area to avoid overlap
     const len = 128;
     ink(input.text.length > len ? "red" : "gray").write(
       `${input.text.length}/${len}`,
-      { right: 6, top: 6 }
-    ); // Use default font for character count
+      { right: 6, top: 18 }, // Moved down to y:18 (below GIVE button at y:6)
+      false, undefined, false, "MatrixChunky8"
+    );
   }
   
   // 🖼️ Render fullscreen painting modal (overlay over everything)
@@ -1137,11 +1156,11 @@ function paint(
   
   // 💸 GIVE button + recovery ticker in yikes mode (when connected, not just connecting)
   if (showFundingEffectsFlag && !client.connecting) {
-    // Position just below the top bar line (topMargin = 22, so button at y=6 puts it above the line)
-    const btn = paintGiveButton({ screen, ink, ui: api.ui }, { paddingTop: 6, paddingRight: 6, theme });
+    // Position with even margins: 10px from right edge, centered in top bar (topMargin=30)
+    const btn = paintGiveButton({ screen, ink, ui: api.ui }, { paddingTop: 7, paddingRight: 10, theme });
     const btnBox = btn?.btn?.box;
     if (btnBox) {
-      paintRecoveryTicker({ ink }, getRecoveryTicker(), btnBox, theme);
+      paintRecoveryTicker({ ink }, "News: " + getRecoveryTicker(), btnBox, theme);
     }
     needsPaint();
   }
