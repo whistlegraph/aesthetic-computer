@@ -117,7 +117,7 @@ export function paintGiveButton($, options = {}) {
         spawnParticle(btnBox, hslToRgb(sparkleHue, 100, 70));
       }
     } else {
-      // Theme mode (for chats) - use theme colors
+      // Theme mode (for chats) - use theme colors with wiggle
       const accent = normalizeColor(theme.handle || theme.scrollbar || "pink");
       const pulse = Math.sin(t * 3) * 0.1 + 0.9;
       
@@ -128,7 +128,17 @@ export function paintGiveButton($, options = {}) {
       ink(...(isDown ? lightenColor(bgColor, 0.2) : bgColor)).box(btnBox, "fill");
       ink(...outlineColor).box(btnBox, "outline");
       
-      ink(...(isDown ? darkenColor(textColor, 0.3) : textColor)).write(giveBtnText, { x: btnBox.x + 4, y: btnBox.y + 4 });
+      // Wiggle each character like rainbow mode (subtle)
+      const chars = giveBtnText.split('');
+      const charWidth = 6;
+      const textStartX = btnBox.x + 4;
+      const textY = btnBox.y + 4;
+      
+      chars.forEach((char, i) => {
+        const shakeX = Math.sin(t * 15 + i * 2) * 0.5;
+        const shakeY = Math.cos(t * 18 + i * 3) * 0.5;
+        ink(...(isDown ? darkenColor(textColor, 0.3) : textColor)).write(char, { x: Math.round(textStartX + i * charWidth + shakeX), y: Math.round(textY + shakeY) });
+      });
       
       if (Math.random() < 0.12) {
         spawnParticle(btnBox, lightenColor(accent, 0.3));
@@ -181,48 +191,60 @@ export function getGiveButton() {
   return giveBtn;
 }
 
-// Paint recovery ticker - scrolling text to the left of GIVE button
+// Paint recovery ticker - scrolling news text to the left of GIVE button
 export function paintRecoveryTicker($, recoveryText, btnBox, theme) {
   if (!btnBox || !recoveryText) return;
   
-  const { ink } = $;
+  const { ink, screen } = $;
   const tickerCharWidth = 4;
   const tickerHeight = 8;
-  const tickerPadding = 4;
-  const tickerGap = 8;
+  const tickerPadding = 2;
+  const tickerGap = 6;
   
-  // Static "News: " prefix
-  const newsPrefix = "News: ";
+  // Static "News" prefix (no colon)
+  const newsPrefix = "News ";
   const newsPrefixWidth = newsPrefix.length * tickerCharWidth;
   
+  // Position to the left of GIVE button
   const tickerRight = btnBox.x - tickerGap;
-  const tickerMaxWidth = Math.min(180, tickerRight - 10 - newsPrefixWidth);
-  if (tickerMaxWidth < 50) return;
+  const tickerMaxWidth = Math.min(140, tickerRight - 10 - newsPrefixWidth);
+  if (tickerMaxWidth < 30) return;
   
   const tickerY = btnBox.y + (btnBox.h - tickerHeight) / 2;
   
+  // Seamless loop: add separator between copies
+  const separator = " ~ ";
+  const loopText = recoveryText + separator;
+  const loopWidth = loopText.length * tickerCharWidth;
+  
   const scrollSpeed = 0.5;
-  const textFullWidth = recoveryText.length * tickerCharWidth;
-  const scrollOffset = (performance.now() * scrollSpeed / 16) % (textFullWidth + tickerMaxWidth);
+  const scrollOffset = (performance.now() * scrollSpeed / 16) % loopWidth;
   
   const tickerBgX = tickerRight - tickerMaxWidth - newsPrefixWidth;
-  const bgColor = theme?.background ? darkenColor(normalizeColor(theme.background), 0.3) : [0, 0, 0];
-  ink(...bgColor, 180).box(tickerBgX - tickerPadding, tickerY - 2, tickerMaxWidth + newsPrefixWidth + tickerPadding * 2, tickerHeight + 4);
   
+  // Colors
+  const bgColor = theme?.background ? [theme.background[0] * 0.5, theme.background[1] * 0.5, theme.background[2] * 0.5] : [0, 0, 0];
   const textColor = theme?.messageText ? normalizeColor(theme.messageText) : 
                     theme?.handle ? lightenColor(normalizeColor(theme.handle), 0.3) : [255, 255, 255];
   
-  // Draw static "News: " prefix
-  ink(...textColor).write(newsPrefix, { x: tickerBgX, y: Math.round(tickerY) }, undefined, undefined, false, "MatrixChunky8");
+  // Draw "News" prefix with distinct background
+  const newsBgColor = theme?.handle ? darkenColor(normalizeColor(theme.handle), 0.4) : [60, 40, 80];
+  const newsFgColor = theme?.handle ? lightenColor(normalizeColor(theme.handle), 0.5) : [255, 200, 100];
+  ink(...newsBgColor, 220).box(tickerBgX - tickerPadding, tickerY - 2, newsPrefixWidth + tickerPadding, tickerHeight + 4);
+  ink(...newsFgColor).write(newsPrefix, { x: tickerBgX, y: Math.round(tickerY) }, undefined, undefined, false, "MatrixChunky8");
   
-  // Draw scrolling text (clipped to area after prefix)
+  // Draw scrolling ticker background
   const scrollAreaLeft = tickerBgX + newsPrefixWidth;
-  const textX = tickerRight - scrollOffset;
+  ink(...bgColor, 180).box(scrollAreaLeft, tickerY - 2, tickerMaxWidth + tickerPadding, tickerHeight + 4);
   
-  for (let i = 0; i < recoveryText.length; i++) {
-    const charX = textX + i * tickerCharWidth;
-    if (charX >= scrollAreaLeft && charX < tickerRight) {
-      ink(...textColor).write(recoveryText[i], { x: Math.round(charX), y: Math.round(tickerY) }, undefined, undefined, false, "MatrixChunky8");
+  // Draw seamless looping text
+  for (let copy = 0; copy < 2; copy++) {
+    const baseX = scrollAreaLeft - scrollOffset + (copy * loopWidth);
+    for (let i = 0; i < loopText.length; i++) {
+      const charX = baseX + i * tickerCharWidth;
+      if (charX >= scrollAreaLeft && charX < tickerRight) {
+        ink(...textColor).write(loopText[i], { x: Math.round(charX), y: Math.round(tickerY) }, undefined, undefined, false, "MatrixChunky8");
+      }
     }
   }
 }
