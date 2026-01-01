@@ -99,22 +99,29 @@ async function fetchTapesForTV(db, { limit }) {
     }
   }));
   
+  // S3/Spaces URL for streaming (supports byte-range requests)
+  const SPACES_URL = "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com";
+  
   // Build Apple TV-friendly tape objects
   const tapes = [];
   
   for (const record of records) {
     if (tapes.length >= limit) break;
     
+    // Skip if no ATProto record exists (for validation)
     const atInfo = atprotoTapesByCode.get(record.code);
-    if (!atInfo) continue; // Skip tapes without video
+    if (!atInfo) continue;
     
-    const videoUrl = `${PDS_URL}/xrpc/com.atproto.sync.getBlob?did=${atInfo.did}&cid=${atInfo.videoCid}`;
+    // Use S3/Spaces URL which supports byte-range streaming for AVPlayer
+    const videoUrl = `${SPACES_URL}/tapes/${record.code}.mp4`;
+    const thumbnailUrl = `${SPACES_URL}/tapes/${record.code}-thumb.jpg`;
     const handle = record.handle ? `@${record.handle}` : null;
     
     tapes.push({
       id: record.code,
       title: `Tape ${record.code.toUpperCase()}`,
       mp4: videoUrl,
+      thumbnail: thumbnailUrl,
       duration: record.duration || atInfo.duration || null,
       resolution: record.resolution || atInfo.resolution || "1280x720",
       fps: record.fps || atInfo.fps || 30,
