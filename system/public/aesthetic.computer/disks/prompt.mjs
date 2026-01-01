@@ -4738,7 +4738,7 @@ function paint($) {
             
             ink(...charColor).write(
               char,
-              { x: charX, y: textY },
+              { x: charX, y: textY, noFunding: true },
               undefined,
               undefined,
               false,
@@ -4763,10 +4763,10 @@ function paint($) {
           const labelTextColor = isDark ? [150, 150, 150, 120] : [100, 100, 100, 150];
           const labelShadowColor = isDark ? [0, 0, 0, 50] : [255, 255, 255, 80];
           
-          // Draw shadow for language label
-          ink(...labelShadowColor).write(languageName, { x: labelX + 1, y: labelY + 1 }, undefined, undefined, false, "MatrixChunky8");
-          // Draw language label
-          ink(...labelTextColor).write(languageName, { x: labelX, y: labelY }, undefined, undefined, false, "MatrixChunky8");
+          // Draw shadow for language label - noFunding to prevent $ replacement
+          ink(...labelShadowColor).write(languageName, { x: labelX + 1, y: labelY + 1, noFunding: true }, undefined, undefined, false, "MatrixChunky8");
+          // Draw language label - noFunding to prevent $ replacement
+          ink(...labelTextColor).write(languageName, { x: labelX, y: labelY, noFunding: true }, undefined, undefined, false, "MatrixChunky8");
           
           // Vertical action text on LEFT side of screen - ROTATED
           const actionVerbs = ["TOUCH", "TAP", "TYPE"];
@@ -5160,7 +5160,8 @@ function paint($) {
         }
       }
       
-      currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing;
+      // Extra spacing after laer-klokken before content ticker
+      currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing + 1;
     } else {
       clockChatTicker = null;
       clockChatTickerButton = null;
@@ -5226,6 +5227,9 @@ function paint($) {
         // Dark background for high contrast
         const bgAlpha = contentTickerButton.down ? 120 : 80;
         ink([30, 30, 30, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
+        
+        // Top border (1px)
+        ink([200, 200, 200, 255]).line(0, boxY, screen.width, boxY);
         
         // Bottom border (1px, non-overlapping)
         ink([200, 200, 200, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
@@ -5787,12 +5791,13 @@ function paint($) {
       // Shadow color (black in dark mode, white in light mode)
       const handlesShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255];
       
-      // Draw shadow first (offset by 1px)
+      // Draw shadow first (offset by 1px) - noFunding to prevent $ replacement
       ink(...handlesShadowColor).write(
         handlesText,
         {
           center: "x",
           y: handlesY + 1,
+          noFunding: true,
         },
         undefined,
         undefined,
@@ -5817,12 +5822,13 @@ function paint($) {
         coloredHandlesText += `\\${r},${g},${b}\\${char}`;
       }
       
-      // Draw main text with per-character flicker
+      // Draw main text with per-character flicker - noFunding to prevent $ replacement
       ink(pal.handleColor).write(
         coloredHandlesText,
         {
           center: "x",
           y: handlesY,
+          noFunding: true,
         },
         undefined,
         undefined,
