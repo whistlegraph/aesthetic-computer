@@ -982,20 +982,18 @@ function paint(
   );
 
   if (!input.canType) {
-    // Online counter - cycles through handles from recent messages
+    // Online counter - cycles through realtime online handles from server
     const onlineColor = theme?.timestamp || 160;
     const chatterCount = client?.chatterCount ?? 0;
     
-    // Extract unique handles from recent messages (last 20)
-    const recentHandles = [...new Set(
-      (client?.messages || []).slice(-20).map(m => m.from).filter(h => h && h !== "deleted")
-    )];
+    // Use realtime online handles from server
+    const onlineHandles = client?.onlineHandles || [];
     
     // Cycle through handles every 2 seconds, or show count if no handles
     let onlineText;
-    if (recentHandles.length > 0) {
-      const handleIndex = Math.floor(Date.now() / 2000) % recentHandles.length;
-      onlineText = chatterCount + " online: " + recentHandles[handleIndex];
+    if (onlineHandles.length > 0) {
+      const handleIndex = Math.floor(Date.now() / 2000) % onlineHandles.length;
+      onlineText = chatterCount + " online: " + onlineHandles[handleIndex];
     } else {
       onlineText = chatterCount + " online";
     }
@@ -1160,7 +1158,7 @@ function paint(
     const btn = paintGiveButton({ screen, ink, ui: api.ui }, { paddingTop: 7, paddingRight: 10, theme });
     const btnBox = btn?.btn?.box;
     if (btnBox) {
-      paintRecoveryTicker({ ink }, "News: " + getRecoveryTicker(), btnBox, theme);
+      paintRecoveryTicker({ ink }, getRecoveryTicker(), btnBox, theme);
     }
     needsPaint();
   }
