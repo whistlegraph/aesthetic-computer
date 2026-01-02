@@ -21,12 +21,18 @@ function bootLog(message) {
   // Skip logging in PACK mode (NFT bundles should be silent)
   if (window.acPACK_MODE) return;
   
+  // Skip verbose console logging when embedded (kidlisp.com iframe)
+  const isEmbedded = window !== window.top;
+  
   // Prevent duplicate messages
   if (message === lastBootMessage) return;
   lastBootMessage = message;
   
   const elapsed = Math.round(performance.now() - bootStartTime);
-  console.log(`🚀 [BOOT] ${message} (+${elapsed}ms)`);
+  // Only log to console when not embedded (reduce noise in kidlisp.com)
+  if (!isEmbedded) {
+    console.log(`🚀 [BOOT] ${message} (+${elapsed}ms)`);
+  }
   window._bootTimings.push({ message, elapsed });
   
   // Update the boot canvas (via the canvas animation system)
@@ -412,8 +418,28 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES) {
 // In PACK_MODE, use bare specifiers (no ./) so import maps work from blob URLs
 const cacheBust = window.acPACK_MODE ? '' : `?v=${Date.now()}`;
 const pathPrefix = window.acPACK_MODE ? '' : './';
+
+// Helper to fetch and display source file in boot canvas
+async function fetchAndShowSource(path, displayName) {
+  if (window.acPACK_MODE) return; // Skip in PACK mode
+  try {
+    const response = await fetch(path);
+    if (response.ok) {
+      const text = await response.text();
+      if (window.acBOOT_ADD_FILE) {
+        window.acBOOT_ADD_FILE(displayName || path, text);
+      }
+    }
+  } catch (e) {
+    // Ignore fetch errors - this is just visual
+  }
+}
+
 let boot, parse, slug;
 try {
+  bootLog("loading bios.mjs" + cacheBust);
+  bootLog("loading parse.mjs" + cacheBust);
+  
   const [biosModule, parseModule] = await Promise.all([
     importWithRetry(`${pathPrefix}bios.mjs${cacheBust}`),
     importWithRetry(`${pathPrefix}lib/parse.mjs${cacheBust}`)
@@ -421,6 +447,10 @@ try {
   boot = biosModule.boot;
   parse = parseModule.parse;
   slug = parseModule.slug;
+  
+  // Show source files in boot canvas (non-blocking)
+  fetchAndShowSource(`${pathPrefix}bios.mjs`, 'bios.mjs');
+  fetchAndShowSource(`${pathPrefix}lib/parse.mjs`, 'lib/parse.mjs');
 } catch (err) {
   bootLog(`❌ critical module load failed`);
   showConnectionError(err);
@@ -655,7 +685,7 @@ let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBl
 
 // If noauth mode, immediately send session:started so disk can proceed
 if (window.acNOAUTH) {
-  console.log("🔕 noauth mode: sending session:started immediately");
+  if (window === window.top) console.log("🔕 noauth mode: sending session:started immediately");
   window.acDISK_SEND({
     type: "session:started",
     content: { user: null },

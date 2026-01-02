@@ -60,20 +60,11 @@ export async function handler(event, context) {
             let prefix = "";
             if (instance === "sotce") prefix = "sotce-";
             
-            // Build handle lookup URL - use local endpoint in dev
-            const baseUrl = process.env.NETLIFY_DEV === "true" 
-              ? "https://localhost:8888"
-              : "https://aesthetic.computer";
-            const handleUrl = `${baseUrl}/handle?for=${prefix}${msg.user}`;
+            // Always use production URL for handle lookup (even in dev)
+            // This ensures we get real handles and avoids SSL issues with localhost
+            const handleUrl = `https://aesthetic.computer/handle?for=${prefix}${msg.user}`;
             
-            // Disable TLS verification for local dev (self-signed cert)
-            const fetchOptions = process.env.NETLIFY_DEV === "true"
-              ? { 
-                  agent: new (await import('https')).Agent({ rejectUnauthorized: false })
-                }
-              : {};
-            
-            const handleResponse = await fetch(handleUrl, fetchOptions);
+            const handleResponse = await fetch(handleUrl);
             
             if (handleResponse.status === 200) {
               const handleData = await handleResponse.json();
