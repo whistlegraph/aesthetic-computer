@@ -950,7 +950,8 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
     ("stripe-ticket" . "🎫") ("chat-system" . "🤖") ("chat-sotce" . "🧠")
     ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
     ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
-    ("oven" . "🔥") ("media" . "📦") ("llm" . "🤖") ("top" . "📊")))
+    ("oven" . "🔥") ("media" . "📦") ("llm" . "🤖") ("top" . "📊")
+    ("crash-diary" . "💥")))
 
 (defun ac--tab-exists-p (tab-name)
   "Check if a tab with TAB-NAME already exists."
@@ -1024,6 +1025,21 @@ Skips creation if tab already exists."
 
 (defun aesthetic-backend (target-tab)
   (interactive)
+  
+  ;; Prevent double-invocation race condition
+  (when ac--backend-started
+    (ac-debug-log (format "aesthetic-backend already started, just switching to tab: %s" target-tab))
+    ;; Just switch to the requested tab if backend already running
+    (run-with-timer 0.5 nil
+                    (lambda (target)
+                      (condition-case nil
+                          (when (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top"))
+                            (tab-bar-switch-to-tab target))
+                        (error nil)))
+                    target-tab)
+    (cl-return-from aesthetic-backend nil))
+  (setq ac--backend-started t)
+  
   (ac-debug-log (format "Starting aesthetic-backend with target-tab: %s" target-tab))
   (ac-perf-log "aesthetic-backend started")
   
@@ -1108,7 +1124,8 @@ Skips creation if tab already exists."
                        ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
                        ("tests"    ("kidlisp"))
                        ("llm"      ("llm"))
-                       ("top"      ("top")))))  ; Process viewer tab
+                       ("top"      ("top"))
+                       ("crash"    ("crash-diary")))))  ; Crash log viewer tab
       (dolist (tab-spec tab-specs)
         (let ((tab-name (car tab-spec))
               (commands (cadr tab-spec))
@@ -1124,7 +1141,7 @@ Skips creation if tab already exists."
     (run-with-timer 6.0 nil
                     (lambda (target)
                       (condition-case nil
-                          (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top"))
+                          (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "crash"))
                               (progn
                                 (tab-bar-switch-to-tab target)
                                 ;; Also refresh the buffer to ensure it's scrolled properly
@@ -1164,8 +1181,8 @@ Skips creation if tab already exists."
   (when (and (not ac--backend-started)
              (not (display-graphic-p frame))  ; Terminal frame
              (frame-live-p frame))
-    (setq ac--backend-started t)
-    (ac-debug-log "First terminal frame detected, starting full aesthetic-backend")
+    ;; DON'T set flag here - let aesthetic-backend set it when it actually runs
+    (ac-debug-log "First terminal frame detected, scheduling aesthetic-backend")
     ;; Delay to ensure frame is fully ready
     (run-with-timer 1 nil
                     (lambda ()

@@ -924,6 +924,102 @@ function ac-emacs-full-restart
     and aesthetic-now
 end
 
+# Health check - verify emacs has correct config loaded
+function ac-emacs-health-check
+    if not pgrep -f "emacs.*daemon" >/dev/null
+        echo "❌ Emacs daemon not running"
+        return 1
+    end
+    
+    if not timeout 3 emacsclient -e t >/dev/null 2>&1
+        echo "❌ Emacs daemon unresponsive"
+        return 1
+    end
+    
+    # Check if our config functions are defined
+    set -l has_backend (emacsclient -e '(fboundp (quote aesthetic-backend))' 2>/dev/null)
+    if test "$has_backend" != "t"
+        echo "❌ Emacs loaded wrong config (aesthetic-backend not defined)"
+        echo "   This usually means crash monitor restarted emacs incorrectly"
+        echo "   Run: ac-emacs-restart"
+        return 1
+    end
+    
+    # Check if backend has run
+    set -l backend_started (emacsclient -e 'ac--backend-started' 2>/dev/null)
+    echo "✅ Emacs daemon healthy"
+    echo "   Config: aesthetic-backend defined"
+    echo "   Backend started: $backend_started"
+    return 0
+end
+
+# Crash diary viewer - live tail of crash log with pretty formatting
+function ac-crash-diary
+    ac-emacs-init-logs
+    set -l crash_log $AC_EMACS_LOG_DIR/crashes.log
+    
+    clear
+    echo ""
+    echo "  ╔══════════════════════════════════════════════════════════════╗"
+    echo "  ║  💥 EMACS CRASH DIARY                                        ║"
+    echo "  ║  Log: $crash_log"
+    echo "  ╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+    
+    if not test -f $crash_log
+        echo "  📭 No crashes recorded yet. That's good!"
+        echo ""
+        echo "  Press Ctrl+C to exit, or wait for crashes to be logged..."
+        echo ""
+        # Create empty file and watch it
+        touch $crash_log
+    else
+        # Show summary
+        set -l crash_count (grep -c "EMACS CRASH DETECTED" $crash_log 2>/dev/null || echo 0)
+        set -l restart_count (grep -c "Auto-restarting emacs" $crash_log 2>/dev/null || echo 0)
+        set -l last_crash (grep "EMACS CRASH DETECTED" $crash_log 2>/dev/null | tail -1)
+        
+        echo "  📊 Summary:"
+        echo "     Total crashes: $crash_count"
+        echo "     Auto-restarts: $restart_count"
+        echo ""
+        echo "  ────────────────────────────────────────────────────────────"
+        echo ""
+    end
+    
+    # Live tail with syntax highlighting
+    tail -f $crash_log 2>/dev/null | while read -l line
+        # Color code different types of lines
+        if string match -q "*CRASH DETECTED*" "$line"
+            set_color red --bold
+            echo "  $line"
+            set_color normal
+        else if string match -q "*Auto-restarting*" "$line"
+            set_color yellow
+            echo "  $line"
+            set_color normal
+        else if string match -q "*✅*" "$line"
+            set_color green
+            echo "  $line"
+            set_color normal
+        else if string match -q "*❌*" "$line"
+            set_color red
+            echo "  $line"
+            set_color normal
+        else if string match -q "*===*" "$line"
+            set_color cyan
+            echo "  $line"
+            set_color normal
+        else if string match -q "*---*" "$line"
+            set_color brblack
+            echo "  $line"
+            set_color normal
+        else
+            echo "  $line"
+        end
+    end
+end
+
 # Background crash monitor - detects when emacs dies unexpectedly
 function ac-emacs-crash-monitor
     ac-emacs-init-logs
@@ -1003,8 +1099,9 @@ function ac-emacs-crash-monitor
                 pkill -9 emacsclient 2>/dev/null
                 sleep 1
                 
-                # Restart daemon
-                emacs --daemon 2>&1 | tee -a $crash_log
+                # Restart daemon with correct config (must use -q -l to load our config, not ~/.emacs)
+                set -l config_path /home/me/aesthetic-computer/dotfiles/dot_config/emacs.el
+                emacs -q --daemon -l $config_path 2>&1 | tee -a $crash_log
                 
                 # Wait for it to come up
                 sleep 2
@@ -1563,6 +1660,14 @@ function aesthetic
     # Connect to emacs and run aesthetic-backend to create all tabs
     echo "🚀 Connecting to aesthetic platform..."
     emacsclient -nw -c --eval '(aesthetic-backend (quote "llm"))'
+    set -l exit_code $status
+    if test $exit_code -ne 0
+        echo ""
+        echo "⚠️  emacsclient exited with code $exit_code"
+        echo "💡 If the '💻 Aesthetic' VS Code task is frozen, restart it from the Task menu."
+        echo "   Or run: ac-emacs-restart && then restart the task"
+    end
+    return $exit_code
 end
 
 # Convenience alias for skipping the wait

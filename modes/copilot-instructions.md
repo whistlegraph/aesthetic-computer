@@ -75,32 +75,30 @@ The aesthetic platform runs as:
 - **Stop task only**: Kill the "💻 Aesthetic" task in VS Code (emacs daemon stays running)
 - **Full stop**: `pkill -9 emacs; pkill -9 emacsclient` or use `ac-emacs-kill`
 
-### Emacs Watchdog (Auto-Recovery)
-The platform automatically starts a watchdog process that monitors emacs health:
-- **Detects unresponsive daemons** — restarts if `emacsclient` times out
-- **Detects sustained high CPU** — restarts if CPU > 85% for 30+ seconds (3 checks)
-- **Logs to** `.emacs-logs/watchdog.log`
-- **Warning file** `/tmp/emacs-watchdog-warning` — created on auto-recovery
+### Emacs Crash Monitor (Auto-Recovery)
+The platform automatically starts a crash monitor that detects when emacs dies:
+- **Auto-restarts** emacs daemon with correct config (`-q -l emacs.el`)
+- **Max 5 restarts** within 5 minutes before giving up
+- **Logs to** `.emacs-logs/crashes.log`
+- **Warning file** `/tmp/emacs-crash-warning` — created on auto-recovery
 
-| Command | Description |
-|---------|-------------|
-| `ac-watchdog-status` | Check emacs + watchdog status |
-| `ac-watchdog-start` | Manually start watchdog |
-| `ac-watchdog-stop` | Stop the watchdog |
-| `ac-watchdog-logs` | Tail watchdog logs |
-| `ac-watchdog-ack` | Clear recovery warning |
+**CRITICAL**: The crash monitor MUST restart emacs with `emacs -q --daemon -l $config_path`
+to load the custom config. Using just `emacs --daemon` loads `~/.emacs` which breaks everything.
 
 ### Restarting After Issues
 If emacs MCP tools fail or the "💻 Aesthetic" task is frozen:
-1. **Check status**: `ac-emacs-status` — is daemon running & responsive?
-2. **If unresponsive**: `ac-emacs-restart` — kills zombie emacs, starts fresh daemon
-3. **Restart task**: Must manually restart "💻 Aesthetic" task in VS Code
-4. **If `.waiter` missing**: `touch /home/me/.waiter` before restarting task
+1. **Check health**: `ac-emacs-health-check` — verifies daemon AND correct config loaded
+2. **Check status**: `ac-emacs-status` — is daemon running & responsive?
+3. **If wrong config**: `ac-emacs-restart` — kills and restarts with correct config
+4. **Restart task**: Must manually restart "💻 Aesthetic" task in VS Code
+5. **If `.waiter` missing**: `touch /home/me/.waiter` before restarting task
 
 ### Quick Reference Commands (fish shell)
 | Command | Description |
 |---------|-------------|
 | `ac-emacs-status` | Check daemon status (running/responsive) |
+| `ac-emacs-status` | Check daemon status (running/responsive) |
+| `ac-emacs-health-check` | Verify daemon + correct config loaded |
 | `ac-emacs-restart` | Kill & restart emacs daemon |
 | `ac-emacs-kill` | Kill all emacs processes |
 | `ac-restart` | Full restart: daemon + reconnect artery |
@@ -112,6 +110,7 @@ If emacs MCP tools fail or the "💻 Aesthetic" task is frozen:
 - **Emacs unresponsive**: `ac-emacs-restart` then restart VS Code task (watchdog may auto-fix)
 - **MCP tools hang**: Emacs daemon frozen — watchdog should auto-recover, else manual restart
 - **Tabs not created**: `emacsclient` exited before timers completed — restart task
+- **Wrong config loaded**: Run `ac-emacs-health-check` — if it shows "wrong config", run `ac-emacs-restart`
 
 ## MCP State Awareness 🔍
 Before sending commands to emacs buffers, **always check state first** using these functions:
