@@ -252,6 +252,9 @@ function getTypefaceForMeasurement(typefaceName) {
   return resolved || tf;
 }
 
+// Flag to skip $ replacement during shadow rendering
+let _isRenderingShadow = false;
+
 function writeHudLabelText(
   $, 
   text,
@@ -494,6 +497,7 @@ function drawHudLabelText(
   );
 
   if (shouldRenderShadow) {
+    _isRenderingShadow = true;
     // If the text has color codes and we're preserving colors, use dynamic shadows
     if (shouldPreserveColors && containsColorCodes) {
       // Replace color codes with appropriate shadow colors
@@ -519,6 +523,7 @@ function drawHudLabelText(
         wordWrap: shouldWrap,
       });
     }
+    _isRenderingShadow = false;
   }
 
   if (textColor) {
@@ -992,6 +997,81 @@ let lastPaintTime = 0; // Last time paint() was executed
 let lastPaintOut = undefined; // Store last paintOut to preserve correct noPaint behavior
 let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
+
+// 🧬 GOL Transition: noise16 → piece paint
+// Each pixel gets a random "reveal time" - pixels with neighbors that revealed
+// are more likely to reveal next (cellular propagation effect)
+let golTransition = {
+  active: false,
+  fromPixels: null, // Captured noise16 frame
+  toPixels: null,   // Captured first piece paint frame
+  currentPixels: null, // Working buffer
+  revealMap: null,  // Float32Array: 0 = noise, 1 = revealed as piece
+  generation: 0,
+  maxGenerations: 45, // ~0.75s at 60fps - quick but visible
+  width: 0,
+  height: 0,
+};
+
+// 🧬 GOL step function - cellular automata dissolve from noise to piece
+function golStep(current, target, w, h) {
+  const { revealMap, generation, maxGenerations } = golTransition;
+  const next = new Uint8ClampedArray(current.length);
+  const progress = generation / maxGenerations;
+  
+  // Base reveal probability increases over time (S-curve for smooth transition)
+  const baseProb = progress * progress * (3 - 2 * progress); // smoothstep
+  
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      const i = idx * 4;
+      
+      // Already revealed? Keep as target
+      if (revealMap[idx] >= 1) {
+        next[i] = target[i];
+        next[i + 1] = target[i + 1];
+        next[i + 2] = target[i + 2];
+        next[i + 3] = 255;
+        continue;
+      }
+      
+      // Count revealed neighbors (GOL-style neighbor influence)
+      let revealedNeighbors = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = (x + dx + w) % w;
+          const ny = (y + dy + h) % h;
+          const ni = ny * w + nx;
+          if (revealMap[ni] >= 1) revealedNeighbors++;
+        }
+      }
+      
+      // Probability to reveal: base + neighbor boost + some randomness
+      const neighborBoost = revealedNeighbors * 0.08; // More neighbors = more likely
+      const revealProb = baseProb + neighborBoost + (Math.random() * 0.05);
+      
+      if (Math.random() < revealProb) {
+        // Reveal this pixel - transition to target with brief flash
+        revealMap[idx] = 1;
+        // Brief white flash effect on reveal
+        const flash = Math.random() < 0.3 ? 40 : 0;
+        next[i] = Math.min(255, target[i] + flash);
+        next[i + 1] = Math.min(255, target[i + 1] + flash);
+        next[i + 2] = Math.min(255, target[i + 2] + flash);
+      } else {
+        // Still showing noise - but shift it slightly toward purple for continuity
+        const noiseShift = progress * 0.3;
+        next[i] = current[i] * (1 - noiseShift) + target[i] * noiseShift;
+        next[i + 1] = current[i + 1] * (1 - noiseShift) + target[i + 1] * noiseShift;
+        next[i + 2] = current[i + 2] * (1 - noiseShift) + target[i + 2] * noiseShift;
+      }
+      next[i + 3] = 255;
+    }
+  }
+  return next;
+}
 
 let boot = defaults.boot;
 let sim = defaults.sim;
@@ -3545,6 +3625,7 @@ const $commonApi = {
     even: num.even,
     odd: num.odd,
     clamp: num.clamp,
+    wave: num.wave,
     rand: num.rand,
     randInt: num.randInt,
     randInd: num.randInd,
@@ -4479,7 +4560,8 @@ const $paintApi = {
       bounds,
       wordWrap = true,
       customTypeface = null,
-      rotation = 0;
+      rotation = 0,
+      noFunding = false;
     
     if (text === undefined || text === null || text === "" || !tf)
       return $activePaintApi; // Fail silently if no text.
@@ -4488,6 +4570,70 @@ const $paintApi = {
       typeof text === "object" && text !== null
         ? JSON.stringify(text)
         : text.toString();
+    
+    // Check for noFunding option early (before funding mode processing)
+    // Support both object-style pos.noFunding and options.noFunding
+    if (typeof arguments[1] === "number") {
+      noFunding = arguments[3]?.noFunding ?? false;
+    } else {
+      noFunding = arguments[1]?.noFunding ?? false;
+    }
+    
+    // 💵 FUNDING MODE: Randomly replace S/s with green $ for financial vibes
+    // For shadows: replace character but don't add color codes (shadow uses shadow color)
+    // Skip if noFunding option is set
+    if (typeof globalThis !== "undefined" && globalThis.AC_FUNDING_MODE && !noFunding) {
+      // Use a seeded random based on text position to keep it stable per frame
+      // but change over time (every ~500ms)
+      const timeSlot = Math.floor(Date.now() / 500);
+      // Track if we're inside a color code to restore it after $
+      let result = '';
+      let currentColor = null;
+      let i = 0;
+      while (i < text.length) {
+        // Check for color code start
+        if (text[i] === '\\' && i + 1 < text.length) {
+          // Find the end of the color code
+          const endSlash = text.indexOf('\\', i + 1);
+          if (endSlash !== -1) {
+            currentColor = text.substring(i + 1, endSlash);
+            result += text.substring(i, endSlash + 1);
+            i = endSlash + 1;
+            continue;
+          }
+        }
+        
+        const char = text[i];
+        if (char === 'S' || char === 's') {
+          // Use a pseudo-random based on char position and time
+          const hash = ((i * 17 + timeSlot * 31) % 100) / 100;
+          if (hash < 0.25) {
+            if (_isRenderingShadow) {
+              // For shadows: just replace the character, no color codes
+              result += '$';
+            } else {
+              // Pick a random green shade based on position
+              const greens = ['lime', 'green', '0,200,0', '100,255,100', '50,220,50'];
+              const greenIndex = (i * 7 + timeSlot * 13) % greens.length;
+              const greenColor = greens[greenIndex];
+              // Replace with green $ and restore original color after
+              result += '\\' + greenColor + '\\$';
+              // Restore previous color, or reset to default if no color was set
+              if (currentColor) {
+                result += '\\' + currentColor + '\\';
+              } else {
+                result += '\\reset\\';
+              }
+            }
+            i++;
+            continue;
+          }
+        }
+        result += char;
+        i++;
+      }
+      text = result;
+    }
     
     // Assume: text, x, y, options, wordWrap, customTypeface
     if (typeof arguments[1] === "number") {
@@ -6300,7 +6446,7 @@ async function load(
 ) {
   const loadFunctionStartTime = performance.now();
   diskTimings.loadStarted = Math.round(loadFunctionStartTime - diskTimingStart);
-  if (!getPackMode()) console.log(`⏱️ [DISK] load() started at +${diskTimings.loadStarted}ms`);
+  // Silent: load() started
   
   let fullUrl, source;
   let params,
@@ -6571,7 +6717,7 @@ async function load(
         response = await fetch(fullUrl, { cache: 'no-store' });
         const fetchEndTime = performance.now();
         diskTimings.fetchComplete = Math.round(fetchEndTime - diskTimingStart);
-        if (!getPackMode()) console.log(`⏱️ [DISK] fetch completed in ${Math.round(fetchEndTime - fetchStartTime)}ms for ${path}`);
+        // Silent: fetch completed
         if (response.status === 404 || response.status === 403) {
           const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
           // Handle sandboxed environments for anon URL construction
@@ -6659,7 +6805,7 @@ async function load(
         const compileEndTime = performance.now();
         const compileElapsed = Math.round(compileEndTime - compileStartTime);
         diskTimings.compileComplete = Math.round(compileEndTime - diskTimingStart);
-        if (!getPackMode()) console.log(`⏱️ [DISK] KidLisp compiled in ${compileElapsed}ms`);
+        // Silent: KidLisp compiled
         log.lisp.success(`KidLisp module loaded (${compileElapsed}ms)`);
         
         // Notify boot progress
@@ -6667,6 +6813,12 @@ async function load(
         send({
           type: "boot-log",
           content: `kidlisp compiled (${compileElapsed}ms)`
+        });
+        
+        // Send source file to boot canvas for display
+        send({
+          type: "boot-file",
+          content: { filename: path, source: sourceCode.slice(0, 8000) }
         });
 
         if (devReload) {
@@ -6716,11 +6868,17 @@ async function load(
         const importEndTime = performance.now();
         const importElapsed = Math.round(importEndTime - importStartTime);
         diskTimings.compileComplete = Math.round(importEndTime - diskTimingStart);
-        if (!getPackMode()) console.log(`⏱️ [DISK] JS module imported in ${importElapsed}ms`);
+        // Silent: JS module imported
         if (logs.loading) console.log(`✅ Module imported (${importElapsed}ms)`);
         send({
           type: "boot-log",
           content: `module imported (${importElapsed}ms)`
+        });
+        
+        // Send source file to boot canvas for display
+        send({
+          type: "boot-file",
+          content: { filename: path, source: sourceCode.slice(0, 8000) } // Limit size
         });
       }
     }
@@ -7057,8 +7215,6 @@ async function load(
             if (type === "dev:identity") {
               devIdentity = content;
               remoteLogSocket = socket; // Store socket reference for remote logging
-              console.log(`📱 LAN Dev: ${content.name || 'unnamed'} → ${content.host} (${content.hostIp})`);
-              console.log(`📡 Remote logging active, socket connected: ${socket?.connected}`);
               flushRemoteLogQueue(); // Send any queued logs
               $commonApi?.needsPaint?.();
               return;
@@ -7685,36 +7841,24 @@ async function load(
 
     // 📤 Send ready signal to parent window (e.g., kidlisp.com editor)
     // Note: disk.mjs runs in a Web Worker, so window may not exist
-    // Use getPackMode() which works in worker context (set via init-from-bios)
     const hasWindow = typeof window !== 'undefined';
-    const packMode = getPackMode();
     
-    if (hasWindow && !packMode) {
-      console.log('🔍 hotSwap: checking if we can send ready message...');
-    }
     try {
       if (hasWindow && window.parent && window.parent !== window) {
-        if (!packMode) console.log('📤 Sending kidlisp-ready to parent window');
         window.parent.postMessage({ type: "kidlisp-ready" }, "*");
-        if (!packMode) console.log('✅ kidlisp-ready message sent');
-      } else if (hasWindow) {
-        if (!packMode) console.log('⚠️ Not in iframe context, skipping ready message');
       }
       // If no window (worker context), silently skip
     } catch (e) {
       // Silently fail if in worker context or cross-origin
-      if (hasWindow && !packMode) console.log('⚠️ Could not send ready message:', e.message);
     }
 
     // Process any queued piece-reload that arrived before piece was ready
-    console.log('🔄 hotSwap: checking pendingPieceReload:', pendingPieceReload, '$commonApi.reload:', !!$commonApi.reload);
     if (pendingPieceReload && $commonApi.reload) {
       log.piece.log("Processing queued piece-reload from hotSwap");
       const pending = pendingPieceReload;
       pendingPieceReload = null;
       // Use setTimeout to ensure all initialization is complete
       setTimeout(() => {
-        console.log('🔄 Actually calling $commonApi.reload with:', pending.source?.substring(0, 30));
         $commonApi.reload({
           source: pending.source,
           createCode: pending.createCode,
@@ -8142,6 +8286,14 @@ async function load(
     shouldSkipPaint = false;
     pieceFrameCount = 0;
     
+    // 🧬 Reset GOL transition state (but keep fromPixels if we have it - it's the last noise16 frame!)
+    golTransition.active = false;
+    // golTransition.fromPixels preserved - it's the captured noise16 before piece loads
+    golTransition.toPixels = null;
+    golTransition.currentPixels = null;
+    golTransition.revealMap = null;
+    golTransition.generation = 0;
+    
     formsSent = {}; // Clear 3D list for GPU.
     currentPath = path;
     currentHost = host;
@@ -8481,6 +8633,9 @@ async function makeFrame({ data: { type, content } }) {
       console.log("💬 Chat disabled, just grabbing screenshots. 😃");
     } else if (getPackMode()) {
       // Skip chat connection in PACK mode - offline bundle
+    } else if (globalThis.AC_CHAT_DISABLED) {
+      // Skip chat connection in CRITICAL funding mode only
+      console.log("💬 Chat disabled - critical funding mode active");
     } else {
       chatClient.connect("system"); // Connect to `system` chat.
     }
@@ -8605,7 +8760,7 @@ async function makeFrame({ data: { type, content } }) {
     }
     sessionStarted = true;
     diskTimings.sessionStarted = Math.round(performance.now() - diskTimingStart);
-    if (!getPackMode()) console.log(`⏱️ [DISK] sessionStarted at +${diskTimings.sessionStarted}ms`);
+    // Silent: sessionStarted
     return;
   }
 
@@ -11319,7 +11474,7 @@ async function makeFrame({ data: { type, content } }) {
         try {
           const bootStartTime = performance.now();
           diskTimings.bootStarted = Math.round(bootStartTime - diskTimingStart);
-          if (!getPackMode()) console.log(`⏱️ [DISK] boot() starting at +${diskTimings.bootStarted}ms`);
+          // Silent: boot() starting
           
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
@@ -11335,7 +11490,7 @@ async function makeFrame({ data: { type, content } }) {
           await boot($api);
           const bootEndTime = performance.now();
           diskTimings.bootComplete = Math.round(bootEndTime - diskTimingStart);
-          if (!getPackMode()) console.log(`⏱️ [DISK] boot() completed in ${Math.round(bootEndTime - bootStartTime)}ms`);
+          // Silent: boot() completed
           booted = true;
           log.boot.success("Boot completed, booted =", booted, "pending events:", pendingExportEvents.length);
           
@@ -11360,7 +11515,6 @@ async function makeFrame({ data: { type, content } }) {
         } catch (e) {
           console.warn("🥾 Boot failure...", e);
         }
-        console.log("📀 disk-loaded-and-booted sending");
         send({ type: "disk-loaded-and-booted" });
       }
 
@@ -11515,14 +11669,62 @@ async function makeFrame({ data: { type, content } }) {
           if (shouldPaint) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
+            
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
             
+            // 🧬 GOL Transition: Capture noise16 frame AFTER defaults.paint runs
+            if (paint === defaults.paint && $api.screen?.pixels) {
+              // Continuously capture the noise16 state - we want the LAST frame before piece loads
+              golTransition.fromPixels = new Uint8ClampedArray($api.screen.pixels);
+              golTransition.width = $api.screen.width;
+              golTransition.height = $api.screen.height;
+            }
+            
+            // 🧬 GOL Transition: Capture first piece paint and start transition
+            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.fromPixels && !golTransition.active && $api.screen?.pixels) {
+              // Capture the first piece paint as the "to" pixels
+              golTransition.toPixels = new Uint8ClampedArray($api.screen.pixels);
+              golTransition.currentPixels = new Uint8ClampedArray(golTransition.fromPixels);
+              // Initialize reveal map - all pixels start unrevealed (0)
+              golTransition.revealMap = new Float32Array(golTransition.width * golTransition.height);
+              golTransition.generation = 0;
+              golTransition.active = true;
+            }
+            
+            // 🧬 GOL Transition: Run cellular dissolve and write directly to screen
+            if (golTransition.active && $api.screen?.pixels && golTransition.currentPixels && golTransition.toPixels) {
+              const { currentPixels, toPixels, width, height } = golTransition;
+              const nextPixels = golStep(currentPixels, toPixels, width, height);
+              if (nextPixels) {
+                golTransition.currentPixels = nextPixels;
+                golTransition.generation++;
+                
+                // Copy GOL result directly to screen (no blending needed - golStep handles it)
+                const pixels = $api.screen.pixels;
+                const gol = golTransition.currentPixels;
+                
+                // Copy GOL dissolve result directly to screen
+                if (pixels && gol && pixels.length === gol.length) {
+                  pixels.set(gol);
+                }
+              }
+              
+              // End transition
+              if (golTransition.generation >= golTransition.maxGenerations) {
+                golTransition.active = false;
+                golTransition.fromPixels = null;
+                golTransition.toPixels = null;
+                golTransition.currentPixels = null;
+                golTransition.revealMap = null;
+              }
+            }
+            
             // Log first piece paint
             if (pieceFrameCount === 1) {
               diskTimings.firstPaint = Math.round(performance.now() - diskTimingStart);
-              console.log(`⏱️ [DISK] first piece paint at +${diskTimings.firstPaint}ms`);
+              // Silent: first piece paint
             }
             
             // 🎨 Signal to hide boot canvas when piece's paint takes over from default noise16
@@ -12659,7 +12861,8 @@ async function makeFrame({ data: { type, content } }) {
       }
 
       // 📡 LAN Mode Badge - shows device letter (A, B, C...) when connected to dev session server
-      if (devIdentity && devIdentity.host) {
+      // Hide in kidlisp.com embedded mode (NOAUTH_MODE)
+      if (devIdentity && devIdentity.host && !globalThis.NOAUTH_MODE) {
         // Use device letter if available, otherwise first letter of name, otherwise connection index
         const deviceLetter = devIdentity.letter || 
           (devIdentity.name ? devIdentity.name.charAt(0).toUpperCase() : null) ||
@@ -13596,7 +13799,7 @@ async function makeFrame({ data: { type, content } }) {
       if (!globalThis._firstRenderSent) {
         globalThis._firstRenderSent = true;
         diskTimings.firstRenderSent = Math.round(performance.now() - diskTimingStart);
-        if (!getPackMode()) console.log(`⏱️ [DISK] first render sent to main at +${diskTimings.firstRenderSent}ms`);
+        // Silent: first render sent
         
         // Send timing data to main thread (only in dev mode)
         if (!getPackMode()) send({ type: "disk-timings", content: diskTimings });
@@ -13661,7 +13864,7 @@ async function makeFrame({ data: { type, content } }) {
       if (paintCount === 9n) {
         const preambleTime = Math.round(performance.now() - diskTimingStart);
         diskTimings.preambleComplete = preambleTime;
-        console.log(`⏱️ [DISK] preamble complete (9 frames) at +${preambleTime}ms`);
+        // Silent: preamble complete
       }
       if (typeof window !== 'undefined' && window.acSPIDER) {
         console.log("🕷️ SPIDER: Calling loadAfterPreamble now!");

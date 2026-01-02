@@ -387,7 +387,6 @@ class Typeface {
             this.glyphs[char] = data;
           }
         }
-        console.log(`🔤 [${this.name}] Loaded ${cachedCount} glyphs from cache`);
       }
       
       // 1. Ignore any keys with a "glyph" prefix because these are settings.
@@ -397,10 +396,6 @@ class Typeface {
       
       // Filter out already-cached glyphs
       const glyphsNeedingFetch = glyphsToLoad.filter(([glyph]) => !this.glyphs[glyph]);
-      
-      if (glyphsNeedingFetch.length < glyphsToLoad.length) {
-        console.log(`🔤 [${this.name}] Skipping ${glyphsToLoad.length - glyphsNeedingFetch.length} cached glyphs`);
-      }
       
       const glyphsToCache = {};
       const promises = glyphsNeedingFetch.map(([glyph, location], i) => {
@@ -613,11 +608,6 @@ class Typeface {
           const glyphs = data.glyphs || {};
           const batchDuration = performance.now() - batchStart;
           
-          // Log glyph batch timing
-          if (batchDuration > 100) {
-            console.log(`🔤 [glyph-batch] ${codePointStrs.length} glyphs in ${batchDuration.toFixed(1)}ms (font: ${this.name})`);
-          }
-          
           // Process results and cache them
           const glyphsToCache = {};
           for (const item of batch) {
@@ -688,7 +678,6 @@ class Typeface {
               }
             }
           }
-          console.log(`🔤 [${this.name}] Pre-warmed ${count} glyphs from cache`);
           // Trigger repaint if callback available
           if (needsPaintCallback && typeof needsPaintCallback === "function") {
             needsPaintCallback();

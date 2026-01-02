@@ -307,6 +307,11 @@ async function fetchTapes(db, { limit }) {
 }
 
 export async function handler(event) {
+  // Handle CORS preflight
+  if (event.httpMethod === "OPTIONS") {
+    return respond(200, {});
+  }
+
   if (event.httpMethod !== "GET") {
     return respond(405, { error: "Method not allowed" });
   }

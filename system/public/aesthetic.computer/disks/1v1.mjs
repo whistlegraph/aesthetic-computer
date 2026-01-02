@@ -375,6 +375,11 @@ let joinURL = null;      // URL displayed below QR
 let showJoinQR = true;   // Toggle with 'Q' key (default ON)
 let hostMachineInfo = null; // Host machine identity (MacBook, Thinkpad, etc)
 
+// 🎵 Background Music
+let bgmSfx = null;        // The preloaded audio handle
+let bgmPlaying = null;    // The playing audio instance
+let bgmLoaded = false;    // Track if audio is loaded
+
 // Action mappings - what each control does in FPS mode
 const FPS_ACTIONS = {
   buttons: {
@@ -642,7 +647,7 @@ function logSceneDebug() {
 }
 
 
-function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp, host, lan, devIdentity }, handle, help, sign, glyphs }) {
+function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp, host, lan, devIdentity, preload }, handle, help, sign, glyphs, platform, sound }) {
   console.log("🎮 1v1 boot", { hasForm: !!Form, hasSocket: !!socket, hasHandle: !!handle, hasSign: !!sign, hasUdp: !!udp });
   
   // Store sign and glyphs for use in networking callbacks
@@ -679,6 +684,20 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp, hos
   if (hostMachineInfo) {
     console.log("🖥️ Host machine:", hostMachineInfo.hostLabel || hostMachineInfo.hostName);
   }
+  
+  // 🎵 Load background music (using simple name like booted-by.mjs)
+  preload("oskie/tokyo-90bpm").then((sfx) => {
+    bgmSfx = sfx;
+    bgmLoaded = true;
+    console.log("🎵 1v1: Background music loaded");
+    // Start playing immediately if we're already connected
+    if (wsConnected && !bgmPlaying && sound) {
+      bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });
+      console.log("🎵 1v1: Background music started (post-load)");
+    }
+  }).catch((err) => {
+    console.warn("🎵 1v1: Failed to load background music:", err);
+  });
   
   // Set player handle - use logged-in handle or generate unique guest handle
   // Add random suffix to prevent collisions in split view (same browser, two tabs)
@@ -738,6 +757,12 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp, hos
       wsConnected = true;
       gameState = "lobby";
       logNetwork(`WebSocket connected as: ${self.handle} (${id})`);
+      
+      // 🎵 Start background music when connected (if loaded)
+      if (bgmSfx && !bgmPlaying && sound) {
+        bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });
+        console.log("🎵 1v1: Background music started");
+      }
       
       // Send initial join message
       server.send("1v1:join", {

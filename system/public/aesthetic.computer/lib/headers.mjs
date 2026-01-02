@@ -596,7 +596,11 @@ function formatKidLispForConsole(code) {
 }
 
 // Function for logging kidlisp codes with day-based theming
-export function logKidlispCode(source, code, isDarkMode) {
+// Set options.quiet = true to skip the verbose source code log (used in kidlisp.com editor)
+export function logKidlispCode(source, code, isDarkMode, options = {}) {
+  // Skip all logging in quiet mode (kidlisp.com editor context)
+  if (options.quiet) return;
+  
   // Auto-detect dark mode if not provided
   if (isDarkMode === undefined) {
     isDarkMode = true; // Default to dark mode
