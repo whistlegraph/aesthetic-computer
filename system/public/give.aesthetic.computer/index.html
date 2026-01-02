@@ -1209,43 +1209,66 @@
       color: var(--gold);
     }
 
-    .chat-rolodex {
-      height: 120px;
-      overflow: hidden;
-      position: relative;
+    .chat-messages {
+      max-height: 200px;
+      overflow-y: auto;
       background: #111;
+      scroll-behavior: smooth;
     }
 
-    .chat-card {
-      position: absolute;
-      width: 100%;
-      padding: 0.6em 1em;
-      background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      opacity: 0;
-      transform: translateY(20px);
-      transition: all 0.4s ease;
+    .chat-messages::-webkit-scrollbar {
+      width: 6px;
     }
 
-    .chat-card.active {
-      opacity: 1;
-      transform: translateY(0);
+    .chat-messages::-webkit-scrollbar-track {
+      background: #0a0a0a;
     }
 
-    .chat-card.prev {
-      opacity: 0.3;
-      transform: translateY(-100%);
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: var(--dim);
+      border-radius: 3px;
+    }
+
+    .chat-msg {
+      padding: 0.5em 1em;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      animation: chatFadeIn 0.3s ease;
+    }
+
+    .chat-msg:last-child {
+      border-bottom: none;
+    }
+
+    @keyframes chatFadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .chat-msg-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.2em;
     }
 
     .chat-handle {
       font-family: var(--mono);
       font-size: 0.75em;
       color: var(--cyan);
-      margin-bottom: 0.3em;
+    }
+
+    .chat-handle:hover {
+      color: var(--pink);
+    }
+
+    .chat-time {
+      font-family: var(--mono);
+      font-size: 0.6em;
+      color: var(--dim);
     }
 
     .chat-text {
-      font-size: 0.85em;
+      font-size: 0.8em;
       color: var(--text);
       line-height: 1.4;
       overflow: hidden;
@@ -1253,13 +1276,6 @@
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
-    }
-
-    .chat-time {
-      font-family: var(--mono);
-      font-size: 0.65em;
-      color: var(--dim);
-      margin-top: 0.3em;
     }
 
     /* KidLisp Code Slideshow */
@@ -1422,6 +1438,95 @@
       }
       .stat-item { min-width: unset; }
     }
+
+    /* Thank You Mode */
+    .thanks-section {
+      display: none;
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 2em 1em;
+    }
+
+    body.thanks-mode .thanks-section {
+      display: block;
+    }
+
+    body.thanks-mode .fiat-section {
+      display: none !important;
+    }
+
+    body.thanks-mode .currency-links {
+      display: none !important;
+    }
+
+    .thanks-canvas-wrap {
+      display: inline-block;
+      margin-bottom: 1.5em;
+    }
+
+    .thanks-canvas {
+      width: 280px;
+      height: 280px;
+      border-radius: 12px;
+    }
+
+    .thanks-message {
+
+      font-family: 'ywft', sans-serif;
+      font-size: 1.4em;
+      color: var(--text);
+      max-width: 500px;
+      margin: 0 auto 1.5em auto;
+      line-height: 1.5;
+    }
+
+    .thanks-amount {
+      color: var(--green);
+      font-weight: bold;
+    }
+
+    .thanks-actions {
+      display: flex;
+      gap: 1em;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .thanks-again {
+      display: inline-block;
+      padding: 0.8em 1.5em;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 6px;
+      color: var(--cyan);
+      text-decoration: none;
+      transition: all 0.15s;
+      font-size: 0.95em;
+    }
+
+    .thanks-again:hover {
+      background: var(--cyan);
+      color: var(--bg);
+      text-decoration: none;
+    }
+
+    .thanks-share {
+      display: inline-block;
+      padding: 0.8em 1.5em;
+      background: #000;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #fff;
+      font-family: var(--mono);
+      font-size: 0.95em;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .thanks-share:hover {
+      background: #1da1f2;
+      border-color: #1da1f2;
+    }
   </style>
 </head>
 
@@ -1442,14 +1547,33 @@
     <div class="currency-links" id="currSelector">
       <span class="curr-link active" data-curr="usd"><span class="curr-flag">💵</span><span class="curr-text">USD</span></span>
       <span class="curr-link" data-curr="dkk"><span class="curr-flag">💶</span><span class="curr-text">DKK</span></span>
-      <span class="curr-link" data-curr="btc"><span class="curr-flag">🟠</span><span class="curr-text">BTC</span></span>
-      <span class="curr-link" data-curr="eth"><span class="curr-flag">💎</span><span class="curr-text">ETH</span></span>
       <span class="curr-link" data-curr="xtz"><span class="curr-flag">🔮</span><span class="curr-text">XTZ</span></span>
+      <span class="curr-link" data-curr="eth"><span class="curr-flag">💎</span><span class="curr-text">ETH</span></span>
+      <span class="curr-link" data-curr="btc"><span class="curr-flag">🟠</span><span class="curr-text">BTC</span></span>
     </div>
   </div>
 
   <main>
     <div class="content-grid">
+      <!-- Thank You Section (shown when ?thanks=1) -->
+      <div class="thanks-section">
+        <div class="thanks-canvas-wrap">
+          <canvas class="thanks-canvas" id="thanksCanvas" width="560" height="560"></canvas>
+        </div>
+        <p class="thanks-message" data-lang="en">
+          Thank you for giving <span class="thanks-amount" id="thanksAmountEn">$25</span> and keeping Aesthetic.Computer online and free to use.
+        </p>
+        <p class="thanks-message" data-lang="da">
+          Tak for at give <span class="thanks-amount" id="thanksAmountDa">$25</span> og holde Aesthetic.Computer online og gratis at bruge.
+        </p>
+        <div class="thanks-actions">
+          <a href="./" class="thanks-again" data-lang="en">Give again?</a>
+          <a href="./" class="thanks-again" data-lang="da">Giv igen?</a>
+          <button class="thanks-share" id="shareBtn" data-lang="en">Share to 𝕏</button>
+          <button class="thanks-share" id="shareBtnDa" data-lang="da">Del på 𝕏</button>
+        </div>
+      </div>
+
       <div class="fiat-section full-width">
         <div class="currency-pickers">
           <div class="currency-picker" data-for="usd">
@@ -1495,20 +1619,15 @@
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount crypto-amount">🔮 10 ꜩ</div>
+                  <div class="gift-amount crypto-amount">🔮 XTZ</div>
                 </div>
-                <div class="crypto-usd" data-currency="xtz">≈ $—</div>
               </div>
               <div class="crypto-controls">
-                <input type="range" class="crypto-slider" min="1" max="100" step="1" value="10" data-currency="xtz">
                 <div class="crypto-address copyable" data-copy="tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT">
                   <span class="crypto-label">aesthetic.tez</span>
                   <code class="crypto-addr">tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT</code>
-                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
-                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
-                </div>
-                <div class="crypto-buttons">
-                  <button class="gift-btn crypto-send" data-currency="xtz">Send 10 ꜩ</button>
+                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy address</span>
+                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere adresse</span>
                 </div>
               </div>
             </div>
@@ -1518,20 +1637,15 @@
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount crypto-amount">💎 0.05 Ξ</div>
+                  <div class="gift-amount crypto-amount">💎 ETH</div>
                 </div>
-                <div class="crypto-usd" data-currency="eth">≈ $—</div>
               </div>
               <div class="crypto-controls">
-                <input type="range" class="crypto-slider" min="0.01" max="1" step="0.01" value="0.05" data-currency="eth">
                 <div class="crypto-address copyable" data-copy="0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023">
                   <span class="crypto-label">4esthetic.eth</span>
                   <code class="crypto-addr">0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023</code>
-                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
-                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
-                </div>
-                <div class="crypto-buttons">
-                  <button class="gift-btn crypto-send" data-currency="eth">Send 0.05 Ξ</button>
+                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy address</span>
+                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere adresse</span>
                 </div>
               </div>
             </div>
@@ -1541,20 +1655,15 @@
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount crypto-amount">🟠 0.001 ₿</div>
+                  <div class="gift-amount crypto-amount">🟠 BTC</div>
                 </div>
-                <div class="crypto-usd" data-currency="btc">≈ $—</div>
               </div>
               <div class="crypto-controls">
-                <input type="range" class="crypto-slider" min="0.0001" max="0.1" step="0.0001" value="0.001" data-currency="btc">
                 <div class="crypto-address copyable" data-copy="bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as">
                   <span class="crypto-label">Bitcoin</span>
                   <code class="crypto-addr">bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as</code>
-                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
-                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
-                </div>
-                <div class="crypto-buttons">
-                  <button class="gift-btn crypto-send" data-currency="btc">Send 0.001 ₿</button>
+                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy address</span>
+                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere adresse</span>
                 </div>
               </div>
             </div>
@@ -1619,10 +1728,8 @@
           <span class="link-desc" data-lang="en">Goodiepal's Danish music community and radio show</span>
           <span class="link-desc" data-lang="da">Goodiepals danske musikfaellesskab og radioshow</span>
         </a>
-        <div class="chat-rolodex" id="chatRolodex">
-          <div class="chat-card active">
-            <div class="chat-text" style="color: var(--dim);">Loading...</div>
-          </div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Loading...</div></div>
         </div>
       </div>
 
@@ -1761,6 +1868,229 @@
       const isCrypto = ['xtz', 'eth', 'btc'].includes(curr);
       document.querySelectorAll('.fiat-only').forEach(el => el.style.display = isCrypto ? 'none' : '');
       document.querySelectorAll('.crypto-only').forEach(el => el.style.display = isCrypto ? '' : 'none');
+    }
+
+    // Check for thank-you mode
+    const urlParams = new URLSearchParams(window.location.search);
+    const isThanksMode = urlParams.has('thanks') || urlParams.get('thanks') === '1';
+    const thanksAmount = urlParams.get('amount');
+    const thanksCurrency = urlParams.get('currency') || 'usd';
+    
+    if (isThanksMode) {
+      document.body.classList.add('thanks-mode');
+      // Update amount display
+      const amountEn = document.getElementById('thanksAmountEn');
+      const amountDa = document.getElementById('thanksAmountDa');
+      const formattedAmount = thanksAmount 
+        ? (thanksCurrency === 'dkk' ? `${thanksAmount} kr` : `$${thanksAmount}`)
+        : '$25';
+      if (thanksAmount) {
+        if (amountEn) amountEn.textContent = formattedAmount;
+        if (amountDa) amountDa.textContent = formattedAmount;
+      }
+      
+      // 🌈 PSYCHO THANKS CANVAS with pals.svg + heart
+      const canvas = document.getElementById('thanksCanvas');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+        let t = 0;
+        let palsImg = null;
+        let palsLoaded = false;
+        
+        // Load pals.svg
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { palsImg = img; palsLoaded = true; };
+        img.src = 'https://aesthetic.computer/purple-pals.svg';
+        
+        function hslToRgb(h, s, l) {
+          let r, g, b;
+          if (s === 0) { r = g = b = l; }
+          else {
+            const hue2rgb = (p, q, t) => {
+              if (t < 0) t += 1;
+              if (t > 1) t -= 1;
+              if (t < 1/6) return p + (q - p) * 6 * t;
+              if (t < 1/2) return q;
+              if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+              return p;
+            };
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+          }
+          return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+        }
+        
+        function drawHeart(cx, cy, size, color, glow = 0) {
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.beginPath();
+          const s = size;
+          ctx.moveTo(0, s * 0.3);
+          ctx.bezierCurveTo(-s * 0.5, -s * 0.3, -s, s * 0.1, 0, s);
+          ctx.bezierCurveTo(s, s * 0.1, s * 0.5, -s * 0.3, 0, s * 0.3);
+          ctx.closePath();
+          if (glow > 0) {
+            ctx.shadowColor = color;
+            ctx.shadowBlur = glow;
+          }
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.restore();
+        }
+        
+        function animate() {
+          t += 0.025;
+          
+          // Background gradient that shifts
+          const bgHue = (t * 0.02) % 1;
+          const [bgr, bgg, bgb] = hslToRgb(bgHue, 0.15, 0.12);
+          const [bgr2, bgg2, bgb2] = hslToRgb((bgHue + 0.5) % 1, 0.2, 0.08);
+          const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W * 0.7);
+          grad.addColorStop(0, `rgb(${bgr},${bgg},${bgb})`);
+          grad.addColorStop(1, `rgb(${bgr2},${bgg2},${bgb2})`);
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, W, H);
+          
+          // Main color cycling
+          const hue = (t * 0.08) % 1;
+          
+          // Floating particles in background
+          for (let i = 0; i < 20; i++) {
+            const px = (W * 0.1 + (i * 137.5 + t * 30) % (W * 0.8));
+            const py = (H * 0.1 + (i * 89.3 + t * 20 + Math.sin(t + i) * 30) % (H * 0.8));
+            const psize = 3 + Math.sin(t * 2 + i) * 2;
+            const phue = (hue + i * 0.05) % 1;
+            const [pr, pg, pb] = hslToRgb(phue, 0.8, 0.6);
+            ctx.beginPath();
+            ctx.arc(px, py, psize, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${pr},${pg},${pb},${0.3 + Math.sin(t * 3 + i) * 0.2})`;
+            ctx.fill();
+          }
+          
+          // Draw pals.svg with animation
+          if (palsLoaded && palsImg) {
+            const palsPulse = 1 + Math.sin(t * 2) * 0.03;
+            const palsWobble = Math.sin(t * 1.5) * 0.02;
+            const palsSize = 320 * palsPulse;
+            
+            ctx.save();
+            ctx.translate(W/2, H/2 + 20);
+            ctx.rotate(palsWobble);
+            ctx.drawImage(palsImg, -palsSize/2, -palsSize/2, palsSize, palsSize);
+            ctx.restore();
+          }
+          
+          // Heart in top right corner
+          const heartX = W - 90;
+          const heartY = 85;
+          const heartPulse = 1 + Math.sin(t * 4) * 0.18;
+          const heartWobble = Math.sin(t * 6) * 0.08;
+          
+          const [r, g, b] = hslToRgb(hue, 0.9, 0.55);
+          const mainColor = `rgb(${r},${g},${b})`;
+          const glowHue = (hue + 0.1) % 1;
+          const [gr, gg, gb] = hslToRgb(glowHue, 1, 0.6);
+          const glowColor = `rgba(${gr},${gg},${gb},0.6)`;
+          
+          ctx.save();
+          ctx.translate(heartX, heartY);
+          ctx.rotate(heartWobble);
+          ctx.scale(heartPulse, heartPulse);
+          
+          // Outer glow heart
+          drawHeart(0, 0, 55, glowColor, 25);
+          // Main heart
+          drawHeart(0, 0, 45, mainColor, 10);
+          // Inner highlight
+          const [hr, hg, hb] = hslToRgb((hue + 0.5) % 1, 0.8, 0.75);
+          drawHeart(-8, -12, 18, `rgba(${hr},${hg},${hb},0.7)`);
+          
+          ctx.restore();
+          
+          // Sparkles around heart
+          for (let i = 0; i < 8; i++) {
+            const angle = t * 1.5 + i * 0.78;
+            const dist = 70 + Math.sin(t * 2.5 + i) * 15;
+            const sx = heartX + Math.cos(angle) * dist;
+            const sy = heartY + Math.sin(angle) * dist;
+            const sparkSize = 4 + Math.sin(t * 4 + i * 2) * 3;
+            const sparkHue = (hue + i * 0.125) % 1;
+            const [sr, sg, sb] = hslToRgb(sparkHue, 1, 0.7);
+            ctx.beginPath();
+            ctx.arc(sx, sy, Math.max(1, sparkSize), 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${sr},${sg},${sb},${0.6 + Math.sin(t * 3 + i) * 0.3})`;
+            ctx.fill();
+          }
+          
+          // Amount text at bottom
+          ctx.save();
+          ctx.font = 'bold 32px "ywft", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const textHue = (hue + 0.3) % 1;
+          const [tr, tg, tb] = hslToRgb(textHue, 0.9, 0.65);
+          ctx.fillStyle = `rgb(${tr},${tg},${tb})`;
+          ctx.shadowColor = `rgba(${tr},${tg},${tb},0.5)`;
+          ctx.shadowBlur = 15;
+          ctx.fillText(`gave ${formattedAmount}`, W/2, H - 60);
+          ctx.restore();
+          
+          // "give.aesthetic.computer" watermark
+          ctx.save();
+          ctx.font = '18px "berkeley", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = 'rgba(255,255,255,0.4)';
+          ctx.fillText('give.aesthetic.computer', W/2, H - 25);
+          ctx.restore();
+          
+          requestAnimationFrame(animate);
+        }
+        animate();
+        
+        // Share to X functionality
+        const shareBtn = document.getElementById('shareBtn');
+        const shareBtnDa = document.getElementById('shareBtnDa');
+        
+        async function shareToX() {
+          // Capture current canvas frame
+          const dataUrl = canvas.toDataURL('image/png');
+          
+          // Try Web Share API first (mobile)
+          if (navigator.share && navigator.canShare) {
+            try {
+              const blob = await (await fetch(dataUrl)).blob();
+              const file = new File([blob], 'aesthetic-computer-gift.png', { type: 'image/png' });
+              if (navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                  text: `I just gave ${formattedAmount} to Aesthetic.Computer! 💖 give.aesthetic.computer`,
+                  files: [file]
+                });
+                return;
+              }
+            } catch (e) {
+              console.log('Web Share failed, falling back to Twitter intent');
+            }
+          }
+          
+          // Fallback: Download image + open Twitter
+          const link = document.createElement('a');
+          link.download = 'aesthetic-computer-gift.png';
+          link.href = dataUrl;
+          link.click();
+          
+          // Open Twitter intent
+          const tweetText = encodeURIComponent(`I just gave ${formattedAmount} to Aesthetic.Computer! 💖\n\ngive.aesthetic.computer`);
+          window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank');
+        }
+        
+        if (shareBtn) shareBtn.addEventListener('click', shareToX);
+        if (shareBtnDa) shareBtnDa.addEventListener('click', shareToX);
+      }
     }
 
     // Load saved language or detect from browser
@@ -2283,58 +2613,42 @@
     }
     loadTVFeed();
     
-    // Chat Rolodex - Læer-Klokken messages
-    let chatMessages = [];
-    let chatIndex = 0;
-    
-    async function loadChatRolodex() {
-      const container = document.getElementById('chatRolodex');
+    // Chat Messages - Læer-Klokken messages (scrolling list)
+    async function loadChatMessages() {
+      const container = document.getElementById('chatMessages');
       try {
-        const res = await fetch(`${apiBase}/api/chat-messages?instance=clock&limit=10`);
+        const res = await fetch(`${apiBase}/api/chat/messages?instance=clock&limit=25`);
         const data = await res.json();
-        chatMessages = data.messages || [];
+        const messages = data.messages || [];
         
-        if (!chatMessages.length) {
-          container.innerHTML = '<div class="chat-card active"><div class="chat-text" style="color: var(--dim);">No messages yet</div></div>';
+        if (!messages.length) {
+          container.innerHTML = '<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">No messages yet</div></div>';
           return;
         }
         
-        // Reverse to show newest first
-        chatMessages.reverse();
-        renderChatCard(0);
+        // Messages come oldest-first from API, we want newest at top
+        const html = messages.map(msg => {
+          const when = new Date(msg.when);
+          const ago = formatTimeAgo(when);
+          // API returns 'from' field with '@' prefix if handle exists
+          const handle = msg.from || 'anon';
+          return `
+            <div class="chat-msg">
+              <div class="chat-msg-header">
+                <a href="https://aesthetic.computer/${handle}" class="chat-handle">${handle}</a>
+                <span class="chat-time">${ago}</span>
+              </div>
+              <div class="chat-text">${escapeHtml(msg.text || '')}</div>
+            </div>
+          `;
+        }).reverse().join('');
         
-        // Rotate every 4 seconds
-        setInterval(() => {
-          chatIndex = (chatIndex + 1) % chatMessages.length;
-          renderChatCard(chatIndex);
-        }, 4000);
+        container.innerHTML = html;
         
       } catch (e) {
         console.error('Chat load error:', e);
-        container.innerHTML = '<div class="chat-card active"><div class="chat-text" style="color: var(--dim);">Could not load</div></div>';
+        container.innerHTML = '<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Could not load</div></div>';
       }
-    }
-    
-    function renderChatCard(index) {
-      const container = document.getElementById('chatRolodex');
-      const msg = chatMessages[index];
-      const prevIndex = (index - 1 + chatMessages.length) % chatMessages.length;
-      
-      // Format time ago
-      const when = new Date(msg.when);
-      const ago = formatTimeAgo(when);
-      
-      container.innerHTML = `
-        <div class="chat-card prev">
-          <div class="chat-handle">@${chatMessages[prevIndex]?.handle || 'anon'}</div>
-          <div class="chat-text">${escapeHtml(chatMessages[prevIndex]?.text || '')}</div>
-        </div>
-        <div class="chat-card active">
-          <div class="chat-handle">@${msg.handle || 'anon'}</div>
-          <div class="chat-text">${escapeHtml(msg.text || '')}</div>
-          <div class="chat-time">${ago}</div>
-        </div>
-      `;
     }
     
     function formatTimeAgo(date) {
@@ -2355,7 +2669,7 @@
       return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
     
-    loadChatRolodex();
+    loadChatMessages();
     
     // KidLisp Code Slideshow - Top Hits
     let kidlispHits = [];
