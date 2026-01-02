@@ -99,9 +99,6 @@ const { abs, max, min, sin, cos } = Math;
 const { floor } = Math;
 const { keys } = Object;
 
-// 🔄 Code version - 2024.12.22.v4 - lanBadge in disk.mjs shows device letter (A,B,C)
-console.log("📦 prompt.mjs loaded - products disabled, lanBadge handled by disk.mjs");
-
 // Error / feedback flash on command entry.
 let flash;
 let flashShow = false;
