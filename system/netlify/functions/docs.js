@@ -2384,6 +2384,11 @@ export async function handler(event, context) {
         desc: "Caring confidant.",
         done: false,
       },
+      give: {
+        sig: "give",
+        desc: "Support aesthetic.computer.",
+        done: true,
+      },
       gostop: {
         sig: "gostop",
         desc: "Stop and go.",

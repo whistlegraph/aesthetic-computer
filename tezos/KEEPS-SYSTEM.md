@@ -6,7 +6,12 @@
 
 ---
 
-## Current Contract: `KT1Ah5m2kzU3GfN42hh57mVJ63kNi95XKBdM` (Ghostnet)
+## Current Contract (v3)
+
+| Network | Contract | Admin | Status |
+|---------|----------|-------|--------|
+| **Mainnet** | `KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi` | staging | Active (Staging) |
+| Ghostnet | `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K` | kidlisp | Testing |
 
 ### Storage
 | Field | Type | Description |
@@ -14,26 +19,43 @@
 | `administrator` | address | Admin wallet (can mint, burn, update, lock) |
 | `content_hashes` | big_map[bytes, nat] | Maps piece name → token_id (prevents duplicates) |
 | `contract_metadata_locked` | bool | If true, collection metadata is frozen |
+| `keep_fee` | mutez | Required fee to mint (0 = free) |
 | `ledger` | big_map[nat, address] | Token ownership (token_id → owner) |
 | `metadata` | big_map[string, bytes] | Contract-level TZIP-16 metadata |
 | `metadata_locked` | big_map[nat, bool] | Per-token metadata lock status |
 | `next_token_id` | nat | Auto-incrementing token counter |
 | `operators` | big_map | FA2 operator approvals |
+| `token_creators` | big_map[nat, address] | **v3:** Original creator for each token |
 | `token_metadata` | big_map[nat, record] | Per-token TZIP-21 metadata |
 
 ### Entrypoints
 
 | Entrypoint | Access | Description |
 |------------|--------|-------------|
-| `keep` | Admin | Mint new token with full TZIP-21 metadata |
-| `edit_metadata` | Admin | Update token metadata (if not locked) |
-| `lock_metadata` | Admin | Permanently freeze token metadata |
+| `keep` | Admin or User (with fee) | Mint new token with full TZIP-21 metadata |
+| `edit_metadata` | **Admin, Owner, or Creator** | Update token metadata (if not locked) |
+| `lock_metadata` | Admin or Owner | Permanently freeze token metadata |
 | `burn_keep` | Admin | Destroy token and free piece name for re-mint |
 | `set_contract_metadata` | Admin | Update collection metadata (if not locked) |
 | `lock_contract_metadata` | Admin | Permanently freeze collection metadata |
+| `set_keep_fee` | Admin | Set mint fee (in tez) |
+| `withdraw_fees` | Admin | Withdraw accumulated fees |
 | `transfer` | Owner/Operator | FA2 standard transfer |
 | `balance_of` | Public | FA2 standard balance query |
 | `update_operators` | Owner | FA2 operator management |
+
+### v3 Permission Model (edit_metadata)
+
+```
+edit_metadata authorization (in order of check):
+1. Admin — can edit any token
+2. Owner — current holder of the token  
+3. Creator — address stored in token_creators[token_id]
+
+⚠️  For objkt.com artist attribution:
+   The CREATOR must call edit_metadata, not admin!
+   Admin calls show admin as "updater" on objkt.
+```
 
 ### Uniqueness Enforcement
 - Each piece name (e.g., "cow", "roz") can only be minted once

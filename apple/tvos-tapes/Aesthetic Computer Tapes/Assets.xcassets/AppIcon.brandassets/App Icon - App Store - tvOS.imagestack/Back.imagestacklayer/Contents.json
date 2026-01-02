@@ -1,0 +1,9 @@
+{
+  "properties" : {
+    "content-type" : "flat"
+  },
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

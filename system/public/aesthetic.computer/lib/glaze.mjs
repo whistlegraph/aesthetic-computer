@@ -123,27 +123,11 @@ const displayUniformNames = defaultUniformNames;
 const displayUniformLocations = {};
 
 let offed = false;
+let programsCompiled = false; // Track if shaders have been compiled for current glaze type
 
-// TODO: This is run on every resize... but some of this can move into init() above.
-// Resizes the textures & re-initializes the necessary components for a resolution change.
-// See also: `frame` via window.resize in `bios.js`.
-export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
-  if (glaze.shadersLoaded === false) return;
-
-  // Run `init` if the canvas does not exist.
-  // Note: Should `init` just be here?
-  if (canvas === undefined) {
-    init(wrapper);
-  }
-
-  if (offed) return; // If glaze could not initialize then don't run a frame.
-
-  // Set the native canvas width and height.
-  canvas.width = nativeWidth * window.devicePixelRatio;
-  canvas.height = nativeHeight * window.devicePixelRatio;
-
-  canvas.style.width = rect.width + "px";
-  canvas.style.height = rect.height + "px";
+// Compile shader programs - only needs to happen once per glaze type
+function compilePrograms() {
+  if (!glaze || !glaze.shadersLoaded || !gl) return false;
 
   // Create custom shader program.
   const customVert = createShader(gl, gl.VERTEX_SHADER, passthrough);
@@ -159,86 +143,6 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
   const displayVert = createShader(gl, gl.VERTEX_SHADER, passthrough);
   const displayFrag = createShader(gl, gl.FRAGMENT_SHADER, glaze.display);
   displayProgram = createProgram(gl, displayVert, displayFrag);
-
-  // Make surface texture.
-  texSurf = gl.createTexture();
-
-  texSurfWidth = w;
-  texSurfHeight = h;
-
-  // Temporarily fill texture with random pixels.
-  const buffer = new Uint8Array(4 * w * h);
-
-  for (let i = 0; i < buffer.length; i += 4) {
-    buffer[i] = (255 * i) / buffer.length;
-    buffer[i + 1] = (255 * i) / buffer.length;
-    buffer[i + 2] = (255 * i) / buffer.length;
-    buffer[i + 3] = 255;
-  }
-
-  gl.bindTexture(gl.TEXTURE_2D, texSurf);
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    w,
-    h,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    buffer,
-  );
-
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-  // Make fb texture.
-  texFbSurfA = gl.createTexture();
-
-  // Temporarily fill texture with random pixels.
-  const buffer2 = new Uint8Array(4 * w * h);
-  buffer2.fill(0);
-
-  // Make post texture.
-  texFbSurfB = gl.createTexture();
-
-  gl.bindTexture(gl.TEXTURE_2D, texFbSurfB);
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    w,
-    h,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    buffer2,
-  );
-
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-  gl.bindTexture(gl.TEXTURE_2D, texFbSurfA);
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    w,
-    h,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    buffer2,
-  );
-
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   // Make frame buffer.
   fb = gl.createFramebuffer();
@@ -313,6 +217,109 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
       customUniformLocations[item] = gl.getUniformLocation(customProgram, item);
     });
 
+  programsCompiled = true;
+  return true;
+}
+
+// Resizes the textures for a resolution change - called on every resize
+// See also: `frame` via window.resize in `bios.js`.
+export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
+  if (glaze.shadersLoaded === false) return;
+
+  // Run `init` if the canvas does not exist.
+  // Note: Should `init` just be here?
+  if (canvas === undefined) {
+    init(wrapper);
+  }
+
+  if (offed) return; // If glaze could not initialize then don't run a frame.
+
+  // Compile programs if not already done for this glaze type
+  if (!programsCompiled) {
+    if (!compilePrograms()) return;
+  }
+
+  // Set the native canvas width and height.
+  canvas.width = nativeWidth * window.devicePixelRatio;
+  canvas.height = nativeHeight * window.devicePixelRatio;
+
+  canvas.style.width = rect.width + "px";
+  canvas.style.height = rect.height + "px";
+
+  // Make surface texture.
+  texSurf = gl.createTexture();
+
+  texSurfWidth = w;
+  texSurfHeight = h;
+
+  // Temporarily fill texture with zeros (black/transparent).
+  const buffer = new Uint8Array(4 * w * h);
+  buffer.fill(0);
+
+  gl.bindTexture(gl.TEXTURE_2D, texSurf);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    w,
+    h,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    buffer,
+  );
+
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  // Make fb texture.
+  texFbSurfA = gl.createTexture();
+
+  // Temporarily fill texture with zeros.
+  const buffer2 = new Uint8Array(4 * w * h);
+  buffer2.fill(0);
+
+  // Make post texture.
+  texFbSurfB = gl.createTexture();
+
+  gl.bindTexture(gl.TEXTURE_2D, texFbSurfB);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    w,
+    h,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    buffer2,
+  );
+
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  gl.bindTexture(gl.TEXTURE_2D, texFbSurfA);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    w,
+    h,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    buffer2,
+  );
+
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
   glaze.loaded = true;
 }
 
@@ -349,16 +356,24 @@ export async function on(
     rect.height === glaze.rect.height
   ) {
     // Don't reload glaze from scratch if the same one has already been loaded.
-
-    //console.log("Keeping glaze...", rect, glaze.rect);
-
-    // TODO: Re-implement this... it causes a flicker rn. 22.09.19.23.43
-    // Reframe glaze only if necessary...
-    // if (glaze.w !== w || glaze.h !== h) {
-    //  frame(w, h, rect, nativeWidth, nativeHeight, wrapper);
-    // }
+    // Dimensions and type are identical - nothing to do.
+    return glaze;
+  } else if (
+    glaze &&
+    glaze.shadersLoaded &&
+    (glaze.type === type || type === undefined)
+  ) {
+    // Same glaze type but dimensions changed - just resize without reloading shaders
+    glaze.w = w;
+    glaze.h = h;
+    glaze.rect = rect;
+    offed = false;
+    frame(w, h, rect, nativeWidth, nativeHeight, wrapper);
+    loaded();
     return glaze;
   } else {
+    // Different glaze type or first load - need to fetch and compile shaders
+    programsCompiled = false; // Reset so shaders get recompiled for new type
     glaze = new Glaze(type, w, h, rect);
 
     await glaze.load(() => {

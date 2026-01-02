@@ -3150,8 +3150,9 @@ class KidLisp {
         // console.log("✅ Cache successful, stored code:", data.code);
 
         // Use the day-themed logging from headers.mjs
+        // Pass quiet:true when in kidlisp.com iframe context to avoid verbose source code logs
         const { logKidlispCode } = await import('./headers.mjs');
-        logKidlispCode(source, data.code, api.dark);
+        logKidlispCode(source, data.code, api.dark, { quiet: api.inIframe });
 
         // If createCode flag is set (from kidlisp.com editor), send response back to parent
         if (api.kidlispCreateCode) {

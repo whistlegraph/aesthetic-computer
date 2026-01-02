@@ -30,6 +30,7 @@ export function parseMessageElements(message) {
       // Parse as kidlisp and create elements for each token with syntax highlighting
       const tokens = tokenize(promptText);
       const kidlispInstance = new KidLisp();
+      kidlispInstance.isEditMode = true; // Enable edit mode to prevent transparent text inside timers
       
       let charOffset = actualStart + 1; // +1 to skip opening quote
       

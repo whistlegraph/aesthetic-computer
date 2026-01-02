@@ -5,6 +5,7 @@
 import { Socket } from "./socket.mjs";
 import { logs } from "./logs.mjs";
 import { redact, unredact } from "./redact.mjs";
+import { FUNDING_MODE } from "../disks/prompt.mjs";
 
 /* #region 🏁 TODO
   + Done
@@ -22,11 +23,12 @@ export class Chat {
     this.system = {
       server: new Socket(debug, send),
       chatterCount: 0,
+      onlineHandles: [], // Realtime list of online user handles
       messages: [],
       // receiver: // A custom receiver that can be defined in a piece.
       //              like `chat` to get the events.
       disconnect, // A custom disconnection that triggers below.
-      connecting: true,
+      connecting: true, // Start in connecting state, set to false when connected
     };
     this.#debug = debug;
   }
@@ -36,6 +38,12 @@ export class Chat {
   // Instance options are `system` for AC users and `sotce` for Sotce Net
   // as of 24.11.02.00.31
   connect(instanceName) {
+    // 💸 FUNDING MODE: Never connect to chat servers, just show ransom message
+    if (FUNDING_MODE) {
+      console.log("💬 Chat connection skipped - FUNDING_MODE active");
+      return;
+    }
+    
     instanceName = "chat-" + instanceName;
     if (validInstances.indexOf(instanceName) === -1) {
       console.warn(
@@ -81,6 +89,7 @@ export class Chat {
           this.system.connecting = false;
           this.system.chatterCount =
             content?.chatters || this.system.chatterCount;
+          this.system.onlineHandles = content?.handles || [];
           this.system.messages.length = 0;
           this.system.messages.push(...content.messages);
           if (logs.chat) {
@@ -166,11 +175,18 @@ export class Chat {
         if (type === "left") {
           if (logs.chat) console.log("️✌️ Goodbye:", id, type, content);
           this.system.chatterCount = content.chatters;
+          if (content.handles) this.system.onlineHandles = content.handles;
         }
 
         if (type === "joined") {
           if (logs.chat) console.log("️👋 Hello:", id, type, content);
           this.system.chatterCount = content.chatters;
+          if (content.handles) this.system.onlineHandles = content.handles;
+        }
+
+        if (type === "online-handles") {
+          if (logs.chat) console.log("👥 Online handles:", content.handles);
+          this.system.onlineHandles = content.handles || [];
         }
 
         this.system.receiver?.(id, type, content, extra); // Run the piece receiver.
@@ -183,6 +199,7 @@ export class Chat {
         // disconnectCallback
         if (logs.chat) console.log("💬🚫 Chat disconnected.");
         this.system.chatterCount = 0;
+        this.system.onlineHandles = [];
         this.system.connecting = true;
         this.system.disconnect?.();
       },
