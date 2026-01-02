@@ -7,10 +7,12 @@
 	# encode zstd gzip
 	
 	# Aggressive caching disabled for dev (instant updates)
-	header Cache-Control "no-store, no-cache, must-revalidate"
+	header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+	header Pragma "no-cache"
+	header Expires "0"
 	header X-Content-Type-Options "nosniff"
 	
-	# Disable chunked transfer encoding - send complete responses
+	# Disable chunked transfer encoding - send complete responses with content-length
 	header -Transfer-Encoding
 	
 	# Enable CORS for local development
