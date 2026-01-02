@@ -24,9 +24,10 @@ export async function handler(event, context) {
     return respond(405, { error: "Method not allowed" });
   }
 
+  // Use the correct Netlify env var names
   const stripeKey = dev
-    ? process.env.STRIPE_API_KEY
-    : process.env.STRIPE_API_KEY_LIVE;
+    ? process.env.STRIPE_API_TEST_PRIV_KEY
+    : process.env.STRIPE_API_PRIV_KEY;
 
   if (!stripeKey) {
     return respond(500, { error: "Stripe not configured" });
@@ -50,9 +51,10 @@ export async function handler(event, context) {
     const displayStr = currency === 'dkk' ? `${amountDisplay} kr` : `$${amountDisplay}`;
 
     // Build session config
+    const giveBaseUrl = dev ? `https://${event.headers.host}` : "https://give.aesthetic.computer";
     const sessionConfig = {
-      success_url: `${getBaseUrl(event)}/give.aesthetic.computer/thanks.html?amount=${amountDisplay}&currency=${currency}${recurring ? '&recurring=true' : ''}`,
-      cancel_url: `${getBaseUrl(event)}/give.aesthetic.computer/`,
+      success_url: `${giveBaseUrl}/thanks.html?amount=${amountDisplay}&currency=${currency}${recurring ? '&recurring=true' : ''}`,
+      cancel_url: `${giveBaseUrl}/`,
       billing_address_collection: "auto",
       metadata: {
         type: recurring ? "subscription" : "gift",

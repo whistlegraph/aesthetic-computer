@@ -99,9 +99,6 @@ const { abs, max, min, sin, cos } = Math;
 const { floor } = Math;
 const { keys } = Object;
 
-// 🔄 Code version - 2024.12.22.v4 - lanBadge in disk.mjs shows device letter (A,B,C)
-console.log("📦 prompt.mjs loaded - products disabled, lanBadge handled by disk.mjs");
-
 // Error / feedback flash on command entry.
 let flash;
 let flashShow = false;
@@ -125,7 +122,8 @@ let login, // A login button in the center of the display.
   signup, // A Sign-up button.
   profile, // A profile page button.
   profileAction,
-  walletBtn; // Tezos wallet button (shown when connected)
+  walletBtn, // Tezos wallet button (shown when connected)
+  giveBtn; // GIVE button for funding mode (top-right)
 let resendVerificationText;
 let ellipsisTicker;
 let chatTicker; // Ticker instance for chat messages
@@ -136,7 +134,46 @@ let clockChatMessages = []; // Messages from clock chat (starts empty, shows Mat
 let contentTicker; // Ticker instance for mixed $kidlisp, #painting, !tape content
 let contentTickerButton; // Button for content ticker hover interaction
 let mediaPreviewBox; // Shared preview box renderer for all media types
-const tinyTickers = true; // Use MatrixChunky8 font for tighter, smaller tickers
+
+// 💸 FUNDING SEVERITY: Controls funding mode features
+// "critical" = full lockdown (chat offline, all alerts)
+// "yikes" = chat works, but keep $ effect, GIVE button, emotional face
+// "off" = normal operation
+export const FUNDING_SEVERITY = "yikes";
+
+// Legacy export for backwards compatibility
+export const FUNDING_MODE = FUNDING_SEVERITY === "critical";
+
+// Helper flags
+const showFundingEffects = FUNDING_SEVERITY !== "off"; // $ replacement, GIVE button, face
+const isCriticalFunding = FUNDING_SEVERITY === "critical"; // Full lockdown mode
+
+// Set global flags for disk.mjs
+if (typeof globalThis !== "undefined") {
+  globalThis.AC_FUNDING_MODE = showFundingEffects; // $ replacement active for both critical and yikes
+  globalThis.AC_CHAT_DISABLED = isCriticalFunding; // Only block chat in critical mode
+}
+
+// Colorful funding messages for each ticker (using \\color\\ codes for rendering)
+// Uses ASCII-only characters compatible with font_1 (MatrixChunky8 loads from assets which has CORS issues)
+// English messages
+const FUNDING_MESSAGE_CHAT_EN = "*** \\pink\\'chat'\\cyan\\, media storage, and multiplayer are offline due to server bill hardship -- Enter 'give' to help support AC in the New Year! ***";
+const FUNDING_MESSAGE_CLOCK_EN = "*** \\orange\\'laer-klokken'\\255,200,100\\ and other services are offline due to server bill hardship -- Enter 'give' to help support AC in the New Year! ***";
+// Danish messages
+const FUNDING_MESSAGE_CHAT_DA = "*** \\pink\\'chat'\\cyan\\, medielagring og multiplayer er offline pga. serverregning -- Skriv 'give' for at stoette AC i det nye aar! ***";
+const FUNDING_MESSAGE_CLOCK_DA = "*** \\orange\\'laer-klokken'\\255,200,100\\ og andre tjenester er offline pga. serverregning -- Skriv 'give' for at stoette AC i det nye aar! ***";
+// Alternate between English and Danish every 10 seconds
+const getLangPhase = () => Math.floor(Date.now() / 10000) % 2;
+const FUNDING_MESSAGE_CHAT = getLangPhase() === 0 ? FUNDING_MESSAGE_CHAT_EN : FUNDING_MESSAGE_CHAT_DA;
+const FUNDING_MESSAGE_CLOCK = getLangPhase() === 0 ? FUNDING_MESSAGE_CLOCK_EN : FUNDING_MESSAGE_CLOCK_DA;
+
+// Recovery mode ticker messages (when severity is "yikes" - chat back online but still need support)
+const RECOVERY_TICKER_EN = "Chat was offline ~ AC needs support to stay healthy!";
+const RECOVERY_TICKER_DA = "Chat var offline ~ AC har brug for stoette!";
+export const getRecoveryTicker = () => getLangPhase() === 0 ? RECOVERY_TICKER_EN : RECOVERY_TICKER_DA;
+export const showFundingEffectsFlag = showFundingEffects; // Export for chat.mjs
+
+const tinyTickers = !isCriticalFunding; // Use MatrixChunky8 font for tighter, smaller tickers (disabled in critical funding mode - assets CORS)
 let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string, source?: string}
 let currentTooltipItem = null; // Current item being shown in tooltip (auto-cycles)
 let tooltipTimer = 0; // Timer for switching between items
@@ -156,13 +193,17 @@ let fpsTimestamps = [];
 let currentFps = 0;
 let showFpsMeter = false; // Toggle with backtick key
 
-// 🚫 DEBUG: Disable content ticker/TV preview while debugging carousel
-const DISABLE_CONTENT_TICKER = true;
+// 🚫 Content ticker controls
+const DISABLE_CONTENT_TICKER = false;
+const DISABLE_CONTENT_PREVIEWS = true; // Disable live preview tooltips
 
 let startupSfx, keyboardSfx;
 
 // 🎆 Corner particles (for cursor effect)
 let cornerParticles = [];
+
+// ✨ Sparkle particles for GIVE button
+let giveBtnParticles = [];
 
 let tapePromiseResolve, tapePromiseReject;
 let promptSend;
@@ -1068,9 +1109,9 @@ async function halt($, text) {
     // 🔥 Jump to Oven dashboard
     jump(`https://oven.aesthetic.computer`);
     return true;
-  } else if (slug === "gift") {
-    // 🎁 Jump to Gift page
-    jump(`https://gift.aesthetic.computer`);
+  } else if (slug === "give") {
+    // 🎁 Jump to Give page (opens in new window)
+    jump(`out:https://give.aesthetic.computer`);
     return true;
   } else if (slug === "desktop" || slug === "app" || slug === "electron") {
     // 💻 Jump to Desktop app download page
@@ -3586,7 +3627,212 @@ function paint($) {
   // Calculate MOTD offset (do this before book rendering so it's always available)
   let motdXOffset = 0;
   
-  // � Paint product (book or record) in top-right corner (only on login curtain)
+  // 💸 GIVE button in top-right corner during funding effects (critical or yikes)
+  if (showFundingEffects && showLoginCurtain) {
+    // Sync GIVE button with emotional face - angry = GIVE UP, others = currencies
+    const now = Date.now();
+    
+    // Match the face emotion cycle: every 3 seconds, 0=angry, 1=sad, 2=crying
+    const emotionPhase = Math.floor(now / 3000) % 3;
+    const isGiveUpMode = emotionPhase === 0; // Angry face = GIVE UP mode
+    
+    // Randomly pick ? or ! based on fast oscillation (only used in GIVE UP mode)
+    const punctuation = Math.floor(now / 150) % 2 === 0 ? "?" : "!";
+    
+    let giveBtnText;
+    if (isGiveUpMode) {
+      giveBtnText = "GIVE UP" + punctuation;
+    } else {
+      const currencies = ["U$D", "TEZ", "DKK", "ETH", "BTC"];
+      const currencyIndex = Math.floor(now / 3000) % currencies.length;
+      giveBtnText = "GIVE " + currencies[currencyIndex];
+    }
+    
+    const btnPaddingTop = 8; // Moved down 2px
+    const btnPaddingRight = 10; // Uniform margin with top
+    const btnWidth = 56; // Fixed width for consistent right alignment
+    const giveBtnY = btnPaddingTop;
+    const giveBtnX = screen.width - btnWidth - btnPaddingRight; // Right-aligned with padding
+    
+    if (!giveBtn) {
+      giveBtn = new $.ui.TextButton(giveBtnText, {
+        x: giveBtnX,
+        y: giveBtnY,
+      });
+    } else {
+      giveBtn.reposition({ x: giveBtnX, y: giveBtnY }, giveBtnText);
+    }
+    
+    // 🌈 Rainbow cycling colors for attention-seeking effect
+    const t = performance.now() / 1000;
+    const hue = (t * 80) % 360; // Cycle through hues faster
+    const pulse = Math.sin(t * 5) * 0.5 + 0.5; // Pulsing effect (0-1)
+    
+    // Convert HSL to RGB for fill color
+    const hslToRgb = (h, s, l) => {
+      h /= 360; s /= 100; l /= 100;
+      let r, g, b;
+      if (s === 0) { r = g = b = l; }
+      else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    };
+    
+    // Bright saturated fill that cycles through rainbow
+    const fillColor = hslToRgb(hue, 100, 50 + pulse * 10); // 50-60% lightness
+    const btnBox = giveBtn?.btn?.box;
+    
+    if (btnBox) {
+      // Draw button background and outline manually
+      const isDown = giveBtn.btn.down;
+      
+      // 🔴⚪⚫ Special GIVE UP? mode - super fast red/white/black blinking
+      if (isGiveUpMode) {
+        // Fast oscillation at ~20Hz (50ms per cycle) between red, white, black
+        const blinkPhase = Math.floor(performance.now() / 50) % 3;
+        const blinkColors = [
+          [255, 0, 0],    // red
+          [255, 255, 255], // white
+          [0, 0, 0],      // black
+        ];
+        const bgColor = blinkColors[blinkPhase];
+        const textColor = blinkColors[(blinkPhase + 1) % 3]; // Offset text color for contrast
+        const outlineColor = blinkColors[(blinkPhase + 2) % 3];
+        
+        // Special colors for punctuation
+        const punctColors = {
+          "?": [0, 255, 255],   // cyan for ?
+          "!": [255, 255, 0],   // yellow for !
+        };
+        
+        ink(...bgColor).box(btnBox, "fill");
+        ink(...outlineColor).box(btnBox, "outline");
+        
+        // Shake text aggressively
+        const chars = giveBtnText.split('');
+        const charWidth = 6;
+        const textStartX = btnBox.x + 4;
+        const textY = btnBox.y + 4;
+        
+        chars.forEach((char, i) => {
+          const shakeX = (Math.random() - 0.5) * 3;
+          const shakeY = (Math.random() - 0.5) * 3;
+          // Use special color for ? or !
+          const charColor = punctColors[char] || textColor;
+          ink(...charColor).write(char, { x: Math.round(textStartX + i * charWidth + shakeX), y: Math.round(textY + shakeY) });
+        });
+        
+        // No particles in GIVE UP? mode - too chaotic already
+      } else {
+        // Normal rainbow mode
+        const bgColor = isDown ? hslToRgb(hue, 100, 70) : fillColor;
+        
+        ink(...bgColor).box(btnBox, "fill");
+        ink(255, 255, 255).box(btnBox, "outline");
+        
+        // 💥 Draw each letter with individual shake and color!
+        const chars = giveBtnText.split('');
+        const charWidth = 6; // font_1 char width
+        const textStartX = btnBox.x + 4; // padding
+        const textY = btnBox.y + 4; // padding
+        
+        chars.forEach((char, i) => {
+          // Each letter gets different hue offset
+          const letterHue = (hue + i * 90) % 360;
+          const letterColor = hslToRgb(letterHue, 100, isDown ? 40 : 75);
+          
+          // Shake offset - each letter shakes independently
+          const shakeX = Math.sin(t * 20 + i * 2) * 1;
+          const shakeY = Math.cos(t * 25 + i * 3) * 1;
+        
+          const x = textStartX + i * charWidth + shakeX;
+          const y = textY + shakeY;
+        
+          ink(...letterColor).write(char, { x: Math.round(x), y: Math.round(y) });
+        });
+        
+        // ✨ Spawn sparkle particles around the button (only in normal mode)
+        if (Math.random() < 0.4) { // 40% chance per frame to spawn
+      const sparkleHue = (hue + Math.random() * 60 - 30) % 360; // Vary hue slightly
+      const sparkleColor = hslToRgb(sparkleHue, 100, 70);
+      
+      // Spawn from random edge of button
+      const edge = Math.floor(Math.random() * 4);
+      let px, py, vx, vy;
+      
+      switch(edge) {
+        case 0: // Top
+          px = btnBox.x + Math.random() * btnBox.w;
+          py = btnBox.y;
+          vx = (Math.random() - 0.5) * 2;
+          vy = -Math.random() * 2 - 1;
+          break;
+        case 1: // Right
+          px = btnBox.x + btnBox.w;
+          py = btnBox.y + Math.random() * btnBox.h;
+          vx = Math.random() * 2 + 1;
+          vy = (Math.random() - 0.5) * 2;
+          break;
+        case 2: // Bottom
+          px = btnBox.x + Math.random() * btnBox.w;
+          py = btnBox.y + btnBox.h;
+          vx = (Math.random() - 0.5) * 2;
+          vy = Math.random() * 2 + 1;
+          break;
+        case 3: // Left
+          px = btnBox.x;
+          py = btnBox.y + Math.random() * btnBox.h;
+          vx = -Math.random() * 2 - 1;
+          vy = (Math.random() - 0.5) * 2;
+          break;
+      }
+      
+      giveBtnParticles.push({
+        x: px,
+        y: py,
+        vx: vx,
+        vy: vy,
+        life: 1.0,
+        color: sparkleColor,
+        size: Math.random() < 0.3 ? 2 : 1, // 30% chance of 2px particle
+      });
+        }
+      } // End of normal rainbow mode else block
+    }
+    
+    // Update and draw sparkle particles
+    giveBtnParticles = giveBtnParticles.filter(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.96; // Slow down
+      p.vy *= 0.96;
+      p.life -= 0.03;
+      
+      if (p.life > 0) {
+        const alpha = Math.floor(p.life * 255);
+        ink(...p.color, alpha).box(Math.round(p.x), Math.round(p.y), p.size, p.size);
+      }
+      
+      return p.life > 0;
+    });
+  } else {
+    giveBtn = null;
+    giveBtnParticles = []; // Clear particles when button hidden
+  }
+  
   // 📦 Paint product (book or record) in top-right corner (only on login curtain)
   // Hide carousel when prompt is editable or has text
   // DISABLED: products carousel
@@ -4115,63 +4361,163 @@ function paint($) {
   }
 
   // 🎰 Polychrome border effect pointing to top-left corner (on login curtain)
+  // In CRITICAL funding mode: Red/yellow warning stripes around ALL edges
   if (showLoginCurtain) {
     const activeProduct = products.getActiveProduct();
     const rotation = activeProduct ? activeProduct.rotation : 0;
     
-    // Cycle through pink, purple, green phases
-    const colorPhase = (rotation * 0.08) % 3;
-    let primaryColor, secondaryColor, tertiaryColor;
-    
-    if (colorPhase < 1) {
-      primaryColor = [255, 100, 200]; // Pink
-      secondaryColor = [200, 100, 255]; // Purple
-      tertiaryColor = [100, 255, 150]; // Green
-    } else if (colorPhase < 2) {
-      primaryColor = [200, 100, 255]; // Purple
-      secondaryColor = [100, 255, 150]; // Green
-      tertiaryColor = [255, 100, 200]; // Pink
-    } else {
-      primaryColor = [100, 255, 150]; // Green
-      secondaryColor = [255, 100, 200]; // Pink
-      tertiaryColor = [200, 100, 255]; // Purple
-    }
-    
-    // Pulsing effect for base intensity
-    const pulseBase = Math.sin(rotation * 0.15);
-    
-    // Border extends to 2/3rds of screen
-    const borderWidth = (screen.width / 3) * 2;
-    const borderHeight = (screen.height / 3) * 2;
-    const borderThickness = 1; // Fixed 1 pixel wide
-    
-    // Draw top border with dithered/striped pattern (1 pixel tall)
-    for (let x = 0; x < borderWidth; x++) {
-      // Intensity increases as we get closer to the corner (left edge)
-      const intensityRatio = 1 - (x / borderWidth); // 1.0 at corner, 0.0 at edge
-      const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
+    if (isCriticalFunding) {
+      // 🚨 CRITICAL FUNDING: Animated glittering border with primary colors + BLINK
+      const stripeWidth = 3; // Slightly narrower stripes
+      const borderThickness = 2; // 2px border for visibility
+      const t = performance.now() / 1000;
       
-      // Dither pattern: show pixels based on intensity ratio
-      const patternValue = (x + Math.floor(rotation / 4)) % 4; // 0-3 pattern
-      const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
+      // Blink effect - border blinks on/off rapidly
+      const blinkPhase = Math.floor(t * 4) % 2; // Blink 4 times per second
+      if (blinkPhase === 0) {
+        // Skip drawing border during "off" phase
+      } else {
       
-      if (patternValue >= threshold) {
-        ink(...primaryColor, alpha).box(x, 0, 1, borderThickness);
+      // Primary colors - pure RGB (fully saturated)
+      const alertColors = [
+        [255, 0, 0],     // Pure red
+        [255, 255, 0],   // Pure yellow
+        [0, 255, 0],     // Pure green (occasional)
+      ];
+      
+      // Animate stripes scrolling much faster!
+      const stripeOffset = Math.floor(rotation * 4) % (stripeWidth * 2);
+      
+      // Glitter effect - random white sparkles
+      const glitterChance = 0.08; // 8% chance per pixel to sparkle
+      const glitterSeed = Math.floor(t * 10); // Changes 10x per second for sparkle effect
+      
+      // Top border - diagonal stripes moving right
+      for (let x = -stripeWidth * 2; x < screen.width + stripeWidth * 2; x++) {
+        for (let y = 0; y < borderThickness; y++) {
+          if (x >= 0 && x < screen.width) {
+            const diagonalPos = x + y + stripeOffset;
+            const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
+            // Use red/yellow primarily, occasional green
+            const colorIdx = ((x + glitterSeed) % 20 === 0) ? 2 : stripeIndex;
+            let color = alertColors[colorIdx];
+            // Sparkle effect - random white flashes
+            const sparkleHash = ((x * 7 + y * 13 + glitterSeed) % 100) / 100;
+            if (sparkleHash < glitterChance) {
+              color = [255, 255, 255]; // White sparkle
+            }
+            ink(...color).box(x, y, 1, 1);
+          }
+        }
       }
-    }
-    
-    // Draw left border with dithered/striped pattern (1 pixel wide)
-    for (let y = 0; y < borderHeight; y++) {
-      // Intensity increases as we get closer to the corner (top edge)
-      const intensityRatio = 1 - (y / borderHeight); // 1.0 at corner, 0.0 at edge
-      const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
       
-      // Dither pattern: show pixels based on intensity ratio
-      const patternValue = (y + Math.floor(rotation / 4)) % 4; // 0-3 pattern
-      const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
+      // Bottom border - diagonal stripes moving left
+      for (let x = -stripeWidth * 2; x < screen.width + stripeWidth * 2; x++) {
+        for (let y = 0; y < borderThickness; y++) {
+          if (x >= 0 && x < screen.width) {
+            const diagonalPos = x - y - stripeOffset;
+            const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
+            const colorIdx = ((x + glitterSeed + 10) % 20 === 0) ? 2 : (stripeIndex + 1) % 2;
+            let color = alertColors[colorIdx];
+            const sparkleHash = ((x * 11 + y * 17 + glitterSeed) % 100) / 100;
+            if (sparkleHash < glitterChance) {
+              color = [255, 255, 255];
+            }
+            ink(...color).box(x, screen.height - borderThickness + y, 1, 1);
+          }
+        }
+      }
       
-      if (patternValue >= threshold) {
-        ink(...primaryColor, alpha).box(0, y, borderThickness, 1);
+      // Left border - diagonal stripes moving down
+      for (let y = -stripeWidth * 2; y < screen.height + stripeWidth * 2; y++) {
+        for (let x = 0; x < borderThickness; x++) {
+          if (y >= 0 && y < screen.height) {
+            const diagonalPos = y + x + stripeOffset;
+            const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
+            const colorIdx = ((y + glitterSeed + 5) % 20 === 0) ? 2 : stripeIndex;
+            let color = alertColors[colorIdx];
+            const sparkleHash = ((x * 19 + y * 23 + glitterSeed) % 100) / 100;
+            if (sparkleHash < glitterChance) {
+              color = [255, 255, 255];
+            }
+            ink(...color).box(x, y, 1, 1);
+          }
+        }
+      }
+      
+      // Right border - diagonal stripes moving up
+      for (let y = -stripeWidth * 2; y < screen.height + stripeWidth * 2; y++) {
+        for (let x = 0; x < borderThickness; x++) {
+          if (y >= 0 && y < screen.height) {
+            const diagonalPos = y - x - stripeOffset;
+            const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
+            const colorIdx = ((y + glitterSeed + 15) % 20 === 0) ? 2 : (stripeIndex + 1) % 2;
+            let color = alertColors[colorIdx];
+            const sparkleHash = ((x * 29 + y * 31 + glitterSeed) % 100) / 100;
+            if (sparkleHash < glitterChance) {
+              color = [255, 255, 255];
+            }
+            ink(...color).box(screen.width - borderThickness + x, y, 1, 1);
+          }
+        }
+      }
+      } // End blink "on" phase
+    } else {
+      // Normal mode: pink/purple/green gradient border
+      // Cycle through pink, purple, green phases
+      const colorPhase = (rotation * 0.08) % 3;
+      let primaryColor, secondaryColor, tertiaryColor;
+      
+      if (colorPhase < 1) {
+        primaryColor = [255, 100, 200]; // Pink
+        secondaryColor = [200, 100, 255]; // Purple
+        tertiaryColor = [100, 255, 150]; // Green
+      } else if (colorPhase < 2) {
+        primaryColor = [200, 100, 255]; // Purple
+        secondaryColor = [100, 255, 150]; // Green
+        tertiaryColor = [255, 100, 200]; // Pink
+      } else {
+        primaryColor = [100, 255, 150]; // Green
+        secondaryColor = [255, 100, 200]; // Pink
+        tertiaryColor = [200, 100, 255]; // Purple
+      }
+      
+      // Pulsing effect for base intensity
+      const pulseBase = Math.sin(rotation * 0.15);
+      
+      // Border extends to 2/3rds of screen
+      const borderWidth = (screen.width / 3) * 2;
+      const borderHeight = (screen.height / 3) * 2;
+      const borderThickness = 1; // Fixed 1 pixel wide
+      
+      // Draw top border with dithered/striped pattern (1 pixel tall)
+      for (let x = 0; x < borderWidth; x++) {
+        // Intensity increases as we get closer to the corner (left edge)
+        const intensityRatio = 1 - (x / borderWidth); // 1.0 at corner, 0.0 at edge
+        const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
+        
+        // Dither pattern: show pixels based on intensity ratio
+        const patternValue = (x + Math.floor(rotation / 4)) % 4; // 0-3 pattern
+        const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
+        
+        if (patternValue >= threshold) {
+          ink(...primaryColor, alpha).box(x, 0, 1, borderThickness);
+        }
+      }
+      
+      // Draw left border with dithered/striped pattern (1 pixel wide)
+      for (let y = 0; y < borderHeight; y++) {
+        // Intensity increases as we get closer to the corner (top edge)
+        const intensityRatio = 1 - (y / borderHeight); // 1.0 at corner, 0.0 at edge
+        const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
+        
+        // Dither pattern: show pixels based on intensity ratio
+        const patternValue = (y + Math.floor(rotation / 4)) % 4; // 0-3 pattern
+        const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
+        
+        if (patternValue >= threshold) {
+          ink(...primaryColor, alpha).box(0, y, borderThickness, 1);
+        }
       }
     }
     
@@ -4444,7 +4790,7 @@ function paint($) {
             
             ink(...charColor).write(
               char,
-              { x: charX, y: textY },
+              { x: charX, y: textY, noFunding: true },
               undefined,
               undefined,
               false,
@@ -4469,10 +4815,10 @@ function paint($) {
           const labelTextColor = isDark ? [150, 150, 150, 120] : [100, 100, 100, 150];
           const labelShadowColor = isDark ? [0, 0, 0, 50] : [255, 255, 255, 80];
           
-          // Draw shadow for language label
-          ink(...labelShadowColor).write(languageName, { x: labelX + 1, y: labelY + 1 }, undefined, undefined, false, "MatrixChunky8");
-          // Draw language label
-          ink(...labelTextColor).write(languageName, { x: labelX, y: labelY }, undefined, undefined, false, "MatrixChunky8");
+          // Draw shadow for language label - noFunding to prevent $ replacement
+          ink(...labelShadowColor).write(languageName, { x: labelX + 1, y: labelY + 1, noFunding: true }, undefined, undefined, false, "MatrixChunky8");
+          // Draw language label - noFunding to prevent $ replacement
+          ink(...labelTextColor).write(languageName, { x: labelX, y: labelY, noFunding: true }, undefined, undefined, false, "MatrixChunky8");
           
           // Vertical action text on LEFT side of screen - ROTATED
           const actionVerbs = ["TOUCH", "TAP", "TYPE"];
@@ -4634,9 +4980,9 @@ function paint($) {
     const loginY = screen.height / 2;
     
     // Calculate dynamic positioning to prevent overlap
-    const tickerHeight = tinyTickers ? 8 : 14; // MatrixChunky8 is 8px, default is ~14px
-    const tickerSpacing = 0; // No space between tickers for tight stripes
-    const tickerPadding = tinyTickers ? 5 : 3; // 5px padding for tiny font (more breathing room)
+    const tickerHeight = tinyTickers ? 8 : 11; // MatrixChunky8 is 8px, font_1 is ~11px
+    const tickerSpacing = 2; // Small gap between tickers
+    const tickerPadding = tinyTickers ? 5 : 2; // Less padding for font_1
     
     // Helper to ensure ticker text is long enough to fill screen without gaps
     // Repeats the content until it's at least 4x screen width for seamless looping
@@ -4660,38 +5006,44 @@ function paint($) {
     // Note: $.chat is the global chat system (automatically connected)
     const hasChatMessages = $.chat?.messages && $.chat.messages.length > 0;
     if (screen.height >= 180) {
-      // Show last 12 messages with syntax highlighting
-      const numMessages = Math.min(12, $.chat.messages.length);
-      const recentMessages = $.chat.messages.slice(-numMessages);
+      let fullText;
       
-      let fullText = recentMessages.map(msg => {
-        const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
-        const fullMessage = msg.from + ": " + sanitizedText;
+      if (isCriticalFunding) {
+        // Show funding alert message instead of chat (colorful, specific to 'chat')
+        fullText = ensureMinTickerLength(FUNDING_MESSAGE_CHAT, " · ");
+      } else {
+        // Show last 12 messages with syntax highlighting
+        const numMessages = Math.min(12, $.chat.messages.length);
+        const recentMessages = $.chat.messages.slice(-numMessages);
         
-        // Parse and apply color codes
-        const elements = parseMessageElements(fullMessage);
-        const colorMap = {
-          handle: "pink",
-          url: "cyan",
-          prompt: "lime",
-          promptcontent: "cyan",
-          painting: "orange",
-          kidlisp: "magenta",
-        };
+        fullText = recentMessages.map(msg => {
+          const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
+          const fullMessage = msg.from + ": " + sanitizedText;
+          
+          // Parse and apply color codes
+          const elements = parseMessageElements(fullMessage);
+          const colorMap = {
+            handle: "pink",
+            url: "cyan",
+            prompt: "lime",
+            promptcontent: "cyan",
+            painting: "orange",
+            kidlisp: "magenta",
+          };
+          
+          return applyColorCodes(fullMessage, elements, colorMap, [0, 255, 255]);
+        }).join(" · ");
         
-        return applyColorCodes(fullMessage, elements, colorMap, [0, 255, 255]);
-      }).join(" · ");
-      
-      // Repeat content to fill screen without gaps
-      fullText = ensureMinTickerLength(fullText, " · ");
+        // Repeat content to fill screen without gaps
+        fullText = ensureMinTickerLength(fullText, " · ");
+      }
       const chatTickerY = currentTickerY;
       
       // Create or update ticker instance
       if (!chatTicker) {
         chatTicker = new $.gizmo.Ticker(fullText, {
-          speed: 1, // 1px per frame
+          speed: 1, // Positive = scroll left (text moves left, appears from right)
           separator: "", // No extra separator - text already has · between messages
-          reverse: false, // Left to right
         });
         chatTicker.paused = false;
         chatTicker.offset = 0; // No offset for chat
@@ -4740,7 +5092,7 @@ function paint($) {
         const tickerAlpha = chatTickerButton.down ? 255 : 220;
         const textY = chatTickerY;
         
-        if (hasChatMessages) {
+        if (isCriticalFunding || hasChatMessages) {
           // Use Ticker's built-in paint for scrolling (syntax highlighting TODO)
           chatTicker.paint($, 0, textY, {
             color: [0, 255, 255], // Bright cyan
@@ -4767,38 +5119,44 @@ function paint($) {
       const hasClockMessages = clockChatMessages && clockChatMessages.length > 0;
       const clockTickerY = currentTickerY;
       
-      if (hasClockMessages) {
-        const numClockMessages = Math.min(12, clockChatMessages.length);
-        const recentClockMessages = clockChatMessages.slice(-numClockMessages);
+      if (isCriticalFunding || hasClockMessages) {
+        let clockFullText;
         
-        // Build ticker text with syntax highlighting for @handles, URLs, 'prompts', etc.
-        let clockFullText = recentClockMessages.map(msg => {
-          const sanitizedText = (msg.text || msg.message || '').replace(/[\r\n]+/g, ' ');
-          const from = msg.from || msg.handle || msg.author || 'anon';
-          const fullMessage = from + ": " + sanitizedText;
+        if (isCriticalFunding) {
+          // Show funding alert message (colorful, specific to 'laer-klokken')
+          clockFullText = ensureMinTickerLength(FUNDING_MESSAGE_CLOCK, " · ");
+        } else {
+          const numClockMessages = Math.min(12, clockChatMessages.length);
+          const recentClockMessages = clockChatMessages.slice(-numClockMessages);
           
-          // Parse and apply color codes
-          const elements = parseMessageElements(fullMessage);
-          const colorMap = {
-            handle: "pink",
-            url: "cyan",
-            prompt: "lime",
-            promptcontent: "cyan",
-            painting: "orange",
-            kidlisp: "magenta",
-          };
+          // Build ticker text with syntax highlighting for @handles, URLs, 'prompts', etc.
+          clockFullText = recentClockMessages.map(msg => {
+            const sanitizedText = (msg.text || msg.message || '').replace(/[\r\n]+/g, ' ');
+            const from = msg.from || msg.handle || msg.author || 'anon';
+            const fullMessage = from + ": " + sanitizedText;
+            
+            // Parse and apply color codes
+            const elements = parseMessageElements(fullMessage);
+            const colorMap = {
+              handle: "pink",
+              url: "cyan",
+              prompt: "lime",
+              promptcontent: "cyan",
+              painting: "orange",
+              kidlisp: "magenta",
+            };
+            
+            return applyColorCodes(fullMessage, elements, colorMap, [255, 200, 100]);
+          }).join(" · ");
           
-          return applyColorCodes(fullMessage, elements, colorMap, [255, 200, 100]);
-        }).join(" · ");
-        
-        // Repeat content to fill screen without gaps
-        clockFullText = ensureMinTickerLength(clockFullText, " · ");
+          // Repeat content to fill screen without gaps
+          clockFullText = ensureMinTickerLength(clockFullText, " · ");
+        }
         
         if (!clockChatTicker) {
           clockChatTicker = new $.gizmo.Ticker(clockFullText, {
-            speed: 1,
+            speed: -1, // Negative = scroll opposite direction (right to left)
             separator: "", // No extra separator - text already has · between messages
-            reverse: false,
           });
           clockChatTicker.paused = false;
           clockChatTicker.offset = 0;
@@ -4807,7 +5165,7 @@ function paint($) {
         }
       }
 
-      if (hasClockMessages && clockChatTicker && !clockChatTicker.paused) {
+      if ((isCriticalFunding || hasClockMessages) && clockChatTicker && !clockChatTicker.paused) {
         clockChatTicker.update($);
       }
 
@@ -4841,7 +5199,7 @@ function paint($) {
         const tickerAlpha = clockChatTickerButton.down ? 255 : 220;
         const textY = clockTickerY;
         
-        if (hasClockMessages && clockChatTicker) {
+        if ((isCriticalFunding || hasClockMessages) && clockChatTicker) {
           clockChatTicker.paint($, 0, textY, {
             color: [255, 200, 100],
             alpha: tickerAlpha,
@@ -4854,7 +5212,8 @@ function paint($) {
         }
       }
       
-      currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing;
+      // Extra spacing after laer-klokken before content ticker
+      currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing + 1;
     } else {
       clockChatTicker = null;
       clockChatTickerButton = null;
@@ -4920,6 +5279,9 @@ function paint($) {
         // Dark background for high contrast
         const bgAlpha = contentTickerButton.down ? 120 : 80;
         ink([30, 30, 30, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
+        
+        // Top border (1px)
+        ink([200, 200, 200, 255]).line(0, boxY, screen.width, boxY);
         
         // Bottom border (1px, non-overlapping)
         ink([200, 200, 200, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
@@ -5061,7 +5423,7 @@ function paint($) {
     
     // 🎨 CONTENT TOOLTIP (ambient floating preview)
     // Automatically cycles through content items (KidLisp + Paintings), showing previews
-    if (showContentTicker && contentItems.length > 0) {
+    if (!DISABLE_CONTENT_PREVIEWS && showContentTicker && contentItems.length > 0) {
       // Filter to only items that are currently visible on screen (from the right side)
       const visibleItems = [];
       
@@ -5481,12 +5843,13 @@ function paint($) {
       // Shadow color (black in dark mode, white in light mode)
       const handlesShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255];
       
-      // Draw shadow first (offset by 1px)
+      // Draw shadow first (offset by 1px) - noFunding to prevent $ replacement
       ink(...handlesShadowColor).write(
         handlesText,
         {
           center: "x",
           y: handlesY + 1,
+          noFunding: true,
         },
         undefined,
         undefined,
@@ -5511,12 +5874,13 @@ function paint($) {
         coloredHandlesText += `\\${r},${g},${b}\\${char}`;
       }
       
-      // Draw main text with per-character flicker
+      // Draw main text with per-character flicker - noFunding to prevent $ replacement
       ink(pal.handleColor).write(
         coloredHandlesText,
         {
           center: "x",
           y: handlesY,
+          noFunding: true,
         },
         undefined,
         undefined,
@@ -5526,13 +5890,69 @@ function paint($) {
     }
 
     // MOTD (Mood of the Day) - show above login/signup buttons with animation
-    if (motd && screen.height >= 180) {
+    // In CRITICAL funding mode, always show regardless of screen height
+    if (motd && (isCriticalFunding || screen.height >= 180)) {
       // Subtle sway (up and down)
       const swayY = Math.sin(motdFrame * 0.05) * 2; // 2 pixel sway range
-      const motdY = screen.height / 2 - 48 + swayY; // Moved up 12px closer to top (changed from -36 back to -48)
       
       // Parse MOTD for interactive elements (handles, URLs, prompts, etc.)
-      const motdElements = parseMessageElements(motd);
+      // In CRITICAL funding mode, toggle languages every 1.5 seconds
+      let displayMotd = motd;
+      const langPhase = Math.floor(Date.now() / 1500) % 2; // Toggle every 1.5s
+      
+      // Color schemes: EN = red/orange, DA = cyan/blue
+      const enColors = ["red", "255,100,50", "yellow", "orange"];
+      const daColors = ["cyan", "0,150,255", "white", "lime"];
+      
+      // Small screen mode: 3 lines, moved up
+      const isSmallScreen = screen.width < 160;
+      const lineSpacing = 10;
+      
+      if (isCriticalFunding && isSmallScreen) {
+        // 3-line layout for small screens
+        const line1EN = "CRITICAL MEDIA";
+        const line1DA = "KRITISKE";
+        const line2EN = "SERVICES OFFLINE";
+        const line2DA = "MEDIETJENESTER OFFLINE";
+        const line3EN = "ENTER 'give' TO HELP";
+        const line3DA = "SKRIV 'give' FOR HJAELP";
+        
+        const lines = langPhase === 0 
+          ? [line1EN, line2EN, line3EN]
+          : [line1DA, line2DA, line3DA];
+        
+        const colors = langPhase === 0 ? enColors : daColors;
+        
+        // Move up more for 3 lines
+        const baseY = screen.height / 2 - 58 + swayY;
+        
+        for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+          const line = lines[lineIdx];
+          let coloredLine = "";
+          for (let i = 0; i < line.length; i++) {
+            const colorIndex = Math.floor((i + motdFrame * 0.15 + lineIdx * 3) % colors.length);
+            const color = colors[colorIndex];
+            coloredLine += `\\${color}\\${line[i]}`;
+          }
+          
+          ink(pal.handleColor).write(
+            coloredLine,
+            { center: "x", y: Math.floor(baseY + lineIdx * lineSpacing) },
+            [255, 50, 200, 24],
+            screen.width - 8,
+          );
+        }
+        
+        $.needsPaint();
+      } else if (isCriticalFunding) {
+        // CRITICAL funding mode: Normal 2-line layout for larger screens
+        const motdY = screen.height / 2 - 48 + swayY;
+        
+        displayMotd = langPhase === 0 
+          ? "CRITICAL MEDIA SERVICES OFFLINE" 
+          : "KRITISKE MEDIETJENESTER OFFLINE";
+      
+      const motdElements = parseMessageElements(displayMotd);
       const hasLinks = motdElements.length > 0;
       
       let coloredText = "";
@@ -5540,19 +5960,19 @@ function paint($) {
       
       if (hasLinks) {
         // Use syntax highlighting for interactive elements
-        coloredText = colorizeText(motd, "white");
+        coloredText = colorizeText(displayMotd, "white");
       } else {
-        // No links - use rainbow animation
-        for (let i = 0; i < motd.length; i++) {
-          // Each letter gets a color that changes over time based on its position
-          const colorIndex = Math.floor((i + motdFrame * 0.1) % rainbowColors.length);
-          const color = rainbowColors[colorIndex];
-          coloredText += `\\${color}\\${motd[i]}`;
+        // Use color scheme matching the current language
+        const line1Colors = langPhase === 0 ? enColors : daColors;
+        for (let i = 0; i < displayMotd.length; i++) {
+          const colorIndex = Math.floor((i + motdFrame * 0.15) % line1Colors.length);
+          const color = line1Colors[colorIndex];
+          coloredText += `\\${color}\\${displayMotd[i]}`;
         }
       }
       
-      // Use more aggressive text wrapping (max 150px) to keep MOTD compact
-      const motdMaxWidth = Math.min(screen.width - 18, 150);
+      // Use wider text wrapping to prevent overlap
+      const motdMaxWidth = Math.min(screen.width - 18, 200);
       
       // Determine alignment: left-align when book needs room on narrow screens
       let writePos;
@@ -5573,45 +5993,383 @@ function paint($) {
         motdMaxWidth,
       );
       
+      // Add help line below MOTD (opposite language from line 1)
+        const helpTextEN = "ENTER 'give' TO HELP";
+        const helpTextDA = "SKRIV 'give' FOR HJAELP";
+        const helpText = langPhase === 0 ? helpTextDA : helpTextEN;
+        
+        // Use opposite color scheme from line 1
+        const line2Colors = langPhase === 0 ? daColors : enColors;
+        
+        // Build text with consistent language colors
+        let coloredHelpText = "";
+        for (let i = 0; i < helpText.length; i++) {
+          const colorIndex = Math.floor((i + motdFrame * 0.15 + 5) % line2Colors.length);
+          const color = line2Colors[colorIndex];
+          coloredHelpText += `\\${color}\\${helpText[i]}`;
+        }
+        // Use same positioning logic as MOTD, but directly below (10px spacing)
+        const helpWritePos = writePos.x !== undefined 
+          ? { x: writePos.x, y: (writePos.y || Math.floor(motdY)) + 10 }
+          : { center: "x", y: (writePos.y || Math.floor(motdY)) + 10 };
+        ink(pal.handleColor).write(
+          coloredHelpText,
+          helpWritePos,
+          [255, 50, 200, 24],
+          motdMaxWidth,
+        );
+      
       $.needsPaint();
+      } else if (motd) {
+        // Non-funding mode: normal MOTD display
+        const motdY = screen.height / 2 - 48 + swayY;
+        const motdElements = parseMessageElements(motd);
+        const hasLinks = motdElements.length > 0;
+        
+        let coloredText = "";
+        const rainbowColors = ["pink", "cyan", "yellow", "lime", "orange", "magenta"];
+        
+        if (hasLinks) {
+          coloredText = colorizeText(motd, "white");
+        } else {
+          for (let i = 0; i < motd.length; i++) {
+            const colorIndex = Math.floor((i + motdFrame * 0.1) % rainbowColors.length);
+            const color = rainbowColors[colorIndex];
+            coloredText += `\\${color}\\${motd[i]}`;
+          }
+        }
+        
+        const motdMaxWidth = Math.min(screen.width - 18, 200);
+        let writePos;
+        const leftMargin = 9;
+        
+        if (motdXOffset < 0 && screen.width < 400) {
+          writePos = { x: leftMargin, y: Math.floor(motdY) };
+        } else {
+          writePos = { center: "x", y: Math.floor(motdY) };
+        }
+        
+        ink(pal.handleColor).write(
+          coloredText,
+          writePos,
+          [255, 50, 200, 24],
+          motdMaxWidth,
+        );
+        
+        $.needsPaint();
+      }
     }
     
-    // ☃️ Winter vibes snowman stamp - positioned above MOTD
-    // Check if we're in December, January, or February for winter vibes
+    // 😡😢😭 Emotional face stamp - cycles through angry, sad, crying
+    // Show during funding effects (yikes/critical) or in winter (Dec, Jan, Feb)
     const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
     const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
-    if (isWinter && screen.height >= 120) {
-      // Position snowman centered horizontally, above the MOTD area
-      const snowmanWidth = 16; // unifont character width
-      let snowmanX = Math.floor((screen.width - snowmanWidth) / 2);
-      // MOTD is at screen.height/2 - 48, so put snowman above that
-      let snowmanY = Math.floor(screen.height / 2 - 72); // 24px above MOTD baseline
+    if ((showFundingEffects || isWinter) && screen.height >= 120) {
+      // Face dimensions (will be scaled 2x)
+      const faceSize = 16;
+      const scaledSize = faceSize * 2;
+      let symbolX = Math.floor((screen.width - scaledSize) / 2);
+      // MOTD is at screen.height/2 - 48, so put symbol above that
+      let symbolY = Math.floor(screen.height / 2 - 90); // a bit higher above CRITICAL SERVICES
+      
+      // Cycle through emotions every 3 seconds: 0=angry, 1=sad, 2=crying
+      const emotionPhase = Math.floor(Date.now() / 3000) % 3;
       
       // Only draw if there's enough space from top
-      if (snowmanY > 20) {
-        // Gentle bobbing animation
-        const bobOffset = Math.sin(motdFrame * 0.03) * 1.5;
+      if (symbolY > 20) {
+        // Shake animation - VERY intense when angry (vertical only)
+        const shakeIntensity = emotionPhase === 0 ? 8 : 1; // Much more shake when angry!
+        const shakeSpeed = emotionPhase === 0 ? 0.4 : 0.3; // Slower but still intense when angry
+        const shakeX = emotionPhase === 0 ? 0 : Math.sin(motdFrame * shakeSpeed) * shakeIntensity; // No horizontal shake when angry
+        const shakeY = Math.cos(motdFrame * (shakeSpeed * 1.3)) * (shakeIntensity * 0.7);
         
-        // Draw snowman using unifont (☃ = U+2603)
-        // Cycle through cool winter colors
-        const winterColors = [
-          [200, 230, 255], // Ice blue
-          [255, 255, 255], // White
-          [180, 220, 255], // Light blue
-          [220, 240, 255], // Pale blue
+        // Color palette based on emotion
+        let faceColors;
+        if (emotionPhase === 0) {
+          // Angry: VERY RED - pure saturated reds
+          faceColors = [
+            [255, 0, 0],     // Pure red
+            [255, 30, 0],    // Slightly orange red
+            [255, 0, 30],    // Slightly pink red
+            [220, 0, 0],     // Dark red
+          ];
+        } else if (emotionPhase === 1) {
+          // Sad: yellow colors (not blue!)
+          faceColors = [
+            [255, 220, 80],  // Golden yellow
+            [255, 200, 50],  // Bright yellow
+            [255, 240, 100], // Light yellow
+            [230, 180, 40],  // Darker yellow
+          ];
+        } else {
+          // Crying: cyan/teal colors
+          faceColors = [
+            [80, 200, 255],  // Cyan
+            [100, 220, 230], // Light cyan
+            [60, 180, 220],  // Teal
+            [120, 200, 255], // Sky blue
+          ];
+        }
+        const colorIndex = Math.floor(motdFrame * 0.08) % faceColors.length;
+        const faceColor = faceColors[colorIndex];
+        const faceAlpha = 200 + Math.sin(motdFrame * 0.1) * 55; // 145-255 pulsing
+        
+        const faceX = Math.floor(symbolX + shakeX);
+        const faceY = Math.floor(symbolY + shakeY);
+        
+        // Draw custom face at 2x scale (manually scaled coordinates)
+        // Helper to draw a 2x scaled box
+        const s = 2; // scale factor
+        const box2x = (x, y, w, h) => $.box(faceX + x * s, faceY + y * s, w * s, h * s);
+        
+        // Face outline (circle approximation - rounded square)
+        ink(...faceColor, faceAlpha);
+        // Top edge
+        box2x(4, 0, 8, 1);
+        // Upper sides
+        box2x(2, 1, 2, 1); box2x(12, 1, 2, 1);
+        // Side edges
+        box2x(1, 2, 1, 2); box2x(14, 2, 1, 2);
+        box2x(0, 4, 1, 8); box2x(15, 4, 1, 8);
+        box2x(1, 12, 1, 2); box2x(14, 12, 1, 2);
+        // Lower sides
+        box2x(2, 14, 2, 1); box2x(12, 14, 2, 1);
+        // Bottom edge
+        box2x(4, 15, 8, 1);
+        
+        // Draw eyes and expression based on emotion phase
+        if (emotionPhase === 0) {
+          // ANGRY FACE 😡 - angry eyebrows, gritted teeth
+          // Angry eyebrows (angled down toward center)
+          box2x(3, 4, 2, 1);  // Left eyebrow outer
+          box2x(5, 5, 1, 1);  // Left eyebrow inner (lower)
+          box2x(11, 4, 2, 1); // Right eyebrow outer
+          box2x(10, 5, 1, 1); // Right eyebrow inner (lower)
+          // Eyes (smaller, squinting)
+          box2x(4, 6, 2, 1);  // Left eye
+          box2x(10, 6, 2, 1); // Right eye
+          // Gritted teeth / angry mouth
+          box2x(5, 11, 6, 1);  // Top teeth line
+          box2x(5, 12, 1, 1); box2x(7, 12, 1, 1); box2x(9, 12, 1, 1); // Gaps
+          box2x(5, 13, 6, 1);  // Bottom teeth line
+        } else if (emotionPhase === 1) {
+          // SAD FACE 😢 - regular eyes, frown
+          // Eyes (2x2 pixels each)
+          box2x(4, 5, 2, 2);  // Left eye
+          box2x(10, 5, 2, 2); // Right eye
+          // Sad frown (curved down)
+          box2x(4, 11, 1, 1);   // Left corner up
+          box2x(5, 12, 1, 1);   // Left slope
+          box2x(6, 13, 4, 1);   // Bottom of frown
+          box2x(10, 12, 1, 1);  // Right slope
+          box2x(11, 11, 1, 1);  // Right corner up
+        } else {
+          // CRYING FACE 😭 - closed eyes (lines), tears falling to bottom, wailing mouth
+          // Closed/squinting eyes (horizontal lines)
+          box2x(3, 5, 3, 1);  // Left eye closed
+          box2x(10, 5, 3, 1); // Right eye closed
+          
+          // Multiple tear drops falling to bottom of screen
+          // Tears spawn from the face but drift independently (use symbolX/Y not faceX/Y)
+          const tearSpawnY = symbolY + 14; // Start below eyes (base position, no shake)
+          const tearColors = [
+            [80, 180, 255],  // Light blue
+            [100, 200, 255], // Cyan
+            [120, 220, 255], // Brighter cyan
+          ];
+          
+          // Draw multiple tears at different phases - they fall on their own paths
+          for (let t = 0; t < 6; t++) {
+            const tearPhase = (motdFrame * 0.15 + t * 1.2) % 8; // Staggered timing
+            const tearProgress = tearPhase / 8; // 0-1
+            const tearY = tearSpawnY + tearProgress * (screen.height - tearSpawnY + 10);
+            
+            // Tears drift independently with their own sine wave (based on their index, not face shake)
+            const tearDriftX = Math.sin(tearPhase * 0.8 + t * 2.1) * (3 + tearProgress * 8); // Wider drift as they fall
+            const tearDriftY = Math.cos(tearPhase * 0.5 + t) * 2; // Slight vertical wobble
+            
+            // Left tears - spawn from left eye area (base position)
+            const leftTearBaseX = symbolX + 8 + (t % 2) * 4;
+            const leftTearX = leftTearBaseX + tearDriftX;
+            // Right tears - spawn from right eye area (base position)
+            const rightTearBaseX = symbolX + 22 - (t % 2) * 4;
+            const rightTearX = rightTearBaseX - tearDriftX; // Mirror the drift
+            
+            const tearColor = tearColors[t % tearColors.length];
+            const tearAlpha = Math.floor((1 - tearProgress * 0.5) * 200); // Fade slightly
+            const tearSize = t % 2 === 0 ? 3 : 2; // Vary sizes
+            
+            if (tearY < screen.height) {
+              ink(...tearColor, tearAlpha);
+              // Teardrop shape (stretched vertically)
+              $.box(Math.floor(leftTearX), Math.floor(tearY + tearDriftY), tearSize, tearSize + 1);
+              $.box(Math.floor(rightTearX), Math.floor(tearY + tearDriftY), tearSize, tearSize + 1);
+            }
+          }
+          
+          // Reset to face color for mouth
+          ink(...faceColor, faceAlpha);
+          // Wailing open mouth (big oval)
+          box2x(5, 10, 6, 1);   // Top of mouth
+          box2x(4, 11, 1, 3);   // Left side
+          box2x(11, 11, 1, 3);  // Right side
+          box2x(5, 14, 6, 1);   // Bottom of mouth
+        }
+        
+        // Sparks flying off the head (color matches emotion)
+        // WAY more particles when angry!
+        const sparkCount = emotionPhase === 0 ? 24 : 8;
+        for (let i = 0; i < sparkCount; i++) {
+          // Each spark has a phase offset for continuous emission
+          const sparkPhase = (motdFrame * 0.15 + i * 0.7) % 3; // 0-3 lifecycle
+          const sparkLife = sparkPhase / 3; // 0-1 normalized
+          
+          // Sparks fly upward and outward - more spread when angry
+          const spreadFactor = emotionPhase === 0 ? 0.4 : 0.25;
+          const sparkAngle = -Math.PI / 2 + (i - sparkCount / 2) * spreadFactor + Math.sin(motdFrame * 0.1 + i) * 0.15;
+          const sparkSpeed = emotionPhase === 0 ? (20 + i * 2) : (15 + i * 3);
+          const sparkDist = sparkLife * sparkSpeed;
+          
+          // Start from top of head (center-top of face)
+          const sparkStartX = faceX + scaledSize / 2;
+          const sparkStartY = faceY;
+          
+          const sparkX = sparkStartX + Math.cos(sparkAngle) * sparkDist + Math.sin(motdFrame * 0.2 + i) * 3;
+          const sparkY = sparkStartY + Math.sin(sparkAngle) * sparkDist - sparkLife * 8; // extra upward drift
+          
+          // Spark colors match emotion
+          let sparkColors;
+          if (emotionPhase === 0) {
+            // VERY RED sparks for angry
+            sparkColors = [[255, 0, 0], [255, 50, 0], [255, 100, 0], [255, 30, 30]];
+          } else if (emotionPhase === 1) {
+            // Yellow sparks for sad
+            sparkColors = [[255, 220, 50], [255, 200, 80], [255, 240, 100], [230, 180, 40]];
+          } else {
+            sparkColors = [[80, 200, 255], [100, 220, 255], [150, 230, 255], [120, 210, 255]];
+          }
+          const sparkColorIdx = (i + Math.floor(motdFrame * 0.1)) % sparkColors.length;
+          const sparkColor = sparkColors[sparkColorIdx];
+          
+          // Fade out as spark ages
+          const sparkAlpha = Math.floor((1 - sparkLife) * 255);
+          
+          // Spark size shrinks as it ages
+          const sparkSize = Math.max(1, Math.floor((1 - sparkLife * 0.7) * 3));
+          
+          if (sparkAlpha > 20) {
+            ink(...sparkColor, sparkAlpha).box(
+              Math.floor(sparkX),
+              Math.floor(sparkY),
+              sparkSize,
+              sparkSize
+            );
+          }
+        }
+        
+        // Words floating laterally off BOTH sides - mood-dependent
+        // emotionPhase: 0 = ANGRY, 1 = SAD, 2 = CRYING
+        const moodWords = ["GRRR!", "sigh...", "HELP!"];
+        const moodWord = moodWords[emotionPhase] || "HELP!";
+        const numWordsPerSide = 3;
+        // Fixed screen position - independent of head movement
+        const wordOriginX = screen.width / 2;
+        const wordOriginY = Math.min(screen.height * 0.22, 50);
+        
+        // Mood-based color palettes
+        const moodLeftColors = [
+          [[255, 80, 80], [255, 120, 60], [200, 50, 50], [255, 100, 100]],    // Angry: reds
+          [[140, 140, 180], [160, 160, 200], [120, 120, 160], [180, 180, 220]], // Sad: muted blues/grays
+          [[100, 200, 255], [150, 100, 255], [50, 255, 200], [180, 150, 255]] // Crying: cool blues
         ];
-        const colorIndex = Math.floor(motdFrame * 0.02) % winterColors.length;
-        const snowmanColor = winterColors[colorIndex];
-        const snowmanAlpha = 180 + Math.sin(motdFrame * 0.05) * 40; // 140-220 pulsing
+        const moodRightColors = [
+          [[255, 60, 60], [255, 100, 40], [220, 40, 40], [255, 80, 80]],      // Angry: reds
+          [[160, 160, 190], [140, 140, 170], [180, 180, 210], [130, 130, 160]], // Sad: muted blues/grays
+          [[255, 150, 100], [255, 200, 50], [255, 100, 150], [255, 180, 80]]  // Crying: warm oranges
+        ];
+        const leftColors = moodLeftColors[emotionPhase] || moodLeftColors[2];
+        const rightColors = moodRightColors[emotionPhase] || moodRightColors[2];
         
-        ink(...snowmanColor, snowmanAlpha).write(
-          "☃",
-          { x: snowmanX, y: Math.floor(snowmanY + bobOffset) },
-          undefined,
-          undefined,
-          false,
-          "unifont"
-        );
+        // Mood-based motion parameters
+        const moodSpeed = [0.055, 0.025, 0.035][emotionPhase] || 0.035;       // Angry fast, sad slow
+        const moodWaveAmp = [2, 8, 5][emotionPhase] || 5;                      // Sad droopy, angry tight
+        const moodShake = [3, 0.5, 1][emotionPhase] || 1;                      // Angry shaky, sad still
+        const moodDrift = [2, 12, 6][emotionPhase] || 6;                       // Sad sinks more
+        
+        // RIGHT side words - fixed origin, independent of head
+        for (let w = 0; w < numWordsPerSide; w++) {
+          const wordPhase = ((motdFrame * moodSpeed + w * 0.85) % 3) / 3;
+          
+          const startX = wordOriginX + 15; // Fixed offset from center
+          const startY = wordOriginY + w * 4;
+          
+          const floatDist = wordPhase * 80;
+          // Sad: droop down; Angry: jitter; Crying: wave
+          const waveY = emotionPhase === 1 
+            ? wordPhase * moodWaveAmp + Math.sin(wordPhase * Math.PI) * 3  // Sad droops
+            : Math.sin(wordPhase * Math.PI * 2 + w) * moodWaveAmp;
+          
+          const wordX = startX + floatDist;
+          const wordY = startY + waveY + (emotionPhase === 1 ? wordPhase * moodDrift : -wordPhase * moodDrift);
+          
+          const alpha = Math.floor((1 - wordPhase * 0.85) * 255);
+          // Scale from 0.3 to 1.5 as it moves outward
+          const wordScale = 0.3 + wordPhase * 1.2;
+          
+          if (alpha > 20) {
+            let coloredWord = "";
+            for (let i = 0; i < moodWord.length; i++) {
+              const colorIdx = Math.floor((i + motdFrame * 0.12 + w * 2) % rightColors.length);
+              const c = rightColors[colorIdx];
+              coloredWord += `\\${c[0]},${c[1]},${c[2]},${alpha}\\${moodWord[i]}`;
+            }
+            
+            const shakeX = Math.sin(motdFrame * 0.2 + w) * moodShake;
+            const shakeY = Math.cos(motdFrame * 0.25 + w) * moodShake;
+            
+            ink(255, 255, 255).write(
+              coloredWord,
+              { x: Math.floor(wordX + shakeX), y: Math.floor(wordY + shakeY), size: wordScale }
+            );
+          }
+        }
+        
+        // LEFT side words (float leftward, fixed origin)
+        const wordWidth = moodWord.length * 6;
+        for (let w = 0; w < numWordsPerSide; w++) {
+          const wordPhase = ((motdFrame * (moodSpeed * 1.08) + w * 0.9 + 0.3) % 3) / 3;
+          
+          const startX = wordOriginX - 15 - wordWidth * 0.3; // Fixed offset from center
+          const startY = wordOriginY + w * 4;
+          
+          const floatDist = wordPhase * 80;
+          const waveY = emotionPhase === 1 
+            ? wordPhase * moodWaveAmp + Math.sin(wordPhase * Math.PI + 1) * 3
+            : Math.sin(wordPhase * Math.PI * 2 + w + 1) * moodWaveAmp;
+          
+          const wordX = startX - floatDist - wordPhase * wordWidth * 0.7; // Account for growing text width
+          const wordY = startY + waveY + (emotionPhase === 1 ? wordPhase * moodDrift : -wordPhase * moodDrift);
+          
+          const alpha = Math.floor((1 - wordPhase * 0.85) * 255);
+          const wordScale = 0.3 + wordPhase * 1.2;
+          
+          if (alpha > 20) {
+            let coloredWord = "";
+            for (let i = 0; i < moodWord.length; i++) {
+              const colorIdx = Math.floor((i + motdFrame * 0.12 + w * 2) % leftColors.length);
+              const c = leftColors[colorIdx];
+              coloredWord += `\\${c[0]},${c[1]},${c[2]},${alpha}\\${moodWord[i]}`;
+            }
+            
+            const shakeX = Math.sin(motdFrame * 0.22 + w) * moodShake;
+            const shakeY = Math.cos(motdFrame * 0.27 + w) * moodShake;
+            
+            ink(255, 255, 255).write(
+              coloredWord,
+              { x: Math.floor(wordX + shakeX), y: Math.floor(wordY + shakeY), size: wordScale }
+            );
+          }
+        }
       }
     }
   }
@@ -6311,6 +7069,7 @@ function act({
     (e.is("touch") || e.is("lift")) &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
+      (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
       (products.getActiveProduct()?.button?.disabled === false && products.getActiveProduct()?.button?.box.contains(e)) ||
       (products.getActiveProduct()?.buyButton?.disabled === false && products.getActiveProduct()?.buyButton?.box.contains(e)) ||
       (chatTickerButton?.disabled === false && chatTickerButton?.box.contains(e)) ||
@@ -6380,7 +7139,19 @@ function act({
   });
   }
 
-  // 🔷 Tezos wallet button - navigate to wallet piece
+  // � GIVE button - navigate to give.aesthetic.computer
+  if (giveBtn && !giveBtn.btn.disabled) {
+    giveBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        jump("out:https://give.aesthetic.computer");
+      },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  // �🔷 Tezos wallet button - navigate to wallet piece
   if (walletBtn && !walletBtn.btn.disabled) {
     walletBtn.btn.act(e, {
       down: () => downSound(),
@@ -6617,8 +7388,18 @@ export const scheme = {
 let motdController;
 
 async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) {
-  motd = "aesthetic.computer"; // Fallback motd.
+  // Use funding mode message or default (alternate EN/DA every 3 seconds)
+  if (isCriticalFunding) {
+    const langPhase = Math.floor(Date.now() / 3000) % 2;
+    motd = langPhase === 0 ? "CRITICAL MEDIA SERVICES OFFLINE" : "KRITISKE MEDIETJENESTER OFFLINE";
+  } else {
+    motd = "aesthetic.computer";
+  }
   motdController = new AbortController();
+  
+  // Skip fetching mood in critical funding mode - use the hardcoded message
+  if (isCriticalFunding) return;
+  
   try {
     const res = await fetch("/api/mood/@jeffrey", {
       signal: motdController.signal,

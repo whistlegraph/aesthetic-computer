@@ -324,6 +324,11 @@ export function clamp(value, low, high) {
   return min(max(value, low), high);
 }
 
+// Returns a sine wave value between -1 and 1 for the given phase.
+export function wave(phase) {
+  return sin(phase);
+}
+
 export function within(range, a, b) {
   return abs(a - b) < range;
 }

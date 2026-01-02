@@ -140,6 +140,11 @@ external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "CONTEXT"]
 
+[functions.tv-tapes]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "CONTEXT"]
+
 [functions.ask]
 included_env_vars = ["CONTEXT", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
 
@@ -152,7 +157,7 @@ included_env_vars = ["CONTEXT", "DO_API_TOKEN", "DO_TOKEN", "CLOUDFLARE_EMAIL", 
 # Give/support payments via Stripe
 external_node_modules = ["stripe"]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["CONTEXT", "STRIPE_API_KEY", "STRIPE_API_KEY_LIVE"]
+included_env_vars = ["CONTEXT", "STRIPE_API_TEST_PRIV_KEY", "STRIPE_API_PRIV_KEY"]
 
 [functions.bundle-html]
 # Generates KidLisp .lisp.html bundles on-demand via API
@@ -190,6 +195,14 @@ included_env_vars = ["NETLIFY_DEV", "REDIS_CONNECTION_STRING"]
 
 [functions.handles]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+[functions.piece-hit]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+[functions.piece-fans]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.track-media]
 external_node_modules = ["sharp", "mongodb", "mongodb-connection-string-url", "adm-zip", "@atproto/api"]
@@ -641,6 +654,14 @@ from = "/api/shop"
 to = "/.netlify/functions/shop"
 status = 200
 [[redirects]]
+from = "/api/piece-hit"
+to = "/.netlify/functions/piece-hit"
+status = 200
+[[redirects]]
+from = "/api/piece-fans"
+to = "/.netlify/functions/piece-fans"
+status = 200
+[[redirects]]
 from = "/api/ticket/*"
 to = "/.netlify/functions/ticket"
 status = 200
@@ -817,6 +838,10 @@ status = 200
 [[redirects]]
 from = "/api/tv"
 to = "/.netlify/functions/tv"
+status = 200
+[[redirects]]
+from = "/api/tv-tapes"
+to = "/.netlify/functions/tv-tapes"
 status = 200
 [[redirects]]
 from = "/api/say"

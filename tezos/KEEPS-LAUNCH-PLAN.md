@@ -1,35 +1,35 @@
 # Keeps Launch Plan 🔮
 
 **Status:** 🟢 Mainnet Staging (Soft Launch Testing)  
-**Last Updated:** December 28, 2025
+**Last Updated:** January 1, 2026
 
 ## Contract Status
 
-| Network | Contract | Status | Admin | Tokens | Purpose |
-|---------|----------|--------|-------|--------|---------|
-| Ghostnet | `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K` | Active | kidlisp | 15 | Development/Testing |
-| Ghostnet | `KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc` | Test | aesthetic | 10 | Alt admin testing |
-| **Mainnet** | `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` | **Staging** | kidlisp | 5 | Soft launch |
+| Network | Contract | Version | Status | Admin | Tokens | Purpose |
+|---------|----------|---------|--------|-------|--------|---------||
+| Ghostnet | `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K` | v2 | Active | kidlisp | 15 | Development/Testing |
+| **Mainnet** | `KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi` | **v3** | **Staging** | staging | 1 | Soft launch |
 
 ## Wallet Architecture
 
 | Wallet | Address | Domain | Role |
 |--------|---------|--------|------|
-| **kidlisp** | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` | keeps.tez | Current admin (staging + future production) |
-| aesthetic | `tz1gkf8EexComFBJvjtT1zdsisdah791KwBE` | aesthetic.tez | Test wallet only |
+| **staging** | `tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt` | — | Mainnet staging admin |
+| kidlisp | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` | keeps.tez | Future production admin |
+| aesthetic | `tz1gkf8EexComFBJvjtT1zdsisdah791KwBE` | aesthetic.tez | Test wallet / creator attribution testing |
 
 ## Launch Strategy
 
 **Current Phase: Mainnet Staging**
-- Using kidlisp wallet as admin (same wallet for production)
-- Staging contract for soft launch testing
-- 5 tokens minted so far
-- Focus: Complete staging tests before public launch
+- v3 contract deployed with `token_creators` tracking
+- Staging wallet as admin for testing
+- 1 token minted so far (`$roz`)
+- Focus: Verify creator-based edit_metadata flow
 
 **Future: Production Launch**
-- Option A: Continue using staging contract (KT1Ecs...) — it works fine
-- Option B: Deploy fresh contract if major changes needed
-- Either way, kidlisp wallet remains admin
+- Option A: Continue using staging contract (KT1JEV...) — v3 already deployed
+- Option B: Deploy fresh contract with kidlisp wallet as admin
+- Key: Users must sign mints from their own wallet for proper attribution
 
 ---
 
@@ -320,7 +320,8 @@ keep $newpiece     # Fresh mint → full flow
 | Component | Location |
 |-----------|----------|
 | CLI tool | `tezos/keeps.mjs` |
-| Contract (Michelson) | `tezos/KeepsFA2v2/` |
+| Contract v3 (Python) | `tezos/keeps_fa2_v3.py` |
+| Contract v3 (Michelson) | `tezos/KeepsFA2v3/` |
 | Mint UI | `system/.../disks/keep.mjs` |
 | Prompt commands | `system/.../disks/prompt.mjs` |
 | Wallet lib | `system/.../lib/tezos-wallet.mjs` |
@@ -341,14 +342,33 @@ keep $newpiece     # Fresh mint → full flow
 ### Mainnet Staging Testing (Current Phase)
 
 **Metadata Editing Tests:**
-- [ ] Test edit_metadata on multiple tokens
-- [ ] Verify metadata updates appear on objkt.com
-- [ ] Test rebake → update chain full cycle
+- [x] Test edit_metadata entrypoint — ✅ Works!
+- [x] Understand permission model — ✅ See below
+- [ ] Test rebake → update chain from **creator wallet**
+- [ ] Verify metadata updates appear on objkt.com with correct artist
 - [ ] Ensure old IPFS links still work after update
 - [ ] Test updating only specific fields (artifact vs thumbnail)
 
+**v3 Permission Model (edit_metadata):**
+```
+edit_metadata can be called by:
+1. Admin (contract administrator) — loses artist attribution on objkt!
+2. Token owner (current holder) — may not be original artist
+3. Original creator (token_creators[token_id]) — ✅ PRESERVES attribution!
+
+For proper objkt.com artist display:
+→ User must sign the mint from their wallet (becomes token_creator)
+→ User must sign edit_metadata from same wallet (preserves firstMinter)
+→ Server/admin signing breaks attribution!
+```
+
+**Current Token 0 (`$roz`) State:**
+- Creator: `tz1gkf8EexComFBJvjtT1zdsisdah791KwBE` (aesthetic.tez)
+- Owner: `tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt` (staging)
+- Admin: `tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt` (staging)
+
 **Security & Logic Audit:**
-- [ ] Verify only admin can call edit_metadata
+- [x] Verify edit_metadata permissions — ✅ Admin OR owner OR creator
 - [ ] Verify only token owner can transfer
 - [ ] Test duplicate content hash rejection on mainnet
 - [ ] Verify mint fees are collected correctly
@@ -374,4 +394,4 @@ keep $newpiece     # Fresh mint → full flow
 
 ---
 
-*Last updated: December 24, 2025*
+*Last updated: January 1, 2026*

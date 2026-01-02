@@ -76,11 +76,11 @@
   <!-- Boot Log Overlay - Single Canvas -->
   <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;pointer-events:none;margin:0;padding:0;"></canvas>
   <script>
-    // 📼 VHS Hacker Boot Screen - syntax highlighted code, variable sizes
+    // 📼 File Block Boot Screen - actual source files scroll up as they load
     window.acBootCanvas = (function() {
       const canvas = document.getElementById('boot-canvas');
       if (!canvas) return {};
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       let W = window.innerWidth, H = window.innerHeight;
       canvas.width = W; canvas.height = H;
       window.addEventListener('resize', () => { W = window.innerWidth; H = window.innerHeight; canvas.width = W; canvas.height = H; });
@@ -126,74 +126,151 @@
         vr: [156, 220, 254],   // light blue - variables
       };
       
-      // Full source file simulation - coherent line-by-line code
-      const sourceFile = [
-        [['// aesthetic.computer boot sequence', 'cmt']],
-        [['', 'op']],
-        [['import', 'kw'], [' { disk, bios } ', 'vr'], ['from', 'kw'], [' ', 'op'], ['"./lib"', 'str'], [';', 'op']],
-        [['import', 'kw'], [' { paint, act } ', 'vr'], ['from', 'kw'], [' ', 'op'], ['"./piece"', 'str'], [';', 'op']],
-        [['', 'op']],
-        [['const', 'kw'], [' canvas ', 'vr'], ['=', 'op'], [' document.', 'vr'], ['getElementById', 'fn'], ['(', 'op'], ['"screen"', 'str'], [');', 'op']],
-        [['const', 'kw'], [' ctx ', 'vr'], ['=', 'op'], [' canvas.', 'vr'], ['getContext', 'fn'], ['(', 'op'], ['"2d"', 'str'], [');', 'op']],
-        [['', 'op']],
-        [['async', 'kw'], [' function', 'kw'], [' boot', 'fn'], ['() {', 'op']],
-        [['  ', 'op'], ['await', 'kw'], [' bios.', 'vr'], ['init', 'fn'], ['();', 'op']],
-        [['  ', 'op'], ['const', 'kw'], [' user ', 'vr'], ['=', 'op'], [' await', 'kw'], [' auth', 'fn'], ['();', 'op']],
-        [['  ', 'op'], ['console.', 'vr'], ['log', 'fn'], ['(', 'op'], ['"🚀 booting..."', 'str'], [');', 'op']],
-        [['  ', 'op'], ['return', 'kw'], [' { user, disk };', 'vr']],
-        [['}', 'op']],
-        [['', 'op']],
-        [['function', 'kw'], [' render', 'fn'], ['(t) {', 'op']],
-        [['  ', 'op'], ['wipe', 'fn'], ['(', 'op'], ['32', 'num'], [', ', 'op'], ['0', 'num'], [', ', 'op'], ['64', 'num'], [');', 'op']],
-        [['  ', 'op'], ['ink', 'fn'], ['(', 'op'], ['255', 'num'], [', ', 'op'], ['200', 'num'], [', ', 'op'], ['100', 'num'], [');', 'op']],
-        [['  ', 'op'], ['box', 'fn'], ['(x, y, w, h);', 'op']],
-        [['  ', 'op'], ['requestAnimationFrame', 'fn'], ['(render);', 'op']],
-        [['}', 'op']],
-        [['', 'op']],
-        [['class', 'kw'], [' Aesthetic', 'tp'], [' {', 'op']],
-        [['  ', 'op'], ['constructor', 'fn'], ['(config) {', 'op']],
-        [['    ', 'op'], ['this', 'kw'], ['.config ', 'vr'], ['=', 'op'], [' config;', 'op']],
-        [['    ', 'op'], ['this', 'kw'], ['.ready ', 'vr'], ['=', 'op'], [' false', 'kw'], [';', 'op']],
-        [['  }', 'op']],
-        [['', 'op']],
-        [['  ', 'op'], ['async', 'kw'], [' init', 'fn'], ['() {', 'op']],
-        [['    ', 'op'], ['await', 'kw'], [' this', 'kw'], ['.', 'op'], ['loadAssets', 'fn'], ['();', 'op']],
-        [['    ', 'op'], ['this', 'kw'], ['.ready ', 'vr'], ['=', 'op'], [' true', 'kw'], [';', 'op']],
-        [['  }', 'op']],
-        [['}', 'op']],
-        [['', 'op']],
-        [['// event handlers', 'cmt']],
-        [['function', 'kw'], [' act', 'fn'], ['({ event }) {', 'op']],
-        [['  ', 'op'], ['if', 'kw'], [' (event.', 'vr'], ['is', 'fn'], ['(', 'op'], ['"touch"', 'str'], [')) {', 'op']],
-        [['    ', 'op'], ['const', 'kw'], [' { x, y } ', 'vr'], ['=', 'op'], [' event;', 'op']],
-        [['    ', 'op'], ['ink', 'fn'], ['(', 'op'], ['"red"', 'str'], [').', 'op'], ['circle', 'fn'], ['(x, y, ', 'op'], ['10', 'num'], [');', 'op']],
-        [['  }', 'op']],
-        [['}', 'op']],
-        [['', 'op']],
-        [['export', 'kw'], [' { boot, render, act };', 'vr']],
+      // File block colors (unique per file)
+      const FILE_COLORS = [
+        { bg: [20, 10, 30], border: [100, 60, 140], text: [180, 140, 220] },   // purple
+        { bg: [10, 20, 35], border: [50, 100, 140], text: [140, 180, 220] },   // blue
+        { bg: [25, 25, 10], border: [100, 100, 50], text: [200, 200, 140] },   // yellow
+        { bg: [35, 15, 20], border: [140, 70, 90], text: [220, 160, 180] },    // pink
+        { bg: [15, 30, 20], border: [60, 120, 80], text: [160, 220, 180] },    // green
+        { bg: [30, 20, 10], border: [120, 85, 50], text: [220, 185, 140] },    // orange
       ];
       
-      // Streaming code state
-      let codeLines = [];
-      let sourceIndex = 0;
-      const CODE_MAX = 35;
-      const CODE_SPEED = 2.2;
+      // Constants for file block layout - FULL PAGE style
+      const CHAR_WIDTH = 5.5;    // Monospace char width at 9px font
+      const COL_WIDTH = 80;      // 80 char column
+      const BLOCK_PADDING = 12;  // Padding inside block
+      const LINE_HEIGHT_CODE = 11; // Line height for code
+      const HEADER_HEIGHT = 24;  // Space for filename
+      const PAGE_MARGIN = 20;    // Margin around page
+      
+      // File blocks - displayed one at a time, scrolling up
+      let fileBlocks = [];
+      let currentFileIndex = 0;  // Which file is currently displayed
+      let scrollOffset = 0;      // How far current file has scrolled
+      let fileColorIndex = 0;
+      
+      // Queue of files waiting to display
+      let fileQueue = [];
       
       let frame = 0;
       let running = true;
       
-      // Pre-populate code for instant visual - use sequential lines
-      for (let i = 0; i < 25; i++) {
-        const idx = i % sourceFile.length;
-        codeLines.push({
-          tokens: sourceFile[idx],
-          y: H - i * 18 - Math.random() * 5,
-          alpha: 0.25 + Math.random() * 0.35,
-          speed: CODE_SPEED + Math.random() * 0.8,
-          size: 11
-        });
+      // Simple syntax highlighter for source code
+      function tokenizeLine(line) {
+        const tokens = [];
+        const keywords = /\b(import|export|from|const|let|var|function|async|await|return|if|else|for|while|class|this|new|try|catch|throw|true|false|null|undefined)\b/g;
+        const strings = /(["'`])(?:(?!\1)[^\\]|\\.)*?\1/g;
+        const numbers = /\b\d+\.?\d*\b/g;
+        const comments = /\/\/.*$|\/\*[\s\S]*?\*\//g;
+        const functions = /\b([a-zA-Z_]\w*)\s*(?=\()/g;
+        
+        let remaining = line;
+        let pos = 0;
+        
+        // Simple token extraction
+        while (remaining.length > 0) {
+          let match = null;
+          let type = 'op';
+          let earliest = remaining.length;
+          
+          // Find comments first
+          const cmtMatch = remaining.match(/^(\/\/.*|\/\*[\s\S]*?\*\/)/);
+          if (cmtMatch) {
+            tokens.push([cmtMatch[0], 'cmt']);
+            remaining = remaining.slice(cmtMatch[0].length);
+            continue;
+          }
+          
+          // Find strings
+          const strMatch = remaining.match(/^(["'`])(?:(?!\1)[^\\]|\\.)*?\1/);
+          if (strMatch) {
+            tokens.push([strMatch[0], 'str']);
+            remaining = remaining.slice(strMatch[0].length);
+            continue;
+          }
+          
+          // Find keywords
+          const kwMatch = remaining.match(/^(import|export|from|const|let|var|function|async|await|return|if|else|for|while|class|this|new|try|catch|throw|true|false|null|undefined)\b/);
+          if (kwMatch) {
+            tokens.push([kwMatch[0], 'kw']);
+            remaining = remaining.slice(kwMatch[0].length);
+            continue;
+          }
+          
+          // Find numbers
+          const numMatch = remaining.match(/^\d+\.?\d*/);
+          if (numMatch) {
+            tokens.push([numMatch[0], 'num']);
+            remaining = remaining.slice(numMatch[0].length);
+            continue;
+          }
+          
+          // Find function calls
+          const fnMatch = remaining.match(/^([a-zA-Z_]\w*)\s*(?=\()/);
+          if (fnMatch) {
+            tokens.push([fnMatch[1], 'fn']);
+            remaining = remaining.slice(fnMatch[1].length);
+            continue;
+          }
+          
+          // Find identifiers (variables/types)
+          const idMatch = remaining.match(/^[a-zA-Z_]\w*/);
+          if (idMatch) {
+            const isType = idMatch[0][0] === idMatch[0][0].toUpperCase();
+            tokens.push([idMatch[0], isType ? 'tp' : 'vr']);
+            remaining = remaining.slice(idMatch[0].length);
+            continue;
+          }
+          
+          // Whitespace and operators
+          const wsMatch = remaining.match(/^(\s+|[^\s\w]+)/);
+          if (wsMatch) {
+            tokens.push([wsMatch[0], 'op']);
+            remaining = remaining.slice(wsMatch[0].length);
+            continue;
+          }
+          
+          // Fallback: single char
+          tokens.push([remaining[0], 'op']);
+          remaining = remaining.slice(1);
+        }
+        
+        return tokens;
       }
-      sourceIndex = 25 % sourceFile.length;
+      
+      // Create a file block from source content
+      function createFileBlock(filename, content) {
+        const allLines = content.split('\n');
+        const maxLines = Math.floor((H - PAGE_MARGIN * 2 - HEADER_HEIGHT) / LINE_HEIGHT_CODE);
+        const lines = allLines.slice(0, Math.min(allLines.length, maxLines));
+        const tokenizedLines = lines.map(l => tokenizeLine(l.slice(0, COL_WIDTH)));
+        const color = FILE_COLORS[fileColorIndex % FILE_COLORS.length];
+        fileColorIndex++;
+        
+        // Calculate actual height needed
+        const contentHeight = lines.length * LINE_HEIGHT_CODE;
+        const totalHeight = contentHeight + HEADER_HEIGHT + BLOCK_PADDING * 2;
+        
+        return {
+          filename,
+          lines: tokenizedLines,
+          totalLines: allLines.length,
+          contentHeight,
+          totalHeight,
+          color,
+          spawnTime: performance.now(),
+          scrollY: 0,  // Internal scroll within this file
+        };
+      }
+      
+      // Add a file to display (called by boot.mjs)
+      const addFile = (filename, content) => {
+        if (!content || typeof content !== 'string') return;
+        const block = createFileBlock(filename, content);
+        fileBlocks.push(block);
+        bootProgress = Math.min(1, fileBlocks.length / 6);
+      };
       
       const addLine = (msg) => {
         const now = performance.now();
@@ -226,290 +303,219 @@
         
         logBurst *= 0.9;
         
-        // Chaos INCREASES with boot progress
+        // Chaos INCREASES with boot progress - start clear, get glitchier
         const chaos = bootProgress + logBurst * 0.5;
         const colorLerp = bootProgress;
         
-        // Base shake from the start
-        const baseShake = 0.5 + Math.sin(t * 2) * 0.3;
-        const shakeAmount = baseShake + chaos * chaos * 5 + logBurst * 4;
+        // Base shake - very subtle
+        const baseShake = 0.2 + Math.sin(t * 2) * 0.1;
+        const shakeAmount = baseShake + chaos * 0.5;
         const shakeX = (Math.random() - 0.5) * shakeAmount;
         const shakeY = (Math.random() - 0.5) * shakeAmount;
         
-        // Spawn new code lines - sequential from source file
-        if (frame % 3 === 0) { // Slower spawn rate for readability
-          codeLines.push({
-            tokens: sourceFile[sourceIndex],
-            y: H + 5,
-            alpha: 0.3 + Math.random() * 0.3,
-            speed: CODE_SPEED + Math.random() * 0.5 + chaos * 0.5,
-            size: 11
-          });
-          sourceIndex = (sourceIndex + 1) % sourceFile.length;
-          if (codeLines.length > CODE_MAX) codeLines.shift();
+        // Scroll current file up, advance to next when done
+        if (fileBlocks.length > 0 && currentFileIndex < fileBlocks.length) {
+          scrollOffset += 2.0; // Scroll speed
+          const currentBlock = fileBlocks[currentFileIndex];
+          // Move to next file when current one is mostly scrolled
+          if (scrollOffset > currentBlock.totalHeight + 50) {
+            currentFileIndex++;
+            scrollOffset = 0;
+          }
         }
-        
-        // Update code positions
-        codeLines.forEach(c => c.y -= c.speed);
-        codeLines = codeLines.filter(c => c.y > -20);
         
         // === DRAW ===
         ctx.clearRect(0, 0, W, H);
         
-        // Draw streaming code with syntax highlighting
-        codeLines.forEach(line => {
-          if (line.y < 0 || line.y > H) return;
-          const codeAlpha = line.alpha * (0.4 + chaos * 0.5);
-          ctx.font = `${line.size}px "Courier New", monospace`;
-          ctx.globalAlpha = codeAlpha;
-          
-          // Slight shake
-          const codeShake = 0.5 + chaos * 2;
-          const baseX = 10 + (Math.random() - 0.5) * codeShake;
-          const y = line.y + (Math.random() - 0.5) * codeShake;
-          
-          // Draw each token
-          let xOff = 0;
-          line.tokens.forEach(([text, colorKey]) => {
-            const [r, g, b] = SYN[colorKey] || SYN.op;
-            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-            ctx.fillText(text, baseX + xOff, y);
-            xOff += ctx.measureText(text).width;
-          });
-        });
-        ctx.globalAlpha = 1;
+        // Calculate page dimensions - full width minus margins
+        const pageWidth = Math.min(W - PAGE_MARGIN * 2, COL_WIDTH * CHAR_WIDTH + BLOCK_PADDING * 2);
+        const pageX = (W - pageWidth) / 2;
+        const pageTop = PAGE_MARGIN;
+        const pageHeight = H - PAGE_MARGIN * 2;
         
-        // Draw logo with ghosting trails and color tinting
-        const logoShake = baseShake * 0.8 + chaos * chaos * 3;
-        ctx.imageSmoothingEnabled = imgFullLoaded;
-        const logoImg = imgFullLoaded ? imgFull : img;
-        const lx = logoX + shakeX * 0.5;
-        const ly = logoY + shakeY * 0.5;
-        
-        // Ghost trails - draw multiple offset copies with decreasing alpha
-        const trailCount = 3 + (chaos * 4) | 0;
-        for (let tr = trailCount; tr >= 0; tr--) {
-          const trailAlpha = tr === 0 ? 1 : (0.15 + chaos * 0.2) * (1 - tr / trailCount);
-          const trailOffset = tr * (2 + chaos * 4);
-          const trailShake = logoShake * (1 + tr * 0.5);
+        // Draw current file as a full-page "document"
+        if (fileBlocks.length > 0 && currentFileIndex < fileBlocks.length) {
+          const block = fileBlocks[currentFileIndex];
+          const { bg, border, text } = block.color;
+          const age = (performance.now() - block.spawnTime) / 1000;
+          const fadeIn = Math.min(1, age * 2);
           
-          ctx.globalAlpha = trailAlpha;
+          // Page background - full screen rectangle
+          ctx.globalAlpha = fadeIn * 0.92;
+          const grad = ctx.createLinearGradient(pageX, pageTop, pageX + pageWidth, pageTop + pageHeight);
+          grad.addColorStop(0, `rgb(${bg[0]}, ${bg[1]}, ${bg[2]})`);
+          grad.addColorStop(1, `rgb(${bg[0] + 8}, ${bg[1] + 4}, ${bg[2] + 12})`);
+          ctx.fillStyle = grad;
+          ctx.fillRect(pageX, pageTop, pageWidth, pageHeight);
           
-          // Color tint overlay for trails
-          if (tr > 0) {
-            // Draw tinted version - use hue shift for chromatic aberration
-            const hueShift = tr * 15 * (Math.random() > 0.5 ? 1 : -1);
-            ctx.filter = `hue-rotate(${hueShift}deg) saturate(${1.5 + chaos})`;
+          // Page border - crisp lines
+          ctx.globalAlpha = fadeIn * 0.8;
+          ctx.strokeStyle = `rgb(${border[0]}, ${border[1]}, ${border[2]})`;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(pageX, pageTop, pageWidth, pageHeight);
+          
+          // Inner border for "page" feel
+          ctx.globalAlpha = fadeIn * 0.3;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(pageX + 4, pageTop + 4, pageWidth - 8, pageHeight - 8);
+          
+          // Filename header bar
+          ctx.globalAlpha = fadeIn * 0.95;
+          ctx.fillStyle = `rgba(${border[0]}, ${border[1]}, ${border[2]}, 0.4)`;
+          ctx.fillRect(pageX, pageTop, pageWidth, HEADER_HEIGHT);
+          
+          // Filename text
+          ctx.font = 'bold 11px "Courier New", monospace';
+          ctx.fillStyle = `rgb(${text[0]}, ${text[1]}, ${text[2]})`;
+          const displayName = block.filename.length > 60 ? '...' + block.filename.slice(-57) : block.filename;
+          ctx.fillText(displayName, pageX + BLOCK_PADDING, pageTop + 16);
+          
+          // Line count badge
+          ctx.font = '9px "Courier New", monospace';
+          ctx.globalAlpha = fadeIn * 0.6;
+          ctx.fillText(`${block.totalLines} lines`, pageX + pageWidth - 70, pageTop + 16);
+          
+          // Source code - scrolling within the page
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(pageX, pageTop + HEADER_HEIGHT, pageWidth, pageHeight - HEADER_HEIGHT);
+          ctx.clip();
+          
+          ctx.font = '9px "Courier New", monospace';
+          const codeStartY = pageTop + HEADER_HEIGHT + BLOCK_PADDING - scrollOffset;
+          
+          for (let i = 0; i < block.lines.length; i++) {
+            const lineY = codeStartY + i * LINE_HEIGHT_CODE;
+            // Skip lines outside visible area
+            if (lineY < pageTop + HEADER_HEIGHT - LINE_HEIGHT_CODE) continue;
+            if (lineY > pageTop + pageHeight) break;
+            
+            const tokens = block.lines[i];
+            let xOff = pageX + BLOCK_PADDING;
+            
+            // Line number (dim)
+            ctx.globalAlpha = fadeIn * 0.3;
+            ctx.fillStyle = `rgb(${text[0]}, ${text[1]}, ${text[2]})`;
+            const lineNum = String(i + 1).padStart(3, ' ');
+            ctx.fillText(lineNum, xOff, lineY);
+            xOff += 28;
+            
+            // Vertical separator
+            ctx.globalAlpha = fadeIn * 0.15;
+            ctx.fillRect(xOff - 4, lineY - 8, 1, LINE_HEIGHT_CODE);
+            
+            // Code tokens with syntax highlighting
+            ctx.globalAlpha = fadeIn * 0.85;
+            tokens.forEach(([tokenText, colorKey]) => {
+              const [r, g, b] = SYN[colorKey] || SYN.op;
+              ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+              ctx.fillText(tokenText, xOff, lineY);
+              xOff += ctx.measureText(tokenText).width;
+            });
           }
           
-          ctx.drawImage(logoImg,
-            lx + (Math.random() - 0.5) * trailShake - trailOffset * 0.3,
-            ly + (Math.random() - 0.5) * trailShake + trailOffset * 0.2,
-            logoSize, logoSize);
+          ctx.restore();
           
-          ctx.filter = 'none';
+          // Scroll progress bar at bottom
+          const scrollProgress = scrollOffset / (block.totalHeight + 50);
+          ctx.globalAlpha = fadeIn * 0.5;
+          ctx.fillStyle = `rgb(${border[0]}, ${border[1]}, ${border[2]})`;
+          ctx.fillRect(pageX, pageTop + pageHeight - 3, pageWidth * Math.min(1, scrollProgress), 3);
         }
-        
-        // Main logo with purple/magenta tint overlay
-        ctx.globalAlpha = 0.3 + chaos * 0.4;
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.fillStyle = `rgb(${180 + chaos * 40 | 0}, ${80 + chaos * 30 | 0}, ${200 + chaos * 30 | 0})`;
-        ctx.fillRect(lx - 2, ly - 2, logoSize + 4, logoSize + 4);
-        ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1;
-        ctx.imageSmoothingEnabled = true;
+        
+        // Draw logo with subtle effects
+        ctx.imageSmoothingEnabled = imgFullLoaded;
+        const logoImg = imgFullLoaded ? imgFull : img;
+        const lx = logoX + shakeX * 0.3;
+        const ly = logoY + shakeY * 0.3;
+        
+        // Subtle glow
+        ctx.globalAlpha = 0.3;
+        ctx.filter = 'blur(8px)';
+        ctx.drawImage(logoImg, lx - 4, ly - 4, logoSize + 8, logoSize + 8);
+        ctx.filter = 'none';
+        
+        // Main logo
+        ctx.globalAlpha = 0.9;
+        ctx.drawImage(logoImg, lx, ly, logoSize, logoSize);
+        ctx.globalAlpha = 1;
         
         // Live ms timer under logo
         const elapsedMs = performance.now() - bootStartTime;
         ctx.font = 'bold 10px "Courier New", monospace';
         const timerStr = (elapsedMs | 0).toString().padStart(5, '0') + 'ms';
-        const timerR = 80 + chaos * 120 | 0;
-        const timerG = 80 + chaos * 40 | 0;
-        const timerB = 100 + chaos * 100 | 0;
-        ctx.globalAlpha = 0.6 + chaos * 0.4;
-        ctx.fillStyle = `rgb(${timerR}, ${timerG}, ${timerB})`;
-        const timerShake = baseShake + chaos * 2;
-        ctx.fillText(timerStr, logoX + 4 + shakeX * 0.5 + (Math.random() - 0.5) * timerShake, logoY + logoSize + 14 + shakeY * 0.5 + (Math.random() - 0.5) * timerShake);
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = `rgb(${100 + chaos * 80 | 0}, ${80}, ${140 + chaos * 60 | 0})`;
+        ctx.fillText(timerStr, logoX + 4, logoY + logoSize + 14);
         ctx.globalAlpha = 1;
         
-        // User handle display - appears prominently when discovered
+        // User handle display
         if (userHandle) {
           const handleAge = (performance.now() - handleShowTime) / 1000;
-          const handleFade = Math.min(1, handleAge * 2); // Fade in over 0.5s
-          const handlePulse = 0.8 + 0.2 * Math.sin(handleAge * 3);
+          const handleFade = Math.min(1, handleAge * 2);
           
-          ctx.save();
-          ctx.font = 'bold 18px "Courier New", monospace';
-          const handleY = logoY + logoSize + 32;
-          const handleX = logoX + 4;
-          
-          // Glowing background
-          ctx.globalAlpha = handleFade * handlePulse * 0.4;
-          ctx.filter = 'blur(8px)';
-          ctx.fillStyle = '#a855f7';
-          ctx.fillText(userHandle, handleX, handleY);
-          ctx.filter = 'none';
-          
-          // Chromatic aberration on handle
-          const hAberr = 1.5 + chaos * 2;
-          ctx.globalAlpha = handleFade * handlePulse * 0.3;
-          ctx.fillStyle = '#ff6b9d';
-          ctx.fillText(userHandle, handleX - hAberr, handleY);
-          ctx.fillStyle = '#6bffb8';
-          ctx.fillText(userHandle, handleX + hAberr * 0.5, handleY - hAberr * 0.3);
-          
-          // Main handle text - bright purple/pink
-          ctx.globalAlpha = handleFade * handlePulse;
-          ctx.fillStyle = '#e879f9';
-          ctx.fillText(userHandle, handleX + shakeX * 0.3, handleY + shakeY * 0.3);
-          ctx.restore();
+          ctx.font = 'bold 14px "Courier New", monospace';
+          ctx.globalAlpha = handleFade * 0.9;
+          ctx.fillStyle = '#c084fc';
+          ctx.fillText(userHandle, logoX + 4, logoY + logoSize + 30);
         }
         
-        // Draw log text
-        ctx.font = '12px "Courier New", monospace';
+        // Draw log text (status messages)
+        ctx.font = '11px "Courier New", monospace';
         const now = performance.now();
         lines.forEach((line, i) => {
           const y = textStartY + i * lineHeight;
           if (y > H - 10) return;
           
-          const age = i * 0.08;
-          const alpha = Math.max(0.25, 1 - age * 0.6);
-          const lineAge = (now - line.time) / 1000;
-          const lineBurst = Math.max(0, line.burst - lineAge * 2);
+          const age = i * 0.1;
+          const alpha = Math.max(0.2, 1 - age * 0.5);
           
           let displayText = line.text;
           if (i === 0 && !cursorVisible) displayText = displayText.replace(/_$/, ' ');
           
-          // Shake from start, more with chaos
-          const lineShake = baseShake * 0.5 + lineBurst * 3 + chaos * 1.5;
-          const lx = textX + shakeX + (Math.random() - 0.5) * lineShake;
-          const ly = y + shakeY + (Math.random() - 0.5) * lineShake;
+          const lx = textX + shakeX * 0.5;
+          const ly = y + shakeY * 0.5;
           
-          // Colors: pink → noise16Aesthetic purple
-          const baseR = 200 - colorLerp * 100 - i * 5;
-          const baseG = 80 - colorLerp * 55 - i * 4;
-          const baseB = 140 + colorLerp * 60 - i * 2;
+          // Simple colored text
+          const baseR = 180 - colorLerp * 60 - i * 4;
+          const baseG = 100 - colorLerp * 40 - i * 3;
+          const baseB = 180 + colorLerp * 40 - i * 2;
           
-          // Chromatic aberration / RGB split ghost trails
-          const aberration = 1 + chaos * 3 + lineBurst * 2;
-          if (aberration > 1.5) {
-            ctx.globalAlpha = alpha * 0.4;
-            ctx.fillStyle = `rgb(255, 50, 100)`; // Red channel
-            ctx.fillText(displayText, lx - aberration, ly);
-            ctx.fillStyle = `rgb(50, 255, 150)`; // Green channel  
-            ctx.fillText(displayText, lx + aberration * 0.5, ly - aberration * 0.3);
-            ctx.fillStyle = `rgb(100, 100, 255)`; // Blue channel
-            ctx.fillText(displayText, lx + aberration * 0.3, ly + aberration * 0.5);
-          }
-          
-          // Subtle glow from start, stronger with chaos
-          ctx.globalAlpha = alpha * (0.15 + chaos * 0.25 + lineBurst * 0.3);
-          ctx.filter = `blur(${2 + chaos * 3}px)`;
-          ctx.fillStyle = `rgb(${Math.min(255, baseR + 40)}, ${Math.max(0, baseG + 20)}, ${Math.min(255, baseB + 30)})`;
-          ctx.fillText(displayText, lx, ly);
-          ctx.filter = 'none';
-          
-          // Main text
           ctx.globalAlpha = alpha;
-          ctx.fillStyle = `rgb(${Math.max(0,Math.min(255,baseR + lineBurst * 25))}, ${Math.max(0,baseG)}, ${Math.min(255,baseB + lineBurst * 15)})`;
+          ctx.fillStyle = `rgb(${Math.max(0,Math.min(255,baseR | 0))}, ${Math.max(0,baseG | 0)}, ${Math.min(255,baseB | 0)})`;
           ctx.fillText(displayText, lx, ly);
         });
         ctx.globalAlpha = 1;
         
-        // === VHS effects - subtle from start, intensify with chaos ===
-        
-        // Scanlines - always on, subtle
-        ctx.globalAlpha = 0.03 + chaos * 0.12;
+        // Subtle scanlines
+        ctx.globalAlpha = 0.03 + chaos * 0.05;
         ctx.fillStyle = '#000';
         for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
-        
-        // Occasional glitch from start, more frequent with chaos
-        if (Math.random() < 0.05 + chaos * 0.5) {
-          const sliceCount = 1 + (chaos * 6) | 0;
-          for (let i = 0; i < sliceCount; i++) {
-            const gy = Math.random() * H | 0;
-            const gh = 2 + Math.random() * 6 | 0;
-            const shift = ((Math.random() - 0.5) * (8 + chaos * 25)) | 0;
-            if (gy + gh < H && gy > 0) {
-              try {
-                const slice = ctx.getImageData(0, gy, W, gh);
-                ctx.putImageData(slice, shift, gy);
-              } catch(e) {}
-            }
-          }
-        }
-        
-        // VHS noise - light from start
-        const noiseAmount = 10 + chaos * 70 | 0;
-        ctx.globalAlpha = 0.03 + chaos * 0.1;
-        for (let i = 0; i < noiseAmount; i++) {
-          ctx.fillStyle = `rgb(${Math.random() * 100 | 0}, ${Math.random() * 40 | 0}, ${Math.random() * 200 | 0})`;
-          ctx.fillRect(Math.random() * W | 0, Math.random() * H | 0, 1 + Math.random() * 2, 1);
-        }
-        
-        // Flicker overlay - subtle from start
-        ctx.globalAlpha = 0.02 + chaos * 0.12 * (0.5 + Math.random() * 0.5);
-        ctx.fillStyle = `rgb(${100 + colorLerp * 20}, ${25 + colorLerp * 10}, ${160 + colorLerp * 40})`;
-        ctx.fillRect(0, 0, W, H);
-        
-        // === DEGRADATION EFFECTS - blur & pixelation as noise16 intensifies ===
-        // Only apply when chaos is building (smoother timing)
-        const degradeStart = 0.3; // Start degrading at 30% chaos
-        const degradeAmount = Math.max(0, (chaos - degradeStart) / (1 - degradeStart));
-        
-        if (degradeAmount > 0.05) {
-          // Pixelation / mosaic effect - downscale then upscale
-          const pixelSize = 1 + (degradeAmount * degradeAmount * 8) | 0; // 1-9px blocks
-          if (pixelSize > 1) {
-            const smallW = Math.max(1, (W / pixelSize) | 0);
-            const smallH = Math.max(1, (H / pixelSize) | 0);
-            ctx.imageSmoothingEnabled = false;
-            // Draw current canvas to itself at smaller size, then scale back up
-            try {
-              const imgData = ctx.getImageData(0, 0, W, H);
-              ctx.clearRect(0, 0, W, H);
-              // Create temp canvas for pixelation
-              const tempCanvas = document.createElement('canvas');
-              tempCanvas.width = smallW;
-              tempCanvas.height = smallH;
-              const tempCtx = tempCanvas.getContext('2d');
-              tempCtx.drawImage(canvas, 0, 0, smallW, smallH);
-              ctx.drawImage(tempCanvas, 0, 0, W, H);
-            } catch(e) {}
-            ctx.imageSmoothingEnabled = true;
-          }
-          
-          // Global blur overlay - increases with degradation
-          const blurAmount = degradeAmount * degradeAmount * 4; // 0-4px blur
-          if (blurAmount > 0.5) {
-            ctx.filter = `blur(${blurAmount}px)`;
-            ctx.globalAlpha = 0.3 + degradeAmount * 0.5;
-            try {
-              ctx.drawImage(canvas, 0, 0);
-            } catch(e) {}
-            ctx.filter = 'none';
-            ctx.globalAlpha = 1;
-          }
-        }
-        
         ctx.globalAlpha = 1;
         
         requestAnimationFrame(animate);
       };
       
-      // Start animation IMMEDIATELY - don't wait for image
+      // Start animation IMMEDIATELY
       animate();
-      img.onload = () => {}; // Image loads in background
+      img.onload = () => {};
       
       return {
         log: addLine,
         hide: () => { running = false; canvas.remove(); },
-        setHandle: setHandle
+        setHandle: setHandle,
+        addFile: addFile  // New: add a file block
       };
     })();
     
     window.acBOOT_LOG_CANVAS = (msg) => {
       if (window.acBootCanvas?.log) window.acBootCanvas.log(msg);
+    };
+    
+    // Expose addFile for boot.mjs
+    window.acBOOT_ADD_FILE = (filename, content) => {
+      if (window.acBootCanvas?.addFile) window.acBootCanvas.addFile(filename, content);
     };
   </script>
   <script>

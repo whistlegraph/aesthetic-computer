@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Give — Aesthetic Computer</title>
+  <title>give · Aesthetic Computer</title>
   <meta name="description" content="Support Aesthetic Computer / Støt Aesthetic Computer" />
-  <link rel="icon" href="https://assets.aesthetic.computer/images/purple-pals.svg" type="image/svg+xml" />
+  <link rel="icon" href="https://aesthetic.computer/purple-pals.svg" type="image/svg+xml" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     @font-face {
@@ -216,20 +216,20 @@
     /* Stats Section */
     .stats-section {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 0.6em;
       grid-column: 1 / -1;
     }
 
     @media (min-width: 800px) {
       .stats-section {
-        grid-template-columns: repeat(8, 1fr);
+        grid-template-columns: repeat(6, 1fr);
       }
     }
 
     .stat-item {
       text-align: center;
-      padding: 0.6em 0.4em;
+      padding: 0.8em 0.5em;
       background: var(--box-bg);
       border: 1px solid var(--box-border);
       border-radius: 4px;
@@ -237,22 +237,22 @@
 
     .stat-value {
       font-family: 'ywft', var(--mono);
-      font-size: 1.2em;
+      font-size: 1.4em;
       color: var(--gold);
     }
 
     .stat-label {
-      font-size: 0.6em;
+      font-size: 0.7em;
       color: var(--dim);
       margin-top: 0.2em;
     }
 
     /* Fiat Currency Section */
     .fiat-section {
-      background: var(--box-bg);
-      border: 1px solid var(--box-border);
-      border-radius: 4px;
-      padding: 1.2em;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
     }
 
     .fiat-section.full-width {
@@ -260,10 +260,7 @@
     }
 
     .fiat-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1em;
+      display: none;
     }
 
     .fiat-header h2 {
@@ -273,51 +270,124 @@
       color: var(--cyan);
     }
 
-    /* Language and Currency dropdowns */
+    /* Language and Currency selectors */
     .selector-group {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
     }
 
-    .dropdown-selector {
+    /* Language dropdown (compact, like kidlisp.com) */
+    .lang-selector {
       position: relative;
       display: flex;
       align-items: center;
       gap: 4px;
-      padding: 5px 10px;
-      background: var(--box-bg);
-      border: 1px solid var(--box-border);
-      border-radius: 4px;
+      padding: 6px 10px;
       cursor: pointer;
       font-size: 12px;
       user-select: none;
+      border-radius: 4px;
+      transition: background 0.15s;
     }
 
-    .dropdown-selector:hover {
-      border-color: var(--cyan);
+    .lang-selector:hover {
+      background: var(--box-bg);
     }
 
-    .dropdown-selector .sel-flag { font-size: 14px; }
-    .dropdown-selector .sel-text { color: var(--text); font-weight: 500; }
-    .dropdown-selector .sel-arrow { font-size: 8px; color: var(--dim); margin-left: 2px; }
-
-    .dropdown-selector.cycling .sel-flag,
-    .dropdown-selector.cycling .sel-text {
-      animation: selFade 0.3s ease-in-out;
+    .lang-selector .lang-flag { font-size: 14px; }
+    .lang-selector .lang-text { 
+      font-size: 12px; 
+      color: var(--dim);
+      font-weight: 500;
+    }
+    .lang-selector .lang-arrow { 
+      font-size: 8px; 
+      color: var(--dim); 
+      opacity: 0.6;
+      margin-left: 2px;
     }
 
-    @keyframes selFade {
-      0% { opacity: 1; }
-      50% { opacity: 0.3; }
-      100% { opacity: 1; }
-    }
-
-    .dropdown-menu {
+    .lang-dropdown {
       position: absolute;
-      top: calc(100% + 4px);
-      right: 0;
+      top: 100%;
+      left: 0;
       background: var(--bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 100;
+      min-width: 100px;
+      margin-top: 2px;
+      display: none;
+    }
+
+    .lang-selector.open .lang-dropdown {
+      display: block;
+    }
+
+    .lang-option {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+
+    .lang-option:hover {
+      background: rgba(232, 74, 138, 0.1);
+      color: var(--pink);
+    }
+
+    .lang-option:first-child { border-radius: 4px 4px 0 0; }
+    .lang-option:last-child { border-radius: 0 0 4px 4px; }
+
+    /* Currency link selector */
+    .currency-links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .curr-link {
+      font-size: 13px;
+      color: var(--dim);
+      cursor: pointer;
+      transition: color 0.15s;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .curr-link:hover {
+      color: var(--text);
+    }
+
+    .curr-link.active {
+      color: var(--pink);
+    }
+
+    .curr-link .curr-flag { margin-right: 4px; }
+
+    /* Different active colors per currency */
+    .curr-link.active[data-curr="usd"] { color: var(--green); }
+    .curr-link.active[data-curr="dkk"] { color: var(--cyan); }
+    .curr-link.active[data-curr="xtz"] { color: #a78bfa; }
+    .curr-link.active[data-curr="eth"] { color: #818cf8; }
+    .curr-link.active[data-curr="btc"] { color: #f7931a; }
+
+    @media (max-width: 600px) {
+      .currency-links {
+        gap: 10px;
+      }
+      .curr-link {
+        font-size: 12px;
+      }
+      .curr-link .curr-text { display: none; }
+      .lang-selector .lang-text { display: none; }
+    }
+
+    /* Hide old dropdown styles */
+    .dropdown-selector { display: none !important; }
       border: 1px solid var(--box-border);
       border-radius: 4px;
       display: none;
@@ -424,10 +494,15 @@
       width: 100%;
       height: 12px;
       background: var(--cyan);
-      border-radius: 0;
+      border-radius: 0 0 8px 8px;
       outline: none;
       cursor: pointer;
       margin: 0;
+    }
+
+    .gift-controls input[type="range"] {
+      position: relative;
+      z-index: 10;
     }
 
     .gift-controls input[type="range"]::-webkit-slider-thumb {
@@ -438,6 +513,8 @@
       border-radius: 50%;
       cursor: grab;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      position: relative;
+      z-index: 20;
     }
 
     .gift-controls input[type="range"]::-moz-range-thumb {
@@ -450,54 +527,61 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     }
 
-    /* Gift mode toggle (one-time vs monthly) - sits below button */
-    .gift-mode-toggle {
+    /* Gift mode checkbox (monthly repeat) */
+    .gift-monthly-check {
       display: flex;
-      background: var(--box-bg);
-      border: 1px solid var(--box-border);
-      border-top: none;
-      border-radius: 0 0 8px 8px;
-    }
-
-    .mode-btn {
-      flex: 1;
-      padding: 0.6em 1em;
-      font-family: var(--mono);
-      font-size: 0.8em;
-      background: transparent;
-      border: none;
+      align-items: center;
+      gap: 8px;
+      padding: 0.8em 0;
+      font-size: 0.85em;
       color: var(--dim);
       cursor: pointer;
-      transition: all 0.15s;
+      user-select: none;
     }
 
-    .mode-btn:hover {
+    .gift-monthly-check input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--gold);
+      cursor: pointer;
+    }
+
+    .gift-monthly-check:hover {
       color: var(--text);
     }
 
-    .mode-btn.active {
-      background: var(--pink);
-      color: var(--bg);
-      font-weight: bold;
+    .gift-monthly-check.checked {
+      color: var(--gold);
     }
 
     .gift-btn {
       font-family: 'ywft', sans-serif;
       font-size: 1.2em;
       padding: 1em 1.5em;
-      background: var(--pink);
-      color: var(--bg);
-      border: none;
-      border-radius: 0;
+      background: linear-gradient(180deg, var(--green) 0%, #3a8a4a 100%);
+      color: white;
+      border: 2px solid #5ab06a;
+      border-radius: 8px;
       cursor: pointer;
       width: 100%;
-      transition: background 0.15s;
+      transition: all 0.15s;
       font-weight: bold;
       letter-spacing: 0.02em;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      margin-top: 0.5em;
     }
 
     .gift-btn:hover {
-      background: var(--cyan);
+      background: linear-gradient(180deg, var(--pink) 0%, #c83a7a 100%);
+      border-color: #ff8ab0;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+
+    .gift-btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
     }
 
     .gift-btn:disabled {
@@ -518,6 +602,21 @@
       text-align: center;
       border-left: 1px solid var(--box-border);
       border-right: 1px solid var(--box-border);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .crypto-address:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .crypto-address.copied {
+      background: var(--gold);
+    }
+
+    .crypto-address.copied .crypto-label,
+    .crypto-address.copied .crypto-addr {
+      color: var(--bg);
     }
 
     .crypto-label {
@@ -525,17 +624,32 @@
       font-family: 'ywft', sans-serif;
       font-size: 1.1em;
       color: var(--cyan);
-      margin-bottom: 0.5em;
+      margin-bottom: 0.4em;
     }
 
     .crypto-addr {
       display: block;
       font-family: var(--mono);
-      font-size: 0.7em;
+      font-size: 0.8em;
       color: var(--dim);
       word-break: break-all;
-      background: transparent;
-      padding: 0;
+    }
+
+    .crypto-copy-hint {
+      display: block;
+      font-size: 0.7em;
+      color: var(--dim);
+      margin-top: 0.5em;
+      opacity: 0.6;
+    }
+
+    .crypto-address:hover .crypto-copy-hint {
+      opacity: 1;
+    }
+
+    .crypto-address.copied .crypto-copy-hint {
+      color: var(--bg);
+      opacity: 1;
     }
 
     .crypto-amount {
@@ -596,25 +710,13 @@
     }
 
     .crypto-send {
-      flex: 2;
-      border-radius: 0 0 0 8px;
+      flex: 1;
+      border-radius: 0 0 8px 8px;
       background: linear-gradient(135deg, #6a4a8a 0%, #4a2a6a 100%);
     }
 
     .crypto-send:hover {
       background: linear-gradient(135deg, #8a6aaa 0%, #6a4a8a 100%);
-    }
-
-    .crypto-copy {
-      flex: 1;
-      border-radius: 0 0 8px 0;
-      background: var(--dim);
-      font-size: 0.9em;
-    }
-
-    .crypto-copy:hover {
-      background: var(--text);
-      color: var(--bg);
     }
 
     small {
@@ -682,6 +784,102 @@
 
     .link-block .link-desc {
       font-size: 0.8em;
+      color: var(--dim);
+      margin-top: 0.2em;
+    }
+
+    /* Desktop download buttons */
+    .desktop-downloads {
+      display: flex;
+      gap: 0.6em;
+      margin-top: 0.8em;
+      flex-wrap: wrap;
+    }
+
+    .desktop-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+      padding: 0.5em 0.9em;
+      background: rgba(100, 60, 140, 0.3);
+      border: 1px solid rgba(180, 100, 255, 0.3);
+      border-radius: 6px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      flex: 1;
+      justify-content: center;
+      min-width: 80px;
+    }
+
+    .desktop-btn:hover {
+      background: rgba(120, 80, 180, 0.5);
+      border-color: rgba(200, 150, 255, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .desktop-icon {
+      font-size: 1.2em;
+    }
+
+    .desktop-label {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      color: var(--text);
+    }
+
+    .desktop-btn:hover .desktop-label {
+      color: var(--pink);
+    }
+
+    .desktop-version {
+      font-family: var(--mono);
+      font-size: 0.8em;
+      color: var(--dim);
+      font-weight: normal;
+      margin-left: 0.3em;
+    }
+
+    .desktop-release-info {
+      margin-top: 0.8em;
+      padding: 0.6em 0.8em;
+      background: rgba(40, 30, 60, 0.5);
+      border-radius: 4px;
+      font-size: 0.8em;
+    }
+
+    .desktop-release-name {
+      color: var(--cyan);
+      font-weight: bold;
+      margin-bottom: 0.4em;
+    }
+
+    .desktop-release-date {
+      color: var(--dim);
+      font-size: 0.9em;
+      margin-bottom: 0.5em;
+    }
+
+    .desktop-changelog {
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    .desktop-changelog ul {
+      margin: 0.3em 0 0 0;
+      padding-left: 1.2em;
+    }
+
+    .desktop-changelog li {
+      margin-bottom: 0.2em;
+    }
+
+    .desktop-changelog strong {
+      color: var(--pink);
+    }
+
+    .desktop-btn-info {
+      display: block;
+      font-size: 0.75em;
       color: var(--dim);
       margin-top: 0.2em;
     }
@@ -760,38 +958,42 @@
       color: var(--cyan);
     }
 
-    /* Shop Section - constrained width with distinct background */
+    /* Shop Section - clean white background like shop.aesthetic.computer */
     .shop-section {
-      background: linear-gradient(135deg, rgba(42, 157, 143, 0.08) 0%, rgba(205, 92, 155, 0.08) 100%);
-      border: 1px solid var(--box-border);
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
       border-radius: 8px;
       padding: 1.2em;
-      color: var(--text);
+      color: #1a1a1a;
       max-width: 320px;
     }
 
     .shop-header {
       display: flex;
       align-items: baseline;
-      gap: 1em;
+      gap: 0.6em;
       margin-bottom: 1em;
       flex-wrap: wrap;
     }
 
     .shop-title {
-      font-family: 'ywft', sans-serif;
-      font-size: 1.4em;
-      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 1.3em;
+      font-weight: 600;
+      color: #1a1a1a;
       text-decoration: none;
+      letter-spacing: -0.02em;
     }
 
     .shop-title:hover {
-      color: var(--pink);
+      color: #e84a8a;
+      text-decoration: underline;
     }
 
     .shop-tagline {
-      font-size: 0.85em;
-      color: var(--dim);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 0.8em;
+      color: #666;
     }
 
     .shop-products {
@@ -804,7 +1006,7 @@
 
     .shop-product {
       text-decoration: none;
-      color: var(--text);
+      color: #1a1a1a;
       text-align: center;
       opacity: 0;
       transform: scale(0.95);
@@ -819,37 +1021,63 @@
       transform: scale(1.03);
     }
 
+    .shop-product:hover .shop-product-title {
+      text-decoration: underline;
+    }
+
     .shop-product img {
       width: 140px;
       height: 140px;
+      aspect-ratio: 1 / 1;
       object-fit: cover;
       border-radius: 4px;
-      background: var(--box-bg);
-      border: 1px solid var(--box-border);
+      background: #f5f5f5;
+      border: 1px solid #e0e0e0;
     }
 
     .shop-product-title {
-      font-size: 0.8em;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 0.85em;
+      font-weight: 500;
       margin-top: 0.5em;
       line-height: 1.3;
       max-width: 160px;
+      color: #1a1a1a;
+    }
+
+    .shop-product-vendor {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 0.75em;
+      color: #888;
+      margin-top: 0.15em;
+    }
+
+    .shop-product-vendor a {
+      color: #e84a8a;
+      text-decoration: none;
+    }
+
+    .shop-product-vendor a:hover {
+      text-decoration: underline;
     }
 
     .shop-product-price {
-      font-family: var(--mono);
-      font-size: 0.7em;
-      color: var(--dim);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 0.8em;
+      color: #666;
       margin-top: 0.2em;
     }
 
     .shop-product-sold {
-      color: var(--pink);
-      font-size: 0.65em;
+      color: #e84a8a;
+      font-size: 0.7em;
+      font-weight: 600;
       text-transform: uppercase;
     }
 
     .shop-loading {
-      color: var(--dim);
+      color: #999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 0.85em;
       text-align: center;
       padding: 2em;
@@ -920,6 +1148,267 @@
       font-family: var(--mono);
     }
 
+    .tv-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: rgba(255,255,255,0.2);
+    }
+
+    .tv-progress-bar {
+      height: 100%;
+      background: var(--pink);
+      width: 0%;
+      transition: width 0.2s linear;
+    }
+
+    .tv-info {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      right: 8px;
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 0.7em;
+      color: rgba(255,255,255,0.6);
+      pointer-events: none;
+    }
+
+    /* Chat Rolodex */
+    .chat-preview {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .chat-preview-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2em;
+      padding: 0.8em 1em;
+      text-decoration: none;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .chat-preview-header strong {
+      color: var(--text);
+      font-family: 'ywft', sans-serif;
+      font-size: 0.9em;
+    }
+
+    .chat-preview-header .link-desc {
+      font-size: 0.75em;
+      color: var(--dim);
+    }
+
+    .chat-preview-header:hover strong {
+      color: var(--gold);
+    }
+
+    .chat-messages {
+      max-height: 200px;
+      overflow-y: auto;
+      background: #111;
+      scroll-behavior: smooth;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .chat-messages::-webkit-scrollbar-track {
+      background: #0a0a0a;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: var(--dim);
+      border-radius: 3px;
+    }
+
+    .chat-msg {
+      padding: 0.5em 1em;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      animation: chatFadeIn 0.3s ease;
+    }
+
+    .chat-msg:last-child {
+      border-bottom: none;
+    }
+
+    @keyframes chatFadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .chat-msg-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.2em;
+    }
+
+    .chat-handle {
+      font-family: var(--mono);
+      font-size: 0.75em;
+      color: var(--cyan);
+    }
+
+    .chat-handle:hover {
+      color: var(--pink);
+    }
+
+    .chat-time {
+      font-family: var(--mono);
+      font-size: 0.6em;
+      color: var(--dim);
+    }
+
+    .chat-text {
+      font-size: 0.8em;
+      color: var(--text);
+      line-height: 1.4;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    /* KidLisp Code Slideshow */
+    .kidlisp-preview {
+      background: #1a1a2e;
+      border: 1px solid #2a2a4a;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .kidlisp-preview-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2em;
+      padding: 0.8em 1em;
+      text-decoration: none;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .kidlisp-preview-header:hover .kidlisp-logo {
+      filter: brightness(1.2);
+    }
+
+    .kidlisp-code-area {
+      height: 140px;
+      overflow: hidden;
+      position: relative;
+      background: #0d0d1a;
+      font-family: var(--mono);
+      font-size: 0.8em;
+    }
+
+    .kidlisp-slide {
+      position: absolute;
+      inset: 0;
+      padding: 1em;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      overflow: hidden;
+    }
+
+    .kidlisp-slide.active {
+      opacity: 1;
+    }
+
+    .kidlisp-slide code {
+      display: block;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.5;
+    }
+
+    /* KidLisp syntax highlighting */
+    .kl-paren { color: #888; }
+    .kl-keyword { color: #ff79c6; }
+    .kl-string { color: #f1fa8c; }
+    .kl-number { color: #bd93f9; }
+    .kl-comment { color: #6272a4; font-style: italic; }
+    .kl-builtin { color: #8be9fd; }
+
+    .kidlisp-hits {
+      position: absolute;
+      bottom: 0.5em;
+      right: 0.8em;
+      font-family: var(--mono);
+      font-size: 0.7em;
+      color: var(--gold);
+      opacity: 0.7;
+    }
+
+    .kidlisp-source {
+      background: rgba(20, 15, 30, 0.8);
+      border: 1px solid rgba(100, 60, 140, 0.3);
+      border-radius: 4px;
+      padding: 0.5em 0;
+      margin-top: 0.5em;
+      max-height: 90px;
+      overflow-y: auto;
+      font-family: var(--mono);
+      font-size: 0.75em;
+      line-height: 1.4;
+    }
+
+    .kidlisp-source-line {
+      display: flex;
+      gap: 0;
+    }
+
+    .kidlisp-line-num {
+      flex-shrink: 0;
+      width: 2em;
+      padding: 0 0.4em;
+      text-align: right;
+      color: rgba(120, 100, 160, 0.5);
+      user-select: none;
+      border-right: 1px solid rgba(100, 60, 140, 0.2);
+      margin-right: 0.5em;
+    }
+
+    .kidlisp-line-code {
+      flex: 1;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Timing token animation */
+    .kl-timing {
+      color: #ffff00;
+      transition: color 0.15s ease, text-shadow 0.15s ease;
+    }
+
+    .kl-timing.active {
+      color: #00ff00;
+      text-shadow: 0 0 6px rgba(0, 255, 0, 0.6);
+    }
+
+    .kl-timing.trigger {
+      color: #ff0000;
+      text-shadow: 0 0 8px rgba(255, 0, 0, 0.8);
+    }
+
+    @keyframes timing-pulse {
+      0%, 100% { color: #ffff00; text-shadow: none; }
+      50% { color: #00ff00; text-shadow: 0 0 6px rgba(0, 255, 0, 0.5); }
+    }
+
+    .kidlisp-code-label {
+      font-family: var(--mono);
+      font-size: 0.7em;
+      color: var(--dim);
+      margin-bottom: 0.3em;
+    }
+
     #pals {
       display: flex;
       align-items: center;
@@ -949,71 +1438,160 @@
       }
       .stat-item { min-width: unset; }
     }
+
+    /* Thank You Mode */
+    .thanks-section {
+      display: none;
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 2em 1em;
+    }
+
+    body.thanks-mode .thanks-section {
+      display: block;
+    }
+
+    body.thanks-mode .fiat-section {
+      display: none !important;
+    }
+
+    body.thanks-mode .currency-links {
+      display: none !important;
+    }
+
+    .thanks-canvas-wrap {
+      display: inline-block;
+      margin-bottom: 1.5em;
+    }
+
+    .thanks-canvas {
+      width: 280px;
+      height: 280px;
+      border-radius: 12px;
+    }
+
+    .thanks-message {
+
+      font-family: 'ywft', sans-serif;
+      font-size: 1.4em;
+      color: var(--text);
+      max-width: 500px;
+      margin: 0 auto 1.5em auto;
+      line-height: 1.5;
+    }
+
+    .thanks-amount {
+      color: var(--green);
+      font-weight: bold;
+    }
+
+    .thanks-actions {
+      display: flex;
+      gap: 1em;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .thanks-again {
+      display: inline-block;
+      padding: 0.8em 1.5em;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 6px;
+      color: var(--cyan);
+      text-decoration: none;
+      transition: all 0.15s;
+      font-size: 0.95em;
+    }
+
+    .thanks-again:hover {
+      background: var(--cyan);
+      color: var(--bg);
+      text-decoration: none;
+    }
+
+    .thanks-share {
+      display: inline-block;
+      padding: 0.8em 1.5em;
+      background: #000;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #fff;
+      font-family: var(--mono);
+      font-size: 0.95em;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .thanks-share:hover {
+      background: #1da1f2;
+      border-color: #1da1f2;
+    }
   </style>
 </head>
 
 <body>
   <div class="top-bar">
-    <div class="logo" onclick="window.location.href='https://aesthetic.computer'">give<span class="logo-sep">—</span>Aesthetic<span class="bounce-dot">.</span>Computer</div>
-    <div class="selector-group">
-      <div class="dropdown-selector" id="langSelector">
-        <span class="sel-flag">🇺🇸</span>
-        <span class="sel-text">EN</span>
-        <span class="sel-arrow">▼</span>
-        <div class="dropdown-menu">
-          <div class="dropdown-option active" data-lang="en">
-            <span>🇺🇸</span> <span>English</span>
-          </div>
-          <div class="dropdown-option" data-lang="da">
-            <span>🇩🇰</span> <span>Dansk</span>
-          </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div class="logo" onclick="window.location.href='https://aesthetic.computer'">give<span class="logo-sep">—</span>Aesthetic<span class="bounce-dot">.</span>Computer</div>
+      <div class="lang-selector" id="langSelector">
+        <span class="lang-flag" id="lang-flag">🇺🇸</span>
+        <span class="lang-text" id="lang-text">English</span>
+        <span class="lang-arrow">▼</span>
+        <div class="lang-dropdown" id="lang-dropdown">
+          <div class="lang-option" data-lang="en">🇺🇸 English</div>
+          <div class="lang-option" data-lang="da">🇩🇰 Dansk</div>
         </div>
       </div>
-      <div class="dropdown-selector" id="currSelector">
-        <span class="sel-flag">💵</span>
-        <span class="sel-text">USD</span>
-        <span class="sel-arrow">▼</span>
-        <div class="dropdown-menu">
-          <div class="dropdown-option active" data-curr="usd">
-            <span>💵</span> <span>USD</span>
-          </div>
-          <div class="dropdown-option" data-curr="dkk">
-            <span>💶</span> <span>DKK</span>
-          </div>
-          <div class="dropdown-option" data-curr="xtz">
-            <span>🔮</span> <span>Tezos</span>
-          </div>
-          <div class="dropdown-option" data-curr="eth">
-            <span>💎</span> <span>Ethereum</span>
-          </div>
-        </div>
-      </div>
+    </div>
+    <div class="currency-links" id="currSelector">
+      <span class="curr-link active" data-curr="usd"><span class="curr-flag">💵</span><span class="curr-text">USD</span></span>
+      <span class="curr-link" data-curr="dkk"><span class="curr-flag">💶</span><span class="curr-text">DKK</span></span>
+      <span class="curr-link" data-curr="xtz"><span class="curr-flag">🔮</span><span class="curr-text">XTZ</span></span>
+      <span class="curr-link" data-curr="eth"><span class="curr-flag">💎</span><span class="curr-text">ETH</span></span>
+      <span class="curr-link" data-curr="btc"><span class="curr-flag">🟠</span><span class="curr-text">BTC</span></span>
     </div>
   </div>
 
   <main>
     <div class="content-grid">
-      <div class="fiat-section full-width">
-        <div class="fiat-header">
-          <h2 data-lang="en">🎁 Give</h2>
-          <h2 data-lang="da">🎁 Giv</h2>
+      <!-- Thank You Section (shown when ?thanks=1) -->
+      <div class="thanks-section">
+        <div class="thanks-canvas-wrap">
+          <canvas class="thanks-canvas" id="thanksCanvas" width="560" height="560"></canvas>
         </div>
+        <p class="thanks-message" data-lang="en">
+          Thank you for giving <span class="thanks-amount" id="thanksAmountEn">$25</span> and keeping Aesthetic.Computer online and free to use.
+        </p>
+        <p class="thanks-message" data-lang="da">
+          Tak for at give <span class="thanks-amount" id="thanksAmountDa">$25</span> og holde Aesthetic.Computer online og gratis at bruge.
+        </p>
+        <div class="thanks-actions">
+          <a href="./" class="thanks-again" data-lang="en">Give again?</a>
+          <a href="./" class="thanks-again" data-lang="da">Giv igen?</a>
+          <button class="thanks-share" id="shareBtn" data-lang="en">Share to 𝕏</button>
+          <button class="thanks-share" id="shareBtnDa" data-lang="da">Del på 𝕏</button>
+        </div>
+      </div>
+
+      <div class="fiat-section full-width">
         <div class="currency-pickers">
           <div class="currency-picker" data-for="usd">
             <div class="gift-widget" data-currency="usd">
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
-                  <img src="https://assets.aesthetic.computer/images/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount">$25</div>
+                  <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
+                  <div class="gift-amount">$125</div>
                 </div>
               </div>
               <div class="gift-controls">
-                <input type="range" min="5" max="100" step="5" value="25">
-                <button class="gift-btn" data-currency="usd">Give $25</button>
-                <div class="gift-mode-toggle">
-                  <button class="mode-btn active" data-mode="once">One-time</button>
-                  <button class="mode-btn" data-mode="monthly">Monthly</button>
-                </div>
+                <input type="range" min="5" max="500" step="5" value="125">
+                <button class="gift-btn" data-currency="usd">Give $125</button>
+                <label class="gift-monthly-check">
+                  <input type="checkbox" class="monthly-checkbox">
+                  <span data-lang="en">Repeat monthly</span>
+                  <span data-lang="da">Gentag månedligt</span>
+                </label>
               </div>
             </div>
           </div>
@@ -1021,13 +1599,18 @@
             <div class="gift-widget" data-currency="dkk">
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
-                  <img src="https://assets.aesthetic.computer/images/purple-pals.svg" class="gift-logo" alt="">
+                  <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
                   <div class="gift-amount">200 kr</div>
                 </div>
               </div>
               <div class="gift-controls">
                 <input type="range" min="25" max="7000" step="25" value="200">
                 <button class="gift-btn" data-currency="dkk">Giv 200 kr</button>
+                <label class="gift-monthly-check">
+                  <input type="checkbox" class="monthly-checkbox">
+                  <span data-lang="en">Repeat monthly</span>
+                  <span data-lang="da">Gentag månedligt</span>
+                </label>
               </div>
             </div>
           </div>
@@ -1035,20 +1618,16 @@
             <div class="gift-widget crypto" data-currency="xtz">
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
-                  <img src="https://assets.aesthetic.computer/images/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount crypto-amount">🔮 10 ꜩ</div>
+                  <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
+                  <div class="gift-amount crypto-amount">🔮 XTZ</div>
                 </div>
-                <div class="crypto-usd" data-currency="xtz">≈ $—</div>
               </div>
               <div class="crypto-controls">
-                <input type="range" class="crypto-slider" min="1" max="100" step="1" value="10" data-currency="xtz">
-                <div class="crypto-address">
+                <div class="crypto-address copyable" data-copy="tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT">
                   <span class="crypto-label">aesthetic.tez</span>
                   <code class="crypto-addr">tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT</code>
-                </div>
-                <div class="crypto-buttons">
-                  <button class="gift-btn crypto-send" data-currency="xtz">Send 10 ꜩ</button>
-                  <button class="gift-btn crypto-copy" onclick="copy('tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT', this)">Copy</button>
+                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy address</span>
+                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere adresse</span>
                 </div>
               </div>
             </div>
@@ -1057,27 +1636,43 @@
             <div class="gift-widget crypto" data-currency="eth">
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
-                  <img src="https://assets.aesthetic.computer/images/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount crypto-amount">💎 0.05 Ξ</div>
+                  <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
+                  <div class="gift-amount crypto-amount">💎 ETH</div>
                 </div>
-                <div class="crypto-usd" data-currency="eth">≈ $—</div>
               </div>
               <div class="crypto-controls">
-                <input type="range" class="crypto-slider" min="0.01" max="1" step="0.01" value="0.05" data-currency="eth">
-                <div class="crypto-address">
+                <div class="crypto-address copyable" data-copy="0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023">
                   <span class="crypto-label">4esthetic.eth</span>
                   <code class="crypto-addr">0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023</code>
+                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy address</span>
+                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere adresse</span>
                 </div>
-                <div class="crypto-buttons">
-                  <button class="gift-btn crypto-send" data-currency="eth">Send 0.05 Ξ</button>
-                  <button class="gift-btn crypto-copy" onclick="copy('0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023', this)">Copy</button>
+              </div>
+            </div>
+          </div>
+          <div class="currency-picker" data-for="btc" style="display: none;">
+            <div class="gift-widget crypto" data-currency="btc">
+              <div class="gift-visual">
+                <div class="gift-logo-wrap">
+                  <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
+                  <div class="gift-amount crypto-amount">🟠 BTC</div>
+                </div>
+              </div>
+              <div class="crypto-controls">
+                <div class="crypto-address copyable" data-copy="bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as">
+                  <span class="crypto-label">Bitcoin</span>
+                  <code class="crypto-addr">bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as</code>
+                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy address</span>
+                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere adresse</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <small class="fiat-note" data-lang="en">Card payments via Stripe. Crypto sent directly. Not tax-deductible.</small>
-        <small class="fiat-note" data-lang="da">Kortbetalinger via Stripe. Crypto sendes direkte. Ikke fradragsberettiget.</small>
+        <small class="fiat-note fiat-only" data-lang="en">Card payments processed via Stripe. Not tax-deductible.</small>
+        <small class="fiat-note fiat-only" data-lang="da">Kortbetalinger behandles via Stripe. Ikke fradragsberettiget.</small>
+        <small class="fiat-note crypto-only" data-lang="en" style="display:none;">Crypto sent directly to wallet. Not tax-deductible.</small>
+        <small class="fiat-note crypto-only" data-lang="da" style="display:none;">Crypto sendes direkte til wallet. Ikke fradragsberettiget.</small>
       </div>
 
       <div class="prose full-width" data-lang="en">
@@ -1112,34 +1707,37 @@
           <div class="stat-value">156</div>
           <div class="stat-label">prompts</div>
         </div>
-        <div class="stat-item">
-          <div class="stat-value">3</div>
-          <div class="stat-label">years</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value">1</div>
-          <div class="stat-label">developer</div>
+      </div>
+
+      <div class="kidlisp-preview">
+        <a href="https://kidlisp.com" class="kidlisp-preview-header">
+          <strong class="kidlisp-logo" style="font-family: 'Comic Sans MS', cursive; font-size: 1.1em;"><span style="color:#FF6B6B">K</span><span style="color:#4ECDC4">i</span><span style="color:#FFE66D">d</span><span style="color:#95E1D3">L</span><span style="color:#F38181">i</span><span style="color:#AA96DA">s</span><span style="color:#70D6FF">p</span><span style="color:var(--dim)">.</span><span style="color:#70D6FF">com</span></strong>
+          <span class="link-desc" data-lang="en">A creative coding language for all ages</span>
+          <span class="link-desc" data-lang="da">Et kreativt kodesprog for alle aldre</span>
+        </a>
+        <div class="kidlisp-code-area" id="kidlispSlides">
+          <div class="kidlisp-slide active">
+            <code style="color: var(--dim);">Loading top hits...</code>
+          </div>
         </div>
       </div>
 
-      <a href="https://kidlisp.com" class="link-block" style="text-decoration: none;">
-        <strong class="kidlisp-logo" style="font-family: 'Comic Sans MS', cursive; font-size: 1.1em;"><span style="color:#FF6B6B">K</span><span style="color:#4ECDC4">i</span><span style="color:#FFE66D">d</span><span style="color:#95E1D3">L</span><span style="color:#F38181">i</span><span style="color:#AA96DA">s</span><span style="color:#70D6FF">p</span><span style="color:var(--dim)">.</span><span style="color:#70D6FF">com</span></strong>
-        <span class="link-desc" data-lang="en">A creative coding language for all ages</span>
-        <span class="link-desc" data-lang="da">Et kreativt kodesprog for alle aldre</span>
-      </a>
-
-      <div class="link-block">
-        <strong>🕐 laer-klokken</strong>
-        <a href="https://aesthetic.computer/laer-klokken">aesthetic.computer/laer-klokken</a>
-        <span class="link-desc" data-lang="en">Clock lessons for Danish schools</span>
-        <span class="link-desc" data-lang="da">Klokke-lektioner til danske skoler</span>
+      <div class="chat-preview">
+        <a href="https://aesthetic.computer/laer-klokken" class="chat-preview-header">
+          <strong>🕐 laer-klokken</strong>
+          <span class="link-desc" data-lang="en">Goodiepal's Danish music community and radio show</span>
+          <span class="link-desc" data-lang="da">Goodiepals danske musikfaellesskab og radioshow</span>
+        </a>
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Loading...</div></div>
+        </div>
       </div>
 
       <div class="link-block">
         <strong>🎹 notepat</strong>
         <a href="https://aesthetic.computer/notepat">aesthetic.computer/notepat</a>
-        <span class="link-desc" data-lang="en">A visual music sequencer</span>
-        <span class="link-desc" data-lang="da">En visuel musik-sequencer</span>
+        <span class="link-desc" data-lang="en">Musical keyboard</span>
+        <span class="link-desc" data-lang="da">Musikkeyboard</span>
       </div>
 
       <div class="tv-section">
@@ -1153,11 +1751,33 @@
         </div>
       </div>
 
-      <div class="link-block">
-        <strong>🖥️ desktop</strong>
+      <div class="link-block desktop-section">
+        <strong>🖥️ desktop <span class="desktop-version" id="desktopVersion">v0.1.0</span></strong>
         <a href="https://aesthetic.computer/desktop">aesthetic.computer/desktop</a>
         <span class="link-desc" data-lang="en">Native apps for Mac, Windows & Linux</span>
         <span class="link-desc" data-lang="da">Native apps til Mac, Windows & Linux</span>
+        <div class="desktop-downloads" id="desktopDownloads">
+          <a href="https://aesthetic.computer/desktop/mac" class="desktop-btn" title="Download for macOS (Universal)">
+            <span class="desktop-icon">🍎</span>
+            <span class="desktop-label">Mac</span>
+            <span class="desktop-btn-info" id="macInfo"></span>
+          </a>
+          <a href="https://aesthetic.computer/desktop/win" class="desktop-btn" title="Download for Windows (64-bit)">
+            <span class="desktop-icon">🪟</span>
+            <span class="desktop-label">Windows</span>
+            <span class="desktop-btn-info" id="winInfo"></span>
+          </a>
+          <a href="https://aesthetic.computer/desktop/linux" class="desktop-btn" title="Download for Linux (AppImage)">
+            <span class="desktop-icon">🐧</span>
+            <span class="desktop-label">Linux</span>
+            <span class="desktop-btn-info" id="linuxInfo"></span>
+          </a>
+        </div>
+        <div class="desktop-release-info" id="desktopReleaseInfo" style="display: none;">
+          <div class="desktop-release-name" id="releaseName"></div>
+          <div class="desktop-release-date" id="releaseDate"></div>
+          <div class="desktop-changelog" id="releaseChangelog"></div>
+        </div>
       </div>
 
       <div class="shop-section">
@@ -1179,58 +1799,34 @@
       </div>
 
       <a id="pals" href="https://aesthetic.computer">
-        <img src="https://assets.aesthetic.computer/images/purple-pals.svg" alt="AC">
+        <img src="https://aesthetic.computer/purple-pals.svg" alt="AC">
       </a>
     </div>
   </main>
 
   <script>
-    // Language selector
+    // Language selector (dropdown)
     const langSelector = document.getElementById('langSelector');
-    const langFlag = langSelector.querySelector('.sel-flag');
-    const langText = langSelector.querySelector('.sel-text');
-    const langOptions = langSelector.querySelectorAll('.dropdown-option');
+    const langFlag = document.getElementById('lang-flag');
+    const langText = document.getElementById('lang-text');
+    const langDropdown = document.getElementById('lang-dropdown');
+    const langOptions = langDropdown.querySelectorAll('.lang-option');
     
-    // Currency selector
+    // Currency selector (pills)
     const currSelector = document.getElementById('currSelector');
-    const currFlag = currSelector.querySelector('.sel-flag');
-    const currText = currSelector.querySelector('.sel-text');
-    const currOptions = currSelector.querySelectorAll('.dropdown-option');
+    const currOptions = currSelector.querySelectorAll('.curr-link');
     const currencyPickers = document.querySelectorAll('.currency-picker');
 
-    // Language data for cycling
-    const languages = [
-      { code: 'en', flag: '🇺🇸', text: 'EN', name: 'English' },
-      { code: 'da', flag: '🇩🇰', text: 'DA', name: 'Dansk' }
-    ];
+    // Language dropdown toggle
+    langSelector.addEventListener('click', (e) => {
+      if (e.target.closest('.lang-option')) return;
+      e.stopPropagation();
+      langSelector.classList.toggle('open');
+    });
     
-    // Currency data for cycling
-    const currencies = [
-      { code: 'usd', flag: '💵', text: 'USD', name: 'USD' },
-      { code: 'dkk', flag: '💶', text: 'DKK', name: 'DKK' },
-      { code: 'xtz', flag: '🔮', text: 'XTZ', name: 'Tezos' },
-      { code: 'eth', flag: '💎', text: 'ETH', name: 'Ethereum' }
-    ];
-
-    // Dropdown toggle
-    function setupDropdown(selector) {
-      selector.addEventListener('click', (e) => {
-        if (e.target.closest('.dropdown-option')) return;
-        e.stopPropagation();
-        // Close other dropdowns
-        document.querySelectorAll('.dropdown-selector.open').forEach(s => {
-          if (s !== selector) s.classList.remove('open');
-        });
-        selector.classList.toggle('open');
-      });
-    }
-    
-    setupDropdown(langSelector);
-    setupDropdown(currSelector);
-    
-    // Close dropdowns on outside click
+    // Close dropdown on outside click
     document.addEventListener('click', () => {
-      document.querySelectorAll('.dropdown-selector.open').forEach(s => s.classList.remove('open'));
+      langSelector.classList.remove('open');
     });
 
     // Language selection
@@ -1246,81 +1842,256 @@
     });
     
     function updateLangUI(lang) {
-      const info = languages.find(l => l.code === lang) || languages[0];
+      const langData = { en: { flag: '🇺🇸', text: 'English' }, da: { flag: '🇩🇰', text: 'Dansk' } };
+      const info = langData[lang] || langData.en;
       langFlag.textContent = info.flag;
       langText.textContent = info.text;
-      langOptions.forEach(opt => opt.classList.toggle('active', opt.dataset.lang === lang));
     }
 
-    // Currency selection
+    // Currency selection (pills)
     currOptions.forEach(opt => {
       opt.addEventListener('click', (e) => {
         e.stopPropagation();
         const curr = opt.dataset.curr;
         setCurrency(curr);
-        currSelector.classList.remove('open');
         localStorage.setItem('gift-curr', curr);
       });
     });
     
     function setCurrency(curr) {
-      const info = currencies.find(c => c.code === curr) || currencies[0];
-      currFlag.textContent = info.flag;
-      currText.textContent = info.text;
       currOptions.forEach(opt => opt.classList.toggle('active', opt.dataset.curr === curr));
       currencyPickers.forEach(picker => {
         picker.style.display = picker.dataset.for === curr ? '' : 'none';
       });
+      
+      // Toggle fiat vs crypto notes
+      const isCrypto = ['xtz', 'eth', 'btc'].includes(curr);
+      document.querySelectorAll('.fiat-only').forEach(el => el.style.display = isCrypto ? 'none' : '');
+      document.querySelectorAll('.crypto-only').forEach(el => el.style.display = isCrypto ? '' : 'none');
     }
 
-    // Auto-cycle animation for language selector
-    let langCycleIndex = 0;
-    setTimeout(() => {
-      setInterval(() => {
-        langCycleIndex = (langCycleIndex + 1) % languages.length;
-        const preview = languages[langCycleIndex];
+    // Check for thank-you mode
+    const urlParams = new URLSearchParams(window.location.search);
+    const isThanksMode = urlParams.has('thanks') || urlParams.get('thanks') === '1';
+    const thanksAmount = urlParams.get('amount');
+    const thanksCurrency = urlParams.get('currency') || 'usd';
+    
+    if (isThanksMode) {
+      document.body.classList.add('thanks-mode');
+      // Update amount display
+      const amountEn = document.getElementById('thanksAmountEn');
+      const amountDa = document.getElementById('thanksAmountDa');
+      const formattedAmount = thanksAmount 
+        ? (thanksCurrency === 'dkk' ? `${thanksAmount} kr` : `$${thanksAmount}`)
+        : '$25';
+      if (thanksAmount) {
+        if (amountEn) amountEn.textContent = formattedAmount;
+        if (amountDa) amountDa.textContent = formattedAmount;
+      }
+      
+      // 🌈 PSYCHO THANKS CANVAS with pals.svg + heart
+      const canvas = document.getElementById('thanksCanvas');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+        let t = 0;
+        let palsImg = null;
+        let palsLoaded = false;
         
-        langSelector.classList.add('cycling');
-        setTimeout(() => {
-          langFlag.textContent = preview.flag;
-          langText.textContent = preview.text;
-        }, 150);
-        setTimeout(() => {
-          langSelector.classList.remove('cycling');
-          // Restore actual selection
-          const actual = languages.find(l => l.code === currentLang) || languages[0];
-          setTimeout(() => {
-            langFlag.textContent = actual.flag;
-            langText.textContent = actual.text;
-          }, 2000);
-        }, 300);
-      }, 4000);
-    }, 2000);
-
-    // Auto-cycle animation for currency selector
-    let currCycleIndex = 0;
-    setTimeout(() => {
-      setInterval(() => {
-        currCycleIndex = (currCycleIndex + 1) % currencies.length;
-        const preview = currencies[currCycleIndex];
+        // Load pals.svg
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { palsImg = img; palsLoaded = true; };
+        img.src = 'https://aesthetic.computer/purple-pals.svg';
         
-        currSelector.classList.add('cycling');
-        setTimeout(() => {
-          currFlag.textContent = preview.flag;
-          currText.textContent = preview.text;
-        }, 150);
-        setTimeout(() => {
-          currSelector.classList.remove('cycling');
-          // Restore actual selection
-          const savedCurr = localStorage.getItem('gift-curr') || 'usd';
-          const actual = currencies.find(c => c.code === savedCurr) || currencies[0];
-          setTimeout(() => {
-            currFlag.textContent = actual.flag;
-            currText.textContent = actual.text;
-          }, 2000);
-        }, 300);
-      }, 3000);
-    }, 1000);
+        function hslToRgb(h, s, l) {
+          let r, g, b;
+          if (s === 0) { r = g = b = l; }
+          else {
+            const hue2rgb = (p, q, t) => {
+              if (t < 0) t += 1;
+              if (t > 1) t -= 1;
+              if (t < 1/6) return p + (q - p) * 6 * t;
+              if (t < 1/2) return q;
+              if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+              return p;
+            };
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+          }
+          return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+        }
+        
+        function drawHeart(cx, cy, size, color, glow = 0) {
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.beginPath();
+          const s = size;
+          ctx.moveTo(0, s * 0.3);
+          ctx.bezierCurveTo(-s * 0.5, -s * 0.3, -s, s * 0.1, 0, s);
+          ctx.bezierCurveTo(s, s * 0.1, s * 0.5, -s * 0.3, 0, s * 0.3);
+          ctx.closePath();
+          if (glow > 0) {
+            ctx.shadowColor = color;
+            ctx.shadowBlur = glow;
+          }
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.restore();
+        }
+        
+        function animate() {
+          t += 0.025;
+          
+          // Background gradient that shifts
+          const bgHue = (t * 0.02) % 1;
+          const [bgr, bgg, bgb] = hslToRgb(bgHue, 0.15, 0.12);
+          const [bgr2, bgg2, bgb2] = hslToRgb((bgHue + 0.5) % 1, 0.2, 0.08);
+          const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W * 0.7);
+          grad.addColorStop(0, `rgb(${bgr},${bgg},${bgb})`);
+          grad.addColorStop(1, `rgb(${bgr2},${bgg2},${bgb2})`);
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, W, H);
+          
+          // Main color cycling
+          const hue = (t * 0.08) % 1;
+          
+          // Floating particles in background
+          for (let i = 0; i < 20; i++) {
+            const px = (W * 0.1 + (i * 137.5 + t * 30) % (W * 0.8));
+            const py = (H * 0.1 + (i * 89.3 + t * 20 + Math.sin(t + i) * 30) % (H * 0.8));
+            const psize = 3 + Math.sin(t * 2 + i) * 2;
+            const phue = (hue + i * 0.05) % 1;
+            const [pr, pg, pb] = hslToRgb(phue, 0.8, 0.6);
+            ctx.beginPath();
+            ctx.arc(px, py, psize, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${pr},${pg},${pb},${0.3 + Math.sin(t * 3 + i) * 0.2})`;
+            ctx.fill();
+          }
+          
+          // Draw pals.svg with animation
+          if (palsLoaded && palsImg) {
+            const palsPulse = 1 + Math.sin(t * 2) * 0.03;
+            const palsWobble = Math.sin(t * 1.5) * 0.02;
+            const palsSize = 320 * palsPulse;
+            
+            ctx.save();
+            ctx.translate(W/2, H/2 + 20);
+            ctx.rotate(palsWobble);
+            ctx.drawImage(palsImg, -palsSize/2, -palsSize/2, palsSize, palsSize);
+            ctx.restore();
+          }
+          
+          // Heart in top right corner
+          const heartX = W - 90;
+          const heartY = 85;
+          const heartPulse = 1 + Math.sin(t * 4) * 0.18;
+          const heartWobble = Math.sin(t * 6) * 0.08;
+          
+          const [r, g, b] = hslToRgb(hue, 0.9, 0.55);
+          const mainColor = `rgb(${r},${g},${b})`;
+          const glowHue = (hue + 0.1) % 1;
+          const [gr, gg, gb] = hslToRgb(glowHue, 1, 0.6);
+          const glowColor = `rgba(${gr},${gg},${gb},0.6)`;
+          
+          ctx.save();
+          ctx.translate(heartX, heartY);
+          ctx.rotate(heartWobble);
+          ctx.scale(heartPulse, heartPulse);
+          
+          // Outer glow heart
+          drawHeart(0, 0, 55, glowColor, 25);
+          // Main heart
+          drawHeart(0, 0, 45, mainColor, 10);
+          // Inner highlight
+          const [hr, hg, hb] = hslToRgb((hue + 0.5) % 1, 0.8, 0.75);
+          drawHeart(-8, -12, 18, `rgba(${hr},${hg},${hb},0.7)`);
+          
+          ctx.restore();
+          
+          // Sparkles around heart
+          for (let i = 0; i < 8; i++) {
+            const angle = t * 1.5 + i * 0.78;
+            const dist = 70 + Math.sin(t * 2.5 + i) * 15;
+            const sx = heartX + Math.cos(angle) * dist;
+            const sy = heartY + Math.sin(angle) * dist;
+            const sparkSize = 4 + Math.sin(t * 4 + i * 2) * 3;
+            const sparkHue = (hue + i * 0.125) % 1;
+            const [sr, sg, sb] = hslToRgb(sparkHue, 1, 0.7);
+            ctx.beginPath();
+            ctx.arc(sx, sy, Math.max(1, sparkSize), 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${sr},${sg},${sb},${0.6 + Math.sin(t * 3 + i) * 0.3})`;
+            ctx.fill();
+          }
+          
+          // Amount text at bottom
+          ctx.save();
+          ctx.font = 'bold 32px "ywft", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const textHue = (hue + 0.3) % 1;
+          const [tr, tg, tb] = hslToRgb(textHue, 0.9, 0.65);
+          ctx.fillStyle = `rgb(${tr},${tg},${tb})`;
+          ctx.shadowColor = `rgba(${tr},${tg},${tb},0.5)`;
+          ctx.shadowBlur = 15;
+          ctx.fillText(`gave ${formattedAmount}`, W/2, H - 60);
+          ctx.restore();
+          
+          // "give.aesthetic.computer" watermark
+          ctx.save();
+          ctx.font = '18px "berkeley", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = 'rgba(255,255,255,0.4)';
+          ctx.fillText('give.aesthetic.computer', W/2, H - 25);
+          ctx.restore();
+          
+          requestAnimationFrame(animate);
+        }
+        animate();
+        
+        // Share to X functionality
+        const shareBtn = document.getElementById('shareBtn');
+        const shareBtnDa = document.getElementById('shareBtnDa');
+        
+        async function shareToX() {
+          // Capture current canvas frame
+          const dataUrl = canvas.toDataURL('image/png');
+          
+          // Try Web Share API first (mobile)
+          if (navigator.share && navigator.canShare) {
+            try {
+              const blob = await (await fetch(dataUrl)).blob();
+              const file = new File([blob], 'aesthetic-computer-gift.png', { type: 'image/png' });
+              if (navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                  text: `I just gave ${formattedAmount} to Aesthetic.Computer! 💖 give.aesthetic.computer`,
+                  files: [file]
+                });
+                return;
+              }
+            } catch (e) {
+              console.log('Web Share failed, falling back to Twitter intent');
+            }
+          }
+          
+          // Fallback: Download image + open Twitter
+          const link = document.createElement('a');
+          link.download = 'aesthetic-computer-gift.png';
+          link.href = dataUrl;
+          link.click();
+          
+          // Open Twitter intent
+          const tweetText = encodeURIComponent(`I just gave ${formattedAmount} to Aesthetic.Computer! 💖\n\ngive.aesthetic.computer`);
+          window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank');
+        }
+        
+        if (shareBtn) shareBtn.addEventListener('click', shareToX);
+        if (shareBtnDa) shareBtnDa.addEventListener('click', shareToX);
+      }
+    }
 
     // Load saved language or detect from browser
     let currentLang = localStorage.getItem('gift-lang');
@@ -1361,11 +2132,6 @@
         }
       });
       
-      // Update crypto button text
-      document.querySelectorAll('.gift-widget.crypto .crypto-copy').forEach(btn => {
-        btn.textContent = lang === 'da' ? 'Kopiér' : 'Copy';
-      });
-      
       // Update crypto send button text
       document.querySelectorAll('.gift-widget.crypto').forEach(widget => {
         const slider = widget.querySelector('.crypto-slider');
@@ -1385,30 +2151,28 @@
       const slider = widget.querySelector('input[type="range"]');
       const amountEl = widget.querySelector('.gift-amount');
       const btn = widget.querySelector('.gift-btn');
-      const modeToggle = widget.querySelector('.gift-mode-toggle');
+      const monthlyCheck = widget.querySelector('.monthly-checkbox');
+      const monthlyLabel = widget.querySelector('.gift-monthly-check');
       let isMonthly = false;
 
-      // Mode toggle for USD
-      if (modeToggle) {
-        modeToggle.querySelectorAll('.mode-btn').forEach(modeBtn => {
-          modeBtn.addEventListener('click', () => {
-            modeToggle.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-            modeBtn.classList.add('active');
-            isMonthly = modeBtn.dataset.mode === 'monthly';
-            
-            // Adjust slider range for monthly vs one-time
-            if (isMonthly) {
-              slider.min = 5;
-              slider.max = 100;
-              slider.step = 5;
-              if (parseInt(slider.value) > 100) slider.value = 25;
-            } else {
-              slider.min = 5;
-              slider.max = 500;
-              slider.step = 5;
-            }
-            update();
-          });
+      // Monthly checkbox
+      if (monthlyCheck) {
+        monthlyCheck.addEventListener('change', () => {
+          isMonthly = monthlyCheck.checked;
+          monthlyLabel.classList.toggle('checked', isMonthly);
+          
+          // Adjust slider range for monthly vs one-time
+          if (isMonthly) {
+            slider.min = 5;
+            slider.max = 100;
+            slider.step = 5;
+            if (parseInt(slider.value) > 100) slider.value = 25;
+          } else {
+            slider.min = 5;
+            slider.max = 500;
+            slider.step = 5;
+          }
+          update();
         });
       }
 
@@ -1449,7 +2213,7 @@
         btn.disabled = true;
 
         try {
-          const res = await fetch('/api/give', {
+          const res = await fetch('https://aesthetic.computer/api/give', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ amount: value * 100, currency, recurring: isMonthly })
@@ -1468,12 +2232,26 @@
       };
     });
 
-    function copy(text, btn) {
+    function copyAddress(el) {
+      const text = el.dataset.copy;
       navigator.clipboard.writeText(text);
-      const origText = btn.textContent;
-      btn.textContent = currentLang === 'da' ? 'Kopieret!' : 'Copied!';
-      setTimeout(() => btn.textContent = currentLang === 'da' ? 'Kopiér' : 'Copy', 1500);
+      el.classList.add('copied');
+      
+      // Update hint text to "Copied!"
+      const hints = el.querySelectorAll('.crypto-copy-hint');
+      hints.forEach(hint => {
+        const origText = hint.textContent;
+        hint.textContent = '✓ ' + (hint.dataset.lang === 'da' ? 'Kopieret!' : 'Copied!');
+        setTimeout(() => hint.textContent = origText, 1200);
+      });
+      
+      setTimeout(() => el.classList.remove('copied'), 1200);
     }
+
+    // Make crypto addresses/labels copyable
+    document.querySelectorAll('.copyable').forEach(el => {
+      el.addEventListener('click', () => copyAddress(el));
+    });
 
     // Crypto prices
     let cryptoPrices = { xtz: null, eth: null };
@@ -1560,7 +2338,10 @@
           operationDetails: [{
             kind: 'transaction',
             destination: 'tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT',
-            amount: String(Math.floor(amount * 1000000)) // mutez
+            amount: String(Math.floor(amount * 1000000)), // mutez
+            fee: '1500',        // suggested fee in mutez (~0.0015 XTZ)
+            gasLimit: '10600',  // typical gas for simple transfer
+            storageLimit: '300' // typical storage for simple transfer
           }]
         });
         
@@ -1680,7 +2461,7 @@
     async function loadShopProducts() {
       const container = document.getElementById('shopProducts');
       try {
-        const res = await fetch('/api/shop');
+        const res = await fetch('https://aesthetic.computer/api/shop');
         const data = await res.json();
         
         if (!data.products?.length) {
@@ -1707,10 +2488,15 @@
       const p = shopProducts[index];
       if (!p) return;
       
+      // Extract vendor from product data if available
+      const vendor = p.vendor || '';
+      const vendorHtml = vendor ? `<div class="shop-product-vendor">by <a href="https://aesthetic.computer/@${vendor.replace('@', '')}" target="_blank">${vendor.startsWith('@') ? vendor : '@' + vendor}</a></div>` : '';
+      
       container.innerHTML = `
         <a href="${p.shopUrl}" class="shop-product" target="_blank">
           <img src="${p.imageUrl || ''}" alt="${p.title}" loading="lazy">
           <div class="shop-product-title">${p.title}</div>
+          ${vendorHtml}
           ${p.available 
             ? `<div class="shop-product-price">${p.price}</div>`
             : `<div class="shop-product-sold">SOLD</div>`
@@ -1719,6 +2505,11 @@
       `;
     }
     loadShopProducts();
+
+    // Determine API base URL (relative for local dev, absolute for production)
+    const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('local.')
+      ? '' // Use relative URLs in dev
+      : 'https://aesthetic.computer';
 
     // TV video feed - load and cycle through tape videos
     let tvTapes = [];
@@ -1730,7 +2521,7 @@
     async function loadTVFeed() {
       const container = document.getElementById('tvPlayer');
       try {
-        const res = await fetch('/api/tv?types=tape&limit=20&filter=recent');
+        const res = await fetch(`${apiBase}/api/tv?types=tape&limit=20&filter=recent`);
         const data = await res.json();
         
         // Get tapes from mixed array or media.tapes
@@ -1773,9 +2564,23 @@
           autoplay
           loop="false"
         ></video>
+        <div class="tv-progress"><div class="tv-progress-bar"></div></div>
+        <div class="tv-info">
+          <span>${tvIndex + 1}/${tvTapes.length}</span>
+        </div>
       `;
       
       tvPlayer = container.querySelector('video');
+      const progressBar = container.querySelector('.tv-progress-bar');
+      
+      // Update progress bar
+      tvPlayer.addEventListener('timeupdate', () => {
+        if (tvPlayer.duration) {
+          const pct = (tvPlayer.currentTime / tvPlayer.duration) * 100;
+          progressBar.style.width = pct + '%';
+        }
+      });
+      
       tvPlayer.addEventListener('ended', () => {
         tvErrorCount = 0; // Reset error count on successful play
         tvIndex = (tvIndex + 1) % tvTapes.length;
@@ -1801,10 +2606,487 @@
             ▶️
           </div>
           <video src="${tape.media.videoUrl}" muted playsinline></video>
+          <div class="tv-progress"><div class="tv-progress-bar"></div></div>
+          <div class="tv-info"><span>${tvIndex + 1}/${tvTapes.length}</span></div>
         `;
       });
     }
     loadTVFeed();
+    
+    // Chat Messages - Læer-Klokken messages (scrolling list)
+    async function loadChatMessages() {
+      const container = document.getElementById('chatMessages');
+      try {
+        const res = await fetch(`${apiBase}/api/chat/messages?instance=clock&limit=25`);
+        const data = await res.json();
+        const messages = data.messages || [];
+        
+        if (!messages.length) {
+          container.innerHTML = '<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">No messages yet</div></div>';
+          return;
+        }
+        
+        // Messages come oldest-first from API, we want newest at top
+        const html = messages.map(msg => {
+          const when = new Date(msg.when);
+          const ago = formatTimeAgo(when);
+          // API returns 'from' field with '@' prefix if handle exists
+          const handle = msg.from || 'anon';
+          return `
+            <div class="chat-msg">
+              <div class="chat-msg-header">
+                <a href="https://aesthetic.computer/${handle}" class="chat-handle">${handle}</a>
+                <span class="chat-time">${ago}</span>
+              </div>
+              <div class="chat-text">${escapeHtml(msg.text || '')}</div>
+            </div>
+          `;
+        }).reverse().join('');
+        
+        container.innerHTML = html;
+        
+      } catch (e) {
+        console.error('Chat load error:', e);
+        container.innerHTML = '<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Could not load</div></div>';
+      }
+    }
+    
+    function formatTimeAgo(date) {
+      const now = new Date();
+      const diff = now - date;
+      const mins = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+      
+      if (mins < 1) return 'just now';
+      if (mins < 60) return `${mins}m ago`;
+      if (hours < 24) return `${hours}h ago`;
+      if (days < 7) return `${days}d ago`;
+      return date.toLocaleDateString();
+    }
+    
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    
+    loadChatMessages();
+    
+    // KidLisp Code Slideshow - Top Hits
+    let kidlispHits = [];
+    let kidlispIndex = 0;
+    let kidlispModule = null;
+    
+    async function loadKidlispModule() {
+      if (kidlispModule) return kidlispModule;
+      try {
+        // Load from the aesthetic.computer lib path
+        const modulePath = apiBase 
+          ? `${apiBase}/aesthetic.computer/lib/kidlisp.mjs`
+          : '/aesthetic.computer/lib/kidlisp.mjs';
+        kidlispModule = await import(modulePath);
+        console.log('✅ KidLisp module loaded');
+        return kidlispModule;
+      } catch (e) {
+        console.error('❌ Failed to load KidLisp module:', e);
+        return null;
+      }
+    }
+    
+    async function loadKidlispSlideshow() {
+      const container = document.getElementById('kidlispSlides');
+      try {
+        // Load module first
+        await loadKidlispModule();
+        
+        const res = await fetch(`${apiBase}/api/tv?types=kidlisp&sort=hits&limit=10`);
+        const data = await res.json();
+        kidlispHits = data.media?.kidlisp || data.mixed || [];
+        
+        if (!kidlispHits.length) {
+          container.innerHTML = '<div class="kidlisp-slide active"><code style="color: var(--dim);">No code found</code></div>';
+          return;
+        }
+        
+        renderKidlispSlide(0);
+        
+        // Rotate every 5 seconds
+        setInterval(() => {
+          kidlispIndex = (kidlispIndex + 1) % kidlispHits.length;
+          renderKidlispSlide(kidlispIndex);
+        }, 5000);
+        
+      } catch (e) {
+        console.error('KidLisp load error:', e);
+        container.innerHTML = '<div class="kidlisp-slide active"><code style="color: var(--dim);">Could not load</code></div>';
+      }
+    }
+    
+    async function renderKidlispSlide(index) {
+      const container = document.getElementById('kidlispSlides');
+      const item = kidlispHits[index];
+      const code = item.code || '';
+      const source = item.source || '';
+      const hits = item.hits || 0;
+      
+      // Highlight the actual source code with line numbers
+      const highlightedLines = source ? await highlightKidlispWithLines(source) : '';
+      
+      container.innerHTML = `
+        <div class="kidlisp-slide active">
+          <div class="kidlisp-code-label">$${escapeHtml(code)} — ▶ ${hits.toLocaleString()} plays</div>
+          ${source ? `<div class="kidlisp-source" id="kidlispSource">${highlightedLines}</div>` : `<code style="color: var(--dim);">[$${escapeHtml(code)}]</code>`}
+        </div>
+      `;
+      
+      // Start timing animation for this source
+      if (source) {
+        startTimingAnimation(source);
+      }
+    }
+    
+    // Timing animation state
+    let timingAnimationId = null;
+    let currentTimings = []; // { element, duration, offset }
+    
+    function startTimingAnimation(source) {
+      // Cancel any existing animation
+      if (timingAnimationId) {
+        cancelAnimationFrame(timingAnimationId);
+      }
+      
+      // Find all timing tokens in the rendered source
+      currentTimings = [];
+      const sourceEl = document.getElementById('kidlispSource');
+      if (!sourceEl) return;
+      
+      const timingEls = sourceEl.querySelectorAll('.kl-timing');
+      timingEls.forEach((el, i) => {
+        const text = el.textContent;
+        // Parse timing: "1s", "0.5s", "2s...", "3f", etc.
+        const match = text.match(/^(\d*\.?\d+)([sf])/);
+        if (match) {
+          const value = parseFloat(match[1]);
+          const unit = match[2];
+          const durationMs = unit === 's' ? value * 1000 : (value / 60) * 1000;
+          currentTimings.push({
+            element: el,
+            duration: durationMs,
+            isRepeating: text.includes('...'),
+            offset: i * 200 // Stagger start times
+          });
+        }
+      });
+      
+      if (currentTimings.length === 0) return;
+      
+      const startTime = performance.now();
+      
+      function animateTimings() {
+        const now = performance.now();
+        const elapsed = now - startTime;
+        
+        currentTimings.forEach(t => {
+          const adjustedTime = elapsed - t.offset;
+          if (adjustedTime < 0) return;
+          
+          const cycleTime = adjustedTime % t.duration;
+          const blinkDuration = 180; // Brief flash
+          
+          if (cycleTime < blinkDuration) {
+            // Trigger flash (lime/green)
+            t.element.classList.add('active');
+            t.element.classList.remove('trigger');
+          } else if (cycleTime < blinkDuration * 2) {
+            // Brief red flash after
+            t.element.classList.remove('active');
+            t.element.classList.add('trigger');
+          } else {
+            // Normal yellow
+            t.element.classList.remove('active', 'trigger');
+          }
+        });
+        
+        timingAnimationId = requestAnimationFrame(animateTimings);
+      }
+      
+      animateTimings();
+    }
+    
+    async function highlightKidlispWithLines(code) {
+      if (!code) return '';
+      
+      const lines = code.split('\n');
+      const result = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        const lineNum = i + 1;
+        const lineCode = await highlightKidlisp(lines[i]);
+        result.push(`<div class="kidlisp-source-line"><span class="kidlisp-line-num">${lineNum}</span><span class="kidlisp-line-code">${lineCode || '&nbsp;'}</span></div>`);
+      }
+      
+      return result.join('');
+    }
+    
+    // Color mapping for KidLisp token colors
+    const kidlispColorMap = {
+      'red': '#ff0000',
+      'darkred': '#8b0000',
+      'orange': '#ff6600',
+      'yellow': '#ffff00',
+      'lime': '#00ff00',
+      'limegreen': '#32cd32',
+      'green': '#008000',
+      'cyan': '#00ffff',
+      'blue': '#0000ff',
+      'purple': '#800080',
+      'magenta': '#ff00ff',
+      'hotpink': '#ff69b4',
+      'white': '#ffffff',
+      'gray': '#808080',
+      'grey': '#808080',
+      'mediumseagreen': '#3cb371',
+      'pink': '#ffc0cb',
+      'brown': '#a52a2a',
+      'violet': '#ee82ee',
+      'teal': '#008080'
+    };
+    
+    async function highlightKidlisp(code) {
+      if (!code) return '';
+      
+      try {
+        if (kidlispModule && kidlispModule.KidLisp) {
+          const kid = new kidlispModule.KidLisp();
+          kid.isEditMode = true; // Enable timing blinks in edit mode
+          kid.initializeSyntaxHighlighting(code);
+          const coloredString = kid.buildColoredKidlispString();
+          return parseColoredKidlisp(coloredString);
+        }
+      } catch (e) {
+        console.warn('KidLisp highlight failed:', e);
+      }
+      
+      // Fallback: just escape
+      return escapeHtml(code);
+    }
+    
+    function parseColoredKidlisp(coloredString) {
+      if (!coloredString) return '';
+      
+      const result = [];
+      let i = 0;
+      let currentColor = '#ffffff';
+      let textBuffer = '';
+      
+      function flushBuffer() {
+        if (textBuffer) {
+          const escaped = textBuffer
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+          
+          // Check if this is a timing token (yellow colored timing patterns)
+          const isTiming = /^\d*\.?\d+[sf]\.{0,3}!?$/.test(textBuffer.trim()) && 
+                           (currentColor === '#ffff00' || currentColor.toLowerCase() === 'yellow');
+          
+          if (isTiming) {
+            result.push(`<span class="kl-timing" style="color: ${currentColor}">${escaped}</span>`);
+          } else {
+            result.push(`<span style="color: ${currentColor}">${escaped}</span>`);
+          }
+          textBuffer = '';
+        }
+      }
+      
+      while (i < coloredString.length) {
+        if (coloredString[i] === '\\' && i + 1 < coloredString.length) {
+          let j = i + 1;
+          while (j < coloredString.length && coloredString[j] !== '\\') {
+            j++;
+          }
+          if (j < coloredString.length) {
+            const colorCode = coloredString.substring(i + 1, j);
+            flushBuffer();
+            
+            if (kidlispColorMap[colorCode.toLowerCase()]) {
+              currentColor = kidlispColorMap[colorCode.toLowerCase()];
+            } else if (/^\d+,\d+,\d+(,[\d.]+)?$/.test(colorCode)) {
+              currentColor = `rgb(${colorCode})`;
+            } else {
+              currentColor = colorCode;
+            }
+            i = j + 1;
+            continue;
+          }
+        }
+        textBuffer += coloredString[i];
+        i++;
+      }
+      flushBuffer();
+      
+      return result.join('');
+    }
+    
+    loadKidlispSlideshow();
+    
+    // Desktop Release Info - Fetch from GitHub
+    async function loadDesktopReleaseInfo() {
+      try {
+        const res = await fetch('https://api.github.com/repos/whistlegraph/aesthetic-computer/releases/latest');
+        if (!res.ok) return;
+        
+        const release = await res.json();
+        
+        // Update version badge
+        const versionEl = document.getElementById('desktopVersion');
+        if (versionEl) versionEl.textContent = release.tag_name;
+        
+        // Find download counts and sizes for each platform
+        const assets = release.assets || [];
+        
+        // Mac: .dmg (universal preferred)
+        const macAsset = assets.find(a => a.name.includes('universal.dmg') && !a.name.includes('blockmap')) 
+          || assets.find(a => a.name.endsWith('.dmg') && !a.name.includes('blockmap'));
+        // Windows: .exe
+        const winAsset = assets.find(a => a.name.endsWith('.exe') && !a.name.includes('blockmap'));
+        // Linux: .AppImage
+        const linuxAsset = assets.find(a => a.name.endsWith('.AppImage'));
+        
+        function formatSize(bytes) {
+          const mb = bytes / (1024 * 1024);
+          return `${mb.toFixed(0)} MB`;
+        }
+        
+        if (macAsset) {
+          const el = document.getElementById('macInfo');
+          if (el) el.textContent = formatSize(macAsset.size);
+        }
+        if (winAsset) {
+          const el = document.getElementById('winInfo');
+          if (el) el.textContent = formatSize(winAsset.size);
+        }
+        if (linuxAsset) {
+          const el = document.getElementById('linuxInfo');
+          if (el) el.textContent = formatSize(linuxAsset.size);
+        }
+        
+        // Show release info
+        const infoEl = document.getElementById('desktopReleaseInfo');
+        if (infoEl && release.body) {
+          infoEl.style.display = 'block';
+          
+          // Parse release name
+          const nameEl = document.getElementById('releaseName');
+          if (nameEl) nameEl.textContent = release.name || release.tag_name;
+          
+          // Format date
+          const dateEl = document.getElementById('releaseDate');
+          if (dateEl && release.published_at) {
+            const date = new Date(release.published_at);
+            dateEl.textContent = date.toLocaleDateString('en-US', { 
+              year: 'numeric', month: 'short', day: 'numeric' 
+            });
+          }
+          
+          // Parse changelog - convert markdown to simple HTML
+          const changelogEl = document.getElementById('releaseChangelog');
+          if (changelogEl && release.body) {
+            const body = release.body;
+            // Simple markdown parsing
+            let html = body
+              .replace(/^## (.+)$/gm, '') // Remove headers
+              .replace(/^### (.+)$/gm, '<strong>$1</strong>') // Subheaders to bold
+              .replace(/^\- \*\*(.+?)\*\* ?[-–] ?(.+)$/gm, '<li><strong>$1</strong> — $2</li>') // Bold items
+              .replace(/^\- \*\*(.+?)\*\*(.*)$/gm, '<li><strong>$1</strong>$2</li>') // Bold only items
+              .replace(/^\- (.+)$/gm, '<li>$1</li>') // List items
+              .replace(/\n+/g, '\n')
+              .trim();
+            
+            // Wrap in ul if has list items
+            if (html.includes('<li>')) {
+              html = '<ul>' + html + '</ul>';
+            }
+            changelogEl.innerHTML = html;
+          }
+        }
+        
+      } catch (e) {
+        console.warn('Could not load release info:', e);
+      }
+    }
+    
+    loadDesktopReleaseInfo();
+  </script>
+  
+  <!-- 🔄 Development live reload via session-server -->
+  <script>
+    (function() {
+      // Only run in development (localhost)
+      if (window.location.hostname !== 'localhost' && !window.location.hostname.includes('local.')) return;
+      
+      let sessionWs = null;
+      let reconnectInterval = null;
+      
+      function connect() {
+        if (sessionWs && sessionWs.readyState === WebSocket.OPEN) return;
+        if (reconnectInterval) {
+          clearInterval(reconnectInterval);
+          reconnectInterval = null;
+        }
+        
+        const connectionUrl = window.location.hostname.includes('local.') 
+          ? 'wss://session.local.aesthetic.computer' 
+          : 'wss://localhost:8889';
+        
+        console.log('🔄 [give] Connecting to session server for live reload...');
+        
+        try {
+          sessionWs = new WebSocket(connectionUrl);
+        } catch (error) {
+          console.warn('🔄 [give] Connection failed:', error.message);
+          scheduleReconnect();
+          return;
+        }
+
+        sessionWs.onopen = () => {
+          console.log('🔄 [give] Connected to session server');
+        };
+
+        sessionWs.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === 'reload') {
+              const piece = msg.content?.piece;
+              if (piece === '*refresh*' || piece === 'give.aesthetic.computer' || piece?.includes('give')) {
+                console.log('🔄 [give] Reloading page...');
+                setTimeout(() => window.location.reload(), 150);
+              }
+            }
+          } catch (error) {
+            // Ignore parse errors
+          }
+        };
+
+        sessionWs.onerror = () => {
+          console.warn('🔄 [give] WebSocket error');
+        };
+
+        sessionWs.onclose = () => {
+          console.log('🔄 [give] Disconnected from session server');
+          sessionWs = null;
+          scheduleReconnect();
+        };
+      }
+      
+      function scheduleReconnect() {
+        if (!reconnectInterval) {
+          reconnectInterval = setInterval(connect, 3000);
+        }
+      }
+      
+      // Connect on load
+      connect();
+    })();
   </script>
 </body>
 </html>

@@ -20,31 +20,77 @@ let connected = false;
 let reconnect;
 let dontreconnect = false;
 
-function connect(port = 8889, url = undefined, send) {
+function connect(port = 8889, url = undefined, send, explicitTurnHost = null) {
   if (connected) {
     if (logs.udp) console.log("🩰 Connection already exists:", channel);
     return;
   }
 
-  if (logs.udp) console.log("🩰 Connecting to UDP:", url, "on:", port);
+  if (logs.udp) console.log("🩰 Connecting to UDP:", url, "on:", port, "turnHost:", explicitTurnHost);
 
   dontreconnect = false;
 
+  // Ensure port is a number
+  const portNum = typeof port === 'string' ? parseInt(port, 10) : port;
+
+  // Detect if we're in local dev (localhost or LAN IP)
+  const isLocalDev = url?.includes('localhost') || url?.includes('192.168.') || url?.includes('127.0.0.1');
+  
+  // Get the hostname for TURN server:
+  // 1. Use explicitly passed turnHost (from /dev-info, contains host's LAN IP)
+  // 2. Fallback to session server hostname
+  const turnHost = explicitTurnHost || (url ? new URL(url).hostname : 'localhost');
+  
   try {
-    channel = Geckos({ url, port }); // default port is 9208
+    if (logs.udp) console.log("🩰 Creating Geckos channel with:", { url, port: portNum, isLocalDev, turnHost, explicitTurnHost });
+    // For local dev, use local TURN server for relay (required in Docker/devcontainer)
+    // TURN server relays traffic when direct P2P isn't possible
+    // Use turnHost which should be the host's LAN IP in devcontainer setup
+    // Include both UDP and TCP TURN for better connectivity in constrained environments
+    const localIceServers = [
+      { urls: `stun:${turnHost}:3478` },
+      { 
+        urls: `turn:${turnHost}:3478`,
+        username: 'aesthetic',
+        credential: 'computer123'
+      },
+      { 
+        urls: `turn:${turnHost}:3478?transport=tcp`,
+        username: 'aesthetic',
+        credential: 'computer123'
+      },
+    ];
+    const prodIceServers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+    ];
+    channel = Geckos({ 
+      url, 
+      port: portNum,
+      iceServers: isLocalDev ? localIceServers : prodIceServers,
+    });
+    if (logs.udp) console.log("🩰 Geckos channel created:", channel);
+    if (logs.udp) console.log("🩰 Channel URL will be:", `${url}:${portNum}`);
+    if (logs.udp && isLocalDev) console.log("🩰 TURN server:", `turn:${turnHost}:3478`);
   } catch (e) {
     console.error("🩰 Failed to create Geckos channel:", e);
     return;
   }
 
+  // Add timeout to detect if onConnect never fires
+  const connectTimeout = setTimeout(() => {
+    if (logs.udp) console.warn("🩰 ⚠️ UDP connection timeout - onConnect never fired after 10s");
+    if (logs.udp) console.warn("🩰 This usually means WebRTC ICE gathering failed or signaling endpoint issues");
+  }, 10000);
+
   reconnect = () => {
     reconnectingTimeout = setTimeout(() => {
-      connect(port, url, send);
+      connect(port, url, send, explicitTurnHost);
     }, reconnectTime);
     reconnectTime = Math.min(reconnectTime * 2, MAX_RECONNECT_TIME);
   };
 
   channel.onConnect((error) => {
+    clearTimeout(connectTimeout); // Clear the timeout since onConnect fired
     if (logs.udp) console.log("🩰 onConnect callback fired! error:", error);
     if (error) {
       if (logs.udp) console.log('%cUDP connection failed: ' + (error.message || error) + ', retrying in ' + (reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');

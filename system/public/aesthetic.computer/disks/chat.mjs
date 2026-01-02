@@ -35,6 +35,8 @@ const { max, floor, ceil } = Math;
 import { isKidlispSource, tokenize, KidLisp } from "../lib/kidlisp.mjs";
 import { parseMessageElements as parseMessageElementsShared } from "../lib/chat-highlighting.mjs";
 import { getCommandDescription, isPromptOnlyCommand } from "../lib/prompt-commands.mjs";
+import { FUNDING_MODE, showFundingEffectsFlag, getRecoveryTicker } from "./prompt.mjs";
+import { paintGiveButton, actGiveButton, clearGiveButton, paintRecoveryTicker } from "../lib/give-button.mjs";
 
 let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
@@ -43,7 +45,7 @@ let inputTypefaceName; // Store the typeface name for text input
 
 let rowHeight;
 const lineGap = 1,
-  topMargin = 22,
+  topMargin = 30,
   bottomMargin = 33,
   leftMargin = 6;
 
@@ -62,7 +64,7 @@ let paintingAnimations = new Map(); // Track Ken Burns animation state for each 
 let modalPainting = null; // Track fullscreen modal painting { painting, code, metadata }
 let draftMessage = ""; // Store draft message text persistently
 
-// 🔗 Link confirmation modal system
+//  Link confirmation modal system
 // { type: "prompt"|"url"|"handle"|"kidlisp"|"painting", text: string, action: function }
 let linkConfirmModal = null;
 
@@ -302,17 +304,7 @@ function paint(
 
   // Interface
   {
-    const x = 42;
-    const y = 10;
-    const gap = 8;
-
-    if (screen.width > 200 && piece === "chat") {
-      ink(50, 50, 100)
-        .write("back to prompt", { x: x + gap, y: 6 })
-        .line(x, y, x - gap, y) // Base of arrow.
-        .line(x - gap, y, x - gap + 3, y - 3) // Top of arrow.
-        .line(x - gap, y, x - gap + 3, y + 3); // Bottom of arrow.
-    }
+    // Back to prompt arrow removed
   }
 
   // Use theme line color
@@ -337,9 +329,82 @@ function paint(
   }
 
   if (client.connecting) {
-    ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
-      center: "xy",
-    }, undefined, undefined, false, typefaceName);
+    if (FUNDING_MODE) {
+      // Detect if this is laer-klokken (clock chat) or main chat
+      const isClockChat = piece === "laer-klokken";
+      
+      // Danish for laer-klokken, English for main chat
+      const offlineMsg = isClockChat ? [
+        "Forbinder" + (ellipsisTicker?.text(help.repeat) || "..."),
+        "",
+        "Chats er offline pga.",
+        "en stor serverregning.",
+        "",
+        "Skriv 'give' for at stoette AC",
+        "og vi er tilbage snart!",
+      ] : [
+        "Connecting" + (ellipsisTicker?.text(help.repeat) || "..."),
+        "",
+        "Chats are offline due to",
+        "a large end-of-year server bill.",
+        "",
+        "Enter 'give' to help support AC",
+        "and services will return ASAP!",
+      ];
+      
+      const lineHeight = 12;
+      const totalLines = offlineMsg.length;
+      const halfBlock = Math.floor((totalLines * lineHeight) / 2);
+      const shakeFrame = help?.repeat ?? 0;
+      
+      // Debug logging - log immediately then throttle
+      if (!globalThis._chatFundingDebugLogged) {
+        globalThis._chatFundingDebugLogged = true;
+        console.log("📝 Chat funding message debug:", {
+          screenHeight: screen.height,
+          screenWidth: screen.width,
+          totalLines,
+          lineHeight,
+          halfBlock,
+          centerY: Math.floor(screen.height / 2),
+          helpRepeat: help?.repeat,
+          shakeFrame
+        });
+      }
+      
+      for (let i = 0; i < offlineMsg.length; i++) {
+        const line = offlineMsg[i];
+        // High contrast colors that cycle
+        let color = [200, 200, 200]; // Default fallback
+        if (i === 0) {
+          const titleColors = [[255, 100, 150], [255, 150, 100], [255, 200, 100]];
+          color = titleColors[Math.floor(shakeFrame * 0.15) % titleColors.length] || color;
+        } else if (i === 5) {
+          const giveColors = [[100, 255, 100], [150, 255, 50], [200, 255, 100]];
+          color = giveColors[Math.floor(shakeFrame * 0.2) % giveColors.length] || color;
+        } else if (line !== "") {
+          const textColors = [[255, 220, 150], [200, 220, 255], [255, 200, 200]];
+          color = textColors[(i + Math.floor(shakeFrame * 0.1)) % textColors.length] || color;
+        } else {
+          color = [100, 100, 100];
+        }
+        
+        // Calculate Y: center of screen minus half the block, plus line offset
+        const centerY = Math.floor(screen.height / 2);
+        const startY = centerY - halfBlock;
+        const finalY = startY + (i * lineHeight);
+        
+        ink(color[0], color[1], color[2]).write(line, { center: "x", y: finalY }, undefined, undefined, false, typefaceName);
+      }
+      
+      // 💸 GIVE button in top-right
+      paintGiveButton({ screen, ink, ui: api.ui }, { paddingTop: 8, paddingRight: 12 });
+    } else {
+      // Normal connecting message
+      ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
+        center: "xy",
+      }, undefined, undefined, false, typefaceName);
+    }
     return;
   }
 
@@ -907,10 +972,25 @@ function paint(
   );
 
   if (!input.canType) {
-    ink(160).write("Online: " + (client?.chatterCount ?? 0), {
-      right: leftMargin,
-      top: 6,
-    }); // Use default font for online count
+    // Online counter - cycles through realtime online handles from server
+    const chatterCount = client?.chatterCount ?? 0;
+    const onlineHandles = client?.onlineHandles || [];
+    
+    // Cycle through handles every 2 seconds, or show count if no handles
+    let onlineText;
+    if (onlineHandles.length > 0) {
+      const handleIndex = Math.floor(Date.now() / 2000) % onlineHandles.length;
+      onlineText = chatterCount + " online " + onlineHandles[handleIndex];
+    } else {
+      onlineText = chatterCount + " online";
+    }
+    
+    // Draw online counter (no background)
+    const onlineFgColor = theme?.timestamp || 160;
+    ink(onlineFgColor).write(onlineText, {
+      left: leftMargin,
+      top: 18,
+    }, false, undefined, false, "MatrixChunky8");
   }
 
   if (input.canType && !leaving()) {
@@ -926,12 +1006,13 @@ function paint(
       height: screen.height / 2, // - 18
     });
 
-    // Character limit.
+    // Character limit - position below GIVE button area to avoid overlap
     const len = 128;
     ink(input.text.length > len ? "red" : "gray").write(
       `${input.text.length}/${len}`,
-      { right: 6, top: 6 }
-    ); // Use default font for character count
+      { right: 6, top: 18 }, // Moved down to y:18 (below GIVE button at y:6)
+      false, undefined, false, "MatrixChunky8"
+    );
   }
   
   // 🖼️ Render fullscreen painting modal (overlay over everything)
@@ -1059,6 +1140,19 @@ function paint(
     
     needsPaint(); // Keep modal animating
   }
+  
+  // 💸 GIVE button + recovery ticker in yikes mode (when connected, not just connecting)
+  if (showFundingEffectsFlag && !client.connecting) {
+    // Position with even margins: 10px from right edge, centered in top bar (topMargin=30)
+    const btn = paintGiveButton({ screen, ink, ui: api.ui }, { paddingTop: 7, paddingRight: 10, theme });
+    const btnBox = btn?.btn?.box;
+    
+    // Paint news ticker to the left of GIVE button
+    if (btnBox && !input.canType) {
+      paintRecoveryTicker({ ink, screen }, getRecoveryTicker(), btnBox, theme);
+    }
+    needsPaint();
+  }
 }
 
 function act(
@@ -1086,7 +1180,17 @@ function act(
   // Calculate rowHeight based on the typeface being used
   const currentRowHeight = typefaceName === "unifont" ? 17 : (typeface.blockHeight + 1);
   
-  // 🔗 Link confirmation modal intercepts all events
+  // 💸 GIVE button interaction in funding mode (both connecting and yikes connected mode)
+  if ((FUNDING_MODE && client.connecting) || (showFundingEffectsFlag && !client.connecting)) {
+    actGiveButton(e, {
+      downSound: () => beep(),
+      pushSound: () => beep(),
+      cancelSound: () => beep(),
+      jump,
+    });
+  }
+  
+  // �🔗 Link confirmation modal intercepts all events
   if (linkConfirmModal) {
     const { yesBtn, noBtn, action } = linkConfirmModal;
     

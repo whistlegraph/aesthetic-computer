@@ -54,12 +54,23 @@ export class Ticker {
     return this;
   }
 
+  // Strip color codes from text for accurate measurement
+  // Color codes are in format \\color\\ or \\r,g,b\\
+  #stripColorCodes(text) {
+    if (!text) return text;
+    return text.replace(/\\[^\\]*\\/g, '');
+  }
+
   // Update text measurements when text or separator changes
   #updateMeasurements(font) {
     if (!this.#api || !this.#text) return;
     
-    const textMeasurement = this.#api.text.box(this.#text, undefined, undefined, undefined, undefined, font);
-    const separatorMeasurement = this.#api.text.box(this.#separator, undefined, undefined, undefined, undefined, font);
+    // Strip color codes for accurate width measurement
+    const strippedText = this.#stripColorCodes(this.#text);
+    const strippedSeparator = this.#stripColorCodes(this.#separator);
+    
+    const textMeasurement = this.#api.text.box(strippedText, undefined, undefined, undefined, undefined, font);
+    const separatorMeasurement = this.#api.text.box(strippedSeparator, undefined, undefined, undefined, undefined, font);
     this.#textWidth = textMeasurement.box.width;
     this.#separatorWidth = separatorMeasurement.box.width;
     this.#cycleWidth = this.#textWidth + this.#separatorWidth;
@@ -96,9 +107,14 @@ export class Ticker {
       this.#offset += this.#speed * framesPassed;
       this.#lastUpdateTime = timeMs;
       
-      // Reset when one complete cycle has passed (only if cycleWidth is valid)
-      if (this.#cycleWidth > 0 && this.#offset >= this.#cycleWidth) {
-        this.#offset = this.#offset % this.#cycleWidth;
+      // Handle wrapping for both directions (only if cycleWidth is valid)
+      if (this.#cycleWidth > 0) {
+        if (this.#offset >= this.#cycleWidth) {
+          this.#offset = this.#offset % this.#cycleWidth;
+        } else if (this.#offset < 0) {
+          // Wrap around for negative offset (reverse scrolling)
+          this.#offset = this.#cycleWidth + (this.#offset % this.#cycleWidth);
+        }
       }
     }
   }
