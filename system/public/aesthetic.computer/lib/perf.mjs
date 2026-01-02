@@ -164,7 +164,10 @@ export function printReport() {
   const bootKeys = Object.keys(timings.boot).filter(k => k !== 'start');
   const lastMilestone = bootKeys.length > 0 ? bootKeys[bootKeys.length - 1] : 'start';
   
-  console.log(`⏱️ Boot: ${totalTime.toFixed(0)}ms (${lastMilestone})`);
+  // Silence in embedded context (kidlisp.com iframe)
+  if (typeof window === 'undefined' || window === window.top) {
+    console.log(`⏱️ Boot: ${totalTime.toFixed(0)}ms (${lastMilestone})`);
+  }
   
   // Expose to window for debugging
   if (typeof window !== 'undefined') {

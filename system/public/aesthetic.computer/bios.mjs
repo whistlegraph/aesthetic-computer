@@ -1205,7 +1205,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
 
           try {
-            coerceToRGB.ctx = coerceToRGB.ctx || document.createElement("canvas").getContext("2d");
+            coerceToRGB.ctx = coerceToRGB.ctx || document.createElement("canvas").getContext("2d", { willReadFrequently: true });
             const parseCtx = coerceToRGB.ctx;
             parseCtx.fillStyle = "#000";
             parseCtx.clearRect(0, 0, 1, 1);

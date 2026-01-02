@@ -3625,6 +3625,7 @@ const $commonApi = {
     even: num.even,
     odd: num.odd,
     clamp: num.clamp,
+    wave: num.wave,
     rand: num.rand,
     randInt: num.randInt,
     randInd: num.randInd,
@@ -7214,8 +7215,6 @@ async function load(
             if (type === "dev:identity") {
               devIdentity = content;
               remoteLogSocket = socket; // Store socket reference for remote logging
-              console.log(`📱 LAN Dev: ${content.name || 'unnamed'} → ${content.host} (${content.hostIp})`);
-              console.log(`📡 Remote logging active, socket connected: ${socket?.connected}`);
               flushRemoteLogQueue(); // Send any queued logs
               $commonApi?.needsPaint?.();
               return;
@@ -7842,36 +7841,24 @@ async function load(
 
     // 📤 Send ready signal to parent window (e.g., kidlisp.com editor)
     // Note: disk.mjs runs in a Web Worker, so window may not exist
-    // Use getPackMode() which works in worker context (set via init-from-bios)
     const hasWindow = typeof window !== 'undefined';
-    const packMode = getPackMode();
     
-    if (hasWindow && !packMode) {
-      console.log('🔍 hotSwap: checking if we can send ready message...');
-    }
     try {
       if (hasWindow && window.parent && window.parent !== window) {
-        if (!packMode) console.log('📤 Sending kidlisp-ready to parent window');
         window.parent.postMessage({ type: "kidlisp-ready" }, "*");
-        if (!packMode) console.log('✅ kidlisp-ready message sent');
-      } else if (hasWindow) {
-        if (!packMode) console.log('⚠️ Not in iframe context, skipping ready message');
       }
       // If no window (worker context), silently skip
     } catch (e) {
       // Silently fail if in worker context or cross-origin
-      if (hasWindow && !packMode) console.log('⚠️ Could not send ready message:', e.message);
     }
 
     // Process any queued piece-reload that arrived before piece was ready
-    console.log('🔄 hotSwap: checking pendingPieceReload:', pendingPieceReload, '$commonApi.reload:', !!$commonApi.reload);
     if (pendingPieceReload && $commonApi.reload) {
       log.piece.log("Processing queued piece-reload from hotSwap");
       const pending = pendingPieceReload;
       pendingPieceReload = null;
       // Use setTimeout to ensure all initialization is complete
       setTimeout(() => {
-        console.log('🔄 Actually calling $commonApi.reload with:', pending.source?.substring(0, 30));
         $commonApi.reload({
           source: pending.source,
           createCode: pending.createCode,
@@ -11528,7 +11515,6 @@ async function makeFrame({ data: { type, content } }) {
         } catch (e) {
           console.warn("🥾 Boot failure...", e);
         }
-        console.log("📀 disk-loaded-and-booted sending");
         send({ type: "disk-loaded-and-booted" });
       }
 
@@ -11705,7 +11691,6 @@ async function makeFrame({ data: { type, content } }) {
               golTransition.revealMap = new Float32Array(golTransition.width * golTransition.height);
               golTransition.generation = 0;
               golTransition.active = true;
-              console.log("🧬 GOL: start", golTransition.width, "x", golTransition.height);
             }
             
             // 🧬 GOL Transition: Run cellular dissolve and write directly to screen
@@ -11733,7 +11718,6 @@ async function makeFrame({ data: { type, content } }) {
                 golTransition.toPixels = null;
                 golTransition.currentPixels = null;
                 golTransition.revealMap = null;
-                console.log("🧬 GOL: done");
               }
             }
             
@@ -12877,7 +12861,8 @@ async function makeFrame({ data: { type, content } }) {
       }
 
       // 📡 LAN Mode Badge - shows device letter (A, B, C...) when connected to dev session server
-      if (devIdentity && devIdentity.host) {
+      // Hide in kidlisp.com embedded mode (NOAUTH_MODE)
+      if (devIdentity && devIdentity.host && !globalThis.NOAUTH_MODE) {
         // Use device letter if available, otherwise first letter of name, otherwise connection index
         const deviceLetter = devIdentity.letter || 
           (devIdentity.name ? devIdentity.name.charAt(0).toUpperCase() : null) ||

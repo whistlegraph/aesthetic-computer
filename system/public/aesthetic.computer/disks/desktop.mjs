@@ -1,14 +1,23 @@
-// Desktop, 2024.12.27 → 2026.01.01
+// Desktop, 2024.12.27 → 2026.01.02
 // Download page for the Aesthetic Computer desktop app.
 // Redesigned with animation, better colors, and responsive layout.
+// Fetches real release info from GitHub.
 
-const APP_VERSION = "0.1.0";
-
-// Download URLs
+// Download URLs (fallback)
 const DOWNLOADS = {
   mac: `/desktop/mac`,
   win: `/desktop/win`,
   linux: `/desktop/linux`,
+};
+
+// GitHub release info
+let releaseInfo = {
+  version: "loading...",
+  publishedAt: null,
+  macUrl: DOWNLOADS.mac,
+  winUrl: DOWNLOADS.win,
+  linuxUrl: DOWNLOADS.linux,
+  loaded: false,
 };
 
 let platform, downloadUrl, platformLabel, platformIcon;
@@ -17,11 +26,45 @@ let animFrame = 0;
 let hoverPlatform = null;
 let pulsePhase = 0;
 let TB;
+let currentScreen;
+
+// Fetch GitHub release data
+async function fetchReleaseInfo() {
+  try {
+    const response = await fetch(
+      "https://api.github.com/repos/aesthetic-computer/aesthetic-computer/releases/latest"
+    );
+    if (!response.ok) throw new Error("Failed to fetch release");
+    const data = await response.json();
+    
+    releaseInfo.version = data.tag_name?.replace(/^v/, "") || "0.1.0";
+    releaseInfo.publishedAt = data.published_at ? new Date(data.published_at) : null;
+    
+    // Find platform-specific assets
+    for (const asset of data.assets || []) {
+      const name = asset.name.toLowerCase();
+      if (name.endsWith(".dmg")) {
+        releaseInfo.macUrl = asset.browser_download_url;
+      } else if (name.endsWith(".exe") || name.includes("setup")) {
+        releaseInfo.winUrl = asset.browser_download_url;
+      } else if (name.endsWith(".appimage")) {
+        releaseInfo.linuxUrl = asset.browser_download_url;
+      }
+    }
+    
+    releaseInfo.loaded = true;
+  } catch (err) {
+    console.warn("Could not fetch release info:", err);
+    releaseInfo.version = "0.1.0";
+    releaseInfo.loaded = true;
+  }
+}
 
 // 🥾 Boot
-function boot($) {
+async function boot($) {
   const { wipe, cursor, screen, ui: { TextButton } } = $;
   TB = TextButton;
+  currentScreen = screen;
   wipe(15, 8, 25);
   cursor("native");
   
@@ -32,57 +75,61 @@ function boot($) {
     
     if (plat.includes("mac") || ua.includes("mac")) {
       platform = "mac";
-      downloadUrl = DOWNLOADS.mac;
       platformLabel = "macOS";
       platformIcon = "🍎";
     } else if (plat.includes("win") || ua.includes("win")) {
       platform = "win";
-      downloadUrl = DOWNLOADS.win;
       platformLabel = "Windows";
       platformIcon = "🪟";
     } else if (plat.includes("linux") || ua.includes("linux")) {
       platform = "linux";
-      downloadUrl = DOWNLOADS.linux;
       platformLabel = "Linux";
       platformIcon = "🐧";
     } else {
-      platform = "other";
-      downloadUrl = DOWNLOADS.mac;
+      platform = "mac";
       platformLabel = "macOS";
       platformIcon = "🍎";
     }
   }
   
   createButtons(screen);
+  
+  // Fetch release info in background
+  fetchReleaseInfo();
 }
 
 function createButtons(screen) {
-  const cx = screen.width / 2;
+  currentScreen = screen;
   const isMobile = screen.width < 400;
   const isCompact = screen.height < 280;
   
   buttons = [];
   
-  // Main platform buttons - horizontal row
-  const btnWidth = isMobile ? 80 : 100;
-  const btnGap = isMobile ? 8 : 16;
-  const totalWidth = btnWidth * 3 + btnGap * 2;
-  const startX = cx - totalWidth / 2;
   const btnY = isCompact ? 100 : 130;
+  const btnGap = isMobile ? 6 : 12;
   
   const platforms = [
-    { name: "mac", label: "Mac", icon: "🍎", url: DOWNLOADS.mac },
-    { name: "win", label: "Windows", icon: "🪟", url: DOWNLOADS.win },
-    { name: "linux", label: "Linux", icon: "🐧", url: DOWNLOADS.linux },
+    { name: "mac", label: "Mac", icon: "🍎" },
+    { name: "win", label: "Windows", icon: "🪟" },
+    { name: "linux", label: "Linux", icon: "🐧" },
   ];
   
+  // Calculate total width to center all buttons
+  const labels = platforms.map(p => `${p.icon} ${p.label}`);
+  const charWidth = 6; // TextButton default char width
+  const padding = 8; // TextButton internal padding (gap * 2)
+  const btnWidths = labels.map(l => l.length * charWidth + padding);
+  const totalWidth = btnWidths.reduce((a, b) => a + b, 0) + btnGap * (platforms.length - 1);
+  let x = Math.floor(screen.width / 2 - totalWidth / 2);
+  
   platforms.forEach((p, i) => {
-    const x = startX + i * (btnWidth + btnGap) + btnWidth / 2;
+    const label = `${p.icon} ${p.label}`;
     buttons.push({
       ...p,
-      btn: new TB(`${p.icon} ${p.label}`, { x, y: btnY, center: "x" }),
+      btn: new TB(label, { x, y: btnY }),
       isPrimary: p.name === platform,
     });
+    x += btnWidths[i] + btnGap;
   });
 }
 
@@ -123,8 +170,18 @@ function paint($) {
   ink(200, 180, 220, subAlpha / 255).write("DESKTOP", { x: cx, y, center: "x" });
   y += spacing + 4;
   
-  // Version badge
-  ink(100, 80, 140).write(`v${APP_VERSION}`, { x: cx, y, center: "x" });
+  // Version badge with loading state
+  const versionText = releaseInfo.loaded ? `v${releaseInfo.version}` : "loading...";
+  ink(100, 80, 140).write(versionText, { x: cx, y, center: "x" });
+  
+  // Show release date if available
+  if (releaseInfo.publishedAt && !isCompact) {
+    y += 10;
+    const dateStr = releaseInfo.publishedAt.toLocaleDateString("en-US", { 
+      year: "numeric", month: "short", day: "numeric" 
+    });
+    ink(70, 60, 100).write(dateStr, { x: cx, y, center: "x" });
+  }
   y += spacing + 8;
   
   // Platform detection with animated indicator
@@ -136,32 +193,40 @@ function paint($) {
   // Download label
   ink(140, 130, 160).write("Download for:", { x: cx, y, center: "x" });
   
-  // Platform buttons
+  // Platform buttons with proper color schemes
+  // TextButton scheme format: [fill, outline, textColor, textBg]
   buttons.forEach((b) => {
     const isPrimary = b.isPrimary;
     const isHover = hoverPlatform === b.name;
+    const glow = wave(pulsePhase * 0.06) * 30;
     
-    // Animated glow for primary button
+    let fillColor, outlineColor, textColor, textBg;
+    
     if (isPrimary && !isHover) {
-      const glow = wave(pulsePhase * 0.06) * 30;
-      b.btn.paint($, 
-        [[60 + glow, 180 + glow, 120 + glow], [100 + glow, 255, 180 + glow], 255, 255],
-        [[100, 255, 180], [150, 255, 220], 255, 255],
-        [[40, 120, 80], [60, 180, 100], 180, 200]
-      );
+      // Primary button: green glow
+      fillColor = [60 + glow, 140 + glow, 100 + glow];
+      outlineColor = [100 + glow, 200, 150 + glow];
+      textColor = [220, 255, 240];
+      textBg = fillColor; // Match fill
     } else if (isHover) {
-      b.btn.paint($,
-        [[80, 200, 255], [120, 220, 255], 255, 255],
-        [[100, 220, 255], [150, 240, 255], 255, 255],
-        [[40, 100, 140], [60, 140, 180], 180, 200]
-      );
+      // Hover: bright cyan
+      fillColor = [40, 120, 160];
+      outlineColor = [80, 180, 220];
+      textColor = [200, 240, 255];
+      textBg = fillColor; // Match fill
     } else {
-      b.btn.paint($,
-        [[40, 30, 60], [80, 60, 120], 200, 240],
-        [[70, 50, 100], [120, 90, 160], 255, 255],
-        [[30, 20, 45], [50, 35, 75], 140, 180]
-      );
+      // Normal: muted purple
+      fillColor = [40, 30, 60];
+      outlineColor = [80, 60, 120];
+      textColor = [180, 160, 200];
+      textBg = fillColor; // Match fill
     }
+    
+    b.btn.paint($,
+      [fillColor, outlineColor, textColor, textBg],
+      [fillColor, outlineColor, textColor, textBg], // hover (handled above)
+      [[30, 25, 40], [50, 40, 70], [100, 90, 120], [30, 25, 40]] // disabled
+    );
   });
   
   // File type hint under buttons
@@ -246,7 +311,13 @@ function act({ event: e, jump, net: { web }, screen }) {
     if (b.btn.btn.box?.contains(e.pointer)) {
       hoverPlatform = b.name;
     }
-    b.btn.btn.act(e, () => web(b.url));
+    
+    // Get the appropriate download URL from release info
+    const url = b.name === "mac" ? releaseInfo.macUrl :
+                b.name === "win" ? releaseInfo.winUrl :
+                releaseInfo.linuxUrl;
+    
+    b.btn.btn.act(e, () => web(url));
   });
   
   // Escape to go back
