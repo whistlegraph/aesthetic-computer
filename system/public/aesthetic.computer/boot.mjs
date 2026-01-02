@@ -21,12 +21,18 @@ function bootLog(message) {
   // Skip logging in PACK mode (NFT bundles should be silent)
   if (window.acPACK_MODE) return;
   
+  // Skip verbose console logging when embedded (kidlisp.com iframe)
+  const isEmbedded = window !== window.top;
+  
   // Prevent duplicate messages
   if (message === lastBootMessage) return;
   lastBootMessage = message;
   
   const elapsed = Math.round(performance.now() - bootStartTime);
-  console.log(`🚀 [BOOT] ${message} (+${elapsed}ms)`);
+  // Only log to console when not embedded (reduce noise in kidlisp.com)
+  if (!isEmbedded) {
+    console.log(`🚀 [BOOT] ${message} (+${elapsed}ms)`);
+  }
   window._bootTimings.push({ message, elapsed });
   
   // Update the boot canvas (via the canvas animation system)
@@ -679,7 +685,7 @@ let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBl
 
 // If noauth mode, immediately send session:started so disk can proceed
 if (window.acNOAUTH) {
-  console.log("🔕 noauth mode: sending session:started immediately");
+  if (window === window.top) console.log("🔕 noauth mode: sending session:started immediately");
   window.acDISK_SEND({
     type: "session:started",
     content: { user: null },
