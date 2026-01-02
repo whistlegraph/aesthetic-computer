@@ -1,5 +1,5 @@
 <!-- KidLisp, 2025.10.17 -->
-<html>
+<html class="debug">
 
 <head>
   <meta charset="utf-8">
@@ -204,6 +204,23 @@
       width: 100%;
       overflow: hidden;
     }
+    
+    /* Debug mode - add class="debug" to html element to see layout boundaries */
+    html.debug, html.debug body {
+      background: lime !important;
+    }
+    html.debug main {
+      background: cyan !important;
+    }
+    html.debug .top-row {
+      background: magenta !important;
+    }
+    html.debug .bottom-row {
+      background: orange !important;
+    }
+    html.debug .reference-section {
+      background: yellow !important;
+    }
 
     body {
       font-size: 18px;
@@ -262,6 +279,11 @@
       min-height: 0;
       height: 100%;
       /* Ensure panels fill completely with no body background showing through */
+      /* overflow: hidden; - Removed to allow playback controls to be visible */
+    }
+    
+    /* Keep overflow hidden on viz-container for monaco editor scrolling */
+    .viz-container {
       overflow: hidden;
     }
 
@@ -314,41 +336,59 @@
     }
 
     #clear-button {
-      position: absolute;
-      bottom: 8px;
-      left: 8px;
-      z-index: 100; /* Higher z-index to stay on top */
-      padding: 6px 12px;
-      background: transparent;
-      color: var(--text-tertiary);
+      position: relative;
+      left: auto; right: auto; top: auto; bottom: auto;
+      width: 48px;
+      height: 48px;
+      background: rgb(180, 80, 80); /* Muted red */
+      color: white;
       border: none;
-      font-family: monospace;
-      font-size: 11px;
+      border-radius: 50%;
       cursor: pointer;
-      transition: all 0.2s;
-      opacity: 0.6;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex; /* TEMP: Always visible for debugging */
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      margin: 0;
+      font-size: 28px;
+      font-weight: bold;
+      line-height: 1;
     }
 
     @media (hover: hover) {
       #clear-button:hover {
-        color: rgb(205, 92, 155);
-        opacity: 1;
-        text-decoration: underline;
+        background: rgb(200, 100, 100);
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
       }
     }
     
-    /* Playback controls container - persists across all viz views */
+    #clear-button:active {
+      background: rgb(150, 60, 60);
+      transform: scale(0.95);
+    }
+    
+    [data-theme="dark"] #clear-button {
+      background: rgb(200, 100, 100);
+    }
+    
+    /* Playback controls container */
     #playback-controls {
       position: absolute;
       bottom: 8px;
       right: 8px;
       z-index: 100;
       display: flex;
+      flex-direction: row; /* left-to-right: clear, stop, send */
       gap: 8px;
       align-items: center;
     }
 
     #send-button {
+      position: relative;
+      left: auto; right: auto; top: auto; bottom: auto;
       width: 48px;
       height: 48px;
       background: rgb(76, 175, 80); /* Green by default */
@@ -459,6 +499,8 @@
     }
 
     #stop-button {
+      position: relative;
+      left: auto; right: auto; top: auto; bottom: auto;
       width: 48px;
       height: 48px;
       background: rgb(244, 67, 54); /* Red */
@@ -469,13 +511,10 @@
       box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       display: none; /* Hidden by default */
-      flex-direction: row;
       align-items: center;
       justify-content: center;
       padding: 0;
       margin: 0;
-      vertical-align: baseline;
-      pointer-events: auto; /* Ensure clicks are captured */
     }
     
     @media (prefers-color-scheme: dark) {
@@ -3255,17 +3294,23 @@
         height: 100%;
         /* Account for iOS safe areas */
         height: calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        /* Allow scrolling when all panels expanded */
+        overflow-y: auto;
+        overflow-x: hidden;
       }
       
       /* Split.js handles the layout now, so we just need to ensure containers are flex columns */
       .top-row, .bottom-row {
         flex-direction: column !important;
+        flex-shrink: 0; /* Prevent rows from shrinking below content */
+        height: auto !important; /* Override the 50% height in mobile - let content determine height */
       }
       
       /* Ensure panels take full width in vertical mode */
       .editor-panel, .preview-panel, .reference-section, .console-section {
         width: 100% !important;
         min-height: 44px; /* At least show header */
+        flex-shrink: 0; /* Don't shrink panels */
       }
       
       /* Compact headers on mobile */
@@ -3396,24 +3441,39 @@
         height: 33.333% !important;
       }
       
-      /* Play/Stop buttons - ensure visible and tappable on mobile */
-      #send-button, #stop-button {
-        width: 44px;
-        height: 44px;
-        bottom: 6px;
-        right: 6px;
+      /* Play/Stop/Clear buttons - compact for single column mode */
+      #send-button, #stop-button, #clear-button {
+        width: 24px;
+        height: 24px;
       }
       
-      #send-button.playing {
-        right: 56px;
+      #playback-controls {
+        bottom: 2px;
+        right: 2px;
+        gap: 10px;
       }
       
-      /* Clear button smaller on mobile */
+      #send-button::before {
+        border-left-width: 7px;
+        border-top-width: 4px;
+        border-bottom-width: 4px;
+        margin-left: 2px;
+      }
+      
+      #send-button.playing::before {
+        width: 5px;
+        height: 8px;
+        border-left-width: 2px;
+        border-right-width: 2px;
+      }
+      
+      #stop-button::before {
+        width: 8px;
+        height: 8px;
+      }
+      
       #clear-button {
-        font-size: 10px;
-        padding: 4px 8px;
-        bottom: 6px;
-        left: 6px;
+        font-size: 18px;
       }
       
       /* Monaco editor adjustments for mobile */
@@ -3443,6 +3503,41 @@
       .editor-panel, .preview-panel, .reference-section, .console-section {
         transition: height 0.25s ease-out;
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      
+      /* Ensure docs-content fills available space in panels */
+      .reference-section .docs-content,
+      .console-section .console-output {
+        flex: 1;
+        min-height: 0;
+      }
+      
+      /* Last panel (reference) needs extra bottom padding/margin for safe area and visibility */
+      #reference-panel {
+        padding-bottom: env(safe-area-inset-bottom, 0);
+        margin-bottom: 20px; /* Extra space at the bottom to ensure content is visible */
+      }
+      
+      /* Ensure docs-content fills its panel in mobile */
+      .docs-content {
+        overflow: visible !important;
+        flex: 1 !important;
+        height: auto !important;
+      }
+      
+      #examples-content,
+      #keeps-content,
+      #reference-content {
+        overflow-y: auto !important;
+        height: 100% !important;
+        flex: 1 !important;
+      }
+      
+      /* Ensure main scrolls to show all content */
+      main {
+        padding-bottom: 40px; /* Extra padding at bottom of scroll container */
       }
       
       /* Collapsed panel state */
@@ -3889,7 +3984,7 @@
     transform: translate(-50%, -50%);
     font-family: 'Comic Relief', 'Comic Sans MS', cursive;
     font-weight: bold;
-    font-size: 48px;
+    font-size: clamp(128px, 55vw, 220px);
     display: inline-flex;
     width: fit-content;
     height: fit-content;
@@ -4015,8 +4110,11 @@
         const landingZone = document.getElementById('logo-landing-zone');
         
         if (splash && splashLogo && mainEl && landingZone) {
-          const startFontSize = 48;
-          const endFontSize = 20;
+          // Get actual computed font size (from clamp CSS)
+          const computedStyle = window.getComputedStyle(splashLogo);
+          const startFontSize = parseFloat(computedStyle.fontSize);
+          const isMobile = window.innerWidth <= 768;
+          const endFontSize = isMobile ? 16 : 20;
           
           // Calculate start position - logo starts centered with transform
           const logoWidth = splashLogo.offsetWidth;
@@ -4182,14 +4280,15 @@
         <div class="viz-tabs" id="viz-tabs" style="display: none !important;">
         </div>
         <!-- Playback Controls - persist across all views -->
+        <!-- Order: clear (left), stop (middle), send (right) -->
         <div id="playback-controls">
-          <button id="send-button" aria-label="Play"></button>
+          <button id="clear-button" aria-label="Clear code">×</button>
           <button id="stop-button" aria-label="Stop"></button>
+          <button id="send-button" aria-label="Play"></button>
         </div>
         <!-- Text View (Monaco Editor) -->
         <div class="viz-container active" id="viz-text">
           <div id="kidlisp-editor">
-            <button id="clear-button" style="display: none;">Clear</button>
           </div>
         </div>
         <!-- Pills View (3D Matter) - hidden for now -->
@@ -4660,10 +4759,7 @@
     
     function updateUILanguage() {
       // Update all translatable elements
-      const clearBtn = document.getElementById('clear-button');
-      if (clearBtn) clearBtn.textContent = t('clearButton');
-      
-      // Send button uses CSS triangle, no text needed
+      // Clear button uses CSS × icon, no text needed
       
       const consoleHeader = document.querySelector('#console-panel .docs-header span');
       if (consoleHeader) consoleHeader.textContent = t('consoleTitle');
@@ -5961,17 +6057,44 @@
         { id: 'editor-panel', headerSelector: '.editor-header', defaultHeight: 250, showIndicator: true, indicatorPosition: 'after-tagline' },
         { id: 'preview-panel', headerSelector: '.docs-header', defaultHeight: 300, showIndicator: true, indicatorPosition: 'right' },
         { id: 'console-panel', headerSelector: '.docs-header', defaultHeight: 150, showIndicator: true, indicatorPosition: 'right' },
-        { id: 'reference-panel', headerSelector: '.docs-header', defaultHeight: 200, showIndicator: true, indicatorPosition: 'right' }
+        { id: 'reference-panel', headerSelector: '.docs-header', defaultHeight: 300, showIndicator: true, indicatorPosition: 'right' }
       ];
       
-      // Initially collapsed panels
-      const initiallyCollapsed = ['console-panel', 'reference-panel'];
+      // All panels start expanded in single column view
+      const initiallyCollapsed = [];
       
       // Get iframe to disable during drag
       const previewIframe = document.getElementById('preview-iframe');
       
       // Get checkerboard element
       const checkerboard = document.getElementById('mobile-checkerboard');
+      
+      // Calculate available height and distribute to panels
+      function distributeHeight() {
+        const isMobile = window.innerWidth <= 768;
+        if (!isMobile) return;
+        
+        const viewportHeight = window.innerHeight;
+        const safeAreaTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top') || '0');
+        const safeAreaBottom = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-bottom') || '0');
+        const availableHeight = viewportHeight - safeAreaTop - safeAreaBottom;
+        
+        // Count expanded panels and their minimum heights
+        let expandedCount = 0;
+        let totalMinHeight = 0;
+        const HEADER_HEIGHT = 40;
+        
+        panels.forEach(p => {
+          if (p && p.dataset.collapsed !== 'true') {
+            expandedCount++;
+            totalMinHeight += parseInt(p.dataset.savedHeight || 200);
+          } else if (p) {
+            totalMinHeight += HEADER_HEIGHT;
+          }
+        });
+        
+        // If content fits, use saved heights; otherwise scroll is already enabled
+      }
       
       // Update checkerboard visibility based on collapsed state
       // Make globally accessible for tab click handlers
@@ -6292,6 +6415,11 @@
           const wasDragging = dragState.dragging;
           const wasPending = dragState.pending;
           
+          // Disable auto-height if user manually dragged the editor panel
+          if (wasDragging && config.id === 'editor-panel') {
+            window.editorAutoHeight = false;
+          }
+          
           dragState.pending = false;
           dragState.dragging = false;
           setDragMode(false);
@@ -6399,6 +6527,60 @@
     // Initialize on load
     initSplits();
     
+    // Editor auto-height for single column mode
+    // Starts enabled, disabled once user manually drags the editor panel
+    window.editorAutoHeight = true;
+    
+    // Update editor panel height based on line count (single column mode only)
+    // Also distributes remaining height to other panels
+    window.updateEditorAutoHeight = function() {
+      if (!window.editorAutoHeight) return;
+      
+      const isSingleColumn = window.innerWidth <= 768;
+      if (!isSingleColumn) return;
+      
+      const editorPanel = document.getElementById('editor-panel');
+      if (!editorPanel || editorPanel.dataset.collapsed === 'true') return;
+      
+      // Get Monaco editor and line count
+      if (typeof editor === 'undefined' || !editor) return;
+      const model = editor.getModel();
+      if (!model) return;
+      
+      const lineCount = model.getLineCount();
+      const HEADER_HEIGHT = 40;
+      const LINE_HEIGHT = 19; // Monaco default line height at fontSize 16
+      const PADDING = 24; // Top padding (12) + bottom padding (12)
+      const MIN_LINES = 1;
+      const MAX_LINES = 15; // Cap auto-height to prevent taking over the screen
+      
+      const effectiveLines = Math.max(MIN_LINES, Math.min(lineCount, MAX_LINES));
+      const editorContentHeight = (effectiveLines * LINE_HEIGHT) + PADDING;
+      const newEditorHeight = HEADER_HEIGHT + editorContentHeight;
+      
+      // Set editor height
+      editorPanel.style.height = `${newEditorHeight}px`;
+      editorPanel.dataset.savedHeight = newEditorHeight;
+      
+      // Distribute remaining height to other expanded panels
+      const viewportHeight = window.innerHeight;
+      const otherPanels = ['preview-panel', 'console-panel', 'reference-panel']
+        .map(id => document.getElementById(id))
+        .filter(p => p && p.dataset.collapsed !== 'true');
+      
+      if (otherPanels.length > 0) {
+        const remainingHeight = viewportHeight - newEditorHeight;
+        const heightPerPanel = Math.floor(remainingHeight / otherPanels.length);
+        const minPanelHeight = 100; // Minimum height for other panels
+        
+        otherPanels.forEach(p => {
+          const panelHeight = Math.max(minPanelHeight, heightPerPanel);
+          p.style.height = `${panelHeight}px`;
+          p.dataset.savedHeight = panelHeight;
+        });
+      }
+    };
+
     // Handle resize with debounce
     let resizeTimeout;
     window.addEventListener('resize', () => {
@@ -7165,7 +7347,6 @@
             isPlaying = true;
             isPaused = false;
             sendButton.classList.add('playing');
-            sendButton.style.right = '64px';
             stopButton.style.display = 'flex';
             setLiveState('running');
             shouldAutoPlay = false; // Clear the flag so we don't auto-play again
@@ -7486,6 +7667,13 @@
       // Log editor initialization
       logEditorInit('Monaco', { theme: initialTheme, language: 'kidlisp' });
       logBoot('editor', 'Monaco ready');
+      
+      // Initialize auto-height for single column mode
+      setTimeout(() => {
+        if (window.updateEditorAutoHeight) {
+          window.updateEditorAutoHeight();
+        }
+      }, 100);
 
       // Check URL path for a kidlisp code (e.g., /kidlisp.com/$46k or /$46k)
       const urlPath = window.location.pathname;
@@ -7532,8 +7720,8 @@
               isPlaying = true;
               isPaused = false;
               sendButton.classList.add('playing');
-              sendButton.style.right = '64px';
               stopButton.style.display = 'flex';
+              if (window.updateClearButtonPosition) window.updateClearButtonPosition();
               setLiveState('running');
               shouldAutoPlay = false;
             }
@@ -7622,6 +7810,10 @@
       // Listen for content changes to enforce line limit
       editor.onDidChangeModelContent(() => {
         enforceLineLimit();
+        // Update editor auto-height in single column mode
+        if (window.updateEditorAutoHeight) {
+          window.updateEditorAutoHeight();
+        }
       });
 
       // Note: OS theme change listener is in applyTheme section below
@@ -8153,12 +8345,17 @@
 
       // Clear button handler
       const clearButton = document.getElementById('clear-button');
+      const stopButton = document.getElementById('stop-button');
+      
+      // No need for manual positioning - flexbox handles it automatically
+      window.updateClearButtonPosition = function() {
+        // Flexbox with gap handles spacing automatically when buttons show/hide
+      }
       
       function updateClearButtonVisibility() {
         if (clearButton && editor) {
           const hasContent = editor.getValue().trim().length > 0;
-          clearButton.style.display = hasContent ? 'block' : 'none';
-          clearButton.textContent = t('clearButton');
+          clearButton.style.display = hasContent ? 'flex' : 'none';
         }
       }
       
@@ -8578,8 +8775,8 @@
       isPaused = false;
       lastCode = '';
       sendButton.classList.remove('playing');
-      sendButton.style.right = '8px';
       stopButton.style.display = 'none';
+      if (window.updateClearButtonPosition) window.updateClearButtonPosition();
       setLiveState('stopped');
       
       // Hide QR code when not playing
@@ -8675,8 +8872,8 @@
         vizSystem.isPlaying = true;
         vizSystem.isPaused = false;
         sendButton.classList.add('playing');
-        sendButton.style.right = '64px'; // Move play button to the left
         stopButton.style.display = 'flex';
+        if (window.updateClearButtonPosition) window.updateClearButtonPosition();
         // Add live-running class to show green outline, remove paused state
         setLiveState('running');
         
@@ -8707,9 +8904,9 @@
         sendButton.classList.remove('playing'); // Revert to Play icon (Green)
         // Switch from running (green) to paused (yellow) outline
         setLiveState('paused');
-        // But keep position and stop button
-        sendButton.style.right = '64px';
+        // Keep stop button visible
         stopButton.style.display = 'flex';
+        if (window.updateClearButtonPosition) window.updateClearButtonPosition();
       }
     });
 
@@ -8742,8 +8939,8 @@
         vizSystem.frameCount = 0;
         lastCode = '';
         sendButton.classList.remove('playing');
-        sendButton.style.right = '8px'; // Move play button back to original position
         stopButton.style.display = 'none';
+        if (window.updateClearButtonPosition) window.updateClearButtonPosition();
         // Remove both live-running and live-paused classes to hide outlines
         setLiveState('stopped');
         
@@ -9023,8 +9220,8 @@
             isPlaying = true;
             isPaused = false;
             sendButton.classList.add('playing');
-            sendButton.style.right = '64px';
             stopButton.style.display = 'flex';
+            if (window.updateClearButtonPosition) window.updateClearButtonPosition();
             setLiveState('running');
             shouldAutoPlay = false; // Clear the flag so we don't auto-play again
           }

@@ -868,6 +868,115 @@ class Artery {
     return result;
   }
   
+  // Reload KidLisp.com page via CDP (close panel and reopen fresh)
+  static async reloadKidLispWindow() {
+    const { host: cdpHost, port: cdpPort } = await findWorkingCDPHost();
+    
+    const targetsJson = await new Promise((resolve, reject) => {
+      const req = http.get({
+        hostname: cdpHost,
+        port: cdpPort,
+        path: '/json',
+        headers: { 'Host': 'localhost' }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => resolve(JSON.parse(data)));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+    
+    const kidlispTarget = targetsJson.find(t => t.url?.includes('kidlisp.com'));
+    
+    if (!kidlispTarget) {
+      // If no page open, open it instead
+      return Artery.openKidLispWindow();
+    }
+    
+    // Close existing panel via command palette, then reopen
+    brightLog('🔄 Closing KidLisp.com panel...');
+    
+    // Connect to workbench to close the panel via command palette
+    const workbenchTarget = targetsJson.find(t => 
+      t.type === 'page' && t.url && t.url.includes('workbench.html')
+    );
+    
+    if (!workbenchTarget) {
+      throw new Error('Could not find VS Code workbench target');
+    }
+    
+    let wsUrl = workbenchTarget.webSocketDebuggerUrl;
+    if (wsUrl.includes('localhost')) {
+      wsUrl = wsUrl.replace(/localhost(:\d+)?/, `${cdpHost}:${cdpPort}`);
+    }
+    
+    const ws = new WebSocket(wsUrl);
+    await new Promise((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+      setTimeout(() => reject(new Error('Timeout')), 5000);
+    });
+    
+    let msgId = 1;
+    const send = (method, params = {}) => {
+      const id = msgId++;
+      ws.send(JSON.stringify({ id, method, params }));
+      return id;
+    };
+    
+    // Press F1 to open command palette
+    send('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: 'F1',
+      code: 'F1',
+      windowsVirtualKeyCode: 112
+    });
+    await new Promise(r => setTimeout(r, 50));
+    send('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: 'F1',
+      code: 'F1',
+      windowsVirtualKeyCode: 112
+    });
+    
+    await new Promise(r => setTimeout(r, 300));
+    
+    // Type close command - close active editor, not all panels
+    const cmd = '>View: Close Editor';
+    for (const char of cmd) {
+      send('Input.dispatchKeyEvent', {
+        type: 'char',
+        text: char
+      });
+      await new Promise(r => setTimeout(r, 20));
+    }
+    
+    await new Promise(r => setTimeout(r, 400));
+    
+    // Press Enter
+    send('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: 'Enter',
+      code: 'Enter',
+      windowsVirtualKeyCode: 13
+    });
+    await new Promise(r => setTimeout(r, 50));
+    send('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: 'Enter',
+      code: 'Enter',
+      windowsVirtualKeyCode: 13
+    });
+    
+    await new Promise(r => setTimeout(r, 500));
+    ws.close();
+    
+    // Now reopen fresh
+    await Artery.openKidLispWindow();
+    brightLog('🔄 KidLisp.com reloaded (close + reopen)');
+  }
+
   // Static method to open KidLisp.com window in VS Code
   static async openKidLispWindow() {
     brightLog('🌈 Opening KidLisp.com window...');
