@@ -1059,6 +1059,10 @@
       margin-left: 0px; /* Reset margin */
       display: inline-block;
       line-height: 32px; /* Match header height */
+      white-space: nowrap; /* Prevent line breaking */
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
     }
     
     @media (prefers-color-scheme: dark) {
@@ -2298,6 +2302,124 @@
       font-family: monospace;
     }
 
+    .keeps-contract-details {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+
+    .keeps-contract-label {
+      color: var(--text-secondary);
+    }
+
+    .keeps-contract-address {
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--text-primary);
+      text-decoration: none;
+      background: var(--bg-secondary);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .keeps-contract-address:hover {
+      background: var(--bg-hover);
+    }
+
+    .keeps-staging-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: #ff9800;
+      color: white;
+      border-radius: 8px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .keeps-gallery {
+      margin-top: 12px;
+    }
+
+    .keeps-gallery-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .keeps-gallery-count {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: normal;
+    }
+
+    .keeps-gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .keeps-gallery-item {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--bg-secondary);
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      position: relative;
+    }
+
+    .keeps-gallery-item:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .keeps-gallery-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .keeps-gallery-item .keeps-token-number {
+      position: absolute;
+      bottom: 2px;
+      right: 4px;
+      font-size: 9px;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      font-family: monospace;
+    }
+
+    .keeps-gallery-loading {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 20px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .keeps-gallery-empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 20px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .keeps-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 16px 0;
+    }
+
     .keeps-wallet {
       display: flex;
       flex-direction: column;
@@ -2485,6 +2607,181 @@
       background: var(--bg-tertiary);
       color: var(--text-primary);
     }
+    
+    /* Keeps code section */
+    .keeps-code-section {
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+    }
+    
+    .keeps-code-id {
+      font-family: monospace;
+      font-size: 18px;
+      font-weight: bold;
+      color: rgb(205, 92, 155);
+      margin: 4px 0 8px 0;
+    }
+    
+    /* Keeps existing token view */
+    .keeps-existing {
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(74, 156, 93, 0.1) 0%, rgba(58, 124, 77, 0.05) 100%);
+      border: 1px solid rgba(74, 156, 93, 0.3);
+      border-radius: 12px;
+    }
+    
+    .keeps-existing-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #4a9c5d;
+      margin-bottom: 12px;
+    }
+    
+    .keeps-existing-icon {
+      font-size: 18px;
+    }
+    
+    .keeps-existing-info {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .keeps-existing-token {
+      font-family: monospace;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+    
+    .keeps-existing-thumb {
+      width: 96px;
+      height: 96px;
+      border-radius: 8px;
+      background: var(--bg-secondary);
+      overflow: hidden;
+    }
+    
+    .keeps-existing-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+    }
+    
+    .keeps-existing-links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .keeps-link-btn {
+      padding: 6px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-primary);
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    
+    .keeps-link-btn:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--text-tertiary);
+    }
+    
+    .keeps-rebake-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(74, 156, 93, 0.2);
+    }
+    
+    .keeps-rebake-btn {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .keeps-rebake-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
+    }
+    
+    .keeps-rebake-hint {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-top: 6px;
+    }
+    
+    /* Keeps timeline */
+    .keeps-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+    }
+    
+    .keeps-timeline-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    
+    .keeps-timeline-item[data-status="pending"] {
+      opacity: 0.4;
+    }
+    
+    .keeps-timeline-item[data-status="active"] {
+      background: rgba(0, 102, 255, 0.1);
+      opacity: 1;
+    }
+    
+    .keeps-timeline-item[data-status="done"] {
+      opacity: 1;
+    }
+    
+    .keeps-timeline-item[data-status="error"] {
+      background: rgba(231, 76, 60, 0.1);
+      opacity: 1;
+    }
+    
+    .keeps-step-icon {
+      font-size: 14px;
+      width: 18px;
+      text-align: center;
+    }
+    
+    .keeps-timeline-item[data-status="pending"] .keeps-step-icon { color: var(--text-tertiary); }
+    .keeps-timeline-item[data-status="active"] .keeps-step-icon { color: #0066ff; }
+    .keeps-timeline-item[data-status="done"] .keeps-step-icon { color: #4a9c5d; }
+    .keeps-timeline-item[data-status="error"] .keeps-step-icon { color: #e74c3c; }
+    
+    .keeps-step-label {
+      font-size: 13px;
+      color: var(--text-primary);
+      flex: 1;
+    }
+    
+    .keeps-step-time {
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--text-tertiary);
+    }
 
     /* Header auth buttons container */
     .header-auth-buttons {
@@ -2621,6 +2918,8 @@
       border-radius: 4px;
       transition: background 0.2s;
       position: relative;
+      min-width: 0; /* Allow shrinking */
+      overflow: hidden;
     }
 
     .platform-selector:hover {
@@ -3879,16 +4178,8 @@
           <button id="theme-toggle" title="Toggle light/dark mode">○</button>
           <span id="local-indicator" style="display: none; position: absolute; right: 40px; top: 50%; transform: translateY(-50%); font-size: 9px; color: #4caf50; opacity: 0.7; font-family: monospace; pointer-events: none;">LOCAL</span>
         </div>
-        <!-- Visualization Mode Tabs -->
-        <div class="viz-tabs" id="viz-tabs">
-          <button class="viz-tab active" data-viz="text" title="Text Editor (Monaco)">
-            <span class="tab-icon">📝</span>
-            <span>text</span>
-          </button>
-          <button class="viz-tab" data-viz="pills" title="3D Pills (Matter in Space)">
-            <span class="tab-icon">💊</span>
-            <span>pills</span>
-          </button>
+        <!-- Visualization Mode Tabs (hidden for now) -->
+        <div class="viz-tabs" id="viz-tabs" style="display: none !important;">
         </div>
         <!-- Playback Controls - persist across all views -->
         <div id="playback-controls">
@@ -3901,8 +4192,8 @@
             <button id="clear-button" style="display: none;">Clear</button>
           </div>
         </div>
-        <!-- Pills View (3D Matter) -->
-        <div class="viz-container" id="viz-pills">
+        <!-- Pills View (3D Matter) - hidden for now -->
+        <div class="viz-container" id="viz-pills" style="display: none !important;">
           <canvas id="pills-canvas"></canvas>
         </div>
       </div>
@@ -3995,46 +4286,144 @@
     <div class="bottom-row" id="bottom-row">
       <div class="reference-section" id="reference-panel">
         <div class="docs-header">
-          <div class="tab active" data-tab="reference" id="reference-tab">Cards</div>
-          <div class="tab" data-tab="examples" id="examples-tab">Top Hits</div>
+          <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
+          <div class="tab active" data-tab="examples" id="examples-tab">Top Hits</div>
           <div class="tab" data-tab="keeps" id="keeps-tab">Keeps</div>
         </div>
-        <div class="docs-content hidden" id="examples-content">
+        <div class="docs-content" id="examples-content">
           <div id="examples-list">Loading examples...</div>
         </div>
         <div class="docs-content hidden" id="keeps-content">
           <div id="keeps-container">
+            <!-- Contract Info - Always visible -->
+            <div class="keeps-contract-info" id="keeps-contract-info">
+              <div class="keeps-header">
+                <span class="keeps-icon">ꜩ</span>
+                <span class="keeps-title">Keeps</span>
+                <span class="keeps-network" id="keeps-network">mainnet</span>
+              </div>
+              <div class="keeps-contract-details">
+                <span class="keeps-contract-label">Contract:</span>
+                <a id="keeps-contract-link" href="#" target="_blank" class="keeps-contract-address"></a>
+                <span class="keeps-staging-badge" id="keeps-staging-badge">staging v3</span>
+              </div>
+            </div>
+            
+            <!-- Latest Keeps Gallery - Always visible -->
+            <div class="keeps-gallery" id="keeps-gallery">
+              <div class="keeps-gallery-header">
+                <span>Latest Keeps</span>
+                <span class="keeps-gallery-count" id="keeps-gallery-count"></span>
+              </div>
+              <div class="keeps-gallery-grid" id="keeps-gallery-grid">
+                <div class="keeps-gallery-loading">Loading...</div>
+              </div>
+            </div>
+            
+            <!-- Divider -->
+            <div class="keeps-divider"></div>
+            
             <!-- Logged out state -->
             <div class="keeps-logged-out" id="keeps-logged-out">
               <div class="keeps-login-prompt">
                 <span class="keeps-icon">🔒</span>
-                <p>Log in to Aesthetic Computer to play for keeps!</p>
+                <p>Log in to Aesthetic Computer to mint your own!</p>
                 <button class="keeps-login-btn" id="keeps-login-btn">Login</button>
               </div>
             </div>
+            
             <!-- Logged in state -->
             <div class="keeps-logged-in hidden" id="keeps-logged-in">
-              <div class="keeps-header">
-                <span class="keeps-icon">🔓</span>
-                <span class="keeps-title">Keeps</span>
-                <span class="keeps-network" id="keeps-network">mainnet</span>
-              </div>
+              <!-- Wallet connection -->
               <div class="keeps-wallet" id="keeps-wallet">
-              <button class="keeps-connect-btn" id="keeps-connect-btn">Connect Wallet</button>
-              <div class="keeps-address hidden" id="keeps-address"></div>
-            </div>
-            <div class="keeps-mint-section hidden" id="keeps-mint-section">
-              <div class="keeps-code-preview" id="keeps-code-preview">
-                <div class="keeps-code-label">Your code:</div>
-                <pre id="keeps-code-text"></pre>
+                <button class="keeps-connect-btn" id="keeps-connect-btn">Connect Wallet</button>
+                <div class="keeps-address hidden" id="keeps-address"></div>
               </div>
-              <button class="keeps-mint-btn" id="keeps-mint-btn">Mint as Keep</button>
+              
+              <!-- Code info section (shown after wallet connected) -->
+              <div class="keeps-code-section hidden" id="keeps-code-section">
+                <div class="keeps-code-label">Code to Keep:</div>
+                <div class="keeps-code-id" id="keeps-code-id">—</div>
+                <div class="keeps-code-preview">
+                  <pre id="keeps-code-text"></pre>
+                </div>
+              </div>
+              
+              <!-- Already minted view -->
+              <div class="keeps-existing hidden" id="keeps-existing">
+                <div class="keeps-existing-header">
+                  <span class="keeps-existing-icon">✓</span>
+                  <span>Already Kept!</span>
+                </div>
+                <div class="keeps-existing-info">
+                  <div class="keeps-existing-token">Token #<span id="keeps-token-id">0</span></div>
+                  <div class="keeps-existing-thumb" id="keeps-existing-thumb"></div>
+                  <div class="keeps-existing-links">
+                    <a id="keeps-objkt-link" href="#" target="_blank" class="keeps-link-btn">View on objkt</a>
+                    <a id="keeps-tzkt-link" href="#" target="_blank" class="keeps-link-btn">View on TzKT</a>
+                  </div>
+                </div>
+                <div class="keeps-rebake-section">
+                  <button class="keeps-rebake-btn" id="keeps-rebake-btn">Rebake</button>
+                  <div class="keeps-rebake-hint">Update thumbnail & metadata</div>
+                </div>
+              </div>
+              
+              <!-- Timeline for mint progress -->
+              <div class="keeps-timeline hidden" id="keeps-timeline">
+                <div class="keeps-timeline-item" data-step="validate">
+                  <span class="keeps-step-icon">○</span>
+                  <span class="keeps-step-label">Validate Code</span>
+                  <span class="keeps-step-time"></span>
+                </div>
+                <div class="keeps-timeline-item" data-step="analyze">
+                  <span class="keeps-step-icon">○</span>
+                  <span class="keeps-step-label">Analyze Source</span>
+                  <span class="keeps-step-time"></span>
+                </div>
+                <div class="keeps-timeline-item" data-step="thumbnail">
+                  <span class="keeps-step-icon">○</span>
+                  <span class="keeps-step-label">Bake Thumbnail</span>
+                  <span class="keeps-step-time"></span>
+                </div>
+                <div class="keeps-timeline-item" data-step="bundle">
+                  <span class="keeps-step-icon">○</span>
+                  <span class="keeps-step-label">Pack HTML Bundle</span>
+                  <span class="keeps-step-time"></span>
+                </div>
+                <div class="keeps-timeline-item" data-step="ipfs">
+                  <span class="keeps-step-icon">○</span>
+                  <span class="keeps-step-label">Pin to IPFS</span>
+                  <span class="keeps-step-time"></span>
+                </div>
+                <div class="keeps-timeline-item" data-step="metadata">
+                  <span class="keeps-step-icon">○</span>
+                  <span class="keeps-step-label">Build Metadata</span>
+                  <span class="keeps-step-time"></span>
+                </div>
+                <div class="keeps-timeline-item" data-step="sign">
+                  <span class="keeps-step-icon">○</span>
+                  <span class="keeps-step-label">Sign Transaction</span>
+                  <span class="keeps-step-time"></span>
+                </div>
+                <div class="keeps-timeline-item" data-step="complete">
+                  <span class="keeps-step-icon">○</span>
+                  <span class="keeps-step-label">Complete!</span>
+                  <span class="keeps-step-time"></span>
+                </div>
+              </div>
+              
+              <!-- Mint button section (shown when code not yet minted) -->
+              <div class="keeps-mint-section hidden" id="keeps-mint-section">
+                <button class="keeps-mint-btn" id="keeps-mint-btn">Keep It!</button>
+              </div>
+              
+              <!-- Status message -->
               <div class="keeps-status" id="keeps-status"></div>
-            </div>
             </div>
           </div>
         </div>
-        <div class="docs-content" id="reference-content">
+        <div class="docs-content hidden" id="reference-content">
           <div id="book-container"></div>
         </div>
       </div>
@@ -5303,12 +5692,10 @@
         
         // Skip DOM restructuring if already in mobile layout
         if (currentLayoutMode === 'mobile') {
-          console.log('🔲 layout Already in mobile mode, skipping restructure');
           setupMobileHeaders();
           return;
         }
         
-        console.log('🔲 layout Switching to mobile mode');
         currentLayoutMode = 'mobile';
         
         if (mainSplit && editorPanel && previewPanel && consolePanel && referencePanel) {
@@ -5360,10 +5747,8 @@
           
           // Skip DOM restructuring if already in this mode
           if (currentLayoutMode === 'desktop-centered') {
-            console.log('🔲 layout Already in desktop-centered mode, skipping restructure');
             // Still need to re-create Split.js instances
           } else {
-            console.log('🔲 layout Switching to desktop-centered mode');
             currentLayoutMode = 'desktop-centered';
           
             // Create wrapper rows for independent vertical control
@@ -5450,10 +5835,8 @@
           
           // Skip DOM restructuring if already in this mode
           if (currentLayoutMode === 'desktop-standard') {
-            console.log('🔲 layout Already in desktop-standard mode, skipping restructure');
             // Still need to re-create Split.js instances
           } else {
-            console.log('🔲 layout Switching to desktop-standard mode');
             currentLayoutMode = 'desktop-standard';
           
             // Restore row structure - remove children without using innerHTML
@@ -6394,8 +6777,8 @@
       entry.appendChild(meta);
       entry.appendChild(mugBtn);
       
-      consoleOutput.insertBefore(entry, consoleOutput.firstChild);
-      consoleOutput.scrollTop = 0;
+      consoleOutput.appendChild(entry);
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
     }
     
     // Generate timestamped filename like bios.mjs does
@@ -6531,7 +6914,7 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        z-index: 10000;
+        z-index: 9999999;
         cursor: pointer;
       `;
       
@@ -7373,8 +7756,9 @@
         return null; // Light color, no shadow needed
       }
       
-      // Enable edit mode for timing blinks
-      kidlisp.isEditMode = true;
+      // Edit mode for timing blinks is controlled dynamically based on playback state
+      // (see scheduleDecorationUpdate which sets kidlisp.isEditMode = isPlaying && !isPaused)
+      kidlisp.isEditMode = false;
       
       // Detect if we're in light mode for high-contrast syntax colors
       const isLightMode = !window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -7736,6 +8120,8 @@
         if (!isUpdating && editor && editor.getModel()) {
           isUpdating = true;
           requestAnimationFrame(() => {
+            // Only animate timing blinks when playing (not paused/stopped)
+            kidlisp.isEditMode = isPlaying && !isPaused;
             applyColorNameDecorations();
             isUpdating = false;
             setTimeout(scheduleDecorationUpdate, 16); // ~60fps
@@ -7882,7 +8268,6 @@
       let manualThemeSet = false; // Session-only tracking - resets on refresh
       
       function applyTheme(theme) {
-        console.log('🎨 [index.html] applyTheme called:', theme);
         currentTheme = theme;
         // Don't persist to localStorage - theme override is session-only
         
@@ -7893,8 +8278,6 @@
         } else {
           visualTheme = theme;
         }
-        
-        console.log('🎨 [index.html] visualTheme:', visualTheme);
         
         // Always set data-theme to ensure consistent styling
         // This overrides the @media (prefers-color-scheme) fallbacks
@@ -7909,9 +8292,7 @@
         }
         
         // Send theme to iframe
-        console.log('🎨 [index.html] previewIframe:', previewIframe, 'aestheticUrl:', aestheticUrl);
         if (previewIframe) {
-          console.log('🎨 [index.html] Sending kidlisp-theme to iframe:', visualTheme);
           sendToIframe({ type: 'kidlisp-theme', theme: visualTheme });
         }
         
@@ -8029,11 +8410,13 @@
         // If there's code in the editor (from localStorage), auto-play it
         const initialCode = editor?.getValue().trim();
         if (initialCode && currentPlatform === 'aesthetic-computer') {
-          // Set up for auto-play when iframe is ready
+          // Don't send code yet - wait for pieceReady to trigger auto-play
+          // This prevents double-run (once now, once when pieceReady fires)
           shouldAutoPlay = true;
+        } else {
+          // No code or not AC platform - just load the iframe
+          updatePreview();
         }
-        // updatePreview will send the code (or empty for checkerboard)
-        updatePreview();
         hasInitialPreviewRun = true;
       }
       
@@ -8056,13 +8439,11 @@
       },
       set: function(value) {
         iframeSrcSetCount++;
-        console.log(`🔲 iframe src set (count: ${iframeSrcSetCount}):`, value, new Error().stack);
         return originalSrc.set.call(this, value);
       }
     });
     
     // Load KidLisp with empty code (should show default pattern/checkerboard)
-    console.log('🔲 iframe Setting initial iframe src');
     previewIframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true`;
     
     // Track iframe readiness for postMessage
@@ -8079,7 +8460,6 @@
       } else {
         // Queue message until iframe is ready
         pendingMessages.push(message);
-        console.log('🔲 iframe Queued message (iframe not ready):', message.type);
       }
     }
     
@@ -8088,7 +8468,6 @@
       // Small delay to ensure iframe's message handler is set up
       setTimeout(() => {
         iframeReady = true;
-        console.log(`🔲 iframe Ready, sending ${pendingMessages.length} queued messages`);
         pendingMessages.forEach(msg => {
           try {
             previewIframe.contentWindow?.postMessage(msg, aestheticUrl);
@@ -8127,8 +8506,27 @@
     // Track current platform globally
     let currentPlatform = localStorage.getItem('kidlisp-platform') || 'aesthetic-computer';
     
-    // Forward declare acToken (initialized later in Auth section)
+    // Forward declare auth and keeps state (initialized later)
     let acToken = null;
+    let acAuth0Client = null;
+    let acUser = null;
+    let acHandle = null; // The user's AC handle (@username)
+    
+    // Keeps state (forward declarations)
+    let keepsWalletAddress = null;
+    let keepsConnecting = false;
+    let keepsMinting = false;
+    let keepsCurrentCode = null;
+    let keepsCurrentCodeId = null; // The $code identifier
+    let keepsExistingToken = null; // { tokenId, owner, thumbnailUri, objktUrl, tzktUrl } if already minted
+    let keepsStartTime = null;
+    let keepsWalletRestoreAttempted = false; // Prevents multiple restore attempts
+    
+    // Keeps constants - loaded dynamically from shared module
+    let KEEPS_CONTRACT = null;
+    let KEEPS_NETWORK = null;
+    let KEEPS_RPC = null;
+    let keepsConstants = null;
     
     // Show the boot screen for a specific platform
     function showBootScreen(platform) {
@@ -8212,15 +8610,6 @@
       clearErrorDecorations();
       
       const code = editor.getValue().trim();
-      
-      // Debug: Always log what code is being sent, especially when creating new codes
-      if (shouldCreateCode) {
-        console.log('🚀 Creating NEW code - sending to iframe:', {
-          codeLength: code.length,
-          codePreview: code.substring(0, 100),
-          createCode: shouldCreateCode
-        });
-      }
       
       log.playback.verbose(`Sending code (${code.length} chars)`);
       if (code) {
@@ -8377,13 +8766,13 @@
     let iframeLoadCount = 0;
     previewIframe.addEventListener('load', () => {
       iframeLoadCount++;
-      console.log(`🔲 iframe Iframe loaded (count: ${iframeLoadCount})`, new Error().stack);
       log.iframe.debug('Iframe loaded, checking readiness');
       
-      // Tell the iframe to suppress noisy snapshot logs (we show them in KidLisp.com console only)
+      // Tell the iframe to suppress noisy logs (we show them in KidLisp.com console only)
       try {
         if (previewIframe.contentWindow) {
           previewIframe.contentWindow.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
+          previewIframe.contentWindow.KIDLISP_SUPPRESS_FONT_LOGS = true;
         }
       } catch (e) {
         // Ignore if cross-origin or not ready
@@ -8576,12 +8965,6 @@
         return;
       }
       
-      // Debug: log all message types for trace debugging
-      const msgType = event.data?.type;
-      if (msgType && msgType.includes('trace')) {
-        console.log('🔍 [MSG] Received message type:', msgType, event.data);
-      }
-      
       // 🧪 Test harness message handlers
       if (event.data?.type?.startsWith('test:')) {
         log.message.debug('Test message:', event.data.type);
@@ -8669,11 +9052,9 @@
         }
       } else if (messageType === 'kidlisp-trace') {
         // Execution trace from KidLisp interpreter - update visualization
-        console.log('🔍 [TRACE] Received kidlisp-trace:', event.data.trace?.length || 0, 'entries');
         if (event.data.trace && Array.isArray(event.data.trace)) {
           vizSystem.executionTrace = event.data.trace;
           vizSystem.frameCount++;
-          console.log('🔍 [TRACE] Updated vizSystem.executionTrace, currentView:', vizSystem.currentView, 'frame:', vizSystem.frameCount);
           // Update pills visualization if visible
           if (vizSystem.currentView === 'pills') {
             // Flash pills based on trace
@@ -8943,13 +9324,24 @@
         
         // Update code preview with current editor content
         updateKeepsCodePreview();
+        
+        // Restore wallet when Keeps tab is first opened (deferred from init)
+        if (!keepsWalletRestoreAttempted) {
+          keepsWalletRestoreAttempted = true;
+          restoreKeepsWallet();
+        }
       });
       
       // Initialize AC Login and Keeps functionality
       initACLogin();
       initKeeps();
       
-      // Book is the default tab now; defer examples until the tab is opened
+      // Preload Top Hits in the background so they're ready when the tab is opened
+      setTimeout(() => {
+        if (!examplesLoaded) {
+          loadExamples();
+        }
+      }, 1000);
       
       // Boot complete!
       logBoot('complete');
@@ -8961,17 +9353,62 @@
     // Keeps Tab Functionality
     // ═══════════════════════════════════════════════════════════════════════════
     
-    // AC Auth state
-    let acAuth0Client = null;
-    let acUser = null;
-    // Note: acToken declared earlier (forward declaration) for updatePreview()
-    let acHandle = null; // The user's AC handle (@username)
+    // Note: acAuth0Client, acUser, acHandle, keepsWalletAddress, etc. declared earlier
+    // as forward declarations to avoid initialization order issues
     
-    // Keeps state
-    let keepsWalletAddress = null;
-    let keepsConnecting = false;
-    let keepsMinting = false;
-    let keepsCurrentCode = null;
+    // Keeps timeline state
+    const keepsTimeline = [
+      { id: "validate", label: "Validate Code", status: "pending", time: null },
+      { id: "analyze", label: "Analyze Source", status: "pending", time: null },
+      { id: "thumbnail", label: "Bake Thumbnail", status: "pending", time: null },
+      { id: "bundle", label: "Pack HTML Bundle", status: "pending", time: null },
+      { id: "ipfs", label: "Pin to IPFS", status: "pending", time: null },
+      { id: "metadata", label: "Build Metadata", status: "pending", time: null },
+      { id: "sign", label: "Sign Transaction", status: "pending", time: null },
+      { id: "complete", label: "Complete!", status: "pending", time: null },
+    ];
+    
+    function resetKeepsTimeline() {
+      keepsTimeline.forEach(step => {
+        step.status = "pending";
+        step.time = null;
+      });
+      keepsStartTime = Date.now();
+      updateKeepsTimelineUI();
+    }
+    
+    function setKeepsStep(stepId, status, detail = null) {
+      const step = keepsTimeline.find(s => s.id === stepId);
+      if (step) {
+        step.status = status;
+        step.time = ((Date.now() - keepsStartTime) / 1000).toFixed(1) + "s";
+        const icon = status === "done" ? "✓" : status === "error" ? "✗" : status === "active" ? "►" : "○";
+        log.wallet.log(`[${step.time}] ${icon} ${step.label}${detail ? " — " + detail : ""}`);
+        updateKeepsTimelineUI();
+      }
+    }
+    
+    function updateKeepsTimelineUI() {
+      const timelineEl = document.getElementById('keeps-timeline');
+      if (!timelineEl) return;
+      
+      keepsTimeline.forEach(step => {
+        const itemEl = timelineEl.querySelector(`[data-step="${step.id}"]`);
+        if (itemEl) {
+          itemEl.dataset.status = step.status;
+          const iconEl = itemEl.querySelector('.keeps-step-icon');
+          const timeEl = itemEl.querySelector('.keeps-step-time');
+          if (iconEl) {
+            iconEl.textContent = step.status === "done" ? "✓" : 
+                                 step.status === "error" ? "✗" : 
+                                 step.status === "active" ? "►" : "○";
+          }
+          if (timeEl) {
+            timeEl.textContent = step.time || "";
+          }
+        }
+      });
+    }
     
     // Lazy-load Taquito/Beacon SDK only when needed
     let TezosToolkit = null;
@@ -8979,11 +9416,7 @@
     let keepsWallet = null;
     let keepsTezos = null;
     
-    // Keeps constants - loaded dynamically from shared module
-    let KEEPS_CONTRACT = null;
-    let KEEPS_NETWORK = null;
-    let KEEPS_RPC = null;
-    let keepsConstants = null;
+    // Note: KEEPS_CONTRACT, KEEPS_NETWORK, KEEPS_RPC, keepsConstants declared earlier as forward declarations
     
     async function loadKeepsConstants() {
       if (keepsConstants) return keepsConstants;
@@ -9037,21 +9470,49 @@
       try {
         log.wallet.debug("Loading Tezos SDK...");
         
-        // Load UMD bundles via script tags, disabling AMD to avoid Monaco conflicts
-        await loadScriptNoAMD("https://unpkg.com/@taquito/taquito@19.2.0/dist/taquito.min.js");
-        await loadScriptNoAMD("https://unpkg.com/@airgap/beacon-sdk@4.2.2/dist/walletbeacon.min.js");
+        // IMPORTANT: Delete window.define entirely before loading UMD scripts
+        // Monaco's AMD loader conflicts with Beacon SDK's UMD detection
+        // Test showed: delete define -> load script -> restore define = works
+        const savedDefine = window.define;
+        delete window.define;
         
-        // Get from window globals (UMD exports)
-        // Note: beacon SDK exports DAppClient, not BeaconWallet
+        // Load Taquito
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = "https://unpkg.com/@taquito/taquito@19.2.0/dist/taquito.min.js";
+          script.onload = resolve;
+          script.onerror = () => reject(new Error("Failed to load Taquito"));
+          document.head.appendChild(script);
+        });
+        
+        log.wallet.debug("Taquito loaded, window.taquito:", !!window.taquito);
         TezosToolkit = window.taquito?.TezosToolkit;
+        
+        // Load Beacon SDK
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = "https://unpkg.com/@airgap/beacon-sdk@4.2.2/dist/walletbeacon.min.js";
+          script.onload = resolve;
+          script.onerror = () => reject(new Error("Failed to load Beacon SDK"));
+          document.head.appendChild(script);
+        });
+        
+        log.wallet.debug("Beacon loaded, window.beacon:", !!window.beacon);
         BeaconWallet = window.beacon?.DAppClient;
         
+        // Restore Monaco's define
+        if (savedDefine) {
+          window.define = savedDefine;
+        }
+        
+        log.wallet.debug("Final state - TezosToolkit:", !!TezosToolkit, "BeaconWallet:", !!BeaconWallet);
+        
         if (!TezosToolkit || !BeaconWallet) {
-          log.wallet.error("SDK globals not found");
+          log.wallet.error("SDK globals not found - taquito:", !!TezosToolkit, "beacon:", !!BeaconWallet);
           throw new Error("SDK globals not found after loading");
         }
         
-        log.wallet.debug("Tezos SDK loaded");
+        log.wallet.debug("Tezos SDK loaded successfully");
       } catch (e) {
         log.wallet.error("Failed to load Tezos SDK:", e);
         throw new Error("Failed to load wallet SDK. Please refresh and try again.");
@@ -9093,25 +9554,43 @@
         return;
       }
       
-      // Use loadScriptNoAMD to avoid Monaco's AMD loader hijacking the UMD wrapper
+      // Auth0 SPA SDK has issues with AMD loaders (Monaco's define)
+      // UMD scripts check: typeof define === 'function' && define.amd
+      // We must completely delete define, not just define.amd
+      // IMPORTANT: Wait for Monaco to finish all async module loading first
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       const src = `${aestheticUrl}/aesthetic.computer/dep/auth0-spa-js.production.js`;
       log.auth.debug("Loading Auth0 SDK from:", src);
       
+      // Completely remove define to force UMD to use global export
+      const savedDefine = window.define;
+      delete window.define;
+      
       try {
-        await loadScriptNoAMD(src);
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = src;
+          script.crossOrigin = "anonymous";
+          script.onload = resolve;
+          script.onerror = () => reject(new Error(`Failed to load ${src}`));
+          document.head.appendChild(script);
+        });
       } catch (e) {
+        if (savedDefine) window.define = savedDefine;
         log.auth.error("Failed to load Auth0 script:", e.message);
         throw e;
       }
       
-      // Wait a bit for the script to initialize
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Restore define for any future AMD usage
+      if (savedDefine) {
+        window.define = savedDefine;
+      }
       
       if (window.auth0) {
-        log.auth.debug("Auth0 SDK loaded");
+        log.auth.debug("Auth0 SDK loaded successfully");
       } else {
         log.auth.warn("Auth0 SDK loaded but window.auth0 not defined - auth disabled");
-        // Don't throw, just disable auth functionality
       }
     }
     
@@ -9183,6 +9662,9 @@
         logBoot('auth', isAuthenticated ? 'authenticated' : 'guest');
       } catch (e) {
         log.auth.error("Auth0 init error:", e);
+        // Still update UI even on error - shows login buttons for guest state
+        updateACLoginUI();
+        logBoot('auth', 'error');
       }
     }
     
@@ -9353,7 +9835,7 @@
           currentPlatform = savedPlatform;
           showBootScreen(savedPlatform);
           
-          // Hide QR code and auth buttons if not aesthetic-computer
+          // Show/hide QR code and auth buttons based on platform
           const previewQR = document.getElementById('preview-qr');
           const headerAuthButtons = document.getElementById('header-auth-buttons');
           const headerUserMenu = document.getElementById('header-user-menu');
@@ -9361,6 +9843,9 @@
             if (previewQR) previewQR.style.display = 'none';
             if (headerAuthButtons) headerAuthButtons.style.display = 'none';
             if (headerUserMenu) headerUserMenu.style.display = 'none';
+          } else {
+            // On AC platform, show auth buttons (will be refined by updateACLoginUI)
+            if (headerAuthButtons) headerAuthButtons.style.display = 'flex';
           }
         }
         
@@ -9450,14 +9935,108 @@
         keepsLoginBtn.addEventListener('click', acLogin);
       }
       
+      // Show login UI immediately (guest state) - will update after Auth0 loads
+      updateACLoginUI();
+      
       // Initialize Auth0 in background
       initAuth0();
+    }
+    
+    // Load and display contract info and gallery
+    async function loadKeepsContractInfo() {
+      try {
+        await loadKeepsConstants();
+        
+        const contractLink = document.getElementById('keeps-contract-link');
+        const networkEl = document.getElementById('keeps-network');
+        const stagingBadge = document.getElementById('keeps-staging-badge');
+        
+        if (contractLink && keepsConstants) {
+          const contract = keepsConstants.getContract(keepsConstants.DEFAULT_NETWORK);
+          const network = keepsConstants.getNetwork(keepsConstants.DEFAULT_NETWORK);
+          const contractUrl = keepsConstants.getTzktContractUrl(keepsConstants.DEFAULT_NETWORK);
+          
+          // Show shortened contract address
+          contractLink.textContent = contract.slice(0, 8) + '...' + contract.slice(-4);
+          contractLink.href = contractUrl;
+          contractLink.title = contract;
+          
+          // Update network badge
+          if (networkEl) {
+            networkEl.textContent = network.displayName || network.name;
+          }
+          
+          // Show/hide staging badge
+          if (stagingBadge) {
+            stagingBadge.style.display = keepsConstants.KEEPS_STAGING ? 'inline' : 'none';
+          }
+        }
+      } catch (e) {
+        log.wallet.error("Failed to load contract info:", e);
+      }
+    }
+    
+    // Fetch and display latest keeps in gallery
+    async function loadKeepsGallery() {
+      const galleryGrid = document.getElementById('keeps-gallery-grid');
+      const galleryCount = document.getElementById('keeps-gallery-count');
+      
+      if (!galleryGrid) return;
+      
+      try {
+        await loadKeepsConstants();
+        
+        // Import tzkt-client to fetch tokens
+        const base = (window.location.hostname === 'localhost' || window.location.hostname.includes('local.'))
+          ? 'https://localhost:8888' : 'https://aesthetic.computer';
+        const { fetchAllTokens } = await import(`${base}/aesthetic.computer/lib/keeps/tzkt-client.mjs`);
+        
+        const tokens = await fetchAllTokens({ limit: 12 });
+        
+        if (galleryCount) {
+          galleryCount.textContent = tokens.length > 0 ? `(${tokens.length})` : '';
+        }
+        
+        if (tokens.length === 0) {
+          galleryGrid.innerHTML = '<div class="keeps-gallery-empty">No keeps yet - be the first!</div>';
+          return;
+        }
+        
+        galleryGrid.innerHTML = tokens.map(token => {
+          // Convert IPFS URI to gateway URL
+          let thumbUrl = token.thumbnailUri || '';
+          if (thumbUrl.startsWith('ipfs://')) {
+            thumbUrl = thumbUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
+          }
+          
+          const objktUrl = keepsConstants.getObjktUrl(token.tokenId, keepsConstants.DEFAULT_NETWORK);
+          
+          // Show token name (like "$roz") if available, otherwise fall back to "#tokenId"
+          const displayName = token.name || `#${token.tokenId}`;
+          
+          return `
+            <a href="${objktUrl}" target="_blank" class="keeps-gallery-item" title="${token.name || 'Token #' + token.tokenId}">
+              <img src="${thumbUrl}" alt="${token.name || ''}" loading="lazy" onerror="this.style.display='none'" />
+              <span class="keeps-token-number">${displayName}</span>
+            </a>
+          `;
+        }).join('');
+        
+      } catch (e) {
+        log.wallet.error("Failed to load keeps gallery:", e);
+        galleryGrid.innerHTML = '<div class="keeps-gallery-empty">Failed to load keeps</div>';
+      }
     }
     
     function initKeeps() {
       const connectBtn = document.getElementById('keeps-connect-btn');
       const mintBtn = document.getElementById('keeps-mint-btn');
+      const rebakeBtn = document.getElementById('keeps-rebake-btn');
       const addressEl = document.getElementById('keeps-address');
+      
+      // Load contract info and gallery immediately (no login required)
+      loadKeepsContractInfo();
+      loadKeepsGallery();
       
       if (!connectBtn) {
         log.wallet.warn("Keeps UI elements not found");
@@ -9478,14 +10057,22 @@
       // Mint button
       if (mintBtn) {
         mintBtn.addEventListener('click', async () => {
-          await startKeepsMint();
+          await startKeepsMint(false); // false = new mint
         });
       }
       
-      // Try to restore wallet connection from previous session
-      restoreKeepsWallet();
+      // Rebake button (update existing token)
+      if (rebakeBtn) {
+        rebakeBtn.addEventListener('click', async () => {
+          await startKeepsMint(true); // true = rebake existing
+        });
+      }
       
-      log.wallet.debug("Keeps initialized");
+      // DON'T restore wallet on init - defer until Keeps tab is clicked
+      // This prevents SDK loading from interfering with Monaco initialization
+      // restoreKeepsWallet(); // Moved to keepsTab click handler
+      
+      log.wallet.debug("Keeps initialized (wallet deferred)");
     }
     
     // Restore wallet connection on page load
@@ -9543,6 +10130,7 @@
         await keepsWallet.clearActiveAccount();
       }
       keepsWalletAddress = null;
+      keepsExistingToken = null;
       updateKeepsWalletUI();
       log.wallet.log("Wallet disconnected");
     }
@@ -9550,7 +10138,10 @@
     function updateKeepsWalletUI() {
       const connectBtn = document.getElementById('keeps-connect-btn');
       const addressEl = document.getElementById('keeps-address');
+      const codeSection = document.getElementById('keeps-code-section');
       const mintSection = document.getElementById('keeps-mint-section');
+      const existingSection = document.getElementById('keeps-existing');
+      const timelineSection = document.getElementById('keeps-timeline');
       
       if (keepsWalletAddress) {
         // Connected state
@@ -9563,95 +10154,213 @@
           addressEl.classList.remove('hidden');
         }
         
-        if (mintSection) {
-          mintSection.classList.remove('hidden');
-          updateKeepsCodePreview();
-        }
+        // Show code section and check if already minted
+        if (codeSection) codeSection.classList.remove('hidden');
+        updateKeepsCodePreview();
+        checkIfCodeAlreadyMinted();
+        
       } else {
         // Disconnected state
         connectBtn.textContent = t('keepsConnectWallet') || 'Connect Wallet';
         connectBtn.classList.remove('connected');
         connectBtn.disabled = false;
         
-        if (addressEl) {
-          addressEl.classList.add('hidden');
-        }
-        
-        if (mintSection) {
-          mintSection.classList.add('hidden');
-        }
+        if (addressEl) addressEl.classList.add('hidden');
+        if (codeSection) codeSection.classList.add('hidden');
+        if (mintSection) mintSection.classList.add('hidden');
+        if (existingSection) existingSection.classList.add('hidden');
+        if (timelineSection) timelineSection.classList.add('hidden');
       }
     }
     
     function updateKeepsCodePreview() {
       const codeText = document.getElementById('keeps-code-text');
+      const codeIdEl = document.getElementById('keeps-code-id');
       const mintBtn = document.getElementById('keeps-mint-btn');
       
-      if (!codeText || !editor) return;
+      if (!editor) return;
       
       const code = editor.getValue().trim();
       keepsCurrentCode = code;
       
-      if (code) {
-        // Show truncated preview
-        const preview = code.length > 200 ? code.slice(0, 200) + "..." : code;
-        codeText.textContent = preview;
-        if (mintBtn) mintBtn.disabled = false;
-      } else {
-        codeText.textContent = "(empty - write some code first!)";
-        if (mintBtn) mintBtn.disabled = true;
+      // Get code identifier from localStorage or URL
+      keepsCurrentCodeId = localStorage.getItem('kidlisp-current-code');
+      if (!keepsCurrentCodeId) {
+        const urlPath = window.location.pathname;
+        const codeMatch = urlPath.match(/\/\$([a-zA-Z0-9]+)$/);
+        if (codeMatch) {
+          keepsCurrentCodeId = codeMatch[1];
+        }
+      }
+      
+      // Update code ID display
+      if (codeIdEl) {
+        codeIdEl.textContent = keepsCurrentCodeId ? `$${keepsCurrentCodeId}` : '(unsaved)';
+      }
+      
+      // Update code preview
+      if (codeText) {
+        if (code) {
+          const preview = code.length > 200 ? code.slice(0, 200) + "..." : code;
+          codeText.textContent = preview;
+        } else {
+          codeText.textContent = "(empty - write some code first!)";
+        }
+      }
+      
+      if (mintBtn) {
+        mintBtn.disabled = !code || !keepsCurrentCodeId;
       }
     }
     
+    // Check if the current code is already minted on-chain
+    async function checkIfCodeAlreadyMinted() {
+      const mintSection = document.getElementById('keeps-mint-section');
+      const existingSection = document.getElementById('keeps-existing');
+      const statusEl = document.getElementById('keeps-status');
+      
+      if (!keepsCurrentCodeId) {
+        // No code saved yet
+        if (mintSection) mintSection.classList.add('hidden');
+        if (existingSection) existingSection.classList.add('hidden');
+        if (statusEl) statusEl.textContent = "Save your code first (press Enter in editor)";
+        return;
+      }
+      
+      if (statusEl) statusEl.textContent = "Checking if already minted...";
+      
+      try {
+        await loadKeepsConstants();
+        
+        // Import the check function from keeps utilities
+        const base = (window.location.hostname === 'localhost' || window.location.hostname.includes('local.'))
+          ? 'https://localhost:8888' : 'https://aesthetic.computer';
+        const { checkIfMinted, fetchTokenInfo } = await import(`${base}/aesthetic.computer/lib/keeps/tzkt-client.mjs`);
+        const { getObjktUrl, getTzktTokenUrl } = await import(`${base}/aesthetic.computer/lib/keeps/constants.mjs`);
+        
+        const result = await checkIfMinted(keepsCurrentCodeId, KEEPS_NETWORK);
+        
+        if (result && result.tokenId !== undefined) {
+          // Already minted!
+          log.wallet.log(`$${keepsCurrentCodeId} already minted as token #${result.tokenId}`);
+          
+          // Fetch token details
+          const tokenInfo = await fetchTokenInfo(result.tokenId, KEEPS_NETWORK);
+          
+          keepsExistingToken = {
+            tokenId: result.tokenId,
+            owner: tokenInfo?.owner || null,
+            thumbnailUri: tokenInfo?.thumbnailUri || null,
+            objktUrl: getObjktUrl(result.tokenId, KEEPS_NETWORK),
+            tzktUrl: getTzktTokenUrl(result.tokenId, KEEPS_NETWORK),
+          };
+          
+          // Update UI to show existing token
+          showExistingTokenUI();
+          
+        } else {
+          // Not minted yet - show mint button
+          keepsExistingToken = null;
+          if (existingSection) existingSection.classList.add('hidden');
+          if (mintSection) mintSection.classList.remove('hidden');
+          if (statusEl) statusEl.textContent = "";
+        }
+        
+      } catch (e) {
+        log.wallet.error("Error checking mint status:", e);
+        if (statusEl) statusEl.textContent = "Could not check mint status";
+        // Still show mint button on error
+        if (existingSection) existingSection.classList.add('hidden');
+        if (mintSection) mintSection.classList.remove('hidden');
+      }
+    }
+    
+    function showExistingTokenUI() {
+      const mintSection = document.getElementById('keeps-mint-section');
+      const existingSection = document.getElementById('keeps-existing');
+      const tokenIdEl = document.getElementById('keeps-token-id');
+      const thumbEl = document.getElementById('keeps-existing-thumb');
+      const objktLink = document.getElementById('keeps-objkt-link');
+      const tzktLink = document.getElementById('keeps-tzkt-link');
+      const statusEl = document.getElementById('keeps-status');
+      
+      if (mintSection) mintSection.classList.add('hidden');
+      if (existingSection) existingSection.classList.remove('hidden');
+      if (statusEl) statusEl.textContent = "";
+      
+      if (tokenIdEl && keepsExistingToken) {
+        tokenIdEl.textContent = keepsExistingToken.tokenId;
+      }
+      
+      // Load thumbnail
+      if (thumbEl && keepsExistingToken?.thumbnailUri) {
+        let thumbUrl = keepsExistingToken.thumbnailUri;
+        if (thumbUrl.startsWith('ipfs://')) {
+          thumbUrl = `https://ipfs.aesthetic.computer/ipfs/${thumbUrl.slice(7)}`;
+        }
+        thumbEl.innerHTML = `<img src="${thumbUrl}" alt="Token thumbnail" />`;
+      }
+      
+      // Update links
+      if (objktLink && keepsExistingToken?.objktUrl) {
+        objktLink.href = keepsExistingToken.objktUrl;
+      }
+      if (tzktLink && keepsExistingToken?.tzktUrl) {
+        tzktLink.href = keepsExistingToken.tzktUrl;
+      }
+    }
+
     // Pending mint request handler
     let pendingMintResolve = null;
     let pendingMintReject = null;
     
-    async function startKeepsMint() {
+    async function startKeepsMint(isRebake = false) {
       await loadKeepsConstants(); // Ensure constants are loaded
       const mintBtn = document.getElementById('keeps-mint-btn');
+      const rebakeBtn = document.getElementById('keeps-rebake-btn');
       const statusEl = document.getElementById('keeps-status');
+      const timelineEl = document.getElementById('keeps-timeline');
+      const mintSection = document.getElementById('keeps-mint-section');
+      const existingSection = document.getElementById('keeps-existing');
       
       if (keepsMinting || !keepsCurrentCode || !keepsWalletAddress) return;
       if (!acUser || !acToken) {
-        statusEl.textContent = "❌ Please login first";
-        statusEl.style.color = "#ef4444";
+        if (statusEl) {
+          statusEl.textContent = "❌ Please login first";
+          statusEl.style.color = "#ef4444";
+        }
         return;
       }
       
-      // Get code identifier from localStorage or extract from URL
-      let codeId = localStorage.getItem('kidlisp-current-code');
-      
-      // If not in localStorage, try to get from URL
-      if (!codeId) {
-        const urlPath = window.location.pathname;
-        const codeMatch = urlPath.match(/\/\$([a-zA-Z0-9]+)$/);
-        if (codeMatch) {
-          codeId = codeMatch[1];
-          // Store it for next time
-          localStorage.setItem('kidlisp-current-code', codeId);
-          log.wallet.debug("Got code from URL:", codeId);
+      if (!keepsCurrentCodeId) {
+        if (statusEl) {
+          statusEl.textContent = "❌ Save your code first (press Enter in editor)";
+          statusEl.style.color = "#ef4444";
         }
-      }
-      
-      if (!codeId) {
-        statusEl.textContent = "❌ Save your code first (hit ↵ in the editor)";
-        statusEl.style.color = "#ef4444";
         return;
       }
       
       keepsMinting = true;
-      mintBtn.textContent = t('keepsMinting') || 'Minting...';
-      mintBtn.disabled = true;
-      statusEl.textContent = t('mintPreparing');
-      statusEl.style.color = "var(--text-secondary)";
+      
+      // Hide mint/existing sections and show timeline
+      if (mintSection) mintSection.classList.add('hidden');
+      if (existingSection) existingSection.classList.add('hidden');
+      if (timelineEl) timelineEl.classList.remove('hidden');
+      
+      // Reset and start timeline
+      resetKeepsTimeline();
+      if (statusEl) {
+        statusEl.textContent = "";
+        statusEl.style.color = "var(--text-secondary)";
+      }
       
       try {
-        // Call API with piece ID (codeId is already validated above)
-        const preparedData = await prepareKeepsMint({
-          piece: codeId,
+        // Call API with piece ID
+        const preparedData = await prepareKeepsMintWithTimeline({
+          piece: keepsCurrentCodeId,
           walletAddress: keepsWalletAddress,
           network: KEEPS_NETWORK,
+          regenerate: isRebake,
         });
         
         if (!preparedData || !preparedData.mintParams) {
@@ -9659,38 +10368,67 @@
         }
         
         // Sign the transaction
-        statusEl.textContent = t('mintSigning');
+        setKeepsStep("sign", "active");
         
+        await loadTezosSDK();
         const contract = await keepsTezos.wallet.at(KEEPS_CONTRACT);
-        const op = await contract.methodsObject.keep(preparedData.mintParams).send({
-          amount: 5,
-          mutez: false,
-        });
         
-        statusEl.textContent = t('mintConfirming');
+        let op;
+        if (isRebake && keepsExistingToken) {
+          // Rebake = call edit_metadata instead of keep
+          // Note: User must be the token creator/owner for this to work!
+          op = await contract.methodsObject.edit_metadata({
+            token_id: keepsExistingToken.tokenId,
+            token_info: preparedData.mintParams.token_info || preparedData.tokenInfo,
+          }).send();
+        } else {
+          // New mint
+          op = await contract.methodsObject.keep(preparedData.mintParams).send({
+            amount: 0, // Fee is 0 for now
+            mutez: true,
+          });
+        }
+        
+        setKeepsStep("sign", "done");
+        setKeepsStep("complete", "active");
+        
         await op.confirmation(1);
         
-        statusEl.textContent = `✅ Minted! TX: ${op.opHash.slice(0, 12)}...`;
-        statusEl.style.color = "#22c55e";
+        setKeepsStep("complete", "done");
         
-        log.wallet.success("Keep minted:", op.opHash.slice(0, 12) + "...");
+        if (statusEl) {
+          statusEl.textContent = `✅ ${isRebake ? 'Rebaked' : 'Minted'}! TX: ${op.opHash.slice(0, 12)}...`;
+          statusEl.style.color = "#22c55e";
+        }
+        
+        log.wallet.success(`Keep ${isRebake ? 'rebaked' : 'minted'}:`, op.opHash.slice(0, 12) + "...");
+        
+        // Refresh the existing token view after a short delay
+        setTimeout(() => {
+          checkIfCodeAlreadyMinted();
+        }, 3000);
         
       } catch (e) {
         log.wallet.error("Mint failed:", e.message);
-        statusEl.textContent = `❌ ${e.message}`;
-        statusEl.style.color = "#ef4444";
+        
+        // Find the active step and mark it as error
+        const activeStep = keepsTimeline.find(s => s.status === "active");
+        if (activeStep) {
+          setKeepsStep(activeStep.id, "error", e.message);
+        }
+        
+        if (statusEl) {
+          statusEl.textContent = `❌ ${e.message}`;
+          statusEl.style.color = "#ef4444";
+        }
       }
       
       keepsMinting = false;
-      mintBtn.textContent = t('keepsMintBtn') || 'Mint as Keep';
-      mintBtn.disabled = !keepsCurrentCode;
     }
     
-    // Direct API call for mint preparation using Auth0 token
-    // Returns mintParams for client-side signing
-    async function prepareKeepsMint(mintRequest) {
-      const { piece, walletAddress, network } = mintRequest;
-      const statusEl = document.getElementById('keeps-status');
+    // Direct API call for mint preparation using Auth0 token with timeline updates
+    async function prepareKeepsMintWithTimeline(mintRequest) {
+      const { piece, walletAddress, network, regenerate } = mintRequest;
       
       // Make authenticated API call (SSE response)
       const response = await fetch(`${aestheticUrl}/api/keep-mint`, {
@@ -9704,6 +10442,7 @@
           walletAddress: walletAddress,
           network: network,
           mode: 'prepare', // Client-side signing
+          regenerate: regenerate || false,
         }),
       });
       
@@ -9730,26 +10469,31 @@
         
         if (!eventType || !eventData) continue;
         
-        // Update status for each step
+        // Update timeline for each step
         switch (eventType) {
           case "validate":
-            if (statusEl) statusEl.textContent = eventData.message || "Validating...";
+            setKeepsStep("validate", eventData.success ? "done" : "error", eventData.message);
             if (!eventData.success) throw new Error(eventData.message || "Validation failed");
+            setKeepsStep("analyze", "active");
             break;
           case "analyze":
-            if (statusEl) statusEl.textContent = eventData.message || "Analyzing...";
+            setKeepsStep("analyze", "done", eventData.message);
+            setKeepsStep("thumbnail", "active");
             break;
           case "thumbnail":
-            if (statusEl) statusEl.textContent = eventData.message || "Generating thumbnail...";
+            setKeepsStep("thumbnail", "done", eventData.message);
+            setKeepsStep("bundle", "active");
             break;
           case "bundle":
-            if (statusEl) statusEl.textContent = eventData.message || "Creating bundle...";
+            setKeepsStep("bundle", "done", eventData.message);
+            setKeepsStep("ipfs", "active");
             break;
           case "ipfs":
-            if (statusEl) statusEl.textContent = eventData.message || "Uploading to IPFS...";
+            setKeepsStep("ipfs", "done", eventData.message);
+            setKeepsStep("metadata", "active");
             break;
           case "metadata":
-            if (statusEl) statusEl.textContent = eventData.message || "Preparing metadata...";
+            setKeepsStep("metadata", "done", eventData.message);
             break;
           case "ready":
             preparedData = eventData;
@@ -9764,6 +10508,11 @@
       }
       
       return preparedData;
+    }
+    
+    // Legacy function for compatibility
+    async function prepareKeepsMint(mintRequest) {
+      return prepareKeepsMintWithTimeline(mintRequest);
     }
 
     async function loadExamples() {
@@ -9827,6 +10576,14 @@
                   previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">/$${item.code}</span>`;
                 }
                 updatePreview();
+                // Auto-play when selecting from top hits - stop first if already playing
+                if (sendButton && !sendButton.disabled) {
+                  if (isPlaying) {
+                    // Already playing something - stop it first, then start new one
+                    stopButton.click();
+                  }
+                  sendButton.click();
+                }
               }
             });
             examplesList.appendChild(el);
@@ -10121,12 +10878,9 @@
       const tabs = document.querySelectorAll('.viz-tab');
       const containers = document.querySelectorAll('.viz-container');
       
-      console.log('🎨 [VIZ] initVizTabs called, found', tabs.length, 'tabs and', containers.length, 'containers');
-      
       tabs.forEach(tab => {
         tab.addEventListener('click', () => {
           const vizType = tab.dataset.viz;
-          console.log('🎨 [VIZ] Tab clicked:', vizType);
           
           // Update tab states
           tabs.forEach(t => t.classList.remove('active'));
@@ -10137,7 +10891,6 @@
           const container = document.getElementById(`viz-${vizType}`);
           if (container) {
             container.classList.add('active');
-            console.log('🎨 [VIZ] Container activated:', container.id, container.getBoundingClientRect());
           }
           
           const previousView = vizSystem.currentView;
@@ -10837,11 +11590,8 @@
         }
       }
       
-      console.log('🎨 [VIZ] updateVisualization, code length:', code.length, 'view:', vizSystem.currentView);
-      
       if (code) {
         vizSystem.ast = parseToAST(code);
-        console.log('🎨 [VIZ] AST:', vizSystem.ast);
       }
       
       // Pills is the only visualization view now

@@ -2,12 +2,16 @@
 	root * public
 	file_server # browse
 	
-	# Enable compression for faster transfers (HTTP/2 is enabled by default)
-	encode zstd gzip
+	# Disable compression to avoid chunked encoding issues with Netlify Dev proxy
+	# The proxy can sometimes fail with ERR_INCOMPLETE_CHUNKED_ENCODING
+	# encode zstd gzip
 	
 	# Aggressive caching disabled for dev (instant updates)
 	header Cache-Control "no-store, no-cache, must-revalidate"
 	header X-Content-Type-Options "nosniff"
+	
+	# Disable chunked transfer encoding - send complete responses
+	header -Transfer-Encoding
 	
 	# Enable CORS for local development
 	header Access-Control-Allow-Origin "*"
