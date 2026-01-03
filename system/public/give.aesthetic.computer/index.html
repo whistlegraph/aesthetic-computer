@@ -2112,6 +2112,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      image-rendering: pixelated;
       opacity: 0;
       transition: opacity 0.5s ease;
       transform: scale(1.1);
@@ -4337,7 +4338,7 @@
           // Stagger each request by 300ms
           if (i > 0) await new Promise(r => setTimeout(r, 300));
           
-          const webpUrl = `${OVEN_URL}/grab/webp/400/300/$${code}?duration=6000&fps=10&quality=80`;
+          const webpUrl = `${OVEN_URL}/grab/webp/256/256/$${code}?duration=6000&fps=10&quality=85&density=1`;
           const img = document.createElement('img');
           img.src = webpUrl;
           img.alt = code;
