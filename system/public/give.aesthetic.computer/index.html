@@ -6,6 +6,30 @@
   <link rel="icon" href="https://aesthetic.computer/purple-pals.svg" type="image/svg+xml" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <!--
+    TODO: Give Page Improvements (2026.01.03)
+    =========================================
+    [x] 1. Shop module: Show multiple images per product before switching to next product
+        - Cycle through all product images with a faster interval (2.5s)
+        - Only switch to next product after showing all images
+        - Added image counter dots indicator
+    
+    [x] 2. Shop module: Product descriptions - support newlines and proper spacing
+        - Added white-space: pre-line for newline support
+        - Increased line-height to 1.6 and margin
+        - Increased truncation limit to 150 chars
+    
+    [x] 3. SOLD badges: Change from pink to red/white in red box
+        - Background: #d32f2f (red)
+        - Text: white
+        - Style: bold badge with padding and border-radius
+    
+    [x] 4. KidLisp panel links: Change from aesthetic.computer/$code to kidlisp.com/$code
+        - Updated pieceUrl generation
+        - Updated QR code URL generation
+    
+    All tasks completed! 🎉
+  -->
   <style>
     @font-face {
       font-family: 'ywft';
@@ -253,19 +277,75 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      overflow: auto;
+      overflow: hidden;
+      position: relative;
     }
 
     .stat-value {
       font-family: 'ywft', var(--mono);
       font-size: 1.4em;
       color: var(--gold);
+      position: relative;
+      z-index: 2;
     }
 
     .stat-label {
       font-size: 0.7em;
       color: var(--dim);
       margin-top: 0.2em;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Floating items in stat boxes */
+    .stat-floaters {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .stat-floater {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      animation: floatUp 12s linear forwards;
+      opacity: 0.4;
+    }
+
+    .stat-floater img {
+      width: 32px;
+      height: 32px;
+      object-fit: cover;
+      border-radius: 2px;
+      image-rendering: pixelated;
+    }
+
+    .stat-floater .floater-code {
+      font-family: var(--mono);
+      font-size: 0.5em;
+      color: var(--dim);
+      white-space: nowrap;
+    }
+
+    @keyframes floatUp {
+      0% {
+        transform: translateY(100%);
+        opacity: 0;
+      }
+      5% {
+        opacity: 0.35;
+      }
+      95% {
+        opacity: 0.35;
+      }
+      100% {
+        transform: translateY(-120%);
+        opacity: 0;
+      }
     }
 
     /* Recent Gives Feed */
@@ -1498,11 +1578,36 @@
     .shop-product-desc {
       font-family: var(--mono);
       font-size: 0.75em;
-      color: rgba(255, 255, 255, 0.8);
-      line-height: 1.4;
-      margin-top: 0.5em;
+      color: rgba(255, 255, 255, 0.85);
+      line-height: 1.6;
+      margin-top: 0.6em;
       text-shadow: 0 1px 4px rgba(0,0,0,0.8);
       max-width: 90%;
+      white-space: pre-line;
+    }
+
+    /* Image indicator dots */
+    .shop-image-dots {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 6px;
+      z-index: 10;
+    }
+
+    .shop-image-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.4);
+      transition: background 0.3s, transform 0.3s;
+    }
+
+    .shop-image-dot.active {
+      background: #fff;
+      transform: scale(1.2);
     }
 
     .shop-product-price {
@@ -1515,12 +1620,16 @@
     }
 
     .shop-product-sold {
-      color: var(--pink);
-      font-size: 0.95em;
+      display: inline-block;
+      background: #d32f2f;
+      color: #fff;
+      font-size: 0.85em;
       font-weight: 700;
       text-transform: uppercase;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+      padding: 0.25em 0.6em;
+      border-radius: 3px;
       margin-top: 0.3em;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     }
 
     @keyframes shopFadeIn {
@@ -1826,10 +1935,9 @@
 
     .chat-messages {
       flex: 1;
-      overflow-y: scroll;
-      overflow-x: hidden;
+      overflow: hidden;
       background: #111;
-      scroll-behavior: auto;
+      pointer-events: none;
       scrollbar-width: none;
       -ms-overflow-style: none;
     }
@@ -2056,7 +2164,7 @@
       height: 100%;
       width: 0%;
       background: #AA96DA;
-      transition: width 0.1s linear;
+      /* No transition - smooth continuous updates from requestAnimationFrame */
     }
 
     .kidlisp-preview-header {
@@ -2517,27 +2625,33 @@
       </div>
 
       <div class="stats-section">
-        <div class="stat-item">
+        <div class="stat-item" id="stat-users">
+          <div class="stat-floaters"></div>
           <div class="stat-value">4,217</div>
           <div class="stat-label">users</div>
         </div>
-        <div class="stat-item">
+        <div class="stat-item" id="stat-paintings">
+          <div class="stat-floaters"></div>
           <div class="stat-value">4,108</div>
           <div class="stat-label">paintings</div>
         </div>
-        <div class="stat-item">
+        <div class="stat-item" id="stat-moods">
+          <div class="stat-floaters"></div>
           <div class="stat-value">2,827</div>
           <div class="stat-label">moods</div>
         </div>
-        <div class="stat-item">
+        <div class="stat-item" id="stat-kidlisp">
+          <div class="stat-floaters"></div>
           <div class="stat-value">12,933</div>
           <div class="stat-label">kidlisp</div>
         </div>
-        <div class="stat-item">
+        <div class="stat-item" id="stat-pieces">
+          <div class="stat-floaters"></div>
           <div class="stat-value">847</div>
           <div class="stat-label">pieces</div>
         </div>
-        <div class="stat-item">
+        <div class="stat-item" id="stat-prompts">
+          <div class="stat-floaters"></div>
           <div class="stat-value">156</div>
           <div class="stat-label">prompts</div>
         </div>
@@ -3513,13 +3627,16 @@
       connectWS();
     }
 
-    // Fetch shop products - single rotating display
+    // Fetch shop products - rotating display with image cycling
     let shopProducts = [];
     let shopIndex = 0;
+    let shopImageIndex = 0;
     let shopProgressAnim = null;
-    const SHOP_INTERVAL = 4000; // 4 seconds between products
+    let shopImageInterval = null;
+    const SHOP_IMAGE_INTERVAL = 2500; // 2.5 seconds between images within same product
+    const SHOP_PRODUCT_INTERVAL = 4000; // Base interval, extended per image count
     
-    function animateShopProgress() {
+    function animateShopProgress(duration) {
       const progressBar = document.getElementById('shopAutoProgress');
       if (!progressBar) return;
       
@@ -3528,10 +3645,10 @@
       function step(timestamp) {
         if (!startTime) startTime = timestamp;
         const elapsed = timestamp - startTime;
-        const pct = Math.min((elapsed / SHOP_INTERVAL) * 100, 100);
+        const pct = Math.min((elapsed / duration) * 100, 100);
         progressBar.style.width = pct + '%';
         
-        if (elapsed < SHOP_INTERVAL) {
+        if (elapsed < duration) {
           shopProgressAnim = requestAnimationFrame(step);
         }
       }
@@ -3554,18 +3671,76 @@
         
         shopProducts = data.products;
         showShopProduct(0);
-        animateShopProgress();
-        
-        // Rotate every 4 seconds
-        setInterval(() => {
-          shopIndex = (shopIndex + 1) % shopProducts.length;
-          showShopProduct(shopIndex);
-          animateShopProgress();
-        }, SHOP_INTERVAL);
+        startShopCycle();
       } catch (e) {
         console.error('Shop load error:', e);
         container.innerHTML = '<a href="https://shop.aesthetic.computer" class="shop-loading">Visit shop →</a>';
       }
+    }
+    
+    function startShopCycle() {
+      // Clear any existing intervals
+      if (shopImageInterval) clearInterval(shopImageInterval);
+      
+      const p = shopProducts[shopIndex];
+      if (!p) return;
+      
+      const images = p.images || [p.imageUrl].filter(Boolean);
+      shopImageIndex = 0;
+      
+      if (images.length > 1) {
+        // Multiple images: cycle through them, then advance product
+        const totalDuration = images.length * SHOP_IMAGE_INTERVAL;
+        animateShopProgress(totalDuration);
+        
+        shopImageInterval = setInterval(() => {
+          shopImageIndex++;
+          if (shopImageIndex >= images.length) {
+            // All images shown, advance to next product
+            clearInterval(shopImageInterval);
+            shopIndex = (shopIndex + 1) % shopProducts.length;
+            shopImageIndex = 0;
+            showShopProduct(shopIndex);
+            startShopCycle();
+          } else {
+            // Show next image of same product
+            updateShopImage(shopImageIndex);
+          }
+        }, SHOP_IMAGE_INTERVAL);
+      } else {
+        // Single image: just use standard interval
+        animateShopProgress(SHOP_PRODUCT_INTERVAL);
+        
+        shopImageInterval = setInterval(() => {
+          clearInterval(shopImageInterval);
+          shopIndex = (shopIndex + 1) % shopProducts.length;
+          shopImageIndex = 0;
+          showShopProduct(shopIndex);
+          startShopCycle();
+        }, SHOP_PRODUCT_INTERVAL);
+      }
+    }
+    
+    function updateShopImage(imgIndex) {
+      const p = shopProducts[shopIndex];
+      if (!p) return;
+      
+      const images = p.images || [p.imageUrl].filter(Boolean);
+      if (!images.length) return;
+      
+      const img = document.querySelector('.shop-product img');
+      if (img) {
+        img.style.opacity = '0';
+        setTimeout(() => {
+          img.src = images[imgIndex];
+          img.style.opacity = '1';
+        }, 150);
+      }
+      
+      // Update dots
+      document.querySelectorAll('.shop-image-dot').forEach((dot, i) => {
+        dot.classList.toggle('active', i === imgIndex);
+      });
     }
     
     function showShopProduct(index) {
@@ -3573,29 +3748,35 @@
       const p = shopProducts[index];
       if (!p) return;
       
-      // Pick a random image from all available images
+      // Get all images
       const images = p.images || [p.imageUrl].filter(Boolean);
-      const randomImage = images.length > 0 
-        ? images[Math.floor(Math.random() * images.length)] 
+      const currentImage = images.length > 0 ? images[0] : '';
+      
+      // Create image dots if multiple images
+      const dotsHtml = images.length > 1 
+        ? `<div class="shop-image-dots">${images.map((_, i) => 
+            `<div class="shop-image-dot${i === 0 ? ' active' : ''}"></div>`
+          ).join('')}</div>`
         : '';
       
       // Extract vendor from product data if available
       const vendor = p.vendor || '';
       const vendorHtml = vendor ? `<div class="shop-product-vendor"><a href="https://aesthetic.computer/@${vendor.replace('@', '')}" target="_blank">${vendor.startsWith('@') ? vendor : '@' + vendor}</a></div>` : '';
       
-      // Truncate description to ~100 chars
+      // Process description - preserve newlines, truncate to ~150 chars
       const desc = p.description || '';
-      const shortDesc = desc.length > 100 ? desc.slice(0, 100).trim() + '…' : desc;
-      const descHtml = shortDesc ? `<div class="shop-product-desc">${shortDesc}</div>` : '';
+      const shortDesc = desc.length > 150 ? desc.slice(0, 150).trim() + '…' : desc;
+      const descHtml = shortDesc ? `<div class="shop-product-desc">${escapeHtml(shortDesc)}</div>` : '';
       
       container.innerHTML = `
         <a href="${p.shopUrl}" class="shop-product" target="_blank">
           <div class="shop-product-img-wrap">
-            <img src="${randomImage}" alt="${p.title}" loading="lazy">
+            <img src="${currentImage}" alt="${escapeHtml(p.title)}" loading="lazy" style="transition: opacity 0.15s;">
           </div>
+          ${dotsHtml}
           <div class="shop-product-overlay">
             <div class="shop-product-top">
-              <div class="shop-product-title">${p.title}</div>
+              <div class="shop-product-title">${escapeHtml(p.title)}</div>
               ${vendorHtml}
               ${descHtml}
             </div>
@@ -4234,7 +4415,7 @@
           const hitCount = item.hits || 0;
           const source = item.source || '';
           const author = item.handle || item.author || '';
-          const pieceUrl = `https://aesthetic.computer/$${code}`;
+          const pieceUrl = `https://kidlisp.com/$${code}`;
           
           // Truncate source to fit in preview (more generous for single view)
           const truncatedSource = source.length > 400 ? source.slice(0, 400) + '...' : source;
@@ -4319,15 +4500,7 @@
         // Start rotation every 6 seconds (match webp duration)
         slideInterval = setInterval(nextSlide, KIDLISP_INTERVAL);
         
-        // Pause on hover
-        carousel.addEventListener('mouseenter', () => {
-          clearInterval(slideInterval);
-          if (kidlispProgressAnim) cancelAnimationFrame(kidlispProgressAnim);
-        });
-        carousel.addEventListener('mouseleave', () => {
-          animateKidlispProgress();
-          slideInterval = setInterval(nextSlide, KIDLISP_INTERVAL);
-        });
+        // No pause on hover - slides continue advancing
         
         // Load webp images for all slides (staggered to not overwhelm oven)
         const slideEls = carousel.querySelectorAll('.kidlisp-slide');
@@ -4362,7 +4535,7 @@
           const qrContainer = slide.querySelector('.kidlisp-slide-qr');
           if (qrContainer && typeof qrcode !== 'undefined') {
             try {
-              const qrUrl = `https://prompt.ac/$${code}`;
+              const qrUrl = `https://kidlisp.com/$${code}`;
               const qrGen = qrcode(0, 'L');
               qrGen.addData(qrUrl);
               qrGen.make();
@@ -4476,6 +4649,80 @@
     }
     
     loadDesktopReleaseInfo();
+
+    // 🎨 Floating Paintings in Stats
+    async function loadFloatingPaintings() {
+      const statItem = document.getElementById('stat-paintings');
+      if (!statItem) return;
+      
+      const floatersContainer = statItem.querySelector('.stat-floaters');
+      if (!floatersContainer) return;
+      
+      try {
+        // Fetch paintings from TV endpoint
+        const res = await fetch(`${apiBase}/api/tv?types=painting&limit=50`);
+        if (!res.ok) throw new Error('Failed to fetch paintings');
+        
+        const data = await res.json();
+        const paintings = data.items || [];
+        if (!paintings.length) return;
+        
+        // Preload images
+        const preloaded = [];
+        for (const p of paintings) {
+          if (!p.media?.url) continue;
+          const img = new Image();
+          img.src = p.media.url;
+          preloaded.push({ ...p, img });
+        }
+        
+        let index = 0;
+        
+        function spawnFloater() {
+          if (!preloaded.length) return;
+          
+          const p = preloaded[index % preloaded.length];
+          index++;
+          
+          const floater = document.createElement('div');
+          floater.className = 'stat-floater';
+          
+          // Random horizontal position (10% to 90% to avoid edges)
+          const xPos = 10 + Math.random() * 80;
+          floater.style.left = `${xPos}%`;
+          floater.style.bottom = '0';
+          floater.style.transform = 'translateX(-50%)';
+          
+          // Thumbnail
+          const thumb = document.createElement('img');
+          thumb.src = p.media.url;
+          thumb.alt = p.code || 'painting';
+          floater.appendChild(thumb);
+          
+          // Code label
+          if (p.code) {
+            const code = document.createElement('span');
+            code.className = 'floater-code';
+            code.textContent = `#${p.code}`;
+            floater.appendChild(code);
+          }
+          
+          floatersContainer.appendChild(floater);
+          
+          // Remove after animation completes
+          floater.addEventListener('animationend', () => floater.remove());
+        }
+        
+        // Spawn one immediately, then every 3 seconds
+        spawnFloater();
+        setInterval(spawnFloater, 3000);
+        
+      } catch (e) {
+        console.warn('Could not load floating paintings:', e);
+      }
+    }
+    
+    loadFloatingPaintings();
   </script>
   
   <!-- 🔄 Development live reload via session-server -->

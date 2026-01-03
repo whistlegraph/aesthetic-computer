@@ -10,7 +10,7 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, IPFS_GATEWAY } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, IPFS_GATEWAY } from './grabber.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -1111,6 +1111,26 @@ app.get('/grab-status', (req, res) => {
   res.json({
     active: getActiveGrabs(),
     recent: getRecentGrabs()
+  });
+});
+
+// Cleanup stale grabs (grabs stuck for > 5 minutes)
+app.post('/grab-cleanup', (req, res) => {
+  const result = cleanupStaleGrabs();
+  addServerLog('cleanup', '🧹', `Manual cleanup: ${result.cleaned} stale grabs removed`);
+  res.json({
+    success: true,
+    ...result
+  });
+});
+
+// Emergency clear all active grabs (admin only)
+app.post('/grab-clear', (req, res) => {
+  const result = clearAllActiveGrabs();
+  addServerLog('cleanup', '🗑️', `Emergency clear: ${result.cleared} grabs force-cleared`);
+  res.json({
+    success: true,
+    ...result
   });
 });
 

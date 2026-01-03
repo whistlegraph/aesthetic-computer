@@ -108,6 +108,83 @@ const recentGrabs = [];
 const latestIPFSUploads = new Map(); // piece -> { ipfsCid, ipfsUri, timestamp, ... }
 let latestKeepThumbnail = null; // Most recent across all pieces
 
+// Stale grab timeout: grabs older than this are considered stuck and can be cleaned up
+const STALE_GRAB_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Clean up stale grabs that have been active for too long (likely stuck)
+ * @returns {{ cleaned: number, remaining: number }}
+ */
+export function cleanupStaleGrabs() {
+  const now = Date.now();
+  let cleaned = 0;
+  
+  for (const [grabId, grab] of activeGrabs.entries()) {
+    const age = now - grab.startTime;
+    if (age > STALE_GRAB_TIMEOUT_MS) {
+      console.log(`🧹 Cleaning up stale grab: ${grabId} (age: ${Math.round(age / 1000)}s)`);
+      serverLog('cleanup', '🧹', `Cleaned stale grab: ${grab.piece} (stuck for ${Math.round(age / 1000)}s)`);
+      
+      // Mark as failed and move to recent
+      grab.status = 'stale-cleaned';
+      grab.error = 'Grab timed out and was cleaned up';
+      grab.completedAt = now;
+      
+      activeGrabs.delete(grabId);
+      recentGrabs.unshift(grab);
+      if (recentGrabs.length > 20) recentGrabs.pop();
+      saveGrab(grab);
+      cleaned++;
+    }
+  }
+  
+  if (cleaned > 0) {
+    notifySubscribers();
+    console.log(`🧹 Cleaned ${cleaned} stale grabs`);
+  }
+  
+  return { cleaned, remaining: activeGrabs.size };
+}
+
+/**
+ * Clear all active grabs (emergency reset)
+ * @returns {{ cleared: number }}
+ */
+export function clearAllActiveGrabs() {
+  const count = activeGrabs.size;
+  const now = Date.now();
+  
+  for (const [grabId, grab] of activeGrabs.entries()) {
+    console.log(`🗑️ Force clearing grab: ${grabId}`);
+    grab.status = 'force-cleared';
+    grab.error = 'Manually cleared by admin';
+    grab.completedAt = now;
+    
+    recentGrabs.unshift(grab);
+    if (recentGrabs.length > 20) recentGrabs.pop();
+    saveGrab(grab);
+  }
+  
+  activeGrabs.clear();
+  
+  // Also clear the queue
+  const queueCount = grabQueue.length;
+  grabQueue.length = 0;
+  grabRunning = false;
+  
+  notifySubscribers();
+  serverLog('cleanup', '🗑️', `Force cleared ${count} active grabs and ${queueCount} queued items`);
+  
+  return { cleared: count, queueCleared: queueCount };
+}
+
+// Run stale cleanup every 2 minutes
+setInterval(() => {
+  if (activeGrabs.size > 0) {
+    cleanupStaleGrabs();
+  }
+}, 2 * 60 * 1000);
+
 /**
  * Load recent grabs from MongoDB on startup
  */
