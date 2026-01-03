@@ -3093,6 +3093,68 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     window.addEventListener("keydown", () => enableAudioPlayback());
   }
 
+  // 🔍 Density Keyboard Controls (Cmd/Ctrl + / - / 0)
+  // Uses standard zoom keys - browser may also zoom, but density will change too
+  const DENSITY_MIN = 0.5;
+  const DENSITY_MAX = 4;
+  const DENSITY_STEP = 0.5;
+  const DENSITY_DEFAULT = 2;
+
+  function changeDensity(direction) {
+    const current = density;
+    let newDensity;
+    
+    if (direction === 0) {
+      // Reset to default
+      newDensity = DENSITY_DEFAULT;
+    } else {
+      newDensity = current + (direction * DENSITY_STEP);
+      newDensity = Math.max(DENSITY_MIN, Math.min(DENSITY_MAX, newDensity));
+      newDensity = Math.round(newDensity * 2) / 2; // Round to nearest 0.5
+    }
+    
+    if (newDensity === current) return;
+    
+    // Update module-level density variable
+    density = newDensity;
+    window.acPACK_DENSITY = newDensity;
+    
+    // Persist to localStorage
+    try {
+      localStorage.setItem("ac-density", newDensity.toString());
+    } catch {}
+    
+    // Trigger reframe to apply new density
+    frame();
+    
+    console.log(`🔍 Density: ${newDensity}`);
+  }
+
+  // Keyboard listener for density controls (capture phase to intercept early)
+  window.addEventListener("keydown", (e) => {
+    const isMeta = e.metaKey || e.ctrlKey;
+    if (!isMeta) return;
+    
+    // Cmd/Ctrl + Plus/Equal (increase density)
+    if (e.key === "=" || e.key === "+") {
+      e.preventDefault();
+      e.stopPropagation();
+      changeDensity(1); // Increase
+    } 
+    // Cmd/Ctrl + Minus (decrease density)
+    else if (e.key === "-") {
+      e.preventDefault();
+      e.stopPropagation();
+      changeDensity(-1); // Decrease
+    } 
+    // Cmd/Ctrl + 0 (reset density)
+    else if (e.key === "0") {
+      e.preventDefault();
+      e.stopPropagation();
+      changeDensity(0); // Reset to default
+    }
+  }, { capture: true });
+
   // Play a sound back through the sfx system.
   // 🌡️ TODO: `sfx` could be scraped for things that need to be decoded
   //          upon audio activation. This would probably be helpful
