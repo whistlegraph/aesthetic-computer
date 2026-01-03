@@ -259,7 +259,7 @@ if (typeof window !== 'undefined') {
 }
 
 // 📊 Performance OSD (On-Screen Display)
-let perfOSD = true; // Toggle with ` (backtick) key - starts ON for testing
+let perfOSD = false; // Toggle with ` (backtick) key - starts OFF
 const perfStats = {
   lastKeyTime: 0,        // When the last key was pressed
   lastSoundTime: 0,      // When the sound started playing (synth call)
@@ -526,6 +526,7 @@ let scope = 32; // Reduced from 64 for better visualizer performance
 // let scopeTrim = 0;
 
 let projector = false;
+let visualizerFullscreen = false; // Toggle visualizer as full background behind buttons
 
 const trail = {};
 
@@ -1165,7 +1166,24 @@ function paint({
 
     return;
   }
-  wipe(bg);
+  
+  // 🎨 Fullscreen visualizer mode - draw bars as background behind everything
+  if (visualizerFullscreen) {
+    wipe(0); // Black background first
+    sound.paint.bars(
+      api,
+      amplitude,
+      waveformsForBars,
+      0,
+      0,
+      screen.width,
+      screen.height,
+      [255, 0, 0, 255],
+      { primaryColor, secondaryColor },
+    );
+  } else {
+    wipe(bg);
+  }
 
   if (slide) {
     ink(undefined).write("slide", { right: 4, top: 24 });
@@ -2086,6 +2104,16 @@ function act({
     picture = painting(resizedPictureWidth, resizedPictureHeight, ({ wipe }) => {
       wipe("gray");
     });
+  }
+
+  // 🎨 Tap on visualizer bar (top bar) to toggle fullscreen visualizer
+  if (e.is("touch") && e.y < TOP_BAR_BOTTOM && !projector && !paintPictureOverlay) {
+    // Check that tap is in the visualizer area (between left edge and waveBtn)
+    const vizLeft = 54;
+    const vizRight = waveBtn?.box?.x || screen.width;
+    if (e.x >= vizLeft && e.x <= vizRight) {
+      visualizerFullscreen = !visualizerFullscreen;
+    }
   }
 
   if (e.is("keyboard:down:.") && !e.repeat) {
