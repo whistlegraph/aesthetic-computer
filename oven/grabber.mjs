@@ -69,6 +69,37 @@ const IPFS_GATEWAY = 'https://ipfs.aesthetic.computer';
 let browser = null;
 let browserLaunchPromise = null;
 
+// Simple grab queue to prevent parallel puppeteer page sessions from competing
+const grabQueue = [];
+let grabRunning = false;
+
+async function enqueueGrab(fn) {
+  return new Promise((resolve, reject) => {
+    grabQueue.push({ fn, resolve, reject });
+    processGrabQueue();
+  });
+}
+
+async function processGrabQueue() {
+  if (grabRunning || grabQueue.length === 0) return;
+  
+  grabRunning = true;
+  const { fn, resolve, reject } = grabQueue.shift();
+  
+  try {
+    const result = await fn();
+    resolve(result);
+  } catch (error) {
+    reject(error);
+  } finally {
+    grabRunning = false;
+    // Process next item after a small delay to let resources settle
+    if (grabQueue.length > 0) {
+      setTimeout(processGrabQueue, 100);
+    }
+  }
+}
+
 // In-memory tracking (similar to baker.mjs)
 const activeGrabs = new Map();
 const recentGrabs = [];
@@ -868,7 +899,7 @@ export async function grabPiece(piece, options = {}) {
     id: grabId,
     piece: piece, // Keep original with $ prefix for URL generation
     format,
-    status: 'capturing',
+    status: 'queued',
     startTime: Date.now(),
     captureKey, // For deduplication lookup
     gitVersion: GIT_VERSION,
@@ -877,59 +908,61 @@ export async function grabPiece(piece, options = {}) {
     keepId: keepId || null,
   });
   
-  try {
-    let result;
-    
-    if (format === 'png') {
-      // Single frame PNG
-      const frame = await captureFrame(piece, { width, height, density, baseUrl });
-      if (!frame) {
-        throw new Error('Failed to capture frame');
-      }
-      result = await frameToThumbnail(frame, { width: width * density, height: height * density });
-      
-    } else {
-      // Animated WebP or GIF
+  // Use queue to serialize capture operations (avoid parallel puppeteer sessions)
+  return enqueueGrab(async () => {
+    try {
+      let result;
       activeGrabs.get(grabId).status = 'capturing';
-      const capturedFrames = await captureFrames(piece, { 
-        width, height, duration, fps, density, baseUrl 
-      });
       
-      if (capturedFrames.length === 0) {
-        throw new Error('No frames captured');
-      }
-      
-      activeGrabs.get(grabId).status = 'encoding';
-      
-      if (format === 'webp') {
-        result = await framesToWebp(capturedFrames, { 
-          playbackFps, 
-          width: width * density, 
-          height: height * density,
-          quality 
-        });
+      if (format === 'png') {
+        // Single frame PNG
+        const frame = await captureFrame(piece, { width, height, density, baseUrl });
+        if (!frame) {
+          throw new Error('Failed to capture frame');
+        }
+        result = await frameToThumbnail(frame, { width: width * density, height: height * density });
+        
       } else {
-        result = await framesToGif(capturedFrames, { 
-          fps: playbackFps, 
-          width: width * density, 
-          height: height * density 
+        // Animated WebP or GIF
+        const capturedFrames = await captureFrames(piece, { 
+          width, height, duration, fps, density, baseUrl 
         });
+        
+        if (capturedFrames.length === 0) {
+          throw new Error('No frames captured');
+        }
+        
+        activeGrabs.get(grabId).status = 'encoding';
+        
+        if (format === 'webp') {
+          result = await framesToWebp(capturedFrames, { 
+            playbackFps, 
+            width: width * density, 
+            height: height * density,
+            quality 
+          });
+        } else {
+          result = await framesToGif(capturedFrames, { 
+            fps: playbackFps, 
+            width: width * density, 
+            height: height * density 
+          });
+        }
       }
-    }
-    
-    // Update status
-    const grab = activeGrabs.get(grabId);
-    grab.status = 'complete';
-    grab.completedAt = Date.now();
-    grab.duration = grab.completedAt - grab.startTime;
-    grab.size = result.length;
-    
-    // Upload to Spaces for dashboard preview
-    if (process.env.ART_SPACES_KEY) {
-      try {
-        const ext = format === 'webp' ? 'webp' : format === 'gif' ? 'gif' : 'png';
-        const contentType = format === 'webp' ? 'image/webp' : format === 'gif' ? 'image/gif' : 'image/png';
-        const spacesKey = `oven/grabs/${grabId}.${ext}`;
+      
+      // Update status
+      const grab = activeGrabs.get(grabId);
+      grab.status = 'complete';
+      grab.completedAt = Date.now();
+      grab.duration = grab.completedAt - grab.startTime;
+      grab.size = result.length;
+      
+      // Upload to Spaces for dashboard preview
+      if (process.env.ART_SPACES_KEY) {
+        try {
+          const ext = format === 'webp' ? 'webp' : format === 'gif' ? 'gif' : 'png';
+          const contentType = format === 'webp' ? 'image/webp' : format === 'gif' ? 'image/gif' : 'image/png';
+          const spacesKey = `oven/grabs/${grabId}.${ext}`;
         
         await spacesClient.send(new PutObjectCommand({
           Bucket: SPACES_BUCKET,
@@ -971,32 +1004,33 @@ export async function grabPiece(piece, options = {}) {
       cached: false,
     };
     
-  } catch (error) {
-    console.error(`❌ Grab failed: ${grabId}`, error.message);
-    
-    const grab = activeGrabs.get(grabId);
-    if (grab) {
-      grab.status = 'failed';
-      grab.error = error.message;
-      grab.completedAt = Date.now();
+    } catch (error) {
+      console.error(`❌ Grab failed: ${grabId}`, error.message);
       
-      activeGrabs.delete(grabId);
-      recentGrabs.unshift(grab);
-      if (recentGrabs.length > 20) recentGrabs.pop();
-      saveGrab(grab); // Persist to MongoDB
+      const grab = activeGrabs.get(grabId);
+      if (grab) {
+        grab.status = 'failed';
+        grab.error = error.message;
+        grab.completedAt = Date.now();
+        
+        activeGrabs.delete(grabId);
+        recentGrabs.unshift(grab);
+        if (recentGrabs.length > 20) recentGrabs.pop();
+        saveGrab(grab); // Persist to MongoDB
+        
+        // Notify WebSocket subscribers
+        notifySubscribers();
+      }
       
-      // Notify WebSocket subscribers
-      notifySubscribers();
+      return {
+        success: false,
+        grabId,
+        piece: pieceName,
+        format,
+        error: error.message,
+      };
     }
-    
-    return {
-      success: false,
-      grabId,
-      piece: pieceName,
-      format,
-      error: error.message,
-    };
-  }
+  }); // End of enqueueGrab
 }
 
 /**

@@ -233,6 +233,12 @@
       background: var(--box-bg);
       border: 1px solid var(--box-border);
       border-radius: 4px;
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      overflow: auto;
     }
 
     .stat-value {
@@ -245,6 +251,19 @@
       font-size: 0.7em;
       color: var(--dim);
       margin-top: 0.2em;
+    }
+
+    /* Module caption - positioned at bottom of content boxes */
+    .module-caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 0.8em 1em;
+      font-size: 0.75em;
+      color: var(--dim);
+      background: inherit;
+      z-index: 2;
     }
 
     /* Fiat Currency Section */
@@ -764,29 +783,71 @@
       background: var(--box-bg);
       border: 1px solid var(--box-border);
       border-radius: 4px;
-      padding: 1em 1.2em;
+      padding: 0;
       display: flex;
       flex-direction: column;
-      gap: 0.3em;
+      aspect-ratio: 1;
+      overflow: hidden;
+      position: relative;
     }
 
     .link-block strong {
+      position: sticky;
+      top: 0;
+      left: 0;
+      background: inherit;
+      padding: 0.8em 1em;
       color: var(--pink);
       font-family: 'ywft', sans-serif;
       font-size: 0.9em;
+      z-index: 1;
     }
 
     .link-block a {
       color: var(--cyan);
       font-family: var(--mono);
       font-size: 0.9em;
+      padding: 0 1em;
+      flex: 1;
+      overflow: auto;
     }
 
     .link-block .link-desc {
-      font-size: 0.8em;
+      position: sticky;
+      bottom: 0;
+      left: 0;
+      background: inherit;
+      padding: 0.8em 1em;
+      font-size: 0.75em;
       color: var(--dim);
-      margin-top: 0.2em;
+      z-index: 1;
     }
+
+    /* Distinct link-block colors */
+    .link-block.desktop-section {
+      background: linear-gradient(135deg, #2d1b4e 0%, #1a1a2e 100%);
+      border-color: #3d2b5e;
+    }
+    .link-block.desktop-section strong,
+    .link-block.desktop-section .link-desc { background: transparent; }
+
+    /* Notepat - musical purple/blue */
+    .link-block.notepat-section {
+      background: linear-gradient(135deg, #1a1a3e 0%, #2a1a4e 100%);
+      border-color: #3a2a5e;
+    }
+    .link-block.notepat-section strong { color: #a090ff; }
+    .link-block.notepat-section strong,
+    .link-block.notepat-section .link-desc { background: transparent; }
+
+    /* Invest - green/money theme */
+    .link-block.invest-section {
+      background: linear-gradient(135deg, #0a2a1a 0%, #1a3a2a 100%);
+      border-color: #2a4a3a;
+    }
+    .link-block.invest-section strong { color: #4ecdc4; }
+    .link-block.invest-section strong,
+    .link-block.invest-section .link-desc { background: transparent; }
 
     /* Desktop download buttons */
     .desktop-downloads {
@@ -961,99 +1022,141 @@
     /* Shop Section - clean white background like shop.aesthetic.computer */
     .shop-section {
       background: #ffffff;
-      border: 1px solid #e0e0e0;
+      border: none;
       border-radius: 8px;
-      padding: 1.2em;
+      padding: 0;
       color: #1a1a1a;
-      max-width: 320px;
-    }
-
-    .shop-header {
+      aspect-ratio: 1;
+      overflow: hidden;
       display: flex;
-      align-items: baseline;
-      gap: 0.6em;
-      margin-bottom: 1em;
-      flex-wrap: wrap;
-    }
-
-    .shop-title {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 1.3em;
-      font-weight: 600;
-      color: #1a1a1a;
-      text-decoration: none;
-      letter-spacing: -0.02em;
-    }
-
-    .shop-title:hover {
-      color: #e84a8a;
-      text-decoration: underline;
-    }
-
-    .shop-tagline {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 0.8em;
-      color: #666;
-    }
-
-    .shop-products {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 180px;
+      flex-direction: column;
       position: relative;
     }
 
-    .shop-product {
+    .shop-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 3;
+      background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 100%);
+      padding: 0.8em 1em;
+    }
+
+    .shop-title {
+      font-family: 'berkeley', 'Menlo', 'Monaco', 'Consolas', monospace;
+      font-size: 1em;
+      font-weight: 600;
+      color: #fff;
       text-decoration: none;
-      color: #1a1a1a;
-      text-align: center;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+
+    .shop-title:hover {
+      color: #ff9ec4;
+    }
+
+    .shop-section .module-caption {
+      background: linear-gradient(0deg, rgba(0,0,0,0.5) 0%, transparent 100%);
+      color: rgba(255,255,255,0.8);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+      z-index: 3;
+    }
+
+    .shop-products {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+    }
+
+    .shop-product {
+      display: block;
+      width: 100%;
+      height: 100%;
+      text-decoration: none;
+      color: #fff;
+      position: relative;
       opacity: 0;
-      transform: scale(0.95);
-      animation: shopFadeIn 0.4s ease forwards;
+      animation: shopFadeIn 0.5s ease forwards;
     }
 
-    @keyframes shopFadeIn {
-      to { opacity: 1; transform: scale(1); }
-    }
-
-    .shop-product:hover {
-      transform: scale(1.03);
-    }
-
-    .shop-product:hover .shop-product-title {
-      text-decoration: underline;
+    .shop-product-img-wrap {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
     }
 
     .shop-product img {
-      width: 140px;
-      height: 140px;
-      aspect-ratio: 1 / 1;
+      width: 100%;
+      height: 100%;
       object-fit: cover;
-      border-radius: 4px;
-      background: #f5f5f5;
-      border: 1px solid #e0e0e0;
+      transform: scale(1.15);
+      animation: kenBurns 15s ease-in-out infinite alternate;
+    }
+
+    @keyframes kenBurns {
+      0% { transform: scale(1.15) translate(0, 0); }
+      25% { transform: scale(1.25) translate(-3%, -2%); }
+      50% { transform: scale(1.2) translate(2%, -3%); }
+      75% { transform: scale(1.3) translate(-2%, 2%); }
+      100% { transform: scale(1.2) translate(2%, -1%); }
+    }
+
+    .shop-product:hover img {
+      animation-play-state: paused;
+      transform: scale(1.05);
+      transition: transform 0.4s ease;
+    }
+
+    .shop-product-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 1em;
+      padding-top: 2.5em;
+      text-align: center;
     }
 
     .shop-product-title {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 0.85em;
-      font-weight: 500;
-      margin-top: 0.5em;
+      font-size: 1.2em;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
       line-height: 1.3;
-      max-width: 160px;
-      color: #1a1a1a;
+      margin-bottom: 0.3em;
+    }
+
+    .shop-product-info {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.15em;
     }
 
     .shop-product-vendor {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 0.75em;
-      color: #888;
-      margin-top: 0.15em;
+      font-size: 0.85em;
+      color: rgba(255,255,255,0.9);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
     }
 
     .shop-product-vendor a {
-      color: #e84a8a;
+      color: #ffb8d4;
       text-decoration: none;
     }
 
@@ -1063,16 +1166,22 @@
 
     .shop-product-price {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 0.8em;
-      color: #666;
-      margin-top: 0.2em;
+      font-size: 1em;
+      color: #fff;
+      font-weight: 700;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.5);
     }
 
     .shop-product-sold {
-      color: #e84a8a;
-      font-size: 0.7em;
-      font-weight: 600;
+      color: #ff6b9d;
+      font-size: 0.9em;
+      font-weight: 700;
       text-transform: uppercase;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+
+    @keyframes shopFadeIn {
+      to { opacity: 1; }
     }
 
     .shop-loading {
@@ -1088,15 +1197,19 @@
       background: #000;
       border-radius: 8px;
       overflow: hidden;
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
     }
 
     .tv-header {
-      display: flex;
-      flex-direction: column;
-      gap: 0.2em;
+      position: sticky;
+      top: 0;
+      z-index: 1;
       padding: 0.8em 1em;
       text-decoration: none;
-      background: rgba(255,255,255,0.05);
+      background: #000;
     }
 
     .tv-header strong {
@@ -1105,13 +1218,13 @@
       font-size: 0.9em;
     }
 
-    .tv-header .link-desc {
-      font-size: 0.75em;
-      color: rgba(255,255,255,0.5);
-    }
-
     .tv-header:hover strong {
       color: var(--pink);
+    }
+
+    .tv-section .module-caption {
+      background: #000;
+      color: rgba(255,255,255,0.5);
     }
 
     .tv-player {
@@ -1177,56 +1290,56 @@
       pointer-events: none;
     }
 
-    /* Chat Rolodex */
+    /* Chat Rolodex - laer-klokken warm gold theme */
     .chat-preview {
-      background: var(--box-bg);
-      border: 1px solid var(--box-border);
+      background: linear-gradient(135deg, #2a2010 0%, #1a1508 100%);
+      border: 1px solid #3d3520;
       border-radius: 8px;
       overflow: hidden;
-    }
-
-    .chat-preview-header {
+      aspect-ratio: 1;
       display: flex;
       flex-direction: column;
-      gap: 0.2em;
+      position: relative;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .chat-preview::-webkit-scrollbar { display: none; }
+
+    .chat-preview-header {
+      position: sticky;
+      top: 0;
+      z-index: 1;
       padding: 0.8em 1em;
       text-decoration: none;
-      background: rgba(255,255,255,0.02);
+      background: linear-gradient(135deg, #2a2010 0%, #1a1508 100%);
     }
 
     .chat-preview-header strong {
-      color: var(--text);
+      color: var(--gold);
       font-family: 'ywft', sans-serif;
       font-size: 0.9em;
     }
 
-    .chat-preview-header .link-desc {
-      font-size: 0.75em;
-      color: var(--dim);
+    .chat-preview-header:hover strong {
+      color: #ffe066;
     }
 
-    .chat-preview-header:hover strong {
-      color: var(--gold);
+    .chat-preview .module-caption {
+      background: linear-gradient(135deg, #2a2010 0%, #1a1508 100%);
+      color: #a08050;
     }
 
     .chat-messages {
-      max-height: 200px;
+      flex: 1;
       overflow-y: auto;
       background: #111;
       scroll-behavior: smooth;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     }
 
     .chat-messages::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    .chat-messages::-webkit-scrollbar-track {
-      background: #0a0a0a;
-    }
-
-    .chat-messages::-webkit-scrollbar-thumb {
-      background: var(--dim);
-      border-radius: 3px;
+      display: none;
     }
 
     .chat-msg {
@@ -1278,135 +1391,151 @@
       -webkit-box-orient: vertical;
     }
 
-    /* KidLisp Code Slideshow */
+    /* KidLisp Preview - 2x2 animated webp grid */
     .kidlisp-preview {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      background: linear-gradient(135deg, #1a0a2e 0%, #0a1a1e 50%, #1a1a0e 100%);
+      border: 1px solid #3a2a4a;
       border-radius: 8px;
       overflow: hidden;
-    }
-
-    .kidlisp-preview-header {
+      aspect-ratio: 1;
       display: flex;
       flex-direction: column;
-      gap: 0.2em;
+      position: relative;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .kidlisp-preview::-webkit-scrollbar { display: none; }
+
+    .kidlisp-preview-header {
+      position: sticky;
+      top: 0;
+      z-index: 1;
       padding: 0.8em 1em;
       text-decoration: none;
-      background: rgba(255,255,255,0.02);
+      background: linear-gradient(135deg, #1a0a2e 0%, #0a1a1e 50%, #1a1a0e 100%);
     }
 
     .kidlisp-preview-header:hover .kidlisp-logo {
       filter: brightness(1.2);
     }
 
-    .kidlisp-code-area {
-      height: 140px;
-      overflow: hidden;
-      position: relative;
-      background: #0d0d1a;
-      font-family: var(--mono);
-      font-size: 0.8em;
+    .kidlisp-preview .module-caption {
+      background: linear-gradient(135deg, #1a0a2e 0%, #0a1a1e 50%, #1a1a0e 100%);
+      color: #888;
     }
 
-    .kidlisp-slide {
-      position: absolute;
-      inset: 0;
-      padding: 1em;
+    /* 2x2 grid of webp previews with code overlay */
+    .kidlisp-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 3px;
+      padding: 3px;
+      background: #0d0d1a;
+    }
+
+    .kidlisp-tile {
+      position: relative;
+      overflow: hidden;
+      background: #0a0a15;
+      border-radius: 3px;
+    }
+
+    .kidlisp-tile a {
+      display: block;
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    .kidlisp-tile img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
       opacity: 0;
       transition: opacity 0.5s ease;
-      overflow: hidden;
     }
 
-    .kidlisp-slide.active {
-      opacity: 1;
+    .kidlisp-tile img.loaded {
+      opacity: 0.4;
     }
 
-    .kidlisp-slide code {
-      display: block;
-      white-space: pre-wrap;
-      word-break: break-word;
-      line-height: 1.5;
-    }
-
-    /* KidLisp syntax highlighting */
-    .kl-paren { color: #888; }
-    .kl-keyword { color: #ff79c6; }
-    .kl-string { color: #f1fa8c; }
-    .kl-number { color: #bd93f9; }
-    .kl-comment { color: #6272a4; font-style: italic; }
-    .kl-builtin { color: #8be9fd; }
-
-    .kidlisp-hits {
-      position: absolute;
-      bottom: 0.5em;
-      right: 0.8em;
-      font-family: var(--mono);
-      font-size: 0.7em;
-      color: var(--gold);
+    .kidlisp-tile:hover img.loaded {
       opacity: 0.7;
     }
 
-    .kidlisp-source {
-      background: rgba(20, 15, 30, 0.8);
-      border: 1px solid rgba(100, 60, 140, 0.3);
-      border-radius: 4px;
-      padding: 0.5em 0;
-      margin-top: 0.5em;
-      max-height: 90px;
-      overflow-y: auto;
+    .kidlisp-tile-code {
+      position: absolute;
+      inset: 0;
+      padding: 0.3em;
       font-family: var(--mono);
-      font-size: 0.75em;
-      line-height: 1.4;
-    }
-
-    .kidlisp-source-line {
-      display: flex;
-      gap: 0;
-    }
-
-    .kidlisp-line-num {
-      flex-shrink: 0;
-      width: 2em;
-      padding: 0 0.4em;
-      text-align: right;
-      color: rgba(120, 100, 160, 0.5);
-      user-select: none;
-      border-right: 1px solid rgba(100, 60, 140, 0.2);
-      margin-right: 0.5em;
-    }
-
-    .kidlisp-line-code {
-      flex: 1;
+      font-size: 0.45em;
+      line-height: 1.3;
+      color: #fff;
+      overflow: hidden;
+      text-shadow: 0 0 2px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.7);
       white-space: pre-wrap;
       word-break: break-word;
+      pointer-events: none;
+      z-index: 1;
     }
 
-    /* Timing token animation */
-    .kl-timing {
-      color: #ffff00;
-      transition: color 0.15s ease, text-shadow 0.15s ease;
-    }
-
-    .kl-timing.active {
-      color: #00ff00;
-      text-shadow: 0 0 6px rgba(0, 255, 0, 0.6);
-    }
-
-    .kl-timing.trigger {
-      color: #ff0000;
-      text-shadow: 0 0 8px rgba(255, 0, 0, 0.8);
-    }
-
-    @keyframes timing-pulse {
-      0%, 100% { color: #ffff00; text-shadow: none; }
-      50% { color: #00ff00; text-shadow: 0 0 6px rgba(0, 255, 0, 0.5); }
-    }
-
-    .kidlisp-code-label {
+    .kidlisp-tile-label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 0.2em 0.4em;
+      background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
       font-family: var(--mono);
-      font-size: 0.7em;
-      color: var(--dim);
-      margin-bottom: 0.3em;
+      font-size: 0.55em;
+      color: #ccc;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      z-index: 2;
+    }
+
+    .kidlisp-tile-plays {
+      position: absolute;
+      bottom: 0.2em;
+      right: 0.3em;
+      font-family: var(--mono);
+      font-size: 0.45em;
+      color: var(--gold);
+      opacity: 0.9;
+      text-shadow: 0 0 3px rgba(0,0,0,0.9);
+      z-index: 3;
+    }
+
+    /* KidLisp syntax highlighting in tiles */
+    .kidlisp-tile-code .kl-paren { color: #888; }
+    .kidlisp-tile-code .kl-keyword { color: #ff79c6; }
+    .kidlisp-tile-code .kl-string { color: #f1fa8c; }
+    .kidlisp-tile-code .kl-number { color: #bd93f9; }
+    .kidlisp-tile-code .kl-builtin { color: #8be9fd; }
+    .kidlisp-tile-code .kl-color { color: #50fa7b; }
+    .kidlisp-tile-code .kl-timing { color: #ffb86c; }
+
+    .kidlisp-tile-loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6em;
+      color: #555;
+    }
+
+    @keyframes kidlisp-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .kidlisp-tile-loading::after {
+      content: "⏳";
+      animation: kidlisp-spin 2s linear infinite;
     }
 
     #pals {
@@ -1712,28 +1841,33 @@
       <div class="kidlisp-preview">
         <a href="https://kidlisp.com" class="kidlisp-preview-header">
           <strong class="kidlisp-logo" style="font-family: 'Comic Sans MS', cursive; font-size: 1.1em;"><span style="color:#FF6B6B">K</span><span style="color:#4ECDC4">i</span><span style="color:#FFE66D">d</span><span style="color:#95E1D3">L</span><span style="color:#F38181">i</span><span style="color:#AA96DA">s</span><span style="color:#70D6FF">p</span><span style="color:var(--dim)">.</span><span style="color:#70D6FF">com</span></strong>
-          <span class="link-desc" data-lang="en">A creative coding language for all ages</span>
-          <span class="link-desc" data-lang="da">Et kreativt kodesprog for alle aldre</span>
         </a>
-        <div class="kidlisp-code-area" id="kidlispSlides">
-          <div class="kidlisp-slide active">
-            <code style="color: var(--dim);">Loading top hits...</code>
-          </div>
+        <div class="kidlisp-grid" id="kidlispGrid">
+          <div class="kidlisp-tile"><div class="kidlisp-tile-loading"></div></div>
+          <div class="kidlisp-tile"><div class="kidlisp-tile-loading"></div></div>
+          <div class="kidlisp-tile"><div class="kidlisp-tile-loading"></div></div>
+          <div class="kidlisp-tile"><div class="kidlisp-tile-loading"></div></div>
+        </div>
+        <div class="module-caption">
+          <span data-lang="en">A creative coding language for all ages</span>
+          <span data-lang="da">Et kreativt kodesprog for alle aldre</span>
         </div>
       </div>
 
       <div class="chat-preview">
         <a href="https://aesthetic.computer/laer-klokken" class="chat-preview-header">
           <strong>🕐 laer-klokken</strong>
-          <span class="link-desc" data-lang="en">Goodiepal's Danish music community and radio show</span>
-          <span class="link-desc" data-lang="da">Goodiepals danske musikfaellesskab og radioshow</span>
         </a>
         <div class="chat-messages" id="chatMessages">
           <div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Loading...</div></div>
         </div>
+        <div class="module-caption">
+          <span data-lang="en">Goodiepal's Danish music community and radio show</span>
+          <span data-lang="da">Goodiepals danske musikfaellesskab og radioshow</span>
+        </div>
       </div>
 
-      <div class="link-block">
+      <div class="link-block notepat-section">
         <strong>🎹 notepat</strong>
         <a href="https://aesthetic.computer/notepat">aesthetic.computer/notepat</a>
         <span class="link-desc" data-lang="en">Musical keyboard</span>
@@ -1741,13 +1875,15 @@
       </div>
 
       <div class="tv-section">
-        <a href="https://aesthetic.computer/tv" class="tv-header">
-          <strong>📺 tv</strong>
-          <span class="link-desc" data-lang="en">Community video feed</span>
-          <span class="link-desc" data-lang="da">Fællesskabets video-feed</span>
+        <a href="https://aesthetic.computer/tapes" class="tv-header">
+          <strong>📼 tapes</strong>
         </a>
         <div class="tv-player" id="tvPlayer">
           <div class="tv-loading">📺</div>
+        </div>
+        <div class="module-caption">
+          <span data-lang="en">Community video feed</span>
+          <span data-lang="da">Fællesskabets video-feed</span>
         </div>
       </div>
 
@@ -1783,15 +1919,17 @@
       <div class="shop-section">
         <div class="shop-header">
           <a href="https://shop.aesthetic.computer" class="shop-title">shop</a>
-          <span class="shop-tagline" data-lang="en">paintings, books, bikes, music & more</span>
-          <span class="shop-tagline" data-lang="da">malerier, bøger, cykler, musik & mere</span>
         </div>
         <div class="shop-products" id="shopProducts">
           <div class="shop-loading">Loading...</div>
         </div>
+        <div class="module-caption">
+          <span data-lang="en">paintings, books, bikes, music & more</span>
+          <span data-lang="da">malerier, bøger, cykler, musik & mere</span>
+        </div>
       </div>
 
-      <div class="link-block">
+      <div class="link-block invest-section">
         <strong>📈</strong> <span data-lang="en"><strong>Invest</strong></span><span data-lang="da"><strong>Investér</strong></span>
         <a href="https://aesthetic.direct">aesthetic.direct</a>
         <span class="link-desc" data-lang="en">Equity investment opportunities</span>
@@ -2490,17 +2628,23 @@
       
       // Extract vendor from product data if available
       const vendor = p.vendor || '';
-      const vendorHtml = vendor ? `<div class="shop-product-vendor">by <a href="https://aesthetic.computer/@${vendor.replace('@', '')}" target="_blank">${vendor.startsWith('@') ? vendor : '@' + vendor}</a></div>` : '';
+      const vendorHtml = vendor ? `<div class="shop-product-vendor">by&nbsp;<a href="https://aesthetic.computer/@${vendor.replace('@', '')}" target="_blank">${vendor.startsWith('@') ? vendor : '@' + vendor}</a></div>` : '';
       
       container.innerHTML = `
         <a href="${p.shopUrl}" class="shop-product" target="_blank">
-          <img src="${p.imageUrl || ''}" alt="${p.title}" loading="lazy">
-          <div class="shop-product-title">${p.title}</div>
-          ${vendorHtml}
-          ${p.available 
-            ? `<div class="shop-product-price">${p.price}</div>`
-            : `<div class="shop-product-sold">SOLD</div>`
-          }
+          <div class="shop-product-img-wrap">
+            <img src="${p.imageUrl || ''}" alt="${p.title}" loading="lazy">
+          </div>
+          <div class="shop-product-overlay">
+            <div class="shop-product-title">${p.title}</div>
+            <div class="shop-product-info">
+              ${vendorHtml}
+              ${p.available 
+                ? `<div class="shop-product-price">${p.price}</div>`
+                : `<div class="shop-product-sold">SOLD</div>`
+              }
+            </div>
+          </div>
         </a>
       `;
     }
@@ -2671,263 +2815,120 @@
     
     loadChatMessages();
     
-    // KidLisp Code Slideshow - Top Hits
-    let kidlispHits = [];
-    let kidlispIndex = 0;
-    let kidlispModule = null;
+    // KidLisp Grid - Top Hits with animated WebP previews
+    // Always use production oven for reliable caching
+    const OVEN_URL = 'https://oven.aesthetic.computer';
     
-    async function loadKidlispModule() {
-      if (kidlispModule) return kidlispModule;
+    async function loadKidlispGrid() {
+      const grid = document.getElementById('kidlispGrid');
       try {
-        // Load from the aesthetic.computer lib path
-        const modulePath = apiBase 
-          ? `${apiBase}/aesthetic.computer/lib/kidlisp.mjs`
-          : '/aesthetic.computer/lib/kidlisp.mjs';
-        kidlispModule = await import(modulePath);
-        console.log('✅ KidLisp module loaded');
-        return kidlispModule;
-      } catch (e) {
-        console.error('❌ Failed to load KidLisp module:', e);
-        return null;
-      }
-    }
-    
-    async function loadKidlispSlideshow() {
-      const container = document.getElementById('kidlispSlides');
-      try {
-        // Load module first
-        await loadKidlispModule();
-        
-        const res = await fetch(`${apiBase}/api/tv?types=kidlisp&sort=hits&limit=10`);
+        // Fetch top hits from the TV API
+        const res = await fetch(`${apiBase}/api/tv?types=kidlisp&sort=hits&limit=4`);
         const data = await res.json();
-        kidlispHits = data.media?.kidlisp || data.mixed || [];
+        const hits = data.media?.kidlisp || data.mixed || [];
         
-        if (!kidlispHits.length) {
-          container.innerHTML = '<div class="kidlisp-slide active"><code style="color: var(--dim);">No code found</code></div>';
+        if (!hits.length) {
+          grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #555; padding: 2em;">No pieces found</div>';
           return;
         }
         
-        renderKidlispSlide(0);
+        // Simple KidLisp syntax highlighter for tiles
+        function highlightKidlispSimple(code) {
+          if (!code) return '';
+          // Escape HTML first
+          let html = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          
+          // Use placeholder tokens to avoid double-replacement
+          const tokens = [];
+          function token(match, cls) {
+            const idx = tokens.length;
+            tokens.push(`<span class="${cls}">${match}</span>`);
+            return `\x00${idx}\x00`;
+          }
+          
+          // Order matters - more specific patterns first
+          // Timing patterns like 1s, 0.5s, 2s...
+          html = html.replace(/(\d+\.?\d*[sf]\.{0,3})/g, m => token(m, 'kl-timing'));
+          // Strings
+          html = html.replace(/("[^"]*")/g, m => token(m, 'kl-string'));
+          // Keywords
+          html = html.replace(/\b(def|repeat|if|later|tap|draw|frame|now)\b/g, m => token(m, 'kl-keyword'));
+          // Builtins (drawing commands)
+          html = html.replace(/\b(wipe|ink|line|box|circle|text|width|height|wiggle|zoom|pan|grid|plot)\b/g, m => token(m, 'kl-builtin'));
+          // Colors
+          html = html.replace(/\b(red|blue|green|yellow|orange|purple|pink|cyan|white|black|gray|lime|magenta)\b/g, m => token(m, 'kl-color'));
+          // Numbers (only if not already tokenized)
+          html = html.replace(/\b(\d+\.?\d*)\b/g, m => token(m, 'kl-number'));
+          // Parens
+          html = html.replace(/([()])/g, m => token(m, 'kl-paren'));
+          
+          // Replace tokens back
+          html = html.replace(/\x00(\d+)\x00/g, (_, idx) => tokens[parseInt(idx)]);
+          
+          return html;
+        }
         
-        // Rotate every 5 seconds
-        setInterval(() => {
-          kidlispIndex = (kidlispIndex + 1) % kidlispHits.length;
-          renderKidlispSlide(kidlispIndex);
-        }, 5000);
+        // Create tile elements first (with loading state)
+        const tiles = hits.slice(0, 4);
+        grid.innerHTML = tiles.map((item, i) => {
+          const code = item.code || 'unknown';
+          const hitCount = item.hits || 0;
+          const source = item.source || '';
+          const pieceUrl = `https://aesthetic.computer/$${code}`;
+          
+          // Truncate source to fit in small tile
+          const truncatedSource = source.length > 150 ? source.slice(0, 150) + '...' : source;
+          const highlighted = highlightKidlispSimple(truncatedSource);
+          
+          return `
+            <div class="kidlisp-tile" data-code="${escapeHtml(code)}" data-hits="${hitCount}">
+              <a href="${pieceUrl}" target="_blank" title="Play $${escapeHtml(code)}">
+                <div class="kidlisp-tile-loading"></div>
+              </a>
+              <div class="kidlisp-tile-code">${highlighted}</div>
+              <div class="kidlisp-tile-plays">▶ ${hitCount.toLocaleString()}</div>
+              <div class="kidlisp-tile-label">$${escapeHtml(code)}</div>
+            </div>
+          `;
+        }).join('');
+        
+        // Load webp images sequentially with stagger to avoid overwhelming oven
+        const tileEls = grid.querySelectorAll('.kidlisp-tile');
+        for (let i = 0; i < tileEls.length; i++) {
+          const tile = tileEls[i];
+          const code = tile.dataset.code;
+          // Stagger each request by 500ms to avoid parallel puppeteer sessions
+          if (i > 0) await new Promise(r => setTimeout(r, 500));
+          
+          const webpUrl = `${OVEN_URL}/grab/webp/200/200/$${code}?duration=6000&fps=8&quality=75`;
+          const img = document.createElement('img');
+          img.src = webpUrl;
+          img.alt = code;
+          img.loading = 'lazy';
+          img.onload = () => {
+            img.classList.add('loaded');
+            const loader = tile.querySelector('.kidlisp-tile-loading');
+            if (loader) loader.remove();
+          };
+          img.onerror = () => {
+            const link = tile.querySelector('a');
+            if (link) link.innerHTML = '<div style="color:#666;font-size:0.5em;padding:1em;">⚠️</div>';
+          };
+          
+          const link = tile.querySelector('a');
+          if (link) {
+            link.innerHTML = '';
+            link.appendChild(img);
+          }
+        }
         
       } catch (e) {
-        console.error('KidLisp load error:', e);
-        container.innerHTML = '<div class="kidlisp-slide active"><code style="color: var(--dim);">Could not load</code></div>';
+        console.error('KidLisp grid load error:', e);
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #555; padding: 2em;">Could not load</div>';
       }
     }
     
-    async function renderKidlispSlide(index) {
-      const container = document.getElementById('kidlispSlides');
-      const item = kidlispHits[index];
-      const code = item.code || '';
-      const source = item.source || '';
-      const hits = item.hits || 0;
-      
-      // Highlight the actual source code with line numbers
-      const highlightedLines = source ? await highlightKidlispWithLines(source) : '';
-      
-      container.innerHTML = `
-        <div class="kidlisp-slide active">
-          <div class="kidlisp-code-label">$${escapeHtml(code)} — ▶ ${hits.toLocaleString()} plays</div>
-          ${source ? `<div class="kidlisp-source" id="kidlispSource">${highlightedLines}</div>` : `<code style="color: var(--dim);">[$${escapeHtml(code)}]</code>`}
-        </div>
-      `;
-      
-      // Start timing animation for this source
-      if (source) {
-        startTimingAnimation(source);
-      }
-    }
-    
-    // Timing animation state
-    let timingAnimationId = null;
-    let currentTimings = []; // { element, duration, offset }
-    
-    function startTimingAnimation(source) {
-      // Cancel any existing animation
-      if (timingAnimationId) {
-        cancelAnimationFrame(timingAnimationId);
-      }
-      
-      // Find all timing tokens in the rendered source
-      currentTimings = [];
-      const sourceEl = document.getElementById('kidlispSource');
-      if (!sourceEl) return;
-      
-      const timingEls = sourceEl.querySelectorAll('.kl-timing');
-      timingEls.forEach((el, i) => {
-        const text = el.textContent;
-        // Parse timing: "1s", "0.5s", "2s...", "3f", etc.
-        const match = text.match(/^(\d*\.?\d+)([sf])/);
-        if (match) {
-          const value = parseFloat(match[1]);
-          const unit = match[2];
-          const durationMs = unit === 's' ? value * 1000 : (value / 60) * 1000;
-          currentTimings.push({
-            element: el,
-            duration: durationMs,
-            isRepeating: text.includes('...'),
-            offset: i * 200 // Stagger start times
-          });
-        }
-      });
-      
-      if (currentTimings.length === 0) return;
-      
-      const startTime = performance.now();
-      
-      function animateTimings() {
-        const now = performance.now();
-        const elapsed = now - startTime;
-        
-        currentTimings.forEach(t => {
-          const adjustedTime = elapsed - t.offset;
-          if (adjustedTime < 0) return;
-          
-          const cycleTime = adjustedTime % t.duration;
-          const blinkDuration = 180; // Brief flash
-          
-          if (cycleTime < blinkDuration) {
-            // Trigger flash (lime/green)
-            t.element.classList.add('active');
-            t.element.classList.remove('trigger');
-          } else if (cycleTime < blinkDuration * 2) {
-            // Brief red flash after
-            t.element.classList.remove('active');
-            t.element.classList.add('trigger');
-          } else {
-            // Normal yellow
-            t.element.classList.remove('active', 'trigger');
-          }
-        });
-        
-        timingAnimationId = requestAnimationFrame(animateTimings);
-      }
-      
-      animateTimings();
-    }
-    
-    async function highlightKidlispWithLines(code) {
-      if (!code) return '';
-      
-      const lines = code.split('\n');
-      const result = [];
-      
-      for (let i = 0; i < lines.length; i++) {
-        const lineNum = i + 1;
-        const lineCode = await highlightKidlisp(lines[i]);
-        result.push(`<div class="kidlisp-source-line"><span class="kidlisp-line-num">${lineNum}</span><span class="kidlisp-line-code">${lineCode || '&nbsp;'}</span></div>`);
-      }
-      
-      return result.join('');
-    }
-    
-    // Color mapping for KidLisp token colors
-    const kidlispColorMap = {
-      'red': '#ff0000',
-      'darkred': '#8b0000',
-      'orange': '#ff6600',
-      'yellow': '#ffff00',
-      'lime': '#00ff00',
-      'limegreen': '#32cd32',
-      'green': '#008000',
-      'cyan': '#00ffff',
-      'blue': '#0000ff',
-      'purple': '#800080',
-      'magenta': '#ff00ff',
-      'hotpink': '#ff69b4',
-      'white': '#ffffff',
-      'gray': '#808080',
-      'grey': '#808080',
-      'mediumseagreen': '#3cb371',
-      'pink': '#ffc0cb',
-      'brown': '#a52a2a',
-      'violet': '#ee82ee',
-      'teal': '#008080'
-    };
-    
-    async function highlightKidlisp(code) {
-      if (!code) return '';
-      
-      try {
-        if (kidlispModule && kidlispModule.KidLisp) {
-          const kid = new kidlispModule.KidLisp();
-          kid.isEditMode = true; // Enable timing blinks in edit mode
-          kid.initializeSyntaxHighlighting(code);
-          const coloredString = kid.buildColoredKidlispString();
-          return parseColoredKidlisp(coloredString);
-        }
-      } catch (e) {
-        console.warn('KidLisp highlight failed:', e);
-      }
-      
-      // Fallback: just escape
-      return escapeHtml(code);
-    }
-    
-    function parseColoredKidlisp(coloredString) {
-      if (!coloredString) return '';
-      
-      const result = [];
-      let i = 0;
-      let currentColor = '#ffffff';
-      let textBuffer = '';
-      
-      function flushBuffer() {
-        if (textBuffer) {
-          const escaped = textBuffer
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-          
-          // Check if this is a timing token (yellow colored timing patterns)
-          const isTiming = /^\d*\.?\d+[sf]\.{0,3}!?$/.test(textBuffer.trim()) && 
-                           (currentColor === '#ffff00' || currentColor.toLowerCase() === 'yellow');
-          
-          if (isTiming) {
-            result.push(`<span class="kl-timing" style="color: ${currentColor}">${escaped}</span>`);
-          } else {
-            result.push(`<span style="color: ${currentColor}">${escaped}</span>`);
-          }
-          textBuffer = '';
-        }
-      }
-      
-      while (i < coloredString.length) {
-        if (coloredString[i] === '\\' && i + 1 < coloredString.length) {
-          let j = i + 1;
-          while (j < coloredString.length && coloredString[j] !== '\\') {
-            j++;
-          }
-          if (j < coloredString.length) {
-            const colorCode = coloredString.substring(i + 1, j);
-            flushBuffer();
-            
-            if (kidlispColorMap[colorCode.toLowerCase()]) {
-              currentColor = kidlispColorMap[colorCode.toLowerCase()];
-            } else if (/^\d+,\d+,\d+(,[\d.]+)?$/.test(colorCode)) {
-              currentColor = `rgb(${colorCode})`;
-            } else {
-              currentColor = colorCode;
-            }
-            i = j + 1;
-            continue;
-          }
-        }
-        textBuffer += coloredString[i];
-        i++;
-      }
-      flushBuffer();
-      
-      return result.join('');
-    }
-    
-    loadKidlispSlideshow();
+    loadKidlispGrid();
     
     // Desktop Release Info - Fetch from GitHub
     async function loadDesktopReleaseInfo() {
