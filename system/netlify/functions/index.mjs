@@ -460,6 +460,9 @@ async function fun(event, context) {
       // Handle inline kidlisp code that doesn't need file loading
       console.log("[kidlisp] Using inline kidlisp source for metadata");
       
+      // Reset status to 200 for inline kidlisp pieces
+      statusCode = 200;
+      
       // Get initial metadata from inference
       meta = inferTitleDesc(parsed.source);
       
