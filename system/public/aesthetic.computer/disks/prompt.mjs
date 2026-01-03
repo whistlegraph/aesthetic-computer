@@ -5219,17 +5219,17 @@ function paint($) {
       clockChatTickerButton = null;
     }
     
-    // 2. CONTENT TICKER (combined $kidlisp, #painting, !tape)
+    // 2. CONTENT TICKER (combined $kidlisp, #painting, !tape, *clock)
     const showContentTicker = !DISABLE_CONTENT_TICKER && screen.height >= 220;
     const contentIsLoading = contentItems.length === 0;
     
     if (showContentTicker && (contentItems.length > 0 || contentIsLoading)) {
       contentTickerY = currentTickerY; // Assign to outer scope variable
       
-      // Build text with prefixes: $ for kidlisp, # for painting, ! for tape
+      // Build text with prefixes: $ for kidlisp, # for painting, ! for tape, * for clock
       const fullText = contentItems.length > 0 
         ? contentItems.map(item => {
-            const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
+            const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : item.type === 'tape' ? '!' : '*';
             return `${prefix}${item.code}`;
           }).join(" · ")
         : ""; // Empty when loading
@@ -7027,7 +7027,7 @@ function act({
           const targetIndex = contentTickerButton.hoveredItemIndex >= 0 ? 
                               contentTickerButton.hoveredItemIndex : 0;
           const item = contentItems[targetIndex];
-          const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
+          const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : item.type === 'tape' ? '!' : '*';
           const destination = `${prefix}${item.code}`;
           
           // Set prompt input text to show what's loading (like typing and pressing enter)
