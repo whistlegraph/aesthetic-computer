@@ -306,6 +306,65 @@ async function fetchTapes(db, { limit }) {
   return tapesWithVideos;
 }
 
+async function fetchClocks(db, { limit }) {
+  const collection = db.collection("clocks");
+  
+  const pipeline = [
+    { $match: { nuked: { $ne: true } } },
+    // Add a field to handle null hits before sorting
+    { $addFields: { hits: { $ifNull: ["$hits", 0] } } },
+    { $sort: { hits: -1, when: -1 } },
+    { $limit: limit },
+    {
+      $lookup: {
+        from: "@handles",
+        localField: "user",
+        foreignField: "_id",
+        as: "handleInfo",
+      },
+    },
+    {
+      $addFields: {
+        handle: { $arrayElemAt: ["$handleInfo.handle", 0] },
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        code: 1,
+        user: 1,
+        when: 1,
+        handle: 1,
+        hits: 1,
+        source: 1,
+      },
+    },
+  ];
+
+  const records = await collection.aggregate(pipeline).toArray();
+
+  return records.map((record) => {
+    const handle = record.handle ? `@${record.handle}` : null;
+    
+    return {
+      id: record._id?.toString?.() ?? `${record.user}:${record.code}`,
+      type: "clock",
+      code: record.code,
+      source: record.source,
+      owner: {
+        handle,
+        userId: record.user,
+      },
+      when: record.when,
+      hits: record.hits || 0,
+      acUrl: `https://aesthetic.computer/*${record.code}`,
+      meta: {
+        sourceLength: record.source?.length || 0,
+      },
+    };
+  });
+}
+
 export async function handler(event) {
   // Handle CORS preflight
   if (event.httpMethod === "OPTIONS") {
@@ -339,7 +398,7 @@ export async function handler(event) {
     // For "sprinkle" filter, fetch ALL media types mixed with frecency
     // For other filters, fetch only requested types
     const typesToFetch = filter === "sprinkle" 
-      ? ["painting", "kidlisp", "tape"] 
+      ? ["painting", "kidlisp", "tape", "clock"] 
       : requestedTypes;
 
     // Fetch more items per type to ensure good mixing (3x the limit per type)
@@ -360,6 +419,9 @@ export async function handler(event) {
       } else if (type === "tape") {
         media.tapes = await fetchTapes(database.db, { limit: fetchLimit });
         console.log(`📺 Fetched ${media.tapes.length} tapes`);
+      } else if (type === "clock") {
+        media.clocks = await fetchClocks(database.db, { limit: fetchLimit });
+        console.log(`📺 Fetched ${media.clocks.length} clocks`);
       } else if (["mood", "scream", "chat"].includes(type)) {
         // Reserve keys for upcoming media types so clients can experiment early.
         media[`${type}s`] = [];
@@ -378,6 +440,7 @@ export async function handler(event) {
     if (media.kidlisp) allItems.push(...media.kidlisp);
     if (media.paintings) allItems.push(...media.paintings);
     if (media.tapes) allItems.push(...media.tapes);
+    if (media.clocks) allItems.push(...media.clocks);
     
     // Apply sorting based on filter type
     if (filter === "sprinkle") {
@@ -388,6 +451,7 @@ export async function handler(event) {
       const kidlispItems = allItems.filter(i => i.type === 'kidlisp');
       const paintingItems = allItems.filter(i => i.type === 'painting');
       const tapeItems = allItems.filter(i => i.type === 'tape');
+      const clockItems = allItems.filter(i => i.type === 'clock');
       
       // Apply frecency scoring to each type's items
       const now = Date.now();
@@ -414,6 +478,7 @@ export async function handler(event) {
       scoreFrecency(kidlispItems);
       scoreFrecency(paintingItems);
       scoreFrecency(tapeItems);
+      scoreFrecency(clockItems);
       
       // Interweave items with natural variation (not perfectly round-robin)
       // This creates a more organic mix that feels less mechanical
@@ -421,7 +486,8 @@ export async function handler(event) {
       const pools = [
         { items: paintingItems, name: 'painting' },
         { items: tapeItems, name: 'tape' },
-        { items: kidlispItems, name: 'kidlisp' }
+        { items: kidlispItems, name: 'kidlisp' },
+        { items: clockItems, name: 'clock' }
       ].filter(pool => pool.items.length > 0); // Only use pools that have items
       
       if (pools.length === 0) {
@@ -491,9 +557,10 @@ export async function handler(event) {
       const typeCounts = {
         kidlisp: sprinkledFeed.filter(i => i.type === 'kidlisp').length,
         paintings: sprinkledFeed.filter(i => i.type === 'painting').length,
-        tapes: sprinkledFeed.filter(i => i.type === 'tape').length
+        tapes: sprinkledFeed.filter(i => i.type === 'tape').length,
+        clocks: sprinkledFeed.filter(i => i.type === 'clock').length
       };
-      console.log(`📺 Sprinkle feed created with natural distribution: ${allItems.length} items (${typeCounts.kidlisp} kidlisp, ${typeCounts.paintings} paintings, ${typeCounts.tapes} tapes)`);
+      console.log(`📺 Sprinkle feed created with natural distribution: ${allItems.length} items (${typeCounts.kidlisp} kidlisp, ${typeCounts.paintings} paintings, ${typeCounts.tapes} tapes, ${typeCounts.clocks} clocks)`);
     } else {
       // Default: sort by timestamp (most recent first)
       allItems.sort((a, b) => {
@@ -506,7 +573,7 @@ export async function handler(event) {
     // Limit the total mixed feed
     const mixedFeed = allItems.slice(0, limit);
     
-    console.log(`📺 Mixed feed created: ${mixedFeed.length} items (${mixedFeed.filter(i => i.type === 'kidlisp').length} kidlisp, ${mixedFeed.filter(i => i.type === 'painting').length} paintings, ${mixedFeed.filter(i => i.type === 'tape').length} tapes)`);
+    console.log(`📺 Mixed feed created: ${mixedFeed.length} items (${mixedFeed.filter(i => i.type === 'kidlisp').length} kidlisp, ${mixedFeed.filter(i => i.type === 'painting').length} paintings, ${mixedFeed.filter(i => i.type === 'tape').length} tapes, ${mixedFeed.filter(i => i.type === 'clock').length} clocks)`);
 
     return respond(200, {
       meta: {

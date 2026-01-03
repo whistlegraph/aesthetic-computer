@@ -4332,6 +4332,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🎵 Clock piece cached code - forward back to disk.mjs for QR display
+    if (type === "clock:cached") {
+      // Forward to disk.mjs so it can display the QR code
+      send({ type: "clock:cached", content });
+      // Also update recording options if active
+      if (window.currentRecordingOptions) {
+        window.currentRecordingOptions.cachedCode = content?.code;
+        if (window.currentRecordingOptions.pieceName === "*code") {
+          window.currentRecordingOptions.pieceName = `*${content?.code}`;
+          console.log(`🎬 Updated pieceName to: *${content?.code}`);
+        }
+      }
+      return;
+    }
+
     // Handle export events forwarded from worker via send() fallback
     if (type === "export-event-fallback") {
       // Route export events to current piece through actEvents

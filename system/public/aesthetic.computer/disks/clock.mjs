@@ -110,6 +110,8 @@
     clock {square} (ceg) ({sawtooth} dfa)  - Mixed waveforms
 */
 
+console.log("🕰️ CLOCK MODULE LOADING at", Date.now());
+
 import {
   parseMelody,
   extractTones,
@@ -178,6 +180,7 @@ let sequence = [],
 let parsedMelody = [];
 let octave = 4;
 let originalMelodyString = ""; // Store the original melody string for reparsing
+let cachedClockCode = null; // Short code for QR display after caching to API
 let octaveFlashTime = 0; // Track when octave changed for flash effect
 
 // Enhanced melody state for simultaneous tracks
@@ -642,9 +645,40 @@ function drawFloatingHzDisplays(ink, write, screen) {
   }
 }
 
-function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num, help }) {
-  // Reset leaving flag when piece starts
-  isLeavingPiece = false;
+// Cache melody to store-clock API and get pronounceable shortcode for QR
+async function cacheMelody(melody) {
+  if (!melody || melody === "cdefgab") return null; // Don't cache default/fallback
+  
+  try {
+    const response = await fetch('/api/store-clock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: melody }) // Use 'source' for consistency with KidLisp
+    });
+    
+    if (!response.ok) {
+      console.warn('🎵 Failed to cache clock melody:', response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    console.log(`🎵 Clock melody cached: *${data.code} (${data.cached ? 'existing' : 'new'})`);
+    return data.code;
+  } catch (err) {
+    console.warn('🎵 Error caching clock melody:', err.message);
+    return null;
+  }
+}
+
+async function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num, help }) {
+  try {
+    console.log(`🎵 CLOCK BOOT STARTED - params:`, params, `colon:`, colon);
+  
+    // Reset leaving flag when piece starts
+    isLeavingPiece = false;
+
+    // Reset cached clock code
+    cachedClockCode = null;
 
   // Reset total notes played counter for fresh start
   totalNotesPlayed = 0;
@@ -677,11 +711,85 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num
   
   // Clear speech preloading state for new melody
   speechEnabled = false;
+  
+  // Initialize a temporary default melody state immediately
+  // This prevents "No melody state" warnings if sim() runs before async boot completes
+  const defaultMelody = parseSimultaneousMelody("cdefgab", octave);
+  console.log("🎵 EARLY DEFAULT MELODY:", defaultMelody, "tracks[0]:", defaultMelody?.tracks?.[0], "len:", defaultMelody?.tracks?.[0]?.length);
+  melodyState = {
+    notes: defaultMelody.tracks[0],
+    index: 0,
+    baseTempo: baseTempo,
+    isPlaying: false,
+    startTime: performance.now(),
+    timingMode: parseFloat(colon[0]) || 1.0,
+    type: "single",
+    isFallback: true,
+  };
+  console.log("🎵 EARLY MELODY STATE SET:", melodyState?.type, melodyState?.notes?.length, "notes");
 
-  if (params[0]) {
+  // Determine the melody string from params or API
+  let isFallbackMelody = false;
+  
+  // Check if params[0] is a cached code (starts with *)
+  // If so, fetch the melody from the store-clock API
+  if (params[0] && params[0].startsWith("*")) {
+    const code = params[0].slice(1); // Remove * prefix
+    console.log(`🎵 Fetching cached melody for code: *${code}`);
+    
+    // Guard against missing fetch API
+    if (!api?.net?.waitForFetch) {
+      console.warn(`⚠️ Fetch API not available, using default melody`);
+      originalMelodyString = "cdefgab";
+      isFallbackMelody = true;
+    } else {
+      try {
+        const response = await api.net.waitForFetch(
+          `/api/store-clock?code=${encodeURIComponent(code)}`
+        );
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.source) {
+          console.log(`🎵 Loaded cached melody: ${data.source}`);
+          // Set the code immediately since we already have it
+          cachedClockCode = code;
+          api.send({ type: "clock:cached", content: { code: cachedClockCode } });
+          
+          // Use the fetched melody as if it was passed directly
+          originalMelodyString = data.source;
+        } else {
+          console.warn(`⚠️ Clock code *${code} not found in store`);
+          originalMelodyString = "cdefgab"; // Default melody
+          isFallbackMelody = true;
+        }
+      } else {
+        console.warn(`⚠️ Failed to fetch clock code *${code}: ${response.status}`);
+        originalMelodyString = "cdefgab"; // Default melody
+        isFallbackMelody = true;
+      }
+    } catch (err) {
+      console.error(`🔴 Error fetching clock code *${code}:`, err);
+      originalMelodyString = "cdefgab"; // Default melody
+      isFallbackMelody = true;
+    }
+    } // Close the else block for api.net.waitForFetch guard
+  } else if (params[0]) {
     // Concatenate all params to handle cases like clock/(ceg) (dfa) where
     // (ceg) is in params[0] and (dfa) is in params[1]
     originalMelodyString = params.join(" ");
+    console.log(`🎵 PARAMS BRANCH: originalMelodyString = "${originalMelodyString}"`);
+  } else {
+    // No melody provided - use fallback
+    originalMelodyString = "cdefgab";
+    isFallbackMelody = true;
+    console.log(`🎵 FALLBACK BRANCH: using default melody`);
+  }
+
+  console.log(`🎵 About to process melody: "${originalMelodyString}", isFallback: ${isFallbackMelody}`);
+  
+  // Process the melody string (same for API-fetched, params, or fallback)
+  {
 
     // Convert notepat notation to standard notation before parsing
     const convertedMelodyString = convertNotepatNotation(originalMelodyString);
@@ -690,6 +798,7 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num
     
     // Parse the melody string for simultaneous tracks
     melodyTracks = parseSimultaneousMelody(convertedMelodyString, octave);
+    console.log(`🎵 Parsed melodyTracks:`, melodyTracks?.isSingleTrack, `tracks:`, melodyTracks?.tracks?.length, `first track length:`, melodyTracks?.tracks?.[0]?.length);
 
     if (melodyTracks.isSingleTrack) {
       // Single track - use existing logic
@@ -715,8 +824,9 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num
         startTime: performance.now(),
         timingMode: parseFloat(colon[0]) || 1.0,
         type: "single",
-        isFallback: false, // This is a real melody, not fallback
+        isFallback: isFallbackMelody,
       };
+      console.log(`🎵 MelodyState set (single track):`, melodyState.notes?.length, `notes, type:`, melodyState.type);
 
       // Preserve mutation metadata if present
       if (parsedMelody.hasMutation) {
@@ -757,7 +867,7 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num
         startTime: performance.now(),
         timingMode: parseFloat(colon[0]) || 1.0,
         type: "single",
-        isFallback: false, // This is a real melody, not fallback
+        isFallback: isFallbackMelody,
       };
 
       // Preserve mutation metadata if present
@@ -790,7 +900,7 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num
         timingMode: parseFloat(colon[0]) || 1.0,
         type: melodyTracks.type, // 'parallel' or 'multi'
         maxLength: melodyTracks.maxLength || 0,
-        isFallback: false, // This is a real melody, not fallback
+        isFallback: isFallbackMelody,
         // Independent timing state for each parallel track
         trackStates: melodyTracks.tracks.map((track, trackIndex) => ({
           trackIndex: trackIndex,
@@ -810,35 +920,6 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num
         restTone: `${octave}G`,
       });
     }
-  } else {
-    // No melody provided - set up fallback notes early in boot
-    // Use a simple pentatonic scale pattern that sounds pleasant
-    originalMelodyString = "cdefgab";
-
-    // Reset cumulative Hz states for fallback melody too
-    cumulativeHzStates.clear();
-
-    // Parse the fallback melody using the same system as regular melodies
-    melodyTracks = parseSimultaneousMelody(originalMelodyString, octave);
-    parsedMelody = melodyTracks.tracks[0];
-
-    // Extract tone strings for the fallback sequence
-    sequence = extractTones(parsedMelody, {
-      skipRests: false,
-      restTone: `${octave}G`,
-    });
-
-    // Initialize fallback melody timing state (same structure as regular melodies)
-    melodyState = {
-      notes: parsedMelody,
-      index: 0,
-      baseTempo: baseTempo,
-      isPlaying: false,
-      startTime: performance.now(),
-      timingMode: parseFloat(colon[0]) || 1.0,
-      type: "single",
-      isFallback: true, // Mark as fallback for special yellow coloring
-    };
   }
 
   // Check for melody mode in params
@@ -861,6 +942,26 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num
   // Preload speech for instant playback if speak function is available
   if (speak && melodyState) {
     preloadMelodySpeech(melodyState, speak, num, help);
+  }
+
+  // Cache melody to API for QR shortcode (fire and forget, don't block boot)
+  // Only cache if:
+  // 1. We have a real melody (not fallback)
+  // 2. We didn't already get a code from API fetch (cachedClockCode would be set)
+  if (!isFallbackMelody && !cachedClockCode && originalMelodyString) {
+    cacheMelody(originalMelodyString).then(code => {
+      if (code) {
+        cachedClockCode = code;
+        // Notify disk.mjs that we have a cached code for QR display
+        if (typeof api?.send === 'function') {
+          api.send({ type: "clock:cached", content: { code: cachedClockCode } });
+        }
+      }
+    });
+  }
+  } catch (bootError) {
+    console.error("🔴 CLOCK BOOT ERROR:", bootError);
+    throw bootError; // Re-throw so the disk system knows
   }
 }
 
@@ -987,64 +1088,66 @@ function paint({
 
     clockDrawn = true;
 
-    // Paint octave control buttons
-    const octaveText = `${octave}`;
-    const glyphWidth = typeface.glyphs["0"].resolution[0];
-    const padding = 4; // Padding on left and right of octave number
-    const octaveTextWidth = octaveText.length * glyphWidth + padding * 2;
-    const buttonWidth = 16;
-    const buttonHeight = 16;
-    const totalWidth = buttonWidth + octaveTextWidth + buttonWidth;
-    const startX = screen.width - totalWidth;
-    const startY = screen.height - buttonHeight;
+    // Paint octave control buttons (only if typeface is loaded)
+    if (typeface?.glyphs?.["0"]?.resolution) {
+      const octaveText = `${octave}`;
+      const glyphWidth = typeface.glyphs["0"].resolution[0];
+      const padding = 4; // Padding on left and right of octave number
+      const octaveTextWidth = octaveText.length * glyphWidth + padding * 2;
+      const buttonWidth = 16;
+      const buttonHeight = 16;
+      const totalWidth = buttonWidth + octaveTextWidth + buttonWidth;
+      const startX = 0; // Bottom-left corner (moved from right for QR code space)
+      const startY = screen.height - buttonHeight;
 
-    // Paint minus button
-    octaveMinusBtn?.paint((btn) => {
-      const disabled = octave <= 1;
-      const isPressed = btn.down;
-      const buttonColor = disabled ? "gray" : isPressed ? "white" : "red";
-      const textColor = disabled ? "darkgray" : isPressed ? "red" : "white";
+      // Paint minus button
+      octaveMinusBtn?.paint((btn) => {
+        const disabled = octave <= 1;
+        const isPressed = btn.down;
+        const buttonColor = disabled ? "gray" : isPressed ? "white" : "red";
+        const textColor = disabled ? "darkgray" : isPressed ? "red" : "white";
 
-      ink(buttonColor).box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
-      ink(textColor).write("-", {
-        x: btn.box.x + btn.box.w / 2 - 3,
-        y: btn.box.y + btn.box.h / 2 - 4,
+        ink(buttonColor).box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
+        ink(textColor).write("-", {
+          x: btn.box.x + btn.box.w / 2 - 3,
+          y: btn.box.y + btn.box.h / 2 - 4,
+          scale: 1,
+        });
+      });
+
+      // Paint octave text in the middle with background
+      const flashDuration = 150; // Flash for 150ms (faster)
+      const isFlashing = performance.now() - octaveFlashTime < flashDuration;
+      const octaveBgColor = isFlashing ? "white" : "blue";
+      const octaveTextColor = isFlashing ? "blue" : "white";
+
+      ink(octaveBgColor).box(
+        startX + buttonWidth,
+        startY,
+        octaveTextWidth,
+        buttonHeight,
+      );
+      ink(octaveTextColor).write(octaveText, {
+        x: startX + buttonWidth + padding,
+        y: startY + 3,
         scale: 1,
       });
-    });
 
-    // Paint octave text in the middle with background
-    const flashDuration = 150; // Flash for 150ms (faster)
-    const isFlashing = performance.now() - octaveFlashTime < flashDuration;
-    const octaveBgColor = isFlashing ? "white" : "blue";
-    const octaveTextColor = isFlashing ? "blue" : "white";
+      // Paint plus button
+      octavePlusBtn?.paint((btn) => {
+        const disabled = octave >= 8;
+        const isPressed = btn.down;
+        const buttonColor = disabled ? "gray" : isPressed ? "white" : "red";
+        const textColor = disabled ? "darkgray" : isPressed ? "red" : "white";
 
-    ink(octaveBgColor).box(
-      startX + buttonWidth,
-      startY,
-      octaveTextWidth,
-      buttonHeight,
-    );
-    ink(octaveTextColor).write(octaveText, {
-      x: startX + buttonWidth + padding,
-      y: startY + 3,
-      scale: 1,
-    });
-
-    // Paint plus button
-    octavePlusBtn?.paint((btn) => {
-      const disabled = octave >= 8;
-      const isPressed = btn.down;
-      const buttonColor = disabled ? "gray" : isPressed ? "white" : "red";
-      const textColor = disabled ? "darkgray" : isPressed ? "red" : "white";
-
-      ink(buttonColor).box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
-      ink(textColor).write("+", {
-        x: btn.box.x + btn.box.w / 2 - 3,
-        y: btn.box.y + btn.box.h / 2 - 4,
-        scale: 1,
+        ink(buttonColor).box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
+        ink(textColor).write("+", {
+          x: btn.box.x + btn.box.w / 2 - 3,
+          y: btn.box.y + btn.box.h / 2 - 4,
+          scale: 1,
+        });
       });
-    });
+    }
 
     // --- HUD preview clock label in the corner ---
     if (typeof hud !== "undefined" && hud.label) {
@@ -1750,64 +1853,66 @@ function paint({
   drawFloatingHzDisplays(ink, write, screen);
 
   // Paint octave control buttons after timeline so they appear on top
-  const octaveText = `${octave}`;
-  const glyphWidth = typeface.glyphs["0"].resolution[0];
-  const padding = 4; // Padding on left and right of octave number
-  const octaveTextWidth = octaveText.length * glyphWidth + padding * 2;
-  const buttonWidth = 16;
-  const buttonHeight = 16;
-  const totalWidth = buttonWidth + octaveTextWidth + buttonWidth;
-  const startX = screen.width - totalWidth;
-  const tapingOffset = api.system?.taping ? 1 : 0; // Move up 1 pixel when taping
-  const startY = screen.height - buttonHeight - tapingOffset;
+  if (typeface?.glyphs?.["0"]?.resolution) {
+    const octaveText = `${octave}`;
+    const glyphWidth = typeface.glyphs["0"].resolution[0];
+    const padding = 4; // Padding on left and right of octave number
+    const octaveTextWidth = octaveText.length * glyphWidth + padding * 2;
+    const buttonWidth = 16;
+    const buttonHeight = 16;
+    const totalWidth = buttonWidth + octaveTextWidth + buttonWidth;
+    const startX = 0; // Bottom-left corner (moved from right for QR code space)
+    const tapingOffset = api.system?.taping ? 1 : 0; // Move up 1 pixel when taping
+    const startY = screen.height - buttonHeight - tapingOffset;
 
-  // Paint minus button with proper state handling
-  octaveMinusBtn?.paint((btn) => {
-    const disabled = octave <= 1;
-    const isPressed = btn.down;
-    const buttonColor = disabled ? "gray" : isPressed ? "white" : "red";
-    const textColor = disabled ? "darkgray" : isPressed ? "red" : "white";
+    // Paint minus button with proper state handling
+    octaveMinusBtn?.paint((btn) => {
+      const disabled = octave <= 1;
+      const isPressed = btn.down;
+      const buttonColor = disabled ? "gray" : isPressed ? "white" : "red";
+      const textColor = disabled ? "darkgray" : isPressed ? "red" : "white";
 
-    ink(buttonColor).box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
-    ink(textColor).write("-", {
-      x: btn.box.x + btn.box.w / 2 - 3,
-      y: btn.box.y + btn.box.h / 2 - 4,
+      ink(buttonColor).box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
+      ink(textColor).write("-", {
+        x: btn.box.x + btn.box.w / 2 - 3,
+        y: btn.box.y + btn.box.h / 2 - 4,
+        scale: 1,
+      });
+    });
+
+    // Paint octave text in the middle with background
+    const flashDuration = 150; // Flash for 150ms (faster)
+    const isFlashing = performance.now() - octaveFlashTime < flashDuration;
+    const octaveBgColor = isFlashing ? "white" : "blue";
+    const octaveTextColor = isFlashing ? "blue" : "white";
+
+    ink(octaveBgColor).box(
+      startX + buttonWidth,
+      startY,
+      octaveTextWidth,
+      buttonHeight,
+    );
+    ink(octaveTextColor).write(octaveText, {
+      x: startX + buttonWidth + padding,
+      y: startY + 3,
       scale: 1,
     });
-  });
 
-  // Paint octave text in the middle with background
-  const flashDuration = 150; // Flash for 150ms (faster)
-  const isFlashing = performance.now() - octaveFlashTime < flashDuration;
-  const octaveBgColor = isFlashing ? "white" : "blue";
-  const octaveTextColor = isFlashing ? "blue" : "white";
+    // Paint plus button with proper state handling
+    octavePlusBtn?.paint((btn) => {
+      const disabled = octave >= 8;
+      const isPressed = btn.down;
+      const buttonColor = disabled ? "gray" : isPressed ? "white" : "green";
+      const textColor = disabled ? "darkgray" : isPressed ? "green" : "white";
 
-  ink(octaveBgColor).box(
-    startX + buttonWidth,
-    startY,
-    octaveTextWidth,
-    buttonHeight,
-  );
-  ink(octaveTextColor).write(octaveText, {
-    x: startX + buttonWidth + padding,
-    y: startY + 3,
-    scale: 1,
-  });
-
-  // Paint plus button with proper state handling
-  octavePlusBtn?.paint((btn) => {
-    const disabled = octave >= 8;
-    const isPressed = btn.down;
-    const buttonColor = disabled ? "gray" : isPressed ? "white" : "green";
-    const textColor = disabled ? "darkgray" : isPressed ? "green" : "white";
-
-    ink(buttonColor).box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
-    ink(textColor).write("+", {
-      x: btn.box.x + btn.box.w / 2 - 3,
-      y: btn.box.y + btn.box.h / 2 - 4,
-      scale: 1,
+      ink(buttonColor).box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
+      ink(textColor).write("+", {
+        x: btn.box.x + btn.box.w / 2 - 3,
+        y: btn.box.y + btn.box.h / 2 - 4,
+        scale: 1,
+      });
     });
-  });
+  }
 
   // No separate UTC time display - consolidated into main clock
 
@@ -4402,6 +4507,7 @@ let lastNoteDuration = 0; // Duration of the last note in milliseconds
 let nextNoteTargetTime = 0; // When the next note should play (UTC time)
 let lastResyncTime = 0; // Track when we last resynced
 const RESYNC_INTERVAL = 3000; // Resync every 3 seconds
+let simDebugLogged = false; // One-time debug flag
 
 // Simple musical state - no complex timeline needed
 let musicalState = {
@@ -4410,6 +4516,10 @@ let musicalState = {
 };
 
 function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
+  if (!simDebugLogged) {
+    simDebugLogged = true;
+    console.log("🎵 SIM FIRST RUN - melodyState:", melodyState?.type, "notes:", melodyState?.notes?.length);
+  }
   sound.speaker?.poll();
 
   // Get current time for timing calculations
@@ -4458,15 +4568,18 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
   // Get the current time and beep at different intervals
   const time = clock.time();
 
-  if (!time) return;
+  if (!time) {
+    // Debug: clock not synced yet
+    if (Math.random() < 0.01) console.log("🔴 SIM: clock.time() returned null - waiting for sync");
+    return;
+  }
 
   const seconds = time.getSeconds();
   const milliseconds = time.getMilliseconds();
 
   function bleep(syncedTime) {
     if (!melodyState) {
-      // This should not happen since fallback notes are now set up in boot()
-      console.warn("🎵 No melody state available - this should not happen");
+      // Boot hasn't completed yet - silently return
       return;
     }
 
@@ -4803,7 +4916,16 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
       }
     }
 
-    if (hasMelodyContent(melodyState)) {
+    const hasContent = hasMelodyContent(melodyState);
+    if (!hasContent && melodyState) {
+      // Debug: why is hasMelodyContent returning false?
+      console.log("🔴 SIM: hasMelodyContent=false but melodyState exists:", 
+        "type:", melodyState.type, 
+        "notes:", melodyState.notes?.length,
+        "trackStates:", melodyState.trackStates?.length,
+        "tracks:", melodyState.tracks?.length);
+    }
+    if (hasContent) {
       if (melodyState.type === "single") {
         // Single track timing - use simple direct timing
         if (nextNoteTargetTime === 0) {
@@ -5444,9 +5566,9 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
         }
       }
     } else {
-      // No melody - this case should not occur since fallback notes are set up in boot()
-      // But if it does, use UTC boundaries for simple bleep
-      console.warn("🎵 No melody state in UTC timing - this should not happen");
+      // No melody state yet - boot hasn't completed, silently skip
+      // This is normal during async boot initialization
+      return;
       const timeDivisor = utcTriggerDivisor;
       const intervalMs = timeDivisor * 1000;
       const utcBeatIndex = Math.floor(currentTimeMs / intervalMs);
@@ -5519,7 +5641,8 @@ function preview({ ink, wipe, write }) {
 
 // Build octave control buttons (+ and - buttons with octave number in between)
 function buildOctaveButtons({ screen, ui, typeface, system }) {
-  const glyphWidth = typeface.glyphs["0"].resolution[0];
+  // Use typeface glyph width if available, otherwise use a reasonable default (6px)
+  const glyphWidth = typeface?.glyphs?.["0"]?.resolution?.[0] || 6;
   const buttonHeight = 16;
   const buttonWidth = 16;
   const spacing = 0; // No gaps between buttons
@@ -5530,8 +5653,8 @@ function buildOctaveButtons({ screen, ui, typeface, system }) {
   const octaveTextWidth = octaveText.length * glyphWidth + padding * 2;
   const totalWidth = buttonWidth + octaveTextWidth + buttonWidth;
 
-  // Position flush to bottom right corner, moving up 1 pixel when taping
-  const startX = screen.width - totalWidth;
+  // Position flush to bottom LEFT corner (moved from right to leave room for QR code)
+  const startX = 0;
   const tapingOffset = system?.taping ? 1 : 0; // Move up 1 pixel when taping
   const startY = screen.height - buttonHeight - tapingOffset;
 
@@ -5546,3 +5669,6 @@ function buildOctaveButtons({ screen, ui, typeface, system }) {
     buttonHeight,
   );
 }
+
+// Export piece functions for disk.mjs to find
+export { boot, paint, sim, act, leave };
