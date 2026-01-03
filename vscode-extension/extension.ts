@@ -395,6 +395,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
           case 'newPiece':
             vscode.commands.executeCommand('workbench.action.files.newUntitledFile');
             return;
+          case 'openDashboard':
+            vscode.commands.executeCommand('simpleBrowser.show', 'http://127.0.0.1:7890');
+            return;
         }
       },
       undefined,
@@ -514,11 +517,57 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             color: var(--vscode-descriptionForeground);
             opacity: 0.6;
           }
+          .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            width: 100%;
+            max-width: 260px;
+          }
+          .btn {
+            background: var(--vscode-button-secondaryBackground);
+            border: 1px solid var(--vscode-button-border, transparent);
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: var(--vscode-button-secondaryForeground);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+          }
+          .btn:hover {
+            background: var(--vscode-button-secondaryHoverBackground);
+          }
+          .btn-primary {
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+          }
+          .btn-primary:hover {
+            background: var(--vscode-button-hoverBackground);
+          }
         </style>
       </head>
       <body>
         <img class="logo" src="${palsUri}" alt="Aesthetic Computer" />
         <h1>Aesthetic <span style="color: #ff69b4;">•</span> Computer</h1>
+        
+        <div class="buttons">
+          <button class="btn btn-primary" onclick="vscode.postMessage({command: 'openKidLisp'})">
+            🎨 Open KidLisp.com
+          </button>
+          <button class="btn" onclick="vscode.postMessage({command: 'openPane'})">
+            💻 Open AC Pane
+          </button>
+          <button class="btn" onclick="vscode.postMessage({command: 'openDashboard'})">
+            🔍 Devcontainer Dashboard
+          </button>
+        </div>
+        
+        <p class="hint">Press Cmd/Ctrl+Shift+P → "Aesthetic Computer" for more</p>
         
         <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
