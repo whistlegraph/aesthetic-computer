@@ -44,6 +44,7 @@ included_env_vars = ["BUILDS_PASSWORD", "MONGODB_CONNECTION_STRING", "MONGODB_NA
 
 [functions.index]
 included_files = [
+  "public/aesthetic.computer/*.mjs",
   "public/aesthetic.computer/disks/**/*.mjs",
   "public/aesthetic.computer/dep/**/*.mjs",
   "public/aesthetic.computer/systems/**/*.mjs",
@@ -1093,7 +1094,7 @@ force = false
 from = "/*.mjs"
 to = "/aesthetic.computer/:splat.mjs"
 status = 200
-force = true
+force = false
 [[redirects]]
 # SPA fallback for kidlisp.com routes - only for paths without file extensions
 # force = false ensures static files (js, css, etc.) are served directly
