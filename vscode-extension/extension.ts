@@ -364,7 +364,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     ),
   );
 
-  // ✨ Welcome Panel
+  // ✨ Welcome Panel (D3 Status Dashboard)
   function showWelcomePanel() {
     if (welcomePanel) {
       welcomePanel.reveal(vscode.ViewColumn.One);
@@ -381,7 +381,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       }
     );
 
-    // Handle messages from the webview BEFORE setting HTML
+    // Handle messages from the webview
     welcomePanel.webview.onDidReceiveMessage(
       message => {
         console.log("Welcome panel received message:", message);
@@ -394,9 +394,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             return;
           case 'newPiece':
             vscode.commands.executeCommand('workbench.action.files.newUntitledFile');
-            return;
-          case 'openDashboard':
-            vscode.commands.executeCommand('simpleBrowser.show', 'http://127.0.0.1:7890');
             return;
         }
       },
@@ -420,157 +417,610 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; img-src ${welcomePanel.webview.cspSource} https: data:; script-src 'nonce-${nonce}';">
-        <style nonce="${nonce}">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src ${welcomePanel.webview.cspSource} https: data:; script-src 'unsafe-inline' https://d3js.org; connect-src ws://127.0.0.1:7890 wss://localhost:8889;">
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+        <style>
+          :root {
+            --bg: #0a0a0a;
+            --text: #f0f0f0;
+            --text-dim: #666;
+            --accent: #ff6b9d;
+            --blue: #6b9fff;
+            --green: #6bff9f;
+            --yellow: #ffeb6b;
+            --purple: #b06bff;
+            --orange: #ff9f6b;
+            --cyan: #6bffff;
+          }
+          
           * { margin: 0; padding: 0; box-sizing: border-box; }
+          
           body {
-            background: var(--vscode-editor-background);
-            color: var(--vscode-foreground);
-            font-family: var(--vscode-font-family);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            text-align: center;
-            padding: 2rem;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'IBM Plex Mono', monospace;
+            overflow: hidden;
+            height: 100vh;
           }
-          .logo {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 1.5rem;
-            opacity: 0.9;
-          }
-          h1 {
-            font-size: 1.5rem;
-            font-weight: 400;
-            color: var(--vscode-editor-foreground);
-            margin-bottom: 0.5rem;
-            letter-spacing: 0.05em;
-          }
-          .tagline {
-            font-size: 0.9rem;
-            color: var(--vscode-descriptionForeground);
-            margin-bottom: 2rem;
-          }
-          .buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            margin-top: 1rem;
+          
+          #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            max-width: 280px;
+            height: 100%;
           }
-          .btn {
-            background: var(--vscode-button-secondaryBackground);
-            border: 1px solid var(--vscode-button-border, transparent);
-            border-radius: 6px;
-            padding: 0.75rem 1rem;
-            font-size: 0.9rem;
-            color: var(--vscode-button-secondaryForeground);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            transition: all 0.15s ease;
+          
+          /* HUD Overlay */
+          .hud {
+            position: absolute;
+            pointer-events: none;
+            z-index: 100;
           }
-          .btn:hover {
-            background: var(--vscode-button-secondaryHoverBackground);
-            color: var(--vscode-button-foreground);
-          }
-          .btn-primary {
-            background: var(--vscode-button-background);
-            border-color: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-          }
-          .btn-primary:hover {
-            background: var(--vscode-button-hoverBackground);
-            border-color: var(--vscode-button-hoverBackground);
-          }
-          .info {
-            margin-top: 2rem;
-            padding: 1rem;
-            background: var(--vscode-editorWidget-background);
-            border: 1px solid var(--vscode-editorWidget-border, transparent);
-            border-radius: 8px;
-            font-size: 0.8rem;
-            color: var(--vscode-descriptionForeground);
-            max-width: 320px;
-          }
-          .info-row {
+          
+          .hud-top {
+            top: 16px;
+            left: 16px;
+            right: 16px;
             display: flex;
             justify-content: space-between;
-            padding: 0.25rem 0;
+            align-items: flex-start;
           }
-          .info-label { 
-            color: var(--vscode-descriptionForeground);
-            opacity: 0.7;
-          }
-          .info-value { 
-            color: var(--vscode-foreground);
-            opacity: 0.8;
-          }
-          .hint {
-            margin-top: 2rem;
-            font-size: 0.75rem;
-            color: var(--vscode-descriptionForeground);
-            opacity: 0.6;
-          }
-          .buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            margin-top: 1.5rem;
-            width: 100%;
-            max-width: 260px;
-          }
-          .btn {
-            background: var(--vscode-button-secondaryBackground);
-            border: 1px solid var(--vscode-button-border, transparent);
-            border-radius: 4px;
-            padding: 8px 16px;
-            font-size: 13px;
-            color: var(--vscode-button-secondaryForeground);
-            cursor: pointer;
+          
+          .hud-title {
+            font-size: 0.9rem;
+            font-weight: 500;
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 10px;
+          }
+          
+          .hud-title .dot {
+            color: var(--accent);
+          }
+          
+          .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 10px var(--green);
+            animation: pulse 2s infinite;
+          }
+          
+          .status-dot.offline {
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+            animation: none;
+          }
+          
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+          
+          .hud-stats {
+            text-align: right;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+          }
+          
+          .hud-stats .value {
+            color: var(--text);
+            font-weight: 500;
+          }
+          
+          .hud-bottom {
+            bottom: 16px;
+            left: 16px;
+            right: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+          }
+          
+          .legend {
+            display: flex;
+            gap: 16px;
+            font-size: 0.65rem;
+            color: var(--text-dim);
+          }
+          
+          .legend-item {
+            display: flex;
+            align-items: center;
             gap: 6px;
+          }
+          
+          .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+          }
+          
+          /* Memory bar */
+          .memory-bar {
+            width: 200px;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+          }
+          
+          .memory-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--green), var(--cyan));
+            transition: width 0.5s;
+          }
+          
+          .memory-fill.warning { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
+          .memory-fill.danger { background: linear-gradient(90deg, var(--accent), var(--orange)); }
+          
+          /* Tooltip */
+          .tooltip {
+            position: absolute;
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 0.75rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            max-width: 250px;
+            box-shadow: 0 0 20px rgba(255, 107, 157, 0.2);
+            z-index: 200;
+          }
+          
+          .tooltip.visible { opacity: 1; }
+          
+          .tooltip h3 {
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          
+          .tooltip-stat {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-dim);
+            margin: 2px 0;
+          }
+          
+          .tooltip-stat .val {
+            color: var(--text);
+          }
+          
+          /* Center info */
+          .center-info {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+            z-index: 50;
+          }
+          
+          .center-icon {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+          }
+          
+          .center-label {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+          }
+          
+          .center-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--cyan);
+          }
+          
+          /* Action buttons */
+          .actions {
+            pointer-events: auto;
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+          }
+          
+          .action-btn {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            padding: 8px 14px;
+            font-size: 0.75rem;
+            color: var(--text);
+            cursor: pointer;
             transition: all 0.15s ease;
+            font-family: inherit;
           }
-          .btn:hover {
-            background: var(--vscode-button-secondaryHoverBackground);
+          
+          .action-btn:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: var(--accent);
           }
-          .btn-primary {
-            background: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
+          
+          .action-btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000;
           }
-          .btn-primary:hover {
-            background: var(--vscode-button-hoverBackground);
+          
+          .action-btn.primary:hover {
+            background: #ff8ab3;
           }
         </style>
       </head>
       <body>
-        <img class="logo" src="${palsUri}" alt="Aesthetic Computer" />
-        <h1>Aesthetic <span style="color: #ff69b4;">•</span> Computer</h1>
+        <svg id="canvas"></svg>
         
-        <div class="buttons">
-          <button class="btn btn-primary" onclick="vscode.postMessage({command: 'openKidLisp'})">
-            🎨 Open KidLisp.com
-          </button>
-          <button class="btn" onclick="vscode.postMessage({command: 'openPane'})">
-            💻 Open AC Pane
-          </button>
-          <button class="btn" onclick="vscode.postMessage({command: 'openDashboard'})">
-            🔍 Devcontainer Dashboard
-          </button>
+        <div class="hud hud-top">
+          <div class="hud-title">
+            <div class="status-dot offline" id="status-dot"></div>
+            <span>Aesthetic<span class="dot">.</span>Computer</span>
+          </div>
+          <div class="hud-stats">
+            <div><span class="value" id="hostname">devcontainer</span></div>
+            <div>Uptime: <span class="value" id="uptime">—</span></div>
+            <div>CPUs: <span class="value" id="cpus">—</span></div>
+            <div id="timestamp"></div>
+          </div>
         </div>
         
-        <p class="hint">Press Cmd/Ctrl+Shift+P → "Aesthetic Computer" for more</p>
+        <div class="center-info">
+          <div class="center-icon">🔮</div>
+          <div class="center-label">Status</div>
+          <div class="center-value" id="emacs-state">Connecting...</div>
+          <div class="actions">
+            <button class="action-btn primary" id="btn-kidlisp">🎨 KidLisp</button>
+            <button class="action-btn" id="btn-pane">💻 AC Pane</button>
+          </div>
+        </div>
         
-        <script nonce="${nonce}">
+        <div class="hud hud-bottom">
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background: var(--purple)"></div> Emacs</div>
+            <div class="legend-item"><div class="legend-dot" style="background: var(--green)"></div> Node</div>
+            <div class="legend-item"><div class="legend-dot" style="background: var(--blue)"></div> VS Code</div>
+            <div class="legend-item"><div class="legend-dot" style="background: var(--orange)"></div> Server</div>
+            <div class="legend-item"><div class="legend-dot" style="background: var(--cyan)"></div> System</div>
+          </div>
+          <div>
+            <div style="font-size: 0.65rem; color: var(--text-dim); margin-bottom: 4px;">
+              Memory: <span id="mem-text">— / —</span>
+            </div>
+            <div class="memory-bar">
+              <div class="memory-fill" id="mem-bar" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="tooltip" id="tooltip"></div>
+        
+        <script>
           const vscode = acquireVsCodeApi();
+          
+          // Button handlers
+          document.getElementById('btn-kidlisp').addEventListener('click', () => {
+            vscode.postMessage({command: 'openKidLisp'});
+          });
+          document.getElementById('btn-pane').addEventListener('click', () => {
+            vscode.postMessage({command: 'openPane'});
+          });
+          
+          // State
+          let processes = [];
+          let simulation;
+          let nodes = [];
+          let ws, sessionWs;
+          
+          // D3 setup
+          const svg = d3.select('#canvas');
+          let width = window.innerWidth;
+          let height = window.innerHeight;
+          let centerX = width / 2;
+          let centerY = height / 2;
+          
+          svg.attr('width', width).attr('height', height);
+          
+          // Gradient definitions
+          const defs = svg.append('defs');
+          
+          // Glow filter
+          const filter = defs.append('filter').attr('id', 'glow');
+          filter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'coloredBlur');
+          const feMerge = filter.append('feMerge');
+          feMerge.append('feMergeNode').attr('in', 'coloredBlur');
+          feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+          
+          // Background grid
+          const gridSize = 40;
+          const gridGroup = svg.append('g').attr('class', 'grid');
+          
+          function drawGrid() {
+            gridGroup.selectAll('*').remove();
+            for (let x = 0; x < width; x += gridSize) {
+              gridGroup.append('line')
+                .attr('x1', x).attr('y1', 0)
+                .attr('x2', x).attr('y2', height)
+                .attr('stroke', 'rgba(255,255,255,0.03)');
+            }
+            for (let y = 0; y < height; y += gridSize) {
+              gridGroup.append('line')
+                .attr('x1', 0).attr('y1', y)
+                .attr('x2', width).attr('y2', y)
+                .attr('stroke', 'rgba(255,255,255,0.03)');
+            }
+          }
+          drawGrid();
+          
+          // Orbital rings around center
+          const orbits = svg.append('g').attr('class', 'orbits');
+          function drawOrbits() {
+            orbits.selectAll('*').remove();
+            [100, 180, 280].forEach((r) => {
+              orbits.append('circle')
+                .attr('cx', centerX)
+                .attr('cy', centerY)
+                .attr('r', r)
+                .attr('fill', 'none')
+                .attr('stroke', 'rgba(255,255,255,0.05)')
+                .attr('stroke-dasharray', '4,8');
+            });
+          }
+          drawOrbits();
+          
+          // Connection lines group
+          const linksGroup = svg.append('g').attr('class', 'links');
+          
+          // Nodes group
+          const nodesGroup = svg.append('g').attr('class', 'nodes');
+          
+          // Category colors
+          const categoryColors = {
+            'emacs': '#b06bff',
+            'node': '#6bff9f',
+            'vscode': '#6b9fff',
+            'server': '#ff9f6b',
+            'system': '#6bffff',
+            'database': '#ffeb6b',
+            'default': '#888'
+          };
+          
+          // Force simulation
+          simulation = d3.forceSimulation()
+            .force('center', d3.forceCenter(centerX, centerY).strength(0.02))
+            .force('charge', d3.forceManyBody().strength(-200))
+            .force('collision', d3.forceCollide().radius(d => d.radius + 10))
+            .force('radial', d3.forceRadial(d => d.orbit, centerX, centerY).strength(0.3))
+            .on('tick', ticked);
+          
+          function ticked() {
+            linksGroup.selectAll('line')
+              .attr('x1', centerX)
+              .attr('y1', centerY)
+              .attr('x2', d => d.x)
+              .attr('y2', d => d.y);
+            
+            nodesGroup.selectAll('.node')
+              .attr('transform', d => \`translate(\${d.x}, \${d.y})\`);
+          }
+          
+          function updateVisualization(processData) {
+            if (!processData || !processData.interesting) return;
+            
+            const byName = new Map();
+            processData.interesting.forEach(p => {
+              const existing = byName.get(p.name);
+              if (!existing || p.cpu > existing.cpu) {
+                byName.set(p.name, p);
+              }
+            });
+            
+            const procs = Array.from(byName.values());
+            
+            const newNodes = procs.map((p) => {
+              const existing = nodes.find(n => n.name === p.name);
+              const intensity = (p.cpu + p.mem) / 2;
+              const radius = Math.max(15, Math.min(50, 10 + intensity * 2));
+              
+              let orbit = 180;
+              if (p.category === 'emacs') orbit = 100;
+              else if (p.category === 'vscode') orbit = 140;
+              else if (p.category === 'server') orbit = 220;
+              else if (p.category === 'system') orbit = 280;
+              
+              return {
+                id: p.name,
+                name: p.name,
+                icon: p.icon,
+                category: p.category,
+                cpu: p.cpu,
+                mem: p.mem,
+                rss: p.rss,
+                pid: p.pid,
+                radius,
+                orbit,
+                color: categoryColors[p.category] || categoryColors.default,
+                x: existing ? existing.x : centerX + (Math.random() - 0.5) * 200,
+                y: existing ? existing.y : centerY + (Math.random() - 0.5) * 200,
+              };
+            });
+            
+            nodes = newNodes;
+            simulation.nodes(nodes);
+            simulation.alpha(0.3).restart();
+            
+            const links = linksGroup.selectAll('line').data(nodes, d => d.id);
+            
+            links.enter()
+              .append('line')
+              .attr('stroke', d => d.color)
+              .attr('stroke-opacity', 0.15)
+              .attr('stroke-width', 1);
+            
+            links.exit().remove();
+            
+            linksGroup.selectAll('line')
+              .attr('stroke', d => d.color)
+              .attr('stroke-opacity', d => 0.1 + d.cpu / 100);
+            
+            const nodeSelection = nodesGroup.selectAll('.node').data(nodes, d => d.id);
+            
+            const nodeEnter = nodeSelection.enter()
+              .append('g')
+              .attr('class', 'node')
+              .style('cursor', 'pointer')
+              .on('mouseover', showTooltip)
+              .on('mouseout', hideTooltip);
+            
+            nodeEnter.append('circle')
+              .attr('class', 'glow')
+              .attr('r', d => d.radius + 5)
+              .attr('fill', d => d.color)
+              .attr('opacity', 0.2)
+              .attr('filter', 'url(#glow)');
+            
+            nodeEnter.append('circle')
+              .attr('class', 'main')
+              .attr('r', d => d.radius)
+              .attr('fill', 'rgba(10,10,10,0.8)')
+              .attr('stroke', d => d.color)
+              .attr('stroke-width', 2);
+            
+            nodeEnter.append('text')
+              .attr('class', 'icon')
+              .attr('text-anchor', 'middle')
+              .attr('dominant-baseline', 'central')
+              .attr('font-size', d => Math.max(12, d.radius * 0.6))
+              .text(d => d.icon);
+            
+            nodeEnter.append('text')
+              .attr('class', 'label')
+              .attr('y', d => d.radius + 14)
+              .attr('text-anchor', 'middle')
+              .attr('fill', 'rgba(255,255,255,0.7)')
+              .attr('font-size', '9px')
+              .text(d => d.name.length > 12 ? d.name.slice(0, 10) + '…' : d.name);
+            
+            nodeSelection.select('.glow')
+              .transition().duration(500)
+              .attr('r', d => d.radius + 5 + d.cpu / 10)
+              .attr('opacity', d => 0.15 + d.cpu / 200);
+            
+            nodeSelection.select('.main')
+              .transition().duration(500)
+              .attr('r', d => d.radius)
+              .attr('stroke', d => d.color)
+              .attr('stroke-width', d => 2 + d.cpu / 20);
+            
+            nodeSelection.select('.icon')
+              .attr('font-size', d => Math.max(12, d.radius * 0.6));
+            
+            nodeSelection.select('.label')
+              .attr('y', d => d.radius + 14);
+            
+            nodeSelection.exit().remove();
+          }
+          
+          function showTooltip(event, d) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.innerHTML = \`
+              <h3>\${d.icon} \${d.name}</h3>
+              <div class="tooltip-stat"><span>PID</span><span class="val">\${d.pid}</span></div>
+              <div class="tooltip-stat"><span>Category</span><span class="val">\${d.category}</span></div>
+              <div class="tooltip-stat"><span>CPU</span><span class="val" style="color: var(--yellow)">\${d.cpu.toFixed(1)}%</span></div>
+              <div class="tooltip-stat"><span>Memory</span><span class="val" style="color: var(--purple)">\${(d.rss / 1024).toFixed(0)} MB</span></div>
+            \`;
+            tooltip.style.left = (event.pageX + 15) + 'px';
+            tooltip.style.top = (event.pageY - 10) + 'px';
+            tooltip.classList.add('visible');
+          }
+          
+          function hideTooltip() {
+            document.getElementById('tooltip').classList.remove('visible');
+          }
+          
+          // WebSocket connection to status server
+          function connectStatus() {
+            try {
+              ws = new WebSocket('ws://127.0.0.1:7890/ws');
+              
+              ws.onopen = () => {
+                document.getElementById('status-dot').classList.remove('offline');
+                document.getElementById('emacs-state').textContent = 'Online';
+              };
+              
+              ws.onmessage = (event) => {
+                try {
+                  const data = JSON.parse(event.data);
+                  updateHUD(data);
+                  updateVisualization(data.processes);
+                } catch (err) {
+                  console.error('Parse error:', err);
+                }
+              };
+              
+              ws.onclose = () => {
+                document.getElementById('status-dot').classList.add('offline');
+                document.getElementById('emacs-state').textContent = 'Offline';
+                setTimeout(connectStatus, 3000);
+              };
+              
+              ws.onerror = () => ws.close();
+            } catch (e) {
+              setTimeout(connectStatus, 3000);
+            }
+          }
+          
+          function updateHUD(data) {
+            document.getElementById('timestamp').textContent = new Date(data.timestamp).toLocaleTimeString();
+            
+            if (data.system) {
+              document.getElementById('hostname').textContent = data.system.hostname;
+              document.getElementById('uptime').textContent = data.system.uptime.formatted;
+              document.getElementById('cpus').textContent = data.system.cpus;
+              
+              const mem = data.system.memory;
+              document.getElementById('mem-text').textContent = mem.used + ' / ' + mem.total + ' MB';
+              const memBar = document.getElementById('mem-bar');
+              memBar.style.width = mem.percent + '%';
+              memBar.classList.remove('warning', 'danger');
+              if (mem.percent > 80) memBar.classList.add('danger');
+              else if (mem.percent > 60) memBar.classList.add('warning');
+            }
+            
+            if (data.emacs) {
+              document.getElementById('emacs-state').textContent = data.emacs.online ? 'Online' : 'Offline';
+            }
+          }
+          
+          // Handle resize
+          window.addEventListener('resize', () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            centerX = width / 2;
+            centerY = height / 2;
+            svg.attr('width', width).attr('height', height);
+            drawGrid();
+            drawOrbits();
+            simulation.force('center', d3.forceCenter(centerX, centerY));
+            simulation.force('radial', d3.forceRadial(d => d.orbit, centerX, centerY).strength(0.3));
+            simulation.alpha(0.3).restart();
+          });
+          
+          // Start
+          connectStatus();
         </script>
       </body>
       </html>
