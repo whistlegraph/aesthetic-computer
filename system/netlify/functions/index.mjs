@@ -351,6 +351,11 @@ async function fun(event, context) {
           // This is inline kidlisp code, not a file to load
           console.log("[kidlisp] Detected inline kidlisp, skipping file load");
           sourceCode = null; // No source code to load
+        // Handle $code nanoid pieces - these load source from MongoDB client-side
+        } else if (path.startsWith("$") && path.length >= 4 && /^\$[a-zA-Z0-9]+$/.test(path)) {
+          console.log("[kidlisp] Detected $code piece, skipping file load:", path);
+          sourceCode = null; // Source loaded client-side from MongoDB
+          statusCode = 200; // Ensure we return 200 for valid $code pieces
         } else {
           try {
             const basePath = `${dev ? "./" : "/var/task/system/"}public/aesthetic.computer/disks/${path}`;
