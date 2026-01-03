@@ -3357,7 +3357,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     },
   };
 
-  const onMessage = (m) => receivedChange(m);
+  // 🔍 Debug logging flags (opt-in; avoids spamming console during normal runs)
+  const DEBUG_MESSAGE_FLOW = !!window.acDEBUG_MESSAGE_FLOW;
+
+  const onMessage = (m) => {
+    // Log all non-frame messages at the earliest point
+    if (DEBUG_MESSAGE_FLOW && m?.data?.type && m.data.type !== "frame") {
+      console.log(`🔍 BIOS onMessage: type="${m.data.type}"`);
+    }
+    receivedChange(m);
+  };
 
   let send = (msg) => {
     console.warn("Send has not been wired yet!", msg);
@@ -3765,6 +3774,88 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Update & Render
   let frameAlreadyRequested = false;
 
+  // 🛑 Frame pump stall watchdog
+  // If bios requests a frame and the worker never replies with render/update,
+  // the UI can appear to freeze silently. Detect that and surface an error.
+  const FRAME_STALL_MS =
+    typeof window !== "undefined" && typeof window.acFRAME_STALL_MS === "number"
+      ? window.acFRAME_STALL_MS
+      : 8000;
+  let frameStallTimer = null;
+  let frameStallArmedAt = 0;
+  let frameStallArmedFrame = 0n;
+
+  function clearFrameStallWatchdog() {
+    if (frameStallTimer) {
+      clearTimeout(frameStallTimer);
+      frameStallTimer = null;
+    }
+  }
+
+  function showFrameStallOverlay(message) {
+    // Minimal DOM fallback so the user sees *something* even if the worker is dead.
+    try {
+      const existing = document.getElementById("ac-stall-overlay");
+      if (existing) existing.remove();
+      const overlay = document.createElement("div");
+      overlay.id = "ac-stall-overlay";
+      overlay.style.position = "fixed";
+      overlay.style.inset = "0";
+      overlay.style.zIndex = "2147483647";
+      overlay.style.background = "rgba(0,0,0,0.92)";
+      overlay.style.color = "white";
+      overlay.style.font = "14px/1.35 monospace";
+      overlay.style.padding = "16px";
+      overlay.style.whiteSpace = "pre-wrap";
+      overlay.textContent = message;
+      document.body.appendChild(overlay);
+    } catch (e) {
+      // Ignore overlay failures.
+    }
+  }
+
+  function triggerFrameStall(message) {
+    if (window.acFRAME_STALL_TRIPPED) return;
+    window.acFRAME_STALL_TRIPPED = true;
+
+    console.error("🛑 BIOS frame pump stalled:", message);
+    showFrameStallOverlay(message);
+
+    // Release the latch so the main loop can keep pumping if possible.
+    frameAlreadyRequested = false;
+    clearFrameStallWatchdog();
+
+    // Attempt to route to a dedicated error piece (MatrixChunky8) if the worker is alive.
+    try {
+      const encoded = encodeURIComponent(message);
+      send({
+        type: "jump",
+        content: {
+          piece: `error~${encoded}`,
+          ahistorical: true,
+          alias: true,
+        },
+      });
+    } catch (e) {
+      // If the worker is dead/unresponsive, the DOM overlay remains.
+    }
+  }
+
+  function armFrameStallWatchdog() {
+    clearFrameStallWatchdog();
+    if (document.visibilityState && document.visibilityState !== "visible") return;
+    frameStallArmedAt = performance.now();
+    frameStallArmedFrame = frameCount;
+    frameStallTimer = setTimeout(() => {
+      if (!frameAlreadyRequested) return;
+      const elapsed = Math.round(performance.now() - frameStallArmedAt);
+      const piece = typeof currentPiece === "string" ? currentPiece : "(unknown piece)";
+      triggerFrameStall(
+        `SYSTEM STALL\n\nNo render/update from disk after requesting a frame.\n\nPiece: ${piece}\nFrame: ${String(frameStallArmedFrame)}\nWaited: ${elapsed}ms`,
+      );
+    }, FRAME_STALL_MS);
+  }
+
   function requestFrame(needsRender, updateCount, nowUpdate) {
     now = nowUpdate;
 
@@ -3779,6 +3870,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     frameAlreadyRequested = true;
     frameCount += 1n;
+    armFrameStallWatchdog();
 
     // TODO: 📏 Measure performance of frame: test with different resolutions.
 
@@ -3915,6 +4007,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    // 🔍 DEBUG: Log ALL incoming messages to trace what's being received
+    if (DEBUG_MESSAGE_FLOW && type !== "frame") {
+      console.log(`🔍 BIOS receivedChange: type="${type}"`);
+    }
+    
     // Relay boot-log messages to parent window and update the overlay
     if (type === "boot-log") {
       // console.log("📢 BIOS relaying boot-log:", content);
@@ -3931,11 +4028,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     
     // 📄 Boot file content - display source in boot canvas
     if (type === "boot-file") {
-      if (window.acBOOT_ADD_FILE && content?.filename && content?.source) {
+      // NOTE: Rendering/tokenizing source for boot UI can be surprisingly expensive in some contexts.
+      // Keep it opt-in to avoid freezing the main thread during piece loads.
+      const DEBUG_BOOT_FILES = window.acDEBUG_BOOT_FILES === true;
+
+      if (DEBUG_BOOT_FILES) {
+        console.log(
+          `🔍 BIOS: Received boot-file for "${content?.filename}", source length = ${content?.source?.length}`,
+        );
+      }
+
+      if (DEBUG_BOOT_FILES && window.acBOOT_ADD_FILE && content?.filename && content?.source) {
         // Use setTimeout to make this non-blocking - prevents hangs from tokenizer regex
         setTimeout(() => {
           try {
+            if (DEBUG_BOOT_FILES) {
+              console.log(`🔍 BIOS: boot-file setTimeout executing for "${content?.filename}"`);
+            }
             window.acBOOT_ADD_FILE(content.filename, content.source);
+            if (DEBUG_BOOT_FILES) {
+              console.log(`🔍 BIOS: boot-file acBOOT_ADD_FILE completed for "${content?.filename}"`);
+            }
           } catch (e) {
             console.warn("boot-file display error:", e);
           }
@@ -11092,55 +11205,57 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
-      // Clear any active parameters once the disk has been loaded.
-      // Skip URL manipulation in pack mode (sandboxed iframe)
-      if (!checkPackMode()) {
-        // Special handling for prompt piece with kidlisp content
-        if (
-          content.path === "aesthetic.computer/disks/prompt" &&
-          content.params &&
-          content.params.length > 0 &&
-          isKidlispSource(content.params[0])
-        ) {
-          // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
-          const encodedContent = encodeKidlispForUrl(content.params[0]);
-          const encodedPath = "/prompt~" + encodedContent;
-          // Use pushState instead of replaceState to preserve history navigation
-          try {
-            if (!content.fromHistory) {
-              window.history.pushState({}, "", encodedPath);
-            } else {
-              window.history.replaceState({}, "", encodedPath);
+      console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
+      try {
+        // Clear any active parameters once the disk has been loaded.
+        // Skip URL manipulation in pack mode (sandboxed iframe)
+        if (!checkPackMode()) {
+          // Special handling for prompt piece with kidlisp content
+          if (
+            content.path === "aesthetic.computer/disks/prompt" &&
+            content.params &&
+            content.params.length > 0 &&
+            isKidlispSource(content.params[0])
+          ) {
+            // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
+            const encodedContent = encodeKidlispForUrl(content.params[0]);
+            const encodedPath = "/prompt~" + encodedContent;
+            // Use pushState instead of replaceState to preserve history navigation
+            try {
+              if (!content.fromHistory) {
+                window.history.pushState({}, "", encodedPath);
+              } else {
+                window.history.replaceState({}, "", encodedPath);
+              }
+            } catch (e) { /* Ignore in restricted context */ }
+          } else if (content.text && isKidlispSource(content.text)) {
+            // For standalone kidlisp pieces, use centralized URL encoding
+            const encodedPath = "/" + encodeKidlispForUrl(content.text);
+            // Use pushState instead of replaceState to preserve history navigation
+            try {
+              if (!content.fromHistory) {
+                window.history.pushState({}, "", encodedPath);
+              } else {
+                window.history.replaceState({}, "", encodedPath);
+              }
+            } catch (e) { /* Ignore in restricted context */ }
+          } else {
+            // For regular pieces, clear parameters but keep the basic path structure
+            // Preserve DAW-related params for M4L integration
+            const currentParams = new URLSearchParams(window.location.search);
+            const dawParams = new URLSearchParams();
+            for (const param of ['daw', 'density', 'nogap', 'width', 'height']) {
+              if (currentParams.has(param)) {
+                dawParams.set(param, currentParams.get(param));
+              }
             }
-          } catch (e) { /* Ignore in restricted context */ }
-        } else if (content.text && isKidlispSource(content.text)) {
-          // For standalone kidlisp pieces, use centralized URL encoding
-          const encodedPath = "/" + encodeKidlispForUrl(content.text);
-          // Use pushState instead of replaceState to preserve history navigation
-          try {
-            if (!content.fromHistory) {
-              window.history.pushState({}, "", encodedPath);
-            } else {
-              window.history.replaceState({}, "", encodedPath);
-            }
-          } catch (e) { /* Ignore in restricted context */ }
-        } else {
-          // For regular pieces, clear parameters but keep the basic path structure
-          // Preserve DAW-related params for M4L integration
-          const currentParams = new URLSearchParams(window.location.search);
-          const dawParams = new URLSearchParams();
-          for (const param of ['daw', 'density', 'nogap', 'width', 'height']) {
-            if (currentParams.has(param)) {
-              dawParams.set(param, currentParams.get(param));
-            }
+            const queryString = dawParams.toString();
+            const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
+            try {
+              window.history.replaceState({}, "", newUrl);
+            } catch (e) { /* Ignore in restricted context */ }
           }
-          const queryString = dawParams.toString();
-          const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
-          try {
-            window.history.replaceState({}, "", newUrl);
-          } catch (e) { /* Ignore in restricted context */ }
         }
-      }
 
       // if (currentPiece !== null) firstPiece = false;
       // console.log("🎮 currentPiece CHANGING FROM:", currentPiece, "TO:", content.path);
@@ -11243,7 +11358,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       stopTapePlayback?.();
 
       // Remove any event listeners added by the content frame.
-      window?.acCONTENT_EVENTS.forEach((e) => e());
+      // Guard: this may be undefined in some embedded/early-load contexts.
+      window.acCONTENT_EVENTS?.forEach?.((e) => e());
       window.acCONTENT_EVENTS = []; // And clear all events from the list.
 
       // Remove existing video tags.
@@ -11449,7 +11565,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.addEventListener("pointerdown", activateSound, { once: true });
       }
 
-      send({ type: "loading-complete" });
+      } catch (err) {
+        console.error("🛑 BIOS disk-loaded handler error:", err);
+      } finally {
+        if (DEBUG_MESSAGE_FLOW) {
+          console.log(`🔍 BIOS: About to send loading-complete for ${content.text}`);
+        }
+        try {
+          send({ type: "loading-complete" });
+        } catch (e) {
+          console.error("🛑 BIOS failed to send loading-complete:", e);
+        }
+        if (DEBUG_MESSAGE_FLOW) {
+          console.log(`🔍 BIOS: loading-complete sent for ${content.text}`);
+        }
+      }
       return;
     }
 
@@ -14961,8 +15091,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // 🌟 Update & Render (Compositing)
+    // IMPORTANT: Always release the frame pump latch for render/update.
+    // If we return early (pixel mismatch) or throw during compositing, bios can stop
+    // requesting frames entirely (frameAlreadyRequested stays true).
     if (!(type === "render" || type === "update")) return;
-    if (!content) return;
+    if (!content) {
+      frameAlreadyRequested = false;
+      clearFrameStallWatchdog();
+      return;
+    }
+
+    try {
 
     // Mark first render message from worker
     if (!window._firstRenderReceived) {
@@ -15124,8 +15263,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         "Freeze:",
         freezeFrame,
       );
-      //frameAlreadyRequested = false; // 🗨️ Tell the system we are ready for another frame.
-      // ^ Deprecated: 23.09.17.01.20
+      frameAlreadyRequested = false; // 🗨️ Tell the system we are ready for another frame.
+      clearFrameStallWatchdog();
       return;
     }
 
@@ -16163,7 +16302,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
-    frameAlreadyRequested = false; // 🗨️ Signal readiness for the next frame.
+    } catch (err) {
+      console.error("🛑 BIOS compositing error (render/update):", err);
+    } finally {
+      frameAlreadyRequested = false; // 🗨️ Signal readiness for the next frame.
+      clearFrameStallWatchdog();
+    }
     // if (lastRender) console.log(performance.now() - lastRender)
     // lastRender = performance.now()
   } // End of receivedChange function
