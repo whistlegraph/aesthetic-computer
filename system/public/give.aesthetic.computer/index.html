@@ -268,6 +268,85 @@
       margin-top: 0.2em;
     }
 
+    /* Recent Gives Feed */
+    .recent-gives {
+      grid-column: 1 / -1;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 8px;
+      padding: 1em;
+      overflow: hidden;
+    }
+
+    .recent-gives-header {
+      font-family: 'ywft', var(--mono);
+      font-size: 0.9em;
+      color: var(--cyan);
+      margin-bottom: 0.8em;
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+    }
+
+    .recent-gives-header::before {
+      content: "💝";
+    }
+
+    .gives-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4em;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .give-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5em 0.7em;
+      background: rgba(255,255,255,0.03);
+      border-radius: 4px;
+      font-size: 0.85em;
+      animation: give-fade-in 0.5s ease-out;
+    }
+
+    @keyframes give-fade-in {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .give-amount {
+      font-family: 'ywft', var(--mono);
+      color: var(--gold);
+      font-size: 1.1em;
+    }
+
+    .give-type {
+      font-size: 0.75em;
+      color: var(--dim);
+      padding: 0.2em 0.5em;
+      background: rgba(255,255,255,0.05);
+      border-radius: 3px;
+    }
+
+    .give-type.subscription {
+      color: var(--magenta);
+      background: rgba(255, 105, 180, 0.1);
+    }
+
+    .give-time {
+      font-size: 0.7em;
+      color: var(--dim);
+    }
+
+    .gives-loading {
+      text-align: center;
+      color: var(--dim);
+      font-size: 0.85em;
+      padding: 1em;
+    }
+
     /* Module caption - positioned at bottom of content boxes */
     .module-caption {
       position: absolute;
@@ -490,22 +569,52 @@
       display: inline-block;
     }
 
+    /* Ground/horizon under the pals */
+    .gift-logo-wrap::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      left: -60px;
+      right: -60px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 0%, var(--cyan) 15%, var(--cyan) 85%, transparent 100%);
+      opacity: 0.6;
+      border-radius: 2px;
+      box-shadow: 0 1px 0 rgba(0, 255, 255, 0.2);
+    }
+
+    /* Solid ground below horizon */
+    .gift-logo-wrap::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: -60px;
+      right: -60px;
+      height: 3px;
+      background: linear-gradient(180deg, rgba(0, 255, 255, 0.15) 0%, rgba(0, 255, 255, 0.05) 100%);
+      border-radius: 0 0 4px 4px;
+    }
+
     .gift-logo {
       width: 160px;
       height: 160px;
       opacity: 0.7;
-      transition: opacity 0.2s, transform 0.2s;
+      transition: opacity 0.4s ease-out, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-origin: bottom left;
     }
 
-    .gift-widget:hover .gift-logo {
+    .gift-widget:hover .gift-logo:not(.intensity-1):not(.intensity-2):not(.intensity-3):not(.intensity-4) {
       opacity: 1;
       transform: scale(1.05);
     }
 
     .gift-amount {
       position: absolute;
-      top: -0.5em;
-      right: -2em;
+      /* Positioned at logo's top-right corner */
+      top: 0;
+      left: 160px;
+      transform: translate(-0.5em, -50%);
+      transform-origin: bottom left;
       font-family: 'ywft', var(--mono);
       font-size: 1.3em;
       color: var(--gold);
@@ -515,6 +624,155 @@
       padding: 0.3em 0.6em;
       box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
       white-space: nowrap;
+      transition: top 0.6s cubic-bezier(0.4, 0, 0.2, 1), left 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease-out, border 0.4s ease-out;
+      display: flex;
+      gap: 0;
+    }
+
+    .gift-amount .wiggle-char {
+      display: inline-block;
+      transition: color 0.1s;
+    }
+
+    /* Logo intensity animations - shrinks like zooming out */
+    .gift-logo.intensity-1 {
+      animation: logo-pulse 2s ease-in-out infinite;
+      transform: scale(0.9);
+    }
+
+    .gift-logo.intensity-2 {
+      animation: logo-glow 1.5s ease-in-out infinite;
+      transform: scale(0.75);
+    }
+
+    .gift-logo.intensity-3 {
+      animation: logo-rainbow 2s linear infinite, logo-pulse 1s ease-in-out infinite;
+      transform: scale(0.6);
+    }
+
+    .gift-logo.intensity-4 {
+      animation: logo-rainbow 0.8s linear infinite, logo-shake 0.3s ease-in-out infinite;
+      transform: scale(0.45);
+    }
+
+    @keyframes logo-pulse {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
+
+    @keyframes logo-glow {
+      0%, 100% { filter: drop-shadow(0 0 5px rgba(255,215,0,0.4)) brightness(1); }
+      50% { filter: drop-shadow(0 0 20px rgba(255,215,0,0.8)) brightness(1.3); }
+    }
+
+    @keyframes logo-rainbow {
+      0% { filter: drop-shadow(0 0 15px #ff6b6b) hue-rotate(0deg); }
+      25% { filter: drop-shadow(0 0 15px #ffd93d) hue-rotate(90deg); }
+      50% { filter: drop-shadow(0 0 15px #4ecdc4) hue-rotate(180deg); }
+      75% { filter: drop-shadow(0 0 15px #9b59b6) hue-rotate(270deg); }
+      100% { filter: drop-shadow(0 0 15px #ff6b6b) hue-rotate(360deg); }
+    }
+
+    @keyframes logo-shake {
+      0%, 100% { transform: scale(0.45) translate(0, 0); }
+      20% { transform: scale(0.45) translate(-4px, 3px); }
+      40% { transform: scale(0.45) translate(4px, -3px); }
+      60% { transform: scale(0.45) translate(-3px, -4px); }
+      80% { transform: scale(0.45) translate(3px, 4px); }
+    }
+
+    /* Vegas intensity levels for amount */
+    @keyframes vegas-pulse {
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.05); filter: brightness(1.2); }
+    }
+
+    @keyframes vegas-glow {
+      0%, 100% { box-shadow: 0 0 10px rgba(255,215,0,0.5), 0 2px 8px rgba(0,0,0,0.4); }
+      50% { box-shadow: 0 0 25px rgba(255,215,0,0.8), 0 0 40px rgba(255,100,100,0.4), 0 2px 8px rgba(0,0,0,0.4); }
+    }
+
+    @keyframes vegas-rainbow {
+      0% { border-color: #ff6b6b; box-shadow: 0 0 20px #ff6b6b, 0 0 40px rgba(255,107,107,0.5); }
+      16% { border-color: #ffd93d; box-shadow: 0 0 20px #ffd93d, 0 0 40px rgba(255,217,61,0.5); }
+      33% { border-color: #6bcb77; box-shadow: 0 0 20px #6bcb77, 0 0 40px rgba(107,203,119,0.5); }
+      50% { border-color: #4ecdc4; box-shadow: 0 0 20px #4ecdc4, 0 0 40px rgba(78,205,196,0.5); }
+      66% { border-color: #9b59b6; box-shadow: 0 0 20px #9b59b6, 0 0 40px rgba(155,89,182,0.5); }
+      83% { border-color: #ff6b9d; box-shadow: 0 0 20px #ff6b9d, 0 0 40px rgba(255,107,157,0.5); }
+      100% { border-color: #ff6b6b; box-shadow: 0 0 20px #ff6b6b, 0 0 40px rgba(255,107,107,0.5); }
+    }
+
+    @keyframes vegas-shake {
+      0%, 100% { transform: translate(-0.5em, -50%) scale(1.6); }
+      10%, 30%, 50%, 70%, 90% { transform: translate(calc(-0.5em - 2px), -50%) scale(1.6); }
+      20%, 40%, 60%, 80% { transform: translate(calc(-0.5em + 2px), -50%) scale(1.6); }
+    }
+
+    .gift-amount.intensity-1 {
+      top: 16px;
+      left: 144px;
+      transform: translate(-0.5em, -50%) scale(1.1);
+      background: linear-gradient(135deg, #3a6a4a 0%, #2a5a3a 100%);
+      border-color: #5a9a6a;
+      animation: vegas-pulse-1 2s ease-in-out infinite;
+    }
+
+    .gift-amount.intensity-2 {
+      top: 40px;
+      left: 120px;
+      transform: translate(-0.5em, -50%) scale(1.25);
+      color: #ffd700;
+      background: linear-gradient(135deg, #4a3a1a 0%, #3a2a0a 100%);
+      border-color: #8a7a3a;
+      animation: vegas-glow 1.5s ease-in-out infinite;
+    }
+
+    .gift-amount.intensity-3 {
+      top: 64px;
+      left: 96px;
+      transform: translate(-0.5em, -50%) scale(1.4);
+      color: #fff;
+      background: linear-gradient(135deg, #5a2a2a 0%, #4a1a1a 100%);
+      animation: vegas-rainbow 2s linear infinite, vegas-pulse-3 1s ease-in-out infinite;
+    }
+
+    .gift-amount.intensity-4 {
+      top: 88px;
+      left: 72px;
+      transform: translate(-0.5em, -50%) scale(1.6);
+      color: #fff;
+      text-shadow: 0 0 10px #fff, 0 0 20px #ffd700;
+      background: linear-gradient(135deg, #6a1a3a 0%, #4a0a2a 100%);
+      animation: vegas-rainbow 1s linear infinite, vegas-shake 0.5s ease-in-out infinite;
+    }
+
+    @keyframes vegas-pulse-1 {
+      0%, 100% { transform: translate(-0.5em, -50%) scale(1.1); }
+      50% { transform: translate(-0.5em, -50%) scale(1.15); }
+    }
+
+    @keyframes vegas-pulse-3 {
+      0%, 100% { transform: translate(-0.5em, -50%) scale(1.4); }
+      50% { transform: translate(-0.5em, -50%) scale(1.45); }
+    }
+
+    /* Currency conversion display - to right of price */
+    .gift-conversion {
+      position: absolute;
+      top: -0.5em;
+      right: -7em;
+      font-family: 'ywft', var(--mono);
+      font-size: 1.1em;
+      color: var(--cyan);
+      white-space: nowrap;
+    }
+
+    .gift-conversion:empty {
+      display: none;
+    }
+
+    .gift-conversion span {
+      margin: 0;
     }
 
     .gift-controls {
@@ -586,6 +844,25 @@
 
     .gift-monthly-check.checked {
       color: var(--gold);
+    }
+
+    /* Bottom row: monthly checkbox left, fiat note right */
+    .gift-bottom-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.8em 0 0;
+    }
+
+    .gift-bottom-row .gift-monthly-check {
+      padding: 0;
+    }
+
+    .gift-bottom-row .fiat-note {
+      font-size: 0.7em;
+      color: var(--dim);
+      text-align: right;
+      margin: 0;
     }
 
     .gift-btn {
@@ -859,10 +1136,44 @@
     .link-block.invest-section {
       background: linear-gradient(135deg, #0a2a1a 0%, #1a3a2a 100%);
       border-color: #2a4a3a;
+      transition: box-shadow 0.3s ease, transform 0.3s ease;
     }
     .link-block.invest-section strong { color: #4ecdc4; }
     .link-block.invest-section strong,
     .link-block.invest-section .link-desc { background: transparent; }
+
+    /* Invest section blink animation */
+    @keyframes invest-blink {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(78, 205, 196, 0); }
+      25%, 75% { box-shadow: 0 0 20px 4px rgba(78, 205, 196, 0.8); transform: scale(1.02); }
+      50% { box-shadow: 0 0 30px 8px rgba(78, 205, 196, 1); transform: scale(1.03); }
+    }
+
+    .link-block.invest-section.blinking {
+      animation: invest-blink 0.6s ease-in-out 3;
+    }
+
+    /* Invest suggestion styling */
+    .invest-suggestion {
+      font-size: 0.8em;
+      color: var(--gold);
+      padding: 0.6em 0.8em;
+      margin-top: 0.5em;
+      background: rgba(78, 205, 196, 0.15);
+      border: 1px solid rgba(78, 205, 196, 0.3);
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .invest-suggestion a {
+      color: #4ecdc4;
+      font-weight: bold;
+      text-decoration: underline;
+    }
+
+    .invest-suggestion a:hover {
+      color: #6eeee6;
+    }
 
     /* Desktop download buttons */
     .desktop-downloads {
@@ -1182,6 +1493,16 @@
 
     .shop-product-vendor a:hover {
       text-decoration: underline;
+    }
+
+    .shop-product-desc {
+      font-family: var(--mono);
+      font-size: 0.75em;
+      color: rgba(255, 255, 255, 0.8);
+      line-height: 1.4;
+      margin-top: 0.5em;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      max-width: 90%;
     }
 
     .shop-product-price {
@@ -1890,14 +2211,15 @@
     .kidlisp-slide-code .hl-timing { color: #ffb86c; font-weight: bold; }
     .kidlisp-slide-code .hl-paren { color: #888; }
 
-    /* Timing blink animation - elements with this class pulse */
+    /* Timing blink animation - uses CSS custom property for duration */
     @keyframes hl-timing-blink {
-      0%, 100% { opacity: 1; text-shadow: 0 0 8px currentColor, 0 0 2px rgba(0,0,0,0.9); }
-      50% { opacity: 0.4; text-shadow: none; }
+      0%, 90% { opacity: 1; text-shadow: 0 0 8px currentColor, 0 0 2px rgba(0,0,0,0.9); }
+      95% { opacity: 0.3; text-shadow: 0 0 12px lime, 0 0 4px rgba(0,255,0,0.9); color: lime; }
+      100% { opacity: 1; text-shadow: 0 0 8px currentColor, 0 0 2px rgba(0,0,0,0.9); }
     }
 
     .hl-timing-active {
-      animation: hl-timing-blink 0.8s ease-in-out infinite;
+      animation: hl-timing-blink var(--timing-duration, 1s) ease-in-out infinite;
     }
 
     .kidlisp-slide-loading {
@@ -2096,12 +2418,16 @@
                 </div>
               </div>
               <div class="gift-controls">
-                <input type="range" min="5" max="500" step="5" value="125">
+                <input type="range" min="1" max="2500" step="1" value="125">
+                <div class="invest-suggestion" style="display: none;">
+                  <span data-lang="en">At this level, consider <a href="#invest" class="invest-link">investing</a> for equity!</span>
+                  <span data-lang="da">På dette niveau, overvej at <a href="#invest" class="invest-link">investere</a> for ejerandel!</span>
+                </div>
                 <button class="gift-btn" data-currency="usd">Give $125</button>
                 <label class="gift-monthly-check">
                   <input type="checkbox" class="monthly-checkbox">
-                  <span data-lang="en">Repeat monthly</span>
-                  <span data-lang="da">Gentag månedligt</span>
+                  <span data-lang="en">Give monthly</span>
+                  <span data-lang="da">Giv månedligt</span>
                 </label>
               </div>
             </div>
@@ -2112,15 +2438,16 @@
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
                   <div class="gift-amount">200 kr</div>
+                  <div class="gift-conversion" id="dkkConversion"></div>
                 </div>
               </div>
               <div class="gift-controls">
-                <input type="range" min="25" max="7000" step="25" value="200">
+                <input type="range" min="25" max="17500" step="25" value="200">
                 <button class="gift-btn" data-currency="dkk">Giv 200 kr</button>
                 <label class="gift-monthly-check">
                   <input type="checkbox" class="monthly-checkbox">
-                  <span data-lang="en">Repeat monthly</span>
-                  <span data-lang="da">Gentag månedligt</span>
+                  <span data-lang="en">Give monthly</span>
+                  <span data-lang="da">Giv månedligt</span>
                 </label>
               </div>
             </div>
@@ -2180,14 +2507,10 @@
             </div>
           </div>
         </div>
-        <small class="fiat-note fiat-only" data-lang="en">Card payments processed via Stripe. Not tax-deductible.</small>
-        <small class="fiat-note fiat-only" data-lang="da">Kortbetalinger behandles via Stripe. Ikke fradragsberettiget.</small>
-        <small class="fiat-note crypto-only" data-lang="en" style="display:none;">Crypto sent directly to wallet. Not tax-deductible.</small>
-        <small class="fiat-note crypto-only" data-lang="da" style="display:none;">Crypto sendes direkte til wallet. Ikke fradragsberettiget.</small>
       </div>
 
       <div class="prose full-width" data-lang="en">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--cyan);">.</span>Computer</a> is a culture of its users and the full-time software engineering practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, who has been building experimental software instruments for over a decade. He lives in Echo Park, Los Angeles, and regularly demos the software at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--cyan);">.</span>Computer</a> is the networked culture of users supported by media tooling from the full-time software engineering practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, who has been building experimental software instruments for over a decade. He lives in Echo Park, Los Angeles, and regularly does show and tell at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown.
       </div>
       <div class="prose full-width" data-lang="da">
         <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--cyan);">.</span>Computer</a> er en kultur af sine brugere og den fuldtids softwareudviklingspraksis af <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, som har bygget eksperimentelle software-instrumenter i over et årti. Han bor i Echo Park, Los Angeles, og demonstrerer regelmæssigt softwaren ved <a href="https://nelacomputer.club">NELA Computer Club</a> i Chinatown.
@@ -2220,6 +2543,16 @@
         </div>
       </div>
 
+      <div class="recent-gives" id="recentGives">
+        <div class="recent-gives-header">
+          <span data-lang="en">Recent Gives</span>
+          <span data-lang="da">Seneste Gaver</span>
+        </div>
+        <div class="gives-list" id="givesList">
+          <div class="gives-loading">Loading...</div>
+        </div>
+      </div>
+
       <div class="kidlisp-preview">
         <a href="https://kidlisp.com" class="kidlisp-preview-header">
           <strong class="kidlisp-logo" style="font-family: 'Comic Sans MS', cursive; font-size: 1.1em;"><span style="color:#FF6B6B">K</span><span style="color:#4ECDC4">i</span><span style="color:#FFE66D">d</span><span style="color:#95E1D3">L</span><span style="color:#F38181">i</span><span style="color:#AA96DA">s</span><span style="color:#70D6FF">p</span><span style="color:var(--dim)">.</span><span style="color:#70D6FF">com</span></strong>
@@ -2232,8 +2565,8 @@
           <div class="kidlisp-auto-progress-bar" id="kidlispAutoProgress"></div>
         </div>
         <div class="module-caption">
-          <span data-lang="en">A creative coding language for all ages</span>
-          <span data-lang="da">Et kreativt kodesprog for alle aldre</span>
+          <span data-lang="en">A <em>new</em> language for early users</span>
+          <span data-lang="da">Et <em>nyt</em> sprog for tidlige brugere</span>
         </div>
       </div>
 
@@ -2339,7 +2672,7 @@
         </div>
       </div>
 
-      <div class="link-block invest-section">
+      <div class="link-block invest-section" id="invest">
         <strong>📈</strong> <span data-lang="en"><strong>Invest</strong></span><span data-lang="da"><strong>Investér</strong></span>
         <a href="https://aesthetic.direct">aesthetic.direct</a>
         <span class="link-desc" data-lang="en">Equity investment opportunities</span>
@@ -2385,7 +2718,7 @@
         setLanguage(lang);
         updateLangUI(lang);
         langSelector.classList.remove('open');
-        localStorage.setItem('gift-lang', lang);
+        savePrefs({ lang });
       });
     });
     
@@ -2396,13 +2729,25 @@
       langText.textContent = info.text;
     }
 
+    // Consolidated localStorage for gift preferences
+    const STORAGE_KEY = 'gift-prefs';
+    function getPrefs() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+      } catch { return {}; }
+    }
+    function savePrefs(updates) {
+      const prefs = { ...getPrefs(), ...updates };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    }
+
     // Currency selection (pills)
     currOptions.forEach(opt => {
       opt.addEventListener('click', (e) => {
         e.stopPropagation();
         const curr = opt.dataset.curr;
         setCurrency(curr);
-        localStorage.setItem('gift-curr', curr);
+        savePrefs({ currency: curr });
       });
     });
     
@@ -2641,8 +2986,9 @@
       }
     }
 
-    // Load saved language or detect from browser
-    let currentLang = localStorage.getItem('gift-lang');
+    // Load saved preferences or detect from browser
+    const savedPrefs = getPrefs();
+    let currentLang = savedPrefs.lang;
     if (!currentLang) {
       currentLang = navigator.language.startsWith('da') ? 'da' : 'en';
     }
@@ -2650,9 +2996,8 @@
     updateLangUI(currentLang);
     
     // Restore saved currency
-    const savedCurr = localStorage.getItem('gift-curr');
-    if (savedCurr) {
-      setCurrency(savedCurr);
+    if (savedPrefs.currency) {
+      setCurrency(savedPrefs.currency);
     } else if (currentLang === 'da') {
       setCurrency('dkk');
     } else {
@@ -2711,14 +3056,14 @@
           
           // Adjust slider range for monthly vs one-time
           if (isMonthly) {
-            slider.min = 5;
-            slider.max = 100;
-            slider.step = 5;
-            if (parseInt(slider.value) > 100) slider.value = 25;
+            slider.min = currency === 'dkk' ? 25 : 1;
+            slider.max = currency === 'dkk' ? 3500 : 500;
+            slider.step = currency === 'dkk' ? 25 : 1;
+            if (parseInt(slider.value) > parseInt(slider.max)) slider.value = currency === 'dkk' ? 175 : 25;
           } else {
-            slider.min = 5;
-            slider.max = 500;
-            slider.step = 5;
+            slider.min = currency === 'dkk' ? 25 : 1;
+            slider.max = currency === 'usd' ? 2500 : currency === 'dkk' ? 17500 : 500;
+            slider.step = currency === 'dkk' ? 25 : 1;
           }
           update();
         });
@@ -2728,10 +3073,70 @@
         return currency === 'dkk' ? `${v} kr` : `$${v}`;
       }
 
+      const investSuggestion = widget.querySelector('.invest-suggestion');
+      const conversionEl = currency === 'dkk' ? document.getElementById('dkkConversion') : null;
+      const logoEl = widget.querySelector('.gift-logo');
+      
+      // Conversion rates (approximate)
+      const USD_TO_DKK = 7.0;  // ~7 DKK per USD
+      const USD_TO_XTZ = 0.85; // ~$1.18 per XTZ
+      const USD_TO_ETH = 0.00029; // ~$3400 per ETH
+      const USD_TO_BTC = 0.0000105; // ~$95000 per BTC
+
+      // Character wiggle animation - only shake at intensity 4, colors change earlier
+      let wiggleAnimId = null;
+      function startWiggle(intensity) {
+        if (wiggleAnimId) return;
+        const t0 = performance.now();
+        // Only shake at intensity 4
+        const speed = intensity >= 4 ? 30 : 0;
+        const amplitude = intensity >= 4 ? 3 : 0;
+        
+        function animate() {
+          const t = (performance.now() - t0) / 1000;
+          const chars = amountEl.querySelectorAll('.wiggle-char');
+          chars.forEach((char, i) => {
+            const hue = ((t * 60 * intensity) + i * 40) % 360;
+            // Only translate at intensity 4
+            if (intensity >= 4) {
+              const x = Math.sin(t * speed + i * 2) * amplitude;
+              const y = Math.cos(t * speed * 1.3 + i * 3) * amplitude;
+              char.style.transform = `translate(${x}px, ${y}px)`;
+            } else {
+              char.style.transform = '';
+            }
+            // Colors change at intensity 2+
+            if (intensity >= 2) {
+              char.style.color = `hsl(${hue}, 100%, ${intensity >= 3 ? 75 : 60}%)`;
+            }
+          });
+          wiggleAnimId = requestAnimationFrame(animate);
+        }
+        animate();
+      }
+      
+      function stopWiggle() {
+        if (wiggleAnimId) {
+          cancelAnimationFrame(wiggleAnimId);
+          wiggleAnimId = null;
+        }
+        const chars = amountEl.querySelectorAll('.wiggle-char');
+        chars.forEach(char => {
+          char.style.transform = '';
+          char.style.color = '';
+        });
+      }
+
       function update() {
         const value = parseInt(slider.value);
         const suffix = isMonthly ? '/mo' : '';
-        amountEl.textContent = format(value) + suffix;
+        const text = format(value) + suffix;
+        
+        // Create wiggling characters
+        amountEl.innerHTML = text.split('').map(c => 
+          `<span class="wiggle-char">${c === ' ' ? '&nbsp;' : c}</span>`
+        ).join('');
+        
         const lang = document.body.classList.contains('lang-da') ? 'da' : 'en';
         if (currency === 'dkk') {
           btn.textContent = lang === 'da' ? `Giv ${format(value)}` : `Give ${format(value)}`;
@@ -2740,13 +3145,119 @@
         } else {
           btn.textContent = lang === 'da' ? `Giv ${format(value)}` : `Give ${format(value)}`;
         }
+        
+        // Show invest suggestion for USD at $1000+
+        if (investSuggestion && currency === 'usd' && !isMonthly) {
+          investSuggestion.style.display = value >= 1000 ? 'block' : 'none';
+        }
+        
+        // Vegas intensity for USD (and DKK equivalent)
+        if (currency === 'usd' && !isMonthly) {
+          // Remove all intensity classes from amount and logo
+          amountEl.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
+          logoEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
+          conversionEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
+          
+          // Add appropriate intensity based on value (starts from $1)
+          let intensity = 0;
+          if (value >= 500) {
+            intensity = 4;
+          } else if (value >= 100) {
+            intensity = 3;
+          } else if (value >= 25) {
+            intensity = 2;
+          } else if (value >= 1) {
+            intensity = 1;
+          }
+          
+          if (intensity > 0) {
+            amountEl.classList.add(`intensity-${intensity}`);
+            logoEl?.classList.add(`intensity-${intensity}`);
+            conversionEl?.classList.add(`intensity-${intensity}`);
+            startWiggle(intensity);
+          } else {
+            stopWiggle();
+          }
+          
+        } else if (currency === 'dkk' && !isMonthly) {
+          // Vegas intensity for DKK (convert to USD equivalent for thresholds)
+          const usdEquiv = value / USD_TO_DKK;
+          amountEl.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
+          logoEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
+          conversionEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
+          
+          let intensity = 0;
+          if (usdEquiv >= 500) {
+            intensity = 4;
+          } else if (usdEquiv >= 100) {
+            intensity = 3;
+          } else if (usdEquiv >= 25) {
+            intensity = 2;
+          } else if (usdEquiv >= 1) {
+            intensity = 1;
+          }
+          
+          if (intensity > 0) {
+            amountEl.classList.add(`intensity-${intensity}`);
+            logoEl?.classList.add(`intensity-${intensity}`);
+            conversionEl?.classList.add(`intensity-${intensity}`);
+            startWiggle(intensity);
+          } else {
+            stopWiggle();
+          }
+          
+          // Show currency conversions for DKK -> USD only
+          if (conversionEl) {
+            const usd = Math.round(usdEquiv);
+            conversionEl.innerHTML = `<span>≈ $${usd}</span>`;
+          }
+        } else {
+          // Monthly or other - no intensity
+          amountEl.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
+          logoEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
+          conversionEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
+          stopWiggle();
+        }
       }
 
-      slider.addEventListener('input', update);
+      slider.addEventListener('input', () => {
+        update();
+        // Save slider value to prefs
+        const sliderKey = `slider_${currency}`;
+        savePrefs({ [sliderKey]: parseInt(slider.value) });
+      });
+      
+      // Restore saved slider value
+      const prefs = getPrefs();
+      const savedSliderVal = prefs[`slider_${currency}`];
+      if (savedSliderVal && savedSliderVal >= parseInt(slider.min) && savedSliderVal <= parseInt(slider.max)) {
+        slider.value = savedSliderVal;
+      }
       update();
       
       // Store isMonthly state on widget for button handler
       widget._isMonthly = () => isMonthly;
+    });
+
+    // Invest link click handler - scroll and blink
+    document.querySelectorAll('.invest-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const investSection = document.getElementById('invest');
+        if (investSection) {
+          // Scroll to invest section
+          investSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Add blinking animation after scroll completes
+          setTimeout(() => {
+            investSection.classList.add('blinking');
+            // Remove class after animation completes
+            setTimeout(() => {
+              investSection.classList.remove('blinking');
+            }, 1800); // 3 blinks × 0.6s
+          }, 400); // Wait for scroll to start
+        }
+      });
     });
 
     document.querySelectorAll('.gift-widget:not(.crypto) .gift-btn').forEach(btn => {
@@ -3062,19 +3573,31 @@
       const p = shopProducts[index];
       if (!p) return;
       
+      // Pick a random image from all available images
+      const images = p.images || [p.imageUrl].filter(Boolean);
+      const randomImage = images.length > 0 
+        ? images[Math.floor(Math.random() * images.length)] 
+        : '';
+      
       // Extract vendor from product data if available
       const vendor = p.vendor || '';
       const vendorHtml = vendor ? `<div class="shop-product-vendor"><a href="https://aesthetic.computer/@${vendor.replace('@', '')}" target="_blank">${vendor.startsWith('@') ? vendor : '@' + vendor}</a></div>` : '';
       
+      // Truncate description to ~100 chars
+      const desc = p.description || '';
+      const shortDesc = desc.length > 100 ? desc.slice(0, 100).trim() + '…' : desc;
+      const descHtml = shortDesc ? `<div class="shop-product-desc">${shortDesc}</div>` : '';
+      
       container.innerHTML = `
         <a href="${p.shopUrl}" class="shop-product" target="_blank">
           <div class="shop-product-img-wrap">
-            <img src="${p.imageUrl || ''}" alt="${p.title}" loading="lazy">
+            <img src="${randomImage}" alt="${p.title}" loading="lazy">
           </div>
           <div class="shop-product-overlay">
             <div class="shop-product-top">
               <div class="shop-product-title">${p.title}</div>
               ${vendorHtml}
+              ${descHtml}
             </div>
             <div class="shop-product-info">
               ${p.available 
@@ -3087,6 +3610,73 @@
       `;
     }
     loadShopProducts();
+
+    // Format time ago helper for gives
+    function formatGiveTimeAgo(timestamp) {
+      if (!timestamp || typeof timestamp !== 'number') return '';
+      const now = Date.now();
+      const diff = now - timestamp;
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+      
+      if (minutes < 1) return 'just now';
+      if (minutes < 60) return `${minutes}m ago`;
+      if (hours < 24) return `${hours}h ago`;
+      if (days < 30) return `${days}d ago`;
+      try {
+        return new Date(timestamp).toLocaleDateString();
+      } catch (e) {
+        return '';
+      }
+    }
+
+    // Recent Gives - load from Stripe via API
+    async function loadRecentGives() {
+      const container = document.getElementById('givesList');
+      try {
+        // Use local function endpoint in dev, production URL otherwise
+        const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
+        const givesUrl = isDev 
+          ? 'https://localhost:8888/.netlify/functions/gives'
+          : 'https://aesthetic.computer/api/gives';
+        const res = await fetch(givesUrl);
+        const data = await res.json();
+        
+        if (!data.gives?.length) {
+          container.innerHTML = '<div class="gives-loading" data-lang="en">Be the first to give!</div><div class="gives-loading" data-lang="da">Vær den første til at give!</div>';
+          setLanguage(currentLang); // Refresh language display
+          return;
+        }
+        
+        container.innerHTML = data.gives.map(give => {
+          const timeAgo = formatGiveTimeAgo(give.createdAt); // Already in ms
+          const isSubscription = give.isRecurring;
+          const typeLabel = isSubscription ? 'monthly' : 'one-time';
+          const typeLabelDa = isSubscription ? 'månedligt' : 'engangsgave';
+          const noteHtml = give.note ? `<div class="give-note">"${give.note}"</div>` : '';
+          
+          return `
+            <div class="give-item">
+              <div class="give-amount">${give.amountDisplay}</div>
+              <div class="give-type ${isSubscription ? 'subscription' : ''}">
+                <span data-lang="en">${typeLabel}</span>
+                <span data-lang="da">${typeLabelDa}</span>
+              </div>
+              <div class="give-time">${timeAgo}</div>
+              ${noteHtml}
+            </div>
+          `;
+        }).join('');
+        
+        setLanguage(currentLang); // Refresh language display for new elements
+      } catch (e) {
+        console.error('Gives load error:', e);
+        container.innerHTML = '<div class="gives-loading">Unable to load recent gives</div>';
+      }
+    }
+    
+    loadRecentGives();
 
     // Determine API base URL (relative for local dev, absolute for production)
     const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('local.')
@@ -3582,18 +4172,31 @@
             .replace(/>/g, '&gt;');
           
           // Use token placeholders to prevent double-replacement
+          // Use \x01T{idx}T\x01 format to avoid number regex matching the idx
           const tokens = [];
           function token(match, cls) {
             const idx = tokens.length;
             tokens.push(`<span class="${cls}">${match}</span>`);
-            return `\x00${idx}\x00`;
+            return `\x01T${idx}T\x01`;
           }
           
           // Order matters - most specific first
           // Comments (lines starting with ;)
           html = html.replace(/(^|\n)(;[^\n]*)/g, (m, pre, comment) => pre + token(comment, 'hl-comment'));
-          // Timing patterns like 1s, 0.5s, 2s..., 1s! etc - MUST come before numbers
-          html = html.replace(/(\d+\.?\d*s\.{0,3}!?)/g, m => token(m, 'hl-timing hl-timing-active'));
+          // Timing patterns - match kidlisp.mjs exactly:
+          // 1. Cycle timers: 2s..., 3f..., 0.5s... (number + s/f + one or more dots)
+          // 2. Delay timers: 1s, 0.5s, 3f, 1s! (number + s/f + optional !)
+          // Match from start of token (after space or open paren) to avoid partial matches
+          // Include data-duration for dynamic animation timing
+          html = html.replace(/(^|[\s(])(\d*\.?\d+)([sf](\.{1,3}|!?))/g, (m, pre, num, suffix) => {
+            const full = num + suffix;
+            const unit = suffix[0]; // 's' or 'f'
+            // Convert to seconds (frames assume 60fps)
+            const duration = unit === 's' ? parseFloat(num) : parseFloat(num) / 60;
+            const idx = tokens.length;
+            tokens.push(`<span class="hl-timing hl-timing-active" data-duration="${duration}">${full}</span>`);
+            return pre + `\x01T${idx}T\x01`;
+          });
           // Strings
           html = html.replace(/("[^"]*")/g, m => token(m, 'hl-string'));
           // Numbers (now safe since timing already tokenized)
@@ -3617,7 +4220,7 @@
           html = html.replace(/([()])/g, m => token(m, 'hl-paren'));
           
           // Replace tokens back
-          html = html.replace(/\x00(\d+)\x00/g, (_, idx) => tokens[parseInt(idx)]);
+          html = html.replace(/\x01T(\d+)T\x01/g, (_, idx) => tokens[parseInt(idx)]);
           return html;
         }
         
@@ -3654,6 +4257,14 @@
             </div>
           `;
         }).join('');
+        
+        // Apply timing durations to all timing elements
+        carousel.querySelectorAll('.hl-timing-active[data-duration]').forEach(el => {
+          const duration = parseFloat(el.dataset.duration) || 1;
+          // Clamp duration between 0.1s and 10s for reasonable animation
+          const clampedDuration = Math.max(0.1, Math.min(duration, 10));
+          el.style.setProperty('--timing-duration', clampedDuration + 's');
+        });
         
         // Advance to next slide
         function nextSlide() {
