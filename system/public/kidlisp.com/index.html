@@ -338,21 +338,25 @@
     #clear-button {
       position: relative;
       left: auto; right: auto; top: auto; bottom: auto;
-      width: 48px;
-      height: 48px;
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      min-height: 40px;
+      flex-shrink: 0;
+      box-sizing: border-box;
       background: rgb(180, 80, 80); /* Muted red */
       color: white;
       border: none;
       border-radius: 50%;
       cursor: pointer;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      display: flex; /* TEMP: Always visible for debugging */
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+      display: flex;
       align-items: center;
       justify-content: center;
       padding: 0;
       margin: 0;
-      font-size: 28px;
+      font-size: 22px;
       font-weight: bold;
       line-height: 1;
     }
@@ -381,32 +385,41 @@
       right: 8px;
       z-index: 100;
       display: flex;
-      flex-direction: row; /* left-to-right: clear, stop, send */
-      gap: 8px;
+      flex-direction: row;
       align-items: center;
+    }
+    
+    #playback-controls > button {
+      margin-right: 16px;
+    }
+    
+    #playback-controls > button:last-child {
+      margin-right: 0;
     }
 
     #send-button {
       position: relative;
       left: auto; right: auto; top: auto; bottom: auto;
-      width: 48px;
-      height: 48px;
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      min-height: 40px;
+      flex-shrink: 0;
+      box-sizing: border-box;
       background: rgb(76, 175, 80); /* Green by default */
       color: white;
       border: none;
       border-radius: 50%;
       font-family: monospace;
-      font-size: 20px;
+      font-size: 16px;
       cursor: pointer;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
       display: flex;
-      flex-direction: row;
       align-items: center;
       justify-content: center;
       padding: 0;
       margin: 0;
-      vertical-align: baseline;
     }
     
     @media (prefers-color-scheme: dark) {
@@ -501,16 +514,20 @@
     #stop-button {
       position: relative;
       left: auto; right: auto; top: auto; bottom: auto;
-      width: 48px;
-      height: 48px;
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      min-height: 40px;
+      flex-shrink: 0;
+      box-sizing: border-box;
       background: rgb(244, 67, 54); /* Red */
       color: white;
       border: none;
       border-radius: 50%;
       cursor: pointer;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      display: none; /* Hidden by default */
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+      display: none; /* Hidden by default, JS sets to flex */
       align-items: center;
       justify-content: center;
       padding: 0;
@@ -543,8 +560,8 @@
 
     #stop-button::before {
       content: '';
-      width: 14px;
-      height: 14px;
+      width: 12px;
+      height: 12px;
       background: white;
       border-radius: 2px;
     }
@@ -3443,13 +3460,16 @@
       
       /* Play/Stop/Clear buttons - compact for single column mode */
       #send-button, #stop-button, #clear-button {
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        min-height: 28px;
+        flex-shrink: 0;
       }
       
       #playback-controls {
-        bottom: 2px;
-        right: 2px;
+        bottom: 4px;
+        right: 4px;
         gap: 10px;
       }
       
@@ -3473,7 +3493,7 @@
       }
       
       #clear-button {
-        font-size: 18px;
+        font-size: 16px;
       }
       
       /* Monaco editor adjustments for mobile */

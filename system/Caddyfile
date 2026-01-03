@@ -4,7 +4,12 @@
 	
 	# Disable compression to avoid chunked encoding issues with Netlify Dev proxy
 	# The proxy can sometimes fail with ERR_INCOMPLETE_CHUNKED_ENCODING
+	# ERR_CONTENT_LENGTH_MISMATCH can occur when Accept-Encoding triggers 
+	# compression somewhere in the proxy chain
 	# encode zstd gzip
+	
+	# Strip Accept-Encoding from requests to prevent any compression attempts
+	request_header -Accept-Encoding
 	
 	# Aggressive caching disabled for dev (instant updates)
 	header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
@@ -14,6 +19,9 @@
 	
 	# Disable chunked transfer encoding - send complete responses with content-length
 	header -Transfer-Encoding
+	
+	# Explicitly remove any Content-Encoding header (ensures no compression)
+	header -Content-Encoding
 	
 	# Enable CORS for local development
 	header Access-Control-Allow-Origin "*"
