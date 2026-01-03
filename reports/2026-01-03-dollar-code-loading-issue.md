@@ -116,4 +116,39 @@ The `boot-file` handler uses `setTimeout` to defer tokenizer work. This setTimeo
 ## Files Modified During Investigation
 
 - `/workspaces/aesthetic-computer/system/public/aesthetic.computer/lib/disk.mjs`
+  - Added error catching wrapper around `makeFrame(e)` in onmessage handler
+  - Added logging at makeFrame entry point for all messages when `paintCount < 5n`
+  - Added logging in frame handler when `paintCount < 5n`
+  - Added logging in `loading-complete` handler before/after hotSwap
 - `/workspaces/aesthetic-computer/system/public/aesthetic.computer/bios.mjs`
+
+## Diagnostic Changes (2026-01-03)
+
+Added the following debug logging to trace the issue:
+
+1. **onmessage wrapper** - Catches any swallowed async errors:
+   ```javascript
+   makeFrame(e).catch(err => {
+     console.error("🛑 DISK makeFrame error:", err, "| type:", e.data?.type);
+   });
+   ```
+
+2. **makeFrame entry** - Logs all non-beat messages when paintCount < 5n:
+   ```javascript
+   if (paintCount < 5n && type !== "beat") {
+     console.log(`🔍 DISK makeFrame: type="${type}", paintCount=${paintCount}`);
+   }
+   ```
+
+3. **Frame handler** - Logs frame state:
+   ```javascript
+   if (paintCount < 5n) {
+     console.log(`🔍 DISK FRAME: paintCount=${paintCount}, loading=${loading}, booted=${booted}`);
+   }
+   ```
+
+4. **loading-complete handler** - Logs state before/after hotSwap:
+   ```javascript
+   console.log("🔍 DISK: Received loading-complete, paintCount=", paintCount, ...);
+   console.log("🔍 DISK: After hotSwap, paintCount=", paintCount, ...);
+   ```
