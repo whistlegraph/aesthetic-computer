@@ -6665,6 +6665,7 @@ async function load(
       // 💾 Check if this is a cached kidlisp code (starts with $ and has content after it)
       if (slug && slug.startsWith("$") && slug.length > 1) {
         const cacheId = slug.slice(1); // Remove $ prefix
+        console.log(`🔍 DISK: Loading cached code for slug="${slug}", cacheId="${cacheId}"`);
         
         // First check if we have this in objktKidlispCodes (offline bundle)
         const globalScope = (function () {
@@ -6678,11 +6679,13 @@ async function load(
         if (globalScope.objktKidlispCodes && globalScope.objktKidlispCodes[cacheId]) {
           sourceToRun = globalScope.objktKidlispCodes[cacheId];
           currentOriginalCodeId = slug;
+          console.log(`🔍 DISK: Found in objktKidlispCodes, sourceToRun length = ${sourceToRun?.length}`);
         } else {
           console.log("💾 Loading cached kidlisp code:", cacheId);
           try {
             console.log("🔍 Fetching cached code from API...");
             sourceToRun = await getCachedCodeMultiLevel(cacheId);
+            console.log(`🔍 DISK: getCachedCodeMultiLevel returned, sourceToRun = "${sourceToRun?.substring(0, 50)}"... (${sourceToRun?.length} chars)`);
             if (!sourceToRun) {
               throw new Error(`Cached code not found: ${cacheId}`);
             }
@@ -6752,7 +6755,7 @@ async function load(
       // ⚠️ Detect if we are running `kidlisp` or JavaScript syntax.
       // Note: This may not be the most reliable way to detect `kidlisp`?
       // 🚗 Needs to know if the source was from a prompt with a lisp module.
-      // console.log("🔍 Checking if kidlisp source:", JSON.stringify(sourceToRun));
+      console.log(`🔍 DISK: Before kidlisp detection check - sourceToRun = "${sourceToRun?.substring(0, 50)}..." (${sourceToRun?.length} chars), slug = "${slug}", path = "${path}"`);
       if (
         sourceToRun.startsWith("(") ||
         sourceToRun.startsWith(";") ||
@@ -6782,6 +6785,7 @@ async function load(
         originalCode = sourceCode;
         
         log.lisp.log("Initializing KidLisp piece...");
+        console.log(`🔍 DISK: About to call lisp.module(), sourceToRun length = ${sourceToRun?.length}, first 100 chars: "${sourceToRun?.substring(0, 100)}"`);
         
         // Notify boot progress
         const compileStartTime = performance.now();
@@ -6972,8 +6976,10 @@ async function load(
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
   // 🧨 Fail out if no module is found.
   const moduleCheckTime = performance.now();
+  console.log(`🔍 DISK: Module check - loadedModule exists?`, !!loadedModule);
   
   if (loadedModule === undefined) {
+    console.log(`🔍 DISK: loadedModule is undefined, returning false`);
     loading = false;
     leaving = false;
     return false;
@@ -6981,10 +6987,13 @@ async function load(
   
   // Also check for null
   if (loadedModule === null) {
+    console.log(`🔍 DISK: loadedModule is null, returning false`);
     loading = false;
     leaving = false;
     return false;
   }
+
+  console.log(`🔍 DISK: Module check passed, continuing...`);
 
   // 🐛 Wrap the entire module setup in try-catch to catch any errors
   try {
@@ -7850,6 +7859,7 @@ async function load(
 
   // This function actually hotSwaps out the piece via a callback from `bios` once fully loaded via the `loading-complete` message.
   hotSwap = () => {
+    console.log(`🔍 DISK hotSwap: Starting, loadedModule exists? ${!!loadedModule}, has boot? ${!!loadedModule?.boot}, has paint? ${!!loadedModule?.paint}`);
     loadedCallback?.(); // Run the optional load callback. (See also: `jump`)
 
     $commonApi.rec.loadCallback?.(); // Start any queued tape.
@@ -8283,6 +8293,7 @@ async function load(
     icon = module.icon || defaults.icon; // Set preview method.
 
     // ♻️ Reset global state for this piece.
+    console.log(`🔍 DISK hotSwap: Resetting paintCount from ${paintCount} to 0n`);
     paintCount = 0n;
     paintingAPIid = 0n;
     simCount = 0n;
@@ -8459,6 +8470,7 @@ async function load(
     }
   };
 
+  console.log(`🔍 DISK: About to send disk-loaded for ${slug}`);
   try {
     send({
       type: "disk-loaded",
@@ -8477,6 +8489,7 @@ async function load(
         taping: $commonApi.rec.loadCallback !== null || $commonApi.rec.recording,
       },
     });
+    console.log(`🔍 DISK: disk-loaded sent successfully for ${slug}`);
   } catch (sendError) {
     console.error("Error sending disk-loaded:", sendError);
   }
@@ -8864,8 +8877,10 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "loading-complete") {
+    console.log(`🔍 DISK: Received loading-complete, hotSwap exists? ${!!hotSwap}`);
     leaving = false;
     hotSwap?.(); // Actually swap out the piece functions and reset the state.
+    console.log(`🔍 DISK: hotSwap called, loading = false`);
     loading = false;
     return;
   }
@@ -9944,6 +9959,10 @@ async function makeFrame({ data: { type, content } }) {
   // 2. Frame
   // Where each piece action (boot, sim, paint, etc...) is run.
   if (type === "frame") {
+    // Log EVERY frame when paintCount is low to see if frames arrive after hotSwap
+    if (paintCount < 5n) {
+      console.log(`🔍 DISK FRAME START: paintCount=${paintCount}, loading=${loading}, booted=${booted}`);
+    }
     // Take hold of a previously worker transferrable screen buffer
     // and re-assign it.
     let pixels;
@@ -11460,6 +11479,11 @@ async function makeFrame({ data: { type, content } }) {
       //       set to at the end of `paint`.
 
       // Run boot only once before painting for the first time.
+      // Keep logging low-noise: only during early frames / load transitions unless explicitly enabled.
+      const DEBUG_DISK_BOOT = !!globalThis.acDEBUG_DISK_BOOT;
+      if (DEBUG_DISK_BOOT || booted === false || paintCount < 3n) {
+        console.log(`🔍 DISK: Boot check - paintCount=${paintCount}, loading=${loading}, booted=${booted}`);
+      }
       if (paintCount === 0n && loading === false) {
         const dark = await store.retrieve("dark-mode"); // Read dark mode.
         if (dark === true || dark === false) $commonApi.dark = dark;
@@ -13805,13 +13829,18 @@ async function makeFrame({ data: { type, content } }) {
         // 🛡️ Create a copy for transfer to avoid detaching the main rendering buffer
         const pixelsCopy = new Uint8ClampedArray(sendData.pixels);
         sendData.pixels = pixelsCopy.buffer;
-      } else {
+      } else if (content.pixels?.byteLength > 0) {
+        // If we didn't paint, return the incoming transferable buffer to keep the
+        // bios <-> worker pixel buffer ping-pong alive.
         sendData.pixels = content.pixels;
+      } else {
+        sendData.pixels = undefined;
       }
 
       if (sendData.pixels?.byteLength === 0) sendData.pixels = undefined;
 
-      let transferredObjects = [sendData.pixels];
+      const transferredObjects = [];
+      if (sendData.pixels) transferredObjects.push(sendData.pixels);
 
       if (sendData.label) {
         // 🛡️ Create a copy for transfer to avoid detaching the label buffer
@@ -13882,22 +13911,37 @@ async function makeFrame({ data: { type, content } }) {
       //       get sent? 23.01.06.16.02
 
       // console.log(pixels);
-      // 🛡️ Create a copy for transfer to avoid detaching the pixels buffer
-      const transferPixels = pixels ? new Uint8ClampedArray(pixels) : null;
-      
+      // 🛡️ Always return a transferable pixels buffer when possible.
+      // Important: never include `undefined` in the transfer list, or postMessage will throw
+      // and bios will stop requesting frames.
+      let returnPixelsBuffer;
+      let transferList = [];
+
+      if (pixels) {
+        const transferPixels = new Uint8ClampedArray(pixels);
+        returnPixelsBuffer = transferPixels.buffer;
+        transferList = [returnPixelsBuffer];
+      } else if (content.pixels?.byteLength > 0) {
+        returnPixelsBuffer = content.pixels;
+        transferList = [returnPixelsBuffer];
+      } else {
+        returnPixelsBuffer = undefined;
+        transferList = [];
+      }
+
       send(
         {
           type: "update",
           content: {
             didntRender: true,
             loading,
-            pixels: transferPixels?.buffer,
+            pixels: returnPixelsBuffer,
             width: content.width,
             height: content.height,
             sound,
           },
         },
-        [transferPixels?.buffer],
+        transferList,
       );
     }
 
