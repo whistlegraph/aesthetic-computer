@@ -442,6 +442,7 @@ async function getBrowser() {
     console.log('🌐 Launching Puppeteer browser...');
     browser = await puppeteer.launch({
       headless: 'new',
+      protocolTimeout: 60000,  // 60s timeout for CDP protocol calls
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -522,7 +523,7 @@ async function captureFrames(piece, options = {}) {
         
         if (!sourceCanvas || sourceCanvas.width === 0) return false;
         
-        // Check if canvas has any non-transparent pixels
+        // Check if canvas has any opaque pixels (alpha > 0 means content exists, even if black)
         const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) {
           // WebGL canvas - try to check via a temp canvas
@@ -533,10 +534,9 @@ async function captureFrames(piece, options = {}) {
           tempCtx.drawImage(sourceCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
           const data = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
           
-          // Check if there's any visible content (non-zero alpha or color)
+          // Check if there's any opaque pixel (alpha > 0 means content, even pure black)
           for (let i = 0; i < data.length; i += 4) {
-            // Check if any pixel has color or alpha
-            if (data[i] > 0 || data[i+1] > 0 || data[i+2] > 0 || data[i+3] > 0) {
+            if (data[i+3] > 0) {  // Any opaque pixel = content (including black)
               return true;
             }
           }
@@ -546,7 +546,7 @@ async function captureFrames(piece, options = {}) {
         // 2D canvas - sample directly
         const data = ctx.getImageData(0, 0, Math.min(sourceCanvas.width, 64), Math.min(sourceCanvas.height, 64)).data;
         for (let i = 0; i < data.length; i += 4) {
-          if (data[i] > 0 || data[i+1] > 0 || data[i+2] > 0 || data[i+3] > 0) {
+          if (data[i+3] > 0) {  // Any opaque pixel = content (including black)
             return true;
           }
         }
