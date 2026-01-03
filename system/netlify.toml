@@ -1093,7 +1093,7 @@ force = false
 from = "/*.mjs"
 to = "/aesthetic.computer/:splat.mjs"
 status = 200
-force = false
+force = true
 [[redirects]]
 # SPA fallback for kidlisp.com routes - only for paths without file extensions
 # force = false ensures static files (js, css, etc.) are served directly
