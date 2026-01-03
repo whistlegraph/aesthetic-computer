@@ -1007,17 +1007,18 @@ let golTransition = {
   toPixels: null,   // Captured first piece paint frame
   currentPixels: null, // Working buffer
   revealMap: null,  // Float32Array: 0 = noise, 1 = revealed as piece
-  generation: 0,
-  maxGenerations: 45, // ~0.75s at 60fps - quick but visible
+  startTime: 0,     // When transition started (performance.now())
+  duration: 3000,   // Transition duration in milliseconds (3 seconds for testing)
   width: 0,
   height: 0,
 };
 
 // 🧬 GOL step function - cellular automata dissolve from noise to piece
 function golStep(current, target, w, h) {
-  const { revealMap, generation, maxGenerations } = golTransition;
+  const { revealMap, startTime, duration } = golTransition;
   const next = new Uint8ClampedArray(current.length);
-  const progress = generation / maxGenerations;
+  const elapsed = performance.now() - startTime;
+  const progress = Math.min(1, elapsed / duration);
   
   // Base reveal probability increases over time (S-curve for smooth transition)
   const baseProb = progress * progress * (3 - 2 * progress); // smoothstep
@@ -8319,7 +8320,7 @@ async function load(
     golTransition.toPixels = null;
     golTransition.currentPixels = null;
     golTransition.revealMap = null;
-    golTransition.generation = 0;
+    golTransition.startTime = 0;
     
     formsSent = {}; // Clear 3D list for GPU.
     currentPath = path;
@@ -11731,9 +11732,16 @@ async function makeFrame({ data: { type, content } }) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
             
-            paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
-            // Increment piece frame counter only when we actually paint
-            pieceFrameCount++;
+            // 🧬 GOL Transition: Skip piece paint while transition is active (except frame 1 to capture toPixels)
+            const skipPaintForGOL = golTransition.active && pieceFrameCount > 1;
+            
+            if (!skipPaintForGOL) {
+              paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
+            }
+            // Increment piece frame counter only when we actually paint the REAL piece (not defaults.paint)
+            if (paint !== defaults.paint) {
+              pieceFrameCount++;
+            }
             
             // 🧬 GOL Transition: Capture noise16 frame AFTER defaults.paint runs
             if (paint === defaults.paint && $api.screen?.pixels) {
@@ -11744,23 +11752,27 @@ async function makeFrame({ data: { type, content } }) {
             }
             
             // 🧬 GOL Transition: Capture first piece paint and start transition
-            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.fromPixels && !golTransition.active && $api.screen?.pixels) {
-              // Capture the first piece paint as the "to" pixels
-              golTransition.toPixels = new Uint8ClampedArray($api.screen.pixels);
-              golTransition.currentPixels = new Uint8ClampedArray(golTransition.fromPixels);
-              // Initialize reveal map - all pixels start unrevealed (0)
-              golTransition.revealMap = new Float32Array(golTransition.width * golTransition.height);
-              golTransition.generation = 0;
-              golTransition.active = true;
+            // Skip GOL transition when glaze is enabled (glaze has its own fade-in effect)
+            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.fromPixels && !golTransition.active && $api.screen?.pixels && !glazeEnabled) {
+              // Check if dimensions match - only transition if same size
+              const dimMatch = golTransition.width === $api.screen.width && golTransition.height === $api.screen.height;
+              if (dimMatch && golTransition.fromPixels.length === $api.screen.pixels.length) {
+                // Capture the first piece paint as the "to" pixels
+                golTransition.toPixels = new Uint8ClampedArray($api.screen.pixels);
+                golTransition.currentPixels = new Uint8ClampedArray(golTransition.fromPixels);
+                // Initialize reveal map - all pixels start unrevealed (0)
+                golTransition.revealMap = new Float32Array(golTransition.width * golTransition.height);
+                golTransition.startTime = performance.now();
+                golTransition.active = true;
+              }
             }
             
             // 🧬 GOL Transition: Run cellular dissolve and write directly to screen
             if (golTransition.active && $api.screen?.pixels && golTransition.currentPixels && golTransition.toPixels) {
-              const { currentPixels, toPixels, width, height } = golTransition;
+              const { currentPixels, toPixels, width, height, startTime, duration } = golTransition;
               const nextPixels = golStep(currentPixels, toPixels, width, height);
               if (nextPixels) {
                 golTransition.currentPixels = nextPixels;
-                golTransition.generation++;
                 
                 // Copy GOL result directly to screen (no blending needed - golStep handles it)
                 const pixels = $api.screen.pixels;
@@ -11772,8 +11784,9 @@ async function makeFrame({ data: { type, content } }) {
                 }
               }
               
-              // End transition
-              if (golTransition.generation >= golTransition.maxGenerations) {
+              // End transition when duration elapsed
+              const elapsed = performance.now() - startTime;
+              if (elapsed >= duration) {
                 golTransition.active = false;
                 golTransition.fromPixels = null;
                 golTransition.toPixels = null;
