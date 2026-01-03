@@ -627,13 +627,79 @@ async function captureFrames(piece, options = {}) {
     });
     if (wrapperFound) console.log('   ✓ Wrapper found');
     
-    // For KidLisp pieces, wait a bit for the interpreter to run and render first frame
+    // For KidLisp pieces, wait longer for interpreter + MongoDB load + render
     // KidLisp logs "KidLisp module loaded" when ready - wait for first paint cycle
     const isKidLisp = piece.startsWith('$');
     if (isKidLisp) {
-      console.log('   ⏳ KidLisp piece - waiting for first render...');
-      await new Promise(r => setTimeout(r, 2000)); // Give KidLisp 2s to evaluate and draw
-      console.log('   ✅ KidLisp wait complete, skipping content detection');
+      console.log('   ⏳ KidLisp piece - waiting for load + first render...');
+      // Initial wait for KidLisp interpreter to load, piece to fetch from MongoDB,
+      // AND any assets to load (images, fonts, etc.) - some pieces like $cow need this
+      await new Promise(r => setTimeout(r, 6000)); // 6 seconds initial wait
+      
+      // Then wait for actual content with COLOR VARIATION (not just a solid wipe)
+      // KidLisp pieces often start with wipe("color") which fills everything one color
+      // We want to wait until there are multiple distinct colors = actual content drawn
+      const maxWaitTime = 15000; // 15 more seconds max (some pieces load heavy assets)
+      const pollInterval = 300;
+      const startWait = Date.now();
+      let hasContent = false;
+      let lastDebug = '';
+      
+      while (!hasContent && (Date.now() - startWait) < maxWaitTime) {
+        try {
+          const result = await page.evaluate(() => {
+            const wrapper = document.getElementById('aesthetic-computer');
+            if (!wrapper) return { hasContent: false, debug: 'no-wrapper' };
+            const canvas = wrapper.querySelector('canvas[data-type="glaze"]') || wrapper.querySelector('canvas');
+            if (!canvas || canvas.width === 0) return { hasContent: false, debug: 'no-canvas' };
+            
+            const tempCanvas = document.createElement('canvas');
+            const sampleSize = 48; // Sample 48x48 area
+            tempCanvas.width = sampleSize;
+            tempCanvas.height = sampleSize;
+            const ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(canvas, 0, 0, sampleSize, sampleSize);
+            const data = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
+            
+            // Count unique colors (using a Set of color keys)
+            const colors = new Set();
+            let opaquePixels = 0;
+            for (let i = 0; i < data.length; i += 4) {
+              if (data[i+3] > 10) { // Opaque enough
+                opaquePixels++;
+                // Quantize to reduce noise (group similar colors)
+                const r = Math.floor(data[i] / 16);
+                const g = Math.floor(data[i+1] / 16);
+                const b = Math.floor(data[i+2] / 16);
+                colors.add(`${r},${g},${b}`);
+              }
+            }
+            
+            // Need at least 3 distinct color groups = actual content, not just solid fill
+            // (1 color = empty/black, 2 colors = simple wipe, 3+ = real content)
+            const hasVariation = colors.size >= 3;
+            return { 
+              hasContent: hasVariation, 
+              debug: `colors:${colors.size} opaque:${opaquePixels}/${sampleSize*sampleSize}` 
+            };
+          });
+          
+          hasContent = result.hasContent;
+          if (result.debug !== lastDebug) {
+            console.log(`   [kidlisp-detect] ${result.debug}`);
+            lastDebug = result.debug;
+          }
+        } catch (e) { 
+          console.log(`   [kidlisp-detect] error: ${e.message}`);
+        }
+        if (!hasContent) await new Promise(r => setTimeout(r, pollInterval));
+      }
+      
+      if (hasContent) {
+        console.log(`   ✅ KidLisp content detected after ${Date.now() - startWait}ms`);
+      } else {
+        console.log(`   ⚠️ No KidLisp content variation detected after ${maxWaitTime}ms, proceeding anyway...`);
+      }
     } else {
       // Wait for actual content to render (non-empty canvas) - only for non-KidLisp pieces
       console.log(`   🔍 Starting content detection loop...`);
@@ -1320,6 +1386,7 @@ export async function grabHandler(req, res) {
     fps = 7.5,
     density = 1,
     quality = 80,
+    skipCache = false,
   } = req.body;
   
   if (!piece) {
@@ -1345,9 +1412,17 @@ export async function grabHandler(req, res) {
       fps: parseInt(fps),
       density: parseFloat(density) || 1,
       quality: parseInt(quality) || 80,
+      skipCache: skipCache === true || skipCache === 'true',
     });
     
     if (result.success) {
+      // If result is cached, redirect to CDN URL
+      if (result.cached && result.cdnUrl) {
+        res.setHeader('X-Cache', 'HIT');
+        res.setHeader('X-Grab-Id', result.grabId);
+        return res.redirect(301, result.cdnUrl);
+      }
+      
       // Return the image directly
       const contentTypes = { webp: 'image/webp', gif: 'image/gif', png: 'image/png' };
       const contentType = contentTypes[format] || 'image/webp';
@@ -1355,6 +1430,7 @@ export async function grabHandler(req, res) {
       res.setHeader('Content-Length', result.buffer.length);
       res.setHeader('X-Grab-Id', result.grabId);
       res.setHeader('X-Grab-Duration', result.duration);
+      res.setHeader('X-Cache', 'MISS');
       res.send(result.buffer);
     } else {
       res.status(500).json({ 
@@ -1376,7 +1452,7 @@ export async function grabHandler(req, res) {
  */
 export async function grabGetHandler(req, res) {
   const { format, width, height, piece } = req.params;
-  const { duration = 12000, fps = 7.5, density = 1, quality = 80, source = 'manual' } = req.query;
+  const { duration = 12000, fps = 7.5, density = 1, quality = 80, source = 'manual', skipCache = 'false' } = req.query;
   
   if (!piece) {
     return res.status(400).json({ error: 'Missing piece parameter' });
@@ -1399,6 +1475,7 @@ export async function grabGetHandler(req, res) {
       format,
       width: w,
       height: h,
+      skipCache: skipCache === 'true' || skipCache === true,
       duration: parseInt(duration),
       fps: parseInt(fps),
       density: parseFloat(density) || 1,

@@ -3488,6 +3488,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     };
 
     if (worker.postMessage) {
+      // console.log("🟢 Worker");
       send = (e, shared) => worker.postMessage(e, shared);
       window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
       worker.onmessage = onMessage;
@@ -3512,13 +3513,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
   } else {
     // B. No Worker Mode
+    if (debug) console.log("🔴 No Worker");
     let module;
     try {
       module = await import(`./lib/disk.mjs`);
     } catch (err) {
       console.warn("Module load error:", err);
     }
-    module.noWorker.postMessage = (e) => onMessage(e);
+    module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
     send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
     window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
   }
@@ -7854,8 +7856,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const totalOriginalDuration = processedFrames[processedFrames.length - 1].timestamp - processedFrames[0].timestamp;
             const avgFrameTiming = totalOriginalDuration / (processedFrames.length - 1);
             
+            console.log(`🎞️ GIFENC TIMING DEBUG: totalDuration=${totalOriginalDuration.toFixed(2)}ms, frames=${processedFrames.length}, avgTiming=${avgFrameTiming.toFixed(2)}ms (${(1000/avgFrameTiming).toFixed(1)}fps)`);
+            
             // Check if early high refresh rate detection was triggered (stored in window)
             const earlyHighRefreshDetected = window.earlyHighRefreshRateDetected;
+            console.log(`🎞️ Early high refresh rate detection result: ${earlyHighRefreshDetected}`);
             
             // Use early detection result or fallback to current detection
             const isHighRefreshRate = earlyHighRefreshDetected || avgFrameTiming < 13.5;
@@ -9263,6 +9268,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             startTime = performance.now(); // Initialize timing reference
             renderNextFrame();
           }, 100); // 100ms delay to let MediaRecorder initialize
+          
+          // Add a longer timeout to check for data collection issues
+          setTimeout(() => {
+            console.log("🎬 🔍 DEBUG: 2 second check - chunks collected:", chunks.length);
+            console.log("🎬 🔍 MediaRecorder state:", videoRecorder.state);
+            console.log("🎬 🔍 Stream active:", finalStream.active);
+            console.log("🎬 🔍 Stream tracks:", finalStream.getTracks().map(t => `${t.kind}: ${t.readyState}`));
+          }, 2000);
           
         } catch (startError) {
           console.error("🎬 ❌ Failed to start MediaRecorder:", startError);
