@@ -67,26 +67,40 @@
       justify-content: space-between;
       align-items: center;
       padding: 10px 16px;
-      z-index: 10;
+      z-index: 1000;
       background: var(--bg);
     }
 
     /* Simple gift label */
     .logo {
-      font-family: 'ywft', sans-serif;
       font-size: 18px;
       cursor: pointer;
       user-select: none;
-      color: var(--pink);
     }
 
     .logo:hover {
+      opacity: 0.8;
+    }
+
+    .logo-give {
+      font-family: var(--mono);
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .logo-ac {
+      font-family: 'ywft', sans-serif;
+      color: var(--pink);
+    }
+
+    .logo-dot {
       color: var(--cyan);
     }
 
     .logo-sep {
       color: var(--dim);
       margin: 0 0.3em;
+      font-family: var(--mono);
     }
 
     main {
@@ -1022,12 +1036,11 @@
 
     /* Shop Section - clean white background like shop.aesthetic.computer */
     .shop-section {
-      background: #ffffff;
+      background: #000;
       border: none;
       border-radius: 8px;
       padding: 0;
       color: #1a1a1a;
-      aspect-ratio: 1;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -1040,13 +1053,14 @@
       left: 0;
       right: 0;
       z-index: 3;
-      background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 100%);
+      background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
       padding: 0.8em 1em;
+      text-align: left;
     }
 
     .shop-title {
-      font-family: 'berkeley', 'Menlo', 'Monaco', 'Consolas', monospace;
-      font-size: 1em;
+      font-family: var(--mono);
+      font-size: 0.9em;
       font-weight: 600;
       color: #fff;
       text-decoration: none;
@@ -1054,23 +1068,20 @@
     }
 
     .shop-title:hover {
-      color: #ff9ec4;
+      color: var(--pink);
     }
 
     .shop-section .module-caption {
-      background: linear-gradient(0deg, rgba(0,0,0,0.5) 0%, transparent 100%);
-      color: rgba(255,255,255,0.8);
+      background: #000;
+      color: rgba(255,255,255,0.5);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
       z-index: 3;
     }
 
     .shop-products {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
       overflow: hidden;
     }
 
@@ -1122,42 +1133,50 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%);
+      background: linear-gradient(180deg, 
+        rgba(0,0,0,0.5) 0%, 
+        rgba(0,0,0,0.1) 40%,
+        rgba(0,0,0,0.1) 60%,
+        rgba(0,0,0,0.5) 100%);
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 1em;
-      padding-top: 2.5em;
-      text-align: center;
+      justify-content: space-between;
+      padding: 2.8em 1em 1.6em 1em;
+      text-align: left;
     }
 
     .shop-product-title {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 1.2em;
-      font-weight: 700;
+      font-family: 'ywft', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 1.4em;
+      font-weight: 600;
       color: #fff;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
-      line-height: 1.3;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.8), 0 0 40px rgba(0,0,0,0.4);
+      line-height: 1.2;
       margin-bottom: 0.3em;
+    }
+
+    .shop-product-top {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
     }
 
     .shop-product-info {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 0.15em;
+      align-items: flex-end;
+      gap: 0.3em;
     }
 
     .shop-product-vendor {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 0.85em;
-      color: rgba(255,255,255,0.9);
-      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+      font-size: 1em;
+      color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.7);
     }
 
     .shop-product-vendor a {
-      color: #ffb8d4;
+      color: var(--pink);
       text-decoration: none;
     }
 
@@ -1166,19 +1185,21 @@
     }
 
     .shop-product-price {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 1em;
+      font-family: var(--mono);
+      font-size: 1.1em;
       color: #fff;
-      font-weight: 700;
-      text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      font-weight: 600;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+      margin-top: 0.3em;
     }
 
     .shop-product-sold {
-      color: #ff6b9d;
-      font-size: 0.9em;
+      color: var(--pink);
+      font-size: 0.95em;
       font-weight: 700;
       text-transform: uppercase;
-      text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+      margin-top: 0.3em;
     }
 
     @keyframes shopFadeIn {
@@ -1193,12 +1214,30 @@
       padding: 2em;
     }
 
+    /* Shop auto-advance progress bar - inside panel */
+    .shop-auto-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      z-index: 15;
+      overflow: hidden;
+    }
+
+    .shop-auto-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--pink);
+      transition: width 0.05s linear;
+    }
+
     /* TV Section - letterbox video feed */
     .tv-section {
       background: #000;
       border-radius: 8px;
       overflow: hidden;
-      aspect-ratio: 1;
       display: flex;
       flex-direction: column;
       position: relative;
@@ -1275,7 +1314,7 @@
       height: 100%;
       background: var(--pink);
       width: 0%;
-      transition: width 0.2s linear;
+      /* No transition - smooth continuous updates */
     }
 
     .tv-info {
@@ -1289,6 +1328,140 @@
       font-size: 0.7em;
       color: rgba(255,255,255,0.6);
       pointer-events: none;
+    }
+
+    /* TV auto-advance progress bar - inside panel */
+    .tv-auto-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      z-index: 15;
+      overflow: hidden;
+    }
+
+    .tv-auto-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--pink);
+      /* No transition - smooth continuous updates from timeupdate */
+    }
+
+    /* Flip Card System - Desktop App Style (ghost overlay approach) */
+    .chat-flip-container {
+      aspect-ratio: 1;
+      position: relative;
+      perspective: 1200px;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+
+    /* The flipping card - this rotates in 3D */
+    .chat-flip-card {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Hover tilt effect - subtle swivel preview */
+    .chat-flip-card.tilt-left {
+      transform: rotateY(-8deg);
+    }
+
+    .chat-flip-card.tilt-right {
+      transform: rotateY(8deg);
+    }
+
+    .chat-flip-card.flipped {
+      transform: rotateY(180deg);
+    }
+
+    /* Tilt when flipped (reversed direction since we're looking at the back) */
+    .chat-flip-card.flipped.tilt-left {
+      transform: rotateY(188deg);
+    }
+
+    .chat-flip-card.flipped.tilt-right {
+      transform: rotateY(172deg);
+    }
+
+    /* Both faces positioned together */
+    .chat-flip-face {
+      position: absolute;
+      inset: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: opacity 0.1s ease, filter 0.1s ease;
+    }
+
+    /* Front face - laer-klokken - active when NOT flipped */
+    .chat-flip-front {
+      z-index: 1;
+      opacity: 1;
+      filter: none;
+    }
+
+    /* Back face - chat-system - ghost ON TOP when NOT flipped */
+    .chat-flip-back {
+      z-index: 3;
+      transform: rotateY(180deg); /* Shows mirrored when viewed from front */
+      opacity: 0.15;
+      filter: blur(2px);
+      pointer-events: none;
+    }
+
+    /* When FLIPPED: front becomes ghost, back becomes active */
+    .chat-flip-card.flipped .chat-flip-front {
+      z-index: 3;
+      opacity: 0.15;
+      filter: blur(2px);
+      pointer-events: none;
+    }
+
+    .chat-flip-card.flipped .chat-flip-back {
+      z-index: 1;
+      opacity: 1;
+      filter: none;
+      pointer-events: auto;
+    }
+
+    /* Clickable areas for flip */
+    .chat-flip-trigger {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .chat-flip-trigger:hover {
+      opacity: 0.85;
+    }
+
+    /* Swivel progress bar - at bottom of container */
+    .chat-flip-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: 15;
+      overflow: hidden;
+    }
+
+    .chat-flip-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--gold);
+      transition: width 0.1s linear, background 0.3s ease;
+    }
+
+    /* Purple progress when showing chat (flipped) */
+    .chat-flip-container.flipped .chat-flip-progress-bar {
+      background: #8844ff;
     }
 
     /* Chat Rolodex - laer-klokken warm gold theme */
@@ -1332,9 +1505,10 @@
 
     .chat-messages {
       flex: 1;
-      overflow-y: auto;
+      overflow-y: scroll;
+      overflow-x: hidden;
       background: #111;
-      scroll-behavior: smooth;
+      scroll-behavior: auto;
       scrollbar-width: none;
       -ms-overflow-style: none;
     }
@@ -1392,6 +1566,137 @@
       -webkit-box-orient: vertical;
     }
 
+    .chat-text .chat-link-url {
+      color: var(--cyan);
+      text-decoration: none;
+    }
+
+    .chat-text .chat-link-url:hover {
+      text-decoration: underline;
+    }
+
+    .chat-text .chat-link-handle {
+      color: var(--pink);
+      text-decoration: none;
+    }
+
+    .chat-text .chat-link-handle:hover {
+      text-decoration: underline;
+    }
+
+    .chat-text .chat-link-prompt {
+      color: var(--gold);
+      text-decoration: none;
+      font-family: var(--mono);
+    }
+
+    .chat-text .chat-link-prompt:hover {
+      text-decoration: underline;
+    }
+
+    .chat-text .chat-link-painting {
+      color: #95E1D3;
+      text-decoration: none;
+    }
+
+    .chat-text .chat-link-painting:hover {
+      text-decoration: underline;
+    }
+
+    /* Painting thumbnail previews in chat */
+    .chat-painting-thumbs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .chat-painting-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #1a1a1a;
+      position: relative;
+    }
+
+    .chat-painting-thumb a {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .chat-painting-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .chat-painting-thumb img.loaded {
+      opacity: 1;
+    }
+
+    .chat-painting-thumb:hover {
+      outline: 2px solid var(--cyan);
+    }
+
+    .chat-painting-thumb .thumb-code {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      font-family: var(--mono);
+      font-size: 0.5em;
+      color: #fff;
+      background: rgba(0,0,0,0.7);
+      padding: 1px 3px;
+      text-align: center;
+    }
+
+    /* Chat System (back face) - purple theme (lighter) */
+    .chat-preview-system {
+      background: linear-gradient(135deg, #252540 0%, #1a1230 100%);
+      border: 1px solid rgba(160, 100, 255, 0.35);
+    }
+
+    .chat-system-header {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      padding: 0.8em 1em;
+      text-decoration: none;
+      background: linear-gradient(135deg, #252540 0%, #1a1230 100%);
+    }
+
+    .chat-system-header strong {
+      color: rgba(180, 140, 255, 0.95);
+      font-family: 'ywft', sans-serif;
+      font-size: 0.9em;
+    }
+
+    .chat-system-header:hover strong {
+      color: rgba(210, 170, 255, 1);
+    }
+
+    .chat-preview-system .module-caption {
+      background: linear-gradient(135deg, #252540 0%, #1a1230 100%);
+      color: rgba(160, 120, 255, 0.8);
+    }
+
+    .chat-preview-system .chat-messages {
+      background: rgba(20, 18, 35, 0.9);
+    }
+
+    .chat-preview-system .chat-handle {
+      color: rgba(180, 140, 255, 0.95);
+    }
+
+    .chat-preview-system .chat-handle:hover {
+      color: var(--pink);
+    }
+
     /* KidLisp Preview - Full-bleed animated webp like shop */
     .kidlisp-preview {
       background: #0d0d1a;
@@ -1412,6 +1717,25 @@
       background: linear-gradient(135deg, rgba(20,10,30,0.85) 0%, rgba(10,5,20,0.9) 100%);
       color: rgba(200,180,255,0.9);
       z-index: 10;
+    }
+
+    /* KidLisp auto-advance progress bar */
+    .kidlisp-auto-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      z-index: 15;
+      overflow: hidden;
+    }
+
+    .kidlisp-auto-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #AA96DA;
+      transition: width 0.1s linear;
     }
 
     .kidlisp-preview-header {
@@ -1501,7 +1825,7 @@
 
     .kidlisp-slide-plays {
       position: absolute;
-      bottom: 3.5em;
+      bottom: 4em;
       left: 1em;
       font-family: var(--mono);
       font-size: 0.7em;
@@ -1515,7 +1839,7 @@
 
     .kidlisp-slide-author {
       position: absolute;
-      bottom: 3.5em;
+      bottom: 4em;
       left: 5em;
       font-family: var(--mono);
       font-size: 0.6em;
@@ -1529,7 +1853,7 @@
 
     .kidlisp-slide-qr-wrap {
       position: absolute;
-      bottom: 3.5em;
+      bottom: 4em;
       right: 1em;
       display: flex;
       flex-direction: column;
@@ -1720,7 +2044,7 @@
 <body>
   <div class="top-bar">
     <div style="display: flex; align-items: center; gap: 8px;">
-      <div class="logo" onclick="window.location.href='https://aesthetic.computer'">give<span class="logo-sep">—</span>Aesthetic<span class="bounce-dot">.</span>Computer</div>
+      <div class="logo" onclick="window.location.href='https://aesthetic.computer'"><span class="logo-give">give</span><span class="logo-sep">—</span><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span></div>
       <div class="lang-selector" id="langSelector">
         <span class="lang-flag" id="lang-flag">🇺🇸</span>
         <span class="lang-text" id="lang-text">English</span>
@@ -1863,10 +2187,10 @@
       </div>
 
       <div class="prose full-width" data-lang="en">
-        <a href="https://aesthetic.computer">Aesthetic Computer</a> is a runtime and social network for creative computing—an instrument for making and sharing interactive software. It's the full-time work of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, who has been building experimental software instruments for over a decade. He lives in Echo Park, Los Angeles, and regularly demos the software at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--cyan);">.</span>Computer</a> is a culture of its users and the full-time software engineering practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, who has been building experimental software instruments for over a decade. He lives in Echo Park, Los Angeles, and regularly demos the software at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown.
       </div>
       <div class="prose full-width" data-lang="da">
-        <a href="https://aesthetic.computer">Aesthetic Computer</a> er en runtime og socialt netværk for kreativ computing—et instrument til at lave og dele interaktiv software. Det er fuldtidsarbejdet af <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, som har bygget eksperimentelle software-instrumenter i over et årti. Han bor i Echo Park, Los Angeles, og demonstrerer regelmæssigt softwaren ved <a href="https://nelacomputer.club">NELA Computer Club</a> i Chinatown.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--cyan);">.</span>Computer</a> er en kultur af sine brugere og den fuldtids softwareudviklingspraksis af <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, som har bygget eksperimentelle software-instrumenter i over et årti. Han bor i Echo Park, Los Angeles, og demonstrerer regelmæssigt softwaren ved <a href="https://nelacomputer.club">NELA Computer Club</a> i Chinatown.
       </div>
 
       <div class="stats-section">
@@ -1903,22 +2227,49 @@
         <div class="kidlisp-carousel" id="kidlispCarousel">
           <div class="kidlisp-slide-loading"></div>
         </div>
+        <!-- Auto-advance progress bar -->
+        <div class="kidlisp-auto-progress">
+          <div class="kidlisp-auto-progress-bar" id="kidlispAutoProgress"></div>
+        </div>
         <div class="module-caption">
           <span data-lang="en">A creative coding language for all ages</span>
           <span data-lang="da">Et kreativt kodesprog for alle aldre</span>
         </div>
       </div>
 
-      <div class="chat-preview">
-        <a href="https://aesthetic.computer/laer-klokken" class="chat-preview-header">
-          <strong>🕐 laer-klokken</strong>
-        </a>
-        <div class="chat-messages" id="chatMessages">
-          <div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Loading...</div></div>
+      <div class="chat-flip-container">
+        <div class="chat-flip-card" id="chatFlipCard">
+          <!-- Front: laer-klokken (active when not flipped) -->
+          <div class="chat-flip-face chat-flip-front chat-preview">
+            <div class="chat-preview-header chat-flip-trigger" onclick="toggleChatFlip()">
+              <strong>🕐 laer-klokken</strong>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+              <div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Loading...</div></div>
+            </div>
+            <div class="module-caption chat-flip-trigger" onclick="toggleChatFlip()">
+              <span data-lang="en">Goodiepal's Danish music community</span>
+              <span data-lang="da">Goodiepals danske musikfællesskab</span>
+            </div>
+          </div>
+          
+          <!-- Back: chat-system (ghost overlay when not flipped, active when flipped) -->
+          <div class="chat-flip-face chat-flip-back chat-preview-system">
+            <div class="chat-system-header chat-flip-trigger" onclick="toggleChatFlip()">
+              <strong>💬 chat</strong>
+            </div>
+            <div class="chat-messages" id="chatSystemMessages">
+              <div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Loading...</div></div>
+            </div>
+            <div class="module-caption chat-flip-trigger" onclick="toggleChatFlip()">
+              <span data-lang="en">Global Aesthetic Computer chat</span>
+              <span data-lang="da">Global Aesthetic Computer chat</span>
+            </div>
+          </div>
         </div>
-        <div class="module-caption">
-          <span data-lang="en">Goodiepal's Danish music community and radio show</span>
-          <span data-lang="da">Goodiepals danske musikfaellesskab og radioshow</span>
+        <!-- Progress bar for swivel timer - outside flip card, at bottom of container -->
+        <div class="chat-flip-progress">
+          <div class="chat-flip-progress-bar" id="chatFlipProgress"></div>
         </div>
       </div>
 
@@ -1935,6 +2286,10 @@
         </a>
         <div class="tv-player" id="tvPlayer">
           <div class="tv-loading">📺</div>
+        </div>
+        <!-- Auto-advance progress bar -->
+        <div class="tv-auto-progress">
+          <div class="tv-auto-progress-bar" id="tvAutoProgress"></div>
         </div>
         <div class="module-caption">
           <span data-lang="en">Community video feed</span>
@@ -1978,9 +2333,9 @@
         <div class="shop-products" id="shopProducts">
           <div class="shop-loading">Loading...</div>
         </div>
-        <div class="module-caption">
-          <span data-lang="en">paintings, books, bikes, music & more</span>
-          <span data-lang="da">malerier, bøger, cykler, musik & mere</span>
+        <!-- Auto-advance progress bar -->
+        <div class="shop-auto-progress">
+          <div class="shop-auto-progress-bar" id="shopAutoProgress"></div>
         </div>
       </div>
 
@@ -2650,6 +3005,30 @@
     // Fetch shop products - single rotating display
     let shopProducts = [];
     let shopIndex = 0;
+    let shopProgressAnim = null;
+    const SHOP_INTERVAL = 4000; // 4 seconds between products
+    
+    function animateShopProgress() {
+      const progressBar = document.getElementById('shopAutoProgress');
+      if (!progressBar) return;
+      
+      let startTime = null;
+      
+      function step(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const pct = Math.min((elapsed / SHOP_INTERVAL) * 100, 100);
+        progressBar.style.width = pct + '%';
+        
+        if (elapsed < SHOP_INTERVAL) {
+          shopProgressAnim = requestAnimationFrame(step);
+        }
+      }
+      
+      if (shopProgressAnim) cancelAnimationFrame(shopProgressAnim);
+      progressBar.style.width = '0%';
+      shopProgressAnim = requestAnimationFrame(step);
+    }
     
     async function loadShopProducts() {
       const container = document.getElementById('shopProducts');
@@ -2664,12 +3043,14 @@
         
         shopProducts = data.products;
         showShopProduct(0);
+        animateShopProgress();
         
         // Rotate every 4 seconds
         setInterval(() => {
           shopIndex = (shopIndex + 1) % shopProducts.length;
           showShopProduct(shopIndex);
-        }, 4000);
+          animateShopProgress();
+        }, SHOP_INTERVAL);
       } catch (e) {
         console.error('Shop load error:', e);
         container.innerHTML = '<a href="https://shop.aesthetic.computer" class="shop-loading">Visit shop →</a>';
@@ -2683,7 +3064,7 @@
       
       // Extract vendor from product data if available
       const vendor = p.vendor || '';
-      const vendorHtml = vendor ? `<div class="shop-product-vendor">by&nbsp;<a href="https://aesthetic.computer/@${vendor.replace('@', '')}" target="_blank">${vendor.startsWith('@') ? vendor : '@' + vendor}</a></div>` : '';
+      const vendorHtml = vendor ? `<div class="shop-product-vendor"><a href="https://aesthetic.computer/@${vendor.replace('@', '')}" target="_blank">${vendor.startsWith('@') ? vendor : '@' + vendor}</a></div>` : '';
       
       container.innerHTML = `
         <a href="${p.shopUrl}" class="shop-product" target="_blank">
@@ -2691,9 +3072,11 @@
             <img src="${p.imageUrl || ''}" alt="${p.title}" loading="lazy">
           </div>
           <div class="shop-product-overlay">
-            <div class="shop-product-title">${p.title}</div>
-            <div class="shop-product-info">
+            <div class="shop-product-top">
+              <div class="shop-product-title">${p.title}</div>
               ${vendorHtml}
+            </div>
+            <div class="shop-product-info">
               ${p.available 
                 ? `<div class="shop-product-price">${p.price}</div>`
                 : `<div class="shop-product-sold">SOLD</div>`
@@ -2749,11 +3132,15 @@
     
     function playTVVideo(index) {
       const container = document.getElementById('tvPlayer');
+      const autoProgressBar = document.getElementById('tvAutoProgress');
       const tape = tvTapes[index];
       if (!tape) {
         container.innerHTML = '<div class="tv-no-signal">No signal</div>';
         return;
       }
+      
+      // Show tape code if available
+      const tapeCode = tape.code ? `!${tape.code}` : '';
       
       container.innerHTML = `
         <video 
@@ -2765,6 +3152,7 @@
         ></video>
         <div class="tv-progress"><div class="tv-progress-bar"></div></div>
         <div class="tv-info">
+          <span>${tapeCode}</span>
           <span>${tvIndex + 1}/${tvTapes.length}</span>
         </div>
       `;
@@ -2772,45 +3160,158 @@
       tvPlayer = container.querySelector('video');
       const progressBar = container.querySelector('.tv-progress-bar');
       
-      // Update progress bar
-      tvPlayer.addEventListener('timeupdate', () => {
-        if (tvPlayer.duration) {
-          const pct = (tvPlayer.currentTime / tvPlayer.duration) * 100;
-          progressBar.style.width = pct + '%';
-        }
-      });
+      // Attach all event listeners once
+      function attachListeners() {
+        // Update both progress bars - playback and auto-advance
+        tvPlayer.addEventListener('timeupdate', () => {
+          if (tvPlayer.duration) {
+            const pct = (tvPlayer.currentTime / tvPlayer.duration) * 100;
+            progressBar.style.width = pct + '%';
+            // Also update auto-advance bar
+            if (autoProgressBar) autoProgressBar.style.width = pct + '%';
+          }
+        });
+        
+        tvPlayer.addEventListener('ended', () => {
+          tvErrorCount = 0; // Reset error count on successful play
+          tvIndex = (tvIndex + 1) % tvTapes.length;
+          if (autoProgressBar) autoProgressBar.style.width = '0%';
+          playTVVideo(tvIndex);
+        });
+        tvPlayer.addEventListener('canplay', () => {
+          tvErrorCount = 0; // Reset error count when video loads successfully
+        });
+        tvPlayer.addEventListener('error', () => {
+          tvErrorCount++;
+          if (tvErrorCount >= TV_MAX_ERRORS) {
+            container.innerHTML = '<div class="tv-no-signal">No signal</div>';
+            return;
+          }
+          // Skip broken videos
+          tvIndex = (tvIndex + 1) % tvTapes.length;
+          if (autoProgressBar) autoProgressBar.style.width = '0%';
+          setTimeout(() => playTVVideo(tvIndex), 500);
+        });
+      }
       
-      tvPlayer.addEventListener('ended', () => {
-        tvErrorCount = 0; // Reset error count on successful play
-        tvIndex = (tvIndex + 1) % tvTapes.length;
-        playTVVideo(tvIndex);
-      });
-      tvPlayer.addEventListener('canplay', () => {
-        tvErrorCount = 0; // Reset error count when video loads successfully
-      });
-      tvPlayer.addEventListener('error', () => {
-        tvErrorCount++;
-        if (tvErrorCount >= TV_MAX_ERRORS) {
-          container.innerHTML = '<div class="tv-no-signal">No signal</div>';
-          return;
-        }
-        // Skip broken videos
-        tvIndex = (tvIndex + 1) % tvTapes.length;
-        setTimeout(() => playTVVideo(tvIndex), 500);
-      });
+      attachListeners();
+      
       tvPlayer.play().catch(() => {
-        // Autoplay blocked - add click to play
-        container.innerHTML = `
-          <div class="tv-loading" style="cursor: pointer;" onclick="this.parentElement.querySelector('video')?.play(); this.remove();">
-            ▶️
-          </div>
-          <video src="${tape.media.videoUrl}" muted playsinline></video>
-          <div class="tv-progress"><div class="tv-progress-bar"></div></div>
-          <div class="tv-info"><span>${tvIndex + 1}/${tvTapes.length}</span></div>
-        `;
+        // Autoplay blocked - add click overlay (keep video and listeners intact)
+        const overlay = document.createElement('div');
+        overlay.className = 'tv-loading';
+        overlay.style.cursor = 'pointer';
+        overlay.textContent = '▶️';
+        overlay.onclick = () => {
+          tvPlayer.play();
+          overlay.remove();
+        };
+        container.insertBefore(overlay, container.firstChild);
       });
     }
     loadTVFeed();
+    
+    // Linkify text - parse URLs, @handles, 'prompts', #paintings
+    // Works on raw text, escapes only plain text segments
+    function linkifyText(text) {
+      // Parse elements with positions on RAW text (before escaping)
+      const elements = [];
+      
+      // URLs (http://, https://, www.)
+      const urlRegex = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+      let match;
+      while ((match = urlRegex.exec(text)) !== null) {
+        elements.push({ type: 'url', text: match[0], start: match.index, end: match.index + match[0].length });
+      }
+      
+      // @handles
+      const handleRegex = /@[a-z0-9]+([._][a-z0-9]+)*/gi;
+      while ((match = handleRegex.exec(text)) !== null) {
+        // Don't match inside URLs
+        const inUrl = elements.some(e => e.type === 'url' && match.index >= e.start && match.index < e.end);
+        if (!inUrl) {
+          elements.push({ type: 'handle', text: match[0], start: match.index, end: match.index + match[0].length });
+        }
+      }
+      
+      // 'prompts' (single-quoted words)
+      const promptRegex = /'([^']+)'/g;
+      while ((match = promptRegex.exec(text)) !== null) {
+        const inUrl = elements.some(e => e.type === 'url' && match.index >= e.start && match.index < e.end);
+        if (!inUrl) {
+          elements.push({ type: 'prompt', text: match[0], inner: match[1], start: match.index, end: match.index + match[0].length });
+        }
+      }
+      
+      // #paintings (hashtag codes)
+      const paintingRegex = /#[a-z0-9]+/gi;
+      while ((match = paintingRegex.exec(text)) !== null) {
+        const inUrl = elements.some(e => e.type === 'url' && match.index >= e.start && match.index < e.end);
+        if (!inUrl) {
+          elements.push({ type: 'painting', text: match[0], start: match.index, end: match.index + match[0].length });
+        }
+      }
+      
+      // Sort by position
+      elements.sort((a, b) => a.start - b.start);
+      
+      // Build result string - escape plain text, but not the HTML links we create
+      let result = '';
+      let lastEnd = 0;
+      
+      for (const el of elements) {
+        // Add escaped text before this element
+        result += escapeHtml(text.slice(lastEnd, el.start));
+        
+        // Add linked element (escape the display text)
+        if (el.type === 'url') {
+          const href = el.text.startsWith('www.') ? 'https://' + el.text : el.text;
+          result += `<a href="${escapeHtml(href)}" class="chat-link-url" target="_blank" rel="noopener">${escapeHtml(el.text)}</a>`;
+        } else if (el.type === 'handle') {
+          result += `<a href="https://aesthetic.computer/${escapeHtml(el.text)}" class="chat-link-handle" target="_blank">${escapeHtml(el.text)}</a>`;
+        } else if (el.type === 'prompt') {
+          result += `<a href="https://aesthetic.computer/${escapeHtml(el.inner)}" class="chat-link-prompt" target="_blank">${escapeHtml(el.text)}</a>`;
+        } else if (el.type === 'painting') {
+          const code = el.text.slice(1); // Remove #
+          result += `<a href="https://aesthetic.computer/painting~${escapeHtml(code)}" class="chat-link-painting" target="_blank">${escapeHtml(el.text)}</a>`;
+        }
+        
+        lastEnd = el.end;
+      }
+      
+      // Add remaining escaped text
+      result += escapeHtml(text.slice(lastEnd));
+      
+      return result;
+    }
+    
+    // Extract painting codes from text and generate thumbnail HTML
+    function getPaintingThumbnails(text) {
+      const codes = [];
+      const paintingRegex = /#([a-z0-9]+)/gi;
+      let match;
+      while ((match = paintingRegex.exec(text)) !== null) {
+        codes.push(match[1]);
+      }
+      if (!codes.length) return '';
+      
+      const thumbs = codes.map(code => `
+        <div class="chat-painting-thumb">
+          <a href="https://aesthetic.computer/painting~${escapeHtml(code)}" target="_blank">
+            <img 
+              src="https://art.aesthetic.computer/${escapeHtml(code)}.png" 
+              alt="#${escapeHtml(code)}"
+              loading="lazy"
+              onload="this.classList.add('loaded')"
+              onerror="this.parentElement.parentElement.style.display='none'"
+            >
+            <span class="thumb-code">#${escapeHtml(code)}</span>
+          </a>
+        </div>
+      `).join('');
+      
+      return `<div class="chat-painting-thumbs">${thumbs}</div>`;
+    }
     
     // Chat Messages - Læer-Klokken messages (scrolling list)
     async function loadChatMessages() {
@@ -2831,13 +3332,15 @@
           const ago = formatTimeAgo(when);
           // API returns 'from' field with '@' prefix if handle exists
           const handle = msg.from || 'anon';
+          const thumbs = getPaintingThumbnails(msg.text || '');
           return `
             <div class="chat-msg">
               <div class="chat-msg-header">
                 <a href="https://aesthetic.computer/${handle}" class="chat-handle">${handle}</a>
                 <span class="chat-time">${ago}</span>
               </div>
-              <div class="chat-text">${escapeHtml(msg.text || '')}</div>
+              <div class="chat-text">${linkifyText(msg.text || '')}</div>
+              ${thumbs}
             </div>
           `;
         }).reverse().join('');
@@ -2869,6 +3372,189 @@
     }
     
     loadChatMessages();
+    
+    // Auto-scroll chat messages
+    function autoScrollChat(containerId, speed = 0.5) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      
+      let scrollPos = 0;
+      let isPaused = false;
+      
+      // Pause on hover
+      container.addEventListener('mouseenter', () => isPaused = true);
+      container.addEventListener('mouseleave', () => isPaused = false);
+      
+      function scroll() {
+        if (!isPaused && container.scrollHeight > container.clientHeight) {
+          scrollPos += speed;
+          // Reset to top when reaching bottom
+          if (scrollPos >= container.scrollHeight - container.clientHeight) {
+            scrollPos = 0;
+          }
+          container.scrollTop = scrollPos;
+        }
+        requestAnimationFrame(scroll);
+      }
+      requestAnimationFrame(scroll);
+    }
+    
+    // Start auto-scroll for both chat containers at different speeds
+    setTimeout(() => {
+      autoScrollChat('chatMessages', 0.25);      // laer-klokken: slower
+      autoScrollChat('chatSystemMessages', 0.35); // chat: slightly faster
+    }, 2000); // Wait for content to load
+    
+    // Chat System Messages (back face of flip card)
+    async function loadChatSystemMessages() {
+      const container = document.getElementById('chatSystemMessages');
+      if (!container) return;
+      try {
+        const res = await fetch(`${apiBase}/api/chat/messages?instance=system&limit=25`);
+        const data = await res.json();
+        const messages = data.messages || [];
+        
+        if (!messages.length) {
+          container.innerHTML = '<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">No messages yet</div></div>';
+          return;
+        }
+        
+        // Messages come oldest-first from API, we want newest at top
+        const html = messages.map(msg => {
+          const when = new Date(msg.when);
+          const ago = formatTimeAgo(when);
+          const handle = msg.from || 'anon';
+          const thumbs = getPaintingThumbnails(msg.text || '');
+          return `
+            <div class="chat-msg">
+              <div class="chat-msg-header">
+                <a href="https://aesthetic.computer/${handle}" class="chat-handle">${handle}</a>
+                <span class="chat-time">${ago}</span>
+              </div>
+              <div class="chat-text">${linkifyText(msg.text || '')}</div>
+              ${thumbs}
+            </div>
+          `;
+        }).reverse().join('');
+        
+        container.innerHTML = html;
+        
+      } catch (e) {
+        console.error('Chat system load error:', e);
+        container.innerHTML = '<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Could not load</div></div>';
+      }
+    }
+    
+    loadChatSystemMessages();
+    
+    // Flip card toggle function with direction support
+    function toggleChatFlip(direction) {
+      const card = document.getElementById('chatFlipCard');
+      const container = document.querySelector('.chat-flip-container');
+      if (card && container) {
+        const isFlipped = card.classList.contains('flipped');
+        // If direction specified, only flip if it makes sense
+        if (direction === 'left' && isFlipped) {
+          card.classList.remove('flipped');
+          container.classList.remove('flipped');
+          resetFlipProgress();
+        } else if (direction === 'right' && !isFlipped) {
+          card.classList.add('flipped');
+          container.classList.add('flipped');
+          resetFlipProgress();
+        } else if (!direction) {
+          card.classList.toggle('flipped');
+          container.classList.toggle('flipped');
+          resetFlipProgress();
+        }
+      }
+    }
+    // Expose to global scope for onclick
+    window.toggleChatFlip = toggleChatFlip;
+    
+    // Hover tilt effect for swivel preview
+    function setupHoverTilt() {
+      const container = document.querySelector('.chat-flip-container');
+      const card = document.getElementById('chatFlipCard');
+      if (!container || !card) return;
+      
+      container.addEventListener('mousemove', (e) => {
+        if (card.classList.contains('flipped')) return; // Don't tilt when flipped
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const width = rect.width;
+        const third = width / 3;
+        
+        card.classList.remove('tilt-left', 'tilt-right');
+        if (x < third) {
+          card.classList.add('tilt-left');
+        } else if (x > third * 2) {
+          card.classList.add('tilt-right');
+        }
+      });
+      
+      container.addEventListener('mouseleave', () => {
+        card.classList.remove('tilt-left', 'tilt-right');
+      });
+      
+      // Click zones for directional swivel
+      container.addEventListener('click', (e) => {
+        // Don't trigger if clicking on a link or explicit trigger
+        if (e.target.closest('a') || e.target.closest('.chat-flip-trigger')) return;
+        
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const width = rect.width;
+        const isFlipped = card.classList.contains('flipped');
+        
+        if (x < width / 2) {
+          // Left side - swivel to show front (unflip)
+          if (isFlipped) toggleChatFlip('left');
+        } else {
+          // Right side - swivel to show back (flip)
+          if (!isFlipped) toggleChatFlip('right');
+        }
+      });
+    }
+    setTimeout(setupHoverTilt, 100);
+    
+    // Auto-flip with progress bar
+    const FLIP_INTERVAL = 12000; // 12 seconds between flips
+    let flipProgress = 0;
+    let flipPaused = false;
+    
+    function resetFlipProgress() {
+      flipProgress = 0;
+      const bar = document.getElementById('chatFlipProgress');
+      if (bar) bar.style.width = '0%';
+    }
+    
+    function updateFlipProgress() {
+      const bar = document.getElementById('chatFlipProgress');
+      const container = document.querySelector('.chat-flip-container');
+      
+      // Pause on hover
+      if (container && !container.dataset.hoverBound) {
+        container.dataset.hoverBound = 'true';
+        container.addEventListener('mouseenter', () => flipPaused = true);
+        container.addEventListener('mouseleave', () => flipPaused = false);
+      }
+      
+      if (!flipPaused) {
+        flipProgress += 100 / (FLIP_INTERVAL / 100); // Update every 100ms
+        if (bar) bar.style.width = flipProgress + '%';
+        
+        if (flipProgress >= 100) {
+          toggleChatFlip();
+          // resetFlipProgress is called inside toggleChatFlip
+        }
+      }
+      
+      setTimeout(updateFlipProgress, 100);
+    }
+    
+    // Start auto-flip after a short delay
+    setTimeout(updateFlipProgress, 3000);
     
     // KidLisp Carousel - Single rotating preview with animated WebP and syntax highlighting
     const OVEN_URL = 'https://oven.aesthetic.computer';
@@ -2985,15 +3671,51 @@
           
           // Clean up exiting class after transition
           setTimeout(() => current.classList.remove('exiting'), 500);
+          
+          // Restart progress bar
+          animateKidlispProgress();
         }
         
+        // Progress bar animation
+        const KIDLISP_INTERVAL = 6000;
+        let kidlispProgressAnim = null;
+        
+        function animateKidlispProgress() {
+          const progressBar = document.getElementById('kidlispAutoProgress');
+          if (!progressBar) return;
+          
+          let startTime = null;
+          
+          function step(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            const pct = Math.min((elapsed / KIDLISP_INTERVAL) * 100, 100);
+            progressBar.style.width = pct + '%';
+            
+            if (elapsed < KIDLISP_INTERVAL) {
+              kidlispProgressAnim = requestAnimationFrame(step);
+            }
+          }
+          
+          if (kidlispProgressAnim) cancelAnimationFrame(kidlispProgressAnim);
+          progressBar.style.width = '0%';
+          kidlispProgressAnim = requestAnimationFrame(step);
+        }
+        
+        // Start initial progress animation
+        animateKidlispProgress();
+        
         // Start rotation every 6 seconds (match webp duration)
-        slideInterval = setInterval(nextSlide, 6000);
+        slideInterval = setInterval(nextSlide, KIDLISP_INTERVAL);
         
         // Pause on hover
-        carousel.addEventListener('mouseenter', () => clearInterval(slideInterval));
+        carousel.addEventListener('mouseenter', () => {
+          clearInterval(slideInterval);
+          if (kidlispProgressAnim) cancelAnimationFrame(kidlispProgressAnim);
+        });
         carousel.addEventListener('mouseleave', () => {
-          slideInterval = setInterval(nextSlide, 6000);
+          animateKidlispProgress();
+          slideInterval = setInterval(nextSlide, KIDLISP_INTERVAL);
         });
         
         // Load webp images for all slides (staggered to not overwhelm oven)

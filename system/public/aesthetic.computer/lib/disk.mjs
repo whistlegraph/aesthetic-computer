@@ -6805,9 +6805,6 @@ async function load(
         
         loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
         
-        // 🐛 DEBUG: Check what lisp.module returned
-        console.log(`🔍 DEBUG: lisp.module returned:`, loadedModule, `type:`, typeof loadedModule, `null?`, loadedModule === null, `undefined?`, loadedModule === undefined);
-        
         const compileEndTime = performance.now();
         const compileElapsed = Math.round(compileEndTime - compileStartTime);
         diskTimings.compileComplete = Math.round(compileEndTime - diskTimingStart);
@@ -6837,8 +6834,6 @@ async function load(
             console.log("💌 Publishable:", store["publishable-piece"]);
         }
       } else {
-        // 🐛 DEBUG
-        console.log("🔍 DEBUG: NOT KidLisp, going to JS module branch - sourceToRun starts with:", sourceToRun?.substring(0, 20));
         if (devReload) {
           store["publishable-piece"] = { slug, source: sourceToRun };
           if (logs.loading)
@@ -6977,24 +6972,19 @@ async function load(
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
   // 🧨 Fail out if no module is found.
   const moduleCheckTime = performance.now();
-  console.log(`🔍 DEBUG: Module check - loadedModule is:`, loadedModule, `undefined?`, loadedModule === undefined, `null?`, loadedModule === null);
   
   if (loadedModule === undefined) {
-    console.log(`❌ DEBUG: Module is undefined, returning false`);
     loading = false;
     leaving = false;
     return false;
   }
   
-  // 🐛 DEBUG: Also check for null
+  // Also check for null
   if (loadedModule === null) {
-    console.log(`❌ DEBUG: Module is NULL, returning false`);
     loading = false;
     leaving = false;
     return false;
   }
-  
-  console.log(`✅ DEBUG: Module check passed, continuing with load...`);
 
   // 🐛 Wrap the entire module setup in try-catch to catch any errors
   try {
@@ -7895,9 +7885,6 @@ async function load(
     }
 
     module = loadedModule;
-    
-    // 🐛 DEBUG: Check module structure
-    console.log(`🔍 DEBUG: module assigned - has boot?`, !!module?.boot, `has paint?`, !!module?.paint, `has sim?`, !!module?.sim, `has system?`, module?.system);
 
     // 🧹 Reset KidLisp baked layers when returning to the prompt to avoid stale flashes
     if (module?.system?.startsWith("prompt") &&
@@ -8471,8 +8458,6 @@ async function load(
       // firstSearch = search;
     }
   };
-  
-  console.log(`🔍 DEBUG: About to send disk-loaded for slug:`, slug, `path:`, path);
 
   try {
     send({
@@ -8492,9 +8477,8 @@ async function load(
         taping: $commonApi.rec.loadCallback !== null || $commonApi.rec.recording,
       },
     });
-    console.log(`✅ DEBUG: disk-loaded sent successfully`);
   } catch (sendError) {
-    console.error(`❌ DEBUG: Error sending disk-loaded:`, sendError);
+    console.error("Error sending disk-loaded:", sendError);
   }
 
   // Notify parent window of progress via bios relay
@@ -8504,14 +8488,12 @@ async function load(
       type: "boot-log",
       content: `loaded: ${slug || path}`
     });
-    console.log(`✅ DEBUG: boot-log loaded sent successfully`);
   } catch (sendError2) {
-    console.error(`❌ DEBUG: Error sending boot-log loaded:`, sendError2);
+    console.error("Error sending boot-log loaded:", sendError2);
   }
 
   } catch (moduleSetupError) {
-    console.error(`❌ DEBUG: Error during module setup:`, moduleSetupError);
-    console.error(`❌ DEBUG: Error stack:`, moduleSetupError.stack);
+    console.error("Error during module setup:", moduleSetupError);
     loading = false;
     leaving = false;
     return false;
@@ -8543,15 +8525,12 @@ if (isWorker) {
 
 // The main messaging function to comumunicate back with the main thread.
 function send(data, shared = []) {
-  console.log(`🔍 SEND DEBUG: type="${data?.type}" isWorker=${isWorker} hasPostMessage=${!!noWorker.postMessage}`);
   if (isWorker) {
     if (shared[0] === undefined) shared = [];
     postMessage(data, shared);
   } else {
     if (noWorker.postMessage) {
-      console.log(`🔍 SEND DEBUG: Calling noWorker.postMessage for type="${data?.type}"`);
       noWorker.postMessage({ data });
-      console.log(`✅ SEND DEBUG: noWorker.postMessage completed for type="${data?.type}"`);
     } else {
       console.warn("⚠️ noWorker.postMessage is not defined yet, cannot send:", data);
     }

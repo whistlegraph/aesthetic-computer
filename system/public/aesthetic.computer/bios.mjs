@@ -3357,10 +3357,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     },
   };
 
-  const onMessage = (m) => {
-    console.log(`🔵 DEBUG onMessage: type="${m?.data?.type}"`);
-    receivedChange(m);
-  };
+  const onMessage = (m) => receivedChange(m);
 
   let send = (msg) => {
     console.warn("Send has not been wired yet!", msg);
@@ -3482,7 +3479,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     };
 
     if (worker.postMessage) {
-      console.log("🟢 DEBUG BIOS: Worker mode enabled");
       send = (e, shared) => worker.postMessage(e, shared);
       window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
       worker.onmessage = onMessage;
@@ -3507,20 +3503,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
   } else {
     // B. No Worker Mode
-    console.log("🔴 DEBUG BIOS: No Worker mode");
     let module;
     try {
       module = await import(`./lib/disk.mjs`);
     } catch (err) {
       console.warn("Module load error:", err);
     }
-    module.noWorker.postMessage = (e) => {
-      console.log("🔴 DEBUG: noWorker.postMessage called with:", e?.data?.type);
-      onMessage(e);
-    };
+    module.noWorker.postMessage = (e) => onMessage(e);
     send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
     window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
-    console.log("🔴 DEBUG BIOS: noWorker.postMessage wired up");
   }
 
   // The initial message sends the path and host to load the disk.
@@ -3924,7 +3915,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
-    console.log(`🔍 DEBUG receivedChange: type="${type}"`);
     // Relay boot-log messages to parent window and update the overlay
     if (type === "boot-log") {
       // console.log("📢 BIOS relaying boot-log:", content);
@@ -7744,11 +7734,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const totalOriginalDuration = processedFrames[processedFrames.length - 1].timestamp - processedFrames[0].timestamp;
             const avgFrameTiming = totalOriginalDuration / (processedFrames.length - 1);
             
-            console.log(`🎞️ GIFENC TIMING DEBUG: totalDuration=${totalOriginalDuration.toFixed(2)}ms, frames=${processedFrames.length}, avgTiming=${avgFrameTiming.toFixed(2)}ms (${(1000/avgFrameTiming).toFixed(1)}fps)`);
-            
             // Check if early high refresh rate detection was triggered (stored in window)
             const earlyHighRefreshDetected = window.earlyHighRefreshRateDetected;
-            console.log(`🎞️ Early high refresh rate detection result: ${earlyHighRefreshDetected}`);
             
             // Use early detection result or fallback to current detection
             const isHighRefreshRate = earlyHighRefreshDetected || avgFrameTiming < 13.5;
@@ -9156,14 +9143,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             startTime = performance.now(); // Initialize timing reference
             renderNextFrame();
           }, 100); // 100ms delay to let MediaRecorder initialize
-          
-          // Add a longer timeout to check for data collection issues
-          setTimeout(() => {
-            console.log("🎬 🔍 DEBUG: 2 second check - chunks collected:", chunks.length);
-            console.log("🎬 🔍 MediaRecorder state:", videoRecorder.state);
-            console.log("🎬 🔍 Stream active:", finalStream.active);
-            console.log("🎬 🔍 Stream tracks:", finalStream.getTracks().map(t => `${t.kind}: ${t.readyState}`));
-          }, 2000);
           
         } catch (startError) {
           console.error("🎬 ❌ Failed to start MediaRecorder:", startError);
@@ -11106,7 +11085,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
-      console.log(`🔍 DEBUG BIOS: Received disk-loaded for text:`, content.text, `path:`, content.path);
       // Clear any active parameters once the disk has been loaded.
       // Skip URL manipulation in pack mode (sandboxed iframe)
       if (!checkPackMode()) {
@@ -11464,9 +11442,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.addEventListener("pointerdown", activateSound, { once: true });
       }
 
-      console.log(`🔍 DEBUG BIOS: About to send loading-complete for text:`, content.text);
       send({ type: "loading-complete" });
-      console.log(`✅ DEBUG BIOS: loading-complete sent`);
       return;
     }
 
