@@ -785,6 +785,17 @@ end
 
 # ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $HOST_USER@172.17.0.1 "cdocker aesthetic"
 
+# 🔍 Start Devcontainer Status Server (for VS Code Welcome panel dashboard)
+log_info "Starting Devcontainer Status Server..."
+if test -f /workspaces/aesthetic-computer/artery/devcontainer-status.mjs
+    pkill -f "devcontainer-status" 2>/dev/null
+    nohup node /workspaces/aesthetic-computer/artery/devcontainer-status.mjs --server >/tmp/devcontainer-status.log 2>&1 &
+    disown
+    log_ok "Devcontainer Status Server started on http://127.0.0.1:7890"
+else
+    log_warn "devcontainer-status.mjs not found, skipping status server"
+end
+
 log "════════════════════════════════════════════════════════════════"
 log "🎉 ENTRY.FISH COMPLETED SUCCESSFULLY"
 log "════════════════════════════════════════════════════════════════"
