@@ -68,7 +68,8 @@
   // 12345: Misc dev/debug port
   // 3478: TURN server for WebRTC NAT traversal (UDP)
   // 10000-10007: WebRTC media ports for peer connections
-  "forwardPorts": [8888, 8111, 8889, 8083, 8084, 8085, 4040, 12345, 3478, 10000, 10001, 10002, 10003, 10004, 10005, 10006, 10007],
+  // 7890: Devcontainer status dashboard
+  "forwardPorts": [8888, 8111, 8889, 8083, 8084, 8085, 4040, 12345, 3478, 7890, 10000, 10001, 10002, 10003, 10004, 10005, 10006, 10007],
 
   "portsAttributes": {
     "8888": {
