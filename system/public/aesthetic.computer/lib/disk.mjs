@@ -8527,7 +8527,10 @@ if (isWorker) {
     if (e.data?.type === "disk:load") {
       postMessage({ type: "boot-log", content: "worker received load" });
     }
-    makeFrame(e);
+    // Wrap makeFrame in a catch to surface any swallowed errors
+    makeFrame(e).catch(err => {
+      console.error("🛑 DISK makeFrame error:", err, "| type:", e.data?.type);
+    });
   };
 } else {
   noWorker.onMessage = (d) => makeFrame({ data: d });
@@ -8567,6 +8570,11 @@ let pendingExportEvents = [];
 // TODO: Try to remove as many API calls from here as possible.
 
 async function makeFrame({ data: { type, content } }) {
+  // 🔍 DEBUG: Log ALL messages during early boot to trace $code loading issue
+  if (paintCount < 5n && type !== "beat") {
+    console.log(`🔍 DISK makeFrame: type="${type}", paintCount=${paintCount}`);
+  }
+  
   // DEBUG: Log all DAW-related messages
   if (type?.startsWith?.("daw:")) {
     console.log("🎹🎹🎹 makeFrame received:", type, content);
@@ -8874,9 +8882,11 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "loading-complete") {
+    console.log("🔍 DISK: Received loading-complete, paintCount=", paintCount, "loading=", loading, "booted=", booted);
     leaving = false;
     hotSwap?.(); // Actually swap out the piece functions and reset the state.
     loading = false;
+    console.log("🔍 DISK: After hotSwap, paintCount=", paintCount, "loading=", loading, "booted=", booted);
     return;
   }
 
@@ -9954,8 +9964,9 @@ async function makeFrame({ data: { type, content } }) {
   // 2. Frame
   // Where each piece action (boot, sim, paint, etc...) is run.
   if (type === "frame") {
-    // Log EVERY frame when paintCount is low to see if frames arrive after hotSwap
+    // 🔍 DEBUG: Log frames when paintCount is low to track $code loading issue
     if (paintCount < 5n) {
+      console.log(`🔍 DISK FRAME: paintCount=${paintCount}, loading=${loading}, booted=${booted}`);
     }
     // Take hold of a previously worker transferrable screen buffer
     // and re-assign it.
