@@ -3280,6 +3280,9 @@ class KidLisp {
     perfStart("parse");
     const parsed = this.parse(source);
     perfEnd("parse");
+    
+    // 🐛 DEBUG: Log parsed result
+    console.log(`🔍 DEBUG kidlisp.module: source="${source.substring(0, 100)}", parsed=`, parsed, `length=${parsed.length}`);
 
     // 🔍 Special case: If the program consists of only a single $code atom or function call,
     // fetch the cached source and substitute it instead of navigating
@@ -3334,8 +3337,12 @@ class KidLisp {
 
               // For now, fall back to navigation behavior
               if (typeof window !== 'undefined') {
+                console.log(`🔍 DEBUG: Navigating to ${cacheCode} (window exists)`);
                 window.location.href = `/${cacheCode}`;
                 return null; // Return null to indicate this piece should not run
+              } else {
+                console.log(`🔍 DEBUG: No window object, not navigating (returning null anyway to prevent running stale code)`);
+                return null; // Return null even in worker context
               }
             }
           }

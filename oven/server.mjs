@@ -10,7 +10,7 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, IPFS_GATEWAY } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, IPFS_GATEWAY } from './grabber.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -30,6 +30,32 @@ if (GIT_VERSION === 'unknown') {
 }
 console.log(`📦 Oven version: ${GIT_VERSION}`);
 console.log(`🕐 Server started at: ${new Date(SERVER_START_TIME).toISOString()}`);
+
+// Activity log buffer for streaming to clients
+const activityLogBuffer = [];
+const MAX_ACTIVITY_LOG = 100;
+let wss = null; // Will be set after server starts
+
+function addServerLog(type, icon, msg) {
+  const entry = { time: new Date().toISOString(), type, icon, msg };
+  activityLogBuffer.unshift(entry);
+  if (activityLogBuffer.length > MAX_ACTIVITY_LOG) {
+    activityLogBuffer.pop();
+  }
+  // Broadcast to connected clients if wss exists and has clients
+  if (wss && wss.clients) {
+    const logMsg = JSON.stringify({ logEntry: entry });
+    wss.clients.forEach(client => {
+      if (client.readyState === 1) client.send(logMsg);
+    });
+  }
+}
+
+// Export for use in other modules
+export { addServerLog };
+
+// Log server startup
+addServerLog('info', '�', 'Oven server starting...');
 
 // Parse JSON bodies
 app.use(express.json());
@@ -256,6 +282,144 @@ app.get('/', (req, res) => {
       padding: 3em;
       opacity: 0.5;
     }
+    
+    /* Activity Log */
+    .activity-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #0a0a0a;
+      border-top: 2px solid #333;
+      max-height: 200px;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      z-index: 99;
+    }
+    
+    .activity-panel.collapsed {
+      max-height: 32px;
+    }
+    
+    .activity-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.4em 1em;
+      background: #111;
+      border-bottom: 1px solid #333;
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .activity-header:hover {
+      background: #1a1a1a;
+    }
+    
+    .activity-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+    }
+    
+    .activity-title .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4f4;
+      animation: pulse 2s infinite;
+    }
+    
+    .activity-stats {
+      display: flex;
+      gap: 1em;
+      font-size: 0.75em;
+      opacity: 0.7;
+    }
+    
+    .activity-stats span {
+      display: flex;
+      align-items: center;
+      gap: 0.3em;
+    }
+    
+    .activity-controls {
+      display: flex;
+      gap: 0.5em;
+      align-items: center;
+    }
+    
+    .activity-controls button {
+      background: #222;
+      border: 1px solid #333;
+      color: #888;
+      padding: 0.2em 0.5em;
+      font-size: 0.75em;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    
+    .activity-controls button:hover {
+      background: #333;
+      color: #fff;
+    }
+    
+    .activity-log {
+      height: 168px;
+      overflow-y: auto;
+      font-size: 0.75em;
+      padding: 0.5em;
+    }
+    
+    .activity-log::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .activity-log::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 3px;
+    }
+    
+    .log-entry {
+      padding: 0.2em 0.4em;
+      border-radius: 2px;
+      margin-bottom: 0.2em;
+      display: flex;
+      gap: 0.5em;
+      align-items: flex-start;
+    }
+    
+    .log-entry:hover {
+      background: #1a1a1a;
+    }
+    
+    .log-time {
+      color: #666;
+      flex-shrink: 0;
+      font-family: monospace;
+    }
+    
+    .log-icon {
+      flex-shrink: 0;
+    }
+    
+    .log-msg {
+      flex: 1;
+      word-break: break-word;
+    }
+    
+    .log-entry.info .log-msg { color: #aaa; }
+    .log-entry.success .log-msg { color: #4f4; }
+    .log-entry.warning .log-msg { color: #fa0; }
+    .log-entry.error .log-msg { color: #f44; }
+    .log-entry.capture .log-msg { color: #6bf; }
+    .log-entry.queue .log-msg { color: #b6f; }
+    
+    /* Add padding to bakes grid when activity panel is open */
+    .bakes {
+      padding-bottom: 220px;
+    }
+    
     .filters {
       display: flex;
       gap: 1em;
@@ -346,10 +510,104 @@ app.get('/', (req, res) => {
   
   <div class="bakes" id="bakes"></div>
   
+  <!-- Activity Log Panel -->
+  <div class="activity-panel" id="activity-panel">
+    <div class="activity-header" onclick="toggleActivityPanel()">
+      <div class="activity-title">
+        <div class="pulse" id="activity-pulse"></div>
+        <span>📜 Activity</span>
+        <div class="activity-stats">
+          <span id="log-count">0 events</span>
+          <span id="log-errors" style="color:#f44;display:none;">0 errors</span>
+          <span id="log-success" style="color:#4f4;display:none;">0 success</span>
+        </div>
+      </div>
+      <div class="activity-controls">
+        <button onclick="event.stopPropagation();clearActivityLog();" title="Clear log">🗑️</button>
+        <span id="activity-toggle">▼</span>
+      </div>
+    </div>
+    <div class="activity-log" id="activity-log"></div>
+  </div>
+  
   <script>
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     let ws, reconnectAttempts = 0, serverVersion = null;
     let allBakes = []; // Store all bakes for filtering
+    let activityLog = []; // Store activity entries
+    const MAX_LOG_ENTRIES = 200;
+    let activityCollapsed = false;
+    
+    // Activity log functions
+    function addLogEntry(type, icon, msg) {
+      const entry = {
+        time: new Date(),
+        type,
+        icon,
+        msg
+      };
+      activityLog.unshift(entry);
+      if (activityLog.length > MAX_LOG_ENTRIES) {
+        activityLog.pop();
+      }
+      renderActivityLog();
+      
+      // Pulse the indicator
+      const pulse = document.getElementById('activity-pulse');
+      pulse.style.background = type === 'error' ? '#f44' : type === 'success' ? '#4f4' : '#6bf';
+      setTimeout(() => { pulse.style.background = '#4f4'; }, 500);
+    }
+    
+    function renderActivityLog() {
+      const container = document.getElementById('activity-log');
+      const countEl = document.getElementById('log-count');
+      const errorsEl = document.getElementById('log-errors');
+      const successEl = document.getElementById('log-success');
+      
+      const errorCount = activityLog.filter(e => e.type === 'error').length;
+      const successCount = activityLog.filter(e => e.type === 'success').length;
+      
+      countEl.textContent = activityLog.length + ' events';
+      
+      if (errorCount > 0) {
+        errorsEl.textContent = errorCount + ' errors';
+        errorsEl.style.display = 'inline';
+      } else {
+        errorsEl.style.display = 'none';
+      }
+      
+      if (successCount > 0) {
+        successEl.textContent = successCount + ' success';
+        successEl.style.display = 'inline';
+      } else {
+        successEl.style.display = 'none';
+      }
+      
+      container.innerHTML = activityLog.map(e => {
+        const time = e.time.toLocaleTimeString('en-US', { hour12: false });
+        return '<div class="log-entry ' + e.type + '">' +
+          '<span class="log-time">' + time + '</span>' +
+          '<span class="log-icon">' + e.icon + '</span>' +
+          '<span class="log-msg">' + e.msg + '</span>' +
+        '</div>';
+      }).join('');
+    }
+    
+    function clearActivityLog() {
+      activityLog = [];
+      renderActivityLog();
+    }
+    
+    function toggleActivityPanel() {
+      const panel = document.getElementById('activity-panel');
+      const toggle = document.getElementById('activity-toggle');
+      activityCollapsed = !activityCollapsed;
+      panel.classList.toggle('collapsed', activityCollapsed);
+      toggle.textContent = activityCollapsed ? '▲' : '▼';
+    }
+    
+    // Log initial connection
+    addLogEntry('info', '🔌', 'Dashboard loaded, connecting to server...');
     
     // Resolution selector handler
     document.getElementById('capture-resolution').addEventListener('change', (e) => {
@@ -410,6 +668,7 @@ app.get('/', (req, res) => {
       statusEl.style.display = 'block';
       statusEl.style.color = '#fa0';
       statusEl.textContent = '🔥 Starting capture...';
+      addLogEntry('capture', '📸', 'Manual capture started: ' + piece + ' (' + width + '×' + height + ' ' + format + ')');
       
       try {
         const url = '/grab/' + format + '/' + width + '/' + height + '/' + encodeURIComponent(piece) + 
@@ -421,15 +680,18 @@ app.get('/', (req, res) => {
         if (response.ok) {
           statusEl.style.color = '#4f4';
           statusEl.textContent = '✅ Capture complete! Check the grid below.';
+          addLogEntry('success', '✅', 'Capture complete: ' + piece);
           setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
         } else {
           const err = await response.json();
           statusEl.style.color = '#f44';
           statusEl.textContent = '❌ ' + (err.error || 'Capture failed');
+          addLogEntry('error', '❌', 'Capture failed: ' + piece + ' - ' + (err.error || 'Unknown error'));
         }
       } catch (err) {
         statusEl.style.color = '#f44';
         statusEl.textContent = '❌ ' + err.message;
+        addLogEntry('error', '❌', 'Capture error: ' + err.message);
       } finally {
         // Unlock the form
         captureInProgress = false;
@@ -461,20 +723,61 @@ app.get('/', (req, res) => {
         document.getElementById('ws-dot').className = 'status-dot connected';
         document.getElementById('ws-text').textContent = 'Connected';
         reconnectAttempts = 0;
+        addLogEntry('success', '✅', 'WebSocket connected to server');
       };
       
       ws.onclose = () => {
         document.getElementById('ws-dot').className = 'status-dot disconnected';
         document.getElementById('ws-text').textContent = 'Reconnecting...';
+        addLogEntry('warning', '⚠️', 'WebSocket disconnected, reconnecting...');
         const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
         reconnectAttempts++;
         setTimeout(connect, delay);
       };
       
-      ws.onerror = () => ws.close();
+      ws.onerror = () => {
+        addLogEntry('error', '❌', 'WebSocket error');
+        ws.close();
+      };
       
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        
+        // Handle streaming log entries from server
+        if (data.logEntry) {
+          const e = data.logEntry;
+          const entry = {
+            time: new Date(e.time),
+            type: e.type,
+            icon: e.icon,
+            msg: e.msg
+          };
+          activityLog.unshift(entry);
+          if (activityLog.length > MAX_LOG_ENTRIES) activityLog.pop();
+          renderActivityLog();
+          // Pulse indicator
+          const pulse = document.getElementById('activity-pulse');
+          pulse.style.background = e.type === 'error' ? '#f44' : e.type === 'success' ? '#4f4' : '#6bf';
+          setTimeout(() => { pulse.style.background = '#4f4'; }, 500);
+          return;
+        }
+        
+        // Handle initial log history
+        if (data.recentLogs) {
+          data.recentLogs.forEach(e => {
+            activityLog.push({
+              time: new Date(e.time),
+              type: e.type,
+              icon: e.icon,
+              msg: e.msg
+            });
+          });
+          if (activityLog.length > MAX_LOG_ENTRIES) {
+            activityLog = activityLog.slice(0, MAX_LOG_ENTRIES);
+          }
+          renderActivityLog();
+        }
+        
         if (data.version && serverVersion && data.version !== serverVersion) {
           location.reload();
           return;
@@ -878,11 +1181,12 @@ if (dev) {
   server = http.createServer(app);
   server.listen(PORT, () => {
     console.log(`🔥 Oven server running on http://localhost:${PORT}`);
+    addServerLog('success', '🔥', `Oven server ready (v${GIT_VERSION.slice(0,8)})`);
   });
 }
 
 // WebSocket server
-const wss = new WebSocketServer({ server, path: '/ws' });
+wss = new WebSocketServer({ server, path: '/ws' });
 
 // Wire up grabber notifications to broadcast to all WebSocket clients
 setNotifyCallback(() => {
@@ -905,13 +1209,19 @@ setNotifyCallback(() => {
   });
 });
 
+// Wire up grabber log messages to broadcast to clients
+setLogCallback((type, icon, msg) => {
+  addServerLog(type, icon, msg);
+});
+
 wss.on('connection', async (ws) => {
   console.log('📡 WebSocket client connected');
+  addServerLog('info', '📡', 'Dashboard client connected');
   
   // Clean up stale bakes before sending initial state
   await cleanupStaleBakes();
   
-  // Send initial state
+  // Send initial state with recent logs
   ws.send(JSON.stringify({
     version: GIT_VERSION,
     serverStartTime: SERVER_START_TIME,
@@ -923,7 +1233,8 @@ wss.on('connection', async (ws) => {
       active: getActiveGrabs(),
       recent: getRecentGrabs(),
       ipfsThumbs: getAllLatestIPFSUploads()
-    }
+    },
+    recentLogs: activityLogBuffer.slice(0, 50) // Send last 50 log entries
   }));
   
   // Subscribe to updates
