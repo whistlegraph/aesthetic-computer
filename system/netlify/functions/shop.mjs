@@ -76,11 +76,23 @@ export async function handler(event, context) {
           0
         );
 
-        // Get the first image URL
-        const imageUrl = p.images?.[0]?.src || null;
+        // Get ALL image URLs (not just the first)
+        const images = p.images?.map(img => img.src) || [];
+        const imageUrl = images[0] || null;
 
         // Get price from first variant
         const price = variantsData.variants?.[0]?.price || "0.00";
+        
+        // Strip HTML tags from description for plain text
+        const descriptionHtml = p.body_html || '';
+        const description = descriptionHtml
+          .replace(/<[^>]*>/g, ' ')  // Remove HTML tags
+          .replace(/&nbsp;/g, ' ')   // Replace HTML entities
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/\s+/g, ' ')      // Collapse whitespace
+          .trim();
 
         return {
           id: p.id,
@@ -91,6 +103,8 @@ export async function handler(event, context) {
           price: `$${parseFloat(price).toFixed(0)} USD`,
           priceRaw: parseFloat(price),
           imageUrl,
+          images,  // All product images
+          description,  // Plain text description
           shopUrl: `https://shop.aesthetic.computer/products/${p.handle}`,
           inventory: totalInventory,
           available: totalInventory > 0,

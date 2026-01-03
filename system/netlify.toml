@@ -669,6 +669,14 @@ from = "/api/give"
 to = "/.netlify/functions/give"
 status = 200
 [[redirects]]
+from = "/api/gives"
+to = "/.netlify/functions/gives"
+status = 200
+[[redirects]]
+from = "/api/give-image"
+to = "/.netlify/functions/give-image"
+status = 200
+[[redirects]]
 from = "/api/shop"
 to = "/.netlify/functions/shop"
 status = 200
