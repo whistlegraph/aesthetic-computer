@@ -536,16 +536,22 @@ async function captureFrames(piece, options = {}) {
     const startWait = Date.now();
     
     let hasContent = false;
+    let lastDebug = '';
     while (!hasContent && (Date.now() - startWait) < maxWaitTime) {
-      hasContent = await page.evaluate(() => {
+      const result = await page.evaluate(() => {
         const wrapper = document.getElementById('aesthetic-computer');
-        if (!wrapper) return false;
+        if (!wrapper) return { hasContent: false, debug: 'no-wrapper' };
         
         const mainCanvas = wrapper.querySelector('canvas:not([data-type])');
         const glazeCanvas = wrapper.querySelector('canvas[data-type="glaze"]');
         const sourceCanvas = glazeCanvas && glazeCanvas.width > 0 ? glazeCanvas : mainCanvas;
         
-        if (!sourceCanvas || sourceCanvas.width === 0) return false;
+        if (!sourceCanvas || sourceCanvas.width === 0) {
+          return { 
+            hasContent: false, 
+            debug: `no-canvas: main=${!!mainCanvas}, glaze=${!!glazeCanvas}, source=${!!sourceCanvas}, w=${sourceCanvas?.width}` 
+          };
+        }
         
         // Check if canvas has any opaque pixels (alpha > 0 means content exists, even if black)
         const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
@@ -559,23 +565,33 @@ async function captureFrames(piece, options = {}) {
           const data = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
           
           // Check if there's any opaque pixel (alpha > 0 means content, even pure black)
+          let opaqueCount = 0;
           for (let i = 0; i < data.length; i += 4) {
-            if (data[i+3] > 0) {  // Any opaque pixel = content (including black)
-              return true;
-            }
+            if (data[i+3] > 0) opaqueCount++;
           }
-          return false;
+          if (opaqueCount > 0) {
+            return { hasContent: true, debug: `webgl-opaque: ${opaqueCount}px` };
+          }
+          return { hasContent: false, debug: `webgl-empty: 0/${data.length/4}px` };
         }
         
         // 2D canvas - sample directly
         const data = ctx.getImageData(0, 0, Math.min(sourceCanvas.width, 64), Math.min(sourceCanvas.height, 64)).data;
+        let opaqueCount = 0;
         for (let i = 0; i < data.length; i += 4) {
-          if (data[i+3] > 0) {  // Any opaque pixel = content (including black)
-            return true;
-          }
+          if (data[i+3] > 0) opaqueCount++;
         }
-        return false;
+        if (opaqueCount > 0) {
+          return { hasContent: true, debug: `2d-opaque: ${opaqueCount}px` };
+        }
+        return { hasContent: false, debug: `2d-empty: 0/${data.length/4}px` };
       });
+      
+      hasContent = result.hasContent;
+      if (result.debug !== lastDebug) {
+        console.log(`   [content-detect] ${result.debug}`);
+        lastDebug = result.debug;
+      }
       
       if (!hasContent) {
         await new Promise(r => setTimeout(r, pollInterval));
