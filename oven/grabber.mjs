@@ -491,6 +491,30 @@ async function captureFrames(piece, options = {}) {
   const browser = await getBrowser();
   const page = await browser.newPage();
   
+  // Log page console messages for debugging
+  page.on('console', msg => {
+    const type = msg.type();
+    const text = msg.text();
+    if (type === 'error' || text.includes('KidLisp') || text.includes('$')) {
+      console.log(`   [PAGE ${type}] ${text}`);
+    }
+  });
+  
+  page.on('pageerror', error => {
+    console.log(`   [PAGE ERROR] ${error.message}`);
+  });
+  
+  // Log failed requests to identify 404s
+  page.on('requestfailed', request => {
+    console.log(`   [REQUEST FAILED] ${request.url()} - ${request.failure()?.errorText}`);
+  });
+  
+  page.on('response', response => {
+    if (response.status() >= 400) {
+      console.log(`   [HTTP ${response.status()}] ${response.url()}`);
+    }
+  });
+  
   try {
     // Set viewport with density for higher resolution captures
     await page.setViewport({ width, height, deviceScaleFactor: density });

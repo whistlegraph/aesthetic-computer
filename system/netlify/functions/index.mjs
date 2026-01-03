@@ -53,7 +53,8 @@ async function fun(event, context) {
   // These get caught by the catch-all redirect but shouldn't go through piece loading
   if (event.path.endsWith(".mjs") && !event.path.startsWith("/disks/")) {
     try {
-      const filePath = path.join(process.cwd(), "public/aesthetic.computer", event.path.slice(1));
+      const baseDir = dev ? process.cwd() : "/var/task/system";
+      const filePath = path.join(baseDir, "public/aesthetic.computer", event.path.slice(1));
       const content = await fs.readFile(filePath, "utf8");
       return {
         statusCode: 200,
@@ -102,7 +103,8 @@ async function fun(event, context) {
   // Serve GIF files directly as static assets (for mockup previews, etc.)
   if (event.path.endsWith(".gif")) {
     try {
-      const gifPath = path.join(process.cwd(), "public/aesthetic.computer", event.path.slice(1));
+      const baseDir = dev ? process.cwd() : "/var/task/system";
+      const gifPath = path.join(baseDir, "public/aesthetic.computer", event.path.slice(1));
       const gifBuffer = await fs.readFile(gifPath);
       return {
         statusCode: 200,
@@ -122,7 +124,8 @@ async function fun(event, context) {
   // Serve WebP files directly as static assets (for animated mockup previews with transparency)
   if (event.path.endsWith(".webp")) {
     try {
-      const webpPath = path.join(process.cwd(), "public/aesthetic.computer", event.path.slice(1));
+      const baseDir = dev ? process.cwd() : "/var/task/system";
+      const webpPath = path.join(baseDir, "public/aesthetic.computer", event.path.slice(1));
       const webpBuffer = await fs.readFile(webpPath);
       return {
         statusCode: 200,
