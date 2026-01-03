@@ -53,7 +53,8 @@ async function fun(event, context) {
   // These get caught by the catch-all redirect but shouldn't go through piece loading
   if (event.path.endsWith(".mjs") && !event.path.startsWith("/disks/")) {
     try {
-      const baseDir = dev ? process.cwd() : "/var/task/system";
+      // On Netlify, with base="system", files are at /var/task/ (not /var/task/system/)
+      const baseDir = dev ? process.cwd() : "/var/task";
       const filePath = path.join(baseDir, "public/aesthetic.computer", event.path.slice(1));
       const content = await fs.readFile(filePath, "utf8");
       return {
@@ -65,7 +66,7 @@ async function fun(event, context) {
         body: content,
       };
     } catch (err) {
-      console.log(`⚡ System .mjs file not found: ${event.path}`);
+      console.log(`⚡ System .mjs file not found: ${event.path}, tried: ${path.join(dev ? process.cwd() : "/var/task", "public/aesthetic.computer", event.path.slice(1))}`);
       return { statusCode: 404, body: `File not found: ${event.path}` };
     }
   }
@@ -103,7 +104,7 @@ async function fun(event, context) {
   // Serve GIF files directly as static assets (for mockup previews, etc.)
   if (event.path.endsWith(".gif")) {
     try {
-      const baseDir = dev ? process.cwd() : "/var/task/system";
+      const baseDir = dev ? process.cwd() : "/var/task";
       const gifPath = path.join(baseDir, "public/aesthetic.computer", event.path.slice(1));
       const gifBuffer = await fs.readFile(gifPath);
       return {
@@ -124,7 +125,7 @@ async function fun(event, context) {
   // Serve WebP files directly as static assets (for animated mockup previews with transparency)
   if (event.path.endsWith(".webp")) {
     try {
-      const baseDir = dev ? process.cwd() : "/var/task/system";
+      const baseDir = dev ? process.cwd() : "/var/task";
       const webpPath = path.join(baseDir, "public/aesthetic.computer", event.path.slice(1));
       const webpBuffer = await fs.readFile(webpPath);
       return {
@@ -409,7 +410,7 @@ async function fun(event, context) {
           statusCode = 200; // Ensure we return 200 for valid $code pieces
         } else {
           try {
-            const basePath = `${dev ? "./" : "/var/task/system/"}public/aesthetic.computer/disks/${path}`;
+            const basePath = `${dev ? "./" : "/var/task/"}public/aesthetic.computer/disks/${path}`;
             try {
               sourceCode = await fs.readFile(`${basePath}.mjs`, "utf8");
             } catch (errJavaScript) {
