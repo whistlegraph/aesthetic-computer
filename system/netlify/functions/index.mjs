@@ -227,6 +227,54 @@ async function fun(event, context) {
     );
   }
 
+  // Handle clock:code URL pattern and convert to *code format
+  if (slug.startsWith("clock:") && slug.length > 6) {
+    const code = slug.slice(6); // Remove "clock:" prefix
+    const newSlug = `*${code}`; // Convert to *code format
+    console.log(`[clock] Converting clock:${code} to *${code} and redirecting`);
+    
+    return respond(
+      302,
+      `<a href="/${newSlug}">Redirecting to /${newSlug}</a>`,
+      {
+        "Content-Type": "text/html",
+        Location: `/${newSlug}`,
+      },
+    );
+  }
+
+  // Handle *xxx clock shortcode - fetch melody and redirect to clock piece
+  if (slug.startsWith("*") && slug.length > 1 && !slug.includes("~")) {
+    const code = slug.slice(1); // Remove * prefix
+    console.log(`[clock] Looking up clock shortcode: ${code}`);
+    
+    try {
+      const baseUrl = dev ? "https://localhost:8888" : "https://aesthetic.computer";
+      const { got } = await import("got");
+      const response = await got(`${baseUrl}/api/store-clock?code=${encodeURIComponent(code)}`, {
+        https: { rejectUnauthorized: false },
+        timeout: { request: 5000 },
+      }).json();
+      
+      if (response.source) {
+        // Redirect to clock piece with the melody
+        const encodedMelody = encodeURIComponent(response.source);
+        console.log(`[clock] Found melody for ${code}, redirecting to clock~${response.source}`);
+        return respond(
+          302,
+          `<a href="/clock~${encodedMelody}">Redirecting to /clock~${encodedMelody}</a>`,
+          {
+            "Content-Type": "text/html",
+            Location: `/clock~${encodedMelody}`,
+          },
+        );
+      }
+    } catch (err) {
+      console.log(`[clock] Clock shortcode lookup failed for ${code}:`, err.message);
+      // Fall through to normal piece loading (will show 404)
+    }
+  }
+
   // Handle permahandle URLs (e.g., /ac25namuc → /@jeffrey)
   // Permahandles are 9 chars starting with "ac"
   if (slug.length === 9 && slug.startsWith("ac") && /^ac[0-9]{2}[a-z]{5}$/.test(slug)) {

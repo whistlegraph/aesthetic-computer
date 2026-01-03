@@ -129,6 +129,12 @@ included_env_vars = []
 [functions.clock]
 # No special config needed for clock
 included_env_vars = []
+[functions.store-clock]
+node_bundler = "esbuild"
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+
 [functions.store-kidlisp]
 node_bundler = "esbuild"
 external_node_modules = ["@taquito/taquito", "@taquito/signer", "mongodb", "mongodb-connection-string-url", "adm-zip", "@atproto/api"]
@@ -720,6 +726,10 @@ status = 200
 [[redirects]]
 from = "/api/store-kidlisp"
 to = "/.netlify/functions/store-kidlisp"
+status = 200
+[[redirects]]
+from = "/api/store-clock"
+to = "/.netlify/functions/store-clock"
 status = 200
 [[redirects]]
 from = "/api/bundle-html"

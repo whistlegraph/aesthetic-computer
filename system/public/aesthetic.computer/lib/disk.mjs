@@ -1271,6 +1271,9 @@ let hudAnimationState = {
   cornersVisibleBeforeFullscreen: true // Remember corner state before fullscreen QR
 };
 
+// Clock melody cached code for QR display (received from clock.mjs)
+let cachedClockCode = null;
+
 let module, loadedModule; // Currently loaded piece module code with an extra reference for `hotSwap`.
 
 // 🎨 Enhanced painting change detection with immediate pixel monitoring
@@ -8301,6 +8304,9 @@ async function load(
     // console.log("Set currentSearch to:", search);
     firstPreviewOrIcon = true;
     
+    // Clear clock piece cached code when leaving (will be set by clock piece if it caches)
+    cachedClockCode = null;
+    
   // Parse search parameters properly to check for nolabel
   hideLabel = false;
   if (parsed.search) {
@@ -8980,6 +8986,13 @@ async function makeFrame({ data: { type, content } }) {
   // 🗣️ An act that fires when an utterance has ended in the Web Speech API.
   if (type === "speech:completed") {
     actAlerts.push("speech:completed");
+    return;
+  }
+
+  // 🎵 Clock piece sent its cached code for QR display
+  if (type === "clock:cached") {
+    cachedClockCode = content?.code || null;
+    console.log(`🎵 Clock cached code received: *${cachedClockCode}`);
     return;
   }
 
@@ -12956,13 +12969,32 @@ async function makeFrame({ data: { type, content } }) {
                              // Use the centralized KidLisp detection that includes comma syntax
                              (sourceCode && lisp.isKidlispSource(sourceCode));
       
+      // Detect if this is a clock piece with a cached code
+      const isClockPieceWithCode = (currentPath === "clock" || currentPath?.endsWith("/clock") || currentPath?.includes("/disks/clock")) && cachedClockCode;
+      
+      // Debug: log clock detection
+      if (cachedClockCode) {
+        console.log("🎵 [QR Debug] Clock QR check:", { currentPath, cachedClockCode, isClockPieceWithCode, hideLabel, hudVisible: hudAnimationState.visible });
+      }
 
-      if (isInlineKidlispPiece && sourceCode && !hideLabel && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen)) {
-        // console.log("🎨 [QR Debug] Entering QR generation. qrFullscreen:", hudAnimationState.qrFullscreen, "sourceCode:", sourceCode?.substring(0, 50));
+      // For clock pieces with cached code, always show the QR (don't require HUD visible)
+      // For KidLisp pieces, require HUD to be visible/animating/fullscreen
+      const shouldShowQRForKidLisp = (isInlineKidlispPiece && sourceCode) && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen);
+      const shouldShowQRForClock = isClockPieceWithCode; // Always show for clock pieces
+      
+      if ((shouldShowQRForKidLisp || shouldShowQRForClock) && !hideLabel) {
+        console.log("🎵 [QR Debug] Entering QR generation for clock");
         try {
-          // For $code pieces, the sourceCode is the code itself, so use it directly
+          // For clock pieces with cached code, use the cached clock code directly
+          // For KidLisp pieces, determine cachedCode from sourceCode
           let cachedCode;
-          if (sourceCode.startsWith("$")) {
+          let sigil = "$"; // Default sigil for KidLisp
+          
+          if (isClockPieceWithCode) {
+            // Clock piece: use the cached clock code with * sigil
+            cachedCode = cachedClockCode;
+            sigil = "*";
+          } else if (sourceCode.startsWith("$")) {
             // For $code format, the sourceCode IS the cached code (without $)
             cachedCode = sourceCode.substring(1); // Remove the $ prefix
             // console.log("🔑 [QR Debug] Using $code format, cachedCode:", cachedCode);
@@ -12997,19 +13029,21 @@ async function makeFrame({ data: { type, content } }) {
           }
           
           if (cachedCode) {
-            // Send the cached code to main thread for tape naming
-            send({ type: "kidlisp:cached-code", content: cachedCode });
+            // Send the cached code to main thread for tape naming (only for KidLisp)
+            if (sigil === "$") {
+              send({ type: "kidlisp:cached-code", content: cachedCode });
+            }
             
-            // Use cache key based on cached code to avoid regenerating the same QR
-            const cacheKey = `qr_${cachedCode}`;
+            // Use cache key based on sigil + cached code to avoid regenerating the same QR
+            const cacheKey = `qr_${sigil}${cachedCode}`;
             
             // Get the font and ensure it's properly loaded before proceeding
             const font = typefaceCache.get("MatrixChunky8");
             
             // Check if ALL glyphs in the label text are loaded
-            // The label will be "$" + cachedCode (e.g., "$wipe", "$line", etc.)
+            // The label will be sigil + cachedCode (e.g., "$wipe", "*bako", etc.)
             // We need to verify every character's glyph is loaded to avoid pop-in
-            const labelText = `$${cachedCode}`;
+            const labelText = `${sigil}${cachedCode}`;
             let allGlyphsLoaded = false;
             
             if (font && font.glyphs) {
@@ -13114,7 +13148,7 @@ async function makeFrame({ data: { type, content } }) {
                 overlayHeight = originalHeight * scale;
                 
                 // Calculate text dimensions for canvas sizing
-                const codeText = `$${cachedCode}`;
+                const codeText = `${sigil}${cachedCode}`;
                 const fontSize = 16; // Fixed 2x scale (8px base font * 2 = 16px)
                 const textPadding = 8;
                 
@@ -13263,8 +13297,9 @@ async function makeFrame({ data: { type, content } }) {
               // Always use prompt.ac for QR codes (even in dev/local)
               let url = "https://prompt.ac";
               
-              // Use the cached nanoid code with $ prefix for a much shorter URL
-              url += `/$${cachedCode}`;
+              // Use the cached nanoid code with appropriate sigil prefix for a short URL
+              // $ for KidLisp, * for clock melodies
+              url += `/${sigil}${cachedCode}`;
               
               // Generate QR code with medium error correction for better scannability
               const cells = qr(url, { errorCorrectLevel: ErrorCorrectLevel.M }).modules;
@@ -13305,8 +13340,8 @@ async function makeFrame({ data: { type, content } }) {
                 // QR text style configuration
                 const useBackdrop = true; // Set to true for backdrop style, false for shadow style
                 
-                // Prepare text for rendering
-                const codeToRender = `$${cachedCode}`;
+                // Prepare text for rendering (using sigil variable: $ for KidLisp, * for clock)
+                const codeToRender = `${sigil}${cachedCode}`;
                 
                 // Calculate actual rendered width for mathematical centering
                 // Get character advances from the font definition
@@ -13542,7 +13577,7 @@ async function makeFrame({ data: { type, content } }) {
                 overlayHeight = finalQrSize;
                 
                 // Calculate text dimensions for canvas sizing
-                const codeText = `$${cachedCode}`;
+                const codeText = `${sigil}${cachedCode}`;
                 const fontSize = 16; // Fixed 2x scale (8px base font * 2 = 16px)
                 const textPadding = 8;
                 
@@ -13589,7 +13624,7 @@ async function makeFrame({ data: { type, content } }) {
                   }
                   
                   // Draw text in absolute top-left corner of screen
-                  const codeText = `$${cachedCode}`;
+                  const codeText = `${sigil}${cachedCode}`;
                   const textX = 10; // Small margin from left edge of screen
                   const textY = 10; // Small margin from top edge of screen
                   

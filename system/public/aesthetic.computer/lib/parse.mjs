@@ -252,6 +252,13 @@ function parse(text, location = self?.location) {
     tokens.unshift("video");
   }
 
+  // Map clock shortcodes like *bako to the clock piece
+  // (Server-side index.mjs will look up the melody and redirect)
+  if (tokens[0] && tokens[0].startsWith("*") && tokens[0].length > 1) {
+    // Keep the * prefix in the first param so clock.mjs knows to fetch by code
+    tokens.unshift("clock");
+  }
+
   // 🤖 Check if this is a standalone kidlisp source (no piece name prefix)
   if (tokens.length === 1 && isKidlispSource(tokens[0])) {
     // This is pure kidlisp source code, decode it
