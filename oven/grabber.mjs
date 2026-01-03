@@ -399,11 +399,13 @@ export async function getCachedOrGenerate(type, piece, width, height, generateFn
   const cachedUrl = await checkSpacesCache(cacheKey);
   if (cachedUrl) {
     console.log(`✅ Cache hit: ${cacheKey}`);
+    serverLog('info', '💾', `Cache hit: ${piece} (${width}×${height})`);
     return { cdnUrl: cachedUrl, fromCache: true };
   }
   
   // Generate fresh
   console.log(`🔄 Cache miss: ${cacheKey}, generating...`);
+  serverLog('capture', '🔄', `Cache miss: ${piece} - generating ${width}×${height}...`);
   const buffer = await generateFn();
   
   // Upload to Spaces (async, don't block response)
@@ -423,6 +425,15 @@ export function setNotifyCallback(cb) {
 }
 function notifySubscribers() {
   if (notifyCallback) notifyCallback();
+}
+
+// Activity log callback (will be set by server.mjs)
+let logCallback = null;
+export function setLogCallback(cb) {
+  logCallback = cb;
+}
+function serverLog(type, icon, msg) {
+  if (logCallback) logCallback(type, icon, msg);
 }
 
 /**
@@ -447,8 +458,10 @@ async function getBrowser() {
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
+        // Enable WebGL for KidLisp pieces
+        '--enable-webgl',
+        '--use-gl=swiftshader',
+        '--enable-unsafe-webgl',
         '--window-size=800,800',
       ],
     });
@@ -528,17 +541,39 @@ async function captureFrames(piece, options = {}) {
     
     // Wait for canvas to be ready
     await page.waitForSelector('canvas', { timeout: 10000 });
+    console.log('   ✓ Canvas found');
     
-    // Wait for actual content to render (non-empty canvas)
-    console.log(`   Waiting for piece to render...`);
-    const maxWaitTime = 10000; // 10 seconds max
-    const pollInterval = 100; // Check every 100ms
-    const startWait = Date.now();
+    // Wait for the aesthetic-computer wrapper (created by bios.mjs after boot)
+    const wrapperFound = await page.waitForSelector('#aesthetic-computer', { timeout: 10000 }).then(() => true).catch(() => {
+      console.log('   ⚠️ #aesthetic-computer wrapper not found, continuing anyway...');
+      return false;
+    });
+    if (wrapperFound) console.log('   ✓ Wrapper found');
     
-    let hasContent = false;
-    let lastDebug = '';
-    while (!hasContent && (Date.now() - startWait) < maxWaitTime) {
-      const result = await page.evaluate(() => {
+    // For KidLisp pieces, wait a bit for the interpreter to run and render first frame
+    // KidLisp logs "KidLisp module loaded" when ready - wait for first paint cycle
+    const isKidLisp = piece.startsWith('$');
+    if (isKidLisp) {
+      console.log('   ⏳ KidLisp piece - waiting for first render...');
+      await new Promise(r => setTimeout(r, 2000)); // Give KidLisp 2s to evaluate and draw
+      console.log('   ✅ KidLisp wait complete, skipping content detection');
+    } else {
+      // Wait for actual content to render (non-empty canvas) - only for non-KidLisp pieces
+      console.log(`   🔍 Starting content detection loop...`);
+      const maxWaitTime = 10000; // 10 seconds max
+      const pollInterval = 100; // Check every 100ms
+      const startWait = Date.now();
+      
+      let hasContent = false;
+      let lastDebug = '';
+      let evalCount = 0;
+      while (!hasContent && (Date.now() - startWait) < maxWaitTime) {
+        evalCount++;
+        if (evalCount <= 3 || evalCount % 20 === 0) {
+          console.log(`   [eval ${evalCount}] checking...`);
+        }
+        try {
+          const result = await page.evaluate(() => {
         const wrapper = document.getElementById('aesthetic-computer');
         if (!wrapper) return { hasContent: false, debug: 'no-wrapper' };
         
@@ -592,23 +627,28 @@ async function captureFrames(piece, options = {}) {
         console.log(`   [content-detect] ${result.debug}`);
         lastDebug = result.debug;
       }
+      } catch (evalErr) {
+        console.log(`   [content-detect] eval error (attempt ${evalCount}): ${evalErr.message}`);
+      }
       
       if (!hasContent) {
         await new Promise(r => setTimeout(r, pollInterval));
       }
     }
+    console.log(`   Content detection completed after ${evalCount} checks`);
     
     if (hasContent) {
       console.log(`   ✅ Content detected after ${Date.now() - startWait}ms`);
     } else {
       console.log(`   ⚠️ No content detected after ${maxWaitTime}ms, proceeding anyway...`);
     }
+    } // end else (non-KidLisp content detection)
     
     // Settle time: let the piece run before capturing
     // For stills (single frame), wait longer (2.5-5s) to let animations stabilize
     // For animations, just a small buffer
     const isStill = frames === 1;
-    const settleTime = isStill ? 3000 : 200; // 3 seconds for stills, 200ms for animations
+    const settleTime = isKidLisp ? 500 : (isStill ? 3000 : 200); // KidLisp already waited, others: 3s stills, 200ms animations
     console.log(`   ${isStill ? '⏳ Settling for still capture' : '⏳ Brief settle'}... (${settleTime}ms)`);
     await new Promise(r => setTimeout(r, settleTime));
     
@@ -623,55 +663,31 @@ async function captureFrames(piece, options = {}) {
       // - Glaze canvas (dataset.type="glaze") - WebGL post-processing
       // - UI canvas (dataset.type="ui")
       // We need to composite them properly to get the full rendered output
-      const frameBuffer = await page.evaluate(async () => {
-        const wrapper = document.getElementById('aesthetic-computer');
-        if (!wrapper) return null;
-        
-        // Get all canvases
-        const mainCanvas = wrapper.querySelector('canvas:not([data-type])');
-        const glazeCanvas = wrapper.querySelector('canvas[data-type="glaze"]');
-        
-        // Use whichever canvas is visible and has content
-        // Glaze canvas (WebGL) is on top when active
-        let sourceCanvas = mainCanvas;
-        
-        // Check if glaze canvas is visible and has content
-        if (glazeCanvas && glazeCanvas.style.opacity !== '0' && glazeCanvas.width > 0) {
-          // Glaze is active, use it as the primary source
-          sourceCanvas = glazeCanvas;
-        }
-        
-        if (!sourceCanvas || sourceCanvas.width === 0) {
-          // Fallback: just get the first canvas
-          sourceCanvas = document.querySelector('canvas');
-        }
-        
-        if (!sourceCanvas) return null;
-        
-        // Create a composite canvas at the source resolution
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = sourceCanvas.width;
-        tempCanvas.height = sourceCanvas.height;
-        const tempCtx = tempCanvas.getContext('2d', { 
-          willReadFrequently: true,
-          alpha: true 
+      
+      console.log(`   [Frame ${i+1}] Starting capture...`);
+      
+      // Use CDP directly for screenshot - more reliable than page.screenshot for WebGL
+      let frameBuffer;
+      try {
+        const client = await page.createCDPSession();
+        const screenshotPromise = client.send('Page.captureScreenshot', {
+          format: 'png',
+          clip: { x: 0, y: 0, width, height, scale: 1 },
+          captureBeyondViewport: false
         });
         
-        // If using glaze (WebGL), we need to preserve alpha
-        if (sourceCanvas === glazeCanvas) {
-          // WebGL canvas - draw directly
-          tempCtx.drawImage(glazeCanvas, 0, 0);
-        } else {
-          // Software canvas
-          tempCtx.drawImage(mainCanvas, 0, 0);
-          // Composite glaze on top if it's visible
-          if (glazeCanvas && glazeCanvas.style.opacity !== '0' && glazeCanvas.width > 0) {
-            tempCtx.drawImage(glazeCanvas, 0, 0);
-          }
-        }
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('CDP Screenshot timeout')), 10000)
+        );
         
-        return tempCanvas.toDataURL('image/png').split(',')[1];
-      });
+        const result = await Promise.race([screenshotPromise, timeoutPromise]);
+        frameBuffer = result.data;
+        await client.detach().catch(() => {}); // Ignore detach errors
+        console.log(`   [Frame ${i+1}] Screenshot captured (${frameBuffer.length} bytes)`);
+      } catch (err) {
+        console.log(`   ❌ Frame capture failed: ${err.message}`);
+        frameBuffer = null;
+      }
       
       if (frameBuffer) {
         const buffer = Buffer.from(frameBuffer, 'base64');
@@ -934,6 +950,7 @@ export async function grabPiece(piece, options = {}) {
   console.log(`   CaptureKey: ${captureKey}`);
   if (source) console.log(`   Source: ${source}${keepId ? ' #' + keepId : ''}`);
   
+  serverLog('queue', '📋', `Grab queued: ${piece} (${format} ${width}×${height})`);  
   // Track active grab - store original piece name (with $ if KidLisp)
   activeGrabs.set(grabId, {
     id: grabId,
@@ -1030,6 +1047,7 @@ export async function grabPiece(piece, options = {}) {
     notifySubscribers();
     
     console.log(`✅ Grab complete: ${grabId} (${(result.length / 1024).toFixed(2)} KB)`);
+    serverLog('success', '✅', `Grab complete: ${piece} (${(result.length / 1024).toFixed(1)} KB)`);
     
     return {
       success: true,
@@ -1046,6 +1064,7 @@ export async function grabPiece(piece, options = {}) {
     
     } catch (error) {
       console.error(`❌ Grab failed: ${grabId}`, error.message);
+      serverLog('error', '❌', `Grab failed: ${piece} - ${error.message}`);
       
       const grab = activeGrabs.get(grabId);
       if (grab) {

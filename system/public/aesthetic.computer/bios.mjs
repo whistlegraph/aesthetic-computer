@@ -3295,7 +3295,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     },
   };
 
-  const onMessage = (m) => receivedChange(m);
+  const onMessage = (m) => {
+    console.log(`🔵 DEBUG onMessage: type="${m?.data?.type}"`);
+    receivedChange(m);
+  };
 
   let send = (msg) => {
     console.warn("Send has not been wired yet!", msg);
@@ -3417,7 +3420,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     };
 
     if (worker.postMessage) {
-      // console.log("🟢 Worker");
+      console.log("🟢 DEBUG BIOS: Worker mode enabled");
       send = (e, shared) => worker.postMessage(e, shared);
       window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
       worker.onmessage = onMessage;
@@ -3442,16 +3445,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
   } else {
     // B. No Worker Mode
-    if (debug) console.log("🔴 No Worker");
+    console.log("🔴 DEBUG BIOS: No Worker mode");
     let module;
     try {
       module = await import(`./lib/disk.mjs`);
     } catch (err) {
       console.warn("Module load error:", err);
     }
-    module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
+    module.noWorker.postMessage = (e) => {
+      console.log("🔴 DEBUG: noWorker.postMessage called with:", e?.data?.type);
+      onMessage(e);
+    };
     send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
     window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
+    console.log("🔴 DEBUG BIOS: noWorker.postMessage wired up");
   }
 
   // The initial message sends the path and host to load the disk.
@@ -3855,6 +3862,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    console.log(`🔍 DEBUG receivedChange: type="${type}"`);
     // Relay boot-log messages to parent window and update the overlay
     if (type === "boot-log") {
       // console.log("📢 BIOS relaying boot-log:", content);
@@ -11036,6 +11044,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
+      console.log(`🔍 DEBUG BIOS: Received disk-loaded for text:`, content.text, `path:`, content.path);
       // Clear any active parameters once the disk has been loaded.
       // Skip URL manipulation in pack mode (sandboxed iframe)
       if (!checkPackMode()) {
@@ -11393,7 +11402,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.addEventListener("pointerdown", activateSound, { once: true });
       }
 
+      console.log(`🔍 DEBUG BIOS: About to send loading-complete for text:`, content.text);
       send({ type: "loading-complete" });
+      console.log(`✅ DEBUG BIOS: loading-complete sent`);
       return;
     }
 
