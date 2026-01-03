@@ -1089,6 +1089,12 @@ to = "/aesthetic.computer/:splat.webp"
 status = 200
 force = false
 [[redirects]]
+# Serve .mjs files from the aesthetic.computer subdirectory
+from = "/*.mjs"
+to = "/aesthetic.computer/:splat.mjs"
+status = 200
+force = false
+[[redirects]]
 # SPA fallback for kidlisp.com routes - only for paths without file extensions
 # force = false ensures static files (js, css, etc.) are served directly
 from = "/kidlisp.com/*"
