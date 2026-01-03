@@ -3932,7 +3932,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 📄 Boot file content - display source in boot canvas
     if (type === "boot-file") {
       if (window.acBOOT_ADD_FILE && content?.filename && content?.source) {
-        window.acBOOT_ADD_FILE(content.filename, content.source);
+        // Use setTimeout to make this non-blocking - prevents hangs from tokenizer regex
+        setTimeout(() => {
+          try {
+            window.acBOOT_ADD_FILE(content.filename, content.source);
+          } catch (e) {
+            console.warn("boot-file display error:", e);
+          }
+        }, 0);
       }
       return;
     }
