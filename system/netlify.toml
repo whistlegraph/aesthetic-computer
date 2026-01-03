@@ -350,6 +350,18 @@ Vary = "*"
 path = "/media/*" 
 function = "media"
 
+# Redirect root-level .mjs requests to aesthetic.computer subdirectory
+# This handles cases where dynamic imports resolve incorrectly
+[[redirects]]
+from = "/bios.mjs"
+to = "/aesthetic.computer/bios.mjs"
+status = 200
+
+[[redirects]]
+from = "/lib/*"
+to = "/aesthetic.computer/lib/:splat"
+status = 200
+
 # Desktop app download shortcuts
 [[redirects]]
 from = "/desktop/mac"
