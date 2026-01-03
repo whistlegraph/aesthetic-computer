@@ -998,93 +998,79 @@ let lastPaintOut = undefined; // Store last paintOut to preserve correct noPaint
 let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
-// � Transition Mixer - intermediate buffer for smooth piece transitions
-// This provides a clean separation: piece paints to screen, mixer blends from→to
-let transitionMixer = {
+// 🧬 GOL Transition: noise16 → piece paint
+// Each pixel gets a random "reveal time" - pixels with neighbors that revealed
+// are more likely to reveal next (cellular propagation effect)
+let golTransition = {
   active: false,
-  fromBuffer: null,   // Captured "from" state (noise16 or previous piece)
-  mixBuffer: null,    // Output buffer for blended result
-  revealTimes: null,  // Per-pixel random reveal times for dissolve effect
-  startTime: 0,
-  duration: 800,      // 0.8 seconds
+  fromPixels: null, // Captured noise16 frame
+  toPixels: null,   // Captured first piece paint frame
+  currentPixels: null, // Working buffer
+  revealMap: null,  // Float32Array: 0 = noise, 1 = revealed as piece
+  generation: 0,
+  maxGenerations: 45, // ~0.75s at 60fps - quick but visible
   width: 0,
   height: 0,
 };
 
-// 🎬 Mix two buffers with per-pixel dissolve timing
-function mixTransition(from, to, width, height) {
-  const { revealTimes, startTime, duration } = transitionMixer;
-  if (!revealTimes || !from || !to) return null;
+// 🧬 GOL step function - cellular automata dissolve from noise to piece
+function golStep(current, target, w, h) {
+  const { revealMap, generation, maxGenerations } = golTransition;
+  const next = new Uint8ClampedArray(current.length);
+  const progress = generation / maxGenerations;
   
-  const elapsed = performance.now() - startTime;
-  const progress = Math.min(1, elapsed / duration);
+  // Base reveal probability increases over time (S-curve for smooth transition)
+  const baseProb = progress * progress * (3 - 2 * progress); // smoothstep
   
-  // Global smoothstep easing
-  const t = progress * progress * (3 - 2 * progress);
-  
-  // Reuse or create mix buffer
-  const len = width * height * 4;
-  if (!transitionMixer.mixBuffer || transitionMixer.mixBuffer.length !== len) {
-    transitionMixer.mixBuffer = new Uint8ClampedArray(len);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      const i = idx * 4;
+      
+      // Already revealed? Keep as target
+      if (revealMap[idx] >= 1) {
+        next[i] = target[i];
+        next[i + 1] = target[i + 1];
+        next[i + 2] = target[i + 2];
+        next[i + 3] = 255;
+        continue;
+      }
+      
+      // Count revealed neighbors (GOL-style neighbor influence)
+      let revealedNeighbors = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = (x + dx + w) % w;
+          const ny = (y + dy + h) % h;
+          const ni = ny * w + nx;
+          if (revealMap[ni] >= 1) revealedNeighbors++;
+        }
+      }
+      
+      // Probability to reveal: base + neighbor boost + some randomness
+      const neighborBoost = revealedNeighbors * 0.08; // More neighbors = more likely
+      const revealProb = baseProb + neighborBoost + (Math.random() * 0.05);
+      
+      if (Math.random() < revealProb) {
+        // Reveal this pixel - transition to target with brief flash
+        revealMap[idx] = 1;
+        // Brief white flash effect on reveal
+        const flash = Math.random() < 0.3 ? 40 : 0;
+        next[i] = Math.min(255, target[i] + flash);
+        next[i + 1] = Math.min(255, target[i + 1] + flash);
+        next[i + 2] = Math.min(255, target[i + 2] + flash);
+      } else {
+        // Still showing noise - but shift it slightly toward purple for continuity
+        const noiseShift = progress * 0.3;
+        next[i] = current[i] * (1 - noiseShift) + target[i] * noiseShift;
+        next[i + 1] = current[i + 1] * (1 - noiseShift) + target[i + 1] * noiseShift;
+        next[i + 2] = current[i + 2] * (1 - noiseShift) + target[i + 2] * noiseShift;
+      }
+      next[i + 3] = 255;
+    }
   }
-  const out = transitionMixer.mixBuffer;
-  
-  const pixelCount = width * height;
-  for (let idx = 0; idx < pixelCount; idx++) {
-    const i = idx * 4;
-    const revealTime = revealTimes[idx];
-    
-    // Each pixel has its own reveal time (0-1), compressed so all finish smoothly
-    const adjustedReveal = revealTime * 0.5; // 0-0.5 range
-    const blendWindow = 0.5; // Wide blend for smoothness
-    const pixelT = Math.min(1, Math.max(0, (t - adjustedReveal) / blendWindow));
-    
-    // Double smoothstep for extra smooth per-pixel transition
-    const smooth = pixelT * pixelT * (3 - 2 * pixelT);
-    
-    // Blend from → to
-    out[i]     = from[i]     + (to[i]     - from[i])     * smooth;
-    out[i + 1] = from[i + 1] + (to[i + 1] - from[i + 1]) * smooth;
-    out[i + 2] = from[i + 2] + (to[i + 2] - from[i + 2]) * smooth;
-    out[i + 3] = 255;
-  }
-  
-  return out;
-}
-
-// 🎬 Start a transition from current screen state
-function startTransition(fromPixels, width, height) {
-  if (!fromPixels || fromPixels.length !== width * height * 4) return;
-  
-  // Copy the "from" buffer
-  transitionMixer.fromBuffer = new Uint8ClampedArray(fromPixels);
-  transitionMixer.width = width;
-  transitionMixer.height = height;
-  
-  // Generate random reveal times for each pixel
-  const pixelCount = width * height;
-  transitionMixer.revealTimes = new Float32Array(pixelCount);
-  for (let i = 0; i < pixelCount; i++) {
-    transitionMixer.revealTimes[i] = Math.random();
-  }
-  
-  transitionMixer.startTime = performance.now();
-  transitionMixer.active = true;
-}
-
-// 🎬 End the transition and clean up
-function endTransition() {
-  transitionMixer.active = false;
-  transitionMixer.fromBuffer = null;
-  transitionMixer.mixBuffer = null;
-  transitionMixer.revealTimes = null;
-}
-
-// 🎬 Check if transition should end
-function checkTransitionComplete() {
-  if (!transitionMixer.active) return false;
-  const elapsed = performance.now() - transitionMixer.startTime;
-  return elapsed >= transitionMixer.duration;
+  return next;
 }
 
 let boot = defaults.boot;
@@ -6766,6 +6752,7 @@ async function load(
       // ⚠️ Detect if we are running `kidlisp` or JavaScript syntax.
       // Note: This may not be the most reliable way to detect `kidlisp`?
       // 🚗 Needs to know if the source was from a prompt with a lisp module.
+      // console.log("🔍 Checking if kidlisp source:", JSON.stringify(sourceToRun));
       if (
         sourceToRun.startsWith("(") ||
         sourceToRun.startsWith(";") ||
@@ -6985,23 +6972,13 @@ async function load(
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
   // 🧨 Fail out if no module is found.
   const moduleCheckTime = performance.now();
+  // console.log(`⏰ Module check at ${moduleCheckTime}ms, module loaded: ${loadedModule !== undefined}`);
   
   if (loadedModule === undefined) {
     loading = false;
     leaving = false;
     return false;
   }
-  
-  // Also check for null
-  if (loadedModule === null) {
-    loading = false;
-    leaving = false;
-    return false;
-  }
-
-
-  // 🐛 Wrap the entire module setup in try-catch to catch any errors
-  try {
 
   // 🧩 Piece code has been loaded...
   //    Now we can instantiate the piece.
@@ -8316,9 +8293,13 @@ async function load(
     shouldSkipPaint = false;
     pieceFrameCount = 0;
     
-    // � Transition mixer: don't reset fromBuffer - we want to keep the captured noise16!
-    // The transition will start when the first piece frame paints
-    // transitionMixer.fromBuffer is preserved from defaults.paint capture
+    // 🧬 Reset GOL transition state (but keep fromPixels if we have it - it's the last noise16 frame!)
+    golTransition.active = false;
+    // golTransition.fromPixels preserved - it's the captured noise16 before piece loads
+    golTransition.toPixels = null;
+    golTransition.currentPixels = null;
+    golTransition.revealMap = null;
+    golTransition.generation = 0;
     
     formsSent = {}; // Clear 3D list for GPU.
     currentPath = path;
@@ -8469,45 +8450,34 @@ async function load(
     }
   };
 
-  try {
-    send({
-      type: "disk-loaded",
-      content: {
-        path,
-        host,
-        search,
-        params,
-        hash,
-        text: slug,
-        pieceCount: $commonApi.pieceCount,
-        pieceHasSound: true,
-        fromHistory,
-        alias,
-        meta,
-        taping: $commonApi.rec.loadCallback !== null || $commonApi.rec.recording,
-      },
-    });
-  } catch (sendError) {
-    console.error("Error sending disk-loaded:", sendError);
-  }
+  send({
+    type: "disk-loaded",
+    content: {
+      path,
+      host,
+      search,
+      params,
+      hash,
+      text: slug,
+      pieceCount: $commonApi.pieceCount,
+      pieceHasSound: true, // TODO: Make this an export flag for pieces that don't want to enable the sound engine. 23.07.01.16.40
+      // 📓 Could also disable the sound engine if the flag is false on a subsequent piece, but that would never really make practical sense?
+      fromHistory,
+      alias,
+      meta,
+      taping: $commonApi.rec.loadCallback !== null || $commonApi.rec.recording, // 🎏 Hacky flag. 23.09.17.05.09
+      // noBeat: beat === defaults.beat,
+    },
+  });
 
   // Notify parent window of progress via bios relay
   const loadCompleteTime = performance.now();
-  try {
-    send({
-      type: "boot-log",
-      content: `loaded: ${slug || path}`
-    });
-  } catch (sendError2) {
-    console.error("Error sending boot-log loaded:", sendError2);
-  }
-
-  } catch (moduleSetupError) {
-    console.error("Error during module setup:", moduleSetupError);
-    loading = false;
-    leaving = false;
-    return false;
-  }
+  // console.log("⏰ load() completed at", loadCompleteTime);
+  // console.log("📢 Disk sending boot-log: loaded");
+  send({
+    type: "boot-log",
+    content: `loaded: ${slug || path}`
+  });
 
   return true; // Loaded successfully.
 }
@@ -8527,10 +8497,7 @@ if (isWorker) {
     if (e.data?.type === "disk:load") {
       postMessage({ type: "boot-log", content: "worker received load" });
     }
-    // Wrap makeFrame in a catch to surface any swallowed errors
-    makeFrame(e).catch(err => {
-      console.error("🛑 DISK makeFrame error:", err, "| type:", e.data?.type);
-    });
+    makeFrame(e);
   };
 } else {
   noWorker.onMessage = (d) => makeFrame({ data: d });
@@ -8570,11 +8537,6 @@ let pendingExportEvents = [];
 // TODO: Try to remove as many API calls from here as possible.
 
 async function makeFrame({ data: { type, content } }) {
-  // 🔍 DEBUG: Log ALL messages during early boot to trace $code loading issue
-  if (paintCount < 5n && type !== "beat") {
-    console.log(`🔍 DISK makeFrame: type="${type}", paintCount=${paintCount}`);
-  }
-  
   // DEBUG: Log all DAW-related messages
   if (type?.startsWith?.("daw:")) {
     console.log("🎹🎹🎹 makeFrame received:", type, content);
@@ -8882,11 +8844,9 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "loading-complete") {
-    console.log("🔍 DISK: Received loading-complete, paintCount=", paintCount, "loading=", loading, "booted=", booted);
     leaving = false;
     hotSwap?.(); // Actually swap out the piece functions and reset the state.
     loading = false;
-    console.log("🔍 DISK: After hotSwap, paintCount=", paintCount, "loading=", loading, "booted=", booted);
     return;
   }
 
@@ -9964,10 +9924,6 @@ async function makeFrame({ data: { type, content } }) {
   // 2. Frame
   // Where each piece action (boot, sim, paint, etc...) is run.
   if (type === "frame") {
-    // 🔍 DEBUG: Log frames when paintCount is low to track $code loading issue
-    if (paintCount < 5n) {
-      console.log(`🔍 DISK FRAME: paintCount=${paintCount}, loading=${loading}, booted=${booted}`);
-    }
     // Take hold of a previously worker transferrable screen buffer
     // and re-assign it.
     let pixels;
@@ -11484,10 +11440,6 @@ async function makeFrame({ data: { type, content } }) {
       //       set to at the end of `paint`.
 
       // Run boot only once before painting for the first time.
-      // Keep logging low-noise: only during early frames / load transitions unless explicitly enabled.
-      const DEBUG_DISK_BOOT = !!globalThis.acDEBUG_DISK_BOOT;
-      if (DEBUG_DISK_BOOT || booted === false || paintCount < 3n) {
-      }
       if (paintCount === 0n && loading === false) {
         const dark = await store.retrieve("dark-mode"); // Read dark mode.
         if (dark === true || dark === false) $commonApi.dark = dark;
@@ -11735,50 +11687,54 @@ async function makeFrame({ data: { type, content } }) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
             
-            // � Always let the piece paint - mixer handles blending separately
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
+            // Increment piece frame counter only when we actually paint
+            pieceFrameCount++;
             
-            // Increment piece frame counter only when we actually paint the REAL piece (not defaults.paint)
-            if (paint !== defaults.paint) {
-              pieceFrameCount++;
-            }
-            
-            // 🎬 Transition Mixer: Capture noise16 frame AFTER defaults.paint runs
+            // 🧬 GOL Transition: Capture noise16 frame AFTER defaults.paint runs
             if (paint === defaults.paint && $api.screen?.pixels) {
-              // Continuously capture the noise16 state into mixer's fromBuffer
-              // We want the LAST frame before piece loads
-              transitionMixer.fromBuffer = new Uint8ClampedArray($api.screen.pixels);
-              transitionMixer.width = $api.screen.width;
-              transitionMixer.height = $api.screen.height;
+              // Continuously capture the noise16 state - we want the LAST frame before piece loads
+              golTransition.fromPixels = new Uint8ClampedArray($api.screen.pixels);
+              golTransition.width = $api.screen.width;
+              golTransition.height = $api.screen.height;
             }
             
-            // 🎬 Transition Mixer: Start transition on first piece paint
-            // Skip when glaze is enabled (glaze has its own fade-in effect)
-            if (pieceFrameCount === 1 && paint !== defaults.paint && transitionMixer.fromBuffer && !transitionMixer.active && $api.screen?.pixels && !glazeEnabled) {
-              // Check if dimensions match - only transition if same size
-              const dimMatch = transitionMixer.width === $api.screen.width && transitionMixer.height === $api.screen.height;
-              if (dimMatch && transitionMixer.fromBuffer.length === $api.screen.pixels.length) {
-                // Start the transition - fromBuffer already has noise16, piece just painted to screen
-                startTransition(transitionMixer.fromBuffer, transitionMixer.width, transitionMixer.height);
-              }
+            // 🧬 GOL Transition: Capture first piece paint and start transition
+            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.fromPixels && !golTransition.active && $api.screen?.pixels) {
+              // Capture the first piece paint as the "to" pixels
+              golTransition.toPixels = new Uint8ClampedArray($api.screen.pixels);
+              golTransition.currentPixels = new Uint8ClampedArray(golTransition.fromPixels);
+              // Initialize reveal map - all pixels start unrevealed (0)
+              golTransition.revealMap = new Float32Array(golTransition.width * golTransition.height);
+              golTransition.generation = 0;
+              golTransition.active = true;
             }
             
-            // 🎬 Transition Mixer: Blend from→to and write to screen
-            if (transitionMixer.active && $api.screen?.pixels) {
-              const { fromBuffer, width, height } = transitionMixer;
-              const toPixels = $api.screen.pixels; // Current screen = piece's live paint
-              
-              // Mix the buffers
-              const mixed = mixTransition(fromBuffer, toPixels, width, height);
-              
-              if (mixed && mixed.length === toPixels.length) {
-                // Write mixed result back to screen
-                toPixels.set(mixed);
+            // 🧬 GOL Transition: Run cellular dissolve and write directly to screen
+            if (golTransition.active && $api.screen?.pixels && golTransition.currentPixels && golTransition.toPixels) {
+              const { currentPixels, toPixels, width, height } = golTransition;
+              const nextPixels = golStep(currentPixels, toPixels, width, height);
+              if (nextPixels) {
+                golTransition.currentPixels = nextPixels;
+                golTransition.generation++;
+                
+                // Copy GOL result directly to screen (no blending needed - golStep handles it)
+                const pixels = $api.screen.pixels;
+                const gol = golTransition.currentPixels;
+                
+                // Copy GOL dissolve result directly to screen
+                if (pixels && gol && pixels.length === gol.length) {
+                  pixels.set(gol);
+                }
               }
               
-              // Check if transition is complete
-              if (checkTransitionComplete()) {
-                endTransition();
+              // End transition
+              if (golTransition.generation >= golTransition.maxGenerations) {
+                golTransition.active = false;
+                golTransition.fromPixels = null;
+                golTransition.toPixels = null;
+                golTransition.currentPixels = null;
+                golTransition.revealMap = null;
               }
             }
             
@@ -13829,18 +13785,13 @@ async function makeFrame({ data: { type, content } }) {
         // 🛡️ Create a copy for transfer to avoid detaching the main rendering buffer
         const pixelsCopy = new Uint8ClampedArray(sendData.pixels);
         sendData.pixels = pixelsCopy.buffer;
-      } else if (content.pixels?.byteLength > 0) {
-        // If we didn't paint, return the incoming transferable buffer to keep the
-        // bios <-> worker pixel buffer ping-pong alive.
-        sendData.pixels = content.pixels;
       } else {
-        sendData.pixels = undefined;
+        sendData.pixels = content.pixels;
       }
 
       if (sendData.pixels?.byteLength === 0) sendData.pixels = undefined;
 
-      const transferredObjects = [];
-      if (sendData.pixels) transferredObjects.push(sendData.pixels);
+      let transferredObjects = [sendData.pixels];
 
       if (sendData.label) {
         // 🛡️ Create a copy for transfer to avoid detaching the label buffer
@@ -13911,37 +13862,22 @@ async function makeFrame({ data: { type, content } }) {
       //       get sent? 23.01.06.16.02
 
       // console.log(pixels);
-      // 🛡️ Always return a transferable pixels buffer when possible.
-      // Important: never include `undefined` in the transfer list, or postMessage will throw
-      // and bios will stop requesting frames.
-      let returnPixelsBuffer;
-      let transferList = [];
-
-      if (pixels) {
-        const transferPixels = new Uint8ClampedArray(pixels);
-        returnPixelsBuffer = transferPixels.buffer;
-        transferList = [returnPixelsBuffer];
-      } else if (content.pixels?.byteLength > 0) {
-        returnPixelsBuffer = content.pixels;
-        transferList = [returnPixelsBuffer];
-      } else {
-        returnPixelsBuffer = undefined;
-        transferList = [];
-      }
-
+      // 🛡️ Create a copy for transfer to avoid detaching the pixels buffer
+      const transferPixels = pixels ? new Uint8ClampedArray(pixels) : null;
+      
       send(
         {
           type: "update",
           content: {
             didntRender: true,
             loading,
-            pixels: returnPixelsBuffer,
+            pixels: transferPixels?.buffer,
             width: content.width,
             height: content.height,
             sound,
           },
         },
-        transferList,
+        [transferPixels?.buffer],
       );
     }
 
