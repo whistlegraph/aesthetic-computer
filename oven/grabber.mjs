@@ -497,7 +497,7 @@ async function captureFrames(piece, options = {}) {
     // Navigate to piece
     console.log(`   Loading piece...`);
     await page.goto(url, { 
-      waitUntil: 'networkidle2',
+      waitUntil: 'domcontentloaded',  // Changed from networkidle2 - $code pieces continue network activity
       timeout: 30000 
     });
     
