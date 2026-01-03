@@ -7167,18 +7167,22 @@ async function load(
         // console.log("Session URL:", url);
 
         // 🩰 Fetch dev-info to get TURN host (for local dev with Docker)
+        // Only attempt this in dev mode (localhost) - not in production
         let turnHost = null;
-        try {
-          const devInfoRes = await fetch(`${sesh.url}/dev-info`);
-          if (devInfoRes.ok) {
-            const devInfo = await devInfoRes.json();
-            if (devInfo.ip) {
-              turnHost = devInfo.ip;
-              log.socket.debug("Got TURN host from dev-info:", turnHost);
+        const isLocalDev = url.hostname === "localhost" || url.hostname.endsWith(".local");
+        if (isLocalDev) {
+          try {
+            const devInfoRes = await fetch(`${sesh.url}/dev-info`);
+            if (devInfoRes.ok) {
+              const devInfo = await devInfoRes.json();
+              if (devInfo.ip) {
+                turnHost = devInfo.ip;
+                log.socket.debug("Got TURN host from dev-info:", turnHost);
+              }
             }
+          } catch (e) {
+            log.socket.debug("Could not fetch dev-info for TURN host:", e.message);
           }
-        } catch (e) {
-          log.socket.debug("Could not fetch dev-info for TURN host:", e.message);
         }
 
         // 🩰 UDP... (via `bios`)
