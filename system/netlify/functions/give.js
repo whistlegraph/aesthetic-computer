@@ -63,6 +63,18 @@ export async function handler(event, context) {
       },
     };
 
+    // Custom fields only work with payment mode (not subscriptions)
+    if (!recurring) {
+      sessionConfig.custom_fields = [
+        {
+          key: "note",
+          label: { type: "custom", custom: "Add a note (optional)" },
+          type: "text",
+          optional: true,
+        },
+      ];
+    }
+
     if (recurring) {
       // Monthly subscription
       sessionConfig.mode = "subscription";
@@ -75,7 +87,7 @@ export async function handler(event, context) {
               description: currency === 'dkk' 
                 ? `${displayStr}/måned til Aesthetic Computer ✨`
                 : `${displayStr}/month to Aesthetic Computer ✨`,
-              images: ["https://aesthetic.computer/aesthetic.computer/icon/512x512.png"],
+              images: [`https://aesthetic.computer/api/give-image?amount=${amountDisplay}&currency=${currency}&recurring=true`],
             },
             unit_amount: amountCents,
             recurring: {
@@ -88,7 +100,8 @@ export async function handler(event, context) {
     } else {
       // One-time payment
       sessionConfig.mode = "payment";
-      sessionConfig.submit_type = "donate";
+      // Note: Stripe submit_type only allows: auto, pay, book, donate - no "give" option
+      // Using "pay" instead of "donate" for a more neutral label
       sessionConfig.line_items = [
         {
           price_data: {
@@ -98,7 +111,7 @@ export async function handler(event, context) {
               description: currency === 'dkk' 
                 ? `${displayStr} til Aesthetic Computer — tak! 💖`
                 : `${displayStr} to Aesthetic Computer — thank you! 💖`,
-              images: ["https://aesthetic.computer/aesthetic.computer/icon/512x512.png"],
+              images: [`https://aesthetic.computer/api/give-image?amount=${amountDisplay}&currency=${currency}`],
             },
             unit_amount: amountCents,
           },
