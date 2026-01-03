@@ -37,9 +37,12 @@ The buy button text is customized based on `product.type` in `snippets/buy-butto
 | Sketchbook | "Buy this sketchbook" |
 | Book | "Buy this book" |
 | Bike | "Buy this bike" |
+| Shirt | "Buy this shirt" |
 | (record URL) | "Buy this record" |
 | (@jeffrey URL) | "Book @jeffrey now" |
 | Default | "Buy this artwork" |
+
+**Note:** Bikes and shirts also match by handle pattern (`bikes_*`, `shirts_*`) as fallback.
 
 ### Product Management CLI
 
