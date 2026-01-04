@@ -976,7 +976,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             
             graveyard.forEach((grave, i) => {
               const mesh = grave.mesh;
-              if (mesh && mesh.userData) {
+              if (mesh && mesh.userData && mesh.material) {
                 const d = mesh.userData;
                 mesh.position.x += (d.targetPos.x - mesh.position.x) * 0.02;
                 mesh.position.y += (d.targetPos.y - mesh.position.y) * 0.015;
@@ -988,6 +988,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             });
             
             meshes.forEach((mesh, pid) => {
+              if (!mesh || !mesh.userData || !mesh.material) return;
               const d = mesh.userData;
               const cpu = d.cpu || 0;
               const isFocused = focusedPid === pid;
