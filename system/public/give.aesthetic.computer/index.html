@@ -3491,7 +3491,7 @@
         <div class="stat-item" id="stat-kidlisp">
           <div class="stat-floaters"></div>
           <div class="stat-value">—</div>
-          <div class="stat-label">kidlisp</div>
+          <div class="stat-label">kidlisp pieces</div>
         </div>
         <div class="stat-item" id="stat-commands">
           <div class="stat-floaters"></div>
@@ -5894,6 +5894,8 @@
           if (p.code) {
             const code = document.createElement('span');
             code.className = 'floater-code';
+            code.style.fontSize = '0.8em';
+            code.style.color = 'var(--gold)';
             code.textContent = `#${p.code}`;
             floater.appendChild(code);
           }
