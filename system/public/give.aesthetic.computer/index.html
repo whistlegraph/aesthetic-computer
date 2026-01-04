@@ -4719,6 +4719,31 @@
       let verticalScrollPhase = 0; // For vertical Ken Burns scrolling (0 to 1)
       let swingPhase = 0; // Swinging rope-like motion
       let zoomPhase = 0; // Subtle zoom breathing
+      let scrollZoom = 0; // Scroll-based Ken Burns zoom (-1 to 1)
+      let scrollZoomTarget = 0; // Target scroll zoom (smoothly interpolated)
+      
+      // Track scroll position for Ken Burns scroll-zoom effect
+      function updateScrollZoom() {
+        const slideshow = container;
+        if (!slideshow) return;
+        const rect = slideshow.getBoundingClientRect();
+        const viewportH = window.innerHeight;
+        // Calculate how far the slideshow has scrolled through the viewport
+        // 0 = slideshow just entering viewport from bottom
+        // 0.5 = slideshow centered in viewport
+        // 1 = slideshow leaving viewport at top
+        const scrollProgress = 1 - ((rect.top + rect.height / 2) / (viewportH + rect.height));
+        // Map to -1 to 1 range, with 0 when centered
+        // Creates zoom-out at top, zoom-in at bottom effect
+        scrollZoomTarget = (scrollProgress - 0.5) * 2;
+        // Clamp to reasonable range
+        scrollZoomTarget = Math.max(-1, Math.min(1, scrollZoomTarget));
+      }
+      
+      // Listen for scroll events
+      window.addEventListener('scroll', updateScrollZoom, { passive: true });
+      window.addEventListener('resize', updateScrollZoom, { passive: true });
+      updateScrollZoom(); // Initial calculation
 
       // Easing function for smooth bouncy motion
       function easeInOutSine(t) {
@@ -5146,13 +5171,18 @@
         swingPhase += 0.00007; // Slow pendulum swing
         zoomPhase += 0.00004; // Very slow zoom breathing
         
+        // Smooth scroll zoom interpolation (buttery smooth tracking)
+        scrollZoom += (scrollZoomTarget - scrollZoom) * 0.08;
+        
         // Swinging rope motion - delayed sinusoids for organic feel
         const swing1 = Math.sin(swingPhase * Math.PI * 2);
         const swing2 = Math.sin(swingPhase * Math.PI * 2 - 0.5); // Delayed follow
         const swing3 = Math.sin(swingPhase * Math.PI * 1.3); // Different frequency
         
-        const rotation = swing1 * 0.006 + swing3 * 0.003; // Gentle compound rotation
-        const wiggleX = swing1 * 1.5 + swing2 * 0.8; // Swaying X
+        // Add scroll-based rotation for extra cinematic parallax feel
+        const scrollRotation = scrollZoom * 0.008; // Subtle tilt when scrolling
+        const rotation = swing1 * 0.006 + swing3 * 0.003 + scrollRotation; // Gentle compound rotation + scroll
+        const wiggleX = swing1 * 1.5 + swing2 * 0.8 + scrollZoom * 3; // Swaying X + scroll parallax
         const wiggleY = swing2 * 1.2 + Math.sin(swingPhase * Math.PI * 1.7) * 0.6; // Bouncy Y
         
         // Clear completely each frame
@@ -5180,8 +5210,9 @@
         // Draw fading out previous POIs during transition (behind current)
         // Use a smooth sine-based vertical progress for nice top-to-bottom scroll
         const vp = (Math.sin(verticalScrollPhase * Math.PI * 2 - Math.PI/2) + 1) / 2; // 0→1→0 smooth
-        // Zoom breathing - slow and subtle
-        const zb = Math.sin(zoomPhase * Math.PI * 2);
+        // Zoom breathing - slow and subtle, PLUS scroll-based Ken Burns zoom
+        // scrollZoom adds extra zoom based on scroll position: zoom in when scrolling down, out when scrolling up
+        const zb = Math.sin(zoomPhase * Math.PI * 2) + scrollZoom * 0.5;
         // Swing offset for rope-like motion (different phase for left/right)
         const swingL = Math.sin(swingPhase * Math.PI * 2);
         const swingR = Math.sin(swingPhase * Math.PI * 2 - 0.3); // Slightly delayed for right
