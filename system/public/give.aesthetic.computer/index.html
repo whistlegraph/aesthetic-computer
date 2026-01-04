@@ -81,6 +81,7 @@
       color: var(--text);
       margin: 0;
       padding: 2em;
+      padding-right: calc(2em + 12px); /* Extra space for slider thumb overflow */
       min-height: 100vh;
       font-size: 14px;
       line-height: 1.6;
@@ -139,7 +140,7 @@
       max-width: 1200px;
       margin: 0 auto;
       padding-top: 3.5em;
-      overflow: hidden;
+      overflow: visible;
     }
 
     /* Grid layout for wider screens */
@@ -1196,12 +1197,27 @@
       align-items: center;
       justify-content: space-between;
       width: 100%;
+      gap: 0.5em;
+    }
+
+    .cancel-subscription-link {
+      font-size: 0.75em;
+      color: var(--dim);
+      opacity: 0.6;
+      text-decoration: none;
+      margin-left: 0.4em;
+    }
+
+    .cancel-subscription-link:hover {
+      opacity: 1;
+      text-decoration: underline;
     }
 
     .tax-note {
       font-size: 0.85em;
       color: var(--dim);
       text-align: right;
+      margin-left: auto;
     }
 
     .tax-note .faded {
@@ -3604,10 +3620,20 @@
                     <input type="checkbox" class="monthly-checkbox">
                     <span data-lang="en">Monthly</span>
                     <span data-lang="da">Månedligt</span>
+                    <span data-lang="de">Monatlich</span>
+                    <span data-lang="zh">每月</span>
                   </label>
+                  <a href="#" class="cancel-subscription-link">
+                    <span data-lang="en">Cancel?</span>
+                    <span data-lang="da">Annuller?</span>
+                    <span data-lang="de">Kündigen?</span>
+                    <span data-lang="zh">取消?</span>
+                  </a>
                   <span class="tax-note">
                     <span data-lang="en">Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
                     <span data-lang="da">Ikke fradragsberettiget. <a href="#invest" class="invest-link">Investor?</a></span>
+                    <span data-lang="de">Nicht steuerlich absetzbar. <a href="#invest" class="invest-link">Investor?</a></span>
+                    <span data-lang="zh">不可抵税。<a href="#invest" class="invest-link">投资者?</a></span>
                   </span>
                 </div>
               </div>
@@ -3630,10 +3656,20 @@
                     <input type="checkbox" class="monthly-checkbox">
                     <span data-lang="en">Monthly</span>
                     <span data-lang="da">Månedligt</span>
+                    <span data-lang="de">Monatlich</span>
+                    <span data-lang="zh">每月</span>
                   </label>
+                  <a href="#" class="cancel-subscription-link">
+                    <span data-lang="en">Cancel?</span>
+                    <span data-lang="da">Annuller?</span>
+                    <span data-lang="de">Kündigen?</span>
+                    <span data-lang="zh">取消?</span>
+                  </a>
                   <span class="tax-note">
                     <span data-lang="en">Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
                     <span data-lang="da">Ikke fradragsberettiget. <a href="#invest" class="invest-link">Investor?</a></span>
+                    <span data-lang="de">Nicht steuerlich absetzbar. <a href="#invest" class="invest-link">Investor?</a></span>
+                    <span data-lang="zh">不可抵税。<a href="#invest" class="invest-link">投资者?</a></span>
                   </span>
                 </div>
               </div>
@@ -5139,6 +5175,71 @@
               investSection.classList.remove('blinking');
             }, 1800); // 3 blinks × 0.6s
           }, 400); // Wait for scroll to start
+        }
+      });
+    });
+
+    // Cancel subscription link handler
+    document.querySelectorAll('.cancel-subscription-link').forEach(link => {
+      link.addEventListener('click', async (e) => {
+        e.preventDefault();
+        
+        const prompts = {
+          en: { 
+            email: 'Enter your email to manage your subscription:',
+            loading: 'Loading...',
+            error: 'Could not find a subscription for that email. Please try again or contact support.',
+            errorGeneric: 'Something went wrong. Please try again.'
+          },
+          da: { 
+            email: 'Indtast din email for at administrere dit abonnement:',
+            loading: 'Indlæser...',
+            error: 'Kunne ikke finde et abonnement for den email. Prøv igen eller kontakt support.',
+            errorGeneric: 'Noget gik galt. Prøv igen.'
+          },
+          de: { 
+            email: 'Geben Sie Ihre E-Mail ein, um Ihr Abonnement zu verwalten:',
+            loading: 'Laden...',
+            error: 'Kein Abonnement für diese E-Mail gefunden. Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.',
+            errorGeneric: 'Etwas ist schief gelaufen. Bitte versuchen Sie es erneut.'
+          },
+          zh: { 
+            email: '输入您的电子邮件以管理订阅：',
+            loading: '加载中...',
+            error: '找不到该邮箱的订阅。请重试或联系支持。',
+            errorGeneric: '出了点问题。请重试。'
+          }
+        };
+        
+        const t = prompts[currentLang] || prompts.en;
+        const email = prompt(t.email);
+        
+        if (!email || !email.includes('@')) return;
+        
+        link.style.pointerEvents = 'none';
+        const origText = link.innerHTML;
+        link.textContent = t.loading;
+        
+        try {
+          const res = await fetch('/api/give-portal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          const data = await res.json();
+          
+          if (data.url) {
+            window.location.href = data.url;
+          } else {
+            alert(data.error || t.error);
+            link.innerHTML = origText;
+            link.style.pointerEvents = '';
+          }
+        } catch (err) {
+          console.error('Portal error:', err);
+          alert(t.errorGeneric);
+          link.innerHTML = origText;
+          link.style.pointerEvents = '';
         }
       });
     });
