@@ -268,29 +268,37 @@
 
     .stat-item {
       text-align: center;
-      padding: 0.8em 0.5em;
-      background: var(--box-bg);
+      padding: 0.6em 0.4em;
+      background: var(--stat-bg, var(--box-bg));
       border: 1px solid var(--box-border);
       border-radius: 4px;
-      aspect-ratio: 1;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       overflow: hidden;
       position: relative;
+      user-select: none;
+      min-height: 60px;
     }
+
+    #stat-handles { --stat-bg: rgba(100, 200, 255, 0.08); }
+    #stat-paintings { --stat-bg: rgba(255, 180, 100, 0.08); }
+    #stat-moods { --stat-bg: rgba(255, 120, 180, 0.08); }
+    #stat-kidlisp { --stat-bg: rgba(180, 100, 255, 0.08); }
+    #stat-commands { --stat-bg: rgba(100, 255, 150, 0.08); }
+    #stat-messages { --stat-bg: rgba(255, 220, 100, 0.08); }
 
     .stat-value {
       font-family: 'ywft', var(--mono);
-      font-size: 1.4em;
+      font-size: 1.8em;
       color: var(--gold);
       position: relative;
       z-index: 2;
     }
 
     .stat-label {
-      font-size: 0.7em;
+      font-size: 0.75em;
       color: var(--dim);
       margin-top: 0.2em;
       position: relative;
@@ -312,14 +320,20 @@
       flex-direction: column;
       align-items: center;
       gap: 2px;
-      animation: floatUp 12s linear forwards;
-      opacity: 0.4;
+      animation: floatUp var(--float-duration, 12s) linear forwards;
+      opacity: 0.35;
+    }
+
+    .stat-floater.float-horizontal {
+      animation: floatLeft var(--float-duration, 12s) linear forwards;
+    }
+
+    .stat-floater.float-horizontal-right {
+      animation: floatRight var(--float-duration, 12s) linear forwards;
     }
 
     .stat-floater img {
-      width: 32px;
-      height: 32px;
-      object-fit: cover;
+      object-fit: contain;
       border-radius: 2px;
       image-rendering: pixelated;
     }
@@ -333,22 +347,32 @@
 
     @keyframes floatUp {
       0% {
-        transform: translateY(100%);
-        opacity: 0;
-      }
-      5% {
-        opacity: 0.35;
-      }
-      95% {
-        opacity: 0.35;
+        bottom: -20px;
       }
       100% {
-        transform: translateY(-120%);
-        opacity: 0;
+        bottom: 120%;
       }
     }
 
-    /* Recent Gives Feed */
+    @keyframes floatLeft {
+      0% {
+        right: -50px;
+      }
+      100% {
+        right: 120%;
+      }
+    }
+
+    @keyframes floatRight {
+      0% {
+        left: -80px;
+      }
+      100% {
+        left: 120%;
+      }
+    }
+
+    /* Gives Feed */
     .recent-gives {
       grid-column: 1 / -1;
       background: var(--box-bg);
@@ -358,66 +382,101 @@
       overflow: hidden;
     }
 
-    .recent-gives-header {
-      font-family: 'ywft', var(--mono);
-      font-size: 0.9em;
-      color: var(--cyan);
-      margin-bottom: 0.8em;
-      display: flex;
-      align-items: center;
-      gap: 0.5em;
+    /* Gives Ticker - horizontal scrolling marquee */
+    .gives-ticker {
+      background: linear-gradient(180deg, rgba(0, 40, 20, 0.4) 0%, rgba(0, 20, 10, 0.5) 100%);
+      border: 1px solid rgba(100, 255, 150, 0.2);
+      border-radius: 6px;
+      margin-bottom: 1em;
+      position: relative;
+      height: 2.4em;
+      overflow: hidden;
     }
 
-    .recent-gives-header::before {
-      content: "💝";
+    .gives-ticker-track {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      white-space: nowrap;
+      animation: ticker-scroll 30s linear infinite;
+    }
+
+    .gives-ticker:hover .gives-ticker-track {
+      animation-play-state: paused;
+    }
+
+    @keyframes ticker-scroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-33.333%); }
+    }
+
+    .gives-ticker-item {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 1.5em;
+      font-size: 0.85em;
+      border-right: 1px solid rgba(100, 255, 150, 0.15);
+      gap: 0.35em;
+    }
+
+    .gives-ticker-item .got {
+      color: var(--cyan);
+      font-weight: 500;
+    }
+
+    .gives-ticker-item .amount {
+      color: var(--green);
+      font-weight: bold;
+    }
+
+    .gives-ticker-item .time {
+      color: var(--dim);
+      font-style: italic;
+    }
+
+    .gives-ticker-item .note {
+      color: var(--gold);
+    }
+
+    .gives-ticker-item .sep {
+      color: var(--dim);
+    }
+
+    .gives-ticker-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 2.4em;
+      color: var(--dim);
+      font-size: 0.9em;
+    }
+
+    .gives-ticker-empty a {
+      color: var(--gold);
+      text-decoration: none;
+      margin-left: 0.3em;
+    }
+
+    .gives-ticker-empty a:hover {
+      text-decoration: underline;
+    }
+
+    /* Hide old gives styles */
+    .recent-gives {
+      display: none;
+    }
+
+    .recent-gives-header {
+      display: none;
     }
 
     .gives-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4em;
-      max-height: 200px;
-      overflow-y: auto;
+      display: none;
     }
 
     .give-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.5em 0.7em;
-      background: rgba(255,255,255,0.03);
-      border-radius: 4px;
-      font-size: 0.85em;
-      animation: give-fade-in 0.5s ease-out;
-    }
-
-    @keyframes give-fade-in {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .give-amount {
-      font-family: 'ywft', var(--mono);
-      color: var(--gold);
-      font-size: 1.1em;
-    }
-
-    .give-type {
-      font-size: 0.75em;
-      color: var(--dim);
-      padding: 0.2em 0.5em;
-      background: rgba(255,255,255,0.05);
-      border-radius: 3px;
-    }
-
-    .give-type.subscription {
-      color: var(--magenta);
-      background: rgba(255, 105, 180, 0.1);
-    }
-
-    .give-time {
-      font-size: 0.7em;
-      color: var(--dim);
+      display: none;
     }
 
     .gives-loading {
@@ -618,6 +677,7 @@
 
     .currency-picker {
       padding: 0;
+      min-height: 340px;
     }
 
     .currency-picker h3 {
@@ -836,6 +896,71 @@
       50% { transform: translate(-0.5em, -50%) scale(1.45); }
     }
 
+    /* Flames effect for max monthly ($500/mo) */
+    .gift-amount.flames::before {
+      content: '🔥';
+      position: absolute;
+      top: -1.2em;
+      left: 0;
+      font-size: 0.8em;
+      animation: flame-dance 0.3s ease-in-out infinite alternate;
+      filter: drop-shadow(0 0 4px #ff6600);
+    }
+
+    .gift-amount.flames::after {
+      content: '🔥';
+      position: absolute;
+      top: -1.1em;
+      right: 0;
+      font-size: 0.7em;
+      animation: flame-dance 0.25s ease-in-out infinite alternate-reverse;
+      filter: drop-shadow(0 0 4px #ff6600);
+    }
+
+    @keyframes flame-dance {
+      0% { transform: translateY(0) scale(1); opacity: 0.9; }
+      100% { transform: translateY(-3px) scale(1.1); opacity: 1; }
+    }
+
+    /* Lightning effect for max one-time ($2500) */
+    .gift-amount.lightning {
+      animation: vegas-rainbow 1s linear infinite, vegas-shake 0.5s ease-in-out infinite, lightning-flash 0.8s ease-in-out infinite;
+    }
+
+    @keyframes lightning-flash {
+      0%, 89%, 100% { 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+      }
+      90%, 92% { 
+        box-shadow: 0 0 30px #fff, 0 0 60px #00ffff, 0 0 90px #fff, inset 0 0 20px rgba(255,255,255,0.5);
+      }
+      94%, 96% { 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+      }
+      97%, 98% { 
+        box-shadow: 0 0 40px #fff, 0 0 80px #ffff00, 0 0 120px #fff, inset 0 0 30px rgba(255,255,255,0.8);
+      }
+    }
+
+    .gift-amount.lightning.flames::before {
+      content: '⚡';
+      font-size: 1em;
+      top: -1.3em;
+      animation: lightning-bolt 0.5s ease-in-out infinite;
+    }
+
+    .gift-amount.lightning.flames::after {
+      content: '⚡';
+      font-size: 0.9em;
+      top: -1.2em;
+      animation: lightning-bolt 0.4s ease-in-out infinite reverse;
+    }
+
+    @keyframes lightning-bolt {
+      0%, 100% { opacity: 0.7; transform: translateY(0) rotate(-5deg); }
+      50% { opacity: 1; transform: translateY(-2px) rotate(5deg); }
+    }
+
     /* Currency conversion display - to right of price */
     .gift-conversion {
       position: absolute;
@@ -926,6 +1051,34 @@
       color: var(--gold);
     }
 
+    /* Monthly mode styling */
+    .gift-amount {
+      position: absolute;
+    }
+
+    /* Tax deductible note next to monthly checkbox */
+    .gift-monthly-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .tax-note {
+      font-size: 0.85em;
+      color: var(--dim);
+      text-align: right;
+    }
+
+    .tax-note a {
+      color: var(--gold);
+      text-decoration: none;
+    }
+
+    .tax-note a:hover {
+      text-decoration: underline;
+    }
+
     /* Bottom row: monthly checkbox left, fiat note right */
     .gift-bottom-row {
       display: flex;
@@ -980,67 +1133,104 @@
       cursor: wait;
     }
 
-    /* Crypto controls */
+    /* Crypto controls - match fiat layout */
     .crypto-controls {
       display: flex;
       flex-direction: column;
       gap: 0;
+      padding: 1em;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-top: none;
+      border-radius: 0 0 8px 8px;
     }
 
     .crypto-address {
-      background: var(--box-bg);
-      padding: 1em;
-      text-align: center;
-      border-left: 1px solid var(--box-border);
-      border-right: 1px solid var(--box-border);
+      background: linear-gradient(135deg, rgba(100, 255, 150, 0.08) 0%, rgba(0, 255, 255, 0.05) 100%);
+      border: 2px solid rgba(100, 255, 150, 0.3);
+      padding: 1em 1.2em;
+      border-radius: 6px;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .crypto-address::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(100, 255, 150, 0.15), transparent);
+      animation: address-shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes address-shimmer {
+      0% { left: -100%; }
+      50%, 100% { left: 100%; }
     }
 
     .crypto-address:hover {
-      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--green);
+      background: linear-gradient(135deg, rgba(100, 255, 150, 0.15) 0%, rgba(0, 255, 255, 0.1) 100%);
+      transform: scale(1.01);
+    }
+
+    .crypto-address:active {
+      transform: scale(0.99);
     }
 
     .crypto-address.copied {
-      background: var(--gold);
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .crypto-address.copied::before {
+      animation: none;
     }
 
     .crypto-address.copied .crypto-label,
-    .crypto-address.copied .crypto-addr {
+    .crypto-address.copied .crypto-addr,
+    .crypto-address.copied .crypto-copy-hint {
       color: var(--bg);
     }
 
     .crypto-label {
       display: block;
       font-family: 'ywft', sans-serif;
-      font-size: 1.1em;
+      font-size: 1.3em;
       color: var(--cyan);
-      margin-bottom: 0.4em;
+      margin-bottom: 0.5em;
+      text-align: center;
     }
 
     .crypto-addr {
       display: block;
       font-family: var(--mono);
-      font-size: 0.8em;
-      color: var(--dim);
+      font-size: 0.75em;
+      color: var(--text);
       word-break: break-all;
+      text-align: center;
+      padding: 0.6em 0.8em;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      user-select: all;
+      cursor: text;
     }
 
     .crypto-copy-hint {
       display: block;
-      font-size: 0.7em;
-      color: var(--dim);
-      margin-top: 0.5em;
-      opacity: 0.6;
+      font-size: 0.85em;
+      color: var(--gold);
+      margin-top: 0.8em;
+      text-align: center;
+      font-weight: 500;
     }
 
     .crypto-address:hover .crypto-copy-hint {
-      opacity: 1;
-    }
-
-    .crypto-address.copied .crypto-copy-hint {
-      color: var(--bg);
-      opacity: 1;
+      color: var(--green);
     }
 
     .crypto-amount {
@@ -2516,14 +2706,18 @@
         </div>
       </div>
 
+      <!-- Gives Ticker - cycles through recent gives -->
       <div class="fiat-section full-width">
+        <div class="gives-ticker" id="givesTicker">
+          <div class="gives-ticker-empty">Loading gives...</div>
+        </div>
         <div class="currency-pickers">
           <div class="currency-picker" data-for="usd">
             <div class="gift-widget" data-currency="usd">
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount">$125</div>
+                  <div class="gift-amount">$125<span class="monthly-infinity">∞</span></div>
                 </div>
               </div>
               <div class="gift-controls">
@@ -2533,11 +2727,17 @@
                   <span data-lang="da">På dette niveau, overvej at <a href="#invest" class="invest-link">investere</a> for ejerandel!</span>
                 </div>
                 <button class="gift-btn" data-currency="usd">Give $125</button>
-                <label class="gift-monthly-check">
-                  <input type="checkbox" class="monthly-checkbox">
-                  <span data-lang="en">Give monthly</span>
-                  <span data-lang="da">Giv månedligt</span>
-                </label>
+                <div class="gift-monthly-row">
+                  <label class="gift-monthly-check">
+                    <input type="checkbox" class="monthly-checkbox">
+                    <span data-lang="en">Give monthly</span>
+                    <span data-lang="da">Giv månedligt</span>
+                  </label>
+                  <span class="tax-note">
+                    <span data-lang="en">Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
+                    <span data-lang="da">Ikke fradragsberettiget. <a href="#invest" class="invest-link">Investor?</a></span>
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -2546,18 +2746,24 @@
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount">200 kr</div>
+                  <div class="gift-amount">200 kr<span class="monthly-infinity">∞</span></div>
                   <div class="gift-conversion" id="dkkConversion"></div>
                 </div>
               </div>
               <div class="gift-controls">
                 <input type="range" min="25" max="17500" step="25" value="200">
                 <button class="gift-btn" data-currency="dkk">Giv 200 kr</button>
-                <label class="gift-monthly-check">
-                  <input type="checkbox" class="monthly-checkbox">
-                  <span data-lang="en">Give monthly</span>
-                  <span data-lang="da">Giv månedligt</span>
-                </label>
+                <div class="gift-monthly-row">
+                  <label class="gift-monthly-check">
+                    <input type="checkbox" class="monthly-checkbox">
+                    <span data-lang="en">Give monthly</span>
+                    <span data-lang="da">Giv månedligt</span>
+                  </label>
+                  <span class="tax-note">
+                    <span data-lang="en">Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
+                    <span data-lang="da">Ikke fradragsberettiget. <a href="#invest" class="invest-link">Investor?</a></span>
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -2626,45 +2832,35 @@
       </div>
 
       <div class="stats-section">
-        <div class="stat-item" id="stat-users">
+        <div class="stat-item" id="stat-handles">
           <div class="stat-floaters"></div>
-          <div class="stat-value">4,217</div>
-          <div class="stat-label">users</div>
+          <div class="stat-value">—</div>
+          <div class="stat-label">handles</div>
         </div>
         <div class="stat-item" id="stat-paintings">
           <div class="stat-floaters"></div>
-          <div class="stat-value">4,108</div>
+          <div class="stat-value">—</div>
           <div class="stat-label">paintings</div>
         </div>
         <div class="stat-item" id="stat-moods">
           <div class="stat-floaters"></div>
-          <div class="stat-value">2,827</div>
+          <div class="stat-value">—</div>
           <div class="stat-label">moods</div>
         </div>
         <div class="stat-item" id="stat-kidlisp">
           <div class="stat-floaters"></div>
-          <div class="stat-value">12,933</div>
+          <div class="stat-value">—</div>
           <div class="stat-label">kidlisp</div>
         </div>
-        <div class="stat-item" id="stat-pieces">
+        <div class="stat-item" id="stat-commands">
           <div class="stat-floaters"></div>
-          <div class="stat-value">847</div>
-          <div class="stat-label">pieces</div>
+          <div class="stat-value">—</div>
+          <div class="stat-label">commands</div>
         </div>
-        <div class="stat-item" id="stat-prompts">
+        <div class="stat-item" id="stat-messages">
           <div class="stat-floaters"></div>
-          <div class="stat-value">156</div>
-          <div class="stat-label">prompts</div>
-        </div>
-      </div>
-
-      <div class="recent-gives" id="recentGives">
-        <div class="recent-gives-header">
-          <span data-lang="en">Recent Gives</span>
-          <span data-lang="da">Seneste Gaver</span>
-        </div>
-        <div class="gives-list" id="givesList">
-          <div class="gives-loading">Loading...</div>
+          <div class="stat-value">—</div>
+          <div class="stat-label">messages</div>
         </div>
       </div>
 
@@ -2680,8 +2876,8 @@
           <div class="kidlisp-auto-progress-bar" id="kidlispAutoProgress"></div>
         </div>
         <div class="module-caption">
-          <span data-lang="en">A <em>new</em> language for early users</span>
-          <span data-lang="da">Et <em>nyt</em> sprog for tidlige brugere</span>
+          <span data-lang="en">A <em>new</em> programming language for gen beta</span>
+          <span data-lang="da">Et <em>nyt</em> programmeringssprog for gen beta</span>
         </div>
       </div>
 
@@ -3168,6 +3364,7 @@
         monthlyCheck.addEventListener('change', () => {
           isMonthly = monthlyCheck.checked;
           monthlyLabel.classList.toggle('checked', isMonthly);
+          widget.classList.toggle('monthly-mode', isMonthly);
           
           // Adjust slider range for monthly vs one-time
           if (isMonthly) {
@@ -3266,10 +3463,10 @@
           investSuggestion.style.display = value >= 1000 ? 'block' : 'none';
         }
         
-        // Vegas intensity for USD (and DKK equivalent)
-        if (currency === 'usd' && !isMonthly) {
-          // Remove all intensity classes from amount and logo
-          amountEl.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
+        // Vegas intensity for USD (and DKK equivalent) - applies to both one-time and monthly
+        if (currency === 'usd') {
+          // Remove all intensity and effect classes
+          amountEl.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4', 'flames', 'lightning');
           logoEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
           conversionEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
           
@@ -3294,7 +3491,16 @@
             stopWiggle();
           }
           
-        } else if (currency === 'dkk' && !isMonthly) {
+          // Special effects for max amounts
+          if (isMonthly && value >= 500) {
+            // Max monthly ($500/mo) - flames
+            amountEl.classList.add('flames');
+          } else if (!isMonthly && value >= 2500) {
+            // Max one-time ($2500) - flames + lightning
+            amountEl.classList.add('flames', 'lightning');
+          }
+          
+        } else if (currency === 'dkk') {
           // Vegas intensity for DKK (convert to USD equivalent for thresholds)
           const usdEquiv = value / USD_TO_DKK;
           amountEl.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
@@ -3326,28 +3532,13 @@
             const usd = Math.round(usdEquiv);
             conversionEl.innerHTML = `<span>≈ $${usd}</span>`;
           }
-        } else {
-          // Monthly or other - no intensity
-          amountEl.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
-          logoEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
-          conversionEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
-          stopWiggle();
         }
       }
 
       slider.addEventListener('input', () => {
         update();
-        // Save slider value to prefs
-        const sliderKey = `slider_${currency}`;
-        savePrefs({ [sliderKey]: parseInt(slider.value) });
       });
       
-      // Restore saved slider value
-      const prefs = getPrefs();
-      const savedSliderVal = prefs[`slider_${currency}`];
-      if (savedSliderVal && savedSliderVal >= parseInt(slider.min) && savedSliderVal <= parseInt(slider.max)) {
-        slider.value = savedSliderVal;
-      }
       update();
       
       // Store isMonthly state on widget for button handler
@@ -3793,29 +3984,74 @@
     }
     loadShopProducts();
 
-    // Format time ago helper for gives
-    function formatGiveTimeAgo(timestamp) {
-      if (!timestamp || typeof timestamp !== 'number') return '';
-      const now = Date.now();
-      const diff = now - timestamp;
-      const minutes = Math.floor(diff / 60000);
-      const hours = Math.floor(diff / 3600000);
-      const days = Math.floor(diff / 86400000);
-      
-      if (minutes < 1) return 'just now';
-      if (minutes < 60) return `${minutes}m ago`;
-      if (hours < 24) return `${hours}h ago`;
-      if (days < 30) return `${days}d ago`;
+    // Load stats from metrics API
+    async function loadStats() {
       try {
-        return new Date(timestamp).toLocaleDateString();
+        const res = await fetch('https://aesthetic.computer/api/metrics');
+        const data = await res.json();
+        
+        const fmt = n => n?.toLocaleString() || '—';
+        
+        // Update stat values
+        const handlesEl = document.querySelector('#stat-handles .stat-value');
+        const paintingsEl = document.querySelector('#stat-paintings .stat-value');
+        const moodsEl = document.querySelector('#stat-moods .stat-value');
+        const commandsEl = document.querySelector('#stat-commands .stat-value');
+        const messagesEl = document.querySelector('#stat-messages .stat-value');
+        
+        if (handlesEl) handlesEl.textContent = fmt(data.handles);
+        if (paintingsEl) paintingsEl.textContent = fmt(data.paintings);
+        if (moodsEl) moodsEl.textContent = fmt(data.moods);
+        // Commands = pieces + prompts (from docs)
+        const commandCount = (data.pieces || 0) + 107; // 107 prompts from docs.js
+        if (commandsEl) commandsEl.textContent = fmt(commandCount);
+        // Messages = chatMessages (laer-klokken + chat combined)
+        if (messagesEl) messagesEl.textContent = fmt(data.chatMessages);
+        
       } catch (e) {
-        return '';
+        console.warn('Could not load stats:', e);
       }
     }
+    loadStats();
 
-    // Recent Gives - load from Stripe via API
+    // KidLisp count - loaded after apiBase is defined (see below)
+
+    // Format detailed timestamp for gives
+    // Returns { time: string, useOn: boolean } - useOn=true for date-based times
+    function formatGiveTime(timestamp) {
+      if (!timestamp || typeof timestamp !== 'number') return { time: '', useOn: false };
+      const date = new Date(timestamp);
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const isYesterday = new Date(now - 86400000).toDateString() === date.toDateString();
+      
+      const time = date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      }).toLowerCase();
+      
+      if (isToday) return { time: `today at ${time}`, useOn: false };
+      if (isYesterday) return { time: `yesterday at ${time}`, useOn: false };
+      
+      const diff = now - date;
+      const days = Math.floor(diff / 86400000);
+      if (days < 7) {
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+        return { time: `${dayName} at ${time}`, useOn: true };
+      }
+      
+      const dateStr = date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+      });
+      return { time: dateStr, useOn: true };
+    }
+
+    // Gives - load from Stripe via API and display as horizontal ticker
     async function loadRecentGives() {
-      const container = document.getElementById('givesList');
+      const ticker = document.getElementById('givesTicker');
       try {
         // Use local function endpoint in dev, production URL otherwise
         const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
@@ -3826,35 +4062,38 @@
         const data = await res.json();
         
         if (!data.gives?.length) {
-          container.innerHTML = '<div class="gives-loading" data-lang="en">Be the first to give!</div><div class="gives-loading" data-lang="da">Vær den første til at give!</div>';
-          setLanguage(currentLang); // Refresh language display
+          ticker.innerHTML = '<div class="gives-ticker-empty" data-lang="en">Gives not tax deductible. <a href="#invest" class="invest-link">Investor?</a></div><div class="gives-ticker-empty" data-lang="da">Gaver er ikke fradragsberettigede. <a href="#invest" class="invest-link">Investor?</a></div>';
+          setLanguage(currentLang);
           return;
         }
         
-        container.innerHTML = data.gives.map(give => {
-          const timeAgo = formatGiveTimeAgo(give.createdAt); // Already in ms
-          const isSubscription = give.isRecurring;
-          const typeLabel = isSubscription ? 'monthly' : 'one-time';
-          const typeLabelDa = isSubscription ? 'månedligt' : 'engangsgave';
-          const noteHtml = give.note ? `<div class="give-note">"${give.note}"</div>` : '';
+        givesData = data.gives;
+        
+        // Build horizontal ticker items - "Got $5 today" or "Got $5 on Dec 15" format
+        const items = givesData.map(give => {
+          const { time: timeStr, useOn } = formatGiveTime(give.createdAt);
+          const hasNote = give.note && give.note.trim();
+          const noteHtml = hasNote ? `<span class="sep">:</span><span class="note">${give.note}</span>` : '';
+          const timeHtml = useOn ? `<span class="time">on ${timeStr}</span>` : `<span class="time">${timeStr}</span>`;
           
-          return `
-            <div class="give-item">
-              <div class="give-amount">${give.amountDisplay}</div>
-              <div class="give-type ${isSubscription ? 'subscription' : ''}">
-                <span data-lang="en">${typeLabel}</span>
-                <span data-lang="da">${typeLabelDa}</span>
-              </div>
-              <div class="give-time">${timeAgo}</div>
-              ${noteHtml}
-            </div>
-          `;
+          return `<span class="gives-ticker-item"><span class="got">Got</span><span class="amount">${give.amountDisplay}</span>${timeHtml}${noteHtml}</span>`;
         }).join('');
         
-        setLanguage(currentLang); // Refresh language display for new elements
+        // Duplicate content multiple times to ensure seamless infinite scroll
+        ticker.innerHTML = `<div class="gives-ticker-track">${items}${items}${items}</div>`;
+        
+        // Adjust animation speed based on content length (content is tripled)
+        const track = ticker.querySelector('.gives-ticker-track');
+        if (track) {
+          const contentWidth = track.scrollWidth / 3; // one-third since tripled
+          const speed = Math.max(15, contentWidth / 40); // ~40px per second
+          track.style.animationDuration = `${speed}s`;
+        }
+        
+        setLanguage(currentLang);
       } catch (e) {
         console.error('Gives load error:', e);
-        container.innerHTML = '<div class="gives-loading">Unable to load recent gives</div>';
+        ticker.innerHTML = '<div class="gives-ticker-empty">Unable to load gives</div>';
       }
     }
     
@@ -3864,6 +4103,21 @@
     const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('local.')
       ? '' // Use relative URLs in dev
       : 'https://aesthetic.computer';
+
+    // KidLisp count from dedicated endpoint
+    async function loadKidlispCount() {
+      try {
+        const res = await fetch(`${apiBase}/api/kidlisp-count`);
+        const data = await res.json();
+        const count = data.count || 0;
+        
+        const el = document.querySelector('#stat-kidlisp .stat-value');
+        if (el && count) el.textContent = count.toLocaleString();
+      } catch (e) {
+        console.warn('Could not load kidlisp count:', e);
+      }
+    }
+    loadKidlispCount();
 
     // TV video feed - load and cycle through tape videos
     let tvTapes = [];
@@ -4665,17 +4919,59 @@
         if (!res.ok) throw new Error('Failed to fetch paintings');
         
         const data = await res.json();
-        const paintings = data.items || [];
-        if (!paintings.length) return;
+        const paintings = data.media?.paintings || [];
+        if (!paintings.length) {
+          console.log('No paintings found');
+          return;
+        }
+        console.log(`Loaded ${paintings.length} paintings for floating`);
         
-        // Preload images
-        const preloaded = [];
+        // Group paintings by handle and take max 3-4 per user for variety
+        const byHandle = {};
         for (const p of paintings) {
           if (!p.media?.url) continue;
-          const img = new Image();
-          img.src = p.media.url;
-          preloaded.push({ ...p, img });
+          if (!p.owner?.handle) continue;
+          const h = p.owner.handle;
+          if (!byHandle[h]) byHandle[h] = [];
+          if (byHandle[h].length < 4) byHandle[h].push(p);
         }
+        
+        // Interleave paintings from different handles
+        const mixed = [];
+        const handles = Object.keys(byHandle);
+        let moreToAdd = true;
+        let idx = 0;
+        while (moreToAdd) {
+          moreToAdd = false;
+          for (const h of handles) {
+            if (byHandle[h][idx]) {
+              mixed.push(byHandle[h][idx]);
+              moreToAdd = true;
+            }
+          }
+          idx++;
+        }
+        
+        // Preload all images and wait for them to load
+        const preloaded = [];
+        const loadPromises = [];
+        for (const p of mixed) {
+          const img = new Image();
+          const promise = new Promise(resolve => {
+            img.onload = () => {
+              preloaded.push({ ...p, img });
+              resolve();
+            };
+            img.onerror = resolve; // Skip failed loads
+          });
+          img.src = p.media.url;
+          loadPromises.push(promise);
+        }
+        
+        await Promise.all(loadPromises);
+        console.log(`Preloaded ${preloaded.length} paintings from ${handles.length} users`);
+        
+        if (!preloaded.length) return;
         
         let index = 0;
         
@@ -4688,16 +4984,25 @@
           const floater = document.createElement('div');
           floater.className = 'stat-floater';
           
-          // Random horizontal position (10% to 90% to avoid edges)
-          const xPos = 10 + Math.random() * 80;
-          floater.style.left = `${xPos}%`;
-          floater.style.bottom = '0';
-          floater.style.transform = 'translateX(-50%)';
+          // Random pixel size: 2x (32px), 3x (48px), or 4x (64px)
+          const sizes = [32, 48, 64];
+          const size = sizes[Math.floor(Math.random() * sizes.length)];
           
-          // Thumbnail
+          // Random horizontal position (5% to 95%)
+          const xPos = 5 + Math.random() * 90;
+          floater.style.left = `calc(${xPos}% - ${size/2}px)`;
+          floater.style.bottom = '-20px';
+          
+          // Random duration between 10-20s (independent of size)
+          const duration = 10 + Math.random() * 10;
+          floater.style.setProperty('--float-duration', `${duration}s`);
+          
+          // Thumbnail - use preloaded image
           const thumb = document.createElement('img');
-          thumb.src = p.media.url;
+          thumb.src = p.img.src;
           thumb.alt = p.code || 'painting';
+          thumb.style.width = `${size}px`;
+          thumb.style.height = `${size}px`;
           floater.appendChild(thumb);
           
           // Code label
@@ -4724,6 +5029,333 @@
     }
     
     loadFloatingPaintings();
+
+    // 🏷️ Floating Handles in Stats
+    async function loadFloatingHandles() {
+      const statItem = document.getElementById('stat-handles');
+      if (!statItem) return;
+      
+      const floatersContainer = statItem.querySelector('.stat-floaters');
+      if (!floatersContainer) return;
+      
+      try {
+        // Get handles from moods API (each mood has a handle)
+        const res = await fetch(`${apiBase}/api/mood/all`);
+        if (!res.ok) throw new Error('Failed to fetch moods for handles');
+        
+        const data = await res.json();
+        const moods = data.moods || [];
+        
+        // Extract unique handles
+        const handleSet = new Set();
+        for (const m of moods) {
+          if (m.handle) handleSet.add(m.handle);
+        }
+        const handles = Array.from(handleSet);
+        
+        if (!handles.length) return;
+        console.log(`Loaded ${handles.length} unique handles for floating`);
+        
+        let index = 0;
+        
+        function spawnFloater() {
+          const handle = handles[index % handles.length];
+          index++;
+          
+          const floater = document.createElement('div');
+          
+          // Randomly choose left or right direction
+          const goRight = Math.random() > 0.5;
+          floater.className = goRight ? 'stat-floater float-horizontal-right' : 'stat-floater float-horizontal';
+          
+          // Random vertical position (10% to 90%)
+          const yPos = 10 + Math.random() * 80;
+          floater.style.top = `${yPos}%`;
+          if (goRight) {
+            floater.style.left = '-80px';
+          } else {
+            floater.style.right = '-50px';
+          }
+          
+          // Random duration between 8-14s
+          const duration = 8 + Math.random() * 6;
+          floater.style.setProperty('--float-duration', `${duration}s`);
+          
+          // Handle text
+          const text = document.createElement('span');
+          text.className = 'floater-code';
+          text.style.fontSize = '0.9em';
+          text.style.color = 'var(--cyan)';
+          text.textContent = handle;
+          floater.appendChild(text);
+          
+          floatersContainer.appendChild(floater);
+          floater.addEventListener('animationend', () => floater.remove());
+        }
+        
+        spawnFloater();
+        setInterval(spawnFloater, 4000);
+        
+      } catch (e) {
+        console.warn('Could not load floating handles:', e);
+      }
+    }
+    
+    loadFloatingHandles();
+
+    // 😊 Floating Moods in Stats
+    async function loadFloatingMoods() {
+      const statItem = document.getElementById('stat-moods');
+      if (!statItem) return;
+      
+      const floatersContainer = statItem.querySelector('.stat-floaters');
+      if (!floatersContainer) return;
+      
+      try {
+        const res = await fetch(`${apiBase}/api/mood/all`);
+        if (!res.ok) throw new Error('Failed to fetch moods');
+        
+        const data = await res.json();
+        const moods = data.moods || [];
+        
+        // Group by handle, max 3 per user for variety
+        const byHandle = {};
+        for (const m of moods) {
+          if (!m.mood || !m.handle) continue;
+          if (!byHandle[m.handle]) byHandle[m.handle] = [];
+          if (byHandle[m.handle].length < 3) byHandle[m.handle].push(m);
+        }
+        
+        // Interleave moods from different handles
+        const mixed = [];
+        const handles = Object.keys(byHandle);
+        let moreToAdd = true;
+        let idx = 0;
+        while (moreToAdd) {
+          moreToAdd = false;
+          for (const h of handles) {
+            if (byHandle[h][idx]) {
+              mixed.push(byHandle[h][idx]);
+              moreToAdd = true;
+            }
+          }
+          idx++;
+        }
+        
+        if (!mixed.length) return;
+        console.log(`Loaded ${mixed.length} moods from ${handles.length} users for floating`);
+        
+        let index = 0;
+        
+        function spawnFloater() {
+          const m = mixed[index % mixed.length];
+          index++;
+          
+          const floater = document.createElement('div');
+          
+          // Randomly choose left or right direction
+          const goRight = Math.random() > 0.5;
+          floater.className = goRight ? 'stat-floater float-horizontal-right' : 'stat-floater float-horizontal';
+          
+          // Random vertical position (10% to 90%)
+          const yPos = 10 + Math.random() * 80;
+          floater.style.top = `${yPos}%`;
+          if (goRight) {
+            floater.style.left = '-80px';
+          } else {
+            floater.style.right = '-50px';
+          }
+          
+          // Random duration between 10-18s (moods float slower)
+          const duration = 10 + Math.random() * 8;
+          floater.style.setProperty('--float-duration', `${duration}s`);
+          
+          // Mood text (truncate if too long)
+          const text = document.createElement('span');
+          text.className = 'floater-code';
+          text.style.fontSize = '0.7em';
+          text.style.maxWidth = '80px';
+          text.style.overflow = 'hidden';
+          text.style.textOverflow = 'ellipsis';
+          text.style.color = 'var(--gold)';
+          const moodText = m.mood.length > 20 ? m.mood.slice(0, 18) + '…' : m.mood;
+          text.textContent = moodText;
+          floater.appendChild(text);
+          
+          floatersContainer.appendChild(floater);
+          floater.addEventListener('animationend', () => floater.remove());
+        }
+        
+        spawnFloater();
+        setInterval(spawnFloater, 3500);
+        
+      } catch (e) {
+        console.warn('Could not load floating moods:', e);
+      }
+    }
+    
+    loadFloatingMoods();
+
+    // 💻 Floating KidLisp Codes in Stats
+    async function loadFloatingKidlisp() {
+      const statItem = document.getElementById('stat-kidlisp');
+      if (!statItem) return;
+      
+      const floatersContainer = statItem.querySelector('.stat-floaters');
+      if (!floatersContainer) return;
+      
+      try {
+        const res = await fetch(`${apiBase}/api/tv?types=kidlisp&limit=100`);
+        if (!res.ok) throw new Error('Failed to fetch kidlisp');
+        
+        const data = await res.json();
+        const kidlisps = data.media?.kidlisp || [];
+        
+        // Group by handle, max 4 per user for variety
+        const byHandle = {};
+        for (const k of kidlisps) {
+          if (!k.code) continue;
+          const h = k.owner?.handle || 'anonymous';
+          if (!byHandle[h]) byHandle[h] = [];
+          if (byHandle[h].length < 4) byHandle[h].push(k);
+        }
+        
+        // Interleave from different handles
+        const mixed = [];
+        const handles = Object.keys(byHandle);
+        let moreToAdd = true;
+        let idx = 0;
+        while (moreToAdd) {
+          moreToAdd = false;
+          for (const h of handles) {
+            if (byHandle[h][idx]) {
+              mixed.push(byHandle[h][idx]);
+              moreToAdd = true;
+            }
+          }
+          idx++;
+        }
+        
+        if (!mixed.length) return;
+        console.log(`Loaded ${mixed.length} kidlisp codes from ${handles.length} users for floating`);
+        
+        let index = 0;
+        
+        function spawnFloater() {
+          const k = mixed[index % mixed.length];
+          index++;
+          
+          const floater = document.createElement('div');
+          floater.className = 'stat-floater';
+          
+          // Random horizontal position (5% to 95%)
+          const xPos = 5 + Math.random() * 90;
+          floater.style.left = `${xPos}%`;
+          floater.style.bottom = '-20px';
+          
+          // Random duration between 10-18s
+          const duration = 10 + Math.random() * 8;
+          floater.style.setProperty('--float-duration', `${duration}s`);
+          
+          // Code text
+          const text = document.createElement('span');
+          text.className = 'floater-code';
+          text.style.fontSize = '0.8em';
+          text.style.color = 'var(--magenta)';
+          text.textContent = `$${k.code}`;
+          floater.appendChild(text);
+          
+          floatersContainer.appendChild(floater);
+          floater.addEventListener('animationend', () => floater.remove());
+        }
+        
+        spawnFloater();
+        setInterval(spawnFloater, 3000);
+        
+      } catch (e) {
+        console.warn('Could not load floating kidlisp:', e);
+      }
+    }
+    
+    loadFloatingKidlisp();
+
+    // 🧩 Floating Commands (pieces + prompts) in Stats
+    async function loadFloatingCommands() {
+      const statItem = document.getElementById('stat-commands');
+      if (!statItem) return;
+      
+      const floatersContainer = statItem.querySelector('.stat-floaters');
+      if (!floatersContainer) return;
+      
+      try {
+        // Fetch pieces from API
+        const res = await fetch(`${apiBase}/api/piece-hit?top=50`);
+        if (!res.ok) throw new Error('Failed to fetch pieces');
+        
+        const data = await res.json();
+        const pieces = (data.pieces || []).filter(p => {
+          return p.piece && !p.piece.startsWith('api/') && !p.piece.includes('.');
+        }).map(p => ({ name: p.piece, type: 'piece' }));
+        
+        // Hard-coded prompts (commands you type in prompt)
+        const prompts = [
+          'tape', 'cut', 'keep', 'mint', 'print', 'scream', 'me', 'selfie',
+          'cam', 'flower', 'petal', 'sparkle', 'done', 'tezos', 'notifs',
+          'bro', 'sis', 'bf', 'gf', 'email', 'handle', 'logout', 'leave',
+          'join', 'mood', 'profile', 'code', 'upload', 'download', 'delete'
+        ].map(name => ({ name, type: 'prompt' }));
+        
+        // Interleave pieces and prompts
+        const commands = [];
+        const maxLen = Math.max(pieces.length, prompts.length);
+        for (let i = 0; i < maxLen; i++) {
+          if (pieces[i]) commands.push(pieces[i]);
+          if (prompts[i]) commands.push(prompts[i]);
+        }
+        
+        if (!commands.length) return;
+        console.log(`Loaded ${commands.length} commands (${pieces.length} pieces, ${prompts.length} prompts)`);
+        
+        let index = 0;
+        
+        function spawnFloater() {
+          const cmd = commands[index % commands.length];
+          index++;
+          
+          const floater = document.createElement('div');
+          floater.className = 'stat-floater';
+          
+          // Random horizontal position (5% to 95%)
+          const xPos = 5 + Math.random() * 90;
+          floater.style.left = `${xPos}%`;
+          floater.style.bottom = '-20px';
+          
+          // Random duration between 10-18s
+          const duration = 10 + Math.random() * 8;
+          floater.style.setProperty('--float-duration', `${duration}s`);
+          
+          // Command name - color coded
+          const text = document.createElement('span');
+          text.className = 'floater-code';
+          text.style.fontSize = '0.7em';
+          // Green for pieces (apps), Yellow/gold for prompts (commands)
+          text.style.color = cmd.type === 'piece' ? 'var(--green)' : 'var(--gold)';
+          text.textContent = cmd.name;
+          floater.appendChild(text);
+          
+          floatersContainer.appendChild(floater);
+          floater.addEventListener('animationend', () => floater.remove());
+        }
+        
+        spawnFloater();
+        setInterval(spawnFloater, 2500);
+        
+      } catch (e) {
+        console.warn('Could not load floating commands:', e);
+      }
+    }
+    
+    loadFloatingCommands();
   </script>
   
   <!-- 🔄 Development live reload via session-server -->
