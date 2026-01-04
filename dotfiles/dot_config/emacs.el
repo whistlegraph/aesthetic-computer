@@ -1,293 +1,14 @@
 ;; -*- lexical-binding: t; -*-
 ;; Aesthetic Computer Emacs Configuration, 2024.3.13.12.51
 
-;; Debug logging - persistent location that survives container rebuilds
-(defvar ac-debug-log-file "/workspaces/aesthetic-computer/.emacs-logs/emacs-debug.log")
-(defvar ac-perf-log-file "/workspaces/aesthetic-computer/.emacs-logs/emacs-perf.log")
-(defvar ac-profile-log-file "/workspaces/aesthetic-computer/.emacs-logs/emacs-profile.log")
-(defvar ac--startup-time (current-time))
-(defvar ac--last-perf-time (current-time))
-
+;; Debug logging
+(defvar ac-debug-log-file "/tmp/emacs-debug.log")
 (defun ac-debug-log (message)
-  "Log a debug message with timestamp."
   (with-temp-buffer
     (insert (format "[%s] %s\n" (format-time-string "%Y-%m-%d %H:%M:%S.%3N") message))
     (append-to-file (point-min) (point-max) ac-debug-log-file)))
 
-(defun ac-perf-log (label)
-  "Log performance timing since startup and since last checkpoint."
-  (let* ((now (current-time))
-         (total-ms (round (* 1000 (float-time (time-subtract now ac--startup-time)))))
-         (delta-ms (round (* 1000 (float-time (time-subtract now ac--last-perf-time))))))
-    (setq ac--last-perf-time now)
-    (with-temp-buffer
-      (insert (format "[%s] PERF: %s | +%dms (total: %dms)\n" 
-                      (format-time-string "%Y-%m-%d %H:%M:%S.%3N")
-                      label delta-ms total-ms))
-      (append-to-file (point-min) (point-max) ac-perf-log-file))))
-
-(defun ac-perf-session-start ()
-  "Mark the start of a new Emacs session in perf log."
-  (with-temp-buffer
-    (insert (format "\n=== NEW SESSION: %s ===\n" (format-time-string "%Y-%m-%d %H:%M:%S")))
-    (append-to-file (point-min) (point-max) ac-perf-log-file)))
-
-;;; ===================================================================
-;;; PROFILING & DIAGNOSTICS
-;;; ===================================================================
-
-(defvar ac--profiling-active nil "Whether CPU profiling is currently running.")
-
-(defun ac-profile-start ()
-  "Start CPU profiler and log to file."
-  (interactive)
-  (unless ac--profiling-active
-    (profiler-start 'cpu)
-    (setq ac--profiling-active t)
-    (ac-debug-log "PROFILER: Started CPU profiling")))
-
-(defun ac-profile-stop ()
-  "Stop profiler and write report to log file."
-  (interactive)
-  (when ac--profiling-active
-    (let ((report (profiler-report-cpu)))
-      (with-temp-buffer
-        (insert (format "\n=== PROFILE REPORT: %s ===\n" (format-time-string "%Y-%m-%d %H:%M:%S")))
-        (profiler-report)
-        (append-to-file (point-min) (point-max) ac-profile-log-file)))
-    (profiler-stop)
-    (setq ac--profiling-active nil)
-    (ac-debug-log "PROFILER: Stopped, report written")))
-
-(defun ac-profile-report ()
-  "Show profiler report interactively."
-  (interactive)
-  (profiler-report))
-
-(defun ac-diagnose-eat ()
-  "Diagnose all eat terminal buffers - log their state."
-  (interactive)
-  (let ((eat-buffers (seq-filter (lambda (b) (with-current-buffer b (eq major-mode 'eat-mode)))
-                                  (buffer-list))))
-    (ac-debug-log (format "DIAGNOSE: Found %d eat buffers" (length eat-buffers)))
-    (dolist (buf eat-buffers)
-      (with-current-buffer buf
-        (let* ((proc (get-buffer-process buf))
-               (proc-status (if proc (process-status proc) 'no-process))
-               (buf-size (buffer-size)))
-          (ac-debug-log (format "  BUFFER: %s | size=%d | proc=%s"
-                                (buffer-name) buf-size proc-status)))))
-    (message "Diagnosed %d eat buffers - see debug log" (length eat-buffers))))
-
-(defun ac-diagnose-timers ()
-  "Log all active timers."
-  (interactive)
-  (ac-debug-log (format "DIAGNOSE: %d active timers" (length timer-list)))
-  (dolist (timer timer-list)
-    (ac-debug-log (format "  TIMER: %s repeat=%s" 
-                          (timer--function timer)
-                          (timer--repeat-delay timer))))
-  (message "Logged %d timers" (length timer-list)))
-
-(defun ac-diagnose-processes ()
-  "Log all active processes."
-  (interactive)
-  (let ((procs (process-list)))
-    (ac-debug-log (format "DIAGNOSE: %d active processes" (length procs)))
-    (dolist (proc procs)
-      (ac-debug-log (format "  PROC: %s | status=%s | buffer=%s"
-                            (process-name proc)
-                            (process-status proc)
-                            (if (process-buffer proc) (buffer-name (process-buffer proc)) "none"))))
-    (message "Logged %d processes" (length procs))))
-
-(defun ac-diagnose-all ()
-  "Run all diagnostics."
-  (interactive)
-  (ac-debug-log "=== FULL DIAGNOSTIC START ===")
-  (ac-diagnose-eat)
-  (ac-diagnose-timers)
-  (ac-diagnose-processes)
-  (ac-debug-log "=== FULL DIAGNOSTIC END ===")
-  (message "Full diagnostic complete - see .emacs-logs/emacs-debug.log"))
-
-;; Keybindings for diagnostics
-(global-set-key (kbd "C-c d e") 'ac-diagnose-eat)
-(global-set-key (kbd "C-c d t") 'ac-diagnose-timers)
-(global-set-key (kbd "C-c d p") 'ac-diagnose-processes)
-(global-set-key (kbd "C-c d a") 'ac-diagnose-all)
-(global-set-key (kbd "C-c d s") 'ac-profile-start)
-(global-set-key (kbd "C-c d x") 'ac-profile-stop)
-(global-set-key (kbd "C-c d r") 'ac-profile-report)
-
-;;; --- MCP State Awareness Functions ---
-;; These functions provide structured state info for MCP tools
-
-(defun ac-mcp-get-state ()
-  "Return comprehensive emacs state as JSON-friendly alist for MCP tools.
-Call this to get awareness of current buffers, tabs, and processes."
-  (let* ((current-buf (current-buffer))
-         (current-buf-name (buffer-name current-buf))
-         (current-tab (alist-get 'name (tab-bar--current-tab)))
-         (all-tabs (mapcar (lambda (tab) (alist-get 'name tab)) (tab-bar-tabs)))
-         (eat-buffers 
-          (seq-filter (lambda (b) 
-                        (with-current-buffer b (eq major-mode 'eat-mode)))
-                      (buffer-list)))
-         (eat-info
-          (mapcar (lambda (buf)
-                    (with-current-buffer buf
-                      (let* ((proc (get-buffer-process buf))
-                             (proc-status (if proc 
-                                              (symbol-name (process-status proc)) 
-                                            "no-process")))
-                        (list (cons 'name (buffer-name buf))
-                              (cons 'process proc-status)
-                              (cons 'alive (and proc (process-live-p proc)))))))
-                  eat-buffers)))
-    (list (cons 'currentBuffer current-buf-name)
-          (cons 'currentTab current-tab)
-          (cons 'allTabs all-tabs)
-          (cons 'eatBuffers eat-info))))
-
-(defun ac-mcp-get-buffer-state (buffer-name)
-  "Get detailed state of a specific buffer for MCP tools.
-Returns nil if buffer doesn't exist, otherwise returns alist with:
-- exists: always t
-- mode: major mode name  
-- process: process status or nil
-- alive: t if process is live
-- modified: t if buffer has unsaved changes
-- size: buffer character count"
-  (if-let ((buf (get-buffer buffer-name)))
-      (with-current-buffer buf
-        (let* ((proc (get-buffer-process buf))
-               (proc-status (when proc (symbol-name (process-status proc)))))
-          (list (cons 'exists t)
-                (cons 'mode (symbol-name major-mode))
-                (cons 'process proc-status)
-                (cons 'alive (and proc (process-live-p proc)))
-                (cons 'modified (buffer-modified-p))
-                (cons 'size (buffer-size)))))
-    nil))
-
-(defun ac-mcp-get-eat-status (buffer-name)
-  "Get status of an eat terminal buffer.
-Returns: 'running, 'exited, 'not-eat, or 'not-found"
-  (if-let ((buf (get-buffer buffer-name)))
-      (with-current-buffer buf
-        (if (eq major-mode 'eat-mode)
-            (let ((proc (get-buffer-process buf)))
-              (cond
-               ((not proc) 'exited)
-               ((process-live-p proc) 'running)
-               (t 'exited)))
-          'not-eat))
-    'not-found))
-
-(defun ac-mcp-format-state ()
-  "Return emacs state as formatted string for MCP tools."
-  (let* ((state (ac-mcp-get-state))
-         (current-buf (alist-get 'currentBuffer state))
-         (current-tab (alist-get 'currentTab state))
-         (tabs (alist-get 'allTabs state))
-         (eats (alist-get 'eatBuffers state)))
-    (format "Tab: %s | Buffer: %s | Tabs: [%s] | Terminals: %s"
-            current-tab
-            current-buf
-            (mapconcat #'identity tabs ", ")
-            (mapconcat (lambda (e) 
-                         (format "%s(%s)" 
-                                 (alist-get 'name e)
-                                 (if (alist-get 'alive e) "●" "○")))
-                       eats ", "))))
-
-(defun ac-mcp-ensure-buffer-ready (buffer-name &optional restart-fn)
-  "Ensure buffer exists and is usable. Returns status symbol.
-If buffer has dead process and RESTART-FN is provided, calls it.
-Returns: 'ready, 'restarted, 'dead, or 'not-found"
-  (if-let ((buf (get-buffer buffer-name)))
-      (with-current-buffer buf
-        (if (eq major-mode 'eat-mode)
-            (let ((proc (get-buffer-process buf)))
-              (cond
-               ((and proc (process-live-p proc)) 'ready)
-               (restart-fn 
-                (funcall restart-fn)
-                'restarted)
-               (t 'dead)))
-          'ready))
-    'not-found))
-
-;;; --- Copilot Completion Notification ---
-;; Flash current terminal when Copilot response is done (called via MCP)
-
-(defvar ac-notify-flash-active nil "Whether notification flash is currently active.")
-(defvar ac-notify-flash-timer nil "Timer for notification flashing.")
-(defvar ac-notify-flash-count 0 "Number of flash cycles completed.")
-(defvar ac-notify-original-bg nil "Original background color before flash.")
-(defvar ac-notify-flash-colors
-  '("#1a3a1a"   ; dark green
-    "#3a1a3a"   ; dark magenta
-    "#1a1a3a"   ; dark blue
-    "#3a3a1a"   ; dark yellow
-    "#3a1a1a"   ; dark red
-    "#1a3a3a")  ; dark cyan
-  "Colors to cycle through during notification flash.")
-
-(defun ac-notify-stop-flash ()
-  "Stop the notification flash and restore original background."
-  (interactive)
-  (when ac-notify-flash-timer
-    (cancel-timer ac-notify-flash-timer)
-    (setq ac-notify-flash-timer nil))
-  (setq ac-notify-flash-active nil)
-  (setq ac-notify-flash-count 0)
-  ;; Restore original background
-  (when ac-notify-original-bg
-    (set-face-background 'default ac-notify-original-bg)
-    (setq ac-notify-original-bg nil))
-  ;; Force redisplay
-  (redisplay t))
-
-(defun ac-notify-do-flash ()
-  "Perform one flash cycle with rainbow colors."
-  (when ac-notify-flash-active
-    (setq ac-notify-flash-count (1+ ac-notify-flash-count))
-    ;; Alternate between flash colors and original
-    (if (= (mod ac-notify-flash-count 2) 1)
-        ;; Pick a color from the list, cycling through
-        (let* ((color-idx (mod (/ ac-notify-flash-count 2) (length ac-notify-flash-colors)))
-               (flash-color (nth color-idx ac-notify-flash-colors)))
-          (set-face-background 'default flash-color))
-      (set-face-background 'default ac-notify-original-bg))
-    (redisplay t)
-    ;; Continue flashing
-    (setq ac-notify-flash-timer
-          (run-at-time 0.25 nil #'ac-notify-do-flash))))
-
-(defun ac-notify-done (&optional message)
-  "Notify completion by flashing the current buffer background.
-Flash continues until user clicks or presses a key.
-Called by MCP tools at the end of each response."
-  (interactive)
-  (let ((msg (or message "Done")))
-    ;; Also signal artery-tui (for when viewing that tab)
-    (with-temp-file "/tmp/ac-copilot-done"
-      (insert "done"))
-    ;; Start flashing in current buffer
-    (unless ac-notify-flash-active
-      (setq ac-notify-original-bg (face-background 'default nil t))
-      (setq ac-notify-flash-active t)
-      (setq ac-notify-flash-count 0)
-      (ac-notify-do-flash)
-      ;; Stop flash on any input (mouse or keyboard)
-      (add-hook 'pre-command-hook #'ac-notify-stop-flash))
-    (message "🔔 %s" msg)))
-
-(ac-perf-session-start)
 (ac-debug-log "=== Starting Emacs Configuration Load ===")
-(ac-perf-log "Config load started")
 
 ;; Performance settings
 (ac-debug-log "Setting performance options...")
@@ -300,14 +21,7 @@ Called by MCP tools at the end of each response."
       comp-deferred-compilation nil             ; Also disable via comp- prefix
       x-gtk-use-system-tooltips nil
       mac-option-modifier 'meta
-      warning-minimum-level :emergency
-      ;; Terminal/process output throttling
-      read-process-output-max (* 16 1024)       ; 16KB chunks instead of 64KB
-      process-adaptive-read-buffering t         ; Let emacs batch reads
-      redisplay-dont-pause nil                  ; Allow redisplay interruption
-      fast-but-imprecise-scrolling t            ; Faster scroll in terminals
-      bidi-inhibit-bpa t                        ; Disable bidi for terminals
-      bidi-paragraph-direction 'left-to-right)  ; No bidi scanning
+      warning-minimum-level :emergency)
 
 ;; Kill any runaway native comp processes on startup
 (when (fboundp 'native-comp-available-p)
@@ -315,7 +29,6 @@ Called by MCP tools at the end of each response."
               (lambda (&rest _) nil)))          ; Completely disable async native comp
 
 (ac-debug-log "Performance settings loaded")
-(ac-perf-log "Performance settings loaded")
 
 (global-set-key [C-down-mouse-1] 'ignore)
 
@@ -365,26 +78,8 @@ Called by MCP tools at the end of each response."
             (derived-mode-p 'eat-mode))
     (display-line-numbers-mode -1)))
 
-(defun ac-optimize-eat-terminal ()
-  "Disable heavy modes in eat terminal buffers for better performance."
-  ;; Disable line numbers
-  (display-line-numbers-mode -1)
-  ;; Disable evil-mode (use emacs keybindings in terminals)
-  (when (and (boundp 'evil-local-mode) (fboundp 'evil-local-mode))
-    (evil-local-mode -1))
-  ;; Disable origami (code folding not needed in terminal)
-  (when (and (boundp 'origami-mode) (fboundp 'origami-mode))
-    (origami-mode -1))
-  ;; Disable yascroll (scrollbar causes rendering overhead)
-  (when (and (boundp 'yascroll-bar-mode) (fboundp 'yascroll-bar-mode))
-    (yascroll-bar-mode -1))
-  ;; Disable fill column indicator
-  (when (fboundp 'display-fill-column-indicator-mode)
-    (display-fill-column-indicator-mode -1)))
-
 (add-hook 'eshell-mode-hook 'disable-line-numbers-in-modes)
 (add-hook 'eat-mode-hook 'disable-line-numbers-in-modes)
-(add-hook 'eat-mode-hook 'ac-optimize-eat-terminal)
 (add-hook 'image-mode-hook 'disable-line-numbers-in-modes)
 
 ;; Electric pairs
@@ -518,35 +213,9 @@ Called by MCP tools at the end of each response."
     (load bootstrap-file nil 'nomessage)))
 
 (setq straight-use-package-by-default t
-      straight-vc-git-default-clone-depth 1   ; Shallow clones for faster setup
-      straight-check-for-modifications '(check-on-save find-when-checking))
-
-;; Auto-update packages in background (daemon only, not on client connect)
-(defun ac-update-packages-async ()
-  "Update all packages asynchronously in background subprocess."
-  (ac-debug-log "Checking for package updates in background...")
-  (let ((default-directory user-emacs-directory))
-    ;; Run in a subprocess so it doesn't block anything
-    (start-process "straight-update" "*straight-update*"
-                   "emacs" "--batch" "-l" user-init-file
-                   "--eval" "(progn (straight-pull-all) (straight-rebuild-all))")))
-
-;; Manual update command
-(defun ac-update-packages ()
-  "Manually update all packages now."
-  (interactive)
-  (message "🔄 Updating packages...")
-  (straight-pull-all)
-  (straight-rebuild-all)
-  (message "✅ All packages updated"))
-
-;; Only check for updates during daemon startup, not on every client connection
-;; This prevents UI blocking when connecting emacsclient
-(when (daemonp)
-  (run-with-timer 60 nil #'ac-update-packages-async))
+      straight-vc-git-default-clone-depth 1)  ; Shallow clones for faster setup
 
 (ac-debug-log "Straight.el configured, starting package loads")
-(ac-perf-log "Straight.el configured")
 
 ;; Completion
 (ac-debug-log "Loading vertico")
@@ -554,7 +223,6 @@ Called by MCP tools at the end of each response."
   :init
   (vertico-mode))
 (ac-debug-log "Vertico loaded")
-(ac-perf-log "Vertico loaded")
 
 (use-package savehist
   :init
@@ -619,12 +287,8 @@ Called by MCP tools at the end of each response."
   :config 
   (global-yascroll-bar-mode 1))
 
-;; NOTE: origami.el has a defface bug that calls (face-attribute 'highlight :background)
-;; at load time, which returns 'unspecified' in daemon mode (no frame).
-;; Defer loading until after a frame exists.
 (use-package origami 
-  :defer t
-  :hook (server-after-make-frame . global-origami-mode))
+  :hook (after-init . global-origami-mode))
 
 (global-set-key (kbd "C-p") #'project-find-file)
 (global-set-key (kbd "C-x C-p") #'project-find-file)
@@ -699,43 +363,24 @@ Called by MCP tools at the end of each response."
 (global-set-key (kbd "C-c C-r") 'restart-emacs)
 (global-set-key (kbd "C-c C-o") 'browse-url-at-point)
 
-;; Eat terminal - with performance optimizations for many terminals
+;; Eat terminal
 (use-package eat)
 (setq-default eat-shell "/usr/bin/fish"
               eat-term-name "xterm-256color")
 
-;; Filter out unhandled OSC sequences (10/11/12 = fg/bg/cursor color)
-;; These are sent by apps like Copilot CLI but eat doesn't handle them
-(defun ac--strip-osc-color-sequences (string)
-  "Remove OSC 10/11/12 sequences that eat cannot process."
-  ;; Simple pattern: ]10/11/12;... until whitespace (Copilot CLI sends malformed OSC)
-  (replace-regexp-in-string "]1[012];[^[:space:]]+" "" string))
-
-
-(defun ac--filter-eat-output (orig-fn process string)
-  "Advice to filter unhandled OSC sequences before eat processes them."
-  (funcall orig-fn process (ac--strip-osc-color-sequences string)))
-
-(advice-add 'eat--filter :around #'ac--filter-eat-output)
-
-;; Performance: Aggressively limit eat overhead for 16+ terminals
-(setq eat-enable-directory-tracking nil      ; Reduces overhead
-      eat-enable-shell-command-history nil   ; We use fish history
-      eat-enable-shell-prompt-annotation nil ; Reduces processing
-      eat-show-title-on-mode-line nil        ; We name buffers ourselves
-      eat-term-scrollback-size 8192          ; 8KB - minimal scrollback
-      eat-enable-auto-line-mode nil          ; Keep in semi-char mode
-      eat-minimum-latency 0.1                ; Batch output updates (100ms)
-      eat-maximum-latency 0.2                ; Max batch delay (200ms)
-      eat-enable-blinking-text nil           ; Disable blinking
-      eat-enable-mouse nil)                  ; Disable mouse support
-
 ;; Disable evil mode in artery buffer
-;; REMOVED: buffer-list-update-hook was causing performance issues
-;; The hook fired constantly with 16+ terminals causing CPU spike
-;; Just use eat-mode-hook with timer instead
+;; Use buffer-list-update-hook to catch the rename
+(defun my/disable-evil-in-artery ()
+  "Switch to emacs state in artery buffers."
+  (when (and (eq major-mode 'eat-mode)
+             (boundp 'evil-mode) evil-mode
+             (string-match-p "artery" (buffer-name))
+             (not (eq evil-state 'emacs)))
+    (evil-emacs-state)))
 
-;; Use eat-mode-hook with a timer to catch post-rename
+(add-hook 'buffer-list-update-hook #'my/disable-evil-in-artery)
+
+;; Also add to eat-mode-hook with a timer to catch post-rename
 (add-hook 'eat-mode-hook
           (lambda ()
             (run-with-timer 0.5 nil
@@ -777,33 +422,6 @@ Called by MCP tools at the end of each response."
         (eat-kill-process)))))
 
 (add-hook 'kill-emacs-hook #'kill-eat-processes)
-
-(defun ac-restart-fishy ()
-  "Restart fish process in the fishy buffer if it died."
-  (interactive)
-  (if-let ((buf (get-buffer "🐟-fishy")))
-      (with-current-buffer buf
-        (if (get-buffer-process buf)
-            (message "Fish already running in 🐟-fishy")
-          (eat-exec buf "fishy" "/usr/bin/fish" nil nil)
-          (message "Fish restarted in 🐟-fishy")))
-    (message "No 🐟-fishy buffer found")))
-
-(defun ac--fishy-sentinel (process event)
-  "Auto-restart fishy when process exits."
-  (when (and (string-match-p "\\(finished\\|exited\\|killed\\)" event)
-             (buffer-live-p (process-buffer process))
-             (string= (buffer-name (process-buffer process)) "🐟-fishy"))
-    (run-with-timer 0.1 nil #'ac-restart-fishy)))
-
-;; Hook into eat to watch fishy process
-(add-hook 'eat-mode-hook
-          (lambda ()
-            (when (string= (buffer-name) "🐟-fishy")
-              (run-with-timer 0.5 nil
-                (lambda ()
-                  (when-let ((proc (get-buffer-process "🐟-fishy")))
-                    (set-process-sentinel proc #'ac--fishy-sentinel)))))))
 
 ;;; --- Aesthetic Computer Restart Functions ---
 
@@ -930,17 +548,15 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
 
 (setq confirm-kill-processes nil)
 
-;; DISABLED: These hooks were causing CPU spikes with 16+ terminals
-;; Each terminal output triggers filter functions, overwhelming emacs
-;; (add-hook 'eat-mode-hook
-;;           (lambda ()
-;;             (setq-local comint-scroll-to-bottom-on-output t
-;;                         comint-show-maximum-output t
-;;                         comint-move-point-for-output t
-;;                         window-point-insertion-type t)
-;;             (add-hook 'comint-output-filter-functions
-;;                       #'comint-postoutput-scroll-to-bottom
-;;                       nil t)))
+(add-hook 'eat-mode-hook
+          (lambda ()
+            (setq-local comint-scroll-to-bottom-on-output t
+                        comint-show-maximum-output t
+                        comint-move-point-for-output t
+                        window-point-insertion-type t)
+            (add-hook 'comint-output-filter-functions
+                      #'comint-postoutput-scroll-to-bottom
+                      nil t)))
 
 ;; Main backend function
 (defvar ac--directory-path "~/aesthetic-computer")
@@ -950,32 +566,11 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
     ("stripe-ticket" . "🎫") ("chat-system" . "🤖") ("chat-sotce" . "🧠")
     ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
     ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
-    ("oven" . "🔥") ("media" . "📦") ("llm" . "🤖") ("top" . "📊")
-    ("crash-diary" . "💥")))
-
-(defun ac--tab-exists-p (tab-name)
-  "Check if a tab with TAB-NAME already exists."
-  (cl-find tab-name (tab-bar-tabs) 
-           :key (lambda (tab) (alist-get 'name tab))
-           :test #'string=))
-
-(defun ac--buffer-exists-p (buffer-name)
-  "Check if a buffer with BUFFER-NAME already exists and has a live process."
-  (when-let ((buf (get-buffer buffer-name)))
-    (and (buffer-live-p buf)
-         (or (get-buffer-process buf)
-             (> (buffer-size buf) 0)))))
+    ("oven" . "🔥") ("media" . "📦")))
 
 (defun ac--create-split-tab (tab-name commands)
-  "Create a new tab with split windows running the specified commands.
-Skips creation if tab already exists."
-  ;; Guard: Skip if tab already exists
-  (when (ac--tab-exists-p tab-name)
-    (ac-debug-log (format "Tab '%s' already exists, skipping creation" tab-name))
-    (cl-return-from ac--create-split-tab nil))
-  
+  "Create a new tab with split windows running the specified commands."
   (ac-debug-log (format "Creating tab: %s with commands: %s" tab-name commands))
-  (ac-perf-log (format "Creating tab: %s" tab-name))
   (condition-case err
       (progn
         (tab-new)
@@ -983,41 +578,40 @@ Skips creation if tab already exists."
         (let ((default-directory ac--directory-path))
           (delete-other-windows)
           
-          ;; Calculate layout
+          ;; Try vertical splits first, then horizontal if needed
           (let* ((window-height (window-height))
+                 (window-width (window-width))
                  (min-height-per-window 8)
+                 (min-width-per-window 40)
                  (max-vertical-splits (/ window-height min-height-per-window))
                  (use-horizontal (< max-vertical-splits (length commands)))
-                 (cmd-index 0))
+                 (first t))
             
-            ;; Create windows and terminals - use eat-exec to avoid blocking
             (dolist (cmd commands)
-              (unless (= cmd-index 0)
+              (unless first 
                 (condition-case nil
                     (if use-horizontal
                         (progn (split-window-right) (other-window 1))
                       (progn (split-window-below) (other-window 1)))
-                  (error nil)))
+                  (error 
+                   (condition-case nil
+                       (if use-horizontal
+                           (progn (split-window-below) (other-window 1))
+                         (progn (split-window-right) (other-window 1)))
+                     (error (message "Cannot split for %s" cmd))))))
+              (setq first nil)
               
-              (let ((actual-cmd (cond
-                                  ((string= cmd "bookmarks") "servers")
-                                  ((string= cmd "llm") "llm-continue")  ; Auto-resume last session
-                                  (t cmd)))
-                    (buf-name (format "%s-%s"
-                                      (or (cdr (assoc cmd ac--emoji-for-command)) "🔧")
-                                      cmd)))
+              (let ((actual-cmd (if (string= cmd "bookmarks") "servers" cmd)))
                 (ac-debug-log (format "Running command: ac-%s" actual-cmd))
-                ;; Create eat buffer directly without blocking
-                (let ((buf (generate-new-buffer buf-name)))
-                  (with-current-buffer buf
-                    (eat-mode)
-                    (eat-exec buf buf-name "/usr/bin/fish" nil
-                              (list "-c" (format "ac-%s" actual-cmd))))
-                  (switch-to-buffer buf)
-                  ;; Yield to let Emacs process events (prevents freeze)
-                  (redisplay t)))
+                (eat (format "fish -c 'ac-%s'" actual-cmd)))
               
-              (setq cmd-index (1+ cmd-index)))
+              (when (get-buffer "*eat*")
+                (with-current-buffer "*eat*"
+                  (rename-buffer
+                   (format "%s-%s"
+                           (or (cdr (assoc cmd ac--emoji-for-command)) "🔧")
+                           cmd) t)))
+              (goto-char (point-max)))
             
             (balance-windows)
             (other-window 1))))
@@ -1025,44 +619,18 @@ Skips creation if tab already exists."
 
 (defun aesthetic-backend (target-tab)
   (interactive)
-  
-  ;; Prevent double-invocation race condition
-  (when ac--backend-started
-    (ac-debug-log (format "aesthetic-backend already started, just switching to tab: %s" target-tab))
-    ;; Just switch to the requested tab if backend already running
-    (run-with-timer 0.5 nil
-                    (lambda (target)
-                      (condition-case nil
-                          (when (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top"))
-                            (tab-bar-switch-to-tab target))
-                        (error nil)))
-                    target-tab)
-    (cl-return-from aesthetic-backend nil))
-  (setq ac--backend-started t)
-  
   (ac-debug-log (format "Starting aesthetic-backend with target-tab: %s" target-tab))
-  (ac-perf-log "aesthetic-backend started")
   
   ;; Set environment variable to tell fish it's running inside Emacs
   (setenv "AC_EMACS_MODE" "t")
-  
-  ;; Prevent OSC color query responses from leaking (shows as "11;rgb:..." text)
-  (setenv "COLORFGBG" "15;0")
-  ;; NOTE: Disabled the bash watchdog - it may contribute to instability
-  ;; The fish-based crash monitor in config.fish handles recovery instead
-  ;; (let ((watchdog-script (expand-file-name "monitor-emacs.sh" ac--directory-path)))
-  ;;   (when (file-exists-p watchdog-script)
-  ;;     (ac-debug-log "Starting emacs watchdog...")
-  ;;     (start-process "emacs-watchdog" nil "bash" watchdog-script)
-  ;;     (ac-debug-log "Emacs watchdog started")))
   
   ;; Set up a watchdog timer to detect hangs (30 seconds)
   (run-with-timer 30 nil
                   (lambda ()
                     (ac-debug-log "WARNING: aesthetic-backend has been running for 30+ seconds")
-                    (message "⚠️ Backend initialization taking longer than expected. Check .emacs-logs/")))
+                    (message "⚠️ Backend initialization taking longer than expected. Check /tmp/emacs-debug.log")))
 
-  ;; Clean up unwanted buffers before starting (with error handling)
+    ;; Clean up unwanted buffers before starting (with error handling)
     (condition-case nil
         (dolist (bufname '("*scratch*" "*Messages*" "*straight-process*" "*async-native-comp*"))
           (when-let ((buf (get-buffer bufname)))
@@ -1072,186 +640,45 @@ Skips creation if tab already exists."
             (kill-buffer buf)))
       (error nil))
 
-    ;; Helper to check if a tab with a given name exists
-    (defun ac--tab-exists-p (name)
-      "Return t if a tab named NAME exists."
-      (seq-find (lambda (tab) (string= name (alist-get 'name tab)))
-                (tab-bar-tabs)))
-
     ;; Initialize the first tab as "artery" with artery CLI (dev mode with hot-reload)
-    ;; Only create if the tab doesn't already exist
-    (unless (ac--tab-exists-p "artery")
-      (tab-rename "artery")
-      (let ((default-directory ac--directory-path)
-            (buf (or (get-buffer "🩸-artery")
-                     (generate-new-buffer "🩸-artery"))))
-        (with-current-buffer buf
-          (unless (eq major-mode 'eat-mode)
-            (eat-mode)
-            (eat-exec buf "🩸-artery" "/usr/bin/fish" nil '("-c" "ac-artery-dev")))
+    (tab-rename "artery")
+    (let ((default-directory ac--directory-path))
+      (eat "fish -c 'ac-artery-dev'")
+      (when (get-buffer "*eat*")
+        (with-current-buffer "*eat*"
+          (rename-buffer "🩸-artery" t)
           ;; Enable semi-char mode so TUI gets individual keypresses
           (eat-semi-char-mode)
           ;; Disable evil mode for artery - use emacs state
           (when (and (boundp 'evil-mode) evil-mode)
-            (evil-emacs-state)))
-        (switch-to-buffer buf)
-        (redisplay t)))  ; Yield to prevent freeze
+            (evil-emacs-state)))))
 
-    ;; Create fishy tab (plain fish shell for quick terminal access via LLM)
-    ;; Only create if the tab doesn't already exist
-    (unless (ac--tab-exists-p "fishy")
-      (tab-new)
-      (tab-rename "fishy")
-      (let ((default-directory ac--directory-path)
-            (buf (or (get-buffer "🐟-fishy")
-                     (generate-new-buffer "🐟-fishy"))))
-        (with-current-buffer buf
-          (unless (eq major-mode 'eat-mode)
-            (eat-mode)
-            (eat-exec buf "🐟-fishy" "/usr/bin/fish" nil nil))
-          (eat-semi-char-mode)
-          (when (and (boundp 'evil-mode) evil-mode)
-            (evil-emacs-state)))
-        (switch-to-buffer buf)
-        (redisplay t)))
-
-    ;; Create all the split tabs with staggered delays to prevent terminal garbling
-    (let ((delay 0.5)
-          (tab-specs '(("status"   ("url" "tunnel"))
-                       ("stripe"   ("stripe-print" "stripe-ticket"))
-                       ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
-                       ("web 1/2"  ("site" "session"))
-                       ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
-                       ("tests"    ("kidlisp"))
-                       ("llm"      ("llm"))
-                       ("top"      ("top"))
-                       ("crash"    ("crash-diary")))))  ; Crash log viewer tab
-      (dolist (tab-spec tab-specs)
+    ;; Create all the split tabs with delays to prevent overwhelming eat/Emacs
+    ;; Use run-with-timer for reliable delays (sit-for doesn't work in daemon mode)
+    (let ((delay 0))
+      (dolist (tab-spec '(("status"   ("url" "tunnel"))
+                          ("stripe"   ("stripe-print" "stripe-ticket"))
+                          ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
+                          ("web 1/2"  ("site" "session"))
+                          ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
+                          ("tests"    ("kidlisp"))))
         (let ((tab-name (car tab-spec))
-              (commands (cadr tab-spec))
-              (current-delay delay))
-          (run-with-timer current-delay nil
-                          (lambda (name cmds)
-                            (ac--create-split-tab name cmds)
-                            (redisplay t))
-                          tab-name commands)
-          (setq delay (+ delay 0.5)))))  ; 300ms between each tab
+              (commands (cadr tab-spec)))
+          (run-with-timer delay nil #'ac--create-split-tab tab-name commands))
+        (setq delay (+ delay 1.5))))  ; 1.5 seconds between each tab
 
-    ;; Switch to the requested tab (after all tabs created - 10 tabs * 0.3s = 3s + buffer)
-    (run-with-timer 6.0 nil
+    ;; Switch to the requested tab after all tabs are created
+    (run-with-timer (* 1.5 7) nil
                     (lambda (target)
                       (condition-case nil
-                          (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "crash"))
-                              (progn
-                                (tab-bar-switch-to-tab target)
-                                ;; Also refresh the buffer to ensure it's scrolled properly
-                                (when (eq major-mode 'eat-mode)
-                                  (goto-char (point-max)))
-                                (redisplay t))
+                          (if (member target '("artery" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests"))
+                              (tab-bar-switch-to-tab target)
                             (message "No such tab: %s" target))
                         (error nil)))
-                    target-tab)
-
-    ;; Start CDP tunnel in background after tabs are created
-    (run-with-timer 8.0 nil #'ac-start-cdp-tunnel-async))
-
-(defun ac-start-cdp-tunnel-async ()
-  "Start CDP tunnel to VS Code host in background (non-blocking)."
-  (ac-debug-log "Starting CDP tunnel to host...")
-  (let ((proc (start-process-shell-command 
-               "cdp-tunnel" nil
-               "fish -c 'ac-cdp-tunnel' >/dev/null 2>&1")))
-    (when proc
-      (set-process-sentinel 
-       proc
-       (lambda (p e)
-         (if (= 0 (process-exit-status p))
-             (ac-debug-log "CDP tunnel established")
-           (ac-debug-log (format "CDP tunnel failed: %s" e))))))))
-
-;;; ===================================================================
-;;; AUTO-START AESTHETIC-BACKEND ON FIRST TERMINAL FRAME
-;;; ===================================================================
-
-(defvar ac--backend-started nil
-  "Flag to ensure aesthetic-backend only runs once.")
-
-(defun ac--maybe-start-backend (frame)
-  "Start aesthetic-backend when first terminal frame connects."
-  (when (and (not ac--backend-started)
-             (not (display-graphic-p frame))  ; Terminal frame
-             (frame-live-p frame))
-    ;; DON'T set flag here - let aesthetic-backend set it when it actually runs
-    (ac-debug-log "First terminal frame detected, scheduling aesthetic-backend")
-    ;; Delay to ensure frame is fully ready
-    (run-with-timer 1 nil
-                    (lambda ()
-                      (condition-case err
-                          (aesthetic-backend "artery")
-                        (error (message "Error starting aesthetic-backend: %s" err)))))))
-
-;; Auto-start full backend on first terminal frame
-(add-hook 'after-make-frame-functions #'ac--maybe-start-backend)
-
-(defun aesthetic-backend-minimal ()
-  "Minimal version - start artery and fishy only. Use M-x aesthetic-backend for all tabs."
-  (interactive)
-  (ac-debug-log "Starting aesthetic-backend-minimal")
-  (setenv "AC_EMACS_MODE" "t")
-  
-  ;; Start with artery in the first tab
-  (tab-rename "artery")
-  (let ((default-directory ac--directory-path))
-    (eat "fish -c 'ac-artery-dev'")
-    (when (get-buffer "*eat*")
-      (with-current-buffer "*eat*"
-        (rename-buffer "🩸-artery" t)
-        (eat-semi-char-mode))))
-  
-  ;; Add fishy tab after 2 seconds (only if not already created)
-  (run-with-timer 2 nil
-    (lambda ()
-      (condition-case nil
-          (unless (get-buffer "🐟-fishy")
-            (tab-new)
-            (tab-rename "fishy")
-            (let ((default-directory ac--directory-path))
-              (eat "fish")
-              (when (get-buffer "*eat*")
-                (with-current-buffer "*eat*"
-                  (rename-buffer "🐟-fishy" t)
-                  (eat-semi-char-mode))))
-            ;; Switch back to artery
-            (run-with-timer 1 nil (lambda () (tab-bar-switch-to-tab "artery"))))
-        (error nil))))
-  
-  (message "🚀 Artery started! Use M-x aesthetic-backend-full to load all tabs.")
-  (ac-debug-log "aesthetic-backend-minimal complete"))
-
-(defun aesthetic-backend-full ()
-  "Load all remaining tabs (status, stripe, chat, web, tests, llm, top)."
-  (interactive)
-  (message "Loading additional tabs...")
-  (dolist (tab-spec '(("status"   ("url" "tunnel"))
-                      ("stripe"   ("stripe-print" "stripe-ticket"))
-                      ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
-                      ("web 1/2"  ("site" "session"))
-                      ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
-                      ("tests"    ("kidlisp"))
-                      ("llm"      ("llm"))
-                      ("top"      ("top"))))
-    (let ((tab-name (car tab-spec))
-          (commands (cadr tab-spec)))
-      (condition-case err
-          (progn
-            (ac--create-split-tab tab-name commands)
-            (message "Created tab: %s" tab-name))
-        (error (message "Error creating tab %s: %s" tab-name err)))))
-  (message "All tabs loaded!"))
+                    target-tab))
 
 ;;; ===================================================================
 ;;; END OF AESTHETIC COMPUTER EMACS CONFIGURATION
 ;;; ===================================================================
 
 (ac-debug-log "=== Emacs Configuration Load Complete ===")
-(ac-perf-log "Config load complete")
