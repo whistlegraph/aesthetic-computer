@@ -1570,7 +1570,11 @@
 
     /* Invest - announcement ticker style */
     .invest-section {
-      background: linear-gradient(135deg, #0a1a12 0%, #0d2018 100%);
+      background: 
+        linear-gradient(135deg, rgba(10, 26, 18, 0.85) 0%, rgba(13, 32, 24, 0.9) 100%),
+        url('https://assets.aesthetic.computer/jeffreys/jpg/IMG_4606.jpg');
+      background-size: cover;
+      background-position: center;
       border: 1px solid rgba(78, 205, 196, 0.3);
       border-radius: 8px;
       padding: 1.2em 1.5em;
@@ -3360,7 +3364,7 @@
       border-color: #1da1f2;
     }
 
-    /* Ken Burns Slideshow - Nostalgic Photo Background */
+    /* Ken Burns Canvas Slideshow - Nostalgic Photo Background */
     .jeffreys-slideshow {
       position: absolute;
       inset: 0;
@@ -3369,31 +3373,13 @@
       z-index: 0;
     }
 
-    .jeffreys-slide {
+    .jeffreys-canvas {
       position: absolute;
       inset: 0;
-      background-size: cover;
-      background-position: center;
-      opacity: 0;
-      transform: scale(1.0);
-      transition: opacity 2.5s ease-in-out, background-position 0.5s ease-out;
-      /* More faded nostalgic filter */
-      filter: sepia(0.25) saturate(0.5) brightness(0.45) contrast(0.85) grayscale(0.15);
-    }
-
-    .jeffreys-slide.active {
-      opacity: 1;
-      animation: kenBurnsFocal 12s ease-in-out forwards;
-    }
-
-    /* Ken Burns now uses CSS custom properties for focal point */
-    @keyframes kenBurnsFocal {
-      0% {
-        transform: scale(1.0);
-      }
-      100% {
-        transform: scale(1.2);
-      }
+      width: 100%;
+      height: 100%;
+      /* Nostalgic filter on the canvas */
+      filter: sepia(0.2) saturate(0.6) brightness(0.5) contrast(0.9);
     }
 
     /* Purple/magenta blend overlay */
@@ -3403,9 +3389,9 @@
       inset: 0;
       background: linear-gradient(
         135deg,
-        rgba(148, 0, 211, 0.35) 0%,
-        rgba(205, 92, 155, 0.4) 50%,
-        rgba(138, 43, 226, 0.3) 100%
+        rgba(148, 0, 211, 0.4) 0%,
+        rgba(205, 92, 155, 0.45) 50%,
+        rgba(138, 43, 226, 0.35) 100%
       );
       mix-blend-mode: overlay;
       pointer-events: none;
@@ -3417,7 +3403,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(ellipse at center, transparent 30%, rgba(26, 26, 46, 0.6) 100%);
+      background: radial-gradient(ellipse at center, transparent 20%, rgba(26, 26, 46, 0.7) 100%);
       pointer-events: none;
       z-index: 3;
     }
@@ -3820,86 +3806,357 @@
   </main>
 
   <script>
-    // ====== Jeffreys Ken Burns Slideshow ======
-    const jeffreysImages = [
-      'IMG_0260', 'IMG_1111', 'IMG_1577', 'IMG_1616', 'IMG_1809',
-      'IMG_2208', 'IMG_2280', 'IMG_2498', 'IMG_2658', 'IMG_2668',
-      'IMG_2905', 'IMG_3017', 'IMG_3234', 'IMG_4894', 'IMG_4997',
-      'IMG_5043', 'IMG_5050', 'IMG_5644', 'IMG_6367', 'IMG_6435', 'IMG_8080'
-    ];
-    
-    // Face-detected focal points (x%, y%) - where faces are in each photo
-    const jeffreysFocal = {
-      'IMG_0260': [50.2, 80.6],
-      'IMG_1111': [64.0, 64.6],
-      'IMG_1577': [55.2, 80.5],
-      'IMG_1616': [61.0, 61.8],
-      'IMG_1809': [59.1, 38.4],
-      'IMG_2208': [59.2, 42.2],
-      'IMG_2280': [35.4, 48.8],
-      'IMG_2498': [32.5, 43.5],
-      'IMG_2658': [44.1, 57.3],
-      'IMG_2668': [46.4, 45.4],
-      'IMG_2905': [49.5, 51.4],
-      'IMG_3017': [32.8, 38.0],
-      'IMG_3234': [40.1, 57.8],
-      'IMG_4894': [47.2, 64.8],
-      'IMG_4997': [44.6, 56.3],
-      'IMG_5043': [45.3, 56.0],
-      'IMG_5050': [58.6, 55.4],
-      'IMG_5644': [64.0, 47.0],
-      'IMG_6367': [30.6, 53.5],
-      'IMG_6435': [43.8, 68.7],
-      'IMG_8080': [47.9, 57.4]
+    // ====== Jeffreys Ken Burns Canvas Slideshow ======
+    // Face detection data from OpenCV DNN (confidence >= 50%)
+    const jeffreysData = {
+      'FullSizeRender': { focal: [38.6, 34.8], faces: [[33.8, 30.0, 9.5, 9.7]], aspect: 0.75 },
+      'IMG_0260': { focal: [41.0, 38.0], faces: [[32.3, 29.3, 17.4, 17.5]], aspect: 0.75 },
+      'IMG_0675': { focal: [54.0, 37.2], faces: [[47.8, 31.8, 12.3, 10.9]], aspect: 0.667 },
+      'IMG_0686': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_0688': { focal: [50, 50], faces: [], aspect: 0.563 },
+      'IMG_0798': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_1111': { focal: [50, 50], faces: [], aspect: 0.562 },
+      'IMG_1577': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_1616': { focal: [47.8, 51.7], faces: [[42.5, 45.2, 10.7, 13.0]], aspect: 0.75 },
+      'IMG_1737': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_1809': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_2124': { focal: [54.8, 35.8], faces: [[49.7, 31.8, 10.1, 7.9]], aspect: 0.563 },
+      'IMG_2208': { focal: [40.0, 21.8], faces: [[33.6, 14.5, 12.8, 14.6]], aspect: 0.75 },
+      'IMG_2280': { focal: [57.4, 33.4], faces: [[42.5, 16.4, 29.8, 34.0]], aspect: 0.8 },
+      'IMG_2498': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_2630': { focal: [50, 50], faces: [], aspect: 1.333 },
+      'IMG_2658': { focal: [46.6, 43.7], faces: [[39.2, 34.5, 14.8, 18.4]], aspect: 0.75 },
+      'IMG_2668': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_2905': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_2913': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_3017': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_3234': { focal: [42.4, 48.8], faces: [[36.9, 43.2, 11.1, 11.3]], aspect: 0.75 },
+      'IMG_4281': { focal: [50.2, 38.1], faces: [[44.5, 31.3, 11.4, 13.6]], aspect: 0.75 },
+      'IMG_4312': { focal: [4.1, 28.1], faces: [[0.0, 18.6, 8.2, 19.0]], aspect: 0.75 },
+      'IMG_4606': { focal: [53.0, 56.5], faces: [[28.6, 31.6, 48.9, 49.8]], aspect: 0.75 },
+      'IMG_4894': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_4997': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_5043': { focal: [40.8, 43.3], faces: [[30.8, 32.3, 20.1, 22.1]], aspect: 0.75 },
+      'IMG_5050': { focal: [65.6, 53.7], faces: [[60.1, 48.3, 10.9, 10.8]], aspect: 0.75 },
+      'IMG_5272': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_5644': { focal: [49.0, 17.9], faces: [[44.1, 13.9, 9.8, 8.0]], aspect: 0.563 },
+      'IMG_6342': { focal: [62.4, 28.0], faces: [[55.1, 18.5, 14.5, 18.9]], aspect: 0.75 },
+      'IMG_6367': { focal: [44.2, 34.2], faces: [[37.8, 28.7, 12.7, 11.1]], aspect: 0.75 },
+      'IMG_6435': { focal: [48.0, 37.8], faces: [[37.9, 27.2, 20.2, 21.1]], aspect: 0.75 },
+      'IMG_8080': { focal: [42.6, 27.8], faces: [[36.0, 20.8, 13.1, 13.9]], aspect: 0.75 },
+      'IMG_8188': { focal: [48.8, 34.0], faces: [[37.9, 24.0, 21.8, 19.9]], aspect: 0.75 },
+      'IMG_8989': { focal: [50, 50], faces: [], aspect: 0.75 },
+      'IMG_9795': { focal: [31.2, 22.0], faces: [[23.8, 15.6, 14.8, 12.9]], aspect: 0.562 }
     };
+
+    const jeffreysImages = Object.keys(jeffreysData);
+    const DEBUG_FACES = false; // Set true to show face boxes
+    const FACE_GLOW = true; // Soft radial glow on detected faces
 
     function initJeffreysSlideshow() {
       const container = document.getElementById('jeffreysSlideshow');
       if (!container) return;
 
-      // Shuffle images for variety
-      const shuffled = [...jeffreysImages].sort(() => Math.random() - 0.5);
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      canvas.className = 'jeffreys-canvas';
+      container.appendChild(canvas);
+      const ctx = canvas.getContext('2d');
+
+      // Separate narrow (portrait) and wide images
+      const narrowImages = jeffreysImages.filter(name => jeffreysData[name].aspect < 0.7);
+      const wideImages = jeffreysImages.filter(name => jeffreysData[name].aspect >= 0.7);
       
-      // Create slide elements (we'll use 2 for crossfade)
-      const slide1 = document.createElement('div');
-      const slide2 = document.createElement('div');
-      slide1.className = 'jeffreys-slide';
-      slide2.className = 'jeffreys-slide';
-      container.appendChild(slide1);
-      container.appendChild(slide2);
-
-      let currentIndex = 0;
-      let activeSlide = slide1;
-      let inactiveSlide = slide2;
-
-      function showNextImage() {
-        const imgName = shuffled[currentIndex % shuffled.length];
-        const imgUrl = `https://assets.aesthetic.computer/jeffreys/jpg/${imgName}.jpg`;
-        const focal = jeffreysFocal[imgName] || [50, 50];
-
-        // Prepare inactive slide with new image, positioned at focal point
-        inactiveSlide.style.backgroundImage = `url(${imgUrl})`;
-        inactiveSlide.style.backgroundPosition = `${focal[0]}% ${focal[1]}%`;
-        inactiveSlide.className = 'jeffreys-slide';
-
-        // Crossfade: deactivate current, activate new
-        activeSlide.classList.remove('active');
-        setTimeout(() => {
-          inactiveSlide.classList.add('active');
-        }, 50);
-
-        // Swap references
-        [activeSlide, inactiveSlide] = [inactiveSlide, activeSlide];
-        currentIndex++;
+      // Shuffle both arrays
+      const shuffledNarrow = [...narrowImages].sort(() => Math.random() - 0.5);
+      const shuffledWide = [...wideImages].sort(() => Math.random() - 0.5);
+      
+      // Create display queue: singles for wide, pairs for narrow
+      const displayQueue = [];
+      let narrowIdx = 0;
+      let wideIdx = 0;
+      
+      // Interleave: 2 wide singles, then 1 narrow pair, repeat
+      while (wideIdx < shuffledWide.length || narrowIdx < shuffledNarrow.length) {
+        // Add 2 wide singles
+        for (let i = 0; i < 2 && wideIdx < shuffledWide.length; i++) {
+          displayQueue.push([shuffledWide[wideIdx++]]);
+        }
+        // Add 1 narrow pair (collage)
+        if (narrowIdx + 1 < shuffledNarrow.length) {
+          displayQueue.push([shuffledNarrow[narrowIdx], shuffledNarrow[narrowIdx + 1]]);
+          narrowIdx += 2;
+        } else if (narrowIdx < shuffledNarrow.length) {
+          displayQueue.push([shuffledNarrow[narrowIdx++]]);
+        }
       }
 
-      // Preload first image then start
-      const firstImg = new Image();
-      firstImg.onload = () => {
-        showNextImage();
-        setInterval(showNextImage, 10000); // Change every 10 seconds
-      };
-      firstImg.src = `https://assets.aesthetic.computer/jeffreys/jpg/${shuffled[0]}.jpg`;
+      // Preload images
+      const loadedImages = {};
+      
+      function preloadImage(name) {
+        return new Promise(resolve => {
+          if (loadedImages[name]) return resolve(loadedImages[name]);
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            loadedImages[name] = img;
+            resolve(img);
+          };
+          img.onerror = resolve;
+          img.src = `https://assets.aesthetic.computer/jeffreys/jpg/${name}.jpg`;
+        });
+      }
+
+      // Resize canvas to container
+      let canvasW = 0, canvasH = 0;
+      function resizeCanvas() {
+        const rect = container.getBoundingClientRect();
+        canvasW = rect.width;
+        canvasH = rect.height;
+        canvas.width = canvasW * window.devicePixelRatio;
+        canvas.height = canvasH * window.devicePixelRatio;
+        canvas.style.width = canvasW + 'px';
+        canvas.style.height = canvasH + 'px';
+        ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+      }
+
+      let currentDisplayIndex = 0;
+      let currentAlpha = 0;
+      let targetImages = [];
+      let floatOffset = 0;
+
+      // Draw image with focal point offset to left or right (avoiding center logo)
+      function drawImageFocused(img, data, destX, destY, destW, destH, alpha, drift, forceOffset = null) {
+        const imgW = img.width;
+        const imgH = img.height;
+        
+        // Find the LARGEST face (most prominent) instead of averaging
+        let focalX = 50, focalY = 50;
+        if (data.faces && data.faces.length > 0) {
+          let largestFace = data.faces[0];
+          let largestArea = largestFace[2] * largestFace[3];
+          for (const face of data.faces) {
+            const area = face[2] * face[3];
+            if (area > largestArea) {
+              largestArea = area;
+              largestFace = face;
+            }
+          }
+          // Center on the largest face (use center of face box, not top-left)
+          focalX = largestFace[0] + largestFace[2] / 2;
+          focalY = largestFace[1] + largestFace[3] / 2;
+        } else {
+          focalX = data.focal[0];
+          focalY = data.focal[1];
+        }
+        
+        // Ken Burns: gentle zoom that stays centered on face
+        // Drift only affects zoom level, NOT position - keeps face centered
+        const zoom = 1.1 + drift * 0.1;
+        
+        // Calculate source rect to show focal point
+        const canvasRatio = destW / destH;
+        const imgRatio = imgW / imgH;
+        
+        let srcW, srcH, srcX, srcY;
+        
+        if (imgRatio > canvasRatio) {
+          // Image wider than canvas - crop sides
+          srcH = imgH / zoom;
+          srcW = srcH * canvasRatio;
+        } else {
+          // Image taller than canvas - crop top/bottom
+          srcW = imgW / zoom;
+          srcH = srcW / canvasRatio;
+        }
+        
+        // OFFSET: Position face LEFT or RIGHT of center (not in center where logo is)
+        // Decide offset direction based on face position - if face is left of center, show it left
+        // If face is right of center, show it right. This feels more natural.
+        let offsetDirection = forceOffset;
+        if (offsetDirection === null) {
+          // Auto-detect: push face to whichever side it's already leaning toward
+          offsetDirection = focalX < 50 ? 'left' : 'right';
+        }
+        
+        // Calculate offset: we want face at ~30% or ~70% of canvas, not 50%
+        // This means shifting the source crop so focal point maps to side of canvas
+        const targetCanvasPercent = offsetDirection === 'left' ? 0.30 : 0.70;
+        const focalImgX = imgW * focalX / 100;
+        const focalImgY = imgH * focalY / 100;
+        
+        // Position srcX so that focalImgX lands at targetCanvasPercent of destW
+        srcX = focalImgX - srcW * targetCanvasPercent;
+        srcY = focalImgY - srcH / 2; // Vertical still centered on face
+        
+        // Clamp to image bounds
+        srcX = Math.max(0, Math.min(imgW - srcW, srcX));
+        srcY = Math.max(0, Math.min(imgH - srcH, srcY));
+        
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(img, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
+        
+        // Soft radial glow highlights on faces
+        if (FACE_GLOW && data.faces && data.faces.length > 0) {
+          for (const face of data.faces) {
+            const faceImgX = imgW * face[0] / 100;
+            const faceImgY = imgH * face[1] / 100;
+            const faceImgW = imgW * face[2] / 100;
+            const faceImgH = imgH * face[3] / 100;
+            
+            // Check if face is in visible region
+            if (faceImgX + faceImgW > srcX && faceImgX < srcX + srcW &&
+                faceImgY + faceImgH > srcY && faceImgY < srcY + srcH) {
+              // Map face center to canvas coords
+              const faceCenterX = destX + (faceImgX + faceImgW / 2 - srcX) / srcW * destW;
+              const faceCenterY = destY + (faceImgY + faceImgH / 2 - srcY) / srcH * destH;
+              const faceRadius = Math.max(faceImgW / srcW * destW, faceImgH / srcH * destH) * 1.2;
+              
+              // Create soft radial gradient glow
+              const glow = ctx.createRadialGradient(
+                faceCenterX, faceCenterY, 0,
+                faceCenterX, faceCenterY, faceRadius
+              );
+              // Warm golden highlight that fades out
+              glow.addColorStop(0, 'rgba(255, 245, 220, 0.15)');
+              glow.addColorStop(0.4, 'rgba(255, 230, 200, 0.08)');
+              glow.addColorStop(1, 'rgba(255, 220, 180, 0)');
+              
+              ctx.fillStyle = glow;
+              ctx.fillRect(destX, destY, destW, destH);
+            }
+          }
+        }
+        
+        // Debug: draw face boxes and show offset direction
+        if (DEBUG_FACES && data.faces) {
+          ctx.strokeStyle = 'rgba(255, 0, 255, 0.9)';
+          ctx.lineWidth = 2;
+          for (const face of data.faces) {
+            const faceImgX = imgW * face[0] / 100;
+            const faceImgY = imgH * face[1] / 100;
+            const faceImgW = imgW * face[2] / 100;
+            const faceImgH = imgH * face[3] / 100;
+            if (faceImgX + faceImgW > srcX && faceImgX < srcX + srcW &&
+                faceImgY + faceImgH > srcY && faceImgY < srcY + srcH) {
+              const canvasX = destX + (faceImgX - srcX) / srcW * destW;
+              const canvasY = destY + (faceImgY - srcY) / srcH * destH;
+              const canvasFW = faceImgW / srcW * destW;
+              const canvasFH = faceImgH / srcH * destH;
+              ctx.strokeRect(canvasX, canvasY, canvasFW, canvasFH);
+            }
+          }
+          const focalCanvasX = destX + (focalImgX - srcX) / srcW * destW;
+          const focalCanvasY = destY + (focalImgY - srcY) / srcH * destH;
+          ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
+          ctx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
+          ctx.fillRect(focalCanvasX - 15, focalCanvasY - 2, 30, 4);
+          ctx.fillRect(focalCanvasX - 2, focalCanvasY - 15, 4, 30);
+          ctx.beginPath();
+          ctx.arc(focalCanvasX, focalCanvasY, 10, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        
+        ctx.restore();
+      }
+
+      function render() {
+        const w = canvasW;
+        const h = canvasH;
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, w, h);
+        
+        floatOffset += 0.001;
+        const drift = (Math.sin(floatOffset * Math.PI * 2) + 1) / 2; // 0 to 1
+        
+        if (targetImages.length === 1) {
+          // Single image - full canvas
+          const name = targetImages[0];
+          const img = loadedImages[name];
+          if (img) {
+            drawImageFocused(img, jeffreysData[name], 0, 0, w, h, currentAlpha, drift);
+          }
+        } else if (targetImages.length === 2) {
+          // Collage - two narrow images side by side with slight overlap
+          const overlap = 15; // Soft blend overlap
+          const eachW = (w + overlap) / 2;
+          
+          for (let i = 0; i < 2; i++) {
+            const name = targetImages[i];
+            const img = loadedImages[name];
+            if (img) {
+              const x = i === 0 ? 0 : w - eachW;
+              // Slight vertical offset for floaty feel
+              const yOffset = Math.sin(floatOffset * Math.PI * 2 + i * Math.PI * 0.7) * 3;
+              const localDrift = (Math.sin(floatOffset * Math.PI * 2 + i * 0.5) + 1) / 2;
+              drawImageFocused(img, jeffreysData[name], x, yOffset, eachW, h, currentAlpha * 0.95, localDrift);
+            }
+          }
+        }
+        
+        requestAnimationFrame(render);
+      }
+
+      async function transitionToNext() {
+        // Fade out
+        const fadeOutInterval = setInterval(() => {
+          currentAlpha -= 0.025;
+          if (currentAlpha <= 0) {
+            clearInterval(fadeOutInterval);
+            currentAlpha = 0;
+            
+            // Switch images
+            currentDisplayIndex = (currentDisplayIndex + 1) % displayQueue.length;
+            targetImages = displayQueue[currentDisplayIndex];
+            
+            // Preload next batch
+            const nextIdx = (currentDisplayIndex + 1) % displayQueue.length;
+            displayQueue[nextIdx].forEach(name => preloadImage(name));
+            
+            // Fade in
+            const fadeInInterval = setInterval(() => {
+              currentAlpha += 0.02;
+              if (currentAlpha >= 1) {
+                clearInterval(fadeInInterval);
+                currentAlpha = 1;
+              }
+            }, 30);
+          }
+        }, 30);
+      }
+
+      // Start slideshow
+      async function start() {
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Preload first few images
+        const firstBatch = displayQueue.slice(0, 3).flat();
+        await Promise.all(firstBatch.map(preloadImage));
+        
+        targetImages = displayQueue[0];
+        currentAlpha = 0;
+        
+        // Start render loop
+        render();
+        
+        // Fade in first image
+        const fadeInInterval = setInterval(() => {
+          currentAlpha += 0.02;
+          if (currentAlpha >= 1) {
+            clearInterval(fadeInInterval);
+            currentAlpha = 1;
+          }
+        }, 30);
+        
+        // Transition every 8 seconds
+        setInterval(transitionToNext, 8000);
+      }
+
+      start();
     }
 
     // Initialize slideshow when DOM ready
