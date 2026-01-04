@@ -461,6 +461,16 @@
       position: relative;
       height: 2.4em;
       overflow: hidden;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .gives-ticker.dragging {
+      cursor: grabbing;
+    }
+
+    .gives-ticker.dragging .gives-ticker-track {
+      animation: none !important;
     }
 
     .gives-ticker-track {
@@ -472,6 +482,11 @@
       height: 100%;
       white-space: nowrap;
       animation: ticker-scroll 30s linear infinite;
+    }
+
+    /* Pause animation when not visible */
+    .gives-ticker.paused .gives-ticker-track {
+      animation-play-state: paused;
     }
 
     @keyframes ticker-scroll {
@@ -859,15 +874,7 @@
     }
 
     .gift-logo-wrap {
-      position: absolute;
-      /* Center using inset + margin auto */
-      inset: 0;
-      margin: auto;
-      z-index: 5;
-      /* Size the wrap as percentage of container */
-      width: 34%;
-      max-width: 280px;
-      height: fit-content;
+      display: none; /* Rendered on canvas instead */
     }
 
     .gift-logo {
@@ -880,6 +887,7 @@
       transition: opacity 0.4s ease-out, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), filter 0.4s ease-out;
       transform-origin: bottom left;
       animation: logo-white-blink 3s ease-in-out infinite;
+      display: block;
     }
 
     @keyframes logo-white-blink {
@@ -894,13 +902,10 @@
 
     .gift-amount {
       position: absolute;
-      /* Positioned at logo's top-right - fixed relative to logo */
-      top: -40%;
-      right: -10%;
-      transform: none;
-      transform-origin: bottom left;
+      /* Bottom-left of logo */
+      bottom: -5%;
+      left: -10%;
       font-family: 'YWFTProcessing-Regular', var(--mono);
-      /* Size relative to logo */
       font-size: clamp(1.2em, 2.2vw, 2.5em);
       color: #5a9a5a;
       background: linear-gradient(135deg, #1a2a1a 0%, #0a1a0a 100%);
@@ -910,8 +915,6 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
       white-space: nowrap;
       transition: background 0.4s ease-out, border 0.4s ease-out;
-      display: flex;
-      gap: 0;
     }
 
     .gift-amount .wiggle-char {
@@ -1430,10 +1433,10 @@
     /* Container for monthly checkbox + cancel link */
     .gift-monthly-stack {
       display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      justify-content: center;
-      gap: 0.15em;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.6em;
     }
 
     /* Subscribe as user indicator */
@@ -1448,25 +1451,7 @@
       color: var(--gold);
     }
 
-    /* Login prompt modal */
-    .login-modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 0.2s ease, visibility 0.2s ease;
-    }
-
-    .login-modal-overlay.visible {
-      opacity: 1;
-      visibility: visible;
-    }
-
+    /* Login prompt modal (native dialog) */
     .login-modal {
       background: var(--bg);
       border: 1px solid var(--border);
@@ -1474,12 +1459,21 @@
       padding: 1.5em 2em;
       max-width: 360px;
       text-align: center;
-      transform: scale(0.95);
-      transition: transform 0.2s ease;
+      color: var(--text);
     }
 
-    .login-modal-overlay.visible .login-modal {
-      transform: scale(1);
+    .login-modal::backdrop {
+      background: rgba(0, 0, 0, 0.7);
+    }
+
+    /* Login button blink animation */
+    .footer-login-btn.blinking {
+      animation: login-btn-blink 0.5s ease-in-out 4;
+    }
+
+    @keyframes login-btn-blink {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+      50% { box-shadow: 0 0 15px 5px rgba(255, 215, 0, 0.7); }
     }
 
     .login-modal-icon {
@@ -1539,10 +1533,12 @@
     }
 
     .cancel-subscription-link {
-      font-size: 0.8em;
+      font-size: 0.85em;
       color: var(--dim);
       opacity: 0.5;
       text-decoration: none;
+      align-self: center;
+      padding-top: 0.35em;
     }
 
     .cancel-subscription-link:hover {
@@ -3982,8 +3978,8 @@
       transform: translate(-50%, -50%);
       width: calc(100% + 20px);
       height: calc(100% + 20px);
-      /* Darker with softer contrast */
-      filter: url(#sharpen) saturate(0.9) brightness(0.5) contrast(1.05);
+      /* Sharp and crisp with slight darkening */
+      filter: url(#sharpen) saturate(0.95) brightness(0.75);
       image-rendering: -webkit-optimize-contrast; /* Better scaling on iOS */
       image-rendering: crisp-edges;
     }
@@ -4223,7 +4219,7 @@
       </div>
 
       <div class="prose full-width" data-lang="en">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> is a social software network supported by the full-time programming practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> who has been writing experimental software instruments for over a decade. He lives in Echo Park with <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in a house full of musicians, and regularly does show and tell at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. Their next meeting is at 7pm on Tuesday, January 6th, 2026 at <a href="https://plot.place">Plot</a>.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> is a social software network supported by the full-time programming practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> who has authored new media interfaces for over a decade. He lives in Echo Park with <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in a house full of musicians, and regularly does show and tell at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. Their next meeting is at 7pm on Tuesday, January 6th, 2026 at <a href="https://plot.place">Plot</a>.
       </div>
       <div class="prose full-width" data-lang="da">
         <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> er et socialt softwarenetværk understøttet af fuldtids ingeniørpraksis af <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, som har bygget eksperimentelle software-instrumenter i over et årti. Han bor i Echo Park med <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> i et hus fuldt af musikere, og demonstrerer regelmæssigt softwaren ved <a href="https://nelacomputer.club">NELA Computer Club</a> i Chinatown. Det næste møde er kl. 19 tirsdag den 6. januar på <a href="https://plot.place">Plot</a>.
@@ -4517,42 +4513,40 @@
     </div>
   </main>
 
-  <!-- Login prompt modal for monthly subscriptions -->
-  <div class="login-modal-overlay" id="loginModal">
-    <div class="login-modal">
-      <div class="login-modal-icon">🔐</div>
-      <div class="login-modal-title">
-        <span data-lang="en">Log in for Monthly</span>
-        <span data-lang="da">Log ind for månedligt</span>
-        <span data-lang="de">Anmelden für Monatlich</span>
-        <span data-lang="es">Iniciar sesión para Mensual</span>
-        <span data-lang="zh">登录以订阅</span>
-      </div>
-      <div class="login-modal-text">
-        <span data-lang="en">Log in first so we can link your subscription to your account.</span>
-        <span data-lang="da">Log ind først, så vi kan tilknytte dit abonnement til din konto.</span>
-        <span data-lang="de">Melden Sie sich an, damit wir Ihr Abonnement mit Ihrem Konto verknüpfen können.</span>
-        <span data-lang="es">Inicia sesión primero para vincular tu suscripción a tu cuenta.</span>
-        <span data-lang="zh">请先登录，以便将您的订阅关联到您的账户。</span>
-      </div>
-      <div class="login-modal-buttons">
-        <button class="login-modal-btn secondary" id="loginModalCancel">
-          <span data-lang="en">Not now</span>
-          <span data-lang="da">Ikke nu</span>
-          <span data-lang="de">Nicht jetzt</span>
-          <span data-lang="es">Ahora no</span>
-          <span data-lang="zh">暂不</span>
-        </button>
-        <button class="login-modal-btn primary" id="loginModalConfirm">
-          <span data-lang="en">Log in</span>
-          <span data-lang="da">Log ind</span>
-          <span data-lang="de">Anmelden</span>
-          <span data-lang="es">Iniciar sesión</span>
-          <span data-lang="zh">登录</span>
-        </button>
-      </div>
+  <!-- Login prompt modal for monthly subscriptions (native dialog) -->
+  <dialog class="login-modal" id="loginModal">
+    <div class="login-modal-icon">🔐</div>
+    <div class="login-modal-title">
+      <span data-lang="en">Log in for Monthly</span>
+      <span data-lang="da">Log ind for månedligt</span>
+      <span data-lang="de">Anmelden für Monatlich</span>
+      <span data-lang="es">Iniciar sesión para Mensual</span>
+      <span data-lang="zh">登录以订阅</span>
     </div>
-  </div>
+    <div class="login-modal-text">
+      <span data-lang="en">Log in first so we can link your subscription to your account.</span>
+      <span data-lang="da">Log ind først, så vi kan tilknytte dit abonnement til din konto.</span>
+      <span data-lang="de">Melden Sie sich an, damit wir Ihr Abonnement mit Ihrem Konto verknüpfen können.</span>
+      <span data-lang="es">Inicia sesión primero para vincular tu suscripción a tu cuenta.</span>
+      <span data-lang="zh">请先登录，以便将您的订阅关联到您的账户。</span>
+    </div>
+    <div class="login-modal-buttons">
+      <button class="login-modal-btn secondary" id="loginModalCancel">
+        <span data-lang="en">Not now</span>
+        <span data-lang="da">Ikke nu</span>
+        <span data-lang="de">Nicht jetzt</span>
+        <span data-lang="es">Ahora no</span>
+        <span data-lang="zh">暂不</span>
+      </button>
+      <button class="login-modal-btn primary" id="loginModalConfirm">
+        <span data-lang="en">Log in</span>
+        <span data-lang="da">Log ind</span>
+        <span data-lang="de">Anmelden</span>
+        <span data-lang="es">Iniciar sesión</span>
+        <span data-lang="zh">登录</span>
+      </button>
+    </div>
+  </dialog>
 
   <script>
     // ====== Jeffreys Ken Burns Canvas Slideshow ======
@@ -4782,8 +4776,46 @@
         names.forEach(name => preloadImage(name));
       }
       
+      // Load logo image for canvas rendering
+      const logoImg = new Image();
+      logoImg.crossOrigin = 'anonymous';
+      logoImg.src = 'https://aesthetic.computer/purple-pals.svg';
+      let logoLoaded = false;
+      logoImg.onload = () => { logoLoaded = true; };
+      
+      // Track current price and intensity from the widget
+      let currentPrice = '$128';
+      let currentIntensity = 1; // 0-4 intensity level
+      function updatePriceFromWidget() {
+        const widget = container.closest('.gift-widget');
+        if (widget) {
+          const amountEl = widget.querySelector('.gift-amount');
+          if (amountEl) {
+            currentPrice = amountEl.textContent;
+            // Check intensity class
+            if (amountEl.classList.contains('intensity-4')) currentIntensity = 4;
+            else if (amountEl.classList.contains('intensity-3')) currentIntensity = 3;
+            else if (amountEl.classList.contains('intensity-2')) currentIntensity = 2;
+            else if (amountEl.classList.contains('intensity-1')) currentIntensity = 1;
+            else currentIntensity = 0;
+          }
+        }
+      }
+      // Watch for price changes
+      const priceObserver = new MutationObserver(updatePriceFromWidget);
+      const widget = container.closest('.gift-widget');
+      if (widget) {
+        const amountEl = widget.querySelector('.gift-amount');
+        if (amountEl) {
+          priceObserver.observe(amountEl, { childList: true, characterData: true, subtree: true, attributes: true });
+          currentPrice = amountEl.textContent;
+          updatePriceFromWidget();
+        }
+      }
+      
       // Resize canvas to container
       let canvasW = 0, canvasH = 0;
+      let needsRender = false; // Flag to trigger immediate render after resize
       function resizeCanvas() {
         const rect = container.getBoundingClientRect();
         canvasW = rect.width;
@@ -4793,6 +4825,7 @@
         canvas.style.width = canvasW + 'px';
         canvas.style.height = canvasH + 'px';
         ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+        needsRender = true; // Mark for immediate re-render
       }
 
       let currentDisplayIndex = 0;
@@ -4919,8 +4952,8 @@
           gradient.addColorStop(1, `rgba(255,255,255,${alpha})`);
         }
         
-        // Crispy filter - boost contrast and saturation for punchy blends
-        ctx.filter = 'saturate(1.15) contrast(1.12) brightness(1.02)';
+        // Crisp filter with sharpening via contrast boost
+        ctx.filter = 'saturate(1.08) contrast(1.05)';
         ctx.globalAlpha = alpha;
         
         // Draw image covering entire canvas
@@ -5141,13 +5174,15 @@
         
         // Matrix-style POI detection boxes
         if (SHOW_POI_BOXES && data.pois) {
-          // Subtle matrix colors: lime for faces, yellow for bodies, dim for hands
+          // Reset alpha so boxes are visible
+          ctx.globalAlpha = 1;
+          // Bright matrix colors: lime for faces, yellow for bodies, red for hands
           const typeColors = { 
-            f: 'rgba(150, 255, 50, 0.4)',  // lime green for faces
-            b: 'rgba(255, 220, 50, 0.25)', // yellow for bodies
-            h: 'rgba(255, 100, 100, 0.15)', // dim red for hands
-            s: 'rgba(100, 200, 255, 0.2)', // cyan for screenshots
-            v: 'rgba(180, 150, 255, 0.15)' // purple for virtual POIs
+            f: 'rgba(150, 255, 50, 0.7)',  // bright lime green for faces
+            b: 'rgba(255, 220, 50, 0.5)', // yellow for bodies
+            h: 'rgba(255, 100, 100, 0.4)', // red for hands
+            s: 'rgba(100, 200, 255, 0.5)', // cyan for screenshots
+            v: 'rgba(180, 150, 255, 0.4)' // purple for virtual POIs
           };
           ctx.lineWidth = 1;
           for (const poi of data.pois) {
@@ -5310,8 +5345,15 @@
       let lastFrameTime = 0;
       const TARGET_FPS = 24;
       const FRAME_INTERVAL = 1000 / TARGET_FPS; // ~41.67ms
+      let isPaused = false; // Pause when not visible
       
       function render(timestamp) {
+        // Skip rendering if paused (not visible)
+        if (isPaused) {
+          requestAnimationFrame(render);
+          return;
+        }
+        
         // Initialize lastFrameTime on first call (timestamp may be undefined if called directly)
         if (!timestamp || lastFrameTime === 0) {
           lastFrameTime = timestamp || performance.now();
@@ -5319,11 +5361,12 @@
           return;
         }
         
-        // Throttle to 24fps
-        if (timestamp - lastFrameTime < FRAME_INTERVAL) {
+        // Throttle to 24fps (but force render after resize to prevent flicker)
+        if (timestamp - lastFrameTime < FRAME_INTERVAL && !needsRender) {
           requestAnimationFrame(render);
           return;
         }
+        needsRender = false; // Clear force-render flag
         const deltaTime = Math.min(timestamp - lastFrameTime, 100); // Cap at 100ms to prevent huge jumps
         lastFrameTime = timestamp;
         
@@ -5446,6 +5489,111 @@
         
         ctx.restore();
         
+        // Draw logo and price on canvas (after restore, no filters)
+        ctx.filter = 'none'; // Ensure no filters affect logo/price
+        if (logoLoaded && logoImg.complete) {
+          // Logo size scales proportionally with canvas (use smaller dimension for consistent scaling)
+          const baseSize = Math.min(w, h);
+          const logoSize = baseSize * 0.65; // Large prominent logo
+          const logoX = (w - logoSize) / 2;
+          const logoY = (h - logoSize) / 2;
+          
+          // Logo blink effect at high intensity (intensity 3-4)
+          let logoBlink = 1;
+          if (currentIntensity >= 3) {
+            // Fast blink when price is high
+            const blinkSpeed = currentIntensity === 4 ? 8 : 4;
+            logoBlink = 0.7 + 0.3 * Math.sin(Date.now() / 1000 * blinkSpeed * Math.PI);
+          }
+          
+          // Draw logo with drop shadow
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+          ctx.shadowBlur = 20;
+          ctx.shadowOffsetY = 6;
+          ctx.globalAlpha = masterAlpha * logoBlink;
+          // Add glow at max intensity
+          if (currentIntensity === 4) {
+            ctx.shadowColor = `hsl(${(Date.now() / 20) % 360}, 100%, 50%)`;
+            ctx.shadowBlur = 30 + 10 * Math.sin(Date.now() / 200);
+          }
+          ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+          ctx.restore();
+          
+          // Draw price at top-right of logo (scales proportionally with logo)
+          ctx.save();
+          const fontSize = logoSize * 0.16; // Proportional font (slightly smaller ratio since logo is bigger)
+          ctx.font = `bold ${fontSize}px 'YWFTProcessing-Regular', monospace`;
+          
+          // Price background
+          const priceMetrics = ctx.measureText(currentPrice);
+          const paddingX = fontSize * 0.4;
+          const paddingY = fontSize * 0.25;
+          const priceW = priceMetrics.width + paddingX * 2;
+          const priceH = fontSize + paddingY * 2;
+          // Position more to the right of logo
+          const priceX = logoX + logoSize - priceW * 0.15;
+          const priceY = logoY - priceH * 0.2;
+          
+          // Intensity-based colors (green theme to start, escalates with intensity)
+          const intensityColors = {
+            0: { bg: '#0a2a0a', border: '#2a5a2a', text: '#88ff88', glow: 0 },      // Dark green bg, green border, lime text
+            1: { bg: '#0a2a0a', border: '#3a7a3a', text: '#aaffaa', glow: 6 },      // Brighter green
+            2: { bg: '#1a3a1a', border: '#00cc66', text: '#00ffcc', glow: 10 },     // Cyan-green
+            3: { bg: '#2a3a1a', border: '#ffcc00', text: '#ffdd44', glow: 14 },     // Gold
+            4: { bg: '#3a2a1a', border: '#ff6600', text: '#ff8844', glow: 20 }      // Orange/fire
+          };
+          const colors = intensityColors[currentIntensity] || intensityColors[0];
+          
+          // Green gradient background
+          const bgGrad = ctx.createLinearGradient(priceX, priceY, priceX + priceW, priceY + priceH);
+          bgGrad.addColorStop(0, colors.bg);
+          bgGrad.addColorStop(1, '#050f05');
+          ctx.fillStyle = bgGrad;
+          ctx.globalAlpha = masterAlpha * 0.95;
+          
+          // Rounded rect background
+          ctx.beginPath();
+          const radius = 4;
+          ctx.moveTo(priceX + radius, priceY);
+          ctx.lineTo(priceX + priceW - radius, priceY);
+          ctx.quadraticCurveTo(priceX + priceW, priceY, priceX + priceW, priceY + radius);
+          ctx.lineTo(priceX + priceW, priceY + priceH - radius);
+          ctx.quadraticCurveTo(priceX + priceW, priceY + priceH, priceX + priceW - radius, priceY + priceH);
+          ctx.lineTo(priceX + radius, priceY + priceH);
+          ctx.quadraticCurveTo(priceX, priceY + priceH, priceX, priceY + priceH - radius);
+          ctx.lineTo(priceX, priceY + radius);
+          ctx.quadraticCurveTo(priceX, priceY, priceX + radius, priceY);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Border with intensity glow
+          if (colors.glow > 0) {
+            ctx.shadowColor = colors.border;
+            ctx.shadowBlur = colors.glow;
+          }
+          ctx.strokeStyle = colors.border;
+          ctx.lineWidth = 3; // Thicker border
+          ctx.globalAlpha = masterAlpha;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          
+          // Price text with intensity color (offset down slightly for better visual centering)
+          // Rainbow effect at max intensity!
+          if (currentIntensity === 4) {
+            const hue = (Date.now() / 10) % 360;
+            ctx.fillStyle = `hsl(${hue}, 100%, 65%)`;
+            // Extra glow for rainbow
+            ctx.shadowColor = `hsl(${(hue + 180) % 360}, 100%, 50%)`;
+            ctx.shadowBlur = 15;
+          } else {
+            ctx.fillStyle = colors.text;
+          }
+          ctx.textBaseline = 'middle';
+          ctx.fillText(currentPrice, priceX + paddingX, priceY + priceH / 2 + fontSize * 0.08);
+          ctx.restore();
+        }
+        
         requestAnimationFrame(render);
       }
 
@@ -5564,6 +5712,18 @@
       }
 
       start();
+      
+      // Pause slideshow when not visible (IntersectionObserver)
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          isPaused = !entry.isIntersecting;
+          if (!isPaused) {
+            // Reset lastFrameTime to avoid huge delta on resume
+            lastFrameTime = 0;
+          }
+        });
+      }, { threshold: 0.1 });
+      observer.observe(container);
     }
 
     // Initialize slideshow when DOM ready
@@ -6062,30 +6222,58 @@
       // Monthly checkbox
       if (monthlyCheck) {
         monthlyCheck.addEventListener('change', async () => {
-          // If checking monthly and not logged in, prompt to log in first
+          // If checking monthly and not logged in, show native dialog
           if (monthlyCheck.checked && !acUser && !prefillEmail) {
-            // Uncheck the checkbox
-            monthlyCheck.checked = false;
-            
-            // Show login prompt
-            const shouldLogin = confirm(
-              currentLang === 'da' 
-                ? 'For månedlige bidrag anbefaler vi at logge ind først, så vi kan tilknytte dit abonnement til din konto.\n\nVil du logge ind nu?'
-                : 'For monthly contributions, we recommend logging in first so we can link your subscription to your account.\n\nWould you like to log in now?'
-            );
-            
-            if (shouldLogin) {
-              // Initialize auth if needed and redirect to login
-              if (!auth0Client) await initAuth0();
-              if (auth0Client) {
-                await auth0Client.loginWithRedirect({
-                  authorizationParams: {
-                    redirect_uri: window.location.origin + window.location.pathname
-                  }
-                });
-              }
+            const dialog = document.getElementById('loginModal');
+            if (dialog) {
+              // Show dialog
+              dialog.showModal();
+              
+              // Handle confirm (log in)
+              const confirmBtn = document.getElementById('loginModalConfirm');
+              const cancelBtn = document.getElementById('loginModalCancel');
+              
+              const handleConfirm = async () => {
+                dialog.close();
+                cleanup();
+                // Keep checkbox checked - they want monthly
+                // Initialize auth if needed and redirect to login
+                if (!auth0Client) await initAuth0();
+                if (auth0Client) {
+                  await auth0Client.loginWithRedirect({
+                    authorizationParams: {
+                      redirect_uri: window.location.origin + window.location.pathname
+                    }
+                  });
+                }
+              };
+              
+              const handleCancel = () => {
+                dialog.close();
+                cleanup();
+                // Keep checkbox checked - they still want monthly
+                // Scroll to login button and blink it
+                const loginBtn = document.getElementById('footerLoginBtn');
+                if (loginBtn) {
+                  loginBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  setTimeout(() => {
+                    loginBtn.classList.add('blinking');
+                    setTimeout(() => loginBtn.classList.remove('blinking'), 2000);
+                  }, 400);
+                }
+              };
+              
+              const cleanup = () => {
+                confirmBtn?.removeEventListener('click', handleConfirm);
+                cancelBtn?.removeEventListener('click', handleCancel);
+              };
+              
+              confirmBtn?.addEventListener('click', handleConfirm);
+              cancelBtn?.addEventListener('click', handleCancel);
+              
+              // Don't uncheck - let them proceed with monthly even without login
+              // The checkbox stays checked
             }
-            return;
           }
           
           isMonthly = monthlyCheck.checked;
@@ -6950,19 +7138,107 @@
     
     setTimeout(loadRecentGives, 300);
     
+    // Pause ticker when not visible
+    const tickerObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const ticker = entry.target;
+        if (entry.isIntersecting) {
+          ticker.classList.remove('paused');
+        } else {
+          ticker.classList.add('paused');
+        }
+      });
+    }, { threshold: 0.1 });
+    const tickerEl = document.getElementById('givesTicker');
+    if (tickerEl) tickerObserver.observe(tickerEl);
+    
+    // Drag to scroll ticker
+    if (tickerEl) {
+      const track = tickerEl.querySelector('.gives-ticker-track');
+      let isDragging = false;
+      let startX = 0;
+      let currentOffset = 0;
+      let trackOffset = 0;
+      let resumeTimeout = null;
+      
+      function getTrackOffset() {
+        const transform = getComputedStyle(track).transform;
+        if (transform === 'none') return 0;
+        const matrix = new DOMMatrixReadOnly(transform);
+        return matrix.m41;
+      }
+      
+      function startDrag(clientX) {
+        if (resumeTimeout) clearTimeout(resumeTimeout);
+        isDragging = true;
+        startX = clientX;
+        trackOffset = getTrackOffset();
+        tickerEl.classList.add('dragging');
+        // Apply current position as inline style immediately
+        track.style.transform = `translateX(${trackOffset}px)`;
+      }
+      
+      tickerEl.addEventListener('mousedown', (e) => {
+        startDrag(e.clientX);
+        e.preventDefault();
+      });
+      
+      tickerEl.addEventListener('touchstart', (e) => {
+        startDrag(e.touches[0].clientX);
+      }, { passive: true });
+      
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const deltaX = e.clientX - startX;
+        currentOffset = trackOffset + deltaX;
+        track.style.transform = `translateX(${currentOffset}px)`;
+      });
+      
+      window.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const deltaX = e.touches[0].clientX - startX;
+        currentOffset = trackOffset + deltaX;
+        track.style.transform = `translateX(${currentOffset}px)`;
+      }, { passive: true });
+      
+      function stopDragging() {
+        if (!isDragging) return;
+        isDragging = false;
+        // Keep manual position for 2s before resuming animation
+        resumeTimeout = setTimeout(() => {
+          tickerEl.classList.remove('dragging');
+          track.style.transform = '';
+        }, 2000);
+      }
+      
+      window.addEventListener('mouseup', stopDragging);
+      window.addEventListener('touchend', stopDragging);
+    }
+    
     // Animate server cost colors (cycling hue animation)
     let serverCostPhase = Math.random() * Math.PI * 2;
+    let serverCostPaused = false;
     function animateServerCost() {
-      serverCostPhase += 0.02; // Smooth oscillation
-      
-      document.querySelectorAll('.server-cost-number').forEach(el => {
-        // Cycle through colors (pink → cyan → gold → green → pink)
-        const hue = (serverCostPhase * 30) % 360;
-        el.style.color = `hsl(${hue}, 70%, 65%)`;
-      });
+      if (!serverCostPaused) {
+        serverCostPhase += 0.02; // Smooth oscillation
+        
+        document.querySelectorAll('.server-cost-number').forEach(el => {
+          // Cycle through colors (pink → cyan → gold → green → pink)
+          const hue = (serverCostPhase * 30) % 360;
+          el.style.color = `hsl(${hue}, 70%, 65%)`;
+        });
+      }
       requestAnimationFrame(animateServerCost);
     }
     setTimeout(animateServerCost, 500); // Start after ticker loads
+    
+    // Pause server cost animation when ticker not visible
+    const costObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        serverCostPaused = !entry.isIntersecting;
+      });
+    }, { threshold: 0.1 });
+    if (tickerEl) costObserver.observe(tickerEl);
 
     // Determine API base URL (relative for local dev, absolute for production)
     const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('local.')
@@ -7969,6 +8245,55 @@
     // Start apps auto-flip after a short delay
     setTimeout(updateAppsFlipProgress, 2000);
 
+    // 📊 Stats Section Visibility Manager
+    // Pauses all floating stat spawners when stats section is not visible
+    const statsVisibility = {
+      isVisible: true,
+      spawners: [], // { id, spawnFn, intervalMs, intervalId }
+      register(spawnFn, intervalMs) {
+        const spawner = { id: this.spawners.length, spawnFn, intervalMs, intervalId: null };
+        this.spawners.push(spawner);
+        if (this.isVisible) {
+          spawner.intervalId = setInterval(spawnFn, intervalMs);
+        }
+        return spawner.id;
+      },
+      start() {
+        if (this.isVisible) return;
+        this.isVisible = true;
+        for (const s of this.spawners) {
+          if (!s.intervalId) {
+            s.intervalId = setInterval(s.spawnFn, s.intervalMs);
+          }
+        }
+      },
+      stop() {
+        if (!this.isVisible) return;
+        this.isVisible = false;
+        for (const s of this.spawners) {
+          if (s.intervalId) {
+            clearInterval(s.intervalId);
+            s.intervalId = null;
+          }
+        }
+      }
+    };
+
+    // Set up IntersectionObserver for stats section
+    const statsSection = document.querySelector('.stats-section');
+    if (statsSection) {
+      const statsObserver = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            statsVisibility.start();
+          } else {
+            statsVisibility.stop();
+          }
+        }
+      }, { threshold: 0 });
+      statsObserver.observe(statsSection);
+    }
+
     // 🎨 Floating Paintings in Stats
     async function loadFloatingPaintings() {
       const statItem = document.getElementById('stat-paintings');
@@ -8066,9 +8391,9 @@
           floater.addEventListener('animationend', () => floater.remove());
         }
         
-        // Spawn one immediately, then every 3 seconds
+        // Spawn one immediately, then register with visibility manager
         spawnFloater();
-        setInterval(spawnFloater, 3000);
+        statsVisibility.register(spawnFloater, 3000);
         
       } catch (e) {
         console.warn('Could not load floating paintings:', e);
@@ -8141,7 +8466,7 @@
         }
         
         spawnFloater();
-        setInterval(spawnFloater, 4000);
+        statsVisibility.register(spawnFloater, 4000);
         
       } catch (e) {
         console.warn('Could not load floating handles:', e);
@@ -8234,7 +8559,7 @@
         }
         
         spawnFloater();
-        setInterval(spawnFloater, 3500);
+        statsVisibility.register(spawnFloater, 3500);
         
       } catch (e) {
         console.warn('Could not load floating moods:', e);
@@ -8317,7 +8642,7 @@
         }
         
         spawnFloater();
-        setInterval(spawnFloater, 3000);
+        statsVisibility.register(spawnFloater, 3000);
         
       } catch (e) {
         console.warn('Could not load floating kidlisp:', e);
@@ -8395,7 +8720,7 @@
         }
         
         spawnFloater();
-        setInterval(spawnFloater, 2500);
+        statsVisibility.register(spawnFloater, 2500);
         
       } catch (e) {
         console.warn('Could not load floating commands:', e);
@@ -8475,7 +8800,7 @@
         }
         
         spawnFloater();
-        setInterval(spawnFloater, 2000);
+        statsVisibility.register(spawnFloater, 2000);
         
       } catch (e) {
         console.warn('Could not load floating messages:', e);
