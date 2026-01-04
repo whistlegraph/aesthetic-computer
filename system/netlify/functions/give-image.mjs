@@ -75,19 +75,16 @@ export async function handler(event, context) {
   </g>
 </svg>`;
   } else {
-    // Stripe checkout image (512x512) - Clean minimal design with transparent background
+    // Stripe checkout image (512x512) - Just pals with a heart behind them
     svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Heart behind pals -->
+  <text x="256" y="320" font-size="280" text-anchor="middle" dominant-baseline="central" fill="#cd5c9b" opacity="0.4">♥</text>
+  
   <!-- Pals icon (scaled and centered) -->
-  <g transform="translate(136, 100) scale(10)">
+  <g transform="translate(136, 156) scale(10)">
     ${palsSvgPath}
   </g>
-  
-  <!-- Price display -->
-  <text x="256" y="380" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="bold" text-anchor="middle" fill="#cd5c9b">${displayAmount}</text>
-  
-  <!-- Currency label -->
-  <text x="256" y="420" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#888888">${currency.toUpperCase()}</text>
 </svg>`;
   }
 
