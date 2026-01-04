@@ -1117,8 +1117,8 @@ async function halt($, text) {
     // 💻 Jump to Desktop app download page
     jump("desktop");
     return true;
-  } else if (slug === "r8dio:web" || slug === "radio:web") {
-    // 📻 Jump to R8dio.dk website
+  } else if (slug === "r8dio:web" || slug === "r8Dio:web" || slug === "radio:web") {
+    // 📻 Jump to R8dio.dk website (supports both r8dio and r8Dio)
     jump(`https://r8dio.dk/lyt-live/`);
     return true;
   } else if (slug === "merry" || slug === "merryo") {
