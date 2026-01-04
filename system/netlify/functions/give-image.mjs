@@ -75,16 +75,31 @@ export async function handler(event, context) {
   </g>
 </svg>`;
   } else {
-    // Stripe checkout image (512x512) - Just pals with a heart behind them
+    // Stripe checkout image (512x512) - Pals with baby blue heart floating off hand
+    // Pals path bounding box: x=1 to x=23 (22 wide), y=5 to y=19 (14 tall)
+    const palsOriginalWidth = 22;
+    const palsOriginalHeight = 14;
+    const palsOriginalOffsetX = 1;
+    const palsOriginalOffsetY = 5;
+    const palsScale = 17;
+    const palsX = (512 - palsOriginalWidth * palsScale) / 2 - palsOriginalOffsetX * palsScale - 40;
+    const palsY = (512 - palsOriginalHeight * palsScale) / 2 - palsOriginalOffsetY * palsScale + 30;
+    
     svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <!-- Heart behind pals -->
-  <text x="256" y="320" font-size="280" text-anchor="middle" dominant-baseline="central" fill="#cd5c9b" opacity="0.4">♥</text>
+  <defs>
+    <filter id="dropShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="4" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
   
-  <!-- Pals icon (scaled and centered) -->
-  <g transform="translate(136, 156) scale(10)">
+  <!-- Pals icon (scaled and centered) with drop shadow -->
+  <g transform="translate(${palsX}, ${palsY}) scale(${palsScale})" filter="url(#dropShadow)">
     ${palsSvgPath}
   </g>
+  
+  <!-- Baby blue heart floating off to top-right with drop shadow -->
+  <text x="420" y="90" font-size="180" text-anchor="middle" dominant-baseline="central" fill="#89CFF0" opacity="0.9" filter="url(#dropShadow)">♥</text>
 </svg>`;
   }
 
