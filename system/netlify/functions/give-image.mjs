@@ -75,54 +75,19 @@ export async function handler(event, context) {
   </g>
 </svg>`;
   } else {
-    // Original Stripe checkout image (512x512)
+    // Stripe checkout image (512x512) - Clean minimal design with transparent background
     svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1a1a2e"/>
-      <stop offset="100%" style="stop-color:#16213e"/>
-    </linearGradient>
-    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#cd5c9b;stop-opacity:0.3"/>
-      <stop offset="100%" style="stop-color:#6366f1;stop-opacity:0.3"/>
-    </linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-  
-  <!-- Background -->
-  <rect width="512" height="512" fill="url(#bgGrad)"/>
-  
-  <!-- Subtle glow circle -->
-  <circle cx="256" cy="200" r="120" fill="url(#glowGrad)" filter="url(#glow)"/>
-  
   <!-- Pals icon (scaled and centered) -->
-  <g transform="translate(136, 80) scale(10)" filter="url(#glow)">
+  <g transform="translate(136, 100) scale(10)">
     ${palsSvgPath}
   </g>
   
-  <!-- Gift emoji -->
-  <text x="256" y="350" font-family="Arial, sans-serif" font-size="48" text-anchor="middle" fill="#ffffff">🎁</text>
-  
   <!-- Price display -->
-  <text x="256" y="420" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="bold" text-anchor="middle" fill="#ffffff" filter="url(#textGlow)">${displayAmount}</text>
+  <text x="256" y="380" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="bold" text-anchor="middle" fill="#cd5c9b">${displayAmount}</text>
   
-  <!-- Prose -->
-  <text x="256" y="465" font-family="Arial, sans-serif" font-size="16" text-anchor="middle" fill="#aaaaaa">Giving to Aesthetic.Computer supports</text>
-  <text x="256" y="488" font-family="Arial, sans-serif" font-size="16" text-anchor="middle" fill="#aaaaaa">the fulltime software engineering practice...</text>
+  <!-- Currency label -->
+  <text x="256" y="420" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#888888">${currency.toUpperCase()}</text>
 </svg>`;
   }
 
