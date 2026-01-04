@@ -1235,6 +1235,36 @@
       border-radius: 0 0 8px 8px;
     }
     
+    /* Compact crypto header with tiny logo */
+    .crypto-compact .gift-visual {
+      display: none;
+    }
+    
+    .crypto-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      padding: 0.6em 1em;
+      background: linear-gradient(135deg, rgba(106, 74, 138, 0.2) 0%, rgba(0, 255, 255, 0.05) 100%);
+      border: 1px solid var(--box-border);
+      border-radius: 8px 8px 0 0;
+    }
+    
+    .crypto-logo-tiny {
+      width: 24px;
+      height: 24px;
+    }
+    
+    .crypto-title {
+      font-family: 'YWFTProcessing-Regular', sans-serif;
+      font-size: 1em;
+      color: #a78bfa;
+    }
+    
+    .crypto-compact .crypto-controls {
+      border-radius: 0 0 8px 8px;
+    }
+    
     /* Stacked crypto addresses for all-in-one view */
     .crypto-controls.crypto-all {
       gap: 0.8em;
@@ -3399,12 +3429,10 @@
             </div>
           </div>
           <div class="currency-picker" data-for="crypto" style="display: none;">
-            <div class="gift-widget crypto" data-currency="crypto">
-              <div class="gift-visual">
-                <div class="gift-logo-wrap">
-                  <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount crypto-amount">⚡ CRYPTO</div>
-                </div>
+            <div class="gift-widget crypto crypto-compact" data-currency="crypto">
+              <div class="crypto-header">
+                <img src="https://aesthetic.computer/purple-pals.svg" class="crypto-logo-tiny" alt="">
+                <span class="crypto-title">⚡ CRYPTO</span>
               </div>
               <div class="crypto-controls crypto-all">
                 <div class="crypto-address copyable" data-copy="bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as">
