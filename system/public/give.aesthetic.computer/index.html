@@ -3329,6 +3329,89 @@
       background: #1da1f2;
       border-color: #1da1f2;
     }
+
+    /* Ken Burns Slideshow - Nostalgic Photo Background */
+    .jeffreys-slideshow {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      border-radius: 8px 8px 0 0;
+      z-index: 0;
+    }
+
+    .jeffreys-slide {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0;
+      transform: scale(1.0);
+      transition: opacity 2s ease-in-out;
+      /* Nostalgic filter: sepia, slight desaturation, soft fade */
+      filter: sepia(0.3) saturate(0.7) brightness(0.6) contrast(0.9);
+    }
+
+    .jeffreys-slide.active {
+      opacity: 1;
+      animation: kenBurns 12s ease-in-out forwards;
+    }
+
+    @keyframes kenBurns {
+      0% {
+        transform: scale(1.0) translate(0, 0);
+      }
+      100% {
+        transform: scale(1.15) translate(-2%, -2%);
+      }
+    }
+
+    /* Alternate Ken Burns directions */
+    .jeffreys-slide.kb-right.active {
+      animation: kenBurnsRight 12s ease-in-out forwards;
+    }
+
+    @keyframes kenBurnsRight {
+      0% {
+        transform: scale(1.0) translate(0, 0);
+      }
+      100% {
+        transform: scale(1.15) translate(2%, -1%);
+      }
+    }
+
+    .jeffreys-slide.kb-up.active {
+      animation: kenBurnsUp 12s ease-in-out forwards;
+    }
+
+    @keyframes kenBurnsUp {
+      0% {
+        transform: scale(1.05) translate(0, 2%);
+      }
+      100% {
+        transform: scale(1.2) translate(0, -2%);
+      }
+    }
+
+    /* Vignette overlay for extra nostalgia */
+    .jeffreys-slideshow::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.4) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Make sure gift-logo-wrap stays above slideshow */
+    .gift-logo-wrap {
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Slightly brighter logo on slideshow background */
+    .gift-visual:has(.jeffreys-slideshow) .gift-logo {
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+    }
   </style>
 </head>
 
@@ -3383,6 +3466,7 @@
           <div class="currency-picker" data-for="usd">
             <div class="gift-widget" data-currency="usd">
               <div class="gift-visual">
+                <div class="jeffreys-slideshow" id="jeffreysSlideshow"></div>
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
                   <div class="gift-amount">$125<span class="monthly-infinity">∞</span></div>
@@ -3716,6 +3800,70 @@
   </main>
 
   <script>
+    // ====== Jeffreys Ken Burns Slideshow ======
+    const jeffreysImages = [
+      'IMG_0260', 'IMG_1111', 'IMG_1577', 'IMG_1616', 'IMG_1809',
+      'IMG_2208', 'IMG_2280', 'IMG_2498', 'IMG_2658', 'IMG_2668',
+      'IMG_2905', 'IMG_3017', 'IMG_3234', 'IMG_4894', 'IMG_4997',
+      'IMG_5043', 'IMG_5050', 'IMG_5644', 'IMG_6367', 'IMG_6435', 'IMG_8080'
+    ];
+    const kbDirections = ['', 'kb-right', 'kb-up']; // Different Ken Burns directions
+
+    function initJeffreysSlideshow() {
+      const container = document.getElementById('jeffreysSlideshow');
+      if (!container) return;
+
+      // Shuffle images for variety
+      const shuffled = [...jeffreysImages].sort(() => Math.random() - 0.5);
+      
+      // Create slide elements (we'll use 2 for crossfade)
+      const slide1 = document.createElement('div');
+      const slide2 = document.createElement('div');
+      slide1.className = 'jeffreys-slide';
+      slide2.className = 'jeffreys-slide';
+      container.appendChild(slide1);
+      container.appendChild(slide2);
+
+      let currentIndex = 0;
+      let activeSlide = slide1;
+      let inactiveSlide = slide2;
+
+      function showNextImage() {
+        const imgName = shuffled[currentIndex % shuffled.length];
+        const imgUrl = `https://assets.aesthetic.computer/jeffreys/jpg/${imgName}.jpg`;
+        const kbClass = kbDirections[currentIndex % kbDirections.length];
+
+        // Prepare inactive slide with new image
+        inactiveSlide.style.backgroundImage = `url(${imgUrl})`;
+        inactiveSlide.className = 'jeffreys-slide ' + kbClass;
+
+        // Crossfade: deactivate current, activate new
+        activeSlide.classList.remove('active');
+        setTimeout(() => {
+          inactiveSlide.classList.add('active');
+        }, 50);
+
+        // Swap references
+        [activeSlide, inactiveSlide] = [inactiveSlide, activeSlide];
+        currentIndex++;
+      }
+
+      // Preload first image then start
+      const firstImg = new Image();
+      firstImg.onload = () => {
+        showNextImage();
+        setInterval(showNextImage, 10000); // Change every 10 seconds
+      };
+      firstImg.src = `https://assets.aesthetic.computer/jeffreys/jpg/${shuffled[0]}.jpg`;
+    }
+
+    // Initialize slideshow when DOM ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initJeffreysSlideshow);
+    } else {
+      initJeffreysSlideshow();
+    }
+
     // Language selector (dropdown)
     const langSelector = document.getElementById('langSelector');
     const langFlag = document.getElementById('lang-flag');
