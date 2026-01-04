@@ -3813,51 +3813,53 @@
 
   <script>
     // ====== Jeffreys Ken Burns Canvas Slideshow ======
-    // Face detection data from OpenCV DNN (confidence >= 50%)
+    // POI (Points of Interest) data: faces, bodies, hands
+    // Detected using OpenCV DNN + Haar cascades
+    // POI types: 'f'=face, 'b'=body, 'h'=hand
     const jeffreysData = {
-      'FullSizeRender': { focal: [38.6, 34.8], faces: [[33.8, 30.0, 9.5, 9.7]], aspect: 0.75 },
-      'IMG_0260': { focal: [41.0, 38.0], faces: [[32.3, 29.3, 17.4, 17.5]], aspect: 0.75 },
-      'IMG_0675': { focal: [54.0, 37.2], faces: [[47.8, 31.8, 12.3, 10.9]], aspect: 0.667 },
-      'IMG_0686': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_0688': { focal: [50, 50], faces: [], aspect: 0.563 },
-      'IMG_0798': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_1111': { focal: [50, 50], faces: [], aspect: 0.562 },
-      'IMG_1577': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_1616': { focal: [47.8, 51.7], faces: [[42.5, 45.2, 10.7, 13.0]], aspect: 0.75 },
-      'IMG_1737': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_1809': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_2124': { focal: [54.8, 35.8], faces: [[49.7, 31.8, 10.1, 7.9]], aspect: 0.563 },
-      'IMG_2208': { focal: [40.0, 21.8], faces: [[33.6, 14.5, 12.8, 14.6]], aspect: 0.75 },
-      'IMG_2280': { focal: [57.4, 33.4], faces: [[42.5, 16.4, 29.8, 34.0]], aspect: 0.8 },
-      'IMG_2498': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_2630': { focal: [50, 50], faces: [], aspect: 1.333 },
-      'IMG_2658': { focal: [46.6, 43.7], faces: [[39.2, 34.5, 14.8, 18.4]], aspect: 0.75 },
-      'IMG_2668': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_2905': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_2913': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_3017': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_3234': { focal: [42.4, 48.8], faces: [[36.9, 43.2, 11.1, 11.3]], aspect: 0.75 },
-      'IMG_4281': { focal: [50.2, 38.1], faces: [[44.5, 31.3, 11.4, 13.6]], aspect: 0.75 },
-      'IMG_4312': { focal: [4.1, 28.1], faces: [[0.0, 18.6, 8.2, 19.0]], aspect: 0.75 },
-      'IMG_4606': { focal: [53.0, 56.5], faces: [[28.6, 31.6, 48.9, 49.8]], aspect: 0.75 },
-      'IMG_4894': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_4997': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_5043': { focal: [40.8, 43.3], faces: [[30.8, 32.3, 20.1, 22.1]], aspect: 0.75 },
-      'IMG_5050': { focal: [65.6, 53.7], faces: [[60.1, 48.3, 10.9, 10.8]], aspect: 0.75 },
-      'IMG_5272': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_5644': { focal: [49.0, 17.9], faces: [[44.1, 13.9, 9.8, 8.0]], aspect: 0.563 },
-      'IMG_6342': { focal: [62.4, 28.0], faces: [[55.1, 18.5, 14.5, 18.9]], aspect: 0.75 },
-      'IMG_6367': { focal: [44.2, 34.2], faces: [[37.8, 28.7, 12.7, 11.1]], aspect: 0.75 },
-      'IMG_6435': { focal: [48.0, 37.8], faces: [[37.9, 27.2, 20.2, 21.1]], aspect: 0.75 },
-      'IMG_8080': { focal: [42.6, 27.8], faces: [[36.0, 20.8, 13.1, 13.9]], aspect: 0.75 },
-      'IMG_8188': { focal: [48.8, 34.0], faces: [[37.9, 24.0, 21.8, 19.9]], aspect: 0.75 },
-      'IMG_8989': { focal: [50, 50], faces: [], aspect: 0.75 },
-      'IMG_9795': { focal: [31.2, 22.0], faces: [[23.8, 15.6, 14.8, 12.9]], aspect: 0.562 }
+      'FullSizeRender': { focal: [38.5, 34.8], pois: [{"t": "f", "box": [33.8, 30.0, 9.5, 9.7]}, {"t": "b", "box": [59.5, 63.9, 20.2, 12.4]}, {"t": "b", "box": [87.6, 89.3, 8.4, 5.2]}], aspect: 0.75 },
+      'IMG_0260': { focal: [41.0, 38.1], pois: [{"t": "f", "box": [32.3, 29.3, 17.4, 17.5]}, {"t": "b", "box": [15.9, 50.0, 5.9, 3.6]}], aspect: 0.75 },
+      'IMG_0675': { focal: [54.0, 37.2], pois: [{"t": "f", "box": [47.8, 31.8, 12.3, 10.9]}], aspect: 0.667 },
+      'IMG_0686': { focal: [57.4, 25.4], pois: [{"t": "b", "box": [53.6, 23.1, 7.5, 4.6]}, {"t": "b", "box": [54.1, 47.2, 6.9, 4.2]}], aspect: 0.75 },
+      'IMG_0688': { focal: [72.3, 63.0], pois: [{"t": "b", "box": [69.1, 59.3, 6.5, 7.4]}, {"t": "b", "box": [39.4, 46.8, 4.1, 4.6]}], aspect: 0.563 },
+      'IMG_0798': { focal: [46.6, 6.4], pois: [{"t": "b", "box": [44.8, 5.3, 3.7, 2.3]}], aspect: 0.75 },
+      'IMG_1111': { focal: [50, 50], pois: [], aspect: 0.562 },
+      'IMG_1577': { focal: [37.0, 70.6], pois: [{"t": "b", "box": [35.5, 69.7, 2.8, 1.7]}], aspect: 0.75 },
+      'IMG_1616': { focal: [47.8, 51.7], pois: [{"t": "f", "box": [42.5, 45.2, 10.7, 13.0]}, {"t": "b", "box": [14.1, 68.0, 12.4, 7.6]}], aspect: 0.75 },
+      'IMG_1737': { focal: [50, 50], pois: [], aspect: 0.75 },
+      'IMG_1809': { focal: [48.0, 53.2], pois: [{"t": "b", "box": [45.0, 51.4, 6.1, 3.7]}], aspect: 0.75 },
+      'IMG_2124': { focal: [54.8, 35.8], pois: [{"t": "f", "box": [49.7, 31.8, 10.1, 7.9]}, {"t": "b", "box": [3.1, 48.8, 32.0, 14.8]}], aspect: 0.563 },
+      'IMG_2208': { focal: [40.0, 21.8], pois: [{"t": "f", "box": [33.6, 14.5, 12.8, 14.6]}, {"t": "b", "box": [23.4, 5.1, 10.6, 6.5]}], aspect: 0.75 },
+      'IMG_2280': { focal: [57.4, 33.4], pois: [{"t": "f", "box": [42.5, 16.4, 29.8, 34.0]}], aspect: 0.8 },
+      'IMG_2498': { focal: [21.8, 61.4], pois: [{"t": "b", "box": [12.6, 55.8, 18.3, 11.2]}], aspect: 0.75 },
+      'IMG_2630': { focal: [20.3, 59.6], pois: [{"t": "b", "box": [6.8, 44.8, 27.0, 29.4]}, {"t": "b", "box": [30.7, 44.0, 8.6, 22.9]}], aspect: 1.333 },
+      'IMG_2658': { focal: [46.6, 43.7], pois: [{"t": "f", "box": [39.2, 34.5, 14.8, 18.4]}, {"t": "b", "box": [58.5, 68.9, 8.4, 5.2]}], aspect: 0.75 },
+      'IMG_2668': { focal: [39.4, 24.5], pois: [{"t": "b", "box": [30.4, 19.0, 18.0, 11.0]}, {"t": "b", "box": [40.7, 68.8, 8.6, 5.3]}], aspect: 0.75 },
+      'IMG_2905': { focal: [47.5, 40.1], pois: [{"t": "b", "box": [28.3, 28.4, 38.3, 23.5]}], aspect: 0.75 },
+      'IMG_2913': { focal: [69.9, 19.9], pois: [{"t": "b", "box": [67.7, 18.5, 4.5, 2.7]}, {"t": "b", "box": [87.0, 36.8, 4.1, 2.5]}], aspect: 0.75 },
+      'IMG_3017': { focal: [37.6, 81.5], pois: [{"t": "b", "box": [31.7, 77.9, 11.8, 7.3]}], aspect: 0.75 },
+      'IMG_3234': { focal: [42.4, 48.8], pois: [{"t": "f", "box": [36.9, 43.2, 11.1, 11.3]}, {"t": "b", "box": [27.1, 34.8, 15.4, 9.4]}], aspect: 0.75 },
+      'IMG_4281': { focal: [50.2, 38.1], pois: [{"t": "f", "box": [44.5, 31.3, 11.4, 13.6]}, {"t": "b", "box": [70.5, 59.8, 8.4, 12.6]}], aspect: 0.75 },
+      'IMG_4312': { focal: [4.1, 28.1], pois: [{"t": "f", "box": [0.0, 18.6, 8.2, 19.0]}, {"t": "b", "box": [32.5, 63.2, 3.2, 2.0]}], aspect: 0.75 },
+      'IMG_4606': { focal: [53.1, 56.5], pois: [{"t": "f", "box": [28.6, 31.6, 48.9, 49.8]}], aspect: 0.75 },
+      'IMG_4894': { focal: [48.0, 73.6], pois: [{"t": "b", "box": [44.4, 71.4, 7.2, 4.4]}, {"t": "b", "box": [71.8, 49.7, 4.6, 6.8]}], aspect: 0.75 },
+      'IMG_4997': { focal: [54.0, 55.8], pois: [{"t": "b", "box": [52.3, 53.2, 3.4, 5.1]}], aspect: 0.75 },
+      'IMG_5043': { focal: [40.8, 43.4], pois: [{"t": "f", "box": [30.8, 32.3, 20.1, 22.1]}, {"t": "b", "box": [31.9, 69.9, 4.8, 3.0]}], aspect: 0.75 },
+      'IMG_5050': { focal: [65.6, 53.7], pois: [{"t": "f", "box": [60.1, 48.3, 10.9, 10.8]}, {"t": "b", "box": [21.9, 43.0, 16.5, 10.1]}], aspect: 0.75 },
+      'IMG_5272': { focal: [62.3, 53.4], pois: [{"t": "b", "box": [61.0, 51.3, 2.7, 4.1]}], aspect: 0.75 },
+      'IMG_5644': { focal: [49.0, 17.8], pois: [{"t": "f", "box": [44.1, 13.9, 9.8, 8.0]}, {"t": "b", "box": [32.7, 19.9, 11.0, 5.1]}], aspect: 0.563 },
+      'IMG_6342': { focal: [62.3, 28.0], pois: [{"t": "f", "box": [55.1, 18.5, 14.5, 18.9]}, {"t": "b", "box": [10.7, 69.4, 23.7, 14.6]}], aspect: 0.75 },
+      'IMG_6367': { focal: [44.1, 34.3], pois: [{"t": "f", "box": [37.8, 28.7, 12.7, 11.1]}, {"t": "b", "box": [60.4, 4.8, 3.6, 2.2]}], aspect: 0.75 },
+      'IMG_6435': { focal: [48.0, 37.8], pois: [{"t": "f", "box": [37.9, 27.2, 20.2, 21.1]}, {"t": "b", "box": [35.9, 86.0, 4.8, 2.9]}], aspect: 0.75 },
+      'IMG_8080': { focal: [42.6, 27.7], pois: [{"t": "f", "box": [36.0, 20.8, 13.1, 13.9]}, {"t": "b", "box": [15.9, 8.3, 66.6, 40.9]}], aspect: 0.75 },
+      'IMG_8188': { focal: [48.9, 33.9], pois: [{"t": "f", "box": [37.9, 24.0, 21.8, 19.9]}, {"t": "b", "box": [35.0, 88.1, 9.8, 6.0]}], aspect: 0.75 },
+      'IMG_8989': { focal: [79.2, 86.1], pois: [{"t": "b", "box": [76.7, 84.6, 5.0, 3.1]}], aspect: 0.75 },
+      'IMG_9795': { focal: [31.2, 22.0], pois: [{"t": "f", "box": [23.8, 15.6, 14.8, 12.9]}, {"t": "b", "box": [21.3, 51.5, 4.3, 2.0]}], aspect: 0.562 }
     };
 
     const jeffreysImages = Object.keys(jeffreysData);
-    const DEBUG_FACES = false; // Set true to show face boxes
-    const FACE_GLOW = true; // Soft radial glow on detected faces
+    const DEBUG_FACES = false; // Set true to show POI boxes
+    const POI_GLOW = true; // Soft radial glow on detected faces/bodies
 
     function initJeffreysSlideshow() {
       const container = document.getElementById('jeffreysSlideshow');
@@ -3931,35 +3933,58 @@
       let currentAlpha = 0;
       let targetImages = [];
       let floatOffset = 0;
+      let poiIndex = 0; // Current POI being focused on
+      let poiTimer = 0; // Timer for switching POIs
+
+      // Get POI center coordinates
+      function getPoiCenter(poi) {
+        return {
+          x: poi.box[0] + poi.box[2] / 2,
+          y: poi.box[1] + poi.box[3] / 2,
+          w: poi.box[2],
+          h: poi.box[3],
+          type: poi.t
+        };
+      }
 
       // Draw image with focal point offset to left or right (avoiding center logo)
+      // Now supports animating between POIs (faces, bodies, hands)
       function drawImageFocused(img, data, destX, destY, destW, destH, alpha, drift, forceOffset = null) {
         const imgW = img.width;
         const imgH = img.height;
         
-        // Find the LARGEST face (most prominent) instead of averaging
-        let focalX = 50, focalY = 50;
-        if (data.faces && data.faces.length > 0) {
-          let largestFace = data.faces[0];
-          let largestArea = largestFace[2] * largestFace[3];
-          for (const face of data.faces) {
-            const area = face[2] * face[3];
-            if (area > largestArea) {
-              largestArea = area;
-              largestFace = face;
-            }
-          }
-          // Center on the largest face (use center of face box, not top-left)
-          focalX = largestFace[0] + largestFace[2] / 2;
-          focalY = largestFace[1] + largestFace[3] / 2;
-        } else {
-          focalX = data.focal[0];
-          focalY = data.focal[1];
+        // Get significant POIs (faces and large bodies only, skip tiny hands)
+        const significantPois = (data.pois || []).filter(poi => {
+          const area = poi.box[2] * poi.box[3];
+          if (poi.t === 'f') return true; // Always include faces
+          if (poi.t === 'b' && area > 15) return true; // Bodies > 15% area
+          return false;
+        });
+
+        // Calculate focal point - animate between POIs
+        let focalX = data.focal[0];
+        let focalY = data.focal[1];
+        let currentPoi = null;
+        
+        if (significantPois.length > 0) {
+          // Use drift to smoothly move between POIs
+          // Each POI gets ~3 seconds of focus time
+          const poiPhase = (drift * significantPois.length) % significantPois.length;
+          const poiIdx = Math.floor(poiPhase);
+          const nextPoiIdx = (poiIdx + 1) % significantPois.length;
+          const blend = poiPhase - poiIdx; // 0-1 transition factor
+          
+          const poi1 = getPoiCenter(significantPois[poiIdx]);
+          const poi2 = getPoiCenter(significantPois[nextPoiIdx]);
+          
+          // Smooth blend between POIs
+          focalX = poi1.x + (poi2.x - poi1.x) * blend;
+          focalY = poi1.y + (poi2.y - poi1.y) * blend;
+          currentPoi = significantPois[poiIdx];
         }
         
-        // Ken Burns: gentle zoom that stays centered on face
-        // Drift only affects zoom level, NOT position - keeps face centered
-        const zoom = 1.1 + drift * 0.1;
+        // Ken Burns: gentle zoom
+        const zoom = 1.15 + drift * 0.1;
         
         // Calculate source rect to show focal point
         const canvasRatio = destW / destH;
@@ -4004,31 +4029,44 @@
         ctx.globalAlpha = alpha;
         ctx.drawImage(img, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
         
-        // Soft radial glow highlights on faces
-        if (FACE_GLOW && data.faces && data.faces.length > 0) {
-          for (const face of data.faces) {
-            const faceImgX = imgW * face[0] / 100;
-            const faceImgY = imgH * face[1] / 100;
-            const faceImgW = imgW * face[2] / 100;
-            const faceImgH = imgH * face[3] / 100;
+        // Soft radial glow highlights on faces and bodies
+        if (POI_GLOW && data.pois && data.pois.length > 0) {
+          for (const poi of data.pois) {
+            // Only glow faces and large bodies
+            const area = poi.box[2] * poi.box[3];
+            if (poi.t === 'h') continue; // Skip hands
+            if (poi.t === 'b' && area < 20) continue; // Skip small bodies
             
-            // Check if face is in visible region
-            if (faceImgX + faceImgW > srcX && faceImgX < srcX + srcW &&
-                faceImgY + faceImgH > srcY && faceImgY < srcY + srcH) {
-              // Map face center to canvas coords
-              const faceCenterX = destX + (faceImgX + faceImgW / 2 - srcX) / srcW * destW;
-              const faceCenterY = destY + (faceImgY + faceImgH / 2 - srcY) / srcH * destH;
-              const faceRadius = Math.max(faceImgW / srcW * destW, faceImgH / srcH * destH) * 1.2;
+            const poiImgX = imgW * poi.box[0] / 100;
+            const poiImgY = imgH * poi.box[1] / 100;
+            const poiImgW = imgW * poi.box[2] / 100;
+            const poiImgH = imgH * poi.box[3] / 100;
+            
+            // Check if POI is in visible region
+            if (poiImgX + poiImgW > srcX && poiImgX < srcX + srcW &&
+                poiImgY + poiImgH > srcY && poiImgY < srcY + srcH) {
+              // Map POI center to canvas coords
+              const poiCenterX = destX + (poiImgX + poiImgW / 2 - srcX) / srcW * destW;
+              const poiCenterY = destY + (poiImgY + poiImgH / 2 - srcY) / srcH * destH;
+              const poiRadius = Math.max(poiImgW / srcW * destW, poiImgH / srcH * destH) * 1.3;
               
-              // Create soft radial gradient glow
+              // Create soft radial gradient glow - warmer for faces, cooler for bodies
               const glow = ctx.createRadialGradient(
-                faceCenterX, faceCenterY, 0,
-                faceCenterX, faceCenterY, faceRadius
+                poiCenterX, poiCenterY, 0,
+                poiCenterX, poiCenterY, poiRadius
               );
-              // Warm golden highlight that fades out
-              glow.addColorStop(0, 'rgba(255, 245, 220, 0.15)');
-              glow.addColorStop(0.4, 'rgba(255, 230, 200, 0.08)');
-              glow.addColorStop(1, 'rgba(255, 220, 180, 0)');
+              
+              if (poi.t === 'f') {
+                // Warm golden glow for faces
+                glow.addColorStop(0, 'rgba(255, 245, 220, 0.18)');
+                glow.addColorStop(0.4, 'rgba(255, 230, 200, 0.10)');
+                glow.addColorStop(1, 'rgba(255, 220, 180, 0)');
+              } else {
+                // Subtle cool glow for bodies
+                glow.addColorStop(0, 'rgba(220, 230, 255, 0.12)');
+                glow.addColorStop(0.4, 'rgba(200, 215, 255, 0.06)');
+                glow.addColorStop(1, 'rgba(180, 200, 255, 0)');
+              }
               
               ctx.fillStyle = glow;
               ctx.fillRect(destX, destY, destW, destH);
@@ -4036,33 +4074,36 @@
           }
         }
         
-        // Debug: draw face boxes and show offset direction
-        if (DEBUG_FACES && data.faces) {
-          ctx.strokeStyle = 'rgba(255, 0, 255, 0.9)';
+        // Debug: draw POI boxes
+        if (DEBUG_FACES && data.pois) {
+          const typeColors = { f: 'rgba(255, 0, 255, 0.9)', b: 'rgba(0, 255, 255, 0.7)', h: 'rgba(255, 255, 0, 0.5)' };
           ctx.lineWidth = 2;
-          for (const face of data.faces) {
-            const faceImgX = imgW * face[0] / 100;
-            const faceImgY = imgH * face[1] / 100;
-            const faceImgW = imgW * face[2] / 100;
-            const faceImgH = imgH * face[3] / 100;
-            if (faceImgX + faceImgW > srcX && faceImgX < srcX + srcW &&
-                faceImgY + faceImgH > srcY && faceImgY < srcY + srcH) {
-              const canvasX = destX + (faceImgX - srcX) / srcW * destW;
-              const canvasY = destY + (faceImgY - srcY) / srcH * destH;
-              const canvasFW = faceImgW / srcW * destW;
-              const canvasFH = faceImgH / srcH * destH;
+          for (const poi of data.pois) {
+            const poiImgX = imgW * poi.box[0] / 100;
+            const poiImgY = imgH * poi.box[1] / 100;
+            const poiImgW = imgW * poi.box[2] / 100;
+            const poiImgH = imgH * poi.box[3] / 100;
+            if (poiImgX + poiImgW > srcX && poiImgX < srcX + srcW &&
+                poiImgY + poiImgH > srcY && poiImgY < srcY + srcH) {
+              ctx.strokeStyle = typeColors[poi.t] || 'white';
+              const canvasX = destX + (poiImgX - srcX) / srcW * destW;
+              const canvasY = destY + (poiImgY - srcY) / srcH * destH;
+              const canvasFW = poiImgW / srcW * destW;
+              const canvasFH = poiImgH / srcH * destH;
               ctx.strokeRect(canvasX, canvasY, canvasFW, canvasFH);
+              // Label
+              ctx.font = '10px monospace';
+              ctx.fillStyle = typeColors[poi.t];
+              ctx.fillText(poi.t.toUpperCase(), canvasX + 2, canvasY + 10);
             }
           }
+          // Crosshair on current focal point
           const focalCanvasX = destX + (focalImgX - srcX) / srcW * destW;
           const focalCanvasY = destY + (focalImgY - srcY) / srcH * destH;
           ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
           ctx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
           ctx.fillRect(focalCanvasX - 15, focalCanvasY - 2, 30, 4);
           ctx.fillRect(focalCanvasX - 2, focalCanvasY - 15, 4, 30);
-          ctx.beginPath();
-          ctx.arc(focalCanvasX, focalCanvasY, 10, 0, Math.PI * 2);
-          ctx.stroke();
         }
         
         ctx.restore();
