@@ -7596,9 +7596,9 @@
       
       let noteIndex = 0;
       
-      // Convert text to animated characters
+      // Convert text to animated characters (using spread to handle emojis)
       function animateText(text) {
-        return text.split('').map((char, i) => {
+        return [...text].map((char, i) => {
           if (char === ' ') return ' ';
           return `<span class="char" style="--char-delay: ${i * 0.05}s">${char}</span>`;
         }).join('');
