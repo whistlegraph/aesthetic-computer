@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Pre-commit hook to warn about large deletions in critical files
+# This helps prevent accidental clobbering during merges
+
+# Critical files that should never lose significant content
+CRITICAL_FILES=(
+  "artery/artery-tui.mjs"
+  "dotfiles/dot_config/emacs.el"
+  "system/public/aesthetic.computer/lib/udp.mjs"
+  "system/public/aesthetic.computer/lib/logs.mjs"
+  "system/public/aesthetic.computer/lib/speaker.mjs"
+  "system/public/aesthetic.computer/bios.mjs"
+)
+
+# Minimum expected line counts for critical files (set conservatively)
+declare -A MIN_LINES
+MIN_LINES["artery/artery-tui.mjs"]=5000
+MIN_LINES["dotfiles/dot_config/emacs.el"]=1000
+MIN_LINES["system/public/aesthetic.computer/lib/udp.mjs"]=150
+MIN_LINES["system/public/aesthetic.computer/lib/logs.mjs"]=100
+MIN_LINES["system/public/aesthetic.computer/lib/speaker.mjs"]=800
+MIN_LINES["system/public/aesthetic.computer/bios.mjs"]=200
+
+# Threshold for warning about large deletions (percentage)
+DELETION_THRESHOLD=30
+
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+warnings=0
+
+for file in "${CRITICAL_FILES[@]}"; do
+  # Check if file is being modified in this commit
+  if git diff --cached --name-only | grep -q "^${file}$"; then
+    # Get current staged line count
+    staged_lines=$(git show :${file} 2>/dev/null | wc -l)
+    
+    # Get HEAD line count (before this commit)
+    head_lines=$(git show HEAD:${file} 2>/dev/null | wc -l)
+    
+    if [ "$head_lines" -gt 0 ] && [ "$staged_lines" -gt 0 ]; then
+      # Calculate deletion percentage
+      deleted=$((head_lines - staged_lines))
+      if [ "$deleted" -gt 0 ]; then
+        pct=$((deleted * 100 / head_lines))
+        
+        if [ "$pct" -ge "$DELETION_THRESHOLD" ]; then
+          echo -e "${RED}⚠️  WARNING: Large deletion detected in ${file}${NC}"
+          echo -e "   ${YELLOW}Before: ${head_lines} lines → After: ${staged_lines} lines (${pct}% deleted)${NC}"
+          warnings=$((warnings + 1))
+        fi
+      fi
+    fi
+    
+    # Check minimum line count
+    min=${MIN_LINES[$file]}
+    if [ -n "$min" ] && [ "$staged_lines" -lt "$min" ]; then
+      echo -e "${RED}⚠️  WARNING: ${file} is below minimum expected size${NC}"
+      echo -e "   ${YELLOW}Current: ${staged_lines} lines, Expected minimum: ${min} lines${NC}"
+      warnings=$((warnings + 1))
+    fi
+  fi
+done
+
+if [ "$warnings" -gt 0 ]; then
+  echo ""
+  echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+  echo -e "${YELLOW}  $warnings file(s) may have been accidentally clobbered!${NC}"
+  echo -e "${YELLOW}  This often happens during merge conflict resolution.${NC}"
+  echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+  echo ""
+  echo "To proceed anyway, use: git commit --no-verify"
+  echo "To abort and fix, use: git reset HEAD"
+  echo ""
+  exit 1
+fi
+
+exit 0
