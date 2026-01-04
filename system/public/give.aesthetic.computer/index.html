@@ -3858,7 +3858,7 @@
     };
 
     const jeffreysImages = Object.keys(jeffreysData);
-    const DEBUG_FACES = false; // Set true to show POI boxes
+    const DEBUG_FACES = true; // Set true to show POI boxes
     const POI_GLOW = true; // Soft radial glow on detected faces/bodies
 
     function initJeffreysSlideshow() {
@@ -3935,6 +3935,20 @@
       let floatOffset = 0;
       let poiIndex = 0; // Current POI being focused on
       let poiTimer = 0; // Timer for switching POIs
+      let globalRotation = 0; // Slow global rotation
+      let colorPhase = 0; // For color channel cycling
+
+      // Easing function for smooth bouncy motion
+      function easeInOutSine(t) {
+        return -(Math.cos(Math.PI * t) - 1) / 2;
+      }
+      
+      // Bouncy ease for more organic feel
+      function bouncyEase(t) {
+        const s = Math.sin(t * Math.PI * 2);
+        const s2 = Math.sin(t * Math.PI * 4) * 0.3;
+        return (s + s2 * 0.5 + 1) / 2;
+      }
 
       // Get POI center coordinates
       function getPoiCenter(poi) {
@@ -3948,43 +3962,81 @@
       }
 
       // Draw image with focal point offset to left or right (avoiding center logo)
-      // Now supports animating between POIs (faces, bodies, hands)
-      function drawImageFocused(img, data, destX, destY, destW, destH, alpha, drift, forceOffset = null) {
+      // Animation flow: WIDE BODY SHOT → ZOOM INTO FACE/ACTIONS
+      // drift controls progression: 0 = wide establishing shot, 1 = tight on face/action
+      function drawImageFocused(img, data, destX, destY, destW, destH, alpha, drift, rotation = 0, forceOffset = null) {
         const imgW = img.width;
         const imgH = img.height;
         
-        // Get significant POIs (faces and large bodies only, skip tiny hands)
-        const significantPois = (data.pois || []).filter(poi => {
-          const area = poi.box[2] * poi.box[3];
-          if (poi.t === 'f') return true; // Always include faces
-          if (poi.t === 'b' && area > 15) return true; // Bodies > 15% area
-          return false;
-        });
-
-        // Calculate focal point - animate between POIs
-        let focalX = data.focal[0];
-        let focalY = data.focal[1];
-        let currentPoi = null;
+        // Separate POIs by type for staged reveal
+        const allPois = data.pois || [];
+        const bodies = allPois.filter(poi => poi.t === 'b');
+        const faces = allPois.filter(poi => poi.t === 'f');
+        const hands = allPois.filter(poi => poi.t === 'h');
         
-        if (significantPois.length > 0) {
-          // Use drift to smoothly move between POIs
-          // Each POI gets ~3 seconds of focus time
-          const poiPhase = (drift * significantPois.length) % significantPois.length;
-          const poiIdx = Math.floor(poiPhase);
-          const nextPoiIdx = (poiIdx + 1) % significantPois.length;
-          const blend = poiPhase - poiIdx; // 0-1 transition factor
-          
-          const poi1 = getPoiCenter(significantPois[poiIdx]);
-          const poi2 = getPoiCenter(significantPois[nextPoiIdx]);
-          
-          // Smooth blend between POIs
-          focalX = poi1.x + (poi2.x - poi1.x) * blend;
-          focalY = poi1.y + (poi2.y - poi1.y) * blend;
-          currentPoi = significantPois[poiIdx];
+        // Priority order: bodies first (establishing), then faces, then hands (action)
+        // Create a staged reveal array
+        const stagedPois = [];
+        
+        // Stage 1: Widest body shot (largest body or default center)
+        const biggestBody = bodies.sort((a, b) => (b.box[2] * b.box[3]) - (a.box[2] * a.box[3]))[0];
+        if (biggestBody) {
+          stagedPois.push({ ...biggestBody, stage: 'wide' });
         }
         
-        // Ken Burns: gentle zoom
-        const zoom = 1.15 + drift * 0.1;
+        // Stage 2: Face closeups
+        for (const face of faces) {
+          stagedPois.push({ ...face, stage: 'closeup' });
+        }
+        
+        // Stage 3: Hand/action details (only if significant)
+        for (const hand of hands) {
+          const area = hand.box[2] * hand.box[3];
+          if (area > 3) { // Only larger hand detections
+            stagedPois.push({ ...hand, stage: 'action' });
+          }
+        }
+        
+        // If no POIs, fall back to default focal
+        if (stagedPois.length === 0) {
+          stagedPois.push({ t: 'default', box: [data.focal[0] - 10, data.focal[1] - 10, 20, 20], stage: 'wide' });
+        }
+
+        // Calculate focal point - progress through stages with drift
+        // drift cycles 0→1, we map to staged progression
+        const stagePhase = (drift * 0.4 * stagedPois.length) % stagedPois.length; // Even slower
+        const stageIdx = Math.floor(stagePhase);
+        const nextStageIdx = (stageIdx + 1) % stagedPois.length;
+        const rawBlend = stagePhase - stageIdx;
+        const blend = easeInOutSine(rawBlend);
+        
+        const poi1 = getPoiCenter(stagedPois[stageIdx]);
+        const poi2 = getPoiCenter(stagedPois[nextStageIdx]);
+        
+        // Smooth blend between stages
+        const focalX = poi1.x + (poi2.x - poi1.x) * blend;
+        const focalY = poi1.y + (poi2.y - poi1.y) * blend;
+        const currentPoi = stagedPois[stageIdx];
+        
+        // ZOOM: Wide for bodies, tight for faces/hands
+        // Body/wide stage = 1.0-1.1 zoom (show more)
+        // Face closeup = 1.4-1.6 zoom (intimate)
+        // Hand/action = 1.3-1.5 zoom (detail)
+        let zoomTarget1, zoomTarget2;
+        const getZoomForStage = (poi) => {
+          if (poi.stage === 'wide' || poi.t === 'b') return 1.05;
+          if (poi.t === 'f') return 1.5;
+          if (poi.t === 'h') return 1.4;
+          return 1.15;
+        };
+        
+        zoomTarget1 = getZoomForStage(stagedPois[stageIdx]);
+        zoomTarget2 = getZoomForStage(stagedPois[nextStageIdx]);
+        
+        // Smooth zoom transition with gentle pulse
+        const baseZoom = zoomTarget1 + (zoomTarget2 - zoomTarget1) * blend;
+        const zoomPulse = Math.sin(drift * Math.PI * 4) * 0.03; // Subtle breathing
+        const zoom = baseZoom + zoomPulse;
         
         // Calculate source rect to show focal point
         const canvasRatio = destW / destH;
@@ -4027,6 +4079,20 @@
         
         ctx.save();
         ctx.globalAlpha = alpha;
+        
+        // Apply rotation around center of destination
+        const centerX = destX + destW / 2;
+        const centerY = destY + destH / 2;
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotation);
+        ctx.translate(-centerX, -centerY);
+        
+        // Scale up slightly to cover corners when rotated
+        const rotScale = 1 + Math.abs(rotation) * 0.5;
+        ctx.translate(centerX, centerY);
+        ctx.scale(rotScale, rotScale);
+        ctx.translate(-centerX, -centerY);
+        
         ctx.drawImage(img, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
         
         // Soft radial glow highlights on faces and bodies
@@ -4113,35 +4179,94 @@
         const w = canvasW;
         const h = canvasH;
         
-        // Clear canvas
-        ctx.clearRect(0, 0, w, h);
+        // Psychedelic pixel trails - don't fully clear, just fade
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.fillRect(0, 0, w, h);
         
-        floatOffset += 0.001;
-        const drift = (Math.sin(floatOffset * Math.PI * 2) + 1) / 2; // 0 to 1
+        // Update global rotation and color phase
+        globalRotation += 0.0003;
+        colorPhase += 0.002;
+        
+        floatOffset += 0.0004; // Much slower drift
+        const drift = (Math.sin(floatOffset * Math.PI * 2) + 1) / 2;
+        
+        // Gentle global rotation
+        const rotation = Math.sin(globalRotation) * 0.03;
         
         if (targetImages.length === 1) {
           // Single image - full canvas
           const name = targetImages[0];
           const img = loadedImages[name];
           if (img) {
-            drawImageFocused(img, jeffreysData[name], 0, 0, w, h, currentAlpha, drift);
+            // Color channel split - draw offset versions
+            const channelOffset = Math.sin(colorPhase) * 3;
+            
+            // Red channel offset
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.save();
+            ctx.globalAlpha = 0.33;
+            ctx.translate(channelOffset, 0);
+            drawImageFocused(img, jeffreysData[name], 0, 0, w, h, currentAlpha, drift, rotation);
+            ctx.restore();
+            
+            // Green channel - center
+            ctx.save();
+            ctx.globalAlpha = 0.33;
+            drawImageFocused(img, jeffreysData[name], 0, 0, w, h, currentAlpha, drift, rotation);
+            ctx.restore();
+            
+            // Blue channel offset
+            ctx.save();
+            ctx.globalAlpha = 0.33;
+            ctx.translate(-channelOffset, 0);
+            drawImageFocused(img, jeffreysData[name], 0, 0, w, h, currentAlpha, drift, rotation);
+            ctx.restore();
+            
+            ctx.globalCompositeOperation = 'source-over';
           }
         } else if (targetImages.length === 2) {
-          // Collage - two narrow images side by side with slight overlap
-          const overlap = 15; // Soft blend overlap
+          // Collage - two images with psychedelic treatment
+          const overlap = 15;
           const eachW = (w + overlap) / 2;
+          
+          // Same drift for both (user request: "side to sides can drift together")
+          const sharedDrift = drift;
+          
+          ctx.globalCompositeOperation = 'lighter';
           
           for (let i = 0; i < 2; i++) {
             const name = targetImages[i];
             const img = loadedImages[name];
             if (img) {
               const x = i === 0 ? 0 : w - eachW;
-              // Slight vertical offset for floaty feel
-              const yOffset = Math.sin(floatOffset * Math.PI * 2 + i * Math.PI * 0.7) * 3;
-              const localDrift = (Math.sin(floatOffset * Math.PI * 2 + i * 0.5) + 1) / 2;
-              drawImageFocused(img, jeffreysData[name], x, yOffset, eachW, h, currentAlpha * 0.95, localDrift);
+              // Gentler, slower vertical float
+              const yOffset = Math.sin(floatOffset * Math.PI * 2 + i * Math.PI * 0.5) * 5;
+              // Individual subtle rotation
+              const imgRotation = rotation + Math.sin(globalRotation + i * Math.PI) * 0.02;
+              
+              // Channel splits per image
+              const channelOffset = Math.sin(colorPhase + i) * 2;
+              
+              ctx.save();
+              ctx.globalAlpha = 0.35;
+              ctx.translate(channelOffset, 0);
+              drawImageFocused(img, jeffreysData[name], x, yOffset, eachW, h, currentAlpha * 0.95, sharedDrift, imgRotation);
+              ctx.restore();
+              
+              ctx.save();
+              ctx.globalAlpha = 0.35;
+              drawImageFocused(img, jeffreysData[name], x, yOffset, eachW, h, currentAlpha * 0.95, sharedDrift, imgRotation);
+              ctx.restore();
+              
+              ctx.save();
+              ctx.globalAlpha = 0.35;
+              ctx.translate(-channelOffset, 0);
+              drawImageFocused(img, jeffreysData[name], x, yOffset, eachW, h, currentAlpha * 0.95, sharedDrift, imgRotation);
+              ctx.restore();
             }
           }
+          
+          ctx.globalCompositeOperation = 'source-over';
         }
         
         requestAnimationFrame(render);
