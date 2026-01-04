@@ -124,8 +124,10 @@ export const commandDescriptions = {
   
   // 📻 Radio
   r8dio: "Play R8dio.dk live stream",
+  r8Dio: "Play R8dio.dk live stream",
   radio: "Play R8dio.dk live stream",
   "r8dio:web": "Open R8dio.dk website",
+  "r8Dio:web": "Open R8dio.dk website",
   "radio:web": "Open R8dio.dk website",
 };
 
