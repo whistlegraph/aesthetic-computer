@@ -951,7 +951,7 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
     ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
     ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
     ("oven" . "🔥") ("media" . "📦") ("llm" . "🤖") ("top" . "📊")
-    ("crash-diary" . "💥")))
+    ("crash-diary" . "💥") ("views" . "🖼️")))
 
 (defun ac--tab-exists-p (tab-name)
   "Check if a tab with TAB-NAME already exists."
@@ -1033,7 +1033,7 @@ Skips creation if tab already exists."
     (run-with-timer 0.5 nil
                     (lambda (target)
                       (condition-case nil
-                          (when (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top"))
+                          (when (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "views"))
                             (tab-bar-switch-to-tab target))
                         (error nil)))
                     target-tab)
@@ -1123,6 +1123,7 @@ Skips creation if tab already exists."
                        ("web 1/2"  ("site" "session"))
                        ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
                        ("tests"    ("kidlisp"))
+                       ("views"    ("views"))  ; Extension views dev server (localhost:5555)
                        ("llm"      ("llm"))
                        ("top"      ("top"))
                        ("crash"    ("crash-diary")))))  ; Crash log viewer tab
@@ -1141,7 +1142,7 @@ Skips creation if tab already exists."
     (run-with-timer 6.0 nil
                     (lambda (target)
                       (condition-case nil
-                          (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "crash"))
+                          (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "crash" "views"))
                               (progn
                                 (tab-bar-switch-to-tab target)
                                 ;; Also refresh the buffer to ensure it's scrolled properly
@@ -1229,7 +1230,7 @@ Skips creation if tab already exists."
   (ac-debug-log "aesthetic-backend-minimal complete"))
 
 (defun aesthetic-backend-full ()
-  "Load all remaining tabs (status, stripe, chat, web, tests, llm, top)."
+  "Load all remaining tabs (status, stripe, chat, web, tests, views, llm, top)."
   (interactive)
   (message "Loading additional tabs...")
   (dolist (tab-spec '(("status"   ("url" "tunnel"))
@@ -1238,6 +1239,7 @@ Skips creation if tab already exists."
                       ("web 1/2"  ("site" "session"))
                       ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
                       ("tests"    ("kidlisp"))
+                      ("views"    ("views"))
                       ("llm"      ("llm"))
                       ("top"      ("top"))))
     (let ((tab-name (car tab-spec))
