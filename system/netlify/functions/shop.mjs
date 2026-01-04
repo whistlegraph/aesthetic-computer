@@ -83,15 +83,19 @@ export async function handler(event, context) {
         // Get price from first variant
         const price = variantsData.variants?.[0]?.price || "0.00";
         
-        // Strip HTML tags from description for plain text
+        // Strip HTML tags from description for plain text, preserve line breaks
         const descriptionHtml = p.body_html || '';
         const description = descriptionHtml
-          .replace(/<[^>]*>/g, ' ')  // Remove HTML tags
+          .replace(/<br\s*\/?>/gi, '\n')  // Convert <br> to newlines
+          .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')  // Convert </p><p> to double newlines
+          .replace(/<\/?(p|div|h[1-6])[^>]*>/gi, '\n')  // Block elements to newlines
+          .replace(/<[^>]*>/g, '')  // Remove remaining HTML tags
           .replace(/&nbsp;/g, ' ')   // Replace HTML entities
           .replace(/&amp;/g, '&')
           .replace(/&lt;/g, '<')
           .replace(/&gt;/g, '>')
-          .replace(/\s+/g, ' ')      // Collapse whitespace
+          .replace(/[ \t]+/g, ' ')   // Collapse horizontal whitespace only
+          .replace(/\n\s*\n\s*\n/g, '\n\n')  // Max 2 consecutive newlines
           .trim();
 
         return {
@@ -104,7 +108,8 @@ export async function handler(event, context) {
           priceRaw: parseFloat(price),
           imageUrl,
           images,  // All product images
-          description,  // Plain text description
+          description,  // Plain text description with newlines
+          descriptionHtml,  // Raw HTML description
           shopUrl: `https://shop.aesthetic.computer/products/${p.handle}`,
           inventory: totalInventory,
           available: totalInventory > 0,

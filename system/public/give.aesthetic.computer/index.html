@@ -2173,25 +2173,25 @@
       right: 0;
       bottom: 0;
       background: linear-gradient(180deg, 
-        rgba(0,0,0,0.5) 0%, 
-        rgba(0,0,0,0.1) 40%,
-        rgba(0,0,0,0.1) 60%,
-        rgba(0,0,0,0.5) 100%);
+        rgba(0,0,0,0.6) 0%, 
+        rgba(0,0,0,0.1) 30%,
+        rgba(0,0,0,0.1) 70%,
+        rgba(0,0,0,0.6) 100%);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 2.8em 1em 1.6em 1em;
+      padding: 1em;
       text-align: left;
     }
 
     .shop-product-title {
       font-family: 'YWFTProcessing-Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 1.4em;
+      font-size: 1.3em;
       font-weight: 600;
       color: #fff;
       text-shadow: 0 2px 12px rgba(0,0,0,0.8), 0 0 40px rgba(0,0,0,0.4);
       line-height: 1.2;
-      margin-bottom: 0.3em;
+      margin-bottom: 0.2em;
     }
 
     .shop-product-top {
@@ -2203,15 +2203,17 @@
     .shop-product-info {
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
-      gap: 0.3em;
+      align-items: flex-start;
+      gap: 0.5em;
     }
 
     .shop-product-vendor {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 1em;
-      color: #fff;
+      font-family: var(--mono);
+      font-size: 0.85em;
+      color: rgba(255,255,255,0.9);
       text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+      order: -1;
+      margin-bottom: 0.2em;
     }
 
     .shop-product-vendor a {
@@ -2225,37 +2227,12 @@
 
     .shop-product-desc {
       font-family: var(--mono);
-      font-size: 0.75em;
+      font-size: 0.7em;
       color: rgba(255, 255, 255, 0.85);
-      line-height: 1.6;
-      margin-top: 0.6em;
+      line-height: 1.5;
       text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-      max-width: 90%;
+      max-width: 100%;
       white-space: pre-line;
-    }
-
-    /* Image indicator dots */
-    .shop-image-dots {
-      position: absolute;
-      bottom: 8px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 6px;
-      z-index: 10;
-    }
-
-    .shop-image-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.4);
-      transition: background 0.3s, transform 0.3s;
-    }
-
-    .shop-image-dot.active {
-      background: #fff;
-      transform: scale(1.2);
     }
 
     .shop-product-price {
@@ -4598,11 +4575,6 @@
           img.style.opacity = '1';
         }, 150);
       }
-      
-      // Update dots
-      document.querySelectorAll('.shop-image-dot').forEach((dot, i) => {
-        dot.classList.toggle('active', i === imgIndex);
-      });
     }
     
     function showShopProduct(index) {
@@ -4614,20 +4586,13 @@
       const images = p.images || [p.imageUrl].filter(Boolean);
       const currentImage = images.length > 0 ? images[0] : '';
       
-      // Create image dots if multiple images
-      const dotsHtml = images.length > 1 
-        ? `<div class="shop-image-dots">${images.map((_, i) => 
-            `<div class="shop-image-dot${i === 0 ? ' active' : ''}"></div>`
-          ).join('')}</div>`
-        : '';
-      
       // Extract vendor from product data if available
       const vendor = p.vendor || '';
       const vendorHtml = vendor ? `<div class="shop-product-vendor"><a href="https://aesthetic.computer/@${vendor.replace('@', '')}" target="_blank">${vendor.startsWith('@') ? vendor : '@' + vendor}</a></div>` : '';
       
-      // Process description - preserve newlines, truncate to ~150 chars
+      // Process description - preserve newlines, truncate to ~200 chars
       const desc = p.description || '';
-      const shortDesc = desc.length > 150 ? desc.slice(0, 150).trim() + '…' : desc;
+      const shortDesc = desc.length > 200 ? desc.slice(0, 200).trim() + '…' : desc;
       const descHtml = shortDesc ? `<div class="shop-product-desc">${escapeHtml(shortDesc)}</div>` : '';
       
       container.innerHTML = `
@@ -4635,14 +4600,13 @@
           <div class="shop-product-img-wrap">
             <img src="${currentImage}" alt="${escapeHtml(p.title)}" loading="lazy" style="transition: opacity 0.15s;">
           </div>
-          ${dotsHtml}
           <div class="shop-product-overlay">
             <div class="shop-product-top">
-              <div class="shop-product-title">${escapeHtml(p.title)}</div>
               ${vendorHtml}
-              ${descHtml}
+              <div class="shop-product-title">${escapeHtml(p.title)}</div>
             </div>
             <div class="shop-product-info">
+              ${descHtml}
               ${p.available 
                 ? `<div class="shop-product-price">${p.price}</div>`
                 : `<div class="shop-product-sold">SOLD</div>`
