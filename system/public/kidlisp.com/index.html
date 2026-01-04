@@ -7,6 +7,9 @@
   <meta name="description" content="KidLisp is a simple, expressive language for creating visual patterns and animations. Try it on aesthetic.computer." />
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
+  <!-- Preload fonts for iOS Safari -->
+  <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css">
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-bold.css">
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
@@ -17,6 +20,24 @@
   <!-- Modular CSS Architecture -->
   <link rel="stylesheet" href="/kidlisp.com/css/main.css" />
   <style>
+    /* iOS Safari font fix - explicit absolute URLs with font-display: swap */
+    @font-face {
+      font-family: 'YWFTProcessing-Regular';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2'),
+           url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff') format('woff');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'YWFTProcessing-Bold';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2'),
+           url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff') format('woff');
+      font-weight: bold;
+      font-style: normal;
+      font-display: swap;
+    }
+    
     /* Platform-specific fonts */
     @font-face {
       font-family: 'PP Mori';
