@@ -3566,6 +3566,14 @@
       background: linear-gradient(135deg, rgba(20,10,30,0.85) 0%, rgba(10,5,20,0.8) 100%);
     }
 
+    .kidlisp-preview-header:hover {
+      text-decoration: none;
+    }
+
+    .kidlisp-preview-header:hover .kidlisp-logo {
+      text-decoration: none;
+    }
+
     /* Green play button indicator (like kidlisp.com editor) */
     .kidlisp-play-indicator {
       width: 24px;
@@ -4116,6 +4124,55 @@
     /* Logo with stronger dark shadow on slideshow background */
     .gift-visual:has(.jeffreys-slideshow) .gift-logo {
       filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+    }
+
+    /* Floating give notes on jeffreys slideshow */
+    .floating-give {
+      position: absolute;
+      font-family: var(--mono);
+      font-size: 0.7em;
+      color: rgba(255, 255, 255, 0.85);
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 1px 3px rgba(0, 0, 0, 0.7);
+      pointer-events: none;
+      z-index: 1;
+      white-space: nowrap;
+      max-width: 80%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      animation: floatUp 12s ease-out forwards;
+      opacity: 0;
+    }
+
+    .floating-give .amount {
+      color: var(--green);
+      font-weight: bold;
+      margin-right: 0.4em;
+    }
+
+    .floating-give.monthly .amount {
+      color: var(--gold);
+    }
+
+    .floating-give .note {
+      color: rgba(255, 255, 255, 0.7);
+      font-style: italic;
+    }
+
+    @keyframes floatUp {
+      0% {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      8% {
+        opacity: 0.9;
+      }
+      85% {
+        opacity: 0.9;
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-100px);
+      }
     }
   </style>
 </head>
@@ -7388,10 +7445,61 @@
           const speed = Math.max(20, contentWidth / 35); // ~35px per second
           track.style.animationDuration = `${speed}s`;
         }
+        
+        // Float notes with messages on the jeffreys slideshow
+        const givesWithNotes = givesData.filter(g => g.note && g.note.trim());
+        if (givesWithNotes.length > 0) {
+          startFloatingNotes(givesWithNotes);
+        }
       } catch (e) {
         console.error('Gives load error:', e);
         ticker.innerHTML = '<div class="gives-ticker-empty">Unable to load gives</div>';
       }
+    }
+    
+    // Floating notes on jeffreys canvas
+    function startFloatingNotes(givesWithNotes) {
+      const slideshow = document.getElementById('jeffreysSlideshow');
+      if (!slideshow) return;
+      
+      let noteIndex = 0;
+      
+      function showNextNote() {
+        const give = givesWithNotes[noteIndex];
+        noteIndex = (noteIndex + 1) % givesWithNotes.length;
+        
+        const el = document.createElement('div');
+        el.className = `floating-give${give.isRecurring ? ' monthly' : ''}`;
+        
+        // Random horizontal position (10% to 70% from left)
+        const leftPos = 10 + Math.random() * 60;
+        // Random vertical start position (40% to 75% from top)
+        const topPos = 40 + Math.random() * 35;
+        
+        el.style.left = `${leftPos}%`;
+        el.style.top = `${topPos}%`;
+        
+        // Truncate long notes
+        const noteText = give.note.length > 50 ? give.note.slice(0, 50) + '…' : give.note;
+        const suffix = give.isRecurring ? '/mo' : '';
+        
+        el.innerHTML = `<span class="amount">${give.amountDisplay}${suffix}</span><span class="note">"${noteText}"</span>`;
+        
+        slideshow.appendChild(el);
+        
+        // Remove after animation completes
+        setTimeout(() => el.remove(), 12000);
+      }
+      
+      // Show first note after a short delay
+      setTimeout(showNextNote, 2000);
+      
+      // Show new notes periodically (every 8-12 seconds, randomized)
+      setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          showNextNote();
+        }
+      }, 8000 + Math.random() * 4000);
     }
     
     setTimeout(loadRecentGives, 300);
