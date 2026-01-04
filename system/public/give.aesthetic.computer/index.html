@@ -1598,32 +1598,10 @@
       opacity: 0.85;
     }
 
-    .apps-flip-progress {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: rgba(0, 0, 0, 0.3);
-      z-index: 15;
-      overflow: hidden;
-    }
-
-    .apps-flip-progress-bar {
-      height: 100%;
-      width: 0%;
-      background: #9b59b6;
-      transition: width 0.1s linear, background 0.3s ease;
-    }
-
-    .apps-flip-container.flipped .apps-flip-progress-bar {
-      background: #3498db;
-    }
-
-    /* Desktop face */
+    /* Desktop face - grayscale techy */
     .desktop-face {
-      background: linear-gradient(135deg, #2d1b4e 0%, #1a1a2e 100%);
-      border: 1px solid #3d2b5e;
+      background: linear-gradient(135deg, #1e1e1e 0%, #121212 100%);
+      border: 1px solid #333;
       padding: 1em;
     }
 
@@ -1632,22 +1610,26 @@
       align-items: center;
       gap: 0.5em;
       padding-bottom: 0.8em;
-      border-bottom: 1px solid rgba(100, 60, 140, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       margin-bottom: 0.8em;
     }
 
-    .desktop-face-header strong {
-      font-size: 1em;
-      color: var(--text);
+    .face-label {
+      font-size: 0.75em;
+      color: #888;
+      font-family: monospace;
+      text-transform: lowercase;
+      letter-spacing: 0.05em;
     }
 
     .desktop-face-header .version-badge {
-      font-size: 0.7em;
-      color: var(--cyan);
-      background: rgba(78, 205, 196, 0.15);
+      font-size: 0.65em;
+      color: #6a6;
+      background: rgba(100, 170, 100, 0.15);
       padding: 0.15em 0.5em;
       border-radius: 3px;
       margin-left: auto;
+      font-family: monospace;
     }
 
     .desktop-platforms-grid {
@@ -1663,16 +1645,16 @@
       align-items: center;
       justify-content: center;
       padding: 0.8em 0.4em;
-      background: rgba(45, 27, 78, 0.6);
-      border: 1px solid rgba(100, 60, 140, 0.3);
+      background: rgba(40, 40, 40, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 6px;
       text-decoration: none;
       transition: all 0.2s ease;
     }
 
     .desktop-platform-btn:hover {
-      background: rgba(70, 50, 120, 0.8);
-      border-color: rgba(180, 100, 255, 0.5);
+      background: rgba(60, 60, 60, 0.9);
+      border-color: rgba(255, 255, 255, 0.25);
       transform: translateY(-2px);
     }
 
@@ -1693,16 +1675,17 @@
     }
 
     .desktop-platform-btn:hover .plat-name {
-      color: var(--pink);
+      color: #fff;
     }
 
     .desktop-changelog-box {
-      background: rgba(0, 0, 0, 0.2);
+      background: rgba(0, 0, 0, 0.3);
       border-radius: 4px;
       padding: 0.6em;
       max-height: 80px;
       overflow-y: auto;
       flex: 1;
+      border: 1px solid rgba(255, 255, 255, 0.05);
     }
 
     .desktop-changelog-box::-webkit-scrollbar {
@@ -1710,7 +1693,7 @@
     }
 
     .desktop-changelog-box::-webkit-scrollbar-thumb {
-      background: rgba(180, 100, 255, 0.4);
+      background: rgba(150, 150, 150, 0.4);
       border-radius: 2px;
     }
 
@@ -1722,11 +1705,13 @@
     }
 
     .desktop-changelog-header strong {
-      color: var(--cyan);
+      color: #6a6;
+      font-family: monospace;
     }
 
     .desktop-changelog-header span {
-      color: var(--dim);
+      color: #666;
+      font-family: monospace;
     }
 
     .desktop-changelog-list {
@@ -1737,7 +1722,7 @@
 
     .desktop-changelog-list li {
       font-size: 0.65em;
-      color: var(--text);
+      color: #999;
       padding: 0.15em 0;
       padding-left: 0.6em;
       position: relative;
@@ -1747,19 +1732,19 @@
       content: '•';
       position: absolute;
       left: 0;
-      color: var(--pink);
+      color: #555;
     }
 
     .desktop-changelog-list li strong {
-      color: var(--gold);
+      color: #aaa;
     }
 
     .desktop-vscode-link {
       display: flex;
       align-items: center;
       gap: 0.5em;
-      background: linear-gradient(135deg, #3a2a5e 0%, #2a1a4e 100%);
-      border: 1px solid #5a4a7e;
+      background: rgba(30, 30, 30, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 6px;
       padding: 0.5em 0.8em;
       margin-top: 0.6em;
@@ -1768,9 +1753,15 @@
     }
 
     .desktop-vscode-link:hover {
-      border-color: #8a7aae;
-      background: linear-gradient(135deg, #4a3a6e 0%, #3a2a5e 100%);
+      border-color: rgba(255, 255, 255, 0.25);
+      background: rgba(50, 50, 50, 0.9);
       transform: translateY(-1px);
+    }
+
+    .desktop-vscode-link .vscode-icon-img {
+      width: 18px;
+      height: 18px;
+      border-radius: 3px;
     }
 
     .desktop-vscode-link .vscode-icon {
@@ -1778,29 +1769,61 @@
     }
 
     .desktop-vscode-link .vscode-label {
-      color: var(--text);
+      color: #aaa;
       font-weight: 600;
       font-size: 0.85em;
     }
 
     .desktop-vscode-link .vscode-ver {
-      color: var(--cyan);
-      font-size: 0.7em;
+      color: #6a6;
+      font-size: 0.65em;
       margin-left: auto;
+      font-family: monospace;
     }
 
-    .desktop-face-footer {
-      font-size: 0.7em;
-      color: var(--dim);
-      text-align: center;
-      padding-top: 0.6em;
-      margin-top: auto;
+    .desktop-ableton-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      background: rgba(30, 30, 30, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 0.4em 0.8em;
+      margin-top: 0.4em;
+      text-decoration: none;
+      transition: all 0.2s ease;
     }
 
-    /* Mobile face */
+    .desktop-ableton-link:hover {
+      border-color: rgba(255, 255, 255, 0.25);
+      background: rgba(50, 50, 50, 0.9);
+      transform: translateY(-1px);
+    }
+
+    .desktop-ableton-link .ableton-icon {
+      font-size: 0.9em;
+    }
+
+    .desktop-ableton-link .ableton-label {
+      color: #aaa;
+      font-weight: 600;
+      font-size: 0.8em;
+    }
+
+    .desktop-ableton-link .ableton-tag {
+      color: #888;
+      font-size: 0.6em;
+      margin-left: auto;
+      font-family: monospace;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 0.15em 0.4em;
+      border-radius: 3px;
+    }
+
+    /* Mobile face - grayscale techy */
     .mobile-face {
-      background: linear-gradient(135deg, #1a2a4e 0%, #0f1a2e 100%);
-      border: 1px solid #2a3a5e;
+      background: linear-gradient(135deg, #181818 0%, #101010 100%);
+      border: 1px solid #2a2a2a;
       padding: 1em;
       display: flex;
       flex-direction: column;
@@ -1811,13 +1834,8 @@
       align-items: center;
       gap: 0.5em;
       padding-bottom: 0.8em;
-      border-bottom: 1px solid rgba(60, 100, 180, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       margin-bottom: 0.8em;
-    }
-
-    .mobile-face-header strong {
-      font-size: 1em;
-      color: var(--text);
     }
 
     .mobile-face-content {
@@ -1829,69 +1847,55 @@
       gap: 0.8em;
     }
 
-    .mobile-app-icon-box {
-      width: 64px;
-      height: 64px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    .mobile-app-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    }
+
+    .mobile-app-icon-fallback {
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #444 0%, #222 100%);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 2em;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
     }
 
     .mobile-app-title {
-      font-size: 0.9em;
-      color: var(--text);
-      font-weight: bold;
-      text-align: center;
-    }
-
-    .mobile-app-subtitle {
-      font-size: 0.7em;
-      color: var(--dim);
+      font-size: 0.85em;
+      color: #aaa;
+      font-weight: 500;
       text-align: center;
     }
 
     .mobile-store-link {
       display: inline-flex;
       align-items: center;
-      gap: 0.4em;
-      padding: 0.5em 1em;
-      background: #000;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
-      color: #fff;
+      gap: 0.5em;
+      padding: 0.6em 1.2em;
+      background: rgba(30, 30, 30, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: #ccc;
       text-decoration: none;
-      font-size: 0.8em;
+      font-size: 0.85em;
       transition: all 0.2s ease;
     }
 
     .mobile-store-link:hover {
-      background: #1a1a1a;
-      border-color: rgba(255, 255, 255, 0.4);
+      background: rgba(50, 50, 50, 0.9);
+      border-color: rgba(255, 255, 255, 0.3);
       transform: scale(1.02);
+      color: #fff;
     }
 
     .mobile-store-link .store-icon {
       font-size: 1.2em;
-    }
-
-    .mobile-android-note {
-      font-size: 0.65em;
-      color: var(--dim);
-      display: flex;
-      align-items: center;
-      gap: 0.3em;
-    }
-
-    .mobile-face-footer {
-      font-size: 0.7em;
-      color: var(--dim);
-      text-align: center;
-      padding-top: 0.6em;
-      margin-top: auto;
     }
 
     /* VS Code Extension - Simple link block */
@@ -2260,15 +2264,18 @@
       display: flex;
       flex-direction: column;
       position: relative;
+      aspect-ratio: 1;
     }
 
     .tv-header {
-      position: sticky;
+      position: absolute;
       top: 0;
-      z-index: 1;
-      padding: 0.8em 1em;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      padding: 0.6em 0.8em;
       text-decoration: none;
-      background: #000;
+      background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
     }
 
     .tv-header strong {
@@ -2282,14 +2289,19 @@
     }
 
     .tv-section .module-caption {
-      background: #000;
-      color: rgba(255,255,255,0.5);
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+      color: rgba(255,255,255,0.6);
+      padding: 1.5em 0.8em 0.6em;
     }
 
     .tv-player {
-      position: relative;
-      width: 100%;
-      aspect-ratio: 16 / 9;
+      position: absolute;
+      inset: 0;
       background: #000;
       display: flex;
       align-items: center;
@@ -2297,8 +2309,8 @@
     }
 
     .tv-player video {
-      width: 100%;
-      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
       object-fit: contain;
       background: #000;
     }
@@ -2325,47 +2337,72 @@
       bottom: 0;
       left: 0;
       right: 0;
-      height: 3px;
+      height: 4px;
       background: rgba(255,255,255,0.2);
+      z-index: 12;
     }
 
     .tv-progress-bar {
       height: 100%;
-      background: var(--pink);
+      background: #e53935;
       width: 0%;
-      /* No transition - smooth continuous updates */
     }
 
-    .tv-info {
+    .tv-timer {
       position: absolute;
-      bottom: 8px;
-      left: 8px;
-      right: 8px;
-      display: flex;
-      justify-content: space-between;
+      bottom: 12px;
+      left: 10px;
       font-family: var(--mono);
-      font-size: 0.7em;
-      color: rgba(255,255,255,0.6);
-      pointer-events: none;
+      font-size: 0.85em;
+      color: rgba(255,255,255,0.9);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+      z-index: 11;
     }
 
-    /* TV auto-advance progress bar - inside panel */
-    .tv-auto-progress {
+    /* Tape slide animation - vertical swipe like TikTok */
+    .tv-slide {
       position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.15);
-      z-index: 15;
-      overflow: hidden;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .tv-auto-progress-bar {
-      height: 100%;
-      width: 0%;
-      background: var(--pink);
-      /* No transition - smooth continuous updates from timeupdate */
+    .tv-slide video {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+
+    .tv-slide.entering {
+      animation: tvSlideIn 0.4s ease-out forwards;
+    }
+
+    .tv-slide.exiting {
+      animation: tvSlideOut 0.4s ease-out forwards;
+    }
+
+    @keyframes tvSlideIn {
+      from {
+        transform: translateY(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes tvSlideOut {
+      from {
+        transform: translateY(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateY(-100%);
+        opacity: 0;
+      }
     }
 
     /* Flip Card System - Desktop App Style (ghost overlay approach) */
@@ -2459,28 +2496,37 @@
       opacity: 0.85;
     }
 
-    /* Swivel progress bar - at bottom of container */
-    .chat-flip-progress {
+    /* Embedded progress bar inside flip faces */
+    .flip-face-progress {
       position: absolute;
       bottom: 0;
       left: 0;
       right: 0;
-      height: 4px;
+      height: 3px;
       background: rgba(0, 0, 0, 0.3);
-      z-index: 15;
       overflow: hidden;
     }
 
-    .chat-flip-progress-bar {
+    .flip-face-progress-bar {
       height: 100%;
       width: 0%;
       background: var(--gold);
-      transition: width 0.1s linear, background 0.3s ease;
+      transition: width 0.1s linear;
     }
 
-    /* Purple progress when showing chat (flipped) */
-    .chat-flip-container.flipped .chat-flip-progress-bar {
+    /* Chat flip - gold for laer-klokken, purple for chat */
+    .chat-preview .flip-face-progress-bar {
+      background: var(--gold);
+    }
+    
+    .chat-preview-system .flip-face-progress-bar {
       background: #8844ff;
+    }
+    
+    /* Apps flip - silvery for both faces */
+    .desktop-face .flip-face-progress-bar,
+    .mobile-face .flip-face-progress-bar {
+      background: linear-gradient(90deg, #666 0%, #888 50%, #aaa 100%);
     }
 
     /* Chat Rolodex - laer-klokken warm gold theme */
@@ -3294,6 +3340,9 @@
               <span data-lang="en">Goodiepal's Danish music community</span>
               <span data-lang="da">Goodiepals danske musikfællesskab</span>
             </div>
+            <div class="flip-face-progress">
+              <div class="flip-face-progress-bar" id="chatFlipProgress"></div>
+            </div>
           </div>
           
           <!-- Back: chat-system (ghost overlay when not flipped, active when flipped) -->
@@ -3308,35 +3357,28 @@
               <span data-lang="en">Global Aesthetic Computer chat</span>
               <span data-lang="da">Global Aesthetic Computer chat</span>
             </div>
+            <div class="flip-face-progress flip-face-progress-back">
+              <div class="flip-face-progress-bar"></div>
+            </div>
           </div>
-        </div>
-        <!-- Progress bar for swivel timer - outside flip card, at bottom of container -->
-        <div class="chat-flip-progress">
-          <div class="chat-flip-progress-bar" id="chatFlipProgress"></div>
         </div>
       </div>
 
+      <!-- WIP: notepat module
       <div class="link-block notepat-section">
         <strong>🎹 notepat</strong>
         <a href="https://aesthetic.computer/notepat">aesthetic.computer/notepat</a>
         <span class="link-desc" data-lang="en">Musical keyboard</span>
         <span class="link-desc" data-lang="da">Musikkeyboard</span>
       </div>
+      -->
 
       <div class="tv-section">
-        <a href="https://aesthetic.computer/tapes" class="tv-header">
+        <a href="https://aesthetic.computer/tapes" class="tv-header" id="tvHeader">
           <strong>📼 tapes</strong>
         </a>
         <div class="tv-player" id="tvPlayer">
           <div class="tv-loading">📺</div>
-        </div>
-        <!-- Auto-advance progress bar -->
-        <div class="tv-auto-progress">
-          <div class="tv-auto-progress-bar" id="tvAutoProgress"></div>
-        </div>
-        <div class="module-caption">
-          <span data-lang="en">Community video feed</span>
-          <span data-lang="da">Fællesskabets video-feed</span>
         </div>
       </div>
 
@@ -3345,8 +3387,8 @@
         <div class="apps-flip-card" id="appsFlipCard">
           <!-- Front: Desktop (active when not flipped) -->
           <div class="apps-flip-face apps-flip-front desktop-face">
-            <div class="desktop-face-header apps-flip-trigger" onclick="toggleAppsFlip()">
-              <strong>🖥️ Desktop</strong>
+            <div class="desktop-face-header">
+              <span class="face-label">desktop</span>
               <span class="version-badge" id="desktopVersion">v0.1.0</span>
             </div>
             
@@ -3379,49 +3421,45 @@
             </div>
             
             <a href="https://aesthetic.computer/code" class="desktop-vscode-link" target="_blank">
-              <span class="vscode-icon">💜</span>
+              <img class="vscode-icon-img" id="vscodeIcon" src="https://marketplace.visualstudio.com/_apis/public/gallery/publishers/aesthetic-computer/extensions/aesthetic-computer-code/latest/assets/icon" alt="VS Code" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
+              <span class="vscode-icon" style="display:none">💜</span>
               <span class="vscode-label">VS Code</span>
               <span class="vscode-ver" id="vscodeExtVersion">v1.217.0</span>
             </a>
             
-            <div class="desktop-face-footer apps-flip-trigger" onclick="toggleAppsFlip()">
-              <span data-lang="en">Click for Mobile →</span>
-              <span data-lang="da">Klik for Mobil →</span>
+            <a href="https://assets.aesthetic.computer/ableton/notepat-ableton-2025-alpha.amxd.zip" class="desktop-ableton-link" target="_blank" download>
+              <span class="ableton-icon">🎹</span>
+              <span class="ableton-label">Ableton</span>
+              <span class="ableton-tag">notepat</span>
+            </a>
+            <div class="flip-face-progress">
+              <div class="flip-face-progress-bar" id="appsFlipProgress"></div>
             </div>
           </div>
           
           <!-- Back: Mobile (ghost overlay when not flipped, active when flipped) -->
           <div class="apps-flip-face apps-flip-back mobile-face">
-            <div class="mobile-face-header apps-flip-trigger" onclick="toggleAppsFlip()">
-              <strong>📱 Mobile</strong>
+            <div class="mobile-face-header">
+              <span class="face-label">mobile</span>
             </div>
             
             <div class="mobile-face-content">
-              <div class="mobile-app-icon-box">🎨</div>
+              <img class="mobile-app-icon" id="iosAppIcon" 
+                   src="https://is1-ssl.mzstatic.com/image/thumb/Purple126/v4/91/c2/9c/91c29cd6-ff12-a9ad-0a67-1d5700352b62/AppIcon-0-0-1x_U007epad-0-85-220.png/100x100bb.jpg"
+                   alt="Aesthetic Computer" 
+                   onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+              <div class="mobile-app-icon-fallback" style="display:none">🎨</div>
               <div class="mobile-app-title">Aesthetic Computer</div>
-              <div class="mobile-app-subtitle">Create, code, and explore on the go</div>
               
               <a href="https://apps.apple.com/ag/app/aesthetic-computer/id6450940883" 
                  class="mobile-store-link" target="_blank">
-                <span class="store-icon">🍎</span>
-                <span>App Store</span>
+                <span>iOS App Store</span>
               </a>
-              
-              <div class="mobile-android-note">
-                <span>🤖</span>
-                <span>Android coming soon</span>
-              </div>
             </div>
-            
-            <div class="mobile-face-footer apps-flip-trigger" onclick="toggleAppsFlip()">
-              <span data-lang="en">← Click for Desktop</span>
-              <span data-lang="da">← Klik for Desktop</span>
+            <div class="flip-face-progress flip-face-progress-back">
+              <div class="flip-face-progress-bar"></div>
             </div>
           </div>
-        </div>
-        <!-- Progress bar for swivel timer -->
-        <div class="apps-flip-progress">
-          <div class="apps-flip-progress-bar" id="appsFlipProgress"></div>
         </div>
       </div>
 
@@ -4617,50 +4655,79 @@
     
     function playTVVideo(index) {
       const container = document.getElementById('tvPlayer');
-      const autoProgressBar = document.getElementById('tvAutoProgress');
+      const header = document.getElementById('tvHeader');
       const tape = tvTapes[index];
       if (!tape) {
         container.innerHTML = '<div class="tv-no-signal">No signal</div>';
         return;
       }
       
-      // Show tape code if available
-      const tapeCode = tape.code ? `!${tape.code}` : '';
+      // Update header with current tape code
+      const tapeCode = tape.code ? `!${tape.code}` : 'tapes';
+      if (header) header.innerHTML = `<strong>📼 ${tapeCode}</strong>`;
       
-      container.innerHTML = `
+      // Mark old slide as exiting
+      const oldSlide = container.querySelector('.tv-slide');
+      if (oldSlide) {
+        oldSlide.classList.add('exiting');
+        setTimeout(() => oldSlide.remove(), 400);
+      }
+      
+      // Create new slide
+      const slide = document.createElement('div');
+      slide.className = 'tv-slide entering';
+      slide.innerHTML = `
         <video 
           src="${tape.media.videoUrl}" 
           muted 
           playsinline 
           autoplay
-          loop="false"
         ></video>
-        <div class="tv-progress"><div class="tv-progress-bar"></div></div>
-        <div class="tv-info">
-          <span>${tapeCode}</span>
-          <span>${tvIndex + 1}/${tvTapes.length}</span>
-        </div>
       `;
+      container.appendChild(slide);
       
-      tvPlayer = container.querySelector('video');
+      // Ensure progress bar and timer exist (only once)
+      if (!container.querySelector('.tv-progress')) {
+        const progressEl = document.createElement('div');
+        progressEl.className = 'tv-progress';
+        progressEl.innerHTML = '<div class="tv-progress-bar"></div>';
+        container.appendChild(progressEl);
+      }
+      if (!container.querySelector('.tv-timer')) {
+        const timerEl = document.createElement('span');
+        timerEl.className = 'tv-timer';
+        timerEl.textContent = '0:00 / 0:00';
+        container.appendChild(timerEl);
+      }
+      
+      tvPlayer = slide.querySelector('video');
       const progressBar = container.querySelector('.tv-progress-bar');
+      const timerEl = container.querySelector('.tv-timer');
+      
+      // Format seconds as m:ss
+      function formatTime(sec) {
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+      }
       
       // Attach all event listeners once
       function attachListeners() {
-        // Update both progress bars - playback and auto-advance
+        // Update progress bar and timer
         tvPlayer.addEventListener('timeupdate', () => {
           if (tvPlayer.duration) {
             const pct = (tvPlayer.currentTime / tvPlayer.duration) * 100;
             progressBar.style.width = pct + '%';
-            // Also update auto-advance bar
-            if (autoProgressBar) autoProgressBar.style.width = pct + '%';
+            // Update timer: current / total
+            const current = formatTime(tvPlayer.currentTime);
+            const total = formatTime(tvPlayer.duration);
+            if (timerEl) timerEl.textContent = `${current} / ${total}`;
           }
         });
         
         tvPlayer.addEventListener('ended', () => {
           tvErrorCount = 0; // Reset error count on successful play
           tvIndex = (tvIndex + 1) % tvTapes.length;
-          if (autoProgressBar) autoProgressBar.style.width = '0%';
           playTVVideo(tvIndex);
         });
         tvPlayer.addEventListener('canplay', () => {
@@ -4674,7 +4741,6 @@
           }
           // Skip broken videos
           tvIndex = (tvIndex + 1) % tvTapes.length;
-          if (autoProgressBar) autoProgressBar.style.width = '0%';
           setTimeout(() => playTVVideo(tvIndex), 500);
         });
       }
@@ -5442,7 +5508,6 @@
     // Apps flip auto-flip with progress bar
     const APPS_FLIP_INTERVAL = 10000; // 10 seconds between flips
     let appsFlipProgress = 0;
-    let appsFlipPaused = false;
     
     function resetAppsFlipProgress() {
       appsFlipProgress = 0;
@@ -5452,22 +5517,12 @@
     
     function updateAppsFlipProgress() {
       const bar = document.getElementById('appsFlipProgress');
-      const container = document.getElementById('appsFlipContainer');
       
-      // Pause on hover
-      if (container && !container.dataset.hoverBound) {
-        container.dataset.hoverBound = 'true';
-        container.addEventListener('mouseenter', () => appsFlipPaused = true);
-        container.addEventListener('mouseleave', () => appsFlipPaused = false);
-      }
+      appsFlipProgress += 100 / (APPS_FLIP_INTERVAL / 100); // Update every 100ms
+      if (bar) bar.style.width = appsFlipProgress + '%';
       
-      if (!appsFlipPaused) {
-        appsFlipProgress += 100 / (APPS_FLIP_INTERVAL / 100); // Update every 100ms
-        if (bar) bar.style.width = appsFlipProgress + '%';
-        
-        if (appsFlipProgress >= 100) {
-          toggleAppsFlip();
-        }
+      if (appsFlipProgress >= 100) {
+        toggleAppsFlip();
       }
       
       setTimeout(updateAppsFlipProgress, 100);
