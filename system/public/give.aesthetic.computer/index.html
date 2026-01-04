@@ -3096,15 +3096,34 @@
       align-items: center;
       justify-content: center;
       grid-column: 1 / -1;
+      color: rgba(255,255,255,0.3);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      text-decoration: none;
+      cursor: pointer;
+      transition: color 0.2s;
     }
 
-    #pals img {
-      width: 48px;
-      opacity: 0.3;
+    #pals:hover {
+      color: rgba(255,255,255,0.8);
     }
 
-    #pals:hover img {
-      opacity: 1;
+    .page-footer {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 1.5em 0 0.5em 0;
+      font-family: var(--mono);
+      font-size: 0.85em;
+      color: rgba(255,255,255,0.25);
+    }
+
+    .page-footer a {
+      color: rgba(255,255,255,0.4);
+      text-decoration: none;
+    }
+
+    .page-footer a:hover {
+      color: rgba(255,255,255,0.7);
     }
 
     /* Mobile adjustments */
@@ -3595,9 +3614,12 @@
         <span class="link-desc" data-lang="da">Aesthetic.Computer er startet af en håndfuld tidlige støtter, der deler virksomhedskapital i <a href="https://aesthetic.direct">Aesthetic Inc.</a> For at blive en del af dette fællesskab, book en fjern-demo med <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a>.</span>
       </div>
 
-      <a id="pals" href="https://aesthetic.computer">
-        <img src="https://aesthetic.computer/purple-pals.svg" alt="AC">
+      <a id="pals" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;" href="#">
+        ↑ Back to Top
       </a>
+      <div class="page-footer">
+        Stay tuned for updates on <a href="https://aesthetic.direct">aesthetic.direct</a>...
+      </div>
     </div>
   </main>
 
