@@ -4140,13 +4140,13 @@
       color: rgba(255, 255, 255, 0.85);
       text-shadow: 0 3px 12px rgba(0, 0, 0, 0.95), 0 1px 4px rgba(0, 0, 0, 0.8);
       pointer-events: none;
-      z-index: 1;
+      z-index: 0;
       white-space: nowrap;
       max-width: 45%;
       overflow: hidden;
       text-overflow: ellipsis;
       opacity: 0;
-      animation: floatAmbient 25s ease-in-out forwards;
+      animation: floatAmbient 30s ease-in-out forwards;
       transform-origin: center center;
     }
 
@@ -4186,27 +4186,30 @@
         opacity: 0;
         transform: translateY(0) translateX(0);
       }
-      8% {
-        opacity: 0.9;
+      5% {
+        opacity: 0.85;
       }
-      20% {
-        transform: translateY(-30px) translateX(5px);
+      15% {
+        transform: translateY(-50px) translateX(8px);
       }
-      40% {
-        transform: translateY(-60px) translateX(-8px);
+      30% {
+        transform: translateY(-120px) translateX(-10px);
+      }
+      45% {
+        transform: translateY(-200px) translateX(12px);
       }
       60% {
-        transform: translateY(-100px) translateX(6px);
+        transform: translateY(-300px) translateX(-8px);
       }
-      80% {
-        transform: translateY(-150px) translateX(-4px);
+      75% {
+        transform: translateY(-420px) translateX(6px);
       }
-      92% {
-        opacity: 0.9;
+      90% {
+        opacity: 0.85;
       }
       100% {
         opacity: 0;
-        transform: translateY(-200px) translateX(0);
+        transform: translateY(-550px) translateX(0);
       }
     }
 
@@ -7605,6 +7608,7 @@
       if (!slideshow) return;
       
       let noteIndex = 0;
+      const visibleNoteIds = new Set(); // Track which notes are currently on screen
       
       // Convert text to animated characters (using spread to handle emojis)
       function animateText(text) {
@@ -7615,7 +7619,25 @@
       }
       
       function showNextNote() {
-        const give = givesWithNotes[noteIndex];
+        // Find a note that isn't currently visible
+        let attempts = 0;
+        let give = givesWithNotes[noteIndex];
+        const startIndex = noteIndex;
+        
+        while (visibleNoteIds.has(give.id || give.note) && attempts < givesWithNotes.length) {
+          noteIndex = (noteIndex + 1) % givesWithNotes.length;
+          give = givesWithNotes[noteIndex];
+          attempts++;
+        }
+        
+        // If all notes are visible, skip this cycle
+        if (visibleNoteIds.has(give.id || give.note)) {
+          noteIndex = (startIndex + 1) % givesWithNotes.length;
+          return;
+        }
+        
+        const noteId = give.id || give.note;
+        visibleNoteIds.add(noteId);
         noteIndex = (noteIndex + 1) % givesWithNotes.length;
         
         const el = document.createElement('div');
@@ -7623,8 +7645,8 @@
         const isLeftSide = Math.random() > 0.5;
         el.className = `floating-give${give.isRecurring ? ' monthly' : ''} ${isLeftSide ? 'left-side' : 'right-side'}`;
         
-        // Random vertical position (20% to 70% from top)
-        const topPos = 20 + Math.random() * 50;
+        // Random vertical position (40% to 85% from top - starts lower to float up past everything)
+        const topPos = 40 + Math.random() * 45;
         el.style.top = `${topPos}%`;
         
         // Truncate long notes
@@ -7638,8 +7660,11 @@
         
         slideshow.appendChild(el);
         
-        // Remove after animation completes
-        setTimeout(() => el.remove(), 25000);
+        // Remove after animation completes and clear from visible set
+        setTimeout(() => {
+          el.remove();
+          visibleNoteIds.delete(noteId);
+        }, 30000);
       }
       
       // Show first note after a longer delay
