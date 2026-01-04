@@ -51,6 +51,7 @@ export async function handler(event, context) {
         .collection("chat-system")
         .countDocuments();
       const tickets = await database.db.collection("tickets").countDocuments();
+      const kidlisp = await database.db.collection("kidlisp").countDocuments();
       const pages = database.db.collection("sotce-pages");
       const pagesCrumpled = await pages.countDocuments({ state: "crumpled" });
       const pagesPublished = await pages.countDocuments({ state: "published" });
@@ -92,6 +93,7 @@ export async function handler(event, context) {
         pieces,
         paintings,
         moods,
+        kidlisp,
         chatMessages,
         logs,
         printsOrdered,
