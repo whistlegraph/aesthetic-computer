@@ -151,8 +151,8 @@
 
     .logo-year {
       font-family: 'YWFTProcessing-Regular', sans-serif;
-      color: var(--dim);
-      font-size: 0.9em;
+      color: var(--pink);
+      font-size: 1.15em;
       margin-left: 0.3em;
     }
 
@@ -4045,7 +4045,7 @@
           <canvas class="thanks-canvas" id="thanksCanvas" width="560" height="560"></canvas>
         </div>
         <p class="thanks-message" data-lang="en">
-          Thank you for keeping systems online and free to use!
+          TY for keeping systems online and free to use!
         </p>
         <p class="thanks-message" data-lang="da">
           Tak for at give <span class="thanks-amount" id="thanksAmountDa">$25</span> og holde Aesthetic.Computer online og gratis at bruge.
@@ -5236,12 +5236,19 @@
       const FRAME_INTERVAL = 1000 / TARGET_FPS; // ~41.67ms
       
       function render(timestamp) {
+        // Initialize lastFrameTime on first call (timestamp may be undefined if called directly)
+        if (!timestamp || lastFrameTime === 0) {
+          lastFrameTime = timestamp || performance.now();
+          requestAnimationFrame(render);
+          return;
+        }
+        
         // Throttle to 24fps
         if (timestamp - lastFrameTime < FRAME_INTERVAL) {
           requestAnimationFrame(render);
           return;
         }
-        const deltaTime = timestamp - lastFrameTime;
+        const deltaTime = Math.min(timestamp - lastFrameTime, 100); // Cap at 100ms to prevent huge jumps
         lastFrameTime = timestamp;
         
         // Time multiplier (normalize to 60fps base, so animations stay same speed)
