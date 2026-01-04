@@ -116,7 +116,6 @@
       font-family: var(--mono);
       font-weight: 500;
       color: var(--text);
-      margin-right: 0.4em;
     }
 
     .logo-ac {
@@ -647,9 +646,7 @@
     /* Different active colors per currency */
     .curr-link.active[data-curr="usd"] { color: var(--green); }
     .curr-link.active[data-curr="dkk"] { color: var(--cyan); }
-    .curr-link.active[data-curr="xtz"] { color: #a78bfa; }
-    .curr-link.active[data-curr="eth"] { color: #818cf8; }
-    .curr-link.active[data-curr="btc"] { color: #f7931a; }
+    .curr-link.active[data-curr="crypto"] { color: #a78bfa; }
 
     @media (max-width: 600px) {
       .currency-links {
@@ -1237,6 +1234,29 @@
       border: 1px solid var(--box-border);
       border-top: none;
       border-radius: 0 0 8px 8px;
+    }
+    
+    /* Stacked crypto addresses for all-in-one view */
+    .crypto-controls.crypto-all {
+      gap: 0.8em;
+    }
+    
+    .crypto-controls.crypto-all .crypto-address {
+      padding: 0.8em 1em;
+    }
+    
+    .crypto-controls.crypto-all .crypto-label {
+      font-size: 1em;
+      margin-bottom: 0.3em;
+    }
+    
+    .crypto-controls.crypto-all .crypto-addr {
+      font-size: 0.65em;
+    }
+    
+    .crypto-controls.crypto-all .crypto-copy-hint {
+      font-size: 0.75em;
+      margin-top: 0.5em;
     }
 
     .crypto-address {
@@ -3279,7 +3299,7 @@
 <body>
   <div class="top-bar">
     <div style="display: flex; align-items: center; gap: 8px;">
-      <div class="logo" onclick="window.location.href='https://aesthetic.computer'"><span class="logo-give">give</span><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span></div>
+      <div class="logo" onclick="window.location.href='https://aesthetic.computer'"><span class="logo-give">give</span><span class="logo-sep">—</span><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span></div>
       <div class="lang-selector" id="langSelector">
         <span class="lang-flag" id="lang-flag">🇺🇸</span>
         <span class="lang-text" id="lang-text">English</span>
@@ -3293,9 +3313,7 @@
     <div class="currency-links" id="currSelector">
       <span class="curr-link active" data-curr="usd"><span class="curr-flag">💵</span><span class="curr-text">USD</span></span>
       <span class="curr-link" data-curr="dkk"><span class="curr-flag">💶</span><span class="curr-text">DKK</span></span>
-      <span class="curr-link" data-curr="xtz"><span class="curr-flag">🔮</span><span class="curr-text">XTZ</span></span>
-      <span class="curr-link" data-curr="eth"><span class="curr-flag">💎</span><span class="curr-text">ETH</span></span>
-      <span class="curr-link" data-curr="btc"><span class="curr-flag">🟠</span><span class="curr-text">BTC</span></span>
+      <span class="curr-link" data-curr="crypto"><span class="curr-flag">⚡</span><span class="curr-text">CRYPTO</span></span>
     </div>
   </div>
 
@@ -3381,56 +3399,32 @@
               </div>
             </div>
           </div>
-          <div class="currency-picker" data-for="xtz" style="display: none;">
-            <div class="gift-widget crypto" data-currency="xtz">
+          <div class="currency-picker" data-for="crypto" style="display: none;">
+            <div class="gift-widget crypto" data-currency="crypto">
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount crypto-amount">🔮 XTZ</div>
+                  <div class="gift-amount crypto-amount">⚡ CRYPTO</div>
                 </div>
               </div>
-              <div class="crypto-controls">
-                <div class="crypto-address copyable" data-copy="tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT">
-                  <span class="crypto-label">aesthetic.tez</span>
-                  <code class="crypto-addr">tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT</code>
-                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy address</span>
-                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere adresse</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="currency-picker" data-for="eth" style="display: none;">
-            <div class="gift-widget crypto" data-currency="eth">
-              <div class="gift-visual">
-                <div class="gift-logo-wrap">
-                  <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount crypto-amount">💎 ETH</div>
-                </div>
-              </div>
-              <div class="crypto-controls">
-                <div class="crypto-address copyable" data-copy="0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023">
-                  <span class="crypto-label">4esthetic.eth</span>
-                  <code class="crypto-addr">0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023</code>
-                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy address</span>
-                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere adresse</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="currency-picker" data-for="btc" style="display: none;">
-            <div class="gift-widget crypto" data-currency="btc">
-              <div class="gift-visual">
-                <div class="gift-logo-wrap">
-                  <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount crypto-amount">🟠 BTC</div>
-                </div>
-              </div>
-              <div class="crypto-controls">
+              <div class="crypto-controls crypto-all">
                 <div class="crypto-address copyable" data-copy="bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as">
-                  <span class="crypto-label">Bitcoin</span>
+                  <span class="crypto-label">🟠 Bitcoin</span>
                   <code class="crypto-addr">bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as</code>
-                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy address</span>
-                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere adresse</span>
+                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
+                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
+                </div>
+                <div class="crypto-address copyable" data-copy="0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023">
+                  <span class="crypto-label">💎 4esthetic.eth</span>
+                  <code class="crypto-addr">0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023</code>
+                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
+                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
+                </div>
+                <div class="crypto-address copyable" data-copy="tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT">
+                  <span class="crypto-label">🔮 aesthetic.tez</span>
+                  <code class="crypto-addr">tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT</code>
+                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
+                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
                 </div>
               </div>
             </div>
@@ -3756,7 +3750,7 @@
       });
       
       // Toggle fiat vs crypto notes
-      const isCrypto = ['xtz', 'eth', 'btc'].includes(curr);
+      const isCrypto = curr === 'crypto';
       document.querySelectorAll('.fiat-only').forEach(el => el.style.display = isCrypto ? 'none' : '');
       document.querySelectorAll('.crypto-only').forEach(el => el.style.display = isCrypto ? '' : 'none');
     }
