@@ -89,7 +89,7 @@ export async function handler(event, context) {
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <filter id="dropShadow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="4" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.4"/>
+      <feDropShadow dx="2" dy="3" stdDeviation="2" flood-color="#000" flood-opacity="0.25"/>
     </filter>
   </defs>
   
