@@ -867,6 +867,10 @@ from = "/api/playlist"
 to = "/.netlify/functions/playlist"
 status = 200
 [[redirects]]
+from = "/api/kidlisp-count"
+to = "/.netlify/functions/kidlisp-count"
+status = 200
+[[redirects]]
 from = "/api/tv"
 to = "/.netlify/functions/tv"
 status = 200
