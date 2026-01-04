@@ -3932,12 +3932,13 @@
         const value = parseInt(slider.value);
         const btn = widget.querySelector('.gift-btn');
         const isMonthly = widget._isMonthly ? widget._isMonthly() : false;
+        const fmtValue = value.toLocaleString();
         if (currency === 'dkk') {
-          btn.textContent = lang === 'da' ? `Giv ${value} kr` : `Give ${value} kr`;
+          btn.textContent = lang === 'da' ? `Giv ${fmtValue} kr` : `Give ${fmtValue} kr`;
         } else if (isMonthly) {
-          btn.textContent = lang === 'da' ? `Giv $${value}/måned` : `Give $${value}/month`;
+          btn.textContent = lang === 'da' ? `Giv $${fmtValue}/måned` : `Give $${fmtValue}/month`;
         } else {
-          btn.textContent = lang === 'da' ? `Giv $${value}` : `Give $${value}`;
+          btn.textContent = lang === 'da' ? `Giv $${fmtValue}` : `Give $${fmtValue}`;
         }
       });
       
@@ -3987,7 +3988,8 @@
       }
 
       function format(v) {
-        return currency === 'dkk' ? `${v} kr` : `$${v}`;
+        const formatted = v.toLocaleString();
+        return currency === 'dkk' ? `${formatted} kr` : `$${formatted}`;
       }
 
       const investSuggestion = widget.querySelector('.invest-suggestion');
@@ -4197,7 +4199,8 @@
           else throw new Error(data.error || 'No URL returned');
         } catch (err) {
           console.error('Give error:', err);
-          const fmt = currency === 'dkk' ? `${value} kr` : `$${value}`;
+          const fmtValue = value.toLocaleString();
+          const fmt = currency === 'dkk' ? `${fmtValue} kr` : `$${fmtValue}`;
           const suffix = isMonthly ? '/month' : '';
           btn.textContent = currentLang === 'da' ? `Giv ${fmt}${isMonthly ? '/måned' : ''}` : `Give ${fmt}${suffix}`;
           btn.disabled = false;
