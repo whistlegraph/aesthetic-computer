@@ -3225,11 +3225,11 @@
       height: auto;
       filter: grayscale(100%) opacity(0.3);
       transition: filter 0.2s;
-      order: 2;
+      order: 1;
     }
 
     #pals span {
-      order: 1;
+      order: 2;
     }
 
     #pals:hover {
@@ -3334,6 +3334,19 @@
 
     .footer-user-menu {
       text-decoration: none;
+    }
+
+    .footer-logout-link {
+      display: block;
+      margin-top: 4px;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.3);
+      text-decoration: none;
+      font-family: var(--mono);
+    }
+
+    .footer-logout-link:hover {
+      color: rgba(255, 255, 255, 0.6);
     }
 
     /* Mobile adjustments */
@@ -3453,8 +3466,8 @@
       inset: -10%;
       width: 120%;
       height: 120%;
-      /* Nostalgic filter on the canvas + blur */
-      filter: sepia(0.2) saturate(0.6) brightness(0.5) contrast(0.9) blur(3px);
+      /* Nostalgic filter on the canvas (no blur - keep images crisp) */
+      filter: sepia(0.2) saturate(0.6) brightness(0.5) contrast(0.9);
     }
 
     /* Purple/magenta blend overlay */
@@ -3877,6 +3890,7 @@
           <a class="footer-user-menu" id="footerUserMenu" style="display: none;" href="#">
             <span class="footer-user-handle" id="footerUserHandle"></span>
           </a>
+          <a class="footer-logout-link" id="footerLogoutLink" style="display: none;" href="#">logout</a>
         </div>
       </div>
 
@@ -5085,7 +5099,7 @@
     async function goToCheckout(amount, currency, isMonthly, btn) {
       const origText = btn.textContent;
       btn.disabled = true;
-      btn.textContent = currentLang === 'da' ? 'Omdirigerer...' : 'Redirecting...';
+      btn.textContent = currentLang === 'da' ? 'Giver...' : 'Giving...';
 
       try {
         const res = await fetch('https://aesthetic.computer/api/give', {
@@ -7155,15 +7169,16 @@
         const isAuthenticated = await auth0Client.isAuthenticated();
         if (isAuthenticated) {
           acUser = await auth0Client.getUser();
-          // Fetch handle from AC API
+          // Fetch handle from AC API using email
           try {
-            const token = await auth0Client.getTokenSilently();
-            const res = await fetch('https://aesthetic.computer/api/me', {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(
+              `https://aesthetic.computer/user?from=${encodeURIComponent(acUser.email)}&withHandle=true`
+            );
             if (res.ok) {
               const data = await res.json();
-              acHandle = data.handle;
+              if (data.handle) {
+                acHandle = data.handle;
+              }
             }
           } catch (e) {
             console.warn('Could not fetch handle:', e);
@@ -7181,6 +7196,7 @@
       const authButtons = document.getElementById('footerAuthButtons');
       const userMenu = document.getElementById('footerUserMenu');
       const userHandle = document.getElementById('footerUserHandle');
+      const logoutLink = document.getElementById('footerLogoutLink');
       
       if (acUser) {
         // Logged in - show handle linking to profile
@@ -7196,10 +7212,12 @@
             userMenu.href = 'https://aesthetic.computer/profile';
           }
         }
+        if (logoutLink) logoutLink.style.display = 'block';
       } else {
         // Logged out - show auth buttons
         if (authButtons) authButtons.style.display = 'flex';
         if (userMenu) userMenu.style.display = 'none';
+        if (logoutLink) logoutLink.style.display = 'none';
       }
     }
     
@@ -7220,6 +7238,13 @@
     // Footer auth button event listeners
     document.getElementById('footerLoginBtn')?.addEventListener('click', footerLogin);
     document.getElementById('footerSignupBtn')?.addEventListener('click', footerSignup);
+    document.getElementById('footerLogoutLink')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!auth0Client) return;
+      await auth0Client.logout({
+        logoutParams: { returnTo: window.location.origin + window.location.pathname }
+      });
+    });
     
     // Initialize auth
     initAuth0();
