@@ -2834,23 +2834,89 @@
       left: 0;
       right: 0;
       z-index: 10;
-      padding: 0.8em 1em;
+      padding: 0.6em 0.8em;
       text-decoration: none;
       cursor: pointer;
-      background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
+      background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.5) 70%, transparent 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
 
-    .tv-header strong {
+    .tv-header-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6em;
+    }
+
+    .tv-header .tv-code {
       color: #fff;
       font-family: var(--mono);
-      font-size: 1.4em;
-      font-weight: 400;
+      font-size: 1em;
+      font-weight: 600;
       letter-spacing: 0.03em;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.8);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.9);
     }
 
-    .tv-header:hover strong {
+    .tv-header .tv-upcoming {
+      color: rgba(255,255,255,0.5);
+      font-family: var(--mono);
+      font-size: 0.75em;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+    }
+
+    .tv-header .tv-upcoming span {
+      margin-right: 0.5em;
+      cursor: pointer;
+      transition: color 0.15s ease;
+    }
+
+    .tv-header .tv-upcoming span:hover {
       color: var(--pink);
+    }
+
+    .tv-header .tv-timestamp {
+      color: rgba(255,255,255,0.6);
+      font-family: var(--mono);
+      font-size: 0.7em;
+      font-weight: 400;
+    }
+
+    .tv-header:hover .tv-code {
+      color: var(--pink);
+    }
+    
+    /* Mute button */
+    .tv-mute-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.6);
+      border: none;
+      cursor: pointer;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    
+    .tv-mute-btn:hover {
+      background: rgba(0,0,0,0.8);
+    }
+    
+    .tv-mute-btn svg {
+      width: 18px;
+      height: 18px;
+      fill: rgba(255,255,255,0.9);
+    }
+    
+    .tv-mute-btn.muted svg .sound-wave {
+      display: none;
     }
 
     .tv-section .module-caption {
@@ -3002,20 +3068,27 @@
       filter: saturate(1.1) contrast(1.05);
     }
 
-    /* VHS scanlines overlay */
+    /* VHS scanlines overlay - scrolling */
     .tv-slide::before {
       content: '';
       position: absolute;
-      inset: 0;
+      inset: -100% 0;
+      height: 300%;
       background: repeating-linear-gradient(
         0deg,
         transparent 0px,
         transparent 2px,
-        rgba(0, 0, 0, 0.15) 2px,
-        rgba(0, 0, 0, 0.15) 4px
+        rgba(0, 0, 0, 0.2) 2px,
+        rgba(0, 0, 0, 0.2) 4px
       );
       pointer-events: none;
       z-index: 5;
+      animation: scanlineScroll 8s linear infinite;
+    }
+    
+    @keyframes scanlineScroll {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(33.33%); }
     }
 
     /* VHS noise overlay */
@@ -7451,9 +7524,51 @@
         return;
       }
       
-      // Update header with current tape code
-      const tapeCode = tape.code ? `!${tape.code}` : 'tapes';
-      if (header) header.innerHTML = `<strong>${tapeCode}</strong>`;
+      // Update header with current tape code, timestamp, and upcoming codes
+      const tapeCode = tape.code ? `!${tape.code}` : '📼 tapes';
+      
+      // Format timestamp
+      let timestampStr = '';
+      if (tape.createdAt || tape.timestamp) {
+        const date = new Date(tape.createdAt || tape.timestamp);
+        const options = { month: 'short', day: 'numeric', year: 'numeric' };
+        timestampStr = `taped on ${date.toLocaleDateString('en-US', options)}`;
+      }
+      
+      // Get next 2-3 upcoming codes with their indices
+      const upcomingCodes = [];
+      for (let i = 1; i <= 3; i++) {
+        const nextIndex = (index + i) % tvTapes.length;
+        const nextTape = tvTapes[nextIndex];
+        if (nextTape && nextTape.code && upcomingCodes.length < 3) {
+          upcomingCodes.push({ code: `!${nextTape.code}`, index: nextIndex });
+        }
+      }
+      const upcomingHtml = upcomingCodes.length ? 
+        `<span class="tv-upcoming">${upcomingCodes.map(c => `<span class="tv-upcoming-code" data-index="${c.index}">${c.code}</span>`).join('')}</span>` : '';
+      
+      if (header) {
+        header.innerHTML = `
+          <div class="tv-header-row">
+            <span class="tv-code">${tapeCode}</span>
+            ${upcomingHtml}
+          </div>
+          ${timestampStr ? `<span class="tv-timestamp">${timestampStr}</span>` : ''}
+        `;
+        
+        // Make upcoming codes clickable to skip to that tape
+        header.querySelectorAll('.tv-upcoming-code').forEach(el => {
+          el.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const targetIndex = parseInt(el.dataset.index, 10);
+            if (!isNaN(targetIndex)) {
+              tvIndex = targetIndex;
+              playTVVideo(tvIndex);
+            }
+          });
+        });
+      }
       
       // Mark old slide as exiting
       const oldSlide = container.querySelector('.tv-slide');
@@ -7487,6 +7602,27 @@
         timerEl.className = 'tv-timer';
         timerEl.textContent = '0:00 / 0:00';
         container.appendChild(timerEl);
+      }
+      
+      // Add mute button (only once)
+      if (!container.querySelector('.tv-mute-btn')) {
+        const muteBtn = document.createElement('button');
+        muteBtn.className = 'tv-mute-btn muted';
+        muteBtn.innerHTML = `
+          <svg viewBox="0 0 24 24">
+            <path d="M3 9v6h4l5 5V4L7 9H3z"/>
+            <path class="sound-wave" d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+            <path class="sound-wave" d="M19 12c0 2.58-1.17 4.87-3 6.4v2.15c2.78-1.82 4.63-4.96 4.63-8.55 0-3.59-1.85-6.73-4.63-8.55v2.15c1.83 1.53 3 3.82 3 6.4z"/>
+          </svg>
+        `;
+        muteBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (tvPlayer) {
+            tvPlayer.muted = !tvPlayer.muted;
+            muteBtn.classList.toggle('muted', tvPlayer.muted);
+          }
+        };
+        container.appendChild(muteBtn);
       }
       
       tvPlayer = slide.querySelector('video');
