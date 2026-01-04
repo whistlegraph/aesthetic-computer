@@ -4535,32 +4535,34 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
         
-        // Only preload first batch (current)
-        const firstImages = displayQueue[0];
-        await Promise.all(firstImages.map(preloadImage));
-        
-        targetImages = firstImages;
-        currentAlpha = 0;
-        
-        // Start render loop
+        // Start render loop immediately (will show dark until images load)
         render();
         
-        // Start preloading next batch in background (don't await)
-        if (displayQueue.length > 1) {
-          displayQueue[1].forEach(name => preloadImage(name));
-        }
-        
-        // Fade in first image
-        const fadeInInterval = setInterval(() => {
-          currentAlpha += 0.02;
-          if (currentAlpha >= 1) {
-            clearInterval(fadeInInterval);
-            currentAlpha = 1;
+        // Load first batch in background, then start showing
+        const firstImages = displayQueue[0];
+        Promise.all(firstImages.map(preloadImage)).then(() => {
+          targetImages = firstImages;
+          currentAlpha = 0;
+          
+          // Fade in first image
+          const fadeInInterval = setInterval(() => {
+            currentAlpha += 0.02;
+            if (currentAlpha >= 1) {
+              clearInterval(fadeInInterval);
+              currentAlpha = 1;
+            }
+          }, 30);
+          
+          // Start preloading next batch
+          if (displayQueue.length > 1) {
+            displayQueue[1].forEach(name => preloadImage(name));
           }
-        }, 30);
-        
-        // Transition every 8 seconds
-        setInterval(transitionToNext, 8000);
+          
+          // Start transitions after first image is showing
+          setTimeout(() => {
+            setInterval(transitionToNext, 8000);
+          }, 3000);
+        });
       }
 
       start();
