@@ -4132,28 +4132,37 @@
       filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
     }
 
-    /* Floating give notes on jeffreys slideshow - kite string / gravity up */
+    /* Floating give notes on jeffreys slideshow - ambient margin wiggle */
     .floating-give {
       position: absolute;
       font-family: var(--mono);
-      font-size: 0.85em;
-      color: rgba(255, 255, 255, 0.95);
+      font-size: 1em;
+      color: rgba(255, 255, 255, 0.85);
       text-shadow: 0 3px 12px rgba(0, 0, 0, 0.95), 0 1px 4px rgba(0, 0, 0, 0.8);
       pointer-events: none;
       z-index: 1;
       white-space: nowrap;
-      max-width: 85%;
+      max-width: 45%;
       overflow: hidden;
       text-overflow: ellipsis;
-      bottom: 5%;
       opacity: 0;
-      animation: floatUpKite 18s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
-      transform-origin: bottom center;
+      animation: floatAmbient 25s ease-in-out forwards;
+      transform-origin: center center;
+    }
+
+    .floating-give.left-side {
+      left: 3%;
+      text-align: left;
+    }
+
+    .floating-give.right-side {
+      right: 3%;
+      text-align: right;
     }
 
     .floating-give .char {
       display: inline-block;
-      animation: charFloat 1.5s ease-in-out infinite;
+      animation: charWiggle 2.5s ease-in-out infinite;
       animation-delay: var(--char-delay);
     }
 
@@ -4169,49 +4178,50 @@
     }
 
     .floating-give .note {
-      color: rgba(255, 255, 255, 0.85);
+      color: rgba(255, 255, 255, 0.8);
     }
 
-    @keyframes floatUpKite {
+    @keyframes floatAmbient {
       0% {
         opacity: 0;
-        bottom: 0%;
-        transform: translateX(0) rotate(0deg);
+        transform: translateY(0) translateX(0);
       }
-      5% {
-        opacity: 1;
+      8% {
+        opacity: 0.9;
       }
-      15% {
-        transform: translateX(8px) rotate(1deg);
+      20% {
+        transform: translateY(-30px) translateX(5px);
       }
-      30% {
-        transform: translateX(-6px) rotate(-0.5deg);
-      }
-      45% {
-        transform: translateX(5px) rotate(0.5deg);
+      40% {
+        transform: translateY(-60px) translateX(-8px);
       }
       60% {
-        transform: translateX(-4px) rotate(-0.3deg);
+        transform: translateY(-100px) translateX(6px);
       }
-      75% {
-        transform: translateX(3px) rotate(0.2deg);
+      80% {
+        transform: translateY(-150px) translateX(-4px);
       }
-      88% {
-        opacity: 1;
+      92% {
+        opacity: 0.9;
       }
       100% {
         opacity: 0;
-        bottom: 92%;
-        transform: translateX(0) rotate(0deg);
+        transform: translateY(-200px) translateX(0);
       }
     }
 
-    @keyframes charFloat {
+    @keyframes charWiggle {
       0%, 100% {
-        transform: translateY(0);
+        transform: translateY(0) rotate(0deg);
+      }
+      25% {
+        transform: translateY(-4px) rotate(-1deg);
       }
       50% {
-        transform: translateY(-6px);
+        transform: translateY(-2px) rotate(1deg);
+      }
+      75% {
+        transform: translateY(-5px) rotate(-0.5deg);
       }
     }
   </style>
@@ -7609,15 +7619,16 @@
         noteIndex = (noteIndex + 1) % givesWithNotes.length;
         
         const el = document.createElement('div');
-        el.className = `floating-give${give.isRecurring ? ' monthly' : ''}`;
+        // Alternate between left and right margins
+        const isLeftSide = Math.random() > 0.5;
+        el.className = `floating-give${give.isRecurring ? ' monthly' : ''} ${isLeftSide ? 'left-side' : 'right-side'}`;
         
-        // Random horizontal position (5% to 60% from left)
-        const leftPos = 5 + Math.random() * 55;
-        
-        el.style.left = `${leftPos}%`;
+        // Random vertical position (20% to 70% from top)
+        const topPos = 20 + Math.random() * 50;
+        el.style.top = `${topPos}%`;
         
         // Truncate long notes
-        const noteText = give.note.length > 40 ? give.note.slice(0, 40) + '…' : give.note;
+        const noteText = give.note.length > 30 ? give.note.slice(0, 30) + '…' : give.note;
         const suffix = give.isRecurring ? '/mo' : '';
         
         const amountAnimated = animateText(give.amountDisplay + suffix);
@@ -7628,18 +7639,18 @@
         slideshow.appendChild(el);
         
         // Remove after animation completes
-        setTimeout(() => el.remove(), 14000);
+        setTimeout(() => el.remove(), 25000);
       }
       
-      // Show first note after a short delay
-      setTimeout(showNextNote, 2000);
+      // Show first note after a longer delay
+      setTimeout(showNextNote, 5000);
       
-      // Show new notes periodically (every 10-15 seconds, randomized)
+      // Show new notes periodically (every 25-40 seconds, randomized for ambient feel)
       setInterval(() => {
         if (document.visibilityState === 'visible') {
           showNextNote();
         }
-      }, 10000 + Math.random() * 5000);
+      }, 25000 + Math.random() * 15000);
     }
     
     setTimeout(loadRecentGives, 300);
