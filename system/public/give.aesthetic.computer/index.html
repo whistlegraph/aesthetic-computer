@@ -1568,8 +1568,8 @@
     }
 
     .invest-content {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 1.05em;
+      font-family: 'Berkeley Mono Variable', var(--mono);
+      font-size: 1em;
       line-height: 1.7;
       color: rgba(255, 255, 255, 0.9);
     }
@@ -1596,18 +1596,17 @@
 
     .invest-content a.handle-link {
       color: var(--pink);
-      border-bottom-color: rgba(255, 100, 200, 0.4);
+      border-bottom: none;
     }
 
     .invest-content a.handle-link:hover {
       color: #ff90d0;
-      border-bottom-color: #ff90d0;
     }
 
     .invest-content .demo-link {
       display: inline-block;
       background: rgba(78, 205, 196, 0.15);
-      padding: 0.3em 0.6em;
+      padding: 0.15em 0.4em;
       border-radius: 4px;
       border-bottom: none;
       font-weight: 600;
@@ -3182,7 +3181,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 0.5em;
+      gap: 0.8em;
       grid-column: 1 / -1;
       color: rgba(255,255,255,0.3);
       font-family: var(--mono);
@@ -3194,10 +3193,11 @@
     }
 
     #pals img {
-      width: 32px;
+      width: 64px;
       height: auto;
       filter: grayscale(100%) opacity(0.3);
       transition: filter 0.2s;
+      order: 1;
     }
 
     #pals:hover {
@@ -3205,7 +3205,7 @@
     }
 
     #pals:hover img {
-      filter: grayscale(0%) opacity(0.8);
+      filter: grayscale(100%) opacity(0.5);
     }
 
     .page-footer {
@@ -3691,10 +3691,10 @@
           <span data-lang="da">Investér</span>
         </div>
         <div class="invest-content" data-lang="en">
-          <p>Aesthetic.Computer is booted by a handful of early supporters who share in company equity of <a href="https://aesthetic.direct">Aesthetic Inc.</a> To join this community,<br><a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">📞 book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
+          <p>Aesthetic.Computer is booted by a handful of early supporters who share in company equity of <a href="https://aesthetic.direct">Aesthetic Inc.</a><br><br>To join this community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">📞 book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
         </div>
         <div class="invest-content" data-lang="da">
-          <p>Aesthetic.Computer er startet af en håndfuld tidlige støtter, der deler virksomhedskapital i <a href="https://aesthetic.direct">Aesthetic Inc.</a> For at blive en del af dette fællesskab,<br><a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">📞 book en fjern-demo</a> med <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
+          <p>Aesthetic.Computer er startet af en håndfuld tidlige støtter, der deler virksomhedskapital i <a href="https://aesthetic.direct">Aesthetic Inc.</a><br><br>For at blive en del af dette fællesskab, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">📞 book en fjern-demo</a> med <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
         </div>
       </div>
 
