@@ -4269,25 +4269,29 @@
       let isTransitioning = false;
       let previousImages = [];
       let scrollPhase = 0; // For slow scroll through images
+      let zoomPhase = 0; // For slow zoom pulsing
       
       function render() {
         const w = canvasW;
         const h = canvasH;
         
         // Update phases slowly
-        globalRotation += 0.00002;
-        floatOffset += 0.00004;
-        scrollPhase += 0.0001; // Very slow scroll
+        globalRotation += 0.00003;
+        floatOffset += 0.00005;
+        scrollPhase += 0.00008; // Slow scroll
+        zoomPhase += 0.00004; // Slow zoom pulse
         
-        const rotation = Math.sin(globalRotation) * 0.002;
+        const rotation = Math.sin(globalRotation) * 0.004; // More rotation
+        const zoomPulse = 1.02 + Math.sin(zoomPhase * Math.PI * 2) * 0.03; // 1.0 to 1.05 zoom
+        const wiggleX = Math.sin(floatOffset * Math.PI * 3) * 3;
+        const wiggleY = Math.cos(floatOffset * Math.PI * 2.5) * 2;
         
-        // Subtle trail effect
-        ctx.fillStyle = 'rgba(18, 14, 24, 0.06)';
+        // Clear completely each frame for clean fades (no trails = no pop)
+        ctx.fillStyle = 'rgb(18, 14, 24)';
         ctx.fillRect(0, 0, w, h);
         
-        // Draw image with scroll to show whole thing over time
-        // For vertical images: scroll vertically, for horizontal: scroll horizontally
-        const drawScrollingImage = (img, name, destX, destY, destW, destH, alpha, rot = 0) => {
+        // Draw image with scroll to show whole thing over time + Ken Burns zoom/wiggle
+        const drawScrollingImage = (img, name, destX, destY, destW, destH, alpha, rot = 0, extraZoom = 1) => {
           const imgW = img.width;
           const imgH = img.height;
           const canvasRatio = destW / destH;
@@ -4320,10 +4324,10 @@
           ctx.globalAlpha = alpha;
           const cx = destX + destW / 2;
           const cy = destY + destH / 2;
-          ctx.translate(cx, cy);
+          ctx.translate(cx + wiggleX, cy + wiggleY);
           ctx.rotate(rot);
-          const rotScale = 1 + Math.abs(rot) * 0.3;
-          ctx.scale(rotScale, rotScale);
+          const totalZoom = zoomPulse * extraZoom;
+          ctx.scale(totalZoom, totalZoom);
           ctx.translate(-cx, -cy);
           ctx.drawImage(img, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
           ctx.restore();
@@ -4417,18 +4421,16 @@
         };
         
         if (isTransitioning) {
-          // Crossfade with POI masks - old image fades but faces linger
-          const oldAlpha = 0.12 * (1 - transitionProgress);
-          const newAlpha = 0.12 * transitionProgress;
+          // Pure crossfade - old fades out, new fades in
+          const oldAlpha = 0.25 * (1 - transitionProgress);
+          const newAlpha = 0.25 * transitionProgress;
           
-          // Draw new image coming in
-          drawImages(targetImages, newAlpha);
-          
-          // Draw old image fading out, with POI mask making faces stick
+          // Draw both with their respective alphas
           drawImages(previousImages, oldAlpha, true, 1 - transitionProgress);
+          drawImages(targetImages, newAlpha);
         } else {
-          // Normal: just show current images with scrolling
-          drawImages(targetImages, 0.12);
+          // Normal: just show current images
+          drawImages(targetImages, 0.25);
         }
         
         requestAnimationFrame(render);
