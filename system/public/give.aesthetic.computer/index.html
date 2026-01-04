@@ -838,7 +838,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      padding: 2em 1em;
+      padding: 0; /* No padding - slideshow fills completely */
       background: linear-gradient(135deg, rgba(205, 92, 155, 0.1) 0%, rgba(0, 255, 255, 0.05) 100%);
       border: 1px solid var(--box-border);
       border-radius: 8px 8px 0 0;
@@ -849,17 +849,30 @@
       /* Maintain aspect ratio when page narrows */
       aspect-ratio: 21 / 9;
       min-height: 0;
+      /* Loading state - starts blurred */
+      filter: blur(8px) brightness(0.7);
+      transition: filter 0.8s ease-out;
+    }
+
+    .gift-visual.loaded {
+      filter: blur(0) brightness(1);
     }
 
     .gift-logo-wrap {
-      position: relative;
-      display: inline-block;
-      margin: 0;
-      margin-top: 4%;
+      position: absolute;
+      /* Center using inset + margin auto */
+      inset: 0;
+      margin: auto;
+      z-index: 5;
+      /* Size the wrap as percentage of container */
+      width: 34%;
+      max-width: 280px;
+      height: fit-content;
     }
 
     .gift-logo {
-      width: min(300px, 38vw);
+      /* Fill the wrap container */
+      width: 100%;
       height: auto;
       aspect-ratio: 1;
       opacity: 1;
@@ -881,21 +894,22 @@
 
     .gift-amount {
       position: absolute;
-      /* Positioned at logo's top-right corner */
-      top: 15%;
-      right: -15%;
-      transform: translateY(-50%);
+      /* Positioned at logo's top-right - fixed relative to logo */
+      top: -40%;
+      right: -10%;
+      transform: none;
       transform-origin: bottom left;
       font-family: 'YWFTProcessing-Regular', var(--mono);
-      font-size: clamp(1.2em, 2.5vw, 2.5em);
+      /* Size relative to logo */
+      font-size: clamp(1.2em, 2.2vw, 2.5em);
       color: #5a9a5a;
       background: linear-gradient(135deg, #1a2a1a 0%, #0a1a0a 100%);
-      border: 3px solid #ff0080;
+      border: 2px solid #ff0080;
       border-radius: 4px;
-      padding: 0.3em 0.55em;
+      padding: 0.25em 0.45em;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
       white-space: nowrap;
-      transition: top 0.6s cubic-bezier(0.4, 0, 0.2, 1), right 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease-out, border 0.4s ease-out;
+      transition: background 0.4s ease-out, border 0.4s ease-out;
       display: flex;
       gap: 0;
     }
@@ -1040,7 +1054,6 @@
       color: #ffd700;
       background: linear-gradient(135deg, #4a3a1a 0%, #3a2a0a 100%);
       border-color: #8a7a3a;
-      animation: vegas-glow 1.5s ease-in-out infinite;
     }
 
     .gift-amount.intensity-3 {
@@ -1049,7 +1062,7 @@
       transform: translateY(-50%);
       color: #fff;
       background: linear-gradient(135deg, #5a2a2a 0%, #4a1a1a 100%);
-      animation: vegas-rainbow 2s linear infinite, vegas-shake-mild 1s ease-in-out infinite;
+      border-color: #ff6b6b;
     }
 
     .gift-amount.intensity-4 {
@@ -1058,9 +1071,9 @@
       transform: translateY(-50%);
       color: #fff;
       font-weight: bold;
-      text-shadow: 0 0 10px #fff, 0 0 20px #ffd700, 0 0 30px #ff00ff, 0 0 40px #ff0080;
+      text-shadow: 0 0 10px #ffd700;
       background: linear-gradient(135deg, #6a1a3a 0%, #4a0a2a 100%);
-      animation: vegas-rainbow-fast 0.3s linear infinite, vegas-shake-wild 0.1s ease-in-out infinite, price-blink-insane 0.15s linear infinite;
+      border-color: #ff0080;
     }
 
     @keyframes price-blink-insane {
@@ -1140,8 +1153,6 @@
       top: -1.2em;
       left: 0;
       font-size: 0.8em;
-      animation: flame-dance 0.3s ease-in-out infinite alternate;
-      filter: drop-shadow(0 0 4px #ff6600);
     }
 
     .gift-amount.flames::after {
@@ -1150,8 +1161,6 @@
       top: -1.1em;
       right: 0;
       font-size: 0.7em;
-      animation: flame-dance 0.25s ease-in-out infinite alternate-reverse;
-      filter: drop-shadow(0 0 4px #ff6600);
     }
 
     @keyframes flame-dance {
@@ -1161,7 +1170,8 @@
 
     /* Lightning effect for max one-time ($2048) */
     .gift-amount.lightning {
-      animation: vegas-rainbow 1s linear infinite, vegas-shake 0.5s ease-in-out infinite, lightning-flash 0.8s ease-in-out infinite;
+      border-color: #00ffff;
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
     }
 
     @keyframes lightning-flash {
@@ -1183,14 +1193,12 @@
       content: '⚡';
       font-size: 1em;
       top: -1.3em;
-      animation: lightning-bolt 0.5s ease-in-out infinite;
     }
 
     .gift-amount.lightning.flames::after {
       content: '⚡';
       font-size: 0.9em;
       top: -1.2em;
-      animation: lightning-bolt 0.4s ease-in-out infinite reverse;
     }
 
     @keyframes lightning-bolt {
@@ -3957,7 +3965,10 @@
     /* Ken Burns Canvas Slideshow - Nostalgic Photo Background */
     .jeffreys-slideshow {
       position: absolute;
-      inset: 0;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       overflow: hidden;
       border-radius: 8px 8px 0 0;
       z-index: 0;
@@ -3965,9 +3976,12 @@
 
     .jeffreys-canvas {
       position: absolute;
-      inset: -4px; /* Slight overflow to hide edge artifacts */
-      width: calc(100% + 8px);
-      height: calc(100% + 8px);
+      /* Center the oversized canvas */
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: calc(100% + 20px);
+      height: calc(100% + 20px);
       /* Darker with softer contrast */
       filter: url(#sharpen) saturate(0.9) brightness(0.5) contrast(1.05);
       image-rendering: -webkit-optimize-contrast; /* Better scaling on iOS */
@@ -4465,7 +4479,7 @@
           <span data-lang="zh">投资</span>
         </div>
         <div class="invest-content" data-lang="en">
-          <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> was <a href="https://prompt.ac/booted-by">booted by</a> a handful of early supporters.<br><br>To join this equity holding community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
+          <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> was <a href="https://prompt.ac/booted-by">booted by</a> a handful of early supporters in early 2025.<br><br>To join this equity holding community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
         </div>
         <div class="invest-content" data-lang="da">
           <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> bliver <a href="https://prompt.ac/booted-by">startet af</a> en håndfuld tidlige støtter, der deler i at reservere virksomhedskapital.<br><br>For at blive en del af dette fællesskab, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book en fjern-demo</a> med <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
@@ -4687,7 +4701,8 @@
     const jeffreysImages = Object.keys(jeffreysData);
     const screenshotsImages = Object.keys(screenshotsData);
     const allImages = [...jeffreysImages, ...screenshotsImages];
-    const DEBUG_FACES = false; // Set true to show POI boxes
+    const DEBUG_FACES = false; // Set true to show verbose POI debug info
+    const SHOW_POI_BOXES = true; // Matrix-style detection boxes
     const POI_GLOW = true; // Soft radial glow on detected faces/bodies
 
     function initJeffreysSlideshow() {
@@ -5124,7 +5139,68 @@
           }
         }
         
-        // Debug: draw POI boxes
+        // Matrix-style POI detection boxes
+        if (SHOW_POI_BOXES && data.pois) {
+          // Subtle matrix colors: lime for faces, yellow for bodies, dim for hands
+          const typeColors = { 
+            f: 'rgba(150, 255, 50, 0.4)',  // lime green for faces
+            b: 'rgba(255, 220, 50, 0.25)', // yellow for bodies
+            h: 'rgba(255, 100, 100, 0.15)', // dim red for hands
+            s: 'rgba(100, 200, 255, 0.2)', // cyan for screenshots
+            v: 'rgba(180, 150, 255, 0.15)' // purple for virtual POIs
+          };
+          ctx.lineWidth = 1;
+          for (const poi of data.pois) {
+            const poiImgX = imgW * poi.box[0] / 100;
+            const poiImgY = imgH * poi.box[1] / 100;
+            const poiImgW = imgW * poi.box[2] / 100;
+            const poiImgH = imgH * poi.box[3] / 100;
+            if (poiImgX + poiImgW > srcX && poiImgX < srcX + srcW &&
+                poiImgY + poiImgH > srcY && poiImgY < srcY + srcH) {
+              const color = typeColors[poi.t] || 'rgba(150, 255, 50, 0.3)';
+              ctx.strokeStyle = color;
+              const canvasX = destX + (poiImgX - srcX) / srcW * destW;
+              const canvasY = destY + (poiImgY - srcY) / srcH * destH;
+              const canvasFW = poiImgW / srcW * destW;
+              const canvasFH = poiImgH / srcH * destH;
+              
+              // Draw thin box with corner accents for matrix look
+              ctx.strokeRect(canvasX, canvasY, canvasFW, canvasFH);
+              
+              // Corner accents (thicker, brighter)
+              const cornerLen = Math.min(8, canvasFW * 0.15, canvasFH * 0.15);
+              ctx.lineWidth = 2;
+              ctx.strokeStyle = color.replace(/[\d.]+\)$/, '0.7)'); // Brighter
+              // Top-left
+              ctx.beginPath();
+              ctx.moveTo(canvasX, canvasY + cornerLen);
+              ctx.lineTo(canvasX, canvasY);
+              ctx.lineTo(canvasX + cornerLen, canvasY);
+              ctx.stroke();
+              // Top-right
+              ctx.beginPath();
+              ctx.moveTo(canvasX + canvasFW - cornerLen, canvasY);
+              ctx.lineTo(canvasX + canvasFW, canvasY);
+              ctx.lineTo(canvasX + canvasFW, canvasY + cornerLen);
+              ctx.stroke();
+              // Bottom-left
+              ctx.beginPath();
+              ctx.moveTo(canvasX, canvasY + canvasFH - cornerLen);
+              ctx.lineTo(canvasX, canvasY + canvasFH);
+              ctx.lineTo(canvasX + cornerLen, canvasY + canvasFH);
+              ctx.stroke();
+              // Bottom-right
+              ctx.beginPath();
+              ctx.moveTo(canvasX + canvasFW - cornerLen, canvasY + canvasFH);
+              ctx.lineTo(canvasX + canvasFW, canvasY + canvasFH);
+              ctx.lineTo(canvasX + canvasFW, canvasY + canvasFH - cornerLen);
+              ctx.stroke();
+              ctx.lineWidth = 1;
+            }
+          }
+        }
+        
+        // Debug: verbose POI info
         if (DEBUG_FACES && data.pois) {
           const typeColors = { f: 'rgba(255, 0, 255, 0.9)', b: 'rgba(0, 255, 255, 0.7)', h: 'rgba(255, 255, 0, 0.5)' };
           ctx.lineWidth = 2;
@@ -5164,7 +5240,7 @@
       let isTransitioning = false;
       let currentPoiIndex = 0;
       let poiPhase = 0; // For slow progression through POIs
-      let initialFadeIn = 0; // 0 = invisible, 1 = fully visible (initial fade-in)
+      let initialFadeIn = 1; // Start at 1 - no fade, show immediately
       let isInitialized = false; // True once first images are loaded and ready
       
       // Two POIs always visible: left and right
@@ -5431,58 +5507,60 @@
       }
 
       // Start slideshow
-      function start() {
+      async function start() {
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
         
-        // Start render loop immediately (shows nothing until images ready)
-        render();
+        // Find first jeffrey (not screenshot) to show immediately
+        const firstJeffrey = allPois.find(p => p.data.src !== 'screenshots');
+        const secondPoi = allPois.find(p => p !== firstJeffrey);
         
-        // Aggressively preload first 16 images in background
+        // Get the gift-visual container to add loaded class
+        const giftVisual = container.closest('.gift-visual');
+        
+        if (firstJeffrey) {
+          // Await first jeffrey image before starting render
+          await preloadImage(firstJeffrey.name);
+          leftPoi = firstJeffrey;
+          isInitialized = true;
+          
+          // Start render loop with image already loaded
+          render();
+          
+          // Fade in the gift visual (remove blur)
+          if (giftVisual) {
+            requestAnimationFrame(() => giftVisual.classList.add('loaded'));
+          }
+          
+          // Load second image in background, then set it
+          if (secondPoi) {
+            preloadImage(secondPoi.name).then(() => {
+              rightPoi = secondPoi;
+              currentPoiIndex = allPois.indexOf(secondPoi);
+            });
+          }
+        } else {
+          // Fallback: start render and wait for any image
+          render();
+          if (giftVisual) giftVisual.classList.add('loaded');
+        }
+        
+        // Aggressively preload remaining images in background
         const preloadCount = Math.min(16, allPois.length);
         preloadBatch(allPois.slice(0, preloadCount).map(p => p.name));
         
-        // Poll until first two images are ready (non-blocking)
-        function checkFirstPair() {
-          if (allPois.length >= 2) {
-            const img0 = loadedImages[allPois[0].name];
-            const img1 = loadedImages[allPois[1].name];
-            
-            if (img0?.complete && img0?.naturalWidth > 0 &&
-                img1?.complete && img1?.naturalWidth > 0) {
-              // First pair ready - initialize!
-              leftPoi = allPois[0];
-              rightPoi = allPois[1];
-              currentPoiIndex = 1;
-              isInitialized = true;
-              
-              // Dynamic transition timing - faces held longer
-              const scheduleNextTransition = () => {
-                const hasFaces = (leftPoi?.poi?.t === 'f') || (rightPoi?.poi?.t === 'f');
-                const holdTime = hasFaces ? 7000 : 4000;
-                setTimeout(() => {
-                  transitionToNextPoi();
-                  scheduleNextTransition();
-                }, holdTime);
-              };
-              
-              // Start transitions after initial hold
-              setTimeout(scheduleNextTransition, 4000);
-              return; // Done polling
-            }
-          } else if (allPois.length === 1) {
-            const img0 = loadedImages[allPois[0].name];
-            if (img0?.complete && img0?.naturalWidth > 0) {
-              leftPoi = allPois[0];
-              isInitialized = true;
-              return;
-            }
-          }
-          // Not ready yet - check again soon
-          requestAnimationFrame(checkFirstPair);
-        }
+        // Dynamic transition timing - faces held longer
+        const scheduleNextTransition = () => {
+          const hasFaces = (leftPoi?.poi?.t === 'f') || (rightPoi?.poi?.t === 'f');
+          const holdTime = hasFaces ? 7000 : 4000;
+          setTimeout(() => {
+            transitionToNextPoi();
+            scheduleNextTransition();
+          }, holdTime);
+        };
         
-        checkFirstPair();
+        // Start transitions after initial hold
+        setTimeout(scheduleNextTransition, 4000);
       }
 
       start();
