@@ -26,6 +26,10 @@ export async function handler(event, context) {
   const stripeKey = process.env.STRIPE_API_PRIV_KEY;
 
   if (!stripeKey) {
+    // Return empty gives in dev when Stripe isn't configured
+    if (dev) {
+      return respond(200, { gives: [], total: 0, cached: false, dev: true });
+    }
     return respond(500, { error: "Stripe not configured" });
   }
 
