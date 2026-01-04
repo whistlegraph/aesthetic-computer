@@ -2870,12 +2870,14 @@
 
     .tv-header .tv-upcoming span {
       cursor: pointer;
-      text-decoration: none;
+      text-decoration: none !important;
     }
 
-    .tv-header .tv-upcoming span:hover {
+    .tv-header .tv-upcoming span:hover,
+    .tv-header .tv-upcoming span:active,
+    .tv-header .tv-upcoming span:focus {
       color: rgba(255,255,255,0.5);
-      text-decoration: none;
+      text-decoration: none !important;
     }
 
     .tv-header .tv-timestamp {
