@@ -4789,7 +4789,7 @@
     const jeffreysImages = Object.keys(jeffreysData);
     const screenshotsImages = Object.keys(screenshotsData);
     const allImages = [...jeffreysImages, ...screenshotsImages];
-    const DEBUG_FACES = false; // Set true to show verbose POI debug info
+    const DEBUG_FACES = true; // Set true to show verbose POI debug info
     const SHOW_POI_BOXES = true; // Matrix-style detection boxes
     const POI_GLOW = true; // Soft radial glow on detected faces/bodies
 
@@ -4993,7 +4993,7 @@
         const scaleX = destW / imgW;
         const scaleY = destH / imgH;
         const zoomPulse = 1.0 + zoomBreath * 0.03; // Subtle 3% zoom oscillation
-        const coverScale = Math.max(scaleX, scaleY) * 1.25 * zoomPulse; // 25% extra to prevent edge gaps + breathing
+        const coverScale = Math.max(scaleX, scaleY) * 1.30 * zoomPulse; // 30% extra to prevent edge gaps + breathing
         
         // Scaled image dimensions
         const scaledW = imgW * coverScale;
@@ -5028,15 +5028,16 @@
         let offsetX = targetX - (poiCenterX * coverScale);
         let offsetY = targetY - (poiCenterY * coverScale);
         
-        // Clamp offsets so image always covers the entire canvas
-        // Right edge of image must be >= destW, left edge <= 0
-        const minOffsetX = destW - scaledW;
-        const maxOffsetX = 0;
+        // Clamp offsets so image always covers the entire canvas with extra padding
+        // Add 5px overdraw padding to prevent edge artifacts from filters
+        const edgePad = 5;
+        const minOffsetX = destW - scaledW + edgePad;
+        const maxOffsetX = -edgePad;
         offsetX = Math.max(minOffsetX, Math.min(maxOffsetX, offsetX));
         
         // Bottom edge >= destH, top edge <= 0
-        const minOffsetY = destH - scaledH;
-        const maxOffsetY = 0;
+        const minOffsetY = destH - scaledH + edgePad;
+        const maxOffsetY = -edgePad;
         offsetY = Math.max(minOffsetY, Math.min(maxOffsetY, offsetY));
         
         // Create soft edge mask for blending (fade edges for layering)
@@ -5559,7 +5560,7 @@
               const scaleX = w / imgW;
               const scaleY = h / imgH;
               const zoomPulse = 1.0 + zb * 0.03;
-              const coverScale = Math.max(scaleX, scaleY) * 1.25 * zoomPulse;
+              const coverScale = Math.max(scaleX, scaleY) * 1.30 * zoomPulse; // 30% extra - matches drawPoiWithContext
               const scaledW = imgW * coverScale;
               const scaledH = imgH * coverScale;
               
@@ -5591,10 +5592,12 @@
                 targetY = h * 0.45 + swingY;
               }
               
+              // Apply same edge padding as drawPoiWithContext
+              const edgePad = 5;
               let offsetX = targetX - (poiCenterX * coverScale);
               let offsetY = targetY - (poiCenterY * coverScale);
-              offsetX = Math.max(w - scaledW, Math.min(0, offsetX));
-              offsetY = Math.max(h - scaledH, Math.min(0, offsetY));
+              offsetX = Math.max(w - scaledW + edgePad, Math.min(-edgePad, offsetX));
+              offsetY = Math.max(h - scaledH + edgePad, Math.min(-edgePad, offsetY));
               
               // Draw boxes for ALL pois in this image
               for (let pi = 0; pi < (data.pois || []).length; pi++) {
@@ -7335,7 +7338,7 @@
         givesData = data.gives;
         
         // Build horizontal ticker items - "Got $5 today" or "Got $5 on Dec 15" format
-        const items = givesData.map(give => {
+        const giveItems = givesData.map(give => {
           const { time: timeStr, useOn } = formatGiveTime(give.createdAt);
           const hasNote = give.note && give.note.trim();
           const noteHtml = hasNote ? `<span class="sep">:</span><span class="note">${give.note}</span>` : '';
@@ -7347,10 +7350,27 @@
           }
           
           return `<span class="gives-ticker-item"><span class="got">${msgs.got}</span><span class="amount">${give.amountDisplay}</span>${timeHtml}${noteHtml}</span>`;
-        }).join('');
+        });
         
-        // Duplicate content with server cost and CTA messages for seamless scroll
-        ticker.innerHTML = `<div class="gives-ticker-track">${serverCostItem}${items}${ctaItem}${serverCostItem}${items}${ctaItem}${serverCostItem}${items}${ctaItem}</div>`;
+        // Intersperse give items with server messages for better readability
+        // Pattern: serverCost, 2-3 gives, cta, 2-3 gives, repeat
+        const interspersedItems = [];
+        const chunkSize = Math.max(2, Math.ceil(giveItems.length / 4)); // Split gives into ~4 groups
+        for (let i = 0; i < giveItems.length; i++) {
+          if (i === 0) interspersedItems.push(serverCostItem);
+          interspersedItems.push(giveItems[i]);
+          // After every chunk, add a server message
+          if ((i + 1) % chunkSize === 0 && i < giveItems.length - 1) {
+            interspersedItems.push(i % (chunkSize * 2) === chunkSize - 1 ? ctaItem : serverCostItem);
+          }
+        }
+        // End with CTA if we didn't just add one
+        if (giveItems.length > 0) interspersedItems.push(ctaItem);
+        
+        const items = interspersedItems.join('');
+        
+        // Duplicate content for seamless scroll (tripled)
+        ticker.innerHTML = `<div class="gives-ticker-track">${items}${items}${items}</div>`;
         
         // Adjust animation speed based on content length (content is tripled)
         const track = ticker.querySelector('.gives-ticker-track');
