@@ -2279,8 +2279,8 @@
       display: flex;
       flex-direction: row;
       align-items: baseline;
-      gap: 0.5em;
-      flex-wrap: wrap;
+      gap: 0.4em;
+      flex-wrap: nowrap;
       margin-bottom: 0.3em;
     }
 
@@ -2291,6 +2291,11 @@
       color: #fff;
       text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,1);
       line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex-shrink: 1;
+      min-width: 0;
     }
 
     .shop-product-vendor {
@@ -2298,6 +2303,8 @@
       font-size: 0.7em;
       color: rgba(255,255,255,0.6);
       text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+      flex-shrink: 0;
+      white-space: nowrap;
     }
 
     .shop-product-vendor a {
