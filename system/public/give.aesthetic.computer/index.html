@@ -4740,8 +4740,7 @@
         const data = await res.json();
         
         if (!data.gives?.length) {
-          ticker.innerHTML = '<div class="gives-ticker-empty" data-lang="en">Gives not tax deductible. <a href="#invest" class="invest-link">Investor?</a></div><div class="gives-ticker-empty" data-lang="da">Gaver er ikke fradragsberettigede. <a href="#invest" class="invest-link">Investor?</a></div>';
-          setLanguage(currentLang);
+          ticker.innerHTML = '';
           return;
         }
         
