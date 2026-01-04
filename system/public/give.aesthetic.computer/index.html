@@ -5345,7 +5345,9 @@
     function updateFlipProgress() {
       const bar = document.getElementById('chatFlipProgress');
       const barBack = document.getElementById('chatFlipProgressBack');
+      const card = document.getElementById('chatFlipCard');
       const container = document.querySelector('.chat-flip-container');
+      const isFlipped = card && card.classList.contains('flipped');
       
       // Pause on hover
       if (container && !container.dataset.hoverBound) {
@@ -5356,8 +5358,14 @@
       
       if (!flipPaused) {
         flipProgress += 100 / (FLIP_INTERVAL / 100); // Update every 100ms
-        if (bar) bar.style.width = flipProgress + '%';
-        if (barBack) barBack.style.width = flipProgress + '%';
+        // Only update the visible face's progress bar
+        if (isFlipped) {
+          if (barBack) barBack.style.width = flipProgress + '%';
+          if (bar) bar.style.width = '0%';
+        } else {
+          if (bar) bar.style.width = flipProgress + '%';
+          if (barBack) barBack.style.width = '0%';
+        }
         
         if (flipProgress >= 100) {
           toggleChatFlip();
@@ -5784,10 +5792,18 @@
     function updateAppsFlipProgress() {
       const bar = document.getElementById('appsFlipProgress');
       const barMobile = document.getElementById('appsFlipProgressMobile');
+      const card = document.getElementById('appsFlipCard');
+      const isFlipped = card && card.classList.contains('flipped');
       
       appsFlipProgress += 100 / (APPS_FLIP_INTERVAL / 100); // Update every 100ms
-      if (bar) bar.style.width = appsFlipProgress + '%';
-      if (barMobile) barMobile.style.width = appsFlipProgress + '%';
+      // Only update the visible face's progress bar
+      if (isFlipped) {
+        if (barMobile) barMobile.style.width = appsFlipProgress + '%';
+        if (bar) bar.style.width = '0%';
+      } else {
+        if (bar) bar.style.width = appsFlipProgress + '%';
+        if (barMobile) barMobile.style.width = '0%';
+      }
       
       if (appsFlipProgress >= 100) {
         toggleAppsFlip();
