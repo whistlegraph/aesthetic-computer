@@ -83,7 +83,7 @@ export async function handler(event, context) {
           price_data: {
             currency: currency,
             product_data: {
-              name: `Give Monthly`,
+              name: `Give`,
               description: `to Aesthetic Computer`,
               images: [`https://aesthetic.computer/api/give-image?amount=${amountDisplay}&currency=${currency}&recurring=true`],
             },
