@@ -1112,9 +1112,18 @@ async function halt($, text) {
     // 🔥 Jump to Oven dashboard
     jump(`https://oven.aesthetic.computer`);
     return true;
-  } else if (slug === "give") {
+  } else if (slug === "give" || slug === "monthly" || slug === "subscribe") {
     // 🎁 Jump to Give page (opens in new window)
-    jump(`out:https://give.aesthetic.computer`);
+    // If user is logged in, prefill their email for easier Stripe checkout
+    let giveUrl = `https://give.aesthetic.computer`;
+    if (user?.email) {
+      giveUrl += `?email=${encodeURIComponent(user.email)}`;
+    }
+    if (slug === "monthly" || slug === "subscribe") {
+      // Add monthly param hint (give page can use this to pre-select monthly)
+      giveUrl += (giveUrl.includes('?') ? '&' : '?') + 'monthly=1';
+    }
+    jump(`out:${giveUrl}`);
     return true;
   } else if (slug === "desktop" || slug === "app" || slug === "electron") {
     // 💻 Jump to Desktop app download page

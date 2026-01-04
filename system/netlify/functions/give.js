@@ -41,6 +41,7 @@ export async function handler(event, context) {
     const currencyConfig = currencies[currency] || currencies.usd;
     const amountCents = parseInt(body.amount) || 2500;
     const recurring = body.recurring === true;
+    const email = body.email; // Optional: prefill email for logged-in users
 
     // Validate amount for currency
     if (amountCents < currencyConfig.min || amountCents > currencyConfig.max) {
@@ -56,6 +57,8 @@ export async function handler(event, context) {
       success_url: `${giveBaseUrl}/thanks.html?amount=${amountDisplay}&currency=${currency}${recurring ? '&recurring=true' : ''}`,
       cancel_url: `${giveBaseUrl}/`,
       billing_address_collection: "auto",
+      // Prefill email if user is logged in (makes checkout easier & ties to account)
+      ...(email && { customer_email: email }),
       metadata: {
         type: recurring ? "subscription" : "gift",
         amount: amountDisplay,
