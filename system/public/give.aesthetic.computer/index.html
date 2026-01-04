@@ -4808,20 +4808,6 @@
       window.history.replaceState({}, '', cleanUrl.toString());
     }
     
-    // Check for monthly mode (from "monthly" or "subscribe" command)
-    const preSelectMonthly = urlParams.get('monthly') === '1';
-    if (preSelectMonthly) {
-      console.log('📅 Monthly mode pre-selected');
-      // Clean up monthly param from URL
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.searchParams.delete('monthly');
-      window.history.replaceState({}, '', cleanUrl.toString());
-      // Auto-toggle monthly on all widgets
-      document.querySelectorAll('.gift-widget').forEach(widget => {
-        if (widget._setMonthly) widget._setMonthly(true);
-      });
-    }
-    
     if (isThanksMode) {
       document.body.classList.add('thanks-mode');
       // Update amount display
@@ -5888,22 +5874,27 @@
       const tickerMessages = {
         en: {
           serverCost: '💸 Server bills to keep AC running cost upwards of <strong>$800/month</strong>.',
-          cta: 'Giving to AC keeps services online and free to use, and helps <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> develop new features.',
+          cta: 'Paying what you want for AC keeps services online and free to use, and helps <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> develop new features.',
           got: 'Got'
         },
         da: {
           serverCost: '💸 Serverregninger for at holde AC kørende koster op mod <strong>5.500 kr/måned</strong>.',
-          cta: 'At give til AC holder tjenester online og gratis at bruge, og hjælper <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> med at udvikle nye funktioner.',
+          cta: 'Betal hvad du vil for AC og hold tjenester online og gratis, og hjælp <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> med at udvikle nye funktioner.',
           got: 'Modtog'
         },
         de: {
           serverCost: '💸 Serverkosten für AC laufen auf über <strong>800$/Monat</strong> hinaus.',
-          cta: 'Spenden an AC hält die Dienste online und kostenlos, und hilft <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> neue Funktionen zu entwickeln.',
+          cta: 'Zahle was du willst für AC, halte die Dienste online und kostenlos, und hilf <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> neue Funktionen zu entwickeln.',
           got: 'Erhalten'
+        },
+        es: {
+          serverCost: '💸 Las facturas del servidor para mantener AC funcionando cuestan más de <strong>$800/mes</strong>.',
+          cta: 'Paga lo que quieras por AC para mantener los servicios en línea y gratuitos, y ayudar a <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> a desarrollar nuevas funciones.',
+          got: 'Recibido'
         },
         zh: {
           serverCost: '💸 维持 AC 运行的服务器费用高达 <strong>每月800美元</strong>。',
-          cta: '捐赠给 AC 可以保持服务在线且免费使用，并帮助 <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> 开发新功能。',
+          cta: '为 AC 支付你想要的金额，保持服务在线且免费，并帮助 <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> 开发新功能。',
           got: '收到'
         }
       };
