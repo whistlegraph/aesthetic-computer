@@ -4276,13 +4276,13 @@
 
       // Pixel dissolve pattern - random pixels that flip on/off
       let dissolvePattern = null;
-      let dissolvePhase = 0;
-      let transitionProgress = 0; // 0 = showing old, 1 = showing new
+      let dissolvePhase = 0; // Continuous cycle 0-1
+      let transitionProgress = 0; // 0 = showing old, 1 = showing new (for image crossfade)
       let isTransitioning = false;
       let previousImages = [];
       
       function initDissolvePattern(w, h) {
-        const blockSize = 2; // Small dense pixels
+        const blockSize = 1; // Native pixel density
         const cols = Math.ceil(w / blockSize);
         const rows = Math.ceil(h / blockSize);
         dissolvePattern = new Float32Array(cols * rows);
@@ -4301,32 +4301,64 @@
           initDissolvePattern(w, h);
         }
         
-        // Update phases slowly
-        dissolvePhase += 0.0004;
-        globalRotation += 0.00003;
-        floatOffset += 0.00006;
+        // Update phases - super slow continuous dissolve
+        dissolvePhase += 0.00003; // Very slow continuous cycle
+        if (dissolvePhase > 1) dissolvePhase -= 1;
+        globalRotation += 0.00002;
+        floatOffset += 0.00004;
         
         const drift = (Math.sin(floatOffset * Math.PI * 2) + 1) / 2;
-        const rotation = Math.sin(globalRotation) * 0.005;
+        const rotation = Math.sin(globalRotation) * 0.003;
         
         // Clear to dark but not black
-        ctx.fillStyle = 'rgba(18, 14, 24, 0.08)';
+        ctx.fillStyle = 'rgba(18, 14, 24, 0.06)';
         ctx.fillRect(0, 0, w, h);
         
-        const blockSize = 2;
+        const blockSize = 1; // Native pixel density
         const cols = Math.ceil(w / blockSize);
+        
+        // Draw whole image covering canvas (no zoom, just cover)
+        const drawWholeImage = (img, destX, destY, destW, destH, alpha, rot = 0) => {
+          const imgW = img.width;
+          const imgH = img.height;
+          const canvasRatio = destW / destH;
+          const imgRatio = imgW / imgH;
+          
+          let srcW, srcH, srcX, srcY;
+          if (imgRatio > canvasRatio) {
+            srcH = imgH;
+            srcW = srcH * canvasRatio;
+            srcX = (imgW - srcW) / 2;
+            srcY = 0;
+          } else {
+            srcW = imgW;
+            srcH = srcW / canvasRatio;
+            srcX = 0;
+            srcY = (imgH - srcH) / 2;
+          }
+          
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          const cx = destX + destW / 2;
+          const cy = destY + destH / 2;
+          ctx.translate(cx, cy);
+          ctx.rotate(rot);
+          const rotScale = 1 + Math.abs(rot) * 0.3;
+          ctx.scale(rotScale, rotScale);
+          ctx.translate(-cx, -cy);
+          ctx.drawImage(img, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
+          ctx.restore();
+        };
         
         // Always draw base image first (full, no dissolve) so we never lose data
         const drawFullImage = (images, alpha) => {
           if (!images || images.length === 0) return;
           
-          ctx.globalAlpha = alpha;
-          
           if (images.length === 1) {
             const name = images[0];
             const img = loadedImages[name];
             if (img) {
-              drawImageFocused(img, jeffreysData[name], 0, 0, w, h, 1, drift, rotation);
+              drawWholeImage(img, 0, 0, w, h, alpha, rotation);
             }
           } else if (images.length === 2) {
             const overlap = 15;
@@ -4337,37 +4369,72 @@
               const img = loadedImages[name];
               if (img) {
                 const x = i === 0 ? 0 : w - eachW;
-                const yOffset = Math.sin(floatOffset * Math.PI * 2 + i * Math.PI * 0.5) * 2;
-                const imgRotation = rotation + Math.sin(globalRotation + i * Math.PI) * 0.003;
-                drawImageFocused(img, jeffreysData[name], x, yOffset, eachW, h, 0.95, drift, imgRotation);
+                const yOffset = Math.sin(floatOffset * Math.PI * 2 + i * Math.PI * 0.5) * 1.5;
+                const imgRotation = rotation + Math.sin(globalRotation + i * Math.PI) * 0.002;
+                drawWholeImage(img, x, yOffset, eachW, h, alpha * 0.95, imgRotation);
               }
             }
           }
-          
-          ctx.globalAlpha = 1;
         };
         
-        // Draw with dissolve clip for transition effect
-        const drawWithDissolve = (images, showWhere) => {
+        // Continuous dissolve effect - pixels randomly shimmer in/out based on phase
+        const drawWithContinuousDissolve = (images, alpha, phaseOffset = 0) => {
           if (!images || images.length === 0) return;
           
-          // Get face regions for sticky effect
-          const faceRects = [];
-          for (const name of images) {
-            const data = jeffreysData[name];
-            if (data && data.pois) {
-              for (const poi of data.pois) {
-                if (poi.t === 'f') {
-                  faceRects.push({
-                    x: w * poi.box[0] / 100,
-                    y: h * poi.box[1] / 100,
-                    w: w * poi.box[2] / 100,
-                    h: h * poi.box[3] / 100
-                  });
-                }
+          // Create clip path based on continuous dissolve phase
+          ctx.save();
+          ctx.beginPath();
+          
+          const phase = (dissolvePhase + phaseOffset) % 1;
+          // Use sine wave for smooth back-and-forth shimmer
+          const shiftedPhase = (Math.sin(phase * Math.PI * 2) + 1) / 2;
+          
+          for (let by = 0; by < Math.ceil(h / blockSize); by++) {
+            for (let bx = 0; bx < cols; bx++) {
+              const patternIdx = by * cols + bx;
+              const threshold = dissolvePattern[patternIdx];
+              
+              // Pixel shows when its threshold is within current dissolve band
+              // Creates a rolling wave of pixels appearing/disappearing
+              const bandWidth = 0.4; // Width of the visible band
+              const dist = Math.abs(threshold - shiftedPhase);
+              const wrappedDist = Math.min(dist, 1 - dist);
+              
+              if (wrappedDist < bandWidth) {
+                ctx.rect(bx * blockSize, by * blockSize, blockSize, blockSize);
               }
             }
           }
+          ctx.clip();
+          
+          if (images.length === 1) {
+            const name = images[0];
+            const img = loadedImages[name];
+            if (img) {
+              drawWholeImage(img, 0, 0, w, h, alpha, rotation);
+            }
+          } else if (images.length === 2) {
+            const overlap = 15;
+            const eachW = (w + overlap) / 2;
+            
+            for (let i = 0; i < 2; i++) {
+              const name = images[i];
+              const img = loadedImages[name];
+              if (img) {
+                const x = i === 0 ? 0 : w - eachW;
+                const yOffset = Math.sin(floatOffset * Math.PI * 2 + i * Math.PI * 0.5) * 1.5;
+                const imgRotation = rotation + Math.sin(globalRotation + i * Math.PI) * 0.002;
+                drawWholeImage(img, x, yOffset, eachW, h, alpha * 0.95, imgRotation);
+              }
+            }
+          }
+          
+          ctx.restore();
+        };
+        
+        // For image transitions - crossfade dissolve
+        const drawTransitionDissolve = (images, showWhere) => {
+          if (!images || images.length === 0) return;
           
           ctx.save();
           ctx.beginPath();
@@ -4377,30 +4444,9 @@
               const patternIdx = by * cols + bx;
               const threshold = dissolvePattern[patternIdx];
               
-              const blockCenterX = bx * blockSize + blockSize / 2;
-              const blockCenterY = by * blockSize + blockSize / 2;
-              
-              // Check if in face region
-              let inFace = false;
-              for (const face of faceRects) {
-                if (blockCenterX >= face.x && blockCenterX <= face.x + face.w &&
-                    blockCenterY >= face.y && blockCenterY <= face.y + face.h) {
-                  inFace = true;
-                  break;
-                }
-              }
-              
-              // Determine if this pixel shows for this image set
-              let showPixel = false;
-              if (showWhere === 'old') {
-                // Old image fades out - show where threshold > progress
-                showPixel = threshold > transitionProgress;
-                if (inFace) showPixel = threshold > transitionProgress * 1.3;
-              } else if (showWhere === 'new') {
-                // New image fades in - show where threshold <= progress
-                showPixel = threshold <= transitionProgress;
-                if (inFace) showPixel = threshold <= transitionProgress * 1.5;
-              }
+              let showPixel = (showWhere === 'old') 
+                ? threshold > transitionProgress 
+                : threshold <= transitionProgress;
               
               if (showPixel) {
                 ctx.rect(bx * blockSize, by * blockSize, blockSize, blockSize);
@@ -4409,13 +4455,11 @@
           }
           ctx.clip();
           
-          ctx.globalAlpha = 0.25;
-          
           if (images.length === 1) {
             const name = images[0];
             const img = loadedImages[name];
             if (img) {
-              drawImageFocused(img, jeffreysData[name], 0, 0, w, h, 1, drift, rotation);
+              drawWholeImage(img, 0, 0, w, h, 0.3, rotation);
             }
           } else if (images.length === 2) {
             const overlap = 15;
@@ -4426,9 +4470,9 @@
               const img = loadedImages[name];
               if (img) {
                 const x = i === 0 ? 0 : w - eachW;
-                const yOffset = Math.sin(floatOffset * Math.PI * 2 + i * Math.PI * 0.5) * 2;
-                const imgRotation = rotation + Math.sin(globalRotation + i * Math.PI) * 0.003;
-                drawImageFocused(img, jeffreysData[name], x, yOffset, eachW, h, 0.95, drift, imgRotation);
+                const yOffset = Math.sin(floatOffset * Math.PI * 2 + i * Math.PI * 0.5) * 1.5;
+                const imgRotation = rotation + Math.sin(globalRotation + i * Math.PI) * 0.002;
+                drawWholeImage(img, x, yOffset, eachW, h, 0.3 * 0.95, imgRotation);
               }
             }
           }
@@ -4437,16 +4481,15 @@
         };
         
         if (isTransitioning) {
-          // During transition: draw BOTH full images as base, then dissolve on top
-          drawFullImage(previousImages, 0.08);
-          drawFullImage(targetImages, 0.08);
-          
-          // Then apply dissolve clips for the transition effect
-          drawWithDissolve(previousImages, 'old');
-          drawWithDissolve(targetImages, 'new');
+          // During transition: base images + crossfade dissolve
+          drawFullImage(previousImages, 0.06);
+          drawFullImage(targetImages, 0.06);
+          drawTransitionDissolve(previousImages, 'old');
+          drawTransitionDissolve(targetImages, 'new');
         } else {
-          // Normal: just draw current image
-          drawFullImage(targetImages, 0.1);
+          // Normal: base image + continuous shimmer dissolve
+          drawFullImage(targetImages, 0.08);
+          drawWithContinuousDissolve(targetImages, 0.15);
         }
         
         requestAnimationFrame(render);
@@ -4468,9 +4511,9 @@
         isTransitioning = true;
         transitionProgress = 0;
         
-        // Animate dissolve over ~4 seconds
+        // Animate dissolve over ~20 seconds (super slow)
         const dissolveInterval = setInterval(() => {
-          transitionProgress += 0.008;
+          transitionProgress += 0.0015;
           if (transitionProgress >= 1) {
             clearInterval(dissolveInterval);
             transitionProgress = 1;
