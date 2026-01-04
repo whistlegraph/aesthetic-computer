@@ -1012,6 +1012,7 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
       position: relative;
       z-index: 20;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
     .gift-controls input[type="range"]::-moz-range-thumb {
@@ -1022,6 +1023,75 @@
       cursor: grab;
       border: none;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    /* Slider intensity states */
+    .gift-controls input[type="range"].intensity-1 {
+      background: linear-gradient(90deg, var(--cyan) 0%, #3dbda8 100%);
+    }
+    .gift-controls input[type="range"].intensity-1::-webkit-slider-thumb {
+      background: #4ecdc4;
+      box-shadow: 0 0 8px rgba(78, 205, 196, 0.5);
+    }
+    .gift-controls input[type="range"].intensity-1::-moz-range-thumb {
+      background: #4ecdc4;
+      box-shadow: 0 0 8px rgba(78, 205, 196, 0.5);
+    }
+
+    .gift-controls input[type="range"].intensity-2 {
+      background: linear-gradient(90deg, #4ecdc4 0%, #6bde8a 50%, #a8e063 100%);
+    }
+    .gift-controls input[type="range"].intensity-2::-webkit-slider-thumb {
+      background: #7de88a;
+      transform: scale(1.1);
+      box-shadow: 0 0 12px rgba(125, 232, 138, 0.6);
+    }
+    .gift-controls input[type="range"].intensity-2::-moz-range-thumb {
+      background: #7de88a;
+      transform: scale(1.1);
+      box-shadow: 0 0 12px rgba(125, 232, 138, 0.6);
+    }
+
+    .gift-controls input[type="range"].intensity-3 {
+      background: linear-gradient(90deg, #6bde8a 0%, #ffd93d 50%, #ffb347 100%);
+    }
+    .gift-controls input[type="range"].intensity-3::-webkit-slider-thumb {
+      background: #ffc857;
+      transform: scale(1.2);
+      box-shadow: 0 0 16px rgba(255, 200, 87, 0.7);
+    }
+    .gift-controls input[type="range"].intensity-3::-moz-range-thumb {
+      background: #ffc857;
+      transform: scale(1.2);
+      box-shadow: 0 0 16px rgba(255, 200, 87, 0.7);
+    }
+
+    .gift-controls input[type="range"].intensity-4 {
+      background: linear-gradient(90deg, #ffb347 0%, #ff6b6b 50%, #ff4757 100%);
+      animation: sliderPulse 0.5s ease-in-out infinite alternate;
+    }
+    .gift-controls input[type="range"].intensity-4::-webkit-slider-thumb {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%);
+      transform: scale(1.35);
+      box-shadow: 0 0 20px rgba(255, 71, 87, 0.8), 0 0 40px rgba(255, 107, 107, 0.4);
+      animation: thumbGlow 0.3s ease-in-out infinite alternate;
+    }
+    .gift-controls input[type="range"].intensity-4::-moz-range-thumb {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%);
+      transform: scale(1.35);
+      box-shadow: 0 0 20px rgba(255, 71, 87, 0.8), 0 0 40px rgba(255, 107, 107, 0.4);
+      animation: thumbGlow 0.3s ease-in-out infinite alternate;
+    }
+
+    @keyframes sliderPulse {
+      from { filter: brightness(1); }
+      to { filter: brightness(1.15); }
+    }
+
+    @keyframes thumbGlow {
+      from { box-shadow: 0 0 20px rgba(255, 71, 87, 0.8), 0 0 40px rgba(255, 107, 107, 0.4); }
+      to { box-shadow: 0 0 25px rgba(255, 71, 87, 1), 0 0 50px rgba(255, 107, 107, 0.6); }
     }
 
     /* Gift mode checkbox (monthly repeat) */
@@ -1445,100 +1515,429 @@
       color: #6eeee6;
     }
 
-    /* Desktop download buttons */
-    .desktop-downloads {
-      display: flex;
-      gap: 0.6em;
-      margin-top: 0.8em;
-      flex-wrap: wrap;
+    /* Apps Flip Card - Desktop/Mobile swivel */
+    .apps-flip-container {
+      aspect-ratio: 1;
+      position: relative;
+      perspective: 1200px;
+      overflow: hidden;
+      border-radius: 8px;
     }
 
-    .desktop-btn {
+    .apps-flip-card {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .apps-flip-card.tilt-left {
+      transform: rotateY(-8deg);
+    }
+
+    .apps-flip-card.tilt-right {
+      transform: rotateY(8deg);
+    }
+
+    .apps-flip-card.flipped {
+      transform: rotateY(180deg);
+    }
+
+    .apps-flip-card.flipped.tilt-left {
+      transform: rotateY(188deg);
+    }
+
+    .apps-flip-card.flipped.tilt-right {
+      transform: rotateY(172deg);
+    }
+
+    .apps-flip-face {
+      position: absolute;
+      inset: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: opacity 0.1s ease, filter 0.1s ease;
+    }
+
+    .apps-flip-front {
+      z-index: 1;
+      opacity: 1;
+      filter: none;
+    }
+
+    .apps-flip-back {
+      z-index: 3;
+      transform: rotateY(180deg);
+      opacity: 0.15;
+      filter: blur(2px);
+      pointer-events: none;
+    }
+
+    .apps-flip-card.flipped .apps-flip-front {
+      z-index: 3;
+      opacity: 0.15;
+      filter: blur(2px);
+      pointer-events: none;
+    }
+
+    .apps-flip-card.flipped .apps-flip-back {
+      z-index: 1;
+      opacity: 1;
+      filter: none;
+      pointer-events: auto;
+    }
+
+    .apps-flip-trigger {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .apps-flip-trigger:hover {
+      opacity: 0.85;
+    }
+
+    .apps-flip-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: 15;
+      overflow: hidden;
+    }
+
+    .apps-flip-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #9b59b6;
+      transition: width 0.1s linear, background 0.3s ease;
+    }
+
+    .apps-flip-container.flipped .apps-flip-progress-bar {
+      background: #3498db;
+    }
+
+    /* Desktop face */
+    .desktop-face {
+      background: linear-gradient(135deg, #2d1b4e 0%, #1a1a2e 100%);
+      border: 1px solid #3d2b5e;
+      padding: 1em;
+    }
+
+    .desktop-face-header {
       display: flex;
       align-items: center;
-      gap: 0.4em;
-      padding: 0.5em 0.9em;
-      background: rgba(100, 60, 140, 0.3);
-      border: 1px solid rgba(180, 100, 255, 0.3);
+      gap: 0.5em;
+      padding-bottom: 0.8em;
+      border-bottom: 1px solid rgba(100, 60, 140, 0.3);
+      margin-bottom: 0.8em;
+    }
+
+    .desktop-face-header strong {
+      font-size: 1em;
+      color: var(--text);
+    }
+
+    .desktop-face-header .version-badge {
+      font-size: 0.7em;
+      color: var(--cyan);
+      background: rgba(78, 205, 196, 0.15);
+      padding: 0.15em 0.5em;
+      border-radius: 3px;
+      margin-left: auto;
+    }
+
+    .desktop-platforms-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 0.8em;
+    }
+
+    .desktop-platform-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0.8em 0.4em;
+      background: rgba(45, 27, 78, 0.6);
+      border: 1px solid rgba(100, 60, 140, 0.3);
       border-radius: 6px;
       text-decoration: none;
       transition: all 0.2s ease;
-      flex: 1;
-      justify-content: center;
-      min-width: 80px;
     }
 
-    .desktop-btn:hover {
-      background: rgba(120, 80, 180, 0.5);
-      border-color: rgba(200, 150, 255, 0.6);
-      transform: translateY(-1px);
+    .desktop-platform-btn:hover {
+      background: rgba(70, 50, 120, 0.8);
+      border-color: rgba(180, 100, 255, 0.5);
+      transform: translateY(-2px);
     }
 
-    .desktop-icon {
-      font-size: 1.2em;
-    }
-
-    .desktop-label {
-      font-family: var(--mono);
-      font-size: 0.85em;
-      color: var(--text);
-    }
-
-    .desktop-btn:hover .desktop-label {
-      color: var(--pink);
-    }
-
-    .desktop-version {
-      font-family: var(--mono);
-      font-size: 0.8em;
-      color: var(--dim);
-      font-weight: normal;
-      margin-left: 0.3em;
-    }
-
-    .desktop-release-info {
-      margin-top: 0.8em;
-      padding: 0.6em 0.8em;
-      background: rgba(40, 30, 60, 0.5);
-      border-radius: 4px;
-      font-size: 0.8em;
-    }
-
-    .desktop-release-name {
-      color: var(--cyan);
-      font-weight: bold;
-      margin-bottom: 0.4em;
-    }
-
-    .desktop-release-date {
-      color: var(--dim);
-      font-size: 0.9em;
-      margin-bottom: 0.5em;
-    }
-
-    .desktop-changelog {
-      color: var(--text);
-      line-height: 1.4;
-    }
-
-    .desktop-changelog ul {
-      margin: 0.3em 0 0 0;
-      padding-left: 1.2em;
-    }
-
-    .desktop-changelog li {
+    .desktop-platform-btn .plat-icon {
+      font-size: 1.5em;
       margin-bottom: 0.2em;
     }
 
-    .desktop-changelog strong {
+    .desktop-platform-btn .plat-name {
+      font-size: 0.75em;
+      color: var(--text);
+      font-weight: bold;
+    }
+
+    .desktop-platform-btn .plat-arch {
+      font-size: 0.6em;
+      color: var(--dim);
+    }
+
+    .desktop-platform-btn:hover .plat-name {
       color: var(--pink);
     }
 
-    .desktop-btn-info {
-      display: block;
-      font-size: 0.75em;
+    .desktop-changelog-box {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      padding: 0.6em;
+      max-height: 80px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .desktop-changelog-box::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    .desktop-changelog-box::-webkit-scrollbar-thumb {
+      background: rgba(180, 100, 255, 0.4);
+      border-radius: 2px;
+    }
+
+    .desktop-changelog-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7em;
+      margin-bottom: 0.3em;
+    }
+
+    .desktop-changelog-header strong {
+      color: var(--cyan);
+    }
+
+    .desktop-changelog-header span {
       color: var(--dim);
-      margin-top: 0.2em;
+    }
+
+    .desktop-changelog-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .desktop-changelog-list li {
+      font-size: 0.65em;
+      color: var(--text);
+      padding: 0.15em 0;
+      padding-left: 0.6em;
+      position: relative;
+    }
+
+    .desktop-changelog-list li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: var(--pink);
+    }
+
+    .desktop-changelog-list li strong {
+      color: var(--gold);
+    }
+
+    .desktop-vscode-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      background: linear-gradient(135deg, #3a2a5e 0%, #2a1a4e 100%);
+      border: 1px solid #5a4a7e;
+      border-radius: 6px;
+      padding: 0.5em 0.8em;
+      margin-top: 0.6em;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .desktop-vscode-link:hover {
+      border-color: #8a7aae;
+      background: linear-gradient(135deg, #4a3a6e 0%, #3a2a5e 100%);
+      transform: translateY(-1px);
+    }
+
+    .desktop-vscode-link .vscode-icon {
+      font-size: 1.1em;
+    }
+
+    .desktop-vscode-link .vscode-label {
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.85em;
+    }
+
+    .desktop-vscode-link .vscode-ver {
+      color: var(--cyan);
+      font-size: 0.7em;
+      margin-left: auto;
+    }
+
+    .desktop-face-footer {
+      font-size: 0.7em;
+      color: var(--dim);
+      text-align: center;
+      padding-top: 0.6em;
+      margin-top: auto;
+    }
+
+    /* Mobile face */
+    .mobile-face {
+      background: linear-gradient(135deg, #1a2a4e 0%, #0f1a2e 100%);
+      border: 1px solid #2a3a5e;
+      padding: 1em;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mobile-face-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      padding-bottom: 0.8em;
+      border-bottom: 1px solid rgba(60, 100, 180, 0.3);
+      margin-bottom: 0.8em;
+    }
+
+    .mobile-face-header strong {
+      font-size: 1em;
+      color: var(--text);
+    }
+
+    .mobile-face-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      gap: 0.8em;
+    }
+
+    .mobile-app-icon-box {
+      width: 64px;
+      height: 64px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2em;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .mobile-app-title {
+      font-size: 0.9em;
+      color: var(--text);
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .mobile-app-subtitle {
+      font-size: 0.7em;
+      color: var(--dim);
+      text-align: center;
+    }
+
+    .mobile-store-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4em;
+      padding: 0.5em 1em;
+      background: #000;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      color: #fff;
+      text-decoration: none;
+      font-size: 0.8em;
+      transition: all 0.2s ease;
+    }
+
+    .mobile-store-link:hover {
+      background: #1a1a1a;
+      border-color: rgba(255, 255, 255, 0.4);
+      transform: scale(1.02);
+    }
+
+    .mobile-store-link .store-icon {
+      font-size: 1.2em;
+    }
+
+    .mobile-android-note {
+      font-size: 0.65em;
+      color: var(--dim);
+      display: flex;
+      align-items: center;
+      gap: 0.3em;
+    }
+
+    .mobile-face-footer {
+      font-size: 0.7em;
+      color: var(--dim);
+      text-align: center;
+      padding-top: 0.6em;
+      margin-top: auto;
+    }
+
+    /* VS Code Extension - Simple link block */
+    .vscode-section {
+      background: linear-gradient(135deg, rgba(0, 122, 204, 0.15) 0%, rgba(0, 80, 150, 0.1) 100%);
+      border: 1px solid rgba(0, 122, 204, 0.3);
+    }
+
+    .vscode-section strong {
+      color: #0078d4;
+    }
+
+    .vscode-section .link-desc {
+      background: transparent;
+    }
+
+    .vscode-features-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4em;
+      margin-top: 0.6em;
+    }
+
+    .vscode-feature-tag {
+      font-size: 0.7em;
+      padding: 0.2em 0.5em;
+      background: rgba(0, 122, 204, 0.15);
+      border: 1px solid rgba(0, 122, 204, 0.25);
+      border-radius: 3px;
+      color: var(--text);
+    }
+
+    .vscode-install-link {
+      display: inline-block;
+      margin-top: 0.6em;
+      padding: 0.4em 0.8em;
+      background: #0078d4;
+      border-radius: 4px;
+      color: #fff;
+      text-decoration: none;
+      font-size: 0.8em;
+      transition: background 0.2s ease;
+    }
+
+    .vscode-install-link:hover {
+      background: #1a8fe8;
     }
 
     .feature-module {
@@ -2941,32 +3340,88 @@
         </div>
       </div>
 
-      <div class="link-block desktop-section">
-        <strong>🖥️ desktop <span class="desktop-version" id="desktopVersion">v0.1.0</span></strong>
-        <a href="https://aesthetic.computer/desktop">aesthetic.computer/desktop</a>
-        <span class="link-desc" data-lang="en">Native apps for Mac, Windows & Linux</span>
-        <span class="link-desc" data-lang="da">Native apps til Mac, Windows & Linux</span>
-        <div class="desktop-downloads" id="desktopDownloads">
-          <a href="https://aesthetic.computer/desktop/mac" class="desktop-btn" title="Download for macOS (Universal)">
-            <span class="desktop-icon">🍎</span>
-            <span class="desktop-label">Mac</span>
-            <span class="desktop-btn-info" id="macInfo"></span>
-          </a>
-          <a href="https://aesthetic.computer/desktop/win" class="desktop-btn" title="Download for Windows (64-bit)">
-            <span class="desktop-icon">🪟</span>
-            <span class="desktop-label">Windows</span>
-            <span class="desktop-btn-info" id="winInfo"></span>
-          </a>
-          <a href="https://aesthetic.computer/desktop/linux" class="desktop-btn" title="Download for Linux (AppImage)">
-            <span class="desktop-icon">🐧</span>
-            <span class="desktop-label">Linux</span>
-            <span class="desktop-btn-info" id="linuxInfo"></span>
-          </a>
+      <!-- Apps Flip: Desktop / Mobile -->
+      <div class="apps-flip-container" id="appsFlipContainer">
+        <div class="apps-flip-card" id="appsFlipCard">
+          <!-- Front: Desktop (active when not flipped) -->
+          <div class="apps-flip-face apps-flip-front desktop-face">
+            <div class="desktop-face-header apps-flip-trigger" onclick="toggleAppsFlip()">
+              <strong>🖥️ Desktop</strong>
+              <span class="version-badge" id="desktopVersion">v0.1.0</span>
+            </div>
+            
+            <div class="desktop-platforms-grid">
+              <a href="https://aesthetic.computer/desktop/mac" class="desktop-platform-btn" title="Download for macOS">
+                <span class="plat-icon">🍎</span>
+                <span class="plat-name">Mac</span>
+                <span class="plat-arch">Universal</span>
+              </a>
+              <a href="https://aesthetic.computer/desktop/win" class="desktop-platform-btn" title="Download for Windows">
+                <span class="plat-icon">🪟</span>
+                <span class="plat-name">Windows</span>
+                <span class="plat-arch">x64</span>
+              </a>
+              <a href="https://aesthetic.computer/desktop/linux" class="desktop-platform-btn" title="Download for Linux">
+                <span class="plat-icon">🐧</span>
+                <span class="plat-name">Linux</span>
+                <span class="plat-arch">AppImage</span>
+              </a>
+            </div>
+            
+            <div class="desktop-changelog-box">
+              <div class="desktop-changelog-header">
+                <strong id="releaseName">Latest</strong>
+                <span id="releaseDate"></span>
+              </div>
+              <ul class="desktop-changelog-list" id="releaseChangelog">
+                <li>Loading...</li>
+              </ul>
+            </div>
+            
+            <a href="https://aesthetic.computer/code" class="desktop-vscode-link" target="_blank">
+              <span class="vscode-icon">💜</span>
+              <span class="vscode-label">VS Code</span>
+              <span class="vscode-ver" id="vscodeExtVersion">v1.217.0</span>
+            </a>
+            
+            <div class="desktop-face-footer apps-flip-trigger" onclick="toggleAppsFlip()">
+              <span data-lang="en">Click for Mobile →</span>
+              <span data-lang="da">Klik for Mobil →</span>
+            </div>
+          </div>
+          
+          <!-- Back: Mobile (ghost overlay when not flipped, active when flipped) -->
+          <div class="apps-flip-face apps-flip-back mobile-face">
+            <div class="mobile-face-header apps-flip-trigger" onclick="toggleAppsFlip()">
+              <strong>📱 Mobile</strong>
+            </div>
+            
+            <div class="mobile-face-content">
+              <div class="mobile-app-icon-box">🎨</div>
+              <div class="mobile-app-title">Aesthetic Computer</div>
+              <div class="mobile-app-subtitle">Create, code, and explore on the go</div>
+              
+              <a href="https://apps.apple.com/ag/app/aesthetic-computer/id6450940883" 
+                 class="mobile-store-link" target="_blank">
+                <span class="store-icon">🍎</span>
+                <span>App Store</span>
+              </a>
+              
+              <div class="mobile-android-note">
+                <span>🤖</span>
+                <span>Android coming soon</span>
+              </div>
+            </div>
+            
+            <div class="mobile-face-footer apps-flip-trigger" onclick="toggleAppsFlip()">
+              <span data-lang="en">← Click for Desktop</span>
+              <span data-lang="da">← Klik for Desktop</span>
+            </div>
+          </div>
         </div>
-        <div class="desktop-release-info" id="desktopReleaseInfo" style="display: none;">
-          <div class="desktop-release-name" id="releaseName"></div>
-          <div class="desktop-release-date" id="releaseDate"></div>
-          <div class="desktop-changelog" id="releaseChangelog"></div>
+        <!-- Progress bar for swivel timer -->
+        <div class="apps-flip-progress">
+          <div class="apps-flip-progress-bar" id="appsFlipProgress"></div>
         </div>
       </div>
 
@@ -3468,6 +3923,7 @@
           // Remove all intensity and effect classes
           amountEl.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4', 'flames', 'lightning');
           logoEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
+          slider.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
           conversionEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
           
           // Add appropriate intensity based on value (starts from $1)
@@ -3485,6 +3941,7 @@
           if (intensity > 0) {
             amountEl.classList.add(`intensity-${intensity}`);
             logoEl?.classList.add(`intensity-${intensity}`);
+            slider.classList.add(`intensity-${intensity}`);
             conversionEl?.classList.add(`intensity-${intensity}`);
             startWiggle(intensity);
           } else {
@@ -3505,6 +3962,7 @@
           const usdEquiv = value / USD_TO_DKK;
           amountEl.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
           logoEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
+          slider.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
           conversionEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
           
           let intensity = 0;
@@ -3521,6 +3979,7 @@
           if (intensity > 0) {
             amountEl.classList.add(`intensity-${intensity}`);
             logoEl?.classList.add(`intensity-${intensity}`);
+            slider.classList.add(`intensity-${intensity}`);
             conversionEl?.classList.add(`intensity-${intensity}`);
             startWiggle(intensity);
           } else {
@@ -4829,81 +5288,193 @@
         const versionEl = document.getElementById('desktopVersion');
         if (versionEl) versionEl.textContent = release.tag_name;
         
-        // Find download counts and sizes for each platform
-        const assets = release.assets || [];
+        // Parse release name
+        const nameEl = document.getElementById('releaseName');
+        if (nameEl) nameEl.textContent = release.name || release.tag_name;
         
-        // Mac: .dmg (universal preferred)
-        const macAsset = assets.find(a => a.name.includes('universal.dmg') && !a.name.includes('blockmap')) 
-          || assets.find(a => a.name.endsWith('.dmg') && !a.name.includes('blockmap'));
-        // Windows: .exe
-        const winAsset = assets.find(a => a.name.endsWith('.exe') && !a.name.includes('blockmap'));
-        // Linux: .AppImage
-        const linuxAsset = assets.find(a => a.name.endsWith('.AppImage'));
-        
-        function formatSize(bytes) {
-          const mb = bytes / (1024 * 1024);
-          return `${mb.toFixed(0)} MB`;
+        // Format date
+        const dateEl = document.getElementById('releaseDate');
+        if (dateEl && release.published_at) {
+          const date = new Date(release.published_at);
+          dateEl.textContent = date.toLocaleDateString('en-US', { 
+            year: 'numeric', month: 'short', day: 'numeric' 
+          });
         }
         
-        if (macAsset) {
-          const el = document.getElementById('macInfo');
-          if (el) el.textContent = formatSize(macAsset.size);
-        }
-        if (winAsset) {
-          const el = document.getElementById('winInfo');
-          if (el) el.textContent = formatSize(winAsset.size);
-        }
-        if (linuxAsset) {
-          const el = document.getElementById('linuxInfo');
-          if (el) el.textContent = formatSize(linuxAsset.size);
-        }
-        
-        // Show release info
-        const infoEl = document.getElementById('desktopReleaseInfo');
-        if (infoEl && release.body) {
-          infoEl.style.display = 'block';
+        // Parse changelog - convert markdown to list items
+        const changelogEl = document.getElementById('releaseChangelog');
+        if (changelogEl && release.body) {
+          const body = release.body;
+          const items = [];
           
-          // Parse release name
-          const nameEl = document.getElementById('releaseName');
-          if (nameEl) nameEl.textContent = release.name || release.tag_name;
-          
-          // Format date
-          const dateEl = document.getElementById('releaseDate');
-          if (dateEl && release.published_at) {
-            const date = new Date(release.published_at);
-            dateEl.textContent = date.toLocaleDateString('en-US', { 
-              year: 'numeric', month: 'short', day: 'numeric' 
-            });
+          // Extract list items from markdown
+          const lines = body.split('\n');
+          for (const line of lines) {
+            // Match "- **Something** - Description" or "- **Something**" or "- Item"
+            const boldMatch = line.match(/^[\-\*]\s*\*\*(.+?)\*\*\s*[-–]?\s*(.*)$/);
+            const simpleMatch = line.match(/^[\-\*]\s+(.+)$/);
+            
+            if (boldMatch) {
+              const [, bold, rest] = boldMatch;
+              items.push(`<strong>${bold}</strong>${rest ? ' — ' + rest : ''}`);
+            } else if (simpleMatch && !simpleMatch[1].startsWith('**')) {
+              items.push(simpleMatch[1]);
+            }
           }
           
-          // Parse changelog - convert markdown to simple HTML
-          const changelogEl = document.getElementById('releaseChangelog');
-          if (changelogEl && release.body) {
-            const body = release.body;
-            // Simple markdown parsing
-            let html = body
-              .replace(/^## (.+)$/gm, '') // Remove headers
-              .replace(/^### (.+)$/gm, '<strong>$1</strong>') // Subheaders to bold
-              .replace(/^\- \*\*(.+?)\*\* ?[-–] ?(.+)$/gm, '<li><strong>$1</strong> — $2</li>') // Bold items
-              .replace(/^\- \*\*(.+?)\*\*(.*)$/gm, '<li><strong>$1</strong>$2</li>') // Bold only items
-              .replace(/^\- (.+)$/gm, '<li>$1</li>') // List items
-              .replace(/\n+/g, '\n')
-              .trim();
-            
-            // Wrap in ul if has list items
-            if (html.includes('<li>')) {
-              html = '<ul>' + html + '</ul>';
-            }
-            changelogEl.innerHTML = html;
+          if (items.length > 0) {
+            changelogEl.innerHTML = items.map(i => `<li>${i}</li>`).join('');
+          } else {
+            changelogEl.innerHTML = '<li>See release notes for details</li>';
           }
         }
         
       } catch (e) {
         console.warn('Could not load release info:', e);
+        const changelogEl = document.getElementById('releaseChangelog');
+        if (changelogEl) changelogEl.innerHTML = '<li>Could not load changelog</li>';
+      }
+    }
+    
+    // Fetch VS Code extension version from marketplace
+    async function loadVSCodeExtVersion() {
+      try {
+        // Use the VS Code Marketplace API
+        const res = await fetch('https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json;api-version=6.0-preview.1'
+          },
+          body: JSON.stringify({
+            filters: [{
+              criteria: [{ filterType: 7, value: 'aesthetic-computer.aesthetic-computer-code' }]
+            }],
+            flags: 0x200 // Include versions
+          })
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          const ext = data.results?.[0]?.extensions?.[0];
+          if (ext?.versions?.[0]?.version) {
+            const versionEl = document.getElementById('vscodeExtVersion');
+            if (versionEl) versionEl.textContent = 'v' + ext.versions[0].version;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load VS Code extension version:', e);
       }
     }
     
     loadDesktopReleaseInfo();
+    loadVSCodeExtVersion();
+
+    // Apps Flip Card - Desktop / Mobile swivel
+    function toggleAppsFlip(direction) {
+      const card = document.getElementById('appsFlipCard');
+      const container = document.getElementById('appsFlipContainer');
+      if (card && container) {
+        const isFlipped = card.classList.contains('flipped');
+        // If direction specified, only flip if it makes sense
+        if (direction === 'left' && isFlipped) {
+          card.classList.remove('flipped');
+          container.classList.remove('flipped');
+          resetAppsFlipProgress();
+        } else if (direction === 'right' && !isFlipped) {
+          card.classList.add('flipped');
+          container.classList.add('flipped');
+          resetAppsFlipProgress();
+        } else if (!direction) {
+          card.classList.toggle('flipped');
+          container.classList.toggle('flipped');
+          resetAppsFlipProgress();
+        }
+      }
+    }
+    window.toggleAppsFlip = toggleAppsFlip;
+    
+    // Apps flip hover tilt effect
+    (function setupAppsHoverTilt() {
+      const container = document.getElementById('appsFlipContainer');
+      const card = document.getElementById('appsFlipCard');
+      if (!container || !card) return;
+      
+      container.addEventListener('mousemove', (e) => {
+        if (card.classList.contains('flipped')) return; // Don't tilt when flipped
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const width = rect.width;
+        const third = width / 3;
+        
+        card.classList.remove('tilt-left', 'tilt-right');
+        if (x < third) {
+          card.classList.add('tilt-left');
+        } else if (x > third * 2) {
+          card.classList.add('tilt-right');
+        }
+      });
+      
+      container.addEventListener('mouseleave', () => {
+        card.classList.remove('tilt-left', 'tilt-right');
+      });
+      
+      // Click zones for directional swivel
+      container.addEventListener('click', (e) => {
+        // Don't trigger if clicking on a link
+        if (e.target.closest('a')) return;
+        
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const width = rect.width;
+        const isFlipped = card.classList.contains('flipped');
+        
+        if (x < width / 2) {
+          // Left side - swivel to show front (unflip)
+          if (isFlipped) toggleAppsFlip('left');
+        } else {
+          // Right side - swivel to show back (flip)
+          if (!isFlipped) toggleAppsFlip('right');
+        }
+      });
+    })();
+    
+    // Apps flip auto-flip with progress bar
+    const APPS_FLIP_INTERVAL = 10000; // 10 seconds between flips
+    let appsFlipProgress = 0;
+    let appsFlipPaused = false;
+    
+    function resetAppsFlipProgress() {
+      appsFlipProgress = 0;
+      const bar = document.getElementById('appsFlipProgress');
+      if (bar) bar.style.width = '0%';
+    }
+    
+    function updateAppsFlipProgress() {
+      const bar = document.getElementById('appsFlipProgress');
+      const container = document.getElementById('appsFlipContainer');
+      
+      // Pause on hover
+      if (container && !container.dataset.hoverBound) {
+        container.dataset.hoverBound = 'true';
+        container.addEventListener('mouseenter', () => appsFlipPaused = true);
+        container.addEventListener('mouseleave', () => appsFlipPaused = false);
+      }
+      
+      if (!appsFlipPaused) {
+        appsFlipProgress += 100 / (APPS_FLIP_INTERVAL / 100); // Update every 100ms
+        if (bar) bar.style.width = appsFlipProgress + '%';
+        
+        if (appsFlipProgress >= 100) {
+          toggleAppsFlip();
+        }
+      }
+      
+      setTimeout(updateAppsFlipProgress, 100);
+    }
+    
+    // Start apps auto-flip after a short delay
+    setTimeout(updateAppsFlipProgress, 2000);
 
     // 🎨 Floating Paintings in Stats
     async function loadFloatingPaintings() {
@@ -5356,6 +5927,86 @@
     }
     
     loadFloatingCommands();
+
+    // 💬 Floating Messages in Stats
+    async function loadFloatingMessages() {
+      const statItem = document.getElementById('stat-messages');
+      if (!statItem) return;
+      
+      const floatersContainer = statItem.querySelector('.stat-floaters');
+      if (!floatersContainer) return;
+      
+      try {
+        // Fetch recent messages from both laer-klokken and main chat
+        const [clockRes, chatRes] = await Promise.all([
+          fetch(`${apiBase}/api/chat/messages?instance=clock&limit=30`),
+          fetch(`${apiBase}/api/chat/messages?limit=30`)
+        ]);
+        
+        const clockData = await clockRes.json();
+        const chatData = await chatRes.json();
+        
+        const clockMsgs = (clockData.messages || []).map(m => ({ ...m, source: 'clock' }));
+        const chatMsgs = (chatData.messages || []).map(m => ({ ...m, source: 'chat' }));
+        
+        // Interleave messages from both sources
+        const allMsgs = [];
+        const maxLen = Math.max(clockMsgs.length, chatMsgs.length);
+        for (let i = 0; i < maxLen; i++) {
+          if (clockMsgs[i]) allMsgs.push(clockMsgs[i]);
+          if (chatMsgs[i]) allMsgs.push(chatMsgs[i]);
+        }
+        
+        if (!allMsgs.length) return;
+        console.log(`Loaded ${allMsgs.length} messages for floating (${clockMsgs.length} clock, ${chatMsgs.length} chat)`);
+        
+        let index = 0;
+        
+        function spawnFloater() {
+          const msg = allMsgs[index % allMsgs.length];
+          index++;
+          
+          const floater = document.createElement('div');
+          floater.className = 'stat-floater float-horizontal';
+          
+          // Random vertical position (10% to 90%)
+          const yPos = 10 + Math.random() * 80;
+          floater.style.top = `${yPos}%`;
+          floater.style.right = '-80px';
+          
+          // Random duration between 8-14s
+          const duration = 8 + Math.random() * 6;
+          floater.style.setProperty('--float-duration', `${duration}s`);
+          
+          // Message text (truncated)
+          const text = document.createElement('span');
+          text.className = 'floater-code';
+          text.style.fontSize = '0.65em';
+          text.style.maxWidth = '100px';
+          text.style.overflow = 'hidden';
+          text.style.textOverflow = 'ellipsis';
+          // Yellow for clock messages, cyan for chat
+          text.style.color = msg.source === 'clock' ? 'var(--gold)' : 'var(--cyan)';
+          
+          // Truncate message
+          const msgText = (msg.text || '').slice(0, 25);
+          const handle = msg.from || 'anon';
+          text.textContent = `${handle}: ${msgText}${msg.text?.length > 25 ? '…' : ''}`;
+          floater.appendChild(text);
+          
+          floatersContainer.appendChild(floater);
+          floater.addEventListener('animationend', () => floater.remove());
+        }
+        
+        spawnFloater();
+        setInterval(spawnFloater, 2000);
+        
+      } catch (e) {
+        console.warn('Could not load floating messages:', e);
+      }
+    }
+    
+    loadFloatingMessages();
   </script>
   
   <!-- 🔄 Development live reload via session-server -->

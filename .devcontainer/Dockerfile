@@ -100,6 +100,19 @@ RUN set -eux; \
     curl -fsSL "https://github.com/stripe/stripe-cli/releases/download/v1.30.0/stripe_1.30.0_linux_${ARCH}.tar.gz" \
     | tar xz -C /usr/local/bin
 
+# --- MongoDB Atlas CLI (architecture-aware) ----------------------------------
+RUN set -eux; \
+    case "$(uname -m)" in \
+        x86_64) ARCH=x86_64 ;; \
+        aarch64) ARCH=arm64 ;; \
+        *) echo "Unsupported architecture: $(uname -m)" && exit 1 ;; \
+    esac && \
+    ATLAS_VERSION=1.51.0 && \
+    curl -fsSL "https://fastdl.mongodb.org/mongocli/mongodb-atlas-cli_${ATLAS_VERSION}_linux_${ARCH}.tar.gz" \
+    | tar xz -C /tmp && \
+    mv /tmp/mongodb-atlas-cli_${ATLAS_VERSION}_linux_${ARCH}/bin/atlas /usr/local/bin/ && \
+    rm -rf /tmp/mongodb-atlas-cli_*
+
 # --- redli (architecture-aware) ----------------------------------------------
 RUN set -eux; \
     case "$(uname -m)" in \
