@@ -729,7 +729,7 @@
       }
       .top-bar {
         padding: 6px 10px;
-        background: rgba(5, 15, 10, 0.85);
+        background: rgba(5, 15, 10, 0.95);
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
       }
@@ -737,7 +737,7 @@
         font-size: 15px;
       }
       main {
-        padding-top: 2.8em;
+        padding-top: 3.5em;
       }
       .gives-ticker {
         height: 2.1em;
@@ -3817,6 +3817,7 @@
       grid-column: 1 / -1;
       text-align: center;
       padding: 2em 1em;
+      grid-row: 2; /* After ticker */
     }
 
     body.thanks-mode .thanks-section {
@@ -3824,6 +3825,14 @@
     }
 
     body.thanks-mode .fiat-section {
+      grid-row: 1; /* Ticker first */
+    }
+
+    body.thanks-mode .fiat-section .currency-picker {
+      display: none !important;
+    }
+
+    body.thanks-mode .fiat-section .currency-pickers {
       display: none !important;
     }
 
@@ -3837,8 +3846,8 @@
     }
 
     .thanks-canvas {
-      width: 280px;
-      height: 280px;
+      width: 400px;
+      height: 400px;
       border-radius: 12px;
     }
 
@@ -4009,11 +4018,11 @@
           <a href="./" class="thanks-again" data-lang="de">Nochmal spenden?</a>
           <a href="./" class="thanks-again" data-lang="es">¿Donar de nuevo?</a>
           <a href="./" class="thanks-again" data-lang="zh">再次捐赠?</a>
-          <button class="thanks-share" id="shareBtn" data-lang="en">Share to 𝕏</button>
-          <button class="thanks-share" id="shareBtnDa" data-lang="da">Del på 𝕏</button>
-          <button class="thanks-share" id="shareBtnDe" data-lang="de">Teilen auf 𝕏</button>
-          <button class="thanks-share" id="shareBtnEs" data-lang="es">Compartir en 𝕏</button>
-          <button class="thanks-share" id="shareBtnZh" data-lang="zh">分享到 𝕏</button>
+          <button class="thanks-share" id="shareBtn" data-lang="en">Share</button>
+          <button class="thanks-share" id="shareBtnDa" data-lang="da">Del</button>
+          <button class="thanks-share" id="shareBtnDe" data-lang="de">Teilen</button>
+          <button class="thanks-share" id="shareBtnEs" data-lang="es">Compartir</button>
+          <button class="thanks-share" id="shareBtnZh" data-lang="zh">分享</button>
         </div>
       </div>
 
@@ -5490,6 +5499,17 @@
         if (amountDa) amountDa.textContent = formattedAmount;
       }
       
+      // Format today's date for the canvas
+      const today = new Date();
+      const formattedDate = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      
+      // Generate QR code for give.aesthetic.computer
+      const qr = qrcode(0, 'M');
+      qr.addData('https://give.aesthetic.computer');
+      qr.make();
+      const qrImg = new Image();
+      qrImg.src = qr.createDataURL(4, 0);
+      
       // 🌈 PSYCHO THANKS CANVAS with pals.svg + heart behind
       const canvas = document.getElementById('thanksCanvas');
       if (canvas) {
@@ -5551,151 +5571,118 @@
           ctx.restore();
         }
         
-        function animate() {
-          t += 0.025;
-          
-          // Background gradient that shifts
-          const bgHue = (t * 0.02) % 1;
-          const [bgr, bgg, bgb] = hslToRgb(bgHue, 0.15, 0.12);
-          const [bgr2, bgg2, bgb2] = hslToRgb((bgHue + 0.5) % 1, 0.2, 0.08);
+        // Draw static image (once pals loads)
+        function drawStaticImage() {
+          // Background gradient (static purple/dark)
           const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W * 0.7);
-          grad.addColorStop(0, `rgb(${bgr},${bgg},${bgb})`);
-          grad.addColorStop(1, `rgb(${bgr2},${bgg2},${bgb2})`);
+          grad.addColorStop(0, 'rgb(35, 30, 50)');
+          grad.addColorStop(1, 'rgb(20, 15, 30)');
           ctx.fillStyle = grad;
           ctx.fillRect(0, 0, W, H);
           
-          // Main color cycling
-          const hue = (t * 0.08) % 1;
-          
-          // Floating particles in background
-          for (let i = 0; i < 15; i++) {
-            const px = (W * 0.1 + (i * 137.5 + t * 30) % (W * 0.8));
-            const py = (H * 0.1 + (i * 89.3 + t * 20 + Math.sin(t + i) * 30) % (H * 0.8));
-            const psize = 2 + Math.sin(t * 2 + i) * 1.5;
-            const phue = (hue + i * 0.05) % 1;
-            const [pr, pg, pb] = hslToRgb(phue, 0.8, 0.6);
-            ctx.beginPath();
-            ctx.arc(px, py, psize, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(${pr},${pg},${pb},${0.25 + Math.sin(t * 3 + i) * 0.15})`;
-            ctx.fill();
-          }
-          
           // Center position for the main composition
           const centerX = W / 2;
-          const centerY = H / 2 - 20; // Slightly above center to leave room for text
+          const centerY = H / 2 - 20; // Moved down a bit
           
-          // Heart BEHIND the pals - pink tinted, larger
-          const heartPulse = 1 + Math.sin(t * 3) * 0.05;
-          const heartWobble = Math.sin(t * 2) * 0.03;
-          
-          const [r, g, b] = hslToRgb(0.92, 0.7, 0.65); // Pink
-          const mainColor = `rgba(${r},${g},${b},0.5)`;
-          const glowColor = `rgba(${r},${g},${b},0.3)`;
+          // Heart in TOP RIGHT - single solid pink heart (moved down)
+          const heartColor = 'rgb(230, 100, 120)';
           
           ctx.save();
-          ctx.translate(centerX, centerY + 60); // Heart positioned behind/below pals
-          ctx.rotate(heartWobble);
-          ctx.scale(heartPulse, heartPulse);
-          
-          // Large background heart (like in the actual logo)
-          drawHeart(0, 0, 200, glowColor, 30);
-          drawHeart(0, 0, 180, mainColor, 15);
-          
+          ctx.translate(centerX + 190, centerY - 180); // Heart moved down
+          drawHeart(0, 0, 85, heartColor, 0);
           ctx.restore();
           
-          // Draw pals.svg BIGGER and centered
+          // Draw pals.svg centered (smaller and lower)
           if (palsLoaded && palsImg) {
-            const palsPulse = 1 + Math.sin(t * 2) * 0.02;
-            const palsWobble = Math.sin(t * 1.5) * 0.015;
-            const palsSize = 420 * palsPulse; // Much bigger!
-            
+            const palsSize = 420; // Smaller
             ctx.save();
-            ctx.translate(centerX, centerY);
-            ctx.rotate(palsWobble);
+            ctx.translate(centerX, centerY + 20); // Moved down
             ctx.drawImage(palsImg, -palsSize/2, -palsSize/2, palsSize, palsSize);
             ctx.restore();
           }
           
-          // Sparkles around the composition
-          for (let i = 0; i < 12; i++) {
-            const angle = t * 1.2 + i * 0.52;
-            const dist = 200 + Math.sin(t * 2 + i) * 20;
-            const sx = centerX + Math.cos(angle) * dist;
-            const sy = centerY + Math.sin(angle) * dist;
-            const sparkSize = 3 + Math.sin(t * 4 + i * 2) * 2;
-            const sparkHue = (hue + i * 0.08) % 1;
-            const [sr, sg, sb] = hslToRgb(sparkHue, 1, 0.7);
-            ctx.beginPath();
-            ctx.arc(sx, sy, Math.max(1, sparkSize), 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(${sr},${sg},${sb},${0.5 + Math.sin(t * 3 + i) * 0.3})`;
-            ctx.fill();
+          // QR code in bottom left with white border
+          if (qrImg.complete && qrImg.naturalWidth > 0) {
+            ctx.save();
+            // White border/background
+            ctx.fillStyle = 'white';
+            ctx.fillRect(14, H - 108, 92, 92);
+            // QR code on top
+            ctx.drawImage(qrImg, 20, H - 102, 80, 80);
+            ctx.restore();
           }
           
-          // Amount text at bottom
+          // "I gave Aesthetic.Computer $X on [date]" text (shifted right)
           ctx.save();
-          ctx.font = 'bold 36px "YWFTProcessing-Regular", sans-serif';
+          ctx.font = 'bold 32px "YWFTProcessing-Regular", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          const textHue = (hue + 0.3) % 1;
-          const [tr, tg, tb] = hslToRgb(textHue, 0.9, 0.65);
-          ctx.fillStyle = `rgb(${tr},${tg},${tb})`;
-          ctx.shadowColor = `rgba(${tr},${tg},${tb},0.5)`;
-          ctx.shadowBlur = 15;
-          ctx.fillText(`gave ${formattedAmount}`, W/2, H - 55);
+          ctx.fillStyle = 'rgb(255, 180, 200)';
+          ctx.shadowColor = 'rgba(255, 180, 200, 0.5)';
+          ctx.shadowBlur = 10;
+          const textX = W/2 + 30; // Shifted right
+          ctx.fillText(`I gave Aesthetic.Computer`, textX, H - 75);
+          ctx.fillText(`${formattedAmount} on ${formattedDate}`, textX, H - 40);
           ctx.restore();
           
-          // "give.aesthetic.computer" watermark
+          // "give.aesthetic.computer" watermark (larger)
           ctx.save();
-          ctx.font = '16px "berkeley", monospace';
+          ctx.font = '18px "berkeley", monospace';
           ctx.textAlign = 'center';
-          ctx.fillStyle = 'rgba(255,255,255,0.35)';
-          ctx.fillText('give.aesthetic.computer', W/2, H - 22);
+          ctx.fillStyle = 'rgba(255,255,255,0.5)';
+          ctx.fillText('give.aesthetic.computer', W/2 + 30, H - 12);
           ctx.restore();
-          
-          window._thanksAnimFrame = requestAnimationFrame(animate);
         }
-        animate();
         
-        // Share to X functionality
+        // Wait for images to load then draw once
+        function tryDraw() {
+          if (palsLoaded && qrImg.complete) {
+            drawStaticImage();
+          } else {
+            setTimeout(tryDraw, 100);
+          }
+        }
+        tryDraw();
+        
+        // Share functionality using Web Share API
         const shareBtn = document.getElementById('shareBtn');
         const shareBtnDa = document.getElementById('shareBtnDa');
+        const shareBtnDe = document.getElementById('shareBtnDe');
+        const shareBtnEs = document.getElementById('shareBtnEs');
+        const shareBtnZh = document.getElementById('shareBtnZh');
         
-        async function shareToX() {
-          // Capture current canvas frame
+        async function shareImage() {
+          // Capture canvas as PNG
           const dataUrl = canvas.toDataURL('image/png');
+          const blob = await (await fetch(dataUrl)).blob();
+          const file = new File([blob], 'i-gave-aesthetic-computer.png', { type: 'image/png' });
           
-          // Try Web Share API first (mobile)
-          if (navigator.share && navigator.canShare) {
+          // Try Web Share API (great on mobile!)
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
-              const blob = await (await fetch(dataUrl)).blob();
-              const file = new File([blob], 'aesthetic-computer-gift.png', { type: 'image/png' });
-              if (navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                  text: `I just gave ${formattedAmount} to Aesthetic.Computer! 💖 give.aesthetic.computer`,
-                  files: [file]
-                });
-                return;
-              }
+              await navigator.share({
+                title: 'I gave to Aesthetic.Computer!',
+                text: `I gave ${formattedAmount} to Aesthetic.Computer on ${formattedDate}! 💖`,
+                files: [file],
+                url: 'https://give.aesthetic.computer'
+              });
+              return;
             } catch (e) {
-              console.log('Web Share failed, falling back to Twitter intent');
+              if (e.name !== 'AbortError') console.log('Share cancelled or failed:', e);
+              return; // User cancelled, don't fall through
             }
           }
           
-          // Fallback: Download image + open Twitter
+          // Fallback: just download the image
           const link = document.createElement('a');
-          link.download = 'aesthetic-computer-gift.png';
+          link.download = 'i-gave-aesthetic-computer.png';
           link.href = dataUrl;
           link.click();
-          
-          // Open Twitter intent
-          const tweetText = encodeURIComponent(`I just gave ${formattedAmount} to Aesthetic.Computer! 💖
-
-give.aesthetic.computer`);
-          window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank');
         }
         
-        if (shareBtn) shareBtn.addEventListener('click', shareToX);
-        if (shareBtnDa) shareBtnDa.addEventListener('click', shareToX);
+        [shareBtn, shareBtnDa, shareBtnDe, shareBtnEs, shareBtnZh].forEach(btn => {
+          if (btn) btn.addEventListener('click', shareImage);
+        });
       }
     }
 
@@ -6563,9 +6550,9 @@ give.aesthetic.computer`);
     async function loadRecentGives() {
       const ticker = document.getElementById('givesTicker');
       
-      // Animated server cost number (varies $600-$1200)
+      // Animated server cost number (static $800 with color animation)
       function getAnimatedCost() {
-        return `<span class="server-cost-number" style="color: #ff6b9d; font-weight: bold;"></span>`;
+        return `<span class="server-cost-number" style="color: #ff6b9d; font-weight: bold;">$800</span>`;
       }
       
       // Translated ticker messages
@@ -6658,20 +6645,15 @@ give.aesthetic.computer`);
     
     setTimeout(loadRecentGives, 300);
     
-    // Animate server cost numbers ($600-$1200) with smooth easing
+    // Animate server cost colors (cycling hue animation)
     let serverCostPhase = Math.random() * Math.PI * 2;
     function animateServerCost() {
-      serverCostPhase += 0.015; // Slow oscillation
-      // Smooth sine wave between 600 and 1200, rounded to nearest 50
-      const rawValue = 900 + Math.sin(serverCostPhase) * 300;
-      const value = Math.round(rawValue / 50) * 50;
+      serverCostPhase += 0.02; // Smooth oscillation
       
       document.querySelectorAll('.server-cost-number').forEach(el => {
-        el.textContent = `$${value}`;
-        // Color shifts from green ($600) to red ($1200)
-        const t = (value - 600) / 600; // 0 to 1
-        const hue = 120 - t * 120; // green (120) to red (0)
-        el.style.color = `hsl(${hue}, 70%, 60%)`;
+        // Cycle through colors (pink → cyan → gold → green → pink)
+        const hue = (serverCostPhase * 30) % 360;
+        el.style.color = `hsl(${hue}, 70%, 65%)`;
       });
       requestAnimationFrame(animateServerCost);
     }
