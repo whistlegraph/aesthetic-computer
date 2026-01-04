@@ -149,6 +149,13 @@
       font-family: var(--mono);
     }
 
+    .logo-year {
+      font-family: 'YWFTProcessing-Regular', sans-serif;
+      color: var(--dim);
+      font-size: 0.9em;
+      margin-left: 0.3em;
+    }
+
     main {
       max-width: 1200px;
       margin: 0 auto;
@@ -739,18 +746,21 @@
         font-size: 13px;
         white-space: nowrap;
       }
-      /* Hide "aesthetic.computer" on very small screens, just show "give · AC" */
+      /* Hide "aesthetic.computer" on very small screens, just show "give · AC '26" */
       .logo-ac {
         display: none;
       }
+      .logo-year {
+        display: none;
+      }
       .logo::after {
-        content: 'AC';
+        content: "AC '26";
         font-family: 'YWFTProcessing-Regular', sans-serif;
         color: var(--pink);
         font-size: 1.15em;
       }
       main {
-        padding-top: 3em;
+        padding-top: 4em;
       }
       .gives-ticker {
         height: 2.1em;
@@ -3955,11 +3965,13 @@
 
     .jeffreys-canvas {
       position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
+      inset: -4px; /* Slight overflow to hide edge artifacts */
+      width: calc(100% + 8px);
+      height: calc(100% + 8px);
       /* Darker with softer contrast */
       filter: url(#sharpen) saturate(0.9) brightness(0.5) contrast(1.05);
+      image-rendering: -webkit-optimize-contrast; /* Better scaling on iOS */
+      image-rendering: crisp-edges;
     }
 
     /* Subtle color tint */
@@ -4004,7 +4016,7 @@
 <body>
   <div class="top-bar">
     <div style="display: flex; align-items: center; gap: 8px;">
-      <div class="logo" onclick="window.location.href='https://aesthetic.computer'"><span class="logo-give">give</span><span class="logo-sep">—</span><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span></div>
+      <div class="logo" onclick="window.location.href='https://aesthetic.computer'"><span class="logo-give">give</span><span class="logo-sep">—</span><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span><span class="logo-year">'26</span></div>
       <div class="lang-selector" id="langSelector">
         <span class="lang-flag" id="lang-flag">🇺🇸</span>
         <span class="lang-text" id="lang-text">English</span>
@@ -4033,7 +4045,7 @@
           <canvas class="thanks-canvas" id="thanksCanvas" width="560" height="560"></canvas>
         </div>
         <p class="thanks-message" data-lang="en">
-          Thank you for giving <span class="thanks-amount" id="thanksAmountEn">$25</span> and keeping Aesthetic.Computer online and free to use.
+          Thank you for keeping systems online and free to use!
         </p>
         <p class="thanks-message" data-lang="da">
           Tak for at give <span class="thanks-amount" id="thanksAmountDa">$25</span> og holde Aesthetic.Computer online og gratis at bruge.
@@ -4197,7 +4209,7 @@
       </div>
 
       <div class="prose full-width" data-lang="en">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> is a social software network supported by the full-time programming practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> who has been writing experimental software instruments for over a decade. He lives in Echo Park with <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in a house full of musicians, and regularly does show and tell at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. Their next meeting is at 7pm on Tuesday, January 6th at <a href="https://plot.place">Plot</a>.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> is a social software network supported by the full-time programming practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> who has been writing experimental software instruments for over a decade. He lives in Echo Park with <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in a house full of musicians, and regularly does show and tell at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. Their next meeting is at 7pm on Tuesday, January 6th, 2026 at <a href="https://plot.place">Plot</a>.
       </div>
       <div class="prose full-width" data-lang="da">
         <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> er et socialt softwarenetværk understøttet af fuldtids ingeniørpraksis af <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, som har bygget eksperimentelle software-instrumenter i over et årti. Han bor i Echo Park med <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> i et hus fuldt af musikere, og demonstrerer regelmæssigt softwaren ved <a href="https://nelacomputer.club">NELA Computer Club</a> i Chinatown. Det næste møde er kl. 19 tirsdag den 6. januar på <a href="https://plot.place">Plot</a>.
@@ -4716,19 +4728,29 @@
         }
       }
 
-      // Preload images
+      // Preload images - non-blocking
       const loadedImages = {};
+      const loadingImages = {}; // Track in-progress loads
       
       function preloadImage(name) {
-        return new Promise(resolve => {
-          if (loadedImages[name]) return resolve(loadedImages[name]);
+        // Already loaded
+        if (loadedImages[name]) return Promise.resolve(loadedImages[name]);
+        // Already loading - return existing promise
+        if (loadingImages[name]) return loadingImages[name];
+        
+        // Start new load
+        loadingImages[name] = new Promise(resolve => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
           img.onload = () => {
             loadedImages[name] = img;
+            delete loadingImages[name];
             resolve(img);
           };
-          img.onerror = resolve;
+          img.onerror = () => {
+            delete loadingImages[name];
+            resolve(null);
+          };
           // Check if this is a screenshot or jeffreys image
           const data = allImagesData[name];
           if (data && data.src === 'screenshots') {
@@ -4737,6 +4759,12 @@
             img.src = `https://assets.aesthetic.computer/jeffreys/jpg/${name}.jpg`;
           }
         });
+        return loadingImages[name];
+      }
+      
+      // Preload multiple images in parallel without blocking
+      function preloadBatch(names) {
+        names.forEach(name => preloadImage(name));
       }
       
       // Resize canvas to container
@@ -4823,7 +4851,7 @@
         const scaleX = destW / imgW;
         const scaleY = destH / imgH;
         const zoomPulse = 1.0 + zoomBreath * 0.03; // Subtle 3% zoom oscillation
-        const coverScale = Math.max(scaleX, scaleY) * 1.15 * zoomPulse; // 15% extra + breathing
+        const coverScale = Math.max(scaleX, scaleY) * 1.25 * zoomPulse; // 25% extra to prevent edge gaps + breathing
         
         // Scaled image dimensions
         const scaledW = imgW * coverScale;
@@ -5202,21 +5230,37 @@
         if (i < screenshotsPois.length) allPois.push(screenshotsPois[i]);
       }
       
-      function render() {
+      // Frame timing for 24fps throttle
+      let lastFrameTime = 0;
+      const TARGET_FPS = 24;
+      const FRAME_INTERVAL = 1000 / TARGET_FPS; // ~41.67ms
+      
+      function render(timestamp) {
+        // Throttle to 24fps
+        if (timestamp - lastFrameTime < FRAME_INTERVAL) {
+          requestAnimationFrame(render);
+          return;
+        }
+        const deltaTime = timestamp - lastFrameTime;
+        lastFrameTime = timestamp;
+        
+        // Time multiplier (normalize to 60fps base, so animations stay same speed)
+        const dt = deltaTime / 16.67; // 16.67ms = 60fps
+        
         const w = canvasW;
         const h = canvasH;
         
-        // Update phases - SLOW and dreamy
-        globalRotation += 0.000015; // Even slower rotation
-        floatOffset += 0.00003; // Slower float
-        poiPhase += 0.00005; // Slower POI progression
-        verticalScrollPhase += 0.0003; // Much slower vertical scroll (~55 sec full cycle)
+        // Update phases - SLOW and dreamy (time-based)
+        globalRotation += 0.000015 * dt; // Even slower rotation
+        floatOffset += 0.00003 * dt; // Slower float
+        poiPhase += 0.00005 * dt; // Slower POI progression
+        verticalScrollPhase += 0.0003 * dt; // Much slower vertical scroll (~55 sec full cycle)
         if (verticalScrollPhase > 1) verticalScrollPhase = 0;
-        swingPhase += 0.00007; // Slow pendulum swing
-        zoomPhase += 0.00004; // Very slow zoom breathing
+        swingPhase += 0.00007 * dt; // Slow pendulum swing
+        zoomPhase += 0.00004 * dt; // Very slow zoom breathing
         
-        // Smooth scroll zoom interpolation (buttery smooth tracking)
-        scrollZoom += (scrollZoomTarget - scrollZoom) * 0.08;
+        // Smooth scroll zoom interpolation (buttery smooth tracking, time-based)
+        scrollZoom += (scrollZoomTarget - scrollZoom) * 0.08 * dt;
         
         // Swinging rope motion - delayed sinusoids for organic feel
         const swing1 = Math.sin(swingPhase * Math.PI * 2);
@@ -5239,9 +5283,9 @@
           return;
         }
         
-        // Animate initial fade-in (slow, smooth)
+        // Animate initial fade-in (slow, smooth, time-based)
         if (initialFadeIn < 1) {
-          initialFadeIn += 0.008; // ~2 seconds to fully fade in
+          initialFadeIn += 0.008 * dt; // ~2 seconds to fully fade in
           if (initialFadeIn > 1) initialFadeIn = 1;
         }
         const masterAlpha = easeInOutSine(initialFadeIn); // Smooth ease
@@ -5322,7 +5366,7 @@
         requestAnimationFrame(render);
       }
 
-      async function transitionToNextPoi() {
+      function transitionToNextPoi() {
         if (allPois.length < 2) return;
         
         // Get next two POIs (different images for left and right)
@@ -5333,20 +5377,23 @@
         const nextLeftPoi = allPois[nextLeftIdx];
         const nextRightPoi = allPois[nextRightIdx];
         
-        // Preload both images and wait for them to be ready
-        await Promise.all([
-          preloadImage(nextLeftPoi.name),
-          preloadImage(nextRightPoi.name)
-        ]);
-        
-        // Verify images are actually loaded before transitioning
+        // Check if images are already loaded (they should be from background preload)
         const nextLeftImg = loadedImages[nextLeftPoi.name];
         const nextRightImg = loadedImages[nextRightPoi.name];
+        
         if (!nextLeftImg?.complete || !nextLeftImg?.naturalWidth ||
             !nextRightImg?.complete || !nextRightImg?.naturalWidth) {
-          // Images not ready, skip this transition
-          console.warn('Skipping transition - images not loaded');
+          // Images not ready - trigger load and skip this transition
+          preloadImage(nextLeftPoi.name);
+          preloadImage(nextRightPoi.name);
           return;
+        }
+        
+        // Preload NEXT batch in background (look ahead 4-8 images)
+        const lookAhead = 8;
+        for (let i = 2; i < lookAhead; i++) {
+          const idx = (currentPoiIndex + i) % allPois.length;
+          preloadImage(allPois[idx].name);
         }
         
         // Store previous for crossfade
@@ -5377,58 +5424,58 @@
       }
 
       // Start slideshow
-      async function start() {
+      function start() {
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
         
-        // Start render loop immediately
+        // Start render loop immediately (shows nothing until images ready)
         render();
         
-        // Load first TWO POIs for left + right simultaneously
-        if (allPois.length >= 2) {
-          // Preload first pair - wait for them to fully load
-          await Promise.all([
-            preloadImage(allPois[0].name),
-            preloadImage(allPois[1].name)
-          ]);
-          
-          // Verify images are actually loaded before setting POIs
-          const img0 = loadedImages[allPois[0].name];
-          const img1 = loadedImages[allPois[1].name];
-          if (img0?.complete && img0?.naturalWidth > 0 &&
-              img1?.complete && img1?.naturalWidth > 0) {
-            leftPoi = allPois[0];
-            rightPoi = allPois[1];
-            currentPoiIndex = 1;
-            isInitialized = true; // NOW we can start rendering
+        // Aggressively preload first 16 images in background
+        const preloadCount = Math.min(16, allPois.length);
+        preloadBatch(allPois.slice(0, preloadCount).map(p => p.name));
+        
+        // Poll until first two images are ready (non-blocking)
+        function checkFirstPair() {
+          if (allPois.length >= 2) {
+            const img0 = loadedImages[allPois[0].name];
+            const img1 = loadedImages[allPois[1].name];
+            
+            if (img0?.complete && img0?.naturalWidth > 0 &&
+                img1?.complete && img1?.naturalWidth > 0) {
+              // First pair ready - initialize!
+              leftPoi = allPois[0];
+              rightPoi = allPois[1];
+              currentPoiIndex = 1;
+              isInitialized = true;
+              
+              // Dynamic transition timing - faces held longer
+              const scheduleNextTransition = () => {
+                const hasFaces = (leftPoi?.poi?.t === 'f') || (rightPoi?.poi?.t === 'f');
+                const holdTime = hasFaces ? 7000 : 4000;
+                setTimeout(() => {
+                  transitionToNextPoi();
+                  scheduleNextTransition();
+                }, holdTime);
+              };
+              
+              // Start transitions after initial hold
+              setTimeout(scheduleNextTransition, 4000);
+              return; // Done polling
+            }
+          } else if (allPois.length === 1) {
+            const img0 = loadedImages[allPois[0].name];
+            if (img0?.complete && img0?.naturalWidth > 0) {
+              leftPoi = allPois[0];
+              isInitialized = true;
+              return;
+            }
           }
-          
-          // Preload a few more in background
-          for (let i = 2; i < Math.min(8, allPois.length); i++) {
-            preloadImage(allPois[i].name);
-          }
-          
-          // Dynamic transition timing - faces held longer
-          let transitionTimer = null;
-          const scheduleNextTransition = () => {
-            // Check if current POIs have faces
-            const hasFaces = (leftPoi?.poi?.t === 'f') || (rightPoi?.poi?.t === 'f');
-            const holdTime = hasFaces ? 7000 : 4000; // Faces: 7s, Screenshots: 4s
-            transitionTimer = setTimeout(async () => {
-              await transitionToNextPoi();
-              scheduleNextTransition();
-            }, holdTime);
-          };
-          
-          // Start transitions after first pair is showing
-          setTimeout(() => {
-            scheduleNextTransition();
-          }, 4000); // Initial hold
-        } else if (allPois.length === 1) {
-          // Only one POI, show it on left
-          await preloadImage(allPois[0].name);
-          leftPoi = allPois[0];
+          // Not ready yet - check again soon
+          requestAnimationFrame(checkFirstPair);
         }
+        
+        checkFirstPair();
       }
 
       start();
