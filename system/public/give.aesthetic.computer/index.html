@@ -856,8 +856,8 @@
     }
 
     .gift-logo {
-      width: 240px;
-      height: 240px;
+      width: 280px;
+      height: 280px;
       opacity: 0.9;
       filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.7)) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5));
       transition: opacity 0.4s ease-out, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), filter 0.4s ease-out;
@@ -872,15 +872,15 @@
     .gift-amount {
       position: absolute;
       /* Positioned at logo's top-right corner */
-      top: 0;
-      left: 240px;
-      transform: translate(-0.5em, -50%);
+      top: 20px;
+      left: 330px;
+      transform: translate(-0.25em, -50%);
       transform-origin: bottom left;
       font-family: 'YWFTProcessing-Regular', var(--mono);
-      font-size: 1.15em;
-      color: #8cd98c;
-      background: linear-gradient(135deg, #1a3a25 0%, #0f2518 100%);
-      border: 1px solid #3a6a4a;
+      font-size: 1.5em;
+      color: #5a9a5a;
+      background: linear-gradient(135deg, #1a2a1a 0%, #0a1a0a 100%);
+      border: 1px solid #2a4a2a;
       border-radius: 4px;
       padding: 0.3em 0.55em;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
@@ -895,43 +895,92 @@
       transition: color 0.1s;
     }
 
-    /* Logo intensity animations - shrinks like zooming out */
+    /* Logo intensity animations - shrinks like zooming out, maintains tight shadow, adds colored moving shadows */
     .gift-logo.intensity-1 {
-      animation: logo-pulse 2s ease-in-out infinite;
+      animation: logo-pulse-1 2s ease-in-out infinite, logo-shadow-1 3s ease-in-out infinite;
       transform: scale(0.9);
     }
 
     .gift-logo.intensity-2 {
-      animation: logo-glow 1.5s ease-in-out infinite;
+      animation: logo-pulse-2 1.5s ease-in-out infinite, logo-shadow-2 2s ease-in-out infinite;
       transform: scale(0.75);
     }
 
     .gift-logo.intensity-3 {
-      animation: logo-rainbow 2s linear infinite, logo-pulse 1s ease-in-out infinite;
+      animation: logo-pulse-3 1s ease-in-out infinite, logo-shadow-3 1.5s linear infinite;
       transform: scale(0.6);
     }
 
     .gift-logo.intensity-4 {
-      animation: logo-rainbow 0.8s linear infinite, logo-shake 0.3s ease-in-out infinite;
+      animation: logo-shake 0.3s ease-in-out infinite, logo-shadow-4 0.8s linear infinite;
       transform: scale(0.45);
     }
 
-    @keyframes logo-pulse {
-      0%, 100% { opacity: 0.7; }
+    /* Intensity 1: Base shadow + one gold glow */
+    @keyframes logo-pulse-1 {
+      0%, 100% { opacity: 0.85; }
       50% { opacity: 1; }
     }
-
-    @keyframes logo-glow {
-      0%, 100% { filter: drop-shadow(0 0 5px rgba(255,215,0,0.4)) brightness(1); }
-      50% { filter: drop-shadow(0 0 20px rgba(255,215,0,0.8)) brightness(1.3); }
+    @keyframes logo-shadow-1 {
+      0%, 100% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(0 0 10px rgba(255,215,0,0.3));
+      }
+      50% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(0 0 20px rgba(255,215,0,0.6));
+      }
     }
 
-    @keyframes logo-rainbow {
-      0% { filter: drop-shadow(0 0 15px #ff6b6b) hue-rotate(0deg); }
-      25% { filter: drop-shadow(0 0 15px #ffd93d) hue-rotate(90deg); }
-      50% { filter: drop-shadow(0 0 15px #4ecdc4) hue-rotate(180deg); }
-      75% { filter: drop-shadow(0 0 15px #9b59b6) hue-rotate(270deg); }
-      100% { filter: drop-shadow(0 0 15px #ff6b6b) hue-rotate(360deg); }
+    /* Intensity 2: Base shadow + two colored glows (gold + cyan) */
+    @keyframes logo-pulse-2 {
+      0%, 100% { opacity: 0.9; }
+      50% { opacity: 1; }
+    }
+    @keyframes logo-shadow-2 {
+      0%, 100% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(-8px 0 15px rgba(255,215,0,0.5)) drop-shadow(8px 0 15px rgba(0,229,255,0.5));
+      }
+      50% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(8px 0 15px rgba(255,215,0,0.5)) drop-shadow(-8px 0 15px rgba(0,229,255,0.5));
+      }
+    }
+
+    /* Intensity 3: Base shadow + three colored glows rotating */
+    @keyframes logo-pulse-3 {
+      0%, 100% { opacity: 0.95; }
+      50% { opacity: 1; }
+    }
+    @keyframes logo-shadow-3 {
+      0% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(-10px -5px 20px #ff6b6b) drop-shadow(10px 0 20px #4ecdc4) drop-shadow(0 10px 20px #ffd93d);
+      }
+      33% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(10px -5px 20px #4ecdc4) drop-shadow(0 10px 20px #ff6b6b) drop-shadow(-10px 0 20px #ffd93d);
+      }
+      66% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(0 -10px 20px #ffd93d) drop-shadow(-10px 5px 20px #4ecdc4) drop-shadow(10px 5px 20px #ff6b6b);
+      }
+      100% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(-10px -5px 20px #ff6b6b) drop-shadow(10px 0 20px #4ecdc4) drop-shadow(0 10px 20px #ffd93d);
+      }
+    }
+
+    /* Intensity 4: Base shadow + four colored glows wild rotation */
+    @keyframes logo-shadow-4 {
+      0% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(-12px 0 25px #ff0080) drop-shadow(12px 0 25px #00e5ff) drop-shadow(0 -12px 25px #ffd700) drop-shadow(0 12px 25px #9b59b6);
+      }
+      25% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(0 -12px 25px #ff0080) drop-shadow(0 12px 25px #00e5ff) drop-shadow(12px 0 25px #ffd700) drop-shadow(-12px 0 25px #9b59b6);
+      }
+      50% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(12px 0 25px #ff0080) drop-shadow(-12px 0 25px #00e5ff) drop-shadow(0 12px 25px #ffd700) drop-shadow(0 -12px 25px #9b59b6);
+      }
+      75% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(0 12px 25px #ff0080) drop-shadow(0 -12px 25px #00e5ff) drop-shadow(-12px 0 25px #ffd700) drop-shadow(12px 0 25px #9b59b6);
+      }
+      100% { 
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(-12px 0 25px #ff0080) drop-shadow(12px 0 25px #00e5ff) drop-shadow(0 -12px 25px #ffd700) drop-shadow(0 12px 25px #9b59b6);
+      }
     }
 
     @keyframes logo-shake {
@@ -972,7 +1021,7 @@
     .gift-amount.intensity-1 {
       top: 20px;
       left: 180px;
-      transform: translate(-0.5em, -50%) scale(1.1);
+      transform: translate(-0.5em, -50%) scale(1.3);
       background: linear-gradient(135deg, #3a6a4a 0%, #2a5a3a 100%);
       border-color: #5a9a6a;
       animation: vegas-pulse-1 2s ease-in-out infinite;
@@ -981,7 +1030,7 @@
     .gift-amount.intensity-2 {
       top: 50px;
       left: 150px;
-      transform: translate(-0.5em, -50%) scale(1.25);
+      transform: translate(-0.5em, -50%) scale(1.5);
       color: #ffd700;
       background: linear-gradient(135deg, #4a3a1a 0%, #3a2a0a 100%);
       border-color: #8a7a3a;
@@ -991,7 +1040,7 @@
     .gift-amount.intensity-3 {
       top: 80px;
       left: 120px;
-      transform: translate(-0.5em, -50%) scale(1.4);
+      transform: translate(-0.5em, -50%) scale(1.7);
       color: #fff;
       background: linear-gradient(135deg, #5a2a2a 0%, #4a1a1a 100%);
       animation: vegas-rainbow 2s linear infinite, vegas-pulse-3 1s ease-in-out infinite;
@@ -1000,7 +1049,7 @@
     .gift-amount.intensity-4 {
       top: 110px;
       left: 90px;
-      transform: translate(-0.5em, -50%) scale(1.6);
+      transform: translate(-0.5em, -50%) scale(2);
       color: #fff;
       text-shadow: 0 0 10px #fff, 0 0 20px #ffd700;
       background: linear-gradient(135deg, #6a1a3a 0%, #4a0a2a 100%);
@@ -1008,13 +1057,13 @@
     }
 
     @keyframes vegas-pulse-1 {
-      0%, 100% { transform: translate(-0.5em, -50%) scale(1.1); }
-      50% { transform: translate(-0.5em, -50%) scale(1.15); }
+      0%, 100% { transform: translate(-0.5em, -50%) scale(1.3); }
+      50% { transform: translate(-0.5em, -50%) scale(1.35); }
     }
 
     @keyframes vegas-pulse-3 {
-      0%, 100% { transform: translate(-0.5em, -50%) scale(1.4); }
-      50% { transform: translate(-0.5em, -50%) scale(1.45); }
+      0%, 100% { transform: translate(-0.5em, -50%) scale(1.7); }
+      50% { transform: translate(-0.5em, -50%) scale(1.75); }
     }
 
     /* Flames effect for max monthly ($500/mo) */
@@ -1043,7 +1092,7 @@
       100% { transform: translateY(-3px) scale(1.1); opacity: 1; }
     }
 
-    /* Lightning effect for max one-time ($2500) */
+    /* Lightning effect for max one-time ($2048) */
     .gift-amount.lightning {
       animation: vegas-rainbow 1s linear infinite, vegas-shake 0.5s ease-in-out infinite, lightning-flash 0.8s ease-in-out infinite;
     }
@@ -1080,6 +1129,31 @@
     @keyframes lightning-bolt {
       0%, 100% { opacity: 0.7; transform: translateY(0) rotate(-5deg); }
       50% { opacity: 1; transform: translateY(-2px) rotate(5deg); }
+    }
+
+    /* Power of 2 special color effects */
+    .gift-amount.pow2-1 { color: #88ff88; text-shadow: 0 0 8px #00ff00; }
+    .gift-amount.pow2-2 { color: #00ffcc; text-shadow: 0 0 8px #00ffcc; }
+    .gift-amount.pow2-4 { color: #00ccff; text-shadow: 0 0 10px #00ccff; }
+    .gift-amount.pow2-8 { color: #6699ff; text-shadow: 0 0 10px #6699ff; }
+    .gift-amount.pow2-16 { color: #9966ff; text-shadow: 0 0 12px #9966ff; }
+    .gift-amount.pow2-32 { color: #cc66ff; text-shadow: 0 0 12px #cc66ff; }
+    .gift-amount.pow2-64 { color: #ff66cc; text-shadow: 0 0 14px #ff66cc; }
+    .gift-amount.pow2-128 { color: #ff6699; text-shadow: 0 0 14px #ff6699; }
+    .gift-amount.pow2-256 { color: #ff9933; text-shadow: 0 0 16px #ff9933; }
+    .gift-amount.pow2-512 { color: #ffcc00; text-shadow: 0 0 16px #ffcc00; }
+    .gift-amount.pow2-1024 { color: #ffff00; text-shadow: 0 0 20px #ffff00, 0 0 30px #ffaa00; }
+    .gift-amount.pow2-2048 { 
+      color: #ffffff; 
+      text-shadow: 0 0 20px #fff, 0 0 40px #ff00ff, 0 0 60px #00ffff;
+      animation: pow2-max 0.5s linear infinite;
+    }
+    
+    @keyframes pow2-max {
+      0%, 100% { text-shadow: 0 0 20px #fff, 0 0 40px #ff00ff, 0 0 60px #00ffff; }
+      25% { text-shadow: 0 0 20px #fff, 0 0 40px #00ffff, 0 0 60px #ffff00; }
+      50% { text-shadow: 0 0 20px #fff, 0 0 40px #ffff00, 0 0 60px #ff00ff; }
+      75% { text-shadow: 0 0 20px #fff, 0 0 40px #ff00ff, 0 0 60px #00ff00; }
     }
 
     /* Currency conversion display - to right of price */
@@ -1232,6 +1306,29 @@
       height: 18px;
       accent-color: var(--gold);
       cursor: pointer;
+      /* Dark checkbox appearance */
+      appearance: none;
+      -webkit-appearance: none;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      position: relative;
+    }
+
+    .gift-monthly-check input[type="checkbox"]:checked {
+      background: var(--gold);
+      border-color: var(--gold);
+    }
+
+    .gift-monthly-check input[type="checkbox"]:checked::after {
+      content: '✓';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #000;
+      font-size: 12px;
+      font-weight: bold;
     }
 
     .gift-monthly-check:hover {
@@ -2610,8 +2707,8 @@
       bottom: 0;
       left: 0;
       right: 0;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.15);
+      height: 2px;
+      background: rgba(255, 255, 255, 0.08);
       z-index: 15;
       overflow: hidden;
     }
@@ -2619,7 +2716,7 @@
     .shop-auto-progress-bar {
       height: 100%;
       width: 0%;
-      background: var(--pink);
+      background: rgba(255, 255, 255, 0.4);
       transition: width 0.05s linear;
     }
 
@@ -2632,11 +2729,13 @@
       flex-direction: column;
       position: relative;
       aspect-ratio: 1;
-      /* VHS chromatic aberration shadow */
+      /* VHS chromatic aberration shadow - super vibrant */
       box-shadow: 
-        -3px 0 0 rgba(255, 0, 100, 0.4),
-        3px 0 0 rgba(0, 200, 255, 0.4),
-        0 4px 20px rgba(0, 0, 0, 0.5);
+        -4px 0 0 #ff0080,
+        4px 0 0 #00e5ff,
+        -6px 3px 0 rgba(255, 0, 128, 0.6),
+        6px 3px 0 rgba(0, 229, 255, 0.6),
+        0 8px 30px rgba(0, 0, 0, 0.7);
       /* Safari mobile fix for border-radius */
       -webkit-mask-image: -webkit-radial-gradient(white, black);
       isolation: isolate;
@@ -2812,6 +2911,36 @@
       max-height: 100%;
       object-fit: contain;
       background: #000;
+      /* VHS color bleeding effect */
+      filter: saturate(1.1) contrast(1.05);
+    }
+
+    /* VHS scanlines overlay */
+    .tv-slide::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 2px,
+        rgba(0, 0, 0, 0.15) 2px,
+        rgba(0, 0, 0, 0.15) 4px
+      );
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* VHS noise overlay */
+    .tv-slide::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.04;
+      pointer-events: none;
+      z-index: 6;
+      mix-blend-mode: overlay;
     }
 
     .tv-slide.entering {
@@ -3601,9 +3730,16 @@
       text-decoration: none;
     }
 
+    .footer-user-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
     .footer-logout-link {
       display: block;
-      margin-top: 4px;
+      margin-top: 6px;
       font-size: 10px;
       color: rgba(255, 255, 255, 0.3);
       text-decoration: none;
@@ -3850,7 +3986,7 @@
                 </div>
               </div>
               <div class="gift-controls">
-                <input type="range" min="1" max="2500" step="1" value="128">
+                <input type="range" min="1" max="2048" step="1" value="128">
                 <div class="invest-suggestion" style="display: none;">
                   <span data-lang="en">At this level, consider <a href="#invest" class="invest-link">investing</a> for equity!</span>
                   <span data-lang="da">På dette niveau, overvej at <a href="#invest" class="invest-link">investere</a> for ejerandel!</span>
@@ -3970,19 +4106,19 @@
       </div>
 
       <div class="prose full-width" data-lang="en">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> is the networked culture of users supported by media tooling from the full-time software engineering practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, who has been building experimental software instruments for over a decade. He lives in Echo Park with <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in a house full of musicians, and regularly does show and tell at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. The next meeting is at 7pm on Tuesday, January 6th at <a href="https://plot.place">Plot</a>.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> is a social software network supported by media tooling from the full-time engineering practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, who has been building experimental software instruments for over a decade. He lives in Echo Park with <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in a house full of musicians, and regularly does show and tell at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. The next meeting is at 7pm on Tuesday, January 6th at <a href="https://plot.place">Plot</a>.
       </div>
       <div class="prose full-width" data-lang="da">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> er en kultur af sine brugere og den fuldtids softwareudviklingspraksis af <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, som har bygget eksperimentelle software-instrumenter i over et årti. Han bor i Echo Park med <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> og et hus fuldt af musikere, og demonstrerer regelmæssigt softwaren ved <a href="https://nelacomputer.club">NELA Computer Club</a> i Chinatown. Det næste møde er kl. 19 tirsdag den 6. januar på <a href="https://plot.place">Plot</a>.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> er et socialt softwarenetværk understøttet af medieværktøjer fra fuldtids ingeniørpraksis af <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, som har bygget eksperimentelle software-instrumenter i over et årti. Han bor i Echo Park med <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> i et hus fuldt af musikere, og demonstrerer regelmæssigt softwaren ved <a href="https://nelacomputer.club">NELA Computer Club</a> i Chinatown. Det næste møde er kl. 19 tirsdag den 6. januar på <a href="https://plot.place">Plot</a>.
       </div>
       <div class="prose full-width" data-lang="de">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> ist eine vernetzte Kultur seiner Nutzer, unterstützt durch Medientools aus der Vollzeit-Softwareentwicklungspraxis von <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, der seit über einem Jahrzehnt experimentelle Software-Instrumente baut. Er lebt in Echo Park mit <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in einem Haus voller Musiker und präsentiert regelmäßig beim <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. Das nächste Treffen ist am Dienstag, 6. Januar um 19 Uhr bei <a href="https://plot.place">Plot</a>.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> ist ein soziales Software-Netzwerk, unterstützt durch Medientools aus der Vollzeit-Ingenieurpraxis von <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, der seit über einem Jahrzehnt experimentelle Software-Instrumente baut. Er lebt in Echo Park mit <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in einem Haus voller Musiker und präsentiert regelmäßig beim <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. Das nächste Treffen ist am Dienstag, 6. Januar um 19 Uhr bei <a href="https://plot.place">Plot</a>.
       </div>
       <div class="prose full-width" data-lang="es">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> es la cultura en red de sus usuarios, apoyada por herramientas de medios de la práctica de desarrollo de software a tiempo completo de <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, quien ha estado creando instrumentos de software experimentales durante más de una década. Vive en Echo Park con <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> en una casa llena de músicos, y regularmente hace demostraciones en el <a href="https://nelacomputer.club">NELA Computer Club</a> en Chinatown. La próxima reunión es a las 7pm el martes 6 de enero en <a href="https://plot.place">Plot</a>.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> es una red de software social apoyada por herramientas de medios de la práctica de ingeniería a tiempo completo de <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, quien ha estado creando instrumentos de software experimentales durante más de una década. Vive en Echo Park con <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> en una casa llena de músicos, y regularmente hace demostraciones en el <a href="https://nelacomputer.club">NELA Computer Club</a> en Chinatown. La próxima reunión es a las 7pm el martes 6 de enero en <a href="https://plot.place">Plot</a>.
       </div>
       <div class="prose full-width" data-lang="zh">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> 是由 <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> 全职软件开发实践所支持的用户网络文化，他已经创建实验性软件工具超过十年。他与 <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> 住在 Echo Park 一个满是音乐人的房子里，并定期在 Chinatown 的 <a href="https://nelacomputer.club">NELA Computer Club</a> 展示。下次聚会时间为1月6日星期二晚上7点在 <a href="https://plot.place">Plot</a>。
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> 是一个社交软件网络，由 <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> 的全职工程实践所支持，他已经创建实验性软件工具超过十年。他与 <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> 住在 Echo Park 一个满是音乐人的房子里，并定期在 Chinatown 的 <a href="https://nelacomputer.club">NELA Computer Club</a> 展示。下次聚会时间为1月6日星期二晚上7点在 <a href="https://plot.place">Plot</a>。
       </div>
 
       <div class="stats-section">
@@ -4248,10 +4384,12 @@
             <button class="footer-login-btn" id="footerLoginBtn">Log in</button>
             <button class="footer-signup-btn" id="footerSignupBtn">I'm new</button>
           </div>
-          <a class="footer-user-menu" id="footerUserMenu" style="display: none;" href="#">
-            <span class="footer-user-handle" id="footerUserHandle"></span>
-          </a>
-          <a class="footer-logout-link" id="footerLogoutLink" style="display: none;" href="#">logout</a>
+          <div class="footer-user-stack" id="footerUserStack" style="display: none;">
+            <a class="footer-user-menu" id="footerUserMenu" href="#">
+              <span class="footer-user-handle" id="footerUserHandle"></span>
+            </a>
+            <a class="footer-logout-link" id="footerLogoutLink" href="#">logout?</a>
+          </div>
         </div>
       </div>
 
@@ -5384,7 +5522,7 @@ give.aesthetic.computer`);
             if (parseInt(slider.value) > parseInt(slider.max)) slider.value = currency === 'dkk' ? 175 : 25;
           } else {
             slider.min = currency === 'dkk' ? 25 : 1;
-            slider.max = currency === 'usd' ? 2500 : currency === 'dkk' ? 17500 : 500;
+            slider.max = currency === 'usd' ? 2048 : currency === 'dkk' ? 17500 : 500;
             slider.step = currency === 'dkk' ? 25 : 1;
           }
           update();
@@ -5482,13 +5620,17 @@ give.aesthetic.computer`);
           slider.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
           conversionEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
           
+          // Remove power-of-2 color classes
+          const pow2Classes = ['pow2-1', 'pow2-2', 'pow2-4', 'pow2-8', 'pow2-16', 'pow2-32', 'pow2-64', 'pow2-128', 'pow2-256', 'pow2-512', 'pow2-1024', 'pow2-2048'];
+          pow2Classes.forEach(c => amountEl.classList.remove(c));
+          
           // Add appropriate intensity based on value (starts from $1)
           let intensity = 0;
-          if (value >= 1500) {
+          if (value >= 1024) {
             intensity = 4;
-          } else if (value >= 300) {
+          } else if (value >= 256) {
             intensity = 3;
-          } else if (value >= 75) {
+          } else if (value >= 64) {
             intensity = 2;
           } else if (value >= 1) {
             intensity = 1;
@@ -5504,12 +5646,18 @@ give.aesthetic.computer`);
             stopWiggle();
           }
           
+          // Add power-of-2 color class for exact powers of 2
+          const powersOf2 = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048];
+          if (powersOf2.includes(value)) {
+            amountEl.classList.add(`pow2-${value}`);
+          }
+          
           // Special effects for max amounts
           if (isMonthly && value >= 500) {
             // Max monthly ($500/mo) - flames
             amountEl.classList.add('flames');
-          } else if (!isMonthly && value >= 2500) {
-            // Max one-time ($2500) - flames + lightning
+          } else if (!isMonthly && value >= 2048) {
+            // Max one-time ($2048) - flames + lightning
             amountEl.classList.add('flames', 'lightning');
           }
           
@@ -5522,11 +5670,11 @@ give.aesthetic.computer`);
           conversionEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
           
           let intensity = 0;
-          if (usdEquiv >= 1500) {
+          if (usdEquiv >= 1024) {
             intensity = 4;
-          } else if (usdEquiv >= 300) {
+          } else if (usdEquiv >= 256) {
             intensity = 3;
-          } else if (usdEquiv >= 75) {
+          } else if (usdEquiv >= 64) {
             intensity = 2;
           } else if (usdEquiv >= 1) {
             intensity = 1;
@@ -7791,15 +7939,15 @@ give.aesthetic.computer`);
     
     function updateFooterAuthUI() {
       const authButtons = document.getElementById('footerAuthButtons');
+      const userStack = document.getElementById('footerUserStack');
       const userMenu = document.getElementById('footerUserMenu');
       const userHandle = document.getElementById('footerUserHandle');
-      const logoutLink = document.getElementById('footerLogoutLink');
       
       if (acUser) {
-        // Logged in - show handle linking to profile
+        // Logged in - show handle + logout stack
         if (authButtons) authButtons.style.display = 'none';
+        if (userStack) userStack.style.display = 'flex';
         if (userMenu) {
-          userMenu.style.display = 'flex';
           const displayName = acHandle ? `@${acHandle}` : acUser.email?.split('@')[0] || 'User';
           if (userHandle) userHandle.textContent = displayName;
           // Link to profile if we have a handle
@@ -7809,12 +7957,10 @@ give.aesthetic.computer`);
             userMenu.href = 'https://aesthetic.computer/profile';
           }
         }
-        if (logoutLink) logoutLink.style.display = 'block';
       } else {
         // Logged out - show auth buttons
         if (authButtons) authButtons.style.display = 'flex';
-        if (userMenu) userMenu.style.display = 'none';
-        if (logoutLink) logoutLink.style.display = 'none';
+        if (userStack) userStack.style.display = 'none';
       }
     }
     
