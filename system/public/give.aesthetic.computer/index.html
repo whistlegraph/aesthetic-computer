@@ -4496,16 +4496,23 @@
       }
 
       async function transitionToNext() {
+        // Get next images
+        const nextIdx = (currentDisplayIndex + 1) % displayQueue.length;
+        const nextImages = displayQueue[nextIdx];
+        
+        // Wait for next images to load before transitioning
+        await Promise.all(nextImages.map(preloadImage));
+        
         // Store previous images for dissolve
         previousImages = [...targetImages];
         
-        // Switch to next images
-        currentDisplayIndex = (currentDisplayIndex + 1) % displayQueue.length;
-        targetImages = displayQueue[currentDisplayIndex];
+        // Switch to next images (now loaded)
+        currentDisplayIndex = nextIdx;
+        targetImages = nextImages;
         
-        // Preload next batch
-        const nextIdx = (currentDisplayIndex + 1) % displayQueue.length;
-        displayQueue[nextIdx].forEach(name => preloadImage(name));
+        // Start preloading the one after that (don't await)
+        const futureIdx = (currentDisplayIndex + 1) % displayQueue.length;
+        displayQueue[futureIdx].forEach(name => preloadImage(name));
         
         // Start dissolve transition
         isTransitioning = true;
@@ -4528,15 +4535,20 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
         
-        // Preload first few images
-        const firstBatch = displayQueue.slice(0, 3).flat();
-        await Promise.all(firstBatch.map(preloadImage));
+        // Only preload first batch (current)
+        const firstImages = displayQueue[0];
+        await Promise.all(firstImages.map(preloadImage));
         
-        targetImages = displayQueue[0];
+        targetImages = firstImages;
         currentAlpha = 0;
         
         // Start render loop
         render();
+        
+        // Start preloading next batch in background (don't await)
+        if (displayQueue.length > 1) {
+          displayQueue[1].forEach(name => preloadImage(name));
+        }
         
         // Fade in first image
         const fadeInInterval = setInterval(() => {
