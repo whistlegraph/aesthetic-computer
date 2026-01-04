@@ -1659,12 +1659,11 @@
       border-radius: 8px;
     }
 
-    .apps-flip-container .module-caption {
+    .apps-flip-face .module-caption {
       position: absolute;
-      bottom: 0;
+      bottom: 3px; /* Above progress bar */
       left: 0;
       right: 0;
-      z-index: 10;
       background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%);
       color: rgba(255,255,255,0.6);
       padding: 1.5em 0.8em 0.6em;
@@ -3556,7 +3555,7 @@
               <span data-lang="da">Global Aesthetic Computer chat</span>
             </div>
             <div class="flip-face-progress flip-face-progress-back">
-              <div class="flip-face-progress-bar"></div>
+              <div class="flip-face-progress-bar" id="chatFlipProgressBack"></div>
             </div>
           </div>
         </div>
@@ -3634,6 +3633,10 @@
               <span class="ableton-label">Ableton</span>
               <span class="ableton-tag">notepat</span>
             </a>
+            <div class="module-caption apps-flip-trigger" onclick="toggleAppsFlip()">
+              <span data-lang="en">Desktop apps and plugins are free.</span>
+              <span data-lang="da">Desktop-apps og plugins er gratis.</span>
+            </div>
             <div class="flip-face-progress">
               <div class="flip-face-progress-bar" id="appsFlipProgress"></div>
             </div>
@@ -3658,14 +3661,14 @@
                 <span>iOS App Store</span>
               </a>
             </div>
+            <div class="module-caption apps-flip-trigger" onclick="toggleAppsFlip()">
+              <span data-lang="en">Mobile app is free on iOS.</span>
+              <span data-lang="da">Mobil-appen er gratis på iOS.</span>
+            </div>
             <div class="flip-face-progress flip-face-progress-back">
               <div class="flip-face-progress-bar" id="appsFlipProgressMobile"></div>
             </div>
           </div>
-        </div>
-        <div class="module-caption apps-flip-caption">
-          <span data-lang="en">Downloadable apps and plugins are free.</span>
-          <span data-lang="da">Apps og plugins kan downloades gratis.</span>
         </div>
       </div>
 
@@ -5334,11 +5337,14 @@
     function resetFlipProgress() {
       flipProgress = 0;
       const bar = document.getElementById('chatFlipProgress');
+      const barBack = document.getElementById('chatFlipProgressBack');
       if (bar) bar.style.width = '0%';
+      if (barBack) barBack.style.width = '0%';
     }
     
     function updateFlipProgress() {
       const bar = document.getElementById('chatFlipProgress');
+      const barBack = document.getElementById('chatFlipProgressBack');
       const container = document.querySelector('.chat-flip-container');
       
       // Pause on hover
@@ -5351,6 +5357,7 @@
       if (!flipPaused) {
         flipProgress += 100 / (FLIP_INTERVAL / 100); // Update every 100ms
         if (bar) bar.style.width = flipProgress + '%';
+        if (barBack) barBack.style.width = flipProgress + '%';
         
         if (flipProgress >= 100) {
           toggleChatFlip();
