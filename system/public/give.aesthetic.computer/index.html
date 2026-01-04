@@ -3827,7 +3827,8 @@
     };
 
     const jeffreysImages = Object.keys(jeffreysData);
-    const DEBUG_FACES = true; // Set true to show face boxes
+    const DEBUG_FACES = false; // Set true to show face boxes
+    const FACE_GLOW = true; // Soft radial glow on detected faces
 
     function initJeffreysSlideshow() {
       const container = document.getElementById('jeffreysSlideshow');
@@ -3902,8 +3903,8 @@
       let targetImages = [];
       let floatOffset = 0;
 
-      // Draw image centered on its focal point with Ken Burns drift
-      function drawImageFocused(img, data, destX, destY, destW, destH, alpha, drift) {
+      // Draw image with focal point offset to left or right (avoiding center logo)
+      function drawImageFocused(img, data, destX, destY, destW, destH, alpha, drift, forceOffset = null) {
         const imgW = img.width;
         const imgH = img.height;
         
@@ -3947,9 +3948,24 @@
           srcH = srcW / canvasRatio;
         }
         
-        // Center EXACTLY on focal point (the largest face)
-        srcX = (imgW * focalX / 100) - srcW / 2;
-        srcY = (imgH * focalY / 100) - srcH / 2;
+        // OFFSET: Position face LEFT or RIGHT of center (not in center where logo is)
+        // Decide offset direction based on face position - if face is left of center, show it left
+        // If face is right of center, show it right. This feels more natural.
+        let offsetDirection = forceOffset;
+        if (offsetDirection === null) {
+          // Auto-detect: push face to whichever side it's already leaning toward
+          offsetDirection = focalX < 50 ? 'left' : 'right';
+        }
+        
+        // Calculate offset: we want face at ~30% or ~70% of canvas, not 50%
+        // This means shifting the source crop so focal point maps to side of canvas
+        const targetCanvasPercent = offsetDirection === 'left' ? 0.30 : 0.70;
+        const focalImgX = imgW * focalX / 100;
+        const focalImgY = imgH * focalY / 100;
+        
+        // Position srcX so that focalImgX lands at targetCanvasPercent of destW
+        srcX = focalImgX - srcW * targetCanvasPercent;
+        srcY = focalImgY - srcH / 2; // Vertical still centered on face
         
         // Clamp to image bounds
         srcX = Math.max(0, Math.min(imgW - srcW, srcX));
@@ -3959,18 +3975,47 @@
         ctx.globalAlpha = alpha;
         ctx.drawImage(img, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
         
-        // Debug: draw face boxes
-        if (DEBUG_FACES && data.faces) {
-          ctx.strokeStyle = 'rgba(255, 0, 255, 0.9)';
-          ctx.lineWidth = 2;
+        // Soft radial glow highlights on faces
+        if (FACE_GLOW && data.faces && data.faces.length > 0) {
           for (const face of data.faces) {
-            // Convert face percentage to image coords
             const faceImgX = imgW * face[0] / 100;
             const faceImgY = imgH * face[1] / 100;
             const faceImgW = imgW * face[2] / 100;
             const faceImgH = imgH * face[3] / 100;
             
-            // Only draw if face is in visible region
+            // Check if face is in visible region
+            if (faceImgX + faceImgW > srcX && faceImgX < srcX + srcW &&
+                faceImgY + faceImgH > srcY && faceImgY < srcY + srcH) {
+              // Map face center to canvas coords
+              const faceCenterX = destX + (faceImgX + faceImgW / 2 - srcX) / srcW * destW;
+              const faceCenterY = destY + (faceImgY + faceImgH / 2 - srcY) / srcH * destH;
+              const faceRadius = Math.max(faceImgW / srcW * destW, faceImgH / srcH * destH) * 1.2;
+              
+              // Create soft radial gradient glow
+              const glow = ctx.createRadialGradient(
+                faceCenterX, faceCenterY, 0,
+                faceCenterX, faceCenterY, faceRadius
+              );
+              // Warm golden highlight that fades out
+              glow.addColorStop(0, 'rgba(255, 245, 220, 0.15)');
+              glow.addColorStop(0.4, 'rgba(255, 230, 200, 0.08)');
+              glow.addColorStop(1, 'rgba(255, 220, 180, 0)');
+              
+              ctx.fillStyle = glow;
+              ctx.fillRect(destX, destY, destW, destH);
+            }
+          }
+        }
+        
+        // Debug: draw face boxes and show offset direction
+        if (DEBUG_FACES && data.faces) {
+          ctx.strokeStyle = 'rgba(255, 0, 255, 0.9)';
+          ctx.lineWidth = 2;
+          for (const face of data.faces) {
+            const faceImgX = imgW * face[0] / 100;
+            const faceImgY = imgH * face[1] / 100;
+            const faceImgW = imgW * face[2] / 100;
+            const faceImgH = imgH * face[3] / 100;
             if (faceImgX + faceImgW > srcX && faceImgX < srcX + srcW &&
                 faceImgY + faceImgH > srcY && faceImgY < srcY + srcH) {
               const canvasX = destX + (faceImgX - srcX) / srcW * destW;
@@ -3980,11 +4025,10 @@
               ctx.strokeRect(canvasX, canvasY, canvasFW, canvasFH);
             }
           }
-          // Draw the actual focal point we're centering on (should be center of canvas)
+          const focalCanvasX = destX + (focalImgX - srcX) / srcW * destW;
+          const focalCanvasY = destY + (focalImgY - srcY) / srcH * destH;
           ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
-          const focalCanvasX = destX + ((imgW * focalX / 100) - srcX) / srcW * destW;
-          const focalCanvasY = destY + ((imgH * focalY / 100) - srcY) / srcH * destH;
-          // Crosshair
+          ctx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
           ctx.fillRect(focalCanvasX - 15, focalCanvasY - 2, 30, 4);
           ctx.fillRect(focalCanvasX - 2, focalCanvasY - 15, 4, 30);
           ctx.beginPath();
