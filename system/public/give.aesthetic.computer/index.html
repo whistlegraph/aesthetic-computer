@@ -4136,9 +4136,9 @@
     .floating-give {
       position: absolute;
       font-family: var(--mono);
-      font-size: 1.3em;
-      color: rgba(255, 255, 255, 0.9);
-      text-shadow: 0 3px 12px rgba(0, 0, 0, 0.95), 0 1px 4px rgba(0, 0, 0, 0.8);
+      font-size: 1.5em;
+      color: rgba(255, 255, 255, 0.92);
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 4px 20px rgba(0, 0, 0, 0.3);
       pointer-events: none;
       z-index: 0;
       white-space: nowrap;
@@ -4147,6 +4147,7 @@
       opacity: 0;
       animation: floatAmbient 30s ease-in-out forwards;
       transform-origin: center center;
+      letter-spacing: 0.12em;
     }
 
     .floating-give.left-side {
@@ -4169,9 +4170,9 @@
     .floating-give .amount {
       color: var(--green);
       font-weight: bold;
-      margin-right: 0.4em;
-      font-size: 1.5em;
-      letter-spacing: 0.02em;
+      margin-right: 0.5em;
+      font-size: 1.6em;
+      letter-spacing: 0.08em;
     }
 
     .floating-give .amount .char {
@@ -4790,6 +4791,20 @@
   </dialog>
 
   <script>
+    // ====== A/B Test: Starting Price ======
+    // Randomly show $64 or $128 as starting price
+    const abTestStartPrice = Math.random() < 0.5 ? 64 : 128;
+    
+    // Apply A/B test price to all USD widgets immediately
+    document.querySelectorAll('.gift-widget[data-currency="usd"]').forEach(widget => {
+      const amountEl = widget.querySelector('.gift-amount');
+      const slider = widget.querySelector('input[type="range"]');
+      const btn = widget.querySelector('.gift-btn');
+      if (amountEl) amountEl.textContent = `$${abTestStartPrice}`;
+      if (slider) slider.value = abTestStartPrice;
+      if (btn) btn.textContent = `Give $${abTestStartPrice}`;
+    });
+    
     // ====== Jeffreys Ken Burns Canvas Slideshow ======
     // POI (Points of Interest) data: faces, bodies, hands
     // Detected using OpenCV DNN + Haar cascades
@@ -5036,8 +5051,11 @@
       let logoLoaded = false;
       logoImg.onload = () => { logoLoaded = true; };
       
+      // A/B test: randomly start at $64 or $128
+      const abTestPrice = Math.random() < 0.5 ? 64 : 128;
+      
       // Track current price and intensity from the widget
-      let currentPrice = '$128';
+      let currentPrice = `$${abTestPrice}`;
       let currentIntensity = 1; // 0-4 intensity level
       function updatePriceFromWidget() {
         const widget = container.closest('.gift-widget');
