@@ -4,16 +4,18 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.219.0",
+  "version": "1.219.1",
   "description": "Code, run, and publish your pieces. Includes Aesthetic Computer themes and KidLisp syntax highlighting.",
   "engines": {
     "vscode": "^1.105.0"
   },
   "scripts": {
     "vscode.dev": "npx serve --cors -l 6000 --ssl-cert ../ssl-dev/localhost.pem --ssl-key ../ssl-dev/localhost-key.pem",
+    "views": "node build-views.mjs",
+    "views:dev": "npx serve views -l 5555",
     "esbuild-base": "esbuild ./extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
     "esbuild": "npm run esbuild-base -- --sourcemap",
-    "compile": "npm run esbuild",
+    "compile": "npm run views && npm run esbuild",
     "reload": "npm run build; npm run uninstall:ext; npm run install:ext;",
     "build": "npm run compile; vsce package",
     "browser": "vscode-test-web --extensionDevelopmentPath=. .",
