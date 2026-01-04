@@ -6730,33 +6730,13 @@
           idx++;
         }
         
-        // Preload all images and wait for them to load
-        const preloaded = [];
-        const loadPromises = [];
-        for (const p of mixed) {
-          const img = new Image();
-          const promise = new Promise(resolve => {
-            img.onload = () => {
-              preloaded.push({ ...p, img });
-              resolve();
-            };
-            img.onerror = resolve; // Skip failed loads
-          });
-          img.src = p.media.url;
-          loadPromises.push(promise);
-        }
-        
-        await Promise.all(loadPromises);
-        console.log(`Preloaded ${preloaded.length} paintings from ${handles.length} users`);
-        
-        if (!preloaded.length) return;
-        
+        // Don't preload all - lazy load as needed
         let index = 0;
         
         function spawnFloater() {
-          if (!preloaded.length) return;
+          if (!mixed.length) return;
           
-          const p = preloaded[index % preloaded.length];
+          const p = mixed[index % mixed.length];
           index++;
           
           const floater = document.createElement('div');
@@ -6775,12 +6755,13 @@
           const duration = 10 + Math.random() * 10;
           floater.style.setProperty('--float-duration', `${duration}s`);
           
-          // Thumbnail - use preloaded image
+          // Thumbnail - lazy load this image
           const thumb = document.createElement('img');
-          thumb.src = p.img.src;
+          thumb.src = p.media.url;
           thumb.alt = p.code || 'painting';
           thumb.style.width = `${size}px`;
           thumb.style.height = `${size}px`;
+          thumb.loading = 'lazy';
           floater.appendChild(thumb);
           
           // Code label
