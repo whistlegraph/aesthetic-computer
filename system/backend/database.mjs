@@ -5,6 +5,7 @@
 import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
 
 let client;
+let clientPromise; // For connection reuse in serverless
 
 async function connect() {
   // Read environment variables at runtime, not at module load time
@@ -17,6 +18,31 @@ async function connect() {
   }
   if (!mongoDBName) {
     throw new Error('MONGODB_NAME environment variable is not set');
+  }
+
+  // Reuse existing connection if available (critical for serverless)
+  if (client) {
+    try {
+      // Verify connection is still alive
+      await client.db().admin().ping();
+      console.log(`♻️ Reusing existing MongoDB connection`);
+      return { db: client.db(mongoDBName), disconnect };
+    } catch (e) {
+      // Connection dead, clear it
+      console.log(`⚠️ Existing connection dead, reconnecting...`);
+      client = null;
+      clientPromise = null;
+    }
+  }
+
+  // If a connection is in progress, wait for it
+  if (clientPromise) {
+    try {
+      client = await clientPromise;
+      return { db: client.db(mongoDBName), disconnect };
+    } catch (e) {
+      clientPromise = null;
+    }
   }
 
   // Try multiple connection strategies
@@ -34,6 +60,8 @@ async function connect() {
         serverSelectionTimeoutMS: 10000,
         connectTimeoutMS: 10000,
         socketTimeoutMS: 45000,
+        maxPoolSize: 10, // Limit pool size for serverless
+        minPoolSize: 1,
       }
     },
     {
@@ -49,6 +77,8 @@ async function connect() {
         serverSelectionTimeoutMS: 5000,
         connectTimeoutMS: 5000,
         socketTimeoutMS: 30000,
+        maxPoolSize: 10,
+        minPoolSize: 1,
       }
     },
     {
@@ -57,6 +87,8 @@ async function connect() {
         tls: true,
         serverSelectionTimeoutMS: 5000,
         connectTimeoutMS: 5000,
+        maxPoolSize: 10,
+        minPoolSize: 1,
       }
     }
   ];
@@ -65,8 +97,9 @@ async function connect() {
   
   for (const strategy of strategies) {
     try {
-      client = new MongoClient(mongoDBConnectionString, strategy.options);
-      await client.connect();
+      const newClient = new MongoClient(mongoDBConnectionString, strategy.options);
+      clientPromise = newClient.connect();
+      client = await clientPromise;
 
       console.log(`✅ MongoDB connected successfully (${strategy.name})`);
       const db = client.db(mongoDBName);
@@ -74,6 +107,7 @@ async function connect() {
     } catch (error) {
       console.log(`❌ Connection failed (${strategy.name}):`, error.message);
       lastError = error;
+      clientPromise = null;
       if (client) {
         try { await client.close(); } catch (e) { /* ignore */ }
         client = null;
@@ -86,7 +120,9 @@ async function connect() {
 }
 
 async function disconnect() {
-  if (client) await client.close?.();
+  // In serverless, don't actually close - let connection be reused
+  // The connection will be cleaned up when the Lambda container is recycled
+  // if (client) await client.close?.();
 }
 
 // Re-usable calls to the application.
