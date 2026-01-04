@@ -4130,23 +4130,31 @@
     .floating-give {
       position: absolute;
       font-family: var(--mono);
-      font-size: 0.7em;
-      color: rgba(255, 255, 255, 0.85);
-      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 1px 3px rgba(0, 0, 0, 0.7);
+      font-size: 1.1em;
+      color: rgba(255, 255, 255, 0.95);
+      text-shadow: 0 3px 12px rgba(0, 0, 0, 0.95), 0 1px 4px rgba(0, 0, 0, 0.8);
       pointer-events: none;
       z-index: 1;
       white-space: nowrap;
-      max-width: 80%;
+      max-width: 85%;
       overflow: hidden;
       text-overflow: ellipsis;
-      animation: floatUp 12s ease-out forwards;
+      bottom: 15%;
       opacity: 0;
+      animation: floatUpFull 14s ease-out forwards;
+    }
+
+    .floating-give .char {
+      display: inline-block;
+      animation: charWiggle 0.8s ease-in-out infinite;
+      animation-delay: var(--char-delay);
     }
 
     .floating-give .amount {
       color: var(--green);
       font-weight: bold;
-      margin-right: 0.4em;
+      margin-right: 0.5em;
+      font-size: 1.2em;
     }
 
     .floating-give.monthly .amount {
@@ -4154,25 +4162,34 @@
     }
 
     .floating-give .note {
-      color: rgba(255, 255, 255, 0.7);
-      font-style: italic;
+      color: rgba(255, 255, 255, 0.85);
     }
 
-    @keyframes floatUp {
+    @keyframes floatUpFull {
       0% {
         opacity: 0;
-        transform: translateY(20px);
+        bottom: 10%;
       }
-      8% {
-        opacity: 0.9;
+      5% {
+        opacity: 1;
       }
-      85% {
-        opacity: 0.9;
+      90% {
+        opacity: 1;
       }
       100% {
         opacity: 0;
-        transform: translateY(-100px);
+        bottom: 85%;
       }
+    }
+
+    @keyframes charWiggle {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-2px);
+      }
+    }
     }
   </style>
 </head>
@@ -4855,9 +4872,21 @@
     const jeffreysImages = Object.keys(jeffreysData);
     const screenshotsImages = Object.keys(screenshotsData);
     const allImages = [...jeffreysImages, ...screenshotsImages];
-    const DEBUG_FACES = true; // Set true to show verbose POI debug info
-    const SHOW_POI_BOXES = true; // Matrix-style detection boxes
+    const DEBUG_FACES = false; // Set true for labels and coordinates
+    const SHOW_POI_BOXES = true; // Matrix-style detection boxes (aesthetic)
     const POI_GLOW = true; // Soft radial glow on detected faces/bodies
+    
+    // Aesthetic POI box colors - cycling rainbow
+    const poiColors = [
+      'rgba(255, 107, 157, 0.7)',  // pink
+      'rgba(78, 205, 196, 0.7)',   // cyan
+      'rgba(255, 217, 61, 0.7)',   // gold
+      'rgba(107, 203, 119, 0.7)',  // green
+      'rgba(180, 130, 255, 0.7)',  // purple
+      'rgba(255, 160, 100, 0.7)',  // orange
+    ];
+    let poiColorIndex = 0;
+    let poiAnimPhase = 0;
 
     function initJeffreysSlideshow() {
       const container = document.getElementById('jeffreysSlideshow');
@@ -5131,21 +5160,52 @@
         // Reset filter
         ctx.filter = 'none';
         
-        // DEBUG: Draw POI box
-        if (DEBUG_FACES) {
-          const typeColors = { f: 'rgba(255, 0, 255, 0.9)', b: 'rgba(0, 255, 255, 0.7)', h: 'rgba(255, 255, 0, 0.5)' };
-          ctx.strokeStyle = typeColors[poi.t] || 'white';
-          ctx.lineWidth = 3;
+        // Draw aesthetic animated POI box (no labels)
+        if (SHOW_POI_BOXES) {
+          // Cycle through colors with animation
+          const color = poiColors[(poiColorIndex++) % poiColors.length];
+          const pulse = 0.5 + 0.5 * Math.sin(poiAnimPhase);
+          
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2 + pulse;
+          ctx.setLineDash([8, 4]); // Dashed line for matrix look
+          ctx.lineDashOffset = -poiAnimPhase * 5; // Animated dash
+          
           // Map POI box to canvas coords
           const canvasPoiX = offsetX + poiX * coverScale;
           const canvasPoiY = offsetY + poiY * coverScale;
           const canvasPoiW = poiW * coverScale;
           const canvasPoiH = poiH * coverScale;
           ctx.strokeRect(canvasPoiX, canvasPoiY, canvasPoiW, canvasPoiH);
-          // Label
-          ctx.font = 'bold 14px monospace';
-          ctx.fillStyle = typeColors[poi.t];
-          ctx.fillText(poi.t.toUpperCase() + ' ' + data.aspect.toFixed(2), canvasPoiX + 4, canvasPoiY + 16);
+          
+          // Corner accents
+          ctx.setLineDash([]);
+          ctx.lineWidth = 3;
+          const cornerLen = Math.min(12, canvasPoiW * 0.2, canvasPoiH * 0.2);
+          // Top-left
+          ctx.beginPath();
+          ctx.moveTo(canvasPoiX, canvasPoiY + cornerLen);
+          ctx.lineTo(canvasPoiX, canvasPoiY);
+          ctx.lineTo(canvasPoiX + cornerLen, canvasPoiY);
+          ctx.stroke();
+          // Top-right
+          ctx.beginPath();
+          ctx.moveTo(canvasPoiX + canvasPoiW - cornerLen, canvasPoiY);
+          ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY);
+          ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + cornerLen);
+          ctx.stroke();
+          // Bottom-left
+          ctx.beginPath();
+          ctx.moveTo(canvasPoiX, canvasPoiY + canvasPoiH - cornerLen);
+          ctx.lineTo(canvasPoiX, canvasPoiY + canvasPoiH);
+          ctx.lineTo(canvasPoiX + cornerLen, canvasPoiY + canvasPoiH);
+          ctx.stroke();
+          // Bottom-right
+          ctx.beginPath();
+          ctx.moveTo(canvasPoiX + canvasPoiW - cornerLen, canvasPoiY + canvasPoiH);
+          ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + canvasPoiH);
+          ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + canvasPoiH - cornerLen);
+          ctx.stroke();
         }
         
         ctx.filter = 'none';
@@ -5341,7 +5401,7 @@
           }
         }
         
-        // Debug: verbose POI info
+        // Debug: verbose POI info (only when DEBUG_FACES is true)
         if (DEBUG_FACES && data.pois) {
           const typeColors = { f: 'rgba(255, 0, 255, 0.9)', b: 'rgba(0, 255, 255, 0.7)', h: 'rgba(255, 255, 0, 0.5)' };
           ctx.lineWidth = 2;
@@ -5371,6 +5431,54 @@
           ctx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
           ctx.fillRect(focalCanvasX - 15, focalCanvasY - 2, 30, 4);
           ctx.fillRect(focalCanvasX - 2, focalCanvasY - 15, 4, 30);
+        }
+        
+        // Aesthetic POI boxes (multicolored, animated, no labels)
+        if (SHOW_POI_BOXES && !DEBUG_FACES && data.pois) {
+          for (let i = 0; i < data.pois.length; i++) {
+            const poi = data.pois[i];
+            const poiImgX = imgW * poi.box[0] / 100;
+            const poiImgY = imgH * poi.box[1] / 100;
+            const poiImgW = imgW * poi.box[2] / 100;
+            const poiImgH = imgH * poi.box[3] / 100;
+            if (poiImgX + poiImgW > srcX && poiImgX < srcX + srcW &&
+                poiImgY + poiImgH > srcY && poiImgY < srcY + srcH) {
+              
+              const canvasX = destX + (poiImgX - srcX) / srcW * destW;
+              const canvasY = destY + (poiImgY - srcY) / srcH * destH;
+              const canvasFW = poiImgW / srcW * destW;
+              const canvasFH = poiImgH / srcH * destH;
+              
+              // Cycle colors per box
+              const color = poiColors[(poiColorIndex + i) % poiColors.length];
+              const pulse = 0.5 + 0.5 * Math.sin(poiAnimPhase + i * 0.5);
+              
+              ctx.strokeStyle = color;
+              ctx.lineWidth = 1.5 + pulse;
+              ctx.setLineDash([6, 3]);
+              ctx.lineDashOffset = -poiAnimPhase * 3;
+              ctx.strokeRect(canvasX, canvasY, canvasFW, canvasFH);
+              
+              // Corner accents
+              ctx.setLineDash([]);
+              ctx.lineWidth = 2.5;
+              const cornerLen = Math.min(10, canvasFW * 0.15, canvasFH * 0.15);
+              ctx.beginPath();
+              ctx.moveTo(canvasX, canvasY + cornerLen);
+              ctx.lineTo(canvasX, canvasY);
+              ctx.lineTo(canvasX + cornerLen, canvasY);
+              ctx.moveTo(canvasX + canvasFW - cornerLen, canvasY);
+              ctx.lineTo(canvasX + canvasFW, canvasY);
+              ctx.lineTo(canvasX + canvasFW, canvasY + cornerLen);
+              ctx.moveTo(canvasX, canvasFH + canvasY - cornerLen);
+              ctx.lineTo(canvasX, canvasFH + canvasY);
+              ctx.lineTo(canvasX + cornerLen, canvasFH + canvasY);
+              ctx.moveTo(canvasX + canvasFW - cornerLen, canvasFH + canvasY);
+              ctx.lineTo(canvasX + canvasFW, canvasFH + canvasY);
+              ctx.lineTo(canvasX + canvasFW, canvasFH + canvasY - cornerLen);
+              ctx.stroke();
+            }
+          }
         }
         
         ctx.restore();
@@ -5490,6 +5598,7 @@
         if (verticalScrollPhase > 1) verticalScrollPhase = 0;
         swingPhase += 0.00007 * dt; // Slow pendulum swing
         zoomPhase += 0.00004 * dt; // Very slow zoom breathing
+        poiAnimPhase += 0.05 * dt; // Animate POI box dash offset
         
         // Smooth scroll zoom interpolation (buttery smooth tracking, time-based)
         scrollZoom += (scrollZoomTarget - scrollZoom) * 0.08 * dt;
@@ -7464,6 +7573,14 @@
       
       let noteIndex = 0;
       
+      // Convert text to animated characters
+      function animateText(text) {
+        return text.split('').map((char, i) => {
+          if (char === ' ') return ' ';
+          return `<span class="char" style="--char-delay: ${i * 0.05}s">${char}</span>`;
+        }).join('');
+      }
+      
       function showNextNote() {
         const give = givesWithNotes[noteIndex];
         noteIndex = (noteIndex + 1) % givesWithNotes.length;
@@ -7471,35 +7588,35 @@
         const el = document.createElement('div');
         el.className = `floating-give${give.isRecurring ? ' monthly' : ''}`;
         
-        // Random horizontal position (10% to 70% from left)
-        const leftPos = 10 + Math.random() * 60;
-        // Random vertical start position (40% to 75% from top)
-        const topPos = 40 + Math.random() * 35;
+        // Random horizontal position (5% to 60% from left)
+        const leftPos = 5 + Math.random() * 55;
         
         el.style.left = `${leftPos}%`;
-        el.style.top = `${topPos}%`;
         
         // Truncate long notes
-        const noteText = give.note.length > 50 ? give.note.slice(0, 50) + '…' : give.note;
+        const noteText = give.note.length > 40 ? give.note.slice(0, 40) + '…' : give.note;
         const suffix = give.isRecurring ? '/mo' : '';
         
-        el.innerHTML = `<span class="amount">${give.amountDisplay}${suffix}</span><span class="note">"${noteText}"</span>`;
+        const amountAnimated = animateText(give.amountDisplay + suffix);
+        const noteAnimated = animateText(`"${noteText}"`);
+        
+        el.innerHTML = `<span class="amount">${amountAnimated}</span><span class="note">${noteAnimated}</span>`;
         
         slideshow.appendChild(el);
         
         // Remove after animation completes
-        setTimeout(() => el.remove(), 12000);
+        setTimeout(() => el.remove(), 14000);
       }
       
       // Show first note after a short delay
       setTimeout(showNextNote, 2000);
       
-      // Show new notes periodically (every 8-12 seconds, randomized)
+      // Show new notes periodically (every 10-15 seconds, randomized)
       setInterval(() => {
         if (document.visibilityState === 'visible') {
           showNextNote();
         }
-      }, 8000 + Math.random() * 4000);
+      }, 10000 + Math.random() * 5000);
     }
     
     setTimeout(loadRecentGives, 300);
