@@ -42,6 +42,56 @@ The **Emacs MCP Server** (`artery/emacs-mcp.mjs`) bridges Copilot to Emacs, enab
 
 - **NEVER** use heredoc/cat file creation in terminal (e.g., `cat > file << EOF`) — crashes devcontainer
 - **Scratch directory**: Use `scratch/` (gitignored) for temp files via `create_file` tool
+
+## Git & Merge Safety 🔒
+
+### Critical Files (Protected by Pre-Commit Hook)
+These files are frequently clobbered during bad merges. A pre-commit hook (`.githooks/pre-commit`) will **block commits** if they lose >30% of lines:
+- `artery/artery-tui.mjs` (~7200+ lines)
+- `dotfiles/dot_config/emacs.el` (~1200+ lines)
+- `system/public/aesthetic.computer/lib/udp.mjs` (~170+ lines)
+- `system/public/aesthetic.computer/lib/logs.mjs`
+- `system/public/aesthetic.computer/lib/speaker.mjs`
+- `system/public/aesthetic.computer/bios.mjs`
+
+### Why Clobbering Happens
+In VS Code devcontainer, merge conflicts can accidentally replace local files with older remote versions when:
+- Using "Accept Current" or "Accept Incoming" without reviewing
+- Auto-merging picks the wrong version
+- Large files with complex changes get resolved incorrectly
+
+### Safe Merge Process
+1. **Before merging**: `git stash` any uncommitted changes
+2. **Pull with rebase preferred**: `git pull --rebase origin main`
+3. **If conflicts occur**:
+   - For critical files above, **always** choose "Accept Both" and manually resolve
+   - Check `git diff --stat` before committing to verify line counts
+   - Large negative numbers (e.g., `-5000`) = likely clobbering!
+4. **If hook blocks commit**: 
+   - Review the warning carefully
+   - Restore from good commit: `git show <good-commit>:path/to/file > path/to/file`
+   - Only use `git commit --no-verify` if deletion is intentional
+
+### Recovering Clobbered Files
+```bash
+# Find the last good version
+git log --oneline -20 -- path/to/file
+
+# Restore from a known good commit
+git show <commit-hash>:path/to/file > path/to/file
+
+# Common restore pattern for artery-tui
+git show HEAD~5:artery/artery-tui.mjs | wc -l  # Check line count
+git show HEAD~5:artery/artery-tui.mjs > artery/artery-tui.mjs  # Restore
+```
+
+### Hook Configuration
+The hooks are in `.githooks/` and enabled via:
+```bash
+git config core.hooksPath .githooks
+```
+This is set per-repo and should persist across container rebuilds.
+
 ## Fishy Terminal 🐟
 When user says **"tell the fishy"** or **"fishy run"**, execute commands in the `🐟-fishy` emacs buffer:
 ```elisp
