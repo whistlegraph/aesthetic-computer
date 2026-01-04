@@ -4132,17 +4132,17 @@
       filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
     }
 
-    /* Floating give notes on jeffreys slideshow - particle system */
+    /* Floating give notes on jeffreys slideshow - alphabet soup particle system */
     .floating-give {
       position: absolute;
       font-family: var(--mono);
-      font-size: 1.4em;
+      font-size: 1.3em;
       color: rgba(255, 255, 255, 0.9);
       text-shadow: 0 3px 12px rgba(0, 0, 0, 0.95), 0 1px 4px rgba(0, 0, 0, 0.8);
       pointer-events: none;
       z-index: 0;
       white-space: nowrap;
-      max-width: 50%;
+      max-width: 55%;
       overflow: visible;
       opacity: 0;
       animation: floatAmbient 30s ease-in-out forwards;
@@ -4161,16 +4161,21 @@
 
     .floating-give .char {
       display: inline-block;
-      animation: charParticle var(--char-duration) ease-in-out infinite;
+      animation: charSoup var(--char-duration) ease-in-out infinite;
       animation-delay: var(--char-delay);
-      transform-origin: center center;
+      transform-origin: center bottom;
     }
 
     .floating-give .amount {
       color: var(--green);
       font-weight: bold;
-      margin-right: 0.5em;
-      font-size: 1.1em;
+      margin-right: 0.4em;
+      font-size: 1.5em;
+      letter-spacing: 0.02em;
+    }
+
+    .floating-give .amount .char {
+      animation: charSoupBig var(--char-duration) ease-in-out infinite;
     }
 
     .floating-give.monthly .amount {
@@ -4178,7 +4183,7 @@
     }
 
     .floating-give .note {
-      color: rgba(255, 255, 255, 0.85);
+      color: rgba(255, 255, 255, 0.8);
     }
 
     @keyframes floatAmbient {
@@ -4213,21 +4218,41 @@
       }
     }
 
-    @keyframes charParticle {
+    /* Alphabet soup - letters dangling on strings */
+    @keyframes charSoup {
       0%, 100% {
-        transform: translate(0, 0) rotate(0deg);
+        transform: translateY(0) rotate(var(--rot-base, 0deg));
       }
-      20% {
-        transform: translate(var(--drift-x, 3px), var(--drift-y, -6px)) rotate(var(--rot, 2deg));
+      15% {
+        transform: translateY(var(--swing-y, -8px)) translateX(var(--swing-x, 3px)) rotate(calc(var(--rot-base, 0deg) + var(--rot-swing, 4deg)));
       }
-      40% {
-        transform: translate(calc(var(--drift-x, 3px) * -0.5), calc(var(--drift-y, -6px) * 1.2)) rotate(calc(var(--rot, 2deg) * -1));
+      35% {
+        transform: translateY(calc(var(--swing-y, -8px) * 0.6)) translateX(calc(var(--swing-x, 3px) * -0.8)) rotate(calc(var(--rot-base, 0deg) - var(--rot-swing, 4deg) * 0.7));
       }
-      60% {
-        transform: translate(calc(var(--drift-x, 3px) * 0.8), calc(var(--drift-y, -6px) * 0.6)) rotate(calc(var(--rot, 2deg) * 0.5));
+      55% {
+        transform: translateY(calc(var(--swing-y, -8px) * 0.9)) translateX(calc(var(--swing-x, 3px) * 0.5)) rotate(calc(var(--rot-base, 0deg) + var(--rot-swing, 4deg) * 0.5));
       }
-      80% {
-        transform: translate(calc(var(--drift-x, 3px) * -0.3), calc(var(--drift-y, -6px) * 0.9)) rotate(calc(var(--rot, 2deg) * -0.5));
+      75% {
+        transform: translateY(calc(var(--swing-y, -8px) * 0.4)) translateX(calc(var(--swing-x, 3px) * -0.3)) rotate(calc(var(--rot-base, 0deg) - var(--rot-swing, 4deg) * 0.3));
+      }
+    }
+
+    /* Bigger swing for amount letters */
+    @keyframes charSoupBig {
+      0%, 100% {
+        transform: translateY(0) rotate(var(--rot-base, 0deg)) scale(1);
+      }
+      15% {
+        transform: translateY(calc(var(--swing-y, -8px) * 1.5)) translateX(calc(var(--swing-x, 3px) * 1.3)) rotate(calc(var(--rot-base, 0deg) + var(--rot-swing, 4deg) * 1.2)) scale(1.02);
+      }
+      35% {
+        transform: translateY(calc(var(--swing-y, -8px) * 0.9)) translateX(calc(var(--swing-x, 3px) * -1.1)) rotate(calc(var(--rot-base, 0deg) - var(--rot-swing, 4deg) * 0.9)) scale(0.98);
+      }
+      55% {
+        transform: translateY(calc(var(--swing-y, -8px) * 1.3)) translateX(calc(var(--swing-x, 3px) * 0.8)) rotate(calc(var(--rot-base, 0deg) + var(--rot-swing, 4deg) * 0.7)) scale(1.01);
+      }
+      75% {
+        transform: translateY(calc(var(--swing-y, -8px) * 0.6)) translateX(calc(var(--swing-x, 3px) * -0.5)) rotate(calc(var(--rot-base, 0deg) - var(--rot-swing, 4deg) * 0.4)) scale(0.99);
       }
     }
   </style>
@@ -7611,42 +7636,42 @@
       if (!slideshow) return;
       
       let noteIndex = 0;
-      const visibleNoteIds = new Set(); // Track which notes are currently on screen
+      const visibleNotes = new Set(); // Track note TEXT currently on screen
       
-      // Convert text to animated characters with particle-like randomness
+      // Convert text to animated characters - alphabet soup on strings
       function animateText(text) {
         return [...text].map((char, i) => {
           if (char === ' ') return ' ';
-          // Random particle properties for each character
-          const delay = i * 0.08 + Math.random() * 0.15;
-          const duration = 1.8 + Math.random() * 1.4; // 1.8-3.2s
-          const driftX = (Math.random() - 0.5) * 12; // -6 to 6px
-          const driftY = -4 - Math.random() * 8; // -4 to -12px
-          const rot = (Math.random() - 0.5) * 6; // -3 to 3deg
-          return `<span class="char" style="--char-delay: ${delay.toFixed(2)}s; --char-duration: ${duration.toFixed(1)}s; --drift-x: ${driftX.toFixed(1)}px; --drift-y: ${driftY.toFixed(1)}px; --rot: ${rot.toFixed(1)}deg">${char}</span>`;
+          // Random soup properties - each letter dangling on its own string
+          const delay = i * 0.06 + Math.random() * 0.2;
+          const duration = 2.0 + Math.random() * 2.0; // 2-4s
+          const swingX = (Math.random() - 0.5) * 10; // -5 to 5px
+          const swingY = -6 - Math.random() * 10; // -6 to -16px
+          const rotBase = (Math.random() - 0.5) * 8; // -4 to 4deg base tilt
+          const rotSwing = 3 + Math.random() * 6; // 3-9deg swing
+          return `<span class="char" style="--char-delay: ${delay.toFixed(2)}s; --char-duration: ${duration.toFixed(1)}s; --swing-x: ${swingX.toFixed(1)}px; --swing-y: ${swingY.toFixed(1)}px; --rot-base: ${rotBase.toFixed(1)}deg; --rot-swing: ${rotSwing.toFixed(1)}deg">${char}</span>`;
         }).join('');
       }
       
       function showNextNote() {
-        // Find a note that isn't currently visible
+        // Find a note that isn't currently visible (check actual note text)
         let attempts = 0;
         let give = givesWithNotes[noteIndex];
         const startIndex = noteIndex;
         
-        while (visibleNoteIds.has(give.id || give.note) && attempts < givesWithNotes.length) {
+        while (visibleNotes.has(give.note) && attempts < givesWithNotes.length) {
           noteIndex = (noteIndex + 1) % givesWithNotes.length;
           give = givesWithNotes[noteIndex];
           attempts++;
         }
         
         // If all notes are visible, skip this cycle
-        if (visibleNoteIds.has(give.id || give.note)) {
+        if (visibleNotes.has(give.note)) {
           noteIndex = (startIndex + 1) % givesWithNotes.length;
           return;
         }
         
-        const noteId = give.id || give.note;
-        visibleNoteIds.add(noteId);
+        visibleNotes.add(give.note);
         noteIndex = (noteIndex + 1) % givesWithNotes.length;
         
         const el = document.createElement('div');
@@ -7658,21 +7683,22 @@
         const topPos = 40 + Math.random() * 45;
         el.style.top = `${topPos}%`;
         
-        // Truncate long notes
+        // Truncate long notes (no quotes!)
         const noteText = give.note.length > 30 ? give.note.slice(0, 30) + '…' : give.note;
         const suffix = give.isRecurring ? '/mo' : '';
         
         const amountAnimated = animateText(give.amountDisplay + suffix);
-        const noteAnimated = animateText(`"${noteText}"`);
+        const noteAnimated = animateText(noteText);
         
         el.innerHTML = `<span class="amount">${amountAnimated}</span><span class="note">${noteAnimated}</span>`;
         
         slideshow.appendChild(el);
         
         // Remove after animation completes and clear from visible set
+        const noteToRemove = give.note;
         setTimeout(() => {
           el.remove();
-          visibleNoteIds.delete(noteId);
+          visibleNotes.delete(noteToRemove);
         }, 30000);
       }
       
