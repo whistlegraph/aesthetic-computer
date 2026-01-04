@@ -5560,7 +5560,7 @@
         </a>
       `;
     }
-    loadShopProducts();
+    setTimeout(loadShopProducts, 100);
 
     // Load stats from metrics API
     async function loadStats() {
@@ -5590,7 +5590,7 @@
         console.warn('Could not load stats:', e);
       }
     }
-    loadStats();
+    setTimeout(loadStats, 200);
 
     // KidLisp count - loaded after apiBase is defined (see below)
 
@@ -5695,7 +5695,7 @@
       }
     }
     
-    loadRecentGives();
+    setTimeout(loadRecentGives, 300);
 
     // Determine API base URL (relative for local dev, absolute for production)
     const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('local.')
@@ -5715,7 +5715,7 @@
         console.warn('Could not load kidlisp count:', e);
       }
     }
-    loadKidlispCount();
+    setTimeout(loadKidlispCount, 400);
 
     // TV video feed - load and cycle through tape videos
     let tvTapes = [];
@@ -5890,7 +5890,7 @@
         container.insertBefore(overlay, container.firstChild);
       });
     }
-    loadTVFeed();
+    setTimeout(loadTVFeed, 500);
     
     // Linkify text - parse URLs, @handles, 'prompts', #paintings
     // Works on raw text, escapes only plain text segments
@@ -6052,7 +6052,7 @@
       return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
     
-    loadChatMessages();
+    setTimeout(loadChatMessages, 600);
     
     // Auto-scroll chat messages
     function autoScrollChat(containerId, speed = 0.5) {
@@ -6126,7 +6126,7 @@
       }
     }
     
-    loadChatSystemMessages();
+    setTimeout(loadChatSystemMessages, 700);
     
     // Flip card toggle function with direction support
     function toggleChatFlip(direction) {
@@ -6482,7 +6482,7 @@
       }
     }
     
-    loadKidlispCarousel();
+    setTimeout(loadKidlispCarousel, 800);
     
     // Desktop Release Info - Fetch from GitHub
     async function loadDesktopReleaseInfo() {
@@ -6575,8 +6575,8 @@
       }
     }
     
-    loadDesktopReleaseInfo();
-    loadVSCodeExtVersion();
+    setTimeout(loadDesktopReleaseInfo, 900);
+    setTimeout(loadVSCodeExtVersion, 1000);
 
     // Apps Flip Card - Desktop / Mobile swivel
     function toggleAppsFlip(direction) {
@@ -6791,7 +6791,7 @@
       }
     }
     
-    loadFloatingPaintings();
+    setTimeout(loadFloatingPaintings, 2000);
 
     // 🏷️ Floating Handles in Stats
     async function loadFloatingHandles() {
@@ -6864,7 +6864,7 @@
       }
     }
     
-    loadFloatingHandles();
+    setTimeout(loadFloatingHandles, 2500);
 
     // 😊 Floating Moods in Stats
     async function loadFloatingMoods() {
@@ -6957,7 +6957,7 @@
       }
     }
     
-    loadFloatingMoods();
+    setTimeout(loadFloatingMoods, 3000);
 
     // 💻 Floating KidLisp Codes in Stats
     async function loadFloatingKidlisp() {
@@ -7040,7 +7040,7 @@
       }
     }
     
-    loadFloatingKidlisp();
+    setTimeout(loadFloatingKidlisp, 3500);
 
     // 🧩 Floating Commands (pieces + prompts) in Stats
     async function loadFloatingCommands() {
@@ -7118,7 +7118,7 @@
       }
     }
     
-    loadFloatingCommands();
+    setTimeout(loadFloatingCommands, 4000);
 
     // 💬 Floating Messages in Stats
     async function loadFloatingMessages() {
@@ -7198,7 +7198,7 @@
       }
     }
     
-    loadFloatingMessages();
+    setTimeout(loadFloatingMessages, 4500);
     
     // ====== Auth0 Authentication ======
     let auth0Client = null;
