@@ -3585,7 +3585,7 @@
               </a>
             </div>
             <div class="flip-face-progress flip-face-progress-back">
-              <div class="flip-face-progress-bar"></div>
+              <div class="flip-face-progress-bar" id="appsFlipProgressMobile"></div>
             </div>
           </div>
         </div>
@@ -5678,14 +5678,18 @@
     function resetAppsFlipProgress() {
       appsFlipProgress = 0;
       const bar = document.getElementById('appsFlipProgress');
+      const barMobile = document.getElementById('appsFlipProgressMobile');
       if (bar) bar.style.width = '0%';
+      if (barMobile) barMobile.style.width = '0%';
     }
     
     function updateAppsFlipProgress() {
       const bar = document.getElementById('appsFlipProgress');
+      const barMobile = document.getElementById('appsFlipProgressMobile');
       
       appsFlipProgress += 100 / (APPS_FLIP_INTERVAL / 100); // Update every 100ms
       if (bar) bar.style.width = appsFlipProgress + '%';
+      if (barMobile) barMobile.style.width = appsFlipProgress + '%';
       
       if (appsFlipProgress >= 100) {
         toggleAppsFlip();
