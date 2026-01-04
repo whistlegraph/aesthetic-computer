@@ -25,6 +25,10 @@
   <meta name="twitter:player:height" content="630" />
   <meta name="twitter:site" content="@aestheticco_mp" />
   
+  <!-- Fonts -->
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css">
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+  
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <!--
     TODO: Give Page Improvements (2026.01.03)
@@ -51,16 +55,6 @@
     All tasks completed! 🎉
   -->
   <style>
-    @font-face {
-      font-family: 'ywft';
-      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2'),
-           url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff') format('woff');
-    }
-    @font-face {
-      font-family: 'berkeley';
-      src: url('https://aesthetic.computer/type/webfonts/BerkeleyMonoVariable-Regular.woff2') format('woff2');
-    }
-
     :root {
       --bg: #f4f4f0;
       --text: #1a1a1a;
@@ -71,7 +65,7 @@
       --green: #4a9e5b;
       --box-bg: rgba(0,0,0,0.03);
       --box-border: rgba(0,0,0,0.08);
-      --mono: 'berkeley', 'Menlo', monospace;
+      --mono: 'Berkeley Mono Variable', 'Menlo', monospace;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -139,7 +133,7 @@
     }
 
     .logo-ac {
-      font-family: 'ywft', sans-serif;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
       color: var(--pink);
     }
 
@@ -187,7 +181,7 @@
     }
 
     h1 {
-      font-family: 'ywft', sans-serif;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
       font-weight: normal;
       font-size: 1.8em;
       margin: 0 0 0.5em 0;
@@ -318,7 +312,7 @@
     #stat-messages { --stat-bg: rgba(255, 220, 100, 0.08); }
 
     .stat-value {
-      font-family: 'ywft', var(--mono);
+      font-family: 'YWFTProcessing-Regular', var(--mono);
       font-size: 1.8em;
       color: var(--gold);
       position: relative;
@@ -547,7 +541,7 @@
     }
 
     .fiat-header h2 {
-      font-family: 'ywft', sans-serif;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
       font-size: 1em;
       margin: 0;
       color: var(--cyan);
@@ -786,7 +780,7 @@
       left: 160px;
       transform: translate(-0.5em, -50%);
       transform-origin: bottom left;
-      font-family: 'ywft', var(--mono);
+      font-family: 'YWFTProcessing-Regular', var(--mono);
       font-size: 1.3em;
       color: var(--gold);
       background: linear-gradient(135deg, #2a5a3a 0%, #1a3a2a 100%);
@@ -997,7 +991,7 @@
       position: absolute;
       top: -0.5em;
       right: -7em;
-      font-family: 'ywft', var(--mono);
+      font-family: 'YWFTProcessing-Regular', var(--mono);
       font-size: 1.1em;
       color: var(--cyan);
       white-space: nowrap;
@@ -1200,7 +1194,7 @@
     }
 
     .gift-btn {
-      font-family: 'ywft', sans-serif;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
       font-size: 1.2em;
       padding: 1em 1.5em;
       background: linear-gradient(180deg, var(--green) 0%, #3a8a4a 100%);
@@ -1300,7 +1294,7 @@
 
     .crypto-label {
       display: block;
-      font-family: 'ywft', sans-serif;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
       font-size: 1.3em;
       color: var(--cyan);
       margin-bottom: 0.5em;
@@ -1425,7 +1419,7 @@
     }
 
     .digital-currency h3 {
-      font-family: 'ywft', sans-serif;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
       font-size: 0.9em;
       margin: 0 0 0.8em 0;
       color: var(--cyan);
@@ -1461,7 +1455,7 @@
       background: inherit;
       padding: 0.8em 1em;
       color: var(--pink);
-      font-family: 'ywft', sans-serif;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
       font-size: 0.9em;
       z-index: 1;
     }
@@ -2001,7 +1995,7 @@
     }
 
     .feature-module h3 {
-      font-family: 'ywft', sans-serif;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
       font-size: 0.95em;
       margin: 0 0 0.7em 0;
       color: var(--cyan);
@@ -2179,7 +2173,7 @@
     }
 
     .shop-product-title {
-      font-family: 'ywft', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'YWFTProcessing-Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 1.4em;
       font-weight: 600;
       color: #fff;
@@ -2667,7 +2661,7 @@
 
     .chat-preview-header strong {
       color: var(--gold);
-      font-family: 'ywft', sans-serif;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
       font-size: 0.9em;
     }
 
@@ -2848,7 +2842,7 @@
 
     .chat-system-header strong {
       color: rgba(180, 140, 255, 0.95);
-      font-family: 'ywft', sans-serif;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
       font-size: 0.9em;
     }
 
@@ -3180,7 +3174,7 @@
 
     .thanks-message {
 
-      font-family: 'ywft', sans-serif;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
       font-size: 1.4em;
       color: var(--text);
       max-width: 500px;
@@ -3867,7 +3861,7 @@
           
           // Amount text at bottom
           ctx.save();
-          ctx.font = 'bold 32px "ywft", sans-serif';
+          ctx.font = 'bold 32px "YWFTProcessing-Regular", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           const textHue = (hue + 0.3) % 1;
