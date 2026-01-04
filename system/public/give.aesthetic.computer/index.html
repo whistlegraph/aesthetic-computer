@@ -7637,6 +7637,7 @@
       
       let noteIndex = 0;
       const visibleNotes = new Set(); // Track note TEXT currently on screen
+      let isShowingNote = false; // Prevent concurrent calls
       
       // Convert text to animated characters - alphabet soup on strings
       function animateText(text) {
@@ -7654,10 +7655,14 @@
       }
       
       function showNextNote() {
+        // Prevent concurrent calls
+        if (isShowingNote) return;
+        isShowingNote = true;
+        
         // Find a note that isn't currently visible (check actual note text)
         let attempts = 0;
-        let give = givesWithNotes[noteIndex];
         const startIndex = noteIndex;
+        let give = givesWithNotes[noteIndex];
         
         while (visibleNotes.has(give.note) && attempts < givesWithNotes.length) {
           noteIndex = (noteIndex + 1) % givesWithNotes.length;
@@ -7668,10 +7673,15 @@
         // If all notes are visible, skip this cycle
         if (visibleNotes.has(give.note)) {
           noteIndex = (startIndex + 1) % givesWithNotes.length;
+          isShowingNote = false;
           return;
         }
         
-        visibleNotes.add(give.note);
+        // Mark as visible IMMEDIATELY before any async stuff
+        const noteKey = give.note;
+        visibleNotes.add(noteKey);
+        
+        // Move to next for subsequent calls
         noteIndex = (noteIndex + 1) % givesWithNotes.length;
         
         const el = document.createElement('div');
@@ -7693,12 +7703,12 @@
         el.innerHTML = `<span class="amount">${amountAnimated}</span><span class="note">${noteAnimated}</span>`;
         
         slideshow.appendChild(el);
+        isShowingNote = false;
         
         // Remove after animation completes and clear from visible set
-        const noteToRemove = give.note;
         setTimeout(() => {
           el.remove();
-          visibleNotes.delete(noteToRemove);
+          visibleNotes.delete(noteKey);
         }, 30000);
       }
       
