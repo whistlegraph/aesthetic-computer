@@ -3332,20 +3332,8 @@
       font-family: var(--mono);
     }
 
-    .footer-logout-btn {
-      padding: 4px 8px;
-      background: transparent;
-      border: 1px solid rgba(255,255,255,0.3);
-      color: rgba(255,255,255,0.6);
-      font-size: 11px;
-      cursor: pointer;
-      font-family: var(--mono);
-      margin-left: 8px;
-    }
-
-    .footer-logout-btn:hover {
-      border-color: white;
-      color: white;
+    .footer-user-menu {
+      text-decoration: none;
     }
 
     /* Mobile adjustments */
@@ -3886,10 +3874,9 @@
             <button class="footer-login-btn" id="footerLoginBtn">Log in</button>
             <button class="footer-signup-btn" id="footerSignupBtn">I'm new</button>
           </div>
-          <div class="footer-user-menu" id="footerUserMenu" style="display: none;">
+          <a class="footer-user-menu" id="footerUserMenu" style="display: none;" href="#">
             <span class="footer-user-handle" id="footerUserHandle"></span>
-            <button class="footer-logout-btn" id="footerLogoutBtn">Logout</button>
-          </div>
+          </a>
         </div>
       </div>
 
@@ -7196,12 +7183,18 @@
       const userHandle = document.getElementById('footerUserHandle');
       
       if (acUser) {
-        // Logged in - show user menu with handle
+        // Logged in - show handle linking to profile
         if (authButtons) authButtons.style.display = 'none';
         if (userMenu) {
           userMenu.style.display = 'flex';
           const displayName = acHandle ? `@${acHandle}` : acUser.email?.split('@')[0] || 'User';
           if (userHandle) userHandle.textContent = displayName;
+          // Link to profile if we have a handle
+          if (acHandle) {
+            userMenu.href = `https://aesthetic.computer/@${acHandle}`;
+          } else {
+            userMenu.href = 'https://aesthetic.computer/profile';
+          }
         }
       } else {
         // Logged out - show auth buttons
@@ -7224,17 +7217,9 @@
       });
     }
     
-    async function footerLogout() {
-      if (!auth0Client) return;
-      await auth0Client.logout({
-        logoutParams: { returnTo: window.location.origin + window.location.pathname }
-      });
-    }
-    
     // Footer auth button event listeners
     document.getElementById('footerLoginBtn')?.addEventListener('click', footerLogin);
     document.getElementById('footerSignupBtn')?.addEventListener('click', footerSignup);
-    document.getElementById('footerLogoutBtn')?.addEventListener('click', footerLogout);
     
     // Initialize auth
     initAuth0();
