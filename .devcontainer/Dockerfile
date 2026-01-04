@@ -173,10 +173,17 @@ RUN ARCH=$(uname -m) && \
     rm /tmp/powershell.tar.gz
 
 # --- s3cmd (for DigitalOcean Spaces management) -------------------------------
-RUN dnf install -y s3cmd && dnf clean all
+# Combined with aggressive cleanup to reclaim space first
+RUN rm -rf /var/cache/dnf /var/log/dnf* /var/log/hawkey* /tmp/* /var/tmp/* \
+           /usr/share/doc/* /usr/share/man/* /usr/share/info/* \
+           /var/log/*.log /var/log/**/*.log 2>/dev/null || true && \
+    dnf clean all && \
+    dnf install -y s3cmd && \
+    dnf clean all && \
+    rm -rf /var/cache/dnf /var/log/dnf* /var/log/hawkey* /tmp/*
 
 # --- Jupyter bits -------------------------------------------------------------
-RUN dnf install -y python3-notebook python3-nbconvert && dnf clean all
+RUN dnf install -y python3-notebook python3-nbconvert && dnf clean all && rm -rf /var/cache/dnf /var/log/dnf* /var/log/hawkey* /tmp/*
 
 # --- gcloud SDK ---------------------------------------------------------------
 RUN curl -sSL https://sdk.cloud.google.com > /tmp/install_gcloud.sh && \
