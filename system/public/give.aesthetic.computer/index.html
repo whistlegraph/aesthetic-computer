@@ -425,10 +425,6 @@
       animation: ticker-scroll 30s linear infinite;
     }
 
-    .gives-ticker:hover .gives-ticker-track {
-      animation-play-state: paused;
-    }
-
     @keyframes ticker-scroll {
       0% { transform: translateX(0); }
       100% { transform: translateX(-33.333%); }
@@ -485,6 +481,7 @@
     .gives-ticker-cta-item .pink-handle {
       color: var(--pink);
       text-decoration: none;
+      padding: 0 0.3em;
     }
     .gives-ticker-cta-item .pink-handle:hover {
       text-decoration: underline;
@@ -4749,8 +4746,8 @@
     async function loadRecentGives() {
       const ticker = document.getElementById('givesTicker');
       const ctaMessage = currentLang === 'da' 
-        ? 'At give til AC holder tjenesterne online og giver <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> mulighed for at fortsætte med at udvikle banebrydende open source-funktioner, der er frit tilgængelige for alle internetbrugere.'
-        : 'Giving to AC keeps services online and allows <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> to continue developing cutting edge, open source features that are freely available for all internet users.';
+        ? 'At give regelmæssigt til AC holder tjenesterne online og giver<a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a>mulighed for at fortsætte med at udvikle banebrydende open source-funktioner, der er frit tilgængelige for alle internetbrugere.'
+        : 'Giving to AC regularly keeps services online and allows<a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a>to continue developing cutting edge, open source features that are freely available for all internet users.';
       
       try {
         // Use local function endpoint in dev, production URL otherwise
