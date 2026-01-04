@@ -29,6 +29,7 @@
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
   
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
   <!--
     TODO: Give Page Improvements (2026.01.03)
     =========================================
@@ -2230,7 +2231,7 @@
     .shop-section .module-caption {
       background: #000;
       color: rgba(255,255,255,0.5);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: var(--mono);
       z-index: 3;
       position: relative;
     }
@@ -2302,12 +2303,14 @@
     }
 
     .shop-product-top {
-      display: flex;
+      display: inline-flex;
       flex-direction: row;
       align-items: baseline;
       gap: 0.4em;
       flex-wrap: nowrap;
       margin-bottom: 0.3em;
+      justify-content: flex-start;
+      width: auto;
     }
 
     .shop-product-title {
@@ -2318,10 +2321,8 @@
       text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,1);
       line-height: 1.2;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      flex-shrink: 1;
-      min-width: 0;
+      flex-shrink: 0;
+      flex-grow: 0;
     }
 
     .shop-product-vendor {
@@ -3267,6 +3268,96 @@
       color: rgba(255,255,255,0.7);
     }
 
+    /* Footer auth section */
+    .footer-auth {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 0.5em;
+    }
+
+    .footer-auth-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .footer-login-btn {
+      padding: 6px 14px;
+      background: rgba(30, 50, 120, 0.95);
+      color: white;
+      border: 1px solid white;
+      border-radius: 0;
+      font-size: 12px;
+      font-weight: normal;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: var(--mono);
+    }
+
+    .footer-login-btn:hover {
+      background: rgba(40, 60, 140, 0.95);
+      box-shadow: 0 0 8px rgba(100, 150, 255, 0.4);
+    }
+
+    .footer-signup-btn {
+      padding: 6px 14px;
+      background: rgba(30, 90, 50, 0.95);
+      color: white;
+      border: 1px solid white;
+      border-radius: 0;
+      font-size: 12px;
+      font-weight: normal;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: var(--mono);
+    }
+
+    .footer-signup-btn:hover {
+      background: rgba(40, 110, 60, 0.95);
+      box-shadow: 0 0 8px rgba(100, 255, 150, 0.4);
+    }
+
+    .footer-user-menu {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      background: black;
+      border: 2px solid white;
+      border-radius: 0;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .footer-user-menu:hover {
+      background: rgb(30, 30, 30);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+    }
+
+    .footer-user-handle {
+      font-size: 12px;
+      color: white;
+      font-weight: bold;
+      font-family: var(--mono);
+    }
+
+    .footer-logout-btn {
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      color: rgba(255,255,255,0.6);
+      font-size: 11px;
+      cursor: pointer;
+      font-family: var(--mono);
+      margin-left: 8px;
+    }
+
+    .footer-logout-btn:hover {
+      border-color: white;
+      color: white;
+    }
+
     /* Mobile adjustments */
     @media (max-width: 699px) {
       .stats-section {
@@ -3424,10 +3515,120 @@
     .gift-visual:has(.jeffreys-slideshow) .gift-logo {
       filter: drop-shadow(0 2px 12px rgba(205, 92, 155, 0.6)) drop-shadow(0 0 20px rgba(255,255,255,0.3));
     }
+
+    /* Give Confirmation Modal */
+    .give-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.2s ease;
+    }
+    .give-modal-overlay.active { display: flex; }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .give-modal {
+      background: var(--bg);
+      border: 1px solid var(--box-border);
+      border-radius: 12px;
+      padding: 2em;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+      animation: modalSlideIn 0.25s ease;
+    }
+    @keyframes modalSlideIn {
+      from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .give-modal-icon { font-size: 3em; margin-bottom: 0.3em; }
+    .give-modal-title {
+      font-family: 'YWFTProcessing-Regular', sans-serif;
+      font-size: 1.4em;
+      margin-bottom: 0.5em;
+      color: var(--text);
+    }
+    .give-modal-amount {
+      font-size: 1.8em;
+      font-weight: bold;
+      color: var(--pink);
+      margin-bottom: 0.5em;
+    }
+    .give-modal-note {
+      color: var(--dim);
+      font-size: 0.9em;
+      line-height: 1.5;
+      margin-bottom: 1.5em;
+      padding: 0.8em 1em;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      border-left: 3px solid var(--cyan);
+    }
+    .give-modal-note strong {
+      color: var(--cyan);
+    }
+    .give-modal-buttons {
+      display: flex;
+      gap: 0.8em;
+      justify-content: center;
+    }
+    .give-modal-btn {
+      padding: 0.8em 1.5em;
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-size: 0.95em;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+    .give-modal-btn.cancel {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+    }
+    .give-modal-btn.cancel:hover { background: rgba(255, 255, 255, 0.15); }
+    .give-modal-btn.confirm {
+      background: var(--pink);
+      color: #fff;
+      font-weight: bold;
+    }
+    .give-modal-btn.confirm:hover { background: #ff85b0; transform: scale(1.02); }
+    .give-modal-btn.confirm:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
   </style>
 </head>
 
 <body>
+  <!-- Give Confirmation Modal -->
+  <div class="give-modal-overlay" id="giveModal">
+    <div class="give-modal">
+      <div class="give-modal-icon">🎁</div>
+      <div class="give-modal-title" data-lang="en">Confirm your gift</div>
+      <div class="give-modal-title" data-lang="da" style="display:none;">Bekræft din gave</div>
+      <div class="give-modal-amount" id="giveModalAmount">$125</div>
+      <div class="give-modal-buttons">
+        <button class="give-modal-btn cancel" id="giveModalCancel">
+          <span data-lang="en">Cancel</span>
+          <span data-lang="da" style="display:none;">Annuller</span>
+        </button>
+        <button class="give-modal-btn confirm" id="giveModalConfirm">
+          <span data-lang="en">Continue to Checkout</span>
+          <span data-lang="da" style="display:none;">Fortsæt til betaling</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="top-bar">
     <div style="display: flex; align-items: center; gap: 8px;">
       <div class="logo" onclick="window.location.href='https://aesthetic.computer'"><span class="logo-give">give</span><span class="logo-sep">—</span><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span></div>
@@ -3498,7 +3699,7 @@
                     <span data-lang="da">Månedligt</span>
                   </label>
                   <span class="tax-note">
-                    <span data-lang="en"><span class="faded">Anonymous to the public.</span> Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
+                    <span data-lang="en">Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
                     <span data-lang="da">Ikke fradragsberettiget. <a href="#invest" class="invest-link">Investor?</a></span>
                   </span>
                 </div>
@@ -3524,7 +3725,7 @@
                     <span data-lang="da">Månedligt</span>
                   </label>
                   <span class="tax-note">
-                    <span data-lang="en"><span class="faded">Anonymous to the public.</span> Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
+                    <span data-lang="en">Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
                     <span data-lang="da">Ikke fradragsberettiget. <a href="#invest" class="invest-link">Investor?</a></span>
                   </span>
                 </div>
@@ -3792,7 +3993,7 @@
           <span data-lang="da">Investér</span>
         </div>
         <div class="invest-content" data-lang="en">
-          <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> is being <a href="https://prompt.ac/booted-by">booted by</a> a handful of early supporters who share in reserving company equity.<br><br>To join this community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
+          <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> was <a href="https://prompt.ac/booted-by">booted by</a> a handful of early supporters.<br><br>To join this equity holding community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
         </div>
         <div class="invest-content" data-lang="da">
           <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> bliver <a href="https://prompt.ac/booted-by">startet af</a> en håndfuld tidlige støtter, der deler i at reservere virksomhedskapital.<br><br>For at blive en del af dette fællesskab, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book en fjern-demo</a> med <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
@@ -3800,8 +4001,16 @@
       </div>
 
       <div class="page-footer">
-        <span data-lang="en">New to Aesthetic.Computer? Sign up, verify your email, get a handle, and say "hi" in <code>chat</code>!</span>
-        <span data-lang="da">Ny på Aesthetic.Computer? Tilmeld dig, bekræft din email, få et handle, og sig "hej" i <code>chat</code>!</span>
+        <div class="footer-auth" id="footerAuth">
+          <div class="footer-auth-buttons" id="footerAuthButtons">
+            <button class="footer-login-btn" id="footerLoginBtn">Log in</button>
+            <button class="footer-signup-btn" id="footerSignupBtn">I'm new</button>
+          </div>
+          <div class="footer-user-menu" id="footerUserMenu" style="display: none;">
+            <span class="footer-user-handle" id="footerUserHandle"></span>
+            <button class="footer-logout-btn" id="footerLogoutBtn">Logout</button>
+          </div>
+        </div>
       </div>
 
       <a id="pals" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;" href="#">
@@ -4916,35 +5125,79 @@
       });
     });
 
+    // Give Modal functionality
+    const giveModal = document.getElementById('giveModal');
+    const giveModalAmount = document.getElementById('giveModalAmount');
+    const giveModalCancel = document.getElementById('giveModalCancel');
+    const giveModalConfirm = document.getElementById('giveModalConfirm');
+    let pendingGiveData = null;
+
+    function showGiveModal(amount, currency, isMonthly, btn) {
+      const fmtValue = amount.toLocaleString();
+      const fmt = currency === 'dkk' ? `${fmtValue} kr` : `$${fmtValue}`;
+      const suffix = isMonthly ? (currentLang === 'da' ? '/måned' : '/month') : '';
+      giveModalAmount.textContent = fmt + suffix;
+      pendingGiveData = { amount, currency, isMonthly, btn };
+      giveModal.classList.add('active');
+      // Update language visibility in modal
+      giveModal.querySelectorAll('[data-lang]').forEach(el => {
+        el.style.display = el.dataset.lang === currentLang ? '' : 'none';
+      });
+    }
+
+    function hideGiveModal() {
+      giveModal.classList.remove('active');
+      if (pendingGiveData?.btn) {
+        const { currency, amount, isMonthly, btn } = pendingGiveData;
+        const fmtValue = amount.toLocaleString();
+        const fmt = currency === 'dkk' ? `${fmtValue} kr` : `$${fmtValue}`;
+        const suffix = isMonthly ? '/month' : '';
+        btn.textContent = currentLang === 'da' ? `Giv ${fmt}${isMonthly ? '/måned' : ''}` : `Give ${fmt}${suffix}`;
+        btn.disabled = false;
+      }
+      pendingGiveData = null;
+    }
+
+    giveModalCancel.onclick = hideGiveModal;
+    giveModal.onclick = (e) => { if (e.target === giveModal) hideGiveModal(); };
+
+    giveModalConfirm.onclick = async () => {
+      if (!pendingGiveData) return;
+      const { amount, currency, isMonthly, btn } = pendingGiveData;
+      
+      giveModalConfirm.disabled = true;
+      giveModalConfirm.innerHTML = currentLang === 'da' ? 'Omdirigerer...' : 'Redirecting...';
+
+      try {
+        const res = await fetch('https://aesthetic.computer/api/give', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: amount * 100, currency, recurring: isMonthly })
+        });
+        const data = await res.json();
+        if (data.url) window.location.href = data.url;
+        else throw new Error(data.error || 'No URL returned');
+      } catch (err) {
+        console.error('Give error:', err);
+        giveModalConfirm.disabled = false;
+        giveModalConfirm.innerHTML = `<span data-lang="en">Continue to Checkout</span><span data-lang="da" style="display:none;">Fortsæt til betaling</span>`;
+        giveModal.querySelectorAll('[data-lang]').forEach(el => {
+          el.style.display = el.dataset.lang === currentLang ? '' : 'none';
+        });
+        hideGiveModal();
+        alert(currentLang === 'da' ? 'Noget gik galt' : 'Something went wrong');
+      }
+    };
+
     document.querySelectorAll('.gift-widget:not(.crypto) .gift-btn').forEach(btn => {
-      btn.onclick = async () => {
+      btn.onclick = () => {
         const currency = btn.dataset.currency;
         const widget = btn.closest('.gift-widget');
         const slider = widget.querySelector('input[type="range"]');
         const value = parseInt(slider.value);
         const isMonthly = widget._isMonthly ? widget._isMonthly() : false;
         
-        btn.textContent = currentLang === 'da' ? 'Omdirigerer...' : 'Redirecting...';
-        btn.disabled = true;
-
-        try {
-          const res = await fetch('https://aesthetic.computer/api/give', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: value * 100, currency, recurring: isMonthly })
-          });
-          const data = await res.json();
-          if (data.url) window.location.href = data.url;
-          else throw new Error(data.error || 'No URL returned');
-        } catch (err) {
-          console.error('Give error:', err);
-          const fmtValue = value.toLocaleString();
-          const fmt = currency === 'dkk' ? `${fmtValue} kr` : `$${fmtValue}`;
-          const suffix = isMonthly ? '/month' : '';
-          btn.textContent = currentLang === 'da' ? `Giv ${fmt}${isMonthly ? '/måned' : ''}` : `Give ${fmt}${suffix}`;
-          btn.disabled = false;
-          alert(currentLang === 'da' ? 'Noget gik galt' : 'Something went wrong');
-        }
+        showGiveModal(value, currency, isMonthly, btn);
       };
     });
 
@@ -6978,6 +7231,104 @@
     }
     
     loadFloatingMessages();
+    
+    // ====== Auth0 Authentication ======
+    let auth0Client = null;
+    let acUser = null;
+    let acHandle = null;
+    
+    async function initAuth0() {
+      try {
+        auth0Client = await auth0.createAuth0Client({
+          domain: 'aesthetic.us.auth0.com',
+          clientId: 'eVT7bR0HvOMVndyPJVhyIyAFR9CVMLVQ',
+          authorizationParams: {
+            redirect_uri: window.location.origin + window.location.pathname,
+            audience: 'https://aesthetic.us.auth0.com/api/v2/'
+          },
+          cacheLocation: 'localstorage'
+        });
+        
+        // Handle redirect callback
+        if (window.location.search.includes('code=') || window.location.search.includes('error=')) {
+          await auth0Client.handleRedirectCallback();
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        
+        // Check if logged in
+        const isAuthenticated = await auth0Client.isAuthenticated();
+        if (isAuthenticated) {
+          acUser = await auth0Client.getUser();
+          // Fetch handle from AC API
+          try {
+            const token = await auth0Client.getTokenSilently();
+            const res = await fetch('https://aesthetic.computer/api/me', {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              acHandle = data.handle;
+            }
+          } catch (e) {
+            console.warn('Could not fetch handle:', e);
+          }
+        }
+        
+        updateFooterAuthUI();
+      } catch (e) {
+        console.error('Auth0 init error:', e);
+        updateFooterAuthUI();
+      }
+    }
+    
+    function updateFooterAuthUI() {
+      const authButtons = document.getElementById('footerAuthButtons');
+      const userMenu = document.getElementById('footerUserMenu');
+      const userHandle = document.getElementById('footerUserHandle');
+      
+      if (acUser) {
+        // Logged in - show user menu with handle
+        if (authButtons) authButtons.style.display = 'none';
+        if (userMenu) {
+          userMenu.style.display = 'flex';
+          const displayName = acHandle ? `@${acHandle}` : acUser.email?.split('@')[0] || 'User';
+          if (userHandle) userHandle.textContent = displayName;
+        }
+      } else {
+        // Logged out - show auth buttons
+        if (authButtons) authButtons.style.display = 'flex';
+        if (userMenu) userMenu.style.display = 'none';
+      }
+    }
+    
+    async function footerLogin() {
+      if (!auth0Client) await initAuth0();
+      if (!auth0Client) return;
+      await auth0Client.loginWithRedirect();
+    }
+    
+    async function footerSignup() {
+      if (!auth0Client) await initAuth0();
+      if (!auth0Client) return;
+      await auth0Client.loginWithRedirect({
+        authorizationParams: { screen_hint: 'signup' }
+      });
+    }
+    
+    async function footerLogout() {
+      if (!auth0Client) return;
+      await auth0Client.logout({
+        logoutParams: { returnTo: window.location.origin + window.location.pathname }
+      });
+    }
+    
+    // Footer auth button event listeners
+    document.getElementById('footerLoginBtn')?.addEventListener('click', footerLogin);
+    document.getElementById('footerSignupBtn')?.addEventListener('click', footerSignup);
+    document.getElementById('footerLogoutBtn')?.addEventListener('click', footerLogout);
+    
+    // Initialize auth
+    initAuth0();
   </script>
   
   <!-- 🔄 Development live reload via session-server -->
