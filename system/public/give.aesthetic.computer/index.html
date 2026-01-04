@@ -3346,50 +3346,40 @@
       background-position: center;
       opacity: 0;
       transform: scale(1.0);
-      transition: opacity 2s ease-in-out;
-      /* Nostalgic filter: sepia, slight desaturation, soft fade */
-      filter: sepia(0.3) saturate(0.7) brightness(0.6) contrast(0.9);
+      transition: opacity 2.5s ease-in-out, background-position 0.5s ease-out;
+      /* More faded nostalgic filter */
+      filter: sepia(0.25) saturate(0.5) brightness(0.45) contrast(0.85) grayscale(0.15);
     }
 
     .jeffreys-slide.active {
       opacity: 1;
-      animation: kenBurns 12s ease-in-out forwards;
+      animation: kenBurnsFocal 12s ease-in-out forwards;
     }
 
-    @keyframes kenBurns {
+    /* Ken Burns now uses CSS custom properties for focal point */
+    @keyframes kenBurnsFocal {
       0% {
-        transform: scale(1.0) translate(0, 0);
+        transform: scale(1.0);
       }
       100% {
-        transform: scale(1.15) translate(-2%, -2%);
+        transform: scale(1.2);
       }
     }
 
-    /* Alternate Ken Burns directions */
-    .jeffreys-slide.kb-right.active {
-      animation: kenBurnsRight 12s ease-in-out forwards;
-    }
-
-    @keyframes kenBurnsRight {
-      0% {
-        transform: scale(1.0) translate(0, 0);
-      }
-      100% {
-        transform: scale(1.15) translate(2%, -1%);
-      }
-    }
-
-    .jeffreys-slide.kb-up.active {
-      animation: kenBurnsUp 12s ease-in-out forwards;
-    }
-
-    @keyframes kenBurnsUp {
-      0% {
-        transform: scale(1.05) translate(0, 2%);
-      }
-      100% {
-        transform: scale(1.2) translate(0, -2%);
-      }
+    /* Purple/magenta blend overlay */
+    .jeffreys-slideshow::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        135deg,
+        rgba(148, 0, 211, 0.35) 0%,
+        rgba(205, 92, 155, 0.4) 50%,
+        rgba(138, 43, 226, 0.3) 100%
+      );
+      mix-blend-mode: overlay;
+      pointer-events: none;
+      z-index: 2;
     }
 
     /* Vignette overlay for extra nostalgia */
@@ -3397,20 +3387,20 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.4) 100%);
+      background: radial-gradient(ellipse at center, transparent 30%, rgba(26, 26, 46, 0.6) 100%);
       pointer-events: none;
-      z-index: 1;
+      z-index: 3;
     }
 
     /* Make sure gift-logo-wrap stays above slideshow */
     .gift-logo-wrap {
       position: relative;
-      z-index: 2;
+      z-index: 4;
     }
 
-    /* Slightly brighter logo on slideshow background */
+    /* Brighter logo with glow on slideshow background */
     .gift-visual:has(.jeffreys-slideshow) .gift-logo {
-      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+      filter: drop-shadow(0 2px 12px rgba(205, 92, 155, 0.6)) drop-shadow(0 0 20px rgba(255,255,255,0.3));
     }
   </style>
 </head>
@@ -3807,7 +3797,31 @@
       'IMG_2905', 'IMG_3017', 'IMG_3234', 'IMG_4894', 'IMG_4997',
       'IMG_5043', 'IMG_5050', 'IMG_5644', 'IMG_6367', 'IMG_6435', 'IMG_8080'
     ];
-    const kbDirections = ['', 'kb-right', 'kb-up']; // Different Ken Burns directions
+    
+    // Face-detected focal points (x%, y%) - where faces are in each photo
+    const jeffreysFocal = {
+      'IMG_0260': [50.2, 80.6],
+      'IMG_1111': [64.0, 64.6],
+      'IMG_1577': [55.2, 80.5],
+      'IMG_1616': [61.0, 61.8],
+      'IMG_1809': [59.1, 38.4],
+      'IMG_2208': [59.2, 42.2],
+      'IMG_2280': [35.4, 48.8],
+      'IMG_2498': [32.5, 43.5],
+      'IMG_2658': [44.1, 57.3],
+      'IMG_2668': [46.4, 45.4],
+      'IMG_2905': [49.5, 51.4],
+      'IMG_3017': [32.8, 38.0],
+      'IMG_3234': [40.1, 57.8],
+      'IMG_4894': [47.2, 64.8],
+      'IMG_4997': [44.6, 56.3],
+      'IMG_5043': [45.3, 56.0],
+      'IMG_5050': [58.6, 55.4],
+      'IMG_5644': [64.0, 47.0],
+      'IMG_6367': [30.6, 53.5],
+      'IMG_6435': [43.8, 68.7],
+      'IMG_8080': [47.9, 57.4]
+    };
 
     function initJeffreysSlideshow() {
       const container = document.getElementById('jeffreysSlideshow');
@@ -3831,11 +3845,12 @@
       function showNextImage() {
         const imgName = shuffled[currentIndex % shuffled.length];
         const imgUrl = `https://assets.aesthetic.computer/jeffreys/jpg/${imgName}.jpg`;
-        const kbClass = kbDirections[currentIndex % kbDirections.length];
+        const focal = jeffreysFocal[imgName] || [50, 50];
 
-        // Prepare inactive slide with new image
+        // Prepare inactive slide with new image, positioned at focal point
         inactiveSlide.style.backgroundImage = `url(${imgUrl})`;
-        inactiveSlide.className = 'jeffreys-slide ' + kbClass;
+        inactiveSlide.style.backgroundPosition = `${focal[0]}% ${focal[1]}%`;
+        inactiveSlide.className = 'jeffreys-slide';
 
         // Crossfade: deactivate current, activate new
         activeSlide.classList.remove('active');
