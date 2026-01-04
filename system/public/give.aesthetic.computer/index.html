@@ -450,6 +450,24 @@
       color: var(--dim);
     }
 
+    /* Monthly/recurring gives - yellow theme */
+    .gives-ticker-item.monthly {
+      border-right-color: rgba(255, 215, 100, 0.2);
+    }
+
+    .gives-ticker-item.monthly .got {
+      color: var(--gold);
+    }
+
+    .gives-ticker-item.monthly .amount {
+      color: var(--gold);
+    }
+
+    .gives-ticker-item.monthly .time {
+      color: var(--gold);
+      opacity: 0.7;
+    }
+
     .gives-ticker-empty {
       display: flex;
       align-items: center;
@@ -622,6 +640,7 @@
       display: flex;
       align-items: center;
       gap: 16px;
+      margin-right: calc(max(0px, (100vw - 1200px) / 2));
     }
 
     .curr-link {
@@ -1121,7 +1140,7 @@
       gap: 8px;
       padding: 0.8em 0;
       font-size: 0.85em;
-      color: var(--dim);
+      color: var(--gold);
       cursor: pointer;
       user-select: none;
     }
@@ -1158,6 +1177,10 @@
       font-size: 0.85em;
       color: var(--dim);
       text-align: right;
+    }
+
+    .tax-note .faded {
+      opacity: 0.5;
     }
 
     .tax-note a {
@@ -1564,13 +1587,12 @@
       font-family: var(--mono);
       font-size: 0.9em;
       color: #4ecdc4;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.05em;
     }
 
     .invest-content {
       font-family: 'Berkeley Mono Variable', var(--mono);
-      font-size: 1em;
+      font-size: 0.9em;
       line-height: 1.7;
       color: rgba(255, 255, 255, 0.9);
     }
@@ -2703,6 +2725,7 @@
       height: 3px;
       background: rgba(0, 0, 0, 0.3);
       overflow: hidden;
+      z-index: 10;
     }
 
     .flip-face-progress-bar {
@@ -3429,7 +3452,7 @@
     <div class="currency-links" id="currSelector">
       <span class="curr-link active" data-curr="usd"><span class="curr-flag">💵</span><span class="curr-text">USD</span></span>
       <span class="curr-link" data-curr="dkk"><span class="curr-flag">💶</span><span class="curr-text">DKK</span></span>
-      <span class="curr-link" data-curr="crypto"><span class="curr-flag">⚡</span><span class="curr-text">CRYPTO</span></span>
+      <span class="curr-link" data-curr="crypto"><span class="curr-flag">ꜩ</span><span class="curr-text">CRYPTO</span></span>
     </div>
   </div>
 
@@ -3479,11 +3502,11 @@
                 <div class="gift-monthly-row">
                   <label class="gift-monthly-check">
                     <input type="checkbox" class="monthly-checkbox">
-                    <span data-lang="en">Give monthly</span>
-                    <span data-lang="da">Giv månedligt</span>
+                    <span data-lang="en">Monthly</span>
+                    <span data-lang="da">Månedligt</span>
                   </label>
                   <span class="tax-note">
-                    <span data-lang="en">Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
+                    <span data-lang="en"><span class="faded">Anonymous to the public.</span> Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
                     <span data-lang="da">Ikke fradragsberettiget. <a href="#invest" class="invest-link">Investor?</a></span>
                   </span>
                 </div>
@@ -3505,11 +3528,11 @@
                 <div class="gift-monthly-row">
                   <label class="gift-monthly-check">
                     <input type="checkbox" class="monthly-checkbox">
-                    <span data-lang="en">Give monthly</span>
-                    <span data-lang="da">Giv månedligt</span>
+                    <span data-lang="en">Monthly</span>
+                    <span data-lang="da">Månedligt</span>
                   </label>
                   <span class="tax-note">
-                    <span data-lang="en">Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
+                    <span data-lang="en"><span class="faded">Anonymous to the public.</span> Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
                     <span data-lang="da">Ikke fradragsberettiget. <a href="#invest" class="invest-link">Investor?</a></span>
                   </span>
                 </div>
@@ -3520,7 +3543,7 @@
             <div class="gift-widget crypto crypto-compact" data-currency="crypto">
               <div class="crypto-header">
                 <img src="https://aesthetic.computer/purple-pals.svg" class="crypto-logo-tiny" alt="">
-                <span class="crypto-title">⚡ CRYPTO</span>
+                <span class="crypto-title">ꜩ CRYPTO</span>
               </div>
               <div class="crypto-controls crypto-all">
                 <div class="crypto-address copyable" data-copy="bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as">
@@ -3548,7 +3571,7 @@
       </div>
 
       <div class="prose full-width" data-lang="en">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> is the networked culture of users supported by media tooling from the full-time software engineering practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, who has been building experimental software instruments for over a decade. He lives in Echo Park with <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> and a house full of musicians, and regularly does show and tell at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. The next meeting is at 7pm on Tuesday, January 6th at <a href="https://plot.place">Plot</a>.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> is the networked culture of users supported by media tooling from the full-time software engineering practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, who has been building experimental software instruments for over a decade. He lives in Echo Park with <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in a house full of musicians, and regularly does show and tell at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. The next meeting is at 7pm on Tuesday, January 6th at <a href="https://plot.place">Plot</a>.
       </div>
       <div class="prose full-width" data-lang="da">
         <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> er en kultur af sine brugere og den fuldtids softwareudviklingspraksis af <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, som har bygget eksperimentelle software-instrumenter i over et årti. Han bor i Echo Park med <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> og et hus fuldt af musikere, og demonstrerer regelmæssigt softwaren ved <a href="https://nelacomputer.club">NELA Computer Club</a> i Chinatown. Det næste møde er kl. 19 tirsdag den 6. januar på <a href="https://plot.place">Plot</a>.
@@ -3982,12 +4005,19 @@
         if (amountDa) amountDa.textContent = formattedAmount;
       }
       
-      // 🌈 PSYCHO THANKS CANVAS with pals.svg + heart
+      // 🌈 PSYCHO THANKS CANVAS with pals.svg + heart behind
       const canvas = document.getElementById('thanksCanvas');
       if (canvas) {
         const ctx = canvas.getContext('2d');
         const W = canvas.width, H = canvas.height;
-        let t = 0;
+        
+        // Cancel any previous animation
+        if (window._thanksAnimFrame) {
+          cancelAnimationFrame(window._thanksAnimFrame);
+        }
+        
+        // Random start time so each gift looks different
+        let t = Math.random() * 100;
         let palsImg = null;
         let palsLoaded = false;
         
@@ -4053,76 +4083,72 @@
           const hue = (t * 0.08) % 1;
           
           // Floating particles in background
-          for (let i = 0; i < 20; i++) {
+          for (let i = 0; i < 15; i++) {
             const px = (W * 0.1 + (i * 137.5 + t * 30) % (W * 0.8));
             const py = (H * 0.1 + (i * 89.3 + t * 20 + Math.sin(t + i) * 30) % (H * 0.8));
-            const psize = 3 + Math.sin(t * 2 + i) * 2;
+            const psize = 2 + Math.sin(t * 2 + i) * 1.5;
             const phue = (hue + i * 0.05) % 1;
             const [pr, pg, pb] = hslToRgb(phue, 0.8, 0.6);
             ctx.beginPath();
             ctx.arc(px, py, psize, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(${pr},${pg},${pb},${0.3 + Math.sin(t * 3 + i) * 0.2})`;
+            ctx.fillStyle = `rgba(${pr},${pg},${pb},${0.25 + Math.sin(t * 3 + i) * 0.15})`;
             ctx.fill();
           }
           
-          // Draw pals.svg with animation
+          // Center position for the main composition
+          const centerX = W / 2;
+          const centerY = H / 2 - 20; // Slightly above center to leave room for text
+          
+          // Heart BEHIND the pals - pink tinted, larger
+          const heartPulse = 1 + Math.sin(t * 3) * 0.05;
+          const heartWobble = Math.sin(t * 2) * 0.03;
+          
+          const [r, g, b] = hslToRgb(0.92, 0.7, 0.65); // Pink
+          const mainColor = `rgba(${r},${g},${b},0.5)`;
+          const glowColor = `rgba(${r},${g},${b},0.3)`;
+          
+          ctx.save();
+          ctx.translate(centerX, centerY + 60); // Heart positioned behind/below pals
+          ctx.rotate(heartWobble);
+          ctx.scale(heartPulse, heartPulse);
+          
+          // Large background heart (like in the actual logo)
+          drawHeart(0, 0, 200, glowColor, 30);
+          drawHeart(0, 0, 180, mainColor, 15);
+          
+          ctx.restore();
+          
+          // Draw pals.svg BIGGER and centered
           if (palsLoaded && palsImg) {
-            const palsPulse = 1 + Math.sin(t * 2) * 0.03;
-            const palsWobble = Math.sin(t * 1.5) * 0.02;
-            const palsSize = 320 * palsPulse;
+            const palsPulse = 1 + Math.sin(t * 2) * 0.02;
+            const palsWobble = Math.sin(t * 1.5) * 0.015;
+            const palsSize = 420 * palsPulse; // Much bigger!
             
             ctx.save();
-            ctx.translate(W/2, H/2 + 20);
+            ctx.translate(centerX, centerY);
             ctx.rotate(palsWobble);
             ctx.drawImage(palsImg, -palsSize/2, -palsSize/2, palsSize, palsSize);
             ctx.restore();
           }
           
-          // Heart in top right corner
-          const heartX = W - 90;
-          const heartY = 85;
-          const heartPulse = 1 + Math.sin(t * 4) * 0.18;
-          const heartWobble = Math.sin(t * 6) * 0.08;
-          
-          const [r, g, b] = hslToRgb(hue, 0.9, 0.55);
-          const mainColor = `rgb(${r},${g},${b})`;
-          const glowHue = (hue + 0.1) % 1;
-          const [gr, gg, gb] = hslToRgb(glowHue, 1, 0.6);
-          const glowColor = `rgba(${gr},${gg},${gb},0.6)`;
-          
-          ctx.save();
-          ctx.translate(heartX, heartY);
-          ctx.rotate(heartWobble);
-          ctx.scale(heartPulse, heartPulse);
-          
-          // Outer glow heart
-          drawHeart(0, 0, 55, glowColor, 25);
-          // Main heart
-          drawHeart(0, 0, 45, mainColor, 10);
-          // Inner highlight
-          const [hr, hg, hb] = hslToRgb((hue + 0.5) % 1, 0.8, 0.75);
-          drawHeart(-8, -12, 18, `rgba(${hr},${hg},${hb},0.7)`);
-          
-          ctx.restore();
-          
-          // Sparkles around heart
-          for (let i = 0; i < 8; i++) {
-            const angle = t * 1.5 + i * 0.78;
-            const dist = 70 + Math.sin(t * 2.5 + i) * 15;
-            const sx = heartX + Math.cos(angle) * dist;
-            const sy = heartY + Math.sin(angle) * dist;
-            const sparkSize = 4 + Math.sin(t * 4 + i * 2) * 3;
-            const sparkHue = (hue + i * 0.125) % 1;
+          // Sparkles around the composition
+          for (let i = 0; i < 12; i++) {
+            const angle = t * 1.2 + i * 0.52;
+            const dist = 200 + Math.sin(t * 2 + i) * 20;
+            const sx = centerX + Math.cos(angle) * dist;
+            const sy = centerY + Math.sin(angle) * dist;
+            const sparkSize = 3 + Math.sin(t * 4 + i * 2) * 2;
+            const sparkHue = (hue + i * 0.08) % 1;
             const [sr, sg, sb] = hslToRgb(sparkHue, 1, 0.7);
             ctx.beginPath();
             ctx.arc(sx, sy, Math.max(1, sparkSize), 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(${sr},${sg},${sb},${0.6 + Math.sin(t * 3 + i) * 0.3})`;
+            ctx.fillStyle = `rgba(${sr},${sg},${sb},${0.5 + Math.sin(t * 3 + i) * 0.3})`;
             ctx.fill();
           }
           
           // Amount text at bottom
           ctx.save();
-          ctx.font = 'bold 32px "YWFTProcessing-Regular", sans-serif';
+          ctx.font = 'bold 36px "YWFTProcessing-Regular", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           const textHue = (hue + 0.3) % 1;
@@ -4130,18 +4156,18 @@
           ctx.fillStyle = `rgb(${tr},${tg},${tb})`;
           ctx.shadowColor = `rgba(${tr},${tg},${tb},0.5)`;
           ctx.shadowBlur = 15;
-          ctx.fillText(`gave ${formattedAmount}`, W/2, H - 60);
+          ctx.fillText(`gave ${formattedAmount}`, W/2, H - 55);
           ctx.restore();
           
           // "give.aesthetic.computer" watermark
           ctx.save();
-          ctx.font = '18px "berkeley", monospace';
+          ctx.font = '16px "berkeley", monospace';
           ctx.textAlign = 'center';
-          ctx.fillStyle = 'rgba(255,255,255,0.4)';
-          ctx.fillText('give.aesthetic.computer', W/2, H - 25);
+          ctx.fillStyle = 'rgba(255,255,255,0.35)';
+          ctx.fillText('give.aesthetic.computer', W/2, H - 22);
           ctx.restore();
           
-          requestAnimationFrame(animate);
+          window._thanksAnimFrame = requestAnimationFrame(animate);
         }
         animate();
         
@@ -4364,11 +4390,11 @@
           
           // Add appropriate intensity based on value (starts from $1)
           let intensity = 0;
-          if (value >= 500) {
+          if (value >= 1500) {
             intensity = 4;
-          } else if (value >= 100) {
+          } else if (value >= 300) {
             intensity = 3;
-          } else if (value >= 25) {
+          } else if (value >= 75) {
             intensity = 2;
           } else if (value >= 1) {
             intensity = 1;
@@ -4402,11 +4428,11 @@
           conversionEl?.classList.remove('intensity-1', 'intensity-2', 'intensity-3', 'intensity-4');
           
           let intensity = 0;
-          if (usdEquiv >= 500) {
+          if (usdEquiv >= 1500) {
             intensity = 4;
-          } else if (usdEquiv >= 100) {
+          } else if (usdEquiv >= 300) {
             intensity = 3;
-          } else if (usdEquiv >= 25) {
+          } else if (usdEquiv >= 75) {
             intensity = 2;
           } else if (usdEquiv >= 1) {
             intensity = 1;
@@ -4971,7 +4997,13 @@
           const noteHtml = hasNote ? `<span class="sep">:</span><span class="note">${give.note}</span>` : '';
           const timeHtml = useOn ? `<span class="time">on ${timeStr}</span>` : `<span class="time">${timeStr}</span>`;
           
+          // Monthly donations show with /mo suffix and yellow styling
+          if (give.isRecurring) {
+            return `<span class="gives-ticker-item monthly"><span class="got">Got</span><span class="amount">${give.amountDisplay}/mo</span>${timeHtml}${noteHtml}</span>`;
+          }
+          
           return `<span class="gives-ticker-item"><span class="got">Got</span><span class="amount">${give.amountDisplay}</span>${timeHtml}${noteHtml}</span>`;
+        }).join('');
         }).join('');
         
         // Add CTA as a ticker item with special styling
