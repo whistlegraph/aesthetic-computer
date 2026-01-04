@@ -1,8 +1,10 @@
 // api/tv, 2025.10.02
 // Returns feed data for the TV (For-You) experience.
+// Now with Redis caching (5 min TTL for give page calls).
 
 import { respond } from "../../backend/http.mjs";
 import { connect } from "../../backend/database.mjs";
+import { getOrCompute, CACHE_TTLS } from "../../backend/cache.mjs";
 
 const DEFAULT_MEDIA_TYPES = ["painting"];
 const MAX_LIMIT = 500;
@@ -381,6 +383,26 @@ export async function handler(event) {
   const filter = params.filter?.toLowerCase() || "recent"; // "recent" or "sprinkle"
   const sort = params.sort?.toLowerCase(); // "hits" for all-time popularity
 
+  // Create cache key from query params
+  const cacheKey = `give:tv:${requestedTypes.join(',')}:${limit}:${filter}:${sort || 'default'}`;
+  
+  try {
+    // Use caching for TV feed (5 min TTL)
+    const result = await getOrCompute(
+      cacheKey,
+      () => fetchTVFeed({ requestedTypes, limit, filter, sort }),
+      CACHE_TTLS.TV_RECENT
+    );
+    
+    return respond(200, result);
+  } catch (error) {
+    console.error("Failed to build TV feed", error);
+    return respond(500, { error: "Failed to build TV feed", details: error.message });
+  }
+}
+
+// Extracted TV feed fetching logic for caching
+async function fetchTVFeed({ requestedTypes, limit, filter, sort }) {
   const media = {};
   const pendingTypes = [];
   const unsupportedTypes = [];
@@ -575,7 +597,8 @@ export async function handler(event) {
     
     console.log(`📺 Mixed feed created: ${mixedFeed.length} items (${mixedFeed.filter(i => i.type === 'kidlisp').length} kidlisp, ${mixedFeed.filter(i => i.type === 'painting').length} paintings, ${mixedFeed.filter(i => i.type === 'tape').length} tapes, ${mixedFeed.filter(i => i.type === 'clock').length} clocks)`);
 
-    return respond(200, {
+    // Return data (not respond) since this is called from cache wrapper
+    return {
       meta: {
         requestedTypes,
         limit,
@@ -588,9 +611,9 @@ export async function handler(event) {
       },
       media,
       mixed: mixedFeed, // Add mixed/interwoven feed
-    });
+    };
   } catch (error) {
-    console.error("Failed to build TV feed", error);
-    return respond(500, { error: "Failed to build TV feed", details: error.message });
+    console.error("Failed to fetch TV feed data", error);
+    throw error; // Re-throw so cache wrapper can handle
   }
 }
