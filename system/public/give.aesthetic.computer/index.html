@@ -2982,6 +2982,14 @@
       width: 0%;
     }
 
+    .tv-progress {
+      cursor: pointer;
+    }
+
+    .tv-progress:hover .tv-progress-bar {
+      height: 5px;
+    }
+
     .tv-timer {
       position: absolute;
       bottom: 8px;
@@ -3384,13 +3392,14 @@
     }
 
     .chat-text .chat-link-prompt {
-      color: var(--gold);
+      color: inherit;
       text-decoration: none;
       font-family: var(--mono);
     }
 
     .chat-text .chat-link-prompt:hover {
-      text-decoration: underline;
+      text-decoration: none;
+      opacity: 0.8;
     }
 
     .chat-text .chat-link-painting {
@@ -4997,12 +5006,20 @@
         const targetX = (side === 'left' ? destW * 0.30 : destW * 0.70) + swingX;
         
         // For vertical images (aspect < 0.8), use vertical scroll animation
+        // BUT: If we have a FACE, keep it on screen - don't scroll it off
         const isVertical = data.aspect < 0.8;
+        const isFace = poi.t === 'f';
         let targetY;
-        if (isVertical) {
+        if (isVertical && !isFace) {
           // Scroll from top (20%) to bottom (80%) based on verticalProgress - slower, dreamier
+          // Only do this for non-face POIs (bodies, hands, computer pics)
           const easedProgress = (Math.sin((verticalProgress - 0.5) * Math.PI) + 1) / 2; // Ease in-out
           targetY = destH * (0.15 + easedProgress * 0.7) + swingY;
+        } else if (isVertical && isFace) {
+          // For faces in vertical images, keep face centered with gentle breathing only
+          // Slight vertical drift but constrained to keep face visible
+          const gentleDrift = Math.sin(verticalProgress * Math.PI) * 0.08; // Very subtle ±8% drift
+          targetY = destH * (0.40 + gentleDrift) + swingY; // Face stays near 40% (upper-mid)
         } else {
           targetY = destH * 0.45 + swingY; // Slightly above center with swing
         }
@@ -5559,11 +5576,17 @@
               const targetX = (side === 'left' ? w * 0.30 : w * 0.70) + swingX;
               
               // Handle vertical images with vertical scroll (same logic as drawPoiWithContext)
+              // BUT: Keep faces on screen - don't scroll them off
               const isVertical = data.aspect < 0.8;
+              const isFace = poiData.poi.t === 'f';
               let targetY;
-              if (isVertical) {
+              if (isVertical && !isFace) {
                 const easedProgress = (Math.sin((vp - 0.5) * Math.PI) + 1) / 2;
                 targetY = h * (0.15 + easedProgress * 0.7) + swingY;
+              } else if (isVertical && isFace) {
+                // Face in vertical image - gentle drift only, keep visible
+                const gentleDrift = Math.sin(vp * Math.PI) * 0.08;
+                targetY = h * (0.40 + gentleDrift) + swingY;
               } else {
                 targetY = h * 0.45 + swingY;
               }
@@ -7626,7 +7649,9 @@
       }
       
       tvPlayer = slide.querySelector('video');
+      tvPlayer.volume = 0.3; // Set default volume to 30%
       const progressBar = container.querySelector('.tv-progress-bar');
+      const progressContainer = container.querySelector('.tv-progress');
       const timerEl = container.querySelector('.tv-timer');
       
       // Format seconds as m:ss
@@ -7635,6 +7660,30 @@
         const s = Math.floor(sec % 60);
         return `${m}:${s.toString().padStart(2, '0')}`;
       }
+      
+      // Scrubbing functionality
+      function scrubTo(e) {
+        if (!tvPlayer.duration) return;
+        const rect = progressContainer.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        tvPlayer.currentTime = pct * tvPlayer.duration;
+      }
+      
+      let isScrubbing = false;
+      progressContainer.addEventListener('mousedown', (e) => {
+        isScrubbing = true;
+        scrubTo(e);
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (isScrubbing) scrubTo(e);
+      });
+      document.addEventListener('mouseup', () => {
+        isScrubbing = false;
+      });
+      progressContainer.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent play/pause toggle
+        scrubTo(e);
+      });
       
       // Toggle play/pause
       function togglePlayback(e) {
