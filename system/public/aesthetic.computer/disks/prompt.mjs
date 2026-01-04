@@ -774,6 +774,9 @@ async function boot({
       system.prompt.input.canType = true;
       send({ type: "keyboard:unlock" });
       send({ type: "keyboard:open" }); // Necessary for desktop.
+      
+      // Force a repaint when returning from another piece (fixes blank screen on backspace from kidlisp)
+      needsPaint();
     }
   }
 

@@ -8301,6 +8301,10 @@ async function load(
     golTransition.revealMap = null;
     golTransition.generation = 0;
     
+    // 🧹 Clear screen buffer when loading a new piece to prevent stale pixels
+    // This fixes the blank screen issue when backspacing from kidlisp to prompt
+    graph.clear();
+    
     formsSent = {}; // Clear 3D list for GPU.
     currentPath = path;
     currentHost = host;
