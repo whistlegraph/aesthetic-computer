@@ -83,8 +83,8 @@ export async function handler(event, context) {
           price_data: {
             currency: currency,
             product_data: {
-              name: `Subscribe to Give Monthly`,
-              description: `Helping Aesthetic Computer`,
+              name: `Give Monthly`,
+              description: `to Aesthetic Computer`,
               images: [`https://aesthetic.computer/api/give-image?amount=${amountDisplay}&currency=${currency}&recurring=true`],
             },
             unit_amount: amountCents,
@@ -105,8 +105,8 @@ export async function handler(event, context) {
           price_data: {
             currency: currency,
             product_data: {
-              name: `Give to Aesthetic Computer`,
-              description: `Thank you for supporting AC!`,
+              name: `Give`,
+              description: `to Aesthetic Computer`,
               images: [`https://aesthetic.computer/api/give-image?amount=${amountDisplay}&currency=${currency}`],
             },
             unit_amount: amountCents,
