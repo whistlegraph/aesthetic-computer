@@ -546,11 +546,15 @@ function updateCode(
   let updatedCode = sourceToRun;
 
   // Automatically replace relative imports with absolute ones.
-  const twoDots =
+  // Named imports: import { something } from "../lib/..." or "./..."
+  const namedImports =
     /^(import|export) {([^{}]*?)} from ["'](\.\.\/|\.\.|\.\/)(.*?)["'];?/gm;
-  const oneDot = /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
+  // Namespace imports with double dots: import * as Name from "../lib/..."
+  const namespaceImportsTwoDots = /^(import|export) \* as ([^ ]+) from ["'](\.\.\/)(.*?)["'];?/gm;
+  // Namespace imports with single dot: import * as Name from "./" or "/"
+  const namespaceImportsOneDot = /^(import|export) \* as ([^ ]+) from ["']\.?\/(.*?)["'];?/gm;
 
-  const replaceTwoDots = (match, p1, p2, p3, p4) => {
+  const replaceNamedImports = (match, p1, p2, p3, p4) => {
     let url;
     if (serverRewrites) {
       url = `..${serverRewritesPath}/public/aesthetic.computer${
@@ -564,8 +568,19 @@ function updateCode(
     return `${p1} {${p2}} from "${url}";`;
   };
 
+  // Handler for namespace imports with double dots (../)
+  const replaceNamespaceTwoDots = (match, p1, p2, p3, p4) => {
+    let url;
+    if (serverRewrites) {
+      url = `..${serverRewritesPath}/public/aesthetic.computer/${p4.replace(/\.\.\//g, "")}`;
+    } else {
+      url = `${protocol}//${host}/aesthetic.computer/${p4.replace(/\.\.\//g, "")}`;
+    }
+    return `${p1} * as ${p2} from "${url}";`;
+  };
+
   // /workspaces/aesthetic-computer
-  const replaceOneDot = (match, p1, p2, p3) => {
+  const replaceNamespaceOneDot = (match, p1, p2, p3) => {
     let url;
     if (serverRewrites) {
       url = `..${serverRewritesPath}/public/aesthetic.computer${
@@ -579,8 +594,9 @@ function updateCode(
     return `${p1} * as ${p2} from "${url}";`;
   };
 
-  updatedCode = updatedCode.replace(twoDots, replaceTwoDots);
-  updatedCode = updatedCode.replace(oneDot, replaceOneDot);
+  updatedCode = updatedCode.replace(namedImports, replaceNamedImports);
+  updatedCode = updatedCode.replace(namespaceImportsTwoDots, replaceNamespaceTwoDots);
+  updatedCode = updatedCode.replace(namespaceImportsOneDot, replaceNamespaceOneDot);
 
   // 💉 Constant Injection (for pieces to use)
   // Inject the DEBUG constant into the updatedCode
