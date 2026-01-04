@@ -4132,19 +4132,18 @@
       filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
     }
 
-    /* Floating give notes on jeffreys slideshow - ambient margin wiggle */
+    /* Floating give notes on jeffreys slideshow - particle system */
     .floating-give {
       position: absolute;
       font-family: var(--mono);
-      font-size: 1em;
-      color: rgba(255, 255, 255, 0.85);
+      font-size: 1.4em;
+      color: rgba(255, 255, 255, 0.9);
       text-shadow: 0 3px 12px rgba(0, 0, 0, 0.95), 0 1px 4px rgba(0, 0, 0, 0.8);
       pointer-events: none;
       z-index: 0;
       white-space: nowrap;
-      max-width: 45%;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      max-width: 50%;
+      overflow: visible;
       opacity: 0;
       animation: floatAmbient 30s ease-in-out forwards;
       transform-origin: center center;
@@ -4162,8 +4161,9 @@
 
     .floating-give .char {
       display: inline-block;
-      animation: charWiggle 2.5s ease-in-out infinite;
+      animation: charParticle var(--char-duration) ease-in-out infinite;
       animation-delay: var(--char-delay);
+      transform-origin: center center;
     }
 
     .floating-give .amount {
@@ -4178,7 +4178,7 @@
     }
 
     .floating-give .note {
-      color: rgba(255, 255, 255, 0.8);
+      color: rgba(255, 255, 255, 0.85);
     }
 
     @keyframes floatAmbient {
@@ -4187,7 +4187,7 @@
         transform: translateY(0) translateX(0);
       }
       5% {
-        opacity: 0.85;
+        opacity: 0.9;
       }
       15% {
         transform: translateY(-50px) translateX(8px);
@@ -4205,7 +4205,7 @@
         transform: translateY(-420px) translateX(6px);
       }
       90% {
-        opacity: 0.85;
+        opacity: 0.9;
       }
       100% {
         opacity: 0;
@@ -4213,18 +4213,21 @@
       }
     }
 
-    @keyframes charWiggle {
+    @keyframes charParticle {
       0%, 100% {
-        transform: translateY(0) rotate(0deg);
+        transform: translate(0, 0) rotate(0deg);
       }
-      25% {
-        transform: translateY(-4px) rotate(-1deg);
+      20% {
+        transform: translate(var(--drift-x, 3px), var(--drift-y, -6px)) rotate(var(--rot, 2deg));
       }
-      50% {
-        transform: translateY(-2px) rotate(1deg);
+      40% {
+        transform: translate(calc(var(--drift-x, 3px) * -0.5), calc(var(--drift-y, -6px) * 1.2)) rotate(calc(var(--rot, 2deg) * -1));
       }
-      75% {
-        transform: translateY(-5px) rotate(-0.5deg);
+      60% {
+        transform: translate(calc(var(--drift-x, 3px) * 0.8), calc(var(--drift-y, -6px) * 0.6)) rotate(calc(var(--rot, 2deg) * 0.5));
+      }
+      80% {
+        transform: translate(calc(var(--drift-x, 3px) * -0.3), calc(var(--drift-y, -6px) * 0.9)) rotate(calc(var(--rot, 2deg) * -0.5));
       }
     }
   </style>
@@ -7610,11 +7613,17 @@
       let noteIndex = 0;
       const visibleNoteIds = new Set(); // Track which notes are currently on screen
       
-      // Convert text to animated characters (using spread to handle emojis)
+      // Convert text to animated characters with particle-like randomness
       function animateText(text) {
         return [...text].map((char, i) => {
           if (char === ' ') return ' ';
-          return `<span class="char" style="--char-delay: ${i * 0.05}s">${char}</span>`;
+          // Random particle properties for each character
+          const delay = i * 0.08 + Math.random() * 0.15;
+          const duration = 1.8 + Math.random() * 1.4; // 1.8-3.2s
+          const driftX = (Math.random() - 0.5) * 12; // -6 to 6px
+          const driftY = -4 - Math.random() * 8; // -4 to -12px
+          const rot = (Math.random() - 0.5) * 6; // -3 to 3deg
+          return `<span class="char" style="--char-delay: ${delay.toFixed(2)}s; --char-duration: ${duration.toFixed(1)}s; --drift-x: ${driftX.toFixed(1)}px; --drift-y: ${driftY.toFixed(1)}px; --rot: ${rot.toFixed(1)}deg">${char}</span>`;
         }).join('');
       }
       
