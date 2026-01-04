@@ -10,19 +10,14 @@
   <meta property="og:title" content="give · Aesthetic Computer" />
   <meta property="og:description" content="Support independent software art" />
   <meta property="og:image" content="https://assets.aesthetic.computer/give-og.png" />
-  <meta property="og:video" content="https://assets.aesthetic.computer/give-og.mp4" />
-  <meta property="og:video:type" content="video/mp4" />
-  <meta property="og:video:width" content="1200" />
-  <meta property="og:video:height" content="630" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:url" content="https://give.aesthetic.computer" />
-  <meta property="og:type" content="video.other" />
-  <meta name="twitter:card" content="player" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="give · Aesthetic Computer" />
   <meta name="twitter:description" content="Support independent software art" />
   <meta name="twitter:image" content="https://assets.aesthetic.computer/give-og.png" />
-  <meta name="twitter:player" content="https://assets.aesthetic.computer/give-og.mp4" />
-  <meta name="twitter:player:width" content="1200" />
-  <meta name="twitter:player:height" content="630" />
   <meta name="twitter:site" content="@aestheticco_mp" />
   
   <!-- Fonts -->
@@ -1506,12 +1501,29 @@
     .link-block.invest-section strong { color: #4ecdc4; }
     .link-block.invest-section strong,
     .link-block.invest-section .link-desc { background: transparent; }
+    .link-block.invest-section .link-desc {
+      line-height: 1.6;
+      display: block;
+    }
+    .link-block.invest-section .link-desc p {
+      margin: 0 0 0.8em 0;
+    }
+    .link-block.invest-section .link-desc p:last-child {
+      margin-bottom: 0;
+    }
     .link-block.invest-section .link-desc a {
       color: #4ecdc4;
       text-decoration: underline;
     }
     .link-block.invest-section .link-desc a:hover {
       color: #6eeee6;
+    }
+    .link-block.invest-section .link-desc .demo-link {
+      display: inline-block;
+      background: rgba(78, 205, 196, 0.2);
+      padding: 0.2em 0.5em;
+      border-radius: 4px;
+      font-weight: bold;
     }
 
     /* Invest section blink animation */
@@ -3625,8 +3637,14 @@
 
       <div class="link-block invest-section" id="invest">
         <strong>📈</strong> <span data-lang="en"><strong>Invest</strong></span><span data-lang="da"><strong>Investér</strong></span>
-        <span class="link-desc" data-lang="en">Aesthetic.Computer is booted by a handful of early supporters who share in company equity of <a href="https://aesthetic.direct">Aesthetic Inc.</a> To join this community, book a remote demo with <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a>. He lives in Echo Park with <a href="https://aesthetic.computer/@fifi">@fifi</a> and a house full of musicians, and regularly does show and tell at the NELA Computer Club in Chinatown. Our next meeting is at 7pm on Tuesday, January 6th at <a href="https://plot.place">Plot</a>.</span>
-        <span class="link-desc" data-lang="da">Aesthetic.Computer er startet af en håndfuld tidlige støtter, der deler virksomhedskapital i <a href="https://aesthetic.direct">Aesthetic Inc.</a> For at blive en del af dette fællesskab, book en fjern-demo med <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a>. Han bor i Echo Park med <a href="https://aesthetic.computer/@fifi">@fifi</a> og et hus fuldt af musikere, og holder regelmæssigt show and tell ved NELA Computer Club i Chinatown. Vores næste møde er kl. 19 tirsdag den 6. januar på <a href="https://plot.place">Plot</a>.</span>
+        <span class="link-desc" data-lang="en">
+          <p>Aesthetic.Computer is booted by a handful of early supporters who share in company equity of <a href="https://aesthetic.direct">Aesthetic Inc.</a> To join this community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">📞 book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a>.</p>
+          <p>He lives in Echo Park with <a href="https://aesthetic.computer/@fifi">@fifi</a> and a house full of musicians, and regularly does show and tell at the NELA Computer Club in Chinatown. Our next meeting is at 7pm on Tuesday, January 6th at <a href="https://plot.place">Plot</a>.</p>
+        </span>
+        <span class="link-desc" data-lang="da">
+          <p>Aesthetic.Computer er startet af en håndfuld tidlige støtter, der deler virksomhedskapital i <a href="https://aesthetic.direct">Aesthetic Inc.</a> For at blive en del af dette fællesskab, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">📞 book en fjern-demo</a> med <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a>.</p>
+          <p>Han bor i Echo Park med <a href="https://aesthetic.computer/@fifi">@fifi</a> og et hus fuldt af musikere, og holder regelmæssigt show and tell ved NELA Computer Club i Chinatown. Vores næste møde er kl. 19 tirsdag den 6. januar på <a href="https://plot.place">Plot</a>.</p>
+        </span>
       </div>
 
       <div class="page-footer">
