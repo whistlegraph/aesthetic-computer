@@ -364,7 +364,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     ),
   );
 
-  // ✨ Welcome Panel (D3 Status Dashboard)
+  // ✨ Welcome Panel (Three.js 3D Architecture)
   function showWelcomePanel() {
     if (welcomePanel) {
       welcomePanel.reveal(vscode.ViewColumn.One);
@@ -418,294 +418,147 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src ${welcomePanel.webview.cspSource} https: data:; script-src 'unsafe-inline' https://d3js.org; connect-src ws://127.0.0.1:7890 wss://localhost:8889;">
-        <script src="https://d3js.org/d3.v7.min.js"></script>
-        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src ${welcomePanel.webview.cspSource} https: data:; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src ws://127.0.0.1:7890 wss://localhost:8889;">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
         <style>
-          :root {
-            --bg: #0a0a0a;
-            --text: #f0f0f0;
-            --text-dim: #666;
-            --accent: #ff6b9d;
-            --blue: #6b9fff;
-            --green: #6bff9f;
-            --yellow: #ffeb6b;
-            --purple: #b06bff;
-            --orange: #ff9f6b;
-            --cyan: #6bffff;
-          }
-          
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          
           body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'IBM Plex Mono', monospace;
+            background: #000;
+            color: #fff;
+            font-family: monospace;
             overflow: hidden;
             height: 100vh;
           }
-          
-          #canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-          }
-          
-          /* HUD Overlay */
+          #canvas { position: absolute; top: 0; left: 0; }
           .hud {
             position: absolute;
-            pointer-events: none;
             z-index: 100;
+            pointer-events: none;
           }
-          
-          .hud-top {
+          .title {
             top: 16px;
             left: 16px;
-            right: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-          }
-          
-          .hud-title {
-            font-size: 0.9rem;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-          }
-          
-          .hud-title .dot {
-            color: var(--accent);
-          }
-          
-          .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--green);
-            box-shadow: 0 0 10px var(--green);
-            animation: pulse 2s infinite;
-          }
-          
-          .status-dot.offline {
-            background: var(--accent);
-            box-shadow: 0 0 10px var(--accent);
-            animation: none;
-          }
-          
-          @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-          }
-          
-          .hud-stats {
-            text-align: right;
-            font-size: 0.7rem;
-            color: var(--text-dim);
-            line-height: 1.6;
-          }
-          
-          .hud-stats .value {
-            color: var(--text);
-            font-weight: 500;
-          }
-          
-          .hud-bottom {
-            bottom: 16px;
-            left: 16px;
-            right: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-          }
-          
-          .legend {
-            display: flex;
-            gap: 16px;
-            font-size: 0.65rem;
-            color: var(--text-dim);
-          }
-          
-          .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-          }
-          
-          .legend-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-          }
-          
-          /* Memory bar */
-          .memory-bar {
-            width: 200px;
-            height: 6px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 3px;
-            overflow: hidden;
-          }
-          
-          .memory-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--green), var(--cyan));
-            transition: width 0.5s;
-          }
-          
-          .memory-fill.warning { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
-          .memory-fill.danger { background: linear-gradient(90deg, var(--accent), var(--orange)); }
-          
-          /* Tooltip */
-          .tooltip {
-            position: absolute;
-            background: rgba(20, 20, 20, 0.95);
-            border: 1px solid var(--accent);
-            border-radius: 6px;
-            padding: 10px 14px;
-            font-size: 0.75rem;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.15s;
-            max-width: 250px;
-            box-shadow: 0 0 20px rgba(255, 107, 157, 0.2);
-            z-index: 200;
-          }
-          
-          .tooltip.visible { opacity: 1; }
-          
-          .tooltip h3 {
-            font-size: 0.85rem;
-            margin-bottom: 6px;
+            font-size: 14px;
             display: flex;
             align-items: center;
             gap: 8px;
           }
-          
-          .tooltip-stat {
-            display: flex;
-            justify-content: space-between;
-            color: var(--text-dim);
-            margin: 2px 0;
+          .title .dot { color: #ff69b4; }
+          .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #ff69b4;
           }
-          
-          .tooltip-stat .val {
-            color: var(--text);
+          .status-dot.online { background: #0f0; }
+          .stats {
+            top: 16px;
+            right: 16px;
+            text-align: right;
+            font-size: 12px;
+            color: #555;
           }
-          
-          /* Center info */
-          .center-info {
-            position: absolute;
+          .stats .val { color: #fff; }
+          .mem {
+            bottom: 16px;
+            right: 16px;
+            font-size: 12px;
+            color: #555;
+          }
+          .center {
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            pointer-events: none;
-            z-index: 50;
+            font-size: 12px;
+            color: #555;
           }
-          
-          .center-icon {
-            font-size: 2.5rem;
-            margin-bottom: 8px;
+          .center .count {
+            font-size: 28px;
+            color: #fff;
+            margin-bottom: 4px;
           }
-          
-          .center-label {
-            font-size: 0.7rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-          }
-          
-          .center-value {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--cyan);
-          }
-          
-          /* Action buttons */
           .actions {
             pointer-events: auto;
             display: flex;
             gap: 8px;
             margin-top: 16px;
+            justify-content: center;
           }
-          
           .action-btn {
             background: rgba(255,255,255,0.08);
             border: 1px solid rgba(255,255,255,0.15);
             border-radius: 6px;
             padding: 8px 14px;
-            font-size: 0.75rem;
-            color: var(--text);
+            font-size: 12px;
+            color: #fff;
             cursor: pointer;
             transition: all 0.15s ease;
             font-family: inherit;
           }
-          
           .action-btn:hover {
             background: rgba(255,255,255,0.15);
-            border-color: var(--accent);
+            border-color: #ff69b4;
           }
-          
           .action-btn.primary {
-            background: var(--accent);
-            border-color: var(--accent);
+            background: #ff69b4;
+            border-color: #ff69b4;
             color: #000;
           }
-          
           .action-btn.primary:hover {
             background: #ff8ab3;
           }
+          .label-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+            overflow: hidden;
+          }
+          .proc-label {
+            position: absolute;
+            text-align: center;
+            transform: translate(-50%, -100%);
+            white-space: nowrap;
+            text-shadow: 0 0 3px #000, 0 0 6px #000;
+            pointer-events: none;
+          }
+          .proc-label .icon { font-size: 18px; display: block; line-height: 1; }
+          .proc-label .name { font-size: 10px; margin-top: 2px; font-weight: bold; letter-spacing: 0.3px; }
+          .proc-label .info { font-size: 8px; color: #aaa; margin-top: 1px; }
         </style>
       </head>
       <body>
-        <svg id="canvas"></svg>
+        <canvas id="canvas"></canvas>
         
-        <div class="hud hud-top">
-          <div class="hud-title">
-            <div class="status-dot offline" id="status-dot"></div>
-            <span>Aesthetic<span class="dot">.</span>Computer</span>
-          </div>
-          <div class="hud-stats">
-            <div><span class="value" id="hostname">devcontainer</span></div>
-            <div>Uptime: <span class="value" id="uptime">—</span></div>
-            <div>CPUs: <span class="value" id="cpus">—</span></div>
-            <div id="timestamp"></div>
-          </div>
+        <div class="hud title">
+          <div class="status-dot" id="status-dot"></div>
+          <span>Aesthetic<span class="dot">.</span>Computer Architecture</span>
         </div>
         
-        <div class="center-info">
-          <div class="center-icon">🔮</div>
-          <div class="center-label">Status</div>
-          <div class="center-value" id="emacs-state">Connecting...</div>
+        <div class="hud stats">
+          <div><span class="val" id="uptime">—</span></div>
+          <div><span class="val" id="cpus">—</span> cpus</div>
+        </div>
+        
+        <div class="hud center">
+          <div class="count" id="process-count">0</div>
+          <div>processes</div>
           <div class="actions">
             <button class="action-btn primary" id="btn-kidlisp">🎨 KidLisp</button>
             <button class="action-btn" id="btn-pane">💻 AC Pane</button>
           </div>
         </div>
         
-        <div class="hud hud-bottom">
-          <div class="legend">
-            <div class="legend-item"><div class="legend-dot" style="background: var(--purple)"></div> Emacs</div>
-            <div class="legend-item"><div class="legend-dot" style="background: var(--green)"></div> Node</div>
-            <div class="legend-item"><div class="legend-dot" style="background: var(--blue)"></div> VS Code</div>
-            <div class="legend-item"><div class="legend-dot" style="background: var(--orange)"></div> Server</div>
-            <div class="legend-item"><div class="legend-dot" style="background: var(--cyan)"></div> System</div>
-          </div>
-          <div>
-            <div style="font-size: 0.65rem; color: var(--text-dim); margin-bottom: 4px;">
-              Memory: <span id="mem-text">— / —</span>
-            </div>
-            <div class="memory-bar">
-              <div class="memory-fill" id="mem-bar" style="width: 0%"></div>
-            </div>
-          </div>
+        <div class="hud mem">
+          <span id="mem-text">— / —</span> MB
         </div>
         
-        <div class="tooltip" id="tooltip"></div>
+        <div id="labels" class="label-container"></div>
         
         <script>
           const vscode = acquireVsCodeApi();
@@ -718,309 +571,501 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             vscode.postMessage({command: 'openPane'});
           });
           
-          // State
-          let processes = [];
-          let simulation;
-          let nodes = [];
-          let ws, sessionWs;
-          
-          // D3 setup
-          const svg = d3.select('#canvas');
-          let width = window.innerWidth;
-          let height = window.innerHeight;
-          let centerX = width / 2;
-          let centerY = height / 2;
-          
-          svg.attr('width', width).attr('height', height);
-          
-          // Gradient definitions
-          const defs = svg.append('defs');
-          
-          // Glow filter
-          const filter = defs.append('filter').attr('id', 'glow');
-          filter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'coloredBlur');
-          const feMerge = filter.append('feMerge');
-          feMerge.append('feMergeNode').attr('in', 'coloredBlur');
-          feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
-          
-          // Background grid
-          const gridSize = 40;
-          const gridGroup = svg.append('g').attr('class', 'grid');
-          
-          function drawGrid() {
-            gridGroup.selectAll('*').remove();
-            for (let x = 0; x < width; x += gridSize) {
-              gridGroup.append('line')
-                .attr('x1', x).attr('y1', 0)
-                .attr('x2', x).attr('y2', height)
-                .attr('stroke', 'rgba(255,255,255,0.03)');
-            }
-            for (let y = 0; y < height; y += gridSize) {
-              gridGroup.append('line')
-                .attr('x1', 0).attr('y1', y)
-                .attr('x2', width).attr('y2', y)
-                .attr('stroke', 'rgba(255,255,255,0.03)');
-            }
-          }
-          drawGrid();
-          
-          // Orbital rings around center
-          const orbits = svg.append('g').attr('class', 'orbits');
-          function drawOrbits() {
-            orbits.selectAll('*').remove();
-            [100, 180, 280].forEach((r) => {
-              orbits.append('circle')
-                .attr('cx', centerX)
-                .attr('cy', centerY)
-                .attr('r', r)
-                .attr('fill', 'none')
-                .attr('stroke', 'rgba(255,255,255,0.05)')
-                .attr('stroke-dasharray', '4,8');
-            });
-          }
-          drawOrbits();
-          
-          // Connection lines group
-          const linksGroup = svg.append('g').attr('class', 'links');
-          
-          // Nodes group
-          const nodesGroup = svg.append('g').attr('class', 'nodes');
-          
-          // Category colors
-          const categoryColors = {
-            'emacs': '#b06bff',
-            'node': '#6bff9f',
-            'vscode': '#6b9fff',
-            'server': '#ff9f6b',
-            'system': '#6bffff',
-            'database': '#ffeb6b',
-            'default': '#888'
+          const colors = {
+            'editor': 0xb06bff, 'tui': 0xff69b4, 'bridge': 0x6bff9f,
+            'db': 0xffeb6b, 'proxy': 0x6b9fff, 'ai': 0xff9f6b,
+            'shell': 0x6bffff, 'dev': 0x6bff9f, 'ide': 0x6b9fff, 'lsp': 0x888888
           };
           
-          // Force simulation
-          simulation = d3.forceSimulation()
-            .force('center', d3.forceCenter(centerX, centerY).strength(0.02))
-            .force('charge', d3.forceManyBody().strength(-200))
-            .force('collision', d3.forceCollide().radius(d => d.radius + 10))
-            .force('radial', d3.forceRadial(d => d.orbit, centerX, centerY).strength(0.3))
-            .on('tick', ticked);
+          let width = window.innerWidth, height = window.innerHeight;
+          let meshes = new Map(), connections = new Map(), ws;
+          let graveyard = [];
+          const MAX_GRAVEYARD = 30;
+          const GRAVEYARD_Y = -200;
           
-          function ticked() {
-            linksGroup.selectAll('line')
-              .attr('x1', centerX)
-              .attr('y1', centerY)
-              .attr('x2', d => d.x)
-              .attr('y2', d => d.y);
+          // Three.js setup
+          const scene = new THREE.Scene();
+          const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 5000);
+          camera.position.set(0, 150, 400);
+          camera.lookAt(0, 0, 0);
+          
+          const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
+          renderer.setSize(width, height);
+          renderer.setPixelRatio(window.devicePixelRatio);
+          
+          const controls = new THREE.OrbitControls(camera, renderer.domElement);
+          controls.enableDamping = true;
+          controls.dampingFactor = 0.05;
+          controls.minDistance = 20;
+          controls.maxDistance = 3000;
+          controls.enablePan = true;
+          controls.autoRotate = true;
+          controls.autoRotateSpeed = 0.3;
+          controls.target.set(0, 0, 0);
+          
+          let focusedPid = null;
+          let focusTarget = new THREE.Vector3(0, 0, 0);
+          let focusDistance = null;
+          let transitioning = false;
+          
+          const raycaster = new THREE.Raycaster();
+          const mouse = new THREE.Vector2();
+          
+          renderer.domElement.addEventListener('click', (e) => {
+            mouse.x = (e.clientX / width) * 2 - 1;
+            mouse.y = -(e.clientY / height) * 2 + 1;
             
-            nodesGroup.selectAll('.node')
-              .attr('transform', d => \`translate(\${d.x}, \${d.y})\`);
+            raycaster.setFromCamera(mouse, camera);
+            const meshArray = Array.from(meshes.values());
+            const intersects = raycaster.intersectObjects(meshArray);
+            
+            if (intersects.length > 0) {
+              const clicked = intersects[0].object;
+              const pid = clicked.userData.pid;
+              
+              if (focusedPid === String(pid)) {
+                focusedPid = null;
+                focusTarget.set(0, 0, 0);
+                focusDistance = null;
+              } else {
+                focusedPid = String(pid);
+                focusTarget.copy(clicked.position);
+                focusDistance = 80 + (clicked.userData.size || 6) * 3;
+              }
+              transitioning = true;
+              controls.autoRotate = true;
+            } else if (!e.shiftKey) {
+              focusedPid = null;
+              focusTarget.set(0, 0, 0);
+              focusDistance = null;
+              transitioning = true;
+            }
+          });
+          
+          renderer.domElement.addEventListener('dblclick', () => {
+            focusedPid = null;
+            focusTarget.set(0, 0, 0);
+            focusDistance = null;
+            transitioning = true;
+            camera.position.set(0, 150, 400);
+          });
+          
+          let processTree = { roots: [], byPid: new Map() };
+          
+          let kernelMesh = null, kernelGlow = null, kernelCore = null;
+          function createKernelNode() {
+            const group = new THREE.Group();
+            
+            const outerGeo = new THREE.SphereGeometry(35, 32, 32);
+            const outerMat = new THREE.MeshBasicMaterial({
+              color: 0x4488ff, transparent: true, opacity: 0.15, wireframe: true
+            });
+            group.add(new THREE.Mesh(outerGeo, outerMat));
+            
+            const ringGeo = new THREE.TorusGeometry(25, 1.5, 8, 48);
+            const ringMat = new THREE.MeshBasicMaterial({
+              color: 0x66aaff, transparent: true, opacity: 0.4
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            group.add(ring);
+            kernelGlow = ring;
+            
+            const coreGeo = new THREE.SphereGeometry(12, 24, 24);
+            const coreMat = new THREE.MeshBasicMaterial({
+              color: 0x88ccff, transparent: true, opacity: 0.7
+            });
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            group.add(core);
+            kernelCore = core;
+            
+            group.userData = {
+              pid: 'kernel', name: 'Fedora Linux', icon: '🐧', category: 'kernel',
+              cpu: 0, rss: 0, size: 35, targetPos: new THREE.Vector3(0, 0, 0), pulsePhase: 0
+            };
+            return group;
           }
           
-          function updateVisualization(processData) {
-            if (!processData || !processData.interesting) return;
+          kernelMesh = createKernelNode();
+          scene.add(kernelMesh);
+          meshes.set('kernel', kernelMesh);
+          
+          function createNodeMesh(node) {
+            const cpu = node.cpu || 0;
+            const memMB = (node.rss || 10000) / 1024;
+            const baseColor = colors[node.category] || 0x666666;
+            const size = Math.max(4, Math.min(12, 3 + memMB * 0.05 + cpu * 0.1));
             
-            const byName = new Map();
-            processData.interesting.forEach(p => {
-              const existing = byName.get(p.name);
-              if (!existing || p.cpu > existing.cpu) {
-                byName.set(p.name, p);
+            const geo = new THREE.SphereGeometry(size, 12, 12);
+            const mat = new THREE.MeshBasicMaterial({
+              color: baseColor, transparent: true, opacity: 0.7 + cpu * 0.003
+            });
+            
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.userData = { 
+              ...node, size, baseColor, targetPos: new THREE.Vector3(),
+              pulsePhase: Math.random() * Math.PI * 2
+            };
+            return mesh;
+          }
+          
+          function createConnectionLine() {
+            const geo = new THREE.CylinderGeometry(1.5, 1.5, 1, 8);
+            const mat = new THREE.MeshBasicMaterial({
+              color: 0x444444, transparent: true, opacity: 0.5
+            });
+            return new THREE.Mesh(geo, mat);
+          }
+          
+          function updateConnectionMesh(conn, childPos, parentPos) {
+            const mesh = conn.line;
+            const mid = new THREE.Vector3().addVectors(childPos, parentPos).multiplyScalar(0.5);
+            mesh.position.copy(mid);
+            const dir = new THREE.Vector3().subVectors(parentPos, childPos);
+            const length = dir.length();
+            mesh.scale.set(1, length, 1);
+            mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+          }
+          
+          function layoutTree(processes) {
+            const byPid = new Map();
+            const children = new Map();
+            
+            processes.forEach(p => {
+              byPid.set(String(p.pid), p);
+              children.set(String(p.pid), []);
+            });
+            
+            const roots = [];
+            processes.forEach(p => {
+              const parentPid = String(p.parentInteresting || 0);
+              if (parentPid && byPid.has(parentPid)) {
+                children.get(parentPid).push(p);
+              } else {
+                roots.push(p);
               }
             });
             
-            const procs = Array.from(byName.values());
-            
-            const newNodes = procs.map((p) => {
-              const existing = nodes.find(n => n.name === p.name);
-              const intensity = (p.cpu + p.mem) / 2;
-              const radius = Math.max(15, Math.min(50, 10 + intensity * 2));
-              
-              let orbit = 180;
-              if (p.category === 'emacs') orbit = 100;
-              else if (p.category === 'vscode') orbit = 140;
-              else if (p.category === 'server') orbit = 220;
-              else if (p.category === 'system') orbit = 280;
-              
-              return {
-                id: p.name,
-                name: p.name,
-                icon: p.icon,
-                category: p.category,
-                cpu: p.cpu,
-                mem: p.mem,
-                rss: p.rss,
-                pid: p.pid,
-                radius,
-                orbit,
-                color: categoryColors[p.category] || categoryColors.default,
-                x: existing ? existing.x : centerX + (Math.random() - 0.5) * 200,
-                y: existing ? existing.y : centerY + (Math.random() - 0.5) * 200,
-              };
+            const categoryOrder = ['ide', 'editor', 'tui', 'dev', 'db', 'shell', 'ai', 'lsp', 'proxy', 'bridge'];
+            roots.sort((a, b) => {
+              const ai = categoryOrder.indexOf(a.category);
+              const bi = categoryOrder.indexOf(b.category);
+              return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
             });
             
-            nodes = newNodes;
-            simulation.nodes(nodes);
-            simulation.alpha(0.3).restart();
+            const levelHeight = 50, baseRadius = 100;
             
-            const links = linksGroup.selectAll('line').data(nodes, d => d.id);
+            function countDescendants(pid) {
+              const nodeChildren = children.get(pid) || [];
+              let count = nodeChildren.length;
+              nodeChildren.forEach(c => count += countDescendants(String(c.pid)));
+              return count;
+            }
             
-            links.enter()
-              .append('line')
-              .attr('stroke', d => d.color)
-              .attr('stroke-opacity', 0.15)
-              .attr('stroke-width', 1);
+            function positionNode(node, depth, angle, radius, parentX, parentZ) {
+              const pid = String(node.pid);
+              const nodeChildren = children.get(pid) || [];
+              const childCount = nodeChildren.length;
+              
+              const x = parentX + Math.cos(angle) * radius;
+              const z = parentZ + Math.sin(angle) * radius;
+              
+              node.targetX = x;
+              node.targetY = -depth * levelHeight;
+              node.targetZ = z;
+              
+              if (childCount > 0) {
+                const arcSpread = Math.min(Math.PI * 0.9, Math.PI * 0.3 * childCount);
+                const startAngle = angle - arcSpread / 2;
+                const childRadius = 35 + childCount * 10;
+                
+                nodeChildren.forEach((child, i) => {
+                  const childAngle = childCount === 1 ? angle : startAngle + (arcSpread / (childCount - 1)) * i;
+                  positionNode(child, depth + 1, childAngle, childRadius, x, z);
+                });
+              }
+            }
             
-            links.exit().remove();
+            const totalRoots = roots.length;
+            if (totalRoots > 0) {
+              const weights = roots.map(r => 1 + countDescendants(String(r.pid)) * 0.5);
+              const totalWeight = weights.reduce((a, b) => a + b, 0);
+              
+              let currentAngle = -Math.PI / 2;
+              roots.forEach((root, i) => {
+                const angleSpan = (weights[i] / totalWeight) * Math.PI * 2;
+                const angle = currentAngle + angleSpan / 2;
+                currentAngle += angleSpan;
+                positionNode(root, 0, angle, baseRadius, 0, 0);
+              });
+            }
             
-            linksGroup.selectAll('line')
-              .attr('stroke', d => d.color)
-              .attr('stroke-opacity', d => 0.1 + d.cpu / 100);
-            
-            const nodeSelection = nodesGroup.selectAll('.node').data(nodes, d => d.id);
-            
-            const nodeEnter = nodeSelection.enter()
-              .append('g')
-              .attr('class', 'node')
-              .style('cursor', 'pointer')
-              .on('mouseover', showTooltip)
-              .on('mouseout', hideTooltip);
-            
-            nodeEnter.append('circle')
-              .attr('class', 'glow')
-              .attr('r', d => d.radius + 5)
-              .attr('fill', d => d.color)
-              .attr('opacity', 0.2)
-              .attr('filter', 'url(#glow)');
-            
-            nodeEnter.append('circle')
-              .attr('class', 'main')
-              .attr('r', d => d.radius)
-              .attr('fill', 'rgba(10,10,10,0.8)')
-              .attr('stroke', d => d.color)
-              .attr('stroke-width', 2);
-            
-            nodeEnter.append('text')
-              .attr('class', 'icon')
-              .attr('text-anchor', 'middle')
-              .attr('dominant-baseline', 'central')
-              .attr('font-size', d => Math.max(12, d.radius * 0.6))
-              .text(d => d.icon);
-            
-            nodeEnter.append('text')
-              .attr('class', 'label')
-              .attr('y', d => d.radius + 14)
-              .attr('text-anchor', 'middle')
-              .attr('fill', 'rgba(255,255,255,0.7)')
-              .attr('font-size', '9px')
-              .text(d => d.name.length > 12 ? d.name.slice(0, 10) + '…' : d.name);
-            
-            nodeSelection.select('.glow')
-              .transition().duration(500)
-              .attr('r', d => d.radius + 5 + d.cpu / 10)
-              .attr('opacity', d => 0.15 + d.cpu / 200);
-            
-            nodeSelection.select('.main')
-              .transition().duration(500)
-              .attr('r', d => d.radius)
-              .attr('stroke', d => d.color)
-              .attr('stroke-width', d => 2 + d.cpu / 20);
-            
-            nodeSelection.select('.icon')
-              .attr('font-size', d => Math.max(12, d.radius * 0.6));
-            
-            nodeSelection.select('.label')
-              .attr('y', d => d.radius + 14);
-            
-            nodeSelection.exit().remove();
+            return { roots, byPid, children };
           }
           
-          function showTooltip(event, d) {
-            const tooltip = document.getElementById('tooltip');
-            tooltip.innerHTML = \`
-              <h3>\${d.icon} \${d.name}</h3>
-              <div class="tooltip-stat"><span>PID</span><span class="val">\${d.pid}</span></div>
-              <div class="tooltip-stat"><span>Category</span><span class="val">\${d.category}</span></div>
-              <div class="tooltip-stat"><span>CPU</span><span class="val" style="color: var(--yellow)">\${d.cpu.toFixed(1)}%</span></div>
-              <div class="tooltip-stat"><span>Memory</span><span class="val" style="color: var(--purple)">\${(d.rss / 1024).toFixed(0)} MB</span></div>
-            \`;
-            tooltip.style.left = (event.pageX + 15) + 'px';
-            tooltip.style.top = (event.pageY - 10) + 'px';
-            tooltip.classList.add('visible');
+          function updateLabels() {
+            const container = document.getElementById('labels');
+            container.innerHTML = '';
+            scene.updateMatrixWorld();
+            
+            meshes.forEach((mesh, pid) => {
+              const pos = new THREE.Vector3();
+              mesh.getWorldPosition(pos);
+              const labelPos = pos.clone();
+              labelPos.y += (mesh.userData.size || 8) + 5;
+              labelPos.project(camera);
+              
+              const x = (labelPos.x * 0.5 + 0.5) * width;
+              const y = (-labelPos.y * 0.5 + 0.5) * height;
+              
+              if (labelPos.z < 1 && x > -100 && x < width + 100 && y > -100 && y < height + 100) {
+                const d = mesh.userData;
+                const color = '#' + (colors[d.category] || 0x666666).toString(16).padStart(6, '0');
+                const distToCamera = camera.position.distanceTo(pos);
+                const proximityScale = Math.max(0.4, Math.min(3, 150 / distToCamera));
+                const opacity = focusedPid 
+                  ? (pid === focusedPid ? 1 : (d.parentInteresting === parseInt(focusedPid) ? 0.9 : 0.3))
+                  : Math.max(0.5, Math.min(1, 300 / distToCamera));
+                
+                const cpuPct = Math.min(100, d.cpu || 0);
+                const memMB = ((d.rss || 0) / 1024).toFixed(0);
+                
+                const label = document.createElement('div');
+                label.className = 'proc-label';
+                label.style.left = x + 'px';
+                label.style.top = y + 'px';
+                label.style.opacity = opacity;
+                label.style.transform = 'translate(-50%, -100%) scale(' + proximityScale + ')';
+                label.innerHTML = '<div class="icon">' + (d.icon || '●') + '</div><div class="name" style="color:' + color + '">' + (d.name || pid) + '</div><div class="info">' + memMB + 'MB · ' + cpuPct.toFixed(0) + '%</div>';
+                container.appendChild(label);
+              }
+            });
           }
           
-          function hideTooltip() {
-            document.getElementById('tooltip').classList.remove('visible');
+          function updateViz(processData) {
+            if (!processData?.interesting) return;
+            
+            const processes = processData.interesting;
+            document.getElementById('process-count').textContent = processes.length;
+            
+            processTree = layoutTree(processes);
+            const currentPids = new Set(processes.map(p => String(p.pid)));
+            
+            processes.forEach(p => {
+              const pid = String(p.pid);
+              
+              if (!meshes.has(pid)) {
+                const mesh = createNodeMesh(p);
+                mesh.position.set(p.targetX || 0, p.targetY || 0, p.targetZ || 0);
+                mesh.userData.targetPos.set(p.targetX || 0, p.targetY || 0, p.targetZ || 0);
+                scene.add(mesh);
+                meshes.set(pid, mesh);
+              } else {
+                const mesh = meshes.get(pid);
+                const d = mesh.userData;
+                d.cpu = p.cpu; d.mem = p.mem; d.rss = p.rss; d.name = p.name;
+                d.targetPos.set(p.targetX || d.targetPos.x, p.targetY || d.targetPos.y, p.targetZ || d.targetPos.z);
+                
+                const memMB = (p.rss || 10000) / 1024;
+                d.size = Math.max(4, Math.min(12, 3 + memMB * 0.05 + p.cpu * 0.1));
+                mesh.scale.setScalar(d.size / 6);
+                
+                const baseColor = colors[p.category] || 0x666666;
+                const brighten = Math.min(1.8, 1 + p.cpu * 0.02);
+                const r = ((baseColor >> 16) & 255) * brighten;
+                const g = ((baseColor >> 8) & 255) * brighten;
+                const b = (baseColor & 255) * brighten;
+                mesh.material.color.setRGB(Math.min(255, r) / 255, Math.min(255, g) / 255, Math.min(255, b) / 255);
+                mesh.material.opacity = 0.7 + p.cpu * 0.003;
+              }
+              
+              const parentPid = String(p.parentInteresting || 0);
+              if (parentPid && meshes.has(parentPid)) {
+                const connKey = pid + '->' + parentPid;
+                if (!connections.has(connKey)) {
+                  const line = createConnectionLine();
+                  scene.add(line);
+                  connections.set(connKey, { line, childPid: pid, parentPid });
+                }
+              } else {
+                const connKey = pid + '->kernel';
+                if (!connections.has(connKey)) {
+                  const line = createConnectionLine();
+                  scene.add(line);
+                  connections.set(connKey, { line, childPid: pid, parentPid: 'kernel' });
+                }
+              }
+            });
+            
+            meshes.forEach((mesh, pid) => {
+              if (pid === 'kernel') return;
+              if (!currentPids.has(pid) && !mesh.userData.isDead) {
+                mesh.userData.isDead = true;
+                mesh.userData.deathTime = Date.now();
+                
+                const graveyardIndex = graveyard.length;
+                const col = graveyardIndex % 10;
+                const row = Math.floor(graveyardIndex / 10);
+                mesh.userData.targetPos.set((col - 4.5) * 25, GRAVEYARD_Y - row * 20, 0);
+                
+                mesh.material.opacity = 0.25;
+                mesh.material.color.setHex(0x444444);
+                
+                graveyard.push({ pid, mesh, name: mesh.userData.name, deathTime: Date.now() });
+                meshes.delete(pid);
+                
+                while (graveyard.length > MAX_GRAVEYARD) {
+                  const oldest = graveyard.shift();
+                  scene.remove(oldest.mesh);
+                  if (oldest.mesh.geometry) oldest.mesh.geometry.dispose();
+                  if (oldest.mesh.material) oldest.mesh.material.dispose();
+                }
+              }
+            });
+            
+            const graveyardPids = new Set(graveyard.map(g => g.pid));
+            connections.forEach((conn, key) => {
+              const childExists = meshes.has(conn.childPid) || graveyardPids.has(conn.childPid);
+              const parentExists = meshes.has(conn.parentPid) || graveyardPids.has(conn.parentPid);
+              if (!childExists || !parentExists) {
+                scene.remove(conn.line);
+                conn.line.geometry.dispose();
+                conn.line.material.dispose();
+                connections.delete(key);
+              }
+            });
           }
           
-          // WebSocket connection to status server
-          function connectStatus() {
+          let time = 0;
+          function animate() {
+            requestAnimationFrame(animate);
+            time += 0.016;
+            
+            if (focusedPid && meshes.has(focusedPid)) {
+              focusTarget.lerp(meshes.get(focusedPid).position, 0.08);
+            }
+            
+            controls.target.lerp(focusTarget, transitioning ? 0.06 : 0.02);
+            
+            if (focusDistance !== null) {
+              const currentDist = camera.position.distanceTo(controls.target);
+              if (Math.abs(currentDist - focusDistance) > 5) {
+                const dir = camera.position.clone().sub(controls.target).normalize();
+                const targetPos = controls.target.clone().add(dir.multiplyScalar(focusDistance));
+                camera.position.lerp(targetPos, 0.04);
+              } else {
+                transitioning = false;
+              }
+            } else {
+              transitioning = false;
+            }
+            
+            controls.update();
+            
+            if (kernelGlow) {
+              kernelGlow.rotation.z = time * 0.3;
+              kernelGlow.rotation.x = Math.PI / 2 + Math.sin(time * 0.5) * 0.1;
+            }
+            if (kernelCore) {
+              const pulse = 1 + Math.sin(time * 0.8) * 0.1;
+              kernelCore.scale.setScalar(pulse);
+            }
+            if (kernelMesh) {
+              kernelMesh.rotation.y = time * 0.1;
+            }
+            
+            graveyard.forEach((grave, i) => {
+              const mesh = grave.mesh;
+              if (mesh && mesh.userData) {
+                const d = mesh.userData;
+                mesh.position.x += (d.targetPos.x - mesh.position.x) * 0.02;
+                mesh.position.y += (d.targetPos.y - mesh.position.y) * 0.015;
+                mesh.position.z += (d.targetPos.z - mesh.position.z) * 0.02;
+                mesh.position.x += Math.sin(time * 0.3 + i) * 0.05;
+                const age = (Date.now() - grave.deathTime) / 1000;
+                mesh.material.opacity = Math.max(0.1, 0.3 - age * 0.005);
+              }
+            });
+            
+            meshes.forEach((mesh, pid) => {
+              const d = mesh.userData;
+              const cpu = d.cpu || 0;
+              const isFocused = focusedPid === pid;
+              const isRelated = focusedPid && (d.parentInteresting === parseInt(focusedPid) || String(d.parentInteresting) === focusedPid);
+              
+              mesh.position.x += (d.targetPos.x - mesh.position.x) * 0.03;
+              mesh.position.y += (d.targetPos.y - mesh.position.y) * 0.03;
+              mesh.position.z += (d.targetPos.z - mesh.position.z) * 0.03;
+              
+              const float = Math.sin(time * 0.5 + d.pulsePhase) * 2;
+              mesh.position.y += float * 0.02;
+              
+              const pulseAmp = isFocused ? 0.2 : (0.1 + cpu * 0.005);
+              const pulse = 1 + Math.sin(time * (1 + cpu * 0.05) + d.pulsePhase) * pulseAmp;
+              const sizeMultiplier = isFocused ? 1.5 : (isRelated ? 1.2 : 1);
+              mesh.scale.setScalar((d.size / 6) * pulse * sizeMultiplier);
+              
+              if (focusedPid) {
+                mesh.material.opacity = isFocused ? 1 : (isRelated ? 0.8 : 0.3);
+              } else {
+                mesh.material.opacity = 0.7 + cpu * 0.003;
+              }
+            });
+            
+            connections.forEach(conn => {
+              const childMesh = meshes.get(conn.childPid);
+              const parentMesh = meshes.get(conn.parentPid);
+              if (childMesh && parentMesh) {
+                updateConnectionMesh(conn, childMesh.position, parentMesh.position);
+                const involvesFocus = focusedPid && (conn.childPid === focusedPid || conn.parentPid === focusedPid);
+                conn.line.material.opacity = focusedPid ? (involvesFocus ? 0.9 : 0.15) : 0.5;
+                conn.line.material.color.setHex(involvesFocus ? 0xff69b4 : 0x444444);
+                const thickness = involvesFocus ? 2.5 : 1.5;
+                conn.line.scale.x = thickness / 1.5;
+                conn.line.scale.z = thickness / 1.5;
+              }
+            });
+            
+            renderer.render(scene, camera);
+            updateLabels();
+          }
+          
+          function connectWS() {
             try {
               ws = new WebSocket('ws://127.0.0.1:7890/ws');
-              
-              ws.onopen = () => {
-                document.getElementById('status-dot').classList.remove('offline');
-                document.getElementById('emacs-state').textContent = 'Online';
-              };
-              
-              ws.onmessage = (event) => {
-                try {
-                  const data = JSON.parse(event.data);
-                  updateHUD(data);
-                  updateVisualization(data.processes);
-                } catch (err) {
-                  console.error('Parse error:', err);
-                }
-              };
-              
+              ws.onopen = () => document.getElementById('status-dot').classList.add('online');
               ws.onclose = () => {
-                document.getElementById('status-dot').classList.add('offline');
-                document.getElementById('emacs-state').textContent = 'Offline';
-                setTimeout(connectStatus, 3000);
+                document.getElementById('status-dot').classList.remove('online');
+                setTimeout(connectWS, 2000);
               };
-              
               ws.onerror = () => ws.close();
-            } catch (e) {
-              setTimeout(connectStatus, 3000);
+              ws.onmessage = (e) => {
+                try {
+                  const data = JSON.parse(e.data);
+                  if (data.system) {
+                    document.getElementById('uptime').textContent = data.system.uptime.formatted;
+                    document.getElementById('cpus').textContent = data.system.cpus;
+                    const m = data.system.memory;
+                    document.getElementById('mem-text').textContent = m.used + ' / ' + m.total;
+                  }
+                  updateViz(data.processes);
+                } catch {}
+              };
+            } catch {
+              setTimeout(connectWS, 2000);
             }
           }
           
-          function updateHUD(data) {
-            document.getElementById('timestamp').textContent = new Date(data.timestamp).toLocaleTimeString();
-            
-            if (data.system) {
-              document.getElementById('hostname').textContent = data.system.hostname;
-              document.getElementById('uptime').textContent = data.system.uptime.formatted;
-              document.getElementById('cpus').textContent = data.system.cpus;
-              
-              const mem = data.system.memory;
-              document.getElementById('mem-text').textContent = mem.used + ' / ' + mem.total + ' MB';
-              const memBar = document.getElementById('mem-bar');
-              memBar.style.width = mem.percent + '%';
-              memBar.classList.remove('warning', 'danger');
-              if (mem.percent > 80) memBar.classList.add('danger');
-              else if (mem.percent > 60) memBar.classList.add('warning');
-            }
-            
-            if (data.emacs) {
-              document.getElementById('emacs-state').textContent = data.emacs.online ? 'Online' : 'Offline';
-            }
-          }
-          
-          // Handle resize
           window.addEventListener('resize', () => {
             width = window.innerWidth;
             height = window.innerHeight;
-            centerX = width / 2;
-            centerY = height / 2;
-            svg.attr('width', width).attr('height', height);
-            drawGrid();
-            drawOrbits();
-            simulation.force('center', d3.forceCenter(centerX, centerY));
-            simulation.force('radial', d3.forceRadial(d => d.orbit, centerX, centerY).strength(0.3));
-            simulation.alpha(0.3).restart();
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
           });
           
-          // Start
-          connectStatus();
+          animate();
+          connectWS();
         </script>
       </body>
       </html>
