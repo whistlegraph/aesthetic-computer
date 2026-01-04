@@ -27,6 +27,9 @@
   <!-- Fonts -->
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css">
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&display=swap" rel="stylesheet">
   
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
@@ -233,45 +236,60 @@
     /* Exclude dropdown options from language hiding */
     [data-lang="da"]:not(.lang-option):not(.curr-option),
     [data-lang="zh"]:not(.lang-option):not(.curr-option),
-    [data-lang="de"]:not(.lang-option):not(.curr-option) { display: none !important; }
+    [data-lang="de"]:not(.lang-option):not(.curr-option),
+    [data-lang="es"]:not(.lang-option):not(.curr-option) { display: none !important; }
     [data-lang="en"]:not(.lang-option):not(.curr-option) { display: block; }
     
     /* When Danish is selected */
     body.lang-da [data-lang="da"]:not(.lang-option):not(.curr-option) { display: block !important; }
     body.lang-da [data-lang="en"]:not(.lang-option):not(.curr-option),
     body.lang-da [data-lang="zh"]:not(.lang-option):not(.curr-option),
-    body.lang-da [data-lang="de"]:not(.lang-option):not(.curr-option) { display: none !important; }
+    body.lang-da [data-lang="de"]:not(.lang-option):not(.curr-option),
+    body.lang-da [data-lang="es"]:not(.lang-option):not(.curr-option) { display: none !important; }
     
     /* When Chinese is selected */
     body.lang-zh [data-lang="zh"]:not(.lang-option):not(.curr-option) { display: block !important; }
     body.lang-zh [data-lang="en"]:not(.lang-option):not(.curr-option),
     body.lang-zh [data-lang="da"]:not(.lang-option):not(.curr-option),
-    body.lang-zh [data-lang="de"]:not(.lang-option):not(.curr-option) { display: none !important; }
+    body.lang-zh [data-lang="de"]:not(.lang-option):not(.curr-option),
+    body.lang-zh [data-lang="es"]:not(.lang-option):not(.curr-option) { display: none !important; }
     
     /* When German is selected */
     body.lang-de [data-lang="de"]:not(.lang-option):not(.curr-option) { display: block !important; }
     body.lang-de [data-lang="en"]:not(.lang-option):not(.curr-option),
     body.lang-de [data-lang="da"]:not(.lang-option):not(.curr-option),
-    body.lang-de [data-lang="zh"]:not(.lang-option):not(.curr-option) { display: none !important; }
+    body.lang-de [data-lang="zh"]:not(.lang-option):not(.curr-option),
+    body.lang-de [data-lang="es"]:not(.lang-option):not(.curr-option) { display: none !important; }
+
+    /* When Spanish is selected */
+    body.lang-es [data-lang="es"]:not(.lang-option):not(.curr-option) { display: block !important; }
+    body.lang-es [data-lang="en"]:not(.lang-option):not(.curr-option),
+    body.lang-es [data-lang="da"]:not(.lang-option):not(.curr-option),
+    body.lang-es [data-lang="zh"]:not(.lang-option):not(.curr-option),
+    body.lang-es [data-lang="de"]:not(.lang-option):not(.curr-option) { display: none !important; }
 
     /* Link description spans */
     .link-desc { display: inline; }
-    .link-desc[data-lang="da"], .link-desc[data-lang="zh"], .link-desc[data-lang="de"] { display: none !important; }
+    .link-desc[data-lang="da"], .link-desc[data-lang="zh"], .link-desc[data-lang="de"], .link-desc[data-lang="es"] { display: none !important; }
     body.lang-da .link-desc[data-lang="da"] { display: inline !important; }
-    body.lang-da .link-desc[data-lang="en"], body.lang-da .link-desc[data-lang="zh"], body.lang-da .link-desc[data-lang="de"] { display: none !important; }
+    body.lang-da .link-desc[data-lang="en"], body.lang-da .link-desc[data-lang="zh"], body.lang-da .link-desc[data-lang="de"], body.lang-da .link-desc[data-lang="es"] { display: none !important; }
     body.lang-zh .link-desc[data-lang="zh"] { display: inline !important; }
-    body.lang-zh .link-desc[data-lang="en"], body.lang-zh .link-desc[data-lang="da"], body.lang-zh .link-desc[data-lang="de"] { display: none !important; }
+    body.lang-zh .link-desc[data-lang="en"], body.lang-zh .link-desc[data-lang="da"], body.lang-zh .link-desc[data-lang="de"], body.lang-zh .link-desc[data-lang="es"] { display: none !important; }
     body.lang-de .link-desc[data-lang="de"] { display: inline !important; }
-    body.lang-de .link-desc[data-lang="en"], body.lang-de .link-desc[data-lang="da"], body.lang-de .link-desc[data-lang="zh"] { display: none !important; }
+    body.lang-de .link-desc[data-lang="en"], body.lang-de .link-desc[data-lang="da"], body.lang-de .link-desc[data-lang="zh"], body.lang-de .link-desc[data-lang="es"] { display: none !important; }
+    body.lang-es .link-desc[data-lang="es"] { display: inline !important; }
+    body.lang-es .link-desc[data-lang="en"], body.lang-es .link-desc[data-lang="da"], body.lang-es .link-desc[data-lang="zh"], body.lang-es .link-desc[data-lang="de"] { display: none !important; }
 
     /* Feature module list items */
-    .feature-module li[data-lang="da"], .feature-module li[data-lang="zh"], .feature-module li[data-lang="de"] { display: none !important; }
+    .feature-module li[data-lang="da"], .feature-module li[data-lang="zh"], .feature-module li[data-lang="de"], .feature-module li[data-lang="es"] { display: none !important; }
     body.lang-da .feature-module li[data-lang="da"] { display: block !important; }
     body.lang-da .feature-module li[data-lang="en"] { display: none !important; }
     body.lang-zh .feature-module li[data-lang="zh"] { display: block !important; }
     body.lang-zh .feature-module li[data-lang="en"] { display: none !important; }
     body.lang-de .feature-module li[data-lang="de"] { display: block !important; }
     body.lang-de .feature-module li[data-lang="en"] { display: none !important; }
+    body.lang-es .feature-module li[data-lang="es"] { display: block !important; }
+    body.lang-es .feature-module li[data-lang="en"] { display: none !important; }
 
     a { color: var(--cyan); text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -3067,10 +3085,41 @@
       padding: 0.6em 0.8em;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 0.5em;
       text-decoration: none;
       z-index: 10;
       background: linear-gradient(135deg, rgba(20,10,30,0.85) 0%, rgba(10,5,20,0.8) 100%);
+    }
+
+    /* Green play button indicator (like kidlisp.com editor) */
+    .kidlisp-play-indicator {
+      width: 24px;
+      height: 24px;
+      background: rgb(76, 175, 80);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .kidlisp-play-indicator::before {
+      content: '';
+      width: 0;
+      height: 0;
+      border-left: 8px solid white;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      margin-left: 2px;
+    }
+
+    .kidlisp-preview-header:hover .kidlisp-play-indicator {
+      background: rgb(102, 187, 106);
+      transform: scale(1.1);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
     }
 
     /* Single rotating KidLisp preview carousel */
@@ -3561,6 +3610,7 @@
           <div class="lang-option" data-lang="en">🇺🇸 English</div>
           <div class="lang-option" data-lang="da">🇩🇰 Dansk</div>
           <div class="lang-option" data-lang="de">🇩🇪 Deutsch</div>
+          <div class="lang-option" data-lang="es">🇪🇸 Español</div>
           <div class="lang-option" data-lang="zh">🇨🇳 中文</div>
         </div>
       </div>
@@ -3585,11 +3635,26 @@
         <p class="thanks-message" data-lang="da">
           Tak for at give <span class="thanks-amount" id="thanksAmountDa">$25</span> og holde Aesthetic.Computer online og gratis at bruge.
         </p>
+        <p class="thanks-message" data-lang="de">
+          Danke für Ihre Spende von <span class="thanks-amount" id="thanksAmountDe">$25</span>. Damit bleibt Aesthetic.Computer online und kostenlos.
+        </p>
+        <p class="thanks-message" data-lang="es">
+          Gracias por donar <span class="thanks-amount" id="thanksAmountEs">$25</span> y mantener Aesthetic.Computer en línea y gratuito.
+        </p>
+        <p class="thanks-message" data-lang="zh">
+          感谢您捐赠<span class="thanks-amount" id="thanksAmountZh">$25</span>，让Aesthetic.Computer保持在线并免费使用。
+        </p>
         <div class="thanks-actions">
           <a href="./" class="thanks-again" data-lang="en">Give again?</a>
           <a href="./" class="thanks-again" data-lang="da">Giv igen?</a>
+          <a href="./" class="thanks-again" data-lang="de">Nochmal spenden?</a>
+          <a href="./" class="thanks-again" data-lang="es">¿Donar de nuevo?</a>
+          <a href="./" class="thanks-again" data-lang="zh">再次捐赠?</a>
           <button class="thanks-share" id="shareBtn" data-lang="en">Share to 𝕏</button>
           <button class="thanks-share" id="shareBtnDa" data-lang="da">Del på 𝕏</button>
+          <button class="thanks-share" id="shareBtnDe" data-lang="de">Teilen auf 𝕏</button>
+          <button class="thanks-share" id="shareBtnEs" data-lang="es">Compartir en 𝕏</button>
+          <button class="thanks-share" id="shareBtnZh" data-lang="zh">分享到 𝕏</button>
         </div>
       </div>
 
@@ -3613,6 +3678,9 @@
                 <div class="invest-suggestion" style="display: none;">
                   <span data-lang="en">At this level, consider <a href="#invest" class="invest-link">investing</a> for equity!</span>
                   <span data-lang="da">På dette niveau, overvej at <a href="#invest" class="invest-link">investere</a> for ejerandel!</span>
+                  <span data-lang="de">Bei diesem Betrag, erwägen Sie zu <a href="#invest" class="invest-link">investieren</a> für Eigenkapital!</span>
+                  <span data-lang="es">¡A este nivel, considere <a href="#invest" class="invest-link">invertir</a> para obtener participación!</span>
+                  <span data-lang="zh">在此金额下，考虑<a href="#invest" class="invest-link">投资</a>获取股权！</span>
                 </div>
                 <button class="gift-btn" data-currency="usd">Give $128</button>
                 <div class="gift-monthly-row">
@@ -3621,18 +3689,21 @@
                     <span data-lang="en">Monthly</span>
                     <span data-lang="da">Månedligt</span>
                     <span data-lang="de">Monatlich</span>
+                    <span data-lang="es">Mensual</span>
                     <span data-lang="zh">每月</span>
                   </label>
                   <a href="#" class="cancel-subscription-link">
                     <span data-lang="en">Cancel?</span>
                     <span data-lang="da">Annuller?</span>
                     <span data-lang="de">Kündigen?</span>
+                    <span data-lang="es">¿Cancelar?</span>
                     <span data-lang="zh">取消?</span>
                   </a>
                   <span class="tax-note">
                     <span data-lang="en">Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
                     <span data-lang="da">Ikke fradragsberettiget. <a href="#invest" class="invest-link">Investor?</a></span>
                     <span data-lang="de">Nicht steuerlich absetzbar. <a href="#invest" class="invest-link">Investor?</a></span>
+                    <span data-lang="es">No deducible de impuestos. <a href="#invest" class="invest-link">¿Inversor?</a></span>
                     <span data-lang="zh">不可抵税。<a href="#invest" class="invest-link">投资者?</a></span>
                   </span>
                 </div>
@@ -3657,18 +3728,21 @@
                     <span data-lang="en">Monthly</span>
                     <span data-lang="da">Månedligt</span>
                     <span data-lang="de">Monatlich</span>
+                    <span data-lang="es">Mensual</span>
                     <span data-lang="zh">每月</span>
                   </label>
                   <a href="#" class="cancel-subscription-link">
                     <span data-lang="en">Cancel?</span>
                     <span data-lang="da">Annuller?</span>
                     <span data-lang="de">Kündigen?</span>
+                    <span data-lang="es">¿Cancelar?</span>
                     <span data-lang="zh">取消?</span>
                   </a>
                   <span class="tax-note">
                     <span data-lang="en">Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
                     <span data-lang="da">Ikke fradragsberettiget. <a href="#invest" class="invest-link">Investor?</a></span>
                     <span data-lang="de">Nicht steuerlich absetzbar. <a href="#invest" class="invest-link">Investor?</a></span>
+                    <span data-lang="es">No deducible de impuestos. <a href="#invest" class="invest-link">¿Inversor?</a></span>
                     <span data-lang="zh">不可抵税。<a href="#invest" class="invest-link">投资者?</a></span>
                   </span>
                 </div>
@@ -3687,18 +3761,27 @@
                   <code class="crypto-addr">bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as</code>
                   <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
                   <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
+                  <span class="crypto-copy-hint" data-lang="de">📋 tippen zum kopieren</span>
+                  <span class="crypto-copy-hint" data-lang="es">📋 toca para copiar</span>
+                  <span class="crypto-copy-hint" data-lang="zh">📋 点击复制</span>
                 </div>
                 <div class="crypto-address copyable" data-copy="0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023">
                   <span class="crypto-label">💎 4esthetic.eth</span>
                   <code class="crypto-addr">0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023</code>
                   <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
                   <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
+                  <span class="crypto-copy-hint" data-lang="de">📋 tippen zum kopieren</span>
+                  <span class="crypto-copy-hint" data-lang="es">📋 toca para copiar</span>
+                  <span class="crypto-copy-hint" data-lang="zh">📋 点击复制</span>
                 </div>
                 <div class="crypto-address copyable" data-copy="tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT">
                   <span class="crypto-label">🔮 aesthetic.tez</span>
                   <code class="crypto-addr">tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT</code>
                   <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
                   <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
+                  <span class="crypto-copy-hint" data-lang="de">📋 tippen zum kopieren</span>
+                  <span class="crypto-copy-hint" data-lang="es">📋 toca para copiar</span>
+                  <span class="crypto-copy-hint" data-lang="zh">📋 点击复制</span>
                 </div>
               </div>
             </div>
@@ -3711,6 +3794,15 @@
       </div>
       <div class="prose full-width" data-lang="da">
         <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> er en kultur af sine brugere og den fuldtids softwareudviklingspraksis af <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, som har bygget eksperimentelle software-instrumenter i over et årti. Han bor i Echo Park med <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> og et hus fuldt af musikere, og demonstrerer regelmæssigt softwaren ved <a href="https://nelacomputer.club">NELA Computer Club</a> i Chinatown. Det næste møde er kl. 19 tirsdag den 6. januar på <a href="https://plot.place">Plot</a>.
+      </div>
+      <div class="prose full-width" data-lang="de">
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> ist eine vernetzte Kultur seiner Nutzer, unterstützt durch Medientools aus der Vollzeit-Softwareentwicklungspraxis von <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, der seit über einem Jahrzehnt experimentelle Software-Instrumente baut. Er lebt in Echo Park mit <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in einem Haus voller Musiker und präsentiert regelmäßig beim <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. Das nächste Treffen ist am Dienstag, 6. Januar um 19 Uhr bei <a href="https://plot.place">Plot</a>.
+      </div>
+      <div class="prose full-width" data-lang="es">
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> es la cultura en red de sus usuarios, apoyada por herramientas de medios de la práctica de desarrollo de software a tiempo completo de <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, quien ha estado creando instrumentos de software experimentales durante más de una década. Vive en Echo Park con <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> en una casa llena de músicos, y regularmente hace demostraciones en el <a href="https://nelacomputer.club">NELA Computer Club</a> en Chinatown. La próxima reunión es a las 7pm el martes 6 de enero en <a href="https://plot.place">Plot</a>.
+      </div>
+      <div class="prose full-width" data-lang="zh">
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> 是由 <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> 全职软件开发实践所支持的用户网络文化，他已经创建实验性软件工具超过十年。他与 <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> 住在 Echo Park 一个满是音乐人的房子里，并定期在 Chinatown 的 <a href="https://nelacomputer.club">NELA Computer Club</a> 展示。下次聚会时间为1月6日星期二晚上7点在 <a href="https://plot.place">Plot</a>。
       </div>
 
       <div class="stats-section">
@@ -3748,7 +3840,8 @@
 
       <div class="kidlisp-preview">
         <a href="https://kidlisp.com" class="kidlisp-preview-header">
-          <strong class="kidlisp-logo" style="font-family: 'Comic Sans MS', cursive; font-size: 1.1em;"><span style="color:#FF6B6B">K</span><span style="color:#4ECDC4">i</span><span style="color:#FFE66D">d</span><span style="color:#95E1D3">L</span><span style="color:#F38181">i</span><span style="color:#AA96DA">s</span><span style="color:#70D6FF">p</span><span style="color:var(--dim)">.</span><span style="color:#70D6FF">com</span></strong>
+          <strong class="kidlisp-logo" style="font-family: 'Comic Relief', 'Comic Sans MS', cursive; font-size: 1.1em;"><span style="color:#FF6B6B">K</span><span style="color:#4ECDC4">i</span><span style="color:#FFE66D">d</span><span style="color:#95E1D3">L</span><span style="color:#F38181">i</span><span style="color:#AA96DA">s</span><span style="color:#70D6FF">p</span><span style="color:var(--dim)">.</span><span style="color:#70D6FF">com</span></strong>
+          <span class="kidlisp-play-indicator" title="Open Editor"></span>
         </a>
         <div class="kidlisp-carousel" id="kidlispCarousel">
           <div class="kidlisp-slide-loading"></div>
@@ -3760,6 +3853,9 @@
         <div class="module-caption">
           <span data-lang="en">The next-level pattern syntax for gen beta</span>
           <span data-lang="da">Den næste generations mønstersyntaks for gen beta</span>
+          <span data-lang="de">Die nächste Stufe der Mustersyntax für Gen Beta</span>
+          <span data-lang="es">La sintaxis de patrones de siguiente nivel para gen beta</span>
+          <span data-lang="zh">下一代模式语法，为gen beta设计</span>
         </div>
       </div>
 
@@ -3776,6 +3872,9 @@
             <div class="module-caption chat-flip-trigger" onclick="toggleChatFlip()">
               <span data-lang="en">Goodiepal's Danish music community</span>
               <span data-lang="da">Goodiepals danske musikfællesskab</span>
+              <span data-lang="de">Goodiepals dänische Musikgemeinschaft</span>
+              <span data-lang="es">Comunidad musical danesa de Goodiepal</span>
+              <span data-lang="zh">Goodiepal的丹麦音乐社区</span>
             </div>
             <div class="flip-face-progress">
               <div class="flip-face-progress-bar" id="chatFlipProgress"></div>
@@ -3793,6 +3892,9 @@
             <div class="module-caption chat-flip-trigger" onclick="toggleChatFlip()">
               <span data-lang="en">Global Aesthetic Computer chat</span>
               <span data-lang="da">Global Aesthetic Computer chat</span>
+              <span data-lang="de">Globaler Aesthetic Computer Chat</span>
+              <span data-lang="es">Chat global de Aesthetic Computer</span>
+              <span data-lang="zh">全球Aesthetic Computer聊天</span>
             </div>
             <div class="flip-face-progress flip-face-progress-back">
               <div class="flip-face-progress-bar" id="chatFlipProgressBack"></div>
@@ -3820,6 +3922,9 @@
         <div class="module-caption">
           <span data-lang="en">Prefix any command with 'tape' to record and post a performance video.</span>
           <span data-lang="da">Sæt 'tape' foran en kommando for at optage og dele en performance-video.</span>
+          <span data-lang="de">Fügen Sie 'tape' vor jeden Befehl ein, um ein Performance-Video aufzunehmen und zu teilen.</span>
+          <span data-lang="es">Añade 'tape' antes de cualquier comando para grabar y publicar un video de actuación.</span>
+          <span data-lang="zh">在任何命令前加上'tape'来录制并发布表演视频。</span>
         </div>
       </div>
 
@@ -3876,6 +3981,9 @@
             <div class="module-caption apps-flip-trigger" onclick="toggleAppsFlip()">
               <span data-lang="en">Desktop apps and plugins are free.</span>
               <span data-lang="da">Desktop-apps og plugins er gratis.</span>
+              <span data-lang="de">Desktop-Apps und Plugins sind kostenlos.</span>
+              <span data-lang="es">Las apps de escritorio y plugins son gratis.</span>
+              <span data-lang="zh">桌面应用和插件免费。</span>
             </div>
             <div class="flip-face-progress">
               <div class="flip-face-progress-bar" id="appsFlipProgress"></div>
@@ -3904,6 +4012,9 @@
             <div class="module-caption apps-flip-trigger" onclick="toggleAppsFlip()">
               <span data-lang="en">Mobile app is free on iOS.</span>
               <span data-lang="da">Mobil-appen er gratis på iOS.</span>
+              <span data-lang="de">Die mobile App ist kostenlos auf iOS.</span>
+              <span data-lang="es">La app móvil es gratis en iOS.</span>
+              <span data-lang="zh">移动应用在iOS上免费。</span>
             </div>
             <div class="flip-face-progress flip-face-progress-back">
               <div class="flip-face-progress-bar" id="appsFlipProgressMobile"></div>
@@ -3926,6 +4037,9 @@
         <div class="module-caption">
           <span data-lang="en">Get artworks, tools, analog media, and wares by the AC community.</span>
           <span data-lang="da">Få kunstværker, værktøjer, analoge medier og varer fra AC-fællesskabet.</span>
+          <span data-lang="de">Holen Sie sich Kunstwerke, Werkzeuge, analoge Medien und Waren der AC-Community.</span>
+          <span data-lang="es">Obtén obras de arte, herramientas, medios analógicos y productos de la comunidad AC.</span>
+          <span data-lang="zh">获取AC社区的艺术品、工具、模拟媒体和商品。</span>
         </div>
       </div>
 
@@ -4102,9 +4216,9 @@
         return (s + s2 * 0.5 + 1) / 2;
       }
 
-      // Draw ONLY the POI region (face or body), cropped tight - no background
-      // This shows just the interesting parts, not the full photo
-      function drawPoiOnly(img, data, poi, destX, destY, destW, destH, alpha, rotation = 0) {
+      // Draw POI with full photo context faded behind
+      // POI is offset to left or right of center, full photo fades in around it
+      function drawPoiWithContext(img, data, poi, destX, destY, destW, destH, alpha, rotation = 0, side = 'left') {
         const imgW = img.width;
         const imgH = img.height;
         
@@ -4113,71 +4227,91 @@
         const poiY = imgH * poi.box[1] / 100;
         const poiW = imgW * poi.box[2] / 100;
         const poiH = imgH * poi.box[3] / 100;
-        
-        // Add some padding around the POI (20% extra on each side)
-        const padding = 0.3;
-        const padW = poiW * padding;
-        const padH = poiH * padding;
-        
-        let srcX = poiX - padW;
-        let srcY = poiY - padH;
-        let srcW = poiW + padW * 2;
-        let srcH = poiH + padH * 2;
-        
-        // Clamp to image bounds
-        srcX = Math.max(0, srcX);
-        srcY = Math.max(0, srcY);
-        srcW = Math.min(imgW - srcX, srcW);
-        srcH = Math.min(imgH - srcY, srcH);
-        
-        // Calculate destination maintaining aspect ratio
-        const srcRatio = srcW / srcH;
-        const destRatio = destW / destH;
-        
-        let drawW, drawH, drawX, drawY;
-        if (srcRatio > destRatio) {
-          // Source wider - fit to width
-          drawW = destW;
-          drawH = destW / srcRatio;
-          drawX = destX;
-          drawY = destY + (destH - drawH) / 2;
-        } else {
-          // Source taller - fit to height
-          drawH = destH;
-          drawW = destH * srcRatio;
-          drawX = destX + (destW - drawW) / 2;
-          drawY = destY;
-        }
+        const poiCenterX = poiX + poiW / 2;
+        const poiCenterY = poiY + poiH / 2;
         
         ctx.save();
-        ctx.globalAlpha = alpha;
         
-        // Apply rotation around center
+        // Apply rotation around canvas center
         const centerX = destX + destW / 2;
         const centerY = destY + destH / 2;
         ctx.translate(centerX, centerY);
         ctx.rotate(rotation);
         ctx.translate(-centerX, -centerY);
         
-        // Draw just the POI region
-        ctx.drawImage(img, srcX, srcY, srcW, srcH, drawX, drawY, drawW, drawH);
+        // Calculate zoom to make POI fill ~40% of canvas height
+        const targetPoiHeight = destH * 0.5;
+        const zoom = targetPoiHeight / poiH;
+        
+        // Calculate source region (full image scaled)
+        const viewW = destW / zoom;
+        const viewH = destH / zoom;
+        
+        // Position POI at 30% or 70% horizontally (avoiding center where logo is)
+        const targetX = side === 'left' ? destW * 0.30 : destW * 0.70;
+        const poiCanvasX = targetX; // Where POI center should be on canvas
+        
+        // Calculate srcX so POI center maps to targetX
+        let srcX = poiCenterX - (poiCanvasX / destW) * viewW;
+        let srcY = poiCenterY - viewH / 2;
+        
+        // Clamp to image bounds
+        srcX = Math.max(0, Math.min(imgW - viewW, srcX));
+        srcY = Math.max(0, Math.min(imgH - viewH, srcY));
+        
+        // 1. Draw full photo context at half opacity (faded background)
+        ctx.globalAlpha = alpha * 0.35;
+        ctx.drawImage(img, srcX, srcY, viewW, viewH, destX, destY, destW, destH);
+        
+        // 2. Draw POI region brighter on top with radial fade
+        // Create a radial gradient mask centered on POI
+        const poiDrawX = destX + (poiCenterX - srcX) / viewW * destW;
+        const poiDrawY = destY + (poiCenterY - srcY) / viewH * destH;
+        const poiDrawW = poiW / viewW * destW;
+        const poiDrawH = poiH / viewH * destH;
+        const fadeRadius = Math.max(poiDrawW, poiDrawH) * 1.5;
+        
+        // Draw POI area brighter using a circular clip + gradient
+        ctx.globalAlpha = alpha * 0.7;
+        
+        // Radial gradient from POI center - bright in middle, fades out
+        const gradient = ctx.createRadialGradient(
+          poiDrawX, poiDrawY, 0,
+          poiDrawX, poiDrawY, fadeRadius
+        );
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+        gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0.5)');
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        
+        // Use the gradient as a mask by drawing image again with composite
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        
+        // Draw brighter version of same region
+        ctx.globalAlpha = alpha * 0.5;
+        ctx.beginPath();
+        ctx.arc(poiDrawX, poiDrawY, fadeRadius, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(img, srcX, srcY, viewW, viewH, destX, destY, destW, destH);
+        ctx.restore();
         
         // Warm glow for faces
         if (poi.t === 'f') {
+          ctx.globalAlpha = alpha;
           const glow = ctx.createRadialGradient(
-            drawX + drawW / 2, drawY + drawH / 2, 0,
-            drawX + drawW / 2, drawY + drawH / 2, Math.max(drawW, drawH) * 0.8
+            poiDrawX, poiDrawY, 0,
+            poiDrawX, poiDrawY, fadeRadius * 0.8
           );
-          glow.addColorStop(0, 'rgba(255, 245, 220, 0.15)');
-          glow.addColorStop(0.5, 'rgba(255, 230, 200, 0.08)');
+          glow.addColorStop(0, 'rgba(255, 245, 220, 0.12)');
+          glow.addColorStop(0.5, 'rgba(255, 230, 200, 0.06)');
           glow.addColorStop(1, 'rgba(255, 220, 180, 0)');
           ctx.fillStyle = glow;
-          ctx.fillRect(drawX, drawY, drawW, drawH);
+          ctx.fillRect(destX, destY, destW, destH);
         }
         
         ctx.restore();
         
-        return { drawX, drawY, drawW, drawH };
+        return { poiDrawX, poiDrawY, poiDrawW, poiDrawH };
       }
 
       // Draw image with focal point offset to left or right (avoiding center logo)
@@ -4402,12 +4536,17 @@
         ctx.restore();
       }
 
-      // State for transitions
+      // State for transitions - NOW WITH TWO SIMULTANEOUS POIs (left + right)
       let transitionProgress = 0; // 0 = showing old, 1 = showing new
       let isTransitioning = false;
-      let previousPoi = null;
       let currentPoiIndex = 0;
       let poiPhase = 0; // For slow progression through POIs
+      
+      // Two POIs always visible: left and right
+      let leftPoi = null;
+      let rightPoi = null;
+      let prevLeftPoi = null;
+      let prevRightPoi = null;
       
       // Build a flat list of all POIs across all images (faces and bodies only)
       const allPois = [];
@@ -4430,9 +4569,6 @@
       // Prioritize faces - move them to front
       allPois.sort((a, b) => (b.poi.t === 'f' ? 1 : 0) - (a.poi.t === 'f' ? 1 : 0));
       
-      let currentPoiData = allPois[0] || null;
-      let targetPoiData = allPois[0] || null;
-      
       function render() {
         const w = canvasW;
         const h = canvasH;
@@ -4450,53 +4586,79 @@
         ctx.fillStyle = 'rgb(18, 14, 24)';
         ctx.fillRect(0, 0, w, h);
         
-        if (!targetPoiData || allPois.length === 0) {
+        if (allPois.length === 0 || (!leftPoi && !rightPoi)) {
           requestAnimationFrame(render);
           return;
         }
         
-        // Get current POI to display
-        const { name, poi, data } = targetPoiData;
-        const img = loadedImages[name];
+        ctx.save();
+        ctx.translate(w/2 + wiggleX, h/2 + wiggleY);
+        ctx.rotate(rotation);
+        ctx.translate(-w/2, -h/2);
         
-        if (img) {
-          // Draw only the POI region - just the face/body, cropped tight
-          ctx.save();
-          ctx.translate(w/2 + wiggleX, h/2 + wiggleY);
-          ctx.rotate(rotation);
-          ctx.translate(-w/2, -h/2);
-          
-          const alpha = isTransitioning ? 0.7 * transitionProgress : 0.7;
-          drawPoiOnly(img, data, poi, 0, 0, w, h, alpha, 0);
-          
-          ctx.restore();
-        }
-        
-        // Draw fading out previous POI during transition
-        if (isTransitioning && previousPoi) {
-          const prevImg = loadedImages[previousPoi.name];
-          if (prevImg) {
-            const fadeAlpha = 0.7 * (1 - transitionProgress);
-            drawPoiOnly(prevImg, previousPoi.data, previousPoi.poi, 0, 0, w, h, fadeAlpha, rotation * 0.5);
+        // Draw fading out previous POIs during transition (behind current)
+        if (isTransitioning) {
+          if (prevLeftPoi) {
+            const prevImg = loadedImages[prevLeftPoi.name];
+            if (prevImg) {
+              const fadeAlpha = (1 - transitionProgress) * 0.7;
+              drawPoiWithContext(prevImg, prevLeftPoi.data, prevLeftPoi.poi, 0, 0, w, h, fadeAlpha, 0, 'left');
+            }
+          }
+          if (prevRightPoi) {
+            const prevImg = loadedImages[prevRightPoi.name];
+            if (prevImg) {
+              const fadeAlpha = (1 - transitionProgress) * 0.7;
+              drawPoiWithContext(prevImg, prevRightPoi.data, prevRightPoi.poi, 0, 0, w, h, fadeAlpha, 0, 'right');
+            }
           }
         }
+        
+        // Draw LEFT POI (always on left side)
+        if (leftPoi) {
+          const leftImg = loadedImages[leftPoi.name];
+          if (leftImg) {
+            const alpha = isTransitioning ? transitionProgress * 0.85 : 0.85;
+            drawPoiWithContext(leftImg, leftPoi.data, leftPoi.poi, 0, 0, w, h, alpha, 0, 'left');
+          }
+        }
+        
+        // Draw RIGHT POI (always on right side) - slightly lower alpha for layering
+        if (rightPoi) {
+          const rightImg = loadedImages[rightPoi.name];
+          if (rightImg) {
+            const alpha = isTransitioning ? transitionProgress * 0.75 : 0.75;
+            drawPoiWithContext(rightImg, rightPoi.data, rightPoi.poi, 0, 0, w, h, alpha, 0, 'right');
+          }
+        }
+        
+        ctx.restore();
         
         requestAnimationFrame(render);
       }
 
       async function transitionToNextPoi() {
-        if (allPois.length === 0) return;
+        if (allPois.length < 2) return;
         
-        // Get next POI
-        currentPoiIndex = (currentPoiIndex + 1) % allPois.length;
-        const nextPoiData = allPois[currentPoiIndex];
+        // Get next two POIs (different images for left and right)
+        currentPoiIndex = (currentPoiIndex + 2) % allPois.length;
+        const nextLeftIdx = currentPoiIndex;
+        const nextRightIdx = (currentPoiIndex + 1) % allPois.length;
         
-        // Preload the image if needed
-        await preloadImage(nextPoiData.name);
+        const nextLeftPoi = allPois[nextLeftIdx];
+        const nextRightPoi = allPois[nextRightIdx];
+        
+        // Preload both images
+        await Promise.all([
+          preloadImage(nextLeftPoi.name),
+          preloadImage(nextRightPoi.name)
+        ]);
         
         // Store previous for crossfade
-        previousPoi = targetPoiData;
-        targetPoiData = nextPoiData;
+        prevLeftPoi = leftPoi;
+        prevRightPoi = rightPoi;
+        leftPoi = nextLeftPoi;
+        rightPoi = nextRightPoi;
         
         // Start transition
         isTransitioning = true;
@@ -4509,7 +4671,8 @@
             clearInterval(dissolveInterval);
             transitionProgress = 1;
             isTransitioning = false;
-            previousPoi = null;
+            prevLeftPoi = null;
+            prevRightPoi = null;
           }
         }, 30);
       }
@@ -4522,20 +4685,30 @@
         // Start render loop immediately
         render();
         
-        // Load first POI image
-        if (allPois.length > 0) {
-          await preloadImage(allPois[0].name);
-          targetPoiData = allPois[0];
+        // Load first TWO POIs for left + right simultaneously
+        if (allPois.length >= 2) {
+          // Preload first pair
+          await Promise.all([
+            preloadImage(allPois[0].name),
+            preloadImage(allPois[1].name)
+          ]);
+          leftPoi = allPois[0];
+          rightPoi = allPois[1];
+          currentPoiIndex = 1; // Start at index 1 so next transition goes to 3,4
           
           // Preload a few more
-          for (let i = 1; i < Math.min(5, allPois.length); i++) {
+          for (let i = 2; i < Math.min(8, allPois.length); i++) {
             preloadImage(allPois[i].name);
           }
           
-          // Start transitions after first POI is showing
+          // Start transitions after first pair is showing
           setTimeout(() => {
-            setInterval(transitionToNextPoi, 5000); // Change POI every 5 seconds
+            setInterval(transitionToNextPoi, 5000); // Change POI pair every 5 seconds
           }, 3000);
+        } else if (allPois.length === 1) {
+          // Only one POI, show it on left
+          await preloadImage(allPois[0].name);
+          leftPoi = allPois[0];
         }
       }
 
@@ -4590,6 +4763,7 @@
         en: { flag: '🇺🇸', text: 'English' },
         da: { flag: '🇩🇰', text: 'Dansk' },
         de: { flag: '🇩🇪', text: 'Deutsch' },
+        es: { flag: '🇪🇸', text: 'Español' },
         zh: { flag: '🇨🇳', text: '中文' }
       };
       const info = langData[lang] || langData.en;
@@ -4890,7 +5064,7 @@
     function setLanguage(lang) {
       currentLang = lang;
       // Remove all language classes and add current one
-      document.body.classList.remove('lang-da', 'lang-zh', 'lang-de');
+      document.body.classList.remove('lang-da', 'lang-zh', 'lang-de', 'lang-es');
       if (lang !== 'en') document.body.classList.add(`lang-${lang}`);
       
       // Reload ticker with translated messages
