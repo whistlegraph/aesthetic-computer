@@ -2345,9 +2345,9 @@
       left: 0;
       right: 0;
       z-index: 10;
-      background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+      background: rgba(0,0,0,0.85);
       color: rgba(255,255,255,0.6);
-      padding: 1.5em 0.8em 0.6em;
+      padding: 0.5em 0.8em;
     }
 
     .tv-player {
@@ -2385,11 +2385,11 @@
 
     .tv-progress {
       position: absolute;
-      bottom: 0;
+      bottom: 2.8em;
       left: 0;
       right: 0;
       height: 44px;
-      background: linear-gradient(0deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 70%, transparent 100%);
+      background: linear-gradient(0deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 70%, transparent 100%);
       z-index: 12;
       display: flex;
       flex-direction: column;
@@ -2404,7 +2404,7 @@
 
     .tv-timer {
       position: absolute;
-      bottom: 10px;
+      bottom: calc(2.8em + 10px);
       left: 10px;
       font-family: var(--mono);
       font-size: 1em;
