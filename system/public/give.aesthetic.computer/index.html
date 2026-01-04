@@ -4184,7 +4184,10 @@
     }
 
     .floating-give .note {
-      color: rgba(255, 255, 255, 0.8);
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.55em;
+      letter-spacing: 0.08em;
+      vertical-align: middle;
     }
 
     @keyframes floatAmbient {
@@ -7649,9 +7652,17 @@
     }
     
     // Floating notes on jeffreys canvas
+    let floatingNotesStarted = false; // Global guard to prevent multiple instances
     function startFloatingNotes(givesWithNotes) {
+      // Only allow one instance of floating notes
+      if (floatingNotesStarted) return;
+      floatingNotesStarted = true;
+      
       const slideshow = document.getElementById('jeffreysSlideshow');
-      if (!slideshow) return;
+      if (!slideshow) {
+        floatingNotesStarted = false;
+        return;
+      }
       
       let noteIndex = 0;
       const visibleNotes = new Set(); // Track note TEXT currently on screen
