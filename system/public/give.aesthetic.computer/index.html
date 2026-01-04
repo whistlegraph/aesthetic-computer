@@ -3094,19 +3094,33 @@
 
     #pals {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 0.5em;
       grid-column: 1 / -1;
       color: rgba(255,255,255,0.3);
       font-family: var(--mono);
       font-size: 0.9em;
       text-decoration: none;
       cursor: pointer;
-      transition: color 0.2s;
+      transition: color 0.2s, filter 0.2s;
+      padding: 1em 0;
+    }
+
+    #pals img {
+      width: 32px;
+      height: auto;
+      filter: grayscale(100%) opacity(0.3);
+      transition: filter 0.2s;
     }
 
     #pals:hover {
       color: rgba(255,255,255,0.8);
+    }
+
+    #pals:hover img {
+      filter: grayscale(0%) opacity(0.8);
     }
 
     .page-footer {
@@ -3615,12 +3629,15 @@
         <span class="link-desc" data-lang="da">Aesthetic.Computer er startet af en håndfuld tidlige støtter, der deler virksomhedskapital i <a href="https://aesthetic.direct">Aesthetic Inc.</a> For at blive en del af dette fællesskab, book en fjern-demo med <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a>.</span>
       </div>
 
-      <a id="pals" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;" href="#">
-        ↑ Back to Top
-      </a>
       <div class="page-footer">
-        Stay tuned for updates on <a href="https://aesthetic.direct">aesthetic.direct</a>...
+        <span data-lang="en">New to Aesthetic.Computer? Sign up, verify your email, get a handle, and say "hi" in <code>chat</code>!</span>
+        <span data-lang="da">Ny på Aesthetic.Computer? Tilmeld dig, bekræft din email, få et handle, og sig "hej" i <code>chat</code>!</span>
       </div>
+
+      <a id="pals" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;" href="#">
+        <img src="https://aesthetic.computer/purple-pals.svg" alt="">
+        <span>↑ Back to Top</span>
+      </a>
     </div>
   </main>
 
