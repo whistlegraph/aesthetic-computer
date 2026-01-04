@@ -4010,7 +4010,7 @@
     };
 
     const jeffreysImages = Object.keys(jeffreysData);
-    const DEBUG_FACES = true; // Set true to show POI boxes
+    const DEBUG_FACES = false; // Set true to show POI boxes
     const POI_GLOW = true; // Soft radial glow on detected faces/bodies
 
     function initJeffreysSlideshow() {
@@ -4102,15 +4102,82 @@
         return (s + s2 * 0.5 + 1) / 2;
       }
 
-      // Get POI center coordinates
-      function getPoiCenter(poi) {
-        return {
-          x: poi.box[0] + poi.box[2] / 2,
-          y: poi.box[1] + poi.box[3] / 2,
-          w: poi.box[2],
-          h: poi.box[3],
-          type: poi.t
-        };
+      // Draw ONLY the POI region (face or body), cropped tight - no background
+      // This shows just the interesting parts, not the full photo
+      function drawPoiOnly(img, data, poi, destX, destY, destW, destH, alpha, rotation = 0) {
+        const imgW = img.width;
+        const imgH = img.height;
+        
+        // Get POI box in image pixels
+        const poiX = imgW * poi.box[0] / 100;
+        const poiY = imgH * poi.box[1] / 100;
+        const poiW = imgW * poi.box[2] / 100;
+        const poiH = imgH * poi.box[3] / 100;
+        
+        // Add some padding around the POI (20% extra on each side)
+        const padding = 0.3;
+        const padW = poiW * padding;
+        const padH = poiH * padding;
+        
+        let srcX = poiX - padW;
+        let srcY = poiY - padH;
+        let srcW = poiW + padW * 2;
+        let srcH = poiH + padH * 2;
+        
+        // Clamp to image bounds
+        srcX = Math.max(0, srcX);
+        srcY = Math.max(0, srcY);
+        srcW = Math.min(imgW - srcX, srcW);
+        srcH = Math.min(imgH - srcY, srcH);
+        
+        // Calculate destination maintaining aspect ratio
+        const srcRatio = srcW / srcH;
+        const destRatio = destW / destH;
+        
+        let drawW, drawH, drawX, drawY;
+        if (srcRatio > destRatio) {
+          // Source wider - fit to width
+          drawW = destW;
+          drawH = destW / srcRatio;
+          drawX = destX;
+          drawY = destY + (destH - drawH) / 2;
+        } else {
+          // Source taller - fit to height
+          drawH = destH;
+          drawW = destH * srcRatio;
+          drawX = destX + (destW - drawW) / 2;
+          drawY = destY;
+        }
+        
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        
+        // Apply rotation around center
+        const centerX = destX + destW / 2;
+        const centerY = destY + destH / 2;
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotation);
+        ctx.translate(-centerX, -centerY);
+        
+        // Draw just the POI region
+        ctx.drawImage(img, srcX, srcY, srcW, srcH, drawX, drawY, drawW, drawH);
+        
+        // Warm glow for faces
+        if (poi.t === 'f') {
+          const glow = ctx.createRadialGradient(
+            drawX + drawW / 2, drawY + drawH / 2, 0,
+            drawX + drawW / 2, drawY + drawH / 2, Math.max(drawW, drawH) * 0.8
+          );
+          glow.addColorStop(0, 'rgba(255, 245, 220, 0.15)');
+          glow.addColorStop(0.5, 'rgba(255, 230, 200, 0.08)');
+          glow.addColorStop(1, 'rgba(255, 220, 180, 0)');
+          ctx.fillStyle = glow;
+          ctx.fillRect(drawX, drawY, drawW, drawH);
+        }
+        
+        ctx.restore();
+        
+        return { drawX, drawY, drawW, drawH };
       }
 
       // Draw image with focal point offset to left or right (avoiding center logo)
@@ -4338,9 +4405,33 @@
       // State for transitions
       let transitionProgress = 0; // 0 = showing old, 1 = showing new
       let isTransitioning = false;
-      let previousImages = [];
-      let scrollPhase = 0; // For slow scroll through images
-      let zoomPhase = 0; // For slow zoom pulsing
+      let previousPoi = null;
+      let currentPoiIndex = 0;
+      let poiPhase = 0; // For slow progression through POIs
+      
+      // Build a flat list of all POIs across all images (faces and bodies only)
+      const allPois = [];
+      for (const name of jeffreysImages) {
+        const data = jeffreysData[name];
+        if (data.pois) {
+          for (const poi of data.pois) {
+            // Only faces and bodies, skip hands and small bodies
+            if (poi.t === 'h') continue;
+            if (poi.t === 'b' && poi.box[2] * poi.box[3] < 15) continue; // Skip tiny bodies
+            allPois.push({ name, poi, data });
+          }
+        }
+      }
+      // Shuffle for variety
+      for (let i = allPois.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allPois[i], allPois[j]] = [allPois[j], allPois[i]];
+      }
+      // Prioritize faces - move them to front
+      allPois.sort((a, b) => (b.poi.t === 'f' ? 1 : 0) - (a.poi.t === 'f' ? 1 : 0));
+      
+      let currentPoiData = allPois[0] || null;
+      let targetPoiData = allPois[0] || null;
       
       function render() {
         const w = canvasW;
@@ -4349,195 +4440,76 @@
         // Update phases slowly
         globalRotation += 0.00003;
         floatOffset += 0.00005;
-        scrollPhase += 0.00008; // Slow scroll
-        zoomPhase += 0.00004; // Slow zoom pulse
+        poiPhase += 0.0001; // Slow POI progression
         
-        const rotation = Math.sin(globalRotation) * 0.004; // More rotation
-        const zoomPulse = 1.02 + Math.sin(zoomPhase * Math.PI * 2) * 0.03; // 1.0 to 1.05 zoom
-        const wiggleX = Math.sin(floatOffset * Math.PI * 3) * 3;
-        const wiggleY = Math.cos(floatOffset * Math.PI * 2.5) * 2;
+        const rotation = Math.sin(globalRotation) * 0.008; // Gentle rotation
+        const wiggleX = Math.sin(floatOffset * Math.PI * 3) * 2;
+        const wiggleY = Math.cos(floatOffset * Math.PI * 2.5) * 1.5;
         
-        // Clear completely each frame for clean fades (no trails = no pop)
+        // Clear completely each frame
         ctx.fillStyle = 'rgb(18, 14, 24)';
         ctx.fillRect(0, 0, w, h);
         
-        // Draw image with scroll to show whole thing over time + Ken Burns zoom/wiggle
-        const drawScrollingImage = (img, name, destX, destY, destW, destH, alpha, rot = 0, extraZoom = 1) => {
-          const imgW = img.width;
-          const imgH = img.height;
-          const canvasRatio = destW / destH;
-          const imgRatio = imgW / imgH;
-          
-          let srcW, srcH, srcX, srcY;
-          
-          // Calculate how much we need to scroll
-          if (imgRatio < canvasRatio) {
-            // Vertical image - we'll scroll vertically
-            srcW = imgW;
-            srcH = srcW / canvasRatio;
-            srcX = 0;
-            // Scroll from top to bottom and back
-            const maxScrollY = imgH - srcH;
-            const scrollT = (Math.sin(scrollPhase * Math.PI * 2) + 1) / 2;
-            srcY = maxScrollY * scrollT;
-          } else {
-            // Horizontal/square image - scroll horizontally  
-            srcH = imgH;
-            srcW = srcH * canvasRatio;
-            srcY = 0;
-            // Scroll from left to right and back
-            const maxScrollX = imgW - srcW;
-            const scrollT = (Math.sin(scrollPhase * Math.PI * 2) + 1) / 2;
-            srcX = maxScrollX * scrollT;
-          }
-          
+        if (!targetPoiData || allPois.length === 0) {
+          requestAnimationFrame(render);
+          return;
+        }
+        
+        // Get current POI to display
+        const { name, poi, data } = targetPoiData;
+        const img = loadedImages[name];
+        
+        if (img) {
+          // Draw only the POI region - just the face/body, cropped tight
           ctx.save();
-          ctx.globalAlpha = alpha;
-          const cx = destX + destW / 2;
-          const cy = destY + destH / 2;
-          ctx.translate(cx + wiggleX, cy + wiggleY);
-          ctx.rotate(rot);
-          const totalZoom = zoomPulse * extraZoom;
-          ctx.scale(totalZoom, totalZoom);
-          ctx.translate(-cx, -cy);
-          ctx.drawImage(img, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
+          ctx.translate(w/2 + wiggleX, h/2 + wiggleY);
+          ctx.rotate(rotation);
+          ctx.translate(-w/2, -h/2);
+          
+          const alpha = isTransitioning ? 0.7 * transitionProgress : 0.7;
+          drawPoiOnly(img, data, poi, 0, 0, w, h, alpha, 0);
+          
           ctx.restore();
-          
-          // Return source rect info for POI mapping
-          return { srcX, srcY, srcW, srcH };
-        };
+        }
         
-        // Draw POI-based fade mask (faces/bodies fade slower)
-        const drawPoiMask = (name, destX, destY, destW, destH, srcInfo, fadeStrength) => {
-          const data = jeffreysData[name];
-          if (!data || !data.pois || data.pois.length === 0) return;
-          
-          const img = loadedImages[name];
-          if (!img) return;
-          
-          const imgW = img.width;
-          const imgH = img.height;
-          const { srcX, srcY, srcW, srcH } = srcInfo;
-          
-          for (const poi of data.pois) {
-            // Skip hands, only do faces and bodies
-            if (poi.t === 'h') continue;
-            
-            // POI position in image coords (percentage to pixels)
-            const poiImgX = imgW * poi.box[0] / 100;
-            const poiImgY = imgH * poi.box[1] / 100;
-            const poiImgW = imgW * poi.box[2] / 100;
-            const poiImgH = imgH * poi.box[3] / 100;
-            
-            // Check if POI is in visible source region
-            if (poiImgX + poiImgW < srcX || poiImgX > srcX + srcW) continue;
-            if (poiImgY + poiImgH < srcY || poiImgY > srcY + srcH) continue;
-            
-            // Map POI center to canvas coords
-            const poiCenterX = destX + ((poiImgX + poiImgW / 2) - srcX) / srcW * destW;
-            const poiCenterY = destY + ((poiImgY + poiImgH / 2) - srcY) / srcH * destH;
-            const poiRadius = Math.max(poiImgW / srcW * destW, poiImgH / srcH * destH) * 1.5;
-            
-            // Draw soft radial gradient - lighter in center (face sticks)
-            const gradient = ctx.createRadialGradient(
-              poiCenterX, poiCenterY, 0,
-              poiCenterX, poiCenterY, poiRadius
-            );
-            
-            // Faces get stronger persistence
-            const strength = poi.t === 'f' ? fadeStrength * 1.5 : fadeStrength;
-            gradient.addColorStop(0, `rgba(255, 250, 240, ${strength * 0.3})`);
-            gradient.addColorStop(0.5, `rgba(255, 245, 230, ${strength * 0.15})`);
-            gradient.addColorStop(1, 'rgba(255, 240, 220, 0)');
-            
-            ctx.save();
-            ctx.globalCompositeOperation = 'screen';
-            ctx.fillStyle = gradient;
-            ctx.fillRect(destX, destY, destW, destH);
-            ctx.restore();
+        // Draw fading out previous POI during transition
+        if (isTransitioning && previousPoi) {
+          const prevImg = loadedImages[previousPoi.name];
+          if (prevImg) {
+            const fadeAlpha = 0.7 * (1 - transitionProgress);
+            drawPoiOnly(prevImg, previousPoi.data, previousPoi.poi, 0, 0, w, h, fadeAlpha, rotation * 0.5);
           }
-        };
-        
-        // Draw images with scrolling
-        const drawImages = (images, alpha, drawMask = false, maskStrength = 0) => {
-          if (!images || images.length === 0) return;
-          
-          if (images.length === 1) {
-            const name = images[0];
-            const img = loadedImages[name];
-            if (img) {
-              const srcInfo = drawScrollingImage(img, name, 0, 0, w, h, alpha, rotation);
-              if (drawMask) {
-                drawPoiMask(name, 0, 0, w, h, srcInfo, maskStrength);
-              }
-            }
-          } else if (images.length === 2) {
-            const overlap = 15;
-            const eachW = (w + overlap) / 2;
-            
-            for (let i = 0; i < 2; i++) {
-              const name = images[i];
-              const img = loadedImages[name];
-              if (img) {
-                const x = i === 0 ? 0 : w - eachW;
-                const yOffset = Math.sin(floatOffset * Math.PI * 2 + i * Math.PI * 0.5) * 1.5;
-                const imgRotation = rotation + Math.sin(globalRotation + i * Math.PI) * 0.002;
-                const srcInfo = drawScrollingImage(img, name, x, yOffset, eachW, h, alpha * 0.95, imgRotation);
-                if (drawMask) {
-                  drawPoiMask(name, x, yOffset, eachW, h, srcInfo, maskStrength);
-                }
-              }
-            }
-          }
-        };
-        
-        if (isTransitioning) {
-          // Pure crossfade - old fades out, new fades in
-          const oldAlpha = 0.5 * (1 - transitionProgress);
-          const newAlpha = 0.5 * transitionProgress;
-          
-          // Draw both with their respective alphas
-          drawImages(previousImages, oldAlpha, true, 1 - transitionProgress);
-          drawImages(targetImages, newAlpha);
-        } else {
-          // Normal: just show current images
-          drawImages(targetImages, 0.5);
         }
         
         requestAnimationFrame(render);
       }
 
-      async function transitionToNext() {
-        // Get next images
-        const nextIdx = (currentDisplayIndex + 1) % displayQueue.length;
-        const nextImages = displayQueue[nextIdx];
+      async function transitionToNextPoi() {
+        if (allPois.length === 0) return;
         
-        // Wait for next images to load before transitioning
-        await Promise.all(nextImages.map(preloadImage));
+        // Get next POI
+        currentPoiIndex = (currentPoiIndex + 1) % allPois.length;
+        const nextPoiData = allPois[currentPoiIndex];
         
-        // Store previous images for dissolve
-        previousImages = [...targetImages];
+        // Preload the image if needed
+        await preloadImage(nextPoiData.name);
         
-        // Switch to next images (now loaded)
-        currentDisplayIndex = nextIdx;
-        targetImages = nextImages;
+        // Store previous for crossfade
+        previousPoi = targetPoiData;
+        targetPoiData = nextPoiData;
         
-        // Start preloading the one after that (don't await)
-        const futureIdx = (currentDisplayIndex + 1) % displayQueue.length;
-        displayQueue[futureIdx].forEach(name => preloadImage(name));
-        
-        // Start dissolve transition
+        // Start transition
         isTransitioning = true;
         transitionProgress = 0;
         
-        // Animate dissolve over ~20 seconds (super slow)
+        // Animate dissolve over ~3 seconds
         const dissolveInterval = setInterval(() => {
-          transitionProgress += 0.0015;
+          transitionProgress += 0.015;
           if (transitionProgress >= 1) {
             clearInterval(dissolveInterval);
             transitionProgress = 1;
             isTransitioning = false;
-            previousImages = [];
+            previousPoi = null;
           }
         }, 30);
       }
@@ -4547,34 +4519,24 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
         
-        // Start render loop immediately (will show dark until images load)
+        // Start render loop immediately
         render();
         
-        // Load first batch in background, then start showing
-        const firstImages = displayQueue[0];
-        Promise.all(firstImages.map(preloadImage)).then(() => {
-          targetImages = firstImages;
-          currentAlpha = 0;
+        // Load first POI image
+        if (allPois.length > 0) {
+          await preloadImage(allPois[0].name);
+          targetPoiData = allPois[0];
           
-          // Fade in first image
-          const fadeInInterval = setInterval(() => {
-            currentAlpha += 0.02;
-            if (currentAlpha >= 1) {
-              clearInterval(fadeInInterval);
-              currentAlpha = 1;
-            }
-          }, 30);
-          
-          // Start preloading next batch
-          if (displayQueue.length > 1) {
-            displayQueue[1].forEach(name => preloadImage(name));
+          // Preload a few more
+          for (let i = 1; i < Math.min(5, allPois.length); i++) {
+            preloadImage(allPois[i].name);
           }
           
-          // Start transitions after first image is showing
+          // Start transitions after first POI is showing
           setTimeout(() => {
-            setInterval(transitionToNext, 8000);
+            setInterval(transitionToNextPoi, 5000); // Change POI every 5 seconds
           }, 3000);
-        });
+        }
       }
 
       start();
