@@ -4873,7 +4873,7 @@
     const screenshotsImages = Object.keys(screenshotsData);
     const allImages = [...jeffreysImages, ...screenshotsImages];
     const DEBUG_FACES = false; // Set true for labels and coordinates
-    const SHOW_POI_BOXES = true; // Matrix-style detection boxes (aesthetic)
+    const SHOW_POI_BOXES = false; // Matrix-style detection boxes (aesthetic)
     const POI_GLOW = true; // Soft radial glow on detected faces/bodies
     
     // Aesthetic POI box colors - cycling rainbow
@@ -7555,11 +7555,11 @@
           track.style.animationDuration = `${speed}s`;
         }
         
-        // Float notes with messages on the jeffreys slideshow
-        const givesWithNotes = givesData.filter(g => g.note && g.note.trim());
-        if (givesWithNotes.length > 0) {
-          startFloatingNotes(givesWithNotes);
-        }
+        // Float notes with messages on the jeffreys slideshow (disabled for now)
+        // const givesWithNotes = givesData.filter(g => g.note && g.note.trim());
+        // if (givesWithNotes.length > 0) {
+        //   startFloatingNotes(givesWithNotes);
+        // }
       } catch (e) {
         console.error('Gives load error:', e);
         ticker.innerHTML = '<div class="gives-ticker-empty">Unable to load gives</div>';
