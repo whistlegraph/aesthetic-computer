@@ -89,6 +89,8 @@
       font-size: 14px;
       line-height: 1.6;
       overflow-x: hidden;
+      -webkit-text-size-adjust: 100%; /* Prevent Safari from inflating fonts */
+      text-size-adjust: 100%;
     }
 
     /* Top bar with logo and language chooser */
@@ -785,6 +787,10 @@
       background: linear-gradient(135deg, rgba(205, 92, 155, 0.1) 0%, rgba(0, 255, 255, 0.05) 100%);
       border: 1px solid var(--box-border);
       border-radius: 8px 8px 0 0;
+      /* Safari mobile fix for border-radius */
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
+      isolation: isolate;
+      overflow: hidden;
     }
 
     .gift-logo-wrap {
@@ -1779,6 +1785,9 @@
       display: flex;
       flex-direction: column;
       transition: opacity 0.1s ease, filter 0.1s ease;
+      /* Safari mobile fix for border-radius */
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
+      isolation: isolate;
     }
 
     .apps-flip-front {
@@ -2250,6 +2259,9 @@
       flex-direction: column;
       position: relative;
       aspect-ratio: 1;
+      /* Safari mobile fix for border-radius */
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
+      isolation: isolate;
     }
 
     .shop-header {
@@ -2476,6 +2488,9 @@
       flex-direction: column;
       position: relative;
       aspect-ratio: 1;
+      /* Safari mobile fix for border-radius */
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
+      isolation: isolate;
     }
 
     .tv-header {
@@ -2727,6 +2742,9 @@
       display: flex;
       flex-direction: column;
       transition: opacity 0.1s ease, filter 0.1s ease;
+      /* Safari mobile fix for border-radius */
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
+      isolation: isolate;
     }
 
     /* Front face - laer-klokken - active when NOT flipped */
@@ -2816,6 +2834,9 @@
       position: relative;
       scrollbar-width: none;
       -ms-overflow-style: none;
+      /* Safari mobile fix for border-radius */
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
+      isolation: isolate;
     }
     .chat-preview::-webkit-scrollbar { display: none; }
 
@@ -3046,6 +3067,9 @@
       display: flex;
       flex-direction: column;
       position: relative;
+      /* Safari mobile fix for border-radius */
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
+      isolation: isolate;
     }
 
     .kidlisp-preview-header:hover .kidlisp-logo {
@@ -4825,6 +4849,16 @@
     const thanksAmount = urlParams.get('amount');
     const thanksCurrency = urlParams.get('currency') || 'usd';
     
+    // Check for prefilled email (from logged-in users via kidlisp.com or aesthetic.computer)
+    const prefillEmail = urlParams.get('email');
+    if (prefillEmail) {
+      console.log('💌 Email prefilled for checkout:', prefillEmail);
+      // Clean up URL without reloading (remove email param for privacy)
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('email');
+      window.history.replaceState({}, '', cleanUrl.toString());
+    }
+    
     if (isThanksMode) {
       document.body.classList.add('thanks-mode');
       // Update amount display
@@ -5397,10 +5431,14 @@
       btn.textContent = currentLang === 'da' ? 'Giver...' : 'Giving...';
 
       try {
+        const payload = { amount: amount * 100, currency, recurring: isMonthly };
+        // Include prefilled email if available (from logged-in user)
+        if (prefillEmail) payload.email = prefillEmail;
+        
         const res = await fetch('https://aesthetic.computer/api/give', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: amount * 100, currency, recurring: isMonthly })
+          body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (data.url) window.location.href = data.url;
