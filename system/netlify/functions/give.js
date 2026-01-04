@@ -9,8 +9,8 @@ const dev = process.env.CONTEXT === "dev";
 
 // Supported currencies and their configs
 const currencies = {
-  usd: { symbol: "$", min: 100, max: 100000 },
-  dkk: { symbol: "kr", min: 500, max: 700000 },
+  usd: { symbol: "$", min: 100, max: 250000 },
+  dkk: { symbol: "kr", min: 500, max: 1750000 },
 };
 
 export async function handler(event, context) {
