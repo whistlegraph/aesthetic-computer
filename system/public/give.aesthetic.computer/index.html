@@ -1505,6 +1505,13 @@
     .link-block.invest-section strong { color: #4ecdc4; }
     .link-block.invest-section strong,
     .link-block.invest-section .link-desc { background: transparent; }
+    .link-block.invest-section .link-desc a {
+      color: #4ecdc4;
+      text-decoration: underline;
+    }
+    .link-block.invest-section .link-desc a:hover {
+      color: #6eeee6;
+    }
 
     /* Invest section blink animation */
     @keyframes invest-blink {
@@ -1546,6 +1553,17 @@
       perspective: 1200px;
       overflow: hidden;
       border-radius: 8px;
+    }
+
+    .apps-flip-container .module-caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+      color: rgba(255,255,255,0.6);
+      padding: 1.5em 0.8em 0.6em;
     }
 
     .apps-flip-card {
@@ -3467,6 +3485,10 @@
         <div class="tv-player" id="tvPlayer">
           <div class="tv-loading">📺</div>
         </div>
+        <div class="module-caption">
+          <span data-lang="en">Prefix any command with 'tape' to record and post a performance video.</span>
+          <span data-lang="da">Sæt 'tape' foran en kommando for at optage og dele en performance-video.</span>
+        </div>
       </div>
 
       <!-- Apps Flip: Desktop / Mobile -->
@@ -3548,6 +3570,10 @@
             </div>
           </div>
         </div>
+        <div class="module-caption apps-flip-caption">
+          <span data-lang="en">use aesthetic across contexts</span>
+          <span data-lang="da">brug aesthetic på tværs af kontekster</span>
+        </div>
       </div>
 
       <div class="shop-section">
@@ -3565,9 +3591,8 @@
 
       <div class="link-block invest-section" id="invest">
         <strong>📈</strong> <span data-lang="en"><strong>Invest</strong></span><span data-lang="da"><strong>Investér</strong></span>
-        <a href="https://aesthetic.direct">aesthetic.direct</a>
-        <span class="link-desc" data-lang="en">Equity investment opportunities</span>
-        <span class="link-desc" data-lang="da">Aktieinvesteringsmuligheder</span>
+        <span class="link-desc" data-lang="en">Aesthetic.Computer is booted by a handful of early supporters who share in company equity of <a href="https://aesthetic.direct">Aesthetic Inc.</a> To join this community, book a remote demo with <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a>.</span>
+        <span class="link-desc" data-lang="da">Aesthetic.Computer er startet af en håndfuld tidlige støtter, der deler virksomhedskapital i <a href="https://aesthetic.direct">Aesthetic Inc.</a> For at blive en del af dette fællesskab, book en fjern-demo med <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a>.</span>
       </div>
 
       <a id="pals" href="https://aesthetic.computer">
