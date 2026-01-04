@@ -1,6 +1,7 @@
 // chat-messages, 25.11.21.18.30
 // GET: Returns recent chat messages from a specific chat instance.
 //      Examples: "clock" for Laer-Klokken, "system" for main chat
+// Now with Redis caching (2 min TTL).
 
 /* #region 🏁 TODO 
   - [] Add pagination support
@@ -10,6 +11,7 @@
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { shell } from "../../backend/shell.mjs";
+import { getOrCompute, CACHE_TTLS } from "../../backend/cache.mjs";
 
 export async function handler(event, context) {
   if (event.httpMethod === "OPTIONS") {
@@ -29,73 +31,83 @@ export async function handler(event, context) {
       return respond(400, { message: "Limit cannot exceed 100" });
     }
 
-    shell.log(`📨 Fetching ${limit} messages for chat instance: ${instance}`);
+    // Cache key includes instance and limit
+    const cacheKey = `give:chat:${instance}:${limit}`;
 
-    const database = await connect();
-    
-    // Use different collections based on instance
-    const collectionName = instance === "clock" ? "chat-clock" : "chat-system";
-    const collection = database.db.collection(collectionName);
-    
-    shell.log(`📂 Using collection: ${collectionName} for instance: ${instance}`);
+    const result = await getOrCompute(
+      cacheKey,
+      async () => {
+        shell.log(`📨 Fetching ${limit} messages for chat instance: ${instance}`);
 
-    // Query for messages, sorted by timestamp descending
-    const messages = await collection
-      .find({})
-      .sort({ when: -1 })
-      .limit(limit)
-      .toArray();
-
-    // Reverse to get chronological order (oldest to newest)
-    messages.reverse();
-
-    // Resolve handles from user subs using the handle API
-    const messagesWithHandles = await Promise.all(
-      messages.map(async (msg) => {
-        let handle = "anon";
+        const database = await connect();
         
-        if (msg.user) {
-          try {
-            // Determine prefix based on instance
-            let prefix = "";
-            if (instance === "sotce") prefix = "sotce-";
+        // Use different collections based on instance
+        const collectionName = instance === "clock" ? "chat-clock" : "chat-system";
+        const collection = database.db.collection(collectionName);
+        
+        shell.log(`📂 Using collection: ${collectionName} for instance: ${instance}`);
+
+        // Query for messages, sorted by timestamp descending
+        const messages = await collection
+          .find({})
+          .sort({ when: -1 })
+          .limit(limit)
+          .toArray();
+
+        // Reverse to get chronological order (oldest to newest)
+        messages.reverse();
+
+        // Resolve handles from user subs using the handle API
+        const messagesWithHandles = await Promise.all(
+          messages.map(async (msg) => {
+            let handle = "anon";
             
-            // Always use production URL for handle lookup (even in dev)
-            // This ensures we get real handles and avoids SSL issues with localhost
-            const handleUrl = `https://aesthetic.computer/handle?for=${prefix}${msg.user}`;
-            
-            const handleResponse = await fetch(handleUrl);
-            
-            if (handleResponse.status === 200) {
-              const handleData = await handleResponse.json();
-              if (handleData.handle) {
-                handle = "@" + handleData.handle;
+            if (msg.user) {
+              try {
+                // Determine prefix based on instance
+                let prefix = "";
+                if (instance === "sotce") prefix = "sotce-";
+                
+                // Always use production URL for handle lookup (even in dev)
+                const handleUrl = `https://aesthetic.computer/handle?for=${prefix}${msg.user}`;
+                
+                const handleResponse = await fetch(handleUrl);
+                
+                if (handleResponse.status === 200) {
+                  const handleData = await handleResponse.json();
+                  if (handleData.handle) {
+                    handle = "@" + handleData.handle;
+                  }
+                } else {
+                  shell.log(`⚠️ Handle lookup failed for user ${msg.user}: ${handleResponse.status}`);
+                }
+              } catch (error) {
+                shell.error(`❌ Handle lookup error for user ${msg.user}:`, error.message);
               }
-            } else {
-              shell.log(`⚠️ Handle lookup failed for user ${msg.user}: ${handleResponse.status}`);
             }
-          } catch (error) {
-            shell.error(`❌ Handle lookup error for user ${msg.user}:`, error.message);
-          }
-        }
-        
+            
+            return {
+              from: handle,
+              text: msg.text,
+              when: msg.when,
+            };
+          })
+        );
+
+        await database.disconnect();
+
+        shell.log(`✅ Found ${messagesWithHandles.length} messages for instance: ${instance}`);
+
         return {
-          from: handle,
-          text: msg.text,
-          when: msg.when,
+          instance,
+          count: messagesWithHandles.length,
+          messages: messagesWithHandles,
         };
-      })
+      },
+      CACHE_TTLS.CHAT // 2 minutes
     );
 
-    await database.disconnect();
-
-    shell.log(`✅ Found ${messagesWithHandles.length} messages for instance: ${instance}`);
-
-    return respond(200, {
-      instance,
-      count: messagesWithHandles.length,
-      messages: messagesWithHandles,
-    });
+    return respond(200, result);
   } catch (error) {
     shell.error("Error fetching chat messages:", error);
     return respond(500, { message: error.message });
