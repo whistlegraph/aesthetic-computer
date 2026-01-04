@@ -1770,6 +1770,15 @@ function ac-url
     npm run -s url $argv
 end
 
+# 🖼️ Extension views dev server (3D process tree viz at localhost:5555)
+function ac-views
+    clear
+    cd ~/aesthetic-computer/vscode-extension
+    echo "🖼️ Starting Extension Views Dev Server on http://localhost:5555"
+    echo "   Open dev.html in browser or toggle local mode in VS Code extension"
+    npx --yes serve views -l 5555
+end
+
 alias ac-watch 'ac; npm run watch'
 
 # 📱 Dev log monitoring function with dynamic file detection
