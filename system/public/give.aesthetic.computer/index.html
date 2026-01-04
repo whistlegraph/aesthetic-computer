@@ -4274,11 +4274,11 @@
         ctx.restore();
       }
 
-      // Pixel dissolve pattern - NOT USED anymore (too CPU intensive)
-      // Using simple alpha crossfade instead
-      let transitionProgress = 0; // 0 = showing old, 1 = showing new (for image crossfade)
+      // State for transitions
+      let transitionProgress = 0; // 0 = showing old, 1 = showing new
       let isTransitioning = false;
       let previousImages = [];
+      let scrollPhase = 0; // For slow scroll through images
       
       function render() {
         const w = canvasW;
@@ -4287,31 +4287,43 @@
         // Update phases slowly
         globalRotation += 0.00002;
         floatOffset += 0.00004;
+        scrollPhase += 0.0001; // Very slow scroll
         
-        const rotation = Math.sin(globalRotation) * 0.003;
+        const rotation = Math.sin(globalRotation) * 0.002;
         
         // Subtle trail effect
-        ctx.fillStyle = 'rgba(18, 14, 24, 0.08)';
+        ctx.fillStyle = 'rgba(18, 14, 24, 0.06)';
         ctx.fillRect(0, 0, w, h);
         
-        // Draw whole image covering canvas (no zoom, just cover)
-        const drawWholeImage = (img, destX, destY, destW, destH, alpha, rot = 0) => {
+        // Draw image with scroll to show whole thing over time
+        // For vertical images: scroll vertically, for horizontal: scroll horizontally
+        const drawScrollingImage = (img, name, destX, destY, destW, destH, alpha, rot = 0) => {
           const imgW = img.width;
           const imgH = img.height;
           const canvasRatio = destW / destH;
           const imgRatio = imgW / imgH;
           
           let srcW, srcH, srcX, srcY;
-          if (imgRatio > canvasRatio) {
-            srcH = imgH;
-            srcW = srcH * canvasRatio;
-            srcX = (imgW - srcW) / 2;
-            srcY = 0;
-          } else {
+          
+          // Calculate how much we need to scroll
+          if (imgRatio < canvasRatio) {
+            // Vertical image - we'll scroll vertically
             srcW = imgW;
             srcH = srcW / canvasRatio;
             srcX = 0;
-            srcY = (imgH - srcH) / 2;
+            // Scroll from top to bottom and back
+            const maxScrollY = imgH - srcH;
+            const scrollT = (Math.sin(scrollPhase * Math.PI * 2) + 1) / 2;
+            srcY = maxScrollY * scrollT;
+          } else {
+            // Horizontal/square image - scroll horizontally  
+            srcH = imgH;
+            srcW = srcH * canvasRatio;
+            srcY = 0;
+            // Scroll from left to right and back
+            const maxScrollX = imgW - srcW;
+            const scrollT = (Math.sin(scrollPhase * Math.PI * 2) + 1) / 2;
+            srcX = maxScrollX * scrollT;
           }
           
           ctx.save();
@@ -4325,17 +4337,74 @@
           ctx.translate(-cx, -cy);
           ctx.drawImage(img, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
           ctx.restore();
+          
+          // Return source rect info for POI mapping
+          return { srcX, srcY, srcW, srcH };
         };
         
-        // Draw images with given alpha
-        const drawImages = (images, alpha) => {
+        // Draw POI-based fade mask (faces/bodies fade slower)
+        const drawPoiMask = (name, destX, destY, destW, destH, srcInfo, fadeStrength) => {
+          const data = jeffreysData[name];
+          if (!data || !data.pois || data.pois.length === 0) return;
+          
+          const img = loadedImages[name];
+          if (!img) return;
+          
+          const imgW = img.width;
+          const imgH = img.height;
+          const { srcX, srcY, srcW, srcH } = srcInfo;
+          
+          for (const poi of data.pois) {
+            // Skip hands, only do faces and bodies
+            if (poi.t === 'h') continue;
+            
+            // POI position in image coords (percentage to pixels)
+            const poiImgX = imgW * poi.box[0] / 100;
+            const poiImgY = imgH * poi.box[1] / 100;
+            const poiImgW = imgW * poi.box[2] / 100;
+            const poiImgH = imgH * poi.box[3] / 100;
+            
+            // Check if POI is in visible source region
+            if (poiImgX + poiImgW < srcX || poiImgX > srcX + srcW) continue;
+            if (poiImgY + poiImgH < srcY || poiImgY > srcY + srcH) continue;
+            
+            // Map POI center to canvas coords
+            const poiCenterX = destX + ((poiImgX + poiImgW / 2) - srcX) / srcW * destW;
+            const poiCenterY = destY + ((poiImgY + poiImgH / 2) - srcY) / srcH * destH;
+            const poiRadius = Math.max(poiImgW / srcW * destW, poiImgH / srcH * destH) * 1.5;
+            
+            // Draw soft radial gradient - lighter in center (face sticks)
+            const gradient = ctx.createRadialGradient(
+              poiCenterX, poiCenterY, 0,
+              poiCenterX, poiCenterY, poiRadius
+            );
+            
+            // Faces get stronger persistence
+            const strength = poi.t === 'f' ? fadeStrength * 1.5 : fadeStrength;
+            gradient.addColorStop(0, `rgba(255, 250, 240, ${strength * 0.3})`);
+            gradient.addColorStop(0.5, `rgba(255, 245, 230, ${strength * 0.15})`);
+            gradient.addColorStop(1, 'rgba(255, 240, 220, 0)');
+            
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            ctx.fillStyle = gradient;
+            ctx.fillRect(destX, destY, destW, destH);
+            ctx.restore();
+          }
+        };
+        
+        // Draw images with scrolling
+        const drawImages = (images, alpha, drawMask = false, maskStrength = 0) => {
           if (!images || images.length === 0) return;
           
           if (images.length === 1) {
             const name = images[0];
             const img = loadedImages[name];
             if (img) {
-              drawWholeImage(img, 0, 0, w, h, alpha, rotation);
+              const srcInfo = drawScrollingImage(img, name, 0, 0, w, h, alpha, rotation);
+              if (drawMask) {
+                drawPoiMask(name, 0, 0, w, h, srcInfo, maskStrength);
+              }
             }
           } else if (images.length === 2) {
             const overlap = 15;
@@ -4348,21 +4417,28 @@
                 const x = i === 0 ? 0 : w - eachW;
                 const yOffset = Math.sin(floatOffset * Math.PI * 2 + i * Math.PI * 0.5) * 1.5;
                 const imgRotation = rotation + Math.sin(globalRotation + i * Math.PI) * 0.002;
-                drawWholeImage(img, x, yOffset, eachW, h, alpha * 0.95, imgRotation);
+                const srcInfo = drawScrollingImage(img, name, x, yOffset, eachW, h, alpha * 0.95, imgRotation);
+                if (drawMask) {
+                  drawPoiMask(name, x, yOffset, eachW, h, srcInfo, maskStrength);
+                }
               }
             }
           }
         };
         
         if (isTransitioning) {
-          // Simple alpha crossfade
-          const oldAlpha = 0.15 * (1 - transitionProgress);
-          const newAlpha = 0.15 * transitionProgress;
-          drawImages(previousImages, oldAlpha);
+          // Crossfade with POI masks - old image fades but faces linger
+          const oldAlpha = 0.12 * (1 - transitionProgress);
+          const newAlpha = 0.12 * transitionProgress;
+          
+          // Draw new image coming in
           drawImages(targetImages, newAlpha);
+          
+          // Draw old image fading out, with POI mask making faces stick
+          drawImages(previousImages, oldAlpha, true, 1 - transitionProgress);
         } else {
-          // Normal: just show current images
-          drawImages(targetImages, 0.15);
+          // Normal: just show current images with scrolling
+          drawImages(targetImages, 0.12);
         }
         
         requestAnimationFrame(render);
