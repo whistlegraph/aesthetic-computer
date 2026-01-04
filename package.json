@@ -77,7 +77,10 @@
   "devDependencies": {
     "@geckos.io/client": "^3.0.2",
     "@swc/core": "^1.15.3",
+    "@tensorflow-models/coco-ssd": "^2.2.3",
+    "@tensorflow/tfjs": "^4.22.0",
     "blessed": "^0.1.81",
+    "canvas": "^3.2.0",
     "chalk": "^5.6.2",
     "concurrently": "^9.2.1",
     "electron": "^38.1.2",
@@ -95,6 +98,7 @@
     "prettier": "^3.6.2",
     "puppeteer": "^24.31.0",
     "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.34.5",
     "terminal-kit": "^3.1.2"
   },
   "dependencies": {
