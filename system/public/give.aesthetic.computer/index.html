@@ -403,6 +403,23 @@
       overflow: hidden;
     }
 
+    /* Gives Call-to-Action */
+    .gives-cta {
+      text-align: center;
+      font-size: 1.05em;
+      line-height: 1.5;
+      color: var(--cyan);
+      margin: 0 0 1em 0;
+      padding: 0 0.5em;
+    }
+    .gives-cta .pink-handle {
+      color: var(--pink);
+      text-decoration: none;
+    }
+    .gives-cta .pink-handle:hover {
+      text-decoration: underline;
+    }
+
     /* Gives Ticker - horizontal scrolling marquee */
     .gives-ticker {
       background: linear-gradient(180deg, rgba(0, 40, 20, 0.4) 0%, rgba(0, 20, 10, 0.5) 100%);
@@ -3323,6 +3340,8 @@
 
       <!-- Gives Ticker - cycles through recent gives -->
       <div class="fiat-section full-width">
+        <p class="gives-cta" data-lang="en">Giving to AC keeps services online and allows <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> to continue developing cutting edge, open source features that are freely available for all internet users.</p>
+        <p class="gives-cta" data-lang="da">At give til AC holder tjenesterne online og giver <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> mulighed for at fortsætte med at udvikle banebrydende open source-funktioner, der er frit tilgængelige for alle internetbrugere.</p>
         <div class="gives-ticker" id="givesTicker">
           <div class="gives-ticker-empty">Loading gives...</div>
         </div>
