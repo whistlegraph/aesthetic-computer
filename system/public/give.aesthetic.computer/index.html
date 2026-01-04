@@ -83,6 +83,7 @@
 
     html {
       overflow-x: hidden;
+      scrollbar-gutter: stable both-edges; /* Reserve space for scrollbar symmetrically */
     }
 
     body {
@@ -91,7 +92,6 @@
       color: var(--text);
       margin: 0;
       padding: 2em;
-      padding-right: calc(2em + 12px); /* Extra space for slider thumb overflow */
       min-height: 100vh;
       font-size: 14px;
       line-height: 1.6;
@@ -112,7 +112,8 @@
       align-items: center;
       padding: 10px 16px;
       z-index: 1000;
-      background: var(--bg);
+      background: linear-gradient(to bottom, var(--bg) 0%, var(--bg) 60%, transparent 100%);
+      padding-bottom: 20px;
     }
 
     /* Simple gift label */
@@ -822,46 +823,32 @@
       -webkit-mask-image: -webkit-radial-gradient(white, black);
       isolation: isolate;
       overflow: hidden;
+      /* Maintain aspect ratio when page narrows */
+      aspect-ratio: 21 / 9;
+      min-height: 0;
     }
 
     .gift-logo-wrap {
       position: relative;
       display: inline-block;
-    }
-
-    /* Ground/horizon under the pals */
-    .gift-logo-wrap::after {
-      content: '';
-      position: absolute;
-      bottom: 2px;
-      left: -60px;
-      right: -60px;
-      height: 2px;
-      background: linear-gradient(90deg, transparent 0%, var(--cyan) 15%, var(--cyan) 85%, transparent 100%);
-      opacity: 0.6;
-      border-radius: 2px;
-      box-shadow: 0 1px 0 rgba(0, 255, 255, 0.2);
-    }
-
-    /* Solid ground below horizon */
-    .gift-logo-wrap::before {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: -60px;
-      right: -60px;
-      height: 3px;
-      background: linear-gradient(180deg, rgba(0, 255, 255, 0.15) 0%, rgba(0, 255, 255, 0.05) 100%);
-      border-radius: 0 0 4px 4px;
+      margin: 0;
+      margin-top: 4%;
     }
 
     .gift-logo {
-      width: 280px;
-      height: 280px;
-      opacity: 0.9;
-      filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.7)) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5));
+      width: min(300px, 38vw);
+      height: auto;
+      aspect-ratio: 1;
+      opacity: 1;
+      filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.7)) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5)) brightness(1.2);
       transition: opacity 0.4s ease-out, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), filter 0.4s ease-out;
       transform-origin: bottom left;
+      animation: logo-white-blink 3s ease-in-out infinite;
+    }
+
+    @keyframes logo-white-blink {
+      0%, 85%, 100% { filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.7)) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5)) brightness(1.2); }
+      90%, 95% { filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.7)) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5)) brightness(2) drop-shadow(0 0 25px rgba(255,255,255,0.8)); }
     }
 
     .gift-widget:hover .gift-logo:not(.intensity-1):not(.intensity-2):not(.intensity-3):not(.intensity-4) {
@@ -872,20 +859,20 @@
     .gift-amount {
       position: absolute;
       /* Positioned at logo's top-right corner */
-      top: 20px;
-      left: 330px;
-      transform: translate(-0.25em, -50%);
+      top: 15%;
+      right: -25%;
+      transform: translateY(-50%);
       transform-origin: bottom left;
       font-family: 'YWFTProcessing-Regular', var(--mono);
-      font-size: 1.5em;
+      font-size: clamp(1.2em, 2.5vw, 2.5em);
       color: #5a9a5a;
       background: linear-gradient(135deg, #1a2a1a 0%, #0a1a0a 100%);
-      border: 1px solid #2a4a2a;
+      border: 3px solid #ff0080;
       border-radius: 4px;
       padding: 0.3em 0.55em;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
       white-space: nowrap;
-      transition: top 0.6s cubic-bezier(0.4, 0, 0.2, 1), left 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease-out, border 0.4s ease-out;
+      transition: top 0.6s cubic-bezier(0.4, 0, 0.2, 1), right 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease-out, border 0.4s ease-out;
       display: flex;
       gap: 0;
     }
@@ -898,97 +885,93 @@
     /* Logo intensity animations - shrinks like zooming out, maintains tight shadow, adds colored moving shadows */
     .gift-logo.intensity-1 {
       animation: logo-pulse-1 2s ease-in-out infinite, logo-shadow-1 3s ease-in-out infinite;
-      transform: scale(0.9);
     }
 
     .gift-logo.intensity-2 {
       animation: logo-pulse-2 1.5s ease-in-out infinite, logo-shadow-2 2s ease-in-out infinite;
-      transform: scale(0.75);
     }
 
     .gift-logo.intensity-3 {
       animation: logo-pulse-3 1s ease-in-out infinite, logo-shadow-3 1.5s linear infinite;
-      transform: scale(0.6);
     }
 
     .gift-logo.intensity-4 {
       animation: logo-shake 0.3s ease-in-out infinite, logo-shadow-4 0.8s linear infinite;
-      transform: scale(0.45);
     }
 
-    /* Intensity 1: Base shadow + one gold glow */
+    /* Intensity 1: Brightest, lightest shadow */
     @keyframes logo-pulse-1 {
-      0%, 100% { opacity: 0.85; }
-      50% { opacity: 1; }
+      0%, 100% { opacity: 1; }
+      50% { opacity: 1; filter: brightness(1.3); }
     }
     @keyframes logo-shadow-1 {
       0%, 100% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(0 0 10px rgba(255,215,0,0.3));
+        filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4)) drop-shadow(0 0 15px rgba(255,255,255,0.3)) brightness(1.2);
       }
       50% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(0 0 20px rgba(255,215,0,0.6));
+        filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4)) drop-shadow(0 0 25px rgba(255,255,255,0.5)) brightness(1.3);
       }
     }
 
-    /* Intensity 2: Base shadow + two colored glows (gold + cyan) */
+    /* Intensity 2: Bright with medium shadow */
     @keyframes logo-pulse-2 {
-      0%, 100% { opacity: 0.9; }
-      50% { opacity: 1; }
+      0%, 100% { opacity: 1; }
+      50% { opacity: 1; filter: brightness(1.15); }
     }
     @keyframes logo-shadow-2 {
       0%, 100% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(-8px 0 15px rgba(255,215,0,0.5)) drop-shadow(8px 0 15px rgba(0,229,255,0.5));
+        filter: drop-shadow(0 5px 12px rgba(0,0,0,0.6)) drop-shadow(-6px 0 12px rgba(255,215,0,0.4)) drop-shadow(6px 0 12px rgba(0,229,255,0.4)) brightness(1.1);
       }
       50% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(8px 0 15px rgba(255,215,0,0.5)) drop-shadow(-8px 0 15px rgba(0,229,255,0.5));
+        filter: drop-shadow(0 5px 12px rgba(0,0,0,0.6)) drop-shadow(6px 0 12px rgba(255,215,0,0.4)) drop-shadow(-6px 0 12px rgba(0,229,255,0.4)) brightness(1.15);
       }
     }
 
-    /* Intensity 3: Base shadow + three colored glows rotating */
+    /* Intensity 3: Darker with heavier shadows */
     @keyframes logo-pulse-3 {
       0%, 100% { opacity: 0.95; }
       50% { opacity: 1; }
     }
     @keyframes logo-shadow-3 {
       0% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(-10px -5px 20px #ff6b6b) drop-shadow(10px 0 20px #4ecdc4) drop-shadow(0 10px 20px #ffd93d);
+        filter: drop-shadow(0 8px 20px rgba(0,0,0,0.8)) drop-shadow(-10px -5px 18px #ff6b6b) drop-shadow(10px 0 18px #4ecdc4) drop-shadow(0 10px 18px #ffd93d) brightness(0.95);
       }
       33% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(10px -5px 20px #4ecdc4) drop-shadow(0 10px 20px #ff6b6b) drop-shadow(-10px 0 20px #ffd93d);
+        filter: drop-shadow(0 8px 20px rgba(0,0,0,0.8)) drop-shadow(10px -5px 18px #4ecdc4) drop-shadow(0 10px 18px #ff6b6b) drop-shadow(-10px 0 18px #ffd93d) brightness(0.95);
       }
       66% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(0 -10px 20px #ffd93d) drop-shadow(-10px 5px 20px #4ecdc4) drop-shadow(10px 5px 20px #ff6b6b);
+        filter: drop-shadow(0 8px 20px rgba(0,0,0,0.8)) drop-shadow(0 -10px 18px #ffd93d) drop-shadow(-10px 5px 18px #4ecdc4) drop-shadow(10px 5px 18px #ff6b6b) brightness(0.95);
       }
       100% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(-10px -5px 20px #ff6b6b) drop-shadow(10px 0 20px #4ecdc4) drop-shadow(0 10px 20px #ffd93d);
+        filter: drop-shadow(0 8px 20px rgba(0,0,0,0.8)) drop-shadow(-10px -5px 18px #ff6b6b) drop-shadow(10px 0 18px #4ecdc4) drop-shadow(0 10px 18px #ffd93d) brightness(0.95);
       }
     }
 
-    /* Intensity 4: Base shadow + four colored glows wild rotation */
+    /* Intensity 4: Super bright pink electric saturated */
     @keyframes logo-shadow-4 {
       0% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(-12px 0 25px #ff0080) drop-shadow(12px 0 25px #00e5ff) drop-shadow(0 -12px 25px #ffd700) drop-shadow(0 12px 25px #9b59b6);
+        filter: drop-shadow(0 0 30px #ff0080) drop-shadow(-15px 0 35px #ff0080) drop-shadow(15px 0 35px #00e5ff) drop-shadow(0 -15px 35px #ffd700) drop-shadow(0 15px 35px #ff00ff) brightness(1.4) saturate(1.5);
       }
       25% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(0 -12px 25px #ff0080) drop-shadow(0 12px 25px #00e5ff) drop-shadow(12px 0 25px #ffd700) drop-shadow(-12px 0 25px #9b59b6);
+        filter: drop-shadow(0 0 35px #ff00ff) drop-shadow(0 -15px 35px #ff0080) drop-shadow(0 15px 35px #00e5ff) drop-shadow(15px 0 35px #ffd700) drop-shadow(-15px 0 35px #ff0080) brightness(1.5) saturate(1.6);
       }
       50% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(12px 0 25px #ff0080) drop-shadow(-12px 0 25px #00e5ff) drop-shadow(0 12px 25px #ffd700) drop-shadow(0 -12px 25px #9b59b6);
+        filter: drop-shadow(0 0 30px #00e5ff) drop-shadow(15px 0 35px #ff0080) drop-shadow(-15px 0 35px #00e5ff) drop-shadow(0 15px 35px #ff00ff) drop-shadow(0 -15px 35px #ffd700) brightness(1.4) saturate(1.5);
       }
       75% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(0 12px 25px #ff0080) drop-shadow(0 -12px 25px #00e5ff) drop-shadow(-12px 0 25px #ffd700) drop-shadow(12px 0 25px #9b59b6);
+        filter: drop-shadow(0 0 35px #ff0080) drop-shadow(0 15px 35px #ff0080) drop-shadow(0 -15px 35px #00e5ff) drop-shadow(-15px 0 35px #ff00ff) drop-shadow(15px 0 35px #ffd700) brightness(1.5) saturate(1.6);
       }
       100% { 
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)) drop-shadow(-12px 0 25px #ff0080) drop-shadow(12px 0 25px #00e5ff) drop-shadow(0 -12px 25px #ffd700) drop-shadow(0 12px 25px #9b59b6);
+        filter: drop-shadow(0 0 30px #ff0080) drop-shadow(-15px 0 35px #ff0080) drop-shadow(15px 0 35px #00e5ff) drop-shadow(0 -15px 35px #ffd700) drop-shadow(0 15px 35px #ff00ff) brightness(1.4) saturate(1.5);
       }
     }
 
     @keyframes logo-shake {
-      0%, 100% { transform: scale(0.45) translate(0, 0); }
-      20% { transform: scale(0.45) translate(-4px, 3px); }
-      40% { transform: scale(0.45) translate(4px, -3px); }
-      60% { transform: scale(0.45) translate(-3px, -4px); }
-      80% { transform: scale(0.45) translate(3px, 4px); }
+      0%, 100% { transform: translate(0, 0); }
+      20% { transform: translate(-4px, 3px); }
+      40% { transform: translate(4px, -3px); }
+      60% { transform: translate(-3px, -4px); }
+      80% { transform: translate(3px, 4px); }
     }
 
     /* Vegas intensity levels for amount */
@@ -1019,18 +1002,18 @@
     }
 
     .gift-amount.intensity-1 {
-      top: 20px;
-      left: 180px;
-      transform: translate(-0.5em, -50%) scale(1.3);
-      background: linear-gradient(135deg, #3a6a4a 0%, #2a5a3a 100%);
-      border-color: #5a9a6a;
-      animation: vegas-pulse-1 2s ease-in-out infinite;
+      top: 15%;
+      right: -25%;
+      transform: translateY(-50%);
+      color: #fff;
+      background: linear-gradient(135deg, #1a4a2a 0%, #0a2a1a 100%);
+      border-color: #3a7a4a;
     }
 
     .gift-amount.intensity-2 {
-      top: 50px;
-      left: 150px;
-      transform: translate(-0.5em, -50%) scale(1.5);
+      top: 15%;
+      right: -25%;
+      transform: translateY(-50%);
       color: #ffd700;
       background: linear-gradient(135deg, #4a3a1a 0%, #3a2a0a 100%);
       border-color: #8a7a3a;
@@ -1038,32 +1021,93 @@
     }
 
     .gift-amount.intensity-3 {
-      top: 80px;
-      left: 120px;
-      transform: translate(-0.5em, -50%) scale(1.7);
+      top: 15%;
+      right: -25%;
+      transform: translateY(-50%);
       color: #fff;
       background: linear-gradient(135deg, #5a2a2a 0%, #4a1a1a 100%);
-      animation: vegas-rainbow 2s linear infinite, vegas-pulse-3 1s ease-in-out infinite;
+      animation: vegas-rainbow 2s linear infinite, vegas-shake-mild 1s ease-in-out infinite;
     }
 
     .gift-amount.intensity-4 {
-      top: 110px;
-      left: 90px;
-      transform: translate(-0.5em, -50%) scale(2);
+      top: 10%;
+      right: -30%;
+      transform: translateY(-50%);
       color: #fff;
-      text-shadow: 0 0 10px #fff, 0 0 20px #ffd700;
+      font-weight: bold;
+      text-shadow: 0 0 10px #fff, 0 0 20px #ffd700, 0 0 30px #ff00ff, 0 0 40px #ff0080;
       background: linear-gradient(135deg, #6a1a3a 0%, #4a0a2a 100%);
-      animation: vegas-rainbow 1s linear infinite, vegas-shake 0.5s ease-in-out infinite;
+      animation: vegas-rainbow-fast 0.3s linear infinite, vegas-shake-wild 0.1s ease-in-out infinite, price-blink-insane 0.15s linear infinite;
     }
 
-    @keyframes vegas-pulse-1 {
-      0%, 100% { transform: translate(-0.5em, -50%) scale(1.3); }
-      50% { transform: translate(-0.5em, -50%) scale(1.35); }
+    @keyframes price-blink-insane {
+      0% { 
+        background: linear-gradient(135deg, #ff0000 0%, #000 100%); 
+        color: #fff; 
+        text-shadow: 0 0 20px #fff, 0 0 40px #fff;
+        font-weight: 900;
+      }
+      25% { 
+        background: linear-gradient(135deg, #fff 0%, #ff0080 100%); 
+        color: #000; 
+        text-shadow: 0 0 15px #ff0080, 0 0 30px #ff0080;
+        font-weight: 900;
+      }
+      50% { 
+        background: linear-gradient(135deg, #000 0%, #ff0000 100%); 
+        color: #ff0; 
+        text-shadow: 0 0 25px #ff0, 0 0 50px #ff0;
+        font-weight: 900;
+      }
+      75% { 
+        background: linear-gradient(135deg, #ff0080 0%, #00e5ff 100%); 
+        color: #fff; 
+        text-shadow: 0 0 20px #00e5ff, 0 0 40px #ff0080;
+        font-weight: 900;
+      }
+      100% { 
+        background: linear-gradient(135deg, #ff0000 0%, #000 100%); 
+        color: #fff; 
+        text-shadow: 0 0 20px #fff, 0 0 40px #fff;
+        font-weight: 900;
+      }
     }
 
-    @keyframes vegas-pulse-3 {
-      0%, 100% { transform: translate(-0.5em, -50%) scale(1.7); }
-      50% { transform: translate(-0.5em, -50%) scale(1.75); }
+    @keyframes price-blink {
+      0%, 100% { background: linear-gradient(135deg, #6a1a3a 0%, #4a0a2a 100%); }
+      33% { background: linear-gradient(135deg, #ff0080 0%, #6a1a3a 100%); }
+      66% { background: linear-gradient(135deg, #fff 0%, #ff0080 100%); }
+    }
+
+    @keyframes vegas-shake-mild {
+      0%, 100% { transform: translateY(-50%) rotate(0deg); }
+      25% { transform: translateY(calc(-50% - 1px)) rotate(0.5deg); }
+      50% { transform: translateY(calc(-50% + 1px)) rotate(-0.5deg); }
+      75% { transform: translateY(calc(-50% + 1px)) rotate(0.3deg); }
+    }
+
+    @keyframes vegas-shake-wild {
+      0%, 100% { transform: translateY(-50%) rotate(0deg); }
+      10% { transform: translate(3px, calc(-50% - 2px)) rotate(2deg); }
+      20% { transform: translate(-4px, calc(-50% + 3px)) rotate(-3deg); }
+      30% { transform: translate(2px, calc(-50% - 4px)) rotate(2deg); }
+      40% { transform: translate(-3px, calc(-50% + 2px)) rotate(-2deg); }
+      50% { transform: translate(4px, calc(-50% + 3px)) rotate(3deg); }
+      60% { transform: translate(-2px, calc(-50% - 3px)) rotate(-1deg); }
+      70% { transform: translate(3px, calc(-50% + 4px)) rotate(2deg); }
+      80% { transform: translate(-4px, calc(-50% - 2px)) rotate(-3deg); }
+      90% { transform: translate(2px, calc(-50% + 2px)) rotate(1deg); }
+    }
+
+    @keyframes vegas-rainbow-fast {
+      0% { border-color: #ff6b6b; box-shadow: 0 0 25px #ff6b6b, 0 0 50px rgba(255,107,107,0.6); }
+      14% { border-color: #ffd93d; box-shadow: 0 0 25px #ffd93d, 0 0 50px rgba(255,217,61,0.6); }
+      28% { border-color: #6bcb77; box-shadow: 0 0 25px #6bcb77, 0 0 50px rgba(107,203,119,0.6); }
+      42% { border-color: #4ecdc4; box-shadow: 0 0 25px #4ecdc4, 0 0 50px rgba(78,205,196,0.6); }
+      57% { border-color: #9b59b6; box-shadow: 0 0 25px #9b59b6, 0 0 50px rgba(155,89,182,0.6); }
+      71% { border-color: #ff6b9d; box-shadow: 0 0 25px #ff6b9d, 0 0 50px rgba(255,107,157,0.6); }
+      85% { border-color: #00e5ff; box-shadow: 0 0 25px #00e5ff, 0 0 50px rgba(0,229,255,0.6); }
+      100% { border-color: #ff6b6b; box-shadow: 0 0 25px #ff6b6b, 0 0 50px rgba(255,107,107,0.6); }
     }
 
     /* Flames effect for max monthly ($500/mo) */
@@ -1357,7 +1401,8 @@
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 0.2em;
+      justify-content: center;
+      gap: 0.15em;
     }
 
     /* Subscribe as user indicator */
@@ -1483,6 +1528,8 @@
       font-size: 0.85em;
       color: var(--dim);
       text-align: right;
+      align-self: flex-start;
+      margin-top: 0.8em;
     }
 
     .tax-note .faded {
@@ -1532,7 +1579,7 @@
       letter-spacing: 0.02em;
       box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2);
       text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-      margin-top: 0.5em;
+      margin-top: 1em;
     }
 
     .gift-btn:hover {
@@ -3867,8 +3914,8 @@
       inset: 0;
       width: 100%;
       height: 100%;
-      /* Dreamy blown-out filter - softer contrast, lifted shadows */
-      filter: url(#sharpen) saturate(0.85) brightness(0.82) contrast(0.92);
+      /* Darker with softer contrast */
+      filter: url(#sharpen) saturate(0.9) brightness(0.5) contrast(1.05);
     }
 
     /* Subtle color tint */
@@ -4106,16 +4153,16 @@
       </div>
 
       <div class="prose full-width" data-lang="en">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> is a social software network supported by media tooling from the full-time engineering practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, who has been building experimental software instruments for over a decade. He lives in Echo Park with <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in a house full of musicians, and regularly does show and tell at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. The next meeting is at 7pm on Tuesday, January 6th at <a href="https://plot.place">Plot</a>.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> is a social software network supported by the full-time engineering practice of <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, who has been building experimental software instruments for over a decade. He lives in Echo Park with <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in a house full of musicians, and regularly does show and tell at the <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. The next meeting is at 7pm on Tuesday, January 6th at <a href="https://plot.place">Plot</a>.
       </div>
       <div class="prose full-width" data-lang="da">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> er et socialt softwarenetværk understøttet af medieværktøjer fra fuldtids ingeniørpraksis af <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, som har bygget eksperimentelle software-instrumenter i over et årti. Han bor i Echo Park med <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> i et hus fuldt af musikere, og demonstrerer regelmæssigt softwaren ved <a href="https://nelacomputer.club">NELA Computer Club</a> i Chinatown. Det næste møde er kl. 19 tirsdag den 6. januar på <a href="https://plot.place">Plot</a>.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> er et socialt softwarenetværk understøttet af fuldtids ingeniørpraksis af <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, som har bygget eksperimentelle software-instrumenter i over et årti. Han bor i Echo Park med <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> i et hus fuldt af musikere, og demonstrerer regelmæssigt softwaren ved <a href="https://nelacomputer.club">NELA Computer Club</a> i Chinatown. Det næste møde er kl. 19 tirsdag den 6. januar på <a href="https://plot.place">Plot</a>.
       </div>
       <div class="prose full-width" data-lang="de">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> ist ein soziales Software-Netzwerk, unterstützt durch Medientools aus der Vollzeit-Ingenieurpraxis von <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, der seit über einem Jahrzehnt experimentelle Software-Instrumente baut. Er lebt in Echo Park mit <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in einem Haus voller Musiker und präsentiert regelmäßig beim <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. Das nächste Treffen ist am Dienstag, 6. Januar um 19 Uhr bei <a href="https://plot.place">Plot</a>.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> ist ein soziales Software-Netzwerk, unterstützt durch die Vollzeit-Ingenieurpraxis von <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, der seit über einem Jahrzehnt experimentelle Software-Instrumente baut. Er lebt in Echo Park mit <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> in einem Haus voller Musiker und präsentiert regelmäßig beim <a href="https://nelacomputer.club">NELA Computer Club</a> in Chinatown. Das nächste Treffen ist am Dienstag, 6. Januar um 19 Uhr bei <a href="https://plot.place">Plot</a>.
       </div>
       <div class="prose full-width" data-lang="es">
-        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> es una red de software social apoyada por herramientas de medios de la práctica de ingeniería a tiempo completo de <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, quien ha estado creando instrumentos de software experimentales durante más de una década. Vive en Echo Park con <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> en una casa llena de músicos, y regularmente hace demostraciones en el <a href="https://nelacomputer.club">NELA Computer Club</a> en Chinatown. La próxima reunión es a las 7pm el martes 6 de enero en <a href="https://plot.place">Plot</a>.
+        <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> es una red de software social apoyada por la práctica de ingeniería a tiempo completo de <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>, quien ha estado creando instrumentos de software experimentales durante más de una década. Vive en Echo Park con <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> en una casa llena de músicos, y regularmente hace demostraciones en el <a href="https://nelacomputer.club">NELA Computer Club</a> en Chinatown. La próxima reunión es a las 7pm el martes 6 de enero en <a href="https://plot.place">Plot</a>.
       </div>
       <div class="prose full-width" data-lang="zh">
         <a href="https://aesthetic.computer">Aesthetic<span style="color: var(--pink);">.</span>Computer</a> 是一个社交软件网络，由 <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> 的全职工程实践所支持，他已经创建实验性软件工具超过十年。他与 <a href="https://aesthetic.computer/@fifi" class="handle-link">@fifi</a> 住在 Echo Park 一个满是音乐人的房子里，并定期在 Chinatown 的 <a href="https://nelacomputer.club">NELA Computer Club</a> 展示。下次聚会时间为1月6日星期二晚上7点在 <a href="https://plot.place">Plot</a>。
@@ -4485,17 +4532,98 @@
 
     // AC Screenshots - photographic development moments (environmental/atmospheric)
     // URL pattern: https://assets.aesthetic.computer/screenshots/images/{imageRef}
-    // These are background/environmental shots - no face priority needed
+    // All 90 screenshots - wide format environmental shots
     const screenshotsData = {
-      'january-30-2024-at-6-59-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [20, 20, 60, 60]}], aspect: 1.5, src: 'screenshots' },
-      'may-24-2023-at-6-06-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [15, 25, 70, 50]}], aspect: 1.5, src: 'screenshots' },
-      'june-22-2023-at-4-22-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [10, 20, 80, 60]}], aspect: 1.5, src: 'screenshots' },
-      'may-15-2023-at-8-29-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [20, 15, 60, 70]}], aspect: 1.5, src: 'screenshots' },
-      'july-11-2023-at-10-41-am.webp': { focal: [50, 50], pois: [{"t": "b", "box": [25, 30, 50, 40]}], aspect: 1.5, src: 'screenshots' },
-      'october-29-2023-at-6-28-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [15, 20, 70, 60]}], aspect: 1.5, src: 'screenshots' },
-      'december-2nd-2023-at-3-42-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [20, 25, 60, 50]}], aspect: 1.5, src: 'screenshots' },
-      'june-14-2023-at-6-33-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [25, 30, 50, 40]}], aspect: 1.5, src: 'screenshots' },
-      'may-6-2023-at-10-21-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [20, 25, 60, 50]}], aspect: 1.5, src: 'screenshots' }
+      'september-16-2022-at-12-37-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'february-8-2023-at-8-56-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'december-5-2021-at-11-44-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'may-24-2023-at-6-06-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'january-31-2023-at-1-57-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'may-15-2023-at-8-29-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'december-2nd-2023-at-3-42-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'october-29-2023-at-6-28-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'september-11-2023-at-12-35-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-14-2023-at-6-33-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-22-2023-at-4-22-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'february-28-2023-at-11-47-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'november-25-2022-at-7-34-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'may-6-2023-at-10-21-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'july-11-2023-at-10-41-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'january-30-2024-at-6-59-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'january-29-2024-at-4-10-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'august-22-2023-at-6-51-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'january-8-2023-at-4-12-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'november-2-2023-at-10-15-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-7-2023-at-10-50-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'october-4-2022-at-11-12-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'february-1-2023-at-5-37-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'march-17-2023-at-1-29-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'august-11-2023-at-5-36-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'october-27-2023-at-2-32-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'january-20-2023-at-2-05-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'november-2-2022-at-5-41-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'october-9-2023-at-3-17-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-17-2023-at-7-34-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-8-2023-at-7-34-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-3-2023-at-10-04-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-26-2023-at-6-52-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'september-17-2023-at-12-21-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'march-13-2024-at-11-13-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'july-4-2023-at-3-26-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'january-27-2023-at-5-16-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'january-21-2024-at-12-25-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'september-30-2023-at-1-15-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-1-2023-at-6-52-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-13-2023-at-8-24-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-9-2023-at-11-00-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'april-24-2023-at-2-26-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'september-29-2023-at-5-58-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-3-2023-at-7-25-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'may-4-2023-at-8-59-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'may-6-2023-at-11-59-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'december-31-2021-at-4-54-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'august-6-2022-at-11-16-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'november-28-2023-at-12-13-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'september-30-2023-at-1-21-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'february-3-2023-at-9-45-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'september-27-2023-at-1-42-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'november-28-2023-at-4-35-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'april-13-2023-at-11-18-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'february-13-2023-at-9-22-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'july-14-2022-at-3-56-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'april-24-2023-at-9-42-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-26-2022-at-4-49-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'september-16-2023-at-10-42-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'january-19-2023-at-3-46-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'november-7-2022-at-4-40-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-8-2023-at-6-57-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'march-1-2023-at-12-26-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'february-27-2023-at-6-07-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'may-4-2023-at-2-33-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'september-1-2023-at-11-18-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'december-5-2023-at-1-28-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'april-21-2023-at-11-12-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'january-7-2023-at-8-16-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-1-2023-at-8-18-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'march-28-2023-at-1-05-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'september-4-2022-at-6-30-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'february-7-2023-at-4-20-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'august-21-2022-at-10-19-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'july-11-2022-at-10-55-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'july-22-2022-at-12-36-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'november-9-2023-at-4-28-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'july-21-2022-at-12-09-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'july-4-2022-at-12-11-am.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'may-27-2023-at-1-18-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'march-8-2024-at-6-40-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'february-8-2023-at-12-15-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'december-22-2022-at-11-51-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'february-5-2023-at-3-10-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'june-17-2023-at-7-55-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'september-12-2023-at-6-31-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'december-4-2023-at-1-08-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'october-17-2022-at-9-33-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' },
+      'november-7-2023-at-10-49-pm.webp': { focal: [50, 50], pois: [], aspect: 1.5, src: 'screenshots' }
     };
 
     // Merge all image data
@@ -6277,30 +6405,35 @@ give.aesthetic.computer`);
     async function loadRecentGives() {
       const ticker = document.getElementById('givesTicker');
       
+      // Animated server cost number (varies $600-$1200)
+      function getAnimatedCost() {
+        return `<span class="server-cost-number" style="color: #ff6b9d; font-weight: bold;"></span>`;
+      }
+      
       // Translated ticker messages
       const tickerMessages = {
         en: {
-          serverCost: '💸 Server bills to keep AC running cost upwards of <strong>$800/month</strong>.',
+          serverCost: `💸 Server bills to keep AC running cost upwards of <strong>${getAnimatedCost()}/month</strong>.`,
           cta: 'Paying what you want for AC keeps services online and free to use, and helps <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> develop new features.',
           got: 'Got'
         },
         da: {
-          serverCost: '💸 Serverregninger for at holde AC kørende koster op mod <strong>5.500 kr/måned</strong>.',
+          serverCost: `💸 Serverregninger for at holde AC kørende koster op mod <strong>${getAnimatedCost()} kr/måned</strong>.`,
           cta: 'Betal hvad du vil for AC og hold tjenester online og gratis, og hjælp <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> med at udvikle nye funktioner.',
           got: 'Modtog'
         },
         de: {
-          serverCost: '💸 Serverkosten für AC laufen auf über <strong>800$/Monat</strong> hinaus.',
+          serverCost: `💸 Serverkosten für AC laufen auf über <strong>${getAnimatedCost()}$/Monat</strong> hinaus.`,
           cta: 'Zahle was du willst für AC, halte die Dienste online und kostenlos, und hilf <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> neue Funktionen zu entwickeln.',
           got: 'Erhalten'
         },
         es: {
-          serverCost: '💸 Las facturas del servidor para mantener AC funcionando cuestan más de <strong>$800/mes</strong>.',
+          serverCost: `💸 Las facturas del servidor para mantener AC funcionando cuestan más de <strong>${getAnimatedCost()}/mes</strong>.`,
           cta: 'Paga lo que quieras por AC para mantener los servicios en línea y gratuitos, y ayudar a <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> a desarrollar nuevas funciones.',
           got: 'Recibido'
         },
         zh: {
-          serverCost: '💸 维持 AC 运行的服务器费用高达 <strong>每月800美元</strong>。',
+          serverCost: `💸 维持 AC 运行的服务器费用高达 <strong>每月${getAnimatedCost()}美元</strong>。`,
           cta: '为 AC 支付你想要的金额，保持服务在线且免费，并帮助 <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> 开发新功能。',
           got: '收到'
         }
@@ -6366,6 +6499,25 @@ give.aesthetic.computer`);
     }
     
     setTimeout(loadRecentGives, 300);
+    
+    // Animate server cost numbers ($600-$1200) with smooth easing
+    let serverCostPhase = Math.random() * Math.PI * 2;
+    function animateServerCost() {
+      serverCostPhase += 0.015; // Slow oscillation
+      // Smooth sine wave between 600 and 1200, rounded to nearest 50
+      const rawValue = 900 + Math.sin(serverCostPhase) * 300;
+      const value = Math.round(rawValue / 50) * 50;
+      
+      document.querySelectorAll('.server-cost-number').forEach(el => {
+        el.textContent = `$${value}`;
+        // Color shifts from green ($600) to red ($1200)
+        const t = (value - 600) / 600; // 0 to 1
+        const hue = 120 - t * 120; // green (120) to red (0)
+        el.style.color = `hsl(${hue}, 70%, 60%)`;
+      });
+      requestAnimationFrame(animateServerCost);
+    }
+    setTimeout(animateServerCost, 500); // Start after ticker loads
 
     // Determine API base URL (relative for local dev, absolute for production)
     const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('local.')
