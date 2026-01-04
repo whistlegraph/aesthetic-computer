@@ -1626,6 +1626,19 @@
       cursor: wait;
     }
 
+    /* Yellow button when monthly mode is active */
+    .gift-widget.monthly-mode .gift-btn {
+      background: linear-gradient(180deg, var(--gold) 0%, #c9a830 100%);
+      border-color: #ffe066;
+      color: #1a1a2e;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    }
+    
+    .gift-widget.monthly-mode .gift-btn:hover {
+      background: linear-gradient(180deg, #ffe066 0%, var(--gold) 100%);
+      border-color: #fff099;
+    }
+
     /* Crypto controls - match fiat layout */
     .crypto-controls {
       display: flex;
@@ -3741,12 +3754,12 @@
     }
 
     .footer-login-btn {
-      padding: 6px 14px;
+      padding: 10px 20px;
       background: rgba(30, 50, 120, 0.95);
       color: white;
       border: 1px solid white;
       border-radius: 0;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: normal;
       cursor: pointer;
       transition: all 0.15s;
@@ -3759,12 +3772,12 @@
     }
 
     .footer-signup-btn {
-      padding: 6px 14px;
+      padding: 10px 20px;
       background: rgba(30, 90, 50, 0.95);
       color: white;
       border: 1px solid white;
       border-radius: 0;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: normal;
       cursor: pointer;
       transition: all 0.15s;
@@ -4357,21 +4370,21 @@
           <div class="apps-flip-face apps-flip-front desktop-face">
             <div class="desktop-face-header">
               <span class="face-label">desktop</span>
-              <span class="version-badge" id="desktopVersion">v0.1.0</span>
+              <span class="version-badge" id="desktopVersion">v0.1.8</span>
             </div>
             
             <div class="desktop-platforms-grid">
-              <a href="https://aesthetic.computer/desktop/mac" class="desktop-platform-btn" title="Download for macOS">
+              <a href="https://github.com/whistlegraph/aesthetic-computer/releases/download/v0.1.8/Aesthetic-Computer-0.1.8-universal.dmg" class="desktop-platform-btn" title="Download for macOS" target="_blank">
                 <span class="plat-icon">🍎</span>
                 <span class="plat-name">Mac</span>
                 <span class="plat-arch">Universal</span>
               </a>
-              <a href="https://aesthetic.computer/desktop/win" class="desktop-platform-btn" title="Download for Windows">
+              <a href="https://github.com/whistlegraph/aesthetic-computer/releases/download/v0.1.8/Aesthetic-Computer-Setup-0.1.8.exe" class="desktop-platform-btn" title="Download for Windows" target="_blank">
                 <span class="plat-icon">🪟</span>
                 <span class="plat-name">Windows</span>
                 <span class="plat-arch">x64</span>
               </a>
-              <a href="https://aesthetic.computer/desktop/linux" class="desktop-platform-btn" title="Download for Linux">
+              <a href="https://github.com/whistlegraph/aesthetic-computer/releases/download/v0.1.8/Aesthetic-Computer-0.1.8.AppImage" class="desktop-platform-btn" title="Download for Linux" target="_blank">
                 <span class="plat-icon">🐧</span>
                 <span class="plat-name">Linux</span>
                 <span class="plat-arch">AppImage</span>
@@ -4515,7 +4528,6 @@
 
   <!-- Login prompt modal for monthly subscriptions (native dialog) -->
   <dialog class="login-modal" id="loginModal">
-    <div class="login-modal-icon">🔐</div>
     <div class="login-modal-title">
       <span data-lang="en">Log in for Monthly</span>
       <span data-lang="da">Log ind for månedligt</span>
@@ -5172,69 +5184,6 @@
           }
         }
         
-        // Matrix-style POI detection boxes
-        if (SHOW_POI_BOXES && data.pois) {
-          // Reset alpha so boxes are visible
-          ctx.globalAlpha = 1;
-          // Bright matrix colors: lime for faces, yellow for bodies, red for hands
-          const typeColors = { 
-            f: 'rgba(150, 255, 50, 0.7)',  // bright lime green for faces
-            b: 'rgba(255, 220, 50, 0.5)', // yellow for bodies
-            h: 'rgba(255, 100, 100, 0.4)', // red for hands
-            s: 'rgba(100, 200, 255, 0.5)', // cyan for screenshots
-            v: 'rgba(180, 150, 255, 0.4)' // purple for virtual POIs
-          };
-          ctx.lineWidth = 1;
-          for (const poi of data.pois) {
-            const poiImgX = imgW * poi.box[0] / 100;
-            const poiImgY = imgH * poi.box[1] / 100;
-            const poiImgW = imgW * poi.box[2] / 100;
-            const poiImgH = imgH * poi.box[3] / 100;
-            if (poiImgX + poiImgW > srcX && poiImgX < srcX + srcW &&
-                poiImgY + poiImgH > srcY && poiImgY < srcY + srcH) {
-              const color = typeColors[poi.t] || 'rgba(150, 255, 50, 0.3)';
-              ctx.strokeStyle = color;
-              const canvasX = destX + (poiImgX - srcX) / srcW * destW;
-              const canvasY = destY + (poiImgY - srcY) / srcH * destH;
-              const canvasFW = poiImgW / srcW * destW;
-              const canvasFH = poiImgH / srcH * destH;
-              
-              // Draw thin box with corner accents for matrix look
-              ctx.strokeRect(canvasX, canvasY, canvasFW, canvasFH);
-              
-              // Corner accents (thicker, brighter)
-              const cornerLen = Math.min(8, canvasFW * 0.15, canvasFH * 0.15);
-              ctx.lineWidth = 2;
-              ctx.strokeStyle = color.replace(/[\d.]+\)$/, '0.7)'); // Brighter
-              // Top-left
-              ctx.beginPath();
-              ctx.moveTo(canvasX, canvasY + cornerLen);
-              ctx.lineTo(canvasX, canvasY);
-              ctx.lineTo(canvasX + cornerLen, canvasY);
-              ctx.stroke();
-              // Top-right
-              ctx.beginPath();
-              ctx.moveTo(canvasX + canvasFW - cornerLen, canvasY);
-              ctx.lineTo(canvasX + canvasFW, canvasY);
-              ctx.lineTo(canvasX + canvasFW, canvasY + cornerLen);
-              ctx.stroke();
-              // Bottom-left
-              ctx.beginPath();
-              ctx.moveTo(canvasX, canvasY + canvasFH - cornerLen);
-              ctx.lineTo(canvasX, canvasY + canvasFH);
-              ctx.lineTo(canvasX + cornerLen, canvasY + canvasFH);
-              ctx.stroke();
-              // Bottom-right
-              ctx.beginPath();
-              ctx.moveTo(canvasX + canvasFW - cornerLen, canvasY + canvasFH);
-              ctx.lineTo(canvasX + canvasFW, canvasY + canvasFH);
-              ctx.lineTo(canvasX + canvasFW, canvasY + canvasFH - cornerLen);
-              ctx.stroke();
-              ctx.lineWidth = 1;
-            }
-          }
-        }
-        
         // Debug: verbose POI info
         if (DEBUG_FACES && data.pois) {
           const typeColors = { f: 'rgba(255, 0, 255, 0.9)', b: 'rgba(0, 255, 255, 0.7)', h: 'rgba(255, 255, 0, 0.5)' };
@@ -5489,40 +5438,209 @@
         
         ctx.restore();
         
+        // Draw POI detection boxes AFTER all transforms (composited on top)
+        // Psychedelic, subtle, flickering on/off
+        if (SHOW_POI_BOXES) {
+          // Flicker: boxes appear/disappear randomly
+          const flickerPhase = Math.sin(Date.now() / 150) * Math.sin(Date.now() / 370);
+          const showBoxes = flickerPhase > -0.3; // Show ~70% of the time with irregular rhythm
+          
+          if (showBoxes) {
+            ctx.save();
+            ctx.filter = 'none';
+            
+            // Psychedelic color cycling
+            const hueShift = (Date.now() / 30) % 360;
+            const pulse = 0.3 + 0.2 * Math.sin(Date.now() / 200);
+            
+            // Draw boxes for current left and right POIs
+            const poisToDraw = [];
+            if (leftPoi) poisToDraw.push({ poi: leftPoi, side: 'left', swing: swingL });
+            if (rightPoi) poisToDraw.push({ poi: rightPoi, side: 'right', swing: swingR });
+            
+            for (const { poi: poiData, side, swing } of poisToDraw) {
+              const img = loadedImages[poiData.name];
+              if (!img || !img.complete) continue;
+              const data = poiData.data;
+              const imgW = img.width;
+              const imgH = img.height;
+              
+              // Recalculate with Ken Burns params (zoomBreath, swing) - MUST MATCH drawPoiWithContext exactly
+              const scaleX = w / imgW;
+              const scaleY = h / imgH;
+              const zoomPulse = 1.0 + zb * 0.03;
+              const coverScale = Math.max(scaleX, scaleY) * 1.25 * zoomPulse;
+              const scaledW = imgW * coverScale;
+              const scaledH = imgH * coverScale;
+              
+              const poiX = imgW * poiData.poi.box[0] / 100;
+              const poiY = imgH * poiData.poi.box[1] / 100;
+              const poiW = imgW * poiData.poi.box[2] / 100;
+              const poiH = imgH * poiData.poi.box[3] / 100;
+              const poiCenterX = poiX + poiW / 2;
+              const poiCenterY = poiY + poiH / 2;
+              
+              // Include swing offset for Ken Burns tracking
+              const swingX = swing * 8;
+              const swingY = Math.sin(swing * 0.7) * 5;
+              const targetX = (side === 'left' ? w * 0.30 : w * 0.70) + swingX;
+              
+              // Handle vertical images with vertical scroll (same logic as drawPoiWithContext)
+              const isVertical = data.aspect < 0.8;
+              let targetY;
+              if (isVertical) {
+                const easedProgress = (Math.sin((vp - 0.5) * Math.PI) + 1) / 2;
+                targetY = h * (0.15 + easedProgress * 0.7) + swingY;
+              } else {
+                targetY = h * 0.45 + swingY;
+              }
+              
+              let offsetX = targetX - (poiCenterX * coverScale);
+              let offsetY = targetY - (poiCenterY * coverScale);
+              offsetX = Math.max(w - scaledW, Math.min(0, offsetX));
+              offsetY = Math.max(h - scaledH, Math.min(0, offsetY));
+              
+              // Draw boxes for ALL pois in this image
+              for (let pi = 0; pi < (data.pois || []).length; pi++) {
+                const p = data.pois[pi];
+                const canvasX = offsetX + (imgW * p.box[0] / 100) * coverScale;
+                const canvasY = offsetY + (imgH * p.box[1] / 100) * coverScale;
+                const canvasFW = (imgW * p.box[2] / 100) * coverScale;
+                const canvasFH = (imgH * p.box[3] / 100) * coverScale;
+                
+                if (canvasX + canvasFW > 0 && canvasX < w && canvasY + canvasFH > 0 && canvasY < h) {
+                  // Psychedelic hue per POI type
+                  const typeHue = { f: 120, b: 60, h: 0, s: 180 };
+                  const hue = ((typeHue[p.t] || 120) + hueShift) % 360;
+                  ctx.strokeStyle = `hsla(${hue}, 100%, 60%, ${pulse})`;
+                  ctx.globalAlpha = pulse;
+                  ctx.lineWidth = 1.5;
+                  ctx.strokeRect(canvasX, canvasY, canvasFW, canvasFH);
+                  
+                  // Subtle corner accents
+                  const cornerLen = Math.min(10, canvasFW * 0.15, canvasFH * 0.15);
+                  ctx.lineWidth = 2.5;
+                  ctx.strokeStyle = `hsla(${(hue + 60) % 360}, 100%, 70%, ${pulse * 1.5})`;
+                  ctx.beginPath();
+                  ctx.moveTo(canvasX, canvasY + cornerLen);
+                  ctx.lineTo(canvasX, canvasY);
+                  ctx.lineTo(canvasX + cornerLen, canvasY);
+                  ctx.stroke();
+                  ctx.beginPath();
+                  ctx.moveTo(canvasX + canvasFW - cornerLen, canvasY);
+                  ctx.lineTo(canvasX + canvasFW, canvasY);
+                  ctx.lineTo(canvasX + canvasFW, canvasY + cornerLen);
+                  ctx.stroke();
+                  ctx.beginPath();
+                  ctx.moveTo(canvasX, canvasY + canvasFH - cornerLen);
+                  ctx.lineTo(canvasX, canvasY + canvasFH);
+                  ctx.lineTo(canvasX + cornerLen, canvasY + canvasFH);
+                  ctx.stroke();
+                  ctx.beginPath();
+                  ctx.moveTo(canvasX + canvasFW - cornerLen, canvasY + canvasFH);
+                  ctx.lineTo(canvasX + canvasFW, canvasY + canvasFH);
+                  ctx.lineTo(canvasX + canvasFW, canvasY + canvasFH - cornerLen);
+                  ctx.stroke();
+                }
+              }
+            }
+            ctx.restore();
+          }
+        }
+        
         // Draw logo and price on canvas (after restore, no filters)
         ctx.filter = 'none'; // Ensure no filters affect logo/price
         if (logoLoaded && logoImg.complete) {
-          // Logo size scales proportionally with canvas (use smaller dimension for consistent scaling)
+          // Parse current price to get dollar amount for subtle scaling
+          const priceNum = parseFloat(currentPrice.replace(/[^0-9.]/g, '')) || 128;
+          // Very subtle scale: $128 = 1.0 (default), range is 0.95 to 1.08
+          const scaleBase = Math.log2(Math.max(1, priceNum)) / Math.log2(128); // 0 at $1, 1 at $128
+          const priceScale = 0.95 + scaleBase * 0.13; // Range: 0.95 at $1, 1.08 at $128, ~1.15 at $1000
+          
+          // Logo size with very subtle price-based scaling
           const baseSize = Math.min(w, h);
-          const logoSize = baseSize * 0.65; // Large prominent logo
+          const logoSize = baseSize * 0.65 * Math.min(priceScale, 1.12); // Cap at 1.12x
           const logoX = (w - logoSize) / 2;
           const logoY = (h - logoSize) / 2;
           
-          // Logo blink effect at high intensity (intensity 3-4)
-          let logoBlink = 1;
-          if (currentIntensity >= 3) {
-            // Fast blink when price is high
-            const blinkSpeed = currentIntensity === 4 ? 8 : 4;
-            logoBlink = 0.7 + 0.3 * Math.sin(Date.now() / 1000 * blinkSpeed * Math.PI);
+          // Logo intensity effects based on price - always visible, use color shifts not opacity
+          const t = Date.now();
+          let logoHue = 0;
+          
+          // Draw logo with intensity-based effects
+          ctx.save();
+          
+          if (currentIntensity === 4) {
+            // MAX INTENSITY: Multiple color-shifted logos stacked, never invisible
+            logoHue = (t / 12) % 360;
+            
+            // Draw shadow/echo logos offset and color-shifted
+            ctx.globalAlpha = masterAlpha * 0.4;
+            ctx.filter = `hue-rotate(${logoHue + 120}deg) saturate(2)`;
+            ctx.drawImage(logoImg, logoX - 4, logoY - 2, logoSize, logoSize);
+            
+            ctx.filter = `hue-rotate(${logoHue + 240}deg) saturate(2)`;
+            ctx.drawImage(logoImg, logoX + 4, logoY + 2, logoSize, logoSize);
+            
+            // Main logo with rapid hue shift
+            ctx.globalAlpha = masterAlpha;
+            const flashPhase = Math.sin(t / 60);
+            ctx.filter = `hue-rotate(${logoHue}deg) saturate(${1.5 + flashPhase * 0.5}) brightness(${1 + flashPhase * 0.3})`;
+            ctx.shadowColor = `hsl(${logoHue}, 100%, 60%)`;
+            ctx.shadowBlur = 30 + 15 * Math.abs(flashPhase);
+            ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+            
+          } else if (currentIntensity === 3) {
+            // High: pulsing warm glow with color shift, dual logos
+            logoHue = (t / 25) % 360;
+            const pulse = Math.sin(t / 150);
+            
+            // Echo logo
+            ctx.globalAlpha = masterAlpha * 0.3;
+            ctx.filter = `hue-rotate(${logoHue + 60}deg)`;
+            ctx.drawImage(logoImg, logoX + 2 * pulse, logoY + pulse, logoSize, logoSize);
+            
+            // Main logo
+            ctx.globalAlpha = masterAlpha;
+            ctx.filter = `hue-rotate(${logoHue * 0.3}deg) saturate(1.2)`;
+            ctx.shadowColor = `hsl(${30 + pulse * 30}, 100%, 50%)`;
+            ctx.shadowBlur = 25 + 10 * pulse;
+            ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+            
+          } else if (currentIntensity >= 2) {
+            // Medium: gentle color pulse
+            const pulse = Math.sin(t / 400);
+            ctx.globalAlpha = masterAlpha;
+            ctx.filter = `saturate(${1.1 + pulse * 0.1})`;
+            ctx.shadowColor = 'rgba(100, 200, 100, 0.5)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetY = 6;
+            ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+            
+          } else if (currentIntensity >= 1) {
+            // Low: subtle shadow
+            ctx.globalAlpha = masterAlpha;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetY = 6;
+            ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+            
+          } else {
+            // Default: simple shadow
+            ctx.globalAlpha = masterAlpha;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 15;
+            ctx.shadowOffsetY = 4;
+            ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
           }
           
-          // Draw logo with drop shadow
-          ctx.save();
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-          ctx.shadowBlur = 20;
-          ctx.shadowOffsetY = 6;
-          ctx.globalAlpha = masterAlpha * logoBlink;
-          // Add glow at max intensity
-          if (currentIntensity === 4) {
-            ctx.shadowColor = `hsl(${(Date.now() / 20) % 360}, 100%, 50%)`;
-            ctx.shadowBlur = 30 + 10 * Math.sin(Date.now() / 200);
-          }
-          ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+          ctx.filter = 'none';
           ctx.restore();
           
-          // Draw price at top-right of logo (scales proportionally with logo)
+          // Draw price at top-right of logo (very subtle scaling)
           ctx.save();
-          const fontSize = logoSize * 0.16; // Proportional font (slightly smaller ratio since logo is bigger)
+          const fontScale = Math.min(priceScale, 1.08); // Even more subtle for price tag
+          const fontSize = logoSize * 0.16 * fontScale;
           ctx.font = `bold ${fontSize}px 'YWFTProcessing-Regular', monospace`;
           
           // Price background
@@ -5535,20 +5653,46 @@
           const priceX = logoX + logoSize - priceW * 0.15;
           const priceY = logoY - priceH * 0.2;
           
-          // Intensity-based colors (green theme to start, escalates with intensity)
-          const intensityColors = {
-            0: { bg: '#0a2a0a', border: '#2a5a2a', text: '#88ff88', glow: 0 },      // Dark green bg, green border, lime text
-            1: { bg: '#0a2a0a', border: '#3a7a3a', text: '#aaffaa', glow: 6 },      // Brighter green
-            2: { bg: '#1a3a1a', border: '#00cc66', text: '#00ffcc', glow: 10 },     // Cyan-green
-            3: { bg: '#2a3a1a', border: '#ffcc00', text: '#ffdd44', glow: 14 },     // Gold
-            4: { bg: '#3a2a1a', border: '#ff6600', text: '#ff8844', glow: 20 }      // Orange/fire
-          };
-          const colors = intensityColors[currentIntensity] || intensityColors[0];
+          // Intensity-based colors with more dramatic high-end effects
+          const t2 = Date.now();
+          let bgColor, borderColor, textColor, glowAmt;
           
-          // Green gradient background
+          if (currentIntensity === 4) {
+            // MAX: Flashing high contrast, rainbow cycling
+            const flash = Math.sin(t2 / 60);
+            const hue = (t2 / 8) % 360;
+            bgColor = flash > 0 ? '#000' : `hsl(${hue}, 80%, 15%)`;
+            borderColor = `hsl(${hue}, 100%, 60%)`;
+            textColor = `hsl(${(hue + 180) % 360}, 100%, ${70 + flash * 20}%)`;
+            glowAmt = 30 + 15 * Math.abs(flash);
+          } else if (currentIntensity === 3) {
+            // High: warm pulsing
+            const pulse = Math.sin(t2 / 200);
+            bgColor = '#2a2a1a';
+            borderColor = `hsl(${40 + pulse * 20}, 100%, 55%)`;
+            textColor = `hsl(${50 + pulse * 10}, 100%, 70%)`;
+            glowAmt = 18 + 6 * pulse;
+          } else if (currentIntensity === 2) {
+            bgColor = '#1a3a1a';
+            borderColor = '#00cc66';
+            textColor = '#00ffcc';
+            glowAmt = 10;
+          } else if (currentIntensity === 1) {
+            bgColor = '#0a2a0a';
+            borderColor = '#3a7a3a';
+            textColor = '#aaffaa';
+            glowAmt = 6;
+          } else {
+            bgColor = '#0a2a0a';
+            borderColor = '#2a5a2a';
+            textColor = '#88ff88';
+            glowAmt = 0;
+          }
+          
+          // Price background gradient
           const bgGrad = ctx.createLinearGradient(priceX, priceY, priceX + priceW, priceY + priceH);
-          bgGrad.addColorStop(0, colors.bg);
-          bgGrad.addColorStop(1, '#050f05');
+          bgGrad.addColorStop(0, bgColor);
+          bgGrad.addColorStop(1, '#050505');
           ctx.fillStyle = bgGrad;
           ctx.globalAlpha = masterAlpha * 0.95;
           
@@ -5568,28 +5712,26 @@
           ctx.fill();
           
           // Border with intensity glow
-          if (colors.glow > 0) {
-            ctx.shadowColor = colors.border;
-            ctx.shadowBlur = colors.glow;
+          if (glowAmt > 0) {
+            ctx.shadowColor = borderColor;
+            ctx.shadowBlur = glowAmt;
           }
-          ctx.strokeStyle = colors.border;
-          ctx.lineWidth = 3; // Thicker border
+          ctx.strokeStyle = borderColor;
+          ctx.lineWidth = currentIntensity >= 3 ? 4 : 3; // Thicker at high intensity
           ctx.globalAlpha = masterAlpha;
           ctx.stroke();
           ctx.shadowBlur = 0;
           
-          // Price text with intensity color (offset down slightly for better visual centering)
-          // Rainbow effect at max intensity!
-          if (currentIntensity === 4) {
-            const hue = (Date.now() / 10) % 360;
-            ctx.fillStyle = `hsl(${hue}, 100%, 65%)`;
-            // Extra glow for rainbow
-            ctx.shadowColor = `hsl(${(hue + 180) % 360}, 100%, 50%)`;
-            ctx.shadowBlur = 15;
-          } else {
-            ctx.fillStyle = colors.text;
-          }
+          // Price text with intensity effects
+          ctx.fillStyle = textColor;
           ctx.textBaseline = 'middle';
+          
+          // At max intensity, add extra text effects
+          if (currentIntensity === 4) {
+            ctx.shadowColor = textColor;
+            ctx.shadowBlur = 10 + 5 * Math.sin(t2 / 50);
+          }
+          
           ctx.fillText(currentPrice, priceX + paddingX, priceY + priceH / 2 + fontSize * 0.08);
           ctx.restore();
         }
@@ -6237,21 +6379,6 @@
                 dialog.close();
                 cleanup();
                 // Keep checkbox checked - they want monthly
-                // Initialize auth if needed and redirect to login
-                if (!auth0Client) await initAuth0();
-                if (auth0Client) {
-                  await auth0Client.loginWithRedirect({
-                    authorizationParams: {
-                      redirect_uri: window.location.origin + window.location.pathname
-                    }
-                  });
-                }
-              };
-              
-              const handleCancel = () => {
-                dialog.close();
-                cleanup();
-                // Keep checkbox checked - they still want monthly
                 // Scroll to login button and blink it
                 const loginBtn = document.getElementById('footerLoginBtn');
                 if (loginBtn) {
@@ -6261,6 +6388,12 @@
                     setTimeout(() => loginBtn.classList.remove('blinking'), 2000);
                   }, 400);
                 }
+              };
+              
+              const handleCancel = () => {
+                dialog.close();
+                cleanup();
+                // Just close - do nothing else
               };
               
               const cleanup = () => {
@@ -7154,14 +7287,19 @@
     
     // Drag to scroll ticker
     if (tickerEl) {
-      const track = tickerEl.querySelector('.gives-ticker-track');
       let isDragging = false;
       let startX = 0;
       let currentOffset = 0;
       let trackOffset = 0;
       let resumeTimeout = null;
       
+      function getTrack() {
+        return tickerEl.querySelector('.gives-ticker-track');
+      }
+      
       function getTrackOffset() {
+        const track = getTrack();
+        if (!track) return 0;
         const transform = getComputedStyle(track).transform;
         if (transform === 'none') return 0;
         const matrix = new DOMMatrixReadOnly(transform);
@@ -7169,6 +7307,8 @@
       }
       
       function startDrag(clientX) {
+        const track = getTrack();
+        if (!track) return;
         if (resumeTimeout) clearTimeout(resumeTimeout);
         isDragging = true;
         startX = clientX;
@@ -7189,6 +7329,8 @@
       
       window.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
+        const track = getTrack();
+        if (!track) return;
         const deltaX = e.clientX - startX;
         currentOffset = trackOffset + deltaX;
         track.style.transform = `translateX(${currentOffset}px)`;
@@ -7196,6 +7338,8 @@
       
       window.addEventListener('touchmove', (e) => {
         if (!isDragging) return;
+        const track = getTrack();
+        if (!track) return;
         const deltaX = e.touches[0].clientX - startX;
         currentOffset = trackOffset + deltaX;
         track.style.transform = `translateX(${currentOffset}px)`;
@@ -7203,11 +7347,12 @@
       
       function stopDragging() {
         if (!isDragging) return;
+        const track = getTrack();
         isDragging = false;
         // Keep manual position for 2s before resuming animation
         resumeTimeout = setTimeout(() => {
           tickerEl.classList.remove('dragging');
-          track.style.transform = '';
+          if (track) track.style.transform = '';
         }, 2000);
       }
       
@@ -8823,7 +8968,9 @@
             redirect_uri: window.location.origin + window.location.pathname,
             audience: 'https://aesthetic.us.auth0.com/api/v2/'
           },
-          cacheLocation: 'localstorage'
+          cacheLocation: 'localstorage',
+          useRefreshTokens: true,
+          useRefreshTokensFallback: true
         });
         
         // Handle redirect callback
@@ -8832,8 +8979,19 @@
           window.history.replaceState({}, document.title, window.location.pathname);
         }
         
-        // Check if logged in
-        const isAuthenticated = await auth0Client.isAuthenticated();
+        // Check if logged in locally first
+        let isAuthenticated = await auth0Client.isAuthenticated();
+        
+        // If not logged in locally, try silent auth to check for existing session from aesthetic.computer
+        if (!isAuthenticated) {
+          try {
+            await auth0Client.getTokenSilently();
+            isAuthenticated = await auth0Client.isAuthenticated();
+          } catch (e) {
+            // Silent auth failed - user not logged in on aesthetic.computer either
+          }
+        }
+        
         if (isAuthenticated) {
           acUser = await auth0Client.getUser();
           // Fetch handle from AC API using email
