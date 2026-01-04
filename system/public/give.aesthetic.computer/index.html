@@ -1492,49 +1492,77 @@
     .link-block.notepat-section strong,
     .link-block.notepat-section .link-desc { background: transparent; }
 
-    /* Invest - green/money theme */
-    .link-block.invest-section {
-      background: linear-gradient(135deg, #0a2a1a 0%, #1a3a2a 100%);
-      border-color: #2a4a3a;
-      transition: box-shadow 0.3s ease, transform 0.3s ease;
+    /* Invest - announcement ticker style */
+    .invest-section {
+      background: linear-gradient(135deg, #0a1a12 0%, #0d2018 100%);
+      border: 1px solid rgba(78, 205, 196, 0.3);
+      border-radius: 8px;
+      padding: 1.2em 1.5em;
+      overflow: hidden;
+      position: relative;
     }
-    .link-block.invest-section strong { color: #4ecdc4; }
-    .link-block.invest-section strong,
-    .link-block.invest-section .link-desc { background: transparent; }
-    .link-block.invest-section .link-desc {
-      line-height: 1.6;
-      display: block;
+
+    .invest-header {
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+      margin-bottom: 0.8em;
+      font-family: var(--mono);
+      font-size: 0.9em;
+      color: #4ecdc4;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
     }
-    .link-block.invest-section .link-desc p {
-      margin: 0 0 0.8em 0;
+
+    .invest-content {
+      font-family: 'YWFTProcessing-Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 1.15em;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.9);
     }
-    .link-block.invest-section .link-desc p:last-child {
+
+    .invest-content p {
+      margin: 0 0 1em 0;
+    }
+
+    .invest-content p:last-child {
       margin-bottom: 0;
     }
-    .link-block.invest-section .link-desc a {
+
+    .invest-content a {
       color: #4ecdc4;
-      text-decoration: underline;
-    }
-    .link-block.invest-section .link-desc a:hover {
-      color: #6eeee6;
-    }
-    .link-block.invest-section .link-desc .demo-link {
-      display: inline-block;
-      background: rgba(78, 205, 196, 0.2);
-      padding: 0.2em 0.5em;
-      border-radius: 4px;
-      font-weight: bold;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(78, 205, 196, 0.4);
+      transition: border-color 0.2s, color 0.2s;
     }
 
-    /* Invest section blink animation */
+    .invest-content a:hover {
+      color: #6eeee6;
+      border-bottom-color: #6eeee6;
+    }
+
+    .invest-content .demo-link {
+      display: inline-block;
+      background: rgba(78, 205, 196, 0.15);
+      padding: 0.3em 0.6em;
+      border-radius: 4px;
+      border-bottom: none;
+      font-weight: 600;
+      margin: 0 0.1em;
+    }
+
+    .invest-content .demo-link:hover {
+      background: rgba(78, 205, 196, 0.25);
+    }
+
+    .invest-section.blinking {
+      animation: invest-blink 0.6s ease-in-out 3;
+    }
+
     @keyframes invest-blink {
       0%, 100% { box-shadow: 0 0 0 0 rgba(78, 205, 196, 0); }
-      25%, 75% { box-shadow: 0 0 20px 4px rgba(78, 205, 196, 0.8); transform: scale(1.02); }
-      50% { box-shadow: 0 0 30px 8px rgba(78, 205, 196, 1); transform: scale(1.03); }
-    }
-
-    .link-block.invest-section.blinking {
-      animation: invest-blink 0.6s ease-in-out 3;
+      25%, 75% { box-shadow: 0 0 20px 4px rgba(78, 205, 196, 0.6); }
+      50% { box-shadow: 0 0 30px 8px rgba(78, 205, 196, 0.8); }
     }
 
     /* Invest suggestion styling */
@@ -3612,16 +3640,20 @@
         </div>
       </div>
 
-      <div class="link-block invest-section" id="invest">
-        <strong>📈</strong> <span data-lang="en"><strong>Invest</strong></span><span data-lang="da"><strong>Investér</strong></span>
-        <span class="link-desc" data-lang="en">
+      <div class="invest-section" id="invest">
+        <div class="invest-header">
+          <span>📈</span>
+          <span data-lang="en">Invest</span>
+          <span data-lang="da">Investér</span>
+        </div>
+        <div class="invest-content" data-lang="en">
           <p>Aesthetic.Computer is booted by a handful of early supporters who share in company equity of <a href="https://aesthetic.direct">Aesthetic Inc.</a> To join this community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">📞 book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a>.</p>
           <p>He lives in Echo Park with <a href="https://aesthetic.computer/@fifi">@fifi</a> and a house full of musicians, and regularly does show and tell at the NELA Computer Club in Chinatown. Our next meeting is at 7pm on Tuesday, January 6th at <a href="https://plot.place">Plot</a>.</p>
-        </span>
-        <span class="link-desc" data-lang="da">
+        </div>
+        <div class="invest-content" data-lang="da">
           <p>Aesthetic.Computer er startet af en håndfuld tidlige støtter, der deler virksomhedskapital i <a href="https://aesthetic.direct">Aesthetic Inc.</a> For at blive en del af dette fællesskab, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">📞 book en fjern-demo</a> med <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a>.</p>
           <p>Han bor i Echo Park med <a href="https://aesthetic.computer/@fifi">@fifi</a> og et hus fuldt af musikere, og holder regelmæssigt show and tell ved NELA Computer Club i Chinatown. Vores næste møde er kl. 19 tirsdag den 6. januar på <a href="https://plot.place">Plot</a>.</p>
-        </span>
+        </div>
       </div>
 
       <div class="page-footer">
