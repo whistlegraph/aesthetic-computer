@@ -720,7 +720,7 @@
       .curr-link {
         font-size: 12px;
       }
-      .curr-link .curr-text { display: none; }
+      /* Show labels on mobile too */
       .lang-selector .lang-text { display: none; }
     }
 
@@ -3644,7 +3644,7 @@
     <div class="currency-links" id="currSelector">
       <span class="curr-link active" data-curr="usd"><span class="curr-flag">💵</span><span class="curr-text">USD</span></span>
       <span class="curr-link" data-curr="dkk"><span class="curr-flag">💶</span><span class="curr-text">DKK</span></span>
-      <span class="curr-link" data-curr="crypto"><span class="curr-flag">ꜩ</span><span class="curr-text">CRYPTO</span></span>
+      <span class="curr-link" data-curr="crypto"><span class="curr-flag">🔗</span><span class="curr-text">CRYPTO</span></span>
     </div>
   </div>
 
@@ -3779,7 +3779,7 @@
             <div class="gift-widget crypto crypto-compact" data-currency="crypto">
               <div class="crypto-header">
                 <img src="https://aesthetic.computer/purple-pals.svg" class="crypto-logo-tiny" alt="">
-                <span class="crypto-title">ꜩ CRYPTO</span>
+                <span class="crypto-title">🔗 CRYPTO</span>
               </div>
               <div class="crypto-controls crypto-all">
                 <div class="crypto-address copyable" data-copy="bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as">
@@ -4242,8 +4242,7 @@
         return (s + s2 * 0.5 + 1) / 2;
       }
 
-      // Draw POI with full photo context faded behind
-      // POI is offset to left or right of center, full photo fades in around it
+      // Draw POI with simple Ken Burns - just face/body with nice zoom and pan
       function drawPoiWithContext(img, data, poi, destX, destY, destW, destH, alpha, rotation = 0, side = 'left') {
         const imgW = img.width;
         const imgH = img.height;
@@ -4258,86 +4257,36 @@
         
         ctx.save();
         
-        // Apply rotation around canvas center
-        const centerX = destX + destW / 2;
-        const centerY = destY + destH / 2;
-        ctx.translate(centerX, centerY);
-        ctx.rotate(rotation);
-        ctx.translate(-centerX, -centerY);
-        
-        // Calculate zoom to make POI fill ~40% of canvas height
-        const targetPoiHeight = destH * 0.5;
+        // Calculate zoom to make POI fill ~60% of canvas (tighter crop)
+        const targetPoiHeight = destH * 0.6;
         const zoom = targetPoiHeight / poiH;
         
         // Calculate source region (full image scaled)
         const viewW = destW / zoom;
         const viewH = destH / zoom;
         
-        // Position POI at 30% or 70% horizontally (avoiding center where logo is)
-        const targetX = side === 'left' ? destW * 0.30 : destW * 0.70;
-        const poiCanvasX = targetX; // Where POI center should be on canvas
+        // Position POI at 35% or 65% horizontally (avoiding center where logo is)
+        const targetX = side === 'left' ? destW * 0.35 : destW * 0.65;
         
         // Calculate srcX so POI center maps to targetX
-        let srcX = poiCenterX - (poiCanvasX / destW) * viewW;
+        let srcX = poiCenterX - (targetX / destW) * viewW;
         let srcY = poiCenterY - viewH / 2;
         
         // Clamp to image bounds
         srcX = Math.max(0, Math.min(imgW - viewW, srcX));
         srcY = Math.max(0, Math.min(imgH - viewH, srcY));
         
-        // 1. Draw full photo context at half opacity (faded background)
-        ctx.globalAlpha = alpha * 0.35;
+        // Apply slight saturation/contrast boost via filter
+        ctx.filter = 'saturate(1.15) contrast(1.08)';
+        ctx.globalAlpha = alpha;
+        
+        // Simple draw - just the cropped photo, no vignettes
         ctx.drawImage(img, srcX, srcY, viewW, viewH, destX, destY, destW, destH);
         
-        // 2. Draw POI region brighter on top with radial fade
-        // Create a radial gradient mask centered on POI
-        const poiDrawX = destX + (poiCenterX - srcX) / viewW * destW;
-        const poiDrawY = destY + (poiCenterY - srcY) / viewH * destH;
-        const poiDrawW = poiW / viewW * destW;
-        const poiDrawH = poiH / viewH * destH;
-        const fadeRadius = Math.max(poiDrawW, poiDrawH) * 1.5;
-        
-        // Draw POI area brighter using a circular clip + gradient
-        ctx.globalAlpha = alpha * 0.7;
-        
-        // Radial gradient from POI center - bright in middle, fades out
-        const gradient = ctx.createRadialGradient(
-          poiDrawX, poiDrawY, 0,
-          poiDrawX, poiDrawY, fadeRadius
-        );
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-        gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0.5)');
-        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        
-        // Use the gradient as a mask by drawing image again with composite
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-over';
-        
-        // Draw brighter version of same region
-        ctx.globalAlpha = alpha * 0.5;
-        ctx.beginPath();
-        ctx.arc(poiDrawX, poiDrawY, fadeRadius, 0, Math.PI * 2);
-        ctx.clip();
-        ctx.drawImage(img, srcX, srcY, viewW, viewH, destX, destY, destW, destH);
+        ctx.filter = 'none';
         ctx.restore();
         
-        // Warm glow for faces
-        if (poi.t === 'f') {
-          ctx.globalAlpha = alpha;
-          const glow = ctx.createRadialGradient(
-            poiDrawX, poiDrawY, 0,
-            poiDrawX, poiDrawY, fadeRadius * 0.8
-          );
-          glow.addColorStop(0, 'rgba(255, 245, 220, 0.12)');
-          glow.addColorStop(0.5, 'rgba(255, 230, 200, 0.06)');
-          glow.addColorStop(1, 'rgba(255, 220, 180, 0)');
-          ctx.fillStyle = glow;
-          ctx.fillRect(destX, destY, destW, destH);
-        }
-        
-        ctx.restore();
-        
-        return { poiDrawX, poiDrawY, poiDrawW, poiDrawH };
+        return { srcX, srcY, viewW, viewH };
       }
 
       // Draw image with focal point offset to left or right (avoiding center logo)
@@ -4644,7 +4593,7 @@
         if (leftPoi) {
           const leftImg = loadedImages[leftPoi.name];
           if (leftImg) {
-            const alpha = isTransitioning ? transitionProgress * 0.85 : 0.85;
+            const alpha = isTransitioning ? transitionProgress * 0.55 : 0.55;
             drawPoiWithContext(leftImg, leftPoi.data, leftPoi.poi, 0, 0, w, h, alpha, 0, 'left');
           }
         }
@@ -4653,7 +4602,7 @@
         if (rightPoi) {
           const rightImg = loadedImages[rightPoi.name];
           if (rightImg) {
-            const alpha = isTransitioning ? transitionProgress * 0.75 : 0.75;
+            const alpha = isTransitioning ? transitionProgress * 0.5 : 0.5;
             drawPoiWithContext(rightImg, rightPoi.data, rightPoi.poi, 0, 0, w, h, alpha, 0, 'right');
           }
         }
@@ -4857,6 +4806,20 @@
       const cleanUrl = new URL(window.location.href);
       cleanUrl.searchParams.delete('email');
       window.history.replaceState({}, '', cleanUrl.toString());
+    }
+    
+    // Check for monthly mode (from "monthly" or "subscribe" command)
+    const preSelectMonthly = urlParams.get('monthly') === '1';
+    if (preSelectMonthly) {
+      console.log('📅 Monthly mode pre-selected');
+      // Clean up monthly param from URL
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('monthly');
+      window.history.replaceState({}, '', cleanUrl.toString());
+      // Auto-toggle monthly on all widgets
+      document.querySelectorAll('.gift-widget').forEach(widget => {
+        if (widget._setMonthly) widget._setMonthly(true);
+      });
     }
     
     if (isThanksMode) {
@@ -5167,6 +5130,21 @@
           }
           update();
         });
+        
+        // Expose setter for programmatic toggling (e.g., from URL param)
+        widget._setMonthly = (val) => {
+          isMonthly = val;
+          monthlyCheck.checked = val;
+          monthlyLabel.classList.toggle('checked', val);
+          widget.classList.toggle('monthly-mode', val);
+          if (val) {
+            slider.min = currency === 'dkk' ? 25 : 1;
+            slider.max = currency === 'dkk' ? 3500 : 500;
+            slider.step = currency === 'dkk' ? 25 : 1;
+            if (parseInt(slider.value) > parseInt(slider.max)) slider.value = currency === 'dkk' ? 175 : 25;
+          }
+          update();
+        };
       }
 
       function format(v) {
