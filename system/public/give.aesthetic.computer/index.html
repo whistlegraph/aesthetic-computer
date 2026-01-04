@@ -3605,16 +3605,16 @@
                 <div class="jeffreys-slideshow" id="jeffreysSlideshow"></div>
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount">$125<span class="monthly-infinity">∞</span></div>
+                  <div class="gift-amount">$128<span class="monthly-infinity">∞</span></div>
                 </div>
               </div>
               <div class="gift-controls">
-                <input type="range" min="1" max="2500" step="1" value="125">
+                <input type="range" min="1" max="2500" step="1" value="128">
                 <div class="invest-suggestion" style="display: none;">
                   <span data-lang="en">At this level, consider <a href="#invest" class="invest-link">investing</a> for equity!</span>
                   <span data-lang="da">På dette niveau, overvej at <a href="#invest" class="invest-link">investere</a> for ejerandel!</span>
                 </div>
-                <button class="gift-btn" data-currency="usd">Give $125</button>
+                <button class="gift-btn" data-currency="usd">Give $128</button>
                 <div class="gift-monthly-row">
                   <label class="gift-monthly-check">
                     <input type="checkbox" class="monthly-checkbox">
@@ -4126,25 +4126,33 @@
         const faces = allPois.filter(poi => poi.t === 'f');
         const hands = allPois.filter(poi => poi.t === 'h');
         
-        // Priority order: bodies first (establishing), then faces, then hands (action)
-        // Create a staged reveal array
+        // Priority order: FACES FIRST (most important), then bodies, rarely hands
+        // When faces exist, focus primarily on them
         const stagedPois = [];
         
-        // Stage 1: Widest body shot (largest body or default center)
+        // Stage 1: If we have faces, they are the star - add them first and multiple times
+        if (faces.length > 0) {
+          // Add each face twice to spend more time on faces
+          for (const face of faces) {
+            stagedPois.push({ ...face, stage: 'closeup' });
+            stagedPois.push({ ...face, stage: 'closeup' }); // Double time on faces
+          }
+        }
+        
+        // Stage 2: Add widest body only as brief establishing shot
         const biggestBody = bodies.sort((a, b) => (b.box[2] * b.box[3]) - (a.box[2] * a.box[3]))[0];
-        if (biggestBody) {
+        if (biggestBody && faces.length === 0) {
+          // Only use body as main focus if no faces
+          stagedPois.push({ ...biggestBody, stage: 'wide' });
+        } else if (biggestBody) {
+          // Brief body shot between face focus
           stagedPois.push({ ...biggestBody, stage: 'wide' });
         }
         
-        // Stage 2: Face closeups
-        for (const face of faces) {
-          stagedPois.push({ ...face, stage: 'closeup' });
-        }
-        
-        // Stage 3: Hand/action details (only if significant)
+        // Stage 3: Hand/action details (only if no faces and significant)
         for (const hand of hands) {
           const area = hand.box[2] * hand.box[3];
-          if (area > 3) { // Only larger hand detections
+          if (area > 5 && faces.length === 0) { // Only if no faces
             stagedPois.push({ ...hand, stage: 'action' });
           }
         }
@@ -4176,8 +4184,8 @@
         // Hand/action = 1.3-1.5 zoom (detail)
         let zoomTarget1, zoomTarget2;
         const getZoomForStage = (poi) => {
-          if (poi.stage === 'wide' || poi.t === 'b') return 1.05;
-          if (poi.t === 'f') return 1.5;
+          if (poi.stage === 'wide' || poi.t === 'b') return 1.1;
+          if (poi.t === 'f') return 1.7; // Tighter on faces
           if (poi.t === 'h') return 1.4;
           return 1.15;
         };
@@ -4485,15 +4493,15 @@
         
         if (isTransitioning) {
           // Pure crossfade - old fades out, new fades in
-          const oldAlpha = 0.25 * (1 - transitionProgress);
-          const newAlpha = 0.25 * transitionProgress;
+          const oldAlpha = 0.5 * (1 - transitionProgress);
+          const newAlpha = 0.5 * transitionProgress;
           
           // Draw both with their respective alphas
           drawImages(previousImages, oldAlpha, true, 1 - transitionProgress);
           drawImages(targetImages, newAlpha);
         } else {
           // Normal: just show current images
-          drawImages(targetImages, 0.25);
+          drawImages(targetImages, 0.5);
         }
         
         requestAnimationFrame(render);
