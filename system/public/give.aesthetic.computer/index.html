@@ -6198,7 +6198,7 @@
       const carousel = document.getElementById('kidlispCarousel');
       try {
         // Fetch top hits from the TV API
-        const res = await fetch(`${apiBase}/api/tv?types=kidlisp&sort=hits&limit=20`);
+        const res = await fetch(`${apiBase}/api/tv?types=kidlisp&sort=hits&limit=50`);
         const data = await res.json();
         const hits = data.media?.kidlisp || data.mixed || [];
         
@@ -6270,7 +6270,7 @@
         }
         
         // Create all slides (hidden initially)
-        const slides = hits.slice(0, 8);
+        const slides = hits.slice(0, 20);
         let currentSlide = 0;
         let slideInterval = null;
         
