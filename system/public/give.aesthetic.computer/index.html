@@ -4274,48 +4274,25 @@
         ctx.restore();
       }
 
-      // Pixel dissolve pattern - random pixels that flip on/off
-      let dissolvePattern = null;
-      let dissolvePhase = 0; // Continuous cycle 0-1
+      // Pixel dissolve pattern - NOT USED anymore (too CPU intensive)
+      // Using simple alpha crossfade instead
       let transitionProgress = 0; // 0 = showing old, 1 = showing new (for image crossfade)
       let isTransitioning = false;
       let previousImages = [];
-      
-      function initDissolvePattern(w, h) {
-        const blockSize = 1; // Native pixel density
-        const cols = Math.ceil(w / blockSize);
-        const rows = Math.ceil(h / blockSize);
-        dissolvePattern = new Float32Array(cols * rows);
-        for (let i = 0; i < dissolvePattern.length; i++) {
-          dissolvePattern[i] = Math.random();
-        }
-        return { cols, rows, blockSize };
-      }
       
       function render() {
         const w = canvasW;
         const h = canvasH;
         
-        // Initialize dissolve pattern if needed
-        if (!dissolvePattern) {
-          initDissolvePattern(w, h);
-        }
-        
-        // Update phases - super slow continuous dissolve
-        dissolvePhase += 0.00003; // Very slow continuous cycle
-        if (dissolvePhase > 1) dissolvePhase -= 1;
+        // Update phases slowly
         globalRotation += 0.00002;
         floatOffset += 0.00004;
         
-        const drift = (Math.sin(floatOffset * Math.PI * 2) + 1) / 2;
         const rotation = Math.sin(globalRotation) * 0.003;
         
-        // Clear to dark but not black
-        ctx.fillStyle = 'rgba(18, 14, 24, 0.06)';
+        // Subtle trail effect
+        ctx.fillStyle = 'rgba(18, 14, 24, 0.08)';
         ctx.fillRect(0, 0, w, h);
-        
-        const blockSize = 1; // Native pixel density
-        const cols = Math.ceil(w / blockSize);
         
         // Draw whole image covering canvas (no zoom, just cover)
         const drawWholeImage = (img, destX, destY, destW, destH, alpha, rot = 0) => {
@@ -4350,8 +4327,8 @@
           ctx.restore();
         };
         
-        // Always draw base image first (full, no dissolve) so we never lose data
-        const drawFullImage = (images, alpha) => {
+        // Draw images with given alpha
+        const drawImages = (images, alpha) => {
           if (!images || images.length === 0) return;
           
           if (images.length === 1) {
@@ -4375,137 +4352,40 @@
               }
             }
           }
-        };
-        
-        // Continuous dissolve effect - pixels randomly shimmer in/out based on phase
-        const drawWithContinuousDissolve = (images, alpha, phaseOffset = 0) => {
-          if (!images || images.length === 0) return;
-          
-          // Create clip path based on continuous dissolve phase
-          ctx.save();
-          ctx.beginPath();
-          
-          const phase = (dissolvePhase + phaseOffset) % 1;
-          // Use sine wave for smooth back-and-forth shimmer
-          const shiftedPhase = (Math.sin(phase * Math.PI * 2) + 1) / 2;
-          
-          for (let by = 0; by < Math.ceil(h / blockSize); by++) {
-            for (let bx = 0; bx < cols; bx++) {
-              const patternIdx = by * cols + bx;
-              const threshold = dissolvePattern[patternIdx];
-              
-              // Pixel shows when its threshold is within current dissolve band
-              // Creates a rolling wave of pixels appearing/disappearing
-              const bandWidth = 0.4; // Width of the visible band
-              const dist = Math.abs(threshold - shiftedPhase);
-              const wrappedDist = Math.min(dist, 1 - dist);
-              
-              if (wrappedDist < bandWidth) {
-                ctx.rect(bx * blockSize, by * blockSize, blockSize, blockSize);
-              }
-            }
-          }
-          ctx.clip();
-          
-          if (images.length === 1) {
-            const name = images[0];
-            const img = loadedImages[name];
-            if (img) {
-              drawWholeImage(img, 0, 0, w, h, alpha, rotation);
-            }
-          } else if (images.length === 2) {
-            const overlap = 15;
-            const eachW = (w + overlap) / 2;
-            
-            for (let i = 0; i < 2; i++) {
-              const name = images[i];
-              const img = loadedImages[name];
-              if (img) {
-                const x = i === 0 ? 0 : w - eachW;
-                const yOffset = Math.sin(floatOffset * Math.PI * 2 + i * Math.PI * 0.5) * 1.5;
-                const imgRotation = rotation + Math.sin(globalRotation + i * Math.PI) * 0.002;
-                drawWholeImage(img, x, yOffset, eachW, h, alpha * 0.95, imgRotation);
-              }
-            }
-          }
-          
-          ctx.restore();
-        };
-        
-        // For image transitions - crossfade dissolve
-        const drawTransitionDissolve = (images, showWhere) => {
-          if (!images || images.length === 0) return;
-          
-          ctx.save();
-          ctx.beginPath();
-          
-          for (let by = 0; by < Math.ceil(h / blockSize); by++) {
-            for (let bx = 0; bx < cols; bx++) {
-              const patternIdx = by * cols + bx;
-              const threshold = dissolvePattern[patternIdx];
-              
-              let showPixel = (showWhere === 'old') 
-                ? threshold > transitionProgress 
-                : threshold <= transitionProgress;
-              
-              if (showPixel) {
-                ctx.rect(bx * blockSize, by * blockSize, blockSize, blockSize);
-              }
-            }
-          }
-          ctx.clip();
-          
-          if (images.length === 1) {
-            const name = images[0];
-            const img = loadedImages[name];
-            if (img) {
-              drawWholeImage(img, 0, 0, w, h, 0.3, rotation);
-            }
-          } else if (images.length === 2) {
-            const overlap = 15;
-            const eachW = (w + overlap) / 2;
-            
-            for (let i = 0; i < 2; i++) {
-              const name = images[i];
-              const img = loadedImages[name];
-              if (img) {
-                const x = i === 0 ? 0 : w - eachW;
-                const yOffset = Math.sin(floatOffset * Math.PI * 2 + i * Math.PI * 0.5) * 1.5;
-                const imgRotation = rotation + Math.sin(globalRotation + i * Math.PI) * 0.002;
-                drawWholeImage(img, x, yOffset, eachW, h, 0.3 * 0.95, imgRotation);
-              }
-            }
-          }
-          
-          ctx.restore();
         };
         
         if (isTransitioning) {
-          // During transition: base images + crossfade dissolve
-          drawFullImage(previousImages, 0.06);
-          drawFullImage(targetImages, 0.06);
-          drawTransitionDissolve(previousImages, 'old');
-          drawTransitionDissolve(targetImages, 'new');
+          // Simple alpha crossfade
+          const oldAlpha = 0.15 * (1 - transitionProgress);
+          const newAlpha = 0.15 * transitionProgress;
+          drawImages(previousImages, oldAlpha);
+          drawImages(targetImages, newAlpha);
         } else {
-          // Normal: base image + continuous shimmer dissolve
-          drawFullImage(targetImages, 0.08);
-          drawWithContinuousDissolve(targetImages, 0.15);
+          // Normal: just show current images
+          drawImages(targetImages, 0.15);
         }
         
         requestAnimationFrame(render);
       }
 
       async function transitionToNext() {
+        // Get next images
+        const nextIdx = (currentDisplayIndex + 1) % displayQueue.length;
+        const nextImages = displayQueue[nextIdx];
+        
+        // Wait for next images to load before transitioning
+        await Promise.all(nextImages.map(preloadImage));
+        
         // Store previous images for dissolve
         previousImages = [...targetImages];
         
-        // Switch to next images
-        currentDisplayIndex = (currentDisplayIndex + 1) % displayQueue.length;
-        targetImages = displayQueue[currentDisplayIndex];
+        // Switch to next images (now loaded)
+        currentDisplayIndex = nextIdx;
+        targetImages = nextImages;
         
-        // Preload next batch
-        const nextIdx = (currentDisplayIndex + 1) % displayQueue.length;
-        displayQueue[nextIdx].forEach(name => preloadImage(name));
+        // Start preloading the one after that (don't await)
+        const futureIdx = (currentDisplayIndex + 1) % displayQueue.length;
+        displayQueue[futureIdx].forEach(name => preloadImage(name));
         
         // Start dissolve transition
         isTransitioning = true;
@@ -4528,27 +4408,34 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
         
-        // Preload first few images
-        const firstBatch = displayQueue.slice(0, 3).flat();
-        await Promise.all(firstBatch.map(preloadImage));
-        
-        targetImages = displayQueue[0];
-        currentAlpha = 0;
-        
-        // Start render loop
+        // Start render loop immediately (will show dark until images load)
         render();
         
-        // Fade in first image
-        const fadeInInterval = setInterval(() => {
-          currentAlpha += 0.02;
-          if (currentAlpha >= 1) {
-            clearInterval(fadeInInterval);
-            currentAlpha = 1;
+        // Load first batch in background, then start showing
+        const firstImages = displayQueue[0];
+        Promise.all(firstImages.map(preloadImage)).then(() => {
+          targetImages = firstImages;
+          currentAlpha = 0;
+          
+          // Fade in first image
+          const fadeInInterval = setInterval(() => {
+            currentAlpha += 0.02;
+            if (currentAlpha >= 1) {
+              clearInterval(fadeInInterval);
+              currentAlpha = 1;
+            }
+          }, 30);
+          
+          // Start preloading next batch
+          if (displayQueue.length > 1) {
+            displayQueue[1].forEach(name => preloadImage(name));
           }
-        }, 30);
-        
-        // Transition every 8 seconds
-        setInterval(transitionToNext, 8000);
+          
+          // Start transitions after first image is showing
+          setTimeout(() => {
+            setInterval(transitionToNext, 8000);
+          }, 3000);
+        });
       }
 
       start();
@@ -5546,7 +5433,7 @@
         </a>
       `;
     }
-    loadShopProducts();
+    setTimeout(loadShopProducts, 100);
 
     // Load stats from metrics API
     async function loadStats() {
@@ -5576,7 +5463,7 @@
         console.warn('Could not load stats:', e);
       }
     }
-    loadStats();
+    setTimeout(loadStats, 200);
 
     // KidLisp count - loaded after apiBase is defined (see below)
 
@@ -5681,7 +5568,7 @@
       }
     }
     
-    loadRecentGives();
+    setTimeout(loadRecentGives, 300);
 
     // Determine API base URL (relative for local dev, absolute for production)
     const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('local.')
@@ -5701,7 +5588,7 @@
         console.warn('Could not load kidlisp count:', e);
       }
     }
-    loadKidlispCount();
+    setTimeout(loadKidlispCount, 400);
 
     // TV video feed - load and cycle through tape videos
     let tvTapes = [];
@@ -5876,7 +5763,7 @@
         container.insertBefore(overlay, container.firstChild);
       });
     }
-    loadTVFeed();
+    setTimeout(loadTVFeed, 500);
     
     // Linkify text - parse URLs, @handles, 'prompts', #paintings
     // Works on raw text, escapes only plain text segments
@@ -6038,7 +5925,7 @@
       return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
     
-    loadChatMessages();
+    setTimeout(loadChatMessages, 600);
     
     // Auto-scroll chat messages
     function autoScrollChat(containerId, speed = 0.5) {
@@ -6112,7 +5999,7 @@
       }
     }
     
-    loadChatSystemMessages();
+    setTimeout(loadChatSystemMessages, 700);
     
     // Flip card toggle function with direction support
     function toggleChatFlip(direction) {
@@ -6468,7 +6355,7 @@
       }
     }
     
-    loadKidlispCarousel();
+    setTimeout(loadKidlispCarousel, 800);
     
     // Desktop Release Info - Fetch from GitHub
     async function loadDesktopReleaseInfo() {
@@ -6561,8 +6448,8 @@
       }
     }
     
-    loadDesktopReleaseInfo();
-    loadVSCodeExtVersion();
+    setTimeout(loadDesktopReleaseInfo, 900);
+    setTimeout(loadVSCodeExtVersion, 1000);
 
     // Apps Flip Card - Desktop / Mobile swivel
     function toggleAppsFlip(direction) {
@@ -6718,33 +6605,13 @@
           idx++;
         }
         
-        // Preload all images and wait for them to load
-        const preloaded = [];
-        const loadPromises = [];
-        for (const p of mixed) {
-          const img = new Image();
-          const promise = new Promise(resolve => {
-            img.onload = () => {
-              preloaded.push({ ...p, img });
-              resolve();
-            };
-            img.onerror = resolve; // Skip failed loads
-          });
-          img.src = p.media.url;
-          loadPromises.push(promise);
-        }
-        
-        await Promise.all(loadPromises);
-        console.log(`Preloaded ${preloaded.length} paintings from ${handles.length} users`);
-        
-        if (!preloaded.length) return;
-        
+        // Don't preload all - lazy load as needed
         let index = 0;
         
         function spawnFloater() {
-          if (!preloaded.length) return;
+          if (!mixed.length) return;
           
-          const p = preloaded[index % preloaded.length];
+          const p = mixed[index % mixed.length];
           index++;
           
           const floater = document.createElement('div');
@@ -6763,12 +6630,13 @@
           const duration = 10 + Math.random() * 10;
           floater.style.setProperty('--float-duration', `${duration}s`);
           
-          // Thumbnail - use preloaded image
+          // Thumbnail - lazy load this image
           const thumb = document.createElement('img');
-          thumb.src = p.img.src;
+          thumb.src = p.media.url;
           thumb.alt = p.code || 'painting';
           thumb.style.width = `${size}px`;
           thumb.style.height = `${size}px`;
+          thumb.loading = 'lazy';
           floater.appendChild(thumb);
           
           // Code label
@@ -6796,7 +6664,7 @@
       }
     }
     
-    loadFloatingPaintings();
+    setTimeout(loadFloatingPaintings, 2000);
 
     // 🏷️ Floating Handles in Stats
     async function loadFloatingHandles() {
@@ -6869,7 +6737,7 @@
       }
     }
     
-    loadFloatingHandles();
+    setTimeout(loadFloatingHandles, 2500);
 
     // 😊 Floating Moods in Stats
     async function loadFloatingMoods() {
@@ -6962,7 +6830,7 @@
       }
     }
     
-    loadFloatingMoods();
+    setTimeout(loadFloatingMoods, 3000);
 
     // 💻 Floating KidLisp Codes in Stats
     async function loadFloatingKidlisp() {
@@ -7045,7 +6913,7 @@
       }
     }
     
-    loadFloatingKidlisp();
+    setTimeout(loadFloatingKidlisp, 3500);
 
     // 🧩 Floating Commands (pieces + prompts) in Stats
     async function loadFloatingCommands() {
@@ -7123,7 +6991,7 @@
       }
     }
     
-    loadFloatingCommands();
+    setTimeout(loadFloatingCommands, 4000);
 
     // 💬 Floating Messages in Stats
     async function loadFloatingMessages() {
@@ -7203,7 +7071,7 @@
       }
     }
     
-    loadFloatingMessages();
+    setTimeout(loadFloatingMessages, 4500);
     
     // ====== Auth0 Authentication ======
     let auth0Client = null;
