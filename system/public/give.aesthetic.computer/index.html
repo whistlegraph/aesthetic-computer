@@ -3180,7 +3180,7 @@
       top: 4.5em;
       left: 0.8em;
       right: 1em;
-      bottom: 4em;
+      max-height: 8.5em;
       padding: 0.4em 0.6em;
       font-family: var(--mono);
       font-size: 0.75em;
@@ -3192,6 +3192,8 @@
       word-break: break-word;
       pointer-events: none;
       z-index: 2;
+      -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+      mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
     }
 
     .kidlisp-slide-plays {
