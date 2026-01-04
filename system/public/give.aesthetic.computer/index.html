@@ -2,6 +2,13 @@
 <html>
 <head>
   <title>give · Aesthetic Computer</title>
+  <!-- SVG filter for image sharpening (unsharp mask) -->
+  <svg width="0" height="0" style="position:absolute">
+    <filter id="sharpen">
+      <feConvolveMatrix order="3" preserveAlpha="true"
+        kernelMatrix="0 -0.5 0 -0.5 3 -0.5 0 -0.5 0" />
+    </filter>
+  </svg>
   <meta name="description" content="Support Aesthetic Computer / Støt Aesthetic Computer" />
   <link rel="icon" href="https://aesthetic.computer/purple-pals.svg" type="image/svg+xml" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -714,6 +721,30 @@
     .curr-link.active[data-curr="crypto"] { color: #a78bfa; }
 
     @media (max-width: 600px) {
+      body {
+        padding: 1em;
+        padding-right: calc(1em + 10px);
+        font-size: 13px;
+      }
+      .top-bar {
+        padding: 6px 10px;
+        background: rgba(5, 15, 10, 0.85);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+      .logo {
+        font-size: 15px;
+      }
+      main {
+        padding-top: 2.8em;
+      }
+      .gives-ticker {
+        height: 2.1em;
+      }
+      .gives-ticker-item {
+        font-size: 0.75em;
+        padding: 0 1em;
+      }
       .currency-links {
         gap: 10px;
       }
@@ -825,10 +856,11 @@
     }
 
     .gift-logo {
-      width: 160px;
-      height: 160px;
-      opacity: 0.7;
-      transition: opacity 0.4s ease-out, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      width: 240px;
+      height: 240px;
+      opacity: 0.9;
+      filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.7)) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5));
+      transition: opacity 0.4s ease-out, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), filter 0.4s ease-out;
       transform-origin: bottom left;
     }
 
@@ -841,17 +873,17 @@
       position: absolute;
       /* Positioned at logo's top-right corner */
       top: 0;
-      left: 160px;
+      left: 240px;
       transform: translate(-0.5em, -50%);
       transform-origin: bottom left;
       font-family: 'YWFTProcessing-Regular', var(--mono);
-      font-size: 1.3em;
-      color: var(--gold);
-      background: linear-gradient(135deg, #2a5a3a 0%, #1a3a2a 100%);
-      border: 2px solid #4a8a5a;
+      font-size: 1.15em;
+      color: #8cd98c;
+      background: linear-gradient(135deg, #1a3a25 0%, #0f2518 100%);
+      border: 1px solid #3a6a4a;
       border-radius: 4px;
-      padding: 0.3em 0.6em;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+      padding: 0.3em 0.55em;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
       white-space: nowrap;
       transition: top 0.6s cubic-bezier(0.4, 0, 0.2, 1), left 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease-out, border 0.4s ease-out;
       display: flex;
@@ -938,8 +970,8 @@
     }
 
     .gift-amount.intensity-1 {
-      top: 16px;
-      left: 144px;
+      top: 20px;
+      left: 180px;
       transform: translate(-0.5em, -50%) scale(1.1);
       background: linear-gradient(135deg, #3a6a4a 0%, #2a5a3a 100%);
       border-color: #5a9a6a;
@@ -947,8 +979,8 @@
     }
 
     .gift-amount.intensity-2 {
-      top: 40px;
-      left: 120px;
+      top: 50px;
+      left: 150px;
       transform: translate(-0.5em, -50%) scale(1.25);
       color: #ffd700;
       background: linear-gradient(135deg, #4a3a1a 0%, #3a2a0a 100%);
@@ -957,8 +989,8 @@
     }
 
     .gift-amount.intensity-3 {
-      top: 64px;
-      left: 96px;
+      top: 80px;
+      left: 120px;
       transform: translate(-0.5em, -50%) scale(1.4);
       color: #fff;
       background: linear-gradient(135deg, #5a2a2a 0%, #4a1a1a 100%);
@@ -966,8 +998,8 @@
     }
 
     .gift-amount.intensity-4 {
-      top: 88px;
-      left: 72px;
+      top: 110px;
+      left: 90px;
       transform: translate(-0.5em, -50%) scale(1.6);
       color: #fff;
       text-shadow: 0 0 10px #fff, 0 0 20px #ffd700;
@@ -1188,7 +1220,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 0.8em 0;
+      padding: 0.6em 0 0.3em;
       font-size: 0.85em;
       color: var(--gold);
       cursor: pointer;
@@ -1215,21 +1247,129 @@
       position: absolute;
     }
 
-    /* Tax deductible note next to monthly checkbox */
+    /* Tax deductible note and monthly checkbox area */
     .gift-monthly-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       width: 100%;
-      gap: 0.5em;
+    }
+
+    /* Container for monthly checkbox + cancel link */
+    .gift-monthly-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.2em;
+    }
+
+    /* Subscribe as user indicator */
+    .subscribe-as {
+      font-size: 0.65em;
+      color: var(--dim);
+      opacity: 0.7;
+      padding-left: 0.1em;
+    }
+    
+    .subscribe-as-handle {
+      color: var(--gold);
+    }
+
+    /* Login prompt modal */
+    .login-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+
+    .login-modal-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .login-modal {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5em 2em;
+      max-width: 360px;
+      text-align: center;
+      transform: scale(0.95);
+      transition: transform 0.2s ease;
+    }
+
+    .login-modal-overlay.visible .login-modal {
+      transform: scale(1);
+    }
+
+    .login-modal-icon {
+      font-size: 2.5em;
+      margin-bottom: 0.3em;
+    }
+
+    .login-modal-title {
+      font-size: 1.1em;
+      font-weight: 600;
+      margin-bottom: 0.5em;
+      color: var(--text);
+    }
+
+    .login-modal-text {
+      font-size: 0.9em;
+      color: var(--dim);
+      margin-bottom: 1.2em;
+      line-height: 1.4;
+    }
+
+    .login-modal-buttons {
+      display: flex;
+      gap: 0.8em;
+      justify-content: center;
+    }
+
+    .login-modal-btn {
+      padding: 0.6em 1.4em;
+      border-radius: 8px;
+      font-size: 0.9em;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: none;
+    }
+
+    .login-modal-btn.primary {
+      background: var(--gold);
+      color: #000;
+      font-weight: 600;
+    }
+
+    .login-modal-btn.primary:hover {
+      background: #e6c44a;
+      transform: scale(1.03);
+    }
+
+    .login-modal-btn.secondary {
+      background: transparent;
+      color: var(--dim);
+      border: 1px solid var(--border);
+    }
+
+    .login-modal-btn.secondary:hover {
+      background: var(--border);
+      color: var(--text);
     }
 
     .cancel-subscription-link {
-      font-size: 0.75em;
+      font-size: 0.8em;
       color: var(--dim);
-      opacity: 0.6;
+      opacity: 0.5;
       text-decoration: none;
-      margin-left: 0.4em;
     }
 
     .cancel-subscription-link:hover {
@@ -1237,11 +1377,15 @@
       text-decoration: underline;
     }
 
+    /* Cancel link styling - below Monthly */
+    .gift-monthly-stack .cancel-subscription-link::before {
+      content: none;
+    }
+
     .tax-note {
       font-size: 0.85em;
       color: var(--dim);
       text-align: right;
-      margin-left: auto;
     }
 
     .tax-note .faded {
@@ -1637,7 +1781,7 @@
     .invest-section {
       background: 
         linear-gradient(135deg, rgba(10, 26, 18, 0.85) 0%, rgba(13, 32, 24, 0.9) 100%),
-        url('https://assets.aesthetic.computer/jeffreys/jpg/IMG_4606.jpg');
+        url('https://assets.aesthetic.computer/jeffreys/jpg/IMG_2658.jpg');
       background-size: cover, 200%;
       background-position: center;
       border: 1px solid rgba(78, 205, 196, 0.3);
@@ -1831,16 +1975,16 @@
     .desktop-face {
       background: linear-gradient(135deg, #1e1e1e 0%, #121212 100%);
       border: 1px solid #333;
-      padding: 1em;
+      padding: 0.7em;
     }
 
     .desktop-face-header {
       display: flex;
       align-items: center;
       gap: 0.5em;
-      padding-bottom: 0.8em;
+      padding-bottom: 0.5em;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      margin-bottom: 0.8em;
+      margin-bottom: 0.5em;
     }
 
     .face-label {
@@ -1864,8 +2008,8 @@
     .desktop-platforms-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-      margin-bottom: 0.8em;
+      gap: 4px;
+      margin-bottom: 0.5em;
     }
 
     .desktop-platform-btn {
@@ -1873,7 +2017,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 0.8em 0.4em;
+      padding: 0.5em 0.3em;
       background: rgba(40, 40, 40, 0.8);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 6px;
@@ -1888,18 +2032,18 @@
     }
 
     .desktop-platform-btn .plat-icon {
-      font-size: 1.5em;
-      margin-bottom: 0.2em;
+      font-size: 1.2em;
+      margin-bottom: 0.1em;
     }
 
     .desktop-platform-btn .plat-name {
-      font-size: 0.75em;
+      font-size: 0.7em;
       color: var(--text);
       font-weight: bold;
     }
 
     .desktop-platform-btn .plat-arch {
-      font-size: 0.6em;
+      font-size: 0.55em;
       color: var(--dim);
     }
 
@@ -1910,8 +2054,8 @@
     .desktop-changelog-box {
       background: rgba(0, 0, 0, 0.3);
       border-radius: 4px;
-      padding: 0.6em;
-      max-height: 80px;
+      padding: 0.4em;
+      max-height: 60px;
       overflow-y: auto;
       flex: 1;
       border: 1px solid rgba(255, 255, 255, 0.05);
@@ -1971,12 +2115,12 @@
     .desktop-vscode-link {
       display: flex;
       align-items: center;
-      gap: 0.5em;
+      gap: 0.4em;
       background: rgba(30, 30, 30, 0.9);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
-      padding: 0.5em 0.8em;
-      margin-top: 0.6em;
+      border-radius: 4px;
+      padding: 0.35em 0.6em;
+      margin-top: 0.4em;
       text-decoration: none;
       transition: all 0.2s ease;
     }
@@ -1988,24 +2132,24 @@
     }
 
     .desktop-vscode-link .vscode-icon-img {
-      width: 18px;
-      height: 18px;
-      border-radius: 3px;
+      width: 14px;
+      height: 14px;
+      border-radius: 2px;
     }
 
     .desktop-vscode-link .vscode-icon {
-      font-size: 1.1em;
+      font-size: 0.9em;
     }
 
     .desktop-vscode-link .vscode-label {
       color: #aaa;
       font-weight: 600;
-      font-size: 0.85em;
+      font-size: 0.75em;
     }
 
     .desktop-vscode-link .vscode-ver {
       color: #6a6;
-      font-size: 0.65em;
+      font-size: 0.6em;
       margin-left: auto;
       font-family: monospace;
     }
@@ -2013,12 +2157,12 @@
     .desktop-ableton-link {
       display: flex;
       align-items: center;
-      gap: 0.5em;
+      gap: 0.4em;
       background: rgba(30, 30, 30, 0.9);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
-      padding: 0.4em 0.8em;
-      margin-top: 0.4em;
+      border-radius: 4px;
+      padding: 0.3em 0.6em;
+      margin-top: 0.3em;
       text-decoration: none;
       transition: all 0.2s ease;
     }
@@ -2030,22 +2174,22 @@
     }
 
     .desktop-ableton-link .ableton-icon {
-      font-size: 0.9em;
+      font-size: 0.8em;
     }
 
     .desktop-ableton-link .ableton-label {
       color: #aaa;
       font-weight: 600;
-      font-size: 0.8em;
+      font-size: 0.7em;
     }
 
     .desktop-ableton-link .ableton-tag {
       color: #888;
-      font-size: 0.6em;
+      font-size: 0.55em;
       margin-left: auto;
       font-family: monospace;
       background: rgba(255, 255, 255, 0.08);
-      padding: 0.15em 0.4em;
+      padding: 0.1em 0.35em;
       border-radius: 3px;
     }
 
@@ -2488,6 +2632,11 @@
       flex-direction: column;
       position: relative;
       aspect-ratio: 1;
+      /* VHS chromatic aberration shadow */
+      box-shadow: 
+        -3px 0 0 rgba(255, 0, 100, 0.4),
+        3px 0 0 rgba(0, 200, 255, 0.4),
+        0 4px 20px rgba(0, 0, 0, 0.5);
       /* Safari mobile fix for border-radius */
       -webkit-mask-image: -webkit-radial-gradient(white, black);
       isolation: isolate;
@@ -2508,7 +2657,9 @@
     .tv-header strong {
       color: #fff;
       font-family: var(--mono);
-      font-size: 1.1em;
+      font-size: 1.4em;
+      font-weight: 400;
+      letter-spacing: 0.03em;
       text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.8);
     }
 
@@ -2562,11 +2713,11 @@
 
     .tv-progress {
       position: absolute;
-      bottom: 2.8em;
+      bottom: 0;
       left: 0;
       right: 0;
-      height: 44px;
-      background: linear-gradient(0deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 70%, transparent 100%);
+      height: 32px;
+      background: linear-gradient(0deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
       z-index: 12;
       display: flex;
       flex-direction: column;
@@ -2574,19 +2725,19 @@
     }
 
     .tv-progress-bar {
-      height: 4px;
+      height: 3px;
       background: #e53935;
       width: 0%;
     }
 
     .tv-timer {
       position: absolute;
-      bottom: calc(2.8em + 10px);
-      left: 10px;
+      bottom: 8px;
+      right: 10px;
       font-family: var(--mono);
-      font-size: 1em;
-      color: rgba(255,255,255,0.95);
-      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      font-size: 0.85em;
+      color: rgba(255,255,255,0.9);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.7);
       z-index: 13;
       cursor: pointer;
     }
@@ -2597,19 +2748,18 @@
 
     .tv-play-indicator {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background: rgba(0,0,0,0.5);
+      bottom: 6px;
+      left: 10px;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.6);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 15;
       pointer-events: none;
-      opacity: 0;
+      opacity: 0.9;
       transition: opacity 0.2s ease;
     }
 
@@ -2619,9 +2769,9 @@
       width: 0;
       height: 0;
       border-style: solid;
-      border-width: 12px 0 12px 20px;
+      border-width: 5px 0 5px 9px;
       border-color: transparent transparent transparent rgba(255,255,255,0.9);
-      margin-left: 4px;
+      margin-left: 2px;
     }
 
     .tv-play-indicator.paused {
@@ -2631,8 +2781,8 @@
     .tv-play-indicator.paused::after {
       /* Pause icon - two bars */
       border: none;
-      width: 20px;
-      height: 24px;
+      width: 10px;
+      height: 12px;
       background: linear-gradient(to right, 
         rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.9) 35%,
         transparent 35%, transparent 65%,
@@ -2641,7 +2791,7 @@
     }
 
     .tv-slide:hover .tv-play-indicator {
-      opacity: 0.7;
+      opacity: 1;
     }
 
     .tv-slide:hover .tv-play-indicator.paused {
@@ -3581,32 +3731,32 @@
       inset: 0;
       width: 100%;
       height: 100%;
-      /* Nostalgic filter on the canvas (no blur - keep images crisp) */
-      filter: sepia(0.2) saturate(0.6) brightness(0.5) contrast(0.9);
+      /* Dreamy blown-out filter - softer contrast, lifted shadows */
+      filter: url(#sharpen) saturate(0.85) brightness(0.82) contrast(0.92);
     }
 
-    /* Purple/magenta blend overlay */
+    /* Subtle color tint */
     .jeffreys-slideshow::before {
       content: '';
       position: absolute;
       inset: 0;
       background: linear-gradient(
         135deg,
-        rgba(148, 0, 211, 0.4) 0%,
-        rgba(205, 92, 155, 0.45) 50%,
-        rgba(138, 43, 226, 0.35) 100%
+        rgba(148, 0, 211, 0.15) 0%,
+        rgba(205, 92, 155, 0.18) 50%,
+        rgba(138, 43, 226, 0.12) 100%
       );
       mix-blend-mode: overlay;
       pointer-events: none;
       z-index: 2;
     }
 
-    /* Vignette overlay for extra nostalgia */
+    /* Subtle vignette */
     .jeffreys-slideshow::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(ellipse at center, transparent 20%, rgba(26, 26, 46, 0.7) 100%);
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(26, 26, 46, 0.35) 100%);
       pointer-events: none;
       z-index: 3;
     }
@@ -3617,9 +3767,9 @@
       z-index: 4;
     }
 
-    /* Brighter logo with glow on slideshow background */
+    /* Logo with stronger dark shadow on slideshow background */
     .gift-visual:has(.jeffreys-slideshow) .gift-logo {
-      filter: drop-shadow(0 2px 12px rgba(205, 92, 155, 0.6)) drop-shadow(0 0 20px rgba(255,255,255,0.3));
+      filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
     }
   </style>
 </head>
@@ -3696,7 +3846,7 @@
                 <div class="jeffreys-slideshow" id="jeffreysSlideshow"></div>
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount">$128<span class="monthly-infinity">∞</span></div>
+                  <div class="gift-amount">$128</div>
                 </div>
               </div>
               <div class="gift-controls">
@@ -3710,21 +3860,23 @@
                 </div>
                 <button class="gift-btn" data-currency="usd">Give $128</button>
                 <div class="gift-monthly-row">
-                  <label class="gift-monthly-check">
-                    <input type="checkbox" class="monthly-checkbox">
-                    <span data-lang="en">Monthly</span>
-                    <span data-lang="da">Månedligt</span>
-                    <span data-lang="de">Monatlich</span>
-                    <span data-lang="es">Mensual</span>
-                    <span data-lang="zh">每月</span>
-                  </label>
-                  <a href="#" class="cancel-subscription-link">
-                    <span data-lang="en">Cancel?</span>
-                    <span data-lang="da">Annuller?</span>
-                    <span data-lang="de">Kündigen?</span>
-                    <span data-lang="es">¿Cancelar?</span>
-                    <span data-lang="zh">取消?</span>
-                  </a>
+                  <div class="gift-monthly-stack">
+                    <label class="gift-monthly-check">
+                      <input type="checkbox" class="monthly-checkbox">
+                      <span data-lang="en">Monthly</span>
+                      <span data-lang="da">Månedligt</span>
+                      <span data-lang="de">Monatlich</span>
+                      <span data-lang="es">Mensual</span>
+                      <span data-lang="zh">每月</span>
+                    </label>
+                    <a href="#" class="cancel-subscription-link">
+                      <span data-lang="en">Cancel?</span>
+                      <span data-lang="da">Annuller?</span>
+                      <span data-lang="de">Kündigen?</span>
+                      <span data-lang="es">¿Cancelar?</span>
+                      <span data-lang="zh">取消?</span>
+                    </a>
+                  </div>
                   <span class="tax-note">
                     <span data-lang="en">Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
                     <span data-lang="da">Ikke fradragsberettiget. <a href="#invest" class="invest-link">Investor?</a></span>
@@ -3741,7 +3893,7 @@
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount">200 kr<span class="monthly-infinity">∞</span></div>
+                  <div class="gift-amount">200 kr</div>
                   <div class="gift-conversion" id="dkkConversion"></div>
                 </div>
               </div>
@@ -3749,21 +3901,23 @@
                 <input type="range" min="25" max="17500" step="25" value="200">
                 <button class="gift-btn" data-currency="dkk">Giv 200 kr</button>
                 <div class="gift-monthly-row">
-                  <label class="gift-monthly-check">
-                    <input type="checkbox" class="monthly-checkbox">
-                    <span data-lang="en">Monthly</span>
-                    <span data-lang="da">Månedligt</span>
-                    <span data-lang="de">Monatlich</span>
-                    <span data-lang="es">Mensual</span>
-                    <span data-lang="zh">每月</span>
-                  </label>
-                  <a href="#" class="cancel-subscription-link">
-                    <span data-lang="en">Cancel?</span>
-                    <span data-lang="da">Annuller?</span>
-                    <span data-lang="de">Kündigen?</span>
-                    <span data-lang="es">¿Cancelar?</span>
-                    <span data-lang="zh">取消?</span>
-                  </a>
+                  <div class="gift-monthly-stack">
+                    <label class="gift-monthly-check">
+                      <input type="checkbox" class="monthly-checkbox">
+                      <span data-lang="en">Monthly</span>
+                      <span data-lang="da">Månedligt</span>
+                      <span data-lang="de">Monatlich</span>
+                      <span data-lang="es">Mensual</span>
+                      <span data-lang="zh">每月</span>
+                    </label>
+                    <a href="#" class="cancel-subscription-link">
+                      <span data-lang="en">Cancel?</span>
+                      <span data-lang="da">Annuller?</span>
+                      <span data-lang="de">Kündigen?</span>
+                      <span data-lang="es">¿Cancelar?</span>
+                      <span data-lang="zh">取消?</span>
+                    </a>
+                  </div>
                   <span class="tax-note">
                     <span data-lang="en">Not tax deductible. <a href="#invest" class="invest-link">Investor?</a></span>
                     <span data-lang="da">Ikke fradragsberettiget. <a href="#invest" class="invest-link">Investor?</a></span>
@@ -3865,7 +4019,7 @@
       </div>
 
       <div class="kidlisp-preview">
-        <a href="https://kidlisp.com" class="kidlisp-preview-header">
+        <a href="https://kidlisp.com" class="kidlisp-preview-header" id="kidlispHeaderLink">
           <strong class="kidlisp-logo" style="font-family: 'Comic Relief', 'Comic Sans MS', cursive; font-size: 1.1em;"><span style="color:#FF6B6B">K</span><span style="color:#4ECDC4">i</span><span style="color:#FFE66D">d</span><span style="color:#95E1D3">L</span><span style="color:#F38181">i</span><span style="color:#AA96DA">s</span><span style="color:#70D6FF">p</span><span style="color:var(--dim)">.</span><span style="color:#70D6FF">com</span></strong>
           <span class="kidlisp-play-indicator" title="Open Editor"></span>
         </a>
@@ -3944,13 +4098,6 @@
         </a>
         <div class="tv-player" id="tvPlayer">
           <div class="tv-loading">📺</div>
-        </div>
-        <div class="module-caption">
-          <span data-lang="en">Prefix any command with 'tape' to record and post a performance video.</span>
-          <span data-lang="da">Sæt 'tape' foran en kommando for at optage og dele en performance-video.</span>
-          <span data-lang="de">Fügen Sie 'tape' vor jeden Befehl ein, um ein Performance-Video aufzunehmen und zu teilen.</span>
-          <span data-lang="es">Añade 'tape' antes de cualquier comando para grabar y publicar un video de actuación.</span>
-          <span data-lang="zh">在任何命令前加上'tape'来录制并发布表演视频。</span>
         </div>
       </div>
 
@@ -4074,12 +4221,24 @@
           <span>📈</span>
           <span data-lang="en">Invest</span>
           <span data-lang="da">Investér</span>
+          <span data-lang="de">Investieren</span>
+          <span data-lang="es">Invertir</span>
+          <span data-lang="zh">投资</span>
         </div>
         <div class="invest-content" data-lang="en">
           <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> was <a href="https://prompt.ac/booted-by">booted by</a> a handful of early supporters.<br><br>To join this equity holding community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
         </div>
         <div class="invest-content" data-lang="da">
           <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> bliver <a href="https://prompt.ac/booted-by">startet af</a> en håndfuld tidlige støtter, der deler i at reservere virksomhedskapital.<br><br>For at blive en del af dette fællesskab, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book en fjern-demo</a> med <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
+        </div>
+        <div class="invest-content" data-lang="de">
+          <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> wurde von einer Handvoll früher Unterstützer <a href="https://prompt.ac/booted-by">gestartet</a>.<br><br>Um dieser Investoren-Community beizutreten, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">buchen Sie eine Demo</a> mit <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
+        </div>
+        <div class="invest-content" data-lang="es">
+          <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> fue <a href="https://prompt.ac/booted-by">iniciada por</a> un puñado de primeros partidarios.<br><br>Para unirte a esta comunidad de inversores, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">reserva una demo remota</a> con <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
+        </div>
+        <div class="invest-content" data-lang="zh">
+          <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> 由一小群早期支持者<a href="https://prompt.ac/booted-by">启动</a>。<br><br>要加入这个股权持有社区，请与 <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">预约远程演示</a>。</p>
         </div>
       </div>
 
@@ -4102,6 +4261,43 @@
       </a>
     </div>
   </main>
+
+  <!-- Login prompt modal for monthly subscriptions -->
+  <div class="login-modal-overlay" id="loginModal">
+    <div class="login-modal">
+      <div class="login-modal-icon">🔐</div>
+      <div class="login-modal-title">
+        <span data-lang="en">Log in for Monthly</span>
+        <span data-lang="da">Log ind for månedligt</span>
+        <span data-lang="de">Anmelden für Monatlich</span>
+        <span data-lang="es">Iniciar sesión para Mensual</span>
+        <span data-lang="zh">登录以订阅</span>
+      </div>
+      <div class="login-modal-text">
+        <span data-lang="en">Log in first so we can link your subscription to your account.</span>
+        <span data-lang="da">Log ind først, så vi kan tilknytte dit abonnement til din konto.</span>
+        <span data-lang="de">Melden Sie sich an, damit wir Ihr Abonnement mit Ihrem Konto verknüpfen können.</span>
+        <span data-lang="es">Inicia sesión primero para vincular tu suscripción a tu cuenta.</span>
+        <span data-lang="zh">请先登录，以便将您的订阅关联到您的账户。</span>
+      </div>
+      <div class="login-modal-buttons">
+        <button class="login-modal-btn secondary" id="loginModalCancel">
+          <span data-lang="en">Not now</span>
+          <span data-lang="da">Ikke nu</span>
+          <span data-lang="de">Nicht jetzt</span>
+          <span data-lang="es">Ahora no</span>
+          <span data-lang="zh">暂不</span>
+        </button>
+        <button class="login-modal-btn primary" id="loginModalConfirm">
+          <span data-lang="en">Log in</span>
+          <span data-lang="da">Log ind</span>
+          <span data-lang="de">Anmelden</span>
+          <span data-lang="es">Iniciar sesión</span>
+          <span data-lang="zh">登录</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script>
     // ====== Jeffreys Ken Burns Canvas Slideshow ======
@@ -4149,8 +4345,27 @@
       'IMG_9795': { focal: [31.2, 22.0], pois: [{"t": "f", "box": [23.8, 15.6, 14.8, 12.9]}, {"t": "b", "box": [21.3, 51.5, 4.3, 2.0]}], aspect: 0.562 }
     };
 
+    // AC Screenshots - photographic development moments (environmental/atmospheric)
+    // URL pattern: https://assets.aesthetic.computer/screenshots/images/{imageRef}
+    // These are background/environmental shots - no face priority needed
+    const screenshotsData = {
+      'january-30-2024-at-6-59-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [20, 20, 60, 60]}], aspect: 1.5, src: 'screenshots' },
+      'may-24-2023-at-6-06-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [15, 25, 70, 50]}], aspect: 1.5, src: 'screenshots' },
+      'june-22-2023-at-4-22-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [10, 20, 80, 60]}], aspect: 1.5, src: 'screenshots' },
+      'may-15-2023-at-8-29-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [20, 15, 60, 70]}], aspect: 1.5, src: 'screenshots' },
+      'july-11-2023-at-10-41-am.webp': { focal: [50, 50], pois: [{"t": "b", "box": [25, 30, 50, 40]}], aspect: 1.5, src: 'screenshots' },
+      'october-29-2023-at-6-28-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [15, 20, 70, 60]}], aspect: 1.5, src: 'screenshots' },
+      'december-2nd-2023-at-3-42-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [20, 25, 60, 50]}], aspect: 1.5, src: 'screenshots' },
+      'june-14-2023-at-6-33-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [25, 30, 50, 40]}], aspect: 1.5, src: 'screenshots' },
+      'may-6-2023-at-10-21-pm.webp': { focal: [50, 50], pois: [{"t": "b", "box": [20, 25, 60, 50]}], aspect: 1.5, src: 'screenshots' }
+    };
+
+    // Merge all image data
+    const allImagesData = { ...jeffreysData, ...screenshotsData };
     const jeffreysImages = Object.keys(jeffreysData);
-    const DEBUG_FACES = false; // Set true to show POI boxes
+    const screenshotsImages = Object.keys(screenshotsData);
+    const allImages = [...jeffreysImages, ...screenshotsImages];
+    const DEBUG_FACES = true; // Set true to show POI boxes
     const POI_GLOW = true; // Soft radial glow on detected faces/bodies
 
     function initJeffreysSlideshow() {
@@ -4163,9 +4378,9 @@
       container.appendChild(canvas);
       const ctx = canvas.getContext('2d');
 
-      // Separate narrow (portrait) and wide images
-      const narrowImages = jeffreysImages.filter(name => jeffreysData[name].aspect < 0.7);
-      const wideImages = jeffreysImages.filter(name => jeffreysData[name].aspect >= 0.7);
+      // Separate narrow (portrait) and wide images from all sources
+      const narrowImages = allImages.filter(name => allImagesData[name].aspect < 0.7);
+      const wideImages = allImages.filter(name => allImagesData[name].aspect >= 0.7);
       
       // Shuffle both arrays
       const shuffledNarrow = [...narrowImages].sort(() => Math.random() - 0.5);
@@ -4204,7 +4419,13 @@
             resolve(img);
           };
           img.onerror = resolve;
-          img.src = `https://assets.aesthetic.computer/jeffreys/jpg/${name}.jpg`;
+          // Check if this is a screenshot or jeffreys image
+          const data = allImagesData[name];
+          if (data && data.src === 'screenshots') {
+            img.src = `https://assets.aesthetic.computer/screenshots/images/${name}`;
+          } else {
+            img.src = `https://assets.aesthetic.computer/jeffreys/jpg/${name}.jpg`;
+          }
         });
       }
 
@@ -4257,36 +4478,60 @@
         
         ctx.save();
         
-        // Calculate zoom to make POI fill ~60% of canvas (tighter crop)
-        const targetPoiHeight = destH * 0.6;
-        const zoom = targetPoiHeight / poiH;
+        // Calculate zoom to COVER the canvas (always fill entire viewport)
+        const scaleX = destW / imgW;
+        const scaleY = destH / imgH;
+        const coverScale = Math.max(scaleX, scaleY) * 1.15; // 15% extra to ensure full coverage
         
-        // Calculate source region (full image scaled)
-        const viewW = destW / zoom;
-        const viewH = destH / zoom;
+        // Scaled image dimensions
+        const scaledW = imgW * coverScale;
+        const scaledH = imgH * coverScale;
         
-        // Position POI at 35% or 65% horizontally (avoiding center where logo is)
-        const targetX = side === 'left' ? destW * 0.35 : destW * 0.65;
+        // Position POI at 30% or 70% horizontally (avoiding center where logo is)
+        const targetX = side === 'left' ? destW * 0.30 : destW * 0.70;
+        const targetY = destH * 0.45; // Slightly above center
         
-        // Calculate srcX so POI center maps to targetX
-        let srcX = poiCenterX - (targetX / destW) * viewW;
-        let srcY = poiCenterY - viewH / 2;
+        // Calculate offset to position POI center at target position
+        let offsetX = targetX - (poiCenterX * coverScale);
+        let offsetY = targetY - (poiCenterY * coverScale);
         
-        // Clamp to image bounds
-        srcX = Math.max(0, Math.min(imgW - viewW, srcX));
-        srcY = Math.max(0, Math.min(imgH - viewH, srcY));
+        // Clamp offsets so image always covers the entire canvas
+        // Right edge of image must be >= destW, left edge <= 0
+        const minOffsetX = destW - scaledW;
+        const maxOffsetX = 0;
+        offsetX = Math.max(minOffsetX, Math.min(maxOffsetX, offsetX));
         
-        // Apply slight saturation/contrast boost via filter
-        ctx.filter = 'saturate(1.15) contrast(1.08)';
+        // Bottom edge >= destH, top edge <= 0
+        const minOffsetY = destH - scaledH;
+        const maxOffsetY = 0;
+        offsetY = Math.max(minOffsetY, Math.min(maxOffsetY, offsetY));
+        
+        // Create soft edge mask for blending (fade edges for layering)
+        const gradient = ctx.createLinearGradient(
+          side === 'left' ? destW * 0.5 : 0,
+          0,
+          side === 'left' ? destW : destW * 0.5,
+          0
+        );
+        if (side === 'left') {
+          gradient.addColorStop(0, `rgba(255,255,255,${alpha})`);
+          gradient.addColorStop(1, `rgba(255,255,255,0)`);
+        } else {
+          gradient.addColorStop(0, `rgba(255,255,255,0)`);
+          gradient.addColorStop(1, `rgba(255,255,255,${alpha})`);
+        }
+        
+        // Crispy filter - boost contrast and saturation for punchy blends
+        ctx.filter = 'saturate(1.15) contrast(1.12) brightness(1.02)';
         ctx.globalAlpha = alpha;
         
-        // Simple draw - just the cropped photo, no vignettes
-        ctx.drawImage(img, srcX, srcY, viewW, viewH, destX, destY, destW, destH);
+        // Draw image covering entire canvas
+        ctx.drawImage(img, 0, 0, imgW, imgH, offsetX, offsetY, scaledW, scaledH);
         
         ctx.filter = 'none';
         ctx.restore();
         
-        return { srcX, srcY, viewW, viewH };
+        return { offsetX, offsetY, scaledW, scaledH };
       }
 
       // Draw image with focal point offset to left or right (avoiding center logo)
@@ -4525,8 +4770,8 @@
       
       // Build a flat list of all POIs across all images (faces and bodies only)
       const allPois = [];
-      for (const name of jeffreysImages) {
-        const data = jeffreysData[name];
+      for (const name of allImages) {
+        const data = allImagesData[name];
         if (data.pois) {
           for (const poi of data.pois) {
             // Only faces and bodies, skip hands and small bodies
@@ -4593,7 +4838,7 @@
         if (leftPoi) {
           const leftImg = loadedImages[leftPoi.name];
           if (leftImg) {
-            const alpha = isTransitioning ? transitionProgress * 0.55 : 0.55;
+            const alpha = isTransitioning ? transitionProgress * 0.75 : 0.75;
             drawPoiWithContext(leftImg, leftPoi.data, leftPoi.poi, 0, 0, w, h, alpha, 0, 'left');
           }
         }
@@ -4602,7 +4847,7 @@
         if (rightPoi) {
           const rightImg = loadedImages[rightPoi.name];
           if (rightImg) {
-            const alpha = isTransitioning ? transitionProgress * 0.5 : 0.5;
+            const alpha = isTransitioning ? transitionProgress * 0.7 : 0.7;
             drawPoiWithContext(rightImg, rightPoi.data, rightPoi.poi, 0, 0, w, h, alpha, 0, 'right');
           }
         }
@@ -5019,7 +5264,9 @@
           link.click();
           
           // Open Twitter intent
-          const tweetText = encodeURIComponent(`I just gave ${formattedAmount} to Aesthetic.Computer! 💖\n\ngive.aesthetic.computer`);
+          const tweetText = encodeURIComponent(`I just gave ${formattedAmount} to Aesthetic.Computer! 💖
+
+give.aesthetic.computer`);
           window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank');
         }
         
@@ -5098,7 +5345,33 @@
 
       // Monthly checkbox
       if (monthlyCheck) {
-        monthlyCheck.addEventListener('change', () => {
+        monthlyCheck.addEventListener('change', async () => {
+          // If checking monthly and not logged in, prompt to log in first
+          if (monthlyCheck.checked && !acUser && !prefillEmail) {
+            // Uncheck the checkbox
+            monthlyCheck.checked = false;
+            
+            // Show login prompt
+            const shouldLogin = confirm(
+              currentLang === 'da' 
+                ? 'For månedlige bidrag anbefaler vi at logge ind først, så vi kan tilknytte dit abonnement til din konto.\n\nVil du logge ind nu?'
+                : 'For monthly contributions, we recommend logging in first so we can link your subscription to your account.\n\nWould you like to log in now?'
+            );
+            
+            if (shouldLogin) {
+              // Initialize auth if needed and redirect to login
+              if (!auth0Client) await initAuth0();
+              if (auth0Client) {
+                await auth0Client.loginWithRedirect({
+                  authorizationParams: {
+                    redirect_uri: window.location.origin + window.location.pathname
+                  }
+                });
+              }
+            }
+            return;
+          }
+          
           isMonthly = monthlyCheck.checked;
           monthlyLabel.classList.toggle('checked', isMonthly);
           widget.classList.toggle('monthly-mode', isMonthly);
@@ -5116,21 +5389,6 @@
           }
           update();
         });
-        
-        // Expose setter for programmatic toggling (e.g., from URL param)
-        widget._setMonthly = (val) => {
-          isMonthly = val;
-          monthlyCheck.checked = val;
-          monthlyLabel.classList.toggle('checked', val);
-          widget.classList.toggle('monthly-mode', val);
-          if (val) {
-            slider.min = currency === 'dkk' ? 25 : 1;
-            slider.max = currency === 'dkk' ? 3500 : 500;
-            slider.step = currency === 'dkk' ? 25 : 1;
-            if (parseInt(slider.value) > parseInt(slider.max)) slider.value = currency === 'dkk' ? 175 : 25;
-          }
-          update();
-        };
       }
 
       function format(v) {
@@ -5396,8 +5654,9 @@
 
       try {
         const payload = { amount: amount * 100, currency, recurring: isMonthly };
-        // Include prefilled email if available (from logged-in user)
-        if (prefillEmail) payload.email = prefillEmail;
+        // Include email if available (from URL prefill or logged-in user)
+        const email = prefillEmail || acUser?.email;
+        if (email) payload.email = email;
         
         const res = await fetch('https://aesthetic.computer/api/give', {
           method: 'POST',
@@ -6632,6 +6891,16 @@
           el.style.setProperty('--timing-duration', clampedDuration + 's');
         });
         
+        // Set initial header link to first slide's code
+        const firstSlide = carousel.querySelector('.kidlisp-slide');
+        if (firstSlide) {
+          const firstCode = firstSlide.dataset.code;
+          const headerLink = document.getElementById('kidlispHeaderLink');
+          if (headerLink && firstCode) {
+            headerLink.href = `https://kidlisp.com/$${firstCode}`;
+          }
+        }
+        
         // Advance to next slide
         function nextSlide() {
           const slideEls = carousel.querySelectorAll('.kidlisp-slide');
@@ -6640,6 +6909,13 @@
           const current = slideEls[currentSlide];
           currentSlide = (currentSlide + 1) % slideEls.length;
           const next = slideEls[currentSlide];
+          
+          // Update header link to current piece
+          const code = next.dataset.code;
+          const headerLink = document.getElementById('kidlispHeaderLink');
+          if (headerLink && code) {
+            headerLink.href = `https://kidlisp.com/$${code}`;
+          }
           
           // Transition
           current.classList.remove('active');
