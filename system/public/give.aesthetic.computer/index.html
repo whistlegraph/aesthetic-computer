@@ -5369,7 +5369,7 @@
       const carousel = document.getElementById('kidlispCarousel');
       try {
         // Fetch top hits from the TV API
-        const res = await fetch(`${apiBase}/api/tv?types=kidlisp&sort=hits&limit=8`);
+        const res = await fetch(`${apiBase}/api/tv?types=kidlisp&sort=hits&limit=20`);
         const data = await res.json();
         const hits = data.media?.kidlisp || data.mixed || [];
         
