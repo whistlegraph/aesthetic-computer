@@ -4132,7 +4132,7 @@
       filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
     }
 
-    /* Floating give notes on jeffreys slideshow */
+    /* Floating give notes on jeffreys slideshow - kite string / gravity up */
     .floating-give {
       position: absolute;
       font-family: var(--mono);
@@ -4145,14 +4145,15 @@
       max-width: 85%;
       overflow: hidden;
       text-overflow: ellipsis;
-      bottom: 15%;
+      bottom: 5%;
       opacity: 0;
-      animation: floatUpFull 14s ease-out forwards;
+      animation: floatUpKite 18s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+      transform-origin: bottom center;
     }
 
     .floating-give .char {
       display: inline-block;
-      animation: charWiggle 0.8s ease-in-out infinite;
+      animation: charFloat 2s ease-in-out infinite;
       animation-delay: var(--char-delay);
     }
 
@@ -4171,31 +4172,47 @@
       color: rgba(255, 255, 255, 0.85);
     }
 
-    @keyframes floatUpFull {
+    @keyframes floatUpKite {
       0% {
         opacity: 0;
-        bottom: 10%;
+        bottom: 0%;
+        transform: translateX(0) rotate(0deg);
       }
       5% {
         opacity: 1;
       }
-      90% {
+      15% {
+        transform: translateX(8px) rotate(1deg);
+      }
+      30% {
+        transform: translateX(-6px) rotate(-0.5deg);
+      }
+      45% {
+        transform: translateX(5px) rotate(0.5deg);
+      }
+      60% {
+        transform: translateX(-4px) rotate(-0.3deg);
+      }
+      75% {
+        transform: translateX(3px) rotate(0.2deg);
+      }
+      88% {
         opacity: 1;
       }
       100% {
         opacity: 0;
-        bottom: 85%;
+        bottom: 92%;
+        transform: translateX(0) rotate(0deg);
       }
     }
 
-    @keyframes charWiggle {
+    @keyframes charFloat {
       0%, 100% {
         transform: translateY(0);
       }
       50% {
-        transform: translateY(-2px);
+        transform: translateY(-3px);
       }
-    }
     }
   </style>
 </head>
@@ -7561,11 +7578,11 @@
           track.style.animationDuration = `${speed}s`;
         }
         
-        // Float notes with messages on the jeffreys slideshow (disabled for now)
-        // const givesWithNotes = givesData.filter(g => g.note && g.note.trim());
-        // if (givesWithNotes.length > 0) {
-        //   startFloatingNotes(givesWithNotes);
-        // }
+        // Float notes with messages on the jeffreys slideshow
+        const givesWithNotes = givesData.filter(g => g.note && g.note.trim());
+        if (givesWithNotes.length > 0) {
+          startFloatingNotes(givesWithNotes);
+        }
       } catch (e) {
         console.error('Gives load error:', e);
         ticker.innerHTML = '<div class="gives-ticker-empty">Unable to load gives</div>';
