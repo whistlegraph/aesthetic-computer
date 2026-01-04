@@ -2861,19 +2861,21 @@
     .tv-header .tv-upcoming {
       color: rgba(255,255,255,0.5);
       font-family: var(--mono);
-      font-size: 0.75em;
+      font-size: 1em;
       font-weight: 400;
       letter-spacing: 0.02em;
+      display: inline-flex;
+      gap: 0.4em;
     }
 
     .tv-header .tv-upcoming span {
-      margin-right: 0.5em;
       cursor: pointer;
-      transition: color 0.15s ease;
+      text-decoration: none;
     }
 
     .tv-header .tv-upcoming span:hover {
-      color: var(--pink);
+      color: rgba(255,255,255,0.5);
+      text-decoration: none;
     }
 
     .tv-header .tv-timestamp {
