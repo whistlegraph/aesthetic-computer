@@ -1573,12 +1573,12 @@
       background: 
         linear-gradient(135deg, rgba(10, 26, 18, 0.85) 0%, rgba(13, 32, 24, 0.9) 100%),
         url('https://assets.aesthetic.computer/jeffreys/jpg/IMG_4606.jpg');
-      background-size: cover;
+      background-size: cover, 200%;
       background-position: center;
       border: 1px solid rgba(78, 205, 196, 0.3);
       border-radius: 8px;
       padding: 1.2em 1.5em;
-      overflow: hidden;
+      overflow: visible;
       position: relative;
       aspect-ratio: 1;
     }
@@ -2327,14 +2327,15 @@
     .shop-product-vendor {
       font-family: var(--mono);
       font-size: 0.7em;
-      color: rgba(255,255,255,0.6);
-      text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+      color: var(--pink);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.9), 0 0 8px rgba(205, 92, 155, 0.5);
       flex-shrink: 0;
       white-space: nowrap;
+      text-align: left;
     }
 
     .shop-product-vendor a {
-      color: rgba(255,255,255,0.6);
+      color: var(--pink);
       text-decoration: none;
     }
 
@@ -3216,7 +3217,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 0.8em;
+      gap: 0.2em;
       grid-column: 1 / -1;
       color: rgba(255,255,255,0.3);
       font-family: var(--mono);
@@ -3224,14 +3225,19 @@
       text-decoration: none;
       cursor: pointer;
       transition: color 0.2s, filter 0.2s;
-      padding: 1em 0;
+      padding: 0 0 1em 0;
+      margin-top: -1em;
     }
 
     #pals img {
-      width: 64px;
+      width: 96px;
       height: auto;
       filter: grayscale(100%) opacity(0.3);
       transition: filter 0.2s;
+      order: 2;
+    }
+
+    #pals span {
       order: 1;
     }
 
@@ -3786,10 +3792,10 @@
           <span data-lang="da">Investér</span>
         </div>
         <div class="invest-content" data-lang="en">
-          <p>Aesthetic.Computer is booted by a handful of early supporters who share in company equity of <a href="https://aesthetic.direct">Aesthetic Inc.</a><br><br>To join this community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">📞 book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
+          <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> is being <a href="https://prompt.ac/booted-by">booted by</a> a handful of early supporters who share in reserving company equity.<br><br>To join this community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
         </div>
         <div class="invest-content" data-lang="da">
-          <p>Aesthetic.Computer er startet af en håndfuld tidlige støtter, der deler virksomhedskapital i <a href="https://aesthetic.direct">Aesthetic Inc.</a><br><br>For at blive en del af dette fællesskab, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">📞 book en fjern-demo</a> med <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
+          <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> bliver <a href="https://prompt.ac/booted-by">startet af</a> en håndfuld tidlige støtter, der deler i at reservere virksomhedskapital.<br><br>For at blive en del af dette fællesskab, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book en fjern-demo</a> med <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
         </div>
       </div>
 
@@ -5260,7 +5266,6 @@
           }
           
           return `<span class="gives-ticker-item"><span class="got">Got</span><span class="amount">${give.amountDisplay}</span>${timeHtml}${noteHtml}</span>`;
-        }).join('');
         }).join('');
         
         // Add CTA as a ticker item with special styling
