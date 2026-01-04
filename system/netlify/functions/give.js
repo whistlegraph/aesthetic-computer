@@ -61,19 +61,16 @@ export async function handler(event, context) {
         amount: amountDisplay,
         currency: currency,
       },
-    };
-
-    // Custom fields only work with payment mode (not subscriptions)
-    if (!recurring) {
-      sessionConfig.custom_fields = [
+      // Custom fields for optional note (works with both payment and subscription modes)
+      custom_fields: [
         {
           key: "note",
           label: { type: "custom", custom: "Add a note (optional)" },
           type: "text",
           optional: true,
         },
-      ];
-    }
+      ],
+    };
 
     if (recurring) {
       // Monthly subscription
