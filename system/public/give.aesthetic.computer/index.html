@@ -1750,55 +1750,97 @@
     .crypto-controls.crypto-all {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 0.8em;
+      gap: 0;
+      padding: 0;
+      background: transparent;
+      border: none;
     }
     
     .crypto-controls.crypto-all .crypto-address {
-      padding: 1em;
+      padding: 1.2em 0.8em;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       text-align: center;
-      min-height: 140px;
+      border: none;
+      border-radius: 0;
+      min-height: 160px;
     }
     
-    .crypto-controls.crypto-all .crypto-address.crypto-featured {
-      background: linear-gradient(135deg, rgba(138, 74, 255, 0.2) 0%, rgba(200, 100, 255, 0.15) 100%);
-      border-color: rgba(180, 130, 255, 0.5);
-      box-shadow: 0 0 20px rgba(138, 74, 255, 0.2);
+    .crypto-controls.crypto-all .crypto-address:first-child {
+      border-radius: 0 0 0 8px;
     }
     
-    .crypto-controls.crypto-all .crypto-address.crypto-featured .crypto-label {
-      font-size: 1.2em;
+    .crypto-controls.crypto-all .crypto-address:last-child {
+      border-radius: 0 0 8px 0;
     }
     
-    .crypto-controls.crypto-all .crypto-address.crypto-featured .crypto-balance {
-      font-size: 1.3em;
+    /* XTZ - Purple */
+    .crypto-controls.crypto-all .crypto-address[data-crypto="xtz"] {
+      background: linear-gradient(180deg, rgba(138, 74, 255, 0.3) 0%, rgba(100, 50, 180, 0.4) 100%);
+    }
+    .crypto-controls.crypto-all .crypto-address[data-crypto="xtz"] .crypto-symbol {
+      color: #c4a0ff;
+    }
+    
+    /* ETH - Blue */
+    .crypto-controls.crypto-all .crypto-address[data-crypto="eth"] {
+      background: linear-gradient(180deg, rgba(74, 138, 255, 0.3) 0%, rgba(50, 100, 180, 0.4) 100%);
+    }
+    .crypto-controls.crypto-all .crypto-address[data-crypto="eth"] .crypto-symbol {
+      color: #7eb5ff;
+    }
+    
+    /* BTC - Orange */
+    .crypto-controls.crypto-all .crypto-address[data-crypto="btc"] {
+      background: linear-gradient(180deg, rgba(255, 160, 50, 0.3) 0%, rgba(200, 120, 30, 0.4) 100%);
+    }
+    .crypto-controls.crypto-all .crypto-address[data-crypto="btc"] .crypto-symbol {
+      color: #ffcc66;
     }
     
     .crypto-controls.crypto-all .crypto-label {
-      font-size: 1em;
-      margin-bottom: 0.4em;
+      margin-bottom: 0.3em;
+    }
+    
+    .crypto-controls.crypto-all .crypto-symbol {
+      font-size: 2.8em;
+      line-height: 1;
+    }
+    
+    .crypto-controls.crypto-all .crypto-name {
+      font-size: 0.75em;
+      opacity: 0.7;
     }
     
     .crypto-controls.crypto-all .crypto-balance {
       font-size: 1.1em;
-      margin-bottom: 0.4em;
+      margin-bottom: 0.3em;
     }
     
     .crypto-controls.crypto-all .crypto-addr {
-      font-size: 0.55em;
+      font-size: 0.6em;
+      padding: 0.4em 0.5em;
+      background: rgba(0, 0, 0, 0.3);
+      border: none;
     }
     
     .crypto-controls.crypto-all .crypto-copy-hint {
-      font-size: 0.7em;
-      margin-top: auto;
-      padding-top: 0.5em;
+      font-size: 0.65em;
+      margin-top: 0.4em;
+      opacity: 0.6;
     }
     
     @media (max-width: 600px) {
       .crypto-controls.crypto-all {
         grid-template-columns: 1fr;
+      }
+      .crypto-controls.crypto-all .crypto-address:first-child {
+        border-radius: 0;
+      }
+      .crypto-controls.crypto-all .crypto-address:last-child {
+        border-radius: 0 0 8px 8px;
       }
     }
 
@@ -4744,7 +4786,7 @@
                 <span class="crypto-subtitle">🐷 Piggy Banks for Rainy Days</span>
               </div>
               <div class="crypto-controls crypto-all">
-                <div class="crypto-address copyable crypto-featured" data-copy="tz1gkf8EexComFBJvjtT1zdsisdah791KwBE" data-crypto="xtz">
+                <div class="crypto-address copyable" data-copy="tz1gkf8EexComFBJvjtT1zdsisdah791KwBE" data-crypto="xtz">
                   <span class="crypto-label"><span class="crypto-symbol">ꜩ</span><span class="crypto-name">aesthetic.tez</span></span>
                   <span class="crypto-balance" id="balance-xtz"><span class="loading">loading...</span></span>
                   <code class="crypto-addr">tz1gkf8E<span class="addr-dots">···</span>1KwBE</code>
