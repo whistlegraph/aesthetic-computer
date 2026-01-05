@@ -1388,18 +1388,18 @@
       border: 2px solid rgba(0,0,0,0.35);
       box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3);
       transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
-      transform: scale(1.4);
+      transform: scale(1.6);
       transform-origin: center center;
     }
 
     .gift-controls input[type="range"]::-webkit-slider-thumb:hover {
       box-shadow: 0 3px 10px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.3);
-      transform: scale(1.5);
+      transform: scale(1.7);
     }
 
     .gift-controls input[type="range"]::-webkit-slider-thumb:active {
       cursor: grabbing;
-      transform: scale(1.6);
+      transform: scale(1.8);
       box-shadow: 0 4px 12px rgba(0,0,0,0.7), inset 0 2px 4px rgba(255,255,255,0.3);
     }
 
@@ -1412,7 +1412,7 @@
       border: 2px solid rgba(0,0,0,0.35);
       box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3);
       transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
-      transform: scale(1.4);
+      transform: scale(1.6);
       transform-origin: center center;
     }
 
@@ -1743,8 +1743,8 @@
 
     .gift-btn {
       font-family: 'YWFTProcessing-Regular', sans-serif;
-      font-size: 1.2em;
-      padding: 1em 1.5em;
+      font-size: 1.4em;
+      padding: 1.2em 1.5em;
       background: linear-gradient(180deg, var(--green) 0%, #3a8a4a 100%);
       color: white;
       border: 2px solid #5ab06a;
@@ -9566,6 +9566,19 @@
       bgGlow.playsInline = true;
       bgGlow.style.transition = 'opacity 0.4s ease';
       container.insertBefore(bgGlow, container.firstChild);
+      
+      // Create backdrop glow video (behind the entire panel)
+      const backdropEl = document.getElementById('tvBackdropGlow');
+      if (backdropEl) {
+        backdropEl.innerHTML = '';
+        const backdropVideo = document.createElement('video');
+        backdropVideo.src = tape.media.videoUrl;
+        backdropVideo.muted = true;
+        backdropVideo.playsInline = true;
+        backdropVideo.autoplay = true;
+        backdropVideo.loop = true;
+        backdropEl.appendChild(backdropVideo);
+      }
       
       // Create new slide (main video only)
       const slide = document.createElement('div');
