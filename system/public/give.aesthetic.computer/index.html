@@ -4545,13 +4545,13 @@
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
-                  <div class="gift-amount">200 kr</div>
+                  <div class="gift-amount">512 kr</div>
                   <div class="gift-conversion" id="dkkConversion"></div>
                 </div>
               </div>
               <div class="gift-controls">
-                <input type="range" min="25" max="17500" step="25" value="200">
-                <button class="gift-btn" data-currency="dkk">Giv 200 kr</button>
+                <input type="range" min="25" max="17500" step="25" value="512">
+                <button class="gift-btn" data-currency="dkk">Giv 512 kr</button>
                 <div class="gift-monthly-row">
                   <div class="gift-monthly-stack">
                     <label class="gift-monthly-check">
@@ -6912,10 +6912,15 @@
     let currentLang = savedPrefs.lang;
     
     // URL params can override saved prefs (for shareable links like ?lang=da&currency=dkk)
+    // Also check pathname for /da, /de, /es, /zh routes (Netlify rewrites don't pass query params to browser)
     const langParam = urlParams.get('lang');
     const currencyParam = urlParams.get('currency');
+    const pathLang = window.location.pathname.match(/^\/(da|de|es|zh)\/?$/)?.[1];
     
-    if (langParam && ['en', 'da', 'de', 'es', 'zh'].includes(langParam)) {
+    if (pathLang) {
+      // Path-based language (e.g., /da) takes highest priority
+      currentLang = pathLang;
+    } else if (langParam && ['en', 'da', 'de', 'es', 'zh'].includes(langParam)) {
       currentLang = langParam;
     } else if (!currentLang) {
       currentLang = navigator.language.startsWith('da') ? 'da' : 'en';
@@ -6923,8 +6928,10 @@
     setLanguage(currentLang);
     updateLangUI(currentLang);
     
-    // Restore saved currency or use URL param
-    if (currencyParam && ['usd', 'dkk', 'crypto'].includes(currencyParam)) {
+    // Restore saved currency or use URL param (pathLang implies currency too)
+    if (pathLang === 'da') {
+      setCurrency('dkk');
+    } else if (currencyParam && ['usd', 'dkk', 'crypto'].includes(currencyParam)) {
       setCurrency(currencyParam);
     } else if (savedPrefs.currency) {
       setCurrency(savedPrefs.currency);
