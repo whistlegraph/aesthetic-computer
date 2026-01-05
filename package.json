@@ -108,6 +108,8 @@
     "@babel/core": "^7.28.5",
     "@babel/preset-react": "^7.28.5",
     "@babel/register": "^7.28.3",
+    "@tensorflow/tfjs-node": "^4.22.0",
+    "@vladmandic/face-api": "^1.7.15",
     "archiver": "^7.0.1",
     "dotenv": "^16.4.7",
     "gbasm": "^0.0.21",
