@@ -4144,7 +4144,7 @@
     .floating-give {
       position: absolute;
       font-family: var(--mono), "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", sans-serif;
-      font-size: 0.85em;
+      font-size: 1.1em;
       color: #fff;
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
       pointer-events: none;
@@ -4154,7 +4154,7 @@
       opacity: 0;
       animation: floatAmbient 30s ease-in-out forwards;
       transform-origin: center center;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.1em;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       z-index: 10; /* Above canvas (z-index: 4) */
@@ -4252,22 +4252,19 @@
       }
     }
 
-    /* Alphabet soup - windy letter sway */
+    /* Alphabet soup - gentle letter sway */
     @keyframes charSoup {
       0%, 100% {
         transform: translateY(0) rotate(0deg);
       }
-      20% {
-        transform: translateY(-6px) translateX(4px) rotate(5deg);
+      25% {
+        transform: translateY(-2px) translateX(1px) rotate(1.5deg);
       }
-      40% {
-        transform: translateY(-3px) translateX(-5px) rotate(-4deg);
+      50% {
+        transform: translateY(-1px) translateX(-1px) rotate(-1deg);
       }
-      60% {
-        transform: translateY(-8px) translateX(3px) rotate(6deg);
-      }
-      80% {
-        transform: translateY(-4px) translateX(-3px) rotate(-3deg);
+      75% {
+        transform: translateY(-2px) translateX(0.5px) rotate(1deg);
       }
     }
 
@@ -4293,29 +4290,29 @@
     /* Responsive floating gives - smaller on mobile */
     @media (max-width: 768px) {
       .floating-give {
-        font-size: 0.85em;
-        letter-spacing: 0.06em;
+        font-size: 0.75em;
+        letter-spacing: 0.05em;
       }
       .floating-give .amount {
         font-size: 0.85em;
       }
       .floating-give .note {
-        font-size: 0.8em;
+        font-size: 0.75em;
       }
     }
 
     @media (max-width: 480px) {
       .floating-give {
-        font-size: 0.6em;
-        letter-spacing: 0.03em;
-        max-width: 65%;
+        font-size: 0.55em;
+        letter-spacing: 0.02em;
+        max-width: 70%;
       }
       .floating-give .amount {
-        font-size: 0.7em;
-        margin-right: 0.25em;
+        font-size: 0.65em;
+        margin-right: 0.2em;
       }
       .floating-give .note {
-        font-size: 0.6em;
+        font-size: 0.5em;
       }
     }
   </style>
