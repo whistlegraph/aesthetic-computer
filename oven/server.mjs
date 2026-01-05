@@ -1121,7 +1121,9 @@ app.post('/grab-ipfs', grabIPFSHandler);
 app.get('/grab-status', (req, res) => {
   res.json({
     active: getActiveGrabs(),
-    recent: getRecentGrabs()
+    recent: getRecentGrabs(),
+    queue: getQueueStatus(),
+    progress: getCurrentProgress()
   });
 });
 
