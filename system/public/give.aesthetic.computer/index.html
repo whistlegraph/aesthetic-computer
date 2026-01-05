@@ -961,23 +961,26 @@
       margin-bottom: 0.5em;
     }
 
+    .ticker-center {
+      flex: 1;
+      min-width: 0;
+      order: -1; /* Ticker comes first (left) */
+    }
+
     .ticker-stat-panel {
       flex: 0 0 auto;
-      min-width: 70px;
-      padding: 0 0.6em;
+      padding: 0 1em;
       border-radius: 6px;
-      font-family: var(--mono);
       font-size: 0.85em;
-      text-align: center;
       display: flex;
       flex-direction: row;
       justify-content: center;
       align-items: center;
-      gap: 0.4em;
+      gap: 0.35em;
       height: 2.4em;
+      box-sizing: content-box;
       opacity: 0;
       transition: opacity 0.4s ease;
-      border: 1px solid var(--box-border);
     }
 
     .ticker-stat-panel.visible {
@@ -985,20 +988,17 @@
     }
 
     .ticker-stat-panel.gives-panel {
-      background: rgba(100, 255, 150, 0.1);
-      border-color: rgba(100, 255, 150, 0.25);
+      background: linear-gradient(180deg, rgba(0, 40, 20, 0.4) 0%, rgba(0, 20, 10, 0.5) 100%);
+      border: 1px solid rgba(100, 255, 150, 0.2);
     }
 
     .ticker-stat-panel.monthly-panel {
-      background: rgba(255, 215, 100, 0.1);
-      border-color: rgba(255, 215, 100, 0.25);
+      background: linear-gradient(180deg, rgba(50, 40, 0, 0.4) 0%, rgba(30, 20, 0, 0.5) 100%);
+      border: 1px solid rgba(255, 215, 100, 0.2);
     }
 
     .ticker-stat-value {
-      font-family: 'YWFTProcessing-Regular', var(--mono);
-      font-size: 1.1em;
       font-weight: bold;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
     }
 
     .ticker-stat-panel.gives-panel .ticker-stat-value {
@@ -1006,18 +1006,13 @@
     }
 
     .ticker-stat-panel.monthly-panel .ticker-stat-value {
-      color: #ffcc00;
+      color: var(--gold);
     }
 
     .ticker-stat-label {
-      font-size: 0.8em;
+      font-size: 1em;
       color: var(--dim);
       text-transform: lowercase;
-    }
-
-    .ticker-center {
-      flex: 1;
-      min-width: 0;
     }
 
     .gift-logo-wrap {
@@ -6011,7 +6006,7 @@
     const screenshotsImages = Object.keys(screenshotsData);
     const allImages = [...jeffreysImages, ...screenshotsImages];
     const DEBUG_FACES = false; // Set true for labels and coordinates
-    const SHOW_POI_BOXES = false; // Matrix-style detection boxes (aesthetic)
+    const SHOW_POI_BOXES = true; // Matrix-style detection boxes (aesthetic)
     const POI_GLOW = true; // Soft radial glow on detected faces/bodies
     
     // Aesthetic POI box colors - cycling rainbow
@@ -6321,48 +6316,55 @@
         if (SHOW_POI_BOXES) {
           // Cycle through colors with animation
           const color = poiColors[(poiColorIndex++) % poiColors.length];
-          const pulse = 0.5 + 0.5 * Math.sin(poiAnimPhase);
-          
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 2 + pulse;
-          ctx.setLineDash([8, 4]); // Dashed line for matrix look
-          ctx.lineDashOffset = -poiAnimPhase * 5; // Animated dash
+          const blinkPhase = Math.floor(poiAnimPhase * 0.5) % 3; // Cycle: 0=corners, 1=box, 2=nothing (blink)
+          const fadeAlpha = 0.6 + 0.4 * Math.sin(poiAnimPhase * 2); // Gentle fade
           
           // Map POI box to canvas coords
           const canvasPoiX = offsetX + poiX * coverScale;
           const canvasPoiY = offsetY + poiY * coverScale;
           const canvasPoiW = poiW * coverScale;
           const canvasPoiH = poiH * coverScale;
-          ctx.strokeRect(canvasPoiX, canvasPoiY, canvasPoiW, canvasPoiH);
           
-          // Corner accents
+          ctx.strokeStyle = color.replace('0.7', (0.5 * fadeAlpha).toFixed(2));
+          
+          if (blinkPhase === 1) {
+            // Show dashed box only
+            ctx.lineWidth = 1;
+            ctx.setLineDash([6, 4]);
+            ctx.lineDashOffset = -poiAnimPhase * 5;
+            ctx.strokeRect(canvasPoiX, canvasPoiY, canvasPoiW, canvasPoiH);
+          } else if (blinkPhase === 0) {
+            // Show corner accents only
+            ctx.setLineDash([]);
+            ctx.lineWidth = 1.5;
+            const cornerLen = Math.min(10, canvasPoiW * 0.15, canvasPoiH * 0.15);
+            // Top-left
+            ctx.beginPath();
+            ctx.moveTo(canvasPoiX, canvasPoiY + cornerLen);
+            ctx.lineTo(canvasPoiX, canvasPoiY);
+            ctx.lineTo(canvasPoiX + cornerLen, canvasPoiY);
+            ctx.stroke();
+            // Top-right
+            ctx.beginPath();
+            ctx.moveTo(canvasPoiX + canvasPoiW - cornerLen, canvasPoiY);
+            ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY);
+            ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + cornerLen);
+            ctx.stroke();
+            // Bottom-left
+            ctx.beginPath();
+            ctx.moveTo(canvasPoiX, canvasPoiY + canvasPoiH - cornerLen);
+            ctx.lineTo(canvasPoiX, canvasPoiY + canvasPoiH);
+            ctx.lineTo(canvasPoiX + cornerLen, canvasPoiY + canvasPoiH);
+            ctx.stroke();
+            // Bottom-right
+            ctx.beginPath();
+            ctx.moveTo(canvasPoiX + canvasPoiW - cornerLen, canvasPoiY + canvasPoiH);
+            ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + canvasPoiH);
+            ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + canvasPoiH - cornerLen);
+            ctx.stroke();
+          }
+          // blinkPhase === 2: show nothing (blink off)
           ctx.setLineDash([]);
-          ctx.lineWidth = 3;
-          const cornerLen = Math.min(12, canvasPoiW * 0.2, canvasPoiH * 0.2);
-          // Top-left
-          ctx.beginPath();
-          ctx.moveTo(canvasPoiX, canvasPoiY + cornerLen);
-          ctx.lineTo(canvasPoiX, canvasPoiY);
-          ctx.lineTo(canvasPoiX + cornerLen, canvasPoiY);
-          ctx.stroke();
-          // Top-right
-          ctx.beginPath();
-          ctx.moveTo(canvasPoiX + canvasPoiW - cornerLen, canvasPoiY);
-          ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY);
-          ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + cornerLen);
-          ctx.stroke();
-          // Bottom-left
-          ctx.beginPath();
-          ctx.moveTo(canvasPoiX, canvasPoiY + canvasPoiH - cornerLen);
-          ctx.lineTo(canvasPoiX, canvasPoiY + canvasPoiH);
-          ctx.lineTo(canvasPoiX + cornerLen, canvasPoiY + canvasPoiH);
-          ctx.stroke();
-          // Bottom-right
-          ctx.beginPath();
-          ctx.moveTo(canvasPoiX + canvasPoiW - cornerLen, canvasPoiY + canvasPoiH);
-          ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + canvasPoiH);
-          ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + canvasPoiH - cornerLen);
-          ctx.stroke();
         }
         
         ctx.filter = 'none';
