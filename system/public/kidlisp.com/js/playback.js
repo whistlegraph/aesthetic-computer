@@ -98,7 +98,7 @@ export function stop() {
   updatePlaybackUI(false, false);
   
   // Reset title
-  document.title = 'KidLisp - transmedia pattern programming for everybody';
+  document.title = 'KidLisp.com';
 }
 
 export function togglePlayPause() {

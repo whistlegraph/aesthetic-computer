@@ -3522,7 +3522,7 @@
 
     .tv-progress {
       position: absolute;
-      bottom: 0;
+      bottom: 2.5em; /* Position above the caption */
       left: 0;
       right: 0;
       height: 32px;
@@ -3531,16 +3531,13 @@
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
+      cursor: pointer;
     }
 
     .tv-progress-bar {
       height: 3px;
       background: #e53935;
       width: 0%;
-    }
-
-    .tv-progress {
-      cursor: pointer;
     }
 
     .tv-progress:hover .tv-progress-bar {
@@ -9377,7 +9374,11 @@
           return;
         }
         
-        playTVVideo(0);
+        // Start with tape "72v" if available (featured starter)
+        const starterIndex = tvTapes.findIndex(t => t.code === '72v');
+        const startIndex = starterIndex >= 0 ? starterIndex : 0;
+        
+        playTVVideo(startIndex);
       } catch (e) {
         console.error('TV load error:', e);
         container.innerHTML = '<div class="tv-no-signal">No signal</div>';

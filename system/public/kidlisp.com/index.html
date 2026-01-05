@@ -7701,8 +7701,9 @@
       const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
       const newPath = isKidlispDomain ? `/$${cleanCode}` : `/kidlisp.com/$${cleanCode}`;
       
-      // Update URL without reloading (keep KidLisp title)
+      // Update URL and title to match
       if (window.location.pathname !== newPath) {
+        document.title = `KidLisp.com/$${cleanCode}`;
         window.history.pushState({ code: cleanCode }, document.title, newPath);
       }
       
@@ -7874,6 +7875,9 @@
       if (codeMatch) {
         const code = codeMatch[1];
         log.code.log(`Detected code in URL: $${code}`);
+        
+        // Set title immediately to match URL
+        document.title = `KidLisp.com/$${code}`;
         
         // Clear editor and localStorage immediately while we load from DB
         // This prevents old cached code from flashing or being used
@@ -8483,8 +8487,8 @@
         // Clear URL and code identifier when content changes
         const currentPath = window.location.pathname;
         if (currentPath !== '/kidlisp.com' && currentPath.startsWith('/kidlisp.com/')) {
-          window.history.pushState({}, 'KidLisp - transmedia pattern programming for everybody', '/kidlisp.com');
-          document.title = 'KidLisp - transmedia pattern programming for everybody';
+          window.history.pushState({}, 'KidLisp.com', '/kidlisp.com');
+          document.title = 'KidLisp.com';
           localStorage.removeItem('kidlisp-current-code');
           // Reset preview title to current platform name
           const previewTitle = document.getElementById('preview-title');
@@ -8982,7 +8986,7 @@
       showBootScreen(currentPlatform);
       
       // Clear title
-      document.title = 'KidLisp - transmedia pattern programming for everybody';
+      document.title = 'KidLisp.com';
       localStorage.removeItem('kidlisp-current-code');
     }
     
@@ -9140,7 +9144,7 @@
         setLiveState('stopped');
         
         // Clear title (but not URL, which reflects editor content)
-        document.title = 'KidLisp - transmedia pattern programming for everybody';
+        document.title = 'KidLisp.com';
         // Clear localStorage code identifier
         localStorage.removeItem('kidlisp-current-code');
         // Reset preview title to current platform name
