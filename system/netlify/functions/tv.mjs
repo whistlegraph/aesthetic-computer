@@ -309,6 +309,9 @@ async function fetchTapes(db, { limit }) {
     }
   }));
   
+  // S3/Spaces URL for streaming (supports byte-range requests, unlike PDS blob endpoint)
+  const SPACES_URL = "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com";
+  
   // Build results - match MongoDB tapes with ATProto video URLs
   const tapesWithVideos = [];
   
@@ -318,7 +321,8 @@ async function fetchTapes(db, { limit }) {
     const atInfo = atprotoTapesByCode.get(record.code);
     if (!atInfo) continue;
     
-    const videoUrl = `${PDS_URL}/xrpc/com.atproto.sync.getBlob?did=${atInfo.did}&cid=${atInfo.videoCid}`;
+    // Use S3/Spaces URL which supports byte-range streaming (PDS blob endpoint doesn't work for video)
+    const videoUrl = `${SPACES_URL}/tapes/${record.code}.mp4`;
     
     const handle = record.handle ? `@${record.handle}` : null;
     const ownerSegment = handle ?? record.user ?? "anonymous";
