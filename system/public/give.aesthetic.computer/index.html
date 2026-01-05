@@ -5049,7 +5049,7 @@
         }
       }
 
-      // Preload images - non-blocking
+      // Preload images - non-blocking with decode()
       const loadedImages = {};
       const loadingImages = {}; // Track in-progress loads
       
@@ -5063,7 +5063,11 @@
         loadingImages[name] = new Promise(resolve => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
-          img.onload = () => {
+          img.onload = async () => {
+            // Decode image off main thread to prevent jank when drawing
+            try {
+              if (img.decode) await img.decode();
+            } catch (e) { /* ignore decode errors */ }
             loadedImages[name] = img;
             delete loadingImages[name];
             resolve(img);
@@ -5615,6 +5619,7 @@
       // State for transitions - NOW WITH TWO SIMULTANEOUS POIs (left + right)
       let transitionProgress = 0; // 0 = showing old, 1 = showing new
       let isTransitioning = false;
+      let transitionFadeSpeed = 0.012; // Updated during transition start
       let currentPoiIndex = 0;
       let poiPhase = 0; // For slow progression through POIs
       let initialFadeIn = 1; // Start at 1 - no fade, show immediately
@@ -5727,6 +5732,17 @@
         swingPhase += 0.00007 * dt; // Slow pendulum swing
         zoomPhase += 0.00004 * dt; // Very slow zoom breathing
         poiAnimPhase += 0.05 * dt; // Animate POI box dash offset
+        
+        // Update transition progress in render loop (smoother than setInterval)
+        if (isTransitioning) {
+          transitionProgress += transitionFadeSpeed * dt;
+          if (transitionProgress >= 1) {
+            transitionProgress = 1;
+            isTransitioning = false;
+            prevLeftPoi = null;
+            prevRightPoi = null;
+          }
+        }
         
         // Smooth scroll zoom interpolation (buttery smooth tracking, time-based)
         scrollZoom += (scrollZoomTarget - scrollZoom) * 0.08 * dt;
@@ -6187,19 +6203,9 @@
         
         // Check if current POIs have faces - hold them longer
         const hasFaces = (leftPoi?.poi?.t === 'f') || (rightPoi?.poi?.t === 'f');
-        const fadeSpeed = hasFaces ? 0.006 : 0.012; // Slower fades for smoothness
-        
-        // Animate dissolve - faces ~5s, screenshots ~2.5s
-        const dissolveInterval = setInterval(() => {
-          transitionProgress += fadeSpeed;
-          if (transitionProgress >= 1) {
-            clearInterval(dissolveInterval);
-            transitionProgress = 1;
-            isTransitioning = false;
-            prevLeftPoi = null;
-            prevRightPoi = null;
-          }
-        }, 30);
+        // Transition will be handled in render loop for smoother animation
+        // Store fade speed as state
+        transitionFadeSpeed = hasFaces ? 0.008 : 0.015;
       }
 
       // Start slideshow
@@ -7797,16 +7803,13 @@
         const hasNote = give.note && give.note.trim();
         const timeText = useOn ? `on ${timeStr}` : timeStr;
         
-        // Random position: left, center, or right
+        // Position: mostly left side (80%), occasionally center (20%)
         const posRand = Math.random();
-        let baseXPercent;
-        if (posRand < 0.33) baseXPercent = 0.08 + Math.random() * 0.18;
-        else if (posRand < 0.66) baseXPercent = 0.28 + Math.random() * 0.35;
-        else baseXPercent = 0.60 + Math.random() * 0.20;
+        const isLeftSide = posRand < 0.8;
         
         // Create HTML floating give element (GPU-accelerated CSS animations)
         const floatEl = document.createElement('div');
-        floatEl.className = `floating-give ${posRand < 0.33 ? 'left-side' : posRand < 0.66 ? 'center-side' : 'right-side'}${give.isRecurring ? ' monthly' : ''}`;
+        floatEl.className = `floating-give ${isLeftSide ? 'left-side' : 'center-side'}${give.isRecurring ? ' monthly' : ''}`;
         
         // Start from below bottom edge of container (100-110%) so they float up into view
         const topPercent = 100 + Math.random() * 10;
