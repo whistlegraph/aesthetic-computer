@@ -616,6 +616,11 @@
       z-index: 2;
     }
 
+    .module-caption .highlight {
+      color: var(--yellow);
+      font-family: var(--mono);
+    }
+
     /* Fiat Currency Section */
     .fiat-section {
       background: transparent;
@@ -4095,6 +4100,7 @@
       filter: url(#sharpen) saturate(0.95) brightness(0.75);
       image-rendering: -webkit-optimize-contrast; /* Better scaling on iOS */
       image-rendering: crisp-edges;
+      z-index: 4; /* Above floating messages */
     }
 
     /* Subtle color tint */
@@ -4110,7 +4116,7 @@
       );
       mix-blend-mode: overlay;
       pointer-events: none;
-      z-index: 2;
+      z-index: 5;
     }
 
     /* Subtle vignette */
@@ -4120,7 +4126,7 @@
       inset: 0;
       background: radial-gradient(ellipse at center, transparent 40%, rgba(26, 26, 46, 0.35) 100%);
       pointer-events: none;
-      z-index: 3;
+      z-index: 6;
     }
 
     /* Make sure gift-logo-wrap stays above slideshow */
@@ -4139,10 +4145,9 @@
       position: absolute;
       font-family: var(--mono);
       font-size: 1.5em;
-      color: rgba(255, 255, 255, 0.92);
-      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 4px 20px rgba(0, 0, 0, 0.3);
+      color: #fff;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8), 0 2px 2px rgba(0, 0, 0, 0.5);
       pointer-events: none;
-      z-index: 0;
       white-space: nowrap;
       max-width: 55%;
       overflow: visible;
@@ -4150,6 +4155,8 @@
       animation: floatAmbient 30s ease-in-out forwards;
       transform-origin: center center;
       letter-spacing: 0.12em;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     .floating-give.left-side {
@@ -4162,11 +4169,19 @@
       text-align: right;
     }
 
+    .floating-give.center-side {
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+    }
+
     .floating-give .char {
       display: inline-block;
       animation: charSoup var(--char-duration) ease-in-out infinite;
       animation-delay: var(--char-delay);
       transform-origin: center bottom;
+      position: relative;
+      z-index: var(--char-z, 0);
     }
 
     .floating-give .amount {
@@ -4191,35 +4206,42 @@
       letter-spacing: 0.08em;
     }
 
+    .floating-give .time {
+      color: var(--dim);
+      font-size: 0.85em;
+      letter-spacing: 0.06em;
+      margin-left: 0.3em;
+    }
+
     @keyframes floatAmbient {
       0% {
         opacity: 0;
-        transform: translateY(0) translateX(0);
+        transform: translateY(0) translateX(var(--drift-start, 0px));
       }
       5% {
         opacity: 0.9;
       }
       15% {
-        transform: translateY(-50px) translateX(8px);
+        transform: translateY(-50px) translateX(calc(var(--drift-start, 0px) + 25px));
       }
       30% {
-        transform: translateY(-120px) translateX(-10px);
+        transform: translateY(-120px) translateX(calc(var(--drift-start, 0px) - 35px));
       }
       45% {
-        transform: translateY(-200px) translateX(12px);
+        transform: translateY(-200px) translateX(calc(var(--drift-start, 0px) + 40px));
       }
       60% {
-        transform: translateY(-300px) translateX(-8px);
+        transform: translateY(-300px) translateX(calc(var(--drift-start, 0px) - 30px));
       }
       75% {
-        transform: translateY(-420px) translateX(6px);
+        transform: translateY(-420px) translateX(calc(var(--drift-start, 0px) + 20px));
       }
       90% {
         opacity: 0.9;
       }
       100% {
         opacity: 0;
-        transform: translateY(-550px) translateX(0);
+        transform: translateY(-550px) translateX(var(--drift-end, 0px));
       }
     }
 
@@ -4618,11 +4640,11 @@
           <div class="tv-loading">📺</div>
         </div>
         <div class="module-caption">
-          <span data-lang="en">Community video recordings from AC.</span>
-          <span data-lang="da">Fællesskabs videooptagelser fra AC.</span>
-          <span data-lang="de">Community-Videoaufnahmen von AC.</span>
-          <span data-lang="es">Grabaciones de video de la comunidad de AC.</span>
-          <span data-lang="zh">来自AC的社区视频录制。</span>
+          <span data-lang="en">Prefix a prompt with '<span class="highlight">tape</span>' to record AC.</span>
+          <span data-lang="da">Sæt '<span class="highlight">tape</span>' før en prompt for at optage AC.</span>
+          <span data-lang="de">Setze '<span class="highlight">tape</span>' vor einen Prompt zum Aufnehmen von AC.</span>
+          <span data-lang="es">Prefija un prompt con '<span class="highlight">tape</span>' para grabar AC.</span>
+          <span data-lang="zh">在提示前加'<span class="highlight">tape</span>'即可录制AC。</span>
         </div>
       </div>
 
@@ -5145,6 +5167,10 @@
       let zoomPhase = 0; // Subtle zoom breathing
       let scrollZoom = 0; // Scroll-based Ken Burns zoom (-1 to 1)
       let scrollZoomTarget = 0; // Target scroll zoom (smoothly interpolated)
+      
+      // Canvas-rendered floating gives (behind logo)
+      const canvasFloatingGives = [];
+      window.canvasFloatingGives = canvasFloatingGives; // Expose for startFloatingGives
       
       // Track scroll position for Ken Burns scroll-zoom effect
       function updateScrollZoom() {
@@ -5939,6 +5965,62 @@
         
         // Draw logo and price on canvas (after restore, no filters)
         ctx.filter = 'none'; // Ensure no filters affect logo/price
+        
+        // Draw floating gives BEHIND logo (optimized - draw whole string, not per-char)
+        const now = Date.now();
+        for (let i = canvasFloatingGives.length - 1; i >= 0; i--) {
+          const fg = canvasFloatingGives[i];
+          const elapsed = now - fg.startTime;
+          const progress = elapsed / fg.duration; // 0 to 1
+          
+          if (progress >= 1) {
+            canvasFloatingGives.splice(i, 1);
+            continue;
+          }
+          
+          // Opacity: fade in 0-5%, hold 5-90%, fade out 90-100%
+          let alpha = 1;
+          if (progress < 0.05) alpha = progress / 0.05;
+          else if (progress > 0.90) alpha = (1 - progress) / 0.10;
+          
+          // Position: float up from bottom to top with lateral drift
+          const startY = h * (0.4 + fg.startYOffset * 0.45);
+          const endY = h * -0.1;
+          const y = startY + (endY - startY) * progress;
+          
+          // Lateral position with gentle drift
+          const baseXPx = w * fg.baseX;
+          const driftX = fg.driftStart + (fg.driftEnd - fg.driftStart) * progress;
+          const sineWave = Math.sin(progress * Math.PI * 2) * 20;
+          const x = baseXPx + driftX + sineWave;
+          
+          // Smaller font size
+          const fontSize = Math.max(11, Math.min(16, w * 0.028));
+          
+          ctx.save();
+          ctx.globalAlpha = alpha * masterAlpha;
+          ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+          ctx.textBaseline = 'middle';
+          
+          // Gentle whole-string wobble (much faster than per-char)
+          const wobbleY = Math.sin(now / 800 + fg.startYOffset * 10) * 3;
+          const wobbleX = Math.cos(now / 1000 + fg.startYOffset * 10) * 2;
+          
+          // Draw amount part (green/gold)
+          ctx.fillStyle = fg.isMonthly ? '#ffd764' : '#88ff88';
+          ctx.shadowColor = 'rgba(0,0,0,0.7)';
+          ctx.shadowBlur = 2;
+          ctx.shadowOffsetY = 1;
+          ctx.fillText(fg.amountText, x + wobbleX, y + wobbleY);
+          
+          // Draw second part (time/note) offset to the right
+          const amountWidth = ctx.measureText(fg.amountText).width;
+          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          ctx.fillText(fg.secondText, x + wobbleX + amountWidth + fontSize * 0.5, y + wobbleY);
+          
+          ctx.restore();
+        }
+        
         if (logoLoaded && logoImg.complete) {
           // Parse current price to get dollar amount for subtle scaling
           const priceNum = parseFloat(currentPrice.replace(/[^0-9.]/g, '')) || 128;
@@ -7713,7 +7795,7 @@
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       }
       
-      // Convert text to animated characters - alphabet soup on strings
+      // Convert text to animated characters - alphabet soup on strings with depth layering
       function animateText(text) {
         return [...text].map((char, i) => {
           if (char === ' ') return ' ';
@@ -7724,7 +7806,12 @@
           const swingY = -6 - Math.random() * 10; // -6 to -16px
           const rotBase = (Math.random() - 0.5) * 8; // -4 to 4deg base tilt
           const rotSwing = 3 + Math.random() * 6; // 3-9deg swing
-          return `<span class="char" style="--char-delay: ${delay.toFixed(2)}s; --char-duration: ${duration.toFixed(1)}s; --swing-x: ${swingX.toFixed(1)}px; --swing-y: ${swingY.toFixed(1)}px; --rot-base: ${rotBase.toFixed(1)}deg; --rot-swing: ${rotSwing.toFixed(1)}deg">${char}</span>`;
+          // Random z-index for depth layering relative to slideshow layers:
+          // 1 = behind color tint overlay (behind logo/photos visible through)
+          // 3 = between overlays (middle depth)
+          // 10 = in front of everything (clearly above logo)
+          const zIndex = Math.random() < 0.35 ? 1 : (Math.random() < 0.5 ? 3 : 10);
+          return `<span class="char" style="--char-delay: ${delay.toFixed(2)}s; --char-duration: ${duration.toFixed(1)}s; --swing-x: ${swingX.toFixed(1)}px; --swing-y: ${swingY.toFixed(1)}px; --rot-base: ${rotBase.toFixed(1)}deg; --rot-swing: ${rotSwing.toFixed(1)}deg; --char-z: ${zIndex}">${char}</span>`;
         }).join('');
       }
       
@@ -7759,53 +7846,59 @@
         // Move to next for subsequent calls
         giveIndex = (giveIndex + 1) % allGives.length;
         
-        const el = document.createElement('div');
-        // Alternate between left and right margins
-        const isLeftSide = Math.random() > 0.5;
-        el.className = `floating-give${give.isRecurring ? ' monthly' : ''} ${isLeftSide ? 'left-side' : 'right-side'}`;
-        
-        // Random vertical position (40% to 85% from top - starts lower to float up past everything)
-        const topPos = 40 + Math.random() * 45;
-        el.style.top = `${topPos}%`;
-        
+        // Build text: amount + note or time
         const suffix = give.isRecurring ? '/mo' : '';
-        const amountAnimated = animateText(give.amountDisplay + suffix);
+        const timeStr = timeAgo(give.createdAt || give.timestamp);
+        const amountText = give.amountDisplay + suffix;
+        const secondText = (give.note && give.note.trim()) 
+          ? (give.note.length > 25 ? give.note.slice(0, 25) + '…' : give.note)
+          : timeStr;
         
-        // Build display: amount + (note OR time ago)
-        let displayHtml = `<span class="amount">${amountAnimated}</span>`;
+        // Random position: left, center, or right
+        const posRand = Math.random();
+        let baseXPercent;
+        if (posRand < 0.33) baseXPercent = 0.08 + Math.random() * 0.18;
+        else if (posRand < 0.66) baseXPercent = 0.28 + Math.random() * 0.35;
+        else baseXPercent = 0.60 + Math.random() * 0.20;
         
-        if (give.note && give.note.trim()) {
-          // Has note - show note
-          const noteText = give.note.length > 30 ? give.note.slice(0, 30) + '…' : give.note;
-          displayHtml += `<span class="note">${animateText(noteText)}</span>`;
-        } else {
-          // No note - show time ago and currency
-          const timeStr = timeAgo(give.createdAt || give.timestamp);
-          const currency = give.currency ? give.currency.toUpperCase() : 'USD';
-          displayHtml += `<span class="note">${animateText(timeStr)} ${animateText(currency)}</span>`;
+        // Add to canvas floating gives array (simplified for performance)
+        const floatingGive = {
+          key: giveKey,
+          amountText: amountText,
+          secondText: secondText,
+          isMonthly: give.isRecurring,
+          startTime: Date.now(),
+          duration: 30000,
+          baseX: baseXPercent,
+          startYOffset: Math.random(),
+          driftStart: (Math.random() - 0.5) * 50,
+          driftEnd: (Math.random() - 0.5) * 70
+        };
+        
+        // Access the canvas floating gives array
+        if (window.canvasFloatingGives) {
+          window.canvasFloatingGives.push(floatingGive);
         }
         
-        el.innerHTML = displayHtml;
-        
-        slideshow.appendChild(el);
         isShowingGive = false;
         
-        // Remove after animation completes and clear from visible set
+        // Remove from visible set after duration
         setTimeout(() => {
-          el.remove();
           visibleGives.delete(giveKey);
         }, 30000);
       }
       
-      // Show first give after a longer delay
-      setTimeout(showNextGive, 5000);
+      // Show first few gives quickly to populate screen
+      setTimeout(showNextGive, 2000);
+      setTimeout(showNextGive, 4500);
+      setTimeout(showNextGive, 7000);
       
-      // Show new gives periodically (every 25-40 seconds, randomized for ambient feel)
+      // Continue spawning new gives every 8-15 seconds (overlapping for ambient feel)
       setInterval(() => {
         if (document.visibilityState === 'visible') {
           showNextGive();
         }
-      }, 25000 + Math.random() * 15000);
+      }, 8000 + Math.random() * 7000);
     }
     
     setTimeout(loadRecentGives, 300);
