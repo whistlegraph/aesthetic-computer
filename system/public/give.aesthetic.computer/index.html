@@ -3754,6 +3754,20 @@
       mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
     }
 
+    .kidlisp-slide-code-inner {
+      /* For scrolling long code */
+    }
+
+    .kidlisp-slide-code-inner.scrolling {
+      animation: codeScroll var(--scroll-duration, 10s) ease-in-out infinite;
+      animation-delay: 2s;
+    }
+
+    @keyframes codeScroll {
+      0%, 15% { transform: translateY(0); }
+      85%, 100% { transform: translateY(var(--scroll-distance, 0)); }
+    }
+
     .kidlisp-slide-credit {
       position: absolute;
       bottom: 4em;
@@ -3818,9 +3832,50 @@
     .kidlisp-slide-code .hl-number { color: lime; }
     .kidlisp-slide-code .hl-keyword { color: pink; }
     .kidlisp-slide-code .hl-api { color: cyan; }
-    .kidlisp-slide-code .hl-color { color: magenta; }
+    .kidlisp-slide-code .hl-color { /* inline style sets actual color */ }
     .kidlisp-slide-code .hl-timing { color: #ffb86c; font-weight: bold; }
     .kidlisp-slide-code .hl-paren { color: #888; }
+    .kidlisp-slide-code .hl-fade { font-weight: bold; }
+
+    /* Rainbow text animation - per character cycling */
+    @keyframes rainbowCycle {
+      0% { color: red; }
+      14% { color: orange; }
+      28% { color: yellow; }
+      42% { color: lime; }
+      57% { color: cyan; }
+      71% { color: blue; }
+      85% { color: magenta; }
+      100% { color: red; }
+    }
+
+    .hl-rainbow {
+      animation: rainbowCycle 2s linear infinite;
+      font-weight: bold;
+    }
+
+    /* Stagger rainbow animation for each character */
+    .hl-rainbow-0 { animation-delay: 0s; }
+    .hl-rainbow-1 { animation-delay: -0.28s; }
+    .hl-rainbow-2 { animation-delay: -0.56s; }
+    .hl-rainbow-3 { animation-delay: -0.84s; }
+    .hl-rainbow-4 { animation-delay: -1.12s; }
+    .hl-rainbow-5 { animation-delay: -1.40s; }
+    .hl-rainbow-6 { animation-delay: -1.68s; }
+
+    /* Zebra text animation - alternating black/white */
+    @keyframes zebraCycle {
+      0%, 49% { color: white; text-shadow: 0 0 4px white, 0 1px 3px rgba(0,0,0,0.95); }
+      50%, 100% { color: #333; text-shadow: 0 0 4px black, 0 1px 3px rgba(0,0,0,0.95); }
+    }
+
+    .hl-zebra {
+      animation: zebraCycle 1s steps(1) infinite;
+      font-weight: bold;
+    }
+
+    .hl-zebra-0 { animation-delay: 0s; }
+    .hl-zebra-1 { animation-delay: -0.5s; }
 
     /* Timing blink animation - uses CSS custom property for duration */
     @keyframes hl-timing-blink {
@@ -8930,6 +8985,45 @@
             darksienna: [139, 90, 43]
           };
           
+          // Helper to create rainbow-highlighted text (per-character animation)
+          function rainbowText(text) {
+            return text.split('').map((char, i) => 
+              `<span class="hl-rainbow hl-rainbow-${i % 7}">${char}</span>`
+            ).join('');
+          }
+          
+          // Helper to create zebra-highlighted text (alternating black/white)
+          function zebraText(text) {
+            return text.split('').map((char, i) => 
+              `<span class="hl-zebra hl-zebra-${i % 2}">${char}</span>`
+            ).join('');
+          }
+          
+          // Helper to create fade-highlighted text (color gradient indicator)
+          function fadeText(fadeStr) {
+            // Parse fade string like "fade:red-blue" or "fade:red-white-blue:down"
+            const parts = fadeStr.split(':');
+            if (parts.length < 2) return `<span class="hl-fade">${fadeStr}</span>`;
+            const colors = parts[1].split('-');
+            const direction = parts[2] || '';
+            
+            // Create colored segments for each color in the fade
+            let result = '<span class="hl-fade" style="color: #ffb86c;">fade:</span>';
+            colors.forEach((c, i) => {
+              const rgb = cssColors[c];
+              if (rgb) {
+                result += `<span style="color: rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})">${c}</span>`;
+              } else {
+                result += `<span class="hl-fade">${c}</span>`;
+              }
+              if (i < colors.length - 1) result += '<span style="color: #3cb371;">-</span>';
+            });
+            if (direction) {
+              result += `<span style="color: lime;">:</span><span style="color: cyan;">${direction}</span>`;
+            }
+            return result;
+          }
+          
           // Use token placeholders to prevent double-replacement
           // Use \x01T{idx}T\x01 format to avoid number regex matching the idx
           const tokens = [];
@@ -8940,7 +9034,22 @@
             return `\x01T${idx}T\x01`;
           }
           
+          function tokenRaw(html) {
+            const idx = tokens.length;
+            tokens.push(html);
+            return `\x01T${idx}T\x01`;
+          }
+          
           // Order matters - most specific first
+          // Fade patterns (e.g., fade:red-blue, fade:red-white-blue:down)
+          html = html.replace(/\b(fade:[a-z0-9-]+(?::[a-z]+)?)\b/gi, m => tokenRaw(fadeText(m)));
+          
+          // Rainbow keyword - animate the word itself
+          html = html.replace(/\b(rainbow)\b/g, m => tokenRaw(rainbowText(m)));
+          
+          // Zebra keyword - animate the word itself  
+          html = html.replace(/\b(zebra)\b/g, m => tokenRaw(zebraText(m)));
+          
           // Comments (lines starting with ;)
           html = html.replace(/(^|\n)(;[^\n]*)/g, (m, pre, comment) => pre + token(comment, 'hl-comment'));
           // Timing patterns - match kidlisp.mjs exactly:
@@ -8966,13 +9075,13 @@
           keywords.forEach(kw => {
             html = html.replace(new RegExp(`\\b(${kw})\\b`, 'g'), m => token(m, 'hl-keyword'));
           });
-          // API calls (drawing/commands)
-          const apiCalls = ['wipe', 'ink', 'line', 'box', 'circle', 'text', 'pan', 'zoom', 'blur', 'noise', 'width', 'height', 'rainbow', 'wiggle', 'grid', 'plot', 'stamp', 'scroll', 'contrast', 'fps'];
+          // API calls (drawing/commands) - but not rainbow/zebra (already handled)
+          const apiCalls = ['wipe', 'ink', 'line', 'box', 'circle', 'text', 'pan', 'zoom', 'blur', 'noise', 'width', 'height', 'wiggle', 'grid', 'plot', 'stamp', 'scroll', 'contrast', 'fps'];
           apiCalls.forEach(api => {
             html = html.replace(new RegExp(`\\b(${api})\\b`, 'g'), m => token(m, 'hl-api'));
           });
-          // Colors - use actual color values from cssColors
-          const colorNames = Object.keys(cssColors);
+          // Colors - use actual color values from cssColors (skip rainbow/zebra as they're special)
+          const colorNames = Object.keys(cssColors).filter(c => c !== 'rainbow' && c !== 'zebra');
           colorNames.forEach(colorName => {
             const rgb = cssColors[colorName];
             const colorStyle = `color: rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
@@ -9023,9 +9132,8 @@
           const when = item.when;
           const pieceUrl = `https://kidlisp.com/$${code}`;
           
-          // Truncate source to fit in preview (more generous for single view)
-          const truncatedSource = source.length > 400 ? source.slice(0, 400) + '...' : source;
-          const highlighted = highlightKidlisp(truncatedSource);
+          // Don't truncate - let scrolling handle long code
+          const highlighted = highlightKidlisp(source);
           
           // Build author/time credit line with colored spans
           let creditHtml = '';
@@ -9041,7 +9149,7 @@
               <a href="${pieceUrl}" target="_blank" title="Play $${escapeHtml(code)}">
                 <div class="module-loading"></div>
               </a>
-              <div class="kidlisp-slide-code">${highlighted}</div>
+              <div class="kidlisp-slide-code"><div class="kidlisp-slide-code-inner">${highlighted}</div></div>
               <div class="kidlisp-slide-qr-wrap">
                 <div class="kidlisp-slide-label">$${escapeHtml(code)}</div>
                 <div class="kidlisp-slide-qr" data-url="${pieceUrl}"></div>
@@ -9058,6 +9166,28 @@
           // Clamp duration between 0.1s and 10s for reasonable animation
           const clampedDuration = Math.max(0.1, Math.min(duration, 10));
           el.style.setProperty('--timing-duration', clampedDuration + 's');
+        });
+        
+        // Setup scrolling for code that overflows
+        carousel.querySelectorAll('.kidlisp-slide-code').forEach(codeEl => {
+          const inner = codeEl.querySelector('.kidlisp-slide-code-inner');
+          if (!inner) return;
+          
+          // Wait a tick for layout
+          requestAnimationFrame(() => {
+            const containerHeight = codeEl.clientHeight;
+            const contentHeight = inner.scrollHeight;
+            
+            if (contentHeight > containerHeight + 20) {
+              // Content overflows - enable scrolling
+              const scrollDistance = contentHeight - containerHeight + 20;
+              inner.classList.add('scrolling');
+              inner.style.setProperty('--scroll-distance', `-${scrollDistance}px`);
+              // Longer scroll duration for more content (base 8s + 0.5s per 100px overflow)
+              const scrollDuration = 8 + (scrollDistance / 200);
+              inner.style.setProperty('--scroll-duration', `${scrollDuration}s`);
+            }
+          });
         });
         
         // Set initial header link to first slide's code
