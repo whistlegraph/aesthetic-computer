@@ -2351,6 +2351,45 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      /* CRT barrel/bow distortion effect */
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    
+    /* CRT edge glow - colorful light bleeding from content */
+    .tv-player::before {
+      content: '';
+      position: absolute;
+      inset: -20px;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(255, 100, 150, 0.15) 70%, rgba(100, 200, 255, 0.1) 85%, transparent 100%);
+      pointer-events: none;
+      z-index: 20;
+      mix-blend-mode: screen;
+      animation: crtGlow 4s ease-in-out infinite alternate;
+    }
+    
+    @keyframes crtGlow {
+      0% { opacity: 0.6; filter: hue-rotate(0deg); }
+      50% { opacity: 0.8; filter: hue-rotate(30deg); }
+      100% { opacity: 0.6; filter: hue-rotate(-20deg); }
+    }
+    
+    /* CRT vignette with curved edges */
+    .tv-player::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 120% 120% at center, transparent 50%, rgba(0, 0, 0, 0.4) 80%, rgba(0, 0, 0, 0.9) 100%);
+      pointer-events: none;
+      z-index: 15;
+      border-radius: 12px;
+    }
+    
+    /* Tape keyword styling */
+    .tape-keyword {
+      color: rgba(255, 255, 255, 0.4);
+      font-style: italic;
+      letter-spacing: 0.05em;
     }
 
     .tv-player video {
@@ -3506,8 +3545,8 @@
           <div class="tv-loading">📺</div>
         </div>
         <div class="module-caption">
-          <span data-lang="en">Prefix any command with 'tape' to record and post a performance video.</span>
-          <span data-lang="da">Sæt 'tape' foran en kommando for at optage og dele en performance-video.</span>
+          <span data-lang="en">Prefix a prompt with <span class="tape-keyword">tape</span> to record a performance.</span>
+          <span data-lang="da">Sæt <span class="tape-keyword">tape</span> foran en prompt for at optage en forestilling.</span>
         </div>
       </div>
 
