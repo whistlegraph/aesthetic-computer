@@ -1615,7 +1615,7 @@ export const handler = async (event, context) => {
               display: none;
             }
             #chat.inaccessible #chat-messages {
-              flex-direction: column-reverse;
+              flex-direction: column;
               padding-bottom: 0;
               min-height: 100%;
             }
@@ -1624,8 +1624,8 @@ export const handler = async (event, context) => {
               overflow-y: auto;
               overflow-x: hidden;
               display: flex;
-              flex-direction: column-reverse;
-              justify-content: flex-start;
+              flex-direction: column;
+              justify-content: flex-end;
             }
             #chat-messages div.message:first-child {
               margin-bottom: 0;
@@ -1948,11 +1948,11 @@ export const handler = async (event, context) => {
             const chatMessageData = [];
 
             function chatScrollToBottom(options = { always: false }) {
-              const currentScroll = chatInterface.scrollTop;
+              const currentScroll = chatMessages.scrollTop;
               const toBottom =
-                chatInterface.scrollHeight - chatInterface.clientHeight;
+                chatMessages.scrollHeight - chatMessages.clientHeight;
               if (options.always === true || currentScroll !== toBottom) {
-                chatInterface.scrollTop = toBottom;
+                chatMessages.scrollTop = toBottom;
               }
             }
 
@@ -2015,12 +2015,12 @@ export const handler = async (event, context) => {
               msg.appendChild(by);
               msg.appendChild(txt);
               msg.appendChild(date);
-              chatMessages.prepend(msg);
+              chatMessages.appendChild(msg);
               // Store message ID for potential updates
               msg.dataset.messageId = chatMessages.children.length - 1;
-              // If there are more than 500 children, remove the last message.
+              // If there are more than 500 children, remove the first (oldest) message.
               while (chatMessages.children.length > 500) {
-                chatMessages.removeChild(chatMessages.lastChild);
+                chatMessages.removeChild(chatMessages.firstChild);
               }
             }
 
@@ -2029,7 +2029,7 @@ export const handler = async (event, context) => {
               msg.classList.add("message");
               msg.innerText = "No messages yet.";
               msg.id = "chat-message-empty";
-              chatMessages.prepend(msg);
+              chatMessages.appendChild(msg);
             }
 
             // 👷 Dummy messages.
@@ -2293,7 +2293,7 @@ export const handler = async (event, context) => {
               if (type === "message:update") {
                 // Update the count on the most recent message
                 const updateData = content;
-                const lastMessageEl = chatMessages.firstChild;
+                const lastMessageEl = chatMessages.lastChild;
                 if (lastMessageEl && lastMessageEl.querySelector) {
                   const txtEl = lastMessageEl.querySelector(".message-content");
                   if (txtEl && chat.system.messages[updateData.index]) {
