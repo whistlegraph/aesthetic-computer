@@ -5966,7 +5966,7 @@
         // Draw logo and price on canvas (after restore, no filters)
         ctx.filter = 'none'; // Ensure no filters affect logo/price
         
-        // Draw floating gives BEHIND logo (optimized - draw whole string, not per-char)
+        // Draw floating gives BEHIND logo (per-char wobble with better lateral spread)
         const now = Date.now();
         for (let i = canvasFloatingGives.length - 1; i >= 0; i--) {
           const fg = canvasFloatingGives[i];
@@ -5983,40 +5983,54 @@
           if (progress < 0.05) alpha = progress / 0.05;
           else if (progress > 0.90) alpha = (1 - progress) / 0.10;
           
-          // Position: float up from bottom to top with lateral drift
+          // Position: float up from bottom to top
           const startY = h * (0.4 + fg.startYOffset * 0.45);
           const endY = h * -0.1;
           const y = startY + (endY - startY) * progress;
           
-          // Lateral position with gentle drift
+          // Strong lateral movement - big sine wave + drift
           const baseXPx = w * fg.baseX;
           const driftX = fg.driftStart + (fg.driftEnd - fg.driftStart) * progress;
-          const sineWave = Math.sin(progress * Math.PI * 2) * 20;
+          const sineWave = Math.sin(progress * Math.PI * 4) * 50; // Bigger side-to-side
           const x = baseXPx + driftX + sineWave;
           
-          // Smaller font size
-          const fontSize = Math.max(11, Math.min(16, w * 0.028));
+          // Smaller font
+          const fontSize = Math.max(11, Math.min(15, w * 0.026));
           
           ctx.save();
           ctx.globalAlpha = alpha * masterAlpha;
           ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
           ctx.textBaseline = 'middle';
-          
-          // Gentle whole-string wobble (much faster than per-char)
-          const wobbleY = Math.sin(now / 800 + fg.startYOffset * 10) * 3;
-          const wobbleX = Math.cos(now / 1000 + fg.startYOffset * 10) * 2;
-          
-          // Draw amount part (green/gold)
-          ctx.fillStyle = fg.isMonthly ? '#ffd764' : '#88ff88';
           ctx.shadowColor = 'rgba(0,0,0,0.7)';
           ctx.shadowBlur = 2;
           ctx.shadowOffsetY = 1;
-          ctx.fillText(fg.amountText, x + wobbleX, y + wobbleY);
           
-          // Draw second part (time/note) offset to the right
-          const amountWidth = ctx.measureText(fg.amountText).width;
-          ctx.fillStyle = 'rgba(255,255,255,0.55)';
-          ctx.fillText(fg.secondText, x + wobbleX + amountWidth + fontSize * 0.5, y + wobbleY);
+          // Draw characters with individual wobble
+          let charX = x;
+          const fullText = fg.amountText + '  ' + fg.secondText;
+          const amountLen = [...fg.amountText].length;
+          const chars = [...fullText];
+          
+          for (let c = 0; c < chars.length; c++) {
+            const ch = chars[c];
+            if (ch === ' ') {
+              charX += fontSize * 0.35;
+              continue;
+            }
+            
+            // Per-char wobble (vertical only for performance)
+            const wobbleSpeed = 2 + (c % 3) * 0.5;
+            const wobbleY = Math.sin(now / 400 + c * 0.7 + fg.startYOffset * 5) * 4;
+            const wobbleX = Math.cos(now / 500 + c * 0.5) * 2;
+            
+            // Color: green/gold for amount, dim for rest
+            ctx.fillStyle = c < amountLen 
+              ? (fg.isMonthly ? '#ffd764' : '#88ff88')
+              : 'rgba(255,255,255,0.55)';
+            
+            ctx.fillText(ch, charX + wobbleX, y + wobbleY);
+            charX += ctx.measureText(ch).width + fontSize * 0.04;
+          }
           
           ctx.restore();
         }
