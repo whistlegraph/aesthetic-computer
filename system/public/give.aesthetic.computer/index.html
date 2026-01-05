@@ -5361,6 +5361,15 @@
       let logoLoaded = false;
       logoImg.onload = () => { logoLoaded = true; };
       
+      // Generate QR code for give.aesthetic.computer (bottom-right of canvas)
+      const giveQr = qrcode(0, 'L');
+      giveQr.addData('https://give.aesthetic.computer');
+      giveQr.make();
+      const giveQrImg = new Image();
+      giveQrImg.src = giveQr.createDataURL(4, 0);
+      let giveQrLoaded = false;
+      giveQrImg.onload = () => { giveQrLoaded = true; };
+      
       // A/B test: randomly start at $64 or $128
       const abTestPrice = Math.random() < 0.5 ? 64 : 128;
       
@@ -6417,6 +6426,53 @@
           }
           
           ctx.fillText(currentPrice, priceX + paddingX, priceY + priceH / 2 + fontSize * 0.08);
+          ctx.restore();
+        }
+        
+        // Draw QR code in bottom-right corner
+        if (giveQrLoaded && giveQrImg.complete) {
+          ctx.save();
+          const qrSize = Math.min(w, h) * 0.18; // 18% of canvas size
+          const qrPadding = 12;
+          const qrX = w - qrSize - qrPadding;
+          const qrY = h - qrSize - qrPadding;
+          
+          // Semi-transparent background
+          ctx.globalAlpha = masterAlpha * 0.85;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+          const bgPad = 6;
+          ctx.beginPath();
+          const qrRadius = 4;
+          ctx.moveTo(qrX - bgPad + qrRadius, qrY - bgPad);
+          ctx.lineTo(qrX + qrSize + bgPad - qrRadius, qrY - bgPad);
+          ctx.quadraticCurveTo(qrX + qrSize + bgPad, qrY - bgPad, qrX + qrSize + bgPad, qrY - bgPad + qrRadius);
+          ctx.lineTo(qrX + qrSize + bgPad, qrY + qrSize + bgPad - qrRadius);
+          ctx.quadraticCurveTo(qrX + qrSize + bgPad, qrY + qrSize + bgPad, qrX + qrSize + bgPad - qrRadius, qrY + qrSize + bgPad);
+          ctx.lineTo(qrX - bgPad + qrRadius, qrY + qrSize + bgPad);
+          ctx.quadraticCurveTo(qrX - bgPad, qrY + qrSize + bgPad, qrX - bgPad, qrY + qrSize + bgPad - qrRadius);
+          ctx.lineTo(qrX - bgPad, qrY - bgPad + qrRadius);
+          ctx.quadraticCurveTo(qrX - bgPad, qrY - bgPad, qrX - bgPad + qrRadius, qrY - bgPad);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Subtle border
+          ctx.strokeStyle = 'rgba(100, 200, 150, 0.6)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          
+          // Draw QR code
+          ctx.globalAlpha = masterAlpha;
+          ctx.imageSmoothingEnabled = false; // Keep QR crisp
+          ctx.drawImage(giveQrImg, qrX, qrY, qrSize, qrSize);
+          ctx.imageSmoothingEnabled = true;
+          
+          // Small label below QR
+          ctx.font = `${Math.max(9, qrSize * 0.12)}px 'Berkeley Mono Variable', monospace`;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText('scan to give', qrX + qrSize / 2, qrY + qrSize + bgPad + 2);
+          
           ctx.restore();
         }
         
