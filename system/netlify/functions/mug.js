@@ -298,9 +298,15 @@ export async function handler(event, context) {
       const finalAmount = unitAmount;
 
       // Branded product name: "RED MUG of #oyn · 11oz Ceramic"
+      // Or with KidLisp source: "RED MUG of #oyn via $bop · 11oz Ceramic"
       // Color is uppercase, but code stays original case (case-sensitive!)
       const colorUpper = color.toUpperCase();
-      const productName = `${colorUpper} MUG of #${sourceCode} · 11oz Ceramic`;
+      const viaCode = event.queryStringParameters.via;
+      let productName = `${colorUpper} MUG of #${sourceCode}`;
+      if (viaCode) {
+        productName += ` via $${viaCode}`;
+      }
+      productName += ` · 11oz Ceramic`;
       let name = productName;
       if (quantity > 1) name += " (" + quantity + " copies)";
 
