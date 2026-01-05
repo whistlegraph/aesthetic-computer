@@ -183,10 +183,16 @@ const SMTP_CONFIG = {
   port: 465,
   secure: true,
   auth: {
-    user: 'mail@aesthetic.computer',
-    pass: process.env.SMTP_PASS || '***REMOVED***',
+    user: process.env.SMTP_USER || 'mail@aesthetic.computer',
+    pass: process.env.SMTP_PASS, // Required: set in environment or at/.env
   },
 };
+
+if (!SMTP_CONFIG.auth.pass) {
+  console.error('❌ SMTP_PASS environment variable is required!');
+  console.error('   Set it in at/.env or export it before running.');
+  process.exit(1);
+}
 
 const EMAIL_SUBJECT = 'help aesthetic.computer stay online 💾';
 const EMAIL_TEXT = `hi!

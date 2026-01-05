@@ -15,7 +15,7 @@ Bills due tomorrow! Need to reach all AC users with a simple ask:
 - **SMTP**: Gmail via `mail@aesthetic.computer` (in `at/deploy.env`)
   - Server: `smtp.gmail.com:465`
   - User: `mail@aesthetic.computer`
-  - Pass: `***REMOVED***` (app password)
+  - Pass: (set SMTP_PASS env var - see vault or Google app passwords)
 - **Auth0 M2M API**: For listing all users (in `at/.env`)
   - Client ID: `ogNmc0Aqw7DEY9oQZ6JMvJPrauSHe9dY`
   - Domain: `aesthetic.us.auth0.com`
