@@ -1625,10 +1625,9 @@ export const handler = async (event, context) => {
               overflow-x: hidden;
               display: flex;
               flex-direction: column;
-              justify-content: flex-end;
             }
             #chat-messages div.message:first-child {
-              margin-bottom: 0;
+              margin-top: auto;
             }
             #chat-messages div.message {
               border-bottom: 1.5px solid rgba(0, 0, 0, 0.15);
