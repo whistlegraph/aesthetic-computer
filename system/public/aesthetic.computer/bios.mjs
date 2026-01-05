@@ -3536,11 +3536,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // 🛑 HALT Detection - Watchdog for unresponsive disk worker
   let lastPongTime = Date.now();
   let haltDetected = false;
+  let watchdogStarted = false;
   const HALT_TIMEOUT_MS = 5000; // 5 seconds before triggering HALT
   const PING_INTERVAL_MS = 1000; // Ping every second
 
-  // Only enable watchdog in worker mode
-  if (workersEnabled) {
+  // Start the watchdog - called after worker first responds
+  function startWatchdog() {
+    if (watchdogStarted || !workersEnabled) return;
+    watchdogStarted = true;
+    lastPongTime = Date.now(); // Reset the pong time when watchdog actually starts
+    console.log("🐕 Watchdog started after worker initialization");
+    
     // Send periodic pings to the worker
     setInterval(() => {
       if (!haltDetected) {
@@ -3559,6 +3565,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }, 500);
   }
+
+  // Expose startWatchdog globally so receivedChange can call it
+  window.acStartWatchdog = startWatchdog;
 
   // Handle pong responses from worker
   window.acHandleWatchdogPong = () => {
@@ -4091,6 +4100,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Relay boot-log messages to parent window and update the overlay
     if (type === "boot-log") {
       // console.log("📢 BIOS relaying boot-log:", content);
+      // Start the watchdog when the worker first responds (signals it's alive)
+      if (content === "worker received load" && window.acStartWatchdog) {
+        window.acStartWatchdog();
+      }
       // Update the boot log overlay
       if (window.acBOOT_LOG) {
         window.acBOOT_LOG(content);
