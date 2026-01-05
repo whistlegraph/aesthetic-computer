@@ -8292,6 +8292,9 @@
     const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('local.')
       ? '' // Use relative URLs in dev
       : 'https://aesthetic.computer';
+    
+    // Oven URL for webp generation (always use production oven)
+    const OVEN_URL = 'https://oven.aesthetic.computer';
 
     // KidLisp count from dedicated endpoint
     async function loadKidlispCount() {
@@ -8947,9 +8950,104 @@
     // Register chat flip starter with sync controller (don't start immediately)
     panelSync.registerStarter(() => updateFlipProgress());
     
-    // KidLisp Carousel - Single rotating preview with animated WebP and syntax highlighting
-    const OVEN_URL = 'https://oven.aesthetic.computer';
-    
+    // WebP/Image Dud Validator - Checks pixel data to detect blank/corrupted animations
+    // Returns a promise that resolves to { valid: bool, reason: string, samples: array }
+    async function validateWebpImage(img, code = 'unknown') {
+      return new Promise((resolve) => {
+        // Create offscreen canvas to sample pixels
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        // Sample at a reasonable size (don't need full resolution)
+        const sampleSize = Math.min(64, img.naturalWidth, img.naturalHeight);
+        canvas.width = sampleSize;
+        canvas.height = sampleSize;
+        
+        try {
+          ctx.drawImage(img, 0, 0, sampleSize, sampleSize);
+          const imageData = ctx.getImageData(0, 0, sampleSize, sampleSize);
+          const pixels = imageData.data;
+          
+          // Sample points: center, corners, and some random spots
+          const samplePoints = [
+            { x: Math.floor(sampleSize / 2), y: Math.floor(sampleSize / 2), name: 'center' },
+            { x: 2, y: 2, name: 'top-left' },
+            { x: sampleSize - 3, y: 2, name: 'top-right' },
+            { x: 2, y: sampleSize - 3, name: 'bottom-left' },
+            { x: sampleSize - 3, y: sampleSize - 3, name: 'bottom-right' },
+            { x: Math.floor(sampleSize * 0.25), y: Math.floor(sampleSize * 0.25), name: 'q1' },
+            { x: Math.floor(sampleSize * 0.75), y: Math.floor(sampleSize * 0.75), name: 'q3' },
+          ];
+          
+          const samples = [];
+          let allBlack = true;
+          let allWhite = true;
+          let allTransparent = true;
+          let allSameColor = true;
+          let firstColor = null;
+          
+          for (const pt of samplePoints) {
+            const idx = (pt.y * sampleSize + pt.x) * 4;
+            const r = pixels[idx];
+            const g = pixels[idx + 1];
+            const b = pixels[idx + 2];
+            const a = pixels[idx + 3];
+            
+            samples.push({ ...pt, r, g, b, a });
+            
+            // Check conditions
+            if (a > 10) allTransparent = false;
+            if (r > 5 || g > 5 || b > 5) allBlack = false;
+            if (r < 250 || g < 250 || b < 250) allWhite = false;
+            
+            if (firstColor === null) {
+              firstColor = { r, g, b, a };
+            } else {
+              const colorDiff = Math.abs(r - firstColor.r) + Math.abs(g - firstColor.g) + 
+                               Math.abs(b - firstColor.b) + Math.abs(a - firstColor.a);
+              if (colorDiff > 20) allSameColor = false;
+            }
+          }
+          
+          // Determine if it's a dud
+          let valid = true;
+          let reason = 'OK';
+          
+          if (allTransparent) {
+            valid = false;
+            reason = 'ALL_TRANSPARENT';
+          } else if (allBlack) {
+            valid = false;
+            reason = 'ALL_BLACK';
+          } else if (allWhite) {
+            valid = false;
+            reason = 'ALL_WHITE';
+          } else if (allSameColor && firstColor) {
+            // Solid color might be intentional, just warn
+            const hex = `#${firstColor.r.toString(16).padStart(2,'0')}${firstColor.g.toString(16).padStart(2,'0')}${firstColor.b.toString(16).padStart(2,'0')}`;
+            console.warn(`%c⚠️ WEBP DUD CHECK: $${code} is solid color ${hex}`, 'color: orange; font-size: 14px;', samples);
+            // Still mark as valid but logged
+            reason = `SOLID_COLOR:${hex}`;
+          }
+          
+          if (!valid) {
+            console.error(
+              `%c🚨 WEBP DUD DETECTED: $${code} - ${reason}`,
+              'color: red; font-size: 16px; font-weight: bold;'
+            );
+            console.error(`%cFix in oven or kidlisp.mjs compiler!`, 'color: red; font-size: 12px;');
+            console.table(samples);
+          }
+          
+          resolve({ valid, reason, samples, code });
+          
+        } catch (e) {
+          console.error(`%c🚨 WEBP VALIDATE ERROR: $${code}`, 'color: red; font-size: 16px;', e);
+          resolve({ valid: false, reason: 'CANVAS_ERROR', error: e.message, code });
+        }
+      });
+    }
+
     async function loadKidlispCarousel() {
       const carousel = document.getElementById('kidlispCarousel');
       try {
@@ -9357,13 +9455,22 @@
           img.src = webpUrl;
           img.alt = code;
           img.loading = i === 0 ? 'eager' : 'lazy';
-          img.onload = () => {
+          img.onload = async () => {
             // Only show if image has actual content (not blank/error placeholder)
             // Check naturalWidth/Height to ensure it's a real image
             if (img.naturalWidth > 1 && img.naturalHeight > 1) {
-              img.classList.add('loaded');
-              const loader = slide.querySelector('.module-loading');
-              if (loader) loader.remove();
+              // Validate pixel content before showing
+              const validation = await validateWebpImage(img, code);
+              
+              if (validation.valid) {
+                img.classList.add('loaded');
+                const loader = slide.querySelector('.module-loading');
+                if (loader) loader.remove();
+              } else {
+                // Dud detected - don't show, leave code preview visible
+                console.warn(`KidLisp $${code}: Not showing dud image (${validation.reason})`);
+                if (img.parentNode) img.style.display = 'none';
+              }
             }
             // If blank/tiny, just leave the loading spinner or code preview visible
           };
