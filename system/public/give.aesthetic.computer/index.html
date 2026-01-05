@@ -3756,14 +3756,23 @@
 
     .kidlisp-slide-credit {
       position: absolute;
-      top: 16.5em;
-      left: 0.6em;
+      bottom: 2.4em;
+      left: 1em;
       font-family: var(--mono);
-      font-size: 0.7em;
-      color: rgba(255,255,255,0.6);
+      font-size: 0.75em;
+      background: rgba(0,0,0,0.5);
+      padding: 0.2em 0.5em;
+      border-radius: 3px;
       text-shadow: 0 1px 2px rgba(0,0,0,0.9);
-      pointer-events: none;
-      z-index: 3;
+      z-index: 5;
+    }
+
+    .kidlisp-slide-credit .credit-handle {
+      color: var(--pink);
+    }
+
+    .kidlisp-slide-credit .credit-date {
+      color: rgba(255,255,255,0.6);
     }
 
     .kidlisp-slide-plays {
@@ -4816,7 +4825,11 @@
               
               <a href="https://apps.apple.com/ag/app/aesthetic-computer/id6450940883" 
                  class="mobile-store-link" target="_blank">
-                <span>iOS App Store</span>
+                <span data-lang="en">iOS App Store</span>
+                <span data-lang="da">iOS App Store</span>
+                <span data-lang="de">iOS App Store</span>
+                <span data-lang="es">iOS App Store</span>
+                <span data-lang="zh">iOS应用商店</span>
               </a>
             </div>
             <div class="module-caption apps-flip-trigger" onclick="toggleAppsFlip()">
@@ -8926,26 +8939,19 @@
         let currentSlide = 0;
         let slideInterval = null;
         
-        // Format relative time (e.g., "3d ago", "2mo ago")
-        function formatRelativeTime(when) {
+        // Format date as short month (e.g., "Jan.", "Dec. '25")
+        function formatShortDate(when) {
           if (!when) return '';
           const date = new Date(when);
-          const now = new Date();
-          const diffMs = now - date;
-          const diffMins = Math.floor(diffMs / 60000);
-          const diffHours = Math.floor(diffMs / 3600000);
-          const diffDays = Math.floor(diffMs / 86400000);
-          const diffWeeks = Math.floor(diffDays / 7);
-          const diffMonths = Math.floor(diffDays / 30);
-          const diffYears = Math.floor(diffDays / 365);
-          
-          if (diffYears > 0) return `${diffYears}y ago`;
-          if (diffMonths > 0) return `${diffMonths}mo ago`;
-          if (diffWeeks > 0) return `${diffWeeks}w ago`;
-          if (diffDays > 0) return `${diffDays}d ago`;
-          if (diffHours > 0) return `${diffHours}h ago`;
-          if (diffMins > 0) return `${diffMins}m ago`;
-          return 'just now';
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const month = months[date.getMonth()];
+          const year = date.getFullYear();
+          const currentYear = new Date().getFullYear();
+          // Show year if not current year
+          if (year !== currentYear) {
+            return `${month}. '${String(year).slice(-2)}`;
+          }
+          return `${month}.`;
         }
         
         carousel.innerHTML = slides.map((item, i) => {
@@ -8960,13 +8966,13 @@
           const truncatedSource = source.length > 400 ? source.slice(0, 400) + '...' : source;
           const highlighted = highlightKidlisp(truncatedSource);
           
-          // Build author/time credit line
+          // Build author/time credit line with colored spans
           let creditHtml = '';
           if (author && author !== 'anon') {
-            const timeStr = when ? ` · ${formatRelativeTime(when)}` : '';
-            creditHtml = `<div class="kidlisp-slide-credit">@${escapeHtml(author)}${timeStr}</div>`;
+            const dateStr = when ? `<span class="credit-date"> · ${formatShortDate(when)}</span>` : '';
+            creditHtml = `<div class="kidlisp-slide-credit"><span class="credit-handle">@${escapeHtml(author)}</span>${dateStr}</div>`;
           } else if (when) {
-            creditHtml = `<div class="kidlisp-slide-credit">${formatRelativeTime(when)}</div>`;
+            creditHtml = `<div class="kidlisp-slide-credit"><span class="credit-date">${formatShortDate(when)}</span></div>`;
           }
           
           return `
@@ -8975,12 +8981,12 @@
                 <div class="module-loading"></div>
               </a>
               <div class="kidlisp-slide-code">${highlighted}</div>
-              ${creditHtml}
               <div class="kidlisp-slide-qr-wrap">
                 <div class="kidlisp-slide-label">$${escapeHtml(code)}</div>
                 <div class="kidlisp-slide-qr" data-url="${pieceUrl}"></div>
               </div>
               <div class="kidlisp-slide-plays">${hitCount.toLocaleString()} Hits</div>
+              ${creditHtml}
             </div>
           `;
         }).join('');
