@@ -3485,28 +3485,10 @@
       left: 0;
       right: 0;
       z-index: 5;
-      background: rgba(40, 40, 50, 0.95);
+      background: rgb(40, 40, 50);
       color: rgba(255, 255, 255, 0.7);
       padding: 0.8em 1em;
       font-size: 0.75em;
-    }
-
-    /* TV cycle progress bar - above caption */
-    .tv-cycle-progress {
-      position: absolute;
-      bottom: 2.55em;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: rgba(255, 80, 80, 0.2);
-      z-index: 6;
-    }
-
-    .tv-cycle-progress-bar {
-      height: 100%;
-      background: #e53935;
-      width: 0%;
-      transition: width 0.05s linear;
     }
 
     .tv-player {
@@ -5415,9 +5397,6 @@
         </a>
         <div class="tv-player" id="tvPlayer">
           <div class="module-loading" id="tvLoading">loading</div>
-        </div>
-        <div class="tv-cycle-progress">
-          <div class="tv-cycle-progress-bar" id="tvCycleProgressBar"></div>
         </div>
         <div class="module-caption">
           <span data-lang="en">Prefix a prompt with <span class="dim">tape</span> to record GIFs and MP4s.</span>
@@ -9515,10 +9494,6 @@
         return;
       }
       
-      // Reset cycle progress bar
-      const cycleProgressBar = document.getElementById('tvCycleProgressBar');
-      if (cycleProgressBar) cycleProgressBar.style.width = '0%';
-      
       // Update header with current tape code, timestamp, and upcoming codes
       const tapeCode = tape.code ? `!${tape.code}` : '📼 tapes';
       
@@ -9740,15 +9715,10 @@
       
       // Attach all event listeners once
       function attachListeners() {
-        // Update progress bar, cycle progress bar, and timer
-        const cycleProgressBar = document.getElementById('tvCycleProgressBar');
-        
         tvPlayer.addEventListener('timeupdate', () => {
           if (tvPlayer.duration) {
             const pct = (tvPlayer.currentTime / tvPlayer.duration) * 100;
             progressBar.style.width = pct + '%';
-            // Cycle progress bar above caption
-            if (cycleProgressBar) cycleProgressBar.style.width = pct + '%';
             // Update timer: current / total
             const current = formatTime(tvPlayer.currentTime);
             const total = formatTime(tvPlayer.duration);
