@@ -3331,6 +3331,61 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
+      /* iOS Safari fixes */
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+    }
+
+    /* Big centered play/pause button - appears on tap */
+    .tv-big-play {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 25;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+    }
+
+    .tv-big-play.visible {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .tv-big-play::after {
+      content: '';
+      display: block;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 15px 0 15px 26px;
+      border-color: transparent transparent transparent rgba(255, 255, 255, 0.95);
+      margin-left: 6px;
+    }
+
+    .tv-big-play.paused::after {
+      /* Pause icon - two bars */
+      border: none;
+      width: 26px;
+      height: 30px;
+      background: linear-gradient(to right, 
+        rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.95) 35%,
+        transparent 35%, transparent 65%,
+        rgba(255,255,255,0.95) 65%, rgba(255,255,255,0.95) 100%);
+      margin-left: 0;
     }
 
     .tv-slide video {
@@ -3379,10 +3434,12 @@
 
     .tv-slide.entering {
       animation: tvSlideIn 0.4s ease-out forwards;
+      z-index: 2;
     }
 
     .tv-slide.exiting {
       animation: tvSlideOut 0.4s ease-out forwards;
+      z-index: 1;
     }
 
     @keyframes tvSlideIn {
@@ -9034,25 +9091,49 @@
         scrubTo(e);
       });
       
-      // Toggle play/pause
+      // Toggle play/pause with big button feedback
+      let bigPlayTimeout = null;
       function togglePlayback(e) {
         e.preventDefault();
         e.stopPropagation();
         const indicator = container.querySelector('.tv-play-indicator');
+        const bigPlay = container.querySelector('.tv-big-play');
+        
         if (tvPlayer.paused) {
           tvPlayer.play();
           if (indicator) indicator.classList.remove('paused');
+          if (bigPlay) {
+            bigPlay.classList.remove('paused');
+            bigPlay.classList.add('visible');
+          }
         } else {
           tvPlayer.pause();
           if (indicator) indicator.classList.add('paused');
+          if (bigPlay) {
+            bigPlay.classList.add('paused');
+            bigPlay.classList.add('visible');
+          }
         }
+        
+        // Hide big play button after delay
+        if (bigPlayTimeout) clearTimeout(bigPlayTimeout);
+        bigPlayTimeout = setTimeout(() => {
+          if (bigPlay) bigPlay.classList.remove('visible');
+        }, 600);
       }
       
-      // Add play/pause indicator
+      // Add play/pause indicator (small)
       if (!container.querySelector('.tv-play-indicator')) {
         const indicator = document.createElement('div');
         indicator.className = 'tv-play-indicator';
         container.appendChild(indicator);
+      }
+      
+      // Add big centered play/pause button
+      if (!container.querySelector('.tv-big-play')) {
+        const bigPlay = document.createElement('div');
+        bigPlay.className = 'tv-big-play';
+        container.appendChild(bigPlay);
       }
       
       // Make video, timer, and header clickable to pause/play
