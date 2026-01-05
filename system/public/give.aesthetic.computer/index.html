@@ -368,7 +368,8 @@
     }
 
     .stat-label {
-      font-size: 0.75em;
+      font-size: 0.9em;
+      font-weight: 600;
       color: var(--dim);
       margin-top: 0.2em;
       position: relative;
@@ -2103,7 +2104,6 @@
       aspect-ratio: 1;
       position: relative;
       perspective: 1200px;
-      overflow: hidden;
       border-radius: 8px;
     }
 
@@ -2199,6 +2199,7 @@
       background: linear-gradient(135deg, #1e1e1e 0%, #121212 100%);
       border: 1px solid #333;
       padding: 0.7em;
+      padding-bottom: 3.5em; /* Space for absolute caption */
     }
 
     .desktop-face-header {
@@ -2335,17 +2336,26 @@
       color: #aaa;
     }
 
+    .desktop-tools-row {
+      display: flex;
+      gap: 0.5em;
+      margin-top: 0.5em;
+      flex: 1;
+    }
+
     .desktop-vscode-link {
       display: flex;
+      flex-direction: column;
       align-items: center;
+      justify-content: center;
       gap: 0.4em;
       background: rgba(30, 30, 30, 0.9);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 4px;
-      padding: 0.35em 0.6em;
-      margin-top: 0.4em;
+      padding: 0.75em;
       text-decoration: none;
       transition: all 0.2s ease;
+      flex: 1;
     }
 
     .desktop-vscode-link:hover {
@@ -2355,13 +2365,13 @@
     }
 
     .desktop-vscode-link .vscode-icon-img {
-      width: 14px;
-      height: 14px;
-      border-radius: 2px;
+      width: 36px;
+      height: 36px;
+      border-radius: 4px;
     }
 
     .desktop-vscode-link .vscode-icon {
-      font-size: 0.9em;
+      font-size: 2em;
     }
 
     .desktop-vscode-link .vscode-label {
@@ -2373,21 +2383,22 @@
     .desktop-vscode-link .vscode-ver {
       color: #6a6;
       font-size: 0.6em;
-      margin-left: auto;
       font-family: monospace;
     }
 
     .desktop-ableton-link {
       display: flex;
+      flex-direction: column;
       align-items: center;
+      justify-content: center;
       gap: 0.4em;
       background: rgba(30, 30, 30, 0.9);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 4px;
-      padding: 0.3em 0.6em;
-      margin-top: 0.3em;
+      padding: 0.75em;
       text-decoration: none;
       transition: all 0.2s ease;
+      flex: 1;
     }
 
     .desktop-ableton-link:hover {
@@ -2397,22 +2408,23 @@
     }
 
     .desktop-ableton-link .ableton-icon {
-      font-size: 0.8em;
+      width: 36px;
+      height: 36px;
+      color: #fff;
     }
 
     .desktop-ableton-link .ableton-label {
       color: #aaa;
       font-weight: 600;
-      font-size: 0.7em;
+      font-size: 0.75em;
     }
 
     .desktop-ableton-link .ableton-tag {
       color: #888;
       font-size: 0.55em;
-      margin-left: auto;
       font-family: monospace;
       background: rgba(255, 255, 255, 0.08);
-      padding: 0.1em 0.35em;
+      padding: 0.15em 0.4em;
       border-radius: 3px;
     }
 
@@ -2421,6 +2433,7 @@
       background: linear-gradient(135deg, #181818 0%, #101010 100%);
       border: 1px solid #2a2a2a;
       padding: 1em;
+      padding-bottom: 3.5em; /* Space for absolute caption */
       display: flex;
       flex-direction: column;
     }
@@ -2828,7 +2841,7 @@
       bottom: 0;
       left: 0;
       right: 0;
-      height: 2px;
+      height: 3px;
       background: rgba(255, 255, 255, 0.08);
       z-index: 15;
       overflow: hidden;
@@ -2877,10 +2890,27 @@
       gap: 2px;
     }
 
+    .tv-header:hover {
+      text-decoration: none;
+    }
+
     .tv-header-row {
       display: flex;
-      align-items: center;
-      gap: 0.6em;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.15em;
+      animation: tvSlideUp 0.3s ease-out;
+    }
+
+    @keyframes tvSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(1em);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .tv-header .tv-code {
@@ -2893,25 +2923,28 @@
     }
 
     .tv-header .tv-upcoming {
-      color: rgba(255,255,255,0.5);
+      color: rgba(255,255,255,0.35);
       font-family: var(--mono);
-      font-size: 1em;
+      font-size: 0.85em;
       font-weight: 400;
       letter-spacing: 0.02em;
-      display: inline-flex;
-      gap: 0.4em;
+      display: flex;
+      flex-direction: column;
+      gap: 0.1em;
     }
 
     .tv-header .tv-upcoming span {
       cursor: pointer;
       text-decoration: none !important;
+      transition: color 0.15s, transform 0.15s;
     }
 
     .tv-header .tv-upcoming span:hover,
     .tv-header .tv-upcoming span:active,
     .tv-header .tv-upcoming span:focus {
-      color: rgba(255,255,255,0.5);
+      color: rgba(255,255,255,0.6);
       text-decoration: none !important;
+      transform: translateX(3px);
     }
 
     .tv-header .tv-timestamp {
@@ -3177,7 +3210,6 @@
       aspect-ratio: 1;
       position: relative;
       perspective: 1200px;
-      overflow: hidden;
       border-radius: 8px;
     }
 
@@ -3567,7 +3599,7 @@
       bottom: 0;
       left: 0;
       right: 0;
-      height: 4px;
+      height: 3px;
       background: rgba(255, 255, 255, 0.15);
       z-index: 15;
       overflow: hidden;
@@ -3688,14 +3720,14 @@
 
     .kidlisp-slide-code {
       position: absolute;
-      top: 4.5em;
-      left: 0.8em;
+      top: 4em;
+      left: 0.2em;
       right: 1em;
-      max-height: 8.5em;
+      max-height: 14em;
       padding: 0.4em 0.6em;
       font-family: var(--mono);
-      font-size: 0.75em;
-      line-height: 1.35;
+      font-size: 0.85em;
+      line-height: 1.4;
       color: #fff;
       overflow: hidden;
       text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 6px rgba(0,0,0,0.7);
@@ -3703,8 +3735,8 @@
       word-break: break-word;
       pointer-events: none;
       z-index: 2;
-      -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-      mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+      mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
     }
 
     .kidlisp-slide-plays {
@@ -3712,10 +3744,10 @@
       bottom: 4em;
       left: 1em;
       font-family: var(--mono);
-      font-size: 0.7em;
+      font-size: 0.85em;
       color: var(--gold);
       background: rgba(0,0,0,0.5);
-      padding: 0.15em 0.4em;
+      padding: 0.2em 0.5em;
       border-radius: 3px;
       text-shadow: 0 1px 2px rgba(0,0,0,0.9);
       z-index: 5;
@@ -3724,12 +3756,12 @@
     .kidlisp-slide-author {
       position: absolute;
       bottom: 4em;
-      left: 5em;
+      left: 5.5em;
       font-family: var(--mono);
-      font-size: 0.6em;
+      font-size: 0.75em;
       color: rgba(255,255,255,0.7);
       background: rgba(0,0,0,0.4);
-      padding: 0.15em 0.4em;
+      padding: 0.2em 0.5em;
       border-radius: 3px;
       text-shadow: 0 1px 2px rgba(0,0,0,0.9);
       z-index: 5;
@@ -3747,10 +3779,10 @@
 
     .kidlisp-slide-label {
       font-family: var(--mono);
-      font-size: 0.55em;
+      font-size: 0.85em;
       color: #fff;
       background: #000;
-      padding: 0.15em 0.4em;
+      padding: 0.1em 0.3em;
     }
 
     .kidlisp-slide-qr {
@@ -4640,11 +4672,11 @@
           <div class="module-loading" id="tvLoading">loading</div>
         </div>
         <div class="module-caption">
-          <span data-lang="en">Prefix a prompt with '<span class="highlight">tape</span>' to record AC.</span>
-          <span data-lang="da">Sæt '<span class="highlight">tape</span>' før en prompt for at optage AC.</span>
-          <span data-lang="de">Setze '<span class="highlight">tape</span>' vor einen Prompt zum Aufnehmen von AC.</span>
-          <span data-lang="es">Prefija un prompt con '<span class="highlight">tape</span>' para grabar AC.</span>
-          <span data-lang="zh">在提示前加'<span class="highlight">tape</span>'即可录制AC。</span>
+          <span data-lang="en">Prefix a prompt with <span class="dim">tape</span> to record GIFs and MP4s.</span>
+          <span data-lang="da">Sæt <span class="dim">tape</span> før en prompt for at optage GIFs og MP4s.</span>
+          <span data-lang="de">Setze <span class="dim">tape</span> vor einen Prompt für GIFs und MP4s.</span>
+          <span data-lang="es">Prefija un prompt con <span class="dim">tape</span> para grabar GIFs y MP4s.</span>
+          <span data-lang="zh">在提示前加 <span class="dim">tape</span> 即可录制 GIF 和 MP4。</span>
         </div>
       </div>
 
@@ -4686,18 +4718,20 @@
               </ul>
             </div>
             
-            <a href="https://marketplace.visualstudio.com/items?itemName=aesthetic-computer.aesthetic-computer-code" class="desktop-vscode-link" target="_blank">
-              <img class="vscode-icon-img" id="vscodeIcon" src="https://aesthetic-computer.gallerycdn.vsassets.io/extensions/aesthetic-computer/aesthetic-computer-code/1.219.1/1767559081239/Microsoft.VisualStudio.Services.Icons.Default" alt="VS Code" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
-              <span class="vscode-icon" style="display:none">💜</span>
-              <span class="vscode-label">VS Code</span>
-              <span class="vscode-ver" id="vscodeExtVersion">v1.217.0</span>
-            </a>
-            
-            <a href="https://assets.aesthetic.computer/ableton/notepat-ableton-2025-alpha.amxd.zip" class="desktop-ableton-link" target="_blank" download>
-              <span class="ableton-icon">🎹</span>
-              <span class="ableton-label">Ableton</span>
-              <span class="ableton-tag">notepat</span>
-            </a>
+            <div class="desktop-tools-row">
+              <a href="https://marketplace.visualstudio.com/items?itemName=aesthetic-computer.aesthetic-computer-code" class="desktop-vscode-link" target="_blank">
+                <img class="vscode-icon-img" id="vscodeIcon" src="https://aesthetic-computer.gallerycdn.vsassets.io/extensions/aesthetic-computer/aesthetic-computer-code/1.219.1/1767559081239/Microsoft.VisualStudio.Services.Icons.Default" alt="VS Code" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
+                <span class="vscode-icon" style="display:none">💜</span>
+                <span class="vscode-label">VS Code</span>
+                <span class="vscode-ver" id="vscodeExtVersion">v1.217.0</span>
+              </a>
+              
+              <a href="https://assets.aesthetic.computer/ableton/notepat-ableton-2025-alpha.amxd.zip" class="desktop-ableton-link" target="_blank" download>
+                <svg class="ableton-icon" viewBox="0 0 45 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M0 0h3v24H0V0zm6 0h3v24H6V0zm6 0h3v24h-3V0zm6 0h3v24h-3V0zm9 0h24v3H27V0zm0 7h24v3H27V7zm0 7h24v3H27v-3zm0 7h24v3H27v-3z"/></svg>
+                <span class="ableton-label">Ableton</span>
+                <span class="ableton-tag">notepat</span>
+              </a>
+            </div>
             <div class="module-caption apps-flip-trigger" onclick="toggleAppsFlip()">
               <span data-lang="en">Desktop apps and plugins are free.</span>
               <span data-lang="da">Desktop-apps og plugins er gratis.</span>
@@ -7389,14 +7423,47 @@
       connectWS();
     }
 
+    // 🎬 Synchronized Panel Controller
+    // All rotating panels wait until everything is preloaded, then start together
+    const SYNC_INTERVAL = 8000; // 8 seconds - all panels use this
+    const panelSync = {
+      ready: { shop: false, kidlisp: false, chat: false, apps: false },
+      started: false,
+      starters: [],
+      
+      markReady(panel) {
+        this.ready[panel] = true;
+        console.log(`✓ ${panel} panel ready`);
+        this.checkAllReady();
+      },
+      
+      registerStarter(fn) {
+        this.starters.push(fn);
+        if (this.started) fn(); // If already started, run immediately
+      },
+      
+      checkAllReady() {
+        if (this.started) return;
+        const allReady = Object.values(this.ready).every(v => v);
+        if (allReady) {
+          console.log('🎬 All panels ready - starting synchronized rotation');
+          this.started = true;
+          // Small delay to ensure UI is settled, then start all at once
+          setTimeout(() => {
+            this.starters.forEach(fn => fn());
+          }, 500);
+        }
+      }
+    };
+
     // Fetch shop products - rotating display with image cycling
     let shopProducts = [];
     let shopIndex = 0;
     let shopImageIndex = 0;
     let shopProgressAnim = null;
     let shopImageInterval = null;
-    const SHOP_IMAGE_INTERVAL = 2500; // 2.5 seconds between images within same product
-    const SHOP_PRODUCT_INTERVAL = 4000; // Base interval, extended per image count
+    const SHOP_IMAGE_INTERVAL = 2000; // 2 seconds between images within same product
+    const SHOP_PRODUCT_INTERVAL = 8000; // 8 seconds (synced with other panels)
     
     function animateShopProgress(duration) {
       const progressBar = document.getElementById('shopAutoProgress');
@@ -7433,10 +7500,13 @@
         
         shopProducts = data.products;
         showShopProduct(0);
-        startShopCycle();
+        // Mark ready and register starter (don't start cycling yet)
+        panelSync.markReady('shop');
+        panelSync.registerStarter(() => startShopCycle());
       } catch (e) {
         console.error('Shop load error:', e);
         container.innerHTML = '<a href="https://shop.aesthetic.computer" class="module-loading" style="text-decoration:underline;">visit shop →</a>';
+        panelSync.markReady('shop'); // Still mark ready even on error
       }
     }
     
@@ -8419,9 +8489,13 @@
         
         container.innerHTML = html;
         
+        // Mark chat panel ready
+        panelSync.markReady('chat');
+        
       } catch (e) {
         console.error('Chat load error:', e);
         container.innerHTML = '<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Could not load</div></div>';
+        panelSync.markReady('chat'); // Still mark ready on error
       }
     }
     
@@ -8605,7 +8679,7 @@
     setTimeout(setupHoverTilt, 100);
     
     // Auto-flip with progress bar
-    const FLIP_INTERVAL = 12000; // 12 seconds between flips
+    const FLIP_INTERVAL = 8000; // 8 seconds between flips (synced with other panels)
     let flipProgress = 0;
     let flipPaused = false;
     
@@ -8651,8 +8725,8 @@
       setTimeout(updateFlipProgress, 100);
     }
     
-    // Start auto-flip after a short delay
-    setTimeout(updateFlipProgress, 3000);
+    // Register chat flip starter with sync controller (don't start immediately)
+    panelSync.registerStarter(() => updateFlipProgress());
     
     // KidLisp Carousel - Single rotating preview with animated WebP and syntax highlighting
     const OVEN_URL = 'https://oven.aesthetic.computer';
@@ -8760,7 +8834,7 @@
                 <div class="kidlisp-slide-label">$${escapeHtml(code)}</div>
                 <div class="kidlisp-slide-qr" data-url="${pieceUrl}"></div>
               </div>
-              <div class="kidlisp-slide-plays">▶ ${hitCount.toLocaleString()}</div>
+              <div class="kidlisp-slide-plays">${hitCount.toLocaleString()} Hits</div>
               ${authorHtml}
             </div>
           `;
@@ -8813,7 +8887,7 @@
         }
         
         // Progress bar animation
-        const KIDLISP_INTERVAL = 6000;
+        const KIDLISP_INTERVAL = 8000; // 8 seconds (synced with other panels)
         let kidlispProgressAnim = null;
         
         function animateKidlispProgress() {
@@ -8838,11 +8912,15 @@
           kidlispProgressAnim = requestAnimationFrame(step);
         }
         
-        // Start initial progress animation
-        animateKidlispProgress();
+        // Define starter function (called by panelSync when all ready)
+        function startKidlispRotation() {
+          animateKidlispProgress();
+          slideInterval = setInterval(nextSlide, KIDLISP_INTERVAL);
+        }
         
-        // Start rotation every 6 seconds (match webp duration)
-        slideInterval = setInterval(nextSlide, KIDLISP_INTERVAL);
+        // Mark ready and register starter (don't start yet)
+        panelSync.markReady('kidlisp');
+        panelSync.registerStarter(startKidlispRotation);
         
         // No pause on hover - slides continue advancing
         
@@ -8889,8 +8967,8 @@
               const svgEl = qrContainer.querySelector('svg');
               if (svgEl) {
                 svgEl.style.display = 'block';
-                svgEl.style.width = '32px';
-                svgEl.style.height = '32px';
+                svgEl.style.width = '48px';
+                svgEl.style.height = '48px';
               }
             } catch (e) {
               console.error('QR generation error:', e);
@@ -8901,6 +8979,7 @@
       } catch (e) {
         console.error('KidLisp carousel load error:', e);
         carousel.innerHTML = '<div style="text-align: center; color: #555; padding: 2em;">Could not load</div>';
+        panelSync.markReady('kidlisp'); // Still mark ready on error
       }
     }
     
@@ -9070,7 +9149,7 @@
     })();
     
     // Apps flip auto-flip with progress bar
-    const APPS_FLIP_INTERVAL = 10000; // 10 seconds between flips
+    const APPS_FLIP_INTERVAL = 8000; // 8 seconds between flips (synced with other panels)
     let appsFlipProgress = 0;
     
     function resetAppsFlipProgress() {
@@ -9104,8 +9183,10 @@
       setTimeout(updateAppsFlipProgress, 100);
     }
     
-    // Start apps auto-flip after a short delay
-    setTimeout(updateAppsFlipProgress, 2000);
+    // Mark apps panel ready immediately (static content, no async load)
+    panelSync.markReady('apps');
+    // Register apps flip starter with sync controller
+    panelSync.registerStarter(() => updateAppsFlipProgress());
 
     // 📊 Stats Section Visibility Manager
     // Pauses all floating stat spawners when stats section is not visible
