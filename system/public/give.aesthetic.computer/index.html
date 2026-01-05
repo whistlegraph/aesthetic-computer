@@ -3101,18 +3101,36 @@
       flex-direction: column;
       align-items: flex-start;
       gap: 0.15em;
-      animation: tvSlideUp 0.3s ease-out;
+      animation: tvCodeSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    @keyframes tvSlideUp {
+    @keyframes tvCodeSlideUp {
       from {
         opacity: 0;
-        transform: translateY(1em);
+        transform: translateY(100%);
       }
       to {
         opacity: 1;
         transform: translateY(0);
       }
+    }
+
+    /* Make upcoming codes look tappable */
+    .tv-header .tv-upcoming span {
+      cursor: pointer;
+      text-decoration: none !important;
+      transition: color 0.15s, transform 0.15s;
+      padding: 0.1em 0;
+    }
+
+    .tv-header .tv-upcoming span:hover,
+    .tv-header .tv-upcoming span:active {
+      color: rgba(255,255,255,0.85);
+      transform: translateX(4px);
+    }
+
+    .tv-header .tv-upcoming span:active {
+      transform: translateX(4px) scale(0.95);
     }
 
     .tv-header .tv-code {
@@ -3134,20 +3152,6 @@
       flex-direction: column;
       gap: 0.1em;
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 0 6px rgba(0, 0, 0, 0.8);
-    }
-
-    .tv-header .tv-upcoming span {
-      cursor: pointer;
-      text-decoration: none !important;
-      transition: color 0.15s, transform 0.15s;
-    }
-
-    .tv-header .tv-upcoming span:hover,
-    .tv-header .tv-upcoming span:active,
-    .tv-header .tv-upcoming span:focus {
-      color: rgba(255,255,255,0.6);
-      text-decoration: none !important;
-      transform: translateX(3px);
     }
 
     .tv-header .tv-timestamp {
@@ -9042,17 +9046,15 @@
         });
       }
       
-      // Mark old slide as exiting
-      const oldSlide = container.querySelector('.tv-slide');
-      const oldGlow = container.querySelector('.tv-bg-glow');
-      if (oldSlide) {
+      // Remove ALL old slides and glows (not just one) to prevent overlap on rapid clicks
+      container.querySelectorAll('.tv-slide').forEach(oldSlide => {
         oldSlide.classList.add('exiting');
         setTimeout(() => oldSlide.remove(), 400);
-      }
-      if (oldGlow) {
+      });
+      container.querySelectorAll('.tv-bg-glow').forEach(oldGlow => {
         oldGlow.style.opacity = '0';
         setTimeout(() => oldGlow.remove(), 400);
-      }
+      });
       
       // Create background glow video (in container, not slide, to avoid clipping)
       const bgGlow = document.createElement('video');
