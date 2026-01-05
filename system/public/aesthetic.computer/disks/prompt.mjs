@@ -168,8 +168,8 @@ const FUNDING_MESSAGE_CHAT = getLangPhase() === 0 ? FUNDING_MESSAGE_CHAT_EN : FU
 const FUNDING_MESSAGE_CLOCK = getLangPhase() === 0 ? FUNDING_MESSAGE_CLOCK_EN : FUNDING_MESSAGE_CLOCK_DA;
 
 // Recovery mode ticker messages (when severity is "yikes" - chat back online but still need support)
-const RECOVERY_TICKER_EN = "Chat was offline ~ AC needs support to stay healthy!";
-const RECOVERY_TICKER_DA = "Chat var offline ~ AC har brug for stoette!";
+const RECOVERY_TICKER_EN = "Happy New Year ~ Enter 'give' to help AC '26 stay online and healthy!";
+const RECOVERY_TICKER_DA = "Godt Nytar ~ Skriv 'give' for at stoette AC i 2026!";
 export const getRecoveryTicker = () => getLangPhase() === 0 ? RECOVERY_TICKER_EN : RECOVERY_TICKER_DA;
 export const showFundingEffectsFlag = showFundingEffects; // Export for chat.mjs
 
