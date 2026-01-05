@@ -3745,7 +3745,7 @@
       line-height: 1.4;
       color: #fff;
       overflow: hidden;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 6px rgba(0,0,0,0.7);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.9);
       white-space: pre-wrap;
       word-break: break-word;
       pointer-events: none;
@@ -3836,6 +3836,13 @@
     .kidlisp-slide-code .hl-timing { color: #ffb86c; font-weight: bold; }
     .kidlisp-slide-code .hl-paren { color: #888; }
     .kidlisp-slide-code .hl-fade { font-weight: bold; }
+    .kidlisp-slide-code .hl-code-ref { color: limegreen; font-weight: bold; } /* $code references */
+    .kidlisp-slide-code .hl-code-id { color: lime; } /* identifier part of $code */
+    .kidlisp-slide-code .hl-paint-ref { color: magenta; font-weight: bold; } /* # symbol */
+    .kidlisp-slide-code .hl-paint-id { color: orange; } /* identifier part of #hashtag */
+    .kidlisp-slide-code .hl-fade-sep { color: mediumseagreen; } /* - separator in fade */
+    .kidlisp-slide-code .hl-fade-dir { color: cyan; } /* direction in fade */
+    .kidlisp-slide-code .hl-fade-colon { color: lime; } /* : in fade */
 
     /* Rainbow text animation - per character cycling */
     @keyframes rainbowCycle {
@@ -3865,8 +3872,8 @@
 
     /* Zebra text animation - alternating black/white */
     @keyframes zebraCycle {
-      0%, 49% { color: white; text-shadow: 0 0 4px white, 0 1px 3px rgba(0,0,0,0.95); }
-      50%, 100% { color: #333; text-shadow: 0 0 4px black, 0 1px 3px rgba(0,0,0,0.95); }
+      0%, 49% { color: white; }
+      50%, 100% { color: #333; }
     }
 
     .hl-zebra {
@@ -3879,9 +3886,9 @@
 
     /* Timing blink animation - uses CSS custom property for duration */
     @keyframes hl-timing-blink {
-      0%, 90% { opacity: 1; text-shadow: 0 0 8px currentColor, 0 0 2px rgba(0,0,0,0.9); }
-      95% { opacity: 0.3; text-shadow: 0 0 12px lime, 0 0 4px rgba(0,255,0,0.9); color: lime; }
-      100% { opacity: 1; text-shadow: 0 0 8px currentColor, 0 0 2px rgba(0,0,0,0.9); }
+      0%, 90% { opacity: 1; }
+      95% { opacity: 0.4; color: lime; }
+      100% { opacity: 1; }
     }
 
     .hl-timing-active {
@@ -7608,8 +7615,12 @@
     let shopImageIndex = 0;
     let shopProgressAnim = null;
     let shopImageInterval = null;
+    let shopLoadAttempts = 0;
+    let shopLoaded = false;
     const SHOP_IMAGE_INTERVAL = 2000; // 2 seconds between images within same product
     const SHOP_PRODUCT_INTERVAL = 8000; // 8 seconds (synced with other panels)
+    const SHOP_MAX_RETRIES = 5;
+    const SHOP_RETRY_DELAYS = [500, 1000, 2000, 4000, 8000]; // Exponential backoff
     
     function animateShopProgress(duration) {
       const progressBar = document.getElementById('shopAutoProgress');
@@ -7633,27 +7644,68 @@
       shopProgressAnim = requestAnimationFrame(step);
     }
     
-    async function loadShopProducts() {
+    async function loadShopProducts(isRetry = false) {
+      if (shopLoaded) return; // Already loaded successfully
+      
       const container = document.getElementById('shopProducts');
+      shopLoadAttempts++;
+      
       try {
-        const res = await fetch('https://aesthetic.computer/api/shop');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+        
+        const res = await fetch('https://aesthetic.computer/api/shop', {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
         const data = await res.json();
         
         if (!data.products?.length) {
           container.innerHTML = '<div class="module-loading">no products</div>';
+          panelSync.markReady('shop');
           return;
         }
         
         shopProducts = data.products;
+        shopLoaded = true;
         showShopProduct(0);
         // Mark ready and register starter (don't start cycling yet)
         panelSync.markReady('shop');
         panelSync.registerStarter(() => startShopCycle());
       } catch (e) {
-        console.error('Shop load error:', e);
-        container.innerHTML = '<a href="https://shop.aesthetic.computer" class="module-loading" style="text-decoration:underline;">visit shop →</a>';
-        panelSync.markReady('shop'); // Still mark ready even on error
+        console.error('Shop load error (attempt ' + shopLoadAttempts + '):', e);
+        
+        // Retry with exponential backoff
+        if (shopLoadAttempts < SHOP_MAX_RETRIES) {
+          const delay = SHOP_RETRY_DELAYS[shopLoadAttempts - 1] || 8000;
+          console.log('Shop: retrying in ' + delay + 'ms...');
+          container.innerHTML = '<div class="module-loading">retrying...</div>';
+          setTimeout(() => loadShopProducts(true), delay);
+        } else {
+          container.innerHTML = '<a href="https://shop.aesthetic.computer" class="module-loading" style="text-decoration:underline;">visit shop →</a>';
+          panelSync.markReady('shop'); // Still mark ready even on error
+        }
       }
+    }
+    
+    // Also retry when shop section becomes visible (for mobile where it may be off-screen initially)
+    function setupShopVisibilityRetry() {
+      const shopSection = document.querySelector('.shop-section');
+      if (!shopSection || shopLoaded) return;
+      
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting && !shopLoaded && shopLoadAttempts > 0) {
+            // Section became visible and we haven't loaded yet - retry
+            console.log('Shop: section visible, retrying load...');
+            shopLoadAttempts = 0; // Reset attempts for visibility-triggered retry
+            loadShopProducts(true);
+          }
+        });
+      }, { threshold: 0.1 });
+      
+      observer.observe(shopSection);
     }
     
     function startShopCycle() {
@@ -7777,6 +7829,7 @@
       `;
     }
     setTimeout(loadShopProducts, 100);
+    setTimeout(setupShopVisibilityRetry, 200); // Set up visibility observer
 
     // Load stats from metrics API
     async function loadStats() {
@@ -9008,20 +9061,38 @@
             const direction = parts[2] || '';
             
             // Create colored segments for each color in the fade
-            let result = '<span class="hl-fade" style="color: #ffb86c;">fade:</span>';
+            let result = '<span class="hl-fade" style="color: #ffb86c;">fade</span><span class="hl-fade-colon">:</span>';
             colors.forEach((c, i) => {
-              const rgb = cssColors[c];
+              const rgb = cssColors[c.toLowerCase()];
               if (rgb) {
-                result += `<span style="color: rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})">${c}</span>`;
+                result += `<span class="hl-color" style="color: rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})">${c}</span>`;
+              } else if (c === 'rainbow') {
+                result += rainbowText(c);
+              } else if (c === 'zebra') {
+                result += zebraText(c);
               } else {
                 result += `<span class="hl-fade">${c}</span>`;
               }
-              if (i < colors.length - 1) result += '<span style="color: #3cb371;">-</span>';
+              if (i < colors.length - 1) result += '<span class="hl-fade-sep">-</span>';
             });
             if (direction) {
-              result += `<span style="color: lime;">:</span><span style="color: cyan;">${direction}</span>`;
+              result += `<span class="hl-fade-colon">:</span><span class="hl-fade-dir">${direction}</span>`;
             }
             return result;
+          }
+          
+          // Helper to highlight $code references (lime green $ + lime identifier)
+          function codeRefText(codeRef) {
+            const dollar = codeRef[0];
+            const id = codeRef.slice(1);
+            return `<span class="hl-code-ref">${dollar}</span><span class="hl-code-id">${id}</span>`;
+          }
+          
+          // Helper to highlight #painting references (magenta # + orange identifier)
+          function paintRefText(paintRef) {
+            const hash = paintRef[0];
+            const id = paintRef.slice(1);
+            return `<span class="hl-paint-ref">${hash}</span><span class="hl-paint-id">${id}</span>`;
           }
           
           // Use token placeholders to prevent double-replacement
@@ -9041,6 +9112,13 @@
           }
           
           // Order matters - most specific first
+          
+          // $code references (e.g., $mycode, $0, $test123) - limegreen $ + lime id
+          html = html.replace(/(\$[0-9A-Za-z]+)/g, m => tokenRaw(codeRefText(m)));
+          
+          // #painting references (e.g., #abc123, #a1b2c3d4) - magenta # + orange id
+          html = html.replace(/(#[0-9A-Fa-f]{1,8})\b/g, m => tokenRaw(paintRefText(m)));
+          
           // Fade patterns (e.g., fade:red-blue, fade:red-white-blue:down)
           html = html.replace(/\b(fade:[a-z0-9-]+(?::[a-z]+)?)\b/gi, m => tokenRaw(fadeText(m)));
           
