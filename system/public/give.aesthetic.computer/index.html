@@ -6256,6 +6256,21 @@
           const logoX = (w - logoSize) / 2;
           const logoY = (h - logoSize) / 2;
           
+          // Draw dark radial gradient behind logo for prominence
+          ctx.save();
+          const logoCenterX = logoX + logoSize / 2;
+          const logoCenterY = logoY + logoSize / 2;
+          const darkRadius = logoSize * 0.75;
+          const darkGrad = ctx.createRadialGradient(logoCenterX, logoCenterY, 0, logoCenterX, logoCenterY, darkRadius);
+          darkGrad.addColorStop(0, 'rgba(0, 0, 0, 0.7)');
+          darkGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.5)');
+          darkGrad.addColorStop(0.8, 'rgba(0, 0, 0, 0.2)');
+          darkGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.globalAlpha = masterAlpha;
+          ctx.fillStyle = darkGrad;
+          ctx.fillRect(logoCenterX - darkRadius, logoCenterY - darkRadius, darkRadius * 2, darkRadius * 2);
+          ctx.restore();
+          
           // Logo intensity effects based on price - always visible, use color shifts not opacity
           const t = Date.now();
           let logoHue = 0;
@@ -6430,25 +6445,27 @@
         }
         
         // Draw QR code in bottom-right corner (shifted left and up)
+        // Note: giveQrImg is generated ONCE at init, not every frame
         if (giveQrLoaded && giveQrImg.complete) {
           ctx.save();
-          const qrSize = Math.min(w, h) * 0.24; // 24% of canvas size (larger)
-          const qrPadding = 24; // More padding from edge
-          const qrX = w - qrSize - qrPadding - 20; // Shifted left by 20px
-          const qrY = h - qrSize - qrPadding - 15; // Shifted up by 15px
+          const qrSize = Math.min(w, h) * 0.28; // 28% of canvas size (bigger)
+          const qrPadding = 20;
+          const qrX = w - qrSize - qrPadding - 25; // Shifted left
+          const qrY = h - qrSize - qrPadding - 20; // Shifted up
           
-          // Pulsing white glow effect
-          const qrPulse = 0.85 + 0.15 * Math.sin(Date.now() / 400); // Oscillate between 0.85 and 1.0
-          const qrGlow = 8 + 6 * Math.sin(Date.now() / 300); // Glow pulse
+          // Pulsing white glow effect (use cached time for perf)
+          const qrTime = Date.now();
+          const qrPulse = 0.88 + 0.12 * Math.sin(qrTime / 400);
+          const qrGlow = 10 + 8 * Math.sin(qrTime / 300);
           
           // Bright white background with pulse
           ctx.globalAlpha = masterAlpha * qrPulse;
           ctx.fillStyle = '#ffffff';
-          ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+          ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
           ctx.shadowBlur = qrGlow;
-          const bgPad = 8;
+          const bgPad = 10;
           ctx.beginPath();
-          const qrRadius = 6;
+          const qrRadius = 8;
           ctx.moveTo(qrX - bgPad + qrRadius, qrY - bgPad);
           ctx.lineTo(qrX + qrSize + bgPad - qrRadius, qrY - bgPad);
           ctx.quadraticCurveTo(qrX + qrSize + bgPad, qrY - bgPad, qrX + qrSize + bgPad, qrY - bgPad + qrRadius);
@@ -6463,23 +6480,16 @@
           
           // Pulsing border
           ctx.shadowBlur = 0;
-          const borderPulse = 0.6 + 0.4 * Math.sin(Date.now() / 350);
+          const borderPulse = 0.5 + 0.5 * Math.sin(qrTime / 350);
           ctx.strokeStyle = `rgba(100, 255, 180, ${borderPulse})`;
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 2.5;
           ctx.stroke();
           
-          // Draw QR code
+          // Draw QR code (pre-generated image, not regenerated each frame)
           ctx.globalAlpha = masterAlpha;
           ctx.imageSmoothingEnabled = false; // Keep QR crisp
           ctx.drawImage(giveQrImg, qrX, qrY, qrSize, qrSize);
           ctx.imageSmoothingEnabled = true;
-          
-          // Small label below QR with pulse
-          ctx.font = `bold ${Math.max(10, qrSize * 0.11)}px 'Berkeley Mono Variable', monospace`;
-          ctx.fillStyle = `rgba(0, 0, 0, ${0.7 + 0.2 * Math.sin(Date.now() / 400)})`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          ctx.fillText('scan to give', qrX + qrSize / 2, qrY + qrSize + bgPad + 3);
           
           ctx.restore();
         }
