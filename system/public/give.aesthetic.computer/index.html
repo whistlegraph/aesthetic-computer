@@ -1388,17 +1388,18 @@
       border: 2px solid rgba(0,0,0,0.35);
       box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3);
       transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
-      transform: scale(1.15);
+      transform: scale(1.4);
+      transform-origin: center center;
     }
 
     .gift-controls input[type="range"]::-webkit-slider-thumb:hover {
       box-shadow: 0 3px 10px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.3);
-      transform: scale(1.25);
+      transform: scale(1.5);
     }
 
     .gift-controls input[type="range"]::-webkit-slider-thumb:active {
       cursor: grabbing;
-      transform: scale(1.35);
+      transform: scale(1.6);
       box-shadow: 0 4px 12px rgba(0,0,0,0.7), inset 0 2px 4px rgba(255,255,255,0.3);
     }
 
@@ -1411,12 +1412,13 @@
       border: 2px solid rgba(0,0,0,0.35);
       box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3);
       transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
-      transform: scale(1.15);
+      transform: scale(1.4);
+      transform-origin: center center;
     }
 
     .gift-controls input[type="range"]::-moz-range-thumb:hover {
       box-shadow: 0 3px 10px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.3);
-      transform: scale(1.25);
+      transform: scale(1.5);
     }
 
     .gift-controls input[type="range"]::-moz-range-thumb:active {
@@ -1822,7 +1824,7 @@
       padding: 0.6em 1em;
       background: linear-gradient(135deg, rgba(106, 74, 138, 0.2) 0%, rgba(0, 255, 255, 0.05) 100%);
       border: 1px solid var(--box-border);
-      border-radius: 8px 8px 0 0;
+      border-radius: 0;
     }
     
     .crypto-logo-tiny {
@@ -3732,13 +3734,37 @@
       z-index: 0;
       pointer-events: none;
       opacity: 1;
-      animation: glowHueShift 12s linear infinite;
     }
 
-    @keyframes glowHueShift {
-      0% { filter: blur(30px) saturate(1.8) brightness(0.8) hue-rotate(0deg); }
-      50% { filter: blur(30px) saturate(1.8) brightness(0.8) hue-rotate(30deg); }
-      100% { filter: blur(30px) saturate(1.8) brightness(0.8) hue-rotate(0deg); }
+    /* TV section wrapper for backdrop glow effect */
+    .tv-section-wrap {
+      position: relative;
+      isolation: isolate;
+    }
+
+    /* Colorful video blur backdrop behind the panel - like a glowing drop shadow */
+    .tv-backdrop-glow {
+      position: absolute;
+      top: 10px;
+      left: 0;
+      right: 0;
+      bottom: -10px;
+      border-radius: 12px;
+      overflow: hidden;
+      filter: blur(25px) saturate(1.6) brightness(0.7);
+      opacity: 0.85;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .tv-backdrop-glow video {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(2);
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
     /* VHS scanlines overlay - scrolling */
@@ -5424,7 +5450,9 @@
       </div>
       -->
 
-      <div class="tv-section">
+      <div class="tv-section-wrap">
+        <div class="tv-backdrop-glow" id="tvBackdropGlow"></div>
+        <div class="tv-section">
         <a href="https://aesthetic.computer/tapes" class="tv-header" id="tvHeader">
           <strong>📼 tapes</strong>
         </a>
@@ -5438,6 +5466,7 @@
           <span data-lang="es">Prefija un prompt con <span class="dim">tape</span> para grabar GIFs y MP4s.</span>
           <span data-lang="zh">在提示前加 <span class="dim">tape</span> 即可录制 GIF 和 MP4。</span>
         </div>
+      </div>
       </div>
 
       <!-- AT Proto Section (hidden for now) -->
