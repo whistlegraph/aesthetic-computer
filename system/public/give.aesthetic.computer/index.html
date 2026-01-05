@@ -5144,19 +5144,42 @@
   </dialog>
 
   <script>
-    // ====== A/B Test: Starting Price ======
-    // Randomly show $64 or $128 as starting price
-    const abTestStartPrice = Math.random() < 0.5 ? 64 : 128;
+    // ====== A/B/C Test: Starting Price ======
+    // A: $64 one-time (33%), B: $128 one-time (33%), C: $8 monthly (33%)
+    const abcTestRandom = Math.random();
+    const abcTestVariant = abcTestRandom < 0.33 ? 'A' : abcTestRandom < 0.66 ? 'B' : 'C';
+    const abcTestStartPrice = abcTestVariant === 'A' ? 64 : abcTestVariant === 'B' ? 128 : 8;
+    const abcTestIsMonthly = abcTestVariant === 'C';
     
-    // Apply A/B test price to all USD widgets immediately
+    // Apply A/B/C test price to all USD widgets immediately
     document.querySelectorAll('.gift-widget[data-currency="usd"]').forEach(widget => {
       const amountEl = widget.querySelector('.gift-amount');
       const slider = widget.querySelector('input[type="range"]');
       const btn = widget.querySelector('.gift-btn');
-      if (amountEl) amountEl.textContent = `$${abTestStartPrice}`;
-      if (slider) slider.value = abTestStartPrice;
-      if (btn) btn.textContent = `Give $${abTestStartPrice}`;
+      const monthlyCheck = widget.querySelector('.monthly-checkbox');
+      const monthlyLabel = widget.querySelector('.gift-monthly-check');
+      
+      if (amountEl) amountEl.textContent = `$${abcTestStartPrice}`;
+      if (slider) {
+        // Adjust slider range for monthly mode
+        if (abcTestIsMonthly) {
+          slider.min = 1;
+          slider.max = 500;
+        }
+        slider.value = abcTestStartPrice;
+      }
+      if (btn) btn.textContent = abcTestIsMonthly ? `Give $${abcTestStartPrice}/month` : `Give $${abcTestStartPrice}`;
+      
+      // For variant C, check the monthly box
+      if (abcTestIsMonthly && monthlyCheck) {
+        monthlyCheck.checked = true;
+        if (monthlyLabel) monthlyLabel.classList.add('checked');
+        widget.classList.add('monthly-mode');
+      }
     });
+    
+    // Log variant for analytics
+    console.log(`🧪 A/B/C Test Variant: ${abcTestVariant} ($${abcTestStartPrice}${abcTestIsMonthly ? '/mo' : ''})`);
     
     // ====== Jeffreys Ken Burns Canvas Slideshow ======
     // POI (Points of Interest) data: faces, bodies, hands
@@ -5418,11 +5441,11 @@
       let giveQrLoaded = false;
       giveQrImg.onload = () => { giveQrLoaded = true; };
       
-      // A/B test: randomly start at $64 or $128
-      const abTestPrice = Math.random() < 0.5 ? 64 : 128;
+      // A/B/C test: use the global variant (already set above)
+      // A: $64, B: $128, C: $8 monthly
       
       // Track current price and intensity from the widget
-      let currentPrice = `$${abTestPrice}`;
+      let currentPrice = `$${abcTestStartPrice}`;
       let currentIntensity = 1; // 0-4 intensity level
       function updatePriceFromWidget() {
         const widget = container.closest('.gift-widget');
@@ -7166,7 +7189,8 @@
       const btn = widget.querySelector('.gift-btn');
       const monthlyCheck = widget.querySelector('.monthly-checkbox');
       const monthlyLabel = widget.querySelector('.gift-monthly-check');
-      let isMonthly = false;
+      // Initialize isMonthly from A/B/C test state (for USD) or checkbox state
+      let isMonthly = currency === 'usd' && typeof abcTestIsMonthly !== 'undefined' ? abcTestIsMonthly : (monthlyCheck?.checked || false);
 
       // Monthly checkbox
       if (monthlyCheck) {
@@ -7582,7 +7606,7 @@
     const WALLET_ADDRESSES = {
       btc: 'bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as',
       eth: '0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023',
-      xtz: 'tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT'
+      xtz: 'tz1gkf8EexComFBJvjtT1zdsisdah791KwBE'
     };
     
     async function fetchCryptoPrices() {
