@@ -3533,6 +3533,80 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     consumeDiskSends(send);
   }
 
+  // 🛑 HALT Detection - Watchdog for unresponsive disk worker
+  let lastPongTime = Date.now();
+  let haltDetected = false;
+  const HALT_TIMEOUT_MS = 5000; // 5 seconds before triggering HALT
+  const PING_INTERVAL_MS = 1000; // Ping every second
+
+  // Only enable watchdog in worker mode
+  if (workersEnabled) {
+    // Send periodic pings to the worker
+    setInterval(() => {
+      if (!haltDetected) {
+        send({ type: "watchdog:ping", content: { timestamp: Date.now() } });
+      }
+    }, PING_INTERVAL_MS);
+
+    // Check for HALT condition
+    setInterval(() => {
+      if (haltDetected) return;
+      const timeSinceLastPong = Date.now() - lastPongTime;
+      if (timeSinceLastPong > HALT_TIMEOUT_MS) {
+        haltDetected = true;
+        console.error("🛑 HALT DETECTED! Worker unresponsive for", timeSinceLastPong, "ms");
+        triggerHaltSequence();
+      }
+    }, 500);
+  }
+
+  // Handle pong responses from worker
+  window.acHandleWatchdogPong = () => {
+    lastPongTime = Date.now();
+  };
+
+  // HALT sequence: flash red/yellow, show warning, reload
+  function triggerHaltSequence() {
+    // Create HALT overlay
+    const overlay = document.createElement("div");
+    overlay.id = "halt-overlay";
+    overlay.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: monospace;
+        font-size: 8vw;
+        font-weight: bold;
+        z-index: 999999;
+        pointer-events: none;
+      ">
+        <div style="color: #ff0000; text-shadow: 0 0 20px #ff0000;">⚠️ HALT ⚠️</div>
+        <div style="font-size: 2vw; color: #ffff00; margin-top: 20px;">Worker unresponsive - reloading...</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Flash red and yellow
+    let flashCount = 0;
+    const flashColors = ["#ff0000", "#ffff00"];
+    const flashInterval = setInterval(() => {
+      document.body.style.backgroundColor = flashColors[flashCount % 2];
+      overlay.style.backgroundColor = flashColors[(flashCount + 1) % 2] + "80";
+      flashCount++;
+      if (flashCount >= 6) {
+        clearInterval(flashInterval);
+        // Reload the page after flashing
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      }
+    }, 150);
+  }
+
   // 🎮 Initialize Game Boy emulator in main thread
   // (Placed after worker setup so `send` is properly wired)
   async function initGameboy() {
@@ -4062,6 +4136,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 📊 Receive disk worker timing data (silent)
     if (type === "disk-timings") {
       window.acDiskTimings = content;
+      return;
+    }
+
+    // 🛑 Watchdog pong response from worker
+    if (type === "watchdog:pong") {
+      if (window.acHandleWatchdogPong) window.acHandleWatchdogPong();
       return;
     }
 
