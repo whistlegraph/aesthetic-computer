@@ -3551,7 +3551,7 @@
 
     .tv-progress {
       position: absolute;
-      bottom: 2.4em; /* Align with top of caption bar */
+      bottom: 0; /* At bottom of tv-player, which ends at top of caption */
       left: 0;
       right: 0;
       height: 32px;
@@ -3563,6 +3563,9 @@
     }
 
     .tv-progress-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
       height: 3px;
       background: #e53935;
       width: 0%;
@@ -9461,7 +9464,14 @@
     let tvPlayer = null;
     let tvMuted = true; // Preserve mute state across tape changes
     let tvErrorCount = 0;
+    let tvPlayId = 0; // Track current play session to prevent stale callbacks
     const TV_MAX_ERRORS = 5; // Stop trying after too many consecutive errors
+    
+    // Scrubbing state - defined once outside playTVVideo to avoid duplicate listeners
+    let tvIsScrubbing = false;
+    let tvScrubFn = null;
+    document.addEventListener('mousemove', (e) => { if (tvIsScrubbing && tvScrubFn) tvScrubFn(e); });
+    document.addEventListener('mouseup', () => { tvIsScrubbing = false; });
     
     async function loadTVFeed() {
       const container = document.getElementById('tvPlayer');
@@ -9497,7 +9507,13 @@
       const container = document.getElementById('tvPlayer');
       const header = document.getElementById('tvHeader');
       const tape = tvTapes[index];
+      
+      // Increment play ID to invalidate callbacks from previous video loads
+      const currentPlayId = ++tvPlayId;
+      console.log(`[TV] playTVVideo(${index}) started, playId=${currentPlayId}, tape=${tape?.code || 'unknown'}`);
+      
       if (!tape) {
+        console.warn(`[TV] No tape at index ${index}`);
         container.innerHTML = '<div class="tv-no-signal">No signal</div>';
         return;
       }
@@ -9549,11 +9565,23 @@
       }
       
       // Remove ALL old slides and glows (not just one) to prevent overlap on rapid clicks
-      container.querySelectorAll('.tv-slide').forEach(oldSlide => {
+      // Also STOP old videos immediately to prevent continued loading
+      const oldSlides = container.querySelectorAll('.tv-slide');
+      console.log(`[TV] Cleaning up ${oldSlides.length} old slides`);
+      oldSlides.forEach(oldSlide => {
+        const oldVideo = oldSlide.querySelector('video');
+        if (oldVideo) {
+          console.log(`[TV] Stopping old video: ${oldVideo.src?.slice(-30)}`);
+          oldVideo.pause();
+          oldVideo.removeAttribute('src');
+          oldVideo.load(); // Abort any ongoing fetch
+        }
         oldSlide.classList.add('exiting');
         setTimeout(() => oldSlide.remove(), 400);
       });
       container.querySelectorAll('.tv-bg-glow').forEach(oldGlow => {
+        oldGlow.pause();
+        oldGlow.removeAttribute('src');
         oldGlow.style.opacity = '0';
         setTimeout(() => oldGlow.remove(), 400);
       });
@@ -9583,6 +9611,8 @@
       // Create new slide (main video only)
       const slide = document.createElement('div');
       slide.className = 'tv-slide entering';
+      console.log(`[TV] Loading video URL: ${tape.media.videoUrl}`);
+      console.log(`[TV] Full tape data:`, tape);
       slide.innerHTML = `
         <video 
           src="${tape.media.videoUrl}" 
@@ -9661,24 +9691,18 @@
         return `${m}:${s.toString().padStart(2, '0')}`;
       }
       
-      // Scrubbing functionality
+      // Scrubbing functionality - uses global document listeners defined once above
       function scrubTo(e) {
         if (!tvPlayer.duration) return;
         const rect = progressContainer.getBoundingClientRect();
         const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
         tvPlayer.currentTime = pct * tvPlayer.duration;
       }
+      tvScrubFn = scrubTo; // Update global scrub function reference
       
-      let isScrubbing = false;
       progressContainer.addEventListener('mousedown', (e) => {
-        isScrubbing = true;
+        tvIsScrubbing = true;
         scrubTo(e);
-      });
-      document.addEventListener('mousemove', (e) => {
-        if (isScrubbing) scrubTo(e);
-      });
-      document.addEventListener('mouseup', () => {
-        isScrubbing = false;
       });
       progressContainer.addEventListener('click', (e) => {
         e.stopPropagation(); // Prevent play/pause toggle
@@ -9748,20 +9772,39 @@
         });
         
         tvPlayer.addEventListener('ended', () => {
+          // Ignore if this video is from an old play session (user clicked rapidly)
+          if (currentPlayId !== tvPlayId) {
+            console.log(`[TV] IGNORED ended event: playId=${currentPlayId} but current=${tvPlayId}`);
+            return;
+          }
+          console.log(`[TV] ended event, advancing from index ${tvIndex} to ${(tvIndex + 1) % tvTapes.length}`);
           tvErrorCount = 0; // Reset error count on successful play
           tvIndex = (tvIndex + 1) % tvTapes.length;
           playTVVideo(tvIndex);
         });
         tvPlayer.addEventListener('canplay', () => {
+          if (currentPlayId !== tvPlayId) {
+            console.log(`[TV] IGNORED canplay event: playId=${currentPlayId} but current=${tvPlayId}`);
+            return;
+          }
+          console.log(`[TV] canplay event, playId=${currentPlayId}`);
           tvErrorCount = 0; // Reset error count when video loads successfully
         });
-        tvPlayer.addEventListener('error', () => {
+        tvPlayer.addEventListener('error', (e) => {
+          // Ignore errors from old video loads (user clicked rapidly)
+          if (currentPlayId !== tvPlayId) {
+            console.log(`[TV] IGNORED error event: playId=${currentPlayId} but current=${tvPlayId}`);
+            return;
+          }
+          console.error(`[TV] error event, playId=${currentPlayId}, errorCount=${tvErrorCount + 1}`, tvPlayer.error);
           tvErrorCount++;
           if (tvErrorCount >= TV_MAX_ERRORS) {
+            console.error(`[TV] Too many errors (${tvErrorCount}), showing no signal`);
             container.innerHTML = '<div class="tv-no-signal">No signal</div>';
             return;
           }
           // Skip broken videos
+          console.log(`[TV] Skipping to next tape due to error`);
           tvIndex = (tvIndex + 1) % tvTapes.length;
           setTimeout(() => playTVVideo(tvIndex), 500);
         });
@@ -9769,7 +9812,11 @@
       
       attachListeners();
       
-      tvPlayer.play().catch(() => {
+      console.log(`[TV] Calling play() for playId=${currentPlayId}`);
+      tvPlayer.play().then(() => {
+        console.log(`[TV] play() succeeded for playId=${currentPlayId}`);
+      }).catch((err) => {
+        console.warn(`[TV] play() failed for playId=${currentPlayId}:`, err.message);
         // Autoplay blocked - add click overlay (keep video and listeners intact)
         const overlay = document.createElement('div');
         overlay.className = 'module-loading';
