@@ -1856,13 +1856,25 @@
     }
 
     .crypto-label {
-      display: block;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       font-family: var(--mono);
-      font-size: 1.6em;
       font-weight: 600;
       color: var(--cyan);
       margin-bottom: 0.4em;
       text-align: center;
+    }
+
+    .crypto-label .crypto-symbol {
+      font-size: 2.2em;
+      line-height: 1;
+      margin-bottom: 0.1em;
+    }
+
+    .crypto-label .crypto-name {
+      font-size: 0.9em;
+      opacity: 0.8;
     }
 
     .crypto-balance {
@@ -4733,19 +4745,19 @@
               </div>
               <div class="crypto-controls crypto-all">
                 <div class="crypto-address copyable crypto-featured" data-copy="tz1gkf8EexComFBJvjtT1zdsisdah791KwBE" data-crypto="xtz">
-                  <span class="crypto-label">🔮 aesthetic.tez</span>
+                  <span class="crypto-label"><span class="crypto-symbol">ꜩ</span><span class="crypto-name">aesthetic.tez</span></span>
                   <span class="crypto-balance" id="balance-xtz"><span class="loading">loading...</span></span>
                   <code class="crypto-addr">tz1gkf8E<span class="addr-dots">···</span>1KwBE</code>
                   <span class="crypto-copy-hint">→ copy</span>
                 </div>
                 <div class="crypto-address copyable" data-copy="0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023" data-crypto="eth">
-                  <span class="crypto-label">💎 4esthetic.eth</span>
+                  <span class="crypto-label"><span class="crypto-symbol">Ξ</span><span class="crypto-name">4esthetic.eth</span></span>
                   <span class="crypto-balance" id="balance-eth"><span class="loading">loading...</span></span>
                   <code class="crypto-addr">0x1D64E3<span class="addr-dots">···</span>ef023</code>
                   <span class="crypto-copy-hint">→ copy</span>
                 </div>
                 <div class="crypto-address copyable" data-copy="bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as" data-crypto="btc">
-                  <span class="crypto-label">🟠 bitcoin</span>
+                  <span class="crypto-label"><span class="crypto-symbol">₿</span><span class="crypto-name">bitcoin</span></span>
                   <span class="crypto-balance" id="balance-btc"><span class="loading">loading...</span></span>
                   <code class="crypto-addr">bc1q699g<span class="addr-dots">···</span>f59as</code>
                   <span class="crypto-copy-hint">→ copy</span>
