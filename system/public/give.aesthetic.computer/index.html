@@ -3021,7 +3021,7 @@
 
     .tv-play-indicator {
       position: absolute;
-      bottom: 30px;
+      bottom: 14px;
       left: 10px;
       width: 24px;
       height: 24px;
@@ -6445,6 +6445,8 @@
         if (targetVisual && !targetVisual.contains(slideshow)) {
           // Insert slideshow as first child of gift-visual
           targetVisual.insertBefore(slideshow, targetVisual.firstChild);
+          // Ensure target visual has loaded class (prevent blur)
+          targetVisual.classList.add('loaded');
         }
       }
       
@@ -6780,14 +6782,23 @@
     // Load saved preferences or detect from browser
     const savedPrefs = getPrefs();
     let currentLang = savedPrefs.lang;
-    if (!currentLang) {
+    
+    // URL params can override saved prefs (for shareable links like ?lang=da&currency=dkk)
+    const langParam = urlParams.get('lang');
+    const currencyParam = urlParams.get('currency');
+    
+    if (langParam && ['en', 'da', 'de', 'es', 'zh'].includes(langParam)) {
+      currentLang = langParam;
+    } else if (!currentLang) {
       currentLang = navigator.language.startsWith('da') ? 'da' : 'en';
     }
     setLanguage(currentLang);
     updateLangUI(currentLang);
     
-    // Restore saved currency
-    if (savedPrefs.currency) {
+    // Restore saved currency or use URL param
+    if (currencyParam && ['usd', 'dkk', 'crypto'].includes(currencyParam)) {
+      setCurrency(currencyParam);
+    } else if (savedPrefs.currency) {
       setCurrency(savedPrefs.currency);
     } else if (currentLang === 'da') {
       setCurrency('dkk');

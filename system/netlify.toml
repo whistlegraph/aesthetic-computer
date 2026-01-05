@@ -582,6 +582,11 @@ force = true
 
 # give.aesthetic.computer - Support/donation page
 [[redirects]]
+from = "https://give.aesthetic.computer/da"
+to = "/give.aesthetic.computer/index.html?lang=da&currency=dkk"
+status = 200
+force = true
+[[redirects]]
 from = "https://give.aesthetic.computer/api/give-portal"
 to = "/.netlify/functions/give-portal"
 status = 200
