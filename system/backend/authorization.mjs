@@ -42,6 +42,11 @@ export async function hasAdmin(user, tenant = "aesthetic") {
     );
   } else if (tenant === "sotce") {
     const subs = process.env.SOTCE_ADMIN_SUBS?.split(",");
+    if (!subs || subs.length === 0) {
+      // Fallback: check if user email is in admin list
+      const adminEmails = ["me@jas.life", "sotce.net@gmail.com"];
+      return user && user.email && adminEmails.includes(user.email.toLowerCase());
+    }
     const handle = await handleFor(user.sub, "sotce");
     return (
       user &&
