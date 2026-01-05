@@ -55,10 +55,21 @@ function addServerLog(type, icon, msg) {
 export { addServerLog };
 
 // Log server startup
-addServerLog('info', '�', 'Oven server starting...');
+addServerLog('info', '🔥', 'Oven server starting...');
 
 // Parse JSON bodies
 app.use(express.json());
+
+// CORS headers for cross-origin image loading (needed for canvas pixel validation)
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // Unified dashboard HTML - everything is a "bake"
 app.get('/', (req, res) => {
