@@ -143,7 +143,8 @@ export function parseMessageElements(message) {
   }
 
   // Parse r8dio / r8Dio references (case insensitive) - radio player
-  const r8dioRegex = /\br8dio\b/gi;
+  // Use negative lookbehind to avoid matching @r8dio (which is a handle, not radio link)
+  const r8dioRegex = /(?<!@)\br8dio\b/gi;
   while ((match = r8dioRegex.exec(message)) !== null) {
     elements.push({
       type: "r8dio",
