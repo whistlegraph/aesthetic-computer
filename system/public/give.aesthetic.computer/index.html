@@ -9092,13 +9092,19 @@
           img.alt = code;
           img.loading = i === 0 ? 'eager' : 'lazy';
           img.onload = () => {
-            img.classList.add('loaded');
-            const loader = slide.querySelector('.module-loading');
-            if (loader) loader.remove();
+            // Only show if image has actual content (not blank/error placeholder)
+            // Check naturalWidth/Height to ensure it's a real image
+            if (img.naturalWidth > 1 && img.naturalHeight > 1) {
+              img.classList.add('loaded');
+              const loader = slide.querySelector('.module-loading');
+              if (loader) loader.remove();
+            }
+            // If blank/tiny, just leave the loading spinner or code preview visible
           };
           img.onerror = () => {
-            const link = slide.querySelector('a');
-            if (link) link.innerHTML = '<div style="color:#444;font-size:0.8em;padding:2em;">⚠️</div>';
+            // On error, don't show anything - leave code preview visible
+            // Remove the broken img element
+            if (img.parentNode) img.remove();
           };
           
           const link = slide.querySelector('a');
