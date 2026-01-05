@@ -4258,6 +4258,35 @@
         transform: translateY(calc(var(--swing-y, -8px) * 0.6)) translateX(calc(var(--swing-x, 3px) * -0.5)) rotate(calc(var(--rot-base, 0deg) - var(--rot-swing, 4deg) * 0.4)) scale(0.99);
       }
     }
+
+    /* Responsive floating gives - smaller on mobile */
+    @media (max-width: 768px) {
+      .floating-give {
+        font-size: 1em;
+        letter-spacing: 0.08em;
+      }
+      .floating-give .amount {
+        font-size: 0.9em;
+      }
+      .floating-give .note {
+        font-size: 0.85em;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .floating-give {
+        font-size: 0.8em;
+        letter-spacing: 0.05em;
+        max-width: 70%;
+      }
+      .floating-give .amount {
+        font-size: 0.85em;
+        margin-right: 0.3em;
+      }
+      .floating-give .note {
+        font-size: 0.75em;
+      }
+    }
   </style>
 </head>
 
