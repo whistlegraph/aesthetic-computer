@@ -464,8 +464,9 @@
     .gives-ticker {
       background: linear-gradient(180deg, rgba(0, 40, 20, 0.4) 0%, rgba(0, 20, 10, 0.5) 100%);
       border: 1px solid rgba(100, 255, 150, 0.2);
-      border-radius: 6px;
-      margin-bottom: 1em;
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      margin-bottom: 0;
       position: relative;
       height: 2.4em;
       overflow: hidden;
@@ -901,7 +902,8 @@
       padding: 0; /* No padding - slideshow fills completely */
       background: linear-gradient(135deg, rgba(205, 92, 155, 0.1) 0%, rgba(0, 255, 255, 0.05) 100%);
       border: 1px solid var(--box-border);
-      border-radius: 8px 8px 0 0;
+      border-top: none;
+      border-radius: 0;
       /* Safari mobile fix for border-radius */
       -webkit-mask-image: -webkit-radial-gradient(white, black);
       isolation: isolate;
@@ -918,10 +920,10 @@
       filter: blur(0) brightness(1);
     }
 
-    /* Ticker wrapper with subscript stats */
+    /* Ticker wrapper with superscript stats above */
     .ticker-stats-row {
       position: relative;
-      margin-bottom: 0.6em;
+      margin-bottom: 0;
     }
 
     .ticker-center {
@@ -932,7 +934,7 @@
       display: flex;
       justify-content: space-between;
       gap: 1em;
-      margin-top: 0.4em;
+      margin-bottom: 0.4em;
       padding-left: 0.25em;
       padding-right: 0.25em;
       font-family: var(--mono);
@@ -1357,6 +1359,12 @@
       display: flex;
       flex-direction: column;
       gap: 0;
+      position: relative;
+    }
+
+    .slider-wrapper {
+      position: relative;
+      overflow: visible;
     }
 
     .gift-controls input[type="range"] {
@@ -1364,7 +1372,7 @@
       width: 100%;
       height: 12px;
       background: var(--cyan);
-      border-radius: 0 0 8px 8px;
+      border-radius: 0;
       outline: none;
       cursor: pointer;
       margin: 0;
@@ -1375,30 +1383,56 @@
       z-index: 10;
     }
 
+    /* Hide native thumb - we'll use custom nodule */
     .gift-controls input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 24px;
       height: 24px;
-      background: var(--text);
+      background: transparent;
       border-radius: 50%;
       cursor: grab;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
       position: relative;
       z-index: 20;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-      animation: thumbPulseDefault 1.2s ease-in-out infinite;
     }
 
     .gift-controls input[type="range"]::-moz-range-thumb {
       width: 24px;
       height: 24px;
-      background: var(--text);
+      background: transparent;
       border-radius: 50%;
       cursor: grab;
       border: none;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-      animation: thumbPulseDefault 1.2s ease-in-out infinite;
+    }
+
+    /* Custom slider nodule */
+    .slider-nodule {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 28px;
+      height: 28px;
+      background: var(--text);
+      border-radius: 50%;
+      cursor: grab;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+      border: 2px solid rgba(255,255,255,0.5);
+      z-index: 25;
+      pointer-events: none;
+      transition: transform 0.08s ease-out;
+      animation: nodulePulse 1.2s ease-in-out infinite;
+    }
+
+    .slider-nodule:active {
+      cursor: grabbing;
+    }
+
+    @keyframes nodulePulse {
+      0%, 100% { 
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 0 rgba(78, 205, 196, 0);
+      }
+      50% { 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 12px rgba(78, 205, 196, 0.5);
+      }
     }
 
     @keyframes thumbPulseDefault {
@@ -1713,7 +1747,7 @@
       background: linear-gradient(180deg, var(--green) 0%, #3a8a4a 100%);
       color: white;
       border: 2px solid #5ab06a;
-      border-radius: 8px;
+      border-radius: 0 0 8px 8px;
       cursor: pointer;
       width: 100%;
       transition: all 0.15s;
@@ -1721,7 +1755,7 @@
       letter-spacing: 0.02em;
       box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2);
       text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-      margin-top: 1em;
+      margin-top: 0;
     }
     
     .gift-btn .price {
@@ -4797,7 +4831,7 @@
       right: 0;
       bottom: 0;
       overflow: hidden;
-      border-radius: 8px 8px 0 0;
+      border-radius: 0;
       z-index: 0;
     }
 
@@ -5094,11 +5128,6 @@
       <!-- Gives Ticker - cycles through recent gives -->
       <div class="fiat-section full-width">
         <div class="ticker-stats-row">
-          <div class="ticker-center">
-            <div class="gives-ticker" id="givesTicker">
-              <div class="gives-ticker-empty">Loading gives...</div>
-            </div>
-          </div>
           <div class="ticker-subscripts">
             <div class="ticker-stat-badge gives-badge" id="giveStatsGives">
               <span class="ticker-stat-value">0</span>
@@ -5107,6 +5136,11 @@
             <div class="ticker-stat-badge monthly-badge" id="giveStatsSubs">
               <span class="ticker-stat-value">0</span>
               <span class="ticker-stat-label">monthly</span>
+            </div>
+          </div>
+          <div class="ticker-center">
+            <div class="gives-ticker" id="givesTicker">
+              <div class="gives-ticker-empty">Loading gives...</div>
             </div>
           </div>
         </div>
@@ -5121,7 +5155,11 @@
                 </div>
               </div>
               <div class="gift-controls">
-                <input type="range" min="1" max="2048" step="1" value="128">
+                <div class="slider-wrapper">
+                  <input type="range" min="1" max="2048" step="1" value="128">
+                  <div class="slider-nodule"></div>
+                </div>
+                <button class="gift-btn" data-currency="usd">Give $128</button>
                 <div class="invest-suggestion" style="display: none;">
                   <span data-lang="en">At this level, consider <a href="#invest" class="invest-link">investing</a> for equity!</span>
                   <span data-lang="da">På dette niveau, overvej at <a href="#invest" class="invest-link">investere</a> for ejerandel!</span>
@@ -5129,7 +5167,6 @@
                   <span data-lang="es">¡A este nivel, considere <a href="#invest" class="invest-link">invertir</a> para obtener participación!</span>
                   <span data-lang="zh">在此金额下，考虑<a href="#invest" class="invest-link">投资</a>获取股权！</span>
                 </div>
-                <button class="gift-btn" data-currency="usd">Give $128</button>
                 <div class="gift-monthly-row">
                   <div class="gift-monthly-stack">
                     <label class="gift-monthly-check">
@@ -5732,61 +5769,15 @@
     
     // Headshots - professional AV shoot photos (face-focused)
     // URL pattern: https://assets.aesthetic.computer/jeffreys/shoot/{filename}
+    // Reduced set for less frequent appearance
     const headshotsData = {
-      'jeffery-av--01.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--02.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--03.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--04.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
       'jeffery-av--05.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--06.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--07.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--08.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--09.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--10.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--11.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
       'jeffery-av--12.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--13.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--14.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--15.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--16.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--17.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--18.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--19.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
       'jeffery-av--20.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--21.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--22.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--23.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--24.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--25.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--26.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--27.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
       'jeffery-av--28.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--29.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--30.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--31.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--32.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--33.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--34.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
       'jeffery-av--35.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--36.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--37.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--38.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--39.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--40.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--41.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
       'jeffery-av--42.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--43.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--44.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--45.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--46.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--47.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
       'jeffery-av--48.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--49.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--50.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--51.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--52.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--53.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
-      'jeffery-av--54.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
       'jeffery-av--55.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
     };
     
@@ -8011,6 +8002,17 @@
         const suffix = isMonthly ? '/mo' : '';
         const text = format(value) + suffix;
         
+        // Update custom nodule position
+        const nodule = widget.querySelector('.slider-nodule');
+        if (nodule && slider) {
+          const min = parseFloat(slider.min);
+          const max = parseFloat(slider.max);
+          const pct = (value - min) / (max - min);
+          // Position from -10% to 110% so center can go past edges
+          const leftPct = -10 + (pct * 120);
+          nodule.style.left = `${leftPct}%`;
+        }
+        
         // Create wiggling characters
         // For DKK, '|' is a marker for the space before 'kr' - render as margin
         amountEl.innerHTML = text.split('').map(c => {
@@ -9023,17 +9025,9 @@
         const res = await fetch(givesUrl);
         const data = await res.json();
         
-        // Add subscriber count to ticker if available
+        // Update stats badges (subscribers shown in badge, not ticker)
         if (data.activeSubscribers > 0) {
-          const subTexts = {
-            en: `🔁 <strong>${data.activeSubscribers}</strong> monthly supporter${data.activeSubscribers === 1 ? '' : 's'}`,
-            da: `🔁 <strong>${data.activeSubscribers}</strong> månedlig${data.activeSubscribers === 1 ? '' : 'e'} støtte${data.activeSubscribers === 1 ? 'r' : 're'}`,
-            de: `🔁 <strong>${data.activeSubscribers}</strong> monatliche${data.activeSubscribers === 1 ? 'r' : ''} Unterstützer`,
-            es: `🔁 <strong>${data.activeSubscribers}</strong> suscriptor${data.activeSubscribers === 1 ? '' : 'es'} mensual${data.activeSubscribers === 1 ? '' : 'es'}`,
-            zh: `🔁 <strong>${data.activeSubscribers}</strong> 位月度支持者`
-          };
-          const subText = subTexts[currentLang] || subTexts.en;
-          serverCostItem = `<span class="gives-ticker-item gives-ticker-cta-item">${msgs.serverCost} ${subText}</span>`;
+          // No longer add to ticker - shown in monthly badge instead
         }
         
         // Update stats badges on canvas
@@ -9041,7 +9035,7 @@
         const subsStatsEl = document.getElementById('giveStatsSubs');
         
         if (givesStatsEl && data.count > 0) {
-          const giveLabels = { en: 'gives', da: 'gaver', de: 'Gaben', es: 'donaciones', zh: '捐赠' };
+          const giveLabels = { en: 'gives so far', da: 'gaver indtil nu', de: 'Gaben bisher', es: 'donaciones hasta ahora', zh: '捐赠至今' };
           const valueEl = givesStatsEl.querySelector('.ticker-stat-value');
           const labelEl = givesStatsEl.querySelector('.ticker-stat-label');
           if (valueEl) valueEl.textContent = data.count;
