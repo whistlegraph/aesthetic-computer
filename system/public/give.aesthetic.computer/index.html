@@ -8062,6 +8062,7 @@
     const panelSync = {
       ready: { shop: false, kidlisp: false, chat: false, apps: false },
       started: false,
+      startersRun: false, // Track if starters have been executed
       starters: [],
       
       markReady(panel) {
@@ -8072,7 +8073,8 @@
       
       registerStarter(fn) {
         this.starters.push(fn);
-        if (this.started) fn(); // If already started, run immediately
+        // Only run immediately if starters have ALREADY been executed
+        if (this.startersRun) fn();
       },
       
       checkAllReady() {
@@ -8083,6 +8085,7 @@
           this.started = true;
           // Small delay to ensure UI is settled, then start all at once
           setTimeout(() => {
+            this.startersRun = true;
             this.starters.forEach(fn => fn());
           }, 500);
         }
@@ -9479,9 +9482,11 @@
     panelSync.registerStarter(() => updateFlipProgress());
     
     // WebP/Image Dud Validator - Checks pixel data to detect blank/corrupted animations
+    // For animated webps, samples multiple frames over time to avoid false positives
+    // when first frame is blank (common with "(wipe white)" starts)
     // Returns a promise that resolves to { valid: bool, reason: string, samples: array }
     async function validateWebpImage(img, code = 'unknown') {
-      return new Promise((resolve) => {
+      return new Promise(async (resolve) => {
         // Create offscreen canvas to sample pixels
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -9491,28 +9496,75 @@
         canvas.width = sampleSize;
         canvas.height = sampleSize;
         
+        // For animated webps, sample multiple frames over time
+        // This avoids false positives when early frames are uniform
+        const NUM_FRAMES = 5;
+        const FRAME_DELAY = 150; // ms between frame samples
+        let anyValidFrame = false;
+        let lastResult = null;
+        
+        for (let frameNum = 0; frameNum < NUM_FRAMES; frameNum++) {
+          if (frameNum > 0) {
+            await new Promise(r => setTimeout(r, FRAME_DELAY));
+          }
+          
+          lastResult = await sampleImageOnce(ctx, canvas, img, sampleSize, code, frameNum, NUM_FRAMES);
+          
+          if (lastResult.valid) {
+            anyValidFrame = true;
+            break; // Found a good frame, no need to keep checking
+          }
+        }
+        
+        if (anyValidFrame) {
+          resolve(lastResult);
+        } else {
+          // All frames were duds - report the last result
+          resolve(lastResult);
+        }
+      });
+    }
+    
+    // Helper to sample image pixels once - checks many points for uniformity
+    async function sampleImageOnce(ctx, canvas, img, sampleSize, code, frameNum, totalFrames) {
+      return new Promise((resolve) => {
         try {
+          ctx.clearRect(0, 0, sampleSize, sampleSize);
           ctx.drawImage(img, 0, 0, sampleSize, sampleSize);
           const imageData = ctx.getImageData(0, 0, sampleSize, sampleSize);
           const pixels = imageData.data;
           
-          // Sample points: center, corners, and some random spots
-          const samplePoints = [
-            { x: Math.floor(sampleSize / 2), y: Math.floor(sampleSize / 2), name: 'center' },
-            { x: 2, y: 2, name: 'top-left' },
-            { x: sampleSize - 3, y: 2, name: 'top-right' },
-            { x: 2, y: sampleSize - 3, name: 'bottom-left' },
-            { x: sampleSize - 3, y: sampleSize - 3, name: 'bottom-right' },
-            { x: Math.floor(sampleSize * 0.25), y: Math.floor(sampleSize * 0.25), name: 'q1' },
-            { x: Math.floor(sampleSize * 0.75), y: Math.floor(sampleSize * 0.75), name: 'q3' },
-          ];
+          // Sample many points across the image for better coverage
+          // Grid pattern + corners + diagonals = 25 points
+          const samplePoints = [];
+          
+          // 4x4 grid (16 points)
+          for (let gy = 0; gy < 4; gy++) {
+            for (let gx = 0; gx < 4; gx++) {
+              const x = Math.floor(sampleSize * (0.1 + gx * 0.27));
+              const y = Math.floor(sampleSize * (0.1 + gy * 0.27));
+              samplePoints.push({ x, y, name: `grid-${gx}-${gy}` });
+            }
+          }
+          
+          // Corners (4 points)
+          samplePoints.push({ x: 2, y: 2, name: 'corner-tl' });
+          samplePoints.push({ x: sampleSize - 3, y: 2, name: 'corner-tr' });
+          samplePoints.push({ x: 2, y: sampleSize - 3, name: 'corner-bl' });
+          samplePoints.push({ x: sampleSize - 3, y: sampleSize - 3, name: 'corner-br' });
+          
+          // Center cross (5 points)
+          const mid = Math.floor(sampleSize / 2);
+          samplePoints.push({ x: mid, y: mid, name: 'center' });
+          samplePoints.push({ x: mid, y: Math.floor(sampleSize * 0.2), name: 'center-top' });
+          samplePoints.push({ x: mid, y: Math.floor(sampleSize * 0.8), name: 'center-bot' });
+          samplePoints.push({ x: Math.floor(sampleSize * 0.2), y: mid, name: 'center-left' });
+          samplePoints.push({ x: Math.floor(sampleSize * 0.8), y: mid, name: 'center-right' });
           
           const samples = [];
-          let allBlack = true;
-          let allWhite = true;
           let allTransparent = true;
-          let allSameColor = true;
           let firstColor = null;
+          let maxColorDiff = 0;
           
           for (const pt of samplePoints) {
             const idx = (pt.y * sampleSize + pt.x) * 4;
@@ -9523,51 +9575,47 @@
             
             samples.push({ ...pt, r, g, b, a });
             
-            // Check conditions
+            // Check transparency
             if (a > 10) allTransparent = false;
-            if (r > 5 || g > 5 || b > 5) allBlack = false;
-            if (r < 250 || g < 250 || b < 250) allWhite = false;
             
+            // Track color variance
             if (firstColor === null) {
               firstColor = { r, g, b, a };
             } else {
               const colorDiff = Math.abs(r - firstColor.r) + Math.abs(g - firstColor.g) + 
-                               Math.abs(b - firstColor.b) + Math.abs(a - firstColor.a);
-              if (colorDiff > 20) allSameColor = false;
+                               Math.abs(b - firstColor.b);
+              maxColorDiff = Math.max(maxColorDiff, colorDiff);
             }
           }
           
-          // Determine if it's a dud
+          // Determine if it's a dud - key metric is color variance
+          // If all 25 sample points are within 30 total RGB difference, it's uniform
+          const isUniform = maxColorDiff < 30;
           let valid = true;
           let reason = 'OK';
           
           if (allTransparent) {
             valid = false;
             reason = 'ALL_TRANSPARENT';
-          } else if (allBlack) {
+          } else if (isUniform && firstColor) {
+            // Uniform/solid color = dud (whether black, white, or any color)
             valid = false;
-            reason = 'ALL_BLACK';
-          } else if (allWhite) {
-            valid = false;
-            reason = 'ALL_WHITE';
-          } else if (allSameColor && firstColor) {
-            // Solid color might be intentional, just warn
             const hex = `#${firstColor.r.toString(16).padStart(2,'0')}${firstColor.g.toString(16).padStart(2,'0')}${firstColor.b.toString(16).padStart(2,'0')}`;
-            console.warn(`%c⚠️ WEBP DUD CHECK: $${code} is solid color ${hex}`, 'color: orange; font-size: 14px;', samples);
-            // Still mark as valid but logged
-            reason = `SOLID_COLOR:${hex}`;
+            reason = `UNIFORM_COLOR:${hex}`;
           }
           
-          if (!valid) {
+          // Only log on final frame attempt
+          const isLastFrame = frameNum === totalFrames - 1;
+          if (!valid && isLastFrame) {
             console.error(
-              `%c🚨 WEBP DUD DETECTED: $${code} - ${reason}`,
+              `%c🚨 WEBP DUD DETECTED: $${code} - ${reason} (checked ${totalFrames} frames)`,
               'color: red; font-size: 16px; font-weight: bold;'
             );
             console.error(`%cFix in oven or kidlisp.mjs compiler!`, 'color: red; font-size: 12px;');
-            console.table(samples);
+            console.table(samples.slice(0, 10)); // Show first 10 samples
           }
           
-          resolve({ valid, reason, samples, code });
+          resolve({ valid, reason, samples, code, maxColorDiff });
           
         } catch (e) {
           console.error(`%c🚨 WEBP VALIDATE ERROR: $${code}`, 'color: red; font-size: 16px;', e);
@@ -9960,6 +10008,8 @@
         
         // Define starter function (called by panelSync when all ready)
         function startKidlispRotation() {
+          // Guard against double-start
+          if (slideInterval) return;
           animateKidlispProgress();
           slideInterval = setInterval(nextSlide, KIDLISP_INTERVAL);
         }
