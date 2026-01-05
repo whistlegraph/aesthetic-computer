@@ -52,6 +52,14 @@
   let focusDistance = null;
   let transitioning = false;
   
+  // Tour mode state
+  let tourMode = false;
+  let tourIndex = 0;
+  let tourProcessList = [];
+  let tourAutoPlay = false;
+  let tourAutoPlayInterval = null;
+  const TOUR_SPEED = 2500; // ms between auto-advances
+  
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
   
@@ -92,6 +100,162 @@
     focusDistance = null;
     transitioning = true;
     camera.position.set(0, 150, 400);
+  });
+  
+  // Tour Mode Functions
+  function updateTourUI() {
+    let tourUI = document.getElementById('tour-ui');
+    if (!tourUI) {
+      tourUI = document.createElement('div');
+      tourUI.id = 'tour-ui';
+      tourUI.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);padding:12px 20px;border-radius:8px;color:#fff;font-family:monospace;font-size:12px;z-index:1000;display:none;text-align:center;border:1px solid #444;';
+      document.body.appendChild(tourUI);
+    }
+    
+    if (tourMode && tourProcessList.length > 0) {
+      const current = tourProcessList[tourIndex];
+      const mesh = meshes.get(current);
+      const name = mesh?.userData?.name || current;
+      const icon = mesh?.userData?.icon || '●';
+      const category = mesh?.userData?.category || '';
+      
+      tourUI.style.display = 'block';
+      tourUI.innerHTML = `
+        <div style="margin-bottom:8px;font-size:14px;color:#88ccff;">🎬 TOUR MODE</div>
+        <div style="font-size:18px;margin-bottom:4px;">${icon} ${name}</div>
+        <div style="color:#888;margin-bottom:8px;">${category} • ${tourIndex + 1}/${tourProcessList.length}</div>
+        <div style="color:#666;font-size:10px;">
+          ← → Navigate • Space ${tourAutoPlay ? 'Stop' : 'Auto'} • Esc Exit
+        </div>
+        ${tourAutoPlay ? '<div style="color:#6bff9f;margin-top:6px;">▶ Auto-playing...</div>' : ''}
+      `;
+      // Hide the hint when in tour mode
+      const hint = document.getElementById('tour-hint');
+      if (hint) hint.style.display = 'none';
+    } else {
+      tourUI.style.display = 'none';
+      // Show the hint when not in tour mode
+      const hint = document.getElementById('tour-hint');
+      if (hint) hint.style.display = 'block';
+    }
+  }
+  
+  function buildTourList() {
+    // Build ordered list: kernel first, then by category, then by tree depth
+    const categoryOrder = ['kernel', 'ide', 'editor', 'tui', 'dev', 'db', 'shell', 'ai', 'lsp', 'proxy', 'bridge'];
+    const list = Array.from(meshes.keys());
+    
+    list.sort((a, b) => {
+      const meshA = meshes.get(a);
+      const meshB = meshes.get(b);
+      const catA = meshA?.userData?.category || 'zzz';
+      const catB = meshB?.userData?.category || 'zzz';
+      const orderA = categoryOrder.indexOf(catA);
+      const orderB = categoryOrder.indexOf(catB);
+      return (orderA === -1 ? 99 : orderA) - (orderB === -1 ? 99 : orderB);
+    });
+    
+    return list;
+  }
+  
+  function focusOnProcess(pid) {
+    const mesh = meshes.get(pid);
+    if (!mesh) return;
+    
+    focusedPid = pid;
+    focusTarget.copy(mesh.position);
+    focusDistance = 80 + (mesh.userData.size || 6) * 3;
+    transitioning = true;
+    controls.autoRotate = true;
+  }
+  
+  function startTour() {
+    tourMode = true;
+    tourProcessList = buildTourList();
+    tourIndex = 0;
+    if (tourProcessList.length > 0) {
+      focusOnProcess(tourProcessList[0]);
+    }
+    updateTourUI();
+  }
+  
+  function exitTour() {
+    tourMode = false;
+    tourAutoPlay = false;
+    if (tourAutoPlayInterval) {
+      clearInterval(tourAutoPlayInterval);
+      tourAutoPlayInterval = null;
+    }
+    focusedPid = null;
+    focusTarget.set(0, 0, 0);
+    focusDistance = null;
+    transitioning = true;
+    updateTourUI();
+  }
+  
+  function tourNext() {
+    if (!tourMode || tourProcessList.length === 0) return;
+    tourIndex = (tourIndex + 1) % tourProcessList.length;
+    focusOnProcess(tourProcessList[tourIndex]);
+    updateTourUI();
+  }
+  
+  function tourPrev() {
+    if (!tourMode || tourProcessList.length === 0) return;
+    tourIndex = (tourIndex - 1 + tourProcessList.length) % tourProcessList.length;
+    focusOnProcess(tourProcessList[tourIndex]);
+    updateTourUI();
+  }
+  
+  function toggleAutoPlay() {
+    tourAutoPlay = !tourAutoPlay;
+    if (tourAutoPlay) {
+      tourAutoPlayInterval = setInterval(tourNext, TOUR_SPEED);
+    } else {
+      if (tourAutoPlayInterval) {
+        clearInterval(tourAutoPlayInterval);
+        tourAutoPlayInterval = null;
+      }
+    }
+    updateTourUI();
+  }
+  
+  // Keyboard controls
+  document.addEventListener('keydown', (e) => {
+    // T to start tour
+    if (e.key === 't' || e.key === 'T') {
+      if (!tourMode) {
+        startTour();
+      }
+      return;
+    }
+    
+    if (tourMode) {
+      switch(e.key) {
+        case 'ArrowRight':
+        case 'l':
+        case 'L':
+          tourNext();
+          e.preventDefault();
+          break;
+        case 'ArrowLeft':
+        case 'h':
+        case 'H':
+          tourPrev();
+          e.preventDefault();
+          break;
+        case ' ':
+          toggleAutoPlay();
+          e.preventDefault();
+          break;
+        case 'Escape':
+        case 'q':
+        case 'Q':
+          exitTour();
+          e.preventDefault();
+          break;
+      }
+    }
   });
   
   let processTree = { roots: [], byPid: new Map() };
@@ -378,6 +542,20 @@
         connections.delete(key);
       }
     });
+    
+    // Refresh tour list if in tour mode (processes may have changed)
+    if (tourMode) {
+      const oldPid = tourProcessList[tourIndex];
+      tourProcessList = buildTourList();
+      // Try to stay on the same process if it still exists
+      const newIndex = tourProcessList.indexOf(oldPid);
+      if (newIndex !== -1) {
+        tourIndex = newIndex;
+      } else if (tourIndex >= tourProcessList.length) {
+        tourIndex = Math.max(0, tourProcessList.length - 1);
+      }
+      updateTourUI();
+    }
   }
   
   let time = 0;
@@ -518,8 +696,22 @@
     camera,
     meshes,
     connections,
-    graveyard
+    graveyard,
+    // Tour mode
+    startTour,
+    exitTour,
+    tourNext,
+    tourPrev,
+    toggleAutoPlay,
+    isTourMode: () => tourMode
   };
+  
+  // Add tour hint to the UI
+  const tourHint = document.createElement('div');
+  tourHint.id = 'tour-hint';
+  tourHint.style.cssText = 'position:fixed;bottom:20px;right:20px;background:rgba(0,0,0,0.7);padding:8px 12px;border-radius:6px;color:#888;font-family:monospace;font-size:11px;z-index:999;';
+  tourHint.innerHTML = 'Press <span style="color:#88ccff;font-weight:bold;">T</span> for Tour Mode';
+  document.body.appendChild(tourHint);
   
   animate();
   connectWS();
