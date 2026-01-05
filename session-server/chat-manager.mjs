@@ -109,11 +109,11 @@ export class ChatManager {
       let combinedMessages;
 
       if (collectionName === "chat-sotce") {
-        combinedMessages = await chatCollection
+        combinedMessages = (await chatCollection
           .find({})
           .sort({ when: -1 })
           .limit(MAX_MESSAGES)
-          .toArray();
+          .toArray()).reverse();
       } else if (collectionName !== "chat-system") {
         combinedMessages = (await chatCollection
           .find({})
