@@ -7847,7 +7847,10 @@
         };
         
         // Build HTML like ticker: "Got $5 today" or "Got $5: note"
-        const gotSpan = `<span class="got">${wrapChars(msgs.got)}</span>`;
+        // Get localized "Got" text based on current language
+        const gotTexts = { en: 'Got', da: 'Modtog', de: 'Erhalten', es: 'Recibido', zh: '收到' };
+        const gotText = gotTexts[currentLang] || gotTexts.en;
+        const gotSpan = `<span class="got">${wrapChars(gotText)}</span>`;
         const amountSpan = `<span class="amount">${wrapChars(amountText)}</span>`;
         const timeSpan = `<span class="time">${wrapChars(timeText)}</span>`;
         const noteSpan = hasNote ? `<span class="note">: ${wrapChars(give.note.trim())}</span>` : '';
