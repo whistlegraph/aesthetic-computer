@@ -883,12 +883,12 @@ async function getLast100MessagesfromMongo() {
   let combinedMessages;
 
   if (instance.name === "chat-sotce") {
-    // 🪷 Don't include AC logs or reverse.
-    combinedMessages = await chatCollection
+    // 🪷 Don't include AC logs but do reverse for chronological order.
+    combinedMessages = (await chatCollection
       .find({})
       .sort({ when: -1 })
       .limit(MAX_MESSAGES)
-      .toArray();
+      .toArray()).reverse();
   } else if (instance.name !== "chat-system") {
     // 🕰️ Don't include logs.
     combinedMessages = (await chatCollection
