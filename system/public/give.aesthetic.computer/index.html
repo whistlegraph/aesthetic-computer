@@ -3756,10 +3756,10 @@
 
     .kidlisp-slide-credit {
       position: absolute;
-      bottom: 2.4em;
+      bottom: 3.2em;
       left: 1em;
       font-family: var(--mono);
-      font-size: 0.75em;
+      font-size: 0.85em;
       background: rgba(0,0,0,0.5);
       padding: 0.2em 0.5em;
       border-radius: 3px;
@@ -8939,19 +8939,28 @@
         let currentSlide = 0;
         let slideInterval = null;
         
-        // Format date as short month (e.g., "Jan.", "Dec. '25")
-        function formatShortDate(when) {
+        // Format date with time (e.g., "Jan. 5 @ 3:42pm")
+        function formatDateTime(when) {
           if (!when) return '';
           const date = new Date(when);
           const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           const month = months[date.getMonth()];
+          const day = date.getDate();
           const year = date.getFullYear();
           const currentYear = new Date().getFullYear();
+          
+          // Format time as 12-hour with am/pm
+          let hours = date.getHours();
+          const mins = date.getMinutes().toString().padStart(2, '0');
+          const ampm = hours >= 12 ? 'pm' : 'am';
+          hours = hours % 12 || 12;
+          const timeStr = `${hours}:${mins}${ampm}`;
+          
           // Show year if not current year
           if (year !== currentYear) {
-            return `${month}. '${String(year).slice(-2)}`;
+            return `${month}. ${day} '${String(year).slice(-2)} @ ${timeStr}`;
           }
-          return `${month}.`;
+          return `${month}. ${day} @ ${timeStr}`;
         }
         
         carousel.innerHTML = slides.map((item, i) => {
@@ -8969,10 +8978,10 @@
           // Build author/time credit line with colored spans
           let creditHtml = '';
           if (author && author !== 'anon') {
-            const dateStr = when ? `<span class="credit-date"> · ${formatShortDate(when)}</span>` : '';
+            const dateStr = when ? `<span class="credit-date"> · ${formatDateTime(when)}</span>` : '';
             creditHtml = `<div class="kidlisp-slide-credit"><span class="credit-handle">@${escapeHtml(author)}</span>${dateStr}</div>`;
           } else if (when) {
-            creditHtml = `<div class="kidlisp-slide-credit"><span class="credit-date">${formatShortDate(when)}</span></div>`;
+            creditHtml = `<div class="kidlisp-slide-credit"><span class="credit-date">${formatDateTime(when)}</span></div>`;
           }
           
           return `
