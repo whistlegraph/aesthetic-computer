@@ -9452,6 +9452,7 @@
           
           const webpUrl = `${OVEN_URL}/grab/webp/256/256/$${code}?duration=6000&fps=10&quality=85&density=1`;
           const img = document.createElement('img');
+          img.crossOrigin = 'anonymous'; // Enable CORS for pixel validation
           img.src = webpUrl;
           img.alt = code;
           img.loading = i === 0 ? 'eager' : 'lazy';
