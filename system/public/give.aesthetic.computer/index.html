@@ -6878,12 +6878,22 @@
           const blob = await (await fetch(dataUrl)).blob();
           const file = new File([blob], 'i-gave-aesthetic-computer.png', { type: 'image/png' });
           
+          // Translated share text
+          const shareTexts = {
+            en: { title: 'I gave to Aesthetic.Computer!', text: `I gave ${formattedAmount} to Aesthetic.Computer on ${formattedDate}! 💖` },
+            da: { title: 'Jeg gav til Aesthetic.Computer!', text: `Jeg gav ${formattedAmount} til Aesthetic.Computer d. ${formattedDate}! 💖` },
+            de: { title: 'Ich habe Aesthetic.Computer unterstützt!', text: `Ich habe ${formattedAmount} an Aesthetic.Computer am ${formattedDate} gegeben! 💖` },
+            es: { title: '¡Le di a Aesthetic.Computer!', text: `¡Le di ${formattedAmount} a Aesthetic.Computer el ${formattedDate}! 💖` },
+            zh: { title: '我给了 Aesthetic.Computer！', text: `我在 ${formattedDate} 给了 Aesthetic.Computer ${formattedAmount}！💖` }
+          };
+          const st = shareTexts[currentLang] || shareTexts.en;
+          
           // Try Web Share API (great on mobile!)
           if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
               await navigator.share({
-                title: 'I gave to Aesthetic.Computer!',
-                text: `I gave ${formattedAmount} to Aesthetic.Computer on ${formattedDate}! 💖`,
+                title: st.title,
+                text: st.text,
                 files: [file],
                 url: 'https://give.aesthetic.computer'
               });
@@ -7291,6 +7301,12 @@
             loading: '加载中...',
             error: '找不到该邮箱的订阅。请重试或联系支持。',
             errorGeneric: '出了点问题。请重试。'
+          },
+          es: { 
+            email: 'Ingresa tu correo para gestionar tu suscripción:',
+            loading: 'Cargando...',
+            error: 'No se encontró una suscripción para ese correo. Intenta de nuevo o contacta soporte.',
+            errorGeneric: 'Algo salió mal. Intenta de nuevo.'
           }
         };
         
@@ -7885,23 +7901,37 @@
       const isToday = date.toDateString() === now.toDateString();
       const isYesterday = new Date(now - 86400000).toDateString() === date.toDateString();
       
-      const time = date.toLocaleTimeString('en-US', { 
+      // Localized time format
+      const locales = { en: 'en-US', da: 'da-DK', de: 'de-DE', es: 'es-ES', zh: 'zh-CN' };
+      const locale = locales[currentLang] || 'en-US';
+      
+      const time = date.toLocaleTimeString(locale, { 
         hour: 'numeric', 
         minute: '2-digit',
-        hour12: true 
+        hour12: currentLang === 'en' || currentLang === 'es'
       }).toLowerCase();
       
-      if (isToday) return { time: `today at ${time}`, useOn: false };
-      if (isYesterday) return { time: `yesterday at ${time}`, useOn: false };
+      // Translated "today at" and "yesterday at"
+      const timeWords = {
+        en: { today: 'today at', yesterday: 'yesterday at', at: 'at' },
+        da: { today: 'i dag kl.', yesterday: 'i går kl.', at: 'kl.' },
+        de: { today: 'heute um', yesterday: 'gestern um', at: 'um' },
+        es: { today: 'hoy a las', yesterday: 'ayer a las', at: 'a las' },
+        zh: { today: '今天', yesterday: '昨天', at: '' }
+      };
+      const tw = timeWords[currentLang] || timeWords.en;
+      
+      if (isToday) return { time: `${tw.today} ${time}`, useOn: false };
+      if (isYesterday) return { time: `${tw.yesterday} ${time}`, useOn: false };
       
       const diff = now - date;
       const days = Math.floor(diff / 86400000);
       if (days < 7) {
-        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-        return { time: `${dayName} at ${time}`, useOn: true };
+        const dayName = date.toLocaleDateString(locale, { weekday: 'short' });
+        return { time: tw.at ? `${dayName} ${tw.at} ${time}` : `${dayName} ${time}`, useOn: true };
       }
       
-      const dateStr = date.toLocaleDateString('en-US', { 
+      const dateStr = date.toLocaleDateString(locale, { 
         month: 'short', 
         day: 'numeric',
         year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
@@ -7975,12 +8005,16 @@
         
         givesData = data.gives;
         
+        // Translated "on" preposition for dates
+        const onPrep = { en: 'on', da: 'd.', de: 'am', es: 'el', zh: '' };
+        const onText = onPrep[currentLang] || onPrep.en;
+        
         // Build horizontal ticker items - "Got $5 today" or "Got $5 on Dec 15" format
         const giveItems = givesData.map(give => {
           const { time: timeStr, useOn } = formatGiveTime(give.createdAt);
           const hasNote = give.note && give.note.trim();
           const noteHtml = hasNote ? `<span class="sep">:</span><span class="note">${give.note}</span>` : '';
-          const timeHtml = useOn ? `<span class="time">on ${timeStr}</span>` : `<span class="time">${timeStr}</span>`;
+          const timeHtml = useOn ? `<span class="time">${onText ? onText + ' ' : ''}${timeStr}</span>` : `<span class="time">${timeStr}</span>`;
           
           // Monthly donations show with /mo suffix and yellow styling
           if (give.isRecurring) {
@@ -8024,7 +8058,8 @@
         }
       } catch (e) {
         console.error('Gives load error:', e);
-        ticker.innerHTML = '<div class="gives-ticker-empty">Unable to load gives</div>';
+        const errorTexts = { en: 'Unable to load gives', da: 'Kunne ikke indlæse gaver', de: 'Konnte Gaben nicht laden', es: 'No se pudieron cargar las donaciones', zh: '无法加载捐赠' };
+        ticker.innerHTML = `<div class="gives-ticker-empty">${errorTexts[currentLang] || errorTexts.en}</div>`;
       }
     }
     
@@ -8045,7 +8080,7 @@
       const visibleGives = new Set(); // Track gives currently on screen by unique key
       let isShowingGive = false; // Prevent concurrent calls
       
-      // Format time ago
+      // Format time ago (localized)
       function timeAgo(dateStr) {
         const date = new Date(dateStr);
         const now = new Date();
@@ -8054,11 +8089,22 @@
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
         
-        if (diffMins < 1) return 'now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        // Translated time ago strings
+        const timeAgoTexts = {
+          en: { now: 'now', mAgo: 'm ago', hAgo: 'h ago', dAgo: 'd ago' },
+          da: { now: 'nu', mAgo: 'm siden', hAgo: 't siden', dAgo: 'd siden' },
+          de: { now: 'jetzt', mAgo: 'm her', hAgo: 'h her', dAgo: 'T her' },
+          es: { now: 'ahora', mAgo: 'm', hAgo: 'h', dAgo: 'd' },
+          zh: { now: '现在', mAgo: '分钟前', hAgo: '小时前', dAgo: '天前' }
+        };
+        const ta = timeAgoTexts[currentLang] || timeAgoTexts.en;
+        const locales = { en: 'en-US', da: 'da-DK', de: 'de-DE', es: 'es-ES', zh: 'zh-CN' };
+        
+        if (diffMins < 1) return ta.now;
+        if (diffMins < 60) return `${diffMins}${ta.mAgo}`;
+        if (diffHours < 24) return `${diffHours}${ta.hAgo}`;
+        if (diffDays < 7) return `${diffDays}${ta.dAgo}`;
+        return date.toLocaleDateString(locales[currentLang] || 'en-US', { month: 'short', day: 'numeric' });
       }
       
       // Convert text to animated characters - alphabet soup on strings with depth layering
@@ -8117,7 +8163,10 @@
         const { time: timeStr, useOn } = formatGiveTime(give.createdAt || give.timestamp);
         const amountText = give.amountDisplay + suffix;
         const hasNote = give.note && give.note.trim();
-        const timeText = useOn ? `on ${timeStr}` : timeStr;
+        // Translated "on" preposition for dates
+        const onPrep = { en: 'on', da: 'd.', de: 'am', es: 'el', zh: '' };
+        const onText = onPrep[currentLang] || onPrep.en;
+        const timeText = useOn ? (onText ? `${onText} ${timeStr}` : timeStr) : timeStr;
         
         // Position: mostly left side (80%), occasionally center (20%)
         const posRand = Math.random();
@@ -8729,7 +8778,8 @@
         
       } catch (e) {
         console.error('Chat load error:', e);
-        container.innerHTML = '<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Could not load</div></div>';
+        const loadErrorTexts = { en: 'Could not load', da: 'Kunne ikke indlæse', de: 'Konnte nicht laden', es: 'No se pudo cargar', zh: '无法加载' };
+        container.innerHTML = `<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">${loadErrorTexts[currentLang] || loadErrorTexts.en}</div></div>`;
         panelSync.markReady('chat'); // Still mark ready on error
       }
     }
@@ -8741,11 +8791,24 @@
       const hours = Math.floor(diff / 3600000);
       const days = Math.floor(diff / 86400000);
       
-      if (mins < 1) return 'just now';
-      if (mins < 60) return `${mins}m ago`;
-      if (hours < 24) return `${hours}h ago`;
-      if (days < 7) return `${days}d ago`;
-      return date.toLocaleDateString();
+      // Translated time ago strings
+      const timeAgoTexts = {
+        en: { justNow: 'just now', mAgo: 'm ago', hAgo: 'h ago', dAgo: 'd ago' },
+        da: { justNow: 'lige nu', mAgo: 'm siden', hAgo: 't siden', dAgo: 'd siden' },
+        de: { justNow: 'gerade', mAgo: 'm her', hAgo: 'h her', dAgo: 'T her' },
+        es: { justNow: 'ahora', mAgo: 'm', hAgo: 'h', dAgo: 'd' },
+        zh: { justNow: '刚刚', mAgo: '分钟前', hAgo: '小时前', dAgo: '天前' }
+      };
+      const ta = timeAgoTexts[currentLang] || timeAgoTexts.en;
+      
+      if (mins < 1) return ta.justNow;
+      if (mins < 60) return `${mins}${ta.mAgo}`;
+      if (hours < 24) return `${hours}${ta.hAgo}`;
+      if (days < 7) return `${days}${ta.dAgo}`;
+      
+      // Use locale-appropriate date format
+      const locales = { en: 'en-US', da: 'da-DK', de: 'de-DE', es: 'es-ES', zh: 'zh-CN' };
+      return date.toLocaleDateString(locales[currentLang] || 'en-US');
     }
     
     function escapeHtml(str) {
@@ -8836,7 +8899,8 @@
         
       } catch (e) {
         console.error('Chat system load error:', e);
-        container.innerHTML = '<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Could not load</div></div>';
+        const loadErrorTexts = { en: 'Could not load', da: 'Kunne ikke indlæse', de: 'Konnte nicht laden', es: 'No se pudo cargar', zh: '无法加载' };
+        container.innerHTML = `<div class="chat-msg"><div class="chat-text" style="color: var(--dim);">${loadErrorTexts[currentLang] || loadErrorTexts.en}</div></div>`;
       }
     }
     
@@ -9525,7 +9589,8 @@
         
       } catch (e) {
         console.error('KidLisp carousel load error:', e);
-        carousel.innerHTML = '<div style="text-align: center; color: #555; padding: 2em;">Could not load</div>';
+        const loadErrorTexts = { en: 'Could not load', da: 'Kunne ikke indlæse', de: 'Konnte nicht laden', es: 'No se pudo cargar', zh: '无法加载' };
+        carousel.innerHTML = `<div style="text-align: center; color: #555; padding: 2em;">${loadErrorTexts[currentLang] || loadErrorTexts.en}</div>`;
         panelSync.markReady('kidlisp'); // Still mark ready on error
       }
     }
