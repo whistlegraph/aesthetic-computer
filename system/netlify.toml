@@ -587,6 +587,21 @@ to = "/give.aesthetic.computer/index.html?lang=da&currency=dkk"
 status = 200
 force = true
 [[redirects]]
+from = "https://give.aesthetic.computer/es"
+to = "/give.aesthetic.computer/index.html?lang=es&currency=usd"
+status = 200
+force = true
+[[redirects]]
+from = "https://give.aesthetic.computer/de"
+to = "/give.aesthetic.computer/index.html?lang=de&currency=eur"
+status = 200
+force = true
+[[redirects]]
+from = "https://give.aesthetic.computer/cn"
+to = "/give.aesthetic.computer/index.html?lang=zh&currency=usd"
+status = 200
+force = true
+[[redirects]]
 from = "https://give.aesthetic.computer/api/give-portal"
 to = "/.netlify/functions/give-portal"
 status = 200
