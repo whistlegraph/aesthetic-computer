@@ -5983,29 +5983,29 @@
           if (progress < 0.05) alpha = progress / 0.05;
           else if (progress > 0.90) alpha = (1 - progress) / 0.10;
           
-          // Position: float up from bottom to top
+          // Position: float up from bottom to top (round to int for perf)
           const startY = h * (0.4 + fg.startYOffset * 0.45);
           const endY = h * -0.1;
-          const y = startY + (endY - startY) * progress;
+          const y = Math.round(startY + (endY - startY) * progress);
           
-          // Strong lateral movement - big sine wave + drift
+          // Strong lateral movement - big sine wave + drift (round to int)
           const baseXPx = w * fg.baseX;
           const driftX = fg.driftStart + (fg.driftEnd - fg.driftStart) * progress;
-          const sineWave = Math.sin(progress * Math.PI * 4) * 50; // Bigger side-to-side
-          const x = baseXPx + driftX + sineWave;
+          const sineWave = Math.sin(progress * Math.PI * 4) * 50;
+          const x = Math.round(baseXPx + driftX + sineWave);
           
-          // Smaller font
-          const fontSize = Math.max(11, Math.min(15, w * 0.026));
+          // Smaller font (round to int)
+          const fontSize = Math.round(Math.max(11, Math.min(15, w * 0.026)));
           
           ctx.save();
           ctx.globalAlpha = alpha * masterAlpha;
-          ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+          ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji', sans-serif`;
           ctx.textBaseline = 'middle';
           ctx.shadowColor = 'rgba(0,0,0,0.7)';
           ctx.shadowBlur = 2;
           ctx.shadowOffsetY = 1;
           
-          // Draw characters with individual wobble
+          // Draw characters with individual wobble (rounded positions)
           let charX = x;
           const fullText = fg.amountText + '  ' + fg.secondText;
           const amountLen = [...fg.amountText].length;
@@ -6014,14 +6014,13 @@
           for (let c = 0; c < chars.length; c++) {
             const ch = chars[c];
             if (ch === ' ') {
-              charX += fontSize * 0.35;
+              charX += Math.round(fontSize * 0.35);
               continue;
             }
             
-            // Per-char wobble (vertical only for performance)
-            const wobbleSpeed = 2 + (c % 3) * 0.5;
-            const wobbleY = Math.sin(now / 400 + c * 0.7 + fg.startYOffset * 5) * 4;
-            const wobbleX = Math.cos(now / 500 + c * 0.5) * 2;
+            // Per-char wobble (rounded to int)
+            const wobbleY = Math.round(Math.sin(now / 400 + c * 0.7 + fg.startYOffset * 5) * 4);
+            const wobbleX = Math.round(Math.cos(now / 500 + c * 0.5) * 2);
             
             // Color: green/gold for amount, dim for rest
             ctx.fillStyle = c < amountLen 
@@ -6029,7 +6028,7 @@
               : 'rgba(255,255,255,0.55)';
             
             ctx.fillText(ch, charX + wobbleX, y + wobbleY);
-            charX += ctx.measureText(ch).width + fontSize * 0.04;
+            charX += Math.round(ctx.measureText(ch).width) + Math.round(fontSize * 0.04);
           }
           
           ctx.restore();
@@ -7860,13 +7859,11 @@
         // Move to next for subsequent calls
         giveIndex = (giveIndex + 1) % allGives.length;
         
-        // Build text: amount + note or time
+        // Build text: amount + note or time (no truncation)
         const suffix = give.isRecurring ? '/mo' : '';
         const timeStr = timeAgo(give.createdAt || give.timestamp);
         const amountText = give.amountDisplay + suffix;
-        const secondText = (give.note && give.note.trim()) 
-          ? (give.note.length > 25 ? give.note.slice(0, 25) + '…' : give.note)
-          : timeStr;
+        const secondText = (give.note && give.note.trim()) ? give.note.trim() : timeStr;
         
         // Random position: left, center, or right
         const posRand = Math.random();
