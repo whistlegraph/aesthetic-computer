@@ -114,8 +114,14 @@ async function fetchPaintings(db, { limit }) {
   });
 }
 
-async function fetchKidlisp(db, { limit, sort }) {
+async function fetchKidlisp(db, { limit, sort, boost }) {
   const collection = db.collection("kidlisp");
+  const handlesCollection = db.collection("@handles");
+  
+  // High-quality handles that get boosted in results
+  // These creators consistently produce good KidLisp pieces
+  const BOOSTED_HANDLES = ['jeffrey', 'jas', 'rapter'];
+  const BOOST_MULTIPLIER = 3; // How many extra slots boosted handles get
   
   let sortStage = { $sort: { when: -1 } };
   if (sort === 'hits') {
@@ -129,7 +135,7 @@ async function fetchKidlisp(db, { limit, sort }) {
     // Add a field to handle null hits before sorting
     ...(sort === 'hits' ? [{ $addFields: { hits: { $ifNull: ["$hits", 0] } } }] : []),
     sortStage,
-    { $limit: limit },
+    { $limit: limit * 2 }, // Fetch extra to allow for boosting/mixing
     {
       $lookup: {
         from: "@handles",
@@ -163,8 +169,39 @@ async function fetchKidlisp(db, { limit, sort }) {
     ? { allowDiskUse: true }
     : {};
   
-  const records = await collection.aggregate(pipeline, aggregateOptions).toArray();
+  let records = await collection.aggregate(pipeline, aggregateOptions).toArray();
   console.log(`Fetched ${records.length} kidlisp records`);
+  
+  // Apply handle boosting if enabled (default on for give page calls)
+  if (boost !== 'false') {
+    // Separate boosted and regular records
+    const boostedRecords = records.filter(r => BOOSTED_HANDLES.includes(r.handle));
+    const regularRecords = records.filter(r => !BOOSTED_HANDLES.includes(r.handle));
+    
+    // Interleave boosted records more frequently
+    // For every BOOST_MULTIPLIER regular records, insert a boosted one
+    const mixed = [];
+    let boostedIdx = 0;
+    let regularIdx = 0;
+    let insertCounter = 0;
+    
+    while (mixed.length < limit && (boostedIdx < boostedRecords.length || regularIdx < regularRecords.length)) {
+      // Every few items, try to insert a boosted record
+      if (insertCounter % (BOOST_MULTIPLIER + 1) === BOOST_MULTIPLIER && boostedIdx < boostedRecords.length) {
+        mixed.push(boostedRecords[boostedIdx++]);
+      } else if (regularIdx < regularRecords.length) {
+        mixed.push(regularRecords[regularIdx++]);
+      } else if (boostedIdx < boostedRecords.length) {
+        mixed.push(boostedRecords[boostedIdx++]);
+      }
+      insertCounter++;
+    }
+    
+    records = mixed;
+    console.log(`After boosting: ${records.length} records (boosted handles: ${BOOSTED_HANDLES.join(', ')})`);
+  } else {
+    records = records.slice(0, limit);
+  }
 
   return records.map((record, index) => {
     try {
@@ -382,15 +419,16 @@ export async function handler(event) {
   const limit = parseLimit(params.limit);
   const filter = params.filter?.toLowerCase() || "recent"; // "recent" or "sprinkle"
   const sort = params.sort?.toLowerCase(); // "hits" for all-time popularity
+  const boost = params.boost; // "false" to disable handle boosting for kidlisp
 
   // Create cache key from query params
-  const cacheKey = `give:tv:${requestedTypes.join(',')}:${limit}:${filter}:${sort || 'default'}`;
+  const cacheKey = `give:tv:${requestedTypes.join(',')}:${limit}:${filter}:${sort || 'default'}:${boost || 'true'}`;
   
   try {
     // Use caching for TV feed (5 min TTL)
     const result = await getOrCompute(
       cacheKey,
-      () => fetchTVFeed({ requestedTypes, limit, filter, sort }),
+      () => fetchTVFeed({ requestedTypes, limit, filter, sort, boost }),
       CACHE_TTLS.TV_RECENT
     );
     
@@ -402,7 +440,7 @@ export async function handler(event) {
 }
 
 // Extracted TV feed fetching logic for caching
-async function fetchTVFeed({ requestedTypes, limit, filter, sort }) {
+async function fetchTVFeed({ requestedTypes, limit, filter, sort, boost }) {
   const media = {};
   const pendingTypes = [];
   const unsupportedTypes = [];
@@ -436,7 +474,7 @@ async function fetchTVFeed({ requestedTypes, limit, filter, sort }) {
         // When sorting by hits, use the direct limit to get true top N
         // Otherwise use fetchLimit for frecency mixing
         const kidlispLimit = sort === 'hits' ? limit : fetchLimit;
-        media.kidlisp = await fetchKidlisp(database.db, { limit: kidlispLimit, sort });
+        media.kidlisp = await fetchKidlisp(database.db, { limit: kidlispLimit, sort, boost });
         console.log(`📺 Fetched ${media.kidlisp.length} kidlisp items`);
       } else if (type === "tape") {
         media.tapes = await fetchTapes(database.db, { limit: fetchLimit });

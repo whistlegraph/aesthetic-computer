@@ -3906,6 +3906,29 @@
       transform: translateX(-30px);
     }
 
+    /* Hide all slide content until webp is validated and ready */
+    .kidlisp-slide .kidlisp-slide-code,
+    .kidlisp-slide .kidlisp-slide-qr-wrap,
+    .kidlisp-slide .kidlisp-slide-plays,
+    .kidlisp-slide .kidlisp-slide-credit,
+    .kidlisp-slide .module-loading {
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    /* Show content only when slide is marked ready (webp validated) */
+    .kidlisp-slide.ready .kidlisp-slide-code,
+    .kidlisp-slide.ready .kidlisp-slide-qr-wrap,
+    .kidlisp-slide.ready .kidlisp-slide-plays,
+    .kidlisp-slide.ready .kidlisp-slide-credit {
+      opacity: 1;
+    }
+
+    /* Show loading spinner while validating (but not other content) */
+    .kidlisp-slide.validating .module-loading {
+      opacity: 1;
+    }
+
     .kidlisp-slide a {
       display: block;
       width: 100%;
@@ -9847,8 +9870,22 @@
           return html;
         }
         
-        // Create all slides (hidden initially) - use shuffled for variety
-        const slides = shuffledHits.slice(0, 20);
+        // Preferred starter codes (nice spirals for page load) - one will always be first
+        const STARTER_CODES = ['otoc', 'roz', 'cow'];
+        const starterCode = STARTER_CODES[Math.floor(Math.random() * STARTER_CODES.length)];
+        
+        // Find starter data in the full hits array
+        let starterItem = hits.find(item => item.code === starterCode);
+        
+        // If not in hits, create minimal item (webp will still load from oven)
+        if (!starterItem) {
+          starterItem = { code: starterCode, hits: 0, source: '', owner: { handle: '@jeffrey' } };
+        }
+        
+        // Build slide list: starter first, then shuffled (excluding starter to avoid dupe)
+        const filteredHits = shuffledHits.filter(item => item.code !== starterCode);
+        const slides = [starterItem, ...filteredHits.slice(0, 19)];
+        
         let currentSlide = 0;
         let slideInterval = null;
         
@@ -9897,7 +9934,7 @@
           }
           
           return `
-            <div class="kidlisp-slide${i === 0 ? ' active' : ''}" data-index="${i}" data-code="${escapeHtml(code)}" data-hits="${hitCount}">
+            <div class="kidlisp-slide" data-index="${i}" data-code="${escapeHtml(code)}" data-hits="${hitCount}" data-source="${escapeHtml(source).replace(/"/g, '&quot;')}">
               <a href="${pieceUrl}" target="_blank" title="Play $${escapeHtml(code)}">
                 <div class="module-loading"></div>
               </a>
@@ -9952,13 +9989,27 @@
           }
         }
         
-        // Advance to next slide
+        // Advance to next slide (only to ready slides)
         function nextSlide() {
           const slideEls = carousel.querySelectorAll('.kidlisp-slide');
           if (slideEls.length <= 1) return;
           
           const current = slideEls[currentSlide];
-          currentSlide = (currentSlide + 1) % slideEls.length;
+          
+          // Find next ready slide (skip non-ready ones)
+          let attempts = 0;
+          let nextIndex = currentSlide;
+          do {
+            nextIndex = (nextIndex + 1) % slideEls.length;
+            attempts++;
+          } while (!slideEls[nextIndex].classList.contains('ready') && attempts < slideEls.length);
+          
+          // If no ready slides found, stay on current
+          if (attempts >= slideEls.length && !slideEls[nextIndex].classList.contains('ready')) {
+            return;
+          }
+          
+          currentSlide = nextIndex;
           const next = slideEls[currentSlide];
           
           // Update header link to current piece
@@ -10010,6 +10061,34 @@
         function startKidlispRotation() {
           // Guard against double-start
           if (slideInterval) return;
+          
+          // Find first ready slide and make it active
+          const slideEls = carousel.querySelectorAll('.kidlisp-slide');
+          let foundReady = false;
+          for (let i = 0; i < slideEls.length; i++) {
+            if (slideEls[i].classList.contains('ready')) {
+              // Clear previous active state
+              slideEls.forEach(s => s.classList.remove('active'));
+              slideEls[i].classList.add('active');
+              currentSlide = i;
+              foundReady = true;
+              
+              // Update header link
+              const code = slideEls[i].dataset.code;
+              const headerLink = document.getElementById('kidlispHeaderLink');
+              if (headerLink && code) {
+                headerLink.href = `https://kidlisp.com/$${code}`;
+              }
+              break;
+            }
+          }
+          
+          // If no ready slides yet, wait and try again
+          if (!foundReady) {
+            setTimeout(startKidlispRotation, 500);
+            return;
+          }
+          
           animateKidlispProgress();
           slideInterval = setInterval(nextSlide, KIDLISP_INTERVAL);
         }
@@ -10020,6 +10099,60 @@
         
         // No pause on hover - slides continue advancing
         
+        // Track shown sources to detect duplicates
+        const shownSources = new Map(); // code -> source
+        const MIN_SOURCE_LENGTH = 50; // Only check sources longer than this
+        const SIMILARITY_THRESHOLD = 0.9; // 90% similar = duplicate
+        
+        // Simple similarity check using character trigrams (fast approximation)
+        function getSourceSimilarity(source1, source2) {
+          if (!source1 || !source2) return 0;
+          
+          // Normalize: lowercase, remove extra whitespace
+          const norm1 = source1.toLowerCase().replace(/\s+/g, ' ').trim();
+          const norm2 = source2.toLowerCase().replace(/\s+/g, ' ').trim();
+          
+          if (norm1 === norm2) return 1;
+          if (norm1.length < 10 || norm2.length < 10) return 0;
+          
+          // Get trigrams (3-char sequences)
+          function getTrigrams(str) {
+            const trigrams = new Set();
+            for (let i = 0; i <= str.length - 3; i++) {
+              trigrams.add(str.slice(i, i + 3));
+            }
+            return trigrams;
+          }
+          
+          const t1 = getTrigrams(norm1);
+          const t2 = getTrigrams(norm2);
+          
+          // Jaccard similarity: intersection / union
+          let intersection = 0;
+          for (const t of t1) {
+            if (t2.has(t)) intersection++;
+          }
+          const union = t1.size + t2.size - intersection;
+          return union > 0 ? intersection / union : 0;
+        }
+        
+        // Check if source is too similar to any already shown
+        function isDuplicateSource(code, source) {
+          if (!source || source.length < MIN_SOURCE_LENGTH) return false;
+          
+          for (const [shownCode, shownSource] of shownSources) {
+            const similarity = getSourceSimilarity(source, shownSource);
+            if (similarity >= SIMILARITY_THRESHOLD) {
+              console.warn(
+                `%c⚠️ DUPLICATE SOURCE: $${code} is ${(similarity * 100).toFixed(0)}% similar to $${shownCode}`,
+                'color: orange; font-size: 14px;'
+              );
+              return true;
+            }
+          }
+          return false;
+        }
+        
         // Load webp images for all slides (staggered to not overwhelm oven)
         const slideEls = carousel.querySelectorAll('.kidlisp-slide');
         for (let i = 0; i < slideEls.length; i++) {
@@ -10027,6 +10160,9 @@
           const code = slide.dataset.code;
           // Stagger each request by 300ms
           if (i > 0) await new Promise(r => setTimeout(r, 300));
+          
+          // Mark as validating (shows loading spinner only)
+          slide.classList.add('validating');
           
           const webpUrl = `${OVEN_URL}/grab/webp/256/256/$${code}?duration=6000&fps=10&quality=85&density=1`;
           const img = document.createElement('img');
@@ -10042,25 +10178,42 @@
               // Validate pixel content BEFORE adding to DOM (samples 5 frames over ~750ms)
               const validation = await validateWebpImage(img, code);
               
+              slide.classList.remove('validating');
+              
               if (validation.valid) {
-                // Only now add to DOM since it's valid
-                const link = slide.querySelector('a');
-                if (link) {
-                  link.innerHTML = '';
-                  link.appendChild(img);
-                  img.classList.add('loaded');
-                  const loader = slide.querySelector('.module-loading');
-                  if (loader) loader.remove();
+                // Check for duplicate source before showing
+                const source = slide.dataset.source || '';
+                if (isDuplicateSource(code, source)) {
+                  // Duplicate detected - slide stays blank
+                  console.warn(`KidLisp $${code}: Filtered as duplicate source`);
+                } else {
+                  // Track this source for future duplicate checks
+                  if (source.length >= MIN_SOURCE_LENGTH) {
+                    shownSources.set(code, source);
+                  }
+                  
+                  // Only now add to DOM since it's valid and unique
+                  const link = slide.querySelector('a');
+                  if (link) {
+                    link.innerHTML = '';
+                    link.appendChild(img);
+                    img.classList.add('loaded');
+                    // Mark slide as ready - this reveals all content
+                    slide.classList.add('ready');
+                  }
                 }
               } else {
-                // Dud detected - don't add to DOM at all, leave code preview visible
+                // Dud detected - slide stays blank (no ready class)
                 console.warn(`KidLisp $${code}: Not showing dud image (${validation.reason})`);
               }
+            } else {
+              // Blank/tiny image - slide stays blank
+              slide.classList.remove('validating');
             }
-            // If blank/tiny, just leave the loading spinner or code preview visible
           };
           img.onerror = () => {
-            // On error, nothing to clean up since we never added to DOM
+            // On error, slide stays blank
+            slide.classList.remove('validating');
             console.warn(`KidLisp $${code}: Image failed to load`);
           };
           
