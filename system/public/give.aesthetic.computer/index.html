@@ -78,6 +78,27 @@
       --box-border: rgba(255,255,255,0.1);
       --mono: 'Berkeley Mono Variable', 'Menlo', monospace;
     }
+    
+    /* Performance: Disable animations/effects when not visible */
+    .visibility-hidden {
+      animation-play-state: paused !important;
+    }
+    .visibility-hidden * {
+      animation-play-state: paused !important;
+    }
+    .visibility-hidden .stat-floater,
+    .visibility-hidden .glow,
+    .visibility-hidden [class*="glow"],
+    .visibility-hidden .pulse {
+      opacity: 0 !important;
+      transition: opacity 0.3s ease-out !important;
+    }
+    .visibility-hidden canvas {
+      opacity: 0.3;
+    }
+    .visibility-hidden video {
+      opacity: 0;
+    }
 
     * { box-sizing: border-box; }
 
@@ -5681,6 +5702,84 @@
   </dialog>
 
   <script>
+    // ====== Visibility-Based Loading System ======
+    // Only load/animate components when they're visible on screen (mobile perf)
+    const visibilityManager = {
+      observers: new Map(),
+      loaded: new Set(),
+      paused: new Map(),
+      
+      // Register a component to load when visible
+      loadWhenVisible(selector, loadFn, options = {}) {
+        const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+        if (!el) return;
+        
+        const key = selector.toString();
+        if (this.loaded.has(key)) return;
+        
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting && !this.loaded.has(key)) {
+              this.loaded.add(key);
+              observer.disconnect();
+              this.observers.delete(key);
+              loadFn();
+            }
+          });
+        }, { threshold: options.threshold || 0.05, rootMargin: options.rootMargin || '100px' });
+        
+        observer.observe(el);
+        this.observers.set(key, observer);
+      },
+      
+      // Pause/resume a component based on visibility
+      pauseWhenHidden(selector, pauseFn, resumeFn) {
+        const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+        if (!el) return;
+        
+        const key = selector.toString();
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            const wasPaused = this.paused.get(key);
+            if (entry.isIntersecting && wasPaused) {
+              this.paused.set(key, false);
+              resumeFn?.();
+            } else if (!entry.isIntersecting && !wasPaused) {
+              this.paused.set(key, true);
+              pauseFn?.();
+            }
+          });
+        }, { threshold: 0.05 });
+        
+        observer.observe(el);
+        this.observers.set(key + '-pause', observer);
+      },
+      
+      // Toggle visibility-hidden class for CSS-based animation pausing
+      hideWhenOffscreen(selector) {
+        const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+        if (!el) return;
+        
+        const key = selector.toString() + '-hide';
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              el.classList.remove('visibility-hidden');
+            } else {
+              el.classList.add('visibility-hidden');
+            }
+          });
+        }, { threshold: 0.02, rootMargin: '50px' });
+        
+        observer.observe(el);
+        this.observers.set(key, observer);
+      },
+      
+      isPaused(selector) {
+        return this.paused.get(selector.toString()) || false;
+      }
+    };
+    
     // ====== A/B/C/D/E Test: Starting Price ======
     // Monthly options (60% total): D: $8/mo (30%), E: $2/mo (30%)
     // One-time options (40% total): A: $32 (13.3%), B: $64 (13.3%), C: $128 (13.3%)
@@ -8767,8 +8866,12 @@
         </a>
       `;
     }
-    setTimeout(loadShopProducts, 100);
-    setTimeout(setupShopVisibilityRetry, 200); // Set up visibility observer
+    
+    // Load shop when visible (it's lower on the page)
+    visibilityManager.loadWhenVisible('.shop-section', () => {
+      loadShopProducts();
+      setupShopVisibilityRetry();
+    }, { rootMargin: '400px' });
 
     // Load stats from metrics API
     async function loadStats() {
@@ -9670,7 +9773,15 @@
         container.insertBefore(overlay, container.firstChild);
       });
     }
-    setTimeout(loadTVFeed, 500);
+    
+    // Load TV feed when visible
+    visibilityManager.loadWhenVisible('.tv-section', () => loadTVFeed(), { rootMargin: '200px' });
+    
+    // Pause/resume TV playback based on visibility
+    visibilityManager.pauseWhenHidden('.tv-section',
+      () => { if (tvPlayer && !tvPlayer.paused) tvPlayer.pause(); },
+      () => { if (tvPlayer && tvPlayer.paused) tvPlayer.play().catch(() => {}); }
+    );
     
     // AT Proto - cycle through actual records fetched from PDS
     let atRecords = [];
@@ -10967,7 +11078,8 @@
       }
     }
     
-    setTimeout(loadKidlispCarousel, 800);
+    // Load KidLisp carousel when visible
+    visibilityManager.loadWhenVisible('.kidlisp-preview', () => loadKidlispCarousel(), { rootMargin: '300px' });
     
     // Desktop Release Info - Fetch from GitHub
     async function loadDesktopReleaseInfo() {
@@ -11328,7 +11440,15 @@
       }
     }
     
-    setTimeout(loadFloatingPaintings, 2000);
+    // Load floaters when stats section becomes visible
+    visibilityManager.loadWhenVisible('.stats-section', () => {
+      loadFloatingPaintings();
+      setTimeout(loadFloatingHandles, 300);
+      setTimeout(loadFloatingMoods, 600);
+      setTimeout(loadFloatingKidlisp, 900);
+      setTimeout(loadFloatingCommands, 1200);
+      setTimeout(loadFloatingMessages, 1500);
+    }, { rootMargin: '200px' });
 
     // 🏷️ Floating Handles in Stats
     async function loadFloatingHandles() {
@@ -11400,8 +11520,6 @@
         console.warn('Could not load floating handles:', e);
       }
     }
-    
-    setTimeout(loadFloatingHandles, 2500);
 
     // 😊 Floating Moods in Stats
     async function loadFloatingMoods() {
@@ -11493,8 +11611,6 @@
         console.warn('Could not load floating moods:', e);
       }
     }
-    
-    setTimeout(loadFloatingMoods, 3000);
 
     // 💻 Floating KidLisp Codes in Stats
     async function loadFloatingKidlisp() {
@@ -11576,8 +11692,6 @@
         console.warn('Could not load floating kidlisp:', e);
       }
     }
-    
-    setTimeout(loadFloatingKidlisp, 3500);
 
     // 🧩 Floating Commands (pieces + prompts) in Stats
     async function loadFloatingCommands() {
@@ -11654,8 +11768,6 @@
         console.warn('Could not load floating commands:', e);
       }
     }
-    
-    setTimeout(loadFloatingCommands, 4000);
 
     // 💬 Floating Messages in Stats
     async function loadFloatingMessages() {
@@ -11735,7 +11847,15 @@
       }
     }
     
-    setTimeout(loadFloatingMessages, 4500);
+    // ====== Apply Visibility Optimizations ======
+    // Pause animations/effects on offscreen sections for mobile performance
+    document.querySelectorAll('.stat-item').forEach(el => visibilityManager.hideWhenOffscreen(el));
+    visibilityManager.hideWhenOffscreen('.jeffreys-canvas-container');
+    visibilityManager.hideWhenOffscreen('.kidlisp-preview');
+    visibilityManager.hideWhenOffscreen('.shop-section');
+    visibilityManager.hideWhenOffscreen('.chat-preview');
+    visibilityManager.hideWhenOffscreen('.apps-flip-container');
+    visibilityManager.hideWhenOffscreen('.gives-ticker');
     
     // ====== Auth0 Authentication ======
     let auth0Client = null;
