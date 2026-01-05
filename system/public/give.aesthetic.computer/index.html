@@ -3738,7 +3738,7 @@
       top: 4em;
       left: 0.2em;
       right: 1em;
-      max-height: 14em;
+      max-height: 12em;
       padding: 0.4em 0.6em;
       font-family: var(--mono);
       font-size: 0.85em;
@@ -3754,6 +3754,18 @@
       mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
     }
 
+    .kidlisp-slide-credit {
+      position: absolute;
+      top: 16.5em;
+      left: 0.6em;
+      font-family: var(--mono);
+      font-size: 0.7em;
+      color: rgba(255,255,255,0.6);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+      pointer-events: none;
+      z-index: 3;
+    }
+
     .kidlisp-slide-plays {
       position: absolute;
       bottom: 4em;
@@ -3762,20 +3774,6 @@
       font-size: 0.85em;
       color: var(--gold);
       background: rgba(0,0,0,0.5);
-      padding: 0.2em 0.5em;
-      border-radius: 3px;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.9);
-      z-index: 5;
-    }
-
-    .kidlisp-slide-author {
-      position: absolute;
-      bottom: 4em;
-      left: 5.5em;
-      font-family: var(--mono);
-      font-size: 0.75em;
-      color: rgba(255,255,255,0.7);
-      background: rgba(0,0,0,0.4);
       padding: 0.2em 0.5em;
       border-radius: 3px;
       text-shadow: 0 1px 2px rgba(0,0,0,0.9);
@@ -4576,32 +4574,68 @@
         <div class="stat-item" id="stat-handles">
           <div class="stat-floaters"></div>
           <div class="stat-value">—</div>
-          <div class="stat-label">handles</div>
+          <div class="stat-label">
+            <span data-lang="en">handles</span>
+            <span data-lang="da">brugernavne</span>
+            <span data-lang="de">Benutzer</span>
+            <span data-lang="es">usuarios</span>
+            <span data-lang="zh">用户名</span>
+          </div>
         </div>
         <div class="stat-item" id="stat-paintings">
           <div class="stat-floaters"></div>
           <div class="stat-value">—</div>
-          <div class="stat-label">paintings</div>
+          <div class="stat-label">
+            <span data-lang="en">paintings</span>
+            <span data-lang="da">malerier</span>
+            <span data-lang="de">Bilder</span>
+            <span data-lang="es">pinturas</span>
+            <span data-lang="zh">绘画</span>
+          </div>
         </div>
         <div class="stat-item" id="stat-moods">
           <div class="stat-floaters"></div>
           <div class="stat-value">—</div>
-          <div class="stat-label">moods</div>
+          <div class="stat-label">
+            <span data-lang="en">moods</span>
+            <span data-lang="da">stemninger</span>
+            <span data-lang="de">Stimmungen</span>
+            <span data-lang="es">estados</span>
+            <span data-lang="zh">心情</span>
+          </div>
         </div>
         <div class="stat-item" id="stat-kidlisp">
           <div class="stat-floaters"></div>
           <div class="stat-value">—</div>
-          <div class="stat-label">kidlisp pieces</div>
+          <div class="stat-label">
+            <span data-lang="en">kidlisp pieces</span>
+            <span data-lang="da">kidlisp stykker</span>
+            <span data-lang="de">KidLisp Stücke</span>
+            <span data-lang="es">piezas kidlisp</span>
+            <span data-lang="zh">kidlisp作品</span>
+          </div>
         </div>
         <div class="stat-item" id="stat-commands">
           <div class="stat-floaters"></div>
           <div class="stat-value">—</div>
-          <div class="stat-label">commands</div>
+          <div class="stat-label">
+            <span data-lang="en">commands</span>
+            <span data-lang="da">kommandoer</span>
+            <span data-lang="de">Befehle</span>
+            <span data-lang="es">comandos</span>
+            <span data-lang="zh">命令</span>
+          </div>
         </div>
         <div class="stat-item" id="stat-messages">
           <div class="stat-floaters"></div>
           <div class="stat-value">—</div>
-          <div class="stat-label">messages</div>
+          <div class="stat-label">
+            <span data-lang="en">messages</span>
+            <span data-lang="da">beskeder</span>
+            <span data-lang="de">Nachrichten</span>
+            <span data-lang="es">mensajes</span>
+            <span data-lang="zh">消息</span>
+          </div>
         </div>
       </div>
 
@@ -4701,7 +4735,13 @@
           <!-- Front: Desktop (active when not flipped) -->
           <div class="apps-flip-face apps-flip-front desktop-face">
             <div class="desktop-face-header">
-              <span class="face-label">desktop</span>
+              <span class="face-label">
+                <span data-lang="en">desktop</span>
+                <span data-lang="da">skrivebord</span>
+                <span data-lang="de">Desktop</span>
+                <span data-lang="es">escritorio</span>
+                <span data-lang="zh">桌面</span>
+              </span>
             </div>
             
             <div class="desktop-platforms-grid">
@@ -4757,7 +4797,13 @@
           <!-- Back: Mobile (ghost overlay when not flipped, active when flipped) -->
           <div class="apps-flip-face apps-flip-back mobile-face">
             <div class="mobile-face-header">
-              <span class="face-label">mobile</span>
+              <span class="face-label">
+                <span data-lang="en">mobile</span>
+                <span data-lang="da">mobil</span>
+                <span data-lang="de">Mobil</span>
+                <span data-lang="es">móvil</span>
+                <span data-lang="zh">移动</span>
+              </span>
             </div>
             
             <div class="mobile-face-content">
@@ -4789,7 +4835,13 @@
 
       <div class="shop-section">
         <div class="shop-header">
-          <a href="https://shop.aesthetic.computer" class="shop-title">shop</a>
+          <a href="https://shop.aesthetic.computer" class="shop-title">
+            <span data-lang="en">shop</span>
+            <span data-lang="da">butik</span>
+            <span data-lang="de">Shop</span>
+            <span data-lang="es">tienda</span>
+            <span data-lang="zh">商店</span>
+          </a>
         </div>
         <div class="shop-products" id="shopProducts">
           <div class="module-loading" id="shopLoading">loading</div>
@@ -4836,21 +4888,43 @@
       <div class="page-footer">
         <div class="footer-auth" id="footerAuth">
           <div class="footer-auth-buttons" id="footerAuthButtons">
-            <button class="footer-login-btn" id="footerLoginBtn">Log in</button>
-            <button class="footer-signup-btn" id="footerSignupBtn">I'm new</button>
+            <button class="footer-login-btn" id="footerLoginBtn">
+              <span data-lang="en">Log in</span>
+              <span data-lang="da">Log ind</span>
+              <span data-lang="de">Anmelden</span>
+              <span data-lang="es">Entrar</span>
+              <span data-lang="zh">登录</span>
+            </button>
+            <button class="footer-signup-btn" id="footerSignupBtn">
+              <span data-lang="en">I'm new</span>
+              <span data-lang="da">Jeg er ny</span>
+              <span data-lang="de">Ich bin neu</span>
+              <span data-lang="es">Soy nuevo</span>
+              <span data-lang="zh">我是新用户</span>
+            </button>
           </div>
           <div class="footer-user-stack" id="footerUserStack" style="display: none;">
             <a class="footer-user-menu" id="footerUserMenu" href="#">
               <span class="footer-user-handle" id="footerUserHandle"></span>
             </a>
-            <a class="footer-logout-link" id="footerLogoutLink" href="#">logout?</a>
+            <a class="footer-logout-link" id="footerLogoutLink" href="#">
+              <span data-lang="en">logout?</span>
+              <span data-lang="da">log ud?</span>
+              <span data-lang="de">abmelden?</span>
+              <span data-lang="es">¿salir?</span>
+              <span data-lang="zh">登出?</span>
+            </a>
           </div>
         </div>
       </div>
 
       <a id="pals" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;" href="#">
         <img src="https://aesthetic.computer/purple-pals.svg" alt="">
-        <span>↑ Back to Top</span>
+        <span data-lang="en">↑ Back to Top</span>
+        <span data-lang="da">↑ Tilbage til top</span>
+        <span data-lang="de">↑ Nach oben</span>
+        <span data-lang="es">↑ Volver arriba</span>
+        <span data-lang="zh">↑ 返回顶部</span>
       </a>
     </div>
   </main>
@@ -7720,17 +7794,17 @@
       const tickerMessages = {
         en: {
           serverCost: `💸 Server bills to keep AC running cost upwards of <strong>${getAnimatedCost()}/month</strong>.`,
-          cta: 'Paying what you want for AC keeps services online and free to use, and helps <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> develop new features.',
+          cta: 'Paying what you want for AC keeps services online and free to use and helps <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> develop new features.',
           got: 'Got'
         },
         da: {
           serverCost: `💸 Serverregninger for at holde AC kørende koster op mod <strong>${getAnimatedCost()} kr/måned</strong>.`,
-          cta: 'Betal hvad du vil for AC og hold tjenester online og gratis, og hjælp <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> med at udvikle nye funktioner.',
+          cta: 'Betal hvad du vil for AC og hold tjenester online og gratis og hjælp <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> med at udvikle nye funktioner.',
           got: 'Modtog'
         },
         de: {
           serverCost: `💸 Serverkosten für AC laufen auf über <strong>${getAnimatedCost()}$/Monat</strong> hinaus.`,
-          cta: 'Zahle was du willst für AC, halte die Dienste online und kostenlos, und hilf <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> neue Funktionen zu entwickeln.',
+          cta: 'Zahle was du willst für AC, halte die Dienste online und kostenlos und hilf <a href="https://aesthetic.computer/@jeffrey" class="pink-handle">@jeffrey</a> neue Funktionen zu entwickeln.',
           got: 'Erhalten'
         },
         es: {
@@ -8774,6 +8848,17 @@
           return;
         }
         
+        // Shuffle for variety using Fisher-Yates
+        function shuffle(arr) {
+          const a = [...arr];
+          for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+          }
+          return a;
+        }
+        const shuffledHits = shuffle(hits);
+        
         // KidLisp syntax highlighter - matches kidlisp.com/index.html
         function highlightKidlisp(code) {
           if (!code) return '';
@@ -8836,23 +8921,53 @@
           return html;
         }
         
-        // Create all slides (hidden initially)
-        const slides = hits.slice(0, 20);
+        // Create all slides (hidden initially) - use shuffled for variety
+        const slides = shuffledHits.slice(0, 20);
         let currentSlide = 0;
         let slideInterval = null;
+        
+        // Format relative time (e.g., "3d ago", "2mo ago")
+        function formatRelativeTime(when) {
+          if (!when) return '';
+          const date = new Date(when);
+          const now = new Date();
+          const diffMs = now - date;
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMs / 3600000);
+          const diffDays = Math.floor(diffMs / 86400000);
+          const diffWeeks = Math.floor(diffDays / 7);
+          const diffMonths = Math.floor(diffDays / 30);
+          const diffYears = Math.floor(diffDays / 365);
+          
+          if (diffYears > 0) return `${diffYears}y ago`;
+          if (diffMonths > 0) return `${diffMonths}mo ago`;
+          if (diffWeeks > 0) return `${diffWeeks}w ago`;
+          if (diffDays > 0) return `${diffDays}d ago`;
+          if (diffHours > 0) return `${diffHours}h ago`;
+          if (diffMins > 0) return `${diffMins}m ago`;
+          return 'just now';
+        }
         
         carousel.innerHTML = slides.map((item, i) => {
           const code = item.code || 'unknown';
           const hitCount = item.hits || 0;
           const source = item.source || '';
-          const author = item.handle || item.author || '';
+          const author = item.owner?.handle?.replace('@', '') || item.handle || item.author || '';
+          const when = item.when;
           const pieceUrl = `https://kidlisp.com/$${code}`;
           
           // Truncate source to fit in preview (more generous for single view)
           const truncatedSource = source.length > 400 ? source.slice(0, 400) + '...' : source;
           const highlighted = highlightKidlisp(truncatedSource);
           
-          const authorHtml = author && author !== 'anon' ? `<div class="kidlisp-slide-author">@${escapeHtml(author)}</div>` : '';
+          // Build author/time credit line
+          let creditHtml = '';
+          if (author && author !== 'anon') {
+            const timeStr = when ? ` · ${formatRelativeTime(when)}` : '';
+            creditHtml = `<div class="kidlisp-slide-credit">@${escapeHtml(author)}${timeStr}</div>`;
+          } else if (when) {
+            creditHtml = `<div class="kidlisp-slide-credit">${formatRelativeTime(when)}</div>`;
+          }
           
           return `
             <div class="kidlisp-slide${i === 0 ? ' active' : ''}" data-index="${i}" data-code="${escapeHtml(code)}" data-hits="${hitCount}">
@@ -8860,12 +8975,12 @@
                 <div class="module-loading"></div>
               </a>
               <div class="kidlisp-slide-code">${highlighted}</div>
+              ${creditHtml}
               <div class="kidlisp-slide-qr-wrap">
                 <div class="kidlisp-slide-label">$${escapeHtml(code)}</div>
                 <div class="kidlisp-slide-qr" data-url="${pieceUrl}"></div>
               </div>
               <div class="kidlisp-slide-plays">${hitCount.toLocaleString()} Hits</div>
-              ${authorHtml}
             </div>
           `;
         }).join('');
