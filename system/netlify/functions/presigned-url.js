@@ -187,10 +187,7 @@ export async function handler(event, context) {
       // Fail if the user is not logged in but an upload is attempted from
       // the client as if they are.
       // TODO: 🔴 Should I just use the guest bucket here? 23.04.30.17.59
-      return {
-        statusCode: 401,
-        body: "Authorization failure...",
-      };
+      return respond(401, { error: "Authorization failure..." });
     }
   } else {
     // Assume the unauthorized, temporary "art" bucket.
@@ -211,12 +208,7 @@ export async function handler(event, context) {
   if (extension === "obj") mimeType = "application/object";
 
   if (!mimeType) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: "Invalid file extension.",
-      }),
-    };
+    return respond(400, { message: "Invalid file extension." });
   }
 
   let loadCode = nanoid();
@@ -253,14 +245,11 @@ export async function handler(event, context) {
   if (expiring) uploadOptions.expiresIn = 3600; // Set to expiring if we are in an anonymous bucket / not a logged in user.
   const uploadURL = await getSignedUrl(client.s3, command, uploadOptions);
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      uploadURL: uploadURL,
-      slug: fileName,
-      code: loadCode,
-    }),
-  };
+  return respond(200, {
+    uploadURL: uploadURL,
+    slug: fileName,
+    code: loadCode,
+  });
   } catch (error) {
     console.error("❌ Presigned URL error:", error);
     console.error("❌ Error details:", {
