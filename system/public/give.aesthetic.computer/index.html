@@ -2171,6 +2171,28 @@
       border-radius: 8px;
     }
 
+    .apps-flip-container::before {
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border-radius: 16px;
+      background: conic-gradient(from var(--glow-angle, 0deg), var(--pink), var(--cyan), var(--green), var(--pink));
+      opacity: 0.4;
+      filter: blur(20px);
+      z-index: -1;
+      animation: glowRotate 8s linear infinite;
+    }
+
+    @keyframes glowRotate {
+      to { --glow-angle: 360deg; }
+    }
+
+    @property --glow-angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+
     .apps-flip-face .module-caption {
       position: absolute;
       bottom: 3px; /* Above progress bar */
@@ -3293,6 +3315,18 @@
       position: relative;
       perspective: 1200px;
       border-radius: 8px;
+    }
+
+    .chat-flip-container::before {
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border-radius: 16px;
+      background: conic-gradient(from var(--glow-angle, 0deg), var(--pink), var(--cyan), var(--green), var(--pink));
+      opacity: 0.4;
+      filter: blur(20px);
+      z-index: -1;
+      animation: glowRotate 8s linear infinite;
     }
 
     /* The flipping card - this rotates in 3D */
