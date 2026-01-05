@@ -73,9 +73,97 @@ let browserLaunchPromise = null;
 const grabQueue = [];
 let grabRunning = false;
 
-async function enqueueGrab(fn) {
+// Queue metadata for visibility
+const queueMetadata = new Map(); // queueIndex -> { piece, format, addedAt }
+
+// Current grab progress tracking
+let currentProgress = {
+  piece: null,
+  format: null,
+  stage: null, // 'loading' | 'waiting-content' | 'capturing' | 'encoding' | 'uploading'
+  stageDetail: null,
+  framesCaptured: 0,
+  framesTotal: 0,
+  percent: 0,
+};
+
+// Callback for notifying subscribers of progress updates
+let progressNotifyCallback = null;
+
+/**
+ * Set a callback to be notified when progress/status updates occur
+ */
+export function setNotifyCallback(callback) {
+  progressNotifyCallback = callback;
+}
+
+/**
+ * Notify all subscribers of status change
+ */
+function notifySubscribers() {
+  if (progressNotifyCallback) {
+    progressNotifyCallback();
+  }
+}
+
+/**
+ * Update current progress state
+ */
+export function updateProgress(updates) {
+  Object.assign(currentProgress, updates);
+  notifySubscribers();
+}
+
+/**
+ * Get current progress state
+ */
+export function getCurrentProgress() {
+  return { ...currentProgress };
+}
+
+/**
+ * Get queue status with estimated wait times
+ */
+export function getQueueStatus() {
+  return grabQueue.map((item, index) => ({
+    position: index + 1,
+    piece: item.metadata?.piece || 'unknown',
+    format: item.metadata?.format || '?',
+    addedAt: item.metadata?.addedAt || Date.now(),
+    estimatedWait: estimateWaitTime(index + 1),
+  }));
+}
+
+// Track recent grab durations for ETA estimation
+const recentDurations = [];
+const MAX_DURATION_SAMPLES = 10;
+const DEFAULT_GRAB_DURATION_MS = 30000; // 30 seconds default estimate
+
+/**
+ * Record a grab duration for ETA estimation
+ */
+export function recordGrabDuration(durationMs) {
+  recentDurations.push(durationMs);
+  if (recentDurations.length > MAX_DURATION_SAMPLES) {
+    recentDurations.shift();
+  }
+}
+
+/**
+ * Estimate wait time based on queue position and average duration
+ */
+export function estimateWaitTime(queuePosition) {
+  const avgDuration = recentDurations.length > 0
+    ? recentDurations.reduce((a, b) => a + b, 0) / recentDurations.length
+    : DEFAULT_GRAB_DURATION_MS;
+  return Math.round(avgDuration * queuePosition);
+}
+
+async function enqueueGrab(fn, metadata = {}) {
   return new Promise((resolve, reject) => {
-    grabQueue.push({ fn, resolve, reject });
+    grabQueue.push({ fn, resolve, reject, metadata: { ...metadata, addedAt: Date.now() } });
+    // Notify subscribers of queue change
+    if (progressNotifyCallback) progressNotifyCallback();
     processGrabQueue();
   });
 }
@@ -495,15 +583,6 @@ export async function getCachedOrGenerate(type, piece, width, height, generateFn
   return { cdnUrl: null, fromCache: false, buffer };
 }
 
-// Subscriber notification (will be set by server.mjs)
-let notifyCallback = null;
-export function setNotifyCallback(cb) {
-  notifyCallback = cb;
-}
-function notifySubscribers() {
-  if (notifyCallback) notifyCallback();
-}
-
 // Activity log callback (will be set by server.mjs)
 let logCallback = null;
 export function setLogCallback(cb) {
@@ -799,6 +878,15 @@ async function captureFrames(piece, options = {}) {
     const frameInterval = duration / frames;
     const capturedFrames = [];
     
+    // Update progress: entering capture stage
+    updateProgress({
+      stage: 'capturing',
+      stageDetail: `Starting frame capture...`,
+      framesCaptured: 0,
+      framesTotal: frames,
+      percent: 30,
+    });
+    
     console.log(`   Capturing frames...`);
     for (let i = 0; i < frames; i++) {
       // AC rendering stack has multiple canvases layered on top of each other:
@@ -808,6 +896,14 @@ async function captureFrames(piece, options = {}) {
       // We need to composite them properly to get the full rendered output
       
       console.log(`   [Frame ${i+1}] Starting capture...`);
+      
+      // Update progress for each frame
+      const capturePercent = 30 + ((i / frames) * 50); // 30% to 80% during capture
+      updateProgress({
+        framesCaptured: i,
+        stageDetail: `Capturing frame ${i + 1}/${frames}...`,
+        percent: Math.round(capturePercent),
+      });
       
       // Use CDP directly for screenshot - more reliable than page.screenshot for WebGL
       let frameBuffer;
@@ -1109,10 +1205,22 @@ export async function grabPiece(piece, options = {}) {
   });
   
   // Use queue to serialize capture operations (avoid parallel puppeteer sessions)
+  // Pass metadata for queue visibility
   return enqueueGrab(async () => {
     try {
       let result;
       activeGrabs.get(grabId).status = 'capturing';
+      
+      // Initialize progress state for this grab
+      updateProgress({
+        piece: piece,
+        format: format,
+        stage: 'loading',
+        stageDetail: `Starting ${piece}...`,
+        percent: 0,
+        framesCaptured: 0,
+        framesTotal: Math.ceil((duration / 1000) * fps),
+      });
       
       if (format === 'png') {
         // Single frame PNG
@@ -1133,6 +1241,13 @@ export async function grabPiece(piece, options = {}) {
         }
         
         activeGrabs.get(grabId).status = 'encoding';
+        
+        // Update progress: encoding stage
+        updateProgress({
+          stage: 'encoding',
+          stageDetail: `Encoding ${format.toUpperCase()}...`,
+          percent: 85,
+        });
         
         if (format === 'webp') {
           result = await framesToWebp(capturedFrames, { 
@@ -1160,6 +1275,13 @@ export async function grabPiece(piece, options = {}) {
       // Upload to Spaces for dashboard preview
       if (process.env.ART_SPACES_KEY) {
         try {
+          // Update progress: uploading stage
+          updateProgress({
+            stage: 'uploading',
+            stageDetail: `Uploading to CDN...`,
+            percent: 95,
+          });
+          
           const ext = format === 'webp' ? 'webp' : format === 'gif' ? 'gif' : 'png';
           const contentType = format === 'webp' ? 'image/webp' : format === 'gif' ? 'image/gif' : 'image/png';
           const spacesKey = `oven/grabs/${grabId}.${ext}`;
@@ -1186,6 +1308,12 @@ export async function grabPiece(piece, options = {}) {
     if (recentGrabs.length > 20) recentGrabs.pop();
     saveGrab(grab); // Persist to MongoDB
     
+    // Clear progress state (grab complete)
+    updateProgress({ stage: null, piece: null, format: null, percent: 0 });
+    
+    // Record duration for ETA estimation
+    recordGrabDuration(grab.duration);
+    
     // Notify WebSocket subscribers
     notifySubscribers();
     
@@ -1208,6 +1336,9 @@ export async function grabPiece(piece, options = {}) {
     } catch (error) {
       console.error(`❌ Grab failed: ${grabId}`, error.message);
       serverLog('error', '❌', `Grab failed: ${piece} - ${error.message}`);
+      
+      // Clear progress state on error
+      updateProgress({ stage: null, piece: null, format: null, percent: 0 });
       
       const grab = activeGrabs.get(grabId);
       if (grab) {
@@ -1232,7 +1363,7 @@ export async function grabPiece(piece, options = {}) {
         error: error.message,
       };
     }
-  }); // End of enqueueGrab
+  }, { piece, format }); // End of enqueueGrab, pass metadata for queue visibility
 }
 
 /**
