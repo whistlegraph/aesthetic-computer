@@ -7639,10 +7639,9 @@
           track.style.animationDuration = `${speed}s`;
         }
         
-        // Float notes with messages on the jeffreys slideshow
-        const givesWithNotes = givesData.filter(g => g.note && g.note.trim());
-        if (givesWithNotes.length > 0) {
-          startFloatingNotes(givesWithNotes);
+        // Float all gives on the jeffreys slideshow (with or without notes)
+        if (givesData.length > 0) {
+          startFloatingGives(givesData);
         }
       } catch (e) {
         console.error('Gives load error:', e);
@@ -7650,22 +7649,38 @@
       }
     }
     
-    // Floating notes on jeffreys canvas
-    let floatingNotesStarted = false; // Global guard to prevent multiple instances
-    function startFloatingNotes(givesWithNotes) {
-      // Only allow one instance of floating notes
-      if (floatingNotesStarted) return;
-      floatingNotesStarted = true;
+    // Floating gives on jeffreys canvas
+    let floatingGivesStarted = false; // Global guard to prevent multiple instances
+    function startFloatingGives(allGives) {
+      // Only allow one instance of floating gives
+      if (floatingGivesStarted) return;
+      floatingGivesStarted = true;
       
       const slideshow = document.getElementById('jeffreysSlideshow');
       if (!slideshow) {
-        floatingNotesStarted = false;
+        floatingGivesStarted = false;
         return;
       }
       
-      let noteIndex = 0;
-      const visibleNotes = new Set(); // Track note TEXT currently on screen
-      let isShowingNote = false; // Prevent concurrent calls
+      let giveIndex = 0;
+      const visibleGives = new Set(); // Track gives currently on screen by unique key
+      let isShowingGive = false; // Prevent concurrent calls
+      
+      // Format time ago
+      function timeAgo(dateStr) {
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        if (diffMins < 1) return 'now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
       
       // Convert text to animated characters - alphabet soup on strings
       function animateText(text) {
@@ -7682,35 +7697,36 @@
         }).join('');
       }
       
-      function showNextNote() {
+      function showNextGive() {
         // Prevent concurrent calls
-        if (isShowingNote) return;
-        isShowingNote = true;
+        if (isShowingGive) return;
+        isShowingGive = true;
         
-        // Find a note that isn't currently visible (check actual note text)
+        // Find a give that isn't currently visible (use unique key: amount + timestamp)
         let attempts = 0;
-        const startIndex = noteIndex;
-        let give = givesWithNotes[noteIndex];
+        const startIndex = giveIndex;
+        let give = allGives[giveIndex];
+        let giveKey = `${give.amountDisplay}-${give.createdAt || give.timestamp}`;
         
-        while (visibleNotes.has(give.note) && attempts < givesWithNotes.length) {
-          noteIndex = (noteIndex + 1) % givesWithNotes.length;
-          give = givesWithNotes[noteIndex];
+        while (visibleGives.has(giveKey) && attempts < allGives.length) {
+          giveIndex = (giveIndex + 1) % allGives.length;
+          give = allGives[giveIndex];
+          giveKey = `${give.amountDisplay}-${give.createdAt || give.timestamp}`;
           attempts++;
         }
         
-        // If all notes are visible, skip this cycle
-        if (visibleNotes.has(give.note)) {
-          noteIndex = (startIndex + 1) % givesWithNotes.length;
-          isShowingNote = false;
+        // If all gives are visible, skip this cycle
+        if (visibleGives.has(giveKey)) {
+          giveIndex = (startIndex + 1) % allGives.length;
+          isShowingGive = false;
           return;
         }
         
         // Mark as visible IMMEDIATELY before any async stuff
-        const noteKey = give.note;
-        visibleNotes.add(noteKey);
+        visibleGives.add(giveKey);
         
         // Move to next for subsequent calls
-        noteIndex = (noteIndex + 1) % givesWithNotes.length;
+        giveIndex = (giveIndex + 1) % allGives.length;
         
         const el = document.createElement('div');
         // Alternate between left and right margins
@@ -7721,32 +7737,42 @@
         const topPos = 40 + Math.random() * 45;
         el.style.top = `${topPos}%`;
         
-        // Truncate long notes (no quotes!)
-        const noteText = give.note.length > 30 ? give.note.slice(0, 30) + '…' : give.note;
         const suffix = give.isRecurring ? '/mo' : '';
-        
         const amountAnimated = animateText(give.amountDisplay + suffix);
-        const noteAnimated = animateText(noteText);
         
-        el.innerHTML = `<span class="amount">${amountAnimated}</span><span class="note">${noteAnimated}</span>`;
+        // Build display: amount + (note OR time ago)
+        let displayHtml = `<span class="amount">${amountAnimated}</span>`;
+        
+        if (give.note && give.note.trim()) {
+          // Has note - show note
+          const noteText = give.note.length > 30 ? give.note.slice(0, 30) + '…' : give.note;
+          displayHtml += `<span class="note">${animateText(noteText)}</span>`;
+        } else {
+          // No note - show time ago and currency
+          const timeStr = timeAgo(give.createdAt || give.timestamp);
+          const currency = give.currency ? give.currency.toUpperCase() : 'USD';
+          displayHtml += `<span class="note">${animateText(timeStr)} ${animateText(currency)}</span>`;
+        }
+        
+        el.innerHTML = displayHtml;
         
         slideshow.appendChild(el);
-        isShowingNote = false;
+        isShowingGive = false;
         
         // Remove after animation completes and clear from visible set
         setTimeout(() => {
           el.remove();
-          visibleNotes.delete(noteKey);
+          visibleGives.delete(giveKey);
         }, 30000);
       }
       
-      // Show first note after a longer delay
-      setTimeout(showNextNote, 5000);
+      // Show first give after a longer delay
+      setTimeout(showNextGive, 5000);
       
-      // Show new notes periodically (every 25-40 seconds, randomized for ambient feel)
+      // Show new gives periodically (every 25-40 seconds, randomized for ambient feel)
       setInterval(() => {
         if (document.visibilityState === 'visible') {
-          showNextNote();
+          showNextGive();
         }
       }, 25000 + Math.random() * 15000);
     }
