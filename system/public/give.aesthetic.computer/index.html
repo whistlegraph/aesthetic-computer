@@ -6459,12 +6459,12 @@
           const qrPulse = 0.88 + 0.12 * Math.sin(qrTime / 400);
           const qrGlow = 10 + 8 * Math.sin(qrTime / 300);
           
-          // Bright white background with pulse - thinner border
+          // Bright white background with pulse
           ctx.globalAlpha = masterAlpha * qrPulse;
           ctx.fillStyle = '#ffffff';
           ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
           ctx.shadowBlur = qrGlow;
-          const bgPad = 5; // Thinner white border
+          const bgPad = 10; // More margin around QR
           ctx.beginPath();
           const qrRadius = 8;
           ctx.moveTo(qrX - bgPad + qrRadius, qrY - bgPad);
@@ -6478,13 +6478,7 @@
           ctx.quadraticCurveTo(qrX - bgPad, qrY - bgPad, qrX - bgPad + qrRadius, qrY - bgPad);
           ctx.closePath();
           ctx.fill();
-          
-          // Pulsing border
           ctx.shadowBlur = 0;
-          const borderPulse = 0.5 + 0.5 * Math.sin(qrTime / 350);
-          ctx.strokeStyle = `rgba(100, 255, 180, ${borderPulse})`;
-          ctx.lineWidth = 2.5;
-          ctx.stroke();
           
           // Draw QR code (pre-generated image, not regenerated each frame)
           ctx.globalAlpha = masterAlpha;
