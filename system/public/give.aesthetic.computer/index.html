@@ -2701,8 +2701,8 @@
       display: inline-flex;
       flex-direction: row;
       align-items: baseline;
-      gap: 0.4em;
-      flex-wrap: nowrap;
+      gap: 0.5em;
+      flex-wrap: wrap;
       margin-bottom: 0.3em;
       justify-content: flex-start;
       width: auto;
@@ -2749,7 +2749,7 @@
 
     .shop-product-desc {
       font-family: var(--mono);
-      font-size: 0.65em;
+      font-size: 0.75em;
       color: rgba(255, 255, 255, 0.75);
       line-height: 1.4;
       text-shadow: 0 1px 4px rgba(0,0,0,0.8);
@@ -5168,9 +5168,7 @@
       let scrollZoom = 0; // Scroll-based Ken Burns zoom (-1 to 1)
       let scrollZoomTarget = 0; // Target scroll zoom (smoothly interpolated)
       
-      // Canvas-rendered floating gives (behind logo)
-      const canvasFloatingGives = [];
-      window.canvasFloatingGives = canvasFloatingGives; // Expose for startFloatingGives
+      // Floating gives are now rendered as HTML overlay (see startFloatingGives)
       
       // Track scroll position for Ken Burns scroll-zoom effect
       function updateScrollZoom() {
@@ -5966,73 +5964,8 @@
         // Draw logo and price on canvas (after restore, no filters)
         ctx.filter = 'none'; // Ensure no filters affect logo/price
         
-        // Draw floating gives BEHIND logo (per-char wobble with better lateral spread)
-        const now = Date.now();
-        for (let i = canvasFloatingGives.length - 1; i >= 0; i--) {
-          const fg = canvasFloatingGives[i];
-          const elapsed = now - fg.startTime;
-          const progress = elapsed / fg.duration; // 0 to 1
-          
-          if (progress >= 1) {
-            canvasFloatingGives.splice(i, 1);
-            continue;
-          }
-          
-          // Opacity: fade in 0-5%, hold 5-90%, fade out 90-100%
-          let alpha = 1;
-          if (progress < 0.05) alpha = progress / 0.05;
-          else if (progress > 0.90) alpha = (1 - progress) / 0.10;
-          
-          // Position: float up from bottom to top (round to int for perf)
-          const startY = h * (0.4 + fg.startYOffset * 0.45);
-          const endY = h * -0.1;
-          const y = Math.round(startY + (endY - startY) * progress);
-          
-          // Strong lateral movement - big sine wave + drift (round to int)
-          const baseXPx = w * fg.baseX;
-          const driftX = fg.driftStart + (fg.driftEnd - fg.driftStart) * progress;
-          const sineWave = Math.sin(progress * Math.PI * 4) * 50;
-          const x = Math.round(baseXPx + driftX + sineWave);
-          
-          // Smaller font (round to int)
-          const fontSize = Math.round(Math.max(11, Math.min(15, w * 0.026)));
-          
-          ctx.save();
-          ctx.globalAlpha = alpha * masterAlpha;
-          ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji', sans-serif`;
-          ctx.textBaseline = 'middle';
-          ctx.shadowColor = 'rgba(0,0,0,0.7)';
-          ctx.shadowBlur = 2;
-          ctx.shadowOffsetY = 1;
-          
-          // Draw characters with individual wobble (rounded positions)
-          let charX = x;
-          const fullText = fg.amountText + '  ' + fg.secondText;
-          const amountLen = [...fg.amountText].length;
-          const chars = [...fullText];
-          
-          for (let c = 0; c < chars.length; c++) {
-            const ch = chars[c];
-            if (ch === ' ') {
-              charX += Math.round(fontSize * 0.35);
-              continue;
-            }
-            
-            // Per-char wobble (rounded to int)
-            const wobbleY = Math.round(Math.sin(now / 400 + c * 0.7 + fg.startYOffset * 5) * 4);
-            const wobbleX = Math.round(Math.cos(now / 500 + c * 0.5) * 2);
-            
-            // Color: green/gold for amount, dim for rest
-            ctx.fillStyle = c < amountLen 
-              ? (fg.isMonthly ? '#ffd764' : '#88ff88')
-              : 'rgba(255,255,255,0.55)';
-            
-            ctx.fillText(ch, charX + wobbleX, y + wobbleY);
-            charX += Math.round(ctx.measureText(ch).width) + Math.round(fontSize * 0.04);
-          }
-          
-          ctx.restore();
-        }
+        // Floating gives are rendered as HTML overlay for better performance
+        // (canvas shadowBlur on many characters kills FPS)
         
         if (logoLoaded && logoImg.complete) {
           // Parse current price to get dollar amount for subtle scaling
@@ -7883,30 +7816,52 @@
         else if (posRand < 0.66) baseXPercent = 0.28 + Math.random() * 0.35;
         else baseXPercent = 0.60 + Math.random() * 0.20;
         
-        // Add to canvas floating gives array (simplified for performance)
-        const floatingGive = {
-          key: giveKey,
-          amountText: amountText,
-          secondText: secondText,
-          isMonthly: give.isRecurring,
-          startTime: Date.now(),
-          duration: 30000,
-          baseX: baseXPercent,
-          startYOffset: Math.random(),
-          driftStart: (Math.random() - 0.5) * 50,
-          driftEnd: (Math.random() - 0.5) * 70
+        // Create HTML floating give element (GPU-accelerated CSS animations)
+        const floatEl = document.createElement('div');
+        floatEl.className = `floating-give ${posRand < 0.33 ? 'left-side' : posRand < 0.66 ? 'center-side' : 'right-side'}${give.isRecurring ? ' monthly' : ''}`;
+        
+        // Random Y position (top 25% to 75% of screen)
+        const topPercent = 25 + Math.random() * 50;
+        floatEl.style.top = `${topPercent}%`;
+        
+        // Random drift values for ambient floating
+        const driftStart = (Math.random() - 0.5) * 60;
+        const driftEnd = (Math.random() - 0.5) * 80;
+        floatEl.style.setProperty('--drift-start', `${driftStart}px`);
+        floatEl.style.setProperty('--drift-end', `${driftEnd}px`);
+        
+        // Helper to wrap text in character spans for soup animation
+        const wrapChars = (text, extraClass = '') => {
+          return text.split('').map((ch, i) => {
+            const duration = 2 + Math.random() * 2;
+            const delay = Math.random() * 2;
+            const zIndex = Math.floor(Math.random() * 10);
+            return `<span class="char ${extraClass}" style="--char-duration:${duration}s;--char-delay:${delay}s;--char-z:${zIndex}">${ch === ' ' ? '&nbsp;' : ch}</span>`;
+          }).join('');
         };
         
-        // Access the canvas floating gives array
-        if (window.canvasFloatingGives) {
-          window.canvasFloatingGives.push(floatingGive);
+        // Build amount span
+        const amountSpan = `<span class="amount">${wrapChars(amountText)}</span>`;
+        
+        // Build note or time span
+        const secondSpan = (give.note && give.note.trim()) 
+          ? `<span class="note">${wrapChars(secondText)}</span>`
+          : `<span class="time">${wrapChars(secondText)}</span>`;
+        
+        floatEl.innerHTML = amountSpan + secondSpan;
+        
+        // Add to slideshow container
+        const container = document.querySelector('.jeffreys-slideshow');
+        if (container) {
+          container.appendChild(floatEl);
         }
         
         isShowingGive = false;
         
-        // Remove from visible set after duration
+        // Remove element after animation completes
         setTimeout(() => {
           visibleGives.delete(giveKey);
+          floatEl.remove();
         }, 30000);
       }
       
