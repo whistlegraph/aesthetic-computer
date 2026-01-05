@@ -3867,6 +3867,23 @@
       /* Safari mobile fix for border-radius */
       -webkit-mask-image: -webkit-radial-gradient(white, black);
       isolation: isolate;
+      /* Enable transform for bounce animation */
+      transform-origin: center center;
+      transition: transform 0.1s ease;
+    }
+
+    /* Bounce press animation on slide change */
+    .kidlisp-preview.bounce-press {
+      animation: kidlispBouncePress 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes kidlispBouncePress {
+      0% { transform: scale(1) rotateX(0deg) rotateY(0deg); }
+      15% { transform: scale(0.96) rotateX(2deg) rotateY(-1deg); }
+      30% { transform: scale(0.97) rotateX(-1deg) rotateY(1deg); }
+      50% { transform: scale(1.02) rotateX(0deg) rotateY(0deg); }
+      70% { transform: scale(0.99) rotateX(0.5deg) rotateY(-0.5deg); }
+      100% { transform: scale(1) rotateX(0deg) rotateY(0deg); }
     }
 
     .kidlisp-preview-header:hover .kidlisp-logo {
@@ -10138,6 +10155,16 @@
           current.classList.remove('active');
           current.classList.add('exiting');
           next.classList.add('active');
+          
+          // Bounce press animation on the whole panel
+          const previewPanel = carousel.closest('.kidlisp-preview');
+          if (previewPanel) {
+            previewPanel.classList.remove('bounce-press');
+            // Force reflow to restart animation
+            void previewPanel.offsetWidth;
+            previewPanel.classList.add('bounce-press');
+            setTimeout(() => previewPanel.classList.remove('bounce-press'), 400);
+          }
           
           // Clean up exiting class after transition
           setTimeout(() => current.classList.remove('exiting'), 500);
