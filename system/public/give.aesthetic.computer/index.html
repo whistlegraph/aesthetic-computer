@@ -2711,14 +2711,27 @@
       inset: 0;
       background: rgba(0, 0, 0, 0.3);
       pointer-events: none;
+      z-index: 1;
     }
 
     .shop-product img {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
       transform: scale(1.15);
       animation: kenBurns 15s ease-in-out infinite alternate;
+      transition: opacity 0.4s ease;
+    }
+
+    .shop-product img.shop-img-back {
+      z-index: 0;
+    }
+
+    .shop-product img.shop-img-front {
+      z-index: 0;
     }
 
     @keyframes kenBurns {
@@ -7557,14 +7570,34 @@
       const images = p.images || [p.imageUrl].filter(Boolean);
       if (!images.length) return;
       
-      const img = document.querySelector('.shop-product img');
-      if (img) {
-        img.style.opacity = '0';
+      const wrap = document.querySelector('.shop-product-img-wrap');
+      if (!wrap) return;
+      
+      const currentImg = wrap.querySelector('img');
+      if (!currentImg) return;
+      
+      // Preload the new image
+      const newImg = new Image();
+      newImg.src = images[imgIndex];
+      newImg.alt = currentImg.alt;
+      newImg.className = 'shop-img-front';
+      newImg.style.opacity = '0';
+      
+      newImg.onload = () => {
+        // Add new image on top
+        wrap.insertBefore(newImg, wrap.firstChild);
+        
+        // Trigger reflow then fade in
+        newImg.offsetHeight;
+        newImg.style.opacity = '1';
+        
+        // Remove old image after transition
         setTimeout(() => {
-          img.src = images[imgIndex];
-          img.style.opacity = '1';
-        }, 150);
-      }
+          if (currentImg && currentImg.parentNode) {
+            currentImg.remove();
+          }
+        }, 450);
+      };
     }
     
     function showShopProduct(index) {
@@ -7591,7 +7624,7 @@
       container.innerHTML = `
         <a href="${p.shopUrl}" class="shop-product" target="_blank">
           <div class="shop-product-img-wrap">
-            <img src="${currentImage}" alt="${escapeHtml(p.title)}" loading="lazy" style="transition: opacity 0.15s;">
+            <img src="${currentImage}" alt="${escapeHtml(p.title)}" loading="lazy" class="shop-img-front">
           </div>
           <div class="shop-product-overlay">
             <span class="shop-product-title-row">
