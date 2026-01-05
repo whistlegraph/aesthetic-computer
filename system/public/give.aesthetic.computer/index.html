@@ -2695,6 +2695,7 @@
       /* Safari mobile fix for border-radius */
       -webkit-mask-image: -webkit-radial-gradient(white, black);
       isolation: isolate;
+      z-index: 2; /* Above other modules so their shadows don't cover it */
     }
 
     .shop-header {
