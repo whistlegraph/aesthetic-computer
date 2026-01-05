@@ -3395,6 +3395,21 @@
       background: #000;
       /* VHS color bleeding effect */
       filter: saturate(1.1) contrast(1.05);
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Blurred background glow video - fills letterbox with soft color */
+    .tv-slide .tv-bg-glow {
+      position: absolute;
+      inset: -20%;
+      width: 140%;
+      height: 140%;
+      object-fit: cover;
+      filter: blur(40px) saturate(1.4) brightness(0.7);
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.85;
     }
 
     /* VHS scanlines overlay - scrolling */
@@ -9010,6 +9025,11 @@
       const slide = document.createElement('div');
       slide.className = 'tv-slide entering';
       slide.innerHTML = `
+        <video class="tv-bg-glow"
+          src="${tape.media.videoUrl}" 
+          muted 
+          playsinline
+        ></video>
         <video 
           src="${tape.media.videoUrl}" 
           muted 
@@ -9054,8 +9074,22 @@
         container.appendChild(muteBtn);
       }
       
-      tvPlayer = slide.querySelector('video');
+      tvPlayer = slide.querySelector('video:not(.tv-bg-glow)');
+      const bgGlow = slide.querySelector('.tv-bg-glow');
       tvPlayer.volume = 0.3; // Set default volume to 30%
+      
+      // Sync background glow with main video
+      if (bgGlow) {
+        tvPlayer.addEventListener('play', () => bgGlow.play());
+        tvPlayer.addEventListener('pause', () => bgGlow.pause());
+        tvPlayer.addEventListener('seeked', () => { bgGlow.currentTime = tvPlayer.currentTime; });
+        // Start bg glow when main video starts
+        tvPlayer.addEventListener('canplay', () => {
+          bgGlow.currentTime = tvPlayer.currentTime;
+          if (!tvPlayer.paused) bgGlow.play();
+        }, { once: true });
+      }
+      
       const progressBar = container.querySelector('.tv-progress-bar');
       const progressContainer = container.querySelector('.tv-progress');
       const timerEl = container.querySelector('.tv-timer');
