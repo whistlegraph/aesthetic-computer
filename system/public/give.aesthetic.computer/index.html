@@ -2233,7 +2233,7 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 4px;
-      margin-bottom: 0.5em;
+      flex: 1;
     }
 
     .desktop-platform-btn {
@@ -2242,22 +2242,54 @@
       align-items: center;
       justify-content: center;
       padding: 0.5em 0.3em;
-      background: rgba(40, 40, 40, 0.8);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 6px;
       text-decoration: none;
       transition: all 0.2s ease;
     }
 
+    .desktop-platform-btn.plat-mac {
+      background: rgba(100, 100, 100, 0.3);
+    }
+
+    .desktop-platform-btn.plat-win {
+      background: rgba(0, 120, 212, 0.15);
+    }
+
+    .desktop-platform-btn.plat-linux {
+      background: rgba(245, 196, 0, 0.1);
+    }
+
     .desktop-platform-btn:hover {
-      background: rgba(60, 60, 60, 0.9);
       border-color: rgba(255, 255, 255, 0.25);
       transform: translateY(-2px);
     }
 
+    .desktop-platform-btn.plat-mac:hover {
+      background: rgba(120, 120, 120, 0.4);
+    }
+
+    .desktop-platform-btn.plat-win:hover {
+      background: rgba(0, 120, 212, 0.25);
+    }
+
+    .desktop-platform-btn.plat-linux:hover {
+      background: rgba(245, 196, 0, 0.2);
+    }
+
     .desktop-platform-btn .plat-icon {
-      font-size: 1.2em;
-      margin-bottom: 0.1em;
+      width: 24px;
+      height: 24px;
+      margin-bottom: 0.2em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .desktop-platform-btn .plat-icon svg {
+      width: 100%;
+      height: 100%;
+      fill: currentColor;
     }
 
     .desktop-platform-btn .plat-name {
@@ -2267,73 +2299,43 @@
     }
 
     .desktop-platform-btn .plat-arch {
-      font-size: 0.55em;
+      font-size: 0.5em;
       color: var(--dim);
+      font-family: var(--mono);
     }
 
     .desktop-platform-btn:hover .plat-name {
       color: #fff;
     }
 
-    .desktop-changelog-box {
+    .desktop-changelog-ticker {
       background: rgba(0, 0, 0, 0.3);
       border-radius: 4px;
-      padding: 0.4em;
-      max-height: 60px;
-      overflow-y: auto;
-      flex: 1;
+      padding: 0.3em 0.5em;
+      margin-top: 0.4em;
       border: 1px solid rgba(255, 255, 255, 0.05);
+      overflow: hidden;
+      white-space: nowrap;
     }
 
-    .desktop-changelog-box::-webkit-scrollbar {
-      width: 3px;
-    }
-
-    .desktop-changelog-box::-webkit-scrollbar-thumb {
-      background: rgba(150, 150, 150, 0.4);
-      border-radius: 2px;
-    }
-
-    .desktop-changelog-header {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.7em;
-      margin-bottom: 0.3em;
-    }
-
-    .desktop-changelog-header strong {
-      color: #6a6;
-      font-family: monospace;
-    }
-
-    .desktop-changelog-header span {
-      color: #666;
-      font-family: monospace;
-    }
-
-    .desktop-changelog-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
-
-    .desktop-changelog-list li {
+    .desktop-changelog-ticker-content {
+      display: inline-block;
+      animation: tickerScroll 20s linear infinite;
       font-size: 0.65em;
-      color: #999;
-      padding: 0.15em 0;
-      padding-left: 0.6em;
-      position: relative;
+      color: var(--dim);
     }
 
-    .desktop-changelog-list li::before {
-      content: '•';
-      position: absolute;
-      left: 0;
-      color: #555;
+    .desktop-changelog-ticker-content span {
+      margin-right: 2em;
     }
 
-    .desktop-changelog-list li strong {
-      color: #aaa;
+    @keyframes tickerScroll {
+      0% { transform: translateX(100%); }
+      100% { transform: translateX(-100%); }
+    }
+
+    .desktop-changelog-ticker:hover .desktop-changelog-ticker-content {
+      animation-play-state: paused;
     }
 
     .desktop-tools-row {
@@ -4687,35 +4689,30 @@
           <div class="apps-flip-face apps-flip-front desktop-face">
             <div class="desktop-face-header">
               <span class="face-label">desktop</span>
-              <span class="version-badge" id="desktopVersion">v0.1.8</span>
             </div>
             
             <div class="desktop-platforms-grid">
-              <a href="https://github.com/whistlegraph/aesthetic-computer/releases/download/v0.1.8/Aesthetic-Computer-0.1.8-universal.dmg" class="desktop-platform-btn" title="Download for macOS" target="_blank">
-                <span class="plat-icon">🍎</span>
+              <a href="https://github.com/whistlegraph/aesthetic-computer/releases/download/v0.1.8/Aesthetic-Computer-0.1.8-universal.dmg" class="desktop-platform-btn plat-mac" title="Download for macOS" target="_blank">
+                <span class="plat-icon"><svg viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg></span>
                 <span class="plat-name">Mac</span>
-                <span class="plat-arch">Universal</span>
+                <span class="plat-arch" id="macVersion">v0.1.8</span>
               </a>
-              <a href="https://github.com/whistlegraph/aesthetic-computer/releases/download/v0.1.8/Aesthetic-Computer-Setup-0.1.8.exe" class="desktop-platform-btn" title="Download for Windows" target="_blank">
-                <span class="plat-icon">🪟</span>
+              <a href="https://github.com/whistlegraph/aesthetic-computer/releases/download/v0.1.8/Aesthetic-Computer-Setup-0.1.8.exe" class="desktop-platform-btn plat-win" title="Download for Windows" target="_blank">
+                <span class="plat-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#0078D4" d="M0 3.5L10 2.2V11.5H0V3.5ZM11 2L24 0V11.5H11V2ZM0 12.5H10V21.8L0 20.5V12.5ZM11 12.5H24V24L11 22V12.5Z"/></svg></span>
                 <span class="plat-name">Windows</span>
-                <span class="plat-arch">x64</span>
+                <span class="plat-arch" id="winVersion">v0.1.8</span>
               </a>
-              <a href="https://github.com/whistlegraph/aesthetic-computer/releases/download/v0.1.8/Aesthetic-Computer-0.1.8.AppImage" class="desktop-platform-btn" title="Download for Linux" target="_blank">
-                <span class="plat-icon">🐧</span>
+              <a href="https://github.com/whistlegraph/aesthetic-computer/releases/download/v0.1.8/Aesthetic-Computer-0.1.8.AppImage" class="desktop-platform-btn plat-linux" title="Download for Linux" target="_blank">
+                <span class="plat-icon"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><ellipse cx="50" cy="70" rx="30" ry="25" fill="#F5C400"/><ellipse cx="50" cy="45" rx="25" ry="28" fill="#333"/><ellipse cx="50" cy="50" rx="18" ry="20" fill="#fff"/><circle cx="42" cy="38" r="4" fill="#333"/><circle cx="58" cy="38" r="4" fill="#333"/><circle cx="43" cy="37" r="1.5" fill="#fff"/><circle cx="59" cy="37" r="1.5" fill="#fff"/><ellipse cx="50" cy="48" rx="4" ry="3" fill="#F5A000"/><ellipse cx="35" cy="85" rx="10" ry="6" fill="#F5A000"/><ellipse cx="65" cy="85" rx="10" ry="6" fill="#F5A000"/></svg></span>
                 <span class="plat-name">Linux</span>
-                <span class="plat-arch">AppImage</span>
+                <span class="plat-arch" id="linuxVersion">v0.1.8</span>
               </a>
             </div>
             
-            <div class="desktop-changelog-box">
-              <div class="desktop-changelog-header">
-                <strong id="releaseName">Latest</strong>
-                <span id="releaseDate"></span>
+            <div class="desktop-changelog-ticker">
+              <div class="desktop-changelog-ticker-content" id="changelogTicker">
+                <span>Loading changelog...</span>
               </div>
-              <ul class="desktop-changelog-list" id="releaseChangelog">
-                <li>Loading...</li>
-              </ul>
             </div>
             
             <div class="desktop-tools-row">
@@ -8992,56 +8989,57 @@
         if (!res.ok) return;
         
         const release = await res.json();
+        const version = release.tag_name;
         
-        // Update version badge
-        const versionEl = document.getElementById('desktopVersion');
-        if (versionEl) versionEl.textContent = release.tag_name;
+        // Update all platform version badges
+        const macVer = document.getElementById('macVersion');
+        const winVer = document.getElementById('winVersion');
+        const linuxVer = document.getElementById('linuxVersion');
+        if (macVer) macVer.textContent = version;
+        if (winVer) winVer.textContent = version;
+        if (linuxVer) linuxVer.textContent = version;
         
-        // Parse release name
-        const nameEl = document.getElementById('releaseName');
-        if (nameEl) nameEl.textContent = release.name || release.tag_name;
+        // Update download links with the latest version
+        document.querySelectorAll('.desktop-platform-btn').forEach(btn => {
+          const href = btn.getAttribute('href');
+          if (href && href.includes('v0.1.8')) {
+            btn.setAttribute('href', href.replace(/v[\d.]+/g, version).replace(/[\d.]+(?=[-.](?:universal|Setup|AppImage))/g, version.replace('v', '')));
+          }
+        });
         
-        // Format date
-        const dateEl = document.getElementById('releaseDate');
-        if (dateEl && release.published_at) {
-          const date = new Date(release.published_at);
-          dateEl.textContent = date.toLocaleDateString('en-US', { 
-            year: 'numeric', month: 'short', day: 'numeric' 
-          });
-        }
-        
-        // Parse changelog - convert markdown to list items
-        const changelogEl = document.getElementById('releaseChangelog');
-        if (changelogEl && release.body) {
+        // Build changelog ticker content
+        const tickerEl = document.getElementById('changelogTicker');
+        if (tickerEl && release.body) {
           const body = release.body;
           const items = [];
           
           // Extract list items from markdown
           const lines = body.split('\n');
           for (const line of lines) {
-            // Match "- **Something** - Description" or "- **Something**" or "- Item"
             const boldMatch = line.match(/^[\-\*]\s*\*\*(.+?)\*\*\s*[-–]?\s*(.*)$/);
             const simpleMatch = line.match(/^[\-\*]\s+(.+)$/);
             
             if (boldMatch) {
               const [, bold, rest] = boldMatch;
-              items.push(`<strong>${bold}</strong>${rest ? ' — ' + rest : ''}`);
+              items.push(`${bold}${rest ? ': ' + rest : ''}`);
             } else if (simpleMatch && !simpleMatch[1].startsWith('**')) {
               items.push(simpleMatch[1]);
             }
           }
           
           if (items.length > 0) {
-            changelogEl.innerHTML = items.map(i => `<li>${i}</li>`).join('');
+            // Duplicate for seamless loop
+            const tickerText = items.map(i => `<span>${i}</span>`).join('');
+            tickerEl.innerHTML = tickerText + tickerText;
           } else {
-            changelogEl.innerHTML = '<li>See release notes for details</li>';
+            tickerEl.innerHTML = `<span>${release.name || version} released</span>`;
           }
         }
         
       } catch (e) {
         console.warn('Could not load release info:', e);
-        const changelogEl = document.getElementById('releaseChangelog');
-        if (changelogEl) changelogEl.innerHTML = '<li>Could not load changelog</li>';
+        const tickerEl = document.getElementById('changelogTicker');
+        if (tickerEl) tickerEl.innerHTML = '<span>Visit GitHub for release notes</span>';
       }
     }
     
