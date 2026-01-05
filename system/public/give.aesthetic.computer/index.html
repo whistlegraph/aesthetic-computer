@@ -6429,20 +6429,26 @@
           ctx.restore();
         }
         
-        // Draw QR code in bottom-right corner
+        // Draw QR code in bottom-right corner (shifted left and up)
         if (giveQrLoaded && giveQrImg.complete) {
           ctx.save();
-          const qrSize = Math.min(w, h) * 0.18; // 18% of canvas size
-          const qrPadding = 12;
-          const qrX = w - qrSize - qrPadding;
-          const qrY = h - qrSize - qrPadding;
+          const qrSize = Math.min(w, h) * 0.24; // 24% of canvas size (larger)
+          const qrPadding = 24; // More padding from edge
+          const qrX = w - qrSize - qrPadding - 20; // Shifted left by 20px
+          const qrY = h - qrSize - qrPadding - 15; // Shifted up by 15px
           
-          // Semi-transparent background
-          ctx.globalAlpha = masterAlpha * 0.85;
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-          const bgPad = 6;
+          // Pulsing white glow effect
+          const qrPulse = 0.85 + 0.15 * Math.sin(Date.now() / 400); // Oscillate between 0.85 and 1.0
+          const qrGlow = 8 + 6 * Math.sin(Date.now() / 300); // Glow pulse
+          
+          // Bright white background with pulse
+          ctx.globalAlpha = masterAlpha * qrPulse;
+          ctx.fillStyle = '#ffffff';
+          ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+          ctx.shadowBlur = qrGlow;
+          const bgPad = 8;
           ctx.beginPath();
-          const qrRadius = 4;
+          const qrRadius = 6;
           ctx.moveTo(qrX - bgPad + qrRadius, qrY - bgPad);
           ctx.lineTo(qrX + qrSize + bgPad - qrRadius, qrY - bgPad);
           ctx.quadraticCurveTo(qrX + qrSize + bgPad, qrY - bgPad, qrX + qrSize + bgPad, qrY - bgPad + qrRadius);
@@ -6455,9 +6461,11 @@
           ctx.closePath();
           ctx.fill();
           
-          // Subtle border
-          ctx.strokeStyle = 'rgba(100, 200, 150, 0.6)';
-          ctx.lineWidth = 1.5;
+          // Pulsing border
+          ctx.shadowBlur = 0;
+          const borderPulse = 0.6 + 0.4 * Math.sin(Date.now() / 350);
+          ctx.strokeStyle = `rgba(100, 255, 180, ${borderPulse})`;
+          ctx.lineWidth = 2;
           ctx.stroke();
           
           // Draw QR code
@@ -6466,12 +6474,12 @@
           ctx.drawImage(giveQrImg, qrX, qrY, qrSize, qrSize);
           ctx.imageSmoothingEnabled = true;
           
-          // Small label below QR
-          ctx.font = `${Math.max(9, qrSize * 0.12)}px 'Berkeley Mono Variable', monospace`;
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          // Small label below QR with pulse
+          ctx.font = `bold ${Math.max(10, qrSize * 0.11)}px 'Berkeley Mono Variable', monospace`;
+          ctx.fillStyle = `rgba(0, 0, 0, ${0.7 + 0.2 * Math.sin(Date.now() / 400)})`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
-          ctx.fillText('scan to give', qrX + qrSize / 2, qrY + qrSize + bgPad + 2);
+          ctx.fillText('scan to give', qrX + qrSize / 2, qrY + qrSize + bgPad + 3);
           
           ctx.restore();
         }
