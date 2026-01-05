@@ -104,10 +104,23 @@ export async function handler(event, context) {
       return sum + usdAmount;
     }, 0);
 
+    // Count active monthly subscribers
+    let activeSubscribers = 0;
+    try {
+      const subscriptions = await stripe.subscriptions.list({
+        status: 'active',
+        limit: 100,
+      });
+      activeSubscribers = subscriptions.data.length;
+    } catch (e) {
+      console.log('Could not fetch subscriptions:', e.message);
+    }
+
     const result = {
       gives,
       count: gives.length,
       totalUSD: Math.round(totalAmount),
+      activeSubscribers,
       lastUpdated: new Date().toISOString(),
     };
 

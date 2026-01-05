@@ -365,6 +365,7 @@
       color: var(--gold);
       position: relative;
       z-index: 2;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8), 0 1px 2px rgba(0, 0, 0, 0.9);
     }
 
     .stat-label {
@@ -374,6 +375,12 @@
       margin-top: 0.2em;
       position: relative;
       z-index: 2;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
+    }
+
+    .stat-sigil {
+      color: var(--cyan);
+      margin-right: 0.1em;
     }
 
     /* Floating items in stat boxes */
@@ -909,6 +916,44 @@
 
     .gift-visual.loaded {
       filter: blur(0) brightness(1);
+    }
+
+    /* Give stats badges - top corners of canvas */
+    .give-stats {
+      position: absolute;
+      top: 0.5em;
+      z-index: 10;
+      font-family: var(--mono);
+      font-size: 0.65em;
+      padding: 0.3em 0.6em;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      color: rgba(255, 255, 255, 0.85);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .gift-visual.loaded .give-stats {
+      opacity: 1;
+    }
+
+    .give-stats-left {
+      left: 0.5em;
+    }
+
+    .give-stats-right {
+      right: 0.5em;
+    }
+
+    .give-stats strong {
+      color: var(--gold);
+      font-weight: 700;
+    }
+
+    .give-stats .monthly-icon {
+      color: #ffcc00;
     }
 
     .gift-logo-wrap {
@@ -1660,11 +1705,15 @@
       cursor: pointer;
       width: 100%;
       transition: all 0.15s;
-      font-weight: bold;
+      font-weight: normal;
       letter-spacing: 0.02em;
       box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2);
       text-shadow: 0 1px 2px rgba(0,0,0,0.3);
       margin-top: 1em;
+    }
+    
+    .gift-btn .price {
+      font-weight: bold;
     }
 
     .gift-btn:hover {
@@ -1695,6 +1744,13 @@
     .gift-widget.monthly-mode .gift-btn:hover {
       background: linear-gradient(180deg, #ffe066 0%, var(--gold) 100%);
       border-color: #fff099;
+    }
+    
+    /* Yellow/gold price display when monthly mode is active */
+    .gift-widget.monthly-mode .gift-amount {
+      color: var(--gold);
+      border-color: var(--gold);
+      background: linear-gradient(135deg, #2a2a1a 0%, #1a1a0a 100%);
     }
 
     /* Crypto controls - match fiat layout */
@@ -1782,6 +1838,7 @@
     }
     .crypto-controls.crypto-all .crypto-address[data-crypto="xtz"] .crypto-symbol {
       color: #c4a0ff;
+      font-size: 0.75em; /* Smaller for 3-char XTZ vs single char symbols */
     }
     
     /* ETH - Blue */
@@ -3056,6 +3113,192 @@
       transition: width 0.05s linear;
     }
 
+    /* AT Proto Section - decentralized identity */
+    .at-section {
+      background: rgb(20, 18, 24);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      aspect-ratio: 1;
+      box-shadow: 
+        0 0 0 1px rgb(205, 92, 155),
+        0 4px 20px rgba(205, 92, 155, 0.2);
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
+      isolation: isolate;
+      font-family: var(--mono);
+    }
+
+    .at-header {
+      padding: 0.5em 0.7em;
+      text-decoration: none;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .at-header strong {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      color: rgb(205, 92, 155);
+      font-weight: 600;
+    }
+
+    .at-header:hover strong {
+      color: #fff;
+    }
+
+    .at-record-display {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .at-record {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .at-record.active {
+      opacity: 1;
+    }
+
+    /* Center content - letterboxed painting or large mood */
+    .at-record-center {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.3em 0.8em;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Handle and type below content */
+    .at-record-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 0.6em 0.1em;
+      text-align: center;
+      margin-top: -0.3em;
+    }
+
+    .at-record-handle {
+      color: rgb(205, 92, 155);
+      font-weight: 700;
+      font-size: 0.85em;
+      letter-spacing: -0.01em;
+    }
+
+    .at-record-type {
+      color: rgba(255, 255, 255, 0.6);
+      text-transform: uppercase;
+      font-size: 0.55em;
+      letter-spacing: 0.1em;
+      margin-top: 0.05em;
+    }
+
+    /* Painting: letterboxed with Ken Burns animation */
+    .at-record-thumb-wrap {
+      position: relative;
+      width: 80%;
+      max-height: 90%;
+      aspect-ratio: 16/10;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 
+        0 8px 30px rgba(0, 0, 0, 0.6),
+        0 2px 8px rgba(0, 0, 0, 0.4),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+      background: #000;
+    }
+
+    .at-record-thumb {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      animation: atKenBurns 12s ease-in-out infinite alternate;
+    }
+
+    @keyframes atKenBurns {
+      0% { transform: scale(1) translate(0, 0); }
+      100% { transform: scale(1.12) translate(-2%, -1%); }
+    }
+
+    .at-record-mood {
+      font-size: 1.4em;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.95);
+      line-height: 1.35;
+      padding: 0.3em 0.5em;
+      font-family: var(--sans);
+      max-height: 100%;
+      overflow: hidden;
+      font-weight: 500;
+    }
+
+    /* Bottom: AT data proof */
+    .at-record-bottom {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15em;
+      padding: 0.3em 0.6em 0.4em;
+      font-size: 0.5em;
+      text-align: center;
+      opacity: 0.7;
+    }
+
+    .at-record-uri {
+      color: rgba(205, 92, 155, 0.8);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-family: var(--mono);
+    }
+
+    .at-record-collection {
+      color: rgba(255, 255, 255, 0.5);
+      font-family: var(--mono);
+      letter-spacing: 0.02em;
+    }
+
+    /* Progress bar - aligned with caption top */
+    .at-progress {
+      position: absolute;
+      bottom: 2.35em;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: rgba(205, 92, 155, 0.2);
+      z-index: 3;
+    }
+
+    .at-progress-bar {
+      height: 100%;
+      background: rgb(205, 92, 155);
+      width: 0%;
+      transition: width 0.05s linear;
+    }
+
+    .at-section .module-caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 0.8em 1em;
+      font-size: 0.75em;
+      color: rgba(205, 92, 155, 0.8);
+      background: rgb(40, 35, 50);
+      z-index: 2;
+    }
+
     /* TV Section - letterbox video feed */
     .tv-section {
       background: #000;
@@ -3100,14 +3343,14 @@
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 0.15em;
-      animation: tvCodeSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      gap: 0.08em;
     }
 
-    @keyframes tvCodeSlideUp {
+    /* Individual code animations - current slides in from bottom, others shift up */
+    @keyframes tvCodeEnter {
       from {
         opacity: 0;
-        transform: translateY(100%);
+        transform: translateY(1.2em);
       }
       to {
         opacity: 1;
@@ -3115,22 +3358,47 @@
       }
     }
 
+    @keyframes tvCodeShiftUp {
+      from {
+        transform: translateY(1.2em);
+      }
+      to {
+        transform: translateY(0);
+      }
+    }
+
     /* Make upcoming codes look tappable */
-    .tv-header .tv-upcoming span {
+    .tv-header .tv-upcoming-code {
       cursor: pointer;
       text-decoration: none !important;
       transition: color 0.15s, transform 0.15s;
-      padding: 0.1em 0;
+      padding: 0.05em 0;
+      display: block;
+      animation: tvCodeShiftUp 0.35s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
-    .tv-header .tv-upcoming span:hover,
-    .tv-header .tv-upcoming span:active {
+    .tv-header .tv-upcoming-code:hover,
+    .tv-header .tv-upcoming-code:active {
       color: rgba(255,255,255,0.85);
       transform: translateX(4px);
     }
 
-    .tv-header .tv-upcoming span:active {
+    .tv-header .tv-upcoming-code:active {
       transform: translateX(4px) scale(0.95);
+    }
+
+    /* Decreasing sizes for upcoming codes */
+    .tv-header .tv-upcoming-code:nth-child(1) {
+      font-size: 0.9em;
+      opacity: 0.55;
+    }
+    .tv-header .tv-upcoming-code:nth-child(2) {
+      font-size: 0.75em;
+      opacity: 0.4;
+    }
+    .tv-header .tv-upcoming-code:nth-child(3) {
+      font-size: 0.6em;
+      opacity: 0.3;
     }
 
     .tv-header .tv-code {
@@ -3140,6 +3408,7 @@
       font-weight: 500;
       letter-spacing: 0.02em;
       text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 0 8px rgba(0, 0, 0, 0.9);
+      animation: tvCodeEnter 0.35s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .tv-header .tv-upcoming {
@@ -3150,7 +3419,7 @@
       letter-spacing: 0.02em;
       display: flex;
       flex-direction: column;
-      gap: 0.1em;
+      gap: 0.05em;
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 0 6px rgba(0, 0, 0, 0.8);
     }
 
@@ -3208,6 +3477,24 @@
       color: rgba(255, 255, 255, 0.7);
       padding: 0.8em 1em;
       font-size: 0.75em;
+    }
+
+    /* TV cycle progress bar - above caption */
+    .tv-cycle-progress {
+      position: absolute;
+      bottom: 2.55em;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: rgba(255, 80, 80, 0.2);
+      z-index: 6;
+    }
+
+    .tv-cycle-progress-bar {
+      height: 100%;
+      background: #e53935;
+      width: 0%;
+      transition: width 0.05s linear;
     }
 
     .tv-player {
@@ -3294,14 +3581,15 @@
     }
 
     .tv-play-indicator::after {
+      /* Pause icon (two bars) - shown while playing */
       content: '';
       display: block;
-      width: 0;
-      height: 0;
-      border-style: solid;
-      border-width: 6px 0 6px 10px;
-      border-color: transparent transparent transparent rgba(255,255,255,0.95);
-      margin-left: 2px;
+      width: 12px;
+      height: 14px;
+      background: linear-gradient(to right, 
+        rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.95) 35%,
+        transparent 35%, transparent 65%,
+        rgba(255,255,255,0.95) 65%, rgba(255,255,255,0.95) 100%);
       filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
     }
 
@@ -3310,15 +3598,14 @@
     }
 
     .tv-play-indicator.paused::after {
-      /* Pause icon - two bars */
-      border: none;
-      width: 12px;
-      height: 14px;
-      background: linear-gradient(to right, 
-        rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.95) 35%,
-        transparent 35%, transparent 65%,
-        rgba(255,255,255,0.95) 65%, rgba(255,255,255,0.95) 100%);
-      margin-left: 0;
+      /* Play icon (triangle) - shown when paused */
+      background: none;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 6px 0 6px 10px;
+      border-color: transparent transparent transparent rgba(255,255,255,0.95);
+      margin-left: 2px;
       filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
     }
 
@@ -3935,7 +4222,7 @@
       top: 0;
       left: 0;
       right: 0;
-      padding: 0.6em 0.8em;
+      padding: 0.8em 1em;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -4820,6 +5107,8 @@
             <div class="gift-widget" data-currency="usd">
               <div class="gift-visual">
                 <div class="jeffreys-slideshow" id="jeffreysSlideshow"></div>
+                <div class="give-stats give-stats-left" id="giveStatsGives"></div>
+                <div class="give-stats give-stats-right" id="giveStatsSubs"></div>
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
                   <div class="gift-amount">$128</div>
@@ -4914,7 +5203,7 @@
               </div>
               <div class="crypto-controls crypto-all">
                 <div class="crypto-address copyable" data-copy="tz1gkf8EexComFBJvjtT1zdsisdah791KwBE" data-crypto="xtz">
-                  <span class="crypto-label"><span class="crypto-symbol">ꜩ</span><span class="crypto-name">aesthetic.tez</span></span>
+                  <span class="crypto-label"><span class="crypto-symbol">XTZ</span><span class="crypto-name">aesthetic.tez</span></span>
                   <span class="crypto-balance" id="balance-xtz"><span class="loading">loading...</span></span>
                   <code class="crypto-addr">tz1gkf8E<span class="addr-dots">···</span>1KwBE</code>
                   <span class="crypto-copy-hint">→ copy</span>
@@ -4958,22 +5247,22 @@
           <div class="stat-floaters"></div>
           <div class="stat-value">—</div>
           <div class="stat-label">
-            <span data-lang="en">handles</span>
-            <span data-lang="da">brugernavne</span>
-            <span data-lang="de">Benutzer</span>
-            <span data-lang="es">usuarios</span>
-            <span data-lang="zh">用户名</span>
+            <span data-lang="en"><span class="stat-sigil">@</span>handles</span>
+            <span data-lang="da"><span class="stat-sigil">@</span>brugernavne</span>
+            <span data-lang="de"><span class="stat-sigil">@</span>Benutzer</span>
+            <span data-lang="es"><span class="stat-sigil">@</span>usuarios</span>
+            <span data-lang="zh"><span class="stat-sigil">@</span>用户名</span>
           </div>
         </div>
         <div class="stat-item" id="stat-paintings">
           <div class="stat-floaters"></div>
           <div class="stat-value">—</div>
           <div class="stat-label">
-            <span data-lang="en">paintings</span>
-            <span data-lang="da">malerier</span>
-            <span data-lang="de">Bilder</span>
-            <span data-lang="es">pinturas</span>
-            <span data-lang="zh">绘画</span>
+            <span data-lang="en"><span class="stat-sigil">#</span>paintings</span>
+            <span data-lang="da"><span class="stat-sigil">#</span>malerier</span>
+            <span data-lang="de"><span class="stat-sigil">#</span>Bilder</span>
+            <span data-lang="es"><span class="stat-sigil">#</span>pinturas</span>
+            <span data-lang="zh"><span class="stat-sigil">#</span>绘画</span>
           </div>
         </div>
         <div class="stat-item" id="stat-moods">
@@ -4991,11 +5280,11 @@
           <div class="stat-floaters"></div>
           <div class="stat-value">—</div>
           <div class="stat-label">
-            <span data-lang="en">kidlisp pieces</span>
-            <span data-lang="da">kidlisp stykker</span>
-            <span data-lang="de">KidLisp Stücke</span>
-            <span data-lang="es">piezas kidlisp</span>
-            <span data-lang="zh">kidlisp作品</span>
+            <span data-lang="en"><span class="stat-sigil">$</span>kidlisp pieces</span>
+            <span data-lang="da"><span class="stat-sigil">$</span>kidlisp stykker</span>
+            <span data-lang="de"><span class="stat-sigil">$</span>KidLisp Stücke</span>
+            <span data-lang="es"><span class="stat-sigil">$</span>piezas kidlisp</span>
+            <span data-lang="zh"><span class="stat-sigil">$</span>kidlisp作品</span>
           </div>
         </div>
         <div class="stat-item" id="stat-commands">
@@ -5103,12 +5392,56 @@
         <div class="tv-player" id="tvPlayer">
           <div class="module-loading" id="tvLoading">loading</div>
         </div>
+        <div class="tv-cycle-progress">
+          <div class="tv-cycle-progress-bar" id="tvCycleProgressBar"></div>
+        </div>
         <div class="module-caption">
           <span data-lang="en">Prefix a prompt with <span class="dim">tape</span> to record GIFs and MP4s.</span>
           <span data-lang="da">Sæt <span class="dim">tape</span> før en prompt for at optage GIFs og MP4s.</span>
           <span data-lang="de">Setze <span class="dim">tape</span> vor einen Prompt für GIFs und MP4s.</span>
           <span data-lang="es">Prefija un prompt con <span class="dim">tape</span> para grabar GIFs y MP4s.</span>
           <span data-lang="zh">在提示前加 <span class="dim">tape</span> 即可录制 GIF 和 MP4。</span>
+        </div>
+      </div>
+
+      <!-- AT Proto Section -->
+      <div class="at-section">
+        <a href="https://at.aesthetic.computer" class="at-header" target="_blank">
+          <strong>at://aesthetic.computer</strong>
+        </a>
+        <div class="at-record-display" id="atRecordDisplay">
+          <div class="at-record active" id="atRecord0">
+            <div class="at-record-center" id="atCenter0"></div>
+            <div class="at-record-meta">
+              <span class="at-record-handle" id="atHandle0">loading...</span>
+              <span class="at-record-type" id="atType0"></span>
+            </div>
+            <div class="at-record-bottom">
+              <span class="at-record-uri" id="atUri0"></span>
+              <span class="at-record-collection" id="atCollection0"></span>
+            </div>
+          </div>
+          <div class="at-record" id="atRecord1">
+            <div class="at-record-center" id="atCenter1"></div>
+            <div class="at-record-meta">
+              <span class="at-record-handle" id="atHandle1"></span>
+              <span class="at-record-type" id="atType1"></span>
+            </div>
+            <div class="at-record-bottom">
+              <span class="at-record-uri" id="atUri1"></span>
+              <span class="at-record-collection" id="atCollection1"></span>
+            </div>
+          </div>
+        </div>
+        <div class="at-progress">
+          <div class="at-progress-bar" id="atProgressBar"></div>
+        </div>
+        <div class="module-caption">
+          <span data-lang="en">Self-hosted PDS with custom lexicons.</span>
+          <span data-lang="da">Selvhostet PDS med tilpassede leksikoner.</span>
+          <span data-lang="de">Selbst gehostete PDS mit eigenen Lexicons.</span>
+          <span data-lang="es">PDS autoalojado con lexicons personalizados.</span>
+          <span data-lang="zh">自托管 PDS 和自定义词典。</span>
         </div>
       </div>
 
@@ -5351,12 +5684,13 @@
   </dialog>
 
   <script>
-    // ====== A/B/C Test: Starting Price ======
-    // A: $64 one-time (33%), B: $128 one-time (33%), C: $8 monthly (33%)
+    // ====== A/B/C/D/E Test: Starting Price ======
+    // Monthly options (60% total): D: $8/mo (30%), E: $2/mo (30%)
+    // One-time options (40% total): A: $32 (13.3%), B: $64 (13.3%), C: $128 (13.3%)
     const abcTestRandom = Math.random();
-    const abcTestVariant = abcTestRandom < 0.33 ? 'A' : abcTestRandom < 0.66 ? 'B' : 'C';
-    const abcTestStartPrice = abcTestVariant === 'A' ? 64 : abcTestVariant === 'B' ? 128 : 8;
-    const abcTestIsMonthly = abcTestVariant === 'C';
+    const abcTestVariant = abcTestRandom < 0.3 ? 'E' : abcTestRandom < 0.6 ? 'D' : abcTestRandom < 0.733 ? 'A' : abcTestRandom < 0.866 ? 'B' : 'C';
+    const abcTestStartPrice = abcTestVariant === 'A' ? 32 : abcTestVariant === 'B' ? 64 : abcTestVariant === 'C' ? 128 : abcTestVariant === 'D' ? 8 : 2;
+    const abcTestIsMonthly = abcTestVariant === 'D' || abcTestVariant === 'E';
     
     // Apply A/B/C test price to all USD widgets immediately
     document.querySelectorAll('.gift-widget[data-currency="usd"]').forEach(widget => {
@@ -5375,7 +5709,7 @@
         }
         slider.value = abcTestStartPrice;
       }
-      if (btn) btn.textContent = abcTestIsMonthly ? `Give $${abcTestStartPrice}/month` : `Give $${abcTestStartPrice}`;
+      if (btn) btn.innerHTML = abcTestIsMonthly ? `Give <span class="price">$${abcTestStartPrice}/mo</span>` : `Give <span class="price">$${abcTestStartPrice}</span>`;
       
       // For variant C, check the monthly box
       if (abcTestIsMonthly && monthlyCheck) {
@@ -6534,19 +6868,13 @@
           const logoX = (w - logoSize) / 2;
           const logoY = (h - logoSize) / 2;
           
-          // Draw dark radial gradient behind logo for prominence
+          // Draw logo-shaped drop shadow for prominence (soft offset shadow)
           ctx.save();
           const logoCenterX = logoX + logoSize / 2;
           const logoCenterY = logoY + logoSize / 2;
-          const darkRadius = logoSize * 0.75;
-          const darkGrad = ctx.createRadialGradient(logoCenterX, logoCenterY, 0, logoCenterX, logoCenterY, darkRadius);
-          darkGrad.addColorStop(0, 'rgba(0, 0, 0, 0.7)');
-          darkGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.5)');
-          darkGrad.addColorStop(0.8, 'rgba(0, 0, 0, 0.2)');
-          darkGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-          ctx.globalAlpha = masterAlpha;
-          ctx.fillStyle = darkGrad;
-          ctx.fillRect(logoCenterX - darkRadius, logoCenterY - darkRadius, darkRadius * 2, darkRadius * 2);
+          ctx.globalAlpha = masterAlpha * 0.35;
+          ctx.filter = 'brightness(0) blur(3px)'; // Black shadow with soft blur
+          ctx.drawImage(logoImg, logoX + 2, logoY + 3, logoSize, logoSize); // Smaller offset
           ctx.restore();
           
           // Logo intensity effects based on price - always visible, use color shifts not opacity
@@ -6972,6 +7300,10 @@
           // Ensure target visual has loaded class (prevent blur)
           targetVisual.classList.add('loaded');
         }
+        // Trigger canvas resize and unpause after becoming visible
+        requestAnimationFrame(() => {
+          window.dispatchEvent(new Event('resize'));
+        });
       }
       
       // Toggle fiat vs crypto notes
@@ -7367,11 +7699,11 @@
         const fmtValue = value.toLocaleString('en-US');
         if (currency === 'dkk') {
           // Use thin space (&#8201;) to avoid YWFT font rendering regular space as +
-          btn.innerHTML = lang === 'da' ? `Giv ${fmtValue}&#8201;kr` : `Give ${fmtValue}&#8201;kr`;
+          btn.innerHTML = lang === 'da' ? `Giv <span class="price">${fmtValue}&#8201;kr</span>` : `Give <span class="price">${fmtValue}&#8201;kr</span>`;
         } else if (isMonthly) {
-          btn.textContent = lang === 'da' ? `Giv $${fmtValue}/måned` : `Give $${fmtValue}/month`;
+          btn.innerHTML = lang === 'da' ? `Giv <span class="price">$${fmtValue}/md</span>` : `Give <span class="price">$${fmtValue}/mo</span>`;
         } else {
-          btn.textContent = lang === 'da' ? `Giv $${fmtValue}` : `Give $${fmtValue}`;
+          btn.innerHTML = lang === 'da' ? `Giv <span class="price">$${fmtValue}</span>` : `Give <span class="price">$${fmtValue}</span>`;
         }
       });
       
@@ -7598,11 +7930,11 @@
         if (currency === 'dkk') {
           // Use innerHTML with thin space for DKK (YWFT renders regular space as +)
           const fmtVal = parseInt(slider.value).toLocaleString('en-US');
-          btn.innerHTML = lang === 'da' ? `Giv ${fmtVal}&#8201;kr` : `Give ${fmtVal}&#8201;kr`;
+          btn.innerHTML = lang === 'da' ? `Giv <span class="price">${fmtVal}&#8201;kr</span>` : `Give <span class="price">${fmtVal}&#8201;kr</span>`;
         } else if (isMonthly) {
-          btn.textContent = lang === 'da' ? `Giv ${format(value)}/måned` : `Give ${format(value)}/month`;
+          btn.innerHTML = lang === 'da' ? `Giv <span class="price">${format(value)}/md</span>` : `Give <span class="price">${format(value)}/mo</span>`;
         } else {
-          btn.textContent = lang === 'da' ? `Giv ${format(value)}` : `Give ${format(value)}`;
+          btn.innerHTML = lang === 'da' ? `Giv <span class="price">${format(value)}</span>` : `Give <span class="price">${format(value)}</span>`;
         }
         
         // Show invest suggestion for USD at $1000+
@@ -8465,10 +8797,37 @@
         // Messages = chatMessages (laer-klokken + chat combined)
         if (messagesEl) messagesEl.textContent = fmt(data.chatMessages);
         
+        // Store raw values for sorting (kidlisp loaded separately)
+        window._statValues = {
+          'stat-handles': data.handles || 0,
+          'stat-paintings': data.paintings || 0,
+          'stat-moods': data.moods || 0,
+          'stat-commands': commandCount,
+          'stat-messages': data.chatMessages || 0
+        };
+        sortStatBoxes();
+        
       } catch (e) {
         console.warn('Could not load stats:', e);
       }
     }
+    
+    // Sort stat boxes by value (highest to lowest)
+    function sortStatBoxes() {
+      const section = document.querySelector('.stats-section');
+      if (!section || !window._statValues) return;
+      
+      const items = Array.from(section.querySelectorAll('.stat-item'));
+      items.sort((a, b) => {
+        const valA = window._statValues[a.id] || 0;
+        const valB = window._statValues[b.id] || 0;
+        return valB - valA; // Descending (highest first)
+      });
+      
+      // Reorder DOM elements
+      items.forEach(item => section.appendChild(item));
+    }
+    
     setTimeout(loadStats, 200);
 
     // KidLisp count - loaded after apiBase is defined (see below)
@@ -8559,7 +8918,7 @@
       };
       
       const msgs = tickerMessages[currentLang] || tickerMessages.en;
-      const serverCostItem = `<span class="gives-ticker-item gives-ticker-cta-item">${msgs.serverCost}</span>`;
+      let serverCostItem = `<span class="gives-ticker-item gives-ticker-cta-item">${msgs.serverCost}</span>`;
       const ctaItem = `<span class="gives-ticker-item gives-ticker-cta-item">${msgs.cta}</span>`;
       
       try {
@@ -8570,6 +8929,33 @@
           : 'https://aesthetic.computer/api/gives';
         const res = await fetch(givesUrl);
         const data = await res.json();
+        
+        // Add subscriber count to ticker if available
+        if (data.activeSubscribers > 0) {
+          const subTexts = {
+            en: `🔁 <strong>${data.activeSubscribers}</strong> monthly supporter${data.activeSubscribers === 1 ? '' : 's'}`,
+            da: `🔁 <strong>${data.activeSubscribers}</strong> månedlig${data.activeSubscribers === 1 ? '' : 'e'} støtte${data.activeSubscribers === 1 ? 'r' : 're'}`,
+            de: `🔁 <strong>${data.activeSubscribers}</strong> monatliche${data.activeSubscribers === 1 ? 'r' : ''} Unterstützer`,
+            es: `🔁 <strong>${data.activeSubscribers}</strong> suscriptor${data.activeSubscribers === 1 ? '' : 'es'} mensual${data.activeSubscribers === 1 ? '' : 'es'}`,
+            zh: `🔁 <strong>${data.activeSubscribers}</strong> 位月度支持者`
+          };
+          const subText = subTexts[currentLang] || subTexts.en;
+          serverCostItem = `<span class="gives-ticker-item gives-ticker-cta-item">${msgs.serverCost} ${subText}</span>`;
+        }
+        
+        // Update stats badges on canvas
+        const givesStatsEl = document.getElementById('giveStatsGives');
+        const subsStatsEl = document.getElementById('giveStatsSubs');
+        
+        if (givesStatsEl && data.gives?.length > 0) {
+          const giveLabels = { en: 'gives', da: 'gaver', de: 'Gaben', es: 'donaciones', zh: '捐赠' };
+          givesStatsEl.innerHTML = `🎁 <strong>${data.count}</strong> ${giveLabels[currentLang] || giveLabels.en}`;
+        }
+        
+        if (subsStatsEl && data.activeSubscribers > 0) {
+          const subLabels = { en: 'monthly', da: 'månedlige', de: 'monatlich', es: 'mensuales', zh: '月度' };
+          subsStatsEl.innerHTML = `<span class="monthly-icon">🔁</span> <strong>${data.activeSubscribers}</strong> ${subLabels[currentLang] || subLabels.en}`;
+        }
         
         if (!data.gives?.length) {
           // Show CTA messages scrolling in the ticker when no gives
@@ -8948,6 +9334,12 @@
         
         const el = document.querySelector('#stat-kidlisp .stat-value');
         if (el && count) el.textContent = count.toLocaleString();
+        
+        // Update stat values for sorting and re-sort
+        if (window._statValues) {
+          window._statValues['stat-kidlisp'] = count;
+          sortStatBoxes();
+        }
       } catch (e) {
         console.warn('Could not load kidlisp count:', e);
       }
@@ -8958,6 +9350,7 @@
     let tvTapes = [];
     let tvIndex = 0;
     let tvPlayer = null;
+    let tvMuted = true; // Preserve mute state across tape changes
     let tvErrorCount = 0;
     const TV_MAX_ERRORS = 5; // Stop trying after too many consecutive errors
     
@@ -8999,6 +9392,10 @@
         container.innerHTML = '<div class="tv-no-signal">No signal</div>';
         return;
       }
+      
+      // Reset cycle progress bar
+      const cycleProgressBar = document.getElementById('tvCycleProgressBar');
+      if (cycleProgressBar) cycleProgressBar.style.width = '0%';
       
       // Update header with current tape code, timestamp, and upcoming codes
       const tapeCode = tape.code ? `!${tape.code}` : '📼 tapes';
@@ -9104,9 +9501,11 @@
           </svg>
         `;
         muteBtn.onclick = (e) => {
+          e.preventDefault();
           e.stopPropagation();
           if (tvPlayer) {
             tvPlayer.muted = !tvPlayer.muted;
+            tvMuted = tvPlayer.muted; // Store for next tape
             muteBtn.classList.toggle('muted', tvPlayer.muted);
           }
         };
@@ -9115,6 +9514,11 @@
       
       tvPlayer = slide.querySelector('video');
       tvPlayer.volume = 0.3; // Set default volume to 30%
+      tvPlayer.muted = tvMuted; // Preserve mute state from previous tape
+      
+      // Update mute button visual state
+      const muteBtn = container.querySelector('.tv-mute-btn');
+      if (muteBtn) muteBtn.classList.toggle('muted', tvMuted);
       
       // Sync background glow with main video (glow is in container, not slide)
       if (bgGlow) {
@@ -9208,21 +9612,21 @@
         container.appendChild(bigPlay);
       }
       
-      // Make video, timer, and header clickable to pause/play
+      // Make video and timer clickable to pause/play (not header - it has nav links)
       slide.addEventListener('click', togglePlayback);
       timerEl.addEventListener('click', togglePlayback);
-      header.addEventListener('click', (e) => {
-        // Only toggle if not navigating (let link work on right-click)
-        if (e.button === 0) togglePlayback(e);
-      });
       
       // Attach all event listeners once
       function attachListeners() {
-        // Update progress bar and timer
+        // Update progress bar, cycle progress bar, and timer
+        const cycleProgressBar = document.getElementById('tvCycleProgressBar');
+        
         tvPlayer.addEventListener('timeupdate', () => {
           if (tvPlayer.duration) {
             const pct = (tvPlayer.currentTime / tvPlayer.duration) * 100;
             progressBar.style.width = pct + '%';
+            // Cycle progress bar above caption
+            if (cycleProgressBar) cycleProgressBar.style.width = pct + '%';
             // Update timer: current / total
             const current = formatTime(tvPlayer.currentTime);
             const total = formatTime(tvPlayer.duration);
@@ -9266,6 +9670,157 @@
       });
     }
     setTimeout(loadTVFeed, 500);
+    
+    // AT Proto - cycle through actual records fetched from PDS
+    let atRecords = [];
+    let atRecordIndex = 0;
+    let atCurrentSlot = 0;
+    let atProgressInterval = null;
+    const PDS_URL = 'https://at.aesthetic.computer';
+    const AT_CYCLE_DURATION = 5000; // 5 seconds per record
+    
+    function startATProgressBar() {
+      const progressBar = document.getElementById('atProgressBar');
+      if (!progressBar) return;
+      
+      // Reset and animate
+      progressBar.style.transition = 'none';
+      progressBar.style.width = '0%';
+      
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          progressBar.style.transition = `width ${AT_CYCLE_DURATION}ms linear`;
+          progressBar.style.width = '100%';
+        });
+      });
+    }
+    
+    async function loadATProtoRecords() {
+      try {
+        // Fetch user stats to get handles with ATProto accounts
+        const statsRes = await fetch(`${apiBase}/.netlify/functions/atproto-user-stats?limit=20`);
+        const statsData = await statsRes.json();
+        const users = (statsData.users || []).filter(u => u.handle && u.totalRecords > 0);
+        
+        // Fetch actual records from PDS for top users
+        const recordPromises = users.slice(0, 8).map(async (user) => {
+          const handle = user.handle; // e.g. "jeffrey.at.aesthetic.computer"
+          const shortHandle = handle.replace('.at.aesthetic.computer', '');
+          
+          try {
+            // Fetch moods and paintings from this user's repo
+            const [moodsRes, paintingsRes] = await Promise.all([
+              fetch(`${PDS_URL}/xrpc/com.atproto.repo.listRecords?repo=${handle}&collection=computer.aesthetic.mood&limit=3`),
+              fetch(`${PDS_URL}/xrpc/com.atproto.repo.listRecords?repo=${handle}&collection=computer.aesthetic.painting&limit=2`)
+            ]);
+            
+            const moodsData = await moodsRes.json();
+            const paintingsData = await paintingsRes.json();
+            
+            const records = [];
+            
+            // Add moods
+            (moodsData.records || []).forEach(r => {
+              records.push({
+                type: 'mood',
+                uri: r.uri,
+                handle: shortHandle,
+                collection: 'mood',
+                content: r.value?.mood || '',
+                when: r.value?.when
+              });
+            });
+            
+            // Add paintings  
+            (paintingsData.records || []).forEach(r => {
+              const did = r.uri.split('/')[2];
+              const thumbCid = r.value?.thumbnail?.ref?.$link || r.value?.thumbnail?.ref;
+              records.push({
+                type: 'painting',
+                uri: r.uri,
+                handle: shortHandle,
+                collection: 'painting',
+                thumbnail: thumbCid ? `${PDS_URL}/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${thumbCid}` : null,
+                when: r.value?.when
+              });
+            });
+            
+            return records;
+          } catch (e) {
+            return [];
+          }
+        });
+        
+        const allRecordArrays = await Promise.all(recordPromises);
+        atRecords = allRecordArrays.flat().sort(() => Math.random() - 0.5); // Shuffle
+        
+        if (atRecords.length > 0) {
+          showATRecord(0, 0);
+          startATProgressBar();
+          
+          // Start cycling
+          setInterval(() => {
+            atRecordIndex = (atRecordIndex + 1) % atRecords.length;
+            const nextSlot = atCurrentSlot === 0 ? 1 : 0;
+            showATRecord(atRecordIndex, nextSlot);
+            document.getElementById(`atRecord${atCurrentSlot}`).classList.remove('active');
+            document.getElementById(`atRecord${nextSlot}`).classList.add('active');
+            atCurrentSlot = nextSlot;
+            startATProgressBar();
+          }, AT_CYCLE_DURATION);
+        } else {
+          document.getElementById('atHandle0').textContent = '@aesthetic';
+          document.getElementById('atCenter0').innerHTML = '<div class="at-record-mood">🌐</div>';
+          document.getElementById('atCollection0').textContent = 'status';
+        }
+      } catch (e) {
+        console.error('AT Proto records error:', e);
+        document.getElementById('atHandle0').textContent = '@aesthetic';
+        document.getElementById('atCenter0').innerHTML = '<div class="at-record-mood">🌐</div>';
+        document.getElementById('atCollection0').textContent = 'status';
+      }
+    }
+    
+    function showATRecord(index, slot) {
+      const record = atRecords[index];
+      if (!record) return;
+      
+      const uriEl = document.getElementById(`atUri${slot}`);
+      const centerEl = document.getElementById(`atCenter${slot}`);
+      const handleEl = document.getElementById(`atHandle${slot}`);
+      const typeEl = document.getElementById(`atType${slot}`);
+      const collectionEl = document.getElementById(`atCollection${slot}`);
+      
+      // Extract interesting parts from URI for proof
+      const uriParts = record.uri.replace('at://', '').split('/');
+      const did = uriParts[0];
+      const collection = uriParts[1];
+      const rkey = uriParts[2];
+      
+      // Show more of the hash/rkey for proof
+      const shortDid = did.substring(0, 16) + '...';
+      const displayUri = `${shortDid}/${collection}/${rkey}`;
+      uriEl.textContent = displayUri;
+      handleEl.textContent = `@${record.handle}`;
+      typeEl.textContent = record.type;
+      collectionEl.textContent = `computer.aesthetic.${record.collection}`;
+      
+      if (record.type === 'mood') {
+        centerEl.innerHTML = `<div class="at-record-mood">${escapeHtml(record.content)}</div>`;
+      } else if (record.type === 'painting' && record.thumbnail) {
+        centerEl.innerHTML = `<div class="at-record-thumb-wrap"><img class="at-record-thumb" src="${record.thumbnail}" alt="painting"></div>`;
+      } else {
+        centerEl.innerHTML = `<div class="at-record-mood">🎨</div>`;
+      }
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    setTimeout(loadATProtoRecords, 600);
     
     // Linkify text - parse URLs, @handles, 'prompts', #paintings
     // Works on raw text, escapes only plain text segments
