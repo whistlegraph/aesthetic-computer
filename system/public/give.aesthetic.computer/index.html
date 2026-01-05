@@ -1890,7 +1890,7 @@
     .crypto-addr {
       display: block;
       font-family: var(--mono);
-      font-size: 0.7em;
+      font-size: 0.95em;
       letter-spacing: 0.03em;
       color: #00ff88;
       text-align: center;
@@ -1899,9 +1899,13 @@
       border-radius: 4px;
       user-select: all;
       cursor: pointer;
-      word-break: break-all;
       text-shadow: 0 0 8px #00ff8855;
       border: 1px solid #00ff8833;
+    }
+
+    .crypto-addr .addr-dots {
+      color: #00aa66;
+      letter-spacing: 0.1em;
     }
 
     .crypto-addr:hover {
@@ -4731,19 +4735,19 @@
                 <div class="crypto-address copyable crypto-featured" data-copy="tz1gkf8EexComFBJvjtT1zdsisdah791KwBE" data-crypto="xtz">
                   <span class="crypto-label">🔮 aesthetic.tez</span>
                   <span class="crypto-balance" id="balance-xtz"><span class="loading">loading...</span></span>
-                  <code class="crypto-addr">tz1gkf8EexComFBJvjtT1zdsisdah791KwBE</code>
+                  <code class="crypto-addr">tz1gkf8E<span class="addr-dots">···</span>1KwBE</code>
                   <span class="crypto-copy-hint">→ copy</span>
                 </div>
                 <div class="crypto-address copyable" data-copy="0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023" data-crypto="eth">
                   <span class="crypto-label">💎 4esthetic.eth</span>
                   <span class="crypto-balance" id="balance-eth"><span class="loading">loading...</span></span>
-                  <code class="crypto-addr">0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023</code>
+                  <code class="crypto-addr">0x1D64E3<span class="addr-dots">···</span>ef023</code>
                   <span class="crypto-copy-hint">→ copy</span>
                 </div>
                 <div class="crypto-address copyable" data-copy="bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as" data-crypto="btc">
-                  <span class="crypto-label">🟠 Bitcoin</span>
+                  <span class="crypto-label">🟠 bitcoin</span>
                   <span class="crypto-balance" id="balance-btc"><span class="loading">loading...</span></span>
-                  <code class="crypto-addr">bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as</code>
+                  <code class="crypto-addr">bc1q699g<span class="addr-dots">···</span>f59as</code>
                   <span class="crypto-copy-hint">→ copy</span>
                 </div>
               </div>
