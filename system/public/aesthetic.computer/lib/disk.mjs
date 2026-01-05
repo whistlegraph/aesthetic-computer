@@ -8666,6 +8666,12 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 🛑 Watchdog ping - respond immediately with pong
+  if (type === "watchdog:ping") {
+    send({ type: "watchdog:pong", content: { timestamp: content?.timestamp } });
+    return;
+  }
+
   if (type === "logout:broadcast:subscribe") {
     console.log("🏃‍♂️ Broadcasting logout:", content);
     socket?.send("logout:broadcast:subscribe", content);
