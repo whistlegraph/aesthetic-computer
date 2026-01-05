@@ -2320,7 +2320,7 @@
 
     .desktop-changelog-ticker-content {
       display: inline-block;
-      animation: tickerScroll 20s linear infinite;
+      animation: tickerScroll 60s linear infinite;
       font-size: 0.65em;
       color: var(--dim);
     }
@@ -2330,8 +2330,8 @@
     }
 
     @keyframes tickerScroll {
-      0% { transform: translateX(100%); }
-      100% { transform: translateX(-100%); }
+      0% { transform: translateX(0%); }
+      100% { transform: translateX(-50%); }
     }
 
     .desktop-changelog-ticker:hover .desktop-changelog-ticker-content {
