@@ -1,6 +1,141 @@
 #!/usr/bin/env bash
-# Pre-commit hook to warn about large deletions in critical files
-# This helps prevent accidental clobbering during merges
+# Pre-commit hook to:
+# 1. Warn about large deletions in critical files (prevents clobbering during merges)
+# 2. Block commits containing secrets/credentials (prevents leaks)
+
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
+###############################################################################
+# PART 1: SECRET DETECTION
+###############################################################################
+
+echo -e "${GREEN}🔒 Scanning for secrets...${NC}"
+
+# Patterns to detect secrets (add new patterns here as needed)
+# Format: "PATTERN_NAME:REGEX"
+# NOTE: Use POSIX extended regex compatible with grep -E
+SECRET_PATTERNS=(
+  # SMTP/Email credentials - hardcoded passwords
+  "SMTP_PASSWORD:SMTP_PASS[[:space:]]*=[[:space:]]*['\"][^'\"]{8,}['\"]"
+  
+  # Google App Passwords (4 groups of 4 lowercase letters)
+  # Only match when it looks like a credential assignment, not prose
+  "GOOGLE_APP_PASSWORD:Pass(word)?[[:space:]]*[:=][[:space:]]*.*[a-z]{4} [a-z]{4} [a-z]{4} [a-z]{4}"
+  
+  # API Keys and Tokens (generic patterns)
+  "AWS_KEY:AKIA[0-9A-Z]{16}"
+  "GITHUB_TOKEN:gh[pousr]_[A-Za-z0-9_]{36,}"
+  "PRIVATE_KEY:BEGIN.*PRIVATE KEY"
+  "JWT_SECRET:jwt[_-]?secret[[:space:]]*[=:][[:space:]]*['\"][^'\"]{16,}['\"]"
+  
+  # Database connection strings with passwords
+  "MONGODB_URI:mongodb.*://[^:]+:[^@]+@"
+  "POSTGRES_URI:postgres.*://[^:]+:[^@]+@"
+  
+  # Generic secret patterns (hardcoded, not env var references)
+  "PASSWORD_HARDCODE:pass(word)?[[:space:]]*[:=][[:space:]]*['\"][^'\"$]{8,}['\"]"
+  "SECRET_HARDCODE:secret[[:space:]]*[:=][[:space:]]*['\"][^'\"$]{16,}['\"]"
+  "API_KEY_HARDCODE:api[_-]?key[[:space:]]*[:=][[:space:]]*['\"][^'\"$]{16,}['\"]"
+)
+
+# Files/paths to exclude from secret scanning
+EXCLUDE_PATTERNS=(
+  "*.lock"
+  "package-lock.json"
+  "yarn.lock"
+  ".githooks/pre-commit"  # Don't flag this file's patterns
+  "*.md"                   # Be more lenient with docs (still scan but warn only)
+)
+
+secret_errors=0
+secret_warnings=0
+
+# Get list of staged files (excluding deletions)
+staged_files=$(git diff --cached --name-only --diff-filter=d)
+
+for file in $staged_files; do
+  # Skip binary files
+  if file "$file" 2>/dev/null | grep -q "binary"; then
+    continue
+  fi
+  
+  # Check if file should be excluded
+  skip_file=false
+  warn_only=false
+  for exclude in "${EXCLUDE_PATTERNS[@]}"; do
+    if [[ "$file" == $exclude ]] || [[ "$file" == *"$exclude" ]]; then
+      if [[ "$exclude" == "*.md" ]]; then
+        warn_only=true
+      else
+        skip_file=true
+      fi
+      break
+    fi
+  done
+  
+  if $skip_file; then
+    continue
+  fi
+  
+  # Get the staged content of the file
+  staged_content=$(git show ":$file" 2>/dev/null)
+  
+  for pattern_entry in "${SECRET_PATTERNS[@]}"; do
+    pattern_name="${pattern_entry%%:*}"
+    pattern_regex="${pattern_entry#*:}"
+    
+    # Search for pattern in staged content
+    if echo "$staged_content" | grep -qiE "$pattern_regex"; then
+      matching_lines=$(echo "$staged_content" | grep -niE "$pattern_regex" | head -3)
+      
+      if $warn_only; then
+        echo -e "${YELLOW}⚠️  Possible secret in ${file} (${pattern_name})${NC}"
+        echo "$matching_lines" | while read -r line; do
+          echo -e "   ${YELLOW}$line${NC}"
+        done
+        secret_warnings=$((secret_warnings + 1))
+      else
+        echo -e "${RED}🚨 SECRET DETECTED in ${file} (${pattern_name})${NC}"
+        echo "$matching_lines" | while read -r line; do
+          # Mask the actual secret value
+          masked=$(echo "$line" | sed -E 's/([=:][[:space:]]*['"'"'"]?)([^'"'"'"]{4})[^'"'"'"]*([^'"'"'"]{2})(['"'"'"]?)/\1\2****\3\4/g')
+          echo -e "   ${RED}$masked${NC}"
+        done
+        secret_errors=$((secret_errors + 1))
+      fi
+    fi
+  done
+done
+
+if [ "$secret_errors" -gt 0 ]; then
+  echo ""
+  echo -e "${RED}═══════════════════════════════════════════════════════════════${NC}"
+  echo -e "${RED}  🚨 $secret_errors SECRET(S) DETECTED - COMMIT BLOCKED${NC}"
+  echo -e "${RED}═══════════════════════════════════════════════════════════════${NC}"
+  echo ""
+  echo "To fix:"
+  echo "  1. Remove the secrets from the staged files"
+  echo "  2. Use environment variables instead"
+  echo "  3. Store secrets in vault (aesthetic-computer-vault/)"
+  echo ""
+  echo "To bypass (NOT RECOMMENDED): git commit --no-verify"
+  echo ""
+  exit 1
+fi
+
+if [ "$secret_warnings" -gt 0 ]; then
+  echo -e "${YELLOW}⚠️  $secret_warnings possible secret(s) in docs - review carefully${NC}"
+fi
+
+echo -e "${GREEN}✓ No secrets detected${NC}"
+echo ""
+
+###############################################################################
+# PART 2: CRITICAL FILE PROTECTION (prevents merge clobbering)
+###############################################################################
 
 # Critical files that should never lose significant content
 CRITICAL_FILES=(

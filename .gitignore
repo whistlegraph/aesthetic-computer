@@ -299,3 +299,6 @@ gigs/**/ssh/
 **/letsencrypt.log
 
 scratch/
+
+# User reports (contains emails)
+reports/
