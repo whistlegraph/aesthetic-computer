@@ -1850,8 +1850,9 @@
 
     .crypto-label {
       display: block;
-      font-family: 'YWFTProcessing-Regular', sans-serif;
-      font-size: 1.4em;
+      font-family: var(--mono);
+      font-size: 1.6em;
+      font-weight: 600;
       color: var(--cyan);
       margin-bottom: 0.4em;
       text-align: center;
@@ -4720,11 +4721,11 @@
                 <span class="crypto-title">🔗 CRYPTO</span>
               </div>
               <div class="crypto-funds-header">
-                <span data-lang="en">💰 <strong>AC's Available Funds</strong> — send direct to our wallets</span>
-                <span data-lang="da">💰 <strong>AC's Tilgængelige Midler</strong> — send direkte til vores wallets</span>
-                <span data-lang="de">💰 <strong>AC's Verfügbare Mittel</strong> — direkt an unsere Wallets senden</span>
-                <span data-lang="es">💰 <strong>Fondos Disponibles de AC</strong> — envía directo a nuestras billeteras</span>
-                <span data-lang="zh">💰 <strong>AC可用资金</strong> — 直接发送到我们的钱包</span>
+                <span data-lang="en">💰 <strong>AC's Piggy Banks</strong> — magic internet money welcome!</span>
+                <span data-lang="da">💰 <strong>AC's Sparegrise</strong> — magiske internetpenge velkomne!</span>
+                <span data-lang="de">💰 <strong>AC's Sparschweine</strong> — magisches Internetgeld willkommen!</span>
+                <span data-lang="es">💰 <strong>Alcancías de AC</strong> — ¡dinero mágico de internet bienvenido!</span>
+                <span data-lang="zh">💰 <strong>AC的小猪存钱罐</strong> — 欢迎魔法互联网货币！</span>
               </div>
               <div class="crypto-controls crypto-all">
                 <div class="crypto-address copyable crypto-featured" data-copy="tz1gkf8EexComFBJvjtT1zdsisdah791KwBE" data-crypto="xtz">
@@ -7214,6 +7215,56 @@
       });
     }
 
+    // 🔗 Slider sync registry - keeps USD sliders in sync with each other
+    const sliderRegistry = {
+      usd: [], // Array of { slider, update, widget, monthlyCheck, monthlyLabel, setIsMonthly }
+      dkk: []
+    };
+    
+    function syncSliders(sourceCurrency, sourceSlider) {
+      const value = parseInt(sourceSlider.value);
+      const registry = sliderRegistry[sourceCurrency];
+      if (!registry) return;
+      
+      // Update all other sliders of the same currency
+      registry.forEach(({ slider, update }) => {
+        if (slider !== sourceSlider) {
+          slider.value = value;
+          update(); // Trigger visual update
+        }
+      });
+    }
+    
+    // Sync monthly checkbox state across all widgets of same currency
+    function syncMonthly(sourceCurrency, sourceWidget, isMonthlyState) {
+      const registry = sliderRegistry[sourceCurrency];
+      if (!registry) return;
+      
+      registry.forEach(({ widget, monthlyCheck, monthlyLabel, setIsMonthly, slider, update }) => {
+        if (widget !== sourceWidget && monthlyCheck) {
+          monthlyCheck.checked = isMonthlyState;
+          monthlyLabel?.classList.toggle('checked', isMonthlyState);
+          widget.classList.toggle('monthly-mode', isMonthlyState);
+          
+          // Adjust slider range
+          const currency = widget.dataset.currency;
+          if (isMonthlyState) {
+            slider.min = 1;
+            slider.max = currency === 'dkk' ? 3500 : 500;
+            if (parseInt(slider.value) > parseInt(slider.max)) {
+              slider.value = currency === 'dkk' ? 175 : 25;
+            }
+          } else {
+            slider.min = 1;
+            slider.max = currency === 'usd' ? 2048 : currency === 'dkk' ? 17500 : 500;
+          }
+          
+          setIsMonthly(isMonthlyState);
+          update();
+        }
+      });
+    }
+
     // Slider functionality
     document.querySelectorAll('.gift-widget:not(.crypto)').forEach(widget => {
       const currency = widget.dataset.currency;
@@ -7289,6 +7340,9 @@
             slider.step = currency === 'dkk' ? 1 : 1;
           }
           update();
+          
+          // Sync monthly state to other widgets
+          syncMonthly(currency, widget, isMonthly);
         });
       }
 
@@ -7471,9 +7525,23 @@
 
       slider.addEventListener('input', () => {
         update();
+        // Sync other sliders of the same currency
+        syncSliders(currency, slider);
       });
       
       update();
+      
+      // Register this slider for syncing (include all needed refs for monthly sync)
+      if (sliderRegistry[currency]) {
+        sliderRegistry[currency].push({ 
+          slider, 
+          update, 
+          widget,
+          monthlyCheck,
+          monthlyLabel,
+          setIsMonthly: (val) => { isMonthly = val; }
+        });
+      }
       
       // Store isMonthly state on widget for button handler
       widget._isMonthly = () => isMonthly;
