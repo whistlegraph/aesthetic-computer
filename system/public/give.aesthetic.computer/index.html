@@ -9512,14 +9512,14 @@
           
           if (lastResult.valid) {
             anyValidFrame = true;
-            break; // Found a good frame, no need to keep checking
+            break; // Found a good frame with varied content, accept it
           }
         }
         
         if (anyValidFrame) {
           resolve(lastResult);
         } else {
-          // All frames were duds - report the last result
+          // All frames were duds (uniform/transparent) - report the last result
           resolve(lastResult);
         }
       });
@@ -10031,41 +10031,40 @@
           const webpUrl = `${OVEN_URL}/grab/webp/256/256/$${code}?duration=6000&fps=10&quality=85&density=1`;
           const img = document.createElement('img');
           img.crossOrigin = 'anonymous'; // Enable CORS for pixel validation
+          // Don't add to DOM yet - validate offscreen first
           img.src = webpUrl;
           img.alt = code;
-          img.loading = i === 0 ? 'eager' : 'lazy';
+          
           img.onload = async () => {
             // Only show if image has actual content (not blank/error placeholder)
             // Check naturalWidth/Height to ensure it's a real image
             if (img.naturalWidth > 1 && img.naturalHeight > 1) {
-              // Validate pixel content before showing
+              // Validate pixel content BEFORE adding to DOM (samples 5 frames over ~750ms)
               const validation = await validateWebpImage(img, code);
               
               if (validation.valid) {
-                img.classList.add('loaded');
-                const loader = slide.querySelector('.module-loading');
-                if (loader) loader.remove();
+                // Only now add to DOM since it's valid
+                const link = slide.querySelector('a');
+                if (link) {
+                  link.innerHTML = '';
+                  link.appendChild(img);
+                  img.classList.add('loaded');
+                  const loader = slide.querySelector('.module-loading');
+                  if (loader) loader.remove();
+                }
               } else {
-                // Dud detected - don't show, leave code preview visible
+                // Dud detected - don't add to DOM at all, leave code preview visible
                 console.warn(`KidLisp $${code}: Not showing dud image (${validation.reason})`);
-                if (img.parentNode) img.style.display = 'none';
               }
             }
             // If blank/tiny, just leave the loading spinner or code preview visible
           };
           img.onerror = () => {
-            // On error, don't show anything - leave code preview visible
-            // Remove the broken img element
-            if (img.parentNode) img.remove();
+            // On error, nothing to clean up since we never added to DOM
+            console.warn(`KidLisp $${code}: Image failed to load`);
           };
           
-          const link = slide.querySelector('a');
-          if (link) {
-            link.innerHTML = '';
-            link.appendChild(img);
-          }
-          
-          // Generate QR code for this slide
+          // Generate QR code for this slide (don't wait for image)
           const qrContainer = slide.querySelector('.kidlisp-slide-qr');
           if (qrContainer && typeof qrcode !== 'undefined') {
             try {
