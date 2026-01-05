@@ -1360,11 +1360,13 @@
       flex-direction: column;
       gap: 0;
       position: relative;
+      overflow: visible;
     }
 
     .slider-wrapper {
       position: relative;
       overflow: visible;
+      height: 12px;
     }
 
     .gift-controls input[type="range"] {
@@ -1376,6 +1378,7 @@
       outline: none;
       cursor: pointer;
       margin: 0;
+      display: block;
     }
 
     .gift-controls input[type="range"] {
@@ -1383,25 +1386,24 @@
       z-index: 10;
     }
 
-    /* Hide native thumb - we'll use custom nodule */
+    /* Hide native thumb completely - we use custom nodule */
     .gift-controls input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 24px;
-      height: 24px;
+      width: 0;
+      height: 0;
       background: transparent;
-      border-radius: 50%;
+      border: none;
       cursor: grab;
-      position: relative;
-      z-index: 20;
+      opacity: 0;
     }
 
     .gift-controls input[type="range"]::-moz-range-thumb {
-      width: 24px;
-      height: 24px;
+      width: 0;
+      height: 0;
       background: transparent;
-      border-radius: 50%;
-      cursor: grab;
       border: none;
+      cursor: grab;
+      opacity: 0;
     }
 
     /* Custom slider nodule */
@@ -1411,27 +1413,42 @@
       transform: translate(-50%, -50%);
       width: 28px;
       height: 28px;
-      background: var(--text);
+      background: var(--green);
       border-radius: 50%;
       cursor: grab;
       box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
       border: 2px solid rgba(255,255,255,0.5);
       z-index: 25;
       pointer-events: none;
-      transition: transform 0.08s ease-out;
-      animation: nodulePulse 1.2s ease-in-out infinite;
+      transition: background 0.2s ease, left 0.08s ease-out;
+      animation: nodulePulseGreen 1.2s ease-in-out infinite;
+    }
+
+    /* Gold nodule for monthly mode */
+    .gift-widget.monthly-mode .slider-nodule {
+      background: var(--gold);
+      animation: nodulePulseGold 1.2s ease-in-out infinite;
     }
 
     .slider-nodule:active {
       cursor: grabbing;
     }
 
-    @keyframes nodulePulse {
+    @keyframes nodulePulseGreen {
       0%, 100% { 
-        box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 0 rgba(78, 205, 196, 0);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 0 rgba(107, 203, 119, 0);
       }
       50% { 
-        box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 12px rgba(78, 205, 196, 0.5);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 12px rgba(107, 203, 119, 0.5);
+      }
+    }
+
+    @keyframes nodulePulseGold {
+      0%, 100% { 
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 0 rgba(255, 217, 61, 0);
+      }
+      50% { 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 12px rgba(255, 217, 61, 0.5);
       }
     }
 
@@ -8008,9 +8025,13 @@
           const min = parseFloat(slider.min);
           const max = parseFloat(slider.max);
           const pct = (value - min) / (max - min);
-          // Position from -10% to 110% so center can go past edges
-          const leftPct = -10 + (pct * 120);
-          nodule.style.left = `${leftPct}%`;
+          // Clamp position so nodule stays within track (14px = half of 28px nodule)
+          const sliderWidth = slider.offsetWidth || 200;
+          const noduleRadius = 14;
+          const minPct = (noduleRadius / sliderWidth) * 100;
+          const maxPct = 100 - minPct;
+          const clampedPct = Math.max(minPct, Math.min(maxPct, pct * 100));
+          nodule.style.left = `${clampedPct}%`;
         }
         
         // Create wiggling characters
