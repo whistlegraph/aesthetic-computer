@@ -6958,7 +6958,7 @@
         const value = parseInt(slider.value);
         const btn = widget.querySelector('.gift-btn');
         const isMonthly = widget._isMonthly ? widget._isMonthly() : false;
-        const fmtValue = value.toLocaleString();
+        const fmtValue = value.toLocaleString('en-US');
         if (currency === 'dkk') {
           btn.textContent = lang === 'da' ? `Giv ${fmtValue} kr` : `Give ${fmtValue} kr`;
         } else if (isMonthly) {
@@ -7059,7 +7059,9 @@
       }
 
       function format(v) {
-        const formatted = v.toLocaleString();
+        // Use simple comma separator to avoid locale-specific characters
+        // that may render incorrectly in YWFT font (e.g., narrow no-break space → +)
+        const formatted = v.toLocaleString('en-US');
         return currency === 'dkk' ? `${formatted} kr` : `$${formatted}`;
       }
 
