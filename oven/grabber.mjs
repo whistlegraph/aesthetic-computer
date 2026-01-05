@@ -1416,10 +1416,34 @@ export async function grabHandler(req, res) {
     });
     
     if (result.success) {
-      // If result is cached, redirect to CDN URL
+      // If result is cached and has CDN URL
       if (result.cached && result.cdnUrl) {
         res.setHeader('X-Cache', 'HIT');
         res.setHeader('X-Grab-Id', result.grabId);
+        
+        // Check if request has Origin header (browser CORS request)
+        // If so, proxy the image instead of redirecting (CDN lacks CORS headers)
+        const origin = req.get('Origin');
+        if (origin) {
+          // Proxy the cached image to preserve CORS headers
+          try {
+            const proxyRes = await fetch(result.cdnUrl);
+            if (proxyRes.ok) {
+              const buffer = Buffer.from(await proxyRes.arrayBuffer());
+              const contentTypes = { webp: 'image/webp', gif: 'image/gif', png: 'image/png' };
+              const contentType = contentTypes[format] || 'image/webp';
+              res.setHeader('Content-Type', contentType);
+              res.setHeader('Content-Length', buffer.length);
+              res.setHeader('X-Proxy', 'CDN');
+              return res.send(buffer);
+            }
+          } catch (proxyErr) {
+            console.error('CDN proxy error:', proxyErr.message);
+            // Fall through to redirect
+          }
+        }
+        
+        // No Origin header or proxy failed - redirect to CDN
         return res.redirect(301, result.cdnUrl);
       }
       
@@ -1484,10 +1508,34 @@ export async function grabGetHandler(req, res) {
     });
     
     if (result.success) {
-      // If cached, redirect to CDN URL
+      // If cached, check for CORS proxy need
       if (result.cached && result.cdnUrl) {
         res.setHeader('X-Grab-Id', result.grabId || result.captureKey);
         res.setHeader('X-Cache', 'HIT');
+        
+        // Check if request has Origin header (browser CORS request)
+        // If so, proxy the image instead of redirecting (CDN lacks CORS headers)
+        const origin = req.get('Origin');
+        if (origin) {
+          // Proxy the cached image to preserve CORS headers
+          try {
+            const proxyRes = await fetch(result.cdnUrl);
+            if (proxyRes.ok) {
+              const buffer = Buffer.from(await proxyRes.arrayBuffer());
+              const contentTypes = { webp: 'image/webp', gif: 'image/gif', png: 'image/png' };
+              const contentType = contentTypes[format] || 'image/webp';
+              res.setHeader('Content-Type', contentType);
+              res.setHeader('Content-Length', buffer.length);
+              res.setHeader('Cache-Control', 'public, max-age=3600');
+              res.setHeader('X-Proxy', 'CDN');
+              return res.send(buffer);
+            }
+          } catch (proxyErr) {
+            console.error('CDN proxy error:', proxyErr.message);
+            // Fall through to redirect
+          }
+        }
+        
         return res.redirect(301, result.cdnUrl);
       }
       
