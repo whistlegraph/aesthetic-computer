@@ -6450,7 +6450,7 @@
         if (giveQrLoaded && giveQrImg.complete) {
           ctx.save();
           const qrSize = Math.min(w, h) * 0.28; // 28% of canvas size
-          const qrPadding = 12; // Closer to edge
+          const qrPadding = 24; // More margin from edges
           const qrX = w - qrSize - qrPadding; // Right edge
           const qrY = h - qrSize - qrPadding; // Bottom edge
           
@@ -6464,9 +6464,9 @@
           ctx.fillStyle = '#ffffff';
           ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
           ctx.shadowBlur = qrGlow;
-          const bgPad = 10; // More margin around QR
+          const bgPad = 5; // Thin white border
           ctx.beginPath();
-          const qrRadius = 8;
+          const qrRadius = 4;
           ctx.moveTo(qrX - bgPad + qrRadius, qrY - bgPad);
           ctx.lineTo(qrX + qrSize + bgPad - qrRadius, qrY - bgPad);
           ctx.quadraticCurveTo(qrX + qrSize + bgPad, qrY - bgPad, qrX + qrSize + bgPad, qrY - bgPad + qrRadius);
