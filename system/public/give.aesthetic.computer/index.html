@@ -1741,25 +1741,58 @@
     
     /* Stacked crypto addresses for all-in-one view */
     .crypto-controls.crypto-all {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 0.8em;
     }
     
     .crypto-controls.crypto-all .crypto-address {
-      padding: 0.8em 1em;
+      padding: 1em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      min-height: 140px;
+    }
+    
+    .crypto-controls.crypto-all .crypto-address.crypto-featured {
+      background: linear-gradient(135deg, rgba(138, 74, 255, 0.2) 0%, rgba(200, 100, 255, 0.15) 100%);
+      border-color: rgba(180, 130, 255, 0.5);
+      box-shadow: 0 0 20px rgba(138, 74, 255, 0.2);
+    }
+    
+    .crypto-controls.crypto-all .crypto-address.crypto-featured .crypto-label {
+      font-size: 1.2em;
+    }
+    
+    .crypto-controls.crypto-all .crypto-address.crypto-featured .crypto-balance {
+      font-size: 1.3em;
     }
     
     .crypto-controls.crypto-all .crypto-label {
       font-size: 1em;
-      margin-bottom: 0.3em;
+      margin-bottom: 0.4em;
+    }
+    
+    .crypto-controls.crypto-all .crypto-balance {
+      font-size: 1.1em;
+      margin-bottom: 0.4em;
     }
     
     .crypto-controls.crypto-all .crypto-addr {
-      font-size: 0.65em;
+      font-size: 0.55em;
     }
     
     .crypto-controls.crypto-all .crypto-copy-hint {
-      font-size: 0.75em;
-      margin-top: 0.5em;
+      font-size: 0.7em;
+      margin-top: auto;
+      padding-top: 0.5em;
+    }
+    
+    @media (max-width: 600px) {
+      .crypto-controls.crypto-all {
+        grid-template-columns: 1fr;
+      }
     }
 
     .crypto-address {
@@ -4694,35 +4727,35 @@
                 <span data-lang="zh">💰 <strong>AC可用资金</strong> — 直接发送到我们的钱包</span>
               </div>
               <div class="crypto-controls crypto-all">
-                <div class="crypto-address copyable" data-copy="bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as" data-crypto="btc">
-                  <span class="crypto-label">🟠 Bitcoin</span>
-                  <span class="crypto-balance" id="balance-btc"><span class="loading">loading...</span></span>
-                  <code class="crypto-addr"><span class="addr-start">bc1q699g</span><span class="addr-dots">···</span><span class="addr-end">xf59as</span></code>
-                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy full address</span>
-                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere fuld adresse</span>
-                  <span class="crypto-copy-hint" data-lang="de">📋 tippen um vollständige Adresse zu kopieren</span>
-                  <span class="crypto-copy-hint" data-lang="es">📋 toca para copiar dirección completa</span>
-                  <span class="crypto-copy-hint" data-lang="zh">📋 点击复制完整地址</span>
+                <div class="crypto-address copyable crypto-featured" data-copy="tz1gkf8EexComFBJvjtT1zdsisdah791KwBE" data-crypto="xtz">
+                  <span class="crypto-label">🔮 aesthetic.tez</span>
+                  <span class="crypto-balance" id="balance-xtz"><span class="loading">loading...</span></span>
+                  <code class="crypto-addr"><span class="addr-start">tz1gkf8E</span><span class="addr-dots">···</span><span class="addr-end">KwBE</span></code>
+                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
+                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
+                  <span class="crypto-copy-hint" data-lang="de">📋 tippen zum kopieren</span>
+                  <span class="crypto-copy-hint" data-lang="es">📋 toca para copiar</span>
+                  <span class="crypto-copy-hint" data-lang="zh">📋 点击复制</span>
                 </div>
                 <div class="crypto-address copyable" data-copy="0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023" data-crypto="eth">
                   <span class="crypto-label">💎 4esthetic.eth</span>
                   <span class="crypto-balance" id="balance-eth"><span class="loading">loading...</span></span>
                   <code class="crypto-addr"><span class="addr-start">0x1D64E3</span><span class="addr-dots">···</span><span class="addr-end">ef023</span></code>
-                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy full address</span>
-                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere fuld adresse</span>
-                  <span class="crypto-copy-hint" data-lang="de">📋 tippen um vollständige Adresse zu kopieren</span>
-                  <span class="crypto-copy-hint" data-lang="es">📋 toca para copiar dirección completa</span>
-                  <span class="crypto-copy-hint" data-lang="zh">📋 点击复制完整地址</span>
+                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
+                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
+                  <span class="crypto-copy-hint" data-lang="de">📋 tippen zum kopieren</span>
+                  <span class="crypto-copy-hint" data-lang="es">📋 toca para copiar</span>
+                  <span class="crypto-copy-hint" data-lang="zh">📋 点击复制</span>
                 </div>
-                <div class="crypto-address copyable" data-copy="tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT" data-crypto="xtz">
-                  <span class="crypto-label">🔮 aesthetic.tez</span>
-                  <span class="crypto-balance" id="balance-xtz"><span class="loading">loading...</span></span>
-                  <code class="crypto-addr"><span class="addr-start">tz1Wqvhb</span><span class="addr-dots">···</span><span class="addr-end">NKPCT</span></code>
-                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy full address</span>
-                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere fuld adresse</span>
-                  <span class="crypto-copy-hint" data-lang="de">📋 tippen um vollständige Adresse zu kopieren</span>
-                  <span class="crypto-copy-hint" data-lang="es">📋 toca para copiar dirección completa</span>
-                  <span class="crypto-copy-hint" data-lang="zh">📋 点击复制完整地址</span>
+                <div class="crypto-address copyable" data-copy="bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as" data-crypto="btc">
+                  <span class="crypto-label">🟠 Bitcoin</span>
+                  <span class="crypto-balance" id="balance-btc"><span class="loading">loading...</span></span>
+                  <code class="crypto-addr"><span class="addr-start">bc1q699g</span><span class="addr-dots">···</span><span class="addr-end">xf59as</span></code>
+                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
+                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
+                  <span class="crypto-copy-hint" data-lang="de">📋 tippen zum kopieren</span>
+                  <span class="crypto-copy-hint" data-lang="es">📋 toca para copiar</span>
+                  <span class="crypto-copy-hint" data-lang="zh">📋 点击复制</span>
                 </div>
               </div>
             </div>
