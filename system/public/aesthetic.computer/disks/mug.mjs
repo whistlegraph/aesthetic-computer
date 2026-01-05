@@ -11,6 +11,7 @@ const { min, floor } = Math;
 // Module state
 let productCode = null;
 let sourceCode = null;
+let viaCode = null; // KidLisp source code (e.g., "bop" for $bop)
 let color = "white";
 let previewUrl = null;
 let previewFrames = null;
@@ -57,6 +58,7 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
   apiRef = api;
 
   // Parse params: mug #CODE color OR mug color (uses current painting)
+  // Also supports: mug #CODE color via $KIDLISP_CODE
   let rawCode = params[0] || store["painting:code"] || system.painting?.code || "";
   
   // Check if first param is a color (not a code) - means use current painting
@@ -66,6 +68,13 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
     rawCode = ""; // Will trigger painting upload
   } else {
     color = params[1] || "white";
+  }
+  
+  // Check for "via" parameter (KidLisp source code)
+  // Format: mug~CODE~color~via~kidlispcode
+  const viaIndex = params.indexOf("via");
+  if (viaIndex !== -1 && params[viaIndex + 1]) {
+    viaCode = params[viaIndex + 1].replace(/^\$/, ""); // Remove $ prefix if present
   }
   
   // Store code without # for display and API calls
@@ -192,12 +201,21 @@ async function fetchCheckout(apiCode, api) {
     const token = await api?.authorize?.();
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    // Build the return slug: mug~CODE~color (no # - it breaks URLs!)
+    // Build the return slug: mug~CODE~color or mug~CODE~color~via~kidlispcode
     // The # is added for display in the piece, but not in URLs
-    const returnSlug = `mug~${apiCode}~${color}`;
+    let returnSlug = `mug~${apiCode}~${color}`;
+    if (viaCode) {
+      returnSlug += `~via~${viaCode}`;
+    }
+
+    // Build API URL with via parameter if present
+    let apiUrl = `/api/mug?new=true&pixels=${apiCode}.png&color=${color}`;
+    if (viaCode) {
+      apiUrl += `&via=${viaCode}`;
+    }
 
     const res = await fetch(
-      `/api/mug?new=true&pixels=${apiCode}.png&color=${color}`,
+      apiUrl,
       {
         method: "POST",
         headers,
@@ -267,13 +285,13 @@ function paint({ wipe, ink, box, paste, screen, pen, write }) {
     ink(100).write(loadingText, { center: "x", y: centerY + 10, screen }, undefined, undefined, false, "unifont");
   }
 
-  // Title: "COLOR MUG of CODE" with colored color name and clickable code
+  // Title: "COLOR MUG of CODE" or "COLOR MUG of CODE via $KIDLISP" with colored elements
   const colorName = color.toUpperCase();
-  const titleParts = [colorName, " MUG of "];
   const colorRgb = colorMap[color.toLowerCase()] || [200, 200, 200];
   
-  // Calculate total width for centering
-  const totalWidth = (colorName.length + " MUG of ".length + sourceCode.length) * btnCharWidth;
+  // Build title parts and calculate total width for centering
+  const viaPart = viaCode ? ` via $${viaCode}` : "";
+  const totalWidth = (colorName.length + " MUG of ".length + sourceCode.length + viaPart.length) * btnCharWidth;
   let titleX = floor((screen.width - totalWidth) / 2);
   const titleY = 4;
   
@@ -295,6 +313,12 @@ function paint({ wipe, ink, box, paste, screen, pen, write }) {
     codeBtn.box.x = titleX;
     codeBtn.box.y = titleY;
     codeBtn.box.w = sourceCode.length * btnCharWidth;
+  }
+  const codeEndX = titleX + sourceCode.length * btnCharWidth;
+  
+  // Draw "via $kidlispcode" in gold if present
+  if (viaCode) {
+    ink(255, 200, 100).write(` via $${viaCode}`, { x: codeEndX, y: titleY }, undefined, undefined, false, "unifont");
   }
   
   // Draw underline if hovered

@@ -7101,31 +7101,34 @@
         <span style="color: #888;">[${dimensions?.width || '?'}×${dimensions?.height || '?'}]</span>
       `;
       
-      // ☕ Mug button - turn screenshot into buyable mug
-      const mugBtn = document.createElement('button');
-      mugBtn.textContent = '☕';
-      mugBtn.title = 'Turn into a mug!';
-      mugBtn.style.cssText = `
-        background: rgba(139, 90, 43, 0.8);
-        border: none;
-        border-radius: 4px;
-        padding: 6px 10px;
-        cursor: pointer;
-        font-size: 16px;
-        opacity: 0.7;
-        transition: opacity 0.2s, transform 0.1s;
-        align-self: flex-start;
-      `;
-      mugBtn.addEventListener('mouseenter', () => { mugBtn.style.opacity = '1'; mugBtn.style.transform = 'scale(1.1)'; });
-      mugBtn.addEventListener('mouseleave', () => { mugBtn.style.opacity = '0.7'; mugBtn.style.transform = 'scale(1)'; });
-      mugBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openMugFromScreenshot(imageDataUrl, mugBtn);
-      });
+      // ☕ Mug button - turn screenshot into buyable mug (only show when $code exists)
+      let mugBtn = null;
+      if (pieceCode) {
+        mugBtn = document.createElement('button');
+        mugBtn.textContent = '☕';
+        mugBtn.title = 'Turn into a mug!';
+        mugBtn.style.cssText = `
+          background: rgba(139, 90, 43, 0.8);
+          border: none;
+          border-radius: 4px;
+          padding: 6px 10px;
+          cursor: pointer;
+          font-size: 16px;
+          opacity: 0.7;
+          transition: opacity 0.2s, transform 0.1s;
+          align-self: flex-start;
+        `;
+        mugBtn.addEventListener('mouseenter', () => { mugBtn.style.opacity = '1'; mugBtn.style.transform = 'scale(1.1)'; });
+        mugBtn.addEventListener('mouseleave', () => { mugBtn.style.opacity = '0.7'; mugBtn.style.transform = 'scale(1)'; });
+        mugBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openMugFromScreenshot(imageDataUrl, mugBtn, pieceCode);
+        });
+      }
       
       entry.appendChild(img);
       entry.appendChild(meta);
-      entry.appendChild(mugBtn);
+      if (mugBtn) entry.appendChild(mugBtn);
       
       consoleOutput.appendChild(entry);
       consoleOutput.scrollTop = consoleOutput.scrollHeight;
@@ -7168,7 +7171,7 @@
     }
     
     // ☕ Open mug preview from screenshot
-    async function openMugFromScreenshot(dataUrl, mugBtn) {
+    async function openMugFromScreenshot(dataUrl, mugBtn, kidlispCode) {
       if (!dataUrl) return;
       
       const originalText = mugBtn?.textContent;
@@ -7234,7 +7237,11 @@
         console.log('☕ Uploaded as code:', code);
         
         // Open mug piece with the uploaded painting code
-        const mugUrl = `${baseUrl}/mug~${code}~white`;
+        // Include KidLisp $code as "via" parameter if present
+        let mugUrl = `${baseUrl}/mug~${code}~white`;
+        if (kidlispCode) {
+          mugUrl += `~via~${kidlispCode}`;
+        }
         window.open(mugUrl, '_blank');
         
         if (mugBtn) {
