@@ -78,27 +78,6 @@
       --box-border: rgba(255,255,255,0.1);
       --mono: 'Berkeley Mono Variable', 'Menlo', monospace;
     }
-    
-    /* Performance: Disable animations/effects when not visible */
-    .visibility-hidden {
-      animation-play-state: paused !important;
-    }
-    .visibility-hidden * {
-      animation-play-state: paused !important;
-    }
-    .visibility-hidden .stat-floater,
-    .visibility-hidden .glow,
-    .visibility-hidden [class*="glow"],
-    .visibility-hidden .pulse {
-      opacity: 0 !important;
-      transition: opacity 0.3s ease-out !important;
-    }
-    .visibility-hidden canvas {
-      opacity: 0.3;
-    }
-    .visibility-hidden video {
-      opacity: 0;
-    }
 
     * { box-sizing: border-box; }
 
@@ -180,7 +159,7 @@
     main {
       max-width: 1200px;
       margin: 0 auto;
-      padding-top: 3.5em;
+      padding-top: 2.5em;
       overflow: visible;
     }
 
@@ -850,20 +829,6 @@
         font-size: 0.75em;
         padding: 0 1em;
       }
-      .ticker-stats-row {
-        gap: 0.35em;
-      }
-      .ticker-stat-panel {
-        min-width: 65px;
-        padding: 0.35em 0.5em;
-        font-size: 0.65em;
-      }
-      .ticker-stat-value {
-        font-size: 1.3em;
-      }
-      .ticker-stat-label {
-        font-size: 0.75em;
-      }
       .currency-links {
         gap: 10px;
       }
@@ -953,64 +918,52 @@
       filter: blur(0) brightness(1);
     }
 
-    /* Give stats panels - flank the ticker */
+    /* Ticker wrapper with subscript stats */
     .ticker-stats-row {
-      display: flex;
-      gap: 0.5em;
-      align-items: stretch;
-      margin-bottom: 0.5em;
+      position: relative;
+      margin-bottom: 0.6em;
     }
 
     .ticker-center {
-      flex: 1;
-      min-width: 0;
-      order: -1; /* Ticker comes first (left) */
+      width: 100%;
     }
 
-    .ticker-stat-panel {
-      flex: 0 0 auto;
-      padding: 0 1em;
-      border-radius: 6px;
-      font-size: 0.85em;
+    .ticker-subscripts {
       display: flex;
-      flex-direction: row;
-      justify-content: center;
+      justify-content: space-between;
+      gap: 1em;
+      margin-top: 0.4em;
+      padding-left: 0.25em;
+      padding-right: 0.25em;
+      font-family: var(--mono);
+      font-size: 0.85em;
+    }
+
+    .ticker-stat-badge {
+      display: flex;
       align-items: center;
-      gap: 0.35em;
-      height: 2.4em;
-      box-sizing: content-box;
+      gap: 0.3em;
       opacity: 0;
       transition: opacity 0.4s ease;
     }
 
-    .ticker-stat-panel.visible {
+    .ticker-stat-badge.visible {
       opacity: 1;
     }
 
-    .ticker-stat-panel.gives-panel {
-      background: linear-gradient(180deg, rgba(0, 40, 20, 0.4) 0%, rgba(0, 20, 10, 0.5) 100%);
-      border: 1px solid rgba(100, 255, 150, 0.2);
+    .ticker-stat-badge.gives-badge .ticker-stat-value {
+      color: var(--green);
     }
 
-    .ticker-stat-panel.monthly-panel {
-      background: linear-gradient(180deg, rgba(50, 40, 0, 0.4) 0%, rgba(30, 20, 0, 0.5) 100%);
-      border: 1px solid rgba(255, 215, 100, 0.2);
+    .ticker-stat-badge.monthly-badge .ticker-stat-value {
+      color: var(--gold);
     }
 
     .ticker-stat-value {
       font-weight: bold;
     }
 
-    .ticker-stat-panel.gives-panel .ticker-stat-value {
-      color: var(--green);
-    }
-
-    .ticker-stat-panel.monthly-panel .ticker-stat-value {
-      color: var(--gold);
-    }
-
     .ticker-stat-label {
-      font-size: 1em;
       color: var(--dim);
       text-transform: lowercase;
     }
@@ -3536,7 +3489,24 @@
       color: rgba(255, 255, 255, 0.7);
       padding: 0.8em 1em;
       font-size: 0.75em;
-      --caption-height: 2.6em; /* For positioning other elements */
+    }
+
+    /* TV cycle progress bar - above caption */
+    .tv-cycle-progress {
+      position: absolute;
+      bottom: 2.55em;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: rgba(255, 80, 80, 0.2);
+      z-index: 6;
+    }
+
+    .tv-cycle-progress-bar {
+      height: 100%;
+      background: #e53935;
+      width: 0%;
+      transition: width 0.05s linear;
     }
 
     .tv-player {
@@ -3564,35 +3534,25 @@
 
     .tv-progress {
       position: absolute;
-      bottom: 2.5em; /* Same as tv-player bottom - aligns with caption top */
+      bottom: 0;
       left: 0;
       right: 0;
-      height: 28px;
-      background: linear-gradient(0deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.25) 50%, transparent 100%);
+      height: 32px;
+      background: linear-gradient(0deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
       z-index: 12;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
-      cursor: pointer;
-      transform: translateY(calc(100% + 1em - 3px)); /* Push down so red bar sits at caption top */
-    }
-
-    /* Top gradient overlay for tapes */
-    .tv-top-gradient {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 40px;
-      background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.25) 50%, transparent 100%);
-      z-index: 11;
-      pointer-events: none;
     }
 
     .tv-progress-bar {
       height: 3px;
       background: #e53935;
       width: 0%;
+    }
+
+    .tv-progress {
+      cursor: pointer;
     }
 
     .tv-progress:hover .tv-progress-bar {
@@ -5152,18 +5112,20 @@
       <!-- Gives Ticker - cycles through recent gives -->
       <div class="fiat-section full-width">
         <div class="ticker-stats-row">
-          <div class="ticker-stat-panel gives-panel" id="giveStatsGives">
-            <div class="ticker-stat-value">–</div>
-            <div class="ticker-stat-label" data-lang="en">gives</div>
-          </div>
           <div class="ticker-center">
             <div class="gives-ticker" id="givesTicker">
               <div class="gives-ticker-empty">Loading gives...</div>
             </div>
           </div>
-          <div class="ticker-stat-panel monthly-panel" id="giveStatsSubs">
-            <div class="ticker-stat-value">–</div>
-            <div class="ticker-stat-label" data-lang="en">monthly</div>
+          <div class="ticker-subscripts">
+            <div class="ticker-stat-badge gives-badge" id="giveStatsGives">
+              <span class="ticker-stat-value">0</span>
+              <span class="ticker-stat-label">gives</span>
+            </div>
+            <div class="ticker-stat-badge monthly-badge" id="giveStatsSubs">
+              <span class="ticker-stat-value">0</span>
+              <span class="ticker-stat-label">monthly</span>
+            </div>
           </div>
         </div>
         <div class="currency-pickers">
@@ -5454,6 +5416,9 @@
         <div class="tv-player" id="tvPlayer">
           <div class="module-loading" id="tvLoading">loading</div>
         </div>
+        <div class="tv-cycle-progress">
+          <div class="tv-cycle-progress-bar" id="tvCycleProgressBar"></div>
+        </div>
         <div class="module-caption">
           <span data-lang="en">Prefix a prompt with <span class="dim">tape</span> to record GIFs and MP4s.</span>
           <span data-lang="da">Sæt <span class="dim">tape</span> før en prompt for at optage GIFs og MP4s.</span>
@@ -5743,84 +5708,6 @@
   </dialog>
 
   <script>
-    // ====== Visibility-Based Loading System ======
-    // Only load/animate components when they're visible on screen (mobile perf)
-    const visibilityManager = {
-      observers: new Map(),
-      loaded: new Set(),
-      paused: new Map(),
-      
-      // Register a component to load when visible
-      loadWhenVisible(selector, loadFn, options = {}) {
-        const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
-        if (!el) return;
-        
-        const key = selector.toString();
-        if (this.loaded.has(key)) return;
-        
-        const observer = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting && !this.loaded.has(key)) {
-              this.loaded.add(key);
-              observer.disconnect();
-              this.observers.delete(key);
-              loadFn();
-            }
-          });
-        }, { threshold: options.threshold || 0.05, rootMargin: options.rootMargin || '100px' });
-        
-        observer.observe(el);
-        this.observers.set(key, observer);
-      },
-      
-      // Pause/resume a component based on visibility
-      pauseWhenHidden(selector, pauseFn, resumeFn) {
-        const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
-        if (!el) return;
-        
-        const key = selector.toString();
-        const observer = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
-            const wasPaused = this.paused.get(key);
-            if (entry.isIntersecting && wasPaused) {
-              this.paused.set(key, false);
-              resumeFn?.();
-            } else if (!entry.isIntersecting && !wasPaused) {
-              this.paused.set(key, true);
-              pauseFn?.();
-            }
-          });
-        }, { threshold: 0.05 });
-        
-        observer.observe(el);
-        this.observers.set(key + '-pause', observer);
-      },
-      
-      // Toggle visibility-hidden class for CSS-based animation pausing
-      hideWhenOffscreen(selector) {
-        const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
-        if (!el) return;
-        
-        const key = selector.toString() + '-hide';
-        const observer = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting) {
-              el.classList.remove('visibility-hidden');
-            } else {
-              el.classList.add('visibility-hidden');
-            }
-          });
-        }, { threshold: 0.02, rootMargin: '50px' });
-        
-        observer.observe(el);
-        this.observers.set(key, observer);
-      },
-      
-      isPaused(selector) {
-        return this.paused.get(selector.toString()) || false;
-      }
-    };
-    
     // ====== A/B/C/D/E Test: Starting Price ======
     // Monthly options (60% total): D: $8/mo (30%), E: $2/mo (30%)
     // One-time options (40% total): A: $32 (13.3%), B: $64 (13.3%), C: $128 (13.3%)
@@ -5863,6 +5750,67 @@
     // POI (Points of Interest) data: faces, bodies, hands
     // Detected using OpenCV DNN + Haar cascades
     // POI types: 'f'=face, 'b'=body, 'h'=hand
+    
+    // Headshots - professional AV shoot photos (face-focused)
+    // URL pattern: https://assets.aesthetic.computer/jeffreys/shoot/{filename}
+    const headshotsData = {
+      'jeffery-av--01.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--02.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--03.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--04.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--05.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--06.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--07.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--08.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--09.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--10.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--11.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--12.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--13.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--14.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--15.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--16.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--17.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--18.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--19.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--20.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--21.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--22.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--23.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--24.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--25.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--26.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--27.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--28.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--29.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--30.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--31.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--32.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--33.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--34.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--35.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--36.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--37.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--38.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--39.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--40.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--41.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--42.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--43.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--44.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--45.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--46.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--47.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--48.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--49.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--50.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--51.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--52.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--53.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--54.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+      'jeffery-av--55.jpg': { focal: [50, 35], pois: [{"t": "f", "box": [30, 15, 40, 40]}], aspect: 0.667, src: 'headshots' },
+    };
+    
     const jeffreysData = {
       'FullSizeRender': { focal: [38.5, 34.8], pois: [{"t": "f", "box": [33.8, 30.0, 9.5, 9.7]}, {"t": "b", "box": [59.5, 63.9, 20.2, 12.4]}, {"t": "b", "box": [87.6, 89.3, 8.4, 5.2]}], aspect: 0.75 },
       'IMG_0260': { focal: [41.0, 38.1], pois: [{"t": "f", "box": [32.3, 29.3, 17.4, 17.5]}, {"t": "b", "box": [15.9, 50.0, 5.9, 3.6]}], aspect: 0.75 },
@@ -6001,10 +5949,11 @@
     };
 
     // Merge all image data
-    const allImagesData = { ...jeffreysData, ...screenshotsData };
+    const allImagesData = { ...jeffreysData, ...screenshotsData, ...headshotsData };
     const jeffreysImages = Object.keys(jeffreysData);
     const screenshotsImages = Object.keys(screenshotsData);
-    const allImages = [...jeffreysImages, ...screenshotsImages];
+    const headshotsImages = Object.keys(headshotsData);
+    const allImages = [...jeffreysImages, ...screenshotsImages, ...headshotsImages];
     const DEBUG_FACES = false; // Set true for labels and coordinates
     const SHOW_POI_BOXES = true; // Matrix-style detection boxes (aesthetic)
     const POI_GLOW = true; // Soft radial glow on detected faces/bodies
@@ -6086,10 +6035,12 @@
             delete loadingImages[name];
             resolve(null);
           };
-          // Check if this is a screenshot or jeffreys image
+          // Check source type: screenshots, headshots, or jeffreys
           const data = allImagesData[name];
           if (data && data.src === 'screenshots') {
             img.src = `https://assets.aesthetic.computer/screenshots/images/${name}`;
+          } else if (data && data.src === 'headshots') {
+            img.src = `https://assets.aesthetic.computer/jeffreys/shoot/${name}`;
           } else {
             img.src = `https://assets.aesthetic.computer/jeffreys/jpg/${name}.jpg`;
           }
@@ -6316,55 +6267,48 @@
         if (SHOW_POI_BOXES) {
           // Cycle through colors with animation
           const color = poiColors[(poiColorIndex++) % poiColors.length];
-          const blinkPhase = Math.floor(poiAnimPhase * 0.5) % 3; // Cycle: 0=corners, 1=box, 2=nothing (blink)
-          const fadeAlpha = 0.6 + 0.4 * Math.sin(poiAnimPhase * 2); // Gentle fade
+          const pulse = 0.5 + 0.5 * Math.sin(poiAnimPhase);
+          
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2 + pulse;
+          ctx.setLineDash([8, 4]); // Dashed line for matrix look
+          ctx.lineDashOffset = -poiAnimPhase * 5; // Animated dash
           
           // Map POI box to canvas coords
           const canvasPoiX = offsetX + poiX * coverScale;
           const canvasPoiY = offsetY + poiY * coverScale;
           const canvasPoiW = poiW * coverScale;
           const canvasPoiH = poiH * coverScale;
+          ctx.strokeRect(canvasPoiX, canvasPoiY, canvasPoiW, canvasPoiH);
           
-          ctx.strokeStyle = color.replace('0.7', (0.5 * fadeAlpha).toFixed(2));
-          
-          if (blinkPhase === 1) {
-            // Show dashed box only
-            ctx.lineWidth = 1;
-            ctx.setLineDash([6, 4]);
-            ctx.lineDashOffset = -poiAnimPhase * 5;
-            ctx.strokeRect(canvasPoiX, canvasPoiY, canvasPoiW, canvasPoiH);
-          } else if (blinkPhase === 0) {
-            // Show corner accents only
-            ctx.setLineDash([]);
-            ctx.lineWidth = 1.5;
-            const cornerLen = Math.min(10, canvasPoiW * 0.15, canvasPoiH * 0.15);
-            // Top-left
-            ctx.beginPath();
-            ctx.moveTo(canvasPoiX, canvasPoiY + cornerLen);
-            ctx.lineTo(canvasPoiX, canvasPoiY);
-            ctx.lineTo(canvasPoiX + cornerLen, canvasPoiY);
-            ctx.stroke();
-            // Top-right
-            ctx.beginPath();
-            ctx.moveTo(canvasPoiX + canvasPoiW - cornerLen, canvasPoiY);
-            ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY);
-            ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + cornerLen);
-            ctx.stroke();
-            // Bottom-left
-            ctx.beginPath();
-            ctx.moveTo(canvasPoiX, canvasPoiY + canvasPoiH - cornerLen);
-            ctx.lineTo(canvasPoiX, canvasPoiY + canvasPoiH);
-            ctx.lineTo(canvasPoiX + cornerLen, canvasPoiY + canvasPoiH);
-            ctx.stroke();
-            // Bottom-right
-            ctx.beginPath();
-            ctx.moveTo(canvasPoiX + canvasPoiW - cornerLen, canvasPoiY + canvasPoiH);
-            ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + canvasPoiH);
-            ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + canvasPoiH - cornerLen);
-            ctx.stroke();
-          }
-          // blinkPhase === 2: show nothing (blink off)
+          // Corner accents
           ctx.setLineDash([]);
+          ctx.lineWidth = 3;
+          const cornerLen = Math.min(12, canvasPoiW * 0.2, canvasPoiH * 0.2);
+          // Top-left
+          ctx.beginPath();
+          ctx.moveTo(canvasPoiX, canvasPoiY + cornerLen);
+          ctx.lineTo(canvasPoiX, canvasPoiY);
+          ctx.lineTo(canvasPoiX + cornerLen, canvasPoiY);
+          ctx.stroke();
+          // Top-right
+          ctx.beginPath();
+          ctx.moveTo(canvasPoiX + canvasPoiW - cornerLen, canvasPoiY);
+          ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY);
+          ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + cornerLen);
+          ctx.stroke();
+          // Bottom-left
+          ctx.beginPath();
+          ctx.moveTo(canvasPoiX, canvasPoiY + canvasPoiH - cornerLen);
+          ctx.lineTo(canvasPoiX, canvasPoiY + canvasPoiH);
+          ctx.lineTo(canvasPoiX + cornerLen, canvasPoiY + canvasPoiH);
+          ctx.stroke();
+          // Bottom-right
+          ctx.beginPath();
+          ctx.moveTo(canvasPoiX + canvasPoiW - cornerLen, canvasPoiY + canvasPoiH);
+          ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + canvasPoiH);
+          ctx.lineTo(canvasPoiX + canvasPoiW, canvasPoiY + canvasPoiH - cornerLen);
+          ctx.stroke();
         }
         
         ctx.filter = 'none';
@@ -6658,8 +6602,9 @@
       let prevLeftPoi = null;
       let prevRightPoi = null;
       
-      // Build separate lists for jeffreys and screenshots POIs
+      // Build separate lists for jeffreys, headshots, and screenshots POIs
       const jeffreysPois = [];
+      const headshotsPois = [];
       const screenshotsPois = [];
       
       for (const name of jeffreysImages) {
@@ -6674,6 +6619,16 @@
           // No POIs - create virtual POI from focal point
           const virtualPoi = { t: 'v', box: [data.focal[0] - 15, data.focal[1] - 15, 30, 30] };
           jeffreysPois.push({ name, poi: virtualPoi, data });
+        }
+      }
+      
+      // Headshots are face-focused professional shots
+      for (const name of headshotsImages) {
+        const data = allImagesData[name];
+        if (data.pois && data.pois.length > 0) {
+          for (const poi of data.pois) {
+            headshotsPois.push({ name, poi, data });
+          }
         }
       }
       
@@ -6692,7 +6647,7 @@
         }
       }
       
-      // Shuffle both arrays
+      // Shuffle all arrays
       const shuffle = arr => {
         for (let i = arr.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
@@ -6701,18 +6656,33 @@
         return arr;
       };
       shuffle(jeffreysPois);
+      shuffle(headshotsPois);
       shuffle(screenshotsPois);
       
-      // Prioritize faces in each
+      // Prioritize faces in each (headshots are all faces already)
       jeffreysPois.sort((a, b) => (b.poi.t === 'f' ? 1 : 0) - (a.poi.t === 'f' ? 1 : 0));
       screenshotsPois.sort((a, b) => (b.poi.t === 'f' ? 1 : 0) - (a.poi.t === 'f' ? 1 : 0));
       
-      // Interleave/oscillate: jeffreys then screenshot, etc.
+      // Interleave: jeffreys, headshot (25% chance), screenshot, repeat
+      // Headshots sprinkled in probabilistically for variety
       const allPois = [];
-      const maxLen = Math.max(jeffreysPois.length, screenshotsPois.length);
+      const maxLen = Math.max(jeffreysPois.length, screenshotsPois.length, headshotsPois.length);
+      let headshotIdx = 0;
       for (let i = 0; i < maxLen; i++) {
         if (i < jeffreysPois.length) allPois.push(jeffreysPois[i]);
+        // 25% chance to insert a headshot after a jeffreys pic
+        if (headshotIdx < headshotsPois.length && Math.random() < 0.25) {
+          allPois.push(headshotsPois[headshotIdx++]);
+        }
         if (i < screenshotsPois.length) allPois.push(screenshotsPois[i]);
+        // 15% chance to insert a headshot after a screenshot
+        if (headshotIdx < headshotsPois.length && Math.random() < 0.15) {
+          allPois.push(headshotsPois[headshotIdx++]);
+        }
+      }
+      // Add any remaining headshots at the end
+      while (headshotIdx < headshotsPois.length) {
+        allPois.push(headshotsPois[headshotIdx++]);
       }
       
       // Frame timing for 24fps throttle
@@ -8914,12 +8884,8 @@
         </a>
       `;
     }
-    
-    // Load shop when visible (it's lower on the page)
-    visibilityManager.loadWhenVisible('.shop-section', () => {
-      loadShopProducts();
-      setupShopVisibilityRetry();
-    }, { rootMargin: '400px' });
+    setTimeout(loadShopProducts, 100);
+    setTimeout(setupShopVisibilityRetry, 200); // Set up visibility observer
 
     // Load stats from metrics API
     async function loadStats() {
@@ -9091,21 +9057,25 @@
           serverCostItem = `<span class="gives-ticker-item gives-ticker-cta-item">${msgs.serverCost} ${subText}</span>`;
         }
         
-        // Update flanking stat panels
+        // Update stats badges on canvas
         const givesStatsEl = document.getElementById('giveStatsGives');
         const subsStatsEl = document.getElementById('giveStatsSubs');
         
         if (givesStatsEl && data.count > 0) {
           const giveLabels = { en: 'gives', da: 'gaver', de: 'Gaben', es: 'donaciones', zh: '捐赠' };
-          givesStatsEl.querySelector('.ticker-stat-value').textContent = data.count;
-          givesStatsEl.querySelector('.ticker-stat-label').textContent = giveLabels[currentLang] || giveLabels.en;
+          const valueEl = givesStatsEl.querySelector('.ticker-stat-value');
+          const labelEl = givesStatsEl.querySelector('.ticker-stat-label');
+          if (valueEl) valueEl.textContent = data.count;
+          if (labelEl) labelEl.textContent = giveLabels[currentLang] || giveLabels.en;
           givesStatsEl.classList.add('visible');
         }
         
         if (subsStatsEl && data.activeSubscribers > 0) {
           const subLabels = { en: 'monthly', da: 'månedlige', de: 'monatlich', es: 'mensuales', zh: '月度' };
-          subsStatsEl.querySelector('.ticker-stat-value').textContent = data.activeSubscribers;
-          subsStatsEl.querySelector('.ticker-stat-label').textContent = subLabels[currentLang] || subLabels.en;
+          const valueEl = subsStatsEl.querySelector('.ticker-stat-value');
+          const labelEl = subsStatsEl.querySelector('.ticker-stat-label');
+          if (valueEl) valueEl.textContent = data.activeSubscribers;
+          if (labelEl) labelEl.textContent = subLabels[currentLang] || subLabels.en;
           subsStatsEl.classList.add('visible');
         }
         
@@ -9529,11 +9499,7 @@
           return;
         }
         
-        // Start with tape "72v" if available (featured starter)
-        const starterIndex = tvTapes.findIndex(t => t.code === '72v');
-        const startIndex = starterIndex >= 0 ? starterIndex : 0;
-        
-        playTVVideo(startIndex);
+        playTVVideo(0);
       } catch (e) {
         console.error('TV load error:', e);
         container.innerHTML = '<div class="tv-no-signal">No signal</div>';
@@ -9548,6 +9514,10 @@
         container.innerHTML = '<div class="tv-no-signal">No signal</div>';
         return;
       }
+      
+      // Reset cycle progress bar
+      const cycleProgressBar = document.getElementById('tvCycleProgressBar');
+      if (cycleProgressBar) cycleProgressBar.style.width = '0%';
       
       // Update header with current tape code, timestamp, and upcoming codes
       const tapeCode = tape.code ? `!${tape.code}` : '📼 tapes';
@@ -9633,12 +9603,6 @@
         progressEl.className = 'tv-progress';
         progressEl.innerHTML = '<div class="tv-progress-bar"></div>';
         container.appendChild(progressEl);
-      }
-      // Ensure top gradient exists (only once)
-      if (!container.querySelector('.tv-top-gradient')) {
-        const topGradient = document.createElement('div');
-        topGradient.className = 'tv-top-gradient';
-        container.appendChild(topGradient);
       }
       if (!container.querySelector('.tv-timer')) {
         const timerEl = document.createElement('span');
@@ -9776,11 +9740,15 @@
       
       // Attach all event listeners once
       function attachListeners() {
-        // Update progress bar and timer
+        // Update progress bar, cycle progress bar, and timer
+        const cycleProgressBar = document.getElementById('tvCycleProgressBar');
+        
         tvPlayer.addEventListener('timeupdate', () => {
           if (tvPlayer.duration) {
             const pct = (tvPlayer.currentTime / tvPlayer.duration) * 100;
             progressBar.style.width = pct + '%';
+            // Cycle progress bar above caption
+            if (cycleProgressBar) cycleProgressBar.style.width = pct + '%';
             // Update timer: current / total
             const current = formatTime(tvPlayer.currentTime);
             const total = formatTime(tvPlayer.duration);
@@ -9823,15 +9791,7 @@
         container.insertBefore(overlay, container.firstChild);
       });
     }
-    
-    // Load TV feed when visible
-    visibilityManager.loadWhenVisible('.tv-section', () => loadTVFeed(), { rootMargin: '200px' });
-    
-    // Pause/resume TV playback based on visibility
-    visibilityManager.pauseWhenHidden('.tv-section',
-      () => { if (tvPlayer && !tvPlayer.paused) tvPlayer.pause(); },
-      () => { if (tvPlayer && tvPlayer.paused) tvPlayer.play().catch(() => {}); }
-    );
+    setTimeout(loadTVFeed, 500);
     
     // AT Proto - cycle through actual records fetched from PDS
     let atRecords = [];
@@ -11128,8 +11088,7 @@
       }
     }
     
-    // Load KidLisp carousel when visible
-    visibilityManager.loadWhenVisible('.kidlisp-preview', () => loadKidlispCarousel(), { rootMargin: '300px' });
+    setTimeout(loadKidlispCarousel, 800);
     
     // Desktop Release Info - Fetch from GitHub
     async function loadDesktopReleaseInfo() {
@@ -11490,15 +11449,7 @@
       }
     }
     
-    // Load floaters when stats section becomes visible
-    visibilityManager.loadWhenVisible('.stats-section', () => {
-      loadFloatingPaintings();
-      setTimeout(loadFloatingHandles, 300);
-      setTimeout(loadFloatingMoods, 600);
-      setTimeout(loadFloatingKidlisp, 900);
-      setTimeout(loadFloatingCommands, 1200);
-      setTimeout(loadFloatingMessages, 1500);
-    }, { rootMargin: '200px' });
+    setTimeout(loadFloatingPaintings, 2000);
 
     // 🏷️ Floating Handles in Stats
     async function loadFloatingHandles() {
@@ -11570,6 +11521,8 @@
         console.warn('Could not load floating handles:', e);
       }
     }
+    
+    setTimeout(loadFloatingHandles, 2500);
 
     // 😊 Floating Moods in Stats
     async function loadFloatingMoods() {
@@ -11661,6 +11614,8 @@
         console.warn('Could not load floating moods:', e);
       }
     }
+    
+    setTimeout(loadFloatingMoods, 3000);
 
     // 💻 Floating KidLisp Codes in Stats
     async function loadFloatingKidlisp() {
@@ -11742,6 +11697,8 @@
         console.warn('Could not load floating kidlisp:', e);
       }
     }
+    
+    setTimeout(loadFloatingKidlisp, 3500);
 
     // 🧩 Floating Commands (pieces + prompts) in Stats
     async function loadFloatingCommands() {
@@ -11818,6 +11775,8 @@
         console.warn('Could not load floating commands:', e);
       }
     }
+    
+    setTimeout(loadFloatingCommands, 4000);
 
     // 💬 Floating Messages in Stats
     async function loadFloatingMessages() {
@@ -11897,15 +11856,7 @@
       }
     }
     
-    // ====== Apply Visibility Optimizations ======
-    // Pause animations/effects on offscreen sections for mobile performance
-    document.querySelectorAll('.stat-item').forEach(el => visibilityManager.hideWhenOffscreen(el));
-    visibilityManager.hideWhenOffscreen('.jeffreys-canvas-container');
-    visibilityManager.hideWhenOffscreen('.kidlisp-preview');
-    visibilityManager.hideWhenOffscreen('.shop-section');
-    visibilityManager.hideWhenOffscreen('.chat-preview');
-    visibilityManager.hideWhenOffscreen('.apps-flip-container');
-    visibilityManager.hideWhenOffscreen('.gives-ticker');
+    setTimeout(loadFloatingMessages, 4500);
     
     // ====== Auth0 Authentication ======
     let auth0Client = null;
