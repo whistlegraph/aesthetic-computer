@@ -5362,11 +5362,12 @@
       logoImg.onload = () => { logoLoaded = true; };
       
       // Generate QR code for give.aesthetic.computer (bottom-right of canvas)
+      // Using larger cell size (6) for lower density / fewer pixels look
       const giveQr = qrcode(0, 'L');
       giveQr.addData('https://give.aesthetic.computer');
       giveQr.make();
       const giveQrImg = new Image();
-      giveQrImg.src = giveQr.createDataURL(4, 0);
+      giveQrImg.src = giveQr.createDataURL(6, 0); // 6px cells for chunkier pixels
       let giveQrLoaded = false;
       giveQrImg.onload = () => { giveQrLoaded = true; };
       
@@ -6444,26 +6445,26 @@
           ctx.restore();
         }
         
-        // Draw QR code in bottom-right corner (shifted left and up)
+        // Draw QR code in bottom-right corner
         // Note: giveQrImg is generated ONCE at init, not every frame
         if (giveQrLoaded && giveQrImg.complete) {
           ctx.save();
-          const qrSize = Math.min(w, h) * 0.28; // 28% of canvas size (bigger)
-          const qrPadding = 20;
-          const qrX = w - qrSize - qrPadding - 25; // Shifted left
-          const qrY = h - qrSize - qrPadding - 20; // Shifted up
+          const qrSize = Math.min(w, h) * 0.28; // 28% of canvas size
+          const qrPadding = 12; // Closer to edge
+          const qrX = w - qrSize - qrPadding; // Right edge
+          const qrY = h - qrSize - qrPadding; // Bottom edge
           
           // Pulsing white glow effect (use cached time for perf)
           const qrTime = Date.now();
           const qrPulse = 0.88 + 0.12 * Math.sin(qrTime / 400);
           const qrGlow = 10 + 8 * Math.sin(qrTime / 300);
           
-          // Bright white background with pulse
+          // Bright white background with pulse - thinner border
           ctx.globalAlpha = masterAlpha * qrPulse;
           ctx.fillStyle = '#ffffff';
           ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
           ctx.shadowBlur = qrGlow;
-          const bgPad = 10;
+          const bgPad = 5; // Thinner white border
           ctx.beginPath();
           const qrRadius = 8;
           ctx.moveTo(qrX - bgPad + qrRadius, qrY - bgPad);
