@@ -119,9 +119,22 @@ export const handler = async (event, context) => {
   const baseHost = event.headers["host"] || "localhost";
   const HOST = dev ? `https://${baseHost}/sotce-net` : `https://${baseHost}`;
 
+  // 👑 Admin emails that get subscriber access without Stripe
+  const ADMIN_EMAILS = ["me@jas.life", "sotce.net@gmail.com"];
+
   // Check to see if a user sub is subscribed.
 
   async function subscribed(user) {
+    // 👑 Admin bypass - grant subscriber access without checking Stripe
+    if (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+      shell.log("👑 Admin bypass granted for:", user.email);
+      return {
+        status: "active",
+        current_period_end: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60, // 1 year from now
+        admin_bypass: true,
+      };
+    }
+
     // TODO: 🟠 Add redis caching in here.
     try {
       // 🩷 First look to see if we have a subscribed entry in the redis cache.
@@ -316,7 +329,7 @@ export const handler = async (event, context) => {
 
             :root {
               -webkit-locale: "en";
-              --background-color: #C7FFD8;
+              --background-color: #FFD1DC;
               --pink-border: rgb(255, 190, 215);
               --button-background: rgb(255, 235, 183);
               --button-background-highlight: rgb(255, 245, 170);
@@ -327,7 +340,7 @@ export const handler = async (event, context) => {
               /* --line-height: 1.68em; */
               --line-height: 1.76em;
               /* --garden-background: rgb(187, 251, 254); // #bbfbfe; */
-              --garden-background: #C7FFD8;
+              --garden-background: #FFD1DC;
               /*--chat-background: rgb(255, 230, 225);*/ /* rgb(240, 235, 230); */
               --chat-background: /*rgb(202, 218, 228);*/ rgb(240, 235, 230);
               --chat-input-bar-background: rgb(255, 240, 235); /* rgb(240, 235, 230); */
@@ -1563,11 +1576,14 @@ export const handler = async (event, context) => {
               --chat-enter-width: 5em;
               --chat-input-border-color: rgb(130, 100, 100);
               /* --chat-input-border-color: var(--chat-input-bar-background); */
-              overflow-y: scroll;
+              display: flex;
+              flex-direction: column;
+              overflow: hidden;
               background: var(--chat-background);
               /* opacity: 0.7; */
             }
             #chatter-count {
+              display: none;
               position: fixed;
               color: black;
               top: 0.35em;
@@ -1604,11 +1620,15 @@ export const handler = async (event, context) => {
               min-height: 100%;
             }
             #chat-messages {
-              min-height: calc(100% - var(--chat-input-height));
-              padding-bottom: calc(var(--chat-input-height) + 1em + 2px);
-              /* padding-top: 1.25em; */
+              flex: 1;
+              overflow-y: auto;
+              overflow-x: hidden;
               display: flex;
               flex-direction: column-reverse;
+              justify-content: flex-start;
+            }
+            #chat-messages div.message:first-child {
+              margin-bottom: 0;
             }
             #chat-messages div.message {
               border-bottom: 1.5px solid rgba(0, 0, 0, 0.15);
@@ -1620,9 +1640,13 @@ export const handler = async (event, context) => {
             #chat-messages div.message div.message-author {
               font-weight: bold;
               display: inline-block;
-              color: black; /* rgb(100, 0, 0); */
+              color: rgb(200, 80, 120); /* pink for handles */
               padding-right: 0.25em;
               user-select: text;
+              cursor: pointer;
+            }
+            #chat-messages div.message div.message-author:hover {
+              text-decoration: underline;
             }
             #chat-messages div.message div.message-content {
               display: inline-block;
@@ -1631,29 +1655,45 @@ export const handler = async (event, context) => {
               word-wrap: break-word;
               max-width: calc(100% - 0.5em);
             }
+            #chat-messages div.message div.message-content a {
+              color: rgb(80, 120, 200); /* blue for links */
+              text-decoration: underline;
+            }
+            #chat-messages div.message div.message-content a:hover {
+              color: rgb(60, 100, 180);
+            }
+            #chat-messages div.message div.message-content .handle-mention {
+              color: rgb(200, 80, 120);
+              font-weight: bold;
+              cursor: pointer;
+            }
+            #chat-messages div.message div.message-content .handle-mention:hover {
+              text-decoration: underline;
+            }
             #chat-messages div.message div.message-when {
-              opacity: 0.25;
-              visibility: hidden;
+              opacity: 0.15;
               display: inline-block;
               font-size: 75%;
               padding-left: 0.5em;
-
+              transition: opacity 0.15s ease;
             }
             #chat-messages div.message:hover div.message-when {
-              visibility: visible;
+              opacity: 0.5;
             }
             #chat-input-bar {
               /* width: 100%; */ /* Set in JavaScript */
               /* background: var(--chat-background); */
               background: var(--chat-input-bar-background);
-              height: var(--chat-input-height);
+              min-height: var(--chat-input-height);
               display: flex;
-              position: fixed;
-              bottom: 0;
-              overflow: scroll-y;
+              flex-shrink: 0;
+              overflow: hidden;
               border-top: 2px solid rgba(0, 0, 0, 0.1);
               padding-bottom: 1em;
               padding-top: 2px;
+              padding-left: 0.5em;
+              padding-right: 0.5em;
+              gap: 0.5em;
             }
             #chat-input-bar.sending * {
               pointer-events: none;
@@ -1667,20 +1707,15 @@ export const handler = async (event, context) => {
               vertical-align: center;
             }
             #chat-input {
-              width: calc(100% - var(--chat-enter-width));
+              flex: 1;
               height: 100%;
               margin: auto 0;
-              /* margin-right: 1em; */
-              /* margin-left: 0.5em; */
-              /* border-radius: 0.5em; */
               border-radius: 0;
-              /* border: none; */
-              border: 2px solid var(--chat-input-border-color); /* rgb(130, 130, 130); */
-              border-right: none;
+              border: 2px solid var(--pink-border);
               box-sizing: border-box;
               font-size: 100%;
-              padding: 0.35em;
-              /* border: none; */
+              padding: 0.35em 0.5em;
+              background: white;
             }
             #chat-input:focus {
               outline: none;
@@ -1689,22 +1724,59 @@ export const handler = async (event, context) => {
               display: flex;
               align-items: center;
               justify-content: center;
-              width: var(--chat-enter-width);
+              min-width: var(--chat-enter-width);
               height: 100%;
               font-size: 100%;
-              padding: 0.35em;
-              border: 2px solid black; /* var(--chat-input-border-color); */
+              padding: 0.35em 0.75em;
+              border: 2px solid black;
               box-sizing: border-box;
               color: black;
               background-color: var(--button-background);
               cursor: pointer;
-              margin-right: 1em;
+              border-radius: 0;
+              user-select: none;
+              -webkit-user-select: none;
+              -webkit-tap-highlight-color: transparent;
+              touch-action: manipulation;
             }
             #chat-enter:hover {
               background-color: var(--button-background-highlight);
             }
             #chat-enter:active {
               background-color: yellow;
+            }
+            #chat-autocomplete {
+              position: absolute;
+              bottom: calc(100% + 0.25em);
+              left: 0;
+              background: white;
+              border: 0.205em solid var(--pink-border);
+              border-radius: 0.5em;
+              max-height: 150px;
+              overflow-y: auto;
+              display: none;
+              z-index: 100;
+              min-width: 100px;
+            }
+            #chat-autocomplete.visible {
+              display: block;
+            }
+            #chat-autocomplete .autocomplete-item {
+              padding: 0.5em 0.75em;
+              cursor: pointer;
+              color: rgb(200, 80, 120);
+              font-weight: bold;
+              -webkit-tap-highlight-color: transparent;
+              touch-action: manipulation;
+            }
+            #chat-autocomplete .autocomplete-item:hover,
+            #chat-autocomplete .autocomplete-item.selected {
+              background: var(--button-background-highlight);
+            }
+            @media (hover: none) {
+              #chat-autocomplete .autocomplete-item:active {
+                background: var(--button-background-highlight);
+              }
             }
             #chat-messages-veil {
               width: 100%;
@@ -1846,6 +1918,15 @@ export const handler = async (event, context) => {
 
             const chatMessages = cel("div"); // Scrolling panel for messages.
             chatMessages.id = "chat-messages";
+            
+            // Event delegation for clicking @mentions in message content
+            chatMessages.addEventListener("click", (e) => {
+              if (e.target.classList.contains("handle-mention")) {
+                const handle = e.target.innerText;
+                chatInput.value = chatInput.value + handle + " ";
+                chatInput.focus();
+              }
+            });
 
             const chatMessagesVeil = cel("div");
             chatMessagesVeil.id = "chat-messages-veil";
@@ -1893,6 +1974,20 @@ export const handler = async (event, context) => {
               second: "numeric",
             });
 
+            // Auto-link URLs and highlight @handles in text
+            function linkifyText(text) {
+              const urlRegex = new RegExp('(https?:\\\\/\\\\/[^\\\\s<>"\\']+)', 'gi');
+              let result = text.replace(urlRegex, (url) => {
+                // Escape HTML in the URL for safety
+                const safeUrl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">' + safeUrl + '</a>';
+              });
+              // Highlight @handles
+              const handleRegex = new RegExp('(@[a-zA-Z0-9_.-]+)', 'g');
+              result = result.replace(handleRegex, '<span class="handle-mention">$1</span>');
+              return result;
+            }
+
             function chatAddMessage(text, handle, when, count) {
               const msg = cel("div");
               msg.classList.add("message");
@@ -1904,8 +1999,18 @@ export const handler = async (event, context) => {
               date.classList.add("message-when");
               // Add count multiplier if message was repeated
               const displayText = count > 1 ? text + " x" + count : text;
-              txt.innerText = displayText;
+              // Auto-link URLs and escape HTML for non-URL parts
+              const escapedText = displayText
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+              txt.innerHTML = linkifyText(escapedText);
               by.innerText = handle;
+              by.addEventListener("click", () => {
+                chatInput.value = chatInput.value + handle + " ";
+                chatInput.focus();
+              });
+              updateSeenHandles(handle); // Track handle for autocomplete
               date.innerText = chatWhenFormatter.format(new Date(when));
               msg.appendChild(by);
               msg.appendChild(txt);
@@ -1935,12 +2040,21 @@ export const handler = async (event, context) => {
             const chatInputBar = cel("div"); // Input bar.
             chatInputBar.id = "chat-input-bar";
 
-            const scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
-            const styleWidth = "calc(100%  - " + scrollbarWidth + "px)";
-
-            chatInputBar.style.width = styleWidth;
-            chatMessagesVeil.style.width = styleWidth;
-            chatPagesButton.style.right = scrollbarWidth + "px";
+            // Calculate scrollbar width for veil and pages button positioning
+            function updateChatLayout() {
+              const scrollbarWidth = chatMessages.offsetWidth - chatMessages.clientWidth;
+              chatMessagesVeil.style.width = "calc(100% - " + scrollbarWidth + "px)";
+              chatPagesButton.style.right = scrollbarWidth + "px";
+            }
+            // Initial calculation (may be 0 if not visible yet)
+            updateChatLayout();
+            // Recalculate when chat becomes visible
+            const chatLayoutObserver = new MutationObserver(() => {
+              if (!chatInterface.classList.contains("hidden")) {
+                updateChatLayout();
+              }
+            });
+            chatLayoutObserver.observe(chatInterface, { attributes: true, attributeFilter: ["class"] });
 
             const chatHandle = cel("div");
             chatHandle.id = "chat-handle";
@@ -1956,8 +2070,102 @@ export const handler = async (event, context) => {
             chatEnter.innerText = "Enter";
             chatEnter.id = "chat-enter";
 
+            // 🏷️ Handle autocomplete
+            const chatAutocomplete = cel("div");
+            chatAutocomplete.id = "chat-autocomplete";
+            chatInputBar.style.position = "relative";
+            
+            const seenHandles = new Set(); // Track handles seen in chat
+            let autocompleteIndex = -1;
+            let autocompleteMatches = [];
+            
+            function updateSeenHandles(handle) {
+              if (handle && handle.startsWith("@") && handle !== "@nohandle") {
+                seenHandles.add(handle);
+              }
+            }
+            
+            function showAutocomplete(query) {
+              const q = query.toLowerCase();
+              autocompleteMatches = Array.from(seenHandles)
+                .filter(h => h.toLowerCase().includes(q))
+                .slice(0, 8);
+              
+              if (autocompleteMatches.length === 0) {
+                hideAutocomplete();
+                return;
+              }
+              
+              chatAutocomplete.innerHTML = "";
+              autocompleteMatches.forEach((handle, i) => {
+                const item = cel("div");
+                item.classList.add("autocomplete-item");
+                if (i === autocompleteIndex) item.classList.add("selected");
+                item.innerText = handle;
+                item.addEventListener("click", (e) => { e.preventDefault(); insertHandle(handle); });
+                item.addEventListener("touchend", (e) => { e.preventDefault(); insertHandle(handle); });
+                chatAutocomplete.appendChild(item);
+              });
+              chatAutocomplete.classList.add("visible");
+            }
+            
+            function hideAutocomplete() {
+              chatAutocomplete.classList.remove("visible");
+              autocompleteIndex = -1;
+              autocompleteMatches = [];
+            }
+            
+            function insertHandle(handle) {
+              const val = chatInput.value;
+              const atPos = val.lastIndexOf("@");
+              if (atPos !== -1) {
+                chatInput.value = val.slice(0, atPos) + handle + " ";
+              }
+              hideAutocomplete();
+              chatInput.focus();
+            }
+            
+            chatInput.addEventListener("input", (e) => {
+              const val = chatInput.value;
+              const atPos = val.lastIndexOf("@");
+              if (atPos !== -1 && atPos === val.length - 1 || 
+                  (atPos !== -1 && !val.slice(atPos).includes(" "))) {
+                const query = val.slice(atPos + 1);
+                showAutocomplete(query);
+              } else {
+                hideAutocomplete();
+              }
+            });
+            
+            chatInput.addEventListener("keydown", (e) => {
+              if (!chatAutocomplete.classList.contains("visible")) return;
+              
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                autocompleteIndex = Math.min(autocompleteIndex + 1, autocompleteMatches.length - 1);
+                showAutocomplete(chatInput.value.slice(chatInput.value.lastIndexOf("@") + 1));
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                autocompleteIndex = Math.max(autocompleteIndex - 1, 0);
+                showAutocomplete(chatInput.value.slice(chatInput.value.lastIndexOf("@") + 1));
+              } else if (e.key === "Enter" && autocompleteIndex >= 0) {
+                e.preventDefault();
+                insertHandle(autocompleteMatches[autocompleteIndex]);
+              } else if (e.key === "Escape") {
+                hideAutocomplete();
+              } else if (e.key === "Tab" && autocompleteMatches.length > 0) {
+                e.preventDefault();
+                insertHandle(autocompleteMatches[autocompleteIndex >= 0 ? autocompleteIndex : 0]);
+              }
+            });
+            
+            chatInput.addEventListener("blur", () => {
+              setTimeout(hideAutocomplete, 150); // Delay to allow click on autocomplete
+            });
+
             chatInputBar.appendChild(chatHandle);
             chatInputBar.appendChild(chatInput);
+            chatInputBar.appendChild(chatAutocomplete);
             chatInputBar.appendChild(chatEnter);
 
             chatInterface.appendChild(chatMessages);
@@ -4745,7 +4953,8 @@ export const handler = async (event, context) => {
         }
 
         // 👸 Administrator status.
-        const isAdmin = await hasAdmin(user, "sotce");
+        // Skip hasAdmin call if using admin_bypass (already verified admin)
+        const isAdmin = subscription.admin_bypass ? true : await hasAdmin(user, "sotce");
         if (isAdmin) out.admin = isAdmin;
         shell.log("🔴 Admin:", isAdmin);
 
