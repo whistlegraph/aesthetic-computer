@@ -959,6 +959,11 @@
       display: inline-block;
       transition: color 0.1s;
     }
+    
+    /* DKK space - uses margin instead of font space character (YWFT renders space as +) */
+    .gift-amount .wiggle-char.dkk-space {
+      width: 0.35em;
+    }
 
     /* Logo intensity animations - shrinks like zooming out, maintains tight shadow, adds colored moving shadows */
     .gift-logo.intensity-1 {
@@ -6970,7 +6975,8 @@
         const isMonthly = widget._isMonthly ? widget._isMonthly() : false;
         const fmtValue = value.toLocaleString('en-US');
         if (currency === 'dkk') {
-          btn.textContent = lang === 'da' ? `Giv ${fmtValue} kr` : `Give ${fmtValue} kr`;
+          // Use thin space (&#8201;) to avoid YWFT font rendering regular space as +
+          btn.innerHTML = lang === 'da' ? `Giv ${fmtValue}&#8201;kr` : `Give ${fmtValue}&#8201;kr`;
         } else if (isMonthly) {
           btn.textContent = lang === 'da' ? `Giv $${fmtValue}/måned` : `Give $${fmtValue}/month`;
         } else {
@@ -7072,9 +7078,8 @@
         // Use simple comma separator to avoid locale-specific characters
         // that may render incorrectly in YWFT font (e.g., narrow no-break space → +)
         const formatted = v.toLocaleString('en-US');
-        // Use explicit ASCII space (0x20) to avoid any unicode space variants
-        const space = String.fromCharCode(32);
-        return currency === 'dkk' ? formatted + space + 'kr' : `$${formatted}`;
+        // For DKK, don't include space - we'll add spacing via CSS on the 'kr' suffix
+        return currency === 'dkk' ? formatted + '|kr' : `$${formatted}`;
       }
 
       const investSuggestion = widget.querySelector('.invest-suggestion');
@@ -7137,13 +7142,18 @@
         const text = format(value) + suffix;
         
         // Create wiggling characters
-        amountEl.innerHTML = text.split('').map(c => 
-          `<span class="wiggle-char">${c === ' ' ? '&nbsp;' : c}</span>`
-        ).join('');
+        // For DKK, '|' is a marker for the space before 'kr' - render as margin
+        amountEl.innerHTML = text.split('').map(c => {
+          if (c === '|') return '<span class="wiggle-char dkk-space"></span>';
+          if (c === ' ') return '<span class="wiggle-char">&nbsp;</span>';
+          return `<span class="wiggle-char">${c}</span>`;
+        }).join('');
         
         const lang = document.body.classList.contains('lang-da') ? 'da' : 'en';
         if (currency === 'dkk') {
-          btn.textContent = lang === 'da' ? `Giv ${format(value)}` : `Give ${format(value)}`;
+          // Use innerHTML with thin space for DKK (YWFT renders regular space as +)
+          const fmtVal = parseInt(slider.value).toLocaleString('en-US');
+          btn.innerHTML = lang === 'da' ? `Giv ${fmtVal}&#8201;kr` : `Give ${fmtVal}&#8201;kr`;
         } else if (isMonthly) {
           btn.textContent = lang === 'da' ? `Giv ${format(value)}/måned` : `Give ${format(value)}/month`;
         } else {
