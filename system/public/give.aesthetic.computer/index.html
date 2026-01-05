@@ -1735,6 +1735,13 @@
       color: #a78bfa;
     }
     
+    .crypto-subtitle {
+      font-family: var(--mono);
+      font-size: 0.8em;
+      color: var(--dim);
+      margin-left: 0.8em;
+    }
+    
     .crypto-compact .crypto-controls {
       border-radius: 0 0 8px 8px;
     }
@@ -1883,32 +1890,31 @@
     .crypto-addr {
       display: block;
       font-family: var(--mono);
-      font-size: 1em;
-      letter-spacing: 0.02em;
-      color: var(--text);
+      font-size: 0.7em;
+      letter-spacing: 0.03em;
+      color: #00ff88;
       text-align: center;
-      padding: 0.7em 1em;
-      background: rgba(0, 0, 0, 0.3);
+      padding: 0.8em 0.6em;
+      background: rgba(0, 20, 10, 0.8);
       border-radius: 4px;
       user-select: all;
-      cursor: text;
+      cursor: pointer;
+      word-break: break-all;
+      text-shadow: 0 0 8px #00ff8855;
+      border: 1px solid #00ff8833;
     }
 
-    .crypto-addr .addr-start,
-    .crypto-addr .addr-end {
-      color: var(--text);
-    }
-
-    .crypto-addr .addr-dots {
-      color: var(--dim);
-      letter-spacing: 0.15em;
+    .crypto-addr:hover {
+      background: rgba(0, 40, 20, 0.9);
+      color: #00ffaa;
+      text-shadow: 0 0 12px #00ffaa88;
     }
 
     .crypto-copy-hint {
       display: block;
       font-size: 0.85em;
       color: var(--gold);
-      margin-top: 0.8em;
+      margin-top: 0.6em;
       text-align: center;
       font-weight: 500;
     }
@@ -4718,38 +4724,27 @@
             <div class="gift-widget crypto crypto-compact" data-currency="crypto">
               <div class="crypto-header">
                 <img src="https://aesthetic.computer/purple-pals.svg" class="crypto-logo-tiny" alt="">
-                <span class="crypto-title">� Piggy Banks for Rainy Days</span>
+                <span class="crypto-title">🔗 CRYPTO</span>
+                <span class="crypto-subtitle">🐷 Piggy Banks for Rainy Days</span>
               </div>
               <div class="crypto-controls crypto-all">
                 <div class="crypto-address copyable crypto-featured" data-copy="tz1gkf8EexComFBJvjtT1zdsisdah791KwBE" data-crypto="xtz">
                   <span class="crypto-label">🔮 aesthetic.tez</span>
                   <span class="crypto-balance" id="balance-xtz"><span class="loading">loading...</span></span>
-                  <code class="crypto-addr"><span class="addr-start">tz1gkf8E</span><span class="addr-dots">···</span><span class="addr-end">KwBE</span></code>
-                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
-                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
-                  <span class="crypto-copy-hint" data-lang="de">📋 tippen zum kopieren</span>
-                  <span class="crypto-copy-hint" data-lang="es">📋 toca para copiar</span>
-                  <span class="crypto-copy-hint" data-lang="zh">📋 点击复制</span>
+                  <code class="crypto-addr">tz1gkf8EexComFBJvjtT1zdsisdah791KwBE</code>
+                  <span class="crypto-copy-hint">→ copy</span>
                 </div>
                 <div class="crypto-address copyable" data-copy="0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023" data-crypto="eth">
                   <span class="crypto-label">💎 4esthetic.eth</span>
                   <span class="crypto-balance" id="balance-eth"><span class="loading">loading...</span></span>
-                  <code class="crypto-addr"><span class="addr-start">0x1D64E3</span><span class="addr-dots">···</span><span class="addr-end">ef023</span></code>
-                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
-                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
-                  <span class="crypto-copy-hint" data-lang="de">📋 tippen zum kopieren</span>
-                  <span class="crypto-copy-hint" data-lang="es">📋 toca para copiar</span>
-                  <span class="crypto-copy-hint" data-lang="zh">📋 点击复制</span>
+                  <code class="crypto-addr">0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023</code>
+                  <span class="crypto-copy-hint">→ copy</span>
                 </div>
                 <div class="crypto-address copyable" data-copy="bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as" data-crypto="btc">
                   <span class="crypto-label">🟠 Bitcoin</span>
                   <span class="crypto-balance" id="balance-btc"><span class="loading">loading...</span></span>
-                  <code class="crypto-addr"><span class="addr-start">bc1q699g</span><span class="addr-dots">···</span><span class="addr-end">xf59as</span></code>
-                  <span class="crypto-copy-hint" data-lang="en">📋 tap to copy</span>
-                  <span class="crypto-copy-hint" data-lang="da">📋 tryk for at kopiere</span>
-                  <span class="crypto-copy-hint" data-lang="de">📋 tippen zum kopieren</span>
-                  <span class="crypto-copy-hint" data-lang="es">📋 toca para copiar</span>
-                  <span class="crypto-copy-hint" data-lang="zh">📋 点击复制</span>
+                  <code class="crypto-addr">bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as</code>
+                  <span class="crypto-copy-hint">→ copy</span>
                 </div>
               </div>
             </div>
