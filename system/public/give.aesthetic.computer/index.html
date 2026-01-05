@@ -850,6 +850,20 @@
         font-size: 0.75em;
         padding: 0 1em;
       }
+      .ticker-stats-row {
+        gap: 0.35em;
+      }
+      .ticker-stat-panel {
+        min-width: 65px;
+        padding: 0.35em 0.5em;
+        font-size: 0.65em;
+      }
+      .ticker-stat-value {
+        font-size: 1.3em;
+      }
+      .ticker-stat-label {
+        font-size: 0.75em;
+      }
       .currency-links {
         gap: 10px;
       }
@@ -939,42 +953,71 @@
       filter: blur(0) brightness(1);
     }
 
-    /* Give stats badges - top corners of canvas */
-    .give-stats {
-      position: absolute;
-      top: 0.5em;
-      z-index: 10;
-      font-family: var(--mono);
-      font-size: 0.65em;
-      padding: 0.3em 0.6em;
-      border-radius: 4px;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(4px);
-      color: rgba(255, 255, 255, 0.85);
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.4s ease;
+    /* Give stats panels - flank the ticker */
+    .ticker-stats-row {
+      display: flex;
+      gap: 0.5em;
+      align-items: stretch;
+      margin-bottom: 0.5em;
     }
 
-    .gift-visual.loaded .give-stats {
+    .ticker-stat-panel {
+      flex: 0 0 auto;
+      min-width: 70px;
+      padding: 0 0.6em;
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 0.85em;
+      text-align: center;
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+      gap: 0.4em;
+      height: 2.4em;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      border: 1px solid var(--box-border);
+    }
+
+    .ticker-stat-panel.visible {
       opacity: 1;
     }
 
-    .give-stats-left {
-      left: 0.5em;
+    .ticker-stat-panel.gives-panel {
+      background: rgba(100, 255, 150, 0.1);
+      border-color: rgba(100, 255, 150, 0.25);
     }
 
-    .give-stats-right {
-      right: 0.5em;
+    .ticker-stat-panel.monthly-panel {
+      background: rgba(255, 215, 100, 0.1);
+      border-color: rgba(255, 215, 100, 0.25);
     }
 
-    .give-stats strong {
-      color: var(--gold);
-      font-weight: 700;
+    .ticker-stat-value {
+      font-family: 'YWFTProcessing-Regular', var(--mono);
+      font-size: 1.1em;
+      font-weight: bold;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
     }
 
-    .give-stats .monthly-icon {
+    .ticker-stat-panel.gives-panel .ticker-stat-value {
+      color: var(--green);
+    }
+
+    .ticker-stat-panel.monthly-panel .ticker-stat-value {
       color: #ffcc00;
+    }
+
+    .ticker-stat-label {
+      font-size: 0.8em;
+      color: var(--dim);
+      text-transform: lowercase;
+    }
+
+    .ticker-center {
+      flex: 1;
+      min-width: 0;
     }
 
     .gift-logo-wrap {
@@ -3498,24 +3541,7 @@
       color: rgba(255, 255, 255, 0.7);
       padding: 0.8em 1em;
       font-size: 0.75em;
-    }
-
-    /* TV cycle progress bar - above caption */
-    .tv-cycle-progress {
-      position: absolute;
-      bottom: 2.55em;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: rgba(255, 80, 80, 0.2);
-      z-index: 6;
-    }
-
-    .tv-cycle-progress-bar {
-      height: 100%;
-      background: #e53935;
-      width: 0%;
-      transition: width 0.05s linear;
+      --caption-height: 2.6em; /* For positioning other elements */
     }
 
     .tv-player {
@@ -3543,16 +3569,29 @@
 
     .tv-progress {
       position: absolute;
-      bottom: 2.5em; /* Position above the caption */
+      bottom: 2.5em; /* Same as tv-player bottom - aligns with caption top */
       left: 0;
       right: 0;
-      height: 32px;
-      background: linear-gradient(0deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
+      height: 28px;
+      background: linear-gradient(0deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.25) 50%, transparent 100%);
       z-index: 12;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
       cursor: pointer;
+      transform: translateY(calc(100% + 1em - 3px)); /* Push down so red bar sits at caption top */
+    }
+
+    /* Top gradient overlay for tapes */
+    .tv-top-gradient {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 40px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.25) 50%, transparent 100%);
+      z-index: 11;
+      pointer-events: none;
     }
 
     .tv-progress-bar {
@@ -5117,16 +5156,26 @@
 
       <!-- Gives Ticker - cycles through recent gives -->
       <div class="fiat-section full-width">
-        <div class="gives-ticker" id="givesTicker">
-          <div class="gives-ticker-empty">Loading gives...</div>
+        <div class="ticker-stats-row">
+          <div class="ticker-stat-panel gives-panel" id="giveStatsGives">
+            <div class="ticker-stat-value">–</div>
+            <div class="ticker-stat-label" data-lang="en">gives</div>
+          </div>
+          <div class="ticker-center">
+            <div class="gives-ticker" id="givesTicker">
+              <div class="gives-ticker-empty">Loading gives...</div>
+            </div>
+          </div>
+          <div class="ticker-stat-panel monthly-panel" id="giveStatsSubs">
+            <div class="ticker-stat-value">–</div>
+            <div class="ticker-stat-label" data-lang="en">monthly</div>
+          </div>
         </div>
         <div class="currency-pickers">
           <div class="currency-picker" data-for="usd">
             <div class="gift-widget" data-currency="usd">
               <div class="gift-visual">
                 <div class="jeffreys-slideshow" id="jeffreysSlideshow"></div>
-                <div class="give-stats give-stats-left" id="giveStatsGives"></div>
-                <div class="give-stats give-stats-right" id="giveStatsSubs"></div>
                 <div class="gift-logo-wrap">
                   <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
                   <div class="gift-amount">$128</div>
@@ -5409,9 +5458,6 @@
         </a>
         <div class="tv-player" id="tvPlayer">
           <div class="module-loading" id="tvLoading">loading</div>
-        </div>
-        <div class="tv-cycle-progress">
-          <div class="tv-cycle-progress-bar" id="tvCycleProgressBar"></div>
         </div>
         <div class="module-caption">
           <span data-lang="en">Prefix a prompt with <span class="dim">tape</span> to record GIFs and MP4s.</span>
@@ -9043,18 +9089,22 @@
           serverCostItem = `<span class="gives-ticker-item gives-ticker-cta-item">${msgs.serverCost} ${subText}</span>`;
         }
         
-        // Update stats badges on canvas
+        // Update flanking stat panels
         const givesStatsEl = document.getElementById('giveStatsGives');
         const subsStatsEl = document.getElementById('giveStatsSubs');
         
-        if (givesStatsEl && data.gives?.length > 0) {
+        if (givesStatsEl && data.count > 0) {
           const giveLabels = { en: 'gives', da: 'gaver', de: 'Gaben', es: 'donaciones', zh: '捐赠' };
-          givesStatsEl.innerHTML = `🎁 <strong>${data.count}</strong> ${giveLabels[currentLang] || giveLabels.en}`;
+          givesStatsEl.querySelector('.ticker-stat-value').textContent = data.count;
+          givesStatsEl.querySelector('.ticker-stat-label').textContent = giveLabels[currentLang] || giveLabels.en;
+          givesStatsEl.classList.add('visible');
         }
         
         if (subsStatsEl && data.activeSubscribers > 0) {
           const subLabels = { en: 'monthly', da: 'månedlige', de: 'monatlich', es: 'mensuales', zh: '月度' };
-          subsStatsEl.innerHTML = `<span class="monthly-icon">🔁</span> <strong>${data.activeSubscribers}</strong> ${subLabels[currentLang] || subLabels.en}`;
+          subsStatsEl.querySelector('.ticker-stat-value').textContent = data.activeSubscribers;
+          subsStatsEl.querySelector('.ticker-stat-label').textContent = subLabels[currentLang] || subLabels.en;
+          subsStatsEl.classList.add('visible');
         }
         
         if (!data.gives?.length) {
@@ -9497,10 +9547,6 @@
         return;
       }
       
-      // Reset cycle progress bar
-      const cycleProgressBar = document.getElementById('tvCycleProgressBar');
-      if (cycleProgressBar) cycleProgressBar.style.width = '0%';
-      
       // Update header with current tape code, timestamp, and upcoming codes
       const tapeCode = tape.code ? `!${tape.code}` : '📼 tapes';
       
@@ -9585,6 +9631,12 @@
         progressEl.className = 'tv-progress';
         progressEl.innerHTML = '<div class="tv-progress-bar"></div>';
         container.appendChild(progressEl);
+      }
+      // Ensure top gradient exists (only once)
+      if (!container.querySelector('.tv-top-gradient')) {
+        const topGradient = document.createElement('div');
+        topGradient.className = 'tv-top-gradient';
+        container.appendChild(topGradient);
       }
       if (!container.querySelector('.tv-timer')) {
         const timerEl = document.createElement('span');
@@ -9722,15 +9774,11 @@
       
       // Attach all event listeners once
       function attachListeners() {
-        // Update progress bar, cycle progress bar, and timer
-        const cycleProgressBar = document.getElementById('tvCycleProgressBar');
-        
+        // Update progress bar and timer
         tvPlayer.addEventListener('timeupdate', () => {
           if (tvPlayer.duration) {
             const pct = (tvPlayer.currentTime / tvPlayer.duration) * 100;
             progressBar.style.width = pct + '%';
-            // Cycle progress bar above caption
-            if (cycleProgressBar) cycleProgressBar.style.width = pct + '%';
             // Update timer: current / total
             const current = formatTime(tvPlayer.currentTime);
             const total = formatTime(tvPlayer.duration);
