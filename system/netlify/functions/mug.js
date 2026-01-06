@@ -50,7 +50,23 @@ const WHITE_MUG_VARIANT = 1320; // 11oz white
 const MUG_WIDTH = 2700;
 const MUG_HEIGHT = 1050;
 
+// CORS headers for cross-origin requests
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 export async function handler(event, context) {
+  // Handle OPTIONS preflight requests
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 204,
+      headers: corsHeaders,
+      body: "",
+    };
+  }
+
   const { got } = await import("got");
   const API = "https://api.printful.com";
   const headers = {
