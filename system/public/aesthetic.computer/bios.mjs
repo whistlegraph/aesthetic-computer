@@ -3467,11 +3467,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //   err.message ===
       //   "SyntaxError: import declarations may only appear at top level of a module"
       // ) {
-      console.error("🛑 Disk error:", err);
-      // console.error("🚨 Error message:", err.message);
-      // console.error("🚨 Error filename:", err.filename);
-      // console.error("🚨 Error lineno:", err.lineno);
-      // console.error("🚨 Error colno:", err.colno);
+      console.error("🛑 Disk worker error:", err);
+      console.error("🚨 Message:", err.message || "(no message)");
+      console.error("🚨 Filename:", err.filename || "(no filename)");
+      console.error("🚨 Line:", err.lineno, "Col:", err.colno);
 
       console.warn("🟡 Attempting a dynamic import...");
       // https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
