@@ -1777,17 +1777,22 @@
       40% { opacity: 0.7; color: lime; }
     }
     
-    /* Text shadows for dark syntax colors in dark mode */
+    /* Text shadows for dark syntax colors - must be visible on dark bg */
     .example-code .dark-text-shadow {
       text-shadow: 
-        0 0 2px rgba(255, 255, 255, 0.9),
-        1px 1px 0px rgba(255, 255, 255, 0.7),
-        -1px -1px 0px rgba(255, 255, 255, 0.5);
+        0 0 3px rgba(255, 255, 255, 1),
+        0 0 6px rgba(255, 255, 255, 0.9),
+        1px 1px 0px rgba(255, 255, 255, 0.8),
+        -1px -1px 0px rgba(255, 255, 255, 0.8),
+        1px -1px 0px rgba(255, 255, 255, 0.6),
+        -1px 1px 0px rgba(255, 255, 255, 0.6);
     }
     
     /* Light mode: subtler shadow for dark colors */
     [data-theme="light"] .example-code .dark-text-shadow {
-      text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.9);
+      text-shadow: 
+        0 0 2px rgba(255, 255, 255, 1),
+        1px 1px 0px rgba(255, 255, 255, 0.9);
     }
     
     /* Inverse glow effect for syntax highlighting */
@@ -11171,15 +11176,21 @@
             if (colorStr.startsWith('rgb(')) {
               const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
               if (match) rgb = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
-            } else if (colorStr.includes(',')) {
+            } else if (colorStr.match(/^\d+,\s*\d+,\s*\d+/)) {
               rgb = colorStr.split(',').map(n => parseInt(n.trim()));
             } else {
-              const darkColors = { black: [0,0,0], darkblue: [0,0,139], navy: [0,0,128], maroon: [128,0,0], purple: [128,0,128], indigo: [75,0,130] };
+              // Named dark colors
+              const darkColors = { 
+                black: [0,0,0], darkblue: [0,0,139], navy: [0,0,128], 
+                maroon: [128,0,0], purple: [128,0,128], indigo: [75,0,130],
+                darkgreen: [0,100,0], darkred: [139,0,0], brown: [139,69,19],
+                darkgray: [169,169,169], dimgray: [105,105,105], gray: [128,128,128]
+              };
               rgb = darkColors[colorStr.toLowerCase()];
             }
             if (!rgb || rgb.length < 3) return false;
             const luminance = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-            return luminance < 80;
+            return luminance < 120; // Increased threshold for more colors to get shadows
           }
           
           // Helper to check if token is a timing expression
@@ -11206,26 +11217,29 @@
                 let extraClass = '';
                 
                 // Handle RGB colors
-                if (color.match(/^\d+,\d+,\d+/)) {
+                if (color.match(/^\d+,\s*\d+,\s*\d+/)) {
                   cssColor = `rgb(${color})`;
                 }
+                
+                // Check if this is a dark color first
+                const dark = isDarkColor(color) || isDarkColor(cssColor);
                 
                 // Add timing blink animation for timing tokens
                 if (isTimingToken(text)) {
                   extraClass += ' timing-token';
                 }
                 
-                // Add shadow for dark colors in dark mode
-                if (isDarkColor(cssColor)) {
+                // Add shadow for dark colors - always add for dark backgrounds
+                if (dark) {
                   extraClass += ' dark-text-shadow';
                 }
                 
                 // Add subtle glow to bright colors
-                if (['yellow', 'lime', 'cyan', 'orange', 'pink', 'magenta'].includes(color.toLowerCase())) {
+                if (['yellow', 'lime', 'cyan', 'orange', 'pink', 'magenta', 'white', 'lightyellow', 'lightgreen'].includes(color.toLowerCase())) {
                   extraClass += ' glow-text';
                 }
                 
-                return `<span style="color: ${cssColor}; font-weight: bold;"class="${extraClass.trim()}">${text}</span>`;
+                return `<span style="color: ${cssColor}; font-weight: bold;" class="${extraClass.trim()}">${text}</span>`;
               });
             } catch (e) {
               // If highlighting fails, use plain text
