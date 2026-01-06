@@ -290,7 +290,7 @@ function paint({ wipe, ink, box, paste, screen, pen, write }) {
   const colorRgb = colorMap[color.toLowerCase()] || [200, 200, 200];
   
   // Build title parts and calculate total width for centering
-  const viaPart = viaCode ? ` via $${viaCode}` : "";
+  const viaPart = viaCode ? ` in $${viaCode}` : "";
   const totalWidth = (colorName.length + " MUG of ".length + sourceCode.length + viaPart.length) * btnCharWidth;
   let titleX = floor((screen.width - totalWidth) / 2);
   const titleY = 4;
@@ -316,9 +316,9 @@ function paint({ wipe, ink, box, paste, screen, pen, write }) {
   }
   const codeEndX = titleX + sourceCode.length * btnCharWidth;
   
-  // Draw "via $kidlispcode" in gold if present
+  // Draw "in $kidlispcode" in gold if present
   if (viaCode) {
-    ink(255, 200, 100).write(` via $${viaCode}`, { x: codeEndX, y: titleY }, undefined, undefined, false, "unifont");
+    ink(255, 200, 100).write(` in $${viaCode}`, { x: codeEndX, y: titleY }, undefined, undefined, false, "unifont");
   }
   
   // Draw underline if hovered
