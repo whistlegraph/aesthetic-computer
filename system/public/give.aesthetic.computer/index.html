@@ -988,6 +988,14 @@
       text-transform: lowercase;
     }
 
+    .ticker-stat-amount {
+      display: block;
+      font-size: 0.85em;
+      color: var(--green);
+      margin-top: 2px;
+      font-weight: bold;
+    }
+
     .gift-logo-wrap {
       display: none; /* Rendered on canvas instead */
     }
@@ -5491,6 +5499,7 @@
             <div class="ticker-stat-badge gives-badge" id="giveStatsGives">
               <span class="ticker-stat-value">0</span>
               <span class="ticker-stat-label">gives</span>
+              <span class="ticker-stat-amount" id="giveStatsAmount"></span>
             </div>
             <div class="ticker-stat-badge monthly-badge" id="giveStatsSubs">
               <span class="ticker-stat-value">0</span>
@@ -9371,12 +9380,17 @@
         const givesStatsEl = document.getElementById('giveStatsGives');
         const subsStatsEl = document.getElementById('giveStatsSubs');
         
-        if (givesStatsEl && data.count > 0) {
-          const giveLabels = { en: 'gives so far', da: 'gaver indtil nu', de: 'Gaben bisher', es: 'donaciones hasta ahora', zh: '捐赠至今' };
+        if (givesStatsEl && data.monthlyCount > 0) {
+          const giveLabels = { en: 'gives this month', da: 'gaver denne måned', de: 'Gaben diesen Monat', es: 'donaciones este mes', zh: '本月捐赠' };
+          const earnedLabels = { en: 'earned', da: 'tjent', de: 'verdient', es: 'ganado', zh: '收入' };
           const valueEl = givesStatsEl.querySelector('.ticker-stat-value');
           const labelEl = givesStatsEl.querySelector('.ticker-stat-label');
-          if (valueEl) valueEl.textContent = data.count;
+          const amountEl = givesStatsEl.querySelector('.ticker-stat-amount');
+          if (valueEl) valueEl.textContent = data.monthlyCount;
           if (labelEl) labelEl.textContent = giveLabels[currentLang] || giveLabels.en;
+          if (amountEl && data.monthlyTotalUSD > 0) {
+            amountEl.textContent = `${earnedLabels[currentLang] || earnedLabels.en} $${data.monthlyTotalUSD}`;
+          }
           givesStatsEl.classList.add('visible');
         }
         
