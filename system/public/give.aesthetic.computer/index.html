@@ -108,6 +108,8 @@
     a[href],
     .shop-product-desc,
     .kidlisp-desc,
+    .prose,
+    .invest-content,
     input,
     textarea {
       user-select: text;
@@ -2442,13 +2444,23 @@
     }
 
     /* Smaller mug on small screens */
-    @media (max-width: 480px) {
+    @media (max-width: 600px) {
       .invest-mug-image {
-        width: 130px;
-        height: 130px;
+        width: 100px;
+        height: 100px;
       }
       .invest-mug-caption {
-        font-size: 0.75em;
+        font-size: 0.7em;
+      }
+    }
+    
+    @media (max-width: 400px) {
+      .invest-mug-image {
+        width: 80px;
+        height: 80px;
+      }
+      .invest-mug-caption {
+        font-size: 0.65em;
       }
     }
 
@@ -5956,7 +5968,7 @@
           <span data-lang="zh">投资</span>
         </div>
         <div class="invest-content" data-lang="en">
-          <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> was <a href="https://prompt.ac/booted-by">booted by</a> a handful of early supporters in early 2025.<br><br>To join this equity holding community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
+          <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> was <a href="https://prompt.ac/booted-by">booted by</a> a handful of early supporters in 2025.<br><br>To join this equity holding community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
         </div>
         <div class="invest-content" data-lang="da">
           <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> bliver <a href="https://prompt.ac/booted-by">startet af</a> en håndfuld tidlige støtter, der deler i at reservere virksomhedskapital.<br><br>For at blive en del af dette fællesskab, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">book en fjern-demo</a> med <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
