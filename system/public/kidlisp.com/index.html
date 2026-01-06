@@ -7427,34 +7427,66 @@
         });
         
         // Extract the code from slug (filename without extension)
-        const code = slug.replace(/\.png$/, '');
-        console.log('☕ Uploaded as code:', code);
+        const paintingCode = slug.replace(/\.png$/, '');
+        console.log('☕ Uploaded as painting code:', paintingCode);
         
-        // Open mug piece with the uploaded painting code
-        // Include KidLisp $code as "via" parameter if present
-        // (reuse isLocal and baseUrl from above)
+        // Call the mug API to create the product and get a +productCode
+        // This ensures the mug is registered in the database with all metadata
+        mugBtn.innerHTML = '☕ creating mug...';
+        
+        let productApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=white&preview=true`;
+        if (kidlispCode) {
+          productApiUrl += `&via=${kidlispCode}`;
+        }
+        
+        const productRes = await fetch(productApiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quantity: 1 }),
+        });
+        
+        if (!productRes.ok) {
+          throw new Error(`Mug API failed: ${productRes.status}`);
+        }
+        
+        const productData = await productRes.json();
+        console.log('☕ Product created:', productData);
+        
+        // Get the product code (with + prefix from API)
+        const productCode = productData.productCode || productData.rawProductCode;
+        if (!productCode) {
+          throw new Error('No product code returned');
+        }
+        
+        // Strip + prefix if present (we'll add it in the URL)
+        const rawProductCode = productCode.replace(/^\+/, '');
+        
+        // Open mug piece with the +productCode (universal identifier)
+        // This preserves all metadata including via/kidlisp source
         
         if (MUG_DIRECT_CHECKOUT) {
           // Direct checkout: skip mug.mjs and go straight to Stripe
           mugBtn.innerHTML = '☕ opening checkout...';
-          let checkoutUrl = `${baseUrl}/mug?code=${code}&color=white`;
+          // For checkout, we still need to call the mug API again (non-preview)
+          let checkoutApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=white`;
           if (kidlispCode) {
-            checkoutUrl += `&via=${kidlispCode}`;
+            checkoutApiUrl += `&via=${kidlispCode}`;
           }
-          const checkoutRes = await fetch(checkoutUrl);
+          const checkoutRes = await fetch(checkoutApiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: 1, slug: `mug~+${rawProductCode}` }),
+          });
           const checkoutData = await checkoutRes.json();
-          if (checkoutData.checkoutUrl) {
-            window.open(checkoutData.checkoutUrl, '_blank');
+          if (checkoutData.location) {
+            window.open(checkoutData.location, '_blank');
           } else {
             throw new Error('No checkout URL returned');
           }
         } else {
-          // Preview flow: open mug.mjs piece for color selection
+          // Preview flow: open mug.mjs piece with +productCode
           mugBtn.innerHTML = '☕ opening preview...';
-          let mugUrl = `${baseUrl}/mug~${code}~white`;
-          if (kidlispCode) {
-            mugUrl += `~via~${kidlispCode}`;
-          }
+          const mugUrl = `${baseUrl}/mug~+${rawProductCode}`;
           window.open(mugUrl, '_blank');
         }
         

@@ -1,6 +1,13 @@
 // products.mjs, 24.12.20
 // Manage product previews and cache them to S3
 // Collection: aesthetic.products
+//
+// Code Prefixes (universal across AC):
+//   # - Paintings (e.g., #hjq)
+//   $ - KidLisp pieces (e.g., $cow)
+//   ! - Tapes (e.g., !abc123)
+//   + - Prints/Products (e.g., +7brmof) - mugs, posters, stickers
+//   @ - Handles/Users (e.g., @jeffrey)
 
 // Schema:
 // {
@@ -10,6 +17,7 @@
 //     type: "painting" | "tape" | "upload",
 //     code: string,            // e.g., painting code "hjq"
 //     user: string,            // auth0 user id (denormalized for queries)
+//     via: string,             // KidLisp source code (e.g., "cow" for $cow)
 //   },
 //   product: "mug" | "poster" | "sticker" | etc,
 //   variant: string,           // e.g., "blue", "11oz", etc.
@@ -86,7 +94,7 @@ async function s3Exists(key) {
 /**
  * Find existing product or create a new one
  * @param {Object} params
- * @param {Object} params.source - { type, code, user }
+ * @param {Object} params.source - { type, code, user, via }
  * @param {string} params.product - Product type (e.g., "mug")
  * @param {string} params.variant - Product variant (e.g., "blue")
  * @returns {Object} Product document (existing or new)
@@ -95,13 +103,22 @@ export async function findOrCreateProduct({ source, product, variant }) {
   const database = await connect();
   const products = database.db.collection("products");
   
-  // Check for existing product with same source + product + variant
-  const existing = await products.findOne({
+  // Check for existing product with same source + product + variant + via
+  // (Different via codes create different products for attribution)
+  const query = {
     "source.type": source.type,
     "source.code": source.code,
     product,
     variant,
-  });
+  };
+  // Only match via if it's specified (undefined via = generic product)
+  if (source.via) {
+    query["source.via"] = source.via;
+  } else {
+    query["source.via"] = { $exists: false };
+  }
+  
+  const existing = await products.findOne(query);
   
   if (existing) {
     // Increment view count
