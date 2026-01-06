@@ -134,7 +134,7 @@ function paint({ wipe, ink, box, paste, screen, line }) {
     const preview = previewCache[selectedMug.code];
     const colorRgb = mugColors[selectedMug.color?.toLowerCase()] || [150, 150, 150];
     
-    if (preview) {
+    if (preview && preview.frames) {
       // Animate frames
       const now = performance.now();
       const delay = preview.frames[preview.frameIndex]?.delay || 800;

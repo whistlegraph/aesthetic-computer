@@ -7360,10 +7360,314 @@
       document.body.removeChild(link);
     }
     
-    // ☕ Open mug preview from screenshot
-    // Set directCheckout=true to skip mug.mjs preview and go straight to Stripe
-    const MUG_DIRECT_CHECKOUT = true;
+    // ☕ Mug modal state
+    let mugModal = null;
     
+    // ☕ Show mug preview modal with color selection
+    function showMugModal(previewData, paintingCode, kidlispCode) {
+      if (mugModal) mugModal.remove();
+      
+      const colors = ['white', 'black', 'blue', 'pink', 'orange', 'green', 'red', 'yellow', 'darkblue', 'darkgreen'];
+      let selectedColor = 'white';
+      let animatedImg = null;
+      let animationInterval = null;
+      
+      // Create modal backdrop
+      mugModal = document.createElement('div');
+      mugModal.id = 'mug-modal';
+      mugModal.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        backdrop-filter: blur(4px);
+      `;
+      
+      // Modal content
+      const content = document.createElement('div');
+      content.style.cssText = `
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border-radius: 16px;
+        padding: 24px;
+        max-width: 420px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      `;
+      
+      // Header
+      const header = document.createElement('div');
+      header.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      `;
+      
+      const title = document.createElement('h2');
+      title.textContent = '☕ mug preview';
+      title.style.cssText = `
+        margin: 0;
+        color: #f0e6d3;
+        font-family: monospace;
+        font-size: 20px;
+      `;
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.textContent = '✕';
+      closeBtn.style.cssText = `
+        background: none;
+        border: none;
+        color: #888;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: all 0.2s;
+      `;
+      closeBtn.addEventListener('mouseenter', () => { closeBtn.style.color = '#fff'; closeBtn.style.background = 'rgba(255,255,255,0.1)'; });
+      closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = '#888'; closeBtn.style.background = 'none'; });
+      closeBtn.addEventListener('click', closeMugModal);
+      
+      header.appendChild(title);
+      header.appendChild(closeBtn);
+      
+      // Preview image container
+      const previewContainer = document.createElement('div');
+      previewContainer.style.cssText = `
+        background: #0a0a14;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 200px;
+      `;
+      
+      // Animated preview or static mockup
+      if (previewData.animatedWebpUrl) {
+        animatedImg = document.createElement('img');
+        animatedImg.src = previewData.animatedWebpUrl;
+        animatedImg.style.cssText = `
+          max-width: 100%;
+          max-height: 280px;
+          border-radius: 8px;
+        `;
+        previewContainer.appendChild(animatedImg);
+      } else if (previewData.mockupUrl) {
+        const staticImg = document.createElement('img');
+        staticImg.src = previewData.mockupUrl;
+        staticImg.style.cssText = `
+          max-width: 100%;
+          max-height: 280px;
+          border-radius: 8px;
+        `;
+        previewContainer.appendChild(staticImg);
+      } else {
+        const placeholder = document.createElement('div');
+        placeholder.textContent = '☕ Loading preview...';
+        placeholder.style.cssText = 'color: #666; font-family: monospace;';
+        previewContainer.appendChild(placeholder);
+      }
+      
+      // Source info
+      const sourceInfo = document.createElement('div');
+      sourceInfo.style.cssText = `
+        color: #888;
+        font-family: monospace;
+        font-size: 12px;
+        margin-bottom: 16px;
+        text-align: center;
+      `;
+      const viaText = kidlispCode ? ` in <span style="color: #ffd700;">$${kidlispCode}</span>` : '';
+      sourceInfo.innerHTML = `painting: <span style="color: #87ceeb;">#${paintingCode}</span>${viaText}`;
+      
+      // Color selector
+      const colorSection = document.createElement('div');
+      colorSection.style.cssText = 'margin-bottom: 20px;';
+      
+      const colorLabel = document.createElement('div');
+      colorLabel.textContent = 'color:';
+      colorLabel.style.cssText = `
+        color: #aaa;
+        font-family: monospace;
+        font-size: 13px;
+        margin-bottom: 8px;
+      `;
+      
+      const colorGrid = document.createElement('div');
+      colorGrid.style.cssText = `
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      `;
+      
+      const colorRgb = {
+        white: '#f0f0f0',
+        black: '#333',
+        blue: '#6496ff',
+        pink: '#ff96c8',
+        orange: '#ffb464',
+        green: '#64dc96',
+        red: '#ff6464',
+        yellow: '#ffdc64',
+        darkblue: '#3250b4',
+        darkgreen: '#329650',
+      };
+      
+      function updateColorSelection(color) {
+        selectedColor = color;
+        colorGrid.querySelectorAll('.color-btn').forEach(btn => {
+          const isSelected = btn.dataset.color === color;
+          btn.style.outline = isSelected ? '3px solid #fff' : 'none';
+          btn.style.outlineOffset = isSelected ? '2px' : '0';
+        });
+        // TODO: Could update preview with new color here
+      }
+      
+      colors.forEach(color => {
+        const colorBtn = document.createElement('button');
+        colorBtn.className = 'color-btn';
+        colorBtn.dataset.color = color;
+        colorBtn.style.cssText = `
+          width: 32px;
+          height: 32px;
+          border-radius: 6px;
+          border: 2px solid rgba(255,255,255,0.2);
+          background: ${colorRgb[color]};
+          cursor: pointer;
+          transition: all 0.2s;
+          ${color === selectedColor ? 'outline: 3px solid #fff; outline-offset: 2px;' : ''}
+        `;
+        colorBtn.title = color;
+        colorBtn.addEventListener('click', () => updateColorSelection(color));
+        colorBtn.addEventListener('mouseenter', () => { colorBtn.style.transform = 'scale(1.1)'; });
+        colorBtn.addEventListener('mouseleave', () => { colorBtn.style.transform = 'scale(1)'; });
+        colorGrid.appendChild(colorBtn);
+      });
+      
+      colorSection.appendChild(colorLabel);
+      colorSection.appendChild(colorGrid);
+      
+      // Price and buy button
+      const footer = document.createElement('div');
+      footer.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      `;
+      
+      const price = document.createElement('div');
+      price.style.cssText = `
+        font-family: monospace;
+        font-size: 24px;
+        color: #90ee90;
+        font-weight: bold;
+      `;
+      price.textContent = '$18';
+      
+      const buyBtn = document.createElement('button');
+      buyBtn.innerHTML = '☕ buy mug';
+      buyBtn.style.cssText = `
+        background: linear-gradient(135deg, #8b5a2b 0%, #a0642a 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 14px 28px;
+        cursor: pointer;
+        font-size: 16px;
+        font-family: monospace;
+        color: white;
+        font-weight: bold;
+        transition: all 0.2s;
+        box-shadow: 0 4px 12px rgba(139, 90, 43, 0.4);
+      `;
+      buyBtn.addEventListener('mouseenter', () => { 
+        buyBtn.style.transform = 'scale(1.05)'; 
+        buyBtn.style.boxShadow = '0 6px 16px rgba(139, 90, 43, 0.6)';
+      });
+      buyBtn.addEventListener('mouseleave', () => { 
+        buyBtn.style.transform = 'scale(1)'; 
+        buyBtn.style.boxShadow = '0 4px 12px rgba(139, 90, 43, 0.4)';
+      });
+      buyBtn.addEventListener('click', async () => {
+        buyBtn.disabled = true;
+        buyBtn.innerHTML = '☕ opening checkout...';
+        buyBtn.style.opacity = '0.7';
+        
+        try {
+          const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local');
+          const baseUrl = isLocal ? `${window.location.protocol}//${window.location.host}` : 'https://aesthetic.computer';
+          
+          // Get the raw product code from previewData
+          const rawProductCode = previewData.rawProductCode || previewData.productCode?.replace(/^\+/, '');
+          
+          // Call mug API for checkout with selected color
+          let checkoutApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=${selectedColor}`;
+          if (kidlispCode) {
+            checkoutApiUrl += `&via=${kidlispCode}`;
+          }
+          
+          const checkoutRes = await fetch(checkoutApiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: 1, slug: rawProductCode ? `mug~+${rawProductCode}` : undefined }),
+          });
+          
+          const checkoutData = await checkoutRes.json();
+          if (checkoutData.location) {
+            window.open(checkoutData.location, '_blank');
+            closeMugModal();
+          } else {
+            throw new Error('No checkout URL returned');
+          }
+        } catch (e) {
+          console.error('☕ Checkout failed:', e);
+          buyBtn.innerHTML = '❌ failed - retry';
+          buyBtn.disabled = false;
+          buyBtn.style.opacity = '1';
+        }
+      });
+      
+      footer.appendChild(price);
+      footer.appendChild(buyBtn);
+      
+      // Assemble modal
+      content.appendChild(header);
+      content.appendChild(previewContainer);
+      content.appendChild(sourceInfo);
+      content.appendChild(colorSection);
+      content.appendChild(footer);
+      mugModal.appendChild(content);
+      
+      // Close on backdrop click
+      mugModal.addEventListener('click', (e) => {
+        if (e.target === mugModal) closeMugModal();
+      });
+      
+      // Close on escape
+      const escHandler = (e) => {
+        if (e.key === 'Escape') {
+          closeMugModal();
+          document.removeEventListener('keydown', escHandler);
+        }
+      };
+      document.addEventListener('keydown', escHandler);
+      
+      document.body.appendChild(mugModal);
+    }
+    
+    function closeMugModal() {
+      if (mugModal) {
+        mugModal.remove();
+        mugModal = null;
+      }
+    }
+    
+    // ☕ Open mug preview from screenshot
     async function openMugFromScreenshot(dataUrl, mugBtn, kidlispCode) {
       if (!dataUrl) return;
       
@@ -7461,34 +7765,8 @@
         // Strip + prefix if present (we'll add it in the URL)
         const rawProductCode = productCode.replace(/^\+/, '');
         
-        // Open mug piece with the +productCode (universal identifier)
-        // This preserves all metadata including via/kidlisp source
-        
-        if (MUG_DIRECT_CHECKOUT) {
-          // Direct checkout: skip mug.mjs and go straight to Stripe
-          mugBtn.innerHTML = '☕ opening checkout...';
-          // For checkout, we still need to call the mug API again (non-preview)
-          let checkoutApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=white`;
-          if (kidlispCode) {
-            checkoutApiUrl += `&via=${kidlispCode}`;
-          }
-          const checkoutRes = await fetch(checkoutApiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quantity: 1, slug: `mug~+${rawProductCode}` }),
-          });
-          const checkoutData = await checkoutRes.json();
-          if (checkoutData.location) {
-            window.open(checkoutData.location, '_blank');
-          } else {
-            throw new Error('No checkout URL returned');
-          }
-        } else {
-          // Preview flow: open mug.mjs piece with +productCode
-          mugBtn.innerHTML = '☕ opening preview...';
-          const mugUrl = `${baseUrl}/mug~+${rawProductCode}`;
-          window.open(mugUrl, '_blank');
-        }
+        // Show mug preview modal with color selection
+        showMugModal({ ...productData, rawProductCode }, paintingCode, kidlispCode);
         
         if (mugBtn) {
           mugBtn.innerHTML = '☕ mug <span style="color: #90EE90;">$18</span>';
