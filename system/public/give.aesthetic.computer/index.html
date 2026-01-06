@@ -9443,7 +9443,7 @@
           if (valueEl) valueEl.style.display = 'none';
           if (labelEl) labelEl.style.display = 'none';
           if (amountEl && data.monthlyTotalUSD > 0) {
-            amountEl.innerHTML = `<span class="got">${got}</span> <span class="amount-value">$${data.monthlyTotalUSD}</span> <span class="so-far">${soFar} ${monthName} ${from} <span class="count-value">${data.monthlyCount}</span> ${givesText}</span>`;
+            amountEl.innerHTML = `<span class="got">${got}</span> <span class="amount-value">$${data.monthlyTotalUSD}</span> <span class="so-far">${soFar} ${monthName} ${from} <span class="count-value">${data.monthlyCount}</span> ${givesText}!</span>`;
           }
           givesStatsEl.classList.add('visible');
         }
