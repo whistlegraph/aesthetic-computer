@@ -85,6 +85,8 @@ async function preloadPreview(mug) {
   
   if (!mug.preview) {
     console.warn("Mug has no preview URL:", mug.code, mug);
+    // Mark as broken so we don't keep trying
+    previewCache[mug.code] = { broken: true };
     return;
   }
   
@@ -99,6 +101,7 @@ async function preloadPreview(mug) {
     };
   } catch (e) {
     console.warn("Failed to preload preview:", mug.code, mug.preview, e);
+    previewCache[mug.code] = { broken: true };
   }
 }
 
@@ -208,6 +211,14 @@ function paint({ wipe, ink, box, paste, screen, line }) {
         x: viewBtn.box.x + 8,
         y: viewBtn.box.y + 8,
       });
+    } else if (preview?.broken) {
+      // Broken/missing preview - draw X and "no mug"
+      const cx = floor(screen.width / 2);
+      const cy = floor(previewHeight / 2) - 10;
+      const size = 30;
+      ink(80, 50, 50).line(cx - size, cy - size, cx + size, cy + size);
+      ink(80, 50, 50).line(cx - size, cy + size, cx + size, cy - size);
+      ink(100, 60, 60).write("no preview", { center: "x", y: cy + size + 10, screen });
     } else {
       // Loading indicator
       const pulse = Math.sin(performance.now() / 300) * 0.3 + 0.7;
