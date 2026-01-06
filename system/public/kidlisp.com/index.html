@@ -11198,12 +11198,11 @@
             const originalCode = highlightedCode;
             try {
               const tokens = tokenize(highlightedCode);
-              // Enable edit mode for static display so timing contents aren't transparent
-              const wasEditMode = kidlisp.isEditMode;
-              kidlisp.isEditMode = true;
-              kidlisp.initializeSyntaxHighlighting(highlightedCode);
-              const coloredString = kidlisp.buildColoredKidlispString();
-              kidlisp.isEditMode = wasEditMode; // Restore
+              // Use a separate KidLisp instance for Top Hits (don't affect Monaco's instance)
+              const topHitsKidlisp = new KidLisp();
+              topHitsKidlisp.isEditMode = true; // Always edit mode for static display
+              topHitsKidlisp.initializeSyntaxHighlighting(highlightedCode);
+              const coloredString = topHitsKidlisp.buildColoredKidlispString();
               
               // Convert KidLisp color codes to HTML spans with enhanced effects
               highlightedCode = coloredString.replace(/\\([^\\]+)\\([^\\]*)/g, (match, color, text) => {
