@@ -3012,6 +3012,18 @@
       text-align: center;
     }
 
+    .app-bounce-dot {
+      display: inline-block;
+      color: var(--pink);
+      font-weight: 900;
+      animation: appDotBounce 1.5s ease-in-out infinite;
+    }
+
+    @keyframes appDotBounce {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-3px) scale(1.15); }
+    }
+
     .mobile-store-link {
       display: inline-flex;
       align-items: center;
@@ -5694,11 +5706,11 @@
               <div class="chat-msg"><div class="chat-text" style="color: var(--dim);">Loading...</div></div>
             </div>
             <div class="module-caption chat-flip-trigger" onclick="toggleChatFlip()">
-              <span data-lang="en">Get a <a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--pink);">@handle</a> and come say hi!</span>
-              <span data-lang="da">Få en <a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--pink);">@handle</a> og kom og sig hej!</span>
-              <span data-lang="de">Hol dir einen <a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--pink);">@handle</a> und sag Hallo!</span>
-              <span data-lang="es">¡Obtén un <a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--pink);">@handle</a> y ven a saludar!</span>
-              <span data-lang="zh">获取<a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--pink);">@handle</a>，来打个招呼吧！</span>
+              <span data-lang="en">Get a <a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--pink);">@handle</a> and come say hi</span>
+              <span data-lang="da">Få en <a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--pink);">@handle</a> og kom og sig hej</span>
+              <span data-lang="de">Hol dir einen <a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--pink);">@handle</a> und sag Hallo</span>
+              <span data-lang="es">Obtén un <a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--pink);">@handle</a> y ven a saludar</span>
+              <span data-lang="zh">获取<a href="https://aesthetic.computer/handle" target="_blank" style="color: var(--pink);">@handle</a>来打个招呼吧</span>
             </div>
             <div class="flip-face-progress flip-face-progress-back">
               <div class="flip-face-progress-bar" id="chatFlipProgressBack"></div>
@@ -5726,11 +5738,11 @@
           <div class="module-loading" id="tvLoading">loading</div>
         </div>
         <div class="module-caption">
-          <span data-lang="en">Prefix a prompt with <span class="cmd-highlight">tape</span> to post a video.</span>
-          <span data-lang="da">Sæt <span class="cmd-highlight">tape</span> før en prompt for at poste en video.</span>
-          <span data-lang="de">Setze <span class="cmd-highlight">tape</span> vor einen Prompt um ein Video zu posten.</span>
-          <span data-lang="es">Prefija un prompt con <span class="cmd-highlight">tape</span> para publicar un video.</span>
-          <span data-lang="zh">在提示前加 <span class="cmd-highlight">tape</span> 即可发布视频。</span>
+          <span data-lang="en">Prefix a prompt with <span class="cmd-highlight">tape</span> to record it</span>
+          <span data-lang="da">Sæt <span class="cmd-highlight">tape</span> før en prompt for at optage</span>
+          <span data-lang="de">Setze <span class="cmd-highlight">tape</span> vor einen Prompt zum Aufnehmen</span>
+          <span data-lang="es">Prefija un prompt con <span class="cmd-highlight">tape</span> para grabarlo</span>
+          <span data-lang="zh">在提示前加 <span class="cmd-highlight">tape</span> 即可录制</span>
         </div>
       </div>
       </div>
@@ -5789,11 +5801,11 @@
               </a>
             </div>
             <div class="module-caption apps-flip-trigger" onclick="toggleAppsFlip()">
-              <span data-lang="en">Desktop apps and plugins are free.</span>
-              <span data-lang="da">Desktop-apps og plugins er gratis.</span>
-              <span data-lang="de">Desktop-Apps und Plugins sind kostenlos.</span>
-              <span data-lang="es">Las apps de escritorio y plugins son gratis.</span>
-              <span data-lang="zh">桌面应用和插件免费。</span>
+              <span data-lang="en">Desktop apps and plugins are free</span>
+              <span data-lang="da">Desktop-apps og plugins er gratis</span>
+              <span data-lang="de">Desktop-Apps und Plugins sind kostenlos</span>
+              <span data-lang="es">Las apps de escritorio y plugins son gratis</span>
+              <span data-lang="zh">桌面应用和插件免费</span>
             </div>
             <div class="flip-face-progress">
               <div class="flip-face-progress-bar" id="appsFlipProgress"></div>
@@ -5818,7 +5830,7 @@
                    alt="Aesthetic Computer" 
                    onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
               <div class="mobile-app-icon-fallback" style="display:none">🎨</div>
-              <div class="mobile-app-title">Aesthetic Computer</div>
+              <div class="mobile-app-title">Aesthetic<span class="app-bounce-dot">.</span>Computer</div>
               
               <a href="https://apps.apple.com/ag/app/aesthetic-computer/id6450940883" 
                  class="mobile-store-link" target="_blank">
@@ -5830,11 +5842,11 @@
               </a>
             </div>
             <div class="module-caption apps-flip-trigger" onclick="toggleAppsFlip()">
-              <span data-lang="en">Mobile app is free on iOS.</span>
-              <span data-lang="da">Mobil-appen er gratis på iOS.</span>
-              <span data-lang="de">Die mobile App ist kostenlos auf iOS.</span>
-              <span data-lang="es">La app móvil es gratis en iOS.</span>
-              <span data-lang="zh">移动应用在iOS上免费。</span>
+              <span data-lang="en">Mobile app is free on iOS</span>
+              <span data-lang="da">Mobil-appen er gratis på iOS</span>
+              <span data-lang="de">Die mobile App ist kostenlos auf iOS</span>
+              <span data-lang="es">La app móvil es gratis en iOS</span>
+              <span data-lang="zh">移动应用在iOS上免费</span>
             </div>
             <div class="flip-face-progress flip-face-progress-back">
               <div class="flip-face-progress-bar" id="appsFlipProgressMobile"></div>
@@ -5861,11 +5873,11 @@
           <div class="shop-auto-progress-bar" id="shopAutoProgress"></div>
         </div>
         <div class="module-caption">
-          <span data-lang="en">Get books, bikes, artworks and more.</span>
-          <span data-lang="da">Få bøger, cykler, kunstværker og mere.</span>
-          <span data-lang="de">Holen Sie sich Bücher, Fahrräder, Kunstwerke und mehr.</span>
-          <span data-lang="es">Obtén libros, bicicletas, obras de arte y más.</span>
-          <span data-lang="zh">获取书籍、自行车、艺术品等。</span>
+          <span data-lang="en">Get books, bikes, artworks and more</span>
+          <span data-lang="da">Få bøger, cykler, kunstværker og mere</span>
+          <span data-lang="de">Holen Sie sich Bücher, Fahrräder, Kunstwerke und mehr</span>
+          <span data-lang="es">Obtén libros, bicicletas, obras de arte y más</span>
+          <span data-lang="zh">获取书籍、自行车、艺术品等</span>
         </div>
       </div>
 
@@ -12496,12 +12508,15 @@
       if (!mugImg) return;
       
       try {
-        const res = await fetch('https://aesthetic.computer/api/mugs?limit=1');
+        const res = await fetch('https://aesthetic.computer/api/mugs?limit=20');
         if (res.ok) {
           const data = await res.json();
-          if (data.mugs && data.mugs.length > 0 && data.mugs[0].preview) {
-            mugImg.src = data.mugs[0].preview;
+          // Find first mug with a preview image
+          const mugWithPreview = (data.mugs || []).find(m => m.preview);
+          if (mugWithPreview) {
+            mugImg.src = mugWithPreview.preview;
             mugImg.style.display = 'block';
+            console.log('[Mugs] Loaded pals mug:', mugWithPreview.code);
           }
         }
       } catch (e) {
@@ -12520,16 +12535,16 @@
       if (!mugImage || !mugIcon) return;
       
       try {
-        const res = await fetch('https://aesthetic.computer/api/mugs?limit=1');
+        const res = await fetch('https://aesthetic.computer/api/mugs?limit=20');
         if (res.ok) {
           const data = await res.json();
-          if (data.mugs && data.mugs.length > 0) {
-            const mug = data.mugs[0];
-            if (mug.preview) {
-              mugImage.src = mug.preview;
-              mugImage.style.display = 'block';
-              mugIcon.style.display = 'none';
-            }
+          // Find first mug with a preview image
+          const mug = (data.mugs || []).find(m => m.preview);
+          if (mug) {
+            mugImage.src = mug.preview;
+            mugImage.style.display = 'block';
+            mugIcon.style.display = 'none';
+            console.log('[InvestMug] Loaded mug:', mug.code);
             // Update caption with real data
             if (mugCaption && mug.color && mug.code) {
               const colorUpper = (mug.color || 'WHITE').toUpperCase();
