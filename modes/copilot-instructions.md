@@ -190,6 +190,45 @@ Before sending commands to emacs buffers, **always check state first** using the
 (ac-restart-fishy)  ;; Restarts fish process in 🐟-fishy buffer
 ```
 
+## Reading Chat Logs 💬
+The platform runs multiple chat server instances with live logs in emacs buffers:
+
+### Chat Buffer Names
+| Buffer | Chat Instance | Description |
+|--------|---------------|-------------|
+| `⏰-chat-clock` | laer-klokken | Danish clock/learning community |
+| `🤖-chat-system` | main system chat | Primary aesthetic.computer chat |
+| `🧠-chat-sotce` | sotce.net | SOTCE community chat |
+
+### Reading Chat Messages
+```elisp
+;; Get recent messages from laer-klokken (clock chat)
+(mcp_emacs_emacs_get_buffer_content buffer="⏰-chat-clock" maxChars=10000)
+
+;; Get system chat messages
+(mcp_emacs_emacs_get_buffer_content buffer="🤖-chat-system" maxChars=10000)
+
+;; Get sotce chat messages
+(mcp_emacs_emacs_get_buffer_content buffer="🧠-chat-sotce" maxChars=10000)
+```
+
+### Chat Message Format
+Messages appear as:
+```
+🔵 @username: "message text" at Tue Jan 06 2026 21:07:38 GMT+0000 (Coordinated Universal Time)
+```
+
+### Finding Chat Buffers
+1. First check state: `(ac-mcp-format-state)` — lists all terminals including chat servers
+2. Look for `⏰-chat-clock(●)`, `🤖-chat-system(●)`, `🧠-chat-sotce(●)` in the Terminals list
+3. `●` = running, `○` = dead/exited
+
+### Use Cases
+- Finding links shared by users (Dropbox, URLs, etc.)
+- Checking recent conversations
+- Monitoring community activity
+- Searching for specific messages or usernames
+
 ## Prompt Completion Notification 🔔
 **IMPORTANT**: At the END of every response, call this to flash the screen:
 ```elisp
