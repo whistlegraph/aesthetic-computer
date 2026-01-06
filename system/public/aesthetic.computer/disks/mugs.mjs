@@ -1,27 +1,53 @@
-// mugs, 24.12.21
+// mugs, 24.12.21 (Redesigned 2026.1.06)
 // Browse recent mugs - preview on top, scrollable list below
 
-const { floor, min, max } = Math;
+const { floor, min, max, abs } = Math;
+
+// 🎨 Color scheme
+const scheme = {
+  background: [16, 16, 24],
+  previewBg: [12, 12, 18],
+  listItemBg: [20, 20, 30],
+  listItemBgAlt: [24, 24, 36],
+  listItemSelected: [35, 40, 55],
+  listItemAccent: [100, 150, 255],
+  mugColor: [200, 200, 200], // Mug color text
+  mugCode: [150, 200, 255],  // Code text (light blue)
+  mugVia: [255, 200, 100],   // Via text (gold)
+  mugOf: [120, 120, 140],    // "mug of" text
+  timeAgo: [70, 70, 90],
+  divider: [40, 40, 50],
+  scrollbar: [40, 40, 50],
+  scrollbarThumb: [80, 100, 140],
+};
 
 // Module state
 let mugs = [];
 let loading = true;
 let error = null;
 let selectedIndex = 0;
-let scrollY = 0; // Pixel-based scroll position
-let targetScrollY = 0; // For smooth scrolling
+let scroll = 0; // Negative scroll (like colors.mjs)
 let preloadAnimatedWebp = null;
 let previewCache = {}; // Cache loaded previews by code
 let viewBtn = null;
-let isDragging = false;
-let lastDragY = 0;
-let velocity = 0;
 
-const itemHeight = 36; // Height of each list item
-const charWidth = 8;
-const charHeight = 16;
-const btnPadding = 6;
+const ROW_HEIGHT = 40; // Height of each list item
+const TOP_MARGIN = 4;
 const previewHeight = 180; // Fixed height for preview area
+
+// Mug color RGB values
+const mugColors = {
+  white: [240, 240, 240],
+  black: [50, 50, 50],
+  blue: [100, 150, 255],
+  pink: [255, 150, 200],
+  orange: [255, 180, 100],
+  green: [100, 220, 150],
+  red: [255, 100, 100],
+  yellow: [255, 220, 100],
+  darkblue: [50, 80, 180],
+  darkgreen: [50, 150, 80],
+};
 
 function boot({ net, cursor, hud, ui, screen }) {
   cursor("native");
@@ -29,11 +55,8 @@ function boot({ net, cursor, hud, ui, screen }) {
   preloadAnimatedWebp = net.preloadAnimatedWebp;
   
   // Create VIEW button
-  const btnText = "☕ VIEW";
-  const btnW = btnText.length * charWidth + btnPadding * 2;
-  const btnH = charHeight + btnPadding * 2;
-  viewBtn = new ui.Button(0, 0, btnW, btnH);
-  viewBtn.text = btnText;
+  viewBtn = new ui.Button(0, 0, 70, 24);
+  viewBtn.text = "☕ VIEW";
   
   fetchMugs();
 }
@@ -46,7 +69,7 @@ async function fetchMugs() {
     if (data.mugs) {
       mugs = data.mugs;
       // Start preloading the first few previews
-      for (let i = 0; i < Math.min(3, mugs.length); i++) {
+      for (let i = 0; i < min(3, mugs.length); i++) {
         preloadPreview(mugs[i]);
       }
     }
@@ -75,7 +98,7 @@ async function preloadPreview(mug) {
 }
 
 function paint({ wipe, ink, box, paste, screen, line }) {
-  wipe(25);
+  wipe(scheme.background);
   
   if (loading) {
     ink(255).write("Loading mugs...", { center: "xy", screen });
@@ -89,32 +112,19 @@ function paint({ wipe, ink, box, paste, screen, line }) {
   
   if (mugs.length === 0) {
     ink(150).write("No mugs yet!", { center: "xy", screen });
-    ink(100).write("Create one with: mug #CODE color", { center: "x", y: screen.height / 2 + 20, screen });
+    ink(100).write("Create one at kidlisp.com", { center: "x", y: screen.height / 2 + 20, screen });
     return;
-  }
-  
-  // Smooth scroll animation
-  const scrollDiff = targetScrollY - scrollY;
-  scrollY += scrollDiff * 0.2;
-  if (Math.abs(scrollDiff) < 0.5) scrollY = targetScrollY;
-  
-  // Apply velocity for momentum scrolling
-  if (!isDragging && Math.abs(velocity) > 0.5) {
-    targetScrollY += velocity;
-    velocity *= 0.92; // Friction
-    clampScroll(screen);
   }
   
   // === TOP: Preview area ===
   const selectedMug = mugs[selectedIndex];
-  const previewAreaHeight = previewHeight;
   
   // Dark preview background
-  ink(20).box(0, 0, screen.width, previewAreaHeight, "fill");
+  ink(scheme.previewBg).box(0, 0, screen.width, previewHeight, "fill");
   
   if (selectedMug) {
     const preview = previewCache[selectedMug.code];
-    const colorRgb = getColorRgb(selectedMug.color);
+    const colorRgb = mugColors[selectedMug.color?.toLowerCase()] || [150, 150, 150];
     
     if (preview) {
       // Animate frames
@@ -134,7 +144,7 @@ function paint({ wipe, ink, box, paste, screen, line }) {
       };
       
       const titleHeight = 24;
-      const maxH = previewAreaHeight - titleHeight - 16;
+      const maxH = previewHeight - titleHeight - 16;
       const maxW = screen.width - 120;
       const scale = min(maxW / bitmap.width, maxH / bitmap.height);
       const w = floor(bitmap.width * scale);
@@ -144,151 +154,167 @@ function paint({ wipe, ink, box, paste, screen, line }) {
       
       paste(bitmap, x, y, { scale });
       
-      // Title below image: "COLOR MUG of #CODE" or "COLOR MUG of #CODE in $VIA"
+      // Title below image: "color mug of CODE" or "color mug of CODE in $via"
       const imageBottomY = y + h;
-      const titleY = imageBottomY + 4;
-      const colorName = selectedMug.color.toUpperCase();
-      const sourceCode = "#" + selectedMug.sourceCode;
+      const titleY = imageBottomY + 6;
+      
+      // Use via as display code for kidlisp mugs, fallback to sourceCode/code
+      const displayCode = selectedMug.via || selectedMug.sourceCode || selectedMug.code;
+      const colorName = (selectedMug.color || "white").toLowerCase();
       const viaPart = selectedMug.via ? ` in $${selectedMug.via}` : "";
-      const totalWidth = (colorName.length + " MUG of ".length + sourceCode.length + viaPart.length) * charWidth;
+      
+      // Calculate total width for centering
+      const totalWidth = (colorName.length + " mug of ".length + displayCode.length + viaPart.length) * 6;
       let titleX = floor((screen.width - totalWidth) / 2);
       
       // Draw color name in its color
-      ink(...colorRgb).write(colorName, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
-      titleX += colorName.length * charWidth;
+      ink(...colorRgb).write(colorName, { x: titleX, y: titleY });
+      titleX += colorName.length * 6;
       
-      // Draw " MUG of " in gray
-      ink(180).write(" MUG of ", { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
-      titleX += " MUG of ".length * charWidth;
+      // Draw " mug of " in muted color
+      ink(scheme.mugOf).write(" mug of ", { x: titleX, y: titleY });
+      titleX += " mug of ".length * 6;
       
       // Draw code in light blue
-      ink(150, 200, 255).write(sourceCode, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
-      titleX += sourceCode.length * charWidth;
+      ink(scheme.mugCode).write(displayCode, { x: titleX, y: titleY });
+      titleX += displayCode.length * 6;
       
       // Draw " in $kidlispcode" in gold if present
       if (selectedMug.via) {
-        ink(255, 200, 100).write(viaPart, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+        ink(scheme.mugVia).write(viaPart, { x: titleX, y: titleY });
       }
       
-      // VIEW button next to preview
-      const btnW = viewBtn.text.length * charWidth + btnPadding * 2;
-      const btnH = charHeight + btnPadding * 2;
-      viewBtn.box.x = screen.width - btnW - 8;
-      viewBtn.box.y = previewAreaHeight - btnH - 8;
-      viewBtn.box.w = btnW;
-      viewBtn.box.h = btnH;
+      // VIEW button
+      viewBtn.box.x = screen.width - 78;
+      viewBtn.box.y = previewHeight - 32;
+      viewBtn.box.w = 70;
+      viewBtn.box.h = 24;
       
       const isHover = viewBtn.down;
-      // Blinking button when not hovering to attract attention
       const blink = Math.sin(performance.now() / 400) * 0.5 + 0.5;
-      const fillColor = isHover ? [60, 80, 100] : [35, 45, 55];
-      const borderColor = isHover ? [255, 200, 100] : [80 + blink * 70, 120 + blink * 30, 160 + blink * 40];
-      const textColor = isHover ? [255, 220, 150] : [200 + blink * 55, 200 + blink * 55, 200 + blink * 55];
+      const fillColor = isHover ? [50, 60, 80] : [30, 35, 45];
+      const borderColor = isHover ? [255, 200, 100] : [60 + blink * 60, 100 + blink * 40, 150 + blink * 40];
+      const textColor = isHover ? [255, 220, 150] : [180 + blink * 50, 180 + blink * 50, 200 + blink * 50];
       
-      ink(...fillColor).box(viewBtn.box, "fill");
-      ink(...borderColor).box(viewBtn.box, "outline");
-      ink(...textColor).write(viewBtn.text, {
-        x: viewBtn.box.x + btnPadding,
-        y: viewBtn.box.y + btnPadding,
-      }, undefined, undefined, false, "unifont");
+      ink(fillColor).box(viewBtn.box, "fill");
+      ink(borderColor).box(viewBtn.box, "outline");
+      ink(textColor).write(viewBtn.text, {
+        x: viewBtn.box.x + 8,
+        y: viewBtn.box.y + 8,
+      });
     } else {
       // Loading indicator
       const pulse = Math.sin(performance.now() / 300) * 0.3 + 0.7;
-      ink(100 * pulse).write("☕", { center: "x", y: previewAreaHeight / 2 - 8, screen }, undefined, undefined, false, "unifont");
+      ink(100 * pulse, 100 * pulse, 120 * pulse).write("☕ Loading...", { center: "x", y: previewHeight / 2 - 8, screen });
       preloadPreview(selectedMug);
     }
   }
   
   // Divider line
-  ink(50).line(0, previewAreaHeight, screen.width, previewAreaHeight);
+  ink(scheme.divider).line(0, previewHeight, screen.width, previewHeight);
   
   // === BOTTOM: Scrollable list ===
-  const listY = previewAreaHeight + 1;
+  const listY = previewHeight + 1;
   const listHeight = screen.height - listY;
-  const totalContentHeight = mugs.length * itemHeight;
-  const maxScroll = max(0, totalContentHeight - listHeight);
   
   // Draw list items (only visible ones)
-  const startIdx = max(0, floor(scrollY / itemHeight));
-  const endIdx = min(mugs.length, startIdx + Math.ceil(listHeight / itemHeight) + 1);
-  
-  for (let i = startIdx; i < endIdx; i++) {
-    const mug = mugs[i];
-    const itemY = listY + (i * itemHeight) - scrollY;
+  mugs.forEach((mug, i) => {
+    const itemY = scroll + listY + TOP_MARGIN + (i * ROW_HEIGHT);
     
     // Skip if off screen
-    if (itemY + itemHeight < listY || itemY > screen.height) continue;
+    if (itemY + ROW_HEIGHT < listY || itemY > screen.height) return;
     
     const isSelected = i === selectedIndex;
     
-    // Highlight selected
+    // Alternating background
+    const bgColor = isSelected ? scheme.listItemSelected : (i % 2 === 0 ? scheme.listItemBg : scheme.listItemBgAlt);
+    ink(bgColor).box(0, itemY, screen.width - 6, ROW_HEIGHT, "fill");
+    
+    // Left accent for selected
     if (isSelected) {
-      ink(45, 50, 60).box(0, itemY, screen.width, itemHeight, "fill");
-      ink(100, 150, 255).box(0, itemY, 3, itemHeight, "fill"); // Left accent
+      ink(scheme.listItemAccent).box(0, itemY, 3, ROW_HEIGHT, "fill");
     }
     
-    // Color indicator
-    const colorRgb = getColorRgb(mug.color);
-    ink(...colorRgb).box(10, itemY + 8, 16, 16, "fill");
-    ink(60).box(10, itemY + 8, 16, 16, "outline");
+    // Color indicator square
+    const colorRgb = mugColors[mug.color?.toLowerCase()] || [150, 150, 150];
+    ink(colorRgb).box(12, itemY + 10, 18, 18, "fill");
+    ink(60, 60, 70).box(12, itemY + 10, 18, 18, "outline");
     
-    // Code and color text
-    const codeText = "#" + mug.sourceCode;
-    const colorText = mug.color.toUpperCase();
-    const viaText = mug.via ? ` $${mug.via}` : "";
+    // Use via as display code for kidlisp mugs, fallback to sourceCode/code
+    const displayCode = mug.via || mug.sourceCode || mug.code;
+    const colorText = (mug.color || "white").toLowerCase();
     
-    ink(isSelected ? 255 : 180).write(codeText, { x: 34, y: itemY + 6 }, undefined, undefined, false, "unifont");
-    let textX = 34 + (codeText.length + 1) * charWidth;
-    ink(...colorRgb).write(colorText, { x: textX, y: itemY + 6 }, undefined, undefined, false, "unifont");
+    // Row 1: "color mug of CODE in $via"
+    let textX = 38;
+    ink(colorRgb).write(colorText, { x: textX, y: itemY + 8 });
+    textX += colorText.length * 6;
     
-    // Show via (KidLisp source) in gold if present
+    ink(scheme.mugOf).write(" mug of ", { x: textX, y: itemY + 8 });
+    textX += " mug of ".length * 6;
+    
+    ink(scheme.mugCode).write(displayCode, { x: textX, y: itemY + 8 });
+    
     if (mug.via) {
-      textX += (colorText.length + 1) * charWidth;
-      ink(255, 200, 100).write(viaText, { x: textX, y: itemY + 6 }, undefined, undefined, false, "unifont");
+      textX += displayCode.length * 6;
+      ink(scheme.mugVia).write(` in $${mug.via}`, { x: textX, y: itemY + 8 });
     }
     
-    // Time ago
+    // Row 2: Time ago
     const timeAgo = getTimeAgo(mug.createdAt);
-    ink(70).write(timeAgo, { x: 34, y: itemY + 20 }, undefined, undefined, false, "unifont");
-    
-    // Subtle divider between items
-    if (i < mugs.length - 1) {
-      ink(35).line(10, itemY + itemHeight - 1, screen.width - 10, itemY + itemHeight - 1);
-    }
-  }
+    ink(scheme.timeAgo).write(timeAgo, { x: 38, y: itemY + 22 });
+  });
   
-  // Scrollbar (chat-style)
-  if (totalContentHeight > listHeight) {
-    const scrollbarTrackHeight = listHeight - 4;
-    const scrollbarHeight = max(30, floor((listHeight / totalContentHeight) * scrollbarTrackHeight));
-    const scrollProgress = scrollY / maxScroll;
-    const scrollbarY = listY + 2 + floor(scrollProgress * (scrollbarTrackHeight - scrollbarHeight));
+  // Scrollbar (flush right like colors.mjs)
+  const contentHeight = mugs.length * ROW_HEIGHT;
+  const visibleHeight = listHeight - TOP_MARGIN;
+  
+  if (contentHeight > visibleHeight) {
+    const scrollBarX = screen.width - 4;
+    const scrollBarHeight = listHeight;
     
-    // Track
-    ink(30).box(screen.width - 6, listY + 2, 4, scrollbarTrackHeight, "fill");
+    // Background track
+    ink(scheme.scrollbar).box(scrollBarX, listY, 4, scrollBarHeight);
+    
+    // Calculate thumb
+    const thumbHeight = max(20, floor((visibleHeight / contentHeight) * scrollBarHeight));
+    const maxScroll = max(0, contentHeight - visibleHeight);
+    const scrollRatio = maxScroll > 0 ? abs(scroll) / maxScroll : 0;
+    const thumbY = listY + (scrollBarHeight - thumbHeight) * scrollRatio;
+    
     // Thumb
-    ink(70).box(screen.width - 6, scrollbarY, 4, scrollbarHeight, "fill");
+    ink(scheme.scrollbarThumb).box(scrollBarX, floor(thumbY), 4, thumbHeight);
   }
 }
 
-function act({ event: e, jump, screen, sound }) {
+function act({ event: e, jump, screen, sound, store }) {
   if (loading || mugs.length === 0) return;
   
   const listY = previewHeight + 1;
   const listHeight = screen.height - listY;
-  const totalContentHeight = mugs.length * itemHeight;
-  const maxScroll = max(0, totalContentHeight - listHeight);
+  const contentHeight = mugs.length * ROW_HEIGHT;
+  const visibleHeight = listHeight - TOP_MARGIN;
+  
+  // Scrolling (like colors.mjs - negative scroll)
+  if (e.is("draw")) {
+    scroll += e.delta.y;
+    boundScroll(visibleHeight, contentHeight);
+  }
+  
+  if (e.is("scroll")) {
+    scroll -= e.y;
+    boundScroll(visibleHeight, contentHeight);
+  }
   
   // Keyboard navigation
   if (e.is("keyboard:down:arrowup") || e.is("keyboard:down:w")) {
     selectedIndex = max(0, selectedIndex - 1);
-    scrollToSelected(screen);
+    scrollToSelected(visibleHeight, contentHeight);
     preloadNearby();
   }
   
   if (e.is("keyboard:down:arrowdown") || e.is("keyboard:down:s")) {
     selectedIndex = min(mugs.length - 1, selectedIndex + 1);
-    scrollToSelected(screen);
+    scrollToSelected(visibleHeight, contentHeight);
     preloadNearby();
   }
   
@@ -297,7 +323,7 @@ function act({ event: e, jump, screen, sound }) {
     openSelectedMug(jump);
   }
   
-  // VIEW button click with sound feedback
+  // VIEW button click
   viewBtn?.act(e, {
     down: () => {
       sound?.synth({ type: "sine", tone: 440, duration: 0.05, volume: 0.3 });
@@ -308,61 +334,36 @@ function act({ event: e, jump, screen, sound }) {
     },
   });
   
-  // Touch/drag scrolling (chat-style)
-  if (e.is("touch")) {
-    if (e.y > listY) {
-      // Check if clicking on an item
-      const clickedIndex = floor((e.y - listY + scrollY) / itemHeight);
-      if (clickedIndex >= 0 && clickedIndex < mugs.length) {
-        selectedIndex = clickedIndex;
-        preloadNearby();
-      }
-      isDragging = true;
-      lastDragY = e.y;
-      velocity = 0;
+  // Click to select item in list
+  if (e.is("touch") && e.y > listY) {
+    const clickedIndex = floor((e.y - listY - TOP_MARGIN - scroll) / ROW_HEIGHT);
+    if (clickedIndex >= 0 && clickedIndex < mugs.length) {
+      selectedIndex = clickedIndex;
+      preloadNearby();
     }
   }
-  
-  if (e.is("draw") && isDragging) {
-    const deltaY = lastDragY - e.y;
-    targetScrollY += deltaY;
-    velocity = deltaY;
-    lastDragY = e.y;
-    clampScroll(screen);
-  }
-  
-  if (e.is("lift")) {
-    isDragging = false;
-  }
-  
-  // Scroll wheel
-  if (e.is("wheel")) {
-    targetScrollY += e.delta * 0.5;
-    clampScroll(screen);
-  }
 }
 
-function clampScroll(screen) {
-  const listY = previewHeight + 1;
-  const listHeight = screen.height - listY;
-  const totalContentHeight = mugs.length * itemHeight;
-  const maxScroll = max(0, totalContentHeight - listHeight);
-  targetScrollY = max(0, min(maxScroll, targetScrollY));
+function boundScroll(visibleHeight, contentHeight) {
+  const maxNegativeScroll = -max(0, contentHeight - visibleHeight);
+  if (scroll < maxNegativeScroll) scroll = maxNegativeScroll;
+  if (scroll > 0) scroll = 0;
 }
 
-function scrollToSelected(screen) {
-  const listY = previewHeight + 1;
-  const listHeight = screen.height - listY;
-  const itemTop = selectedIndex * itemHeight;
-  const itemBottom = itemTop + itemHeight;
+function scrollToSelected(visibleHeight, contentHeight) {
+  const itemTop = selectedIndex * ROW_HEIGHT;
+  const itemBottom = itemTop + ROW_HEIGHT;
   
-  // Scroll to keep selected item visible
-  if (itemTop < targetScrollY) {
-    targetScrollY = itemTop;
-  } else if (itemBottom > targetScrollY + listHeight) {
-    targetScrollY = itemBottom - listHeight;
+  // Convert to negative scroll space
+  const visibleTop = -scroll;
+  const visibleBottom = visibleTop + visibleHeight;
+  
+  if (itemTop < visibleTop) {
+    scroll = -itemTop;
+  } else if (itemBottom > visibleBottom) {
+    scroll = -(itemBottom - visibleHeight);
   }
-  clampScroll(screen);
+  boundScroll(visibleHeight, contentHeight);
 }
 
 function preloadNearby() {
@@ -378,25 +379,8 @@ function openSelectedMug(jump) {
   const mug = mugs[selectedIndex];
   if (mug) {
     // Use product code (+CODE) as the universal identifier
-    // This preserves all metadata including via/kidlisp source
     jump("mug~+" + mug.code);
   }
-}
-
-function getColorRgb(color) {
-  const colors = {
-    white: [255, 255, 255],
-    black: [40, 40, 40],
-    blue: [100, 150, 255],
-    pink: [255, 150, 200],
-    orange: [255, 180, 100],
-    green: [100, 220, 150],
-    red: [255, 100, 100],
-    yellow: [255, 220, 100],
-    darkblue: [50, 80, 180],
-    darkgreen: [50, 150, 80],
-  };
-  return colors[color?.toLowerCase()] || [150, 150, 150];
 }
 
 function getTimeAgo(dateStr) {
