@@ -993,8 +993,12 @@
     .ticker-stat-amount {
       display: inline;
       font-size: 1em;
+      color: var(--dim);
+      font-weight: normal;
+    }
+
+    .ticker-stat-amount .amount-value {
       color: var(--green);
-      margin-left: 0.5em;
       font-weight: bold;
     }
 
@@ -9398,28 +9402,38 @@
         const subsStatsEl = document.getElementById('giveStatsSubs');
         
         if (givesStatsEl && data.monthlyCount > 0) {
-          // Get current month name
+          // Get current month name (capitalized)
           const monthNames = {
             en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-            da: ['januar', 'februar', 'marts', 'april', 'maj', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'december'],
+            da: ['Januar', 'Februar', 'Marts', 'April', 'Maj', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'December'],
             de: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
-            es: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
+            es: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
             zh: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'],
           };
           const month = new Date().getMonth();
           const monthName = (monthNames[currentLang] || monthNames.en)[month];
           
-          const giveLabels = { en: `gives this ${monthName}`, da: `gaver i ${monthName}`, de: `Gaben im ${monthName}`, es: `donaciones en ${monthName}`, zh: `${monthName}捐赠` };
-          const earnedLabels = { en: 'earned', da: 'tjent', de: 'verdient', es: 'ganado', zh: '收入' };
-          const soFarLabels = { en: 'so far', da: 'indtil nu', de: 'bisher', es: 'hasta ahora', zh: '至今' };
+          // Format: "Got $X so far this January from N gives"
+          const gotLabels = { en: 'Got', da: 'Fik', de: 'Erhielt', es: 'Recibido', zh: '收到' };
+          const soFarLabels = { en: 'so far this', da: 'indtil nu i', de: 'bisher im', es: 'hasta ahora en', zh: '至今' };
+          const fromLabels = { en: 'from', da: 'fra', de: 'von', es: 'de', zh: '来自' };
+          const givesLabels = { en: 'gives', da: 'gaver', de: 'Gaben', es: 'donaciones', zh: '捐赠' };
+          
           const valueEl = givesStatsEl.querySelector('.ticker-stat-value');
           const labelEl = givesStatsEl.querySelector('.ticker-stat-label');
           const amountEl = givesStatsEl.querySelector('.ticker-stat-amount');
-          if (valueEl) valueEl.textContent = data.monthlyCount;
-          if (labelEl) labelEl.textContent = giveLabels[currentLang] || giveLabels.en;
+          
+          // Build the full text: "Got $X so far this January from N gives"
+          const got = gotLabels[currentLang] || gotLabels.en;
+          const soFar = soFarLabels[currentLang] || soFarLabels.en;
+          const from = fromLabels[currentLang] || fromLabels.en;
+          const givesText = givesLabels[currentLang] || givesLabels.en;
+          
+          // Hide the old value/label elements, use amount for full text
+          if (valueEl) valueEl.style.display = 'none';
+          if (labelEl) labelEl.style.display = 'none';
           if (amountEl && data.monthlyTotalUSD > 0) {
-            const soFar = soFarLabels[currentLang] || soFarLabels.en;
-            amountEl.innerHTML = `· $${data.monthlyTotalUSD} <span class="so-far">${soFar}</span>`;
+            amountEl.innerHTML = `${got} <span class="amount-value">$${data.monthlyTotalUSD}</span> <span class="so-far">${soFar} ${monthName} ${from} ${data.monthlyCount} ${givesText}</span>`;
           }
           givesStatsEl.classList.add('visible');
         }
