@@ -104,6 +104,15 @@ export async function handler(event, context) {
       return sum + usdAmount;
     }, 0);
 
+    // Calculate this month's total (in USD)
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const monthlyGives = gives.filter(g => g.createdAt >= startOfMonth);
+    const monthlyTotalUSD = monthlyGives.reduce((sum, g) => {
+      const usdAmount = g.currency === 'DKK' ? g.amount / 7 : g.amount;
+      return sum + usdAmount;
+    }, 0);
+
     // Count active monthly subscribers
     let activeSubscribers = 0;
     try {
@@ -119,6 +128,8 @@ export async function handler(event, context) {
     const result = {
       gives,
       count: gives.length,
+      monthlyCount: monthlyGives.length,
+      monthlyTotalUSD: Math.round(monthlyTotalUSD),
       totalUSD: Math.round(totalAmount),
       activeSubscribers,
       lastUpdated: new Date().toISOString(),
