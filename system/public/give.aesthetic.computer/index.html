@@ -98,6 +98,20 @@
       overflow-x: hidden;
       -webkit-text-size-adjust: 100%; /* Prevent Safari from inflating fonts */
       text-size-adjust: 100%;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Allow text selection on captions, links, and copyable content */
+    .module-caption,
+    .link-block a,
+    a[href],
+    .shop-product-desc,
+    .kidlisp-desc,
+    input,
+    textarea {
+      user-select: text;
+      -webkit-user-select: text;
     }
 
     /* Top bar with logo and language chooser */
@@ -2389,8 +2403,8 @@
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
     }
     .invest-mug-image {
-      width: 140px;
-      height: 140px;
+      width: 200px;
+      height: 200px;
       object-fit: contain;
       filter: drop-shadow(0 3px 12px rgba(0,0,0,0.6)) brightness(1.1);
       display: none; /* Hidden until loaded */
@@ -4957,23 +4971,25 @@
       display: flex;
       align-items: center;
       gap: 4px;
-      padding: 6px 12px;
-      background: black;
-      border: 2px solid white;
+      padding: 10px 20px;
+      background: rgba(30, 30, 60, 0.95);
+      border: 1px solid white;
       border-radius: 0;
       cursor: pointer;
       transition: all 0.15s;
+      font-family: var(--mono);
+      box-shadow: 0 0 20px rgba(150, 100, 255, 0.4), 0 0 40px rgba(150, 100, 255, 0.2);
     }
 
     .footer-user-menu:hover {
-      background: rgb(30, 30, 30);
-      box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+      background: rgba(40, 40, 80, 0.95);
+      box-shadow: 0 0 25px rgba(180, 130, 255, 0.6), 0 0 50px rgba(180, 130, 255, 0.3);
     }
 
     .footer-user-handle {
-      font-size: 12px;
+      font-size: 14px;
       color: white;
-      font-weight: bold;
+      font-weight: normal;
       font-family: var(--mono);
     }
 
@@ -5266,9 +5282,25 @@
     }
 
     .floating-give .note {
-      color: rgba(255, 255, 255, 0.75);
-      font-size: 1em;
+      color: var(--gold);
+      font-size: 1.05em;
       letter-spacing: 0.08em;
+      animation: noteColorPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes noteColorPulse {
+      0%, 100% {
+        color: var(--gold);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+      }
+      33% {
+        color: #fff;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 8px rgba(255, 215, 61, 0.4);
+      }
+      66% {
+        color: var(--cyan);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+      }
     }
 
     .floating-give .time {
@@ -5349,29 +5381,29 @@
     /* Responsive floating gives - smaller on mobile */
     @media (max-width: 768px) {
       .floating-give {
-        font-size: 0.75em;
+        font-size: 0.85em;
         letter-spacing: 0.05em;
       }
       .floating-give .amount {
-        font-size: 0.85em;
+        font-size: 0.95em;
       }
       .floating-give .note {
-        font-size: 0.75em;
+        font-size: 0.9em;
       }
     }
 
     @media (max-width: 480px) {
       .floating-give {
-        font-size: 0.55em;
+        font-size: 0.75em;
         letter-spacing: 0.02em;
         max-width: 70%;
       }
       .floating-give .amount {
-        font-size: 0.65em;
+        font-size: 0.85em;
         margin-right: 0.2em;
       }
       .floating-give .note {
-        font-size: 0.5em;
+        font-size: 0.8em;
       }
     }
   </style>
@@ -5740,9 +5772,9 @@
       <div class="tv-section-wrap">
         <div class="tv-backdrop-glow" id="tvBackdropGlow"></div>
         <div class="tv-section">
-        <a href="https://aesthetic.computer/tapes" class="tv-header" id="tvHeader">
+        <div class="tv-header" id="tvHeader">
           <strong>📼 tapes</strong>
-        </a>
+        </div>
         <div class="tv-player" id="tvPlayer">
           <div class="module-loading" id="tvLoading">loading</div>
         </div>
@@ -9835,6 +9867,18 @@
             }
           });
         });
+        
+        // Make current tape code clickable to advance to next tape
+        const currentCode = header.querySelector('.tv-code');
+        if (currentCode) {
+          currentCode.style.cursor = 'pointer';
+          currentCode.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            tvIndex = (tvIndex + 1) % tvTapes.length;
+            playTVVideo(tvIndex);
+          });
+        }
       }
       
       // Remove ALL old slides and glows (not just one) to prevent overlap on rapid clicks
@@ -12531,12 +12575,15 @@
       const mugLink = document.getElementById('investMug');
       if (!mugImage || !mugIcon) return;
       
+      let checkoutUrl = null;
+      let mug = null;
+      
       try {
         const res = await fetch('https://aesthetic.computer/api/mugs?limit=20');
         if (res.ok) {
           const data = await res.json();
           // Find first mug with a preview image
-          const mug = (data.mugs || []).find(m => m.preview);
+          mug = (data.mugs || []).find(m => m.preview);
           if (mug) {
             mugImage.src = mug.preview;
             mugImage.style.display = 'block';
@@ -12551,14 +12598,45 @@
               mugCaption.innerHTML = `<span class="mug-color">${colorUpper}</span><span class="mug-of"> Mug via </span><span class="mug-code">$${viaCode}</span>`;
             }
             
-            // Update link to use product code URL format: mug~+CODE
-            if (mugLink && mug.code) {
-              mugLink.href = `https://aesthetic.computer/mug~+${mug.code}`;
+            // Pre-fetch Stripe checkout URL so clicking goes directly to checkout
+            try {
+              const sourceCode = mug.sourceCode || mug.code;
+              const color = mug.color || 'white';
+              const via = mug.via || '';
+              let apiUrl = `https://aesthetic.computer/api/mug?new=true&pixels=${sourceCode}.png&color=${color}`;
+              if (via) apiUrl += `&via=${via}`;
+              
+              const checkoutRes = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantity: 1, slug: `mug~${sourceCode}~${color}` }),
+              });
+              
+              if (checkoutRes.ok) {
+                const checkoutData = await checkoutRes.json();
+                if (checkoutData.location) {
+                  checkoutUrl = checkoutData.location;
+                  console.log('[InvestMug] Checkout URL ready');
+                }
+              }
+            } catch (e) {
+              console.log('[InvestMug] Could not pre-fetch checkout URL:', e.message);
             }
           }
         }
       } catch (e) {
         console.log('[InvestMug] Could not load latest mug');
+      }
+      
+      // Override click to go directly to Stripe checkout
+      if (mugLink) {
+        mugLink.addEventListener('click', (e) => {
+          if (checkoutUrl) {
+            e.preventDefault();
+            window.location.href = checkoutUrl;
+          }
+          // If no checkoutUrl, fall through to default link behavior (mug piece)
+        });
       }
     })();
   </script>
