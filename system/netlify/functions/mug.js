@@ -367,16 +367,15 @@ export async function handler(event, context) {
       const unitAmount = 1800 * quantity; // $18.00 total per mug (all-inclusive)
       const finalAmount = unitAmount;
 
-      // Branded product name: "RED MUG of oyn · 11oz Ceramic" (no # for anonymous codes)
-      // Or with KidLisp source: "RED MUG of oyn in $bop · 11oz Ceramic"
+      // Branded product name: "red mug of oyn · 11oz Ceramic" (no # for anonymous codes)
+      // Or with KidLisp source: "red mug of oyn in $bop · 11oz Ceramic"
       // Hashed painting codes (user paintings) still get # prefix
-      // Color is uppercase, but code stays original case (case-sensitive!)
-      const colorUpper = color.toUpperCase();
+      // Color stays lowercase, code stays original case (case-sensitive!)
       // viaCode already declared above
       // Anonymous codes are typically 8+ chars (e.g., CPUQnQi2), user painting codes are shorter (e.g., oyn)
       const isAnonymousCode = sourceCode.length >= 8;
       const codePrefix = isAnonymousCode ? '' : '#';
-      let productName = `${colorUpper} MUG of ${codePrefix}${sourceCode}`;
+      let productName = `${color} mug of ${codePrefix}${sourceCode}`;
       if (viaCode) {
         productName += ` in $${viaCode}`;
       }

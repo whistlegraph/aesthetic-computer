@@ -49,6 +49,9 @@ const colorMap = {
 let codeBtn = null; // Clickable code button
 let apiRef = null; // Store api reference for checkout
 let uploadingPainting = false; // True while uploading current painting
+let previewRetries = 0; // Track retry attempts for preview
+const MAX_PREVIEW_RETRIES = 10; // Max retries for preview
+let apiCodeForRetry = null; // Store apiCode for retrying preview
 
 async function boot({ params, store, net, ui, screen, cursor, system, hud, api, upload, num }) {
   cursor("native");
@@ -193,6 +196,9 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
 
   setupButtons(ui, screen);
 
+  // Store apiCode for potential retries
+  apiCodeForRetry = apiCode;
+
   // Fetch preview and checkout URL in parallel
   fetchPreview(apiCode);
   fetchCheckout(apiCode, api);
@@ -252,15 +258,31 @@ async function fetchPreview(apiCode) {
           pixels: result.frames[0].pixels,
         };
       }
+      previewLoading = false;
     } else if (staticUrl && preloadBitmap) {
       // Fall back to loading static PNG
       previewBitmap = await preloadBitmap(staticUrl);
+      previewLoading = false;
+    } else if (previewRetries < MAX_PREVIEW_RETRIES) {
+      // No preview URL yet - retry after a delay (Printful may still be generating)
+      previewRetries++;
+      console.log(`☕ Preview not ready, retrying (${previewRetries}/${MAX_PREVIEW_RETRIES})...`);
+      setTimeout(() => fetchPreview(apiCode), 1500);
+    } else {
+      // Max retries reached
+      console.log("☕ Preview generation timed out");
+      previewLoading = false;
     }
-
-    previewLoading = false;
   } catch (e) {
-    error = e?.message || "Preview failed";
-    previewLoading = false;
+    if (previewRetries < MAX_PREVIEW_RETRIES) {
+      // Network error - retry
+      previewRetries++;
+      console.log(`☕ Preview fetch failed, retrying (${previewRetries}/${MAX_PREVIEW_RETRIES})...`);
+      setTimeout(() => fetchPreview(apiCode), 1500);
+    } else {
+      error = e?.message || "Preview failed";
+      previewLoading = false;
+    }
   }
 }
 
@@ -310,8 +332,31 @@ async function fetchCheckout(apiCode, api) {
   }
 }
 
-function paint({ wipe, ink, box, paste, screen, pen, write }) {
-  wipe(30);
+function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
+  // Animated backdrop - subtle coffee-colored gradient with floating particles
+  const time = performance.now() / 1000;
+  
+  // Base gradient from dark brown to darker
+  wipe(25, 20, 18);
+  
+  // Draw subtle animated coffee steam/particles
+  for (let i = 0; i < 12; i++) {
+    const seed = i * 137.5;
+    const x = (seed * 7.3 + time * 15 * (i % 2 === 0 ? 1 : -1)) % (screen.width + 40) - 20;
+    const baseY = screen.height - ((seed * 3.7 + time * 20) % (screen.height + 100));
+    const y = baseY + Math.sin(time * 2 + seed) * 8;
+    const size = 2 + Math.sin(seed) * 1.5;
+    const alpha = 0.15 + Math.sin(time * 1.5 + seed * 0.5) * 0.1;
+    ink(139 * alpha, 90 * alpha, 43 * alpha).box(floor(x), floor(y), floor(size), floor(size), "fill");
+  }
+  
+  // Subtle corner vignette
+  const vignetteSize = min(screen.width, screen.height) * 0.4;
+  for (let v = 0; v < 3; v++) {
+    const vAlpha = 0.02 * (3 - v);
+    ink(0, 0, 0, vAlpha);
+    // Just darken corners slightly with boxes
+  }
 
   if (error) {
     ink(255, 100, 100).write(error, { center: "xy", screen });
@@ -356,7 +401,10 @@ function paint({ wipe, ink, box, paste, screen, pen, write }) {
     const centerY = availableHeight / 2;
     const pulse = Math.sin(performance.now() / 300) * 0.3 + 0.7;
     ink(255 * pulse, 255 * pulse, 255 * pulse).write("☕", { center: "x", y: centerY - 20, screen }, undefined, undefined, false, "unifont");
-    const loadingText = uploadingPainting ? "Uploading painting..." : "Loading preview...";
+    let loadingText = uploadingPainting ? "Uploading painting..." : "Loading preview...";
+    if (previewRetries > 0) {
+      loadingText = `Generating preview... (${previewRetries}/${MAX_PREVIEW_RETRIES})`;
+    }
     ink(100).write(loadingText, { center: "x", y: centerY + 10, screen }, undefined, undefined, false, "unifont");
     imageBottomY = centerY + 30;
   }
