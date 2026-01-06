@@ -12658,15 +12658,16 @@
             console.log('[InvestMug] Full mug data:', mug);
             
             // Update caption with real data
-            // Format: "white mug of CODE in $viaCode" matching mug.mjs
-            // For kidlisp mugs: via IS the kidlisp code (e.g., "roz")
-            // sourceCode is the painting hash, which we don't want to show
+            // Format: "white mug of #CODE in $viaCode" matching mug.mjs
+            // sourceCode is the painting hash (e.g., "sb9"), via is the kidlisp code (e.g., "bop")
             if (mugCaption) {
               const colorLower = (mug.color || 'white').toLowerCase();
-              // Use via as the display code for kidlisp mugs, fall back to sourceCode/code
-              const displayCode = mug.via || mug.sourceCode || mug.code;
+              // Show sourceCode (painting hash) as main code, via is the kidlisp source
+              const displayCode = mug.sourceCode || mug.code;
               const viaCode = mug.via;
-              let captionHtml = `<span class="mug-color">${colorLower}</span><span class="mug-of"> mug of </span><span class="mug-code">${displayCode}</span>`;
+              // Add # prefix for painting codes (short codes are user paintings)
+              const codePrefix = displayCode && displayCode.length < 8 ? '#' : '';
+              let captionHtml = `<span class="mug-color">${colorLower}</span><span class="mug-of"> mug of </span><span class="mug-code">${codePrefix}${displayCode}</span>`;
               if (viaCode) {
                 captionHtml += `<span class="mug-via"> in $${viaCode}</span>`;
               }
