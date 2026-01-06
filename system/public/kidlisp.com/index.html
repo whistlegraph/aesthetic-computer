@@ -7363,12 +7363,20 @@
     // ☕ Mug modal state
     let mugModal = null;
     
+    // ☕ Available mug colors
+    const MUG_COLORS = ['white', 'black', 'blue', 'pink', 'orange', 'green', 'red', 'yellow', 'darkblue', 'darkgreen'];
+    
+    // Pick a random mug color
+    function randomMugColor() {
+      return MUG_COLORS[Math.floor(Math.random() * MUG_COLORS.length)];
+    }
+    
     // ☕ Show mug preview modal with color selection
-    function showMugModal(previewData, paintingCode, kidlispCode) {
+    function showMugModal(previewData, paintingCode, kidlispCode, initialColor) {
       if (mugModal) mugModal.remove();
       
-      const colors = ['white', 'black', 'blue', 'pink', 'orange', 'green', 'red', 'yellow', 'darkblue', 'darkgreen'];
-      let selectedColor = 'white';
+      const colors = MUG_COLORS;
+      let selectedColor = initialColor || 'white';
       let animatedImg = null;
       let animationInterval = null;
       
@@ -7738,7 +7746,9 @@
         // This ensures the mug is registered in the database with all metadata
         mugBtn.innerHTML = '☕ creating mug...';
         
-        let productApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=white&preview=true`;
+        // Randomize the mug color for fun variety!
+        const randomColor = randomMugColor();
+        let productApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=${randomColor}&preview=true`;
         if (kidlispCode) {
           productApiUrl += `&via=${kidlispCode}`;
         }
@@ -7765,8 +7775,8 @@
         // Strip + prefix if present (we'll add it in the URL)
         const rawProductCode = productCode.replace(/^\+/, '');
         
-        // Show mug preview modal with color selection
-        showMugModal({ ...productData, rawProductCode }, paintingCode, kidlispCode);
+        // Show mug preview modal with color selection (pre-select the random color)
+        showMugModal({ ...productData, rawProductCode }, paintingCode, kidlispCode, randomColor);
         
         if (mugBtn) {
           mugBtn.innerHTML = '☕ mug <span style="color: #90EE90;">$18</span>';
