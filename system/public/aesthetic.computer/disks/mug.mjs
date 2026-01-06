@@ -6,7 +6,7 @@
 //   mug CODE      → Use painting by code
 //   mug CODE blue → Use painting with color variant
 
-const { min, floor } = Math;
+const { min, max, floor, sin, cos } = Math;
 
 // Module state
 let productCode = null;
@@ -30,10 +30,18 @@ let checkoutReady = false;
 let checkoutError = null;
 let buyPending = false; // True while button is pressed but URL not ready
 
-const btnText = "☕  BUY MUG $18";
+// Ken Burns animation state
+let kenBurnsTime = 0;
+
 const btnPadding = 6;
 const btnCharWidth = 8; // unifont char width
 const btnCharHeight = 16; // unifont char height
+
+// Dynamic button text
+function getBtnText() {
+  if (buyPending) return "☕  CHECKING OUT...";
+  return "☕  BUY MUG $18";
+}
 
 // Color name to RGB mapping
 const colorMap = {
@@ -205,7 +213,8 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
 }
 
 function setupButtons(ui, screen) {
-  // Create buy button for hit detection
+  // Create buy button for hit detection - always visible
+  const btnText = getBtnText();
   const btnW = btnText.length * btnCharWidth + btnPadding * 2;
   const btnH = btnCharHeight + btnPadding * 2;
   btn = new ui.Button(
@@ -335,6 +344,7 @@ async function fetchCheckout(apiCode, api) {
 function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
   // Animated backdrop - subtle coffee-colored gradient with floating particles
   const time = performance.now() / 1000;
+  kenBurnsTime = time;
   
   // Base gradient from dark brown to darker
   wipe(25, 20, 18);
@@ -344,18 +354,10 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
     const seed = i * 137.5;
     const x = (seed * 7.3 + time * 15 * (i % 2 === 0 ? 1 : -1)) % (screen.width + 40) - 20;
     const baseY = screen.height - ((seed * 3.7 + time * 20) % (screen.height + 100));
-    const y = baseY + Math.sin(time * 2 + seed) * 8;
-    const size = 2 + Math.sin(seed) * 1.5;
-    const alpha = 0.15 + Math.sin(time * 1.5 + seed * 0.5) * 0.1;
+    const y = baseY + sin(time * 2 + seed) * 8;
+    const size = 2 + sin(seed) * 1.5;
+    const alpha = 0.15 + sin(time * 1.5 + seed * 0.5) * 0.1;
     ink(139 * alpha, 90 * alpha, 43 * alpha).box(floor(x), floor(y), floor(size), floor(size), "fill");
-  }
-  
-  // Subtle corner vignette
-  const vignetteSize = min(screen.width, screen.height) * 0.4;
-  for (let v = 0; v < 3; v++) {
-    const vAlpha = 0.02 * (3 - v);
-    ink(0, 0, 0, vAlpha);
-    // Just darken corners slightly with boxes
   }
 
   if (error) {
@@ -374,32 +376,85 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
     }
   }
 
-  // Layout: mug image at top, title below image, button at bottom
+  // Layout: full-screen Ken Burns mug, small mug overlay, title, button at bottom
   const titleHeight = 24;
   const buttonHeight = 40;
-  const titleGap = 8; // Gap between image and title
-  const availableHeight = screen.height - titleHeight - buttonHeight - titleGap;
+  const titleGap = 8;
 
-  // Calculate image dimensions and position (at top)
-  let imageBottomY = availableHeight; // Default if no image
+  // Draw mug preview with Ken Burns effect OR loading animation
+  let imageBottomY = screen.height - titleHeight - buttonHeight - titleGap;
   
-  // Draw mug preview OR loading animation at the top
   if (previewBitmap) {
-    const scale = min(
-      (screen.width * 0.95) / previewBitmap.width,
-      (availableHeight * 0.95) / previewBitmap.height,
+    // === KEN BURNS FULL-SCREEN BACKGROUND ===
+    // Scale to fill screen with extra room for panning (1.3x coverage)
+    const coverScale = max(
+      (screen.width * 1.3) / previewBitmap.width,
+      (screen.height * 1.3) / previewBitmap.height,
     );
-    const w = floor(previewBitmap.width * scale);
-    const h = floor(previewBitmap.height * scale);
-    const x = floor((screen.width - w) / 2);
-    const y = floor((availableHeight - h) / 2); // Center in available space at top
-
-    paste(previewBitmap, x, y, { scale });
-    imageBottomY = y + h;
+    const bgW = floor(previewBitmap.width * coverScale);
+    const bgH = floor(previewBitmap.height * coverScale);
+    
+    // Ken Burns: slow pan across the image over ~20 seconds per phase
+    const phaseDuration = 20;
+    const phase = floor(time / phaseDuration) % 4;
+    const phaseProgress = (time % phaseDuration) / phaseDuration;
+    
+    // Smooth easing
+    const ease = (t) => t * t * (3 - 2 * t); // smoothstep
+    const t = ease(phaseProgress);
+    
+    // Pan offsets based on phase (different corners/movements)
+    let panX = 0, panY = 0;
+    const maxPanX = (bgW - screen.width) * 0.4;
+    const maxPanY = (bgH - screen.height) * 0.4;
+    
+    switch (phase) {
+      case 0: // Pan from center-left to center-right
+        panX = -maxPanX + t * maxPanX * 2;
+        panY = 0;
+        break;
+      case 1: // Pan from top to bottom
+        panX = maxPanX * 0.5;
+        panY = -maxPanY + t * maxPanY * 2;
+        break;
+      case 2: // Pan from right to left
+        panX = maxPanX - t * maxPanX * 2;
+        panY = maxPanY * 0.3;
+        break;
+      case 3: // Pan diagonally
+        panX = -maxPanX * 0.7 + t * maxPanX * 1.4;
+        panY = maxPanY * 0.5 - t * maxPanY;
+        break;
+    }
+    
+    // Center the image then apply pan
+    const bgX = floor((screen.width - bgW) / 2 + panX);
+    const bgY = floor((screen.height - bgH) / 2 + panY);
+    
+    // Draw full-screen Ken Burns mug (slightly dimmed as background)
+    paste(previewBitmap, bgX, bgY, { scale: coverScale });
+    
+    // Darken overlay to make the small mug pop
+    ink(25, 20, 18, 0.6).box(0, 0, screen.width, screen.height, "fill");
+    
+    // === SMALLER MUG OVERLAY (cubist showcase) ===
+    const availableHeight = screen.height - titleHeight - buttonHeight - titleGap;
+    const smallScale = min(
+      (screen.width * 0.6) / previewBitmap.width,
+      (availableHeight * 0.7) / previewBitmap.height,
+    );
+    const smallW = floor(previewBitmap.width * smallScale);
+    const smallH = floor(previewBitmap.height * smallScale);
+    const smallX = floor((screen.width - smallW) / 2);
+    const smallY = floor((availableHeight - smallH) / 2);
+    
+    paste(previewBitmap, smallX, smallY, { scale: smallScale });
+    imageBottomY = smallY + smallH;
+    
   } else if (previewLoading) {
     // Spinning mug emoji while loading
-    const centerY = availableHeight / 2;
-    const pulse = Math.sin(performance.now() / 300) * 0.3 + 0.7;
+    const centerY = (screen.height - titleHeight - buttonHeight) / 2;
+    const pulse = sin(performance.now() / 300) * 0.3 + 0.7;
     ink(255 * pulse, 255 * pulse, 255 * pulse).write("☕", { center: "x", y: centerY - 20, screen }, undefined, undefined, false, "unifont");
     let loadingText = uploadingPainting ? "Uploading painting..." : "Loading preview...";
     if (previewRetries > 0) {
@@ -451,32 +506,31 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
     ink(...codeColor).line(titleX, titleY + btnCharHeight, titleX + sourceCode.length * btnCharWidth, titleY + btnCharHeight);
   }
 
-  // Draw buy button with unifont - blinking when ready!
+  // Draw buy button - ALWAYS VISIBLE AND CLICKABLE
   if (btn) {
+    const btnText = getBtnText();
     const isHover = btn.down;
-    const isReady = checkoutReady;
     const isPending = buyPending;
     
-    // Button states: grayed out (loading), pulsing (pending), blinking (ready), hover
+    // Recalculate button width based on current text
+    const btnW = btnText.length * btnCharWidth + btnPadding * 2;
+    btn.box.w = btnW;
+    btn.box.x = floor((screen.width - btnW) / 2);
+    
     let fillColor, borderColor, textColor;
     if (isPending) {
-      // Pulsing animation while waiting for checkout URL
-      const pulse = Math.sin(performance.now() / 150) * 0.5 + 0.5;
+      // Pulsing animation while checking out
+      const pulse = sin(performance.now() / 150) * 0.5 + 0.5;
       fillColor = [40 + pulse * 30, 40 + pulse * 20, 40];
       borderColor = [200 + pulse * 55, 150 + pulse * 50, 50];
       textColor = [200 + pulse * 55, 200 + pulse * 55, 150];
-    } else if (!isReady) {
-      // Grayed out while checkout URL is being fetched
-      fillColor = [35, 35, 35];
-      borderColor = [80, 80, 80];
-      textColor = [100, 100, 100];
     } else if (isHover) {
       fillColor = [80, 60, 40];
       borderColor = [255, 200, 100];
       textColor = [255, 220, 150];
     } else {
-      // Ready state - blinking border to attract attention!
-      const blink = Math.sin(performance.now() / 400) * 0.5 + 0.5;
+      // Ready state - always clickable with inviting glow
+      const blink = sin(performance.now() / 400) * 0.5 + 0.5;
       fillColor = [40, 40, 40];
       borderColor = [100 + blink * 155, 150 + blink * 50, 50 + blink * 50];
       textColor = [200 + blink * 55, 200 + blink * 55, 200 + blink * 55];
@@ -494,6 +548,7 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
 function act({ event: e, screen, jump, api, sound }) {
   if (e.is("reframed")) {
     // Reposition buy button on resize
+    const btnText = getBtnText();
     const btnW = btnText.length * btnCharWidth + btnPadding * 2;
     const btnH = btnCharHeight + btnPadding * 2;
     if (btn) {
@@ -511,21 +566,24 @@ function act({ event: e, screen, jump, api, sound }) {
     push: () => jump(sourceCode), // Jump to #CODE on release
   });
 
-  // Handle buy button with proper down/push events
+  // Handle buy button - ALWAYS CLICKABLE
   btn?.act(e, {
     down: () => {
       // Sound feedback on press
       sound?.synth({ type: "sine", tone: 440, duration: 0.05, volume: 0.3 });
     },
     push: () => {
+      if (buyPending) return; // Already checking out
+      
       if (checkoutReady && checkoutUrl) {
         // Instant redirect!
         sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
         jump(checkoutUrl);
       } else if (!checkoutError) {
-        // URL still loading - show pending animation and wait
+        // URL still loading - show "Checking out..." and wait
         buyPending = true;
-        waitForCheckout(jump);
+        sound?.synth({ type: "sine", tone: 660, duration: 0.08, volume: 0.3 });
+        waitForCheckout(jump, sound);
       } else {
         // Error state - play error sound
         sound?.synth({ type: "square", tone: 200, duration: 0.15, volume: 0.3 });
@@ -535,7 +593,7 @@ function act({ event: e, screen, jump, api, sound }) {
 }
 
 // Poll for checkout URL if user clicked before it was ready
-async function waitForCheckout(jump) {
+async function waitForCheckout(jump, sound) {
   const maxWait = 10000; // 10 seconds max
   const startTime = Date.now();
   
@@ -546,9 +604,11 @@ async function waitForCheckout(jump) {
   buyPending = false;
   
   if (checkoutReady && checkoutUrl) {
+    sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
     jump(checkoutUrl);
   } else if (checkoutError) {
     error = checkoutError;
+    sound?.synth({ type: "square", tone: 200, duration: 0.15, volume: 0.3 });
   }
 }
 
