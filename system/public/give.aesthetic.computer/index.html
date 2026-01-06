@@ -83,7 +83,7 @@
 
     html {
       overflow-x: hidden;
-      scrollbar-gutter: stable both-edges; /* Reserve space for scrollbar symmetrically */
+      scrollbar-gutter: stable; /* Reserve space for scrollbar on right only */
     }
 
     body {
@@ -662,6 +662,11 @@
       font-family: var(--mono);
     }
 
+    .cmd-highlight {
+      color: var(--pink);
+      font-family: var(--mono);
+    }
+
     /* Fiat Currency Section */
     .fiat-section {
       background: transparent;
@@ -798,8 +803,6 @@
       .top-bar {
         padding: 6px 10px;
         background: linear-gradient(to bottom, rgba(5, 15, 20, 0.95) 0%, rgba(5, 15, 20, 0.85) 50%, transparent 100%);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
         flex-wrap: nowrap;
         padding-bottom: 16px;
       }
@@ -2365,6 +2368,54 @@
       color: #6eeee6;
     }
 
+    /* Mug easter egg in invest section */
+    .invest-mug {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+      opacity: 0.5;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .invest-mug:hover {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+    .invest-mug-icon {
+      font-size: 2em;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+    .invest-mug-image {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+      display: none; /* Hidden until loaded */
+    }
+    .invest-mug-caption {
+      font-family: var(--mono);
+      font-size: 0.6em;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .invest-mug-caption .mug-color {
+      color: rgba(255, 255, 255, 0.9);
+    }
+    .invest-mug-caption .mug-of {
+      color: rgba(180, 180, 180, 0.8);
+    }
+    .invest-mug-caption .mug-code {
+      color: rgba(150, 200, 255, 0.9);
+    }
+    .invest-mug:hover .mug-code {
+      color: rgba(255, 220, 150, 1);
+      text-decoration: underline;
+    }
+
     /* Hacker Section - ghost-style minimal cards */
     .hacker-section {
       grid-column: 1 / -1;
@@ -2377,13 +2428,13 @@
 
     .hacker-card {
       flex: 0 1 auto;
-      max-width: 280px;
+      max-width: 420px;
       background: transparent;
-      border: 1px dashed rgba(255, 255, 255, 0.15);
+      border: none;
       border-radius: 4px;
       padding: 1em 1.2em;
       font-family: var(--mono);
-      font-size: 0.8em;
+      font-size: 1.1em;
       color: rgba(255, 255, 255, 0.5);
       transition: border-color 0.2s, color 0.2s;
     }
@@ -2400,14 +2451,110 @@
 
     .hacker-card a:hover {
       color: rgb(205, 92, 155);
-      text-decoration: underline;
+      text-decoration: none;
     }
 
     .hacker-card-title {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2em;
       font-size: 0.9em;
       color: rgba(255, 255, 255, 0.4);
       margin-bottom: 0.5em;
       letter-spacing: 0.05em;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .hacker-card-title:hover {
+      color: rgba(255, 255, 255, 0.55);
+      text-decoration: none !important;
+    }
+
+    .at-line-1, .at-line-2 {
+      display: block;
+      white-space: nowrap;
+    }
+
+    .at-gray {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .hacker-card-title:hover {
+      color: rgba(255, 255, 255, 0.55);
+      text-decoration: none;
+    }
+
+    .hacker-card a {
+      color: rgba(205, 92, 155, 0.8);
+      text-decoration: none;
+    }
+
+    .hacker-card-title a:hover {
+      color: rgb(205, 92, 155);
+      text-decoration: underline;
+    }
+
+    .at-icon {
+      width: 1.4em;
+      height: 1.4em;
+      vertical-align: -0.3em;
+      margin-right: 0.3em;
+      margin-left: 0.15em;
+    }
+
+    .hacker-card-title a {
+      font-size: 1.1em;
+    }
+
+    .ac-name {
+      color: inherit;
+    }
+
+    .ac-dot {
+      color: var(--pink);
+    }
+
+    .at-blue {
+      color: #0085FF;
+    }
+
+    /* AT Protocol handle cycling animation */
+    .at-handle-prefix {
+      display: inline-block;
+      min-width: 3ch;
+      text-align: right;
+    }
+
+    .at-handle-prefix .at-char {
+      display: inline-block;
+      animation: atCharColor 1.8s steps(1) infinite;
+    }
+
+    .at-handle-prefix .at-char-gray {
+      display: inline-block;
+      animation: atCharGray 1.8s steps(1) infinite;
+    }
+
+    @keyframes atCharColor {
+      0% { color: rgb(205, 92, 155); }
+      16.6% { color: rgb(255, 120, 100); }
+      33.3% { color: rgb(255, 200, 100); }
+      50% { color: rgb(150, 230, 150); }
+      66.6% { color: rgb(100, 180, 255); }
+      83.3% { color: rgb(180, 130, 230); }
+      100% { color: rgb(205, 92, 155); }
+    }
+
+    @keyframes atCharGray {
+      0% { color: rgba(255, 255, 255, 0.3); }
+      16.6% { color: rgba(255, 255, 255, 0.45); }
+      33.3% { color: rgba(255, 255, 255, 0.35); }
+      50% { color: rgba(255, 255, 255, 0.5); }
+      66.6% { color: rgba(255, 255, 255, 0.4); }
+      83.3% { color: rgba(255, 255, 255, 0.3); }
+      100% { color: rgba(255, 255, 255, 0.3); }
     }
 
     .hacker-card-title code {
@@ -4668,7 +4815,7 @@
       grid-column: 1 / -1;
       color: rgba(255,255,255,0.3);
       font-family: var(--mono);
-      font-size: 0.9em;
+      font-size: 1em;
       text-decoration: none;
       cursor: pointer;
       transition: color 0.2s, filter 0.2s;
@@ -4677,11 +4824,29 @@
     }
 
     #pals img {
-      width: 96px;
-      height: auto;
       filter: grayscale(100%) opacity(0.3);
       transition: filter 0.2s;
-      order: 1;
+    }
+
+    .pals-mug-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    .pals-logo {
+      width: 128px;
+      height: auto;
+    }
+
+    .pals-mug {
+      position: absolute;
+      width: 40px;
+      height: auto;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      filter: grayscale(0%) opacity(0.9) !important;
+      z-index: 1;
     }
 
     #pals span {
@@ -4699,7 +4864,7 @@
     .page-footer {
       grid-column: 1 / -1;
       text-align: center;
-      padding: 1.5em 0 0.5em 0;
+      padding: 3.5em 0 0.5em 0;
       font-family: var(--mono);
       font-size: 0.85em;
       color: rgba(255,255,255,0.25);
@@ -4725,7 +4890,7 @@
 
     .footer-auth-buttons {
       display: flex;
-      gap: 8px;
+      gap: 16px;
     }
 
     .footer-login-btn {
@@ -4739,11 +4904,12 @@
       cursor: pointer;
       transition: all 0.15s;
       font-family: var(--mono);
+      box-shadow: 0 0 20px rgba(80, 120, 255, 0.4), 0 0 40px rgba(80, 120, 255, 0.2);
     }
 
     .footer-login-btn:hover {
       background: rgba(40, 60, 140, 0.95);
-      box-shadow: 0 0 8px rgba(100, 150, 255, 0.4);
+      box-shadow: 0 0 25px rgba(100, 150, 255, 0.6), 0 0 50px rgba(100, 150, 255, 0.3);
     }
 
     .footer-signup-btn {
@@ -4757,11 +4923,13 @@
       cursor: pointer;
       transition: all 0.15s;
       font-family: var(--mono);
+      box-shadow: 0 0 20px rgba(80, 200, 120, 0.4), 0 0 40px rgba(80, 200, 120, 0.2);
     }
 
     .footer-signup-btn:hover {
       background: rgba(40, 110, 60, 0.95);
-      box-shadow: 0 0 8px rgba(100, 255, 150, 0.4);
+      box-shadow: 0 0 25px rgba(100, 255, 150, 0.6), 0 0 50px rgba(100, 255, 150, 0.3);
+    }
     }
 
     .footer-user-menu {
@@ -5558,11 +5726,11 @@
           <div class="module-loading" id="tvLoading">loading</div>
         </div>
         <div class="module-caption">
-          <span data-lang="en">Prefix a prompt with <span class="dim">tape</span> to record GIFs and MP4s.</span>
-          <span data-lang="da">Sæt <span class="dim">tape</span> før en prompt for at optage GIFs og MP4s.</span>
-          <span data-lang="de">Setze <span class="dim">tape</span> vor einen Prompt für GIFs und MP4s.</span>
-          <span data-lang="es">Prefija un prompt con <span class="dim">tape</span> para grabar GIFs y MP4s.</span>
-          <span data-lang="zh">在提示前加 <span class="dim">tape</span> 即可录制 GIF 和 MP4。</span>
+          <span data-lang="en">Prefix a prompt with <span class="cmd-highlight">tape</span> to post a video.</span>
+          <span data-lang="da">Sæt <span class="cmd-highlight">tape</span> før en prompt for at poste en video.</span>
+          <span data-lang="de">Setze <span class="cmd-highlight">tape</span> vor einen Prompt um ein Video zu posten.</span>
+          <span data-lang="es">Prefija un prompt con <span class="cmd-highlight">tape</span> para publicar un video.</span>
+          <span data-lang="zh">在提示前加 <span class="cmd-highlight">tape</span> 即可发布视频。</span>
         </div>
       </div>
       </div>
@@ -5615,7 +5783,7 @@
               </a>
               
               <a href="https://assets.aesthetic.computer/ableton/notepat-ableton-2025-alpha.amxd.zip" class="desktop-ableton-link" target="_blank" download>
-                <svg class="ableton-icon" viewBox="0 0 45 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M0 0h3v24H0V0zm6 0h3v24H6V0zm6 0h3v24h-3V0zm6 0h3v24h-3V0zm9 0h24v3H27V0zm0 7h24v3H27V7zm0 7h24v3H27v-3zm0 7h24v3H27v-3z"/></svg>
+                <svg class="ableton-icon" viewBox="0 0 51 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M0 0h3v24H0V0zm6 0h3v24H6V0zm6 0h3v24h-3V0zm6 0h3v24h-3V0zm9 0h24v3H27V0zm0 7h24v3H27V7zm0 7h24v3H27v-3zm0 7h24v3H27v-3z"/></svg>
                 <span class="ableton-label">Ableton</span>
                 <span class="ableton-tag">notepat</span>
               </a>
@@ -5725,6 +5893,11 @@
         <div class="invest-content" data-lang="zh">
           <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> 由一小群早期支持者<a href="https://prompt.ac/booted-by">启动</a>。<br><br>要加入这个股权持有社区，请与 <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">预约远程演示</a>。</p>
         </div>
+        <a href="https://prompt.ac/mug" class="invest-mug" id="investMug" title="☕ Buy a mug!">
+          <img class="invest-mug-image" id="investMugImage" alt="Mug preview" />
+          <span class="invest-mug-icon" id="investMugIcon">☕</span>
+          <span class="invest-mug-caption" id="investMugCaption"><span class="mug-color">WHITE</span><span class="mug-of"> MUG of </span><span class="mug-code">give</span></span>
+        </a>
       </div>
 
       <div class="page-footer">
@@ -5760,30 +5933,27 @@
         </div>
       </div>
 
+      <!-- AT Protocol Federation Info -->
+      <div class="hacker-section">
+        <div class="hacker-card">
+          <a href="https://at.aesthetic.computer" target="_blank" class="hacker-card-title">
+            <span class="at-line-1"><span class="at-handle-prefix" id="atHandlePrefix"></span><span class="ac-dot">.</span><span class="at-blue">at</span><span class="ac-dot">.</span><span class="ac-name">Aesthetic<span class="ac-dot">.</span>Computer</span> <span class="at-gray">is federated</span></span>
+            <span class="at-line-2"><span class="at-gray">on the</span> <img src="https://assets.aesthetic.computer/atproto-icon.png" alt="" class="at-icon"><span class="at-blue">AT</span><span class="at-gray">Protocol</span></span>
+          </a>
+        </div>
+      </div>
+
       <a id="pals" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;" href="#">
-        <img src="https://aesthetic.computer/purple-pals.svg" alt="">
+        <div class="pals-mug-container">
+          <img id="palsMug" class="pals-mug" src="" alt="" style="display: none;">
+          <img src="https://aesthetic.computer/purple-pals.svg" alt="" class="pals-logo">
+        </div>
         <span data-lang="en">↑ Back to Top</span>
         <span data-lang="da">↑ Tilbage til top</span>
         <span data-lang="de">↑ Nach oben</span>
         <span data-lang="es">↑ Volver arriba</span>
         <span data-lang="zh">↑ 返回顶部</span>
       </a>
-
-      <!-- AT Protocol Federation Info -->
-      <div class="hacker-section">
-        <div class="hacker-card">
-          <div class="hacker-card-title">aesthetic.computer is federated on the <code>AT</code> Protocol</div>
-          <div class="hacker-card-body">
-            <table class="at-table">
-              <tr><td>PDS</td><td><a href="https://at.aesthetic.computer" target="_blank">at.aesthetic.computer</a></td></tr>
-              <tr><td>Lexicons</td><td><code>computer.aesthetic.*</code></td></tr>
-              <tr><td>Tapes</td><td><code>computer.aesthetic.tape</code></td></tr>
-              <tr><td>Paintings</td><td><code>computer.aesthetic.painting</code></td></tr>
-              <tr><td>Handles</td><td><code>computer.aesthetic.handle</code></td></tr>
-            </table>
-          </div>
-        </div>
-      </div>
     </div>
   </main>
 
@@ -12153,6 +12323,227 @@
       
       // Connect on load
       connect();
+    })();
+  </script>
+
+  <script>
+    // Fetch AT Protocol record counts
+    (async function loadATStats() {
+      const PDS = 'https://at.aesthetic.computer';
+      
+      async function countRecords(collection) {
+        try {
+          // Use describeRepo to get rough stats, or listRecords with limit
+          const res = await fetch(`${PDS}/xrpc/com.atproto.sync.listRepos?limit=1000`);
+          if (!res.ok) return '?';
+          const data = await res.json();
+          
+          // Count records across all repos for this collection
+          let total = 0;
+          for (const repo of data.repos || []) {
+            try {
+              const recRes = await fetch(`${PDS}/xrpc/com.atproto.repo.listRecords?repo=${repo.did}&collection=${collection}&limit=100`);
+              if (recRes.ok) {
+                const recData = await recRes.json();
+                total += (recData.records || []).length;
+              }
+            } catch (e) {}
+          }
+          return total;
+        } catch (e) {
+          console.error('[AT Stats]', e);
+          return '?';
+        }
+      }
+
+      // Simpler approach: just hit the TV API which already aggregates tapes
+      try {
+        const tvRes = await fetch('https://aesthetic.computer/api/tv');
+        if (tvRes.ok) {
+          const tvData = await tvRes.json();
+          const tapesEl = document.getElementById('atTapesCount');
+          if (tapesEl && tvData.tapes) tapesEl.textContent = tvData.tapes.length;
+        }
+      } catch (e) {}
+
+      // For paintings/handles, show placeholder for now
+      const paintingsEl = document.getElementById('atPaintingsCount');
+      const handlesEl = document.getElementById('atHandlesCount');
+      if (paintingsEl) paintingsEl.textContent = '~1k';
+      if (handlesEl) handlesEl.textContent = '~100';
+    })();
+  </script>
+
+  <script>
+    // AT Protocol handle cycling animation
+    (async function initATHandleCycler() {
+      const prefixEl = document.getElementById('atHandlePrefix');
+      if (!prefixEl) return;
+
+      // Sample handles to show (fetched from PDS or fallback)
+      let handles = [];
+      
+      // Try to fetch real handles from the PDS
+      try {
+        const res = await fetch('https://at.aesthetic.computer/xrpc/com.atproto.sync.listRepos?limit=100');
+        if (res.ok) {
+          const data = await res.json();
+          console.log('[AT Handles] Raw data:', data);
+          // Extract handles from repo DIDs (we'll resolve them or use fallbacks)
+          handles = (data.repos || [])
+            .map(r => r.handle)
+            .filter(h => h && !h.startsWith('did:') && h.endsWith('.aesthetic.computer'))
+            .map(h => h.replace('.aesthetic.computer', ''))
+            .filter(h => h && h !== 'at' && h !== 'art.at')
+            .slice(0, 20);
+          console.log('[AT Handles] Filtered handles:', handles);
+        }
+      } catch (e) {
+        console.log('[AT Handles] Error fetching:', e);
+      }
+
+      // Fallback handles if API fails or returns nothing
+      if (!handles.length) {
+        handles = ['jeffrey', 'kai', 'luna', 'zen', 'pixel', 'nova'];
+        console.log('[AT Handles] Using fallback handles');
+      }
+
+      let currentIndex = 0;
+      const defaultHandle = 'art';
+      let showingArt = true;  // Toggle between user and art
+      const scrambleChars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+
+      function renderHandle(handle, isDefault = false) {
+        // Create colored spans for each character with staggered animation delay
+        const charClass = isDefault ? 'at-char-gray' : 'at-char';
+        return handle.split('').map((char, i) => {
+          const delay = (i * 0.3).toFixed(1);
+          return `<span class="${charClass}" style="animation-delay:-${delay}s">${char}</span>`;
+        }).join('');
+      }
+
+      function scrambleTo(targetHandle, isDefault) {
+        const charClass = isDefault ? 'at-char-gray' : 'at-char';
+        const maxLen = Math.max(prefixEl.textContent.length, targetHandle.length);
+        let iterations = 0;
+        const maxIterations = 6;
+        
+        const scrambleInterval = setInterval(() => {
+          iterations++;
+          let result = '';
+          
+          for (let i = 0; i < maxLen; i++) {
+            const targetChar = targetHandle[i] || '';
+            const progress = iterations / maxIterations;
+            const charSettled = i < targetHandle.length && (iterations > maxIterations - 2 + i * 0.3);
+            
+            if (charSettled || iterations >= maxIterations) {
+              // Show final character
+              if (i < targetHandle.length) {
+                const delay = (i * 0.3).toFixed(1);
+                result += `<span class="${charClass}" style="animation-delay:-${delay}s">${targetChar}</span>`;
+              }
+            } else {
+              // Show random scramble character
+              const randChar = scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
+              const delay = (i * 0.3).toFixed(1);
+              result += `<span class="${charClass}" style="animation-delay:-${delay}s">${randChar}</span>`;
+            }
+          }
+          
+          prefixEl.innerHTML = result;
+          
+          if (iterations >= maxIterations) {
+            clearInterval(scrambleInterval);
+          }
+        }, 30);
+      }
+
+      function cycleHandle() {
+        // Alternate: username -> art -> username -> art
+        if (handles.length === 0) {
+          // No handles, just scramble to art
+          scrambleTo(defaultHandle, true);
+        } else if (showingArt) {
+          // Scramble to next username (colorful)
+          scrambleTo(handles[currentIndex], false);
+          currentIndex = (currentIndex + 1) % handles.length;
+          showingArt = false;
+        } else {
+          // Scramble to art (gray)
+          scrambleTo(defaultHandle, true);
+          showingArt = true;
+        }
+      }
+
+      // Initial render - start with gray 'art'
+      prefixEl.innerHTML = renderHandle(defaultHandle, true);
+      prefixEl.classList.add('visible');
+      showingArt = true;
+      
+      // Show after a short delay
+      setTimeout(() => prefixEl.classList.add('visible'), 500);
+      
+      // Cycle every 2 seconds
+      setInterval(cycleHandle, 2000);
+    })();
+  </script>
+
+  <script>
+    // Fetch latest mug for pals section
+    (async function loadLatestMug() {
+      const mugImg = document.getElementById('palsMug');
+      if (!mugImg) return;
+      
+      try {
+        const res = await fetch('https://aesthetic.computer/api/mugs?limit=1');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.mugs && data.mugs.length > 0 && data.mugs[0].preview) {
+            mugImg.src = data.mugs[0].preview;
+            mugImg.style.display = 'block';
+          }
+        }
+      } catch (e) {
+        console.log('[Mugs] Could not load latest mug');
+      }
+    })();
+  </script>
+  
+  <script>
+    // Fetch latest mug for invest section
+    (async function loadInvestMug() {
+      const mugImage = document.getElementById('investMugImage');
+      const mugIcon = document.getElementById('investMugIcon');
+      const mugCaption = document.getElementById('investMugCaption');
+      const mugLink = document.getElementById('investMug');
+      if (!mugImage || !mugIcon) return;
+      
+      try {
+        const res = await fetch('https://aesthetic.computer/api/mugs?limit=1');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.mugs && data.mugs.length > 0) {
+            const mug = data.mugs[0];
+            if (mug.preview) {
+              mugImage.src = mug.preview;
+              mugImage.style.display = 'block';
+              mugIcon.style.display = 'none';
+            }
+            // Update caption with real data
+            if (mugCaption && mug.color && mug.code) {
+              const colorUpper = (mug.color || 'WHITE').toUpperCase();
+              mugCaption.innerHTML = `<span class="mug-color">${colorUpper}</span><span class="mug-of"> MUG of </span><span class="mug-code">${mug.code}</span>`;
+            }
+            // Update link to the specific mug
+            if (mugLink && mug.code && mug.color) {
+              mugLink.href = `https://aesthetic.computer/mug~${mug.code}~${mug.color}`;
+            }
+          }
+        }
+      } catch (e) {
+        console.log('[InvestMug] Could not load latest mug');
+      }
     })();
   </script>
 </body>

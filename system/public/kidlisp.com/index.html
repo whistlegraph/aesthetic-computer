@@ -1116,7 +1116,8 @@
       font-size: 16px; /* Smaller text */
       color: rgb(88, 78, 108); /* Muted purple text */
       margin-left: 0px; /* Reset margin */
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
       line-height: 32px; /* Match header height */
       white-space: nowrap; /* Prevent line breaking */
       overflow: hidden;
@@ -1124,14 +1125,28 @@
       max-width: 100%;
     }
     
+    #preview-title .platform-logo {
+      height: 16px;
+      margin-right: 6px;
+      vertical-align: middle;
+      filter: brightness(0.6);
+    }
+    
     @media (prefers-color-scheme: dark) {
       #preview-title {
         color: rgb(188, 168, 218); /* Lighter purple for dark mode */
+      }
+      #preview-title .platform-logo {
+        filter: brightness(1.2);
       }
     }
     
     [data-theme="dark"] #preview-title {
       color: rgb(188, 168, 218); /* Lighter purple for dark mode */
+    }
+    
+    [data-theme="dark"] #preview-title .platform-logo {
+      filter: brightness(1.2);
     }
     
     #preview-title .bounce-dot {
@@ -1681,6 +1696,35 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
+    }
+    
+    .example-thumb {
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      object-fit: cover;
+      background: var(--bg-tertiary);
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .example-thumb.loaded {
+      opacity: 1;
+    }
+    
+    .example-thumb-placeholder {
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      background: var(--bg-tertiary);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      opacity: 0.5;
     }
 
     @media (hover: hover) {
@@ -1694,8 +1738,60 @@
       color: var(--code-text);
       white-space: nowrap;
       overflow: hidden;
-      text-overflow: ellipsis;
       max-width: 70%;
+      position: relative;
+    }
+    
+    /* Ticker scrolling animation for Top Hits */
+    .example-code .ticker-wrapper {
+      display: inline-block;
+      animation: ticker-scroll 15s linear infinite;
+      animation-play-state: paused;
+    }
+    
+    .example-item:hover .example-code .ticker-wrapper {
+      animation-play-state: running;
+    }
+    
+    @keyframes ticker-scroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    
+    /* Timing token blink animation for Top Hits */
+    .example-code .timing-token {
+      animation: timing-blink 1s ease-in-out infinite;
+    }
+    
+    @keyframes timing-blink {
+      0%, 80%, 100% { opacity: 1; color: yellow; }
+      40% { opacity: 0.6; color: lime; }
+    }
+    
+    /* Text shadows for dark syntax colors in dark mode */
+    .example-code .dark-text-shadow {
+      text-shadow: 1px 1px 0px rgba(200, 200, 200, 0.7);
+    }
+    
+    /* Light mode: invert shadow for dark colors */
+    [data-theme="light"] .example-code .dark-text-shadow {
+      text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.9);
+    }
+    
+    /* Inverse glow effect for syntax highlighting */
+    .example-code .glow-text {
+      text-shadow: 0 0 3px currentColor, 0 0 6px rgba(255, 255, 255, 0.3);
+    }
+    
+    /* Light mode: subtler glow */
+    [data-theme="light"] .example-code .glow-text {
+      text-shadow: 0 0 2px currentColor;
+    }
+    
+    /* Timing token specific styling - make them stand out */
+    .example-code .timing-token {
+      font-weight: bold;
+      text-shadow: 0 0 4px currentColor, 0 0 8px rgba(255, 255, 0, 0.5);
     }
 
     .example-hits {
@@ -2546,6 +2642,21 @@
       white-space: pre-wrap;
       word-break: break-word;
     }
+    
+    /* Apply same effects to keeps code preview */
+    #keeps-code-text .timing-token {
+      animation: timing-blink 1s ease-in-out infinite;
+      font-weight: bold;
+      text-shadow: 0 0 4px currentColor;
+    }
+    
+    #keeps-code-text .dark-text-shadow {
+      text-shadow: 1px 1px 0px rgba(200, 200, 200, 0.7);
+    }
+    
+    #keeps-code-text .glow-text {
+      text-shadow: 0 0 3px currentColor;
+    }
 
     .keeps-mint-btn {
       padding: 14px 24px;
@@ -2852,12 +2963,12 @@
       flex-shrink: 0;
     }
     
-    /* Header login button - darker blue with white border */
+    /* Header login button - subtle dark blue with soft border */
     .header-login-btn {
       padding: 6px 14px;
-      background: rgba(30, 50, 120, 0.95); /* Darker blue */
-      color: white;
-      border: 1px solid white;
+      background: rgba(30, 45, 80, 0.6); /* Softer, more transparent */
+      color: rgba(255, 255, 255, 0.75); /* Slightly muted text */
+      border: 1px solid rgba(255, 255, 255, 0.3); /* Subtle border */
       border-radius: 0; /* Square like TextButton */
       font-size: 12px;
       font-weight: normal;
@@ -2866,15 +2977,17 @@
     }
 
     .header-login-btn:hover {
-      background: rgba(40, 60, 140, 0.95);
+      background: rgba(40, 55, 100, 0.75);
+      color: white;
+      border-color: rgba(255, 255, 255, 0.5);
     }
     
-    /* Header signup button - darker green with white border */
+    /* Header signup button - subtle dark green with soft border */
     .header-signup-btn {
       padding: 6px 14px;
-      background: rgba(30, 90, 50, 0.95); /* Darker green */
-      color: white;
-      border: 1px solid white;
+      background: rgba(30, 70, 45, 0.6); /* Softer, more transparent */
+      color: rgba(255, 255, 255, 0.75); /* Slightly muted text */
+      border: 1px solid rgba(255, 255, 255, 0.3); /* Subtle border */
       border-radius: 0; /* Square like TextButton */
       font-size: 12px;
       font-weight: normal;
@@ -2883,23 +2996,25 @@
     }
     
     .header-signup-btn:hover {
-      background: rgba(40, 110, 60, 0.95);
+      background: rgba(40, 90, 55, 0.75);
+      color: white;
+      border-color: rgba(255, 255, 255, 0.5);
     }
     
-    /* Dark mode auth buttons */
+    /* Dark mode auth buttons - keep subtle */
     [data-theme="dark"] .header-login-btn,
     :root.dark .header-login-btn {
-      background: rgba(20, 40, 100, 0.95);
+      background: rgba(20, 35, 70, 0.6);
     }
     
     [data-theme="dark"] .header-login-btn:hover,
     :root.dark .header-login-btn:hover {
-      background: rgba(30, 50, 120, 0.95);
+      background: rgba(30, 45, 90, 0.75);
     }
     
     [data-theme="dark"] .header-signup-btn,
     :root.dark .header-signup-btn {
-      background: rgba(20, 70, 40, 0.95);
+      background: rgba(20, 55, 35, 0.6);
     }
     
     [data-theme="dark"] .header-signup-btn:hover,
@@ -7105,21 +7220,23 @@
       let mugBtn = null;
       if (pieceCode) {
         mugBtn = document.createElement('button');
-        mugBtn.textContent = '☕';
-        mugBtn.title = 'Turn into a mug!';
+        mugBtn.innerHTML = '☕ mug <span style="color: #90EE90;">$18</span>';
+        mugBtn.title = 'Turn into a mug! Opens preview page.';
         mugBtn.style.cssText = `
           background: rgba(139, 90, 43, 0.8);
           border: none;
           border-radius: 4px;
           padding: 6px 10px;
           cursor: pointer;
-          font-size: 16px;
-          opacity: 0.7;
-          transition: opacity 0.2s, transform 0.1s;
+          font-size: 14px;
+          opacity: 0.85;
+          transition: opacity 0.2s, transform 0.1s, background 0.2s;
           align-self: flex-start;
+          font-family: monospace;
+          color: white;
         `;
-        mugBtn.addEventListener('mouseenter', () => { mugBtn.style.opacity = '1'; mugBtn.style.transform = 'scale(1.1)'; });
-        mugBtn.addEventListener('mouseleave', () => { mugBtn.style.opacity = '0.7'; mugBtn.style.transform = 'scale(1)'; });
+        mugBtn.addEventListener('mouseenter', () => { mugBtn.style.opacity = '1'; mugBtn.style.transform = 'scale(1.05)'; mugBtn.style.background = 'rgba(160, 100, 50, 0.95)'; });
+        mugBtn.addEventListener('mouseleave', () => { mugBtn.style.opacity = '0.85'; mugBtn.style.transform = 'scale(1)'; mugBtn.style.background = 'rgba(139, 90, 43, 0.8)'; });
         mugBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           openMugFromScreenshot(imageDataUrl, mugBtn, pieceCode);
@@ -7171,13 +7288,17 @@
     }
     
     // ☕ Open mug preview from screenshot
+    // Set directCheckout=true to skip mug.mjs preview and go straight to Stripe
+    const MUG_DIRECT_CHECKOUT = false;
+    
     async function openMugFromScreenshot(dataUrl, mugBtn, kidlispCode) {
       if (!dataUrl) return;
       
-      const originalText = mugBtn?.textContent;
+      const originalHTML = mugBtn?.innerHTML;
       if (mugBtn) {
         mugBtn.disabled = true;
-        mugBtn.textContent = '⏳';
+        mugBtn.innerHTML = '☕ uploading...';
+        mugBtn.style.opacity = '0.6';
       }
       
       try {
@@ -7238,22 +7359,44 @@
         
         // Open mug piece with the uploaded painting code
         // Include KidLisp $code as "via" parameter if present
-        let mugUrl = `${baseUrl}/mug~${code}~white`;
-        if (kidlispCode) {
-          mugUrl += `~via~${kidlispCode}`;
+        // (reuse isLocal and baseUrl from above)
+        
+        if (MUG_DIRECT_CHECKOUT) {
+          // Direct checkout: skip mug.mjs and go straight to Stripe
+          mugBtn.innerHTML = '☕ opening checkout...';
+          let checkoutUrl = `${baseUrl}/mug?code=${code}&color=white`;
+          if (kidlispCode) {
+            checkoutUrl += `&via=${kidlispCode}`;
+          }
+          const checkoutRes = await fetch(checkoutUrl);
+          const checkoutData = await checkoutRes.json();
+          if (checkoutData.checkoutUrl) {
+            window.open(checkoutData.checkoutUrl, '_blank');
+          } else {
+            throw new Error('No checkout URL returned');
+          }
+        } else {
+          // Preview flow: open mug.mjs piece for color selection
+          mugBtn.innerHTML = '☕ opening preview...';
+          let mugUrl = `${baseUrl}/mug~${code}~white`;
+          if (kidlispCode) {
+            mugUrl += `~via~${kidlispCode}`;
+          }
+          window.open(mugUrl, '_blank');
         }
-        window.open(mugUrl, '_blank');
         
         if (mugBtn) {
-          mugBtn.textContent = '☕';
+          mugBtn.innerHTML = '☕ mug <span style="color: #90EE90;">$18</span>';
+          mugBtn.style.opacity = '0.85';
           mugBtn.disabled = false;
         }
       } catch (e) {
         console.error('☕ Mug upload failed:', e);
         if (mugBtn) {
-          mugBtn.textContent = '❌';
+          mugBtn.innerHTML = '❌ failed';
+          mugBtn.style.opacity = '0.85';
           setTimeout(() => {
-            mugBtn.textContent = originalText || '☕';
+            mugBtn.innerHTML = originalHTML || '☕ mug <span style="color: #90EE90;">$18</span>';
             mugBtn.disabled = false;
           }, 2000);
         }
@@ -8490,12 +8633,16 @@
           window.history.pushState({}, 'KidLisp.com', '/kidlisp.com');
           document.title = 'KidLisp.com';
           localStorage.removeItem('kidlisp-current-code');
-          // Reset preview title to current platform name
+          // Reset preview title to current platform name (with logo for FF1)
           const previewTitle = document.getElementById('preview-title');
           if (previewTitle) {
             const platformOption = document.querySelector(`.platform-option[data-platform="${currentPlatform}"]`);
             const platformName = platformOption?.querySelector('.platform-opt-name')?.textContent || 'Aesthetic.Computer';
-            previewTitle.innerHTML = platformName.replace('.', '<span class="bounce-dot">.</span>');
+            if (currentPlatform === 'ff1') {
+              previewTitle.innerHTML = `<img src="/kidlisp.com/assets/feralfile-logo.png" alt="" class="platform-logo" style="height: 16px; margin-right: 6px; vertical-align: middle;"> ${platformName}`;
+            } else {
+              previewTitle.innerHTML = platformName.replace('.', '<span class="bounce-dot">.</span>');
+            }
           }
         }
       });
@@ -9147,11 +9294,15 @@
         document.title = 'KidLisp.com';
         // Clear localStorage code identifier
         localStorage.removeItem('kidlisp-current-code');
-        // Reset preview title to current platform name
+        // Reset preview title to current platform name (with logo for FF1)
         const previewTitle = document.getElementById('preview-title');
         const platformOption = document.querySelector(`.platform-option[data-platform="${currentPlatform}"]`);
         const platformName = platformOption?.querySelector('.platform-opt-name')?.textContent || 'Aesthetic.Computer';
-        previewTitle.innerHTML = platformName.replace('.', '<span class="bounce-dot">.</span>');
+        if (currentPlatform === 'ff1') {
+          previewTitle.innerHTML = `<img src="/kidlisp.com/assets/feralfile-logo.png" alt="" class="platform-logo" style="height: 16px; margin-right: 6px; vertical-align: middle;"> ${platformName}`;
+        } else {
+          previewTitle.innerHTML = platformName.replace('.', '<span class="bounce-dot">.</span>');
+        }
       });
     } else {
       log.ui.error('Stop button not found in DOM');
@@ -10286,6 +10437,14 @@
           const isExperimental = option.classList.contains('experimental');
           const name = option.querySelector('.platform-opt-name')?.textContent || 'Unknown';
           
+          // Helper to generate platform title HTML (with logo for FF1)
+          function getPlatformTitleHTML(platformId, platformName) {
+            if (platformId === 'ff1') {
+              return `<img src="/kidlisp.com/assets/feralfile-logo.png" alt="" class="platform-logo" style="height: 16px; margin-right: 6px; vertical-align: middle;"> ${platformName}`;
+            }
+            return platformName.replace('.', '<span class="bounce-dot">.</span>');
+          }
+          
           // Check if platform is available
           if (isComingSoon) {
             showToast(`${name} ${t('platformComingSoon')}`, 'info');
@@ -10297,7 +10456,7 @@
           
           // Update title with platform's font styling via data attribute
           if (previewTitle) {
-            previewTitle.innerHTML = name.replace('.', '<span class="bounce-dot">.</span>');
+            previewTitle.innerHTML = getPlatformTitleHTML(platform, name);
             previewTitle.dataset.platform = platform;
           }
           
@@ -10613,11 +10772,51 @@
         codeIdEl.textContent = keepsCurrentCodeId ? `$${keepsCurrentCodeId}` : '(unsaved)';
       }
       
-      // Update code preview
+      // Update code preview with syntax highlighting
       if (codeText) {
         if (code) {
           const preview = code.length > 200 ? code.slice(0, 200) + "..." : code;
-          codeText.textContent = preview;
+          
+          // Try to apply syntax highlighting
+          try {
+            const tokens = tokenize(preview);
+            kidlisp.initializeSyntaxHighlighting(preview);
+            const coloredString = kidlisp.buildColoredKidlispString();
+            
+            // Helper to check if token is a timing expression
+            const isTimingToken = (text) => /^\d*\.?\d+[sf](\.\.\.?)?$/.test(text.trim());
+            
+            // Helper to check if color is dark
+            const isDarkColor = (colorStr) => {
+              if (!colorStr) return false;
+              const darkColors = { black: 1, darkblue: 1, navy: 1, maroon: 1, purple: 1, indigo: 1 };
+              return darkColors[colorStr.toLowerCase()];
+            };
+            
+            // Convert KidLisp color codes to HTML spans
+            let highlightedPreview = coloredString.replace(/\\([^\\]+)\\([^\\]*)/g, (match, color, text) => {
+              if (!text) return '';
+              let cssColor = color;
+              let extraClass = '';
+              
+              if (color.match(/^\d+,\d+,\d+/)) {
+                cssColor = `rgb(${color})`;
+              }
+              
+              if (isTimingToken(text)) extraClass += ' timing-token';
+              if (isDarkColor(color)) extraClass += ' dark-text-shadow';
+              if (['yellow', 'lime', 'cyan', 'orange', 'pink', 'magenta'].includes(color.toLowerCase())) {
+                extraClass += ' glow-text';
+              }
+              
+              return `<span style="color: ${cssColor}; font-weight: bold;" class="${extraClass.trim()}">${text}</span>`;
+            });
+            
+            codeText.innerHTML = highlightedPreview;
+          } catch (e) {
+            // Fallback to plain text
+            codeText.textContent = preview;
+          }
         } else {
           codeText.textContent = "(empty - write some code first!)";
         }
@@ -10943,36 +11142,91 @@
           // Sort by hits (descending)
           const sortedItems = [...data.media.kidlisp].sort((a, b) => (b.hits || 0) - (a.hits || 0));
           
+          // Helper to check if text color is dark (needs light shadow)
+          function isDarkColor(colorStr) {
+            if (!colorStr) return false;
+            let rgb;
+            if (colorStr.startsWith('rgb(')) {
+              const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+              if (match) rgb = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
+            } else if (colorStr.includes(',')) {
+              rgb = colorStr.split(',').map(n => parseInt(n.trim()));
+            } else {
+              const darkColors = { black: [0,0,0], darkblue: [0,0,139], navy: [0,0,128], maroon: [128,0,0], purple: [128,0,128], indigo: [75,0,130] };
+              rgb = darkColors[colorStr.toLowerCase()];
+            }
+            if (!rgb || rgb.length < 3) return false;
+            const luminance = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
+            return luminance < 80;
+          }
+          
+          // Helper to check if token is a timing expression
+          function isTimingToken(text) {
+            return /^\d*\.?\d+[sf](\.\.\.?)?$/.test(text.trim());
+          }
+          
           sortedItems.forEach(item => {
             const el = document.createElement('div');
             el.className = 'example-item';
             
             // Apply syntax highlighting to the code
             let highlightedCode = item.source || item.code;
+            const originalCode = highlightedCode;
             try {
               const tokens = tokenize(highlightedCode);
               kidlisp.initializeSyntaxHighlighting(highlightedCode);
               const coloredString = kidlisp.buildColoredKidlispString();
               
-              // Convert KidLisp color codes to HTML spans
+              // Convert KidLisp color codes to HTML spans with enhanced effects
               highlightedCode = coloredString.replace(/\\([^\\]+)\\([^\\]*)/g, (match, color, text) => {
+                if (!text) return '';
+                let cssColor = color;
+                let extraClass = '';
+                
                 // Handle RGB colors
                 if (color.match(/^\d+,\d+,\d+/)) {
-                  return `<span style="color: rgb(${color})">${text || ''}</span>`;
+                  cssColor = `rgb(${color})`;
                 }
-                // Named colors
-                return `<span style="color: ${color}">${text || ''}</span>`;
+                
+                // Add timing blink animation for timing tokens
+                if (isTimingToken(text)) {
+                  extraClass += ' timing-token';
+                }
+                
+                // Add shadow for dark colors in dark mode
+                if (isDarkColor(cssColor)) {
+                  extraClass += ' dark-text-shadow';
+                }
+                
+                // Add subtle glow to bright colors
+                if (['yellow', 'lime', 'cyan', 'orange', 'pink', 'magenta'].includes(color.toLowerCase())) {
+                  extraClass += ' glow-text';
+                }
+                
+                return `<span style="color: ${cssColor}; font-weight: bold;"class="${extraClass.trim()}">${text}</span>`;
               });
             } catch (e) {
               // If highlighting fails, use plain text
             }
             
+            // Create ticker wrapper for long code (scrolls on hover)
+            const needsTicker = originalCode.length > 40;
+            const tickerHtml = needsTicker 
+              ? `<span class="ticker-wrapper">${highlightedCode}&nbsp;&nbsp;&nbsp;${highlightedCode}</span>` 
+              : highlightedCode;
+            
             const handle = item.owner?.handle || '';
             const handleHtml = handle ? `<div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${handle}</div>` : '';
             
+            // Create thumbnail element
+            const thumbHtml = item.assetUrl 
+              ? `<img class="example-thumb" src="${item.assetUrl}" alt="" onload="this.classList.add('loaded')" onerror="this.style.display='none'" />`
+              : `<div class="example-thumb-placeholder">◆</div>`;
+            
             el.innerHTML = `
+              ${thumbHtml}
               <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
-                <div class="example-code">${highlightedCode}</div>
+                <div class="example-code">${tickerHtml}</div>
                 <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">$${item.code}</div>
                 ${handleHtml}
               </div>
