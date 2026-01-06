@@ -74,8 +74,32 @@ export async function handler(event, context) {
     "Content-Type": "application/json",
   };
 
-  // 🅰️ GET: Return available colors
+  // 🅰️ GET: Return available colors OR product by code
   if (event.httpMethod === "GET") {
+    // If ?code=PRODUCTCODE, return that specific mug's metadata
+    // Supports both +CODE (with prefix) and CODE (without)
+    let productCode = event.queryStringParameters?.code;
+    if (productCode) {
+      // Strip + prefix if present (print codes use + like # for paintings)
+      productCode = productCode.replace(/^\+/, "");
+      
+      const { getProduct } = await import("../../backend/products.mjs");
+      const product = await getProduct(productCode);
+      if (product) {
+        return respond(200, {
+          code: "+" + product.code, // Include + prefix in response
+          rawCode: product.code,    // Also provide raw code for internal use
+          sourceCode: product.source?.code,
+          via: product.source?.via,
+          color: product.variant,
+          preview: product.preview,
+          createdAt: product.createdAt,
+        });
+      } else {
+        return respond(404, { error: "Mug not found" });
+      }
+    }
+    
     return respond(200, { 
       colors: ["white", ...Object.keys(MUG_VARIANTS)],
       product: "Ceramic Mug 11oz",
@@ -93,12 +117,18 @@ export async function handler(event, context) {
       const pixelsParam = event.queryStringParameters.pixels;
       const sourceCode = pixelsParam.replace(/\.png$/i, "");
       
+      // Get KidLisp source code if provided (e.g., "cow" for $cow from kidlisp.com)
+      const viaCode = event.queryStringParameters.via;
+      
       // 📦 Check for cached product first
       let productRecord = null;
       let cachedWebpUrl = null;
       try {
+        const source = { type: "painting", code: sourceCode };
+        if (viaCode) source.via = viaCode; // Track KidLisp source
+        
         const { product: existingProduct, isNew } = await findOrCreateProduct({
-          source: { type: "painting", code: sourceCode },
+          source,
           product: "mug",
           variant: color,
         });
@@ -142,7 +172,23 @@ export async function handler(event, context) {
         // Use /api/pixel to resize painting for mug wrap dimensions
         // Use contain-clear to preserve transparency (mug color shows through)
         // Printful needs a publicly accessible URL
-        imageUrl = `${printfulDomain}/api/pixel/${MUG_WIDTH}x${MUG_HEIGHT}:contain-clear/${event.queryStringParameters.pixels}`;
+        
+        // 🔲 Build QR code + KidLisp label params for print file
+        // These get baked into the flat image that's printed on the physical mug
+        let printParams = [];
+        if (productRecord?.code) {
+          // QR code links to mug~+productCode
+          const qrSlug = `mug~+${productRecord.code}`;
+          printParams.push(`qr=${encodeURIComponent(qrSlug)}`);
+          printParams.push(`qrpos=bottom-right`);
+        }
+        if (viaCode) {
+          // KidLisp.com label rotated on the side
+          printParams.push(`via=${encodeURIComponent(viaCode)}`);
+        }
+        const queryString = printParams.length > 0 ? `?${printParams.join("&")}` : "";
+        
+        imageUrl = `${printfulDomain}/api/pixel/${MUG_WIDTH}x${MUG_HEIGHT}:contain-clear/${event.queryStringParameters.pixels}${queryString}`;
       } else {
         return respond(500, {
           message: "No external image URLs allowed.",
@@ -265,7 +311,14 @@ export async function handler(event, context) {
         
         if (!animatedWebpUrl && allMockupUrls.length > 1) {
           const encodedUrls = allMockupUrls.slice(0, 4).map(u => encodeURIComponent(u)).join(",");
-          animatedWebpUrl = `${webpDomain}/api/mockup-webp?urls=${encodedUrls}&delay=800&size=${size}`;
+          
+          // 📽️ Preview animation - no QR code needed here since QR is baked into the print file
+          // The KidLisp label is still useful for attribution in the preview
+          let webpParams = `urls=${encodedUrls}&delay=800&size=${size}`;
+          if (viaCode) {
+            webpParams += `&via=${encodeURIComponent(viaCode)}`;
+          }
+          animatedWebpUrl = `${webpDomain}/api/mockup-webp?${webpParams}`;
           
           // 📦 Cache the WebP preview to S3 (async, don't wait)
           if (productRecord && event.queryStringParameters.cache !== "false") {
@@ -298,7 +351,8 @@ export async function handler(event, context) {
           imageUrl,
           color,
           variant,
-          productCode: productRecord?.code,
+          productCode: productRecord?.code ? "+" + productRecord.code : null,
+          rawProductCode: productRecord?.code,
           cached: !!cachedWebpUrl,
         });
       }
@@ -318,7 +372,7 @@ export async function handler(event, context) {
       // Hashed painting codes (user paintings) still get # prefix
       // Color is uppercase, but code stays original case (case-sensitive!)
       const colorUpper = color.toUpperCase();
-      const viaCode = event.queryStringParameters.via;
+      // viaCode already declared above
       // Anonymous codes are typically 8+ chars (e.g., CPUQnQi2), user painting codes are shorter (e.g., oyn)
       const isAnonymousCode = sourceCode.length >= 8;
       const codePrefix = isAnonymousCode ? '' : '#';
@@ -338,7 +392,14 @@ export async function handler(event, context) {
         // Build animated WebP URL from mockup views (always use production domain)
         const webpDomain = "https://aesthetic.computer";
         const encodedUrls = allMockupUrls.slice(0, 4).map(u => encodeURIComponent(u)).join(",");
-        const animatedWebpUrl = `${webpDomain}/api/mockup-webp?urls=${encodedUrls}&delay=800&size=600`;
+        
+        // 📽️ Stripe preview image - no QR overlay needed since QR is baked into print file
+        // KidLisp label is still useful for attribution
+        let webpParams = `urls=${encodedUrls}&delay=800&size=600`;
+        if (viaCode) {
+          webpParams += `&via=${encodeURIComponent(viaCode)}`;
+        }
+        const animatedWebpUrl = `${webpDomain}/api/mockup-webp?${webpParams}`;
         productImages = [animatedWebpUrl];
         console.log("☕ Animated WebP URL:", animatedWebpUrl);
       }
