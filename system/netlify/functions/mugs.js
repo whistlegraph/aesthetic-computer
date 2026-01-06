@@ -1,5 +1,6 @@
 // mugs.js, 24.12.21
 // Get list of recent mugs for the mugs.mjs piece
+// Print codes use + prefix (like # for paintings, $ for kidlisp, ! for tapes)
 
 import { respond } from "../../backend/http.mjs";
 import { getRecentProducts } from "../../backend/products.mjs";
@@ -11,10 +12,12 @@ export async function handler(event, context) {
       const limit = parseInt(event.queryStringParameters?.limit || "20");
       const mugs = await getRecentProducts("mug", Math.min(limit, 50));
       
-      // Transform for frontend
+      // Transform for frontend - include + prefix on product codes
       const items = mugs.map(m => ({
-        code: m.code,
+        code: m.code,              // Raw code for internal use
+        printCode: "+" + m.code,   // Prefixed code for display/URLs
         sourceCode: m.source?.code,
+        via: m.source?.via, // KidLisp source code (e.g., "cow" for $cow)
         color: m.variant,
         preview: m.preview,
         createdAt: m.createdAt,

@@ -266,6 +266,7 @@
         "npm:playwright-core@^1.56.1",
         "npm:prettier@^3.6.2",
         "npm:puppeteer-core@^24.30.0",
+        "npm:qrcode@^1.5.4",
         "npm:redis@^5.9.0",
         "npm:sharp@~0.34.5",
         "npm:stripe@^19.3.1",
