@@ -2365,6 +2365,99 @@
       color: #6eeee6;
     }
 
+    /* Hacker Section - ghost-style minimal cards */
+    .hacker-section {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: center;
+      gap: 1em;
+      padding: 1em 0;
+      margin-top: 0.5em;
+    }
+
+    .hacker-card {
+      flex: 0 1 auto;
+      max-width: 280px;
+      background: transparent;
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      padding: 1em 1.2em;
+      font-family: var(--mono);
+      font-size: 0.8em;
+      color: rgba(255, 255, 255, 0.5);
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .hacker-card:hover {
+      border-color: rgba(205, 92, 155, 0.4);
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .hacker-card a {
+      color: rgba(205, 92, 155, 0.7);
+      text-decoration: none;
+    }
+
+    .hacker-card a:hover {
+      color: rgb(205, 92, 155);
+      text-decoration: underline;
+    }
+
+    .hacker-card-title {
+      font-size: 0.9em;
+      color: rgba(255, 255, 255, 0.4);
+      margin-bottom: 0.5em;
+      letter-spacing: 0.05em;
+    }
+
+    .hacker-card-title code {
+      background: rgba(205, 92, 155, 0.15);
+      color: rgba(205, 92, 155, 0.8);
+      padding: 0.1em 0.4em;
+      border-radius: 2px;
+      font-size: 1.1em;
+    }
+
+    .hacker-card-body {
+      line-height: 1.5;
+    }
+
+    .hacker-card-body code {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0.1em 0.3em;
+      border-radius: 2px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .at-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9em;
+    }
+
+    .at-table td {
+      padding: 0.25em 0;
+      vertical-align: top;
+    }
+
+    .at-table td:first-child {
+      color: rgba(255, 255, 255, 0.4);
+      width: 5.5em;
+      padding-right: 0.5em;
+    }
+
+    .at-table td:last-child {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .at-table a {
+      color: var(--pink);
+    }
+
+    .at-table code {
+      font-size: 0.95em;
+    }
+
     /* Apps Flip Card - Desktop/Mobile swivel */
     .apps-flip-container {
       aspect-ratio: 1;
@@ -3355,13 +3448,13 @@
       flex-direction: column;
       position: relative;
       aspect-ratio: 1;
-      /* VHS chromatic aberration shadow - super vibrant */
+      /* VHS chromatic aberration shadow - subtle */
       box-shadow: 
-        -4px 0 0 #ff0080,
-        4px 0 0 #00e5ff,
-        -6px 3px 0 rgba(255, 0, 128, 0.6),
-        6px 3px 0 rgba(0, 229, 255, 0.6),
-        0 8px 30px rgba(0, 0, 0, 0.7);
+        -2px 0 0 #ff0080,
+        2px 0 0 #00e5ff,
+        -3px 2px 0 rgba(255, 0, 128, 0.4),
+        3px 2px 0 rgba(0, 229, 255, 0.4),
+        0 6px 20px rgba(0, 0, 0, 0.6);
       /* Safari mobile fix for border-radius */
       -webkit-mask-image: -webkit-radial-gradient(white, black);
       isolation: isolate;
@@ -3743,19 +3836,21 @@
     .tv-section-wrap {
       position: relative;
       isolation: isolate;
+      padding-left: 8px; /* Allow chromatic effect to bleed left */
+      margin-left: -8px;
     }
 
     /* Colorful video blur backdrop behind the panel - like a glowing drop shadow */
     .tv-backdrop-glow {
       position: absolute;
       top: 10px;
-      left: 0;
+      left: 8px;
       right: 0;
       bottom: -10px;
       border-radius: 12px;
       overflow: hidden;
-      filter: blur(25px) saturate(1.6) brightness(0.7);
-      opacity: 0.85;
+      filter: blur(20px) saturate(1.3) brightness(0.6);
+      opacity: 0.6;
       z-index: -1;
       pointer-events: none;
     }
@@ -5472,47 +5567,6 @@
       </div>
       </div>
 
-      <!-- AT Proto Section (hidden for now) -->
-      <div class="at-section" style="display: none;">
-        <a href="https://at.aesthetic.computer" class="at-header" target="_blank">
-          <strong>at://aesthetic.computer</strong>
-        </a>
-        <div class="at-record-display" id="atRecordDisplay">
-          <div class="at-record active" id="atRecord0">
-            <div class="at-record-center" id="atCenter0"></div>
-            <div class="at-record-meta">
-              <span class="at-record-handle" id="atHandle0">loading...</span>
-              <span class="at-record-type" id="atType0"></span>
-            </div>
-            <div class="at-record-bottom">
-              <span class="at-record-uri" id="atUri0"></span>
-              <span class="at-record-collection" id="atCollection0"></span>
-            </div>
-          </div>
-          <div class="at-record" id="atRecord1">
-            <div class="at-record-center" id="atCenter1"></div>
-            <div class="at-record-meta">
-              <span class="at-record-handle" id="atHandle1"></span>
-              <span class="at-record-type" id="atType1"></span>
-            </div>
-            <div class="at-record-bottom">
-              <span class="at-record-uri" id="atUri1"></span>
-              <span class="at-record-collection" id="atCollection1"></span>
-            </div>
-          </div>
-        </div>
-        <div class="at-progress">
-          <div class="at-progress-bar" id="atProgressBar"></div>
-        </div>
-        <div class="module-caption">
-          <span data-lang="en">Self-hosted PDS with custom lexicons.</span>
-          <span data-lang="da">Selvhostet PDS med tilpassede leksikoner.</span>
-          <span data-lang="de">Selbst gehostete PDS mit eigenen Lexicons.</span>
-          <span data-lang="es">PDS autoalojado con lexicons personalizados.</span>
-          <span data-lang="zh">自托管 PDS 和自定义词典。</span>
-        </div>
-      </div>
-
       <!-- Apps Flip: Desktop / Mobile -->
       <div class="apps-flip-container" id="appsFlipContainer">
         <div class="apps-flip-card" id="appsFlipCard">
@@ -5714,6 +5768,22 @@
         <span data-lang="es">↑ Volver arriba</span>
         <span data-lang="zh">↑ 返回顶部</span>
       </a>
+
+      <!-- AT Protocol Federation Info -->
+      <div class="hacker-section">
+        <div class="hacker-card">
+          <div class="hacker-card-title">aesthetic.computer is federated on the <code>AT</code> Protocol</div>
+          <div class="hacker-card-body">
+            <table class="at-table">
+              <tr><td>PDS</td><td><a href="https://at.aesthetic.computer" target="_blank">at.aesthetic.computer</a></td></tr>
+              <tr><td>Lexicons</td><td><code>computer.aesthetic.*</code></td></tr>
+              <tr><td>Tapes</td><td><code>computer.aesthetic.tape</code></td></tr>
+              <tr><td>Paintings</td><td><code>computer.aesthetic.painting</code></td></tr>
+              <tr><td>Handles</td><td><code>computer.aesthetic.handle</code></td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 
