@@ -1750,15 +1750,16 @@
       position: relative;
     }
     
-    /* Ticker scrolling animation for Top Hits */
+    /* Ticker scrolling animation for Top Hits - auto-scrolls */
     .example-code .ticker-wrapper {
       display: inline-block;
       white-space: nowrap;
       padding-right: 2em;
+      animation: ticker-scroll 20s linear infinite;
     }
     
     .example-item:hover .example-code .ticker-wrapper {
-      animation: ticker-scroll 12s linear infinite;
+      animation-duration: 8s; /* Faster on hover */
     }
     
     @keyframes ticker-scroll {
@@ -1769,7 +1770,6 @@
     /* Timing token blink animation for Top Hits */
     .example-code .timing-token {
       animation: timing-blink 1s ease-in-out infinite;
-      text-shadow: 0 0 4px rgba(255, 255, 255, 0.8), 0 0 8px currentColor;
     }
     
     @keyframes timing-blink {
@@ -1777,42 +1777,33 @@
       40% { opacity: 0.7; color: lime; }
     }
     
-    /* Text shadows for dark syntax colors - must be visible on dark bg */
+    /* Text shadows for dark syntax colors - subtle outline */
     .example-code .dark-text-shadow {
       text-shadow: 
-        0 0 3px rgba(255, 255, 255, 1),
-        0 0 6px rgba(255, 255, 255, 0.9),
-        1px 1px 0px rgba(255, 255, 255, 0.8),
-        -1px -1px 0px rgba(255, 255, 255, 0.8),
-        1px -1px 0px rgba(255, 255, 255, 0.6),
-        -1px 1px 0px rgba(255, 255, 255, 0.6);
+        0 0 2px rgba(255, 255, 255, 0.6),
+        1px 1px 0px rgba(255, 255, 255, 0.4);
     }
     
-    /* Light mode: subtler shadow for dark colors */
+    /* Light mode: minimal shadow */
     [data-theme="light"] .example-code .dark-text-shadow {
-      text-shadow: 
-        0 0 2px rgba(255, 255, 255, 1),
-        1px 1px 0px rgba(255, 255, 255, 0.9);
+      text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.5);
     }
     
-    /* Inverse glow effect for syntax highlighting */
+    /* Subtle glow effect for bright syntax colors */
     .example-code .glow-text {
-      text-shadow: 0 0 3px currentColor, 0 0 6px rgba(255, 255, 255, 0.3);
-    }
-    
-    /* Light mode: subtler glow */
-    [data-theme="light"] .example-code .glow-text {
       text-shadow: 0 0 2px currentColor;
     }
     
-    /* Timing token specific styling - always visible with white glow */
+    /* Light mode: no glow needed */
+    [data-theme="light"] .example-code .glow-text {
+      text-shadow: none;
+    }
+    
+    /* Timing token specific styling - yellow with subtle glow */
     .example-code .timing-token {
       font-weight: bold;
       color: #ffff00 !important;
-      text-shadow: 
-        0 0 2px rgba(255, 255, 255, 1),
-        0 0 4px rgba(255, 255, 255, 0.8),
-        0 0 8px rgba(255, 255, 0, 0.6);
+      text-shadow: 0 0 3px rgba(255, 255, 0, 0.5);
     }
 
     .example-hits {
