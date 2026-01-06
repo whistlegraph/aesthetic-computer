@@ -9393,15 +9393,28 @@
         const subsStatsEl = document.getElementById('giveStatsSubs');
         
         if (givesStatsEl && data.monthlyCount > 0) {
-          const giveLabels = { en: 'gives this month', da: 'gaver denne måned', de: 'Gaben diesen Monat', es: 'donaciones este mes', zh: '本月捐赠' };
+          // Get current month name
+          const monthNames = {
+            en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+            da: ['januar', 'februar', 'marts', 'april', 'maj', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'december'],
+            de: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
+            es: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
+            zh: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'],
+          };
+          const month = new Date().getMonth();
+          const monthName = (monthNames[currentLang] || monthNames.en)[month];
+          
+          const giveLabels = { en: `gives this ${monthName}`, da: `gaver i ${monthName}`, de: `Gaben im ${monthName}`, es: `donaciones en ${monthName}`, zh: `${monthName}捐赠` };
           const earnedLabels = { en: 'earned', da: 'tjent', de: 'verdient', es: 'ganado', zh: '收入' };
+          const soFarLabels = { en: 'so far', da: 'indtil nu', de: 'bisher', es: 'hasta ahora', zh: '至今' };
           const valueEl = givesStatsEl.querySelector('.ticker-stat-value');
           const labelEl = givesStatsEl.querySelector('.ticker-stat-label');
           const amountEl = givesStatsEl.querySelector('.ticker-stat-amount');
           if (valueEl) valueEl.textContent = data.monthlyCount;
           if (labelEl) labelEl.textContent = giveLabels[currentLang] || giveLabels.en;
           if (amountEl && data.monthlyTotalUSD > 0) {
-            amountEl.textContent = `${earnedLabels[currentLang] || earnedLabels.en} $${data.monthlyTotalUSD}`;
+            const soFar = soFarLabels[currentLang] || soFarLabels.en;
+            amountEl.textContent = `${earnedLabels[currentLang] || earnedLabels.en} $${data.monthlyTotalUSD} ${soFar}`;
           }
           givesStatsEl.classList.add('visible');
         }
