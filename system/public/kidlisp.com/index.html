@@ -10130,8 +10130,14 @@
       log.auth.debug("Loading Auth0 SDK from:", src);
       
       // Completely remove define to force UMD to use global export
+      // Use try-catch because window.define may be non-configurable in some environments
       const savedDefine = window.define;
-      delete window.define;
+      try {
+        delete window.define;
+      } catch (e) {
+        // If delete fails, try setting to undefined instead
+        try { window.define = undefined; } catch (e2) { /* ignore */ }
+      }
       
       try {
         await new Promise((resolve, reject) => {
