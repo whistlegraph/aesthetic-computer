@@ -81,7 +81,12 @@ async function fetchMugs() {
 }
 
 async function preloadPreview(mug) {
-  if (!mug.preview || previewCache[mug.code]) return;
+  if (previewCache[mug.code]) return;
+  
+  if (!mug.preview) {
+    console.warn("Mug has no preview URL:", mug.code, mug);
+    return;
+  }
   
   try {
     const result = await preloadAnimatedWebp(mug.preview);
@@ -93,7 +98,7 @@ async function preloadPreview(mug) {
       lastFrameTime: 0,
     };
   } catch (e) {
-    console.warn("Failed to preload preview:", mug.code, e);
+    console.warn("Failed to preload preview:", mug.code, mug.preview, e);
   }
 }
 
@@ -158,8 +163,9 @@ function paint({ wipe, ink, box, paste, screen, line }) {
       const imageBottomY = y + h;
       const titleY = imageBottomY + 6;
       
-      // Use via as display code for kidlisp mugs, fallback to sourceCode/code
-      const displayCode = selectedMug.via || selectedMug.sourceCode || selectedMug.code;
+      // sourceCode is the painting hash (e.g., "sb9"), via is the kidlisp code (e.g., "bop")
+      // Show: "white mug of #sb9 in $bop" for kidlisp mugs, "white mug of #abc" for direct painting mugs
+      const displayCode = selectedMug.sourceCode || selectedMug.code;
       const colorName = (selectedMug.color || "white").toLowerCase();
       const viaPart = selectedMug.via ? ` in $${selectedMug.via}` : "";
       
@@ -240,8 +246,8 @@ function paint({ wipe, ink, box, paste, screen, line }) {
     ink(colorRgb).box(12, itemY + 10, 18, 18, "fill");
     ink(60, 60, 70).box(12, itemY + 10, 18, 18, "outline");
     
-    // Use via as display code for kidlisp mugs, fallback to sourceCode/code
-    const displayCode = mug.via || mug.sourceCode || mug.code;
+    // sourceCode is the painting hash (e.g., "sb9"), via is the kidlisp code (e.g., "bop")
+    const displayCode = mug.sourceCode || mug.code;
     const colorText = (mug.color || "white").toLowerCase();
     
     // Row 1: "color mug of CODE in $via"
