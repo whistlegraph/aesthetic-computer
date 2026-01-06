@@ -2385,8 +2385,8 @@
     /* Mug easter egg in invest section */
     .invest-mug {
       position: absolute;
-      bottom: 50px;
-      right: 12px;
+      bottom: 20px;
+      right: 30px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -2396,7 +2396,8 @@
       transition: transform 0.3s;
     }
     .invest-mug:hover {
-      transform: scale(1.08);
+      transform: scale(1.02);
+      text-decoration: none !important;
     }
     .invest-mug-icon {
       font-size: 2.5em;
@@ -2426,10 +2427,21 @@
       color: rgba(200, 200, 200, 0.9);
     }
     .invest-mug-caption .mug-code {
-      color: rgba(150, 225, 150, 1);
+      color: rgba(150, 200, 255, 1);
     }
-    .invest-mug:hover .mug-code {
-      color: rgba(255, 220, 150, 1);
+    .invest-mug-caption .mug-via {
+      color: rgba(255, 200, 100, 1);
+    }
+
+    /* Smaller mug on small screens */
+    @media (max-width: 480px) {
+      .invest-mug-image {
+        width: 130px;
+        height: 130px;
+      }
+      .invest-mug-caption {
+        font-size: 0.75em;
+      }
     }
 
     /* Hacker Section - ghost-style minimal cards */
@@ -5952,7 +5964,7 @@
         <a href="https://aesthetic.computer/mugs" class="invest-mug" id="investMug" title="Buy a Mug">
           <img class="invest-mug-image" id="investMugImage" alt="Mug preview" />
           <span class="invest-mug-icon" id="investMugIcon"></span>
-          <span class="invest-mug-caption" id="investMugCaption"><span class="mug-color">white</span><span class="mug-of"> mug in </span><span class="mug-code">$give</span></span>
+          <span class="invest-mug-caption" id="investMugCaption"><span class="mug-color">white</span><span class="mug-of"> mug of </span><span class="mug-code">CODE</span><span class="mug-via"> in $give</span></span>
         </a>
       </div>
 
@@ -12599,14 +12611,22 @@
             mugImage.src = mug.preview;
             mugImage.style.display = 'block';
             mugIcon.style.display = 'none';
-            console.log('[InvestMug] Loaded mug:', mug.code, mug.via ? `via $${mug.via}` : '');
+            console.log('[InvestMug] Full mug data:', mug);
             
             // Update caption with real data
-            // Format: "white mug in $kidlispcode" if from KidLisp, else "white mug in $sourceCode"
-            if (mugCaption && mug.color) {
+            // Format: "white mug of CODE in $viaCode" matching mug.mjs
+            // For kidlisp mugs: via IS the kidlisp code (e.g., "roz")
+            // sourceCode is the painting hash, which we don't want to show
+            if (mugCaption) {
               const colorLower = (mug.color || 'white').toLowerCase();
-              const viaCode = mug.via || mug.sourceCode || mug.code;
-              mugCaption.innerHTML = `<span class="mug-color">${colorLower}</span><span class="mug-of"> mug in </span><span class="mug-code">$${viaCode}</span>`;
+              // Use via as the display code for kidlisp mugs, fall back to sourceCode/code
+              const displayCode = mug.via || mug.sourceCode || mug.code;
+              const viaCode = mug.via;
+              let captionHtml = `<span class="mug-color">${colorLower}</span><span class="mug-of"> mug of </span><span class="mug-code">${displayCode}</span>`;
+              if (viaCode) {
+                captionHtml += `<span class="mug-via"> in $${viaCode}</span>`;
+              }
+              mugCaption.innerHTML = captionHtml;
             }
           }
         }
