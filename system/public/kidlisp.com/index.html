@@ -605,6 +605,66 @@
       z-index: 1; /* Base z-index */
     }
     
+    /* Chunking in loading state - blurry, grayscale, non-interactive */
+    #kidlisp-editor.chunking-in {
+      pointer-events: none;
+    }
+    
+    #kidlisp-editor.chunking-in .monaco-editor {
+      filter: blur(2px) grayscale(0.7);
+      opacity: 0.5;
+      transition: filter 0.3s ease, opacity 0.3s ease;
+    }
+    
+    /* Chunking overlay with scanline effect */
+    .chunking-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 999999;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 255, 100, 0.03) 2px,
+        rgba(0, 255, 100, 0.03) 4px
+      );
+      animation: chunk-scan 0.8s linear infinite;
+    }
+    
+    .chunking-overlay::before {
+      content: 'CHUNKING IN...';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: monospace;
+      font-size: 14px;
+      font-weight: bold;
+      color: rgba(0, 255, 100, 0.8);
+      text-shadow: 0 0 10px rgba(0, 255, 100, 0.5);
+      letter-spacing: 2px;
+      animation: chunk-text-blink 0.5s ease-in-out infinite alternate;
+    }
+    
+    @keyframes chunk-scan {
+      0% { background-position: 0 0; }
+      100% { background-position: 0 100px; }
+    }
+    
+    @keyframes chunk-text-blink {
+      0% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+    
+    /* Hide chunking when ready */
+    #kidlisp-editor:not(.chunking-in) .chunking-overlay {
+      display: none;
+    }
+    
     /* Live running state - green outline matching play button (#90EE90) */
     /* Applied to editor-panel to show across all viz views */
     .editor-panel.live-running::before,
@@ -4490,7 +4550,8 @@
         </div>
         <!-- Text View (Monaco Editor) -->
         <div class="viz-container active" id="viz-text">
-          <div id="kidlisp-editor">
+          <div id="kidlisp-editor" class="chunking-in">
+            <div class="chunking-overlay"></div>
           </div>
         </div>
         <!-- Pills View (3D Matter) - hidden for now -->
@@ -8010,11 +8071,22 @@
         inlayHints: { enabled: 'off' },
         links: false,
         contextmenu: false,
+        // Disable accessibility features (removes keyboard icon in top-right)
+        accessibilitySupport: 'off',
+        ariaLabel: 'KidLisp Code Editor',
       });
       
       // Log editor initialization
       logEditorInit('Monaco', { theme: initialTheme, language: 'kidlisp' });
       logBoot('editor', 'Monaco ready');
+      
+      // Remove chunking-in state after a brief delay for syntax to initialize
+      setTimeout(() => {
+        const editorEl = document.getElementById('kidlisp-editor');
+        if (editorEl) {
+          editorEl.classList.remove('chunking-in');
+        }
+      }, 800);
       
       // Initialize auto-height for single column mode
       setTimeout(() => {
