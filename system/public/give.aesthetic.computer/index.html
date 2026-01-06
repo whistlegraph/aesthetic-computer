@@ -991,11 +991,16 @@
     }
 
     .ticker-stat-amount {
-      display: block;
-      font-size: 0.85em;
+      display: inline;
+      font-size: 1em;
       color: var(--green);
-      margin-top: 2px;
+      margin-left: 0.5em;
       font-weight: bold;
+    }
+
+    .ticker-stat-amount .so-far {
+      color: var(--dim);
+      font-weight: normal;
     }
 
     .gift-logo-wrap {
@@ -9414,7 +9419,7 @@
           if (labelEl) labelEl.textContent = giveLabels[currentLang] || giveLabels.en;
           if (amountEl && data.monthlyTotalUSD > 0) {
             const soFar = soFarLabels[currentLang] || soFarLabels.en;
-            amountEl.textContent = `${earnedLabels[currentLang] || earnedLabels.en} $${data.monthlyTotalUSD} ${soFar}`;
+            amountEl.innerHTML = `· $${data.monthlyTotalUSD} <span class="so-far">${soFar}</span>`;
           }
           givesStatsEl.classList.add('visible');
         }
