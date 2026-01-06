@@ -306,7 +306,7 @@ async function fun(event, context) {
               '.': '#95E1D3', // Green dot
               'c': '#AA96DA', 'o': '#AA96DA', 'm': '#AA96DA', // com in purple
               '$': '#FFE66D', // Dollar sign in yellow
-              '/': '#95E1D3', // Slash in green
+              '/': '#888888', // Slash in grey
             };
             
             const labelText = `KidLisp.com/$${viaCode}`;
@@ -364,14 +364,14 @@ async function fun(event, context) {
               
               const labelSvg = `
                 <svg width="${labelHeight}" height="${labelWidth}" xmlns="http://www.w3.org/2000/svg">
-                  <!-- Shadow layer -->
-                  <text x="${textX + 1}" y="${textY + 1}" 
+                  <!-- Shadow layer - offset in rotated space: +x goes down, +y goes right after -90° rotation -->
+                  <text x="${textX + 1}" y="${textY - 1}" 
                         font-family="${fontFamily}" 
                         font-size="${fontSize}" font-weight="bold"
-                        fill="rgba(0,0,0,0.6)"
+                        fill="rgba(0,0,0,0.5)"
                         text-anchor="start" dominant-baseline="middle"
                         letter-spacing="0.02em"
-                        transform="rotate(-90, ${textX + 1}, ${textY + 1})">${labelText}</text>
+                        transform="rotate(-90, ${textX + 1}, ${textY - 1})">${labelText}</text>
                   <!-- Main colored text -->
                   <text x="${textX}" y="${textY}" 
                         font-family="${fontFamily}" 

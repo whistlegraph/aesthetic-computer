@@ -2385,30 +2385,30 @@
       transform: scale(1.08);
     }
     .invest-mug-icon {
-      font-size: 2em;
+      font-size: 2.5em;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
     }
     .invest-mug-image {
-      width: 96px;
-      height: 96px;
+      width: 140px;
+      height: 140px;
       object-fit: contain;
-      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+      filter: drop-shadow(0 3px 12px rgba(0,0,0,0.6)) brightness(1.1);
       display: none; /* Hidden until loaded */
     }
     .invest-mug-caption {
       font-family: var(--mono);
-      font-size: 0.6em;
+      font-size: 0.75em;
       letter-spacing: 0.02em;
       white-space: nowrap;
     }
     .invest-mug-caption .mug-color {
-      color: rgba(255, 255, 255, 0.9);
+      color: rgba(255, 255, 255, 1);
     }
     .invest-mug-caption .mug-of {
-      color: rgba(180, 180, 180, 0.8);
+      color: rgba(200, 200, 200, 0.9);
     }
     .invest-mug-caption .mug-code {
-      color: rgba(150, 200, 255, 0.9);
+      color: rgba(150, 225, 150, 1);
     }
     .invest-mug:hover .mug-code {
       color: rgba(255, 220, 150, 1);
@@ -12521,30 +12521,6 @@
       setInterval(cycleHandle, 2000);
     })();
   </script>
-
-  <script>
-    // Fetch latest mug for pals section
-    (async function loadLatestMug() {
-      const mugImg = document.getElementById('palsMug');
-      if (!mugImg) return;
-      
-      try {
-        const res = await fetch('https://aesthetic.computer/api/mugs?limit=20');
-        if (res.ok) {
-          const data = await res.json();
-          // Find first mug with a preview image
-          const mugWithPreview = (data.mugs || []).find(m => m.preview);
-          if (mugWithPreview) {
-            mugImg.src = mugWithPreview.preview;
-            mugImg.style.display = 'block';
-            console.log('[Mugs] Loaded pals mug:', mugWithPreview.code);
-          }
-        }
-      } catch (e) {
-        console.log('[Mugs] Could not load latest mug');
-      }
-    })();
-  </script>
   
   <script>
     // Fetch latest mug for invest section
@@ -12575,14 +12551,9 @@
               mugCaption.innerHTML = `<span class="mug-color">${colorUpper}</span><span class="mug-of"> Mug via </span><span class="mug-code">$${viaCode}</span>`;
             }
             
-            // Update link to the specific mug
-            // URL format: mug~sourceCode~color~in~kidlispCode (if via exists)
-            if (mugLink && mug.sourceCode && mug.color) {
-              let mugUrl = `https://aesthetic.computer/mug~${mug.sourceCode}~${mug.color}`;
-              if (mug.via) {
-                mugUrl += `~via~${mug.via}`;
-              }
-              mugLink.href = mugUrl;
+            // Update link to use product code URL format: mug~+CODE
+            if (mugLink && mug.code) {
+              mugLink.href = `https://aesthetic.computer/mug~+${mug.code}`;
             }
           }
         }
