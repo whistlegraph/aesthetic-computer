@@ -2390,7 +2390,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 0;
       text-decoration: none;
       opacity: 1;
       transition: transform 0.3s;
@@ -2414,6 +2414,10 @@
       font-size: 0.75em;
       letter-spacing: 0.02em;
       white-space: nowrap;
+      position: relative;
+      margin-top: -20px;
+      z-index: 1;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.7);
     }
     .invest-mug-caption .mug-color {
       color: rgba(255, 255, 255, 1);
@@ -2426,7 +2430,6 @@
     }
     .invest-mug:hover .mug-code {
       color: rgba(255, 220, 150, 1);
-      text-decoration: underline;
     }
 
     /* Hacker Section - ghost-style minimal cards */
@@ -5949,7 +5952,7 @@
         <a href="https://prompt.ac/mug" class="invest-mug" id="investMug" title="Buy a Mug">
           <img class="invest-mug-image" id="investMugImage" alt="Mug preview" />
           <span class="invest-mug-icon" id="investMugIcon"></span>
-          <span class="invest-mug-caption" id="investMugCaption"><span class="mug-color">WHITE</span><span class="mug-of"> Mug via </span><span class="mug-code">$give</span></span>
+          <span class="invest-mug-caption" id="investMugCaption"><span class="mug-color">white</span><span class="mug-of"> mug in </span><span class="mug-code">$give</span></span>
         </a>
       </div>
 
@@ -12591,11 +12594,11 @@
             console.log('[InvestMug] Loaded mug:', mug.code, mug.via ? `via $${mug.via}` : '');
             
             // Update caption with real data
-            // Format: "WHITE Mug via $kidlispcode" if from KidLisp, else "WHITE Mug via $sourceCode"
+            // Format: "white mug in $kidlispcode" if from KidLisp, else "white mug in $sourceCode"
             if (mugCaption && mug.color) {
-              const colorUpper = (mug.color || 'WHITE').toUpperCase();
+              const colorLower = (mug.color || 'white').toLowerCase();
               const viaCode = mug.via || mug.sourceCode || mug.code;
-              mugCaption.innerHTML = `<span class="mug-color">${colorUpper}</span><span class="mug-of"> Mug via </span><span class="mug-code">$${viaCode}</span>`;
+              mugCaption.innerHTML = `<span class="mug-color">${colorLower}</span><span class="mug-of"> mug in </span><span class="mug-code">$${viaCode}</span>`;
             }
             
             // Pre-fetch Stripe checkout URL so clicking goes directly to checkout
