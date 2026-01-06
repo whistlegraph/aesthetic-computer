@@ -2385,7 +2385,7 @@
     /* Mug easter egg in invest section */
     .invest-mug {
       position: absolute;
-      bottom: 12px;
+      bottom: 50px;
       right: 12px;
       display: flex;
       flex-direction: column;
@@ -2411,11 +2411,11 @@
     }
     .invest-mug-caption {
       font-family: var(--mono);
-      font-size: 0.75em;
+      font-size: 0.9em;
       letter-spacing: 0.02em;
       white-space: nowrap;
       position: relative;
-      margin-top: -20px;
+      margin-top: -10px;
       z-index: 1;
       text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.7);
     }
@@ -5949,7 +5949,7 @@
         <div class="invest-content" data-lang="zh">
           <p><a href="https://aesthetic.direct">Aesthetic Inc.</a> 由一小群早期支持者<a href="https://prompt.ac/booted-by">启动</a>。<br><br>要加入这个股权持有社区，请与 <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link">预约远程演示</a>。</p>
         </div>
-        <a href="https://prompt.ac/mug" class="invest-mug" id="investMug" title="Buy a Mug">
+        <a href="https://aesthetic.computer/mugs" class="invest-mug" id="investMug" title="Buy a Mug">
           <img class="invest-mug-image" id="investMugImage" alt="Mug preview" />
           <span class="invest-mug-icon" id="investMugIcon"></span>
           <span class="invest-mug-caption" id="investMugCaption"><span class="mug-color">white</span><span class="mug-of"> mug in </span><span class="mug-code">$give</span></span>
@@ -12578,11 +12578,19 @@
       const mugLink = document.getElementById('investMug');
       if (!mugImage || !mugIcon) return;
       
-      let checkoutUrl = null;
+      // Use localhost in dev, production otherwise
+      const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local');
+      const baseUrl = isDev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+      
+      // Update the link href to use correct domain
+      if (mugLink) {
+        mugLink.href = `${baseUrl}/mugs`;
+      }
+      
       let mug = null;
       
       try {
-        const res = await fetch('https://aesthetic.computer/api/mugs?limit=20');
+        const res = await fetch(`${baseUrl}/api/mugs?limit=20`);
         if (res.ok) {
           const data = await res.json();
           // Find first mug with a preview image
@@ -12600,47 +12608,13 @@
               const viaCode = mug.via || mug.sourceCode || mug.code;
               mugCaption.innerHTML = `<span class="mug-color">${colorLower}</span><span class="mug-of"> mug in </span><span class="mug-code">$${viaCode}</span>`;
             }
-            
-            // Pre-fetch Stripe checkout URL so clicking goes directly to checkout
-            try {
-              const sourceCode = mug.sourceCode || mug.code;
-              const color = mug.color || 'white';
-              const via = mug.via || '';
-              let apiUrl = `https://aesthetic.computer/api/mug?new=true&pixels=${sourceCode}.png&color=${color}`;
-              if (via) apiUrl += `&via=${via}`;
-              
-              const checkoutRes = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ quantity: 1, slug: `mug~${sourceCode}~${color}` }),
-              });
-              
-              if (checkoutRes.ok) {
-                const checkoutData = await checkoutRes.json();
-                if (checkoutData.location) {
-                  checkoutUrl = checkoutData.location;
-                  console.log('[InvestMug] Checkout URL ready');
-                }
-              }
-            } catch (e) {
-              console.log('[InvestMug] Could not pre-fetch checkout URL:', e.message);
-            }
           }
         }
       } catch (e) {
         console.log('[InvestMug] Could not load latest mug');
       }
       
-      // Override click to go directly to Stripe checkout
-      if (mugLink) {
-        mugLink.addEventListener('click', (e) => {
-          if (checkoutUrl) {
-            e.preventDefault();
-            window.location.href = checkoutUrl;
-          }
-          // If no checkoutUrl, fall through to default link behavior (mug piece)
-        });
-      }
+      // Link always goes to /mugs (no direct checkout override)
     })();
   </script>
 </body>
