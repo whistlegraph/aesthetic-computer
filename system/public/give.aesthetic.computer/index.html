@@ -1007,6 +1007,11 @@
       font-weight: bold;
     }
 
+    .ticker-stat-amount .count-value {
+      color: var(--cyan);
+      font-weight: 500;
+    }
+
     .ticker-stat-amount .so-far {
       color: var(--dim);
       font-weight: normal;
@@ -9438,7 +9443,7 @@
           if (valueEl) valueEl.style.display = 'none';
           if (labelEl) labelEl.style.display = 'none';
           if (amountEl && data.monthlyTotalUSD > 0) {
-            amountEl.innerHTML = `<span class="got">${got}</span> <span class="amount-value">$${data.monthlyTotalUSD}</span> <span class="so-far">${soFar} ${monthName} ${from} ${data.monthlyCount} ${givesText}</span>`;
+            amountEl.innerHTML = `<span class="got">${got}</span> <span class="amount-value">$${data.monthlyTotalUSD}</span> <span class="so-far">${soFar} ${monthName} ${from} <span class="count-value">${data.monthlyCount}</span> ${givesText}</span>`;
           }
           givesStatsEl.classList.add('visible');
         }
