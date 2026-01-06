@@ -1696,18 +1696,22 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
     
     .example-thumb {
-      width: 32px;
-      height: 32px;
-      border-radius: 4px;
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
       object-fit: cover;
       background: var(--bg-tertiary);
       flex-shrink: 0;
       opacity: 0;
       transition: opacity 0.3s ease;
+      box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        0 4px 8px rgba(0, 0, 0, 0.15),
+        0 1px 2px rgba(0, 0, 0, 0.1);
     }
     
     .example-thumb.loaded {
@@ -1715,16 +1719,19 @@
     }
     
     .example-thumb-placeholder {
-      width: 32px;
-      height: 32px;
-      border-radius: 4px;
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
       background: var(--bg-tertiary);
       flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 18px;
       opacity: 0.5;
+      box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        0 4px 8px rgba(0, 0, 0, 0.08);
     }
 
     @media (hover: hover) {
@@ -1738,19 +1745,20 @@
       color: var(--code-text);
       white-space: nowrap;
       overflow: hidden;
-      max-width: 70%;
+      flex: 1;
+      min-width: 0;
       position: relative;
     }
     
     /* Ticker scrolling animation for Top Hits */
     .example-code .ticker-wrapper {
       display: inline-block;
-      animation: ticker-scroll 15s linear infinite;
-      animation-play-state: paused;
+      white-space: nowrap;
+      padding-right: 2em;
     }
     
     .example-item:hover .example-code .ticker-wrapper {
-      animation-play-state: running;
+      animation: ticker-scroll 12s linear infinite;
     }
     
     @keyframes ticker-scroll {
@@ -1761,19 +1769,23 @@
     /* Timing token blink animation for Top Hits */
     .example-code .timing-token {
       animation: timing-blink 1s ease-in-out infinite;
+      text-shadow: 0 0 4px rgba(255, 255, 255, 0.8), 0 0 8px currentColor;
     }
     
     @keyframes timing-blink {
       0%, 80%, 100% { opacity: 1; color: yellow; }
-      40% { opacity: 0.6; color: lime; }
+      40% { opacity: 0.7; color: lime; }
     }
     
     /* Text shadows for dark syntax colors in dark mode */
     .example-code .dark-text-shadow {
-      text-shadow: 1px 1px 0px rgba(200, 200, 200, 0.7);
+      text-shadow: 
+        0 0 2px rgba(255, 255, 255, 0.9),
+        1px 1px 0px rgba(255, 255, 255, 0.7),
+        -1px -1px 0px rgba(255, 255, 255, 0.5);
     }
     
-    /* Light mode: invert shadow for dark colors */
+    /* Light mode: subtler shadow for dark colors */
     [data-theme="light"] .example-code .dark-text-shadow {
       text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.9);
     }
@@ -1788,10 +1800,14 @@
       text-shadow: 0 0 2px currentColor;
     }
     
-    /* Timing token specific styling - make them stand out */
+    /* Timing token specific styling - always visible with white glow */
     .example-code .timing-token {
       font-weight: bold;
-      text-shadow: 0 0 4px currentColor, 0 0 8px rgba(255, 255, 0, 0.5);
+      color: #ffff00 !important;
+      text-shadow: 
+        0 0 2px rgba(255, 255, 255, 1),
+        0 0 4px rgba(255, 255, 255, 0.8),
+        0 0 8px rgba(255, 255, 0, 0.6);
     }
 
     .example-hits {
