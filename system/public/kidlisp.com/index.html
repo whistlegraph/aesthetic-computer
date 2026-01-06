@@ -11207,8 +11207,12 @@
             const originalCode = highlightedCode;
             try {
               const tokens = tokenize(highlightedCode);
+              // Enable edit mode for static display so timing contents aren't transparent
+              const wasEditMode = kidlisp.isEditMode;
+              kidlisp.isEditMode = true;
               kidlisp.initializeSyntaxHighlighting(highlightedCode);
               const coloredString = kidlisp.buildColoredKidlispString();
+              kidlisp.isEditMode = wasEditMode; // Restore
               
               // Convert KidLisp color codes to HTML spans with enhanced effects
               highlightedCode = coloredString.replace(/\\([^\\]+)\\([^\\]*)/g, (match, color, text) => {
@@ -11216,9 +11220,23 @@
                 let cssColor = color;
                 let extraClass = '';
                 
+                // Skip transparent colors (alpha = 0)
+                if (color.includes(',0') && color.split(',').length === 4) {
+                  // This is RGBA with 0 alpha - treat as gray instead
+                  cssColor = 'rgb(128,128,128)';
+                  extraClass += ' dark-text-shadow';
+                }
+                
                 // Handle RGB colors
-                if (color.match(/^\d+,\s*\d+,\s*\d+/)) {
-                  cssColor = `rgb(${color})`;
+                if (color.match(/^\d+,\s*\d+,\s*\d+(,\s*\d+)?$/)) {
+                  const parts = color.split(',').map(n => parseInt(n.trim()));
+                  // Check for alpha=0 (transparent)
+                  if (parts.length === 4 && parts[3] === 0) {
+                    cssColor = 'rgb(180,180,180)'; // Show as light gray instead of invisible
+                    extraClass += ' dark-text-shadow';
+                  } else {
+                    cssColor = `rgb(${parts.slice(0,3).join(',')})`;
+                  }
                 }
                 
                 // Check if this is a dark color first
