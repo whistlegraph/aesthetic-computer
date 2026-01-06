@@ -57,9 +57,75 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
   preloadBitmap = net.preload; // For static PNG fallback
   apiRef = api;
 
-  // Parse params: mug #CODE color OR mug color (uses current painting)
-  // Also supports: mug #CODE color via $KIDLISP_CODE
-  let rawCode = params[0] || store["painting:code"] || system.painting?.code || "";
+  // Parse params - supports multiple formats:
+  // 1. mug~+PRODUCTCODE     → Load existing mug by product code (universal ID)
+  // 2. mug~PAINTINGCODE~color~via~kidlispcode → Create from painting
+  // 3. mug~color            → Use current painting with color
+  // 4. mug                  → Use current painting, white
+  
+  let rawCode = params[0] || "";
+  
+  // Check for +PRODUCTCODE format (existing mug by product code)
+  if (rawCode.startsWith("+")) {
+    productCode = rawCode.slice(1); // Remove + prefix
+    previewLoading = true;
+    
+    try {
+      // Fetch mug metadata by product code
+      console.log("☕ Fetching mug by product code:", productCode);
+      const res = await fetch(`/api/mug?code=${productCode}`);
+      console.log("☕ API response status:", res.status);
+      if (!res.ok) {
+        throw new Error("Mug not found");
+      }
+      const data = await res.json();
+      console.log("☕ API data:", JSON.stringify(data));
+      
+      sourceCode = data.sourceCode || productCode;
+      color = data.color || "white";
+      viaCode = data.via || null;
+      
+      // Use cached preview if available
+      if (data.preview) {
+        console.log("☕ Loading preview:", data.preview);
+        const result = await preloadAnimatedWebp(data.preview);
+        console.log("☕ Preview loaded, frameCount:", result?.frameCount);
+        if (result.frameCount > 1) {
+          previewFrames = {
+            width: result.width,
+            height: result.height,
+            frames: result.frames,
+          };
+          previewBitmap = {
+            width: result.width,
+            height: result.height,
+            pixels: result.frames[0].pixels,
+          };
+        } else {
+          previewBitmap = {
+            width: result.width,
+            height: result.height,
+            pixels: result.frames[0].pixels,
+          };
+        }
+        previewLoading = false;
+      }
+      
+      // Set up buttons
+      setupButtons(ui, screen);
+      
+      // Fetch checkout URL (use painting code for Printful)
+      fetchCheckout(sourceCode, api);
+      return;
+    } catch (e) {
+      error = "Mug not found: " + e.message;
+      previewLoading = false;
+      return;
+    }
+  }
+  
+  // Original logic for painting-based mug creation
+  rawCode = rawCode || store["painting:code"] || system.painting?.code || "";
   
   // Check if first param is a color (not a code) - means use current painting
   const colorNames = Object.keys(colorMap);
@@ -125,6 +191,14 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
     return;
   }
 
+  setupButtons(ui, screen);
+
+  // Fetch preview and checkout URL in parallel
+  fetchPreview(apiCode);
+  fetchCheckout(apiCode, api);
+}
+
+function setupButtons(ui, screen) {
   // Create buy button for hit detection
   const btnW = btnText.length * btnCharWidth + btnPadding * 2;
   const btnH = btnCharHeight + btnPadding * 2;
@@ -136,12 +210,8 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
   );
 
   // Create clickable code button (positioned in paint based on title layout)
-  const codeW = sourceCode.length * btnCharWidth;
+  const codeW = (sourceCode?.length || 8) * btnCharWidth;
   codeBtn = new ui.Button(0, 0, codeW, btnCharHeight);
-
-  // Fetch preview and checkout URL in parallel
-  fetchPreview(apiCode);
-  fetchCheckout(apiCode, api);
 }
 
 async function fetchPreview(apiCode) {
@@ -259,33 +329,40 @@ function paint({ wipe, ink, box, paste, screen, pen, write }) {
     }
   }
 
-  // Layout: title at top, image fills rest above button
+  // Layout: mug image at top, title below image, button at bottom
   const titleHeight = 24;
   const buttonHeight = 40;
-  const availableHeight = screen.height - titleHeight - buttonHeight;
+  const titleGap = 8; // Gap between image and title
+  const availableHeight = screen.height - titleHeight - buttonHeight - titleGap;
 
-  // Draw mug preview OR loading animation centered in available space
+  // Calculate image dimensions and position (at top)
+  let imageBottomY = availableHeight; // Default if no image
+  
+  // Draw mug preview OR loading animation at the top
   if (previewBitmap) {
     const scale = min(
       (screen.width * 0.95) / previewBitmap.width,
-      (availableHeight * 0.98) / previewBitmap.height,
+      (availableHeight * 0.95) / previewBitmap.height,
     );
     const w = floor(previewBitmap.width * scale);
     const h = floor(previewBitmap.height * scale);
     const x = floor((screen.width - w) / 2);
-    const y = floor(titleHeight + (availableHeight - h) / 2);
+    const y = floor((availableHeight - h) / 2); // Center in available space at top
 
     paste(previewBitmap, x, y, { scale });
+    imageBottomY = y + h;
   } else if (previewLoading) {
     // Spinning mug emoji while loading
-    const centerY = titleHeight + availableHeight / 2;
+    const centerY = availableHeight / 2;
     const pulse = Math.sin(performance.now() / 300) * 0.3 + 0.7;
     ink(255 * pulse, 255 * pulse, 255 * pulse).write("☕", { center: "x", y: centerY - 20, screen }, undefined, undefined, false, "unifont");
     const loadingText = uploadingPainting ? "Uploading painting..." : "Loading preview...";
     ink(100).write(loadingText, { center: "x", y: centerY + 10, screen }, undefined, undefined, false, "unifont");
+    imageBottomY = centerY + 30;
   }
 
   // Title: "COLOR MUG of CODE" or "COLOR MUG of CODE via $KIDLISP" with colored elements
+  // Positioned below the mug image
   const colorName = color.toUpperCase();
   const colorRgb = colorMap[color.toLowerCase()] || [200, 200, 200];
   
@@ -293,7 +370,7 @@ function paint({ wipe, ink, box, paste, screen, pen, write }) {
   const viaPart = viaCode ? ` in $${viaCode}` : "";
   const totalWidth = (colorName.length + " MUG of ".length + sourceCode.length + viaPart.length) * btnCharWidth;
   let titleX = floor((screen.width - totalWidth) / 2);
-  const titleY = 4;
+  const titleY = imageBottomY + titleGap;
   
   // Draw color name in its color
   ink(...colorRgb).write(colorName, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
@@ -326,13 +403,13 @@ function paint({ wipe, ink, box, paste, screen, pen, write }) {
     ink(...codeColor).line(titleX, titleY + btnCharHeight, titleX + sourceCode.length * btnCharWidth, titleY + btnCharHeight);
   }
 
-  // Draw buy button with unifont
+  // Draw buy button with unifont - blinking when ready!
   if (btn) {
     const isHover = btn.down;
     const isReady = checkoutReady;
     const isPending = buyPending;
     
-    // Button states: grayed out (loading), pulsing (pending), normal/hover
+    // Button states: grayed out (loading), pulsing (pending), blinking (ready), hover
     let fillColor, borderColor, textColor;
     if (isPending) {
       // Pulsing animation while waiting for checkout URL
@@ -346,13 +423,15 @@ function paint({ wipe, ink, box, paste, screen, pen, write }) {
       borderColor = [80, 80, 80];
       textColor = [100, 100, 100];
     } else if (isHover) {
-      fillColor = [60, 60, 60];
+      fillColor = [80, 60, 40];
       borderColor = [255, 200, 100];
       textColor = [255, 220, 150];
     } else {
+      // Ready state - blinking border to attract attention!
+      const blink = Math.sin(performance.now() / 400) * 0.5 + 0.5;
       fillColor = [40, 40, 40];
-      borderColor = [150, 150, 150];
-      textColor = [255, 255, 255];
+      borderColor = [100 + blink * 155, 150 + blink * 50, 50 + blink * 50];
+      textColor = [200 + blink * 55, 200 + blink * 55, 200 + blink * 55];
     }
     
     ink(...fillColor).box(btn.box, "fill");
@@ -364,7 +443,7 @@ function paint({ wipe, ink, box, paste, screen, pen, write }) {
   }
 }
 
-function act({ event: e, screen, jump, api }) {
+function act({ event: e, screen, jump, api, sound }) {
   if (e.is("reframed")) {
     // Reposition buy button on resize
     const btnW = btnText.length * btnCharWidth + btnPadding * 2;
@@ -377,19 +456,31 @@ function act({ event: e, screen, jump, api }) {
 
   // Handle code button click - jump to painting
   codeBtn?.act(e, {
-    push: () => jump(sourceCode), // Jump to #CODE
+    down: () => {
+      // Visual feedback on press
+      sound?.synth({ type: "sine", tone: 600, duration: 0.03, volume: 0.2 });
+    },
+    push: () => jump(sourceCode), // Jump to #CODE on release
   });
 
-  // Handle buy button click - instant if URL is ready, else wait
+  // Handle buy button with proper down/push events
   btn?.act(e, {
+    down: () => {
+      // Sound feedback on press
+      sound?.synth({ type: "sine", tone: 440, duration: 0.05, volume: 0.3 });
+    },
     push: () => {
       if (checkoutReady && checkoutUrl) {
         // Instant redirect!
+        sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
         jump(checkoutUrl);
       } else if (!checkoutError) {
         // URL still loading - show pending animation and wait
         buyPending = true;
         waitForCheckout(jump);
+      } else {
+        // Error state - play error sound
+        sound?.synth({ type: "square", tone: 200, duration: 0.15, volume: 0.3 });
       }
     },
   });

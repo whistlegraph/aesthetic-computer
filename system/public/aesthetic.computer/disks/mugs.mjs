@@ -114,13 +114,7 @@ function paint({ wipe, ink, box, paste, screen, line }) {
   
   if (selectedMug) {
     const preview = previewCache[selectedMug.code];
-    
-    // Title centered above preview
-    const titleY = 6;
     const colorRgb = getColorRgb(selectedMug.color);
-    const titleText = selectedMug.color.toUpperCase() + " #" + selectedMug.sourceCode;
-    const titleWidth = titleText.length * charWidth;
-    ink(...colorRgb).write(titleText, { center: "x", y: titleY, screen }, undefined, undefined, false, "unifont");
     
     if (preview) {
       // Animate frames
@@ -131,7 +125,7 @@ function paint({ wipe, ink, box, paste, screen, line }) {
         preview.lastFrameTime = now;
       }
       
-      // Draw preview centered
+      // Draw preview centered at top (image first, title below)
       const frame = preview.frames[preview.frameIndex];
       const bitmap = {
         width: preview.width,
@@ -139,15 +133,42 @@ function paint({ wipe, ink, box, paste, screen, line }) {
         pixels: frame.pixels,
       };
       
-      const maxH = previewAreaHeight - 60;
+      const titleHeight = 24;
+      const maxH = previewAreaHeight - titleHeight - 16;
       const maxW = screen.width - 120;
       const scale = min(maxW / bitmap.width, maxH / bitmap.height);
       const w = floor(bitmap.width * scale);
       const h = floor(bitmap.height * scale);
       const x = floor((screen.width - w) / 2);
-      const y = 24 + floor((maxH - h) / 2);
+      const y = floor((maxH - h) / 2) + 4;
       
       paste(bitmap, x, y, { scale });
+      
+      // Title below image: "COLOR MUG of #CODE" or "COLOR MUG of #CODE in $VIA"
+      const imageBottomY = y + h;
+      const titleY = imageBottomY + 4;
+      const colorName = selectedMug.color.toUpperCase();
+      const sourceCode = "#" + selectedMug.sourceCode;
+      const viaPart = selectedMug.via ? ` in $${selectedMug.via}` : "";
+      const totalWidth = (colorName.length + " MUG of ".length + sourceCode.length + viaPart.length) * charWidth;
+      let titleX = floor((screen.width - totalWidth) / 2);
+      
+      // Draw color name in its color
+      ink(...colorRgb).write(colorName, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+      titleX += colorName.length * charWidth;
+      
+      // Draw " MUG of " in gray
+      ink(180).write(" MUG of ", { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+      titleX += " MUG of ".length * charWidth;
+      
+      // Draw code in light blue
+      ink(150, 200, 255).write(sourceCode, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+      titleX += sourceCode.length * charWidth;
+      
+      // Draw " in $kidlispcode" in gold if present
+      if (selectedMug.via) {
+        ink(255, 200, 100).write(viaPart, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+      }
       
       // VIEW button next to preview
       const btnW = viewBtn.text.length * charWidth + btnPadding * 2;
@@ -158,9 +179,11 @@ function paint({ wipe, ink, box, paste, screen, line }) {
       viewBtn.box.h = btnH;
       
       const isHover = viewBtn.down;
+      // Blinking button when not hovering to attract attention
+      const blink = Math.sin(performance.now() / 400) * 0.5 + 0.5;
       const fillColor = isHover ? [60, 80, 100] : [35, 45, 55];
-      const borderColor = isHover ? [255, 200, 100] : [100, 150, 200];
-      const textColor = isHover ? [255, 220, 150] : [255, 255, 255];
+      const borderColor = isHover ? [255, 200, 100] : [80 + blink * 70, 120 + blink * 30, 160 + blink * 40];
+      const textColor = isHover ? [255, 220, 150] : [200 + blink * 55, 200 + blink * 55, 200 + blink * 55];
       
       ink(...fillColor).box(viewBtn.box, "fill");
       ink(...borderColor).box(viewBtn.box, "outline");
@@ -212,9 +235,17 @@ function paint({ wipe, ink, box, paste, screen, line }) {
     // Code and color text
     const codeText = "#" + mug.sourceCode;
     const colorText = mug.color.toUpperCase();
+    const viaText = mug.via ? ` $${mug.via}` : "";
     
     ink(isSelected ? 255 : 180).write(codeText, { x: 34, y: itemY + 6 }, undefined, undefined, false, "unifont");
-    ink(...colorRgb).write(colorText, { x: 34 + (codeText.length + 1) * charWidth, y: itemY + 6 }, undefined, undefined, false, "unifont");
+    let textX = 34 + (codeText.length + 1) * charWidth;
+    ink(...colorRgb).write(colorText, { x: textX, y: itemY + 6 }, undefined, undefined, false, "unifont");
+    
+    // Show via (KidLisp source) in gold if present
+    if (mug.via) {
+      textX += (colorText.length + 1) * charWidth;
+      ink(255, 200, 100).write(viaText, { x: textX, y: itemY + 6 }, undefined, undefined, false, "unifont");
+    }
     
     // Time ago
     const timeAgo = getTimeAgo(mug.createdAt);
@@ -240,7 +271,7 @@ function paint({ wipe, ink, box, paste, screen, line }) {
   }
 }
 
-function act({ event: e, jump, screen }) {
+function act({ event: e, jump, screen, sound }) {
   if (loading || mugs.length === 0) return;
   
   const listY = previewHeight + 1;
@@ -266,9 +297,15 @@ function act({ event: e, jump, screen }) {
     openSelectedMug(jump);
   }
   
-  // VIEW button click
+  // VIEW button click with sound feedback
   viewBtn?.act(e, {
-    push: () => openSelectedMug(jump),
+    down: () => {
+      sound?.synth({ type: "sine", tone: 440, duration: 0.05, volume: 0.3 });
+    },
+    push: () => {
+      sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
+      openSelectedMug(jump);
+    },
   });
   
   // Touch/drag scrolling (chat-style)
@@ -340,7 +377,9 @@ function preloadNearby() {
 function openSelectedMug(jump) {
   const mug = mugs[selectedIndex];
   if (mug) {
-    jump("mug~" + mug.sourceCode + "~" + mug.color);
+    // Use product code (+CODE) as the universal identifier
+    // This preserves all metadata including via/kidlisp source
+    jump("mug~+" + mug.code);
   }
 }
 
