@@ -997,6 +997,11 @@
       font-weight: normal;
     }
 
+    .ticker-stat-amount .got {
+      color: var(--cyan);
+      font-weight: 500;
+    }
+
     .ticker-stat-amount .amount-value {
       color: var(--green);
       font-weight: bold;
@@ -5731,11 +5736,11 @@
           <div class="stat-floaters"></div>
           <div class="stat-value">—</div>
           <div class="stat-label">
-            <span data-lang="en">messages</span>
-            <span data-lang="da">beskeder</span>
-            <span data-lang="de">Nachrichten</span>
-            <span data-lang="es">mensajes</span>
-            <span data-lang="zh">消息</span>
+            <span data-lang="en">chats</span>
+            <span data-lang="da">chats</span>
+            <span data-lang="de">Chats</span>
+            <span data-lang="es">chats</span>
+            <span data-lang="zh">聊天</span>
           </div>
         </div>
       </div>
@@ -9433,13 +9438,13 @@
           if (valueEl) valueEl.style.display = 'none';
           if (labelEl) labelEl.style.display = 'none';
           if (amountEl && data.monthlyTotalUSD > 0) {
-            amountEl.innerHTML = `${got} <span class="amount-value">$${data.monthlyTotalUSD}</span> <span class="so-far">${soFar} ${monthName} ${from} ${data.monthlyCount} ${givesText}</span>`;
+            amountEl.innerHTML = `<span class="got">${got}</span> <span class="amount-value">$${data.monthlyTotalUSD}</span> <span class="so-far">${soFar} ${monthName} ${from} ${data.monthlyCount} ${givesText}</span>`;
           }
           givesStatsEl.classList.add('visible');
         }
         
         if (subsStatsEl && data.activeSubscribers > 0) {
-          const subLabels = { en: 'monthly', da: 'månedlige', de: 'monatlich', es: 'mensuales', zh: '月度' };
+          const subLabels = { en: 'monthly givers', da: 'månedlige givere', de: 'monatliche Geber', es: 'donantes mensuales', zh: '月度捐赠者' };
           const valueEl = subsStatsEl.querySelector('.ticker-stat-value');
           const labelEl = subsStatsEl.querySelector('.ticker-stat-label');
           if (valueEl) valueEl.textContent = data.activeSubscribers;
