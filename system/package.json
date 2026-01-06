@@ -86,6 +86,7 @@
     "patreon": "^0.4.1",
     "playwright-core": "^1.56.1",
     "puppeteer-core": "^24.30.0",
+    "qrcode": "^1.5.4",
     "redis": "^5.9.0",
     "sharp": "^0.34.5",
     "stripe": "^19.3.1",

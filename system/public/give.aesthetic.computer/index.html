@@ -2378,22 +2378,21 @@
       align-items: center;
       gap: 4px;
       text-decoration: none;
-      opacity: 0.5;
-      transition: opacity 0.3s, transform 0.3s;
+      opacity: 1;
+      transition: transform 0.3s;
     }
     .invest-mug:hover {
-      opacity: 1;
-      transform: scale(1.05);
+      transform: scale(1.08);
     }
     .invest-mug-icon {
       font-size: 2em;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
     }
     .invest-mug-image {
-      width: 64px;
-      height: 64px;
+      width: 96px;
+      height: 96px;
       object-fit: contain;
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
       display: none; /* Hidden until loaded */
     }
     .invest-mug-caption {
@@ -4835,12 +4834,7 @@
       margin-top: -1em;
     }
 
-    #pals img {
-      filter: grayscale(100%) opacity(0.3);
-      transition: filter 0.2s;
-    }
-
-    .pals-mug-container {
+    .pals-logo-container {
       position: relative;
       display: inline-block;
     }
@@ -4848,17 +4842,27 @@
     .pals-logo {
       width: 128px;
       height: auto;
+      filter: grayscale(100%) opacity(0.3);
+      transition: filter 0.3s, opacity 0.3s;
     }
 
-    .pals-mug {
+    .pals-logo-pink {
       position: absolute;
-      width: 40px;
+      top: 0;
+      left: 0;
+      width: 128px;
       height: auto;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      filter: grayscale(0%) opacity(0.9) !important;
-      z-index: 1;
+      opacity: 0;
+      transition: opacity 0.3s;
+      filter: drop-shadow(0 0 8px rgba(255, 100, 200, 0.8)) drop-shadow(0 0 16px rgba(255, 100, 200, 0.5));
+    }
+
+    @keyframes pals-shake {
+      0%, 100% { transform: rotate(0deg); }
+      20% { transform: rotate(-3deg); }
+      40% { transform: rotate(3deg); }
+      60% { transform: rotate(-2deg); }
+      80% { transform: rotate(2deg); }
     }
 
     #pals span {
@@ -4869,8 +4873,13 @@
       color: rgba(255,255,255,0.8);
     }
 
-    #pals:hover img {
-      filter: grayscale(100%) opacity(0.5);
+    #pals:hover .pals-logo {
+      filter: grayscale(100%) opacity(0.15);
+    }
+
+    #pals:hover .pals-logo-pink {
+      opacity: 1;
+      animation: pals-shake 0.4s ease-in-out;
     }
 
     .page-footer {
@@ -5908,7 +5917,7 @@
         <a href="https://prompt.ac/mug" class="invest-mug" id="investMug" title="Buy a Mug">
           <img class="invest-mug-image" id="investMugImage" alt="Mug preview" />
           <span class="invest-mug-icon" id="investMugIcon"></span>
-          <span class="invest-mug-caption" id="investMugCaption"><span class="mug-color">WHITE</span><span class="mug-of"> Mug of </span><span class="mug-code">give</span></span>
+          <span class="invest-mug-caption" id="investMugCaption"><span class="mug-color">WHITE</span><span class="mug-of"> Mug via </span><span class="mug-code">$give</span></span>
         </a>
       </div>
 
@@ -5956,9 +5965,9 @@
       </div>
 
       <a id="pals" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;" href="#">
-        <div class="pals-mug-container">
-          <img id="palsMug" class="pals-mug" src="" alt="" style="display: none;">
+        <div class="pals-logo-container">
           <img src="https://aesthetic.computer/purple-pals.svg" alt="" class="pals-logo">
+          <img src="https://aesthetic.computer/pink-pals.svg" alt="" class="pals-logo-pink">
         </div>
         <span data-lang="en">↑ Back to Top</span>
         <span data-lang="da">↑ Tilbage til top</span>
@@ -6004,6 +6013,18 @@
   </dialog>
 
   <script>
+    // Dev/prod URL detection for KidLisp.com links
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
+    const kidlispUrl = isDev ? 'https://localhost:8888/kidlisp.com' : 'https://kidlisp.com';
+    
+    // Update static kidlisp links to use dev URL if on localhost
+    document.addEventListener('DOMContentLoaded', () => {
+      const headerLink = document.getElementById('kidlispHeaderLink');
+      if (headerLink && isDev) {
+        headerLink.href = kidlispUrl;
+      }
+    });
+    
     // ====== A/B/C/D/E Test: Starting Price ======
     // Monthly options (60% total): D: $8/mo (30%), E: $2/mo (30%)
     // One-time options (40% total): A: $32 (13.3%), B: $64 (13.3%), C: $128 (13.3%)
@@ -11039,7 +11060,7 @@
           const source = item.source || '';
           const author = item.owner?.handle?.replace('@', '') || item.handle || item.author || '';
           const when = item.when;
-          const pieceUrl = `https://kidlisp.com/$${code}`;
+          const pieceUrl = `${kidlispUrl}/$${code}`;
           
           // Don't truncate - let scrolling handle long code
           const highlighted = highlightKidlisp(source);
@@ -11105,7 +11126,7 @@
           const firstCode = firstSlide.dataset.code;
           const headerLink = document.getElementById('kidlispHeaderLink');
           if (headerLink && firstCode) {
-            headerLink.href = `https://kidlisp.com/$${firstCode}`;
+            headerLink.href = `${kidlispUrl}/$${firstCode}`;
           }
         }
         
@@ -11136,7 +11157,7 @@
           const code = next.dataset.code;
           const headerLink = document.getElementById('kidlispHeaderLink');
           if (headerLink && code) {
-            headerLink.href = `https://kidlisp.com/$${code}`;
+            headerLink.href = `${kidlispUrl}/$${code}`;
           }
           
           // Transition
@@ -11207,7 +11228,7 @@
               const code = slideEls[i].dataset.code;
               const headerLink = document.getElementById('kidlispHeaderLink');
               if (headerLink && code) {
-                headerLink.href = `https://kidlisp.com/$${code}`;
+                headerLink.href = `${kidlispUrl}/$${code}`;
               }
               break;
             }
@@ -11351,7 +11372,7 @@
           const qrContainer = slide.querySelector('.kidlisp-slide-qr');
           if (qrContainer && typeof qrcode !== 'undefined') {
             try {
-              const qrUrl = `https://kidlisp.com/$${code}`;
+              const qrUrl = `${kidlispUrl}/$${code}`;
               const qrGen = qrcode(0, 'L');
               qrGen.addData(qrUrl);
               qrGen.make();
@@ -12544,15 +12565,24 @@
             mugImage.src = mug.preview;
             mugImage.style.display = 'block';
             mugIcon.style.display = 'none';
-            console.log('[InvestMug] Loaded mug:', mug.code);
+            console.log('[InvestMug] Loaded mug:', mug.code, mug.via ? `via $${mug.via}` : '');
+            
             // Update caption with real data
-            if (mugCaption && mug.color && mug.code) {
+            // Format: "WHITE Mug via $kidlispcode" if from KidLisp, else "WHITE Mug via $sourceCode"
+            if (mugCaption && mug.color) {
               const colorUpper = (mug.color || 'WHITE').toUpperCase();
-              mugCaption.innerHTML = `<span class="mug-color">${colorUpper}</span><span class="mug-of"> MUG of </span><span class="mug-code">${mug.code}</span>`;
+              const viaCode = mug.via || mug.sourceCode || mug.code;
+              mugCaption.innerHTML = `<span class="mug-color">${colorUpper}</span><span class="mug-of"> Mug via </span><span class="mug-code">$${viaCode}</span>`;
             }
+            
             // Update link to the specific mug
-            if (mugLink && mug.code && mug.color) {
-              mugLink.href = `https://aesthetic.computer/mug~${mug.code}~${mug.color}`;
+            // URL format: mug~sourceCode~color~in~kidlispCode (if via exists)
+            if (mugLink && mug.sourceCode && mug.color) {
+              let mugUrl = `https://aesthetic.computer/mug~${mug.sourceCode}~${mug.color}`;
+              if (mug.via) {
+                mugUrl += `~via~${mug.via}`;
+              }
+              mugLink.href = mugUrl;
             }
           }
         }
