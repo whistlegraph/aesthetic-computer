@@ -308,8 +308,6 @@ async function fun(event, context) {
               '$': '#FFE66D', // Dollar sign in yellow
               '/': '#95E1D3', // Slash in green
             };
-            // Default color for via code characters - alternating yellow/green
-            const codeColors = ['#FFE66D', '#95E1D3']; // Yellow, Green
             
             const labelText = `KidLisp.com/$${viaCode}`;
             const fontSize = Math.floor(contentHeight * 0.055);
@@ -328,17 +326,18 @@ async function fun(event, context) {
               // Build individual tspan elements for each character with its color
               let tspans = '';
               let iCount = 0; // Track which 'i' we're on in KidLisp
-              const codeStartIndex = labelText.indexOf('$') + 1; // After the $
-              let codeCharIndex = 0;
+              const dollarIndex = labelText.indexOf('$');
               
               for (let i = 0; i < labelText.length; i++) {
                 const char = labelText[i];
                 let color;
                 
-                if (i >= codeStartIndex) {
-                  // Code characters alternate yellow/green
-                  color = codeColors[codeCharIndex % 2];
-                  codeCharIndex++;
+                if (i === dollarIndex) {
+                  // $ is yellow
+                  color = '#FFE66D';
+                } else if (i > dollarIndex) {
+                  // Code characters after $ are all green
+                  color = '#95E1D3';
                 } else if (char === 'i') {
                   // First 'i' in KidLisp is teal, second is pink
                   iCount++;
