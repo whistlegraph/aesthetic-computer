@@ -300,16 +300,16 @@ async function fun(event, context) {
           // Generate KidLisp.com label with proper colors (rotated 90° on left side of content)
           if (viaCode) {
             // KidLisp letter colors from kidlisp.com homepage
-            // https:// will be white (not colored)
             const letterColors = {
               'K': '#FF6B6B', 'd': '#FFE66D', 'L': '#95E1D3',
               's': '#AA96DA', 'p': '#70D6FF',
-              '.': '#70D6FF', 'c': '#70D6FF', 'o': '#70D6FF', 'm': '#70D6FF',
+              '.': '#95E1D3', // Green dot
+              'c': '#AA96DA', 'o': '#AA96DA', 'm': '#AA96DA', // com in purple
               '$': '#FFE66D', // Dollar sign in yellow
-              '/': '#FFFFFF', // Slash in white
+              '/': '#95E1D3', // Slash in green
             };
-            // Default color for via code characters
-            const defaultColor = '#70D6FF';
+            // Default color for via code characters - alternating yellow/green
+            const codeColors = ['#FFE66D', '#95E1D3']; // Yellow, Green
             
             const labelText = `KidLisp.com/$${viaCode}`;
             const fontSize = Math.floor(contentHeight * 0.055);
@@ -328,17 +328,23 @@ async function fun(event, context) {
               // Build individual tspan elements for each character with its color
               let tspans = '';
               let iCount = 0; // Track which 'i' we're on in KidLisp
+              const codeStartIndex = labelText.indexOf('$') + 1; // After the $
+              let codeCharIndex = 0;
               
               for (let i = 0; i < labelText.length; i++) {
                 const char = labelText[i];
                 let color;
                 
-                if (char === 'i') {
+                if (i >= codeStartIndex) {
+                  // Code characters alternate yellow/green
+                  color = codeColors[codeCharIndex % 2];
+                  codeCharIndex++;
+                } else if (char === 'i') {
                   // First 'i' in KidLisp is teal, second is pink
                   iCount++;
                   color = iCount === 1 ? '#4ECDC4' : '#F38181';
                 } else {
-                  color = letterColors[char] || defaultColor;
+                  color = letterColors[char] || '#70D6FF';
                 }
                 
                 // Escape special chars for SVG
