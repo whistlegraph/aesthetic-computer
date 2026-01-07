@@ -36,6 +36,14 @@ let preloadAnimatedWebp = null;
 let previewCache = {}; // Cache loaded previews by code
 let viewBtn = null;
 
+// Auto-play state
+let autoPlay = true; // Auto-advance through mugs
+let autoPlayInterval = 4000; // 4 seconds per mug
+let lastAutoAdvance = 0;
+let userInteracted = false; // Pause auto-play on user interaction
+let autoPlayPauseTime = 0;
+const AUTO_PLAY_RESUME_DELAY = 8000; // Resume after 8s of no interaction
+
 const ROW_HEIGHT = 24; // Condensed row height
 const TOP_MARGIN = 4;
 const previewHeight = 180; // Fixed height for preview area
@@ -111,6 +119,27 @@ async function preloadPreview(mug) {
 
 function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
   const time = performance.now() / 1000;
+  const now = performance.now();
+  
+  // Auto-play: advance to next mug periodically
+  if (autoPlay && mugs.length > 1 && !loading) {
+    // Check if we should resume after user interaction
+    if (userInteracted && now - autoPlayPauseTime > AUTO_PLAY_RESUME_DELAY) {
+      userInteracted = false;
+    }
+    
+    if (!userInteracted && now - lastAutoAdvance > autoPlayInterval) {
+      selectedIndex = (selectedIndex + 1) % mugs.length;
+      // Auto-scroll to keep selected visible
+      const listY = previewHeight + 1;
+      const listHeight = screen.height - listY;
+      const visibleHeight = listHeight - TOP_MARGIN;
+      const contentHeight = mugs.length * ROW_HEIGHT;
+      scrollToSelected(visibleHeight, contentHeight);
+      preloadNearby();
+      lastAutoAdvance = now;
+    }
+  }
   
   // Animated background - subtle floating particles
   wipe(scheme.background);
@@ -219,23 +248,40 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
         }
       }
       
-      // VIEW button
-      viewBtn.box.x = screen.width - 78;
-      viewBtn.box.y = previewHeight - 32;
-      viewBtn.box.w = 70;
-      viewBtn.box.h = 24;
+      // VIEW button - prominent coffee-themed styling
+      const btnW = 80;
+      const btnH = 28;
+      viewBtn.box.x = screen.width - btnW - 8;
+      viewBtn.box.y = previewHeight - btnH - 8;
+      viewBtn.box.w = btnW;
+      viewBtn.box.h = btnH;
       
       const isHover = viewBtn.down;
-      const blink = sin(performance.now() / 400) * 0.5 + 0.5;
-      const fillColor = isHover ? [50, 60, 80] : [30, 35, 45];
-      const borderColor = isHover ? [255, 200, 100] : [60 + blink * 60, 100 + blink * 40, 150 + blink * 40];
-      const textColor = isHover ? [255, 220, 150] : [180 + blink * 50, 180 + blink * 50, 200 + blink * 50];
+      const blink = sin(time * 2.5) * 0.5 + 0.5;
+      const breathe = sin(time * 1.5) * 0.2 + 0.8;
       
+      // Coffee brown gradient feel
+      let fillColor, borderColor, textColor;
+      if (isHover) {
+        fillColor = [80, 60, 40];
+        borderColor = [255, 200, 100];
+        textColor = [255, 230, 180];
+      } else {
+        fillColor = [floor(45 * breathe), floor(35 * breathe), floor(25 * breathe)];
+        borderColor = [floor(139 * blink + 80), floor(90 * blink + 60), floor(43 * blink + 40)];
+        textColor = [floor(200 + blink * 55), floor(180 + blink * 40), floor(140 + blink * 30)];
+      }
+      
+      // Button with rounded corners effect (double outline)
       ink(fillColor).box(viewBtn.box, "fill");
       ink(borderColor).box(viewBtn.box, "outline");
+      // Inner glow line
+      ink(borderColor[0] * 0.5, borderColor[1] * 0.5, borderColor[2] * 0.5, 0.5)
+        .box(viewBtn.box.x + 1, viewBtn.box.y + 1, viewBtn.box.w - 2, viewBtn.box.h - 2, "outline");
+      
       ink(textColor).write(viewBtn.text, {
-        x: viewBtn.box.x + 8,
-        y: viewBtn.box.y + 8,
+        x: viewBtn.box.x + 10,
+        y: viewBtn.box.y + 10,
       });
     } else if (preview?.broken) {
       // Broken/missing preview - draw X and "no preview"
@@ -277,13 +323,24 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
     
     const isSelected = i === selectedIndex;
     
-    // Alternating background
-    const bgColor = isSelected ? scheme.listItemSelected : (i % 2 === 0 ? scheme.listItemBg : scheme.listItemBgAlt);
-    ink(bgColor[0], bgColor[1], bgColor[2], 0.85).box(0, itemY, screen.width - 6, ROW_HEIGHT, "fill");
-    
-    // Left accent for selected
+    // Enhanced striped rows with more contrast
+    const isEven = i % 2 === 0;
+    let bgColor;
     if (isSelected) {
-      ink(scheme.listItemAccent).box(0, itemY, 3, ROW_HEIGHT, "fill");
+      // Selected: brighter with subtle pulse
+      const pulse = sin(time * 3) * 0.1 + 0.9;
+      bgColor = [floor(45 * pulse), floor(55 * pulse), floor(75 * pulse)];
+    } else if (isEven) {
+      bgColor = [18, 20, 28]; // Darker stripe
+    } else {
+      bgColor = [28, 32, 42]; // Lighter stripe
+    }
+    ink(bgColor[0], bgColor[1], bgColor[2], 0.92).box(0, itemY, screen.width - 6, ROW_HEIGHT, "fill");
+    
+    // Left accent bar for selected (animated)
+    if (isSelected) {
+      const accentPulse = sin(time * 4) * 0.3 + 0.7;
+      ink(floor(100 * accentPulse), floor(180 * accentPulse), 255).box(0, itemY, 3, ROW_HEIGHT, "fill");
     }
     
     // Get mug info
@@ -360,17 +417,21 @@ function act({ event: e, jump, screen, sound, store }) {
     boundScroll(visibleHeight, contentHeight);
   }
   
-  // Keyboard navigation
+  // Keyboard navigation (pauses auto-play)
   if (e.is("keyboard:down:arrowup") || e.is("keyboard:down:w")) {
     selectedIndex = max(0, selectedIndex - 1);
     scrollToSelected(visibleHeight, contentHeight);
     preloadNearby();
+    userInteracted = true;
+    autoPlayPauseTime = performance.now();
   }
   
   if (e.is("keyboard:down:arrowdown") || e.is("keyboard:down:s")) {
     selectedIndex = min(mugs.length - 1, selectedIndex + 1);
     scrollToSelected(visibleHeight, contentHeight);
     preloadNearby();
+    userInteracted = true;
+    autoPlayPauseTime = performance.now();
   }
   
   // Enter opens
@@ -389,13 +450,21 @@ function act({ event: e, jump, screen, sound, store }) {
     },
   });
   
-  // Click to select item in list
+  // Click to select item in list (pauses auto-play)
   if (e.is("touch") && e.y > listY) {
     const clickedIndex = floor((e.y - listY - TOP_MARGIN - scroll) / ROW_HEIGHT);
     if (clickedIndex >= 0 && clickedIndex < mugs.length) {
       selectedIndex = clickedIndex;
       preloadNearby();
+      userInteracted = true;
+      autoPlayPauseTime = performance.now();
     }
+  }
+  
+  // Scrolling pauses auto-play
+  if (e.is("scroll") || e.is("draw")) {
+    userInteracted = true;
+    autoPlayPauseTime = performance.now();
   }
 }
 
