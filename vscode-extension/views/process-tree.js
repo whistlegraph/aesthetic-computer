@@ -199,22 +199,25 @@
       
       tourUI.style.display = 'block';
       tourUI.innerHTML = `
-        <div style="margin-bottom:8px;font-size:14px;color:#88ccff;">🎬 TOUR MODE</div>
+        <div style="margin-bottom:8px;font-size:14px;color:${scheme.accent};">🎬 TOUR MODE</div>
         <div style="font-size:18px;margin-bottom:4px;">${icon} ${name}</div>
-        <div style="color:#888;margin-bottom:8px;">${category} • ${tourIndex + 1}/${tourProcessList.length}</div>
-        <div style="color:#666;font-size:10px;">
-          ← → Navigate • Space ${tourAutoPlay ? 'Stop' : 'Auto'} • Esc Exit
+        <div style="color:${scheme.foregroundMuted};margin-bottom:12px;">${category} • ${tourIndex + 1}/${tourProcessList.length}</div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          <button onclick="ProcessTreeViz.tourPrev()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${scheme.ui.overlay};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">← Prev</button>
+          <button onclick="ProcessTreeViz.toggleAutoPlay()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${scheme.ui.overlay};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">${tourAutoPlay ? '⏸ Stop' : '▶ Auto'}</button>
+          <button onclick="ProcessTreeViz.tourNext()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${scheme.ui.overlay};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">Next →</button>
+          <button onclick="ProcessTreeViz.exitTour()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${scheme.ui.overlay};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">✕ Exit</button>
         </div>
-        ${tourAutoPlay ? '<div style="color:#6bff9f;margin-top:6px;">▶ Auto-playing...</div>' : ''}
+        ${tourAutoPlay ? '<div style="color:#6bff9f;margin-top:8px;">▶ Auto-playing...</div>' : ''}
       `;
-      // Hide the hint when in tour mode
-      const hint = document.getElementById('tour-hint');
-      if (hint) hint.style.display = 'none';
+      // Hide the tour button when in tour mode
+      const btn = document.getElementById('tour-btn');
+      if (btn) btn.style.display = 'none';
     } else {
       tourUI.style.display = 'none';
-      // Show the hint when not in tour mode
-      const hint = document.getElementById('tour-hint');
-      if (hint) hint.style.display = 'block';
+      // Show the tour button when not in tour mode
+      const btn = document.getElementById('tour-btn');
+      if (btn) btn.style.display = 'block';
     }
   }
   
@@ -871,19 +874,13 @@
     colorSchemes
   };
   
-  // Add tour hint to the UI
-  const tourHint = document.createElement('div');
-  tourHint.id = 'tour-hint';
-  tourHint.style.cssText = `position:fixed;bottom:20px;right:20px;background:${scheme.ui.overlay};padding:8px 12px;border-radius:6px;color:${scheme.foregroundMuted};font-family:monospace;font-size:11px;z-index:999;`;
-  tourHint.innerHTML = `Press <span style="color:${scheme.accent};font-weight:bold;">T</span> for Tour Mode | <span style="color:${scheme.accent};font-weight:bold;">L</span> toggle Light/Dark`;
-  document.body.appendChild(tourHint);
-  
-  // Add L key for theme toggle
-  document.addEventListener('keydown', (e) => {
-    if ((e.key === 'l' || e.key === 'L') && !tourMode) {
-      toggleTheme();
-    }
-  });
+  // Add tour button to the UI (touch-friendly, no keyboard shortcuts)
+  const tourBtn = document.createElement('button');
+  tourBtn.id = 'tour-btn';
+  tourBtn.style.cssText = `position:fixed;bottom:20px;right:20px;background:${scheme.ui.overlay};padding:10px 16px;border-radius:6px;color:${scheme.foregroundMuted};font-family:monospace;font-size:12px;z-index:999;border:1px solid ${scheme.foregroundMuted}40;cursor:pointer;`;
+  tourBtn.textContent = '🎬 Tour';
+  tourBtn.onclick = () => { if (!tourMode) startTour(); else exitTour(); };
+  document.body.appendChild(tourBtn);
   
   animate();
   connectWS();

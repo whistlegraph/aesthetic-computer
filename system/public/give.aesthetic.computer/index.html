@@ -2195,6 +2195,35 @@
       flex-direction: row;
       align-items: center;
       gap: 1em;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    @media (max-width: 480px) {
+      .paypal-controls {
+        flex-direction: column;
+        padding: 0.8em;
+        gap: 0.8em;
+      }
+      .paypal-qr-wrap {
+        padding: 0.6em;
+      }
+      .paypal-qr {
+        width: 100px;
+        height: 100px;
+      }
+      .paypal-actions {
+        width: 100%;
+      }
+      .paypal-link-btn {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .paypal-email {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
     }
 
     .paypal-qr-wrap {
@@ -5847,17 +5876,12 @@
                 </div>
                 <div class="paypal-actions">
                   <a href="https://www.paypal.com/qrcodes/managed/93f544e1-c016-4747-a63c-b1ee2ead0292?utm_source=payandgetpaid" target="_blank" rel="noopener" class="paypal-link-btn">
-                    <span class="paypal-btn-icon">
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                        <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.677.677 0 0 1 .669-.563h7.733c2.56 0 4.343.614 5.302 1.825.906 1.145 1.118 2.79.63 4.893l-.011.053v.467c.597.38 1.077.868 1.428 1.463.475.806.693 1.8.649 2.958-.052 1.37-.36 2.553-.918 3.519a6.127 6.127 0 0 1-1.79 2.022 6.368 6.368 0 0 1-2.425 1.106 11.6 11.6 0 0 1-2.823.337H12.27a.678.678 0 0 0-.669.564l-.804 5.094a.64.64 0 0 1-.633.54H7.076z"/>
-                      </svg>
-                    </span>
                     <span class="paypal-btn-text">
-                      <span data-lang="en">Send via PayPal</span>
-                      <span data-lang="da">Send via PayPal</span>
-                      <span data-lang="de">Senden via PayPal</span>
-                      <span data-lang="es">Enviar via PayPal</span>
-                      <span data-lang="zh">通过PayPal发送</span>
+                      <span data-lang="en">Give via PayPal</span>
+                      <span data-lang="da">Giv via PayPal</span>
+                      <span data-lang="de">Geben via PayPal</span>
+                      <span data-lang="es">Dar via PayPal</span>
+                      <span data-lang="zh">通过PayPal捐赠</span>
                     </span>
                   </a>
                   <div class="paypal-email copyable" data-copy="mail@aesthetic.computer">

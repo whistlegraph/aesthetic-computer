@@ -393,11 +393,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: ${theme === 'light' ? '#fcf7c5' : '#000'}; height: 100vh; overflow: hidden; }
     iframe { width: 100%; height: 100%; border: none; }
-    .dev-banner { position: fixed; top: 0; left: 50%; transform: translateX(-50%); background: ${theme === 'light' ? '#006400' : '#ff69b4'}; color: ${theme === 'light' ? '#fff' : '#000'}; padding: 4px 12px; font-family: monospace; font-size: 11px; font-weight: bold; z-index: 1000; border-radius: 0 0 4px 4px; }
   </style>
 </head>
 <body>
-  <div class="dev-banner">🔧 DEV MODE — Loading from localhost:5555</div>
   <iframe src="${WELCOME_DEV_URL}?theme=${theme}"></iframe>
 </body>
 </html>`;
