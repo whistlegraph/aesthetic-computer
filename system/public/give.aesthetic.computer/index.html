@@ -814,6 +814,7 @@
     .curr-link.active[data-curr="usd"] { color: var(--green); }
     .curr-link.active[data-curr="dkk"] { color: var(--cyan); }
     .curr-link.active[data-curr="crypto"] { color: #a78bfa; }
+    .curr-link.active[data-curr="paypal"] { color: #0070ba; }
 
     @media (max-width: 600px) {
       body {
@@ -2149,6 +2150,164 @@
 
     .gift-widget.crypto .gift-visual {
       background: linear-gradient(135deg, rgba(106, 74, 138, 0.2) 0%, rgba(0, 255, 255, 0.05) 100%);
+    }
+
+    /* PayPal styles - similar to crypto compact layout */
+    .paypal-compact .gift-visual {
+      display: none;
+    }
+
+    .paypal-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      padding: 0.6em 1em;
+      background: linear-gradient(135deg, rgba(0, 112, 186, 0.25) 0%, rgba(0, 48, 135, 0.15) 100%);
+      border: 1px solid var(--box-border);
+      border-radius: 0;
+    }
+
+    .paypal-logo-tiny {
+      width: 24px;
+      height: 24px;
+    }
+
+    .paypal-title {
+      font-family: 'YWFTProcessing-Regular', sans-serif;
+      font-size: 1em;
+      color: #0070ba;
+    }
+
+    .paypal-subtitle {
+      font-family: var(--mono);
+      font-size: 0.8em;
+      color: var(--dim);
+      margin-left: 0.8em;
+    }
+
+    .paypal-controls {
+      padding: 1em;
+      background: linear-gradient(180deg, rgba(0, 112, 186, 0.1) 0%, rgba(0, 48, 135, 0.15) 100%);
+      border: 1px solid var(--box-border);
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 1em;
+    }
+
+    .paypal-qr-wrap {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5em;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 6px;
+    }
+
+    .paypal-qr {
+      width: 100px;
+      height: 100px;
+      display: block;
+    }
+
+    .paypal-actions {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8em;
+    }
+
+    .paypal-link-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5em;
+      padding: 0.7em 1.2em;
+      background: linear-gradient(135deg, #0070ba 0%, #003087 100%);
+      color: white;
+      text-decoration: none;
+      border-radius: 20px;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
+      font-size: 0.95em;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      box-shadow: 0 3px 10px rgba(0, 112, 186, 0.3);
+    }
+
+    .paypal-link-btn:hover {
+      background: linear-gradient(135deg, #0080d0 0%, #0040a0 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 112, 186, 0.4);
+    }
+
+    .paypal-link-btn:active {
+      transform: translateY(0);
+    }
+
+    .paypal-btn-icon {
+      display: flex;
+      align-items: center;
+    }
+
+    .paypal-btn-icon svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .paypal-email {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5em;
+      padding: 0.6em 0.8em;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .paypal-email:hover {
+      background: rgba(0, 112, 186, 0.15);
+    }
+
+    .paypal-email.copied {
+      background: var(--green);
+    }
+
+    .paypal-email.copied .paypal-email-label,
+    .paypal-email.copied .paypal-email-addr,
+    .paypal-email.copied .paypal-copy-hint {
+      color: var(--bg);
+    }
+
+    .paypal-email-label {
+      font-size: 0.75em;
+      color: var(--dim);
+      white-space: nowrap;
+    }
+
+    .paypal-email-addr {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      color: #0070ba;
+      padding: 0.2em 0.5em;
+      background: rgba(0, 112, 186, 0.1);
+      border-radius: 3px;
+      border: 1px solid rgba(0, 112, 186, 0.3);
+    }
+
+    .paypal-copy-hint {
+      font-size: 0.7em;
+      color: var(--gold);
+      opacity: 0.8;
+    }
+
+    .paypal-email:hover .paypal-copy-hint {
+      color: var(--green);
+      opacity: 1;
     }
 
     .crypto-slider {
@@ -5495,6 +5654,7 @@
       <span class="curr-link active" data-curr="usd"><span class="curr-flag">💵</span><span class="curr-text">USD</span></span>
       <span class="curr-link" data-curr="dkk"><span class="curr-flag">💶</span><span class="curr-text">DKK</span></span>
       <span class="curr-link" data-curr="crypto"><span class="curr-flag">🔗</span><span class="curr-text">CRYPTO</span></span>
+      <span class="curr-link" data-curr="paypal"><span class="curr-flag">🅿️</span><span class="curr-text">PAYPAL</span></span>
     </div>
   </div>
 
@@ -5669,6 +5829,47 @@
                   <span class="crypto-balance" id="balance-btc"><span class="loading">loading...</span></span>
                   <code class="crypto-addr">bc1q699g<span class="addr-dots">···</span>f59as</code>
                   <span class="crypto-copy-hint">→ copy</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="currency-picker" data-for="paypal" style="display: none;">
+            <div class="gift-widget paypal paypal-compact" data-currency="paypal">
+              <div class="paypal-header">
+                <img src="https://aesthetic.computer/purple-pals.svg" class="paypal-logo-tiny" alt="">
+                <span class="paypal-title">🅿️ PAYPAL</span>
+                <span class="paypal-subtitle">💸 Quick & Easy</span>
+              </div>
+              <div class="paypal-controls">
+                <div class="paypal-qr-wrap">
+                  <img src="https://assets.aesthetic.computer/images/paypal-qrcode.png" alt="PayPal QR Code" class="paypal-qr">
+                </div>
+                <div class="paypal-actions">
+                  <a href="https://www.paypal.com/paypalme/aestheticcomputer" target="_blank" rel="noopener" class="paypal-link-btn">
+                    <span class="paypal-btn-icon">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.677.677 0 0 1 .669-.563h7.733c2.56 0 4.343.614 5.302 1.825.906 1.145 1.118 2.79.63 4.893l-.011.053v.467c.597.38 1.077.868 1.428 1.463.475.806.693 1.8.649 2.958-.052 1.37-.36 2.553-.918 3.519a6.127 6.127 0 0 1-1.79 2.022 6.368 6.368 0 0 1-2.425 1.106 11.6 11.6 0 0 1-2.823.337H12.27a.678.678 0 0 0-.669.564l-.804 5.094a.64.64 0 0 1-.633.54H7.076z"/>
+                      </svg>
+                    </span>
+                    <span class="paypal-btn-text">
+                      <span data-lang="en">Send via PayPal</span>
+                      <span data-lang="da">Send via PayPal</span>
+                      <span data-lang="de">Senden via PayPal</span>
+                      <span data-lang="es">Enviar via PayPal</span>
+                      <span data-lang="zh">通过PayPal发送</span>
+                    </span>
+                  </a>
+                  <div class="paypal-email copyable" data-copy="mail@aesthetic.computer">
+                    <span class="paypal-email-label">
+                      <span data-lang="en">or:</span>
+                      <span data-lang="da">eller:</span>
+                      <span data-lang="de">oder:</span>
+                      <span data-lang="es">o:</span>
+                      <span data-lang="zh">或:</span>
+                    </span>
+                    <code class="paypal-email-addr">mail@aesthetic.computer</code>
+                    <span class="paypal-copy-hint">→ copy</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -8151,7 +8352,7 @@
     // Restore saved currency or use URL param (pathLang implies currency too)
     if (pathLang === 'da') {
       setCurrency('dkk');
-    } else if (currencyParam && ['usd', 'dkk', 'crypto'].includes(currencyParam)) {
+    } else if (currencyParam && ['usd', 'dkk', 'crypto', 'paypal'].includes(currencyParam)) {
       setCurrency(currencyParam);
     } else if (savedPrefs.currency) {
       setCurrency(savedPrefs.currency);
@@ -8170,8 +8371,8 @@
       // Reload ticker with translated messages
       loadRecentGives();
 
-      // Update fiat button text (skip crypto widgets)
-      document.querySelectorAll('.gift-widget:not(.crypto)').forEach(widget => {
+      // Update fiat button text (skip crypto and paypal widgets)
+      document.querySelectorAll('.gift-widget:not(.crypto):not(.paypal)').forEach(widget => {
         const currency = widget.dataset.currency;
         const slider = widget.querySelector('input[type="range"]');
         if (!slider) return;
@@ -8253,7 +8454,7 @@
     }
 
     // Slider functionality
-    document.querySelectorAll('.gift-widget:not(.crypto)').forEach(widget => {
+    document.querySelectorAll('.gift-widget:not(.crypto):not(.paypal)').forEach(widget => {
       const currency = widget.dataset.currency;
       const slider = widget.querySelector('input[type="range"]');
       const amountEl = widget.querySelector('.gift-amount');
@@ -8654,7 +8855,7 @@
       }
     }
 
-    document.querySelectorAll('.gift-widget:not(.crypto) .gift-btn').forEach(btn => {
+    document.querySelectorAll('.gift-widget:not(.crypto):not(.paypal) .gift-btn').forEach(btn => {
       btn.onclick = () => {
         const currency = btn.dataset.currency;
         const widget = btn.closest('.gift-widget');
