@@ -1023,6 +1023,9 @@ Skips creation if tab already exists."
             (other-window 1))))
     (error (message "Error creating tab %s: %s" tab-name err))))
 
+(defvar ac--startup-lock-file "/tmp/emacs-backend-startup.lock"
+  "Lock file indicating aesthetic-backend is starting (crash monitor will be gentle).")
+
 (defun aesthetic-backend (target-tab)
   (interactive)
   
@@ -1039,6 +1042,12 @@ Skips creation if tab already exists."
                     target-tab)
     (cl-return-from aesthetic-backend nil))
   (setq ac--backend-started t)
+  
+  ;; Create startup lock file to tell crash monitor we're starting up
+  ;; This prevents false "unresponsive" detection during heavy init
+  (with-temp-file ac--startup-lock-file
+    (insert (format "%s" (float-time))))
+  (ac-debug-log "Created startup lock file - crash monitor will wait")
   
   (ac-debug-log (format "Starting aesthetic-backend with target-tab: %s" target-tab))
   (ac-perf-log "aesthetic-backend started")
@@ -1154,7 +1163,16 @@ Skips creation if tab already exists."
                     target-tab)
 
     ;; Start CDP tunnel in background after tabs are created
-    (run-with-timer 8.0 nil #'ac-start-cdp-tunnel-async))
+    (run-with-timer 8.0 nil #'ac-start-cdp-tunnel-async)
+    
+    ;; Remove startup lock file to signal we're done initializing
+    ;; Give a bit more time for everything to settle
+    (run-with-timer 10.0 nil
+                    (lambda ()
+                      (when (file-exists-p ac--startup-lock-file)
+                        (delete-file ac--startup-lock-file)
+                        (ac-debug-log "Removed startup lock - crash monitor now active")
+                        (ac-perf-log "aesthetic-backend initialization complete")))))
 
 (defun ac-start-cdp-tunnel-async ()
   "Start CDP tunnel to VS Code host in background (non-blocking)."

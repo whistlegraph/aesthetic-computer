@@ -1094,6 +1094,9 @@ function ac-emacs-crash-monitor
                 # Create warning file
                 echo "Emacs crashed at "(date -Iseconds)", auto-restart #$restart_count" > /tmp/emacs-crash-warning
                 
+                # Remove any stale startup lock from previous session
+                rm -f /tmp/emacs-backend-startup.lock
+                
                 # Clean up any zombie processes
                 pkill -9 emacs 2>/dev/null
                 pkill -9 emacsclient 2>/dev/null
@@ -1119,10 +1122,30 @@ function ac-emacs-crash-monitor
             end
         else
             # Daemon is running - also check if it's responsive
-            if not timeout 5 emacsclient -e t >/dev/null 2>&1
-                echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid), forcing restart..." >> $crash_log
-                pkill -9 -f "emacs.*daemon" 2>/dev/null
-                # Loop will detect it's gone and restart
+            # BUT skip responsiveness check if aesthetic-backend is still starting up
+            set -l startup_lock /tmp/emacs-backend-startup.lock
+            if test -f $startup_lock
+                # Check how old the lock file is (don't wait forever if it's stale)
+                set -l lock_age (math (date +%s) - (stat -c %Y $startup_lock 2>/dev/null; or echo 0))
+                if test $lock_age -lt 120  # Lock valid for 2 minutes max
+                    # Startup in progress - skip responsiveness check, just log
+                    echo "["(date -Iseconds)"] ⏳ Startup lock active ($lock_age""s) - skipping responsiveness check" >> $crash_log
+                else
+                    # Stale lock - remove it and check responsiveness
+                    echo "["(date -Iseconds)"] ⚠️ Stale startup lock ($lock_age""s) - removing" >> $crash_log
+                    rm -f $startup_lock
+                    if not timeout 10 emacsclient -e t >/dev/null 2>&1
+                        echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid), forcing restart..." >> $crash_log
+                        pkill -9 -f "emacs.*daemon" 2>/dev/null
+                    end
+                end
+            else
+                # No startup lock - normal responsiveness check (increased timeout)
+                if not timeout 10 emacsclient -e t >/dev/null 2>&1
+                    echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid), forcing restart..." >> $crash_log
+                    pkill -9 -f "emacs.*daemon" 2>/dev/null
+                    # Loop will detect it's gone and restart
+                end
             end
         end
         
