@@ -381,22 +381,48 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   function getWelcomePanelHtml(webview: vscode.Webview, devMode: boolean = false): string {
     const theme = getVSCodeThemeKind();
     
-    // Dev mode: load from local server via iframe
+    // Dev mode: load from local server via iframe with live reload support
     if (devMode) {
       return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src http://localhost:5555; style-src 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src http://localhost:5555; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: ${theme === 'light' ? '#fcf7c5' : '#000'}; height: 100vh; overflow: hidden; }
     iframe { width: 100%; height: 100%; border: none; }
+    .dev-controls { position: fixed; bottom: 12px; left: 12px; z-index: 1000; display: flex; gap: 8px; align-items: center; }
+    .dev-btn { background: ${theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}; border: 1px solid ${theme === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'}; color: ${theme === 'light' ? '#281e5a' : '#fff'}; padding: 6px 12px; border-radius: 4px; font-size: 11px; font-family: monospace; cursor: pointer; }
+    .dev-btn:hover { background: ${theme === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'}; }
+    .dev-status { font-size: 10px; color: ${theme === 'light' ? '#806060' : '#888'}; font-family: monospace; }
   </style>
 </head>
 <body>
-  <iframe src="${WELCOME_DEV_URL}?theme=${theme}"></iframe>
+  <iframe id="dev-frame" src="${WELCOME_DEV_URL}?theme=${theme}"></iframe>
+  <div class="dev-controls">
+    <button class="dev-btn" onclick="reload()">🔄 Reload</button>
+    <span class="dev-status" id="status">DEV MODE</span>
+  </div>
+  <script>
+    const vscode = acquireVsCodeApi();
+    const frame = document.getElementById('dev-frame');
+    const status = document.getElementById('status');
+    
+    function reload() {
+      status.textContent = 'Reloading...';
+      frame.src = frame.src.split('?')[0] + '?theme=${theme}&t=' + Date.now();
+      setTimeout(() => status.textContent = 'DEV MODE', 500);
+    }
+    
+    // Listen for reload messages from extension
+    window.addEventListener('message', (e) => {
+      if (e.data?.command === 'reload') {
+        reload();
+      }
+    });
+  </script>
 </body>
 </html>`;
     }
@@ -512,6 +538,27 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       welcomePanel.webview.html = getWelcomePanelHtml(welcomePanel.webview, local);
     }
   }
+
+  // Live reload: send message to welcome panel to reload iframe (for dev mode)
+  function triggerWelcomeReload() {
+    if (welcomePanel && local) {
+      welcomePanel.webview.postMessage({ command: 'reload' });
+    }
+  }
+
+  // Watch for file changes in views directory when in local/dev mode
+  const viewsWatcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(context.extensionUri, 'views/**/*.{js,html,css}')
+  );
+  
+  viewsWatcher.onDidChange(() => {
+    if (local) triggerWelcomeReload();
+  });
+  viewsWatcher.onDidCreate(() => {
+    if (local) triggerWelcomeReload();
+  });
+  
+  context.subscriptions.push(viewsWatcher);
 
   // Listen for VS Code theme changes and refresh welcome panel
   context.subscriptions.push(
