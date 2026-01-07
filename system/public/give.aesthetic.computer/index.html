@@ -2456,6 +2456,11 @@
       color: rgba(255, 200, 100, 1);
       display: block;
     }
+    /* Character-level syntax highlighting */
+    .invest-mug-caption .char-hash { color: #00bcd4; } /* cyan for # */
+    .invest-mug-caption .char-dollar { color: #ffd700; } /* gold for $ */
+    .invest-mug-caption .char-code { color: #87ceeb; } /* light blue for code chars */
+    .invest-mug-caption .char-via { color: #00e5ff; } /* cyan for via identifier */
 
     /* Hacker Section - ghost-style minimal cards */
     .hacker-section {
@@ -12684,11 +12689,19 @@
               // Show sourceCode (painting hash) as main code, via is the kidlisp source
               const displayCode = mug.sourceCode || mug.code;
               const viaCode = mug.via;
+              // Character-colored code: # in cyan, code chars in light blue
+              const colorizeCode = (code) => {
+                return code.split('').map(c => `<span class="char-code">${c}</span>`).join('');
+              };
+              const colorizeVia = (via) => {
+                return via.split('').map(c => `<span class="char-via">${c}</span>`).join('');
+              };
               // Add # prefix for painting codes (short codes are user paintings)
-              const codePrefix = displayCode && displayCode.length < 8 ? '#' : '';
-              let captionHtml = `<span class="mug-color">${colorLower}</span><span class="mug-of"> mug of </span><span class="mug-code">${codePrefix}${displayCode}</span>`;
+              const hasPrefix = displayCode && displayCode.length < 8;
+              let codeHtml = hasPrefix ? `<span class="char-hash">#</span>${colorizeCode(displayCode)}` : colorizeCode(displayCode);
+              let captionHtml = `<span class="mug-color">${colorLower}</span><span class="mug-of"> mug of </span><span class="mug-code">${codeHtml}</span>`;
               if (viaCode) {
-                captionHtml += `<span class="mug-via"> in $${viaCode}</span>`;
+                captionHtml += `<span class="mug-via"> in <span class="char-dollar">$</span>${colorizeVia(viaCode)}</span>`;
               }
               mugCaption.innerHTML = captionHtml;
             }
