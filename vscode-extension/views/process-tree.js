@@ -186,9 +186,10 @@
     if (!tourUI) {
       tourUI = document.createElement('div');
       tourUI.id = 'tour-ui';
-      tourUI.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);padding:12px 20px;border-radius:8px;color:#fff;font-family:monospace;font-size:12px;z-index:1000;display:none;text-align:center;border:1px solid #444;';
       document.body.appendChild(tourUI);
     }
+    // Update styling each time based on current theme
+    tourUI.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${scheme.ui.overlay};padding:12px 20px;border-radius:8px;color:${scheme.foregroundBright};font-family:monospace;font-size:12px;z-index:1000;display:none;text-align:center;border:1px solid ${scheme.foregroundMuted}40;`;
     
     if (tourMode && tourProcessList.length > 0) {
       const current = tourProcessList[tourIndex];
@@ -200,15 +201,15 @@
       tourUI.style.display = 'block';
       tourUI.innerHTML = `
         <div style="margin-bottom:8px;font-size:14px;color:${scheme.accent};">🎬 TOUR MODE</div>
-        <div style="font-size:18px;margin-bottom:4px;">${icon} ${name}</div>
+        <div style="font-size:18px;margin-bottom:4px;color:${scheme.foregroundBright};">${icon} ${name}</div>
         <div style="color:${scheme.foregroundMuted};margin-bottom:12px;">${category} • ${tourIndex + 1}/${tourProcessList.length}</div>
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-          <button onclick="ProcessTreeViz.tourPrev()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${scheme.ui.overlay};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">← Prev</button>
-          <button onclick="ProcessTreeViz.toggleAutoPlay()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${scheme.ui.overlay};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">${tourAutoPlay ? '⏸ Stop' : '▶ Auto'}</button>
-          <button onclick="ProcessTreeViz.tourNext()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${scheme.ui.overlay};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">Next →</button>
-          <button onclick="ProcessTreeViz.exitTour()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${scheme.ui.overlay};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">✕ Exit</button>
+          <button onclick="ProcessTreeViz.tourPrev()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">← Prev</button>
+          <button onclick="ProcessTreeViz.toggleAutoPlay()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">${tourAutoPlay ? '⏸ Stop' : '▶ Auto'}</button>
+          <button onclick="ProcessTreeViz.tourNext()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">Next →</button>
+          <button onclick="ProcessTreeViz.exitTour()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">✕ Exit</button>
         </div>
-        ${tourAutoPlay ? '<div style="color:#6bff9f;margin-top:8px;">▶ Auto-playing...</div>' : ''}
+        ${tourAutoPlay ? `<div style="color:${scheme.accentBright};margin-top:8px;">▶ Auto-playing...</div>` : ''}
       `;
       // Hide the tour button when in tour mode
       const btn = document.getElementById('tour-btn');
@@ -511,13 +512,19 @@
         const d = mesh.userData;
         const color = '#' + (colors[d.category] || 0x666666).toString(16).padStart(6, '0');
         const distToCamera = camera.position.distanceTo(pos);
-        const proximityScale = Math.max(0.4, Math.min(3, 150 / distToCamera));
+        // Larger base scale, less reduction with distance
+        const proximityScale = Math.max(0.7, Math.min(3, 200 / distToCamera));
+        // Higher minimum opacity - always readable
         const opacity = focusedPid 
-          ? (pid === focusedPid ? 1 : (d.parentInteresting === parseInt(focusedPid) ? 0.9 : 0.3))
-          : Math.max(0.5, Math.min(1, 300 / distToCamera));
+          ? (pid === focusedPid ? 1 : (d.parentInteresting === parseInt(focusedPid) ? 0.95 : 0.7))
+          : Math.max(0.85, Math.min(1, 400 / distToCamera));
         
         const cpuPct = Math.min(100, d.cpu || 0);
         const memMB = ((d.rss || 0) / 1024).toFixed(0);
+        
+        // Extract short command for display (first 40 chars of cmdShort or cmd)
+        const cmdDisplay = d.cmdShort || d.cmd || '';
+        const cmdShort = cmdDisplay.length > 50 ? cmdDisplay.slice(0, 47) + '...' : cmdDisplay;
         
         const label = document.createElement('div');
         label.className = 'proc-label';
@@ -525,7 +532,11 @@
         label.style.top = y + 'px';
         label.style.opacity = opacity;
         label.style.transform = 'translate(-50%, -100%) scale(' + proximityScale + ')';
-        label.innerHTML = '<div class="icon">' + (d.icon || '●') + '</div><div class="name" style="color:' + color + '">' + (d.name || pid) + '</div><div class="info">' + memMB + 'MB · ' + cpuPct.toFixed(0) + '%</div>';
+        // Show name, then command on second line, then stats
+        label.innerHTML = '<div class="icon">' + (d.icon || '●') + '</div>' +
+          '<div class="name" style="color:' + color + '">' + (d.name || pid) + '</div>' +
+          (cmdShort ? '<div class="cmd" style="color:' + scheme.foregroundMuted + ';font-size:8px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + cmdShort + '</div>' : '') +
+          '<div class="info" style="color:' + scheme.foregroundMuted + ';">' + memMB + 'MB · ' + cpuPct.toFixed(0) + '%</div>';
         container.appendChild(label);
       }
     });
