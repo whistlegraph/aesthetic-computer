@@ -1,7 +1,7 @@
 // mugs, 24.12.21 (Redesigned 2026.1.06)
 // Browse recent mugs - preview on top, scrollable list below
 
-const { floor, min, max, abs } = Math;
+const { floor, min, max, abs, sin } = Math;
 
 // 🎨 Color scheme
 const scheme = {
@@ -31,7 +31,7 @@ let preloadAnimatedWebp = null;
 let previewCache = {}; // Cache loaded previews by code
 let viewBtn = null;
 
-const ROW_HEIGHT = 40; // Height of each list item
+const ROW_HEIGHT = 24; // Condensed row height
 const TOP_MARGIN = 4;
 const previewHeight = 180; // Fixed height for preview area
 
@@ -85,7 +85,6 @@ async function preloadPreview(mug) {
   
   if (!mug.preview) {
     console.warn("Mug has no preview URL:", mug.code, mug);
-    // Mark as broken so we don't keep trying
     previewCache[mug.code] = { broken: true };
     return;
   }
@@ -105,8 +104,21 @@ async function preloadPreview(mug) {
   }
 }
 
-function paint({ wipe, ink, box, paste, screen, line }) {
+function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
+  const time = performance.now() / 1000;
+  
+  // Animated background - subtle floating particles
   wipe(scheme.background);
+  
+  for (let i = 0; i < 15; i++) {
+    const seed = i * 137.5;
+    const x = (seed * 7.3 + time * 12 * (i % 2 === 0 ? 1 : -1)) % (screen.width + 40) - 20;
+    const baseY = screen.height - ((seed * 3.7 + time * 18) % (screen.height + 100));
+    const y = baseY + sin(time * 2 + seed) * 6;
+    const size = 2 + sin(seed) * 1;
+    const alpha = 0.12 + sin(time * 1.5 + seed * 0.5) * 0.08;
+    ink(100 * alpha, 120 * alpha, 180 * alpha).box(floor(x), floor(y), floor(size), floor(size), "fill");
+  }
   
   if (loading) {
     ink(255).write("Loading mugs...", { center: "xy", screen });
@@ -127,8 +139,8 @@ function paint({ wipe, ink, box, paste, screen, line }) {
   // === TOP: Preview area ===
   const selectedMug = mugs[selectedIndex];
   
-  // Dark preview background
-  ink(scheme.previewBg).box(0, 0, screen.width, previewHeight, "fill");
+  // Dark preview background with slight transparency
+  ink(scheme.previewBg[0], scheme.previewBg[1], scheme.previewBg[2], 0.9).box(0, 0, screen.width, previewHeight, "fill");
   
   if (selectedMug) {
     const preview = previewCache[selectedMug.code];
@@ -166,8 +178,6 @@ function paint({ wipe, ink, box, paste, screen, line }) {
       const imageBottomY = y + h;
       const titleY = imageBottomY + 6;
       
-      // sourceCode is the painting hash (e.g., "sb9"), via is the kidlisp code (e.g., "bop")
-      // Show: "white mug of #sb9 in $bop" for kidlisp mugs, "white mug of #abc" for direct painting mugs
       const displayCode = selectedMug.sourceCode || selectedMug.code;
       const colorName = (selectedMug.color || "white").toLowerCase();
       const viaPart = selectedMug.via ? ` in $${selectedMug.via}` : "";
@@ -200,7 +210,7 @@ function paint({ wipe, ink, box, paste, screen, line }) {
       viewBtn.box.h = 24;
       
       const isHover = viewBtn.down;
-      const blink = Math.sin(performance.now() / 400) * 0.5 + 0.5;
+      const blink = sin(performance.now() / 400) * 0.5 + 0.5;
       const fillColor = isHover ? [50, 60, 80] : [30, 35, 45];
       const borderColor = isHover ? [255, 200, 100] : [60 + blink * 60, 100 + blink * 40, 150 + blink * 40];
       const textColor = isHover ? [255, 220, 150] : [180 + blink * 50, 180 + blink * 50, 200 + blink * 50];
@@ -212,7 +222,7 @@ function paint({ wipe, ink, box, paste, screen, line }) {
         y: viewBtn.box.y + 8,
       });
     } else if (preview?.broken) {
-      // Broken/missing preview - draw X and "no mug"
+      // Broken/missing preview - draw X and "no preview"
       const cx = floor(screen.width / 2);
       const cy = floor(previewHeight / 2) - 10;
       const size = 30;
@@ -221,7 +231,7 @@ function paint({ wipe, ink, box, paste, screen, line }) {
       ink(100, 60, 60).write("no preview", { center: "x", y: cy + size + 10, screen });
     } else {
       // Loading indicator
-      const pulse = Math.sin(performance.now() / 300) * 0.3 + 0.7;
+      const pulse = sin(performance.now() / 300) * 0.3 + 0.7;
       ink(100 * pulse, 100 * pulse, 120 * pulse).write("☕ Loading...", { center: "x", y: previewHeight / 2 - 8, screen });
       preloadPreview(selectedMug);
     }
@@ -230,9 +240,17 @@ function paint({ wipe, ink, box, paste, screen, line }) {
   // Divider line
   ink(scheme.divider).line(0, previewHeight, screen.width, previewHeight);
   
-  // === BOTTOM: Scrollable list ===
+  // === BOTTOM: Scrollable list (MASKED) ===
   const listY = previewHeight + 1;
   const listHeight = screen.height - listY;
+  
+  // Mask the list area so items don't draw over the preview
+  mask({
+    x: 0,
+    y: listY,
+    width: screen.width,
+    height: listHeight,
+  });
   
   // Draw list items (only visible ones)
   mugs.forEach((mug, i) => {
@@ -245,41 +263,45 @@ function paint({ wipe, ink, box, paste, screen, line }) {
     
     // Alternating background
     const bgColor = isSelected ? scheme.listItemSelected : (i % 2 === 0 ? scheme.listItemBg : scheme.listItemBgAlt);
-    ink(bgColor).box(0, itemY, screen.width - 6, ROW_HEIGHT, "fill");
+    ink(bgColor[0], bgColor[1], bgColor[2], 0.85).box(0, itemY, screen.width - 6, ROW_HEIGHT, "fill");
     
     // Left accent for selected
     if (isSelected) {
       ink(scheme.listItemAccent).box(0, itemY, 3, ROW_HEIGHT, "fill");
     }
     
-    // Color indicator square
+    // Get mug info
     const colorRgb = mugColors[mug.color?.toLowerCase()] || [150, 150, 150];
-    ink(colorRgb).box(12, itemY + 10, 18, 18, "fill");
-    ink(60, 60, 70).box(12, itemY + 10, 18, 18, "outline");
-    
-    // sourceCode is the painting hash (e.g., "sb9"), via is the kidlisp code (e.g., "bop")
     const displayCode = mug.sourceCode || mug.code;
     const colorText = (mug.color || "white").toLowerCase();
+    const timeAgo = getTimeAgo(mug.createdAt);
     
-    // Row 1: "color mug of CODE in $via"
-    let textX = 38;
-    ink(colorRgb).write(colorText, { x: textX, y: itemY + 8 });
+    // Single condensed line: "color mug of CODE in $via · 2h ago"
+    let textX = 10;
+    const textY = itemY + 7;
+    
+    ink(...colorRgb).write(colorText, { x: textX, y: textY });
     textX += colorText.length * 6;
     
-    ink(scheme.mugOf).write(" mug of ", { x: textX, y: itemY + 8 });
+    ink(scheme.mugOf).write(" mug of ", { x: textX, y: textY });
     textX += " mug of ".length * 6;
     
-    ink(scheme.mugCode).write(displayCode, { x: textX, y: itemY + 8 });
+    ink(scheme.mugCode).write(displayCode, { x: textX, y: textY });
+    textX += displayCode.length * 6;
     
     if (mug.via) {
-      textX += displayCode.length * 6;
-      ink(scheme.mugVia).write(` in $${mug.via}`, { x: textX, y: itemY + 8 });
+      ink(scheme.mugVia).write(` in $${mug.via}`, { x: textX, y: textY });
+      textX += (` in $${mug.via}`).length * 6;
     }
     
-    // Row 2: Time ago
-    const timeAgo = getTimeAgo(mug.createdAt);
-    ink(scheme.timeAgo).write(timeAgo, { x: 38, y: itemY + 22 });
+    // Time ago - inline after a separator
+    if (timeAgo) {
+      ink(scheme.timeAgo).write(` · ${timeAgo}`, { x: textX, y: textY });
+    }
   });
+  
+  // Unmask before drawing scrollbar and anything else
+  unmask();
   
   // Scrollbar (flush right like colors.mjs)
   const contentHeight = mugs.length * ROW_HEIGHT;
