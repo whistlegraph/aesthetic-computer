@@ -6,6 +6,7 @@ const { floor, min, max, abs, sin } = Math;
 // 🎨 Color scheme
 const scheme = {
   background: [16, 16, 24],
+  baseBg: [16, 16, 24], // Base background for tinting
   previewBg: [12, 12, 18],
   listItemBg: [20, 20, 30],
   listItemBgAlt: [24, 24, 36],
@@ -34,7 +35,11 @@ let selectedIndex = 0;
 let scroll = 0; // Negative scroll (like colors.mjs)
 let preloadAnimatedWebp = null;
 let previewCache = {}; // Cache loaded previews by code
-let viewBtn = null;
+let buyBtn = null;
+
+const btnCharWidth = 8; // unifont char width
+const btnCharHeight = 16; // unifont char height
+const btnPadding = 6;
 
 // Auto-play state
 let autoPlay = true; // Auto-advance through mugs
@@ -43,6 +48,16 @@ let lastAutoAdvance = 0;
 let userInteracted = false; // Pause auto-play on user interaction
 let autoPlayPauseTime = 0;
 const AUTO_PLAY_RESUME_DELAY = 8000; // Resume after 8s of no interaction
+
+// Background color transition
+let currentBgColor = [...scheme.baseBg];
+let targetBgColor = [...scheme.baseBg];
+
+// Checkout state (for buy button)
+let checkoutUrls = {}; // Cache checkout URLs by mug code
+let checkoutLoading = {}; // Track loading state by mug code
+let buyPending = false;
+let apiRef = null;
 
 const ROW_HEIGHT = 24; // Condensed row height
 const TOP_MARGIN = 4;
@@ -62,14 +77,14 @@ const mugColors = {
   darkgreen: [50, 150, 80],
 };
 
-function boot({ net, cursor, hud, ui, screen }) {
+function boot({ net, cursor, hud, ui, screen, api }) {
   cursor("native");
   hud.labelBack();
   preloadAnimatedWebp = net.preloadAnimatedWebp;
+  apiRef = api;
   
-  // Create VIEW button
-  viewBtn = new ui.Button(0, 0, 70, 24);
-  viewBtn.text = "☕ VIEW";
+  // Create BUY button
+  buyBtn = new ui.Button(0, 0, 100, 28);
   
   fetchMugs();
 }
@@ -141,8 +156,26 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
     }
   }
   
-  // Animated background - subtle floating particles
-  wipe(scheme.background);
+  // Update target background color based on selected mug
+  if (mugs.length > 0 && mugs[selectedIndex]) {
+    const mugColorName = mugs[selectedIndex].color?.toLowerCase() || "white";
+    const mugRgb = mugColors[mugColorName] || [150, 150, 150];
+    // Tint: blend mug color into dark background at 15% intensity
+    targetBgColor = [
+      floor(scheme.baseBg[0] * 0.85 + mugRgb[0] * 0.15),
+      floor(scheme.baseBg[1] * 0.85 + mugRgb[1] * 0.15),
+      floor(scheme.baseBg[2] * 0.85 + mugRgb[2] * 0.15),
+    ];
+  }
+  
+  // Smoothly transition background color
+  const lerpSpeed = 0.08;
+  currentBgColor[0] += (targetBgColor[0] - currentBgColor[0]) * lerpSpeed;
+  currentBgColor[1] += (targetBgColor[1] - currentBgColor[1]) * lerpSpeed;
+  currentBgColor[2] += (targetBgColor[2] - currentBgColor[2]) * lerpSpeed;
+  
+  // Animated background - subtle floating particles with tinted color
+  wipe(floor(currentBgColor[0]), floor(currentBgColor[1]), floor(currentBgColor[2]));
   
   for (let i = 0; i < 15; i++) {
     const seed = i * 137.5;
@@ -248,21 +281,29 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
         }
       }
       
-      // VIEW button - prominent coffee-themed styling
-      const btnW = 80;
-      const btnH = 28;
-      viewBtn.box.x = screen.width - btnW - 8;
-      viewBtn.box.y = previewHeight - btnH - 8;
-      viewBtn.box.w = btnW;
-      viewBtn.box.h = btnH;
+      // BUY button - shows product code and checkout
+      const mugCode = selectedMug.code;
+      const btnText = buyPending ? "☕ CHECKING OUT..." : `☕ BUY +${mugCode.slice(0, 8)} $18`;
+      const btnW = btnText.length * 6 + 16;
+      const btnH = 24;
+      buyBtn.box.x = screen.width - btnW - 8;
+      buyBtn.box.y = previewHeight - btnH - 12;
+      buyBtn.box.w = btnW;
+      buyBtn.box.h = btnH;
       
-      const isHover = viewBtn.down;
+      const isHover = buyBtn.down;
       const blink = sin(time * 2.5) * 0.5 + 0.5;
       const breathe = sin(time * 1.5) * 0.2 + 0.8;
       
       // Coffee brown gradient feel
       let fillColor, borderColor, textColor;
-      if (isHover) {
+      if (buyPending) {
+        // Pending state - pulsing
+        const pulse = sin(time * 6) * 0.3 + 0.7;
+        fillColor = [floor(60 * pulse), floor(50 * pulse), floor(30 * pulse)];
+        borderColor = [200, 180, 100];
+        textColor = [255, 220, 150];
+      } else if (isHover) {
         fillColor = [80, 60, 40];
         borderColor = [255, 200, 100];
         textColor = [255, 230, 180];
@@ -273,16 +314,21 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
       }
       
       // Button with rounded corners effect (double outline)
-      ink(fillColor).box(viewBtn.box, "fill");
-      ink(borderColor).box(viewBtn.box, "outline");
+      ink(fillColor).box(buyBtn.box, "fill");
+      ink(borderColor).box(buyBtn.box, "outline");
       // Inner glow line
       ink(borderColor[0] * 0.5, borderColor[1] * 0.5, borderColor[2] * 0.5, 0.5)
-        .box(viewBtn.box.x + 1, viewBtn.box.y + 1, viewBtn.box.w - 2, viewBtn.box.h - 2, "outline");
+        .box(buyBtn.box.x + 1, buyBtn.box.y + 1, buyBtn.box.w - 2, buyBtn.box.h - 2, "outline");
       
-      ink(textColor).write(viewBtn.text, {
-        x: viewBtn.box.x + 10,
-        y: viewBtn.box.y + 10,
+      ink(textColor).write(btnText, {
+        x: buyBtn.box.x + 8,
+        y: buyBtn.box.y + 8,
       });
+      
+      // Pre-fetch checkout URL for this mug
+      if (!checkoutUrls[mugCode] && !checkoutLoading[mugCode]) {
+        fetchCheckoutForMug(selectedMug);
+      }
     } else if (preview?.broken) {
       // Broken/missing preview - draw X and "no preview"
       const cx = floor(screen.width / 2);
@@ -299,12 +345,53 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
     }
   }
   
+  // Auto-play progress bar (below preview, above list)
+  const progressBarH = 3;
+  const progressBarY = previewHeight - progressBarH;
+  
+  if (autoPlay && mugs.length > 1 && !loading) {
+    // Background track
+    ink(30, 30, 40, 0.8).box(0, progressBarY, screen.width, progressBarH, "fill");
+    
+    // Calculate progress
+    let progress = 0;
+    if (!userInteracted) {
+      const elapsed = now - lastAutoAdvance;
+      progress = min(1, elapsed / autoPlayInterval);
+    } else {
+      // Show paused state - subtle pulsing partial bar
+      const pausePulse = sin(time * 2) * 0.1 + 0.3;
+      progress = pausePulse;
+    }
+    
+    // Progress fill - use mug color
+    const mugColorName = selectedMug?.color?.toLowerCase() || "white";
+    const barRgb = mugColors[mugColorName] || [150, 150, 150];
+    const barW = floor(screen.width * progress);
+    
+    if (!userInteracted) {
+      // Active: solid color with slight glow
+      ink(barRgb[0], barRgb[1], barRgb[2], 0.9).box(0, progressBarY, barW, progressBarH, "fill");
+      // Bright tip
+      if (barW > 2) {
+        ink(255, 255, 255, 0.6).box(barW - 2, progressBarY, 2, progressBarH, "fill");
+      }
+    } else {
+      // Paused: dimmer, pulsing
+      const pauseAlpha = sin(time * 3) * 0.2 + 0.4;
+      ink(barRgb[0] * 0.6, barRgb[1] * 0.6, barRgb[2] * 0.6, pauseAlpha).box(0, progressBarY, barW, progressBarH, "fill");
+    }
+  }
+  
   // Divider line
   ink(scheme.divider).line(0, previewHeight, screen.width, previewHeight);
   
   // === BOTTOM: Scrollable list (MASKED) ===
   const listY = previewHeight + 1;
   const listHeight = screen.height - listY;
+  
+  // Draw solid dark background for list area (not tinted)
+  ink(scheme.baseBg[0], scheme.baseBg[1], scheme.baseBg[2]).box(0, listY, screen.width, listHeight, "fill");
   
   // Mask the list area so items don't draw over the preview
   mask({
@@ -439,14 +526,28 @@ function act({ event: e, jump, screen, sound, store }) {
     openSelectedMug(jump);
   }
   
-  // VIEW button click
-  viewBtn?.act(e, {
+  // BUY button click - checkout
+  buyBtn?.act(e, {
     down: () => {
       sound?.synth({ type: "sine", tone: 440, duration: 0.05, volume: 0.3 });
     },
     push: () => {
-      sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
-      openSelectedMug(jump);
+      if (buyPending) return;
+      
+      const mug = mugs[selectedIndex];
+      if (!mug) return;
+      
+      const url = checkoutUrls[mug.code];
+      if (url) {
+        // Instant redirect!
+        sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
+        jump(url);
+      } else {
+        // URL still loading - show pending state
+        buyPending = true;
+        sound?.synth({ type: "sine", tone: 660, duration: 0.08, volume: 0.3 });
+        waitForCheckout(mug, jump, sound);
+      }
     },
   });
   
@@ -524,6 +625,74 @@ function getTimeAgo(dateStr) {
   if (days < 7) return days + "d ago";
   
   return date.toLocaleDateString();
+}
+
+// Pre-fetch checkout URL for a mug
+async function fetchCheckoutForMug(mug) {
+  const code = mug.code;
+  if (checkoutUrls[code] || checkoutLoading[code]) return;
+  
+  checkoutLoading[code] = true;
+  
+  try {
+    const headers = { "Content-Type": "application/json" };
+    const token = await apiRef?.authorize?.();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    
+    // Build return slug
+    let returnSlug = `mug~${mug.sourceCode || code}~${mug.color || "white"}`;
+    if (mug.via) {
+      returnSlug += `~via~${mug.via}`;
+    }
+    
+    // Build API URL
+    let apiUrl = `/api/mug?new=true&pixels=${mug.sourceCode || code}.png&color=${mug.color || "white"}`;
+    if (mug.via) {
+      apiUrl += `&via=${mug.via}`;
+    }
+    
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ quantity: 1, slug: returnSlug }),
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.location) {
+        checkoutUrls[code] = data.location;
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to fetch checkout for mug:", code, e);
+  } finally {
+    checkoutLoading[code] = false;
+  }
+}
+
+// Poll for checkout URL if user clicked before it was ready
+async function waitForCheckout(mug, jump, sound) {
+  const code = mug.code;
+  const maxWait = 10000; // 10 seconds max
+  const startTime = Date.now();
+  
+  // Ensure we're fetching
+  if (!checkoutUrls[code] && !checkoutLoading[code]) {
+    fetchCheckoutForMug(mug);
+  }
+  
+  while (!checkoutUrls[code] && Date.now() - startTime < maxWait) {
+    await new Promise(r => setTimeout(r, 100));
+  }
+  
+  buyPending = false;
+  
+  if (checkoutUrls[code]) {
+    sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
+    jump(checkoutUrls[code]);
+  } else {
+    sound?.synth({ type: "square", tone: 200, duration: 0.15, volume: 0.3 });
+  }
 }
 
 function meta() {
