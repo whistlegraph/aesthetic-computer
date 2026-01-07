@@ -2876,9 +2876,9 @@
     }
 
     .desktop-platform-btn .plat-icon {
-      width: 36px;
-      height: 36px;
-      margin-bottom: 0.15em;
+      width: 52px;
+      height: 52px;
+      margin-bottom: 0.2em;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -2891,13 +2891,13 @@
     }
 
     .desktop-platform-btn .plat-name {
-      font-size: 0.85em;
+      font-size: 1.05em;
       color: #fff;
       font-weight: bold;
     }
 
     .desktop-platform-btn .plat-arch {
-      font-size: 0.6em;
+      font-size: 0.7em;
       color: #aaa;
       font-family: var(--mono);
     }
@@ -2965,24 +2965,24 @@
     }
 
     .desktop-vscode-link .vscode-icon-img {
-      width: 42px;
-      height: 42px;
+      width: 56px;
+      height: 56px;
       border-radius: 4px;
     }
 
     .desktop-vscode-link .vscode-icon {
-      font-size: 2.2em;
+      font-size: 2.8em;
     }
 
     .desktop-vscode-link .vscode-label {
       color: #ccc;
       font-weight: 600;
-      font-size: 0.8em;
+      font-size: 1em;
     }
 
     .desktop-vscode-link .vscode-ver {
       color: #8c8;
-      font-size: 0.65em;
+      font-size: 0.75em;
       font-family: monospace;
     }
 
@@ -3008,20 +3008,20 @@
     }
 
     .desktop-ableton-link .ableton-icon {
-      width: 42px;
-      height: 42px;
+      width: 56px;
+      height: 56px;
       color: #fff;
     }
 
     .desktop-ableton-link .ableton-label {
       color: #ccc;
       font-weight: 600;
-      font-size: 0.8em;
+      font-size: 1em;
     }
 
     .desktop-ableton-link .ableton-tag {
       color: #aaa;
-      font-size: 0.6em;
+      font-size: 0.7em;
       font-family: monospace;
       background: rgba(255, 255, 255, 0.12);
       padding: 0.15em 0.4em;
@@ -3076,22 +3076,31 @@
     }
 
     .mobile-app-title {
-      font-size: 0.85em;
+      font-size: 1.15em;
       color: #aaa;
       font-weight: 500;
       text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
     }
 
     .app-bounce-dot {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       color: var(--pink);
       font-weight: 900;
       animation: appDotBounce 1.5s ease-in-out infinite;
+      margin: 0 -0.02em;
+      position: relative;
+      top: 0.02em;
     }
 
     @keyframes appDotBounce {
       0%, 100% { transform: translateY(0) scale(1); }
-      50% { transform: translateY(-3px) scale(1.15); }
+      50% { transform: translateY(-3px) scale(1.2); }
     }
 
     .mobile-store-link {
@@ -3979,6 +3988,7 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      background: #000;
       /* iOS Safari fixes */
       -webkit-transform: translateZ(0);
       transform: translateZ(0);
@@ -4131,22 +4141,20 @@
 
     .tv-slide.entering {
       animation: tvSlideIn 0.4s ease-out forwards;
-      z-index: 2;
+      z-index: 3;
     }
 
     .tv-slide.exiting {
       animation: tvSlideOut 0.4s ease-out forwards;
-      z-index: 1;
+      z-index: 2;
     }
 
     @keyframes tvSlideIn {
       from {
         transform: translateY(100%);
-        opacity: 0;
       }
       to {
         transform: translateY(0);
-        opacity: 1;
       }
     }
 
@@ -5722,11 +5730,11 @@
           <div class="stat-floaters"></div>
           <div class="stat-value">—</div>
           <div class="stat-label">
-            <span data-lang="en"><span class="stat-sigil">$</span>kidlisp pieces</span>
-            <span data-lang="da"><span class="stat-sigil">$</span>kidlisp stykker</span>
-            <span data-lang="de"><span class="stat-sigil">$</span>KidLisp Stücke</span>
-            <span data-lang="es"><span class="stat-sigil">$</span>piezas kidlisp</span>
-            <span data-lang="zh"><span class="stat-sigil">$</span>kidlisp作品</span>
+            <span data-lang="en"><span class="stat-sigil">$</span>kidlisps</span>
+            <span data-lang="da"><span class="stat-sigil">$</span>kidlisps</span>
+            <span data-lang="de"><span class="stat-sigil">$</span>kidlisps</span>
+            <span data-lang="es"><span class="stat-sigil">$</span>kidlisps</span>
+            <span data-lang="zh"><span class="stat-sigil">$</span>kidlisps</span>
           </div>
         </div>
         <div class="stat-item" id="stat-commands">
