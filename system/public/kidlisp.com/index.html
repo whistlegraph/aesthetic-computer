@@ -16,6 +16,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <!-- Auth0 SPA SDK (same as give.aesthetic.computer) -->
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
   <!-- Modular CSS Architecture -->
   <link rel="stylesheet" href="/kidlisp.com/css/main.css" />
   <style>
@@ -1376,6 +1378,14 @@
     .hl-keyword { color: pink; }
     .hl-api { color: cyan; }
     .hl-color { color: magenta; }
+    .hl-timing { color: yellow; font-weight: bold; }
+    .hl-hashcode { color: orange; font-weight: bold; }
+    .hl-dollarcode { color: limegreen; font-weight: bold; }
+    .hl-paren { color: silver; }
+    .hl-operator { color: pink; }
+    .hl-symbol { color: skyblue; }
+    
+
     
     /* Light mode console code styling */
     [data-theme="light"] .console-code {
@@ -1390,6 +1400,9 @@
     [data-theme="light"] .hl-keyword { color: #cc0066; }
     [data-theme="light"] .hl-api { color: #0099cc; }
     [data-theme="light"] .hl-color { color: #cc00cc; }
+    [data-theme="light"] .hl-timing { color: #cc9900; }
+    [data-theme="light"] .hl-hashcode { color: #cc6600; }
+    [data-theme="light"] .hl-dollarcode { color: #00aa00; }
     
     /* Error decorations in Monaco editor */
     .kidlisp-error-word {
@@ -1739,14 +1752,18 @@
     }
 
     #examples-content,
-    #keeps-content {
+    #keeps-content,
+    #guide-content {
       align-items: flex-start;
       justify-content: flex-start;
       overflow-y: auto;
+      padding: 0; /* Remove padding so list items go edge-to-edge */
     }
 
     #examples-content > div,
-    #keeps-content > div {
+    #keeps-content > div,
+    #guides-list,
+    #guide-detail {
       width: 100%;
     }
 
@@ -1895,6 +1912,141 @@
     .example-hits {
       font-size: 11px;
       color: var(--text-tertiary);
+    }
+
+    /* Guides List - matches Top Hits style */
+    .guide-item {
+      padding: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    @media (hover: hover) {
+      .guide-item:hover {
+        background: var(--bg-secondary);
+      }
+    }
+    
+    .guide-item-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: var(--bg-tertiary);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    
+    .guide-item-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .guide-item-title {
+      font-family: monospace;
+      font-size: 12px;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .guide-item-author {
+      font-size: 10px;
+      color: rgb(205, 92, 155);
+      font-family: monospace;
+    }
+    
+    .guide-item-arrow {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      opacity: 0.5;
+    }
+    
+    /* Guide Detail View */
+    .guide-detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-secondary);
+    }
+    
+    .guide-back-btn {
+      background: none;
+      border: none;
+      color: rgb(205, 92, 155);
+      font-family: monospace;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    
+    .guide-back-btn:hover {
+      background: var(--bg-tertiary);
+    }
+    
+    .guide-detail-author {
+      font-size: 10px;
+      color: rgb(205, 92, 155);
+      font-family: monospace;
+    }
+    
+    .guide-detail-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: var(--text-primary);
+      padding: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    
+    .guide-detail-body {
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+    
+    .guide-detail-body p {
+      margin: 0 0 12px 0;
+    }
+    
+    .guide-detail-body p:last-child {
+      margin-bottom: 0;
+    }
+    
+    .guide-detail-body code {
+      background: #fff9c0;
+      padding: 2px 4px;
+      border-radius: 2px;
+      font-size: 11px;
+      color: #333333;
+      border: 1px solid #f0e68c;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      .guide-detail-body code {
+        background: #332f28;
+        color: #d4d4d4;
+        border-color: #4a4540;
+      }
+    }
+    
+    [data-theme="dark"] .guide-detail-body code {
+      background: #332f28;
+      color: #d4d4d4;
+      border-color: #4a4540;
     }
 
     .docs-content h3 {
@@ -4693,7 +4845,7 @@
         <div class="docs-header">
           <div class="tab mobile-only" data-tab="console" id="console-tab">Console</div>
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
-          <div class="tab active" data-tab="guide" id="guide-tab">Guide</div>
+          <div class="tab active" data-tab="guide" id="guide-tab">Guides</div>
           <div class="tab" data-tab="examples" id="examples-tab">Top Hits</div>
           <div class="tab" data-tab="keeps" id="keeps-tab">Keeps</div>
         </div>
@@ -4702,7 +4854,15 @@
           <div class="console-output" id="mobile-console-output"></div>
         </div>
         <div class="docs-content" id="guide-content">
-          <div id="guide-list"></div>
+          <div id="guides-list"></div>
+          <div id="guide-detail" class="hidden">
+            <div class="guide-detail-header">
+              <button class="guide-back-btn">← Back</button>
+              <span class="guide-detail-author"></span>
+            </div>
+            <div class="guide-detail-title"></div>
+            <div class="guide-detail-body"></div>
+          </div>
         </div>
         <div class="docs-content hidden" id="examples-content">
           <div id="examples-list">Loading examples...</div>
@@ -4915,7 +5075,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Console',
         referenceTab: 'Cards',
-        guideTab: 'Guide',
+        guideTab: 'Guides',
         examplesTab: 'Top Hits',
         keepsTab: 'Keeps',
         keepsConnectWallet: 'Connect Wallet',
@@ -4954,7 +5114,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Consola',
         referenceTab: 'Tarjetas',
-        guideTab: 'Guía',
+        guideTab: 'Guías',
         examplesTab: 'Más Populares',
         keepsTab: 'Keeps',
         keepsConnectWallet: 'Conectar Cartera',
@@ -5030,7 +5190,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Konsol',
         referenceTab: 'Kort',
-        guideTab: 'Guide',
+        guideTab: 'Guides',
         examplesTab: 'Top Hits',
         keepsTab: 'Keeps',
         keepsConnectWallet: 'Forbind Wallet',
@@ -7154,8 +7314,63 @@
     let reloadAttempts = 0;
     const MAX_RELOAD_ATTEMPTS = 2;
     
-    // Simple KidLisp syntax highlighting for console (lighter than Monaco)
+    // Enhanced KidLisp syntax highlighting for console - matches Top Hits and Monaco
+    // Uses KidLisp tokenizer for accurate coloring including fade: expressions
     function highlightKidlispCode(code) {
+      // Check if KidLisp tokenizer is available (loaded after Monaco init)
+      if (typeof tokenize !== 'function' || typeof KidLisp !== 'function') {
+        // Fallback to simple highlighting if KidLisp not loaded yet
+        return highlightKidlispCodeSimple(code);
+      }
+      
+      try {
+        // Create a dedicated KidLisp instance for console highlighting (like Top Hits)
+        const consoleKidlisp = new KidLisp();
+        consoleKidlisp.isEditMode = true; // Edit mode for static display
+        consoleKidlisp.initializeSyntaxHighlighting(code);
+        const coloredString = consoleKidlisp.buildColoredKidlispString();
+        
+        // Convert KidLisp color codes to HTML spans (same as Top Hits)
+        let highlightedHtml = coloredString.replace(/\\([^\\]+)\\([^\\]*)/g, (match, color, text) => {
+          if (!text) return '';
+          
+          // Escape HTML entities in text
+          const escapedText = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+          
+          let cssColor = color;
+          
+          // Skip transparent colors (alpha = 0)
+          if (color.includes(',0') && color.split(',').length === 4) {
+            cssColor = 'rgb(128,128,128)';
+          }
+          
+          // Handle RGB colors
+          if (color.match(/^\d+,\s*\d+,\s*\d+(,\s*\d+)?$/)) {
+            const parts = color.split(',').map(n => parseInt(n.trim()));
+            if (parts.length === 4 && parts[3] === 0) {
+              cssColor = 'rgb(180,180,180)';
+            } else {
+              cssColor = `rgb(${parts.slice(0,3).join(',')})`;
+            }
+          }
+          
+
+          
+          return `<span style="color: ${cssColor}; font-weight: bold;">${escapedText}</span>`;
+        });
+        
+        return highlightedHtml;
+      } catch (e) {
+        // Fallback to simple highlighting on error
+        return highlightKidlispCodeSimple(code);
+      }
+    }
+    
+    // Simple fallback highlighting (when KidLisp tokenizer not available)
+    function highlightKidlispCodeSimple(code) {
       // Escape HTML first
       let html = code
         .replace(/&/g, '&amp;')
@@ -7175,7 +7390,7 @@
         html = html.replace(new RegExp(`\\b(${kw})\\b`, 'g'), '<span class="hl-keyword">$1</span>');
       });
       // API calls (common ones)
-      const apiCalls = ['wipe', 'ink', 'line', 'box', 'circle', 'text', 'pan', 'zoom', 'blur', 'noise', 'frame', 'width', 'height', 'rainbow', 'wiggle'];
+      const apiCalls = ['wipe', 'ink', 'line', 'box', 'circle', 'text', 'pan', 'zoom', 'blur', 'noise', 'frame', 'width', 'height', 'rainbow', 'wiggle', 'stamp', 'scroll', 'bake', 'spin', 'fps', 'write'];
       apiCalls.forEach(api => {
         html = html.replace(new RegExp(`\\b(${api})\\b`, 'g'), '<span class="hl-api">$1</span>');
       });
@@ -7184,6 +7399,10 @@
       colors.forEach(c => {
         html = html.replace(new RegExp(`\\b(${c})\\b`, 'g'), '<span class="hl-color">$1</span>');
       });
+      // #codes (painting refs) - like #48q
+      html = html.replace(/#[0-9a-zA-Z]{1,8}\b/g, '<span class="hl-hashcode">$&</span>');
+      // Timing patterns - like 0.5s, 1s...
+      html = html.replace(/\b\d*\.?\d+[sf](\.{1,3})?\b/g, '<span class="hl-timing">$&</span>');
       return html;
     }
     
@@ -7444,7 +7663,18 @@
     }
     
     // ☕ Show mug preview modal with color selection
+    // Can be called with { loading: true } to show immediately while processing
+    // Then call updateMugModal() to update content when data is ready
     function showMugModal(previewData, paintingCode, kidlispCode, initialColor) {
+      const isLoading = previewData?.loading === true;
+      
+      // If modal exists and we're updating (not loading), update content in place
+      if (mugModal && !isLoading) {
+        updateMugModalContent(previewData, paintingCode, kidlispCode, initialColor);
+        return;
+      }
+      
+      // Remove any existing modal
       if (mugModal) mugModal.remove();
       
       // Use the randomly selected color (no picker)
@@ -7453,6 +7683,8 @@
       // Create modal backdrop
       mugModal = document.createElement('div');
       mugModal.id = 'mug-modal';
+      mugModal.dataset.color = selectedColor;
+      mugModal.dataset.kidlispCode = kidlispCode || '';
       mugModal.style.cssText = `
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
@@ -7466,6 +7698,7 @@
       
       // Modal content - simplified
       const content = document.createElement('div');
+      content.className = 'mug-modal-content';
       content.style.cssText = `
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
         border-radius: 16px;
@@ -7486,7 +7719,8 @@
       `;
       
       const title = document.createElement('h2');
-      title.innerHTML = `☕ ${selectedColor} mug`;
+      title.className = 'mug-modal-title';
+      title.innerHTML = isLoading ? `☕ ${selectedColor} mug...` : `☕ ${selectedColor} mug`;
       title.style.cssText = `
         margin: 0;
         color: #f0e6d3;
@@ -7515,50 +7749,40 @@
       
       // Preview image container
       const previewContainer = document.createElement('div');
+      previewContainer.className = 'mug-preview-container';
       previewContainer.style.cssText = `
         background: #0a0a14;
         border-radius: 12px;
         padding: 12px;
         margin-bottom: 12px;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
         min-height: 180px;
       `;
       
-      // Animated preview or static mockup
-      if (previewData.animatedWebpUrl) {
-        const animatedImg = document.createElement('img');
-        animatedImg.src = previewData.animatedWebpUrl;
-        animatedImg.style.cssText = `
-          max-width: 100%;
-          max-height: 240px;
-          border-radius: 8px;
-        `;
-        previewContainer.appendChild(animatedImg);
-      } else if (previewData.mockupUrl) {
-        const staticImg = document.createElement('img');
-        staticImg.src = previewData.mockupUrl;
-        staticImg.style.cssText = `
-          max-width: 100%;
-          max-height: 240px;
-          border-radius: 8px;
-        `;
-        previewContainer.appendChild(staticImg);
+      if (isLoading) {
+        // Show loading spinner/text
+        const loadingText = document.createElement('div');
+        loadingText.textContent = '☕ creating your mug...';
+        loadingText.style.cssText = 'color: #8b5a2b; font-family: monospace; font-size: 16px; animation: pulse 1.5s ease-in-out infinite;';
+        previewContainer.appendChild(loadingText);
+        
+        // Add CSS animation for pulse if not exists
+        if (!document.getElementById('mug-loading-styles')) {
+          const style = document.createElement('style');
+          style.id = 'mug-loading-styles';
+          style.textContent = `@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }`;
+          document.head.appendChild(style);
+        }
       } else {
-        const placeholder = document.createElement('div');
-        placeholder.textContent = '☕ Loading preview...';
-        placeholder.style.cssText = 'color: #666; font-family: monospace;';
-        previewContainer.appendChild(placeholder);
+        renderMugPreviewContent(previewContainer, previewData);
       }
       
       // URL + QR section - compact row
-      const rawProductCode = previewData.rawProductCode || previewData.productCode?.replace(/^\+/, '');
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local');
-      const baseUrl = isLocal ? `${window.location.protocol}//${window.location.host}` : 'https://aesthetic.computer';
-      const mugUrl = rawProductCode ? `${baseUrl}/mug~+${rawProductCode}` : `${baseUrl}/mugs`;
-      
       const urlSection = document.createElement('div');
+      urlSection.className = 'mug-url-section';
       urlSection.style.cssText = `
         display: flex;
         align-items: center;
@@ -7569,101 +7793,35 @@
         border-radius: 8px;
       `;
       
-      // QR code
-      const qrCanvas = document.createElement('canvas');
-      qrCanvas.width = 56;
-      qrCanvas.height = 56;
-      qrCanvas.style.cssText = `
-        display: block;
-        image-rendering: pixelated;
-        border-radius: 4px;
-        flex-shrink: 0;
-      `;
-      
-      // URL text
-      const urlText = document.createElement('div');
-      urlText.style.cssText = `
-        font-family: monospace;
-        font-size: 13px;
-        color: #aaa;
-        word-break: break-all;
-        line-height: 1.3;
-        flex: 1;
-      `;
-      urlText.innerHTML = `<span style="color: #666;">aesthetic.computer/</span><span style="color: #87ceeb;">mug</span><span style="color: #555;">~+</span><span style="color: #00e5ff;">${rawProductCode || '...'}</span>`;
-      
-      urlSection.appendChild(qrCanvas);
-      urlSection.appendChild(urlText);
-      
-      // Generate QR code
-      if (typeof QRious !== 'undefined') {
-        new QRious({
-          element: qrCanvas,
-          value: mugUrl,
-          size: 56,
-          level: 'L',
-          background: '#1a1a2e',
-          foreground: '#ffffff',
-        });
+      if (isLoading) {
+        const urlPlaceholder = document.createElement('div');
+        urlPlaceholder.style.cssText = 'color: #555; font-family: monospace; font-size: 13px;';
+        urlPlaceholder.textContent = 'generating url...';
+        urlSection.appendChild(urlPlaceholder);
+      } else {
+        renderMugUrlSection(urlSection, previewData);
       }
       
       // Buy button - full width
       const buyBtn = document.createElement('button');
-      buyBtn.innerHTML = '☕ buy for <span style="color: #90ee90; font-weight: bold;">$18</span>';
+      buyBtn.className = 'mug-buy-btn';
+      buyBtn.innerHTML = isLoading ? '☕ please wait...' : '☕ buy for <span style="color: #90ee90; font-weight: bold;">$18</span>';
+      buyBtn.disabled = isLoading;
       buyBtn.style.cssText = `
         width: 100%;
         background: linear-gradient(135deg, #8b5a2b 0%, #a0642a 100%);
         border: none;
         border-radius: 8px;
         padding: 14px 20px;
-        cursor: pointer;
+        cursor: ${isLoading ? 'wait' : 'pointer'};
         font-size: 16px;
         font-family: monospace;
         color: white;
         font-weight: bold;
         transition: all 0.2s;
         box-shadow: 0 4px 12px rgba(139, 90, 43, 0.4);
+        opacity: ${isLoading ? '0.6' : '1'};
       `;
-      buyBtn.addEventListener('mouseenter', () => { 
-        buyBtn.style.transform = 'scale(1.02)'; 
-        buyBtn.style.boxShadow = '0 6px 16px rgba(139, 90, 43, 0.6)';
-      });
-      buyBtn.addEventListener('mouseleave', () => { 
-        buyBtn.style.transform = 'scale(1)'; 
-        buyBtn.style.boxShadow = '0 4px 12px rgba(139, 90, 43, 0.4)';
-      });
-      buyBtn.addEventListener('click', async () => {
-        buyBtn.disabled = true;
-        buyBtn.innerHTML = '☕ opening checkout...';
-        buyBtn.style.opacity = '0.7';
-        
-        try {
-          // Call mug API for checkout
-          let checkoutApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=${selectedColor}`;
-          if (kidlispCode) {
-            checkoutApiUrl += `&via=${kidlispCode}`;
-          }
-          
-          const checkoutRes = await fetch(checkoutApiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quantity: 1, slug: rawProductCode ? `mug~+${rawProductCode}` : undefined }),
-          });
-          
-          const checkoutData = await checkoutRes.json();
-          if (checkoutData.location) {
-            window.open(checkoutData.location, '_blank');
-            closeMugModal();
-          } else {
-            throw new Error('No checkout URL returned');
-          }
-        } catch (e) {
-          console.error('☕ Checkout failed:', e);
-          buyBtn.innerHTML = '❌ failed - retry';
-          buyBtn.disabled = false;
-          buyBtn.style.opacity = '1';
-        }
-      });
       
       // Assemble modal
       content.appendChild(header);
@@ -7689,6 +7847,130 @@
       document.body.appendChild(mugModal);
     }
     
+    // Helper to render preview content
+    function renderMugPreviewContent(container, previewData) {
+      container.innerHTML = '';
+      if (previewData.animatedWebpUrl) {
+        const animatedImg = document.createElement('img');
+        animatedImg.src = previewData.animatedWebpUrl;
+        animatedImg.style.cssText = 'max-width: 100%; max-height: 240px; border-radius: 8px;';
+        container.appendChild(animatedImg);
+      } else if (previewData.mockupUrl) {
+        const staticImg = document.createElement('img');
+        staticImg.src = previewData.mockupUrl;
+        staticImg.style.cssText = 'max-width: 100%; max-height: 240px; border-radius: 8px;';
+        container.appendChild(staticImg);
+      } else {
+        const placeholder = document.createElement('div');
+        placeholder.textContent = '☕ Preview unavailable';
+        placeholder.style.cssText = 'color: #666; font-family: monospace;';
+        container.appendChild(placeholder);
+      }
+    }
+    
+    // Helper to render URL section
+    function renderMugUrlSection(container, previewData) {
+      container.innerHTML = '';
+      const rawProductCode = previewData.rawProductCode || previewData.productCode?.replace(/^\+/, '');
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local');
+      const baseUrl = isLocal ? `${window.location.protocol}//${window.location.host}` : 'https://aesthetic.computer';
+      const mugUrl = rawProductCode ? `${baseUrl}/mug~+${rawProductCode}` : `${baseUrl}/mugs`;
+      
+      // QR code
+      const qrCanvas = document.createElement('canvas');
+      qrCanvas.width = 56;
+      qrCanvas.height = 56;
+      qrCanvas.style.cssText = 'display: block; image-rendering: pixelated; border-radius: 4px; flex-shrink: 0;';
+      
+      // URL text
+      const urlText = document.createElement('div');
+      urlText.style.cssText = 'font-family: monospace; font-size: 13px; color: #aaa; word-break: break-all; line-height: 1.3; flex: 1;';
+      urlText.innerHTML = `<span style="color: #666;">aesthetic.computer/</span><span style="color: #87ceeb;">mug</span><span style="color: #555;">~+</span><span style="color: #00e5ff;">${rawProductCode || '...'}</span>`;
+      
+      container.appendChild(qrCanvas);
+      container.appendChild(urlText);
+      
+      // Generate QR code
+      if (typeof QRious !== 'undefined') {
+        new QRious({ element: qrCanvas, value: mugUrl, size: 56, level: 'L', background: '#1a1a2e', foreground: '#ffffff' });
+      }
+    }
+    
+    // Update modal content after loading completes
+    function updateMugModalContent(previewData, paintingCode, kidlispCode, selectedColor) {
+      if (!mugModal) return;
+      
+      const color = selectedColor || mugModal.dataset.color || 'white';
+      const code = kidlispCode || mugModal.dataset.kidlispCode || '';
+      
+      // Update title
+      const title = mugModal.querySelector('.mug-modal-title');
+      if (title) title.innerHTML = `☕ ${color} mug`;
+      
+      // Update preview
+      const previewContainer = mugModal.querySelector('.mug-preview-container');
+      if (previewContainer) renderMugPreviewContent(previewContainer, previewData);
+      
+      // Update URL section
+      const urlSection = mugModal.querySelector('.mug-url-section');
+      if (urlSection) renderMugUrlSection(urlSection, previewData);
+      
+      // Update buy button
+      const buyBtn = mugModal.querySelector('.mug-buy-btn');
+      if (buyBtn) {
+        const rawProductCode = previewData.rawProductCode || previewData.productCode?.replace(/^\+/, '');
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local');
+        const baseUrl = isLocal ? `${window.location.protocol}//${window.location.host}` : 'https://aesthetic.computer';
+        
+        buyBtn.innerHTML = '☕ buy for <span style="color: #90ee90; font-weight: bold;">$18</span>';
+        buyBtn.disabled = false;
+        buyBtn.style.cursor = 'pointer';
+        buyBtn.style.opacity = '1';
+        
+        // Remove old listeners and add new one
+        const newBuyBtn = buyBtn.cloneNode(true);
+        buyBtn.parentNode.replaceChild(newBuyBtn, buyBtn);
+        
+        newBuyBtn.addEventListener('mouseenter', () => { 
+          newBuyBtn.style.transform = 'scale(1.02)'; 
+          newBuyBtn.style.boxShadow = '0 6px 16px rgba(139, 90, 43, 0.6)';
+        });
+        newBuyBtn.addEventListener('mouseleave', () => { 
+          newBuyBtn.style.transform = 'scale(1)'; 
+          newBuyBtn.style.boxShadow = '0 4px 12px rgba(139, 90, 43, 0.4)';
+        });
+        newBuyBtn.addEventListener('click', async () => {
+          newBuyBtn.disabled = true;
+          newBuyBtn.innerHTML = '☕ opening checkout...';
+          newBuyBtn.style.opacity = '0.7';
+          
+          try {
+            let checkoutApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=${color}`;
+            if (code) checkoutApiUrl += `&via=${code}`;
+            
+            const checkoutRes = await fetch(checkoutApiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ quantity: 1, slug: rawProductCode ? `mug~+${rawProductCode}` : undefined }),
+            });
+            
+            const checkoutData = await checkoutRes.json();
+            if (checkoutData.location) {
+              window.open(checkoutData.location, '_blank');
+              closeMugModal();
+            } else {
+              throw new Error('No checkout URL returned');
+            }
+          } catch (e) {
+            console.error('☕ Checkout failed:', e);
+            newBuyBtn.innerHTML = '❌ failed - retry';
+            newBuyBtn.disabled = false;
+            newBuyBtn.style.opacity = '1';
+          }
+        });
+      }
+    }
+    
     function closeMugModal() {
       if (mugModal) {
         mugModal.remove();
@@ -7700,10 +7982,14 @@
     async function openMugFromScreenshot(dataUrl, mugBtn, kidlispCode) {
       if (!dataUrl) return;
       
+      // 🎯 Show modal IMMEDIATELY with loading state (before any async work)
+      const randomColor = randomMugColor();
+      showMugModal({ loading: true }, null, kidlispCode, randomColor);
+      
       const originalHTML = mugBtn?.innerHTML;
       if (mugBtn) {
         mugBtn.disabled = true;
-        mugBtn.innerHTML = '☕ uploading...';
+        mugBtn.innerHTML = '☕ processing...';
         mugBtn.style.opacity = '0.6';
       }
       
@@ -7806,6 +8092,8 @@
         }
       } catch (e) {
         console.error('☕ Mug upload failed:', e);
+        // Close the loading modal on error
+        closeMugModal();
         if (mugBtn) {
           mugBtn.innerHTML = '❌ failed';
           mugBtn.style.opacity = '0.85';
@@ -10731,62 +11019,13 @@
     // AC Auth0 Authentication
     // ═══════════════════════════════════════════════════════════════════════════
     
-    async function loadAuth0SDK() {
-      if (window.auth0) {
-        return;
-      }
-      
-      // Auth0 SPA SDK has issues with AMD loaders (Monaco's define)
-      // UMD scripts check: typeof define === 'function' && define.amd
-      // We must completely delete define, not just define.amd
-      // IMPORTANT: Wait for Monaco to finish all async module loading first
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      const src = `${aestheticUrl}/aesthetic.computer/dep/auth0-spa-js.production.js`;
-      log.auth.debug("Loading Auth0 SDK from:", src);
-      
-      // Completely remove define to force UMD to use global export
-      // Use try-catch because window.define may be non-configurable in some environments
-      const savedDefine = window.define;
-      try {
-        delete window.define;
-      } catch (e) {
-        // If delete fails, try setting to undefined instead
-        try { window.define = undefined; } catch (e2) { /* ignore */ }
-      }
-      
-      try {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = src;
-          script.crossOrigin = "anonymous";
-          script.onload = resolve;
-          script.onerror = () => reject(new Error(`Failed to load ${src}`));
-          document.head.appendChild(script);
-        });
-      } catch (e) {
-        if (savedDefine) window.define = savedDefine;
-        log.auth.error("Failed to load Auth0 script:", e.message);
-        throw e;
-      }
-      
-      // Restore define for any future AMD usage
-      if (savedDefine) {
-        window.define = savedDefine;
-      }
-      
-      if (window.auth0) {
-        log.auth.debug("Auth0 SDK loaded successfully");
-      } else {
-        log.auth.warn("Auth0 SDK loaded but window.auth0 not defined - auth disabled");
-      }
-    }
+    // NOTE: Auth0 SDK is now loaded via CDN in <head> (same as give.aesthetic.computer)
+    // The old loadAuth0SDK() function that dynamically loaded from aesthetic.computer
+    // has been removed in favor of the simpler, more reliable CDN approach.
     
     async function initAuth0() {
       try {
-        await loadAuth0SDK();
-        
-        // If auth0 didn't load, skip authentication
+        // Auth0 SDK loaded via CDN in <head> (same as give.aesthetic.computer)
         if (!window.auth0) {
           log.auth.warn("Auth0 not available, skipping authentication");
           updateACLoginUI();
@@ -10801,31 +11040,41 @@
           ? window.location.origin 
           : window.location.origin + '/kidlisp.com';
         
+        // Use same config as give.aesthetic.computer (aesthetic.us.auth0.com domain)
         acAuth0Client = await window.auth0.createAuth0Client({
-          domain: "https://hi.aesthetic.computer",
-          clientId: "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt",
-          cacheLocation: "localstorage",
-          useRefreshTokens: true,
-          authorizationParams: { 
-            redirect_uri: redirectUri 
+          domain: 'aesthetic.us.auth0.com',
+          clientId: 'LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt',
+          authorizationParams: {
+            redirect_uri: redirectUri,
+            audience: 'https://aesthetic.us.auth0.com/api/v2/'
           },
+          cacheLocation: 'localstorage',
+          useRefreshTokens: true,
+          useRefreshTokensFallback: true
         });
         
-        // Handle redirect callback
-        if (location.search.includes("state=") && 
-            (location.search.includes("code=") || location.search.includes("error="))) {
+        // Handle redirect callback (same as give.aesthetic.computer)
+        if (window.location.search.includes('code=') || window.location.search.includes('error=')) {
           try {
             await acAuth0Client.handleRedirectCallback();
-            // Clean URL
-            const cleanUrl = window.location.origin + window.location.pathname;
-            window.history.replaceState({}, document.title, cleanUrl);
+            window.history.replaceState({}, document.title, window.location.pathname);
           } catch (e) {
             log.auth.error("Auth callback error:", e);
           }
         }
         
-        // Check if already authenticated
-        const isAuthenticated = await acAuth0Client.isAuthenticated();
+        // Check if logged in locally first
+        let isAuthenticated = await acAuth0Client.isAuthenticated();
+        
+        // If not logged in locally, try silent auth to check for existing session from aesthetic.computer
+        if (!isAuthenticated) {
+          try {
+            await acAuth0Client.getTokenSilently();
+            isAuthenticated = await acAuth0Client.isAuthenticated();
+          } catch (e) {
+            // Silent auth failed - user not logged in on aesthetic.computer either
+          }
+        }
         if (isAuthenticated) {
           acUser = await acAuth0Client.getUser();
           acToken = await acAuth0Client.getTokenSilently();
@@ -11750,6 +11999,103 @@
     async function prepareKeepsMint(mintRequest) {
       return prepareKeepsMintWithTimeline(mintRequest);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GUIDES SYSTEM - Tutorial guides list
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const GUIDES_DATA = [
+      {
+        id: 'getting-started',
+        title: 'Getting Started with KidLisp',
+        author: '@jeffrey',
+        icon: '🚀',
+        body: `<p>Welcome to KidLisp! This guide will help you understand the basics of creating visual art with code.</p>
+<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+<p>Start by typing <code>(wipe "blue")</code> in the editor and pressing Play. You'll see the canvas fill with blue!</p>
+<p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>`
+      },
+      {
+        id: 'shapes-lines',
+        title: 'Drawing Shapes & Lines',
+        author: '@jeffrey',
+        icon: '📐',
+        body: `<p>KidLisp makes it easy to draw shapes on your canvas. Let's explore the basic drawing commands.</p>
+<p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+<p>Try <code>(box 50 50 100 100)</code> to draw a square, or <code>(line 0 0 width height)</code> for a diagonal line.</p>
+<p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.</p>`
+      },
+      {
+        id: 'animation-timing',
+        title: 'Animation & Timing',
+        author: '@jeffrey',
+        icon: '⏱️',
+        body: `<p>Make your creations come alive with animation! KidLisp has built-in timing functions.</p>
+<p>Sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam.</p>
+<p>Use <code>(later 1s (wipe "red"))</code> to change the background after 1 second, or <code>(wiggle)</code> to add playful movement.</p>
+<p>Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.</p>`
+      }
+    ];
+    
+    function initGuides() {
+      const guidesList = document.getElementById('guides-list');
+      const guideDetail = document.getElementById('guide-detail');
+      const guideBackBtn = guideDetail?.querySelector('.guide-back-btn');
+      
+      if (!guidesList) return;
+      
+      // Render guides list
+      guidesList.innerHTML = '';
+      GUIDES_DATA.forEach(guide => {
+        const el = document.createElement('div');
+        el.className = 'guide-item';
+        el.innerHTML = `
+          <div class="guide-item-icon">${guide.icon}</div>
+          <div class="guide-item-content">
+            <div class="guide-item-title">${guide.title}</div>
+            <div class="guide-item-author">${guide.author}</div>
+          </div>
+          <div class="guide-item-arrow">›</div>
+        `;
+        el.addEventListener('click', () => showGuideDetail(guide));
+        guidesList.appendChild(el);
+      });
+      
+      // Back button handler
+      if (guideBackBtn) {
+        guideBackBtn.addEventListener('click', hideGuideDetail);
+      }
+    }
+    
+    function showGuideDetail(guide) {
+      const guidesList = document.getElementById('guides-list');
+      const guideDetail = document.getElementById('guide-detail');
+      const detailAuthor = guideDetail?.querySelector('.guide-detail-author');
+      const detailTitle = guideDetail?.querySelector('.guide-detail-title');
+      const detailBody = guideDetail?.querySelector('.guide-detail-body');
+      
+      if (!guideDetail) return;
+      
+      // Populate detail
+      if (detailAuthor) detailAuthor.textContent = guide.author;
+      if (detailTitle) detailTitle.textContent = guide.title;
+      if (detailBody) detailBody.innerHTML = guide.body;
+      
+      // Show detail, hide list
+      guidesList?.classList.add('hidden');
+      guideDetail.classList.remove('hidden');
+    }
+    
+    function hideGuideDetail() {
+      const guidesList = document.getElementById('guides-list');
+      const guideDetail = document.getElementById('guide-detail');
+      
+      guidesList?.classList.remove('hidden');
+      guideDetail?.classList.add('hidden');
+    }
+    
+    // Initialize guides on load
+    initGuides();
 
     async function loadExamples() {
       try {
