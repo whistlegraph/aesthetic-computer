@@ -73,7 +73,7 @@ export function paintGiveButton($, options = {}) {
   
   // Determine button text - cycles through currencies every 2 seconds
   const now = Date.now();
-  const currencies = ["U$D", "TEZ", "DKK", "ETH", "BTC"];
+  const currencies = ["U$D", "TEZ", "DKK", "ETH", "BTC", "PP"];
   const currencyIndex = Math.floor(now / 2000) % currencies.length;
   const giveBtnText = "GIVE " + currencies[currencyIndex];
   
