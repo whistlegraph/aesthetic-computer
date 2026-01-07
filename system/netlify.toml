@@ -167,6 +167,12 @@ external_node_modules = ["stripe"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["CONTEXT", "STRIPE_API_TEST_PRIV_KEY", "STRIPE_API_PRIV_KEY"]
 
+[functions.paypal]
+# PayPal payments for giving/supporting AC
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET"]
+
 [functions.give-portal]
 # Stripe Customer Portal for managing/canceling subscriptions
 external_node_modules = ["stripe"]
