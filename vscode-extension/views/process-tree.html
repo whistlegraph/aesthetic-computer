@@ -9,13 +9,20 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    /* Dark theme (default) */
     body {
-      background: #000;
+      background: #181318;
       color: #fff;
       font-family: monospace;
       overflow: hidden;
       height: 100vh;
     }
+    body[data-theme="light"] {
+      background: #fcf7c5;
+      color: #281e5a;
+    }
+    
     #canvas { position: absolute; top: 0; left: 0; }
     .hud {
       position: absolute;
@@ -31,13 +38,18 @@
       gap: 8px;
     }
     .title .dot { color: #ff69b4; }
+    body[data-theme="light"] .title .dot { color: #006400; }
+    
     .status-dot {
       width: 6px;
       height: 6px;
       border-radius: 50%;
       background: #ff69b4;
     }
+    body[data-theme="light"] .status-dot { background: #387adf; }
     .status-dot.online { background: #0f0; }
+    body[data-theme="light"] .status-dot.online { background: #006400; }
+    
     .stats {
       top: 16px;
       right: 16px;
@@ -45,13 +57,18 @@
       font-size: 12px;
       color: #555;
     }
+    body[data-theme="light"] .stats { color: #806060; }
     .stats .val { color: #fff; }
+    body[data-theme="light"] .stats .val { color: #281e5a; }
+    
     .mem {
       bottom: 16px;
       right: 16px;
       font-size: 12px;
       color: #555;
     }
+    body[data-theme="light"] .mem { color: #806060; }
+    
     .center {
       top: 50%;
       left: 50%;
@@ -60,11 +77,14 @@
       font-size: 12px;
       color: #555;
     }
+    body[data-theme="light"] .center { color: #806060; }
     .center .count {
       font-size: 28px;
       color: #fff;
       margin-bottom: 4px;
     }
+    body[data-theme="light"] .center .count { color: #281e5a; }
+    
     .actions {
       pointer-events: auto;
       display: flex;
@@ -83,18 +103,36 @@
       transition: all 0.15s ease;
       font-family: inherit;
     }
+    body[data-theme="light"] .action-btn {
+      background: rgba(0,0,0,0.08);
+      border: 1px solid rgba(0,0,0,0.15);
+      color: #281e5a;
+    }
     .action-btn:hover {
       background: rgba(255,255,255,0.15);
       border-color: #ff69b4;
+    }
+    body[data-theme="light"] .action-btn:hover {
+      background: rgba(0,0,0,0.15);
+      border-color: #006400;
     }
     .action-btn.primary {
       background: #ff69b4;
       border-color: #ff69b4;
       color: #000;
     }
+    body[data-theme="light"] .action-btn.primary {
+      background: #006400;
+      border-color: #006400;
+      color: #fff;
+    }
     .action-btn.primary:hover {
       background: #ff8ab3;
     }
+    body[data-theme="light"] .action-btn.primary:hover {
+      background: #008000;
+    }
+    
     .label-container {
       position: absolute;
       top: 0;
@@ -113,9 +151,13 @@
       text-shadow: 0 0 3px #000, 0 0 6px #000;
       pointer-events: none;
     }
+    body[data-theme="light"] .proc-label {
+      text-shadow: 0 0 3px #fcf7c5, 0 0 6px #fcf7c5;
+    }
     .proc-label .icon { font-size: 18px; display: block; line-height: 1; }
     .proc-label .name { font-size: 10px; margin-top: 2px; font-weight: bold; letter-spacing: 0.3px; }
     .proc-label .info { font-size: 8px; color: #aaa; margin-top: 1px; }
+    body[data-theme="light"] .proc-label .info { color: #806060; }
     
     /* Dev mode indicator */
     .dev-badge {
@@ -130,9 +172,41 @@
       font-weight: bold;
       z-index: 200;
     }
+    body[data-theme="light"] .dev-badge {
+      background: #006400;
+      color: #fff;
+    }
+    
+    /* Theme toggle button */
+    .theme-toggle {
+      position: fixed;
+      top: 16px;
+      right: 120px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: monospace;
+      cursor: pointer;
+      z-index: 200;
+      pointer-events: auto;
+    }
+    body[data-theme="light"] .theme-toggle {
+      background: rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      color: #281e5a;
+    }
+    .theme-toggle:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    body[data-theme="light"] .theme-toggle:hover {
+      background: rgba(0, 0, 0, 0.2);
+    }
   </style>
 </head>
-<body>
+<body data-theme="dark">
   <canvas id="canvas"></canvas>
   
   <div class="hud title">
@@ -159,6 +233,8 @@
   </div>
   
   <div id="labels" class="label-container"></div>
+  
+  <button class="theme-toggle" onclick="window.ProcessTreeViz?.toggleTheme()">🌓 Theme</button>
   
   <script src="process-tree.js"></script>
 </body>

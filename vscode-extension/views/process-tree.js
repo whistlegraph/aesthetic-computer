@@ -7,6 +7,87 @@
   // Check if we're in VS Code webview or standalone
   const isVSCode = typeof acquireVsCodeApi === 'function';
   
+  // 🎨 Color Schemes (imported from color-schemes.js or embedded)
+  const colorSchemes = window.AestheticColorSchemes?.schemes || {
+    dark: {
+      background: '#181318',
+      backgroundAlt: '#141214',
+      foreground: '#ffffffcc',
+      foregroundBright: '#ffffff',
+      foregroundMuted: '#555555',
+      accent: '#a87090',
+      accentBright: '#ff69b4',
+      statusOnline: '#0f0',
+      categories: {
+        editor: 0xb06bff, tui: 0xff69b4, bridge: 0x6bff9f,
+        db: 0xffeb6b, proxy: 0x6b9fff, ai: 0xff9f6b,
+        shell: 0x6bffff, dev: 0x6bff9f, ide: 0x6b9fff, lsp: 0x888888, kernel: 0x88ccff
+      },
+      three: {
+        sceneBackground: 0x000000,
+        kernelOuter: 0x4488ff, kernelRing: 0x66aaff, kernelCore: 0x88ccff,
+        connectionLine: 0x444444, connectionActive: 0xff69b4, deadProcess: 0x444444
+      },
+      ui: { shadow: 'rgba(0, 0, 0, 0.6)', overlay: 'rgba(0, 0, 0, 0.85)' }
+    },
+    light: {
+      background: '#fcf7c5',
+      backgroundAlt: '#f5f0c0',
+      foreground: '#281e5a',
+      foregroundBright: '#281e5a',
+      foregroundMuted: '#806060',
+      accent: '#387adf',
+      accentBright: '#006400',
+      statusOnline: '#006400',
+      categories: {
+        editor: 0x8040d0, tui: 0xd04080, bridge: 0x208040,
+        db: 0xa08000, proxy: 0x2060c0, ai: 0xc06020,
+        shell: 0x008080, dev: 0x208040, ide: 0x2060c0, lsp: 0x606060, kernel: 0x387adf
+      },
+      three: {
+        sceneBackground: 0xfcf7c5,
+        kernelOuter: 0x387adf, kernelRing: 0x006400, kernelCore: 0x387adf,
+        connectionLine: 0xa8a080, connectionActive: 0x006400, deadProcess: 0xa8a080
+      },
+      ui: { shadow: 'rgba(0, 0, 0, 0.2)', overlay: 'rgba(252, 247, 197, 0.95)' }
+    }
+  };
+  
+  // Detect theme from data attribute, URL param, or VS Code CSS vars
+  function detectTheme() {
+    // Check data attribute first (set by the HTML)
+    const dataTheme = document.body.dataset.theme;
+    if (dataTheme === 'light' || dataTheme === 'dark') return dataTheme;
+    
+    // Check URL param
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlTheme = urlParams.get('theme');
+    if (urlTheme === 'light' || urlTheme === 'dark') return urlTheme;
+    
+    // Check VS Code CSS variables
+    if (typeof getComputedStyle !== 'undefined') {
+      const bgColor = getComputedStyle(document.body).getPropertyValue('--vscode-editor-background').trim();
+      if (bgColor && bgColor.startsWith('#')) {
+        const r = parseInt(bgColor.slice(1, 3), 16);
+        const g = parseInt(bgColor.slice(3, 5), 16);
+        const b = parseInt(bgColor.slice(5, 7), 16);
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return luminance > 0.5 ? 'light' : 'dark';
+      }
+    }
+    
+    return 'dark';
+  }
+  
+  let currentTheme = detectTheme();
+  let scheme = colorSchemes[currentTheme];
+  let colors = scheme.categories;
+  
+  // Apply initial body styling based on detected theme
+  document.body.style.background = scheme.background;
+  document.body.style.color = scheme.foreground;
+  document.body.dataset.theme = currentTheme;
+  
   // Show dev badge if not in VS Code
   if (!isVSCode) {
     const badge = document.createElement('div');
@@ -14,12 +95,6 @@
     badge.textContent = 'DEV MODE';
     document.body.appendChild(badge);
   }
-  
-  const colors = {
-    'editor': 0xb06bff, 'tui': 0xff69b4, 'bridge': 0x6bff9f,
-    'db': 0xffeb6b, 'proxy': 0x6b9fff, 'ai': 0xff9f6b,
-    'shell': 0x6bffff, 'dev': 0x6bff9f, 'ide': 0x6b9fff, 'lsp': 0x888888
-  };
   
   let width = window.innerWidth, height = window.innerHeight;
   let meshes = new Map(), connections = new Map(), ws;
@@ -29,6 +104,8 @@
   
   // Three.js setup
   const scene = new THREE.Scene();
+  scene.background = new THREE.Color(scheme.three.sceneBackground);
+  
   const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 5000);
   camera.position.set(0, 150, 400);
   camera.lookAt(0, 0, 0);
@@ -36,6 +113,7 @@
   const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
   renderer.setSize(width, height);
   renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setClearColor(scheme.three.sceneBackground);
   
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -266,13 +344,13 @@
     
     const outerGeo = new THREE.SphereGeometry(35, 32, 32);
     const outerMat = new THREE.MeshBasicMaterial({
-      color: 0x4488ff, transparent: true, opacity: 0.15, wireframe: true
+      color: scheme.three.kernelOuter, transparent: true, opacity: 0.15, wireframe: true
     });
     group.add(new THREE.Mesh(outerGeo, outerMat));
     
     const ringGeo = new THREE.TorusGeometry(25, 1.5, 8, 48);
     const ringMat = new THREE.MeshBasicMaterial({
-      color: 0x66aaff, transparent: true, opacity: 0.4
+      color: scheme.three.kernelRing, transparent: true, opacity: 0.4
     });
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = Math.PI / 2;
@@ -281,7 +359,7 @@
     
     const coreGeo = new THREE.SphereGeometry(12, 24, 24);
     const coreMat = new THREE.MeshBasicMaterial({
-      color: 0x88ccff, transparent: true, opacity: 0.7
+      color: scheme.three.kernelCore, transparent: true, opacity: 0.7
     });
     const core = new THREE.Mesh(coreGeo, coreMat);
     group.add(core);
@@ -320,7 +398,7 @@
   function createConnectionLine() {
     const geo = new THREE.CylinderGeometry(1.5, 1.5, 1, 8);
     const mat = new THREE.MeshBasicMaterial({
-      color: 0x444444, transparent: true, opacity: 0.5
+      color: scheme.three.connectionLine, transparent: true, opacity: 0.5
     });
     return new THREE.Mesh(geo, mat);
   }
@@ -517,7 +595,7 @@
         mesh.userData.targetPos.set((col - 4.5) * 25, GRAVEYARD_Y - row * 20, 0);
         
         mesh.material.opacity = 0.25;
-        mesh.material.color.setHex(0x444444);
+        mesh.material.color.setHex(scheme.three.deadProcess);
         
         graveyard.push({ pid, mesh, name: mesh.userData.name, deathTime: Date.now() });
         meshes.delete(pid);
@@ -644,7 +722,7 @@
         updateConnectionMesh(conn, childMesh.position, parentMesh.position);
         const involvesFocus = focusedPid && (conn.childPid === focusedPid || conn.parentPid === focusedPid);
         conn.line.material.opacity = focusedPid ? (involvesFocus ? 0.9 : 0.15) : 0.5;
-        conn.line.material.color.setHex(involvesFocus ? 0xff69b4 : 0x444444);
+        conn.line.material.color.setHex(involvesFocus ? scheme.three.connectionActive : scheme.three.connectionLine);
         const thickness = involvesFocus ? 2.5 : 1.5;
         conn.line.scale.x = thickness / 1.5;
         conn.line.scale.z = thickness / 1.5;
@@ -689,6 +767,87 @@
     renderer.setSize(width, height);
   });
   
+  // 🎨 Theme switching function
+  function setTheme(themeName) {
+    if (themeName !== 'light' && themeName !== 'dark') return;
+    currentTheme = themeName;
+    scheme = colorSchemes[currentTheme];
+    colors = scheme.categories;
+    
+    // Update scene background
+    scene.background.setHex(scheme.three.sceneBackground);
+    renderer.setClearColor(scheme.three.sceneBackground);
+    
+    // Update body styling
+    document.body.dataset.theme = themeName;
+    document.body.style.background = scheme.background;
+    document.body.style.color = scheme.foreground;
+    
+    // Update kernel mesh colors
+    if (kernelMesh) {
+      kernelMesh.children[0].material.color.setHex(scheme.three.kernelOuter);
+      if (kernelGlow) kernelGlow.material.color.setHex(scheme.three.kernelRing);
+      if (kernelCore) kernelCore.material.color.setHex(scheme.three.kernelCore);
+    }
+    
+    // Update all process node colors
+    meshes.forEach((mesh, pid) => {
+      if (pid === 'kernel') return;
+      const category = mesh.userData.category;
+      const newColor = colors[category] || 0x666666;
+      mesh.material.color.setHex(newColor);
+      mesh.userData.baseColor = newColor;
+    });
+    
+    // Update connections
+    connections.forEach(conn => {
+      conn.line.material.color.setHex(scheme.three.connectionLine);
+    });
+    
+    // Update graveyard
+    graveyard.forEach(grave => {
+      if (grave.mesh && grave.mesh.material) {
+        grave.mesh.material.color.setHex(scheme.three.deadProcess);
+      }
+    });
+    
+    // Update CSS styles
+    updateThemeStyles();
+  }
+  
+  function toggleTheme() {
+    setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    return currentTheme;
+  }
+  
+  function updateThemeStyles() {
+    // Update dynamic CSS based on theme
+    let styleEl = document.getElementById('theme-dynamic-styles');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'theme-dynamic-styles';
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `
+      .title .dot { color: ${scheme.accentBright}; }
+      .status-dot { background: ${scheme.accent}; }
+      .status-dot.online { background: ${scheme.statusOnline}; }
+      .stats { color: ${scheme.foregroundMuted}; }
+      .stats .val { color: ${scheme.foregroundBright}; }
+      .mem { color: ${scheme.foregroundMuted}; }
+      .center { color: ${scheme.foregroundMuted}; }
+      .center .count { color: ${scheme.foregroundBright}; }
+      .proc-label { text-shadow: 0 0 3px ${scheme.background}, 0 0 6px ${scheme.background}; }
+      .proc-label .info { color: ${scheme.foregroundMuted}; }
+      .dev-badge { background: ${currentTheme === 'light' ? scheme.accentBright : scheme.accentBright}; color: ${currentTheme === 'light' ? '#fff' : '#000'}; }
+      #tour-ui { background: ${scheme.ui.overlay}; border-color: ${scheme.foregroundMuted}; }
+      #tour-hint { background: ${scheme.ui.overlay}; }
+    `;
+  }
+  
+  // Apply initial theme styles
+  updateThemeStyles();
+  
   // Expose for external use (mock data injection, etc.)
   window.ProcessTreeViz = {
     updateViz,
@@ -703,15 +862,28 @@
     tourNext,
     tourPrev,
     toggleAutoPlay,
-    isTourMode: () => tourMode
+    isTourMode: () => tourMode,
+    // Theme control
+    setTheme,
+    toggleTheme,
+    getTheme: () => currentTheme,
+    getScheme: () => scheme,
+    colorSchemes
   };
   
   // Add tour hint to the UI
   const tourHint = document.createElement('div');
   tourHint.id = 'tour-hint';
-  tourHint.style.cssText = 'position:fixed;bottom:20px;right:20px;background:rgba(0,0,0,0.7);padding:8px 12px;border-radius:6px;color:#888;font-family:monospace;font-size:11px;z-index:999;';
-  tourHint.innerHTML = 'Press <span style="color:#88ccff;font-weight:bold;">T</span> for Tour Mode';
+  tourHint.style.cssText = `position:fixed;bottom:20px;right:20px;background:${scheme.ui.overlay};padding:8px 12px;border-radius:6px;color:${scheme.foregroundMuted};font-family:monospace;font-size:11px;z-index:999;`;
+  tourHint.innerHTML = `Press <span style="color:${scheme.accent};font-weight:bold;">T</span> for Tour Mode | <span style="color:${scheme.accent};font-weight:bold;">L</span> toggle Light/Dark`;
   document.body.appendChild(tourHint);
+  
+  // Add L key for theme toggle
+  document.addEventListener('keydown', (e) => {
+    if ((e.key === 'l' || e.key === 'L') && !tourMode) {
+      toggleTheme();
+    }
+  });
   
   animate();
   connectWS();
