@@ -54,6 +54,15 @@ const colorMap = {
   red: [255, 100, 100],
 };
 
+// Character-level syntax highlighting colors
+const syntaxColors = {
+  hashPrefix: [0, 188, 212],   // cyan for #
+  dollarPrefix: [255, 215, 0], // gold for $
+  codeChar: [135, 206, 235],   // light blue for code chars
+  viaChar: [0, 229, 255],      // cyan for via identifier
+  mugOf: [180, 180, 180],      // gray for "MUG of"
+};
+
 let codeBtn = null; // Clickable code button
 let apiRef = null; // Store api reference for checkout
 let uploadingPainting = false; // True while uploading current painting
@@ -469,9 +478,9 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
   const colorName = color.toUpperCase();
   const colorRgb = colorMap[color.toLowerCase()] || [200, 200, 200];
   
-  // Build title parts and calculate total width for centering
+  // Build title parts and calculate total width for centering (include # prefix)
   const viaPart = viaCode ? ` in $${viaCode}` : "";
-  const totalWidth = (colorName.length + " MUG of ".length + sourceCode.length + viaPart.length) * btnCharWidth;
+  const totalWidth = (colorName.length + " MUG of #".length + sourceCode.length + viaPart.length) * btnCharWidth;
   let titleX = floor((screen.width - totalWidth) / 2);
   const titleY = imageBottomY + titleGap;
   
@@ -480,30 +489,44 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
   titleX += colorName.length * btnCharWidth;
   
   // Draw " MUG of " in gray
-  ink(180).write(" MUG of ", { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+  ink(...syntaxColors.mugOf).write(" MUG of ", { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
   titleX += " MUG of ".length * btnCharWidth;
   
-  // Draw clickable code (underlined when hovered)
+  // Draw # prefix in cyan
   const codeHover = codeBtn?.down;
-  const codeColor = codeHover ? [255, 220, 150] : [150, 200, 255];
-  ink(...codeColor).write(sourceCode, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+  ink(...(codeHover ? [255, 220, 150] : syntaxColors.hashPrefix)).write("#", { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+  titleX += btnCharWidth;
   
-  // Update code button position
-  if (codeBtn) {
-    codeBtn.box.x = titleX;
-    codeBtn.box.y = titleY;
-    codeBtn.box.w = sourceCode.length * btnCharWidth;
+  // Draw code chars character-by-character in light blue (clickable)
+  const codeStartX = titleX;
+  for (const char of sourceCode) {
+    ink(...(codeHover ? [255, 220, 150] : syntaxColors.codeChar)).write(char, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+    titleX += btnCharWidth;
   }
-  const codeEndX = titleX + sourceCode.length * btnCharWidth;
   
-  // Draw "in $kidlispcode" in gold if present
+  // Update code button position (includes # prefix)
+  if (codeBtn) {
+    codeBtn.box.x = codeStartX - btnCharWidth; // Include # in clickable area
+    codeBtn.box.y = titleY;
+    codeBtn.box.w = (sourceCode.length + 1) * btnCharWidth;
+  }
+  const codeEndX = titleX;
+  
+  // Draw " in $kidlispcode" with $ in gold and code in cyan (character-by-character)
   if (viaCode) {
-    ink(255, 200, 100).write(` in $${viaCode}`, { x: codeEndX, y: titleY }, undefined, undefined, false, "unifont");
+    ink(...syntaxColors.mugOf).write(" in ", { x: codeEndX, y: titleY }, undefined, undefined, false, "unifont");
+    let viaX = codeEndX + " in ".length * btnCharWidth;
+    ink(...syntaxColors.dollarPrefix).write("$", { x: viaX, y: titleY }, undefined, undefined, false, "unifont");
+    viaX += btnCharWidth;
+    for (const char of viaCode) {
+      ink(...syntaxColors.viaChar).write(char, { x: viaX, y: titleY }, undefined, undefined, false, "unifont");
+      viaX += btnCharWidth;
+    }
   }
   
   // Draw underline if hovered
   if (codeHover) {
-    ink(...codeColor).line(titleX, titleY + btnCharHeight, titleX + sourceCode.length * btnCharWidth, titleY + btnCharHeight);
+    ink(...syntaxColors.codeChar).line(codeStartX - btnCharWidth, titleY + btnCharHeight, codeStartX + sourceCode.length * btnCharWidth, titleY + btnCharHeight);
   }
 
   // Draw buy button - ALWAYS VISIBLE AND CLICKABLE
