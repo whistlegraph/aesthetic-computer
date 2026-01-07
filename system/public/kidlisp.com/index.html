@@ -615,6 +615,16 @@
       transition: filter 0.3s ease, opacity 0.3s ease;
     }
     
+    /* Hide Monaco's mobile keyboard toggle button (overlaps our playback controls) */
+    .monaco-editor .monaco-editor-overlaymessage,
+    .monaco-editor .accessibilityHelpWidget,
+    .monaco-editor .iPadShowKeyboard,
+    .monaco-editor .inputarea.ime-input,
+    .monaco-editor .monaco-action-bar.vertical,
+    .monaco-editor .codicon-keyboard {
+      display: none !important;
+    }
+    
     /* Chunking overlay with scanline effect */
     .chunking-overlay {
       position: absolute;
@@ -1225,9 +1235,44 @@
     
     /* Code display states */
     #preview-title .code-display.stale {
-      opacity: 0.4;
-      text-decoration: line-through;
+      pointer-events: none;
     }
+    
+    /* Stale code chars blast off and fade - POOF! */
+    #preview-title .code-display.stale .code-char {
+      animation: charBlastOff 0.4s ease-out forwards;
+    }
+    
+    /* Stagger the blast-off for each character */
+    #preview-title .code-display.stale .code-char:nth-child(1) { animation-delay: 0ms; }
+    #preview-title .code-display.stale .code-char:nth-child(2) { animation-delay: 30ms; }
+    #preview-title .code-display.stale .code-char:nth-child(3) { animation-delay: 50ms; }
+    #preview-title .code-display.stale .code-char:nth-child(4) { animation-delay: 70ms; }
+    #preview-title .code-display.stale .code-char:nth-child(5) { animation-delay: 90ms; }
+    #preview-title .code-display.stale .code-char:nth-child(6) { animation-delay: 110ms; }
+    #preview-title .code-display.stale .code-char:nth-child(7) { animation-delay: 130ms; }
+    #preview-title .code-display.stale .code-char:nth-child(8) { animation-delay: 150ms; }
+    
+    @keyframes charBlastOff {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(1) rotate(0deg);
+      }
+      50% {
+        opacity: 0.6;
+        transform: translateY(-8px) scale(1.2) rotate(var(--blast-rotate, 10deg));
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.3) rotate(var(--blast-rotate, 15deg));
+      }
+    }
+    
+    /* Randomize rotation direction per character */
+    #preview-title .code-display.stale .code-char:nth-child(odd) { --blast-rotate: 15deg; }
+    #preview-title .code-display.stale .code-char:nth-child(even) { --blast-rotate: -15deg; }
+    #preview-title .code-display.stale .code-char:nth-child(3n) { --blast-rotate: 25deg; }
+    #preview-title .code-display.stale .code-char:nth-child(3n+1) { --blast-rotate: -20deg; }
     
     #preview-title .code-display.generating .code-char {
       animation: charScramble 0.1s ease-in-out infinite;
@@ -1290,7 +1335,7 @@
     .console-output {
       flex: 1;
       overflow-y: auto;
-      padding: 8px;
+      padding: 2px;
       font-size: 14px;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
       line-height: 1.4;
@@ -1321,6 +1366,14 @@
       line-height: 1.5;
       word-wrap: break-word;
       overflow-wrap: break-word;
+    }
+    
+    /* Console timestamp - semi-opaque */
+    .console-timestamp {
+      opacity: 0.4;
+      font-size: 11px;
+      margin-right: 4px;
+      user-select: none;
     }
     
     /* Only use flex for entries with line numbers */
@@ -1473,7 +1526,7 @@
 
     #console-panel .docs-header {
       background: #3d2817; /* Darker brown background for Console tab bar */
-      border-bottom-color: #2a1a0f;
+      border-bottom: none; /* No border gap between header and console */
     }
     
     @media (prefers-color-scheme: dark) {
@@ -1739,7 +1792,7 @@
     .docs-content {
       flex: 1;
       overflow: hidden;
-      padding: 12px;
+      padding: 0;
       font-size: 13px;
       line-height: 1.5;
       background: var(--bg-primary);
@@ -3749,7 +3802,7 @@
       #mobile-console-output {
         flex: 1;
         overflow-y: auto;
-        padding: 8px 12px;
+        padding: 0;
         font-family: 'Berkeley Mono Variable', monospace;
         font-size: 12px;
         line-height: 1.4;
@@ -3958,7 +4011,7 @@
       
       /* Docs content compact */
       .docs-content {
-        padding: 8px;
+        padding: 0;
         font-size: 12px;
         flex: 1;
         min-height: 0;
@@ -4737,7 +4790,7 @@
             <svg class="play-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M6 4.5c0-1.2 1.3-1.9 2.3-1.3l12 8c.9.6.9 2 0 2.6l-12 8c-1 .6-2.3-.1-2.3-1.3v-16z"/>
             </svg>
-            <svg class="pause-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: none;">
+            <svg class="pause-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <rect x="5" y="3" width="5" height="18" rx="2" ry="2"/>
               <rect x="14" y="3" width="5" height="18" rx="2" ry="2"/>
             </svg>
@@ -8223,6 +8276,14 @@
     function addConsoleEntry(message, type = 'log', locOrLine = null, options = {}) {
       const entry = document.createElement('div');
       entry.className = `console-entry ${type}`;
+      
+      // Add timestamp
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'console-timestamp';
+      timeSpan.textContent = timeStr + ' ';
+      entry.appendChild(timeSpan);
 
       let loc = null;
       if (typeof locOrLine === 'number') {
@@ -8610,12 +8671,28 @@
       }, 40);
     }
     
-    // Mark code as stale when source changes
+    // Mark code as stale when source changes - with POOF animation!
     function markCodeAsStale() {
       const previewTitle = document.getElementById('preview-title');
       const codeDisplay = previewTitle?.querySelector('.code-display');
-      if (codeDisplay && !codeDisplay.classList.contains('generating')) {
+      if (codeDisplay && !codeDisplay.classList.contains('generating') && !codeDisplay.classList.contains('stale')) {
+        // Ensure we have code-char spans for the animation
+        // If not, wrap each character in a span
+        if (!codeDisplay.querySelector('.code-char') && codeDisplay.textContent.trim()) {
+          const text = codeDisplay.textContent;
+          codeDisplay.innerHTML = text.split('').map(c => `<span class="code-char">${c}</span>`).join('');
+        }
+        
+        // Add stale class to trigger blast-off animation
         codeDisplay.classList.add('stale');
+        
+        // After animation completes, clear the content
+        setTimeout(() => {
+          if (codeDisplay.classList.contains('stale')) {
+            codeDisplay.innerHTML = '';
+            codeDisplay.classList.remove('stale');
+          }
+        }, 600); // Animation is 0.4s + stagger delays
       }
     }
     
@@ -9738,6 +9815,14 @@
         editor.onDidChangeModelContent(() => {
           const currentCode = editor.getValue().trim();
           if (isPlaying && !isPaused && currentCode !== lastCode) {
+            // Immediately mark code as stale when user types (POOF animation!)
+            const codeId = localStorage.getItem('kidlisp-current-code');
+            if (codeId) {
+              markCodeAsStale();
+              // Clear the localStorage code since it's now invalid
+              localStorage.removeItem('kidlisp-current-code');
+            }
+            
             // Cancel any pending update
             if (debounceTimer) {
               clearTimeout(debounceTimer);
@@ -10065,11 +10150,16 @@
         // Only create a NEW code if we don't already have one stored
         const existingCode = localStorage.getItem('kidlisp-current-code');
         const shouldCreateCode = !existingCode; // Only create if no existing code
-        log.playback.log(existingCode ? `Playing $${existingCode}` : 'Starting new playback');
+        const codeToRun = editor.getValue().trim();
         
-        // Add to console
-        addStateEntry('play', existingCode);
-        addCodeEntry(editor.getValue().trim());
+        // Only log if there's code to run
+        if (codeToRun) {
+          log.playback.log(existingCode ? `Playing $${existingCode}` : 'Starting new playback');
+          
+          // Add to console
+          addStateEntry('play', existingCode);
+          addCodeEntry(codeToRun);
+        }
         
         // Hide boot screen when starting playback
         hideAllBootScreens();
