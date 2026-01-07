@@ -347,7 +347,7 @@
       min-height: 40px;
       flex-shrink: 0;
       box-sizing: border-box;
-      background: rgb(180, 80, 80); /* Muted red */
+      background: rgb(147, 112, 219); /* Purple */
       color: white;
       border: none;
       border-radius: 50%;
@@ -359,26 +359,25 @@
       justify-content: center;
       padding: 0;
       margin: 0;
-      font-size: 22px;
-      font-weight: bold;
-      line-height: 1;
     }
 
     @media (hover: hover) {
       #clear-button:hover {
-        background: rgb(200, 100, 100);
+        background: rgb(167, 132, 239);
         transform: scale(1.05);
         box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+        color: white;
+        text-decoration: none;
       }
     }
     
     #clear-button:active {
-      background: rgb(150, 60, 60);
+      background: rgb(127, 92, 199);
       transform: scale(0.95);
     }
     
     [data-theme="dark"] #clear-button {
-      background: rgb(200, 100, 100);
+      background: rgb(147, 112, 219);
     }
     
     /* Playback controls container */
@@ -467,24 +466,26 @@
     }
 
     #send-button::before {
-      content: '';
-      width: 0;
-      height: 0;
-      border-left: 12px solid white;
-      border-top: 8px solid transparent;
-      border-bottom: 8px solid transparent;
-      margin-left: 3px; /* Offset to center the triangle visually */
+      content: none; /* SVG icons used instead */
     }
 
     /* Pause icon (double bars) */
     #send-button.playing::before {
-      width: 10px;
-      height: 16px;
-      border: none;
-      border-left: 3px solid white;
-      border-right: 3px solid white;
-      background: transparent;
-      margin-left: 0;
+      content: none; /* SVG icons used instead */
+    }
+    
+    /* Show/hide SVG icons based on playing state */
+    #send-button .play-icon {
+      display: block;
+    }
+    #send-button .pause-icon {
+      display: none;
+    }
+    #send-button.playing .play-icon {
+      display: none;
+    }
+    #send-button.playing .pause-icon {
+      display: block;
     }
 
     @media (hover: hover) {
@@ -562,11 +563,7 @@
     }
 
     #stop-button::before {
-      content: '';
-      width: 12px;
-      height: 12px;
-      background: white;
-      border-radius: 2px;
+      content: none; /* SVG icon used instead */
     }
 
     @media (hover: hover) {
@@ -1222,6 +1219,35 @@
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
       font-weight: normal;
       letter-spacing: 0.05em;
+    }
+    
+    /* Code display states */
+    #preview-title .code-display.stale {
+      opacity: 0.4;
+      text-decoration: line-through;
+    }
+    
+    #preview-title .code-display.generating .code-char {
+      animation: charScramble 0.1s ease-in-out infinite;
+    }
+    
+    #preview-title .code-display .code-char {
+      display: inline-block;
+    }
+    
+    /* Stagger animation delay for each character */
+    #preview-title .code-display .code-char:nth-child(1) { animation-delay: 0ms; }
+    #preview-title .code-display .code-char:nth-child(2) { animation-delay: 30ms; }
+    #preview-title .code-display .code-char:nth-child(3) { animation-delay: 60ms; }
+    #preview-title .code-display .code-char:nth-child(4) { animation-delay: 90ms; }
+    #preview-title .code-display .code-char:nth-child(5) { animation-delay: 120ms; }
+    #preview-title .code-display .code-char:nth-child(6) { animation-delay: 150ms; }
+    #preview-title .code-display .code-char:nth-child(7) { animation-delay: 180ms; }
+    #preview-title .code-display .code-char:nth-child(8) { animation-delay: 210ms; }
+    
+    @keyframes charScramble {
+      0%, 100% { opacity: 1; transform: translateY(0); }
+      50% { opacity: 0.5; transform: translateY(-1px); }
     }
     
     /* Code generating animation - scramble effect */
@@ -4544,9 +4570,26 @@
         <!-- Playback Controls - persist across all views -->
         <!-- Order: clear (left), stop (middle), send (right) -->
         <div id="playback-controls">
-          <button id="clear-button" aria-label="Clear code">×</button>
-          <button id="stop-button" aria-label="Stop"></button>
-          <button id="send-button" aria-label="Play"></button>
+          <button id="clear-button" aria-label="Clear code">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="6" x2="18" y2="18"/>
+              <line x1="18" y1="6" x2="6" y2="18"/>
+            </svg>
+          </button>
+          <button id="stop-button" aria-label="Stop">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+            </svg>
+          </button>
+          <button id="send-button" aria-label="Play">
+            <svg class="play-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M6 4.5c0-1.2 1.3-1.9 2.3-1.3l12 8c.9.6.9 2 0 2.6l-12 8c-1 .6-2.3-.1-2.3-1.3v-16z"/>
+            </svg>
+            <svg class="pause-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: none;">
+              <rect x="5" y="3" width="5" height="18" rx="2" ry="2"/>
+              <rect x="14" y="3" width="5" height="18" rx="2" ry="2"/>
+            </svg>
+          </button>
         </div>
         <!-- Text View (Monaco Editor) -->
         <div class="viz-container active" id="viz-text">
@@ -7085,10 +7128,11 @@
     
     // Update play button state based on editor content and iframe readiness
     function updatePlayButtonState() {
-      const hasContent = window.editor?.getValue().trim().length > 0;
+      const editorValue = window.editor?.getValue() || '';
+      const hasContent = editorValue.trim().length > 0;
       const shouldEnable = iframeReady && hasContent;
       
-      console.log('🎮 updatePlayButtonState:', { iframeReady, hasContent, shouldEnable });
+      console.log('🎮 updatePlayButtonState:', { iframeReady, hasContent, shouldEnable, editorExists: !!window.editor, valueLength: editorValue.length });
       
       sendButton.disabled = !shouldEnable;
       sendButton.style.opacity = shouldEnable ? '1' : '0.4';
@@ -7104,6 +7148,11 @@
     // Track if piece is fully loaded and ready
     let pieceReady = false;
     let shouldAutoPlay = false;
+    
+    // Track pending reload for timeout detection (must be defined early for boot-log handler)
+    let pendingReloadTimeout = null;
+    let reloadAttempts = 0;
+    const MAX_RELOAD_ATTEMPTS = 2;
     
     // Simple KidLisp syntax highlighting for console (lighter than Monaco)
     function highlightKidlispCode(code) {
@@ -8033,6 +8082,16 @@
         
         hasReceivedLogs = true;
         
+        // Check if kidlisp module compiled successfully - clear pending reload timeout
+        if (event.data.message && event.data.message.includes('kidlisp compiled')) {
+          if (pendingReloadTimeout) {
+            clearTimeout(pendingReloadTimeout);
+            pendingReloadTimeout = null;
+            reloadAttempts = 0; // Reset attempts on success
+            log.iframe.debug('Piece reload successful');
+          }
+        }
+        
         // Keep internal readiness state, but don't spam the Console output.
         
         // Check if this is the final "ready: aesthetic.computer/disks/kidlisp" message
@@ -8203,6 +8262,84 @@
       }
     });
 
+    // Scramble characters for code transition animation
+    const scrambleChars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let scrambleInterval = null;
+    
+    // Track the last code that was sent for change detection
+    let lastSentCodeSource = '';
+    
+    // Scramble transition animation for $code display (like give page)
+    function scrambleToCode(targetCode, codeDisplayEl) {
+      if (!codeDisplayEl) return;
+      
+      // Clear any existing scramble
+      if (scrambleInterval) {
+        clearInterval(scrambleInterval);
+        scrambleInterval = null;
+      }
+      
+      const targetText = `/$${targetCode}`;
+      const maxLen = Math.max(codeDisplayEl.textContent.length, targetText.length);
+      let iterations = 0;
+      const maxIterations = 8;
+      
+      codeDisplayEl.classList.add('generating');
+      
+      scrambleInterval = setInterval(() => {
+        iterations++;
+        let result = '';
+        
+        for (let i = 0; i < maxLen; i++) {
+          const targetChar = targetText[i] || '';
+          const charSettled = i < targetText.length && (iterations > maxIterations - 3 + i * 0.5);
+          
+          if (charSettled || iterations >= maxIterations) {
+            // Show final character
+            if (i < targetText.length) {
+              result += `<span class="code-char">${targetChar}</span>`;
+            }
+          } else {
+            // Show random scramble character (keep / and $ stable)
+            if (i === 0) {
+              result += `<span class="code-char">/</span>`;
+            } else if (i === 1) {
+              result += `<span class="code-char">$</span>`;
+            } else {
+              const randChar = scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
+              result += `<span class="code-char">${randChar}</span>`;
+            }
+          }
+        }
+        
+        codeDisplayEl.innerHTML = result;
+        
+        if (iterations >= maxIterations) {
+          clearInterval(scrambleInterval);
+          scrambleInterval = null;
+          codeDisplayEl.classList.remove('generating');
+        }
+      }, 40);
+    }
+    
+    // Mark code as stale when source changes
+    function markCodeAsStale() {
+      const previewTitle = document.getElementById('preview-title');
+      const codeDisplay = previewTitle?.querySelector('.code-display');
+      if (codeDisplay && !codeDisplay.classList.contains('generating')) {
+        codeDisplay.classList.add('stale');
+      }
+    }
+    
+    // Clear stale state
+    function clearStaleCode() {
+      const previewTitle = document.getElementById('preview-title');
+      const codeDisplay = previewTitle?.querySelector('.code-display');
+      if (codeDisplay) {
+        codeDisplay.classList.remove('stale');
+      }
+    }
+
     // Function to update browser URL and title when code changes
     function updateURLForCode(code) {
       const cleanCode = code.startsWith('$') ? code.substring(1) : code;
@@ -8368,6 +8505,9 @@
         ariaLabel: 'KidLisp Code Editor',
       });
       
+      // Make editor globally accessible for other parts of the page
+      window.editor = editor;
+      
       // Log editor initialization
       logEditorInit('Monaco', { theme: initialTheme, language: 'kidlisp' });
       logBoot('editor', 'Monaco ready');
@@ -8419,9 +8559,10 @@
               updateURLForCode(code);
               // Store code identifier in localStorage
               localStorage.setItem('kidlisp-current-code', code);
-              // Update preview pane title
+              // Update preview pane title (no animation for initial load)
               const previewTitle = document.getElementById('preview-title');
-              previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">/$${code}</span>`;
+              const codeChars = `/$${code}`.split('').map(c => `<span class="code-char">${c}</span>`).join('');
+              previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">${codeChars}</span>`;
             }
             // Mark that we've handled the initial preview (don't run again later)
             hasInitialPreviewRun = true;
@@ -8453,9 +8594,10 @@
           log.code.debug(`Restored code from localStorage: $${savedCode}`);
           // Update URL and title to match the saved code
           updateURLForCode(savedCode);
-          // Update preview pane title
+          // Update preview pane title (no animation for restore)
           const previewTitle = document.getElementById('preview-title');
-          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">/$${savedCode}</span>`;
+          const codeChars = `/$${savedCode}`.split('').map(c => `<span class="code-char">${c}</span>`).join('');
+          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">${codeChars}</span>`;
         }
       }
 
@@ -9526,6 +9668,13 @@
     stopButton.style.cursor = 'not-allowed';
     log.iframe.debug('Controls disabled until iframe ready');
 
+    function reloadIframe() {
+      log.iframe.warn('Reloading iframe to reinitialize piece...');
+      iframeReady = false;
+      pieceReady = false;
+      previewIframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true&t=${Date.now()}`;
+    }
+
     function updatePreview(shouldCreateCode = false) {
       if (!editor) return;
       
@@ -9539,19 +9688,64 @@
         // Get the current code identifier if we have one
         const codeId = localStorage.getItem('kidlisp-current-code') || null;
         
+        // Detect if code has changed from what we last sent
+        const codeChanged = code !== lastSentCodeSource;
+        
+        // Create new $code when:
+        // 1. Explicitly requested (shouldCreateCode=true)
+        // 2. Code changed AND we're in a playing state (live editing)
+        // 3. Code changed AND this is the first send (lastSentCodeSource is empty)
+        const needsNewCode = shouldCreateCode || (codeChanged && (isPlaying || !lastSentCodeSource));
+        
+        console.log('🎯 updatePreview:', { shouldCreateCode, codeChanged, isPlaying, lastSentCodeSource: !!lastSentCodeSource, needsNewCode });
+        
+        // Mark old code as stale when code changes
+        if (codeChanged && codeId && isPlaying) {
+          markCodeAsStale();
+        }
+        
+        // Update last sent code
+        lastSentCodeSource = code;
+        
         // Always enable trace - user may switch to tree/space view while running
         const needsTrace = true;
+        
+        // Clear any existing reload timeout
+        if (pendingReloadTimeout) {
+          clearTimeout(pendingReloadTimeout);
+          pendingReloadTimeout = null;
+        }
         
         // Send code via postMessage for instant reload (no network!)
         sendToIframe({
           type: 'kidlisp-reload',
           code: code,
           codeId: codeId,  // Pass the $code identifier so bios can populate cache
-          createCode: shouldCreateCode,  // Only create code when explicitly requested
+          createCode: needsNewCode,  // Create new code when source changes
           authToken: acToken || null,  // Pass auth token from kidlisp.com login
           enableTrace: needsTrace  // Enable execution trace for visualization
         });
         logCodeOperation('run', code);
+        
+        // Set a timeout to detect if the piece didn't respond
+        // If the iframe sends back a disk-loaded message, we'll clear this timeout
+        pendingReloadTimeout = setTimeout(() => {
+          if (reloadAttempts < MAX_RELOAD_ATTEMPTS) {
+            reloadAttempts++;
+            log.iframe.warn(`Piece not responding after 3s (attempt ${reloadAttempts}/${MAX_RELOAD_ATTEMPTS}), reloading iframe...`);
+            showToast('Reinitializing preview...', 'info');
+            reloadIframe();
+            // After iframe reloads, try sending code again
+            setTimeout(() => {
+              if (isPlaying) {
+                updatePreview(shouldCreateCode);
+              }
+            }, 2000);
+          } else {
+            log.iframe.error('Max reload attempts reached, piece may be stuck');
+            showToast('Preview not responding. Try refreshing the page.', 'error');
+          }
+        }, 3000);
       } else {
         log.playback.debug('No code to run');
       }
@@ -9683,6 +9877,9 @@
         } else {
           previewTitle.innerHTML = platformName.replace('.', '<span class="bounce-dot">.</span>');
         }
+        
+        // Re-enable play button if there's content
+        updatePlayButtonState();
       });
     } else {
       log.ui.error('Stop button not found in DOM');
@@ -9902,10 +10099,16 @@
       // Some runtimes send messages via BIOS relay as { type: 'post-to-parent', content: {...} }.
       // Normalize those so the rest of this handler can treat them as direct events.
       if (event.data?.type === 'post-to-parent' && event.data?.content?.type) {
+        console.log('📬 Normalizing post-to-parent:', event.data.content.type);
         event = { ...event, data: event.data.content };
       }
       
       const messageType = event.data?.type;
+      
+      // Debug: log all message types
+      if (messageType && messageType.startsWith('kidlisp-')) {
+        console.log('📨 Message type:', messageType);
+      }
       
       // 📸 Snapshots are for the KidLisp.com console only—do not log to browser console
       if (messageType === 'kidlisp-console-image') {
@@ -9993,15 +10196,22 @@
         log.code.success(`Code created: $${event.data.code}`);
         
         if (event.data.code && currentPlatform === 'aesthetic-computer') {
+          // Clear stale state
+          clearStaleCode();
+          
           // Update browser URL and title
           updateURLForCode(event.data.code);
           
           // Store the code identifier in localStorage
           localStorage.setItem('kidlisp-current-code', event.data.code);
           
-          // Update preview pane title to show the code
+          // Update preview pane title with scramble animation
           const previewTitle = document.getElementById('preview-title');
-          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">/$${event.data.code}</span>`;
+          // First set the base title
+          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display"></span>`;
+          // Then animate the code part
+          const codeDisplay = previewTitle.querySelector('.code-display');
+          scrambleToCode(event.data.code, codeDisplay);
         }
         
         if (event.data.qr) {
@@ -11678,9 +11888,10 @@
                   updateURLForCode(item.code);
                   // Store code identifier
                   localStorage.setItem('kidlisp-current-code', item.code);
-                  // Update preview pane title
+                  // Update preview pane title (no animation for selection)
                   const previewTitle = document.getElementById('preview-title');
-                  previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">/$${item.code}</span>`;
+                  const codeChars = `/$${item.code}`.split('').map(c => `<span class="code-char">${c}</span>`).join('');
+                  previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">${codeChars}</span>`;
                 }
                 updatePreview();
                 // Auto-play when selecting from top hits - stop first if already playing
