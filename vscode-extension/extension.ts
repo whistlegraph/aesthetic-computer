@@ -371,7 +371,16 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   const WELCOME_DEV_URL = 'http://localhost:5555/dev.html';
 
   // Helper function to generate Welcome Panel HTML from shared process-tree.js
+  // Helper function to detect current VS Code theme kind
+  function getVSCodeThemeKind(): 'dark' | 'light' {
+    const kind = vscode.window.activeColorTheme.kind;
+    // ColorThemeKind: 1 = Light, 2 = Dark, 3 = HighContrast, 4 = HighContrastLight
+    return (kind === 1 || kind === 4) ? 'light' : 'dark';
+  }
+
   function getWelcomePanelHtml(webview: vscode.Webview, devMode: boolean = false): string {
+    const theme = getVSCodeThemeKind();
+    
     // Dev mode: load from local server via iframe
     if (devMode) {
       return `<!DOCTYPE html>
@@ -382,20 +391,31 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src http://localhost:5555; style-src 'unsafe-inline';">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; height: 100vh; overflow: hidden; }
+    body { background: ${theme === 'light' ? '#fcf7c5' : '#000'}; height: 100vh; overflow: hidden; }
     iframe { width: 100%; height: 100%; border: none; }
-    .dev-banner { position: fixed; top: 0; left: 50%; transform: translateX(-50%); background: #ff69b4; color: #000; padding: 4px 12px; font-family: monospace; font-size: 11px; font-weight: bold; z-index: 1000; border-radius: 0 0 4px 4px; }
+    .dev-banner { position: fixed; top: 0; left: 50%; transform: translateX(-50%); background: ${theme === 'light' ? '#006400' : '#ff69b4'}; color: ${theme === 'light' ? '#fff' : '#000'}; padding: 4px 12px; font-family: monospace; font-size: 11px; font-weight: bold; z-index: 1000; border-radius: 0 0 4px 4px; }
   </style>
 </head>
 <body>
   <div class="dev-banner">🔧 DEV MODE — Loading from localhost:5555</div>
-  <iframe src="${WELCOME_DEV_URL}"></iframe>
+  <iframe src="${WELCOME_DEV_URL}?theme=${theme}"></iframe>
 </body>
 </html>`;
     }
     
-    // Production mode: use embedded JS
+    // Production mode: use embedded JS with theme support
     const csp = `default-src 'none'; style-src 'unsafe-inline'; img-src ${webview.cspSource} https: data:; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src ws://127.0.0.1:7890 wss://localhost:8889;`;
+    
+    // Color schemes from color-schemes.js (embedded for production)
+    const darkColors = {
+      bg: '#181318', bgAlt: '#141214', fg: '#ffffffcc', fgBright: '#ffffff', fgMuted: '#555555',
+      accent: '#a87090', accentBright: '#ff69b4', statusOnline: '#0f0', labelInfo: '#aaa'
+    };
+    const lightColors = {
+      bg: '#fcf7c5', bgAlt: '#f5f0c0', fg: '#281e5a', fgBright: '#281e5a', fgMuted: '#806060',
+      accent: '#387adf', accentBright: '#006400', statusOnline: '#006400', labelInfo: '#806060'
+    };
+    const c = theme === 'light' ? lightColors : darkColors;
     
     return `<!DOCTYPE html>
 <html lang="en">
@@ -407,33 +427,37 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; color: #fff; font-family: monospace; overflow: hidden; height: 100vh; }
+    body { background: ${c.bg}; color: ${c.fgBright}; font-family: monospace; overflow: hidden; height: 100vh; }
+    body[data-theme="dark"] { background: #181318; color: #fff; }
+    body[data-theme="light"] { background: #fcf7c5; color: #281e5a; }
     #canvas { position: absolute; top: 0; left: 0; }
     .hud { position: absolute; z-index: 100; pointer-events: none; }
     .title { top: 16px; left: 16px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
-    .title .dot { color: #ff69b4; }
-    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #ff69b4; }
-    .status-dot.online { background: #0f0; }
-    .stats { top: 16px; right: 16px; text-align: right; font-size: 12px; color: #555; }
-    .stats .val { color: #fff; }
-    .mem { bottom: 16px; right: 16px; font-size: 12px; color: #555; }
-    .center { top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; font-size: 12px; color: #555; }
-    .center .count { font-size: 28px; color: #fff; margin-bottom: 4px; }
-
+    .title .dot { color: ${c.accentBright}; }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: ${c.accent}; }
+    .status-dot.online { background: ${c.statusOnline}; }
+    .stats { top: 16px; right: 16px; text-align: right; font-size: 12px; color: ${c.fgMuted}; }
+    .stats .val { color: ${c.fgBright}; }
+    .mem { bottom: 16px; right: 16px; font-size: 12px; color: ${c.fgMuted}; }
+    .center { top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; font-size: 12px; color: ${c.fgMuted}; }
+    .center .count { font-size: 28px; color: ${c.fgBright}; margin-bottom: 4px; }
     .label-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; overflow: hidden; }
-    .proc-label { position: absolute; text-align: center; transform: translate(-50%, -100%); white-space: nowrap; text-shadow: 0 0 3px #000, 0 0 6px #000; pointer-events: none; }
+    .proc-label { position: absolute; text-align: center; transform: translate(-50%, -100%); white-space: nowrap; text-shadow: 0 0 3px ${c.bg}, 0 0 6px ${c.bg}; pointer-events: none; }
     .proc-label .icon { font-size: 18px; display: block; line-height: 1; }
     .proc-label .name { font-size: 10px; margin-top: 2px; font-weight: bold; letter-spacing: 0.3px; }
-    .proc-label .info { font-size: 8px; color: #aaa; margin-top: 1px; }
+    .proc-label .info { font-size: 8px; color: ${c.labelInfo}; margin-top: 1px; }
+    .theme-toggle { position: fixed; top: 16px; right: 120px; background: rgba(${theme === 'light' ? '0,0,0' : '255,255,255'},0.1); border: 1px solid rgba(${theme === 'light' ? '0,0,0' : '255,255,255'},0.2); color: ${c.fgBright}; padding: 6px 12px; border-radius: 4px; font-size: 11px; font-family: monospace; cursor: pointer; z-index: 200; pointer-events: auto; }
+    .theme-toggle:hover { background: rgba(${theme === 'light' ? '0,0,0' : '255,255,255'},0.2); }
   </style>
 </head>
-<body>
+<body data-theme="${theme}">
   <canvas id="canvas"></canvas>
   <div class="hud title"><div class="status-dot" id="status-dot"></div><span>Aesthetic<span class="dot">.</span>Computer Architecture</span></div>
   <div class="hud stats"><div><span class="val" id="uptime">—</span></div><div><span class="val" id="cpus">—</span> cpus</div></div>
   <div class="hud center"><div class="count" id="process-count">0</div><div>processes</div></div>
   <div class="hud mem"><span id="mem-text">— / —</span> MB</div>
   <div id="labels" class="label-container"></div>
+  <button class="theme-toggle" onclick="window.ProcessTreeViz?.toggleTheme()">🌓 Theme</button>
   <script>${PROCESS_TREE_JS}</script>
 </body>
 </html>`;
@@ -484,12 +508,19 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     welcomePanel.webview.html = getWelcomePanelHtml(welcomePanel.webview, local);
   }
 
-  // Refresh welcome panel (called when local mode is toggled)
+  // Refresh welcome panel (called when local mode is toggled or theme changes)
   function refreshWelcomePanel() {
     if (welcomePanel) {
       welcomePanel.webview.html = getWelcomePanelHtml(welcomePanel.webview, local);
     }
   }
+
+  // Listen for VS Code theme changes and refresh welcome panel
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveColorTheme(() => {
+      refreshWelcomePanel();
+    })
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.welcome", showWelcomePanel)
