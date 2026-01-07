@@ -19,6 +19,11 @@ const scheme = {
   divider: [40, 40, 50],
   scrollbar: [40, 40, 50],
   scrollbarThumb: [80, 100, 140],
+  // Character-level syntax highlighting
+  hashPrefix: [0, 188, 212],   // cyan for #
+  dollarPrefix: [255, 215, 0], // gold for $
+  codeChar: [135, 206, 235],   // light blue for code chars
+  viaChar: [0, 229, 255],      // cyan for via identifier
 };
 
 // Module state
@@ -182,8 +187,8 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
       const colorName = (selectedMug.color || "white").toLowerCase();
       const viaPart = selectedMug.via ? ` in $${selectedMug.via}` : "";
       
-      // Calculate total width for centering
-      const totalWidth = (colorName.length + " mug of ".length + displayCode.length + viaPart.length) * 6;
+      // Calculate total width for centering (include # prefix)
+      const totalWidth = (colorName.length + " mug of ".length + 1 + displayCode.length + viaPart.length) * 6;
       let titleX = floor((screen.width - totalWidth) / 2);
       
       // Draw color name in its color
@@ -194,13 +199,24 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
       ink(scheme.mugOf).write(" mug of ", { x: titleX, y: titleY });
       titleX += " mug of ".length * 6;
       
-      // Draw code in light blue
-      ink(scheme.mugCode).write(displayCode, { x: titleX, y: titleY });
-      titleX += displayCode.length * 6;
+      // Draw # prefix in cyan, then code chars in light blue (character-by-character)
+      ink(scheme.hashPrefix).write("#", { x: titleX, y: titleY });
+      titleX += 6;
+      for (const char of displayCode) {
+        ink(scheme.codeChar).write(char, { x: titleX, y: titleY });
+        titleX += 6;
+      }
       
-      // Draw " in $kidlispcode" in gold if present
+      // Draw " in $kidlispcode" with $ in gold and code in cyan (character-by-character)
       if (selectedMug.via) {
-        ink(scheme.mugVia).write(viaPart, { x: titleX, y: titleY });
+        ink(scheme.mugOf).write(" in ", { x: titleX, y: titleY });
+        titleX += " in ".length * 6;
+        ink(scheme.dollarPrefix).write("$", { x: titleX, y: titleY });
+        titleX += 6;
+        for (const char of selectedMug.via) {
+          ink(scheme.viaChar).write(char, { x: titleX, y: titleY });
+          titleX += 6;
+        }
       }
       
       // VIEW button

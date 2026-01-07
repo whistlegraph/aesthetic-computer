@@ -4650,14 +4650,18 @@
         <div class="docs-header">
           <div class="tab mobile-only" data-tab="console" id="console-tab">Console</div>
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
-          <div class="tab active" data-tab="examples" id="examples-tab">Top Hits</div>
+          <div class="tab active" data-tab="guide" id="guide-tab">Guide</div>
+          <div class="tab" data-tab="examples" id="examples-tab">Top Hits</div>
           <div class="tab" data-tab="keeps" id="keeps-tab">Keeps</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
           <div class="console-output" id="mobile-console-output"></div>
         </div>
-        <div class="docs-content" id="examples-content">
+        <div class="docs-content" id="guide-content">
+          <div id="guide-list"></div>
+        </div>
+        <div class="docs-content hidden" id="examples-content">
           <div id="examples-list">Loading examples...</div>
         </div>
         <div class="docs-content hidden" id="keeps-content">
@@ -4868,6 +4872,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Console',
         referenceTab: 'Cards',
+        guideTab: 'Guide',
         examplesTab: 'Top Hits',
         keepsTab: 'Keeps',
         keepsConnectWallet: 'Connect Wallet',
@@ -4906,6 +4911,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Consola',
         referenceTab: 'Tarjetas',
+        guideTab: 'Guía',
         examplesTab: 'Más Populares',
         keepsTab: 'Keeps',
         keepsConnectWallet: 'Conectar Cartera',
@@ -4943,6 +4949,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: '控制台',
         referenceTab: '卡片',
+        guideTab: '指南',
         examplesTab: '热门',
         keepsTab: 'Keeps',
         keepsConnectWallet: '连接钱包',
@@ -4980,6 +4987,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Konsol',
         referenceTab: 'Kort',
+        guideTab: 'Guide',
         examplesTab: 'Top Hits',
         keepsTab: 'Keeps',
         keepsConnectWallet: 'Forbind Wallet',
@@ -5034,6 +5042,9 @@
       
       const refTab = document.querySelector('.tab[data-tab="reference"]');
       if (refTab) refTab.textContent = t('referenceTab');
+      
+      const guideTab = document.querySelector('.tab[data-tab="guide"]');
+      if (guideTab) guideTab.textContent = t('guideTab');
       
       const exTab = document.querySelector('.tab[data-tab="examples"]');
       if (exTab) exTab.textContent = t('examplesTab');
@@ -7077,6 +7088,8 @@
       const hasContent = window.editor?.getValue().trim().length > 0;
       const shouldEnable = iframeReady && hasContent;
       
+      console.log('🎮 updatePlayButtonState:', { iframeReady, hasContent, shouldEnable });
+      
       sendButton.disabled = !shouldEnable;
       sendButton.style.opacity = shouldEnable ? '1' : '0.4';
       sendButton.style.cursor = shouldEnable ? 'pointer' : 'not-allowed';
@@ -7323,10 +7336,20 @@
       consoleOutput.appendChild(entry);
       consoleOutput.scrollTop = consoleOutput.scrollHeight;
       
-      // Also sync to mobile console (clone the entry)
+      // Also sync to mobile console (clone the entry and re-attach mug button handler)
       const mobileConsole = document.getElementById('mobile-console-output');
       if (mobileConsole) {
         const clone = entry.cloneNode(true);
+        // Re-attach mug button click handler to cloned button
+        const clonedMugBtn = clone.querySelector('button');
+        if (clonedMugBtn && mugBtn) {
+          clonedMugBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openMugFromScreenshot(imageDataUrl, clonedMugBtn, pieceCode);
+          });
+          clonedMugBtn.addEventListener('mouseenter', () => { clonedMugBtn.style.opacity = '1'; clonedMugBtn.style.transform = 'scale(1.05)'; clonedMugBtn.style.background = 'rgba(160, 100, 50, 0.95)'; });
+          clonedMugBtn.addEventListener('mouseleave', () => { clonedMugBtn.style.opacity = '0.85'; clonedMugBtn.style.transform = 'scale(1)'; clonedMugBtn.style.background = 'rgba(139, 90, 43, 0.8)'; });
+        }
         mobileConsole.appendChild(clone);
         mobileConsole.scrollTop = mobileConsole.scrollHeight;
       }
@@ -7375,10 +7398,8 @@
     function showMugModal(previewData, paintingCode, kidlispCode, initialColor) {
       if (mugModal) mugModal.remove();
       
-      const colors = MUG_COLORS;
-      let selectedColor = initialColor || 'white';
-      let animatedImg = null;
-      let animationInterval = null;
+      // Use the randomly selected color (no picker)
+      const selectedColor = initialColor || 'white';
       
       // Create modal backdrop
       mugModal = document.createElement('div');
@@ -7390,38 +7411,38 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 10000;
+        z-index: 100000;
         backdrop-filter: blur(4px);
       `;
       
-      // Modal content
+      // Modal content - simplified
       const content = document.createElement('div');
       content.style.cssText = `
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
         border-radius: 16px;
-        padding: 24px;
-        max-width: 420px;
+        padding: 20px;
+        max-width: 380px;
         width: 90%;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         border: 1px solid rgba(255, 255, 255, 0.1);
       `;
       
-      // Header
+      // Header with close button
       const header = document.createElement('div');
       header.style.cssText = `
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       `;
       
       const title = document.createElement('h2');
-      title.textContent = '☕ mug preview';
+      title.innerHTML = `☕ ${selectedColor} mug`;
       title.style.cssText = `
         margin: 0;
         color: #f0e6d3;
         font-family: monospace;
-        font-size: 20px;
+        font-size: 18px;
       `;
       
       const closeBtn = document.createElement('button');
@@ -7430,7 +7451,7 @@
         background: none;
         border: none;
         color: #888;
-        font-size: 24px;
+        font-size: 20px;
         cursor: pointer;
         padding: 4px 8px;
         border-radius: 4px;
@@ -7448,21 +7469,21 @@
       previewContainer.style.cssText = `
         background: #0a0a14;
         border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 16px;
+        padding: 12px;
+        margin-bottom: 12px;
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: 200px;
+        min-height: 180px;
       `;
       
       // Animated preview or static mockup
       if (previewData.animatedWebpUrl) {
-        animatedImg = document.createElement('img');
+        const animatedImg = document.createElement('img');
         animatedImg.src = previewData.animatedWebpUrl;
         animatedImg.style.cssText = `
           max-width: 100%;
-          max-height: 280px;
+          max-height: 240px;
           border-radius: 8px;
         `;
         previewContainer.appendChild(animatedImg);
@@ -7471,7 +7492,7 @@
         staticImg.src = previewData.mockupUrl;
         staticImg.style.cssText = `
           max-width: 100%;
-          max-height: 280px;
+          max-height: 240px;
           border-radius: 8px;
         `;
         previewContainer.appendChild(staticImg);
@@ -7482,109 +7503,70 @@
         previewContainer.appendChild(placeholder);
       }
       
-      // Source info
-      const sourceInfo = document.createElement('div');
-      sourceInfo.style.cssText = `
-        color: #888;
-        font-family: monospace;
-        font-size: 12px;
+      // URL + QR section - compact row
+      const rawProductCode = previewData.rawProductCode || previewData.productCode?.replace(/^\+/, '');
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local');
+      const baseUrl = isLocal ? `${window.location.protocol}//${window.location.host}` : 'https://aesthetic.computer';
+      const mugUrl = rawProductCode ? `${baseUrl}/mug~+${rawProductCode}` : `${baseUrl}/mugs`;
+      
+      const urlSection = document.createElement('div');
+      urlSection.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 10px;
         margin-bottom: 16px;
-        text-align: center;
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 8px;
       `;
-      const viaText = kidlispCode ? ` in <span style="color: #ffd700;">$${kidlispCode}</span>` : '';
-      sourceInfo.innerHTML = `painting: <span style="color: #87ceeb;">#${paintingCode}</span>${viaText}`;
       
-      // Color selector
-      const colorSection = document.createElement('div');
-      colorSection.style.cssText = 'margin-bottom: 20px;';
+      // QR code
+      const qrCanvas = document.createElement('canvas');
+      qrCanvas.width = 56;
+      qrCanvas.height = 56;
+      qrCanvas.style.cssText = `
+        display: block;
+        image-rendering: pixelated;
+        border-radius: 4px;
+        flex-shrink: 0;
+      `;
       
-      const colorLabel = document.createElement('div');
-      colorLabel.textContent = 'color:';
-      colorLabel.style.cssText = `
-        color: #aaa;
+      // URL text
+      const urlText = document.createElement('div');
+      urlText.style.cssText = `
         font-family: monospace;
         font-size: 13px;
-        margin-bottom: 8px;
+        color: #aaa;
+        word-break: break-all;
+        line-height: 1.3;
+        flex: 1;
       `;
+      urlText.innerHTML = `<span style="color: #666;">aesthetic.computer/</span><span style="color: #87ceeb;">mug</span><span style="color: #555;">~+</span><span style="color: #00e5ff;">${rawProductCode || '...'}</span>`;
       
-      const colorGrid = document.createElement('div');
-      colorGrid.style.cssText = `
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      `;
+      urlSection.appendChild(qrCanvas);
+      urlSection.appendChild(urlText);
       
-      const colorRgb = {
-        white: '#f0f0f0',
-        black: '#333',
-        blue: '#6496ff',
-        pink: '#ff96c8',
-        orange: '#ffb464',
-        green: '#64dc96',
-        red: '#ff6464',
-        yellow: '#ffdc64',
-        darkblue: '#3250b4',
-        darkgreen: '#329650',
-      };
-      
-      function updateColorSelection(color) {
-        selectedColor = color;
-        colorGrid.querySelectorAll('.color-btn').forEach(btn => {
-          const isSelected = btn.dataset.color === color;
-          btn.style.outline = isSelected ? '3px solid #fff' : 'none';
-          btn.style.outlineOffset = isSelected ? '2px' : '0';
+      // Generate QR code
+      if (typeof QRious !== 'undefined') {
+        new QRious({
+          element: qrCanvas,
+          value: mugUrl,
+          size: 56,
+          level: 'L',
+          background: '#1a1a2e',
+          foreground: '#ffffff',
         });
-        // TODO: Could update preview with new color here
       }
       
-      colors.forEach(color => {
-        const colorBtn = document.createElement('button');
-        colorBtn.className = 'color-btn';
-        colorBtn.dataset.color = color;
-        colorBtn.style.cssText = `
-          width: 32px;
-          height: 32px;
-          border-radius: 6px;
-          border: 2px solid rgba(255,255,255,0.2);
-          background: ${colorRgb[color]};
-          cursor: pointer;
-          transition: all 0.2s;
-          ${color === selectedColor ? 'outline: 3px solid #fff; outline-offset: 2px;' : ''}
-        `;
-        colorBtn.title = color;
-        colorBtn.addEventListener('click', () => updateColorSelection(color));
-        colorBtn.addEventListener('mouseenter', () => { colorBtn.style.transform = 'scale(1.1)'; });
-        colorBtn.addEventListener('mouseleave', () => { colorBtn.style.transform = 'scale(1)'; });
-        colorGrid.appendChild(colorBtn);
-      });
-      
-      colorSection.appendChild(colorLabel);
-      colorSection.appendChild(colorGrid);
-      
-      // Price and buy button
-      const footer = document.createElement('div');
-      footer.style.cssText = `
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      `;
-      
-      const price = document.createElement('div');
-      price.style.cssText = `
-        font-family: monospace;
-        font-size: 24px;
-        color: #90ee90;
-        font-weight: bold;
-      `;
-      price.textContent = '$18';
-      
+      // Buy button - full width
       const buyBtn = document.createElement('button');
-      buyBtn.innerHTML = '☕ buy mug';
+      buyBtn.innerHTML = '☕ buy for <span style="color: #90ee90; font-weight: bold;">$18</span>';
       buyBtn.style.cssText = `
+        width: 100%;
         background: linear-gradient(135deg, #8b5a2b 0%, #a0642a 100%);
         border: none;
         border-radius: 8px;
-        padding: 14px 28px;
+        padding: 14px 20px;
         cursor: pointer;
         font-size: 16px;
         font-family: monospace;
@@ -7594,7 +7576,7 @@
         box-shadow: 0 4px 12px rgba(139, 90, 43, 0.4);
       `;
       buyBtn.addEventListener('mouseenter', () => { 
-        buyBtn.style.transform = 'scale(1.05)'; 
+        buyBtn.style.transform = 'scale(1.02)'; 
         buyBtn.style.boxShadow = '0 6px 16px rgba(139, 90, 43, 0.6)';
       });
       buyBtn.addEventListener('mouseleave', () => { 
@@ -7607,13 +7589,7 @@
         buyBtn.style.opacity = '0.7';
         
         try {
-          const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local');
-          const baseUrl = isLocal ? `${window.location.protocol}//${window.location.host}` : 'https://aesthetic.computer';
-          
-          // Get the raw product code from previewData
-          const rawProductCode = previewData.rawProductCode || previewData.productCode?.replace(/^\+/, '');
-          
-          // Call mug API for checkout with selected color
+          // Call mug API for checkout
           let checkoutApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=${selectedColor}`;
           if (kidlispCode) {
             checkoutApiUrl += `&via=${kidlispCode}`;
@@ -7640,15 +7616,11 @@
         }
       });
       
-      footer.appendChild(price);
-      footer.appendChild(buyBtn);
-      
       // Assemble modal
       content.appendChild(header);
       content.appendChild(previewContainer);
-      content.appendChild(sourceInfo);
-      content.appendChild(colorSection);
-      content.appendChild(footer);
+      content.appendChild(urlSection);
+      content.appendChild(buyBtn);
       mugModal.appendChild(content);
       
       // Close on backdrop click
@@ -9423,6 +9395,10 @@
           }
         });
         pendingMessages = [];
+        // Update play button state now that iframe is ready
+        if (window.updatePlayButtonState) {
+          window.updatePlayButtonState();
+        }
       }, 100);
     }, { once: true });
     
@@ -10189,10 +10165,12 @@
 
     // Tab functionality
     const referenceContent = document.getElementById('reference-content');
+    const guideContent = document.getElementById('guide-content');
     const examplesContent = document.getElementById('examples-content');
     const keepsContent = document.getElementById('keeps-content');
     const mobileConsoleContent = document.getElementById('mobile-console-content');
     const codeTab = document.getElementById('reference-tab');
+    const guideTab = document.getElementById('guide-tab');
     const examplesTab = document.getElementById('examples-tab');
     const keepsTab = document.getElementById('keeps-tab');
     const consoleTab = document.getElementById('console-tab');
@@ -10201,6 +10179,7 @@
     // Helper to hide all tab contents
     function hideAllTabContents() {
       referenceContent?.classList.add('hidden');
+      guideContent?.classList.add('hidden');
       examplesContent?.classList.add('hidden');
       keepsContent?.classList.add('hidden');
       mobileConsoleContent?.classList.add('hidden');
@@ -10209,12 +10188,13 @@
     // Helper to deactivate all tabs
     function deactivateAllTabs() {
       codeTab?.classList.remove('active');
+      guideTab?.classList.remove('active');
       examplesTab?.classList.remove('active');
       keepsTab?.classList.remove('active');
       consoleTab?.classList.remove('active');
     }
     
-    if (codeTab && examplesTab && keepsTab && referenceContent && examplesContent && keepsContent) {
+    if (guideTab && examplesTab && keepsTab && guideContent && examplesContent && keepsContent) {
       // Helper to expand reference panel on mobile if collapsed (never collapse from tab tap)
       function expandReferencePanelOnMobile() {
         if (window.innerWidth <= 768) {
@@ -10234,7 +10214,7 @@
         }
       }
       
-      codeTab.addEventListener('click', function(e) {
+      codeTab?.addEventListener('click', function(e) {
         e.stopPropagation();
         log.tabs.debug('Book tab');
         deactivateAllTabs();
@@ -10247,6 +10227,18 @@
           fitBookFrame();
           fitBookTypography();
         }, 50);
+      });
+      
+      guideTab.addEventListener('click', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        log.tabs.debug('Guide tab');
+        
+        deactivateAllTabs();
+        hideAllTabContents();
+        guideTab.classList.add('active');
+        guideContent.classList.remove('hidden');
+        expandReferencePanelOnMobile();
       });
       
       examplesTab.addEventListener('click', function(e) {
@@ -10312,6 +10304,16 @@
           loadExamples();
         }
       }, 1000);
+      
+      // Set initial tab based on viewport: Console for mobile, Guide for desktop
+      const isMobileView = window.innerWidth <= 768;
+      if (isMobileView && consoleTab && mobileConsoleContent) {
+        deactivateAllTabs();
+        hideAllTabContents();
+        consoleTab.classList.add('active');
+        mobileConsoleContent.classList.remove('hidden');
+      }
+      // Desktop defaults to Guide tab (set in HTML)
       
       // Boot complete!
       logBoot('complete');
