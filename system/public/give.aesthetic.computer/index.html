@@ -518,6 +518,11 @@
       0% { transform: translateX(0); }
       100% { transform: translateX(-33.333%); }
     }
+    
+    @keyframes tickerScroll {
+      0% { transform: translateX(0%); }
+      100% { transform: translateX(-50%); }
+    }
 
     .gives-ticker-item {
       display: inline-flex;
@@ -1929,25 +1934,15 @@
     .crypto-controls.crypto-all .crypto-address[data-crypto="xtz"] {
       background: linear-gradient(180deg, rgba(138, 74, 255, 0.3) 0%, rgba(100, 50, 180, 0.4) 100%);
     }
-    .crypto-controls.crypto-all .crypto-address[data-crypto="xtz"] .crypto-symbol {
-      color: #c4a0ff;
-      font-size: 0.75em; /* Smaller for 3-char XTZ vs single char symbols */
-    }
     
     /* ETH - Blue */
     .crypto-controls.crypto-all .crypto-address[data-crypto="eth"] {
       background: linear-gradient(180deg, rgba(74, 138, 255, 0.3) 0%, rgba(50, 100, 180, 0.4) 100%);
     }
-    .crypto-controls.crypto-all .crypto-address[data-crypto="eth"] .crypto-symbol {
-      color: #7eb5ff;
-    }
     
     /* BTC - Orange */
     .crypto-controls.crypto-all .crypto-address[data-crypto="btc"] {
       background: linear-gradient(180deg, rgba(255, 160, 50, 0.3) 0%, rgba(200, 120, 30, 0.4) 100%);
-    }
-    .crypto-controls.crypto-all .crypto-address[data-crypto="btc"] .crypto-symbol {
-      color: #ffcc66;
     }
     
     .crypto-controls.crypto-all .crypto-label {
@@ -1957,6 +1952,13 @@
     .crypto-controls.crypto-all .crypto-symbol {
       font-size: 2.8em;
       line-height: 1;
+    }
+    
+    .crypto-controls.crypto-all .crypto-symbol .crypto-icon {
+      width: 48px;
+      height: 48px;
+      vertical-align: middle;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
     }
     
     .crypto-controls.crypto-all .crypto-name {
@@ -1970,8 +1972,8 @@
     }
     
     .crypto-controls.crypto-all .crypto-addr {
-      font-size: 0.6em;
-      padding: 0.4em 0.5em;
+      font-size: 0.8em;
+      padding: 0.5em 0.6em;
       background: rgba(0, 0, 0, 0.3);
       border: none;
     }
@@ -2005,21 +2007,7 @@
       overflow: hidden;
     }
 
-    .crypto-address::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(100, 255, 150, 0.15), transparent);
-      animation: address-shimmer 3s ease-in-out infinite;
-    }
 
-    @keyframes address-shimmer {
-      0% { left: -100%; }
-      50%, 100% { left: 100%; }
-    }
 
     .crypto-address:hover {
       border-color: var(--green);
@@ -2411,11 +2399,11 @@
       color: #6eeee6;
     }
 
-    /* Mug easter egg in invest section */
+    /* Mug easter egg in invest section - fully responsive */
     .invest-mug {
       position: absolute;
-      bottom: 20px;
-      right: 30px;
+      bottom: 5%;
+      right: 5%;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -2423,6 +2411,8 @@
       text-decoration: none;
       opacity: 1;
       transition: transform 0.3s;
+      width: 30%;
+      max-width: 140px;
     }
     .invest-mug:hover {
       transform: scale(1.02);
@@ -2433,21 +2423,25 @@
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
     }
     .invest-mug-image {
-      width: 120px;
-      height: 120px;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1;
       object-fit: contain;
       filter: drop-shadow(0 3px 12px rgba(0,0,0,0.6)) brightness(1.1);
       display: none; /* Hidden until loaded */
     }
     .invest-mug-caption {
       font-family: var(--mono);
-      font-size: 0.9em;
+      font-size: clamp(0.45em, 2.5vw, 0.85em);
       letter-spacing: 0.02em;
-      white-space: nowrap;
+      white-space: normal;
+      text-align: center;
+      line-height: 1.3;
       position: relative;
-      margin-top: -10px;
+      margin-top: -8%;
       z-index: 1;
       text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.7);
+      max-width: 100%;
     }
     .invest-mug-caption .mug-color {
       color: rgba(255, 255, 255, 1);
@@ -2460,27 +2454,7 @@
     }
     .invest-mug-caption .mug-via {
       color: rgba(255, 200, 100, 1);
-    }
-
-    /* Smaller mug on small screens */
-    @media (max-width: 400px) {
-      .invest-mug-image {
-        width: 80px;
-        height: 80px;
-      }
-      .invest-mug-caption {
-        font-size: 0.65em;
-      }
-    }
-    
-    @media (max-width: 340px) {
-      .invest-mug-image {
-        width: 60px;
-        height: 60px;
-      }
-      .invest-mug-caption {
-        font-size: 0.55em;
-      }
+      display: block;
     }
 
     /* Hacker Section - ghost-style minimal cards */
@@ -2793,25 +2767,27 @@
     .desktop-face {
       background: linear-gradient(135deg, #1e1e1e 0%, #121212 100%);
       border: 1px solid #333;
-      padding: 0.7em;
+      padding: 0.5em;
       padding-bottom: 3.5em; /* Space for absolute caption */
     }
 
     .desktop-face-header {
       display: flex;
       align-items: center;
-      gap: 0.5em;
-      padding-bottom: 0.5em;
+      gap: 0.4em;
+      padding-bottom: 0.4em;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      margin-bottom: 0.5em;
+      margin-bottom: 0.4em;
+      overflow: hidden;
     }
 
     .face-label {
-      font-size: 0.9em;
-      color: #888;
+      font-size: 0.85em;
+      color: #aaa;
       font-family: monospace;
       text-transform: lowercase;
       letter-spacing: 0.05em;
+      flex-shrink: 0;
     }
 
     .desktop-face-header .version-badge {
@@ -2823,11 +2799,33 @@
       margin-left: auto;
       font-family: monospace;
     }
+    
+    .desktop-header-ticker {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      margin-left: 0.5em;
+    }
+    
+    .desktop-header-ticker-content {
+      display: inline-block;
+      animation: tickerScroll 60s linear infinite;
+      font-size: 0.6em;
+      color: #666;
+    }
+    
+    .desktop-header-ticker-content span {
+      margin-right: 2em;
+    }
+    
+    .desktop-face-header:hover .desktop-header-ticker-content {
+      animation-play-state: paused;
+    }
 
     .desktop-platforms-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 4px;
+      gap: 3px;
       flex: 1;
     }
 
@@ -2836,46 +2834,46 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 0.5em 0.3em;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.6em 0.3em;
+      border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 6px;
       text-decoration: none;
       transition: all 0.2s ease;
     }
 
     .desktop-platform-btn.plat-mac {
-      background: rgba(100, 100, 100, 0.3);
+      background: rgba(150, 150, 150, 0.25);
     }
 
     .desktop-platform-btn.plat-win {
-      background: rgba(0, 120, 212, 0.15);
+      background: rgba(0, 120, 212, 0.25);
     }
 
     .desktop-platform-btn.plat-linux {
-      background: rgba(245, 196, 0, 0.1);
+      background: rgba(245, 196, 0, 0.2);
     }
 
     .desktop-platform-btn:hover {
-      border-color: rgba(255, 255, 255, 0.25);
+      border-color: rgba(255, 255, 255, 0.4);
       transform: translateY(-2px);
     }
 
     .desktop-platform-btn.plat-mac:hover {
-      background: rgba(120, 120, 120, 0.4);
+      background: rgba(180, 180, 180, 0.35);
     }
 
     .desktop-platform-btn.plat-win:hover {
-      background: rgba(0, 120, 212, 0.25);
+      background: rgba(0, 120, 212, 0.4);
     }
 
     .desktop-platform-btn.plat-linux:hover {
-      background: rgba(245, 196, 0, 0.2);
+      background: rgba(245, 196, 0, 0.35);
     }
 
     .desktop-platform-btn .plat-icon {
-      width: 24px;
-      height: 24px;
-      margin-bottom: 0.2em;
+      width: 36px;
+      height: 36px;
+      margin-bottom: 0.15em;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -2888,14 +2886,14 @@
     }
 
     .desktop-platform-btn .plat-name {
-      font-size: 0.7em;
-      color: var(--text);
+      font-size: 0.85em;
+      color: #fff;
       font-weight: bold;
     }
 
     .desktop-platform-btn .plat-arch {
-      font-size: 0.5em;
-      color: var(--dim);
+      font-size: 0.6em;
+      color: #aaa;
       font-family: var(--mono);
     }
 
@@ -2945,41 +2943,41 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 0.4em;
-      background: rgba(30, 30, 30, 0.9);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      gap: 0.3em;
+      background: rgba(40, 40, 40, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 4px;
-      padding: 0.75em;
+      padding: 0.5em;
       text-decoration: none;
       transition: all 0.2s ease;
       flex: 1;
     }
 
     .desktop-vscode-link:hover {
-      border-color: rgba(255, 255, 255, 0.25);
-      background: rgba(50, 50, 50, 0.9);
+      border-color: rgba(255, 255, 255, 0.35);
+      background: rgba(60, 60, 60, 0.95);
       transform: translateY(-1px);
     }
 
     .desktop-vscode-link .vscode-icon-img {
-      width: 36px;
-      height: 36px;
+      width: 42px;
+      height: 42px;
       border-radius: 4px;
     }
 
     .desktop-vscode-link .vscode-icon {
-      font-size: 2em;
+      font-size: 2.2em;
     }
 
     .desktop-vscode-link .vscode-label {
-      color: #aaa;
+      color: #ccc;
       font-weight: 600;
-      font-size: 0.75em;
+      font-size: 0.8em;
     }
 
     .desktop-vscode-link .vscode-ver {
-      color: #6a6;
-      font-size: 0.6em;
+      color: #8c8;
+      font-size: 0.65em;
       font-family: monospace;
     }
 
@@ -2988,39 +2986,39 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 0.4em;
-      background: rgba(30, 30, 30, 0.9);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      gap: 0.3em;
+      background: rgba(40, 40, 40, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 4px;
-      padding: 0.75em;
+      padding: 0.5em;
       text-decoration: none;
       transition: all 0.2s ease;
       flex: 1;
     }
 
     .desktop-ableton-link:hover {
-      border-color: rgba(255, 255, 255, 0.25);
-      background: rgba(50, 50, 50, 0.9);
+      border-color: rgba(255, 255, 255, 0.35);
+      background: rgba(60, 60, 60, 0.95);
       transform: translateY(-1px);
     }
 
     .desktop-ableton-link .ableton-icon {
-      width: 36px;
-      height: 36px;
+      width: 42px;
+      height: 42px;
       color: #fff;
     }
 
     .desktop-ableton-link .ableton-label {
-      color: #aaa;
+      color: #ccc;
       font-weight: 600;
-      font-size: 0.75em;
+      font-size: 0.8em;
     }
 
     .desktop-ableton-link .ableton-tag {
-      color: #888;
-      font-size: 0.55em;
+      color: #aaa;
+      font-size: 0.6em;
       font-family: monospace;
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.12);
       padding: 0.15em 0.4em;
       border-radius: 3px;
     }
@@ -3054,21 +3052,21 @@
     }
 
     .mobile-app-icon {
-      width: 72px;
-      height: 72px;
-      border-radius: 16px;
+      width: 90px;
+      height: 90px;
+      border-radius: 18px;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
     }
 
     .mobile-app-icon-fallback {
-      width: 72px;
-      height: 72px;
-      border-radius: 16px;
+      width: 90px;
+      height: 90px;
+      border-radius: 18px;
       background: linear-gradient(135deg, #444 0%, #222 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 2em;
+      font-size: 2.4em;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
     }
 
@@ -5642,19 +5640,19 @@
               </div>
               <div class="crypto-controls crypto-all">
                 <div class="crypto-address copyable" data-copy="tz1gkf8EexComFBJvjtT1zdsisdah791KwBE" data-crypto="xtz">
-                  <span class="crypto-label"><span class="crypto-symbol">XTZ</span><span class="crypto-name">aesthetic.tez</span></span>
+                  <span class="crypto-label"><span class="crypto-symbol"><img src="https://raw.githubusercontent.com/ErikThiart/cryptocurrency-icons/master/64/tezos.png" alt="XTZ" class="crypto-icon"></span><span class="crypto-name">aesthetic.tez</span></span>
                   <span class="crypto-balance" id="balance-xtz"><span class="loading">loading...</span></span>
                   <code class="crypto-addr">tz1gkf8E<span class="addr-dots">···</span>1KwBE</code>
                   <span class="crypto-copy-hint">→ copy</span>
                 </div>
                 <div class="crypto-address copyable" data-copy="0x1D64E3eFa983D945cBFe29Ad5b3C8ABB53Aef023" data-crypto="eth">
-                  <span class="crypto-label"><span class="crypto-symbol">Ξ</span><span class="crypto-name">4esthetic.eth</span></span>
+                  <span class="crypto-label"><span class="crypto-symbol"><img src="https://raw.githubusercontent.com/ErikThiart/cryptocurrency-icons/master/64/ethereum.png" alt="ETH" class="crypto-icon"></span><span class="crypto-name">4esthetic.eth</span></span>
                   <span class="crypto-balance" id="balance-eth"><span class="loading">loading...</span></span>
                   <code class="crypto-addr">0x1D64E3<span class="addr-dots">···</span>ef023</code>
                   <span class="crypto-copy-hint">→ copy</span>
                 </div>
                 <div class="crypto-address copyable" data-copy="bc1q699gnqr92gvgv62nla82typpj3wls5a8xf59as" data-crypto="btc">
-                  <span class="crypto-label"><span class="crypto-symbol">₿</span><span class="crypto-name">bitcoin</span></span>
+                  <span class="crypto-label"><span class="crypto-symbol"><img src="https://raw.githubusercontent.com/ErikThiart/cryptocurrency-icons/master/64/bitcoin.png" alt="BTC" class="crypto-icon"></span><span class="crypto-name">bitcoin</span></span>
                   <span class="crypto-balance" id="balance-btc"><span class="loading">loading...</span></span>
                   <code class="crypto-addr">bc1q699g<span class="addr-dots">···</span>f59as</code>
                   <span class="crypto-copy-hint">→ copy</span>
@@ -5856,6 +5854,11 @@
                 <span data-lang="es">escritorio</span>
                 <span data-lang="zh">桌面</span>
               </span>
+              <div class="desktop-header-ticker">
+                <div class="desktop-header-ticker-content" id="changelogTicker">
+                  <span>Loading changelog...</span>
+                </div>
+              </div>
             </div>
             
             <div class="desktop-platforms-grid">
@@ -5874,12 +5877,6 @@
                 <span class="plat-name">Linux</span>
                 <span class="plat-arch" id="linuxVersion">v0.1.8</span>
               </a>
-            </div>
-            
-            <div class="desktop-changelog-ticker">
-              <div class="desktop-changelog-ticker-content" id="changelogTicker">
-                <span>Loading changelog...</span>
-              </div>
             </div>
             
             <div class="desktop-tools-row">
@@ -8765,7 +8762,7 @@
       const btcEl = document.getElementById('balance-btc');
       if (btcEl && walletBalances.btc !== null) {
         const btcFormatted = formatBalance(walletBalances.btc, 6);
-        let html = `₿ ${btcFormatted}`;
+        let html = `${btcFormatted} BTC`;
         if (cryptoPrices.btc) {
           const usdValue = (walletBalances.btc * cryptoPrices.btc).toFixed(2);
           html += ` <span class="usd-equiv">≈ $${usdValue}</span>`;
@@ -8777,7 +8774,7 @@
       const ethEl = document.getElementById('balance-eth');
       if (ethEl && walletBalances.eth !== null) {
         const ethFormatted = formatBalance(walletBalances.eth, 4);
-        let html = `Ξ ${ethFormatted}`;
+        let html = `${ethFormatted} ETH`;
         if (cryptoPrices.eth) {
           const usdValue = (walletBalances.eth * cryptoPrices.eth).toFixed(2);
           html += ` <span class="usd-equiv">≈ $${usdValue}</span>`;
@@ -8789,7 +8786,7 @@
       const xtzEl = document.getElementById('balance-xtz');
       if (xtzEl && walletBalances.xtz !== null) {
         const xtzFormatted = formatBalance(walletBalances.xtz, 2);
-        let html = `ꜩ ${xtzFormatted}`;
+        let html = `${xtzFormatted} XTZ`;
         if (cryptoPrices.xtz) {
           const usdValue = (walletBalances.xtz * cryptoPrices.xtz).toFixed(2);
           html += ` <span class="usd-equiv">≈ $${usdValue}</span>`;
@@ -9412,38 +9409,36 @@
         const subsStatsEl = document.getElementById('giveStatsSubs');
         
         if (givesStatsEl && data.monthlyCount > 0) {
-          // Get current month name (capitalized)
+          // Get current month name (short form)
           const monthNames = {
-            en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-            da: ['Januar', 'Februar', 'Marts', 'April', 'Maj', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'December'],
-            de: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
-            es: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
-            zh: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'],
+            en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            da: ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'],
+            de: ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'],
+            es: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+            zh: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
           };
           const month = new Date().getMonth();
           const monthName = (monthNames[currentLang] || monthNames.en)[month];
           
-          // Format: "Got $X so far this January from N gives"
+          // Format: "Got $X so far from N gives this Jan."
           const gotLabels = { en: 'Got', da: 'Fik', de: 'Erhielt', es: 'Recibido', zh: '收到' };
-          const soFarLabels = { en: 'so far this', da: 'indtil nu i', de: 'bisher im', es: 'hasta ahora en', zh: '至今' };
-          const fromLabels = { en: 'from', da: 'fra', de: 'von', es: 'de', zh: '来自' };
-          const givesLabels = { en: 'gives', da: 'gaver', de: 'Gaben', es: 'donaciones', zh: '捐赠' };
+          const soFarLabels = { en: 'so far from', da: 'indtil nu fra', de: 'bisher von', es: 'hasta ahora de', zh: '至今来自' };
+          const givesLabels = { en: 'gives this', da: 'gaver i', de: 'Gaben im', es: 'donaciones en', zh: '捐赠于' };
           
           const valueEl = givesStatsEl.querySelector('.ticker-stat-value');
           const labelEl = givesStatsEl.querySelector('.ticker-stat-label');
           const amountEl = givesStatsEl.querySelector('.ticker-stat-amount');
           
-          // Build the full text: "Got $X so far this January from N gives"
+          // Build the full text: "Got $X so far from N gives this Jan."
           const got = gotLabels[currentLang] || gotLabels.en;
           const soFar = soFarLabels[currentLang] || soFarLabels.en;
-          const from = fromLabels[currentLang] || fromLabels.en;
           const givesText = givesLabels[currentLang] || givesLabels.en;
           
           // Hide the old value/label elements, use amount for full text
           if (valueEl) valueEl.style.display = 'none';
           if (labelEl) labelEl.style.display = 'none';
           if (amountEl && data.monthlyTotalUSD > 0) {
-            amountEl.innerHTML = `<span class="got">${got}</span> <span class="amount-value">$${data.monthlyTotalUSD}</span> <span class="so-far">${soFar} ${monthName} ${from} <span class="count-value">${data.monthlyCount}</span> ${givesText}!</span>`;
+            amountEl.innerHTML = `<span class="got">${got}</span> <span class="amount-value">$${data.monthlyTotalUSD}</span> <span class="so-far">${soFar} <span class="count-value">${data.monthlyCount}</span> ${givesText} ${monthName}.</span>`;
           }
           givesStatsEl.classList.add('visible');
         }
