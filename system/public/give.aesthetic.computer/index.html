@@ -5418,6 +5418,42 @@
       border-color: #1da1f2;
     }
 
+    /* Thanks page mobile responsive */
+    @media (max-width: 768px) {
+      .thanks-message {
+        font-size: 1.2em;
+        max-width: 90%;
+        padding: 0 1em;
+      }
+      .thanks-actions {
+        gap: 0.8em;
+      }
+      .thanks-again, .thanks-share {
+        padding: 0.7em 1.2em;
+        font-size: 0.9em;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .thanks-message {
+        font-size: 1em;
+        max-width: 95%;
+        padding: 0 0.5em;
+      }
+      .thanks-actions {
+        flex-direction: column;
+        gap: 0.6em;
+        align-items: center;
+      }
+      .thanks-again, .thanks-share {
+        padding: 0.6em 1em;
+        font-size: 0.85em;
+        width: 100%;
+        max-width: 250px;
+        text-align: center;
+      }
+    }
+
     /* Ken Burns Canvas Slideshow - Nostalgic Photo Background */
     .jeffreys-slideshow {
       position: absolute;
