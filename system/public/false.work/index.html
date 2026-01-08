@@ -49,27 +49,23 @@
     }
 
     .logo {
-      width: 200px;
-      margin-bottom: 2rem;
+      width: 300px;
     }
 
     a {
-      color: var(--accent);
-      text-decoration: none;
-      font-size: 1.25rem;
+      display: block;
     }
 
-    a:hover {
-      text-decoration: underline;
+    a:hover .logo {
+      opacity: 0.8;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work">
-    <div>
-      <a href="https://builds.false.work">builds</a>
-    </div>
+    <a href="https://builds.false.work">
+      <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work">
+    </a>
   </div>
 </body>
 </html>
