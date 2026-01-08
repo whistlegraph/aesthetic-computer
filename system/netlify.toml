@@ -484,6 +484,39 @@ from = "https://builds.false.work/*"
 to = "/builds.false.work/:splat"
 status = 200
 force = true
+
+# false.work naked domain - landing page
+[[redirects]]
+from = "https://www.false.work"
+to = "https://false.work"
+status = 301
+force = true
+[[redirects]]
+from = "https://www.false.work/*"
+to = "https://false.work/:splat"
+status = 301
+force = true
+[[redirects]]
+from = "https://false.work"
+to = "/false.work/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://false.work/*"
+to = "/false.work/:splat"
+status = 200
+force = true
+
+# Local dev path-based access for false.work sites
+[[redirects]]
+from = "/false.work"
+to = "/false.work/index.html"
+status = 200
+[[redirects]]
+from = "/builds.false.work"
+to = "/builds.false.work/index.html"
+status = 200
+
 [[redirects]]
 from = "/media-collection/*"
 to = "/.netlify/functions/media-collection"
