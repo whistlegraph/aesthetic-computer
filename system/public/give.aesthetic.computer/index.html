@@ -5125,6 +5125,25 @@
       filter: drop-shadow(0 0 8px rgba(255, 100, 200, 0.8)) drop-shadow(0 0 16px rgba(255, 100, 200, 0.5));
     }
 
+    @keyframes pals-energy {
+      0%, 100% { 
+        transform: rotate(0deg) scale(1);
+        filter: drop-shadow(0 0 8px rgba(255, 100, 200, 0.8)) drop-shadow(0 0 16px rgba(255, 100, 200, 0.5));
+      }
+      10% { transform: rotate(-4deg) scale(1.02); }
+      20% { transform: rotate(3deg) scale(0.98); }
+      30% { transform: rotate(-3deg) scale(1.03); }
+      40% { transform: rotate(4deg) scale(0.97); }
+      50% { 
+        transform: rotate(-2deg) scale(1.02);
+        filter: drop-shadow(0 0 12px rgba(255, 100, 200, 1)) drop-shadow(0 0 24px rgba(255, 100, 200, 0.7));
+      }
+      60% { transform: rotate(3deg) scale(0.99); }
+      70% { transform: rotate(-4deg) scale(1.01); }
+      80% { transform: rotate(2deg) scale(1.03); }
+      90% { transform: rotate(-3deg) scale(0.98); }
+    }
+
     @keyframes pals-shake {
       0%, 100% { transform: rotate(0deg); }
       20% { transform: rotate(-3deg); }
@@ -5147,7 +5166,7 @@
 
     #pals:hover .pals-logo-pink {
       opacity: 1;
-      animation: pals-shake 0.4s ease-in-out;
+      animation: pals-energy 0.6s ease-in-out infinite;
     }
 
     .page-footer {
