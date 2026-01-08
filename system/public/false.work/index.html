@@ -63,9 +63,15 @@
 </head>
 <body>
   <div class="container">
-    <a href="https://builds.false.work">
+    <a id="builds-link" href="https://builds.false.work">
       <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work">
     </a>
   </div>
+  <script>
+    // Use local path in dev mode
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      document.getElementById('builds-link').href = '/builds.false.work';
+    }
+  </script>
 </body>
 </html>
