@@ -12942,6 +12942,11 @@
             mugIcon.style.display = 'none';
             console.log('[InvestMug] Full mug data:', mug);
             
+            // Update link to go directly to this mug's page
+            if (mugLink && mug.code) {
+              mugLink.href = `${baseUrl}/mug~+${mug.code}`;
+            }
+            
             // Update caption with real data
             // Format: "white mug of #CODE in $viaCode" matching mug.mjs
             // sourceCode is the painting hash (e.g., "sb9"), via is the kidlisp code (e.g., "bop")
