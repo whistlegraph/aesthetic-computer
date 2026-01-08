@@ -6542,12 +6542,12 @@
       'november-7-2023-at-10-49-pm.webp': { focal: [47, 52], pois: [{"t":"s","box":[34.3,44.5,24.6,15.8]}], aspect: 0.75, src: 'screenshots' }
     };
 
-    // Merge all image data
-    const allImagesData = { ...jeffreysData, ...screenshotsData, ...headshotsData };
+    // Merge all image data (headshots temporarily disabled)
+    const allImagesData = { ...jeffreysData, ...screenshotsData /*, ...headshotsData */ };
     const jeffreysImages = Object.keys(jeffreysData);
     const screenshotsImages = Object.keys(screenshotsData);
-    const headshotsImages = Object.keys(headshotsData);
-    const allImages = [...jeffreysImages, ...screenshotsImages, ...headshotsImages];
+    // const headshotsImages = Object.keys(headshotsData);
+    const allImages = [...jeffreysImages, ...screenshotsImages /*, ...headshotsImages */];
     const DEBUG_FACES = false; // Set true for labels and coordinates
     const SHOW_POI_BOXES = true; // Matrix-style detection boxes (aesthetic)
     const POI_GLOW = true; // Soft radial glow on detected faces/bodies
