@@ -10,7 +10,7 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus } from './grabber.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -1183,6 +1183,110 @@ app.get('/keeps/all', (req, res) => {
     latest: getLatestKeepThumbnail(),
     byPiece: getAllLatestIPFSUploads()
   });
+});
+
+// =============================================================================
+// KidLisp.com OG Preview Image Endpoint
+// =============================================================================
+
+// Dynamic OG image for kidlisp.com - rotates daily based on top hits
+// Supports multiple layout options: featured, mosaic, filmstrip, code-split
+app.get('/kidlisp-og', async (req, res) => {
+  try {
+    const layout = req.query.layout || 'featured';
+    const force = req.query.force === 'true';
+    
+    // Validate layout
+    const validLayouts = ['featured', 'mosaic', 'filmstrip', 'code-split'];
+    if (!validLayouts.includes(layout)) {
+      return res.status(400).json({
+        error: 'Invalid layout',
+        valid: validLayouts,
+      });
+    }
+    
+    addServerLog('info', '🖼️', `KidLisp OG request: ${layout}${force ? ' (force)' : ''}`);
+    
+    const result = await generateKidlispOGImage(layout, force);
+    
+    if (result.cached && result.url) {
+      // Redirect to CDN URL for cached images
+      addServerLog('success', '📦', `OG cache hit → ${result.url.split('/').pop()}`);
+      res.setHeader('X-Cache', 'HIT');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.redirect(302, result.url);
+    }
+    
+    // Fresh generation - return the buffer directly
+    addServerLog('success', '🎨', `OG generated: ${layout} (${result.featuredPiece?.code || 'mosaic'})`);
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Length', result.buffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // 24hr cache
+    res.setHeader('X-Cache', 'MISS');
+    res.setHeader('X-OG-Layout', layout);
+    res.setHeader('X-OG-Generated', result.generatedAt);
+    if (result.featuredPiece) {
+      res.setHeader('X-OG-Featured', result.featuredPiece.code);
+    }
+    res.send(result.buffer);
+    
+  } catch (error) {
+    console.error('KidLisp OG error:', error);
+    addServerLog('error', '❌', `OG error: ${error.message}`);
+    res.status(500).json({ 
+      error: 'Failed to generate OG image',
+      message: error.message 
+    });
+  }
+});
+
+// OG image cache status endpoint
+app.get('/kidlisp-og/status', (req, res) => {
+  res.json({
+    ...getOGImageCacheStatus(),
+    availableLayouts: ['featured', 'mosaic', 'filmstrip', 'code-split'],
+    usage: {
+      default: '/kidlisp-og',
+      withLayout: '/kidlisp-og?layout=mosaic',
+      forceRegenerate: '/kidlisp-og?force=true',
+    }
+  });
+});
+
+// Preview all OG layouts (for testing/comparison)
+app.get('/kidlisp-og/preview', (req, res) => {
+  const layouts = ['featured', 'mosaic', 'filmstrip', 'code-split'];
+  const baseUrl = req.protocol + '://' + req.get('host');
+  
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <title>KidLisp OG Preview</title>
+  <style>
+    body { font-family: monospace; background: #1a1a2e; color: white; padding: 20px; }
+    h1 { color: #88ff88; }
+    .layout { margin: 20px 0; }
+    .layout h2 { color: #ffaa00; }
+    .layout img { max-width: 100%; border: 2px solid #444; }
+    .layout a { color: #88ccff; }
+  </style>
+</head>
+<body>
+  <h1>🖼️ KidLisp.com OG Preview Layouts</h1>
+  <p>These are the available OG image layouts for social previews.</p>
+  ${layouts.map(layout => `
+    <div class="layout">
+      <h2>${layout.charAt(0).toUpperCase() + layout.slice(1)}</h2>
+      <p><a href="${baseUrl}/kidlisp-og?layout=${layout}&force=true">Force regenerate</a></p>
+      <img src="${baseUrl}/kidlisp-og?layout=${layout}" alt="${layout} layout" loading="lazy">
+    </div>
+  `).join('')}
+  <p style="margin-top: 40px;">
+    <a href="${baseUrl}/kidlisp-og/status">View cache status</a>
+  </p>
+</body>
+</html>`);
 });
 
 // 404 handler
