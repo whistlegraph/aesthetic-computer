@@ -5122,7 +5122,7 @@
       height: auto;
       opacity: 0;
       transition: opacity 0.3s;
-      filter: drop-shadow(0 0 8px rgba(255, 100, 200, 0.8)) drop-shadow(0 0 16px rgba(255, 100, 200, 0.5));
+      filter: hue-rotate(-30deg) saturate(1.5) brightness(1.2) drop-shadow(0 0 8px rgba(255, 100, 200, 0.8)) drop-shadow(0 0 16px rgba(255, 100, 200, 0.5));
     }
 
     @keyframes pals-energy {
@@ -6309,7 +6309,7 @@
       <a id="pals" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;" href="#">
         <div class="pals-logo-container">
           <img src="https://aesthetic.computer/purple-pals.svg" alt="" class="pals-logo">
-          <img src="https://aesthetic.computer/pink-pals.svg" alt="" class="pals-logo-pink">
+          <img src="https://aesthetic.computer/purple-pals.svg" alt="" class="pals-logo-pink">
         </div>
         <span data-lang="en">↑ Back to Top</span>
         <span data-lang="da">↑ Tilbage til top</span>
@@ -7235,15 +7235,15 @@
         }
       }
       
-      // Headshots are face-focused professional shots
-      for (const name of headshotsImages) {
-        const data = allImagesData[name];
-        if (data.pois && data.pois.length > 0) {
-          for (const poi of data.pois) {
-            headshotsPois.push({ name, poi, data });
-          }
-        }
-      }
+      // Headshots are face-focused professional shots (temporarily disabled)
+      // for (const name of headshotsImages) {
+      //   const data = allImagesData[name];
+      //   if (data.pois && data.pois.length > 0) {
+      //     for (const poi of data.pois) {
+      //       headshotsPois.push({ name, poi, data });
+      //     }
+      //   }
+      // }
       
       for (const name of screenshotsImages) {
         const data = allImagesData[name];
