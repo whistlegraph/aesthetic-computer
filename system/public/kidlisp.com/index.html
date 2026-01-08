@@ -7704,8 +7704,19 @@
       document.body.removeChild(link);
     }
     
-    // ☕ Mug modal state
-    let mugModal = null;
+    // 🖼️ Unified modal state (handles both screenshot preview and mug)
+    let unifiedModal = null;
+    let unifiedModalState = {
+      mode: 'screenshot', // 'screenshot' | 'mug-loading' | 'mug-ready'
+      isProcessing: false,
+      dataUrl: null,
+      filename: null,
+      pieceCode: null,
+      mugColor: null,
+      previewData: null,
+      paintingCode: null,
+      kidlispCode: null,
+    };
     
     // ☕ Available mug colors
     const MUG_COLORS = ['white', 'black', 'blue', 'pink', 'orange', 'green', 'red', 'yellow', 'darkblue', 'darkgreen'];
@@ -7715,291 +7726,411 @@
       return MUG_COLORS[Math.floor(Math.random() * MUG_COLORS.length)];
     }
     
-    // ☕ Show mug preview modal with color selection
-    // Can be called with { loading: true } to show immediately while processing
-    // Then call updateMugModal() to update content when data is ready
-    function showMugModal(previewData, paintingCode, kidlispCode, initialColor) {
-      const isLoading = previewData?.loading === true;
+    // Add CSS for unified modal if not exists
+    function ensureUnifiedModalStyles() {
+      if (document.getElementById('unified-modal-styles')) return;
+      const style = document.createElement('style');
+      style.id = 'unified-modal-styles';
+      style.textContent = `
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .unified-modal-backdrop {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0, 0, 0, 0.85);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 100000;
+          backdrop-filter: blur(4px);
+        }
+        
+        .unified-modal-backdrop.processing {
+          cursor: wait;
+        }
+        
+        .unified-modal-content {
+          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+          border-radius: 16px;
+          padding: 20px;
+          max-width: 420px;
+          width: 90%;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .unified-modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+        }
+        
+        .unified-modal-title {
+          margin: 0;
+          color: #f0e6d3;
+          font-family: monospace;
+          font-size: 18px;
+        }
+        
+        .unified-modal-close {
+          background: none;
+          border: none;
+          color: #888;
+          font-size: 20px;
+          cursor: pointer;
+          padding: 4px 8px;
+          border-radius: 4px;
+          transition: all 0.2s;
+        }
+        
+        .unified-modal-close:hover {
+          color: #fff;
+          background: rgba(255,255,255,0.1);
+        }
+        
+        .unified-modal-close:disabled {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+        
+        .unified-modal-preview {
+          background: #0a0a14;
+          border-radius: 12px;
+          padding: 12px;
+          margin-bottom: 12px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          min-height: 180px;
+        }
+        
+        .unified-modal-preview img {
+          max-width: 100%;
+          max-height: 280px;
+          border-radius: 8px;
+          image-rendering: pixelated;
+        }
+        
+        .unified-modal-buttons {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        
+        .unified-modal-btn {
+          flex: 1;
+          min-width: 120px;
+          padding: 12px 16px;
+          border: none;
+          border-radius: 8px;
+          font-size: 14px;
+          font-family: monospace;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .unified-modal-btn:hover:not(:disabled) {
+          transform: scale(1.02);
+        }
+        
+        .unified-modal-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        
+        .unified-modal-btn.download {
+          background: #4ecdc4;
+          color: #1e1e2e;
+        }
+        
+        .unified-modal-btn.mug {
+          background: linear-gradient(135deg, #8b5a2b 0%, #a0642a 100%);
+          color: white;
+          box-shadow: 0 4px 12px rgba(139, 90, 43, 0.4);
+        }
+        
+        .unified-modal-btn.mug:hover:not(:disabled) {
+          box-shadow: 0 6px 16px rgba(139, 90, 43, 0.6);
+        }
+        
+        .unified-modal-btn.buy {
+          width: 100%;
+          flex: none;
+          background: linear-gradient(135deg, #8b5a2b 0%, #a0642a 100%);
+          color: white;
+          font-weight: bold;
+          font-size: 16px;
+          padding: 14px 20px;
+          box-shadow: 0 4px 12px rgba(139, 90, 43, 0.4);
+        }
+        
+        .unified-modal-loading {
+          color: #8b5a2b;
+          font-family: monospace;
+          font-size: 16px;
+          animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        .unified-modal-url-section {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 12px;
+          padding: 10px;
+          background: rgba(0, 0, 0, 0.4);
+          border-radius: 8px;
+        }
+        
+        .unified-modal-url-section canvas {
+          display: block;
+          image-rendering: pixelated;
+          border-radius: 4px;
+          flex-shrink: 0;
+        }
+        
+        .unified-modal-url-text {
+          font-family: monospace;
+          font-size: 13px;
+          color: #aaa;
+          word-break: break-all;
+          line-height: 1.3;
+          flex: 1;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    // 🖼️ Show unified modal (screenshot or mug)
+    function showUnifiedModal(options) {
+      const { mode, dataUrl, filename, pieceCode, dimensions, frameCount, mugColor, previewData, paintingCode, kidlispCode, isProcessing } = options;
       
-      // If modal exists and we're updating (not loading), update content in place
-      if (mugModal && !isLoading) {
-        updateMugModalContent(previewData, paintingCode, kidlispCode, initialColor);
+      ensureUnifiedModalStyles();
+      
+      // Update state
+      unifiedModalState = {
+        mode: mode || 'screenshot',
+        isProcessing: isProcessing || false,
+        dataUrl,
+        filename,
+        pieceCode,
+        mugColor: mugColor || randomMugColor(),
+        previewData,
+        paintingCode,
+        kidlispCode,
+      };
+      
+      // If modal exists, update in place
+      if (unifiedModal) {
+        updateUnifiedModalContent();
         return;
       }
       
-      // Remove any existing modal
-      if (mugModal) mugModal.remove();
-      
-      // Use the randomly selected color (no picker)
-      const selectedColor = initialColor || 'white';
-      
       // Create modal backdrop
-      mugModal = document.createElement('div');
-      mugModal.id = 'mug-modal';
-      mugModal.dataset.color = selectedColor;
-      mugModal.dataset.kidlispCode = kidlispCode || '';
-      mugModal.style.cssText = `
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0, 0, 0, 0.85);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 100000;
-        backdrop-filter: blur(4px);
-      `;
+      unifiedModal = document.createElement('div');
+      unifiedModal.className = 'unified-modal-backdrop' + (isProcessing ? ' processing' : '');
       
-      // Modal content - simplified
+      // Modal content
       const content = document.createElement('div');
-      content.className = 'mug-modal-content';
-      content.style.cssText = `
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border-radius: 16px;
-        padding: 20px;
-        max-width: 380px;
-        width: 90%;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-      `;
+      content.className = 'unified-modal-content';
       
       // Header with close button
       const header = document.createElement('div');
-      header.style.cssText = `
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-      `;
+      header.className = 'unified-modal-header';
       
       const title = document.createElement('h2');
-      title.className = 'mug-modal-title';
-      title.innerHTML = isLoading ? `☕ ${selectedColor} mug...` : `☕ ${selectedColor} mug`;
-      title.style.cssText = `
-        margin: 0;
-        color: #f0e6d3;
-        font-family: monospace;
-        font-size: 18px;
-      `;
+      title.className = 'unified-modal-title';
+      header.appendChild(title);
       
       const closeBtn = document.createElement('button');
+      closeBtn.className = 'unified-modal-close';
       closeBtn.textContent = '✕';
-      closeBtn.style.cssText = `
-        background: none;
-        border: none;
-        color: #888;
-        font-size: 20px;
-        cursor: pointer;
-        padding: 4px 8px;
-        border-radius: 4px;
-        transition: all 0.2s;
-      `;
-      closeBtn.addEventListener('mouseenter', () => { closeBtn.style.color = '#fff'; closeBtn.style.background = 'rgba(255,255,255,0.1)'; });
-      closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = '#888'; closeBtn.style.background = 'none'; });
-      closeBtn.addEventListener('click', closeMugModal);
-      
-      header.appendChild(title);
+      closeBtn.addEventListener('click', () => {
+        if (!unifiedModalState.isProcessing) closeUnifiedModal();
+      });
       header.appendChild(closeBtn);
       
-      // Preview image container
+      // Preview container
       const previewContainer = document.createElement('div');
-      previewContainer.className = 'mug-preview-container';
-      previewContainer.style.cssText = `
-        background: #0a0a14;
-        border-radius: 12px;
-        padding: 12px;
-        margin-bottom: 12px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        min-height: 180px;
-      `;
+      previewContainer.className = 'unified-modal-preview';
       
-      if (isLoading) {
-        // Show loading spinner/text
-        const loadingText = document.createElement('div');
-        loadingText.textContent = '☕ creating your mug...';
-        loadingText.style.cssText = 'color: #8b5a2b; font-family: monospace; font-size: 16px; animation: pulse 1.5s ease-in-out infinite;';
-        previewContainer.appendChild(loadingText);
-        
-        // Add CSS animation for pulse if not exists
-        if (!document.getElementById('mug-loading-styles')) {
-          const style = document.createElement('style');
-          style.id = 'mug-loading-styles';
-          style.textContent = `@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }`;
-          document.head.appendChild(style);
-        }
-      } else {
-        renderMugPreviewContent(previewContainer, previewData);
-      }
-      
-      // URL + QR section - compact row
+      // URL section (for mug mode)
       const urlSection = document.createElement('div');
-      urlSection.className = 'mug-url-section';
-      urlSection.style.cssText = `
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 16px;
-        padding: 10px;
-        background: rgba(0, 0, 0, 0.4);
-        border-radius: 8px;
-      `;
+      urlSection.className = 'unified-modal-url-section';
+      urlSection.style.display = 'none';
       
-      if (isLoading) {
-        const urlPlaceholder = document.createElement('div');
-        urlPlaceholder.style.cssText = 'color: #555; font-family: monospace; font-size: 13px;';
-        urlPlaceholder.textContent = 'generating url...';
-        urlSection.appendChild(urlPlaceholder);
-      } else {
-        renderMugUrlSection(urlSection, previewData);
-      }
+      // Button container
+      const buttons = document.createElement('div');
+      buttons.className = 'unified-modal-buttons';
       
-      // Buy button - full width
-      const buyBtn = document.createElement('button');
-      buyBtn.className = 'mug-buy-btn';
-      buyBtn.innerHTML = isLoading ? '☕ please wait...' : '☕ buy for <span style="color: #90ee90; font-weight: bold;">$18</span>';
-      buyBtn.disabled = isLoading;
-      buyBtn.style.cssText = `
-        width: 100%;
-        background: linear-gradient(135deg, #8b5a2b 0%, #a0642a 100%);
-        border: none;
-        border-radius: 8px;
-        padding: 14px 20px;
-        cursor: ${isLoading ? 'wait' : 'pointer'};
-        font-size: 16px;
-        font-family: monospace;
-        color: white;
-        font-weight: bold;
-        transition: all 0.2s;
-        box-shadow: 0 4px 12px rgba(139, 90, 43, 0.4);
-        opacity: ${isLoading ? '0.6' : '1'};
-      `;
-      
-      // Assemble modal
       content.appendChild(header);
       content.appendChild(previewContainer);
       content.appendChild(urlSection);
-      content.appendChild(buyBtn);
-      mugModal.appendChild(content);
+      content.appendChild(buttons);
+      unifiedModal.appendChild(content);
       
-      // Close on backdrop click
-      mugModal.addEventListener('click', (e) => {
-        if (e.target === mugModal) closeMugModal();
+      // Close on backdrop click (if not processing)
+      unifiedModal.addEventListener('click', (e) => {
+        if (e.target === unifiedModal && !unifiedModalState.isProcessing) closeUnifiedModal();
       });
       
-      // Close on escape
+      // Close on escape (if not processing)
       const escHandler = (e) => {
-        if (e.key === 'Escape') {
-          closeMugModal();
+        if (e.key === 'Escape' && !unifiedModalState.isProcessing) {
+          closeUnifiedModal();
           document.removeEventListener('keydown', escHandler);
         }
       };
       document.addEventListener('keydown', escHandler);
+      unifiedModal.escHandler = escHandler;
       
-      document.body.appendChild(mugModal);
+      document.body.appendChild(unifiedModal);
+      updateUnifiedModalContent();
     }
     
-    // Helper to render preview content
-    function renderMugPreviewContent(container, previewData) {
-      container.innerHTML = '';
-      if (previewData.animatedWebpUrl) {
-        const animatedImg = document.createElement('img');
-        animatedImg.src = previewData.animatedWebpUrl;
-        animatedImg.style.cssText = 'max-width: 100%; max-height: 240px; border-radius: 8px;';
-        container.appendChild(animatedImg);
-      } else if (previewData.mockupUrl) {
-        const staticImg = document.createElement('img');
-        staticImg.src = previewData.mockupUrl;
-        staticImg.style.cssText = 'max-width: 100%; max-height: 240px; border-radius: 8px;';
-        container.appendChild(staticImg);
-      } else {
-        const placeholder = document.createElement('div');
-        placeholder.textContent = '☕ Preview unavailable';
-        placeholder.style.cssText = 'color: #666; font-family: monospace;';
-        container.appendChild(placeholder);
-      }
-    }
-    
-    // Helper to render URL section
-    function renderMugUrlSection(container, previewData) {
-      container.innerHTML = '';
-      const rawProductCode = previewData.rawProductCode || previewData.productCode?.replace(/^\+/, '');
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local');
-      const baseUrl = isLocal ? `${window.location.protocol}//${window.location.host}` : 'https://aesthetic.computer';
-      const mugUrl = rawProductCode ? `${baseUrl}/mug~+${rawProductCode}` : `${baseUrl}/mugs`;
+    // Update unified modal content based on current state
+    function updateUnifiedModalContent() {
+      if (!unifiedModal) return;
       
-      // QR code
-      const qrCanvas = document.createElement('canvas');
-      qrCanvas.width = 56;
-      qrCanvas.height = 56;
-      qrCanvas.style.cssText = 'display: block; image-rendering: pixelated; border-radius: 4px; flex-shrink: 0;';
+      const { mode, isProcessing, dataUrl, filename, pieceCode, mugColor, previewData, paintingCode, kidlispCode } = unifiedModalState;
       
-      // URL text
-      const urlText = document.createElement('div');
-      urlText.style.cssText = 'font-family: monospace; font-size: 13px; color: #aaa; word-break: break-all; line-height: 1.3; flex: 1;';
-      urlText.innerHTML = `<span style="color: #666;">aesthetic.computer/</span><span style="color: #87ceeb;">mug</span><span style="color: #555;">~+</span><span style="color: #00e5ff;">${rawProductCode || '...'}</span>`;
+      const title = unifiedModal.querySelector('.unified-modal-title');
+      const closeBtn = unifiedModal.querySelector('.unified-modal-close');
+      const previewContainer = unifiedModal.querySelector('.unified-modal-preview');
+      const urlSection = unifiedModal.querySelector('.unified-modal-url-section');
+      const buttons = unifiedModal.querySelector('.unified-modal-buttons');
       
-      container.appendChild(qrCanvas);
-      container.appendChild(urlText);
+      // Update processing state
+      unifiedModal.classList.toggle('processing', isProcessing);
+      closeBtn.disabled = isProcessing;
       
-      // Generate QR code
-      if (typeof QRious !== 'undefined') {
-        new QRious({ element: qrCanvas, value: mugUrl, size: 56, level: 'L', background: '#1a1a2e', foreground: '#ffffff' });
-      }
-    }
-    
-    // Update modal content after loading completes
-    function updateMugModalContent(previewData, paintingCode, kidlispCode, selectedColor) {
-      if (!mugModal) return;
+      // Clear containers
+      previewContainer.innerHTML = '';
+      urlSection.innerHTML = '';
+      buttons.innerHTML = '';
       
-      const color = selectedColor || mugModal.dataset.color || 'white';
-      const code = kidlispCode || mugModal.dataset.kidlispCode || '';
-      
-      // Update title
-      const title = mugModal.querySelector('.mug-modal-title');
-      if (title) title.innerHTML = `☕ ${color} mug`;
-      
-      // Update preview
-      const previewContainer = mugModal.querySelector('.mug-preview-container');
-      if (previewContainer) renderMugPreviewContent(previewContainer, previewData);
-      
-      // Update URL section
-      const urlSection = mugModal.querySelector('.mug-url-section');
-      if (urlSection) renderMugUrlSection(urlSection, previewData);
-      
-      // Update buy button
-      const buyBtn = mugModal.querySelector('.mug-buy-btn');
-      if (buyBtn) {
-        const rawProductCode = previewData.rawProductCode || previewData.productCode?.replace(/^\+/, '');
+      if (mode === 'screenshot') {
+        // Screenshot preview mode
+        title.textContent = '📸 screenshot';
+        urlSection.style.display = 'none';
+        
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        previewContainer.appendChild(img);
+        
+        // Download button
+        const downloadBtn = document.createElement('button');
+        downloadBtn.className = 'unified-modal-btn download';
+        downloadBtn.textContent = filename || 'download.png';
+        downloadBtn.addEventListener('click', () => {
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          link.download = filename || 'kidlisp-screenshot.png';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        });
+        buttons.appendChild(downloadBtn);
+        
+        // Mug button (only if pieceCode exists)
+        if (pieceCode) {
+          const mugBtn = document.createElement('button');
+          mugBtn.className = 'unified-modal-btn mug';
+          mugBtn.innerHTML = '☕ mug <span style="color: #90EE90;">$18</span>';
+          mugBtn.addEventListener('click', () => {
+            openMugFromScreenshot(dataUrl, null, pieceCode);
+          });
+          buttons.appendChild(mugBtn);
+        }
+        
+      } else if (mode === 'mug-loading') {
+        // Mug loading mode
+        title.textContent = `☕ ${mugColor} mug...`;
+        
+        // Show original image while loading (dimmed)
+        if (dataUrl) {
+          const img = document.createElement('img');
+          img.src = dataUrl;
+          img.style.opacity = '0.5';
+          previewContainer.appendChild(img);
+        }
+        
+        const loadingText = document.createElement('div');
+        loadingText.className = 'unified-modal-loading';
+        loadingText.textContent = '☕ creating your mug...';
+        loadingText.style.position = 'absolute';
+        previewContainer.style.position = 'relative';
+        previewContainer.appendChild(loadingText);
+        
+        // Show URL section with placeholder
+        urlSection.style.display = 'flex';
+        const urlPlaceholder = document.createElement('div');
+        urlPlaceholder.style.cssText = 'color: #555; font-family: monospace; font-size: 13px;';
+        urlPlaceholder.textContent = 'generating url...';
+        urlSection.appendChild(urlPlaceholder);
+        
+        // Disabled buy button
+        const buyBtn = document.createElement('button');
+        buyBtn.className = 'unified-modal-btn buy';
+        buyBtn.innerHTML = '☕ please wait...';
+        buyBtn.disabled = true;
+        buttons.appendChild(buyBtn);
+        
+      } else if (mode === 'mug-ready') {
+        // Mug ready mode
+        title.textContent = `☕ ${mugColor} mug`;
+        urlSection.style.display = 'flex';
+        
+        // Show mug preview
+        if (previewData?.animatedWebpUrl) {
+          const img = document.createElement('img');
+          img.src = previewData.animatedWebpUrl;
+          previewContainer.appendChild(img);
+        } else if (previewData?.mockupUrl) {
+          const img = document.createElement('img');
+          img.src = previewData.mockupUrl;
+          previewContainer.appendChild(img);
+        } else {
+          const placeholder = document.createElement('div');
+          placeholder.textContent = '☕ Preview unavailable';
+          placeholder.style.cssText = 'color: #666; font-family: monospace;';
+          previewContainer.appendChild(placeholder);
+        }
+        
+        // URL section with QR
+        const rawProductCode = previewData?.rawProductCode || previewData?.productCode?.replace(/^\+/, '');
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local');
         const baseUrl = isLocal ? `${window.location.protocol}//${window.location.host}` : 'https://aesthetic.computer';
+        const mugUrl = rawProductCode ? `${baseUrl}/mug~+${rawProductCode}` : `${baseUrl}/mugs`;
         
+        const qrCanvas = document.createElement('canvas');
+        qrCanvas.width = 56;
+        qrCanvas.height = 56;
+        urlSection.appendChild(qrCanvas);
+        
+        const urlText = document.createElement('div');
+        urlText.className = 'unified-modal-url-text';
+        urlText.innerHTML = `<span style="color: #666;">aesthetic.computer/</span><span style="color: #87ceeb;">mug</span><span style="color: #555;">~+</span><span style="color: #00e5ff;">${rawProductCode || '...'}</span>`;
+        urlSection.appendChild(urlText);
+        
+        if (typeof QRious !== 'undefined') {
+          new QRious({ element: qrCanvas, value: mugUrl, size: 56, level: 'L', background: '#1a1a2e', foreground: '#ffffff' });
+        }
+        
+        // Buy button
+        const buyBtn = document.createElement('button');
+        buyBtn.className = 'unified-modal-btn buy';
         buyBtn.innerHTML = '☕ buy for <span style="color: #90ee90; font-weight: bold;">$18</span>';
-        buyBtn.disabled = false;
-        buyBtn.style.cursor = 'pointer';
-        buyBtn.style.opacity = '1';
-        
-        // Remove old listeners and add new one
-        const newBuyBtn = buyBtn.cloneNode(true);
-        buyBtn.parentNode.replaceChild(newBuyBtn, buyBtn);
-        
-        newBuyBtn.addEventListener('mouseenter', () => { 
-          newBuyBtn.style.transform = 'scale(1.02)'; 
-          newBuyBtn.style.boxShadow = '0 6px 16px rgba(139, 90, 43, 0.6)';
-        });
-        newBuyBtn.addEventListener('mouseleave', () => { 
-          newBuyBtn.style.transform = 'scale(1)'; 
-          newBuyBtn.style.boxShadow = '0 4px 12px rgba(139, 90, 43, 0.4)';
-        });
-        newBuyBtn.addEventListener('click', async () => {
-          newBuyBtn.disabled = true;
-          newBuyBtn.innerHTML = '☕ opening checkout...';
-          newBuyBtn.style.opacity = '0.7';
+        buyBtn.addEventListener('click', async () => {
+          buyBtn.disabled = true;
+          buyBtn.innerHTML = '☕ opening checkout...';
+          buyBtn.style.opacity = '0.7';
           
           try {
-            let checkoutApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=${color}`;
-            if (code) checkoutApiUrl += `&via=${code}`;
+            let checkoutApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=${mugColor}`;
+            if (kidlispCode) checkoutApiUrl += `&via=${kidlispCode}`;
             
             const checkoutRes = await fetch(checkoutApiUrl, {
               method: 'POST',
@@ -8010,25 +8141,86 @@
             const checkoutData = await checkoutRes.json();
             if (checkoutData.location) {
               window.open(checkoutData.location, '_blank');
-              closeMugModal();
+              closeUnifiedModal();
             } else {
               throw new Error('No checkout URL returned');
             }
           } catch (e) {
             console.error('☕ Checkout failed:', e);
-            newBuyBtn.innerHTML = '❌ failed - retry';
-            newBuyBtn.disabled = false;
-            newBuyBtn.style.opacity = '1';
+            buyBtn.innerHTML = '❌ failed - retry';
+            buyBtn.disabled = false;
+            buyBtn.style.opacity = '1';
           }
+        });
+        buttons.appendChild(buyBtn);
+      }
+    }
+    
+    function closeUnifiedModal() {
+      if (unifiedModal) {
+        if (unifiedModal.escHandler) {
+          document.removeEventListener('keydown', unifiedModal.escHandler);
+        }
+        unifiedModal.remove();
+        unifiedModal = null;
+      }
+      unifiedModalState = {
+        mode: 'screenshot',
+        isProcessing: false,
+        dataUrl: null,
+        filename: null,
+        pieceCode: null,
+        mugColor: null,
+        previewData: null,
+        paintingCode: null,
+        kidlispCode: null,
+      };
+    }
+    
+    // Legacy compatibility wrappers
+    let mugModal = null; // Keep for any old references
+    
+    function showMugModal(previewData, paintingCode, kidlispCode, initialColor) {
+      const isLoading = previewData?.loading === true;
+      
+      if (isLoading) {
+        // Show loading state
+        showUnifiedModal({
+          mode: 'mug-loading',
+          isProcessing: true,
+          mugColor: initialColor || randomMugColor(),
+          dataUrl: unifiedModalState.dataUrl, // Keep existing screenshot if any
+          kidlispCode,
+        });
+      } else {
+        // Show ready state
+        showUnifiedModal({
+          mode: 'mug-ready',
+          isProcessing: false,
+          previewData,
+          paintingCode,
+          kidlispCode,
+          mugColor: initialColor || unifiedModalState.mugColor,
         });
       }
     }
     
     function closeMugModal() {
-      if (mugModal) {
-        mugModal.remove();
-        mugModal = null;
-      }
+      closeUnifiedModal();
+    }
+    
+    function updateMugModalContent(previewData, paintingCode, kidlispCode, selectedColor) {
+      unifiedModalState.previewData = previewData;
+      unifiedModalState.paintingCode = paintingCode;
+      unifiedModalState.kidlispCode = kidlispCode;
+      unifiedModalState.mugColor = selectedColor || unifiedModalState.mugColor;
+      unifiedModalState.mode = 'mug-ready';
+      unifiedModalState.isProcessing = false;
+      updateUnifiedModalContent();
+    }
+    
+    function closeMugModal() {
+      closeUnifiedModal();
     }
     
     // ☕ Open mug preview from screenshot
@@ -8036,8 +8228,15 @@
       if (!dataUrl) return;
       
       // 🎯 Show modal IMMEDIATELY with loading state (before any async work)
-      const randomColor = randomMugColor();
-      showMugModal({ loading: true }, null, kidlispCode, randomColor);
+      // Preserve the dataUrl so we can show the image dimmed while processing
+      const selectedColor = randomMugColor();
+      showUnifiedModal({
+        mode: 'mug-loading',
+        isProcessing: true,
+        dataUrl: dataUrl, // Keep showing the screenshot while processing
+        mugColor: selectedColor,
+        kidlispCode,
+      });
       
       const originalHTML = mugBtn?.innerHTML;
       if (mugBtn) {
@@ -8104,11 +8303,12 @@
         
         // Call the mug API to create the product and get a +productCode
         // This ensures the mug is registered in the database with all metadata
-        mugBtn.innerHTML = '☕ creating mug...';
+        // Note: mugBtn might be null when coming from unified modal
+        if (mugBtn) mugBtn.innerHTML = '☕ creating mug...';
         
-        // Randomize the mug color for fun variety!
-        const randomColor = randomMugColor();
-        let productApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=${randomColor}&preview=true`;
+        // Use the color already selected for this mug session
+        const mugColor = unifiedModalState.mugColor || selectedColor;
+        let productApiUrl = `${baseUrl}/api/mug?new=true&pixels=${paintingCode}.png&color=${mugColor}&preview=true`;
         if (kidlispCode) {
           productApiUrl += `&via=${kidlispCode}`;
         }
@@ -8135,8 +8335,15 @@
         // Strip + prefix if present (we'll add it in the URL)
         const rawProductCode = productCode.replace(/^\+/, '');
         
-        // Show mug preview modal with color selection (pre-select the random color)
-        showMugModal({ ...productData, rawProductCode }, paintingCode, kidlispCode, randomColor);
+        // Transition to mug-ready state in unified modal
+        showUnifiedModal({
+          mode: 'mug-ready',
+          isProcessing: false,
+          previewData: { ...productData, rawProductCode },
+          paintingCode,
+          kidlispCode,
+          mugColor,
+        });
         
         if (mugBtn) {
           mugBtn.innerHTML = '☕ mug <span style="color: #90EE90;">$18</span>';
@@ -8146,7 +8353,7 @@
       } catch (e) {
         console.error('☕ Mug upload failed:', e);
         // Close the loading modal on error
-        closeMugModal();
+        closeUnifiedModal();
         if (mugBtn) {
           mugBtn.innerHTML = '❌ failed';
           mugBtn.style.opacity = '0.85';
@@ -8158,119 +8365,25 @@
       }
     }
     
-    // Show console image in fullscreen popup
+    // Show console image in fullscreen popup (now uses unified modal)
     function showConsoleImagePopup(dataUrl, dimensions, pieceCode, frameCount, providedFilename) {
+      // Remove any existing old-style popup
       const existing = document.getElementById('console-image-popup');
       if (existing) existing.remove();
       
-      // Backdrop overlay - click to close
-      const backdrop = document.createElement('div');
-      backdrop.id = 'console-image-popup';
-      backdrop.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999999;
-        cursor: pointer;
-      `;
-      
-      const img = document.createElement('img');
-      img.src = dataUrl;
-      img.style.cssText = `
-        image-rendering: pixelated;
-        max-width: 85vw;
-        max-height: 75vh;
-        border-radius: 4px;
-        box-shadow: 0 4px 30px rgba(0,0,0,0.5);
-      `;
-      
-      // Use provided filename or generate one (format: $code-@user-timestamp.png)
+      // Use provided filename or generate one
       const filename = providedFilename || generateConsoleImageFilename(pieceCode);
       
-      // Button container for download and mug
-      const btnContainer = document.createElement('div');
-      btnContainer.style.cssText = `
-        display: flex;
-        gap: 12px;
-        margin-top: 16px;
-      `;
-      
-      // Download button - shows the filename
-      const downloadBtn = document.createElement('button');
-      downloadBtn.textContent = filename;
-      downloadBtn.style.cssText = `
-        padding: 10px 18px;
-        background: #4ecdc4;
-        color: #1e1e2e;
-        border: none;
-        border-radius: 6px;
-        font-size: 13px;
-        font-family: monospace;
-        cursor: pointer;
-        transition: transform 0.1s;
-      `;
-      downloadBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        // Download with the same filename shown
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      // Use unified modal in screenshot mode
+      showUnifiedModal({
+        mode: 'screenshot',
+        dataUrl,
+        filename,
+        pieceCode,
+        dimensions,
+        frameCount,
+        isProcessing: false,
       });
-      downloadBtn.addEventListener('mouseenter', () => { downloadBtn.style.transform = 'scale(1.05)'; });
-      downloadBtn.addEventListener('mouseleave', () => { downloadBtn.style.transform = 'scale(1)'; });
-      
-      // ☕ Mug button
-      const mugBtn = document.createElement('button');
-      mugBtn.textContent = '☕ Mug';
-      mugBtn.title = 'Turn into a buyable mug!';
-      mugBtn.style.cssText = `
-        padding: 10px 18px;
-        background: #8b5a2b;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-size: 13px;
-        font-family: monospace;
-        cursor: pointer;
-        transition: transform 0.1s, background 0.2s;
-      `;
-      mugBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openMugFromScreenshot(dataUrl, mugBtn);
-      });
-      mugBtn.addEventListener('mouseenter', () => { mugBtn.style.transform = 'scale(1.05)'; mugBtn.style.background = '#a0673a'; });
-      mugBtn.addEventListener('mouseleave', () => { mugBtn.style.transform = 'scale(1)'; mugBtn.style.background = '#8b5a2b'; });
-      
-      btnContainer.appendChild(downloadBtn);
-      btnContainer.appendChild(mugBtn);
-      
-      backdrop.appendChild(img);
-      backdrop.appendChild(btnContainer);
-      document.body.appendChild(backdrop);
-      
-      // Click anywhere on backdrop (but not on buttons) to close
-      backdrop.addEventListener('click', (e) => {
-        if (e.target === backdrop || e.target === img) backdrop.remove();
-      });
-      
-      // Close on escape
-      const closeHandler = (e) => {
-        if (e.key === 'Escape') {
-          backdrop.remove();
-          document.removeEventListener('keydown', closeHandler);
-        }
-      };
-      document.addEventListener('keydown', closeHandler);
     }
     
     function addConsoleEntry(message, type = 'log', locOrLine = null, options = {}) {
