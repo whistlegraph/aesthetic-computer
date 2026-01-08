@@ -1,7 +1,7 @@
 // mugs, 24.12.21 (Redesigned 2026.1.06)
 // Browse recent mugs - preview on top, scrollable list below
 
-const { floor, min, max, abs, sin } = Math;
+const { floor, ceil, min, max, abs, sin } = Math;
 
 // 🎨 Color scheme
 const scheme = {
@@ -36,6 +36,7 @@ let scroll = 0; // Negative scroll (like colors.mjs)
 let preloadAnimatedWebp = null;
 let previewCache = {}; // Cache loaded previews by code
 let buyBtn = null;
+let viewBtn = null; // VIEW button to go to mug page
 
 const btnCharWidth = 8; // unifont char width
 const btnCharHeight = 16; // unifont char height
@@ -83,8 +84,9 @@ function boot({ net, cursor, hud, ui, screen, api }) {
   preloadAnimatedWebp = net.preloadAnimatedWebp;
   apiRef = api;
   
-  // Create BUY button
+  // Create buttons
   buyBtn = new ui.Button(0, 0, 100, 28);
+  viewBtn = new ui.Button(0, 0, 60, 24); // VIEW button
   
   fetchMugs();
 }
@@ -281,6 +283,26 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
         }
       }
       
+      // VIEW button - goes to mug page
+      const viewText = "👁 VIEW";
+      const viewBtnW = viewText.length * 6 + 12;
+      const viewBtnH = 22;
+      viewBtn.box.x = 8;
+      viewBtn.box.y = previewHeight - viewBtnH - 12;
+      viewBtn.box.w = viewBtnW;
+      viewBtn.box.h = viewBtnH;
+      
+      // Draw VIEW button
+      const viewHover = viewBtn.down;
+      const viewFill = viewHover ? [50, 60, 80] : [30, 40, 55];
+      const viewBorder = viewHover ? [120, 150, 200] : [80, 100, 140];
+      ink(viewFill).box(viewBtn.box, "fill");
+      ink(viewBorder).box(viewBtn.box, "outline");
+      ink(viewHover ? [200, 220, 255] : [150, 180, 220]).write(viewText, {
+        x: viewBtn.box.x + 6,
+        y: viewBtn.box.y + 6,
+      });
+      
       // BUY button - shows product code and checkout
       const mugCode = selectedMug.code;
       const btnText = buyPending ? "☕ CHECKING OUT..." : `☕ BUY +${mugCode.slice(0, 8)} $18`;
@@ -346,16 +368,18 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
   }
   
   // Auto-play progress bar (below preview, above list)
-  const progressBarH = 3;
+  const progressBarH = 4;
   const progressBarY = previewHeight - progressBarH;
   
-  if (autoPlay && mugs.length > 1 && !loading) {
+  if (mugs.length > 1 && !loading) {
     // Background track
-    ink(30, 30, 40, 0.8).box(0, progressBarY, screen.width, progressBarH, "fill");
+    ink(30, 30, 40, 0.9).box(0, progressBarY, screen.width, progressBarH, "fill");
     
     // Calculate progress
     let progress = 0;
-    if (!userInteracted) {
+    const isAutoPlaying = autoPlay && !userInteracted;
+    
+    if (isAutoPlaying) {
       const elapsed = now - lastAutoAdvance;
       progress = min(1, elapsed / autoPlayInterval);
     } else {
@@ -369,17 +393,30 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
     const barRgb = mugColors[mugColorName] || [150, 150, 150];
     const barW = floor(screen.width * progress);
     
-    if (!userInteracted) {
+    if (isAutoPlaying) {
       // Active: solid color with slight glow
       ink(barRgb[0], barRgb[1], barRgb[2], 0.9).box(0, progressBarY, barW, progressBarH, "fill");
       // Bright tip
       if (barW > 2) {
-        ink(255, 255, 255, 0.6).box(barW - 2, progressBarY, 2, progressBarH, "fill");
+        ink(255, 255, 255, 0.7).box(barW - 2, progressBarY, 2, progressBarH, "fill");
       }
     } else {
       // Paused: dimmer, pulsing
       const pauseAlpha = sin(time * 3) * 0.2 + 0.4;
       ink(barRgb[0] * 0.6, barRgb[1] * 0.6, barRgb[2] * 0.6, pauseAlpha).box(0, progressBarY, barW, progressBarH, "fill");
+    }
+    
+    // Auto-play indicator (top-left corner, above progress bar)
+    const indicatorY = 4;
+    const indicatorX = 6;
+    if (isAutoPlaying) {
+      // Playing: show ▶ AUTO with pulse
+      const autoPulse = sin(time * 2) * 0.2 + 0.8;
+      ink(100 * autoPulse, 200 * autoPulse, 100 * autoPulse).write("▶ AUTO", { x: indicatorX, y: indicatorY });
+    } else {
+      // Paused: show ⏸ PAUSED
+      const pausePulse = sin(time * 3) * 0.3 + 0.6;
+      ink(200 * pausePulse, 180 * pausePulse, 100 * pausePulse).write("⏸ PAUSED", { x: indicatorX, y: indicatorY });
     }
   }
   
@@ -401,12 +438,21 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
     height: listHeight,
   });
   
-  // Draw list items (only visible ones)
-  mugs.forEach((mug, i) => {
+  // Draw list items - OPTIMIZED: only iterate visible range
+  const visibleHeight = listHeight - TOP_MARGIN;
+  
+  // Calculate visible index range based on scroll position
+  const firstVisibleIdx = max(0, floor((-scroll - TOP_MARGIN) / ROW_HEIGHT) - 1);
+  const lastVisibleIdx = min(mugs.length - 1, ceil((-scroll + visibleHeight) / ROW_HEIGHT) + 1);
+  
+  for (let i = firstVisibleIdx; i <= lastVisibleIdx; i++) {
+    const mug = mugs[i];
+    if (!mug) continue;
+    
     const itemY = scroll + listY + TOP_MARGIN + (i * ROW_HEIGHT);
     
-    // Skip if off screen
-    if (itemY + ROW_HEIGHT < listY || itemY > screen.height) return;
+    // Skip if actually off screen (belt and suspenders)
+    if (itemY + ROW_HEIGHT < listY || itemY > screen.height) continue;
     
     const isSelected = i === selectedIndex;
     
@@ -458,7 +504,7 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
     if (timeAgo) {
       ink(scheme.timeAgo).write(` · ${timeAgo}`, { x: textX, y: textY });
     }
-  });
+  }
   
   // Unmask before drawing scrollbar and anything else
   unmask();
@@ -525,6 +571,20 @@ function act({ event: e, jump, screen, sound, store }) {
   if (e.is("keyboard:down:enter") || e.is("keyboard:down:space")) {
     openSelectedMug(jump);
   }
+  
+  // VIEW button click - go to mug page
+  viewBtn?.act(e, {
+    down: () => {
+      sound?.synth({ type: "sine", tone: 500, duration: 0.04, volume: 0.25 });
+    },
+    push: () => {
+      const mug = mugs[selectedIndex];
+      if (mug) {
+        sound?.synth({ type: "sine", tone: 700, duration: 0.08, volume: 0.3 });
+        jump("mug~+" + mug.code);
+      }
+    },
+  });
   
   // BUY button click - checkout
   buyBtn?.act(e, {
