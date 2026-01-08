@@ -8707,18 +8707,16 @@
       document.getElementById('qr-modal').classList.remove('show');
     }
     
-    // Add click handlers
-    document.addEventListener('DOMContentLoaded', () => {
-      const previewQR = document.getElementById('preview-qr');
-      if (previewQR) {
-        previewQR.addEventListener('click', showQRModal);
-      }
-      
-      const qrModal = document.getElementById('qr-modal');
-      if (qrModal) {
-        qrModal.addEventListener('click', hideQRModal);
-      }
-    });
+    // Add click handlers immediately (module scripts run after DOM is ready)
+    const previewQR = document.getElementById('preview-qr');
+    if (previewQR) {
+      previewQR.addEventListener('click', showQRModal);
+    }
+    
+    const qrModal = document.getElementById('qr-modal');
+    if (qrModal) {
+      qrModal.addEventListener('click', hideQRModal);
+    }
 
     // Scramble characters for code transition animation
     const scrambleChars = 'abcdefghijklmnopqrstuvwxyz0123456789';
