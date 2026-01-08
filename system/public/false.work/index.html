@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>false.work</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="false.work">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <style>
+    :root {
+      --bg-primary: #000;
+      --text-primary: #fff;
+      --accent: #fa0;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg-primary: #fff;
+        --text-primary: #111;
+        --accent: #d90;
+      }
+      .logo {
+        filter: invert(1);
+      }
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', Consolas, monospace;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .container {
+      text-align: center;
+    }
+
+    .logo {
+      width: 300px;
+    }
+
+    a {
+      display: block;
+    }
+
+    a:hover .logo {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a id="builds-link" href="https://builds.false.work">
+      <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work">
+    </a>
+  </div>
+  <script>
+    // Use local path in dev mode
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      document.getElementById('builds-link').href = '/builds.false.work';
+    }
+  </script>
+</body>
+</html>
