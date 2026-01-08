@@ -21,6 +21,9 @@
         --text-primary: #111;
         --accent: #d90;
       }
+      .logo {
+        filter: invert(1);
+      }
     }
 
     * {
@@ -45,11 +48,9 @@
       text-align: center;
     }
 
-    h1 {
-      font-size: 3rem;
-      font-weight: normal;
+    .logo {
+      width: 200px;
       margin-bottom: 2rem;
-      letter-spacing: -0.02em;
     }
 
     a {
@@ -65,8 +66,10 @@
 </head>
 <body>
   <div class="container">
-    <h1>false.work</h1>
-    <a href="https://builds.false.work">builds</a>
+    <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work">
+    <div>
+      <a href="https://builds.false.work">builds</a>
+    </div>
   </div>
 </body>
 </html>
