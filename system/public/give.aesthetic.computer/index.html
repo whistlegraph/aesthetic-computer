@@ -6264,7 +6264,7 @@
         <div class="invest-content" data-lang="zh">
           <p><a href="https://aesthetic.direct" target="_blank">Aesthetic Inc.</a> 由一小群早期支持者<a href="https://prompt.ac/booted-by" target="_blank">启动</a>。<br><br>要加入这个股权持有社区，请与 <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link" target="_blank">预约远程演示</a>。</p>
         </div>
-        <a href="https://aesthetic.computer/mugs" class="invest-mug" id="investMug" title="Buy a Mug" target="_blank">
+        <a href="https://aesthetic.computer/mug" class="invest-mug" id="investMug" title="Buy a Mug" target="_blank">
           <img class="invest-mug-image" id="investMugImage" alt="Mug preview" />
           <span class="invest-mug-icon" id="investMugIcon"></span>
           <span class="invest-mug-caption" id="investMugCaption"><span class="mug-color">white</span><span class="mug-of"> mug of </span><span class="mug-code">CODE</span><span class="mug-via"> in $give</span></span>
@@ -12925,7 +12925,7 @@
       
       // Update the link href to use correct domain
       if (mugLink) {
-        mugLink.href = `${baseUrl}/mugs`;
+        mugLink.href = `${baseUrl}/mug`;
       }
       
       let mug = null;
@@ -12972,7 +12972,7 @@
         console.log('[InvestMug] Could not load latest mug');
       }
       
-      // Link always goes to /mugs (no direct checkout override)
+      // Link always goes to /mug (singular mug route)
     })();
   </script>
 </body>
