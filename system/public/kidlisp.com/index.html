@@ -687,7 +687,7 @@
       border: 2px solid rgba(144, 238, 144, 0.5);
       border-radius: 4px;
       pointer-events: none; /* Allow clicks through to Monaco */
-      z-index: 999999; /* Very high z-index to be above everything */
+      z-index: 10; /* Low z-index - must be BELOW modals (100000) */
       animation: live-pulse 3s ease-in-out infinite;
     }
     
@@ -703,7 +703,7 @@
       border: 2px solid rgba(255, 217, 61, 0.5);
       border-radius: 4px;
       pointer-events: none;
-      z-index: 999999;
+      z-index: 10; /* Low z-index - must be BELOW modals (100000) */
       animation: pause-pulse 2s ease-in-out infinite;
     }
     
