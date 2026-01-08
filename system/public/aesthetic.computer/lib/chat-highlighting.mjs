@@ -142,6 +142,17 @@ export function parseMessageElements(message) {
     });
   }
 
+  // Parse *clock inline references (asterisk followed by alphanumeric)
+  const clockRefRegex = /\*[a-z0-9]+/gi;
+  while ((match = clockRefRegex.exec(message)) !== null) {
+    elements.push({
+      type: "clock",
+      text: match[0],
+      start: match.index,
+      end: match.index + match[0].length,
+    });
+  }
+
   // Parse r8dio / r8Dio references (case insensitive) - radio player
   // Use negative lookbehind to avoid matching @r8dio (which is a handle, not radio link)
   const r8dioRegex = /(?<!@)\br8dio\b/gi;
@@ -256,6 +267,8 @@ export const defaultColorTheme = {
   paintingHover: "yellow",
   kidlisp: "magenta",
   kidlispHover: "yellow",
+  clock: [0, 200, 255], // Light blue for clock references
+  clockHover: "yellow",
   r8dio: [255, 0, 255], // Magenta for r8dio radio links
   r8dioHover: "yellow",
 };
@@ -385,6 +398,11 @@ export function getElementAction(element, fullMessage, allElements) {
       result.jumpTarget = element.text;
       break;
       
+    case "clock":
+      result.description = "Open clock piece";
+      result.jumpTarget = element.text;
+      break;
+      
     case "r8dio":
       result.displayText = "r8Dio";
       result.description = "Listen to radio";
@@ -399,7 +417,7 @@ export function getElementAction(element, fullMessage, allElements) {
 }
 
 // List of interactive element types that should trigger actions
-export const interactiveTypes = ["handle", "url", "prompt", "prompt-content", "kidlisp-token", "painting", "kidlisp", "r8dio"];
+export const interactiveTypes = ["handle", "url", "prompt", "prompt-content", "kidlisp-token", "painting", "kidlisp", "clock", "r8dio"];
 
 // Check if an element type is interactive (can be clicked)
 export function isInteractiveType(type) {

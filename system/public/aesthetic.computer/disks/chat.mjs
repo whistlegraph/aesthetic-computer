@@ -1519,6 +1519,17 @@ function act(
                   action: () => jump(element.text)
                 };
                 break;
+              } else if (element.type === "clock") {
+                beep();
+                // Show confirmation modal for clock reference
+                linkConfirmModal = {
+                  type: "clock",
+                  text: element.text,
+                  displayText: element.text,
+                  description: "Open clock piece",
+                  action: () => jump(element.text)
+                };
+                break;
               } else if (element.type === "r8dio") {
                 beep();
                 // Show confirmation modal for r8dio radio

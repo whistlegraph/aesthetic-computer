@@ -8,7 +8,8 @@ import { join } from 'path';
 import { randomBytes, createHash } from 'crypto';
 import puppeteer from 'puppeteer';
 import { MongoClient } from 'mongodb';
-import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import sharp from 'sharp';
 
 // Git version for cache invalidation (set by env or detected)
 let GIT_VERSION = process.env.OVEN_VERSION || 'unknown';
@@ -607,8 +608,20 @@ async function getBrowser() {
   
   browserLaunchPromise = (async () => {
     console.log('🌐 Launching Puppeteer browser...');
+    
+    // Use system Chromium if available (works better on ARM64)
+    const fs = await import('fs');
+    let executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    if (!executablePath && fs.existsSync('/usr/sbin/chromium-browser')) {
+      executablePath = '/usr/sbin/chromium-browser';
+    }
+    if (executablePath) {
+      console.log(`📍 Using browser at: ${executablePath}`);
+    }
+    
     browser = await puppeteer.launch({
       headless: 'new',
+      executablePath,
       protocolTimeout: 60000,  // 60s timeout for CDP protocol calls
       args: [
         '--no-sandbox',
@@ -1795,6 +1808,939 @@ export async function closeBrowser() {
     browserLaunchPromise = null;
     console.log('✅ Browser closed');
   }
+}
+
+/**
+ * Close all connections (browser + MongoDB) for clean exit
+ */
+export async function closeAll() {
+  await closeBrowser();
+  if (mongoClient) {
+    console.log('🧹 Closing MongoDB...');
+    await mongoClient.close();
+    mongoClient = null;
+    db = null;
+    console.log('✅ MongoDB closed');
+  }
+}
+
+// =============================================================================
+// KidLisp.com Dynamic OG Preview Image Generation
+// =============================================================================
+
+// Cache for OG image URL (memory cache with TTL)
+const ogImageCache = {
+  url: null,
+  expires: 0,
+  generatedAt: null,
+  featuredPiece: null,
+};
+
+// OG Image layout options
+const OG_LAYOUTS = {
+  FEATURED: 'featured',     // Single featured piece (Option A)
+  MOSAIC: 'mosaic',         // Grid of top 6 pieces (Option B)
+  FILMSTRIP: 'filmstrip',   // Same piece at multiple timepoints (Option C)
+  CODE_SPLIT: 'code-split', // Code + preview side by side (Option D)
+};
+
+/**
+ * Format hit count for display (e.g., 4634 -> "4.6k")
+ */
+function formatHits(hits) {
+  if (!hits || hits < 1000) return String(hits || 0);
+  if (hits < 10000) return (hits / 1000).toFixed(1) + 'k';
+  return Math.floor(hits / 1000) + 'k';
+}
+
+/**
+ * Get today's date string for cache keys (YYYY-MM-DD)
+ */
+function getTodayKey() {
+  return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * Get deterministic "day of year" number for rotating featured content
+ */
+function getDayOfYear() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const diff = now - start;
+  const oneDay = 1000 * 60 * 60 * 24;
+  return Math.floor(diff / oneDay);
+}
+
+// =============================================================================
+// Source Similarity Detection (from give.aesthetic.computer)
+// =============================================================================
+
+const SIMILARITY_THRESHOLD = 0.90; // 90% similar = duplicate
+const MIN_SOURCE_LENGTH = 50; // Only check sources longer than this
+
+/**
+ * Get trigrams (3-char sequences) from a string
+ */
+function getTrigrams(str) {
+  const trigrams = new Set();
+  for (let i = 0; i <= str.length - 3; i++) {
+    trigrams.add(str.slice(i, i + 3));
+  }
+  return trigrams;
+}
+
+/**
+ * Calculate similarity between two source strings using trigram Jaccard similarity
+ */
+function getSourceSimilarity(source1, source2) {
+  if (!source1 || !source2) return 0;
+  
+  // Normalize: lowercase, remove extra whitespace
+  const norm1 = source1.toLowerCase().replace(/\s+/g, ' ').trim();
+  const norm2 = source2.toLowerCase().replace(/\s+/g, ' ').trim();
+  
+  if (norm1 === norm2) return 1;
+  if (norm1.length < 10 || norm2.length < 10) return 0;
+  
+  const t1 = getTrigrams(norm1);
+  const t2 = getTrigrams(norm2);
+  
+  // Jaccard similarity: intersection / union
+  let intersection = 0;
+  for (const t of t1) {
+    if (t2.has(t)) intersection++;
+  }
+  const union = t1.size + t2.size - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+/**
+ * Filter pieces to remove duplicates with >90% similar source code
+ * Returns a deduplicated list
+ */
+function deduplicatePieces(pieces, threshold = SIMILARITY_THRESHOLD) {
+  const selected = [];
+  const selectedSources = new Map(); // code -> source
+  
+  for (const piece of pieces) {
+    const source = piece.source;
+    
+    // Skip if no source or too short
+    if (!source || source.length < MIN_SOURCE_LENGTH) {
+      selected.push(piece);
+      continue;
+    }
+    
+    // Check against all previously selected pieces
+    let isDuplicate = false;
+    for (const [existingCode, existingSource] of selectedSources) {
+      const similarity = getSourceSimilarity(source, existingSource);
+      if (similarity >= threshold) {
+        console.log(`   ⚠️ Skipping $${piece.code}: ${(similarity * 100).toFixed(0)}% similar to $${existingCode}`);
+        isDuplicate = true;
+        break;
+      }
+    }
+    
+    if (!isDuplicate) {
+      selected.push(piece);
+      selectedSources.set(piece.code, source);
+    }
+  }
+  
+  return selected;
+}
+
+/**
+ * Fetch top KidLisp hits from the TV API
+ */
+async function fetchTopKidlispHits(limit = 20) {
+  try {
+    const apiUrl = process.env.API_BASE_URL || 'https://aesthetic.computer';
+    const response = await fetch(`${apiUrl}/api/tv?types=kidlisp&sort=hits&limit=${limit}`);
+    if (!response.ok) {
+      throw new Error(`TV API returned ${response.status}`);
+    }
+    const data = await response.json();
+    return data.media?.kidlisp || [];
+  } catch (error) {
+    console.error('❌ Failed to fetch top hits:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Check if we have a cached OG image for today
+ * Returns CDN URL if exists, null otherwise
+ */
+async function getCachedOGImage(layout = 'featured') {
+  const today = getTodayKey();
+  const key = `og/kidlisp/${today}-${layout}.png`;
+  
+  // Check memory cache first
+  if (ogImageCache.url && Date.now() < ogImageCache.expires) {
+    console.log(`📦 OG image from memory cache: ${ogImageCache.url}`);
+    return ogImageCache.url;
+  }
+  
+  // Check Spaces for today's image
+  try {
+    await spacesClient.send(new HeadObjectCommand({
+      Bucket: SPACES_BUCKET,
+      Key: key,
+    }));
+    
+    const url = `${SPACES_CDN_BASE}/${key}`;
+    
+    // Update memory cache (1hr TTL)
+    ogImageCache.url = url;
+    ogImageCache.expires = Date.now() + 60 * 60 * 1000;
+    
+    console.log(`📦 OG image from Spaces cache: ${url}`);
+    return url;
+  } catch (err) {
+    // Not found in cache
+    return null;
+  }
+}
+
+/**
+ * Upload OG image to Spaces CDN
+ */
+async function uploadOGImageToSpaces(buffer, layout = 'featured') {
+  const today = getTodayKey();
+  const key = `og/kidlisp/${today}-${layout}.png`;
+  
+  await spacesClient.send(new PutObjectCommand({
+    Bucket: SPACES_BUCKET,
+    Key: key,
+    Body: buffer,
+    ContentType: 'image/png',
+    ACL: 'public-read',
+    CacheControl: 'public, max-age=86400',
+  }));
+  
+  const url = `${SPACES_CDN_BASE}/${key}`;
+  
+  // Update memory cache
+  ogImageCache.url = url;
+  ogImageCache.expires = Date.now() + 60 * 60 * 1000;
+  ogImageCache.generatedAt = new Date().toISOString();
+  
+  console.log(`📤 OG image uploaded to Spaces: ${url}`);
+  return url;
+}
+
+/**
+ * Create SVG branding overlay for OG images
+ */
+function createBrandingOverlay(featured, width = 1200, height = 80) {
+  const code = featured?.code || 'kidlisp';
+  const hits = formatHits(featured?.hits);
+  const handle = featured?.owner?.handle || '';
+  
+  return Buffer.from(`
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style="stop-color:rgba(0,0,0,0);stop-opacity:0" />
+          <stop offset="100%" style="stop-color:rgba(0,0,0,0.85);stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grad)"/>
+      <text x="24" y="${height - 24}" font-family="monospace, 'Courier New'" font-size="28" font-weight="bold" fill="white">
+        KidLisp.com
+      </text>
+      <text x="${width - 24}" y="${height - 24}" font-family="monospace, 'Courier New'" font-size="20" fill="#cccccc" text-anchor="end">
+        $${code} · ${hits} plays ${handle ? '· ' + handle : ''}
+      </text>
+    </svg>
+  `);
+}
+
+/**
+ * Create SVG overlay for mosaic layout (smaller per-tile labels)
+ */
+function createMosaicLabel(piece, index, tileWidth = 400, tileHeight = 315) {
+  const code = piece?.code || '???';
+  const hits = formatHits(piece?.hits);
+  
+  return Buffer.from(`
+    <svg width="${tileWidth}" height="40" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100%" height="100%" fill="rgba(0,0,0,0.7)"/>
+      <text x="8" y="26" font-family="monospace" font-size="14" fill="white">
+        $${code}
+      </text>
+      <text x="${tileWidth - 8}" y="26" font-family="monospace" font-size="12" fill="#aaa" text-anchor="end">
+        ${hits} ▶
+      </text>
+    </svg>
+  `);
+}
+
+/**
+ * Generate KidLisp OG image - Featured layout (Option A)
+ * Single top piece fills the frame with branding overlay
+ */
+async function generateFeaturedOGImage(topPieces) {
+  const dayOfYear = getDayOfYear();
+  const featuredIndex = dayOfYear % Math.min(topPieces.length, 10);
+  const featured = topPieces[featuredIndex];
+  
+  if (!featured) {
+    throw new Error('No featured piece available');
+  }
+  
+  console.log(`🎨 Generating featured OG: $${featured.code} (${formatHits(featured.hits)} hits)`);
+  
+  // Capture screenshot at 1200x630 (OG image standard)
+  const width = 1200;
+  const height = 630;
+  
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  
+  try {
+    await page.setViewport({ width, height, deviceScaleFactor: 1 });
+    
+    const url = `https://aesthetic.computer/$${featured.code}?density=1&tv=true&nolabel=true&nogap=true`;
+    console.log(`   Loading: ${url}`);
+    
+    await page.goto(url, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000
+    });
+    
+    // Wait for canvas and content
+    await page.waitForSelector('canvas', { timeout: 10000 });
+    
+    // Wait for KidLisp content to render (animation frame)
+    await new Promise(r => setTimeout(r, 4000));
+    
+    // Take screenshot
+    const screenshot = await page.screenshot({ type: 'png' });
+    
+    // Composite with branding overlay using sharp
+    const brandingOverlay = createBrandingOverlay(featured, width, 100);
+    
+    const composite = await sharp(screenshot)
+      .composite([
+        {
+          input: brandingOverlay,
+          gravity: 'south',
+        }
+      ])
+      .png()
+      .toBuffer();
+    
+    ogImageCache.featuredPiece = featured;
+    
+    return composite;
+    
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Generate KidLisp OG image - Mosaic layout (Option B)
+ * 4x4 grid of top 16 pieces with large KidLisp.com branding
+ */
+async function generateMosaicOGImage(topPieces) {
+  const width = 1200;
+  const height = 630;
+  const cols = 4;
+  const rows = 4;
+  const tileWidth = width / cols;   // 300px
+  const tileHeight = height / rows; // 157.5px
+  
+  const pieces = topPieces.slice(0, 16);
+  if (pieces.length < 16) {
+    // Pad with duplicates if needed
+    while (pieces.length < 16) {
+      pieces.push(pieces[pieces.length % topPieces.length] || { code: 'blank', hits: 0 });
+    }
+  }
+  
+  console.log(`🎨 Generating 4x4 mosaic OG: ${pieces.map(p => '$' + p.code).join(', ')}`);
+  
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  
+  try {
+    const tiles = [];
+    
+    for (let i = 0; i < pieces.length; i++) {
+      const piece = pieces[i];
+      
+      await page.setViewport({ width: Math.round(tileWidth), height: Math.round(tileHeight), deviceScaleFactor: 0.5 });
+      
+      const url = `https://aesthetic.computer/$${piece.code}?density=0.5&tv=true&nolabel=true&nogap=true`;
+      console.log(`   [${i + 1}/16] Loading: $${piece.code}`);
+      
+      await page.goto(url, {
+        waitUntil: 'domcontentloaded',
+        timeout: 20000
+      });
+      
+      await page.waitForSelector('canvas', { timeout: 10000 }).catch(() => {});
+      // Let pieces play longer before capture (8 seconds)
+      await new Promise(r => setTimeout(r, 8000));
+      
+      const screenshot = await page.screenshot({ type: 'png' });
+      
+      // No labels, just the raw visual
+      const tile = await sharp(screenshot)
+        .resize(Math.round(tileWidth), Math.round(tileHeight), { fit: 'cover' })
+        .png()
+        .toBuffer();
+      
+      tiles.push(tile);
+    }
+    
+    // Assemble mosaic - no black bars
+    const composites = tiles.map((tile, i) => ({
+      input: tile,
+      left: (i % cols) * Math.round(tileWidth),
+      top: Math.floor(i / cols) * Math.round(tileHeight),
+    }));
+    
+    // Create base mosaic
+    let mosaic = await sharp({
+      create: {
+        width,
+        height,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 1 }
+      }
+    })
+      .composite(composites)
+      .png()
+      .toBuffer();
+    
+    // Apply Gaussian blur for ambient background effect
+    mosaic = await sharp(mosaic)
+      .blur(8) // sigma value - higher = more blur
+      .toBuffer();
+    
+    // Add dark overlay to make text pop, then add branding
+    const darkOverlay = Buffer.from(`
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.35)"/>
+      </svg>
+    `);
+    
+    // Create floating $codes overlay (limegreen like kidlisp.com syntax highlighting)
+    const floatingCodes = createFloatingCodesOverlay(width, height, pieces.map(p => p.code));
+    
+    const brandingOverlay = createKidLispBranding(width, height);
+    mosaic = await sharp(mosaic)
+      .composite([
+        { input: darkOverlay, gravity: 'center' },
+        { input: floatingCodes, gravity: 'center' },
+        { input: brandingOverlay, gravity: 'center' },
+      ])
+      .png()
+      .toBuffer();
+    
+    return mosaic;
+    
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Create floating $codes overlay with limegreen syntax highlighting
+ * Codes float upward with motion trails, evenly distributed
+ */
+function createFloatingCodesOverlay(width, height, codes) {
+  // Use seeded random for consistent layout
+  const seed = codes.join('').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const seededRandom = (i) => {
+    const x = Math.sin(seed + i * 9999) * 10000;
+    return x - Math.floor(x);
+  };
+  
+  // Even grid distribution - extend beyond edges for cut-off effect
+  const cols = 6;
+  const rows = 5;
+  const cellWidth = (width + 100) / cols; // Extend past edges
+  const cellHeight = (height + 80) / rows;
+  const numCodes = cols * rows;
+  
+  const baseFontSize = 42;
+  const fontFamily = "'Comic Relief', 'Comic Sans MS', cursive, sans-serif";
+  const shadowOffset = 2; // Tighter shadow
+  
+  // Colors: $ is bright cyan-green, rest is limegreen (like kidlisp.com)
+  const dollarColor = '#00ff88';
+  const codeColor = 'limegreen';
+  
+  let codeElements = '';
+  
+  for (let i = 0; i < numCodes; i++) {
+    const code = codes[i % codes.length];
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    
+    // Center in cell with small jitter, offset left so some cut off on edges
+    const baseX = col * cellWidth - 50 + cellWidth / 2;
+    const baseY = row * cellHeight - 40 + cellHeight / 2;
+    const jitterX = (seededRandom(i * 5) - 0.5) * cellWidth * 0.4;
+    const jitterY = (seededRandom(i * 5 + 1) - 0.5) * cellHeight * 0.3;
+    const x = baseX + jitterX;
+    const y = baseY + jitterY;
+    
+    // Slight rotation for organic feel
+    const rotation = (seededRandom(i * 5 + 2) - 0.5) * 16; // -8 to +8 degrees
+    
+    // Various sizes for different codes (but consistent within each code)
+    const scale = 0.7 + seededRandom(i * 5 + 3) * 0.8; // 0.7 to 1.5
+    const actualSize = baseFontSize * scale;
+    
+    // Opacity varies
+    const opacity = 0.2 + seededRandom(i * 5 + 4) * 0.25; // 0.2 to 0.45
+    
+    // Motion trail - 3 fading copies below the main text (floating UP effect)
+    const trailCount = 3;
+    const trailSpacing = actualSize * 0.35;
+    
+    for (let t = trailCount; t >= 0; t--) {
+      const trailY = y + t * trailSpacing;
+      const trailOpacity = t === 0 ? opacity : opacity * (0.15 / (t + 1)); // Main is full, trails fade
+      const trailBlur = t === 0 ? 0 : t * 0.5;
+      
+      // Only draw shadow for the main text (t === 0)
+      if (t === 0) {
+        // Shadow (tight, solid black)
+        codeElements += `
+          <text 
+            x="${x + shadowOffset}" 
+            y="${trailY + shadowOffset}" 
+            font-family="${fontFamily}"
+            font-size="${actualSize}px"
+            font-weight="bold"
+            fill="black"
+            opacity="${trailOpacity * 0.5}"
+            transform="rotate(${rotation}, ${x}, ${trailY})"
+          >$${code}</text>
+        `;
+      }
+      
+      // $ character in bright cyan-green
+      codeElements += `
+        <text 
+          x="${x}" 
+          y="${trailY}" 
+          font-family="${fontFamily}"
+          font-size="${actualSize}px"
+          font-weight="bold"
+          fill="${dollarColor}"
+          opacity="${trailOpacity}"
+          transform="rotate(${rotation}, ${x}, ${trailY})"
+          ${trailBlur > 0 ? `filter="url(#blur${t})"` : ''}
+        >$</text>
+      `;
+      
+      // Code characters in limegreen (offset by $ width)
+      const dollarWidth = actualSize * 0.55;
+      codeElements += `
+        <text 
+          x="${x + dollarWidth}" 
+          y="${trailY}" 
+          font-family="${fontFamily}"
+          font-size="${actualSize}px"
+          font-weight="bold"
+          fill="${codeColor}"
+          opacity="${trailOpacity}"
+          transform="rotate(${rotation}, ${x}, ${trailY})"
+          ${trailBlur > 0 ? `filter="url(#blur${t})"` : ''}
+        >${code}</text>
+      `;
+    }
+  }
+  
+  return Buffer.from(`
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="blur1" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="1" />
+        </filter>
+        <filter id="blur2" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="2" />
+        </filter>
+        <filter id="blur3" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3" />
+        </filter>
+      </defs>
+      ${codeElements}
+    </svg>
+  `);
+}
+
+/**
+ * Create large KidLisp.com branding overlay with Comic Relief font
+ */
+function createKidLispBranding(width, height) {
+  // KidLisp letter colors from pixel.js
+  const letterColors = {
+    'K': '#FF6B6B', 'i1': '#4ECDC4', 'd': '#FFE66D', 
+    'L': '#95E1D3', 'i2': '#F38181', 's': '#AA96DA', 'p': '#70D6FF',
+    '.': '#95E1D3', 'c': '#AA96DA', 'o': '#AA96DA', 'm': '#AA96DA',
+  };
+  
+  const fontSize = 160; // Even bigger
+  const fontFamily = "'Comic Relief', 'Comic Sans MS', cursive, sans-serif";
+  const shadowOffset = 8; // Offset down and right
+  
+  // Build colored text with tspans
+  const letters = [
+    { char: 'K', color: letterColors['K'] },
+    { char: 'i', color: letterColors['i1'] },
+    { char: 'd', color: letterColors['d'] },
+    { char: 'L', color: letterColors['L'] },
+    { char: 'i', color: letterColors['i2'] },
+    { char: 's', color: letterColors['s'] },
+    { char: 'p', color: letterColors['p'] },
+    { char: '.', color: letterColors['.'] },
+    { char: 'c', color: letterColors['c'] },
+    { char: 'o', color: letterColors['o'] },
+    { char: 'm', color: letterColors['m'] },
+  ];
+  
+  const tspans = letters.map(l => `<tspan fill="${l.color}">${l.char}</tspan>`).join('');
+  const blackTspans = letters.map(l => `<tspan fill="#000">${l.char}</tspan>`).join('');
+  
+  const yOffset = 30; // Move text down for better visual centering
+  const svg = `
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <!-- Black shadow offset down-right -->
+      <text x="${width/2 + shadowOffset}" y="${height/2 + yOffset + shadowOffset}" 
+            font-family="${fontFamily}" 
+            font-size="${fontSize}" font-weight="bold"
+            text-anchor="middle" dominant-baseline="middle"
+            letter-spacing="0.05em">${blackTspans}</text>
+      <!-- Main colored text -->
+      <text x="${width/2}" y="${height/2 + yOffset}" 
+            font-family="${fontFamily}" 
+            font-size="${fontSize}" font-weight="bold"
+            text-anchor="middle" dominant-baseline="middle"
+            letter-spacing="0.05em">${tspans}</text>
+    </svg>
+  `;
+  
+  return Buffer.from(svg);
+}
+
+/**
+ * Generate KidLisp OG image - Filmstrip layout (Option C)
+ * Same piece captured at 5 different time offsets
+ */
+async function generateFilmstripOGImage(topPieces) {
+  const dayOfYear = getDayOfYear();
+  const featuredIndex = dayOfYear % Math.min(topPieces.length, 10);
+  const featured = topPieces[featuredIndex];
+  
+  if (!featured) {
+    throw new Error('No featured piece available');
+  }
+  
+  const width = 1200;
+  const height = 630;
+  const frameCount = 5;
+  const frameWidth = 200;
+  const frameHeight = 200;
+  const spacing = 20;
+  const totalFrameWidth = frameCount * frameWidth + (frameCount - 1) * spacing;
+  const startX = (width - totalFrameWidth) / 2;
+  const frameY = 180;
+  
+  console.log(`🎨 Generating filmstrip OG: $${featured.code} (${frameCount} frames)`);
+  
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  
+  try {
+    await page.setViewport({ width: frameWidth, height: frameHeight, deviceScaleFactor: 2 });
+    
+    const url = `https://aesthetic.computer/$${featured.code}?density=2&tv=true&nolabel=true&nogap=true`;
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForSelector('canvas', { timeout: 10000 }).catch(() => {});
+    
+    const frames = [];
+    
+    for (let i = 0; i < frameCount; i++) {
+      // Wait between frames to capture animation progress
+      await new Promise(r => setTimeout(r, i === 0 ? 2000 : 800));
+      
+      const screenshot = await page.screenshot({ type: 'png' });
+      const frame = await sharp(screenshot)
+        .resize(frameWidth, frameHeight, { fit: 'cover' })
+        .extend({ top: 2, bottom: 2, left: 2, right: 2, background: { r: 255, g: 255, b: 255, alpha: 1 } })
+        .png()
+        .toBuffer();
+      
+      frames.push(frame);
+      console.log(`   Frame ${i + 1}/${frameCount} captured`);
+    }
+    
+    // Create base image with dark background
+    const composites = frames.map((frame, i) => ({
+      input: frame,
+      left: Math.round(startX + i * (frameWidth + spacing)),
+      top: frameY,
+    }));
+    
+    // Add arrows between frames
+    const arrowSvg = Buffer.from(`
+      <svg width="20" height="30" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 5 L15 15 L5 25" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `);
+    
+    for (let i = 0; i < frameCount - 1; i++) {
+      composites.push({
+        input: arrowSvg,
+        left: Math.round(startX + (i + 1) * frameWidth + i * spacing + spacing / 2 - 10),
+        top: frameY + frameHeight / 2 - 15,
+      });
+    }
+    
+    // Add title and info
+    const titleSvg = Buffer.from(`
+      <svg width="${width}" height="100" xmlns="http://www.w3.org/2000/svg">
+        <text x="${width / 2}" y="60" font-family="monospace, 'Courier New'" font-size="36" font-weight="bold" fill="white" text-anchor="middle">
+          KidLisp.com
+        </text>
+      </svg>
+    `);
+    
+    const infoSvg = Buffer.from(`
+      <svg width="${width}" height="80" xmlns="http://www.w3.org/2000/svg">
+        <text x="${width / 2}" y="50" font-family="monospace" font-size="24" fill="#cccccc" text-anchor="middle">
+          $${featured.code} · ${formatHits(featured.hits)} plays ${featured.owner?.handle ? '· ' + featured.owner.handle : ''}
+        </text>
+      </svg>
+    `);
+    
+    composites.push({ input: titleSvg, left: 0, top: 40 });
+    composites.push({ input: infoSvg, left: 0, top: height - 120 });
+    
+    const filmstrip = await sharp({
+      create: {
+        width,
+        height,
+        channels: 4,
+        background: { r: 20, g: 20, b: 30, alpha: 1 }
+      }
+    })
+      .composite(composites)
+      .png()
+      .toBuffer();
+    
+    return filmstrip;
+    
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Generate KidLisp OG image - Code Split layout (Option D)
+ * Source code on left, visual output on right
+ */
+async function generateCodeSplitOGImage(topPieces) {
+  const dayOfYear = getDayOfYear();
+  const featuredIndex = dayOfYear % Math.min(topPieces.length, 10);
+  const featured = topPieces[featuredIndex];
+  
+  if (!featured) {
+    throw new Error('No featured piece available');
+  }
+  
+  const width = 1200;
+  const height = 630;
+  const codeWidth = 500;
+  const previewWidth = 650;
+  const previewHeight = 500;
+  const padding = 25;
+  
+  console.log(`🎨 Generating code-split OG: $${featured.code}`);
+  
+  // Get source code (truncate for display)
+  const source = featured.source || '(wipe "black")\n(ink "white")\n(box 50 50 100 100)';
+  const sourceLines = source.split('\n').slice(0, 12);
+  const displaySource = sourceLines.join('\n') + (source.split('\n').length > 12 ? '\n...' : '');
+  
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  
+  try {
+    // Capture preview
+    await page.setViewport({ width: previewWidth, height: previewHeight, deviceScaleFactor: 1 });
+    
+    const url = `https://aesthetic.computer/$${featured.code}?density=1&tv=true&nolabel=true&nogap=true`;
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForSelector('canvas', { timeout: 10000 }).catch(() => {});
+    await new Promise(r => setTimeout(r, 4000));
+    
+    const screenshot = await page.screenshot({ type: 'png' });
+    const preview = await sharp(screenshot)
+      .resize(previewWidth - padding * 2, previewHeight - padding * 2, { fit: 'cover' })
+      .extend({ top: 4, bottom: 4, left: 4, right: 4, background: { r: 80, g: 80, b: 100, alpha: 1 } })
+      .png()
+      .toBuffer();
+    
+    // Create code panel as SVG
+    const escapedSource = displaySource
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    
+    const codeLines = escapedSource.split('\n');
+    const lineHeight = 28;
+    const codeY = 80;
+    
+    const codeSvg = Buffer.from(`
+      <svg width="${codeWidth}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#1a1a2e"/>
+        <text x="20" y="40" font-family="monospace" font-size="14" fill="#666">
+          // $${featured.code}
+        </text>
+        ${codeLines.map((line, i) => `
+          <text x="20" y="${codeY + i * lineHeight}" font-family="monospace, 'Courier New'" font-size="18" fill="#88ff88">
+            ${line || ' '}
+          </text>
+        `).join('')}
+      </svg>
+    `);
+    
+    // Bottom info bar
+    const infoSvg = Buffer.from(`
+      <svg width="${width}" height="60" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.8)"/>
+        <text x="24" y="40" font-family="monospace" font-size="24" font-weight="bold" fill="white">
+          KidLisp.com
+        </text>
+        <text x="${width - 24}" y="40" font-family="monospace" font-size="18" fill="#aaa" text-anchor="end">
+          $${featured.code} · ${formatHits(featured.hits)} plays
+        </text>
+      </svg>
+    `);
+    
+    const composite = await sharp({
+      create: {
+        width,
+        height,
+        channels: 4,
+        background: { r: 26, g: 26, b: 46, alpha: 1 }
+      }
+    })
+      .composite([
+        { input: codeSvg, left: 0, top: 0 },
+        { input: preview, left: codeWidth + padding, top: padding },
+        { input: infoSvg, left: 0, top: height - 60 },
+      ])
+      .png()
+      .toBuffer();
+    
+    return composite;
+    
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Main entry point: Generate KidLisp.com OG preview image
+ * Checks cache first, generates new image if needed
+ * 
+ * @param {string} layout - Layout option: 'featured', 'mosaic', 'filmstrip', 'code-split'
+ * @param {boolean} forceRegenerate - Skip cache and regenerate
+ * @param {object} options - Additional options
+ * @param {string} options.handle - Filter by handle (e.g., '@jeffrey')
+ * @returns {Promise<{buffer: Buffer, url: string, cached: boolean, featured?: object}>}
+ */
+export async function generateKidlispOGImage(layout = 'featured', forceRegenerate = false, options = {}) {
+  const { handle } = options;
+  console.log(`\n🖼️  KidLisp OG Image Request (layout: ${layout}, force: ${forceRegenerate}${handle ? `, handle: ${handle}` : ''})`);
+  
+  // Check cache first (unless forcing regeneration)
+  if (!forceRegenerate) {
+    const cachedUrl = await getCachedOGImage(layout);
+    if (cachedUrl) {
+      return {
+        url: cachedUrl,
+        cached: true,
+        layout,
+        generatedAt: ogImageCache.generatedAt,
+        featuredPiece: ogImageCache.featuredPiece,
+      };
+    }
+  }
+  
+  // Fetch top hits
+  const topPieces = await fetchTopKidlispHits(40); // Fetch extra to account for deduplication
+  if (topPieces.length === 0) {
+    throw new Error('No KidLisp pieces available from API');
+  }
+  
+  // Filter by handle if specified
+  let filteredPieces = topPieces;
+  if (handle) {
+    const normalizedHandle = handle.startsWith('@') ? handle : `@${handle}`;
+    filteredPieces = topPieces.filter(p => p.owner?.handle === normalizedHandle);
+    console.log(`   Filtered to ${filteredPieces.length} pieces by ${normalizedHandle}`);
+  }
+  
+  // Deduplicate by source similarity (90% threshold)
+  const uniquePieces = deduplicatePieces(filteredPieces);
+  console.log(`   Found ${filteredPieces.length} pieces, ${uniquePieces.length} unique after deduplication`);
+  
+  // Generate based on layout
+  let buffer;
+  switch (layout) {
+    case 'mosaic':
+      buffer = await generateMosaicOGImage(uniquePieces);
+      break;
+    case 'filmstrip':
+      buffer = await generateFilmstripOGImage(uniquePieces);
+      break;
+    case 'code-split':
+      buffer = await generateCodeSplitOGImage(uniquePieces);
+      break;
+    case 'featured':
+    default:
+      buffer = await generateFeaturedOGImage(uniquePieces);
+      break;
+  }
+  
+  // Upload to Spaces
+  const url = await uploadOGImageToSpaces(buffer, layout);
+  
+  return {
+    buffer,
+    url,
+    cached: false,
+    layout,
+    generatedAt: new Date().toISOString(),
+    featuredPiece: ogImageCache.featuredPiece,
+  };
+}
+
+/**
+ * Get OG image cache status
+ */
+export function getOGImageCacheStatus() {
+  return {
+    cached: !!ogImageCache.url && Date.now() < ogImageCache.expires,
+    url: ogImageCache.url,
+    expires: ogImageCache.expires ? new Date(ogImageCache.expires).toISOString() : null,
+    generatedAt: ogImageCache.generatedAt,
+    featuredPiece: ogImageCache.featuredPiece,
+  };
 }
 
 export { IPFS_GATEWAY };
