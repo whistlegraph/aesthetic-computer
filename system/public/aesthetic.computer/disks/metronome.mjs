@@ -534,7 +534,16 @@ function act({ event: e, sound }) {
   }
 }
 
-export { boot, beat, sim, paint, act };
+// 📰 Meta
+function meta() {
+  return {
+    title: "Metronome",
+    desc: "A visual metronome for music.",
+    animatedIcon: true, // Enable animated WebP favicon
+  };
+}
+
+export { boot, beat, sim, paint, act, meta };
 
 // 📚 Library
 // ...
