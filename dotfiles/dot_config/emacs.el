@@ -266,15 +266,63 @@ Returns: 'ready, 'restarted, 'dead, or 'not-found"
     (setq ac-notify-flash-timer
           (run-at-time 0.25 nil #'ac-notify-do-flash))))
 
+;; 🎯 Task State Management (for VS Code status bar integration)
+(defvar ac-task-state-file "/tmp/aesthetic-task-state.json"
+  "Path to the task state file that VS Code watches.")
+
+(defun ac-task-set (status &optional label progress)
+  "Set the task state. STATUS can be: idle, working, done, error.
+LABEL is optional description text.
+PROGRESS is optional percentage (0-100).
+VS Code status bar will update to reflect this state."
+  (let* ((timestamp (truncate (* 1000 (float-time))))
+         (state `((status . ,status)
+                  (label . ,(or label status))
+                  (progress . ,(or progress (if (equal status "done") 100 0)))
+                  (timestamp . ,timestamp))))
+    (with-temp-file ac-task-state-file
+      (insert (json-encode state)))
+    (message "🎯 Task: %s - %s" status (or label ""))))
+
+(defun ac-task-working (&optional label)
+  "Set task status to working (yellow, spinning icon)."
+  (interactive "sTask label: ")
+  (ac-task-set "working" (or label "Working...")))
+
+(defun ac-task-done (&optional label)
+  "Set task status to done (green, flash effect)."
+  (interactive "sTask label: ")
+  (ac-task-set "done" (or label "Done!")))
+
+(defun ac-task-error (&optional label)
+  "Set task status to error (red)."
+  (interactive "sTask label: ")
+  (ac-task-set "error" (or label "Error")))
+
+(defun ac-task-idle ()
+  "Clear task status (back to idle)."
+  (interactive)
+  (ac-task-set "idle" ""))
+
+(defun ac-task-clear ()
+  "Remove the task state file entirely."
+  (interactive)
+  (when (file-exists-p ac-task-state-file)
+    (delete-file ac-task-state-file)
+    (message "🎯 Task state cleared")))
+
 (defun ac-notify-done (&optional message)
   "Notify completion by flashing the current buffer background.
 Flash continues until user clicks or presses a key.
-Called by MCP tools at the end of each response."
+Called by MCP tools at the end of each response.
+Also updates VS Code task status bar to 'done'."
   (interactive)
   (let ((msg (or message "Done")))
     ;; Also signal artery-tui (for when viewing that tab)
     (with-temp-file "/tmp/ac-copilot-done"
       (insert "done"))
+    ;; Update VS Code task status bar
+    (ac-task-done msg)
     ;; Start flashing in current buffer
     (unless ac-notify-flash-active
       (setq ac-notify-original-bg (face-background 'default nil t))
