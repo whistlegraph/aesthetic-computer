@@ -538,7 +538,7 @@ async function fun(event, context) {
     return redirect;
   }
 
-  const { title, desc, ogImage, icon, twitterImage, manifest } = metadata(
+  const { title, desc, ogImage, icon, iconWebp, twitterImage, manifest } = metadata(
     event.headers["host"],
     slug,
     meta,
@@ -556,6 +556,9 @@ async function fun(event, context) {
       <head>
         <meta charset="utf-8" />
         <title>${title}</title>
+        ${!previewOrIcon && iconWebp
+          ? html`<link rel="icon" href="${iconWebp}" type="image/webp" />`
+          : ""}
         ${!previewOrIcon
           ? html`<link rel="icon" href="${icon}" type="image/png" />`
           : ""}
