@@ -783,11 +783,73 @@ Called by MCP tools at the end of each response."
   (interactive)
   (if-let ((buf (get-buffer "🐟-fishy")))
       (with-current-buffer buf
-        (if (get-buffer-process buf)
-            (message "Fish already running in 🐟-fishy")
-          (eat-exec buf "fishy" "/usr/bin/fish" nil nil)
-          (message "Fish restarted in 🐟-fishy")))
+        (when (get-buffer-process buf)
+          (delete-process (get-buffer-process buf)))
+        (eat-exec buf "fishy" "/usr/bin/fish" nil nil)
+        (message "✅ Fish restarted in 🐟-fishy"))
     (message "No 🐟-fishy buffer found")))
+
+(defun ac-restart-site ()
+  "Restart the site dev server (npm run site) in the 🌐-site buffer."
+  (interactive)
+  (if-let ((buf (get-buffer "🌐-site")))
+      (with-current-buffer buf
+        (when (get-buffer-process buf)
+          (delete-process (get-buffer-process buf)))
+        (let ((default-directory ac--directory-path))
+          (eat-exec buf "🌐-site" "/usr/bin/fish" nil '("-c" "ac-site")))
+        (message "✅ Site dev server restarted"))
+    (message "No 🌐-site buffer found - try switching to 'web 1/2' tab first")))
+
+(defun ac-restart-session ()
+  "Restart the session server in the 📋-session buffer."
+  (interactive)
+  (if-let ((buf (get-buffer "📋-session")))
+      (with-current-buffer buf
+        (when (get-buffer-process buf)
+          (delete-process (get-buffer-process buf)))
+        (let ((default-directory ac--directory-path))
+          (eat-exec buf "📋-session" "/usr/bin/fish" nil '("-c" "ac-session")))
+        (message "✅ Session server restarted"))
+    (message "No 📋-session buffer found")))
+
+(defun ac-restart-redis ()
+  "Restart redis in the 🔴-redis buffer."
+  (interactive)
+  (if-let ((buf (get-buffer "🔴-redis")))
+      (with-current-buffer buf
+        (when (get-buffer-process buf)
+          (delete-process (get-buffer-process buf)))
+        (let ((default-directory ac--directory-path))
+          (eat-exec buf "🔴-redis" "/usr/bin/fish" nil '("-c" "ac-redis")))
+        (message "✅ Redis restarted"))
+    (message "No 🔴-redis buffer found")))
+
+(defun ac-restart-kidlisp ()
+  "Restart kidlisp test watcher in the 🧪-kidlisp buffer."
+  (interactive)
+  (if-let ((buf (get-buffer "🧪-kidlisp")))
+      (with-current-buffer buf
+        (when (get-buffer-process buf)
+          (delete-process (get-buffer-process buf)))
+        (let ((default-directory ac--directory-path))
+          (eat-exec buf "🧪-kidlisp" "/usr/bin/fish" nil '("-c" "ac-kidlisp")))
+        (message "✅ KidLisp test watcher restarted"))
+    (message "No 🧪-kidlisp buffer found")))
+
+(defun ac-restart-buffer (buffer-name command)
+  "Generic restart function for any AC terminal buffer.
+BUFFER-NAME is the full buffer name (e.g., \"🌐-site\").
+COMMAND is the ac- fish command to run (e.g., \"site\")."
+  (if-let ((buf (get-buffer buffer-name)))
+      (with-current-buffer buf
+        (when (get-buffer-process buf)
+          (delete-process (get-buffer-process buf)))
+        (let ((default-directory ac--directory-path))
+          (eat-exec buf buffer-name "/usr/bin/fish" nil 
+                    (list "-c" (format "ac-%s" command))))
+        (message "✅ %s restarted" buffer-name))
+    (message "Buffer %s not found" buffer-name)))
 
 (defun ac--fishy-sentinel (process event)
   "Auto-restart fishy when process exits."

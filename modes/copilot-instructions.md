@@ -147,13 +147,30 @@ If emacs MCP tools fail or the "💻 Aesthetic" task is frozen:
 | Command | Description |
 |---------|-------------|
 | `ac-emacs-status` | Check daemon status (running/responsive) |
-| `ac-emacs-status` | Check daemon status (running/responsive) |
 | `ac-emacs-health-check` | Verify daemon + correct config loaded |
 | `ac-emacs-restart` | Kill & restart emacs daemon |
 | `ac-emacs-kill` | Kill all emacs processes |
 | `ac-restart` | Full restart: daemon + reconnect artery |
 | `check-daemon` | Alias for status check |
 | `restart-daemon` | Alias for restart |
+
+### Emacs Restart Functions (elisp via MCP)
+Use these to restart individual services without restarting everything:
+
+| Function | Buffer | Description |
+|----------|--------|-------------|
+| `(ac-restart-site)` | 🌐-site | Restart site dev server (npm run site) |
+| `(ac-restart-session)` | 📋-session | Restart session server |
+| `(ac-restart-redis)` | 🔴-redis | Restart redis |
+| `(ac-restart-kidlisp)` | 🧪-kidlisp | Restart KidLisp test watcher |
+| `(ac-restart-fishy)` | 🐟-fishy | Restart fish shell |
+| `(ac-restart-artery)` | 🩸-artery | Restart artery TUI |
+| `(ac-restart-buffer "🌐-site" "site")` | Generic | Restart any buffer with ac-* command |
+
+**Example via MCP:**
+```elisp
+(mcp_emacs_execute_emacs_lisp code="(ac-restart-site)")
+```
 
 ### Troubleshooting
 - **Task shows "Configuring..." forever**: `.waiter` file missing — run `touch /home/me/.waiter`
