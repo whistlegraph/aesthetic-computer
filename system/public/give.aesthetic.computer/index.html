@@ -2963,6 +2963,7 @@
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       margin-bottom: 0.4em;
       overflow: hidden;
+      cursor: pointer;
     }
 
     .face-label {
@@ -3224,6 +3225,7 @@
       padding-bottom: 0.8em;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       margin-bottom: 0.8em;
+      cursor: pointer;
     }
 
     .mobile-face-content {
@@ -4828,6 +4830,64 @@
       text-decoration: none;
     }
 
+    /* Header code display - shows current $code */
+    .kidlisp-header-code-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .kidlisp-header-sep {
+      color: var(--dim);
+      font-size: 0.9em;
+      opacity: 0.6;
+    }
+
+    .kidlisp-header-code {
+      font-family: 'Comic Relief', 'Comic Sans MS', cursive;
+      font-size: 1em;
+      white-space: nowrap;
+      letter-spacing: -0.03em;
+    }
+
+    .kidlisp-header-code .code-char {
+      display: inline-block;
+    }
+
+    .kidlisp-header-code .code-dollar {
+      color: #32cd32; /* limegreen - brighter */
+    }
+
+    .kidlisp-header-code .code-name {
+      color: #90EE90; /* lightgreen - softer */
+    }
+
+    /* Stale code chars blast off and fade - POOF! */
+    .kidlisp-header-code.transitioning .code-char {
+      animation: kidlispCharBlastOff 0.4s ease-out forwards;
+    }
+
+    /* Stagger the blast-off for each character */
+    .kidlisp-header-code.transitioning .code-char:nth-child(1) { animation-delay: 0ms; }
+    .kidlisp-header-code.transitioning .code-char:nth-child(2) { animation-delay: 30ms; }
+    .kidlisp-header-code.transitioning .code-char:nth-child(3) { animation-delay: 50ms; }
+    .kidlisp-header-code.transitioning .code-char:nth-child(4) { animation-delay: 70ms; }
+    .kidlisp-header-code.transitioning .code-char:nth-child(5) { animation-delay: 90ms; }
+    .kidlisp-header-code.transitioning .code-char:nth-child(6) { animation-delay: 110ms; }
+    .kidlisp-header-code.transitioning .code-char:nth-child(7) { animation-delay: 130ms; }
+    .kidlisp-header-code.transitioning .code-char:nth-child(8) { animation-delay: 150ms; }
+    .kidlisp-header-code.transitioning .code-char:nth-child(9) { animation-delay: 170ms; }
+    .kidlisp-header-code.transitioning .code-char:nth-child(10) { animation-delay: 190ms; }
+
+    /* Randomize rotation direction per character */
+    .kidlisp-header-code.transitioning .code-char:nth-child(odd) { --blast-rotate: 15deg; }
+    .kidlisp-header-code.transitioning .code-char:nth-child(even) { --blast-rotate: -15deg; }
+    .kidlisp-header-code.transitioning .code-char:nth-child(3n) { --blast-rotate: 25deg; }
+    .kidlisp-header-code.transitioning .code-char:nth-child(3n+1) { --blast-rotate: -20deg; }
+
     /* Green play button indicator (like kidlisp.com editor) */
     .kidlisp-play-indicator {
       width: 24px;
@@ -5015,6 +5075,49 @@
       background: #000;
       padding: 0.1em 0.3em;
     }
+
+    /* Code character animation for slide transitions */
+    .kidlisp-slide-label .code-char {
+      display: inline-block;
+    }
+
+    /* Stale code chars blast off and fade - POOF! (from kidlisp.com) */
+    .kidlisp-slide-label.transitioning .code-char {
+      animation: kidlispCharBlastOff 0.4s ease-out forwards;
+    }
+
+    /* Stagger the blast-off for each character */
+    .kidlisp-slide-label.transitioning .code-char:nth-child(1) { animation-delay: 0ms; }
+    .kidlisp-slide-label.transitioning .code-char:nth-child(2) { animation-delay: 30ms; }
+    .kidlisp-slide-label.transitioning .code-char:nth-child(3) { animation-delay: 50ms; }
+    .kidlisp-slide-label.transitioning .code-char:nth-child(4) { animation-delay: 70ms; }
+    .kidlisp-slide-label.transitioning .code-char:nth-child(5) { animation-delay: 90ms; }
+    .kidlisp-slide-label.transitioning .code-char:nth-child(6) { animation-delay: 110ms; }
+    .kidlisp-slide-label.transitioning .code-char:nth-child(7) { animation-delay: 130ms; }
+    .kidlisp-slide-label.transitioning .code-char:nth-child(8) { animation-delay: 150ms; }
+    .kidlisp-slide-label.transitioning .code-char:nth-child(9) { animation-delay: 170ms; }
+    .kidlisp-slide-label.transitioning .code-char:nth-child(10) { animation-delay: 190ms; }
+
+    @keyframes kidlispCharBlastOff {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(1) rotate(0deg);
+      }
+      50% {
+        opacity: 0.6;
+        transform: translateY(-8px) scale(1.2) rotate(var(--blast-rotate, 10deg));
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.3) rotate(var(--blast-rotate, 15deg));
+      }
+    }
+
+    /* Randomize rotation direction per character */
+    .kidlisp-slide-label.transitioning .code-char:nth-child(odd) { --blast-rotate: 15deg; }
+    .kidlisp-slide-label.transitioning .code-char:nth-child(even) { --blast-rotate: -15deg; }
+    .kidlisp-slide-label.transitioning .code-char:nth-child(3n) { --blast-rotate: 25deg; }
+    .kidlisp-slide-label.transitioning .code-char:nth-child(3n+1) { --blast-rotate: -20deg; }
 
     .kidlisp-slide-qr {
       background: #fff;
@@ -6049,7 +6152,11 @@
 
       <div class="kidlisp-preview">
         <a href="https://kidlisp.com" class="kidlisp-preview-header" id="kidlispHeaderLink" target="_blank">
-          <strong class="kidlisp-logo" style="font-family: 'Comic Relief', 'Comic Sans MS', cursive; font-size: 1.1em;"><span style="color:#FF6B6B">K</span><span style="color:#4ECDC4">i</span><span style="color:#FFE66D">d</span><span style="color:#95E1D3">L</span><span style="color:#F38181">i</span><span style="color:#AA96DA">s</span><span style="color:#70D6FF">p</span><span style="color:var(--dim)">.</span><span style="color:#70D6FF">com</span></strong>
+          <div class="kidlisp-header-code-wrap">
+            <strong class="kidlisp-logo" style="font-family: 'Comic Relief', 'Comic Sans MS', cursive; font-size: 1.1em;"><span style="color:#FF6B6B">K</span><span style="color:#4ECDC4">i</span><span style="color:#FFE66D">d</span><span style="color:#95E1D3">L</span><span style="color:#F38181">i</span><span style="color:#AA96DA">s</span><span style="color:#70D6FF">p</span><span style="color:var(--dim)">.</span><span style="color:#70D6FF">com</span></strong>
+            <span class="kidlisp-header-sep">/</span>
+            <span class="kidlisp-header-code" id="kidlispHeaderCode"></span>
+          </div>
           <span class="kidlisp-play-indicator" title="Open Editor"></span>
         </a>
         <div class="kidlisp-carousel" id="kidlispCarousel">
@@ -11582,6 +11689,9 @@
             creditHtml = `<div class="kidlisp-slide-credit"><span class="credit-date">${formatDateTime(when)}</span></div>`;
           }
           
+          // Wrap code chars in spans for animation
+          const codeChars = ('$' + escapeHtml(code)).split('').map(c => `<span class="code-char">${c}</span>`).join('');
+          
           return `
             <div class="kidlisp-slide" data-index="${i}" data-code="${escapeHtml(code)}" data-hits="${hitCount}" data-source="${escapeHtml(source).replace(/"/g, '&quot;')}">
               <a href="${pieceUrl}" target="_blank" title="Play $${escapeHtml(code)}">
@@ -11589,7 +11699,7 @@
               </a>
               <div class="kidlisp-slide-code"><div class="kidlisp-slide-code-inner">${highlighted}</div></div>
               <div class="kidlisp-slide-qr-wrap">
-                <div class="kidlisp-slide-label">$${escapeHtml(code)}</div>
+                <div class="kidlisp-slide-label">${codeChars}</div>
                 <div class="kidlisp-slide-qr" data-url="${pieceUrl}"></div>
               </div>
               <div class="kidlisp-slide-plays">${hitCount.toLocaleString()} Hits</div>
@@ -11628,6 +11738,32 @@
           });
         });
         
+        // Helper to update header code display with animation
+        function updateHeaderCode(code, animate = false) {
+          const headerCode = document.getElementById('kidlispHeaderCode');
+          if (!headerCode) return;
+          
+          // Build char spans with $ in different green than code
+          function buildCodeChars(code) {
+            const dollarSpan = '<span class="code-char code-dollar">$</span>';
+            const codeSpans = code.split('').map(c => `<span class="code-char code-name">${c}</span>`).join('');
+            return dollarSpan + codeSpans;
+          }
+          
+          if (animate) {
+            // Trigger blast-off on current code
+            headerCode.classList.add('transitioning');
+            setTimeout(() => {
+              // Update to new code with char spans
+              headerCode.innerHTML = buildCodeChars(code);
+              headerCode.classList.remove('transitioning');
+            }, 400);
+          } else {
+            // Just update without animation
+            headerCode.innerHTML = buildCodeChars(code);
+          }
+        }
+        
         // Set initial header link to first slide's code
         const firstSlide = carousel.querySelector('.kidlisp-slide');
         if (firstSlide) {
@@ -11635,6 +11771,7 @@
           const headerLink = document.getElementById('kidlispHeaderLink');
           if (headerLink && firstCode) {
             headerLink.href = `${kidlispUrl}/$${firstCode}`;
+            updateHeaderCode(firstCode, false);
           }
         }
         
@@ -11666,12 +11803,20 @@
           const headerLink = document.getElementById('kidlispHeaderLink');
           if (headerLink && code) {
             headerLink.href = `${kidlispUrl}/$${code}`;
+            updateHeaderCode(code, true); // Animate the header code change
           }
           
           // Transition
           current.classList.remove('active');
           current.classList.add('exiting');
           next.classList.add('active');
+          
+          // Trigger code label blast-off animation on exiting slide
+          const currentLabel = current.querySelector('.kidlisp-slide-label');
+          if (currentLabel) {
+            currentLabel.classList.add('transitioning');
+            setTimeout(() => currentLabel.classList.remove('transitioning'), 500);
+          }
           
           // Bounce press animation on the whole panel
           const previewPanel = carousel.closest('.kidlisp-preview');
