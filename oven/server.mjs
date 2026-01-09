@@ -10,7 +10,7 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece } from './grabber.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -453,6 +453,124 @@ app.get('/', (req, res) => {
     .filters input[type="checkbox"] {
       accent-color: yellow;
     }
+    
+    /* Frozen Pieces Panel */
+    .frozen-panel {
+      background: #1a0f0f;
+      border: 1px solid #3a1a1a;
+      border-radius: 6px;
+      margin: 0.5em 1em;
+    }
+    
+    .frozen-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5em 0.8em;
+      cursor: pointer;
+      border-bottom: 1px solid #3a1a1a;
+    }
+    
+    .frozen-header:hover { background: #2a1515; }
+    
+    .frozen-title {
+      display: flex;
+      align-items: center;
+      gap: 0.8em;
+    }
+    
+    .frozen-count {
+      background: #f44;
+      color: #000;
+      font-weight: bold;
+      padding: 0.1em 0.5em;
+      border-radius: 10px;
+      font-size: 0.85em;
+    }
+    
+    .frozen-list {
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 0.5em;
+    }
+    
+    .frozen-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.4em 0.6em;
+      background: #200a0a;
+      border-radius: 4px;
+      margin-bottom: 0.3em;
+      font-size: 0.9em;
+      gap: 0.8em;
+    }
+    
+    .frozen-item:hover { background: #2a1212; }
+    
+    .frozen-preview {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid #3a1a1a;
+      flex-shrink: 0;
+    }
+    
+    .frozen-no-preview {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1a0808;
+      border-radius: 4px;
+      border: 1px solid #3a1a1a;
+      flex-shrink: 0;
+      font-size: 1.5em;
+      opacity: 0.5;
+    }
+    
+    .frozen-item-name {
+      color: #f88;
+      font-family: monospace;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .frozen-item-info {
+      color: #888;
+      font-size: 0.8em;
+      display: flex;
+      gap: 0.8em;
+      align-items: center;
+    }
+    
+    .frozen-item-actions {
+      display: flex;
+      gap: 0.5em;
+    }
+    
+    .frozen-item-actions a, .frozen-item-actions button {
+      color: #888;
+      text-decoration: none;
+      font-size: 0.85em;
+      background: none;
+      border: 1px solid #444;
+      padding: 0.2em 0.5em;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    
+    .frozen-item-actions a:hover, .frozen-item-actions button:hover {
+      color: #fff;
+      border-color: #666;
+    }
+    
+    .frozen-item-actions .clear-btn { color: #4f4; border-color: #4f4; }
+    .frozen-item-actions .clear-btn:hover { background: #4f4; color: #000; }
   </style>
 </head>
 <body>
@@ -517,6 +635,18 @@ app.get('/', (req, res) => {
     <label><input type="checkbox" id="show-grab" checked onchange="applyFilters()"> grab</label>
     <label><input type="checkbox" id="show-icon" checked onchange="applyFilters()"> icon</label>
     <label><input type="checkbox" id="show-preview" checked onchange="applyFilters()"> preview</label>
+  </div>
+  
+  <!-- Frozen Pieces Panel -->
+  <div class="frozen-panel" id="frozen-panel" style="display:none;">
+    <div class="frozen-header" onclick="toggleFrozenPanel()">
+      <div class="frozen-title">
+        <span>🥶 Frozen Pieces</span>
+        <span class="frozen-count" id="frozen-count">0</span>
+      </div>
+      <span id="frozen-toggle">▶</span>
+    </div>
+    <div class="frozen-list" id="frozen-list" style="display:none;"></div>
   </div>
   
   <div class="bakes" id="bakes"></div>
@@ -615,6 +745,80 @@ app.get('/', (req, res) => {
       activityCollapsed = !activityCollapsed;
       panel.classList.toggle('collapsed', activityCollapsed);
       toggle.textContent = activityCollapsed ? '▲' : '▼';
+    }
+    
+    // Frozen pieces panel
+    let frozenCollapsed = true;
+    let frozenPieces = [];
+    
+    function toggleFrozenPanel() {
+      frozenCollapsed = !frozenCollapsed;
+      const list = document.getElementById('frozen-list');
+      const toggle = document.getElementById('frozen-toggle');
+      list.style.display = frozenCollapsed ? 'none' : 'block';
+      toggle.textContent = frozenCollapsed ? '▶' : '▼';
+    }
+    
+    function updateFrozenPanel(pieces) {
+      frozenPieces = pieces || [];
+      const panel = document.getElementById('frozen-panel');
+      const countEl = document.getElementById('frozen-count');
+      const listEl = document.getElementById('frozen-list');
+      
+      if (frozenPieces.length === 0) {
+        panel.style.display = 'none';
+        return;
+      }
+      
+      panel.style.display = 'block';
+      countEl.textContent = frozenPieces.length;
+      
+      listEl.innerHTML = frozenPieces.map(p => {
+        const timeSince = formatTimeAgo(p.lastAttempt);
+        const previewHtml = p.previewUrl 
+          ? '<img class="frozen-preview" src="' + p.previewUrl + '?t=' + Date.now() + '" alt="frozen preview">' 
+          : '<span class="frozen-no-preview">🖼️</span>';
+        return '<div class="frozen-item">' +
+          previewHtml +
+          '<span class="frozen-item-name">' + escapeHtml(p.piece) + '</span>' +
+          '<span class="frozen-item-info">' +
+            '<span>' + p.attempts + ' attempt' + (p.attempts > 1 ? 's' : '') + '</span>' +
+            '<span>' + timeSince + '</span>' +
+          '</span>' +
+          '<span class="frozen-item-actions">' +
+            '<a href="https://aesthetic.computer/' + encodeURIComponent(p.piece) + '" target="_blank" title="View piece">👁️</a>' +
+            '<button class="clear-btn" onclick="clearFrozenPiece(\\''+escapeHtml(p.piece)+'\\');" title="Clear from list">✓</button>' +
+          '</span>' +
+        '</div>';
+      }).join('');
+    }
+    
+    function formatTimeAgo(timestamp) {
+      const diff = Date.now() - timestamp;
+      const mins = Math.floor(diff / 60000);
+      const hours = Math.floor(mins / 60);
+      const days = Math.floor(hours / 24);
+      if (days > 0) return days + 'd ago';
+      if (hours > 0) return hours + 'h ago';
+      if (mins > 0) return mins + 'm ago';
+      return 'just now';
+    }
+    
+    async function clearFrozenPiece(piece) {
+      try {
+        const res = await fetch('/api/frozen/' + encodeURIComponent(piece), { method: 'DELETE' });
+        if (res.ok) {
+          addLogEntry('success', '✅', 'Cleared frozen piece: ' + piece);
+          // Refresh the frozen list
+          const dataRes = await fetch('/api/frozen');
+          const data = await dataRes.json();
+          updateFrozenPanel(data.frozen);
+        } else {
+          addLogEntry('error', '❌', 'Failed to clear frozen piece: ' + piece);
+        }
+      } catch (err) {
+        addLogEntry('error', '❌', 'Error clearing frozen piece: ' + err.message);
+      }
     }
     
     // Log initial connection
@@ -806,6 +1010,11 @@ app.get('/', (req, res) => {
           } else {
             rebootBanner.style.display = 'none';
           }
+        }
+        
+        // Update frozen pieces panel
+        if (data.frozen) {
+          updateFrozenPanel(data.frozen);
         }
         
         render(data);
@@ -1147,6 +1356,21 @@ app.post('/grab-clear', (req, res) => {
   });
 });
 
+// Frozen pieces API - get list of frozen pieces
+app.get('/api/frozen', (req, res) => {
+  res.json({
+    frozen: getFrozenPieces()
+  });
+});
+
+// Clear a piece from the frozen list
+app.delete('/api/frozen/:piece', async (req, res) => {
+  const piece = decodeURIComponent(req.params.piece);
+  const result = await clearFrozenPiece(piece);
+  addServerLog('cleanup', '✅', `Cleared frozen piece: ${piece}`);
+  res.json(result);
+});
+
 // Live collection thumbnail endpoint - redirects to most recent kept WebP
 // Use this as the collection imageUri for a dynamic thumbnail
 app.get('/keeps/latest', (req, res) => {
@@ -1371,6 +1595,7 @@ wss.on('connection', async (ws) => {
       recent: getRecentGrabs(),
       ipfsThumbs: getAllLatestIPFSUploads()
     },
+    frozen: getFrozenPieces(),
     recentLogs: activityLogBuffer.slice(0, 50) // Send last 50 log entries
   }));
   
@@ -1388,7 +1613,8 @@ wss.on('connection', async (ws) => {
           active: getActiveGrabs(),
           recent: getRecentGrabs(),
           ipfsThumbs: getAllLatestIPFSUploads()
-        }
+        },
+        frozen: getFrozenPieces()
       }));
     }
   });
