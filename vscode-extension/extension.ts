@@ -21,7 +21,122 @@ let path: any, fs: any;
 })();
 
 import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProviderRemote";
+import * as acorn from "acorn";
 const { keys } = Object;
+
+// AST parsing and tracking for JS/MJS files
+interface ASTNode {
+  id: string;
+  type: string;
+  name?: string;
+  start: number;
+  end: number;
+  children: ASTNode[];
+  parent?: string;
+  depth: number;
+  loc?: { start: { line: number; column: number }; end: { line: number; column: number } };
+}
+
+interface TrackedFile {
+  uri: string;
+  fileName: string;
+  ast: ASTNode | null;
+  lastUpdate: number;
+}
+
+const trackedFiles = new Map<string, TrackedFile>();
+let astUpdateCallback: ((files: TrackedFile[]) => void) | null = null;
+
+function parseJSToAST(code: string, fileName: string): ASTNode | null {
+  try {
+    const ast = acorn.parse(code, {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      locations: true,
+    });
+    
+    let nodeId = 0;
+    
+    function convertNode(node: any, depth: number = 0, parentId?: string): ASTNode {
+      const id = `${fileName}-${nodeId++}`;
+      const children: ASTNode[] = [];
+      
+      // Get a friendly name for the node
+      let name: string | undefined;
+      if (node.id?.name) name = node.id.name;
+      else if (node.key?.name) name = node.key.name;
+      else if (node.name) name = node.name;
+      else if (node.type === 'Literal') name = String(node.value).slice(0, 20);
+      else if (node.type === 'Identifier') name = node.name;
+      
+      const astNode: ASTNode = {
+        id,
+        type: node.type,
+        name,
+        start: node.start,
+        end: node.end,
+        children,
+        parent: parentId,
+        depth,
+        loc: node.loc,
+      };
+      
+      // Recursively process child nodes
+      for (const key of Object.keys(node)) {
+        if (key === 'type' || key === 'start' || key === 'end' || key === 'loc' || key === 'range') continue;
+        const value = node[key];
+        if (value && typeof value === 'object') {
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              if (item && typeof item === 'object' && item.type) {
+                children.push(convertNode(item, depth + 1, id));
+              }
+            }
+          } else if (value.type) {
+            children.push(convertNode(value, depth + 1, id));
+          }
+        }
+      }
+      
+      return astNode;
+    }
+    
+    return convertNode(ast);
+  } catch (e) {
+    console.log(`AST parse error for ${fileName}:`, e);
+    return null;
+  }
+}
+
+function updateTrackedFile(document: vscode.TextDocument) {
+  const uri = document.uri.toString();
+  const fileName = document.fileName.split('/').pop() || document.fileName;
+  
+  // Only track JS/MJS files
+  if (!fileName.endsWith('.js') && !fileName.endsWith('.mjs') && !fileName.endsWith('.ts')) {
+    return;
+  }
+  
+  const ast = parseJSToAST(document.getText(), fileName);
+  
+  trackedFiles.set(uri, {
+    uri,
+    fileName,
+    ast,
+    lastUpdate: Date.now(),
+  });
+  
+  if (astUpdateCallback) {
+    astUpdateCallback(Array.from(trackedFiles.values()));
+  }
+}
+
+function removeTrackedFile(uri: string) {
+  trackedFiles.delete(uri);
+  if (astUpdateCallback) {
+    astUpdateCallback(Array.from(trackedFiles.values()));
+  }
+}
 
 let local: boolean = false;
 let localServerAvailable: boolean = false;
@@ -142,6 +257,50 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   if (local) {
     startLocalServerCheck();
   }
+
+  // 🌳 AST Tracking: Watch open JS/MJS documents for live AST visualization
+  // Track currently open editors
+  vscode.window.visibleTextEditors.forEach(editor => {
+    updateTrackedFile(editor.document);
+  });
+  
+  // Track when editors change
+  context.subscriptions.push(
+    vscode.window.onDidChangeVisibleTextEditors(editors => {
+      // Add new files
+      editors.forEach(editor => updateTrackedFile(editor.document));
+    })
+  );
+  
+  // Track document changes for live updates
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument(event => {
+      if (trackedFiles.has(event.document.uri.toString())) {
+        updateTrackedFile(event.document);
+      }
+    })
+  );
+  
+  // Track document closes
+  context.subscriptions.push(
+    vscode.workspace.onDidCloseTextDocument(document => {
+      removeTrackedFile(document.uri.toString());
+    })
+  );
+  
+  // Set up AST update callback to send to welcome panel
+  astUpdateCallback = (files) => {
+    if (welcomePanel) {
+      welcomePanel.webview.postMessage({
+        command: 'astUpdate',
+        files: files.map(f => ({
+          fileName: f.fileName,
+          ast: f.ast,
+          lastUpdate: f.lastUpdate,
+        })),
+      });
+    }
+  };
 
   // console.log("🟢 Aesthetic Computer Extension: Activated");
   extContext = context;
