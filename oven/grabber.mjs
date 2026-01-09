@@ -703,12 +703,14 @@ async function uploadToSpaces(buffer, cacheKey, contentType = 'image/png') {
 /**
  * Get cached image or generate and cache
  * Uses git version in cache key for automatic invalidation on code changes
+ * @param {string} ext - File extension (default: 'png')
  * @returns {{ cdnUrl: string, fromCache: boolean, buffer?: Buffer }}
  */
-export async function getCachedOrGenerate(type, piece, width, height, generateFn) {
+export async function getCachedOrGenerate(type, piece, width, height, generateFn, ext = 'png') {
   // Include git version in cache key for automatic invalidation
   const shortVersion = GIT_VERSION.slice(0, 8);
-  const cacheKey = `${type}/${piece}-${width}x${height}-${shortVersion}.png`;
+  const cacheKey = `${type}/${piece}-${width}x${height}-${shortVersion}.${ext}`;
+  const mimeType = ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/png';
   
   // Check cache first
   const cachedUrl = await checkSpacesCache(cacheKey);
@@ -725,7 +727,7 @@ export async function getCachedOrGenerate(type, piece, width, height, generateFn
   
   // Upload to Spaces (async, don't block response)
   if (process.env.ART_SPACES_KEY) {
-    uploadToSpaces(buffer, cacheKey, 'image/png').catch(e => {
+    uploadToSpaces(buffer, cacheKey, mimeType).catch(e => {
       console.error('❌ Failed to cache to Spaces:', e.message);
     });
   }
