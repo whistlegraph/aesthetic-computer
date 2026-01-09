@@ -604,15 +604,14 @@
       z-index: 1; /* Base z-index */
     }
     
-    /* Chunking in loading state - blurry, grayscale, non-interactive */
+/* Chunking in loading state - hide monaco completely during load */
     #kidlisp-editor.chunking-in {
       pointer-events: none;
     }
-    
+
     #kidlisp-editor.chunking-in .monaco-editor {
-      filter: blur(2px) grayscale(0.7);
-      opacity: 0.5;
-      transition: filter 0.3s ease, opacity 0.3s ease;
+      opacity: 0;
+      transition: opacity 0.3s ease;
     }
     
     /* Hide Monaco's mobile keyboard toggle button (overlaps our playback controls) */
@@ -625,52 +624,19 @@
       display: none !important;
     }
     
-    /* Chunking overlay with scanline effect */
-    .chunking-overlay {
+    /* Chunking canvas - full overlay */
+    #chunking-canvas {
       position: absolute;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
+      width: 100%;
+      height: 100%;
       z-index: 999999;
       pointer-events: none;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0, 255, 100, 0.03) 2px,
-        rgba(0, 255, 100, 0.03) 4px
-      );
-      animation: chunk-scan 0.8s linear infinite;
     }
     
-    .chunking-overlay::before {
-      content: 'CHUNKING IN...';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-family: monospace;
-      font-size: 14px;
-      font-weight: bold;
-      color: rgba(0, 255, 100, 0.8);
-      text-shadow: 0 0 10px rgba(0, 255, 100, 0.5);
-      letter-spacing: 2px;
-      animation: chunk-text-blink 0.5s ease-in-out infinite alternate;
-    }
-    
-    @keyframes chunk-scan {
-      0% { background-position: 0 0; }
-      100% { background-position: 0 100px; }
-    }
-    
-    @keyframes chunk-text-blink {
-      0% { opacity: 0.6; }
-      100% { opacity: 1; }
-    }
-    
-    /* Hide chunking when ready */
-    #kidlisp-editor:not(.chunking-in) .chunking-overlay {
+    /* Hide chunking canvas when ready */
+    #kidlisp-editor:not(.chunking-in) #chunking-canvas {
       display: none;
     }
     
@@ -2095,7 +2061,74 @@
         border-color: #4a4540;
       }
     }
+
+    /* Guides Coming Soon - Minimal */
+    .guides-coming-soon {
+      padding: 12px;
+    }
     
+    .guides-coming-text {
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-bottom: 12px;
+    }
+    
+    .guides-coming-text a {
+      color: rgb(205, 92, 155);
+      text-decoration: none;
+    }
+    
+    .guides-coming-text a:hover {
+      text-decoration: underline;
+    }
+    
+    .guides-fund-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .guides-amount-slider {
+      width: 80px;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--bg-tertiary);
+      border-radius: 2px;
+      outline: none;
+      margin-bottom: 8px;
+    }
+    
+    .guides-amount-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgb(205, 92, 155);
+      cursor: pointer;
+      border: 2px solid var(--bg-primary);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .guides-amount-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgb(205, 92, 155);
+      cursor: pointer;
+      border: 2px solid var(--bg-primary);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .guides-amount-display {
+      font-family: monospace;
+      font-size: 11px;
+      color: rgb(205, 92, 155);
+    }
+
     [data-theme="dark"] .guide-detail-body code {
       background: #332f28;
       color: #d4d4d4;
@@ -4739,6 +4772,192 @@
     })();
   </script>
 
+  <script>
+    // 🎨 KidLisp Chunking Canvas Animation
+    // Colored bars flowing up with boot logs in pastel KidLisp brand colors
+    (function() {
+      // KidLisp logo colors (pastels)
+      const KIDLISP_COLORS = [
+        '#FF6B6B', // K - coral red
+        '#4ECDC4', // i - teal
+        '#FFE66D', // d - yellow
+        '#95E1D3', // L - mint
+        '#F38181', // i - salmon
+        '#AA96DA', // s - lavender
+        '#70D6FF', // p - sky blue
+      ];
+      
+      let canvas, ctx;
+      let W = 0, H = 0;
+      let running = true;
+      let logs = [];
+      let bars = [];
+      let frame = 0;
+      
+      function init() {
+        canvas = document.getElementById('chunking-canvas');
+        if (!canvas) return;
+        
+        ctx = canvas.getContext('2d');
+        resize();
+        window.addEventListener('resize', resize);
+        
+        // Start animation
+        animate();
+      }
+      
+      function resize() {
+        if (!canvas) return;
+        const rect = canvas.parentElement?.getBoundingClientRect();
+        if (rect) {
+          W = rect.width;
+          H = rect.height;
+          canvas.width = W * window.devicePixelRatio;
+          canvas.height = H * window.devicePixelRatio;
+          canvas.style.width = W + 'px';
+          canvas.style.height = H + 'px';
+          ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+      }
+      
+      // Add a log message (called from boot-log handler)
+      window.chunkingAddLog = function(message) {
+        const color = KIDLISP_COLORS[logs.length % KIDLISP_COLORS.length];
+        logs.unshift({
+          text: message,
+          color: color,
+          y: H + 20,
+          alpha: 1,
+          spawnTime: performance.now()
+        });
+        
+        // Also spawn a decorative bar
+        bars.push({
+          x: Math.random() * W,
+          y: H + 10,
+          width: 30 + Math.random() * 80,
+          height: 3 + Math.random() * 4,
+          color: color,
+          speed: 1 + Math.random() * 2,
+          alpha: 0.4 + Math.random() * 0.3
+        });
+        
+        // Keep logs limited
+        if (logs.length > 12) logs.pop();
+        if (bars.length > 50) bars.shift();
+      };
+      
+      // Stop the animation
+      window.chunkingStop = function() {
+        running = false;
+      };
+      
+      function animate() {
+        if (!running || !canvas) return;
+        if (!document.getElementById('chunking-canvas')) {
+          running = false;
+          return;
+        }
+        
+        frame++;
+        ctx.clearRect(0, 0, W, H);
+        
+        // Dark background with slight warmth (matching editor)
+        ctx.fillStyle = '#2a2520';
+        ctx.fillRect(0, 0, W, H);
+        
+        // Subtle scanlines
+        ctx.globalAlpha = 0.03;
+        ctx.fillStyle = '#000';
+        for (let y = 0; y < H; y += 3) {
+          ctx.fillRect(0, y, W, 1);
+        }
+        ctx.globalAlpha = 1;
+        
+        // Draw and update decorative bars (flowing up)
+        bars.forEach((bar, i) => {
+          bar.y -= bar.speed;
+          
+          // Fade out as they rise
+          const progress = 1 - (bar.y / H);
+          const fade = Math.max(0, bar.alpha * (1 - progress * 0.5));
+          
+          ctx.globalAlpha = fade;
+          ctx.fillStyle = bar.color;
+          
+          // Rounded bar
+          const radius = bar.height / 2;
+          ctx.beginPath();
+          ctx.roundRect(bar.x, bar.y, bar.width, bar.height, radius);
+          ctx.fill();
+          
+          // Remove if off screen
+          if (bar.y < -20) {
+            bars.splice(i, 1);
+          }
+        });
+        ctx.globalAlpha = 1;
+        
+        // Draw log messages flowing up
+        const lineHeight = 18;
+        const startY = H - 30;
+        
+        ctx.font = '11px "SF Mono", "Monaco", "Consolas", monospace';
+        
+        logs.forEach((log, i) => {
+          // Target Y position (stacked from bottom)
+          const targetY = startY - i * lineHeight;
+          
+          // Smoothly animate to target
+          log.y += (targetY - log.y) * 0.15;
+          
+          // Fade older messages
+          const age = (performance.now() - log.spawnTime) / 1000;
+          log.alpha = Math.max(0.2, 1 - age * 0.1);
+          
+          ctx.globalAlpha = log.alpha;
+          
+          // Colored bar behind text
+          const textWidth = ctx.measureText(log.text).width;
+          ctx.fillStyle = log.color;
+          ctx.globalAlpha = log.alpha * 0.15;
+          ctx.beginPath();
+          ctx.roundRect(10, log.y - 12, textWidth + 16, 16, 4);
+          ctx.fill();
+          
+          // Text
+          ctx.globalAlpha = log.alpha;
+          ctx.fillStyle = log.color;
+          ctx.fillText(log.text, 18, log.y);
+        });
+        ctx.globalAlpha = 1;
+        
+        // Spawn random ambient bars occasionally
+        if (frame % 15 === 0 && bars.length < 30) {
+          const color = KIDLISP_COLORS[Math.floor(Math.random() * KIDLISP_COLORS.length)];
+          bars.push({
+            x: Math.random() * W,
+            y: H + 10,
+            width: 20 + Math.random() * 60,
+            height: 2 + Math.random() * 3,
+            color: color,
+            speed: 0.5 + Math.random() * 1,
+            alpha: 0.2 + Math.random() * 0.2
+          });
+        }
+        
+        requestAnimationFrame(animate);
+      }
+      
+      // Initialize when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+
   <!-- <header>
     <h1>kidlisp</h1>
     <div class="tagline">The next-level pattern syntax for gen beta</div>
@@ -4799,7 +5018,7 @@
         <!-- Text View (Monaco Editor) -->
         <div class="viz-container active" id="viz-text">
           <div id="kidlisp-editor" class="chunking-in">
-            <div class="chunking-overlay"></div>
+            <canvas id="chunking-canvas"></canvas>
           </div>
         </div>
         <!-- Pills View (3D Matter) - hidden for now -->
@@ -4818,6 +5037,7 @@
                 <span class="platform-opt-name">Aesthetic.Computer</span>
               </div>
               <div class="platform-option" data-platform="ff1">
+                <img src="/kidlisp.com/assets/feralfile-logo.png" alt="" class="platform-logo" style="height: 14px; margin-right: 6px; vertical-align: middle; filter: invert(1);">
                 <span class="platform-opt-name">FF1 Art Computer</span>
               </div>
               <div class="platform-option" data-platform="ableton">
@@ -8540,6 +8760,11 @@
         
         hasReceivedLogs = true;
         
+        // Feed boot log to chunking canvas animation
+        if (window.chunkingAddLog && event.data.message) {
+          window.chunkingAddLog(event.data.message);
+        }
+        
         // Check if kidlisp module compiled successfully - clear pending reload timeout
         if (event.data.message && event.data.message.includes('kidlisp compiled')) {
           if (pendingReloadTimeout) {
@@ -8989,6 +9214,10 @@
         const editorEl = document.getElementById('kidlisp-editor');
         if (editorEl) {
           editorEl.classList.remove('chunking-in');
+          // Stop the chunking canvas animation
+          if (window.chunkingStop) {
+            window.chunkingStop();
+          }
         }
       }, 800);
       
@@ -8999,11 +9228,13 @@
         }
       }, 100);
 
-      // Check URL path for a kidlisp code (e.g., /kidlisp.com/$46k or /$46k)
+      // Check URL path for a kidlisp code (e.g., /kidlisp.com/$46k or /$46k or /roz)
+      // The $ prefix is optional - /roz works the same as /$roz
       const urlPath = window.location.pathname;
-      const codeMatch = urlPath.match(/\/\$([a-zA-Z0-9]+)$/);
+      const codeMatch = urlPath.match(/\/\$?([a-zA-Z0-9]+)$/);
       
-      if (codeMatch) {
+      // Only treat as a code if it's not just the root path
+      if (codeMatch && codeMatch[1]) {
         const code = codeMatch[1];
         log.code.log(`Detected code in URL: $${code}`);
         
@@ -11829,8 +12060,8 @@
       keepsCurrentCodeId = localStorage.getItem('kidlisp-current-code');
       if (!keepsCurrentCodeId) {
         const urlPath = window.location.pathname;
-        const codeMatch = urlPath.match(/\/\$([a-zA-Z0-9]+)$/);
-        if (codeMatch) {
+        const codeMatch = urlPath.match(/\/\$?([a-zA-Z0-9]+)$/);
+        if (codeMatch && codeMatch[1]) {
           keepsCurrentCodeId = codeMatch[1];
         }
       }
@@ -12201,94 +12432,44 @@
     // GUIDES SYSTEM - Tutorial guides list
     // ═══════════════════════════════════════════════════════════════════════════
     
-    const GUIDES_DATA = [
-      {
-        id: 'getting-started',
-        title: 'Getting Started with KidLisp',
-        author: '@jeffrey',
-        icon: '🚀',
-        body: `<p>Welcome to KidLisp! This guide will help you understand the basics of creating visual art with code.</p>
-<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-<p>Start by typing <code>(wipe "blue")</code> in the editor and pressing Play. You'll see the canvas fill with blue!</p>
-<p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>`
-      },
-      {
-        id: 'shapes-lines',
-        title: 'Drawing Shapes & Lines',
-        author: '@jeffrey',
-        icon: '📐',
-        body: `<p>KidLisp makes it easy to draw shapes on your canvas. Let's explore the basic drawing commands.</p>
-<p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
-<p>Try <code>(box 50 50 100 100)</code> to draw a square, or <code>(line 0 0 width height)</code> for a diagonal line.</p>
-<p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.</p>`
-      },
-      {
-        id: 'animation-timing',
-        title: 'Animation & Timing',
-        author: '@jeffrey',
-        icon: '⏱️',
-        body: `<p>Make your creations come alive with animation! KidLisp has built-in timing functions.</p>
-<p>Sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam.</p>
-<p>Use <code>(later 1s (wipe "red"))</code> to change the background after 1 second, or <code>(wiggle)</code> to add playful movement.</p>
-<p>Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.</p>`
-      }
-    ];
+    // Guides coming soon - donation amounts
+    const GUIDE_AMOUNTS = [5, 10, 25, 50, 100, 250];
+    let selectedGuideAmount = 25; // Default
+    
+    // Dev/prod URL for give page
+    const giveBaseUrl = (window.location.hostname === 'localhost' || window.location.hostname.includes('local.'))
+      ? 'https://localhost:8888/give.aesthetic.computer'
+      : 'https://give.aesthetic.computer';
     
     function initGuides() {
       const guidesList = document.getElementById('guides-list');
-      const guideDetail = document.getElementById('guide-detail');
-      const guideBackBtn = guideDetail?.querySelector('.guide-back-btn');
-      
       if (!guidesList) return;
       
-      // Render guides list
-      guidesList.innerHTML = '';
-      GUIDES_DATA.forEach(guide => {
-        const el = document.createElement('div');
-        el.className = 'guide-item';
-        el.innerHTML = `
-          <div class="guide-item-icon">${guide.icon}</div>
-          <div class="guide-item-content">
-            <div class="guide-item-title">${guide.title}</div>
-            <div class="guide-item-author">${guide.author}</div>
+      // Render minimal coming soon placeholder
+      guidesList.innerHTML = `
+        <div class="guides-coming-soon">
+          <div class="guides-coming-text">guides coming soon · <a href="${giveBaseUrl}?amount=${selectedGuideAmount}" id="guides-give-link" target="_blank">fund development</a></div>
+          <div class="guides-fund-row">
+            <input type="range" class="guides-amount-slider" id="guides-amount-slider" 
+                   min="0" max="${GUIDE_AMOUNTS.length - 1}" value="2" step="1">
+            <span class="guides-amount-display" id="guides-amount-display">$${selectedGuideAmount}</span>
           </div>
-          <div class="guide-item-arrow">›</div>
-        `;
-        el.addEventListener('click', () => showGuideDetail(guide));
-        guidesList.appendChild(el);
-      });
+        </div>
+      `;
       
-      // Back button handler
-      if (guideBackBtn) {
-        guideBackBtn.addEventListener('click', hideGuideDetail);
+      // Set up slider interaction
+      const slider = document.getElementById('guides-amount-slider');
+      const display = document.getElementById('guides-amount-display');
+      const giveLink = document.getElementById('guides-give-link');
+      
+      if (slider && display && giveLink) {
+        slider.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.value);
+          selectedGuideAmount = GUIDE_AMOUNTS[idx];
+          display.textContent = `$${selectedGuideAmount}`;
+          giveLink.href = `${giveBaseUrl}?amount=${selectedGuideAmount}`;
+        });
       }
-    }
-    
-    function showGuideDetail(guide) {
-      const guidesList = document.getElementById('guides-list');
-      const guideDetail = document.getElementById('guide-detail');
-      const detailAuthor = guideDetail?.querySelector('.guide-detail-author');
-      const detailTitle = guideDetail?.querySelector('.guide-detail-title');
-      const detailBody = guideDetail?.querySelector('.guide-detail-body');
-      
-      if (!guideDetail) return;
-      
-      // Populate detail
-      if (detailAuthor) detailAuthor.textContent = guide.author;
-      if (detailTitle) detailTitle.textContent = guide.title;
-      if (detailBody) detailBody.innerHTML = guide.body;
-      
-      // Show detail, hide list
-      guidesList?.classList.add('hidden');
-      guideDetail.classList.remove('hidden');
-    }
-    
-    function hideGuideDetail() {
-      const guidesList = document.getElementById('guides-list');
-      const guideDetail = document.getElementById('guide-detail');
-      
-      guidesList?.classList.remove('hidden');
-      guideDetail?.classList.add('hidden');
     }
     
     // Initialize guides on load
