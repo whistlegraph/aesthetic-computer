@@ -8,8 +8,8 @@
 // Import necessary modules from vscode
 import * as vscode from "vscode";
 
-// Import the generated process tree JS (built from views/process-tree.js)
-import { PROCESS_TREE_JS } from "./generated-views";
+// Import the generated process tree JS and AST tree JS (built from views/)
+import { PROCESS_TREE_JS, AST_TREE_JS } from "./generated-views";
 
 // Dynamically import path and fs to ensure web compatibility.
 let path: any, fs: any;
@@ -575,10 +575,15 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       setTimeout(() => status.textContent = 'DEV MODE', 500);
     }
     
-    // Listen for reload messages from extension
+    // Listen for messages from extension and forward to iframe
     window.addEventListener('message', (e) => {
+      console.log('📬 Wrapper received message:', e.data?.command);
       if (e.data?.command === 'reload') {
         reload();
+      } else if (e.data?.command === 'astUpdate') {
+        // Forward AST updates to the iframe
+        console.log('🌳 Forwarding AST update to iframe:', e.data.files?.length, 'files');
+        frame.contentWindow?.postMessage(e.data, '*');
       }
     });
   </script>
@@ -642,6 +647,21 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   <div id="labels" class="label-container"></div>
   <button class="theme-toggle" onclick="window.ProcessTreeViz?.toggleTheme()">🌓 Theme</button>
   <script>${PROCESS_TREE_JS}</script>
+  <script>${AST_TREE_JS}</script>
+  <script>
+    // Listen for AST updates from extension
+    (function() {
+      const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : null;
+      window.addEventListener('message', (event) => {
+        const message = event.data;
+        if (message.command === 'astUpdate' && window.ASTTreeViz) {
+          console.log('🌳 AST update received:', message.files?.length, 'files');
+          window.ASTTreeViz.updateASTVisualization(message.files);
+        }
+      });
+      console.log('🔌 AST message handler ready');
+    })();
+  </script>
 </body>
 </html>`;
   }
@@ -689,6 +709,21 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
     // Generate welcome panel HTML using shared process-tree.js (uses `local` flag for dev mode)
     welcomePanel.webview.html = getWelcomePanelHtml(welcomePanel.webview, local);
+    
+    // Send initial AST data after panel is created
+    setTimeout(() => {
+      if (welcomePanel && trackedFiles.size > 0) {
+        console.log('🌳 Sending initial AST data:', trackedFiles.size, 'files');
+        welcomePanel.webview.postMessage({
+          command: 'astUpdate',
+          files: Array.from(trackedFiles.values()).map(f => ({
+            fileName: f.fileName,
+            ast: f.ast,
+            lastUpdate: f.lastUpdate,
+          })),
+        });
+      }
+    }, 500); // Give webview time to initialize
   }
 
   // Refresh welcome panel (called when local mode is toggled or theme changes)
@@ -740,7 +775,164 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }, 500);
   }
 
-  // 🚩 Goal
+  // � User Handle Status Bar
+  let statusBarUser: vscode.StatusBarItem;
+  
+  function updateUserStatusBar() {
+    if (!statusBarUser) {
+      statusBarUser = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Right,
+        50,
+      );
+      statusBarUser.command = "aestheticComputer.login";
+      context.subscriptions.push(statusBarUser);
+    }
+
+    // Check for aesthetic session
+    const aestheticSession = context.globalState.get<any>("aesthetic:session");
+    const sotceSession = context.globalState.get<any>("sotce:session");
+    
+    if (aestheticSession?.account?.label) {
+      statusBarUser.text = `$(account) @${aestheticSession.account.label}`;
+      statusBarUser.tooltip = `Logged in to Aesthetic Computer as @${aestheticSession.account.label}\nClick to manage account`;
+      statusBarUser.backgroundColor = undefined;
+      statusBarUser.show();
+    } else if (sotceSession?.account?.label) {
+      statusBarUser.text = `$(account) @${sotceSession.account.label}`;
+      statusBarUser.tooltip = `Logged in to Sotce Net as @${sotceSession.account.label}\nClick to manage account`;
+      statusBarUser.backgroundColor = undefined;
+      statusBarUser.show();
+    } else {
+      statusBarUser.text = `$(sign-in) Sign In`;
+      statusBarUser.tooltip = `Sign in to Aesthetic Computer`;
+      statusBarUser.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+      statusBarUser.show();
+    }
+  }
+  
+  // Initialize user status bar
+  updateUserStatusBar();
+  
+  // 🎯 Task State Status Bar (file-based, emacs can modify)
+  let statusBarTask: vscode.StatusBarItem;
+  let taskFileWatcher: vscode.FileSystemWatcher | undefined;
+  const TASK_STATE_FILE = '/tmp/aesthetic-task-state.json';
+  
+  interface TaskState {
+    status: 'idle' | 'working' | 'done' | 'error';
+    label?: string;
+    progress?: number;
+    timestamp?: number;
+  }
+  
+  function getTaskStatusIcon(status: TaskState['status']): string {
+    switch (status) {
+      case 'idle': return '$(circle-outline)';
+      case 'working': return '$(sync~spin)';
+      case 'done': return '$(check)';
+      case 'error': return '$(error)';
+      default: return '$(circle-outline)';
+    }
+  }
+  
+  function getTaskStatusColor(status: TaskState['status']): vscode.ThemeColor | undefined {
+    switch (status) {
+      case 'working': return new vscode.ThemeColor('statusBarItem.warningBackground');
+      case 'done': return new vscode.ThemeColor('statusBarItem.prominentBackground');
+      case 'error': return new vscode.ThemeColor('statusBarItem.errorBackground');
+      default: return undefined;
+    }
+  }
+  
+  async function updateTaskStatusBar() {
+    if (!statusBarTask) {
+      statusBarTask = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Left,
+        99, // Just below goal
+      );
+      statusBarTask.command = "aestheticComputer.showTaskDetails";
+      context.subscriptions.push(statusBarTask);
+    }
+
+    try {
+      const taskStateUri = vscode.Uri.file(TASK_STATE_FILE);
+      const content = await vscode.workspace.fs.readFile(taskStateUri);
+      const state: TaskState = JSON.parse(content.toString());
+      
+      const icon = getTaskStatusIcon(state.status);
+      const label = state.label || state.status;
+      statusBarTask.text = `${icon} ${label}`;
+      statusBarTask.backgroundColor = getTaskStatusColor(state.status);
+      statusBarTask.tooltip = `Task: ${label}\nStatus: ${state.status}\nClick for details`;
+      statusBarTask.show();
+      
+      // Flash on completion (like emacs ac-notify-done)
+      if (state.status === 'done' && state.timestamp && Date.now() - state.timestamp < 5000) {
+        flashTaskComplete();
+      }
+    } catch {
+      // No task state file or invalid - hide the status bar
+      statusBarTask.hide();
+    }
+  }
+  
+  let flashInterval: NodeJS.Timeout | undefined;
+  function flashTaskComplete() {
+    if (flashInterval) return; // Already flashing
+    
+    let flashes = 0;
+    const originalBg = statusBarTask.backgroundColor;
+    flashInterval = setInterval(() => {
+      flashes++;
+      statusBarTask.backgroundColor = flashes % 2 === 0 
+        ? new vscode.ThemeColor('statusBarItem.prominentBackground')
+        : undefined;
+      
+      if (flashes >= 6) {
+        clearInterval(flashInterval);
+        flashInterval = undefined;
+        statusBarTask.backgroundColor = originalBg;
+      }
+    }, 300);
+  }
+  
+  // Watch the task state file for changes
+  function setupTaskFileWatcher() {
+    if (taskFileWatcher) taskFileWatcher.dispose();
+    
+    // Watch /tmp for the task state file
+    taskFileWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(vscode.Uri.file('/tmp'), 'aesthetic-task-state.json')
+    );
+    
+    taskFileWatcher.onDidChange(() => updateTaskStatusBar());
+    taskFileWatcher.onDidCreate(() => updateTaskStatusBar());
+    taskFileWatcher.onDidDelete(() => updateTaskStatusBar());
+    
+    context.subscriptions.push(taskFileWatcher);
+  }
+  
+  // Initialize task status bar
+  setupTaskFileWatcher();
+  updateTaskStatusBar();
+  
+  // Command to show task details
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.showTaskDetails", async () => {
+      try {
+        const content = await vscode.workspace.fs.readFile(vscode.Uri.file(TASK_STATE_FILE));
+        const state: TaskState = JSON.parse(content.toString());
+        vscode.window.showInformationMessage(
+          `Task: ${state.label || 'None'}\nStatus: ${state.status}\nProgress: ${state.progress || 0}%`,
+          { modal: false }
+        );
+      } catch {
+        vscode.window.showInformationMessage('No active task');
+      }
+    })
+  );
+
+  // �🚩 Goal
   let statusBarGoal: vscode.StatusBarItem;
   let goalLocation: vscode.Range;
   let goalFilePath: string; // Store the file path for use in the jump command
@@ -1054,6 +1246,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       context.globalState.update(`${tenant}:session`, undefined);
       // console.log("😀 Erased session!");
     }
+    
+    // Update user status bar after session change
+    updateUserStatusBar();
 
     return session;
   };
@@ -1065,6 +1260,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         await getSession(e.provider.id);
         provider.refreshWebview();
         refreshWebWindow();
+        updateUserStatusBar();
       }
     }),
   );

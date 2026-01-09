@@ -195,32 +195,24 @@
   <!-- VS Code Message Handler (for AST updates) -->
   <script>
     (function() {
-      // Check if we're in VS Code webview
-      if (typeof acquireVsCodeApi === 'function') {
-        const vscode = acquireVsCodeApi();
-        
-        // Listen for messages from extension
-        window.addEventListener('message', (event) => {
-          const message = event.data;
-          if (message.command === 'astUpdate' && window.ASTTreeViz) {
-            window.ASTTreeViz.updateASTVisualization(message.files);
-          }
-        });
-        
-        console.log('🔌 VS Code message handler ready');
-      }
+      // Listen for messages from parent (VS Code webview wrapper) or directly
+      window.addEventListener('message', (event) => {
+        const message = event.data;
+        if (message.command === 'astUpdate' && window.ASTTreeViz) {
+          console.log('🌳 AST update received:', message.files?.length, 'files');
+          window.ASTTreeViz.updateASTVisualization(message.files);
+        }
+      });
+      
+      console.log('🔌 Message handler ready (listening for AST updates)');
       
       // Hook AST animation into main loop
-      const originalAnimate = window.ProcessTreeViz?.animateAST;
-      if (window.ASTTreeViz) {
-        // Patch the animation loop to include AST
-        const checkAndHook = setInterval(() => {
-          if (window.ProcessTreeViz && window.ASTTreeViz) {
-            clearInterval(checkAndHook);
-            console.log('🌳 AST animation hooked');
-          }
-        }, 100);
-      }
+      const checkAndHook = setInterval(() => {
+        if (window.ProcessTreeViz && window.ASTTreeViz) {
+          clearInterval(checkAndHook);
+          console.log('🌳 AST animation hooked');
+        }
+      }, 100);
     })();
   </script>
   
