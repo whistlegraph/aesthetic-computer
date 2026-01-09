@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src ws://127.0.0.1:7890 wss://localhost:8889;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src ws://127.0.0.1:7890 ws://localhost:5556 wss://localhost:8889;">
   <title>Process Tree - Dev</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -158,7 +158,12 @@
     }
   </style>
 </head>
-<body data-theme="dark">
+<body>
+  <script>
+    // Pick up theme from URL param (passed by extension) or default to dark
+    const urlTheme = new URLSearchParams(window.location.search).get('theme');
+    document.body.dataset.theme = (urlTheme === 'light' || urlTheme === 'dark') ? urlTheme : 'dark';
+  </script>
   <canvas id="canvas"></canvas>
   
   <div class="hud title">
@@ -184,7 +189,89 @@
   
   <button class="theme-toggle" onclick="window.ProcessTreeViz?.toggleTheme()">🌓 Theme</button>
 
-  
   <script src="process-tree.js"></script>
+  <script src="ast-tree.js"></script>
+  
+  <!-- VS Code Message Handler (for AST updates) -->
+  <script>
+    (function() {
+      // Check if we're in VS Code webview
+      if (typeof acquireVsCodeApi === 'function') {
+        const vscode = acquireVsCodeApi();
+        
+        // Listen for messages from extension
+        window.addEventListener('message', (event) => {
+          const message = event.data;
+          if (message.command === 'astUpdate' && window.ASTTreeViz) {
+            window.ASTTreeViz.updateASTVisualization(message.files);
+          }
+        });
+        
+        console.log('🔌 VS Code message handler ready');
+      }
+      
+      // Hook AST animation into main loop
+      const originalAnimate = window.ProcessTreeViz?.animateAST;
+      if (window.ASTTreeViz) {
+        // Patch the animation loop to include AST
+        const checkAndHook = setInterval(() => {
+          if (window.ProcessTreeViz && window.ASTTreeViz) {
+            clearInterval(checkAndHook);
+            console.log('🌳 AST animation hooked');
+          }
+        }, 100);
+      }
+    })();
+  </script>
+  
+  <!-- Live Reload Client -->
+  <script>
+    (function() {
+      const RELOAD_PORT = 5556;
+      let reloadStatus = document.createElement('div');
+      reloadStatus.id = 'reload-status';
+      reloadStatus.style.cssText = 'position:fixed;bottom:16px;left:16px;font-size:10px;font-family:monospace;color:#888;z-index:200;';
+      reloadStatus.textContent = '🔄 connecting...';
+      document.body.appendChild(reloadStatus);
+      
+      function connectReload() {
+        try {
+          const ws = new WebSocket('ws://localhost:' + RELOAD_PORT);
+          
+          ws.onopen = () => {
+            reloadStatus.textContent = '🟢 live reload';
+            reloadStatus.style.color = '#0f0';
+          };
+          
+          ws.onmessage = (e) => {
+            try {
+              const msg = JSON.parse(e.data);
+              if (msg.type === 'reload') {
+                reloadStatus.textContent = '🔄 reloading...';
+                reloadStatus.style.color = '#ff69b4';
+                // Small delay to show status, then reload
+                setTimeout(() => location.reload(), 100);
+              }
+            } catch {}
+          };
+          
+          ws.onclose = () => {
+            reloadStatus.textContent = '⚪ no live reload';
+            reloadStatus.style.color = '#666';
+            // Retry connection after 3 seconds
+            setTimeout(connectReload, 3000);
+          };
+          
+          ws.onerror = () => ws.close();
+        } catch {
+          reloadStatus.textContent = '⚪ no live reload';
+          reloadStatus.style.color = '#666';
+          setTimeout(connectReload, 3000);
+        }
+      }
+      
+      connectReload();
+    })();
+  </script>
 </body>
 </html>

@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.223.0",
+  "version": "1.224.0",
   "description": "Code, run, and publish your pieces. Includes Aesthetic Computer themes and KidLisp syntax highlighting.",
   "engines": {
     "vscode": "^1.105.0"
@@ -13,6 +13,8 @@
     "vscode.dev": "npx serve --cors -l 6000 --ssl-cert ../ssl-dev/localhost.pem --ssl-key ../ssl-dev/localhost-key.pem",
     "views": "node build-views.mjs",
     "views:dev": "npx serve views -l 5555",
+    "views:reload": "node views/live-reload-server.mjs",
+    "views:watch": "npx concurrently \"npm run views:dev\" \"npm run views:reload\"",
     "esbuild-base": "esbuild ./extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
     "esbuild": "npm run esbuild-base -- --sourcemap",
     "compile": "npm run views && npm run esbuild",
@@ -182,6 +184,8 @@
     "url": "git+https://github.com/digitpain/aesthetic-computer.git"
   },
   "dependencies": {
+    "acorn": "^8.15.0",
+    "acorn-walk": "^8.3.4",
     "ws": "^8.18.0"
   },
   "devDependencies": {
@@ -189,6 +193,7 @@
     "@types/vscode": "^1.105.0",
     "@vscode/test-web": "^0.0.77",
     "@vscode/vsce": "^3.6.2",
+    "concurrently": "^9.2.1",
     "esbuild": "^0.27.1",
     "typescript": "^5.9.3"
   }

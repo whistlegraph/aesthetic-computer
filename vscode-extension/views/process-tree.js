@@ -7,6 +7,87 @@
   // Check if we're in VS Code webview or standalone
   const isVSCode = typeof acquireVsCodeApi === 'function';
   
+  // 🎨 Color Schemes (imported from color-schemes.js or embedded)
+  const colorSchemes = window.AestheticColorSchemes?.schemes || {
+    dark: {
+      background: '#181318',
+      backgroundAlt: '#141214',
+      foreground: '#ffffffcc',
+      foregroundBright: '#ffffff',
+      foregroundMuted: '#555555',
+      accent: '#a87090',
+      accentBright: '#ff69b4',
+      statusOnline: '#0f0',
+      categories: {
+        editor: 0xb06bff, tui: 0xff69b4, bridge: 0x6bff9f,
+        db: 0xffeb6b, proxy: 0x6b9fff, ai: 0xff9f6b,
+        shell: 0x6bffff, dev: 0x6bff9f, ide: 0x6b9fff, lsp: 0x888888, kernel: 0x88ccff
+      },
+      three: {
+        sceneBackground: 0x000000,
+        kernelOuter: 0x4488ff, kernelRing: 0x66aaff, kernelCore: 0x88ccff,
+        connectionLine: 0x444444, connectionActive: 0xff69b4, deadProcess: 0x444444
+      },
+      ui: { shadow: 'rgba(0, 0, 0, 0.6)', overlay: 'rgba(0, 0, 0, 0.85)' }
+    },
+    light: {
+      background: '#fcf7c5',
+      backgroundAlt: '#f5f0c0',
+      foreground: '#281e5a',
+      foregroundBright: '#281e5a',
+      foregroundMuted: '#806060',
+      accent: '#387adf',
+      accentBright: '#006400',
+      statusOnline: '#006400',
+      categories: {
+        editor: 0x8040d0, tui: 0xd04080, bridge: 0x208040,
+        db: 0xa08000, proxy: 0x2060c0, ai: 0xc06020,
+        shell: 0x008080, dev: 0x208040, ide: 0x2060c0, lsp: 0x606060, kernel: 0x387adf
+      },
+      three: {
+        sceneBackground: 0xfcf7c5,
+        kernelOuter: 0x387adf, kernelRing: 0x006400, kernelCore: 0x387adf,
+        connectionLine: 0xa8a080, connectionActive: 0x006400, deadProcess: 0xa8a080
+      },
+      ui: { shadow: 'rgba(0, 0, 0, 0.2)', overlay: 'rgba(252, 247, 197, 0.95)' }
+    }
+  };
+  
+  // Detect theme from data attribute, URL param, or VS Code CSS vars
+  function detectTheme() {
+    // Check data attribute first (set by the HTML)
+    const dataTheme = document.body.dataset.theme;
+    if (dataTheme === 'light' || dataTheme === 'dark') return dataTheme;
+    
+    // Check URL param
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlTheme = urlParams.get('theme');
+    if (urlTheme === 'light' || urlTheme === 'dark') return urlTheme;
+    
+    // Check VS Code CSS variables
+    if (typeof getComputedStyle !== 'undefined') {
+      const bgColor = getComputedStyle(document.body).getPropertyValue('--vscode-editor-background').trim();
+      if (bgColor && bgColor.startsWith('#')) {
+        const r = parseInt(bgColor.slice(1, 3), 16);
+        const g = parseInt(bgColor.slice(3, 5), 16);
+        const b = parseInt(bgColor.slice(5, 7), 16);
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return luminance > 0.5 ? 'light' : 'dark';
+      }
+    }
+    
+    return 'dark';
+  }
+  
+  let currentTheme = detectTheme();
+  let scheme = colorSchemes[currentTheme];
+  let colors = scheme.categories;
+  
+  // Apply initial body styling based on detected theme
+  document.body.style.background = scheme.background;
+  document.body.style.color = scheme.foreground;
+  document.body.dataset.theme = currentTheme;
+  
   // Show dev badge if not in VS Code
   if (!isVSCode) {
     const badge = document.createElement('div');
@@ -14,12 +95,6 @@
     badge.textContent = 'DEV MODE';
     document.body.appendChild(badge);
   }
-  
-  const colors = {
-    'editor': 0xb06bff, 'tui': 0xff69b4, 'bridge': 0x6bff9f,
-    'db': 0xffeb6b, 'proxy': 0x6b9fff, 'ai': 0xff9f6b,
-    'shell': 0x6bffff, 'dev': 0x6bff9f, 'ide': 0x6b9fff, 'lsp': 0x888888
-  };
   
   let width = window.innerWidth, height = window.innerHeight;
   let meshes = new Map(), connections = new Map(), ws;
@@ -29,6 +104,8 @@
   
   // Three.js setup
   const scene = new THREE.Scene();
+  scene.background = new THREE.Color(scheme.three.sceneBackground);
+  
   const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 5000);
   camera.position.set(0, 150, 400);
   camera.lookAt(0, 0, 0);
@@ -36,6 +113,7 @@
   const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
   renderer.setSize(width, height);
   renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setClearColor(scheme.three.sceneBackground);
   
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -108,9 +186,10 @@
     if (!tourUI) {
       tourUI = document.createElement('div');
       tourUI.id = 'tour-ui';
-      tourUI.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);padding:12px 20px;border-radius:8px;color:#fff;font-family:monospace;font-size:12px;z-index:1000;display:none;text-align:center;border:1px solid #444;';
       document.body.appendChild(tourUI);
     }
+    // Update styling each time based on current theme
+    tourUI.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${scheme.ui.overlay};padding:12px 20px;border-radius:8px;color:${scheme.foregroundBright};font-family:monospace;font-size:12px;z-index:1000;display:none;text-align:center;border:1px solid ${scheme.foregroundMuted}40;`;
     
     if (tourMode && tourProcessList.length > 0) {
       const current = tourProcessList[tourIndex];
@@ -121,22 +200,25 @@
       
       tourUI.style.display = 'block';
       tourUI.innerHTML = `
-        <div style="margin-bottom:8px;font-size:14px;color:#88ccff;">🎬 TOUR MODE</div>
-        <div style="font-size:18px;margin-bottom:4px;">${icon} ${name}</div>
-        <div style="color:#888;margin-bottom:8px;">${category} • ${tourIndex + 1}/${tourProcessList.length}</div>
-        <div style="color:#666;font-size:10px;">
-          ← → Navigate • Space ${tourAutoPlay ? 'Stop' : 'Auto'} • Esc Exit
+        <div style="margin-bottom:8px;font-size:14px;color:${scheme.accent};">🎬 TOUR MODE</div>
+        <div style="font-size:18px;margin-bottom:4px;color:${scheme.foregroundBright};">${icon} ${name}</div>
+        <div style="color:${scheme.foregroundMuted};margin-bottom:12px;">${category} • ${tourIndex + 1}/${tourProcessList.length}</div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          <button onclick="ProcessTreeViz.tourPrev()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">← Prev</button>
+          <button onclick="ProcessTreeViz.toggleAutoPlay()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">${tourAutoPlay ? '⏸ Stop' : '▶ Auto'}</button>
+          <button onclick="ProcessTreeViz.tourNext()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">Next →</button>
+          <button onclick="ProcessTreeViz.exitTour()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">✕ Exit</button>
         </div>
-        ${tourAutoPlay ? '<div style="color:#6bff9f;margin-top:6px;">▶ Auto-playing...</div>' : ''}
+        ${tourAutoPlay ? `<div style="color:${scheme.accentBright};margin-top:8px;">▶ Auto-playing...</div>` : ''}
       `;
-      // Hide the hint when in tour mode
-      const hint = document.getElementById('tour-hint');
-      if (hint) hint.style.display = 'none';
+      // Hide the tour button when in tour mode
+      const btn = document.getElementById('tour-btn');
+      if (btn) btn.style.display = 'none';
     } else {
       tourUI.style.display = 'none';
-      // Show the hint when not in tour mode
-      const hint = document.getElementById('tour-hint');
-      if (hint) hint.style.display = 'block';
+      // Show the tour button when not in tour mode
+      const btn = document.getElementById('tour-btn');
+      if (btn) btn.style.display = 'block';
     }
   }
   
@@ -266,13 +348,13 @@
     
     const outerGeo = new THREE.SphereGeometry(35, 32, 32);
     const outerMat = new THREE.MeshBasicMaterial({
-      color: 0x4488ff, transparent: true, opacity: 0.15, wireframe: true
+      color: scheme.three.kernelOuter, transparent: true, opacity: 0.15, wireframe: true
     });
     group.add(new THREE.Mesh(outerGeo, outerMat));
     
     const ringGeo = new THREE.TorusGeometry(25, 1.5, 8, 48);
     const ringMat = new THREE.MeshBasicMaterial({
-      color: 0x66aaff, transparent: true, opacity: 0.4
+      color: scheme.three.kernelRing, transparent: true, opacity: 0.4
     });
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = Math.PI / 2;
@@ -281,7 +363,7 @@
     
     const coreGeo = new THREE.SphereGeometry(12, 24, 24);
     const coreMat = new THREE.MeshBasicMaterial({
-      color: 0x88ccff, transparent: true, opacity: 0.7
+      color: scheme.three.kernelCore, transparent: true, opacity: 0.7
     });
     const core = new THREE.Mesh(coreGeo, coreMat);
     group.add(core);
@@ -320,7 +402,7 @@
   function createConnectionLine() {
     const geo = new THREE.CylinderGeometry(1.5, 1.5, 1, 8);
     const mat = new THREE.MeshBasicMaterial({
-      color: 0x444444, transparent: true, opacity: 0.5
+      color: scheme.three.connectionLine, transparent: true, opacity: 0.5
     });
     return new THREE.Mesh(geo, mat);
   }
@@ -430,13 +512,19 @@
         const d = mesh.userData;
         const color = '#' + (colors[d.category] || 0x666666).toString(16).padStart(6, '0');
         const distToCamera = camera.position.distanceTo(pos);
-        const proximityScale = Math.max(0.4, Math.min(3, 150 / distToCamera));
+        // Larger base scale, less reduction with distance
+        const proximityScale = Math.max(0.7, Math.min(3, 200 / distToCamera));
+        // Higher minimum opacity - always readable
         const opacity = focusedPid 
-          ? (pid === focusedPid ? 1 : (d.parentInteresting === parseInt(focusedPid) ? 0.9 : 0.3))
-          : Math.max(0.5, Math.min(1, 300 / distToCamera));
+          ? (pid === focusedPid ? 1 : (d.parentInteresting === parseInt(focusedPid) ? 0.95 : 0.7))
+          : Math.max(0.85, Math.min(1, 400 / distToCamera));
         
         const cpuPct = Math.min(100, d.cpu || 0);
         const memMB = ((d.rss || 0) / 1024).toFixed(0);
+        
+        // Extract short command for display (first 40 chars of cmdShort or cmd)
+        const cmdDisplay = d.cmdShort || d.cmd || '';
+        const cmdShort = cmdDisplay.length > 50 ? cmdDisplay.slice(0, 47) + '...' : cmdDisplay;
         
         const label = document.createElement('div');
         label.className = 'proc-label';
@@ -444,7 +532,48 @@
         label.style.top = y + 'px';
         label.style.opacity = opacity;
         label.style.transform = 'translate(-50%, -100%) scale(' + proximityScale + ')';
-        label.innerHTML = '<div class="icon">' + (d.icon || '●') + '</div><div class="name" style="color:' + color + '">' + (d.name || pid) + '</div><div class="info">' + memMB + 'MB · ' + cpuPct.toFixed(0) + '%</div>';
+        // Show name, then command on second line, then stats
+        label.innerHTML = '<div class="icon">' + (d.icon || '●') + '</div>' +
+          '<div class="name" style="color:' + color + '">' + (d.name || pid) + '</div>' +
+          (cmdShort ? '<div class="cmd" style="color:' + scheme.foregroundMuted + ';font-size:8px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + cmdShort + '</div>' : '') +
+          '<div class="info" style="color:' + scheme.foregroundMuted + ';">' + memMB + 'MB · ' + cpuPct.toFixed(0) + '%</div>';
+        container.appendChild(label);
+      }
+    });
+    
+    // Add labels for graveyard (dead) processes
+    graveyard.forEach((grave) => {
+      const mesh = grave.mesh;
+      if (!mesh) return;
+      
+      const pos = new THREE.Vector3();
+      mesh.getWorldPosition(pos);
+      const labelPos = pos.clone();
+      labelPos.y += 8;
+      labelPos.project(camera);
+      
+      const x = (labelPos.x * 0.5 + 0.5) * width;
+      const y = (-labelPos.y * 0.5 + 0.5) * height;
+      
+      if (labelPos.z < 1 && x > -100 && x < width + 100 && y > -100 && y < height + 100) {
+        const distToCamera = camera.position.distanceTo(pos);
+        const proximityScale = Math.max(0.5, Math.min(2, 150 / distToCamera));
+        const age = (Date.now() - grave.deathTime) / 1000;
+        const opacity = Math.max(0.3, 0.7 - age * 0.01);
+        
+        const cmdShort = grave.cmd ? (grave.cmd.length > 30 ? grave.cmd.slice(0, 27) + '...' : grave.cmd) : '';
+        const timeAgo = age < 60 ? Math.floor(age) + 's ago' : Math.floor(age / 60) + 'm ago';
+        
+        const label = document.createElement('div');
+        label.className = 'proc-label graveyard';
+        label.style.left = x + 'px';
+        label.style.top = y + 'px';
+        label.style.opacity = opacity;
+        label.style.transform = 'translate(-50%, -100%) scale(' + proximityScale + ')';
+        label.innerHTML = '<div class="icon">💀</div>' +
+          '<div class="name" style="color:' + scheme.foregroundMuted + ';text-decoration:line-through;">' + (grave.name || grave.pid) + '</div>' +
+          (cmdShort ? '<div class="cmd" style="color:' + scheme.foregroundMuted + ';font-size:7px;opacity:0.7;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + cmdShort + '</div>' : '') +
+          '<div class="info" style="color:' + scheme.foregroundMuted + ';opacity:0.6;">' + timeAgo + '</div>';
         container.appendChild(label);
       }
     });
@@ -517,9 +646,19 @@
         mesh.userData.targetPos.set((col - 4.5) * 25, GRAVEYARD_Y - row * 20, 0);
         
         mesh.material.opacity = 0.25;
-        mesh.material.color.setHex(0x444444);
+        mesh.material.color.setHex(scheme.three.deadProcess);
         
-        graveyard.push({ pid, mesh, name: mesh.userData.name, deathTime: Date.now() });
+        // Store full process info for graveyard labels
+        const d = mesh.userData;
+        graveyard.push({ 
+          pid, 
+          mesh, 
+          name: d.name,
+          icon: d.icon || '💀',
+          cmd: d.cmdShort || d.cmd || '',
+          category: d.category,
+          deathTime: Date.now() 
+        });
         meshes.delete(pid);
         
         while (graveyard.length > MAX_GRAVEYARD) {
@@ -644,12 +783,17 @@
         updateConnectionMesh(conn, childMesh.position, parentMesh.position);
         const involvesFocus = focusedPid && (conn.childPid === focusedPid || conn.parentPid === focusedPid);
         conn.line.material.opacity = focusedPid ? (involvesFocus ? 0.9 : 0.15) : 0.5;
-        conn.line.material.color.setHex(involvesFocus ? 0xff69b4 : 0x444444);
+        conn.line.material.color.setHex(involvesFocus ? scheme.three.connectionActive : scheme.three.connectionLine);
         const thickness = involvesFocus ? 2.5 : 1.5;
         conn.line.scale.x = thickness / 1.5;
         conn.line.scale.z = thickness / 1.5;
       }
     });
+    
+    // 🌳 AST Tree Animation (if loaded)
+    if (window.ASTTreeViz?.animateAST) {
+      window.ASTTreeViz.animateAST();
+    }
     
     renderer.render(scene, camera);
     updateLabels();
@@ -689,6 +833,87 @@
     renderer.setSize(width, height);
   });
   
+  // 🎨 Theme switching function
+  function setTheme(themeName) {
+    if (themeName !== 'light' && themeName !== 'dark') return;
+    currentTheme = themeName;
+    scheme = colorSchemes[currentTheme];
+    colors = scheme.categories;
+    
+    // Update scene background
+    scene.background.setHex(scheme.three.sceneBackground);
+    renderer.setClearColor(scheme.three.sceneBackground);
+    
+    // Update body styling
+    document.body.dataset.theme = themeName;
+    document.body.style.background = scheme.background;
+    document.body.style.color = scheme.foreground;
+    
+    // Update kernel mesh colors
+    if (kernelMesh) {
+      kernelMesh.children[0].material.color.setHex(scheme.three.kernelOuter);
+      if (kernelGlow) kernelGlow.material.color.setHex(scheme.three.kernelRing);
+      if (kernelCore) kernelCore.material.color.setHex(scheme.three.kernelCore);
+    }
+    
+    // Update all process node colors
+    meshes.forEach((mesh, pid) => {
+      if (pid === 'kernel') return;
+      const category = mesh.userData.category;
+      const newColor = colors[category] || 0x666666;
+      mesh.material.color.setHex(newColor);
+      mesh.userData.baseColor = newColor;
+    });
+    
+    // Update connections
+    connections.forEach(conn => {
+      conn.line.material.color.setHex(scheme.three.connectionLine);
+    });
+    
+    // Update graveyard
+    graveyard.forEach(grave => {
+      if (grave.mesh && grave.mesh.material) {
+        grave.mesh.material.color.setHex(scheme.three.deadProcess);
+      }
+    });
+    
+    // Update CSS styles
+    updateThemeStyles();
+  }
+  
+  function toggleTheme() {
+    setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    return currentTheme;
+  }
+  
+  function updateThemeStyles() {
+    // Update dynamic CSS based on theme
+    let styleEl = document.getElementById('theme-dynamic-styles');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'theme-dynamic-styles';
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `
+      .title .dot { color: ${scheme.accentBright}; }
+      .status-dot { background: ${scheme.accent}; }
+      .status-dot.online { background: ${scheme.statusOnline}; }
+      .stats { color: ${scheme.foregroundMuted}; }
+      .stats .val { color: ${scheme.foregroundBright}; }
+      .mem { color: ${scheme.foregroundMuted}; }
+      .center { color: ${scheme.foregroundMuted}; }
+      .center .count { color: ${scheme.foregroundBright}; }
+      .proc-label { text-shadow: 0 0 3px ${scheme.background}, 0 0 6px ${scheme.background}; }
+      .proc-label .info { color: ${scheme.foregroundMuted}; }
+      .dev-badge { background: ${currentTheme === 'light' ? scheme.accentBright : scheme.accentBright}; color: ${currentTheme === 'light' ? '#fff' : '#000'}; }
+      #tour-ui { background: ${scheme.ui.overlay}; border-color: ${scheme.foregroundMuted}; }
+      #tour-hint { background: ${scheme.ui.overlay}; }
+    `;
+  }
+  
+  // Apply initial theme styles
+  updateThemeStyles();
+  
   // Expose for external use (mock data injection, etc.)
   window.ProcessTreeViz = {
     updateViz,
@@ -703,15 +928,22 @@
     tourNext,
     tourPrev,
     toggleAutoPlay,
-    isTourMode: () => tourMode
+    isTourMode: () => tourMode,
+    // Theme control
+    setTheme,
+    toggleTheme,
+    getTheme: () => currentTheme,
+    getScheme: () => scheme,
+    colorSchemes
   };
   
-  // Add tour hint to the UI
-  const tourHint = document.createElement('div');
-  tourHint.id = 'tour-hint';
-  tourHint.style.cssText = 'position:fixed;bottom:20px;right:20px;background:rgba(0,0,0,0.7);padding:8px 12px;border-radius:6px;color:#888;font-family:monospace;font-size:11px;z-index:999;';
-  tourHint.innerHTML = 'Press <span style="color:#88ccff;font-weight:bold;">T</span> for Tour Mode';
-  document.body.appendChild(tourHint);
+  // Add tour button to the UI (touch-friendly, no keyboard shortcuts)
+  const tourBtn = document.createElement('button');
+  tourBtn.id = 'tour-btn';
+  tourBtn.style.cssText = `position:fixed;bottom:20px;right:20px;background:${scheme.ui.overlay};padding:10px 16px;border-radius:6px;color:${scheme.foregroundMuted};font-family:monospace;font-size:12px;z-index:999;border:1px solid ${scheme.foregroundMuted}40;cursor:pointer;`;
+  tourBtn.textContent = '🎬 Tour';
+  tourBtn.onclick = () => { if (!tourMode) startTour(); else exitTour(); };
+  document.body.appendChild(tourBtn);
   
   animate();
   connectWS();
