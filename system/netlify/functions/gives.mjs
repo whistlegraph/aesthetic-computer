@@ -42,7 +42,7 @@ export async function handler(event, context) {
   const stripe = Stripe(stripeKey);
 
   try {
-    const limit = parseInt(event.queryStringParameters?.limit) || 10;
+    const limit = parseInt(event.queryStringParameters?.limit) || 100;
     
     // Only show gives from 2025 onwards (when give page launched)
     const minDate = new Date('2025-01-01').getTime() / 1000; // Unix timestamp
