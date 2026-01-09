@@ -5,7 +5,7 @@
 import Stripe from "stripe";
 import { respond } from "../../backend/http.mjs";
 
-const dev = process.env.CONTEXT === "dev";
+const dev = process.env.CONTEXT !== "production";
 
 // Cache to avoid hammering Stripe API
 let cachedGives = null;

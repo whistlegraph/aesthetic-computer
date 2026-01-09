@@ -6252,7 +6252,7 @@
         <div class="apps-flip-card" id="appsFlipCard">
           <!-- Front: Desktop (active when not flipped) -->
           <div class="apps-flip-face apps-flip-front desktop-face">
-            <div class="desktop-face-header">
+            <div class="desktop-face-header" onclick="toggleAppsFlip()">
               <span class="face-label">
                 <span data-lang="en">desktop</span>
                 <span data-lang="da">skrivebord</span>
@@ -6313,7 +6313,7 @@
           
           <!-- Back: Mobile (ghost overlay when not flipped, active when flipped) -->
           <div class="apps-flip-face apps-flip-back mobile-face">
-            <div class="mobile-face-header">
+            <div class="mobile-face-header" onclick="toggleAppsFlip()">
               <span class="face-label">
                 <span data-lang="en">mobile</span>
                 <span data-lang="da">mobil</span>
@@ -10817,15 +10817,23 @@
             startATProgressBar();
           }, AT_CYCLE_DURATION);
         } else {
-          document.getElementById('atHandle0').textContent = '@aesthetic';
-          document.getElementById('atCenter0').innerHTML = '<div class="at-record-mood">🌐</div>';
-          document.getElementById('atCollection0').textContent = 'status';
+          // AT record elements no longer exist in the UI
+          const atHandle0 = document.getElementById('atHandle0');
+          const atCenter0 = document.getElementById('atCenter0');
+          const atCollection0 = document.getElementById('atCollection0');
+          if (atHandle0) atHandle0.textContent = '@aesthetic';
+          if (atCenter0) atCenter0.innerHTML = '<div class="at-record-mood">🌐</div>';
+          if (atCollection0) atCollection0.textContent = 'status';
         }
       } catch (e) {
         console.error('AT Proto records error:', e);
-        document.getElementById('atHandle0').textContent = '@aesthetic';
-        document.getElementById('atCenter0').innerHTML = '<div class="at-record-mood">🌐</div>';
-        document.getElementById('atCollection0').textContent = 'status';
+        // AT record elements no longer exist in the UI
+        const atHandle0 = document.getElementById('atHandle0');
+        const atCenter0 = document.getElementById('atCenter0');
+        const atCollection0 = document.getElementById('atCollection0');
+        if (atHandle0) atHandle0.textContent = '@aesthetic';
+        if (atCenter0) atCenter0.innerHTML = '<div class="at-record-mood">🌐</div>';
+        if (atCollection0) atCollection0.textContent = 'status';
       }
     }
     
