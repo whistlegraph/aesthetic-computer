@@ -16423,9 +16423,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (consoleEnabled && canvas && notPaused) {
       const now = performance.now();
       const kidlispCode = window.__acCurrentKidlispCode;
-      const hasKidlispCode = kidlispCode && 
-        kidlispCode.trim().length > 0 && 
-        (kidlispCode.includes('(') || kidlispCode.includes(','));
+      // Valid KidLisp code can be just a plain word (e.g., "gray", "red", "purple")
+      // which implicitly wipes the screen with that color, so we only check for
+      // non-empty content, not specific syntax like parentheses or commas.
+      const hasKidlispCode = kidlispCode && kidlispCode.trim().length > 0;
       
       if (hasKidlispCode) {
         // Track when code changes - reset the initial snap tracking

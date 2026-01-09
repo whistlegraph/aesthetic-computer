@@ -246,12 +246,48 @@ Messages appear as:
 - Monitoring community activity
 - Searching for specific messages or usernames
 
-## Prompt Completion Notification 🔔
-**IMPORTANT**: At the END of every response, call this to flash the screen:
+## Task State & Completion Notification 🎯
+
+### Task Status Bar
+The VS Code extension shows a task status in the status bar that emacs can control:
+- **idle** (hidden) — No active task
+- **working** (yellow, spinning) — Task in progress
+- **done** (green, flashing) — Task completed
+- **error** (red) — Task failed
+
+### Setting Task Status from Emacs
+```elisp
+;; When starting a long task
+(ac-task-working "Processing files...")
+
+;; When task completes
+(ac-task-done "Files processed!")
+
+;; On error
+(ac-task-error "Failed to process")
+
+;; Clear/hide task status
+(ac-task-idle)
+```
+
+### Prompt Completion Notification 🔔
+**IMPORTANT**: At the END of every response, call this to flash the screen AND update VS Code:
 ```elisp
 (ac-notify-done)
 ```
-This flashes the terminal 3 times so the user knows Copilot is done (useful when managing multiple machines).
+This:
+1. Flashes the emacs terminal 3 times
+2. Updates VS Code task status bar to "done" (green, flashing)
+3. Creates `/tmp/ac-copilot-done` for artery-tui
+
+### Task State File
+The task state is stored at `/tmp/aesthetic-task-state.json`:
+```json
+{"status":"working","label":"Building...","progress":50,"timestamp":1736456789000}
+```
+
+VS Code watches this file and updates the status bar in real-time.
+You can also use the CLI: `node artery/task-state.mjs set working "Building..."`
 
 ## CDP Tunnel (VS Code on Windows Host)
 The CDP tunnel forwards localhost:9333 to host's VS Code for remote control:

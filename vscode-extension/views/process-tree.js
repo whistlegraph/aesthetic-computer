@@ -799,15 +799,82 @@
     updateLabels();
   }
   
+  // Connection state tracking
+  let connectionState = 'disconnected'; // disconnected, connecting, connected
+  let reconnectAttempts = 0;
+  let lastConnectTime = 0;
+  
+  function updateConnectionUI() {
+    const dot = document.getElementById('status-dot');
+    let overlay = document.getElementById('connection-overlay');
+    
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'connection-overlay';
+      overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: ${scheme.ui.overlay}; z-index: 500; pointer-events: none;
+        transition: opacity 0.5s ease;
+      `;
+      document.body.appendChild(overlay);
+    }
+    
+    if (connectionState === 'connected') {
+      dot?.classList.add('online');
+      overlay.style.opacity = '0';
+      setTimeout(() => { if (connectionState === 'connected') overlay.style.display = 'none'; }, 500);
+    } else {
+      dot?.classList.remove('online');
+      overlay.style.display = 'flex';
+      overlay.style.opacity = '1';
+      
+      const statusText = connectionState === 'connecting' 
+        ? `Connecting to process server...` 
+        : `Waiting for process server (attempt ${reconnectAttempts})`;
+      const subText = reconnectAttempts > 3 
+        ? 'Server may still be starting up...' 
+        : 'ws://127.0.0.1:7890';
+      
+      overlay.innerHTML = `
+        <div style="font-size: 48px; margin-bottom: 16px;">${connectionState === 'connecting' ? '🔄' : '⏳'}</div>
+        <div style="font-size: 16px; color: ${scheme.foregroundBright}; margin-bottom: 8px;">${statusText}</div>
+        <div style="font-size: 12px; color: ${scheme.foregroundMuted};">${subText}</div>
+        ${reconnectAttempts > 5 ? `<button onclick="location.reload()" style="margin-top: 16px; padding: 8px 16px; background: ${scheme.accent}; border: none; border-radius: 4px; color: ${scheme.foregroundBright}; cursor: pointer; pointer-events: auto;">🔄 Refresh Page</button>` : ''}
+      `;
+    }
+  }
+  
   function connectWS() {
+    connectionState = 'connecting';
+    reconnectAttempts++;
+    updateConnectionUI();
+    
     try {
       ws = new WebSocket('ws://127.0.0.1:7890/ws');
-      ws.onopen = () => document.getElementById('status-dot').classList.add('online');
-      ws.onclose = () => {
-        document.getElementById('status-dot').classList.remove('online');
-        setTimeout(connectWS, 2000);
+      
+      ws.onopen = () => {
+        connectionState = 'connected';
+        reconnectAttempts = 0;
+        lastConnectTime = Date.now();
+        updateConnectionUI();
+        console.log('🟢 Connected to process server');
       };
-      ws.onerror = () => ws.close();
+      
+      ws.onclose = () => {
+        connectionState = 'disconnected';
+        updateConnectionUI();
+        // Exponential backoff: 1s, 2s, 4s, 8s, max 10s
+        const delay = Math.min(1000 * Math.pow(2, Math.min(reconnectAttempts - 1, 3)), 10000);
+        console.log(`🔴 Disconnected, reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
+        setTimeout(connectWS, delay);
+      };
+      
+      ws.onerror = (err) => {
+        console.log('🔴 WebSocket error:', err);
+        ws.close();
+      };
+      
       ws.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
@@ -820,7 +887,10 @@
           updateViz(data.processes);
         } catch {}
       };
-    } catch {
+    } catch (err) {
+      console.log('🔴 WebSocket creation error:', err);
+      connectionState = 'disconnected';
+      updateConnectionUI();
       setTimeout(connectWS, 2000);
     }
   }
