@@ -35,11 +35,18 @@ interface ASTNode {
   parent?: string;
   depth: number;
   loc?: { start: { line: number; column: number }; end: { line: number; column: number } };
+  // Extra metadata for richer display
+  kind?: string;      // const, let, var for VariableDeclaration
+  source?: string;    // import source path
+  callee?: string;    // function being called
+  property?: string;  // member access property
+  value?: string;     // literal value
 }
 
 interface TrackedFile {
   uri: string;
   fileName: string;
+  filePath: string;
   ast: ASTNode | null;
   lastUpdate: number;
 }
@@ -63,11 +70,55 @@ function parseJSToAST(code: string, fileName: string): ASTNode | null {
       
       // Get a friendly name for the node
       let name: string | undefined;
+      let kind: string | undefined;
+      let source: string | undefined;
+      let callee: string | undefined;
+      let property: string | undefined;
+      let value: string | undefined;
+      
+      // Extract identifier names
       if (node.id?.name) name = node.id.name;
       else if (node.key?.name) name = node.key.name;
+      else if (node.key?.value) name = String(node.key.value);
       else if (node.name) name = node.name;
-      else if (node.type === 'Literal') name = String(node.value).slice(0, 20);
       else if (node.type === 'Identifier') name = node.name;
+      
+      // Extract additional metadata based on node type
+      switch (node.type) {
+        case 'VariableDeclaration':
+          kind = node.kind; // const, let, var
+          break;
+        case 'ImportDeclaration':
+          source = node.source?.value;
+          break;
+        case 'ExportNamedDeclaration':
+        case 'ExportDefaultDeclaration':
+          if (node.declaration?.id?.name) name = node.declaration.id.name;
+          if (node.source?.value) source = node.source.value;
+          break;
+        case 'CallExpression':
+          if (node.callee?.name) callee = node.callee.name;
+          else if (node.callee?.property?.name) callee = node.callee.property.name;
+          else if (node.callee?.type === 'MemberExpression') {
+            const obj = node.callee.object?.name || '';
+            const prop = node.callee.property?.name || '';
+            callee = obj ? `${obj}.${prop}` : prop;
+          }
+          break;
+        case 'MemberExpression':
+          property = node.property?.name || node.property?.value;
+          break;
+        case 'Literal':
+          value = String(node.value).slice(0, 30);
+          name = value.length > 15 ? value.slice(0, 12) + '…' : value;
+          break;
+        case 'TemplateLiteral':
+          name = '`template`';
+          break;
+        case 'Property':
+          name = node.key?.name || node.key?.value;
+          break;
+      }
       
       const astNode: ASTNode = {
         id,
@@ -79,21 +130,26 @@ function parseJSToAST(code: string, fileName: string): ASTNode | null {
         parent: parentId,
         depth,
         loc: node.loc,
+        kind,
+        source,
+        callee,
+        property,
+        value,
       };
       
       // Recursively process child nodes
       for (const key of Object.keys(node)) {
         if (key === 'type' || key === 'start' || key === 'end' || key === 'loc' || key === 'range') continue;
-        const value = node[key];
-        if (value && typeof value === 'object') {
-          if (Array.isArray(value)) {
-            for (const item of value) {
+        const val = node[key];
+        if (val && typeof val === 'object') {
+          if (Array.isArray(val)) {
+            for (const item of val) {
               if (item && typeof item === 'object' && item.type) {
                 children.push(convertNode(item, depth + 1, id));
               }
             }
-          } else if (value.type) {
-            children.push(convertNode(value, depth + 1, id));
+          } else if (val.type) {
+            children.push(convertNode(val, depth + 1, id));
           }
         }
       }
@@ -110,7 +166,8 @@ function parseJSToAST(code: string, fileName: string): ASTNode | null {
 
 function updateTrackedFile(document: vscode.TextDocument) {
   const uri = document.uri.toString();
-  const fileName = document.fileName.split('/').pop() || document.fileName;
+  const filePath = document.fileName;
+  const fileName = filePath.split('/').pop() || filePath;
   
   // Only track JS/MJS files
   if (!fileName.endsWith('.js') && !fileName.endsWith('.mjs') && !fileName.endsWith('.ts')) {
@@ -122,6 +179,7 @@ function updateTrackedFile(document: vscode.TextDocument) {
   trackedFiles.set(uri, {
     uri,
     fileName,
+    filePath,
     ast,
     lastUpdate: Date.now(),
   });
@@ -288,13 +346,32 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     })
   );
   
+  // 🛡️ Periodic Cleanup: Ensure tracked files match actual open documents
+  // (Fixes issues where files might get "stuck" if events are missed)
+  setInterval(() => {
+    const openUris = new Set(vscode.workspace.textDocuments.map(d => d.uri.toString()));
+    let changed = false;
+    for (const [uri, file] of trackedFiles) {
+      if (!openUris.has(uri)) {
+        console.log('🧹 Pruning stuck file:', file.fileName);
+        trackedFiles.delete(uri);
+        changed = true;
+      }
+    }
+    if (changed && astUpdateCallback) {
+      astUpdateCallback(Array.from(trackedFiles.values()));
+    }
+  }, 2000);
+  
   // Set up AST update callback to send to welcome panel
   astUpdateCallback = (files) => {
     if (welcomePanel) {
       welcomePanel.webview.postMessage({
         command: 'astUpdate',
         files: files.map(f => ({
+          id: f.uri, // Use URI as unique ID
           fileName: f.fileName,
+          filePath: f.filePath, // Send full path
           ast: f.ast,
           lastUpdate: f.lastUpdate,
         })),
@@ -652,6 +729,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     // Listen for AST updates from extension
     (function() {
       const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : null;
+      window.vscodeApi = vscode;
       window.addEventListener('message', (event) => {
         const message = event.data;
         if (message.command === 'astUpdate' && window.ASTTreeViz) {
@@ -696,6 +774,45 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             return;
           case 'newPiece':
             vscode.commands.executeCommand('workbench.action.files.newUntitledFile');
+            return;
+          case 'navigateToSource':
+            if (message.filePath) {
+              const openPath = vscode.Uri.file(message.filePath);
+              vscode.workspace.openTextDocument(openPath).then(doc => {
+                vscode.window.showTextDocument(doc).then(editor => {
+                  if (message.line !== undefined && message.column !== undefined) {
+                    const startPos = new vscode.Position(message.line - 1, message.column);
+                    const range = new vscode.Range(startPos, startPos);
+                    editor.selection = new vscode.Selection(startPos, startPos);
+                    editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+                  }
+                });
+              });
+            } else if (message.fileName) {
+              const openPath = vscode.Uri.file(message.fileName);
+              vscode.workspace.openTextDocument(openPath).then(doc => {
+                vscode.window.showTextDocument(doc).then(editor => {
+                  if (message.line !== undefined && message.column !== undefined) {
+                    const startPos = new vscode.Position(message.line - 1, message.column);
+                    const range = new vscode.Range(startPos, startPos);
+                    editor.selection = new vscode.Selection(startPos, startPos);
+                    editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+                  }
+                });
+              });
+            }
+            return;
+          case 'requestAST':
+            if (trackedFiles.size > 0) {
+              welcomePanel.webview.postMessage({
+                command: 'astUpdate',
+                files: Array.from(trackedFiles.values()).map(f => ({
+                  fileName: f.fileName,
+                  ast: f.ast,
+                  lastUpdate: f.lastUpdate,
+                })),
+              });
+            }
             return;
         }
       },
