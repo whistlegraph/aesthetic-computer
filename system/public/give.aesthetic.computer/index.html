@@ -6413,8 +6413,20 @@
     // One-time options (40% total): A: $32 (13.3%), B: $64 (13.3%), C: $128 (13.3%)
     const abcTestRandom = Math.random();
     const abcTestVariant = abcTestRandom < 0.3 ? 'E' : abcTestRandom < 0.6 ? 'D' : abcTestRandom < 0.733 ? 'A' : abcTestRandom < 0.866 ? 'B' : 'C';
-    const abcTestStartPrice = abcTestVariant === 'A' ? 32 : abcTestVariant === 'B' ? 64 : abcTestVariant === 'C' ? 128 : abcTestVariant === 'D' ? 8 : 2;
-    const abcTestIsMonthly = abcTestVariant === 'D' || abcTestVariant === 'E';
+    let abcTestStartPrice = abcTestVariant === 'A' ? 32 : abcTestVariant === 'B' ? 64 : abcTestVariant === 'C' ? 128 : abcTestVariant === 'D' ? 8 : 2;
+    let abcTestIsMonthly = abcTestVariant === 'D' || abcTestVariant === 'E';
+    
+    // Check for URL amount override (e.g., from kidlisp.com guides)
+    const urlAmountParams = new URLSearchParams(window.location.search);
+    const urlAmountOverride = urlAmountParams.get('amount');
+    if (urlAmountOverride) {
+      const parsedAmount = parseInt(urlAmountOverride, 10);
+      if (!isNaN(parsedAmount) && parsedAmount > 0 && parsedAmount <= 10000) {
+        abcTestStartPrice = parsedAmount;
+        abcTestIsMonthly = false; // URL override = one-time by default
+        console.log(`💝 Amount override from URL: $${parsedAmount}`);
+      }
+    }
     
     // Apply A/B/C test price to all USD widgets immediately
     document.querySelectorAll('.gift-widget[data-currency="usd"]').forEach(widget => {
