@@ -193,6 +193,9 @@ async function processGrabQueue() {
 const activeGrabs = new Map();
 const recentGrabs = [];
 
+// Track frozen pieces (pieces that failed due to identical frames)
+const frozenPieces = new Map(); // piece -> { piece, attempts, lastAttempt, firstDetected, error }
+
 // Track most recent IPFS uploads per piece (for live collection thumbnail)
 const latestIPFSUploads = new Map(); // piece -> { ipfsCid, ipfsUri, timestamp, ... }
 let latestKeepThumbnail = null; // Most recent across all pieces
@@ -265,6 +268,115 @@ export function clearAllActiveGrabs() {
   serverLog('cleanup', '🗑️', `Force cleared ${count} active grabs and ${queueCount} queued items`);
   
   return { cleared: count, queueCleared: queueCount };
+}
+
+/**
+ * Record a frozen piece (failed due to identical frames)
+ * @param {string} piece - The piece name (e.g. '$woww')
+ * @param {string} error - The error message
+ * @param {string} previewUrl - Optional CDN URL of the frozen preview
+ */
+function recordFrozenPiece(piece, error, previewUrl = null) {
+  const existing = frozenPieces.get(piece);
+  const now = Date.now();
+  
+  if (existing) {
+    existing.attempts++;
+    existing.lastAttempt = now;
+    existing.error = error;
+    if (previewUrl) existing.previewUrl = previewUrl;
+    console.log(`🥶 Frozen piece updated: ${piece} (${existing.attempts} attempts)`);
+  } else {
+    frozenPieces.set(piece, {
+      piece,
+      attempts: 1,
+      firstDetected: now,
+      lastAttempt: now,
+      error,
+      previewUrl,
+    });
+    console.log(`🥶 New frozen piece recorded: ${piece}`);
+  }
+  
+  // Persist to MongoDB
+  saveFrozenPiece(piece);
+}
+
+/**
+ * Save frozen piece to MongoDB
+ */
+async function saveFrozenPiece(piece) {
+  const database = await connectMongo();
+  if (!database) return;
+  
+  const frozen = frozenPieces.get(piece);
+  if (!frozen) return;
+  
+  try {
+    const collection = database.collection('oven-frozen-pieces');
+    await collection.updateOne(
+      { piece },
+      { $set: frozen, $setOnInsert: { createdAt: new Date() } },
+      { upsert: true }
+    );
+  } catch (error) {
+    console.error('❌ Failed to save frozen piece to MongoDB:', error.message);
+  }
+}
+
+/**
+ * Load frozen pieces from MongoDB on startup
+ */
+async function loadFrozenPieces() {
+  const database = await connectMongo();
+  if (!database) return;
+  
+  try {
+    const collection = database.collection('oven-frozen-pieces');
+    const pieces = await collection.find({}).sort({ lastAttempt: -1 }).limit(100).toArray();
+    
+    for (const p of pieces) {
+      frozenPieces.set(p.piece, {
+        piece: p.piece,
+        attempts: p.attempts || 1,
+        firstDetected: p.firstDetected || p.createdAt?.getTime() || Date.now(),
+        lastAttempt: p.lastAttempt || Date.now(),
+        error: p.error || 'Frozen animation',
+      });
+    }
+    
+    console.log(`📂 Loaded ${pieces.length} frozen pieces from MongoDB`);
+  } catch (error) {
+    console.error('❌ Failed to load frozen pieces from MongoDB:', error.message);
+  }
+}
+
+/**
+ * Get list of all frozen pieces
+ * @returns {Array} Array of frozen piece objects
+ */
+export function getFrozenPieces() {
+  return Array.from(frozenPieces.values()).sort((a, b) => b.lastAttempt - a.lastAttempt);
+}
+
+/**
+ * Clear a piece from the frozen list (e.g., after fixing it)
+ * @param {string} piece - The piece name to clear
+ */
+export async function clearFrozenPiece(piece) {
+  frozenPieces.delete(piece);
+  
+  const database = await connectMongo();
+  if (database) {
+    try {
+      await database.collection('oven-frozen-pieces').deleteOne({ piece });
+      console.log(`✅ Cleared frozen piece: ${piece}`);
+    } catch (error) {
+      console.error('❌ Failed to clear frozen piece from MongoDB:', error.message);
+    }
+  }
+  
+  return { success: true, piece };
 }
 
 // Run stale cleanup every 2 minutes
@@ -364,6 +476,42 @@ async function updateGrabInMongo(grabId, updates) {
 }
 
 /**
+ * Check if all frames are identical (frozen animation)
+ * Compares frame hashes to detect if the capture is static
+ * @param {Buffer[]} frames - Array of PNG frame buffers
+ * @returns {Promise<boolean>} True if all frames are the same (frozen)
+ */
+async function areFramesIdentical(frames) {
+  if (frames.length <= 1) return false; // Single frame can't be "frozen"
+  
+  try {
+    // Hash each frame and compare
+    const hashes = [];
+    for (const frame of frames) {
+      const hash = createHash('md5').update(frame).digest('hex');
+      hashes.push(hash);
+    }
+    
+    // Check if all hashes are the same
+    const firstHash = hashes[0];
+    const allSame = hashes.every(h => h === firstHash);
+    
+    if (allSame) {
+      console.log(`   ⚠️ All ${frames.length} frames are identical (frozen)`);
+    } else {
+      // Count unique frames
+      const uniqueHashes = new Set(hashes);
+      console.log(`   ✅ Found ${uniqueHashes.size} unique frames out of ${frames.length}`);
+    }
+    
+    return allSame;
+  } catch (error) {
+    console.error('⚠️ Failed to check frame identity:', error.message);
+    return false; // Assume not frozen if check fails
+  }
+}
+
+/**
  * Check if a frame is blank (all black, all transparent, or nearly uniform)
  * Uses sharp to analyze the image efficiently
  */
@@ -428,8 +576,9 @@ async function isBlankFrame(buffer) {
   }
 }
 
-// Load recent grabs on startup
+// Load recent grabs and frozen pieces on startup
 loadRecentGrabs();
+loadFrozenPieces();
 
 /**
  * Generate a unique capture key for deduplication
@@ -1251,6 +1400,40 @@ export async function grabPiece(piece, options = {}) {
         
         if (capturedFrames.length === 0) {
           throw new Error('No frames captured');
+        }
+        
+        // Check if all frames are identical (frozen animation)
+        const isFrozen = await areFramesIdentical(capturedFrames);
+        if (isFrozen) {
+          // Still generate a preview from the first frame for the frozen panel
+          let frozenPreviewUrl = null;
+          try {
+            const previewBuffer = await frameToThumbnail(capturedFrames[0], { 
+              width: width * density, 
+              height: height * density 
+            });
+            
+            // Upload frozen preview to Spaces
+            if (process.env.ART_SPACES_KEY && previewBuffer) {
+              const frozenKey = `oven/frozen/${piece.replace(/^\$/, '')}-frozen.png`;
+              await spacesClient.send(new PutObjectCommand({
+                Bucket: SPACES_BUCKET,
+                Key: frozenKey,
+                Body: previewBuffer,
+                ContentType: 'image/png',
+                ACL: 'public-read',
+                CacheControl: 'public, max-age=3600', // 1 hour cache (might get fixed)
+              }));
+              frozenPreviewUrl = `${SPACES_CDN_BASE}/${frozenKey}`;
+              console.log(`📸 Frozen preview saved: ${frozenPreviewUrl}`);
+            }
+          } catch (previewErr) {
+            console.error('⚠️ Failed to generate frozen preview:', previewErr.message);
+          }
+          
+          const frozenError = 'Animation is frozen - all captured frames are identical';
+          recordFrozenPiece(piece, frozenError, frozenPreviewUrl);
+          throw new Error(frozenError);
         }
         
         activeGrabs.get(grabId).status = 'encoding';
