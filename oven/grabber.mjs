@@ -1304,10 +1304,42 @@ async function framesToWebp(frames, options = {}) {
   }
 }
 
+// Blacklisted domains/patterns that should never be processed
+const BLACKLISTED_PIECES = [
+  /\.com$/i,
+  /\.net$/i,
+  /\.org$/i,
+  /\.io$/i,
+  /\.dev$/i,
+  /\.app$/i,
+  /\.xyz$/i,
+  /\.co$/i,
+  /^https?:\/\//i,
+  /sundarakarma/i,
+];
+
+/**
+ * Check if a piece name is blacklisted (external domain or invalid)
+ */
+function isPieceBlacklisted(piece) {
+  if (!piece || typeof piece !== 'string') return true;
+  return BLACKLISTED_PIECES.some(pattern => pattern.test(piece));
+}
+
 /**
  * Full grab workflow: capture piece and generate thumbnail/GIF/WebP
  */
 export async function grabPiece(piece, options = {}) {
+  // Reject blacklisted pieces (external domains, URLs, etc.)
+  if (isPieceBlacklisted(piece)) {
+    console.log(`🚫 Rejecting blacklisted piece: ${piece}`);
+    return {
+      success: false,
+      error: `Piece "${piece}" is not allowed - only aesthetic.computer pieces are supported`,
+      piece,
+    };
+  }
+  
   const {
     format = 'webp', // 'webp', 'gif', or 'png'
     width = 512,
@@ -1722,6 +1754,11 @@ export async function grabHandler(req, res) {
     return res.status(400).json({ error: 'Missing required field: piece' });
   }
   
+  // Reject blacklisted pieces early
+  if (isPieceBlacklisted(piece)) {
+    return res.status(400).json({ error: `Piece "${piece}" is not allowed - only aesthetic.computer pieces are supported` });
+  }
+  
   // Validate format
   if (!['webp', 'gif', 'png'].includes(format)) {
     return res.status(400).json({ error: 'Invalid format. Use "webp", "gif" or "png"' });
@@ -1809,6 +1846,11 @@ export async function grabGetHandler(req, res) {
   
   if (!piece) {
     return res.status(400).json({ error: 'Missing piece parameter' });
+  }
+  
+  // Reject blacklisted pieces early
+  if (isPieceBlacklisted(piece)) {
+    return res.status(400).json({ error: `Piece "${piece}" is not allowed - only aesthetic.computer pieces are supported` });
   }
   
   // Validate format
@@ -1912,6 +1954,11 @@ export async function grabIPFSHandler(req, res) {
   
   if (!piece) {
     return res.status(400).json({ error: 'Missing required field: piece' });
+  }
+  
+  // Reject blacklisted pieces early
+  if (isPieceBlacklisted(piece)) {
+    return res.status(400).json({ error: `Piece "${piece}" is not allowed - only aesthetic.computer pieces are supported` });
   }
   
   if (!pinataKey || !pinataSecret) {
