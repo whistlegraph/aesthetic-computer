@@ -2848,17 +2848,7 @@
       border-radius: 8px;
     }
 
-    .apps-flip-container::before {
-      content: "";
-      position: absolute;
-      inset: 4px;
-      border-radius: 12px;
-      background: conic-gradient(from var(--glow-angle, 0deg), var(--pink), var(--cyan), var(--green), var(--pink));
-      opacity: 0.2;
-      filter: blur(12px);
-      z-index: -1;
-      animation: glowRotate 8s linear infinite;
-    }
+    /* Glow removed - now only on tapes section */
 
     @keyframes glowRotate {
       to { --glow-angle: 360deg; }
@@ -3496,6 +3486,39 @@
       overflow: hidden;
     }
 
+    /* Dual-layer container for crossfade transitions */
+    .shop-product-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transition: opacity 0.6s ease-in-out, transform 0.6s ease-in-out;
+    }
+
+    .shop-product-layer.layer-back {
+      z-index: 0;
+    }
+
+    .shop-product-layer.layer-front {
+      z-index: 1;
+    }
+
+    .shop-product-layer.entering {
+      opacity: 0;
+      transform: scale(1.02);
+    }
+
+    .shop-product-layer.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .shop-product-layer.exiting {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+
     .shop-product {
       display: block;
       width: 100%;
@@ -3503,8 +3526,6 @@
       text-decoration: none;
       color: #fff;
       position: relative;
-      opacity: 0;
-      animation: shopFadeIn 0.5s ease forwards;
     }
 
     .shop-product-img-wrap {
@@ -4368,17 +4389,7 @@
       border-radius: 8px;
     }
 
-    .chat-flip-container::before {
-      content: "";
-      position: absolute;
-      inset: 4px;
-      border-radius: 12px;
-      background: conic-gradient(from var(--glow-angle, 0deg), var(--pink), var(--cyan), var(--green), var(--pink));
-      opacity: 0.2;
-      filter: blur(12px);
-      z-index: -1;
-      animation: glowRotate 8s linear infinite;
-    }
+    /* Glow removed - now only on tapes section */
 
     /* The flipping card - this rotates in 3D */
     .chat-flip-card {
@@ -6274,7 +6285,7 @@
           <span data-lang="zh">投资</span>
         </div>
         <div class="invest-content" data-lang="en">
-          <p><a href="https://aesthetic.direct" target="_blank">Aesthetic Inc.</a> was <a href="https://prompt.ac/booted-by" target="_blank">booted by</a> a handful of early supporters in 2025.<br><br>To join this equity holding community, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link" target="_blank">book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
+          <p><a href="https://aesthetic.direct" target="_blank">Aesthetic Inc.</a> was <a href="https://prompt.ac/booted-by" target="_blank">booted by</a> a handful of early supporters in 2025.<br><br>To join this equity holding community or increase your existing stake, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link" target="_blank">book a remote demo</a> with <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
         </div>
         <div class="invest-content" data-lang="da">
           <p><a href="https://aesthetic.direct" target="_blank">Aesthetic Inc.</a> bliver <a href="https://prompt.ac/booted-by" target="_blank">startet af</a> en håndfuld tidlige støtter, der deler i at reservere virksomhedskapital.<br><br>For at blive en del af dette fællesskab, <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link" target="_blank">book en fjern-demo</a> med <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a>.</p>
@@ -9370,7 +9381,7 @@
         
         shopProducts = data.products;
         shopLoaded = true;
-        showShopProduct(0);
+        showShopProduct(0, true); // Initial load with isInitial=true
         // Mark ready and register starter (don't start cycling yet)
         panelSync.markReady('shop');
         panelSync.registerStarter(() => startShopCycle());
@@ -9459,7 +9470,9 @@
       const images = p.images || [p.imageUrl].filter(Boolean);
       if (!images.length) return;
       
-      const wrap = document.querySelector('.shop-product-img-wrap');
+      // Find the currently visible layer's image wrap
+      const visibleLayer = document.querySelector('.shop-product-layer.visible');
+      const wrap = visibleLayer ? visibleLayer.querySelector('.shop-product-img-wrap') : document.querySelector('.shop-product-img-wrap');
       if (!wrap) return;
       
       const currentImg = wrap.querySelector('img');
@@ -9489,11 +9502,7 @@
       };
     }
     
-    function showShopProduct(index) {
-      const container = document.getElementById('shopProducts');
-      const p = shopProducts[index];
-      if (!p) return;
-      
+    function createProductHTML(p) {
       // Get all images
       const images = p.images || [p.imageUrl].filter(Boolean);
       const currentImage = images.length > 0 ? images[0] : '';
@@ -9510,7 +9519,7 @@
       // Strip currency code from price (keep just symbol + number)
       const priceDisplay = (p.price || '').replace(/\s*USD$/i, '').replace(/\s*CAD$/i, '').replace(/\s*EUR$/i, '').trim();
       
-      container.innerHTML = `
+      return `
         <a href="${p.shopUrl}" class="shop-product" target="_blank">
           <div class="shop-product-img-wrap">
             <img src="${currentImage}" alt="${escapeHtml(p.title)}" loading="lazy" class="shop-img-front">
@@ -9528,6 +9537,83 @@
           }
         </a>
       `;
+    }
+    
+    let shopCurrentLayer = 'a'; // Track which layer is currently visible
+    
+    function showShopProduct(index, isInitial = false) {
+      const container = document.getElementById('shopProducts');
+      const p = shopProducts[index];
+      if (!p) return;
+      
+      const productHTML = createProductHTML(p);
+      
+      // Initial load - set up dual layer structure
+      if (isInitial || !container.querySelector('.shop-product-layer')) {
+        container.innerHTML = `
+          <div class="shop-product-layer layer-back visible" data-layer="a">${productHTML}</div>
+          <div class="shop-product-layer layer-front entering" data-layer="b"></div>
+        `;
+        shopCurrentLayer = 'a';
+        // Preload next product image
+        preloadNextShopProduct(index);
+        return;
+      }
+      
+      // Crossfade transition
+      const layerA = container.querySelector('[data-layer="a"]');
+      const layerB = container.querySelector('[data-layer="b"]');
+      
+      if (shopCurrentLayer === 'a') {
+        // A is visible, prepare B and fade it in
+        layerB.innerHTML = productHTML;
+        layerB.classList.remove('entering', 'exiting');
+        layerB.classList.add('layer-front');
+        layerA.classList.remove('layer-front');
+        layerA.classList.add('layer-back');
+        
+        // Trigger reflow
+        layerB.offsetHeight;
+        
+        // Start transition
+        layerB.classList.add('visible');
+        layerA.classList.remove('visible');
+        layerA.classList.add('exiting');
+        
+        shopCurrentLayer = 'b';
+      } else {
+        // B is visible, prepare A and fade it in
+        layerA.innerHTML = productHTML;
+        layerA.classList.remove('entering', 'exiting');
+        layerA.classList.add('layer-front');
+        layerB.classList.remove('layer-front');
+        layerB.classList.add('layer-back');
+        
+        // Trigger reflow
+        layerA.offsetHeight;
+        
+        // Start transition
+        layerA.classList.add('visible');
+        layerB.classList.remove('visible');
+        layerB.classList.add('exiting');
+        
+        shopCurrentLayer = 'a';
+      }
+      
+      // Preload next product image
+      preloadNextShopProduct(index);
+    }
+    
+    function preloadNextShopProduct(currentIndex) {
+      const nextIndex = (currentIndex + 1) % shopProducts.length;
+      const nextProduct = shopProducts[nextIndex];
+      if (!nextProduct) return;
+      
+      const images = nextProduct.images || [nextProduct.imageUrl].filter(Boolean);
+      if (images.length > 0) {
+        const preloadImg = new Image();
+        preloadImg.src = images[0];
+      }
     }
     setTimeout(loadShopProducts, 100);
     setTimeout(setupShopVisibilityRetry, 200); // Set up visibility observer
