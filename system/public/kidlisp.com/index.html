@@ -2070,17 +2070,13 @@
     .guides-coming-text {
       font-family: monospace;
       font-size: 11px;
-      color: var(--text-tertiary);
-      margin-bottom: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+      line-height: 1.5;
     }
     
-    .guides-coming-text a {
+    .guides-coming-text .author {
       color: rgb(205, 92, 155);
-      text-decoration: none;
-    }
-    
-    .guides-coming-text a:hover {
-      text-decoration: underline;
     }
     
     .guides-fund-row {
@@ -2091,42 +2087,62 @@
     }
     
     .guides-amount-slider {
-      width: 80px;
+      width: 60px;
       height: 4px;
       -webkit-appearance: none;
       appearance: none;
       background: var(--bg-tertiary);
       border-radius: 2px;
       outline: none;
-      margin-bottom: 8px;
     }
     
     .guides-amount-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 20px;
-      height: 20px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
       background: rgb(205, 92, 155);
       cursor: pointer;
       border: 2px solid var(--bg-primary);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
     
     .guides-amount-slider::-moz-range-thumb {
-      width: 20px;
-      height: 20px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
       background: rgb(205, 92, 155);
       cursor: pointer;
       border: 2px solid var(--bg-primary);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
     
     .guides-amount-display {
       font-family: monospace;
-      font-size: 11px;
-      color: rgb(205, 92, 155);
+      font-size: 10px;
+      color: var(--text-tertiary);
+      min-width: 28px;
+    }
+    
+    .guides-give-btn {
+      font-family: monospace;
+      font-size: 10px;
+      font-weight: bold;
+      padding: 4px 12px;
+      background: rgb(165, 62, 125);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .guides-give-btn:hover {
+      background: rgb(145, 42, 105);
     }
 
     [data-theme="dark"] .guide-detail-body code {
@@ -12448,11 +12464,13 @@
       // Render minimal coming soon placeholder
       guidesList.innerHTML = `
         <div class="guides-coming-soon">
-          <div class="guides-coming-text">guides coming soon · <a href="${giveBaseUrl}?amount=${selectedGuideAmount}" id="guides-give-link" target="_blank">fund development</a></div>
+          <div class="guides-coming-text">The first KidLisp guide from <span class="author">@jeffrey</span> is coming soon.</div>
           <div class="guides-fund-row">
             <input type="range" class="guides-amount-slider" id="guides-amount-slider" 
                    min="0" max="${GUIDE_AMOUNTS.length - 1}" value="2" step="1">
             <span class="guides-amount-display" id="guides-amount-display">$${selectedGuideAmount}</span>
+            <a href="${giveBaseUrl}?amount=${selectedGuideAmount}" 
+               class="guides-give-btn" id="guides-give-btn" target="_blank">Give</a>
           </div>
         </div>
       `;
@@ -12460,14 +12478,14 @@
       // Set up slider interaction
       const slider = document.getElementById('guides-amount-slider');
       const display = document.getElementById('guides-amount-display');
-      const giveLink = document.getElementById('guides-give-link');
+      const giveBtn = document.getElementById('guides-give-btn');
       
-      if (slider && display && giveLink) {
+      if (slider && display && giveBtn) {
         slider.addEventListener('input', (e) => {
           const idx = parseInt(e.target.value);
           selectedGuideAmount = GUIDE_AMOUNTS[idx];
           display.textContent = `$${selectedGuideAmount}`;
-          giveLink.href = `${giveBaseUrl}?amount=${selectedGuideAmount}`;
+          giveBtn.href = `${giveBaseUrl}?amount=${selectedGuideAmount}`;
         });
       }
     }
