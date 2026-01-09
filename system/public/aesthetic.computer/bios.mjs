@@ -2478,6 +2478,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     requestMicrophoneRecordingStart,
     requestMicrophoneRecordingStop;
 
+  // 🔬 Sound Telemetry for latency testing (exposed via window.__bios_sound_telemetry)
+  const soundTelemetry = {
+    triggerCount: 0,           // Total sounds triggered
+    lastTriggerTime: 0,        // performance.now() of last trigger
+    recentTriggers: [],        // Last 50 trigger timestamps with sound IDs
+    maxRecentTriggers: 50,
+  };
+  if (typeof window !== 'undefined') {
+    window.__bios_sound_telemetry = soundTelemetry;
+    console.log('🔬 BIOS: Exposed __bios_sound_telemetry on window');
+  }
+
   // TODO: Eventually this would be replaced with a more dynamic system.
 
   const backgroundTrackURLs = [
@@ -2898,6 +2910,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         triggerSound = function (sound) {
+          // 🔬 Telemetry: Record this sound trigger for latency testing
+          const triggerTime = performance.now();
+          soundTelemetry.triggerCount++;
+          soundTelemetry.lastTriggerTime = triggerTime;
+          soundTelemetry.recentTriggers.push({
+            id: sound.id,
+            type: sound.type,
+            timestamp: triggerTime,
+          });
+          if (soundTelemetry.recentTriggers.length > soundTelemetry.maxRecentTriggers) {
+            soundTelemetry.recentTriggers.shift();
+          }
+
           speakerProcessor.port.postMessage({ type: "sound", data: sound });
 
           return {

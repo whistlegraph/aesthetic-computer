@@ -280,6 +280,11 @@ const perfStats = {
   outputLatency: 0,      // AudioContext output latency (ms)
 };
 
+// 🔬 Expose perfStats for testing
+if (typeof window !== 'undefined') {
+  window.__notepat_perfStats = perfStats;
+}
+
 //let sharps = false,
 //  flats = false;
 const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F G A for sharps.
