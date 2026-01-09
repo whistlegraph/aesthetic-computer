@@ -181,6 +181,7 @@ let parsedMelody = [];
 let octave = 4;
 let originalMelodyString = ""; // Store the original melody string for reparsing
 let cachedClockCode = null; // Short code for QR display after caching to API
+let cachedClockAuthor = null; // Author handle for byline display (e.g., "@handle" or null for anon)
 let octaveFlashTime = 0; // Track when octave changed for flash effect
 
 // Enhanced melody state for simultaneous tracks
@@ -653,7 +654,8 @@ async function cacheMelody(melody) {
     const response = await fetch('/api/store-clock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: melody }) // Use 'source' for consistency with KidLisp
+      body: JSON.stringify({ source: melody }), // Use 'source' for consistency with KidLisp
+      credentials: 'include' // Include auth cookies so logged-in user gets attributed
     });
     
     if (!response.ok) {
@@ -677,8 +679,9 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
     // Reset leaving flag when piece starts
     isLeavingPiece = false;
 
-    // Reset cached clock code
+    // Reset cached clock code and author
     cachedClockCode = null;
+    cachedClockAuthor = null;
 
   // Reset total notes played counter for fresh start
   totalNotesPlayed = 0;
@@ -737,16 +740,10 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
     const code = params[0].slice(1); // Remove * prefix
     console.log(`🎵 Fetching cached melody for code: *${code}`);
     
-    // Guard against missing fetch API
-    if (!api?.net?.waitForFetch) {
-      console.warn(`⚠️ Fetch API not available, using default melody`);
-      originalMelodyString = "cdefgab";
-      isFallbackMelody = true;
-    } else {
-      try {
-        const response = await api.net.waitForFetch(
-          `/api/store-clock?code=${encodeURIComponent(code)}`
-        );
+    try {
+      const response = await fetch(
+        `/api/store-clock?code=${encodeURIComponent(code)}`
+      );
       
       if (response.ok) {
         const data = await response.json();
@@ -754,7 +751,10 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
           console.log(`🎵 Loaded cached melody: ${data.source}`);
           // Set the code immediately since we already have it
           cachedClockCode = code;
-          api.send({ type: "clock:cached", content: { code: cachedClockCode } });
+          // Store the author handle for byline display
+          cachedClockAuthor = data.handle || null;
+          console.log(`🎵 Clock author: ${cachedClockAuthor || 'anon'}`);
+          api.send({ type: "clock:cached", content: { code: cachedClockCode, author: cachedClockAuthor } });
           
           // Use the fetched melody as if it was passed directly
           originalMelodyString = data.source;
@@ -773,7 +773,6 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
       originalMelodyString = "cdefgab"; // Default melody
       isFallbackMelody = true;
     }
-    } // Close the else block for api.net.waitForFetch guard
   } else if (params[0]) {
     // Concatenate all params to handle cases like clock/(ceg) (dfa) where
     // (ceg) is in params[0] and (dfa) is in params[1]
@@ -2093,6 +2092,17 @@ function drawMelodyTimeline(
     y: timelineY,
     scale: 1,
   });
+
+  // Draw author byline after melody string (only for cached codes)
+  if (cachedClockCode) {
+    const bylineText = cachedClockAuthor ? `by ${cachedClockAuthor}` : "by anon";
+    const melodyEndX = startX + stringWidth + 8; // 8px gap after melody
+    ink(cachedClockAuthor ? [100, 180, 255] : [128, 128, 128]).write(bylineText, {
+      x: melodyEndX,
+      y: timelineY,
+      scale: 1,
+    });
+  }
 
   // Draw timing info below the melody string
   const infoY = timelineY + 12;
