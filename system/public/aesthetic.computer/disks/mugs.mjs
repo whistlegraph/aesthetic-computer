@@ -511,7 +511,7 @@ function paint({ wipe, ink, box, paste, screen, line, mask, unmask }) {
   
   // Scrollbar (flush right like colors.mjs)
   const contentHeight = mugs.length * ROW_HEIGHT;
-  const visibleHeight = listHeight - TOP_MARGIN;
+  // visibleHeight already declared above
   
   if (contentHeight > visibleHeight) {
     const scrollBarX = screen.width - 4;
