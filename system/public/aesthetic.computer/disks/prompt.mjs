@@ -1142,7 +1142,8 @@ async function halt($, text) {
   } else if (slug.startsWith("!") && slug.length > 1) {
     console.log("📼 Tape code detected:", slug, "params:", params);
     // Route to video piece to handle tape playback
-    jump("video " + text);
+    // Use ~ separator for params instead of space
+    jump("video~" + text);
     return true;
   } else if (
     slug === "tape" ||
@@ -1158,7 +1159,8 @@ async function halt($, text) {
     // 📼 Check if this is a playback command (e.g., "tape !JyK")
     if (playbackParam && playbackParam.startsWith('!')) {
       console.log("📼 Tape playback mode detected, routing to video piece");
-      jump("video " + params.join(' '));
+      // Use ~ separator for params instead of space
+      jump("video~" + params.join('~'));
       return true;
     }
     
@@ -1493,7 +1495,9 @@ async function halt($, text) {
         }
 
         // Jump to mug piece for preview (code includes # prefix)
-        $.jump(`mug ${code} ${color}`.trim());
+        // Use ~ separator for params instead of space
+        const mugJump = ["mug", code, color].filter(Boolean).join("~");
+        $.jump(mugJump);
         return true;
       } else if (slug === "mint") {
         // 🪙 Mint on Zora.
