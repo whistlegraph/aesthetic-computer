@@ -1,100 +1,248 @@
-// 3D AST Tree Visualization
-// Renders JavaScript/TypeScript AST as interactive 3D trees
+// 3D Source Code Visualization
+// Renders JavaScript/TypeScript files as interactive 3D trees with click navigation
 
 (function() {
   'use strict';
   
-  // Only initialize if we have ProcessTreeViz (shared scene)
+  // Wait for ProcessTreeViz if it's not ready yet
   if (!window.ProcessTreeViz) {
-    console.warn('AST visualization requires ProcessTreeViz to be loaded first');
+    console.log('⏳ Waiting for ProcessTreeViz...');
+    const checkInterval = setInterval(() => {
+      if (window.ProcessTreeViz) {
+        clearInterval(checkInterval);
+        initASTVisualization();
+      }
+    }, 100);
     return;
+  } else {
+    initASTVisualization();
   }
+
+  function initASTVisualization() {
+    console.log('🚀 Initializing Source Tree Visualization');
+    
+    const { scene, camera, renderer, colorSchemes } = window.ProcessTreeViz;
+    // Update theme reference dynamically as it might change
+    let scheme = window.ProcessTreeViz.getScheme();
+
+    // ... rest of initialization ...
+    // Tab system state
+    let currentTab = 'processes'; // 'processes' or 'sources'
+    let sourcesVisible = false;
   
-  const { scene, camera, colorSchemes } = window.ProcessTreeViz;
-  let currentTheme = window.ProcessTreeViz.getTheme();
-  let scheme = colorSchemes[currentTheme];
+    // Source visualization state
+    const sourceFiles = new Map(); // fileName -> { rootMesh, nodes: Map<id, mesh>, connections: [] }
+    const sourceConnections = new Map();
+    let astFiles = [];
+    let focusedSourceNode = null;
+    let hoveredNode = null;
   
-  // AST visualization state
-  const astMeshes = new Map(); // fileName -> { root, nodes: Map<id, mesh> }
-  const astConnections = new Map();
-  let astFiles = [];
+    // Raycaster for click detection
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
   
-  // AST node colors by type
+    // Icon mapping for node types
+    const nodeIcons = {
+
+    Program: '📄',
+    FunctionDeclaration: '🔧',
+    FunctionExpression: '🔧',
+    ArrowFunctionExpression: '➡️',
+    AsyncFunctionDeclaration: '⚡',
+    AsyncArrowFunctionExpression: '⚡',
+    ClassDeclaration: '🏛️',
+    ClassExpression: '🏛️',
+    MethodDefinition: '🔩',
+    VariableDeclaration: '📦',
+    VariableDeclarator: '📦',
+    ImportDeclaration: '📥',
+    ImportSpecifier: '📥',
+    ExportNamedDeclaration: '📤',
+    ExportDefaultDeclaration: '📤',
+    CallExpression: '📞',
+    NewExpression: '🆕',
+    MemberExpression: '🔗',
+    Identifier: '🏷️',
+    Literal: '✨',
+    StringLiteral: '💬',
+    NumericLiteral: '🔢',
+    ObjectExpression: '{}',
+    ObjectPattern: '{}',
+    ArrayExpression: '[]',
+    ArrayPattern: '[]',
+    IfStatement: '❓',
+    ConditionalExpression: '❓',
+    ForStatement: '🔄',
+    ForOfStatement: '🔄',
+    ForInStatement: '🔄',
+    WhileStatement: '🔁',
+    DoWhileStatement: '🔁',
+    SwitchStatement: '🔀',
+    TryStatement: '🛡️',
+    CatchClause: '🎣',
+    ThrowStatement: '💥',
+    ReturnStatement: '↩️',
+    AwaitExpression: '⏳',
+    YieldExpression: '🌾',
+    SpreadElement: '...',
+    TemplateLiteral: '📝',
+    BlockStatement: '📦',
+    Property: '🔑',
+    AssignmentExpression: '=',
+    BinaryExpression: '➕',
+    LogicalExpression: '🧮',
+    UnaryExpression: '!',
+    UpdateExpression: '++',
+    SequenceExpression: ',',
+    ExpressionStatement: '💭',
+  };
+  
+  // Color mapping for node types (more vibrant)
   const nodeColors = {
     Program: 0x88ccff,
-    FunctionDeclaration: 0xb06bff,
-    FunctionExpression: 0xb06bff,
-    ArrowFunctionExpression: 0xa060e0,
-    ClassDeclaration: 0xff69b4,
-    ClassExpression: 0xff69b4,
-    MethodDefinition: 0xe050a0,
+    FunctionDeclaration: 0xff6b9f,
+    FunctionExpression: 0xff6b9f,
+    ArrowFunctionExpression: 0xff8faf,
+    AsyncFunctionDeclaration: 0xffaf6b,
+    ClassDeclaration: 0xb06bff,
+    ClassExpression: 0xb06bff,
+    MethodDefinition: 0xd080ff,
     VariableDeclaration: 0x6bff9f,
     VariableDeclarator: 0x50d080,
     ImportDeclaration: 0xffeb6b,
+    ImportSpecifier: 0xffd040,
     ExportNamedDeclaration: 0xffc040,
     ExportDefaultDeclaration: 0xffa030,
-    CallExpression: 0x6b9fff,
-    MemberExpression: 0x5080d0,
-    Identifier: 0x888888,
-    Literal: 0x666666,
+    CallExpression: 0x6bb4ff,
+    NewExpression: 0x80c0ff,
+    MemberExpression: 0x5090d0,
+    Identifier: 0x9999aa,
+    Literal: 0x77aa77,
+    StringLiteral: 0x88cc88,
+    NumericLiteral: 0x88aacc,
     ObjectExpression: 0x6bffff,
     ArrayExpression: 0x50d0d0,
     IfStatement: 0xff9f6b,
+    ConditionalExpression: 0xffaf80,
     ForStatement: 0xe08050,
+    ForOfStatement: 0xe09060,
     WhileStatement: 0xd07040,
+    SwitchStatement: 0xc06030,
+    TryStatement: 0x60c0a0,
+    CatchClause: 0x50b090,
     ReturnStatement: 0x80ff80,
-    BlockStatement: 0x555555,
-    ExpressionStatement: 0x444444,
+    AwaitExpression: 0xffd080,
+    BlockStatement: 0x555566,
+    ExpressionStatement: 0x444455,
+    Property: 0x8899aa,
   };
   
-  // Position offset for AST trees (to the right of process tree)
-  const AST_OFFSET_X = 300;
-  const AST_OFFSET_Z = 0;
+  // Get display name for a node (actual code identifier, not generic type)
+  function getNodeDisplayName(node) {
+    // Priority: actual identifier names
+    if (node.name && node.name !== node.type) return node.name;
+    
+    // For different node types, try to extract meaningful names
+    switch (node.type) {
+      case 'FunctionDeclaration':
+      case 'FunctionExpression':
+      case 'ArrowFunctionExpression':
+        return node.name || 'λ';
+      case 'ClassDeclaration':
+      case 'ClassExpression':
+        return node.name || 'Class';
+      case 'MethodDefinition':
+        return node.name || 'method';
+      case 'VariableDeclaration':
+        return node.kind || 'var'; // const, let, var
+      case 'VariableDeclarator':
+        return node.name || 'binding';
+      case 'ImportDeclaration':
+        return node.source || 'import';
+      case 'ExportNamedDeclaration':
+      case 'ExportDefaultDeclaration':
+        return node.name || 'export';
+      case 'CallExpression':
+        return node.callee || 'call()';
+      case 'MemberExpression':
+        return node.property || 'member';
+      case 'Identifier':
+        return node.name || 'id';
+      case 'Literal':
+        const val = String(node.value || '');
+        return val.length > 12 ? val.slice(0, 10) + '…' : val;
+      case 'Property':
+        return node.name || 'prop';
+      case 'Program':
+        return '📄 ' + (node.fileName || 'source');
+      default:
+        return node.name || node.type.replace(/Declaration|Expression|Statement/g, '');
+    }
+  }
+  
+  function getNodeIcon(type) {
+    return nodeIcons[type] || '●';
+  }
   
   function getNodeColor(type) {
-    return nodeColors[type] || 0x666666;
+    return nodeColors[type] || 0x666688;
   }
   
   function getNodeSize(node) {
-    // Size based on code span and importance
-    const span = node.end - node.start;
-    const baseSize = Math.max(3, Math.min(10, 2 + Math.log(span + 1) * 0.8));
+    const span = (node.end || 0) - (node.start || 0);
+    const baseSize = Math.max(4, Math.min(14, 3 + Math.log(span + 1) * 0.9));
     
-    // Boost important node types
-    const important = ['FunctionDeclaration', 'ClassDeclaration', 'MethodDefinition', 'Program'];
-    if (important.includes(node.type)) return baseSize * 1.3;
+    // Boost root and important nodes
+    const important = ['Program', 'FunctionDeclaration', 'ClassDeclaration', 'MethodDefinition', 'ExportDefaultDeclaration'];
+    if (important.includes(node.type)) return baseSize * 1.4;
     return baseSize;
   }
   
-  function createASTNodeMesh(node) {
+  function createSourceNodeMesh(node, fileInfo) {
     const size = getNodeSize(node);
     const color = getNodeColor(node.type);
     
-    const geo = new THREE.SphereGeometry(size, 10, 10);
+    // Support legacy string arg or object
+    const fileName = (typeof fileInfo === 'string') ? fileInfo : fileInfo.fileName;
+    const filePath = (typeof fileInfo === 'object') ? fileInfo.filePath : undefined;
+    const fileId = (typeof fileInfo === 'object') ? (fileInfo.id || fileName) : fileName;
+
+    // Use icosahedron for functions/classes, sphere for others
+    const isImportant = ['FunctionDeclaration', 'ClassDeclaration', 'MethodDefinition', 'Program'].includes(node.type);
+    const geo = isImportant 
+      ? new THREE.IcosahedronGeometry(size, 1)
+      : new THREE.SphereGeometry(size, 12, 12);
+    
     const mat = new THREE.MeshBasicMaterial({
       color: color,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.85,
     });
     
     const mesh = new THREE.Mesh(geo, mat);
     mesh.userData = {
       ...node,
+      fileName,
+      filePath, // Store full path for navigation
+      fileId,   // Store unique ID for management
       size,
       baseColor: color,
+      displayName: getNodeDisplayName(node),
+      icon: getNodeIcon(node.type),
       targetPos: new THREE.Vector3(),
       pulsePhase: Math.random() * Math.PI * 2,
+      isSourceNode: true,
     };
     
     return mesh;
   }
   
-  function createASTConnection() {
-    const geo = new THREE.CylinderGeometry(0.8, 0.8, 1, 6);
+  function createSourceConnection(thickness = 1.2) {
+    const geo = new THREE.CylinderGeometry(thickness, thickness, 1, 8);
     const mat = new THREE.MeshBasicMaterial({
       color: scheme.three.connectionLine,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.6,
     });
     return new THREE.Mesh(geo, mat);
   }
@@ -109,110 +257,150 @@
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
   }
   
-  function layoutASTTree(root, fileIndex = 0) {
+  // Improved tree layout with more spacing
+  function layoutSourceTree(root, fileIndex = 0, totalFiles = 1) {
     if (!root) return;
     
-    const levelHeight = 30;
-    const baseX = AST_OFFSET_X + fileIndex * 200;
-    const baseZ = AST_OFFSET_Z;
+    const levelHeight = 45; // More vertical spacing
+    const baseSpacing = 300;
+    const fileSpread = totalFiles > 1 ? 360 / totalFiles : 0;
+    const fileAngle = (fileIndex / totalFiles) * Math.PI * 2 - Math.PI / 2;
+    const baseX = Math.cos(fileAngle) * baseSpacing;
+    const baseZ = Math.sin(fileAngle) * baseSpacing;
+    
+    function countDescendants(node) {
+      if (!node.children || node.children.length === 0) return 1;
+      return node.children.reduce((sum, child) => sum + countDescendants(child), 0);
+    }
     
     function positionNode(node, depth, angle, radius, parentX, parentZ) {
       const childCount = node.children?.length || 0;
       
       const x = parentX + Math.cos(angle) * radius;
       const z = parentZ + Math.sin(angle) * radius;
-      const y = -depth * levelHeight;
+      const y = -depth * levelHeight + 50; // Start above center
       
       node.targetX = x;
       node.targetY = y;
       node.targetZ = z;
       
       if (childCount > 0) {
-        const arcSpread = Math.min(Math.PI * 1.2, Math.PI * 0.25 * childCount);
+        // Calculate arc spread based on descendants for better spacing
+        const totalDescendants = node.children.reduce((sum, child) => sum + countDescendants(child), 0);
+        const arcSpread = Math.min(Math.PI * 1.5, Math.PI * 0.15 * totalDescendants);
         const startAngle = angle - arcSpread / 2;
-        const childRadius = 20 + childCount * 5;
         
+        let currentAngle = startAngle;
         node.children.forEach((child, i) => {
-          const childAngle = childCount === 1 ? angle : startAngle + (arcSpread / Math.max(1, childCount - 1)) * i;
+          const childDescendants = countDescendants(child);
+          const childArcPortion = (childDescendants / totalDescendants) * arcSpread;
+          const childAngle = currentAngle + childArcPortion / 2;
+          currentAngle += childArcPortion;
+          
+          const childRadius = 30 + Math.sqrt(childDescendants) * 8;
           positionNode(child, depth + 1, childAngle, childRadius, x, z);
         });
       }
     }
     
-    positionNode(root, 0, -Math.PI / 2, 0, baseX, baseZ);
+    positionNode(root, 0, fileAngle, 0, baseX, baseZ);
   }
   
-  function updateASTVisualization(files) {
+  // Helper to get consistent ID
+  const getFileId = (f) => f.id || f.fileName;
+
+  function updateSourceVisualization(files) {
     astFiles = files;
     
-    // Track which files are still present
-    const currentFileNames = new Set(files.map(f => f.fileName));
+    if (!sourcesVisible) return;
     
-    // Remove old file visualizations
-    astMeshes.forEach((fileData, fileName) => {
-      if (!currentFileNames.has(fileName)) {
+    const currentFileIds = new Set(files.map(f => getFileId(f)));
+    
+    // Remove old visualizations
+    sourceFiles.forEach((fileData, fileId) => {
+      if (!currentFileIds.has(fileId)) {
         fileData.nodes.forEach(mesh => {
           scene.remove(mesh);
-          mesh.geometry.dispose();
-          mesh.material.dispose();
+          mesh.geometry?.dispose();
+          mesh.material?.dispose();
         });
-        astMeshes.delete(fileName);
+        sourceFiles.delete(fileId);
       }
     });
     
-    // Remove old connections for removed files
-    astConnections.forEach((conn, key) => {
-      const fileName = key.split('-')[0];
-      if (!currentFileNames.has(fileName)) {
+    // Remove old connections
+    sourceConnections.forEach((conn, key) => {
+      // Compatibility: check fileId if available, else fallback to fileName check?
+      // Actually we should store fileId in conn
+      const idToCheck = conn.fileId || conn.fileName;
+      if (!currentFileIds.has(idToCheck)) {
         scene.remove(conn.line);
-        conn.line.geometry.dispose();
-        conn.line.material.dispose();
-        astConnections.delete(key);
+        conn.line.geometry?.dispose();
+        conn.line.material?.dispose();
+        sourceConnections.delete(key);
       }
     });
     
-    // Update/create visualizations for each file
-    files.forEach((file, fileIndex) => {
+    // Create/update visualizations
+    const totalFiles = files.filter(f => f.ast).length;
+    let fileIndex = 0;
+    
+    files.forEach((file) => {
       if (!file.ast) return;
       
-      layoutASTTree(file.ast, fileIndex);
+      const fileId = getFileId(file);
+
+      // Add fileName to root node
+      file.ast.fileName = file.fileName;
       
-      // Get or create file data
-      let fileData = astMeshes.get(file.fileName);
+      layoutSourceTree(file.ast, fileIndex, totalFiles);
+      fileIndex++;
+      
+      let fileData = sourceFiles.get(fileId);
       if (!fileData) {
         fileData = { nodes: new Map() };
-        astMeshes.set(file.fileName, fileData);
+        sourceFiles.set(fileId, fileData);
       }
       
       const currentNodeIds = new Set();
       
-      // Process all nodes recursively
       function processNode(node, parentId) {
         if (!node) return;
         
         currentNodeIds.add(node.id);
         
-        // Create or update mesh
         let mesh = fileData.nodes.get(node.id);
         if (!mesh) {
-          mesh = createASTNodeMesh(node);
+          mesh = createSourceNodeMesh(node, file); // Pass full file object
           mesh.position.set(node.targetX || 0, node.targetY || 0, node.targetZ || 0);
           scene.add(mesh);
           fileData.nodes.set(node.id, mesh);
         }
         
-        // Update target position
+        // Update mesh data
         mesh.userData.targetPos.set(node.targetX || 0, node.targetY || 0, node.targetZ || 0);
-        mesh.userData.name = node.name;
-        mesh.userData.type = node.type;
+        mesh.userData.displayName = getNodeDisplayName(node);
+        mesh.userData.loc = node.loc;
+        mesh.visible = sourcesVisible;
         
         // Create connection to parent
         if (parentId) {
-          const connKey = `${node.id}->${parentId}`;
-          if (!astConnections.has(connKey)) {
-            const line = createASTConnection();
+          const connKey = `${fileId}:${node.id}->${parentId}`;
+          if (!sourceConnections.has(connKey)) {
+            const thickness = node.depth < 3 ? 2 : 1.2;
+            const line = createSourceConnection(thickness);
+            line.visible = sourcesVisible;
             scene.add(line);
-            astConnections.set(connKey, { line, childId: node.id, parentId, fileName: file.fileName });
+            sourceConnections.set(connKey, { 
+              line, 
+              childId: node.id, 
+              parentId, 
+              fileId: fileId,   // Store ID
+              fileName: file.fileName,
+              depth: node.depth 
+            });
+          } else {
+            sourceConnections.get(connKey).line.visible = sourcesVisible;
           }
         }
         
@@ -224,54 +412,256 @@
       
       processNode(file.ast, null);
       
-      // Remove nodes that no longer exist
+      // Remove deleted nodes
       fileData.nodes.forEach((mesh, nodeId) => {
         if (!currentNodeIds.has(nodeId)) {
           scene.remove(mesh);
-          mesh.geometry.dispose();
-          mesh.material.dispose();
+          mesh.geometry?.dispose();
+          mesh.material?.dispose();
           fileData.nodes.delete(nodeId);
         }
       });
     });
     
-    // Clean up orphaned connections
-    astConnections.forEach((conn, key) => {
-      const [childPart] = key.split('->');
-      const fileName = childPart.split('-')[0];
-      const fileData = astMeshes.get(fileName);
+    // Clean orphaned connections
+    sourceConnections.forEach((conn, key) => {
+      // Use fileId to lookup
+      const idToCheck = conn.fileId || conn.fileName;
+      const fileData = sourceFiles.get(idToCheck);
       
-      if (!fileData || !fileData.nodes.has(conn.childId) || !fileData.nodes.has(conn.parentId)) {
+      if (!fileData || !fileData.nodes.has(conn.childId)) {
         scene.remove(conn.line);
-        conn.line.geometry.dispose();
-        conn.line.material.dispose();
-        astConnections.delete(key);
+        conn.line.geometry?.dispose();
+        conn.line.material?.dispose();
+        sourceConnections.delete(key);
       }
     });
-    
-    // Update AST labels
-    updateASTLabels();
   }
   
-  function updateASTLabels() {
-    let container = document.getElementById('ast-labels');
+  // Tab switching
+  function setTab(tab) {
+    if (tab !== 'processes' && tab !== 'sources') return;
+    currentTab = tab;
+    
+    // Toggle visibility
+    sourcesVisible = (tab === 'sources');
+    
+    // Hide/show process meshes
+    window.ProcessTreeViz.meshes?.forEach(mesh => {
+      mesh.visible = !sourcesVisible;
+    });
+    window.ProcessTreeViz.connections?.forEach(conn => {
+      if (conn.line) conn.line.visible = !sourcesVisible;
+    });
+    window.ProcessTreeViz.graveyard?.forEach(grave => {
+      if (grave.mesh) grave.mesh.visible = !sourcesVisible;
+    });
+    
+    // Hide/show source meshes
+    sourceFiles.forEach(fileData => {
+      fileData.nodes.forEach(mesh => {
+        mesh.visible = sourcesVisible;
+      });
+    });
+    sourceConnections.forEach(conn => {
+      conn.line.visible = sourcesVisible;
+    });
+    
+    // Link Update Labels
+    const processLabels = document.getElementById('labels');
+    const sourceLabels = document.getElementById('source-labels');
+    const hudCenter = document.querySelector('.hud.center');
+    
+    if (processLabels) processLabels.style.display = sourcesVisible ? 'none' : 'block';
+    if (sourceLabels) sourceLabels.style.display = sourcesVisible ? 'block' : 'none';
+    if (hudCenter) hudCenter.style.display = sourcesVisible ? 'none' : 'flex';
+    
+    // Reset camera for sources view
+    if (sourcesVisible) {
+      // Re-run visualization with current files
+      updateSourceVisualization(astFiles);
+    }
+    
+    updateTabUI();
+  }
+  
+  // Tour Mode for Sources
+  let tourMode = false;
+  let tourList = [];
+  let tourIndex = 0;
+  let tourAutoPlay = false;
+  let tourInterval = null;
+
+  function buildTourList() {
+    const list = [];
+    sourceFiles.forEach(fileData => {
+      // Add file root
+      // list.push(fileData.nodes.get(fileData.rootId)); 
+      
+      // Add interesting nodes
+      fileData.nodes.forEach(mesh => {
+        const d = mesh.userData;
+        const important = ['Program', 'FunctionDeclaration', 'ClassDeclaration', 'MethodDefinition', 'ExportDefaultDeclaration'];
+        if (important.includes(d.type)) {
+          list.push(mesh);
+        }
+      });
+    });
+    
+    // Sort by position roughly to make a logical path? 
+    // Or just keep them in file/traversal order which map iteration should mostly preserve
+    return list;
+  }
+
+  function startSourceTour() {
+    tourMode = true;
+    tourList = buildTourList();
+    tourIndex = 0;
+    
+    if (tourList.length > 0) {
+      focusOnNode(tourList[0]);
+    }
+    
+    // Notify ProcessTree to update UI button state if needed
+    if (window.ProcessTreeViz) {
+      const btn = document.getElementById('tour-btn');
+      if (btn) btn.textContent = '⏹ Stop Tour';
+    }
+  }
+
+  function stopSourceTour() {
+    tourMode = false;
+    tourAutoPlay = false;
+    if (tourInterval) {
+      clearInterval(tourInterval);
+      tourInterval = null;
+    }
+    focusedSourceNode = null;
+    
+    if (window.ProcessTreeViz) {
+      const btn = document.getElementById('tour-btn');
+      if (btn) btn.textContent = '🎬 Tour';
+      window.ProcessTreeViz.controls.autoRotate = false;
+    }
+  }
+
+  function tourNext() {
+    if (!tourMode || tourList.length === 0) return;
+    tourIndex = (tourIndex + 1) % tourList.length;
+    focusOnNode(tourList[tourIndex]);
+  }
+
+  function tourPrev() {
+    if (!tourMode || tourList.length === 0) return;
+    tourIndex = (tourIndex - 1 + tourList.length) % tourList.length;
+    focusOnNode(tourList[tourIndex]);
+  }
+
+  function focusOnNode(mesh) {
+    if (!mesh) return;
+    focusedSourceNode = mesh.userData.id;
+    
+    const controls = window.ProcessTreeViz.controls;
+    const camera = window.ProcessTreeViz.camera;
+    
+    if (controls) {
+      controls.target.copy(mesh.position);
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 2.0; // Slow rotation
+      
+      // Zoom in appropriately
+      const dist = 100 + (mesh.userData.size || 10) * 5;
+      const currentDist = camera.position.distanceTo(controls.target);
+      
+      // Smoothly move camera distance in animate loop? 
+      // For now, let's just set a target for the animate loop to handle if we add that support
+      // Or just jump
+      /* 
+      const direction = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+      camera.position.copy(controls.target).add(direction.multiplyScalar(dist));
+      */
+    }
+    updateSourceLabels();
+  }
+
+  function toggleTourAutoPlay() {
+    tourAutoPlay = !tourAutoPlay;
+    if (tourAutoPlay) {
+      tourInterval = setInterval(tourNext, 3000); // 3 seconds per node
+    } else {
+      if (tourInterval) {
+        clearInterval(tourInterval);
+        tourInterval = null;
+      }
+    }
+  }
+
+  function updateTabUI() {
+    let tabBar = document.getElementById('view-tabs');
+    if (!tabBar) {
+      tabBar = document.createElement('div');
+      tabBar.id = 'view-tabs';
+      document.body.appendChild(tabBar);
+    }
+    
+    tabBar.style.cssText = `
+      position: fixed; top: 50px; left: 16px; z-index: 200;
+      display: flex; gap: 4px; font-family: monospace; font-size: 12px;
+    `;
+    
+    const processActive = currentTab === 'processes';
+    const sourceActive = currentTab === 'sources';
+    const fileCount = astFiles.filter(f => f.ast).length;
+    
+    tabBar.innerHTML = `
+      <button id="tab-processes" style="
+        padding: 8px 16px; border-radius: 6px 6px 0 0;
+        background: ${processActive ? scheme.accent : 'transparent'};
+        color: ${processActive ? '#fff' : scheme.foregroundMuted};
+        border: 1px solid ${scheme.foregroundMuted}40;
+        border-bottom: ${processActive ? 'none' : '1px solid ' + scheme.foregroundMuted + '40'};
+        cursor: pointer; font-family: monospace;
+      ">🔄 Processes</button>
+      <button id="tab-sources" style="
+        padding: 8px 16px; border-radius: 6px 6px 0 0;
+        background: ${sourceActive ? scheme.accent : 'transparent'};
+        color: ${sourceActive ? '#fff' : scheme.foregroundMuted};
+        border: 1px solid ${scheme.foregroundMuted}40;
+        border-bottom: ${sourceActive ? 'none' : '1px solid ' + scheme.foregroundMuted + '40'};
+        cursor: pointer; font-family: monospace;
+      ">📜 Sources ${fileCount > 0 ? '(' + fileCount + ')' : ''}</button>
+    `;
+    
+    document.getElementById('tab-processes').onclick = () => setTab('processes');
+    document.getElementById('tab-sources').onclick = () => setTab('sources');
+  }
+  
+  // Source labels with rich info
+  function updateSourceLabels() {
+    if (!sourcesVisible) return;
+    
+    let container = document.getElementById('source-labels');
     if (!container) {
       container = document.createElement('div');
-      container.id = 'ast-labels';
+      container.id = 'source-labels';
       container.className = 'label-container';
       document.body.appendChild(container);
     }
     container.innerHTML = '';
+    container.style.display = sourcesVisible ? 'block' : 'none';
     
     const width = window.innerWidth;
     const height = window.innerHeight;
+    const camera = window.ProcessTreeViz.camera;
     
-    astMeshes.forEach((fileData, fileName) => {
-      fileData.nodes.forEach((mesh, nodeId) => {
+    sourceFiles.forEach((fileData, fileName) => {
+      fileData.nodes.forEach((mesh) => {
+        if (!mesh.visible) return;
+        
         const pos = new THREE.Vector3();
         mesh.getWorldPosition(pos);
         const labelPos = pos.clone();
-        labelPos.y += (mesh.userData.size || 5) + 3;
+        labelPos.y += (mesh.userData.size || 6) + 4;
         labelPos.project(camera);
         
         const x = (labelPos.x * 0.5 + 0.5) * width;
@@ -280,77 +670,260 @@
         if (labelPos.z < 1 && x > -50 && x < width + 50 && y > -50 && y < height + 50) {
           const d = mesh.userData;
           const distToCamera = camera.position.distanceTo(pos);
-          const proximityScale = Math.max(0.4, Math.min(2, 120 / distToCamera));
-          const opacity = Math.max(0.5, Math.min(1, 250 / distToCamera));
           
-          // Only show labels for important nodes or when zoomed in
-          const important = ['FunctionDeclaration', 'ClassDeclaration', 'MethodDefinition', 'VariableDeclaration', 'ImportDeclaration', 'ExportNamedDeclaration'];
-          if (distToCamera > 150 && !important.includes(d.type)) return;
+          // Show more labels when zoomed in
+          // Relaxed thresholds for visibility
+          const important = ['Program', 'FunctionDeclaration', 'ClassDeclaration', 'MethodDefinition', 
+                           'VariableDeclaration', 'ImportDeclaration', 'ExportDefaultDeclaration', 'ExportNamedDeclaration'];
+          const isImportant = important.includes(d.type);
           
+          if (!isImportant && distToCamera > 800) return;
+          if (distToCamera > 1200) return;
+          
+          const proximityScale = Math.max(0.5, Math.min(2.5, 300 / distToCamera));
+          const opacity = Math.max(0.6, Math.min(1, 400 / distToCamera));
           const color = '#' + (d.baseColor || 0x666666).toString(16).padStart(6, '0');
+          const isFocused = focusedSourceNode === d.id;
+          const isHovered = hoveredNode === d.id;
           
           const label = document.createElement('div');
-          label.className = 'proc-label ast-label';
-          label.style.left = x + 'px';
-          label.style.top = y + 'px';
-          label.style.opacity = opacity;
-          label.style.transform = 'translate(-50%, -100%) scale(' + proximityScale + ')';
-          label.innerHTML = 
-            '<div class="name" style="color:' + color + ';font-size:9px;">' + (d.name || d.type) + '</div>' +
-            '<div class="info" style="color:' + scheme.foregroundMuted + ';font-size:7px;">' + d.type + '</div>';
+          label.className = 'proc-label source-label' + (isFocused ? ' focused' : '') + (isHovered ? ' hovered' : '');
+          label.style.cssText = `
+            left: ${x}px; top: ${y}px;
+            opacity: ${isFocused || isHovered ? 1 : opacity};
+            transform: translate(-50%, -100%) scale(${isFocused || isHovered ? proximityScale * 1.3 : proximityScale});
+            cursor: pointer;
+            pointer-events: auto;
+            ${isFocused ? 'z-index: 100;' : ''}
+            text-align: center;
+          `;
+          
+          label.innerHTML = `
+            <div style="
+              font-size: 8px; font-weight: bold; color: ${color};
+              text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+              white-space: nowrap;
+              background: rgba(0,0,0,0.4);
+              padding: 2px 4px;
+              border-radius: 4px;
+              display: inline-flex; overflow: visible; align-items: center; gap: 4px;
+            ">
+              <span style="font-size: 10px;">${d.icon}</span>${d.displayName}
+            </div>
+            ${isHovered || isFocused ? `<div style="font-size: 7px; color: #888; margin-top: 1px;">${d.type}</div>` : ''}
+          `;
+          
+          // Click to focus/navigate
+          
+          // Click to focus/navigate
+          label.onclick = (e) => {
+            e.stopPropagation();
+            handleNodeClick(mesh);
+          };
+          
           container.appendChild(label);
         }
       });
     });
   }
   
-  // Animation hook - call from main animation loop
+  // Click handling for source nodes
+  function handleNodeClick(mesh) {
+    const d = mesh.userData;
+    
+    if (focusedSourceNode === d.id) {
+      // Double-click to navigate to source
+      // Prefer filePath if available, fallback to fileName (legacy/simple)
+      const targetFile = d.filePath || d.fileName;
+      
+      if (d.loc && targetFile) {
+        // Send message to VS Code to open file at line
+        const vscode = window.vscodeApi || (typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null);
+        if (vscode) {
+          vscode.postMessage({
+            command: 'navigateToSource',
+            filePath: d.filePath, // Explicitly send both
+            fileName: d.fileName,
+            line: d.loc.start.line,
+            column: d.loc.start.column
+          });
+        }
+        console.log(`📍 Navigate to ${targetFile}:${d.loc.start.line}`);
+      }
+      focusedSourceNode = null;
+    } else {
+      // Single click to focus
+      focusedSourceNode = d.id;
+      
+      // Move camera to focus on node
+      const controls = window.ProcessTreeViz.controls;
+      if (controls) {
+        controls.target.copy(mesh.position);
+      }
+    }
+    
+    updateSourceLabels();
+  }
+  
+  // Click detection on 3D scene
+  function onCanvasClick(event) {
+    if (!sourcesVisible) return;
+    
+    const canvas = renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    raycaster.setFromCamera(mouse, camera);
+    
+    // Get all source meshes
+    const meshArray = [];
+    sourceFiles.forEach(fileData => {
+      fileData.nodes.forEach(mesh => {
+        if (mesh.visible) meshArray.push(mesh);
+      });
+    });
+    
+    const intersects = raycaster.intersectObjects(meshArray);
+    
+    if (intersects.length > 0) {
+      handleNodeClick(intersects[0].object);
+    } else {
+      focusedSourceNode = null;
+      updateSourceLabels();
+    }
+  }
+  
+  // Hover detection
+  function onCanvasMove(event) {
+    if (!sourcesVisible) return;
+    
+    const canvas = renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    raycaster.setFromCamera(mouse, camera);
+    
+    const meshArray = [];
+    sourceFiles.forEach(fileData => {
+      fileData.nodes.forEach(mesh => {
+        if (mesh.visible) meshArray.push(mesh);
+      });
+    });
+    
+    const intersects = raycaster.intersectObjects(meshArray);
+    const newHovered = intersects.length > 0 ? intersects[0].object.userData.id : null;
+    
+    if (newHovered !== hoveredNode) {
+      hoveredNode = newHovered;
+      canvas.style.cursor = hoveredNode ? 'pointer' : 'default';
+    }
+  }
+  
+  // Animation hook
   let time = 0;
   function animateAST() {
+    if (!sourcesVisible) return;
+    
     time += 0.016;
     
-    // Animate AST nodes
-    astMeshes.forEach((fileData) => {
+    // Animate source nodes
+    sourceFiles.forEach((fileData) => {
       fileData.nodes.forEach((mesh) => {
+        if (!mesh.visible) return;
         const d = mesh.userData;
         if (!d.targetPos) return;
         
-        // Smooth movement to target
-        mesh.position.x += (d.targetPos.x - mesh.position.x) * 0.08;
-        mesh.position.y += (d.targetPos.y - mesh.position.y) * 0.08;
-        mesh.position.z += (d.targetPos.z - mesh.position.z) * 0.08;
+        // Smooth movement
+        mesh.position.x += (d.targetPos.x - mesh.position.x) * 0.06;
+        mesh.position.y += (d.targetPos.y - mesh.position.y) * 0.06;
+        mesh.position.z += (d.targetPos.z - mesh.position.z) * 0.06;
         
-        // Gentle pulse
-        const pulse = 1 + Math.sin(time * 0.8 + d.pulsePhase) * 0.1;
-        mesh.scale.setScalar((d.size / 6) * pulse);
+        // Pulse effect
+        const isFocused = focusedSourceNode === d.id;
+        const isHovered = hoveredNode === d.id;
+        const pulseAmp = isFocused ? 0.25 : (isHovered ? 0.15 : 0.08);
+        const pulse = 1 + Math.sin(time * (isFocused ? 2 : 0.8) + d.pulsePhase) * pulseAmp;
+        const sizeMult = isFocused ? 1.5 : (isHovered ? 1.2 : 1);
+        mesh.scale.setScalar((d.size / 6) * pulse * sizeMult);
+        
+        // Opacity
+        mesh.material.opacity = isFocused ? 1 : (isHovered ? 0.95 : 0.85);
       });
     });
     
     // Update connections
-    astConnections.forEach(conn => {
-      const fileName = conn.fileName;
-      const fileData = astMeshes.get(fileName);
+    sourceConnections.forEach(conn => {
+      if (!conn.line.visible) return;
+      
+      const fileData = sourceFiles.get(conn.fileName);
       if (!fileData) return;
       
       const childMesh = fileData.nodes.get(conn.childId);
       const parentMesh = fileData.nodes.get(conn.parentId);
       if (childMesh && parentMesh) {
         updateConnectionMesh(conn, childMesh.position, parentMesh.position);
+        
+        // Highlight connections to focused node
+        const isFocusPath = focusedSourceNode && 
+          (conn.childId === focusedSourceNode || conn.parentId === focusedSourceNode);
+        conn.line.material.opacity = isFocusPath ? 0.9 : 0.5;
+        conn.line.material.color.setHex(isFocusPath ? scheme.three.connectionActive : scheme.three.connectionLine);
       }
     });
     
-    // Update labels
-    updateASTLabels();
+    updateSourceLabels();
   }
+  
+  // Initialize
+  renderer.domElement.addEventListener('click', onCanvasClick);
+  renderer.domElement.addEventListener('mousemove', onCanvasMove);
+  
+  // Create initial tab UI
+  updateTabUI();
+  
+  // Keyboard shortcut: Tab to switch views
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      setTab(currentTab === 'processes' ? 'sources' : 'processes');
+    }
+    // Escape to unfocus
+    if (e.key === 'Escape' && sourcesVisible) {
+      focusedSourceNode = null;
+      updateSourceLabels();
+    }
+  });
   
   // Expose API
   window.ASTTreeViz = {
-    updateASTVisualization,
+    updateASTVisualization: updateSourceVisualization,
     animateAST,
-    astMeshes,
-    astConnections,
-    getNodeColor,
+    setTab,
+    getTab: () => currentTab,
+    sourceFiles,
+    sourceConnections,
+    focusNode: (id) => { focusedSourceNode = id; },
+    // Tour API
+    startTour: startSourceTour,
+    stopTour: stopSourceTour,
+    tourNext,
+    tourPrev,
+    toggleTourAutoPlay,
+    isTourMode: () => tourMode,
   };
   
-  console.log('🌳 AST Tree Visualization loaded');
+  console.log('📜 Source Tree Visualization loaded - Press Tab to switch views');
+  
+  // Request initial data after a short delay to ensure VSCode API is ready
+  setTimeout(() => {
+    const vscode = window.vscodeApi || (typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null);
+    if (vscode) {
+      console.log('📡 Requesting initial AST data...');
+      vscode.postMessage({ command: 'requestAST' });
+    }
+  }, 200);
+
+  } // End initASTVisualization
 })();
