@@ -302,3 +302,4 @@ scratch/
 
 # User reports (contains emails)
 reports/
+.electron-bridge/
