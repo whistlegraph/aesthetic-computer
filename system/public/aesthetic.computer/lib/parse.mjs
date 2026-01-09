@@ -529,9 +529,16 @@ function metadata(host, slug, pieceMetadata, protocol = "https:", objktContext =
   // Extract just the piece name (before ~) for icon URL
   const pieceName = slug.split('~')[0];
   icon = pieceMetadata?.icon_url || `https://oven.aesthetic.computer/icon/128x128/${pieceName}.png`;
+  
+  // Animated WebP icon for browsers that support it (Chrome, Firefox)
+  // Pieces can opt-in via meta() { return { animatedIcon: true } }
+  const animatedIcon = pieceMetadata?.animatedIcon;
+  const iconWebp = animatedIcon 
+    ? `https://oven.aesthetic.computer/icon/128x128/${pieceName}.webp`
+    : null;
 
   const manifest = `https://${host}/manifest.json`;
-  return { title, desc, ogImage, twitterImage, icon, manifest };
+  return { title, desc, ogImage, twitterImage, icon, iconWebp, manifest };
 }
 
 // Modify source code imports etc / pre-process.

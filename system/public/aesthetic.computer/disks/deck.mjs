@@ -203,6 +203,7 @@ function meta() {
   return {
     title: "Deck",
     desc: "A demo slide deck that explains aesthetic.computer.",
+    animatedIcon: true, // Enable animated WebP favicon
   };
 }
 
