@@ -7,6 +7,7 @@
 
 // Import necessary modules from vscode
 import * as vscode from "vscode";
+import { Buffer } from "buffer";
 
 // Import the generated process tree JS and AST tree JS (built from views/)
 import { PROCESS_TREE_JS, AST_TREE_JS } from "./generated-views";
@@ -1251,6 +1252,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       panel.webview.html = getKidLispWebViewContent(panel.webview);
       kidlispWindow = panel;
 
+      // Push current session into the KidLisp iframe
+      sendKidLispSession(panel.webview);
+
       // Handle messages from the KidLisp webview
       panel.webview.onDidReceiveMessage(
         async (message) => {
@@ -1261,6 +1265,37 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             case "vscode-extension:reload":
               vscode.commands.executeCommand("workbench.action.reloadWindow");
               break;
+            case "kidlisp:ready": {
+              sendKidLispSession(panel.webview);
+              break;
+            }
+            case "kidlisp:login": {
+              const session = await vscode.authentication.getSession(
+                "aesthetic",
+                ["profile"],
+                { createIfNone: true },
+              );
+              if (session) {
+                extContext.globalState.update("aesthetic:session", session);
+                updateUserStatusBar();
+                await sendKidLispSession(panel.webview);
+              }
+              break;
+            }
+            case "kidlisp:logout": {
+              const session = await vscode.authentication.getSession(
+                "aesthetic",
+                ["profile"],
+                { silent: true },
+              );
+              if (session) {
+                await ap.removeSession(session.id);
+                extContext.globalState.update("aesthetic:session", undefined);
+              }
+              updateUserStatusBar();
+              await sendKidLispSession(panel.webview);
+              break;
+            }
           }
         },
         undefined,
@@ -1377,6 +1412,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         await getSession(e.provider.id);
         provider.refreshWebview();
         refreshWebWindow();
+        refreshKidLispWindow();
+        sendKidLispSession();
         updateUserStatusBar();
       }
     }),
@@ -1858,6 +1895,24 @@ function refreshKidLispWindow() {
   }
 }
 
+async function sendKidLispSession(target?: vscode.Webview) {
+  const webview = target || kidlispWindow?.webview;
+  if (!webview) return;
+
+  let session: vscode.AuthenticationSession | null = null;
+  try {
+    session = await vscode.authentication.getSession(
+      "aesthetic",
+      ["profile"],
+      { silent: true },
+    );
+  } catch (e) {
+    console.log("🔴 Unable to fetch KidLisp session:", e);
+  }
+
+  webview.postMessage({ type: "setSession", tenant: "aesthetic", session });
+}
+
 function getWebViewContent(webview: any, slug: string) {
   const scriptUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extContext.extensionUri, "embedded.js"),
@@ -2085,6 +2140,27 @@ function getKidLispWebViewContent(webview: any) {
     cspChildSrc += ` ${codespaceWildcard}`;
   }
 
+  // Encode current session for kidlisp.com so it can hydrate without another login
+  const sessionAesthetic = extContext.globalState.get(
+    "aesthetic:session",
+    undefined,
+  );
+
+  let param = "?vscode=true";
+  if (sessionAesthetic && typeof sessionAesthetic === "object") {
+    try {
+      const encoded = Buffer.from(JSON.stringify(sessionAesthetic)).toString(
+        "base64",
+      );
+      param += `&session-aesthetic=${encodeURIComponent(encoded)}`;
+    } catch (e) {
+      console.log("🔴 Failed to encode session for KidLisp webview:", e);
+      param += "&session-aesthetic=null";
+    }
+  } else {
+    param += "&session-aesthetic=null";
+  }
+
   return `<!DOCTYPE html>
     <html lang="en">
     <head>
@@ -2096,16 +2172,28 @@ function getKidLispWebViewContent(webview: any) {
       <link href="${vscodeStyleUri}" rel="stylesheet">
       <title>KidLisp.com</title>
       <style>
-        body {
+        <iframe id="kidlisp" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/kidlisp.com${param}" border="none"></iframe>
           margin: 0;
           padding: 0;
+          const kidlispIframe = document.getElementById('kidlisp');
+
+          // Forward messages from extension to the iframe (sessions, etc.)
+          window.addEventListener('message', (event) => {
+            if (event.data?.type === 'setSession') {
+              kidlispIframe?.contentWindow?.postMessage(event.data, '*');
+            }
+          });
           overflow: hidden;
         }
         iframe#kidlisp {
-          border: none;
+            if (event.data && event.data.type && (event.data.type.startsWith('vscode-extension:') || event.data.type.startsWith('kidlisp:'))) {
           width: 100vw;
           height: 100vh;
           background: linear-gradient(135deg, #fffacd 0%, #fff9c0 100%);
+
+          kidlispIframe?.addEventListener('load', () => {
+            vscode.postMessage({ type: 'kidlisp:ready' });
+          });
         }
       </style>
     </head>
