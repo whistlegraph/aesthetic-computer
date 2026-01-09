@@ -77,6 +77,7 @@
   <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;pointer-events:none;margin:0;padding:0;"></canvas>
   <script>
     // 📼 File Block Boot Screen - actual source files scroll up as they load
+    // In KidLisp mode (embedded iframe), show simpler colored bars with logs
     window.acBootCanvas = (function() {
       const canvas = document.getElementById('boot-canvas');
       if (!canvas) return {};
@@ -84,9 +85,30 @@
       let W = window.innerWidth, H = window.innerHeight;
       canvas.width = W; canvas.height = H;
       window.addEventListener('resize', () => { W = window.innerWidth; H = window.innerHeight; canvas.width = W; canvas.height = H; });
-      const logoSize = 64;
+      
+      // Detect KidLisp embedded mode (iframe with nolabel/nogap params)
+      const isKidlispMode = window !== window.top && 
+        (window.location.search.includes('nolabel=true') || window.location.search.includes('nogap=true'));
+      
+      // KidLisp pastel colors
+      const KIDLISP_COLORS = [
+        [255, 107, 107], // coral red
+        [78, 205, 196],  // teal
+        [255, 230, 109], // yellow
+        [149, 225, 211], // mint
+        [243, 129, 129], // salmon
+        [170, 150, 218], // lavender
+        [112, 214, 255], // sky blue
+      ];
+      
+      // KidLisp mode state
+      let kidlispLogs = [];
+      let kidlispBars = [];
+      let kidlispFrame = 0;
+      
+      const logoSize = isKidlispMode ? 0 : 64;  // No logo in kidlisp mode
       const logoX = 8, logoY = 8;
-      const textX = logoX + logoSize + 14;
+      const textX = isKidlispMode ? 18 : logoX + logoSize + 14;
       const textStartY = 18;
       const lineHeight = 14;
       const maxLines = 18;
@@ -267,6 +289,8 @@
       // Add a file to display (called by boot.mjs)
       const addFile = (filename, content) => {
         if (!content || typeof content !== 'string') return;
+        // Skip file blocks in kidlisp mode - just use simple bars
+        if (isKidlispMode) return;
         const block = createFileBlock(filename, content);
         fileBlocks.push(block);
         bootProgress = Math.min(1, fileBlocks.length / 6);
@@ -276,6 +300,33 @@
         const now = performance.now();
         const deltaMs = now - lastLogTime;
         lastLogTime = now;
+        
+        // KidLisp mode: add to colored log display
+        if (isKidlispMode) {
+          const color = KIDLISP_COLORS[kidlispLogs.length % KIDLISP_COLORS.length];
+          kidlispLogs.unshift({
+            text: msg,
+            color: color,
+            y: H + 20,
+            alpha: 1,
+            spawnTime: now
+          });
+          // Spawn decorative bar
+          kidlispBars.push({
+            x: Math.random() * W,
+            y: H + 10,
+            width: 30 + Math.random() * 80,
+            height: 3 + Math.random() * 4,
+            color: color,
+            speed: 1 + Math.random() * 2,
+            alpha: 0.4 + Math.random() * 0.3
+          });
+          if (kidlispLogs.length > 12) kidlispLogs.pop();
+          if (kidlispBars.length > 50) kidlispBars.shift();
+          lineCount++;
+          bootProgress = Math.min(1, lineCount / 15);
+          return;
+        }
         
         const speed = Math.min(1, 500 / Math.max(50, deltaMs));
         logBurst = 0.5 + speed * 0.5;
@@ -312,6 +363,82 @@
         const shakeAmount = baseShake + chaos * 0.5;
         const shakeX = (Math.random() - 0.5) * shakeAmount;
         const shakeY = (Math.random() - 0.5) * shakeAmount;
+        
+        // === KIDLISP MODE: Simpler colored bars animation ===
+        if (isKidlispMode) {
+          kidlispFrame++;
+          ctx.clearRect(0, 0, W, H);
+          
+          // Transparent background (let AC boot show through if needed)
+          // But add subtle dark overlay for contrast
+          ctx.fillStyle = 'rgba(30, 28, 26, 0.85)';
+          ctx.fillRect(0, 0, W, H);
+          
+          // Subtle scanlines
+          ctx.globalAlpha = 0.03;
+          ctx.fillStyle = '#000';
+          for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+          ctx.globalAlpha = 1;
+          
+          // Draw decorative bars flowing up
+          for (let i = kidlispBars.length - 1; i >= 0; i--) {
+            const bar = kidlispBars[i];
+            bar.y -= bar.speed;
+            const progress = 1 - (bar.y / H);
+            const fade = Math.max(0, bar.alpha * (1 - progress * 0.5));
+            if (bar.y < -20) { kidlispBars.splice(i, 1); continue; }
+            ctx.globalAlpha = fade;
+            ctx.fillStyle = `rgb(${bar.color[0]}, ${bar.color[1]}, ${bar.color[2]})`;
+            const radius = bar.height / 2;
+            ctx.beginPath();
+            ctx.roundRect(bar.x, bar.y, bar.width, bar.height, radius);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+          
+          // Draw log messages flowing up from bottom
+          const klLineHeight = 18;
+          const startY = H - 30;
+          ctx.font = '11px "SF Mono", "Monaco", "Consolas", monospace';
+          
+          for (let i = 0; i < kidlispLogs.length; i++) {
+            const log = kidlispLogs[i];
+            const targetY = startY - i * klLineHeight;
+            log.y += (targetY - log.y) * 0.15;
+            const age = (performance.now() - log.spawnTime) / 1000;
+            log.alpha = Math.max(0.2, 1 - age * 0.1);
+            
+            // Colored bar behind text
+            const textWidth = ctx.measureText(log.text).width;
+            ctx.fillStyle = `rgba(${log.color[0]}, ${log.color[1]}, ${log.color[2]}, ${log.alpha * 0.15})`;
+            ctx.beginPath();
+            ctx.roundRect(10, log.y - 12, textWidth + 16, 16, 4);
+            ctx.fill();
+            
+            // Text
+            ctx.globalAlpha = log.alpha;
+            ctx.fillStyle = `rgb(${log.color[0]}, ${log.color[1]}, ${log.color[2]})`;
+            ctx.fillText(log.text, 18, log.y);
+          }
+          ctx.globalAlpha = 1;
+          
+          // Spawn ambient bars occasionally
+          if (kidlispFrame % 15 === 0 && kidlispBars.length < 30) {
+            const color = KIDLISP_COLORS[Math.floor(Math.random() * KIDLISP_COLORS.length)];
+            kidlispBars.push({
+              x: Math.random() * W,
+              y: H + 10,
+              width: 20 + Math.random() * 60,
+              height: 2 + Math.random() * 3,
+              color: color,
+              speed: 0.5 + Math.random() * 1,
+              alpha: 0.2 + Math.random() * 0.2
+            });
+          }
+          
+          requestAnimationFrame(animate);
+          return;
+        }
         
         // Scroll current file up, advance to next when done
         if (fileBlocks.length > 0 && currentFileIndex < fileBlocks.length) {

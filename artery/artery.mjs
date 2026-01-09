@@ -430,26 +430,27 @@ class Artery {
     await this.click(100, 100);
     
     // Wait for audio context to actually be running
-    const maxAttempts = 20; // 4 seconds max
+    // Check audioWorkletReady flag set by bios when speaker processor is connected
+    const maxAttempts = 30; // 6 seconds max
     for (let i = 0; i < maxAttempts; i++) {
-      const state = await this.eval('window.sound?.bios?.audioContext?.state || "unknown"');
+      const workletReady = await this.eval('window.audioWorkletReady');
       
-      if (state === 'running') {
-        brightLog('🩸 Audio context is running');
+      if (workletReady) {
+        brightLog('🩸 Audio worklet is ready');
         return;
       }
       
       if (i % 5 === 0 && i > 0) {
-        darkLog(`🩸 Waiting for audio... (state: ${state})`);
+        darkLog(`🩸 Waiting for audio... (workletReady: ${workletReady})`);
       }
       
       await new Promise(r => setTimeout(r, 200));
     }
     
     // Final check
-    const finalState = await this.eval('window.sound?.bios?.audioContext?.state || "unknown"');
-    if (finalState !== 'running') {
-      darkLog(`⚠️  Audio context not running (state: ${finalState})`);
+    const finalReady = await this.eval('window.audioWorkletReady');
+    if (!finalReady) {
+      darkLog(`⚠️  Audio worklet not ready after timeout`);
     }
   }
 

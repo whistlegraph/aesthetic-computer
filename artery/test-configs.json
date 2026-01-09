@@ -18,6 +18,16 @@
       "icon": "⚡",
       "desc": "Quick notepat test (Electron compatible)"
     },
+    "test-notepat-latency.mjs": {
+      "name": "notepat-latency",
+      "icon": "⏱️",
+      "desc": "Measure keyboard→sound latency",
+      "params": {
+        "iterations": { "type": "range", "min": 5, "max": 50, "step": 5, "default": 20 },
+        "quick": { "type": "toggle", "default": false },
+        "cooldown": { "type": "range", "min": 100, "max": 500, "step": 50, "default": 300 }
+      }
+    },
     "test-notepat-stability.mjs": {
       "name": "stability",
       "icon": "🔬",
