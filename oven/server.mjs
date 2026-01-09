@@ -1283,6 +1283,52 @@ app.get('/icon/:size/:piece.png', async (req, res) => {
   }
 });
 
+// Animated WebP Icon endpoint - small animated square favicons
+// GET /icon/{width}x{height}/{piece}.webp
+// Uses 7-day Spaces cache since animated icons are expensive to generate
+app.get('/icon/:size/:piece.webp', async (req, res) => {
+  const { size, piece } = req.params;
+  const [width, height] = size.split('x').map(n => parseInt(n) || 128);
+  // Keep animated icons small for performance (max 128x128)
+  const w = Math.min(width, 128);
+  const h = Math.min(height, 128);
+  
+  // Query params for customization
+  const frames = Math.min(parseInt(req.query.frames) || 30, 60); // Default 30 frames, max 60
+  const fps = Math.min(parseInt(req.query.fps) || 15, 30); // Default 15 fps, max 30
+  
+  try {
+    const cacheKey = `${piece}-${w}x${h}-f${frames}-fps${fps}`;
+    const { cdnUrl, fromCache, buffer } = await getCachedOrGenerate('animated-icons', cacheKey, w, h, async () => {
+      const result = await grabPiece(piece, {
+        format: 'webp',
+        width: w,
+        height: h,
+        density: 1,
+        frames: frames,
+        fps: fps,
+      });
+      if (!result.success) throw new Error(result.error);
+      return result.buffer;
+    }, 'webp');
+    
+    if (fromCache && cdnUrl) {
+      res.setHeader('X-Cache', 'HIT');
+      res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days
+      return res.redirect(302, cdnUrl);
+    }
+    
+    res.setHeader('Content-Type', 'image/webp');
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day for fresh
+    res.setHeader('X-Cache', 'MISS');
+    res.send(buffer);
+  } catch (error) {
+    console.error('Animated icon handler error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Preview endpoint - larger social media images (compatible with grab.aesthetic.computer)
 // GET /preview/{width}x{height}/{piece}.png
 // Uses 24h Spaces cache to avoid regenerating on every request
