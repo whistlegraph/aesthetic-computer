@@ -98,6 +98,20 @@ log_info "Hostname: "(cat /etc/hostname 2>/dev/null; or echo "unknown")
 log_info "User: "(whoami)
 log_info "PWD: "(pwd)
 
+# 🔍 Start Devcontainer Status Server EARLY (so VS Code can see boot progress)
+# This allows the Welcome Panel to show the boot process in real-time
+log_step "EARLY START: Devcontainer Status Server"
+if test -f /workspaces/aesthetic-computer/artery/devcontainer-status.mjs
+    # Kill any existing instance first
+    pkill -f "devcontainer-status" 2>/dev/null
+    sleep 0.1
+    nohup node /workspaces/aesthetic-computer/artery/devcontainer-status.mjs --server >/tmp/devcontainer-status.log 2>&1 &
+    disown
+    log_ok "Status Server started early on http://127.0.0.1:7890"
+else
+    log_warn "devcontainer-status.mjs not found, will try later"
+end
+
 log_step "PHASE 1: Environment sync"
 
 # --- Sync secrets from vault to devcontainer env ---
@@ -785,15 +799,15 @@ end
 
 # ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $HOST_USER@172.17.0.1 "cdocker aesthetic"
 
-# 🔍 Start Devcontainer Status Server (for VS Code Welcome panel dashboard)
-log_info "Starting Devcontainer Status Server..."
-if test -f /workspaces/aesthetic-computer/artery/devcontainer-status.mjs
-    pkill -f "devcontainer-status" 2>/dev/null
+# 🔍 Ensure Devcontainer Status Server is still running (it was started early)
+log_info "Checking Devcontainer Status Server..."
+if pgrep -f "devcontainer-status" >/dev/null
+    log_ok "Status Server still running on http://127.0.0.1:7890"
+else if test -f /workspaces/aesthetic-computer/artery/devcontainer-status.mjs
+    log_warn "Status Server died, restarting..."
     nohup node /workspaces/aesthetic-computer/artery/devcontainer-status.mjs --server >/tmp/devcontainer-status.log 2>&1 &
     disown
-    log_ok "Devcontainer Status Server started on http://127.0.0.1:7890"
-else
-    log_warn "devcontainer-status.mjs not found, skipping status server"
+    log_ok "Status Server restarted on http://127.0.0.1:7890"
 end
 
 log "════════════════════════════════════════════════════════════════"
