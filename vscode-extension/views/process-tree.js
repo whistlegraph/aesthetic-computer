@@ -252,6 +252,12 @@
   }
   
   function startTour() {
+    if (window.ASTTreeViz?.getTab() === 'sources') {
+      window.ASTTreeViz.startTour();
+      // Ensure local state reflects we are "busy" or just let AST handle it
+      return;
+    }
+
     tourMode = true;
     tourProcessList = buildTourList();
     tourIndex = 0;
@@ -262,6 +268,11 @@
   }
   
   function exitTour() {
+    if (window.ASTTreeViz?.getTab() === 'sources') {
+      window.ASTTreeViz.stopTour();
+      return;
+    }
+
     tourMode = false;
     tourAutoPlay = false;
     if (tourAutoPlayInterval) {
@@ -276,6 +287,11 @@
   }
   
   function tourNext() {
+    if (window.ASTTreeViz?.getTab() === 'sources') {
+      window.ASTTreeViz.tourNext();
+      return;
+    }
+
     if (!tourMode || tourProcessList.length === 0) return;
     tourIndex = (tourIndex + 1) % tourProcessList.length;
     focusOnProcess(tourProcessList[tourIndex]);
@@ -283,6 +299,11 @@
   }
   
   function tourPrev() {
+    if (window.ASTTreeViz?.getTab() === 'sources') {
+      window.ASTTreeViz.tourPrev();
+      return;
+    }
+
     if (!tourMode || tourProcessList.length === 0) return;
     tourIndex = (tourIndex - 1 + tourProcessList.length) % tourProcessList.length;
     focusOnProcess(tourProcessList[tourIndex]);
@@ -290,6 +311,11 @@
   }
   
   function toggleAutoPlay() {
+    if (window.ASTTreeViz?.getTab() === 'sources') {
+      window.ASTTreeViz.toggleTourAutoPlay();
+      return;
+    }
+
     tourAutoPlay = !tourAutoPlay;
     if (tourAutoPlay) {
       tourAutoPlayInterval = setInterval(tourNext, TOUR_SPEED);
@@ -304,15 +330,20 @@
   
   // Keyboard controls
   document.addEventListener('keydown', (e) => {
+    const isSourceTour = window.ASTTreeViz?.getTab() === 'sources' && window.ASTTreeViz?.isTourMode();
+    const isTourActive = tourMode || isSourceTour;
+
     // T to start tour
     if (e.key === 't' || e.key === 'T') {
-      if (!tourMode) {
+      if (!isTourActive) {
         startTour();
+      } else {
+        exitTour();
       }
       return;
     }
     
-    if (tourMode) {
+    if (isTourActive) {
       switch(e.key) {
         case 'ArrowRight':
         case 'l':
@@ -597,6 +628,10 @@
         mesh.userData.targetPos.set(p.targetX || 0, p.targetY || 0, p.targetZ || 0);
         scene.add(mesh);
         meshes.set(pid, mesh);
+        
+        // Respect current visibility
+        const isSourcesTab = window.ASTTreeViz?.getTab() === 'sources';
+        mesh.visible = !isSourcesTab;
       } else {
         const mesh = meshes.get(pid);
         const d = mesh.userData;
@@ -623,6 +658,10 @@
           const line = createConnectionLine();
           scene.add(line);
           connections.set(connKey, { line, childPid: pid, parentPid });
+          
+          // Respect current visibility
+          const isSourcesTab = window.ASTTreeViz?.getTab() === 'sources';
+          line.visible = !isSourcesTab;
         }
       } else {
         const connKey = pid + '->kernel';
@@ -630,6 +669,10 @@
           const line = createConnectionLine();
           scene.add(line);
           connections.set(connKey, { line, childPid: pid, parentPid: 'kernel' });
+          
+          // Respect current visibility
+          const isSourcesTab = window.ASTTreeViz?.getTab() === 'sources';
+          line.visible = !isSourcesTab;
         }
       }
     });
@@ -650,7 +693,7 @@
         
         // Store full process info for graveyard labels
         const d = mesh.userData;
-        graveyard.push({ 
+        const graveItem = { 
           pid, 
           mesh, 
           name: d.name,
@@ -658,8 +701,13 @@
           cmd: d.cmdShort || d.cmd || '',
           category: d.category,
           deathTime: Date.now() 
-        });
+        };
+        graveyard.push(graveItem);
         meshes.delete(pid);
+
+        // Respect current visibility
+        const isSourcesTab = window.ASTTreeViz?.getTab() === 'sources';
+        mesh.visible = !isSourcesTab;
         
         while (graveyard.length > MAX_GRAVEYARD) {
           const oldest = graveyard.shift();
@@ -989,6 +1037,8 @@
     updateViz,
     scene,
     camera,
+    renderer,
+    controls,
     meshes,
     connections,
     graveyard,
@@ -1012,7 +1062,11 @@
   tourBtn.id = 'tour-btn';
   tourBtn.style.cssText = `position:fixed;bottom:20px;right:20px;background:${scheme.ui.overlay};padding:10px 16px;border-radius:6px;color:${scheme.foregroundMuted};font-family:monospace;font-size:12px;z-index:999;border:1px solid ${scheme.foregroundMuted}40;cursor:pointer;`;
   tourBtn.textContent = '🎬 Tour';
-  tourBtn.onclick = () => { if (!tourMode) startTour(); else exitTour(); };
+  tourBtn.onclick = () => { 
+    const isSourceTour = window.ASTTreeViz?.getTab() === 'sources' && window.ASTTreeViz?.isTourMode();
+    if (!tourMode && !isSourceTour) startTour(); 
+    else exitTour(); 
+  };
   document.body.appendChild(tourBtn);
   
   animate();
