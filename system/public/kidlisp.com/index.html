@@ -604,14 +604,13 @@
       z-index: 1; /* Base z-index */
     }
     
-/* Chunking in loading state - hide monaco completely during load */
-    #kidlisp-editor.chunking-in {
+/* Decrypting state - Monaco visible but read-only during decrypt animation */
+    #kidlisp-editor.decrypting {
       pointer-events: none;
     }
 
-    #kidlisp-editor.chunking-in .monaco-editor {
-      opacity: 0;
-      transition: opacity 0.3s ease;
+    #kidlisp-editor.decrypting .monaco-editor {
+      opacity: 1;
     }
     
     /* Hide Monaco's mobile keyboard toggle button (overlaps our playback controls) */
@@ -624,20 +623,14 @@
       display: none !important;
     }
     
-    /* Chunking canvas - full overlay */
-    #chunking-canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 999999;
-      pointer-events: none;
+    /* Decrypting state animation (cryptographic reveal) */
+    #kidlisp-editor.decrypting .view-line {
+      animation: decrypt-flicker 0.1s ease-in-out infinite;
     }
     
-    /* Hide chunking canvas when ready */
-    #kidlisp-editor:not(.chunking-in) #chunking-canvas {
-      display: none;
+    @keyframes decrypt-flicker {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.95; }
     }
     
     /* Live running state - green outline matching play button (#90EE90) */
@@ -1632,6 +1625,19 @@
       color: #9d174d;
     }
     #keeps-tab.active {
+
+    /* History tab styling (matches examples/keeps) */
+    #history-tab {
+      color: var(--text-secondary);
+      border: 1px solid transparent;
+      transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    #history-tab.active {
+      color: var(--text-primary);
+      border-color: rgba(0,0,0,0.12);
+      background: rgba(0,0,0,0.02);
+    }
       background: rgba(205, 92, 155, 0.55);
       color: #831843;
       border-top: 2px solid rgba(205, 92, 155, 0.9);
@@ -1661,6 +1667,17 @@
       color: #f472b6;
     }
     :root.dark #keeps-tab.active {
+
+    :root.dark #history-tab {
+      color: var(--text-secondary);
+      border-color: transparent;
+    }
+
+    :root.dark #history-tab.active {
+      color: var(--text-primary);
+      border-color: rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+    }
       background: rgba(205, 92, 155, 0.55);
       color: #ffffff;
     }
@@ -1854,6 +1871,16 @@
       box-shadow: 
         0 2px 4px rgba(0, 0, 0, 0.1),
         0 4px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .history-thumb-pending {
+      position: relative;
+      overflow: hidden;
+      animation: thumb-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes thumb-pulse {
+      0%, 100% { opacity: 0.45; }
+      50% { opacity: 0.8; }
     }
 
     @media (hover: hover) {
@@ -4789,188 +4816,120 @@
   </script>
 
   <script>
-    // 🎨 KidLisp Chunking Canvas Animation
-    // Colored bars flowing up with boot logs in pastel KidLisp brand colors
+    // 🔓 KidLisp Cryptographic Decryption Animation
+    // Decodes source code character-by-character like cryptographic reveal
     (function() {
-      // KidLisp logo colors (pastels)
-      const KIDLISP_COLORS = [
-        '#FF6B6B', // K - coral red
-        '#4ECDC4', // i - teal
-        '#FFE66D', // d - yellow
-        '#95E1D3', // L - mint
-        '#F38181', // i - salmon
-        '#AA96DA', // s - lavender
-        '#70D6FF', // p - sky blue
-      ];
+      // Scramble character set (matching the $code animation)
+      const SCRAMBLE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789(),-=+*/<>:;\"\'.!?@#$%^&_~`[]{}|';
       
-      let canvas, ctx;
-      let W = 0, H = 0;
-      let running = true;
-      let logs = [];
-      let bars = [];
-      let frame = 0;
+      let decryptionInterval = null;
+      let isDecrypting = false;
       
-      function init() {
-        canvas = document.getElementById('chunking-canvas');
-        if (!canvas) return;
+      // Decrypt text in Monaco editor with scramble animation
+      // Each character scrambles through random chars before settling on final value
+      window.decryptIntoEditor = function(targetText, editor, options = {}) {
+        if (!editor || !targetText) return Promise.resolve();
         
-        ctx = canvas.getContext('2d');
-        resize();
-        window.addEventListener('resize', resize);
+        const {
+          charDelay = 15,        // ms between revealing each character
+          scrambleIterations = 4, // scramble cycles before settling
+          scrambleSpeed = 30,     // ms between scramble updates
+        } = options;
         
-        // Start animation
-        animate();
-      }
+        isDecrypting = true;
+        
+        return new Promise((resolve) => {
+          const chars = targetText.split('');
+          const settled = new Array(chars.length).fill(false);
+          const scrambleCounts = new Array(chars.length).fill(0);
+          let currentRevealIndex = 0;
+          let lastRevealTime = 0;
+          
+          // Initialize with scrambled version
+          const getScrambledChar = (original) => {
+            // Keep newlines and spaces as-is
+            if (original === '\n' || original === ' ') return original;
+            return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+          };
+          
+          const buildCurrentText = () => {
+            return chars.map((char, i) => {
+              if (settled[i]) return char;
+              if (i > currentRevealIndex + 3) return getScrambledChar(char); // Future chars scramble
+              return getScrambledChar(char); // Currently decrypting
+            }).join('');
+          };
+          
+          // Set initial scrambled text
+          editor.setValue(buildCurrentText());
+          
+          const animate = () => {
+            if (!isDecrypting) {
+              editor.setValue(targetText);
+              resolve();
+              return;
+            }
+            
+            const now = performance.now();
+            
+            // Reveal next character after delay
+            if (now - lastRevealTime >= charDelay && currentRevealIndex < chars.length) {
+              scrambleCounts[currentRevealIndex]++;
+              
+              // After enough scrambles, settle this character
+              if (scrambleCounts[currentRevealIndex] >= scrambleIterations) {
+                settled[currentRevealIndex] = true;
+                currentRevealIndex++;
+                lastRevealTime = now;
+              }
+            }
+            
+            // Build and update text
+            const currentText = chars.map((char, i) => {
+              if (settled[i]) return char;
+              if (char === '\n' || char === ' ') return char;
+              return getScrambledChar(char);
+            }).join('');
+            
+            // Update editor without losing cursor position
+            const position = editor.getPosition();
+            editor.setValue(currentText);
+            if (position) editor.setPosition(position);
+            
+            // Check if done
+            if (settled.every(s => s)) {
+              isDecrypting = false;
+              editor.setValue(targetText); // Ensure final text is exact
+              resolve();
+              return;
+            }
+            
+            setTimeout(animate, scrambleSpeed);
+          };
+          
+          // Start animation
+          setTimeout(animate, scrambleSpeed);
+        });
+      };
       
-      function resize() {
-        if (!canvas) return;
-        const rect = canvas.parentElement?.getBoundingClientRect();
-        if (rect) {
-          W = rect.width;
-          H = rect.height;
-          canvas.width = W * window.devicePixelRatio;
-          canvas.height = H * window.devicePixelRatio;
-          canvas.style.width = W + 'px';
-          canvas.style.height = H + 'px';
-          ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-        }
-      }
+      // Stop decryption immediately (if user starts typing)
+      window.stopDecryption = function() {
+        isDecrypting = false;
+      };
       
-      // Add a log message (called from boot-log handler)
+      // Check if currently decrypting
+      window.isDecrypting = function() {
+        return isDecrypting;
+      };
+      
+      // Legacy stubs for compatibility (chunking canvas is removed)
       window.chunkingAddLog = function(message) {
-        const color = KIDLISP_COLORS[logs.length % KIDLISP_COLORS.length];
-        logs.unshift({
-          text: message,
-          color: color,
-          y: H + 20,
-          alpha: 1,
-          spawnTime: performance.now()
-        });
-        
-        // Also spawn a decorative bar
-        bars.push({
-          x: Math.random() * W,
-          y: H + 10,
-          width: 30 + Math.random() * 80,
-          height: 3 + Math.random() * 4,
-          color: color,
-          speed: 1 + Math.random() * 2,
-          alpha: 0.4 + Math.random() * 0.3
-        });
-        
-        // Keep logs limited
-        if (logs.length > 12) logs.pop();
-        if (bars.length > 50) bars.shift();
+        // No-op - chunking canvas removed
       };
       
-      // Stop the animation
       window.chunkingStop = function() {
-        running = false;
+        // No-op - chunking canvas removed  
       };
-      
-      function animate() {
-        if (!running || !canvas) return;
-        if (!document.getElementById('chunking-canvas')) {
-          running = false;
-          return;
-        }
-        
-        frame++;
-        ctx.clearRect(0, 0, W, H);
-        
-        // Dark background with slight warmth (matching editor)
-        ctx.fillStyle = '#2a2520';
-        ctx.fillRect(0, 0, W, H);
-        
-        // Subtle scanlines
-        ctx.globalAlpha = 0.03;
-        ctx.fillStyle = '#000';
-        for (let y = 0; y < H; y += 3) {
-          ctx.fillRect(0, y, W, 1);
-        }
-        ctx.globalAlpha = 1;
-        
-        // Draw and update decorative bars (flowing up)
-        bars.forEach((bar, i) => {
-          bar.y -= bar.speed;
-          
-          // Fade out as they rise
-          const progress = 1 - (bar.y / H);
-          const fade = Math.max(0, bar.alpha * (1 - progress * 0.5));
-          
-          ctx.globalAlpha = fade;
-          ctx.fillStyle = bar.color;
-          
-          // Rounded bar
-          const radius = bar.height / 2;
-          ctx.beginPath();
-          ctx.roundRect(bar.x, bar.y, bar.width, bar.height, radius);
-          ctx.fill();
-          
-          // Remove if off screen
-          if (bar.y < -20) {
-            bars.splice(i, 1);
-          }
-        });
-        ctx.globalAlpha = 1;
-        
-        // Draw log messages flowing up
-        const lineHeight = 18;
-        const startY = H - 30;
-        
-        ctx.font = '11px "SF Mono", "Monaco", "Consolas", monospace';
-        
-        logs.forEach((log, i) => {
-          // Target Y position (stacked from bottom)
-          const targetY = startY - i * lineHeight;
-          
-          // Smoothly animate to target
-          log.y += (targetY - log.y) * 0.15;
-          
-          // Fade older messages
-          const age = (performance.now() - log.spawnTime) / 1000;
-          log.alpha = Math.max(0.2, 1 - age * 0.1);
-          
-          ctx.globalAlpha = log.alpha;
-          
-          // Colored bar behind text
-          const textWidth = ctx.measureText(log.text).width;
-          ctx.fillStyle = log.color;
-          ctx.globalAlpha = log.alpha * 0.15;
-          ctx.beginPath();
-          ctx.roundRect(10, log.y - 12, textWidth + 16, 16, 4);
-          ctx.fill();
-          
-          // Text
-          ctx.globalAlpha = log.alpha;
-          ctx.fillStyle = log.color;
-          ctx.fillText(log.text, 18, log.y);
-        });
-        ctx.globalAlpha = 1;
-        
-        // Spawn random ambient bars occasionally
-        if (frame % 15 === 0 && bars.length < 30) {
-          const color = KIDLISP_COLORS[Math.floor(Math.random() * KIDLISP_COLORS.length)];
-          bars.push({
-            x: Math.random() * W,
-            y: H + 10,
-            width: 20 + Math.random() * 60,
-            height: 2 + Math.random() * 3,
-            color: color,
-            speed: 0.5 + Math.random() * 1,
-            alpha: 0.2 + Math.random() * 0.2
-          });
-        }
-        
-        requestAnimationFrame(animate);
-      }
-      
-      // Initialize when DOM is ready
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-      } else {
-        init();
-      }
     })();
   </script>
 
@@ -5033,8 +4992,7 @@
         </div>
         <!-- Text View (Monaco Editor) -->
         <div class="viz-container active" id="viz-text">
-          <div id="kidlisp-editor" class="chunking-in">
-            <canvas id="chunking-canvas"></canvas>
+          <div id="kidlisp-editor" class="decrypting">
           </div>
         </div>
         <!-- Pills View (3D Matter) - hidden for now -->
@@ -5136,6 +5094,7 @@
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
           <div class="tab" data-tab="guide" id="guide-tab">Guides</div>
           <div class="tab active" data-tab="examples" id="examples-tab">Top Hits</div>
+          <div class="tab" data-tab="history" id="history-tab">History</div>
           <div class="tab" data-tab="keeps" id="keeps-tab">Keeps</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
@@ -5155,6 +5114,16 @@
         </div>
         <div class="docs-content" id="examples-content">
           <div id="examples-list">Loading examples...</div>
+        </div>
+        <div class="docs-content hidden" id="history-content">
+          <div id="history-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px;">
+            <div id="history-status" style="font-size: 12px; color: var(--text-tertiary);">Loading history...</div>
+            <div style="display: flex; gap: 8px;">
+              <button id="history-clear-btn" class="secondary-btn" style="padding: 6px 10px; font-size: 12px;">Clear</button>
+              <button id="history-login-btn" class="secondary-btn" style="padding: 6px 10px; font-size: 12px; display: none;">Log in</button>
+            </div>
+          </div>
+          <div id="history-list">No history yet.</div>
         </div>
         <div class="docs-content hidden" id="keeps-content">
           <div id="keeps-container">
@@ -9225,17 +9194,13 @@
       logEditorInit('Monaco', { theme: initialTheme, language: 'kidlisp' });
       logBoot('editor', 'Monaco ready');
       
-      // Remove chunking-in state after a brief delay for syntax to initialize
+      // Remove decrypting state after a brief delay for syntax to initialize
       setTimeout(() => {
         const editorEl = document.getElementById('kidlisp-editor');
         if (editorEl) {
-          editorEl.classList.remove('chunking-in');
-          // Stop the chunking canvas animation
-          if (window.chunkingStop) {
-            window.chunkingStop();
-          }
+          editorEl.classList.remove('decrypting');
         }
-      }, 800);
+      }, 300);
       
       // Initialize auto-height for single column mode
       setTimeout(() => {
@@ -9264,10 +9229,22 @@
         localStorage.removeItem('kidlisp-current-code');
         
         // Load code from database
-        loadKidlispFromDatabase(code).then(source => {
+        loadKidlispFromDatabase(code).then(async (source) => {
           if (source && editor) {
             logCodeOperation('load', source, code);
-            editor.setValue(source);
+            
+            // Use cryptographic decryption animation to reveal code
+            const editorEl = document.getElementById('kidlisp-editor');
+            if (editorEl) editorEl.classList.add('decrypting');
+            
+            await window.decryptIntoEditor(source, editor, {
+              charDelay: 12,
+              scrambleIterations: 3,
+              scrambleSpeed: 25
+            });
+            
+            if (editorEl) editorEl.classList.remove('decrypting');
+            
             // Save to localStorage for persistence
             localStorage.setItem('kidlisp-code', source);
             // Add to console
@@ -10297,12 +10274,54 @@
     
     // Track current platform globally
     let currentPlatform = localStorage.getItem('kidlisp-platform') || 'aesthetic-computer';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const isVSCode = urlParams.get('vscode') === 'true';
+    let externalSessionHydrated = false;
     
     // Forward declare auth and keeps state (initialized later)
     let acToken = null;
     let acAuth0Client = null;
     let acUser = null;
     let acHandle = null; // The user's AC handle (@username)
+
+    function applyExternalSession(session, source = 'external') {
+      if (!session) {
+        acToken = null;
+        acUser = null;
+        acHandle = null;
+        externalSessionHydrated = false;
+        updateACLoginUI?.();
+        return;
+      }
+
+      try {
+        acToken = session.accessToken || session.access_token || null;
+        const email = session.account?.label || session.account?.id || session.user?.email || session.email;
+        const sub = session.account?.id || session.user?.sub || session.id || 'ac-external';
+        acUser = email ? { email, sub } : session.user || { sub: 'ac-external' };
+        acHandle = session.account?.label?.includes('@')
+          ? session.account.label.split('@')[0]
+          : session.account?.label || null;
+        externalSessionHydrated = true;
+        currentPlatform = 'aesthetic-computer';
+        localStorage.setItem('kidlisp-platform', currentPlatform);
+        updateACLoginUI?.();
+        if (log?.auth) log.auth.log(`Hydrated session (${source})`, acHandle || email || 'user');
+      } catch (e) {
+        console.warn('Failed to apply external session', e);
+      }
+    }
+
+    const encodedSession = urlParams.get('session-aesthetic');
+    if (encodedSession && encodedSession !== 'null') {
+      try {
+        const decoded = JSON.parse(atob(encodedSession));
+        applyExternalSession(decoded, 'query-param');
+      } catch (e) {
+        console.warn('Failed to parse VS Code session', e);
+      }
+    }
     
     // Keeps state (forward declarations)
     let keepsWalletAddress = null;
@@ -10347,6 +10366,13 @@
     
     // Initialize: show the correct boot screen for the saved platform
     showBootScreen(currentPlatform);
+
+    // Listen for sessions coming from the VS Code extension
+    window.addEventListener('message', (event) => {
+      if (event.data?.type === 'setSession' && event.data?.tenant === 'aesthetic') {
+        applyExternalSession(event.data.session, 'postMessage');
+      }
+    });
 
     // Keep book content in sync with platform changes
     window.addEventListener('kidlisp-platform-change', (event) => {
@@ -10841,6 +10867,11 @@
       if (messageType && messageType.startsWith('kidlisp-')) {
         console.log('📨 Message type:', messageType);
       }
+
+      if (messageType === 'setSession' && event.data?.tenant === 'aesthetic') {
+        applyExternalSession(event.data.session, 'postMessage');
+        return;
+      }
       
       // 📸 Snapshots are for the KidLisp.com console only—do not log to browser console
       if (messageType === 'kidlisp-console-image') {
@@ -10955,6 +10986,12 @@
             previewQR.style.display = 'block';
           }
         }
+
+        // Update local/session history immediately
+        addHistoryEntry({
+          code: event.data.code,
+          source: window.__acCurrentKidlispCode || ''
+        });
       } else if (event.data && event.data.type === 'keep-mint-prepared') {
         // Mint preparation response from iframe
         log.wallet.debug('Mint prepared:', event.data.success);
@@ -11109,11 +11146,13 @@
     const referenceContent = document.getElementById('reference-content');
     const guideContent = document.getElementById('guide-content');
     const examplesContent = document.getElementById('examples-content');
+    const historyContent = document.getElementById('history-content');
     const keepsContent = document.getElementById('keeps-content');
     const mobileConsoleContent = document.getElementById('mobile-console-content');
     const codeTab = document.getElementById('reference-tab');
     const guideTab = document.getElementById('guide-tab');
     const examplesTab = document.getElementById('examples-tab');
+    const historyTab = document.getElementById('history-tab');
     const keepsTab = document.getElementById('keeps-tab');
     const consoleTab = document.getElementById('console-tab');
     let examplesLoaded = false;
@@ -11123,6 +11162,7 @@
       referenceContent?.classList.add('hidden');
       guideContent?.classList.add('hidden');
       examplesContent?.classList.add('hidden');
+      historyContent?.classList.add('hidden');
       keepsContent?.classList.add('hidden');
       mobileConsoleContent?.classList.add('hidden');
     }
@@ -11132,11 +11172,12 @@
       codeTab?.classList.remove('active');
       guideTab?.classList.remove('active');
       examplesTab?.classList.remove('active');
+      historyTab?.classList.remove('active');
       keepsTab?.classList.remove('active');
       consoleTab?.classList.remove('active');
     }
     
-    if (guideTab && examplesTab && keepsTab && guideContent && examplesContent && keepsContent) {
+    if (guideTab && examplesTab && historyTab && keepsTab && guideContent && examplesContent && historyContent && keepsContent) {
       // Helper to expand reference panel on mobile if collapsed (never collapse from tab tap)
       function expandReferencePanelOnMobile() {
         if (window.innerWidth <= 768) {
@@ -11197,6 +11238,21 @@
         if (!examplesLoaded) {
           loadExamples();
         }
+      });
+
+      // History tab click handler
+      historyTab.addEventListener('click', function(e) {
+        log.tabs.debug('History tab');
+        e.stopPropagation();
+        e.preventDefault();
+        
+        deactivateAllTabs();
+        hideAllTabContents();
+        historyTab.classList.add('active');
+        historyContent.classList.remove('hidden');
+        expandReferencePanelOnMobile();
+        
+        loadHistory();
       });
       
       // Keeps tab click handler
@@ -11469,6 +11525,12 @@
     
     async function initAuth0() {
       try {
+        if (externalSessionHydrated && acUser && acToken) {
+          updateACLoginUI();
+          logBoot('auth', 'session');
+          return;
+        }
+
         // Auth0 SDK loaded via CDN in <head> (same as give.aesthetic.computer)
         if (!window.auth0) {
           log.auth.warn("Auth0 not available, skipping authentication");
@@ -11587,6 +11649,11 @@
     
     async function acLogin() {
       try {
+        if (isVSCode) {
+          window.parent?.postMessage({ type: 'kidlisp:login' }, '*');
+          return;
+        }
+
         if (!acAuth0Client) await initAuth0();
         if (!acAuth0Client) {
           log.auth.error("Auth0 client not initialized");
@@ -11602,6 +11669,16 @@
     }
     
     async function acLogout() {
+      if (isVSCode) {
+        window.parent?.postMessage({ type: 'kidlisp:logout' }, '*');
+        acUser = null;
+        acToken = null;
+        acHandle = null;
+        externalSessionHydrated = false;
+        updateACLoginUI();
+        return;
+      }
+
       if (!acAuth0Client) return;
       logAuth('logout', acHandle || acUser?.email?.split('@')[0]);
       acUser = null;
@@ -11631,6 +11708,11 @@
       if (headerSignupBtn) {
         headerSignupBtn.addEventListener('click', async () => {
           try {
+            if (isVSCode) {
+              window.parent?.postMessage({ type: 'kidlisp:login' }, '*');
+              return;
+            }
+
             if (!acAuth0Client) await initAuth0();
             if (!acAuth0Client) {
               log.auth.error("Auth0 client not initialized");
@@ -11827,8 +11909,12 @@
       // Show login UI immediately (guest state) - will update after Auth0 loads
       updateACLoginUI();
       
-      // Initialize Auth0 in background
-      initAuth0();
+      // Initialize Auth0 in background (skip if VS Code injected a session)
+      if (externalSessionHydrated && acUser && acToken) {
+        logBoot('auth', 'session');
+      } else {
+        initAuth0();
+      }
     }
     
     // Load and display contract info and gallery
@@ -12622,9 +12708,22 @@
               </div>
               <div class="example-hits">${item.hits} ${t('hits')}</div>
             `;
-            el.addEventListener('click', () => {
+            el.addEventListener('click', async () => {
               if (editor) {
-                editor.setValue(item.source || item.code);
+                const sourceCode = item.source || item.code;
+                
+                // Use cryptographic decryption animation to reveal code
+                const editorEl = document.getElementById('kidlisp-editor');
+                if (editorEl) editorEl.classList.add('decrypting');
+                
+                await window.decryptIntoEditor(sourceCode, editor, {
+                  charDelay: 8,        // Faster for quick selection
+                  scrambleIterations: 2,
+                  scrambleSpeed: 20
+                });
+                
+                if (editorEl) editorEl.classList.remove('decrypting');
+                
                 // Update URL and title (only on AC platform)
                 if (currentPlatform === 'aesthetic-computer') {
                   updateURLForCode(item.code);
@@ -12655,6 +12754,162 @@
       } catch (e) {
         log.code.error('Failed to load examples:', e.message);
         document.getElementById('examples-list').textContent = t('examplesError');
+      }
+    }
+
+    // ───────────────────────────────────────────
+    // History (per-user or per-session) tab
+    const HISTORY_KEY = 'kidlisp-history-v1';
+    let historyLoading = false;
+
+    function readLocalHistory() {
+      try {
+        const raw = localStorage.getItem(HISTORY_KEY);
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function writeLocalHistory(items) {
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, 50)));
+      } catch (_) {
+        /* ignore */
+      }
+    }
+
+    function renderHistory(items, { loggedIn } = { loggedIn: false }) {
+      const listEl = document.getElementById('history-list');
+      const statusEl = document.getElementById('history-status');
+      const loginBtn = document.getElementById('history-login-btn');
+      const clearBtn = document.getElementById('history-clear-btn');
+      if (!listEl || !statusEl || !clearBtn || !loginBtn) return;
+      statusEl.textContent = loggedIn ? 'Your $codes' : 'Session history';
+      loginBtn.style.display = loggedIn ? 'none' : 'inline-flex';
+
+      clearBtn.onclick = () => {
+        writeLocalHistory([]);
+        renderHistory([], { loggedIn });
+      };
+      loginBtn.onclick = () => {
+        if (typeof acLogin === 'function') acLogin();
+      };
+
+      if (!items || items.length === 0) {
+        listEl.innerHTML = '<div style="color: var(--text-tertiary); font-size: 12px;">No history yet.</div>';
+        return;
+      }
+
+      listEl.innerHTML = '';
+      const sorted = [...items].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+      sorted.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'example-item';
+
+        const codeLabel = item.code ? `$${item.code}` : 'draft';
+        const thumbHtml = item.assetUrl
+          ? `<img class="example-thumb" src="${item.assetUrl}" alt="" onload="this.classList.add('loaded')" onerror="this.style.display='none'" />`
+          : `<div class="example-thumb-placeholder history-thumb-pending">◆</div>`;
+
+        const snippet = (item.source || '').slice(0, 80).replace(/\n/g, ' ');
+        const timeText = item.ts ? new Date(item.ts).toLocaleString() : 'recent';
+
+        el.innerHTML = `
+          ${thumbHtml}
+          <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
+            <div class="example-code">${snippet || '(empty)'}${snippet.length === 80 ? '…' : ''}</div>
+            <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${codeLabel}</div>
+            <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${timeText}</div>
+          </div>
+          <div class="example-hits">${item.hits || 0} hits</div>
+        `;
+
+        el.addEventListener('click', async () => {
+          if (!editor) return;
+          const sourceCode = item.source || '';
+          const editorEl = document.getElementById('kidlisp-editor');
+          if (editorEl) editorEl.classList.add('decrypting');
+          await window.decryptIntoEditor(sourceCode, editor, {
+            charDelay: 8,
+            scrambleIterations: 2,
+            scrambleSpeed: 20
+          });
+          if (editorEl) editorEl.classList.remove('decrypting');
+
+          if (currentPlatform === 'aesthetic-computer' && item.code) {
+            updateURLForCode(item.code);
+            localStorage.setItem('kidlisp-current-code', item.code);
+          }
+          updatePreview();
+          if (sendButton && !sendButton.disabled) {
+            if (isPlaying) {
+              stopButton.click();
+            }
+            sendButton.click();
+          }
+        });
+
+        listEl.appendChild(el);
+      });
+    }
+
+    async function loadHistory() {
+      if (historyLoading) return;
+      historyLoading = true;
+      const statusEl = document.getElementById('history-status');
+      if (statusEl) statusEl.textContent = 'Loading history...';
+      const loggedIn = !!acUser;
+
+      // Try remote history when logged in
+      if (loggedIn) {
+        try {
+          const ownerParam = acHandle || acUser?.email || '';
+          const resp = await fetch(`${aestheticUrl}/api/tv?types=kidlisp&limit=50${ownerParam ? `&owner=${encodeURIComponent(ownerParam)}` : ''}`);
+          const data = await resp.json();
+          const records = data?.media?.kidlisp || [];
+          const mapped = records.map(r => ({
+            code: r.code,
+            source: r.source || '',
+            assetUrl: r.assetUrl || r.thumbnail || null,
+            hits: r.hits || 0,
+            ts: r.createdAt ? Date.parse(r.createdAt) : Date.now()
+          }));
+          writeLocalHistory(mapped);
+          renderHistory(mapped, { loggedIn: true });
+          historyLoading = false;
+          return;
+        } catch (e) {
+          // Fallback to local
+        }
+      }
+
+      const local = readLocalHistory();
+      renderHistory(local, { loggedIn: false });
+      historyLoading = false;
+    }
+
+    function addHistoryEntry(entry) {
+      const now = Date.now();
+      const item = {
+        code: entry.code || null,
+        source: entry.source || '',
+        assetUrl: entry.assetUrl || null,
+        hits: entry.hits || 0,
+        ts: entry.ts || now
+      };
+      const local = readLocalHistory();
+      // De-dup by code (if available) or source
+      const filtered = local.filter(it => (item.code && it.code === item.code) ? false : (item.source && it.source === item.source ? false : true));
+      filtered.unshift(item);
+      writeLocalHistory(filtered);
+      // If history tab is active, refresh UI
+      const historyTabActive = historyTab?.classList.contains('active');
+      if (historyTabActive) {
+        renderHistory(filtered, { loggedIn: !!acUser });
       }
     }
 
