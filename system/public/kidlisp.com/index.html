@@ -11651,6 +11651,7 @@
       try {
         if (isVSCode) {
           window.parent?.postMessage({ type: 'kidlisp:login' }, '*');
+          window.parent?.postMessage({ type: 'login', tenant: 'aesthetic' }, '*');
           return;
         }
 
@@ -11671,6 +11672,7 @@
     async function acLogout() {
       if (isVSCode) {
         window.parent?.postMessage({ type: 'kidlisp:logout' }, '*');
+        window.parent?.postMessage({ type: 'logout', tenant: 'aesthetic' }, '*');
         acUser = null;
         acToken = null;
         acHandle = null;
@@ -11710,6 +11712,7 @@
           try {
             if (isVSCode) {
               window.parent?.postMessage({ type: 'kidlisp:login' }, '*');
+              window.parent?.postMessage({ type: 'login', tenant: 'aesthetic' }, '*');
               return;
             }
 

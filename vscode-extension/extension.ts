@@ -1296,6 +1296,15 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
               await sendKidLispSession(panel.webview);
               break;
             }
+            // Fallback for plain login/logout messages forwarded from the iframe
+            case "login": {
+              vscode.commands.executeCommand("aestheticComputer.logIn");
+              break;
+            }
+            case "logout": {
+              vscode.commands.executeCommand("aestheticComputer.logOut");
+              break;
+            }
           }
         },
         undefined,
@@ -1332,6 +1341,13 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }),
   );
 
+  // Alias to match older calls expecting lowercase "login"
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.login", async () => {
+      await vscode.commands.executeCommand("aestheticComputer.logIn");
+    }),
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.logOut", async () => {
       const session = await vscode.authentication.getSession(
@@ -1345,6 +1361,13 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       } else {
         vscode.window.showInformationMessage("No active session found.");
       }
+    }),
+  );
+
+  // Alias to match older calls expecting lowercase "logout"
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.logout", async () => {
+      await vscode.commands.executeCommand("aestheticComputer.logOut");
     }),
   );
 
