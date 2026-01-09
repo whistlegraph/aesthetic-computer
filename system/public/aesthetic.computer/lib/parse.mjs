@@ -259,6 +259,13 @@ function parse(text, location = self?.location) {
     tokens.unshift("clock");
   }
 
+  // Map print shortcodes like +ol39g2 to the mug piece
+  // (mug.mjs will look up the print by code from products database)
+  if (tokens[0] && tokens[0].startsWith("+") && tokens[0].length > 1) {
+    // Keep the + prefix so mug.mjs knows to fetch by printCode
+    tokens.unshift("mug");
+  }
+
   // 🤖 Check if this is a standalone kidlisp source (no piece name prefix)
   if (tokens.length === 1 && isKidlispSource(tokens[0])) {
     // This is pure kidlisp source code, decode it
