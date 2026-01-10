@@ -244,6 +244,25 @@ async function fun(event, context) {
     );
   }
 
+  // 🎄 Handle mo.XX and merryo.XX uniform timing shorthand URLs
+  // e.g., /mo.1:a:b:c → /mo~.1:a:b:c (piece=mo, timing=.1, pieces=a,b,c)
+  // e.g., /merryo.05:tone:clock → /merryo~.05:tone:clock
+  const moMatch = slug.match(/^(mo|merryo)\.(\d+(?:\.\d+)?)([:~].+)?$/);
+  if (moMatch) {
+    const [, prefix, timing, rest] = moMatch;
+    // Route to the mo piece with timing as first colon param
+    const newSlug = `mo~.${timing}${rest || ""}`;
+    console.log(`[merry] Converting ${slug} to ${newSlug}`);
+    return respond(
+      302,
+      `<a href="/${newSlug}">Redirecting to /${newSlug}</a>`,
+      {
+        "Content-Type": "text/html",
+        Location: `/${encodeURIComponent(newSlug)}`,
+      },
+    );
+  }
+
   // Handle *xxx clock shortcode - fetch melody and redirect to clock piece
   if (slug.startsWith("*") && slug.length > 1 && !slug.includes("~")) {
     const code = slug.slice(1); // Remove * prefix

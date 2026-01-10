@@ -49,6 +49,8 @@ try {
     
     // Window controls
     moveWindow: (x, y) => ipcRenderer.send('move-window', { x, y }),
+    openWindow: (url) => ipcRenderer.invoke('ac-open-window', { url }),
+    closeWindow: () => ipcRenderer.invoke('ac-close-window'),
     
     // Platform info
     platform: process.platform,

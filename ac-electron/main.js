@@ -2005,6 +2005,36 @@ ipcMain.on('move-window', (event, position) => {
   }
 });
 
+// Open/close windows from inside the embedded AC prompt (via webview popup interception)
+ipcMain.handle('ac-open-window', async (event, { url } = {}) => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  let mode = 'production';
+  for (const [, winData] of windows) {
+    if (winData.window === senderWindow) {
+      mode = winData.mode;
+      break;
+    }
+  }
+
+  const { window: newWindow } = createWindow(mode);
+  if (url) {
+    newWindow.webContents.once('did-finish-load', () => {
+      if (!newWindow.isDestroyed()) {
+        newWindow.webContents.send('navigate', url);
+      }
+    });
+  }
+  return { success: true };
+});
+
+ipcMain.handle('ac-close-window', async (event) => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (senderWindow && !senderWindow.isDestroyed()) {
+    senderWindow.close();
+  }
+  return { success: true };
+});
+
 ipcMain.handle('switch-mode', async (event, mode) => {
   // In multi-window mode, we open a new window instead of switching
   if (mode === 'development') {
