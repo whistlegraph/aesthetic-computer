@@ -3,36 +3,32 @@
 
 import * as ABC from "../lib/abc123.mjs";
 
-const NUM = 9;
-const theme = ABC.numberThemes[NUM];
-
-let frameCount = 0;
-const FRAMES_PER_FONT = 90;
+const LETTER = "9";
+const theme = ABC.letterThemes[LETTER];
+let frame = 0;
 
 function boot({ sound }) {
-  ABC.playNumberSound(NUM, sound);
+  ABC.playLetterSound(LETTER, sound);
 }
 
 function paint($) {
-  const fontIndex = Math.floor(frameCount / FRAMES_PER_FONT) % ABC.fonts.length;
-  ABC.drawNumber(NUM, $, fontIndex);
+  ABC.drawLetter(LETTER, $, theme, frame);
+}
+
+function sim() {
+  frame++;
 }
 
 function act({ event: e, sound, jump, needsPaint }) {
   if (ABC.handleNavigation(e, jump)) return;
   if (e.is("touch")) {
-    ABC.playNumberSound(NUM, sound);
-    frameCount = (Math.floor(frameCount / FRAMES_PER_FONT) + 1) * FRAMES_PER_FONT;
+    ABC.playLetterSound(LETTER, sound);
     needsPaint();
   }
 }
 
-function sim() {
-  frameCount++;
-}
-
 function meta() {
-  return { title: "9", desc: `${theme.emoji} ${theme.words[0]} - The number nine and high D (ninth)!` };
+  return { title: "9", desc: `${theme.emoji} ${theme.words[0]} - The number 9!` };
 }
 
 export { boot, paint, sim, act, meta };

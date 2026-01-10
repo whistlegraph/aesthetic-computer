@@ -65,6 +65,68 @@ export class AestheticAuthenticationProvider
     SESSIONS_SECRET_KEY: "",
   };
 
+  private static looksLikeEmail(value: string | undefined): boolean {
+    if (!value) return false;
+    // Rough heuristic: `@` + a dot in the domain part.
+    const at = value.indexOf("@");
+    if (at <= 0) return false;
+    const domain = value.slice(at + 1);
+    return domain.includes(".") && !value.startsWith("@");
+  }
+
+  private async getTenantHandleBySub(sub: string): Promise<string | undefined> {
+    if (!sub) return undefined;
+
+    // Fetch handle using the same method as chat.mjs
+    const prefix = this.env.AUTH_TYPE === "sotce" ? "sotce-" : "";
+    const host = this.env.AUTH_TYPE === "sotce" ? "https://sotce.net" : "https://aesthetic.computer";
+    const url = `${host}/handle?for=${prefix}${sub}`;
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return undefined;
+      const data = (await response.json()) as { handle?: string };
+      return data.handle ? data.handle.trim() : undefined;
+    } catch (error) {
+      console.error("Failed to fetch handle:", error);
+      return undefined;
+    }
+  }
+
+  private async getTenantHandleByEmail(email: string): Promise<string | undefined> {
+    if (!email) return undefined;
+
+    // This is a Netlify function on the public site.
+    const host = this.env.AUTH_TYPE === "sotce" ? "https://sotce.net" : "https://aesthetic.computer";
+    const url = `${host}/user?from=${encodeURIComponent(email)}&withHandle=true&tenant=${encodeURIComponent(this.env.AUTH_TYPE)}`;
+
+    const response = await fetch(url);
+    if (!response.ok) return undefined;
+    const data = (await response.json()) as { handle?: unknown };
+    return typeof data.handle === "string" && data.handle.trim() ? data.handle.trim() : undefined;
+  }
+
+  private async resolveAccountLabel(accessToken: string): Promise<string | undefined> {
+    const userinfo = (await this.getUserInfo(accessToken)) as {
+      name?: string;
+      email?: string;
+      nickname?: string;
+      handle?: string;
+    };
+
+    const directHandle = typeof userinfo.handle === "string" ? userinfo.handle : undefined;
+    const email = typeof userinfo.email === "string" ? userinfo.email : undefined;
+
+    const tenantHandle = email
+      ? await this.getTenantHandleByEmail(email).catch(() => undefined)
+      : undefined;
+
+    const handle = tenantHandle || directHandle;
+    if (handle) return handle.startsWith("@") ? handle : `@${handle}`;
+
+    return userinfo.nickname || userinfo.name || userinfo.email;
+  }
+
   constructor(
     private readonly context: ExtensionContext,
     local: boolean,
@@ -137,8 +199,65 @@ export class AestheticAuthenticationProvider
         allSessions,
       ) as AestheticAuthenticationSession[];
       if (sessions) {
+        // Best-effort migration: older sessions often used email as the label.
+        // Upgrade to @handle without forcing a logout.
+        const changedSessions: AestheticAuthenticationSession[] = [];
+        const upgradedSessions = await Promise.all(
+          sessions.map(async (session) => {
+            const currentLabel = session.account?.label;
+            if (!AestheticAuthenticationProvider.looksLikeEmail(currentLabel)) return session;
+
+            try {
+              let accessToken = session.accessToken;
+              let label: string | undefined;
+
+              try {
+                label = await this.resolveAccountLabel(accessToken);
+              } catch {
+                // If the access token is stale, try to refresh and retry once.
+                if (session.refreshToken) {
+                  const refreshed = await this.getAccessToken(
+                    session.refreshToken,
+                    this.env.CLIENT_ID,
+                  );
+                  if (refreshed.access_token) {
+                    accessToken = refreshed.access_token;
+                    label = await this.resolveAccountLabel(accessToken);
+                  }
+                }
+              }
+
+              if (!label || label === currentLabel) return session;
+              const updated = {
+                ...session,
+                accessToken,
+                account: {
+                  ...session.account,
+                  label,
+                },
+              } as AestheticAuthenticationSession;
+              changedSessions.push(updated);
+              return updated;
+            } catch {
+              return session;
+            }
+          }),
+        );
+
+        if (changedSessions.length) {
+          await this.context.secrets.store(
+            this.env.SESSIONS_SECRET_KEY,
+            JSON.stringify(upgradedSessions),
+          );
+          this._sessionChangeEmitter.fire({
+            added: [],
+            removed: [],
+            changed: changedSessions,
+          });
+        }
+
         if (allScopes && scopes) {
-          const session = sessions.find((s) =>
+          const session = upgradedSessions.find((s) =>
             scopes.every((scope) => s.scopes.includes(scope)),
           );
           if (session && session.refreshToken) {
@@ -159,7 +278,7 @@ export class AestheticAuthenticationProvider
             }
           }
         } else {
-          return sessions;
+          return upgradedSessions;
         }
       }
     } catch (e) {
@@ -183,16 +302,25 @@ export class AestheticAuthenticationProvider
         throw new Error(`${this.env.AUTH_NAME} login failure`);
       }
 
-      const userinfo: { name: string; email: string; sub: string } =
+      const userinfo: { name: string; email: string; sub: string; nickname?: string; handle?: string } =
         await this.getUserInfo(access_token);
+
+      const tenantHandle = userinfo.sub
+        ? await this.getTenantHandleBySub(userinfo.sub).catch(() => undefined)
+        : undefined;
+      const handle = tenantHandle || userinfo.handle;
+      const label =
+        (handle ? (handle.startsWith("@") ? handle : `@${handle}`) : undefined) ||
+        userinfo.nickname ||
+        userinfo.name ||
+        userinfo.email;
 
       const session: AestheticAuthenticationSession = {
         id: generateRandomString(12),
         accessToken: access_token,
         refreshToken: refresh_token,
         account: {
-          label: userinfo.email, // This will always be the user email.
-          //     userinfo.name
+          label,
           id: userinfo.sub,
         },
         scopes: this.getScopes(scopes),
