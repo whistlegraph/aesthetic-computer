@@ -3327,6 +3327,7 @@ const $commonApi = {
   // WebGPU 2D Renderer API
   webgpu: {
     enabled: false, // Flag to disable CPU renderer when true
+    backend: null, // Preferred backend: "webgpu", "webgl2", "canvas2d", "vello", etc.
     clear: (r = 0, g = 0, b = 0, a = 255) => {
       send({ 
         type: "webgpu-command", 
@@ -13775,6 +13776,10 @@ async function makeFrame({ data: { type, content } }) {
       // WebGPU state (tell main thread whether to skip CPU rendering)
       if ($commonApi.webgpu.enabled) {
         sendData.webgpuEnabled = true;
+        // Send backend preference if specified
+        if ($commonApi.webgpu.backend) {
+          sendData.gpuBackend = $commonApi.webgpu.backend;
+        }
         // Signal end of frame to flush WebGPU command queue
         send({ type: "webgpu-command", content: { type: "frame-end" } });
       }
