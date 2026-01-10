@@ -74,6 +74,25 @@ export class AestheticAuthenticationProvider
     return domain.includes(".") && !value.startsWith("@");
   }
 
+  private async getTenantHandleBySub(sub: string): Promise<string | undefined> {
+    if (!sub) return undefined;
+
+    // Fetch handle using the same method as chat.mjs
+    const prefix = this.env.AUTH_TYPE === "sotce" ? "sotce-" : "";
+    const host = this.env.AUTH_TYPE === "sotce" ? "https://sotce.net" : "https://aesthetic.computer";
+    const url = `${host}/handle?for=${prefix}${sub}`;
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return undefined;
+      const data = (await response.json()) as { handle?: string };
+      return data.handle ? data.handle.trim() : undefined;
+    } catch (error) {
+      console.error("Failed to fetch handle:", error);
+      return undefined;
+    }
+  }
+
   private async getTenantHandleByEmail(email: string): Promise<string | undefined> {
     if (!email) return undefined;
 
@@ -286,8 +305,8 @@ export class AestheticAuthenticationProvider
       const userinfo: { name: string; email: string; sub: string; nickname?: string; handle?: string } =
         await this.getUserInfo(access_token);
 
-      const tenantHandle = userinfo.email
-        ? await this.getTenantHandleByEmail(userinfo.email).catch(() => undefined)
+      const tenantHandle = userinfo.sub
+        ? await this.getTenantHandleBySub(userinfo.sub).catch(() => undefined)
         : undefined;
       const handle = tenantHandle || userinfo.handle;
       const label =
