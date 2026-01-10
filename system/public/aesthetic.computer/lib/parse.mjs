@@ -266,6 +266,19 @@ function parse(text, location = self?.location) {
     tokens.unshift("mug");
   }
 
+  // Map mo shortcodes like mo1 or mo10 to the mo piece with uniform seconds.
+  // Examples:
+  //   /mo1~c~e~g -> /mo~1~c~e~g
+  //   /mo10:c:e:g -> /mo: c:e:g with params ["10"]
+  if (tokens[0]) {
+    const [maybeSlug, ...colonParts] = tokens[0].split(":");
+    if (/^mo\d+$/.test(maybeSlug)) {
+      const seconds = maybeSlug.slice(2);
+      tokens[0] = "mo" + (colonParts.length ? ":" + colonParts.join(":") : "");
+      tokens.splice(1, 0, seconds);
+    }
+  }
+
   // 🤖 Check if this is a standalone kidlisp source (no piece name prefix)
   if (tokens.length === 1 && isKidlispSource(tokens[0])) {
     // This is pure kidlisp source code, decode it
