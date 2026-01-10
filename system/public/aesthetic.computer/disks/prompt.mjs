@@ -6916,8 +6916,9 @@ function act({
   }
 
   // Light and dark mode glaze shift.
-  if (e.is("dark-mode")) glaze({ on: true });
-  if (e.is("light-mode")) glaze({ on: false });
+  // 🧪 Temporarily disabled to test noise16 transition
+  // if (e.is("dark-mode")) glaze({ on: true });
+  // if (e.is("light-mode")) glaze({ on: false });
 
   // Via vscode extension.
   if (e.is("aesthetic-parent:focused")) {
