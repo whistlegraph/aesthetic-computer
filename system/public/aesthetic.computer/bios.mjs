@@ -895,7 +895,50 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   webgpuCanvas.style.pointerEvents = "none"; // Let events pass through to main canvas
   webgpuCanvas.style.display = "none"; // Hidden by default until WebGPU is enabled
 
-  // 🖥️🔌 Secondary main display surface. (3D GPU Renderer)
+  // � DOM-based Stats Overlay (always on top of everything)
+  const statsOverlay = document.createElement("div");
+  statsOverlay.id = "ac-stats-overlay";
+  statsOverlay.style.cssText = `
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 99999;
+    pointer-events: none;
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.3;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    border-radius: 4px;
+    display: none;
+    white-space: pre;
+  `;
+  let statsOverlayEnabled = false;
+  let statsOverlayData = { backend: "CPU", lines: 0 };
+  let statsFps = 0;
+  let statsFrameCount = 0;
+  let statsLastTime = performance.now();
+
+  function updateStatsOverlay() {
+    if (!statsOverlayEnabled) return;
+    const now = performance.now();
+    statsFrameCount++;
+    if (now - statsLastTime >= 1000) {
+      statsFps = statsFrameCount;
+      statsFrameCount = 0;
+      statsLastTime = now;
+    }
+    const lines = [
+      `${statsOverlayData.backend || "GPU"}`,
+      `FPS: ${statsFps}`,
+    ];
+    if (statsOverlayData.lines) lines.push(`Lines: ${statsOverlayData.lines}`);
+    if (statsOverlayData.extra) lines.push(statsOverlayData.extra);
+    statsOverlay.textContent = lines.join("\n");
+  }
+
+  // �🖥️🔌 Secondary main display surface. (3D GPU Renderer)
   // TODO: Eventually deprecate the software renderer in favor of this?
   //       (Or even reuse the same tag if pieces swap.)
   //       TODO: Would it be possible for pieces to use both... and why?
@@ -1398,6 +1441,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       wrapper.append(uiCanvas);
       if (debug) wrapper.append(debugCanvas);
       wrapper.append(webgpuCanvas); // Add WebGPU canvas (initially hidden)
+      wrapper.append(statsOverlay); // Add stats overlay (highest z-index)
       document.body.append(wrapper);
       perf.markBoot("dom-appended");
 
@@ -4004,6 +4048,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     frameAlreadyRequested = true;
     frameCount += 1n;
     armFrameStallWatchdog();
+
+    // 📊 Update DOM stats overlay if enabled
+    updateStatsOverlay();
 
     // TODO: 📏 Measure performance of frame: test with different resolutions.
 
@@ -11461,6 +11508,39 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
       console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
+      
+      // 🧹 Clean up any GPU/stats/glaze state from previous piece
+      // This ensures cleanup even if the previous piece's leave() failed
+      if (statsOverlayEnabled) {
+        statsOverlayEnabled = false;
+        statsOverlay.style.display = "none";
+      }
+      if (webgpuCanvas.style.display !== "none") {
+        webgpuCanvas.style.display = "none";
+      }
+      if (canvas.style.visibility === "hidden") {
+        canvas.style.visibility = "visible";
+      }
+      // Reset glaze state
+      if (glaze.on) {
+        Glaze.off();
+        glaze.on = false;
+      }
+      canvas.style.removeProperty("opacity");
+      // Clear freeze frame if stuck
+      if (freezeFrame || freezeFrameFrozen) {
+        if (wrapper.contains(freezeFrameCan)) {
+          freezeFrameCan.remove();
+        }
+        freezeFrame = false;
+        freezeFrameGlaze = false;
+        freezeFrameFrozen = false;
+      }
+      
+      // 🎨 Trigger a repaint after cleanup so the main canvas redraws
+      // (otherwise the old GPU frame stays visible until a resize)
+      send({ type: "needs-paint" });
+      
       try {
         // Clear any active parameters once the disk has been loaded.
         // Skip URL manipulation in pack mode (sandboxed iframe)
@@ -11963,6 +12043,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "gpu-event") {
       ThreeD?.handleEvent(content);
+      return;
+    }
+
+    // 📊 DOM Stats Overlay Control
+    if (type === "stats-overlay") {
+      if (content.enabled !== undefined) {
+        statsOverlayEnabled = content.enabled;
+        statsOverlay.style.display = statsOverlayEnabled ? "block" : "none";
+        if (statsOverlayEnabled) {
+          statsLastTime = performance.now();
+          statsFrameCount = 0;
+        }
+      }
+      if (content.data) {
+        Object.assign(statsOverlayData, content.data);
+      }
       return;
     }
 
