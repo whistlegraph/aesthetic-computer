@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.228.0",
+  "version": "1.229.0",
   "description": "Code, run, and publish your pieces. Includes Aesthetic Computer themes and KidLisp syntax highlighting.",
   "engines": {
     "vscode": "^1.105.0"
@@ -48,6 +48,51 @@
         "label": "Aesthetic Computer: Light 🌻",
         "uiTheme": "vs",
         "path": "./themes/aesthetic-light-color-theme.json"
+      },
+      {
+        "label": "Aesthetic Computer: Red 🔴",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aesthetic-red-color-theme.json"
+      },
+      {
+        "label": "Aesthetic Computer: Orange 🟠",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aesthetic-orange-color-theme.json"
+      },
+      {
+        "label": "Aesthetic Computer: Yellow 🟡",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aesthetic-yellow-color-theme.json"
+      },
+      {
+        "label": "Aesthetic Computer: Green 🟢",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aesthetic-green-color-theme.json"
+      },
+      {
+        "label": "Aesthetic Computer: Blue 🔵",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aesthetic-blue-color-theme.json"
+      },
+      {
+        "label": "Aesthetic Computer: Indigo 🟣",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aesthetic-indigo-color-theme.json"
+      },
+      {
+        "label": "Aesthetic Computer: Violet 🔮",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aesthetic-violet-color-theme.json"
+      },
+      {
+        "label": "Aesthetic Computer: Pink 🌸",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aesthetic-pink-color-theme.json"
+      },
+      {
+        "label": "Aesthetic Computer: Pencil ✏️",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aesthetic-pencil-color-theme.json"
       }
     ],
     "languages": [
