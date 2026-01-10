@@ -307,6 +307,26 @@ export async function handler(event, context) {
 
       // Handle the `checkout.session.completed` webhook.
       if (hookEvent.type === "checkout.session.completed") {
+        const checkoutMode = hookEvent.data.object.mode;
+        const metadataType = hookEvent.data.object.metadata?.type;
+
+        // 🎁 Handle "give" subscriptions separately (no shipping needed).
+        if (checkoutMode === "subscription" || metadataType === "subscription") {
+          console.log("✅ Give subscription completed!", {
+            customer: hookEvent.data.object.customer,
+            amount: hookEvent.data.object.metadata?.amount,
+            currency: hookEvent.data.object.metadata?.currency,
+          });
+          // Acknowledge the subscription webhook - no further processing needed
+          // as Stripe handles the subscription management.
+          return respond(200, { 
+            message: "Subscription acknowledged",
+            type: "give",
+            customer: hookEvent.data.object.customer,
+          });
+        }
+
+        // 🖨️ Handle print orders (payment mode with shipping).
         const session = await stripe.checkout.sessions.retrieve(
           hookEvent.data.object.id,
           { expand: ["line_items", "shipping_details", "customer_details"] },
