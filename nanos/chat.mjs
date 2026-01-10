@@ -682,6 +682,7 @@ async function startChatServer() {
               user: message.sub,
               text: message.text, // Store unfiltered text in the database.
               when,
+              font: message.font || "font_1", // 🔤 Store user's font preference
             };
 
             const collection = db.collection(instance.name); // Use the chat instance name for storing messages.
@@ -704,6 +705,7 @@ async function startChatServer() {
             sub: fromSub, // If the chat is of a specific tenant like
             //               `chat-sotce` then the subs will be local
             //               to that tenant and not prefixed. 24.10.31.21.35
+            font: message.font || "font_1", // 🔤 Include font in broadcast
           };
           
           // Check if this is a duplicate of the last message from the same user
@@ -947,6 +949,7 @@ async function getLast100MessagesfromMongo() {
       text: filter(message.text, filterDebug) || "message forgotten",
       redactedText: message.redactedText,
       when: message.when,
+      font: message.font || "font_1", // 🔤 Include font from DB (default for old messages)
     });
   }
 }

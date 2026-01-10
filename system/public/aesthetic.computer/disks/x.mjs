@@ -5,53 +5,30 @@ import * as ABC from "../lib/abc123.mjs";
 
 const LETTER = "x";
 const theme = ABC.letterThemes[LETTER];
-
-let frameCount = 0;
-const FRAMES_PER_FONT = 90;
+let frame = 0;
 
 function boot({ sound }) {
-  // X has no musical note - play a percussive click instead
-  if (sound?.synth) {
-    sound.synth({
-      type: "noise-white",
-      tone: 200,
-      attack: 0.001,
-      decay: 0.8,
-      duration: 0.1,
-      volume: 0.3,
-    });
-  }
+  ABC.playLetterSound(LETTER, sound);
 }
 
 function paint($) {
-  const fontIndex = Math.floor(frameCount / FRAMES_PER_FONT) % ABC.fonts.length;
-  ABC.drawLetter(LETTER, $, theme, fontIndex);
+  ABC.drawLetter(LETTER, $, theme, frame);
+}
+
+function sim() {
+  frame++;
 }
 
 function act({ event: e, sound, jump, needsPaint }) {
   if (ABC.handleNavigation(e, jump)) return;
   if (e.is("touch")) {
-    if (sound?.synth) {
-      sound.synth({
-        type: "noise-white",
-        tone: 200,
-        attack: 0.001,
-        decay: 0.8,
-        duration: 0.1,
-        volume: 0.3,
-      });
-    }
-    frameCount = (Math.floor(frameCount / FRAMES_PER_FONT) + 1) * FRAMES_PER_FONT;
+    ABC.playLetterSound(LETTER, sound);
     needsPaint();
   }
 }
 
-function sim() {
-  frameCount++;
-}
-
 function meta() {
-  return { title: "X", desc: `${theme.emoji} ${theme.words[0]} - The mysterious letter X!` };
+  return { title: "X", desc: `${theme.emoji} ${theme.words[0]} - The letter X and musical note X!` };
 }
 
 export { boot, paint, sim, act, meta };
