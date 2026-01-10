@@ -882,6 +882,26 @@ async function fun(event, context) {
           type="module"
           defer
         ></script>
+        <!-- Modulepreload hints for critical path modules (parallel fetch) -->
+        <link rel="modulepreload" href="/aesthetic.computer/bios.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/parse.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/disk.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/graph.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/num.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/help.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/geo.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/text.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/ui.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/platform.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/kidlisp.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/type.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/pen.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/keyboard.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/loop.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/store.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/headers.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/logs.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/helpers.mjs" />
         <!-- Google tag (gtag.js) - Skip if in sandboxed iframe -->
         <script>
           (function() {

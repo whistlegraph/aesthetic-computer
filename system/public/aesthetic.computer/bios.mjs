@@ -653,26 +653,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   perf.markBootStart();
   headers(); // Print console headers with auto-detected theme.
 
-  // 🎬 Preload webpxmux library in background for animated WebP support
-  // This runs async and doesn't block boot
-  (async () => {
-    if (!window.WebPXMux) {
-      const script = document.createElement("script");
-      script.src = "/aesthetic.computer/dep/webpxmux/webpxmux.min.js";
-      document.head.appendChild(script);
-      await new Promise(r => script.onload = r);
-    }
-    if (!window._webpxMuxInstance) {
-      try {
-        const xMux = window.WebPXMux("/aesthetic.computer/dep/webpxmux/webpxmux.wasm");
-        await xMux.waitRuntime();
-        window._webpxMuxInstance = xMux;
-      } catch (e) {
-        console.warn("🎬 WebPXMux preload failed (will retry on demand):", e.message);
-      }
-    }
-  })();
-
   // Expose Loop control to window for boot.mjs
   // Track pause state for kidlisp console snapshots
   window.acPAUSE = () => {
@@ -3550,73 +3530,93 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   if (/*!MetaBrowser &&*/ workersEnabled) {
     perf.markBoot("worker-create-start");
-    const worker = new Worker(new URL(fullPath, window.location.href), {
-      type: "module",
-    });
     
     let workerFailed = false; // Guard to prevent double-initialization
     let workerReady = false;  // Track if worker has responded
-
-    // Rewire things a bit if workers with modules are not supported (Firefox).
-    worker.onerror = async (err) => {
-      if (workerFailed) return; // Already handling fallback
-      workerFailed = true;
-      worker.terminate(); // Clean up failed worker
+    let retryCount = 0;
+    const maxRetries = 2;
+    
+    const createWorker = () => {
+      const worker = new Worker(new URL(fullPath, window.location.href), {
+        type: "module",
+      });
       
-      // if (
-      //   err.message ===
-      //   "SyntaxError: import declarations may only appear at top level of a module"
-      // ) {
-      console.error("🛑 Disk worker error:", err);
-      console.error("🚨 Message:", err.message || "(no message)");
-      console.error("🚨 Filename:", err.filename || "(no filename)");
-      console.error("🚨 Line:", err.lineno, "Col:", err.colno);
-
-      console.warn("🟡 Attempting a dynamic import...");
-      // https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
-      const module = await import(`./lib/disk.mjs`);
-      module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
-      send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
-      window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
-      send(firstMessage);
-      consumeDiskSends(send);
-      // } else {
-      // TODO: Try and save the crash here by restarting the worker
-      //       without a full system reload?
-      // }
-    };
-
-    if (worker.postMessage) {
-      // console.log("🟢 Worker");
-      send = (e, shared) => {
-        if (workerFailed) return; // Don't send if worker has failed
-        worker.postMessage(e, shared);
+      // Rewire things a bit if workers with modules are not supported (Firefox).
+      worker.onerror = async (err) => {
+        if (workerFailed) return; // Already handling fallback
+        
+        // Transient "no message" errors are common on first load - retry silently
+        const isTransientError = !err.message;
+        
+        // Try retrying the worker a couple times before falling back
+        if (retryCount < maxRetries && isTransientError) {
+          retryCount++;
+          // Only log on second+ retry to reduce noise
+          if (retryCount > 1) {
+            console.warn(`🔄 Worker retry ${retryCount}/${maxRetries}...`);
+          }
+          worker.terminate();
+          await new Promise(r => setTimeout(r, 50 * retryCount)); // Small delay between retries
+          createWorker();
+          return;
+        }
+        
+        // Log error only if we've exhausted retries or it's a real error with a message
+        if (!isTransientError || retryCount >= maxRetries) {
+          console.error("🛑 Disk worker error:", err);
+          console.error("🚨 Message:", err.message || "(no message)");
+          console.error("🚨 Filename:", err.filename || "(no filename)");
+          console.error("🚨 Line:", err.lineno, "Col:", err.colno);
+        }
+        
+        workerFailed = true;
+        worker.terminate(); // Clean up failed worker
+        
+        console.warn("🟡 Attempting a dynamic import fallback...");
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
+        const module = await import(`./lib/disk.mjs`);
+        module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
+        send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
+        window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
+        send(firstMessage);
+        consumeDiskSends(send);
       };
-      window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
-      worker.onmessage = (e) => {
-        if (workerFailed) return; // Ignore messages if we've switched to fallback
-        workerReady = true;
-        onMessage(e);
-      };
-      perf.markBoot("worker-connected");
-      
-      // Notify parent that worker is connected
-      const workerConnectTime = performance.now();
-      const workerElapsed = Math.round(workerConnectTime - diskLoadStartTime);
-      if (window.acBOOT_LOG) {
-        window.acBOOT_LOG(`connecting to worker (${workerElapsed}ms)`);
-      } else if (window.parent) {
-        window.parent.postMessage({ 
-          type: "boot-log", 
-          message: `connecting to worker (${workerElapsed}ms)` 
-        }, "*");
+
+      if (worker.postMessage) {
+        // console.log("🟢 Worker");
+        send = (e, shared) => {
+          if (workerFailed) return; // Don't send if worker has failed
+          worker.postMessage(e, shared);
+        };
+        window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
+        worker.onmessage = (e) => {
+          if (workerFailed) return; // Ignore messages if we've switched to fallback
+          workerReady = true;
+          onMessage(e);
+        };
+        perf.markBoot("worker-connected");
+        
+        // Notify parent that worker is connected
+        const workerConnectTime = performance.now();
+        const workerElapsed = Math.round(workerConnectTime - diskLoadStartTime);
+        if (window.acBOOT_LOG) {
+          window.acBOOT_LOG(`connecting to worker (${workerElapsed}ms)`);
+        } else if (window.parent) {
+          window.parent.postMessage({ 
+            type: "boot-log", 
+            message: `connecting to worker (${workerElapsed}ms)` 
+          }, "*");
+        }
+
+        // Send the initial message immediately
+        perf.markBoot("first-message-sent");
+        send(firstMessage);
+        consumeDiskSends(send);
       }
-
-      // Send the initial message immediately
-      perf.markBoot("first-message-sent");
-      send(firstMessage);
-      consumeDiskSends(send);
-    }
+    };
+    
+    // Start the first worker attempt
+    createWorker();
   } else {
     // B. No Worker Mode
     if (debug) console.log("🔴 No Worker");
@@ -11525,20 +11525,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       // 🧹 Clean up any GPU/stats/glaze state from previous piece
       // This ensures cleanup even if the previous piece's leave() failed
+      let needsGPUCleanup = false;
+      
       if (statsOverlayEnabled) {
         statsOverlayEnabled = false;
         statsOverlay.style.display = "none";
+        needsGPUCleanup = true;
       }
       if (webgpuCanvas.style.display !== "none") {
         webgpuCanvas.style.display = "none";
+        needsGPUCleanup = true;
       }
       if (canvas.style.visibility === "hidden") {
         canvas.style.visibility = "visible";
+        needsGPUCleanup = true;
       }
-      // Reset glaze state
+      // Reset glaze state only if it was actually on
       if (glaze.on) {
         Glaze.off();
         glaze.on = false;
+        // Don't set needsGPUCleanup here - glaze doesn't require reframe
       }
       canvas.style.removeProperty("opacity");
       // Clear freeze frame if stuck
@@ -11551,10 +11557,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         freezeFrameFrozen = false;
       }
       
-      // 🎨 Force a reframe after cleanup so the main canvas redraws properly
-      // (otherwise the old GPU frame stays visible until a resize)
-      // Setting needsReframe triggers frame() which resets canvas dimensions and rendering
-      needsReframe = true;
+      // 🎨 Force a reframe only if coming from a GPU piece (WebGPU canvas was visible)
+      // This prevents breaking the GOL transition on normal disk loads
+      if (needsGPUCleanup) {
+        needsReframe = true;
+      }
       
       try {
         // Clear any active parameters once the disk has been loaded.
@@ -14948,21 +14955,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             return new Uint8Array(await response.arrayBuffer());
           });
           
-          // Load webpxmux library in parallel with fetch
+          // Load webpxmux library in parallel with fetch (use CDN for reliability)
           if (!window.WebPXMux) {
             console.log("🎬 Loading webpxmux library...");
             await new Promise((resolve, reject) => {
               const script = document.createElement("script");
-              script.src = "/aesthetic.computer/dep/webpxmux/webpxmux.min.js";
+              script.src = "https://cdn.jsdelivr.net/npm/webpxmux@1.0.2/dist/webpxmux.min.js";
               script.onload = resolve;
               script.onerror = reject;
               document.head.appendChild(script);
             });
           }
           
-          // Cache the initialized xMux instance for reuse
+          // Cache the initialized xMux instance for reuse (use CDN wasm)
           if (!window._webpxMuxInstance) {
-            const xMux = window.WebPXMux("/aesthetic.computer/dep/webpxmux/webpxmux.wasm");
+            const xMux = window.WebPXMux("https://cdn.jsdelivr.net/npm/webpxmux@1.0.2/dist/webpxmux.wasm");
             await xMux.waitRuntime();
             window._webpxMuxInstance = xMux;
           }
