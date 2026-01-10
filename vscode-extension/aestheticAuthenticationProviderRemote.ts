@@ -183,7 +183,7 @@ export class AestheticAuthenticationProvider
         throw new Error(`${this.env.AUTH_NAME} login failure`);
       }
 
-      const userinfo: { name: string; email: string; sub: string } =
+      const userinfo: { name: string; email: string; sub: string; nickname?: string; handle?: string } =
         await this.getUserInfo(access_token);
 
       const session: AestheticAuthenticationSession = {
@@ -191,8 +191,7 @@ export class AestheticAuthenticationProvider
         accessToken: access_token,
         refreshToken: refresh_token,
         account: {
-          label: userinfo.email, // This will always be the user email.
-          //     userinfo.name
+          label: userinfo.handle || userinfo.nickname || userinfo.name || userinfo.email,
           id: userinfo.sub,
         },
         scopes: this.getScopes(scopes),

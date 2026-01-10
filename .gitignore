@@ -282,6 +282,11 @@ system/.env
 ac-vst/vst3sdk/
 *.amxd
 
+# Rust build artifacts (Cargo target directories)
+**/target/
+**/Cargo.lock
+!ac-event-daemon/Cargo.lock
+
 # Emacs performance logs (keep directory, ignore log files)
 .emacs-logs/*.log
 

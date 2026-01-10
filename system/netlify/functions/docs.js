@@ -2127,6 +2127,31 @@ export async function handler(event, context) {
         done: false,
         hidden: true,
       },
+      "blank-vello": {
+        sig: "blank-vello",
+        desc: "GPU test: Vello WASM renderer (purple lines)",
+        done: true,
+      },
+      "blank-webgl2": {
+        sig: "blank-webgl2",
+        desc: "GPU test: WebGL2 renderer (cyan lines)",
+        done: true,
+      },
+      "blank-canvas2d": {
+        sig: "blank-canvas2d",
+        desc: "GPU test: Canvas2D fallback (green lines)",
+        done: true,
+      },
+      "blank-thorvg": {
+        sig: "blank-thorvg",
+        desc: "GPU test: ThorVG WASM stub (orange lines)",
+        done: true,
+      },
+      "blank-blend2d": {
+        sig: "blank-blend2d",
+        desc: "GPU test: Blend2D WASM stub (magenta lines)",
+        done: true,
+      },
       bleep: {
         sig: "bleep",
         desc: "Play notes on a grid. Try adding a #.",
