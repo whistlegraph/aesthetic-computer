@@ -8,9 +8,14 @@
 /* #region 📚 README
   🎄 Merry Pipeline System
   - Chain pieces together with configurable durations
-  - Syntax: `merry piece1 piece2 piece3` (dA great conversation starteroefault 5 seconds each)
+  - Syntax: `merry piece1 piece2 piece3` (default 5 seconds each)
   - Custom: `merry tone:3 clock:5 wand:2` or `merry 3-tone 5-clock 2-wand`
   - Loop forever: `merryo 0.25-tone` (use `stop` to exit)
+  - Uniform timing shorthand:
+    - `merryo.1 a b c` -> 0.1s each (same as `merryo 0.1-a 0.1-b 0.1-c`)
+    - `mo.1 a b c` -> even shorter! (0.1s each, loops)
+    - `mo.05 a b c` -> 50ms each, loops
+  - URL-able: `/merryo:0.5-tone:0.5-clock` or `/mo.1:a:b:c`
   - Stop early: `merry:stop` or `stop`
   - Example: `merry tone:3 clock:5` plays tone for 3s, then clock for 5s, then returns to prompt
 #endregion */
@@ -81,6 +86,7 @@ import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { signed as shop } from "../lib/shop.mjs";
 import { ordfish } from "./ordfish.mjs";
+import { createHandleAutocomplete } from "../lib/autocomplete.mjs";
 import {
   isPromptInKidlispMode,
   isActualKidLisp,
@@ -199,6 +205,9 @@ const DISABLE_CONTENT_PREVIEWS = true; // Disable live preview tooltips
 
 let startupSfx, keyboardSfx;
 
+// 🔍 @handle autocomplete
+let handleAutocomplete;
+
 // 🎆 Corner particles (for cursor effect)
 let cornerParticles = [];
 
@@ -234,7 +243,7 @@ const promptTranslations = [
   "프롬프트",  // Korean - 4 chars (Hangul double-width)
   "संकेत",     // Hindi/Devanagari - 4 chars (note: unifont may not shape ligatures perfectly)
   "Eingabe",   // German - "Input/Entry"
-  "Saisie",    // French - "Input/Entry"  
+  "Saisie",    // French - "Input/Entry"
   "Inserir",   // Portuguese - "Insert/Enter"
   "Inserisci", // Italian - "Insert"
   "Ввод",      // Russian - "Input" (Cyrillic)
@@ -317,7 +326,7 @@ function updateTooltipState(text, cursorPos) {
     tooltipState.commandName = null;
     return;
   }
-  
+
   // Parse: "command:colon1:colon2 space1 space2"
   const tokens = text.split(" ");
   const firstToken = tokens[0]; // e.g. "notepat:square:5"
@@ -325,22 +334,22 @@ function updateTooltipState(text, cursorPos) {
   const commandName = colonParts[0].toLowerCase();
   const colonParams = colonParts.slice(1);
   const spaceParams = tokens.slice(1);
-  
+
   // Find matching doc entry
   let doc = tooltipDocs?.[commandName];
-  
+
   // Also check for exact match with colon (e.g. "tape:add")
   if (!doc && colonParams.length > 0) {
     const fullKey = `${commandName}:${colonParams[0]}`;
     doc = tooltipDocs?.[fullKey];
   }
-  
+
   tooltipState.commandName = commandName;
   tooltipState.command = doc;
   tooltipState.colonParams = colonParams;
   tooltipState.spaceParams = spaceParams;
   tooltipState.visible = commandName.length > 0;
-  
+
   // Determine cursor context and index based on cursor position
   // cursorPos is the character index in the text
   if (cursorPos <= firstToken.length) {
@@ -370,12 +379,12 @@ function updateTooltipState(text, cursorPos) {
     }
     tooltipState.currentIndex = paramIndex;
   }
-  
+
   // Set description based on context
   if (doc) {
     tooltipState.sig = doc.sig || commandName;
     tooltipState.desc = doc.desc || "";
-    
+
     // Get contextual suggestions
     tooltipState.suggestions = [];
     if (tooltipState.cursorContext === "colon" && doc.colon) {
@@ -401,14 +410,14 @@ function paintTooltip($, inputText) {
   const { ink, screen } = $;
   const doc = tooltipState.command;
   if (!doc) return;
-  
+
   // Get cursor position to draw ghost text inline
   const cursorPos = $.system.prompt.input.prompt?.pos?.(undefined, true);
   if (!cursorPos) return;
-  
+
   const cursorX = cursorPos.x ?? 6;
   const cursorY = cursorPos.y ?? 10;
-  
+
   // Parse what's already typed to show remaining hint
   const typed = inputText.trim();
   const typedParts = typed.split(/[\s]+/);
@@ -416,10 +425,10 @@ function paintTooltip($, inputText) {
   const colonParts = firstToken.split(":");
   const numColonParams = colonParts.length - 1; // -1 for command itself
   const numSpaceParams = typedParts.length - 1; // -1 for first token
-  
+
   let ghostText = "";
   let descText = doc.desc || "";
-  
+
   // Build ghost text from remaining colon params first
   if (doc.colon && doc.colon.length > 0) {
     const remainingColon = doc.colon.slice(numColonParams);
@@ -430,7 +439,7 @@ function paintTooltip($, inputText) {
       }).join("");
     }
   }
-  
+
   // Then add remaining space params
   if (doc.params && doc.params.length > 0) {
     const remainingParams = doc.params.slice(numSpaceParams);
@@ -444,7 +453,7 @@ function paintTooltip($, inputText) {
       ghostText += (ghostText ? " " : "") + spaceHints;
     }
   }
-  
+
   // Draw ghost text inline after cursor (faded)
   if (ghostText) {
     ink($.dark ? [100, 180, 255, 80] : [0, 100, 200, 80]).write(ghostText, {
@@ -452,7 +461,7 @@ function paintTooltip($, inputText) {
       y: cursorY,
     }, undefined, undefined, false, "MatrixChunky8");
   }
-  
+
   // Draw description as subtle underline text below
   if (descText) {
     ink($.dark ? [120, 120, 140, 120] : [80, 80, 100, 120]).write(descText, {
@@ -460,7 +469,7 @@ function paintTooltip($, inputText) {
       y: cursorY + 10,
     }, undefined, undefined, false, "MatrixChunky8");
   }
-  
+
   // Show current param suggestions inline (highlighted options)
   if (tooltipState.suggestions.length > 0 && tooltipState.currentIndex >= 0) {
     const suggestionsText = tooltipState.suggestions.slice(0, 6).join(" · ");
@@ -481,7 +490,7 @@ let tezosDomainName = null; // Resolved .tez domain (if any)
 // Fetch Tezos wallet balance from RPC
 async function fetchTezosBalance(address, network = "mainnet") {
   try {
-    const rpcUrl = network === "mainnet" 
+    const rpcUrl = network === "mainnet"
       ? "https://mainnet.api.tez.ie"
       : "https://ghostnet.ecadinfra.com";
     const res = await fetch(`${rpcUrl}/chains/main/blocks/head/context/contracts/${address}/balance`);
@@ -501,18 +510,18 @@ async function fetchTezosDomain(address, _network = "mainnet") {
   try {
     // Always use mainnet TzKT API - .tez domains only exist on mainnet
     const apiBase = "https://api.tzkt.io";
-    
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
-    
+
     // Look for domains where this address is set AND has reverse=true (primary domain)
     const res = await fetch(
       `${apiBase}/v1/domains?address=${address}&reverse=true&select=name`,
       { signal: controller.signal }
     );
-    
+
     clearTimeout(timeout);
-    
+
     if (res.ok) {
       const data = await res.json();
       // Returns array of domains, take the first one with reverse=true
@@ -645,7 +654,10 @@ async function boot({
     .then((sfx) => (keyboardSfx = sfx))
     .catch((err) => console.warn(err)); // and key sounds.
 
-  // 📦 Load product images (DISABLED for now)
+  // � Initialize @handle autocomplete
+  handleAutocomplete = createHandleAutocomplete();
+
+  // �📦 Load product images (DISABLED for now)
   // await products.boot(api);
 
   // Create login & signup buttons.
@@ -691,7 +703,7 @@ async function boot({
 
     // Fetch the MOTD to display above login/signup buttons
     if (!params[0]) makeMotd({ ...api, notice });
-    
+
     // Fetch all content (kidlisp, painting, tape) for content ticker
     // Always fetch content items, even when params exist (prefilled text)
     fetchContentItems(api);
@@ -718,12 +730,12 @@ async function boot({
     system.prompt.input.addUserText(text);
     system.prompt.input.snap();
     send({ type: "keyboard:text:replace", content: { text } });
-    
+
     activated({ ...api, params }, true);
     system.prompt.input.canType = true;
     send({ type: "keyboard:unlock" });
     send({ type: "keyboard:open" }); // Necessary for desktop.
-    
+
     // Ensure text and cursor position persist after any system initialization
     setTimeout(() => {
       if (system.prompt.input.text !== text) {
@@ -743,19 +755,19 @@ async function boot({
     (vscode && pieceCount === 0)
   ) {
     // Check if we're coming from chat via labelBack - if so, don't activate
-    const labelBackSource = 
-      typeof window !== "undefined" && window.safeSessionStorageGet 
+    const labelBackSource =
+      typeof window !== "undefined" && window.safeSessionStorageGet
         ? window.safeSessionStorageGet("aesthetic-labelBack-source")
         : null;
     const isFromChatLabelBack = labelBackSource === "chat";
-    
+
     // Clear the labelBack source since we've checked it
     if (labelBackSource && typeof window !== "undefined" && window.safeSessionStorageRemove) {
       window.safeSessionStorageRemove("aesthetic-labelBack-source");
     }
-    
+
     if (vscode && pieceCount === 0) firstActivation = false;
-    
+
     // Only activate if NOT coming from chat via labelBack
     if (!isFromChatLabelBack) {
       // system.prompt.input.enter.btn.disabled = true; // Disable button.
@@ -774,7 +786,7 @@ async function boot({
       system.prompt.input.canType = true;
       send({ type: "keyboard:unlock" });
       send({ type: "keyboard:open" }); // Necessary for desktop.
-      
+
       // Force a repaint when returning from another piece (fixes blank screen on backspace from kidlisp)
       needsPaint();
     }
@@ -821,6 +833,8 @@ async function halt($, text) {
     sound,
     canShare,
     debug,
+    clock,
+    preloadPieces,
   } = $;
 
   const stopMerryPipeline = ({
@@ -829,6 +843,12 @@ async function halt($, text) {
     jumpTarget = "prompt",
     cutTape = true,
   } = {}) => {
+    try {
+      send({ type: "url-freeze", content: { freeze: false } });
+    } catch (e) {
+      /* ignore */
+    }
+
     const merryState = system.merry;
     if (!merryState) {
       return { stopped: false, wasTaping: false };
@@ -867,7 +887,7 @@ async function halt($, text) {
 
   system.stopMerryPipeline = stopMerryPipeline;
 
-  const activateMerry = (
+  const activateMerry = async (
     pieceParams,
     { markAsTaping = false, flashOnSuccess = true, loop = false, originalCommand = "" } = {}
   ) => {
@@ -922,23 +942,70 @@ async function halt($, text) {
       return false;
     }
 
+    // 🎄⏰ Resync clock with UTC server before starting pipeline
+    if (clock?.resync) {
+      clock.resync();
+      console.log("🎄⏰ Clock resynced with UTC server");
+    }
+
+    // 🎄📦 Preload all piece modules before starting (prevents network latency during transitions)
+    const pieceNames = pipeline.map(p => p.piece);
+    if (preloadPieces) {
+      console.log("🎄📦 Preloading pieces:", pieceNames);
+      await preloadPieces(pieceNames);
+    }
+
+    // Helper function to get UTC-synced time
+    const getUTCTime = () => clock?.time?.()?.getTime?.() || Date.now();
+
     const totalDuration = pipeline.reduce((sum, p) => sum + p.duration, 0);
+    
+    // 🎄⏰ Calculate UTC-aligned start for synced playback across devices
+    // This allows multiple merryo instances to stay in sync by aligning to
+    // the same cycle boundary in UTC time
+    const now = getUTCTime();
+    const totalDurationMs = totalDuration * 1000;
+    
+    // Calculate how far into the current cycle we are (based on UTC epoch)
+    // This means all devices will calculate the same position in the cycle
+    const cyclePosition = now % totalDurationMs;
+    
+    // Calculate the start of the current cycle (when it began in UTC)
+    const cycleStartTime = now - cyclePosition;
+    
+    // Calculate which piece we should be on and how far into it
+    let accumulatedDuration = 0;
+    let startIndex = 0;
+    let pieceElapsed = 0;
+    
+    for (let i = 0; i < pipeline.length; i++) {
+      const pieceDurationMs = pipeline[i].duration * 1000;
+      if (cyclePosition < accumulatedDuration + pieceDurationMs) {
+        startIndex = i;
+        pieceElapsed = cyclePosition - accumulatedDuration;
+        break;
+      }
+      accumulatedDuration += pieceDurationMs;
+    }
+    
+    console.log(`🎄⏰ UTC sync: cycle position ${(cyclePosition/1000).toFixed(2)}s, starting at piece ${startIndex} (${pipeline[startIndex]?.piece})`);
 
     system.merry = {
       pipeline,
-      currentIndex: 0,
+      currentIndex: startIndex,
       running: true,
       totalDuration,
-      elapsedTime: 0,
-      progress: 0,
-      pieceProgress: 0,
-      startTime: null,
-      currentPieceStart: null,
+      elapsedTime: cyclePosition / 1000, // Start with elapsed time from cycle position
+      progress: cyclePosition / totalDurationMs,
+      pieceProgress: pieceElapsed / (pipeline[startIndex]?.duration * 1000 || 1),
+      startTime: cycleStartTime, // Use calculated cycle start for consistent timing
+      currentPieceStart: cycleStartTime + accumulatedDuration, // When current piece started
       isTaping: markAsTaping,
       paintInterval: null,
       loop,
       cycleCount: 0,
       originalCommand, // Store for backspace editing
+      getUTCTime, // Store the helper for use in setTimeout calculations
     };
 
     console.log("🎄 Merry pipeline:", pipeline, `total: ${totalDuration}s`);
@@ -989,7 +1056,7 @@ async function halt($, text) {
           merryState.progress = 0;
           merryState.pieceProgress = 0;
           merryState.currentPieceStart = null;
-          merryState.startTime = Date.now();
+          merryState.startTime = getUTCTime();
           needsPaint();
           startMerryPiece(0);
           return;
@@ -1007,24 +1074,40 @@ async function halt($, text) {
       }
 
       const { piece, duration } = pipeline[index];
-      console.log(`🎄 Merry: Playing ${piece} for ${duration}s (${index + 1}/${pipeline.length})`);
+      
+      // Calculate remaining time for this piece based on UTC-synced timing
+      // On first call, we may be starting mid-piece due to UTC sync
+      const now = getUTCTime();
+      let remainingDuration = duration * 1000;
+      
+      if (system.merry && system.merry.currentPieceStart) {
+        // Calculate how much time has already passed in this piece
+        const pieceElapsed = now - system.merry.currentPieceStart;
+        remainingDuration = Math.max(0, (duration * 1000) - pieceElapsed);
+      }
+      
+      console.log(`🎄 Merry: Playing ${piece} for ${duration}s (${index + 1}/${pipeline.length}), remaining: ${(remainingDuration/1000).toFixed(2)}s`);
 
       if (system.merry) {
-        system.merry.currentPieceStart = Date.now();
-        system.merry.pieceProgress = 0;
+        // Only reset piece start if we're not continuing from UTC sync
+        if (!system.merry.currentPieceStart || index !== system.merry.currentIndex) {
+          system.merry.currentPieceStart = getUTCTime();
+          system.merry.pieceProgress = 0;
+        }
         system.merry.currentIndex = index;
-        if (index === 0) {
-          system.merry.startTime = Date.now();
+        if (index === 0 && !system.merry.startTime) {
+          system.merry.startTime = getUTCTime();
         }
       }
 
       startMerryPaintTicker();
 
-      // � Trigger a visual flash on the progress bar when transitioning (instead of sound)
-      if (system.merry) {
+      // 🎄 Trigger a visual flash on the progress bar when transitioning (instead of sound)
+      // Only flash if we're actually transitioning (not on initial UTC-synced start)
+      if (system.merry && remainingDuration === duration * 1000) {
         system.merry.transitionFlash = {
           active: true,
-          startTime: Date.now(),
+          startTime: getUTCTime(),
           duration: 150, // Flash duration in ms
         };
       }
@@ -1032,14 +1115,17 @@ async function halt($, text) {
       setTimeout(() => {
         if (system.merry && system.merry.running) {
           system.merry.elapsedTime += duration;
+          // Reset piece start for next piece (it will start fresh)
+          system.merry.currentPieceStart = getUTCTime();
           startMerryPiece(index + 1);
         }
-      }, duration * 1000);
+      }, remainingDuration);
 
       jump(piece);
     };
 
-    startMerryPiece(0);
+    // Start at the calculated index (may be > 0 due to UTC sync)
+    startMerryPiece(startIndex);
 
     if (flashOnSuccess) {
       flashColor = [0, 255, 0];
@@ -1051,9 +1137,18 @@ async function halt($, text) {
   activeCompletions.length = 0; // Reset activeCompletions on every halt.
   motdController?.abort(); // Abort any motd update.
 
+  // Default to unfreezing URL updates when a new command is entered.
+  // (Merry commands will re-freeze below.)
+  try {
+    send({ type: "url-freeze", content: { freeze: false } });
+  } catch (e) {
+    /* ignore */
+  }
+
   // Roughly parse out the text (could also do a full `parse` here.)
   const tokens = text.split(" ");
   const slug = tokens[0]; // Note: Includes colon params.
+  const slugWithoutColon = slug.split(":")[0];
   const params = tokens.slice(1);
   const input = $.system.prompt.input; // Reference to the TextInput.
 
@@ -1063,7 +1158,9 @@ async function halt($, text) {
     return true;
   };
 
-  const siteBase = `https://${debug ? "localhost:8888" : "aesthetic.computer"}`;
+  const siteBase = debug && typeof self !== "undefined" && self.location
+    ? self.location.origin
+    : "https://aesthetic.computer";
 
   const toAbsoluteSiteUrl = (pathOrUrl) => {
     if (/^https?:\/\//.test(pathOrUrl)) return pathOrUrl;
@@ -1073,7 +1170,7 @@ async function halt($, text) {
 
   // 🕸️ Custom URL routing.
   if (slug.startsWith("/")) {
-    jump(`https://${debug ? "localhost:8888" : "aesthetic.computer"}${slug}`);
+    jump(`${siteBase}${slug}`);
     return true;
   } else if (slug === "shop") {
     console.log(slug);
@@ -1129,10 +1226,75 @@ async function halt($, text) {
     // 📻 Jump to R8dio.dk website (supports both r8dio and r8Dio)
     jump(`https://r8dio.dk/lyt-live/`);
     return true;
-  } else if (slug === "merry" || slug === "merryo") {
-    const loop = slug === "merryo";
-    console.log(`🎄 ${slug.toUpperCase()} command received with params:`, params);
-    activateMerry(params, {
+  } else if (
+    slugWithoutColon === "merry" ||
+    slugWithoutColon === "merryo" ||
+    slugWithoutColon.startsWith("merryo.") ||
+    slugWithoutColon.startsWith("mo.") ||
+    slugWithoutColon === "mo" ||
+    /^mo\d+$/.test(slugWithoutColon)
+  ) {
+    // Freeze URL updates while merry runs so piece swaps don't rewrite the address bar.
+    try {
+      const loc = typeof self !== "undefined" && self.location ? self.location : null;
+      const freezePath = loc
+        ? loc.pathname + loc.search + loc.hash
+        : "";
+      send({ type: "url-freeze", content: { freeze: true, path: freezePath } });
+    } catch (e) {
+      /* ignore */
+    }
+
+    // 🎄 Merry / Merryo with optional uniform timing shorthand
+    // Examples:
+    //   merry tone clock        -> 5s each
+    //   merryo tone clock       -> 5s each, loops
+    //   merryo.1 a b c          -> 0.1s each, loops (shorthand for merryo 0.1-a 0.1-b 0.1-c)
+    //   mo.1 a b c              -> same as merryo.1
+    //   mo.05 a b c             -> 0.05s (50ms) each, loops
+    //   mo1 a b c               -> 1s each, loops
+    //   mo10 a b c              -> 10s each, loops
+    const isMoIntegerSeconds = /^mo\d+$/.test(slugWithoutColon);
+    let loop =
+      slugWithoutColon === "merryo" ||
+      slugWithoutColon.startsWith("merryo.") ||
+      slugWithoutColon.startsWith("mo.") ||
+      slugWithoutColon === "mo" ||
+      isMoIntegerSeconds;
+    let uniformDuration = null;
+    
+    // Parse uniform duration from slug like "merryo.1" or "mo.05"
+    if (slugWithoutColon.startsWith("merryo.")) {
+      const timingPart = slugWithoutColon.slice(6); // ".1" or ".05"
+      const parsed = parseFloat("0" + timingPart);
+      if (!isNaN(parsed) && parsed > 0) {
+        uniformDuration = parsed;
+      }
+    } else if (slugWithoutColon.startsWith("mo.")) {
+      const timingPart = slugWithoutColon.slice(2); // ".1" or ".05"
+      const parsed = parseFloat("0" + timingPart);
+      if (!isNaN(parsed) && parsed > 0) {
+        uniformDuration = parsed;
+      }
+    } else if (isMoIntegerSeconds) {
+      const seconds = parseInt(slugWithoutColon.slice(2), 10);
+      if (Number.isFinite(seconds) && seconds > 0) {
+        uniformDuration = seconds;
+      }
+    }
+    
+    // Apply uniform duration to all params if specified
+    let processedParams = params;
+    if (uniformDuration !== null && params.length > 0) {
+      processedParams = params.map(piece => `${uniformDuration}-${piece}`);
+    }
+    
+    console.log(
+      `🎄 ${slugWithoutColon.toUpperCase()} command received with params:`,
+      processedParams,
+      uniformDuration ? `(uniform: ${uniformDuration}s)` : "",
+    );
+    activateMerry(processedParams, {
       markAsTaping: false,
       flashOnSuccess: true,
       loop,
@@ -1163,7 +1325,7 @@ async function halt($, text) {
       jump("video~" + params.join('~'));
       return true;
     }
-    
+
     // 📼 Start taping (recording mode).
     // Note: Right now, tapes get saved on refresh but can't be concatenated to,
     // and they start over when using `tape`.
@@ -1206,14 +1368,14 @@ async function halt($, text) {
   let isTapingMerry = false; // Flag to track if we're recording a merry pipeline
   let jumpTo;
   let merryPieceParams = null;
-      
+
       // Check if the first parameter ends with 'f' for frame-based recording
       if (params[0] && typeof params[0] === 'string' && params[0].toLowerCase().endsWith('f')) {
         frameMode = true;
         duration = parseFloat(params[0].slice(0, -1)); // Remove the 'f' suffix
         console.log(`🎬 Frame-based recording requested: ${duration} frames`);
       }
-      
+
       // 🎄 Check if we're taping a merry pipeline anywhere in the params: "tape merry tone:3 clock:5"
       const merryTokenIndex = params.findIndex(
         (param) => param === "merry" || param === "merryo"
@@ -1221,7 +1383,7 @@ async function halt($, text) {
       if (merryTokenIndex !== -1) {
         isTapingMerry = true;
         console.log("🎄📼 Taping a merry pipeline detected!");
-        
+
         const merryToken = params[merryTokenIndex];
         const loopRequested = merryToken === "merryo";
 
@@ -1265,13 +1427,13 @@ async function halt($, text) {
         // Capture the KidLisp FPS if available (set by fps function)
         const kidlispFps = (typeof window !== 'undefined' && window.currentKidlispFps) || null;
         console.log(`🎬 Captured KidLisp FPS for recording: ${kidlispFps}`);
-        
+
         // 🎄 If we're taping a merry, mark it in the merry system
         if (isTapingMerry && system.merry) {
           system.merry.isTaping = true;
           console.log("🎄📼 Marked merry pipeline as being taped");
         }
-        
+
         // 😶‍🌫️ Running after the `jump` prevents any flicker and starts
         // the recording at the appropriate time.
         rec.rolling(
@@ -1328,7 +1490,7 @@ async function halt($, text) {
         } else if (!frameMode) {
           duration = defaultDuration; // Default to 7 seconds for "tape $code"
         }
-        
+
         if (!frameMode || !params[0].toLowerCase().endsWith('f')) {
           // Only jump to piece if it's not just a frame count
           // Reconstruct the original kidlisp content without adding tildes
@@ -1571,7 +1733,7 @@ async function halt($, text) {
     // Always upload a PNG.
     if (destination === "upload") {
       console.log("🖼️ Uploading painting...");
-      
+
       try {
         progressPhase = "FINISHING...";
         console.log(`📞 Calling upload with recordingSlug: ${recordingSlug}`);
@@ -1590,23 +1752,23 @@ async function halt($, text) {
           needsPaint(); // Update display during upload
         }, undefined, recordingSlug); // Pass bucket as undefined (use auth), recordingSlug as 5th param
         console.log("🪄 Painting uploaded:", filename, data);
-        
+
         // The upload function includes the database call, so this happens after everything
         progressPhase = "COMPLETE";
         progressBar = 1.0; // 100%
         progressPercentage = 100;
         needsPaint(); // Force paint to show completion
-        
+
         // Brief delay to show completed state
         await new Promise(resolve => setTimeout(resolve, 300));
-        
+
         progressBar = -1; // Hide progress bar
         progressPhase = "";
         progressPercentage = 0;
 
         // For anonymous paintings with recordings, the slug is already combined in MongoDB
         // No need to update it separately
-        
+
         // Jump to the painting using its code
         if (data.code) {
           console.log(`🎨 Your painting code: #${data.code}`);
@@ -1636,28 +1798,28 @@ async function halt($, text) {
     /*
     // 🧪 DEBUG: Simple spinner test with dummy await
     console.log("🧪 Testing spinner for 'done' command");
-    
+
     progressBar = 0; // Show spinner
     progressTrick = new gizmo.Hourglass(24, {
       completed: () => (progressBar += min(0.5, progressBar + 0.1)),
       autoFlip: true,
     });
     needsPaint(); // Request paint
-    
+
     // Dummy async work to test spinner visibility
     await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
-    
+
     progressBar = 1.0; // Complete
     needsPaint();
     await new Promise(resolve => setTimeout(resolve, 300)); // Show completion
-    
+
     progressBar = -1; // Hide
     progressTrick = null;
-    
+
     console.log("🧪 Spinner test complete");
     makeFlash($, false);
     return true;
-    
+
     /*
     let destination = params[0] || "upload"; // or "upload"
     if (destination === "u" || slug === "yes!") destination = "upload";
@@ -1704,7 +1866,7 @@ async function halt($, text) {
     // Always upload a PNG.
     if (destination === "upload") {
       console.log("🖼️ Uploading painting...");
-      
+
       // Only initialize progress bar if not already started (by act() pre-emptively)
       if (progressBar < 0) {
         progressBar = 0; // Trigger progress bar rendering.
@@ -1713,11 +1875,11 @@ async function halt($, text) {
           autoFlip: true,
         });
         needsPaint(); // Force a repaint to show the progress bar
-        
+
         // Yield to the event loop so the progress bar can render
         await new Promise(resolve => setTimeout(resolve, 0));
       }
-      
+
       try {
         console.log(`📞 Calling upload with recordingSlug: ${recordingSlug}`);
         const data = await upload(filename, store["painting"], (p) => {
@@ -1725,21 +1887,21 @@ async function halt($, text) {
           progressBar = p;
         }, undefined, recordingSlug); // Pass bucket as undefined (use auth), recordingSlug as 5th param
         console.log("🪄 Painting uploaded:", filename, data);
-        
+
         // Show completed progress bar briefly before jumping
         progressBar = 1.0; // Full bar
         needsPaint(); // Force paint
         progressTrick?.stop?.(); // Stop the hourglass animation
         progressTrick = null;
-        
+
         // Brief delay to show completed state
         await new Promise(resolve => setTimeout(resolve, 300));
-        
+
         progressBar = -1; // Hide progress bar
 
         // For anonymous paintings with recordings, the slug is already combined in MongoDB
         // No need to update it separately
-        
+
         // Jump to the painting using its code
         if (data.code) {
           console.log(`🎨 Your painting code: #${data.code}`);
@@ -1948,7 +2110,20 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text === "+") {
-    jump(`out:${location.origin}`);
+    // New window/tab. In Electron, the host webview wrapper intercepts popups and
+    // opens a new BrowserWindow.
+    window.open(location.href, "_blank", "noopener");
+    makeFlash($);
+    return true;
+  } else if (text === "-") {
+    const isElectron = /Electron/i.test(navigator.userAgent || "");
+    if (isElectron) {
+      // Ask the Electron host to close this BrowserWindow (intercepted as a popup).
+      window.open("ac://close", "_blank");
+    } else {
+      // Browsers will only allow this for script-opened tabs/windows.
+      window.close();
+    }
     makeFlash($);
     return true;
   } else if (text.startsWith("google")) {
@@ -2030,20 +2205,20 @@ async function halt($, text) {
       makeFlash($);
       return true;
     }
-    
+
     // Normalize piece code (ensure it starts with $)
     const code = pieceCode.startsWith("$") ? pieceCode.slice(1) : pieceCode;
-    
+
     // Initialize bundle progress UI
-    bundleProgress = { 
-      stage: 'fetch', 
-      message: `Bundling $${code}...`, 
+    bundleProgress = {
+      stage: 'fetch',
+      message: `Bundling $${code}...`,
       startTime: performance.now(),
       animPhase: 0,
       code
     };
     needsPaint();
-    
+
     try {
       // Use streaming endpoint for progress updates
       const response = await fetch(`/api/bundle-html?code=$${code}&format=stream`);
@@ -2052,7 +2227,7 @@ async function halt($, text) {
       let buffer = '';
       let result = null;
       let currentEventType = null; // Persist across chunk boundaries
-      
+
       // Helper to parse SSE lines
       const parseSSELines = (lines) => {
         for (const line of lines) {
@@ -2061,7 +2236,7 @@ async function halt($, text) {
           } else if (line.startsWith('data: ') && currentEventType) {
             try {
               const data = JSON.parse(line.slice(6));
-              
+
               if (currentEventType === 'progress') {
                 // Update bundle progress state
                 bundleProgress = {
@@ -2084,7 +2259,7 @@ async function halt($, text) {
           }
         }
       };
-      
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
@@ -2092,30 +2267,30 @@ async function halt($, text) {
           buffer += decoder.decode();
           break;
         }
-        
+
         buffer += decoder.decode(value, { stream: true });
-        
+
         // Parse SSE events from buffer
         const lines = buffer.split('\n');
         buffer = lines.pop() || ''; // Keep incomplete line in buffer
-        
+
         parseSSELines(lines);
       }
-      
+
       // Process any remaining data in buffer after stream ends
       if (buffer.trim()) {
         const finalLines = buffer.split('\n');
         parseSSELines(finalLines);
       }
-      
+
       if (!result) {
         throw new Error("No result received from bundle API");
       }
-      
+
       // Decode base64 content and download
       const htmlContent = atob(result.content);
       download(result.filename, htmlContent, { type: "text/html" });
-      
+
       notice("Downloaded " + result.filename + " (" + result.sizeKB + "KB)", ["lime"]);
       flashColor = [0, 255, 0];
     } catch (err) {
@@ -2123,20 +2298,20 @@ async function halt($, text) {
       notice("Bundle failed: " + err.message, ["red"]);
       flashColor = [255, 0, 0];
     }
-    
+
     // Clear bundle progress
     bundleProgress = null;
-    
+
     makeFlash($);
     return true;
   } else if (text === "wallet" || text.startsWith("wallet ")) {
     // Tezos wallet: connect, view, disconnect
     const subcommand = params[0]?.toLowerCase();
-    
+
     try {
       // Check if already connected (from localStorage session)
       const existingAddress = tezosWalletAddress || await api.tezos.address();
-      
+
       if (subcommand === "disconnect") {
         // Disconnect wallet
         await api.tezos.disconnect();
@@ -2182,8 +2357,8 @@ async function halt($, text) {
       console.error("Wallet error:", err);
       // Handle user cancellation gracefully (various error messages from Beacon)
       const errMsg = (err.message || err || "").toLowerCase();
-      if (errMsg.includes("aborted") || 
-          errMsg.includes("cancel") || 
+      if (errMsg.includes("aborted") ||
+          errMsg.includes("cancel") ||
           errMsg.includes("reject") ||
           errMsg.includes("denied") ||
           errMsg.includes("closed") ||
@@ -2196,7 +2371,7 @@ async function halt($, text) {
         flashColor = [255, 0, 0];
       }
     }
-    
+
     makeFlash($);
     return true;
   } else if (text === "tezos" || text.startsWith("tezos ")) {
@@ -2214,10 +2389,10 @@ async function halt($, text) {
       makeFlash($);
       return true;
     }
-    
+
     // Normalize piece code (ensure it starts with $)
     const code = pieceCode.startsWith("$") ? pieceCode.slice(1) : pieceCode;
-    
+
     // For new mints, require AC login
     // For existing tokens, allow access (token owner can resync without AC account)
     // The keep piece will handle authorization based on wallet ownership
@@ -2227,7 +2402,7 @@ async function halt($, text) {
       // If token doesn't exist, keep.mjs will show login prompt
       console.log("🪙 KEEP: User not logged in, allowing access to keep piece (will check wallet ownership)");
     }
-    
+
     // Jump to the dedicated keep piece for multi-step minting flow
     store["keep:piece"] = code;
     jump(`keep~$${code}`);
@@ -2437,7 +2612,7 @@ async function halt($, text) {
       pixels: system.painting.pixels,
     }; // system.painting;
     store.persist("painting", "local:db"); // Also persist the painting.
-    
+
     // 🎨 Broadcast painting flip/flop to other tabs
     if (typeof $commonApi !== 'undefined' && $commonApi.broadcastPaintingUpdate) {
       $commonApi.broadcastPaintingUpdate("updated", {
@@ -2446,7 +2621,7 @@ async function halt($, text) {
         vertical: vertical
       });
     }
-    
+
     system.nopaint.addUndoPainting(system.painting, slug);
     flashColor = [0, 0, 255];
     makeFlash($);
@@ -2488,7 +2663,7 @@ async function halt($, text) {
       pixels: system.painting.pixels,
     }; // system.painting;
     store.persist("painting", "local:db"); // Also persist the painting.
-    
+
     // 🎨 Broadcast painting rotation to other tabs
     if (typeof $commonApi !== 'undefined' && $commonApi.broadcastPaintingUpdate) {
       $commonApi.broadcastPaintingUpdate("updated", {
@@ -2497,7 +2672,7 @@ async function halt($, text) {
         angle: angle
       });
     }
-    
+
     system.nopaint.addUndoPainting(system.painting, slug);
     store["painting:resolution-lock"] = true; // Set resolution lock.
     store.persist("painting:resolution-lock", "local:db");
@@ -2657,38 +2832,38 @@ async function halt($, text) {
       // If no params or invalid params, use full screen dimensions
       size = { w: screen.width, h: screen.height };
     }
-    
+
     // Clear storage and reset state (without creating a painting yet)
     await store.delete("painting", "local:db");
     await store.delete("painting:resolution-lock", "local:db");
     await store.delete("painting:transform", "local:db");
     await store.delete("painting:record", "local:db");
-    
+
     // Also clear from memory to ensure nopaint_adjust doesn't see stale values
     delete store["painting"];
     delete store["painting:resolution-lock"];
     delete store["painting:transform"];
     delete store["painting:record"];
-    
+
     system.nopaint.undo.paintings.length = 0; // Reset undo stack.
     system.painting = null;
     system.nopaint.resetTransform({ system, screen }); // Reset transform.
-    
+
     if (system.nopaint.recording) {
       system.nopaint.recording = false;
       system.nopaint.record.length = 0;
     }
-    
+
     let fullText = slug;
     if (params.length > 0) fullText += "~" + params.join("~");
-    
+
     // Now create the new painting at the specified size
     nopaint_adjust(api, size, fullText);
-    
+
     system.nopaint.startRecord(fullText); // Start recording paintings.
-    
+
     needsPaint();
-    
+
     flashColor = [200, 0, 200];
     makeFlash($);
     return true;
@@ -2990,10 +3165,10 @@ async function halt($, text) {
   } else if (/^ac[0-9]{2}[a-z]{5}$/.test(slug)) {
     // Handle permahandle codes like ac25namuc → @jeffrey's profile
     console.log(`🔑 Looking up permahandle: ${slug}`);
-    
+
     const promptInput = system?.prompt?.input;
     if (promptInput) promptInput.lock = true;
-    
+
     fetch(`/api/permahandle/${slug}`)
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -3014,7 +3189,7 @@ async function halt($, text) {
         if (promptInput) promptInput.lock = false;
         needsPaint();
       });
-    
+
     return true;
   } else {
     // console.log("🟢 Attempting a load!");    // 🟠 Local and remote pieces...
@@ -3073,10 +3248,10 @@ class MediaPreviewBox {
   render($, item, x, y, fadeIn) {
     const contentX = x + this.padding;
     const contentY = y + this.padding;
-    
+
     // Set up clipping mask for the content area
     $.mask({ x: contentX, y: contentY, width: this.width, height: this.height });
-    
+
     if (item.type === 'kidlisp' && item.source) {
       this.renderKidlisp($, item, contentX, contentY, fadeIn);
     } else if (item.type === 'painting' && item.image) {
@@ -3086,7 +3261,7 @@ class MediaPreviewBox {
     } else if (item.type === 'tape' && item.isLoading) {
       this.renderTapeLoading($, item, contentX, contentY, fadeIn);
     }
-    
+
     // Remove clipping mask
     $.unmask();
   }
@@ -3095,9 +3270,9 @@ class MediaPreviewBox {
     const charWidth = 4;
     const lineHeight = 10;
     const lines = item.source.split('\n').slice(0, Math.floor(this.height / lineHeight));
-    
+
     const textAlpha = Math.floor(255 * fadeIn);
-    
+
     lines.forEach((line, i) => {
       const lineY = y + i * lineHeight;
       // Simple monochrome rendering for now - could add syntax highlighting
@@ -3114,46 +3289,46 @@ class MediaPreviewBox {
 
   renderPainting($, item, x, y, fadeIn) {
     const img = item.image;
-    
+
     // Ken Burns effect: pan a crop window that fills the preview box
     const nowTime = performance.now();
     const burnSeed = item.kenBurnsSeed ?? Math.random();
     item.kenBurnsSeed = burnSeed;
     const KEN_BURNS_CYCLE_MS = 8000;
     const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
-    
+
     // Calculate how much to scale the image to cover the box (cover, not contain)
     const scaleX = this.width / img.width;
     const scaleY = this.height / img.height;
     const scale = Math.max(scaleX, scaleY); // Cover - may crop
-    
+
     // Scaled dimensions
     const scaledW = img.width * scale;
     const scaledH = img.height * scale;
-    
+
     // Maximum pan range in scaled space
     const maxPanX = Math.max(0, scaledW - this.width);
     const maxPanY = Math.max(0, scaledH - this.height);
-    
+
     // Ken Burns pan position (0-1)
     const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
     const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
-    
+
     // Offset in scaled space
     const offsetX = maxPanX * panX;
     const offsetY = maxPanY * panY;
-    
+
     // Draw scaled image at negative offset to create crop effect
     const drawX = x - offsetX;
     const drawY = y - offsetY;
-    
+
     const imageAlpha = Math.floor(255 * fadeIn);
     $.ink(255, 255, 255, imageAlpha);
     $.paste(img, drawX, drawY, {
       width: Math.ceil(scaledW),
       height: Math.ceil(scaledH)
     });
-    
+
     $.needsPaint(); // Keep animating
   }
 
@@ -3162,61 +3337,61 @@ class MediaPreviewBox {
     const nowTime = performance.now();
     const frameIndex = Math.floor((nowTime / 83)) % item.frames.length;
     const frame = item.frames[frameIndex];
-    
+
     if (frame) {
       // Ken Burns effect
       const burnSeed = item.kenBurnsSeed ?? Math.random();
       item.kenBurnsSeed = burnSeed;
       const KEN_BURNS_CYCLE_MS = 8000;
       const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
-      
+
       // Calculate how much to scale the frame to cover the box
       const scaleX = this.width / frame.width;
       const scaleY = this.height / frame.height;
       const scale = Math.max(scaleX, scaleY); // Cover - may crop
-      
+
       // Scaled dimensions
       const scaledW = frame.width * scale;
       const scaledH = frame.height * scale;
-      
+
       // Maximum pan range in scaled space
       const maxPanX = Math.max(0, scaledW - this.width);
       const maxPanY = Math.max(0, scaledH - this.height);
-      
+
       // Ken Burns pan position (0-1)
       const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
       const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
-      
+
       // Offset in scaled space
       const offsetX = maxPanX * panX;
       const offsetY = maxPanY * panY;
-      
+
       // Draw scaled frame at negative offset to create crop effect
       const drawX = x - offsetX;
       const drawY = y - offsetY;
-      
+
       $.paste(frame, drawX, drawY, {
         width: Math.ceil(scaledW),
         height: Math.ceil(scaledH)
       });
     }
-    
+
     $.needsPaint(); // Keep animating
   }
 
   renderTapeLoading($, item, x, y, fadeIn) {
     const animPhase = (performance.now() / 100) % (Math.PI * 2);
     const loadingAlpha = Math.floor(255 * fadeIn);
-    
+
     // Draw cassette body outline
     $.ink(80, 80, 80, loadingAlpha).box(x, y, this.width, this.height, "outline");
-    
+
     // Draw two reels
     const reelRadius = 15;
     const reelY = y + this.height / 2;
     const reel1X = x + this.width * 0.3;
     const reel2X = x + this.width * 0.7;
-    
+
     // Left reel
     $.ink(150, 100, 150, loadingAlpha).circle(reel1X, reelY, reelRadius, false);
     const spoke1Angle = animPhase;
@@ -3227,7 +3402,7 @@ class MediaPreviewBox {
       const endY = reelY + Math.sin(angle) * spokeLength;
       $.ink(150, 100, 150, loadingAlpha).line(reel1X, reelY, endX, endY);
     }
-    
+
     // Right reel
     $.ink(150, 100, 150, loadingAlpha).circle(reel2X, reelY, reelRadius, false);
     const spoke2Angle = -animPhase;
@@ -3237,46 +3412,46 @@ class MediaPreviewBox {
       const endY = reelY + Math.sin(angle) * spokeLength;
       $.ink(150, 100, 150, loadingAlpha).line(reel2X, reelY, endX, endY);
     }
-    
+
     // Tape connecting reels
     const tapeY1 = reelY - reelRadius;
     const tapeY2 = reelY + reelRadius;
     $.ink(100, 70, 50, loadingAlpha).line(reel1X, tapeY1, reel2X, tapeY1);
     $.ink(100, 70, 50, loadingAlpha).line(reel1X, tapeY2, reel2X, tapeY2);
-    
+
     $.needsPaint(); // Keep animating
   }
 
   // Render tape progress bar and time (outside the box)
   renderTapeMetrics($, item, x, y, boxWidth, fadeIn) {
     if (!item.frames || item.frames.length === 0) return;
-    
+
     const nowTime = performance.now();
     const frameIndex = Math.floor((nowTime / 83)) % item.frames.length;
-    
+
     // Progress bar (2px below box)
     const progressBarY = y + 2;
     const totalFrames = item.frames.length;
     const progress = frameIndex / totalFrames;
     const progressWidth = Math.floor(boxWidth * progress);
-    
+
     $.ink(0, 0, 0, 255).line(x, progressBarY, x + boxWidth - 1, progressBarY);
     if (progressWidth > 0) {
       $.ink(255, 0, 0, 255).line(x, progressBarY, x + progressWidth - 1, progressBarY);
     }
-    
+
     // Time display (2px below progress bar)
     const timeY = progressBarY + 4;
     const fps = 12;
     const currentSeconds = frameIndex / fps;
     const totalSeconds = totalFrames / fps;
-    
+
     const formatTime = (seconds) => {
       const mins = Math.floor(seconds / 60);
       const secs = Math.floor(seconds % 60);
       return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
-    
+
     const timeText = `${formatTime(currentSeconds)} / ${formatTime(totalSeconds)}`;
     const timeAlpha = Math.floor(180 * fadeIn);
     $.ink(100, 180, 120, timeAlpha).write(
@@ -3294,19 +3469,19 @@ class MediaPreviewBox {
 function paint($) {
   // Time-based animation counter (used by both MOTD and ghost hint)
   const now = performance.now();
-  
+
   // 📊 FPS calculation using rolling window
   fpsTimestamps.push(now);
   while (fpsTimestamps.length > 0 && fpsTimestamps[0] < now - 1000) {
     fpsTimestamps.shift();
   }
   currentFps = fpsTimestamps.length;
-  
+
   if (!lastMotdTime) lastMotdTime = now;
   const deltaTime = (now - lastMotdTime) / 1000; // Convert to seconds
   lastMotdTime = now;
   motdFrame += deltaTime * 60; // 60 units per second (equivalent to 60fps @ 1 per frame)
-  
+
   if (fetchingUser) fetchUserAPI = $.api;
 
   // Ensure pal is always defined with a fallback
@@ -3329,7 +3504,7 @@ function paint($) {
   $.layer(1); // 🅱️ And above it...
 
   const { screen, ink, history, net, help } = $;
-  
+
   // Make prompt text semi-transparent when curtain is up
   const showLoginCurtain = (!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled);
   if (showLoginCurtain && $.system.prompt.input.canType) {
@@ -3339,19 +3514,24 @@ function paint($) {
     scheme.dark.text = [...originalDarkText.slice(0, 3), 128]; // 50% opacity
     scheme.light.text = [...originalLightText.slice(0, 3), 128];
   }
-  
+
   if ($.system.prompt.input.canType) {
     const currentInputText = $.system.prompt.input.text;
-    
+
     // 💡 Update tooltip state for current text
     // Get cursor position as text index using prompt.textPos()
     const prompt = $.system.prompt.input.prompt;
     const cursorCharPos = prompt?.textPos?.() ?? currentInputText.length;
     updateTooltipState(currentInputText, cursorCharPos);
 
+    // 🔍 Update @handle autocomplete
+    if (handleAutocomplete) {
+      handleAutocomplete.update(currentInputText, cursorCharPos);
+    }
+
     // 🤖 Check if we're in kidlisp mode (for syntax highlighting)
     const inKidlispMode = isPromptInKidlispMode(currentInputText);
-    
+
     // 🟢 Check if this is ACTUAL KidLisp code (for cursor color, not just nopaint)
     const isActualKidLispCode = isActualKidLisp(currentInputText);
 
@@ -3476,7 +3656,7 @@ function paint($) {
           screen.width - 8,
         );
       }
-      
+
       // 💡 Paint tooltip when we have a recognized command
       // Show tooltip even with activeCompletions if we're typing params (have a space)
       // or if the command is fully typed (exact match in activeCompletions)
@@ -3491,7 +3671,7 @@ function paint($) {
   if (progressBar >= 0 || progressBar === -2) {
     // Draw orange semi-transparent overlay
     ink(255, 180, 0, 120).box(0, 0, screen.width, screen.height, "inline");
-    
+
     // Draw progress bar line at the top
     if (progressBar > 0 && progressBar <= 1) {
       // Normal progress bar (0-100%)
@@ -3505,30 +3685,30 @@ function paint($) {
       ink(255, 180, 0, alpha).box(1, 1, barWidth, 1);
       $.system.nopaint.needsRender = true; // Keep animating
     }
-    
+
     // Show progress text in center
     if (progressPhase) {
       // Animated dots
       const dots = Math.floor((Date.now() / 250) % 4);
       const text = progressPhase + ".".repeat(dots);
-      
+
       // Background for text
       const textWidth = text.length * 6 + 16;
       const textHeight = 20;
       const x = (screen.width - textWidth) / 2;
       const y = screen.height / 2 - 10;
-      
+
       ink(0, 200).box(x, y, textWidth, textHeight);
       ink(255, 180, 0).box(x, y, textWidth, textHeight, "outline");
-      
+
       // Progress text
       ink(255, 255, 255).write(text, { center: "x", y: y + 6 });
-      
+
       // Percentage below (only show if not in indeterminate state)
       if (progressPercentage > 0) {
-        ink(255, 255, 255).write(`${progressPercentage}%`, { 
-          center: "x", 
-          y: y + textHeight + 8 
+        ink(255, 255, 255).write(`${progressPercentage}%`, {
+          center: "x",
+          y: y + textHeight + 8
         });
       }
     }
@@ -3538,16 +3718,16 @@ function paint($) {
   if (bundleProgress) {
     const { stage, message, startTime, code } = bundleProgress;
     const elapsed = performance.now() - startTime;
-    
+
     // Stage index for progress calculation
     const stageIndex = BUNDLE_STAGES.indexOf(stage);
     const totalStages = BUNDLE_STAGES.length - 1; // Exclude 'complete'
     const baseProgress = stageIndex >= 0 ? stageIndex / totalStages : 0;
-    
+
     // Animate within current stage
     const stageProgress = Math.min(1, (elapsed % 2000) / 2000); // Smooth animation per stage
     const visualProgress = Math.min(1, baseProgress + (stageProgress * 0.1)); // Small animation within stage
-    
+
     // Color cycling (pink -> purple -> green)
     const colorPhase = (elapsed * 0.003) % 3;
     let progressColor;
@@ -3558,20 +3738,20 @@ function paint($) {
     } else {
       progressColor = [100, 255, 150]; // Green
     }
-    
+
     // Semi-transparent overlay
     const overlayAlpha = Math.floor(120 + Math.sin(elapsed * 0.005) * 20);
     ink(0, 0, 0, overlayAlpha).box(0, 0, screen.width, screen.height);
-    
+
     // 🎯 Progress bar at top - marching ants style
     const barY = 1;
     const barHeight = 2;
     const fullWidth = screen.width - 2;
     const filledWidth = Math.floor(fullWidth * visualProgress);
-    
+
     // Background track (dark)
     ink(40, 40, 40).box(1, barY, fullWidth, barHeight);
-    
+
     // Filled portion with marching ants pattern
     const antOffset = Math.floor(elapsed / 50) % 4;
     for (let x = 0; x < filledWidth; x++) {
@@ -3582,13 +3762,13 @@ function paint($) {
         ink(...progressColor, 150).box(1 + x, barY, 1, barHeight);
       }
     }
-    
+
     // Animated leading edge sparkle
     if (filledWidth > 0 && filledWidth < fullWidth) {
       const sparkle = Math.sin(elapsed * 0.02) * 0.5 + 0.5;
       ink(255, 255, 255, Math.floor(100 + sparkle * 155)).box(1 + filledWidth - 1, barY, 2, barHeight);
     }
-    
+
     // 📝 Message box in center
     const textPadding = 8;
     const lineHeight = 10;
@@ -3596,10 +3776,10 @@ function paint($) {
     const boxHeight = lineHeight * 2 + textPadding * 2;
     const boxX = (screen.width - boxWidth) / 2;
     const boxY = screen.height / 2 - boxHeight / 2;
-    
+
     // Box background with pulsing border
     ink(0, 0, 0, 200).box(boxX, boxY, boxWidth, boxHeight);
-    
+
     // Dotted border (marching ants)
     const dotSpacing = 3;
     for (let x = boxX; x < boxX + boxWidth; x += dotSpacing) {
@@ -3616,41 +3796,41 @@ function paint($) {
         ink(...progressColor).box(boxX + boxWidth - 1, y, 1, 1);
       }
     }
-    
+
     // Title line: "BUNDLING $code"
     const titleText = `BUNDLING $${code}`;
     ink(...progressColor).write(titleText, { center: "x", y: boxY + textPadding });
-    
+
     // Status line: current message
     const statusText = message.toUpperCase();
     ink(255, 255, 255, 200).write(statusText, { center: "x", y: boxY + textPadding + lineHeight });
-    
+
     // Animated dots after status
     const dots = Math.floor((elapsed / 300) % 4);
-    ink(255, 255, 255, 150).write(".".repeat(dots), { 
-      x: (screen.width + statusText.length * 6) / 2 + 2, 
-      y: boxY + textPadding + lineHeight 
+    ink(255, 255, 255, 150).write(".".repeat(dots), {
+      x: (screen.width + statusText.length * 6) / 2 + 2,
+      y: boxY + textPadding + lineHeight
     });
-    
+
     // Keep animating
     $.needsPaint();
   }
 
   // Calculate MOTD offset (do this before book rendering so it's always available)
   let motdXOffset = 0;
-  
+
   // 💸 GIVE button in top-right corner during funding effects (critical or yikes)
   if (showFundingEffects && showLoginCurtain) {
     // Sync GIVE button with emotional face - angry = GIVE UP, others = currencies
     const now = Date.now();
-    
+
     // Match the face emotion cycle: every 3 seconds, 0=angry, 1=sad, 2=crying
     const emotionPhase = Math.floor(now / 3000) % 3;
     const isGiveUpMode = emotionPhase === 0; // Angry face = GIVE UP mode
-    
+
     // Randomly pick ? or ! based on fast oscillation (only used in GIVE UP mode)
     const punctuation = Math.floor(now / 150) % 2 === 0 ? "?" : "!";
-    
+
     let giveBtnText;
     if (isGiveUpMode) {
       giveBtnText = "GIVE UP" + punctuation;
@@ -3659,13 +3839,13 @@ function paint($) {
       const currencyIndex = Math.floor(now / 3000) % currencies.length;
       giveBtnText = "GIVE " + currencies[currencyIndex];
     }
-    
+
     const btnPaddingTop = 8; // Moved down 2px
     const btnPaddingRight = 10; // Uniform margin with top
     const btnWidth = 56; // Fixed width for consistent right alignment
     const giveBtnY = btnPaddingTop;
     const giveBtnX = screen.width - btnWidth - btnPaddingRight; // Right-aligned with padding
-    
+
     if (!giveBtn) {
       giveBtn = new $.ui.TextButton(giveBtnText, {
         x: giveBtnX,
@@ -3674,12 +3854,12 @@ function paint($) {
     } else {
       giveBtn.reposition({ x: giveBtnX, y: giveBtnY }, giveBtnText);
     }
-    
+
     // 🌈 Rainbow cycling colors for attention-seeking effect
     const t = performance.now() / 1000;
     const hue = (t * 80) % 360; // Cycle through hues faster
     const pulse = Math.sin(t * 5) * 0.5 + 0.5; // Pulsing effect (0-1)
-    
+
     // Convert HSL to RGB for fill color
     const hslToRgb = (h, s, l) => {
       h /= 360; s /= 100; l /= 100;
@@ -3702,15 +3882,15 @@ function paint($) {
       }
       return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
     };
-    
+
     // Bright saturated fill that cycles through rainbow
     const fillColor = hslToRgb(hue, 100, 50 + pulse * 10); // 50-60% lightness
     const btnBox = giveBtn?.btn?.box;
-    
+
     if (btnBox) {
       // Draw button background and outline manually
       const isDown = giveBtn.btn.down;
-      
+
       // 🔴⚪⚫ Special GIVE UP? mode - super fast red/white/black blinking
       if (isGiveUpMode) {
         // Fast oscillation at ~20Hz (50ms per cycle) between red, white, black
@@ -3723,22 +3903,22 @@ function paint($) {
         const bgColor = blinkColors[blinkPhase];
         const textColor = blinkColors[(blinkPhase + 1) % 3]; // Offset text color for contrast
         const outlineColor = blinkColors[(blinkPhase + 2) % 3];
-        
+
         // Special colors for punctuation
         const punctColors = {
           "?": [0, 255, 255],   // cyan for ?
           "!": [255, 255, 0],   // yellow for !
         };
-        
+
         ink(...bgColor).box(btnBox, "fill");
         ink(...outlineColor).box(btnBox, "outline");
-        
+
         // Shake text aggressively
         const chars = giveBtnText.split('');
         const charWidth = 6;
         const textStartX = btnBox.x + 4;
         const textY = btnBox.y + 4;
-        
+
         chars.forEach((char, i) => {
           const shakeX = (Math.random() - 0.5) * 3;
           const shakeY = (Math.random() - 0.5) * 3;
@@ -3746,45 +3926,45 @@ function paint($) {
           const charColor = punctColors[char] || textColor;
           ink(...charColor).write(char, { x: Math.round(textStartX + i * charWidth + shakeX), y: Math.round(textY + shakeY) });
         });
-        
+
         // No particles in GIVE UP? mode - too chaotic already
       } else {
         // Normal rainbow mode
         const bgColor = isDown ? hslToRgb(hue, 100, 70) : fillColor;
-        
+
         ink(...bgColor).box(btnBox, "fill");
         ink(255, 255, 255).box(btnBox, "outline");
-        
+
         // 💥 Draw each letter with individual shake and color!
         const chars = giveBtnText.split('');
         const charWidth = 6; // font_1 char width
         const textStartX = btnBox.x + 4; // padding
         const textY = btnBox.y + 4; // padding
-        
+
         chars.forEach((char, i) => {
           // Each letter gets different hue offset
           const letterHue = (hue + i * 90) % 360;
           const letterColor = hslToRgb(letterHue, 100, isDown ? 40 : 75);
-          
+
           // Shake offset - each letter shakes independently
           const shakeX = Math.sin(t * 20 + i * 2) * 1;
           const shakeY = Math.cos(t * 25 + i * 3) * 1;
-        
+
           const x = textStartX + i * charWidth + shakeX;
           const y = textY + shakeY;
-        
+
           ink(...letterColor).write(char, { x: Math.round(x), y: Math.round(y) });
         });
-        
+
         // ✨ Spawn sparkle particles around the button (only in normal mode)
         if (Math.random() < 0.4) { // 40% chance per frame to spawn
       const sparkleHue = (hue + Math.random() * 60 - 30) % 360; // Vary hue slightly
       const sparkleColor = hslToRgb(sparkleHue, 100, 70);
-      
+
       // Spawn from random edge of button
       const edge = Math.floor(Math.random() * 4);
       let px, py, vx, vy;
-      
+
       switch(edge) {
         case 0: // Top
           px = btnBox.x + Math.random() * btnBox.w;
@@ -3811,7 +3991,7 @@ function paint($) {
           vy = (Math.random() - 0.5) * 2;
           break;
       }
-      
+
       giveBtnParticles.push({
         x: px,
         y: py,
@@ -3824,7 +4004,7 @@ function paint($) {
         }
       } // End of normal rainbow mode else block
     }
-    
+
     // Update and draw sparkle particles
     giveBtnParticles = giveBtnParticles.filter(p => {
       p.x += p.vx;
@@ -3832,19 +4012,19 @@ function paint($) {
       p.vx *= 0.96; // Slow down
       p.vy *= 0.96;
       p.life -= 0.03;
-      
+
       if (p.life > 0) {
         const alpha = Math.floor(p.life * 255);
         ink(...p.color, alpha).box(Math.round(p.x), Math.round(p.y), p.size, p.size);
       }
-      
+
       return p.life > 0;
     });
   } else {
     giveBtn = null;
     giveBtnParticles = []; // Clear particles when button hidden
   }
-  
+
   // 📦 Paint product (book or record) in top-right corner (only on login curtain)
   // Hide carousel when prompt is editable or has text
   // DISABLED: products carousel
@@ -3857,41 +4037,41 @@ function paint($) {
     // Use pre-scaled cached image
     const bookW = bookImageScaled.width;
     const bookH = bookImageScaled.height;
-    
+
     // 📚 Second Product (Current)
     const titleText = "What is Landscape?"; // Removed ? - causes giant fallback rendering from unknown source
     const authorText = "by John R. Stilgoe";
     const priceText = "$60 USD";
-    
+
     // 📚 First Product (Deprecated - SOLD)
     // const titleText = "The Art of Seeing";
     // const authorText = "by Aldous Huxley";
     // const priceText = "$60 USD";
-    
+
     const titleW = titleText.length * 4; // 4px per char for MatrixChunky8
     const authorW = authorText.length * 4; // 4px per char for MatrixChunky8
     const textH = 8; // 8px height for MatrixChunky8
     const lineSpacing = 1; // Tighter spacing between lines
-    
+
     // Position book image in top-right with tight corner layout
     const rightEdge = screen.width - 6; // Right edge position
-    
+
     // Calculate actual width based on character advances for MatrixChunky8
     // Most characters are 4px, but let's be precise: $=4, 6=4, 0=4, space=2, U=4, S=4, D=4
     const priceActualW = 4 + 4 + 4 + 2 + 4 + 4 + 4; // "$60 USD" = 26px
-    
+
     // Book position (moved up 8px more)
     const bookX = rightEdge - bookW;
     const bookY = 8; // Moved up from 16 to 8
-    
+
     // Title overlaid ON the book image - moved up 4px more and left 4px from previous
     const titleX = bookX + (bookW / 2) - (titleW / 2) - 4; // Center horizontally, then left 4px
     const titleY = bookY + (bookH / 2) - (textH / 2) - 20; // Center, up 16px, then up 4px more = -20
-    
+
     // Author text positioned right below the title
     const authorX = rightEdge - authorW + 3; // Right 3px
     const authorY = titleY + textH + 6; // Just below title with small gap (moved down 4px)
-    
+
     // Price positioned much lower, toward the bottom
     // Ensure price doesn't overlap with author by adding extra space if needed
     const minPriceY = bookY + bookH + 35; // Even lower, toward bottom
@@ -3899,7 +4079,7 @@ function paint($) {
     const safeGap = 2; // Extra gap to prevent overlap
     const priceY = Math.max(minPriceY, authorMaxY + textH + safeGap);
     const priceX = bookX + (bookW / 2) - (priceActualW / 2);
-    
+
     // Calculate book ad bounding box (with minimal padding for tighter overlap detection)
     const bookAdBox = {
       x: Math.min(titleX, bookX, authorX) - 6, // Left edge with reduced padding
@@ -3907,11 +4087,11 @@ function paint($) {
       w: Math.max(titleW, bookW, authorW) + 10, // Width with reduced padding
       h: priceY + textH - titleY // Height from title top to price bottom (no bottom padding)
     };
-    
+
     // Check for actual geometric overlap with login/signup buttons
     let wouldOverlap = false;
     const overlapReasons = [];
-    
+
     // Check overlap with login button
     if (login && !login.btn.disabled && login.btn.box) {
       const loginBox = login.btn.box;
@@ -3935,7 +4115,7 @@ function paint($) {
         }
       }
     }
-    
+
     // Check overlap with signup button (only if it will actually be painted)
     if (!$.net.iframe && signup && !signup.btn.disabled && signup.btn.box) {
       const signupBox = signup.btn.box;
@@ -3959,7 +4139,7 @@ function paint($) {
         }
       }
     }
-    
+
     // Check overlap with enter button
     if ($.system.prompt.input?.enter && !$.system.prompt.input.enter.btn.disabled && $.system.prompt.input.enter.btn.box) {
       const enterBox = $.system.prompt.input.enter.btn.box;
@@ -3974,7 +4154,7 @@ function paint($) {
         wouldOverlap = true;
       }
     }
-    
+
     // Check overlap with paste button
     if ($.system.prompt.input?.paste && !$.system.prompt.input.paste.btn.disabled && $.system.prompt.input.paste.btn.box) {
       const pasteBox = $.system.prompt.input.paste.btn.box;
@@ -3989,7 +4169,7 @@ function paint($) {
         wouldOverlap = true;
       }
     }
-    
+
     // Check overlap with chat ticker
     if (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box) {
       const tickerBox = chatTickerButton.box;
@@ -4004,7 +4184,7 @@ function paint($) {
         wouldOverlap = true;
       }
     }
-    
+
     // Check overlap with MOTD (if present) and calculate offset if needed
     if (motd && screen.height >= 180) {
       // Calculate approximate MOTD bounding box with more aggressive wrapping
@@ -4015,7 +4195,7 @@ function paint($) {
       const motdLines = Math.ceil((motd.length * motdCharWidth) / motdMaxWidth);
       const motdHeight = motdLines * motdLineHeight;
       const motdWidth = Math.min(motd.length * motdCharWidth, motdMaxWidth);
-      
+
       // First, check if centered MOTD would overlap with book
       const centeredMotdBox = {
         x: (screen.width - motdWidth) / 2,
@@ -4023,14 +4203,14 @@ function paint($) {
         w: motdWidth,
         h: motdHeight + 8
       };
-      
+
       const motdWouldOverlap = (
         bookAdBox.x < centeredMotdBox.x + centeredMotdBox.w &&
         bookAdBox.x + bookAdBox.w > centeredMotdBox.x &&
         bookAdBox.y < centeredMotdBox.y + centeredMotdBox.h &&
         bookAdBox.y + bookAdBox.h > centeredMotdBox.y
       );
-      
+
       // Apply offset if there would be overlap with centered MOTD
       if (motdWouldOverlap) {
         // Apply graduated offset based on screen width
@@ -4043,11 +4223,11 @@ function paint($) {
           // Very small screens - shift even more
           motdXOffset = -100;
         }
-        
+
         // Recalculate MOTD box based on how it will ACTUALLY be positioned
         let actualMotdBox;
         const leftMargin = 9;
-        
+
         if (screen.width < 400) {
           // Will be left-aligned on narrow screens
           actualMotdBox = {
@@ -4066,7 +4246,7 @@ function paint($) {
             h: motdHeight + 8
           };
         }
-        
+
         // Check if actual position still overlaps with book
         const stillOverlaps = (
           bookAdBox.x < actualMotdBox.x + actualMotdBox.w &&
@@ -4074,23 +4254,23 @@ function paint($) {
           bookAdBox.y < actualMotdBox.y + actualMotdBox.h &&
           bookAdBox.y + actualMotdBox.h > actualMotdBox.y
         );
-        
+
         // Only mark as overlapping if the shift didn't help
         if (stillOverlaps) {
           wouldOverlap = true;
         }
       }
     }
-    
+
     // Hide book if screen is too narrow (decreased to 75px to allow visibility on nearly all screens)
     const screenTooNarrow = screen.width < 75;
-    
+
     // On narrow screens (like iPhone), allow book if screen is tall enough to show it above buttons
     // On wider screens, enforce overlap detection
     const isNarrowScreen = screen.width < 300;
     const isTallEnough = screen.height >= 250; // Reduced from 300 to 250 for shorter screens
     const shouldShowBook = !screenTooNarrow && (!wouldOverlap || (isNarrowScreen && isTallEnough));
-    
+
     // 📚 Log book visibility details
     // console.log('📚 Book visibility:', {
     //   shouldShowBook,
@@ -4103,47 +4283,47 @@ function paint($) {
     //   overlapReasons,
     //   bookAdBox
     // });
-    
+
     if (shouldShowBook) {
-    
+
     // Theme-sensitive colors
     const isDark = $.dark;
     // const textColor = isDark ? [255, 255, 255] : [0, 0, 0]; // White in dark, black in light
-    
+
     // 📚 Second Product (Current) - New colors
     const titleColor = isDark ? [150, 200, 255] : [50, 100, 200]; // Blue-ish tint for title
     const titleHighlightColor = isDark ? [100, 200, 255] : [0, 150, 255]; // Brighter blue when highlighted
     const authorColor = isDark ? [255, 200, 150] : [140, 80, 50]; // Warm/orange-ish byline
     const authorHighlightColor = [255, 255, 0]; // Yellow highlight for byline when pressed
-    
+
     // 📚 First Product (Deprecated - SOLD) - Old colors
     // const titleColor = isDark ? [255, 200, 150] : [200, 100, 50]; // Orange/warm tint for title
     // const titleHighlightColor = isDark ? [255, 255, 100] : [255, 200, 0]; // Yellow tint when highlighted
     // const authorColor = isDark ? [200, 200, 255] : [80, 80, 140]; // Tinted byline (blue-ish)
     // const authorHighlightColor = [255, 255, 0]; // Yellow highlight for byline when pressed
-    
+
     const shadowColor = isDark ? [0, 0, 0] : [255, 255, 255]; // Black shadow in dark, white in light
     const priceNormalColor = isDark ? [0, 255, 0] : [0, 180, 0]; // Bright green in dark, darker in light
     const priceHoverColor = isDark ? [100, 255, 100] : [0, 255, 0]; // Brighter greens
     const priceDownColor = [255, 255, 0]; // Yellow when pressed (same for both)
-    
+
     // Calculate drift/shake offset (a few pixels in x and y) - faster shaking
     const driftX = Math.floor(Math.sin(bookRotation * 0.06) * 2); // Faster drift, 2px range
     const driftY = Math.floor(Math.cos(bookRotation * 0.08) * 2); // Faster speed for more active feel
-    
+
     // Independent text sway animations for title and author
     // Title shake (landscape)
     const titleSwayX = Math.floor(Math.sin(bookRotation * 0.06) * 3); // 3px range, faster
     const titleSwayY = Math.floor(Math.cos(bookRotation * 0.05) * 2.5); // 2.5px range
-    
+
     // Author shake (independent movement)
     const authorSwayX = Math.floor(Math.sin(bookRotation * 0.08) * 3.5); // Different speed and range
     const authorSwayY = Math.floor(Math.cos(bookRotation * 0.07) * 3); // Different vertical pattern
-    
+
     // Make button box around the image area (adjusted for drift)
     const totalW = bookW + 4; // Add padding for drift
     const totalH = bookH + 4;
-    
+
     // Create or update button
     if (!bookButton) {
       bookButton = new $.ui.Button(bookX - 2, bookY - 2, totalW, totalH);
@@ -4155,34 +4335,34 @@ function paint($) {
       bookButton.box.w = totalW;
       bookButton.box.h = totalH;
     }
-    
+
     // Determine highlight state (hover or down)
     const isHighlighted = bookButton.over || bookButton.down;
-    
+
     // Scale effect when pressing down
     const imageScale = bookButton.down ? 1.1 : 1;
     const scaledBookW = Math.floor(bookW * imageScale);
     const scaledBookH = Math.floor(bookH * imageScale);
     const scaleOffsetX = Math.floor((scaledBookW - bookW) / 2);
     const scaleOffsetY = Math.floor((scaledBookH - bookH) / 2);
-    
+
     // Draw shadow behind book (offset to bottom-right, scaled) - REMOVED
     // $.ink(0, 0, 0, isDark ? 80 : 40) // Darker shadow in dark mode
     //   .box(Math.floor(bookX + driftX + 2 - scaleOffsetX), Math.floor(bookY + driftY + 2 - scaleOffsetY), scaledBookW, scaledBookH);
-    
+
     // Draw book cover with drift/shake using paste (no rotation), with scale
     if (bookButton.down && imageScale !== 1) {
       // Use paste with scale object for custom dimensions
       $.paste(
-        bookImageScaled, 
-        Math.floor(bookX + driftX - scaleOffsetX), 
+        bookImageScaled,
+        Math.floor(bookX + driftX - scaleOffsetX),
         Math.floor(bookY + driftY - scaleOffsetY),
         { scale: imageScale, width: scaledBookW, height: scaledBookH }
       );
     } else {
       $.paste(bookImageScaled, Math.floor(bookX + driftX), Math.floor(bookY + driftY));
     }
-    
+
     // Apply brightness overlay when highlighted (always use scaled dimensions) - REMOVED
     // if (isHighlighted) {
     //   const overlayX = bookButton.down ? Math.floor(bookX + driftX - scaleOffsetX) : Math.floor(bookX + driftX);
@@ -4192,12 +4372,12 @@ function paint($) {
     //   $.ink(255, 255, 255, bookButton.down ? 60 : 30) // Brighter when down
     //     .box(overlayX, overlayY, overlayW, overlayH);
     // }
-    
+
     // Determine text colors based on state - faster blinking when down
     const blinkSpeed = bookButton.down ? 0.3 : 0.15; // Faster blink when pressed
     const blinkPhase = Math.sin(bookRotation * blinkSpeed) > 0; // Boolean blink
     const shouldBlink = bookButton.down && blinkPhase;
-    
+
     // Title color cycling (smooth fade between bright neon colors)
     const titleBlinkSpeed = 0.05; // Much slower for smoother transitions
     const titleColorCycle = [
@@ -4215,7 +4395,7 @@ function paint($) {
       Math.floor(titleColorCycle[titleIndex1][1] * (1 - titleMix) + titleColorCycle[titleIndex2][1] * titleMix),
       Math.floor(titleColorCycle[titleIndex1][2] * (1 - titleMix) + titleColorCycle[titleIndex2][2] * titleMix)
     ];
-    
+
     // Draw title text (with sway effect and highlight)
     // Shadow
     ink(shadowColor[0], shadowColor[1], shadowColor[2]).write(titleText, { x: titleX + titleSwayX + 1, y: titleY + titleSwayY + 1 }, undefined, undefined, false, "MatrixChunky8");
@@ -4243,7 +4423,7 @@ function paint($) {
       .write(authorText, { x: authorX + authorSwayX + 1, y: authorY + authorSwayY + 1 }, undefined, undefined, false, "MatrixChunky8");
     ink(...finalAuthorColor)
       .write(authorText, { x: authorX + authorSwayX, y: authorY + authorSwayY }, undefined, undefined, false, "MatrixChunky8");
-    
+
     // Price text below author byline, scale 1 with solid background and drift
     const priceFont = 'MatrixChunky8';
 
@@ -4275,23 +4455,23 @@ function paint($) {
     const priceColorIndex = Math.floor((Math.sin(bookRotation * priceBlinkSpeed) * 0.5 + 0.5) * priceColorCycle.length) % priceColorCycle.length;
     const priceFinalColor = priceColorCycle[priceColorIndex];
     ink(...priceFinalColor).write(priceText, { x: priceTextX, y: priceTextY, size: priceScale }, undefined, undefined, false, priceFont);
-    
+
     // 📚 First Product (Deprecated - SOLD) - SOLD banner removed for second product
     // // Draw "SOLD" banner centered on the book with unique animation
     // const soldText = "SOLD";
     // const soldTextWidth = soldText.length * 6; // Default font is 6px wide per character
     // const soldTextHeight = 8; // Default font height
     // const soldPadding = 4;
-    // 
+    //
     // // Center position on book (with slower side-to-side sway)
     // const soldSway = Math.sin(bookRotation * 0.05) * 2; // Slower side-to-side, 2px range
     // const soldX = bookX + (bookW / 2) - (soldTextWidth / 2) + driftX + soldSway;
     // const soldY = bookY + (bookH / 2) - (soldTextHeight / 2) + driftY;
-    // 
+    //
     // // Red banner background with pulsing opacity
     // const soldBgAlpha = Math.abs(Math.sin(bookRotation * 0.08)) * 80 + 160; // Pulse between 160-240
     // ink(200, 0, 0, soldBgAlpha).box(soldX - soldPadding, soldY - soldPadding, soldTextWidth + soldPadding * 2, soldTextHeight + soldPadding * 2);
-    // 
+    //
     // // SOLD text blinking between yellow and red
     // const soldBlink = Math.sin(bookRotation * 0.12) > 0; // Boolean blink
     // const soldColor = soldBlink ? [255, 255, 0] : [255, 50, 50]; // Yellow or bright red
@@ -4313,10 +4493,10 @@ function paint($) {
   if (isKidlispMode && $.system.prompt.input.canType) {
     const activeProduct = products.getActiveProduct();
     const rotation = activeProduct ? activeProduct.rotation : 0;
-    
+
     // Animated offset for scrolling effect
     const scrollOffset = Math.floor(rotation * 0.5) % 4; // Scroll 4 pixel cycle (matches spacing)
-    
+
     // Cycle through vibrant colors
     const colorPhase = (rotation * 0.1) % 6;
     const colors = [
@@ -4327,11 +4507,11 @@ function paint($) {
       [255, 100, 200], // Pink
       [255, 255, 100], // Yellow
     ];
-    
+
     const currentColorIndex = Math.floor(colorPhase);
     const nextColorIndex = (currentColorIndex + 1) % colors.length;
     const blend = colorPhase - currentColorIndex;
-    
+
     // Blend between current and next color
     const currentColor = colors[currentColorIndex];
     const nextColor = colors[nextColorIndex];
@@ -4340,34 +4520,34 @@ function paint($) {
       Math.floor(currentColor[1] * (1 - blend) + nextColor[1] * blend),
       Math.floor(currentColor[2] * (1 - blend) + nextColor[2] * blend),
     ];
-    
+
     // Pulsing alpha
     const pulseAlpha = Math.floor(Math.sin(rotation * 0.12) * 60 + 140); // 80-200 range
-    
+
     // Draw solid dotted border around entire screen (all dots filled)
     const dotSpacing = 4; // Pixels between dots
     const dotSize = 1; // 1 pixel dots
-    
+
     // Top border
     for (let x = 0; x < screen.width; x += dotSpacing) {
       ink(...blendedColor, pulseAlpha).box((x + scrollOffset) % screen.width, 0, dotSize, dotSize);
     }
-    
+
     // Bottom border
     for (let x = 0; x < screen.width; x += dotSpacing) {
       ink(...blendedColor, pulseAlpha).box((x + scrollOffset) % screen.width, screen.height - dotSize, dotSize, dotSize);
     }
-    
+
     // Left border
     for (let y = 0; y < screen.height; y += dotSpacing) {
       ink(...blendedColor, pulseAlpha).box(0, (y + scrollOffset) % screen.height, dotSize, dotSize);
     }
-    
+
     // Right border
     for (let y = 0; y < screen.height; y += dotSpacing) {
       ink(...blendedColor, pulseAlpha).box(screen.width - dotSize, (y + scrollOffset) % screen.height, dotSize, dotSize);
     }
-    
+
     // Keep animating
     $.needsPaint();
   }
@@ -4377,33 +4557,33 @@ function paint($) {
   if (showLoginCurtain) {
     const activeProduct = products.getActiveProduct();
     const rotation = activeProduct ? activeProduct.rotation : 0;
-    
+
     if (isCriticalFunding) {
       // 🚨 CRITICAL FUNDING: Animated glittering border with primary colors + BLINK
       const stripeWidth = 3; // Slightly narrower stripes
       const borderThickness = 2; // 2px border for visibility
       const t = performance.now() / 1000;
-      
+
       // Blink effect - border blinks on/off rapidly
       const blinkPhase = Math.floor(t * 4) % 2; // Blink 4 times per second
       if (blinkPhase === 0) {
         // Skip drawing border during "off" phase
       } else {
-      
+
       // Primary colors - pure RGB (fully saturated)
       const alertColors = [
         [255, 0, 0],     // Pure red
         [255, 255, 0],   // Pure yellow
         [0, 255, 0],     // Pure green (occasional)
       ];
-      
+
       // Animate stripes scrolling much faster!
       const stripeOffset = Math.floor(rotation * 4) % (stripeWidth * 2);
-      
+
       // Glitter effect - random white sparkles
       const glitterChance = 0.08; // 8% chance per pixel to sparkle
       const glitterSeed = Math.floor(t * 10); // Changes 10x per second for sparkle effect
-      
+
       // Top border - diagonal stripes moving right
       for (let x = -stripeWidth * 2; x < screen.width + stripeWidth * 2; x++) {
         for (let y = 0; y < borderThickness; y++) {
@@ -4422,7 +4602,7 @@ function paint($) {
           }
         }
       }
-      
+
       // Bottom border - diagonal stripes moving left
       for (let x = -stripeWidth * 2; x < screen.width + stripeWidth * 2; x++) {
         for (let y = 0; y < borderThickness; y++) {
@@ -4439,7 +4619,7 @@ function paint($) {
           }
         }
       }
-      
+
       // Left border - diagonal stripes moving down
       for (let y = -stripeWidth * 2; y < screen.height + stripeWidth * 2; y++) {
         for (let x = 0; x < borderThickness; x++) {
@@ -4456,7 +4636,7 @@ function paint($) {
           }
         }
       }
-      
+
       // Right border - diagonal stripes moving up
       for (let y = -stripeWidth * 2; y < screen.height + stripeWidth * 2; y++) {
         for (let x = 0; x < borderThickness; x++) {
@@ -4479,7 +4659,7 @@ function paint($) {
       // Cycle through pink, purple, green phases
       const colorPhase = (rotation * 0.08) % 3;
       let primaryColor, secondaryColor, tertiaryColor;
-      
+
       if (colorPhase < 1) {
         primaryColor = [255, 100, 200]; // Pink
         secondaryColor = [200, 100, 255]; // Purple
@@ -4493,51 +4673,51 @@ function paint($) {
         secondaryColor = [255, 100, 200]; // Pink
         tertiaryColor = [200, 100, 255]; // Purple
       }
-      
+
       // Pulsing effect for base intensity
       const pulseBase = Math.sin(rotation * 0.15);
-      
+
       // Border extends to 2/3rds of screen
       const borderWidth = (screen.width / 3) * 2;
       const borderHeight = (screen.height / 3) * 2;
       const borderThickness = 1; // Fixed 1 pixel wide
-      
+
       // Draw top border with dithered/striped pattern (1 pixel tall)
       for (let x = 0; x < borderWidth; x++) {
         // Intensity increases as we get closer to the corner (left edge)
         const intensityRatio = 1 - (x / borderWidth); // 1.0 at corner, 0.0 at edge
         const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
-        
+
         // Dither pattern: show pixels based on intensity ratio
         const patternValue = (x + Math.floor(rotation / 4)) % 4; // 0-3 pattern
         const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
-        
+
         if (patternValue >= threshold) {
           ink(...primaryColor, alpha).box(x, 0, 1, borderThickness);
         }
       }
-      
+
       // Draw left border with dithered/striped pattern (1 pixel wide)
       for (let y = 0; y < borderHeight; y++) {
         // Intensity increases as we get closer to the corner (top edge)
         const intensityRatio = 1 - (y / borderHeight); // 1.0 at corner, 0.0 at edge
         const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
-        
+
         // Dither pattern: show pixels based on intensity ratio
         const patternValue = (y + Math.floor(rotation / 4)) % 4; // 0-3 pattern
         const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
-        
+
         if (patternValue >= threshold) {
           ink(...primaryColor, alpha).box(0, y, borderThickness, 1);
         }
       }
     }
-    
+
     // 🎆 Spawn particles from the cursor position and draw cursor overlay
     const input = $.system.prompt.input;
     if (input?.prompt) {
       const cursorPos = input.prompt.pos(undefined, true);
-      
+
       if (cursorPos && cursorPos.x !== undefined && cursorPos.y !== undefined) {
         // Spawn particles 30% of the time
         if (Math.random() < 0.3) {
@@ -4545,7 +4725,7 @@ function paint($) {
           const isDark = $.dark;
           const isKidlisp = $.system?.prompt?.actualKidlisp;
           let particleColor;
-          
+
           // Every few particles (20% chance), use a bright primary color
           if (Math.random() < 0.2) {
             const brightColors = [
@@ -4571,7 +4751,7 @@ function paint($) {
               particleColor = Array.isArray(blockColor) ? blockColor.slice(0, 3).map(c => Math.min(255, c * 1.5)) : [255, 0, 255];
             }
           }
-          
+
           cornerParticles.push({
             x: cursorPos.x + Math.random() * cursorPos.w, // Spawn across bottom of cursor box
             y: cursorPos.y + cursorPos.h, // Start at bottom of cursor
@@ -4584,34 +4764,34 @@ function paint($) {
         }
       }
     }
-    
+
     // Update and draw particles
     cornerParticles = cornerParticles.filter(p => {
       // Update position
       p.x += p.vx;
       p.y += p.vy;
       p.life -= 0.02; // Fade out
-      
+
       // Draw particle
       if (p.life > 0) {
         const alpha = Math.floor(p.life * 200);
         ink(...p.color, alpha).box(p.x, p.y, p.size, p.size);
       }
-      
+
       // Keep particle if still alive
       return p.life > 0;
     });
-    
+
     // 💡 Draw semi-transparent ghost cursor when curtain is up
     if (input?.prompt) {
       const cursorPos = input.prompt.pos(undefined, true);
-      
+
       if (cursorPos && cursorPos.x !== undefined && cursorPos.y !== undefined) {
         const isDark = $.dark;
         // Match the actual cursor color but with reduced opacity
         const isKidlisp = $.system?.prompt?.actualKidlisp;
         let fillColor;
-        
+
         if (isKidlisp) {
           // Green for kidlisp (matching the actual cursor)
           fillColor = isDark ? [100, 255, 100, 100] : [0, 150, 0, 100];
@@ -4620,10 +4800,10 @@ function paint($) {
           const blockColor = input.pal?.block || (isDark ? [255, 255, 255] : [0, 0, 0]);
           fillColor = [...blockColor, 100]; // Add alpha 100 for subtle transparency
         }
-        
+
         // Draw on layer 3 to ensure it's above everything else on the curtain
         $.layer(3);
-        
+
         // Draw animated primary color gradient outline (smooth wave pattern)
         const waveOffset = motdFrame * 0.05; // Slow smooth animation
         // Oscillate opacity for blinking effect
@@ -4636,79 +4816,79 @@ function paint($) {
           [0, 0, 255],     // Blue
           [255, 0, 255],   // Magenta
         ];
-        
+
         // Top edge
         for (let x = cursorPos.x - 1; x < cursorPos.x + cursorPos.w + 1; x++) {
           const wave = (x + waveOffset) * 0.3;
           const colorIndex = Math.floor(wave) % primaryColors.length;
           const nextColorIndex = (colorIndex + 1) % primaryColors.length;
           const blend = wave - Math.floor(wave);
-          
+
           const color = primaryColors[colorIndex];
           const nextColor = primaryColors[nextColorIndex];
           const r = Math.floor(color[0] * (1 - blend) + nextColor[0] * blend);
           const g = Math.floor(color[1] * (1 - blend) + nextColor[1] * blend);
           const b = Math.floor(color[2] * (1 - blend) + nextColor[2] * blend);
-          
+
           ink(r, g, b, opacityOscillation).box(x, cursorPos.y - 1, 1, 1);
         }
-        
+
         // Bottom edge
         for (let x = cursorPos.x - 1; x < cursorPos.x + cursorPos.w + 1; x++) {
           const wave = (x + waveOffset) * 0.3;
           const colorIndex = Math.floor(wave) % primaryColors.length;
           const nextColorIndex = (colorIndex + 1) % primaryColors.length;
           const blend = wave - Math.floor(wave);
-          
+
           const color = primaryColors[colorIndex];
           const nextColor = primaryColors[nextColorIndex];
           const r = Math.floor(color[0] * (1 - blend) + nextColor[0] * blend);
           const g = Math.floor(color[1] * (1 - blend) + nextColor[1] * blend);
           const b = Math.floor(color[2] * (1 - blend) + nextColor[2] * blend);
-          
+
           ink(r, g, b, opacityOscillation).box(x, cursorPos.y + cursorPos.h, 1, 1);
         }
-        
+
         // Left edge
         for (let y = cursorPos.y - 1; y < cursorPos.y + cursorPos.h + 1; y++) {
           const wave = (y + waveOffset) * 0.3;
           const colorIndex = Math.floor(wave) % primaryColors.length;
           const nextColorIndex = (colorIndex + 1) % primaryColors.length;
           const blend = wave - Math.floor(wave);
-          
+
           const color = primaryColors[colorIndex];
           const nextColor = primaryColors[nextColorIndex];
           const r = Math.floor(color[0] * (1 - blend) + nextColor[0] * blend);
           const g = Math.floor(color[1] * (1 - blend) + nextColor[1] * blend);
           const b = Math.floor(color[2] * (1 - blend) + nextColor[2] * blend);
-          
+
           ink(r, g, b, opacityOscillation).box(cursorPos.x - 1, y, 1, 1);
         }
-        
+
         // Right edge
         for (let y = cursorPos.y - 1; y < cursorPos.y + cursorPos.h + 1; y++) {
           const wave = (y + waveOffset) * 0.3;
           const colorIndex = Math.floor(wave) % primaryColors.length;
           const nextColorIndex = (colorIndex + 1) % primaryColors.length;
           const blend = wave - Math.floor(wave);
-          
+
           const color = primaryColors[colorIndex];
           const nextColor = primaryColors[nextColorIndex];
           const r = Math.floor(color[0] * (1 - blend) + nextColor[0] * blend);
           const g = Math.floor(color[1] * (1 - blend) + nextColor[1] * blend);
           const b = Math.floor(color[2] * (1 - blend) + nextColor[2] * blend);
-          
+
           ink(r, g, b, opacityOscillation).box(cursorPos.x + cursorPos.w, y, 1, 1);
         }
-        
+
         // Draw filled cursor box with subtle transparency (no outline)
         ink(...fillColor).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h);
-        
+
         // 👻 Draw "Prompt" ghost text when prompt is empty and curtain is up (can't type)
         if (input.text === "" && !input.canType) {
           // Check dark mode once for all color decisions
           const isDark = $.dark;
-          
+
           // Cycle through languages (time-based)
           const now = performance.now();
           if (!lastLanguageChangeTime) lastLanguageChangeTime = now;
@@ -4719,13 +4899,13 @@ function paint($) {
             promptLanguageChangeFrame = 0;
             promptLanguageIndex = (promptLanguageIndex + 1) % promptTranslations.length;
           }
-          
+
           const ghostText = promptTranslations[promptLanguageIndex];
-          
+
           // Replace unsupported characters with spaces to avoid question marks
           // Support: Latin (+ Extended & Vietnamese), Greek, Cyrillic, Hebrew, Arabic, Thai, Devanagari, Bengali, CJK
           const cleanGhostText = ghostText.replace(/[^\u0020-\u007E\u00A0-\u024F\u1E00-\u1EFF\u0370-\u03FF\u0400-\u04FF\u0590-\u05FF\u0600-\u06FF\u0E00-\u0E7F\u0900-\u097F\u0980-\u09FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF]/g, ' ');
-          
+
           // High contrast polychrome colors - cycle through vibrant colors at different speeds
           // In light mode, use much brighter, more saturated colors
           const textColorCycle = isDark ? [
@@ -4745,7 +4925,7 @@ function paint($) {
           ];
           const textColorIndex = Math.floor(motdFrame * 0.08) % textColorCycle.length;
           const baseColor = textColorCycle[textColorIndex];
-          
+
           // Background cycles at a different speed for more animation
           // In light mode, use much darker, more saturated backgrounds for contrast
           const bgColorCycle = isDark ? [
@@ -4765,32 +4945,32 @@ function paint($) {
           ];
           const bgColorIndex = Math.floor(motdFrame * 0.05) % bgColorCycle.length; // Slower cycle
           const bgColor = [...bgColorCycle[bgColorIndex], 255]; // Full opacity for vibrant effect
-          
+
           // Oscillate alpha for pulsing effect (from 180 to 255 for high visibility)
           const alphaOscillation = 180 + (Math.sin(motdFrame * 0.1) + 1) * 37.5; // Ranges from 180 to 255
           const ghostColor = [...baseColor, alphaOscillation];
-          
+
           // Animate text moving left and right with more movement
           const textSway = Math.sin(motdFrame * 0.08) * 6; // Increased from 3 to 6 pixel sway range
-          
+
           // Position "Prompt" text to the right of cursor
           const textX = cursorPos.x + cursorPos.w + 34 + textSway;
           const textY = cursorPos.y + cursorPos.h + 10; // Below cursor with some spacing
-          
+
           // Use text.box() API to get accurate text width based on actual BDF glyph widths
           const textMeasurement = $.text.box(cleanGhostText, { x: 0, y: 0 }, undefined, 1, false, "unifont");
           const textWidth = textMeasurement?.box?.width || (cleanGhostText.length * 8); // Fallback to 8px/char
           const textHeight = 16; // Unifont height at scale 1
-          
+
           // Add padding for background box
           const bgWidth = textWidth + 4; // Consistent 4px padding for all languages
-          
+
           // Draw drop shadow for background box
           ink(0, 0, 0, 100).box(textX - 1, textY - 1, bgWidth, textHeight + 4);
-          
+
           // Draw polychrome background box with high contrast
           ink(...bgColor).box(textX - 2, textY - 2, bgWidth, textHeight + 4);
-          
+
           // Draw text with per-character color cycling for rainbow effect
           // We need to track actual rendered widths, so measure each character individually
           let charX = textX;
@@ -4799,7 +4979,7 @@ function paint($) {
             // Each character gets a different color from the cycle
             const charColorIndex = (textColorIndex + i) % textColorCycle.length;
             const charColor = [...textColorCycle[charColorIndex], alphaOscillation];
-            
+
             ink(...charColor).write(
               char,
               { x: charX, y: textY, noFunding: true },
@@ -4808,13 +4988,13 @@ function paint($) {
               false,
               "unifont"
             );
-            
+
             // Get accurate character width from text.box API (uses actual BDF advance widths)
             const charMeasurement = $.text.box(char, { x: 0, y: 0 }, undefined, 1, false, "unifont");
             const charWidth = charMeasurement?.box?.width || 8; // Fallback to 8px if measurement fails
             charX += charWidth;
           }
-          
+
           // Draw language name label below the prompt text in small font
           const languageName = promptLanguageNames[promptLanguageIndex];
           const labelY = textY + textHeight + 4; // 4px below the prompt text (closer)
@@ -4822,40 +5002,40 @@ function paint($) {
           const labelWidth = languageName.length * 4; // 4px per char for MatrixChunky8
           const actualTextRightEdge = charX; // charX is the final x position after all characters
           const labelX = actualTextRightEdge - labelWidth;
-          
+
           // Invert colors based on light/dark mode (isDark already declared above)
           const labelTextColor = isDark ? [150, 150, 150, 120] : [100, 100, 100, 150];
           const labelShadowColor = isDark ? [0, 0, 0, 50] : [255, 255, 255, 80];
-          
+
           // Draw shadow for language label - noFunding to prevent $ replacement
           ink(...labelShadowColor).write(languageName, { x: labelX + 1, y: labelY + 1, noFunding: true }, undefined, undefined, false, "MatrixChunky8");
           // Draw language label - noFunding to prevent $ replacement
           ink(...labelTextColor).write(languageName, { x: labelX, y: labelY, noFunding: true }, undefined, undefined, false, "MatrixChunky8");
-          
+
           // Vertical action text on LEFT side of screen - ROTATED
           const actionVerbs = ["TOUCH", "TAP", "TYPE"];
           const actionIndex = Math.floor(motdFrame / 60) % actionVerbs.length; // Change every 60 frames
           const actionText = actionVerbs[actionIndex];
-          
+
           // Bounce animation - subtle up and down movement
           const bounceOffset = Math.sin(motdFrame * 0.1) * 3; // 3 pixel bounce range
-          
+
           // Calculate text dimensions for background
           const verticalTextWidth = actionText.length * 4; // MatrixChunky8 width per char
           const verticalTextHeight = 8; // MatrixChunky8 height
-          
+
           // Position flush to left side, next to the ghost hint
           const leftMargin = 5; // Moved 1px closer to left (was 6)
           const verticalTextX = leftMargin; // No horizontal sway
-          
+
           // Calculate fixed arrow position first
           const arrowHeight = 10; // Even sharper/longer arrow (was 7)
           const arrowTipY = textY - 1; // 4px lower (was -5)
           const bgY = arrowTipY + arrowHeight; // Box starts where arrow ends
-          
+
           // Position text inside the box (accounting for rotation)
           const verticalTextY = bgY + verticalTextWidth + 1 + bounceOffset; // Text at bottom of box content area, with bounce
-          
+
           // Calculate arrow dimensions first (needed for shadow rendering order)
           const arrowStartX = textX - 1;
           const arrowStartY = textY - 3;
@@ -4868,7 +5048,7 @@ function paint($) {
           const minHorizontalLength = 18 + horizontalOscillation; // Longer: 18-22px (was 10-14px)
           const minArrowEnd = arrowStartX - minHorizontalLength;
           const arrowEndX = Math.max(arrowTargetX, minArrowEnd);
-          
+
           // Draw background box with integrated arrow using shape
           const bgX = leftMargin - 1; // No sway
           const arrowTipYWithBounce = arrowTipY + bounceOffset; // Arrow tip bounces
@@ -4876,13 +5056,13 @@ function paint($) {
           const verticalBgWidth = verticalTextHeight + 1; // 2px narrower
           const verticalBgHeight = verticalTextWidth + 4; // More space at bottom (1 top + 3 bottom)
           const arrowCenterX = bgX + verticalBgWidth / 2;
-          
+
           // Draw arrow drop shadows FIRST (behind sign)
           ink(0, 0, 0, 80).line(arrowStartX + 1, arrowStartY + 1, arrowStartX + 1, arrowElbowY + 1);
           ink(0, 0, 0, 80).line(arrowStartX + 1, arrowElbowY + 1, arrowEndX + 1, arrowElbowY + 1);
           ink(0, 0, 0, 80).line(arrowEndX + 1, arrowElbowY + 1, arrowEndX + 3, arrowElbowY - 1);
           ink(0, 0, 0, 80).line(arrowEndX + 1, arrowElbowY + 1, arrowEndX + 3, arrowElbowY + 3);
-          
+
           // Use consistent dark background with less opaque white text
           ink(0, 0, 0, 200).shape([
             [bgX, bgYWithBounce],                          // Top left of box
@@ -4892,7 +5072,7 @@ function paint($) {
             [bgX, bgYWithBounce + verticalBgHeight],       // Bottom left
             [bgX, bgYWithBounce]                           // Close the shape
           ]);
-          
+
           // Draw white text with flickering per-character brightness
           let flickeringText = "";
           for (let i = 0; i < actionText.length; i++) {
@@ -4902,22 +5082,22 @@ function paint($) {
             const brightness = Math.floor(200 + flickerSeed * 55); // Range: 145-255
             flickeringText += `\\${brightness},${brightness},${brightness}\\${char}`;
           }
-          
-          ink(255, 255, 255, 150).write(flickeringText, { 
-            x: verticalTextX, 
-            y: verticalTextY, 
-            rotation: 270 
+
+          ink(255, 255, 255, 150).write(flickeringText, {
+            x: verticalTextX,
+            y: verticalTextY,
+            rotation: 270
           }, undefined, undefined, false, "MatrixChunky8");
-          
+
           // Color cycling for arrow segments - each part gets a different color
           const verticalColorIndex = Math.floor(motdFrame * 0.07) % textColorCycle.length;
           const horizontalColorIndex = (verticalColorIndex + 2) % textColorCycle.length;
           const arrowHeadColorIndex = (verticalColorIndex + 4) % textColorCycle.length;
-          
+
           const verticalColor = [...textColorCycle[verticalColorIndex], alphaOscillation];
           const horizontalColor = [...textColorCycle[horizontalColorIndex], alphaOscillation];
           const arrowHeadColor = [...textColorCycle[arrowHeadColorIndex], alphaOscillation];
-          
+
           // Draw vertical line going up from text (1px wide) - colored
           ink(...verticalColor).line(arrowStartX, arrowStartY, arrowStartX, arrowElbowY);
           // Draw horizontal line going left with minimum length (1px wide) - colored
@@ -4925,21 +5105,21 @@ function paint($) {
           // Draw arrow head pointing left - colored
           ink(...arrowHeadColor).line(arrowEndX, arrowElbowY, arrowEndX + 2, arrowElbowY - 2);
           ink(...arrowHeadColor).line(arrowEndX, arrowElbowY, arrowEndX + 2, arrowElbowY + 2);
-          
+
           // Blinking overlay on the cursor block itself - magic jewel/gem effect
           // Always show checkerboard, but blink the overall alpha
           const blinkSpeed = Math.sin(motdFrame * 0.08); // Slower blink (reduced from 0.15)
           // In light mode, use higher alpha range for more vibrant effect
-          const blinkAlpha = isDark 
+          const blinkAlpha = isDark
             ? Math.floor((blinkSpeed + 1) * 60 + 60)   // Dark: 60-180
             : Math.floor((blinkSpeed + 1) * 80 + 100); // Light: 100-260 (clamped to 255)
           // Fun color cycle for the blink overlay - slower
           const blinkColorIndex = Math.floor(motdFrame * 0.05) % textColorCycle.length; // Slower (reduced from 0.1)
-          
+
           // Rhythmic subdivision pattern - changes every 30 frames for more punctual feel
           const patternPhase = Math.floor(motdFrame / 30) % 4; // 4 different patterns, change every 30 frames
           let cols, rows;
-          
+
           // Define 4 distinct rhythmic subdivision patterns
           if (patternPhase === 0) {
             cols = 2; rows = 2; // 2x2 grid (large blocks)
@@ -4950,10 +5130,10 @@ function paint($) {
           } else {
             cols = 3; rows = 3; // 3x3 grid (medium blocks)
           }
-          
+
           const cellWidth = cursorPos.w / cols;
           const cellHeight = cursorPos.h / rows;
-          
+
           for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
               // Create checkerboard pattern with slower rhythm
@@ -4971,7 +5151,7 @@ function paint($) {
             }
           }
         }
-        
+
         // Reset to default layer
         $.layer(1);
       }
@@ -4988,14 +5168,14 @@ function paint($) {
 
     // Stats / Analytics - Unified Ticker System
     $.layer(2); // Render tickers on top of tooltips
-    
+
     const loginY = screen.height / 2;
-    
+
     // Calculate dynamic positioning to prevent overlap
     const tickerHeight = tinyTickers ? 8 : 11; // MatrixChunky8 is 8px, font_1 is ~11px
     const tickerSpacing = 2; // Small gap between tickers
     const tickerPadding = tinyTickers ? 5 : 2; // Less padding for font_1
-    
+
     // Helper to ensure ticker text is long enough to fill screen without gaps
     // Repeats the content until it's at least 4x screen width for seamless looping
     const ensureMinTickerLength = (text, separator = " · ") => {
@@ -5009,17 +5189,17 @@ function paint($) {
       }
       return text;
     };
-    
+
     let currentTickerY = loginY + 44; // Start 44px below login (moved down from 30px)
     let contentTickerY = 0; // Y position of content ticker (declared here for tooltip access)
-    
+
     // 1. CHAT TICKER (top priority)
     // Show recent chat messages with syntax highlighting
     // Note: $.chat is the global chat system (automatically connected)
     const hasChatMessages = $.chat?.messages && $.chat.messages.length > 0;
     if (screen.height >= 180) {
       let fullText;
-      
+
       if (isCriticalFunding) {
         // Show funding alert message instead of chat (colorful, specific to 'chat')
         fullText = ensureMinTickerLength(FUNDING_MESSAGE_CHAT, " · ");
@@ -5027,11 +5207,11 @@ function paint($) {
         // Show last 12 messages with syntax highlighting
         const numMessages = Math.min(12, $.chat.messages.length);
         const recentMessages = $.chat.messages.slice(-numMessages);
-        
+
         fullText = recentMessages.map(msg => {
           const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
           const fullMessage = msg.from + ": " + sanitizedText;
-          
+
           // Parse and apply color codes
           const elements = parseMessageElements(fullMessage);
           const colorMap = {
@@ -5042,15 +5222,15 @@ function paint($) {
             painting: "orange",
             kidlisp: "magenta",
           };
-          
+
           return applyColorCodes(fullMessage, elements, colorMap, [0, 255, 255]);
         }).join(" · ");
-        
+
         // Repeat content to fill screen without gaps
         fullText = ensureMinTickerLength(fullText, " · ");
       }
       const chatTickerY = currentTickerY;
-      
+
       // Create or update ticker instance
       if (!chatTicker) {
         chatTicker = new $.gizmo.Ticker(fullText, {
@@ -5090,20 +5270,20 @@ function paint($) {
       if (!chatTickerButton.disabled) {
         const boxHeight = tickerHeight + (tickerPadding * 2);
         const boxY = chatTickerY - tickerPadding;
-        
+
         // Dark background for high contrast
         const bgAlpha = chatTickerButton.down ? 120 : 80;
         ink([0, 80, 80, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
-        
+
         // Top border (1px)
         ink([0, 200, 200, 255]).line(0, boxY, screen.width, boxY);
-        
+
         // Bottom border (1px, non-overlapping)
         ink([0, 200, 200, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
-        
+
         const tickerAlpha = chatTickerButton.down ? 255 : 220;
         const textY = chatTickerY;
-        
+
         if (isCriticalFunding || hasChatMessages) {
           // Use Ticker's built-in paint for scrolling (syntax highlighting TODO)
           chatTicker.paint($, 0, textY, {
@@ -5117,36 +5297,36 @@ function paint($) {
           paintMatrixLoading($, 0, textY, screen.width, tinyTickers ? "MatrixChunky8" : undefined, "cyan");
         }
       }
-      
+
       // Move down for next ticker
       currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing;
     } else {
       chatTicker = null;
       chatTickerButton = null;
     }
-    
+
     // 1B. LAER-KLOKKEN CLOCK CHAT TICKER
     // Always show, Matrix animation when no messages
     if (screen.height >= 240) {
       const hasClockMessages = clockChatMessages && clockChatMessages.length > 0;
       const clockTickerY = currentTickerY;
-      
+
       if (isCriticalFunding || hasClockMessages) {
         let clockFullText;
-        
+
         if (isCriticalFunding) {
           // Show funding alert message (colorful, specific to 'laer-klokken')
           clockFullText = ensureMinTickerLength(FUNDING_MESSAGE_CLOCK, " · ");
         } else {
           const numClockMessages = Math.min(12, clockChatMessages.length);
           const recentClockMessages = clockChatMessages.slice(-numClockMessages);
-          
+
           // Build ticker text with syntax highlighting for @handles, URLs, 'prompts', etc.
           clockFullText = recentClockMessages.map(msg => {
             const sanitizedText = (msg.text || msg.message || '').replace(/[\r\n]+/g, ' ');
             const from = msg.from || msg.handle || msg.author || 'anon';
             const fullMessage = from + ": " + sanitizedText;
-            
+
             // Parse and apply color codes
             const elements = parseMessageElements(fullMessage);
             const colorMap = {
@@ -5157,14 +5337,14 @@ function paint($) {
               painting: "orange",
               kidlisp: "magenta",
             };
-            
+
             return applyColorCodes(fullMessage, elements, colorMap, [255, 200, 100]);
           }).join(" · ");
-          
+
           // Repeat content to fill screen without gaps
           clockFullText = ensureMinTickerLength(clockFullText, " · ");
         }
-        
+
         if (!clockChatTicker) {
           clockChatTicker = new $.gizmo.Ticker(clockFullText, {
             speed: -1, // Negative = scroll opposite direction (right to left)
@@ -5201,16 +5381,16 @@ function paint($) {
       if (!clockChatTickerButton.disabled) {
         const boxHeight = tickerHeight + (tickerPadding * 2);
         const boxY = clockTickerY - tickerPadding;
-        
+
         const bgAlpha = clockChatTickerButton.down ? 120 : 80;
         ink([80, 40, 0, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
-        
+
         ink([255, 160, 0, 255]).line(0, boxY, screen.width, boxY);
         ink([255, 160, 0, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
-        
+
         const tickerAlpha = clockChatTickerButton.down ? 255 : 220;
         const textY = clockTickerY;
-        
+
         if ((isCriticalFunding || hasClockMessages) && clockChatTicker) {
           clockChatTicker.paint($, 0, textY, {
             color: [255, 200, 100],
@@ -5223,29 +5403,29 @@ function paint($) {
           paintMatrixLoading($, 0, textY, screen.width, tinyTickers ? "MatrixChunky8" : undefined, "orange");
         }
       }
-      
+
       // Extra spacing after laer-klokken before content ticker
       currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing + 1;
     } else {
       clockChatTicker = null;
       clockChatTickerButton = null;
     }
-    
+
     // 2. CONTENT TICKER (combined $kidlisp, #painting, !tape, *clock)
     const showContentTicker = !DISABLE_CONTENT_TICKER && screen.height >= 220;
     const contentIsLoading = contentItems.length === 0;
-    
+
     if (showContentTicker && (contentItems.length > 0 || contentIsLoading)) {
       contentTickerY = currentTickerY; // Assign to outer scope variable
-      
+
       // Build text with prefixes: $ for kidlisp, # for painting, ! for tape, * for clock
-      const fullText = contentItems.length > 0 
+      const fullText = contentItems.length > 0
         ? contentItems.map(item => {
             const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : item.type === 'tape' ? '!' : '*';
             return `${prefix}${item.code}`;
           }).join(" · ")
         : ""; // Empty when loading
-      
+
       // Create or update content ticker instance
       if (!contentTicker && contentItems.length > 0) {
         mediaPreviewBox = new MediaPreviewBox(); // Initialize shared preview box
@@ -5259,12 +5439,12 @@ function paint($) {
       } else if (contentTicker && contentItems.length > 0) {
         contentTicker.setText(fullText);
       }
-      
+
       // Update ticker animation (only if content is loaded)
       if (contentTicker && !contentTicker.paused && contentItems.length > 0) {
         contentTicker.update($);
       }
-      
+
       // Create or update invisible button over ticker area
       if (!contentTickerButton) {
         contentTickerButton = new $.ui.Button({
@@ -5282,22 +5462,22 @@ function paint($) {
         contentTickerButton.box.w = screen.width;
         contentTickerButton.box.h = tickerHeight + (tickerPadding * 2);
       }
-      
+
       // Paint background and border
       if (!contentTickerButton.disabled) {
         const boxHeight = tickerHeight + (tickerPadding * 2);
         const boxY = contentTickerY - tickerPadding;
-        
+
         // Dark background for high contrast
         const bgAlpha = contentTickerButton.down ? 120 : 80;
         ink([30, 30, 30, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
-        
+
         // Top border (1px)
         ink([200, 200, 200, 255]).line(0, boxY, screen.width, boxY);
-        
+
         // Bottom border (1px, non-overlapping)
         ink([200, 200, 200, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
-        
+
         // If loading (no content yet), show Matrix-style characters instead of text
         if (contentItems.length === 0) {
           const textY = contentTickerY;
@@ -5308,25 +5488,25 @@ function paint($) {
           // We need to manually render each item with its own color
           const textY = contentTickerY; // No offset - text baseline is already at correct Y
           const contentTickerAlpha = contentTickerButton.down ? 255 : 220;
-          
+
           // Calculate positions for each item manually and track for hover detection
           let currentX = -contentTicker.getOffset();
           const displayWidth = screen.width;
           const separator = " · ";
-          
+
           // Track item positions for hover detection
           const itemPositions = [];
           let hoveredItemIndex = -1;
-          
+
           // Render items multiple times to fill the screen (cycling)
           const cycleWidth = contentTicker.getCycleWidth();
           const numCycles = Math.ceil((displayWidth + cycleWidth) / cycleWidth) + 1;
-          
+
           for (let cycle = 0; cycle < numCycles; cycle++) {
             contentItems.forEach((item, idx) => {
               const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
               const text = `${prefix}${item.code}`;
-              
+
               // Color-code by type
               let color;
               if (item.type === 'kidlisp') {
@@ -5336,26 +5516,26 @@ function paint($) {
               } else { // tape
                 color = [255, 200, 100]; // Bright orange/yellow
               }
-              
+
               const textWidth = $.text.box(text, undefined, undefined, undefined, undefined, tinyTickers ? "MatrixChunky8" : undefined).box.width;
-              
+
               // Check if mouse is hovering over this item (only check first cycle)
               // Use $.pen for mouse position (available in paint context)
               const mouseX = $.pen?.x ?? -1;
               const mouseY = $.pen?.y ?? -1;
-              const isHovered = cycle === 0 && 
-                               mouseX >= currentX && 
+              const isHovered = cycle === 0 &&
+                               mouseX >= currentX &&
                                mouseX < currentX + textWidth &&
                                mouseY >= boxY &&
                                mouseY < boxY + boxHeight;
-              
+
               if (isHovered && cycle === 0) {
                 hoveredItemIndex = idx;
               }
-              
+
               // Check if this is the currently displayed tooltip item
               const isTooltipItem = currentTooltipItem && item.code === currentTooltipItem.code;
-              
+
               // Only render if visible
               if (currentX > -100 && currentX < displayWidth + 100) {
                 // Brighter and add background if hovered OR if it's the tooltip item
@@ -5369,25 +5549,25 @@ function paint($) {
                   } else { // tape
                     outlineColor = [255, 200, 100, 180]; // Orange
                   }
-                  
+
                   // Bright background (colored tint for tooltip item, white for hover)
-                  const bgColor = isTooltipItem 
+                  const bgColor = isTooltipItem
                     ? [...color, 60] // Use media type color at low alpha
                     : [255, 255, 255, 40]; // White for hover
                   $.ink(bgColor).box(currentX, boxY, textWidth, boxHeight - 1);
-                  
+
                   // Draw box outline around tooltip item (any media type)
                   if (isTooltipItem) {
                     $.ink(outlineColor).box(currentX - 2, boxY - 1, textWidth + 4, boxHeight, "inline");
                   }
-                  
+
                   // Brighter text when hovered or selected
                   $.ink(color, 255).write(text, { x: currentX, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
                 } else {
                   $.ink(color, contentTickerAlpha).write(text, { x: currentX, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
                 }
               }
-              
+
               // Store position for click detection (only first cycle)
               if (cycle === 0) {
                 itemPositions.push({
@@ -5397,10 +5577,10 @@ function paint($) {
                   index: idx
                 });
               }
-              
+
               // Move to next position
               currentX += textWidth;
-              
+
               // Add separator after each item (except potentially the last in a cycle)
               if (idx < contentItems.length - 1 || cycle < numCycles - 1) {
                 if (currentX > -100 && currentX < displayWidth + 100) {
@@ -5413,12 +5593,12 @@ function paint($) {
               }
             });
           }
-          
+
           // Store hovered item for click handler
           contentTickerButton.hoveredItemIndex = hoveredItemIndex;
         }
       }
-      
+
       // Move down for next ticker (if we add more)
       currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing;
     } else {
@@ -5432,33 +5612,33 @@ function paint($) {
     }
 
     $.layer(1); // Reset layer back to 1 for tooltips
-    
+
     // 🎨 CONTENT TOOLTIP (ambient floating preview)
     // Automatically cycles through content items (KidLisp + Paintings), showing previews
     if (!DISABLE_CONTENT_PREVIEWS && showContentTicker && contentItems.length > 0) {
       // Filter to only items that are currently visible on screen (from the right side)
       const visibleItems = [];
-      
+
       if (contentTicker) {
         const offset = contentTicker.getOffset();
         let currentX = -offset;
-        
+
         contentItems.forEach(item => {
           const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
           const text = `${prefix}${item.code}`;
           const textWidth = $.text.box(text).box.width;
-          
+
           // Check if this item is visible on screen (prefer right side)
           if (currentX >= screen.width * 0.3 && currentX < screen.width) {
             // Use original item object to preserve fetchAttempted/fetchFailed flags
             item.screenX = currentX; // Add screenX directly to original object
             visibleItems.push(item);
           }
-          
+
           currentX += textWidth + $.text.box(" · ").box.width;
         });
       }
-      
+
       if (visibleItems.length > 0) {
         if (activeTapePreview && currentTooltipItem && activeTapePreview !== currentTooltipItem) {
           releaseActiveTapePreview("tooltip-switch");
@@ -5469,7 +5649,7 @@ function paint($) {
         const tapeDuration = 480; // Show tapes for 8 seconds (at 60fps)
         const displayDuration = currentTooltipItem?.type === 'tape' ? tapeDuration : baseDuration;
         const fadeDuration = 20; // Fade in/out over ~0.33 seconds
-        
+
         // Initialize ONLY if we don't have a tooltip yet
         if (!currentTooltipItem) {
           // Find first item that hasn't failed or try first one
@@ -5477,7 +5657,7 @@ function paint($) {
           currentTooltipItem = startItem;
           tooltipItemIndex = visibleItems.indexOf(startItem);
           tooltipTimer = 0;
-          
+
           // Fetch source/image/audio for current item
           if (currentTooltipItem.type === 'kidlisp' && !currentTooltipItem.source && !currentTooltipItem.fetchAttempted) {
             fetchKidlispSource(currentTooltipItem, $);
@@ -5486,10 +5666,10 @@ function paint($) {
           } else if (currentTooltipItem.type === 'tape' && !currentTooltipItem.audioUrl && !currentTooltipItem.fetchAttempted) {
             enqueueTapePreview(currentTooltipItem, $);
           }
-          
+
           console.log(`🎨 Tooltip initialized with ${currentTooltipItem.type} item: ${currentTooltipItem.type === 'kidlisp' ? '$' : currentTooltipItem.type === 'painting' ? '#' : '!'}${currentTooltipItem.code}`);
         }
-        
+
         // Pre-fetch next items (always do this, even while waiting for current)
         for (let i = 1; i <= 2; i++) {
           const nextIndex = (tooltipItemIndex + i) % visibleItems.length;
@@ -5504,25 +5684,25 @@ function paint($) {
             }
           }
         }
-        
+
         // Only increment timer if current item has source/image or is a loading/loaded tape
         if (currentTooltipItem.source || currentTooltipItem.image || currentTooltipItem.isLoading || currentTooltipItem.framesLoaded) {
           tooltipTimer++;
         }
-        
+
         // Switch to next item after display duration OR if current item failed
         if (tooltipTimer > displayDuration || currentTooltipItem.fetchFailed) {
           // Find next item with source already loaded (don't switch until ready)
           let attempts = 0;
           let foundNext = false;
           const startIndex = tooltipItemIndex;
-          
+
           while (attempts < visibleItems.length && !foundNext) {
             const checkIndex = (startIndex + attempts + 1) % visibleItems.length;
             const nextItem = visibleItems[checkIndex];
-            
+
             // Only switch to items with source/image/audio or loading tapes
-            const hasContent = (nextItem.type === 'kidlisp' && nextItem.source) || 
+            const hasContent = (nextItem.type === 'kidlisp' && nextItem.source) ||
                               (nextItem.type === 'painting' && nextItem.image) ||
                               (nextItem.type === 'tape' && (nextItem.isLoading || nextItem.framesLoaded));
             if (hasContent && !nextItem.fetchFailed) {
@@ -5542,10 +5722,10 @@ function paint($) {
                 enqueueTapePreview(nextItem, $);
               }
             }
-            
+
             attempts++;
           }
-          
+
           // If no loaded item found, wait at full display (don't fade out)
           if (!foundNext) {
             tooltipTimer = displayDuration; // Hold at full opacity
@@ -5569,7 +5749,7 @@ function paint($) {
           }
           // If not yet attempted, don't increment timer - just wait for fetch to start
         }
-        
+
         // Calculate fade in/out ONLY when we have source or image or audioUrl or loading tape
         if (currentTooltipItem.source || currentTooltipItem.image || currentTooltipItem.isLoading || currentTooltipItem.framesLoaded) {
           if (tooltipTimer < fadeDuration) {
@@ -5585,21 +5765,21 @@ function paint($) {
         } else {
           tooltipFadeIn = 0; // Don't show until loaded
         }
-        
+
         // Render media preview as centered, faded background element
         if (currentTooltipItem && (currentTooltipItem.source || currentTooltipItem.image || currentTooltipItem.isLoading || currentTooltipItem.framesLoaded) && tooltipFadeIn > 0) {
           $.layer(0); // Render behind everything
-          
+
           // Calculate preview dimensions based on type
           let tooltipWidth, tooltipHeight;
-          
+
           // Pre-calculate metadata text to determine width
           let timestampText = '';
           if (currentTooltipItem.timestamp) {
             const now = new Date();
             const past = new Date(currentTooltipItem.timestamp);
             const seconds = Math.floor((now - past) / 1000);
-            
+
             const units = [
               { name: "year", seconds: 31536000 },
               { name: "month", seconds: 2592000 },
@@ -5609,7 +5789,7 @@ function paint($) {
               { name: "minute", seconds: 60 },
               { name: "second", seconds: 1 },
             ];
-            
+
             for (const unit of units) {
               const count = Math.floor(seconds / unit.seconds);
               if (count >= 1) {
@@ -5619,7 +5799,7 @@ function paint($) {
             }
             if (!timestampText) timestampText = "just now";
           }
-          
+
           const authorHandle =
             currentTooltipItem.author ||
             currentTooltipItem.handle ||
@@ -5630,40 +5810,40 @@ function paint($) {
               ? authorHandle
               : `@${authorHandle}`
             : null;
-          
+
           // Add tape code to metadata for tape items
           const tapeCodeText = currentTooltipItem.type === 'tape' ? `!${currentTooltipItem.code}` : null;
-          
+
           // Build metadata with code for tapes: "!code · timestamp · @author"
           let metadataText;
           if (currentTooltipItem.type === 'tape') {
             const parts = [tapeCodeText, timestampText, authorText].filter(Boolean);
             metadataText = parts.join(' · ');
           } else {
-            metadataText = timestampText && authorText 
+            metadataText = timestampText && authorText
               ? `${timestampText} · ${authorText}`
               : timestampText || authorText || '';
           }
-          
+
           // Calculate metadata text width using MatrixChunky8
           const metadataWidth = metadataText ? $.text.box(metadataText, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width : 0;
-          
+
           // Standardized tooltip dimensions across all types
           const padding = 6; // Consistent padding for all tooltips
           const metadataHeight = 20; // Consistent metadata section height
           const metadataGap = 6; // Consistent gap before metadata
-          
+
           // Calculate available space below ticker for tooltip
           const tickerBottomY = contentTickerY + tickerHeight + (tickerPadding * 2);
           const tooltipTopMargin = 32; // Space between ticker and tooltip
           const tooltipBottomMargin = 4; // Margin from screen bottom
           const availableHeight = screen.height - tickerBottomY - tooltipTopMargin - tooltipBottomMargin;
           const availableWidth = screen.width - 8; // 4px margin on each side
-          
+
           // Maximum dimensions that respect available space
           const maxTooltipWidth = Math.min(availableWidth, 500); // Cap at 500px or available width
           const maxContentHeight = availableHeight - padding - metadataGap - metadataHeight; // Reserve space for metadata
-          
+
           if (currentTooltipItem.type === 'kidlisp' && currentTooltipItem.source) {
             // KidLisp tooltip: use shared MediaPreviewBox dimensions
             const boxDims = mediaPreviewBox.getBoxDimensions();
@@ -5679,7 +5859,7 @@ function paint($) {
             const tapeTitle = currentTooltipItem.title || `Tape !${currentTooltipItem.code}`;
             const tapeTitleWidth = $.text.box(tapeTitle, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
             const visualizerHeight = Math.min(120, maxContentHeight - 8); // Fit visualizer, reserve 8px for title
-            
+
             const minWidthForMetadata = metadataWidth + padding * 2;
             const minWidthForTitle = tapeTitleWidth + padding * 2;
             tooltipWidth = Math.max(Math.min(150, maxTooltipWidth), minWidthForMetadata, minWidthForTitle);
@@ -5692,7 +5872,7 @@ function paint($) {
           } else {
             return; // No valid content to show
           }
-          
+
           // Update drift animation (smooth organic movement) - time-based
           const now = performance.now();
           if (!lastTooltipTime) lastTooltipTime = now;
@@ -5702,7 +5882,7 @@ function paint($) {
           const driftSpeed = 0.5;
           tooltipDriftX = Math.sin(tooltipDriftPhase) * 15 * driftSpeed;
           tooltipDriftY = Math.cos(tooltipDriftPhase * 0.7) * 10 * driftSpeed;
-          
+
           // Find the position of the highlighted item in the ticker
           // We need to calculate where the item appears in the scrolling ticker
           const tickerY = contentTickerY; // Use contentTickerY (where ticker is actually rendered)
@@ -5710,21 +5890,21 @@ function paint($) {
           const tickerBoxHeight = tickerHeight + (tickerPadding * 2); // Height including padding
           let highlightedItemX = -1;
           let highlightedItemWidth = -1;
-          
+
           // Calculate the offset in the ticker for our current item
           if (contentTicker) {
             const offset = contentTicker.getOffset();
             let currentX = -offset;
             const prefix = currentTooltipItem.type === 'kidlisp' ? '$' : currentTooltipItem.type === 'painting' ? '#' : '!';
             const targetText = `${prefix}${currentTooltipItem.code}`;
-            
+
             // Find where this item appears in the ticker
             for (let i = 0; i < contentItems.length; i++) {
               const item = contentItems[i];
               const itemPrefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
               const itemText = `${itemPrefix}${item.code}`;
               const textWidth = $.text.box(itemText).box.width;
-              
+
               if (item === currentTooltipItem) {
                 // Check if this position is on screen
                 if (currentX >= 0 && currentX < screen.width) {
@@ -5733,38 +5913,38 @@ function paint($) {
                 }
                 break;
               }
-              
+
               currentX += textWidth + $.text.box(" · ").box.width;
             }
           }
-          
+
           // Position preview centered on screen with subtle fade
           const baseTooltipX = (screen.width - tooltipWidth) / 2;
           const baseTooltipY = (screen.height - tooltipHeight) / 2;
           let tooltipX = baseTooltipX;
           let tooltipY = baseTooltipY;
-          
+
           // Reduce opacity for background effect (30% max)
           const bgFadeMultiplier = 0.3;
-          
+
           // Calculate total height including metadata/progress/time
           let totalTooltipHeight = tooltipHeight + metadataGap + metadataHeight;
-          
+
           // For tapes with frames, add progress bar and time
           if (currentTooltipItem.type === 'tape' && (currentTooltipItem.isLoading || currentTooltipItem.framesLoaded)) {
             const progressBarHeight = 1;
             const timeDisplayHeight = 8;
             totalTooltipHeight = tooltipHeight + 2 + progressBarHeight + 2 + timeDisplayHeight + metadataGap + metadataHeight;
           }
-          
+
           // Clamp tooltip to stay on screen (including metadata below)
           tooltipX = Math.max(4, Math.min(tooltipX, screen.width - tooltipWidth - 4));
           tooltipY = Math.max(4, Math.min(tooltipY, screen.height - totalTooltipHeight - 4));
-          
+
           // Draw subtle background
           const bgAlpha = Math.floor(60 * tooltipFadeIn * bgFadeMultiplier);
           $.ink([10, 20, 15, bgAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
-          
+
           // Draw border matching media type color
           let borderColor;
           if (currentTooltipItem.type === 'kidlisp') {
@@ -5776,10 +5956,10 @@ function paint($) {
           }
           const borderAlpha = Math.floor(50 * tooltipFadeIn * bgFadeMultiplier);
           $.ink([...borderColor, borderAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight, "inline");
-          
+
           // Render content based on type with reduced opacity
           const textAlpha = Math.floor(80 * tooltipFadeIn * bgFadeMultiplier);
-          
+
           if (currentTooltipItem.type === 'kidlisp' && currentTooltipItem.source) {
             // Render KidLisp source with proper syntax highlighting
             renderKidlispSource(
@@ -5798,9 +5978,9 @@ function paint($) {
             // Render tape using shared MediaPreviewBox
             mediaPreviewBox.render($, currentTooltipItem, tooltipX, tooltipY, tooltipFadeIn * bgFadeMultiplier);
           }
-          
+
           $.layer(1); // Reset to main layer
-          
+
           // Skip metadata rendering for background preview
           /*
           // Render metadata (timestamp and @author) OUTSIDE the box, below it
@@ -5821,7 +6001,7 @@ function paint($) {
           } else if (currentTooltipItem.type === 'tape' && currentTooltipItem.audioUrl) {
             metadataY = tooltipY + tooltipHeight + metadataGap;
           }
-          
+
           // Render metadata in dimmer color using MatrixChunky8
           if (metadataText) {
             const metadataAlpha = Math.floor(180 * tooltipFadeIn);
@@ -5843,18 +6023,18 @@ function paint($) {
     if (handles && screen.height >= 100) {
       // Position directly under the login button
       let handlesY = screen.height - 16; // Default bottom position
-      
+
       if (login && !login.btn.disabled && login.btn.box) {
         // Position directly under login button with extra spacing
         handlesY = login.btn.box.y + login.btn.box.h + 8; // 8px gap below button (moved down)
       }
-      
+
       // Use MatrixChunky8 font for more compact display, centered
       const handlesText = `${handles.toLocaleString()} HANDLES SET`;
-      
+
       // Shadow color (black in dark mode, white in light mode)
       const handlesShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255];
-      
+
       // Draw shadow first (offset by 1px) - noFunding to prevent $ replacement
       ink(...handlesShadowColor).write(
         handlesText,
@@ -5868,24 +6048,24 @@ function paint($) {
         false,
         "MatrixChunky8"
       );
-      
+
       // Cyberpunk-style flicker effect - build colored text string with per-character colors
       const baseHandleColor = pal.handleColor;
       let coloredHandlesText = "";
-      
+
       // Build text with individual character colors for flicker effect
       for (let i = 0; i < handlesText.length; i++) {
         const char = handlesText[i];
-        
+
         // Each character has a chance to flicker independently
         const flickerIntensity = Math.random() < 0.15 ? Math.random() * 0.6 : 0; // 15% chance of flicker
         const r = Math.floor(Math.max(0, baseHandleColor[0] * (1 - flickerIntensity)));
         const g = Math.floor(Math.max(0, baseHandleColor[1] * (1 - flickerIntensity * 0.8)));
         const b = Math.floor(Math.max(0, baseHandleColor[2] * (1 - flickerIntensity * 0.5)));
-        
+
         coloredHandlesText += `\\${r},${g},${b}\\${char}`;
       }
-      
+
       // Draw main text with per-character flicker - noFunding to prevent $ replacement
       ink(pal.handleColor).write(
         coloredHandlesText,
@@ -5906,20 +6086,20 @@ function paint($) {
     if (motd && (isCriticalFunding || screen.height >= 180)) {
       // Subtle sway (up and down)
       const swayY = Math.sin(motdFrame * 0.05) * 2; // 2 pixel sway range
-      
+
       // Parse MOTD for interactive elements (handles, URLs, prompts, etc.)
       // In CRITICAL funding mode, toggle languages every 1.5 seconds
       let displayMotd = motd;
       const langPhase = Math.floor(Date.now() / 1500) % 2; // Toggle every 1.5s
-      
+
       // Color schemes: EN = red/orange, DA = cyan/blue
       const enColors = ["red", "255,100,50", "yellow", "orange"];
       const daColors = ["cyan", "0,150,255", "white", "lime"];
-      
+
       // Small screen mode: 3 lines, moved up
       const isSmallScreen = screen.width < 160;
       const lineSpacing = 10;
-      
+
       if (isCriticalFunding && isSmallScreen) {
         // 3-line layout for small screens
         const line1EN = "CRITICAL MEDIA";
@@ -5928,16 +6108,16 @@ function paint($) {
         const line2DA = "MEDIETJENESTER OFFLINE";
         const line3EN = "ENTER 'give' TO HELP";
         const line3DA = "SKRIV 'give' FOR HJAELP";
-        
-        const lines = langPhase === 0 
+
+        const lines = langPhase === 0
           ? [line1EN, line2EN, line3EN]
           : [line1DA, line2DA, line3DA];
-        
+
         const colors = langPhase === 0 ? enColors : daColors;
-        
+
         // Move up more for 3 lines
         const baseY = screen.height / 2 - 58 + swayY;
-        
+
         for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
           const line = lines[lineIdx];
           let coloredLine = "";
@@ -5946,7 +6126,7 @@ function paint($) {
             const color = colors[colorIndex];
             coloredLine += `\\${color}\\${line[i]}`;
           }
-          
+
           ink(pal.handleColor).write(
             coloredLine,
             { center: "x", y: Math.floor(baseY + lineIdx * lineSpacing) },
@@ -5954,22 +6134,22 @@ function paint($) {
             screen.width - 8,
           );
         }
-        
+
         $.needsPaint();
       } else if (isCriticalFunding) {
         // CRITICAL funding mode: Normal 2-line layout for larger screens
         const motdY = screen.height / 2 - 48 + swayY;
-        
-        displayMotd = langPhase === 0 
-          ? "CRITICAL MEDIA SERVICES OFFLINE" 
+
+        displayMotd = langPhase === 0
+          ? "CRITICAL MEDIA SERVICES OFFLINE"
           : "KRITISKE MEDIETJENESTER OFFLINE";
-      
+
       const motdElements = parseMessageElements(displayMotd);
       const hasLinks = motdElements.length > 0;
-      
+
       let coloredText = "";
       const rainbowColors = ["pink", "cyan", "yellow", "lime", "orange", "magenta"];
-      
+
       if (hasLinks) {
         // Use syntax highlighting for interactive elements
         coloredText = colorizeText(displayMotd, "white");
@@ -5982,14 +6162,14 @@ function paint($) {
           coloredText += `\\${color}\\${displayMotd[i]}`;
         }
       }
-      
+
       // Use wider text wrapping to prevent overlap
       const motdMaxWidth = Math.min(screen.width - 18, 200);
-      
+
       // Determine alignment: left-align when book needs room on narrow screens
       let writePos;
       const leftMargin = 9;
-      
+
       if (motdXOffset < 0 && screen.width < 400) {
         // Left-align on narrow screens when overlapping with book
         writePos = { x: leftMargin, y: Math.floor(motdY) };
@@ -5997,22 +6177,22 @@ function paint($) {
         // Center by default
         writePos = { center: "x", y: Math.floor(motdY) };
       }
-      
+
       ink(pal.handleColor).write(
         coloredText,
         writePos,
         [255, 50, 200, 24],
         motdMaxWidth,
       );
-      
+
       // Add help line below MOTD (opposite language from line 1)
         const helpTextEN = "ENTER 'give' TO HELP";
         const helpTextDA = "SKRIV 'give' FOR HJAELP";
         const helpText = langPhase === 0 ? helpTextDA : helpTextEN;
-        
+
         // Use opposite color scheme from line 1
         const line2Colors = langPhase === 0 ? daColors : enColors;
-        
+
         // Build text with consistent language colors
         let coloredHelpText = "";
         for (let i = 0; i < helpText.length; i++) {
@@ -6021,7 +6201,7 @@ function paint($) {
           coloredHelpText += `\\${color}\\${helpText[i]}`;
         }
         // Use same positioning logic as MOTD, but directly below (10px spacing)
-        const helpWritePos = writePos.x !== undefined 
+        const helpWritePos = writePos.x !== undefined
           ? { x: writePos.x, y: (writePos.y || Math.floor(motdY)) + 10 }
           : { center: "x", y: (writePos.y || Math.floor(motdY)) + 10 };
         ink(pal.handleColor).write(
@@ -6030,17 +6210,17 @@ function paint($) {
           [255, 50, 200, 24],
           motdMaxWidth,
         );
-      
+
       $.needsPaint();
       } else if (motd) {
         // Non-funding mode: normal MOTD display
         const motdY = screen.height / 2 - 48 + swayY;
         const motdElements = parseMessageElements(motd);
         const hasLinks = motdElements.length > 0;
-        
+
         let coloredText = "";
         const rainbowColors = ["pink", "cyan", "yellow", "lime", "orange", "magenta"];
-        
+
         if (hasLinks) {
           coloredText = colorizeText(motd, "white");
         } else {
@@ -6050,28 +6230,28 @@ function paint($) {
             coloredText += `\\${color}\\${motd[i]}`;
           }
         }
-        
+
         const motdMaxWidth = Math.min(screen.width - 18, 200);
         let writePos;
         const leftMargin = 9;
-        
+
         if (motdXOffset < 0 && screen.width < 400) {
           writePos = { x: leftMargin, y: Math.floor(motdY) };
         } else {
           writePos = { center: "x", y: Math.floor(motdY) };
         }
-        
+
         ink(pal.handleColor).write(
           coloredText,
           writePos,
           [255, 50, 200, 24],
           motdMaxWidth,
         );
-        
+
         $.needsPaint();
       }
     }
-    
+
     // 😡😢😭 Emotional face stamp - cycles through angry, sad, crying
     // Show during funding effects (yikes/critical) or in winter (Dec, Jan, Feb)
     const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
@@ -6083,10 +6263,10 @@ function paint($) {
       let symbolX = Math.floor((screen.width - scaledSize) / 2);
       // MOTD is at screen.height/2 - 48, so put symbol above that
       let symbolY = Math.floor(screen.height / 2 - 90); // a bit higher above CRITICAL SERVICES
-      
+
       // Cycle through emotions every 3 seconds: 0=angry, 1=sad, 2=crying
       const emotionPhase = Math.floor(Date.now() / 3000) % 3;
-      
+
       // Only draw if there's enough space from top
       if (symbolY > 20) {
         // Shake animation - VERY intense when angry (vertical only)
@@ -6094,7 +6274,7 @@ function paint($) {
         const shakeSpeed = emotionPhase === 0 ? 0.4 : 0.3; // Slower but still intense when angry
         const shakeX = emotionPhase === 0 ? 0 : Math.sin(motdFrame * shakeSpeed) * shakeIntensity; // No horizontal shake when angry
         const shakeY = Math.cos(motdFrame * (shakeSpeed * 1.3)) * (shakeIntensity * 0.7);
-        
+
         // Color palette based on emotion
         let faceColors;
         if (emotionPhase === 0) {
@@ -6125,15 +6305,15 @@ function paint($) {
         const colorIndex = Math.floor(motdFrame * 0.08) % faceColors.length;
         const faceColor = faceColors[colorIndex];
         const faceAlpha = 200 + Math.sin(motdFrame * 0.1) * 55; // 145-255 pulsing
-        
+
         const faceX = Math.floor(symbolX + shakeX);
         const faceY = Math.floor(symbolY + shakeY);
-        
+
         // Draw custom face at 2x scale (manually scaled coordinates)
         // Helper to draw a 2x scaled box
         const s = 2; // scale factor
         const box2x = (x, y, w, h) => $.box(faceX + x * s, faceY + y * s, w * s, h * s);
-        
+
         // Face outline (circle approximation - rounded square)
         ink(...faceColor, faceAlpha);
         // Top edge
@@ -6148,7 +6328,7 @@ function paint($) {
         box2x(2, 14, 2, 1); box2x(12, 14, 2, 1);
         // Bottom edge
         box2x(4, 15, 8, 1);
-        
+
         // Draw eyes and expression based on emotion phase
         if (emotionPhase === 0) {
           // ANGRY FACE 😡 - angry eyebrows, gritted teeth
@@ -6180,7 +6360,7 @@ function paint($) {
           // Closed/squinting eyes (horizontal lines)
           box2x(3, 5, 3, 1);  // Left eye closed
           box2x(10, 5, 3, 1); // Right eye closed
-          
+
           // Multiple tear drops falling to bottom of screen
           // Tears spawn from the face but drift independently (use symbolX/Y not faceX/Y)
           const tearSpawnY = symbolY + 14; // Start below eyes (base position, no shake)
@@ -6189,28 +6369,28 @@ function paint($) {
             [100, 200, 255], // Cyan
             [120, 220, 255], // Brighter cyan
           ];
-          
+
           // Draw multiple tears at different phases - they fall on their own paths
           for (let t = 0; t < 6; t++) {
             const tearPhase = (motdFrame * 0.15 + t * 1.2) % 8; // Staggered timing
             const tearProgress = tearPhase / 8; // 0-1
             const tearY = tearSpawnY + tearProgress * (screen.height - tearSpawnY + 10);
-            
+
             // Tears drift independently with their own sine wave (based on their index, not face shake)
             const tearDriftX = Math.sin(tearPhase * 0.8 + t * 2.1) * (3 + tearProgress * 8); // Wider drift as they fall
             const tearDriftY = Math.cos(tearPhase * 0.5 + t) * 2; // Slight vertical wobble
-            
+
             // Left tears - spawn from left eye area (base position)
             const leftTearBaseX = symbolX + 8 + (t % 2) * 4;
             const leftTearX = leftTearBaseX + tearDriftX;
             // Right tears - spawn from right eye area (base position)
             const rightTearBaseX = symbolX + 22 - (t % 2) * 4;
             const rightTearX = rightTearBaseX - tearDriftX; // Mirror the drift
-            
+
             const tearColor = tearColors[t % tearColors.length];
             const tearAlpha = Math.floor((1 - tearProgress * 0.5) * 200); // Fade slightly
             const tearSize = t % 2 === 0 ? 3 : 2; // Vary sizes
-            
+
             if (tearY < screen.height) {
               ink(...tearColor, tearAlpha);
               // Teardrop shape (stretched vertically)
@@ -6218,7 +6398,7 @@ function paint($) {
               $.box(Math.floor(rightTearX), Math.floor(tearY + tearDriftY), tearSize, tearSize + 1);
             }
           }
-          
+
           // Reset to face color for mouth
           ink(...faceColor, faceAlpha);
           // Wailing open mouth (big oval)
@@ -6227,7 +6407,7 @@ function paint($) {
           box2x(11, 11, 1, 3);  // Right side
           box2x(5, 14, 6, 1);   // Bottom of mouth
         }
-        
+
         // Sparks flying off the head (color matches emotion)
         // WAY more particles when angry!
         const sparkCount = emotionPhase === 0 ? 24 : 8;
@@ -6235,20 +6415,20 @@ function paint($) {
           // Each spark has a phase offset for continuous emission
           const sparkPhase = (motdFrame * 0.15 + i * 0.7) % 3; // 0-3 lifecycle
           const sparkLife = sparkPhase / 3; // 0-1 normalized
-          
+
           // Sparks fly upward and outward - more spread when angry
           const spreadFactor = emotionPhase === 0 ? 0.4 : 0.25;
           const sparkAngle = -Math.PI / 2 + (i - sparkCount / 2) * spreadFactor + Math.sin(motdFrame * 0.1 + i) * 0.15;
           const sparkSpeed = emotionPhase === 0 ? (20 + i * 2) : (15 + i * 3);
           const sparkDist = sparkLife * sparkSpeed;
-          
+
           // Start from top of head (center-top of face)
           const sparkStartX = faceX + scaledSize / 2;
           const sparkStartY = faceY;
-          
+
           const sparkX = sparkStartX + Math.cos(sparkAngle) * sparkDist + Math.sin(motdFrame * 0.2 + i) * 3;
           const sparkY = sparkStartY + Math.sin(sparkAngle) * sparkDist - sparkLife * 8; // extra upward drift
-          
+
           // Spark colors match emotion
           let sparkColors;
           if (emotionPhase === 0) {
@@ -6262,13 +6442,13 @@ function paint($) {
           }
           const sparkColorIdx = (i + Math.floor(motdFrame * 0.1)) % sparkColors.length;
           const sparkColor = sparkColors[sparkColorIdx];
-          
+
           // Fade out as spark ages
           const sparkAlpha = Math.floor((1 - sparkLife) * 255);
-          
+
           // Spark size shrinks as it ages
           const sparkSize = Math.max(1, Math.floor((1 - sparkLife * 0.7) * 3));
-          
+
           if (sparkAlpha > 20) {
             ink(...sparkColor, sparkAlpha).box(
               Math.floor(sparkX),
@@ -6278,7 +6458,7 @@ function paint($) {
             );
           }
         }
-        
+
         // Words floating laterally off BOTH sides - mood-dependent
         // emotionPhase: 0 = ANGRY, 1 = SAD, 2 = CRYING
         const moodWords = ["GRRR!", "sigh...", "HELP!"];
@@ -6287,7 +6467,7 @@ function paint($) {
         // Fixed screen position - independent of head movement
         const wordOriginX = screen.width / 2;
         const wordOriginY = Math.min(screen.height * 0.22, 50);
-        
+
         // Mood-based color palettes
         const moodLeftColors = [
           [[255, 80, 80], [255, 120, 60], [200, 50, 50], [255, 100, 100]],    // Angry: reds
@@ -6301,33 +6481,33 @@ function paint($) {
         ];
         const leftColors = moodLeftColors[emotionPhase] || moodLeftColors[2];
         const rightColors = moodRightColors[emotionPhase] || moodRightColors[2];
-        
+
         // Mood-based motion parameters
         const moodSpeed = [0.055, 0.025, 0.035][emotionPhase] || 0.035;       // Angry fast, sad slow
         const moodWaveAmp = [2, 8, 5][emotionPhase] || 5;                      // Sad droopy, angry tight
         const moodShake = [3, 0.5, 1][emotionPhase] || 1;                      // Angry shaky, sad still
         const moodDrift = [2, 12, 6][emotionPhase] || 6;                       // Sad sinks more
-        
+
         // RIGHT side words - fixed origin, independent of head
         for (let w = 0; w < numWordsPerSide; w++) {
           const wordPhase = ((motdFrame * moodSpeed + w * 0.85) % 3) / 3;
-          
+
           const startX = wordOriginX + 15; // Fixed offset from center
           const startY = wordOriginY + w * 4;
-          
+
           const floatDist = wordPhase * 80;
           // Sad: droop down; Angry: jitter; Crying: wave
-          const waveY = emotionPhase === 1 
+          const waveY = emotionPhase === 1
             ? wordPhase * moodWaveAmp + Math.sin(wordPhase * Math.PI) * 3  // Sad droops
             : Math.sin(wordPhase * Math.PI * 2 + w) * moodWaveAmp;
-          
+
           const wordX = startX + floatDist;
           const wordY = startY + waveY + (emotionPhase === 1 ? wordPhase * moodDrift : -wordPhase * moodDrift);
-          
+
           const alpha = Math.floor((1 - wordPhase * 0.85) * 255);
           // Scale from 0.3 to 1.5 as it moves outward
           const wordScale = 0.3 + wordPhase * 1.2;
-          
+
           if (alpha > 20) {
             let coloredWord = "";
             for (let i = 0; i < moodWord.length; i++) {
@@ -6335,36 +6515,36 @@ function paint($) {
               const c = rightColors[colorIdx];
               coloredWord += `\\${c[0]},${c[1]},${c[2]},${alpha}\\${moodWord[i]}`;
             }
-            
+
             const shakeX = Math.sin(motdFrame * 0.2 + w) * moodShake;
             const shakeY = Math.cos(motdFrame * 0.25 + w) * moodShake;
-            
+
             ink(255, 255, 255).write(
               coloredWord,
               { x: Math.floor(wordX + shakeX), y: Math.floor(wordY + shakeY), size: wordScale }
             );
           }
         }
-        
+
         // LEFT side words (float leftward, fixed origin)
         const wordWidth = moodWord.length * 6;
         for (let w = 0; w < numWordsPerSide; w++) {
           const wordPhase = ((motdFrame * (moodSpeed * 1.08) + w * 0.9 + 0.3) % 3) / 3;
-          
+
           const startX = wordOriginX - 15 - wordWidth * 0.3; // Fixed offset from center
           const startY = wordOriginY + w * 4;
-          
+
           const floatDist = wordPhase * 80;
-          const waveY = emotionPhase === 1 
+          const waveY = emotionPhase === 1
             ? wordPhase * moodWaveAmp + Math.sin(wordPhase * Math.PI + 1) * 3
             : Math.sin(wordPhase * Math.PI * 2 + w + 1) * moodWaveAmp;
-          
+
           const wordX = startX - floatDist - wordPhase * wordWidth * 0.7; // Account for growing text width
           const wordY = startY + waveY + (emotionPhase === 1 ? wordPhase * moodDrift : -wordPhase * moodDrift);
-          
+
           const alpha = Math.floor((1 - wordPhase * 0.85) * 255);
           const wordScale = 0.3 + wordPhase * 1.2;
-          
+
           if (alpha > 20) {
             let coloredWord = "";
             for (let i = 0; i < moodWord.length; i++) {
@@ -6372,10 +6552,10 @@ function paint($) {
               const c = leftColors[colorIdx];
               coloredWord += `\\${c[0]},${c[1]},${c[2]},${alpha}\\${moodWord[i]}`;
             }
-            
+
             const shakeX = Math.sin(motdFrame * 0.22 + w) * moodShake;
             const shakeY = Math.cos(motdFrame * 0.27 + w) * moodShake;
-            
+
             ink(255, 255, 255).write(
               coloredWord,
               { x: Math.floor(wordX + shakeX), y: Math.floor(wordY + shakeY), size: wordScale }
@@ -6396,13 +6576,13 @@ function paint($) {
       // Draw waveform visualization behind login button
       if ($.sound.speaker?.waveforms?.left && $.sound.speaker?.amplitudes?.left !== undefined) {
         const hasSignal = $.sound.speaker.amplitudes.left > 0.001;
-        
+
         if (hasSignal) {
           const waveX = login.btn.box.x;
           const waveY = login.btn.box.y;
           const waveW = login.btn.box.w;
           const waveH = login.btn.box.h;
-          
+
           // Draw waveform with subtle transparency
           $.sound.paint.waveform(
             $,
@@ -6417,7 +6597,7 @@ function paint($) {
           );
         }
       }
-      
+
       login.paint($, $.dark ? scheme.dark.login : scheme.light.login);
     }
   }
@@ -6427,13 +6607,13 @@ function paint($) {
       // Draw waveform visualization behind signup button too
       if ($.sound.speaker?.waveforms?.left && $.sound.speaker?.amplitudes?.left !== undefined) {
         const hasSignal = $.sound.speaker.amplitudes.left > 0.001;
-        
+
         if (hasSignal) {
           const waveX = signup.btn.box.x;
           const waveY = signup.btn.box.y;
           const waveW = signup.btn.box.w;
           const waveH = signup.btn.box.h;
-          
+
           // Draw waveform with subtle transparency
           $.sound.paint.waveform(
             $,
@@ -6448,7 +6628,7 @@ function paint($) {
           );
         }
       }
-      
+
       signup.paint($, $.dark ? scheme.dark.signup : scheme.light.signup);
     }
   }
@@ -6456,16 +6636,16 @@ function paint($) {
     // Draw full-width waveform visualization behind profile button
     if ($.sound.speaker?.waveforms?.left && $.sound.speaker?.amplitudes?.left !== undefined) {
       const hasSignal = $.sound.speaker.amplitudes.left > 0.001;
-      
+
       if (hasSignal) {
         // Full screen width, positioned at button's Y location
         const waveX = 0;
         const waveY = profile.btn.box.y;
         const waveW = $.screen.width;
         const waveH = profile.btn.box.h;
-        
+
         // console.log(`🎵 Drawing full-width waveform behind @${$.handle()} button - amplitude: ${$.sound.speaker.amplitudes.left.toFixed(3)}`);
-        
+
         // Draw waveform with subtle transparency
         $.sound.paint.waveform(
           $,
@@ -6480,7 +6660,7 @@ function paint($) {
         );
       }
     }
-    
+
     if (
       profileAction === "resend-verification" ||
       profileAction === "set-handle"
@@ -6509,52 +6689,52 @@ function paint($) {
       );
     }
     profile?.paint($);
-    
+
     // ꜩ Tezos wallet button (positioned above handles count at bottom)
     if (tezosWalletAddress) {
       // Format balance
-      const balanceText = tezosWalletBalance !== null 
-        ? `${tezosWalletBalance.toFixed(2)}` 
+      const balanceText = tezosWalletBalance !== null
+        ? `${tezosWalletBalance.toFixed(2)}`
         : "...";
-      
+
       // Build button text (space for ꜩ symbol drawn separately)
       const btnTextWithSymbol = "  " + balanceText; // 2 spaces for the ꜩ symbol
-      
+
       // Calculate position - well above handles text (more space)
       let walletBtnY = screen.height - 90; // Position higher up to clear handles message
-      
+
       // Create or update wallet button
       if (!walletBtn) {
-        walletBtn = new $.ui.TextButton(btnTextWithSymbol, { 
+        walletBtn = new $.ui.TextButton(btnTextWithSymbol, {
           y: walletBtnY,
           center: "x",
-          screen 
+          screen
         });
       } else {
         walletBtn.reposition({ y: walletBtnY, center: "x", screen }, btnTextWithSymbol);
       }
-      
+
       // Color schemes: [fill, outline, text, textBackground]
       const normalFill = [20, 50, 70];
       const hoverFill = [30, 80, 100];
-      
+
       // Paint the wallet button with cyan theme
       walletBtn?.paint($,
         [normalFill, [0, 150, 200], [0, 200, 255], normalFill],  // normal: textBg matches fill
         [hoverFill, [0, 200, 255], [255, 255, 255], hoverFill]   // hover: textBg matches fill
       );
-      
+
       // Draw ꜩ symbol using unifont on top of button (aligned with button text)
       const tezSymbolX = walletBtn.btn.box.x + 3; // Inside button padding (left 1px)
       const tezSymbolY = walletBtn.btn.box.y + 3; // Align with button text (down 1px)
       const tezColor = walletBtn.btn.down ? [255, 255, 255] : [0, 200, 255];
       const tezBg = walletBtn.btn.down ? hoverFill : normalFill;
       ink(...tezColor).write("ꜩ", { x: tezSymbolX, y: tezSymbolY + TEZ_Y_ADJUST, bg: tezBg }, undefined, undefined, false, "unifont");
-      
+
       // Draw full wallet address below the button in MatrixChunky8, centered (dimmer teal/gray)
       const addrY = walletBtnY + walletBtn.height + 6; // Below button with more gap (2px more)
       ink(0, 140, 180).write(tezosWalletAddress, { x: screen.width / 2, y: addrY, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      
+
       // Draw domain name if available (below address, brighter cyan/magenta)
       if (tezosDomainName) {
         ink(100, 180, 255).write(tezosDomainName, { x: screen.width / 2, y: addrY + 12, center: "x" }, undefined, undefined, false, "MatrixChunky8");
@@ -6586,7 +6766,7 @@ function paint($) {
   // 📊 FPS Meter - tiny display in bottom-right corner
   if (showFpsMeter) {
     const fpsText = `${currentFps}`;
-    const fpsColor = currentFps >= 55 ? [0, 200, 100, 200] : 
+    const fpsColor = currentFps >= 55 ? [0, 200, 100, 200] :
                      currentFps >= 30 ? [255, 200, 0, 200] : [255, 60, 60, 200];
     // Draw background pill
     const textWidth = fpsText.length * 6;
@@ -6597,6 +6777,16 @@ function paint($) {
 
   // 🏷️ Dev Mode indicator - TEMPORARILY DISABLED for debugging
   // TODO: Re-enable once black box source is identified
+
+  // 🔍 Paint @handle autocomplete dropdown (last, so it renders on top of everything)
+  if (handleAutocomplete?.visible && $.system.prompt.input?.canType) {
+    const prompt = $.system.prompt.input?.prompt;
+    const cursorPos = prompt?.pos?.(undefined, true);
+    handleAutocomplete.paint(
+      { ink, write: (t, opts) => ink().write(t, opts), box: (x, y, w, h, style) => ink().box(x, y, w, h, style), screen },
+      { x: cursorPos?.x ?? 10, y: (cursorPos?.y ?? 10) + 12 }
+    );
+  }
 
   // Trigger a red or green screen flash with a timer.
   if (flashShow) {
@@ -6613,8 +6803,15 @@ function paint($) {
 function sim($) {
   ellipsisTicker?.sim();
   progressTrick?.step();
-  
-  // 🔷 Sync Tezos wallet state from bios (for restored sessions)
+
+  // 🔍 Sync autocomplete skipHistory and skipEnter flags with TextInput
+  if ($.system.prompt.input) {
+    const autocompleteActive = !!(handleAutocomplete?.visible && handleAutocomplete.items.length > 0);
+    $.system.prompt.input.skipHistory = autocompleteActive;
+    $.system.prompt.input.skipEnter = autocompleteActive;
+  }
+
+  // �🔷 Sync Tezos wallet state from bios (for restored sessions)
   const biosWallet = $.wallet?.get();
   if (biosWallet?.connected && !tezosWalletAddress) {
     // Wallet connected in bios but prompt doesn't know about it yet
@@ -6640,20 +6837,20 @@ function sim($) {
       $.needsPaint();
     }
   }
-  
+
   // Poll audio speaker for waveform visualization
   if ($.sound.speaker) {
     $.sound.speaker.poll();
   }
-  
+
   if (!login?.btn.disabled || !profile?.btn.disabled) {
     starfield.sim($);
     $.needsPaint();
   }
-  
+
   // 📦 Update product animations (DISABLED)
-  // const showLoginCurtain = 
-  //   (!login?.btn.disabled && !profile) || 
+  // const showLoginCurtain =
+  //   (!login?.btn.disabled && !profile) ||
   //   (!login && !profile?.btn.disabled);
   // const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
   // const shouldShowCarousel = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
@@ -6719,8 +6916,9 @@ function act({
   }
 
   // Light and dark mode glaze shift.
-  if (e.is("dark-mode")) glaze({ on: true });
-  if (e.is("light-mode")) glaze({ on: false });
+  // 🧪 Temporarily disabled to test noise16 transition
+  // if (e.is("dark-mode")) glaze({ on: true });
+  // if (e.is("light-mode")) glaze({ on: false });
 
   // Via vscode extension.
   if (e.is("aesthetic-parent:focused")) {
@@ -6812,8 +7010,8 @@ function act({
   }
 
   // 📦 Product button interaction (DISABLED)
-  // const showLoginCurtainAct = 
-  //   (!login?.btn.disabled && !profile) || 
+  // const showLoginCurtainAct =
+  //   (!login?.btn.disabled && !profile) ||
   //   (!login && !profile?.btn.disabled);
   // const promptHasContentAct = system.prompt.input.text && system.prompt.input.text.length > 0;
   // const shouldShowCarouselAct = showLoginCurtainAct && !system.prompt.input.canType && !promptHasContentAct;
@@ -7009,14 +7207,14 @@ function act({
         if (contentTicker && e.x !== undefined && e.y !== undefined) {
           const scrubDelta = e.x - contentTickerButton.scrubStartX;
           let newOffset = contentTickerButton.scrubInitialOffset - scrubDelta;
-          
+
           if (newOffset < 0) {
             newOffset = newOffset * 0.3; // Elastic effect
           }
-          
+
           contentTicker.setOffset(newOffset);
           contentTickerButton.hasScrubbed = Math.abs(scrubDelta) > 5;
-          
+
           synth({
             type: "sine",
             tone: 1200 + Math.abs(scrubDelta) * 2,
@@ -7025,7 +7223,7 @@ function act({
             volume: 0.08,
             duration: 0.01,
           });
-          
+
           needsPaint();
         }
       },
@@ -7033,21 +7231,21 @@ function act({
         if (!contentTickerButton.hasScrubbed) {
           pushSound();
         }
-        
+
         if (!contentTickerButton.hasScrubbed && contentItems.length > 0) {
           // Jump to hovered item if one was hovered, otherwise first item
-          const targetIndex = contentTickerButton.hoveredItemIndex >= 0 ? 
+          const targetIndex = contentTickerButton.hoveredItemIndex >= 0 ?
                               contentTickerButton.hoveredItemIndex : 0;
           const item = contentItems[targetIndex];
           const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : item.type === 'tape' ? '!' : '*';
           const destination = `${prefix}${item.code}`;
-          
+
           // Set prompt input text to show what's loading (like typing and pressing enter)
           system.prompt.input.text = destination;
-          
+
           // Move cursor to end of input (like after typing)
           system.prompt.input.snap();
-          
+
           // Jump to the destination
           jump(destination);
         } else {
@@ -7205,13 +7403,13 @@ function act({
       // 🎹 Apply notepat-style pitch and pan based on QWERTY layout
       const musicData = lastPressedKey ? QWERTY_MUSIC_MAP[lastPressedKey] : null;
       const baseVolume = 0.2 + (num.randInt(100) / 100) * 0.4;
-      
+
       if (musicData) {
         const speed = semitoneToPlaybackRate(musicData.semitone);
-        play(keyboardSfx, { 
-          volume: baseVolume, 
+        play(keyboardSfx, {
+          volume: baseVolume,
           speed: speed,
-          pan: musicData.pan 
+          pan: musicData.pan
         });
       } else {
         // Fallback for unmapped keys (numbers, punctuation, etc.)
@@ -7235,6 +7433,60 @@ function act({
       store["painting"]
     ) {
       downloadPainting(api, defaultDownloadScale, true); // Trigger early download response, before the user enters.
+    }
+  }
+
+  // 🔍 @handle autocomplete keyboard handling
+  if (handleAutocomplete?.visible && handleAutocomplete.items.length > 0) {
+    // Arrow up/down to navigate
+    if (e.is("keyboard:down:arrowup")) {
+      handleAutocomplete.selectedIndex = handleAutocomplete.selectedIndex > 0
+        ? handleAutocomplete.selectedIndex - 1
+        : handleAutocomplete.items.length - 1;
+      needsPaint();
+      return; // Consume event
+    }
+    if (e.is("keyboard:down:arrowdown")) {
+      handleAutocomplete.selectedIndex = (handleAutocomplete.selectedIndex + 1) % handleAutocomplete.items.length;
+      needsPaint();
+      return; // Consume event
+    }
+    // Tab or Enter to complete
+    if ((e.is("keyboard:down:tab") || e.is("keyboard:down:enter")) && handleAutocomplete.selected) {
+      const cursorPos = system.prompt.input.prompt?.textPos?.() ?? system.prompt.input.text.length;
+      const newText = handleAutocomplete.getCompletedText(system.prompt.input.text, cursorPos);
+      system.prompt.input.text = newText + " "; // Add space after handle
+      system.prompt.input.snap();
+      send({ type: "keyboard:text:replace", content: { text: system.prompt.input.text } });
+      handleAutocomplete.hide();
+      needsPaint();
+      return; // Consume event
+    }
+    // Escape to dismiss
+    if (e.is("keyboard:down:escape")) {
+      handleAutocomplete.hide();
+      needsPaint();
+      return; // Consume event
+    }
+  }
+
+  // 🔍 @handle autocomplete pointer/mouse handling
+  if (handleAutocomplete?.visible && handleAutocomplete.items.length > 0) {
+    const result = handleAutocomplete.handlePointer(e);
+    if (result.clicked) {
+      // Item was clicked - complete with the clicked item
+      const cursorPos = system.prompt.input.prompt?.textPos?.() ?? system.prompt.input.text.length;
+      const newText = handleAutocomplete.getCompletedText(system.prompt.input.text, cursorPos);
+      system.prompt.input.text = newText + " "; // Add space after handle
+      system.prompt.input.snap();
+      send({ type: "keyboard:text:replace", content: { text: system.prompt.input.text } });
+      handleAutocomplete.hide();
+      needsPaint();
+      return; // Consume event
+    }
+    if (result.consumed) {
+      needsPaint(); // Update hover state
+      return; // Consume event to prevent other interactions
     }
   }
 
@@ -7408,10 +7660,10 @@ async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) 
     motd = "aesthetic.computer";
   }
   motdController = new AbortController();
-  
+
   // Skip fetching mood in critical funding mode - use the hardcoded message
   if (isCriticalFunding) return;
-  
+
   try {
     const res = await fetch("/api/mood/@jeffrey", {
       signal: motdController.signal,
@@ -7438,40 +7690,40 @@ async function fetchContentItems(api) {
     if (res.status === 200) {
       const data = await res.json();
       const items = [];
-      
+
       // Use mixed feed if available (interwoven by timestamp)
       if (data.mixed && Array.isArray(data.mixed)) {
         data.mixed.forEach(item => {
           if (!item.code) return; // Skip items without code
-          
+
           const baseItem = {
             type: item.type,
             code: item.code,
             timestamp: item.timestamp || item.created_at || item.when,
             author: item.owner?.handle || null
           };
-          
+
           // Sanitize handle to prevent string "undefined" or "null"
-          const sanitizedHandle = (item.owner?.handle && 
-                                  typeof item.owner.handle === 'string' && 
-                                  item.owner.handle !== 'undefined' && 
+          const sanitizedHandle = (item.owner?.handle &&
+                                  typeof item.owner.handle === 'string' &&
+                                  item.owner.handle !== 'undefined' &&
                                   item.owner.handle !== 'null' &&
-                                  item.owner.handle.length > 0) 
-            ? item.owner.handle 
+                                  item.owner.handle.length > 0)
+            ? item.owner.handle
             : null;
-          
+
           if (item.type === 'kidlisp') {
             items.push({ ...baseItem, source: item.source });
           } else if (item.type === 'painting') {
-            items.push({ 
-              ...baseItem, 
-              slug: item.slug, 
+            items.push({
+              ...baseItem,
+              slug: item.slug,
               handle: sanitizedHandle,
               mediaPath: item.media?.path || null,
               mediaUrl: item.media?.url || null
             });
           } else if (item.type === 'tape') {
-            items.push({ 
+            items.push({
               ...baseItem,
               slug: item.slug,
               handle: sanitizedHandle,
@@ -7484,12 +7736,12 @@ async function fetchContentItems(api) {
       } else {
         // Fallback: collect and manually interweave (for backwards compatibility)
         const allItems = [];
-        
+
         // Collect kidlisp items
         if (data.media?.kidlisp && Array.isArray(data.media.kidlisp)) {
           data.media.kidlisp.forEach(item => {
-            if (item.code) allItems.push({ 
-              type: 'kidlisp', 
+            if (item.code) allItems.push({
+              type: 'kidlisp',
               code: item.code,
               source: item.source,
               timestamp: item.timestamp || item.created_at || item.when,
@@ -7497,20 +7749,20 @@ async function fetchContentItems(api) {
             });
           });
         }
-        
+
         // Collect painting items
         if (data.media?.paintings && Array.isArray(data.media.paintings)) {
           data.media.paintings.forEach(item => {
-            const sanitizedHandle = (item.owner?.handle && 
-                                    typeof item.owner.handle === 'string' && 
-                                    item.owner.handle !== 'undefined' && 
+            const sanitizedHandle = (item.owner?.handle &&
+                                    typeof item.owner.handle === 'string' &&
+                                    item.owner.handle !== 'undefined' &&
                                     item.owner.handle !== 'null' &&
-                                    item.owner.handle.length > 0) 
-              ? item.owner.handle 
+                                    item.owner.handle.length > 0)
+              ? item.owner.handle
               : null;
-            
-            if (item.code) allItems.push({ 
-              type: 'painting', 
+
+            if (item.code) allItems.push({
+              type: 'painting',
               code: item.code,
               slug: item.slug,
               handle: sanitizedHandle,
@@ -7521,32 +7773,32 @@ async function fetchContentItems(api) {
             });
           });
         }
-        
+
         // Collect tape items
         if (data.media?.tapes && Array.isArray(data.media.tapes)) {
           data.media.tapes.forEach(item => {
-            if (item.code) allItems.push({ 
-              type: 'tape', 
+            if (item.code) allItems.push({
+              type: 'tape',
               code: item.code,
               timestamp: item.timestamp || item.created_at || item.when,
               author: item.owner?.handle || null
             });
           });
         }
-        
+
         // Sort by timestamp (newest first)
         allItems.sort((a, b) => {
           const timeA = new Date(a.timestamp || 0).getTime();
           const timeB = new Date(b.timestamp || 0).getTime();
           return timeB - timeA;
         });
-        
+
         items.push(...allItems);
       }
-      
+
       contentItems = items;
-      
-      console.log("✅ Content items loaded with sprinkle filter:", contentItems.length, 
+
+      console.log("✅ Content items loaded with sprinkle filter:", contentItems.length,
                   `(${items.filter(i => i.type === 'kidlisp').length} kidlisp, ` +
                   `${items.filter(i => i.type === 'painting').length} paintings, ` +
                   `${items.filter(i => i.type === 'tape').length} tapes)`);
@@ -7573,7 +7825,7 @@ async function fetchClockChatMessages() {
     // Use the same chat API endpoint but for the "clock" chat instance
     const apiUrl = (typeof window !== 'undefined' ? window.location.origin : '') + "/api/chat/messages?instance=clock&limit=12";
     const res = await fetch(apiUrl);
-    
+
     if (res.status === 200) {
       const data = await res.json();
       if (data.messages && Array.isArray(data.messages)) {
@@ -7591,11 +7843,11 @@ async function fetchClockChatMessages() {
 // Fetch KidLisp source code for a given item
 async function fetchKidlispSource(item, $) {
   if (!item || item.type !== 'kidlisp' || !item.code) return;
-  
+
   // Prevent duplicate fetches - check and set atomically
   if (item.fetchAttempted) return;
   item.fetchAttempted = true; // Set IMMEDIATELY to block other calls
-  
+
   try {
     const source = await fetchCachedCode(item.code);
     if (source) {
@@ -7619,14 +7871,14 @@ async function fetchPaintingImage(item, $) {
     console.warn(`⚠️ fetchPaintingImage called with invalid item:`, item);
     return;
   }
-  
+
   // Prevent duplicate fetches - check and set atomically
   if (item.fetchAttempted) {
     console.log(`🖼️ Already attempted fetch for #${item.code}, skipping`);
     return;
   }
   item.fetchAttempted = true; // Set IMMEDIATELY to block other calls
-  
+
   let imageUrl; // Declare outside try block so it's accessible in catch
   try {
     // Prefer mediaPath from API, fall back to constructing path
@@ -7634,10 +7886,10 @@ async function fetchPaintingImage(item, $) {
       // mediaPath is a relative path like /media/@user/painting/file.png
       // Convert to absolute URL using current origin
       imageUrl = `${location.origin}${item.mediaPath}`;
-    } else if (item.handle && 
-               typeof item.handle === 'string' && 
-               item.handle !== 'undefined' && 
-               item.handle !== 'null' && 
+    } else if (item.handle &&
+               typeof item.handle === 'string' &&
+               item.handle !== 'undefined' &&
+               item.handle !== 'null' &&
                item.handle.length > 0) {
       // User painting with valid handle (check both string and actual null/undefined)
       imageUrl = `${location.origin}/media/@${item.handle}/painting/${item.slug}.png`;
@@ -7646,7 +7898,7 @@ async function fetchPaintingImage(item, $) {
       console.log(`🖼️ Using anonymous painting route for #${item.code} (handle: ${JSON.stringify(item.handle)})`);
       imageUrl = `${location.origin}/media/paintings/${item.code}.png`;
     }
-    
+
     // Load the image
     console.log(`🖼️ Attempting to load image for #${item.code} from: ${imageUrl}`);
     const result = await $.net.preload(imageUrl);
@@ -7672,33 +7924,33 @@ async function fetchTapeAudio(item, $) {
     console.warn(`⚠️ fetchTapeAudio called with invalid item:`, item);
     return;
   }
-  
+
   // Prevent duplicate fetches
   if (item.fetchAttempted) {
     console.log(`🎵 Already attempted fetch for !${item.code}, skipping`);
     return;
   }
   item.fetchAttempted = true;
-  
+
   try {
     console.log(`🎵 Loading tape !${item.code}`);
-    
+
     // Fetch tape metadata first
     const metadataResponse = await fetch(`/api/get-tape?code=${item.code}`);
     if (!metadataResponse.ok) {
       throw new Error(`Failed to load tape metadata: ${metadataResponse.status}`);
     }
-    
+
     const metadata = await metadataResponse.json();
-    
+
     if (metadata.nuked) {
       throw new Error(`Tape !${item.code} has been deleted`);
     }
-    
+
     // Construct ZIP URL
     const zipUrl = `${location.origin}/media/tapes/${item.code}`;
     const tapeId = `prompt-tape-${item.code}`;
-    
+
     // Store metadata and URLs
     item.metadata = metadata;
     item.zipUrl = zipUrl;
@@ -7706,14 +7958,14 @@ async function fetchTapeAudio(item, $) {
     item.isLoading = true;
     item.loadProgress = 0;
     item.loadPhase = 'downloading';
-    
+
     // Check if tape is already loaded in bios TapeManager
     // (We can't access globalThis.tapeManager directly since it's in the worker,
     // but we can send a message to check and get frames back)
     item.isLoading = true;
     item.loadProgress = 0;
     item.loadPhase = 'checking';
-    
+
     // Send preload request to bios to load frames (or get existing frames)
     console.log(`📼 Sending tape:preload with zipUrl: ${zipUrl}`);
     $.send({
@@ -7726,7 +7978,7 @@ async function fetchTapeAudio(item, $) {
         requestFrames: true // Tell bios to send frames back to disk
       }
     });
-    
+
     console.log(`✅ Initiated tape load for !${item.code}`);
     item.fetchFailed = false;
     $.needsPaint();
@@ -7746,12 +7998,12 @@ function renderKidlispSource($, source, x, y, maxWidth, maxLines, fadeAlpha) {
   const charWidth = 4;
   const lineHeight = 10;
   const isLightMode = !$.dark;
-  
+
   // Create temporary KidLisp instance for color mapping
   const tempKidlisp = new KidLisp();
   tempKidlisp.syntaxHighlightSource = source;
   tempKidlisp.isEditMode = true; // Enable edit mode to prevent transparent text
-  
+
   // Helper to check if color is too bright for light mode background
   const needsShadow = (rgb) => {
     if (!isLightMode) return false;
@@ -7759,7 +8011,7 @@ function renderKidlispSource($, source, x, y, maxWidth, maxLines, fadeAlpha) {
     const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b);
     return luminance > 120; // Lower threshold to catch more bright colors like cyan
   };
-  
+
   // Helper to render a character with optional shadow
   const writeCharWithShadow = (char, charX, charY, rgb) => {
     if (needsShadow(rgb)) {
@@ -7768,29 +8020,29 @@ function renderKidlispSource($, source, x, y, maxWidth, maxLines, fadeAlpha) {
     }
     $.ink([rgb.r, rgb.g, rgb.b, fadeAlpha]).write(char, { x: charX, y: charY }, undefined, undefined, false, "MatrixChunky8");
   };
-  
+
   lines.forEach((line, lineIdx) => {
     const lineY = y + lineIdx * lineHeight;
     let currentX = x;
-    
+
     // Tokenize this line
     const tokens = tokenize(line);
     let sourceIndex = 0;
-    
+
     tokens.forEach((token, tokenIdx) => {
       // Get color for this token
       const colorName = tempKidlisp.getTokenColor(token, tokens, tokenIdx);
-      
+
       // Handle fade: expressions specially
       if (token.startsWith('fade:')) {
         const coloredFadeString = tempKidlisp.colorFadeExpression(token);
         // Parse the colored fade string format: \color1\text1\color2\text2...
         const segments = coloredFadeString.split('\\').filter(s => s);
-        
+
         for (let i = 0; i < segments.length; i += 2) {
           const segmentColor = segments[i];
           const segmentText = segments[i + 1] || '';
-          
+
           const rgb = parseColorName(segmentColor);
           for (let charIdx = 0; charIdx < segmentText.length; charIdx++) {
             const char = segmentText[charIdx];
@@ -7807,7 +8059,7 @@ function renderKidlispSource($, source, x, y, maxWidth, maxLines, fadeAlpha) {
           currentX += charWidth;
         }
       }
-      
+
       // Add space between tokens (if there was one in original)
       const tokenEnd = line.indexOf(token, sourceIndex) + token.length;
       if (tokenEnd < line.length && line[tokenEnd] === ' ') {
@@ -7827,7 +8079,7 @@ function parseColorName(colorName) {
     const parts = colorName.split(',').map(p => parseInt(p.trim()));
     return { r: parts[0] || 200, g: parts[1] || 200, b: parts[2] || 200 };
   }
-  
+
   // Handle named colors
   const colorMap = {
     'cyan': { r: 64, g: 224, b: 208 },
@@ -7846,7 +8098,7 @@ function parseColorName(colorName) {
     'grey': { r: 128, g: 128, b: 128 },
     'silver': { r: 192, g: 192, b: 192 },
   };
-  
+
   return colorMap[colorName] || { r: 200, g: 200, b: 200 };
 }
 
@@ -7976,16 +8228,16 @@ function fetchUser() {
 // 📨 Receive messages from bios (for tape loading progress)
 function receive(e) {
   // console.log(`📨 ✅✅✅ PROMPT.MJS RECEIVE called with type: ${e.type}, is() available: ${typeof e.is === 'function'}`);
-  
+
   if (e.is("tape:load-progress")) {
     const { code, phase, progress, loadedFrames, totalFrames } = e.content || {};
-    
+
     // Find the tape item in contentItems
     const tapeItem = contentItems.find(item => item.type === 'tape' && item.code === code);
     if (tapeItem) {
       tapeItem.loadPhase = phase;
       tapeItem.loadProgress = progress;
-      
+
       if (phase === 'frames') {
         tapeItem.loadMessage = `${loadedFrames}/${totalFrames} FRAMES`;
       } else if (phase === 'downloading') {
@@ -7995,10 +8247,10 @@ function receive(e) {
       }
     }
   }
-  
+
   if (e.is("tape:preloaded")) {
     const { tapeId, frameCount } = e.content || {};
-    
+
     // Find tape by tapeId
     const tapeItem = contentItems.find(item => item.tapeId === tapeId);
     if (tapeItem) {
@@ -8007,7 +8259,7 @@ function receive(e) {
       tapeItem.frameCount = frameCount;
       tapeItem.frames = []; // Array to hold frames sent from bios
       console.log(`✅ Tape !${tapeItem.code} loaded: ${frameCount} frames - requesting frames for preview`);
-      
+
       // Request frames from bios for preview (send all frames at once)
       if (typeof promptSend === "function") {
         promptSend({
@@ -8019,13 +8271,13 @@ function receive(e) {
       }
     }
   }
-  
+
   if (e.is("tape:frames")) {
     // console.log(`📼 Received tape:frames message:`, e.content);
   const { tapeId, frames } = e.content || {};
     // console.log(`📼 Looking for tapeId: ${tapeId}, frames array length: ${frames?.length || 0}`);
     // console.log(`📼 Content items with tapeIds:`, contentItems.filter(i => i.tapeId).map(i => ({code: i.code, tapeId: i.tapeId})));
-    
+
     // Find tape by tapeId
     const tapeItem = contentItems.find(item => item.tapeId === tapeId);
     if (tapeItem) {
@@ -8051,10 +8303,10 @@ function receive(e) {
       }
     }
   }
-  
+
   if (e.is("tape:preload-error")) {
     const { tapeId, error } = e.content || {};
-    
+
     const tapeItem = contentItems.find(item => item.tapeId === tapeId);
     if (tapeItem) {
       tapeItem.isLoading = false;
@@ -8132,18 +8384,18 @@ function paintMatrixLoading($, x, y, width, tickerFont, colorTheme = "default") 
   const charWidth = tickerFont === "MatrixChunky8" ? 4 : 5;
   const numChars = floor(width / charWidth);
   const framePhase = motdFrame;
-  
+
   for (let i = 0; i < numChars; i++) {
     const baseCharIndex = (i * 7919) % chars.length;
     const shiftOffset = (framePhase + i * 13) % chars.length;
     const charIndex = (baseCharIndex + shiftOffset) % chars.length;
     const char = chars[charIndex];
     const charX = x + (i * charWidth);
-    
+
     // Color themes: default (green/red), cyan, orange
     const colorSeed = (i * 17 + framePhase) % 10;
     let r, g, b;
-    
+
     if (colorTheme === "cyan") {
       // Cyan theme for chat ticker
       if (colorSeed < 6) {
@@ -8182,10 +8434,10 @@ function paintMatrixLoading($, x, y, width, tickerFont, colorTheme = "default") 
         b = 50;
       }
     }
-    
+
     const pulse = Math.sin(motdFrame * 0.05 + i * 0.3) * 20;
     const alpha = 180 + pulse;
-    
+
     $.ink([r, g, b, alpha]).write(char, { x: charX, y }, undefined, undefined, false, tickerFont);
   }
 }

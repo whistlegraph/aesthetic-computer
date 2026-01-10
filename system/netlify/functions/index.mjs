@@ -244,6 +244,25 @@ async function fun(event, context) {
     );
   }
 
+  // 🎄 Handle mo.XX and merryo.XX uniform timing shorthand URLs
+  // e.g., /mo.1:a:b:c → /mo~.1:a:b:c (piece=mo, timing=.1, pieces=a,b,c)
+  // e.g., /merryo.05:tone:clock → /merryo~.05:tone:clock
+  const moMatch = slug.match(/^(mo|merryo)\.(\d+(?:\.\d+)?)([:~].+)?$/);
+  if (moMatch) {
+    const [, prefix, timing, rest] = moMatch;
+    // Route to the mo piece with timing as first colon param
+    const newSlug = `mo~.${timing}${rest || ""}`;
+    console.log(`[merry] Converting ${slug} to ${newSlug}`);
+    return respond(
+      302,
+      `<a href="/${newSlug}">Redirecting to /${newSlug}</a>`,
+      {
+        "Content-Type": "text/html",
+        Location: `/${encodeURIComponent(newSlug)}`,
+      },
+    );
+  }
+
   // Handle *xxx clock shortcode - fetch melody and redirect to clock piece
   if (slug.startsWith("*") && slug.length > 1 && !slug.includes("~")) {
     const code = slug.slice(1); // Remove * prefix
@@ -863,6 +882,26 @@ async function fun(event, context) {
           type="module"
           defer
         ></script>
+        <!-- Modulepreload hints for critical path modules (parallel fetch) -->
+        <link rel="modulepreload" href="/aesthetic.computer/bios.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/parse.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/disk.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/graph.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/num.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/help.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/geo.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/text.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/ui.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/platform.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/kidlisp.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/type.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/pen.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/keyboard.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/loop.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/store.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/headers.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/logs.mjs" />
+        <link rel="modulepreload" href="/aesthetic.computer/lib/helpers.mjs" />
         <!-- Google tag (gtag.js) - Skip if in sandboxed iframe -->
         <script>
           (function() {

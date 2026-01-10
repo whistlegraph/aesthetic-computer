@@ -5,53 +5,30 @@ import * as ABC from "../lib/abc123.mjs";
 
 const LETTER = "z";
 const theme = ABC.letterThemes[LETTER];
-
-let frameCount = 0;
-const FRAMES_PER_FONT = 90;
+let frame = 0;
 
 function boot({ sound }) {
-  // Z has no musical note - play a soft snore/whoosh sound
-  if (sound?.synth) {
-    sound.synth({
-      type: "noise-white",
-      tone: 80,
-      attack: 0.1,
-      decay: 0.95,
-      duration: 0.4,
-      volume: 0.2,
-    });
-  }
+  ABC.playLetterSound(LETTER, sound);
 }
 
 function paint($) {
-  const fontIndex = Math.floor(frameCount / FRAMES_PER_FONT) % ABC.fonts.length;
-  ABC.drawLetter(LETTER, $, theme, fontIndex);
+  ABC.drawLetter(LETTER, $, theme, frame);
+}
+
+function sim() {
+  frame++;
 }
 
 function act({ event: e, sound, jump, needsPaint }) {
   if (ABC.handleNavigation(e, jump)) return;
   if (e.is("touch")) {
-    if (sound?.synth) {
-      sound.synth({
-        type: "noise-white",
-        tone: 80,
-        attack: 0.1,
-        decay: 0.95,
-        duration: 0.4,
-        volume: 0.2,
-      });
-    }
-    frameCount = (Math.floor(frameCount / FRAMES_PER_FONT) + 1) * FRAMES_PER_FONT;
+    ABC.playLetterSound(LETTER, sound);
     needsPaint();
   }
 }
 
-function sim() {
-  frameCount++;
-}
-
 function meta() {
-  return { title: "Z", desc: `${theme.emoji} ${theme.words[0]} - The sleepy letter Z! Zzz...` };
+  return { title: "Z", desc: `${theme.emoji} ${theme.words[0]} - The letter Z and musical note Z!` };
 }
 
 export { boot, paint, sim, act, meta };
