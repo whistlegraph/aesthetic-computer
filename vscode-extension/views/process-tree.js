@@ -9,65 +9,430 @@
   
   // 🎨 Color Schemes (imported from color-schemes.js or embedded)
   const colorSchemes = window.AestheticColorSchemes?.schemes || {
-    dark: {
-      background: '#181318',
-      backgroundAlt: '#141214',
-      foreground: '#ffffffcc',
-      foregroundBright: '#ffffff',
-      foregroundMuted: '#555555',
-      accent: '#a87090',
-      accentBright: '#ff69b4',
-      statusOnline: '#0f0',
-      categories: {
-        editor: 0xb06bff, tui: 0xff69b4, bridge: 0x6bff9f,
-        db: 0xffeb6b, proxy: 0x6b9fff, ai: 0xff9f6b,
-        shell: 0x6bffff, dev: 0x6bff9f, ide: 0x6b9fff, lsp: 0x888888, kernel: 0x88ccff
-      },
-      three: {
-        sceneBackground: 0x000000,
-        kernelOuter: 0x4488ff, kernelRing: 0x66aaff, kernelCore: 0x88ccff,
-        connectionLine: 0x444444, connectionActive: 0xff69b4, deadProcess: 0x444444
-      },
-      ui: { shadow: 'rgba(0, 0, 0, 0.6)', overlay: 'rgba(0, 0, 0, 0.85)' }
+  "dark": {
+    "background": "#181318",
+    "backgroundAlt": "#141214",
+    "foreground": "#ffffffcc",
+    "foregroundBright": "#ffffff",
+    "foregroundMuted": "#555555",
+    "accent": "#a87090",
+    "accentBright": "#ff69b4",
+    "statusOnline": "#0f0",
+    "categories": {
+      "editor": 11561983,
+      "tui": 16738740,
+      "bridge": 7077791,
+      "db": 16771947,
+      "proxy": 7053311,
+      "ai": 16752491,
+      "shell": 7077887,
+      "dev": 7077791,
+      "ide": 7053311,
+      "lsp": 8947848,
+      "kernel": 8965375
     },
-    light: {
-      background: '#fcf7c5',
-      backgroundAlt: '#f5f0c0',
-      foreground: '#281e5a',
-      foregroundBright: '#281e5a',
-      foregroundMuted: '#806060',
-      accent: '#387adf',
-      accentBright: '#006400',
-      statusOnline: '#006400',
-      categories: {
-        editor: 0x8040d0, tui: 0xd04080, bridge: 0x208040,
-        db: 0xa08000, proxy: 0x2060c0, ai: 0xc06020,
-        shell: 0x008080, dev: 0x208040, ide: 0x2060c0, lsp: 0x606060, kernel: 0x387adf
-      },
-      three: {
-        sceneBackground: 0xfcf7c5,
-        kernelOuter: 0x387adf, kernelRing: 0x006400, kernelCore: 0x387adf,
-        connectionLine: 0xa8a080, connectionActive: 0x006400, deadProcess: 0xa8a080
-      },
-      ui: { shadow: 'rgba(0, 0, 0, 0.2)', overlay: 'rgba(252, 247, 197, 0.95)' }
+    "three": {
+      "sceneBackground": 1577752,
+      "kernelOuter": 4491519,
+      "kernelRing": 6728447,
+      "kernelCore": 8965375,
+      "connectionLine": 4473924,
+      "connectionActive": 16738740,
+      "deadProcess": 4473924
+    },
+    "ui": {
+      "shadow": "rgba(0, 0, 0, 0.6)",
+      "overlay": "rgba(0, 0, 0, 0.85)"
     }
-  };
+  },
+  "light": {
+    "background": "#fcf7c5",
+    "backgroundAlt": "#f5f0c0",
+    "foreground": "#281e5a",
+    "foregroundBright": "#281e5a",
+    "foregroundMuted": "#806060",
+    "accent": "#387adf",
+    "accentBright": "#006400",
+    "statusOnline": "#006400",
+    "categories": {
+      "editor": 8405200,
+      "tui": 13648000,
+      "bridge": 2129984,
+      "db": 10518528,
+      "proxy": 2121920,
+      "ai": 12607520,
+      "shell": 32896,
+      "dev": 2129984,
+      "ide": 2121920,
+      "lsp": 6316128,
+      "kernel": 3701471
+    },
+    "three": {
+      "sceneBackground": 16578501,
+      "kernelOuter": 3701471,
+      "kernelRing": 25600,
+      "kernelCore": 3701471,
+      "connectionLine": 11051136,
+      "connectionActive": 25600,
+      "deadProcess": 11051136
+    },
+    "ui": {
+      "shadow": "rgba(0, 0, 0, 0.2)",
+      "overlay": "rgba(252, 247, 197, 0.95)"
+    }
+  },
+  "red": {
+    "background": "#181010",
+    "backgroundAlt": "#140c0c",
+    "foreground": "#ffffffcc",
+    "foregroundBright": "#ffffff",
+    "foregroundMuted": "#555555",
+    "accent": "#ff5555",
+    "accentBright": "#ff8888",
+    "statusOnline": "#0f0",
+    "categories": {
+      "editor": 11561983,
+      "tui": 16738740,
+      "bridge": 7077791,
+      "db": 16771947,
+      "proxy": 7053311,
+      "ai": 16752491,
+      "shell": 7077887,
+      "dev": 7077791,
+      "ide": 7053311,
+      "lsp": 8947848,
+      "kernel": 8965375
+    },
+    "three": {
+      "sceneBackground": 1576976,
+      "kernelOuter": 4491519,
+      "kernelRing": 6728447,
+      "kernelCore": 8965375,
+      "connectionLine": 4473924,
+      "connectionActive": 16746632,
+      "deadProcess": 4473924
+    },
+    "ui": {
+      "shadow": "rgba(0, 0, 0, 0.6)",
+      "overlay": "rgba(0, 0, 0, 0.85)"
+    }
+  },
+  "orange": {
+    "background": "#181410",
+    "backgroundAlt": "#14100c",
+    "foreground": "#ffffffcc",
+    "foregroundBright": "#ffffff",
+    "foregroundMuted": "#555555",
+    "accent": "#ffb86c",
+    "accentBright": "#ffd8a8",
+    "statusOnline": "#0f0",
+    "categories": {
+      "editor": 11561983,
+      "tui": 16738740,
+      "bridge": 7077791,
+      "db": 16771947,
+      "proxy": 7053311,
+      "ai": 16752491,
+      "shell": 7077887,
+      "dev": 7077791,
+      "ide": 7053311,
+      "lsp": 8947848,
+      "kernel": 8965375
+    },
+    "three": {
+      "sceneBackground": 1578000,
+      "kernelOuter": 4491519,
+      "kernelRing": 6728447,
+      "kernelCore": 8965375,
+      "connectionLine": 4473924,
+      "connectionActive": 16767144,
+      "deadProcess": 4473924
+    },
+    "ui": {
+      "shadow": "rgba(0, 0, 0, 0.6)",
+      "overlay": "rgba(0, 0, 0, 0.85)"
+    }
+  },
+  "yellow": {
+    "background": "#181810",
+    "backgroundAlt": "#14140c",
+    "foreground": "#ffffffcc",
+    "foregroundBright": "#ffffff",
+    "foregroundMuted": "#555555",
+    "accent": "#f1fa8c",
+    "accentBright": "#ffffa0",
+    "statusOnline": "#0f0",
+    "categories": {
+      "editor": 11561983,
+      "tui": 16738740,
+      "bridge": 7077791,
+      "db": 16771947,
+      "proxy": 7053311,
+      "ai": 16752491,
+      "shell": 7077887,
+      "dev": 7077791,
+      "ide": 7053311,
+      "lsp": 8947848,
+      "kernel": 8965375
+    },
+    "three": {
+      "sceneBackground": 1579024,
+      "kernelOuter": 4491519,
+      "kernelRing": 6728447,
+      "kernelCore": 8965375,
+      "connectionLine": 4473924,
+      "connectionActive": 16777120,
+      "deadProcess": 4473924
+    },
+    "ui": {
+      "shadow": "rgba(0, 0, 0, 0.6)",
+      "overlay": "rgba(0, 0, 0, 0.85)"
+    }
+  },
+  "green": {
+    "background": "#101810",
+    "backgroundAlt": "#0c140c",
+    "foreground": "#ffffffcc",
+    "foregroundBright": "#ffffff",
+    "foregroundMuted": "#555555",
+    "accent": "#50fa7b",
+    "accentBright": "#80ffae",
+    "statusOnline": "#0f0",
+    "categories": {
+      "editor": 11561983,
+      "tui": 16738740,
+      "bridge": 7077791,
+      "db": 16771947,
+      "proxy": 7053311,
+      "ai": 16752491,
+      "shell": 7077887,
+      "dev": 7077791,
+      "ide": 7053311,
+      "lsp": 8947848,
+      "kernel": 8965375
+    },
+    "three": {
+      "sceneBackground": 1054736,
+      "kernelOuter": 4491519,
+      "kernelRing": 6728447,
+      "kernelCore": 8965375,
+      "connectionLine": 4473924,
+      "connectionActive": 8454062,
+      "deadProcess": 4473924
+    },
+    "ui": {
+      "shadow": "rgba(0, 0, 0, 0.6)",
+      "overlay": "rgba(0, 0, 0, 0.85)"
+    }
+  },
+  "blue": {
+    "background": "#101418",
+    "backgroundAlt": "#0c1014",
+    "foreground": "#ffffffcc",
+    "foregroundBright": "#ffffff",
+    "foregroundMuted": "#555555",
+    "accent": "#61afef",
+    "accentBright": "#8cd0ff",
+    "statusOnline": "#0f0",
+    "categories": {
+      "editor": 11561983,
+      "tui": 16738740,
+      "bridge": 7077791,
+      "db": 16771947,
+      "proxy": 7053311,
+      "ai": 16752491,
+      "shell": 7077887,
+      "dev": 7077791,
+      "ide": 7053311,
+      "lsp": 8947848,
+      "kernel": 8965375
+    },
+    "three": {
+      "sceneBackground": 1053720,
+      "kernelOuter": 4491519,
+      "kernelRing": 6728447,
+      "kernelCore": 8965375,
+      "connectionLine": 4473924,
+      "connectionActive": 9228543,
+      "deadProcess": 4473924
+    },
+    "ui": {
+      "shadow": "rgba(0, 0, 0, 0.6)",
+      "overlay": "rgba(0, 0, 0, 0.85)"
+    }
+  },
+  "indigo": {
+    "background": "#121018",
+    "backgroundAlt": "#0e0c14",
+    "foreground": "#ffffffcc",
+    "foregroundBright": "#ffffff",
+    "foregroundMuted": "#555555",
+    "accent": "#6272a4",
+    "accentBright": "#8be9fd",
+    "statusOnline": "#0f0",
+    "categories": {
+      "editor": 11561983,
+      "tui": 16738740,
+      "bridge": 7077791,
+      "db": 16771947,
+      "proxy": 7053311,
+      "ai": 16752491,
+      "shell": 7077887,
+      "dev": 7077791,
+      "ide": 7053311,
+      "lsp": 8947848,
+      "kernel": 8965375
+    },
+    "three": {
+      "sceneBackground": 1183768,
+      "kernelOuter": 4491519,
+      "kernelRing": 6728447,
+      "kernelCore": 8965375,
+      "connectionLine": 4473924,
+      "connectionActive": 9169405,
+      "deadProcess": 4473924
+    },
+    "ui": {
+      "shadow": "rgba(0, 0, 0, 0.6)",
+      "overlay": "rgba(0, 0, 0, 0.85)"
+    }
+  },
+  "violet": {
+    "background": "#161016",
+    "backgroundAlt": "#120c12",
+    "foreground": "#ffffffcc",
+    "foregroundBright": "#ffffff",
+    "foregroundMuted": "#555555",
+    "accent": "#bd93f9",
+    "accentBright": "#ff79c6",
+    "statusOnline": "#0f0",
+    "categories": {
+      "editor": 11561983,
+      "tui": 16738740,
+      "bridge": 7077791,
+      "db": 16771947,
+      "proxy": 7053311,
+      "ai": 16752491,
+      "shell": 7077887,
+      "dev": 7077791,
+      "ide": 7053311,
+      "lsp": 8947848,
+      "kernel": 8965375
+    },
+    "three": {
+      "sceneBackground": 1445910,
+      "kernelOuter": 4491519,
+      "kernelRing": 6728447,
+      "kernelCore": 8965375,
+      "connectionLine": 4473924,
+      "connectionActive": 16742854,
+      "deadProcess": 4473924
+    },
+    "ui": {
+      "shadow": "rgba(0, 0, 0, 0.6)",
+      "overlay": "rgba(0, 0, 0, 0.85)"
+    }
+  },
+  "pink": {
+    "background": "#181014",
+    "backgroundAlt": "#140c10",
+    "foreground": "#ffffffcc",
+    "foregroundBright": "#ffffff",
+    "foregroundMuted": "#555555",
+    "accent": "#ff79c6",
+    "accentBright": "#ff9ce6",
+    "statusOnline": "#0f0",
+    "categories": {
+      "editor": 11561983,
+      "tui": 16738740,
+      "bridge": 7077791,
+      "db": 16771947,
+      "proxy": 7053311,
+      "ai": 16752491,
+      "shell": 7077887,
+      "dev": 7077791,
+      "ide": 7053311,
+      "lsp": 8947848,
+      "kernel": 8965375
+    },
+    "three": {
+      "sceneBackground": 1576980,
+      "kernelOuter": 4491519,
+      "kernelRing": 6728447,
+      "kernelCore": 8965375,
+      "connectionLine": 4473924,
+      "connectionActive": 16751846,
+      "deadProcess": 4473924
+    },
+    "ui": {
+      "shadow": "rgba(0, 0, 0, 0.6)",
+      "overlay": "rgba(0, 0, 0, 0.85)"
+    }
+  },
+  "pencil": {
+    "background": "#181818",
+    "backgroundAlt": "#141414",
+    "foreground": "#ffffffcc",
+    "foregroundBright": "#ffffff",
+    "foregroundMuted": "#555555",
+    "accent": "#e0e0e0",
+    "accentBright": "#ffffff",
+    "statusOnline": "#0f0",
+    "categories": {
+      "editor": 11561983,
+      "tui": 16738740,
+      "bridge": 7077791,
+      "db": 16771947,
+      "proxy": 7053311,
+      "ai": 16752491,
+      "shell": 7077887,
+      "dev": 7077791,
+      "ide": 7053311,
+      "lsp": 8947848,
+      "kernel": 8965375
+    },
+    "three": {
+      "sceneBackground": 1579032,
+      "kernelOuter": 4491519,
+      "kernelRing": 6728447,
+      "kernelCore": 8965375,
+      "connectionLine": 4473924,
+      "connectionActive": 16777215,
+      "deadProcess": 4473924
+    },
+    "ui": {
+      "shadow": "rgba(0, 0, 0, 0.6)",
+      "overlay": "rgba(0, 0, 0, 0.85)"
+    }
+  }
+};
   
+  // Detect theme from data attribute, URL param, or VS Code CSS vars
   // Detect theme from data attribute, URL param, or VS Code CSS vars
   function detectTheme() {
     // Check data attribute first (set by the HTML)
     const dataTheme = document.body.dataset.theme;
-    if (dataTheme === 'light' || dataTheme === 'dark') return dataTheme;
+    if (colorSchemes[dataTheme]) return dataTheme;
     
     // Check URL param
     const urlParams = new URLSearchParams(window.location.search);
     const urlTheme = urlParams.get('theme');
-    if (urlTheme === 'light' || urlTheme === 'dark') return urlTheme;
+    if (colorSchemes[urlTheme]) return urlTheme;
     
     // Check VS Code CSS variables
     if (typeof getComputedStyle !== 'undefined') {
       const bgColor = getComputedStyle(document.body).getPropertyValue('--vscode-editor-background').trim();
+      
       if (bgColor && bgColor.startsWith('#')) {
+        // Exact match against known backgrounds
+        const bgLower = bgColor.toLowerCase();
+        for (const [key, scheme] of Object.entries(colorSchemes)) {
+          if (scheme.background.toLowerCase() === bgLower) {
+            return key;
+          }
+        }
+
+        // Check for Light vs Dark if no exact match
         const r = parseInt(bgColor.slice(1, 3), 16);
         const g = parseInt(bgColor.slice(3, 5), 16);
         const b = parseInt(bgColor.slice(5, 7), 16);
