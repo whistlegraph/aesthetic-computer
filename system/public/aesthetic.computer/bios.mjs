@@ -11537,9 +11537,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         freezeFrameFrozen = false;
       }
       
-      // 🎨 Trigger a repaint after cleanup so the main canvas redraws
+      // 🎨 Force a reframe after cleanup so the main canvas redraws properly
       // (otherwise the old GPU frame stays visible until a resize)
-      send({ type: "needs-paint" });
+      // Setting needsReframe triggers frame() which resets canvas dimensions and rendering
+      needsReframe = true;
       
       try {
         // Clear any active parameters once the disk has been loaded.
@@ -15362,12 +15363,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (debug && logs.glaze) {
         console.log("🪟 Glaze:", content, "Type:", content.type || "prompt");
       }
+      const wasOn = glaze.on;
       glaze = content;
       if (glaze.on === false) {
         Glaze.off();
         canvas.style.removeProperty("opacity");
+      } else if (glaze.on === true && !wasOn) {
+        // Glaze was just enabled - trigger reframe to initialize it
+        needsReframe = true;
       }
-      // Note: Glaze gets turned on only on a call to `resize` or `gap` via a piece.
+      // Note: Glaze gets turned on only on a call to `resize` or `gap` via a piece,
+      // or when enabling glaze after it was off (handled above).
       return;
     }
 
