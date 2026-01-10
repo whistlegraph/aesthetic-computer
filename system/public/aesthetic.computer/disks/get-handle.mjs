@@ -77,7 +77,7 @@ function paint({ wipe, ink, write, box, screen, user, handle, help }) {
     y += isSmall ? 14 : 20;
   } else {
     ink(0, 255, 120).write("You have:", { x: marginX, y });
-    ink(255, 100, 180).write(`@${currentHandle}`, { x: marginX + 60, y });
+    ink(255, 100, 180).write(currentHandle, { x: marginX + 60, y });
     y += isSmall ? 10 : 14;
     ink(140).write("Change it:", { x: marginX, y });
     ink(255, 220, 100).write("handle", { x: marginX + 64, y });

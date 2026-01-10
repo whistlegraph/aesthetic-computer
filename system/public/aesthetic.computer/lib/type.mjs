@@ -2269,7 +2269,7 @@ class TextInput {
         }
 
         // Move backwards through history stack.
-        if (e.key === "ArrowUp") {
+        if (e.key === "ArrowUp" && !this.skipHistory) {
           // TODO: Check to see if this is the first history traversal,
           //       and store the current text if it is...
           const history = (await store.retrieve(this.key)) || [""];
@@ -2296,7 +2296,7 @@ class TextInput {
         }
 
         // ... and forwards.
-        if (e.key === "ArrowDown") {
+        if (e.key === "ArrowDown" && !this.skipHistory) {
           const history = (await store.retrieve(this.key)) || [""];
           if (this.#prehistory === undefined) this.#prehistory = this.text;
 
@@ -2331,7 +2331,7 @@ class TextInput {
         }
       }
 
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && !this.skipEnter) {
         if (e.shift) {
           // ✏️ Make a new line while editing.
           const pos = this.#prompt.textPos();

@@ -771,6 +771,26 @@
     webview.addEventListener('did-navigate', (e) => updateTitle(e.url));
     webview.addEventListener('did-navigate-in-page', (e) => updateTitle(e.url));
 
+    // Intercept window.open from inside the webview.
+    // Used by AC prompt commands: '+' opens new window, '-' requests close via ac://close.
+    webview.addEventListener('new-window', (e) => {
+      if (e?.preventDefault) e.preventDefault();
+      const url = e?.url || '';
+      if (url.startsWith('ac://close')) {
+        ipcRenderer.invoke('ac-close-window');
+        return;
+      }
+      ipcRenderer.invoke('ac-open-window', { url });
+    });
+
+    // Allow main process to navigate this window (used for newly spawned windows).
+    ipcRenderer.on('navigate', (event, url) => {
+      if (typeof url === 'string' && url.length) {
+        webview.src = url;
+        updateTitle(url);
+      }
+    });
+
     // Menu handlers
     window.ac?.onNavigate?.((url) => {
       webview.src = url;

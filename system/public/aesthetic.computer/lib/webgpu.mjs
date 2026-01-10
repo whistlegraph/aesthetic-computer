@@ -292,6 +292,16 @@ function handleCommand(command) {
       perfOverlayEnabled = command.enabled ?? !perfOverlayEnabled;
       console.log(`📊 WebGPU perf overlay: ${perfOverlayEnabled ? "ON" : "OFF"}`);
       break;
+    case "disable":
+      // 🛑 Hide WebGPU canvas and clear state
+      if (canvas) {
+        canvas.style.display = "none";
+      }
+      commandQueue.length = 0;
+      frameClearColor = null;
+      perfOverlayEnabled = false;
+      console.log("🛑 WebGPU disabled, returning to CPU renderer");
+      break;
     default:
       console.warn("⚠️ Unknown WebGPU command:", command.type);
   }

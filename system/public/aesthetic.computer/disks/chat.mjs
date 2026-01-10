@@ -37,11 +37,54 @@ import { parseMessageElements as parseMessageElementsShared } from "../lib/chat-
 import { getCommandDescription, isPromptOnlyCommand } from "../lib/prompt-commands.mjs";
 import { FUNDING_MODE, showFundingEffectsFlag, getRecoveryTicker } from "./prompt.mjs";
 import { paintGiveButton, actGiveButton, clearGiveButton, paintRecoveryTicker } from "../lib/give-button.mjs";
+import { createHandleAutocomplete } from "../lib/autocomplete.mjs";
+
+// 🔤 Chat Font System
+// Available fonts for chat messages - each user can pick their preferred font
+export const CHAT_FONTS = {
+  "font_1": { 
+    name: "Default",
+    typeface: null, // null means use the default typeface
+    rowHeight: null, // null means use typeface.blockHeight + 1
+    sample: "Aa Bb Cc",
+  },
+  "matrix": {
+    name: "Matrix",
+    typeface: "MatrixChunky8",
+    rowHeight: 10, // 8px font + 2px spacing
+    sample: "▄▀ ██ ░▒",
+  },
+  "unifont": {
+    name: "Unifont",
+    typeface: "unifont", 
+    rowHeight: 17, // 16px font + 1px spacing
+    sample: "你好 Привет",
+  },
+};
+
+// Get row height for a specific font
+function getFontRowHeight(fontId, defaultRowHeight) {
+  const fontConfig = CHAT_FONTS[fontId];
+  if (!fontConfig) return defaultRowHeight;
+  return fontConfig.rowHeight ?? defaultRowHeight;
+}
+
+// Get typeface name for a specific font
+function getFontTypeface(fontId) {
+  const fontConfig = CHAT_FONTS[fontId];
+  if (!fontConfig) return null;
+  return fontConfig.typeface;
+}
 
 let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
 let tapState = null;
 let inputTypefaceName; // Store the typeface name for text input
+let userSelectedFont = "font_1"; // Current user's selected chat font
+let fontPickerOpen = false; // Is the font picker UI open?
+let fontPickerBtnBounds = null; // Bounds for font button click detection
+let fontPickerPanelBounds = null; // Bounds for font picker panel
+let fontPickerItemBounds = []; // Bounds for each font option
 
 let rowHeight;
 const lineGap = 1,
@@ -67,6 +110,9 @@ let draftMessage = ""; // Store draft message text persistently
 //  Link confirmation modal system
 // { type: "prompt"|"url"|"handle"|"kidlisp"|"painting", text: string, action: function }
 let linkConfirmModal = null;
+
+// 🔍 @handle autocomplete
+let handleAutocomplete = null;
 
 async function boot(
   {
@@ -99,6 +145,12 @@ async function boot(
 
   // console.log("💬 Chat booting...");
   scroll = store["chat:scroll"] || 0; // Memoize scroll.
+  
+  // 🔤 Load saved font preference
+  userSelectedFont = store["chat:font"] || "font_1";
+  if (!CHAT_FONTS[userSelectedFont]) {
+    userSelectedFont = "font_1"; // Fallback to default if invalid
+  }
 
   // TODO: Now make it so that you see the last chat message
   //       as a button under the piece name.
@@ -176,8 +228,13 @@ async function boot(
         notice("NO HANDLE", ["red", "yellow"]);
       } else {
         text = text.replace(/\s+$/, ""); // Trim trailing whitespace.
-        // Send the chat message.
-        client.server.send(`chat:message`, { text, token, sub: user.sub });
+        // Send the chat message with user's selected font
+        client.server.send(`chat:message`, { 
+          text, 
+          token, 
+          sub: user.sub,
+          font: userSelectedFont, // 🔤 Include selected font
+        });
         notice("SENT");
       }
 
@@ -228,6 +285,9 @@ async function boot(
   );
 
   ellipsisTicker = new gizmo.EllipsisTicker();
+
+  // 🔍 Initialize @handle autocomplete
+  handleAutocomplete = createHandleAutocomplete();
 
   send({ type: "keyboard:soft-lock" });
 }
@@ -440,6 +500,10 @@ function paint(
       // console.log("No message layout found for:", message);
     }
 
+    // 🔤 Get per-message font settings
+    const msgTypefaceName = message.computedTypefaceName ?? typefaceName;
+    const msgRowHeight = message.computedRowHeight ?? currentRowHeight;
+
     const x = leftMargin;
     const tb = message.tb; // Precomputed in `computeScrollbar` for each message.
 
@@ -468,7 +532,7 @@ function paint(
       let tempCharPos = 0;
       for (let lineIdx = 0; lineIdx < tb.lines.length; lineIdx++) {
         const line = tb.lines[lineIdx];
-        const lineY = y + lineIdx * currentRowHeight;
+        const lineY = y + lineIdx * msgRowHeight;
         const lineStart = tempCharPos;
         const lineEnd = tempCharPos + line.length;
         
@@ -478,12 +542,12 @@ function paint(
           const kidlispStartInLine = Math.max(0, firstToken.start - lineStart);
           const kidlispEndInLine = Math.min(line.length, lastToken.end - lineStart);
           
-          const startX = text.width(line.substring(0, kidlispStartInLine), typefaceName);
+          const startX = text.width(line.substring(0, kidlispStartInLine), msgTypefaceName);
           const kidlispText = line.substring(kidlispStartInLine, kidlispEndInLine);
-          const kidlispWidth = text.width(kidlispText, typefaceName);
+          const kidlispWidth = text.width(kidlispText, msgTypefaceName);
           
           // Draw dark background for entire kidlisp section (including spaces)
-          ink(0, 0, 0, 80).box(x + startX, lineY, kidlispWidth, currentRowHeight);
+          ink(0, 0, 0, 80).box(x + startX, lineY, kidlispWidth, msgRowHeight);
         }
         
         tempCharPos += line.length;
@@ -494,7 +558,7 @@ function paint(
     charPos = 0;
     for (let lineIdx = 0; lineIdx < tb.lines.length; lineIdx++) {
       const line = tb.lines[lineIdx];
-      const lineY = y + lineIdx * currentRowHeight;
+      const lineY = y + lineIdx * msgRowHeight;
       const lineStart = charPos;
       const lineEnd = charPos + line.length;
       
@@ -563,12 +627,12 @@ function paint(
         false, // bg - no background
         undefined, // bounds - no width limit (line is already wrapped)
         false, // wordWrap - off since line is pre-wrapped
-        typefaceName // typeface
+        msgTypefaceName // typeface - use per-message font
       );
       
       // Track width of last line (plain text, not color-coded)
       if (lineIdx === tb.lines.length - 1) {
-        lastLineRenderedWidthForThisMessage = text.width(line, typefaceName);
+        lastLineRenderedWidthForThisMessage = text.width(line, msgTypefaceName);
       }
       
       charPos += line.length; // Don't add +1 - text.box wraps without adding spaces
@@ -586,12 +650,12 @@ function paint(
     
     // Position timestamp right after the last line of the message
     const lastLineText = message.tb.lines[message.tb.lines.length - 1];
-    const lastLineWidth = text.width(lastLineText, typefaceName);
+    const lastLineWidth = text.width(lastLineText, msgTypefaceName);
     const timestampX = x + lastLineWidth + timestampGap;
     
     // Bottom-align timestamp with the message text by offsetting from the baseline
     // The timestamp should sit on the same baseline as the last line of text
-    const timestampY = layout.timestamp.y + currentRowHeight - 10; // Align to bottom of text line (raised 2px)
+    const timestampY = layout.timestamp.y + msgRowHeight - 10; // Align to bottom of text line (raised 2px)
     
     // Calculate fade based on message index (newer = more opaque, older = more faded)
     const messageIndex = client.messages.length - 1 - i;
@@ -999,6 +1063,12 @@ function paint(
       draftMessage = input.text;
     }
     
+    // 🔍 Update @handle autocomplete
+    if (handleAutocomplete && input.text !== "...") {
+      const cursorPos = input.prompt?.textPos?.() ?? input.text.length;
+      handleAutocomplete.update(input.text, cursorPos);
+    }
+    
     input.paint(api, false, {
       x: 0,
       y: topMargin,
@@ -1013,6 +1083,78 @@ function paint(
       { right: 6, top: 18 }, // Moved down to y:18 (below GIVE button at y:6)
       false, undefined, false, "MatrixChunky8"
     );
+    
+    // 🔤 Font picker button (next to character count)
+    const fontBtnX = 6;
+    const fontBtnY = 6;
+    const fontBtnW = 24;
+    const fontBtnH = 12;
+    
+    // Draw font button - show current font initial
+    const fontInitial = CHAT_FONTS[userSelectedFont]?.name?.[0] || "F";
+    const fontBtnOver = pen && pen.x >= fontBtnX && pen.x < fontBtnX + fontBtnW &&
+                        pen.y >= fontBtnY && pen.y < fontBtnY + fontBtnH;
+    
+    ink(fontPickerOpen ? [80, 60, 120] : (fontBtnOver ? [60, 60, 80] : [40, 40, 60])).box(fontBtnX, fontBtnY, fontBtnW, fontBtnH);
+    ink(fontBtnOver || fontPickerOpen ? "yellow" : "white").write("🔤", { x: fontBtnX + 2, y: fontBtnY + 2 }, false, undefined, false, "MatrixChunky8");
+    
+    // Store button bounds for click detection
+    fontPickerBtnBounds = { x: fontBtnX, y: fontBtnY, w: fontBtnW, h: fontBtnH };
+    
+    // 🔤 Font picker panel (when open)
+    if (fontPickerOpen) {
+      const panelX = fontBtnX;
+      const panelY = fontBtnY + fontBtnH + 2;
+      const panelW = 90;
+      const fontIds = Object.keys(CHAT_FONTS);
+      const itemHeight = 20;
+      const panelH = fontIds.length * itemHeight + 8;
+      
+      // Panel background
+      ink(30, 25, 45, 240).box(panelX, panelY, panelW, panelH);
+      ink(80, 70, 110).box(panelX, panelY, panelW, panelH, "outline");
+      
+      // Store panel bounds for click detection
+      fontPickerPanelBounds = { x: panelX, y: panelY, w: panelW, h: panelH };
+      fontPickerItemBounds = [];
+      
+      fontIds.forEach((fontId, i) => {
+        const fontConfig = CHAT_FONTS[fontId];
+        const itemX = panelX + 4;
+        const itemY = panelY + 4 + i * itemHeight;
+        const itemW = panelW - 8;
+        const itemH = itemHeight - 2;
+        
+        // Store bounds for this item
+        fontPickerItemBounds.push({ x: itemX, y: itemY, w: itemW, h: itemH, fontId });
+        
+        // Check hover
+        const isHovered = pen && pen.x >= itemX && pen.x < itemX + itemW &&
+                          pen.y >= itemY && pen.y < itemY + itemH;
+        const isSelected = fontId === userSelectedFont;
+        
+        // Item background
+        if (isSelected) {
+          ink(80, 60, 120).box(itemX, itemY, itemW, itemH);
+        } else if (isHovered) {
+          ink(50, 45, 70).box(itemX, itemY, itemW, itemH);
+        }
+        
+        // Font sample text - render in that font
+        const sampleTypeface = fontConfig.typeface;
+        const sampleText = fontConfig.sample;
+        const textColor = isSelected ? "yellow" : (isHovered ? "white" : [180, 180, 200]);
+        ink(textColor).write(sampleText, { x: itemX + 2, y: itemY + 3 }, false, undefined, false, sampleTypeface);
+        
+        // Checkmark for selected
+        if (isSelected) {
+          ink("lime").write("✓", { x: itemX + itemW - 10, y: itemY + 3 }, false, undefined, false, "MatrixChunky8");
+        }
+      });
+    } else {
+      fontPickerPanelBounds = null;
+      fontPickerItemBounds = [];
+    }
   }
   
   // 🖼️ Render fullscreen painting modal (overlay over everything)
@@ -1153,6 +1295,18 @@ function paint(
     }
     needsPaint();
   }
+
+  // 🔍 Paint @handle autocomplete dropdown (last, so it renders on top of everything)
+  if (handleAutocomplete?.visible && input?.canType) {
+    const cursorPos = input.prompt?.pos?.(undefined, true);
+    // Position below the text input area
+    const dropdownX = (cursorPos?.x ?? leftMargin) + leftMargin;
+    const dropdownY = (cursorPos?.y ?? topMargin) + topMargin + 14; // Below cursor line
+    handleAutocomplete.paint(
+      { ink, write: (t, opts) => ink().write(t, opts), box: (x, y, w, h, style) => ink().box(x, y, w, h, style), screen },
+      { x: dropdownX, y: dropdownY }
+    );
+  }
 }
 
 function act(
@@ -1245,6 +1399,56 @@ function act(
       modalPainting = null; // Close modal on any tap/click
     }
     return; // Block all other interactions when modal is open
+  }
+  
+  // 🔤 Font picker interaction
+  if (input.canType) {
+    // Handle font picker button click
+    if ((e.is("touch") || e.is("lift")) && fontPickerBtnBounds) {
+      const inBtn = pen.x >= fontPickerBtnBounds.x && pen.x < fontPickerBtnBounds.x + fontPickerBtnBounds.w &&
+                    pen.y >= fontPickerBtnBounds.y && pen.y < fontPickerBtnBounds.y + fontPickerBtnBounds.h;
+      if (inBtn && e.is("lift")) {
+        beep();
+        fontPickerOpen = !fontPickerOpen;
+        return;
+      }
+    }
+    
+    // Handle font picker panel clicks
+    if (fontPickerOpen && (e.is("touch") || e.is("lift"))) {
+      // Check if click is in an item
+      for (const item of fontPickerItemBounds) {
+        const inItem = pen.x >= item.x && pen.x < item.x + item.w &&
+                       pen.y >= item.y && pen.y < item.y + item.h;
+        if (inItem && e.is("lift")) {
+          beep();
+          userSelectedFont = item.fontId;
+          fontPickerOpen = false;
+          // TODO: Save preference to server
+          store["chat:font"] = userSelectedFont;
+          return;
+        }
+      }
+      
+      // Check if click is outside panel (close it)
+      if (fontPickerPanelBounds && e.is("lift")) {
+        const inPanel = pen.x >= fontPickerPanelBounds.x && pen.x < fontPickerPanelBounds.x + fontPickerPanelBounds.w &&
+                        pen.y >= fontPickerPanelBounds.y && pen.y < fontPickerPanelBounds.y + fontPickerPanelBounds.h;
+        const inBtn = fontPickerBtnBounds && pen.x >= fontPickerBtnBounds.x && pen.x < fontPickerBtnBounds.x + fontPickerBtnBounds.w &&
+                      pen.y >= fontPickerBtnBounds.y && pen.y < fontPickerBtnBounds.y + fontPickerBtnBounds.h;
+        if (!inPanel && !inBtn) {
+          fontPickerOpen = false;
+          return;
+        }
+      }
+    }
+    
+    // Escape closes font picker
+    if (fontPickerOpen && e.is("keyboard:down:escape")) {
+      beep();
+      fontPickerOpen = false;
+      return;
+    }
   }
   
   // if (e.is("viewport-height:changed")) {
@@ -1785,6 +1989,51 @@ function act(
     }
   }
 
+  // 🔍 @handle autocomplete keyboard handling (when typing)
+  if (input.canType && handleAutocomplete?.visible && handleAutocomplete.items.length > 0) {
+    if (e.is("keyboard:down:arrowup")) {
+      handleAutocomplete.selectedIndex = handleAutocomplete.selectedIndex > 0
+        ? handleAutocomplete.selectedIndex - 1
+        : handleAutocomplete.items.length - 1;
+      return; // Consume event
+    }
+    if (e.is("keyboard:down:arrowdown")) {
+      handleAutocomplete.selectedIndex = (handleAutocomplete.selectedIndex + 1) % handleAutocomplete.items.length;
+      return; // Consume event
+    }
+    if ((e.is("keyboard:down:tab") || e.is("keyboard:down:enter")) && handleAutocomplete.selected) {
+      const cursorPos = input.prompt?.textPos?.() ?? input.text.length;
+      const newText = handleAutocomplete.getCompletedText(input.text, cursorPos);
+      input.text = newText + " "; // Add space after handle
+      input.snap();
+      send({ type: "keyboard:text:replace", content: { text: input.text } });
+      handleAutocomplete.hide();
+      return; // Consume event
+    }
+    if (e.is("keyboard:down:escape")) {
+      handleAutocomplete.hide();
+      return; // Consume event
+    }
+  }
+
+  // 🔍 @handle autocomplete pointer/mouse handling
+  if (input.canType && handleAutocomplete?.visible && handleAutocomplete.items.length > 0) {
+    const result = handleAutocomplete.handlePointer(e);
+    if (result.clicked) {
+      // Item was clicked - complete with the clicked item
+      const cursorPos = input.prompt?.textPos?.() ?? input.text.length;
+      const newText = handleAutocomplete.getCompletedText(input.text, cursorPos);
+      input.text = newText + " "; // Add space after handle
+      input.snap();
+      send({ type: "keyboard:text:replace", content: { text: input.text } });
+      handleAutocomplete.hide();
+      return; // Consume event
+    }
+    if (result.consumed) {
+      return; // Consume event to prevent other interactions
+    }
+  }
+
   if (
     input.canType &&
     (e.is("keyboard:down:`") ||
@@ -1848,7 +2097,13 @@ function act(
 }
 
 function sim({ api }) {
-  if (input) input.sim(api); // 💬 Chat
+  if (input) {
+    // 🔍 Sync autocomplete skipHistory and skipEnter flags with TextInput
+    const autocompleteActive = !!(handleAutocomplete?.visible && handleAutocomplete.items.length > 0);
+    input.skipHistory = autocompleteActive;
+    input.skipEnter = autocompleteActive;
+    input.sim(api); // 💬 Chat
+  }
   ellipsisTicker?.update(api.clock?.time());
 }
 
@@ -1939,11 +2194,21 @@ async function loadPaintingPreview(code, get, store) {
   }
 }
 
-function computeMessagesHeight({ text, screen }, chat, typefaceName, currentRowHeight) {
+function computeMessagesHeight({ text, screen }, chat, defaultTypefaceName, defaultRowHeight) {
   let height = 0;
   // Iterate through the messages array.
   for (let i = 0; i < chat.messages.length; i += 1) {
     const message = chat.messages[i];
+    
+    // 🔤 Get font for this message (default to font_1 for backwards compatibility)
+    const msgFont = message.font || "font_1";
+    const msgTypefaceName = getFontTypeface(msgFont) ?? defaultTypefaceName;
+    const msgRowHeight = getFontRowHeight(msgFont, defaultRowHeight);
+    
+    // Store computed font info on the message for use in paint
+    message.computedTypefaceName = msgTypefaceName;
+    message.computedRowHeight = msgRowHeight;
+    
     // Add count multiplier if message was repeated
     const countSuffix = message.count > 1 ? ` x${message.count}` : "";
     const fullMessage = message.from + " " + message.text + countSuffix;
@@ -1953,14 +2218,14 @@ function computeMessagesHeight({ text, screen }, chat, typefaceName, currentRowH
       screen.width - leftMargin,
       1,
       true,
-      typefaceName
+      msgTypefaceName
     );
     message.tb = tb;
     message.fullMessage = fullMessage;
     // Add height for all lines in the message
-    // Each line is currentRowHeight tall
+    // Each line is msgRowHeight tall (per-message font height)
     // Plus add lineGap between lines within the message and after the message
-    height += tb.lines.length * currentRowHeight + lineGap;
+    height += tb.lines.length * msgRowHeight + lineGap;
     
     // 🎨 Add space for painting previews (if any)
     const paintingElements = parseMessageElements(fullMessage).filter(el => el.type === "painting");
@@ -1975,8 +2240,11 @@ function computeMessagesHeight({ text, screen }, chat, typefaceName, currentRowH
 
 // Build a display graph for the messages.
 // (From the bottom to the top.)
-function computeMessagesLayout({ screen, text }, chat, typefaceName, currentRowHeight) {
-  let y = screen.height - currentRowHeight - bottomMargin + scroll;
+function computeMessagesLayout({ screen, text }, chat, defaultTypefaceName, defaultRowHeight) {
+  // Start from bottom, but use the first message's row height for initial positioning
+  const lastMsg = chat.messages[chat.messages.length - 1];
+  const lastMsgRowHeight = lastMsg ? (lastMsg.computedRowHeight ?? defaultRowHeight) : defaultRowHeight;
+  let y = screen.height - lastMsgRowHeight - bottomMargin + scroll;
 
   // Delete all layouts.
   for (let i = chat.messages.length - 1; i >= 0; i--) {
@@ -1987,6 +2255,10 @@ function computeMessagesLayout({ screen, text }, chat, typefaceName, currentRowH
 
   for (let i = chat.messages.length - 1; i >= 0; i--) {
     const msg = chat.messages[i];
+    
+    // 🔤 Get per-message font settings (computed in computeMessagesHeight)
+    const msgTypefaceName = msg.computedTypefaceName ?? defaultTypefaceName;
+    const msgRowHeight = msg.computedRowHeight ?? defaultRowHeight;
     
     // Parse elements first to know if we have painting previews
     const parsedElements = parseMessageElements(msg.fullMessage);
@@ -2000,11 +2272,13 @@ function computeMessagesLayout({ screen, text }, chat, typefaceName, currentRowH
       y -= previewHeight;
     }
 
-    y -= currentRowHeight * (msg.tb.lines.length - 1) + lineGap;    if (y > screen.height - bottomMargin) {
-      y -= currentRowHeight;
+    y -= msgRowHeight * (msg.tb.lines.length - 1) + lineGap;
+    if (y > screen.height - bottomMargin) {
+      y -= msgRowHeight;
       continue;
     }
-      // Create a modern color-coded message using \color\ syntax like KidLisp
+    
+    // Create a modern color-coded message using \color\ syntax like KidLisp
     let colorCodedMessage = msg.fullMessage;
     let msgColor = "white";
     let inBox = msg.lastLayout?.inBox || false;
@@ -2032,19 +2306,19 @@ function computeMessagesLayout({ screen, text }, chat, typefaceName, currentRowH
         colorCodedMessage.substring(element.end);
     }
 
-    // Create layout using the color-coded message
-    const lastLineWidth = text.width(msg.tb.lines[msg.tb.lines.length - 1], typefaceName);
+    // Create layout using the color-coded message with per-message font
+    const lastLineWidth = text.width(msg.tb.lines[msg.tb.lines.length - 1], msgTypefaceName);
     const timestampGap = 4; // Small gap for MatrixChunky8 timestamps
     const timestamp = {
       x: lastLineWidth + timestampGap,
-      y: y + (msg.tb.lines.length - 1) * currentRowHeight,
+      y: y + (msg.tb.lines.length - 1) * msgRowHeight,
       height: 8, // MatrixChunky8 height
       width: text.width(timeAgo(msg.when), "MatrixChunky8"),
     };
     let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];
     
-    // Calculate box dimensions based on our rowHeight
-    const boxHeight = msg.tb.lines.length * currentRowHeight;
+    // Calculate box dimensions based on per-message rowHeight
+    const boxHeight = msg.tb.lines.length * msgRowHeight;
     
     // paintingElements and paintingCodes already extracted at the top of the loop
     
@@ -2067,9 +2341,12 @@ function computeMessagesLayout({ screen, text }, chat, typefaceName, currentRowH
 
     delete msg.lastLayout;
 
-    y -= currentRowHeight; // Move up one line for the next message.
+    y -= msgRowHeight; // Move up one line for the next message (using per-message height)
     
-    if (y < topMargin - currentRowHeight) {
+    // Check against next message's row height for break condition
+    const nextMsg = chat.messages[i - 1];
+    const nextMsgRowHeight = nextMsg ? (nextMsg.computedRowHeight ?? defaultRowHeight) : defaultRowHeight;
+    if (y < topMargin - nextMsgRowHeight) {
       break; // Break if y is below top line.
     }
   }
