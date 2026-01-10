@@ -126,6 +126,58 @@ window.acHIDE_BOOT_LOG = hideBootLog;
 // Expose bootLog globally so bios and disk can update the overlay
 window.acBOOT_LOG = bootLog;
 
+// 📊 Auth0/Session timing telemetry - exposed globally for CDP inspection
+window.acAuthTiming = {
+  bootStart: bootStartTime,
+  auth0ScriptLoadStart: null,
+  auth0ScriptLoadEnd: null,
+  auth0ClientCreateStart: null,
+  auth0ClientCreateEnd: null,
+  isAuthenticatedStart: null,
+  isAuthenticatedEnd: null,
+  getTokenStart: null,
+  getTokenEnd: null,
+  getUserStart: null,
+  getUserEnd: null,
+  userExistsFetchStart: null,
+  userExistsFetchEnd: null,
+  sessionStartedSent: null,
+  // Computed durations (populated after boot)
+  durations: {},
+  // Helper to compute all durations
+  computeDurations() {
+    const t = window.acAuthTiming;
+    const d = t.durations;
+    if (t.auth0ScriptLoadStart && t.auth0ScriptLoadEnd) 
+      d.scriptLoad = t.auth0ScriptLoadEnd - t.auth0ScriptLoadStart;
+    if (t.auth0ClientCreateStart && t.auth0ClientCreateEnd)
+      d.clientCreate = t.auth0ClientCreateEnd - t.auth0ClientCreateStart;
+    if (t.isAuthenticatedStart && t.isAuthenticatedEnd)
+      d.isAuthenticated = t.isAuthenticatedEnd - t.isAuthenticatedStart;
+    if (t.getTokenStart && t.getTokenEnd)
+      d.getToken = t.getTokenEnd - t.getTokenStart;
+    if (t.getUserStart && t.getUserEnd)
+      d.getUser = t.getUserEnd - t.getUserStart;
+    if (t.userExistsFetchStart && t.userExistsFetchEnd)
+      d.userExistsFetch = t.userExistsFetchEnd - t.userExistsFetchStart;
+    if (t.bootStart && t.sessionStartedSent)
+      d.totalToSessionStarted = t.sessionStartedSent - t.bootStart;
+    return d;
+  },
+  // Pretty print summary
+  summary() {
+    const d = this.computeDurations();
+    return `Auth0 Timing:
+  Script Load: ${d.scriptLoad?.toFixed(0) || 'N/A'}ms
+  Client Create: ${d.clientCreate?.toFixed(0) || 'N/A'}ms
+  isAuthenticated: ${d.isAuthenticated?.toFixed(0) || 'N/A'}ms
+  getTokenSilently: ${d.getToken?.toFixed(0) || 'N/A'}ms
+  getUser: ${d.getUser?.toFixed(0) || 'N/A'}ms
+  userExists fetch: ${d.userExistsFetch?.toFixed(0) || 'N/A'}ms
+  Total to session:started: ${d.totalToSessionStarted?.toFixed(0) || 'N/A'}ms`;
+  }
+};
+
 // Listen for retry messages from parent (VS Code extension)
 window.addEventListener('message', (event) => {
   if (event.data?.type === 'boot-retry') {
@@ -439,8 +491,10 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES) {
 // Load core modules with retry support
 // Use cache-busting query params to ensure fresh code on LAN/remote devices
 // Skip cache-busting in PACK_MODE (NFT bundles use import maps with fixed paths)
+// Skip cache-busting on localhost for faster dev reloads (use hard refresh when needed)
 // In PACK_MODE, use bare specifiers (no ./) so import maps work from blob URLs
-const cacheBust = window.acPACK_MODE ? '' : `?v=${Date.now()}`;
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const cacheBust = window.acPACK_MODE || isLocalhost ? '' : `?v=${Date.now()}`;
 const pathPrefix = window.acPACK_MODE ? '' : './';
 
 // Helper to fetch and display source file in boot canvas
@@ -738,14 +792,15 @@ function loadAuth0Script() {
 
 // Call this function at the desired point in your application
 if (!sandboxed) {
-  const auth0LoadStart = performance.now();
+  window.acAuthTiming.auth0ScriptLoadStart = performance.now();
   bootLog("loading auth0 script");
   loadAuth0Script()
     .then(async () => {
-      bootLog(`auth0 script loaded (${Math.round(performance.now() - auth0LoadStart)}ms)`);
+      window.acAuthTiming.auth0ScriptLoadEnd = performance.now();
+      bootLog(`auth0 script loaded (${Math.round(window.acAuthTiming.auth0ScriptLoadEnd - window.acAuthTiming.auth0ScriptLoadStart)}ms)`);
       if (!sandboxed && window.auth0 && !previewOrIcon) {
       const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
-      const before = performance.now();
+      window.acAuthTiming.auth0ClientCreateStart = performance.now();
       bootLog("initializing auth0 client");
 
       const auth0Client = await window.auth0?.createAuth0Client({
@@ -755,7 +810,8 @@ if (!sandboxed) {
         useRefreshTokens: true,
         authorizationParams: { redirect_uri: window.location.origin },
       });
-      bootLog(`auth0 client created (${Math.round(performance.now() - before)}ms)`);
+      window.acAuthTiming.auth0ClientCreateEnd = performance.now();
+      bootLog(`auth0 client created (${Math.round(window.acAuthTiming.auth0ClientCreateEnd - window.acAuthTiming.auth0ClientCreateStart)}ms)`);
 
       window.auth0Client = auth0Client;
 
@@ -808,9 +864,10 @@ if (!sandboxed) {
 
       let isAuthenticated;
       if (!encodedSession) {
-        const isAuthStart = performance.now();
+        window.acAuthTiming.isAuthenticatedStart = performance.now();
         isAuthenticated = await auth0Client.isAuthenticated();
-        bootLog(`auth0 isAuthenticated check (${Math.round(performance.now() - isAuthStart)}ms): ${isAuthenticated}`);
+        window.acAuthTiming.isAuthenticatedEnd = performance.now();
+        bootLog(`auth0 isAuthenticated check (${Math.round(window.acAuthTiming.isAuthenticatedEnd - window.acAuthTiming.isAuthenticatedStart)}ms): ${isAuthenticated}`);
       }
 
       if (encodedSession) {
@@ -939,9 +996,10 @@ if (!sandboxed) {
           // const options = localStorage.getItem("aesthetic:refresh-user")
           // ? { cacheMode: "off" }
           // : undefined;
-          const tokenStart = performance.now();
+          window.acAuthTiming.getTokenStart = performance.now();
           await auth0Client.getTokenSilently();
-          bootLog(`auth0 getTokenSilently (${Math.round(performance.now() - tokenStart)}ms)`);
+          window.acAuthTiming.getTokenEnd = performance.now();
+          bootLog(`auth0 getTokenSilently (${Math.round(window.acAuthTiming.getTokenEnd - window.acAuthTiming.getTokenStart)}ms)`);
           // if (options) localStorage.removeItem("aesthetic:refresh-user");
 
           // console.log("🗝️ Got fresh auth token.");
@@ -959,15 +1017,17 @@ if (!sandboxed) {
 
       if (isAuthenticated && !pickedUpSession) {
         // TODO: How long does this await actually take? 23.07.11.18.55
-        const getUserStart = performance.now();
+        window.acAuthTiming.getUserStart = performance.now();
         let userProfile = await auth0Client.getUser();
-        bootLog(`auth0 getUser (${Math.round(performance.now() - getUserStart)}ms)`);
-        const userExistsStart = performance.now();
+        window.acAuthTiming.getUserEnd = performance.now();
+        bootLog(`auth0 getUser (${Math.round(window.acAuthTiming.getUserEnd - window.acAuthTiming.getUserStart)}ms)`);
+        window.acAuthTiming.userExistsFetchStart = performance.now();
         const userExists = await fetch(
           `/user?from=${encodeURIComponent(userProfile.email)}&tenant=aesthetic`,
         );
         const u = await userExists.json();
-        bootLog(`userExists fetch (${Math.round(performance.now() - userExistsStart)}ms)`);
+        window.acAuthTiming.userExistsFetchEnd = performance.now();
+        bootLog(`userExists fetch (${Math.round(window.acAuthTiming.userExistsFetchEnd - window.acAuthTiming.userExistsFetchStart)}ms)`);
         if (!u.sub || !userProfile.email_verified) {
           try {
             await window.auth0Client.getTokenSilently({ cacheMode: "off" });
@@ -977,20 +1037,26 @@ if (!sandboxed) {
           }
         }
         window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
+        window.acAuthTiming.sessionStartedSent = performance.now();
         window.acDISK_SEND({
           type: "session:started",
           content: { user: window.acUSER },
         });
       } else if (!pickedUpSession) {
         // console.log("🗝️ Not authenticated.");
+        window.acAuthTiming.sessionStartedSent = performance.now();
         window.acDISK_SEND({
           type: "session:started",
           content: { user: null },
         });
       }
 
-      const after = performance.now();
-      bootLog(`auth0 complete (${Math.round(after - before)}ms total auth time)`);
+      window.acAuthTiming.computeDurations();
+      const totalAuthTime = window.acAuthTiming.durations.totalToSessionStarted || 
+                           (performance.now() - window.acAuthTiming.auth0ScriptLoadStart);
+      bootLog(`auth0 complete (${Math.round(totalAuthTime)}ms total auth time)`);
+      // Log full summary to console for debugging
+      console.log(window.acAuthTiming.summary());
     }
   })
   .catch((error) => {
