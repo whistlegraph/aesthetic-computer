@@ -3553,9 +3553,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     const worker = new Worker(new URL(fullPath, window.location.href), {
       type: "module",
     });
+    
+    let workerFailed = false; // Guard to prevent double-initialization
+    let workerReady = false;  // Track if worker has responded
 
     // Rewire things a bit if workers with modules are not supported (Firefox).
     worker.onerror = async (err) => {
+      if (workerFailed) return; // Already handling fallback
+      workerFailed = true;
+      worker.terminate(); // Clean up failed worker
+      
       // if (
       //   err.message ===
       //   "SyntaxError: import declarations may only appear at top level of a module"
@@ -3581,9 +3588,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (worker.postMessage) {
       // console.log("🟢 Worker");
-      send = (e, shared) => worker.postMessage(e, shared);
+      send = (e, shared) => {
+        if (workerFailed) return; // Don't send if worker has failed
+        worker.postMessage(e, shared);
+      };
       window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
-      worker.onmessage = onMessage;
+      worker.onmessage = (e) => {
+        if (workerFailed) return; // Ignore messages if we've switched to fallback
+        workerReady = true;
+        onMessage(e);
+      };
       perf.markBoot("worker-connected");
       
       // Notify parent that worker is connected
