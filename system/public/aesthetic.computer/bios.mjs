@@ -41,6 +41,7 @@ import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
 import * as graph from "./lib/graph.mjs";
 import * as WebGPU from "./lib/webgpu.mjs";
+import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backend system (auto-registers backends)
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
@@ -1701,13 +1702,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // WebGPU 2D Renderer
   let webGPUInitialized = false;
+  let activeGPUBackend = null; // 🎨 Current renderer backend
+  
   async function initWebGPU(canvas) {
     if (webGPUInitialized) return;
-    webGPUInitialized = await WebGPU.init(canvas);
-    if (webGPUInitialized) {
-      log.gpu.success("WebGPU 2D renderer ready");
-      // Expose WebGPU module globally for debugging/artery access
-      window.WebGPU = WebGPU;
+    
+    // Try to initialize with fallback chain
+    const preferredBackend = localStorage.getItem("ac-gpu-backend") || "webgpu";
+    activeGPUBackend = await initGPU(canvas, preferredBackend);
+    
+    if (activeGPUBackend) {
+      webGPUInitialized = true;
+      log.gpu.success?.(`GPU renderer ready: ${activeGPUBackend.getName()}`);
+      // Expose for debugging/artery access
+      window.GPU = activeGPUBackend;
+      window.switchGPUBackend = async (name) => {
+        const newBackend = await switchBackend(canvas, name);
+        if (newBackend) {
+          activeGPUBackend = newBackend;
+          window.GPU = newBackend;
+          log.gpu.success?.(`Switched to: ${name}`);
+          return true;
+        }
+        return false;
+      };
+    } else {
+      log.gpu.warn?.("No GPU backend available");
     }
   }
 
@@ -11926,7 +11946,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "webgpu-command") {
-      WebGPU.handleCommand(content);
+      // Use new backend system if available, fallback to old WebGPU
+      if (activeGPUBackend) {
+        activeGPUBackend.handleCommand(content);
+      } else {
+        WebGPU.handleCommand(content);
+      }
       return;
     }
 
@@ -15956,6 +15981,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           
           // Skip CPU rendering if WebGPU is enabled
           if (content.webgpuEnabled) {
+            // Switch backend if piece requests a specific one
+            if (content.gpuBackend && activeGPUBackend?.getName() !== content.gpuBackend) {
+              log.gpu.debug?.(`Switching to requested backend: ${content.gpuBackend}`);
+              window.switchGPUBackend?.(content.gpuBackend).catch(err => {
+                log.gpu.warn?.(`Failed to switch to ${content.gpuBackend}:`, err);
+              });
+            }
+            
             // Hide CPU canvas and rely on WebGPU surface
             if (canvas.style.visibility !== "hidden") {
               canvas.style.visibility = "hidden";
