@@ -3391,6 +3391,12 @@ const $commonApi = {
   webgpu: {
     enabled: false, // Flag to disable CPU renderer when true
     backend: null, // Preferred backend: "webgpu", "webgl2", "canvas2d", "vello", etc.
+    // 🛑 Disable WebGPU and restore normal CPU rendering
+    disable: () => {
+      $commonApi.webgpu.enabled = false;
+      $commonApi.webgpu.backend = null;
+      send({ type: "webgpu-command", content: { type: "disable" } });
+    },
     clear: (r = 0, g = 0, b = 0, a = 255) => {
       send({ 
         type: "webgpu-command", 
@@ -3422,6 +3428,18 @@ const $commonApi = {
         type: "webgpu-command",
         content: { type: "perf-overlay", enabled }
       });
+    },
+  },
+  // 📊 DOM-based stats overlay (always on top of everything, even GPU canvases)
+  stats: {
+    show: (data = {}) => {
+      send({ type: "stats-overlay", content: { enabled: true, data } });
+    },
+    hide: () => {
+      send({ type: "stats-overlay", content: { enabled: false } });
+    },
+    update: (data) => {
+      send({ type: "stats-overlay", content: { data } });
     },
   },
   // Deprecated in favor of `bios` -> `hitboxes`. (To support iOS)

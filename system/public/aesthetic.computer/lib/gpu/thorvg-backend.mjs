@@ -252,6 +252,14 @@ export function createThorVGBackend() {
 
       imageData = ctx?.createImageData(width, height);
     },
+
+    disable() {
+      // 🛑 Hide canvas and clear state for clean return to CPU rendering
+      if (canvas) {
+        canvas.style.display = "none";
+      }
+      console.log("🛑 ThorVG backend disabled");
+    },
   };
 }
 

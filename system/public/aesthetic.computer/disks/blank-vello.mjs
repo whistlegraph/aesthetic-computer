@@ -28,40 +28,43 @@ const LINE_STEP = 100;
 const MAX_LINES = 10000;
 const MIN_LINES = 10;
 
-// FPS tracking
-let lastTime = performance.now();
-let fps = 0;
-let frameCount = 0;
-let lastFpsUpdate = 0;
-
 function boot({ api }) {
   // Use Vello backend via the gpu abstraction
   api.gpu = api.gpu || {};
   api.gpu.backend = "vello";
   api.webgpu.enabled = true;
-  api.webgpu.perf(true);
+  
+  // Show DOM stats overlay (always on top)
+  api.stats.show({ backend: "VELLO", lines: lineCount, extra: "↑↓ adjust  P toggle" });
+  
   console.log("🎨 GPU Backend: Vello (WebGPU compute)");
 }
 
 function act({ event: e, api }) {
   if (e.is("keyboard:down:p")) {
     perfEnabled = !perfEnabled;
-    api.webgpu.perf(perfEnabled);
+    if (perfEnabled) {
+      api.stats.show({ backend: "VELLO", lines: lineCount, extra: "↑↓ adjust  P toggle" });
+    } else {
+      api.stats.hide();
+    }
   }
   if (e.is("keyboard:down:space")) {
     animating = !animating;
   }
   if (e.is("keyboard:down:arrowup")) {
     lineCount = Math.min(MAX_LINES, lineCount + LINE_STEP);
+    api.stats.update({ lines: lineCount });
     console.log("Lines:", lineCount);
   }
   if (e.is("keyboard:down:arrowdown")) {
     lineCount = Math.max(MIN_LINES, lineCount - LINE_STEP);
+    api.stats.update({ lines: lineCount });
     console.log("Lines:", lineCount);
   }
 }
 
-function paint({ wipe, ink, line, box, write, screen }) {
+function paint({ wipe, ink, line, screen }) {
   if (animating) frame += 1;
   
   // Dark animated background with purple/violet tint (Linebender vibes)
@@ -123,28 +126,12 @@ function paint({ wipe, ink, line, box, write, screen }) {
     ink(rgb[0], rgb[1], rgb[2]);
     line(x1, y1, x2, y2);
   }
-  
-  // Draw FPS overlay
-  drawFps({ ink, box, write, screen });
 }
 
-function drawFps({ ink, box, write, screen }) {
-  const now = performance.now();
-  frameCount++;
-  if (now - lastFpsUpdate >= 1000) {
-    fps = frameCount;
-    frameCount = 0;
-    lastFpsUpdate = now;
-  }
-  
-  // Draw background box
-  ink(0, 0, 0, 180).box(4, 4, 140, 52);
-  
-  // Draw stats
-  ink(200, 150, 255).write(`VELLO`, { x: 8, y: 8 });
-  ink(255).write(`FPS: ${fps}`, { x: 8, y: 20 });
-  ink(200).write(`Lines: ${lineCount}`, { x: 8, y: 32 });
-  ink(150).write(`↑↓ adjust  P perf`, { x: 8, y: 44 });
+function leave({ stats, webgpu } = {}) {
+  // Hide stats overlay and disable WebGPU when leaving
+  stats?.hide();
+  webgpu?.disable();
 }
 
 function hslToRgb(h, s, l) {
@@ -169,4 +156,4 @@ function hslToRgb(h, s, l) {
   return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 }
 
-export { boot, act, paint };
+export { boot, act, paint, leave };

@@ -401,6 +401,16 @@ export function createVelloBackend() {
     setPerfOverlay(enabled) {
       perfOverlayEnabled = enabled;
     },
+
+    disable() {
+      // 🛑 Hide canvas and clear state for clean return to CPU rendering
+      if (canvas) {
+        canvas.style.display = "none";
+      }
+      commandQueue.length = 0;
+      perfOverlayEnabled = false;
+      console.log("🛑 Vello backend disabled");
+    },
   };
 }
 
