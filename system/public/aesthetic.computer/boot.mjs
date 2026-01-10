@@ -4,6 +4,30 @@ if (window === window.top) {
   console.clear();
 }
 
+// 🔧 Register Service Worker for module caching (production + dev)
+// Skip in PACK mode (NFT bundles) and sandboxed iframes
+if ('serviceWorker' in navigator && !window.acPACK_MODE && window === window.top) {
+  navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    .then((registration) => {
+      // Check for updates periodically (every 5 minutes)
+      setInterval(() => registration.update(), 5 * 60 * 1000);
+      
+      // Handle updates
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        newWorker?.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('🔧 SW: New version available, will activate on reload');
+          }
+        });
+      });
+    })
+    .catch((err) => {
+      // SW registration failed - not critical, continue without caching
+      console.warn('🔧 SW: Registration failed:', err.message);
+    });
+}
+
 // Track boot timing
 const bootStartTime = performance.now();
 window.acBOOT_START_TIME = bootStartTime;
