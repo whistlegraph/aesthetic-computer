@@ -9472,6 +9472,16 @@
       progressBar.style.width = '0%';
       shopProgressAnim = requestAnimationFrame(step);
     }
+
+    function renderShopMaintenance(container, detail = '') {
+      const detailHtml = detail ? `<div style="opacity:.8;font-size:12px;margin-top:6px;">${detail}</div>` : '';
+      container.innerHTML = `
+        <div class="module-loading">
+          shop closed for maintenance
+          ${detailHtml}
+        </div>
+      `;
+    }
     
     async function loadShopProducts(isRetry = false) {
       if (shopLoaded) return; // Already loaded successfully
@@ -9487,11 +9497,20 @@
           signal: controller.signal
         });
         clearTimeout(timeoutId);
-        
+
+        if (!res.ok) {
+          const retryAfterHeader = res.headers?.get?.('Retry-After');
+          const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : null;
+          const err = new Error('Shop API HTTP ' + res.status);
+          err.status = res.status;
+          err.retryAfterMs = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds * 1000 : null;
+          throw err;
+        }
+
         const data = await res.json();
         
         if (!data.products?.length) {
-          container.innerHTML = '<div class="module-loading">no products</div>';
+          renderShopMaintenance(container);
           panelSync.markReady('shop');
           return;
         }
@@ -9504,15 +9523,22 @@
         panelSync.registerStarter(() => startShopCycle());
       } catch (e) {
         console.error('Shop load error (attempt ' + shopLoadAttempts + '):', e);
+
+        // If the shop endpoint is up but not usable (billing/permissions/maintenance), show a clear message.
+        if (e?.status && e.status !== 429) {
+          renderShopMaintenance(container, '(temporarily unavailable)');
+          panelSync.markReady('shop');
+          return;
+        }
         
         // Retry with exponential backoff
         if (shopLoadAttempts < SHOP_MAX_RETRIES) {
-          const delay = SHOP_RETRY_DELAYS[shopLoadAttempts - 1] || 8000;
+          const delay = e?.retryAfterMs || SHOP_RETRY_DELAYS[shopLoadAttempts - 1] || 8000;
           console.log('Shop: retrying in ' + delay + 'ms...');
           container.innerHTML = '<div class="module-loading">retrying...</div>';
           setTimeout(() => loadShopProducts(true), delay);
         } else {
-          container.innerHTML = '<a href="https://shop.aesthetic.computer" class="module-loading" style="text-decoration:underline;" target="_blank">visit shop →</a>';
+          renderShopMaintenance(container, '(temporarily unavailable)');
           panelSync.markReady('shop'); // Still mark ready even on error
         }
       }

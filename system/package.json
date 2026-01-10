@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "netlify dev -o",
     "local-dev": "netlify dev --context local -o 2>&1 | node scripts/netlify-log-filter.mjs",
+    "devcontainer-dev": "kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001; netlify dev --context codespace -o 2>&1 | node scripts/netlify-log-filter.mjs",
     "local-dev-verbose": "netlify dev --context local -o",
     "local-dev-debug": "netlify dev --context local --debug -o",
     "dev-debug": "netlify dev --debug",

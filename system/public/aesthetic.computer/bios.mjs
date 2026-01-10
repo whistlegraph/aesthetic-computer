@@ -41,6 +41,7 @@ import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
 import * as graph from "./lib/graph.mjs";
 import * as WebGPU from "./lib/webgpu.mjs";
+import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backend system (auto-registers backends)
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
@@ -55,6 +56,10 @@ const { isFinite } = Number;
 // bios.mjs just connects the send function via window.acDawConnect().
 let _dawBpm = 60;
 let _dawSampleRate = null; // 🎹 Store DAW sample rate for AudioContext creation
+
+// When set, BIOS will not update the URL on piece loads.
+// Used to keep a stable URL while a merry pipeline is running.
+let frozenUrlPath = null;
 
 // Called from boot() to connect the send function
 function _dawConnectSend(sendFunc, updateMetronome) {
@@ -648,26 +653,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   perf.markBootStart();
   headers(); // Print console headers with auto-detected theme.
 
-  // 🎬 Preload webpxmux library in background for animated WebP support
-  // This runs async and doesn't block boot
-  (async () => {
-    if (!window.WebPXMux) {
-      const script = document.createElement("script");
-      script.src = "/aesthetic.computer/dep/webpxmux/webpxmux.min.js";
-      document.head.appendChild(script);
-      await new Promise(r => script.onload = r);
-    }
-    if (!window._webpxMuxInstance) {
-      try {
-        const xMux = window.WebPXMux("/aesthetic.computer/dep/webpxmux/webpxmux.wasm");
-        await xMux.waitRuntime();
-        window._webpxMuxInstance = xMux;
-      } catch (e) {
-        console.warn("🎬 WebPXMux preload failed (will retry on demand):", e.message);
-      }
-    }
-  })();
-
   // Expose Loop control to window for boot.mjs
   // Track pause state for kidlisp console snapshots
   window.acPAUSE = () => {
@@ -890,7 +875,50 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   webgpuCanvas.style.pointerEvents = "none"; // Let events pass through to main canvas
   webgpuCanvas.style.display = "none"; // Hidden by default until WebGPU is enabled
 
-  // 🖥️🔌 Secondary main display surface. (3D GPU Renderer)
+  // � DOM-based Stats Overlay (always on top of everything)
+  const statsOverlay = document.createElement("div");
+  statsOverlay.id = "ac-stats-overlay";
+  statsOverlay.style.cssText = `
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 99999;
+    pointer-events: none;
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.3;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    border-radius: 4px;
+    display: none;
+    white-space: pre;
+  `;
+  let statsOverlayEnabled = false;
+  let statsOverlayData = { backend: "CPU", lines: 0 };
+  let statsFps = 0;
+  let statsFrameCount = 0;
+  let statsLastTime = performance.now();
+
+  function updateStatsOverlay() {
+    if (!statsOverlayEnabled) return;
+    const now = performance.now();
+    statsFrameCount++;
+    if (now - statsLastTime >= 1000) {
+      statsFps = statsFrameCount;
+      statsFrameCount = 0;
+      statsLastTime = now;
+    }
+    const lines = [
+      `${statsOverlayData.backend || "GPU"}`,
+      `FPS: ${statsFps}`,
+    ];
+    if (statsOverlayData.lines) lines.push(`Lines: ${statsOverlayData.lines}`);
+    if (statsOverlayData.extra) lines.push(statsOverlayData.extra);
+    statsOverlay.textContent = lines.join("\n");
+  }
+
+  // �🖥️🔌 Secondary main display surface. (3D GPU Renderer)
   // TODO: Eventually deprecate the software renderer in favor of this?
   //       (Or even reuse the same tag if pieces swap.)
   //       TODO: Would it be possible for pieces to use both... and why?
@@ -1393,6 +1421,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       wrapper.append(uiCanvas);
       if (debug) wrapper.append(debugCanvas);
       wrapper.append(webgpuCanvas); // Add WebGPU canvas (initially hidden)
+      wrapper.append(statsOverlay); // Add stats overlay (highest z-index)
       document.body.append(wrapper);
       perf.markBoot("dom-appended");
 
@@ -1701,13 +1730,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // WebGPU 2D Renderer
   let webGPUInitialized = false;
+  let activeGPUBackend = null; // 🎨 Current renderer backend
+  
   async function initWebGPU(canvas) {
     if (webGPUInitialized) return;
-    webGPUInitialized = await WebGPU.init(canvas);
-    if (webGPUInitialized) {
-      log.gpu.success("WebGPU 2D renderer ready");
-      // Expose WebGPU module globally for debugging/artery access
-      window.WebGPU = WebGPU;
+    
+    // Try to initialize with fallback chain
+    const preferredBackend = localStorage.getItem("ac-gpu-backend") || "webgpu";
+    activeGPUBackend = await initGPU(canvas, preferredBackend);
+    
+    if (activeGPUBackend) {
+      webGPUInitialized = true;
+      log.gpu.success?.(`GPU renderer ready: ${activeGPUBackend.getName()}`);
+      // Expose for debugging/artery access
+      window.GPU = activeGPUBackend;
+      window.switchGPUBackend = async (name) => {
+        const newBackend = await switchBackend(canvas, name);
+        if (newBackend) {
+          activeGPUBackend = newBackend;
+          window.GPU = newBackend;
+          log.gpu.success?.(`Switched to: ${name}`);
+          return true;
+        }
+        return false;
+      };
+    } else {
+      log.gpu.warn?.("No GPU backend available");
     }
   }
 
@@ -3482,59 +3530,93 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   if (/*!MetaBrowser &&*/ workersEnabled) {
     perf.markBoot("worker-create-start");
-    const worker = new Worker(new URL(fullPath, window.location.href), {
-      type: "module",
-    });
-
-    // Rewire things a bit if workers with modules are not supported (Firefox).
-    worker.onerror = async (err) => {
-      // if (
-      //   err.message ===
-      //   "SyntaxError: import declarations may only appear at top level of a module"
-      // ) {
-      console.error("🛑 Disk worker error:", err);
-      console.error("🚨 Message:", err.message || "(no message)");
-      console.error("🚨 Filename:", err.filename || "(no filename)");
-      console.error("🚨 Line:", err.lineno, "Col:", err.colno);
-
-      console.warn("🟡 Attempting a dynamic import...");
-      // https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
-      const module = await import(`./lib/disk.mjs`);
-      module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
-      send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
-      window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
-      send(firstMessage);
-      consumeDiskSends(send);
-      // } else {
-      // TODO: Try and save the crash here by restarting the worker
-      //       without a full system reload?
-      // }
-    };
-
-    if (worker.postMessage) {
-      // console.log("🟢 Worker");
-      send = (e, shared) => worker.postMessage(e, shared);
-      window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
-      worker.onmessage = onMessage;
-      perf.markBoot("worker-connected");
+    
+    let workerFailed = false; // Guard to prevent double-initialization
+    let workerReady = false;  // Track if worker has responded
+    let retryCount = 0;
+    const maxRetries = 2;
+    
+    const createWorker = () => {
+      const worker = new Worker(new URL(fullPath, window.location.href), {
+        type: "module",
+      });
       
-      // Notify parent that worker is connected
-      const workerConnectTime = performance.now();
-      const workerElapsed = Math.round(workerConnectTime - diskLoadStartTime);
-      if (window.acBOOT_LOG) {
-        window.acBOOT_LOG(`connecting to worker (${workerElapsed}ms)`);
-      } else if (window.parent) {
-        window.parent.postMessage({ 
-          type: "boot-log", 
-          message: `connecting to worker (${workerElapsed}ms)` 
-        }, "*");
-      }
+      // Rewire things a bit if workers with modules are not supported (Firefox).
+      worker.onerror = async (err) => {
+        if (workerFailed) return; // Already handling fallback
+        
+        // Transient "no message" errors are common on first load - retry silently
+        const isTransientError = !err.message;
+        
+        // Try retrying the worker a couple times before falling back
+        if (retryCount < maxRetries && isTransientError) {
+          retryCount++;
+          // Only log on second+ retry to reduce noise
+          if (retryCount > 1) {
+            console.warn(`🔄 Worker retry ${retryCount}/${maxRetries}...`);
+          }
+          worker.terminate();
+          await new Promise(r => setTimeout(r, 50 * retryCount)); // Small delay between retries
+          createWorker();
+          return;
+        }
+        
+        // Log error only if we've exhausted retries or it's a real error with a message
+        if (!isTransientError || retryCount >= maxRetries) {
+          console.error("🛑 Disk worker error:", err);
+          console.error("🚨 Message:", err.message || "(no message)");
+          console.error("🚨 Filename:", err.filename || "(no filename)");
+          console.error("🚨 Line:", err.lineno, "Col:", err.colno);
+        }
+        
+        workerFailed = true;
+        worker.terminate(); // Clean up failed worker
+        
+        console.warn("🟡 Attempting a dynamic import fallback...");
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
+        const module = await import(`./lib/disk.mjs`);
+        module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
+        send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
+        window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
+        send(firstMessage);
+        consumeDiskSends(send);
+      };
 
-      // Send the initial message immediately
-      perf.markBoot("first-message-sent");
-      send(firstMessage);
-      consumeDiskSends(send);
-    }
+      if (worker.postMessage) {
+        // console.log("🟢 Worker");
+        send = (e, shared) => {
+          if (workerFailed) return; // Don't send if worker has failed
+          worker.postMessage(e, shared);
+        };
+        window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
+        worker.onmessage = (e) => {
+          if (workerFailed) return; // Ignore messages if we've switched to fallback
+          workerReady = true;
+          onMessage(e);
+        };
+        perf.markBoot("worker-connected");
+        
+        // Notify parent that worker is connected
+        const workerConnectTime = performance.now();
+        const workerElapsed = Math.round(workerConnectTime - diskLoadStartTime);
+        if (window.acBOOT_LOG) {
+          window.acBOOT_LOG(`connecting to worker (${workerElapsed}ms)`);
+        } else if (window.parent) {
+          window.parent.postMessage({ 
+            type: "boot-log", 
+            message: `connecting to worker (${workerElapsed}ms)` 
+          }, "*");
+        }
+
+        // Send the initial message immediately
+        perf.markBoot("first-message-sent");
+        send(firstMessage);
+        consumeDiskSends(send);
+      }
+    };
+    
+    // Start the first worker attempt
+    createWorker();
   } else {
     // B. No Worker Mode
     if (debug) console.log("🔴 No Worker");
@@ -3980,6 +4062,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     frameAlreadyRequested = true;
     frameCount += 1n;
     armFrameStallWatchdog();
+
+    // 📊 Update DOM stats overlay if enabled
+    updateStatsOverlay();
 
     // TODO: 📏 Measure performance of frame: test with different resolutions.
 
@@ -10888,6 +10973,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "url-freeze") {
+      const freeze = !!content?.freeze;
+      if (freeze) {
+        frozenUrlPath = content?.path || window.location.pathname + window.location.search + window.location.hash;
+        try {
+          if (!checkPackMode()) {
+            window.history.replaceState({}, "", frozenUrlPath);
+          }
+        } catch (e) {
+          /* Ignore in restricted context */
+        }
+      } else {
+        frozenUrlPath = null;
+      }
+      return;
+    }
+
     if (type === "rewrite-url-path") {
       const newPath = content.path;
       const historical = !!content.historical;
@@ -11420,10 +11522,51 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
       console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
+      
+      // 🧹 Clean up any GPU/stats/glaze state from previous piece
+      // This ensures cleanup even if the previous piece's leave() failed
+      let needsGPUCleanup = false;
+      
+      if (statsOverlayEnabled) {
+        statsOverlayEnabled = false;
+        statsOverlay.style.display = "none";
+        needsGPUCleanup = true;
+      }
+      if (webgpuCanvas.style.display !== "none") {
+        webgpuCanvas.style.display = "none";
+        needsGPUCleanup = true;
+      }
+      if (canvas.style.visibility === "hidden") {
+        canvas.style.visibility = "visible";
+        needsGPUCleanup = true;
+      }
+      // Reset glaze state only if it was actually on
+      if (glaze.on) {
+        Glaze.off();
+        glaze.on = false;
+        // Don't set needsGPUCleanup here - glaze doesn't require reframe
+      }
+      canvas.style.removeProperty("opacity");
+      // Clear freeze frame if stuck
+      if (freezeFrame || freezeFrameFrozen) {
+        if (wrapper.contains(freezeFrameCan)) {
+          freezeFrameCan.remove();
+        }
+        freezeFrame = false;
+        freezeFrameGlaze = false;
+        freezeFrameFrozen = false;
+      }
+      
+      // 🎨 Force a reframe only if coming from a GPU piece (WebGPU canvas was visible)
+      // This prevents breaking the GOL transition on normal disk loads
+      if (needsGPUCleanup) {
+        needsReframe = true;
+      }
+      
       try {
         // Clear any active parameters once the disk has been loaded.
         // Skip URL manipulation in pack mode (sandboxed iframe)
-        if (!checkPackMode()) {
+        if (!checkPackMode() && !frozenUrlPath) {
           // Special handling for prompt piece with kidlisp content
           if (
             content.path === "aesthetic.computer/disks/prompt" &&
@@ -11665,7 +11808,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Clear the ThreeD buffer.
       // ThreeD.clear();      // Emit a push state for the old disk if it was not the first. This is so
       // a user can use browser history to switch between disks.
-      if (content.pieceCount > 0 || content.alias === true) {
+      if ((content.pieceCount > 0 || content.alias === true) && !frozenUrlPath) {
         if (content.fromHistory === false /*&& window.origin !== "null"*/) {
           // Handle URL encoding for different piece types
           let urlPath;
@@ -11925,8 +12068,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 📊 DOM Stats Overlay Control
+    if (type === "stats-overlay") {
+      if (content.enabled !== undefined) {
+        statsOverlayEnabled = content.enabled;
+        statsOverlay.style.display = statsOverlayEnabled ? "block" : "none";
+        if (statsOverlayEnabled) {
+          statsLastTime = performance.now();
+          statsFrameCount = 0;
+        }
+      }
+      if (content.data) {
+        Object.assign(statsOverlayData, content.data);
+      }
+      return;
+    }
+
     if (type === "webgpu-command") {
-      WebGPU.handleCommand(content);
+      // Use new backend system if available, fallback to old WebGPU
+      if (activeGPUBackend) {
+        activeGPUBackend.handleCommand(content);
+      } else {
+        WebGPU.handleCommand(content);
+      }
       return;
     }
 
@@ -14791,21 +14955,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             return new Uint8Array(await response.arrayBuffer());
           });
           
-          // Load webpxmux library in parallel with fetch
+          // Load webpxmux library in parallel with fetch (use CDN for reliability)
           if (!window.WebPXMux) {
             console.log("🎬 Loading webpxmux library...");
             await new Promise((resolve, reject) => {
               const script = document.createElement("script");
-              script.src = "/aesthetic.computer/dep/webpxmux/webpxmux.min.js";
+              script.src = "https://cdn.jsdelivr.net/npm/webpxmux@1.0.2/dist/webpxmux.min.js";
               script.onload = resolve;
               script.onerror = reject;
               document.head.appendChild(script);
             });
           }
           
-          // Cache the initialized xMux instance for reuse
+          // Cache the initialized xMux instance for reuse (use CDN wasm)
           if (!window._webpxMuxInstance) {
-            const xMux = window.WebPXMux("/aesthetic.computer/dep/webpxmux/webpxmux.wasm");
+            const xMux = window.WebPXMux("https://cdn.jsdelivr.net/npm/webpxmux@1.0.2/dist/webpxmux.wasm");
             await xMux.waitRuntime();
             window._webpxMuxInstance = xMux;
           }
@@ -15220,12 +15384,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (debug && logs.glaze) {
         console.log("🪟 Glaze:", content, "Type:", content.type || "prompt");
       }
+      const wasOn = glaze.on;
       glaze = content;
       if (glaze.on === false) {
         Glaze.off();
         canvas.style.removeProperty("opacity");
+      } else if (glaze.on === true && !wasOn) {
+        // Glaze was just enabled - trigger reframe to initialize it
+        needsReframe = true;
       }
-      // Note: Glaze gets turned on only on a call to `resize` or `gap` via a piece.
+      // Note: Glaze gets turned on only on a call to `resize` or `gap` via a piece,
+      // or when enabling glaze after it was off (handled above).
       return;
     }
 
@@ -15956,6 +16125,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           
           // Skip CPU rendering if WebGPU is enabled
           if (content.webgpuEnabled) {
+            // Switch backend if piece requests a specific one
+            if (content.gpuBackend && activeGPUBackend?.getName() !== content.gpuBackend) {
+              log.gpu.debug?.(`Switching to requested backend: ${content.gpuBackend}`);
+              window.switchGPUBackend?.(content.gpuBackend).catch(err => {
+                log.gpu.warn?.(`Failed to switch to ${content.gpuBackend}:`, err);
+              });
+            }
+            
             // Hide CPU canvas and rely on WebGPU surface
             if (canvas.style.visibility !== "hidden") {
               canvas.style.visibility = "hidden";
@@ -16147,6 +16324,41 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           buildOverlay("merryProgressBar", content.merryProgressBar);
           if (paintOverlays["merryProgressBar"]) {
             paintOverlays["merryProgressBar"]();
+          }
+        }
+
+        // 🎄⏰ Merry UTC debug overlay (top-right)
+        // Useful for verifying that `mo`/`merryo` pipelines are aligned to the same UTC authority as `clock`.
+        if (!window.currentRecordingOptions?.cleanMode && content.merryUTC) {
+          try {
+            const utcLine1 = `UTC ${content.merryUTC.time}`;
+            const utcLine2 = `cycle ${content.merryUTC.cycle}s · ${content.merryUTC.index}/${content.merryUTC.total} · ${content.merryUTC.piece}`;
+
+            ctx.save();
+            ctx.globalAlpha = 0.95;
+            ctx.font = `12px YWFTProcessing-Regular, Arial, sans-serif`;
+            ctx.textBaseline = "top";
+
+            const pad = 6;
+            const lineH = 14;
+            const w1 = ctx.measureText(utcLine1).width;
+            const w2 = ctx.measureText(utcLine2).width;
+            const boxW = Math.ceil(Math.max(w1, w2) + pad * 2);
+            const boxH = Math.ceil(lineH * 2 + pad * 2);
+            const x = Math.max(0, ctx.canvas.width - boxW - 8);
+            const y = 8;
+
+            // Backplate
+            ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+            ctx.fillRect(x, y, boxW, boxH);
+
+            // Text
+            ctx.fillStyle = "white";
+            ctx.fillText(utcLine1, x + pad, y + pad);
+            ctx.fillText(utcLine2, x + pad, y + pad + lineH);
+            ctx.restore();
+          } catch (e) {
+            // Silent fail: debug-only overlay
           }
         }
 

@@ -1,33 +1,41 @@
+# Global options - enable HTTP/3 on all HTTPS sites
+{
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
 :8111 {
 	root * public
 	file_server # browse
-	
+
 	# Disable compression to avoid chunked encoding issues with Netlify Dev proxy
 	# The proxy can sometimes fail with ERR_INCOMPLETE_CHUNKED_ENCODING
 	# ERR_CONTENT_LENGTH_MISMATCH can occur when Accept-Encoding triggers 
 	# compression somewhere in the proxy chain
 	# encode zstd gzip
-	
+
 	# Strip Accept-Encoding from requests to prevent any compression attempts
 	request_header -Accept-Encoding
-	
+
+	@wasm path *.wasm
+	header @wasm Content-Type "application/wasm"
+
+	@js path *.js *.mjs
+	header @js Content-Type "application/javascript; charset=utf-8"
+
 	# Aggressive caching disabled for dev (instant updates)
 	header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
 	header Pragma "no-cache"
 	header Expires "0"
 	header X-Content-Type-Options "nosniff"
-	
-	# Disable chunked transfer encoding - send complete responses with content-length
-	header -Transfer-Encoding
-	
-	# Explicitly remove any Content-Encoding header (ensures no compression)
-	header -Content-Encoding
-	
+
 	# Enable CORS for local development
 	header Access-Control-Allow-Origin "*"
 	header Access-Control-Allow-Methods "GET, POST, OPTIONS"
 	header Access-Control-Allow-Headers "*"
-	
-	# Optional: TLS for local HTTPS
-	# tls ../ssl-dev/localhost.pem ../ssl-dev/localhost-key.pem
+
+	# Force Connection: close to prevent keep-alive truncation issues
+	# through Netlify dev HTTPS proxy (fixes ERR_CONTENT_LENGTH_MISMATCH)
+	header Connection "close"
 }
