@@ -84,6 +84,10 @@ export function createBaseRenderer() {
         case "perf-overlay":
           this.setPerfOverlay?.(command.enabled);
           break;
+        case "disable":
+          // 🛑 Disable GPU rendering - hide canvas and clear state
+          this.disable?.();
+          break;
         default:
           console.warn(`Unknown render command: ${command.type}`);
       }
