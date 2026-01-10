@@ -1833,6 +1833,10 @@ let preloadPromises = {};
 let inFocus;
 let loadFailure;
 
+// 🎄 Piece code cache for merry preloading
+// Maps piece slug -> { code, blobUrl, type: 'mjs' | 'lisp' }
+const pieceCodeCache = new Map();
+
 // Duration tracking for playlist progress bar (similar to tape system)
 let durationStartTime = null;  // When the piece started (null if no duration) - using performance.now()
 let durationTotal = null;      // Total duration in seconds (null if no duration)
@@ -2364,6 +2368,65 @@ const $commonApi = {
     };
     return (cb) => (callback = cb);
   },
+  
+  // 🎄 Preload piece modules for merry pipelines (prevents network latency during fast cycling)
+  preloadPieces: async function preloadPieces(pieceNames) {
+    if (!pieceNames || pieceNames.length === 0) return;
+    
+    const { protocol, hostname } = getSafeUrlParts();
+    const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
+    let baseUrl;
+    if (isDevelopment) {
+      baseUrl = `${protocol}//${hostname}:${location.port}`;
+    } else {
+      baseUrl = `https://aesthetic.computer`;
+    }
+    
+    const fetchPromises = pieceNames.map(async (piece) => {
+      // Skip if already cached
+      if (pieceCodeCache.has(piece)) {
+        console.log(`🎄 Piece already cached: ${piece}`);
+        return;
+      }
+      
+      try {
+        // Try .mjs first, then .lisp
+        const mjsUrl = `${baseUrl}/aesthetic.computer/disks/${piece}.mjs?v=${Date.now()}`;
+        let response = await fetch(mjsUrl, { cache: 'no-store' });
+        
+        if (response.ok) {
+          const code = await response.text();
+          pieceCodeCache.set(piece, { code, type: 'mjs' });
+          console.log(`🎄 Preloaded mjs: ${piece}`);
+          return;
+        }
+        
+        // Try .lisp
+        const lispUrl = `${baseUrl}/aesthetic.computer/disks/${piece}.lisp?v=${Date.now()}`;
+        response = await fetch(lispUrl, { cache: 'no-store' });
+        
+        if (response.ok) {
+          const code = await response.text();
+          pieceCodeCache.set(piece, { code, type: 'lisp' });
+          console.log(`🎄 Preloaded lisp: ${piece}`);
+          return;
+        }
+        
+        console.warn(`🎄 Could not preload piece: ${piece}`);
+      } catch (err) {
+        console.warn(`🎄 Error preloading ${piece}:`, err);
+      }
+    });
+    
+    await Promise.all(fetchPromises);
+    console.log(`🎄 Preloaded ${pieceCodeCache.size} pieces`);
+  },
+  
+  // Get cached piece code (returns undefined if not cached)
+  getCachedPieceCode: function (pieceName) {
+    return pieceCodeCache.get(pieceName);
+  },
+  
   canShare: false, // Whether navigator.share is enabled for mobile devices.
   leaving: isLeaving,
   handle: () => {
@@ -6696,52 +6759,62 @@ async function load(
           }
         }
       } else if (fullUrl) {
-        // In OBJKT mode, try direct import first for .mjs files to avoid CSP issues
-        // Extract the filename from URL, handling ./ prefix and hash fragments
-        const urlWithoutHash = fullUrl.split('#')[0];
-        const filename = urlWithoutHash.split('/').pop();
+        // 🎄 Check if piece code is cached (for merry preloading)
+        const pieceSlug = slug?.split("~")[0];
+        const cachedPiece = pieceSlug ? pieceCodeCache.get(pieceSlug) : null;
         
-        if (getPackMode() && filename.endsWith('.mjs')) {
-          // In OBJKT mode, skip dynamic import and use fetch directly since files are bundled locally
-          // Will proceed to fetch() below
+        if (cachedPiece) {
+          console.log(`🎄 Using cached code for: ${pieceSlug}`);
+          sourceToRun = cachedPiece.code;
+          // Skip fetch, use cached code directly
+        } else {
+          // In OBJKT mode, try direct import first for .mjs files to avoid CSP issues
+          // Extract the filename from URL, handling ./ prefix and hash fragments
+          const urlWithoutHash = fullUrl.split('#')[0];
+          const filename = urlWithoutHash.split('/').pop();
+          
+          if (getPackMode() && filename.endsWith('.mjs')) {
+            // In OBJKT mode, skip dynamic import and use fetch directly since files are bundled locally
+            // Will proceed to fetch() below
+          }
+          
+          let response;
+          if (logs.loading) console.log("📥 Loading from url:", fullUrl);
+          // if (debug) console.log("🔍 Debug: Constructed fullUrl:", fullUrl);
+          
+          // Notify boot progress
+          const fetchStartTime = performance.now();
+          send({
+            type: "boot-log",
+            content: `fetching: ${path}`
+          });
+          
+          // Use cache: 'no-store' to force fresh fetch, especially important for LAN IP access
+          response = await fetch(fullUrl, { cache: 'no-store' });
+          const fetchEndTime = performance.now();
+          diskTimings.fetchComplete = Math.round(fetchEndTime - diskTimingStart);
+          // Silent: fetch completed
+          if (response.status === 404 || response.status === 403) {
+            const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
+            // Handle sandboxed environments for anon URL construction
+            const { protocol } = getSafeUrlParts();
+            const anonUrl =
+              protocol +
+              "//" +
+              "art.aesthetic.computer" +
+              "/" +
+              path.split("/").pop() +
+              extension +
+              "#" +
+              Date.now();
+            if (logs.loading)
+              console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+            response = await fetch(anonUrl, { cache: 'no-store' });
+            if (response.status === 404 || response.status === 403)
+              throw new Error(response.status);
+          }
+          sourceToRun = await response.text();
         }
-        
-        let response;
-        if (logs.loading) console.log("📥 Loading from url:", fullUrl);
-        // if (debug) console.log("🔍 Debug: Constructed fullUrl:", fullUrl);
-        
-        // Notify boot progress
-        const fetchStartTime = performance.now();
-        send({
-          type: "boot-log",
-          content: `fetching: ${path}`
-        });
-        
-        // Use cache: 'no-store' to force fresh fetch, especially important for LAN IP access
-        response = await fetch(fullUrl, { cache: 'no-store' });
-        const fetchEndTime = performance.now();
-        diskTimings.fetchComplete = Math.round(fetchEndTime - diskTimingStart);
-        // Silent: fetch completed
-        if (response.status === 404 || response.status === 403) {
-          const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
-          // Handle sandboxed environments for anon URL construction
-          const { protocol } = getSafeUrlParts();
-          const anonUrl =
-            protocol +
-            "//" +
-            "art.aesthetic.computer" +
-            "/" +
-            path.split("/").pop() +
-            extension +
-            "#" +
-            Date.now();
-          if (logs.loading)
-            console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
-          response = await fetch(anonUrl, { cache: 'no-store' });
-          if (response.status === 404 || response.status === 403)
-            throw new Error(response.status);
-        }
-        sourceToRun = await response.text();
       } else {
         sourceToRun = source;
       }
@@ -10148,13 +10221,17 @@ async function makeFrame({ data: { type, content } }) {
 
         // [Tab] Toggle HUD label and QR overlay visibility with smooth animation
         // Disabled in pack mode (OBJKT bundles)
+        // Only works in KidLisp pieces (to avoid conflict with autocomplete)
         if (data.key === "Tab" && !getPackMode()) {
-          const currentTime = performance.now();
-          const timeSinceLastTab = currentTime - (hudAnimationState.lastTabTime || 0);
-          const isDoubleTap = timeSinceLastTab < 300; // 300ms double-tap window
-          
-          hudAnimationState.lastTabTime = currentTime;
-          toggleHUDVisibility(isDoubleTap);
+          const isKidLispPiece = detectKidLispPiece({ currentPath, currentHUDTxt, currentText, cleanText: currentHUDTxt });
+          if (isKidLispPiece) {
+            const currentTime = performance.now();
+            const timeSinceLastTab = currentTime - (hudAnimationState.lastTabTime || 0);
+            const isDoubleTap = timeSinceLastTab < 300; // 300ms double-tap window
+            
+            hudAnimationState.lastTabTime = currentTime;
+            toggleHUDVisibility(isDoubleTap);
+          }
         }
 
         // [Shift] Toggle QR code fullscreen mode for KidLisp pieces
@@ -12388,8 +12465,8 @@ async function makeFrame({ data: { type, content } }) {
       if ($api.system.merry && $api.system.merry.running) {
         const merry = $api.system.merry;
         
-        // Calculate progress based on elapsed time
-        const now = Date.now();
+        // Calculate progress based on elapsed time (use UTC-synced clock if available)
+        const now = $commonApi.clock?.time?.()?.getTime?.() || Date.now();
         if (merry.startTime && merry.currentPieceStart) {
           const totalElapsed = (now - merry.startTime) / 1000; // in seconds
           const pieceElapsed = (now - merry.currentPieceStart) / 1000;
@@ -12404,10 +12481,11 @@ async function makeFrame({ data: { type, content } }) {
           $.unmask(); // Ensure progress bar renders without piece mask
           const animFrame = Number($api.paintCount || 0n);
           
-          // Check for transition flash
+          // Check for transition flash (use UTC-synced time)
+          const flashNow = $commonApi.clock?.time?.()?.getTime?.() || Date.now();
           let flashIntensity = 0;
           if (merry.transitionFlash && merry.transitionFlash.active) {
-            const elapsed = Date.now() - merry.transitionFlash.startTime;
+            const elapsed = flashNow - merry.transitionFlash.startTime;
             if (elapsed < merry.transitionFlash.duration) {
               // Ease out the flash (starts bright, fades quickly)
               const progress = elapsed / merry.transitionFlash.duration;
@@ -12546,6 +12624,19 @@ async function makeFrame({ data: { type, content } }) {
               height: merryProgressBarPainting.height,
               pixels: merryProgressBarPainting.pixels
             }
+          };
+          
+          // 🎄⏰ Add UTC time overlay for sync debugging
+          const utcDate = $commonApi.clock?.time?.() || new Date();
+          const utcTimeStr = utcDate.toISOString().split('T')[1].split('.')[0]; // HH:MM:SS
+          const utcMs = utcDate.getMilliseconds().toString().padStart(3, '0');
+          const cyclePos = ((now % (merry.totalDuration * 1000)) / 1000).toFixed(2);
+          sendData.merryUTC = {
+            time: `${utcTimeStr}.${utcMs}`,
+            cycle: cyclePos,
+            piece: merry.pipeline[merry.currentIndex]?.piece || '?',
+            index: merry.currentIndex + 1,
+            total: merry.pipeline.length
           };
         }
       }

@@ -3197,9 +3197,10 @@ class ArteryTUI {
     try {
       const { spawn } = await import('child_process');
       
-      // Determine if we're in codespaces
+      // Determine if we're in codespaces or a devcontainer.
       const isCodespaces = !!process.env.CODESPACES;
-      const npmScript = isCodespaces ? 'codespaces-dev' : 'local-dev';
+      const isDevcontainer = !isCodespaces && process.cwd().startsWith('/workspaces/');
+      const npmScript = isCodespaces ? 'codespaces-dev' : (isDevcontainer ? 'devcontainer-dev' : 'local-dev');
       
       this.addSiteLog(`📦 Using npm run ${npmScript}`, 'info');
       

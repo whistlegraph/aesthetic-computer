@@ -57,6 +57,10 @@ const { isFinite } = Number;
 let _dawBpm = 60;
 let _dawSampleRate = null; // 🎹 Store DAW sample rate for AudioContext creation
 
+// When set, BIOS will not update the URL on piece loads.
+// Used to keep a stable URL while a merry pipeline is running.
+let frozenUrlPath = null;
+
 // Called from boot() to connect the send function
 function _dawConnectSend(sendFunc, updateMetronome) {
   if (window.acDawConnect) {
@@ -10908,6 +10912,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "url-freeze") {
+      const freeze = !!content?.freeze;
+      if (freeze) {
+        frozenUrlPath = content?.path || window.location.pathname + window.location.search + window.location.hash;
+        try {
+          if (!checkPackMode()) {
+            window.history.replaceState({}, "", frozenUrlPath);
+          }
+        } catch (e) {
+          /* Ignore in restricted context */
+        }
+      } else {
+        frozenUrlPath = null;
+      }
+      return;
+    }
+
     if (type === "rewrite-url-path") {
       const newPath = content.path;
       const historical = !!content.historical;
@@ -11443,7 +11464,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       try {
         // Clear any active parameters once the disk has been loaded.
         // Skip URL manipulation in pack mode (sandboxed iframe)
-        if (!checkPackMode()) {
+        if (!checkPackMode() && !frozenUrlPath) {
           // Special handling for prompt piece with kidlisp content
           if (
             content.path === "aesthetic.computer/disks/prompt" &&
@@ -11685,7 +11706,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Clear the ThreeD buffer.
       // ThreeD.clear();      // Emit a push state for the old disk if it was not the first. This is so
       // a user can use browser history to switch between disks.
-      if (content.pieceCount > 0 || content.alias === true) {
+      if ((content.pieceCount > 0 || content.alias === true) && !frozenUrlPath) {
         if (content.fromHistory === false /*&& window.origin !== "null"*/) {
           // Handle URL encoding for different piece types
           let urlPath;
@@ -16180,6 +16201,41 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           buildOverlay("merryProgressBar", content.merryProgressBar);
           if (paintOverlays["merryProgressBar"]) {
             paintOverlays["merryProgressBar"]();
+          }
+        }
+
+        // 🎄⏰ Merry UTC debug overlay (top-right)
+        // Useful for verifying that `mo`/`merryo` pipelines are aligned to the same UTC authority as `clock`.
+        if (!window.currentRecordingOptions?.cleanMode && content.merryUTC) {
+          try {
+            const utcLine1 = `UTC ${content.merryUTC.time}`;
+            const utcLine2 = `cycle ${content.merryUTC.cycle}s · ${content.merryUTC.index}/${content.merryUTC.total} · ${content.merryUTC.piece}`;
+
+            ctx.save();
+            ctx.globalAlpha = 0.95;
+            ctx.font = `12px YWFTProcessing-Regular, Arial, sans-serif`;
+            ctx.textBaseline = "top";
+
+            const pad = 6;
+            const lineH = 14;
+            const w1 = ctx.measureText(utcLine1).width;
+            const w2 = ctx.measureText(utcLine2).width;
+            const boxW = Math.ceil(Math.max(w1, w2) + pad * 2);
+            const boxH = Math.ceil(lineH * 2 + pad * 2);
+            const x = Math.max(0, ctx.canvas.width - boxW - 8);
+            const y = 8;
+
+            // Backplate
+            ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+            ctx.fillRect(x, y, boxW, boxH);
+
+            // Text
+            ctx.fillStyle = "white";
+            ctx.fillText(utcLine1, x + pad, y + pad);
+            ctx.fillText(utcLine2, x + pad, y + pad + lineH);
+            ctx.restore();
+          } catch (e) {
+            // Silent fail: debug-only overlay
           }
         }
 
