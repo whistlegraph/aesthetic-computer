@@ -295,6 +295,7 @@ ac-vst/vst3sdk/
 **/*_rsa
 gigs/**/ssl/
 gigs/**/ssh/
+gigs/**/backups/
 **/.certbot*
 **/letsencrypt.log
 
