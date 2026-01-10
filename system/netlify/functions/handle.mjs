@@ -29,7 +29,32 @@ const dev = process.env.CONTEXT === "dev";
 export async function handler(event, context) {
   // A GET request to get a handle from a user `sub`.
   if (event.httpMethod === "GET") {
+    const accepts = (event.headers?.accept || event.headers?.Accept || "").toLowerCase();
+    const secFetchMode = (event.headers?.["sec-fetch-mode"] || "").toLowerCase();
+    const secFetchDest = (event.headers?.["sec-fetch-dest"] || "").toLowerCase();
+    const isBrowserNavigation =
+      accepts.includes("text/html") ||
+      secFetchMode === "navigate" ||
+      secFetchDest === "document";
+
     const count = event.queryStringParameters.count;
+
+    // Visiting /handle in a browser should land on a human-friendly page.
+    // Keep API behavior for fetch/XHR callers.
+    if (
+      isBrowserNavigation &&
+      !count &&
+      !event.queryStringParameters?.for
+    ) {
+      return {
+        statusCode: 302,
+        headers: {
+          Location: "/get-handle",
+          "Cache-Control": "no-cache",
+        },
+        body: "",
+      };
+    }
 
     if (count) {
       // Return total handle count.
@@ -64,6 +89,12 @@ export async function handler(event, context) {
     } else {
       // Get handle `for`
       const id = event.queryStringParameters.for;
+
+      if (!id) {
+        return respond(400, {
+          message: "Missing query parameter: for (or use ?count=true)",
+        });
+      }
       const result = await handleFor(id);
 
       if (typeof result === "string") {
