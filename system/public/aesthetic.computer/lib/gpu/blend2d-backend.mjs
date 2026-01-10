@@ -261,6 +261,14 @@ export function createBlend2DBackend() {
 
       imageData = ctx?.createImageData(width, height);
     },
+
+    disable() {
+      // 🛑 Hide canvas and clear state for clean return to CPU rendering
+      if (canvas) {
+        canvas.style.display = "none";
+      }
+      console.log("🛑 Blend2D backend disabled");
+    },
   };
 }
 
