@@ -643,7 +643,14 @@ async function boot({
   // Fetch git commit/version status
   const fetchVersion = async () => {
     try {
+      // Skip on localhost - Netlify functions not available
+      if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+        versionInfo = { deployed: "local", status: "local" };
+        needsPaint();
+        return;
+      }
       const res = await fetch("/api/version");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       versionInfo = await res.json();
       needsPaint();
     } catch (e) {
@@ -6105,6 +6112,9 @@ function paint($) {
         } else if (versionInfo.status === "behind") {
           versionColor = [255, 165, 0]; // Orange
           versionText = `↑ ${versionInfo.behindBy} behind (${versionInfo.deployed})`;
+        } else if (versionInfo.status === "local") {
+          versionColor = [100, 200, 255]; // Light blue for local dev
+          versionText = `⚙ local`;
         } else {
           versionColor = [128, 128, 128]; // Gray for unknown
           versionText = `? ${versionInfo.deployed || "unknown"}`;
