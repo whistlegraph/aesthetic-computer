@@ -363,6 +363,12 @@ Vary = "*"
 path = "/media/*" 
 function = "media"
 
+# Version/commit status API
+[[redirects]]
+from = "/api/version"
+to = "/.netlify/functions/version"
+status = 200
+
 # Proxy assets to S3 (DigitalOcean Spaces) - avoids uploading 13GB to Netlify
 [[redirects]]
 from = "/assets/*"

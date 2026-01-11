@@ -232,6 +232,7 @@ let motd; // Store the mood of the day text
 let motdFrame = 0; // Animation frame counter for MOTD effects (time-based)
 let lastMotdTime = 0; // Timestamp for MOTD animation
 let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
+let versionInfo = null; // { deployed, latest, status, behindBy } - git commit status
 
 // Multilingual "Prompt" translations cycling
 const promptTranslations = [
@@ -638,6 +639,19 @@ async function boot({
     .catch((err) => {
       console.warn("💁 Could not get handle count.");
     });
+
+  // Fetch git commit/version status
+  const fetchVersion = async () => {
+    try {
+      const res = await fetch("/api/version");
+      versionInfo = await res.json();
+      needsPaint();
+    } catch (e) {
+      console.warn("📦 Could not fetch version info:", e);
+    }
+  };
+  fetchVersion();
+  setInterval(fetchVersion, 5 * 60 * 1000); // Refresh every 5 minutes
 
   // Boot starfield with a clear backdrop.
   starfield.boot(api, { stars: 128 });
@@ -6079,6 +6093,44 @@ function paint($) {
         false,
         "MatrixChunky8"
       );
+
+      // Git commit status indicator - below handles
+      if (versionInfo && screen.height >= 120) {
+        const versionY = handlesY + 12;
+        let versionText, versionColor;
+
+        if (versionInfo.status === "current") {
+          versionColor = [0, 255, 0]; // Green
+          versionText = `✓ ${versionInfo.deployed}`;
+        } else if (versionInfo.status === "behind") {
+          versionColor = [255, 165, 0]; // Orange
+          versionText = `↑ ${versionInfo.behindBy} behind (${versionInfo.deployed})`;
+        } else {
+          versionColor = [128, 128, 128]; // Gray for unknown
+          versionText = `? ${versionInfo.deployed || "unknown"}`;
+        }
+
+        // Shadow
+        const versionShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255];
+        ink(...versionShadowColor).write(
+          versionText,
+          { center: "x", y: versionY + 1, noFunding: true },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8"
+        );
+
+        // Main text
+        ink(...versionColor).write(
+          versionText,
+          { center: "x", y: versionY, noFunding: true },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8"
+        );
+      }
     }
 
     // MOTD (Mood of the Day) - show above login/signup buttons with animation
