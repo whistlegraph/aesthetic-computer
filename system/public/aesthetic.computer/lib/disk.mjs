@@ -9097,6 +9097,7 @@ async function makeFrame({ data: { type, content } }) {
     leaving = false;
     hotSwap?.(); // Actually swap out the piece functions and reset the state.
     loading = false;
+    noPaint = false; // 🎨 Ensure first frame paints after piece swap
     return;
   }
 
