@@ -363,6 +363,13 @@ Vary = "*"
 path = "/media/*" 
 function = "media"
 
+# Proxy assets to S3 (DigitalOcean Spaces) - avoids uploading 13GB to Netlify
+[[redirects]]
+from = "/assets/*"
+to = "https://assets.aesthetic.computer/:splat"
+status = 200
+force = true
+
 # Redirect root-level .mjs requests to aesthetic.computer subdirectory
 # This handles cases where dynamic imports resolve incorrectly
 [[redirects]]
