@@ -11930,6 +11930,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
         try {
           send({ type: "loading-complete" });
+          // 🎨 Force immediate repaint after disk loads to clear previous piece's frame
+          send({ type: "needs-paint" });
         } catch (e) {
           console.error("🛑 BIOS failed to send loading-complete:", e);
         }

@@ -463,16 +463,18 @@ async function main() {
   let progression = 'classical';
   let roomMode = false;
   let playAll = false;
+  let loopMode = false;
   
   // Show help
   console.log(`\n${MAGENTA}🎭 Trap Waltz Generator${RESET}`);
-  console.log(`${DIM}Usage: test-trapwaltz [style] [bars=N] [bpm=N] [scale=X] [progression=X] [room] [all] [suite]${RESET}`);
+  console.log(`${DIM}Usage: test-trapwaltz [style] [bars=N] [bpm=N] [scale=X] [progression=X] [room] [all] [suite] [loop]${RESET}`);
   console.log(`  ${DIM}styles: classic, dark, dreamy, baroque, minimal, phonk, viennese, drill${RESET}`);
   console.log(`  ${DIM}scales: minor, dorian, phrygian, harmonic, major${RESET}`);
   console.log(`  ${DIM}progressions: classical, dark, romantic, trap${RESET}`);
   console.log(`  ${DIM}room: enable reverb${RESET}`);
   console.log(`  ${DIM}all: play all styles (4 bars each)${RESET}`);
-  console.log(`  ${DIM}suite: full suite - all styles with 16 bars each${RESET}\n`);
+  console.log(`  ${DIM}suite: full suite - all styles with 16 bars each${RESET}`);
+  console.log(`  ${DIM}loop/infinite/forever: play indefinitely (Ctrl+C to stop)${RESET}\n`);
   
   for (const arg of args) {
     if (arg.startsWith('bars=')) {
@@ -492,6 +494,8 @@ async function main() {
     } else if (arg === 'suite') {
       playAll = true;
       bars = 16; // Suite mode uses 16 bars per style
+    } else if (arg === 'loop' || arg === 'infinite' || arg === 'forever') {
+      loopMode = true;
     } else if (TRAPWALTZ_PATTERNS[arg]) {
       style = arg;
     } else if (SCALES[arg]) {
@@ -499,7 +503,7 @@ async function main() {
     }
   }
   
-  testLog('Starting Trap Waltz Generator\n');
+  testLog(`Starting Trap Waltz Generator${loopMode ? ' (INFINITE LOOP - Ctrl+C to stop)' : ''}\n`);
   
   try {
     await Artery.openPanelStandalone();
@@ -543,44 +547,62 @@ async function main() {
       await new Promise(r => setTimeout(r, 100));
     }
     
-    if (playAll) {
-      const suiteMode = bars === 16;
-      const barsPerStyle = suiteMode ? 16 : 4;
-      
-      console.log(`${MAGENTA}╔═══════════════════════════════════════════════════════╗${RESET}`);
-      console.log(`${MAGENTA}║  🎭 ${suiteMode ? 'TRAP WALTZ SUITE - 16 BARS EACH' : 'PLAYING ALL TRAP WALTZ STYLES'}           ║${RESET}`);
-      console.log(`${MAGENTA}╚═══════════════════════════════════════════════════════╝${RESET}\n`);
-      
-      const styles = Object.keys(TRAPWALTZ_PATTERNS);
-      let totalTime = 0;
-      
-      for (const s of styles) {
-        const waltz = generateTrapWaltz({
-          bars: barsPerStyle,
-          bpm,
-          style: s,
-          scale,
-          seed: seed + styles.indexOf(s),
-          progression,
-        });
-        const elapsed = await playTrapWaltz(client, waltz);
-        totalTime += parseFloat(elapsed);
-        await new Promise(r => setTimeout(r, 1500)); // Brief pause between styles
+    let loopCount = 0;
+    let totalTimeAll = 0;
+    
+    do {
+      if (loopMode && loopCount > 0) {
+        console.log(`\n${MAGENTA}═══════════════ Loop ${loopCount + 1} ═══════════════${RESET}\n`);
       }
       
-      console.log(`\n${MAGENTA}════════════════════════════════════════════════════════════${RESET}`);
-      console.log(`${GREEN}✅ ${suiteMode ? 'Suite' : 'All styles'} complete! Total: ${(totalTime / 60).toFixed(1)} minutes (${totalTime.toFixed(1)}s)${RESET}`);
-      console.log(`${MAGENTA}════════════════════════════════════════════════════════════${RESET}\n`);
-    } else {
-      const waltz = generateTrapWaltz({ bars, bpm, style, scale, seed, progression });
-      await playTrapWaltz(client, waltz);
-    }
+      if (playAll) {
+        const suiteMode = bars === 16;
+        const barsPerStyle = suiteMode ? 16 : 4;
+        
+        console.log(`${MAGENTA}╔═══════════════════════════════════════════════════════╗${RESET}`);
+        console.log(`${MAGENTA}║  🎭 ${suiteMode ? 'TRAP WALTZ SUITE - 16 BARS EACH' : 'PLAYING ALL TRAP WALTZ STYLES'}           ║${RESET}`);
+        console.log(`${MAGENTA}╚═══════════════════════════════════════════════════════╝${RESET}\n`);
+        
+        const styles = Object.keys(TRAPWALTZ_PATTERNS);
+        let totalTime = 0;
+        
+        for (const s of styles) {
+          const waltz = generateTrapWaltz({
+            bars: barsPerStyle,
+            bpm,
+            style: s,
+            scale,
+            seed: seed + styles.indexOf(s) + loopCount * 100,
+            progression,
+          });
+          const elapsed = await playTrapWaltz(client, waltz);
+          totalTime += parseFloat(elapsed);
+          await new Promise(r => setTimeout(r, 1500)); // Brief pause between styles
+        }
+        
+        totalTimeAll += totalTime;
+        console.log(`\n${MAGENTA}════════════════════════════════════════════════════════════${RESET}`);
+        console.log(`${GREEN}✅ ${suiteMode ? 'Suite' : 'All styles'} complete! Total: ${(totalTime / 60).toFixed(1)} minutes (${totalTime.toFixed(1)}s)${RESET}`);
+        console.log(`${MAGENTA}════════════════════════════════════════════════════════════${RESET}\n`);
+      } else {
+        const waltz = generateTrapWaltz({ bars, bpm, style, scale, seed: seed + loopCount * 100, progression });
+        const elapsed = await playTrapWaltz(client, waltz);
+        totalTimeAll += parseFloat(elapsed);
+      }
+      
+      loopCount++;
+      
+      if (loopMode) {
+        await new Promise(r => setTimeout(r, 1000)); // Brief pause between loops
+      }
+    } while (loopMode);
     
     console.log(`\n${MAGENTA}════════════════════════════════════════════════════════════${RESET}\n`);
     console.log(`${DIM}💡 Try: test-trapwaltz dark room bpm=120${RESET}`);
     console.log(`${DIM}💡 Try: test-trapwaltz baroque harmonic progression=romantic${RESET}`);
     console.log(`${DIM}💡 Try: test-trapwaltz all room (4 bars each)${RESET}`);
-    console.log(`${DIM}💡 Try: test-trapwaltz suite room (16 bars each!)${RESET}\n`);
+    console.log(`${DIM}💡 Try: test-trapwaltz suite room (16 bars each!)${RESET}`);
+    console.log(`${DIM}💡 Try: test-trapwaltz loop (infinite!)${RESET}\n`);
     
     if (roomMode) {
       await pressRoom(client);
