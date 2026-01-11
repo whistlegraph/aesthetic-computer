@@ -1,0 +1,2 @@
+# Don't upload assets to Netlify - they're proxied from S3 (assets.aesthetic.computer)
+public/assets/
