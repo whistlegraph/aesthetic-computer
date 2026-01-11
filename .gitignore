@@ -67,6 +67,15 @@ vscode-extension/*.vsix
 # Any emacs or vim backups.
 *~
 
+# Thomas Lawson gig backups, credentials, ssh, ssl
+gigs/thomaslawson.com/backups/
+gigs/thomaslawson.com/credentials.json
+gigs/thomaslawson.com/ssh/
+gigs/thomaslawson.com/ssl/
+
+# Scratch directory for temp files
+scratch/
+
 # Dev logs from remote debugging
 dev-logs.txt
 .#*
@@ -282,19 +291,8 @@ system/.env
 ac-vst/vst3sdk/
 *.amxd
 
-# Rust build artifacts (Cargo target directories)
-**/target/
-**/Cargo.lock
-!ac-event-daemon/Cargo.lock
-
 # Emacs performance logs (keep directory, ignore log files)
 .emacs-logs/*.log
 
 # Devcontainer entry logs
 .devcontainer/entry-logs/
-
-# Gigs directory (client projects with credentials and backups)
-gigs/thomaslawson.com/
-
-# Scratch directory (temporary files)
-scratch/
