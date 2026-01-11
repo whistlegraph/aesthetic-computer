@@ -6056,7 +6056,7 @@ function paint($) {
     // Handle Stats - positioned directly under login button
     if (handles && screen.height >= 100) {
       // Position directly under the login button
-      let handlesY = screen.height - 16; // Default bottom position
+      let handlesY = screen.height - 28; // Default bottom position (moved up for version indicator)
 
       if (login && !login.btn.disabled && login.btn.box) {
         // Position directly under login button with extra spacing
@@ -6066,8 +6066,8 @@ function paint($) {
       // Use MatrixChunky8 font for more compact display, centered
       const handlesText = `${handles.toLocaleString()} HANDLES SET`;
 
-      // Shadow color (black in dark mode, white in light mode)
-      const handlesShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255];
+      // Shadow color (black in dark mode, dark gray in light mode for contrast)
+      const handlesShadowColor = $.dark ? [0, 0, 0] : [60, 60, 60];
 
       // Draw shadow first (offset by 1px) - noFunding to prevent $ replacement
       ink(...handlesShadowColor).write(
@@ -6133,8 +6133,8 @@ function paint($) {
           versionText = `? ${versionInfo.deployed || "unknown"}`;
         }
 
-        // Shadow
-        const versionShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255];
+        // Shadow (dark in both modes for readability)
+        const versionShadowColor = $.dark ? [0, 0, 0] : [40, 40, 40];
         ink(...versionShadowColor).write(
           versionText,
           { center: "x", y: versionY + 1, noFunding: true },
