@@ -240,11 +240,11 @@ async function playWaltz(client, waltzName) {
   return notesPlayed;
 }
 
-async function testChords(waltzName = 'simple-waltz') {
+async function testChords(waltzName = 'simple-waltz', loop = false) {
   
   try {
     console.log('');
-    testLog(`Starting Notepat Two-Handed Player`);
+    testLog(`Starting Notepat Two-Handed Player${loop ? ' (INFINITE LOOP)' : ''}`);
     console.log('');
     
     // Ensure panel is open
@@ -276,13 +276,32 @@ async function testChords(waltzName = 'simple-waltz') {
     console.log(`${CYAN}${'='.repeat(60)}${RESET}`);
     console.log('');
     console.log(`${YELLOW}Legend: Yellow=Melody, Cyan=Harmony/Chord, Magenta=Bass${RESET}`);
+    if (loop) {
+      console.log(`${YELLOW}Press Ctrl+C to stop${RESET}`);
+    }
     console.log('');
     
-    const measuresPlayed = await playWaltz(client, waltzName);
+    let totalMeasuresPlayed = 0;
+    let loopCount = 0;
+    
+    do {
+      if (loop && loopCount > 0) {
+        console.log(`\n${MAGENTA}--- Loop ${loopCount + 1} ---${RESET}\n`);
+      }
+      
+      const measuresPlayed = await playWaltz(client, waltzName);
+      totalMeasuresPlayed += measuresPlayed;
+      loopCount++;
+      
+      if (loop) {
+        // Brief pause between loops
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    } while (loop);
     
     console.log(`${CYAN}${'='.repeat(60)}${RESET}`);
     console.log('');
-    successLog(`Waltz complete! Played ${measuresPlayed} measures`);
+    successLog(`Waltz complete! Played ${totalMeasuresPlayed} measures`);
     console.log('');
     
     // Return to prompt
@@ -302,9 +321,20 @@ async function testChords(waltzName = 'simple-waltz') {
   }
 }
 
-// Parse waltz name from command line
-const waltzName = process.argv[2] || 'simple-waltz';
+// Parse waltz name and loop flag from command line
+const args = process.argv.slice(2);
+let waltzName = 'simple-waltz';
+let loop = false;
+
+for (const arg of args) {
+  if (arg === 'loop' || arg === 'infinite' || arg === 'forever') {
+    loop = true;
+  } else if (waltzes[arg]) {
+    waltzName = arg;
+  }
+}
 
 console.log(`${CYAN}🎵 Available waltzes: ${Object.keys(waltzes).join(', ')}${RESET}`);
+console.log(`${CYAN}💡 Add 'loop' or 'infinite' to play forever${RESET}`);
 
-testChords(waltzName);
+testChords(waltzName, loop);
