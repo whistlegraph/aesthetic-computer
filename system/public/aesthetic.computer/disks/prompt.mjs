@@ -643,9 +643,22 @@ async function boot({
   // Fetch git commit/version status
   const fetchVersion = async () => {
     try {
-      // Skip on localhost - Netlify functions not available
+      // On localhost, fetch GitHub directly to show latest remote commit
       if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-        versionInfo = { deployed: "local", status: "local" };
+        const ghRes = await fetch(
+          "https://api.github.com/repos/whistlegraph/aesthetic-computer/commits?per_page=1",
+          { headers: { Accept: "application/vnd.github.v3+json" } }
+        );
+        if (ghRes.ok) {
+          const commits = await ghRes.json();
+          versionInfo = {
+            deployed: "dev",
+            latest: commits[0]?.sha?.slice(0, 7),
+            status: "local",
+          };
+        } else {
+          versionInfo = { deployed: "dev", status: "local" };
+        }
         needsPaint();
         return;
       }
@@ -6103,18 +6116,18 @@ function paint($) {
 
       // Git commit status indicator - below handles
       if (versionInfo && screen.height >= 120) {
-        const versionY = handlesY + 12;
+        const versionY = handlesY + 10;
         let versionText, versionColor;
 
         if (versionInfo.status === "current") {
           versionColor = [0, 255, 0]; // Green
-          versionText = `✓ ${versionInfo.deployed}`;
+          versionText = `OK ${versionInfo.deployed}`;
         } else if (versionInfo.status === "behind") {
           versionColor = [255, 165, 0]; // Orange
-          versionText = `↑ ${versionInfo.behindBy} behind (${versionInfo.deployed})`;
+          versionText = `+${versionInfo.behindBy} ${versionInfo.latest} (${versionInfo.deployed})`;
         } else if (versionInfo.status === "local") {
           versionColor = [100, 200, 255]; // Light blue for local dev
-          versionText = `⚙ local`;
+          versionText = versionInfo.latest ? `DEV -> ${versionInfo.latest}` : `DEV`;
         } else {
           versionColor = [128, 128, 128]; // Gray for unknown
           versionText = `? ${versionInfo.deployed || "unknown"}`;
