@@ -6,21 +6,24 @@ importScripts(
   "https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js",
 );
 
+// Load runtime Firebase config (served from env vars via Netlify function).
+// If config is missing, notifications stay disabled.
+try {
+  importScripts("/api/firebase-config?format=sw");
+} catch (e) {
+  // Silent: don't break SW install if endpoint is unavailable.
+}
+
 // Initialize the Firebase app in the service worker by passing in
 // your app's Firebase config object.
 // https://firebase.google.com/docs/web/setup#config-object
-firebase.initializeApp({
-  apiKey: "AIzaSyBZJ4b5KaHUW0q__FDUwHPrDd0NX2umJ3A",
-  authDomain: "aesthetic-computer.firebaseapp.com",
-  projectId: "aesthetic-computer",
-  storageBucket: "aesthetic-computer.appspot.com",
-  messagingSenderId: "839964586768",
-  appId: "1:839964586768:web:466139ee473df1954ceb95",
-});
+if (self.AC_FIREBASE_CONFIG?.apiKey) {
+  firebase.initializeApp(self.AC_FIREBASE_CONFIG);
+}
 
 // Retrieve an instance of Firebase Messaging so that it can handle background
 // messages.
-const messaging = firebase.messaging();
+const messaging = self.AC_FIREBASE_CONFIG?.apiKey ? firebase.messaging() : null;
 
 // messaging.onBackgroundMessage((payload) => {
 //   console.log("🗨️ Received background message:", payload);
