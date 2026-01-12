@@ -3620,32 +3620,36 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
         worker.onmessage = (e) => {
           if (workerFailed) return; // Ignore messages if we've switched to fallback
+          
+          // Handle worker-ready signal from disk.mjs
+          if (e.data?.type === "worker-ready") {
+            if (workerInitialized) return; // Already initialized (shouldn't happen)
+            workerInitialized = true;
+            workerReady = true;
+            perf.markBoot("worker-connected");
+            
+            // Notify parent that worker is connected
+            const workerConnectTime = performance.now();
+            const workerElapsed = Math.round(workerConnectTime - diskLoadStartTime);
+            if (window.acBOOT_LOG) {
+              window.acBOOT_LOG(`connecting to worker (${workerElapsed}ms)`);
+            } else if (window.parent) {
+              window.parent.postMessage({ 
+                type: "boot-log", 
+                message: `connecting to worker (${workerElapsed}ms)` 
+              }, "*");
+            }
+
+            // NOW send the initial message - disk.mjs is ready to receive it
+            perf.markBoot("first-message-sent");
+            send(firstMessage);
+            consumeDiskSends(send);
+            return;
+          }
+          
           workerReady = true;
           onMessage(e);
         };
-        
-        // Only log and send firstMessage on first successful worker setup (not retries)
-        if (!workerInitialized) {
-          workerInitialized = true;
-          perf.markBoot("worker-connected");
-          
-          // Notify parent that worker is connected
-          const workerConnectTime = performance.now();
-          const workerElapsed = Math.round(workerConnectTime - diskLoadStartTime);
-          if (window.acBOOT_LOG) {
-            window.acBOOT_LOG(`connecting to worker (${workerElapsed}ms)`);
-          } else if (window.parent) {
-            window.parent.postMessage({ 
-              type: "boot-log", 
-              message: `connecting to worker (${workerElapsed}ms)` 
-            }, "*");
-          }
-
-          // Send the initial message immediately
-          perf.markBoot("first-message-sent");
-          send(firstMessage);
-          consumeDiskSends(send);
-        }
       }
     };
     

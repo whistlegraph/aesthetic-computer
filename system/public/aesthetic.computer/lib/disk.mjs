@@ -8722,6 +8722,9 @@ if (_workerReadyTime - _importStart > 50) {
 // Start by responding to a load message, then change
 // the message response to makeFrame.
 if (isWorker) {
+  // Signal to bios.mjs that disk.mjs has loaded successfully
+  postMessage({ type: "worker-ready" });
+  
   onmessage = (e) => {
     // DEBUG: Log DAW messages only when debugging
     if (e.data?.type?.startsWith?.("daw:") && logs.daw) {
