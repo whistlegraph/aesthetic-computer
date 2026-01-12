@@ -5,7 +5,6 @@
 // import * as vec2 from "../dep/gl-matrix/vec2.mjs";
 // import * as vec3 from "../dep/gl-matrix/vec3.mjs";
 // import * as vec4 from "../dep/gl-matrix/vec4.mjs";
-import { anyKey } from "./help.mjs";
 
 // export { vec2, vec3, vec4, mat3, mat4, quat };
 
@@ -225,6 +224,12 @@ export function rand() {
 // Generates an integer from 0-n (inclusive)
 export function randInt(n) {
   return floor(rand() * (n + 1));
+}
+
+// Returns a random key from an object.
+export function anyKey(obj) {
+  const keys = Object.keys(obj);
+  return keys[randInt(keys.length - 1)];
 }
 
 // Generates a random index from an array.

@@ -1,5 +1,8 @@
 import * as num from "./num.mjs";
 
+// Re-export anyKey from num.mjs (moved there to break circular dependency)
+export { anyKey } from "./num.mjs";
+
 const { floor } = Math;
 
 // Randomly returns one of the arguments.
@@ -30,12 +33,6 @@ export function any(objOrArray) {
     const keys = Object.keys(objOrArray);
     return objOrArray[keys[(keys.length * Math.random()) << 0]];
   }
-}
-
-// Returns a random key from an object.
-export function anyKey(obj) {
-  const keys = Object.keys(obj);
-  return keys[num.randInt(keys.length - 1)];
 }
 
 // Shuffles an array: https://stackoverflow.com/a/2450976
