@@ -11580,6 +11580,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       // Reset glaze state only if it was actually on
       if (glaze.on) {
+        Glaze.clear(); // Clear WebGL buffer to prevent stale content
         Glaze.off();
         glaze.on = false;
         // Don't set needsGPUCleanup here - glaze doesn't require reframe
@@ -15427,6 +15428,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const wasOn = glaze.on;
       glaze = content;
       if (glaze.on === false) {
+        Glaze.clear(); // Clear WebGL buffer before hiding to prevent stale content
         Glaze.off();
         canvas.style.removeProperty("opacity");
       } else if (glaze.on === true && !wasOn) {
