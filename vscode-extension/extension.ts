@@ -226,13 +226,18 @@ async function checkLocalServer(): Promise<boolean> {
         {
           hostname: "localhost",
           port: 8888,
-          path: "/",
-          method: "HEAD",
+          // HEAD can return 404/redirect even when the server is healthy.
+          // We only care that something is listening and responding.
+          path: `/?vscode=1&ts=${Date.now()}`,
+          method: "GET",
           rejectUnauthorized: false, // Allow self-signed certs
           timeout: 2000,
         },
         (res) => {
-          resolve(res.statusCode === 200 || res.statusCode === 304);
+          // Any response means the server is reachable.
+          resolve(true);
+          // Ensure we don't hang waiting for body data.
+          res.resume();
         }
       );
       req.on("error", () => resolve(false));
