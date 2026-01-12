@@ -257,21 +257,21 @@ export class CamDoll {
 
       // 🕹️ ANALOG STICK LOOKING (for standard controllers with right analog stick)
       if (!is8BitDoMicro) {
-        // Axis 3: Look Up/Down (right stick vertical)
+        // Axis 3: Look Up/Down (right stick vertical) → controls pitch (rotX)
         if (e.is("gamepad:0:axis:3:move")) {
-          if (abs(e.value) < deadzone) {
-            this.#ANALOG.look.y = 0;
-          } else {
-            this.#ANALOG.look.y = -e.value * lookDamp;
-          }
-        }
-
-        // Axis 2: Look Left/Right (right stick horizontal)
-        if (e.is("gamepad:0:axis:2:move")) {
           if (abs(e.value) < deadzone) {
             this.#ANALOG.look.x = 0;
           } else {
             this.#ANALOG.look.x = -e.value * lookDamp;
+          }
+        }
+
+        // Axis 2: Look Left/Right (right stick horizontal) → controls yaw (rotY)
+        if (e.is("gamepad:0:axis:2:move")) {
+          if (abs(e.value) < deadzone) {
+            this.#ANALOG.look.y = 0;
+          } else {
+            this.#ANALOG.look.y = e.value * lookDamp;
           }
         }
       }
