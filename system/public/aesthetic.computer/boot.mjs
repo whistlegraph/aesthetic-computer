@@ -1389,17 +1389,26 @@ try {
     "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js"
   );
 
-  function setupNotifications() {
-    // Your web app's Firebase configuration
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-    const firebaseConfig = {
-      apiKey: "AIzaSyBZJ4b5KaHUW0q__FDUwHPrDd0NX2umJ3A",
-      authDomain: "aesthetic-computer.firebaseapp.com",
-      projectId: "aesthetic-computer",
-      storageBucket: "aesthetic-computer.appspot.com",
-      messagingSenderId: "839964586768",
-      appId: "1:839964586768:web:466139ee473df1954ceb95",
-    };
+  async function getFirebaseClientConfig() {
+    // 1) Optional: page can inject config at runtime.
+    if (window.AC_FIREBASE_CONFIG?.apiKey) return window.AC_FIREBASE_CONFIG;
+
+    // 2) Default: fetch from Netlify function so secrets aren't in git.
+    try {
+      const res = await fetch("/api/firebase-config", {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async function setupNotifications() {
+    const firebaseConfig = await getFirebaseClientConfig();
+    if (!firebaseConfig?.apiKey) return;
 
     const app = initializeApp(firebaseConfig);
     const messaging = getMessaging(app);
@@ -1448,7 +1457,7 @@ try {
   }
 
   // Call the setup function  
-  setupNotifications();
+  await setupNotifications();
 } catch (err) {
   console.warn("🔥 Could not initialize firebase notifications:", err);
 }
