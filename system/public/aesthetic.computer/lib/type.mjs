@@ -1447,6 +1447,28 @@ class TextInput {
     $.send({ type: "keyboard:enabled" });
   }
 
+  // 🔤 Change the font dynamically
+  async setFont(fontName) {
+    if (!fontName || fontName === this.typeface?.name) return;
+    
+    // Load the new typeface
+    const newTypeface = new Typeface(fontName);
+    await newTypeface.load(this.$.net.preload, () => {
+      this._needsRepaint = true;
+    });
+    
+    this.typeface = newTypeface;
+    this.#moveThreshold = newTypeface.blockWidth;
+    
+    // Update the prompt with the new typeface
+    const blockWidth = newTypeface.blockWidth;
+    this.#prompt.typeface = newTypeface;
+    this.#prompt.letterWidth = blockWidth;
+    this.#prompt.letterHeight = newTypeface.blockHeight;
+    
+    this._needsRepaint = true;
+  }
+
   // Stretches the gutter to be the screen width minus two slots.
   fullGutter($) {
     this.gutter = Math.min(

@@ -259,6 +259,175 @@ import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture
    
 #endregion */
 
+// ==================== CHAOS MODE DETECTION ====================
+// Chaos mode provides visual output for invalid/random input instead of error spam.
+// This makes the system more welcoming - any input produces something interesting.
+
+// Known KidLisp function names (canonical list for chaos detection)
+const KIDLISP_FUNCTIONS = new Set([
+  // Core drawing
+  "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed",
+  "tri", "plot", "shape", "lines", "rect", "ellipse", "arc", "curve", "bezier",
+  // Output
+  "print", "debug", "log", "console",
+  // Math
+  "random", "sin", "cos", "tan", "floor", "ceil", "round", "abs", "sqrt", "min", "max", "pow",
+  "noise", "lerp", "map", "constrain", "dist",
+  // Logic
+  "choose", "?", "...", "..", "if", "cond", "and", "or", "not", "no", "yes",
+  // Audio
+  "overtone", "mic", "amplitude", "melody", "speaker", "tone", "beep", "sound",
+  // Display
+  "resolution", "scroll", "spin", "resetSpin", "smoothspin", "zoom", "blur", "contrast", "pan", "unpan",
+  "mask", "unmask", "steal", "putback", "fill", "outline", "stroke", "nofill", "nostroke",
+  // Animation
+  "wiggle", "sort", "fade", "jump", "bake", "frame", "fps",
+  // Variables
+  "def", "set", "let", "var", "const",
+  // Control
+  "tap", "draw", "now", "die", "later", "repeat", "loop", "range", "each", "for", "while",
+  // Data
+  "label", "len", "list", "get", "first", "rest", "push", "pop", "slice", "concat", "reverse",
+  // Misc
+  "mul", "add", "sub", "div", "mod", "width", "height", "time", "elapsed", "delta",
+  // Special
+  "rainbow", "zebra", "gradient"
+]);
+
+// Common CSS color names that are valid in KidLisp
+const KIDLISP_COLORS = new Set([
+  "red", "green", "blue", "yellow", "orange", "purple", "pink", "cyan", "magenta",
+  "black", "white", "gray", "grey", "brown", "lime", "navy", "teal", "olive",
+  "maroon", "aqua", "fuchsia", "silver", "gold", "coral", "salmon", "khaki",
+  "indigo", "violet", "turquoise", "tomato", "crimson", "lavender", "beige",
+  "plum", "orchid", "tan", "chocolate", "sienna", "peru", "wheat"
+]);
+
+// All known KidLisp words (for recognition testing)
+const KIDLISP_VOCABULARY = new Set([...KIDLISP_FUNCTIONS, ...KIDLISP_COLORS]);
+
+/**
+ * Detect if source code is "chaotic" - meaning it's unlikely to parse correctly
+ * as valid KidLisp and should instead produce artistic visual output.
+ * 
+ * Detection criteria:
+ * 1. Low recognition ratio (< 30% known words)
+ * 2. High special character ratio (> 50% non-alphanumeric)
+ * 3. Severely unbalanced parentheses (ratio > 3:1 or < 1:3)
+ * 4. Very short inputs that aren't valid (< 3 chars)
+ * 
+ * @param {string} source - The source code to analyze
+ * @returns {{ isChaotic: boolean, confidence: number, reason: string }} Detection result
+ */
+function isChaoticSource(source) {
+  if (!source || typeof source !== 'string') {
+    return { isChaotic: true, confidence: 1.0, reason: 'empty or invalid input' };
+  }
+  
+  const trimmed = source.trim();
+  
+  // Very short input - could be a typo or single character
+  if (trimmed.length < 3) {
+    // Single color names or tiny valid code are OK
+    if (KIDLISP_VOCABULARY.has(trimmed.toLowerCase())) {
+      return { isChaotic: false, confidence: 0.0, reason: 'known word' };
+    }
+    // Single number is valid
+    if (/^\d+$/.test(trimmed)) {
+      return { isChaotic: false, confidence: 0.0, reason: 'valid number' };
+    }
+    return { isChaotic: true, confidence: 0.8, reason: 'too short to be valid' };
+  }
+  
+  // Check parenthesis balance
+  const openParens = (source.match(/\(/g) || []).length;
+  const closeParens = (source.match(/\)/g) || []).length;
+  const parenDiff = Math.abs(openParens - closeParens);
+  const maxParens = Math.max(openParens, closeParens, 1);
+  const parenBalance = parenDiff / maxParens;
+  
+  // Severe imbalance suggests random typing
+  if (parenBalance > 0.7 && maxParens > 3) {
+    return { isChaotic: true, confidence: 0.85, reason: `severely unbalanced parentheses (${openParens} open, ${closeParens} close)` };
+  }
+  
+  // Extract words (alphanumeric sequences)
+  const words = source.toLowerCase().match(/[a-z_][a-z0-9_]*/gi) || [];
+  
+  // Count recognized vs total words
+  const recognizedWords = words.filter(w => KIDLISP_VOCABULARY.has(w.toLowerCase()));
+  const recognitionRatio = words.length > 0 ? recognizedWords.length / words.length : 0;
+  
+  // Count special characters vs total length
+  const alphanumeric = source.replace(/[^a-zA-Z0-9\s]/g, '');
+  const specialRatio = 1 - (alphanumeric.length / source.length);
+  
+  // Calculate chaos confidence
+  let chaosScore = 0;
+  let reasons = [];
+  
+  // Low word recognition
+  if (recognitionRatio < 0.2 && words.length >= 3) {
+    chaosScore += 0.4;
+    reasons.push(`low word recognition (${Math.round(recognitionRatio * 100)}%)`);
+  } else if (recognitionRatio < 0.35 && words.length >= 2) {
+    chaosScore += 0.25;
+    reasons.push(`moderate word recognition (${Math.round(recognitionRatio * 100)}%)`);
+  }
+  
+  // High special character content
+  if (specialRatio > 0.6) {
+    chaosScore += 0.35;
+    reasons.push(`high special char ratio (${Math.round(specialRatio * 100)}%)`);
+  } else if (specialRatio > 0.45) {
+    chaosScore += 0.2;
+    reasons.push(`moderate special char ratio (${Math.round(specialRatio * 100)}%)`);
+  }
+  
+  // Parenthesis issues (mild)
+  if (parenBalance > 0.4 && maxParens > 2) {
+    chaosScore += 0.2;
+    reasons.push(`unbalanced parens (${openParens}/${closeParens})`);
+  }
+  
+  // No valid words at all in a longer input
+  if (words.length === 0 && trimmed.length > 10) {
+    chaosScore += 0.5;
+    reasons.push('no recognizable words');
+  }
+  
+  // No parentheses at all in longer input (valid KidLisp usually has parens)
+  if (openParens === 0 && closeParens === 0 && trimmed.length > 20) {
+    // Check if it's just a color name or simple expression
+    if (!KIDLISP_VOCABULARY.has(trimmed.toLowerCase())) {
+      chaosScore += 0.3;
+      reasons.push('no parentheses in long input');
+    }
+  }
+  
+  const isChaotic = chaosScore >= 0.5;
+  
+  return {
+    isChaotic,
+    confidence: Math.min(chaosScore, 1.0),
+    reason: reasons.length > 0 ? reasons.join(', ') : 'appears valid',
+    stats: {
+      words: words.length,
+      recognized: recognizedWords.length,
+      recognitionRatio,
+      specialRatio,
+      openParens,
+      closeParens,
+      parenBalance
+    }
+  };
+}
+
+// Export for testing
+export { isChaoticSource, KIDLISP_VOCABULARY, KIDLISP_FUNCTIONS, KIDLISP_COLORS };
+
+// ==================== END CHAOS MODE DETECTION ====================
+
 // Global cache registry for storing cached codes by source hash
 const cacheRegistry = new Map();
 
@@ -3277,6 +3446,27 @@ class KidLisp {
     // console.log("�");
     // console.log(source);
     // console.log("�");
+    
+    // 🌀 CHAOS MODE DETECTION
+    // Check if the source looks like random/invalid input before attempting to parse.
+    // If chaotic, we'll generate visual output instead of spamming error messages.
+    const chaosResult = isChaoticSource(source);
+    if (chaosResult.isChaotic) {
+      console.log(`🌀 Chaos mode detected (${Math.round(chaosResult.confidence * 100)}% confidence): ${chaosResult.reason}`);
+      // Store chaos info for the evaluator to use
+      this.chaosMode = {
+        active: true,
+        source: source,
+        confidence: chaosResult.confidence,
+        reason: chaosResult.reason,
+        stats: chaosResult.stats
+      };
+      // Return a minimal valid AST that will trigger chaos rendering
+      // The evaluator will check this.chaosMode and produce visuals
+      return [['__chaos__', source]];
+    }
+    this.chaosMode = null; // Clear chaos mode for valid code
+    
     perfStart("parse");
     const parsed = this.parse(source);
     perfEnd("parse");
@@ -4138,6 +4328,207 @@ class KidLisp {
     // Simple linear congruential generator for deterministic sequences
     this.randomState = (this.randomState * 1664525 + 1013904223) % 4294967296;
     return this.randomState / 4294967296;
+  }
+
+  // 🌀 CHAOS MODE EVALUATOR
+  // Generate artistic visuals from invalid/random input.
+  // The input is hashed to create deterministic but varied output.
+  evaluateChaos(source, api) {
+    if (!api.wipe || !api.ink || !api.box) {
+      console.log("🌀 Chaos mode: Missing required API functions");
+      return;
+    }
+    
+    const chaos = this.chaosMode;
+    const width = api.screen?.width || 256;
+    const height = api.screen?.height || 256;
+    
+    // Create a seeded random from the source string for deterministic output
+    let seed = 0;
+    for (let i = 0; i < source.length; i++) {
+      seed = ((seed << 5) - seed) + source.charCodeAt(i);
+      seed = seed & seed;
+    }
+    const seededRand = () => {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      return (seed >>> 0) / 4294967296;
+    };
+    
+    // Animate based on frame count
+    const frame = api.num?.frame || this.frameCount || 0;
+    
+    // Choose a chaos visual mode based on source hash
+    const mode = Math.abs(seed) % 6;
+    
+    console.log(`🌀 Chaos mode rendering (mode ${mode}): "${source.substring(0, 30)}..."`);
+    
+    switch (mode) {
+      case 0: // Rainbow static - each character = colored pixel
+        api.wipe(0, 0, 0);
+        for (let i = 0; i < source.length && i < 1000; i++) {
+          const char = source.charCodeAt(i);
+          const x = (i * 7 + char) % width;
+          const y = Math.floor(i / (width / 7)) * 3 % height;
+          const hue = ((char * 37 + frame) % 360);
+          // Convert hue to RGB
+          const [r, g, b] = this.hueToRgb(hue);
+          api.ink(r, g, b);
+          api.box(x, y, 3, 3);
+        }
+        break;
+        
+      case 1: // Pulsing concentric circles based on text length
+        {
+          const bg = Math.floor(seededRand() * 40);
+          api.wipe(bg, bg, bg + 20);
+          const numCircles = Math.min(source.length / 5, 20);
+          for (let i = 0; i < numCircles; i++) {
+            const radius = (i + 1) * (Math.min(width, height) / numCircles / 2);
+            const pulse = Math.sin((frame + i * 10) * 0.05) * 0.3 + 0.7;
+            const hue = ((i * 30 + seed) % 360);
+            const [r, g, b] = this.hueToRgb(hue);
+            api.ink(Math.floor(r * pulse), Math.floor(g * pulse), Math.floor(b * pulse), 150);
+            // Draw circle as a series of boxes (simple approximation)
+            this.drawChaosCircle(api, width / 2, height / 2, radius * pulse, 2);
+          }
+        }
+        break;
+        
+      case 2: // Wave interference pattern
+        {
+          api.wipe(10, 10, 30);
+          const step = 4;
+          for (let y = 0; y < height; y += step) {
+            for (let x = 0; x < width; x += step) {
+              const wave1 = Math.sin((x + frame) * 0.05 + seed * 0.01);
+              const wave2 = Math.cos((y - frame * 0.5) * 0.03 + source.length * 0.1);
+              const wave3 = Math.sin((x + y + frame * 0.3) * 0.02);
+              const intensity = (wave1 + wave2 + wave3 + 3) / 6;
+              const hue = ((x + y + seed) % 360);
+              const [r, g, b] = this.hueToRgb(hue);
+              api.ink(Math.floor(r * intensity), Math.floor(g * intensity), Math.floor(b * intensity));
+              api.box(x, y, step, step);
+            }
+          }
+        }
+        break;
+        
+      case 3: // Text DNA helix
+        {
+          api.wipe(20, 10, 30);
+          const chars = source.slice(0, 100);
+          for (let i = 0; i < chars.length; i++) {
+            const char = chars.charCodeAt(i);
+            const t = (i / chars.length) * Math.PI * 4 + frame * 0.02;
+            const x1 = width / 2 + Math.sin(t) * (width / 4);
+            const x2 = width / 2 - Math.sin(t) * (width / 4);
+            const y = (i / chars.length) * height;
+            
+            const depth = (Math.sin(t) + 1) / 2;
+            const size = 3 + depth * 5;
+            
+            // Strand 1
+            const [r1, g1, b1] = this.hueToRgb((char * 10 + frame) % 360);
+            api.ink(r1, g1, b1, Math.floor(100 + depth * 155));
+            api.box(x1 - size / 2, y, size, size);
+            
+            // Strand 2
+            const [r2, g2, b2] = this.hueToRgb((char * 10 + 180 + frame) % 360);
+            api.ink(r2, g2, b2, Math.floor(100 + (1 - depth) * 155));
+            api.box(x2 - size / 2, y, size, size);
+            
+            // Connector
+            if (i % 5 === 0) {
+              api.ink(100, 100, 100, 80);
+              const lineY = y;
+              const minX = Math.min(x1, x2);
+              const maxX = Math.max(x1, x2);
+              api.box(minX, lineY, maxX - minX, 1);
+            }
+          }
+        }
+        break;
+        
+      case 4: // Matrix rain from characters
+        {
+          api.wipe(0, 10, 0);
+          const cols = Math.floor(width / 8);
+          for (let col = 0; col < cols; col++) {
+            const colSeed = (seed + col * 97) & 0xFFFF;
+            const speed = 1 + (colSeed % 3);
+            const offset = (frame * speed + colSeed) % (height + 100);
+            
+            for (let i = 0; i < 15; i++) {
+              const charIdx = (col + i * 7) % source.length;
+              const y = offset - i * 10;
+              if (y >= 0 && y < height) {
+                const fade = 1 - (i / 15);
+                const bright = Math.floor(100 + fade * 155);
+                api.ink(0, bright, 0);
+                api.box(col * 8, y, 6, 8);
+              }
+            }
+          }
+        }
+        break;
+        
+      case 5: // Kaleidoscope from source
+      default:
+        {
+          const bgHue = seed % 360;
+          const [bgR, bgG, bgB] = this.hueToRgb(bgHue);
+          api.wipe(Math.floor(bgR * 0.2), Math.floor(bgG * 0.2), Math.floor(bgB * 0.2));
+          
+          const segments = 8;
+          const cx = width / 2;
+          const cy = height / 2;
+          
+          for (let i = 0; i < Math.min(source.length, 50); i++) {
+            const char = source.charCodeAt(i);
+            const r = (char % 100) + 20 + Math.sin(frame * 0.02 + i) * 20;
+            const baseAngle = (i / 50) * Math.PI * 2 + frame * 0.01;
+            
+            for (let seg = 0; seg < segments; seg++) {
+              const angle = baseAngle + (seg / segments) * Math.PI * 2;
+              const x = cx + Math.cos(angle) * r;
+              const y = cy + Math.sin(angle) * r;
+              
+              const hue = (char * 7 + seg * 45 + frame) % 360;
+              const [pr, pg, pb] = this.hueToRgb(hue);
+              api.ink(pr, pg, pb, 200);
+              api.box(x - 2, y - 2, 4, 4);
+            }
+          }
+        }
+        break;
+    }
+    
+    return undefined;
+  }
+  
+  // Helper: Convert hue (0-360) to RGB
+  hueToRgb(hue) {
+    const h = hue / 60;
+    const c = 255;
+    const x = Math.floor(c * (1 - Math.abs(h % 2 - 1)));
+    
+    if (h < 1) return [c, x, 0];
+    if (h < 2) return [x, c, 0];
+    if (h < 3) return [0, c, x];
+    if (h < 4) return [0, x, c];
+    if (h < 5) return [x, 0, c];
+    return [c, 0, x];
+  }
+  
+  // Helper: Draw a circle using boxes (for chaos mode)
+  drawChaosCircle(api, cx, cy, radius, thickness) {
+    const steps = Math.max(16, Math.floor(radius * 0.5));
+    for (let i = 0; i < steps; i++) {
+      const angle = (i / steps) * Math.PI * 2;
+      const x = cx + Math.cos(angle) * radius - thickness / 2;
+      const y = cy + Math.sin(angle) * radius - thickness / 2;
+      api.box(x, y, thickness, thickness);
+    }
   }
 
   // Main parsing method - handles both single expressions and multi-line input
@@ -8310,6 +8701,12 @@ class KidLisp {
         }
       }
       return undefined;
+    }
+    
+    // 🌀 CHAOS MODE: Generate artistic visuals from invalid/random input
+    if (Array.isArray(parsed) && parsed.length === 1 && 
+        Array.isArray(parsed[0]) && parsed[0][0] === '__chaos__') {
+      return this.evaluateChaos(parsed[0][1], api);
     }
     
     // 📊 Execution trace for kidlisp.com visualization
