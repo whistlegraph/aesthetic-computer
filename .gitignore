@@ -296,3 +296,8 @@ ac-vst/vst3sdk/
 
 # Devcontainer entry logs
 .devcontainer/entry-logs/
+
+# GPU/Vello WASM Rust build artifacts
+gpu/vello-wasm/target/
+gpu/vello-wasm/pkg/
+gpu/vello-wasm/Cargo.lock
