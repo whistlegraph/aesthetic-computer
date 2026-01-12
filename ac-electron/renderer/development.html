@@ -730,11 +730,19 @@
     }
 
     // Webview load handlers
-    webview.addEventListener('did-finish-load', () => {
+    webview.addEventListener('did-finish-load', async () => {
       const baseUrl = URLS[currentEnv];
       if (webview.src.startsWith(baseUrl) || webview.src.startsWith(URLS.prod)) {
         serverConnected = true;
         statusMessage.textContent = 'Connected!';
+        
+        // Inject Electron app info into webview for pieces like desktop.mjs
+        try {
+          const appInfo = await ipcRenderer.invoke('get-app-info');
+          await webview.executeJavaScript(`window.acElectronApp = ${JSON.stringify(appInfo)};`);
+        } catch (e) {
+          console.warn('Could not inject app info:', e);
+        }
         
         setTimeout(() => {
           connectionOverlay.classList.add('hidden');
