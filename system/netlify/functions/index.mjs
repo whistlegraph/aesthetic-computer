@@ -882,7 +882,9 @@ async function fun(event, context) {
           type="module"
           defer
         ></script>
-        ${dev ? `<!-- Modulepreload hints skipped on localhost (using WebSocket module loading) -->` : `<!-- Modulepreload hints for critical path modules (parallel fetch) -->
+        ${dev ? `<!-- Modulepreload for module-loader (needed for fast WebSocket connection) -->
+        <link rel="modulepreload" href="/aesthetic.computer/module-loader.mjs" />` : `<!-- Modulepreload hints for critical path modules (parallel fetch) -->
+        <link rel="modulepreload" href="/aesthetic.computer/module-loader.mjs" />
         <link rel="modulepreload" href="/aesthetic.computer/bios.mjs" />
         <link rel="modulepreload" href="/aesthetic.computer/lib/parse.mjs" />
         <link rel="modulepreload" href="/aesthetic.computer/lib/disk.mjs" />
