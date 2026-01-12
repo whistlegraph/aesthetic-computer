@@ -39,6 +39,35 @@ import crypto from "crypto";
 import dotenv from "dotenv";
 dotenv.config();
 
+// Module streaming - path to public directory
+const PUBLIC_DIR = path.resolve(process.cwd(), "../system/public/aesthetic.computer");
+
+// Module hash cache (invalidated on file change)
+const moduleHashes = new Map(); // path -> { hash, content, mtime }
+
+// Compute hash for a module file
+function getModuleHash(modulePath) {
+  const fullPath = path.join(PUBLIC_DIR, modulePath);
+  try {
+    const stats = fs.statSync(fullPath);
+    const cached = moduleHashes.get(modulePath);
+    
+    // Return cached if mtime matches
+    if (cached && cached.mtime === stats.mtimeMs) {
+      return cached;
+    }
+    
+    // Read and hash
+    const content = fs.readFileSync(fullPath, "utf8");
+    const hash = crypto.createHash("sha256").update(content).digest("hex").slice(0, 16);
+    const entry = { hash, content, mtime: stats.mtimeMs };
+    moduleHashes.set(modulePath, entry);
+    return entry;
+  } catch (err) {
+    return null;
+  }
+}
+
 // Error logging ring buffer (for dashboard display)
 const errorLog = [];
 const MAX_ERRORS = 50;
@@ -341,6 +370,23 @@ fastify.post("/update", (request, reply) => {
 fastify.get("/robots.txt", async (req, reply) => {
   reply.type("text/plain");
   return "User-agent: *\nDisallow: /";
+});
+
+// *** Module HTTP endpoint - serve modules directly (bypasses Netlify proxy) ***
+// Used by boot.mjs on localhost when the main proxy is flaky
+fastify.get("/module/*", async (req, reply) => {
+  const modulePath = req.params["*"];
+  const moduleData = getModuleHash(modulePath);
+  
+  if (moduleData) {
+    reply
+      .header("Content-Type", "application/javascript; charset=utf-8")
+      .header("Access-Control-Allow-Origin", "*")
+      .header("Cache-Control", "no-cache")
+      .send(moduleData.content);
+  } else {
+    reply.status(404).send({ error: "Module not found", path: modulePath });
+  }
 });
 
 // *** Build Stream - pipe terminal output to WebSocket clients ***
@@ -1281,6 +1327,155 @@ wss.on("connection", (ws, req) => {
       msg = JSON.parse(data.toString());
     } catch (error) {
       console.error("📚 Failed to parse JSON:", error);
+      return;
+    }
+
+    // 📦 Module streaming - handle module requests before other processing
+    if (msg.type === "module:request") {
+      const modulePath = msg.path;
+      const withDeps = msg.withDeps === true; // Request all dependencies too
+      
+      if (withDeps) {
+        // Recursively gather all dependencies
+        const modules = {};
+        const gatherDeps = (p, fromPath = null) => {
+          if (modules[p]) return; // Already gathered
+          const data = getModuleHash(p);
+          if (!data) {
+            // Only warn for top-level not found, not for deps (which might be optional)
+            if (!fromPath) log(`📦 Module not found: ${p}`);
+            return;
+          }
+          modules[p] = { hash: data.hash, content: data.content };
+          
+          // Debug: show when gathering specific important modules
+          if (p.includes('headers') || p.includes('kidlisp')) {
+            log(`📦 Gathering ${p} (from ${fromPath || 'top'})`);
+          }
+          
+          // Parse static imports from content - match ES module import/export from statements
+          // This regex only matches valid relative imports ending in .mjs or .js
+          // Skip commented lines by checking each line doesn't start with //
+          const staticImportRegex = /^(?!\s*\/\/).*?(?:import|export)\s+(?:[^;]*?\s+from\s+)?["'](\.{1,2}\/[^"'\s]+\.m?js)["']/gm;
+          let match;
+          while ((match = staticImportRegex.exec(data.content)) !== null) {
+            const importPath = match[1];
+            // Skip invalid paths
+            if (importPath.includes('...') || importPath.length > 200) continue;
+            
+            // Resolve relative path
+            const dir = path.dirname(p);
+            const resolved = path.normalize(path.join(dir, importPath));
+            log(`📦 Found dep: ${p} -> ${importPath} (resolved: ${resolved})`);
+            gatherDeps(resolved, p);
+          }
+          
+          // Parse dynamic imports - import("./path") or import('./path') or import(`./path`)
+          // Skip commented lines
+          const dynamicImportRegex = /^(?!\s*\/\/).*?import\s*\(\s*["'`](\.{1,2}\/[^"'`\s]+\.m?js)["'`]\s*\)/gm;
+          while ((match = dynamicImportRegex.exec(data.content)) !== null) {
+            const importPath = match[1];
+            // Skip invalid paths
+            if (importPath.includes('...') || importPath.length > 200) continue;
+            
+            // Resolve relative path
+            const dir = path.dirname(p);
+            const resolved = path.normalize(path.join(dir, importPath));
+            gatherDeps(resolved, p);
+          }
+        };
+        
+        gatherDeps(modulePath);
+        
+        if (Object.keys(modules).length > 0) {
+          // Log which modules are in the bundle
+          const moduleList = Object.keys(modules);
+          const hasKidlisp = moduleList.includes('lib/kidlisp.mjs');
+          const hasHeaders = moduleList.includes('lib/headers.mjs');
+          log(`📦 Bundle for ${modulePath}: ${moduleList.length} modules (kidlisp: ${hasKidlisp}, headers: ${hasHeaders})`);
+          
+          ws.send(JSON.stringify({
+            type: "module:bundle",
+            entry: modulePath,
+            modules: modules
+          }));
+          log(`📦 Bundle sent: ${modulePath} (${Object.keys(modules).length} modules)`);
+        } else {
+          ws.send(JSON.stringify({
+            type: "module:error",
+            path: modulePath,
+            error: "Module not found"
+          }));
+        }
+      } else {
+        // Single module request (original behavior)
+        const moduleData = getModuleHash(modulePath);
+        
+        if (moduleData) {
+          ws.send(JSON.stringify({
+            type: "module:response",
+            path: modulePath,
+            hash: moduleData.hash,
+            content: moduleData.content
+          }));
+          log(`📦 Module sent: ${modulePath} (${moduleData.content.length} bytes)`);
+        } else {
+          ws.send(JSON.stringify({
+            type: "module:error",
+            path: modulePath,
+            error: "Module not found"
+          }));
+          log(`📦 Module not found: ${modulePath}`);
+        }
+      }
+      return;
+    }
+    
+    if (msg.type === "module:check") {
+      const modulePath = msg.path;
+      const clientHash = msg.hash;
+      const moduleData = getModuleHash(modulePath);
+      
+      if (moduleData) {
+        ws.send(JSON.stringify({
+          type: "module:status",
+          path: modulePath,
+          changed: moduleData.hash !== clientHash,
+          hash: moduleData.hash
+        }));
+      } else {
+        ws.send(JSON.stringify({
+          type: "module:status",
+          path: modulePath,
+          changed: true,
+          hash: null,
+          error: "Module not found"
+        }));
+      }
+      return;
+    }
+    
+    if (msg.type === "module:list") {
+      // Return list of available modules (for prefetching)
+      const modules = [
+        "lib/disk.mjs",
+        "lib/graph.mjs", 
+        "lib/num.mjs",
+        "lib/geo.mjs",
+        "lib/parse.mjs",
+        "lib/help.mjs",
+        "lib/text.mjs",
+        "bios.mjs"
+      ];
+      const moduleInfo = modules.map(p => {
+        const data = getModuleHash(p);
+        return data ? { path: p, hash: data.hash, size: data.content.length } : null;
+      }).filter(Boolean);
+      
+      ws.send(JSON.stringify({
+        type: "module:list",
+        modules: moduleInfo
+      }));
       return;
     }
 

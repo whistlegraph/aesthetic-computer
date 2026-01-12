@@ -94,27 +94,41 @@ self.addEventListener('fetch', (event) => {
   // Check if this is a cacheable request
   const isCacheable = CACHEABLE_PATTERNS.some((pattern) => pattern.test(url.pathname));
   
+  // For core modules, create a clean cache key without query params
+  // This ensures disk.mjs?session-aesthetic=... matches cached /aesthetic.computer/lib/disk.mjs
+  const isCoreModule = PRECACHE_MODULES.some((m) => url.pathname === m);
+  const cacheKey = isCoreModule ? new Request(url.origin + url.pathname) : event.request;
+  
   if (isCacheable) {
-    // Stale-while-revalidate strategy
+    // Stale-while-revalidate strategy with corruption detection
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) => {
-        return cache.match(event.request).then((cachedResponse) => {
+        // Use clean cache key for core modules to ignore query params
+        return cache.match(cacheKey).then((cachedResponse) => {
           const fetchPromise = fetch(event.request)
             .then(async (networkResponse) => {
               // Only cache successful, complete responses
               if (networkResponse.ok && networkResponse.status === 200) {
                 try {
-                  // Clone before caching to avoid body stream issues
+                  // Clone and verify the response is complete
                   const responseToCache = networkResponse.clone();
-                  await cache.put(event.request, responseToCache);
+                  // Read the body to verify it's complete (catches ERR_CONTENT_LENGTH_MISMATCH)
+                  const body = await responseToCache.clone().text();
+                  if (body && body.length > 0) {
+                    // Cache with clean key so future requests match
+                    await cache.put(cacheKey, responseToCache);
+                  }
                 } catch (e) {
-                  // Silently ignore cache write failures (partial responses, etc.)
+                  // Response was incomplete/corrupted - use cache if available
+                  console.warn('🔧 SW: Response incomplete, using cache for:', url.pathname);
+                  if (cachedResponse) return cachedResponse;
                 }
               }
               return networkResponse;
             })
             .catch((err) => {
               // Return cached version if network fails
+              console.warn('🔧 SW: Network error, using cache for:', url.pathname, err.message);
               if (cachedResponse) return cachedResponse;
               throw err;
             });

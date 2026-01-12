@@ -1579,7 +1579,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         glaze.type,
         () => {
           glazeReady = true; // Glaze shaders loaded, safe to show
-          send({ type: "needs-paint" }); // Once all the glaze shaders load, render a single frame.
+          Glaze.unfreeze(); // Make glaze canvas visible immediately
+          send({ type: "needs-paint" }); // Render a frame through glaze
         },
       );
     } else {
@@ -3534,7 +3535,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     let workerFailed = false; // Guard to prevent double-initialization
     let workerReady = false;  // Track if worker has responded
     let retryCount = 0;
-    const maxRetries = 2;
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    // On localhost, fail fast (1 retry) since HTTP proxy is flaky - noWorker fallback works fine
+    // In production, retry more since network issues are usually transient
+    const maxRetries = isLocalhost ? 1 : 3;
+    
+    // Note: Can't use blob URLs for workers because dynamic imports inside the worker
+    // (like loading pieces) would resolve relative to blob: origin which fails.
+    // Workers need to load via HTTP so their dynamic imports work correctly.
     
     const createWorker = () => {
       const worker = new Worker(new URL(fullPath, window.location.href), {
@@ -3545,26 +3553,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       worker.onerror = async (err) => {
         if (workerFailed) return; // Already handling fallback
         
-        // Transient "no message" errors are common on first load - retry silently
+        // Detect transient/network errors that are worth retrying
         const isTransientError = !err.message;
+        const isNetworkError = err.message?.includes('ERR_') || 
+                               err.message?.includes('Failed to fetch') ||
+                               err.message?.includes('NetworkError') ||
+                               err.message?.includes('Content-Length');
         
-        // Try retrying the worker a couple times before falling back
-        if (retryCount < maxRetries && isTransientError) {
+        // Try retrying the worker a couple times for transient/network errors
+        if (retryCount < maxRetries && (isTransientError || isNetworkError)) {
           retryCount++;
-          // Only log on second+ retry to reduce noise
-          if (retryCount > 1) {
-            console.warn(`🔄 Worker retry ${retryCount}/${maxRetries}...`);
+          const delay = isLocalhost ? 100 : 200 * retryCount; // Fast retry on localhost
+          // Only log retry attempts in non-localhost (localhost proxy issues are expected)
+          if (!isLocalhost) {
+            console.warn(`📦 Worker load failed (attempt ${retryCount}/${maxRetries}), retrying in ${delay}ms...`);
           }
           worker.terminate();
-          await new Promise(r => setTimeout(r, 50 * retryCount)); // Small delay between retries
+          await new Promise(r => setTimeout(r, delay));
           createWorker();
           return;
         }
         
-        // Log error only if we've exhausted retries or it's a real error with a message
-        if (!isTransientError || retryCount >= maxRetries) {
+        // Log error only for real errors with messages (not transient proxy issues on localhost)
+        if (!isTransientError) {
           console.error("🛑 Disk worker error:", err);
-          console.error("🚨 Message:", err.message || "(no message)");
+          console.error("🚨 Message:", err.message);
           console.error("🚨 Filename:", err.filename || "(no filename)");
           console.error("🚨 Line:", err.lineno, "Col:", err.colno);
         }
@@ -3572,9 +3585,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         workerFailed = true;
         worker.terminate(); // Clean up failed worker
         
-        console.warn("🟡 Attempting a dynamic import fallback...");
         // https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
-        const module = await import(`./lib/disk.mjs`);
+        // Try to use WebSocket module loader for the fallback import (avoids HTTP proxy issues)
+        let module;
+        const loader = window.acModuleLoader;
+        if (isLocalhost && loader?.connected && loader.blobUrls?.has('lib/disk.mjs')) {
+          // Use already-loaded blob URL from WebSocket bundle
+          const blobUrl = loader.blobUrls.get('lib/disk.mjs');
+          module = await import(blobUrl);
+        } else {
+          // Fall back to HTTP import
+          if (!isLocalhost) console.warn("🟡 Worker failed, using noWorker mode");
+          module = await import(`./lib/disk.mjs`);
+        }
         module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
         send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
         window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
@@ -4050,10 +4073,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   function requestFrame(needsRender, updateCount, nowUpdate) {
     now = nowUpdate;
 
-    if (needsRender && needsReframe) {
+    // Reframe should happen immediately when needed, not wait for render timing
+    if (needsReframe) {
       frame(undefined, undefined, lastGap);
       pen?.retransformPosition();
-      //frameAlreadyRequested = false; // Deprecated. 23.09.17.01.20
       return;
     }
 
@@ -15392,8 +15415,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         Glaze.off();
         canvas.style.removeProperty("opacity");
       } else if (glaze.on === true && !wasOn) {
-        // Glaze was just enabled - trigger reframe to initialize it
+        // Glaze was just enabled - set flag to trigger reframe on next paint cycle
         needsReframe = true;
+        canvas.style.opacity = 0; // Hide main canvas until glaze is ready
+        // Force a paint cycle to ensure the reframe happens
+        send({ type: "needs-paint" });
       }
       // Note: Glaze gets turned on only on a call to `resize` or `gap` via a piece,
       // or when enabling glaze after it was off (handled above).

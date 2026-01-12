@@ -142,6 +142,10 @@
       let userHandle = null;
       let handleShowTime = 0;
       
+      // Session connection status
+      let sessionConnected = false;
+      let sessionConnectTime = 0;
+      
       // Syntax highlighting colors (VSCode dark theme)
       const SYN = {
         kw: [197, 134, 192],   // purple - keywords
@@ -348,6 +352,11 @@
       const setHandle = (h) => {
         userHandle = h;
         handleShowTime = performance.now();
+      };
+      
+      const setSessionConnected = (connected) => {
+        sessionConnected = connected;
+        sessionConnectTime = performance.now();
       };
       
       const animate = () => {
@@ -594,6 +603,18 @@
           ctx.fillText(userHandle, logoX + 4, logoY + logoSize + 30);
         }
         
+        // Session connected indicator (static, near logo)
+        if (sessionConnected) {
+          const connAge = (performance.now() - sessionConnectTime) / 1000;
+          const connFade = Math.min(1, connAge * 3);
+          const pulse = 0.7 + Math.sin(t * 2) * 0.3;
+          
+          ctx.font = '9px "Courier New", monospace';
+          ctx.globalAlpha = connFade * pulse * 0.8;
+          ctx.fillStyle = '#4ade80';  // green
+          ctx.fillText('📡 session', logoX + 4, logoY + logoSize + (userHandle ? 46 : 30));
+        }
+        
         // Draw log text (status messages)
         ctx.font = '11px "Courier New", monospace';
         const now = performance.now();
@@ -638,6 +659,7 @@
         log: addLine,
         hide: () => { running = false; canvas.remove(); },
         setHandle: setHandle,
+        setSessionConnected: setSessionConnected,
         addFile: addFile  // New: add a file block
       };
     })();

@@ -18,9 +18,8 @@ const diskTimings = {
 };
 const diskTimingStart = performance.now();
 
-// 🔬 Module load timing - track how long imports take
+// 🔬 Module load timing
 const _importStart = performance.now();
-console.log(`📦 [DISK] Starting module imports...`);
 
 import * as quat from "../dep/gl-matrix/quat.mjs";
 import * as mat3 from "../dep/gl-matrix/mat3.mjs";
@@ -29,12 +28,7 @@ import * as vec2 from "../dep/gl-matrix/vec2.mjs";
 import * as vec3 from "../dep/gl-matrix/vec3.mjs";
 import * as vec4 from "../dep/gl-matrix/vec4.mjs";
 
-const _afterGlMatrix = performance.now();
-console.log(`📦 [DISK] gl-matrix: ${(_afterGlMatrix - _importStart).toFixed(0)}ms`);
-
 import * as graph from "./graph.mjs";
-const _afterGraph = performance.now();
-console.log(`📦 [DISK] graph.mjs: ${(_afterGraph - _afterGlMatrix).toFixed(0)}ms`);
 
 import * as num from "./num.mjs";
 import * as text from "./text.mjs";
@@ -43,8 +37,6 @@ import * as gizmo from "./gizmo.mjs";
 import * as ui from "./ui.mjs";
 import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
-const _afterUtils = performance.now();
-console.log(`📦 [DISK] utils (num,text,geo,etc): ${(_afterUtils - _afterGraph).toFixed(0)}ms`);
 
 import { signed as shop } from "./shop.mjs";
 import { parse, metadata, inferTitleDesc, updateCode } from "./parse.mjs";
@@ -58,8 +50,6 @@ import {
 } from "./helpers.mjs";
 const { pow, abs, round, sin, random, min, max, floor, cos } = Math;
 const { keys } = Object;
-const _afterNet = performance.now();
-console.log(`📦 [DISK] shop,parse,socket,chat,helpers: ${(_afterNet - _afterUtils).toFixed(0)}ms`);
 
 import { nopaint_boot, nopaint_act, nopaint_is, nopaint_renderPerfHUD, nopaint_triggerBakeFlash } from "../systems/nopaint.mjs";
 import { getPreserveFadeAlpha, setPreserveFadeAlpha } from "./fade-state.mjs";
@@ -68,19 +58,13 @@ import * as world from "../systems/world.mjs";
 import { headers } from "./headers.mjs";
 import { logs, log } from "./logs.mjs";
 import { soundWhitelist } from "./sound/sound-whitelist.mjs";
-const _afterSystems = performance.now();
-console.log(`📦 [DISK] systems (nopaint,prompt,world,etc): ${(_afterSystems - _afterNet).toFixed(0)}ms`);
 
 import { CamDoll } from "./cam-doll.mjs";
 
 import { TextInput, Typeface } from "../lib/type.mjs";
-const _afterType = performance.now();
-console.log(`📦 [DISK] type.mjs: ${(_afterType - _afterSystems).toFixed(0)}ms`);
 
 import * as lisp from "./kidlisp.mjs";
 import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
-const _afterKidlisp = performance.now();
-console.log(`📦 [DISK] kidlisp.mjs: ${(_afterKidlisp - _afterType).toFixed(0)}ms`);
 
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
@@ -91,8 +75,10 @@ import {
 } from "../disks/common/tape-player.mjs";
 
 const _importEnd = performance.now();
-console.log(`📦 [DISK] remaining (qr,fonts,tape): ${(_importEnd - _afterKidlisp).toFixed(0)}ms`);
-console.log(`📦 [DISK] ✅ All imports complete: ${(_importEnd - _importStart).toFixed(0)}ms total`);
+// Only log if imports took more than 50ms (slow network or first load)
+if (_importEnd - _importStart > 50) {
+  console.log(`📦 [DISK] Imports: ${(_importEnd - _importStart).toFixed(0)}ms`);
+}
 
 function matrixDebugEnabled() {
   if (typeof window !== "undefined" && window?.acMatrixDebug) return true;
@@ -2448,7 +2434,13 @@ const $commonApi = {
   glaze: function (content) {
     if (glazeEnabled === content.on) return; // Prevent glaze from being fired twice...
     glazeEnabled = content.on;
-    glazeAfterReframe = { type: "glaze", content };
+    // Send glaze message immediately when turning ON (don't wait for paint cycle)
+    // This ensures glaze activates even when returning from a non-glaze piece
+    if (content.on) {
+      send({ type: "glaze", content });
+    } else {
+      glazeAfterReframe = { type: "glaze", content };
+    }
   },
   
   // Toggle HUD visibility (same as Tab key functionality)
@@ -8721,24 +8713,19 @@ async function load(
 
 const isWorker = typeof importScripts === "function";
 const _workerReadyTime = performance.now();
-console.log(`📦 [DISK] Worker ready, waiting for messages... (${(_workerReadyTime - _importStart).toFixed(0)}ms since import start)`);
+// Only log worker ready if there was significant import time
+if (_workerReadyTime - _importStart > 50) {
+  console.log(`📦 [DISK] Ready: ${(_workerReadyTime - _importStart).toFixed(0)}ms`);
+}
 
 // ***Bootstrap***
 // Start by responding to a load message, then change
 // the message response to makeFrame.
 if (isWorker) {
   onmessage = (e) => {
-    // DEBUG: Log all incoming messages
-    if (e.data?.type?.startsWith?.("daw:")) {
-      console.log("🎹🎹🎹 WORKER onmessage received:", e.data?.type, e.data);
-    }
-    // 🔬 Track when first message arrives
-    if (e.data?.type === "init-from-bios") {
-      console.log(`📦 [DISK] 📩 Received init-from-bios! (${(performance.now() - _workerReadyTime).toFixed(0)}ms after worker ready)`);
-    }
-    // Intercept the first message to log that we received it
-    if (e.data?.type === "disk:load") {
-      postMessage({ type: "boot-log", content: "worker received load" });
+    // DEBUG: Log DAW messages only when debugging
+    if (e.data?.type?.startsWith?.("daw:") && logs.daw) {
+      console.log("🎹 WORKER:", e.data?.type, e.data);
     }
     makeFrame(e);
   };
@@ -8893,7 +8880,6 @@ async function makeFrame({ data: { type, content } }) {
       chatClient.connect("system"); // Connect to `system` chat.
     }
 
-    console.log(`📦 [DISK] 📤 Sending disk-defaults-loaded (${(performance.now() - _workerReadyTime).toFixed(0)}ms after worker ready)`);
     send({ type: "disk-defaults-loaded" });
     return;
   }
