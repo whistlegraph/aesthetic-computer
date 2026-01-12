@@ -913,13 +913,17 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     const sotceSession = context.globalState.get<any>("sotce:session");
     
     if (aestheticSession?.account?.label) {
-      statusBarUser.text = `$(account) @${aestheticSession.account.label}`;
-      statusBarUser.tooltip = `Logged in to Aesthetic Computer as @${aestheticSession.account.label}\nClick to manage account`;
+      const label = aestheticSession.account.label;
+      const displayLabel = label.startsWith("@") ? label : `@${label}`;
+      statusBarUser.text = `$(account) ${displayLabel}`;
+      statusBarUser.tooltip = `Logged in to Aesthetic Computer as ${displayLabel}\nClick to manage account`;
       statusBarUser.backgroundColor = undefined;
       statusBarUser.show();
     } else if (sotceSession?.account?.label) {
-      statusBarUser.text = `$(account) @${sotceSession.account.label}`;
-      statusBarUser.tooltip = `Logged in to Sotce Net as @${sotceSession.account.label}\nClick to manage account`;
+      const label = sotceSession.account.label;
+      const displayLabel = label.startsWith("@") ? label : `@${label}`;
+      statusBarUser.text = `$(account) ${displayLabel}`;
+      statusBarUser.tooltip = `Logged in to Sotce Net as ${displayLabel}\nClick to manage account`;
       statusBarUser.backgroundColor = undefined;
       statusBarUser.show();
     } else {
