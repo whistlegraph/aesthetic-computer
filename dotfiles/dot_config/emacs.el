@@ -430,6 +430,26 @@ Also updates VS Code task status bar to 'done'."
   (when (fboundp 'display-fill-column-indicator-mode)
     (display-fill-column-indicator-mode -1)))
 
+;; Auto-scroll eat terminals to bottom on new output
+(defun ac-eat-auto-scroll ()
+  "Scroll eat buffer to bottom when new output arrives (if not actively viewing history)."
+  (when (derived-mode-p 'eat-mode)
+    ;; Only auto-scroll if we're near the bottom already (within ~5 lines)
+    ;; This allows users to scroll up and read without being yanked back
+    (let ((window (get-buffer-window (current-buffer))))
+      (when window
+        (with-selected-window window
+          (let* ((point-max (point-max))
+                 (window-end-pos (window-end nil t))
+                 (near-bottom (>= window-end-pos (- point-max 200))))
+            (when near-bottom
+              (goto-char point-max)
+              (recenter -1))))))))
+
+;; Add auto-scroll to eat-update-hook
+(with-eval-after-load 'eat
+  (add-hook 'eat-update-hook #'ac-eat-auto-scroll))
+
 (add-hook 'eshell-mode-hook 'disable-line-numbers-in-modes)
 (add-hook 'eat-mode-hook 'disable-line-numbers-in-modes)
 (add-hook 'eat-mode-hook 'ac-optimize-eat-terminal)
