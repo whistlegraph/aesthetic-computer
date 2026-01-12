@@ -3534,6 +3534,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     
     let workerFailed = false; // Guard to prevent double-initialization
     let workerReady = false;  // Track if worker has responded
+    let workerInitialized = false; // Guard to prevent sending firstMessage multiple times
     let retryCount = 0;
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     // On localhost, fail fast (1 retry) since HTTP proxy is flaky - noWorker fallback works fine
@@ -3617,24 +3618,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           workerReady = true;
           onMessage(e);
         };
-        perf.markBoot("worker-connected");
         
-        // Notify parent that worker is connected
-        const workerConnectTime = performance.now();
-        const workerElapsed = Math.round(workerConnectTime - diskLoadStartTime);
-        if (window.acBOOT_LOG) {
-          window.acBOOT_LOG(`connecting to worker (${workerElapsed}ms)`);
-        } else if (window.parent) {
-          window.parent.postMessage({ 
-            type: "boot-log", 
-            message: `connecting to worker (${workerElapsed}ms)` 
-          }, "*");
-        }
+        // Only log and send firstMessage on first successful worker setup (not retries)
+        if (!workerInitialized) {
+          workerInitialized = true;
+          perf.markBoot("worker-connected");
+          
+          // Notify parent that worker is connected
+          const workerConnectTime = performance.now();
+          const workerElapsed = Math.round(workerConnectTime - diskLoadStartTime);
+          if (window.acBOOT_LOG) {
+            window.acBOOT_LOG(`connecting to worker (${workerElapsed}ms)`);
+          } else if (window.parent) {
+            window.parent.postMessage({ 
+              type: "boot-log", 
+              message: `connecting to worker (${workerElapsed}ms)` 
+            }, "*");
+          }
 
-        // Send the initial message immediately
-        perf.markBoot("first-message-sent");
-        send(firstMessage);
-        consumeDiskSends(send);
+          // Send the initial message immediately
+          perf.markBoot("first-message-sent");
+          send(firstMessage);
+          consumeDiskSends(send);
+        }
       }
     };
     
