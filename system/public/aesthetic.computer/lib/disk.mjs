@@ -13247,10 +13247,10 @@ async function makeFrame({ data: { type, content } }) {
       // Detect if this is a clock piece with a cached code
       const isClockPieceWithCode = (currentPath === "clock" || currentPath?.endsWith("/clock") || currentPath?.includes("/disks/clock")) && cachedClockCode;
       
-      // Debug: log clock detection
-      if (cachedClockCode) {
-        console.log("🎵 [QR Debug] Clock QR check:", { currentPath, cachedClockCode, isClockPieceWithCode, hideLabel, hudVisible: hudAnimationState.visible });
-      }
+      // Debug: log clock detection (disabled - too verbose)
+      // if (cachedClockCode) {
+      //   console.log("🎵 [QR Debug] Clock QR check:", { currentPath, cachedClockCode, isClockPieceWithCode, hideLabel, hudVisible: hudAnimationState.visible });
+      // }
 
       // For clock pieces with cached code, always show the QR (don't require HUD visible)
       // For KidLisp pieces, require HUD to be visible/animating/fullscreen
@@ -13258,7 +13258,7 @@ async function makeFrame({ data: { type, content } }) {
       const shouldShowQRForClock = isClockPieceWithCode; // Always show for clock pieces
       
       if ((shouldShowQRForKidLisp || shouldShowQRForClock) && !hideLabel) {
-        console.log("🎵 [QR Debug] Entering QR generation for clock");
+        // console.log("🎵 [QR Debug] Entering QR generation for clock");
         try {
           // For clock pieces with cached code, use the cached clock code directly
           // For KidLisp pieces, determine cachedCode from sourceCode

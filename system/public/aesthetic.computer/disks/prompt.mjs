@@ -145,7 +145,7 @@ let mediaPreviewBox; // Shared preview box renderer for all media types
 // "critical" = full lockdown (chat offline, all alerts)
 // "yikes" = chat works, but keep $ effect, GIVE button, emotional face
 // "off" = normal operation
-export const FUNDING_SEVERITY = "yikes";
+export const FUNDING_SEVERITY = "off";
 
 // Legacy export for backwards compatibility
 export const FUNDING_MODE = FUNDING_SEVERITY === "critical";

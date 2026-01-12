@@ -44,8 +44,8 @@
  * - Duration dots: . (shorter) .. (even shorter) ... (shortest) - STICKY: applies to following notes until changed
  * - Duration commas: , (longer) ,, (even longer) ,,, (longest) - STICKY: applies to following notes until changed
  * - Sonic extension: ' (longer sound) '' (even longer sound) ''' (longest sound) - extends note sound without affecting timeline
- * - Swing prefixes: < (early/rushed) > (late/laid back)
- * - Multiple swing: << (more early) >>> (much later) - multiples the effect
+ * - Swing prefixes: [ (early/rushed) ] (late/laid back)
+ * - Multiple swing: [[ (more early) ]]] (much later) - multiples the effect
  * - Swing timing: Each symbol = 1/16 beat offset (small, musical adjustments)
  * - Relative octave: + (one octave up) - (one octave down) ++ (two up) -- (two down)
  * - Struck mode: ^ (toggle between held and struck notes) - STICKY: applies to following notes until changed
@@ -330,9 +330,9 @@ export function parseMelody(melodyString, startingOctave = 4) {
         }
       }
     }
-    // Handle swing prefixes (< for early, > for late) with multiple counts
-    else if (char === '<' || char === '>') {
-      const swingType = char; // '<' or '>'
+    // Handle swing prefixes ([ for early, ] for late) with multiple counts
+    else if (char === '[' || char === ']') {
+      const swingType = char; // '[' or ']'
       let swingCount = 0;
       
       // Count consecutive swing symbols
@@ -375,7 +375,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
           // Default duration is 2 (half note = 1 second with default 500ms baseTempo) with swing timing
           let duration = 2;
           let sonicDuration = duration; // Start with timeline duration
-          let swing = swingType === '<' ? 'early' : 'late'; // early or late
+          let swing = swingType === '[' ? 'early' : 'late'; // early or late
           let swingAmount = swingCount; // How many symbols (1, 2, 3, etc.)
           let hasLocalModifier = false;
           
@@ -944,6 +944,108 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     type: 'parallel',
     trackCount: enabledTracks.length,
     maxLength: Math.max(...enabledTracks.map(track => track.length))
+  };
+}
+
+/**
+ * Parses a melody string with sequential sections using > as a separator.
+ * Each section can contain parallel tracks (space-separated).
+ * 
+ * Syntax:
+ * - "ceg dfa > abc def" - Two sections that alternate
+ * - "ceg 3> abc 2> def" - Loop counts: section 1 plays 3x, section 2 plays 2x, section 3 plays 1x
+ * - "ceg fab > aba bag" - First two tracks play, then second two tracks play
+ * 
+ * @param {string} melodyString - The melody string with > separators for sections
+ * @param {number} [startingOctave=4] - The default octave to use if none specified
+ * @returns {Object} Object with { type: 'sequential', sequences: Array[], currentSequence: 0 } or falls back to parseSimultaneousMelody result
+ */
+export function parseSequentialMelody(melodyString, startingOctave = 4) {
+  // Check if there are any > separators (sequence advancement)
+  // Pattern: optional number followed by >
+  // Make sure we don't match inside {} braces (like {50hz>} which doesn't exist but just in case)
+  
+  // First, check if there's a > outside of braces
+  let hasSequenceSeparator = false;
+  let braceDepth = 0;
+  for (let i = 0; i < melodyString.length; i++) {
+    const char = melodyString[i];
+    if (char === '{') braceDepth++;
+    else if (char === '}') braceDepth--;
+    else if (char === '>' && braceDepth === 0) {
+      hasSequenceSeparator = true;
+      break;
+    }
+  }
+  
+  // If no sequence separator, fall back to regular parsing
+  if (!hasSequenceSeparator) {
+    return parseSimultaneousMelody(melodyString, startingOctave);
+  }
+  
+  // Split by sequence separator pattern: optional digits followed by >
+  // e.g., "ceg 3> abc 2> def" -> ["ceg ", "3", "abc ", "2", "def"]
+  const sequencePattern = /(\d*)>/g;
+  const parts = melodyString.split(sequencePattern);
+  
+  const sequences = [];
+  let currentLoopCount = 1;
+  
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    
+    // Skip empty parts
+    if (!part || part.trim().length === 0) continue;
+    
+    // Check if this part is a loop count (just digits)
+    if (/^\d+$/.test(part)) {
+      currentLoopCount = parseInt(part, 10) || 1;
+      continue;
+    }
+    
+    // This is a melody segment - parse it as parallel tracks
+    const segmentContent = part.trim();
+    if (segmentContent.length === 0) continue;
+    
+    const parsedSegment = parseSimultaneousMelody(segmentContent, startingOctave);
+    
+    // Calculate the duration of this segment (longest track in beats)
+    let maxDurationBeats = 0;
+    const tracks = parsedSegment.tracks || [parsedSegment.notes];
+    tracks.forEach(track => {
+      if (track && track.length > 0) {
+        const trackDuration = track.reduce((sum, note) => sum + (note.duration || 2), 0);
+        maxDurationBeats = Math.max(maxDurationBeats, trackDuration);
+      }
+    });
+    
+    sequences.push({
+      ...parsedSegment,
+      loopCount: currentLoopCount,
+      currentLoop: 0,
+      durationBeats: maxDurationBeats,
+      originalContent: segmentContent,
+    });
+    
+    // Reset loop count for next segment (default is 1)
+    currentLoopCount = 1;
+  }
+  
+  // If we only got one sequence, just return it as-is (not sequential)
+  if (sequences.length <= 1) {
+    if (sequences.length === 1) {
+      return sequences[0];
+    }
+    // Fallback
+    return parseSimultaneousMelody(melodyString, startingOctave);
+  }
+  
+  // Return sequential structure
+  return {
+    type: 'sequential',
+    sequences: sequences,
+    currentSequence: 0,
+    totalSequences: sequences.length,
   };
 }
 
