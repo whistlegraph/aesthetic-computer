@@ -562,28 +562,7 @@ function createMenu() {
         {
           label: 'New Window',
           accelerator: 'CmdOrCtrl+N',
-          click: () => createWindow('production')
-        },
-        {
-          label: 'New Development Window',
-          accelerator: 'CmdOrCtrl+Shift+N',
           click: () => openDevWindow()
-        },
-        {
-          label: 'New 3D View (Experimental)',
-          accelerator: 'CmdOrCtrl+Shift+3',
-          click: () => open3DWindow()
-        },
-        {
-          label: 'New Shell',
-          accelerator: 'CmdOrCtrl+Shift+T',
-          click: () => openShellWindow()
-        },
-        { type: 'separator' },
-        {
-          label: 'KidLisp',
-          accelerator: 'CmdOrCtrl+K',
-          click: () => openKidLispWindow()
         },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }
@@ -901,23 +880,8 @@ function rebuildTrayMenu() {
   
   menuItems.push({
     label: 'New Window',
-    submenu: [
-      {
-        label: 'Development (Flip View)',
-        accelerator: isMac ? 'Cmd+N' : 'Ctrl+N',
-        click: () => openDevWindow()
-      },
-      {
-        label: 'Production',
-        accelerator: isMac ? 'Cmd+Shift+N' : 'Ctrl+Shift+N',
-        click: () => createWindow('production')
-      },
-      {
-        label: 'Shell (Terminal)',
-        accelerator: isMac ? 'Cmd+T' : 'Ctrl+T',
-        click: () => openShellWindow()
-      }
-    ]
+    accelerator: isMac ? 'Cmd+N' : 'Ctrl+N',
+    click: () => openDevWindow()
   });
   
   menuItems.push({ type: 'separator' });
@@ -1761,6 +1725,20 @@ ipcMain.handle('get-mode', (event) => {
 
 ipcMain.handle('get-urls', () => URLS);
 
+// Get app info for desktop.mjs piece
+ipcMain.handle('get-app-info', () => {
+  return {
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    platform: process.platform,
+    arch: process.arch,
+    isPackaged: app.isPackaged,
+    updateAvailable: updateAvailable,
+    latestVersion: latestGitHubVersion,
+  };
+});
+
 // CDP (Chrome DevTools Protocol) info
 ipcMain.handle('get-cdp-info', () => {
   const args = process.argv.join(' ');
@@ -2007,17 +1985,8 @@ ipcMain.on('move-window', (event, position) => {
 
 // Open/close windows from inside the embedded AC prompt (via webview popup interception)
 ipcMain.handle('ac-open-window', async (event, { url } = {}) => {
-  const senderWindow = BrowserWindow.fromWebContents(event.sender);
-  let mode = 'production';
-  for (const [, winData] of windows) {
-    if (winData.window === senderWindow) {
-      mode = winData.mode;
-      break;
-    }
-  }
-
-  const { window: newWindow } = createWindow(mode);
-  if (url) {
+  const { window: newWindow } = await openDevWindow();
+  if (url && newWindow) {
     newWindow.webContents.once('did-finish-load', () => {
       if (!newWindow.isDestroyed()) {
         newWindow.webContents.send('navigate', url);
@@ -2036,15 +2005,9 @@ ipcMain.handle('ac-close-window', async (event) => {
 });
 
 ipcMain.handle('switch-mode', async (event, mode) => {
-  // In multi-window mode, we open a new window instead of switching
-  if (mode === 'development') {
-    await openDevWindow();
-  } else if (mode === 'shell') {
-    await openShellWindow();
-  } else {
-    createWindow('production');
-  }
-  return mode;
+  // Always open dev window
+  await openDevWindow();
+  return 'development';
 });
 
 ipcMain.handle('spawn-terminal', async (event, command) => {
@@ -2198,14 +2161,8 @@ app.whenReady().then(async () => {
   // Create initial window(s) based on CLI args
   // Default to dev window with integrated terminal overlay (press Cmd+` to toggle)
   // Use --production flag to open production window instead
-  if (startWithShell) {
-    await openShellWindow();
-  } else if (startInDevMode || !args.includes('--production')) {
-    // Default to dev mode
-    openDevWindow();
-  } else {
-    createWindow('production');
-  }
+  // Always start with dev window
+  openDevWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

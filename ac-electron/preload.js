@@ -52,6 +52,9 @@ try {
     openWindow: (url) => ipcRenderer.invoke('ac-open-window', { url }),
     closeWindow: () => ipcRenderer.invoke('ac-close-window'),
     
+    // App info (for desktop.mjs)
+    getAppInfo: () => ipcRenderer.invoke('get-app-info'),
+
     // Platform info
     platform: process.platform,
   });
