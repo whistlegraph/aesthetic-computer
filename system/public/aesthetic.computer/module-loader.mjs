@@ -144,17 +144,15 @@ class ModuleLoader {
       // Bundle response - all dependencies included (some may be marked as cached)
       const resolver = this.pending.get(msg.entry);
       if (resolver) {
-        // Load cached modules from IndexedDB/memory first
+        // Load cached module CONTENT from IndexedDB (don't create blob URLs yet - need to rewrite imports)
         const cachedPaths = msg.cached || [];
+        const cachedModules = new Map(); // path -> { hash, content }
         for (const cachedPath of cachedPaths) {
           if (!this.blobUrls.has(cachedPath)) {
             // Try to load from IndexedDB
             const dbCached = await this.getCachedModule(cachedPath);
             if (dbCached) {
-              const blob = new Blob([dbCached.content], { type: "application/javascript" });
-              const blobUrl = URL.createObjectURL(blob);
-              this.modules.set(cachedPath, { hash: dbCached.hash, blobUrl });
-              this.blobUrls.set(cachedPath, blobUrl);
+              cachedModules.set(cachedPath, { hash: dbCached.hash, content: dbCached.content });
               this.bundleContents.set(cachedPath, dbCached.content);
             }
           }
@@ -170,7 +168,16 @@ class ModuleLoader {
         // For circular deps: use HTTP fallback URL (original path via normal HTTP).
         // This is acceptable since the whole point is to get MOST modules via WS.
         
-        const moduleEntries = Object.entries(msg.modules);
+        // Combine received modules + cached modules for processing
+        const allModules = new Map();
+        for (const [path, data] of Object.entries(msg.modules)) {
+          allModules.set(path, data);
+        }
+        for (const [path, data] of cachedModules) {
+          allModules.set(path, data);
+        }
+        
+        const moduleEntries = Array.from(allModules.entries());
         
         // Build dependency graph (ONLY static imports, not dynamic)
         // Dynamic imports (import("./path")) are runtime dependencies used to break circular deps
@@ -186,7 +193,7 @@ class ModuleLoader {
           let match;
           while ((match = staticRegex.exec(modData.content)) !== null) {
             const resolved = this.resolvePath(dir, match[1]);
-            if (msg.modules[resolved] && resolved !== modPath) moduleDeps.add(resolved);
+            if (allModules.has(resolved) && resolved !== modPath) moduleDeps.add(resolved);
           }
           
           // NOTE: Dynamic imports (import("./path")) are intentionally NOT included
@@ -215,7 +222,7 @@ class ModuleLoader {
         for (const modPath of order) {
           if (this.blobUrls.has(modPath)) continue;
           
-          const modData = msg.modules[modPath];
+          const modData = allModules.get(modPath);
           if (!modData) continue;
           
           // Store original content for source display (fetchAndShowSource)
@@ -251,8 +258,8 @@ class ModuleLoader {
           resolver.resolve(null); // null signals to use HTTP fallback
         } else {
           // Log cache stats
-          const cachedCount = (msg.cached || []).length;
-          const sentCount = moduleEntries.length;
+          const cachedCount = cachedModules.size;
+          const sentCount = Object.keys(msg.modules).length;
           if (cachedCount > 0) {
             console.log(`📦 Bundle ${msg.entry}: ${sentCount} received, ${cachedCount} from cache`);
           }
