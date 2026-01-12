@@ -46,18 +46,21 @@ export const CHAT_FONTS = {
     name: "Default",
     typeface: null, // null means use the default typeface
     rowHeight: null, // null means use typeface.blockHeight + 1
+    timestampGap: 4,
     sample: "Aa Bb Cc",
   },
   "matrix": {
     name: "Matrix",
     typeface: "MatrixChunky8",
-    rowHeight: 10, // 8px font + 2px spacing
+    rowHeight: 9, // 8px font + 1px spacing
+    timestampGap: 2,
     sample: "▄▀ ██ ░▒",
   },
   "unifont": {
     name: "Unifont",
     typeface: "unifont", 
     rowHeight: 17, // 16px font + 1px spacing
+    timestampGap: 6,
     sample: "你好 Привет",
   },
 };
@@ -76,6 +79,33 @@ function getFontTypeface(fontId) {
   return fontConfig.typeface;
 }
 
+
+
+function getFontTimestampGap(fontId) {
+  const fontConfig = CHAT_FONTS[fontId];
+  if (!fontConfig) return 4;
+  return fontConfig.timestampGap ?? 4;
+}
+
+function stripInlineColorCodes(s) {
+  // Removes inline color markup of the form: \color\text\reset\
+  // where color/reset are any strings between backslashes.
+  if (!s || typeof s !== "string") return "";
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch !== "\\") {
+      out += ch;
+      continue;
+    }
+    // Skip until the next backslash (end of spec)
+    const next = s.indexOf("\\", i + 1);
+    if (next === -1) break;
+    i = next;
+  }
+  return out;
+}
+
 let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
 let tapState = null;
@@ -89,8 +119,19 @@ let fontPickerItemBounds = []; // Bounds for each font option
 let rowHeight;
 const lineGap = 1,
   topMargin = 30,
-  bottomMargin = 33,
   leftMargin = 6;
+
+// Dynamic bottom margin based on selected font
+function getBottomMargin(fontConfig, defaultBlockHeight) {
+  const rowHeight = fontConfig?.rowHeight ?? (defaultBlockHeight + 1);
+  return Math.max(33, rowHeight + 20); // At least 33px, or font height + padding
+}
+
+// Get the preview frame height when typing (fixed height regardless of font)
+function getPreviewFrameHeight() {
+  // Fixed height so preview doesn't grow past screen for larger fonts
+  return 90; // Enough for ~6 lines at standard font + buttons
+}
 
 let messageSfx;
 let ellipsisTicker;
@@ -151,6 +192,10 @@ async function boot(
   if (!CHAT_FONTS[userSelectedFont]) {
     userSelectedFont = "font_1"; // Fallback to default if invalid
   }
+  
+  // Calculate dynamic bottom margin based on selected font
+  const selectedFontConfig = CHAT_FONTS[userSelectedFont];
+  const bottomMargin = getBottomMargin(selectedFontConfig, typeface.blockHeight);
 
   // TODO: Now make it so that you see the last chat message
   //       as a button under the piece name.
@@ -248,7 +293,8 @@ async function boot(
     {
       // autolock: false,
       // wrap,
-      font: inputTypefaceName || "font_1",
+      // 🔤 Use saved font preference (or fallback to inputTypefaceName or font_1)
+      font: CHAT_FONTS[userSelectedFont]?.typeface || inputTypefaceName || "font_1",
       scheme: {
         text: 255,
         background: [0, 180],
@@ -325,6 +371,10 @@ function paint(
   // For unifont, use 16 (standard unifont height at scale 1)
   // For default typeface, use the blockHeight + 1
   const currentRowHeight = typefaceName === "unifont" ? 17 : (typeface.blockHeight + 1);
+  
+  // Calculate dynamic bottom margin based on selected font
+  const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
+  const bottomMargin = getBottomMargin(selectedFontConfig, typeface.blockHeight);
   
   // Default theme
   const defaultTheme = {
@@ -471,18 +521,30 @@ function paint(
   // Messages
   // Start from the bottom of the screen
   // if (!client.connecting) {
+  // Calculate effective margins based on whether input preview is showing
+  // The preview appears at the TOP (starting at topMargin), so we adjust the top edge of the mask
+  let effectiveTopMargin = topMargin;
+  if (input.canType) {
+    // When typing, the preview frame covers the top area
+    const previewFrameHeight = getPreviewFrameHeight();
+    effectiveTopMargin = topMargin + previewFrameHeight;
+  }
+
   if (messagesNeedLayout) {
     totalScrollHeight = computeMessagesHeight(api, client, typefaceName, currentRowHeight);
-    computeMessagesLayout(api, client, typefaceName, currentRowHeight);
-    chatHeight = computeScrollbarHeight(api, client);
+    // Always layout with regular bottomMargin so messages don't jump
+    computeMessagesLayout(api, client, typefaceName, currentRowHeight, bottomMargin);
+    chatHeight = computeScrollbarHeight(api, bottomMargin);
     messagesNeedLayout = false;
   }
-  // Mask off the area of renderable messages.
+  
+  // Mask off the area of renderable messages
+  // When preview is open, start mask below the preview frame (effectiveTopMargin)
   mask({
     x: 0,
-    y: topMargin,
+    y: effectiveTopMargin,
     width: screen.width,
-    height: screen.height - topMargin - bottomMargin,
+    height: screen.height - effectiveTopMargin - bottomMargin,
   });
 
   let lastAgo; // Keep track of last rendered timestamp.
@@ -511,6 +573,17 @@ function paint(
     const y = layout.y;
 
     // 🪧 Paint the message (no background box for cleaner appearance)
+    
+    // 🐛 DEBUG: Visualize message row backgrounds with alternating colors per font
+    const debugColors = {
+      "font_1": [80, 40, 40, 100],    // red tint
+      "matrix": [40, 80, 40, 100],    // green tint
+      "unifont": [40, 40, 80, 100],   // blue tint
+    };
+    const msgFont = message.font || "font_1";
+    const debugColor = debugColors[msgFont] || [60, 60, 60, 100];
+    // Draw debug background for entire message
+    ink(...debugColor).box(x - 2, y, layout.width + 4, layout.height);
     
     // Render each line of the message separately for proper multi-line display
     // Parse elements once for this message
@@ -630,9 +703,12 @@ function paint(
         msgTypefaceName // typeface - use per-message font
       );
       
-      // Track width of last line (plain text, not color-coded)
+      // Track width of last line (visual width, ignoring inline color codes)
       if (lineIdx === tb.lines.length - 1) {
-        lastLineRenderedWidthForThisMessage = text.width(line, msgTypefaceName);
+        lastLineRenderedWidthForThisMessage = text.width(
+          stripInlineColorCodes(colorCodedLine),
+          msgTypefaceName
+        );
       }
       
       charPos += line.length; // Don't add +1 - text.box wraps without adding spaces
@@ -646,16 +722,16 @@ function paint(
     
     // Use MatrixChunky8 for compact timestamps tacked onto the end of messages
     const timestampWidth = text.width(ago, "MatrixChunky8");
-    const timestampGap = 4; // Small gap between message and timestamp
+    const timestampGap = getFontTimestampGap(message.font || "font_1");
     
-    // Position timestamp right after the last line of the message
-    const lastLineText = message.tb.lines[message.tb.lines.length - 1];
-    const lastLineWidth = text.width(lastLineText, msgTypefaceName);
-    const timestampX = x + lastLineWidth + timestampGap;
+    // Position timestamp right after the last *visually rendered* line of the message
+    layout.timestamp.x = lastLineRenderedWidthForThisMessage + timestampGap;
+    const timestampX = x + layout.timestamp.x;
     
-    // Bottom-align timestamp with the message text by offsetting from the baseline
-    // The timestamp should sit on the same baseline as the last line of text
-    const timestampY = layout.timestamp.y + msgRowHeight - 10; // Align to bottom of text line (raised 2px)
+    // Bottom-align timestamp with the message text
+    // Timestamp is 8px tall (MatrixChunky8), so offset it down within the row
+    const timestampHeight = 8; // MatrixChunky8 glyph height
+    const timestampY = layout.timestamp.y + (msgRowHeight - timestampHeight);
     
     // Calculate fade based on message index (newer = more opaque, older = more faded)
     const messageIndex = client.messages.length - 1 - i;
@@ -710,7 +786,7 @@ function paint(
     const previewHeight = 68; // 64px + 4px padding (top/bottom)
     
     // Only process if the PREVIEW is visible (not just the message)
-    if (previewY + previewHeight < topMargin) continue; // Preview is above visible area
+    if (previewY + previewHeight < effectiveTopMargin) continue; // Preview is above visible area
     if (previewY > screen.height - bottomMargin) continue; // Preview is below visible area
     
     let previewX = message.layout.x; // Start from left margin
@@ -925,12 +1001,25 @@ function paint(
     handleBtn.text = "Log in";
   }
   
-  // Position and paint login/handle button with prompt.mjs styling
-  // Place it at the very bottom, below the chat area
-  handleBtn.reposition({ left: leftMargin + 1, bottom: 7, screen });
+  // Calculate panel height based on selected font (use already-declared selectedFontConfig)
+  const selectedRowHeight = selectedFontConfig.rowHeight ?? (typeface.blockHeight + 1);
+  const panelHeight = Math.max(32, selectedRowHeight + 20); // At least 32px, or font height + padding
+  
+  // Get font-specific dimensions for handle button
+  const selectedTypeface = selectedFontConfig.typeface || typefaceName;
+  const btnGap = 4;
+  const btnTextWidth = text.width(handleBtn.text, selectedTypeface);
+  const btnW = btnTextWidth + btnGap * 2;
+  const btnH = selectedRowHeight + btnGap * 2;
+  
+  // Position handle button at bottom
+  const handleBtnX = leftMargin + 1;
+  const handleBtnY = screen.height - 7 - btnH;
+  
+  // Update handleBtn box for click detection
+  handleBtn.btn.box = new Box(handleBtnX, handleBtnY, btnW, btnH);
   
   // Draw panel background behind both buttons
-  const panelHeight = 32; // Height of the button panel area
   ink(20, 20, 30, 255).box(
     0,
     screen.height - panelHeight,
@@ -939,14 +1028,21 @@ function paint(
   );
   
   // Use blue color scheme for Log in, pink/magenta for handle (like prompt.mjs)
-  const loginColors = currentHandle 
-    ? [[128, 0, 128], 255, 255, [128, 0, 128]] // Magenta for handle
-    : [[0, 0, 128], 255, 255, [0, 0, 128]];     // Blue for "Log in"
-    
-  handleBtn.paint(
-    { ink, wipe, paste, screen, text, typeface }, 
-    loginColors
-  );
+  const loginBgColor = currentHandle ? [128, 0, 128] : [0, 0, 128];
+  const loginBorderColor = 255;
+  const loginTextColor = 255;
+  
+  // Draw handle button manually with selected font
+  const btnScheme = handleBtn.btn.down 
+    ? [255, 0, 0, 255]  // Hover/pressed
+    : [loginBgColor, loginBorderColor, loginTextColor, loginBgColor];
+  
+  ink(btnScheme[0]).box(handleBtn.btn.box, "fill");
+  ink(btnScheme[1]).box(handleBtn.btn.box, "outline");
+  ink(btnScheme[2]).write(handleBtn.text, { 
+    x: handleBtnX + btnGap, 
+    y: handleBtnY + btnGap 
+  }, btnScheme[3], undefined, false, selectedTypeface);
 
   // Draw "Enter message" button with visible border - 3px taller than handle button
   const gapWidth = 1; // 1px gap between buttons
@@ -1026,13 +1122,14 @@ function paint(
   const enterMsg = hasDraft ? draftText : ("Enter message" + ellipsisTicker.text(help.repeat));
   const textColor = inputBtn.down ? "black" : (hasDraft ? "lime" : (inputBtn.over ? "white" : 200));
   
+  // Use the selected font for the bottom bar text (selectedTypeface already defined above)
   ink(textColor).write(
     enterMsg,
     {
       left: inputBtnX + 6,
-      bottom: 9, // Moved up 1px
+      bottom: 9,
     },
-    false, undefined, false, typefaceName
+    false, undefined, false, selectedTypeface
   );
 
   if (!input.canType) {
@@ -1069,46 +1166,67 @@ function paint(
       handleAutocomplete.update(input.text, cursorPos);
     }
     
-    input.paint(api, false, {
+    // Fixed preview frame height (doesn't change with font)
+    const previewFrameHeight = getPreviewFrameHeight();
+    
+    const previewFrame = {
       x: 0,
       y: topMargin,
       width: screen.width,
-      height: screen.height / 2, // - 18
-    });
+      height: previewFrameHeight,
+    };
+    
+    input.paint(api, false, previewFrame);
 
-    // Character limit - position below GIVE button area to avoid overlap
+    // Character limit and font picker - centered at bottom of preview frame
     const len = 128;
-    ink(input.text.length > len ? "red" : "gray").write(
-      `${input.text.length}/${len}`,
-      { right: 6, top: 18 }, // Moved down to y:18 (below GIVE button at y:6)
-      false, undefined, false, "MatrixChunky8"
-    );
+    const charCountText = `${input.text.length}/${len}`;
+    const charCountWidth = text.width(charCountText); // Normal font
     
-    // 🔤 Font picker button (next to character count)
-    const fontBtnX = 6;
-    const fontBtnY = 6;
-    const fontBtnW = 24;
+    // Font button dimensions (normal size)
+    const fontBtnW = 22;
     const fontBtnH = 12;
+    const fontBtnLabel = "Aa";
+    const fontBtnLabelWidth = text.width(fontBtnLabel);
     
-    // Draw font button - show current font initial
-    const fontInitial = CHAT_FONTS[userSelectedFont]?.name?.[0] || "F";
+    // Total width of "Aa  0/128" centered
+    const gap = 8; // Gap between Aa and count
+    const totalWidth = fontBtnW + gap + charCountWidth;
+    const centerX = Math.floor(screen.width / 2);
+    const startX = centerX - Math.floor(totalWidth / 2);
+    
+    // Position at bottom of preview frame (same line as paste/enter)
+    const bottomY = topMargin + previewFrame.height - 18;
+    
+    // Draw font button "Aa"
+    const fontBtnX = startX;
+    const fontBtnY = bottomY;
     const fontBtnOver = pen && pen.x >= fontBtnX && pen.x < fontBtnX + fontBtnW &&
                         pen.y >= fontBtnY && pen.y < fontBtnY + fontBtnH;
     
     ink(fontPickerOpen ? [80, 60, 120] : (fontBtnOver ? [60, 60, 80] : [40, 40, 60])).box(fontBtnX, fontBtnY, fontBtnW, fontBtnH);
-    ink(fontBtnOver || fontPickerOpen ? "yellow" : "white").write("🔤", { x: fontBtnX + 2, y: fontBtnY + 2 }, false, undefined, false, "MatrixChunky8");
+    ink(fontPickerOpen ? [100, 80, 140] : [70, 70, 90]).box(fontBtnX, fontBtnY, fontBtnW, fontBtnH, "outline");
+    ink(fontBtnOver || fontPickerOpen ? "yellow" : "white").write(fontBtnLabel, { 
+      x: fontBtnX + Math.floor((fontBtnW - fontBtnLabelWidth) / 2), 
+      y: fontBtnY + 2 
+    });
     
     // Store button bounds for click detection
     fontPickerBtnBounds = { x: fontBtnX, y: fontBtnY, w: fontBtnW, h: fontBtnH };
     
-    // 🔤 Font picker panel (when open)
+    // Draw character count (normal font, to the right of Aa)
+    const charCountX = fontBtnX + fontBtnW + gap;
+    const charCountY = bottomY + 2; // Vertically align with button text
+    ink(input.text.length > len ? "red" : "gray").write(charCountText, { x: charCountX, y: charCountY });
+    
+    // 🔤 Font picker panel (when open) - drops UP from button
     if (fontPickerOpen) {
-      const panelX = fontBtnX;
-      const panelY = fontBtnY + fontBtnH + 2;
-      const panelW = 90;
       const fontIds = Object.keys(CHAT_FONTS);
       const itemHeight = 20;
+      const panelW = 100;
       const panelH = fontIds.length * itemHeight + 8;
+      const panelX = fontBtnX;
+      const panelY = fontBtnY - panelH - 2; // ABOVE the button (drop-up)
       
       // Panel background
       ink(30, 25, 45, 240).box(panelX, panelY, panelW, panelH);
@@ -1295,6 +1413,12 @@ function paint(
     }
     needsPaint();
   }
+  
+  // 📰 News ticker (top right, always visible when not typing)
+  if (!input.canType && !client.connecting) {
+    paintNewsTicker({ ink, screen, text }, theme);
+    needsPaint();
+  }
 
   // 🔍 Paint @handle autocomplete dropdown (last, so it renders on top of everything)
   if (handleAutocomplete?.visible && input?.canType) {
@@ -1333,6 +1457,10 @@ function act(
   
   // Calculate rowHeight based on the typeface being used
   const currentRowHeight = typefaceName === "unifont" ? 17 : (typeface.blockHeight + 1);
+  
+  // Calculate dynamic bottom margin based on selected font
+  const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
+  const bottomMargin = getBottomMargin(selectedFontConfig, typeface.blockHeight);
   
   // 💸 GIVE button interaction in funding mode (both connecting and yikes connected mode)
   if ((FUNDING_MODE && client.connecting) || (showFundingEffectsFlag && !client.connecting)) {
@@ -1424,8 +1552,15 @@ function act(
           beep();
           userSelectedFont = item.fontId;
           fontPickerOpen = false;
-          // TODO: Save preference to server
+          // Save preference locally
           store["chat:font"] = userSelectedFont;
+          // 🔤 Update the text input to use the new font
+          const fontConfig = CHAT_FONTS[userSelectedFont];
+          if (fontConfig && input) {
+            input.setFont(fontConfig.typeface || "font_1");
+          }
+          // Trigger message re-layout with new font
+          messagesNeedLayout = true;
           return;
         }
       }
@@ -1461,8 +1596,8 @@ function act(
     const lastScroll = scroll;
 
     totalScrollHeight = computeMessagesHeight(api, client, typefaceName, currentRowHeight);
-    computeMessagesLayout(api, client, typefaceName, currentRowHeight);
-    chatHeight = computeScrollbarHeight(api);
+    computeMessagesLayout(api, client, typefaceName, currentRowHeight, bottomMargin);
+    chatHeight = computeScrollbarHeight(api, bottomMargin);
 
     scroll = (lastScroll / lastScrollHeight) * totalScrollHeight;
     store["chat:scroll"] = scroll;
@@ -1630,11 +1765,11 @@ function act(
                 const innerPrompt = element.text.slice(1, -1); // Unquote prompt text.
                 let jumpTarget;
                 if (innerPrompt.startsWith(">")) {
-                  jumpTarget = "prompt " + innerPrompt.slice(1);
+                  jumpTarget = "prompt~" + innerPrompt.slice(1);
                 } else if (innerPrompt.startsWith("#")) {
                   jumpTarget = "painting#" + innerPrompt.slice(1);
                 } else {
-                  jumpTarget = "prompt " + innerPrompt;
+                  jumpTarget = "prompt~" + innerPrompt;
                 }
                 // Get command description from registry
                 const cmdDescription = getCommandDescription(innerPrompt);
@@ -1653,11 +1788,11 @@ function act(
                 const innerPrompt = element.text;
                 let jumpTarget;
                 if (innerPrompt.startsWith(">")) {
-                  jumpTarget = "prompt " + innerPrompt.slice(1);
+                  jumpTarget = "prompt~" + innerPrompt.slice(1);
                 } else if (innerPrompt.startsWith("#")) {
                   jumpTarget = "painting#" + innerPrompt.slice(1);
                 } else {
-                  jumpTarget = "prompt " + innerPrompt;
+                  jumpTarget = "prompt~" + innerPrompt;
                 }
                 // Get command description from registry
                 const cmdDescription = getCommandDescription(innerPrompt);
@@ -2063,6 +2198,11 @@ function act(
     }
   }
 
+  // Trigger re-layout when keyboard opens/closes (changes visible message area)
+  if (e.is("keyboard:open") || e.is("keyboard:close")) {
+    messagesNeedLayout = true;
+  }
+
   // Debug: Check the condition for calling input.act
   const shouldCallInputAct = (
     e.is("keyboard:open") ||
@@ -2240,7 +2380,7 @@ function computeMessagesHeight({ text, screen }, chat, defaultTypefaceName, defa
 
 // Build a display graph for the messages.
 // (From the bottom to the top.)
-function computeMessagesLayout({ screen, text }, chat, defaultTypefaceName, defaultRowHeight) {
+function computeMessagesLayout({ screen, text }, chat, defaultTypefaceName, defaultRowHeight, bottomMargin) {
   // Start from bottom, but use the first message's row height for initial positioning
   const lastMsg = chat.messages[chat.messages.length - 1];
   const lastMsgRowHeight = lastMsg ? (lastMsg.computedRowHeight ?? defaultRowHeight) : defaultRowHeight;
@@ -2259,6 +2399,8 @@ function computeMessagesLayout({ screen, text }, chat, defaultTypefaceName, defa
     // 🔤 Get per-message font settings (computed in computeMessagesHeight)
     const msgTypefaceName = msg.computedTypefaceName ?? defaultTypefaceName;
     const msgRowHeight = msg.computedRowHeight ?? defaultRowHeight;
+    const msgFont = msg.font || "font_1";
+    const msgTimestampGap = getFontTimestampGap(msgFont);
     
     // Parse elements first to know if we have painting previews
     const parsedElements = parseMessageElements(msg.fullMessage);
@@ -2308,9 +2450,8 @@ function computeMessagesLayout({ screen, text }, chat, defaultTypefaceName, defa
 
     // Create layout using the color-coded message with per-message font
     const lastLineWidth = text.width(msg.tb.lines[msg.tb.lines.length - 1], msgTypefaceName);
-    const timestampGap = 4; // Small gap for MatrixChunky8 timestamps
     const timestamp = {
-      x: lastLineWidth + timestampGap,
+      x: lastLineWidth + msgTimestampGap,
       y: y + (msg.tb.lines.length - 1) * msgRowHeight,
       height: 8, // MatrixChunky8 height
       width: text.width(timeAgo(msg.when), "MatrixChunky8"),
@@ -2341,18 +2482,20 @@ function computeMessagesLayout({ screen, text }, chat, defaultTypefaceName, defa
 
     delete msg.lastLayout;
 
-    y -= msgRowHeight; // Move up one line for the next message (using per-message height)
-    
-    // Check against next message's row height for break condition
+    // Move up for the next message using THE NEXT MESSAGE'S row height (not current)
+    // This ensures proper spacing when fonts have different heights
     const nextMsg = chat.messages[i - 1];
     const nextMsgRowHeight = nextMsg ? (nextMsg.computedRowHeight ?? defaultRowHeight) : defaultRowHeight;
+    y -= nextMsgRowHeight; // Use next message's height for stepping
+    
+    // Check against next message's row height for break condition
     if (y < topMargin - nextMsgRowHeight) {
       break; // Break if y is below top line.
     }
   }
 }
 
-function computeScrollbarHeight(api) {
+function computeScrollbarHeight(api, bottomMargin) {
   return api.screen.height - bottomMargin - topMargin + 2;
 }
 
@@ -2573,4 +2716,83 @@ function generateDynamicColorMessage(message, theme) {
   }
   
   return colorCodedMessage;
+}
+// 📰 News ticker with scrolling text, "News" label, and @handle highlighting
+const NEWS_TEXT = "@jeffrey is hard at work on authoring AC '26";
+
+function paintNewsTicker($, theme) {
+  const { ink, screen, text } = $;
+  const tickerCharWidth = 4; // MatrixChunky8 char width
+  const tickerHeight = 8;
+  const tickerPadding = 3;
+  const rightMargin = 10;
+  
+  // "News" prefix styling
+  const newsPrefix = "News";
+  const newsPrefixWidth = newsPrefix.length * tickerCharWidth + tickerPadding * 2;
+  
+  // Ticker dimensions
+  const tickerMaxWidth = 180;
+  const tickerRight = screen.width - rightMargin;
+  const tickerY = 10;
+  
+  // Seamless loop with separator
+  const separator = "   ~   ";
+  const loopText = NEWS_TEXT + separator;
+  const loopWidth = loopText.length * tickerCharWidth;
+  
+  // Scroll animation
+  const scrollSpeed = 0.4;
+  const scrollOffset = (performance.now() * scrollSpeed / 16) % loopWidth;
+  
+  // Position calculations - no overlap
+  const scrollAreaRight = tickerRight;
+  const scrollAreaLeft = scrollAreaRight - tickerMaxWidth;
+  const newsBgX = scrollAreaLeft - newsPrefixWidth - 1; // 1px gap
+  
+  // Colors from theme
+  const handleColor = theme?.handle ? 
+    (Array.isArray(theme.handle) ? theme.handle : [255, 150, 200]) : [255, 150, 200];
+  const textColor = theme?.messageText ? 
+    (Array.isArray(theme.messageText) ? theme.messageText : [200, 200, 200]) : [200, 200, 200];
+  
+  // "News" label - distinct purple/magenta background
+  const newsBgColor = [80, 40, 100];
+  const newsFgColor = [255, 200, 100]; // Gold/yellow text
+  
+  // Scrolling area - darker, more subtle background  
+  const scrollBgColor = [25, 20, 35];
+  
+  // Draw "News" label background (distinct color)
+  ink(...newsBgColor, 230).box(newsBgX, tickerY - 2, newsPrefixWidth, tickerHeight + 4);
+  ink(...newsFgColor).write(newsPrefix, { x: newsBgX + tickerPadding, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+  
+  // Draw scrolling ticker background (different, darker color)
+  ink(...scrollBgColor, 200).box(scrollAreaLeft, tickerY - 2, tickerMaxWidth, tickerHeight + 4);
+  
+  // Parse text for @handles to highlight
+  const handleRegex = /@[\w]+/g;
+  const handles = [];
+  let match;
+  while ((match = handleRegex.exec(loopText)) !== null) {
+    handles.push({ start: match.index, end: match.index + match[0].length, text: match[0] });
+  }
+  
+  // Draw seamless looping text with handle highlighting
+  for (let copy = 0; copy < 3; copy++) {
+    const baseX = scrollAreaLeft - scrollOffset + (copy * loopWidth);
+    
+    for (let i = 0; i < loopText.length; i++) {
+      const charX = baseX + i * tickerCharWidth;
+      
+      // Only draw if within visible scroll area
+      if (charX >= scrollAreaLeft && charX < scrollAreaRight) {
+        // Check if this character is part of a handle
+        const isHandle = handles.some(h => i >= h.start && i < h.end);
+        const charColor = isHandle ? handleColor : textColor;
+        
+        ink(...charColor).write(loopText[i], { x: Math.round(charX), y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+      }
+    }
+  }
 }

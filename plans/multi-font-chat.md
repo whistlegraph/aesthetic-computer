@@ -137,8 +137,10 @@ messages.forEach((msg, i) => {
 
 ## Milestones
 
-- [ ] Add `font` field to MongoDB schema
-- [ ] Refactor scroll math for variable heights
-- [ ] Implement font picker UI
-- [ ] Test with all three fonts
+- [x] Add `font` field to MongoDB schema
+- [x] Refactor scroll math for variable heights
+- [x] Implement font picker UI
+- [x] Add per-message font rendering
+- [x] Include font in chat message sends
+- [ ] Test with all three fonts (manual testing needed)
 - [ ] Deploy and document

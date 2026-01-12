@@ -349,7 +349,7 @@
       min-height: 40px;
       flex-shrink: 0;
       box-sizing: border-box;
-      background: rgb(147, 112, 219); /* Purple */
+      background: rgb(244, 67, 54); /* Red */
       color: white;
       border: none;
       border-radius: 50%;
@@ -365,7 +365,7 @@
 
     @media (hover: hover) {
       #clear-button:hover {
-        background: rgb(167, 132, 239);
+        background: rgb(239, 83, 80);
         transform: scale(1.05);
         box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
         color: white;
@@ -374,12 +374,12 @@
     }
     
     #clear-button:active {
-      background: rgb(127, 92, 199);
+      background: rgb(211, 47, 47);
       transform: scale(0.95);
     }
     
     [data-theme="dark"] #clear-button {
-      background: rgb(147, 112, 219);
+      background: rgb(239, 83, 80);
     }
     
     /* Playback controls container */
@@ -439,29 +439,29 @@
     }
 
     #send-button.playing {
-      background: rgb(255, 193, 7); /* Yellow when playing (Pause) */
+      background: rgb(76, 175, 80); /* Stay green when playing */
       cursor: pointer; /* Remain clickable */
     }
     
     @media (prefers-color-scheme: dark) {
       #send-button.playing {
-        background: rgb(255, 213, 79); /* Lighter yellow for dark mode */
+        background: rgb(102, 187, 106); /* Stay green for dark mode */
       }
     }
     
     [data-theme="dark"] #send-button.playing {
-      background: rgb(255, 213, 79); /* Lighter yellow for dark mode */
+      background: rgb(102, 187, 106); /* Stay green for dark mode */
     }
 
     #send-button.playing:active {
-      background: rgb(245, 183, 0); /* Darker yellow on click */
+      background: rgb(56, 142, 60); /* Darker green on click */
       box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
       transform: scale(0.95);
     }
 
     @media (hover: hover) {
       #send-button.playing:hover {
-        background: rgb(255, 213, 79); /* Lighter yellow on hover */
+        background: rgb(102, 187, 106); /* Lighter green on hover */
         transform: scale(1.05);
         box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
       }
@@ -526,7 +526,7 @@
       min-height: 40px;
       flex-shrink: 0;
       box-sizing: border-box;
-      background: rgb(244, 67, 54); /* Red */
+      background: rgb(147, 112, 219); /* Purple */
       color: white;
       border: none;
       border-radius: 50%;
@@ -542,25 +542,25 @@
     
     @media (prefers-color-scheme: dark) {
       #stop-button {
-        background: rgb(239, 83, 80); /* Lighter red for dark mode */
+        background: rgb(167, 132, 239); /* Lighter purple for dark mode */
         box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
       }
     }
     
     [data-theme="dark"] #stop-button {
-      background: rgb(239, 83, 80); /* Lighter red for dark mode */
+      background: rgb(167, 132, 239); /* Lighter purple for dark mode */
       box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
     }
     
     @media (prefers-color-scheme: dark) {
       #stop-button {
-        background: rgb(239, 83, 80); /* Lighter red for dark mode */
+        background: rgb(167, 132, 239); /* Lighter purple for dark mode */
         box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
       }
     }
     
     [data-theme="dark"] #stop-button {
-      background: rgb(239, 83, 80); /* Lighter red for dark mode */
+      background: rgb(167, 132, 239); /* Lighter purple for dark mode */
       box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
     }
 
@@ -570,14 +570,14 @@
 
     @media (hover: hover) {
       #stop-button:hover {
-        background: rgb(239, 83, 80); /* Lighter red */
+        background: rgb(167, 132, 239); /* Lighter purple */
         box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
         transform: scale(1.05);
       }
     }
 
     #stop-button:active {
-      background: rgb(211, 47, 47); /* Darker red on click */
+      background: rgb(127, 92, 199); /* Darker purple on click */
       box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
       transform: scale(0.95);
     }
@@ -590,7 +590,7 @@
     
     #stop-button:disabled:hover,
     #stop-button:disabled:active {
-      background: rgb(244, 67, 54) !important;
+      background: rgb(147, 112, 219) !important;
       transform: scale(1) !important;
       box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2) !important;
     }
@@ -631,6 +631,47 @@
     @keyframes decrypt-flicker {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.95; }
+    }
+    
+    /* Flash effect for quick transitions */
+    @keyframes code-flash {
+      0% { background: rgba(255, 255, 255, 0.4); }
+      100% { background: transparent; }
+    }
+    
+    #kidlisp-editor.code-flash {
+      animation: code-flash 100ms ease-out;
+    }
+    
+    /* Flying code animation from ticker to editor */
+    .flying-code {
+      position: fixed;
+      z-index: 100001;
+      pointer-events: none;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      max-width: 300px;
+      text-overflow: ellipsis;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 20px rgba(138, 43, 226, 0.4);
+      transition: none;
+    }
+    
+    .flying-code.animating {
+      transition: transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                  opacity 150ms ease-out,
+                  box-shadow 150ms ease-out;
+    }
+    
+    [data-theme="light"] .flying-code {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), 0 0 20px rgba(138, 43, 226, 0.3);
     }
     
     /* Live running state - green outline matching play button (#90EE90) */
@@ -4817,66 +4858,505 @@
 
   <script>
     // 🔓 KidLisp Cryptographic Decryption Animation
-    // Decodes source code character-by-character like cryptographic reveal
+    // Modes: 'quick' (~300ms), 'initial' (waits for signal), 'instant' (no animation)
     (function() {
       // Scramble character set (matching the $code animation)
       const SCRAMBLE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789(),-=+*/<>:;\"\'.!?@#$%^&_~`[]{}|';
       
-      let decryptionInterval = null;
       let isDecrypting = false;
+      let currentAnimationId = 0; // Track which animation is active
+      let pendingTargetText = null; // Store target text for safety
+      let waitingForSignal = false; // For initial mode - keep scrambling until signaled
+      let signalResolver = null; // Resolves when signal received
+      
+      // Preset animation modes
+      const ANIMATION_MODES = {
+        // Quick flash - ultra-fast ~100ms coded flash
+        quick: {
+          maxDuration: 100,      // Target total animation time in ms
+          scrambleIterations: 1, // Single scramble before settling
+          minCharDelay: 1,       // Minimum delay between chars
+          waitForSignal: false,  // Complete on its own
+          flash: true,           // Enable flash effect
+        },
+        // Initial load - keeps scrambling until piece starts running
+        initial: {
+          revealDuration: 400,   // How long the reveal takes once signaled
+          scrambleIterations: 2, // Scrambles during reveal
+          minCharDelay: 3,       // Reveal speed
+          waitForSignal: true,   // Keep scrambling until signaled
+          maxWait: 10000,        // Safety: auto-complete after 10s
+        },
+        // Instant - no animation at all
+        instant: {
+          skipAnimation: true
+        }
+      };
+      
+      // 🚀 Flying code animation - blast old code away, bring new code in!
+      // codeHtml = highlighted HTML for animation colors
+      // fullSourceCode = actual source to set in editor (may be longer than animated portion)
+      window.flyCodeToEditor = function(sourceEl, codeHtml, fullSourceCode) {
+        return new Promise((resolve) => {
+          const editorEl = document.getElementById('kidlisp-editor');
+          const monacoEditor = window.editor; // Global Monaco editor reference
+          if (!sourceEl || !editorEl || !monacoEditor) {
+            resolve();
+            return;
+          }
+          
+          // Get positions
+          const sourceRect = sourceEl.getBoundingClientRect();
+          const targetRect = editorEl.getBoundingClientRect();
+          
+          // Find Monaco's actual content area and get real metrics
+          const viewLines = editorEl.querySelector('.view-lines');
+          const firstViewLine = editorEl.querySelector('.view-line');
+          const viewLinesRect = viewLines ? viewLines.getBoundingClientRect() : null;
+          const firstLineRect = firstViewLine ? firstViewLine.getBoundingClientRect() : null;
+          
+          // Get actual Monaco line height from rendered lines
+          const allViewLines = editorEl.querySelectorAll('.view-line');
+          let actualLineHeight = 22; // Default for 16px font
+          if (allViewLines.length >= 2) {
+            const line1 = allViewLines[0].getBoundingClientRect();
+            const line2 = allViewLines[1].getBoundingClientRect();
+            actualLineHeight = line2.top - line1.top;
+          }
+          
+          // Monaco editor font metrics - match actual editor (fontSize: 16)
+          const fontSize = 16;
+          const charWidth = 9.6; // ~0.6em for monospace at 16px
+          const lineHeight = actualLineHeight;
+          
+          // Get Monaco's actual font from the rendered editor
+          const monacoFontFamily = firstViewLine 
+            ? window.getComputedStyle(firstViewLine).fontFamily 
+            : "Menlo, Monaco, 'Courier New', monospace";
+          
+          // Detect theme for proper text shadow
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || 
+            (document.documentElement.getAttribute('data-theme') !== 'light' && 
+             window.matchMedia('(prefers-color-scheme: dark)').matches);
+          const textShadow = isDark 
+            ? '1px 1px 0px rgba(0, 0, 0, 0.5)' 
+            : '0.5px 0.5px 0px rgba(0, 0, 0, 0.25)';
+          
+          // Use actual Monaco content position - align with first character
+          const editorContentLeft = firstLineRect ? firstLineRect.left : (viewLinesRect ? viewLinesRect.left : (targetRect.left + 50));
+          const editorContentTop = firstLineRect ? firstLineRect.top : (viewLinesRect ? viewLinesRect.top : (targetRect.top + 5));
+          
+          // ═══════════════════════════════════════════════════════════
+          // PHASE 0: SWING TICKER BACK (visual windup before chars fly)
+          // ═══════════════════════════════════════════════════════════
+          const tickerSwingDuration = 120;
+          sourceEl.style.transition = `transform ${tickerSwingDuration}ms ease-out`;
+          sourceEl.style.transform = 'translateX(-8px) scale(0.98)';
+          
+          // Create container for all flying characters
+          const container = document.createElement('div');
+          container.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100001; overflow: hidden;';
+          document.body.appendChild(container);
+          
+          // ═══════════════════════════════════════════════════════════
+          // PHASE 1: BLAST OLD CODE AWAY (from editor)
+          // Extract colors from Monaco's actual rendered spans
+          // ═══════════════════════════════════════════════════════════
+          const oldCode = monacoEditor.getValue() || '';
+          const oldChars = oldCode.slice(0, 80);
+          
+          // Try to get colors from Monaco's rendered view BEFORE clearing
+          const monacoSpans = viewLines ? viewLines.querySelectorAll('.view-line span span') : [];
+          const spanColors = [];
+          monacoSpans.forEach(span => {
+            const color = window.getComputedStyle(span).color || 'rgb(220, 220, 220)';
+            const text = span.textContent || '';
+            for (let i = 0; i < text.length; i++) {
+              spanColors.push(color);
+            }
+          });
+          
+          // CLEAR the editor immediately so flying chars appear to leave!
+          monacoEditor.setValue('');
+          
+          let oldLine = 0;
+          let oldCol = 0;
+          let oldCharIndex = 0;
+          let colorIndex = 0;
+          
+          for (let i = 0; i < oldChars.length; i++) {
+            const char = oldChars[i];
+            
+            if (char === '\n') {
+              oldLine++;
+              oldCol = 0;
+              continue;
+            }
+            if (char === ' ') {
+              oldCol++;
+              colorIndex++;
+              continue;
+            }
+            
+            const charEl = document.createElement('span');
+            charEl.textContent = char;
+            
+            // EXACT position in editor where this character appears
+            const startX = editorContentLeft + (oldCol * charWidth);
+            const startY = editorContentTop + (oldLine * lineHeight);
+            
+            // Blast direction - upward and outward from editor
+            const spreadAngle = ((oldCol / 40) - 0.5) * Math.PI * 0.8;
+            const distance = 200 + Math.random() * 150;
+            const targetX = startX + Math.sin(spreadAngle) * distance * 0.5;
+            const targetY = startY - distance;
+            
+            // Use actual Monaco color if available, fallback to white
+            const charColor = spanColors[colorIndex] || 'rgb(255, 255, 255)';
+            
+            charEl.style.cssText = `
+              position: absolute;
+              font-family: ${monacoFontFamily};
+              font-size: ${fontSize}px;
+              line-height: ${lineHeight}px;
+              font-weight: 400;
+              letter-spacing: 0px;
+              color: ${charColor};
+              text-shadow: ${textShadow};
+              pointer-events: none;
+              left: ${startX}px;
+              top: ${startY}px;
+              opacity: 1;
+              transform: rotate(0deg);
+              will-change: transform, opacity, left, top;
+              white-space: pre;
+            `;
+            
+            container.appendChild(charEl);
+            
+            // Staggered blast - slower
+            const delay = oldCharIndex * 8;
+            ((el, tx, ty, d) => {
+              setTimeout(() => {
+                el.style.transition = `
+                  left 400ms cubic-bezier(0.2, 0.8, 0.3, 1),
+                  top 400ms cubic-bezier(0.1, 0.6, 0.2, 1),
+                  transform 400ms ease-out,
+                  opacity 150ms ease-out 300ms
+                `;
+                el.style.left = tx + 'px';
+                el.style.top = ty + 'px';
+                el.style.transform = `rotate(${(Math.random() - 0.5) * 60}deg)`;
+                el.style.opacity = '0';
+              }, d);
+            })(charEl, targetX, targetY, delay);
+            
+            oldCol++;
+            oldCharIndex++;
+            colorIndex++;
+          }
+          
+          // ═══════════════════════════════════════════════════════════
+          // PHASE 2: BRING NEW CODE IN (from ticker)
+          // Parse the highlighted HTML to get colors
+          // ═══════════════════════════════════════════════════════════
+          
+          // Parse highlighted HTML into chars with colors
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = codeHtml;
+          const coloredChars = [];
+          
+          function extractColoredChars(node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+              const text = node.textContent || '';
+              // Try to get color from parent span
+              let color = 'rgb(255, 255, 255)';
+              if (node.parentElement && node.parentElement.style.color) {
+                color = node.parentElement.style.color;
+              }
+              for (const char of text) {
+                coloredChars.push({ char, color });
+              }
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+              // Get color from this element's style
+              const el = node;
+              const style = el.getAttribute('style') || '';
+              const colorMatch = style.match(/color:\s*([^;]+)/);
+              const elColor = colorMatch ? colorMatch[1].trim() : null;
+              
+              for (const child of node.childNodes) {
+                if (child.nodeType === Node.TEXT_NODE) {
+                  const text = child.textContent || '';
+                  const useColor = elColor || 'rgb(255, 255, 255)';
+                  for (const char of text) {
+                    coloredChars.push({ char, color: useColor });
+                  }
+                } else {
+                  extractColoredChars(child);
+                }
+              }
+            }
+          }
+          extractColoredChars(tempDiv);
+          
+          // Limit chars for performance
+          const maxChars = 100;
+          const charsToAnimate = coloredChars.slice(0, maxChars);
+          
+          // Delay new code entrance - account for ticker swing
+          const blastHeadStart = tickerSwingDuration + 100;
+          
+          // Reset ticker transform after swing
+          setTimeout(() => {
+            sourceEl.style.transition = 'transform 200ms ease-out';
+            sourceEl.style.transform = '';
+          }, tickerSwingDuration + 50);
+          
+          let newLine = 0;
+          let newCol = 0;
+          let newCharIndex = 0;
+          
+          for (let i = 0; i < charsToAnimate.length; i++) {
+            const { char, color } = charsToAnimate[i];
+            
+            if (char === '\n') {
+              newLine++;
+              newCol = 0;
+              continue;
+            }
+            if (char === ' ') {
+              newCol++;
+              continue;
+            }
+            
+            const charEl = document.createElement('span');
+            charEl.textContent = char;
+            
+            // Start position - all chars emerge from left side of ticker (queue up)
+            const startX = sourceRect.left + 4;
+            const startY = sourceRect.top + sourceRect.height / 2 - fontSize / 2;
+            
+            // EXACT target position in editor
+            const targetX = editorContentLeft + (newCol * charWidth);
+            const targetY = editorContentTop + (newLine * lineHeight);
+            
+            charEl.style.cssText = `
+              position: absolute;
+              font-family: ${monacoFontFamily};
+              font-size: ${fontSize}px;
+              line-height: ${lineHeight}px;
+              font-weight: 400;
+              letter-spacing: 0px;
+              color: ${color};
+              text-shadow: ${textShadow};
+              pointer-events: none;
+              left: ${startX}px;
+              top: ${startY}px;
+              opacity: 1;
+              will-change: left, top;
+              white-space: pre;
+            `;
+            
+            container.appendChild(charEl);
+            
+            // Staggered entrance - slower
+            const delay = blastHeadStart + newCharIndex * 10;
+            
+            ((el, tx, ty, d) => {
+              setTimeout(() => {
+                el.style.transition = `
+                  left 350ms cubic-bezier(0.2, 0.7, 0.3, 1),
+                  top 350ms cubic-bezier(0.1, 0.6, 0.2, 1)
+                `;
+                el.style.left = tx + 'px';
+                el.style.top = ty + 'px';
+                // Stay opaque - no fade, no scale!
+              }, d);
+            })(charEl, targetX, targetY, delay);
+            
+            newCol++;
+            newCharIndex++;
+          }
+          
+          // Clean up after both animations complete and set editor content
+          const totalDuration = blastHeadStart + (newCharIndex * 10) + 400;
+          setTimeout(() => {
+            container.remove();
+            // Set editor content directly - use full source if provided, else animated text
+            const textToSet = fullSourceCode || charsToAnimate.map(c => c.char).join('');
+            if (monacoEditor && textToSet) {
+              monacoEditor.setValue(textToSet);
+            }
+            editorEl.classList.add('code-flash');
+            setTimeout(() => editorEl.classList.remove('code-flash'), 100);
+            resolve(textToSet);
+          }, totalDuration);
+        });
+      };
+      
+      // Signal that piece is running - trigger the reveal phase
+      window.signalDecryptionReady = function() {
+        if (waitingForSignal && signalResolver) {
+          waitingForSignal = false;
+          signalResolver();
+          signalResolver = null;
+        }
+      };
       
       // Decrypt text in Monaco editor with scramble animation
-      // Each character scrambles through random chars before settling on final value
+      // mode: 'quick' (default), 'initial', or 'instant'
       window.decryptIntoEditor = function(targetText, editor, options = {}) {
         if (!editor || !targetText) return Promise.resolve();
         
-        const {
-          charDelay = 15,        // ms between revealing each character
-          scrambleIterations = 4, // scramble cycles before settling
-          scrambleSpeed = 30,     // ms between scramble updates
-        } = options;
+        // Cancel any existing animation immediately
+        if (isDecrypting) {
+          isDecrypting = false;
+          waitingForSignal = false;
+          if (signalResolver) {
+            signalResolver();
+            signalResolver = null;
+          }
+        }
         
+        // Determine mode and settings
+        const mode = options.mode || 'quick';
+        const modeSettings = ANIMATION_MODES[mode] || ANIMATION_MODES.quick;
+        
+        // Allow custom overrides
+        const settings = { ...modeSettings, ...options };
+        
+        // Store target for safety
+        pendingTargetText = targetText;
+        
+        // Skip animation entirely if requested
+        if (settings.skipAnimation) {
+          editor.setValue(targetText);
+          pendingTargetText = null;
+          return Promise.resolve();
+        }
+        
+        // Assign unique ID to this animation
+        const animationId = ++currentAnimationId;
         isDecrypting = true;
         
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
           const chars = targetText.split('');
-          const settled = new Array(chars.length).fill(false);
-          const scrambleCounts = new Array(chars.length).fill(0);
-          let currentRevealIndex = 0;
-          let lastRevealTime = 0;
           
           // Initialize with scrambled version
           const getScrambledChar = (original) => {
-            // Keep newlines and spaces as-is
             if (original === '\n' || original === ' ') return original;
             return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
           };
           
-          const buildCurrentText = () => {
-            return chars.map((char, i) => {
-              if (settled[i]) return char;
-              if (i > currentRevealIndex + 3) return getScrambledChar(char); // Future chars scramble
-              return getScrambledChar(char); // Currently decrypting
+          const buildScrambledText = () => {
+            return chars.map(char => {
+              if (char === '\n' || char === ' ') return char;
+              return getScrambledChar(char);
             }).join('');
           };
           
-          // Set initial scrambled text
-          editor.setValue(buildCurrentText());
-          
-          const animate = () => {
-            if (!isDecrypting) {
+          // Safety: Always ensure we end with correct text
+          const finalize = () => {
+            if (pendingTargetText === targetText) {
               editor.setValue(targetText);
+              pendingTargetText = null;
+            }
+            if (currentAnimationId === animationId) {
+              isDecrypting = false;
+              waitingForSignal = false;
+            }
+            resolve();
+          };
+          
+          // Set initial scrambled text
+          editor.setValue(buildScrambledText());
+          
+          // Phase 1: Wait for signal (if waitForSignal mode)
+          if (settings.waitForSignal) {
+            waitingForSignal = true;
+            
+            // Create promise that resolves when signaled or timeout
+            const waitPromise = new Promise((resolveWait) => {
+              signalResolver = resolveWait;
+              
+              // Safety timeout
+              setTimeout(() => {
+                if (waitingForSignal && currentAnimationId === animationId) {
+                  waitingForSignal = false;
+                  resolveWait();
+                }
+              }, settings.maxWait || 10000);
+            });
+            
+            // Scramble animation while waiting
+            let scrambleFrame;
+            const scrambleWhileWaiting = () => {
+              if (currentAnimationId !== animationId || !isDecrypting) {
+                finalize();
+                return;
+              }
+              
+              if (!waitingForSignal) {
+                // Signal received - proceed to reveal phase
+                return;
+              }
+              
+              // Keep updating with scrambled text
+              editor.setValue(buildScrambledText());
+              scrambleFrame = requestAnimationFrame(scrambleWhileWaiting);
+            };
+            
+            scrambleWhileWaiting();
+            await waitPromise;
+            cancelAnimationFrame(scrambleFrame);
+            
+            // Check if cancelled during wait
+            if (currentAnimationId !== animationId || !isDecrypting) {
+              finalize();
+              return;
+            }
+          }
+          
+          // Phase 2: Reveal animation
+          const settled = new Array(chars.length).fill(false);
+          const scrambleCounts = new Array(chars.length).fill(0);
+          let currentRevealIndex = 0;
+          let lastRevealTime = 0;
+          const revealStartTime = performance.now();
+          
+          const { revealDuration, maxDuration, scrambleIterations, minCharDelay } = settings;
+          const duration = revealDuration || maxDuration || 300;
+          
+          // Calculate charDelay to fit animation in duration
+          let charDelay = Math.max(minCharDelay || 2, Math.floor(duration / (chars.length * scrambleIterations)));
+          charDelay = Math.min(charDelay, 15);
+          
+          const animateReveal = () => {
+            // Check if this animation was cancelled
+            if (currentAnimationId !== animationId) {
               resolve();
               return;
             }
             
+            // Check if stopped externally
+            if (!isDecrypting) {
+              finalize();
+              return;
+            }
+            
             const now = performance.now();
+            const elapsed = now - revealStartTime;
+            
+            // Safety: Force complete if we've exceeded duration
+            if (elapsed > duration * 1.5) {
+              finalize();
+              return;
+            }
             
             // Reveal next character after delay
             if (now - lastRevealTime >= charDelay && currentRevealIndex < chars.length) {
               scrambleCounts[currentRevealIndex]++;
               
-              // After enough scrambles, settle this character
               if (scrambleCounts[currentRevealIndex] >= scrambleIterations) {
                 settled[currentRevealIndex] = true;
                 currentRevealIndex++;
@@ -4891,30 +5371,37 @@
               return getScrambledChar(char);
             }).join('');
             
-            // Update editor without losing cursor position
-            const position = editor.getPosition();
-            editor.setValue(currentText);
-            if (position) editor.setPosition(position);
+            if (currentAnimationId === animationId) {
+              editor.setValue(currentText);
+            }
             
             // Check if done
             if (settled.every(s => s)) {
-              isDecrypting = false;
-              editor.setValue(targetText); // Ensure final text is exact
-              resolve();
+              finalize();
               return;
             }
             
-            setTimeout(animate, scrambleSpeed);
+            // Use requestAnimationFrame for smooth 60fps
+            requestAnimationFrame(animateReveal);
           };
           
-          // Start animation
-          setTimeout(animate, scrambleSpeed);
+          // Start reveal animation
+          requestAnimationFrame(animateReveal);
         });
       };
       
-      // Stop decryption immediately (if user starts typing)
-      window.stopDecryption = function() {
+      // Stop decryption immediately and set final text
+      window.stopDecryption = function(setFinalText = true) {
+        if (isDecrypting && setFinalText && pendingTargetText && window.editor) {
+          window.editor.setValue(pendingTargetText);
+        }
         isDecrypting = false;
+        waitingForSignal = false;
+        pendingTargetText = null;
+        if (signalResolver) {
+          signalResolver();
+          signalResolver = null;
+        }
       };
       
       // Check if currently decrypting
@@ -4922,14 +5409,19 @@
         return isDecrypting;
       };
       
-      // Legacy stubs for compatibility (chunking canvas is removed)
-      window.chunkingAddLog = function(message) {
-        // No-op - chunking canvas removed
+      // Check if waiting for signal
+      window.isWaitingForDecryptSignal = function() {
+        return waitingForSignal;
       };
       
-      window.chunkingStop = function() {
-        // No-op - chunking canvas removed  
+      // Get pending target text (useful for debugging)
+      window.getPendingDecryptText = function() {
+        return pendingTargetText;
       };
+      
+      // Legacy stubs for compatibility (chunking canvas removed)
+      window.chunkingAddLog = function(message) {};
+      window.chunkingStop = function() {};
     })();
   </script>
 
@@ -7550,8 +8042,6 @@
       const hasContent = editorValue.trim().length > 0;
       const shouldEnable = iframeReady && hasContent;
       
-      console.log('🎮 updatePlayButtonState:', { iframeReady, hasContent, shouldEnable, editorExists: !!window.editor, valueLength: editorValue.length });
-      
       sendButton.disabled = !shouldEnable;
       sendButton.style.opacity = shouldEnable ? '1' : '0.4';
       sendButton.style.cursor = shouldEnable ? 'pointer' : 'not-allowed';
@@ -8692,8 +9182,8 @@
     
     // Inline SVG for play/pause/stop button icons with colored circular backgrounds
     const playButtonSVG = `<svg class="inline-btn-icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#90EE90"/><polygon points="10,7 17,12 10,17" fill="#1a2f1a"/></svg>`;
-    const pauseButtonSVG = `<svg class="inline-btn-icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#ffd93d"/><rect x="8" y="7" width="3" height="10" rx="1" fill="#2f2f1a"/><rect x="13" y="7" width="3" height="10" rx="1" fill="#2f2f1a"/></svg>`;
-    const stopButtonSVG = `<svg class="inline-btn-icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#ff9f43"/><rect x="8" y="8" width="8" height="8" rx="1" fill="#2f261a"/></svg>`;
+    const pauseButtonSVG = `<svg class="inline-btn-icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#90EE90"/><rect x="8" y="7" width="3" height="10" rx="1" fill="#1a2f1a"/><rect x="13" y="7" width="3" height="10" rx="1" fill="#1a2f1a"/></svg>`;
+    const stopButtonSVG = `<svg class="inline-btn-icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#9370DB"/><rect x="8" y="8" width="8" height="8" rx="1" fill="#2f1a2f"/></svg>`;
     
     // Show welcome message - shows autoplay state with code preview
     let hasShownWelcome = false;
@@ -9233,15 +9723,39 @@
           if (source && editor) {
             logCodeOperation('load', source, code);
             
-            // Use cryptographic decryption animation to reveal code
+            // Store the code identifier BEFORE animation starts
+            if (currentPlatform === 'aesthetic-computer') {
+              localStorage.setItem('kidlisp-current-code', code);
+            }
+            
+            // Start decryption animation (will keep scrambling until signaled)
             const editorEl = document.getElementById('kidlisp-editor');
             if (editorEl) editorEl.classList.add('decrypting');
             
-            await window.decryptIntoEditor(source, editor, {
-              charDelay: 12,
-              scrambleIterations: 3,
-              scrambleSpeed: 25
-            });
+            // Start animation in background - don't await yet!
+            // Animation will complete when kidlisp-trace signal is received
+            const animationPromise = window.decryptIntoEditor(source, editor, { mode: 'initial' });
+            
+            // Mark that we've handled the initial preview
+            hasInitialPreviewRun = true;
+            shouldAutoPlay = true;
+            
+            // IMMEDIATELY trigger auto-play if iframe is ready
+            // The animation is scrambling, but updatePreview will use pendingDecryptText
+            if (pieceReady && !isPlaying && currentPlatform === 'aesthetic-computer') {
+              log.playback.log('Auto-playing (code loaded, piece ready, animation will reveal when running)...');
+              updatePreview();  // This will use getPendingDecryptText() for the real code
+              isPlaying = true;
+              isPaused = false;
+              sendButton.classList.add('playing');
+              stopButton.style.display = 'flex';
+              if (window.updateClearButtonPosition) window.updateClearButtonPosition();
+              setLiveState('running');
+              shouldAutoPlay = false;
+            }
+            
+            // Now wait for animation to complete (will be signaled by kidlisp-trace)
+            await animationPromise;
             
             if (editorEl) editorEl.classList.remove('decrypting');
             
@@ -9253,29 +9767,10 @@
             // Update URL and title (only on AC platform)
             if (currentPlatform === 'aesthetic-computer') {
               updateURLForCode(code);
-              // Store code identifier in localStorage
-              localStorage.setItem('kidlisp-current-code', code);
               // Update preview pane title (no animation for initial load)
               const previewTitle = document.getElementById('preview-title');
               const codeChars = `/$${code}`.split('').map(c => `<span class="code-char">${c}</span>`).join('');
               previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">${codeChars}</span>`;
-            }
-            // Mark that we've handled the initial preview (don't run again later)
-            hasInitialPreviewRun = true;
-            // Set shouldAutoPlay so piece auto-plays when iframe is ready
-            shouldAutoPlay = true;
-            
-            // If iframe is already ready, trigger play immediately
-            if (pieceReady && !isPlaying && currentPlatform === 'aesthetic-computer') {
-              log.playback.log('Auto-playing (code loaded, piece already ready)...');
-              updatePreview();
-              isPlaying = true;
-              isPaused = false;
-              sendButton.classList.add('playing');
-              stopButton.style.display = 'flex';
-              if (window.updateClearButtonPosition) window.updateClearButtonPosition();
-              setLiveState('running');
-              shouldAutoPlay = false;
             }
           } else {
             log.code.error(`Failed to load code: $${code}`);
@@ -9348,6 +9843,35 @@
           editor.setPosition({ lineNumber: maxLines, column: endOfLastLine });
         }
       }
+      
+      // Stop decryption animation immediately when user starts typing
+      // This ensures no garbage code can remain if user interrupts the animation
+      editor.onKeyDown((e) => {
+        // Any key press (except navigation keys) should stop decryption
+        const isNavigationKey = [
+          monaco.KeyCode.LeftArrow, monaco.KeyCode.RightArrow,
+          monaco.KeyCode.UpArrow, monaco.KeyCode.DownArrow,
+          monaco.KeyCode.Home, monaco.KeyCode.End,
+          monaco.KeyCode.PageUp, monaco.KeyCode.PageDown,
+          monaco.KeyCode.Shift, monaco.KeyCode.Ctrl, monaco.KeyCode.Alt, monaco.KeyCode.Meta
+        ].includes(e.keyCode);
+        
+        if (!isNavigationKey && window.isDecrypting && window.isDecrypting()) {
+          // Stop animation and set final text immediately
+          window.stopDecryption(true);
+          const editorEl = document.getElementById('kidlisp-editor');
+          if (editorEl) editorEl.classList.remove('decrypting');
+        }
+      });
+      
+      // Also stop decryption if user clicks to focus/interact with editor
+      editor.onMouseDown(() => {
+        if (window.isDecrypting && window.isDecrypting()) {
+          window.stopDecryption(true);
+          const editorEl = document.getElementById('kidlisp-editor');
+          if (editorEl) editorEl.classList.remove('decrypting');
+        }
+      });
       
       // Prevent Enter key when at line limit
       editor.onKeyDown((e) => {
@@ -9839,7 +10363,10 @@
         window.decorationTimeout = setTimeout(() => {
           applyColorNameDecorations();
         }, 50);
-        localStorage.setItem('kidlisp-code', editor.getValue());
+        // Don't save scrambled animation content to localStorage
+        if (!(window.isDecrypting && window.isDecrypting())) {
+          localStorage.setItem('kidlisp-code', editor.getValue());
+        }
         
         // Clear URL and code identifier when content changes
         const currentPath = window.location.pathname;
@@ -10144,6 +10671,11 @@
         let pendingUpdate = false;
         
         editor.onDidChangeModelContent(() => {
+          // Skip updates during decryption animation - the animation is changing the content
+          if (window.isDecrypting && window.isDecrypting()) {
+            return;
+          }
+          
           const currentCode = editor.getValue().trim();
           if (isPlaying && !isPaused && currentCode !== lastCode) {
             // Immediately mark code as stale when user types (POOF animation!)
@@ -10431,10 +10963,28 @@
     function updatePreview(shouldCreateCode = false) {
       if (!editor) return;
       
+      // CRITICAL: Don't send scrambled animation text to KidLisp!
+      // If decryption is in progress, use the pending target text instead
+      if (window.isDecrypting && window.isDecrypting()) {
+        const pendingText = window.getPendingDecryptText && window.getPendingDecryptText();
+        if (pendingText) {
+          // Use the actual target code, not the scrambled animation
+          log.playback.debug('Using pending decrypt text instead of scrambled editor content');
+        } else {
+          // No pending text - skip this update, wait for decryption to complete
+          log.playback.debug('Decryption in progress, skipping updatePreview');
+          return;
+        }
+      }
+      
       // Clear previous error decorations when running new code
       clearErrorDecorations();
       
-      const code = editor.getValue().trim();
+      // Get the actual code - use pending decrypt text if decrypting, otherwise editor value
+      const pendingCode = window.getPendingDecryptText && window.getPendingDecryptText();
+      const code = (window.isDecrypting && window.isDecrypting() && pendingCode) 
+        ? pendingCode.trim() 
+        : editor.getValue().trim();
       
       log.playback.verbose(`Sending code (${code.length} chars)`);
       if (code) {
@@ -10449,8 +10999,6 @@
         // 2. Code changed AND we're in a playing state (live editing)
         // 3. Code changed AND this is the first send (lastSentCodeSource is empty)
         const needsNewCode = shouldCreateCode || (codeChanged && (isPlaying || !lastSentCodeSource));
-        
-        console.log('🎯 updatePreview:', { shouldCreateCode, codeChanged, isPlaying, lastSentCodeSource: !!lastSentCodeSource, needsNewCode });
         
         // Mark old code as stale when code changes
         if (codeChanged && codeId && isPlaying) {
@@ -10530,7 +11078,12 @@
         // Only create a NEW code if we don't already have one stored
         const existingCode = localStorage.getItem('kidlisp-current-code');
         const shouldCreateCode = !existingCode; // Only create if no existing code
-        const codeToRun = editor.getValue().trim();
+        
+        // Get code safely - use pending decrypt text if animation is running
+        const pendingCode = window.getPendingDecryptText && window.getPendingDecryptText();
+        const codeToRun = (window.isDecrypting && window.isDecrypting() && pendingCode) 
+          ? pendingCode.trim() 
+          : editor.getValue().trim();
         
         // Only log if there's code to run
         if (codeToRun) {
@@ -10944,7 +11497,12 @@
           applyHighlightDecorations(event.data.highlights);
         }
       } else if (messageType === 'kidlisp-trace') {
-        // Execution trace from KidLisp interpreter - update visualization
+        // Execution trace from KidLisp interpreter - piece is running!
+        // Signal the decryption animation to start revealing
+        if (window.signalDecryptionReady) {
+          window.signalDecryptionReady();
+        }
+        
         if (event.data.trace && Array.isArray(event.data.trace)) {
           vizSystem.executionTrace = event.data.trace;
           vizSystem.frameCount++;
@@ -12711,20 +13269,25 @@
               </div>
               <div class="example-hits">${item.hits} ${t('hits')}</div>
             `;
+            
+            // Store highlighted code on element for flying animation
+            el._highlightedCode = highlightedCode;
+            
             el.addEventListener('click', async () => {
               if (editor) {
                 const sourceCode = item.source || item.code;
                 
-                // Use cryptographic decryption animation to reveal code
+                // 🚀 Flying code animation - code flies from ticker to editor!
+                // This sets the editor content directly - no scramble needed
+                const codeEl = el.querySelector('.example-code');
+                if (codeEl && window.flyCodeToEditor) {
+                  await window.flyCodeToEditor(codeEl, el._highlightedCode || sourceCode, sourceCode);
+                } else {
+                  // Fallback if no flying animation
+                  editor.setValue(sourceCode);
+                }
+                
                 const editorEl = document.getElementById('kidlisp-editor');
-                if (editorEl) editorEl.classList.add('decrypting');
-                
-                await window.decryptIntoEditor(sourceCode, editor, {
-                  charDelay: 8,        // Faster for quick selection
-                  scrambleIterations: 2,
-                  scrambleSpeed: 20
-                });
-                
                 if (editorEl) editorEl.classList.remove('decrypting');
                 
                 // Update URL and title (only on AC platform)
@@ -12834,13 +13397,17 @@
         el.addEventListener('click', async () => {
           if (!editor) return;
           const sourceCode = item.source || '';
+          
+          // 🚀 Flying code animation - sets editor directly
+          const codeEl = el.querySelector('.example-code');
+          if (codeEl && window.flyCodeToEditor) {
+            await window.flyCodeToEditor(codeEl, snippet || '(empty)', sourceCode);
+          } else {
+            // Fallback if no flying animation
+            editor.setValue(sourceCode);
+          }
+          
           const editorEl = document.getElementById('kidlisp-editor');
-          if (editorEl) editorEl.classList.add('decrypting');
-          await window.decryptIntoEditor(sourceCode, editor, {
-            charDelay: 8,
-            scrambleIterations: 2,
-            scrambleSpeed: 20
-          });
           if (editorEl) editorEl.classList.remove('decrypting');
 
           if (currentPlatform === 'aesthetic-computer' && item.code) {
