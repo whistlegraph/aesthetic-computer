@@ -3587,11 +3587,11 @@ const $commonApi = {
     capitalize: text.capitalize,
     reverse: text.reverse,
     // Get the pixel width of a string of characters.
-    width: (text) => {
+    width: (text, fontName) => {
       if (Array.isArray(text)) text = text.join(" ");
       
-      // Use the current typeface for accurate width calculation
-      const useTypeface = tf;
+      // Use specified font or fall back to current typeface
+      const useTypeface = getTypefaceForMeasurement(fontName) || tf;
       if (!useTypeface) {
         return text.length * DEFAULT_TYPEFACE_BLOCK_WIDTH;
       }
