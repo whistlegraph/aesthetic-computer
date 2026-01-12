@@ -4,7 +4,45 @@ if (window === window.top) {
   console.clear();
 }
 
-// 🔧 Register Service Worker for module caching (production + dev)
+// 📦 Early WebSocket module loader initialization
+// This runs before anything else to establish connection ASAP
+// Skip in PACK mode (NFT bundles use import maps)
+let moduleLoader = null;
+if (!window.acPACK_MODE) {
+  try {
+    // Dynamic import of module-loader (this one file loads via HTTP)
+    const { moduleLoader: ml } = await import("./module-loader.mjs");
+    moduleLoader = ml;
+    
+    // Start connecting immediately (don't await - let it race)
+    const initPromise = moduleLoader.init(1500); // 1.5s timeout for initial connect
+    
+    // Prefetch critical modules while we continue booting
+    initPromise.then(connected => {
+      if (connected) {
+        // Show connection status in boot canvas (static indicator)
+        if (window.acBootCanvas?.setSessionConnected) {
+          window.acBootCanvas.setSessionConnected(true);
+        }
+        // Only prefetch the two main entry points - they include all dependencies
+        // Don't prefetch individual modules (num, geo, help, etc.) since they're
+        // already included in disk.mjs and bios.mjs bundles. Requesting them
+        // separately causes race conditions with overlapping blob URLs.
+        moduleLoader.prefetch([
+          "lib/disk.mjs",
+          "bios.mjs"
+        ]);
+      }
+    });
+    
+    // Store globally for use by importWithRetry
+    window.acModuleLoader = moduleLoader;
+  } catch (err) {
+    console.warn("📦 Module loader not available:", err.message);
+  }
+}
+
+// �🔧 Register Service Worker for module caching (production + dev)
 // Skip in PACK mode (NFT bundles) and sandboxed iframes
 if ('serviceWorker' in navigator && !window.acPACK_MODE && window === window.top) {
   navigator.serviceWorker.register('/sw.js', { scope: '/' })
@@ -463,23 +501,44 @@ window.safeSessionStorageRemove = safeSessionStorageRemove;
 
 // Included as a <script> tag to boot the system on a webpage. (Loads `bios`)
 // Dynamic import with retry for network resilience
+// Uses WebSocket module loader with dependency bundling when available
 const IMPORT_MAX_RETRIES = 3;
 const IMPORT_RETRY_DELAY = 1500;
 
-async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES) {
+async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBundle = false) {
+  // Try WebSocket module loader with dependency bundling first
+  const loader = window.acModuleLoader;
+  if (useWsBundle && loader?.connected && loader.loadWithDeps) {
+    try {
+      // Extract relative path from modulePath (remove ./ prefix and cache bust)
+      let relativePath = modulePath.replace(/^\.\//, '').split('?')[0];
+      
+      // Load module with all dependencies via WebSocket (5s timeout for bundles)
+      const blobUrl = await loader.loadWithDeps(relativePath, 5000);
+      
+      if (blobUrl && blobUrl.startsWith('blob:')) {
+        const module = await import(blobUrl);
+        return module;
+      }
+    } catch (err) {
+      // Silent fallback to HTTP
+    }
+  }
+  
+  // Standard HTTP import with retry
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      bootLog(`loading ${modulePath.split('/').pop()}${attempt > 1 ? ` (retry ${attempt}/${retries})` : ''}`);
       const module = await import(modulePath);
       return module;
     } catch (err) {
       const isNetworkError = err.message?.includes('net::ERR_') || 
                              err.message?.includes('Failed to fetch') ||
                              err.message?.includes('timed out') ||
-                             err.message?.includes('NetworkError');
+                             err.message?.includes('NetworkError') ||
+                             err.message?.includes('Content-Length');
       
       if (attempt < retries && isNetworkError) {
-        bootLog(`⚠️ ${modulePath.split('/').pop()} load failed - retrying in ${IMPORT_RETRY_DELAY}ms...`);
+        bootLog(`⚠️ module load failed - retry ${attempt}/${retries}`);
         await new Promise(resolve => setTimeout(resolve, IMPORT_RETRY_DELAY));
       } else {
         throw err;
@@ -498,14 +557,45 @@ const cacheBust = window.acPACK_MODE || isLocalhost ? '' : `?v=${Date.now()}`;
 const pathPrefix = window.acPACK_MODE ? '' : './';
 
 // Helper to fetch and display source file in boot canvas
+// Uses WebSocket module loader cache when available to avoid HTTP proxy errors
 async function fetchAndShowSource(path, displayName) {
   if (window.acPACK_MODE) return; // Skip in PACK mode
   try {
-    const response = await fetch(path);
-    if (response.ok) {
-      const text = await response.text();
-      if (window.acBOOT_ADD_FILE) {
-        window.acBOOT_ADD_FILE(displayName || path, text);
+    const loader = window.acModuleLoader;
+    const modulePath = path.replace(/^\.\//, ''); // Strip ./ prefix
+    
+    // Try to get from bundle contents first (loaded via WebSocket, avoids HTTP entirely)
+    if (loader?.getSourceContent) {
+      const bundleContent = loader.getSourceContent(modulePath);
+      if (bundleContent) {
+        if (window.acBOOT_ADD_FILE) {
+          window.acBOOT_ADD_FILE(displayName || path, bundleContent);
+        }
+        return;
+      }
+    }
+    
+    // Try IndexedDB cache next
+    if (loader?.db) {
+      const cached = await loader.getCachedModule(modulePath);
+      if (cached?.content) {
+        if (window.acBOOT_ADD_FILE) {
+          window.acBOOT_ADD_FILE(displayName || path, cached.content);
+        }
+        return;
+      }
+    }
+    
+    // Fallback to HTTP fetch (may fail on localhost due to proxy issues)
+    // Only try HTTP if not on localhost (where proxy is flaky)
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isLocalhost) {
+      const response = await fetch(path);
+      if (response.ok) {
+        const text = await response.text();
+        if (window.acBOOT_ADD_FILE) {
+          window.acBOOT_ADD_FILE(displayName || path, text);
+        }
       }
     }
   } catch (e) {
@@ -515,12 +605,30 @@ async function fetchAndShowSource(path, displayName) {
 
 let boot, parse, slug;
 try {
-  bootLog("loading bios.mjs" + cacheBust);
-  bootLog("loading parse.mjs" + cacheBust);
+  // Wait for WebSocket module loader to connect (enables WS bundle loading)
+  const loader = window.acModuleLoader;
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
+  // Try WebSocket module loading (faster on localhost, optional speedup in prod)
+  if (loader && !loader.connected) {
+    // Shorter timeout in prod (don't delay if session server unavailable)
+    const wsTimeout = isLocalhost ? 2000 : 1000;
+    await loader.init(wsTimeout).catch(() => {}); // Silent fail
+  }
+  
+  // Update boot canvas with session status
+  if (typeof window.setSessionConnected === 'function') {
+    window.setSessionConnected(loader?.connected || false);
+  }
+  
+  // Use WebSocket bundle loading when connected
+  const useWsBundle = loader?.connected;
+  
+  bootLog("loading core modules" + (useWsBundle ? ' ⚡' : ''));
   
   const [biosModule, parseModule] = await Promise.all([
-    importWithRetry(`${pathPrefix}bios.mjs${cacheBust}`),
-    importWithRetry(`${pathPrefix}lib/parse.mjs${cacheBust}`)
+    importWithRetry(`${pathPrefix}bios.mjs${cacheBust}`, IMPORT_MAX_RETRIES, useWsBundle),
+    importWithRetry(`${pathPrefix}lib/parse.mjs${cacheBust}`, IMPORT_MAX_RETRIES, useWsBundle)
   ]);
   boot = biosModule.boot;
   parse = parseModule.parse;
