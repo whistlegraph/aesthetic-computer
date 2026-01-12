@@ -3553,6 +3553,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Rewire things a bit if workers with modules are not supported (Firefox).
       worker.onerror = async (err) => {
         if (workerFailed) return; // Already handling fallback
+        if (workerInitialized) {
+          // Worker already started successfully - this is a late error, don't double-init
+          console.warn("🟡 Worker error after init:", err.message || "(no message)");
+          return;
+        }
         
         // Detect transient/network errors that are worth retrying
         const isTransientError = !err.message;
