@@ -139,11 +139,27 @@ class ModuleLoader {
   }
 
   // Handle incoming WebSocket messages
-  handleMessage(msg) {
+  async handleMessage(msg) {
     if (msg.type === "module:bundle") {
-      // Bundle response - all dependencies included
+      // Bundle response - all dependencies included (some may be marked as cached)
       const resolver = this.pending.get(msg.entry);
       if (resolver) {
+        // Load cached modules from IndexedDB/memory first
+        const cachedPaths = msg.cached || [];
+        for (const cachedPath of cachedPaths) {
+          if (!this.blobUrls.has(cachedPath)) {
+            // Try to load from IndexedDB
+            const dbCached = await this.getCachedModule(cachedPath);
+            if (dbCached) {
+              const blob = new Blob([dbCached.content], { type: "application/javascript" });
+              const blobUrl = URL.createObjectURL(blob);
+              this.modules.set(cachedPath, { hash: dbCached.hash, blobUrl });
+              this.blobUrls.set(cachedPath, blobUrl);
+              this.bundleContents.set(cachedPath, dbCached.content);
+            }
+          }
+        }
+        
         // SOURCE REWRITING STRATEGY:
         // Blob URLs can't resolve relative imports like `import "./foo.mjs"`.
         // We must rewrite ALL imports to absolute blob URLs.
@@ -205,6 +221,9 @@ class ModuleLoader {
           // Store original content for source display (fetchAndShowSource)
           this.bundleContents.set(modPath, modData.content);
           
+          // Cache in IndexedDB (async, don't wait) - cache ORIGINAL content, not rewritten
+          this.cacheModule(modPath, modData.hash, modData.content);
+          
           // Rewrite imports to blob URLs, track if any HTTP fallbacks needed
           const { content: rewritten, hadFallback } = this.rewriteImportsToBlobs(modData.content, modPath, this.blobUrls);
           if (hadFallback) {
@@ -231,6 +250,12 @@ class ModuleLoader {
           }
           resolver.resolve(null); // null signals to use HTTP fallback
         } else {
+          // Log cache stats
+          const cachedCount = (msg.cached || []).length;
+          const sentCount = moduleEntries.length;
+          if (cachedCount > 0) {
+            console.log(`📦 Bundle ${msg.entry}: ${sentCount} received, ${cachedCount} from cache`);
+          }
           resolver.resolve(this.blobUrls.get(msg.entry));
         }
         this.pending.delete(msg.entry);
@@ -412,11 +437,51 @@ class ModuleLoader {
     return this.load(modulePath, timeoutMs, true);
   }
 
+  // Gather known hashes from memory + IndexedDB cache for delta requests
+  async getKnownHashes() {
+    const hashes = {};
+    // Add memory cache hashes
+    for (const [path, data] of this.modules) {
+      hashes[path] = data.hash;
+    }
+    // Add IndexedDB hashes (if not already in memory)
+    if (this.db) {
+      try {
+        const tx = this.db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const allRequest = store.getAll();
+        await new Promise((resolve) => {
+          allRequest.onsuccess = () => {
+            for (const item of allRequest.result || []) {
+              if (!hashes[item.path]) {
+                hashes[item.path] = item.hash;
+              }
+            }
+            resolve();
+          };
+          allRequest.onerror = resolve;
+        });
+      } catch (err) { /* ignore */ }
+    }
+    return hashes;
+  }
+
   // Load via WebSocket with timeout (throws on failure - no HTTP fallback)
   async loadViaWebSocketWithTimeout(modulePath, timeoutMs, withDeps = false) {
+    // For bundle requests, send known hashes so server can skip unchanged modules
+    let knownHashes = null;
+    if (withDeps) {
+      knownHashes = await this.getKnownHashes();
+    }
+    
     const wsPromise = new Promise((resolve, reject) => {
       this.pending.set(modulePath, { resolve, reject });
-      this.ws.send(JSON.stringify({ type: "module:request", path: modulePath, withDeps }));
+      this.ws.send(JSON.stringify({ 
+        type: "module:request", 
+        path: modulePath, 
+        withDeps,
+        knownHashes // Server will skip modules with matching hashes
+      }));
     });
     
     const timeoutPromise = new Promise((_, reject) => {

@@ -1334,23 +1334,33 @@ wss.on("connection", (ws, req) => {
     if (msg.type === "module:request") {
       const modulePath = msg.path;
       const withDeps = msg.withDeps === true; // Request all dependencies too
+      const knownHashes = msg.knownHashes || {}; // Client's cached hashes
       
       if (withDeps) {
         // Recursively gather all dependencies
         const modules = {};
+        let skippedCount = 0;
+        
         const gatherDeps = (p, fromPath = null) => {
-          if (modules[p]) return; // Already gathered
+          if (modules[p] || modules[p] === null) return; // Already gathered (or marked as cached)
           const data = getModuleHash(p);
           if (!data) {
             // Only warn for top-level not found, not for deps (which might be optional)
             if (!fromPath) log(`📦 Module not found: ${p}`);
             return;
           }
-          modules[p] = { hash: data.hash, content: data.content };
+          
+          // Check if client already has this hash cached
+          if (knownHashes[p] === data.hash) {
+            modules[p] = null; // Mark as "client has it" - don't send content
+            skippedCount++;
+          } else {
+            modules[p] = { hash: data.hash, content: data.content };
+          }
           
           // Debug: show when gathering specific important modules
           if (p.includes('headers') || p.includes('kidlisp')) {
-            log(`📦 Gathering ${p} (from ${fromPath || 'top'})`);
+            log(`📦 Gathering ${p} (from ${fromPath || 'top'})${knownHashes[p] === data.hash ? ' [cached]' : ''}`);
           }
           
           // Parse static imports from content - match ES module import/export from statements
@@ -1387,19 +1397,34 @@ wss.on("connection", (ws, req) => {
         
         gatherDeps(modulePath);
         
-        if (Object.keys(modules).length > 0) {
-          // Log which modules are in the bundle
-          const moduleList = Object.keys(modules);
-          const hasKidlisp = moduleList.includes('lib/kidlisp.mjs');
-          const hasHeaders = moduleList.includes('lib/headers.mjs');
-          log(`📦 Bundle for ${modulePath}: ${moduleList.length} modules (kidlisp: ${hasKidlisp}, headers: ${hasHeaders})`);
+        // Filter out null entries (modules client already has) and count
+        const modulesToSend = {};
+        const cachedPaths = [];
+        for (const [p, data] of Object.entries(modules)) {
+          if (data === null) {
+            cachedPaths.push(p);
+          } else {
+            modulesToSend[p] = data;
+          }
+        }
+        
+        const totalModules = Object.keys(modules).length;
+        const sentModules = Object.keys(modulesToSend).length;
+        
+        if (totalModules > 0) {
+          // Log bundle stats
+          if (skippedCount > 0) {
+            log(`📦 Bundle for ${modulePath}: ${sentModules}/${totalModules} sent (${skippedCount} cached)`);
+          } else {
+            log(`📦 Bundle for ${modulePath}: ${sentModules} modules`);
+          }
           
           ws.send(JSON.stringify({
             type: "module:bundle",
             entry: modulePath,
-            modules: modules
+            modules: modulesToSend,
+            cached: cachedPaths // Tell client which paths to use from cache
           }));
-          log(`📦 Bundle sent: ${modulePath} (${Object.keys(modules).length} modules)`);
         } else {
           ws.send(JSON.stringify({
             type: "module:error",
