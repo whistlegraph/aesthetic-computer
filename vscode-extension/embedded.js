@@ -1,6 +1,18 @@
 (function () {
   const vscode = acquireVsCodeApi();
 
+  // Debug logging is opt-in to avoid flooding the devtools console.
+  // Enable by running in the webview devtools console:
+  //   localStorage.setItem('ac:webviewDebug','1')
+  // and then reloading the webview.
+  const DEBUG = (() => {
+    try {
+      return localStorage.getItem('ac:webviewDebug') === '1';
+    } catch {
+      return false;
+    }
+  })();
+
   // Send session data to iframe
   const iframe = document.getElementById("aesthetic");
 
@@ -9,7 +21,17 @@
   // Handle messages sent from the extension to the webview AND from the iframe
   window.addEventListener("message", (event) => {
     const message = event.data; // The json data that the extension sent
-    console.log("📶 Received message:", message, "from:", event.source === iframe.contentWindow ? "iframe" : "extension");
+    if (DEBUG) {
+      // Avoid flooding logs with boot chatter unless debugging.
+      if (message?.type !== 'boot-log') {
+        console.log(
+          "📶 Message:",
+          message,
+          "from:",
+          event.source === iframe.contentWindow ? "iframe" : "extension",
+        );
+      }
+    }
     switch (message.type) {
       case "vscode-extension:reload": {
         vscode.postMessage({ type: "vscode-extension:reload" });
@@ -97,6 +119,12 @@
         console.log("🫐 ✅ Received ready message, clearing timeout");
         clearTimeout(readyTimeout);
         break;
+      }
+      default: {
+        // If debugging is enabled, surface unknown message types.
+        if (DEBUG && message?.type) {
+          console.log("🫐 Unhandled message type:", message.type);
+        }
       }
     }
   });

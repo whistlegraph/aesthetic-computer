@@ -655,12 +655,10 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     
     // Listen for messages from extension and forward to iframe
     window.addEventListener('message', (e) => {
-      console.log('📬 Wrapper received message:', e.data?.command);
       if (e.data?.command === 'reload') {
         reload();
       } else if (e.data?.command === 'astUpdate') {
         // Forward AST updates to the iframe
-        console.log('🌳 Forwarding AST update to iframe:', e.data.files?.length, 'files');
         frame.contentWindow?.postMessage(e.data, '*');
       }
     });
@@ -765,7 +763,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     // Handle messages from the webview
     welcomePanel.webview.onDidReceiveMessage(
       message => {
-        console.log("Welcome panel received message:", message);
         switch (message.command) {
           case 'openKidLisp':
             vscode.commands.executeCommand('aestheticComputer.openKidLispWindow');
