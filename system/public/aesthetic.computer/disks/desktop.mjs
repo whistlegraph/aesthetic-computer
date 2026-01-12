@@ -1,7 +1,8 @@
-// Desktop, 2024.12.27 → 2026.01.02
+// Desktop, 2024.12.27 → 2026.01.12
 // Download page for the Aesthetic Computer desktop app.
 // Redesigned with animation, better colors, and responsive layout.
 // Fetches real release info from GitHub.
+// Detects if running inside Electron app and shows update status.
 
 // Download URLs (fallback)
 const DOWNLOADS = {
@@ -20,6 +21,11 @@ let releaseInfo = {
   loaded: false,
 };
 
+// Electron app info (if running in desktop app)
+let electronApp = null;
+let isElectron = false;
+let updateStatus = null; // 'up-to-date', 'update-available', 'unknown'
+
 let platform, downloadUrl, platformLabel, platformIcon;
 let buttons = [];
 let animFrame = 0;
@@ -32,7 +38,7 @@ let currentScreen;
 async function fetchReleaseInfo() {
   try {
     const response = await fetch(
-      "https://api.github.com/repos/aesthetic-computer/aesthetic-computer/releases/latest"
+      "https://api.github.com/repos/whistlegraph/aesthetic-computer/releases/latest"
     );
     if (!response.ok) throw new Error("Failed to fetch release");
     const data = await response.json();
@@ -53,10 +59,49 @@ async function fetchReleaseInfo() {
     }
     
     releaseInfo.loaded = true;
+    
+    // Check update status if running in Electron
+    checkUpdateStatus();
   } catch (err) {
     console.warn("Could not fetch release info:", err);
     releaseInfo.version = "0.1.0";
     releaseInfo.loaded = true;
+  }
+}
+
+// Compare semver versions
+function compareVersions(v1, v2) {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const p1 = parts1[i] || 0;
+    const p2 = parts2[i] || 0;
+    if (p1 > p2) return 1;
+    if (p1 < p2) return -1;
+  }
+  return 0;
+}
+
+// Check if app needs update
+function checkUpdateStatus() {
+  if (!isElectron || !electronApp || !releaseInfo.loaded) {
+    updateStatus = null;
+    return;
+  }
+  
+  const currentVer = electronApp.version;
+  const latestVer = releaseInfo.version;
+  
+  if (!currentVer || !latestVer) {
+    updateStatus = 'unknown';
+    return;
+  }
+  
+  const cmp = compareVersions(latestVer, currentVer);
+  if (cmp > 0) {
+    updateStatus = 'update-available';
+  } else {
+    updateStatus = 'up-to-date';
   }
 }
 
@@ -67,6 +112,20 @@ async function boot($) {
   currentScreen = screen;
   wipe(15, 8, 25);
   cursor("native");
+  
+  // Detect if running in Electron app
+  if (typeof window !== "undefined") {
+    // Check for injected Electron app info (set by development.html webview)
+    if (window.acElectronApp) {
+      isElectron = true;
+      electronApp = window.acElectronApp;
+      console.log("🖥️ Running in Electron app:", electronApp);
+    } else if (/Electron/i.test(navigator.userAgent || "")) {
+      // Fallback: detect via user agent
+      isElectron = true;
+      console.log("🖥️ Running in Electron (detected via UA)");
+    }
+  }
   
   // Detect platform
   if (typeof navigator !== "undefined") {
@@ -170,24 +229,56 @@ function paint($) {
   ink(200, 180, 220, subAlpha / 255).write("DESKTOP", { x: cx, y, center: "x" });
   y += spacing + 4;
   
-  // Version badge with loading state
-  const versionText = releaseInfo.loaded ? `v${releaseInfo.version}` : "loading...";
-  ink(100, 80, 140).write(versionText, { x: cx, y, center: "x" });
-  
-  // Show release date if available
-  if (releaseInfo.publishedAt && !isCompact) {
-    y += 10;
-    const dateStr = releaseInfo.publishedAt.toLocaleDateString("en-US", { 
-      year: "numeric", month: "short", day: "numeric" 
-    });
-    ink(70, 60, 100).write(dateStr, { x: cx, y, center: "x" });
+  // Version info - different display for Electron vs browser
+  if (isElectron && electronApp) {
+    // Running inside Electron app - show current version + update status
+    const currentVer = electronApp.version || "?";
+    const latestVer = releaseInfo.loaded ? releaseInfo.version : "...";
+    
+    if (updateStatus === 'update-available') {
+      // Update available - highlight with animated color
+      const urgePulse = wave(pulsePhase * 0.1) * 0.5 + 0.5;
+      ink(255 * urgePulse, 200, 100).write(`v${currentVer} → v${latestVer} available!`, { x: cx, y, center: "x" });
+      y += 10;
+      ink(255, 180, 80).write("Download update below", { x: cx, y, center: "x" });
+    } else if (updateStatus === 'up-to-date') {
+      // Up to date - show green checkmark
+      ink(100, 200, 150).write(`✓ v${currentVer} (latest)`, { x: cx, y, center: "x" });
+    } else {
+      // Unknown/loading
+      ink(100, 80, 140).write(`v${currentVer}`, { x: cx, y, center: "x" });
+      if (!releaseInfo.loaded) {
+        y += 10;
+        ink(70, 60, 100).write("checking for updates...", { x: cx, y, center: "x" });
+      }
+    }
+  } else {
+    // Browser - show latest release version
+    const versionText = releaseInfo.loaded ? `v${releaseInfo.version}` : "loading...";
+    ink(100, 80, 140).write(versionText, { x: cx, y, center: "x" });
+    
+    // Show release date if available
+    if (releaseInfo.publishedAt && !isCompact) {
+      y += 10;
+      const dateStr = releaseInfo.publishedAt.toLocaleDateString("en-US", { 
+        year: "numeric", month: "short", day: "numeric" 
+      });
+      ink(70, 60, 100).write(dateStr, { x: cx, y, center: "x" });
+    }
   }
   y += spacing + 8;
   
   // Platform detection with animated indicator
   const detectPulse = wave(pulsePhase * 0.08) * 0.3 + 0.7;
-  ink(100 * detectPulse, 200 * detectPulse, 150 * detectPulse);
-  write(`${platformIcon} ${platformLabel} detected`, { x: cx, y, center: "x" });
+  if (isElectron) {
+    // In app - show "Running in Desktop App"
+    ink(100 * detectPulse, 200 * detectPulse, 255 * detectPulse);
+    write(`🖥️ Running in Desktop App`, { x: cx, y, center: "x" });
+  } else {
+    // Browser - show platform detection
+    ink(100 * detectPulse, 200 * detectPulse, 150 * detectPulse);
+    write(`${platformIcon} ${platformLabel} detected`, { x: cx, y, center: "x" });
+  }
   y += spacing + 12;
   
   // Download label
@@ -274,7 +365,7 @@ function paint($) {
   }
   
   // Install instructions (context-sensitive)
-  if (!isCompact && screen.height > 280) {
+  if (!isCompact && screen.height > 280 && !isElectron) {
     const instY = divY + (isMobile ? 50 : 56);
     ink(80, 180, 120);
     const instText = hoverPlatform === "mac" || (!hoverPlatform && platform === "mac") 
@@ -288,7 +379,13 @@ function paint($) {
   // Footer
   const footY = screen.height - (isCompact ? 12 : 20);
   ink(60, 50, 80);
-  write("Requires Docker Desktop", { x: cx, y: footY, center: "x" });
+  if (isElectron) {
+    // In app - show version details
+    const info = electronApp || {};
+    write(`Electron ${info.electron || "?"} • Chrome ${info.chrome || "?"}`, { x: cx, y: footY, center: "x" });
+  } else {
+    write("Requires Docker Desktop", { x: cx, y: footY, center: "x" });
+  }
   
   // Decorative corner accents
   ink(100, 60, 140, 0.3);
