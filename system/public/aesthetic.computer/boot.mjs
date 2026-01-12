@@ -605,24 +605,17 @@ async function fetchAndShowSource(path, displayName) {
 
 let boot, parse, slug;
 try {
-  // Wait for WebSocket module loader to connect (enables WS bundle loading)
+  // Check WebSocket module loader status (don't wait - use if already connected)
   const loader = window.acModuleLoader;
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   
-  // Try WebSocket module loading (faster on localhost, optional speedup in prod)
-  if (loader && !loader.connected) {
-    // Shorter timeout in prod (don't delay if session server unavailable)
-    const wsTimeout = isLocalhost ? 2000 : 1000;
-    await loader.init(wsTimeout).catch(() => {}); // Silent fail
-  }
+  // Use WebSocket bundle loading if already connected (from early init at top of file)
+  // Don't block boot waiting for WS - HTTP fallback works fine
+  const useWsBundle = loader?.connected;
   
   // Update boot canvas with session status
   if (typeof window.setSessionConnected === 'function') {
-    window.setSessionConnected(loader?.connected || false);
+    window.setSessionConnected(useWsBundle || false);
   }
-  
-  // Use WebSocket bundle loading when connected
-  const useWsBundle = loader?.connected;
   
   bootLog("loading core modules" + (useWsBundle ? ' ⚡' : ''));
   
