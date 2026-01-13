@@ -2147,16 +2147,38 @@ async function halt($, text) {
   } else if (text === "+") {
     // New window/tab. In Electron, the host webview wrapper intercepts popups and
     // opens a new BrowserWindow.
-    window.open(location.href, "_blank", "noopener");
+    const isElectron = /Electron/i.test(navigator.userAgent || "");
+    console.log("[prompt] '+' command - opening new window", { 
+      isElectron, 
+      userAgent: navigator.userAgent,
+      href: location.href 
+    });
+    try {
+      const result = window.open(location.href, "_blank", "noopener");
+      console.log("[prompt] window.open result:", result);
+    } catch (err) {
+      console.error("[prompt] window.open failed:", err);
+    }
     makeFlash($);
     return true;
   } else if (text === "-") {
     const isElectron = /Electron/i.test(navigator.userAgent || "");
+    console.log("[prompt] '-' command - closing window", { 
+      isElectron, 
+      userAgent: navigator.userAgent 
+    });
     if (isElectron) {
       // Ask the Electron host to close this BrowserWindow (intercepted as a popup).
-      window.open("ac://close", "_blank");
+      console.log("[prompt] Attempting ac://close popup...");
+      try {
+        const result = window.open("ac://close", "_blank");
+        console.log("[prompt] ac://close result:", result);
+      } catch (err) {
+        console.error("[prompt] ac://close failed:", err);
+      }
     } else {
       // Browsers will only allow this for script-opened tabs/windows.
+      console.log("[prompt] Attempting window.close()...");
       window.close();
     }
     makeFlash($);

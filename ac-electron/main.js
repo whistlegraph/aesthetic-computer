@@ -1985,10 +1985,13 @@ ipcMain.on('move-window', (event, position) => {
 
 // Open/close windows from inside the embedded AC prompt (via webview popup interception)
 ipcMain.handle('ac-open-window', async (event, { url } = {}) => {
+  console.log('[main] ac-open-window called with url:', url);
   const { window: newWindow } = await openDevWindow();
+  console.log('[main] openDevWindow returned:', !!newWindow);
   if (url && newWindow) {
     newWindow.webContents.once('did-finish-load', () => {
       if (!newWindow.isDestroyed()) {
+        console.log('[main] Sending navigate to new window:', url);
         newWindow.webContents.send('navigate', url);
       }
     });
@@ -1997,8 +2000,11 @@ ipcMain.handle('ac-open-window', async (event, { url } = {}) => {
 });
 
 ipcMain.handle('ac-close-window', async (event) => {
+  console.log('[main] ac-close-window called');
   const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  console.log('[main] sender window found:', !!senderWindow);
   if (senderWindow && !senderWindow.isDestroyed()) {
+    console.log('[main] Closing window');
     senderWindow.close();
   }
   return { success: true };
