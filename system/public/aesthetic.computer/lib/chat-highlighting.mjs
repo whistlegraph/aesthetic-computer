@@ -3,6 +3,19 @@
 
 import { isKidlispSource, tokenize, KidLisp } from "./kidlisp.mjs";
 
+// Simple client-side check for potentially sensitive URLs
+// These URLs will show as "[click to reveal link]" in chat
+const sensitivePatterns = [
+  /shit/i, /fuck/i, /cock/i, /dick/i, /pussy/i, /porn/i, /xxx/i,
+  /penis/i, /vagina/i, /anal/i, /sex(?!ton|y)/i, /cum/i, /nude/i,
+  /nigger/i, /nigga/i, /fag/i, /cunt/i, /whore/i, /slut/i,
+  /gore/i, /kill/i, /murder/i, /rape/i, /nazi/i, /hitler/i
+];
+
+export function isSensitiveUrl(url) {
+  return sensitivePatterns.some(pattern => pattern.test(url));
+}
+
 // Parse prompts, URLs, @handles, and other special elements from a message string
 // Returns an array of elements with {type, text, start, end, color?}
 export function parseMessageElements(message) {
@@ -89,11 +102,14 @@ export function parseMessageElements(message) {
   const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
   const urlRanges = []; // Track URL positions to avoid matching hashtags inside them
   while ((match = urlRegex.exec(message)) !== null) {
+    const urlText = match[0];
+    const isSensitive = isSensitiveUrl(urlText);
     elements.push({
       type: "url",
-      text: match[0],
+      text: urlText,
       start: match.index,
-      end: match.index + match[0].length,
+      end: match.index + urlText.length,
+      sensitive: isSensitive, // Mark sensitive URLs for special display
     });
     urlRanges.push({ start: match.index, end: match.index + match[0].length });
   }
@@ -233,8 +249,14 @@ export function applyColorCodes(message, elements, colorMap, defaultColor = [255
   for (const element of sortedElements) {
     // Get color for this element type
     let color;
+    let displayText = null; // Optional replacement text for sensitive content
+    
     if (element.type === "kidlisp-token" && element.color) {
       color = element.color; // Use token-specific color
+    } else if (element.type === "url" && element.sensitive) {
+      // Sensitive URLs get special color and display text
+      color = colorMap["urlSensitive"] || [128, 128, 128];
+      displayText = "[sensitive link]";
     } else {
       color = colorMap[element.type] || colorMap[element.type.replace("-", "")]; // Try with/without hyphen
     }
@@ -244,7 +266,7 @@ export function applyColorCodes(message, elements, colorMap, defaultColor = [255
       const defaultColorStr = Array.isArray(defaultColor) ? defaultColor.join(',') : defaultColor;
       
       const textBefore = colorCodedMessage.substring(0, element.start);
-      const elementText = colorCodedMessage.substring(element.start, element.end);
+      const elementText = displayText || colorCodedMessage.substring(element.start, element.end);
       const textAfter = colorCodedMessage.substring(element.end);
       
       colorCodedMessage = `${textBefore}\\${colorStr}\\${elementText}\\${defaultColorStr}\\${textAfter}`;
@@ -260,6 +282,8 @@ export const defaultColorTheme = {
   handleHover: "yellow",
   url: "cyan",
   urlHover: "yellow",
+  urlSensitive: [128, 128, 128], // Gray for sensitive URLs
+  urlSensitiveHover: "yellow",
   prompt: "lime",
   promptcontent: "cyan", // Note: type is "prompt-content" but map key has no hyphen
   promptHover: "yellow",
@@ -344,7 +368,13 @@ export function getElementAction(element, fullMessage, allElements) {
       break;
       
     case "url":
-      result.description = "Open in browser";
+      if (element.sensitive) {
+        result.description = "⚠️ Sensitive link - click to reveal & open";
+        result.displayText = "[click to reveal link]";
+        result.sensitive = true;
+      } else {
+        result.description = "Open in browser";
+      }
       result.jumpTarget = "out:" + element.text;
       break;
       

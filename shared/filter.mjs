@@ -115,3 +115,9 @@ export function filter(text, debug = false) {
   // console.log("🧹 Post-filtered message:", out);
   return out;
 }
+
+// Check if a URL contains sensitive/profane content (for UI blurring)
+// Returns true if the URL should be shown with a "click to reveal" warning
+export function isSensitiveUrl(url) {
+  return matcher.hasMatch(url);
+}
