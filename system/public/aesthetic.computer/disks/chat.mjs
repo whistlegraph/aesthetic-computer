@@ -2219,7 +2219,12 @@ function act(
     // Don't close if the Enter button is currently pressed down (user is activating it)
     // Check btn.down instead of box.contains because box position may not be updated until paint()
     const enterButtonIsDown = input.enter && !input.enter.btn.disabled && input.enter.btn.down;
-    if (!enterButtonIsDown) {
+    
+    // 🔧 FIX: Don't close keyboard when touching the preview/message area (above bottom panel)
+    // This prevents iOS keyboard from getting into a disconnected state
+    const isInBottomPanel = e.y >= api.screen.height - bottomMargin;
+    
+    if (!enterButtonIsDown && isInBottomPanel) {
       send({ type: "keyboard:close" });
     }
   }
