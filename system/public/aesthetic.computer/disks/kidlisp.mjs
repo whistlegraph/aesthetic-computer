@@ -20,18 +20,23 @@ export function paint({ wipe, ink, box, screen, dark, paintCount }) {
   }
   
   const size = 32; // Larger squares
-  const cols = Math.ceil(screen.width / size) + 2; // Extra columns for scrolling
-  const rows = Math.ceil(screen.height / size) + 2; // Extra rows for scrolling
+  // Add extra buffer on all sides to ensure full coverage during scroll
+  const cols = Math.ceil(screen.width / size) + 3;
+  const rows = Math.ceil(screen.height / size) + 3;
   
-  // Scroll animation
+  // Scroll animation - use modulo to keep offset within bounds
   const speed = 0.25;
   const offsetX = (paintCount * speed) % (size * 2);
   const offsetY = (paintCount * speed) % (size * 2);
   
-  for (let y = -1; y < rows; y++) {
-    for (let x = -1; x < cols; x++) {
+  // Start further off-screen to ensure no gaps at edges
+  const startX = -size * 2;
+  const startY = -size * 2;
+  
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
       if ((x + y) % 2 === 0) {
-        box(x * size + offsetX - size, y * size + offsetY - size, size, size);
+        box(startX + x * size + offsetX, startY + y * size + offsetY, size, size);
       }
     }
   }

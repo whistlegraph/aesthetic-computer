@@ -1372,23 +1372,45 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     currentUiScale = 0;
 
     // Horizontal and vertical offsetting of the wrapper.
-
-    if (TikTok) {
+    // In nogap mode, fill the entire viewport to avoid subpixel gaps
+    if (gap === 0) {
+      wrapper.style.top = "0";
+      wrapper.style.left = "0";
+      wrapper.style.width = "100%";
+      wrapper.style.height = "100%";
+      
+      // Canvases also fill 100% in nogap mode to avoid subpixel rounding gaps
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      webgpuCanvas.style.width = "100%";
+      webgpuCanvas.style.height = "100%";
+      uiCanvas.style.width = "100%";
+      uiCanvas.style.height = "100%";
+    } else if (TikTok) {
       wrapper.style.top = `${8 * 1.5}px`;
+      wrapper.style.left = (window.innerWidth - projectedWidth) / 2 + "px";
+      wrapper.style.width = projectedWidth + "px";
+      wrapper.style.height = projectedHeight + "px";
+      
+      canvas.style.width = projectedWidth + "px";
+      canvas.style.height = projectedHeight + "px";
+      webgpuCanvas.style.width = projectedWidth + "px";
+      webgpuCanvas.style.height = projectedHeight + "px";
+      uiCanvas.style.width = projectedWidth + "px";
+      uiCanvas.style.height = projectedHeight + "px";
     } else {
       wrapper.style.top = (window.innerHeight - projectedHeight) / 2 + "px";
+      wrapper.style.left = (window.innerWidth - projectedWidth) / 2 + "px";
+      wrapper.style.width = projectedWidth + "px";
+      wrapper.style.height = projectedHeight + "px";
+      
+      canvas.style.width = projectedWidth + "px";
+      canvas.style.height = projectedHeight + "px";
+      webgpuCanvas.style.width = projectedWidth + "px";
+      webgpuCanvas.style.height = projectedHeight + "px";
+      uiCanvas.style.width = projectedWidth + "px";
+      uiCanvas.style.height = projectedHeight + "px";
     }
-
-    wrapper.style.left = (window.innerWidth - projectedWidth) / 2 + "px";
-    wrapper.style.width = projectedWidth + "px";
-    wrapper.style.height = projectedHeight + "px";
-
-    canvas.style.width = projectedWidth + "px";
-    canvas.style.height = projectedHeight + "px";
-    webgpuCanvas.style.width = projectedWidth + "px";
-    webgpuCanvas.style.height = projectedHeight + "px";
-    uiCanvas.style.width = projectedWidth + "px";
-    uiCanvas.style.height = projectedHeight + "px";
 
     if (debug) {
       debugCanvas.width = projectedWidth;
