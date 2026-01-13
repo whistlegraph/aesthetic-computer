@@ -10,6 +10,20 @@ import puppeteer from 'puppeteer';
 import { MongoClient } from 'mongodb';
 import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
+import { readFileSync } from 'fs';
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+// Load Comic Relief font for OG image generation
+const __dirname = dirname(fileURLToPath(import.meta.url));
+let comicReliefBoldBase64 = '';
+try {
+  const fontPath = join(__dirname, 'fonts', 'ComicRelief-Bold.ttf');
+  comicReliefBoldBase64 = readFileSync(fontPath).toString('base64');
+  console.log('✅ Loaded Comic Relief Bold font for OG images');
+} catch (err) {
+  console.warn('⚠️  Comic Relief font not found, OG images will use fallback font');
+}
 
 // Git version for cache invalidation (set by env or detected)
 let GIT_VERSION = process.env.OVEN_VERSION || 'unknown';
@@ -2596,6 +2610,15 @@ function createFloatingCodesOverlay(width, height, codes) {
   return Buffer.from(`
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
       <defs>
+        ${comicReliefBoldBase64 ? `
+        <style type="text/css">
+          @font-face {
+            font-family: 'Comic Relief';
+            src: url('data:font/truetype;base64,${comicReliefBoldBase64}') format('truetype');
+            font-weight: bold;
+          }
+        </style>
+        ` : ''}
         <filter id="blur1" x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur in="SourceGraphic" stdDeviation="1" />
         </filter>
@@ -2647,6 +2670,17 @@ function createKidLispBranding(width, height) {
   const yOffset = 30; // Move text down for better visual centering
   const svg = `
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        ${comicReliefBoldBase64 ? `
+        <style type="text/css">
+          @font-face {
+            font-family: 'Comic Relief';
+            src: url('data:font/truetype;base64,${comicReliefBoldBase64}') format('truetype');
+            font-weight: bold;
+          }
+        </style>
+        ` : ''}
+      </defs>
       <!-- Black shadow offset down-right -->
       <text x="${width/2 + shadowOffset}" y="${height/2 + yOffset + shadowOffset}" 
             font-family="${fontFamily}" 
