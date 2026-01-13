@@ -15007,7 +15007,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             console.log("🎬 Loading webpxmux library...");
             await new Promise((resolve, reject) => {
               const script = document.createElement("script");
-              script.src = "https://cdn.jsdelivr.net/npm/webpxmux@1.0.2/dist/webpxmux.min.js";
+              script.src = "https://cdn.jsdelivr.net/npm/webpxmux@0.0.2/dist/webpxmux.min.js";
               script.onload = resolve;
               script.onerror = (e) => reject(new Error("Failed to load webpxmux library"));
               document.head.appendChild(script);
@@ -15016,7 +15016,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           
           // Cache the initialized xMux instance for reuse (use CDN wasm)
           if (!window._webpxMuxInstance) {
-            const xMux = window.WebPXMux("https://cdn.jsdelivr.net/npm/webpxmux@1.0.2/dist/webpxmux.wasm");
+            const xMux = window.WebPXMux("https://cdn.jsdelivr.net/npm/webpxmux@0.0.2/dist/webpxmux.wasm");
             await xMux.waitRuntime();
             window._webpxMuxInstance = xMux;
           }
