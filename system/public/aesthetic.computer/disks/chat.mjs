@@ -294,6 +294,7 @@ async function boot(
       draftMessage = ""; // Clear draft
       input.showBlink = false;
       input.mute = true;
+      if (handleAutocomplete) handleAutocomplete.hide(); // 🔍 Clear autocomplete state
       send({ type: "keyboard:close" });
     },
     {
@@ -374,7 +375,7 @@ function paint(
   const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
   const bottomMargin = getBottomMargin(selectedFontConfig, typeface.blockHeight);
   
-  // Use user-selected font for message rendering (overrides per-message stored font)
+  // User-selected font is only for NEW messages being typed, not for rendering existing messages
   const typefaceName = selectedFontConfig.typeface;
   const currentRowHeight = selectedFontConfig.rowHeight ?? (typeface.blockHeight + 1);
   
@@ -564,9 +565,11 @@ function paint(
       // console.log("No message layout found for:", message);
     }
 
-    // 🔤 Use current user-selected font for rendering (not per-message stored font)
-    const msgTypefaceName = typefaceName;
-    const msgRowHeight = currentRowHeight;
+    // 🔤 Use per-message font (as sender chose) for rendering
+    // computedTypefaceName of null/undefined means "system default typeface" (not user's selection)
+    const msgTypefaceName = message.computedTypefaceName; // null = system default
+    const msgRowHeight = message.computedRowHeight || (typeface.blockHeight + 1);
+    const msgFontId = message.computedFontId || "font_1";
 
     const x = leftMargin;
     const tb = message.tb; // Precomputed in `computeScrollbar` for each message.
@@ -723,7 +726,7 @@ function paint(
     
     // Use MatrixChunky8 for compact timestamps tacked onto the end of messages
     const timestampWidth = text.width(ago, "MatrixChunky8");
-    const timestampGap = getFontTimestampGap(userSelectedFont);
+    const timestampGap = getFontTimestampGap(msgFontId);
     
     // Position timestamp right after the last *visually rendered* line of the message
     layout.timestamp.x = lastLineRenderedWidthForThisMessage + timestampGap;
@@ -2224,6 +2227,10 @@ function act(
   // Trigger re-layout when keyboard opens/closes (changes visible message area)
   if (e.is("keyboard:open") || e.is("keyboard:close")) {
     messagesNeedLayout = true;
+    // 🔍 Hide autocomplete when keyboard closes to prevent stale state
+    if (e.is("keyboard:close") && handleAutocomplete) {
+      handleAutocomplete.hide();
+    }
   }
 
   // Debug: Check the condition for calling input.act
@@ -2262,7 +2269,13 @@ function act(
 function sim({ api }) {
   if (input) {
     // 🔍 Sync autocomplete skipHistory and skipEnter flags with TextInput
-    const autocompleteActive = !!(handleAutocomplete?.visible && handleAutocomplete.items.length > 0);
+    // Only skip Enter when autocomplete is truly visible with selectable items AND keyboard is open
+    const autocompleteActive = !!(
+      input.canType && 
+      handleAutocomplete?.visible && 
+      handleAutocomplete.items.length > 0 && 
+      handleAutocomplete.selected
+    );
     input.skipHistory = autocompleteActive;
     input.skipEnter = autocompleteActive;
     input.sim(api); // 💬 Chat
@@ -2360,18 +2373,22 @@ async function loadPaintingPreview(code, get, store) {
 function computeMessagesHeight({ text, screen }, chat, defaultTypefaceName, defaultRowHeight) {
   let height = 0;
   
-  // 🔤 Use user-selected font for ALL messages
-  const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
-  const msgTypefaceName = selectedFontConfig.typeface ?? defaultTypefaceName;
-  const msgRowHeight = selectedFontConfig.rowHeight ?? defaultRowHeight;
-  
   // Iterate through the messages array.
   for (let i = 0; i < chat.messages.length; i += 1) {
     const message = chat.messages[i];
     
-    // Store computed font info on the message for use in paint (now using selected font)
+    // 🔤 Use per-message font (as sender chose) - fallback to font_1 for old messages
+    const msgFontId = message.font || "font_1";
+    const msgFontConfig = CHAT_FONTS[msgFontId] || CHAT_FONTS["font_1"];
+    // null in config means "use system default" - only use defaultTypefaceName/defaultRowHeight for that case
+    // NOT the user's selected font (which would make all messages change when picker changes)
+    const msgTypefaceName = msgFontConfig.typeface; // null = system default typeface
+    const msgRowHeight = msgFontConfig.rowHeight !== null ? msgFontConfig.rowHeight : defaultRowHeight;
+    
+    // Store computed font info on the message for use in paint
     message.computedTypefaceName = msgTypefaceName;
     message.computedRowHeight = msgRowHeight;
+    message.computedFontId = msgFontId;
     
     // Add count multiplier if message was repeated
     const countSuffix = message.count > 1 ? ` x${message.count}` : "";
@@ -2420,10 +2437,12 @@ function computeMessagesLayout({ screen, text }, chat, defaultTypefaceName, defa
   for (let i = chat.messages.length - 1; i >= 0; i--) {
     const msg = chat.messages[i];
     
-    // 🔤 Use user-selected font settings (computed in computeMessagesHeight)
-    const msgTypefaceName = msg.computedTypefaceName ?? defaultTypefaceName;
-    const msgRowHeight = msg.computedRowHeight ?? defaultRowHeight;
-    const msgTimestampGap = getFontTimestampGap(userSelectedFont);
+    // 🔤 Use per-message font settings (computed in computeMessagesHeight)
+    // null typeface means "system default", not user's current selection
+    const msgTypefaceName = msg.computedTypefaceName; // null = system default
+    const msgRowHeight = msg.computedRowHeight || defaultRowHeight;
+    const msgFontId = msg.computedFontId || "font_1";
+    const msgTimestampGap = getFontTimestampGap(msgFontId);
     
     // Parse elements first to know if we have painting previews
     const parsedElements = parseMessageElements(msg.fullMessage);

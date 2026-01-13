@@ -15003,7 +15003,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const script = document.createElement("script");
               script.src = "https://cdn.jsdelivr.net/npm/webpxmux@1.0.2/dist/webpxmux.min.js";
               script.onload = resolve;
-              script.onerror = reject;
+              script.onerror = (e) => reject(new Error("Failed to load webpxmux library"));
               document.head.appendChild(script);
             });
           }
