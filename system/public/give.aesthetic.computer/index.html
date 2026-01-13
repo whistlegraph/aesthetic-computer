@@ -922,10 +922,14 @@
 
     .currency-pickers {
       width: 100%;
+      max-width: 100%;
+      overflow: hidden;
     }
 
     .currency-picker {
       padding: 0;
+      max-width: 100%;
+      overflow: hidden;
     }
 
     .currency-picker h3 {
@@ -2026,12 +2030,27 @@
     @media (max-width: 600px) {
       .crypto-controls.crypto-all {
         grid-template-columns: 1fr;
+        max-width: 100%;
       }
       .crypto-controls.crypto-all .crypto-address:first-child {
         border-radius: 0;
       }
       .crypto-controls.crypto-all .crypto-address:last-child {
         border-radius: 0 0 8px 8px;
+      }
+      .crypto-controls.crypto-all .crypto-address {
+        min-height: 120px;
+        padding: 0.8em 0.5em;
+      }
+      .crypto-controls.crypto-all .crypto-addr {
+        font-size: 0.7em;
+        word-break: break-all;
+      }
+      .crypto-header {
+        flex-wrap: wrap;
+      }
+      .crypto-subtitle {
+        display: none;
       }
     }
 
@@ -2243,6 +2262,7 @@
         flex-direction: column;
         padding: 0.8em;
         gap: 0.8em;
+        max-width: 100%;
       }
       .paypal-qr-wrap {
         padding: 0.6em;
@@ -2253,14 +2273,25 @@
       }
       .paypal-actions {
         width: 100%;
+        max-width: 100%;
       }
       .paypal-link-btn {
         width: 100%;
         box-sizing: border-box;
       }
+      .paypal-header {
+        flex-wrap: wrap;
+      }
+      .paypal-subtitle {
+        display: none;
+      }
       .paypal-email {
         flex-wrap: wrap;
         justify-content: center;
+      }
+      .paypal-email-addr {
+        font-size: 0.85em;
+        word-break: break-all;
       }
     }
 
