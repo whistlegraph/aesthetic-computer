@@ -1540,11 +1540,26 @@ function act(
     if ((e.is("touch") || e.is("lift")) && fontPickerBtnBounds) {
       const inBtn = pen.x >= fontPickerBtnBounds.x && pen.x < fontPickerBtnBounds.x + fontPickerBtnBounds.w &&
                     pen.y >= fontPickerBtnBounds.y && pen.y < fontPickerBtnBounds.y + fontPickerBtnBounds.h;
-      if (inBtn && e.is("lift")) {
-        beep();
-        fontPickerOpen = !fontPickerOpen;
-        return;
+      if (inBtn) {
+        if (e.is("touch")) {
+          send({ type: "keyboard:lock" }); // Prevent bios pointerup from blurring
+        }
+        if (e.is("lift")) {
+          beep();
+          fontPickerOpen = !fontPickerOpen;
+          send({ type: "keyboard:unlock" });
+          return;
+        }
       }
+    }
+    
+    // 🔧 FIX: Lock keyboard during any touch/draw in preview area to prevent bios blur
+    const isInContentArea = e.y < api.screen.height - bottomMargin;
+    if (isInContentArea && (e.is("touch") || e.is("draw"))) {
+      send({ type: "keyboard:lock" });
+    }
+    if (isInContentArea && e.is("lift")) {
+      send({ type: "keyboard:unlock" });
     }
     
     // Handle font picker panel clicks
@@ -1553,20 +1568,26 @@ function act(
       for (const item of fontPickerItemBounds) {
         const inItem = pen.x >= item.x && pen.x < item.x + item.w &&
                        pen.y >= item.y && pen.y < item.y + item.h;
-        if (inItem && e.is("lift")) {
-          beep();
-          userSelectedFont = item.fontId;
-          fontPickerOpen = false;
-          // Save preference locally
-          store["chat:font"] = userSelectedFont;
-          // 🔤 Update the text input to use the new font
-          const fontConfig = CHAT_FONTS[userSelectedFont];
-          if (fontConfig && input) {
-            input.setFont(fontConfig.typeface || "font_1");
+        if (inItem) {
+          if (e.is("touch")) {
+            send({ type: "keyboard:lock" });
           }
-          // Trigger message re-layout with new font
-          messagesNeedLayout = true;
-          return;
+          if (e.is("lift")) {
+            beep();
+            userSelectedFont = item.fontId;
+            fontPickerOpen = false;
+            // Save preference locally
+            store["chat:font"] = userSelectedFont;
+            // 🔤 Update the text input to use the new font
+            const fontConfig = CHAT_FONTS[userSelectedFont];
+            if (fontConfig && input) {
+              input.setFont(fontConfig.typeface || "font_1");
+            }
+            // Trigger message re-layout with new font
+            messagesNeedLayout = true;
+            send({ type: "keyboard:unlock" });
+            return;
+          }
         }
       }
       
