@@ -1671,13 +1671,16 @@ function act(
           
           // Check each interactive element for hover
           for (const element of parsedElements) {
+            // Use per-message font settings
+            const msgRowHeight = message.computedRowHeight || (typeface.blockHeight + 1);
+            const msgTypefaceName = message.computedTypefaceName;
             const elementPosition = calculateElementPosition(
               element, 
               message.fullMessage, 
               message.tb.lines, 
               text,
-              currentRowHeight,
-              typefaceName
+              msgRowHeight,
+              msgTypefaceName
             );
             
             if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition)) {
@@ -1749,13 +1752,16 @@ function act(
           // Check each interactive element for hit detection
           for (const element of parsedElements) {
             // Calculate the position of this element in the rendered text
+            // Use per-message font settings
+            const msgRowHeight = message.computedRowHeight || (typeface.blockHeight + 1);
+            const msgTypefaceName = message.computedTypefaceName;
             const elementPosition = calculateElementPosition(
               element, 
               message.fullMessage, 
               message.tb.lines, 
               text,
-              currentRowHeight,
-              typefaceName
+              msgRowHeight,
+              msgTypefaceName
             );
             
             if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition)) {
@@ -2024,16 +2030,19 @@ function act(
           
           // Check each interactive element for hover
           for (const element of parsedElements) {
+            // Use per-message font settings
+            const msgRowHeight = message.computedRowHeight || (typeface.blockHeight + 1);
+            const msgTypefaceName = message.computedTypefaceName;
             const elementPosition = calculateElementPosition(
               element, 
               message.fullMessage, 
               message.tb.lines, 
               text,
-              currentRowHeight,
-              typefaceName
+              msgRowHeight,
+              msgTypefaceName
             );
             
-            if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition, text, typefaceName)) {
+            if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition, text, msgTypefaceName)) {
               message.layout.hoveredElements.add(element);
               hoveredAnyElement = true;
               break; // Only hover one element at a time
