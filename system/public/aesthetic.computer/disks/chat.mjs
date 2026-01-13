@@ -116,6 +116,12 @@ let fontPickerBtnBounds = null; // Bounds for font button click detection
 let fontPickerPanelBounds = null; // Bounds for font picker panel
 let fontPickerItemBounds = []; // Bounds for each font option
 
+// 📜 Scroll/drag tracking to prevent link taps after scrolling
+let isDragging = false; // True when user is actively dragging/scrolling
+let dragStartPos = null; // Position where drag started
+let dragDistanceThreshold = 5; // Pixels moved before considered a scroll
+let hoveredMessageIndex = null; // Index of message currently being hovered
+
 let rowHeight;
 const lineGap = 1,
   topMargin = 30,
@@ -572,18 +578,17 @@ function paint(
     const layout = message.layout;
     const y = layout.y;
 
-    // 🪧 Paint the message (no background box for cleaner appearance)
+    // 🪧 Paint the message
     
-    // 🐛 DEBUG: Visualize message row backgrounds with alternating colors per font
-    const debugColors = {
-      "font_1": [80, 40, 40, 100],    // red tint
-      "matrix": [40, 80, 40, 100],    // green tint
-      "unifont": [40, 40, 80, 100],   // blue tint
-    };
-    const msgFont = message.font || "font_1";
-    const debugColor = debugColors[msgFont] || [60, 60, 60, 100];
-    // Draw debug background for entire message
-    ink(...debugColor).box(x - 2, y, layout.width + 4, layout.height);
+    // 🎯 Draw hover background if this message is being hovered
+    if (hoveredMessageIndex === i) {
+      ink(255, 255, 255, 15).box(
+        layout.x - 2, 
+        layout.y - 1, 
+        layout.width + 4, 
+        layout.height + 2
+      );
+    }
     
     // Render each line of the message separately for proper multi-line display
     // Parse elements once for this message
@@ -734,8 +739,9 @@ function paint(
     const timestampY = layout.timestamp.y + (msgRowHeight - timestampHeight);
     
     // Calculate fade based on message index (newer = more opaque, older = more faded)
+    // Drastically reduce opacity for older timestamps
     const messageIndex = client.messages.length - 1 - i;
-    const fadeAlpha = Math.max(80, 255 - (messageIndex * 8)); // Min 80, decrease by 8 per message
+    const fadeAlpha = Math.max(25, 200 - (messageIndex * 25)); // Min 25, decrease by 25 per message (more dramatic fade)
     
     if (Array.isArray(tsColor)) {
       ink(...tsColor, fadeAlpha).write(ago, { x: timestampX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
@@ -1132,8 +1138,8 @@ function paint(
     false, undefined, false, selectedTypeface
   );
 
-  if (!input.canType) {
-    // Online counter - cycles through realtime online handles from server
+  // Online counter - cycles through realtime online handles from server (always visible)
+  if (!client.connecting) {
     const chatterCount = client?.chatterCount ?? 0;
     const onlineHandles = client?.onlineHandles || [];
     
@@ -1414,8 +1420,8 @@ function paint(
     needsPaint();
   }
   
-  // 📰 News ticker (top right, always visible when not typing)
-  if (!input.canType && !client.connecting) {
+  // 📰 News ticker (top right, always visible)
+  if (!client.connecting) {
     paintNewsTicker({ ink, screen, text }, theme);
     needsPaint();
   }
@@ -1612,9 +1618,16 @@ function act(
 
     if (e.is("lift")) {
       tapState = null;
+      // Reset drag tracking on lift
+      isDragging = false;
+      dragStartPos = null;
     }
 
-    // TODO: Scrolling should cancel out the tapping.
+    // 📜 Track drag start for scroll detection
+    if (e.is("touch")) {
+      dragStartPos = { x: e.x, y: e.y };
+      isDragging = false; // Reset - will become true if we move enough
+    }
 
     // 👈 Tapping
     if (e.is("touch")) {
@@ -1723,7 +1736,8 @@ function act(
         message.layout.inBox = false;
         
         // Handle clicks on interactive elements with proper hit detection
-        if (message.clicked) {
+        // 🚫 Skip link activation if user was scrolling/dragging
+        if (message.clicked && !isDragging) {
           message.clicked = false;
           
           // Parse the original message to find interactive elements
@@ -1933,6 +1947,15 @@ function act(
 
     // 📜 Scrolling
     if (e.is("draw")) {
+      // Track if user has scrolled/dragged beyond threshold
+      if (dragStartPos && !isDragging) {
+        const dx = Math.abs(e.x - dragStartPos.x);
+        const dy = Math.abs(e.y - dragStartPos.y);
+        if (dx > dragDistanceThreshold || dy > dragDistanceThreshold) {
+          isDragging = true; // Mark as dragging - will prevent link activation on lift
+        }
+      }
+      
       scroll += e.delta.y;
       store["chat:scroll"] = scroll;
       boundScroll();
@@ -1970,6 +1993,7 @@ function act(
       inputBtn.over = inputBtn.box.contains(e);
       
       let hoveredAnyElement = false;
+      hoveredMessageIndex = null; // Reset hovered message tracking
       
       // Also track hover on message elements (handles, links, etc.)
       for (let i = client.messages.length - 1; i >= 0; i--) {
@@ -1985,6 +2009,9 @@ function act(
           e.y > message.layout.y &&
           e.y < message.layout.y + message.layout.height
         ) {
+          // 🎯 Track which message is hovered for background highlight
+          hoveredMessageIndex = i;
+          
           // Check for hover on interactive elements
           const parsedElements = parseMessageElements(message.fullMessage);
           const relativeX = e.x - message.layout.x;
@@ -2748,7 +2775,7 @@ function paintNewsTicker($, theme) {
   // Position calculations - no overlap
   const scrollAreaRight = tickerRight;
   const scrollAreaLeft = scrollAreaRight - tickerMaxWidth;
-  const newsBgX = scrollAreaLeft - newsPrefixWidth - 1; // 1px gap
+  const newsBgX = scrollAreaLeft - newsPrefixWidth; // No gap, they touch
   
   // Colors from theme
   const handleColor = theme?.handle ? 
@@ -2763,12 +2790,13 @@ function paintNewsTicker($, theme) {
   // Scrolling area - darker, more subtle background  
   const scrollBgColor = [25, 20, 35];
   
-  // Draw "News" label background (distinct color)
-  ink(...newsBgColor, 230).box(newsBgX, tickerY - 2, newsPrefixWidth, tickerHeight + 4);
-  ink(...newsFgColor).write(newsPrefix, { x: newsBgX + tickerPadding, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+  // Draw "News" label background (extend 1px right to touch scroll area)
+  ink(...newsBgColor, 230).box(newsBgX, tickerY - 2, newsPrefixWidth + 1, tickerHeight + 4);
+  // Text 1px left (reduce padding by 1)
+  ink(...newsFgColor).write(newsPrefix, { x: newsBgX + tickerPadding - 1, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
   
-  // Draw scrolling ticker background (different, darker color)
-  ink(...scrollBgColor, 200).box(scrollAreaLeft, tickerY - 2, tickerMaxWidth, tickerHeight + 4);
+  // Draw scrolling ticker background (extend 1px right for safety)
+  ink(...scrollBgColor, 200).box(scrollAreaLeft, tickerY - 2, tickerMaxWidth + 1, tickerHeight + 4);
   
   // Parse text for @handles to highlight
   const handleRegex = /@[\w]+/g;
@@ -2778,15 +2806,15 @@ function paintNewsTicker($, theme) {
     handles.push({ start: match.index, end: match.index + match[0].length, text: match[0] });
   }
   
-  // Draw seamless looping text with handle highlighting
+  // Draw seamless looping text with handle highlighting (manual clipping for performance)
   for (let copy = 0; copy < 3; copy++) {
     const baseX = scrollAreaLeft - scrollOffset + (copy * loopWidth);
     
     for (let i = 0; i < loopText.length; i++) {
       const charX = baseX + i * tickerCharWidth;
       
-      // Only draw if within visible scroll area
-      if (charX >= scrollAreaLeft && charX < scrollAreaRight) {
+      // Manual clip: only draw if within scroll area bounds
+      if (charX >= scrollAreaLeft && charX + tickerCharWidth <= scrollAreaRight) {
         // Check if this character is part of a handle
         const isHandle = handles.some(h => i >= h.start && i < h.end);
         const charColor = isHandle ? handleColor : textColor;
