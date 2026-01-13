@@ -359,6 +359,7 @@ function paint(
     geo: { Box },
     handle,
     help,
+    hud,
     typeface,
     pen,
     num,
