@@ -2214,6 +2214,13 @@ class KidLisp {
 
     // Reset per-module console diagnostics
     if (this.unknownWordsLogged) this.unknownWordsLogged.clear();
+
+    // 🔧 Clear error states to allow recovery from syntax errors
+    // This ensures that when new code is loaded, any stale error state from
+    // previous code (like unmatched quotes) is cleared before parsing
+    this.lastValidationErrors = null;
+    this.lastParseError = null;
+    this.errorPositions = null;
   }
 
   // Register an expression and get its unique ID

@@ -165,47 +165,44 @@
       display: none;
     }
     
-    /* Custom scrollbars for console and reference panels */
+    /* Custom scrollbars for console and code list panels */
     .console-output::-webkit-scrollbar,
-    .docs-content::-webkit-scrollbar {
+    .code-list-items::-webkit-scrollbar {
       display: block;
       width: 8px;
       height: 8px;
     }
     
     .console-output::-webkit-scrollbar-track,
-    .docs-content::-webkit-scrollbar-track {
+    .code-list-items::-webkit-scrollbar-track {
       background: rgba(0, 0, 0, 0.1);
     }
     
     .console-output::-webkit-scrollbar-thumb,
-    .docs-content::-webkit-scrollbar-thumb {
+    .code-list-items::-webkit-scrollbar-thumb {
       background: rgba(255, 159, 67, 0.4);
     }
     
     .console-output::-webkit-scrollbar-thumb:hover,
-    .docs-content::-webkit-scrollbar-thumb:hover {
+    .code-list-items::-webkit-scrollbar-thumb:hover {
       background: rgba(255, 159, 67, 0.6);
     }
     
     /* Dark mode scrollbar colors */
     @media (prefers-color-scheme: dark) {
       .console-output::-webkit-scrollbar-track,
-      .docs-content::-webkit-scrollbar-track {
+      .code-list-items::-webkit-scrollbar-track {
         background: rgba(0, 0, 0, 0.2);
       }
       
-      .console-output::-webkit-scrollbar-thumb {
+      .console-output::-webkit-scrollbar-thumb,
+      .code-list-items::-webkit-scrollbar-thumb {
         background: rgba(255, 159, 67, 0.5);
-      }
-      
-      .docs-content::-webkit-scrollbar-thumb {
-        background: rgba(100, 149, 237, 0.5);
       }
     }
     
     [data-theme="dark"] .console-output::-webkit-scrollbar-track,
-    [data-theme="dark"] .docs-content::-webkit-scrollbar-track {
+    [data-theme="dark"] .code-list-items::-webkit-scrollbar-track {
       background: rgba(0, 0, 0, 0.2);
     }
     
@@ -359,10 +356,10 @@
     #clear-button {
       position: relative;
       left: auto; right: auto; top: auto; bottom: auto;
-      width: 40px;
-      height: 40px;
-      min-width: 40px;
-      min-height: 40px;
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
       flex-shrink: 0;
       box-sizing: border-box;
       background: rgb(244, 67, 54); /* Red */
@@ -401,16 +398,17 @@
     /* Playback controls container */
     #playback-controls {
       position: absolute;
-      bottom: 8px;
-      right: 8px;
+      bottom: 14px;
+      right: 14px;
       z-index: 100;
       display: flex;
       flex-direction: row;
       align-items: center;
+      gap: 8px;
     }
     
     #playback-controls > button {
-      margin-right: 16px;
+      margin-right: 0;
     }
     
     #playback-controls > button:last-child {
@@ -420,10 +418,10 @@
     #send-button {
       position: relative;
       left: auto; right: auto; top: auto; bottom: auto;
-      width: 40px;
-      height: 40px;
-      min-width: 40px;
-      min-height: 40px;
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
       flex-shrink: 0;
       box-sizing: border-box;
       background: rgb(76, 175, 80); /* Green by default */
@@ -558,10 +556,10 @@
     #stop-button {
       position: relative;
       left: auto; right: auto; top: auto; bottom: auto;
-      width: 40px;
-      height: 40px;
-      min-width: 40px;
-      min-height: 40px;
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
       flex-shrink: 0;
       box-sizing: border-box;
       background: rgb(147, 112, 219); /* Purple */
@@ -645,10 +643,24 @@
 /* Decrypting state - Monaco visible but read-only during decrypt animation */
     #kidlisp-editor.decrypting {
       pointer-events: none;
+      position: relative;
+    }
+    
+    /* Darken the editor during decryption to show loading state */
+    #kidlisp-editor.decrypting::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.25);
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.2s ease;
     }
 
     #kidlisp-editor.decrypting .monaco-editor {
-      opacity: 1;
+      opacity: 0.7;
+      filter: saturate(0.6);
+      transition: opacity 0.15s ease, filter 0.15s ease;
     }
     
     /* Hide Monaco's mobile keyboard toggle button (overlaps our playback controls) */
@@ -779,7 +791,7 @@
       50% { border-color: rgba(255, 217, 61, 0.25); }
     }
 
-    /* Stopped state - red outline (soft stop, tab still open) */
+    /* Stopped state - purple outline (matches stop button) */
     .editor-panel.live-stopped::before,
     #kidlisp-editor.live-stopped::before {
       content: '';
@@ -788,7 +800,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      border: 2px solid rgba(255, 100, 100, 0.5);
+      border: 2px solid rgba(147, 112, 219, 0.5);
       border-radius: 4px;
       pointer-events: none;
       z-index: 10;
@@ -799,19 +811,19 @@
     @media (prefers-color-scheme: dark) {
       .editor-panel.live-stopped::before,
       #kidlisp-editor.live-stopped::before {
-        border-color: rgba(255, 100, 100, 0.6);
+        border-color: rgba(147, 112, 219, 0.6);
       }
     }
 
     [data-theme="dark"] .editor-panel.live-stopped::before,
     [data-theme="dark"] #kidlisp-editor.live-stopped::before {
-      border-color: rgba(255, 100, 100, 0.6);
+      border-color: rgba(147, 112, 219, 0.6);
     }
 
-    /* Pulse animation for stopped state - red */
+    /* Pulse animation for stopped state - purple */
     @keyframes stop-pulse {
-      0%, 100% { border-color: rgba(255, 100, 100, 0.5); }
-      50% { border-color: rgba(255, 100, 100, 0.25); }
+      0%, 100% { border-color: rgba(147, 112, 219, 0.5); }
+      50% { border-color: rgba(147, 112, 219, 0.25); }
     }
 
     /* Visualization Tabs */
@@ -920,9 +932,340 @@
     /* The .view-lines backgrounds paint over .view-overlays where selection is rendered */
 
     #preview-iframe {
-      flex: 1;
+      /* Use inset: 0 for pixel-perfect edge-to-edge positioning */
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
       border: none;
-      background: #1a1a1a;
+      outline: none;
+      display: block;
+      background: transparent;
+      /* Prevent any hairline gaps */
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    /* Container for iframe - must have overflow hidden to prevent hairline gaps */
+    .preview-iframe-container {
+      position: relative;
+      flex: 1;
+      overflow: hidden;
+      box-sizing: border-box;
+      /* Match the default kidlisp checkerboard background to hide any subpixel gaps */
+      background: #f0f0f0;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      .preview-iframe-container {
+        background: #202020;
+      }
+    }
+    
+    [data-theme="light"] .preview-iframe-container {
+      background: #f0f0f0;
+    }
+    
+    [data-theme="dark"] .preview-iframe-container {
+      background: #202020;
+    }
+    
+    /* Pixel rulers for paused state (Photoshop-style) - all 4 sides */
+    .preview-rulers {
+      display: none;
+      pointer-events: none;
+    }
+    
+    .preview-rulers.visible {
+      display: block;
+    }
+    
+    /* Ruler bar styling */
+    .ruler-horizontal, .ruler-horizontal-bottom {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      height: 16px;
+      background: rgba(40, 40, 40, 0.92);
+      z-index: 1001;
+      overflow: hidden;
+    }
+    
+    .ruler-horizontal {
+      top: 0;
+      border-bottom: 1px solid rgba(100, 100, 100, 0.5);
+    }
+    
+    .ruler-horizontal-bottom {
+      bottom: 0;
+      border-top: 1px solid rgba(100, 100, 100, 0.5);
+    }
+    
+    .ruler-vertical, .ruler-vertical-right {
+      position: absolute;
+      top: 16px;
+      bottom: 16px;
+      width: 20px;
+      background: rgba(40, 40, 40, 0.92);
+      z-index: 1001;
+      overflow: hidden;
+    }
+    
+    .ruler-vertical {
+      left: 0;
+      border-right: 1px solid rgba(100, 100, 100, 0.5);
+    }
+    
+    .ruler-vertical-right {
+      right: 0;
+      border-left: 1px solid rgba(100, 100, 100, 0.5);
+    }
+    
+    /* Corner pieces */
+    .ruler-corner {
+      position: absolute;
+      width: 20px;
+      height: 16px;
+      background: rgba(50, 50, 50, 0.95);
+      z-index: 1002;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 7px;
+      color: rgba(255, 255, 255, 0.5);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .ruler-corner-tl { top: 0; left: 0; }
+    .ruler-corner-tr { top: 0; right: 0; }
+    .ruler-corner-bl { bottom: 0; left: 0; }
+    .ruler-corner-br { bottom: 0; right: 0; }
+    
+    .ruler-ticks {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    
+    .ruler-horizontal .ruler-ticks,
+    .ruler-horizontal-bottom .ruler-ticks {
+      display: flex;
+      align-items: flex-end;
+    }
+    
+    .ruler-horizontal-bottom .ruler-ticks {
+      align-items: flex-start;
+    }
+    
+    .ruler-tick {
+      position: absolute;
+      background: rgba(150, 150, 150, 0.6);
+    }
+    
+    .ruler-horizontal .ruler-tick,
+    .ruler-horizontal-bottom .ruler-tick {
+      width: 1px;
+    }
+    
+    .ruler-horizontal .ruler-tick {
+      bottom: 0;
+    }
+    
+    .ruler-horizontal-bottom .ruler-tick {
+      top: 0;
+    }
+    
+    .ruler-horizontal .ruler-tick.major,
+    .ruler-horizontal-bottom .ruler-tick.major {
+      height: 10px;
+    }
+    
+    .ruler-horizontal .ruler-tick.minor,
+    .ruler-horizontal-bottom .ruler-tick.minor {
+      height: 5px;
+    }
+    
+    .ruler-vertical .ruler-tick,
+    .ruler-vertical-right .ruler-tick {
+      height: 1px;
+    }
+    
+    .ruler-vertical .ruler-tick {
+      right: 0;
+    }
+    
+    .ruler-vertical-right .ruler-tick {
+      left: 0;
+    }
+    
+    .ruler-vertical .ruler-tick.major,
+    .ruler-vertical-right .ruler-tick.major {
+      width: 10px;
+    }
+    
+    .ruler-vertical .ruler-tick.minor,
+    .ruler-vertical-right .ruler-tick.minor {
+      width: 5px;
+    }
+    
+    .ruler-label {
+      position: absolute;
+      font-size: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      color: rgba(200, 200, 200, 0.8);
+      pointer-events: none;
+    }
+    
+    .ruler-horizontal .ruler-label {
+      top: 1px;
+    }
+    
+    .ruler-horizontal-bottom .ruler-label {
+      bottom: 1px;
+    }
+    
+    .ruler-vertical .ruler-label {
+      left: 2px;
+      writing-mode: vertical-lr;
+      transform: rotate(180deg);
+    }
+    
+    .ruler-vertical-right .ruler-label {
+      right: 2px;
+      writing-mode: vertical-rl;
+    }
+    
+    /* Coordinate display overlay */
+    .coord-display {
+      position: absolute;
+      top: 20px;
+      left: 24px;
+      background: rgba(0, 0, 0, 0.85);
+      color: #00ff88;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 3px;
+      z-index: 1003;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.1s ease;
+      white-space: nowrap;
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    .coord-display.visible {
+      opacity: 1;
+    }
+    
+    /* Crosshair lines on rulers */
+    .ruler-crosshair-h {
+      position: absolute;
+      top: 0;
+      width: 1px;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      pointer-events: none;
+      z-index: 1002;
+    }
+    
+    .ruler-crosshair-v {
+      position: absolute;
+      left: 0;
+      height: 1px;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      pointer-events: none;
+      z-index: 1002;
+    }
+    
+    /* Dark theme: white crosshairs */
+    [data-theme="dark"] .ruler-crosshair-h,
+    [data-theme="dark"] .ruler-crosshair-v {
+      background: rgba(255, 255, 255, 0.8);
+    }
+    
+    /* Full preview crosshair lines (military reticle style) */
+    .preview-crosshair-h, .preview-crosshair-v {
+      position: absolute;
+      pointer-events: none;
+      z-index: 1003;
+      opacity: 0;
+      transition: opacity 0.1s ease;
+    }
+    
+    .preview-crosshair-h {
+      left: 20px;
+      right: 20px;
+      height: 1px;
+      background: rgba(0, 0, 0, 0.5);
+    }
+    
+    .preview-crosshair-v {
+      top: 16px;
+      bottom: 16px;
+      width: 1px;
+      background: rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Dark theme: white preview crosshairs */
+    [data-theme="dark"] .preview-crosshair-h,
+    [data-theme="dark"] .preview-crosshair-v {
+      background: rgba(255, 255, 255, 0.6);
+    }
+    
+    .preview-rulers.visible .preview-crosshair-h,
+    .preview-rulers.visible .preview-crosshair-v {
+      opacity: 1;
+    }
+    
+    /* Preview overlay for mouse tracking (invisible but captures events) */
+    .preview-mouse-overlay {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      right: 20px;
+      bottom: 16px;
+      z-index: 1000;
+      cursor: crosshair;
+      display: none;
+    }
+    
+    .preview-rulers.visible + .preview-mouse-overlay {
+      display: block;
+    }
+    
+    /* Iframe inset when rulers are visible (instant, no animation) */
+    .preview-iframe-container.rulers-active #preview-iframe {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      right: 20px;
+      bottom: 16px;
+      width: calc(100% - 40px);
+      height: calc(100% - 32px);
+    }
+    
+    /* Pixel zoom mode - magnify around cursor position */
+    .preview-iframe-container.rulers-active #preview-iframe {
+      /* Keep transform-origin consistent during zoom in/out to prevent anchor jump */
+      transform-origin: var(--zoom-x, 50%) var(--zoom-y, 50%);
+      transition: transform 0.1s ease-out;
+    }
+    
+    .preview-iframe-container.rulers-active.pixel-zoom #preview-iframe {
+      transform: scale(2);
+      image-rendering: pixelated;
+    }
+
+    /* Ensure preview panel has no internal gaps */
+    .preview-panel {
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
     /* Boot screen / loading state */
@@ -978,10 +1321,6 @@
         color: #000;
       }
       
-      #preview-iframe {
-        background: #e8e8e8;
-      }
-      
       /* Invert color bars for light mode */
       .bar-1 { background: #000000 !important; }
       .bar-2 { background: #0000aa !important; }
@@ -1000,9 +1339,6 @@
     [data-theme="light"] .boot-text {
       color: #000;
     }
-    [data-theme="light"] #preview-iframe {
-      background: #e8e8e8;
-    }
     [data-theme="light"] .bar-1 { background: #000000 !important; }
     [data-theme="light"] .bar-2 { background: #0000aa !important; }
     [data-theme="light"] .bar-3 { background: #aa0000 !important; }
@@ -1017,9 +1353,6 @@
     }
     [data-theme="dark"] .boot-text {
       color: #fff;
-    }
-    [data-theme="dark"] #preview-iframe {
-      background: #1a1a1a;
     }
 
     .boot-text .blink {
@@ -1315,14 +1648,14 @@
     }
     
     #preview-title.state-stopped .bounce-dot {
-      color: #ff6464; /* Red for stopped */
-      text-shadow: 0 0 10px rgba(255, 100, 100, 0.9), 0 0 20px rgba(255, 100, 100, 0.6), 0 0 30px rgba(255, 100, 100, 0.3);
+      color: #9370DB; /* Purple - matches stop button */
+      text-shadow: 0 0 10px rgba(147, 112, 219, 0.9), 0 0 20px rgba(147, 112, 219, 0.6), 0 0 30px rgba(147, 112, 219, 0.3);
     }
     
-    /* Code display with monospace font */
+    /* Code display with KidLisp font to match the branding */
     #preview-title .code-display {
-      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
-      font-weight: normal;
+      font-family: 'Comic Relief', 'Comic Sans MS', cursive;
+      font-weight: bold;
       letter-spacing: 0.05em;
     }
     
@@ -1379,14 +1712,58 @@
     #preview-title .code-display .code-char.dollar {
       color: limegreen;
       font-weight: bold;
-      transition: color 0.3s ease, text-shadow 0.3s ease;
+      transition: color 0.05s ease, text-shadow 0.05s ease, transform 0.1s ease;
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5); /* Harsh shadow for light mode visibility */
     }
     #preview-title .code-display .code-char.code {
       color: lime;
-      transition: color 0.3s ease, text-shadow 0.3s ease;
+      transition: color 0.05s ease, text-shadow 0.05s ease, transform 0.1s ease;
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5); /* Harsh shadow for light mode visibility */
+    }
+    
+    /* Bump/shake animation on state change */
+    @keyframes codeBump {
+      0% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.15) rotate(-3deg); }
+      50% { transform: scale(1.1) rotate(2deg); }
+      75% { transform: scale(1.05) rotate(-1deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+    
+    #preview-title.state-changed .code-display .code-char {
+      animation: codeBump 0.2s ease-out;
+    }
+    
+    /* Stagger the bump for each character */
+    #preview-title.state-changed .code-display .code-char:nth-child(1) { animation-delay: 0ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(2) { animation-delay: 15ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(3) { animation-delay: 30ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(4) { animation-delay: 45ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(5) { animation-delay: 60ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(6) { animation-delay: 75ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(7) { animation-delay: 90ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(8) { animation-delay: 105ms; }
+    
+    /* Dark mode: remove the dark shadow, use glow instead */
+    @media (prefers-color-scheme: dark) {
+      #preview-title .code-display .code-char.dollar,
+      #preview-title .code-display .code-char.code {
+        text-shadow: none;
+      }
+    }
+    
+    [data-theme="dark"] #preview-title .code-display .code-char.dollar,
+    [data-theme="dark"] #preview-title .code-display .code-char.code {
+      text-shadow: none;
+    }
+    
+    [data-theme="light"] #preview-title .code-display .code-char.dollar,
+    [data-theme="light"] #preview-title .code-display .code-char.code {
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
     }
     
     /* State-based code colors: running=green (default), paused=yellow, stopped=red */
+    /* Dark mode: glow effect only */
     #preview-title.state-running .code-display .code-char.dollar,
     #preview-title.state-running .code-display .code-char.code {
       color: #90EE90; /* Light green */
@@ -1401,8 +1778,41 @@
     
     #preview-title.state-stopped .code-display .code-char.dollar,
     #preview-title.state-stopped .code-display .code-char.code {
-      color: #ff6464; /* Red */
-      text-shadow: 0 0 6px rgba(255, 100, 100, 0.5);
+      color: #9370DB; /* Purple - matches stop button */
+      text-shadow: 0 0 6px rgba(147, 112, 219, 0.5);
+    }
+    
+    /* Light mode: harsh dark shadow + subtle glow */
+    @media (prefers-color-scheme: light) {
+      #preview-title.state-running .code-display .code-char.dollar,
+      #preview-title.state-running .code-display .code-char.code {
+        text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5), 0 0 6px rgba(144, 238, 144, 0.3);
+      }
+      
+      #preview-title.state-paused .code-display .code-char.dollar,
+      #preview-title.state-paused .code-display .code-char.code {
+        text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5), 0 0 6px rgba(255, 217, 61, 0.3);
+      }
+      
+      #preview-title.state-stopped .code-display .code-char.dollar,
+      #preview-title.state-stopped .code-display .code-char.code {
+        text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5), 0 0 6px rgba(147, 112, 219, 0.3);
+      }
+    }
+    
+    [data-theme="light"] #preview-title.state-running .code-display .code-char.dollar,
+    [data-theme="light"] #preview-title.state-running .code-display .code-char.code {
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5), 0 0 6px rgba(144, 238, 144, 0.3);
+    }
+    
+    [data-theme="light"] #preview-title.state-paused .code-display .code-char.dollar,
+    [data-theme="light"] #preview-title.state-paused .code-display .code-char.code {
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5), 0 0 6px rgba(255, 217, 61, 0.3);
+    }
+    
+    [data-theme="light"] #preview-title.state-stopped .code-display .code-char.dollar,
+    [data-theme="light"] #preview-title.state-stopped .code-display .code-char.code {
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5), 0 0 6px rgba(147, 112, 219, 0.3);
     }
     
     /* Stagger animation delay for each character */
@@ -1733,17 +2143,70 @@
     }
 
     .tab {
-      padding: 0 16px;
+      padding: 0 12px;
       cursor: pointer;
       border-right: 1px solid var(--border-color);
       border-left: 1px solid transparent;
       height: 100%;
       display: flex;
       align-items: center;
+      justify-content: center;
       background: var(--bg-secondary);
       color: var(--text-tertiary);
       transition: all 0.2s;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.05);
+      white-space: nowrap;
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    /* Responsive tab labels */
+    .tab-short { display: none; }
+    .tab-full { display: inline; }
+    
+    /* Reference panel - enable container queries */
+    #reference-panel {
+      container-type: inline-size;
+      container-name: refpanel;
+    }
+    
+    /* Reference panel tabs container - fill width */
+    #reference-panel .docs-header {
+      display: flex;
+      width: 100%;
+    }
+    
+    /* Progressive responsive using container queries (based on panel width, not viewport) */
+    @container refpanel (max-width: 600px) {
+      .tab {
+        padding: 0 8px;
+        font-size: 12px;
+      }
+    }
+    
+    @container refpanel (max-width: 500px) {
+      .tab {
+        padding: 0 6px;
+        font-size: 11px;
+      }
+      .tab-short { display: inline; }
+      .tab-full { display: none; }
+    }
+    
+    @container refpanel (max-width: 400px) {
+      .tab {
+        padding: 0 4px;
+        font-size: 10px;
+      }
+    }
+    
+    @container refpanel (max-width: 300px) {
+      .tab {
+        padding: 0 2px;
+        font-size: 9px;
+      }
     }
 
     @media (hover: hover) {
@@ -1751,11 +2214,20 @@
         filter: brightness(1.08);
         box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 6px 12px rgba(0,0,0,0.08);
       }
+      #guide-tab:hover {
+        background: rgba(34, 197, 94, 0.35);
+      }
       #examples-tab:hover {
-        background: rgba(59, 130, 246, 0.35);
+        background: rgba(250, 204, 21, 0.45);
+      }
+      #recent-tab:hover {
+        background: rgba(249, 115, 22, 0.35);
+      }
+      #history-tab:hover {
+        background: rgba(180, 130, 90, 0.35);
       }
       #keeps-tab:hover {
-        background: rgba(205, 92, 155, 0.35);
+        background: rgba(120, 120, 120, 0.3);
       }
       #reference-tab:hover {
         background: rgba(34, 197, 94, 0.35);
@@ -1773,42 +2245,65 @@
       transform: translateY(-1px);
     }
 
-    /* Color-coded tabs for accessibility - full background colors */
+    /* Color-coded tabs */
+    /* Guides - Green */
+    #guide-tab {
+      background: rgba(34, 197, 94, 0.2);
+      color: #166534;
+    }
+    #guide-tab.active {
+      background: rgba(34, 197, 94, 0.5);
+      color: #14532d;
+      border-top: 2px solid rgba(34, 197, 94, 0.9);
+    }
+    
+    /* Top Hits - Yellow */
     #examples-tab {
-      background: rgba(59, 130, 246, 0.2); /* Blue - discovery/examples */
-      color: #1e40af;
+      background: rgba(250, 204, 21, 0.25);
+      color: #a16207;
     }
     #examples-tab.active {
-      background: rgba(59, 130, 246, 0.55);
-      color: #1e3a8a;
-      border-top: 2px solid rgba(59, 130, 246, 0.9);
+      background: rgba(250, 204, 21, 0.55);
+      color: #854d0e;
+      border-top: 2px solid rgba(250, 204, 21, 0.9);
     }
-
+    
+    /* Recent - Orange */
+    #recent-tab {
+      background: rgba(249, 115, 22, 0.2);
+      color: #c2410c;
+    }
+    #recent-tab.active {
+      background: rgba(249, 115, 22, 0.5);
+      color: #9a3412;
+      border-top: 2px solid rgba(249, 115, 22, 0.9);
+    }
+    
+    /* History - Brown */
+    #history-tab {
+      background: rgba(180, 130, 90, 0.2);
+      color: #78350f;
+    }
+    #history-tab.active {
+      background: rgba(180, 130, 90, 0.5);
+      color: #451a03;
+      border-top: 2px solid rgba(180, 130, 90, 0.9);
+    }
+    
+    /* Keeps - Gray */
     #keeps-tab {
-      background: rgba(205, 92, 155, 0.2); /* Tezos pink - NFT minting */
-      color: #9d174d;
+      background: rgba(120, 120, 120, 0.15);
+      color: #525252;
     }
     #keeps-tab.active {
-
-    /* History tab styling (matches examples/keeps) */
-    #history-tab {
-      color: var(--text-secondary);
-      border: 1px solid transparent;
-      transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+      background: rgba(120, 120, 120, 0.35);
+      color: #262626;
+      border-top: 2px solid rgba(120, 120, 120, 0.7);
     }
 
-    #history-tab.active {
-      color: var(--text-primary);
-      border-color: rgba(0,0,0,0.12);
-      background: rgba(0,0,0,0.02);
-    }
-      background: rgba(205, 92, 155, 0.55);
-      color: #831843;
-      border-top: 2px solid rgba(205, 92, 155, 0.9);
-    }
-
+    /* Cards/Reference - keep existing green */
     #reference-tab {
-      background: rgba(34, 197, 94, 0.2); /* Green - code reference */
+      background: rgba(34, 197, 94, 0.2);
       color: #166534;
     }
     #reference-tab.active {
@@ -1817,59 +2312,52 @@
       border-top: 2px solid rgba(34, 197, 94, 0.9);
     }
 
-    /* Dark mode adjustments for tab colors - higher contrast */
+    /* Dark mode adjustments for tab colors */
+    :root.dark #guide-tab {
+      background: rgba(34, 197, 94, 0.3);
+      color: #4ade80;
+    }
+    :root.dark #guide-tab.active {
+      background: rgba(34, 197, 94, 0.5);
+      color: #86efac;
+    }
+    
     :root.dark #examples-tab {
-      background: rgba(59, 130, 246, 0.35);
-      color: #60a5fa;
+      background: rgba(250, 204, 21, 0.3);
+      color: #fde047;
     }
     :root.dark #examples-tab.active {
-      background: rgba(59, 130, 246, 0.55);
-      color: #ffffff;
+      background: rgba(250, 204, 21, 0.5);
+      color: #fef08a;
     }
+    
+    :root.dark #recent-tab {
+      background: rgba(249, 115, 22, 0.3);
+      color: #fb923c;
+    }
+    :root.dark #recent-tab.active {
+      background: rgba(249, 115, 22, 0.5);
+      color: #fdba74;
+    }
+    
+    :root.dark #history-tab {
+      background: rgba(180, 130, 90, 0.3);
+      color: #d4a574;
+    }
+    :root.dark #history-tab.active {
+      background: rgba(180, 130, 90, 0.5);
+      color: #e8c9a8;
+    }
+    
     :root.dark #keeps-tab {
-      background: rgba(205, 92, 155, 0.35);
-      color: #f472b6;
+      background: rgba(150, 150, 150, 0.25);
+      color: #a3a3a3;
     }
     :root.dark #keeps-tab.active {
-
-    :root.dark #history-tab {
-      color: var(--text-secondary);
-      border-color: transparent;
+      background: rgba(150, 150, 150, 0.4);
+      color: #d4d4d4;
     }
-
-    :root.dark #history-tab.active {
-      color: var(--text-primary);
-      border-color: rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.04);
-    }
-
-    /* Recent tab styling (similar to history but with a teal/cyan accent) */
-    #recent-tab {
-      color: var(--text-secondary);
-      border: 1px solid transparent;
-      transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-    }
-
-    #recent-tab.active {
-      color: #0d9488;
-      border-color: rgba(13, 148, 136, 0.25);
-      background: rgba(13, 148, 136, 0.08);
-    }
-
-    :root.dark #recent-tab {
-      color: var(--text-secondary);
-      border-color: transparent;
-    }
-
-    :root.dark #recent-tab.active {
-      color: #2dd4bf;
-      border-color: rgba(45, 212, 191, 0.25);
-      background: rgba(45, 212, 191, 0.12);
-    }
-
-      background: rgba(205, 92, 155, 0.55);
-      color: #ffffff;
-    }
+    
     :root.dark #reference-tab {
       background: rgba(34, 197, 94, 0.35);
       color: #4ade80;
@@ -1977,6 +2465,8 @@
     }
 
     #examples-content,
+    #history-content,
+    #recent-content,
     #keeps-content,
     #guide-content {
       align-items: flex-start;
@@ -1986,6 +2476,8 @@
     }
 
     #examples-content > div,
+    #history-content > div,
+    #recent-content > div,
     #keeps-content > div,
     #guides-list,
     #guide-detail {
@@ -2070,6 +2562,97 @@
     @keyframes thumb-pulse {
       0%, 100% { opacity: 0.45; }
       50% { opacity: 0.8; }
+    }
+    
+    /* Code list panel container - wraps controls + scrollable list */
+    .code-list-panel {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+    }
+    
+    /* Sticky control bar at top of list panels */
+    .code-list-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      gap: 8px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    
+    .code-list-status {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+    
+    .code-list-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .code-list-actions button {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    
+    /* Scrollable list container */
+    .code-list-items {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+    
+    /* Footer with action buttons (bottom right) */
+    .code-list-footer {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      padding: 8px 12px;
+      gap: 8px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+    
+    .code-list-footer button {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    
+    /* New items indicator */
+    .code-list-new-indicator {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(13, 148, 136, 0.15);
+      border-bottom: 1px solid rgba(13, 148, 136, 0.3);
+      color: #0d9488;
+      font-size: 12px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    
+    .code-list-new-indicator:hover {
+      background: rgba(13, 148, 136, 0.25);
+    }
+    
+    :root.dark .code-list-new-indicator {
+      background: rgba(45, 212, 191, 0.15);
+      border-bottom-color: rgba(45, 212, 191, 0.3);
+      color: #2dd4bf;
+    }
+    
+    :root.dark .code-list-new-indicator:hover {
+      background: rgba(45, 212, 191, 0.25);
     }
 
     @media (hover: hover) {
@@ -3650,6 +4233,47 @@
       background: rgb(60, 60, 60);
     }
 
+    /* ===== Progressive Header Collapse (narrow preview pane) ===== */
+    /* Container query based on preview-panel width */
+    #preview-panel {
+      container-type: inline-size;
+      container-name: preview;
+    }
+    
+    /* Short title shown on narrow widths */
+    #preview-title .title-short { display: none; }
+    #preview-title .title-full { display: inline; }
+    
+    /* Level 1 (< 420px): Aesthetic.Computer → prompt.AC */
+    @container preview (max-width: 420px) {
+      #preview-title .title-full { display: none; }
+      #preview-title .title-short { display: inline; }
+    }
+    
+    /* Level 2 (< 360px): Hide "I'm new" button */
+    @container preview (max-width: 360px) {
+      #header-signup-btn { display: none !important; }
+    }
+    
+    /* Level 3 (< 300px): Hide login/user handle */
+    @container preview (max-width: 300px) {
+      #header-auth-buttons { display: none !important; }
+      #header-user-menu { display: none !important; }
+    }
+    
+    /* Level 4 (< 240px): Hide $code, keep only prompt.AC + QR */
+    @container preview (max-width: 240px) {
+      #preview-title .code-display { display: none !important; }
+    }
+    
+    /* Level 5 (< 180px): Hide prompt.AC entirely, keep only $code + QR */
+    @container preview (max-width: 180px) {
+      #preview-title .title-short { display: none !important; }
+      #preview-title .bounce-dot { display: none !important; }
+      #preview-title .code-display { display: inline !important; }
+      .platform-arrow { display: none !important; }
+    }
+
     /* Platform selector dropdown */
     .platform-selector {
       display: flex;
@@ -4529,20 +5153,35 @@
     /* Center square at the intersection of all 4 gutters */
     #center-square {
       position: fixed;
-      width: 8px;
-      height: 8px;
-      background: rgba(205, 92, 155, 0.4);
+      width: 16px;
+      height: 16px;
+      background: radial-gradient(circle at 35% 35%, rgba(255, 180, 220, 0.95), rgba(205, 120, 170, 0.9));
+      border: 2px solid rgba(180, 100, 150, 0.6);
+      border-radius: 50%;
       cursor: move;
-      z-index: 1000;
+      z-index: 999; /* Below rulers (1001) */
       pointer-events: auto;
+      box-shadow: 
+        0 1px 3px rgba(0, 0, 0, 0.2),
+        inset 0 1px 2px rgba(255, 255, 255, 0.4);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
     }
 
     #center-square:hover {
-      background: rgba(205, 92, 155, 0.6);
+      transform: translate(-50%, -50%) scale(1.15);
+      box-shadow: 
+        0 2px 6px rgba(0, 0, 0, 0.25),
+        inset 0 1px 2px rgba(255, 255, 255, 0.5);
+      border-color: rgba(200, 100, 160, 0.8);
     }
 
     #center-square.dragging {
-      background: rgba(205, 92, 155, 0.8);
+      transform: translate(-50%, -50%) scale(1.2);
+      background: radial-gradient(circle at 35% 35%, rgba(255, 200, 230, 1), rgba(220, 140, 190, 1));
+      box-shadow: 
+        0 3px 10px rgba(180, 100, 150, 0.4),
+        inset 0 1px 2px rgba(255, 255, 255, 0.6);
+      border-color: rgba(180, 80, 140, 0.9);
     }
 
     /* Syntax highlighting blink effect */
@@ -4757,9 +5396,9 @@
     <span class="splash-letter" style="color: #AA96DA;">s</span>
     <span class="splash-letter" style="color: #70D6FF;">p</span>
     <span class="splash-letter splash-dot connectivity-dot disconnected" style="color: var(--text-tertiary);">.</span>
-    <span class="splash-letter com-part" style="color: #70D6FF;">c</span>
-    <span class="splash-letter com-part" style="color: #70D6FF;">o</span>
-    <span class="splash-letter com-part" style="color: #70D6FF;">m</span>
+    <span class="splash-letter com-part" style="color: #FF6B6B;">c</span>
+    <span class="splash-letter com-part" style="color: #9370DB;">o</span>
+    <span class="splash-letter com-part" style="color: #90EE90;">m</span>
   </div>
   
   <style>
@@ -4923,16 +5562,27 @@
             landingZone.appendChild(splashLogo);
             splashLogo.style.cssText = '';
             
-            // Re-apply stochastic coloring
+            // Re-apply stochastic coloring (but preserve .com-part colors)
             const colors = ['#FF7096', '#FFB870', '#FFEA70', '#8AFF8A', '#70D6FF', '#C596FF', '#FF96C5'];
+            // Fixed colors for com-part letters (c=red, o=purple, m=green)
+            const comColors = { 'c': '#FF6B6B', 'o': '#9370DB', 'm': '#90EE90' };
             let lastColorIndex = -1;
             letters.forEach(letter => {
-              let randomIndex;
-              do {
-                randomIndex = Math.floor(Math.random() * colors.length);
-              } while (randomIndex === lastColorIndex && colors.length > 1);
-              lastColorIndex = randomIndex;
-              const color = colors[randomIndex];
+              let color;
+              // Preserve specific colors for .com-part letters
+              if (letter.classList.contains('com-part')) {
+                color = comColors[letter.textContent] || '#70D6FF';
+              } else if (letter.classList.contains('splash-dot')) {
+                // Skip dot - it uses CSS variable for connectivity
+                return;
+              } else {
+                let randomIndex;
+                do {
+                  randomIndex = Math.floor(Math.random() * colors.length);
+                } while (randomIndex === lastColorIndex && colors.length > 1);
+                lastColorIndex = randomIndex;
+                color = colors[randomIndex];
+              }
               letter.style.color = color;
               
               // Add subtle shadow
@@ -5029,9 +5679,9 @@
         },
         // Initial load - keeps scrambling until piece starts running
         initial: {
-          revealDuration: 400,   // How long the reveal takes once signaled
-          scrambleIterations: 2, // Scrambles during reveal
-          minCharDelay: 3,       // Reveal speed
+          revealDuration: 200,   // How long the reveal takes once signaled (was 400)
+          scrambleIterations: 1, // Single scramble during reveal (was 2) - faster!
+          minCharDelay: 1,       // Reveal speed (was 3) - faster!
           waitForSignal: true,   // Keep scrambling until signaled
           maxWait: 10000,        // Safety: auto-complete after 10s
         },
@@ -5044,6 +5694,40 @@
       // 🚀 Flying code animation - blast old code away, bring new code in!
       // codeHtml = highlighted HTML for animation colors
       // fullSourceCode = actual source to set in editor (may be longer than animated portion)
+      
+      // Track current flying animation state
+      let flyingAnimationState = {
+        active: false,
+        sourceCode: null,  // Track which code is being animated
+        container: null,   // Reference to cleanup container
+        timeouts: [],      // Track all setTimeout IDs for cleanup
+        resolve: null      // Store resolve function for early completion
+      };
+      
+      // Cancel any in-progress flying animation
+      function cancelFlyingAnimation(setContent = false) {
+        if (!flyingAnimationState.active) return;
+        
+        // Clear all pending timeouts
+        flyingAnimationState.timeouts.forEach(id => clearTimeout(id));
+        flyingAnimationState.timeouts = [];
+        
+        // Remove the animation container
+        if (flyingAnimationState.container) {
+          flyingAnimationState.container.remove();
+          flyingAnimationState.container = null;
+        }
+        
+        // Resolve the previous promise
+        if (flyingAnimationState.resolve) {
+          flyingAnimationState.resolve();
+          flyingAnimationState.resolve = null;
+        }
+        
+        flyingAnimationState.active = false;
+        flyingAnimationState.sourceCode = null;
+      }
+      
       window.flyCodeToEditor = function(sourceEl, codeHtml, fullSourceCode) {
         return new Promise((resolve) => {
           const editorEl = document.getElementById('kidlisp-editor');
@@ -5052,6 +5736,23 @@
             resolve();
             return;
           }
+          
+          // Check if clicking the same code that's already animating - ignore
+          if (flyingAnimationState.active && flyingAnimationState.sourceCode === fullSourceCode) {
+            resolve();
+            return;
+          }
+          
+          // If different animation is running, cancel it and set content immediately
+          if (flyingAnimationState.active) {
+            cancelFlyingAnimation(true);
+          }
+          
+          // Start new animation state
+          flyingAnimationState.active = true;
+          flyingAnimationState.sourceCode = fullSourceCode;
+          flyingAnimationState.resolve = resolve;
+          flyingAnimationState.timeouts = [];
           
           // Get positions
           const sourceRect = sourceEl.getBoundingClientRect();
@@ -5106,21 +5807,33 @@
           container.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100001; overflow: hidden;';
           document.body.appendChild(container);
           
+          // Store container in state for cleanup
+          flyingAnimationState.container = container;
+          
+          // Helper to track timeouts
+          const trackTimeout = (fn, delay) => {
+            const id = setTimeout(fn, delay);
+            flyingAnimationState.timeouts.push(id);
+            return id;
+          };
+          
           // ═══════════════════════════════════════════════════════════
           // PHASE 1: BLAST OLD CODE AWAY (from editor)
-          // Extract colors from Monaco's actual rendered spans
+          // Extract colors and font weights from Monaco's actual rendered spans
           // ═══════════════════════════════════════════════════════════
           const oldCode = monacoEditor.getValue() || '';
           const oldChars = oldCode.slice(0, 80);
           
-          // Try to get colors from Monaco's rendered view BEFORE clearing
+          // Try to get colors and weights from Monaco's rendered view BEFORE clearing
           const monacoSpans = viewLines ? viewLines.querySelectorAll('.view-line span span') : [];
-          const spanColors = [];
+          const spanStyles = [];
           monacoSpans.forEach(span => {
-            const color = window.getComputedStyle(span).color || 'rgb(220, 220, 220)';
+            const computed = window.getComputedStyle(span);
+            const color = computed.color || 'rgb(220, 220, 220)';
+            const weight = computed.fontWeight || '400';
             const text = span.textContent || '';
             for (let i = 0; i < text.length; i++) {
-              spanColors.push(color);
+              spanStyles.push({ color, weight });
             }
           });
           
@@ -5159,17 +5872,17 @@
             const targetX = startX + Math.sin(spreadAngle) * distance * 0.5;
             const targetY = startY - distance;
             
-            // Use actual Monaco color if available, fallback to white
-            const charColor = spanColors[colorIndex] || 'rgb(255, 255, 255)';
+            // Use actual Monaco color and weight if available
+            const charStyle = spanStyles[colorIndex] || { color: 'rgb(255, 255, 255)', weight: '400' };
             
             charEl.style.cssText = `
               position: absolute;
               font-family: ${monacoFontFamily};
               font-size: ${fontSize}px;
               line-height: ${lineHeight}px;
-              font-weight: 400;
+              font-weight: ${charStyle.weight};
               letter-spacing: 0px;
-              color: ${charColor};
+              color: ${charStyle.color};
               text-shadow: ${textShadow};
               pointer-events: none;
               left: ${startX}px;
@@ -5185,7 +5898,7 @@
             // Staggered blast - slower
             const delay = oldCharIndex * 8;
             ((el, tx, ty, d) => {
-              setTimeout(() => {
+              trackTimeout(() => {
                 el.style.transition = `
                   left 400ms cubic-bezier(0.2, 0.8, 0.3, 1),
                   top 400ms cubic-bezier(0.1, 0.6, 0.2, 1),
@@ -5209,38 +5922,46 @@
           // Parse the highlighted HTML to get colors
           // ═══════════════════════════════════════════════════════════
           
-          // Parse highlighted HTML into chars with colors
+          // Parse highlighted HTML into chars with colors and font weights
           const tempDiv = document.createElement('div');
           tempDiv.innerHTML = codeHtml;
           const coloredChars = [];
           
-          function extractColoredChars(node) {
+          function extractColoredChars(node, inheritedWeight = 'normal') {
             if (node.nodeType === Node.TEXT_NODE) {
               const text = node.textContent || '';
-              // Try to get color from parent span
+              // Try to get color and weight from parent span
               let color = 'rgb(255, 255, 255)';
-              if (node.parentElement && node.parentElement.style.color) {
-                color = node.parentElement.style.color;
+              let weight = inheritedWeight;
+              if (node.parentElement) {
+                if (node.parentElement.style.color) {
+                  color = node.parentElement.style.color;
+                }
+                if (node.parentElement.style.fontWeight) {
+                  weight = node.parentElement.style.fontWeight;
+                }
               }
               for (const char of text) {
-                coloredChars.push({ char, color });
+                coloredChars.push({ char, color, weight });
               }
             } else if (node.nodeType === Node.ELEMENT_NODE) {
-              // Get color from this element's style
+              // Get color and weight from this element's style
               const el = node;
               const style = el.getAttribute('style') || '';
               const colorMatch = style.match(/color:\s*([^;]+)/);
+              const weightMatch = style.match(/font-weight:\s*([^;]+)/);
               const elColor = colorMatch ? colorMatch[1].trim() : null;
+              const elWeight = weightMatch ? weightMatch[1].trim() : inheritedWeight;
               
               for (const child of node.childNodes) {
                 if (child.nodeType === Node.TEXT_NODE) {
                   const text = child.textContent || '';
                   const useColor = elColor || 'rgb(255, 255, 255)';
                   for (const char of text) {
-                    coloredChars.push({ char, color: useColor });
+                    coloredChars.push({ char, color: useColor, weight: elWeight });
                   }
                 } else {
-                  extractColoredChars(child);
+                  extractColoredChars(child, elWeight);
                 }
               }
             }
@@ -5255,7 +5976,7 @@
           const blastHeadStart = tickerSwingDuration + 100;
           
           // Reset ticker transform after swing
-          setTimeout(() => {
+          trackTimeout(() => {
             sourceEl.style.transition = 'transform 200ms ease-out';
             sourceEl.style.transform = '';
           }, tickerSwingDuration + 50);
@@ -5265,7 +5986,7 @@
           let newCharIndex = 0;
           
           for (let i = 0; i < charsToAnimate.length; i++) {
-            const { char, color } = charsToAnimate[i];
+            const { char, color, weight } = charsToAnimate[i];
             
             if (char === '\n') {
               newLine++;
@@ -5293,7 +6014,7 @@
               font-family: ${monacoFontFamily};
               font-size: ${fontSize}px;
               line-height: ${lineHeight}px;
-              font-weight: 400;
+              font-weight: ${weight || 'normal'};
               letter-spacing: 0px;
               color: ${color};
               text-shadow: ${textShadow};
@@ -5311,7 +6032,7 @@
             const delay = blastHeadStart + newCharIndex * 10;
             
             ((el, tx, ty, d) => {
-              setTimeout(() => {
+              trackTimeout(() => {
                 el.style.transition = `
                   left 350ms cubic-bezier(0.2, 0.7, 0.3, 1),
                   top 350ms cubic-bezier(0.1, 0.6, 0.2, 1)
@@ -5328,7 +6049,7 @@
           
           // Clean up after both animations complete and set editor content
           const totalDuration = blastHeadStart + (newCharIndex * 10) + 400;
-          setTimeout(() => {
+          trackTimeout(() => {
             container.remove();
             // Set editor content directly - use full source if provided, else animated text
             const textToSet = fullSourceCode || charsToAnimate.map(c => c.char).join('');
@@ -5336,7 +6057,15 @@
               monacoEditor.setValue(textToSet);
             }
             editorEl.classList.add('code-flash');
-            setTimeout(() => editorEl.classList.remove('code-flash'), 100);
+            trackTimeout(() => editorEl.classList.remove('code-flash'), 100);
+            
+            // Mark animation complete and clear state
+            flyingAnimationState.active = false;
+            flyingAnimationState.sourceCode = null;
+            flyingAnimationState.container = null;
+            flyingAnimationState.timeouts = [];
+            flyingAnimationState.resolve = null;
+            
             resolve(textToSet);
           }, totalDuration);
         });
@@ -5601,7 +6330,6 @@
             </div>
           </div>
           <button id="theme-toggle" title="Toggle light/dark mode">○</button>
-          <span id="local-indicator" style="display: none; position: absolute; right: 40px; top: 50%; transform: translateY(-50%); font-size: 9px; color: #4caf50; opacity: 0.7; font-family: monospace; pointer-events: none;">LOCAL</span>
         </div>
         <!-- Visualization Mode Tabs (hidden for now) -->
         <div class="viz-tabs" id="viz-tabs" style="display: none !important;">
@@ -5610,21 +6338,21 @@
         <!-- Order: clear (left), stop (middle), send (right) -->
         <div id="playback-controls">
           <button id="clear-button" aria-label="Clear code">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
               <line x1="6" y1="6" x2="18" y2="18"/>
               <line x1="18" y1="6" x2="6" y2="18"/>
             </svg>
           </button>
           <button id="stop-button" aria-label="Stop">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
             </svg>
           </button>
           <button id="send-button" aria-label="Play">
-            <svg class="play-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <svg class="play-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
               <path d="M6 4.5c0-1.2 1.3-1.9 2.3-1.3l12 8c.9.6.9 2 0 2.6l-12 8c-1 .6-2.3-.1-2.3-1.3v-16z"/>
             </svg>
-            <svg class="pause-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <svg class="pause-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
               <rect x="5" y="3" width="5" height="18" rx="2" ry="2"/>
               <rect x="14" y="3" width="5" height="18" rx="2" ry="2"/>
             </svg>
@@ -5644,7 +6372,7 @@
       <div class="preview-panel" id="preview-panel" style="display: flex; flex-direction: column;">
         <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
           <div id="platform-selector" class="platform-selector">
-            <span id="preview-title">Aesthetic<span class="bounce-dot">.</span>Computer</span>
+            <span id="preview-title"><span class="title-full">Aesthetic</span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full">Computer</span><span class="title-short">AC</span></span>
             <span class="platform-arrow">▼</span>
             <div class="platform-dropdown" id="platform-dropdown">
               <div class="platform-option active" data-platform="aesthetic-computer">
@@ -5684,7 +6412,7 @@
             </div>
           </div>
         </div>
-        <div style="position: relative; flex: 1;">
+        <div class="preview-iframe-container" id="preview-iframe-container">
           <!-- Platform-specific boot screens -->
           <div class="boot-screen" id="boot-screen" data-platform="aesthetic-computer">
             <div class="color-bar bar-1" style="background: #ffffff;"></div>
@@ -5722,7 +6450,40 @@
             <div class="boot-text" style="font-size: 18px; font-weight: bold; color: #fff;">Nintendo 64</div>
             <div class="boot-text boot-text-status" style="font-size: 11px; opacity: 0.5; margin-top: 8px; color: #ff3333;" data-i18n="experimental">⚠️ Experimental</div>
           </div>
-          <iframe id="preview-iframe" frameborder="0" style="flex: 1; width: 100%; height: 100%;"></iframe>
+          <iframe id="preview-iframe" frameborder="0"></iframe>
+          <!-- Pixel rulers (shown when paused) - all 4 sides -->
+          <div class="preview-rulers" id="preview-rulers">
+            <!-- Corners -->
+            <div class="ruler-corner ruler-corner-tl">px</div>
+            <div class="ruler-corner ruler-corner-tr"></div>
+            <div class="ruler-corner ruler-corner-bl"></div>
+            <div class="ruler-corner ruler-corner-br"></div>
+            <!-- Top ruler -->
+            <div class="ruler-horizontal" id="ruler-h">
+              <div class="ruler-ticks" id="ruler-h-ticks"></div>
+              <div class="ruler-crosshair-h" id="crosshair-h"></div>
+            </div>
+            <!-- Bottom ruler -->
+            <div class="ruler-horizontal-bottom" id="ruler-h-bottom">
+              <div class="ruler-ticks" id="ruler-h-bottom-ticks"></div>
+              <div class="ruler-crosshair-h" id="crosshair-h-bottom"></div>
+            </div>
+            <!-- Left ruler -->
+            <div class="ruler-vertical" id="ruler-v">
+              <div class="ruler-ticks" id="ruler-v-ticks"></div>
+              <div class="ruler-crosshair-v" id="crosshair-v"></div>
+            </div>
+            <!-- Right ruler -->
+            <div class="ruler-vertical-right" id="ruler-v-right">
+              <div class="ruler-ticks" id="ruler-v-right-ticks"></div>
+              <div class="ruler-crosshair-v" id="crosshair-v-right"></div>
+            </div>
+            <!-- Full preview crosshairs (military reticle) -->
+            <div class="preview-crosshair-h" id="preview-crosshair-h"></div>
+            <div class="preview-crosshair-v" id="preview-crosshair-v"></div>
+            <div class="coord-display" id="coord-display">x: 0, y: 0</div>
+          </div>
+          <div class="preview-mouse-overlay" id="preview-mouse-overlay"></div>
         </div>
       </div>
     </div>
@@ -5732,10 +6493,10 @@
         <div class="docs-header">
           <div class="tab mobile-only" data-tab="console" id="console-tab">Console</div>
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
-          <div class="tab" data-tab="guide" id="guide-tab">Guides</div>
-          <div class="tab active" data-tab="examples" id="examples-tab">Top Hits</div>
+          <div class="tab" data-tab="guide" id="guide-tab"><span class="tab-full">Guides</span><span class="tab-short">Guide</span></div>
+          <div class="tab active" data-tab="examples" id="examples-tab"><span class="tab-full">Top Hits</span><span class="tab-short">Top</span></div>
           <div class="tab" data-tab="recent" id="recent-tab">Recent</div>
-          <div class="tab" data-tab="history" id="history-tab">History</div>
+          <div class="tab" data-tab="history" id="history-tab"><span class="tab-full">History</span><span class="tab-short">Hist</span></div>
           <div class="tab" data-tab="keeps" id="keeps-tab">Keeps</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
@@ -5754,24 +6515,24 @@
           </div>
         </div>
         <div class="docs-content" id="examples-content">
-          <div id="examples-list">Loading examples...</div>
+          <div class="code-list-panel">
+            <div id="examples-list" class="code-list-items">Loading examples...</div>
+          </div>
         </div>
         <div class="docs-content hidden" id="history-content">
-          <div id="history-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px;">
-            <div id="history-status" style="font-size: 12px; color: var(--text-tertiary);">Loading history...</div>
-            <div style="display: flex; gap: 8px;">
-              <button id="history-clear-btn" class="secondary-btn" style="padding: 6px 10px; font-size: 12px;">Clear</button>
-              <button id="history-login-btn" class="secondary-btn" style="padding: 6px 10px; font-size: 12px; display: none;">Log in</button>
+          <div class="code-list-panel">
+            <div id="history-list" class="code-list-items">No history yet.</div>
+            <div class="code-list-footer">
+              <button id="history-login-btn" class="secondary-btn" style="display: none;">Log in</button>
+              <button id="history-clear-btn" class="secondary-btn">Clear</button>
             </div>
           </div>
-          <div id="history-list">No history yet.</div>
         </div>
         <div class="docs-content hidden" id="recent-content">
-          <div id="recent-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px;">
-            <div id="recent-status" style="font-size: 12px; color: var(--text-tertiary);">Loading recent...</div>
-            <button id="recent-refresh-btn" class="secondary-btn" style="padding: 6px 10px; font-size: 12px;">Refresh</button>
+          <div class="code-list-panel">
+            <div id="recent-new-indicator" class="code-list-new-indicator hidden"></div>
+            <div id="recent-list" class="code-list-items">Loading...</div>
           </div>
-          <div id="recent-list">Loading...</div>
         </div>
         <div class="docs-content hidden" id="keeps-content">
           <div id="keeps-container">
@@ -7270,10 +8031,17 @@
             rightCol.style.height = '100%';
             
             if (mainSplit) {
+              // Preserve center-square before removing children
+              const centerSquare = document.getElementById('center-square');
+              
               // Remove children without using innerHTML to preserve iframe
               while (mainSplit.firstChild) {
                 mainSplit.removeChild(mainSplit.firstChild);
               }
+              
+              // Re-add center-square first (so it's in the DOM)
+              if (centerSquare) mainSplit.appendChild(centerSquare);
+              
               mainSplit.appendChild(leftCol);
               mainSplit.appendChild(rightCol);
               
@@ -7346,9 +8114,16 @@
           
             // Restore row structure - remove children without using innerHTML
             if (mainSplit) {
+              // Preserve center-square before removing children
+              const centerSquare = document.getElementById('center-square');
+              
               while (mainSplit.firstChild) {
                 mainSplit.removeChild(mainSplit.firstChild);
               }
+              
+              // Re-add center-square first (so it's in the DOM)
+              if (centerSquare) mainSplit.appendChild(centerSquare);
+              
               mainSplit.appendChild(topRow);
               mainSplit.appendChild(bottomRow);
             }
@@ -7460,6 +8235,13 @@
           if (typeof editor !== 'undefined' && editor && editor.layout) {
             editor.layout();
           }
+          // Update center square position after Split.js has inserted gutters
+          // Use a small delay to ensure gutters are fully rendered
+          setTimeout(() => {
+            if (typeof updateCenterSquarePosition === 'function') {
+              updateCenterSquarePosition();
+            }
+          }, 50);
         });
       }
     }
@@ -8063,23 +8845,53 @@
         return;
       }
       
-      centerSquare.style.display = 'block';
+      // Check if we're in 4-panel symmetric mode (desktop-centered)
+      const leftCol = document.getElementById('left-col');
+      const rightCol = document.getElementById('right-col');
+      const isSymmetricMode = leftCol && rightCol;
       
-      // Find the intersection point of the gutters
-      const verticalGutter = document.querySelector('#top-row + .gutter.gutter-vertical');
-      const horizontalGutter = document.querySelector('#editor-panel + .gutter.gutter-horizontal');
-      
-      if (verticalGutter && horizontalGutter) {
-        const vRect = verticalGutter.getBoundingClientRect();
-        const hRect = horizontalGutter.getBoundingClientRect();
+      if (isSymmetricMode) {
+        // In symmetric 4-panel mode, show center square at the intersection
+        // Find the horizontal gutter between left and right columns
+        const mainHorizontalGutter = document.querySelector('#left-col + .gutter.gutter-horizontal');
+        // Find a vertical gutter in either column (they should align)
+        const leftVerticalGutter = document.querySelector('#editor-panel + .gutter.gutter-vertical');
         
-        // Position center square at intersection
-        const left = hRect.left + (hRect.width / 2);
-        const top = vRect.top + (vRect.height / 2);
+        if (mainHorizontalGutter && leftVerticalGutter) {
+          centerSquare.style.display = 'block';
+          const hRect = mainHorizontalGutter.getBoundingClientRect();
+          const vRect = leftVerticalGutter.getBoundingClientRect();
+          
+          // Position at intersection of the + 
+          const left = hRect.left + (hRect.width / 2);
+          const top = vRect.top + (vRect.height / 2);
+          
+          centerSquare.style.left = `${left}px`;
+          centerSquare.style.top = `${top}px`;
+          centerSquare.style.transform = 'translate(-50%, -50%)';
+        } else {
+          centerSquare.style.display = 'none';
+        }
+      } else {
+        // Standard 2x2 mode - original logic
+        const verticalGutter = document.querySelector('#top-row + .gutter.gutter-vertical');
+        const horizontalGutter = document.querySelector('#editor-panel + .gutter.gutter-horizontal');
         
-        centerSquare.style.left = `${left}px`;
-        centerSquare.style.top = `${top}px`;
-        centerSquare.style.transform = 'translate(-50%, -50%)';
+        if (verticalGutter && horizontalGutter) {
+          centerSquare.style.display = 'block';
+          const vRect = verticalGutter.getBoundingClientRect();
+          const hRect = horizontalGutter.getBoundingClientRect();
+          
+          // Position center square at intersection
+          const left = hRect.left + (hRect.width / 2);
+          const top = vRect.top + (vRect.height / 2);
+          
+          centerSquare.style.left = `${left}px`;
+          centerSquare.style.top = `${top}px`;
+          centerSquare.style.transform = 'translate(-50%, -50%)';
+        } else {
+          centerSquare.style.display = 'none';
+        }
       }
     }
 
@@ -8091,73 +8903,160 @@
       let isDragging = false;
       let startX, startY;
       let startSizes = {};
+      let isSymmetricMode = false;
       
-      centerSquare.addEventListener('mousedown', (e) => {
+      const startDrag = (e) => {
         e.preventDefault();
+        e.stopPropagation();
         isDragging = true;
         startX = e.clientX;
         startY = e.clientY;
         centerSquare.classList.add('dragging');
         
+        // Capture pointer for better drag locking
+        centerSquare.setPointerCapture(e.pointerId);
+        
+        // Prevent text selection during drag
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'move';
+        
+        // Check if we're in symmetric 4-panel mode
+        const leftCol = document.getElementById('left-col');
+        const rightCol = document.getElementById('right-col');
+        isSymmetricMode = leftCol && rightCol;
+        
         // Store initial sizes
-        const topRow = document.getElementById('top-row');
-        const bottomRow = document.getElementById('bottom-row');
         const editorPanel = document.getElementById('editor-panel');
         const previewPanel = document.getElementById('preview-panel');
         const referencePanel = document.getElementById('reference-panel');
         const consolePanel = document.getElementById('console-panel');
         
-        startSizes = {
-          topHeight: topRow.offsetHeight,
-          bottomHeight: bottomRow.offsetHeight,
-          editorWidth: editorPanel.offsetWidth,
-          previewWidth: previewPanel.offsetWidth,
-          referenceWidth: referencePanel.offsetWidth,
-          consoleWidth: consolePanel.offsetWidth,
-          totalHeight: topRow.offsetHeight + bottomRow.offsetHeight,
-          totalWidth: editorPanel.offsetWidth + previewPanel.offsetWidth
-        };
-      });
+        if (isSymmetricMode) {
+          // Symmetric mode: left-col / right-col structure
+          startSizes = {
+            leftColWidth: leftCol.offsetWidth,
+            rightColWidth: rightCol.offsetWidth,
+            editorHeight: editorPanel.offsetHeight,
+            referenceHeight: referencePanel.offsetHeight,
+            previewHeight: previewPanel.offsetHeight,
+            consoleHeight: consolePanel.offsetHeight,
+            totalWidth: leftCol.offsetWidth + rightCol.offsetWidth,
+            leftTotalHeight: editorPanel.offsetHeight + referencePanel.offsetHeight,
+            rightTotalHeight: previewPanel.offsetHeight + consolePanel.offsetHeight
+          };
+        } else {
+          // Standard mode: top-row / bottom-row structure
+          const topRow = document.getElementById('top-row');
+          const bottomRow = document.getElementById('bottom-row');
+          
+          startSizes = {
+            topHeight: topRow?.offsetHeight || 0,
+            bottomHeight: bottomRow?.offsetHeight || 0,
+            editorWidth: editorPanel.offsetWidth,
+            previewWidth: previewPanel.offsetWidth,
+            referenceWidth: referencePanel.offsetWidth,
+            consoleWidth: consolePanel.offsetWidth,
+            totalHeight: (topRow?.offsetHeight || 0) + (bottomRow?.offsetHeight || 0),
+            totalWidth: editorPanel.offsetWidth + previewPanel.offsetWidth
+          };
+        }
+      };
       
-      document.addEventListener('mousemove', (e) => {
+      const onDrag = (e) => {
         if (!isDragging) return;
         
         const deltaX = e.clientX - startX;
         const deltaY = e.clientY - startY;
         
-        // Calculate new sizes
-        const newTopHeight = startSizes.topHeight + deltaY;
-        const newBottomHeight = startSizes.bottomHeight - deltaY;
-        const newEditorWidth = startSizes.editorWidth + deltaX;
-        const newPreviewWidth = startSizes.previewWidth - deltaX;
-        const newReferenceWidth = startSizes.referenceWidth + deltaX;
-        const newConsoleWidth = startSizes.consoleWidth - deltaX;
-        
-        // Convert to percentages
-        const topPercent = (newTopHeight / startSizes.totalHeight) * 100;
-        const bottomPercent = (newBottomHeight / startSizes.totalHeight) * 100;
-        const editorPercent = (newEditorWidth / startSizes.totalWidth) * 100;
-        const previewPercent = (newPreviewWidth / startSizes.totalWidth) * 100;
-        const referencePercent = (newReferenceWidth / startSizes.totalWidth) * 100;
-        const consolePercent = (newConsoleWidth / startSizes.totalWidth) * 100;
-        
-        // Apply new sizes if they're reasonable
-        if (topPercent > 10 && bottomPercent > 10 && editorPercent > 10 && previewPercent > 10) {
-          if (splits.length >= 3) {
-            splits[0].setSizes([topPercent, bottomPercent]);
-            splits[1].setSizes([editorPercent, previewPercent]);
-            splits[2].setSizes([referencePercent, consolePercent]);
+        if (isSymmetricMode) {
+          // Symmetric 4-panel mode: 
+          // - Horizontal drag adjusts left-col vs right-col widths
+          // - Vertical drag adjusts editor/reference AND preview/console heights
+          
+          const newLeftColWidth = startSizes.leftColWidth + deltaX;
+          const newRightColWidth = startSizes.rightColWidth - deltaX;
+          const newEditorHeight = startSizes.editorHeight + deltaY;
+          const newReferenceHeight = startSizes.referenceHeight - deltaY;
+          const newPreviewHeight = startSizes.previewHeight + deltaY;
+          const newConsoleHeight = startSizes.consoleHeight - deltaY;
+          
+          // Convert to percentages
+          const leftColPercent = (newLeftColWidth / startSizes.totalWidth) * 100;
+          const rightColPercent = (newRightColWidth / startSizes.totalWidth) * 100;
+          const editorPercent = (newEditorHeight / startSizes.leftTotalHeight) * 100;
+          const referencePercent = (newReferenceHeight / startSizes.leftTotalHeight) * 100;
+          const previewPercent = (newPreviewHeight / startSizes.rightTotalHeight) * 100;
+          const consolePercent = (newConsoleHeight / startSizes.rightTotalHeight) * 100;
+          
+          // Apply new sizes if they're reasonable (min 10%)
+          if (leftColPercent > 10 && rightColPercent > 10 && 
+              editorPercent > 10 && referencePercent > 10 &&
+              previewPercent > 10 && consolePercent > 10) {
+            if (splits.length >= 3) {
+              // In symmetric mode:
+              // splits[0] = leftVerticalSplit (Editor / Reference)
+              // splits[1] = rightVerticalSplit (Preview / Console) 
+              // splits[2] = mainHorizontalSplit (Left Col / Right Col)
+              splits[0].setSizes([editorPercent, referencePercent]);
+              splits[1].setSizes([previewPercent, consolePercent]);
+              splits[2].setSizes([leftColPercent, rightColPercent]);
+            }
+          }
+        } else {
+          // Standard 2x2 mode (original logic)
+          const newTopHeight = startSizes.topHeight + deltaY;
+          const newBottomHeight = startSizes.bottomHeight - deltaY;
+          const newEditorWidth = startSizes.editorWidth + deltaX;
+          const newPreviewWidth = startSizes.previewWidth - deltaX;
+          const newReferenceWidth = startSizes.referenceWidth + deltaX;
+          const newConsoleWidth = startSizes.consoleWidth - deltaX;
+          
+          // Convert to percentages
+          const topPercent = (newTopHeight / startSizes.totalHeight) * 100;
+          const bottomPercent = (newBottomHeight / startSizes.totalHeight) * 100;
+          const editorPercent = (newEditorWidth / startSizes.totalWidth) * 100;
+          const previewPercent = (newPreviewWidth / startSizes.totalWidth) * 100;
+          const referencePercent = (newReferenceWidth / startSizes.totalWidth) * 100;
+          const consolePercent = (newConsoleWidth / startSizes.totalWidth) * 100;
+          
+          // Apply new sizes if they're reasonable
+          if (topPercent > 10 && bottomPercent > 10 && editorPercent > 10 && previewPercent > 10) {
+            if (splits.length >= 3) {
+              splits[0].setSizes([topPercent, bottomPercent]);
+              splits[1].setSizes([editorPercent, previewPercent]);
+              splits[2].setSizes([referencePercent, consolePercent]);
+            }
           }
         }
-      });
+      };
       
-      document.addEventListener('mouseup', () => {
+      const endDrag = (e) => {
         if (isDragging) {
           isDragging = false;
           centerSquare.classList.remove('dragging');
+          
+          // Release pointer capture
+          if (e && e.pointerId) {
+            centerSquare.releasePointerCapture(e.pointerId);
+          }
+          
+          // Restore normal cursor and text selection
+          document.body.style.userSelect = '';
+          document.body.style.cursor = '';
+          
           updateCenterSquarePosition();
         }
-      });
+      };
+      
+      // Use pointer events for better cross-device support and capture
+      centerSquare.addEventListener('pointerdown', startDrag);
+      centerSquare.addEventListener('pointermove', onDrag);
+      centerSquare.addEventListener('pointerup', endDrag);
+      centerSquare.addEventListener('pointercancel', endDrag);
+      
+      // Also listen on document for moves/ups that escape the element
+      document.addEventListener('pointermove', onDrag);
+      document.addEventListener('pointerup', endDrag);
     }
 
     // Initialize everything
@@ -9783,14 +10682,7 @@
       // Set max lines to 16 (fixed)
       const maxLines = 16;
       
-      // Show local indicator if in development mode
-      const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.') || window.location.hostname.includes('app.github.dev');
-      if (isDev) {
-        const localIndicator = document.getElementById('local-indicator');
-        if (localIndicator) {
-          localIndicator.style.display = 'block';
-        }
-      }
+      // LOCAL indicator removed - no longer needed
       
       // Create the editor
       editor = monaco.editor.create(editorContainer, {
@@ -9927,7 +10819,7 @@
               // Update preview pane title (no animation for initial load)
               const previewTitle = document.getElementById('preview-title');
               const codeChars = `/$${code}`.split('').map((c, i) => `<span class="code-char${i === 1 ? ' dollar' : i > 1 ? ' code' : ''}">${c}</span>`).join('');
-              previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">${codeChars}</span>`;
+              previewTitle.innerHTML = getACTitleHTML(codeChars);
             }
           } else {
             log.code.error(`Failed to load code: $${code}`);
@@ -9945,7 +10837,7 @@
           // Update preview pane title (no animation for restore)
           const previewTitle = document.getElementById('preview-title');
           const codeChars = `/$${savedCode}`.split('').map((c, i) => `<span class="code-char${i === 1 ? ' dollar' : i > 1 ? ' code' : ''}">${c}</span>`).join('');
-          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">${codeChars}</span>`;
+          previewTitle.innerHTML = getACTitleHTML(codeChars);
         }
       }
 
@@ -10531,16 +11423,12 @@
           window.history.pushState({}, 'KidLisp.com', '/kidlisp.com');
           document.title = 'KidLisp.com';
           localStorage.removeItem('kidlisp-current-code');
-          // Reset preview title to current platform name (with logo for FF1)
+          // Reset preview title to current platform name (using global helper)
           const previewTitle = document.getElementById('preview-title');
           if (previewTitle) {
             const platformOption = document.querySelector(`.platform-option[data-platform="${currentPlatform}"]`);
             const platformName = platformOption?.querySelector('.platform-opt-name')?.textContent || 'Aesthetic.Computer';
-            if (currentPlatform === 'ff1') {
-              previewTitle.innerHTML = `<img src="/kidlisp.com/assets/feralfile-logo.png" alt="" class="platform-logo" style="height: 16px; margin-right: 6px; vertical-align: middle;"> ${platformName}`;
-            } else {
-              previewTitle.innerHTML = platformName.replace('.', '<span class="bounce-dot">.</span>');
-            }
+            previewTitle.innerHTML = getPlatformTitleHTML(currentPlatform, platformName);
           }
         }
       });
@@ -10954,6 +11842,360 @@
     let isSoftStopped = false; // Track if soft-stopped (paused but tab still open)
     let lastCode = ''; // Track last code for auto-reload
     
+    // 📏 Pixel Rulers System (shown when paused)
+    const rulerSystem = {
+      initialized: false,
+      visible: false,
+      canvasWidth: 640,   // AC logical canvas size (viewport / density)
+      canvasHeight: 360,  // Default density = 2, so 1280/2 = 640
+      density: 2,         // AC screen density (default)
+      
+      init() {
+        if (this.initialized) return;
+        this.initialized = true;
+        
+        const overlay = document.getElementById('preview-mouse-overlay');
+        const rulers = document.getElementById('preview-rulers');
+        const coordDisplay = document.getElementById('coord-display');
+        const crosshairH = document.getElementById('crosshair-h');
+        const crosshairV = document.getElementById('crosshair-v');
+        const crosshairHBottom = document.getElementById('crosshair-h-bottom');
+        const crosshairVRight = document.getElementById('crosshair-v-right');
+        const previewCrosshairH = document.getElementById('preview-crosshair-h');
+        const previewCrosshairV = document.getElementById('preview-crosshair-v');
+        
+        if (!overlay || !rulers) return;
+        
+        // Generate initial tick marks
+        this.generateTicks();
+        
+        // Mouse tracking on overlay
+        overlay.addEventListener('mousemove', (e) => {
+          if (!this.visible) return;
+          
+          const rect = overlay.getBoundingClientRect();
+          const relX = e.clientX - rect.left;
+          const relY = e.clientY - rect.top;
+          
+          // Calculate canvas coordinates (scale from overlay size to canvas size)
+          const scaleX = this.canvasWidth / rect.width;
+          const scaleY = this.canvasHeight / rect.height;
+          const canvasX = Math.floor(relX * scaleX);
+          const canvasY = Math.floor(relY * scaleY);
+          
+          // Update coordinate display
+          if (coordDisplay) {
+            coordDisplay.textContent = `x: ${canvasX}, y: ${canvasY}`;
+            coordDisplay.classList.add('visible');
+          }
+          
+          // Update crosshair positions on all rulers (in ruler pixel space)
+          const rulerH = document.getElementById('ruler-h');
+          const rulerV = document.getElementById('ruler-v');
+          const rulerHBottom = document.getElementById('ruler-h-bottom');
+          const rulerVRight = document.getElementById('ruler-v-right');
+          
+          if (rulerH) {
+            const rulerScale = rulerH.offsetWidth / this.canvasWidth;
+            if (crosshairH) crosshairH.style.left = `${canvasX * rulerScale}px`;
+            if (crosshairHBottom) crosshairHBottom.style.left = `${canvasX * rulerScale}px`;
+          }
+          if (rulerV) {
+            const rulerScale = rulerV.offsetHeight / this.canvasHeight;
+            if (crosshairV) crosshairV.style.top = `${canvasY * rulerScale}px`;
+            if (crosshairVRight) crosshairVRight.style.top = `${canvasY * rulerScale}px`;
+          }
+          
+          // Update full preview crosshairs (military reticle)
+          if (previewCrosshairH) {
+            // Position horizontal line at mouse Y (relative to preview area)
+            previewCrosshairH.style.top = `${16 + relY}px`; // 16px = ruler height offset
+          }
+          if (previewCrosshairV) {
+            // Position vertical line at mouse X (relative to preview area)
+            previewCrosshairV.style.left = `${20 + relX}px`; // 20px = ruler width offset
+          }
+        });
+        
+        overlay.addEventListener('mouseleave', () => {
+          if (coordDisplay) coordDisplay.classList.remove('visible');
+          // Cancel any pending zoom
+          if (this.zoomTimeout) {
+            clearTimeout(this.zoomTimeout);
+            this.zoomTimeout = null;
+          }
+          this.endZoom();
+        });
+        
+        // Pixel zoom on click+hold
+        const getZoomPosition = (e) => {
+          const rect = overlay.getBoundingClientRect();
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          const relX = clientX - rect.left;
+          const relY = clientY - rect.top;
+          // Convert to percentage for transform-origin
+          const percentX = (relX / rect.width) * 100;
+          const percentY = (relY / rect.height) * 100;
+          return { percentX, percentY, clientX, clientY };
+        };
+        
+        const startZoomHold = (e) => {
+          if (!this.visible) return;
+          const pos = getZoomPosition(e);
+          this.zoomPosition = pos;
+          // Zoom immediately on tap (no delay)
+          this.startZoom(pos.percentX, pos.percentY);
+        };
+        
+        const moveWhileHolding = (e) => {
+          if (!this.visible || !this.isZooming) return;
+          const pos = getZoomPosition(e);
+          this.updateZoomPosition(pos.percentX, pos.percentY);
+        };
+        
+        const endZoomHold = () => {
+          if (this.zoomTimeout) {
+            clearTimeout(this.zoomTimeout);
+            this.zoomTimeout = null;
+          }
+          this.endZoom();
+        };
+        
+        overlay.addEventListener('mousedown', startZoomHold);
+        overlay.addEventListener('mousemove', (e) => {
+          // Also update zoom position while dragging
+          if (this.isZooming) moveWhileHolding(e);
+        });
+        overlay.addEventListener('mouseup', endZoomHold);
+        
+        // Touch support
+        overlay.addEventListener('touchstart', startZoomHold, { passive: true });
+        overlay.addEventListener('touchmove', moveWhileHolding, { passive: true });
+        overlay.addEventListener('touchend', endZoomHold);
+        overlay.addEventListener('touchcancel', endZoomHold);
+        
+        // Update on window resize
+        window.addEventListener('resize', () => {
+          if (this.visible) this.generateTicks();
+        });
+      },
+      
+      // Zoom methods
+      zoomTimeout: null,
+      zoomPosition: null,
+      isZooming: false,
+      
+      startZoom(percentX, percentY) {
+        const iframeContainer = document.getElementById('preview-iframe-container');
+        const iframe = document.getElementById('preview-iframe');
+        if (!iframeContainer || !iframe) return;
+        
+        // Set transform origin to cursor position
+        iframe.style.setProperty('--zoom-x', `${percentX}%`);
+        iframe.style.setProperty('--zoom-y', `${percentY}%`);
+        iframeContainer.classList.add('pixel-zoom');
+        this.isZooming = true;
+      },
+      
+      updateZoomPosition(percentX, percentY) {
+        const iframe = document.getElementById('preview-iframe');
+        if (!iframe || !this.isZooming) return;
+        iframe.style.setProperty('--zoom-x', `${percentX}%`);
+        iframe.style.setProperty('--zoom-y', `${percentY}%`);
+      },
+      
+      endZoom() {
+        const iframeContainer = document.getElementById('preview-iframe-container');
+        if (iframeContainer) {
+          iframeContainer.classList.remove('pixel-zoom');
+        }
+        this.isZooming = false;
+      },
+      
+      generateTicks() {
+        const rulerHTicks = document.getElementById('ruler-h-ticks');
+        const rulerVTicks = document.getElementById('ruler-v-ticks');
+        const rulerHBottomTicks = document.getElementById('ruler-h-bottom-ticks');
+        const rulerVRightTicks = document.getElementById('ruler-v-right-ticks');
+        const rulerH = document.getElementById('ruler-h');
+        const rulerV = document.getElementById('ruler-v');
+        
+        if (!rulerH || !rulerV) return;
+        
+        // Clear existing ticks
+        if (rulerHTicks) rulerHTicks.innerHTML = '';
+        if (rulerVTicks) rulerVTicks.innerHTML = '';
+        if (rulerHBottomTicks) rulerHBottomTicks.innerHTML = '';
+        if (rulerVRightTicks) rulerVRightTicks.innerHTML = '';
+        
+        const hWidth = rulerH.offsetWidth;
+        const vHeight = rulerV.offsetHeight;
+        
+        // Calculate scale (pixels per canvas unit)
+        const scaleH = hWidth / this.canvasWidth;
+        const scaleV = vHeight / this.canvasHeight;
+        
+        // Determine tick interval based on scale
+        let majorInterval = 100;
+        let minorInterval = 10;
+        if (scaleH < 0.3) {
+          majorInterval = 200;
+          minorInterval = 50;
+        } else if (scaleH < 0.8) {
+          majorInterval = 100;
+          minorInterval = 20;
+        } else if (scaleH > 1.5) {
+          majorInterval = 50;
+          minorInterval = 10;
+        }
+        
+        // Generate horizontal ticks (top ruler)
+        if (rulerHTicks) {
+          for (let i = 0; i <= this.canvasWidth; i += minorInterval) {
+            const isMajor = i % majorInterval === 0;
+            const tick = document.createElement('div');
+            tick.className = `ruler-tick ${isMajor ? 'major' : 'minor'}`;
+            tick.style.left = `${i * scaleH}px`;
+            rulerHTicks.appendChild(tick);
+            
+            if (isMajor && i > 0) {
+              const label = document.createElement('div');
+              label.className = 'ruler-label';
+              label.textContent = i;
+              label.style.left = `${i * scaleH + 2}px`;
+              rulerHTicks.appendChild(label);
+            }
+          }
+        }
+        
+        // Generate horizontal ticks (bottom ruler - mirrored)
+        if (rulerHBottomTicks) {
+          for (let i = 0; i <= this.canvasWidth; i += minorInterval) {
+            const isMajor = i % majorInterval === 0;
+            const tick = document.createElement('div');
+            tick.className = `ruler-tick ${isMajor ? 'major' : 'minor'}`;
+            tick.style.left = `${i * scaleH}px`;
+            rulerHBottomTicks.appendChild(tick);
+            
+            if (isMajor && i > 0) {
+              const label = document.createElement('div');
+              label.className = 'ruler-label';
+              label.textContent = i;
+              label.style.left = `${i * scaleH + 2}px`;
+              rulerHBottomTicks.appendChild(label);
+            }
+          }
+        }
+        
+        // Generate vertical ticks (left ruler)
+        if (rulerVTicks) {
+          for (let i = 0; i <= this.canvasHeight; i += minorInterval) {
+            const isMajor = i % majorInterval === 0;
+            const tick = document.createElement('div');
+            tick.className = `ruler-tick ${isMajor ? 'major' : 'minor'}`;
+            tick.style.top = `${i * scaleV}px`;
+            rulerVTicks.appendChild(tick);
+            
+            if (isMajor && i > 0) {
+              const label = document.createElement('div');
+              label.className = 'ruler-label';
+              label.textContent = i;
+              label.style.top = `${i * scaleV + 2}px`;
+              rulerVTicks.appendChild(label);
+            }
+          }
+        }
+        
+        // Generate vertical ticks (right ruler - mirrored)
+        if (rulerVRightTicks) {
+          for (let i = 0; i <= this.canvasHeight; i += minorInterval) {
+            const isMajor = i % majorInterval === 0;
+            const tick = document.createElement('div');
+            tick.className = `ruler-tick ${isMajor ? 'major' : 'minor'}`;
+            tick.style.top = `${i * scaleV}px`;
+            rulerVRightTicks.appendChild(tick);
+            
+            if (isMajor && i > 0) {
+              const label = document.createElement('div');
+              label.className = 'ruler-label';
+              label.textContent = i;
+              label.style.top = `${i * scaleV + 2}px`;
+              rulerVRightTicks.appendChild(label);
+            }
+          }
+        }
+      },
+      
+      show() {
+        this.init();
+        const rulers = document.getElementById('preview-rulers');
+        const overlay = document.getElementById('preview-mouse-overlay');
+        const iframeContainer = document.getElementById('preview-iframe-container');
+        
+        // Calculate AC logical canvas size from iframe using density
+        const iframe = document.getElementById('preview-iframe');
+        if (iframe) {
+          const iframeRect = iframe.getBoundingClientRect();
+          // AC uses density (default 2) - logical pixels = viewport / density
+          // This gives us the actual AC coordinate system
+          this.canvasWidth = Math.round(iframeRect.width / this.density);
+          this.canvasHeight = Math.round(iframeRect.height / this.density);
+        }
+        
+        if (rulers) {
+          rulers.classList.add('visible');
+          this.visible = true;
+          this.generateTicks(); // Regenerate for current size
+        }
+        if (overlay) overlay.style.display = 'block';
+        if (iframeContainer) iframeContainer.classList.add('rulers-active');
+      },
+      
+      hide() {
+        const rulers = document.getElementById('preview-rulers');
+        const overlay = document.getElementById('preview-mouse-overlay');
+        const coordDisplay = document.getElementById('coord-display');
+        const iframeContainer = document.getElementById('preview-iframe-container');
+        if (rulers) {
+          rulers.classList.remove('visible');
+          this.visible = false;
+        }
+        if (overlay) overlay.style.display = 'none';
+        if (coordDisplay) coordDisplay.classList.remove('visible');
+        if (iframeContainer) {
+          iframeContainer.classList.remove('rulers-active');
+          iframeContainer.classList.remove('pixel-zoom');
+        }
+        // Clean up zoom state
+        this.endZoom();
+        if (this.zoomTimeout) {
+          clearTimeout(this.zoomTimeout);
+          this.zoomTimeout = null;
+        }
+      },
+      
+      // Update canvas dimensions (call when we know the actual AC canvas size)
+      setCanvasSize(width, height) {
+        this.canvasWidth = width;
+        this.canvasHeight = height;
+        if (this.visible) this.generateTicks();
+      },
+      
+      // Update density (call if AC sends density info)
+      setDensity(density) {
+        this.density = density || 2;
+        // Recalculate canvas size
+        const iframe = document.getElementById('preview-iframe');
+        if (iframe) {
+          const iframeRect = iframe.getBoundingClientRect();
+          this.canvasWidth = Math.round(iframeRect.width / this.density);
+          this.canvasHeight = Math.round(iframeRect.height / this.density);
+        }
+        if (this.visible) this.generateTicks();
+      }
+    };
+
     // Helper to set live state on editor panel (for visibility across all viz views)
     function setLiveState(state) {
       const editorPanel = document.getElementById('editor-panel');
@@ -10965,6 +12207,12 @@
       kidlispEditor?.classList.remove('live-running', 'live-paused', 'live-stopped');
       previewTitle?.classList.remove('state-running', 'state-paused', 'state-stopped');
       
+      // Trigger bump animation on state change
+      if (state && previewTitle) {
+        previewTitle.classList.add('state-changed');
+        setTimeout(() => previewTitle.classList.remove('state-changed'), 250);
+      }
+      
       // Add new state if specified
       if (state === 'running') {
         editorPanel?.classList.add('live-running');
@@ -10974,16 +12222,41 @@
         editorPanel?.classList.add('live-paused');
         kidlispEditor?.classList.add('live-paused');
         previewTitle?.classList.add('state-paused');
+        // Show pixel rulers when paused
+        rulerSystem.show();
       } else if (state === 'stopped') {
         editorPanel?.classList.add('live-stopped');
         kidlispEditor?.classList.add('live-stopped');
         previewTitle?.classList.add('state-stopped');
+        // Hide rulers when stopped
+        rulerSystem.hide();
       }
       // 'idle' or null removes all classes (already done above)
+      
+      // Hide rulers when running or idle
+      if (state === 'running' || !state) {
+        rulerSystem.hide();
+      }
     }
     
     // Track current platform globally
     let currentPlatform = localStorage.getItem('kidlisp-platform') || 'aesthetic-computer';
+    
+    // Global helper to generate platform title HTML with short/full variants for responsive collapse
+    function getACTitleHTML(codeChars = '') {
+      return `<span class="title-full">Aesthetic</span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full">Computer</span><span class="title-short">AC</span><span class="code-display">${codeChars}</span>`;
+    }
+    
+    // Helper to generate platform title HTML (with logo for FF1, short/full for AC)
+    function getPlatformTitleHTML(platformId, platformName) {
+      if (platformId === 'aesthetic-computer') {
+        return getACTitleHTML();
+      }
+      if (platformId === 'ff1') {
+        return `<img src="/kidlisp.com/assets/feralfile-logo.png" alt="" class="platform-logo" style="height: 16px; margin-right: 6px; vertical-align: middle;"> ${platformName}`;
+      }
+      return platformName.replace('.', '<span class="bounce-dot">.</span>');
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const isVSCode = urlParams.get('vscode') === 'true';
@@ -11355,8 +12628,70 @@
         if (window.updateClearButtonPosition) window.updateClearButtonPosition();
       }
     });
+    
+    // Pre-play/pause animation: preview the target state while holding button, cancels if drag off
+    let prePlayActive = false;
+    let prePlayRulersWereVisible = false; // Track if rulers were showing before press
+    let prePauseActive = false; // Track if we're previewing pause (shrink for rulers)
+    
+    const startPrePlay = (e) => {
+      if (sendButton.disabled) return;
+      
+      const iframeContainer = document.getElementById('preview-iframe-container');
+      
+      if (isPlaying && !isPaused) {
+        // Currently playing - preview PAUSE state (shrink to show ruler gap)
+        prePauseActive = true;
+        if (iframeContainer) iframeContainer.classList.add('rulers-active');
+      } else if (isPaused || !isPlaying) {
+        // Currently paused or stopped - preview PLAY state (hide rulers)
+        prePlayActive = true;
+        if (rulerSystem.visible) {
+          prePlayRulersWereVisible = true;
+          rulerSystem.hide();
+        }
+      }
+    };
+    
+    const endPrePlay = () => {
+      // Just clean up state - the click handler will do the actual action
+      prePlayActive = false;
+      prePlayRulersWereVisible = false;
+      prePauseActive = false;
+    };
+    
+    const cancelPrePlay = () => {
+      const iframeContainer = document.getElementById('preview-iframe-container');
+      
+      if (prePlayActive) {
+        // Was previewing play - restore rulers if they were visible
+        if (prePlayRulersWereVisible && isPaused) {
+          rulerSystem.show();
+        }
+      }
+      
+      if (prePauseActive) {
+        // Was previewing pause - remove the ruler gap preview
+        if (iframeContainer) iframeContainer.classList.remove('rulers-active');
+      }
+      
+      prePlayActive = false;
+      prePlayRulersWereVisible = false;
+      prePauseActive = false;
+    };
+    
+    // Track if pointer leaves button while held
+    sendButton.addEventListener('mousedown', startPrePlay);
+    sendButton.addEventListener('touchstart', startPrePlay, { passive: true });
+    
+    sendButton.addEventListener('mouseup', endPrePlay);
+    sendButton.addEventListener('touchend', endPrePlay);
+    
+    // Cancel if drag off the button
+    sendButton.addEventListener('mouseleave', cancelPrePlay);
+    sendButton.addEventListener('touchcancel', cancelPrePlay);
 
-    // Stop button - sends stop message to iframe
+    // Stop button - sends stop message to iframe (full reset, not just pause)
     if (stopButton) {
       log.ui.verbose('Stop button initialized');
       
@@ -11367,28 +12702,30 @@
           return;
         }
         
-        log.playback.log('Soft stopping (pausing, keeping tab)');
+        log.playback.log('Stopping (full reset)');
         addStateEntry('stop');
         
         // Prevent any bubbling
         e.stopPropagation();
         e.preventDefault();
         
-        // Send soft-stop message - pause execution but keep the $code tab open
-        sendToIframe({ type: 'kidlisp-soft-stop' });
+        // Send full stop message - this clears all kidlisp state/buffers
+        // When play is pressed again, it will start fresh
+        sendToIframe({ type: 'kidlisp-stop' });
         
-        // Update state - soft stopped (tab still open, just paused)
+        // Update state - fully stopped (will restart fresh on play)
         isPlaying = false;
         isPaused = false;
-        isSoftStopped = true; // Mark as soft-stopped so play can resume
+        isSoftStopped = false; // Not soft-stopped - will start fresh
         vizSystem.isPlaying = false;
         vizSystem.isPaused = false;
-        // Don't reset vizSystem.frameCount or lastCode - we're keeping the session
+        vizSystem.frameCount = 0; // Reset frame count for fresh start
+        lastCode = ''; // Clear last code so play starts fresh
         sendButton.classList.remove('playing');
-        sendButton.classList.remove('paused'); // Remove yellow outline on soft-stop
+        sendButton.classList.remove('paused'); // Remove yellow outline on stop
         stopButton.style.display = 'none';
         if (window.updateClearButtonPosition) window.updateClearButtonPosition();
-        // Show red outline to indicate stopped state (tab still open)
+        // Show purple outline to indicate stopped state
         setLiveState('stopped');
         
         // Re-enable play button if there's content
@@ -11731,7 +13068,7 @@
           // Update preview pane title with scramble animation
           const previewTitle = document.getElementById('preview-title');
           // First set the base title
-          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display"></span>`;
+          previewTitle.innerHTML = getACTitleHTML();
           // Then animate the code part
           const codeDisplay = previewTitle.querySelector('.code-display');
           scrambleToCode(event.data.code, codeDisplay);
@@ -12587,7 +13924,7 @@
           const name = savedOption.querySelector('.platform-opt-name')?.textContent || 'Aesthetic.Computer';
           // Update title with platform's font styling via data attribute
           if (previewTitle) {
-            previewTitle.innerHTML = name.replace('.', '<span class="bounce-dot">.</span>');
+            previewTitle.innerHTML = getPlatformTitleHTML(savedPlatform, name);
             previewTitle.dataset.platform = savedPlatform;
           }
           // Update panel data-platform for header color styling
@@ -12638,14 +13975,6 @@
           const isExperimental = option.classList.contains('experimental');
           const name = option.querySelector('.platform-opt-name')?.textContent || 'Unknown';
           
-          // Helper to generate platform title HTML (with logo for FF1)
-          function getPlatformTitleHTML(platformId, platformName) {
-            if (platformId === 'ff1') {
-              return `<img src="/kidlisp.com/assets/feralfile-logo.png" alt="" class="platform-logo" style="height: 16px; margin-right: 6px; vertical-align: middle;"> ${platformName}`;
-            }
-            return platformName.replace('.', '<span class="bounce-dot">.</span>');
-          }
-          
           // Check if platform is available
           if (isComingSoon) {
             showToast(`${name} ${t('platformComingSoon')}`, 'info');
@@ -12655,7 +13984,7 @@
             showToast(`${name} ${t('platformExperimental')}`, 'warning');
           }
           
-          // Update title with platform's font styling via data attribute
+          // Update title with platform's font styling via data attribute (uses global helper)
           if (previewTitle) {
             previewTitle.innerHTML = getPlatformTitleHTML(platform, name);
             previewTitle.dataset.platform = platform;
@@ -13392,170 +14721,26 @@
         const data = await response.json();
         
         if (data.media && data.media.kidlisp) {
-          examplesList.innerHTML = '';
-          // Sort by hits (descending)
-          const sortedItems = [...data.media.kidlisp].sort((a, b) => (b.hits || 0) - (a.hits || 0));
+          // Sort by hits (descending) and map to standard format
+          const sortedItems = [...data.media.kidlisp]
+            .sort((a, b) => (b.hits || 0) - (a.hits || 0))
+            .map(item => ({
+              code: item.code,
+              source: item.source || item.code,
+              assetUrl: item.assetUrl || null,
+              hits: item.hits || 0,
+              handle: item.owner?.handle || '',
+            }));
           
-          // Helper to check if text color is dark (needs light shadow)
-          function isDarkColor(colorStr) {
-            if (!colorStr) return false;
-            let rgb;
-            if (colorStr.startsWith('rgb(')) {
-              const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-              if (match) rgb = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
-            } else if (colorStr.match(/^\d+,\s*\d+,\s*\d+/)) {
-              rgb = colorStr.split(',').map(n => parseInt(n.trim()));
-            } else {
-              // Named dark colors
-              const darkColors = { 
-                black: [0,0,0], darkblue: [0,0,139], navy: [0,0,128], 
-                maroon: [128,0,0], purple: [128,0,128], indigo: [75,0,130],
-                darkgreen: [0,100,0], darkred: [139,0,0], brown: [139,69,19],
-                darkgray: [169,169,169], dimgray: [105,105,105], gray: [128,128,128]
-              };
-              rgb = darkColors[colorStr.toLowerCase()];
-            }
-            if (!rgb || rgb.length < 3) return false;
-            const luminance = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-            return luminance < 120; // Increased threshold for more colors to get shadows
-          }
-          
-          // Helper to check if token is a timing expression
-          function isTimingToken(text) {
-            return /^\d*\.?\d+[sf](\.\.\.?)?$/.test(text.trim());
-          }
-          
-          sortedItems.forEach(item => {
-            const el = document.createElement('div');
-            el.className = 'example-item';
-            
-            // Apply syntax highlighting to the code
-            let highlightedCode = item.source || item.code;
-            const originalCode = highlightedCode;
-            try {
-              const tokens = tokenize(highlightedCode);
-              // Use a separate KidLisp instance for Top Hits (don't affect Monaco's instance)
-              const topHitsKidlisp = new KidLisp();
-              topHitsKidlisp.isEditMode = true; // Always edit mode for static display
-              topHitsKidlisp.initializeSyntaxHighlighting(highlightedCode);
-              const coloredString = topHitsKidlisp.buildColoredKidlispString();
-              
-              // Convert KidLisp color codes to HTML spans with enhanced effects
-              highlightedCode = coloredString.replace(/\\([^\\]+)\\([^\\]*)/g, (match, color, text) => {
-                if (!text) return '';
-                let cssColor = color;
-                let extraClass = '';
-                
-                // Skip transparent colors (alpha = 0)
-                if (color.includes(',0') && color.split(',').length === 4) {
-                  // This is RGBA with 0 alpha - treat as gray instead
-                  cssColor = 'rgb(128,128,128)';
-                  extraClass += ' dark-text-shadow';
-                }
-                
-                // Handle RGB colors
-                if (color.match(/^\d+,\s*\d+,\s*\d+(,\s*\d+)?$/)) {
-                  const parts = color.split(',').map(n => parseInt(n.trim()));
-                  // Check for alpha=0 (transparent)
-                  if (parts.length === 4 && parts[3] === 0) {
-                    cssColor = 'rgb(180,180,180)'; // Show as light gray instead of invisible
-                    extraClass += ' dark-text-shadow';
-                  } else {
-                    cssColor = `rgb(${parts.slice(0,3).join(',')})`;
-                  }
-                }
-                
-                // Check if this is a dark color first
-                const dark = isDarkColor(color) || isDarkColor(cssColor);
-                
-                // Add timing blink animation for timing tokens
-                if (isTimingToken(text)) {
-                  extraClass += ' timing-token';
-                }
-                
-                // Add shadow for dark colors - always add for dark backgrounds
-                if (dark) {
-                  extraClass += ' dark-text-shadow';
-                }
-                
-                // Add subtle glow to bright colors
-                if (['yellow', 'lime', 'cyan', 'orange', 'pink', 'magenta', 'white', 'lightyellow', 'lightgreen'].includes(color.toLowerCase())) {
-                  extraClass += ' glow-text';
-                }
-                
-                return `<span style="color: ${cssColor}; font-weight: bold;" class="${extraClass.trim()}">${text}</span>`;
-              });
-            } catch (e) {
-              // If highlighting fails, use plain text
-            }
-            
-            // Create ticker wrapper for long code (scrolls on hover)
-            const needsTicker = originalCode.length > 40;
-            const tickerHtml = needsTicker 
-              ? `<span class="ticker-wrapper">${highlightedCode}&nbsp;&nbsp;&nbsp;${highlightedCode}</span>` 
-              : highlightedCode;
-            
-            const handle = item.owner?.handle || '';
-            const handleHtml = handle ? `<div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${handle}</div>` : '';
-            
-            // Create thumbnail element
-            const thumbHtml = item.assetUrl 
-              ? `<img class="example-thumb" src="${item.assetUrl}" alt="" onload="this.classList.add('loaded')" onerror="this.style.display='none'" />`
-              : `<div class="example-thumb-placeholder">◆</div>`;
-            
-            el.innerHTML = `
-              ${thumbHtml}
-              <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
-                <div class="example-code">${tickerHtml}</div>
-                <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">$${item.code}</div>
-                ${handleHtml}
-              </div>
-              <div class="example-hits">${item.hits} ${t('hits')}</div>
-            `;
-            
-            // Store highlighted code on element for flying animation
-            el._highlightedCode = highlightedCode;
-            
-            el.addEventListener('click', async () => {
-              if (editor) {
-                const sourceCode = item.source || item.code;
-                
-                // 🚀 Flying code animation - code flies from ticker to editor!
-                // This sets the editor content directly - no scramble needed
-                const codeEl = el.querySelector('.example-code');
-                if (codeEl && window.flyCodeToEditor) {
-                  await window.flyCodeToEditor(codeEl, el._highlightedCode || sourceCode, sourceCode);
-                } else {
-                  // Fallback if no flying animation
-                  editor.setValue(sourceCode);
-                }
-                
-                const editorEl = document.getElementById('kidlisp-editor');
-                if (editorEl) editorEl.classList.remove('decrypting');
-                
-                // Update URL and title (only on AC platform)
-                if (currentPlatform === 'aesthetic-computer') {
-                  updateURLForCode(item.code);
-                  // Store code identifier
-                  localStorage.setItem('kidlisp-current-code', item.code);
-                  // Update preview pane title (no animation for selection)
-                  const previewTitle = document.getElementById('preview-title');
-                  const codeChars = `/$${item.code}`.split('').map((c, i) => `<span class="code-char${i === 1 ? ' dollar' : i > 1 ? ' code' : ''}">${c}</span>`).join('');
-                  previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">${codeChars}</span>`;
-                }
-                updatePreview();
-                // Auto-play when selecting from top hits - stop first if already playing
-                if (sendButton && !sendButton.disabled) {
-                  if (isPlaying) {
-                    // Already playing something - stop it first, then start new one
-                    stopButton.click();
-                  }
-                  sendButton.click();
-                }
-              }
-            });
-            examplesList.appendChild(el);
+          renderCodeList({
+            listId: 'examples-list',
+            items: sortedItems,
+            emptyMessage: t('examplesNone'),
+            syntaxHighlight: true,
+            tickerAnimation: true,
+            showHits: true,
           });
+          
           examplesLoaded = true;
         } else {
           examplesList.textContent = t('examplesNone');
@@ -13564,6 +14749,260 @@
         log.code.error('Failed to load examples:', e.message);
         document.getElementById('examples-list').textContent = t('examplesError');
       }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SHARED CODE LIST COMPONENT
+    // Reusable scrollable list for Top Hits, Recent, and History tabs
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Helper to format time ago (moved here for shared use)
+    function formatTimeAgo(ts) {
+      const now = Date.now();
+      const diff = now - ts;
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      
+      if (days > 0) return `${days}d ago`;
+      if (hours > 0) return `${hours}h ago`;
+      if (minutes > 0) return `${minutes}m ago`;
+      return 'just now';
+    }
+    
+    // Helper to check if text color is dark (needs light shadow)
+    function isDarkColor(colorStr) {
+      if (!colorStr) return false;
+      let rgb;
+      if (colorStr.startsWith('rgb(')) {
+        const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+        if (match) rgb = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
+      } else if (colorStr.match(/^\d+,\s*\d+,\s*\d+/)) {
+        rgb = colorStr.split(',').map(n => parseInt(n.trim()));
+      } else {
+        const darkColors = { 
+          black: [0,0,0], darkblue: [0,0,139], navy: [0,0,128], 
+          maroon: [128,0,0], purple: [128,0,128], indigo: [75,0,130],
+          darkgreen: [0,100,0], darkred: [139,0,0], brown: [139,69,19],
+          darkgray: [169,169,169], dimgray: [105,105,105], gray: [128,128,128]
+        };
+        rgb = darkColors[colorStr.toLowerCase()];
+      }
+      if (!rgb || rgb.length < 3) return false;
+      const luminance = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
+      return luminance < 120;
+    }
+    
+    // Helper to check if token is a timing expression
+    function isTimingToken(text) {
+      return /^\d*\.?\d+[sf](\.\.\.?)?$/.test(text.trim());
+    }
+    
+    // Apply KidLisp syntax highlighting to code string
+    function applySyntaxHighlighting(code) {
+      try {
+        const kl = new KidLisp();
+        kl.isEditMode = true;
+        kl.initializeSyntaxHighlighting(code);
+        const coloredString = kl.buildColoredKidlispString();
+        
+        return coloredString.replace(/\\([^\\]+)\\([^\\]*)/g, (match, color, text) => {
+          if (!text) return '';
+          let cssColor = color;
+          let extraClass = '';
+          
+          if (color.includes(',0') && color.split(',').length === 4) {
+            cssColor = 'rgb(128,128,128)';
+            extraClass += ' dark-text-shadow';
+          }
+          
+          if (color.match(/^\d+,\s*\d+,\s*\d+(,\s*\d+)?$/)) {
+            const parts = color.split(',').map(n => parseInt(n.trim()));
+            if (parts.length === 4 && parts[3] === 0) {
+              cssColor = 'rgb(180,180,180)';
+              extraClass += ' dark-text-shadow';
+            } else {
+              cssColor = `rgb(${parts.slice(0,3).join(',')})`;
+            }
+          }
+          
+          const dark = isDarkColor(color) || isDarkColor(cssColor);
+          if (isTimingToken(text)) extraClass += ' timing-token';
+          if (dark) extraClass += ' dark-text-shadow';
+          if (['yellow', 'lime', 'cyan', 'orange', 'pink', 'magenta', 'white', 'lightyellow', 'lightgreen'].includes(color.toLowerCase())) {
+            extraClass += ' glow-text';
+          }
+          
+          return `<span style="color: ${cssColor}; font-weight: bold;" class="${extraClass.trim()}">${text}</span>`;
+        });
+      } catch (e) {
+        return code; // Return plain text on error
+      }
+    }
+    
+    /**
+     * Render a single code list item
+     * @param {Object} item - The code item data
+     * @param {Object} options - Rendering options
+     * @returns {HTMLElement} The rendered item element
+     */
+    function renderCodeListItem(item, options = {}) {
+      const {
+        syntaxHighlight = false,
+        tickerAnimation = false,
+        showOwner = false,
+        showTimeAgo = false,
+        showTimestamp = false,
+        showHits = true,
+        pendingThumb = false,
+      } = options;
+      
+      const el = document.createElement('div');
+      el.className = 'example-item';
+      
+      // Get code snippet
+      const sourceCode = item.source || item.code || '';
+      const snippet = sourceCode.slice(0, 80).replace(/\n/g, ' ');
+      const truncated = snippet.length === 80;
+      
+      // Apply syntax highlighting if requested
+      let displayCode = syntaxHighlight ? applySyntaxHighlighting(sourceCode) : (snippet || '(empty)');
+      if (!syntaxHighlight && truncated) displayCode += '…';
+      
+      // Ticker animation for long code
+      if (tickerAnimation && sourceCode.length > 40) {
+        displayCode = `<span class="ticker-wrapper">${displayCode}&nbsp;&nbsp;&nbsp;${displayCode}</span>`;
+      }
+      
+      // Build metadata lines
+      const codeLabel = item.code ? `$${item.code}` : 'draft';
+      const ownerText = showOwner && item.owner ? ` by @${item.owner}` : '';
+      const handleText = item.handle ? item.handle : '';
+      
+      let timeLine = '';
+      if (showTimeAgo && item.ts) {
+        timeLine = formatTimeAgo(item.ts);
+      } else if (showTimestamp && item.ts) {
+        timeLine = new Date(item.ts).toLocaleString();
+      }
+      
+      // Build thumbnail
+      const thumbClass = pendingThumb ? 'example-thumb-placeholder history-thumb-pending' : 'example-thumb-placeholder';
+      const thumbHtml = item.assetUrl
+        ? `<img class="example-thumb" src="${item.assetUrl}" alt="" onload="this.classList.add('loaded')" onerror="this.style.display='none'" />`
+        : `<div class="${thumbClass}">◆</div>`;
+      
+      // Build hits display
+      const hitsHtml = showHits ? `<div class="example-hits">${item.hits || 0} hits</div>` : '';
+      
+      // Assemble HTML
+      el.innerHTML = `
+        ${thumbHtml}
+        <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
+          <div class="example-code">${displayCode}</div>
+          <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${codeLabel}${ownerText}</div>
+          ${handleText && !ownerText ? `<div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${handleText}</div>` : ''}
+          ${timeLine ? `<div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${timeLine}</div>` : ''}
+        </div>
+        ${hitsHtml}
+      `;
+      
+      // Store data for click handler
+      el._itemData = item;
+      el._highlightedCode = syntaxHighlight ? displayCode : null;
+      
+      return el;
+    }
+    
+    /**
+     * Common click handler for code list items
+     * @param {HTMLElement} el - The clicked element
+     */
+    async function handleCodeItemClick(el) {
+      if (!editor) return;
+      const item = el._itemData;
+      if (!item) return;
+      
+      const sourceCode = item.source || item.code || '';
+      const snippet = (sourceCode).slice(0, 80).replace(/\n/g, ' ') || '(empty)';
+      
+      // Flying code animation
+      const codeEl = el.querySelector('.example-code');
+      if (codeEl && window.flyCodeToEditor) {
+        await window.flyCodeToEditor(codeEl, el._highlightedCode || snippet, sourceCode);
+      } else {
+        editor.setValue(sourceCode);
+      }
+      
+      const editorEl = document.getElementById('kidlisp-editor');
+      if (editorEl) editorEl.classList.remove('decrypting');
+      
+      // Update URL and title (only on AC platform)
+      if (currentPlatform === 'aesthetic-computer' && item.code) {
+        updateURLForCode(item.code);
+        localStorage.setItem('kidlisp-current-code', item.code);
+        const previewTitle = document.getElementById('preview-title');
+        if (previewTitle) {
+          const codeChars = `/$${item.code}`.split('').map((c, i) => 
+            `<span class="code-char${i === 1 ? ' dollar' : i > 1 ? ' code' : ''}">${c}</span>`
+          ).join('');
+          previewTitle.innerHTML = getACTitleHTML(codeChars);
+        }
+      }
+      
+      updatePreview();
+      
+      // Auto-play
+      if (sendButton && !sendButton.disabled) {
+        if (isPlaying) stopButton.click();
+        sendButton.click();
+      }
+    }
+    
+    /**
+     * Render a scrollable code list
+     * @param {Object} config - List configuration
+     */
+    function renderCodeList(config) {
+      const {
+        listId,           // ID of the list container element
+        items,            // Array of code items
+        emptyMessage = 'No items yet.',
+        syntaxHighlight = false,
+        tickerAnimation = false,
+        showOwner = false,
+        showTimeAgo = false,
+        showTimestamp = false,
+        showHits = true,
+        pendingThumb = false,
+        hitsLabel = 'hits',
+      } = config;
+      
+      const listEl = document.getElementById(listId);
+      if (!listEl) return;
+      
+      if (!items || items.length === 0) {
+        listEl.innerHTML = `<div style="color: var(--text-tertiary); font-size: 12px; padding: 12px;">${emptyMessage}</div>`;
+        return;
+      }
+      
+      listEl.innerHTML = '';
+      
+      items.forEach(item => {
+        const el = renderCodeListItem(item, {
+          syntaxHighlight,
+          tickerAnimation,
+          showOwner,
+          showTimeAgo,
+          showTimestamp,
+          showHits,
+          pendingThumb,
+        });
+        
+        el.addEventListener('click', () => handleCodeItemClick(el));
+        listEl.appendChild(el);
+      });
     }
 
     // ───────────────────────────────────────────
@@ -13592,11 +15031,10 @@
 
     function renderHistory(items, { loggedIn } = { loggedIn: false }) {
       const listEl = document.getElementById('history-list');
-      const statusEl = document.getElementById('history-status');
       const loginBtn = document.getElementById('history-login-btn');
       const clearBtn = document.getElementById('history-clear-btn');
-      if (!listEl || !statusEl || !clearBtn || !loginBtn) return;
-      statusEl.textContent = loggedIn ? 'Your $codes' : 'Session history';
+      if (!listEl || !clearBtn || !loginBtn) return;
+      
       loginBtn.style.display = loggedIn ? 'none' : 'inline-flex';
 
       clearBtn.onclick = () => {
@@ -13607,74 +15045,22 @@
         if (typeof acLogin === 'function') acLogin();
       };
 
-      if (!items || items.length === 0) {
-        listEl.innerHTML = '<div style="color: var(--text-tertiary); font-size: 12px;">No history yet.</div>';
-        return;
-      }
-
-      listEl.innerHTML = '';
-      const sorted = [...items].sort((a, b) => (b.ts || 0) - (a.ts || 0));
-
-      sorted.forEach(item => {
-        const el = document.createElement('div');
-        el.className = 'example-item';
-
-        const codeLabel = item.code ? `$${item.code}` : 'draft';
-        const thumbHtml = item.assetUrl
-          ? `<img class="example-thumb" src="${item.assetUrl}" alt="" onload="this.classList.add('loaded')" onerror="this.style.display='none'" />`
-          : `<div class="example-thumb-placeholder history-thumb-pending">◆</div>`;
-
-        const snippet = (item.source || '').slice(0, 80).replace(/\n/g, ' ');
-        const timeText = item.ts ? new Date(item.ts).toLocaleString() : 'recent';
-
-        el.innerHTML = `
-          ${thumbHtml}
-          <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
-            <div class="example-code">${snippet || '(empty)'}${snippet.length === 80 ? '…' : ''}</div>
-            <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${codeLabel}</div>
-            <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${timeText}</div>
-          </div>
-          <div class="example-hits">${item.hits || 0} hits</div>
-        `;
-
-        el.addEventListener('click', async () => {
-          if (!editor) return;
-          const sourceCode = item.source || '';
-          
-          // 🚀 Flying code animation - sets editor directly
-          const codeEl = el.querySelector('.example-code');
-          if (codeEl && window.flyCodeToEditor) {
-            await window.flyCodeToEditor(codeEl, snippet || '(empty)', sourceCode);
-          } else {
-            // Fallback if no flying animation
-            editor.setValue(sourceCode);
-          }
-          
-          const editorEl = document.getElementById('kidlisp-editor');
-          if (editorEl) editorEl.classList.remove('decrypting');
-
-          if (currentPlatform === 'aesthetic-computer' && item.code) {
-            updateURLForCode(item.code);
-            localStorage.setItem('kidlisp-current-code', item.code);
-          }
-          updatePreview();
-          if (sendButton && !sendButton.disabled) {
-            if (isPlaying) {
-              stopButton.click();
-            }
-            sendButton.click();
-          }
-        });
-
-        listEl.appendChild(el);
+      // Sort by timestamp (most recent first)
+      const sorted = [...(items || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      
+      renderCodeList({
+        listId: 'history-list',
+        items: sorted,
+        emptyMessage: 'No history yet.',
+        showTimestamp: true,
+        showHits: true,
+        pendingThumb: true,
       });
     }
 
     async function loadHistory() {
       if (historyLoading) return;
       historyLoading = true;
-      const statusEl = document.getElementById('history-status');
-      if (statusEl) statusEl.textContent = 'Loading history...';
       const loggedIn = !!acUser;
 
       // Try remote history when logged in
@@ -13727,109 +15113,47 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // RECENT FEED - Shows everyone's recent $codes
+    // RECENT FEED - Shows everyone's recent $codes (auto-refreshing)
     // ═══════════════════════════════════════════════════════════════════════════
     
     let recentLoading = false;
+    let recentItems = []; // Store current items to detect new ones
+    let recentAutoRefreshInterval = null;
     
-    function renderRecent(items) {
+    function renderRecent(items, { showNewIndicator = false, newCount = 0 } = {}) {
       const listEl = document.getElementById('recent-list');
-      const statusEl = document.getElementById('recent-status');
-      const refreshBtn = document.getElementById('recent-refresh-btn');
-      if (!listEl || !statusEl || !refreshBtn) return;
+      const newIndicator = document.getElementById('recent-new-indicator');
+      if (!listEl) return;
       
-      statusEl.textContent = `${items.length} recent $codes`;
-      
-      refreshBtn.onclick = () => {
-        recentLoaded = false;
-        loadRecent();
-      };
-
-      if (!items || items.length === 0) {
-        listEl.innerHTML = '<div style="color: var(--text-tertiary); font-size: 12px;">No recent codes yet.</div>';
-        return;
+      // Handle new items indicator
+      if (newIndicator) {
+        if (showNewIndicator && newCount > 0) {
+          newIndicator.textContent = `↑ ${newCount} new $code${newCount > 1 ? 's' : ''}`;
+          newIndicator.classList.remove('hidden');
+          newIndicator.onclick = () => {
+            listEl.scrollTop = 0;
+            newIndicator.classList.add('hidden');
+          };
+        } else {
+          newIndicator.classList.add('hidden');
+        }
       }
 
-      listEl.innerHTML = '';
-
-      items.forEach(item => {
-        const el = document.createElement('div');
-        el.className = 'example-item';
-
-        const codeLabel = item.code ? `$${item.code}` : 'draft';
-        const thumbHtml = item.assetUrl
-          ? `<img class="example-thumb" src="${item.assetUrl}" alt="" onload="this.classList.add('loaded')" onerror="this.style.display='none'" />`
-          : `<div class="example-thumb-placeholder">◆</div>`;
-
-        const snippet = (item.source || '').slice(0, 80).replace(/\n/g, ' ');
-        const timeAgo = item.ts ? formatTimeAgo(item.ts) : 'recently';
-        const owner = item.owner ? `@${item.owner}` : '';
-
-        el.innerHTML = `
-          ${thumbHtml}
-          <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
-            <div class="example-code">${snippet || '(empty)'}${snippet.length === 80 ? '…' : ''}</div>
-            <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${codeLabel}${owner ? ` by ${owner}` : ''}</div>
-            <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${timeAgo}</div>
-          </div>
-          <div class="example-hits">${item.hits || 0} hits</div>
-        `;
-
-        el.addEventListener('click', async () => {
-          if (!editor) return;
-          const sourceCode = item.source || '';
-          
-          // Flying code animation
-          const codeEl = el.querySelector('.example-code');
-          if (codeEl && window.flyCodeToEditor) {
-            await window.flyCodeToEditor(codeEl, snippet || '(empty)', sourceCode);
-          } else {
-            editor.setValue(sourceCode);
-          }
-          
-          const editorEl = document.getElementById('kidlisp-editor');
-          if (editorEl) editorEl.classList.remove('decrypting');
-
-          if (currentPlatform === 'aesthetic-computer' && item.code) {
-            updateURLForCode(item.code);
-            localStorage.setItem('kidlisp-current-code', item.code);
-          }
-          updatePreview();
-          if (sendButton && !sendButton.disabled) {
-            if (isPlaying) {
-              stopButton.click();
-            }
-            sendButton.click();
-          }
-        });
-
-        listEl.appendChild(el);
+      renderCodeList({
+        listId: 'recent-list',
+        items: items || [],
+        emptyMessage: 'No recent codes yet.',
+        showOwner: true,
+        showTimeAgo: true,
+        showHits: true,
       });
     }
-    
-    // Helper to format time ago
-    function formatTimeAgo(ts) {
-      const now = Date.now();
-      const diff = now - ts;
-      const seconds = Math.floor(diff / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const hours = Math.floor(minutes / 60);
-      const days = Math.floor(hours / 24);
-      
-      if (days > 0) return `${days}d ago`;
-      if (hours > 0) return `${hours}h ago`;
-      if (minutes > 0) return `${minutes}m ago`;
-      return 'just now';
-    }
 
-    async function loadRecent() {
+    async function loadRecent({ silent = false } = {}) {
       if (recentLoading) return;
       recentLoading = true;
-      const statusEl = document.getElementById('recent-status');
-      if (statusEl) statusEl.textContent = 'Loading recent...';
 
       try {
-        // Fetch recent codes from everyone (no owner filter), sorted by recent (default)
         const resp = await fetch(`${aestheticUrl}/api/tv?types=kidlisp&limit=50`);
         const data = await resp.json();
         const records = data?.media?.kidlisp || [];
@@ -13841,17 +15165,47 @@
           owner: r.owner || r.handle || null,
           ts: r.createdAt ? Date.parse(r.createdAt) : Date.now()
         }));
-        // Sort by most recent first
         mapped.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-        renderRecent(mapped);
+        
+        // Check for new items (compare by code)
+        const oldCodes = new Set(recentItems.map(i => i.code));
+        const newItems = mapped.filter(i => i.code && !oldCodes.has(i.code));
+        const hasNewItems = silent && recentItems.length > 0 && newItems.length > 0;
+        
+        recentItems = mapped;
+        renderRecent(mapped, { 
+          showNewIndicator: hasNewItems, 
+          newCount: newItems.length 
+        });
         recentLoaded = true;
       } catch (e) {
         console.error('Failed to load recent:', e);
-        renderRecent([]);
+        if (!silent) renderRecent([]);
       }
       
       recentLoading = false;
     }
+    
+    // Auto-refresh recent every 30 seconds when tab is active
+    function startRecentAutoRefresh() {
+      if (recentAutoRefreshInterval) return;
+      recentAutoRefreshInterval = setInterval(() => {
+        const recentTabActive = recentTab?.classList.contains('active');
+        if (recentTabActive && !document.hidden) {
+          loadRecent({ silent: true });
+        }
+      }, 30000);
+    }
+    
+    function stopRecentAutoRefresh() {
+      if (recentAutoRefreshInterval) {
+        clearInterval(recentAutoRefreshInterval);
+        recentAutoRefreshInterval = null;
+      }
+    }
+    
+    // Start auto-refresh when page loads
+    startRecentAutoRefresh();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VISUALIZATION SYSTEM - text/tree/space views

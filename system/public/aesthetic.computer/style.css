@@ -34,8 +34,13 @@ body.light-theme {
 
 body.nogap {
   background-image: none;
-  /* background-color: none; */
+  /* Background must be transparent so parent container (like kidlisp.com iframe) shows through */
   background-color: transparent !important;
+}
+
+/* Ensure #aesthetic-computer has no hairline gaps in nogap mode */
+body.nogap #aesthetic-computer {
+  border-radius: 0px;
 }
 
 * {

@@ -2636,11 +2636,11 @@ function createFloatingCodesOverlay(width, height, codes) {
  * This uses an HTML page with Google Fonts to ensure Comic Relief loads correctly
  */
 async function createKidLispBrandingWithPuppeteer(width, height, codes = []) {
-  // KidLisp letter colors from pixel.js
+  // KidLisp letter colors - com uses delete(red)/stop(purple)/play(green) button colors
   const letterColors = {
     'K': '#FF6B6B', 'i1': '#4ECDC4', 'd': '#FFE66D', 
     'L': '#95E1D3', 'i2': '#F38181', 's': '#AA96DA', 'p': '#70D6FF',
-    '.': '#95E1D3', 'c': '#AA96DA', 'o': '#AA96DA', 'm': '#AA96DA',
+    '.': '#95E1D3', 'c': '#FF6B6B', 'o': '#9370DB', 'm': '#90EE90',
   };
   
   const letters = [
@@ -2772,11 +2772,11 @@ async function createKidLispBrandingWithPuppeteer(width, height, codes = []) {
  * Create large KidLisp.com branding overlay with Comic Relief font (SVG fallback)
  */
 function createKidLispBranding(width, height) {
-  // KidLisp letter colors from pixel.js
+  // KidLisp letter colors - com uses delete(red)/stop(purple)/play(green) button colors
   const letterColors = {
     'K': '#FF6B6B', 'i1': '#4ECDC4', 'd': '#FFE66D', 
     'L': '#95E1D3', 'i2': '#F38181', 's': '#AA96DA', 'p': '#70D6FF',
-    '.': '#95E1D3', 'c': '#AA96DA', 'o': '#AA96DA', 'm': '#AA96DA',
+    '.': '#95E1D3', 'c': '#FF6B6B', 'o': '#9370DB', 'm': '#90EE90',
   };
   
   const fontSize = 160; // Even bigger
