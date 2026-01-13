@@ -2216,20 +2216,11 @@ function act(
   }
 
   if (input.canType && e.is("lift") && !input.shifting && !input.paste.down) {
-    // Don't close if lifting over the Enter button OR if Enter button was just pressed
-    const isOverEnterButton = input.enter && !input.enter.btn.disabled && input.enter.btn.box.contains(e);
-    const enterButtonWasDown = input.enter && input.enter.btn._justProcessed; // Check if Enter was just pressed
-    // console.log("🗨️ Chat lift handler", {
-    //   canType: input.canType,
-    //   isOverEnterButton,
-    //   enterButtonWasDown,
-    //   willSendClose: !isOverEnterButton && !enterButtonWasDown
-    // });
-    if (!isOverEnterButton && !enterButtonWasDown) {
-      // console.log("🗨️ Chat sending keyboard:close");
+    // Don't close if the Enter button is currently pressed down (user is activating it)
+    // Check btn.down instead of box.contains because box position may not be updated until paint()
+    const enterButtonIsDown = input.enter && !input.enter.btn.disabled && input.enter.btn.down;
+    if (!enterButtonIsDown) {
       send({ type: "keyboard:close" });
-    } else {
-      // console.log("🗨️ Chat NOT sending keyboard:close - button handling it");
     }
   }
 
