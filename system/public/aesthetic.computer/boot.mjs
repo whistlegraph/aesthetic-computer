@@ -1243,6 +1243,12 @@ function receive(event) {
   } else if (event.data?.type === "kidlisp-resume") {
     window.acRESUME?.();
     return;
+  } else if (event.data?.type === "kidlisp-soft-stop") {
+    // Soft stop - pause execution but keep the $code tab open
+    // This allows resuming the same code without creating a new tab
+    window.acPAUSE?.();
+    window.acCLEAR_BAKE_LAYERS?.(); // Clear bake layers on stop
+    return;
   } else if (event.data?.type === "kidlisp-stop") {
     window.acRESUME?.(); // Ensure we are running so we can load the empty piece.
     // Clear tracked kidlisp code when stopping

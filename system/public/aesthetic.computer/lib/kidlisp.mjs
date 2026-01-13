@@ -4154,8 +4154,9 @@ class KidLisp {
         $.screen.height = this.displayBuffer.height;
         $.screen.pixels = this.displayBuffer.pixels;
 
-        // 🚨 Display validation errors at bottom of screen
-        if (this.lastValidationErrors && this.lastValidationErrors.length > 0) {
+        // 🚨 Display validation errors at bottom of screen (skip in embed/projection mode)
+        const isProjectionMode = typeof location !== 'undefined' && location.search?.indexOf('nolabel') > -1;
+        if (this.lastValidationErrors && this.lastValidationErrors.length > 0 && !isProjectionMode) {
           const errorText = `❌ ${this.lastValidationErrors.join(', ')}`;
           const textY = $.screen.height - 10; // 10 pixels from bottom
           // Draw error text in red using MatrixChunky8 font

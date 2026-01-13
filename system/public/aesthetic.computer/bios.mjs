@@ -665,6 +665,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     window._lastKidlispSnapTime = performance.now();
     Loop.resume();
   };
+  // Clear KidLisp bake layers (exposed for soft-stop)
+  window.acCLEAR_BAKE_LAYERS = () => {
+    if (window.__acGlobalKidLispInstance?.clearBakedLayers) {
+      window.__acGlobalKidLispInstance.clearBakedLayers();
+    }
+  };
 
   // Notify parent of boot progress and update the boot log overlay
   if (window.acBOOT_LOG) {
