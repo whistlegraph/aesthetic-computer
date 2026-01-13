@@ -12406,6 +12406,12 @@ async function makeFrame({ data: { type, content } }) {
         const bufferWidthPadding = 6; // Extra pixels for wider glyphs
         w += bufferWidthPadding;
         
+        // 📡 LAN badge superscript - add width for device letter if connected to dev session server
+        // Hide in kidlisp.com embedded mode (NOAUTH_MODE)
+        const showLanBadge = devIdentity && devIdentity.host && !globalThis.NOAUTH_MODE;
+        const lanBadgePadding = showLanBadge ? 10 : 0; // Space for letter + margin
+        w += lanBadgePadding;
+        
         // Final text dimensions: KidLisp width uses visible line metrics, height from text box
   let h = measuredTextHeight;
         
@@ -12504,6 +12510,28 @@ async function makeFrame({ data: { type, content } }) {
               bounds: wrapBounds,
               // wordWrap defaults to true when bounds is set, enabling character wrapping
             });
+
+            // 📡 LAN Badge Superscript - draw device letter after the text
+            if (showLanBadge) {
+              const deviceLetter = devIdentity.letter || 
+                (devIdentity.name ? devIdentity.name.charAt(0).toUpperCase() : null) ||
+                String.fromCharCode(65 + (devIdentity.connectionIndex || 0)); // A, B, C...
+              
+              // Get the first line of text for positioning the superscript
+              const firstLine = text?.split('\n')[0] || text;
+              const firstLineWidth = cachedAPI.text.width(
+                stripColorCodes(firstLine),
+                selectedTypeface
+              );
+              
+              // Position superscript to the right of first line, vertically at top
+              const superscriptX = hudTextX + firstLineWidth + 2; // 2px gap after text
+              const superscriptY = 0; // Top of the line (superscript position)
+              
+              // Draw letter in cyan using MatrixChunky8
+              $.ink(0, 220, 255); // Bright cyan matching original badge
+              $.write(deviceLetter, { x: superscriptX, y: superscriptY }, undefined, undefined, false, "MatrixChunky8");
+            }
 
             if (currentHUDScrub > 0) {
               const shareWidth = currentHUDShareWidth || (currentHUDLabelBlockWidth * "share ".length);
@@ -13148,82 +13176,7 @@ async function makeFrame({ data: { type, content } }) {
         }
       }
 
-      // 📡 LAN Mode Badge - shows device letter (A, B, C...) when connected to dev session server
-      // Hide in kidlisp.com embedded mode (NOAUTH_MODE)
-      if (devIdentity && devIdentity.host && !globalThis.NOAUTH_MODE) {
-        // Use device letter if available, otherwise first letter of name, otherwise connection index
-        const deviceLetter = devIdentity.letter || 
-          (devIdentity.name ? devIdentity.name.charAt(0).toUpperCase() : null) ||
-          String.fromCharCode(65 + (devIdentity.connectionIndex || 0)); // A, B, C...
-        
-        const badgeWidth = 9;
-        const badgeHeight = 9;
-        
-        const lanBadge = $api.painting(badgeWidth, badgeHeight, ($) => {
-          $.unpan();
-          $.unmask();
-          // Semi-transparent dark background
-          $.ink(0, 0, 0, 200).box(0, 0, badgeWidth, badgeHeight);
-          // Cyan border
-          $.ink(0, 200, 255, 220).box(0, 0, badgeWidth, badgeHeight, "outline");
-          
-          // Draw letter as pixels (5x7 pixel font, centered in 9x9)
-          const letterPatterns = {
-            'A': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
-            'B': [[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0]],
-            'C': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,1],[0,1,1,1,0]],
-            'D': [[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0]],
-            'E': [[1,1,1,1,1],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
-            'F': [[1,1,1,1,1],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0]],
-            'G': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,0],[1,0,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
-            'H': [[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
-            'I': [[1,1,1,1,1],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[1,1,1,1,1]],
-            'J': [[0,0,0,0,1],[0,0,0,0,1],[0,0,0,0,1],[0,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
-            'K': [[1,0,0,0,1],[1,0,0,1,0],[1,0,1,0,0],[1,1,0,0,0],[1,0,1,0,0],[1,0,0,1,0],[1,0,0,0,1]],
-            'L': [[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
-            'M': [[1,0,0,0,1],[1,1,0,1,1],[1,0,1,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
-            'N': [[1,0,0,0,1],[1,1,0,0,1],[1,0,1,0,1],[1,0,0,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
-            'O': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
-            'P': [[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0]],
-            'Q': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,1,0,1],[1,0,0,1,0],[0,1,1,0,1]],
-            'R': [[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0],[1,0,1,0,0],[1,0,0,1,0],[1,0,0,0,1]],
-            'S': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,0],[0,1,1,1,0],[0,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
-            'T': [[1,1,1,1,1],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
-            'U': [[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
-            'V': [[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,1,0,1,0],[0,0,1,0,0]],
-            'W': [[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,1,0,1],[1,0,1,0,1],[1,1,0,1,1],[1,0,0,0,1]],
-            'X': [[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,1,0,1,0],[1,0,0,0,1],[1,0,0,0,1]],
-            'Y': [[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
-            'Z': [[1,1,1,1,1],[0,0,0,0,1],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
-            '?': [[0,1,1,1,0],[1,0,0,0,1],[0,0,0,1,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,0,0,0],[0,0,1,0,0]],
-          };
-          
-          const pattern = letterPatterns[deviceLetter] || letterPatterns['?'];
-          $.ink(0, 220, 255); // Bright cyan
-          const offsetX = 2; // Center 5px letter in 9px box
-          const offsetY = 1;
-          for (let row = 0; row < pattern.length; row++) {
-            for (let col = 0; col < pattern[row].length; col++) {
-              if (pattern[row][col]) {
-                $.box(offsetX + col, offsetY + row, 1, 1);
-              }
-            }
-          }
-        });
-        
-        // Position in top-right corner
-        const badgeX = $api.screen.width - badgeWidth - 4;
-        const badgeY = 4;
-        
-        sendData.lanBadge = {
-          x: badgeX,
-          y: badgeY,
-          opacity: 1,
-          img: (({ width, height, pixels }) => ({ width, height, pixels }))(lanBadge),
-        };
-      }
-
-      // �🔲 Generate QR code overlay for KidLisp pieces
+      //  Generate QR code overlay for KidLisp pieces
       let qrOverlay;
       
       // Clear QR cache if caching is disabled to prevent memory buildup

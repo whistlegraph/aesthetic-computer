@@ -364,6 +364,9 @@ path = "/media/*"
 function = "media"
 
 # Version/commit status API
+[functions.version]
+included_env_vars = ["COMMIT_REF"]
+
 [[redirects]]
 from = "/api/version"
 to = "/.netlify/functions/version"
