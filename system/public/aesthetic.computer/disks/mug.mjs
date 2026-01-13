@@ -197,11 +197,10 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
         apiCode = data.code;
         sourceCode = `#${data.code}`;
         console.log("☕ Uploaded painting as:", sourceCode);
-      } else if (data?.slug) {
-        apiCode = data.slug;
-        sourceCode = `#${data.slug}`;
       } else {
-        throw new Error("Upload failed - no code returned");
+        // If no code returned, the upload tracking failed
+        console.error("☕ Upload returned no code:", data);
+        throw new Error("Upload failed - no code returned. Please try again.");
       }
     } catch (e) {
       error = "Failed to upload painting: " + e.message;
