@@ -1536,6 +1536,17 @@ function act(
   
   // 🔤 Font picker interaction
   if (input.canType) {
+    // 🔧 FIX: Soft-lock keyboard during content area touch/draw to prevent bios pointerup blur
+    const isInContentArea = e.y < api.screen.height - bottomMargin;
+    if (isInContentArea) {
+      if (e.is("touch") || e.is("draw")) {
+        send({ type: "keyboard:soft-lock" });
+      }
+      if (e.is("lift")) {
+        send({ type: "keyboard:soft-unlock" });
+      }
+    }
+    
     // Handle font picker button click
     if ((e.is("touch") || e.is("lift")) && fontPickerBtnBounds) {
       const inBtn = pen.x >= fontPickerBtnBounds.x && pen.x < fontPickerBtnBounds.x + fontPickerBtnBounds.w &&
