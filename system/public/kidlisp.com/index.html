@@ -459,6 +459,28 @@
       cursor: pointer; /* Remain clickable */
     }
     
+    /* Paused state - yellow outline on green play button */
+    #send-button.paused {
+      background: rgb(76, 175, 80); /* Keep green background */
+      box-shadow: 0 0 0 3px rgba(255, 217, 61, 0.8), 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      animation: pause-button-pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes pause-button-pulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(255, 217, 61, 0.8), 0 2px 4px rgba(0,0,0,0.3); }
+      50% { box-shadow: 0 0 0 3px rgba(255, 217, 61, 0.4), 0 2px 4px rgba(0,0,0,0.3); }
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #send-button.paused {
+        box-shadow: 0 0 0 3px rgba(255, 217, 61, 0.9), 0 3px 6px rgba(0,0,0,0.6);
+      }
+    }
+    
+    [data-theme="dark"] #send-button.paused {
+      box-shadow: 0 0 0 3px rgba(255, 217, 61, 0.9), 0 3px 6px rgba(0,0,0,0.6);
+    }
+    
     @media (prefers-color-scheme: dark) {
       #send-button.playing {
         background: rgb(102, 187, 106); /* Stay green for dark mode */
@@ -755,6 +777,41 @@
     @keyframes pause-pulse {
       0%, 100% { border-color: rgba(255, 217, 61, 0.5); }
       50% { border-color: rgba(255, 217, 61, 0.25); }
+    }
+
+    /* Stopped state - red outline (soft stop, tab still open) */
+    .editor-panel.live-stopped::before,
+    #kidlisp-editor.live-stopped::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 2px solid rgba(255, 100, 100, 0.5);
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 10;
+      animation: stop-pulse 2s ease-in-out infinite;
+    }
+
+    /* Dark mode: slightly brighter for stopped state */
+    @media (prefers-color-scheme: dark) {
+      .editor-panel.live-stopped::before,
+      #kidlisp-editor.live-stopped::before {
+        border-color: rgba(255, 100, 100, 0.6);
+      }
+    }
+
+    [data-theme="dark"] .editor-panel.live-stopped::before,
+    [data-theme="dark"] #kidlisp-editor.live-stopped::before {
+      border-color: rgba(255, 100, 100, 0.6);
+    }
+
+    /* Pulse animation for stopped state - red */
+    @keyframes stop-pulse {
+      0%, 100% { border-color: rgba(255, 100, 100, 0.5); }
+      50% { border-color: rgba(255, 100, 100, 0.25); }
     }
 
     /* Visualization Tabs */
@@ -1236,10 +1293,30 @@
     
     #preview-title .bounce-dot {
       font-weight: 900;
-      font-size: 1.2em; /* Larger dot */
+      font-size: 1.5em; /* Larger dot for visibility */
       text-shadow: 1px 0 0 currentColor; /* Faux bold/doubled up effect */
-      margin: 0 1px;
+      margin: 0 2px;
       color: rgb(205, 92, 155); /* AC Purple */
+      transition: color 0.3s ease, text-shadow 0.3s ease;
+      display: inline-block;
+      line-height: 0.6; /* Adjust vertical position */
+      vertical-align: middle;
+    }
+    
+    /* State-based bounce-dot colors: running=green, paused=yellow, stopped=red */
+    #preview-title.state-running .bounce-dot {
+      color: #90EE90; /* Light green matching play button */
+      text-shadow: 0 0 10px rgba(144, 238, 144, 0.9), 0 0 20px rgba(144, 238, 144, 0.6), 0 0 30px rgba(144, 238, 144, 0.3);
+    }
+    
+    #preview-title.state-paused .bounce-dot {
+      color: #ffd93d; /* Yellow matching pause */
+      text-shadow: 0 0 10px rgba(255, 217, 61, 0.9), 0 0 20px rgba(255, 217, 61, 0.6), 0 0 30px rgba(255, 217, 61, 0.3);
+    }
+    
+    #preview-title.state-stopped .bounce-dot {
+      color: #ff6464; /* Red for stopped */
+      text-shadow: 0 0 10px rgba(255, 100, 100, 0.9), 0 0 20px rgba(255, 100, 100, 0.6), 0 0 30px rgba(255, 100, 100, 0.3);
     }
     
     /* Code display with monospace font */
@@ -1302,9 +1379,30 @@
     #preview-title .code-display .code-char.dollar {
       color: limegreen;
       font-weight: bold;
+      transition: color 0.3s ease, text-shadow 0.3s ease;
     }
     #preview-title .code-display .code-char.code {
       color: lime;
+      transition: color 0.3s ease, text-shadow 0.3s ease;
+    }
+    
+    /* State-based code colors: running=green (default), paused=yellow, stopped=red */
+    #preview-title.state-running .code-display .code-char.dollar,
+    #preview-title.state-running .code-display .code-char.code {
+      color: #90EE90; /* Light green */
+      text-shadow: 0 0 6px rgba(144, 238, 144, 0.5);
+    }
+    
+    #preview-title.state-paused .code-display .code-char.dollar,
+    #preview-title.state-paused .code-display .code-char.code {
+      color: #ffd93d; /* Yellow */
+      text-shadow: 0 0 6px rgba(255, 217, 61, 0.5);
+    }
+    
+    #preview-title.state-stopped .code-display .code-char.dollar,
+    #preview-title.state-stopped .code-display .code-char.code {
+      color: #ff6464; /* Red */
+      text-shadow: 0 0 6px rgba(255, 100, 100, 0.5);
     }
     
     /* Stagger animation delay for each character */
@@ -1744,6 +1842,31 @@
       border-color: rgba(255,255,255,0.12);
       background: rgba(255,255,255,0.04);
     }
+
+    /* Recent tab styling (similar to history but with a teal/cyan accent) */
+    #recent-tab {
+      color: var(--text-secondary);
+      border: 1px solid transparent;
+      transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    #recent-tab.active {
+      color: #0d9488;
+      border-color: rgba(13, 148, 136, 0.25);
+      background: rgba(13, 148, 136, 0.08);
+    }
+
+    :root.dark #recent-tab {
+      color: var(--text-secondary);
+      border-color: transparent;
+    }
+
+    :root.dark #recent-tab.active {
+      color: #2dd4bf;
+      border-color: rgba(45, 212, 191, 0.25);
+      background: rgba(45, 212, 191, 0.12);
+    }
+
       background: rgba(205, 92, 155, 0.55);
       color: #ffffff;
     }
@@ -5611,6 +5734,7 @@
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
           <div class="tab" data-tab="guide" id="guide-tab">Guides</div>
           <div class="tab active" data-tab="examples" id="examples-tab">Top Hits</div>
+          <div class="tab" data-tab="recent" id="recent-tab">Recent</div>
           <div class="tab" data-tab="history" id="history-tab">History</div>
           <div class="tab" data-tab="keeps" id="keeps-tab">Keeps</div>
         </div>
@@ -5641,6 +5765,13 @@
             </div>
           </div>
           <div id="history-list">No history yet.</div>
+        </div>
+        <div class="docs-content hidden" id="recent-content">
+          <div id="recent-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px;">
+            <div id="recent-status" style="font-size: 12px; color: var(--text-tertiary);">Loading recent...</div>
+            <button id="recent-refresh-btn" class="secondary-btn" style="padding: 6px 10px; font-size: 12px;">Refresh</button>
+          </div>
+          <div id="recent-list">Loading...</div>
         </div>
         <div class="docs-content hidden" id="keeps-content">
           <div id="keeps-container">
@@ -10703,6 +10834,18 @@
           }
           
           const currentCode = editor.getValue().trim();
+          
+          // If soft-stopped and code changes, kill the $code tab (full stop)
+          if (isSoftStopped && currentCode !== lastCode) {
+            log.playback.debug('Code changed while soft-stopped, killing tab');
+            sendToIframe({ type: 'kidlisp-stop' }); // Full stop - kill the tab
+            isSoftStopped = false;
+            lastCode = '';
+            setLiveState('idle'); // Remove red outline
+            localStorage.removeItem('kidlisp-current-code');
+            return;
+          }
+          
           if (isPlaying && !isPaused && currentCode !== lastCode) {
             // Immediately mark code as stale when user types (POOF animation!)
             const codeId = localStorage.getItem('kidlisp-current-code');
@@ -10808,26 +10951,35 @@
     
     let isPlaying = false;
     let isPaused = false;
+    let isSoftStopped = false; // Track if soft-stopped (paused but tab still open)
     let lastCode = ''; // Track last code for auto-reload
     
     // Helper to set live state on editor panel (for visibility across all viz views)
     function setLiveState(state) {
       const editorPanel = document.getElementById('editor-panel');
       const kidlispEditor = document.getElementById('kidlisp-editor');
+      const previewTitle = document.getElementById('preview-title');
       
-      // Remove both states first
-      editorPanel?.classList.remove('live-running', 'live-paused');
-      kidlispEditor?.classList.remove('live-running', 'live-paused');
+      // Remove all states first
+      editorPanel?.classList.remove('live-running', 'live-paused', 'live-stopped');
+      kidlispEditor?.classList.remove('live-running', 'live-paused', 'live-stopped');
+      previewTitle?.classList.remove('state-running', 'state-paused', 'state-stopped');
       
       // Add new state if specified
       if (state === 'running') {
         editorPanel?.classList.add('live-running');
         kidlispEditor?.classList.add('live-running');
+        previewTitle?.classList.add('state-running');
       } else if (state === 'paused') {
         editorPanel?.classList.add('live-paused');
         kidlispEditor?.classList.add('live-paused');
+        previewTitle?.classList.add('state-paused');
+      } else if (state === 'stopped') {
+        editorPanel?.classList.add('live-stopped');
+        kidlispEditor?.classList.add('live-stopped');
+        previewTitle?.classList.add('state-stopped');
       }
-      // 'stopped' or null removes both classes (already done above)
+      // 'idle' or null removes all classes (already done above)
     }
     
     // Track current platform globally
@@ -10836,6 +10988,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const isVSCode = urlParams.get('vscode') === 'true';
     let externalSessionHydrated = false;
+    let pendingHistoryTabSwitch = false; // Flag to switch to History when DOM ready
     
     // Forward declare auth and keeps state (initialized later)
     let acToken = null;
@@ -10865,6 +11018,12 @@
         currentPlatform = 'aesthetic-computer';
         localStorage.setItem('kidlisp-platform', currentPlatform);
         updateACLoginUI?.();
+        // Try to switch to History tab; if DOM not ready yet, set pending flag
+        if (typeof switchToHistoryTab === 'function') {
+          switchToHistoryTab();
+        } else {
+          pendingHistoryTabSwitch = true;
+        }
         if (log?.auth) log.auth.log(`Hydrated session (${source})`, acHandle || email || 'user');
       } catch (e) {
         console.warn('Failed to apply external session', e);
@@ -10938,9 +11097,9 @@
       renderBook(platform);
     });
     
-    // Reusable stop playback function
+    // Reusable stop playback function (full stop - kills the $code tab)
     function stopPlayback() {
-      log.playback.debug('Stopping playback');
+      log.playback.debug('Stopping playback (full stop)');
       
       // Send stop message to the iframe
       if (previewIframe.contentWindow) {
@@ -10952,11 +11111,13 @@
       // Reset state
       isPlaying = false;
       isPaused = false;
+      isSoftStopped = false; // Clear soft-stopped state on full stop
       lastCode = '';
       sendButton.classList.remove('playing');
+      sendButton.classList.remove('paused'); // Remove yellow outline on stop
       stopButton.style.display = 'none';
       if (window.updateClearButtonPosition) window.updateClearButtonPosition();
-      setLiveState('stopped');
+      setLiveState('idle'); // No outline for full stop
       
       // Hide QR code when not playing
       const previewQR = document.getElementById('preview-qr');
@@ -11100,6 +11261,30 @@
       }
       
       if (!isPlaying) {
+        // Check if we're resuming from soft-stopped state
+        if (isSoftStopped) {
+          // Resume from soft-stop - just send resume, don't reload
+          log.playback.log('Resuming from soft-stop');
+          addStateEntry('play');
+          sendToIframe({ type: 'kidlisp-resume' });
+          isPlaying = true;
+          isSoftStopped = false;
+          vizSystem.isPlaying = true;
+          sendButton.classList.add('playing');
+          stopButton.style.display = 'flex';
+          if (window.updateClearButtonPosition) window.updateClearButtonPosition();
+          setLiveState('running');
+          
+          // Show QR code when playing on aesthetic-computer platform
+          if (currentPlatform === 'aesthetic-computer') {
+            const previewQR = document.getElementById('preview-qr');
+            if (previewQR && previewQR.src && previewQR.src !== window.location.href) {
+              previewQR.style.display = 'block';
+            }
+          }
+          return; // Early return - we're done
+        }
+        
         // Start playing - run the current code
         // Only create a NEW code if we don't already have one stored
         const existingCode = localStorage.getItem('kidlisp-current-code');
@@ -11126,9 +11311,11 @@
         updatePreview(shouldCreateCode);
         isPlaying = true;
         isPaused = false;
+        isSoftStopped = false; // Clear soft-stopped state
         vizSystem.isPlaying = true;
         vizSystem.isPaused = false;
         sendButton.classList.add('playing');
+        sendButton.classList.remove('paused'); // Remove yellow outline when playing
         stopButton.style.display = 'flex';
         if (window.updateClearButtonPosition) window.updateClearButtonPosition();
         // Add live-running class to show green outline, remove paused state
@@ -11149,6 +11336,7 @@
         isPaused = false;
         vizSystem.isPaused = false;
         sendButton.classList.add('playing'); // Ensure playing style (Pause icon)
+        sendButton.classList.remove('paused'); // Remove yellow outline
         // Switch from paused (yellow) to running (green) outline
         setLiveState('running');
       } else {
@@ -11159,6 +11347,7 @@
         isPaused = true;
         vizSystem.isPaused = true;
         sendButton.classList.remove('playing'); // Revert to Play icon (Green)
+        sendButton.classList.add('paused'); // Add yellow outline to play button
         // Switch from running (green) to paused (yellow) outline
         setLiveState('paused');
         // Keep stop button visible
@@ -11178,42 +11367,29 @@
           return;
         }
         
-        log.playback.log('Stopping');
+        log.playback.log('Soft stopping (pausing, keeping tab)');
         addStateEntry('stop');
         
         // Prevent any bubbling
         e.stopPropagation();
         e.preventDefault();
         
-        // Send stop message to the iframe (this triggers piece-reload with empty source)
-        sendToIframe({ type: 'kidlisp-stop' });
+        // Send soft-stop message - pause execution but keep the $code tab open
+        sendToIframe({ type: 'kidlisp-soft-stop' });
         
-        // Reset state
+        // Update state - soft stopped (tab still open, just paused)
         isPlaying = false;
         isPaused = false;
+        isSoftStopped = true; // Mark as soft-stopped so play can resume
         vizSystem.isPlaying = false;
         vizSystem.isPaused = false;
-        vizSystem.frameCount = 0;
-        lastCode = '';
+        // Don't reset vizSystem.frameCount or lastCode - we're keeping the session
         sendButton.classList.remove('playing');
+        sendButton.classList.remove('paused'); // Remove yellow outline on soft-stop
         stopButton.style.display = 'none';
         if (window.updateClearButtonPosition) window.updateClearButtonPosition();
-        // Remove both live-running and live-paused classes to hide outlines
+        // Show red outline to indicate stopped state (tab still open)
         setLiveState('stopped');
-        
-        // Clear title (but not URL, which reflects editor content)
-        document.title = 'KidLisp.com';
-        // Clear localStorage code identifier
-        localStorage.removeItem('kidlisp-current-code');
-        // Reset preview title to current platform name (with logo for FF1)
-        const previewTitle = document.getElementById('preview-title');
-        const platformOption = document.querySelector(`.platform-option[data-platform="${currentPlatform}"]`);
-        const platformName = platformOption?.querySelector('.platform-opt-name')?.textContent || 'Aesthetic.Computer';
-        if (currentPlatform === 'ff1') {
-          previewTitle.innerHTML = `<img src="/kidlisp.com/assets/feralfile-logo.png" alt="" class="platform-logo" style="height: 16px; margin-right: 6px; vertical-align: middle;"> ${platformName}`;
-        } else {
-          previewTitle.innerHTML = platformName.replace('.', '<span class="bounce-dot">.</span>');
-        }
         
         // Re-enable play button if there's content
         updatePlayButtonState();
@@ -11731,15 +11907,18 @@
     const guideContent = document.getElementById('guide-content');
     const examplesContent = document.getElementById('examples-content');
     const historyContent = document.getElementById('history-content');
+    const recentContent = document.getElementById('recent-content');
     const keepsContent = document.getElementById('keeps-content');
     const mobileConsoleContent = document.getElementById('mobile-console-content');
     const codeTab = document.getElementById('reference-tab');
     const guideTab = document.getElementById('guide-tab');
     const examplesTab = document.getElementById('examples-tab');
     const historyTab = document.getElementById('history-tab');
+    const recentTab = document.getElementById('recent-tab');
     const keepsTab = document.getElementById('keeps-tab');
     const consoleTab = document.getElementById('console-tab');
     let examplesLoaded = false;
+    let recentLoaded = false;
     
     // Helper to hide all tab contents
     function hideAllTabContents() {
@@ -11747,6 +11926,7 @@
       guideContent?.classList.add('hidden');
       examplesContent?.classList.add('hidden');
       historyContent?.classList.add('hidden');
+      recentContent?.classList.add('hidden');
       keepsContent?.classList.add('hidden');
       mobileConsoleContent?.classList.add('hidden');
     }
@@ -11757,11 +11937,22 @@
       guideTab?.classList.remove('active');
       examplesTab?.classList.remove('active');
       historyTab?.classList.remove('active');
+      recentTab?.classList.remove('active');
       keepsTab?.classList.remove('active');
       consoleTab?.classList.remove('active');
     }
     
-    if (guideTab && examplesTab && historyTab && keepsTab && guideContent && examplesContent && historyContent && keepsContent) {
+    // Helper to programmatically switch to History tab
+    function switchToHistoryTab() {
+      if (!historyTab || !historyContent) return;
+      deactivateAllTabs();
+      hideAllTabContents();
+      historyTab.classList.add('active');
+      historyContent.classList.remove('hidden');
+      if (!historyLoaded) loadHistory();
+    }
+    
+    if (guideTab && examplesTab && historyTab && recentTab && keepsTab && guideContent && examplesContent && historyContent && recentContent && keepsContent) {
       // Helper to expand reference panel on mobile if collapsed (never collapse from tab tap)
       function expandReferencePanelOnMobile() {
         if (window.innerWidth <= 768) {
@@ -11839,6 +12030,23 @@
         loadHistory();
       });
       
+      // Recent tab click handler
+      recentTab.addEventListener('click', function(e) {
+        log.tabs.debug('Recent tab');
+        e.stopPropagation();
+        e.preventDefault();
+        
+        deactivateAllTabs();
+        hideAllTabContents();
+        recentTab.classList.add('active');
+        recentContent.classList.remove('hidden');
+        expandReferencePanelOnMobile();
+        
+        if (!recentLoaded) {
+          loadRecent();
+        }
+      });
+      
       // Keeps tab click handler
       keepsTab.addEventListener('click', function(e) {
         log.tabs.debug('Keeps tab');
@@ -11896,6 +12104,12 @@
         mobileConsoleContent.classList.remove('hidden');
       }
       // Desktop defaults to Guide tab (set in HTML)
+      
+      // If session was hydrated before DOM was ready, switch to History now
+      if (pendingHistoryTabSwitch && acUser) {
+        switchToHistoryTab();
+        pendingHistoryTabSwitch = false;
+      }
       
       // Boot complete!
       logBoot('complete');
@@ -12183,6 +12397,9 @@
           }
           
           logAuth('restore', acHandle || acUser?.email?.split('@')[0]);
+          
+          // Switch to History tab for logged-in users (on initial load)
+          switchToHistoryTab();
         }
         
         updateACLoginUI();
@@ -13507,6 +13724,133 @@
       if (historyTabActive) {
         renderHistory(filtered, { loggedIn: !!acUser });
       }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RECENT FEED - Shows everyone's recent $codes
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    let recentLoading = false;
+    
+    function renderRecent(items) {
+      const listEl = document.getElementById('recent-list');
+      const statusEl = document.getElementById('recent-status');
+      const refreshBtn = document.getElementById('recent-refresh-btn');
+      if (!listEl || !statusEl || !refreshBtn) return;
+      
+      statusEl.textContent = `${items.length} recent $codes`;
+      
+      refreshBtn.onclick = () => {
+        recentLoaded = false;
+        loadRecent();
+      };
+
+      if (!items || items.length === 0) {
+        listEl.innerHTML = '<div style="color: var(--text-tertiary); font-size: 12px;">No recent codes yet.</div>';
+        return;
+      }
+
+      listEl.innerHTML = '';
+
+      items.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'example-item';
+
+        const codeLabel = item.code ? `$${item.code}` : 'draft';
+        const thumbHtml = item.assetUrl
+          ? `<img class="example-thumb" src="${item.assetUrl}" alt="" onload="this.classList.add('loaded')" onerror="this.style.display='none'" />`
+          : `<div class="example-thumb-placeholder">◆</div>`;
+
+        const snippet = (item.source || '').slice(0, 80).replace(/\n/g, ' ');
+        const timeAgo = item.ts ? formatTimeAgo(item.ts) : 'recently';
+        const owner = item.owner ? `@${item.owner}` : '';
+
+        el.innerHTML = `
+          ${thumbHtml}
+          <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
+            <div class="example-code">${snippet || '(empty)'}${snippet.length === 80 ? '…' : ''}</div>
+            <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${codeLabel}${owner ? ` by ${owner}` : ''}</div>
+            <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${timeAgo}</div>
+          </div>
+          <div class="example-hits">${item.hits || 0} hits</div>
+        `;
+
+        el.addEventListener('click', async () => {
+          if (!editor) return;
+          const sourceCode = item.source || '';
+          
+          // Flying code animation
+          const codeEl = el.querySelector('.example-code');
+          if (codeEl && window.flyCodeToEditor) {
+            await window.flyCodeToEditor(codeEl, snippet || '(empty)', sourceCode);
+          } else {
+            editor.setValue(sourceCode);
+          }
+          
+          const editorEl = document.getElementById('kidlisp-editor');
+          if (editorEl) editorEl.classList.remove('decrypting');
+
+          if (currentPlatform === 'aesthetic-computer' && item.code) {
+            updateURLForCode(item.code);
+            localStorage.setItem('kidlisp-current-code', item.code);
+          }
+          updatePreview();
+          if (sendButton && !sendButton.disabled) {
+            if (isPlaying) {
+              stopButton.click();
+            }
+            sendButton.click();
+          }
+        });
+
+        listEl.appendChild(el);
+      });
+    }
+    
+    // Helper to format time ago
+    function formatTimeAgo(ts) {
+      const now = Date.now();
+      const diff = now - ts;
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      
+      if (days > 0) return `${days}d ago`;
+      if (hours > 0) return `${hours}h ago`;
+      if (minutes > 0) return `${minutes}m ago`;
+      return 'just now';
+    }
+
+    async function loadRecent() {
+      if (recentLoading) return;
+      recentLoading = true;
+      const statusEl = document.getElementById('recent-status');
+      if (statusEl) statusEl.textContent = 'Loading recent...';
+
+      try {
+        // Fetch recent codes from everyone (no owner filter), sorted by recent (default)
+        const resp = await fetch(`${aestheticUrl}/api/tv?types=kidlisp&limit=50`);
+        const data = await resp.json();
+        const records = data?.media?.kidlisp || [];
+        const mapped = records.map(r => ({
+          code: r.code,
+          source: r.source || '',
+          assetUrl: r.assetUrl || r.thumbnail || null,
+          hits: r.hits || 0,
+          owner: r.owner || r.handle || null,
+          ts: r.createdAt ? Date.parse(r.createdAt) : Date.now()
+        }));
+        // Sort by most recent first
+        mapped.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        renderRecent(mapped);
+        recentLoaded = true;
+      } catch (e) {
+        console.error('Failed to load recent:', e);
+        renderRecent([]);
+      }
+      
+      recentLoading = false;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
