@@ -5,15 +5,12 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to release (e.g., 0.1.8)'
-        required: false
-        default: ''
 
 jobs:
   build-macos:
     runs-on: macos-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,112 +31,58 @@ jobs:
         working-directory: ac-electron
         run: npm ci
 
-      - name: Build macOS (universal)
+      - name: Build and Publish macOS (universal)
         working-directory: ac-electron
-        run: npx electron-builder --mac --universal
+        run: npx electron-builder --mac --universal --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-build
-          path: |
-            ac-electron/dist/*.dmg
-            ac-electron/dist/*.zip
-          retention-days: 5
 
   build-windows:
     runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: ac-electron/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ac-electron
-        run: npm ci
-
-      - name: Build Windows
-        working-directory: ac-electron
-        run: npx electron-builder --win --x64
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-build
-          path: |
-            ac-electron/dist/*.exe
-          retention-days: 5
-
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: ac-electron/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ac-electron
-        run: npm ci
-
-      - name: Build Linux
-        working-directory: ac-electron
-        run: npx electron-builder --linux
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-build
-          path: |
-            ac-electron/dist/*.AppImage
-            ac-electron/dist/*.deb
-            ac-electron/dist/*.rpm
-          retention-days: 5
-
-  release:
-    needs: [build-macos, build-windows, build-linux]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: List artifacts
-        run: find artifacts -type f -name "*"
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          files: |
-            artifacts/macos-build/*.dmg
-            artifacts/macos-build/*.zip
-            artifacts/windows-build/*.exe
-            artifacts/linux-build/*.AppImage
-            artifacts/linux-build/*.deb
-            artifacts/linux-build/*.rpm
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ac-electron/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ac-electron
+        run: npm ci
+
+      - name: Build and Publish Windows
+        working-directory: ac-electron
+        run: npx electron-builder --win --x64 --publish always
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ac-electron/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ac-electron
+        run: npm ci
+
+      - name: Build and Publish Linux
+        working-directory: ac-electron
+        run: npx electron-builder --linux --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
