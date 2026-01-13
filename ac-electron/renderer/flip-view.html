@@ -820,14 +820,26 @@
     // Handle window.open() from webview (prompt.mjs + and - commands)
     // Note: Main process also handles this via setWindowOpenHandler
     webviewEl.addEventListener('new-window', (e) => {
-      console.log('[flip] new-window event:', e?.url);
+      console.log('[flip] new-window event received:', e?.url, e);
       if (e?.preventDefault) e.preventDefault();
       const url = e?.url || '';
       if (url.startsWith('ac://close')) {
+        console.log('[flip] Handling ac://close - invoking ac-close-window');
         ipcRenderer.invoke('ac-close-window');
         return;
       }
+      console.log('[flip] Opening new window with url:', url);
       ipcRenderer.invoke('ac-open-window', { url });
+    });
+    
+    // Also try did-create-window (Electron 22+)
+    webviewEl.addEventListener('did-create-window', (e) => {
+      console.log('[flip] did-create-window event:', e);
+    });
+    
+    // And will-navigate for debugging
+    webviewEl.addEventListener('will-navigate', (e) => {
+      console.log('[flip] will-navigate:', e?.url);
     });
     
     // Mark this as the main window and set initial piece
