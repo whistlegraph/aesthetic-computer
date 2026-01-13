@@ -370,17 +370,13 @@ function paint(
 ) {
   const client = options?.otherChat || chat;
   
-  // Extract typeface name option (defaults to undefined for normal typeface)
-  const typefaceName = options?.typeface;
-  
-  // Calculate rowHeight based on the typeface being used
-  // For unifont, use 16 (standard unifont height at scale 1)
-  // For default typeface, use the blockHeight + 1
-  const currentRowHeight = typefaceName === "unifont" ? 17 : (typeface.blockHeight + 1);
-  
   // Calculate dynamic bottom margin based on selected font
   const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
   const bottomMargin = getBottomMargin(selectedFontConfig, typeface.blockHeight);
+  
+  // Use user-selected font for message rendering (overrides per-message stored font)
+  const typefaceName = selectedFontConfig.typeface;
+  const currentRowHeight = selectedFontConfig.rowHeight ?? (typeface.blockHeight + 1);
   
   // Default theme
   const defaultTheme = {
@@ -568,9 +564,9 @@ function paint(
       // console.log("No message layout found for:", message);
     }
 
-    // 🔤 Get per-message font settings
-    const msgTypefaceName = message.computedTypefaceName ?? typefaceName;
-    const msgRowHeight = message.computedRowHeight ?? currentRowHeight;
+    // 🔤 Use current user-selected font for rendering (not per-message stored font)
+    const msgTypefaceName = typefaceName;
+    const msgRowHeight = currentRowHeight;
 
     const x = leftMargin;
     const tb = message.tb; // Precomputed in `computeScrollbar` for each message.
@@ -727,7 +723,7 @@ function paint(
     
     // Use MatrixChunky8 for compact timestamps tacked onto the end of messages
     const timestampWidth = text.width(ago, "MatrixChunky8");
-    const timestampGap = getFontTimestampGap(message.font || "font_1");
+    const timestampGap = getFontTimestampGap(userSelectedFont);
     
     // Position timestamp right after the last *visually rendered* line of the message
     layout.timestamp.x = lastLineRenderedWidthForThisMessage + timestampGap;
@@ -2363,16 +2359,17 @@ async function loadPaintingPreview(code, get, store) {
 
 function computeMessagesHeight({ text, screen }, chat, defaultTypefaceName, defaultRowHeight) {
   let height = 0;
+  
+  // 🔤 Use user-selected font for ALL messages
+  const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
+  const msgTypefaceName = selectedFontConfig.typeface ?? defaultTypefaceName;
+  const msgRowHeight = selectedFontConfig.rowHeight ?? defaultRowHeight;
+  
   // Iterate through the messages array.
   for (let i = 0; i < chat.messages.length; i += 1) {
     const message = chat.messages[i];
     
-    // 🔤 Get font for this message (default to font_1 for backwards compatibility)
-    const msgFont = message.font || "font_1";
-    const msgTypefaceName = getFontTypeface(msgFont) ?? defaultTypefaceName;
-    const msgRowHeight = getFontRowHeight(msgFont, defaultRowHeight);
-    
-    // Store computed font info on the message for use in paint
+    // Store computed font info on the message for use in paint (now using selected font)
     message.computedTypefaceName = msgTypefaceName;
     message.computedRowHeight = msgRowHeight;
     
@@ -2423,11 +2420,10 @@ function computeMessagesLayout({ screen, text }, chat, defaultTypefaceName, defa
   for (let i = chat.messages.length - 1; i >= 0; i--) {
     const msg = chat.messages[i];
     
-    // 🔤 Get per-message font settings (computed in computeMessagesHeight)
+    // 🔤 Use user-selected font settings (computed in computeMessagesHeight)
     const msgTypefaceName = msg.computedTypefaceName ?? defaultTypefaceName;
     const msgRowHeight = msg.computedRowHeight ?? defaultRowHeight;
-    const msgFont = msg.font || "font_1";
-    const msgTimestampGap = getFontTimestampGap(msgFont);
+    const msgTimestampGap = getFontTimestampGap(userSelectedFont);
     
     // Parse elements first to know if we have painting previews
     const parsedElements = parseMessageElements(msg.fullMessage);

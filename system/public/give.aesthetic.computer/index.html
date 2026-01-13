@@ -6250,6 +6250,25 @@
     body.light-mode .baby-colors {
       text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25);
     }
+    
+    /* Light mode: KidLisp slide - brighter handles/hits, full opacity images */
+    body.light-mode .kidlisp-slide-credit .credit-handle {
+      color: #d946ef;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 6px rgba(0,0,0,0.6);
+    }
+    
+    body.light-mode .kidlisp-slide-plays {
+      color: #f59e0b;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 6px rgba(0,0,0,0.6);
+    }
+    
+    body.light-mode .kidlisp-slide img.loaded {
+      opacity: 0.85;
+    }
+    
+    body.light-mode .kidlisp-slide:hover img.loaded {
+      opacity: 1;
+    }
 
     /* Light mode: Invest section */
     body.light-mode .invest-section {
@@ -6320,7 +6339,7 @@
     }
     
     body.light-mode .chat-preview .module-caption {
-      background: linear-gradient(135deg, rgba(255, 251, 235, 0.95) 0%, rgba(254, 243, 199, 0.98) 100%);
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
       color: var(--text);
     }
     
@@ -6356,7 +6375,7 @@
     }
     
     body.light-mode .chat-preview-system .module-caption {
-      background: linear-gradient(135deg, rgba(245, 243, 255, 0.95) 0%, rgba(237, 233, 254, 0.98) 100%);
+      background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
       color: var(--text);
     }
     
