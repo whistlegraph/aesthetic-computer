@@ -817,6 +817,19 @@
       }
     });
     
+    // Handle window.open() from webview (prompt.mjs + and - commands)
+    // Note: Main process also handles this via setWindowOpenHandler
+    webviewEl.addEventListener('new-window', (e) => {
+      console.log('[flip] new-window event:', e?.url);
+      if (e?.preventDefault) e.preventDefault();
+      const url = e?.url || '';
+      if (url.startsWith('ac://close')) {
+        ipcRenderer.invoke('ac-close-window');
+        return;
+      }
+      ipcRenderer.invoke('ac-open-window', { url });
+    });
+    
     // Mark this as the main window and set initial piece
     ipcRenderer.invoke('set-main-window');
     ipcRenderer.invoke('set-current-piece', 'prompt');
@@ -909,6 +922,14 @@
     // Listen for global flip shortcut from main process
     ipcRenderer.on('toggle-flip', () => {
       toggle();
+    });
+    
+    // Listen for navigate messages (from new window requests)
+    ipcRenderer.on('navigate', (event, url) => {
+      console.log('[flip] Navigate to:', url);
+      if (url && typeof url === 'string') {
+        webviewEl.src = url;
+      }
     });
     
     // ========== Zoom Handling ==========

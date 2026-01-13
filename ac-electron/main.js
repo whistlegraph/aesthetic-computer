@@ -2171,6 +2171,44 @@ app.whenReady().then(async () => {
   });
 });
 
+// Handle webview window.open() calls (popups) from guest content
+// This is required in Electron 12+ as new-window event is deprecated
+app.on('web-contents-created', (event, contents) => {
+  // Only handle webviews
+  if (contents.getType() === 'webview') {
+    contents.setWindowOpenHandler(({ url }) => {
+      console.log('[main] Webview window.open:', url);
+      
+      // Handle ac://close request (from prompt.mjs '-' command)
+      if (url.startsWith('ac://close')) {
+        // Find the parent BrowserWindow of this webview
+        const allWindows = BrowserWindow.getAllWindows();
+        for (const win of allWindows) {
+          if (!win.isDestroyed() && win.webContents.id === contents.hostWebContents?.id) {
+            win.close();
+            break;
+          }
+        }
+        return { action: 'deny' };
+      }
+      
+      // Handle new window request (from prompt.mjs '+' command)
+      // Open a new dev window and navigate to the URL
+      openDevWindow().then(({ window: newWin }) => {
+        if (newWin && !newWin.isDestroyed()) {
+          newWin.webContents.once('did-finish-load', () => {
+            if (!newWin.isDestroyed()) {
+              newWin.webContents.send('navigate', url);
+            }
+          });
+        }
+      });
+      
+      return { action: 'deny' }; // We handle it ourselves
+    });
+  }
+});
+
 app.on('window-all-closed', () => {
   // Quit when all windows are closed, even on macOS
   app.quit();
@@ -2186,19 +2224,8 @@ app.on('will-quit', () => {
     }
   }
   
-  // Stop the devcontainer when the app quits (only if docker is available)
-  try {
-    const dockerPath = getDockerPath();
-    if (fs.existsSync(dockerPath)) {
-      require('child_process').execSync(`${dockerPath} stop aesthetic`, { 
-        timeout: 5000,
-        stdio: 'ignore'  // Suppress output to avoid EPIPE
-      });
-      console.log('[main] Stopped devcontainer');
-    }
-  } catch (e) {
-    // Silently ignore - docker may not be running or container may not exist
-  }
+  // NOTE: We intentionally do NOT stop the devcontainer when the app quits.
+  // The devcontainer should keep running for the VS Code workspace.
 });
 
 // Handle certificate errors for localhost in dev mode
@@ -2222,13 +2249,8 @@ function cleanup() {
     }
   }
   
-  // Stop the devcontainer on cleanup
-  try {
-    require('child_process').execSync('docker stop aesthetic', { timeout: 5000 });
-    console.log('[main] Stopped devcontainer');
-  } catch (e) {
-    console.log('[main] Could not stop devcontainer:', e.message);
-  }
+  // NOTE: We intentionally do NOT stop the devcontainer.
+  // It should keep running for the VS Code workspace.
   
   process.exit(0);
 }
