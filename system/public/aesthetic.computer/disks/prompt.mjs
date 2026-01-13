@@ -1671,27 +1671,28 @@ async function halt($, text) {
         await print(system.painting, params[0], (p) => (progressBar = p));
       } else if (slug === "mug") {
         // ☕ Preview mug and purchase
-        // Usage: mug [#code] [color]
-        // Examples: mug, mug blue, mug #abc, mug #abc blue
+        // Usage: mug [code] [color]
+        // Examples: mug, mug blue, mug abc, mug abc blue, mug +productcode
         let code = system.painting?.code || store["painting:code"] || "";
-        let color = "white";
+        let color = "";
         let paramIndex = 0;
 
-        // Check if first param is a code (with or without #)
+        // Check if first param is a code (with or without # or +)
         if (params[0] && !/^(white|black|blue|pink|orange)$/i.test(params[0])) {
-          // Keep the # prefix if present, add it if not
-          code = params[0].startsWith("#") ? params[0] : `#${params[0]}`;
+          // Pass through + prefixed product codes as-is
+          // For painting codes, use as-is (no # prefix needed)
+          code = params[0];
           paramIndex = 1;
-        } else if (code && !code.startsWith("#")) {
-          code = `#${code}`;
         }
 
-        // Parse color
-        if (params[paramIndex]) {
+        // Parse color (only for painting codes, not product codes)
+        if (params[paramIndex] && !code.startsWith("+")) {
           color = params[paramIndex];
+        } else if (!code.startsWith("+")) {
+          color = "white"; // Default color only for painting codes
         }
 
-        // Jump to mug piece for preview (code includes # prefix)
+        // Jump to mug piece for preview
         // Use ~ separator for params instead of space
         const mugJump = ["mug", code, color].filter(Boolean).join("~");
         $.jump(mugJump);
@@ -7360,8 +7361,23 @@ function act({
           const targetIndex = contentTickerButton.hoveredItemIndex >= 0 ?
                               contentTickerButton.hoveredItemIndex : 0;
           const item = contentItems[targetIndex];
-          const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : item.type === 'tape' ? '!' : '*';
-          const destination = `${prefix}${item.code}`;
+          
+          let destination;
+          if (item.type === 'painting') {
+            // For paintings, check if it's an anon painting (no handle) or has a handle
+            // Anon paintings: jump directly to painting#CODE
+            // User paintings: use #CODE to trigger the lookup
+            if (!item.handle || item.handle === 'undefined' || item.handle === 'null') {
+              // Anon painting - jump directly to painting piece with code
+              destination = `painting#${item.code}`;
+            } else {
+              // User painting with handle - use # prefix to trigger lookup
+              destination = `#${item.code}`;
+            }
+          } else {
+            const prefix = item.type === 'kidlisp' ? '$' : item.type === 'tape' ? '!' : '*';
+            destination = `${prefix}${item.code}`;
+          }
 
           // Set prompt input text to show what's loading (like typing and pressing enter)
           system.prompt.input.text = destination;

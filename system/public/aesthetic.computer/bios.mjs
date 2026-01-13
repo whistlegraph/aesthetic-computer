@@ -17072,8 +17072,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               
               options.body = JSON.stringify(body);
               const added = await fetch("api/track-media", options);
+              
+              // Check for HTTP errors
+              if (!added.ok) {
+                console.error(`❌ track-media HTTP error: ${added.status} ${added.statusText}`);
+              }
+              
               const addedData = await added.json();
-              console.log("🗞️ track-media response:", addedData);
+              console.log("🗞️ track-media response:", addedData, "status:", added.status);
               
               // Create data object first
               let data = { slug, url: url.toString(), ext };
@@ -17083,7 +17089,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 console.log(`🎨 Painting code: #${addedData.code}`);
                 data.code = addedData.code; // Add code to return data
               } else {
-                console.warn("⚠️  No code received from track-media!");
+                console.error("❌ No code received from track-media! Response:", addedData);
               }
 
               if (!userMedia && (ext === "mjs" || ext === "lisp")) {
