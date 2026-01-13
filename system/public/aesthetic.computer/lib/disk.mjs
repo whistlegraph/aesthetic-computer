@@ -4747,6 +4747,10 @@ function initializeGlobalKidLisp(api) {
     // console.log("🚀 Initializing global KidLisp instance");
     globalKidLispInstance = new lisp.KidLisp();
     globalKidLispInstance.setAPI(api);
+    // Expose to window for bios.mjs acCLEAR_BAKE_LAYERS
+    if (typeof window !== 'undefined') {
+      window.__acGlobalKidLispInstance = globalKidLispInstance;
+    }
   }
   return globalKidLispInstance;
 }
@@ -6180,13 +6184,15 @@ const $paintApiUnwrapped = {
     } catch (error) {
       console.error("🚫 Simple KidLisp error:", error);
       
-      // Draw error directly to main screen
-      const originalInk = $activePaintApi.ink();
-      $activePaintApi.ink(255, 0, 0);
-      if ($activePaintApi.write) {
-        $activePaintApi.write("KidLisp Error", x, y);
+      // Draw error directly to main screen (skip in projection/embed mode like kidlisp.com)
+      if (!projectionMode) {
+        const originalInk = $activePaintApi.ink();
+        $activePaintApi.ink(255, 0, 0);
+        if ($activePaintApi.write) {
+          $activePaintApi.write("KidLisp Error", x, y);
+        }
+        $activePaintApi.ink(originalInk);
       }
-      $activePaintApi.ink(originalInk);
       
       return null;
     }
@@ -6264,11 +6270,13 @@ function executeLispCode(source, api, isAccumulating = false) {
     }
   } catch (evalError) {
     console.error("🚫 KidLisp evaluation error:", evalError);
-    // Draw error indicator
-    api.wipe(60, 0, 0);
-    api.ink(255, 255, 255);
-    if (api.write) {
-      api.write("KidLisp Eval Error", 5, 15);
+    // Draw error indicator (skip in projection/embed mode like kidlisp.com)
+    if (!projectionMode) {
+      api.wipe(60, 0, 0);
+      api.ink(255, 255, 255);
+      if (api.write) {
+        api.write("KidLisp Eval Error", 5, 15);
+      }
     }
   }
 }
@@ -12234,6 +12242,15 @@ async function makeFrame({ data: { type, content } }) {
           currentText,
           cleanText,
         });
+
+        // 🎨 KidLisp HUD color: green when running, yellow when paused
+        if (isKidlispPiece && !currentHUDTextColor) {
+          if (window.__acLoopPaused) {
+            currentHUDTextColor = [255, 220, 80]; // Yellow when paused (matches pause button #ffd93d)
+          } else {
+            currentHUDTextColor = [128, 255, 128]; // Green when running
+          }
+        }
 
         // 🔤 Font Preloading: Ensure MatrixChunky8 starts loading early if available
         if (matrixTypeface && !matrixTypeface.__loadPromise) {

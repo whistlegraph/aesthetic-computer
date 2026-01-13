@@ -283,11 +283,9 @@ function startLocalServerCheck() {
       refreshWebWindow();
       refreshKidLispWindow();
     } else if (!localServerAvailable && wasAvailable) {
-      console.log("❌ Local server disconnected");
-      // Optionally refresh to show waiting state
-      if (provider) provider.refreshWebview();
-      refreshWebWindow();
-      refreshKidLispWindow();
+      console.log("⏳ Local server disconnected - waiting for reconnect...");
+      // Don't immediately show waiting screen - server may come back quickly during hot reload
+      // The webview will show the waiting screen on next manual refresh or when we first load
     }
   }, 3000);
 }
@@ -2149,6 +2147,83 @@ function getKidLispWebViewContent(webview: any) {
   const vscodeStyleUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extContext.extensionUri, "vscode.css"),
   );
+
+  // Show waiting UI if local mode is enabled but server isn't available yet
+  if (local && !localServerAvailable && !isCodespaces) {
+    return `<!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="${styleUri}" rel="stylesheet">
+        <link href="${resetStyleUri}" rel="stylesheet">
+        <link href="${vscodeStyleUri}" rel="stylesheet">
+        <title>KidLisp.com</title>
+        <style>
+          body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #fffacd 0%, #fff9c0 100%);
+            color: #333;
+            font-family: system-ui, -apple-system, sans-serif;
+          }
+          .waiting {
+            text-align: center;
+          }
+          .plug {
+            font-size: 64px;
+            margin-bottom: 24px;
+            animation: wiggle 2s ease-in-out infinite;
+          }
+          .title {
+            font-size: 20px;
+            font-weight: 500;
+            color: #9370DB;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+          }
+          .subtitle {
+            font-size: 14px;
+            color: #666;
+            font-family: monospace;
+            background: #fff;
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: 1px solid #e0d8a8;
+          }
+          .subtitle code {
+            color: #9370DB;
+            font-weight: 600;
+          }
+          .dots::after {
+            content: '';
+            animation: dots 1.5s steps(4, end) infinite;
+          }
+          @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+          }
+          @keyframes wiggle {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="waiting">
+          <div class="plug">🌈</div>
+          <div class="title">Waiting for local server<span class="dots"></span></div>
+          <div class="subtitle">Run <code>ac-site</code> to start localhost:8888</div>
+        </div>
+      </body>
+      </html>`;
+  }
 
   // Determine the iframe URL based on environment
   let iframeUrl;
