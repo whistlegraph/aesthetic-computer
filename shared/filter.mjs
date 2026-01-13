@@ -55,10 +55,22 @@ const matcher = new RegExpMatcher({
 
 const whitelist = ["rapper", "arse"];
 
+// Regex to match URLs (http://, https://, or www.)
+const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+
 // Filter text for profanities by replacing them with underscores and optionally log matches.
+// URLs are protected from filtering.
 export function filter(text, debug = false) {
-  let out = text.replaceAll("n166er", "n!gger");
-  out = text.replace(new RegExp("n i g g e r", "gi"), "n_i_g_g_e_r");
+  // Extract and protect URLs before filtering
+  const urls = [];
+  const placeholder = "\u0000URL\u0000"; // Use null chars as unlikely placeholder
+  let protectedText = text.replace(urlRegex, (match) => {
+    urls.push(match);
+    return placeholder + (urls.length - 1) + placeholder;
+  });
+
+  let out = protectedText.replaceAll("n166er", "n!gger");
+  out = out.replace(new RegExp("n i g g e r", "gi"), "n_i_g_g_e_r");
 
   if (matcher.hasMatch(out)) {
     if (debug) {
@@ -76,23 +88,30 @@ export function filter(text, debug = false) {
       }
       let { startIndex: start, endIndex: end } = phraseMetadata;
       // Extend end index to the next space or the end of the string
-      const nextSpaceIndex = text.indexOf(" ", end);
+      const nextSpaceIndex = out.indexOf(" ", end);
       if (nextSpaceIndex !== -1) {
         end = nextSpaceIndex;
       } else {
-        end = text.length;
+        end = out.length;
       }
       const len = end - start;
-      const matchedSubstring = text.substring(start, end);
+      const matchedSubstring = out.substring(start, end);
       if (debug) {
         console.log("🧨 Matched substring:", matchedSubstring);
       }
 
-      if (!whitelist.includes(matchedSubstring)) {
+      // Skip if the match is inside a URL placeholder
+      if (!matchedSubstring.includes(placeholder) && !whitelist.includes(matchedSubstring)) {
         out = out.substring(0, start) + "_".repeat(len) + out.substring(end);
       }
     }
   }
+
+  // Restore URLs
+  out = out.replace(new RegExp(placeholder + "(\\d+)" + placeholder, "g"), (_, index) => {
+    return urls[parseInt(index, 10)];
+  });
+
   // console.log("🧹 Post-filtered message:", out);
   return out;
 }
