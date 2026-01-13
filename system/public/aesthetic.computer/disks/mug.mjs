@@ -108,25 +108,32 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
       // Use cached preview if available
       if (data.preview) {
         console.log("☕ Loading preview:", data.preview);
-        const result = await preloadAnimatedWebp(data.preview);
-        console.log("☕ Preview loaded, frameCount:", result?.frameCount);
-        if (result.frameCount > 1) {
-          previewFrames = {
-            width: result.width,
-            height: result.height,
-            frames: result.frames,
-          };
-          previewBitmap = {
-            width: result.width,
-            height: result.height,
-            pixels: result.frames[0].pixels,
-          };
-        } else {
-          previewBitmap = {
-            width: result.width,
-            height: result.height,
-            pixels: result.frames[0].pixels,
-          };
+        try {
+          const result = await preloadAnimatedWebp(data.preview);
+          console.log("☕ Preview loaded, frameCount:", result?.frameCount);
+          if (result && result.frameCount > 1) {
+            previewFrames = {
+              width: result.width,
+              height: result.height,
+              frames: result.frames,
+            };
+            previewBitmap = {
+              width: result.width,
+              height: result.height,
+              pixels: result.frames[0].pixels,
+            };
+          } else if (result) {
+            previewBitmap = {
+              width: result.width,
+              height: result.height,
+              pixels: result.frames[0].pixels,
+            };
+          } else {
+            console.warn("☕ Preview load returned empty result");
+          }
+        } catch (previewErr) {
+          console.warn("☕ Preview load failed, continuing without preview:", previewErr);
+          // Continue without preview - don't fail the whole boot
         }
         previewLoading = false;
       }
@@ -138,7 +145,7 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
       fetchCheckout(sourceCode, api);
       return;
     } catch (e) {
-      error = "Mug not found: " + e.message;
+      error = "Mug not found: " + (e?.message || String(e) || "Unknown error");
       previewLoading = false;
       return;
     }
