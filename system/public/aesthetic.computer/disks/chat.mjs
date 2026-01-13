@@ -1421,7 +1421,7 @@ function paint(
   
   // 📰 News ticker (top right, always visible)
   if (!client.connecting) {
-    paintNewsTicker({ ink, screen, text }, theme);
+    paintNewsTicker({ ink, screen, text, hud }, theme);
     needsPaint();
   }
 
@@ -2772,7 +2772,7 @@ function generateDynamicColorMessage(message, theme) {
 const NEWS_TEXT = "@jeffrey is hard at work on authoring AC '26";
 
 function paintNewsTicker($, theme) {
-  const { ink, screen, text } = $;
+  const { ink, screen, text, hud } = $;
   const tickerCharWidth = 4; // MatrixChunky8 char width
   const tickerHeight = 8;
   const tickerPadding = 3;
@@ -2796,10 +2796,26 @@ function paintNewsTicker($, theme) {
   const scrollSpeed = 0.4;
   const scrollOffset = (performance.now() * scrollSpeed / 16) % loopWidth;
   
-  // Position calculations - no overlap
+  // Calculate HUD label right edge to avoid overlap
+  // HUD label starts at x=6 and has width from hud.currentLabel()
+  const hudLabelOffset = 6; // Default HUD x offset
+  const hudLabelWidth = hud?.currentLabel?.()?.btn?.box?.w || 0;
+  const hudLabelRight = hudLabelOffset + hudLabelWidth;
+  const minGapAfterHud = 10; // Minimum spacing between HUD label and News ticker
+  
+  // Position calculations - ensure News ticker starts after HUD label
   const scrollAreaRight = tickerRight;
-  const scrollAreaLeft = scrollAreaRight - tickerMaxWidth;
-  const newsBgX = scrollAreaLeft - newsPrefixWidth; // No gap, they touch
+  const idealScrollAreaLeft = scrollAreaRight - tickerMaxWidth;
+  const idealNewsBgX = idealScrollAreaLeft - newsPrefixWidth;
+  
+  // Push News ticker to the right if it would overlap the HUD label
+  const newsBgX = Math.max(
+    hudLabelRight + minGapAfterHud, // Don't overlap HUD label
+    idealNewsBgX // Original position
+  );
+  
+  // Recalculate scroll area left edge based on actual News ticker position
+  const scrollAreaLeft = newsBgX + newsPrefixWidth;
   
   // Colors from theme
   const handleColor = theme?.handle ? 
@@ -2814,13 +2830,16 @@ function paintNewsTicker($, theme) {
   // Scrolling area - darker, more subtle background  
   const scrollBgColor = [25, 20, 35];
   
+  // Calculate actual scrolling area width based on position
+  const actualTickerWidth = scrollAreaRight - scrollAreaLeft;
+  
   // Draw "News" label background (extend 1px right to touch scroll area)
   ink(...newsBgColor, 230).box(newsBgX, tickerY - 2, newsPrefixWidth + 1, tickerHeight + 4);
   // Text 1px left (reduce padding by 1)
   ink(...newsFgColor).write(newsPrefix, { x: newsBgX + tickerPadding - 1, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
   
-  // Draw scrolling ticker background (extend 1px right for safety)
-  ink(...scrollBgColor, 200).box(scrollAreaLeft, tickerY - 2, tickerMaxWidth + 1, tickerHeight + 4);
+  // Draw scrolling ticker background (use actual width)
+  ink(...scrollBgColor, 200).box(scrollAreaLeft, tickerY - 2, actualTickerWidth + 1, tickerHeight + 4);
   
   // Parse text for @handles to highlight
   const handleRegex = /@[\w]+/g;
