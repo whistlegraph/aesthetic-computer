@@ -8010,6 +8010,32 @@ class KidLisp {
         y = Math.floor(y);
         alpha = Math.max(0, Math.min(255, Math.floor(alpha)));
 
+        // 🎯 EDGE SNAPPING: When an embed's edge is within 1px of the screen edge OR center,
+        // extend it to close the gap. This fixes 1px gaps from integer division
+        // (e.g., when w=513, w/2=256, and 256+256=512 leaves a 1px gap)
+        const rightEdge = x + width;
+        const bottomEdge = y + height;
+        const halfWidth = Math.ceil(screenWidth / 2);
+        const halfHeight = Math.ceil(screenHeight / 2);
+        
+        // Snap to screen edges
+        if (rightEdge > 0 && rightEdge < screenWidth && screenWidth - rightEdge <= 1) {
+          width = screenWidth - x;
+        }
+        if (bottomEdge > 0 && bottomEdge < screenHeight && screenHeight - bottomEdge <= 1) {
+          height = screenHeight - y;
+        }
+        
+        // Snap to center seam (for tiled layouts using w/2, h/2)
+        // If a left-side embed's right edge is within 1px of center, extend to center
+        if (x === 0 && rightEdge > 0 && rightEdge < halfWidth && halfWidth - rightEdge <= 1) {
+          width = halfWidth;
+        }
+        // If a top-side embed's bottom edge is within 1px of center, extend to center
+        if (y === 0 && bottomEdge > 0 && bottomEdge < halfHeight && halfHeight - bottomEdge <= 1) {
+          height = halfHeight;
+        }
+
         // 🚀 PERFORMANCE OPTIMIZATION: Normalize dimensions to reduce cache fragmentation during reframe
         // Use size buckets to allow cache reuse for similar dimensions
         // BUT: Skip normalization if using screen dimensions to ensure proper responsive behavior
@@ -12895,21 +12921,25 @@ class KidLisp {
   shouldLayerEvaluate(embeddedLayer, frameValue) {
     // Always evaluate if never been evaluated
     if (!embeddedLayer.hasBeenEvaluated) {
-      console.log(`🔄 shouldLayerEvaluate: First evaluation for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
+      // console.log(`🔄 shouldLayerEvaluate: First evaluation for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
       return true;
     }
 
     // Skip if evaluated this exact frame already
     if (embeddedLayer.lastFrameEvaluated === frameValue) {
-      console.log(`🔄 shouldLayerEvaluate: Already evaluated this frame ${frameValue} for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
+      // console.log(`🔄 shouldLayerEvaluate: Already evaluated this frame ${frameValue} for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
       return false;
     }
 
     // Check for dynamic content in source (check multiple places)
     const source = embeddedLayer.kidlispInstance.source || embeddedLayer.sourceCode || embeddedLayer.source || '';
-    console.log(`🔄 shouldLayerEvaluate: Checking source for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}:`, source);
+    // console.log(`🔄 shouldLayerEvaluate: Checking source for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}:`, source);
 
-    const hasDynamicContent = source.includes('frame') ||
+    // Check for timing expressions like "0.1s...", "1s!", "0.5s" which are animation triggers
+    const hasTimingExpression = /\d+\.?\d*s\.\.\.?|\d+\.?\d*s!/.test(source);
+    
+    const hasDynamicContent = hasTimingExpression ||
+      source.includes('frame') ||
       source.includes('scroll') ||
       source.includes('clock') ||
       source.includes('pen') ||
@@ -12919,21 +12949,26 @@ class KidLisp {
       source.includes('tap') ||
       source.includes('random');
 
-    console.log(`🔄 shouldLayerEvaluate: hasDynamicContent=${hasDynamicContent}, hasBeenEvaluated=${embeddedLayer.hasBeenEvaluated} for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
+    // console.log(`🔄 shouldLayerEvaluate: hasDynamicContent=${hasDynamicContent}, hasTimingExpression=${hasTimingExpression} for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
 
-    // TEMPORARY WORKAROUND: Force re-evaluation for layers that might have scroll
-    // Since source is often empty due to caching issues, force evaluation more frequently
+    // If has dynamic content (including timing expressions), always evaluate
+    if (hasDynamicContent) {
+      return true;
+    }
+
+    // TEMPORARY WORKAROUND: Force re-evaluation for layers that might have animation
+    // Since source is sometimes empty due to caching issues, force evaluation more frequently
     if (!hasDynamicContent && embeddedLayer.hasBeenEvaluated) {
-      // Check if we should force evaluation anyway (every 10 frames for potential scroll effects)
+      // Check if we should force evaluation anyway (every 10 frames for potential animation effects)
       const shouldForceEvaluation = (frameValue % 10 === 0);
-      console.log(`🔄 shouldLayerEvaluate: Forcing evaluation every 10 frames: ${shouldForceEvaluation} (frame ${frameValue})`);
+      // console.log(`🔄 shouldLayerEvaluate: Forcing evaluation every 10 frames: ${shouldForceEvaluation} (frame ${frameValue})`);
       if (shouldForceEvaluation) {
         return true;
       }
       return false;
     }
 
-    console.log(`🔄 shouldLayerEvaluate: Returning true (default) for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
+    // console.log(`🔄 shouldLayerEvaluate: Returning true (default) for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
     return true; // Default to evaluating
   }
 
@@ -13029,6 +13064,10 @@ class KidLisp {
 
           return false;
         }).length : 0;
+
+      // 🎬 CRITICAL: Reset the wipe flag before each frame evaluation
+      // This allows animated embedded pieces to wipe and redraw each frame
+      embeddedLayer.kidlispInstance.embeddedLayerWipedOnce = false;
 
       embeddedLayer.kidlispInstance.evaluate(
         embeddedLayer.parsedCode,
@@ -13537,6 +13576,10 @@ class KidLisp {
       // Execute the KidLisp code (it will draw to the embedded buffer via page())
       // console.log(`🎮 Executing embedded layer: ${embeddedLayer.originalCacheId}`);
       // console.log(`📝 Source code: ${embeddedLayer.source || 'No source available'}`);
+
+      // 🎬 CRITICAL: Reset the wipe flag before each frame evaluation
+      // This allows animated embedded pieces to wipe and redraw each frame
+      embeddedLayer.kidlispInstance.embeddedLayerWipedOnce = false;
 
       embeddedLayer.kidlispInstance.evaluate(
         embeddedLayer.parsedCode,
