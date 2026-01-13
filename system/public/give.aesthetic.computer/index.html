@@ -65,7 +65,7 @@
     All tasks completed! 🎉
   -->
   <style>
-    /* Dark mode only */
+    /* Dark mode (default) */
     :root {
       --bg: #1a1a2e;
       --text: #e8e8e8;
@@ -77,6 +77,28 @@
       --box-bg: rgba(255,255,255,0.03);
       --box-border: rgba(255,255,255,0.1);
       --mono: 'Berkeley Mono Variable', 'Menlo', monospace;
+      /* Light mode specific overrides */
+      --shadow-soft: 0 2px 8px rgba(0,0,0,0.15);
+      --shadow-medium: 0 4px 16px rgba(0,0,0,0.2);
+      --input-bg: rgba(255,255,255,0.05);
+      --slider-track: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3, #54a0ff, #5f27cd, #00d2d3);
+    }
+
+    /* Light mode theme */
+    body.light-mode {
+      --bg: #f5f5f5;
+      --text: #1a1a2e;
+      --dim: #666;
+      --pink: rgb(205, 92, 155);
+      --cyan: #0891b2;
+      --gold: #d97706;
+      --green: #059669;
+      --box-bg: rgba(0,0,0,0.03);
+      --box-border: rgba(0,0,0,0.12);
+      --shadow-soft: 0 2px 8px rgba(0,0,0,0.08);
+      --shadow-medium: 0 4px 16px rgba(0,0,0,0.12);
+      --input-bg: white;
+      --slider-track: linear-gradient(90deg, #f87171, #fbbf24, #22d3ee, #f472b6, #60a5fa, #8b5cf6, #06b6d4);
     }
 
     * { box-sizing: border-box; }
@@ -1654,17 +1676,22 @@
 
     /* Login prompt modal (native dialog) */
     .login-modal {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
+      background: #0a0a0f;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
       padding: 1.5em 2em;
       max-width: 360px;
       text-align: center;
       color: var(--text);
+      font-family: var(--mono);
+      box-shadow: 
+        0 0 0 1px rgba(205, 92, 155, 0.3),
+        0 8px 32px rgba(0, 0, 0, 0.5);
     }
 
     .login-modal::backdrop {
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(4px);
     }
 
     /* Login button blink animation */
@@ -1678,59 +1705,70 @@
     }
 
     .login-modal-icon {
-      font-size: 2.5em;
-      margin-bottom: 0.3em;
+      font-size: 2em;
+      margin-bottom: 0.4em;
+      filter: grayscale(0.2);
     }
 
     .login-modal-title {
-      font-size: 1.1em;
+      font-size: 1em;
       font-weight: 600;
-      margin-bottom: 0.5em;
-      color: var(--text);
+      margin-bottom: 0.6em;
+      color: var(--pink);
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
     .login-modal-text {
-      font-size: 0.9em;
-      color: var(--dim);
-      margin-bottom: 1.2em;
-      line-height: 1.4;
+      font-size: 0.85em;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 1.4em;
+      line-height: 1.5;
+      font-family: var(--mono);
     }
 
     .login-modal-buttons {
       display: flex;
-      gap: 0.8em;
+      gap: 0.6em;
       justify-content: center;
     }
 
     .login-modal-btn {
-      padding: 0.6em 1.4em;
-      border-radius: 8px;
-      font-size: 0.9em;
+      padding: 0.5em 1.2em;
+      border-radius: 3px;
+      font-size: 0.85em;
       cursor: pointer;
       transition: all 0.15s ease;
-      border: none;
+      border: 1px solid transparent;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     .login-modal-btn.primary {
       background: var(--gold);
       color: #000;
       font-weight: 600;
+      border-color: var(--gold);
     }
 
     .login-modal-btn.primary:hover {
-      background: #e6c44a;
-      transform: scale(1.03);
+      background: #f5d34a;
+      border-color: #f5d34a;
+      transform: translateY(-1px);
     }
 
     .login-modal-btn.secondary {
       background: transparent;
-      color: var(--dim);
-      border: 1px solid var(--border);
+      color: rgba(255, 255, 255, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .login-modal-btn.secondary:hover {
-      background: var(--border);
-      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.8);
+      border-color: rgba(255, 255, 255, 0.3);
     }
 
     .cancel-subscription-link {
@@ -5823,6 +5861,827 @@
         font-size: 0.8em;
       }
     }
+
+    /* ================================================
+       LIGHT MODE THEME OVERRIDES
+       Based on kidlisp.com and at.aesthetic.computer
+       ================================================ */
+    
+    /* Theme toggle button */
+    .theme-toggle {
+      background: transparent;
+      border: 1px solid var(--box-border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .theme-toggle:hover {
+      background: var(--box-bg);
+      border-color: var(--pink);
+    }
+    
+    .theme-toggle .theme-icon {
+      transition: transform 0.3s ease;
+    }
+    
+    .theme-toggle:hover .theme-icon {
+      transform: rotate(15deg);
+    }
+
+    /* Light mode: Top bar */
+    body.light-mode .top-bar {
+      background: linear-gradient(to bottom, var(--bg) 0%, var(--bg) 70%, transparent 100%);
+    }
+
+    /* Light mode: Logo adjustments */
+    body.light-mode .logo-give {
+      color: var(--text);
+    }
+    
+    body.light-mode .logo-sep {
+      color: var(--dim);
+    }
+
+    /* Light mode: Prose/content boxes */
+    body.light-mode .prose {
+      background: white;
+      border-color: var(--box-border);
+      box-shadow: var(--shadow-soft);
+    }
+
+    /* Light mode: Ticker */
+    body.light-mode .gives-ticker {
+      background: linear-gradient(180deg, rgba(0, 100, 50, 0.08) 0%, rgba(0, 50, 25, 0.12) 100%);
+      border-color: rgba(0, 150, 100, 0.25);
+    }
+    
+    body.light-mode .gives-ticker-item {
+      border-right-color: rgba(0, 150, 100, 0.15);
+    }
+
+    /* Light mode: Gift widget visual */
+    body.light-mode .gift-visual {
+      background: linear-gradient(135deg, rgba(205, 92, 155, 0.08) 0%, rgba(0, 180, 180, 0.05) 100%);
+      border-color: var(--box-border);
+    }
+
+    /* Light mode: Slider/range */
+    body.light-mode .gift-controls input[type="range"] {
+      background: var(--slider-track);
+    }
+
+    /* Light mode: Gift amount display */
+    body.light-mode .gift-amount {
+      background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+      border-color: var(--green);
+      color: #1b5e20;
+    }
+    
+    body.light-mode .gift-widget.monthly-mode .gift-amount {
+      background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+      border-color: var(--gold);
+      color: #e65100;
+    }
+
+    /* Light mode: Gift button */
+    body.light-mode .gift-btn {
+      background: linear-gradient(180deg, var(--green) 0%, #047857 100%);
+      border-color: #10b981;
+      box-shadow: var(--shadow-medium);
+    }
+    
+    body.light-mode .gift-btn:hover {
+      background: linear-gradient(180deg, var(--pink) 0%, rgb(175, 72, 130) 100%);
+      border-color: rgb(225, 112, 175);
+    }
+    
+    body.light-mode .gift-widget.monthly-mode .gift-btn {
+      background: linear-gradient(180deg, var(--gold) 0%, #b45309 100%);
+      border-color: #f59e0b;
+      color: white;
+    }
+
+    /* Light mode: Stat items */
+    body.light-mode .stat-item {
+      background: white;
+      border-color: var(--box-border);
+      box-shadow: var(--shadow-soft);
+    }
+    
+    body.light-mode #stat-handles { background: rgba(59, 130, 246, 0.08); }
+    body.light-mode #stat-paintings { background: rgba(249, 115, 22, 0.08); }
+    body.light-mode #stat-moods { background: rgba(236, 72, 153, 0.08); }
+    body.light-mode #stat-kidlisp { background: rgba(139, 92, 246, 0.08); }
+    body.light-mode #stat-commands { background: rgba(34, 197, 94, 0.08); }
+    body.light-mode #stat-messages { background: rgba(234, 179, 8, 0.08); }
+    
+    body.light-mode .stat-value {
+      text-shadow: none;
+    }
+    
+    body.light-mode .stat-label {
+      text-shadow: none;
+    }
+
+    /* Light mode: Module boxes (shop, kidlisp, etc.) */
+    body.light-mode .shop-module,
+    body.light-mode .kidlisp-module,
+    body.light-mode .apps-flip-face,
+    body.light-mode .hacker-card,
+    body.light-mode .feature-module {
+      background: white;
+      border-color: var(--box-border);
+      box-shadow: var(--shadow-soft);
+    }
+
+    /* Light mode: Desktop face (VSCode/Ableton) */
+    body.light-mode .desktop-face {
+      background: linear-gradient(135deg, #f8f8f8 0%, #eeeeee 100%);
+      border-color: var(--box-border);
+    }
+    
+    body.light-mode .desktop-face-header {
+      border-bottom-color: var(--box-border);
+    }
+    
+    body.light-mode .face-label {
+      color: var(--dim);
+    }
+    
+    body.light-mode .desktop-vscode-link,
+    body.light-mode .desktop-ableton-link {
+      background: rgba(0, 0, 0, 0.04);
+      border-color: var(--box-border);
+    }
+    
+    body.light-mode .desktop-vscode-link:hover,
+    body.light-mode .desktop-ableton-link:hover {
+      background: rgba(0, 0, 0, 0.08);
+      border-color: var(--dim);
+    }
+    
+    body.light-mode .desktop-vscode-link .vscode-label,
+    body.light-mode .desktop-ableton-link .ableton-label {
+      color: var(--text);
+    }
+    
+    body.light-mode .desktop-ableton-link .ableton-tag {
+      background: rgba(0, 0, 0, 0.08);
+      color: var(--dim);
+    }
+    
+    body.light-mode .desktop-header-ticker-content {
+      color: var(--dim);
+    }
+
+    /* Light mode: Mobile face */
+    body.light-mode .mobile-face {
+      background: linear-gradient(135deg, #f8f8f8 0%, #eeeeee 100%);
+      border-color: var(--box-border);
+    }
+    
+    body.light-mode .mobile-face-header {
+      border-bottom-color: var(--box-border);
+    }
+    
+    body.light-mode .phone-frame {
+      background: #333;
+    }
+
+    /* Light mode: Links */
+    body.light-mode a {
+      color: var(--cyan);
+    }
+    
+    body.light-mode a.handle-link {
+      color: var(--pink);
+    }
+    
+    body.light-mode code {
+      background: rgba(205, 92, 155, 0.1);
+      color: var(--pink);
+    }
+
+    /* Light mode: Crypto section */
+    body.light-mode .crypto-header {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(0, 180, 180, 0.06) 100%);
+    }
+    
+    body.light-mode .crypto-address {
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(0, 180, 180, 0.05) 100%);
+      border-color: rgba(34, 197, 94, 0.3);
+    }
+    
+    body.light-mode .crypto-address:hover {
+      border-color: var(--green);
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(0, 180, 180, 0.1) 100%);
+    }
+    
+    body.light-mode .crypto-addr {
+      background: rgba(0, 50, 30, 0.9);
+      color: #00ff88;
+    }
+    
+    body.light-mode .crypto-controls.crypto-all .crypto-address[data-crypto="xtz"] {
+      background: linear-gradient(180deg, rgba(139, 92, 246, 0.15) 0%, rgba(109, 62, 206, 0.2) 100%);
+    }
+    
+    body.light-mode .crypto-controls.crypto-all .crypto-address[data-crypto="eth"] {
+      background: linear-gradient(180deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.2) 100%);
+    }
+    
+    body.light-mode .crypto-controls.crypto-all .crypto-address[data-crypto="btc"] {
+      background: linear-gradient(180deg, rgba(249, 115, 22, 0.15) 0%, rgba(234, 88, 12, 0.2) 100%);
+    }
+
+    /* Light mode: PayPal section */
+    body.light-mode .paypal-header {
+      background: linear-gradient(135deg, rgba(0, 112, 186, 0.12) 0%, rgba(0, 48, 135, 0.08) 100%);
+    }
+    
+    body.light-mode .paypal-controls {
+      background: linear-gradient(180deg, rgba(0, 112, 186, 0.05) 0%, rgba(0, 48, 135, 0.08) 100%);
+    }
+
+    /* Light mode: Currency links */
+    body.light-mode .curr-link {
+      color: var(--dim);
+    }
+    
+    body.light-mode .curr-link:hover {
+      color: var(--text);
+    }
+    
+    body.light-mode .curr-link.active[data-curr="usd"] { color: var(--green); }
+    body.light-mode .curr-link.active[data-curr="dkk"] { color: var(--cyan); }
+    body.light-mode .curr-link.active[data-curr="crypto"] { color: #7c3aed; }
+    body.light-mode .curr-link.active[data-curr="paypal"] { color: #0070ba; }
+
+    /* Light mode: Language dropdown */
+    body.light-mode .lang-dropdown {
+      background: white;
+      border-color: var(--box-border);
+      box-shadow: var(--shadow-medium);
+    }
+    
+    body.light-mode .lang-option:hover {
+      background: rgba(205, 92, 155, 0.1);
+    }
+
+    /* Light mode: Holiday banner */
+    body.light-mode .holiday-banner {
+      background: rgba(205, 92, 155, 0.08);
+      border-color: rgba(205, 92, 155, 0.2);
+    }
+
+    /* Light mode: Login modal */
+    body.light-mode .login-modal {
+      background: #fafafa;
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      box-shadow: 
+        0 0 0 1px rgba(205, 92, 155, 0.2),
+        0 8px 32px rgba(0, 0, 0, 0.15);
+    }
+    
+    body.light-mode .login-modal::backdrop {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(4px);
+    }
+    
+    body.light-mode .login-modal-title {
+      color: var(--pink);
+    }
+    
+    body.light-mode .login-modal-text {
+      color: rgba(0, 0, 0, 0.6);
+    }
+    
+    body.light-mode .login-modal-btn.secondary {
+      color: rgba(0, 0, 0, 0.5);
+      border-color: rgba(0, 0, 0, 0.15);
+    }
+    
+    body.light-mode .login-modal-btn.secondary:hover {
+      background: rgba(0, 0, 0, 0.05);
+      color: rgba(0, 0, 0, 0.8);
+      border-color: rgba(0, 0, 0, 0.25);
+    }
+
+    /* Light mode: Thanks section */
+    body.light-mode .thanks-section {
+      background: white;
+    }
+
+    /* Light mode: Footer - keep original button styles */
+    body.light-mode .give-footer {
+      background: linear-gradient(to top, var(--bg) 0%, transparent 100%);
+    }
+    
+    /* Light mode: Add darker shadow behind footer buttons for visibility */
+    body.light-mode .footer-login-btn {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 10px rgba(80, 120, 255, 0.25);
+    }
+    
+    body.light-mode .footer-signup-btn {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 10px rgba(80, 200, 120, 0.25);
+    }
+
+    /* Light mode: Monthly checkbox */
+    body.light-mode .gift-monthly-check input[type="checkbox"] {
+      background: white;
+      border-color: var(--box-border);
+    }
+    
+    body.light-mode .gift-monthly-check input[type="checkbox"]:checked {
+      background: var(--gold);
+      border-color: var(--gold);
+    }
+
+    /* Light mode: Shop products */
+    body.light-mode .shop-product {
+      background: #fafafa;
+      border-color: var(--box-border);
+    }
+    
+    body.light-mode .shop-product-img {
+      background: #f0f0f0;
+    }
+
+    /* Light mode: KidLisp panels */
+    body.light-mode .kidlisp-panel {
+      background: white;
+      border-color: var(--box-border);
+    }
+    
+    body.light-mode .kidlisp-preview {
+      background: #f8f6ff;
+      border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+    
+    body.light-mode .kidlisp-preview .module-caption {
+      background: #fffacd;
+      color: var(--text);
+      border-bottom: 3px solid rgba(139, 92, 246, 0.3);
+    }
+    
+    body.light-mode .kidlisp-preview-header {
+      background: #fffacd;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    body.light-mode .kidlisp-header-code .code-dollar {
+      color: #22c55e;
+      text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
+    }
+    
+    body.light-mode .kidlisp-header-code .code-name {
+      color: #15803d;
+      text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.2);
+    }
+    
+    body.light-mode .kidlisp-logo,
+    body.light-mode .baby-colors {
+      text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25);
+    }
+
+    /* Light mode: Invest section */
+    body.light-mode .invest-section {
+      background: 
+        linear-gradient(135deg, rgba(240, 253, 244, 0.95) 0%, rgba(236, 253, 245, 0.98) 100%),
+        url('https://assets.aesthetic.computer/jeffreys/jpg/IMG_2658.jpg');
+      background-size: cover, 200%;
+      background-position: center;
+      border-color: rgba(16, 185, 129, 0.3);
+      box-shadow: var(--shadow-soft);
+    }
+    
+    body.light-mode .invest-header {
+      color: var(--cyan);
+    }
+    
+    body.light-mode .invest-content {
+      color: var(--text);
+    }
+    
+    body.light-mode .invest-content a {
+      color: var(--cyan);
+      border-bottom-color: rgba(8, 145, 178, 0.4);
+    }
+    
+    body.light-mode .invest-content a:hover {
+      color: #0e7490;
+      border-bottom-color: #0e7490;
+    }
+    
+    body.light-mode .invest-suggestion {
+      background: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: var(--text);
+    }
+    
+    body.light-mode .invest-suggestion a {
+      color: var(--cyan);
+    }
+
+    /* Light mode: Module captions (all types) */
+    body.light-mode .module-caption {
+      background: rgba(255, 255, 255, 0.95) !important;
+      color: var(--text);
+    }
+    
+    body.light-mode .module-caption .highlight {
+      color: var(--gold);
+    }
+    
+    body.light-mode .cmd-highlight {
+      color: var(--pink);
+    }
+
+    /* Light mode: Chat preview boxes */
+    body.light-mode .chat-preview {
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border-color: rgba(217, 119, 6, 0.25);
+      box-shadow: var(--shadow-soft);
+    }
+    
+    body.light-mode .chat-preview-header {
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    }
+    
+    body.light-mode .chat-preview-header strong {
+      color: var(--gold);
+    }
+    
+    body.light-mode .chat-preview .module-caption {
+      background: linear-gradient(135deg, rgba(255, 251, 235, 0.95) 0%, rgba(254, 243, 199, 0.98) 100%);
+      color: var(--text);
+    }
+    
+    body.light-mode .chat-messages {
+      background: rgba(255, 255, 255, 0.9);
+    }
+    
+    body.light-mode .chat-preview .chat-msg {
+      color: var(--text);
+    }
+    
+    body.light-mode .chat-preview .chat-time {
+      color: var(--dim);
+    }
+    
+    body.light-mode .chat-preview .chat-handle {
+      color: var(--pink);
+    }
+    
+    /* Light mode: Chat system (purple theme) */
+    body.light-mode .chat-preview-system {
+      background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+      border-color: rgba(139, 92, 246, 0.25);
+      box-shadow: var(--shadow-soft);
+    }
+    
+    body.light-mode .chat-system-header {
+      background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    }
+    
+    body.light-mode .chat-system-header strong {
+      color: #7c3aed;
+    }
+    
+    body.light-mode .chat-preview-system .module-caption {
+      background: linear-gradient(135deg, rgba(245, 243, 255, 0.95) 0%, rgba(237, 233, 254, 0.98) 100%);
+      color: var(--text);
+    }
+    
+    body.light-mode .chat-preview-system .chat-messages {
+      background: rgba(255, 255, 255, 0.9);
+    }
+    
+    body.light-mode .chat-preview-system .chat-handle {
+      color: #7c3aed;
+    }
+
+    /* Light mode: Hacker card / AT Proto section - keep transparent, no shadow */
+    body.light-mode .hacker-card {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      color: var(--text);
+    }
+    
+    body.light-mode .hacker-card:hover {
+      color: var(--text);
+      box-shadow: none;
+    }
+    
+    body.light-mode .hacker-card-title {
+      color: var(--text);
+    }
+    
+    body.light-mode .hacker-card-body {
+      color: var(--text);
+    }
+    
+    body.light-mode .hacker-card-body code {
+      background: rgba(0, 0, 0, 0.06);
+      color: var(--dim);
+    }
+    
+    body.light-mode .hacker-card a {
+      color: var(--pink);
+    }
+    
+    body.light-mode .at-gray {
+      color: var(--dim);
+    }
+    
+    /* Light mode: AT handle scramble animation - gray instead of white */
+    body.light-mode .at-handle-prefix .at-char-gray {
+      animation: atCharGrayLight 1.8s steps(1) infinite;
+    }
+    
+    @keyframes atCharGrayLight {
+      0% { color: rgba(0, 0, 0, 0.35); }
+      16.6% { color: rgba(0, 0, 0, 0.5); }
+      33.3% { color: rgba(0, 0, 0, 0.4); }
+      50% { color: rgba(0, 0, 0, 0.55); }
+      66.6% { color: rgba(0, 0, 0, 0.45); }
+      83.3% { color: rgba(0, 0, 0, 0.35); }
+      100% { color: rgba(0, 0, 0, 0.35); }
+    }
+    
+    body.light-mode .hacker-section {
+      box-shadow: none;
+    }
+    
+    body.light-mode .at-table td:first-child {
+      color: var(--dim);
+    }
+    
+    body.light-mode .at-table td:last-child {
+      color: var(--text);
+    }
+    
+    /* Light mode: Back to top / pals link */
+    body.light-mode #pals {
+      color: var(--dim);
+    }
+    
+    body.light-mode #pals:hover {
+      color: var(--text);
+    }
+
+    /* Light mode: Link blocks */
+    body.light-mode .link-block {
+      background: white;
+      border-color: var(--box-border);
+    }
+    
+    body.light-mode .link-block a {
+      color: var(--cyan);
+    }
+    
+    body.light-mode .link-block .link-desc {
+      color: var(--dim);
+    }
+
+    /* Light mode: Feature modules */
+    body.light-mode .feature-module {
+      background: white;
+      border-color: var(--box-border);
+      box-shadow: var(--shadow-soft);
+    }
+    
+    body.light-mode .feature-module li {
+      color: var(--text);
+    }
+
+    /* Light mode: Apps flip card faces */
+    body.light-mode .apps-flip-face .module-caption {
+      background: rgba(255, 255, 255, 0.95);
+      color: var(--text);
+    }
+
+    /* Light mode: Shop module - thicker border */
+    body.light-mode .shop-module {
+      border: 3px solid rgba(205, 92, 155, 0.6);
+      box-shadow: var(--shadow-medium);
+    }
+    
+    /* Shop bottom caption - light background with black text, with bottom border */
+    body.light-mode .shop-section .module-caption {
+      background: rgba(255, 255, 255, 0.95);
+      color: rgba(0, 0, 0, 0.6);
+      border-bottom: 3px solid rgba(205, 92, 155, 0.6);
+    }
+    
+    /* Shop title (top left "shop") - keep white with shadow */
+    body.light-mode .shop-title {
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6), 0 0 8px rgba(0,0,0,0.4);
+    }
+    
+    body.light-mode .shop-title:hover {
+      color: var(--pink);
+    }
+    
+    /* Shop progress bar - light gray track with pink progress for light mode */
+    body.light-mode .shop-auto-progress {
+      background: rgba(200, 200, 200, 0.3);
+    }
+    
+    body.light-mode .shop-auto-progress-bar {
+      background: rgba(205, 92, 155, 0.7);
+    }
+
+    /* Light mode: Tapes/TV section */
+    body.light-mode .tapes-section {
+      background: white;
+      border-color: var(--box-border);
+    }
+    
+    body.light-mode .tapes-section .module-caption {
+      background: rgba(255, 255, 255, 0.95);
+      color: var(--text);
+    }
+    
+    /* Light mode: TV section with light letterbox */
+    body.light-mode .tv-section {
+      background: #e8e8e8;
+      box-shadow: 
+        -2px 0 0 rgba(205, 92, 155, 0.5),
+        2px 0 0 rgba(8, 145, 178, 0.5),
+        0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    body.light-mode .tv-section .module-caption {
+      background: #e8e8e8;
+      color: var(--text);
+    }
+    
+    body.light-mode .tv-player {
+      background: #e8e8e8;
+    }
+
+    /* Light mode: Floating gives - no background, just readable text */
+    body.light-mode .floating-give {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9), 0 0 8px rgba(255, 255, 255, 0.7);
+      box-shadow: none;
+    }
+    
+    body.light-mode .floating-give .amount {
+      color: var(--green);
+    }
+    
+    body.light-mode .floating-give .note {
+      color: var(--gold);
+    }
+
+    /* Light mode: Scrollbar - ensure visible */
+    body.light-mode {
+      scrollbar-width: auto;
+      -ms-overflow-style: auto;
+    }
+    
+    body.light-mode::-webkit-scrollbar {
+      display: block;
+      width: 10px;
+    }
+    
+    body.light-mode::-webkit-scrollbar-track {
+      background: var(--bg);
+    }
+    
+    body.light-mode::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 5px;
+    }
+    
+    body.light-mode::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 0, 0, 0.35);
+    }
+
+    /* Light mode: Input fields */
+    body.light-mode input[type="text"],
+    body.light-mode input[type="email"],
+    body.light-mode textarea {
+      background: white;
+      border-color: var(--box-border);
+      color: var(--text);
+    }
+    
+    body.light-mode input[type="text"]:focus,
+    body.light-mode input[type="email"]:focus,
+    body.light-mode textarea:focus {
+      border-color: var(--pink);
+      outline: none;
+    }
+
+    /* Light mode: Platform download buttons - black text */
+    body.light-mode .desktop-platform-btn .plat-name {
+      color: #111;
+    }
+    
+    body.light-mode .desktop-platform-btn .plat-icon svg {
+      fill: #111;
+    }
+    
+    body.light-mode .desktop-platform-btn .plat-arch {
+      color: #555;
+    }
+    
+    body.light-mode .desktop-platform-btn:hover .plat-name {
+      color: #000;
+    }
+    
+    /* Light mode: Ableton link - black text/icon */
+    body.light-mode .desktop-ableton-link .ableton-icon {
+      color: #111;
+    }
+    
+    body.light-mode .desktop-ableton-link .ableton-label {
+      color: #111;
+    }
+    
+    /* Light mode: Thanks section */
+    body.light-mode .thanks-section {
+      background: var(--bg);
+    }
+    
+    body.light-mode .thanks-canvas {
+      border-color: var(--pink);
+      box-shadow: 
+        0 0 20px rgba(205, 92, 155, 0.3),
+        0 0 40px rgba(205, 92, 155, 0.15),
+        0 8px 32px rgba(0, 0, 0, 0.15);
+    }
+    
+    body.light-mode .thanks-canvas:hover {
+      box-shadow: 
+        0 0 30px rgba(205, 92, 155, 0.5),
+        0 0 60px rgba(205, 92, 155, 0.25),
+        0 12px 48px rgba(0, 0, 0, 0.2);
+    }
+    
+    body.light-mode .thanks-message {
+      color: var(--text);
+    }
+    
+    body.light-mode .thanks-amount {
+      color: var(--green);
+    }
+    
+    body.light-mode .thanks-again {
+      background: white;
+      border-color: var(--box-border);
+      color: var(--cyan);
+    }
+    
+    body.light-mode .thanks-again:hover {
+      background: var(--cyan);
+      color: white;
+    }
+    
+    body.light-mode .thanks-share {
+      background: white;
+      border: 1px solid var(--box-border);
+      color: var(--text);
+    }
+    
+    body.light-mode .thanks-share:hover {
+      background: #1da1f2;
+      border-color: #1da1f2;
+      color: white;
+    }
+
+    /* Respect user's system preference */
+    @media (prefers-color-scheme: light) {
+      body:not(.dark-mode) {
+        --bg: #f5f5f5;
+        --text: #1a1a2e;
+        --dim: #666;
+        --pink: rgb(205, 92, 155);
+        --cyan: #0891b2;
+        --gold: #d97706;
+        --green: #059669;
+        --box-bg: rgba(0,0,0,0.03);
+        --box-border: rgba(0,0,0,0.12);
+        --shadow-soft: 0 2px 8px rgba(0,0,0,0.08);
+        --shadow-medium: 0 4px 16px rgba(0,0,0,0.12);
+        --input-bg: white;
+        --slider-track: linear-gradient(90deg, #f87171, #fbbf24, #22d3ee, #f472b6, #60a5fa, #8b5cf6, #06b6d4);
+      }
+    }
   </style>
 </head>
 
@@ -5842,6 +6701,9 @@
           <div class="lang-option" data-lang="zh">🇨🇳 中文</div>
         </div>
       </div>
+      <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
+        <span class="theme-icon">🌙</span>
+      </button>
     </div>
     <div class="currency-links" id="currSelector">
       <span class="curr-link active" data-curr="usd"><span class="curr-flag">💵</span><span class="curr-text">USD</span></span>
@@ -6514,6 +7376,55 @@
         headerLink.href = kidlispUrl;
       }
     });
+    
+    // ====== Theme Toggle (Light/Dark Mode) ======
+    (function() {
+      const THEME_KEY = 'give-theme-preference';
+      const toggle = document.getElementById('themeToggle');
+      const icon = toggle?.querySelector('.theme-icon');
+      
+      // Determine initial theme from: 1) localStorage, 2) system preference
+      function getPreferredTheme() {
+        const stored = localStorage.getItem(THEME_KEY);
+        if (stored) return stored;
+        return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      }
+      
+      function setTheme(theme) {
+        if (theme === 'light') {
+          document.body.classList.add('light-mode');
+          document.body.classList.remove('dark-mode');
+          if (icon) icon.textContent = '☀️';
+          if (toggle) toggle.title = 'Switch to dark mode';
+        } else {
+          document.body.classList.remove('light-mode');
+          document.body.classList.add('dark-mode');
+          if (icon) icon.textContent = '🌙';
+          if (toggle) toggle.title = 'Switch to light mode';
+        }
+        localStorage.setItem(THEME_KEY, theme);
+      }
+      
+      // Initialize on page load
+      setTheme(getPreferredTheme());
+      
+      // Toggle on click
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const currentTheme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+          setTheme(currentTheme === 'light' ? 'dark' : 'light');
+        });
+      }
+      
+      // Listen for system theme changes
+      window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+        // Only auto-switch if user hasn't manually set a preference
+        const stored = localStorage.getItem(THEME_KEY);
+        if (!stored) {
+          setTheme(e.matches ? 'light' : 'dark');
+        }
+      });
+    })();
     
     // ====== A/B/C/D/E Test: Starting Price ======
     // Monthly options (60% total): D: $8/mo (30%), E: $2/mo (30%)

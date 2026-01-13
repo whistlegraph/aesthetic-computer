@@ -16074,7 +16074,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     buildOverlay("durationProgressBar", content.durationProgressBar);
     buildOverlay("durationTimecode", content.durationTimecode);
     buildOverlay("hitboxDebug", content.hitboxDebug); // Debug overlay for HUD hitbox visualization
-    buildOverlay("lanBadge", content.lanBadge); // 🔗 LAN mode development badge
     
     // Debug: Log overlay data reception
     if (content.durationTimecode) {
@@ -16355,11 +16354,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Paint hitbox debug overlay immediately if debug is enabled
         if (!skipImmediateOverlays && paintOverlays["hitboxDebug"]) {
           paintOverlays["hitboxDebug"]();
-        }
-
-        // 🔗 Paint LAN badge overlay for dev mode
-        if (!skipImmediateOverlays && paintOverlays["lanBadge"]) {
-          paintOverlays["lanBadge"]();
         }
 
         // Paint merry progress bar immediately (at the top, green theme)
