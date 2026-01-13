@@ -2476,14 +2476,11 @@ async function generateMosaicOGImage(topPieces) {
       </svg>
     `);
     
-    // Create floating $codes overlay (limegreen like kidlisp.com syntax highlighting)
-    const floatingCodes = createFloatingCodesOverlay(width, height, pieces.map(p => p.code));
-    
-    const brandingOverlay = createKidLispBranding(width, height);
+    // Use Puppeteer for branding + floating codes to get proper Comic Relief font rendering
+    const brandingOverlay = await createKidLispBrandingWithPuppeteer(width, height, pieces.map(p => p.code));
     mosaic = await sharp(mosaic)
       .composite([
         { input: darkOverlay, gravity: 'center' },
-        { input: floatingCodes, gravity: 'center' },
         { input: brandingOverlay, gravity: 'center' },
       ])
       .png()
@@ -2635,7 +2632,144 @@ function createFloatingCodesOverlay(width, height, codes) {
 }
 
 /**
- * Create large KidLisp.com branding overlay with Comic Relief font
+ * Create large KidLisp.com branding overlay using Puppeteer for proper font rendering
+ * This uses an HTML page with Google Fonts to ensure Comic Relief loads correctly
+ */
+async function createKidLispBrandingWithPuppeteer(width, height, codes = []) {
+  // KidLisp letter colors from pixel.js
+  const letterColors = {
+    'K': '#FF6B6B', 'i1': '#4ECDC4', 'd': '#FFE66D', 
+    'L': '#95E1D3', 'i2': '#F38181', 's': '#AA96DA', 'p': '#70D6FF',
+    '.': '#95E1D3', 'c': '#AA96DA', 'o': '#AA96DA', 'm': '#AA96DA',
+  };
+  
+  const letters = [
+    { char: 'K', color: letterColors['K'] },
+    { char: 'i', color: letterColors['i1'] },
+    { char: 'd', color: letterColors['d'] },
+    { char: 'L', color: letterColors['L'] },
+    { char: 'i', color: letterColors['i2'] },
+    { char: 's', color: letterColors['s'] },
+    { char: 'p', color: letterColors['p'] },
+    { char: '.', color: letterColors['.'] },
+    { char: 'c', color: letterColors['c'] },
+    { char: 'o', color: letterColors['o'] },
+    { char: 'm', color: letterColors['m'] },
+  ];
+  
+  const letterSpans = letters.map(l => `<span style="color: ${l.color}">${l.char}</span>`).join('');
+  
+  // Generate floating codes HTML with seeded random positions
+  const seed = codes.join('').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const seededRandom = (i) => {
+    const x = Math.sin(seed + i * 9999) * 10000;
+    return x - Math.floor(x);
+  };
+  
+  const cols = 6;
+  const rows = 5;
+  const cellWidth = (width + 100) / cols;
+  const cellHeight = (height + 80) / rows;
+  const numCodes = cols * rows;
+  
+  let floatingCodesHtml = '';
+  for (let i = 0; i < numCodes; i++) {
+    const code = codes[i % codes.length] || 'abc';
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    
+    const baseX = col * cellWidth - 50 + cellWidth / 2;
+    const baseY = row * cellHeight - 40 + cellHeight / 2;
+    const jitterX = (seededRandom(i * 5) - 0.5) * cellWidth * 0.4;
+    const jitterY = (seededRandom(i * 5 + 1) - 0.5) * cellHeight * 0.3;
+    const x = baseX + jitterX;
+    const y = baseY + jitterY;
+    const rotation = (seededRandom(i * 5 + 2) - 0.5) * 16;
+    const scale = 0.7 + seededRandom(i * 5 + 3) * 0.8;
+    const opacity = 0.2 + seededRandom(i * 5 + 4) * 0.25;
+    const fontSize = 42 * scale;
+    
+    floatingCodesHtml += `
+      <div class="floating-code" style="
+        left: ${x}px;
+        top: ${y}px;
+        font-size: ${fontSize}px;
+        opacity: ${opacity};
+        transform: rotate(${rotation}deg);
+      "><span class="dollar">$</span><span class="code">${code}</span></div>
+    `;
+  }
+  
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: ${width}px;
+      height: ${height}px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      position: relative;
+      overflow: hidden;
+    }
+    .floating-code {
+      position: absolute;
+      font-family: 'Comic Relief', cursive;
+      font-weight: 700;
+      white-space: nowrap;
+      text-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+    }
+    .floating-code .dollar {
+      color: #00ff88;
+    }
+    .floating-code .code {
+      color: limegreen;
+    }
+    .branding {
+      font-family: 'Comic Relief', cursive;
+      font-size: 160px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-shadow: 8px 8px 0 #000;
+      position: relative;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  ${floatingCodesHtml}
+  <div class="branding">${letterSpans}</div>
+</body>
+</html>`;
+
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  
+  try {
+    await page.setViewport({ width, height, deviceScaleFactor: 1 });
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    
+    // Wait for font to load
+    await page.evaluate(() => document.fonts.ready);
+    await new Promise(r => setTimeout(r, 500)); // Extra time for font render
+    
+    const screenshot = await page.screenshot({ 
+      type: 'png',
+      omitBackground: true // Transparent background
+    });
+    
+    return screenshot;
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Create large KidLisp.com branding overlay with Comic Relief font (SVG fallback)
  */
 function createKidLispBranding(width, height) {
   // KidLisp letter colors from pixel.js
