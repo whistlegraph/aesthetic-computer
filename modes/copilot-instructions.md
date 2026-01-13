@@ -295,6 +295,45 @@ The CDP tunnel forwards localhost:9333 to host's VS Code for remote control:
 - **`ac-cdp-status`** — check if tunnel is running and port accessible
 - Artery TUI header shows CDP status (● online / ○ offline)
 
+## Desktop App Releases 🖥️
+
+The Electron desktop app lives in `ac-electron/`. When user says **"build and release the desktop app"**:
+
+### Full Release Process
+```bash
+# 1. Bump version in package.json
+cd ac-electron
+# Edit package.json version (e.g., 0.1.11 -> 0.1.12)
+
+# 2. Commit changes
+git add ac-electron/
+git commit -m "v0.1.12: Description of changes"
+
+# 3. Tag and push (triggers GitHub Actions build)
+git tag v0.1.12
+git push origin main
+git push origin v0.1.12
+
+# 4. Wait for build (~5 min), then verify
+gh run list --workflow=electron-release.yml --limit 1
+
+# 5. Verify release is published (not draft)
+gh release view v0.1.12
+```
+
+### Key Files
+- **Main process**: `ac-electron/main.js`
+- **Renderers**: `ac-electron/renderer/flip-view.html` (main), `development.html`
+- **Preload**: `ac-electron/preload.js`
+- **Build config**: `ac-electron/package.json` (electron-builder section)
+- **Workflow**: `.github/workflows/electron-release.yml`
+
+### Notes
+- Workflow uses `--publish always` — releases are published automatically (not drafts)
+- Auto-updater yml files (`latest-mac.yml`, `latest.yml`, `latest-linux.yml`) are generated
+- The app does NOT stop the devcontainer on quit — it keeps running for VS Code
+- `+` in prompt opens new window, `-` closes current window
+
 ## KidLisp.com Development 🎨
 
 ### Quick Start (Artery TUI)
