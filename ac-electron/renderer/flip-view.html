@@ -1341,12 +1341,23 @@
       });
     });
     
-    // Keyboard shortcut
+    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
+      // Tab to toggle flip
       if (e.key === 'Tab') {
         console.log('[flip] Tab key pressed');
         e.preventDefault();
         toggle();
+      }
+      // Cmd+Shift+I to open webview devtools
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'i') {
+        e.preventDefault();
+        console.log('[flip] Opening webview DevTools');
+        if (webviewEl.isDevToolsOpened()) {
+          webviewEl.closeDevTools();
+        } else {
+          webviewEl.openDevTools();
+        }
       }
     });
     
