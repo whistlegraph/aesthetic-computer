@@ -1298,6 +1298,15 @@
       display: inline-block;
     }
     
+    /* Color coding for $code: $ is light green, code is darker green */
+    #preview-title .code-display .code-char.dollar {
+      color: limegreen;
+      font-weight: bold;
+    }
+    #preview-title .code-display .code-char.code {
+      color: lime;
+    }
+    
     /* Stagger animation delay for each character */
     #preview-title .code-display .code-char:nth-child(1) { animation-delay: 0ms; }
     #preview-title .code-display .code-char:nth-child(2) { animation-delay: 30ms; }
@@ -9467,19 +9476,20 @@
           const charSettled = i < targetText.length && (iterations > maxIterations - 3 + i * 0.5);
           
           if (charSettled || iterations >= maxIterations) {
-            // Show final character
+            // Show final character with color class ($ is dollar class, rest are code class)
             if (i < targetText.length) {
-              result += `<span class="code-char">${targetChar}</span>`;
+              const colorClass = (i === 1) ? 'dollar' : (i > 1) ? 'code' : '';
+              result += `<span class="code-char${colorClass ? ' ' + colorClass : ''}">${targetChar}</span>`;
             }
           } else {
             // Show random scramble character (keep / and $ stable)
             if (i === 0) {
               result += `<span class="code-char">/</span>`;
             } else if (i === 1) {
-              result += `<span class="code-char">$</span>`;
+              result += `<span class="code-char dollar">$</span>`;
             } else {
               const randChar = scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
-              result += `<span class="code-char">${randChar}</span>`;
+              result += `<span class="code-char code">${randChar}</span>`;
             }
           }
         }
@@ -9785,7 +9795,7 @@
               updateURLForCode(code);
               // Update preview pane title (no animation for initial load)
               const previewTitle = document.getElementById('preview-title');
-              const codeChars = `/$${code}`.split('').map(c => `<span class="code-char">${c}</span>`).join('');
+              const codeChars = `/$${code}`.split('').map((c, i) => `<span class="code-char${i === 1 ? ' dollar' : i > 1 ? ' code' : ''}">${c}</span>`).join('');
               previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">${codeChars}</span>`;
             }
           } else {
@@ -9803,7 +9813,7 @@
           updateURLForCode(savedCode);
           // Update preview pane title (no animation for restore)
           const previewTitle = document.getElementById('preview-title');
-          const codeChars = `/$${savedCode}`.split('').map(c => `<span class="code-char">${c}</span>`).join('');
+          const codeChars = `/$${savedCode}`.split('').map((c, i) => `<span class="code-char${i === 1 ? ' dollar' : i > 1 ? ' code' : ''}">${c}</span>`).join('');
           previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">${codeChars}</span>`;
         }
       }
@@ -13313,7 +13323,7 @@
                   localStorage.setItem('kidlisp-current-code', item.code);
                   // Update preview pane title (no animation for selection)
                   const previewTitle = document.getElementById('preview-title');
-                  const codeChars = `/$${item.code}`.split('').map(c => `<span class="code-char">${c}</span>`).join('');
+                  const codeChars = `/$${item.code}`.split('').map((c, i) => `<span class="code-char${i === 1 ? ' dollar' : i > 1 ? ' code' : ''}">${c}</span>`).join('');
                   previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">${codeChars}</span>`;
                 }
                 updatePreview();
