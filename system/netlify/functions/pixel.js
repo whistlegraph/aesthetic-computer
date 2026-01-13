@@ -304,7 +304,7 @@ async function fun(event, context) {
               'K': '#FF6B6B', 'd': '#FFE66D', 'L': '#95E1D3',
               's': '#AA96DA', 'p': '#70D6FF',
               '.': '#95E1D3', // Green dot
-              'c': '#AA96DA', 'o': '#AA96DA', 'm': '#AA96DA', // com in purple
+              'c': '#FF6B6B', 'o': '#9370DB', 'm': '#90EE90', // com matches play/stop/delete buttons
               '$': '#FFE66D', // Dollar sign in yellow
               '/': '#888888', // Slash in grey
             };
