@@ -233,6 +233,7 @@ let motdFrame = 0; // Animation frame counter for MOTD effects (time-based)
 let lastMotdTime = 0; // Timestamp for MOTD animation
 let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
 let versionInfo = null; // { deployed, latest, status, behindBy } - git commit status
+let versionBox = null; // Clickable region for version text -> GitHub commit
 
 // Multilingual "Prompt" translations cycling
 const promptTranslations = [
@@ -6053,21 +6054,16 @@ function paint($) {
       }
     }
 
-    // Handle Stats - positioned directly under login button
+    // Handle Stats - always at bottom of screen
     if (handles && screen.height >= 100) {
-      // Position directly under the login button
-      let handlesY = screen.height - 28; // Default bottom position (moved up for version indicator)
-
-      if (login && !login.btn.disabled && login.btn.box) {
-        // Position directly under login button with extra spacing
-        handlesY = login.btn.box.y + login.btn.box.h + 8; // 8px gap below button (moved down)
-      }
+      // Always position at bottom of screen
+      const handlesY = screen.height - 28; // Bottom position (moved up for version indicator)
 
       // Use MatrixChunky8 font for more compact display, centered
       const handlesText = `${handles.toLocaleString()} HANDLES SET`;
 
-      // Shadow color (black in dark mode, dark gray in light mode for contrast)
-      const handlesShadowColor = $.dark ? [0, 0, 0] : [60, 60, 60];
+      // Shadow color (black in dark mode, light in light mode for contrast with blue text)
+      const handlesShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255, 180];
 
       // Draw shadow first (offset by 1px) - noFunding to prevent $ replacement
       ink(...handlesShadowColor).write(
@@ -6120,21 +6116,21 @@ function paint($) {
         let versionText, versionColor;
 
         if (versionInfo.status === "current") {
-          versionColor = [0, 255, 0]; // Green
+          versionColor = $.dark ? [0, 255, 0] : [0, 140, 0]; // Green (darker in light mode)
           versionText = `OK ${versionInfo.deployed}`;
         } else if (versionInfo.status === "behind") {
-          versionColor = [255, 165, 0]; // Orange
+          versionColor = $.dark ? [255, 165, 0] : [180, 100, 0]; // Orange (darker in light mode)
           versionText = `+${versionInfo.behindBy} ${versionInfo.latest} (${versionInfo.deployed})`;
         } else if (versionInfo.status === "local") {
-          versionColor = [100, 200, 255]; // Light blue for local dev
+          versionColor = $.dark ? [100, 200, 255] : [0, 100, 180]; // Blue (darker in light mode)
           versionText = versionInfo.latest ? `DEV -> ${versionInfo.latest}` : `DEV`;
         } else {
-          versionColor = [128, 128, 128]; // Gray for unknown
+          versionColor = $.dark ? [128, 128, 128] : [80, 80, 80]; // Gray (darker in light mode)
           versionText = `? ${versionInfo.deployed || "unknown"}`;
         }
 
-        // Shadow (dark in both modes for readability)
-        const versionShadowColor = $.dark ? [0, 0, 0] : [40, 40, 40];
+        // Shadow (black in dark mode, light in light mode for contrast)
+        const versionShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255, 180];
         ink(...versionShadowColor).write(
           versionText,
           { center: "x", y: versionY + 1, noFunding: true },
@@ -6144,8 +6140,8 @@ function paint($) {
           "MatrixChunky8"
         );
 
-        // Main text
-        ink(...versionColor).write(
+        // Main text - store box for click handling
+        const versionTextBox = ink(...versionColor).write(
           versionText,
           { center: "x", y: versionY, noFunding: true },
           undefined,
@@ -6153,7 +6149,34 @@ function paint($) {
           false,
           "MatrixChunky8"
         );
+
+        // Store box for click detection (add padding)
+        if (versionTextBox) {
+          const commitHash = versionInfo.deployed || versionInfo.latest;
+          if (commitHash && commitHash !== "unknown" && commitHash !== "dev") {
+            versionBox = {
+              x: versionTextBox.x - 2,
+              y: versionTextBox.y - 1,
+              w: versionTextBox.width + 4,
+              h: versionTextBox.height + 2,
+              commit: commitHash
+            };
+            // Draw subtle underline to indicate clickable
+            ink(...versionColor, 100).box(
+              versionTextBox.x,
+              versionTextBox.y + versionTextBox.height,
+              versionTextBox.width,
+              1
+            );
+          } else {
+            versionBox = null;
+          }
+        }
+      } else {
+        versionBox = null;
       }
+    } else {
+      versionBox = null;
     }
 
     // MOTD (Mood of the Day) - show above login/signup buttons with animation
@@ -6327,8 +6350,10 @@ function paint($) {
       }
     }
 
+    // 🎭 MASTHEAD DECORATIONS (commented out)
     // 😡😢😭 Emotional face stamp - cycles through angry, sad, crying
     // Show during funding effects (yikes/critical) or in winter (Dec, Jan, Feb)
+    /*
     const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
     const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
     if ((showFundingEffects || isWinter) && screen.height >= 120) {
@@ -6639,6 +6664,7 @@ function paint($) {
         }
       }
     }
+    */
   }
 
   // Paint UI Buttons
@@ -7436,7 +7462,17 @@ function act({
     });
   }
 
-  // �🔷 Tezos wallet button - navigate to wallet piece
+  // 📦 Version box click - open GitHub commit page
+  if (versionBox && e.is("touch")) {
+    const inBox = e.x >= versionBox.x && e.x <= versionBox.x + versionBox.w &&
+                  e.y >= versionBox.y && e.y <= versionBox.y + versionBox.h;
+    if (inBox && versionBox.commit) {
+      pushSound();
+      jump(`out:https://github.com/whistlegraph/aesthetic-computer/commit/${versionBox.commit}`);
+    }
+  }
+
+  // 🔷 Tezos wallet button - navigate to wallet piece
   if (walletBtn && !walletBtn.btn.disabled) {
     walletBtn.btn.act(e, {
       down: () => downSound(),
