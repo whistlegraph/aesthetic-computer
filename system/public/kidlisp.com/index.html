@@ -1678,16 +1678,31 @@
     
     #preview-title .bounce-dot {
       font-weight: 900;
-      font-size: 1.4em; /* Slightly smaller dot */
-      text-shadow: 0 0 8px rgba(205, 92, 155, 0.8), 0 0 16px rgba(205, 92, 155, 0.5); /* Glowing effect */
-      margin: 0 3px; /* Space between words */
+      font-size: 1.5em; /* Larger dot for visibility */
+      text-shadow: 1px 0 0 currentColor; /* Faux bold/doubled up effect */
+      margin: 0 2px;
       color: rgb(205, 92, 155); /* AC Purple */
       transition: color 0.3s ease, text-shadow 0.3s ease;
       display: inline-block;
-      line-height: 0.5; /* Move dot up more */
+      line-height: 0.6; /* Adjust vertical position */
       vertical-align: middle;
       position: relative;
-      top: -2px; /* Fine-tune vertical position */
+      top: 0.5px; /* Half pixel lower */
+    }
+    
+    /* Rainbow letter animation during boot */
+    #preview-title .title-letter {
+      display: inline;
+      transition: color 0.15s ease, text-shadow 0.15s ease;
+    }
+    
+    #preview-title.booting .title-letter {
+      animation: rainbowFlicker 0.1s ease-in-out infinite;
+    }
+    
+    @keyframes rainbowFlicker {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.85; }
     }
     
     /* State-based bounce-dot colors: running=green, paused=yellow, stopped=red */
@@ -6499,7 +6514,7 @@
       <div class="preview-panel" id="preview-panel" style="display: flex; flex-direction: column;">
         <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
           <div id="platform-selector" class="platform-selector">
-            <span id="preview-title"><span class="title-full">Aesthetic</span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full">Computer</span><span class="title-short">AC</span></span>
+            <span id="preview-title" class="booting"><span class="title-full"><span class="title-letter">A</span><span class="title-letter">e</span><span class="title-letter">s</span><span class="title-letter">t</span><span class="title-letter">h</span><span class="title-letter">e</span><span class="title-letter">t</span><span class="title-letter">i</span><span class="title-letter">c</span></span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full"><span class="title-letter">C</span><span class="title-letter">o</span><span class="title-letter">m</span><span class="title-letter">p</span><span class="title-letter">u</span><span class="title-letter">t</span><span class="title-letter">e</span><span class="title-letter">r</span></span><span class="title-short">AC</span></span>
             <span class="platform-arrow">▼</span>
             <div class="platform-dropdown" id="platform-dropdown">
               <div class="platform-option active" data-platform="aesthetic-computer">
@@ -9283,6 +9298,53 @@
     const previewIframe = document.getElementById('preview-iframe');
     const bootScreen = document.getElementById('boot-screen');
     
+    // Rainbow title animation during boot (like KidLisp baby-colors)
+    const titleEl = document.getElementById('preview-title');
+    const rainbowColors = ['#FF7096', '#FFB870', '#FFEA70', '#8AFF8A', '#70D6FF', '#C596FF', '#FF96C5'];
+    let rainbowAnimationId = null;
+    
+    function animateRainbowTitle() {
+      if (!titleEl) return;
+      const letters = titleEl.querySelectorAll('.title-letter');
+      if (letters.length === 0) return;
+      
+      letters.forEach((letter, i) => {
+        const colorIndex = Math.floor(Math.random() * rainbowColors.length);
+        const color = rainbowColors[colorIndex];
+        letter.style.color = color;
+        // Add subtle glow matching the color
+        const rgb = color.match(/\w\w/g);
+        if (rgb) {
+          const r = parseInt(rgb[0], 16);
+          const g = parseInt(rgb[1], 16);
+          const b = parseInt(rgb[2], 16);
+          letter.style.textShadow = `0 0 8px rgba(${r}, ${g}, ${b}, 0.6)`;
+        }
+      });
+      
+      // Continue animating every 80ms
+      rainbowAnimationId = setTimeout(animateRainbowTitle, 80);
+    }
+    
+    function stopRainbowTitle() {
+      if (rainbowAnimationId) {
+        clearTimeout(rainbowAnimationId);
+        rainbowAnimationId = null;
+      }
+      if (titleEl) {
+        titleEl.classList.remove('booting');
+        // Reset to default color
+        const letters = titleEl.querySelectorAll('.title-letter');
+        letters.forEach(letter => {
+          letter.style.color = '';
+          letter.style.textShadow = '';
+        });
+      }
+    }
+    
+    // Start rainbow animation immediately
+    animateRainbowTitle();
+    
     // Track if iframe is ready (set when iframe sends ready signal)
     let iframeReady = false;
     
@@ -10861,6 +10923,8 @@
           clearTimeout(fallbackTimeout);
           fallbackTimeout = null;
         }
+        // Stop rainbow title animation
+        stopRainbowTitle();
         // Give a moment to see the final message before hiding
         setTimeout(() => {
           bootScreen.classList.add('hidden');
@@ -10873,6 +10937,7 @@
       if (!bootComplete && !hasReceivedLogs) {
         fallbackTimeout = setTimeout(() => {
           bootScreen.classList.add('hidden');
+          stopRainbowTitle(); // Also stop on fallback
         }, 1500);
       }
     });
@@ -12751,7 +12816,9 @@
     
     // Global helper to generate platform title HTML with short/full variants for responsive collapse
     function getACTitleHTML(codeChars = '') {
-      return `<span class="title-full">Aesthetic</span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full">Computer</span><span class="title-short">AC</span><span class="code-display">${codeChars}</span>`;
+      // Wrap each letter in spans for rainbow animation during boot
+      const wrapLetters = (word) => word.split('').map(c => `<span class="title-letter">${c}</span>`).join('');
+      return `<span class="title-full">${wrapLetters('Aesthetic')}</span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full">${wrapLetters('Computer')}</span><span class="title-short">AC</span><span class="code-display">${codeChars}</span>`;
     }
     
     // Helper to generate platform title HTML (with logo for FF1, short/full for AC)
