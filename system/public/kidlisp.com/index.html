@@ -13481,10 +13481,11 @@
         }, aestheticUrl);
       }
       
-      // Reset state
+      // Reset state - including auto-play flag to prevent re-triggering
       isPlaying = false;
       isPaused = false;
       isSoftStopped = false; // Clear soft-stopped state on full stop
+      shouldAutoPlay = false; // IMPORTANT: prevent auto-play from re-triggering
       lastCode = '';
       sendButton.classList.remove('playing');
       sendButton.classList.remove('paused'); // Remove yellow outline on stop
