@@ -1639,7 +1639,7 @@
     #preview-title {
       font-family: 'YWFTProcessing-Regular', monospace;
       font-weight: bold;
-      font-size: 16px; /* Smaller text */
+      font-size: 17px; /* Slightly larger text */
       color: rgb(88, 78, 108); /* Muted purple text */
       margin-left: 0px; /* Reset margin */
       display: inline-flex;
@@ -1649,6 +1649,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;
+      letter-spacing: -0.02em; /* Tighter letter spacing */
     }
     
     #preview-title .platform-logo {
@@ -1677,14 +1678,16 @@
     
     #preview-title .bounce-dot {
       font-weight: 900;
-      font-size: 1.5em; /* Larger dot for visibility */
+      font-size: 1.4em; /* Slightly smaller dot */
       text-shadow: 1px 0 0 currentColor; /* Faux bold/doubled up effect */
-      margin: 0 2px;
+      margin: 0 0px; /* Tighter spacing around dot */
       color: rgb(205, 92, 155); /* AC Purple */
       transition: color 0.3s ease, text-shadow 0.3s ease;
       display: inline-block;
-      line-height: 0.6; /* Adjust vertical position */
+      line-height: 0.5; /* Move dot up more */
       vertical-align: middle;
+      position: relative;
+      top: -2px; /* Fine-tune vertical position */
     }
     
     /* State-based bounce-dot colors: running=green, paused=yellow, stopped=red */
