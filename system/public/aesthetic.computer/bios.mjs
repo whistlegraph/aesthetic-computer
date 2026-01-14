@@ -4219,6 +4219,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           keyboard: keyboard.events,
           gamepad: gamepad.events,           // Keep for backwards compat
           gamepads: gamepad.eventsByGamepad, // NEW: Separate streams per gamepad
+          paused: window.__acLoopPaused || false, // Send loop paused state to worker
           // clipboardText: pastedText,
         },
       },
