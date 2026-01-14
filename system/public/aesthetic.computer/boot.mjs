@@ -1250,13 +1250,13 @@ function receive(event) {
     window.acCLEAR_BAKE_LAYERS?.(); // Clear bake layers on stop
     return;
   } else if (event.data?.type === "kidlisp-stop") {
-    // Full stop - just clear the state, don't reload anything
-    // The kidlisp.com boot screen overlay will cover the iframe
+    window.acRESUME?.(); // Ensure we are running so we can load the empty piece.
+    // Clear tracked kidlisp code when stopping
     window.__acCurrentKidlispCode = null;
-    // Notify kidlisp.com that we stopped (so it can show boot screen)
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: 'kidlisp-stopped' }, '*');
-    }
+    window.acSEND({
+      type: "piece-reload",
+      content: { source: "kidlisp", createCode: false }
+    });
     return;
   } else if (event.data?.type === "kidlisp-ping") {
     // Respond to ping requests from kidlisp.com to confirm we're ready
