@@ -15345,8 +15345,8 @@
               source: item.source || item.code,
               assetUrl: item.assetUrl || item.thumbnail || null,
               hits: item.hits || 0,
-              owner: item.owner || item.handle || null,
-              ts: item.createdAt ? Date.parse(item.createdAt) : null,
+              owner: item.owner?.handle || item.handle || null,
+              ts: item.when ? Date.parse(item.when) : null,
             }));
           
           renderCodeList({
@@ -15357,7 +15357,7 @@
             tickerAnimation: true,
             showHits: true,
             showOwner: true,
-            showTimeAgo: true,
+            showTimestamp: true,
           });
           
           examplesLoaded = true;
@@ -15496,7 +15496,9 @@
       
       // Build metadata lines
       const codeLabel = item.code ? `$${item.code}` : 'draft';
-      const ownerText = showOwner && item.owner ? ` by @${item.owner}` : '';
+      // Handle already includes @ prefix from API, so strip it if present to avoid @@
+      const ownerClean = item.owner ? item.owner.replace(/^@/, '') : null;
+      const ownerText = showOwner && ownerClean ? ` by @${ownerClean}` : '';
       const handleText = item.handle ? item.handle : '';
       
       let timeLine = '';
@@ -15694,8 +15696,8 @@
             source: r.source || '',
             assetUrl: r.assetUrl || r.thumbnail || null,
             hits: r.hits || 0,
-            owner: r.owner || r.handle || null,
-            ts: r.createdAt ? Date.parse(r.createdAt) : Date.now()
+            owner: r.owner?.handle || r.handle || null,
+            ts: r.when ? Date.parse(r.when) : Date.now()
           }));
           writeLocalHistory(mapped);
           renderHistory(mapped, { loggedIn: true });
@@ -15782,8 +15784,8 @@
           source: r.source || '',
           assetUrl: r.assetUrl || r.thumbnail || null,
           hits: r.hits || 0,
-          owner: r.owner || r.handle || null,
-          ts: r.createdAt ? Date.parse(r.createdAt) : Date.now()
+          owner: r.owner?.handle || r.handle || null,
+          ts: r.when ? Date.parse(r.when) : Date.now()
         }));
         mapped.sort((a, b) => (b.ts || 0) - (a.ts || 0));
         
