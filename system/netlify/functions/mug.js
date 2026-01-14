@@ -84,12 +84,44 @@ export async function handler(event, context) {
       productCode = productCode.replace(/^\+/, "");
       
       const { getProduct } = await import("../../backend/products.mjs");
+      const { connect } = await import("../../backend/database.mjs");
       const product = await getProduct(productCode);
       if (product) {
+        // Determine the painting slug (for pixel URLs) and short code (for display)
+        // New products have source.slug (slug) and source.code (short code)
+        // Old products only have source.code (which is the slug)
+        let paintingSlug = product.source?.slug || product.source?.code;
+        let paintingShortCode = product.source?.slug ? product.source?.code : null;
+        
+        // If we don't have a short code yet, try to look it up from the paintings collection
+        if (!paintingShortCode && product.source?.type === "painting" && paintingSlug) {
+          try {
+            const database = await connect();
+            const paintings = database.db.collection("paintings");
+            // Try to find by slug first, then by code
+            const painting = await paintings.findOne(
+              { $or: [{ slug: paintingSlug }, { code: paintingSlug }] },
+              { projection: { code: 1, slug: 1 } }
+            );
+            if (painting?.code) {
+              paintingShortCode = painting.code;
+              console.log(`☕ Resolved painting short code: ${paintingSlug} -> ${paintingShortCode}`);
+            }
+          } catch (e) {
+            console.warn("☕ Failed to look up painting short code:", e.message);
+          }
+        }
+        
+        // Fall back to slug if no short code found
+        if (!paintingShortCode) {
+          paintingShortCode = paintingSlug;
+        }
+        
         return respond(200, {
           code: "+" + product.code, // Include + prefix in response
           rawCode: product.code,    // Also provide raw code for internal use
-          sourceCode: product.source?.code,
+          sourceCode: paintingShortCode, // Short code for display (#xyz)
+          sourceSlug: paintingSlug,      // Original slug for pixel URL
           via: product.source?.via,
           color: product.variant,
           preview: product.preview,
@@ -115,16 +147,44 @@ export async function handler(event, context) {
       
       // Extract painting code from pixels param (e.g., "9vg.png" -> "9vg")
       const pixelsParam = event.queryStringParameters.pixels;
-      const sourceCode = pixelsParam.replace(/\.png$/i, "");
+      let sourceCode = pixelsParam.replace(/\.png$/i, "");
       
       // Get KidLisp source code if provided (e.g., "cow" for $cow from kidlisp.com)
       const viaCode = event.queryStringParameters.via;
+      
+      // Try to resolve the painting's short code if sourceCode looks like a slug
+      // Short codes are 2-4 chars, slugs are longer random strings
+      let paintingShortCode = sourceCode;
+      if (sourceCode.length > 4) {
+        try {
+          const { connect } = await import("../../backend/database.mjs");
+          const database = await connect();
+          const paintings = database.db.collection("paintings");
+          const painting = await paintings.findOne(
+            { $or: [{ slug: sourceCode }, { code: sourceCode }] },
+            { projection: { code: 1, slug: 1 } }
+          );
+          if (painting?.code) {
+            paintingShortCode = painting.code;
+            console.log(`☕ Resolved painting short code: ${sourceCode} -> ${paintingShortCode}`);
+          } else {
+            console.log(`☕ No DB record for painting: ${sourceCode}`);
+          }
+        } catch (e) {
+          console.warn("☕ Failed to look up painting:", e.message);
+        }
+      }
       
       // 📦 Check for cached product first
       let productRecord = null;
       let cachedWebpUrl = null;
       try {
-        const source = { type: "painting", code: sourceCode };
+        // Store both slug (for pixel URL) and short code (for display)
+        const source = { 
+          type: "painting", 
+          code: paintingShortCode,  // Short code for display (#xyz)
+          slug: sourceCode,         // Original slug for pixel URL
+        };
         if (viaCode) source.via = viaCode; // Track KidLisp source
         
         const { product: existingProduct, isNew } = await findOrCreateProduct({
