@@ -1717,6 +1717,7 @@
       text-overflow: ellipsis;
       max-width: 100%;
       letter-spacing: -0.02em; /* Tighter letter spacing */
+      padding-right: 8px; /* Extra room for $code display */
     }
     
     #preview-title .platform-logo {
@@ -1797,6 +1798,7 @@
       position: relative;
       top: -1.5px;
       left: 1px;
+      padding-right: 4px; /* Extra room for font width variance */
     }
     
     /* Code display states */
@@ -5191,12 +5193,29 @@
         font-family: 'Berkeley Mono Variable', monospace;
         font-size: 12px;
         line-height: 1.4;
-        background: var(--console-bg);
-        color: var(--console-text);
+        background: #f5ebe0; /* Light beige - same as .console-output */
+        color: #c87137; /* Darker orange text */
         width: 100%;
         box-sizing: border-box;
       }
       
+      @media (prefers-color-scheme: dark) {
+        #mobile-console-output {
+          background: #4a3020;
+          color: #ff9f43;
+        }
+      }
+      
+      [data-theme="light"] #mobile-console-output {
+        background: #f5ebe0;
+        color: #c87137;
+      }
+      
+      [data-theme="dark"] #mobile-console-output {
+        background: #4a3020;
+        color: #ff9f43;
+      }
+
       /* Collapsed panel state in mobile */
       .panel-collapsed {
         flex: 0 0 44px !important;
