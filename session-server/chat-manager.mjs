@@ -161,6 +161,7 @@ export class ChatManager {
           text: filter(message.text, this.filterDebug) || "message forgotten",
           redactedText: message.redactedText,
           when: message.when,
+          font: message.font || "font_1", // 🔤 Include font from DB (default for old messages)
         });
       }
       
@@ -392,6 +393,7 @@ export class ChatManager {
           user: message.sub,
           text: message.text,
           when,
+          font: message.font || "font_1", // 🔤 Store user's font preference
         };
         const collection = this.db.collection(instance.config.name);
         await collection.createIndex({ when: 1 });
@@ -405,6 +407,7 @@ export class ChatManager {
         redactedText: message.redactedText,
         when,
         sub: fromSub,
+        font: message.font || "font_1", // 🔤 Include font in broadcast
       };
 
       // Duplicate detection
