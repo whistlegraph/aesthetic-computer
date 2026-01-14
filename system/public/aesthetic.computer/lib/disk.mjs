@@ -7324,6 +7324,24 @@ async function load(
       );
     } else if (source && !name && !piece) {
       // Live reload with new source code (e.g., from kidlisp.com editor)
+      
+      // Special case: if source is literally "kidlisp", this is a stop request
+      // Don't try to load it as code - just reset state and return
+      if (source === "kidlisp") {
+        console.log("🛑 Stop request - clearing kidlisp state");
+        currentText = "";
+        currentPath = "";
+        $commonApi.kidlispCreateCode = false;
+        $commonApi.kidlispAuthToken = null;
+        $commonApi.kidlispEnableTrace = false;
+        if (globalKidLispInstance) {
+          globalKidLispInstance.frameCount = 0;
+        }
+        // Signal that we're idle/stopped
+        send({ type: "kidlisp-stopped" });
+        return;
+      }
+      
       // Just pass the source directly without path/text
       currentText = source;
       currentPath = source;
