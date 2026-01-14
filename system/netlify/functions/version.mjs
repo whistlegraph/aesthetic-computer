@@ -1,8 +1,26 @@
 // Returns deployed commit hash vs latest GitHub commit
 // Used by prompt.mjs to show version status on curtain UI
 
+import fs from "fs";
+import path from "path";
+
+// Get deployed commit from file written during build (COMMIT_REF is not available at runtime)
+function getDeployedCommit() {
+  try {
+    // Try reading from the .commit-ref file created during build
+    const commitRefPath = path.join(process.cwd(), "public", ".commit-ref");
+    const commit = fs.readFileSync(commitRefPath, "utf8").trim();
+    if (commit && commit.length >= 7) {
+      return commit;
+    }
+  } catch (e) {
+    // File doesn't exist or can't be read
+  }
+  return "unknown";
+}
+
 export default async (request) => {
-  const deployedCommit = process.env.COMMIT_REF || "unknown";
+  const deployedCommit = getDeployedCommit();
 
   try {
     // Fetch latest commits from GitHub (public, no auth needed)

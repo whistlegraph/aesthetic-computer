@@ -2,7 +2,7 @@
 base = "system"
 publish = "public"
 ignore = "bash ./ignore-index.sh"
-command = "rm -f public/index.html" # Remove index.html before build
+command = "rm -f public/index.html && echo $COMMIT_REF > public/.commit-ref" # Write commit ref for functions
 # command = "bash ./github-discord.sh"
 # command = "echo 'Building...'"
 
@@ -365,7 +365,7 @@ function = "media"
 
 # Version/commit status API
 [functions.version]
-included_env_vars = ["COMMIT_REF"]
+included_files = ["public/.commit-ref"]
 
 [[redirects]]
 from = "/api/version"
