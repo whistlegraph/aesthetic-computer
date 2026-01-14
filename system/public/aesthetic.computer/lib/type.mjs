@@ -3004,6 +3004,7 @@ class Prompt {
 
   letterWidth; // Taken from the typeface's block sizing.
   letterHeight;
+  typeface; // Reference to the typeface for proportional spacing
 
   colWidth = 48; // Maximum character width of each line before wrapping.
 
@@ -3027,6 +3028,7 @@ class Prompt {
     lineSpacing = 0,
     typeface,
   ) {
+    this.typeface = typeface; // Store typeface reference for proportional spacing
     this.letterWidth = typeface.blockWidth * this.scale;
     this.letterHeight = typeface.blockHeight * this.scale + lineSpacing;
     this.top = top;
@@ -3213,12 +3215,63 @@ class Prompt {
   // Caluclate the screen x, y position of the top left of the cursor.
   // (Also include the width and height of the block.)
   pos(cursor = this.cursor, bh = false) {
-    const x = this.top + cursor.x * this.letterWidth;
     const y = this.left + cursor.y * this.letterHeight;
+    
+    // Check if we need proportional spacing
+    const isProportional = this.typeface?.data?.proportional === true ||
+                           this.typeface?.data?.bdfFont === "MatrixChunky8" ||
+                           this.typeface?.name === "MatrixChunky8" ||
+                           !!this.typeface?.data?.advances;
+    
+    let x;
+    let w;
+    
+    if (isProportional && this.#mappedTo && typeof this.typeface?.getAdvance === "function") {
+      // Calculate x position by summing advance widths of all characters on this line
+      // Find characters on the current line up to cursor.x
+      x = this.top;
+      
+      // Get all characters mapped to this line (y position)
+      let charsOnLine = 0;
+      for (const [key, textIdx] of Object.entries(this.cursorToTextMap)) {
+        const [kx, ky] = key.split(":").map(v => parseInt(v));
+        if (ky === cursor.y && kx < cursor.x && !key.includes("\\n")) {
+          charsOnLine++;
+        }
+      }
+      
+      // Sum the advance widths of characters up to cursor position
+      // Look through textToCursorMap to find characters on this line before cursor.x
+      for (let i = 0; i < this.#mappedTo.length; i++) {
+        const mappedPos = this.textToCursorMap[i];
+        if (mappedPos && mappedPos.y === cursor.y && mappedPos.x < cursor.x) {
+          const char = this.#mappedTo[i];
+          if (char && char.charCodeAt(0) !== 10) {
+            const advance = this.typeface.getAdvance(char);
+            x += (typeof advance === "number" ? advance : this.letterWidth) * this.scale;
+          }
+        }
+      }
+      
+      // Width is the advance of the current character (or default letterWidth)
+      const cursorTextIdx = this.textPos(cursor);
+      if (cursorTextIdx !== undefined && this.#mappedTo[cursorTextIdx]) {
+        const curChar = this.#mappedTo[cursorTextIdx];
+        const advance = this.typeface.getAdvance(curChar);
+        w = (typeof advance === "number" ? advance : this.letterWidth) * this.scale;
+      } else {
+        w = this.letterWidth;
+      }
+    } else {
+      // Original monospace calculation
+      x = this.top + cursor.x * this.letterWidth;
+      w = this.letterWidth;
+    }
+    
     return {
       x,
       y,
-      w: this.letterWidth,
+      w,
       h: this.letterHeight,
     };
   }
