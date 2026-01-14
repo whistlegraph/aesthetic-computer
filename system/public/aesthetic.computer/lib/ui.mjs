@@ -354,7 +354,7 @@ class Button {
     if (e.is(`touch:${t}`) && btn.box.contains(e) && !btn.down) {
       const wasRecentRollout = wasRecentlyRolledOut(btn.id || "unnamed");
       
-      // console.log("🟢 Button touch down - IMMEDIATE:", {
+      console.log("🟢📍 [ui.mjs btn.act] TOUCH - btn:", btn.id, "contains(e):", btn.box.contains(e), "btn.down:", btn.down, "e:", e.x, e.y, "box:", btn.box?.x, btn.box?.y, btn.box?.w, btn.box?.h);
       //   buttonId: btn.id || "unnamed",
       //   timestamp: performance.now(),
       //   pointer: e.pointer,
@@ -439,8 +439,9 @@ class Button {
     // 3. Push: Trigger the button if we push it.
     // Only process lift events from the controlling pointer
     const isControllingLiftPointer = !this.multitouch || btn.downPointer === e.pointer || btn.downPointer === undefined;
+    console.log("🔴📍 [ui.mjs btn.act] LIFT CHECK - btn:", btn.id, "e.is(lift):", e.is(`lift:${t}`), "btn.down:", btn.down, "isControllingLiftPointer:", isControllingLiftPointer, "contains(e):", btn.box?.contains(e), "e:", e.x, e.y);
     if (e.is(`lift:${t}`) && btn.down && isControllingLiftPointer) {
-      // console.log("📤 Button lift event received:", {
+      console.log("🔴✅ [ui.mjs btn.act] LIFT PASSED CONDITIONS - btn:", btn.id, "will call push callback");
       //   buttonId: btn.id || "unnamed",
       //   timestamp: performance.now(),
       //   pointer: e.pointer,
