@@ -16155,7 +16155,8 @@
       // Now populate the thumbnail container
       const thumbContainer = el.querySelector('.thumb-container');
       if (thumbContainer) {
-        if (item.assetUrl) {
+        const hasValidAsset = item.assetUrl && item.assetUrl.trim().length > 0;
+        if (hasValidAsset) {
           // Has image - show img with noise fallback on error
           const img = document.createElement('img');
           img.className = 'example-thumb';
