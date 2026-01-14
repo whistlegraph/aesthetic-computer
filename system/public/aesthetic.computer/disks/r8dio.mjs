@@ -155,7 +155,18 @@ function paint({
   const pressOffset = isButtonPressed ? 1 : 0;
   const iconColor = isButtonPressed ? [150, 130, 170] : (isHovering ? [255, 220, 255] : [200, 180, 220]);
   const iconCenterY = btnY + btnSize / 2 + pressOffset;
-  if (isPlaying) {
+  if (isLoading) {
+    // Loading spinner (rotating dots)
+    const loadingPhase = (help.repeat / 10) % 8;
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
+      const radius = 8;
+      const dotX = centerX + Math.cos(angle) * radius;
+      const dotY = btnY + btnSize / 2 + Math.sin(angle) * radius;
+      const brightness = ((i + Math.floor(loadingPhase)) % 8) / 8;
+      ink(100 + brightness * 155, 80 + brightness * 140, 160 + brightness * 95).box(dotX - 2, dotY - 2, 4, 4);
+    }
+  } else if (isPlaying) {
     // Pause icon (two bars)
     const barW = 5;
     const barH = 14;
@@ -172,28 +183,29 @@ function paint({
     ink(...iconColor).box(triX + 9, triY + 6, 2, 2);
   }
   
-  // Volume slider - centered, right below play button
+  // Volume slider - centered, right below play button (dimmed when loading)
   volSliderY = volSliderYPos;
   const volSliderCenterX = centerX - volSliderW / 2;
-  const isHoveringVol = pen && 
+  const isHoveringVol = !isLoading && pen && 
     pen.x >= volSliderCenterX && pen.x < volSliderCenterX + volSliderW &&
     pen.y >= volSliderY - 4 && pen.y < volSliderY + volSliderH + 4;
+  const volAlpha = isLoading ? 0.4 : 1;
   
   // Volume background track
-  ink(50, 40, 70).box(volSliderCenterX, volSliderY, volSliderW, volSliderH);
+  ink(50, 40, 70, isLoading ? 100 : 255).box(volSliderCenterX, volSliderY, volSliderW, volSliderH);
   
   // Volume fill
   const fillColor = isDraggingVolume || isHoveringVol ? [180, 140, 220] : [150, 120, 180];
-  ink(...fillColor).box(volSliderCenterX, volSliderY, Math.floor(volSliderW * volume), volSliderH);
+  ink(...fillColor, isLoading ? 100 : 255).box(volSliderCenterX, volSliderY, Math.floor(volSliderW * volume), volSliderH);
   
   // Volume handle
   const handleX = volSliderCenterX + Math.floor(volSliderW * volume) - 2;
   const handleColor = isDraggingVolume || isHoveringVol ? [255, 220, 255] : [200, 180, 220];
-  ink(...handleColor).box(handleX, volSliderY - 2, 4, volSliderH + 4);
+  ink(...handleColor, isLoading ? 100 : 255).box(handleX, volSliderY - 2, 4, volSliderH + 4);
   
   // Volume percentage (to the right of slider)
   const volPercent = Math.round(volume * 100);
-  ink(100, 80, 120).write(`${volPercent}%`, { x: volSliderCenterX + volSliderW + 6, y: volSliderY + 2 }, undefined, undefined, false, "MatrixChunky8");
+  ink(100, 80, 120, isLoading ? 100 : 255).write(`${volPercent}%`, { x: volSliderCenterX + volSliderW + 6, y: volSliderY + 2 }, undefined, undefined, false, "MatrixChunky8");
   
   // Status indicator (bottom area)
   let statusText, statusColor;
@@ -313,11 +325,12 @@ function act({ event: e, jump, screen, num: { clamp }, send }) {
   
   // Start dragging volume or pressing button
   if (e.is("touch")) {
-    if (e.x >= volSliderCenterX && e.x < volSliderCenterX + volSliderW &&
+    // Volume slider - only allow when not loading
+    if (!isLoading && e.x >= volSliderCenterX && e.x < volSliderCenterX + volSliderW &&
         e.y >= volHitY && e.y < volHitY + volHitH) {
       isDraggingVolume = true;
       updateVolumeFromX(e.x, volSliderCenterX, clamp, send);
-    } else if (e.x >= btnX && e.x < btnX + btnSize &&
+    } else if (!isLoading && e.x >= btnX && e.x < btnX + btnSize &&
                e.y >= btnY && e.y < btnY + btnSize) {
       isButtonPressed = true;
     }
