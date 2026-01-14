@@ -5897,34 +5897,7 @@
        LIGHT MODE THEME OVERRIDES
        Based on kidlisp.com and at.aesthetic.computer
        ================================================ */
-    
-    /* Theme toggle button */
-    .theme-toggle {
-      background: transparent;
-      border: 1px solid var(--box-border);
-      border-radius: 6px;
-      padding: 4px 10px;
-      cursor: pointer;
-      font-size: 16px;
-      line-height: 1;
-      transition: all 0.15s ease;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    
-    .theme-toggle:hover {
-      background: var(--box-bg);
-      border-color: var(--pink);
-    }
-    
-    .theme-toggle .theme-icon {
-      transition: transform 0.3s ease;
-    }
-    
-    .theme-toggle:hover .theme-icon {
-      transform: rotate(15deg);
-    }
+
 
     /* Light mode: Top bar */
     body.light-mode .top-bar {
@@ -6714,9 +6687,9 @@
       color: white;
     }
 
-    /* Respect user's system preference */
+    /* Light mode: Respect user's system preference */
     @media (prefers-color-scheme: light) {
-      body:not(.dark-mode) {
+      body {
         --bg: #f5f5f5;
         --text: #1a1a2e;
         --dim: #666;
@@ -6751,9 +6724,6 @@
           <div class="lang-option" data-lang="zh">🇨🇳 中文</div>
         </div>
       </div>
-      <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
-        <span class="theme-icon">🌙</span>
-      </button>
     </div>
     <div class="currency-links" id="currSelector">
       <span class="curr-link active" data-curr="usd"><span class="curr-flag">💵</span><span class="curr-text">USD</span></span>
@@ -7427,54 +7397,25 @@
       }
     });
     
-    // ====== Theme Toggle (Light/Dark Mode) ======
-    (function() {
-      const THEME_KEY = 'give-theme-preference';
-      const toggle = document.getElementById('themeToggle');
-      const icon = toggle?.querySelector('.theme-icon');
-      
-      // Determine initial theme from: 1) localStorage, 2) system preference
-      function getPreferredTheme() {
-        const stored = localStorage.getItem(THEME_KEY);
-        if (stored) return stored;
-        return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    // ====== Theme: System Default (Light/Dark Mode) ======
+    // Apply light-mode class based on system preference (CSS rules use body.light-mode)
+    localStorage.removeItem('give-theme-preference'); // Clear any old stored preference
+    
+    function applySystemTheme() {
+      if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+        document.body.classList.add('light-mode');
+        document.body.classList.remove('dark-mode');
+      } else {
+        document.body.classList.remove('light-mode');
+        document.body.classList.add('dark-mode');
       }
-      
-      function setTheme(theme) {
-        if (theme === 'light') {
-          document.body.classList.add('light-mode');
-          document.body.classList.remove('dark-mode');
-          if (icon) icon.textContent = '☀️';
-          if (toggle) toggle.title = 'Switch to dark mode';
-        } else {
-          document.body.classList.remove('light-mode');
-          document.body.classList.add('dark-mode');
-          if (icon) icon.textContent = '🌙';
-          if (toggle) toggle.title = 'Switch to light mode';
-        }
-        localStorage.setItem(THEME_KEY, theme);
-      }
-      
-      // Initialize on page load
-      setTheme(getPreferredTheme());
-      
-      // Toggle on click
-      if (toggle) {
-        toggle.addEventListener('click', () => {
-          const currentTheme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
-          setTheme(currentTheme === 'light' ? 'dark' : 'light');
-        });
-      }
-      
-      // Listen for system theme changes
-      window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
-        // Only auto-switch if user hasn't manually set a preference
-        const stored = localStorage.getItem(THEME_KEY);
-        if (!stored) {
-          setTheme(e.matches ? 'light' : 'dark');
-        }
-      });
-    })();
+    }
+    
+    // Apply on load
+    applySystemTheme();
+    
+    // Listen for system preference changes
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', applySystemTheme);
     
     // ====== A/B/C/D/E Test: Starting Price ======
     // Monthly options (60% total): D: $8/mo (30%), E: $2/mo (30%)

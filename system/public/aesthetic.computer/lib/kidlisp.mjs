@@ -154,6 +154,12 @@ import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture
    - `($codeId width height)` - Execute in custom buffer size
    - `(embed $codeId x y width height alpha)` - Advanced embedding
    
+   ### Tape Video Embeds
+   - `(tape !CODE)` - Play tape fullscreen
+   - `(tape !CODE x y)` - Play at position with original dimensions
+   - `(tape !CODE x y w h)` - Play at position with specified dimensions
+   - `(tape !CODE x y w h speed)` - Play with speed multiplier (1.0 = normal)
+   
    ## Example Patterns for LLMs
    
    ### Simple Drawing
@@ -266,7 +272,7 @@ import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture
 // Known KidLisp function names (canonical list for chaos detection)
 const KIDLISP_FUNCTIONS = new Set([
   // Core drawing
-  "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed",
+  "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed", "tape",
   "tri", "plot", "shape", "lines", "rect", "ellipse", "arc", "curve", "bezier",
   // Output
   "print", "debug", "log", "console",
@@ -1509,6 +1515,11 @@ class KidLisp {
     this.microphoneApi = null;
     this.micPermissionRequested = false; // Track if we've logged permission request
     this.micDefaultMode = "sine"; // Default animation when disconnected: "sine", "noise", "pulse", or "static"
+
+    // 📼 Tape embed state tracking
+    this.tapeEmbeds = new Map(); // tapeCode -> { frames, frameIndex, isLoading, timing, width, height }
+    this.tapeLoadingCallbacks = new Map(); // tapeCode -> [callbacks]
+    this.tapeFrameBuffers = new Map(); // tapeCode -> buffer for pixel data
     
     this.fastPathFunctions = new Set([
       "line",
@@ -4276,6 +4287,44 @@ class KidLisp {
         }
         if (e.is("microphone-connect:failure")) {
           console.warn("🎤 Failed to connect microphone:", e.reason);
+        }
+
+        // 📼 Handle tape embed events
+        if (e.is("tape:frames")) {
+          const { tapeId, frames, totalFrames } = e.content;
+          // Extract tape code from tapeId (format: "kidlisp-CODE")
+          const tapeCode = tapeId?.startsWith("kidlisp-") ? tapeId.slice(8) : tapeId;
+          const tapeEmbed = this.tapeEmbeds.get(tapeCode);
+          if (tapeEmbed) {
+            console.log(`📼 KidLisp: Received ${frames?.length || 0} frames for tape !${tapeCode}`);
+            tapeEmbed.frames = frames || [];
+            tapeEmbed.totalFrames = totalFrames;
+            tapeEmbed.isLoading = false;
+            if (frames && frames.length > 0) {
+              tapeEmbed.width = frames[0].width;
+              tapeEmbed.height = frames[0].height;
+            }
+            api.needsPaint();
+          }
+        }
+        if (e.is("tape:preloaded")) {
+          const { tapeId, frameCount } = e.content;
+          const tapeCode = tapeId?.startsWith("kidlisp-") ? tapeId.slice(8) : tapeId;
+          const tapeEmbed = this.tapeEmbeds.get(tapeCode);
+          if (tapeEmbed) {
+            console.log(`📼 KidLisp: Tape !${tapeCode} preloaded with ${frameCount} frames`);
+            // Frames will come via tape:frames event
+          }
+        }
+        if (e.is("tape:preload-error")) {
+          const { tapeId, error } = e.content;
+          const tapeCode = tapeId?.startsWith("kidlisp-") ? tapeId.slice(8) : tapeId;
+          const tapeEmbed = this.tapeEmbeds.get(tapeCode);
+          if (tapeEmbed) {
+            console.error(`📼 KidLisp: Failed to load tape !${tapeCode}:`, error);
+            tapeEmbed.isLoading = false;
+            tapeEmbed.loadError = error;
+          }
         }
       },
     };
@@ -7887,7 +7936,135 @@ class KidLisp {
       
       return 0; // Burned layer is always index 0
     },
-      // 🖼️ Embed function - loads cached KidLisp code and creates persistent animated layers
+      // � Tape function - loads and plays tape recordings as embedded video
+      // Usage: (tape !CODE x y w h) - paste tape frame at position with dimensions
+      //        (tape !CODE x y w h speed) - with playback speed (1.0 = normal)
+      //        (tape !CODE x y) - paste at position with original dimensions
+      //        (tape !CODE) - paste fullscreen
+      tape: (api, args = []) => {
+        if (args.length === 0) {
+          console.warn("❗ tape function requires a tape code argument (e.g., !abc123)");
+          return undefined;
+        }
+
+        // Parse tape code - remove ! prefix if present
+        let tapeCode = unquoteString(args[0].toString());
+        if (tapeCode.startsWith("!")) {
+          tapeCode = tapeCode.slice(1);
+        }
+
+        // Validate tape code format (alphanumeric, typically 2 chars)
+        if (!tapeCode || !/^[0-9A-Za-z]+$/.test(tapeCode)) {
+          console.warn("❗ Invalid tape code:", tapeCode);
+          return undefined;
+        }
+
+        // Parse position and dimensions
+        const screenWidth = api.screen?.width || 256;
+        const screenHeight = api.screen?.height || 256;
+        let x = 0, y = 0, w = screenWidth, h = screenHeight, speed = 1.0;
+
+        if (args.length >= 3) {
+          x = this.evaluate(args[1], api, this.localEnv) || 0;
+          y = this.evaluate(args[2], api, this.localEnv) || 0;
+        }
+        if (args.length >= 5) {
+          w = this.evaluate(args[3], api, this.localEnv) || screenWidth;
+          h = this.evaluate(args[4], api, this.localEnv) || screenHeight;
+        }
+        if (args.length >= 6) {
+          speed = this.evaluate(args[5], api, this.localEnv) || 1.0;
+        }
+
+        // Check if tape is already loaded
+        let tapeEmbed = this.tapeEmbeds.get(tapeCode);
+
+        if (!tapeEmbed) {
+          // Initialize tape embed and start loading
+          tapeEmbed = {
+            frames: [],
+            frameIndex: 0,
+            isLoading: true,
+            timing: null,
+            width: 0,
+            height: 0,
+            lastFrameTime: performance.now(),
+            frameDuration: 1000 / 30, // Default 30fps
+            loadError: null
+          };
+          this.tapeEmbeds.set(tapeCode, tapeEmbed);
+
+          // Request tape load from bios via the api.send mechanism
+          console.log(`📼 KidLisp: Loading tape !${tapeCode}...`);
+          
+          // Use the disk's send function if available
+          if (api.send) {
+            const zipUrl = `${typeof location !== 'undefined' ? location.origin : ''}/media/tapes/${tapeCode}`;
+            api.send({
+              type: "tape:preload",
+              content: {
+                tapeId: `kidlisp-${tapeCode}`,
+                code: tapeCode,
+                zipUrl: zipUrl,
+                requestFrames: true // Request frames to be sent back
+              }
+            });
+          } else {
+            console.warn("❗ Cannot load tape - api.send not available");
+            tapeEmbed.isLoading = false;
+            tapeEmbed.loadError = "No send API";
+          }
+
+          return undefined; // Return undefined while loading
+        }
+
+        // If still loading, return undefined
+        if (tapeEmbed.isLoading) {
+          return undefined;
+        }
+
+        // If load error, show error and return
+        if (tapeEmbed.loadError) {
+          console.warn(`❗ Tape !${tapeCode} failed to load:`, tapeEmbed.loadError);
+          return undefined;
+        }
+
+        // If no frames, return undefined
+        if (!tapeEmbed.frames || tapeEmbed.frames.length === 0) {
+          return undefined;
+        }
+
+        // Update frame based on time and speed
+        const now = performance.now();
+        const elapsed = now - tapeEmbed.lastFrameTime;
+        const adjustedDuration = tapeEmbed.frameDuration / speed;
+        
+        if (elapsed >= adjustedDuration) {
+          tapeEmbed.frameIndex = (tapeEmbed.frameIndex + 1) % tapeEmbed.frames.length;
+          tapeEmbed.lastFrameTime = now;
+        }
+
+        // Get current frame
+        const frame = tapeEmbed.frames[tapeEmbed.frameIndex];
+        if (!frame) return undefined;
+
+        // Draw the frame to the screen buffer
+        // Frame is an ImageBitmap, paste supports it via ensureBufferPixels
+        if (api.paste && frame) {
+          try {
+            // Use transform object to specify target dimensions
+            const transform = { width: w, height: h };
+            api.paste(frame, x, y, transform);
+          } catch (e) {
+            // If paste fails, log and continue
+            console.warn(`📼 Tape frame paste error:`, e.message);
+          }
+        }
+
+        return tapeEmbed.frameIndex;
+      },
+
+      // �🖼️ Embed function - loads cached KidLisp code and creates persistent animated layers
       // Usage: (embed $pie) - loads cached code in default 256x256 layer (fixed size for cache efficiency)
       //        (embed $pie 128 128) - loads cached code in 128x128 layer  
       //        (embed $pie 0 0 60 40) - loads cached code in 60x40 layer at position (0,0)
@@ -11207,6 +11384,34 @@ class KidLisp {
       return `COMPOUND:magenta:orange`; // # is magenta, code is orange
     }
 
+    // Check for !codes (tape references) - VHS-style colorful highlighting
+    if (token.startsWith("!") && token.length > 1 && /^[!][0-9A-Za-z]+$/.test(token)) {
+      const tapeCode = token.substring(1); // Remove ! prefix
+      const tapeEmbed = this.tapeEmbeds?.get(tapeCode);
+      
+      if (tapeEmbed?.isLoading) {
+        // Show red blinking for loading tapes
+        const now = performance.now();
+        const blinkInterval = 200;
+        const isBlinking = Math.floor(now / blinkInterval) % 2 === 0;
+        const mainColor = isBlinking ? "red" : "darkred";
+        return `COMPOUND:${mainColor}:${mainColor}`;
+      } else if (tapeEmbed?.frames?.length > 0) {
+        // Loaded tape - VHS retro 3-frame blinking like $codes
+        const now = performance.now();
+        const magicBlinkInterval = 150;
+        const frame = Math.floor(now / magicBlinkInterval) % 3;
+        const bangColor = frame === 0 ? "cyan" : frame === 1 ? "magenta" : "yellow";
+        return `COMPOUND:${bangColor}:cyan`; // ! cycles VHS colors, code is cyan
+      } else if (tapeEmbed?.loadError) {
+        // Error state - red
+        return `COMPOUND:red:darkred`;
+      } else {
+        // Default state - cyan/teal for tape codes
+        return `COMPOUND:cyan:teal`;
+      }
+    }
+
     // Check for RGB channel highlighting (e.g., "255 0 0" should show R in red, G in green, B in blue)
     // This must come BEFORE general number coloring to override pink
     if (/^-?\d+(\.\d+)?$/.test(token)) {
@@ -11407,6 +11612,26 @@ class KidLisp {
       } else {
         // Default green $ with teal identifier for unprocessed $codes
         return "COMPOUND:green:teal"; // $ is green, identifier is teal
+      }
+    }
+
+    // Check for !codes (tape references)
+    if (token.startsWith("!") && token.length > 1 && /^[!][0-9A-Za-z]+$/.test(token)) {
+      const tapeCode = token.substring(1);
+      const tapeEmbed = this.tapeEmbeds?.get(tapeCode);
+      
+      if (tapeEmbed?.isLoading) {
+        const now = performance.now();
+        const blinkInterval = 200;
+        const isBlinking = Math.floor(now / blinkInterval) % 2 === 0;
+        const mainColor = isBlinking ? "red" : "darkred";
+        return `COMPOUND:${mainColor}:${mainColor}`;
+      } else if (tapeEmbed?.frames?.length > 0) {
+        return "COMPOUND:cyan:teal"; // Loaded tape
+      } else if (tapeEmbed?.loadError) {
+        return `COMPOUND:red:darkred`;
+      } else {
+        return `COMPOUND:cyan:teal`; // Default tape color
       }
     }
 
