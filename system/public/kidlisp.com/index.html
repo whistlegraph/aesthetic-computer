@@ -2407,13 +2407,13 @@
       color: #ffffff;
     }
     
-    /* Dark mode skeuomorphic content backgrounds */
-    :root.dark #guide-content:not(.hidden) { background: rgba(34, 197, 94, 0.5); }
-    :root.dark #examples-content:not(.hidden) { background: rgba(250, 204, 21, 0.5); }
-    :root.dark #recent-content:not(.hidden) { background: rgba(249, 115, 22, 0.5); }
-    :root.dark #history-content:not(.hidden) { background: rgba(180, 130, 90, 0.5); }
-    :root.dark #keeps-content:not(.hidden) { background: rgba(150, 150, 150, 0.4); }
-    :root.dark #reference-content:not(.hidden) { background: rgba(34, 197, 94, 0.55); }
+    /* Dark mode tab content backgrounds - gradient fade from colored top to neutral */
+    :root.dark #guide-content:not(.hidden) { background: linear-gradient(to bottom, rgba(34, 197, 94, 0.4) 0%, rgba(34, 197, 94, 0.1) 40%, transparent 100%); }
+    :root.dark #examples-content:not(.hidden) { background: linear-gradient(to bottom, rgba(250, 204, 21, 0.4) 0%, rgba(250, 204, 21, 0.1) 40%, transparent 100%); }
+    :root.dark #recent-content:not(.hidden) { background: linear-gradient(to bottom, rgba(249, 115, 22, 0.4) 0%, rgba(249, 115, 22, 0.1) 40%, transparent 100%); }
+    :root.dark #history-content:not(.hidden) { background: linear-gradient(to bottom, rgba(180, 130, 90, 0.4) 0%, rgba(180, 130, 90, 0.1) 40%, transparent 100%); }
+    :root.dark #keeps-content:not(.hidden) { background: linear-gradient(to bottom, rgba(150, 150, 150, 0.35) 0%, rgba(150, 150, 150, 0.1) 40%, transparent 100%); }
+    :root.dark #reference-content:not(.hidden) { background: linear-gradient(to bottom, rgba(34, 197, 94, 0.45) 0%, rgba(34, 197, 94, 0.1) 40%, transparent 100%); }
 
     .language-tab {
       border-left: 1px solid var(--border-color);
@@ -2523,13 +2523,13 @@
       padding: 0; /* Remove padding so list items go edge-to-edge */
     }
     
-    /* Skeuomorphic content backgrounds matching active tab colors */
-    #guide-content:not(.hidden) { background: rgba(34, 197, 94, 0.5); }
-    #examples-content:not(.hidden) { background: rgba(250, 204, 21, 0.55); }
-    #recent-content:not(.hidden) { background: rgba(249, 115, 22, 0.5); }
-    #history-content:not(.hidden) { background: rgba(180, 130, 90, 0.5); }
-    #keeps-content:not(.hidden) { background: rgba(120, 120, 120, 0.35); }
-    #reference-content:not(.hidden) { background: rgba(34, 197, 94, 0.55); }
+    /* Tab content backgrounds - gradient fade from colored top to neutral */
+    #guide-content:not(.hidden) { background: linear-gradient(to bottom, rgba(34, 197, 94, 0.4) 0%, rgba(34, 197, 94, 0.1) 40%, transparent 100%); }
+    #examples-content:not(.hidden) { background: linear-gradient(to bottom, rgba(250, 204, 21, 0.45) 0%, rgba(250, 204, 21, 0.1) 40%, transparent 100%); }
+    #recent-content:not(.hidden) { background: linear-gradient(to bottom, rgba(249, 115, 22, 0.4) 0%, rgba(249, 115, 22, 0.1) 40%, transparent 100%); }
+    #history-content:not(.hidden) { background: linear-gradient(to bottom, rgba(180, 130, 90, 0.4) 0%, rgba(180, 130, 90, 0.1) 40%, transparent 100%); }
+    #keeps-content:not(.hidden) { background: linear-gradient(to bottom, rgba(120, 120, 120, 0.3) 0%, rgba(120, 120, 120, 0.08) 40%, transparent 100%); }
+    #reference-content:not(.hidden) { background: linear-gradient(to bottom, rgba(34, 197, 94, 0.45) 0%, rgba(34, 197, 94, 0.1) 40%, transparent 100%); }
 
     #examples-content > div,
     #history-content > div,
@@ -3734,7 +3734,7 @@
     }
 
     .keeps-gallery {
-      margin-top: 12px;
+      padding: 12px;
     }
 
     .keeps-gallery-header {
@@ -3744,7 +3744,8 @@
       font-size: 13px;
       font-weight: bold;
       color: var(--text-primary);
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      padding: 0 2px;
     }
 
     .keeps-gallery-count {
@@ -3755,10 +3756,10 @@
 
     .keeps-gallery-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-      gap: 8px;
-      max-height: 200px;
-      overflow-y: auto;
+      grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+      gap: 6px;
+      max-height: none;
+      overflow-y: visible;
     }
 
     .keeps-gallery-item {
@@ -3772,8 +3773,9 @@
     }
 
     .keeps-gallery-item:hover {
-      transform: scale(1.05);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      transform: scale(1.08);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      z-index: 1;
     }
 
     .keeps-gallery-item img {
@@ -3790,6 +3792,41 @@
       color: white;
       text-shadow: 0 1px 2px rgba(0,0,0,0.8);
       font-family: monospace;
+    }
+    
+    /* Burned keeps styling */
+    .keeps-gallery-item.burned {
+      opacity: 0.6;
+      filter: grayscale(0.5);
+    }
+    
+    .keeps-gallery-item.burned:hover {
+      opacity: 0.9;
+      filter: grayscale(0.2);
+    }
+    
+    .keeps-gallery-item.burned::after {
+      content: '🔥';
+      position: absolute;
+      top: 2px;
+      left: 3px;
+      font-size: 10px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+    
+    /* Section headers within keeps gallery */
+    .keeps-section-header {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      padding: 8px 0 4px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 4px;
+    }
+    
+    .keeps-section-header:first-child {
+      padding-top: 0;
     }
 
     .keeps-gallery-loading {
@@ -5692,8 +5729,8 @@
             } else {
               splashLogo.title = 'Preferences';
               splashLogo.addEventListener('click', () => {
-                if (typeof showPreferencesModal === 'function') {
-                  showPreferencesModal();
+                if (typeof window.showPreferencesModal === 'function') {
+                  window.showPreferencesModal();
                 }
               });
             }
@@ -5726,8 +5763,8 @@
             } else {
               splashLogo.title = 'Preferences';
               splashLogo.addEventListener('click', () => {
-                if (typeof showPreferencesModal === 'function') {
-                  showPreferencesModal();
+                if (typeof window.showPreferencesModal === 'function') {
+                  window.showPreferencesModal();
                 }
               });
             }
@@ -9970,8 +10007,8 @@
       document.head.appendChild(style);
     }
     
-    // ⚙️ Show preferences modal
-    function showPreferencesModal() {
+    // ⚙️ Show preferences modal (exposed globally for splash logo click)
+    window.showPreferencesModal = function() {
       ensurePreferencesModalStyles();
       
       // If modal exists, just show it
@@ -14578,38 +14615,60 @@
         // Import tzkt-client to fetch tokens
         const base = (window.location.hostname === 'localhost' || window.location.hostname.includes('local.'))
           ? 'https://localhost:8888' : 'https://aesthetic.computer';
-        const { fetchAllTokens } = await import(`${base}/aesthetic.computer/lib/keeps/tzkt-client.mjs`);
+        const { fetchAllTokens, fetchBurnedTokens } = await import(`${base}/aesthetic.computer/lib/keeps/tzkt-client.mjs`);
         
-        const tokens = await fetchAllTokens({ limit: 12 });
+        // Fetch active and burned tokens in parallel
+        const [activeTokens, burnedTokens] = await Promise.all([
+          fetchAllTokens({ limit: 24 }),
+          fetchBurnedTokens({ limit: 12 })
+        ]);
+        
+        const totalCount = activeTokens.length + burnedTokens.length;
         
         if (galleryCount) {
-          galleryCount.textContent = tokens.length > 0 ? `(${tokens.length})` : '';
+          galleryCount.textContent = totalCount > 0 ? `(${totalCount})` : '';
         }
         
-        if (tokens.length === 0) {
+        if (totalCount === 0) {
           galleryGrid.innerHTML = '<div class="keeps-gallery-empty">No keeps yet - be the first!</div>';
           return;
         }
         
-        galleryGrid.innerHTML = tokens.map(token => {
-          // Convert IPFS URI to gateway URL
+        // Helper to render a token item
+        const renderToken = (token) => {
           let thumbUrl = token.thumbnailUri || '';
           if (thumbUrl.startsWith('ipfs://')) {
             thumbUrl = thumbUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
           }
           
           const objktUrl = keepsConstants.getObjktUrl(token.tokenId, keepsConstants.DEFAULT_NETWORK);
-          
-          // Show token name (like "$roz") if available, otherwise fall back to "#tokenId"
           const displayName = token.name || `#${token.tokenId}`;
+          const burnedClass = token.burned ? ' burned' : '';
           
           return `
-            <a href="${objktUrl}" target="_blank" class="keeps-gallery-item" title="${token.name || 'Token #' + token.tokenId}">
+            <a href="${objktUrl}" target="_blank" class="keeps-gallery-item${burnedClass}" title="${token.name || 'Token #' + token.tokenId}${token.burned ? ' (burned)' : ''}">
               <img src="${thumbUrl}" alt="${token.name || ''}" loading="lazy" onerror="this.style.display='none'" />
               <span class="keeps-token-number">${displayName}</span>
             </a>
           `;
-        }).join('');
+        };
+        
+        // Build gallery HTML
+        let html = '';
+        
+        // Active tokens section
+        if (activeTokens.length > 0) {
+          html += '<div class="keeps-section-header">Latest Keeps</div>';
+          html += activeTokens.map(renderToken).join('');
+        }
+        
+        // Burned tokens section
+        if (burnedTokens.length > 0) {
+          html += '<div class="keeps-section-header">🔥 Burned</div>';
+          html += burnedTokens.map(renderToken).join('');
+        }
+        
+        galleryGrid.innerHTML = html;
         
       } catch (e) {
         log.wallet.error("Failed to load keeps gallery:", e);
@@ -15208,9 +15267,10 @@
             .map(item => ({
               code: item.code,
               source: item.source || item.code,
-              assetUrl: item.assetUrl || null,
+              assetUrl: item.assetUrl || item.thumbnail || null,
               hits: item.hits || 0,
-              handle: item.owner?.handle || '',
+              owner: item.owner || item.handle || null,
+              ts: item.createdAt ? Date.parse(item.createdAt) : null,
             }));
           
           renderCodeList({
@@ -15220,6 +15280,8 @@
             syntaxHighlight: true,
             tickerAnimation: true,
             showHits: true,
+            showOwner: true,
+            showTimeAgo: true,
           });
           
           examplesLoaded = true;
@@ -15535,7 +15597,7 @@
         emptyMessage: 'No history yet.',
         showTimestamp: true,
         showHits: true,
-        pendingThumb: true,
+        showOwner: true,
       });
     }
 
@@ -15556,6 +15618,7 @@
             source: r.source || '',
             assetUrl: r.assetUrl || r.thumbnail || null,
             hits: r.hits || 0,
+            owner: r.owner || r.handle || null,
             ts: r.createdAt ? Date.parse(r.createdAt) : Date.now()
           }));
           writeLocalHistory(mapped);
