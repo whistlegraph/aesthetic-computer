@@ -2689,8 +2689,10 @@ class TextInput {
       }
 
       // 🔲 Enter
+      console.log("🔲📍 [type.mjs Enter btn] e.is:", e.name, "btn.down:", this.enter.btn.down, "btn.disabled:", this.enter.btn.disabled, "btn.box.contains(e):", this.enter.btn.box.contains(e), "e:", e.x, e.y);
       this.enter.btn.act(e, {
         down: () => {
+          console.log("🔲⬇️ [type.mjs Enter btn] DOWN callback fired");
           $.send({ type: "keyboard:unlock" }); // Unlock keyboard for mobile
           if (!this.mute) {
             sound.synth({
@@ -2708,6 +2710,7 @@ class TextInput {
           // Silent scrubbing
         },
         push: async () => {
+          console.log("🔲🚀 [type.mjs Enter btn] PUSH callback fired");
           // Prevent race conditions by checking if we're already processing
           if (this.#lock) {
             return;

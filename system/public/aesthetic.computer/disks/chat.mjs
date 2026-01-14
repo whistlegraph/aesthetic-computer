@@ -307,6 +307,7 @@ async function boot(
       input.showBlink = false;
       input.mute = true;
       if (handleAutocomplete) handleAutocomplete.hide(); // 🔍 Clear autocomplete state
+      console.log("⌨️🔴 [chat.mjs] sending keyboard:close - reason: message sent");
       send({ type: "keyboard:close" });
     },
     {
@@ -1558,11 +1559,14 @@ function act(
   if (input.canType) {
     // 🔧 FIX: Soft-lock keyboard during content area touch/draw to prevent bios pointerup blur
     const isInContentArea = e.y < api.screen.height - bottomMargin;
+    console.log("📍 [chat act] canType=true | e:", e.name, "| y:", e.y, "| screenH:", api.screen.height, "| bottomMargin:", bottomMargin, "| isInContentArea:", isInContentArea);
     if (isInContentArea) {
       if (e.is("touch") || e.is("draw")) {
+        console.log("🔒 [chat act] SOFT-LOCKING keyboard (content area touch/draw)");
         send({ type: "keyboard:soft-lock" });
       }
       if (e.is("lift")) {
+        console.log("🔓 [chat act] SOFT-UNLOCKING keyboard (content area lift)");
         send({ type: "keyboard:soft-unlock" });
       }
     }
@@ -1571,7 +1575,9 @@ function act(
     if ((e.is("touch") || e.is("lift")) && fontPickerBtnBounds) {
       const inBtn = pen.x >= fontPickerBtnBounds.x && pen.x < fontPickerBtnBounds.x + fontPickerBtnBounds.w &&
                     pen.y >= fontPickerBtnBounds.y && pen.y < fontPickerBtnBounds.y + fontPickerBtnBounds.h;
+      console.log("🔤📍 [fontPicker btn] event:", e.name, "pen:", pen.x, pen.y, "e:", e.x, e.y, "bounds:", fontPickerBtnBounds, "inBtn:", inBtn);
       if (inBtn && e.is("lift")) {
+        console.log("🔤✅ [fontPicker btn] TOGGLING fontPickerOpen");
         beep();
         fontPickerOpen = !fontPickerOpen;
         return;
@@ -2243,6 +2249,7 @@ function act(
         e.is("keyboard:down:enter") &&
         !e.shift))
   ) {
+    console.log("⌨️🔴 [chat.mjs] sending keyboard:close - reason: backtick/escape/empty-enter");
     send({ type: "keyboard:close" });
   }
 
@@ -2255,7 +2262,10 @@ function act(
     // This prevents iOS keyboard from getting into a disconnected state
     const isInBottomPanel = e.y >= api.screen.height - bottomMargin;
     
+    console.log("⌨️📍 [chat.mjs lift] e.y:", e.y, "screenH:", api.screen.height, "bottomMargin:", bottomMargin, "isInBottomPanel:", isInBottomPanel, "enterBtnDown:", enterButtonIsDown);
+    
     if (!enterButtonIsDown && isInBottomPanel) {
+      console.log("⌨️🔴 [chat.mjs] sending keyboard:close - reason: lift in bottom panel");
       send({ type: "keyboard:close" });
     }
   }
@@ -2281,23 +2291,17 @@ function act(
   if (!input.canType && (e.is("touch") || e.is("lift"))) {
     const containsInputBtn = inputBtn?.btn?.box?.contains(e);
     const containsEnterBtn = input.enter?.btn?.box?.contains(e);
-    // console.log("🗨️ Chat checking input.act condition", {
-    //   eventType: e.name,
-    //   canType: input.canType,
-    //   containsInputBtn,
-    //   containsEnterBtn,
-    //   eventCoords: { x: e.x, y: e.y },
-    //   inputBtnBox: inputBtn?.btn?.box ? {
-    //     x: inputBtn.btn.box.x,
-    //     y: inputBtn.btn.box.y,
-    //     width: inputBtn.btn.box.width,
-    //     height: inputBtn.btn.box.height
-    //   } : null,
-    //   shouldCall: shouldCallInputAct
-    // });
+    console.log("🗨️📍 [chat act] touch/lift when !canType |", e.name, "| containsInputBtn:", containsInputBtn, "containsEnterBtn:", containsEnterBtn, "e:", e.x, e.y);
+  }
+
+  if (input.canType && (e.is("touch") || e.is("lift"))) {
+    const enterBtnDown = input.enter?.btn?.down;
+    const enterBtnContains = input.enter?.btn?.box?.contains(e);
+    console.log("🗨️📍 [chat act] touch/lift when canType |", e.name, "| enterBtn.down:", enterBtnDown, "enterBtn.contains(e):", enterBtnContains, "e:", e.x, e.y);
   }
 
   if (shouldCallInputAct) {
+    console.log("🗨️➡️ [chat act] calling input.act() for event:", e.name);
     input.act(api);
   }
 }
