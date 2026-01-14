@@ -494,6 +494,25 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
       transform: scale(0.95);
     }
+    
+    /* Paused state also needs dip effect when clicked */
+    #send-button.paused:active {
+      background: rgb(56, 142, 60); /* Darker green on click */
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+      transform: scale(0.95);
+      animation: none; /* Stop pulse animation during click */
+    }
+    
+    /* Button press animation - plays on click for visible dip feedback */
+    @keyframes button-dip {
+      0% { transform: scale(1); }
+      50% { transform: scale(0.92); }
+      100% { transform: scale(1); }
+    }
+    
+    #send-button.dipping {
+      animation: button-dip 0.15s ease-out !important;
+    }
 
     @media (hover: hover) {
       #send-button.playing:hover {
@@ -1239,6 +1258,18 @@
       display: block;
     }
     
+    /* Frozen mode overlay - match frozen iframe dimensions */
+    .preview-iframe-container.canvas-frozen .preview-mouse-overlay {
+      width: var(--frozen-width);
+      height: var(--frozen-height);
+      max-width: calc(100% - 40px);
+      max-height: calc(100% - 32px);
+      top: var(--frozen-top, 16px);
+      left: var(--frozen-left, 20px);
+      right: auto;
+      bottom: auto;
+    }
+    
     /* Iframe inset when rulers are visible (instant, no animation) */
     .preview-iframe-container.rulers-active #preview-iframe {
       position: absolute;
@@ -1248,6 +1279,21 @@
       bottom: 16px;
       width: calc(100% - 40px);
       height: calc(100% - 32px);
+    }
+    
+    /* Frozen canvas mode - maintain fixed size centered in container */
+    .preview-iframe-container.rulers-active.canvas-frozen #preview-iframe {
+      /* Override the fill behavior - use fixed frozen dimensions */
+      width: var(--frozen-width);
+      height: var(--frozen-height);
+      max-width: calc(100% - 40px);
+      max-height: calc(100% - 32px);
+      /* Position set via JS-calculated CSS variables for proper centering */
+      top: var(--frozen-top, 16px);
+      left: var(--frozen-left, 20px);
+      right: auto;
+      bottom: auto;
+      transform: none;
     }
     
     /* Pixel zoom mode - magnify around cursor position */
@@ -1260,6 +1306,11 @@
     .preview-iframe-container.rulers-active.pixel-zoom #preview-iframe {
       transform: scale(2);
       image-rendering: pixelated;
+    }
+    
+    /* When frozen AND zoomed, use same scale */
+    .preview-iframe-container.rulers-active.canvas-frozen.pixel-zoom #preview-iframe {
+      transform: scale(2);
     }
 
     /* Ensure preview panel has no internal gaps */
@@ -2154,7 +2205,6 @@
       background: var(--bg-secondary);
       color: var(--text-tertiary);
       transition: all 0.2s;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.05);
       white-space: nowrap;
       flex: 1 1 auto;
       min-width: 0;
@@ -2211,8 +2261,7 @@
 
     @media (hover: hover) {
       .tab:hover {
-        filter: brightness(1.08);
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 6px 12px rgba(0,0,0,0.08);
+        filter: brightness(1.05);
       }
       #guide-tab:hover {
         background: rgba(34, 197, 94, 0.35);
@@ -2236,13 +2285,10 @@
 
     .tab.active {
       color: var(--text-primary);
-      border-bottom: 1px solid var(--bg-primary); /* Blend with content */
-      margin-bottom: -1px; /* Cover the header border */
+      border-bottom: none;
       position: relative;
       z-index: 1;
       font-weight: 600;
-      box-shadow: inset 0 2px 0 rgba(255,255,255,0.8), 0 8px 14px rgba(0,0,0,0.12);
-      transform: translateY(-1px);
     }
 
     /* Color-coded tabs */
@@ -2254,7 +2300,6 @@
     #guide-tab.active {
       background: rgba(34, 197, 94, 0.5);
       color: #14532d;
-      border-top: 2px solid rgba(34, 197, 94, 0.9);
     }
     
     /* Top Hits - Yellow */
@@ -2265,7 +2310,6 @@
     #examples-tab.active {
       background: rgba(250, 204, 21, 0.55);
       color: #854d0e;
-      border-top: 2px solid rgba(250, 204, 21, 0.9);
     }
     
     /* Recent - Orange */
@@ -2276,7 +2320,6 @@
     #recent-tab.active {
       background: rgba(249, 115, 22, 0.5);
       color: #9a3412;
-      border-top: 2px solid rgba(249, 115, 22, 0.9);
     }
     
     /* History - Brown */
@@ -2287,7 +2330,6 @@
     #history-tab.active {
       background: rgba(180, 130, 90, 0.5);
       color: #451a03;
-      border-top: 2px solid rgba(180, 130, 90, 0.9);
     }
     
     /* Keeps - Gray */
@@ -2298,7 +2340,6 @@
     #keeps-tab.active {
       background: rgba(120, 120, 120, 0.35);
       color: #262626;
-      border-top: 2px solid rgba(120, 120, 120, 0.7);
     }
 
     /* Cards/Reference - keep existing green */
@@ -2309,63 +2350,70 @@
     #reference-tab.active {
       background: rgba(34, 197, 94, 0.55);
       color: #14532d;
-      border-top: 2px solid rgba(34, 197, 94, 0.9);
     }
 
-    /* Dark mode adjustments for tab colors */
+    /* Dark mode adjustments for tab colors - brighter text for contrast */
     :root.dark #guide-tab {
       background: rgba(34, 197, 94, 0.3);
-      color: #4ade80;
+      color: #a7f3d0;
     }
     :root.dark #guide-tab.active {
       background: rgba(34, 197, 94, 0.5);
-      color: #86efac;
+      color: #d1fae5;
     }
     
     :root.dark #examples-tab {
       background: rgba(250, 204, 21, 0.3);
-      color: #fde047;
+      color: #fef3c7;
     }
     :root.dark #examples-tab.active {
       background: rgba(250, 204, 21, 0.5);
-      color: #fef08a;
+      color: #fffbeb;
     }
     
     :root.dark #recent-tab {
       background: rgba(249, 115, 22, 0.3);
-      color: #fb923c;
+      color: #fed7aa;
     }
     :root.dark #recent-tab.active {
       background: rgba(249, 115, 22, 0.5);
-      color: #fdba74;
+      color: #ffedd5;
     }
     
     :root.dark #history-tab {
       background: rgba(180, 130, 90, 0.3);
-      color: #d4a574;
+      color: #f5e6d3;
     }
     :root.dark #history-tab.active {
       background: rgba(180, 130, 90, 0.5);
-      color: #e8c9a8;
+      color: #fdf4eb;
     }
     
     :root.dark #keeps-tab {
       background: rgba(150, 150, 150, 0.25);
-      color: #a3a3a3;
+      color: #d4d4d4;
     }
     :root.dark #keeps-tab.active {
       background: rgba(150, 150, 150, 0.4);
-      color: #d4d4d4;
+      color: #f5f5f5;
     }
     
     :root.dark #reference-tab {
       background: rgba(34, 197, 94, 0.35);
-      color: #4ade80;
+      color: #a7f3d0;
     }
     :root.dark #reference-tab.active {
       background: rgba(34, 197, 94, 0.55);
       color: #ffffff;
     }
+    
+    /* Dark mode skeuomorphic content backgrounds */
+    :root.dark #guide-content:not(.hidden) { background: rgba(34, 197, 94, 0.5); }
+    :root.dark #examples-content:not(.hidden) { background: rgba(250, 204, 21, 0.5); }
+    :root.dark #recent-content:not(.hidden) { background: rgba(249, 115, 22, 0.5); }
+    :root.dark #history-content:not(.hidden) { background: rgba(180, 130, 90, 0.5); }
+    :root.dark #keeps-content:not(.hidden) { background: rgba(150, 150, 150, 0.4); }
+    :root.dark #reference-content:not(.hidden) { background: rgba(34, 197, 94, 0.55); }
 
     .language-tab {
       border-left: 1px solid var(--border-color);
@@ -2474,6 +2522,14 @@
       overflow-y: auto;
       padding: 0; /* Remove padding so list items go edge-to-edge */
     }
+    
+    /* Skeuomorphic content backgrounds matching active tab colors */
+    #guide-content:not(.hidden) { background: rgba(34, 197, 94, 0.5); }
+    #examples-content:not(.hidden) { background: rgba(250, 204, 21, 0.55); }
+    #recent-content:not(.hidden) { background: rgba(249, 115, 22, 0.5); }
+    #history-content:not(.hidden) { background: rgba(180, 130, 90, 0.5); }
+    #keeps-content:not(.hidden) { background: rgba(120, 120, 120, 0.35); }
+    #reference-content:not(.hidden) { background: rgba(34, 197, 94, 0.55); }
 
     #examples-content > div,
     #history-content > div,
@@ -2607,6 +2663,38 @@
       flex: 1;
       overflow-y: auto;
       min-height: 0;
+    }
+    
+    /* Loading state for code lists */
+    .code-list-loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      min-height: 120px;
+      padding: 24px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      font-style: italic;
+      animation: code-list-loading-pulse 1.5s ease-in-out infinite;
+    }
+    
+    /* Empty state for code lists */
+    .code-list-empty {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      min-height: 120px;
+      padding: 24px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      font-style: italic;
+    }
+    
+    @keyframes code-list-loading-pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
     }
     
     /* Footer with action buttons (bottom right) */
@@ -3707,17 +3795,20 @@
     .keeps-gallery-loading {
       grid-column: 1 / -1;
       text-align: center;
-      padding: 20px;
-      color: var(--text-secondary);
-      font-size: 12px;
+      padding: 24px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      font-style: italic;
+      animation: code-list-loading-pulse 1.5s ease-in-out infinite;
     }
 
     .keeps-gallery-empty {
       grid-column: 1 / -1;
       text-align: center;
-      padding: 20px;
-      color: var(--text-secondary);
-      font-size: 12px;
+      padding: 24px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      font-style: italic;
     }
 
     .keeps-divider {
@@ -4843,11 +4934,12 @@
       }
       
       /* Play/Stop/Clear buttons - compact for single column mode */
+      /* Button size 36px with ~0.44 icon ratio (same as desktop 44px buttons) */
       #send-button, #stop-button, #clear-button {
-        width: 28px !important;
-        height: 28px !important;
-        min-width: 28px !important;
-        min-height: 28px !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
         flex-shrink: 0 !important;
         position: relative !important;
         left: auto !important;
@@ -4856,10 +4948,26 @@
         bottom: auto !important;
       }
       
+      /* Scale SVG icons to maintain desktop ratio (18/44 ≈ 0.41 → 15px for 36px button) */
+      #send-button svg {
+        width: 15px !important;
+        height: 15px !important;
+      }
+      
+      #stop-button svg {
+        width: 13px !important;
+        height: 13px !important;
+      }
+      
+      #clear-button svg {
+        width: 16px !important;
+        height: 16px !important;
+      }
+      
       #playback-controls {
-        bottom: 4px;
-        right: 4px;
-        gap: 6px;
+        bottom: 8px;
+        right: 8px;
+        gap: 8px;
         display: flex !important;
         flex-direction: row !important;
         align-items: center !important;
@@ -4868,29 +4976,6 @@
       #playback-controls > button {
         margin-right: 0 !important;
         margin-left: 0 !important;
-      }
-      
-      #send-button::before {
-        border-left-width: 7px;
-        border-top-width: 4px;
-        border-bottom-width: 4px;
-        margin-left: 2px;
-      }
-      
-      #send-button.playing::before {
-        width: 5px;
-        height: 8px;
-        border-left-width: 2px;
-        border-right-width: 2px;
-      }
-      
-      #stop-button::before {
-        width: 8px;
-        height: 8px;
-      }
-      
-      #clear-button {
-        font-size: 16px;
       }
       
       /* Monaco editor adjustments for mobile */
@@ -5381,7 +5466,7 @@
     transform: translate(-50%, -50%);
     font-family: 'Comic Relief', 'Comic Sans MS', cursive;
     font-weight: bold;
-    font-size: clamp(48px, min(12vw, 18vh), 140px);
+    font-size: clamp(56px, min(16vw, 22vh), 140px);
     display: inline-flex;
     width: fit-content;
     height: fit-content;
@@ -5597,12 +5682,19 @@
             
 
             
-            // Add click handler for back navigation if coming from prompt
+            // Add click handler - back navigation OR preferences modal
+            splashLogo.style.cursor = 'pointer';
             if (window.kidlispBackToPrompt) {
-              splashLogo.style.cursor = 'pointer';
               splashLogo.title = 'Back to prompt';
               splashLogo.addEventListener('click', () => {
                 window.location.href = window.kidlispBackToPrompt;
+              });
+            } else {
+              splashLogo.title = 'Preferences';
+              splashLogo.addEventListener('click', () => {
+                if (typeof showPreferencesModal === 'function') {
+                  showPreferencesModal();
+                }
               });
             }
           }, 550);
@@ -5624,12 +5716,19 @@
             splashLogo.style.cssText = '';
             landingZone.appendChild(splashLogo);
             
-            // Add click handler for back navigation if coming from prompt
+            // Add click handler - back navigation OR preferences modal
+            splashLogo.style.cursor = 'pointer';
             if (window.kidlispBackToPrompt) {
-              splashLogo.style.cursor = 'pointer';
               splashLogo.title = 'Back to prompt';
               splashLogo.addEventListener('click', () => {
                 window.location.href = window.kidlispBackToPrompt;
+              });
+            } else {
+              splashLogo.title = 'Preferences';
+              splashLogo.addEventListener('click', () => {
+                if (typeof showPreferencesModal === 'function') {
+                  showPreferencesModal();
+                }
               });
             }
           }
@@ -6315,21 +6414,9 @@
       <div class="editor-panel" id="editor-panel">
         <div class="editor-header">
           <div style="display: flex; flex-direction: column; align-items: flex-start;">
-            <!-- Logo landing zone - splash logo will fly here and stay -->
-            <div id="logo-landing-zone" style="margin-top: 4px; height: 24px; display: flex; align-items: center;"></div>
+            <!-- Logo landing zone - splash logo will fly here and stay (clickable for preferences) -->
+            <div id="logo-landing-zone" style="margin-top: 4px; height: 24px; display: flex; align-items: center; cursor: pointer;" title="Preferences"></div>
           </div>
-          <div class="tab language-tab" id="language-tab" style="border: none; height: 100%; padding: 0 6px; background: transparent; display: flex; align-items: center; margin-left: 8px; margin-right: 8px;">
-            <span class="lang-flag" id="lang-flag" style="font-size: 10px; margin-right: 4px;">🇺🇸</span>
-            <span class="lang-text" style="font-size: 10px; opacity: 0.7;">English</span>
-            <span class="lang-arrow" style="font-size: 8px; opacity: 0.5; margin-left: 3px;">▼</span>
-            <div class="language-dropdown" id="language-dropdown" style="display: none; left: 0; top: 100%; margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0;">
-              <div class="lang-option" data-lang="en">🇺🇸 English</div>
-              <div class="lang-option" data-lang="es">🇪🇸 Español</div>
-              <div class="lang-option" data-lang="zh">🇨🇳 中文</div>
-              <div class="lang-option" data-lang="da">🇩🇰 Dansk</div>
-            </div>
-          </div>
-          <button id="theme-toggle" title="Toggle light/dark mode">○</button>
         </div>
         <!-- Visualization Mode Tabs (hidden for now) -->
         <div class="viz-tabs" id="viz-tabs" style="display: none !important;">
@@ -6516,12 +6603,12 @@
         </div>
         <div class="docs-content" id="examples-content">
           <div class="code-list-panel">
-            <div id="examples-list" class="code-list-items">Loading examples...</div>
+            <div id="examples-list" class="code-list-items"><div class="code-list-loading">Loading...</div></div>
           </div>
         </div>
         <div class="docs-content hidden" id="history-content">
           <div class="code-list-panel">
-            <div id="history-list" class="code-list-items">No history yet.</div>
+            <div id="history-list" class="code-list-items"><div class="code-list-empty">No history yet.</div></div>
             <div class="code-list-footer">
               <button id="history-login-btn" class="secondary-btn" style="display: none;">Log in</button>
               <button id="history-clear-btn" class="secondary-btn">Clear</button>
@@ -6531,7 +6618,7 @@
         <div class="docs-content hidden" id="recent-content">
           <div class="code-list-panel">
             <div id="recent-new-indicator" class="code-list-new-indicator hidden"></div>
-            <div id="recent-list" class="code-list-items">Loading...</div>
+            <div id="recent-list" class="code-list-items"><div class="code-list-loading">Loading...</div></div>
           </div>
         </div>
         <div class="docs-content hidden" id="keeps-content">
@@ -8355,6 +8442,15 @@
         }
       }
       
+      // Add CSS for drag cursor override (must use class + !important to override button cursors)
+      const dragCursorStyle = document.createElement('style');
+      dragCursorStyle.textContent = `
+        html.dragging-panel, html.dragging-panel * {
+          cursor: ns-resize !important;
+        }
+      `;
+      document.head.appendChild(dragCursorStyle);
+      
       // Disable transitions and iframe pointer events during drag
       function setDragMode(dragging) {
         panels.forEach(p => {
@@ -8364,6 +8460,8 @@
         if (previewIframe) {
           previewIframe.style.pointerEvents = dragging ? 'none' : '';
         }
+        // Set cursor on entire document during drag (class + !important overrides button cursors)
+        document.documentElement.classList.toggle('dragging-panel', dragging);
       }
       
       // Initialize all panels with flex values
@@ -8410,8 +8508,8 @@
         // Elements that should NOT start a drag (interactive elements)
         const skipDragSelectors = [
           'button', '.tab', '.platform-selector', '.platform-dropdown',
-          '.header-auth-buttons', '.header-user-menu', '#theme-toggle',
-          '.language-tab', '.language-dropdown', 'select', 'input'
+          '.header-auth-buttons', '.header-user-menu',
+          'select', 'input', '#logo-landing-zone', '#splash-logo'
         ];
         
         function shouldSkipDrag(target) {
@@ -8436,7 +8534,8 @@
           pending: false,      // Touch/mouse down, waiting to see if it's a drag
           dragging: false,     // Actually dragging (moved past threshold)
           startY: 0,
-          startHeights: {}     // Heights of all panels when drag started
+          startHeights: {},    // Heights of all panels when drag started
+          startedOnInteractive: false // Whether drag started on a button/tab/etc
         };
         
         function captureAllHeights() {
@@ -8447,11 +8546,12 @@
           return heights;
         }
         
-        function startPending(clientY) {
+        function startPending(clientY, startedOnInteractive = false) {
           dragState.pending = true;
           dragState.dragging = false;
           dragState.startY = clientY;
           dragState.startHeights = captureAllHeights();
+          dragState.startedOnInteractive = startedOnInteractive;
         }
         
         function moveDrag(clientY) {
@@ -8707,18 +8807,26 @@
           }
           
           // If wasn't dragging, it's a tap - toggle collapse
-          if (wasPending && !wasDragging) {
+          // But only if we didn't start on an interactive element
+          if (wasPending && !wasDragging && !dragState.startedOnInteractive) {
             toggleCollapse();
           }
+          
+          dragState.startedOnInteractive = false;
         }
         
         // Touch events on header (entire header is draggable)
+        // Even if touching interactive elements, allow drag - just suppress their click
         header.addEventListener('touchstart', (e) => {
-          // Skip if touching interactive element
-          if (shouldSkipDrag(e.target)) return;
+          const startedOnInteractive = shouldSkipDrag(e.target);
+          const targetElement = e.target;
           
-          e.stopPropagation();
-          startPending(e.touches[0].clientY);
+          // Only stop propagation if NOT on interactive element
+          // (let interactive elements handle their own events normally)
+          if (!startedOnInteractive) {
+            e.stopPropagation();
+          }
+          startPending(e.touches[0].clientY, startedOnInteractive);
           
           const onTouchMove = (e) => {
             if (moveDrag(e.touches[0].clientY)) {
@@ -8726,10 +8834,31 @@
             }
           };
           
+          // Block click if dragging occurred
+          const blockClick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+          };
+          
           const onTouchEnd = () => {
             document.removeEventListener('touchmove', onTouchMove);
             document.removeEventListener('touchend', onTouchEnd);
             document.removeEventListener('touchcancel', onTouchEnd);
+            
+            // If dragging occurred and started on interactive element, block the click
+            if (dragState.dragging && startedOnInteractive) {
+              // Add capture-phase click blocker that removes itself after one use
+              targetElement.addEventListener('click', blockClick, { capture: true, once: true });
+              // Also block on header in case click bubbles there
+              header.addEventListener('click', blockClick, { capture: true, once: true });
+              // Clean up blockers after a short delay if click didn't fire
+              setTimeout(() => {
+                targetElement.removeEventListener('click', blockClick, { capture: true });
+                header.removeEventListener('click', blockClick, { capture: true });
+              }, 100);
+            }
+            
             endDrag();
           };
           
@@ -8739,22 +8868,48 @@
         }, { passive: true });
         
         // Mouse events on header (entire header is draggable)
+        // Even if clicking interactive elements, allow drag - just suppress their click
         header.addEventListener('mousedown', (e) => {
-          // Skip if clicking interactive element
-          if (shouldSkipDrag(e.target)) return;
+          const startedOnInteractive = shouldSkipDrag(e.target);
+          const targetElement = e.target;
           
-          e.stopPropagation();
-          e.preventDefault();
-          startPending(e.clientY);
+          // Only stop propagation if NOT on interactive element
+          if (!startedOnInteractive) {
+            e.stopPropagation();
+            e.preventDefault();
+          }
+          startPending(e.clientY, startedOnInteractive);
           
           const onMouseMove = (e) => {
+            // If dragging started and we began on interactive element, prevent default
+            if (dragState.dragging && startedOnInteractive) {
+              e.preventDefault();
+            }
             moveDrag(e.clientY);
+          };
+          
+          // Block click if dragging occurred on interactive element
+          const blockClick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
           };
           
           const cleanup = () => {
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', cleanup);
             document.removeEventListener('mouseleave', cleanup);
+            
+            // If dragging occurred and started on interactive element, block the click
+            if (dragState.dragging && startedOnInteractive) {
+              targetElement.addEventListener('click', blockClick, { capture: true, once: true });
+              header.addEventListener('click', blockClick, { capture: true, once: true });
+              setTimeout(() => {
+                targetElement.removeEventListener('click', blockClick, { capture: true });
+                header.removeEventListener('click', blockClick, { capture: true });
+              }, 100);
+            }
+            
             endDrag();
           };
           
@@ -9651,6 +9806,342 @@
         }
       `;
       document.head.appendChild(style);
+    }
+    
+    // ⚙️ Preferences modal state
+    let preferencesModal = null;
+    
+    // Add CSS for preferences modal
+    function ensurePreferencesModalStyles() {
+      if (document.getElementById('preferences-modal-styles')) return;
+      const style = document.createElement('style');
+      style.id = 'preferences-modal-styles';
+      style.textContent = `
+        .preferences-modal-backdrop {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0, 0, 0, 0.85);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 100000;
+          backdrop-filter: blur(4px);
+        }
+        
+        .preferences-modal-content {
+          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+          border-radius: 16px;
+          padding: 20px;
+          max-width: 360px;
+          width: 90%;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .preferences-modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+        
+        .preferences-modal-title {
+          margin: 0;
+          color: #f0e6d3;
+          font-family: 'Comic Relief', 'Comic Sans MS', cursive;
+          font-size: 22px;
+          font-weight: bold;
+        }
+        
+        .preferences-modal-close {
+          background: none;
+          border: none;
+          color: #888;
+          font-size: 20px;
+          cursor: pointer;
+          padding: 4px 8px;
+          border-radius: 4px;
+          transition: all 0.2s;
+        }
+        
+        .preferences-modal-close:hover {
+          color: #fff;
+          background: rgba(255,255,255,0.1);
+        }
+        
+        .preferences-section {
+          margin-bottom: 20px;
+        }
+        
+        .preferences-section:last-child {
+          margin-bottom: 0;
+        }
+        
+        .preferences-label {
+          color: #888;
+          font-family: monospace;
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 10px;
+          display: block;
+        }
+        
+        .preferences-options {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        
+        .preferences-option {
+          flex: 1;
+          min-width: 80px;
+          padding: 12px 16px;
+          border: 2px solid rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+          background: rgba(0, 0, 0, 0.3);
+          color: #aaa;
+          font-family: monospace;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s;
+          text-align: center;
+        }
+        
+        .preferences-option:hover {
+          border-color: rgba(255, 255, 255, 0.3);
+          color: #fff;
+        }
+        
+        .preferences-option.active {
+          border-color: #4ecdc4;
+          background: rgba(78, 205, 196, 0.15);
+          color: #4ecdc4;
+        }
+        
+        .preferences-option .option-icon {
+          font-size: 20px;
+          display: block;
+          margin-bottom: 4px;
+        }
+        
+        .preferences-option .option-text {
+          font-size: 11px;
+          opacity: 0.8;
+        }
+        
+        .lang-options {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+        
+        .lang-option-btn {
+          padding: 10px 12px;
+          border: 2px solid rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
+          background: rgba(0, 0, 0, 0.3);
+          color: #aaa;
+          font-family: monospace;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 0.2s;
+          text-align: left;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .lang-option-btn:hover {
+          border-color: rgba(255, 255, 255, 0.3);
+          color: #fff;
+        }
+        
+        .lang-option-btn.active {
+          border-color: #4ecdc4;
+          background: rgba(78, 205, 196, 0.15);
+          color: #4ecdc4;
+        }
+        
+        .lang-option-btn .lang-flag {
+          font-size: 18px;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    // ⚙️ Show preferences modal
+    function showPreferencesModal() {
+      ensurePreferencesModalStyles();
+      
+      // If modal exists, just show it
+      if (preferencesModal) {
+        preferencesModal.style.display = 'flex';
+        updatePreferencesModalContent();
+        return;
+      }
+      
+      // Create modal backdrop
+      preferencesModal = document.createElement('div');
+      preferencesModal.className = 'preferences-modal-backdrop';
+      
+      // Modal content
+      const content = document.createElement('div');
+      content.className = 'preferences-modal-content';
+      
+      // Header with close button
+      const header = document.createElement('div');
+      header.className = 'preferences-modal-header';
+      
+      const title = document.createElement('h2');
+      title.className = 'preferences-modal-title';
+      title.textContent = '⚙️ Preferences';
+      header.appendChild(title);
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'preferences-modal-close';
+      closeBtn.textContent = '✕';
+      closeBtn.addEventListener('click', closePreferencesModal);
+      header.appendChild(closeBtn);
+      
+      content.appendChild(header);
+      
+      // Theme section
+      const themeSection = document.createElement('div');
+      themeSection.className = 'preferences-section';
+      themeSection.innerHTML = `
+        <span class="preferences-label">Theme</span>
+        <div class="preferences-options" id="pref-theme-options">
+          <button class="preferences-option" data-theme="light">
+            <span class="option-icon">☀️</span>
+            <span class="option-text">Light</span>
+          </button>
+          <button class="preferences-option" data-theme="dark">
+            <span class="option-icon">🌙</span>
+            <span class="option-text">Dark</span>
+          </button>
+          <button class="preferences-option" data-theme="system">
+            <span class="option-icon">💻</span>
+            <span class="option-text">System</span>
+          </button>
+        </div>
+      `;
+      content.appendChild(themeSection);
+      
+      // Language section
+      const langSection = document.createElement('div');
+      langSection.className = 'preferences-section';
+      langSection.innerHTML = `
+        <span class="preferences-label">Language</span>
+        <div class="lang-options" id="pref-lang-options">
+          <button class="lang-option-btn" data-lang="en">
+            <span class="lang-flag">🇺🇸</span>
+            <span>English</span>
+          </button>
+          <button class="lang-option-btn" data-lang="es">
+            <span class="lang-flag">🇪🇸</span>
+            <span>Español</span>
+          </button>
+          <button class="lang-option-btn" data-lang="zh">
+            <span class="lang-flag">🇨🇳</span>
+            <span>中文</span>
+          </button>
+          <button class="lang-option-btn" data-lang="da">
+            <span class="lang-flag">🇩🇰</span>
+            <span>Dansk</span>
+          </button>
+        </div>
+      `;
+      content.appendChild(langSection);
+      
+      preferencesModal.appendChild(content);
+      
+      // Close on backdrop click
+      preferencesModal.addEventListener('click', (e) => {
+        if (e.target === preferencesModal) closePreferencesModal();
+      });
+      
+      // Close on escape
+      const escHandler = (e) => {
+        if (e.key === 'Escape') {
+          closePreferencesModal();
+        }
+      };
+      document.addEventListener('keydown', escHandler);
+      preferencesModal.escHandler = escHandler;
+      
+      document.body.appendChild(preferencesModal);
+      
+      // Setup event handlers
+      setupPreferencesHandlers();
+      updatePreferencesModalContent();
+    }
+    
+    // Setup preferences modal event handlers
+    function setupPreferencesHandlers() {
+      if (!preferencesModal) return;
+      
+      // Theme options
+      const themeOptions = preferencesModal.querySelectorAll('#pref-theme-options .preferences-option');
+      themeOptions.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const theme = btn.getAttribute('data-theme');
+          if (theme) {
+            window.manualThemeSet = theme !== 'system';
+            window.applyTheme(theme);
+            updatePreferencesModalContent();
+          }
+        });
+      });
+      
+      // Language options
+      const langOptions = preferencesModal.querySelectorAll('#pref-lang-options .lang-option-btn');
+      langOptions.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const lang = btn.getAttribute('data-lang');
+          if (lang && typeof setLanguage === 'function') {
+            setLanguage(lang);
+            updatePreferencesModalContent();
+          }
+        });
+      });
+    }
+    
+    // Update preferences modal to reflect current state
+    function updatePreferencesModalContent() {
+      if (!preferencesModal) return;
+      
+      // Update theme selection
+      const themeOptions = preferencesModal.querySelectorAll('#pref-theme-options .preferences-option');
+      const currentVisualTheme = document.documentElement.getAttribute('data-theme') || 'light';
+      const isSystemTheme = !window.manualThemeSet;
+      
+      themeOptions.forEach(btn => {
+        const theme = btn.getAttribute('data-theme');
+        btn.classList.remove('active');
+        if (isSystemTheme && theme === 'system') {
+          btn.classList.add('active');
+        } else if (!isSystemTheme && theme === currentVisualTheme) {
+          btn.classList.add('active');
+        }
+      });
+      
+      // Update language selection
+      const langOptions = preferencesModal.querySelectorAll('#pref-lang-options .lang-option-btn');
+      langOptions.forEach(btn => {
+        const lang = btn.getAttribute('data-lang');
+        btn.classList.toggle('active', lang === currentLang);
+      });
+    }
+    
+    // Close preferences modal
+    function closePreferencesModal() {
+      if (preferencesModal) {
+        preferencesModal.style.display = 'none';
+        if (preferencesModal.escHandler) {
+          document.removeEventListener('keydown', preferencesModal.escHandler);
+        }
+      }
     }
     
     // 🖼️ Show unified modal (screenshot or mug)
@@ -11511,11 +12002,7 @@
       // Initial visibility check
       updateClearButtonVisibility();
       
-      // Language selector handler
-      const langTab = document.getElementById('language-tab');
-      const langText = langTab?.querySelector('.lang-text');
-      const langFlag = document.getElementById('lang-flag');
-      const langDropdown = document.getElementById('language-dropdown');
+      // Language list for preferences modal
       const languages = [
         { code: 'en', name: 'English', flag: '🇺🇸' },
         { code: 'es', name: 'Español', flag: '🇪🇸' },
@@ -11523,81 +12010,14 @@
         { code: 'da', name: 'Dansk', flag: '🇩🇰' }
       ];
       
-      function updateLanguageTab() {
-        if (langText && langFlag) {
-          const currentLangObj = languages.find(l => l.code === currentLang);
-          // Use 'en' for English display, otherwise use the language name
-          langText.textContent = currentLangObj?.name || 'English';
-          langFlag.textContent = currentLangObj?.flag || '🇺🇸';
-        }
-      }
-      
-      if (langTab && langDropdown) {
-        // Toggle dropdown on click
-        langTab.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const isVisible = langDropdown.style.display === 'block';
-          langDropdown.style.display = isVisible ? 'none' : 'block';
-        });
-        
-        // Handle language selection
-        langDropdown.querySelectorAll('.lang-option').forEach(option => {
-          option.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const lang = option.getAttribute('data-lang');
-            if (lang) {
-              setLanguage(lang);
-              updateLanguageTab();
-              langDropdown.style.display = 'none';
-            }
-          });
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', () => {
-          langDropdown.style.display = 'none';
-        });
-        
-        updateLanguageTab();
-        
-        // Auto-cycle animation on load (preview only, doesn't change actual language)
-        setTimeout(() => {
-          let cycleCount = 0;
-          
-          const autoCycle = setInterval(() => {
-            const previewIndex = (cycleCount + 1) % languages.length;
-            const previewLang = languages[previewIndex];
-            
-            // Add animation class
-            langTab.classList.add('cycling');
-            
-            // Update content at midpoint
-            setTimeout(() => {
-              if (langText && langFlag) {
-                langText.textContent = previewLang.name;
-                langFlag.textContent = previewLang.flag;
-              }
-            }, 150);
-            
-            // Remove animation class
-            setTimeout(() => {
-              langTab.classList.remove('cycling');
-            }, 300);
-            
-            cycleCount++;
-          }, 3000); // Cycle every 3 seconds
-        }, 1500); // Start after 1.5 seconds
-      }
-      
       // Initialize UI language
       updateUILanguage();
       
-      // Theme toggle functionality
-      const themeToggle = document.getElementById('theme-toggle');
+      // Theme functionality (toggle removed from header, now in preferences modal)
       let currentTheme = 'system'; // Start with system preference
-      let manualThemeSet = false; // Session-only tracking - resets on refresh
+      window.manualThemeSet = false; // Session-only tracking - resets on refresh
       
-      function applyTheme(theme) {
+      window.applyTheme = function(theme) {
         currentTheme = theme;
         // Don't persist to localStorage - theme override is session-only
         
@@ -11612,9 +12032,6 @@
         // Always set data-theme to ensure consistent styling
         // This overrides the @media (prefers-color-scheme) fallbacks
         document.documentElement.setAttribute('data-theme', visualTheme);
-        
-        // Update toggle icon based on current visual theme
-        themeToggle.textContent = visualTheme === 'dark' ? '🌙' : '☀️';
         
         // Update Monaco editor theme
         if (editor) {
@@ -11638,30 +12055,13 @@
       }
       
       // Always start with system preference on page load (no persistence)
-      applyTheme('system');
-      
-      // Theme toggle click - simple 2-way toggle between light and dark
-      if (themeToggle) {
-        themeToggle.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          manualThemeSet = true; // Mark that user manually changed theme this session
-          // Simple toggle: if currently showing dark, switch to light and vice versa
-          const currentVisual = document.documentElement.getAttribute('data-theme');
-          applyTheme(currentVisual === 'dark' ? 'light' : 'dark');
-        });
-        // Also handle touch events for better mobile support
-        themeToggle.addEventListener('touchend', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        });
-      }
+      window.applyTheme('system');
       
       // Listen for system theme changes - only respond if user hasn't manually toggled this session
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
         // Only respond to OS theme if user hasn't manually set a preference this session
-        if (!manualThemeSet) {
-          applyTheme('system'); // Re-apply to update icon and theme
+        if (!window.manualThemeSet) {
+          window.applyTheme('system'); // Re-apply to update theme
         }
       });
 
@@ -11846,9 +12246,13 @@
     const rulerSystem = {
       initialized: false,
       visible: false,
-      canvasWidth: 640,   // AC logical canvas size (viewport / density)
-      canvasHeight: 360,  // Default density = 2, so 1280/2 = 640
-      density: 2,         // AC screen density (default)
+      frozen: false,        // Whether canvas size is frozen (during pause)
+      canvasWidth: 640,     // AC logical canvas size (viewport / density)
+      canvasHeight: 360,    // Default density = 2, so 1280/2 = 640
+      frozenWidth: null,    // Frozen pixel dimensions (for CSS)
+      frozenHeight: null,   // Frozen pixel dimensions (for CSS)
+      density: 2,           // AC screen density (default)
+      resizeObserver: null, // ResizeObserver for frozen position updates
       
       init() {
         if (this.initialized) return;
@@ -11863,8 +12267,19 @@
         const crosshairVRight = document.getElementById('crosshair-v-right');
         const previewCrosshairH = document.getElementById('preview-crosshair-h');
         const previewCrosshairV = document.getElementById('preview-crosshair-v');
+        const iframeContainer = document.getElementById('preview-iframe-container');
         
         if (!overlay || !rulers) return;
+        
+        // Set up resize observer to update frozen position when container resizes
+        if (iframeContainer && window.ResizeObserver) {
+          this.resizeObserver = new ResizeObserver(() => {
+            if (this.frozen) {
+              this.updateFrozenPosition();
+            }
+          });
+          this.resizeObserver.observe(iframeContainer);
+        }
         
         // Generate initial tick marks
         this.generateTicks();
@@ -12141,6 +12556,20 @@
           // This gives us the actual AC coordinate system
           this.canvasWidth = Math.round(iframeRect.width / this.density);
           this.canvasHeight = Math.round(iframeRect.height / this.density);
+          
+          // Store the frozen pixel dimensions for CSS
+          this.frozenWidth = iframeRect.width;
+          this.frozenHeight = iframeRect.height;
+          this.frozen = true;
+          
+          // Apply frozen CSS variables to maintain this size
+          if (iframeContainer) {
+            iframeContainer.style.setProperty('--frozen-width', `${this.frozenWidth}px`);
+            iframeContainer.style.setProperty('--frozen-height', `${this.frozenHeight}px`);
+            iframeContainer.classList.add('canvas-frozen');
+            // Initial position calculation
+            this.updateFrozenPosition();
+          }
         }
         
         if (rulers) {
@@ -12150,6 +12579,30 @@
         }
         if (overlay) overlay.style.display = 'block';
         if (iframeContainer) iframeContainer.classList.add('rulers-active');
+      },
+      
+      // Update the centered position of frozen iframe when container resizes
+      updateFrozenPosition() {
+        if (!this.frozen || !this.frozenWidth || !this.frozenHeight) return;
+        
+        const iframeContainer = document.getElementById('preview-iframe-container');
+        if (!iframeContainer) return;
+        
+        const containerRect = iframeContainer.getBoundingClientRect();
+        // Available space within ruler inset (16px top/bottom, 20px left/right)
+        const availWidth = containerRect.width - 40;
+        const availHeight = containerRect.height - 32;
+        
+        // Clamp frozen size to available space
+        const displayWidth = Math.min(this.frozenWidth, availWidth);
+        const displayHeight = Math.min(this.frozenHeight, availHeight);
+        
+        // Calculate centered position within inset area
+        const centeredTop = 16 + (availHeight - displayHeight) / 2;
+        const centeredLeft = 20 + (availWidth - displayWidth) / 2;
+        
+        iframeContainer.style.setProperty('--frozen-top', `${Math.max(16, centeredTop)}px`);
+        iframeContainer.style.setProperty('--frozen-left', `${Math.max(20, centeredLeft)}px`);
       },
       
       hide() {
@@ -12166,7 +12619,17 @@
         if (iframeContainer) {
           iframeContainer.classList.remove('rulers-active');
           iframeContainer.classList.remove('pixel-zoom');
+          // Unfreeze canvas
+          iframeContainer.classList.remove('canvas-frozen');
+          iframeContainer.style.removeProperty('--frozen-width');
+          iframeContainer.style.removeProperty('--frozen-height');
+          iframeContainer.style.removeProperty('--frozen-top');
+          iframeContainer.style.removeProperty('--frozen-left');
         }
+        // Unfreeze state
+        this.frozen = false;
+        this.frozenWidth = null;
+        this.frozenHeight = null;
         // Clean up zoom state
         this.endZoom();
         if (this.zoomTimeout) {
@@ -12177,6 +12640,8 @@
       
       // Update canvas dimensions (call when we know the actual AC canvas size)
       setCanvasSize(width, height) {
+        // Don't update if frozen (preserves paused state during resize)
+        if (this.frozen) return;
         this.canvasWidth = width;
         this.canvasHeight = height;
         if (this.visible) this.generateTicks();
@@ -12185,6 +12650,8 @@
       // Update density (call if AC sends density info)
       setDensity(density) {
         this.density = density || 2;
+        // Don't recalculate canvas size if frozen
+        if (this.frozen) return;
         // Recalculate canvas size
         const iframe = document.getElementById('preview-iframe');
         if (iframe) {
@@ -12518,6 +12985,13 @@
         log.playback.verbose('Play button disabled');
         return;
       }
+      
+      // Trigger dip animation for visual feedback
+      sendButton.classList.remove('dipping');
+      // Force reflow to restart animation
+      void sendButton.offsetWidth;
+      sendButton.classList.add('dipping');
+      setTimeout(() => sendButton.classList.remove('dipping'), 150);
       
       // Only AC platform supports live playback for now
       if (currentPlatform !== 'aesthetic-computer') {
@@ -12878,24 +13352,26 @@
           break;
           
         case 'test:switchLanguage':
-          const langOption = document.querySelector(`.lang-option[data-lang="${data.lang}"]`);
-          if (langOption) {
-            langOption.click();
+          // Use global setLanguage function
+          if (typeof setLanguage === 'function') {
+            setLanguage(data.lang);
             log.message.debug('Test: Language switched:', data.lang);
             respond({ success: true, lang: data.lang });
           } else {
-            respond({ success: false, error: 'Language not found: ' + data.lang });
+            respond({ success: false, error: 'Language function not found' });
           }
           break;
           
         case 'test:toggleTheme':
-          const themeToggle = document.getElementById('theme-toggle');
-          if (themeToggle) {
-            themeToggle.click();
+          // Toggle between light and dark using global applyTheme
+          if (typeof window.applyTheme === 'function') {
+            const currentVisual = document.documentElement.getAttribute('data-theme');
+            window.manualThemeSet = true;
+            window.applyTheme(currentVisual === 'dark' ? 'light' : 'dark');
             log.message.debug('Test: Theme toggled');
             respond({ success: true });
           } else {
-            respond({ success: false, error: 'Theme toggle not found' });
+            respond({ success: false, error: 'Theme toggle not available' });
           }
           break;
           
@@ -13432,15 +13908,20 @@
         }
       }, 1000);
       
-      // Set initial tab based on viewport: Console for mobile, Guide for desktop
+      // Set initial tab based on viewport: Console for mobile, Top Hits for desktop
       const isMobileView = window.innerWidth <= 768;
       if (isMobileView && consoleTab && mobileConsoleContent) {
         deactivateAllTabs();
         hideAllTabContents();
         consoleTab.classList.add('active');
         mobileConsoleContent.classList.remove('hidden');
+      } else {
+        // Desktop: ensure Top Hits tab is active and visible
+        deactivateAllTabs();
+        hideAllTabContents();
+        examplesTab.classList.add('active');
+        examplesContent.classList.remove('hidden');
       }
-      // Desktop defaults to Guide tab (set in HTML)
       
       // If session was hydrated before DOM was ready, switch to History now
       if (pendingHistoryTabSwitch && acUser) {
@@ -14715,7 +15196,7 @@
     async function loadExamples() {
       try {
         const examplesList = document.getElementById('examples-list');
-        examplesList.textContent = t('examplesLoading');
+        examplesList.innerHTML = `<div class="code-list-loading">${t('examplesLoading')}</div>`;
         
         const response = await fetch(`${aestheticUrl}/api/tv?types=kidlisp&sort=hits&limit=25`);
         const data = await response.json();
@@ -14743,11 +15224,11 @@
           
           examplesLoaded = true;
         } else {
-          examplesList.textContent = t('examplesNone');
+          examplesList.innerHTML = `<div class="code-list-empty">${t('examplesNone')}</div>`;
         }
       } catch (e) {
         log.code.error('Failed to load examples:', e.message);
-        document.getElementById('examples-list').textContent = t('examplesError');
+        document.getElementById('examples-list').innerHTML = `<div class="code-list-empty">${t('examplesError')}</div>`;
       }
     }
 
@@ -14983,7 +15464,7 @@
       if (!listEl) return;
       
       if (!items || items.length === 0) {
-        listEl.innerHTML = `<div style="color: var(--text-tertiary); font-size: 12px; padding: 12px;">${emptyMessage}</div>`;
+        listEl.innerHTML = `<div class="code-list-empty">${emptyMessage}</div>`;
         return;
       }
       
