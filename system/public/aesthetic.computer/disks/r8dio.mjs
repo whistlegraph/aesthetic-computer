@@ -78,17 +78,17 @@ function paint({
   const centerX = Math.floor(screen.width / 2);
   const centerY = Math.floor(screen.height / 2);
   
-  // QR code layout - top right corner
-  const qrScale = Math.max(1, Math.floor(Math.min(screen.width, 50) / (qrCells?.length || 21)));
+  // QR code layout - top right corner (bigger)
+  const qrScale = Math.max(2, Math.floor(Math.min(screen.width, 80) / (qrCells?.length || 21)));
   const qrSize = (qrCells?.length || 21) * qrScale;
   const qrX = screen.width - qrSize - 6;
   const qrY = 6;
   const listenY = qrY + qrSize + 4;
   
   // Layout constants - centered play button
-  const titleY = 10;
-  const subtitleY = 28;
-  const visualizerTopY = 42;
+  const titleY = centerY - 70; // Title above visualizer
+  const subtitleY = titleY + 18;
+  const visualizerTopY = subtitleY + 14;
   const btnSize = 32;
   const btnY = centerY - btnSize / 2; // Centered vertically
   const volSliderYPos = btnY + btnSize + 8; // Volume right below button
