@@ -419,6 +419,8 @@ function paint(
     paintingHover: "yellow",
     kidlisp: "magenta",
     kidlispHover: "yellow",
+    clock: [255, 200, 50], // Gold/yellow for *clock links
+    clockHover: "yellow",
     r8dio: [255, 0, 255], // Magenta for r8dio radio links
     r8dioHover: "yellow",
     timestamp: [100 / 1.3, 100 / 1.3, 145 / 1.3],
@@ -700,6 +702,8 @@ function paint(
             color = isHovered ? theme.paintingHover : theme.painting;
           } else if (element.type === "kidlisp") {
             color = isHovered ? theme.kidlispHover : theme.kidlisp;
+          } else if (element.type === "clock") {
+            color = isHovered ? theme.clockHover : theme.clock;
           } else if (element.type === "r8dio") {
             color = isHovered ? theme.r8dioHover : theme.r8dio;
           }
