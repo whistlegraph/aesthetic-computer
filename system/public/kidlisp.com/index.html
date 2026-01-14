@@ -2863,6 +2863,12 @@
       gap: 10px;
     }
     
+    .thumb-container {
+      flex-shrink: 0;
+      width: 48px;
+      height: 48px;
+    }
+    
     .example-thumb {
       width: 48px;
       height: 48px;
@@ -2906,6 +2912,52 @@
     @keyframes thumb-pulse {
       0%, 100% { opacity: 0.45; }
       50% { opacity: 0.8; }
+    }
+    
+    /* Animated noise/fuzz placeholder */
+    .thumb-noise {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+      background: #333;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .thumb-noise canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+    }
+    /* Oven status indicator bar */
+    .thumb-oven-status {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 6px;
+      border-radius: 0 0 10px 10px;
+      background: transparent;
+    }
+    .thumb-oven-status.queued {
+      background: linear-gradient(90deg, #4488ff, #6699ff);
+      animation: oven-queue-pulse 1.5s ease-in-out infinite;
+    }
+    .thumb-oven-status.processing {
+      background: linear-gradient(90deg, #ff8844, #ffaa66);
+      animation: oven-process-pulse 0.8s ease-in-out infinite;
+    }
+    .thumb-oven-status.cached {
+      background: linear-gradient(90deg, #44ff88, #66ffaa);
+    }
+    @keyframes oven-queue-pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+    @keyframes oven-process-pulse {
+      0%, 100% { opacity: 0.7; transform: scaleX(1); }
+      50% { opacity: 1; transform: scaleX(0.95); }
     }
     
     /* Code list panel container - wraps controls + scrollable list */
@@ -15908,6 +15960,120 @@
       }
     }
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // OVEN STATUS - Thumbnail generation status from oven.aesthetic.computer
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const OVEN_URL = 'https://oven.aesthetic.computer';
+    let ovenStatusCache = { queue: [], progress: null, active: [], lastFetch: 0 };
+    const OVEN_CACHE_TTL = 5000; // 5 seconds
+    
+    async function fetchOvenStatus() {
+      const now = Date.now();
+      if (now - ovenStatusCache.lastFetch < OVEN_CACHE_TTL) {
+        return ovenStatusCache;
+      }
+      try {
+        const resp = await fetch(`${OVEN_URL}/grab-status`, { mode: 'cors' });
+        const data = await resp.json();
+        ovenStatusCache = { ...data, lastFetch: now };
+        return ovenStatusCache;
+      } catch (e) {
+        console.warn('Failed to fetch oven status:', e);
+        return ovenStatusCache;
+      }
+    }
+    
+    function getOvenStatusForPiece(code) {
+      // Check if this piece is in oven queue or being processed
+      if (!code) return null;
+      const { queue = [], progress, active = [] } = ovenStatusCache;
+      // Check if currently processing
+      if (progress?.piece === code) {
+        return { status: 'processing', stage: progress.stage, percent: progress.percent };
+      }
+      // Check if in queue
+      const queueItem = queue.find(q => q.piece === code);
+      if (queueItem) {
+        return { status: 'queued', position: queueItem.position, estimatedWait: queueItem.estimatedWait };
+      }
+      // Check active grabs
+      const activeItem = active.find(a => a.piece === code);
+      if (activeItem) {
+        return { status: 'processing', stage: activeItem.stage };
+      }
+      return null;
+    }
+    
+    // Create animated noise canvas for placeholder
+    function createNoiseCanvas(width = 48, height = 48) {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      
+      // Generate noise
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = Math.floor(Math.random() * 80) + 40; // 40-120 gray range
+        data[i] = gray;     // R
+        data[i + 1] = gray; // G
+        data[i + 2] = gray; // B
+        data[i + 3] = 255;  // A
+      }
+      ctx.putImageData(imageData, 0, 0);
+      return canvas;
+    }
+    
+    // Animate noise canvas
+    function animateNoiseCanvas(canvas, interval = 150) {
+      const ctx = canvas.getContext('2d');
+      const { width, height } = canvas;
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      
+      const animate = () => {
+        for (let i = 0; i < data.length; i += 4) {
+          const gray = Math.floor(Math.random() * 80) + 40;
+          data[i] = gray;
+          data[i + 1] = gray;
+          data[i + 2] = gray;
+          data[i + 3] = 255;
+        }
+        ctx.putImageData(imageData, 0, 0);
+      };
+      
+      const id = setInterval(animate, interval);
+      canvas._animInterval = id;
+      return id;
+    }
+    
+    // Create placeholder element with noise and optional oven status
+    function createNoisePlaceholder(code = null) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'thumb-noise';
+      
+      const canvas = createNoiseCanvas(48, 48);
+      wrapper.appendChild(canvas);
+      animateNoiseCanvas(canvas);
+      
+      // Add oven status bar if we have status for this piece
+      const ovenStatus = getOvenStatusForPiece(code);
+      if (ovenStatus) {
+        const statusBar = document.createElement('div');
+        statusBar.className = `thumb-oven-status ${ovenStatus.status}`;
+        if (ovenStatus.position) {
+          statusBar.title = `Queue position: ${ovenStatus.position}`;
+        } else if (ovenStatus.stage) {
+          statusBar.title = `Processing: ${ovenStatus.stage}`;
+        }
+        wrapper.appendChild(statusBar);
+      }
+      
+      return wrapper;
+    }
+    
     /**
      * Render a single code list item
      * @param {Object} item - The code item data
@@ -15965,19 +16131,18 @@
         timeLine = `${month} ${day}, ${year} at ${hour12}:${minute} ${ampm}`;
       }
       
-      // Build thumbnail
+      // Build thumbnail - use noise placeholder for missing images
       const thumbClass = pendingThumb ? 'example-thumb-placeholder history-thumb-pending' : 'example-thumb-placeholder';
       const checkerboardSvg = `<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="checker" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#666"/><rect x="6" y="6" width="6" height="6" fill="#666"/><rect x="6" width="6" height="6" fill="#444"/><rect y="6" width="6" height="6" fill="#444"/></pattern></defs><rect width="48" height="48" fill="url(#checker)" rx="10"/></svg>`;
-      const thumbHtml = item.assetUrl
-        ? `<img class="example-thumb" src="${item.assetUrl}" alt="" onload="this.classList.add('loaded')" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'" /><div class="${thumbClass}" style="display:none">${checkerboardSvg}</div>`
-        : `<div class="${thumbClass}">${checkerboardSvg}</div>`;
+      const itemCode = item.code || null;
+      const useNoisePlaceholder = typeof createNoisePlaceholder === 'function';
       
       // Build hits display
       const hitsHtml = showHits ? `<div class="example-hits">${item.hits || 0} hits</div>` : '';
       
       // Assemble HTML
       el.innerHTML = `
-        ${thumbHtml}
+        <div class="thumb-container" data-code="${itemCode || ''}" data-asset="${item.assetUrl || ''}"></div>
         <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
           <div class="example-code">${displayCode}</div>
           <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${codeLabel}${ownerText}</div>
@@ -15986,6 +16151,45 @@
         </div>
         ${hitsHtml}
       `;
+      
+      // Now populate the thumbnail container
+      const thumbContainer = el.querySelector('.thumb-container');
+      if (thumbContainer) {
+        if (item.assetUrl) {
+          // Has image - show img with noise fallback on error
+          const img = document.createElement('img');
+          img.className = 'example-thumb';
+          img.src = item.assetUrl;
+          img.alt = '';
+          img.loading = 'lazy';
+          img.onload = () => img.classList.add('loaded');
+          img.onerror = () => {
+            img.style.display = 'none';
+            // Replace with noise placeholder on error
+            if (useNoisePlaceholder) {
+              const noise = createNoisePlaceholder(itemCode);
+              thumbContainer.appendChild(noise);
+            } else {
+              const fallback = document.createElement('div');
+              fallback.className = thumbClass;
+              fallback.innerHTML = checkerboardSvg;
+              thumbContainer.appendChild(fallback);
+            }
+          };
+          thumbContainer.appendChild(img);
+        } else {
+          // No image - show noise placeholder with oven status
+          if (useNoisePlaceholder) {
+            const noise = createNoisePlaceholder(itemCode);
+            thumbContainer.appendChild(noise);
+          } else {
+            const fallback = document.createElement('div');
+            fallback.className = thumbClass;
+            fallback.innerHTML = checkerboardSvg;
+            thumbContainer.appendChild(fallback);
+          }
+        }
+      }
       
       // Store data for click handler
       el._itemData = item;
