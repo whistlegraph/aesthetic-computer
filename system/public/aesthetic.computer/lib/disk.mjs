@@ -9099,6 +9099,21 @@ async function makeFrame({ data: { type, content } }) {
       }
       pendingPieceReload = null; // Clear any pending reload queue
       log.piece.log("Stopping - cancelling any pending reloads");
+      
+      // Handle stop directly here - load blank prompt piece
+      // Don't go through reload() since we just set _cancelled
+      loading = false;
+      loadingStartTime = null;
+      $commonApi.kidlispCreateCode = false;
+      $commonApi.kidlispAuthToken = null;
+      $commonApi.kidlispEnableTrace = false;
+      if (globalKidLispInstance) {
+        globalKidLispInstance.frameCount = 0;
+      }
+      // Load the blank prompt piece to clear the screen
+      $commonApi.load({ path: "prompt", host: currentHost }, true, false, false);
+      send({ type: "kidlisp-stopped" });
+      return;
     }
     
     log.piece.log("Reloading with new code:", content.source?.substring(0, 30) + "...");
