@@ -15972,8 +15972,8 @@
     function startRecentAutoRefresh() {
       if (recentAutoRefreshInterval) return;
       recentAutoRefreshInterval = setInterval(() => {
-        const recentTabActive = recentTab?.classList.contains('active');
-        if (recentTabActive && !document.hidden) {
+        const recentActive = currentListSubtab === 'recent' && listTabDropdown?.classList.contains('active');
+        if (recentActive && !document.hidden) {
           loadRecent({ silent: true });
         }
       }, 30000);
