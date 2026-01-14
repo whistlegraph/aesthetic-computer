@@ -439,9 +439,7 @@ class Button {
     // 3. Push: Trigger the button if we push it.
     // Only process lift events from the controlling pointer
     const isControllingLiftPointer = !this.multitouch || btn.downPointer === e.pointer || btn.downPointer === undefined;
-    console.log("🔴📍 [ui.mjs btn.act] LIFT CHECK - btn:", btn.id, "e.is(lift):", e.is(`lift:${t}`), "btn.down:", btn.down, "isControllingLiftPointer:", isControllingLiftPointer, "contains(e):", btn.box?.contains(e), "e:", e.x, e.y);
     if (e.is(`lift:${t}`) && btn.down && isControllingLiftPointer) {
-      console.log("🔴✅ [ui.mjs btn.act] LIFT PASSED CONDITIONS - btn:", btn.id, "will call push callback");
       //   buttonId: btn.id || "unnamed",
       //   timestamp: performance.now(),
       //   pointer: e.pointer,

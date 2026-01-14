@@ -78,24 +78,25 @@ function paint({
   const centerX = Math.floor(screen.width / 2);
   const centerY = Math.floor(screen.height / 2);
   
-  // Layout constants - centered play button like baktok
-  const titleY = 6;
-  const subtitleY = 24;
-  const visualizerTopY = 38;
+  // QR code layout - top right corner
+  const qrScale = Math.max(1, Math.floor(Math.min(screen.width, 50) / (qrCells?.length || 21)));
+  const qrSize = (qrCells?.length || 21) * qrScale;
+  const qrX = screen.width - qrSize - 6;
+  const qrY = 6;
+  const listenY = qrY + qrSize + 4;
+  
+  // Layout constants - centered play button
+  const titleY = 10;
+  const subtitleY = 28;
+  const visualizerTopY = 42;
   const btnSize = 32;
-  const btnY = centerY - btnSize / 2 - 20; // Move up to make room for QR
+  const btnY = centerY - btnSize / 2; // Centered vertically
   const volSliderYPos = btnY + btnSize + 8; // Volume right below button
   const visualizerBottomY = btnY - 12; // Visualizer ends above button
   
-  // QR code layout
-  const qrScale = Math.max(1, Math.floor(Math.min(screen.width, 60) / (qrCells?.length || 21)));
-  const qrSize = (qrCells?.length || 21) * qrScale;
-  const qrY = screen.height - qrSize - 22; // Room for "listen" text below
-  const listenY = screen.height - 12;
-  
-  // Status and track above QR
-  const statusY = qrY - 24;
-  const trackInfoY = qrY - 10;
+  // Status and track at bottom
+  const statusY = screen.height - 28;
+  const trackInfoY = screen.height - 14;
   
   // Draw visualizer bars (fills space between subtitle and button)
   const barWidth = Math.max(2, Math.floor((screen.width - 40) / BAR_COUNT));
@@ -212,7 +213,7 @@ function paint({
   
   ink(...statusColor).write(statusText, { center: "x", y: statusY }, undefined, undefined, false, "MatrixChunky8");
   
-  // Current track info (above QR)
+  // Current track info (at bottom)
   if (currentTrack) {
     // Truncate if too long
     let displayTrack = currentTrack;
@@ -223,10 +224,8 @@ function paint({
     ink(180, 150, 200).write(displayTrack, { center: "x", y: trackInfoY }, undefined, undefined, false, "MatrixChunky8");
   }
   
-  // QR Code - centered at bottom
+  // QR Code - top right corner
   if (qrCells) {
-    const qrX = centerX - qrSize / 2;
-    
     for (let y = 0; y < qrCells.length; y++) {
       for (let x = 0; x < qrCells.length; x++) {
         const isBlack = qrCells[y][x];
@@ -241,8 +240,8 @@ function paint({
     // QR outline
     ink(100, 80, 120).box(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2, "outline");
     
-    // "listen" text below QR
-    ink(150, 120, 160).write("listen", { center: "x", y: listenY }, undefined, undefined, false, "MatrixChunky8");
+    // "listen" text below QR (right-aligned)
+    ink(150, 120, 160).write("listen", { x: qrX + qrSize / 2 - 12, y: listenY }, undefined, undefined, false, "MatrixChunky8");
   }
 }
 
@@ -301,7 +300,7 @@ function act({ event: e, jump, screen, num: { clamp }, send }) {
   // Play/Pause button - centered on screen (must match paint)
   const btnSize = 32;
   const btnX = centerX - btnSize / 2;
-  const btnY = centerY - btnSize / 2 - 20; // Match paint layout
+  const btnY = centerY - btnSize / 2; // Match paint layout
   
   // Volume slider - centered below button (must match paint)
   const volSliderCenterX = centerX - volSliderW / 2;
