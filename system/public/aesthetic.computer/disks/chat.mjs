@@ -1557,10 +1557,19 @@ function act(
   
   // 🔤 Font picker interaction
   if (input.canType) {
+    // Check if touch/lift is over interactive elements (don't soft-lock these!)
+    const isOverEnterBtn = input.enter?.btn?.box?.contains(e);
+    const isOverFontPickerBtn = fontPickerBtnBounds && e.x >= fontPickerBtnBounds.x && e.x < fontPickerBtnBounds.x + fontPickerBtnBounds.w &&
+                                e.y >= fontPickerBtnBounds.y && e.y < fontPickerBtnBounds.y + fontPickerBtnBounds.h;
+    const isOverCopyBtn = input.copy?.btn?.box?.contains(e);
+    const isOverPasteBtn = input.paste?.btn?.box?.contains(e);
+    const isOverInteractiveElement = isOverEnterBtn || isOverFontPickerBtn || isOverCopyBtn || isOverPasteBtn;
+    
     // 🔧 FIX: Soft-lock keyboard during content area touch/draw to prevent bios pointerup blur
+    // BUT don't soft-lock if touching interactive buttons!
     const isInContentArea = e.y < api.screen.height - bottomMargin;
-    console.log("📍 [chat act] canType=true | e:", e.name, "| y:", e.y, "| screenH:", api.screen.height, "| bottomMargin:", bottomMargin, "| isInContentArea:", isInContentArea);
-    if (isInContentArea) {
+    console.log("📍 [chat act] canType=true | e:", e.name, "| y:", e.y, "| screenH:", api.screen.height, "| bottomMargin:", bottomMargin, "| isInContentArea:", isInContentArea, "| isOverInteractive:", isOverInteractiveElement);
+    if (isInContentArea && !isOverInteractiveElement) {
       if (e.is("touch") || e.is("draw")) {
         console.log("🔒 [chat act] SOFT-LOCKING keyboard (content area touch/draw)");
         send({ type: "keyboard:soft-lock" });
@@ -1571,11 +1580,11 @@ function act(
       }
     }
     
-    // Handle font picker button click
-    if ((e.is("touch") || e.is("lift")) && fontPickerBtnBounds) {
-      const inBtn = pen.x >= fontPickerBtnBounds.x && pen.x < fontPickerBtnBounds.x + fontPickerBtnBounds.w &&
-                    pen.y >= fontPickerBtnBounds.y && pen.y < fontPickerBtnBounds.y + fontPickerBtnBounds.h;
-      console.log("🔤📍 [fontPicker btn] event:", e.name, "pen:", pen.x, pen.y, "e:", e.x, e.y, "bounds:", fontPickerBtnBounds, "inBtn:", inBtn);
+    // Handle font picker button click (use e.x/e.y directly, pen may be undefined)
+    if ((e.is("touch") || e.is("lift")) && fontPickerBtnBounds && e.x !== undefined) {
+      const inBtn = e.x >= fontPickerBtnBounds.x && e.x < fontPickerBtnBounds.x + fontPickerBtnBounds.w &&
+                    e.y >= fontPickerBtnBounds.y && e.y < fontPickerBtnBounds.y + fontPickerBtnBounds.h;
+      console.log("🔤📍 [fontPicker btn] event:", e.name, "e:", e.x, e.y, "bounds:", fontPickerBtnBounds, "inBtn:", inBtn);
       if (inBtn && e.is("lift")) {
         console.log("🔤✅ [fontPicker btn] TOGGLING fontPickerOpen");
         beep();
@@ -1585,11 +1594,11 @@ function act(
     }
     
     // Handle font picker panel clicks
-    if (fontPickerOpen && (e.is("touch") || e.is("lift"))) {
+    if (fontPickerOpen && (e.is("touch") || e.is("lift")) && e.x !== undefined) {
       // Check if click is in an item
       for (const item of fontPickerItemBounds) {
-        const inItem = pen.x >= item.x && pen.x < item.x + item.w &&
-                       pen.y >= item.y && pen.y < item.y + item.h;
+        const inItem = e.x >= item.x && e.x < item.x + item.w &&
+                       e.y >= item.y && e.y < item.y + item.h;
         if (inItem && e.is("lift")) {
           beep();
           userSelectedFont = item.fontId;
@@ -1609,10 +1618,10 @@ function act(
       
       // Check if click is outside panel (close it)
       if (fontPickerPanelBounds && e.is("lift")) {
-        const inPanel = pen.x >= fontPickerPanelBounds.x && pen.x < fontPickerPanelBounds.x + fontPickerPanelBounds.w &&
-                        pen.y >= fontPickerPanelBounds.y && pen.y < fontPickerPanelBounds.y + fontPickerPanelBounds.h;
-        const inBtn = fontPickerBtnBounds && pen.x >= fontPickerBtnBounds.x && pen.x < fontPickerBtnBounds.x + fontPickerBtnBounds.w &&
-                      pen.y >= fontPickerBtnBounds.y && pen.y < fontPickerBtnBounds.y + fontPickerBtnBounds.h;
+        const inPanel = e.x >= fontPickerPanelBounds.x && e.x < fontPickerPanelBounds.x + fontPickerPanelBounds.w &&
+                        e.y >= fontPickerPanelBounds.y && e.y < fontPickerPanelBounds.y + fontPickerPanelBounds.h;
+        const inBtn = fontPickerBtnBounds && e.x >= fontPickerBtnBounds.x && e.x < fontPickerBtnBounds.x + fontPickerBtnBounds.w &&
+                      e.y >= fontPickerBtnBounds.y && e.y < fontPickerBtnBounds.y + fontPickerBtnBounds.h;
         if (!inPanel && !inBtn) {
           fontPickerOpen = false;
           return;
