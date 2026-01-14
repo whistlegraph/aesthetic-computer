@@ -7268,6 +7268,14 @@ async function load(
       console.log("🔴 Recovered from stuck loading state");
     }
 
+    // Cancel mechanism: if stop was requested, abort any queued reloads
+    if (reload._cancelled) {
+      console.log("🛑 Reload cancelled (stop was requested)");
+      reload._cancelled = false;
+      reload._queueCount = 0;
+      return;
+    }
+
     if (loading && source && !name && !piece) {
       // If a piece is loading and we have new source code, queue the reload
       // But only queue up to 10 times (1 second max wait), then force through
@@ -9061,6 +9069,17 @@ async function makeFrame({ data: { type, content } }) {
 
   // Handle live reload from kidlisp.com editor
   if (type === "piece-reload") {
+    // If source is just "kidlisp" (the base piece, not actual code), this is a stop request
+    // Cancel any pending queued reloads from previous code
+    if (content.source === "kidlisp") {
+      if ($commonApi.reload) {
+        $commonApi.reload._cancelled = true;
+        $commonApi.reload._queueCount = 0;
+      }
+      pendingPieceReload = null; // Clear any pending reload queue
+      log.piece.log("Stopping - cancelling any pending reloads");
+    }
+    
     log.piece.log("Reloading with new code:", content.source?.substring(0, 30) + "...");
     if ($commonApi.reload) {
       $commonApi.reload({ 
