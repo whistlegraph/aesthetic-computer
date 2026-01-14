@@ -237,3 +237,45 @@ export async function fetchAllTokens(options = {}) {
     return [];
   }
 }
+
+/**
+ * Fetch all burned tokens (totalSupply = 0)
+ * @param {object} options - Fetch options
+ * @param {string} options.network - "mainnet" or "ghostnet"
+ * @param {number} options.limit - Max tokens to fetch
+ * @returns {Promise<Array>} Array of burned token info objects
+ */
+export async function fetchBurnedTokens(options = {}) {
+  const {
+    network = DEFAULT_NETWORK,
+    limit = 50,
+  } = options;
+  
+  const config = getNetwork(network);
+  const api = getTzktApi(network);
+  
+  // totalSupply=0 means the token has been burned
+  const url = `${api}/v1/tokens?contract=${config.contract}&totalSupply=0&sort.desc=id&limit=${limit}`;
+  
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const tokens = await res.json();
+      return tokens.map(t => ({
+        tokenId: t.tokenId,
+        name: t.metadata?.name,
+        description: t.metadata?.description,
+        thumbnailUri: t.metadata?.thumbnailUri || t.metadata?.thumbnail_uri,
+        creators: t.metadata?.creators,
+        mintedAt: t.firstTime,
+        burnedAt: t.lastTime, // Last activity was the burn
+        burned: true,
+        network,
+      }));
+    }
+    return [];
+  } catch (e) {
+    console.error("🔒 TzKT: Error fetching burned tokens:", e);
+    return [];
+  }
+}
