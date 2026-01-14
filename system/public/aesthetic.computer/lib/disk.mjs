@@ -9111,7 +9111,7 @@ async function makeFrame({ data: { type, content } }) {
         globalKidLispInstance.frameCount = 0;
       }
       // Load the blank prompt piece to clear the screen
-      $commonApi.load({ path: "prompt", host: currentHost }, true, false, false);
+      $commonApi.load({ path: "prompt", text: "prompt", host: currentHost }, true, false, false);
       send({ type: "kidlisp-stopped" });
       return;
     }
