@@ -9663,6 +9663,79 @@
     
     // Console functionality (must be defined early for boot messages)
     const consoleOutput = document.getElementById('console-output');
+    const mobileConsoleOutput = document.getElementById('mobile-console-output');
+    
+    // Independent zoom controls for bottom panel tabs (Cmd/Ctrl + Plus/Minus/0)
+    let bottomPanelFontSize = 14; // Default font size (matches CSS)
+    const BOTTOM_FONT_MIN = 8;
+    const BOTTOM_FONT_MAX = 28;
+    const BOTTOM_FONT_DEFAULT = 14;
+    
+    // All bottom panel content areas that should zoom together
+    const bottomPanelElements = [
+      '#console-output',
+      '#mobile-console-output', 
+      '#list-content',
+      '#guide-content',
+      '#reference-content',
+      '#console-panel'
+    ];
+    
+    // Helper to apply font size to all bottom panel content
+    function applyBottomPanelFontSize(size) {
+      bottomPanelElements.forEach(selector => {
+        const el = document.querySelector(selector);
+        if (el) el.style.fontSize = size + 'px';
+      });
+    }
+    
+    // Track which panel was last clicked for zoom targeting
+    let lastClickedPanel = null; // 'bottom' or null (editor handles itself)
+    
+    // Detect clicks in bottom panel area
+    const bottomRow = document.getElementById('bottom-row');
+    if (bottomRow) {
+      bottomRow.addEventListener('mousedown', () => {
+        lastClickedPanel = 'bottom';
+      });
+    }
+    
+    // Clear bottom panel selection when clicking elsewhere (but not editor - it has its own handler)
+    document.addEventListener('mousedown', (e) => {
+      if (bottomRow && !bottomRow.contains(e.target)) {
+        lastClickedPanel = null;
+      }
+    });
+    
+    // Global keyboard handler for bottom panel zoom
+    document.addEventListener('keydown', (e) => {
+      // Only handle if bottom panel was last clicked
+      if (lastClickedPanel !== 'bottom') return;
+      
+      const isMeta = e.metaKey || e.ctrlKey;
+      if (!isMeta) return;
+      
+      // Check for Plus (= or +), Minus (-), or 0
+      const isPlus = e.key === '=' || e.key === '+';
+      const isMinus = e.key === '-' || e.key === '_';
+      const isZero = e.key === '0';
+      
+      if (isPlus || isMinus || isZero) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (isPlus && bottomPanelFontSize < BOTTOM_FONT_MAX) {
+          bottomPanelFontSize += 2;
+        } else if (isMinus && bottomPanelFontSize > BOTTOM_FONT_MIN) {
+          bottomPanelFontSize -= 2;
+        } else if (isZero) {
+          bottomPanelFontSize = BOTTOM_FONT_DEFAULT;
+        }
+        
+        applyBottomPanelFontSize(bottomPanelFontSize);
+        console.log(`Bottom panel zoom: ${bottomPanelFontSize}px`);
+      }
+    }, true); // Use capture phase to intercept before browser
     
     // Track if piece is fully loaded and ready
     let pieceReady = false;
@@ -11862,6 +11935,38 @@
             e.preventDefault();
             e.stopPropagation();
           }
+        }
+      });
+      
+      // Independent zoom controls for Monaco editor (Cmd/Ctrl + Plus/Minus/0)
+      let editorFontSize = 16; // Default font size
+      const EDITOR_FONT_MIN = 8;
+      const EDITOR_FONT_MAX = 32;
+      const EDITOR_FONT_DEFAULT = 16;
+      
+      editor.onKeyDown((e) => {
+        const isMeta = e.metaKey || e.ctrlKey;
+        if (!isMeta) return;
+        
+        // Check for Plus (= or NumpadAdd), Minus (- or NumpadSubtract), or 0
+        const isPlus = e.keyCode === monaco.KeyCode.Equal || e.keyCode === monaco.KeyCode.NumpadAdd;
+        const isMinus = e.keyCode === monaco.KeyCode.Minus || e.keyCode === monaco.KeyCode.NumpadSubtract;
+        const isZero = e.keyCode === monaco.KeyCode.Digit0 || e.keyCode === monaco.KeyCode.Numpad0;
+        
+        if (isPlus || isMinus || isZero) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          if (isPlus && editorFontSize < EDITOR_FONT_MAX) {
+            editorFontSize += 2;
+          } else if (isMinus && editorFontSize > EDITOR_FONT_MIN) {
+            editorFontSize -= 2;
+          } else if (isZero) {
+            editorFontSize = EDITOR_FONT_DEFAULT;
+          }
+          
+          editor.updateOptions({ fontSize: editorFontSize });
+          console.log(`Editor zoom: ${editorFontSize}px`);
         }
       });
       
