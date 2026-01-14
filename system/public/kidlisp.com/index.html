@@ -2381,12 +2381,12 @@
 
     /* Dark mode adjustments for tab colors - brighter text for contrast */
     :root.dark #guide-tab {
-      background: rgba(34, 197, 94, 0.3);
-      color: #a7f3d0;
+      background: rgba(34, 197, 94, 0.4);
+      color: #86efac;
     }
     :root.dark #guide-tab.active {
-      background: rgba(34, 197, 94, 0.5);
-      color: #d1fae5;
+      background: rgba(34, 197, 94, 0.6);
+      color: #bbf7d0;
     }
     
     :root.dark #examples-tab {
@@ -2444,24 +2444,24 @@
 
     /* List Tab - Yellow (like old Top Hits) */
     #list-tab {
-      background: rgba(250, 204, 21, 0.25);
+      background: rgba(250, 204, 21, 0.35);
       color: #a16207;
     }
     #list-tab.active {
-      background: rgba(250, 204, 21, 0.55);
-      color: #854d0e;
+      background: rgba(250, 204, 21, 0.65);
+      color: #713f12;
     }
     :root.dark #list-tab {
-      background: rgba(250, 204, 21, 0.3);
-      color: #fef3c7;
+      background: rgba(253, 224, 71, 0.55);
+      color: #fef08a;
     }
     :root.dark #list-tab.active {
-      background: rgba(250, 204, 21, 0.5);
-      color: #fffbeb;
+      background: rgba(254, 240, 138, 0.9);
+      color: #422006;
     }
     @media (hover: hover) {
       #list-tab:hover {
-        background: rgba(250, 204, 21, 0.45);
+        background: rgba(253, 224, 71, 0.6);
       }
     }
 
@@ -2469,18 +2469,21 @@
     .list-subtabs {
       display: flex;
       justify-content: flex-start;
+      width: 100%;
       border-bottom: 1px solid var(--border-subtle);
       background: var(--bg-secondary);
-      height: 24px;
+      height: 44px;
     }
     
     .list-subtab {
-      padding: 0 12px;
-      font-size: 10px;
+      min-width: 94px;
+      padding: 0 8px;
+      font-size: 12px;
       font-weight: 500;
       cursor: pointer;
       display: flex;
       align-items: center;
+      justify-content: center;
       border-right: 1px solid var(--border-color);
       transition: all 0.2s;
     }
@@ -2583,6 +2586,7 @@
     #list-content {
       display: flex;
       flex-direction: column;
+      align-items: stretch;
     }
     
     /* List content gradient (like old Top Hits) */
@@ -6801,8 +6805,8 @@
         <div class="docs-header">
           <div class="tab mobile-only" data-tab="console" id="console-tab">Console</div>
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
-          <div class="tab active" data-tab="list" id="list-tab">List</div>
-          <div class="tab" data-tab="guide" id="guide-tab">Guides</div>
+          <div class="tab active" data-tab="list" id="list-tab"><span style="display: inline-block; min-width: 58px; text-align: center;">List</span></div>
+          <div class="tab" data-tab="guide" id="guide-tab"><span style="display: inline-block; min-width: 64px; text-align: center;">Guides</span></div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
