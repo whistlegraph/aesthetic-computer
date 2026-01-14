@@ -195,9 +195,6 @@ function paint({ wipe, ink, screen, line, box }) {
   // Bottom divider
   const div2Y = Math.floor(h * 0.88);
   ink(ar, ag, ab, divGlow).line(30, div2Y, w - 30, div2Y);
-  
-  // Footer
-  ink(100, 100, 120).write("ESC to return", { center: "x", y: h - 12, x: w / 2 });
 }
 
 function act({ event: e, jump, sound: { synth } }) {
@@ -205,14 +202,10 @@ function act({ event: e, jump, sound: { synth } }) {
     down: () => synth({ tone: 400, beats: 0.05, attack: 0.01, decay: 0.1, volume: 0.1 }),
     push: () => {
       synth({ tone: 600, beats: 0.1, attack: 0.01, decay: 0.2, volume: 0.15 });
-      jump("chat");
+      jump("chat~hey~@jeffrey~I'd~like~an~ad~for...");
     },
     cancel: () => synth({ tone: 300, beats: 0.05, attack: 0.01, decay: 0.1, volume: 0.08 }),
   });
-  
-  if (e.is("keyboard:down:escape")) {
-    jump("prompt");
-  }
 }
 
 function meta() {

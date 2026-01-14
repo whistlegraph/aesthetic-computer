@@ -177,10 +177,17 @@ async function boot(
     net,
     store,
     typeface,
+    params,
+    hud,
   },
   otherChat,
   options,
 ) {
+  // Set clean label without params
+  if (params && params.length > 0) {
+    hud.label("chat");
+  }
+  
   rowHeight = typeface.blockHeight + 1;
 
   const client = otherChat || chat;
@@ -197,6 +204,11 @@ async function boot(
   userSelectedFont = store["chat:font"] || "font_1";
   if (!CHAT_FONTS[userSelectedFont]) {
     userSelectedFont = "font_1"; // Fallback to default if invalid
+  }
+  
+  // 📝 Prefill message from URL params (e.g., chat~hey~@jeffrey~message)
+  if (params && params.length > 0) {
+    draftMessage = params.join(" ");
   }
   
   // Calculate dynamic bottom margin based on selected font
@@ -320,6 +332,13 @@ async function boot(
       closeOnEmptyEnter: true,
     },
   );
+
+  // Set prefilled text if draftMessage was set from params
+  if (draftMessage) {
+    input.text = draftMessage;
+    input.addUserText(draftMessage); // Also set lastUserText so it persists on activation
+    input.snap(); // Move cursor to end of prefilled text
+  }
 
   const currentHandle = handle();
   const handleText = currentHandle || "Log in";
