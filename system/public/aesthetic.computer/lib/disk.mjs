@@ -570,6 +570,7 @@ let TV_MODE = false; // Whether running in TV mode (disables touch/keyboard inpu
 let HIGHLIGHT_MODE = false; // Whether HUD highlighting is enabled
 let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
 let AUDIO_SAMPLE_RATE = 0;
+let loopPaused = false; // Whether the main loop is paused (sent from bios)
 let debug = false; // This can be overwritten on boot.
 let nopaintPerf = false; // Performance panel for nopaint system debugging (disabled by default)
 let visible = true; // Is aesthetic.computer visibly rendering or not?
@@ -10212,6 +10213,9 @@ async function makeFrame({ data: { type, content } }) {
   // 2. Frame
   // Where each piece action (boot, sim, paint, etc...) is run.
   if (type === "frame") {
+    // Update loop paused state from bios
+    loopPaused = content.paused || false;
+
     // Take hold of a previously worker transferrable screen buffer
     // and re-assign it.
     let pixels;
@@ -12285,7 +12289,7 @@ async function makeFrame({ data: { type, content } }) {
 
         // 🎨 KidLisp HUD color: green when running, yellow when paused
         if (isKidlispPiece && !currentHUDTextColor) {
-          if (window.__acLoopPaused) {
+          if (loopPaused) {
             currentHUDTextColor = [255, 220, 80]; // Yellow when paused (matches pause button #ffd93d)
           } else {
             currentHUDTextColor = [128, 255, 128]; // Green when running
