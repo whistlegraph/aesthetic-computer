@@ -3143,4 +3143,65 @@ export function getOGImageCacheStatus() {
   };
 }
 
+/**
+ * Get the latest cached OG image URL without triggering generation.
+ * Returns the CDN URL if it exists for today, null otherwise.
+ * This is fast and safe for social media crawlers.
+ */
+export async function getLatestOGImageUrl(layout = 'mosaic') {
+  const today = getTodayKey();
+  const key = `og/kidlisp/${today}-${layout}.png`;
+  
+  // Check memory cache first
+  if (ogImageCache.url && ogImageCache.url.includes(today)) {
+    return ogImageCache.url;
+  }
+  
+  // Check Spaces for today's image
+  try {
+    await spacesClient.send(new HeadObjectCommand({
+      Bucket: SPACES_BUCKET,
+      Key: key,
+    }));
+    const url = `${SPACES_CDN_BASE}/${key}`;
+    ogImageCache.url = url;
+    ogImageCache.expires = Date.now() + 60 * 60 * 1000;
+    return url;
+  } catch (err) {
+    // Not found - return yesterday's image if available
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const yesterdayKey = `og/kidlisp/${yesterday}-${layout}.png`;
+    try {
+      await spacesClient.send(new HeadObjectCommand({
+        Bucket: SPACES_BUCKET,
+        Key: yesterdayKey,
+      }));
+      return `${SPACES_CDN_BASE}/${yesterdayKey}`;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
+ * Regenerate OG images in the background.
+ * Safe to call from server startup or scheduled jobs.
+ */
+export async function regenerateOGImagesBackground() {
+  const layouts = ['mosaic', 'featured']; // Main layouts we care about
+  console.log('🔄 Starting background OG image regeneration...');
+  
+  for (const layout of layouts) {
+    try {
+      console.log(`   Regenerating ${layout}...`);
+      await generateKidlispOGImage(layout, true); // force=true
+      console.log(`   ✅ ${layout} done`);
+    } catch (err) {
+      console.error(`   ❌ ${layout} failed:`, err.message);
+    }
+  }
+  
+  console.log('🔄 Background OG regeneration complete');
+}
+
 export { IPFS_GATEWAY };

@@ -10,7 +10,7 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground } from './grabber.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -1459,6 +1459,45 @@ app.get('/keeps/all', (req, res) => {
 // KidLisp.com OG Preview Image Endpoint
 // =============================================================================
 
+// Fast static PNG endpoint - redirects instantly to CDN (for social media crawlers)
+// Use this URL in og:image and twitter:image meta tags
+app.get('/kidlisp-og.png', async (req, res) => {
+  try {
+    const layout = req.query.layout || 'mosaic';
+    
+    // Get cached URL without triggering generation (fast!)
+    const url = await getLatestOGImageUrl(layout);
+    
+    if (url) {
+      // Redirect to CDN - instant response
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('X-Cache', 'CDN');
+      return res.redirect(301, url);
+    }
+    
+    // No cached image yet - trigger background regeneration and serve a recent fallback
+    addServerLog('warn', '⚠️', `OG cache miss for ${layout}, triggering regen`);
+    
+    // Trigger async regeneration (don't await)
+    regenerateOGImagesBackground().catch(err => {
+      addServerLog('error', '❌', `Async OG regen failed: ${err.message}`);
+    });
+    
+    // Use yesterday's image as fallback (likely exists)
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const fallbackUrl = `https://art-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/og/kidlisp/${yesterday}-${layout}.png`;
+    
+    res.setHeader('Cache-Control', 'public, max-age=300'); // Short cache for fallback
+    return res.redirect(302, fallbackUrl);
+    
+  } catch (error) {
+    console.error('KidLisp OG PNG error:', error);
+    // Ultimate fallback - yesterday's mosaic
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    return res.redirect(302, `https://art-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/og/kidlisp/${yesterday}-mosaic.png`);
+  }
+});
+
 // Dynamic OG image for kidlisp.com - rotates daily based on top hits
 // Supports multiple layout options: featured, mosaic, filmstrip, code-split
 app.get('/kidlisp-og', async (req, res) => {
@@ -1516,10 +1555,12 @@ app.get('/kidlisp-og/status', (req, res) => {
     ...getOGImageCacheStatus(),
     availableLayouts: ['featured', 'mosaic', 'filmstrip', 'code-split'],
     usage: {
-      default: '/kidlisp-og',
-      withLayout: '/kidlisp-og?layout=mosaic',
+      recommended: '/kidlisp-og.png (instant, for og:image tags)',
+      withLayout: '/kidlisp-og.png?layout=mosaic',
+      dynamic: '/kidlisp-og (may regenerate on-demand)',
       forceRegenerate: '/kidlisp-og?force=true',
-    }
+    },
+    note: 'Use /kidlisp-og.png for social media meta tags - it redirects instantly to cached CDN images'
   });
 });
 
@@ -1536,6 +1577,8 @@ app.get('/kidlisp-og/preview', (req, res) => {
   <style>
     body { font-family: monospace; background: #1a1a2e; color: white; padding: 20px; }
     h1 { color: #88ff88; }
+    .note { background: #2a2a4e; padding: 16px; border-radius: 8px; margin: 20px 0; }
+    .note code { background: #3a3a5e; padding: 2px 6px; border-radius: 4px; }
     .layout { margin: 20px 0; }
     .layout h2 { color: #ffaa00; }
     .layout img { max-width: 100%; border: 2px solid #444; }
@@ -1544,6 +1587,10 @@ app.get('/kidlisp-og/preview', (req, res) => {
 </head>
 <body>
   <h1>🖼️ KidLisp.com OG Preview Layouts</h1>
+  <div class="note">
+    <strong>For meta tags use:</strong> <code>${baseUrl}/kidlisp-og.png</code><br>
+    This endpoint redirects instantly to cached CDN images (no timeout issues for Twitter/X).
+  </div>
   <p>These are the available OG image layouts for social previews.</p>
   ${layouts.map(layout => `
     <div class="layout">
@@ -1589,6 +1636,24 @@ if (dev) {
   server.listen(PORT, () => {
     console.log(`🔥 Oven server running on http://localhost:${PORT}`);
     addServerLog('success', '🔥', `Oven server ready (v${GIT_VERSION.slice(0,8)})`);
+    
+    // Start background OG image regeneration after a short delay
+    setTimeout(() => {
+      addServerLog('info', '🖼️', 'Starting background OG regeneration...');
+      regenerateOGImagesBackground().then(() => {
+        addServerLog('success', '🖼️', 'OG images ready for social sharing');
+      }).catch(err => {
+        addServerLog('error', '❌', `OG regen failed: ${err.message}`);
+      });
+    }, 10000); // Wait 10s for server to fully initialize
+    
+    // Schedule periodic regeneration (every 6 hours)
+    setInterval(() => {
+      addServerLog('info', '🖼️', 'Scheduled OG regeneration starting...');
+      regenerateOGImagesBackground().catch(err => {
+        addServerLog('error', '❌', `Scheduled OG regen failed: ${err.message}`);
+      });
+    }, 6 * 60 * 60 * 1000); // 6 hours
   });
 }
 

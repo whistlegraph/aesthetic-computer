@@ -2419,8 +2419,11 @@ async function loadPaintingPreview(code, get, store) {
   }
 }
 
-function computeMessagesHeight({ text, screen }, chat, defaultTypefaceName, defaultRowHeight) {
+function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypefaceName, defaultRowHeight) {
   let height = 0;
+  
+  // System default row height (for fonts with rowHeight: null) - always use typeface.blockHeight
+  const systemDefaultRowHeight = typeface.blockHeight + 1;
   
   // Iterate through the messages array.
   for (let i = 0; i < chat.messages.length; i += 1) {
@@ -2429,10 +2432,9 @@ function computeMessagesHeight({ text, screen }, chat, defaultTypefaceName, defa
     // 🔤 Use per-message font (as sender chose) - fallback to font_1 for old messages
     const msgFontId = message.font || "font_1";
     const msgFontConfig = CHAT_FONTS[msgFontId] || CHAT_FONTS["font_1"];
-    // null in config means "use system default" - only use defaultTypefaceName/defaultRowHeight for that case
-    // NOT the user's selected font (which would make all messages change when picker changes)
+    // null in config means "use system default" - NOT the user's current selection!
     const msgTypefaceName = msgFontConfig.typeface; // null = system default typeface
-    const msgRowHeight = msgFontConfig.rowHeight !== null ? msgFontConfig.rowHeight : defaultRowHeight;
+    const msgRowHeight = msgFontConfig.rowHeight !== null ? msgFontConfig.rowHeight : systemDefaultRowHeight;
     
     // Store computed font info on the message for use in paint
     message.computedTypefaceName = msgTypefaceName;
@@ -2470,10 +2472,13 @@ function computeMessagesHeight({ text, screen }, chat, defaultTypefaceName, defa
 
 // Build a display graph for the messages.
 // (From the bottom to the top.)
-function computeMessagesLayout({ screen, text }, chat, defaultTypefaceName, defaultRowHeight, bottomMargin) {
+function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypefaceName, defaultRowHeight, bottomMargin) {
+  // System default row height for fallback
+  const systemDefaultRowHeight = typeface.blockHeight + 1;
+  
   // Start from bottom, but use the first message's row height for initial positioning
   const lastMsg = chat.messages[chat.messages.length - 1];
-  const lastMsgRowHeight = lastMsg ? (lastMsg.computedRowHeight ?? defaultRowHeight) : defaultRowHeight;
+  const lastMsgRowHeight = lastMsg ? (lastMsg.computedRowHeight ?? systemDefaultRowHeight) : systemDefaultRowHeight;
   let y = screen.height - lastMsgRowHeight - bottomMargin + scroll;
 
   // Delete all layouts.
@@ -2489,7 +2494,7 @@ function computeMessagesLayout({ screen, text }, chat, defaultTypefaceName, defa
     // 🔤 Use per-message font settings (computed in computeMessagesHeight)
     // null typeface means "system default", not user's current selection
     const msgTypefaceName = msg.computedTypefaceName; // null = system default
-    const msgRowHeight = msg.computedRowHeight || defaultRowHeight;
+    const msgRowHeight = msg.computedRowHeight || systemDefaultRowHeight;
     const msgFontId = msg.computedFontId || "font_1";
     const msgTimestampGap = getFontTimestampGap(msgFontId);
     
