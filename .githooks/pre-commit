@@ -50,6 +50,15 @@ EXCLUDE_PATTERNS=(
   "*.md"                   # Be more lenient with docs (still scan but warn only)
 )
 
+# Known false positives to ignore (exact strings that trigger patterns but aren't secrets)
+FALSE_POSITIVE_ALLOWLIST=(
+  "Styles"                 # UI label, triggers PASSWORD_HARDCODE via case-insensitive "s****s"
+  "STYLES"                 # Same as above
+  "styles"                 # Same as above
+  "class="                 # HTML class attributes
+  "className="             # React className
+)
+
 secret_errors=0
 secret_warnings=0
 
@@ -90,6 +99,27 @@ for file in $staged_files; do
     # Search for pattern in staged content
     if echo "$staged_content" | grep -qiE "$pattern_regex"; then
       matching_lines=$(echo "$staged_content" | grep -niE "$pattern_regex" | head -3)
+      
+      # Check if all matches are in the allowlist (false positives)
+      is_false_positive=true
+      while IFS= read -r line; do
+        line_is_allowed=false
+        for allowed in "${FALSE_POSITIVE_ALLOWLIST[@]}"; do
+          if echo "$line" | grep -qi "$allowed"; then
+            line_is_allowed=true
+            break
+          fi
+        done
+        if ! $line_is_allowed; then
+          is_false_positive=false
+          break
+        fi
+      done <<< "$matching_lines"
+      
+      # Skip if this is a known false positive
+      if $is_false_positive; then
+        continue
+      fi
       
       if $warn_only; then
         echo -e "${YELLOW}⚠️  Possible secret in ${file} (${pattern_name})${NC}"
