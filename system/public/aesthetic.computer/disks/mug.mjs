@@ -17,7 +17,11 @@ let previewUrl = null;
 let previewFrames = null;
 let previewBitmap = null;
 let frameIndex = 0;
+let frameIndex2 = 0; // Second mug frame (different angle)
+let frameIndex3 = 0; // Third floating mug frame
 let lastFrameTime = 0;
+let lastFrameTime2 = 0;
+let lastFrameTime3 = 0;
 let previewLoading = true; // Only blocks the preview area, not the whole UI
 let error = null;
 let btn = null;
@@ -32,6 +36,12 @@ let buyPending = false; // True while button is pressed but URL not ready
 
 // Ken Burns animation state
 let kenBurnsTime = 0;
+
+// Third floating mug state
+let floatX = 0;
+let floatY = 0;
+let floatVelX = 1.5;
+let floatVelY = 1.2;
 
 const btnPadding = 6;
 const btnCharWidth = 8; // unifont char width
@@ -380,14 +390,36 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
     return;
   }
 
-  // Animate frames
+  // Animate frames for all three mugs (different frames for different angles)
+  const now = performance.now();
   if (previewFrames) {
-    const now = performance.now();
-    const delay = previewFrames.frames[frameIndex]?.delay || 800;
-    if (now - lastFrameTime > delay) {
-      frameIndex = (frameIndex + 1) % previewFrames.frames.length;
-      previewBitmap.pixels = previewFrames.frames[frameIndex].pixels;
+    const frameCount = previewFrames.frames.length;
+    
+    // Main mug (Ken Burns background)
+    const delay1 = previewFrames.frames[frameIndex]?.delay || 800;
+    if (now - lastFrameTime > delay1) {
+      frameIndex = (frameIndex + 1) % frameCount;
       lastFrameTime = now;
+    }
+    
+    // Second mug (center showcase) - offset by 1/3 of frames
+    const delay2 = previewFrames.frames[frameIndex2]?.delay || 800;
+    if (now - lastFrameTime2 > delay2) {
+      frameIndex2 = (frameIndex2 + 1) % frameCount;
+      lastFrameTime2 = now;
+    }
+    
+    // Third mug (floating) - offset by 2/3 of frames
+    const delay3 = previewFrames.frames[frameIndex3]?.delay || 800;
+    if (now - lastFrameTime3 > delay3) {
+      frameIndex3 = (frameIndex3 + 1) % frameCount;
+      lastFrameTime3 = now;
+    }
+    
+    // Initialize frame offsets on first frame if not set
+    if (frameIndex2 === 0 && frameIndex === 0 && frameCount > 3) {
+      frameIndex2 = floor(frameCount / 3);
+      frameIndex3 = floor((frameCount * 2) / 3);
     }
   }
 
@@ -399,15 +431,21 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
   // Draw mug preview with Ken Burns effect OR loading animation
   let imageBottomY = screen.height - titleHeight - buttonHeight - titleGap;
   
-  if (previewBitmap) {
-    // === KEN BURNS FULL-SCREEN BACKGROUND ===
+  if (previewFrames) {
+    // === KEN BURNS FULL-SCREEN BACKGROUND (first frame angle) ===
+    const bgBitmap = {
+      width: previewFrames.width,
+      height: previewFrames.height,
+      pixels: previewFrames.frames[frameIndex].pixels,
+    };
+    
     // Scale to fill screen with extra room for panning (1.3x coverage)
     const coverScale = max(
-      (screen.width * 1.3) / previewBitmap.width,
-      (screen.height * 1.3) / previewBitmap.height,
+      (screen.width * 1.3) / bgBitmap.width,
+      (screen.height * 1.3) / bgBitmap.height,
     );
-    const bgW = floor(previewBitmap.width * coverScale);
-    const bgH = floor(previewBitmap.height * coverScale);
+    const bgW = floor(bgBitmap.width * coverScale);
+    const bgH = floor(bgBitmap.height * coverScale);
     
     // Ken Burns: slow pan across the image over ~20 seconds per phase
     const phaseDuration = 20;
@@ -447,12 +485,83 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
     const bgY = floor((screen.height - bgH) / 2 + panY);
     
     // Draw full-screen Ken Burns mug (slightly dimmed as background)
-    paste(previewBitmap, bgX, bgY, { scale: coverScale });
+    paste(bgBitmap, bgX, bgY, { scale: coverScale });
     
     // Darken overlay to make the small mug pop
     ink(25, 20, 18, 0.6).box(0, 0, screen.width, screen.height, "fill");
     
-    // === SMALLER MUG OVERLAY (cubist showcase) ===
+    // === SMALLER MUG OVERLAY (second frame angle - different view) ===
+    const smallBitmap = {
+      width: previewFrames.width,
+      height: previewFrames.height,
+      pixels: previewFrames.frames[frameIndex2].pixels,
+    };
+    
+    const availableHeight = screen.height - titleHeight - buttonHeight - titleGap;
+    const smallScale = min(
+      (screen.width * 0.6) / smallBitmap.width,
+      (availableHeight * 0.7) / smallBitmap.height,
+    );
+    const smallW = floor(smallBitmap.width * smallScale);
+    const smallH = floor(smallBitmap.height * smallScale);
+    const smallX = floor((screen.width - smallW) / 2);
+    const smallY = floor((availableHeight - smallH) / 2);
+    
+    paste(smallBitmap, smallX, smallY, { scale: smallScale });
+    imageBottomY = smallY + smallH;
+    
+    // === THIRD FLOATING MUG (third frame angle - bounces around) ===
+    const floatBitmap = {
+      width: previewFrames.width,
+      height: previewFrames.height,
+      pixels: previewFrames.frames[frameIndex3].pixels,
+    };
+    
+    // Smaller floating mug (about 25% of main)
+    const floatScale = smallScale * 0.4;
+    const floatW = floor(floatBitmap.width * floatScale);
+    const floatH = floor(floatBitmap.height * floatScale);
+    
+    // Initialize float position if not set
+    if (floatX === 0 && floatY === 0) {
+      floatX = screen.width * 0.2;
+      floatY = screen.height * 0.3;
+    }
+    
+    // Update float position (bouncing DVD logo style)
+    floatX += floatVelX;
+    floatY += floatVelY;
+    
+    // Bounce off edges
+    if (floatX <= 0 || floatX + floatW >= screen.width) {
+      floatVelX *= -1;
+      floatX = max(0, min(floatX, screen.width - floatW));
+    }
+    if (floatY <= 0 || floatY + floatH >= availableHeight) {
+      floatVelY *= -1;
+      floatY = max(0, min(floatY, availableHeight - floatH));
+    }
+    
+    // Add gentle floating wobble
+    const wobbleX = sin(time * 2.5) * 3;
+    const wobbleY = cos(time * 1.8) * 2;
+    
+    paste(floatBitmap, floor(floatX + wobbleX), floor(floatY + wobbleY), { scale: floatScale });
+    
+  } else if (previewBitmap) {
+    // Fallback for static images (no animation frames)
+    const coverScale = max(
+      (screen.width * 1.3) / previewBitmap.width,
+      (screen.height * 1.3) / previewBitmap.height,
+    );
+    const bgW = floor(previewBitmap.width * coverScale);
+    const bgH = floor(previewBitmap.height * coverScale);
+    const bgX = floor((screen.width - bgW) / 2);
+    const bgY = floor((screen.height - bgH) / 2);
+    
+    paste(previewBitmap, bgX, bgY, { scale: coverScale });
+    ink(25, 20, 18, 0.6).box(0, 0, screen.width, screen.height, "fill");
+    
     const availableHeight = screen.height - titleHeight - buttonHeight - titleGap;
     const smallScale = min(
       (screen.width * 0.6) / previewBitmap.width,
@@ -465,7 +574,6 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
     
     paste(previewBitmap, smallX, smallY, { scale: smallScale });
     imageBottomY = smallY + smallH;
-    
   } else if (previewLoading) {
     // Spinning mug emoji while loading
     const centerY = (screen.height - titleHeight - buttonHeight) / 2;
