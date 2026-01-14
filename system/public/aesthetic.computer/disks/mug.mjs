@@ -27,6 +27,11 @@ let error = null;
 let btn = null;
 let preloadAnimatedWebp = null;
 let preloadBitmap = null;
+let apiRef = null; // Store api reference for caching
+
+// Cached scaled frame buffers (pre-computed for performance)
+let cachedFrames = null; // { bg: [], small: [], float: [], bgScale, smallScale, floatScale, sizes: {...} }
+let lastCacheKey = null; // "screenWidth:screenHeight" to invalidate on resize
 
 // Checkout state
 let checkoutUrl = null;
@@ -74,7 +79,6 @@ const syntaxColors = {
 };
 
 let codeBtn = null; // Clickable code button
-let apiRef = null; // Store api reference for checkout
 let uploadingPainting = false; // True while uploading current painting
 let previewRetries = 0; // Track retry attempts for preview
 const MAX_PREVIEW_RETRIES = 10; // Max retries for preview
@@ -86,6 +90,10 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
   preloadAnimatedWebp = net.preloadAnimatedWebp;
   preloadBitmap = net.preload; // For static PNG fallback
   apiRef = api;
+  
+  // Reset frame cache on boot
+  cachedFrames = null;
+  lastCacheKey = null;
 
   // Parse params - supports multiple formats:
   // 1. mug~+PRODUCTCODE     → Load existing mug by product code (universal ID)
@@ -366,10 +374,88 @@ async function fetchCheckout(apiCode, api) {
   }
 }
 
+// Helper: Cache scaled frames for current screen dimensions
+// This pre-renders all animation frames at the required scales to avoid per-frame scaling
+function cacheScaledFrames(screenW, screenH) {
+  if (!previewFrames || !apiRef) return;
+  
+  const cacheKey = `${screenW}:${screenH}`;
+  if (cacheKey === lastCacheKey && cachedFrames) return; // Already cached
+  
+  const titleHeight = 24;
+  const buttonHeight = 40;
+  const titleGap = 8;
+  const availableHeight = screenH - titleHeight - buttonHeight - titleGap;
+  
+  // Calculate scales for each mug view
+  const bgScale = max(
+    (screenW * 1.3) / previewFrames.width,
+    (screenH * 1.3) / previewFrames.height,
+  );
+  const smallScale = min(
+    (screenW * 0.6) / previewFrames.width,
+    (availableHeight * 0.7) / previewFrames.height,
+  );
+  const floatScale = smallScale * 0.4;
+  
+  // Pre-compute dimensions
+  const bgW = floor(previewFrames.width * bgScale);
+  const bgH = floor(previewFrames.height * bgScale);
+  const smallW = floor(previewFrames.width * smallScale);
+  const smallH = floor(previewFrames.height * smallScale);
+  const floatW = floor(previewFrames.width * floatScale);
+  const floatH = floor(previewFrames.height * floatScale);
+  
+  // Pre-render all frames at each scale
+  const bgFrames = [];
+  const smallFrames = [];
+  const floatFrames = [];
+  
+  for (let i = 0; i < previewFrames.frames.length; i++) {
+    const frameBitmap = {
+      width: previewFrames.width,
+      height: previewFrames.height,
+      pixels: previewFrames.frames[i].pixels,
+    };
+    
+    // Cache background-scale frame
+    bgFrames[i] = apiRef.painting(bgW, bgH, (p) => {
+      p.paste(frameBitmap, 0, 0, { scale: bgScale });
+    });
+    
+    // Cache small-scale frame
+    smallFrames[i] = apiRef.painting(smallW, smallH, (p) => {
+      p.paste(frameBitmap, 0, 0, { scale: smallScale });
+    });
+    
+    // Cache float-scale frame
+    floatFrames[i] = apiRef.painting(floatW, floatH, (p) => {
+      p.paste(frameBitmap, 0, 0, { scale: floatScale });
+    });
+  }
+  
+  cachedFrames = {
+    bg: bgFrames,
+    small: smallFrames,
+    float: floatFrames,
+    bgScale,
+    smallScale,
+    floatScale,
+    sizes: { bgW, bgH, smallW, smallH, floatW, floatH, availableHeight },
+  };
+  lastCacheKey = cacheKey;
+  console.log(`☕ Cached ${previewFrames.frames.length} scaled frames for ${cacheKey}`);
+}
+
 function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
   // Animated backdrop - subtle coffee-colored gradient with floating particles
   const time = performance.now() / 1000;
   kenBurnsTime = time;
+  
+  // Cache scaled frames on first paint or resize
+  if (previewFrames && (!cachedFrames || lastCacheKey !== `${screen.width}:${screen.height}`)) {
+    cacheScaledFrames(screen.width, screen.height);
+  }
   
   // Base gradient from dark brown to darker
   wipe(25, 20, 18);
@@ -386,7 +472,8 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
   }
 
   if (error) {
-    ink(255, 100, 100).write(error, { center: "xy", screen });
+    // Wrap error text on narrow screens
+    ink(255, 100, 100).write(error, { center: "xy", screen }, undefined, screen.width - 16);
     return;
   }
 
@@ -431,22 +518,12 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
   // Draw mug preview with Ken Burns effect OR loading animation
   let imageBottomY = screen.height - titleHeight - buttonHeight - titleGap;
   
-  if (previewFrames) {
+  if (previewFrames && cachedFrames) {
+    // Use pre-cached scaled frames for performance (no per-frame scaling!)
+    const { bg, small, float, sizes } = cachedFrames;
+    const { bgW, bgH, smallW, smallH, floatW, floatH, availableHeight } = sizes;
+    
     // === KEN BURNS FULL-SCREEN BACKGROUND (first frame angle) ===
-    const bgBitmap = {
-      width: previewFrames.width,
-      height: previewFrames.height,
-      pixels: previewFrames.frames[frameIndex].pixels,
-    };
-    
-    // Scale to fill screen with extra room for panning (1.3x coverage)
-    const coverScale = max(
-      (screen.width * 1.3) / bgBitmap.width,
-      (screen.height * 1.3) / bgBitmap.height,
-    );
-    const bgW = floor(bgBitmap.width * coverScale);
-    const bgH = floor(bgBitmap.height * coverScale);
-    
     // Ken Burns: slow pan across the image over ~20 seconds per phase
     const phaseDuration = 20;
     const phase = floor(time / phaseDuration) % 4;
@@ -484,44 +561,20 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
     const bgX = floor((screen.width - bgW) / 2 + panX);
     const bgY = floor((screen.height - bgH) / 2 + panY);
     
-    // Draw full-screen Ken Burns mug (slightly dimmed as background)
-    paste(bgBitmap, bgX, bgY, { scale: coverScale });
+    // Draw full-screen Ken Burns mug using cached frame (no scaling!)
+    paste(bg[frameIndex], bgX, bgY);
     
     // Darken overlay to make the small mug pop
     ink(25, 20, 18, 0.6).box(0, 0, screen.width, screen.height, "fill");
     
     // === SMALLER MUG OVERLAY (second frame angle - different view) ===
-    const smallBitmap = {
-      width: previewFrames.width,
-      height: previewFrames.height,
-      pixels: previewFrames.frames[frameIndex2].pixels,
-    };
-    
-    const availableHeight = screen.height - titleHeight - buttonHeight - titleGap;
-    const smallScale = min(
-      (screen.width * 0.6) / smallBitmap.width,
-      (availableHeight * 0.7) / smallBitmap.height,
-    );
-    const smallW = floor(smallBitmap.width * smallScale);
-    const smallH = floor(smallBitmap.height * smallScale);
     const smallX = floor((screen.width - smallW) / 2);
     const smallY = floor((availableHeight - smallH) / 2);
     
-    paste(smallBitmap, smallX, smallY, { scale: smallScale });
+    paste(small[frameIndex2], smallX, smallY);
     imageBottomY = smallY + smallH;
     
     // === THIRD FLOATING MUG (third frame angle - bounces around) ===
-    const floatBitmap = {
-      width: previewFrames.width,
-      height: previewFrames.height,
-      pixels: previewFrames.frames[frameIndex3].pixels,
-    };
-    
-    // Smaller floating mug (about 25% of main)
-    const floatScale = smallScale * 0.4;
-    const floatW = floor(floatBitmap.width * floatScale);
-    const floatH = floor(floatBitmap.height * floatScale);
-    
     // Initialize float position if not set
     if (floatX === 0 && floatY === 0) {
       floatX = screen.width * 0.2;
@@ -546,8 +599,25 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
     const wobbleX = sin(time * 2.5) * 3;
     const wobbleY = cos(time * 1.8) * 2;
     
-    paste(floatBitmap, floor(floatX + wobbleX), floor(floatY + wobbleY), { scale: floatScale });
+    paste(float[frameIndex3], floor(floatX + wobbleX), floor(floatY + wobbleY));
     
+  } else if (previewFrames) {
+    // Fallback while cache is building (shouldn't happen often)
+    const bgBitmap = {
+      width: previewFrames.width,
+      height: previewFrames.height,
+      pixels: previewFrames.frames[frameIndex].pixels,
+    };
+    const coverScale = max(
+      (screen.width * 1.3) / bgBitmap.width,
+      (screen.height * 1.3) / bgBitmap.height,
+    );
+    const bgW = floor(bgBitmap.width * coverScale);
+    const bgH = floor(bgBitmap.height * coverScale);
+    const bgX = floor((screen.width - bgW) / 2);
+    const bgY = floor((screen.height - bgH) / 2);
+    paste(bgBitmap, bgX, bgY, { scale: coverScale });
+    ink(25, 20, 18, 0.6).box(0, 0, screen.width, screen.height, "fill");
   } else if (previewBitmap) {
     // Fallback for static images (no animation frames)
     const coverScale = max(
@@ -594,53 +664,102 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
   
   // Build title parts and calculate total width for centering (include # prefix)
   const viaPart = viaCode ? ` in $${viaCode}` : "";
-  const totalWidth = (colorName.length + " MUG of #".length + sourceCode.length + viaPart.length) * btnCharWidth;
-  let titleX = floor((screen.width - totalWidth) / 2);
+  const fullTitle = `${colorName} MUG of #${sourceCode}${viaPart}`;
+  const totalWidth = fullTitle.length * btnCharWidth;
   const titleY = imageBottomY + titleGap;
   
-  // Draw color name in its color
-  ink(...colorRgb).write(colorName, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
-  titleX += colorName.length * btnCharWidth;
+  // Check if title fits on one line (with some margin)
+  const maxTitleWidth = screen.width - 16;
+  const fitsOneLine = totalWidth <= maxTitleWidth;
   
-  // Draw " MUG of " in gray
-  ink(...syntaxColors.mugOf).write(" MUG of ", { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
-  titleX += " MUG of ".length * btnCharWidth;
-  
-  // Draw # prefix in cyan
-  const codeHover = codeBtn?.down;
-  ink(...(codeHover ? [255, 220, 150] : syntaxColors.hashPrefix)).write("#", { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
-  titleX += btnCharWidth;
-  
-  // Draw code chars character-by-character in light blue (clickable)
-  const codeStartX = titleX;
-  for (const char of sourceCode) {
-    ink(...(codeHover ? [255, 220, 150] : syntaxColors.codeChar)).write(char, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+  if (fitsOneLine) {
+    // Original single-line rendering with syntax colors
+    let titleX = floor((screen.width - totalWidth) / 2);
+    
+    // Draw color name in its color
+    ink(...colorRgb).write(colorName, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+    titleX += colorName.length * btnCharWidth;
+    
+    // Draw " MUG of " in gray
+    ink(...syntaxColors.mugOf).write(" MUG of ", { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+    titleX += " MUG of ".length * btnCharWidth;
+    
+    // Draw # prefix in cyan
+    const codeHover = codeBtn?.down;
+    ink(...(codeHover ? [255, 220, 150] : syntaxColors.hashPrefix)).write("#", { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
     titleX += btnCharWidth;
-  }
-  
-  // Update code button position (includes # prefix)
-  if (codeBtn) {
-    codeBtn.box.x = codeStartX - btnCharWidth; // Include # in clickable area
-    codeBtn.box.y = titleY;
-    codeBtn.box.w = (sourceCode.length + 1) * btnCharWidth;
-  }
-  const codeEndX = titleX;
-  
-  // Draw " in $kidlispcode" with $ in gold and code in cyan (character-by-character)
-  if (viaCode) {
-    ink(...syntaxColors.mugOf).write(" in ", { x: codeEndX, y: titleY }, undefined, undefined, false, "unifont");
-    let viaX = codeEndX + " in ".length * btnCharWidth;
-    ink(...syntaxColors.dollarPrefix).write("$", { x: viaX, y: titleY }, undefined, undefined, false, "unifont");
-    viaX += btnCharWidth;
-    for (const char of viaCode) {
-      ink(...syntaxColors.viaChar).write(char, { x: viaX, y: titleY }, undefined, undefined, false, "unifont");
-      viaX += btnCharWidth;
+    
+    // Draw code chars character-by-character in light blue (clickable)
+    const codeStartX = titleX;
+    for (const char of sourceCode) {
+      ink(...(codeHover ? [255, 220, 150] : syntaxColors.codeChar)).write(char, { x: titleX, y: titleY }, undefined, undefined, false, "unifont");
+      titleX += btnCharWidth;
     }
-  }
-  
-  // Draw underline if hovered
-  if (codeHover) {
-    ink(...syntaxColors.codeChar).line(codeStartX - btnCharWidth, titleY + btnCharHeight, codeStartX + sourceCode.length * btnCharWidth, titleY + btnCharHeight);
+    
+    // Update code button position (includes # prefix)
+    if (codeBtn) {
+      codeBtn.box.x = codeStartX - btnCharWidth;
+      codeBtn.box.y = titleY;
+      codeBtn.box.w = (sourceCode.length + 1) * btnCharWidth;
+    }
+    const codeEndX = titleX;
+    
+    // Draw " in $kidlispcode" with $ in gold and code in cyan
+    if (viaCode) {
+      ink(...syntaxColors.mugOf).write(" in ", { x: codeEndX, y: titleY }, undefined, undefined, false, "unifont");
+      let viaX = codeEndX + " in ".length * btnCharWidth;
+      ink(...syntaxColors.dollarPrefix).write("$", { x: viaX, y: titleY }, undefined, undefined, false, "unifont");
+      viaX += btnCharWidth;
+      for (const char of viaCode) {
+        ink(...syntaxColors.viaChar).write(char, { x: viaX, y: titleY }, undefined, undefined, false, "unifont");
+        viaX += btnCharWidth;
+      }
+    }
+    
+    // Draw underline if hovered
+    if (codeBtn?.down) {
+      ink(...syntaxColors.codeChar).line(codeStartX - btnCharWidth, titleY + btnCharHeight, codeStartX + sourceCode.length * btnCharWidth, titleY + btnCharHeight);
+    }
+  } else {
+    // Two-line layout for narrow screens
+    // Line 1: "COLOR MUG" centered
+    // Line 2: "#CODE" centered (clickable)
+    const line1 = `${colorName} MUG`;
+    const line2 = `#${sourceCode}`;
+    const line1Width = line1.length * btnCharWidth;
+    const line2Width = line2.length * btnCharWidth;
+    
+    // Draw line 1
+    let line1X = floor((screen.width - line1Width) / 2);
+    ink(...colorRgb).write(colorName, { x: line1X, y: titleY }, undefined, undefined, false, "unifont");
+    line1X += colorName.length * btnCharWidth;
+    ink(...syntaxColors.mugOf).write(" MUG", { x: line1X, y: titleY }, undefined, undefined, false, "unifont");
+    
+    // Draw line 2 (code, clickable)
+    const line2Y = titleY + btnCharHeight + 2;
+    let line2X = floor((screen.width - line2Width) / 2);
+    const codeHover = codeBtn?.down;
+    
+    ink(...(codeHover ? [255, 220, 150] : syntaxColors.hashPrefix)).write("#", { x: line2X, y: line2Y }, undefined, undefined, false, "unifont");
+    const codeStartX = line2X + btnCharWidth;
+    line2X = codeStartX;
+    
+    for (const char of sourceCode) {
+      ink(...(codeHover ? [255, 220, 150] : syntaxColors.codeChar)).write(char, { x: line2X, y: line2Y }, undefined, undefined, false, "unifont");
+      line2X += btnCharWidth;
+    }
+    
+    // Update code button position for line 2
+    if (codeBtn) {
+      codeBtn.box.x = codeStartX - btnCharWidth;
+      codeBtn.box.y = line2Y;
+      codeBtn.box.w = (sourceCode.length + 1) * btnCharWidth;
+    }
+    
+    // Draw underline if hovered
+    if (codeHover) {
+      ink(...syntaxColors.codeChar).line(codeStartX - btnCharWidth, line2Y + btnCharHeight, codeStartX + sourceCode.length * btnCharWidth, line2Y + btnCharHeight);
+    }
   }
 
   // Draw buy button - ALWAYS VISIBLE AND CLICKABLE
@@ -684,6 +803,9 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
 
 function act({ event: e, screen, jump, api, sound }) {
   if (e.is("reframed")) {
+    // Invalidate frame cache on resize (will be rebuilt in paint)
+    lastCacheKey = null;
+    
     // Reposition buy button on resize
     const btnText = getBtnText();
     const btnW = btnText.length * btnCharWidth + btnPadding * 2;

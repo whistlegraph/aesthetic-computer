@@ -152,11 +152,16 @@ let paintingLoadQueue = new Set(); // Track which paintings are being loaded
 let paintingLoadProgress = new Map(); // Track loading progress (0-1) for each painting
 let paintingAnimations = new Map(); // Track Ken Burns animation state for each painting
 let modalPainting = null; // Track fullscreen modal painting { painting, code, metadata }
+let modalJustOpened = false; // Prevent closing modal on the same click that opened it
 let draftMessage = ""; // Store draft message text persistently
 
 //  Link confirmation modal system
 // { type: "prompt"|"url"|"handle"|"kidlisp"|"painting", text: string, action: function }
 let linkConfirmModal = null;
+
+// 📋 Message copy modal system
+// { message: string, from: string, copied: boolean, error: boolean }
+let messageCopyModal = null;
 
 // 🔍 @handle autocomplete
 let handleAutocomplete = null;
@@ -884,23 +889,54 @@ function paint(
         const isHovered = message.layout.hoveredPainting === code && 
                           message.layout.hoveredPaintingIndex === codeIdx;
         
-        // Paste with crop at 1:1 scale (no width/height scale)
-        paste(
-          painting,
-          floor(previewX),
-          floor(previewY),
-          { 
-            crop: {
-              x: floor(cropX),
-              y: floor(cropY),
-              w: floor(cropW),
-              h: floor(cropH)
-            }
-          }
-        );
+        // Calculate how much of the preview is visible (clipped by mask bounds)
+        const visibleTop = Math.max(previewY, effectiveTopMargin);
+        const visibleBottom = Math.min(previewY + previewSize, screen.height - bottomMargin);
+        const visibleHeight = visibleBottom - visibleTop;
         
-        // Only draw border on hover (after unmask so border isn't clipped)
+        // Only render if there's visible area
+        if (visibleHeight > 0) {
+          // Adjust crop if preview is partially above the mask
+          let renderY = floor(previewY);
+          let renderCropY = floor(cropY);
+          let renderCropH = floor(cropH);
+          
+          if (previewY < effectiveTopMargin) {
+            const clipAmount = effectiveTopMargin - previewY;
+            renderY = effectiveTopMargin;
+            renderCropY = floor(cropY + clipAmount);
+            renderCropH = floor(cropH - clipAmount);
+          }
+          
+          // Also clip at bottom if needed
+          if (previewY + previewSize > screen.height - bottomMargin) {
+            const clipAmount = (previewY + previewSize) - (screen.height - bottomMargin);
+            renderCropH = floor(cropH - clipAmount);
+          }
+          
+          // Ensure crop height is valid
+          if (renderCropH > 0 && renderCropY >= 0 && renderCropY < imgHeight) {
+            // Paste with crop at 1:1 scale (no width/height scale)
+            paste(
+              painting,
+              floor(previewX),
+              renderY,
+              { 
+                crop: {
+                  x: floor(cropX),
+                  y: renderCropY,
+                  w: floor(cropW),
+                  h: Math.min(renderCropH, imgHeight - renderCropY)
+                }
+              }
+            );
+          }
+        }
+        
+        // Draw border to indicate interactivity
+        // Always show a subtle blinking border, brighter on hover
         if (isHovered) {
+          // Solid bright border on hover
           const borderColor = theme.paintingHover;
           if (Array.isArray(borderColor)) {
             ink(...borderColor).box(
@@ -919,6 +955,16 @@ function paint(
               "outline"
             );
           }
+        } else {
+          // Subtle blinking border to indicate clickability
+          const blinkAlpha = Math.floor(80 + (Math.sin(help.repeat * 0.15) + 1) * 50); // 80-180
+          ink(255, 255, 200, blinkAlpha).box(
+            previewX, 
+            previewY, 
+            previewSize, 
+            previewSize, 
+            "outline"
+          );
         }
         
         // Move X position for next preview (add 2px gap between paintings)
@@ -1309,19 +1355,29 @@ function paint(
   if (modalPainting) {
     const { painting, code, metadata } = modalPainting;
     
+    // Safety check - close modal if painting data is missing
+    if (!painting) {
+      modalPainting = null;
+      return;
+    }
+    
     // Semi-transparent black backdrop
     ink(0, 0, 0, 220).box(0, 0, screen.width, screen.height);
+    
+    // Get actual dimensions (some paintings use .w/.h instead of .width/.height)
+    const paintingW = painting.width || painting.w || 64;
+    const paintingH = painting.height || painting.h || 64;
     
     // Scale painting to fit screen while maintaining aspect ratio
     const maxW = screen.width - 20;
     const maxH = screen.height - 40; // Leave room for title
     
-    const scaleW = maxW / painting.width;
-    const scaleH = maxH / painting.height;
+    const scaleW = maxW / paintingW;
+    const scaleH = maxH / paintingH;
     const scale = Math.min(scaleW, scaleH, 1); // Don't scale up past 1:1
     
-    const displayW = Math.floor(painting.width * scale);
-    const displayH = Math.floor(painting.height * scale);
+    const displayW = Math.floor(paintingW * scale);
+    const displayH = Math.floor(paintingH * scale);
     const x = Math.floor((screen.width - displayW) / 2);
     const y = Math.floor((screen.height - displayH) / 2) - 8;
     
@@ -1431,6 +1487,70 @@ function paint(
     needsPaint(); // Keep modal animating
   }
   
+  // � Message copy modal (for copying plain message text)
+  if (messageCopyModal) {
+    const { message: msgText, from, copied, error } = messageCopyModal;
+    
+    // Semi-transparent black backdrop
+    ink(20, 15, 30, 230).box(0, 0, screen.width, screen.height);
+    
+    // Calculate modal dimensions based on content
+    const modalW = Math.min(screen.width - 24, 200);
+    const modalH = 90;
+    const modalX = Math.floor((screen.width - modalW) / 2);
+    const modalY = Math.floor((screen.height - modalH) / 2);
+    
+    // Draw modal background
+    ink(35, 30, 50).box(modalX, modalY, modalW, modalH);
+    ink(45, 40, 65).box(modalX + 1, modalY + 1, modalW - 2, modalH - 2);
+    ink(80, 70, 110).box(modalX, modalY, modalW, modalH, "outline");
+    ink(100, 90, 140).box(modalX + 1, modalY, modalW - 2, 1);
+    
+    // Header: "Message from @handle"
+    const truncatedFrom = from.length > 15 ? from.slice(0, 14) + "…" : from;
+    ink(180, 180, 200).write("from " + truncatedFrom, { x: modalX + 6, y: modalY + 4 }, undefined, undefined, false, "MatrixChunky8");
+    
+    // Message preview (truncated)
+    const maxMsgLen = 28;
+    const truncatedMsg = msgText.length > maxMsgLen
+      ? msgText.slice(0, maxMsgLen - 1) + "…"
+      : msgText;
+    ink(255, 255, 255).write(truncatedMsg, { x: modalX + 6, y: modalY + 18 });
+    
+    // Status text
+    if (copied) {
+      ink(150, 255, 150).write("Copied!", { x: modalX + 6, y: modalY + 36 }, undefined, undefined, false, "MatrixChunky8");
+    } else if (error) {
+      ink(255, 150, 150).write("Failed to copy", { x: modalX + 6, y: modalY + 36 }, undefined, undefined, false, "MatrixChunky8");
+    }
+    
+    // Buttons
+    const btnW = 50;
+    const btnH = 14;
+    const btnY = modalY + modalH - btnH - 8;
+    const btnGap = 12;
+    const totalBtnW = btnW * 2 + btnGap;
+    const btnStartX = modalX + Math.floor((modalW - totalBtnW) / 2);
+    
+    // Store button positions for hit detection
+    messageCopyModal.copyBtn = { x: btnStartX, y: btnY, w: btnW, h: btnH };
+    messageCopyModal.closeBtn = { x: btnStartX + btnW + btnGap, y: btnY, w: btnW, h: btnH };
+    
+    // Copy button - cyan theme
+    const copyHover = messageCopyModal.hoverCopy;
+    ink(copyHover ? [40, 100, 130] : [30, 70, 90]).box(btnStartX, btnY, btnW, btnH);
+    ink(copyHover ? [80, 180, 220] : [60, 130, 160]).box(btnStartX, btnY, btnW, btnH, "outline");
+    ink(copyHover ? [180, 240, 255] : [150, 210, 230]).write("copy", { x: btnStartX + 10, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    
+    // Close button - gray theme
+    const closeHover = messageCopyModal.hoverClose;
+    ink(closeHover ? [80, 75, 90] : [55, 50, 65]).box(btnStartX + btnW + btnGap, btnY, btnW, btnH);
+    ink(closeHover ? [120, 110, 140] : [90, 80, 110]).box(btnStartX + btnW + btnGap, btnY, btnW, btnH, "outline");
+    ink(closeHover ? [200, 200, 210] : [170, 170, 180]).write("close", { x: btnStartX + btnW + btnGap + 7, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    
+    needsPaint();
+  }
+  
   // 💸 GIVE button + recovery ticker in yikes mode (when connected, not just connecting)
   if (showFundingEffectsFlag && !client.connecting) {
     // Position with even margins: 10px from right edge, centered in top bar (topMargin=30)
@@ -1444,8 +1564,8 @@ function paint(
     needsPaint();
   }
   
-  // 📰 News ticker (top right, always visible)
-  if (!client.connecting) {
+  // 📰 News ticker (top right, always visible) - hide when modal is open
+  if (!client.connecting && !modalPainting && !messageCopyModal) {
     paintNewsTicker({ ink, screen, text, hud }, theme);
     needsPaint();
   }
@@ -1550,9 +1670,72 @@ function act(
     return; // Block all other interactions when modal is open
   }
   
-  // 🖼️ Modal painting - tap anywhere or press Escape to close
-  if (modalPainting) {
+  // � Message copy modal intercepts all events
+  if (messageCopyModal) {
+    const { copyBtn, closeBtn, message: msgText } = messageCopyModal;
+    
+    // Handle hover states
+    if (e.is("move") || e.is("draw")) {
+      if (copyBtn && closeBtn) {
+        messageCopyModal.hoverCopy = pen.x >= copyBtn.x && pen.x < copyBtn.x + copyBtn.w &&
+                                      pen.y >= copyBtn.y && pen.y < copyBtn.y + copyBtn.h;
+        messageCopyModal.hoverClose = pen.x >= closeBtn.x && pen.x < closeBtn.x + closeBtn.w &&
+                                       pen.y >= closeBtn.y && pen.y < closeBtn.y + closeBtn.h;
+      }
+    }
+    
+    // Handle clicks
     if (e.is("lift") || e.is("touch")) {
+      if (copyBtn && closeBtn) {
+        const clickedCopy = pen.x >= copyBtn.x && pen.x < copyBtn.x + copyBtn.w &&
+                            pen.y >= copyBtn.y && pen.y < copyBtn.y + copyBtn.h;
+        const clickedClose = pen.x >= closeBtn.x && pen.x < closeBtn.x + closeBtn.w &&
+                             pen.y >= closeBtn.y && pen.y < closeBtn.y + closeBtn.h;
+        
+        if (clickedCopy) {
+          beep();
+          // Use the clipboard API via send
+          send({ 
+            type: "signal", 
+            content: { label: "copy", message: msgText }
+          });
+          messageCopyModal.copied = true;
+          messageCopyModal.error = false;
+          // Auto-close after showing "Copied!" for a moment
+          setTimeout(() => {
+            if (messageCopyModal) messageCopyModal = null;
+          }, 800);
+        } else if (clickedClose) {
+          beep();
+          messageCopyModal = null;
+        }
+        // Clicking outside buttons also closes the modal
+        else {
+          beep();
+          messageCopyModal = null;
+        }
+      }
+    }
+    
+    // Escape key closes modal
+    if (e.is("keyboard:down:escape")) {
+      beep();
+      messageCopyModal = null;
+    }
+    
+    return; // Block all other interactions when modal is open
+  }
+  
+  // �🖼️ Modal painting - tap anywhere or press Escape to close
+  if (modalPainting) {
+    // Skip the lift event from the click that opened the modal
+    if (modalJustOpened && e.is("lift")) {
+      modalJustOpened = false;
+      return;
+    }
+    
+    // Close on new touch or lift (after first lift is consumed)
+    if (e.is("touch") || e.is("lift")) {
       beep();
       modalPainting = null;
       return;
@@ -1694,11 +1877,17 @@ function act(
           continue; // If `tb` is not defined then kill this. 👾
           // console.log("No message layout found for:", message);
         }
+        
+        // Calculate the full clickable area including painting previews
+        const hasPreview = message.layout.paintingCodes?.length > 0;
+        const previewAreaHeight = hasPreview ? 68 : 0; // 64px preview + 4px gap
+        const fullHeight = message.layout.height + previewAreaHeight;
+        
         if (
           e.x > message.layout.x &&
           e.x < message.layout.x + message.layout.width &&
           e.y > message.layout.y &&
-          e.y < message.layout.y + message.layout.height
+          e.y < message.layout.y + fullHeight
         ) {
           message.layout.inBox = true;
 
@@ -1799,6 +1988,9 @@ function act(
         if (message.clicked && !isDragging) {
           message.clicked = false;
           
+          // Track if any interactive element was clicked
+          let clickedInteractiveElement = false;
+          
           // Parse the original message to find interactive elements
           const parsedElements = parseMessageElements(message.fullMessage);
           
@@ -1822,6 +2014,7 @@ function act(
             );
             
             if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition)) {
+              clickedInteractiveElement = true;
               if (element.type === "handle") {
                 beep();
                 // Show confirmation modal for handle navigation
@@ -1835,7 +2028,10 @@ function act(
                 break;
               } else if (element.type === "prompt") {
                 // Skip individual quote marks - only handle full prompts
-                if (element.text === "'") continue;
+                if (element.text === "'") {
+                  clickedInteractiveElement = false;
+                  continue;
+                }
                 
                 beep();
                 const innerPrompt = element.text.slice(1, -1); // Unquote prompt text.
@@ -1976,6 +2172,7 @@ function act(
                   e.y >= previewY &&
                   e.y < previewY + previewSize
                 ) {
+                  clickedInteractiveElement = true;
                   beep();
                   // Open painting in fullscreen modal
                   modalPainting = {
@@ -1983,6 +2180,7 @@ function act(
                     code: cached.code,
                     metadata: cached.metadata
                   };
+                  modalJustOpened = true; // Prevent closing on same click
                   break;
                 }
                 
@@ -1990,6 +2188,22 @@ function act(
               } else {
                 previewX += 64; // Reserve space for loading preview (no gap)
               }
+            }
+          }
+          
+          // 📋 If click was on plain message text (not interactive elements), show copy modal
+          if (!clickedInteractiveElement && !linkConfirmModal && !modalPainting) {
+            // Check if click was within the message text bounds
+            const messageTextHeight = message.layout.height;
+            if (relativeX >= 0 && relativeY >= 0 && relativeY < messageTextHeight) {
+              beep();
+              messageCopyModal = {
+                message: message.fullMessage,
+                from: message.from,
+                when: message.when,
+                copied: false,
+                error: false
+              };
             }
           }
         }
