@@ -7269,9 +7269,9 @@ async function load(
     }
 
     // Cancel mechanism: if stop was requested, abort any queued reloads
+    // Don't reset the flag here - keep it true until explicitly cleared
     if (reload._cancelled) {
       console.log("🛑 Reload cancelled (stop was requested)");
-      reload._cancelled = false;
       reload._queueCount = 0;
       return;
     }
@@ -7341,6 +7341,9 @@ async function load(
         send({ type: "kidlisp-stopped" });
         return;
       }
+      
+      // We're loading real code - clear the cancel flag so future reloads work
+      reload._cancelled = false;
       
       // Just pass the source directly without path/text
       currentText = source;
