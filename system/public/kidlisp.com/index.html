@@ -2233,7 +2233,7 @@
       color: var(--text-tertiary);
       transition: all 0.2s;
       white-space: nowrap;
-      flex: 1 1 auto;
+      flex: 0 0 auto;
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -2442,100 +2442,155 @@
     :root.dark #keeps-content:not(.hidden) { background: linear-gradient(to bottom, rgba(150, 150, 150, 0.35) 0%, rgba(150, 150, 150, 0.1) 40%, transparent 100%); }
     :root.dark #reference-content:not(.hidden) { background: linear-gradient(to bottom, rgba(34, 197, 94, 0.45) 0%, rgba(34, 197, 94, 0.1) 40%, transparent 100%); }
 
-    /* List Tab Dropdown - contains Top Hits, Recent, History, Keeps */
-    .tab-dropdown {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-    
-    .tab-dropdown-trigger {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 6px 10px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 500;
-      border-radius: 8px 8px 0 0;
+    /* List Tab - Yellow (like old Top Hits) */
+    #list-tab {
       background: rgba(250, 204, 21, 0.25);
       color: #a16207;
-      user-select: none;
     }
-    
-    .tab-dropdown.active .tab-dropdown-trigger {
+    #list-tab.active {
       background: rgba(250, 204, 21, 0.55);
       color: #854d0e;
-      font-weight: 600;
     }
-    
-    :root.dark .tab-dropdown-trigger {
+    :root.dark #list-tab {
       background: rgba(250, 204, 21, 0.3);
       color: #fef3c7;
     }
-    :root.dark .tab-dropdown.active .tab-dropdown-trigger {
+    :root.dark #list-tab.active {
       background: rgba(250, 204, 21, 0.5);
       color: #fffbeb;
     }
+    @media (hover: hover) {
+      #list-tab:hover {
+        background: rgba(250, 204, 21, 0.45);
+      }
+    }
+
+    /* List sub-tabs bar */
+    .list-subtabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-secondary);
+      height: 28px;
+    }
+    
+    .list-subtab {
+      padding: 0 10px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      border-right: 1px solid var(--border-color);
+      transition: all 0.2s;
+    }
+    
+    .list-subtab.active {
+      font-weight: 600;
+    }
+    
+    /* Sub-tab colors - Top Hits (Yellow) */
+    .list-subtab[data-subtab="examples"] {
+      background: rgba(250, 204, 21, 0.2);
+      color: #a16207;
+    }
+    .list-subtab[data-subtab="examples"].active {
+      background: rgba(250, 204, 21, 0.5);
+      color: #854d0e;
+    }
+    
+    /* Sub-tab colors - Recent (Orange) */
+    .list-subtab[data-subtab="recent"] {
+      background: rgba(249, 115, 22, 0.15);
+      color: #c2410c;
+    }
+    .list-subtab[data-subtab="recent"].active {
+      background: rgba(249, 115, 22, 0.45);
+      color: #9a3412;
+    }
+    
+    /* Sub-tab colors - History (Brown) */
+    .list-subtab[data-subtab="history"] {
+      background: rgba(180, 130, 90, 0.15);
+      color: #92400e;
+    }
+    .list-subtab[data-subtab="history"].active {
+      background: rgba(180, 130, 90, 0.45);
+      color: #78350f;
+    }
+    
+    /* Sub-tab colors - Keeps (Gray) */
+    .list-subtab[data-subtab="keeps"] {
+      background: rgba(120, 120, 120, 0.15);
+      color: #525252;
+    }
+    .list-subtab[data-subtab="keeps"].active {
+      background: rgba(120, 120, 120, 0.4);
+      color: #404040;
+    }
+    
+    /* Dark mode sub-tabs */
+    :root.dark .list-subtab[data-subtab="examples"] {
+      background: rgba(250, 204, 21, 0.25);
+      color: #fef3c7;
+    }
+    :root.dark .list-subtab[data-subtab="examples"].active {
+      background: rgba(250, 204, 21, 0.45);
+      color: #fffbeb;
+    }
+    :root.dark .list-subtab[data-subtab="recent"] {
+      background: rgba(249, 115, 22, 0.2);
+      color: #fed7aa;
+    }
+    :root.dark .list-subtab[data-subtab="recent"].active {
+      background: rgba(249, 115, 22, 0.4);
+      color: #ffedd5;
+    }
+    :root.dark .list-subtab[data-subtab="history"] {
+      background: rgba(180, 130, 90, 0.2);
+      color: #d4b896;
+    }
+    :root.dark .list-subtab[data-subtab="history"].active {
+      background: rgba(180, 130, 90, 0.4);
+      color: #e8d4bc;
+    }
+    :root.dark .list-subtab[data-subtab="keeps"] {
+      background: rgba(150, 150, 150, 0.2);
+      color: #d4d4d4;
+    }
+    :root.dark .list-subtab[data-subtab="keeps"].active {
+      background: rgba(150, 150, 150, 0.35);
+      color: #f5f5f5;
+    }
     
     @media (hover: hover) {
-      .tab-dropdown-trigger:hover {
-        filter: brightness(1.05);
+      .list-subtab:hover {
+        filter: brightness(1.1);
       }
     }
     
-    .tab-dropdown-arrow {
-      font-size: 8px;
-      transition: transform 0.2s;
+    .list-subcontent {
+      flex: 1;
+      overflow: auto;
+      width: 100%;
+      min-width: 0;
     }
     
-    .tab-dropdown.open .tab-dropdown-arrow {
-      transform: rotate(180deg);
-    }
-    
-    .tab-dropdown-menu {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      min-width: 120px;
-      background: var(--bg-primary);
-      border: 1px solid var(--border-color);
-      border-radius: 0 8px 8px 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 100;
-      overflow: hidden;
-    }
-    
-    .tab-dropdown-menu.hidden {
+    .list-subcontent.hidden {
       display: none;
     }
     
-    .tab-dropdown-item {
-      padding: 8px 12px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: background 0.15s;
+    #list-content {
+      display: flex;
+      flex-direction: column;
     }
     
-    .tab-dropdown-item:hover {
-      background: var(--bg-secondary);
+    /* List content gradient (like old Top Hits) */
+    #list-content:not(.hidden) { 
+      background: linear-gradient(to bottom, rgba(250, 204, 21, 0.35) 0%, rgba(250, 204, 21, 0.1) 40%, transparent 100%); 
     }
-    
-    .tab-dropdown-item.active {
-      font-weight: 600;
-      background: var(--bg-tertiary);
+    :root.dark #list-content:not(.hidden) { 
+      background: linear-gradient(to bottom, rgba(250, 204, 21, 0.4) 0%, rgba(250, 204, 21, 0.1) 40%, transparent 100%); 
     }
-    
-    /* Subtab color coding in dropdown */
-    .tab-dropdown-item[data-subtab="examples"] { border-left: 3px solid rgba(250, 204, 21, 0.8); }
-    .tab-dropdown-item[data-subtab="recent"] { border-left: 3px solid rgba(249, 115, 22, 0.8); }
-    .tab-dropdown-item[data-subtab="history"] { border-left: 3px solid rgba(180, 130, 90, 0.8); }
-    .tab-dropdown-item[data-subtab="keeps"] { border-left: 3px solid rgba(120, 120, 120, 0.8); }
-    
-    .tab-dropdown-item[data-subtab="examples"].active { background: rgba(250, 204, 21, 0.2); }
-    .tab-dropdown-item[data-subtab="recent"].active { background: rgba(249, 115, 22, 0.2); }
-    .tab-dropdown-item[data-subtab="history"].active { background: rgba(180, 130, 90, 0.2); }
-    .tab-dropdown-item[data-subtab="keeps"].active { background: rgba(120, 120, 120, 0.15); }
 
     .language-tab {
       border-left: 1px solid var(--border-color);
@@ -6746,18 +6801,7 @@
           <div class="tab mobile-only" data-tab="console" id="console-tab">Console</div>
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
           <div class="tab" data-tab="guide" id="guide-tab">Guides</div>
-          <div class="tab-dropdown active" id="list-tab-dropdown">
-            <div class="tab-dropdown-trigger" id="list-tab">
-              <span class="tab-dropdown-label" id="list-tab-label">Top Hits</span>
-              <span class="tab-dropdown-arrow">▼</span>
-            </div>
-            <div class="tab-dropdown-menu hidden" id="list-dropdown-menu">
-              <div class="tab-dropdown-item active" data-subtab="examples">Top Hits</div>
-              <div class="tab-dropdown-item" data-subtab="recent">Recent</div>
-              <div class="tab-dropdown-item" data-subtab="history">History</div>
-              <div class="tab-dropdown-item" data-subtab="keeps">Keeps</div>
-            </div>
-          </div>
+          <div class="tab active" data-tab="list" id="list-tab">List</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
@@ -6774,23 +6818,32 @@
             <div class="guide-detail-body"></div>
           </div>
         </div>
-        <div class="docs-content" id="examples-content">
-          <div class="code-list-panel">
-            <div id="examples-list" class="code-list-items"><div class="code-list-loading">Loading...</div></div>
+        <div class="docs-content" id="list-content">
+          <!-- List sub-tabs -->
+          <div class="list-subtabs">
+            <div class="list-subtab active" data-subtab="examples">Top Hits</div>
+            <div class="list-subtab" data-subtab="recent">Recent</div>
+            <div class="list-subtab" data-subtab="history">History</div>
+            <div class="list-subtab" data-subtab="keeps">Keeps</div>
           </div>
-        </div>
-        <div class="docs-content hidden" id="history-content">
-          <div class="code-list-panel">
-            <div id="history-list" class="code-list-items"><div class="code-list-empty">No history yet.</div></div>
+          <!-- List sub-contents -->
+          <div class="list-subcontent" id="examples-subcontent">
+            <div class="code-list-panel">
+              <div id="examples-list" class="code-list-items"><div class="code-list-loading">Loading...</div></div>
+            </div>
           </div>
-        </div>
-        <div class="docs-content hidden" id="recent-content">
-          <div class="code-list-panel">
-            <div id="recent-new-indicator" class="code-list-new-indicator hidden"></div>
-            <div id="recent-list" class="code-list-items"><div class="code-list-loading">Loading...</div></div>
+          <div class="list-subcontent hidden" id="history-subcontent">
+            <div class="code-list-panel">
+              <div id="history-list" class="code-list-items"><div class="code-list-empty">No history yet.</div></div>
+            </div>
           </div>
-        </div>
-        <div class="docs-content hidden" id="keeps-content">
+          <div class="list-subcontent hidden" id="recent-subcontent">
+            <div class="code-list-panel">
+              <div id="recent-new-indicator" class="code-list-new-indicator hidden"></div>
+              <div id="recent-list" class="code-list-items"><div class="code-list-loading">Loading...</div></div>
+            </div>
+          </div>
+          <div class="list-subcontent hidden" id="keeps-subcontent">
           <div id="keeps-container">
             <!-- Contract Info - Always visible -->
             <div class="keeps-contract-info" id="keeps-contract-info">
@@ -6919,7 +6972,8 @@
               <div class="keeps-status" id="keeps-status"></div>
             </div>
           </div>
-        </div>
+          </div><!-- /keeps-subcontent -->
+        </div><!-- /list-content -->
         <div class="docs-content hidden" id="reference-content">
           <div id="book-container"></div>
         </div>
@@ -13966,17 +14020,11 @@
     // Tab functionality
     const referenceContent = document.getElementById('reference-content');
     const guideContent = document.getElementById('guide-content');
-    const examplesContent = document.getElementById('examples-content');
-    const historyContent = document.getElementById('history-content');
-    const recentContent = document.getElementById('recent-content');
-    const keepsContent = document.getElementById('keeps-content');
+    const listContent = document.getElementById('list-content');
     const mobileConsoleContent = document.getElementById('mobile-console-content');
     const codeTab = document.getElementById('reference-tab');
     const guideTab = document.getElementById('guide-tab');
-    const listTabDropdown = document.getElementById('list-tab-dropdown');
     const listTab = document.getElementById('list-tab');
-    const listTabLabel = document.getElementById('list-tab-label');
-    const listDropdownMenu = document.getElementById('list-dropdown-menu');
     const consoleTab = document.getElementById('console-tab');
     let examplesLoaded = false;
     let recentLoaded = false;
@@ -13986,10 +14034,7 @@
     function hideAllTabContents() {
       referenceContent?.classList.add('hidden');
       guideContent?.classList.add('hidden');
-      examplesContent?.classList.add('hidden');
-      historyContent?.classList.add('hidden');
-      recentContent?.classList.add('hidden');
-      keepsContent?.classList.add('hidden');
+      listContent?.classList.add('hidden');
       mobileConsoleContent?.classList.add('hidden');
     }
     
@@ -13997,36 +14042,33 @@
     function deactivateAllTabs() {
       codeTab?.classList.remove('active');
       guideTab?.classList.remove('active');
-      listTabDropdown?.classList.remove('active');
+      listTab?.classList.remove('active');
       consoleTab?.classList.remove('active');
     }
     
     // Helper to show List subtab content
     function showListSubtab(subtab) {
       currentListSubtab = subtab;
-      hideAllTabContents();
       
-      // Update dropdown label and active item
-      const labels = { examples: 'Top Hits', recent: 'Recent', history: 'History', keeps: 'Keeps' };
-      if (listTabLabel) listTabLabel.textContent = labels[subtab] || 'List';
-      
-      // Update active state in dropdown menu
-      listDropdownMenu?.querySelectorAll('.tab-dropdown-item').forEach(item => {
-        item.classList.toggle('active', item.dataset.subtab === subtab);
+      // Update sub-tab active states
+      document.querySelectorAll('.list-subtab').forEach(el => {
+        el.classList.toggle('active', el.dataset.subtab === subtab);
       });
       
-      // Show the corresponding content
+      // Hide all subcontents
+      document.querySelectorAll('.list-subcontent').forEach(el => el.classList.add('hidden'));
+      
+      // Show the corresponding subcontent and load data
+      const subcontent = document.getElementById(`${subtab}-subcontent`);
+      if (subcontent) subcontent.classList.remove('hidden');
+      
       if (subtab === 'examples') {
-        examplesContent?.classList.remove('hidden');
         if (!examplesLoaded) loadExamples();
       } else if (subtab === 'recent') {
-        recentContent?.classList.remove('hidden');
         if (!recentLoaded) loadRecent();
       } else if (subtab === 'history') {
-        historyContent?.classList.remove('hidden');
         loadHistory();
       } else if (subtab === 'keeps') {
-        keepsContent?.classList.remove('hidden');
         updateKeepsCodePreview();
         if (!keepsWalletRestoreAttempted) {
           keepsWalletRestoreAttempted = true;
@@ -14037,13 +14079,15 @@
     
     // Helper to programmatically switch to History tab
     function switchToHistoryTab() {
-      if (!listTabDropdown || !historyContent) return;
+      if (!listTab || !listContent) return;
       deactivateAllTabs();
-      listTabDropdown.classList.add('active');
+      hideAllTabContents();
+      listTab.classList.add('active');
+      listContent.classList.remove('hidden');
       showListSubtab('history');
     }
     
-    if (guideTab && listTabDropdown && guideContent && examplesContent && historyContent && recentContent && keepsContent) {
+    if (guideTab && listTab && guideContent && listContent) {
       // Helper to expand reference panel on mobile if collapsed (never collapse from tab tap)
       function expandReferencePanelOnMobile() {
         if (window.innerWidth <= 768) {
@@ -14088,53 +14132,30 @@
         guideTab.classList.add('active');
         guideContent.classList.remove('hidden');
         expandReferencePanelOnMobile();
-        listDropdownMenu?.classList.add('hidden');
-        listTabDropdown?.classList.remove('open');
       });
       
-      // List tab dropdown trigger - clicking shows the current subtab OR toggles menu
+      // List tab - shows the list content with dropdown inside
       listTab.addEventListener('click', function(e) {
         e.stopPropagation();
         e.preventDefault();
+        log.tabs.debug('List tab');
         
-        // If not active, make active and show current subtab
-        if (!listTabDropdown.classList.contains('active')) {
-          deactivateAllTabs();
-          listTabDropdown.classList.add('active');
-          showListSubtab(currentListSubtab);
-          expandReferencePanelOnMobile();
-        }
-        
-        // Toggle dropdown menu
-        listDropdownMenu.classList.toggle('hidden');
-        listTabDropdown.classList.toggle('open');
+        deactivateAllTabs();
+        hideAllTabContents();
+        listTab.classList.add('active');
+        listContent.classList.remove('hidden');
+        showListSubtab(currentListSubtab);
+        expandReferencePanelOnMobile();
       });
       
-      // List dropdown menu item clicks
-      listDropdownMenu?.querySelectorAll('.tab-dropdown-item').forEach(item => {
-        item.addEventListener('click', function(e) {
+      // List sub-tab click handlers
+      document.querySelectorAll('.list-subtab').forEach(subtab => {
+        subtab.addEventListener('click', function(e) {
           e.stopPropagation();
-          e.preventDefault();
-          const subtab = item.dataset.subtab;
-          log.tabs.debug('List subtab:', subtab);
-          
-          deactivateAllTabs();
-          listTabDropdown.classList.add('active');
-          showListSubtab(subtab);
-          expandReferencePanelOnMobile();
-          
-          // Close dropdown
-          listDropdownMenu.classList.add('hidden');
-          listTabDropdown.classList.remove('open');
+          const subtabType = this.dataset.subtab;
+          log.tabs.debug('List subtab clicked:', subtabType);
+          showListSubtab(subtabType);
         });
-      });
-      
-      // Close dropdown when clicking outside
-      document.addEventListener('click', function(e) {
-        if (!listTabDropdown.contains(e.target)) {
-          listDropdownMenu?.classList.add('hidden');
-          listTabDropdown?.classList.remove('open');
-        }
       });
       
       // Console tab click handler (mobile only - console is merged into reference panel)
@@ -14149,8 +14170,6 @@
           consoleTab.classList.add('active');
           mobileConsoleContent.classList.remove('hidden');
           expandReferencePanelOnMobile();
-          listDropdownMenu?.classList.add('hidden');
-          listTabDropdown?.classList.remove('open');
         });
       }
       
@@ -14176,7 +14195,8 @@
         // Desktop: ensure List tab (Top Hits) is active and visible
         deactivateAllTabs();
         hideAllTabContents();
-        listTabDropdown.classList.add('active');
+        listTab.classList.add('active');
+        listContent.classList.remove('hidden');
         showListSubtab('examples');
       }
       
@@ -15885,9 +15905,9 @@
       const filtered = local.filter(it => (item.code && it.code === item.code) ? false : (item.source && it.source === item.source ? false : true));
       filtered.unshift(item);
       writeLocalHistory(filtered);
-      // If history tab is active, refresh UI
-      const historyTabActive = historyTab?.classList.contains('active');
-      if (historyTabActive) {
+      // If history subtab is active, refresh UI
+      const historySubtabActive = listTab?.classList.contains('active') && currentListSubtab === 'history';
+      if (historySubtabActive) {
         renderHistory(filtered, { loggedIn: !!acUser });
       }
     }
@@ -15972,7 +15992,7 @@
     function startRecentAutoRefresh() {
       if (recentAutoRefreshInterval) return;
       recentAutoRefreshInterval = setInterval(() => {
-        const recentActive = currentListSubtab === 'recent' && listTabDropdown?.classList.contains('active');
+        const recentActive = currentListSubtab === 'recent' && listTab?.classList.contains('active');
         if (recentActive && !document.hidden) {
           loadRecent({ silent: true });
         }
