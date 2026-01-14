@@ -2333,7 +2333,7 @@
     /* Guides - Green */
     #guide-tab {
       background: rgba(34, 197, 94, 0.2);
-      color: #166534;
+      color: #15803d;
     }
     #guide-tab.active {
       background: rgba(34, 197, 94, 0.5);
@@ -2393,11 +2393,11 @@
     /* Dark mode adjustments for tab colors - brighter text for contrast */
     :root.dark #guide-tab {
       background: rgba(34, 197, 94, 0.4);
-      color: #4ade80;
+      color: #86efac;
     }
     :root.dark #guide-tab.active {
       background: rgba(34, 197, 94, 0.6);
-      color: #86efac;
+      color: #bbf7d0;
     }
     
     :root.dark #examples-tab {
@@ -2462,12 +2462,12 @@
       background: rgba(250, 204, 21, 0.65);
       color: #713f12;
     }
-    :root.dark #list-tab {
+    [data-theme="dark"] #list-tab {
       background: rgba(253, 224, 71, 0.55);
       color: #fef9c3;
     }
-    :root.dark #list-tab.active {
-      background: rgba(254, 240, 138, 0.9);
+    [data-theme="dark"] #list-tab.active {
+      background: rgba(253, 224, 71, 0.8);
       color: #422006;
     }
     @media (hover: hover) {
@@ -2482,8 +2482,12 @@
       justify-content: flex-start;
       width: 100%;
       border-bottom: none;
-      background: transparent;
+      background: rgba(250, 204, 21, 0.65);
       height: 44px;
+    }
+    
+    [data-theme="dark"] .list-subtabs {
+      background: rgba(253, 224, 71, 0.8);
     }
     
     .list-subtab {
@@ -2508,75 +2512,75 @@
     
     /* Sub-tab colors - Top Hits (Blue) */
     .list-subtab[data-subtab="examples"] {
-      background: transparent;
-      color: #3b82f6;
+      background: rgba(250, 204, 21, 0.65);
+      color: #78716c;
     }
     .list-subtab[data-subtab="examples"].active {
-      background: linear-gradient(to bottom, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.3) 100%);
+      background: linear-gradient(to bottom, #93c5fd 0%, #bfdbfe 100%);
       color: #1e3a8a;
     }
     
     /* Sub-tab colors - Recent (Orange) */
     .list-subtab[data-subtab="recent"] {
-      background: transparent;
-      color: #f97316;
+      background: rgba(250, 204, 21, 0.65);
+      color: #78716c;
     }
     .list-subtab[data-subtab="recent"].active {
-      background: linear-gradient(to bottom, rgba(249, 115, 22, 0.5) 0%, rgba(249, 115, 22, 0.3) 100%);
+      background: linear-gradient(to bottom, #fdba74 0%, #fed7aa 100%);
       color: #7c2d12;
     }
     
     /* Sub-tab colors - History (Brown) */
     .list-subtab[data-subtab="history"] {
-      background: transparent;
-      color: #b4825a;
+      background: rgba(250, 204, 21, 0.65);
+      color: #78716c;
     }
     .list-subtab[data-subtab="history"].active {
-      background: linear-gradient(to bottom, rgba(180, 130, 90, 0.5) 0%, rgba(180, 130, 90, 0.3) 100%);
+      background: linear-gradient(to bottom, #d4a574 0%, #e8d4bc 100%);
       color: #5c3d1e;
     }
     
     /* Sub-tab colors - Keeps (Gray) */
     .list-subtab[data-subtab="keeps"] {
-      background: transparent;
-      color: #737373;
+      background: rgba(250, 204, 21, 0.65);
+      color: #78716c;
     }
     .list-subtab[data-subtab="keeps"].active {
-      background: linear-gradient(to bottom, rgba(120, 120, 120, 0.45) 0%, rgba(120, 120, 120, 0.25) 100%);
+      background: linear-gradient(to bottom, #a3a3a3 0%, #d4d4d4 100%);
       color: #262626;
     }
     
     /* Dark mode sub-tabs */
     [data-theme="dark"] .list-subtab[data-subtab="examples"] {
-      background: transparent;
-      color: #00ffff;
+      background: rgba(253, 224, 71, 0.8);
+      color: #57534e;
     }
     [data-theme="dark"] .list-subtab[data-subtab="examples"].active {
-      background: linear-gradient(to bottom, rgba(59, 130, 246, 0.55) 0%, rgba(59, 130, 246, 0.35) 100%);
+      background: linear-gradient(to bottom, #3b82f6 0%, #1e40af 100%);
       color: #7fffff;
     }
     [data-theme="dark"] .list-subtab[data-subtab="recent"] {
-      background: transparent;
-      color: #fb923c;
+      background: rgba(253, 224, 71, 0.8);
+      color: #57534e;
     }
     [data-theme="dark"] .list-subtab[data-subtab="recent"].active {
-      background: linear-gradient(to bottom, rgba(249, 115, 22, 0.5) 0%, rgba(249, 115, 22, 0.35) 100%);
+      background: linear-gradient(to bottom, #ea580c 0%, #9a3412 100%);
       color: #ffedd5;
     }
     [data-theme="dark"] .list-subtab[data-subtab="history"] {
-      background: transparent;
-      color: #d4a574;
+      background: rgba(253, 224, 71, 0.8);
+      color: #57534e;
     }
     [data-theme="dark"] .list-subtab[data-subtab="history"].active {
-      background: linear-gradient(to bottom, rgba(180, 130, 90, 0.5) 0%, rgba(180, 130, 90, 0.35) 100%);
+      background: linear-gradient(to bottom, #a3724a 0%, #6b4423 100%);
       color: #e8d4bc;
     }
     [data-theme="dark"] .list-subtab[data-subtab="keeps"] {
-      background: transparent;
-      color: #a3a3a3;
+      background: rgba(253, 224, 71, 0.8);
+      color: #57534e;
     }
     [data-theme="dark"] .list-subtab[data-subtab="keeps"].active {
-      background: linear-gradient(to bottom, rgba(150, 150, 150, 0.4) 0%, rgba(150, 150, 150, 0.3) 100%);
+      background: linear-gradient(to bottom, #737373 0%, #525252 100%);
       color: #f5f5f5;
     }
     
@@ -2591,6 +2595,7 @@
       overflow: auto;
       width: 100%;
       min-width: 0;
+      min-height: 0;
     }
     
     .list-subcontent.hidden {
