@@ -2720,6 +2720,25 @@
     .invest-mug-caption .char-code { color: #87ceeb; } /* light blue for code chars */
     .invest-mug-caption .char-via { color: #00e5ff; } /* cyan for via identifier */
 
+    /* Container query for smaller invest boxes (e.g., 315px) */
+    .invest-section {
+      container-type: inline-size;
+      container-name: invest;
+    }
+    
+    @container invest (max-width: 350px) {
+      .invest-mug {
+        width: 26%;
+        max-width: 100px;
+        bottom: 4%;
+        right: 4%;
+      }
+      .invest-mug-caption {
+        font-size: 0.65em;
+        margin-top: -7%;
+      }
+    }
+
     /* Hacker Section - ghost-style minimal cards */
     .hacker-section {
       grid-column: 1 / -1;
@@ -6230,7 +6249,7 @@
     }
     
     body.light-mode .kidlisp-preview .module-caption {
-      background: #fffacd;
+      background: #fffacd !important;
       color: var(--text);
       border-bottom: 3px solid rgba(139, 92, 246, 0.3);
     }
@@ -6343,7 +6362,7 @@
     }
     
     body.light-mode .chat-preview .module-caption {
-      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      background: #fffacd !important;
       color: var(--text);
     }
     
@@ -6379,7 +6398,7 @@
     }
     
     body.light-mode .chat-preview-system .module-caption {
-      background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+      background: #ede9fe !important;
       color: var(--text);
     }
     
