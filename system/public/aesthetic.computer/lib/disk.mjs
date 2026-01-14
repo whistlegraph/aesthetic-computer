@@ -6938,6 +6938,28 @@ async function load(
             throw new Error(`Failed to load cached code: ${cacheId}`);
           }
         }
+      // ⏰ Handle *code clock pieces - load source and redirect to clock piece
+      } else if (slug && slug.startsWith("*") && slug.length > 1) {
+        const cacheId = slug.slice(1); // Remove * prefix
+        console.log("⏰ Loading cached clock code:", cacheId);
+        try {
+          const clockSource = await getCachedCodeMultiLevel(cacheId);
+          if (!clockSource) {
+            throw new Error(`Cached clock code not found: ${cacheId}`);
+          }
+          console.log("✅ Successfully loaded clock code:", cacheId, `(${clockSource.length} chars)`);
+          // Redirect to clock piece with the cached source as a parameter
+          // The clock piece will receive the melody/code string and execute it
+          path = "clock";
+          slug = "clock";
+          parsed.path = "clock";
+          parsed.params = [clockSource];
+          parsed.search = clockSource;
+          currentOriginalCodeId = slug;
+        } catch (error) {
+          console.error("❌ Failed to load cached clock code:", cacheId, error);
+          throw new Error(`Failed to load cached clock code: ${cacheId}`);
+        }
       } else if (fullUrl) {
         // 🎄 Check if piece code is cached (for merry preloading)
         const pieceSlug = slug?.split("~")[0];
