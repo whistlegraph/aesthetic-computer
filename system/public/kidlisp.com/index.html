@@ -350,6 +350,48 @@
       z-index: 200; /* Ensure dropdown is above editor */
     }
 
+    /* Logo landing zone with gear reveal */
+    #logo-landing-zone {
+      position: relative;
+      overflow: visible;
+    }
+    
+    #settings-gear {
+      position: absolute;
+      left: -24px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 20px;
+      height: 20px;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.3s ease-out;
+      pointer-events: none;
+      color: #a8a29e;
+    }
+    
+    #logo-landing-zone:hover #settings-gear {
+      opacity: 1;
+      animation: gear-spin 2s linear infinite;
+    }
+    
+    #logo-landing-zone:hover #splash-logo {
+      transform: translateX(8px);
+      transition: transform 0.2s ease-out;
+    }
+    
+    #splash-logo.landed {
+      transition: transform 0.2s ease-out;
+    }
+    
+    @keyframes gear-spin {
+      from { transform: translateY(-50%) rotate(0deg); }
+      to { transform: translateY(-50%) rotate(360deg); }
+    }
+    
+    [data-theme="dark"] #settings-gear {
+      color: #d6d3d1;
+    }
+
     #clear-button {
       position: relative;
       left: auto; right: auto; top: auto; bottom: auto;
@@ -6677,7 +6719,12 @@
         <div class="editor-header">
           <div style="display: flex; flex-direction: column; align-items: flex-start;">
             <!-- Logo landing zone - splash logo will fly here and stay (clickable for preferences) -->
-            <div id="logo-landing-zone" style="margin-top: 4px; height: 24px; display: flex; align-items: center; cursor: pointer;" title="Preferences"></div>
+            <div id="logo-landing-zone" style="margin-top: 4px; height: 24px; display: flex; align-items: center; cursor: pointer;" title="Preferences">
+              <svg id="settings-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </div>
           </div>
         </div>
         <!-- Visualization Mode Tabs (hidden for now) -->
