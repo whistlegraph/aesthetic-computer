@@ -85,18 +85,22 @@ function paint({
   const qrY = 6;
   const listenY = qrY + qrSize + 4;
   
-  // Layout constants - centered play button
-  const titleY = centerY - 70; // Title above visualizer
+  // Responsive vertical layout - spread elements across screen height
+  const topSection = 20; // Title area
+  const bottomSection = screen.height - 50; // Status area
+  const middleSection = (topSection + bottomSection) / 2; // Button area
+  
+  const titleY = topSection;
   const subtitleY = titleY + 18;
-  const visualizerTopY = subtitleY + 14;
+  const visualizerTopY = subtitleY + 20;
   const btnSize = 32;
-  const btnY = centerY - btnSize / 2; // Centered vertically
-  const volSliderYPos = btnY + btnSize + 8; // Volume right below button
-  const visualizerBottomY = btnY - 12; // Visualizer ends above button
+  const btnY = middleSection - btnSize / 2; // Button in middle third
+  const volSliderYPos = btnY + btnSize + 16; // Volume below button with more space
+  const visualizerBottomY = btnY - 20; // Visualizer ends above button with gap
   
   // Status and track at bottom
-  const statusY = screen.height - 28;
-  const trackInfoY = screen.height - 14;
+  const statusY = bottomSection;
+  const trackInfoY = bottomSection + 14;
   
   // Draw visualizer bars (fills space between subtitle and button)
   const barWidth = Math.max(2, Math.floor((screen.width - 40) / BAR_COUNT));
@@ -137,15 +141,18 @@ function paint({
   // Play/Pause button - centered on screen like baktok
   const btnX = centerX - btnSize / 2;
   
-  // Button background - with pressed state
-  const isHovering = pen && 
+  // Button background - with pressed state (no hover when loading)
+  const isHovering = !isLoading && pen && 
     pen.x >= btnX && pen.x < btnX + btnSize &&
     pen.y >= btnY && pen.y < btnY + btnSize;
   
-  // Pressed state: darker/inset look
+  // Pressed state: darker/inset look, Loading state: normal look
   if (isButtonPressed) {
     ink([30, 25, 45]).box(btnX, btnY, btnSize, btnSize);
     ink([70, 50, 90]).box(btnX, btnY, btnSize, btnSize, "outline");
+  } else if (isLoading) {
+    ink([50, 40, 70]).box(btnX, btnY, btnSize, btnSize);
+    ink([100, 80, 120]).box(btnX, btnY, btnSize, btnSize, "outline");
   } else {
     ink(isHovering ? [80, 60, 100] : [50, 40, 70]).box(btnX, btnY, btnSize, btnSize);
     ink(isHovering ? [140, 100, 160] : [100, 80, 120]).box(btnX, btnY, btnSize, btnSize, "outline");
@@ -307,16 +314,20 @@ function act({ event: e, jump, screen, num: { clamp }, send }) {
   globalSend = send;
   
   const centerX = Math.floor(screen.width / 2);
-  const centerY = Math.floor(screen.height / 2);
+  
+  // Responsive layout (must match paint)
+  const topSection = 20;
+  const bottomSection = screen.height - 50;
+  const middleSection = (topSection + bottomSection) / 2;
   
   // Play/Pause button - centered on screen (must match paint)
   const btnSize = 32;
   const btnX = centerX - btnSize / 2;
-  const btnY = centerY - btnSize / 2; // Match paint layout
+  const btnY = middleSection - btnSize / 2; // Match paint layout
   
   // Volume slider - centered below button (must match paint)
   const volSliderCenterX = centerX - volSliderW / 2;
-  const volSliderYPos = btnY + btnSize + 8;
+  const volSliderYPos = btnY + btnSize + 16;
   volSliderY = volSliderYPos;
   
   // Volume slider interaction
