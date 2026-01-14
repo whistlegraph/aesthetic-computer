@@ -6653,7 +6653,7 @@
           <div class="tab" data-tab="guide" id="guide-tab"><span class="tab-full">Guides</span><span class="tab-short">Guide</span></div>
           <div class="tab active" data-tab="examples" id="examples-tab"><span class="tab-full">Top Hits</span><span class="tab-short">Top</span></div>
           <div class="tab" data-tab="recent" id="recent-tab">Recent</div>
-          <div class="tab" data-tab="history" id="history-tab"><span class="tab-full">History</span><span class="tab-short">Hist</span></div>
+          <div class="tab" data-tab="history" id="history-tab">History</div>
           <div class="tab" data-tab="keeps" id="keeps-tab">Keeps</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
@@ -6679,10 +6679,6 @@
         <div class="docs-content hidden" id="history-content">
           <div class="code-list-panel">
             <div id="history-list" class="code-list-items"><div class="code-list-empty">No history yet.</div></div>
-            <div class="code-list-footer">
-              <button id="history-login-btn" class="secondary-btn" style="display: none;">Log in</button>
-              <button id="history-clear-btn" class="secondary-btn">Clear</button>
-            </div>
           </div>
         </div>
         <div class="docs-content hidden" id="recent-content">
@@ -15524,8 +15520,8 @@
       let displayCode = syntaxHighlight ? applySyntaxHighlighting(sourceCode) : (snippet || '(empty)');
       if (!syntaxHighlight && truncated) displayCode += '…';
       
-      // Ticker animation for long code
-      if (tickerAnimation && sourceCode.length > 40) {
+      // Ticker animation - always scroll when enabled
+      if (tickerAnimation) {
         displayCode = `<span class="ticker-wrapper">${displayCode}&nbsp;&nbsp;&nbsp;${displayCode}</span>`;
       }
       
@@ -15592,6 +15588,17 @@
       
       const sourceCode = item.source || item.code || '';
       const snippet = (sourceCode).slice(0, 80).replace(/\n/g, ' ') || '(empty)';
+      
+      // Add to history
+      if (typeof addHistoryEntry === 'function') {
+        addHistoryEntry({
+          code: item.code || null,
+          source: sourceCode,
+          assetUrl: item.assetUrl || null,
+          hits: item.hits || 0,
+          ts: Date.now()
+        });
+      }
       
       // Flying code animation
       const codeEl = el.querySelector('.example-code');
@@ -15697,19 +15704,7 @@
 
     function renderHistory(items, { loggedIn } = { loggedIn: false }) {
       const listEl = document.getElementById('history-list');
-      const loginBtn = document.getElementById('history-login-btn');
-      const clearBtn = document.getElementById('history-clear-btn');
-      if (!listEl || !clearBtn || !loginBtn) return;
-      
-      loginBtn.style.display = loggedIn ? 'none' : 'inline-flex';
-
-      clearBtn.onclick = () => {
-        writeLocalHistory([]);
-        renderHistory([], { loggedIn });
-      };
-      loginBtn.onclick = () => {
-        if (typeof acLogin === 'function') acLogin();
-      };
+      if (!listEl) return;
 
       // Sort by timestamp (most recent first)
       const sorted = [...(items || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
