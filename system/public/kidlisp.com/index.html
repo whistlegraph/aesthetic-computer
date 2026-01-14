@@ -1068,7 +1068,7 @@
       right: 20px;
       height: 16px;
       background: rgba(40, 40, 40, 0.92);
-      z-index: 1001;
+      z-index: 998; /* Must be BELOW center-square drag nub (z-index: 999) */
       overflow: hidden;
     }
     
@@ -1088,7 +1088,7 @@
       bottom: 16px;
       width: 20px;
       background: rgba(40, 40, 40, 0.92);
-      z-index: 1001;
+      z-index: 998; /* Must be BELOW center-square drag nub (z-index: 999) */
       overflow: hidden;
     }
     
@@ -1108,7 +1108,7 @@
       width: 20px;
       height: 16px;
       background: rgba(50, 50, 50, 0.95);
-      z-index: 1002;
+      z-index: 998; /* Must be BELOW center-square drag nub (z-index: 999) */
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1267,6 +1267,28 @@
     [data-theme="dark"] .ruler-crosshair-h,
     [data-theme="dark"] .ruler-crosshair-v {
       background: rgba(255, 255, 255, 0.8);
+    }
+    
+    /* Light theme rulers: light gray background with dark marks */
+    [data-theme="light"] .ruler-horizontal,
+    [data-theme="light"] .ruler-horizontal-bottom,
+    [data-theme="light"] .ruler-vertical,
+    [data-theme="light"] .ruler-vertical-right {
+      background: rgba(170, 170, 175, 0.92);
+      border-color: rgba(140, 140, 145, 0.5);
+    }
+    
+    [data-theme="light"] .ruler-corner {
+      background: rgba(160, 160, 165, 0.95);
+      color: rgba(60, 60, 60, 0.7);
+    }
+    
+    [data-theme="light"] .ruler-tick {
+      background: rgba(80, 80, 80, 0.6);
+    }
+    
+    [data-theme="light"] .ruler-label {
+      color: rgba(60, 60, 60, 0.8);
     }
     
     /* Full preview crosshair lines (military reticle style) */
