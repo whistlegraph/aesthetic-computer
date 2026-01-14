@@ -9098,10 +9098,9 @@ async function makeFrame({ data: { type, content } }) {
         $commonApi.reload._queueCount = 0;
       }
       pendingPieceReload = null; // Clear any pending reload queue
-      log.piece.log("Stopping - cancelling any pending reloads");
+      log.piece.log("Stopping kidlisp execution");
       
-      // Handle stop directly here - load blank prompt piece
-      // Don't go through reload() since we just set _cancelled
+      // Just stop - don't try to load anything
       loading = false;
       loadingStartTime = null;
       $commonApi.kidlispCreateCode = false;
@@ -9109,18 +9108,10 @@ async function makeFrame({ data: { type, content } }) {
       $commonApi.kidlispEnableTrace = false;
       if (globalKidLispInstance) {
         globalKidLispInstance.frameCount = 0;
+        // Clear the kidlisp state so it stops executing
+        globalKidLispInstance.reset?.();
       }
-      // Load the blank prompt piece to clear the screen
-      const stopHost = currentHost || "";
-      $commonApi.load({ 
-        path: "prompt", 
-        text: "prompt", 
-        host: stopHost,
-        params: [],
-        search: "",
-        colon: "",
-        hash: ""
-      }, true, false, false);
+      // Tell kidlisp.com we stopped
       send({ type: "kidlisp-stopped" });
       return;
     }
