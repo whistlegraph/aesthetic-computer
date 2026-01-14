@@ -2476,8 +2476,10 @@
     }
     
     .list-subtab {
+      width: 94px;
       min-width: 94px;
-      padding: 0 8px;
+      box-sizing: border-box;
+      padding: 0;
       font-size: 12px;
       font-weight: 500;
       cursor: pointer;
@@ -2485,6 +2487,7 @@
       align-items: center;
       justify-content: center;
       border-right: 1px solid var(--border-color);
+      border-left: 1px solid transparent;
       transition: all 0.2s;
     }
     
@@ -6691,7 +6694,7 @@
                 <span class="platform-opt-name">Aesthetic.Computer</span>
               </div>
               <div class="platform-option" data-platform="ff1">
-                <img src="/assets/feralfile-logo.png" alt="" class="platform-logo" style="height: 14px; margin-right: 6px; vertical-align: middle; filter: invert(1);">
+                <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="platform-logo" style="height: 14px; margin-right: 6px; vertical-align: middle; filter: invert(1);">
                 <span class="platform-opt-name">FF1 Art Computer</span>
               </div>
               <div class="platform-option" data-platform="ableton">
@@ -6805,8 +6808,8 @@
         <div class="docs-header">
           <div class="tab mobile-only" data-tab="console" id="console-tab">Console</div>
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
-          <div class="tab active" data-tab="list" id="list-tab"><span style="display: inline-block; min-width: 58px; text-align: center;">List</span></div>
-          <div class="tab" data-tab="guide" id="guide-tab"><span style="display: inline-block; min-width: 64px; text-align: center;">Guides</span></div>
+          <div class="tab active" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
+          <div class="tab" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Guides</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
@@ -13043,7 +13046,7 @@
         return getACTitleHTML();
       }
       if (platformId === 'ff1') {
-        return `<img src="/assets/feralfile-logo.png" alt="" class="platform-logo" style="height: 16px; margin-right: 6px; vertical-align: middle;"> ${platformName}`;
+        return `<img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="platform-logo" style="height: 16px; margin-right: 6px; vertical-align: middle;"> ${platformName}`;
       }
       return platformName.replace('.', '<span class="bounce-dot">.</span>');
     }
