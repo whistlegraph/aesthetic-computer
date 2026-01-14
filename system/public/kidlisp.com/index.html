@@ -1781,7 +1781,12 @@
       display: inline-block;
     }
     
-    /* Color coding for $code: $ is light green, code is darker green */
+    /* Color coding for $code: / is gray, $ is light green, code is darker green */
+    #preview-title .code-display .code-char.slash {
+      color: #888;
+      font-weight: normal;
+      transition: color 0.05s ease, text-shadow 0.05s ease, transform 0.1s ease;
+    }
     #preview-title .code-display .code-char.dollar {
       color: limegreen;
       font-weight: bold;
@@ -11441,7 +11446,7 @@
               updateURLForCode(code);
               // Update preview pane title (no animation for initial load)
               const previewTitle = document.getElementById('preview-title');
-              const codeChars = `/$${code}`.split('').map((c, i) => `<span class="code-char${i === 1 ? ' dollar' : i > 1 ? ' code' : ''}">${c}</span>`).join('');
+              const codeChars = `/$${code}`.split('').map((c, i) => `<span class="code-char${i === 0 ? ' slash' : i === 1 ? ' dollar' : ' code'}">${c}</span>`).join('');
               previewTitle.innerHTML = getACTitleHTML(codeChars);
             }
           } else {
@@ -11459,7 +11464,7 @@
           updateURLForCode(savedCode);
           // Update preview pane title (no animation for restore)
           const previewTitle = document.getElementById('preview-title');
-          const codeChars = `/$${savedCode}`.split('').map((c, i) => `<span class="code-char${i === 1 ? ' dollar' : i > 1 ? ' code' : ''}">${c}</span>`).join('');
+          const codeChars = `/$${savedCode}`.split('').map((c, i) => `<span class="code-char${i === 0 ? ' slash' : i === 1 ? ' dollar' : ' code'}">${c}</span>`).join('');
           previewTitle.innerHTML = getACTitleHTML(codeChars);
         }
       }
@@ -15606,7 +15611,7 @@
         const previewTitle = document.getElementById('preview-title');
         if (previewTitle) {
           const codeChars = `/$${item.code}`.split('').map((c, i) => 
-            `<span class="code-char${i === 1 ? ' dollar' : i > 1 ? ' code' : ''}">${c}</span>`
+            `<span class="code-char${i === 0 ? ' slash' : i === 1 ? ' dollar' : ' code'}">${c}</span>`
           ).join('');
           previewTitle.innerHTML = getACTitleHTML(codeChars);
         }
