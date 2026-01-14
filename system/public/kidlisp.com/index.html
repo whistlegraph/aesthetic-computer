@@ -10827,8 +10827,30 @@
         });
         
         // Extract the code from slug (filename without extension)
-        const paintingCode = slug.replace(/\.png$/, '');
-        console.log('☕ Uploaded as painting code:', paintingCode);
+        let paintingCode = slug.replace(/\.png$/, '');
+        console.log('☕ Uploaded as painting slug:', paintingCode);
+        
+        // Track the painting in the database to get a short code
+        // This ensures the painting has a #code for display on mugs
+        try {
+          const trackRes = await fetch(`${baseUrl}/api/track-media`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slug: paintingCode, ext: 'png' }),
+          });
+          if (trackRes.ok) {
+            const trackData = await trackRes.json();
+            console.log('☕ Painting tracked with short code:', trackData.code);
+            // Use the short code for the mug if available
+            if (trackData.code) {
+              paintingCode = trackData.code;
+            }
+          } else {
+            console.warn('☕ Failed to track painting:', trackRes.status);
+          }
+        } catch (trackErr) {
+          console.warn('☕ Track painting error:', trackErr);
+        }
         
         // Call the mug API to create the product and get a +productCode
         // This ensures the mug is registered in the database with all metadata
