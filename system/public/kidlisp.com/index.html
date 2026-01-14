@@ -2255,6 +2255,17 @@
       width: 100%;
     }
     
+    /* Match reference panel header to console header colors */
+    [data-theme="light"] #reference-panel .docs-header {
+      background: #e8dcc8;
+      border-bottom-color: #d4c4a8;
+    }
+    
+    [data-theme="dark"] #reference-panel .docs-header {
+      background: #3d2817;
+      border-bottom-color: #2a1a0f;
+    }
+    
     /* Progressive responsive using container queries (based on panel width, not viewport) */
     @container refpanel (max-width: 600px) {
       .tab {
@@ -2382,11 +2393,11 @@
     /* Dark mode adjustments for tab colors - brighter text for contrast */
     :root.dark #guide-tab {
       background: rgba(34, 197, 94, 0.4);
-      color: #86efac;
+      color: #4ade80;
     }
     :root.dark #guide-tab.active {
       background: rgba(34, 197, 94, 0.6);
-      color: #bbf7d0;
+      color: #86efac;
     }
     
     :root.dark #examples-tab {
@@ -2453,7 +2464,7 @@
     }
     :root.dark #list-tab {
       background: rgba(253, 224, 71, 0.55);
-      color: #fef08a;
+      color: #fef9c3;
     }
     :root.dark #list-tab.active {
       background: rgba(254, 240, 138, 0.9);
@@ -2470,8 +2481,8 @@
       display: flex;
       justify-content: flex-start;
       width: 100%;
-      border-bottom: 1px solid var(--border-subtle);
-      background: var(--bg-secondary);
+      border-bottom: none;
+      background: transparent;
       height: 44px;
     }
     
@@ -2495,77 +2506,77 @@
       font-weight: 600;
     }
     
-    /* Sub-tab colors - Top Hits (Yellow) */
+    /* Sub-tab colors - Top Hits (Blue) */
     .list-subtab[data-subtab="examples"] {
-      background: rgba(250, 204, 21, 0.2);
-      color: #a16207;
+      background: transparent;
+      color: #3b82f6;
     }
     .list-subtab[data-subtab="examples"].active {
-      background: rgba(250, 204, 21, 0.5);
-      color: #854d0e;
+      background: linear-gradient(to bottom, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.3) 100%);
+      color: #1e3a8a;
     }
     
     /* Sub-tab colors - Recent (Orange) */
     .list-subtab[data-subtab="recent"] {
-      background: rgba(249, 115, 22, 0.15);
-      color: #c2410c;
+      background: transparent;
+      color: #f97316;
     }
     .list-subtab[data-subtab="recent"].active {
-      background: rgba(249, 115, 22, 0.45);
-      color: #9a3412;
+      background: linear-gradient(to bottom, rgba(249, 115, 22, 0.5) 0%, rgba(249, 115, 22, 0.3) 100%);
+      color: #7c2d12;
     }
     
     /* Sub-tab colors - History (Brown) */
     .list-subtab[data-subtab="history"] {
-      background: rgba(180, 130, 90, 0.15);
-      color: #92400e;
+      background: transparent;
+      color: #b4825a;
     }
     .list-subtab[data-subtab="history"].active {
-      background: rgba(180, 130, 90, 0.45);
-      color: #78350f;
+      background: linear-gradient(to bottom, rgba(180, 130, 90, 0.5) 0%, rgba(180, 130, 90, 0.3) 100%);
+      color: #5c3d1e;
     }
     
     /* Sub-tab colors - Keeps (Gray) */
     .list-subtab[data-subtab="keeps"] {
-      background: rgba(120, 120, 120, 0.15);
-      color: #525252;
+      background: transparent;
+      color: #737373;
     }
     .list-subtab[data-subtab="keeps"].active {
-      background: rgba(120, 120, 120, 0.4);
-      color: #404040;
+      background: linear-gradient(to bottom, rgba(120, 120, 120, 0.45) 0%, rgba(120, 120, 120, 0.25) 100%);
+      color: #262626;
     }
     
     /* Dark mode sub-tabs */
-    :root.dark .list-subtab[data-subtab="examples"] {
-      background: rgba(250, 204, 21, 0.25);
-      color: #fef3c7;
+    [data-theme="dark"] .list-subtab[data-subtab="examples"] {
+      background: transparent;
+      color: #00ffff;
     }
-    :root.dark .list-subtab[data-subtab="examples"].active {
-      background: rgba(250, 204, 21, 0.45);
-      color: #fffbeb;
+    [data-theme="dark"] .list-subtab[data-subtab="examples"].active {
+      background: linear-gradient(to bottom, rgba(59, 130, 246, 0.55) 0%, rgba(59, 130, 246, 0.35) 100%);
+      color: #7fffff;
     }
-    :root.dark .list-subtab[data-subtab="recent"] {
-      background: rgba(249, 115, 22, 0.2);
-      color: #fed7aa;
+    [data-theme="dark"] .list-subtab[data-subtab="recent"] {
+      background: transparent;
+      color: #fb923c;
     }
-    :root.dark .list-subtab[data-subtab="recent"].active {
-      background: rgba(249, 115, 22, 0.4);
+    [data-theme="dark"] .list-subtab[data-subtab="recent"].active {
+      background: linear-gradient(to bottom, rgba(249, 115, 22, 0.5) 0%, rgba(249, 115, 22, 0.35) 100%);
       color: #ffedd5;
     }
-    :root.dark .list-subtab[data-subtab="history"] {
-      background: rgba(180, 130, 90, 0.2);
-      color: #d4b896;
+    [data-theme="dark"] .list-subtab[data-subtab="history"] {
+      background: transparent;
+      color: #d4a574;
     }
-    :root.dark .list-subtab[data-subtab="history"].active {
-      background: rgba(180, 130, 90, 0.4);
+    [data-theme="dark"] .list-subtab[data-subtab="history"].active {
+      background: linear-gradient(to bottom, rgba(180, 130, 90, 0.5) 0%, rgba(180, 130, 90, 0.35) 100%);
       color: #e8d4bc;
     }
-    :root.dark .list-subtab[data-subtab="keeps"] {
-      background: rgba(150, 150, 150, 0.2);
-      color: #d4d4d4;
+    [data-theme="dark"] .list-subtab[data-subtab="keeps"] {
+      background: transparent;
+      color: #a3a3a3;
     }
-    :root.dark .list-subtab[data-subtab="keeps"].active {
-      background: rgba(150, 150, 150, 0.35);
+    [data-theme="dark"] .list-subtab[data-subtab="keeps"].active {
+      background: linear-gradient(to bottom, rgba(150, 150, 150, 0.4) 0%, rgba(150, 150, 150, 0.3) 100%);
       color: #f5f5f5;
     }
     
@@ -2592,12 +2603,33 @@
       align-items: stretch;
     }
     
-    /* List content gradient (like old Top Hits) */
-    #list-content:not(.hidden) { 
-      background: linear-gradient(to bottom, rgba(250, 204, 21, 0.35) 0%, rgba(250, 204, 21, 0.1) 40%, transparent 100%); 
+    /* Per-subcontent gradients matching subtab colors */
+    #examples-subcontent:not(.hidden) { 
+      background: linear-gradient(to bottom, rgba(59, 130, 246, 0.3) 0%, rgba(59, 130, 246, 0.1) 40%, transparent 100%); 
     }
-    :root.dark #list-content:not(.hidden) { 
-      background: linear-gradient(to bottom, rgba(250, 204, 21, 0.4) 0%, rgba(250, 204, 21, 0.1) 40%, transparent 100%); 
+    [data-theme="dark"] #examples-subcontent:not(.hidden) { 
+      background: linear-gradient(to bottom, rgba(59, 130, 246, 0.35) 0%, rgba(59, 130, 246, 0.1) 40%, transparent 100%); 
+    }
+    
+    #recent-subcontent:not(.hidden) { 
+      background: linear-gradient(to bottom, rgba(249, 115, 22, 0.3) 0%, rgba(249, 115, 22, 0.1) 40%, transparent 100%); 
+    }
+    [data-theme="dark"] #recent-subcontent:not(.hidden) { 
+      background: linear-gradient(to bottom, rgba(249, 115, 22, 0.35) 0%, rgba(249, 115, 22, 0.1) 40%, transparent 100%); 
+    }
+    
+    #history-subcontent:not(.hidden) { 
+      background: linear-gradient(to bottom, rgba(180, 130, 90, 0.3) 0%, rgba(180, 130, 90, 0.1) 40%, transparent 100%); 
+    }
+    [data-theme="dark"] #history-subcontent:not(.hidden) { 
+      background: linear-gradient(to bottom, rgba(180, 130, 90, 0.35) 0%, rgba(180, 130, 90, 0.1) 40%, transparent 100%); 
+    }
+    
+    #keeps-subcontent:not(.hidden) { 
+      background: linear-gradient(to bottom, rgba(120, 120, 120, 0.25) 0%, rgba(120, 120, 120, 0.08) 40%, transparent 100%); 
+    }
+    [data-theme="dark"] #keeps-subcontent:not(.hidden) { 
+      background: linear-gradient(to bottom, rgba(150, 150, 150, 0.3) 0%, rgba(150, 150, 150, 0.1) 40%, transparent 100%); 
     }
 
     .language-tab {
@@ -6809,7 +6841,7 @@
           <div class="tab mobile-only" data-tab="console" id="console-tab">Console</div>
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
           <div class="tab active" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
-          <div class="tab" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Guides</div>
+          <div class="tab" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Learn</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
@@ -7060,7 +7092,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Console',
         referenceTab: 'Cards',
-        guideTab: 'Guides',
+        guideTab: 'Learn',
         examplesTab: 'Top Hits',
         keepsTab: 'Keeps',
         keepsConnectWallet: 'Connect Wallet',
@@ -7175,7 +7207,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Konsol',
         referenceTab: 'Kort',
-        guideTab: 'Guides',
+        guideTab: 'Lær',
         examplesTab: 'Top Hits',
         keepsTab: 'Keeps',
         keepsConnectWallet: 'Forbind Wallet',
