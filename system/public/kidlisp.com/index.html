@@ -10054,6 +10054,11 @@
     function addConsoleImageEntry(data) {
       const { imageDataUrl, frameCount, timestamp, dimensions, pieceCode, pieceLabel, filename, userHandle, embeddedSource } = data;
       
+      // Determine border color based on theme
+      const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark' || 
+                        (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const borderColor = isDarkMode ? 'rgba(78, 205, 196, 0.3)' : 'rgba(78, 130, 120, 0.25)';
+      
       const entry = document.createElement('div');
       entry.className = 'console-entry console-image-entry';
       entry.style.cssText = `
@@ -10062,8 +10067,8 @@
         gap: 12px;
         padding: 12px 12px 16px 12px;
         margin: 0;
-        border-top: 1px solid rgba(78, 205, 196, 0.3);
-        border-bottom: 1px solid rgba(78, 205, 196, 0.3);
+        border-top: 1px solid ${borderColor};
+        border-bottom: 1px solid ${borderColor};
       `;
       
       // Thumbnail image - tap to view in modal
