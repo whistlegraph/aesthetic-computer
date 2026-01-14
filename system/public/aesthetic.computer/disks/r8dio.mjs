@@ -6,8 +6,12 @@
   - [x] Add visualizer via BIOS streaming API
   - [x] Show current program info
   - [x] Fix iOS Safari visualization (use time-domain fallback)
+  - [x] Add QR code linking to prompt.ac/r8dio
+  - [x] Add pressed state for play button
   + Done
 #endregion */
+
+import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
 const STREAM_URL = "https://s3.radio.co/s7cd1ffe2f/listen";
 const STREAM_ID = "r8dio-stream";
@@ -40,11 +44,21 @@ const BAR_COUNT = 32;
 // Store send function for use in other functions
 let globalSend = null;
 
+// QR Code for sharing
+let qrCells = null;
+const QR_URL = "https://prompt.ac/r8dio";
+
+// Button pressed state
+let isButtonPressed = false;
+
 async function boot({ screen, net }) {
   // Initialize bars
   for (let i = 0; i < BAR_COUNT; i++) {
     bars.push({ height: 0, targetHeight: 0 });
   }
+  
+  // Generate QR code
+  qrCells = qr(QR_URL).modules;
   
   // Fetch initial metadata
   fetchMetadata(net);
@@ -69,11 +83,19 @@ function paint({
   const subtitleY = 24;
   const visualizerTopY = 38;
   const btnSize = 32;
-  const btnY = centerY - btnSize / 2; // Centered vertically
+  const btnY = centerY - btnSize / 2 - 20; // Move up to make room for QR
   const volSliderYPos = btnY + btnSize + 8; // Volume right below button
   const visualizerBottomY = btnY - 12; // Visualizer ends above button
-  const statusY = screen.height - 28;
-  const trackInfoY = screen.height - 14;
+  
+  // QR code layout
+  const qrScale = Math.max(1, Math.floor(Math.min(screen.width, 60) / (qrCells?.length || 21)));
+  const qrSize = (qrCells?.length || 21) * qrScale;
+  const qrY = screen.height - qrSize - 22; // Room for "listen" text below
+  const listenY = screen.height - 12;
+  
+  // Status and track above QR
+  const statusY = qrY - 24;
+  const trackInfoY = qrY - 10;
   
   // Draw visualizer bars (fills space between subtitle and button)
   const barWidth = Math.max(2, Math.floor((screen.width - 40) / BAR_COUNT));
@@ -114,27 +136,34 @@ function paint({
   // Play/Pause button - centered on screen like baktok
   const btnX = centerX - btnSize / 2;
   
-  // Button background
+  // Button background - with pressed state
   const isHovering = pen && 
     pen.x >= btnX && pen.x < btnX + btnSize &&
     pen.y >= btnY && pen.y < btnY + btnSize;
   
-  ink(isHovering ? [80, 60, 100] : [50, 40, 70]).box(btnX, btnY, btnSize, btnSize);
-  ink(isHovering ? [140, 100, 160] : [100, 80, 120]).box(btnX, btnY, btnSize, btnSize, "outline");
+  // Pressed state: darker/inset look
+  if (isButtonPressed) {
+    ink([30, 25, 45]).box(btnX, btnY, btnSize, btnSize);
+    ink([70, 50, 90]).box(btnX, btnY, btnSize, btnSize, "outline");
+  } else {
+    ink(isHovering ? [80, 60, 100] : [50, 40, 70]).box(btnX, btnY, btnSize, btnSize);
+    ink(isHovering ? [140, 100, 160] : [100, 80, 120]).box(btnX, btnY, btnSize, btnSize, "outline");
+  }
   
-  // Play/Pause icon
-  const iconColor = isHovering ? [255, 220, 255] : [200, 180, 220];
-  const iconCenterY = btnY + btnSize / 2;
+  // Play/Pause icon - slightly offset when pressed
+  const pressOffset = isButtonPressed ? 1 : 0;
+  const iconColor = isButtonPressed ? [150, 130, 170] : (isHovering ? [255, 220, 255] : [200, 180, 220]);
+  const iconCenterY = btnY + btnSize / 2 + pressOffset;
   if (isPlaying) {
     // Pause icon (two bars)
     const barW = 5;
     const barH = 14;
     const gap = 6;
-    ink(...iconColor).box(centerX - gap/2 - barW, iconCenterY - barH/2, barW, barH);
-    ink(...iconColor).box(centerX + gap/2, iconCenterY - barH/2, barW, barH);
+    ink(...iconColor).box(centerX - gap/2 - barW + pressOffset, iconCenterY - barH/2, barW, barH);
+    ink(...iconColor).box(centerX + gap/2 + pressOffset, iconCenterY - barH/2, barW, barH);
   } else {
     // Play icon (triangle)
-    const triX = centerX - 5;
+    const triX = centerX - 5 + pressOffset;
     const triY = iconCenterY - 7;
     ink(...iconColor).box(triX, triY, 3, 14);
     ink(...iconColor).box(triX + 3, triY + 2, 3, 10);
@@ -183,7 +212,7 @@ function paint({
   
   ink(...statusColor).write(statusText, { center: "x", y: statusY }, undefined, undefined, false, "MatrixChunky8");
   
-  // Current track info (bottom)
+  // Current track info (above QR)
   if (currentTrack) {
     // Truncate if too long
     let displayTrack = currentTrack;
@@ -192,6 +221,28 @@ function paint({
       displayTrack = displayTrack.substring(0, maxChars - 3) + "...";
     }
     ink(180, 150, 200).write(displayTrack, { center: "x", y: trackInfoY }, undefined, undefined, false, "MatrixChunky8");
+  }
+  
+  // QR Code - centered at bottom
+  if (qrCells) {
+    const qrX = centerX - qrSize / 2;
+    
+    for (let y = 0; y < qrCells.length; y++) {
+      for (let x = 0; x < qrCells.length; x++) {
+        const isBlack = qrCells[y][x];
+        if (isBlack) {
+          ink(200, 180, 220).box(qrX + x * qrScale, qrY + y * qrScale, qrScale, qrScale);
+        } else {
+          ink(40, 30, 55).box(qrX + x * qrScale, qrY + y * qrScale, qrScale, qrScale);
+        }
+      }
+    }
+    
+    // QR outline
+    ink(100, 80, 120).box(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2, "outline");
+    
+    // "listen" text below QR
+    ink(150, 120, 160).write("listen", { center: "x", y: listenY }, undefined, undefined, false, "MatrixChunky8");
   }
 }
 
@@ -250,7 +301,7 @@ function act({ event: e, jump, screen, num: { clamp }, send }) {
   // Play/Pause button - centered on screen (must match paint)
   const btnSize = 32;
   const btnX = centerX - btnSize / 2;
-  const btnY = centerY - btnSize / 2;
+  const btnY = centerY - btnSize / 2 - 20; // Match paint layout
   
   // Volume slider - centered below button (must match paint)
   const volSliderCenterX = centerX - volSliderW / 2;
@@ -261,12 +312,15 @@ function act({ event: e, jump, screen, num: { clamp }, send }) {
   const volHitY = volSliderY - 4;
   const volHitH = volSliderH + 8;
   
-  // Start dragging volume
+  // Start dragging volume or pressing button
   if (e.is("touch")) {
     if (e.x >= volSliderCenterX && e.x < volSliderCenterX + volSliderW &&
         e.y >= volHitY && e.y < volHitY + volHitH) {
       isDraggingVolume = true;
       updateVolumeFromX(e.x, volSliderCenterX, clamp, send);
+    } else if (e.x >= btnX && e.x < btnX + btnSize &&
+               e.y >= btnY && e.y < btnY + btnSize) {
+      isButtonPressed = true;
     }
   }
   
@@ -275,11 +329,12 @@ function act({ event: e, jump, screen, num: { clamp }, send }) {
     updateVolumeFromX(e.x, volSliderCenterX, clamp, send);
   }
   
-  // Stop dragging volume
+  // Stop dragging volume or release button
   if (e.is("lift")) {
     if (isDraggingVolume) {
       isDraggingVolume = false;
-    } else {
+    } else if (isButtonPressed) {
+      isButtonPressed = false;
       // Check for play/pause button click
       if (e.x >= btnX && e.x < btnX + btnSize &&
           e.y >= btnY && e.y < btnY + btnSize) {
