@@ -4102,98 +4102,119 @@ function paint($) {
     const phraseIndex = Math.floor(now / 2000) % adPhrases.length;
     const adBtnText = adPhrases[phraseIndex];
     
+    // Position the button in top-right (similar to GIVE button)
+    const btnPaddingTop = 6;
+    const btnPaddingRight = 6;
+    const charWidth = 6;
+    const btnWidth = adBtnText.length * charWidth + 8; // Text width + padding
+    const btnHeight = 19;
+    const adBtnY = btnPaddingTop;
+    const adBtnX = screen.width - btnWidth - btnPaddingRight;
+    
+    // Create or reposition the button
+    if (!adBtn) {
+      adBtn = new $.ui.TextButton(adBtnText, { x: adBtnX, y: adBtnY });
+    } else {
+      adBtn.reposition({ x: adBtnX, y: adBtnY }, adBtnText);
+    }
+    
     // Rainbow hue cycling (slower than GIVE button for chill vibes)
-    adBtnHue = (adBtnHue + 0.3) % 360;
+    adBtnHue = (adBtnHue + 0.5) % 360;
     
-    // Convert HSL to RGB for the button color
-    const h = adBtnHue / 360;
-    const s = 0.9; // High saturation
-    const l = 0.55; // Medium lightness
-    
-    // HSL to RGB conversion
-    const hue2rgb = (p, q, t) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1/6) return p + (q - p) * 6 * t;
-      if (t < 1/2) return q;
-      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-      return p;
+    // HSL to RGB conversion helper
+    const hslToRgb = (h, s, l) => {
+      h /= 360; s /= 100; l /= 100;
+      let r, g, b;
+      if (s === 0) { r = g = b = l; }
+      else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
     };
     
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    const r = Math.round(hue2rgb(p, q, h + 1/3) * 255);
-    const g = Math.round(hue2rgb(p, q, h) * 255);
-    const b = Math.round(hue2rgb(p, q, h - 1/3) * 255);
+    const btnBox = adBtn?.btn?.box;
     
-    // Create the button with cycling color
-    adBtn = new $.ui.TextButton(adBtnText, {
-      x: "right",
-      y: 6,
-      background: [r, g, b, 230],
-      screen,
-      goto: "ads", // Navigate to ads piece when clicked
-    });
-    
-    // Gentle floating effect
-    const float = Math.sin(now / 500) * 2;
-    adBtn.btn.box.y += float;
-    
-    // Sparkle particles (less intense than GIVE button)
-    if (Math.random() < 0.15) { // 15% chance per frame
-      const btnBox = adBtn.btn.box;
-      const sparkleHue = (adBtnHue + 120) % 360; // Complementary color
+    if (btnBox) {
+      const isDown = adBtn.btn.down;
+      const t = performance.now() / 1000;
       
-      // Convert sparkle hue to RGB
-      const sh = sparkleHue / 360;
-      const sq = 0.5 < 0.5 ? 0.5 * (1 + 1) : 0.5 + 1 - 0.5 * 1;
-      const sp = 2 * 0.7 - 0.5;
-      const sparkleColor = [
-        Math.round(hue2rgb(0.4, 0.9, sh + 1/3) * 255),
-        Math.round(hue2rgb(0.4, 0.9, sh) * 255),
-        Math.round(hue2rgb(0.4, 0.9, sh - 1/3) * 255)
-      ];
+      // Gentle floating effect
+      const float = Math.sin(t * 2) * 1.5;
+      const floatY = btnBox.y + float;
       
-      // Emit from random edge
-      const edge = Math.floor(Math.random() * 4);
-      let px, py, vx, vy;
+      // Draw button background with rainbow color
+      const bgColor = hslToRgb(adBtnHue, 85, isDown ? 45 : 55);
+      ink(...bgColor).box(btnBox.x, floatY, btnBox.w, btnBox.h, "fill");
+      ink(255, 255, 255, 180).box(btnBox.x, floatY, btnBox.w, btnBox.h, "outline");
       
-      switch (edge) {
-        case 0: // Top
-          px = btnBox.x + Math.random() * btnBox.w;
-          py = btnBox.y;
-          vx = (Math.random() - 0.5) * 1.5;
-          vy = -Math.random() * 1.5 - 0.5;
-          break;
-        case 1: // Right
-          px = btnBox.x + btnBox.w;
-          py = btnBox.y + Math.random() * btnBox.h;
-          vx = Math.random() * 1.5 + 0.5;
-          vy = (Math.random() - 0.5) * 1.5;
-          break;
-        case 2: // Bottom
-          px = btnBox.x + Math.random() * btnBox.w;
-          py = btnBox.y + btnBox.h;
-          vx = (Math.random() - 0.5) * 1.5;
-          vy = Math.random() * 1.5 + 0.5;
-          break;
-        case 3: // Left
-          px = btnBox.x;
-          py = btnBox.y + Math.random() * btnBox.h;
-          vx = -Math.random() * 1.5 - 0.5;
-          vy = (Math.random() - 0.5) * 1.5;
-          break;
-      }
+      // Draw text with subtle color variation per character
+      const chars = adBtnText.split('');
+      const textStartX = btnBox.x + 4;
+      const textY = floatY + 4;
       
-      adBtnParticles.push({
-        x: px,
-        y: py,
-        vx: vx,
-        vy: vy,
-        life: 1.0,
-        color: sparkleColor,
-        size: Math.random() < 0.2 ? 2 : 1,
+      chars.forEach((char, i) => {
+        const letterHue = (adBtnHue + i * 30) % 360;
+        const letterColor = hslToRgb(letterHue, 100, isDown ? 90 : 95);
+        const shimmer = Math.sin(t * 3 + i * 0.5) * 0.5;
+        const x = textStartX + i * charWidth + shimmer;
+        ink(...letterColor).write(char, { x: Math.round(x), y: Math.round(textY) });
       });
+      
+      // Sparkle particles (less intense than GIVE button)
+      if (Math.random() < 0.12) {
+        const sparkleHue = (adBtnHue + 120) % 360;
+        const sparkleColor = hslToRgb(sparkleHue, 90, 70);
+        
+        // Emit from random edge
+        const edge = Math.floor(Math.random() * 4);
+        let px, py, vx, vy;
+        
+        switch (edge) {
+          case 0: // Top
+            px = btnBox.x + Math.random() * btnBox.w;
+            py = floatY;
+            vx = (Math.random() - 0.5) * 1.5;
+            vy = -Math.random() * 1.5 - 0.5;
+            break;
+          case 1: // Right
+            px = btnBox.x + btnBox.w;
+            py = floatY + Math.random() * btnBox.h;
+            vx = Math.random() * 1.5 + 0.5;
+            vy = (Math.random() - 0.5) * 1.5;
+            break;
+          case 2: // Bottom
+            px = btnBox.x + Math.random() * btnBox.w;
+            py = floatY + btnBox.h;
+            vx = (Math.random() - 0.5) * 1.5;
+            vy = Math.random() * 1.5 + 0.5;
+            break;
+          case 3: // Left
+            px = btnBox.x;
+            py = floatY + Math.random() * btnBox.h;
+            vx = -Math.random() * 1.5 - 0.5;
+            vy = (Math.random() - 0.5) * 1.5;
+            break;
+        }
+        
+        adBtnParticles.push({
+          x: px, y: py, vx: vx, vy: vy,
+          life: 1.0,
+          color: sparkleColor,
+          size: Math.random() < 0.2 ? 2 : 1,
+        });
+      }
     }
     
     // Update and draw sparkle particles
