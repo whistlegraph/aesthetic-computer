@@ -1625,6 +1625,9 @@
     [data-theme="light"] #preview-panel[data-platform="ff1"] .docs-header #preview-title {
       color: white;
     }
+    [data-theme="light"] #preview-panel[data-platform="ff1"] .docs-header #preview-title .platform-logo {
+      filter: invert(1); /* Invert black logo to white */
+    }
     [data-theme="light"] #preview-panel[data-platform="ableton"] .docs-header {
       background: rgb(255, 255, 255); /* White */
       border-bottom-color: rgb(230, 230, 230);
@@ -1666,6 +1669,9 @@
     }
     [data-theme="dark"] #preview-panel[data-platform="ff1"] .docs-header #preview-title {
       color: white;
+    }
+    [data-theme="dark"] #preview-panel[data-platform="ff1"] .docs-header #preview-title .platform-logo {
+      filter: invert(1); /* Invert black logo to white */
     }
     [data-theme="dark"] #preview-panel[data-platform="ableton"] .docs-header {
       background: rgb(255, 255, 255); /* White */
@@ -4745,6 +4751,27 @@
       font-family: 'Impact', 'Haettenschweiler', sans-serif;
     }
 
+    /* Platform dropdown icons */
+    .platform-icon {
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    
+    /* Aesthetic.Computer pink rectangle icon */
+    .platform-icon.ac-pink-rect {
+      width: 10px;
+      height: 16px;
+      background: rgb(205, 92, 155); /* AC Pink */
+    }
+    
+    /* Ableton logo SVG */
+    .platform-icon.ableton-logo {
+      width: 24px;
+      height: 18px;
+      color: #333;
+    }
+
     /* Aesthetic.Computer - uses our YWFTProcessing font */
     .platform-option[data-platform="aesthetic-computer"] .platform-opt-name {
       font-family: 'YWFTProcessing-Regular', monospace;
@@ -6793,13 +6820,15 @@
             <span class="platform-arrow">▼</span>
             <div class="platform-dropdown" id="platform-dropdown">
               <div class="platform-option active" data-platform="aesthetic-computer">
+                <span class="platform-icon ac-pink-rect"></span>
                 <span class="platform-opt-name">Aesthetic.Computer</span>
               </div>
               <div class="platform-option" data-platform="ff1">
-                <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="platform-logo" style="height: 14px; margin-right: 6px; vertical-align: middle; filter: invert(1);">
+                <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="platform-logo" style="height: 18px; margin-right: 6px; vertical-align: middle; filter: invert(1);">
                 <span class="platform-opt-name">FF1 Art Computer</span>
               </div>
               <div class="platform-option" data-platform="ableton">
+                <svg class="platform-icon ableton-logo" viewBox="0 0 51 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M0 0h3v24H0V0zm6 0h3v24H6V0zm6 0h3v24h-3V0zm6 0h3v24h-3V0zm9 0h24v3H27V0zm0 7h24v3H27V7zm0 7h24v3H27v-3zm0 7h24v3H27v-3z"/></svg>
                 <span class="platform-opt-name">Ableton Live</span>
               </div>
               <div class="platform-divider"></div>
@@ -13246,8 +13275,8 @@
       }
       // 'idle' or null removes all classes (already done above)
       
-      // Hide rulers when running or idle
-      if (state === 'running' || !state) {
+      // Hide rulers when running, idle, or no state (covers platform switches when paused)
+      if (state === 'running' || state === 'idle' || !state) {
         rulerSystem.hide();
       }
     }
