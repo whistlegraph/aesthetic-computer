@@ -1252,10 +1252,10 @@ function receive(event) {
   } else if (event.data?.type === "kidlisp-stop") {
     // Full stop - clear the kidlisp code and load empty
     window.__acCurrentKidlispCode = null;
-    // Load empty kidlisp code which will just show wipe() - checkerboard
+    // Load empty kidlisp code which will just wipe to black
     window.acSEND({
       type: "piece-reload",
-      content: { source: "(wipe)", createCode: false }
+      content: { source: "(wipe black)", createCode: false }
     });
     return;
   } else if (event.data?.type === "kidlisp-ping") {
