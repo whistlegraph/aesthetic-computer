@@ -427,6 +427,11 @@ async function fun(event, context) {
           console.log("[kidlisp] Detected $code piece, skipping file load:", path);
           sourceCode = null; // Source loaded client-side from MongoDB
           statusCode = 200; // Ensure we return 200 for valid $code pieces
+        // Handle *code clock pieces - these load source from MongoDB client-side and route to clock.mjs
+        } else if (path.startsWith("*") && path.length >= 4 && /^\*[a-zA-Z0-9]+$/.test(path)) {
+          console.log("[clock] Detected *code piece, skipping file load:", path);
+          sourceCode = null; // Source loaded client-side from MongoDB
+          statusCode = 200; // Ensure we return 200 for valid *code pieces
         } else {
           try {
             const basePath = `${dev ? "./" : "/var/task/"}public/aesthetic.computer/disks/${path}`;
