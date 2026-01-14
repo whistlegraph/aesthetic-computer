@@ -12615,6 +12615,10 @@
           if (editor) {
             editor.setValue('');
             editor.focus();
+            // Also stop playback and show boot screen when clearing
+            if (isPlaying || isPaused) {
+              stopPlayback();
+            }
           }
         });
       }
