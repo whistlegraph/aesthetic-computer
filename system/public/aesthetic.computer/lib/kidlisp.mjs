@@ -4181,6 +4181,11 @@ class KidLisp {
           $.ink("red").write(errorText, { x: 2, y: textY }, undefined, undefined, false, "MatrixChunky8");
         }
 
+        // 🎬 Signal first frame to kidlisp.com (always, regardless of trace settings)
+        if (this.frameCount === 1) {
+          postToParent({ type: 'kidlisp-first-frame', timestamp: performance.now() });
+        }
+
         // 🔍 Post execution trace on first frame for kidlisp.com visualization
         if (isKidlispTraceEnabled() && this.frameCount === 1) {
           postExecutionTrace();

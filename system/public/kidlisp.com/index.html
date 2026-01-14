@@ -13548,9 +13548,15 @@
         if (editor && event.data.highlights) {
           applyHighlightDecorations(event.data.highlights);
         }
+      } else if (messageType === 'kidlisp-first-frame') {
+        // First frame fired! Signal the decryption animation to reveal the code
+        log.playback.debug('First frame fired - revealing code');
+        if (window.signalDecryptionReady) {
+          window.signalDecryptionReady();
+        }
       } else if (messageType === 'kidlisp-trace') {
-        // Execution trace from KidLisp interpreter - piece is running!
-        // Signal the decryption animation to start revealing
+        // Execution trace from KidLisp interpreter
+        // Also signal decryption ready (fallback if first-frame wasn't received)
         if (window.signalDecryptionReady) {
           window.signalDecryptionReady();
         }
