@@ -151,7 +151,7 @@ let paintingPreviewCache = new Map(); // Store loaded painting previews
 let paintingLoadQueue = new Set(); // Track which paintings are being loaded
 let paintingLoadProgress = new Map(); // Track loading progress (0-1) for each painting
 let paintingAnimations = new Map(); // Track Ken Burns animation state for each painting
-let modalPainting = null; // Track fullscreen modal painting { painting, code, metadata, panX, panY, isDragging, dragStartX, dragStartY }
+let modalPainting = null; // Track fullscreen modal painting { painting, code, metadata }
 let draftMessage = ""; // Store draft message text persistently
 
 //  Link confirmation modal system
@@ -1307,95 +1307,40 @@ function paint(
   
   // 🖼️ Render fullscreen painting modal (overlay over everything)
   if (modalPainting) {
-    const { painting, code, metadata, panX = 0, panY = 0 } = modalPainting;
+    const { painting, code, metadata } = modalPainting;
     
     // Semi-transparent black backdrop
     ink(0, 0, 0, 220).box(0, 0, screen.width, screen.height);
     
-    // Fixed viewport size (never grows with window)
-    const viewportW = Math.min(screen.width - 32, 200); // Max 200px wide
-    const viewportH = Math.min(screen.height - 60, 200); // Max 200px tall, leave room for close btn
-    const viewportX = Math.floor((screen.width - viewportW) / 2);
-    const viewportY = Math.floor((screen.height - viewportH) / 2) - 10; // Shift up for close btn
+    // Scale painting to fit screen while maintaining aspect ratio
+    const maxW = screen.width - 20;
+    const maxH = screen.height - 40; // Leave room for title
     
-    // The painting is shown 1:1 within the viewport, with pan offset
-    // Pan range: we can pan from 0 to (paintingSize - viewportSize) in each direction
-    const maxPanX = Math.max(0, painting.width - viewportW);
-    const maxPanY = Math.max(0, painting.height - viewportH);
+    const scaleW = maxW / painting.width;
+    const scaleH = maxH / painting.height;
+    const scale = Math.min(scaleW, scaleH, 1); // Don't scale up past 1:1
     
-    // Clamp pan values
-    const clampedPanX = Math.max(0, Math.min(panX, maxPanX));
-    const clampedPanY = Math.max(0, Math.min(panY, maxPanY));
+    const displayW = Math.floor(painting.width * scale);
+    const displayH = Math.floor(painting.height * scale);
+    const x = Math.floor((screen.width - displayW) / 2);
+    const y = Math.floor((screen.height - displayH) / 2) - 8;
     
-    // Crop from the painting at pan position
-    const cropW = Math.min(viewportW, painting.width - clampedPanX);
-    const cropH = Math.min(viewportH, painting.height - clampedPanY);
-    
-    // Draw viewport background (dark)
-    ink(20, 20, 30).box(viewportX - 2, viewportY - 2, viewportW + 4, viewportH + 4);
-    
-    // Paste cropped painting at 1:1
-    paste(
-      painting,
-      viewportX,
-      viewportY,
-      {
-        crop: {
-          x: floor(clampedPanX),
-          y: floor(clampedPanY),
-          w: floor(cropW),
-          h: floor(cropH)
-        }
-      }
-    );
-    
-    // Draw viewport border
-    ink(100, 100, 120).box(viewportX - 1, viewportY - 1, viewportW + 2, viewportH + 2, "outline");
-    ink(255, 255, 255).box(viewportX - 2, viewportY - 2, viewportW + 4, viewportH + 4, "outline");
-    
-    // Show pan hint if painting is larger than viewport
-    if (maxPanX > 0 || maxPanY > 0) {
-      // Mini-map indicator in corner
-      const mapW = 24;
-      const mapH = Math.floor(mapW * (painting.height / painting.width));
-      const mapX = viewportX + viewportW - mapW - 4;
-      const mapY = viewportY + 4;
-      
-      // Map background
-      ink(0, 0, 0, 180).box(mapX, mapY, mapW, mapH);
-      
-      // Current view indicator
-      const viewIndicatorW = Math.floor(mapW * (viewportW / painting.width));
-      const viewIndicatorH = Math.floor(mapH * (viewportH / painting.height));
-      const viewIndicatorX = mapX + Math.floor((clampedPanX / painting.width) * mapW);
-      const viewIndicatorY = mapY + Math.floor((clampedPanY / painting.height) * mapH);
-      
-      ink(255, 200, 100, 200).box(viewIndicatorX, viewIndicatorY, Math.max(2, viewIndicatorW), Math.max(2, viewIndicatorH));
-      ink(255, 255, 255, 150).box(mapX, mapY, mapW, mapH, "outline");
+    // Draw painting (scaled or 1:1)
+    if (scale >= 1) {
+      paste(painting, x, y);
+    } else {
+      paste(painting, x, y, { width: displayW, height: displayH });
     }
     
-    // Draw close button (X) at top-right of viewport
-    const closeBtnSize = 16;
-    const closeBtnX = viewportX + viewportW - closeBtnSize + 2;
-    const closeBtnY = viewportY - closeBtnSize - 4;
+    // Draw border
+    ink(255, 255, 255).box(x - 1, y - 1, displayW + 2, displayH + 2, "outline");
     
-    // Store close button bounds for hit detection
-    modalPainting.closeBtnBounds = { x: closeBtnX, y: closeBtnY, w: closeBtnSize, h: closeBtnSize };
-    modalPainting.viewportBounds = { x: viewportX, y: viewportY, w: viewportW, h: viewportH };
+    // Draw title/code below painting
+    const titleText = metadata?.handle ? `#${code} · @${metadata.handle}` : `#${code}`;
+    ink(180, 180, 180).write(titleText, { center: "x", y: y + displayH + 6 }, undefined, undefined, false, "MatrixChunky8");
     
-    // Close button background and X
-    ink(60, 40, 50).box(closeBtnX, closeBtnY, closeBtnSize, closeBtnSize);
-    ink(200, 100, 100).box(closeBtnX, closeBtnY, closeBtnSize, closeBtnSize, "outline");
-    ink(255, 150, 150).write("X", { x: closeBtnX + 5, y: closeBtnY + 4 });
-    
-    // Draw title/code below viewport
-    const titleText = metadata?.slug ? `#${code} - ${metadata.handle}` : `#${code}`;
-    ink(180, 180, 180).write(titleText, { x: viewportX, y: viewportY + viewportH + 6 }, undefined, undefined, false, "MatrixChunky8");
-    
-    // Drag hint
-    if (maxPanX > 0 || maxPanY > 0) {
-      ink(100, 100, 120).write("drag to pan", { x: viewportX, y: viewportY + viewportH + 16 }, undefined, undefined, false, "MatrixChunky8");
-    }
+    // Store bounds for click detection (tap anywhere to close)
+    modalPainting.bounds = { x, y, w: displayW, h: displayH };
     
     needsPaint(); // Keep modal visible
   }
@@ -1605,62 +1550,14 @@ function act(
     return; // Block all other interactions when modal is open
   }
   
-  // 🖼️ Modal painting intercepts all events (pan/drag/close)
+  // 🖼️ Modal painting - tap anywhere or press Escape to close
   if (modalPainting) {
-    const { closeBtnBounds, viewportBounds } = modalPainting;
-    
-    // Check if clicking close button
-    if (closeBtnBounds && e.is("lift")) {
-      const inCloseBtn = e.x >= closeBtnBounds.x && e.x < closeBtnBounds.x + closeBtnBounds.w &&
-                         e.y >= closeBtnBounds.y && e.y < closeBtnBounds.y + closeBtnBounds.h;
-      if (inCloseBtn) {
-        beep();
-        modalPainting = null;
-        return;
-      }
+    if (e.is("lift") || e.is("touch")) {
+      beep();
+      modalPainting = null;
+      return;
     }
     
-    // Check for tap outside viewport to close
-    if (viewportBounds && e.is("lift") && !modalPainting.isDragging) {
-      const inViewport = e.x >= viewportBounds.x && e.x < viewportBounds.x + viewportBounds.w &&
-                         e.y >= viewportBounds.y && e.y < viewportBounds.y + viewportBounds.h;
-      if (!inViewport) {
-        beep();
-        modalPainting = null;
-        return;
-      }
-    }
-    
-    // Handle panning (drag within viewport)
-    if (viewportBounds) {
-      if (e.is("touch")) {
-        // Start drag
-        const inViewport = e.x >= viewportBounds.x && e.x < viewportBounds.x + viewportBounds.w &&
-                           e.y >= viewportBounds.y && e.y < viewportBounds.y + viewportBounds.h;
-        if (inViewport) {
-          modalPainting.isDragging = true;
-          modalPainting.dragStartX = e.x;
-          modalPainting.dragStartY = e.y;
-          modalPainting.panStartX = modalPainting.panX || 0;
-          modalPainting.panStartY = modalPainting.panY || 0;
-        }
-      }
-      
-      if (e.is("draw") && modalPainting.isDragging) {
-        // Calculate new pan position (inverted - drag right = pan left)
-        const dx = e.x - modalPainting.dragStartX;
-        const dy = e.y - modalPainting.dragStartY;
-        modalPainting.panX = modalPainting.panStartX - dx;
-        modalPainting.panY = modalPainting.panStartY - dy;
-        needsPaint();
-      }
-      
-      if (e.is("lift")) {
-        modalPainting.isDragging = false;
-      }
-    }
-    
-    // Escape key closes modal
     if (e.is("keyboard:down:escape")) {
       beep();
       modalPainting = null;
@@ -2080,14 +1977,11 @@ function act(
                   e.y < previewY + previewSize
                 ) {
                   beep();
-                  // Open painting in fullscreen modal with pan initialized
+                  // Open painting in fullscreen modal
                   modalPainting = {
                     painting: cached.painting,
                     code: cached.code,
-                    metadata: cached.metadata,
-                    panX: 0,
-                    panY: 0,
-                    isDragging: false
+                    metadata: cached.metadata
                   };
                   break;
                 }
