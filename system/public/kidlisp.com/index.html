@@ -3735,6 +3735,8 @@
       background: var(--bg-secondary);
       padding: 2px 6px;
       border-radius: 4px;
+      border: none;
+      cursor: pointer;
     }
 
     .keeps-contract-address:hover {
@@ -3785,6 +3787,8 @@
       border-radius: 6px;
       overflow: hidden;
       background: var(--bg-secondary);
+      border: none;
+      padding: 0;
       cursor: pointer;
       transition: transform 0.15s, box-shadow 0.15s;
       position: relative;
@@ -4151,9 +4155,11 @@
       border: 1px solid var(--border-color);
       border-radius: 6px;
       font-size: 12px;
+      font-family: inherit;
       color: var(--text-primary);
       text-decoration: none;
       transition: all 0.2s;
+      cursor: pointer;
     }
     
     .keeps-link-btn:hover {
@@ -6687,7 +6693,7 @@
               </div>
               <div class="keeps-contract-details">
                 <span class="keeps-contract-label">Contract:</span>
-                <a id="keeps-contract-link" href="#" target="_blank" class="keeps-contract-address"></a>
+                <button id="keeps-contract-link" class="keeps-contract-address"></button>
                 <span class="keeps-staging-badge" id="keeps-staging-badge">staging v3</span>
               </div>
             </div>
@@ -6742,8 +6748,8 @@
                   <div class="keeps-existing-token">Token #<span id="keeps-token-id">0</span></div>
                   <div class="keeps-existing-thumb" id="keeps-existing-thumb"></div>
                   <div class="keeps-existing-links">
-                    <a id="keeps-objkt-link" href="#" target="_blank" class="keeps-link-btn">View on objkt</a>
-                    <a id="keeps-tzkt-link" href="#" target="_blank" class="keeps-link-btn">View on TzKT</a>
+                    <button id="keeps-objkt-link" class="keeps-link-btn">View on objkt</button>
+                    <button id="keeps-tzkt-link" class="keeps-link-btn">View on TzKT</button>
                   </div>
                 </div>
                 <div class="keeps-rebake-section">
@@ -7037,6 +7043,23 @@
     
     function t(key) {
       return i18n[currentLang]?.[key] || i18n.en[key] || key;
+    }
+    
+    // Helper to open external URLs - handles VS Code sandboxed iframe case
+    function openExternal(url) {
+      if (window.acVSCODE && window.parent !== window) {
+        // In VS Code extension webview, send message to parent to open externally
+        window.parent.postMessage({ type: 'openExternal', url }, '*');
+        return true;
+      }
+      // Normal browser - open in new tab
+      window.open(url, '_blank');
+      return true;
+    }
+    
+    // Detect if running in VS Code webview (sandboxed iframe)
+    function isInVSCode() {
+      return window.acVSCODE && window.parent !== window;
     }
     
     function setLanguage(lang) {
@@ -10483,7 +10506,7 @@
             
             const checkoutData = await checkoutRes.json();
             if (checkoutData.location) {
-              window.open(checkoutData.location, '_blank');
+              openExternal(checkoutData.location);
               closeUnifiedModal();
             } else {
               throw new Error('No checkout URL returned');
@@ -14660,7 +14683,7 @@
           
           // Show shortened contract address
           contractLink.textContent = contract.slice(0, 8) + '...' + contract.slice(-4);
-          contractLink.href = contractUrl;
+          contractLink.onclick = () => openExternal(contractUrl);
           contractLink.title = contract;
           
           // Update network badge
@@ -14722,10 +14745,10 @@
           const burnedClass = token.burned ? ' burned' : '';
           
           return `
-            <a href="${objktUrl}" target="_blank" class="keeps-gallery-item${burnedClass}" title="${token.name || 'Token #' + token.tokenId}${token.burned ? ' (burned)' : ''}">
+            <button type="button" class="keeps-gallery-item${burnedClass}" title="${token.name || 'Token #' + token.tokenId}${token.burned ? ' (burned)' : ''}" onclick="openExternal('${objktUrl}')">
               <img src="${thumbUrl}" alt="${token.name || ''}" loading="lazy" onerror="this.style.display='none'" />
               <span class="keeps-token-number">${displayName}</span>
-            </a>
+            </button>
           `;
         };
         
@@ -15067,10 +15090,10 @@
       
       // Update links
       if (objktLink && keepsExistingToken?.objktUrl) {
-        objktLink.href = keepsExistingToken.objktUrl;
+        objktLink.onclick = () => openExternal(keepsExistingToken.objktUrl);
       }
       if (tzktLink && keepsExistingToken?.tzktUrl) {
-        tzktLink.href = keepsExistingToken.tzktUrl;
+        tzktLink.onclick = () => openExternal(keepsExistingToken.tzktUrl);
       }
     }
 
@@ -15304,8 +15327,7 @@
             <input type="range" class="guides-amount-slider" id="guides-amount-slider" 
                    min="0" max="${GUIDE_AMOUNTS.length - 1}" value="2" step="1">
             <span class="guides-amount-display" id="guides-amount-display">$${selectedGuideAmount}</span>
-            <a href="${giveBaseUrl}?amount=${selectedGuideAmount}" 
-               class="guides-give-btn" id="guides-give-btn" target="_blank">Give</a>
+            <button class="guides-give-btn" id="guides-give-btn">Give</button>
           </div>
         </div>
       `;
@@ -15320,7 +15342,11 @@
           const idx = parseInt(e.target.value);
           selectedGuideAmount = GUIDE_AMOUNTS[idx];
           display.textContent = `$${selectedGuideAmount}`;
-          giveBtn.href = `${giveBaseUrl}?amount=${selectedGuideAmount}`;
+        });
+        
+        // Use openExternal for proper VS Code handling
+        giveBtn.addEventListener('click', () => {
+          openExternal(`${giveBaseUrl}?amount=${selectedGuideAmount}`);
         });
       }
     }
@@ -15505,14 +15531,24 @@
       if (showTimeAgo && item.ts) {
         timeLine = formatTimeAgo(item.ts);
       } else if (showTimestamp && item.ts) {
-        timeLine = new Date(item.ts).toLocaleString();
+        const d = new Date(item.ts);
+        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const month = months[d.getMonth()];
+        const day = d.getDate();
+        const year = d.getFullYear();
+        const hour = d.getHours();
+        const minute = d.getMinutes().toString().padStart(2, '0');
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const hour12 = hour % 12 || 12;
+        timeLine = `${month} ${day}, ${year} at ${hour12}:${minute} ${ampm}`;
       }
       
       // Build thumbnail
       const thumbClass = pendingThumb ? 'example-thumb-placeholder history-thumb-pending' : 'example-thumb-placeholder';
+      const checkerboardSvg = `<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="checker" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#666"/><rect x="6" y="6" width="6" height="6" fill="#666"/><rect x="6" width="6" height="6" fill="#444"/><rect y="6" width="6" height="6" fill="#444"/></pattern></defs><rect width="48" height="48" fill="url(#checker)" rx="10"/></svg>`;
       const thumbHtml = item.assetUrl
-        ? `<img class="example-thumb" src="${item.assetUrl}" alt="" onload="this.classList.add('loaded')" onerror="this.style.display='none'" />`
-        : `<div class="${thumbClass}">◆</div>`;
+        ? `<img class="example-thumb" src="${item.assetUrl}" alt="" onload="this.classList.add('loaded')" onerror="this.parentNode.innerHTML=\`<div class='${thumbClass}'>${checkerboardSvg}</div>\`" />`
+        : `<div class="${thumbClass}">${checkerboardSvg}</div>`;
       
       // Build hits display
       const hitsHtml = showHits ? `<div class="example-hits">${item.hits || 0} hits</div>` : '';
@@ -15673,7 +15709,8 @@
         listId: 'history-list',
         items: sorted,
         emptyMessage: 'No history yet.',
-        showTimestamp: true,
+        syntaxHighlight: true,
+        showTimeAgo: true,
         showHits: true,
         showOwner: true,
       });
@@ -15765,6 +15802,7 @@
         listId: 'recent-list',
         items: items || [],
         emptyMessage: 'No recent codes yet.',
+        syntaxHighlight: true,
         showOwner: true,
         showTimeAgo: true,
         showHits: true,
