@@ -4127,7 +4127,7 @@ function paint($) {
     const b = Math.round(hue2rgb(p, q, h - 1/3) * 255);
     
     // Create the button with cycling color
-    adBtn = new ui.TextButton($, adBtnText, {
+    adBtn = new $.ui.TextButton(adBtnText, {
       x: "right",
       y: 6,
       background: [r, g, b, 230],
