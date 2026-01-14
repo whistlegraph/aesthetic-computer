@@ -9090,7 +9090,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // Handle live reload from kidlisp.com editor
   if (type === "piece-reload") {
-    // If source is just "kidlisp" (the base piece, not actual code), this is a stop request
+    // If source is literally "kidlisp" (not actual code), this is a special stop request
     // Cancel any pending queued reloads from previous code
     if (content.source === "kidlisp") {
       if ($commonApi.reload) {
@@ -9098,22 +9098,15 @@ async function makeFrame({ data: { type, content } }) {
         $commonApi.reload._queueCount = 0;
       }
       pendingPieceReload = null; // Clear any pending reload queue
-      log.piece.log("Stopping kidlisp execution");
-      
-      // Just stop - don't try to load anything
-      loading = false;
-      loadingStartTime = null;
-      $commonApi.kidlispCreateCode = false;
-      $commonApi.kidlispAuthToken = null;
-      $commonApi.kidlispEnableTrace = false;
-      if (globalKidLispInstance) {
-        globalKidLispInstance.frameCount = 0;
-        // Clear the kidlisp state so it stops executing
-        globalKidLispInstance.reset?.();
-      }
-      // Tell kidlisp.com we stopped
+      log.piece.log("Stop request received - cancelling pending reloads");
+      // Tell kidlisp.com we stopped (but don't actually load anything)
       send({ type: "kidlisp-stopped" });
       return;
+    }
+    
+    // Clear cancel flag for real code loads
+    if ($commonApi.reload) {
+      $commonApi.reload._cancelled = false;
     }
     
     log.piece.log("Reloading with new code:", content.source?.substring(0, 30) + "...");

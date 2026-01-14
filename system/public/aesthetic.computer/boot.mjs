@@ -1250,12 +1250,12 @@ function receive(event) {
     window.acCLEAR_BAKE_LAYERS?.(); // Clear bake layers on stop
     return;
   } else if (event.data?.type === "kidlisp-stop") {
-    window.acRESUME?.(); // Ensure we are running so we can load the empty piece.
-    // Clear tracked kidlisp code when stopping
+    // Full stop - clear the kidlisp code and load empty
     window.__acCurrentKidlispCode = null;
+    // Load empty kidlisp code which will just show wipe() - checkerboard
     window.acSEND({
       type: "piece-reload",
-      content: { source: "kidlisp", createCode: false }
+      content: { source: "(wipe)", createCode: false }
     });
     return;
   } else if (event.data?.type === "kidlisp-ping") {
