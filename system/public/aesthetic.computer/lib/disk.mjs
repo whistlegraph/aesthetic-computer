@@ -1692,6 +1692,20 @@ function updateHUDStatus() {
 }
 
 let loading = false;
+let loadingStartTime = null; // Track when loading started for timeout safety
+const LOADING_TIMEOUT_MS = 10000; // 10 second max loading time
+
+// Safety check for stuck loading state
+function checkLoadingTimeout() {
+  if (loading && loadingStartTime && (Date.now() - loadingStartTime > LOADING_TIMEOUT_MS)) {
+    console.warn("🔴 Loading timeout exceeded - forcing loading reset");
+    loading = false;
+    loadingStartTime = null;
+    return true; // Was stuck
+  }
+  return false;
+}
+
 let reframe;
 let pendingPieceReload = null; // Queue for piece-reload messages before $commonApi.reload is ready
 
@@ -6697,8 +6711,12 @@ async function load(
     });
   }
 
+  // Check for stuck loading state before proceeding
+  checkLoadingTimeout();
+
   if (loading === false) {
     loading = true;
+    loadingStartTime = Date.now();
   } else {
     // TODO: If the piece is different, then there should be a way to abort
     //       or ignore a current load.
@@ -7245,11 +7263,31 @@ async function load(
   } = {}) {
     // console.log("⚠️ Reloading:", piece, name, source);
 
+    // Check for global loading timeout first
+    if (checkLoadingTimeout()) {
+      console.log("🔴 Recovered from stuck loading state");
+    }
+
     if (loading && source && !name && !piece) {
       // If a piece is loading and we have new source code, queue the reload
-      console.log("🟡 Queueing reload until current load completes...");
-      setTimeout(() => reload({ source, createCode, authToken, enableTrace }), 100);
-      return;
+      // But only queue up to 10 times (1 second max wait), then force through
+      const queueCount = (reload._queueCount || 0) + 1;
+      reload._queueCount = queueCount;
+      
+      if (queueCount > 10) {
+        // Too many retries - force reset loading state and proceed
+        console.warn("🔴 Reload queue timeout - forcing loading reset");
+        loading = false;
+        loadingStartTime = null;
+        reload._queueCount = 0;
+      } else {
+        console.log("🟡 Queueing reload until current load completes...");
+        setTimeout(() => reload({ source, createCode, authToken, enableTrace }), 100);
+        return;
+      }
+    } else {
+      // Reset queue counter when not queuing
+      reload._queueCount = 0;
     }
 
     if (loading) {
@@ -9094,6 +9132,7 @@ async function makeFrame({ data: { type, content } }) {
     leaving = false;
     hotSwap?.(); // Actually swap out the piece functions and reset the state.
     loading = false;
+    loadingStartTime = null;
     noPaint = false; // 🎨 Ensure first frame paints after piece swap
     return;
   }
