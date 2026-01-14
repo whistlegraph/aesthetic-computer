@@ -129,7 +129,10 @@ let login, // A login button in the center of the display.
   profile, // A profile page button.
   profileAction,
   walletBtn, // Tezos wallet button (shown when connected)
-  giveBtn; // GIVE button for funding mode (top-right)
+  giveBtn, // GIVE button for funding mode (top-right)
+  adBtn; // AD button for non-funding mode (top-right)
+let adBtnParticles = []; // Sparkle particles for AD button
+let adBtnHue = 0; // Color cycling for AD button
 let resendVerificationText;
 let ellipsisTicker;
 let chatTicker; // Ticker instance for chat messages
@@ -4083,6 +4086,138 @@ function paint($) {
     giveBtnParticles = []; // Clear particles when button hidden
   }
 
+  // 📢 AD MODE button in top-right corner when funding is off (replace GIVE button)
+  if (!showFundingEffects && showLoginCurtain) {
+    const now = Date.now();
+    
+    // Cycle through catchy ad phrases
+    const adPhrases = [
+      "YOUR AD HERE",
+      "AD SPACE ✦",
+      "ADVERTISE!",
+      "📢 ADS 📢",
+      "★ YOUR AD ★",
+      "GET SEEN!",
+    ];
+    const phraseIndex = Math.floor(now / 2000) % adPhrases.length;
+    const adBtnText = adPhrases[phraseIndex];
+    
+    // Rainbow hue cycling (slower than GIVE button for chill vibes)
+    adBtnHue = (adBtnHue + 0.3) % 360;
+    
+    // Convert HSL to RGB for the button color
+    const h = adBtnHue / 360;
+    const s = 0.9; // High saturation
+    const l = 0.55; // Medium lightness
+    
+    // HSL to RGB conversion
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const r = Math.round(hue2rgb(p, q, h + 1/3) * 255);
+    const g = Math.round(hue2rgb(p, q, h) * 255);
+    const b = Math.round(hue2rgb(p, q, h - 1/3) * 255);
+    
+    // Create the button with cycling color
+    adBtn = new ui.TextButton($, adBtnText, {
+      x: "right",
+      y: 6,
+      background: [r, g, b, 230],
+      screen,
+      goto: "ads", // Navigate to ads piece when clicked
+    });
+    
+    // Gentle floating effect
+    const float = Math.sin(now / 500) * 2;
+    adBtn.btn.box.y += float;
+    
+    // Sparkle particles (less intense than GIVE button)
+    if (Math.random() < 0.15) { // 15% chance per frame
+      const btnBox = adBtn.btn.box;
+      const sparkleHue = (adBtnHue + 120) % 360; // Complementary color
+      
+      // Convert sparkle hue to RGB
+      const sh = sparkleHue / 360;
+      const sq = 0.5 < 0.5 ? 0.5 * (1 + 1) : 0.5 + 1 - 0.5 * 1;
+      const sp = 2 * 0.7 - 0.5;
+      const sparkleColor = [
+        Math.round(hue2rgb(0.4, 0.9, sh + 1/3) * 255),
+        Math.round(hue2rgb(0.4, 0.9, sh) * 255),
+        Math.round(hue2rgb(0.4, 0.9, sh - 1/3) * 255)
+      ];
+      
+      // Emit from random edge
+      const edge = Math.floor(Math.random() * 4);
+      let px, py, vx, vy;
+      
+      switch (edge) {
+        case 0: // Top
+          px = btnBox.x + Math.random() * btnBox.w;
+          py = btnBox.y;
+          vx = (Math.random() - 0.5) * 1.5;
+          vy = -Math.random() * 1.5 - 0.5;
+          break;
+        case 1: // Right
+          px = btnBox.x + btnBox.w;
+          py = btnBox.y + Math.random() * btnBox.h;
+          vx = Math.random() * 1.5 + 0.5;
+          vy = (Math.random() - 0.5) * 1.5;
+          break;
+        case 2: // Bottom
+          px = btnBox.x + Math.random() * btnBox.w;
+          py = btnBox.y + btnBox.h;
+          vx = (Math.random() - 0.5) * 1.5;
+          vy = Math.random() * 1.5 + 0.5;
+          break;
+        case 3: // Left
+          px = btnBox.x;
+          py = btnBox.y + Math.random() * btnBox.h;
+          vx = -Math.random() * 1.5 - 0.5;
+          vy = (Math.random() - 0.5) * 1.5;
+          break;
+      }
+      
+      adBtnParticles.push({
+        x: px,
+        y: py,
+        vx: vx,
+        vy: vy,
+        life: 1.0,
+        color: sparkleColor,
+        size: Math.random() < 0.2 ? 2 : 1,
+      });
+    }
+    
+    // Update and draw sparkle particles
+    adBtnParticles = adBtnParticles.filter(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.94;
+      p.vy *= 0.94;
+      p.life -= 0.025;
+      
+      if (p.life > 0) {
+        const alpha = Math.floor(p.life * 255);
+        ink(...p.color, alpha).box(Math.round(p.x), Math.round(p.y), p.size, p.size);
+      }
+      
+      return p.life > 0;
+    });
+    
+    $.needsPaint(); // Keep animating
+  } else {
+    adBtn = null;
+    adBtnParticles = []; // Clear particles when button hidden
+  }
+
   // 📦 Paint product (book or record) in top-right corner (only on login curtain)
   // Hide carousel when prompt is editable or has text
   // DISABLED: products carousel
@@ -7500,7 +7635,19 @@ function act({
     });
   }
 
-  // 📦 Version box click - open GitHub commit page
+  // � AD button - navigate to ads piece
+  if (adBtn && !adBtn.btn.disabled) {
+    adBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        jump("ads");
+      },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  // �📦 Version box click - open GitHub commit page
   if (versionBox && e.is("touch")) {
     const inBox = e.x >= versionBox.x && e.x <= versionBox.x + versionBox.w &&
                   e.y >= versionBox.y && e.y <= versionBox.y + versionBox.h;
