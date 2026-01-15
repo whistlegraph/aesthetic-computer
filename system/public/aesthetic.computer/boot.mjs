@@ -1258,6 +1258,24 @@ function receive(event) {
       content: { source: "kidlisp", createCode: false }
     });
     return;
+  } else if (event.data?.type === "kidlisp-reframe") {
+    // Immediate reframe request from kidlisp.com (called after panel resize ends)
+    if (window.acREFRAME) {
+      window.acREFRAME();
+    }
+    return;
+  } else if (event.data?.type === "kidlisp-freeze-resize") {
+    // Freeze resize handling during panel drag
+    if (window.acFREEZE_RESIZE) {
+      window.acFREEZE_RESIZE();
+    }
+    return;
+  } else if (event.data?.type === "kidlisp-unfreeze-resize") {
+    // Unfreeze resize handling when drag ends
+    if (window.acUNFREEZE_RESIZE) {
+      window.acUNFREEZE_RESIZE();
+    }
+    return;
   } else if (event.data?.type === "kidlisp-ping") {
     // Respond to ping requests from kidlisp.com to confirm we're ready
     if (window.parent !== window) {

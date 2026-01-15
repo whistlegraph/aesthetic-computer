@@ -456,6 +456,93 @@
       background: rgb(239, 83, 80);
     }
     
+    /* Mini playback controls in header (mobile only) */
+    #mini-playback-controls {
+      display: none; /* Hidden by default - shown via JS when main controls obscured */
+      position: absolute;
+      right: 32px; /* Left of the collapse arrow which is at right: 12px */
+      top: 50%;
+      transform: translateY(-50%);
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+      z-index: 501; /* Above editor-header content */
+    }
+    
+    #mini-playback-controls button {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      min-height: 28px;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: transform 0.1s, opacity 0.15s, background 0.2s, box-shadow 0.2s;
+    }
+    
+    #mini-send-button {
+      background: rgb(76, 175, 80);
+      color: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    
+    #mini-send-button.playing {
+      background: rgb(76, 175, 80);
+    }
+    
+    /* Paused state - yellow outline on green play button */
+    #mini-send-button.paused {
+      background: rgb(76, 175, 80);
+      box-shadow: 0 0 0 2px rgba(255, 217, 61, 0.8), 0 1px 3px rgba(0,0,0,0.3);
+      animation: mini-pause-pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes mini-pause-pulse {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(255, 217, 61, 0.8), 0 1px 3px rgba(0,0,0,0.3); }
+      50% { box-shadow: 0 0 0 2px rgba(255, 217, 61, 0.4), 0 1px 3px rgba(0,0,0,0.3); }
+    }
+    
+    #mini-send-button .play-icon { display: block; }
+    #mini-send-button .pause-icon { display: none; }
+    #mini-send-button.playing .play-icon { display: none; }
+    #mini-send-button.playing .pause-icon { display: block; }
+    
+    #mini-stop-button {
+      background: rgb(239, 83, 80);
+      color: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      display: none; /* Hidden until playing */
+    }
+    
+    #mini-playback-controls button:active {
+      transform: scale(0.92);
+    }
+    
+    /* Dipping animation for mini buttons */
+    #mini-send-button.dipping {
+      animation: mini-dip 0.15s ease-out;
+    }
+    
+    @keyframes mini-dip {
+      0% { transform: scale(1); }
+      50% { transform: scale(0.9); }
+      100% { transform: scale(1); }
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #mini-send-button {
+        background: rgb(102, 187, 106);
+      }
+    }
+    
+    [data-theme="dark"] #mini-send-button {
+      background: rgb(102, 187, 106);
+    }
+    
     /* Playback controls container */
     #playback-controls {
       position: absolute;
@@ -4915,6 +5002,12 @@
     .platform-option[data-platform="ableton"]:hover {
       background: rgb(240, 240, 240);
     }
+    .platform-option[data-platform="ableton"].active {
+      background: rgb(230, 230, 230);
+    }
+    .platform-option[data-platform="ableton"].active:hover {
+      background: rgb(220, 220, 220);
+    }
     .platform-option[data-platform="ableton"] .platform-opt-name {
       color: black;
     }
@@ -6868,6 +6961,23 @@
               </svg>
             </div>
           </div>
+          <!-- Mini playback controls for mobile when main controls are obscured -->
+          <div id="mini-playback-controls">
+            <button id="mini-stop-button" aria-label="Stop">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+              </svg>
+            </button>
+            <button id="mini-send-button" aria-label="Play">
+              <svg class="play-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M6 4.5c0-1.2 1.3-1.9 2.3-1.3l12 8c.9.6.9 2 0 2.6l-12 8c-1 .6-2.3-.1-2.3-1.3v-16z"/>
+              </svg>
+              <svg class="pause-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <rect x="5" y="3" width="5" height="18" rx="2" ry="2"/>
+                <rect x="14" y="3" width="5" height="18" rx="2" ry="2"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <!-- Visualization Mode Tabs (hidden for now) -->
         <div class="viz-tabs" id="viz-tabs" style="display: none !important;">
@@ -6925,6 +7035,7 @@
                 <svg class="platform-icon ableton-logo" viewBox="0 0 51 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M0 0h3v24H0V0zm6 0h3v24H6V0zm6 0h3v24h-3V0zm6 0h3v24h-3V0zm9 0h24v3H27V0zm0 7h24v3H27V7zm0 7h24v3H27v-3zm0 7h24v3H27v-3z"/></svg>
                 <span class="platform-opt-name">Ableton Live</span>
               </div>
+              <!-- Hidden platforms (coming soon)
               <div class="platform-divider"></div>
               <div class="platform-option coming-soon" data-platform="playdate">
                 <span class="platform-opt-name">playdate</span>
@@ -6938,6 +7049,7 @@
                 <span class="platform-opt-name">Nintendo 64</span>
                 <span class="platform-status">exp</span>
               </div>
+              -->
             </div>
           </div>
           <img id="preview-qr" src="" alt="QR Code" title="Click to enlarge" style="display: none; width: auto; image-rendering: pixelated;" />
@@ -8820,6 +8932,7 @@
         // Just update flex distribution if already initialized
         if (window.redistributeFlex) window.redistributeFlex();
         if (window.updateCheckerboard) window.updateCheckerboard();
+        if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
         return;
       }
       mobileHeadersInitialized = true;
@@ -8919,6 +9032,40 @@
         }
       }
       
+      // Update mini playback controls visibility based on whether main controls are obscured
+      window.updateMiniPlaybackControls = function() {
+        const isMobile = window.innerWidth <= 768;
+        const miniControls = document.getElementById('mini-playback-controls');
+        const mainControls = document.getElementById('playback-controls');
+        const editorPanel = document.getElementById('editor-panel');
+        
+        if (!miniControls || !mainControls || !editorPanel) return;
+        
+        if (!isMobile) {
+          miniControls.style.display = 'none';
+          mainControls.style.visibility = 'visible';
+          return;
+        }
+        
+        // Get the editor panel's actual content height (below header)
+        const editorRect = editorPanel.getBoundingClientRect();
+        const editorHeader = editorPanel.querySelector('.editor-header');
+        const headerHeight = editorHeader ? editorHeader.offsetHeight : 44;
+        const contentHeight = editorRect.height - headerHeight;
+        
+        // Main controls are 44px tall + 14px bottom margin = need at least ~70px to show
+        const minHeightForControls = 70;
+        
+        // Show mini controls if editor content area is too small for main controls
+        if (contentHeight < minHeightForControls) {
+          miniControls.style.display = 'flex';
+          mainControls.style.visibility = 'hidden'; // Hide main controls
+        } else {
+          miniControls.style.display = 'none';
+          mainControls.style.visibility = 'visible'; // Show main controls
+        }
+      }
+      
       // Add CSS for drag cursor override (must use class + !important to override button cursors)
       const dragCursorStyle = document.createElement('style');
       dragCursorStyle.textContent = `
@@ -8939,6 +9086,17 @@
         }
         // Set cursor on entire document during drag (class + !important overrides button cursors)
         document.documentElement.classList.toggle('dragging-panel', dragging);
+        
+        // Tell the iframe to freeze/unfreeze resize handling
+        if (previewIframe?.contentWindow) {
+          if (dragging) {
+            previewIframe.contentWindow.postMessage({ type: 'kidlisp-freeze-resize' }, '*');
+          } else {
+            previewIframe.contentWindow.postMessage({ type: 'kidlisp-unfreeze-resize' }, '*');
+            // Also trigger immediate reframe when drag ends
+            previewIframe.contentWindow.postMessage({ type: 'kidlisp-reframe' }, '*');
+          }
+        }
       }
       
       // Initialize all panels with flex values
@@ -8959,6 +9117,9 @@
       
       // Initial checkerboard state
       window.updateCheckerboard();
+      
+      // Initial mini playback controls state
+      window.updateMiniPlaybackControls();
       
       // Now set up header interactions
       panelConfigs.forEach((config, index) => {
@@ -9004,6 +9165,7 @@
           }
           redistributeFlex();
           window.updateCheckerboard();
+          if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
         }
         
         // Drag state
@@ -9169,6 +9331,7 @@
             }
             
             window.updateCheckerboard();
+            if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
             
           } else {
             // This is the top panel (editor) - can only resize itself
@@ -9236,6 +9399,7 @@
             }
             
             window.updateCheckerboard();
+            if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
           }
           
           return true;
@@ -9281,6 +9445,7 @@
             // Redistribute to clean up and ensure 100% fill
             redistributeFlex();
             window.updateCheckerboard();
+            if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
           }
           
           // If wasn't dragging, it's a tap - toggle collapse
@@ -9463,6 +9628,7 @@
         initSplits();
         updateCenterSquarePosition();
         if (window.updateCheckerboard) window.updateCheckerboard();
+        if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
       }, 200);
     });
 
@@ -9779,6 +9945,9 @@
       sendButton.disabled = !shouldEnable;
       sendButton.style.opacity = shouldEnable ? '1' : '0.4';
       sendButton.style.cursor = shouldEnable ? 'pointer' : 'not-allowed';
+      
+      // Also sync mini button state
+      if (window.syncMiniPlaybackButtons) window.syncMiniPlaybackButtons();
     }
     
     // Make it globally accessible for content change handlers
@@ -13381,6 +13550,9 @@
       if (state === 'running' || state === 'idle' || !state) {
         rulerSystem.hide();
       }
+      
+      // Sync mini playback buttons when state changes
+      if (window.syncMiniPlaybackButtons) window.syncMiniPlaybackButtons();
     }
     
     // Track current platform globally
@@ -13400,6 +13572,9 @@
       }
       if (platformId === 'ff1') {
         return `<img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="platform-logo" style="height: 16px; margin-right: 6px; vertical-align: middle;"> ${platformName}`;
+      }
+      if (platformId === 'ableton') {
+        return `<svg class="platform-icon ableton-logo" viewBox="0 0 51 24" xmlns="http://www.w3.org/2000/svg" style="width: 20px; height: 14px; margin-right: 6px; vertical-align: middle;"><path fill="currentColor" d="M0 0h3v24H0V0zm6 0h3v24H6V0zm6 0h3v24h-3V0zm6 0h3v24h-3V0zm9 0h24v3H27V0zm0 7h24v3H27V7zm0 7h24v3H27v-3zm0 7h24v3H27v-3z"/></svg> ${platformName}`;
       }
       return platformName.replace('.', '<span class="bounce-dot">.</span>');
     }
@@ -13888,6 +14063,64 @@
     } else {
       log.ui.error('Stop button not found in DOM');
     }
+
+    // Mini playback controls (shown when main controls are obscured in mobile view)
+    const miniSendButton = document.getElementById('mini-send-button');
+    const miniStopButton = document.getElementById('mini-stop-button');
+    
+    if (miniSendButton) {
+      miniSendButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Trigger dip animation
+        miniSendButton.classList.remove('dipping');
+        void miniSendButton.offsetWidth; // Force reflow
+        miniSendButton.classList.add('dipping');
+        setTimeout(() => miniSendButton.classList.remove('dipping'), 150);
+        // Trigger the main send button click
+        if (sendButton && !sendButton.disabled) {
+          sendButton.click();
+        }
+      });
+    }
+    
+    if (miniStopButton) {
+      miniStopButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Trigger the main stop button click
+        if (stopButton) {
+          stopButton.click();
+        }
+      });
+    }
+    
+    // Sync mini button state with main buttons
+    window.syncMiniPlaybackButtons = function() {
+      if (miniSendButton) {
+        // Sync playing state
+        if (isPlaying && !isPaused) {
+          miniSendButton.classList.add('playing');
+          miniSendButton.classList.remove('paused');
+        } else if (isPaused) {
+          miniSendButton.classList.remove('playing');
+          miniSendButton.classList.add('paused');
+        } else {
+          miniSendButton.classList.remove('playing');
+          miniSendButton.classList.remove('paused');
+        }
+      }
+      if (miniStopButton) {
+        // Show mini stop button when main stop button is visible AND we're playing
+        const shouldShowStop = isPlaying && stopButton && stopButton.style.display !== 'none';
+        miniStopButton.style.display = shouldShowStop ? 'flex' : 'none';
+      }
+      
+      // Sync disabled state from main send button
+      if (miniSendButton && sendButton) {
+        miniSendButton.disabled = sendButton.disabled;
+        miniSendButton.style.opacity = sendButton.disabled ? '0.4' : '1';
+        miniSendButton.style.cursor = sendButton.disabled ? 'not-allowed' : 'pointer';
+      }
+    };
 
     // Enable KidLisp-only console messages from the preview iframe
     let hasRequestedKidlispConsole = false;
@@ -14487,6 +14720,7 @@
               window.redistributeFlex();
             }
             if (window.updateCheckerboard) window.updateCheckerboard();
+            if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
           }
         }
       }
