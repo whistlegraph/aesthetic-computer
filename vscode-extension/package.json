@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.233.4",
+  "version": "1.239.0",
   "description": "Code, run, and publish your pieces. Includes Aesthetic Computer themes and KidLisp syntax highlighting.",
   "engines": {
     "vscode": "^1.105.0"
@@ -206,6 +206,10 @@
       {
         "command": "aestheticComputer.openKidLispWindow",
         "title": "KidLisp.com: Open Window 🌈"
+      },
+      {
+        "command": "aestheticComputer.openNewsWindow",
+        "title": "News: Open Window 📰"
       },
       {
         "command": "aestheticComputer.setGoal",
