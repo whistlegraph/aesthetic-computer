@@ -671,6 +671,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       window.__acGlobalKidLispInstance.clearBakedLayers();
     }
   };
+  
+  // Force immediate reframe (used by kidlisp.com after panel resize ends)
+  window.acREFRAME = () => {
+    needsReframe = true;
+  };
+  
+  // Freeze/unfreeze resize handling (used during kidlisp panel drag)
+  window.acFREEZE_RESIZE = () => {
+    resizeFrozen = true;
+    // Hide canvas to prevent visual stretching during drag
+    if (wrapper) wrapper.style.visibility = 'hidden';
+  };
+  window.acUNFREEZE_RESIZE = () => {
+    resizeFrozen = false;
+    // Show canvas again
+    if (wrapper) wrapper.style.visibility = 'visible';
+  };
 
   // Notify parent of boot progress and update the boot log overlay
   if (window.acBOOT_LOG) {
@@ -1012,8 +1029,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let currentUiScale = 0;
   let uiContextScaled = false;
 
-  const REFRAME_DELAY = 80; //250;
+  const REFRAME_DELAY = 0; // Instant reframe (was 80ms)
   let curReframeDelay = REFRAME_DELAY;
+  let resizeFrozen = false; // When true, ignore resize events (for kidlisp panel drag)
   let lastGap = undefined;
   // Use URL parameter, or acPACK_DENSITY (for bundles), or default to 2
   let density = resolution.density !== undefined 
@@ -1548,6 +1566,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let lastHeight = window.innerHeight;
 
       window.addEventListener("resize", (e) => {
+        // Skip resize handling when frozen (kidlisp panel is being dragged)
+        if (resizeFrozen) return;
+        
         if (
           lastWidth === window.innerWidth &&
           lastHeight === window.innerHeight
