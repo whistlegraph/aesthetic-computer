@@ -21,6 +21,48 @@ Connect KidLisp.com IDE to Ableton Live via Max for Live device using session-se
               └───────────────────┘
 ```
 
+## Device Publishing & Distribution
+
+### Asset Location
+M4L devices are published to:
+```
+https://assets.aesthetic.computer/m4l/
+```
+
+### Device Files
+| Device | URL |
+|--------|-----|
+| AC KidLisp | `https://assets.aesthetic.computer/m4l/AC-KidLisp.amxd` |
+| AC Notepat | `https://assets.aesthetic.computer/m4l/AC-Notepat.amxd` |
+| AC Metronome | `https://assets.aesthetic.computer/m4l/AC-Metronome.amxd` |
+| AC Prompt | `https://assets.aesthetic.computer/m4l/AC-Prompt.amxd` |
+
+### Build & Deploy Process
+```bash
+# Build all devices
+cd ac-m4l
+python3 build.py --production
+
+# Upload to assets bucket
+npm run assets:sync:up -- --include "m4l/*"
+
+# Or deploy specific device
+aws s3 cp "AC KidLisp.amxd" s3://aesthetic-computer-assets/m4l/AC-KidLisp.amxd
+```
+
+### Versioning
+- Keep versioned copies: `m4l/AC-KidLisp-v1.0.0.amxd`
+- Latest always at: `m4l/AC-KidLisp.amxd`
+- Version history in `ac-m4l/CHANGELOG.md`
+
+### Download Link in KidLisp.com
+The Ableton boot screen includes a direct download link:
+```html
+<a href="https://assets.aesthetic.computer/m4l/AC-KidLisp.amxd" download>
+  Download AC KidLisp.amxd
+</a>
+```
+
 ## Session-Server Changes
 
 ### New Channel Type: `daw:`
