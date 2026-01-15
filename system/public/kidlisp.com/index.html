@@ -1137,7 +1137,14 @@
     [data-theme="dark"] .preview-iframe-container {
       background: #202020;
     }
-    
+
+    /* Stopped state - gray out the preview */
+    .preview-iframe-container.stopped #preview-iframe {
+      filter: grayscale(0.8) brightness(0.7);
+      opacity: 0.6;
+      transition: filter 0.3s ease, opacity 0.3s ease;
+    }
+
     /* Pixel rulers for paused state (Photoshop-style) - all 4 sides */
     .preview-rulers {
       display: none;
@@ -13503,11 +13510,13 @@
       const editorPanel = document.getElementById('editor-panel');
       const kidlispEditor = document.getElementById('kidlisp-editor');
       const previewTitle = document.getElementById('preview-title');
+      const previewContainer = document.querySelector('.preview-iframe-container');
       
       // Remove all states first
       editorPanel?.classList.remove('live-running', 'live-paused', 'live-stopped');
       kidlispEditor?.classList.remove('live-running', 'live-paused', 'live-stopped');
       previewTitle?.classList.remove('state-running', 'state-paused', 'state-stopped');
+      previewContainer?.classList.remove('stopped');
       
       // Trigger bump animation on state change
       if (state && previewTitle) {
@@ -13530,6 +13539,7 @@
         editorPanel?.classList.add('live-stopped');
         kidlispEditor?.classList.add('live-stopped');
         previewTitle?.classList.add('state-stopped');
+        previewContainer?.classList.add('stopped');
         // Hide rulers when stopped
         rulerSystem.hide();
       }
