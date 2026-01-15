@@ -355,17 +355,19 @@
     #logo-landing-zone {
       position: relative;
       overflow: visible;
+      padding-left: 24px;
+      margin-left: -24px;
     }
     
     #settings-gear {
       position: absolute;
-      left: -24px;
+      left: 0;
       top: 50%;
       transform: translateY(-50%);
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       opacity: 0;
-      transition: opacity 0.2s, transform 0.3s ease-out;
+      transition: opacity 0.2s;
       pointer-events: none;
       color: #a8a29e;
     }
@@ -373,36 +375,6 @@
     #logo-landing-zone:hover #settings-gear {
       opacity: 1;
       animation: gear-spin 2s linear infinite;
-    }
-    
-    #logo-landing-zone:hover #splash-logo.landed .splash-letter {
-      animation: caterpillar-crawl 0.4s ease-out forwards !important;
-    }
-    
-    /* Stagger each letter's animation - reverse order so last letter moves first */
-    #logo-landing-zone:hover #splash-logo .splash-letter:nth-child(1) { animation-delay: 330ms; }
-    #logo-landing-zone:hover #splash-logo .splash-letter:nth-child(2) { animation-delay: 300ms; }
-    #logo-landing-zone:hover #splash-logo .splash-letter:nth-child(3) { animation-delay: 270ms; }
-    #logo-landing-zone:hover #splash-logo .splash-letter:nth-child(4) { animation-delay: 240ms; }
-    #logo-landing-zone:hover #splash-logo .splash-letter:nth-child(5) { animation-delay: 210ms; }
-    #logo-landing-zone:hover #splash-logo .splash-letter:nth-child(6) { animation-delay: 180ms; }
-    #logo-landing-zone:hover #splash-logo .splash-letter:nth-child(7) { animation-delay: 150ms; }
-    #logo-landing-zone:hover #splash-logo .splash-letter:nth-child(8) { animation-delay: 120ms; }
-    #logo-landing-zone:hover #splash-logo .splash-letter:nth-child(9) { animation-delay: 90ms; }
-    #logo-landing-zone:hover #splash-logo .splash-letter:nth-child(10) { animation-delay: 60ms; }
-    #logo-landing-zone:hover #splash-logo .splash-letter:nth-child(11) { animation-delay: 30ms; }
-    #logo-landing-zone:hover #splash-logo .splash-letter:nth-child(12) { animation-delay: 0ms; }
-    
-    @keyframes caterpillar-crawl {
-      0% { transform: translateX(0) translateY(0); }
-      25% { transform: translateX(2px) translateY(-3px); }
-      50% { transform: translateX(4px) translateY(0); }
-      75% { transform: translateX(6px) translateY(2px); }
-      100% { transform: translateX(8px) translateY(0); }
-    }
-    
-    #splash-logo.landed .splash-letter {
-      transition: transform 0.3s ease-out;
     }
     
     @keyframes gear-spin {
@@ -901,11 +873,10 @@
       left: 0;
       right: 0;
       bottom: 0;
-      border: 2px solid rgba(144, 238, 144, 0.5);
+      border: 2px solid rgba(144, 238, 144, 0.4);
       border-radius: 4px;
       pointer-events: none; /* Allow clicks through to Monaco */
       z-index: 10; /* Low z-index - must be BELOW modals (100000) */
-      animation: live-pulse 3s ease-in-out infinite;
     }
     
     /* Paused state - yellow outline matching pause button (#ffd93d) */
@@ -917,45 +888,32 @@
       left: 0;
       right: 0;
       bottom: 0;
-      border: 2px solid rgba(255, 217, 61, 0.5);
+      border: 2px solid rgba(255, 217, 61, 0.4);
       border-radius: 4px;
       pointer-events: none;
       z-index: 10; /* Low z-index - must be BELOW modals (100000) */
-      animation: pause-pulse 2s ease-in-out infinite;
     }
     
     /* Dark mode: slightly brighter for visibility */
     @media (prefers-color-scheme: dark) {
       .editor-panel.live-running::before,
       #kidlisp-editor.live-running::before {
-        border-color: rgba(144, 238, 144, 0.6);
+        border-color: rgba(144, 238, 144, 0.5);
       }
       .editor-panel.live-paused::before,
       #kidlisp-editor.live-paused::before {
-        border-color: rgba(255, 217, 61, 0.6);
+        border-color: rgba(255, 217, 61, 0.5);
       }
     }
     
     [data-theme="dark"] .editor-panel.live-running::before,
     [data-theme="dark"] #kidlisp-editor.live-running::before {
-      border-color: rgba(144, 238, 144, 0.6);
+      border-color: rgba(144, 238, 144, 0.5);
     }
     
     [data-theme="dark"] .editor-panel.live-paused::before,
     [data-theme="dark"] #kidlisp-editor.live-paused::before {
-      border-color: rgba(255, 217, 61, 0.6);
-    }
-    
-    /* Pulse animation for live state - green */
-    @keyframes live-pulse {
-      0%, 100% { border-color: rgba(144, 238, 144, 0.5); }
-      50% { border-color: rgba(144, 238, 144, 0.25); }
-    }
-    
-    /* Pulse animation for paused state - yellow */
-    @keyframes pause-pulse {
-      0%, 100% { border-color: rgba(255, 217, 61, 0.5); }
-      50% { border-color: rgba(255, 217, 61, 0.25); }
+      border-color: rgba(255, 217, 61, 0.5);
     }
 
     /* Stopped state - purple outline (matches stop button) */
@@ -12800,9 +12758,32 @@
       
       updateLineNumbers();
 
-      // Update preview on Cmd/Ctrl+Enter
+      // Update preview on Cmd/Ctrl+Enter (play/run)
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-        updatePreview();
+        if (sendButton && !sendButton.disabled) {
+          sendButton.click();
+        }
+      });
+      
+      // Stop playback on Cmd/Ctrl+. (period)
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Period, () => {
+        if (stopButton && stopButton.style.display !== 'none') {
+          stopButton.click();
+        }
+      });
+      
+      // Pause/Resume on Cmd/Ctrl+P
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP, () => {
+        if (isPlaying && sendButton) {
+          sendButton.click(); // Toggle pause
+        }
+      });
+      
+      // Clear editor on Cmd/Ctrl+K
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
+        if (clearButton && clearButton.style.display !== 'none') {
+          clearButton.click();
+        }
       });
 
       // Clear button handler
