@@ -38,14 +38,21 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
     density = defaults.get("density", 1.5)
     latency = defaults.get("latency", 32.0)
     
-    # Use production URL or localhost
-    if production:
-        base_url = "https://aesthetic.computer"
-    else:
-        base_url = defaults.get("baseUrl", "https://localhost:8888")
+    # Check for custom URL (e.g., kidlisp.com)
+    custom_url = device.get("url")
     
-    # Include width/height in URL for zoom compensation
-    url = f"{base_url}/{piece}?daw=1&density={density}&nogap&width={width}&height={height}"
+    if custom_url:
+        # Use custom URL directly (with daw params)
+        url = f"{custom_url}?daw=1&density={density}&width={width}&height={height}"
+    else:
+        # Use production URL or localhost
+        if production:
+            base_url = "https://aesthetic.computer"
+        else:
+            base_url = defaults.get("baseUrl", "https://localhost:8888")
+        
+        # Include width/height in URL for zoom compensation
+        url = f"{base_url}/{piece}?daw=1&density={density}&nogap&width={width}&height={height}"
     
     return {
         "patcher": {
@@ -746,18 +753,25 @@ def main():
     for device in devices:
         original_name = device["name"]
         piece = device["piece"]
+        custom_url = device.get("url")
         
         # Filter if specified
         if device_filter and device_filter not in piece.lower() and device_filter not in original_name.lower():
             continue
         
-        # For dev builds, include the base URL in the device name
-        if production:
+        # Handle custom URL devices (like kidlisp.com) vs piece-based devices
+        if custom_url:
+            # Custom URL device - use original name directly
+            display_name = original_name
+            filename = f"{original_name}.amxd"
+        elif production:
             display_name = f"AC 🟪 {piece} (aesthetic.computer)"
+            filename = f"AC 🟪 {piece} (aesthetic.computer).amxd"
         else:
             # Extract host from URL for cleaner display
             url_host = base_url.replace("https://", "").replace("http://", "")
             display_name = f"AC 🟪 {piece} ({url_host})"
+            filename = f"AC 🟪 {piece} ({url_host}).amxd"
         
         print(f"\n🔧 {display_name}")
         
@@ -765,13 +779,6 @@ def main():
         device_copy = device.copy()
         device_copy["name"] = display_name
         patcher = generate_patcher(device_copy, defaults, production=production)
-        
-        # Build .amxd - include URL in filename so it's visible in Ableton's browser
-        if production:
-            filename = f"AC 🟪 {piece} (aesthetic.computer).amxd"
-        else:
-            url_host = base_url.replace("https://", "").replace("http://", "")
-            filename = f"AC 🟪 {piece} ({url_host}).amxd"
         
         output_path = script_dir / filename
         size = build_amxd(patcher, output_path)
