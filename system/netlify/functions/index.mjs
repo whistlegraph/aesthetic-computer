@@ -977,7 +977,13 @@ async function fun(event, context) {
           var scrollSpds={};function addFile(name,src){if(isKidlisp)return;if(shownFiles[name])return;shownFiles[name]=true;netAct=1;var ls=src.split('\\n').slice(0,100),ext=(name.match(/\\.[^.]+$/)||[''])[0];var toks=ls.map(tok);fileQ.push({name:name,toks:toks});files.push({name:name,lines:ls,ext:ext,toks:toks,total:ls.length,cH:(ls.length+3)*LH});scrollYs[name]=0;scrollSpds[name]=2+Math.floor(Math.random()*5);}
           function netPulse(){netAct=Math.min(1,netAct+0.5);}
           function add(m){var now=performance.now(),dt=now-lastLog;lastLog=now;lb=Math.min(1,500/Math.max(50,dt))*0.5+0.5;if(lines.length>0)lines[0].text=lines[0].text.replace(/_$/,'');lines.unshift({text:m+'_',time:now,burst:lb});if(lines.length>mL)lines.pop();lc++;bp=Math.min(1,lc/25);}
-          var KIDLISP_BARS=[],KIDLISP_COLS=[[255,107,107],[78,205,196],[255,230,109],[149,225,211],[243,129,129],[170,150,218],[112,214,255]];
+          var KIDLISP_BARS=[];
+          // Theme-aware KidLisp colors - darker/more saturated for light mode
+          var KIDLISP_COLS_DARK=[[255,107,107],[78,205,196],[255,230,109],[149,225,211],[243,129,129],[170,150,218],[112,214,255]];
+          var KIDLISP_COLS_LIGHT=[[200,60,60],[30,140,130],[180,150,40],[50,150,130],[180,70,70],[100,80,160],[40,130,190]];
+          function getKidlispCols(){return isLightMode?KIDLISP_COLS_LIGHT:KIDLISP_COLS_DARK;}
+          // Listen for theme changes from parent (kidlisp.com)
+          window.addEventListener('message',function(e){if(e.data&&e.data.type==='kidlisp-theme'){isLightMode=e.data.theme==='light';}});
           function setH(h){uH=h;hST=performance.now();}
           function setConn(c){if(c&&!sessionConnected){connFlash=1;connFlashStart=performance.now();}sessionConnected=c;}
           var lastSCL=1;
@@ -988,10 +994,10 @@ async function fun(event, context) {
             x.clearRect(0,0,W,H);var S=targetSCL/SCL;
             var baseShk=0.5+Math.sin(t*2)*0.3,shk=baseShk+chaos*chaos*4+lb*3,sx=(Math.random()-0.5)*shk,sy=(Math.random()-0.5)*shk;
             // KidLisp simplified mode: colored bars + logs only
-            if(isKidlisp){x.fillStyle='rgba(42,37,32,0.95)';x.fillRect(0,0,W,H);x.globalAlpha=0.03;x.fillStyle='#000';for(var yy=0;yy<H;yy+=3*S)x.fillRect(0,yy,W,S);x.globalAlpha=1;
-              if(f%15===0&&KIDLISP_BARS.length<40){var bc=KIDLISP_COLS[Math.floor(Math.random()*KIDLISP_COLS.length)];KIDLISP_BARS.push({x:Math.random()*W,y:H+5*S,w:(30+Math.random()*80)*S,h:(2+Math.random()*3)*S,c:bc,s:(0.5+Math.random()*1.5)*S,a:0.3+Math.random()*0.3});}
-              for(var bi=KIDLISP_BARS.length-1;bi>=0;bi--){var b=KIDLISP_BARS[bi];b.y-=b.s;if(b.y<-10*S){KIDLISP_BARS.splice(bi,1);continue;}var fade=b.a*(1-(H-b.y)/H*0.5);x.globalAlpha=fade;x.fillStyle='rgb('+b.c[0]+','+b.c[1]+','+b.c[2]+')';x.beginPath();x.roundRect(b.x,b.y,b.w,b.h,b.h/2);x.fill();}
-              x.globalAlpha=1;x.font=(4*S)+'px monospace';var logY=H-10*S;for(var li=0;li<lines.length&&li<10;li++){var ln=lines[li],ly=logY-li*5*S,la=Math.max(0.3,1-li*0.08),lc=KIDLISP_COLS[li%KIDLISP_COLS.length];x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';var tw=x.measureText(ln.text).width;x.beginPath();x.roundRect(5*S,ly-4*S,tw+8*S,5*S,2*S);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.fillText(ln.text,9*S,ly);}
+            if(isKidlisp){var klBg=isLightMode?'rgba(247,247,247,0.95)':'rgba(42,37,32,0.95)';x.fillStyle=klBg;x.fillRect(0,0,W,H);x.globalAlpha=isLightMode?0.015:0.03;x.fillStyle=isLightMode?'#888':'#000';for(var yy=0;yy<H;yy+=3*S)x.fillRect(0,yy,W,S);x.globalAlpha=1;var klCols=getKidlispCols();
+              if(f%15===0&&KIDLISP_BARS.length<40){var bci=Math.floor(Math.random()*klCols.length);KIDLISP_BARS.push({x:Math.random()*W,y:H+5*S,w:(30+Math.random()*80)*S,h:(2+Math.random()*3)*S,ci:bci,s:(0.5+Math.random()*1.5)*S,a:0.3+Math.random()*0.3});}
+              for(var bi=KIDLISP_BARS.length-1;bi>=0;bi--){var b=KIDLISP_BARS[bi];b.y-=b.s;if(b.y<-10*S){KIDLISP_BARS.splice(bi,1);continue;}var fade=b.a*(1-(H-b.y)/H*0.5);x.globalAlpha=fade;var bc=klCols[b.ci%klCols.length];x.fillStyle='rgb('+bc[0]+','+bc[1]+','+bc[2]+')';x.beginPath();x.roundRect(b.x,b.y,b.w,b.h,b.h/2);x.fill();}
+              x.globalAlpha=1;x.font=(4*S)+'px monospace';var logY=H-10*S;for(var li=0;li<lines.length&&li<10;li++){var ln=lines[li],ly=logY-li*5*S,la=Math.max(0.3,1-li*0.08),lc=klCols[li%klCols.length];x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';var tw=x.measureText(ln.text).width;x.beginPath();x.roundRect(5*S,ly-4*S,tw+8*S,5*S,2*S);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.fillText(ln.text,9*S,ly);}
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
             var BGCOLS=['#2d2020','#202d24','#20202d','#2d2820','#28202d','#202d2d','#2d2028','#242d20'];
             var sHH=HH*S;

@@ -3714,14 +3714,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let lastPongTime = Date.now();
   let haltDetected = false;
   let watchdogStarted = false;
-  const HALT_TIMEOUT_MS = 5000; // 5 seconds before triggering HALT
-  const PING_INTERVAL_MS = 1000; // Ping every second
+  const HALT_TIMEOUT_MS = 12000; // 12 seconds before triggering HALT (more forgiving)
+  const PING_INTERVAL_MS = 2000; // Ping every 2 seconds
+  let missedPongs = 0; // Track consecutive missed pongs
 
   // Start the watchdog - called after worker first responds
   function startWatchdog() {
     if (watchdogStarted || !workersEnabled) return;
     watchdogStarted = true;
     lastPongTime = Date.now(); // Reset the pong time when watchdog actually starts
+    missedPongs = 0;
     console.log("🐕 Watchdog started after worker initialization");
     
     // Send periodic pings to the worker
@@ -3731,16 +3733,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }, PING_INTERVAL_MS);
 
-    // Check for HALT condition
+    // Check for HALT condition - require multiple missed pongs
     setInterval(() => {
       if (haltDetected) return;
       const timeSinceLastPong = Date.now() - lastPongTime;
-      if (timeSinceLastPong > HALT_TIMEOUT_MS) {
+      if (timeSinceLastPong > PING_INTERVAL_MS * 1.5) {
+        missedPongs++;
+        console.warn("🐕 Missed pong #" + missedPongs + " (last pong " + Math.round(timeSinceLastPong / 1000) + "s ago)");
+      } else {
+        missedPongs = 0; // Reset on successful pong
+      }
+      // Only HALT after sustained unresponsiveness
+      if (timeSinceLastPong > HALT_TIMEOUT_MS && missedPongs >= 4) {
         haltDetected = true;
-        console.error("🛑 HALT DETECTED! Worker unresponsive for", timeSinceLastPong, "ms");
+        console.error("🛑 HALT DETECTED! Worker unresponsive for", timeSinceLastPong, "ms after", missedPongs, "missed pongs");
         triggerHaltSequence();
       }
-    }, 500);
+    }, PING_INTERVAL_MS);
   }
 
   // Expose startWatchdog globally so receivedChange can call it
@@ -3751,46 +3760,46 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     lastPongTime = Date.now();
   };
 
-  // HALT sequence: flash red/yellow, show warning, reload
+  // HALT sequence: show black screen with clickable reload
   function triggerHaltSequence() {
-    // Create HALT overlay
+    // Create HALT overlay - black background, white text, click to reload
     const overlay = document.createElement("div");
     overlay.id = "halt-overlay";
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: monospace;
+      z-index: 999999;
+      cursor: pointer;
+    `;
     overlay.innerHTML = `
-      <div style="
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        font-family: monospace;
-        font-size: 8vw;
-        font-weight: bold;
-        z-index: 999999;
-        pointer-events: none;
-      ">
-        <div style="color: #ff0000; text-shadow: 0 0 20px #ff0000;">⚠️ HALT ⚠️</div>
-        <div style="font-size: 2vw; color: #ffff00; margin-top: 20px;">Worker unresponsive - reloading...</div>
+      <div style="color: #fff; font-size: 6vw; font-weight: bold; margin-bottom: 20px;">
+        ⚠️ HALT
+      </div>
+      <div style="color: #aaa; font-size: 2vw; margin-bottom: 40px;">
+        Worker became unresponsive
+      </div>
+      <div style="color: #fff; font-size: 3vw; padding: 20px 40px; border: 2px solid #fff; border-radius: 8px;">
+        Click anywhere to reload
       </div>
     `;
+    
+    // Click anywhere to reload
+    overlay.addEventListener("click", () => {
+      window.location.reload();
+    });
+    
+    // Also allow pressing any key to reload
+    document.addEventListener("keydown", () => {
+      window.location.reload();
+    }, { once: true });
+    
     document.body.appendChild(overlay);
-
-    // Flash red and yellow
-    let flashCount = 0;
-    const flashColors = ["#ff0000", "#ffff00"];
-    const flashInterval = setInterval(() => {
-      document.body.style.backgroundColor = flashColors[flashCount % 2];
-      overlay.style.backgroundColor = flashColors[(flashCount + 1) % 2] + "80";
-      flashCount++;
-      if (flashCount >= 6) {
-        clearInterval(flashInterval);
-        // Reload the page after flashing
-        setTimeout(() => {
-          window.location.reload();
-        }, 500);
-      }
-    }, 150);
   }
 
   // 🎮 Initialize Game Boy emulator in main thread

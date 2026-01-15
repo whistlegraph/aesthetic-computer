@@ -97,8 +97,31 @@
       const isKidlispMode = window !== window.top && 
         (window.location.search.includes('nolabel=true') || window.location.search.includes('nogap=true'));
       
-      // KidLisp pastel colors
-      const KIDLISP_COLORS = [
+      // Theme detection for light/dark mode support
+      let isLightMode = window.matchMedia?.('(prefers-color-scheme: light)').matches;
+      // Also check parent's data-theme attribute (kidlisp.com manual theme toggle)
+      try {
+        const parentTheme = window.parent?.document?.documentElement?.getAttribute?.('data-theme');
+        if (parentTheme === 'light') isLightMode = true;
+        else if (parentTheme === 'dark') isLightMode = false;
+      } catch(e) { /* cross-origin, ignore */ }
+      
+      // Listen for theme messages from parent (kidlisp.com sends this)
+      window.addEventListener('message', (e) => {
+        if (e.data?.type === 'kidlisp-theme') {
+          isLightMode = e.data.theme === 'light';
+          // console.log('[boot-canvas] Theme set via message:', isLightMode ? 'light' : 'dark');
+        }
+      });
+      
+      // Also listen for system theme changes
+      window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change', (e) => {
+        // Only update if no explicit theme was set
+        isLightMode = e.matches;
+      });
+      
+      // KidLisp pastel colors - bright for dark mode
+      const KIDLISP_COLORS_DARK = [
         [255, 107, 107], // coral red
         [78, 205, 196],  // teal
         [255, 230, 109], // yellow
@@ -107,6 +130,20 @@
         [170, 150, 218], // lavender
         [112, 214, 255], // sky blue
       ];
+      
+      // Darker/more saturated versions for light mode contrast
+      const KIDLISP_COLORS_LIGHT = [
+        [200, 60, 60],   // deep coral
+        [30, 140, 130],  // deep teal
+        [180, 150, 40],  // deep yellow/gold
+        [50, 150, 130],  // deep mint
+        [180, 70, 70],   // deep salmon
+        [100, 80, 160],  // deep lavender
+        [40, 130, 190],  // deep sky blue
+      ];
+      
+      // Helper to get theme-aware colors
+      const getKidlispColors = () => isLightMode ? KIDLISP_COLORS_LIGHT : KIDLISP_COLORS_DARK;
       
       // KidLisp mode state
       let kidlispLogs = [];
@@ -314,21 +351,22 @@
         
         // KidLisp mode: add to colored log display
         if (isKidlispMode) {
-          const color = KIDLISP_COLORS[kidlispLogs.length % KIDLISP_COLORS.length];
+          // Store color index, not actual color - so theme changes work
+          const colorIndex = kidlispLogs.length % getKidlispColors().length;
           kidlispLogs.unshift({
             text: msg,
-            color: color,
+            colorIndex: colorIndex,  // Use index for dynamic theme lookup
             y: H + 20,
             alpha: 1,
             spawnTime: now
           });
-          // Spawn decorative bar
+          // Spawn decorative bar (also use index)
           kidlispBars.push({
             x: Math.random() * W,
             y: H + 10,
             width: 30 + Math.random() * 80,
             height: 3 + Math.random() * 4,
-            color: color,
+            colorIndex: colorIndex,
             speed: 1 + Math.random() * 2,
             alpha: 0.4 + Math.random() * 0.3
           });
@@ -385,18 +423,22 @@
           kidlispFrame++;
           ctx.clearRect(0, 0, W, H);
           
-          // Transparent background (let AC boot show through if needed)
-          // But add subtle dark overlay for contrast
-          ctx.fillStyle = 'rgba(30, 28, 26, 0.85)';
+          // Theme-aware background
+          if (isLightMode) {
+            ctx.fillStyle = 'rgba(247, 247, 247, 0.92)'; // Light gray, matches editor bg
+          } else {
+            ctx.fillStyle = 'rgba(30, 28, 26, 0.85)'; // Dark overlay
+          }
           ctx.fillRect(0, 0, W, H);
           
-          // Subtle scanlines
-          ctx.globalAlpha = 0.03;
-          ctx.fillStyle = '#000';
+          // Subtle scanlines - lighter in light mode
+          ctx.globalAlpha = isLightMode ? 0.015 : 0.03;
+          ctx.fillStyle = isLightMode ? '#888' : '#000';
           for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
           ctx.globalAlpha = 1;
           
           // Draw decorative bars flowing up
+          const colors = getKidlispColors(); // Get current theme colors
           for (let i = kidlispBars.length - 1; i >= 0; i--) {
             const bar = kidlispBars[i];
             bar.y -= bar.speed;
@@ -404,7 +446,9 @@
             const fade = Math.max(0, bar.alpha * (1 - progress * 0.5));
             if (bar.y < -20) { kidlispBars.splice(i, 1); continue; }
             ctx.globalAlpha = fade;
-            ctx.fillStyle = `rgb(${bar.color[0]}, ${bar.color[1]}, ${bar.color[2]})`;
+            // Look up color dynamically for theme support
+            const color = bar.colorIndex !== undefined ? colors[bar.colorIndex % colors.length] : (bar.color || colors[0]);
+            ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
             const radius = bar.height / 2;
             ctx.beginPath();
             ctx.roundRect(bar.x, bar.y, bar.width, bar.height, radius);
@@ -424,29 +468,32 @@
             const age = (performance.now() - log.spawnTime) / 1000;
             log.alpha = Math.max(0.2, 1 - age * 0.1);
             
+            // Look up color dynamically for theme support
+            const logColor = log.colorIndex !== undefined ? colors[log.colorIndex % colors.length] : (log.color || colors[0]);
+            
             // Colored bar behind text
             const textWidth = ctx.measureText(log.text).width;
-            ctx.fillStyle = `rgba(${log.color[0]}, ${log.color[1]}, ${log.color[2]}, ${log.alpha * 0.15})`;
+            ctx.fillStyle = `rgba(${logColor[0]}, ${logColor[1]}, ${logColor[2]}, ${log.alpha * 0.15})`;
             ctx.beginPath();
             ctx.roundRect(10, log.y - 12, textWidth + 16, 16, 4);
             ctx.fill();
             
             // Text
             ctx.globalAlpha = log.alpha;
-            ctx.fillStyle = `rgb(${log.color[0]}, ${log.color[1]}, ${log.color[2]})`;
+            ctx.fillStyle = `rgb(${logColor[0]}, ${logColor[1]}, ${logColor[2]})`;
             ctx.fillText(log.text, 18, log.y);
           }
           ctx.globalAlpha = 1;
           
-          // Spawn ambient bars occasionally
+          // Spawn ambient bars occasionally (use colorIndex for theme support)
           if (kidlispFrame % 15 === 0 && kidlispBars.length < 30) {
-            const color = KIDLISP_COLORS[Math.floor(Math.random() * KIDLISP_COLORS.length)];
+            const colorIndex = Math.floor(Math.random() * getKidlispColors().length);
             kidlispBars.push({
               x: Math.random() * W,
               y: H + 10,
               width: 20 + Math.random() * 60,
               height: 2 + Math.random() * 3,
-              color: color,
+              colorIndex: colorIndex,
               speed: 0.5 + Math.random() * 1,
               alpha: 0.2 + Math.random() * 0.2
             });
