@@ -6445,7 +6445,9 @@
           });
           
           // CLEAR the editor immediately so flying chars appear to leave!
+          isSettingValueProgrammatically = true;
           monacoEditor.setValue('');
+          isSettingValueProgrammatically = false;
           
           let oldLine = 0;
           let oldCol = 0;
@@ -6661,7 +6663,9 @@
             // Set editor content directly - use full source if provided, else animated text
             const textToSet = fullSourceCode || charsToAnimate.map(c => c.char).join('');
             if (monacoEditor && textToSet) {
+              isSettingValueProgrammatically = true;
               monacoEditor.setValue(textToSet);
+              isSettingValueProgrammatically = false;
             }
             editorEl.classList.add('code-flash');
             trackTimeout(() => editorEl.classList.remove('code-flash'), 100);
@@ -11941,6 +11945,10 @@
       // Set max lines to 16 (fixed)
       const maxLines = 16;
       
+      // Track if user has manually edited the editor (vs programmatic setValue)
+      let editorUserModified = false;
+      let isSettingValueProgrammatically = false;
+      
       // LOCAL indicator removed - no longer needed
       
       // Create the editor
@@ -12022,7 +12030,10 @@
         
         // Clear editor and localStorage immediately while we load from DB
         // This prevents old cached code from flashing or being used
+        isSettingValueProgrammatically = true;
         editor.setValue('');
+        isSettingValueProgrammatically = false;
+        editorUserModified = false; // Not user-edited, loaded from URL
         localStorage.removeItem('kidlisp-code');
         localStorage.removeItem('kidlisp-current-code');
         
@@ -12086,8 +12097,19 @@
           }
         });
       } else {
-        // No code in URL - check if we have a saved code identifier from localStorage
-        // Only restore on AC platform
+        // No code in URL (at root /)
+        // If the editor has content but wasn't user-edited (e.g., from Top Hits auto-load),
+        // clear it so user starts fresh at root
+        if (!editorUserModified && editor.getValue().trim()) {
+          log.code.debug('Clearing non-user-edited content at root');
+          isSettingValueProgrammatically = true;
+          editor.setValue('');
+          isSettingValueProgrammatically = false;
+          localStorage.removeItem('kidlisp-code');
+          localStorage.removeItem('kidlisp-current-code');
+        }
+        
+        // Only restore saved code if user had previously edited
         const savedCode = localStorage.getItem('kidlisp-current-code');
         if (savedCode && editor.getValue().trim() && currentPlatform === 'aesthetic-computer') {
           log.code.debug(`Restored code from localStorage: $${savedCode}`);
@@ -12696,6 +12718,10 @@
       // Apply color decorations on content change
       editor.onDidChangeModelContent(() => {
         updateLineNumbers();
+        // Track if this was a user edit (not programmatic)
+        if (!isSettingValueProgrammatically && !(window.isDecrypting && window.isDecrypting())) {
+          editorUserModified = true;
+        }
         // Debounce decoration updates to avoid overwhelming the editor
         if (window.decorationTimeout) {
           clearTimeout(window.decorationTimeout);
@@ -12809,7 +12835,10 @@
       if (clearButton) {
         clearButton.addEventListener('click', () => {
           if (editor) {
+            isSettingValueProgrammatically = true;
             editor.setValue('');
+            isSettingValueProgrammatically = false;
+            editorUserModified = false; // Reset on clear
             editor.focus();
             // Also stop playback and show boot screen when clearing
             if (isPlaying || isPaused) {
@@ -16492,8 +16521,12 @@
       if (codeEl && window.flyCodeToEditor) {
         await window.flyCodeToEditor(codeEl, el._highlightedCode || snippet, sourceCode);
       } else {
+        isSettingValueProgrammatically = true;
         editor.setValue(sourceCode);
+        isSettingValueProgrammatically = false;
       }
+      // Mark as not user-edited since this was loaded from list
+      editorUserModified = false;
       
       const editorEl = document.getElementById('kidlisp-editor');
       if (editorEl) editorEl.classList.remove('decrypting');
