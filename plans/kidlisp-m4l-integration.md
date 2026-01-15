@@ -126,23 +126,35 @@ When platform = "ableton":
 
 ### M4L URL
 ```
-https://aesthetic.computer/kidlisp-player?daw=1&channel=jeffrey
+https://kidlisp.com/device?channel=jeffrey
 ```
 
 Or for local dev:
 ```
-https://localhost:8888/kidlisp-player?daw=1&channel=jeffrey
+https://localhost:8888/kidlisp.com/device?channel=jeffrey
 ```
 
-## New Piece: `kidlisp-player`
+## KidLisp.com /device Route
 
-A headless KidLisp runtime that:
-1. Connects to session-server on load
-2. Joins the `daw:` channel from URL param
-3. Listens for `daw:code` messages
-4. Executes received KidLisp code
-5. Renders to canvas (visible in jweb~)
-6. Outputs audio via Web Audio (captured by jweb~)
+A special route at `kidlisp.com/device` that:
+1. Shows ONLY the canvas (no editor, no panels, no header)
+2. Connects to session-server on load
+3. Joins the `daw:` channel from URL param
+4. Listens for `daw:code` messages
+5. Executes received KidLisp code
+6. Renders to full-screen canvas
+7. Outputs audio via Web Audio (captured by jweb~)
+
+### Detection
+```javascript
+// In kidlisp.com/index.html
+const isDeviceMode = window.location.pathname.includes('/device');
+if (isDeviceMode) {
+  // Hide all UI except canvas
+  // Auto-connect to session-server
+  // Listen for daw:code messages
+}
+```
 
 ## Implementation Steps
 
