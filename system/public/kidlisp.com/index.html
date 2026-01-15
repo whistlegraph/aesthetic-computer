@@ -158,6 +158,59 @@
       --editor-border: #333;
     }
 
+    /* Device mode: canvas-only view for M4L embedding */
+    body.device-mode {
+      background: #000 !important;
+      overflow: hidden !important;
+    }
+    body.device-mode #splash-overlay,
+    body.device-mode .editor-panel,
+    body.device-mode .bottom-row,
+    body.device-mode #center-square,
+    body.device-mode .preview-playback-controls,
+    body.device-mode .preview-rulers,
+    body.device-mode .console-panel,
+    body.device-mode .boot-screen,
+    body.device-mode .preview-mouse-overlay {
+      display: none !important;
+    }
+    body.device-mode #main-split {
+      opacity: 1 !important;
+      transition: none !important;
+      display: flex !important;
+      flex-direction: column !important;
+      width: 100vw !important;
+      height: 100vh !important;
+    }
+    body.device-mode .top-row {
+      display: flex !important;
+      width: 100% !important;
+      height: 100% !important;
+      flex: 1 !important;
+    }
+    body.device-mode .preview-panel {
+      width: 100% !important;
+      height: 100% !important;
+      border: none !important;
+      border-radius: 0 !important;
+      flex: 1 !important;
+    }
+    body.device-mode .preview-iframe-container {
+      width: 100% !important;
+      height: 100% !important;
+      border: none !important;
+      background: #000 !important;
+    }
+    body.device-mode #preview-iframe {
+      width: 100% !important;
+      height: 100% !important;
+      border: none !important;
+    }
+    /* Hide gutter splitters in device mode */
+    body.device-mode .gutter {
+      display: none !important;
+    }
+
     ::-webkit-scrollbar {
       display: none;
     }
@@ -13594,6 +13647,22 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     const isVSCode = urlParams.get('vscode') === 'true';
+    const isDeviceMode = window.location.pathname.includes('/device');
+    
+    // Device mode: immediately add class to body for canvas-only view
+    if (isDeviceMode) {
+      document.body.classList.add('device-mode');
+      // Make sure body is visible in device mode
+      document.body.style.opacity = '1';
+      console.log('🎹 Device mode active - canvas-only view');
+      
+      // Ensure preview container doesn't have stopped class
+      const previewContainer = document.querySelector('.preview-iframe-container');
+      if (previewContainer) {
+        previewContainer.classList.remove('stopped');
+      }
+    }
+    
     let externalSessionHydrated = false;
     let pendingHistoryTabSwitch = false; // Flag to switch to History when DOM ready
     
@@ -13862,9 +13931,30 @@
       
       // Only AC platform supports live playback for now
       if (currentPlatform !== 'aesthetic-computer') {
+        // Ableton platform sends code to DAW devices via session-server
+        if (currentPlatform === 'ableton') {
+          const code = editor.getValue().trim();
+          if (code && sessionWs && sessionWs.readyState === WebSocket.OPEN) {
+            sessionWs.send(JSON.stringify({
+              type: 'daw:code',
+              content: { code }
+            }));
+            showToast('Code sent to Ableton device', 'success');
+            log.playback.log('Sent code to DAW channel');
+            
+            // Update UI to show "sent" state
+            sendButton.classList.add('playing');
+            setTimeout(() => sendButton.classList.remove('playing'), 1000);
+          } else if (!sessionWs || sessionWs.readyState !== WebSocket.OPEN) {
+            showToast('Not connected to session server', 'error');
+          } else {
+            showToast('No code to send', 'info');
+          }
+          return;
+        }
+        
         const platformNames = {
           'ff1': 'FF1',
-          'ableton': 'Ableton',
           'playdate': 'playdate',
           'gameboy': 'Game Boy',
           'n64': 'N64'
@@ -18518,6 +18608,12 @@
       sessionWs.onopen = () => {
         log.socket.log("Connected to session server");
         setConnectivityState('connected');
+        
+        // In device mode, join the DAW channel to receive code
+        if (isDeviceMode && sessionWs) {
+          sessionWs.send(JSON.stringify({ type: 'daw:join' }));
+          log.socket.log("Device mode: joined DAW channel");
+        }
       };
 
       sessionWs.onmessage = (e) => {
@@ -18530,6 +18626,30 @@
         try {
           const msg = JSON.parse(e.data);
           log.socket.verbose("Received message:", msg);
+          
+          // Handle DAW code messages in device mode
+          if (isDeviceMode && msg.type === "daw:code" && msg.content?.code) {
+            log.socket.log("Device mode: received code from IDE");
+            // Send code to the kidlisp iframe using the same format as normal playback
+            if (iframeReady && previewIframe?.contentWindow) {
+              previewIframe.contentWindow.postMessage({
+                type: 'kidlisp-reload',
+                code: msg.content.code,
+                createCode: false,
+                enableTrace: false
+              }, aestheticUrl);
+              log.socket.log("Device mode: sent code to preview iframe");
+            } else {
+              log.socket.warn("Device mode: iframe not ready, queuing code");
+              // Queue for later when iframe is ready
+              pendingMessages.push({
+                type: 'kidlisp-reload',
+                code: msg.content.code,
+                createCode: false,
+                enableTrace: false
+              });
+            }
+          }
           
           // Handle reload messages for full page refresh
           if (msg.type === "reload") {

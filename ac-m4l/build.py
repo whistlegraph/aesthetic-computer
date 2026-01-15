@@ -39,11 +39,23 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
     latency = defaults.get("latency", 32.0)
     
     # Check for custom URL (e.g., kidlisp.com)
-    custom_url = device.get("url")
+    # Support both devUrl/prodUrl (preferred) and legacy url field
+    dev_url = device.get("devUrl")
+    prod_url = device.get("prodUrl")
+    legacy_url = device.get("url")
     
-    if custom_url:
-        # Use custom URL directly (with daw params)
-        url = f"{custom_url}?daw=1&density={density}&width={width}&height={height}"
+    if dev_url or prod_url:
+        # Use environment-specific URL
+        custom_url = prod_url if production else dev_url
+        if custom_url:
+            url = f"{custom_url}?daw=1&density={density}&width={width}&height={height}"
+        else:
+            # Fall back to the other URL if only one is specified
+            custom_url = dev_url or prod_url
+            url = f"{custom_url}?daw=1&density={density}&width={width}&height={height}"
+    elif legacy_url:
+        # Legacy: Use custom URL directly (with daw params)
+        url = f"{legacy_url}?daw=1&density={density}&width={width}&height={height}"
     else:
         # Use production URL or localhost
         if production:
@@ -753,16 +765,18 @@ def main():
     for device in devices:
         original_name = device["name"]
         piece = device["piece"]
-        custom_url = device.get("url")
+        has_custom_url = device.get("url") or device.get("devUrl") or device.get("prodUrl")
         
         # Filter if specified
         if device_filter and device_filter not in piece.lower() and device_filter not in original_name.lower():
             continue
         
         # Handle custom URL devices (like kidlisp.com) vs piece-based devices
-        if custom_url:
+        if has_custom_url:
             # Custom URL device - use original name directly
             display_name = original_name
+            # Sanitize piece for filename (replace slashes with dashes)
+            safe_piece = piece.replace("/", "-")
             filename = f"{original_name}.amxd"
         elif production:
             display_name = f"AC 🟪 {piece} (aesthetic.computer)"
