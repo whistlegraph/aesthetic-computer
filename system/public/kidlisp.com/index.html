@@ -9086,17 +9086,6 @@
         }
         // Set cursor on entire document during drag (class + !important overrides button cursors)
         document.documentElement.classList.toggle('dragging-panel', dragging);
-        
-        // Tell the iframe to freeze/unfreeze resize handling
-        if (previewIframe?.contentWindow) {
-          if (dragging) {
-            previewIframe.contentWindow.postMessage({ type: 'kidlisp-freeze-resize' }, '*');
-          } else {
-            previewIframe.contentWindow.postMessage({ type: 'kidlisp-unfreeze-resize' }, '*');
-            // Also trigger immediate reframe when drag ends
-            previewIframe.contentWindow.postMessage({ type: 'kidlisp-reframe' }, '*');
-          }
-        }
       }
       
       // Initialize all panels with flex values
