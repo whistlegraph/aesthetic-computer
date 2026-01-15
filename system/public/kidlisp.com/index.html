@@ -355,21 +355,24 @@
     #logo-landing-zone {
       position: relative;
       overflow: visible;
-      padding-left: 24px;
-      margin-left: -24px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
     
     #settings-gear {
-      position: absolute;
-      left: 0;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 18px;
-      height: 18px;
+      order: 2; /* Appear after the logo text */
+      width: 16px;
+      height: 16px;
       opacity: 0;
       transition: opacity 0.2s;
       pointer-events: none;
       color: #a8a29e;
+      flex-shrink: 0;
+    }
+    
+    #splash-logo.landed {
+      order: 1; /* Logo text comes first */
     }
     
     #logo-landing-zone:hover #settings-gear {
@@ -378,8 +381,8 @@
     }
     
     @keyframes gear-spin {
-      from { transform: translateY(-50%) rotate(0deg); }
-      to { transform: translateY(-50%) rotate(360deg); }
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
     
     [data-theme="dark"] #settings-gear {
