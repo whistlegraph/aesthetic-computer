@@ -32,10 +32,10 @@ https://assets.aesthetic.computer/m4l/
 ### Device Files
 | Device | URL |
 |--------|-----|
-| AC KidLisp | `https://assets.aesthetic.computer/m4l/AC-KidLisp.amxd` |
-| AC Notepat | `https://assets.aesthetic.computer/m4l/AC-Notepat.amxd` |
-| AC Metronome | `https://assets.aesthetic.computer/m4l/AC-Metronome.amxd` |
-| AC Prompt | `https://assets.aesthetic.computer/m4l/AC-Prompt.amxd` |
+| AC KidLisp.com | `https://assets.aesthetic.computer/m4l/AC%20KidLisp.com.amxd` |
+| AC Notepat | `https://assets.aesthetic.computer/m4l/AC%20Notepat.amxd` |
+| AC Metronome | `https://assets.aesthetic.computer/m4l/AC%20Metronome.amxd` |
+| AC Prompt | `https://assets.aesthetic.computer/m4l/AC%20Prompt.amxd` |
 
 ### Build & Deploy Process
 ```bash
@@ -47,19 +47,19 @@ python3 build.py --production
 npm run assets:sync:up -- --include "m4l/*"
 
 # Or deploy specific device
-aws s3 cp "AC KidLisp.amxd" s3://aesthetic-computer-assets/m4l/AC-KidLisp.amxd
+aws s3 cp "AC KidLisp.com.amxd" s3://aesthetic-computer-assets/m4l/
 ```
 
 ### Versioning
-- Keep versioned copies: `m4l/AC-KidLisp-v1.0.0.amxd`
-- Latest always at: `m4l/AC-KidLisp.amxd`
+- Keep versioned copies: `m4l/AC KidLisp.com-v1.0.0.amxd`
+- Latest always at: `m4l/AC KidLisp.com.amxd`
 - Version history in `ac-m4l/CHANGELOG.md`
 
 ### Download Link in KidLisp.com
 The Ableton boot screen includes a direct download link:
 ```html
-<a href="https://assets.aesthetic.computer/m4l/AC-KidLisp.amxd" download>
-  Download AC KidLisp.amxd
+<a href="https://assets.aesthetic.computer/m4l/AC%20KidLisp.com.amxd" download>
+  Download AC KidLisp.com.amxd
 </a>
 ```
 
