@@ -212,6 +212,7 @@ let docs: any;
 let extContext: any;
 let webWindow: any;
 let kidlispWindow: any;
+let newsWindow: any;
 let welcomePanel: vscode.WebviewPanel | null = null;
 let localServerCheckInterval: NodeJS.Timeout | undefined;
 let provider: AestheticViewProvider;
@@ -268,6 +269,7 @@ function startLocalServerCheck() {
       if (provider) provider.refreshWebview();
       refreshWebWindow();
       refreshKidLispWindow();
+      refreshNewsWindow();
     }
   });
   
@@ -282,6 +284,7 @@ function startLocalServerCheck() {
       if (provider) provider.refreshWebview();
       refreshWebWindow();
       refreshKidLispWindow();
+      refreshNewsWindow();
     } else if (!localServerAvailable && wasAvailable) {
       console.log("⏳ Local server disconnected - waiting for reconnect...");
       // Don't immediately show waiting screen - server may come back quickly during hot reload
@@ -1325,6 +1328,62 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }),
   );
 
+  // 📰 News Window
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.openNewsWindow", () => {
+      if (newsWindow) {
+        newsWindow.reveal(vscode.ViewColumn.One);
+        return;
+      }
+
+      const panel = vscode.window.createWebviewPanel(
+        "newsWebView",
+        "News",
+        vscode.ViewColumn.One,
+        {
+          enableScripts: true,
+          enableForms: true,
+          localResourceRoots: [extContext.extensionUri],
+        },
+      );
+
+      panel.title = "News" + (local ? " 🧑‍🤝‍🧑" : "");
+      panel.webview.html = getNewsWebViewContent(panel.webview);
+      newsWindow = panel;
+
+      sendNewsSession(panel.webview);
+
+      panel.webview.onDidReceiveMessage(
+        async (message) => {
+          switch (message.type) {
+            case "news:ready": {
+              sendNewsSession(panel.webview);
+              break;
+            }
+            case "login": {
+              vscode.commands.executeCommand("aestheticComputer.logIn");
+              break;
+            }
+            case "logout": {
+              vscode.commands.executeCommand("aestheticComputer.logOut");
+              break;
+            }
+          }
+        },
+        undefined,
+        context.subscriptions,
+      );
+
+      panel.onDidDispose(
+        () => {
+          newsWindow = null;
+        },
+        null,
+        context.subscriptions,
+      );
+    }),
+  );
+
   // Add definitionProvider to context.subscriptions if necessary
   context.subscriptions.push(definitionProvider);
 
@@ -1440,7 +1499,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         provider.refreshWebview();
         refreshWebWindow();
         refreshKidLispWindow();
+        refreshNewsWindow();
         sendKidLispSession();
+        sendNewsSession();
         updateUserStatusBar();
       }
     }),
@@ -1526,6 +1587,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       provider.refreshWebview();
       refreshWebWindow();
       refreshKidLispWindow();
+      refreshNewsWindow();
       refreshWelcomePanel(); // Also refresh welcome panel for dev mode
       vscode.window.showInformationMessage(
         `💻 Local Development: ${local ? "Enabled" : "Disabled"}`,
@@ -1922,6 +1984,13 @@ function refreshKidLispWindow() {
   }
 }
 
+function refreshNewsWindow() {
+  if (newsWindow) {
+    newsWindow.title = "News" + (local ? " 🧑‍🤝‍🧑" : "");
+    newsWindow.webview.html = getNewsWebViewContent(newsWindow.webview);
+  }
+}
+
 async function sendKidLispSession(target?: vscode.Webview) {
   const webview = target || kidlispWindow?.webview;
   if (!webview) return;
@@ -1935,6 +2004,24 @@ async function sendKidLispSession(target?: vscode.Webview) {
     );
   } catch (e) {
     console.log("🔴 Unable to fetch KidLisp session:", e);
+  }
+
+  webview.postMessage({ type: "setSession", tenant: "aesthetic", session });
+}
+
+async function sendNewsSession(target?: vscode.Webview) {
+  const webview = target || newsWindow?.webview;
+  if (!webview) return;
+
+  let session: vscode.AuthenticationSession | null = null;
+  try {
+    session = await vscode.authentication.getSession(
+      "aesthetic",
+      ["profile"],
+      { silent: true },
+    );
+  } catch (e) {
+    console.log("🔴 Unable to fetch News session:", e);
   }
 
   webview.postMessage({ type: "setSession", tenant: "aesthetic", session });
@@ -2131,6 +2218,152 @@ function getWebViewContent(webview: any, slug: string) {
 			</body>
 			</html>`;
 }
+
+  // 📰 News WebView Content
+  function getNewsWebViewContent(webview: any) {
+    const nonce = getNonce();
+
+    const styleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(extContext.extensionUri, "main.css"),
+    );
+
+    const resetStyleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(extContext.extensionUri, "reset.css"),
+    );
+
+    const vscodeStyleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(extContext.extensionUri, "vscode.css"),
+    );
+
+    if (local && !localServerAvailable && !isCodespaces) {
+      return `<!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <link href="${styleUri}" rel="stylesheet">
+          <link href="${resetStyleUri}" rel="stylesheet">
+          <link href="${vscodeStyleUri}" rel="stylesheet">
+          <title>News</title>
+          <style>
+            body {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              height: 100vh;
+              margin: 0;
+              background: #f7f1e1;
+              color: #3b2a1a;
+              font-family: system-ui, -apple-system, sans-serif;
+            }
+            .waiting { text-align: center; }
+            .plug { font-size: 64px; margin-bottom: 24px; animation: wiggle 2s ease-in-out infinite; }
+            .title { font-size: 20px; font-weight: 600; color: #a85a2a; margin-bottom: 12px; letter-spacing: 0.5px; }
+            .subtitle {
+              font-size: 14px;
+              color: #6b4a2e;
+              font-family: monospace;
+              background: #fff9f0;
+              padding: 8px 16px;
+              border-radius: 4px;
+              border: 1px solid #e2d4c3;
+            }
+            .subtitle code { color: #a85a2a; font-weight: 600; }
+            .dots::after { content: ''; animation: dots 1.5s steps(4, end) infinite; }
+            @keyframes dots { 0%, 20% { content: ''; } 40% { content: '.'; } 60% { content: '..'; } 80%, 100% { content: '...'; } }
+            @keyframes wiggle { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+          </style>
+        </head>
+        <body>
+          <div class="waiting">
+            <div class="plug">📰</div>
+            <div class="title">Waiting for local server<span class="dots"></span></div>
+            <div class="subtitle">Run <code>ac-site</code> to start localhost:8888</div>
+          </div>
+        </body>
+        </html>`;
+    }
+
+    let iframeUrl;
+    let iframeProtocol = "https://";
+    let path = "";
+    if (isCodespaces && codespaceName && codespacesDomain) {
+      iframeUrl = `${codespaceName}-8888.${codespacesDomain}`;
+      path = "/news.aesthetic.computer";
+    } else if (local) {
+      iframeUrl = "localhost:8888";
+      path = "/news.aesthetic.computer";
+    } else {
+      iframeUrl = "news.aesthetic.computer";
+      path = "";
+    }
+
+    let cspFrameSrc = "frame-src https://news.aesthetic.computer https://localhost:8888";
+    let cspChildSrc = "child-src https://news.aesthetic.computer https://localhost:8888";
+    if (isCodespaces && codespacesDomain) {
+      const codespaceWildcard = `https://*.${codespacesDomain}`;
+      cspFrameSrc += ` ${codespaceWildcard}`;
+      cspChildSrc += ` ${codespaceWildcard}`;
+    }
+
+    const sessionAesthetic = extContext.globalState.get(
+      "aesthetic:session",
+      undefined,
+    );
+
+    let param = "?vscode=true";
+    if (sessionAesthetic && typeof sessionAesthetic === "object") {
+      try {
+        const encoded = Buffer.from(JSON.stringify(sessionAesthetic)).toString(
+          "base64",
+        );
+        param += `&session-aesthetic=${encodeURIComponent(encoded)}`;
+      } catch (e) {
+        console.log("🔴 Failed to encode session for News webview:", e);
+        param += "&session-aesthetic=null";
+      }
+    } else {
+      param += "&session-aesthetic=null";
+    }
+
+    return `<!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; ${cspFrameSrc}; ${cspChildSrc}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; media-src *; img-src ${webview.cspSource} data:;">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="${styleUri}" rel="stylesheet">
+        <link href="${resetStyleUri}" rel="stylesheet">
+        <link href="${vscodeStyleUri}" rel="stylesheet">
+        <title>News</title>
+        <style>
+          body { margin: 0; padding: 0; overflow: hidden; }
+          iframe#news { width: 100vw; height: 100vh; border: none; }
+        </style>
+      </head>
+      <body>
+        <iframe id="news" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}${path}${param}"></iframe>
+        <script nonce="${nonce}">
+          const vscode = acquireVsCodeApi();
+          const newsIframe = document.getElementById('news');
+
+          window.addEventListener('message', (event) => {
+            if (event.data?.type === 'setSession') {
+              newsIframe?.contentWindow?.postMessage(event.data, '*');
+            }
+            if (event.data?.type && (event.data.type.startsWith('vscode-extension:') || event.data.type.startsWith('news:'))) {
+              vscode.postMessage(event.data);
+            }
+          });
+
+          newsIframe?.addEventListener('load', () => {
+            vscode.postMessage({ type: 'news:ready' });
+          });
+        </script>
+      </body>
+      </html>`;
+  }
 
 // 🌈 KidLisp.com WebView Content
 function getKidLispWebViewContent(webview: any) {
