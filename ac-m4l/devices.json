@@ -1,6 +1,14 @@
 {
   "devices": [
     {
+      "name": "AC KidLisp.com",
+      "piece": "kidlisp.com",
+      "description": "KidLisp.com IDE - Visual Programming for Aesthetic Computer",
+      "width": 800,
+      "height": 500,
+      "url": "https://kidlisp.com"
+    },
+    {
       "name": "AC 🟪 notepat (https://aesthetic.computer/notepat)",
       "piece": "notepat",
       "description": "Aesthetic Computer Notepat with Ableton Sync",
