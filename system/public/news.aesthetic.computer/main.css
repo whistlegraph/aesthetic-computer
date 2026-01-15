@@ -1,0 +1,137 @@
+/* News Aesthetic Computer, 2026.01.15 */
+:root {
+  --bg-primary: #f7f1e1;
+  --bg-secondary: #fff6e8;
+  --bg-tertiary: #fff9f0;
+  --text-primary: #2b1f12;
+  --text-secondary: #6b4a2e;
+  --border-color: #e2d4c3;
+  --accent: #e07a2f;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Berkeley Mono Variable", "YWFTProcessing-Regular", monospace;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.news-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.news-logo a { font-weight: bold; }
+
+.news-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.news-auth { margin-left: auto; }
+.news-auth {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-signup-btn {
+  background: linear-gradient(135deg, rgb(70, 155, 115) 0%, rgb(50, 125, 95) 100%);
+}
+
+.header-signup-btn:hover {
+  box-shadow: 0 2px 8px rgba(70, 155, 115, 0.3);
+}
+
+.news-main {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.news-list { display: flex; flex-direction: column; gap: 12px; }
+
+.news-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  gap: 12px;
+  align-items: start;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.news-rank { color: var(--text-secondary); text-align: right; }
+
+.news-title { font-size: 15px; font-weight: 600; }
+.news-domain { color: var(--text-secondary); margin-left: 6px; font-size: 12px; }
+
+.news-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.news-vote {
+  display: flex;
+  justify-content: center;
+}
+
+.news-vote-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--accent);
+}
+
+.news-submit form,
+.news-comment-form form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.news-submit input,
+.news-submit textarea,
+.news-comment-form textarea {
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  font-family: inherit;
+}
+
+.news-submit button,
+.news-comment-form button {
+  align-self: flex-start;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+}
+
+.news-text {
+  margin: 8px 0 16px 52px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.news-comments { display: flex; flex-direction: column; gap: 16px; }
+.news-comment { padding-left: 52px; }
+.news-comment-meta { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+.news-comment-body { font-size: 13px; }
+
+.news-empty { color: var(--text-secondary); padding: 12px 0; }
