@@ -2136,6 +2136,10 @@ function getWebViewContent(webview: any, slug: string) {
 function getKidLispWebViewContent(webview: any) {
   const nonce = getNonce();
   
+  // Detect VS Code theme for KidLisp waiting screen
+  const themeKind = vscode.window.activeColorTheme.kind;
+  const isDark = themeKind === 2 || themeKind === 3; // Dark or HighContrast
+  
   const styleUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extContext.extensionUri, "main.css"),
   );
@@ -2150,6 +2154,14 @@ function getKidLispWebViewContent(webview: any) {
 
   // Show waiting UI if local mode is enabled but server isn't available yet
   if (local && !localServerAvailable && !isCodespaces) {
+    // Theme-aware colors
+    const bg = isDark ? 'linear-gradient(135deg, #181318 0%, #141214 100%)' : 'linear-gradient(135deg, #fffacd 0%, #fff9c0 100%)';
+    const textColor = isDark ? '#ffffffcc' : '#333';
+    const accentColor = isDark ? '#ff69b4' : '#9370DB';
+    const subtitleBg = isDark ? '#1a1a1a' : '#fff';
+    const subtitleBorder = isDark ? '#483848' : '#e0d8a8';
+    const subtitleColor = isDark ? '#b0a0a8' : '#666';
+    
     return `<!DOCTYPE html>
       <html lang="en">
       <head>
@@ -2167,8 +2179,8 @@ function getKidLispWebViewContent(webview: any) {
             justify-content: center;
             height: 100vh;
             margin: 0;
-            background: linear-gradient(135deg, #fffacd 0%, #fff9c0 100%);
-            color: #333;
+            background: ${bg};
+            color: ${textColor};
             font-family: system-ui, -apple-system, sans-serif;
           }
           .waiting {
@@ -2182,21 +2194,21 @@ function getKidLispWebViewContent(webview: any) {
           .title {
             font-size: 20px;
             font-weight: 500;
-            color: #9370DB;
+            color: ${accentColor};
             margin-bottom: 12px;
             letter-spacing: 0.5px;
           }
           .subtitle {
             font-size: 14px;
-            color: #666;
+            color: ${subtitleColor};
             font-family: monospace;
-            background: #fff;
+            background: ${subtitleBg};
             padding: 8px 16px;
             border-radius: 4px;
-            border: 1px solid #e0d8a8;
+            border: 1px solid ${subtitleBorder};
           }
           .subtitle code {
-            color: #9370DB;
+            color: ${accentColor};
             font-weight: 600;
           }
           .dots::after {
