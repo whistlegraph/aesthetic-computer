@@ -10719,17 +10719,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // Removed in favor of the above. 23.06.16.15.04
-    // Copy text to clipboard.
-    // if (type === "copy") {
-    //   try {
-    //     await navigator.clipboard.writeText(content);
-    //     send({ type: "copy:copied" });
-    //   } catch (err) {
-    //     send({ type: "copy:failed" });
-    //   }
-    //   return;
-    // }
+    // Direct copy text to clipboard (re-enabled for chat modal and other uses)
+    if (type === "copy") {
+      try {
+        await navigator.clipboard.writeText(content);
+        send({ type: "copy:copied" });
+      } catch (err) {
+        console.warn("📋 Clipboard copy failed:", err);
+        if (window.parent) {
+          // Try via parent message for embedded contexts
+          window.parent.postMessage(
+            { type: "clipboard:copy", value: content },
+            "*",
+          );
+        } else {
+          send({ type: "copy:failed" });
+        }
+      }
+      return;
+    }
 
     // Authenticate / signup or login a user.
     if (type === "login") {
@@ -11623,7 +11631,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         Glaze.clear(); // Clear WebGL buffer to prevent stale content
         Glaze.off();
         glaze.on = false;
-        // Don't set needsGPUCleanup here - glaze doesn't require reframe
+        // Glaze pieces (like KidLisp) need a reframe to properly refresh the screen
+        needsReframe = true;
       }
       canvas.style.removeProperty("opacity");
       // Clear freeze frame if stuck

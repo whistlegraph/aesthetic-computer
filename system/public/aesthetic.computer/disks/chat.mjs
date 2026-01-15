@@ -1694,11 +1694,8 @@ function act(
         
         if (clickedCopy) {
           beep();
-          // Use the clipboard API via send
-          send({ 
-            type: "signal", 
-            content: { label: "copy", message: msgText }
-          });
+          // Use the direct clipboard API in bios
+          send({ type: "copy", content: msgText });
           messageCopyModal.copied = true;
           messageCopyModal.error = false;
           // Auto-close after showing "Copied!" for a moment
@@ -1715,6 +1712,16 @@ function act(
           messageCopyModal = null;
         }
       }
+    }
+    
+    // Handle clipboard result events
+    if (e.is("clipboard:copy:copied")) {
+      messageCopyModal.copied = true;
+      messageCopyModal.error = false;
+    }
+    if (e.is("clipboard:copy:failed")) {
+      messageCopyModal.copied = false;
+      messageCopyModal.error = true;
     }
     
     // Escape key closes modal
