@@ -15482,6 +15482,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         Glaze.off();
         canvas.style.removeProperty("opacity");
       } else if (glaze.on === true && !wasOn) {
+        // 🧊 Clear any stuck freeze frame before enabling glaze
+        // This fixes a race condition where navigating back to a glaze piece
+        // (like prompt in dark mode) could leave the previous piece's freeze frame
+        // visible because glazeReady was false while shaders were loading.
+        if (freezeFrame || freezeFrameFrozen) {
+          if (wrapper.contains(freezeFrameCan)) {
+            freezeFrameCan.remove();
+          }
+          canvas.style.removeProperty("opacity");
+          freezeFrame = false;
+          freezeFrameGlaze = false;
+          freezeFrameFrozen = false;
+        }
         // Glaze was just enabled - set flag to trigger reframe on next paint cycle
         needsReframe = true;
         canvas.style.opacity = 0; // Hide main canvas until glaze is ready
