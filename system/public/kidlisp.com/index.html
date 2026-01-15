@@ -1599,6 +1599,259 @@
       color: #fff;
     }
 
+    /* FF1 Art Computer boot screen - theme-aware */
+    #boot-screen-ff1 {
+      background: #1a1a1a !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 16px;
+      box-sizing: border-box;
+      gap: 8px;
+    }
+    #boot-screen-ff1 .ff1-logo {
+      height: 48px;
+      width: auto;
+      max-width: 80%;
+      object-fit: contain;
+      filter: invert(1);
+      transition: height 0.2s ease, margin 0.2s ease;
+    }
+    #boot-screen-ff1 .boot-text {
+      color: white !important;
+      font-family: 'PP Mori', 'Futura', 'Century Gothic', sans-serif;
+      text-align: center;
+    }
+    #boot-screen-ff1 .boot-text-title {
+      font-size: clamp(14px, 4vw, 18px);
+      font-weight: bold;
+    }
+    #boot-screen-ff1 .boot-text-action {
+      font-size: clamp(10px, 2.5vw, 12px);
+      opacity: 0.6;
+    }
+    
+    /* FF1 light mode - keep dark aesthetic for brand consistency */
+    [data-theme="light"] #boot-screen-ff1 {
+      background: #1a1a1a !important;
+    }
+    [data-theme="light"] #boot-screen-ff1 .boot-text {
+      color: white !important;
+    }
+    
+    /* Ableton Live 12 boot screen - theme-aware */
+    #boot-screen-ableton {
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 16px;
+      box-sizing: border-box;
+      gap: 8px;
+      transition: background 0.3s ease;
+      /* Default to dark for system dark preference */
+      background: linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%) !important;
+    }
+    #boot-screen-ableton .ableton-boot-logo {
+      width: clamp(50px, 15vw, 80px);
+      height: auto;
+      transition: width 0.2s ease;
+      color: #fff; /* Default fill via currentColor */
+    }
+    #boot-screen-ableton .boot-text {
+      font-family: 'Futura PT', 'Futura', 'Century Gothic', sans-serif;
+      text-align: center;
+      color: #fff; /* Default text */
+    }
+    #boot-screen-ableton .boot-text-title {
+      font-size: clamp(14px, 4vw, 18px);
+      font-weight: bold;
+    }
+    #boot-screen-ableton .boot-text-action {
+      font-size: clamp(10px, 2.5vw, 12px);
+      opacity: 0.6;
+    }
+    /* Download button styling - default dark mode */
+    #boot-screen-ableton .m4l-download-btn {
+      display: inline-block;
+      padding: 8px 16px;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: clamp(10px, 2.5vw, 12px);
+      font-weight: 500;
+      transition: transform 0.1s ease, background 0.2s ease;
+      white-space: nowrap;
+      background: #fff;
+      color: #000;
+    }
+    #boot-screen-ableton .m4l-download-btn:hover {
+      transform: scale(1.02);
+      opacity: 0.9;
+    }
+    #boot-screen-ableton .m4l-download-btn:active {
+      transform: scale(0.98);
+    }
+    
+    /* System light preference (no data-theme set) */
+    @media (prefers-color-scheme: light) {
+      #boot-screen-ableton {
+        background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%) !important;
+      }
+      #boot-screen-ableton .ableton-boot-logo {
+        color: #333;
+      }
+      #boot-screen-ableton .boot-text {
+        color: #333 !important;
+      }
+      #boot-screen-ableton .m4l-download-btn {
+        background: #333;
+        color: #fff;
+      }
+    }
+    
+    /* Explicit light mode */
+    [data-theme="light"] #boot-screen-ableton {
+      background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%) !important;
+    }
+    [data-theme="light"] #boot-screen-ableton .ableton-boot-logo {
+      color: #333;
+    }
+    [data-theme="light"] #boot-screen-ableton .boot-text {
+      color: #333 !important;
+    }
+    [data-theme="light"] #boot-screen-ableton .m4l-download-btn {
+      background: #333 !important;
+      color: #fff !important;
+    }
+    
+    /* Explicit dark mode */
+    [data-theme="dark"] #boot-screen-ableton {
+      background: linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%) !important;
+    }
+    [data-theme="dark"] #boot-screen-ableton .ableton-boot-logo {
+      color: #fff;
+    }
+    [data-theme="dark"] #boot-screen-ableton .boot-text {
+      color: #fff !important;
+    }
+    [data-theme="dark"] #boot-screen-ableton .m4l-download-btn {
+      background: #fff !important;
+      color: #000 !important;
+    }
+    
+    /* Enable container queries on preview-iframe-container */
+    .preview-iframe-container {
+      container-type: size;
+      container-name: preview;
+    }
+    
+    /* Responsive boot screens - using @container for modern browsers */
+    @supports (container-type: size) {
+      /* FF1 responsive - reflow on small panels */
+      @container preview (max-height: 180px) {
+        #boot-screen-ff1 .ff1-logo {
+          height: 32px;
+        }
+        #boot-screen-ff1 .boot-text-title {
+          font-size: 14px;
+        }
+      }
+      @container preview (max-height: 120px) {
+        #boot-screen-ff1 {
+          flex-direction: row !important;
+          gap: 16px;
+          padding: 8px 16px;
+        }
+        #boot-screen-ff1 .ff1-logo {
+          height: 28px;
+        }
+        #boot-screen-ff1 .boot-text-title {
+          font-size: 12px;
+        }
+        #boot-screen-ff1 .boot-text-action {
+          display: none;
+        }
+      }
+      
+      /* Ableton responsive - reflow on small panels */
+      @container preview (max-height: 200px) {
+        #boot-screen-ableton .ableton-boot-logo {
+          width: 50px;
+        }
+        #boot-screen-ableton .boot-text-title {
+          font-size: 14px;
+        }
+        #boot-screen-ableton .m4l-download-btn {
+          padding: 6px 12px;
+          font-size: 10px;
+        }
+      }
+      @container preview (max-height: 140px) {
+        #boot-screen-ableton {
+          flex-direction: row !important;
+          flex-wrap: wrap;
+          gap: 12px;
+          padding: 8px 16px;
+          justify-content: center !important;
+        }
+        #boot-screen-ableton .ableton-boot-logo {
+          width: 40px;
+        }
+        #boot-screen-ableton .boot-text-title {
+          font-size: 12px;
+        }
+        #boot-screen-ableton .boot-text-action {
+          display: none;
+        }
+      }
+      @container preview (max-height: 80px) {
+        #boot-screen-ableton .m4l-download-btn {
+          display: none;
+        }
+        #boot-screen-ff1 .ff1-logo {
+          height: 24px;
+        }
+      }
+    }
+    
+    /* Fallback for browsers without container queries - use media queries */
+    @supports not (container-type: size) {
+      @media (max-height: 400px) {
+        #boot-screen-ff1 .ff1-logo {
+          height: 32px;
+        }
+        #boot-screen-ableton .ableton-boot-logo {
+          width: 50px;
+        }
+        #boot-screen-ableton .m4l-download-btn {
+          padding: 6px 12px;
+          font-size: 10px;
+        }
+      }
+      @media (max-height: 280px) {
+        #boot-screen-ff1 {
+          flex-direction: row !important;
+          gap: 16px;
+          padding: 8px 16px;
+        }
+        #boot-screen-ff1 .ff1-logo {
+          height: 28px;
+        }
+        #boot-screen-ff1 .boot-text-action,
+        #boot-screen-ableton .boot-text-action {
+          display: none;
+        }
+        #boot-screen-ableton {
+          flex-direction: row !important;
+          flex-wrap: wrap;
+          gap: 12px;
+          padding: 8px 16px;
+        }
+        #boot-screen-ableton .ableton-boot-logo {
+          width: 40px;
+        }
+      }
+    }
+
     .boot-text .blink {
       animation: blink 1s infinite;
     }
@@ -3234,21 +3487,54 @@
       position: relative;
     }
     
-    /* Ticker scrolling animation for Top Hits - auto-scrolls */
+    /* Ticker scrolling animation for Top Hits - auto-scrolls only when content overflows */
     .example-code .ticker-wrapper {
       display: inline-block;
       white-space: nowrap;
-      padding-right: 2em;
-      animation: ticker-scroll 20s linear infinite;
+      padding-right: 0;
     }
     
-    .example-item:hover .example-code .ticker-wrapper {
-      animation-duration: 8s; /* Faster on hover */
+    /* Only animate when has ticker-scroll class (added by JS when content overflows) */
+    .example-code .ticker-wrapper.ticker-scroll {
+      animation: ticker-scroll var(--ticker-duration, 20s) linear infinite;
+    }
+    
+    .example-item:hover .example-code .ticker-wrapper.ticker-scroll {
+      animation-duration: calc(var(--ticker-duration, 20s) * 0.4); /* Faster on hover */
     }
     
     @keyframes ticker-scroll {
       0% { transform: translateX(0); }
       100% { transform: translateX(-50%); }
+    }
+    
+    /* Program separator - blinking stop indicator */
+    .ticker-separator {
+      display: inline-block;
+      padding: 0 1.5em;
+      animation: separator-blink 1.2s ease-in-out infinite;
+    }
+    
+    .ticker-separator::before {
+      content: '●';
+      font-size: 0.6em;
+      vertical-align: middle;
+      color: rgba(255, 165, 0, 0.8); /* Orange for visibility on both themes */
+    }
+    
+    [data-theme="light"] .ticker-separator::before {
+      color: rgba(255, 100, 0, 0.9); /* Darker orange in light mode */
+    }
+    
+    @keyframes separator-blink {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    
+    /* Static display when content fits - no animation needed */
+    .example-code .ticker-static {
+      display: inline-block;
+      white-space: nowrap;
     }
     
     /* Timing token blink animation for Top Hits */
@@ -7103,16 +7389,16 @@
             <div class="color-bar bar-7" style="background: #0000ff;"></div>
             <div class="color-bar bar-8" style="background: #000000;"></div>
           </div>
-          <div class="boot-screen hidden" id="boot-screen-ff1" data-platform="ff1" style="background: #1a1a1a; flex-direction: column; align-items: center; justify-content: center;">
-            <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="Feral File" style="height: 48px; margin-bottom: 16px; filter: invert(1);">
-            <div class="boot-text" style="font-size: 18px; font-weight: bold;">FF1 Art Computer</div>
-            <div class="boot-text boot-text-action" style="font-size: 12px; opacity: 0.6; margin-top: 8px;" data-i18n="pressToRun">Press <span class="blink">▶</span> to run</div>
+          <div class="boot-screen hidden" id="boot-screen-ff1" data-platform="ff1">
+            <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="Feral File" class="ff1-logo">
+            <div class="boot-text boot-text-title">FF1 Art Computer</div>
+            <div class="boot-text boot-text-action" data-i18n="pressToRun">Press <span class="blink">▶</span> to run</div>
           </div>
-          <div class="boot-screen hidden" id="boot-screen-ableton" data-platform="ableton" style="background: linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%); flex-direction: column; align-items: center; justify-content: center;">
-            <svg class="ableton-boot-logo" viewBox="0 0 51 24" xmlns="http://www.w3.org/2000/svg" style="width: 80px; height: 38px; margin-bottom: 16px;"><path fill="#fff" d="M0 0h3v24H0V0zm6 0h3v24H6V0zm6 0h3v24h-3V0zm6 0h3v24h-3V0zm9 0h24v3H27V0zm0 7h24v3H27V7zm0 7h24v3H27v-3zm0 7h24v3H27v-3z"/></svg>
-            <div class="boot-text" style="font-size: 18px; font-weight: bold; color: #fff;">Ableton Live 12 Suite</div>
-            <div class="boot-text boot-text-action" style="font-size: 12px; opacity: 0.6; margin-top: 12px; color: #fff;" data-i18n="pressToSend">Press <span class="blink">▶</span> to send to AC KidLisp.com device</div>
-            <a href="https://assets.aesthetic.computer/m4l/AC%20KidLisp.com.amxd" target="_blank" rel="noopener" class="m4l-download-btn" style="display: inline-block; margin-top: 16px; padding: 8px 16px; background: #fff; color: #000; text-decoration: none; border-radius: 4px; font-size: 12px; font-weight: 500;">Download AC KidLisp.com.amxd <span style="opacity: 0.6;">(13 KB)</span></a>
+          <div class="boot-screen hidden" id="boot-screen-ableton" data-platform="ableton">
+            <svg class="ableton-boot-logo" viewBox="0 0 51 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M0 0h3v24H0V0zm6 0h3v24H6V0zm6 0h3v24h-3V0zm6 0h3v24h-3V0zm9 0h24v3H27V0zm0 7h24v3H27V7zm0 7h24v3H27v-3zm0 7h24v3H27v-3z"/></svg>
+            <div class="boot-text boot-text-title">Ableton Live 12 Suite</div>
+            <div class="boot-text boot-text-action" data-i18n="pressToSend">Press <span class="blink">▶</span> to send to AC KidLisp.com device</div>
+            <a href="https://assets.aesthetic.computer/m4l/AC%20KidLisp.com.amxd" target="_blank" rel="noopener" class="m4l-download-btn">Download AC KidLisp.com.amxd <span style="opacity: 0.6;">(13 KB)</span></a>
           </div>
           <div class="boot-screen hidden" id="boot-screen-playdate" data-platform="playdate" style="background: #ffcc00; flex-direction: column; align-items: center; justify-content: center;">
             <div style="font-size: 64px; margin-bottom: 16px;">🎮</div>
@@ -12003,6 +12289,10 @@
       let editorUserModified = false;
       let isSettingValueProgrammatically = false;
       
+      // Expose setter for external code (handleCodeItemClick needs this)
+      window.setEditorUserModified = (val) => { editorUserModified = val; };
+      window.getEditorUserModified = () => editorUserModified;
+      
       // LOCAL indicator removed - no longer needed
       
       // Create the editor
@@ -16488,9 +16778,12 @@
       let displayCode = syntaxHighlight ? applySyntaxHighlighting(sourceCode) : (snippet || '(empty)');
       if (!syntaxHighlight && truncated) displayCode += '…';
       
-      // Ticker animation - always scroll when enabled
-      if (tickerAnimation) {
-        displayCode = `<span class="ticker-wrapper">${displayCode}&nbsp;&nbsp;&nbsp;${displayCode}</span>`;
+      // Ticker animation - will be activated by JS after render if content overflows
+      // Use data attribute to mark for ticker processing, don't duplicate content yet
+      const tickerEnabled = tickerAnimation;
+      if (tickerEnabled) {
+        // Wrap in ticker-wrapper, JS will add ticker-scroll class and duplicate if needed
+        displayCode = `<span class="ticker-wrapper" data-ticker-content="${encodeURIComponent(displayCode)}">${displayCode}</span>`;
       }
       
       // Build metadata lines
@@ -16617,7 +16910,9 @@
         isSettingValueProgrammatically = false;
       }
       // Mark as not user-edited since this was loaded from list
-      editorUserModified = false;
+      if (typeof window.setEditorUserModified === 'function') {
+        window.setEditorUserModified(false);
+      }
       
       const editorEl = document.getElementById('kidlisp-editor');
       if (editorEl) editorEl.classList.remove('decrypting');
@@ -16637,11 +16932,17 @@
       
       updatePreview();
       
-      // Auto-play
-      if (sendButton && !sendButton.disabled) {
-        if (isPlaying) stopButton.click();
-        sendButton.click();
+      // Auto-play - ensure button state is updated before checking
+      if (window.updatePlayButtonState) {
+        window.updatePlayButtonState();
       }
+      // Use requestAnimationFrame to ensure DOM/state updates have propagated
+      requestAnimationFrame(() => {
+        if (sendButton && !sendButton.disabled) {
+          if (isPlaying) stopButton.click();
+          sendButton.click();
+        }
+      });
     }
     
     /**
@@ -16686,6 +16987,62 @@
         
         el.addEventListener('click', () => handleCodeItemClick(el));
         listEl.appendChild(el);
+      });
+      
+      // Process ticker animations after DOM render
+      if (tickerAnimation) {
+        requestAnimationFrame(() => processTickerAnimations(listEl));
+      }
+    }
+    
+    /**
+     * Process ticker elements - only animate if content overflows container
+     * Adds separator and duplicate content for seamless infinite scroll
+     */
+    function processTickerAnimations(container) {
+      const tickers = container.querySelectorAll('.ticker-wrapper[data-ticker-content]');
+      tickers.forEach(ticker => {
+        const parent = ticker.closest('.example-code');
+        if (!parent) return;
+        
+        // Get the encoded original content
+        const encodedContent = ticker.getAttribute('data-ticker-content');
+        if (!encodedContent) return;
+        
+        // Temporarily allow overflow to get true content width
+        const originalOverflow = parent.style.overflow;
+        parent.style.overflow = 'visible';
+        
+        const containerWidth = parent.clientWidth;
+        const contentWidth = ticker.scrollWidth;
+        
+        // Restore overflow
+        parent.style.overflow = originalOverflow || '';
+        
+        // Debug: uncomment to see measurements
+        // console.log('Ticker:', ticker.textContent.substring(0, 30), 'container:', containerWidth, 'content:', contentWidth);
+        
+        // If content fits (with small buffer for rounding), no animation needed
+        if (contentWidth <= containerWidth + 2) {
+          ticker.classList.add('ticker-static');
+          return;
+        }
+        
+        // Content overflows - set up infinite scroll with separator
+        const originalContent = ticker.innerHTML;
+        const separator = '<span class="ticker-separator"></span>';
+        
+        // Duplicate content with separator for seamless loop
+        ticker.innerHTML = originalContent + separator + originalContent + separator;
+        
+        // Calculate animation duration based on content length (pixels per second)
+        const pixelsPerSecond = 40; // Adjust speed here
+        const totalWidth = ticker.scrollWidth / 2; // Half because we duplicated
+        const duration = totalWidth / pixelsPerSecond;
+        ticker.style.setProperty('--ticker-duration', `${duration}s`);
+        
+        // Enable scrolling animation
+        ticker.classList.add('ticker-scroll');
       });
     }
 
@@ -18361,28 +18718,54 @@
       const cx = width / 2;
       const cy = height / 2;
       
-      // Dark gradient background
+      // Theme detection
+      const isLightMode = document.documentElement.getAttribute('data-theme') === 'light' ||
+        (!document.documentElement.getAttribute('data-theme') && 
+         window.matchMedia?.('(prefers-color-scheme: light)').matches);
+      
+      // Theme-aware colors
+      const theme = isLightMode ? {
+        bgInner: '#f8f8fa',
+        bgOuter: '#e8e8ec',
+        textEmpty: '#888',
+        textHint: '#aaa',
+        headerColor: '#2AA1A1',
+        lineColor: 'rgba(100, 100, 140, 0.4)',
+        shadowColor: 'rgba(0, 0, 0, 0.15)',
+        legendText: '#666'
+      } : {
+        bgInner: '#1a1a2e',
+        bgOuter: '#0a0a14',
+        textEmpty: '#666',
+        textHint: '#444',
+        headerColor: '#4ECDC4',
+        lineColor: 'rgba(120, 120, 160, 0.5)',
+        shadowColor: 'rgba(0, 0, 0, 0.3)',
+        legendText: '#888'
+      };
+      
+      // Gradient background
       const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * 0.7);
-      bgGrad.addColorStop(0, '#1a1a2e');
-      bgGrad.addColorStop(1, '#0a0a14');
+      bgGrad.addColorStop(0, theme.bgInner);
+      bgGrad.addColorStop(1, theme.bgOuter);
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, width, height);
       
       const n = particles.length;
       
       if (n === 0) {
-        ctx.fillStyle = '#666';
+        ctx.fillStyle = theme.textEmpty;
         ctx.font = '14px monospace';
         ctx.textAlign = 'center';
         ctx.fillText('Write some KidLisp to see the pills', cx, cy);
-        ctx.fillStyle = '#444';
+        ctx.fillStyle = theme.textHint;
         ctx.font = '11px monospace';
         ctx.fillText('drag to rotate • scroll to zoom • dbl-click for auto-rotate', cx, cy + 24);
         return;
       }
       
       // Header
-      ctx.fillStyle = '#4ECDC4';
+      ctx.fillStyle = theme.headerColor;
       ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'left';
       ctx.fillText(`💊 PILLS (${n} expressions)`, 16, 20);
@@ -18403,12 +18786,12 @@
       ctx.fillText(status, 180, 20);
       
       if (vizSystem.isPlaying) {
-        ctx.fillStyle = '#555';
+        ctx.fillStyle = theme.textHint;
         ctx.font = '9px monospace';
         ctx.fillText(`frame ${vizSystem.frameCount}`, 260, 20);
       }
       
-      ctx.fillStyle = '#555';
+      ctx.fillStyle = theme.textHint;
       ctx.font = '10px monospace';
       ctx.fillText(pills.autoRotate ? '◉ auto-rotate' : '○ drag to rotate', 16, 34);
       
@@ -18429,7 +18812,8 @@
         // Fade based on depth
         const avgZ = (proj1.z + proj2.z) / 2;
         const alpha = Math.max(0.2, Math.min(0.7, 0.5 - avgZ * 0.001));
-        ctx.strokeStyle = `rgba(120, 120, 160, ${alpha})`;
+        const lineRgb = isLightMode ? '100, 100, 140' : '120, 120, 160';
+        ctx.strokeStyle = `rgba(${lineRgb}, ${alpha})`;
         
         ctx.beginPath();
         ctx.moveTo(proj1.x, proj1.y);
@@ -18470,7 +18854,8 @@
         }
         
         // Shadow
-        ctx.fillStyle = `rgba(0, 0, 0, ${0.3 * depthFactor})`;
+        const shadowAlpha = isLightMode ? 0.15 * depthFactor : 0.3 * depthFactor;
+        ctx.fillStyle = `rgba(0, 0, 0, ${shadowAlpha})`;
         drawPillShape(ctx, x + 2, y + 2, w, h);
         ctx.fill();
         
@@ -18503,7 +18888,8 @@
         const name = pill.name.length > 8 ? pill.name.substring(0, 7) + '…' : pill.name;
         
         // Shadow
-        ctx.fillStyle = `rgba(0, 0, 0, ${0.6 * depthFactor})`;
+        const textShadowAlpha = isLightMode ? 0.3 * depthFactor : 0.6 * depthFactor;
+        ctx.fillStyle = `rgba(0, 0, 0, ${textShadowAlpha})`;
         ctx.fillText(name, x + 1, y + 1);
         
         // Name text
@@ -18532,7 +18918,7 @@
         drawPillShape(ctx, legendX + 12, legendY, 24, 10);
         ctx.fill();
         
-        ctx.fillStyle = '#888';
+        ctx.fillStyle = theme.legendText;
         ctx.fillText(item.label, legendX + 28, legendY);
         legendX += ctx.measureText(item.label).width + 40;
       }
