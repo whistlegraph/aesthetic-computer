@@ -19,7 +19,12 @@ The **Emacs MCP Server** (`artery/emacs-mcp.mjs`) bridges Copilot to Emacs, enab
 - **Emacs MCP:** `artery/emacs-mcp.mjs` — bridges Copilot ↔ Emacs
 - **Artery TUI:** `artery/artery-tui.mjs` — main interactive interface, run via Emacs MCP
 - **KidLisp:** `kidlisp/` (interpreter), `system/public/aesthetic.computer/disks/` (pieces)
+- **KidLisp.com Editor:** `system/public/kidlisp.com/index.html` — main KidLisp editor
 - **Tezos:** `tezos/keeps.mjs` — NFT contract CLI
+
+## Important: HTML Templates
+- **Production template:** `system/netlify/functions/index.mjs` — This is the ACTUAL template served in production. Contains inline boot canvas animation, HTML structure, etc. Edit this file for boot screen changes.
+- **Dev template (NOT USED):** `system/templates/index.html` — Legacy/development reference only. Changes here do NOT affect production.
 
 ## Workflow
 1. Run commands through **Emacs MCP** (`mcp_emacs_*` tools) when possible
