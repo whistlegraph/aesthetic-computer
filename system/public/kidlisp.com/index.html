@@ -11527,7 +11527,7 @@
     const pauseButtonSVG = `<svg class="inline-btn-icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#90EE90"/><rect x="8" y="7" width="3" height="10" rx="1" fill="#1a2f1a"/><rect x="13" y="7" width="3" height="10" rx="1" fill="#1a2f1a"/></svg>`;
     const stopButtonSVG = `<svg class="inline-btn-icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#9370DB"/><rect x="8" y="8" width="8" height="8" rx="1" fill="#2f1a2f"/></svg>`;
     
-    // Show welcome message - shows autoplay state with code preview
+    // Show welcome message - shows code preview when editor is ready
     let hasShownWelcome = false;
     function showWelcomeMessage() {
       if (hasShownWelcome) return;
@@ -11541,18 +11541,18 @@
           : currentCode.replace(/\n/g, ' ↵ ').replace(/\s+/g, ' ').trim()
       ) : '';
       
-      // Add welcome message showing autoplay state
+      // Add welcome message showing ready state with code preview
       addConsoleEntry(
-        `🎨 <span class="welcome-title">Playing</span>` + 
+        `🎨 <span class="welcome-title">Ready</span>` + 
         (codePreview ? ` <span class="console-code">${codePreview}</span>` : ''),
         'welcome',
         null,
         { html: true, className: 'welcome-message' }
       );
       
-      // Add helpful hints about pause/stop
+      // Add helpful hints about play/pause/stop
       addConsoleEntry(
-        `<span class="hint-text">💡 ${pauseButtonSVG} pause ${stopButtonSVG} stop to edit while running · errors appear here</span>`,
+        `<span class="hint-text">💡 ${playButtonSVG} play ${pauseButtonSVG} pause ${stopButtonSVG} stop · errors appear here</span>`,
         'hint',
         null,
         { html: true, className: 'hint-message' }
