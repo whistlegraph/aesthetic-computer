@@ -2,11 +2,11 @@
   "devices": [
     {
       "name": "AC KidLisp.com",
-      "piece": "kidlisp.com",
-      "description": "KidLisp.com IDE - Visual Programming for Aesthetic Computer",
-      "width": 800,
-      "height": 500,
-      "url": "https://kidlisp.com"
+      "piece": "kidlisp.com/device",
+      "description": "KidLisp.com Device View - receives code from kidlisp.com IDE",
+      "width": 400,
+      "height": 300,
+      "url": "https://kidlisp.com/device"
     },
     {
       "name": "AC 🟪 notepat (https://aesthetic.computer/notepat)",
