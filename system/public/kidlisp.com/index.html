@@ -3485,6 +3485,17 @@
       flex: 1;
       min-width: 0;
       position: relative;
+      /* Monaco-style sharp text shadow for depth */
+      text-shadow: 
+        0 1px 1px rgba(0, 0, 0, 0.5),
+        0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Light mode: subtler shadow that still adds depth */
+    [data-theme="light"] .example-code {
+      text-shadow: 
+        0 1px 1px rgba(0, 0, 0, 0.15),
+        0 2px 3px rgba(0, 0, 0, 0.1);
     }
     
     /* Ticker scrolling animation for Top Hits - auto-scrolls only when content overflows */
