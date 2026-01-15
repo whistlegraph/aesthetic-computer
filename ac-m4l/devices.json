@@ -6,7 +6,8 @@
       "description": "KidLisp.com Device View - receives code from kidlisp.com IDE",
       "width": 400,
       "height": 300,
-      "url": "https://kidlisp.com/device"
+      "devUrl": "https://localhost:8888/kidlisp.com/device",
+      "prodUrl": "https://kidlisp.com/device"
     },
     {
       "name": "AC 🟪 notepat (https://aesthetic.computer/notepat)",

@@ -197,6 +197,10 @@ const info = {
 const codeChannels = {}; // Used to filter `code` updates from redis to
 //                          clients who explicitly have the channel set.
 
+// DAW channel for M4L device ↔ IDE communication
+const dawDevices = new Set(); // Connection IDs of /device instances
+const dawIDEs = new Set(); // Connection IDs of IDE instances in Ableton mode
+
 // Unified client tracking: each client has handle, user, location, and connection types
 const clients = {}; // Map of connection ID to { handle, user, location, websocket: true/false, udp: true/false }
 
@@ -1504,6 +1508,35 @@ wss.on("connection", (ws, req) => {
       return;
     }
 
+    // 🎹 DAW Channel - M4L device ↔ IDE communication
+    if (msg.type === "daw:join") {
+      // Device (kidlisp.com/device) joining to receive code
+      dawDevices.add(id);
+      log(`🎹 DAW device joined: ${id} (total: ${dawDevices.size})`);
+      ws.send(JSON.stringify({ type: "daw:joined", id }));
+      return;
+    }
+    
+    if (msg.type === "daw:code") {
+      // IDE sending code to all connected devices
+      log(`🎹 DAW code broadcast from ${id} to ${dawDevices.size} devices`);
+      const codeMsg = JSON.stringify({
+        type: "daw:code",
+        content: msg.content,
+        from: id
+      });
+      
+      // Broadcast to all DAW devices
+      for (const deviceId of dawDevices) {
+        const deviceWs = connections[deviceId];
+        if (deviceWs && deviceWs.readyState === WebSocket.OPEN) {
+          deviceWs.send(codeMsg);
+          log(`🎹 Sent code to device ${deviceId}`);
+        }
+      }
+      return;
+    }
+
     msg.id = id; // TODO: When sending a server generated message, use a special id.
 
     // Extract user identity and handle from ANY message that contains it
@@ -1878,6 +1911,16 @@ wss.on("connection", (ws, req) => {
 
     // Remove from VSCode clients if present
     vscodeClients.delete(ws);
+    
+    // Remove from DAW devices if present
+    if (dawDevices.has(id)) {
+      dawDevices.delete(id);
+      log(`🎹 DAW device disconnected: ${id} (remaining: ${dawDevices.size})`);
+    }
+    if (dawIDEs.has(id)) {
+      dawIDEs.delete(id);
+      log(`🎹 DAW IDE disconnected: ${id}`);
+    }
 
     // Delete the user from the worldClients pieces index.
     // keys(worldClients).forEach((piece) => {
