@@ -13539,8 +13539,8 @@
       if (window.syncMiniPlaybackButtons) window.syncMiniPlaybackButtons();
     }
     
-    // Track current platform globally
-    let currentPlatform = localStorage.getItem('kidlisp-platform') || 'aesthetic-computer';
+    // Track current platform globally (always starts as aesthetic-computer, not persisted)
+    let currentPlatform = 'aesthetic-computer';
     
     // Global helper to generate platform title HTML with short/full variants for responsive collapse
     function getACTitleHTML(codeChars = '') {
@@ -13594,7 +13594,6 @@
           : session.account?.label || null;
         externalSessionHydrated = true;
         currentPlatform = 'aesthetic-computer';
-        localStorage.setItem('kidlisp-platform', currentPlatform);
         updateACLoginUI?.();
         // Try to switch to History tab; if DOM not ready yet, set pending flag
         if (typeof switchToHistoryTab === 'function') {
@@ -15277,8 +15276,8 @@
           return;
         }
         
-        // Load saved platform from localStorage
-        const savedPlatform = localStorage.getItem('kidlisp-platform') || 'aesthetic-computer';
+        // Always start with aesthetic-computer (platform choice not persisted)
+        const savedPlatform = 'aesthetic-computer';
         const savedOption = document.querySelector(`.platform-option[data-platform="${savedPlatform}"]`);
         if (savedOption) {
           const name = savedOption.querySelector('.platform-opt-name')?.textContent || 'Aesthetic.Computer';
@@ -15360,9 +15359,6 @@
           
           // Update global current platform BEFORE stopping playback
           currentPlatform = platform;
-          
-          // Save selection
-          localStorage.setItem('kidlisp-platform', platform);
           
           // Stop current playback and show new platform's boot screen
           // (stopPlayback already hides QR code)
