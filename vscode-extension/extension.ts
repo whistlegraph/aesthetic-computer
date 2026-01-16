@@ -2521,40 +2521,37 @@ function getKidLispWebViewContent(webview: any) {
       <link href="${vscodeStyleUri}" rel="stylesheet">
       <title>KidLisp.com</title>
       <style>
-        <iframe id="kidlisp" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/kidlisp.com${param}" border="none"></iframe>
+        body {
           margin: 0;
           padding: 0;
-          const kidlispIframe = document.getElementById('kidlisp');
-
-          // Forward messages from extension to the iframe (sessions, etc.)
-          window.addEventListener('message', (event) => {
-            if (event.data?.type === 'setSession') {
-              kidlispIframe?.contentWindow?.postMessage(event.data, '*');
-            }
-          });
           overflow: hidden;
         }
         iframe#kidlisp {
-            if (event.data && event.data.type && (event.data.type.startsWith('vscode-extension:') || event.data.type.startsWith('kidlisp:'))) {
           width: 100vw;
           height: 100vh;
+          border: none;
           background: linear-gradient(135deg, #fffacd 0%, #fff9c0 100%);
-
-          kidlispIframe?.addEventListener('load', () => {
-            vscode.postMessage({ type: 'kidlisp:ready' });
-          });
         }
       </style>
     </head>
     <body>
-      <iframe id="kidlisp" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/kidlisp.com" border="none"></iframe>
+      <iframe id="kidlisp" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/kidlisp.com${param}" border="none"></iframe>
       <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
-        // Forward messages from kidlisp.com iframe to extension
+        const kidlispIframe = document.getElementById('kidlisp');
+
+        // Forward messages from extension to the iframe (sessions, etc.)
         window.addEventListener('message', (event) => {
-          if (event.data && event.data.type && event.data.type.startsWith('vscode-extension:')) {
+          if (event.data?.type === 'setSession') {
+            kidlispIframe?.contentWindow?.postMessage(event.data, '*');
+          }
+          if (event.data && event.data.type && (event.data.type.startsWith('vscode-extension:') || event.data.type.startsWith('kidlisp:'))) {
             vscode.postMessage(event.data);
           }
+        });
+
+        kidlispIframe?.addEventListener('load', () => {
+          vscode.postMessage({ type: 'kidlisp:ready' });
         });
       </script>
     </body>
