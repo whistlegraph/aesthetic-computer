@@ -40,9 +40,15 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --menu-text: #fff;
   --menu-hover: #333;
   
-  /* Button colors */
-  --btn-login-bg: linear-gradient(135deg, rgb(205, 92, 155) 0%, rgb(170, 70, 130) 100%);
-  --btn-signup-bg: linear-gradient(135deg, rgb(70, 155, 115) 0%, rgb(50, 125, 95) 100%);
+  /* Button colors (classic AC blue/green prompt style) */
+  --btn-login-bg: rgba(30, 50, 120, 0.95);
+  --btn-login-glow: 0 0 10px rgba(80, 120, 255, 0.25), 0 0 20px rgba(80, 120, 255, 0.1);
+  --btn-login-hover-bg: rgba(40, 60, 140, 0.95);
+  --btn-login-hover-glow: 0 0 15px rgba(100, 150, 255, 0.4), 0 0 30px rgba(100, 150, 255, 0.2);
+  --btn-signup-bg: rgba(30, 90, 50, 0.95);
+  --btn-signup-glow: 0 0 10px rgba(80, 200, 120, 0.25), 0 0 20px rgba(80, 200, 120, 0.1);
+  --btn-signup-hover-bg: rgba(40, 110, 60, 0.95);
+  --btn-signup-hover-glow: 0 0 15px rgba(100, 255, 150, 0.4), 0 0 30px rgba(100, 255, 150, 0.2);
   
   /* Spacing */
   --header-height: 44px;
@@ -164,27 +170,35 @@ a:hover { text-decoration: underline; }
   gap: 6px;
 }
 
-/* ===== Auth Buttons (AC-style gradients) ===== */
+/* ===== Auth Buttons (classic AC prompt style - blue login, green signup) ===== */
 .header-login-btn {
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  border: none;
-  border-radius: 3px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: normal;
+  border: 1px solid white;
+  border-radius: 0;
   cursor: pointer;
   background: var(--btn-login-bg);
   color: white;
   transition: all 0.15s;
   white-space: nowrap;
+  box-shadow: var(--btn-login-glow);
+  font-family: inherit;
 }
 
 .header-login-btn:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  background: var(--btn-login-hover-bg);
+  box-shadow: var(--btn-login-hover-glow);
 }
 
 .header-signup-btn {
   background: var(--btn-signup-bg);
+  box-shadow: var(--btn-signup-glow);
+}
+
+.header-signup-btn:hover {
+  background: var(--btn-signup-hover-bg);
+  box-shadow: var(--btn-signup-hover-glow);
 }
 
 /* ===== User Menu (AC-style dropdown) ===== */
