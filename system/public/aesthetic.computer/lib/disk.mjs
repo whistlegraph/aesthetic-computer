@@ -9416,6 +9416,18 @@ async function makeFrame({ data: { type, content } }) {
     //     console.warn("️ ✒ Act failure...", e);
     //   }
     // }
+    
+    // Reset KidLisp timing state when becoming visible again
+    // This prevents animation "catch up" after tab was hidden
+    if (content === true && visible === false && globalKidLispInstance) {
+      // Becoming visible - reset timing expressions
+      globalKidLispInstance.lastSecondExecutions = {};
+      globalKidLispInstance.instantTriggersExecuted = {};
+      if (globalKidLispInstance.sequenceCounters) {
+        globalKidLispInstance.sequenceCounters.clear();
+      }
+    }
+    
     visible = content;
   }
 
