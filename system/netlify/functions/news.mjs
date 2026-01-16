@@ -64,7 +64,7 @@ function header(basePath) {
   return `
   <header class="news-header">
     <div class="news-logo">
-      <a href="${homeHref}">news.aesthetic.computer</a>
+      <a href="${homeHref}">Aesthetic News</a>
     </div>
     <nav class="news-nav">
       <a href="${homeHref}">top</a>
