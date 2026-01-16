@@ -450,7 +450,7 @@ class ArteryTUI {
     this.menuItems = [
       { key: 'p', label: 'Toggle Panel', desc: 'Toggle AC sidebar in VS Code', action: () => this.togglePanel() },
       { key: 'k', label: 'KidLisp.com', desc: 'Open KidLisp editor window', action: () => this.openKidLisp() },
-      { key: 'n', label: 'News', desc: 'Open News window', action: () => this.openNews() },
+      { key: 'N', label: 'News Mode', desc: 'Interactive News page control via CDP', action: () => this.enterNewsMode() },
       { key: 'd', label: 'Deck Control', desc: 'Control KidLisp.com card deck via CDP', action: () => this.enterKidLispCardsMode() },
       { key: 'o', label: 'Oven', desc: 'Bake thumbnails, previews, videos', action: () => this.enterOvenMode() },
       { key: 'v', label: 'Devices', desc: 'Connected devices (LAN)', action: () => this.enterDevicesMode() },
@@ -565,6 +565,25 @@ class ArteryTUI {
     this.kidlispCardsSelectedIndex = 0;
     this.kidlispCardsOutput = '';
     this.kidlispCardsCdpPageId = null;
+    
+    // 📰 News Mode state
+    this.newsMenu = [
+      { key: 's', label: 'Status', desc: 'Show page info & auth state' },
+      { key: 'p', label: 'Posts', desc: 'List recent posts' },
+      { key: 'u', label: 'User', desc: 'Show current user info' },
+      { key: 'c', label: 'Console', desc: 'Show console logs' },
+      { key: 'e', label: 'Eval JS', desc: 'Evaluate JavaScript in page' },
+      { key: 'd', label: 'DOM Query', desc: 'Query DOM selector' },
+      { key: 'r', label: 'Reload', desc: 'Reload the News page' },
+      { key: 'o', label: 'Open Window', desc: 'Open News in VS Code' },
+      { key: 'l', label: 'Login Click', desc: 'Click login button' },
+    ];
+    this.newsSelectedIndex = 0;
+    this.newsOutput = '';
+    this.newsCdpPageId = null;
+    this.newsSubMode = 'menu'; // 'menu', 'eval-input', 'dom-input'
+    this.newsEvalInput = '';
+    this.newsConsoleLogs = [];
     
     // Devices (LAN) state
     this.devicesMenu = [
@@ -1572,6 +1591,9 @@ class ArteryTUI {
         break;
       case 'kidlisp-cards':
         this.handleKidLispCardsInput(key);
+        break;
+      case 'news':
+        this.handleNewsInput(key);
         break;
       case 'devices':
         this.handleDevicesInput(key);
@@ -2745,6 +2767,304 @@ class ArteryTUI {
       this.setStatus(`Failed to open News: ${e.message}`, 'error');
     }
     
+    this.render();
+  }
+
+  // 📰 News Mode - Interactive CDP control of news.aesthetic.computer
+  async enterNewsMode() {
+    this.mode = 'news';
+    this.newsSelectedIndex = 0;
+    this.newsOutput = 'Connecting to News page...';
+    this.newsSubMode = 'menu';
+    this.newsEvalInput = '';
+    this.render();
+    
+    // Find the news CDP page
+    try {
+      const pageId = await this.findNewsCdpPage();
+      if (pageId) {
+        this.newsCdpPageId = pageId;
+        const status = await this.getNewsStatus();
+        this.newsOutput = `✓ Connected to News\n${status}`;
+        this.setStatus('News mode ready!', 'success');
+      } else {
+        this.newsOutput = '⚠ News window not open\nPress [O] to open it';
+        this.setStatus('News not found', 'warn');
+      }
+    } catch (e) {
+      this.newsOutput = `✗ CDP error: ${e.message}\nIs VS Code remote debugging enabled?`;
+      this.setStatus('CDP connection failed', 'error');
+    }
+    
+    this.render();
+  }
+  
+  async findNewsCdpPage() {
+    const http = await import('http');
+    return new Promise((resolve) => {
+      const req = http.get({
+        hostname: 'host.docker.internal', port: 9222, path: '/json',
+        headers: { 'Host': 'localhost' }, timeout: 2000
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const targets = JSON.parse(data);
+            const news = targets.find(t => t.url?.includes('news.aesthetic.computer'));
+            resolve(news?.id || null);
+          } catch { resolve(null); }
+        });
+      });
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+    });
+  }
+  
+  async evalNewsJS(code, returnRaw = false) {
+    if (!this.newsCdpPageId) return null;
+    const WebSocket = (await import('ws')).default;
+    const ws = new WebSocket(
+      `ws://host.docker.internal:9222/devtools/page/${this.newsCdpPageId}`,
+      { headers: { Host: 'localhost' } }
+    );
+    
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => { ws.close(); reject(new Error('Timeout')); }, 5000);
+      ws.on('open', () => {
+        ws.send(JSON.stringify({ 
+          id: 1, 
+          method: 'Runtime.evaluate', 
+          params: { expression: code, returnByValue: true } 
+        }));
+      });
+      ws.on('message', (data) => {
+        clearTimeout(timeout);
+        const msg = JSON.parse(data);
+        ws.close();
+        if (returnRaw) {
+          resolve(msg.result);
+        } else {
+          resolve(msg.result?.result?.value);
+        }
+      });
+      ws.on('error', (e) => { clearTimeout(timeout); reject(e); });
+    });
+  }
+  
+  async getNewsStatus() {
+    const url = await this.evalNewsJS('location.href') || 'unknown';
+    const title = await this.evalNewsJS('document.title') || 'untitled';
+    const postCount = await this.evalNewsJS('document.querySelectorAll(".news-row").length') || 0;
+    const loggedIn = await this.evalNewsJS('!!window.acUser || document.getElementById("news-user-menu")?.style.display !== "none"');
+    const user = await this.evalNewsJS('window.acHandle || window.acUser?.email || "anonymous"');
+    
+    let lines = [
+      `📍 URL: ${url}`,
+      `📄 Title: ${title}`,
+      `📰 Posts visible: ${postCount}`,
+      `👤 User: ${user} ${loggedIn ? '(logged in)' : '(not logged in)'}`,
+    ];
+    return lines.join('\n');
+  }
+  
+  async newsAction(action) {
+    try {
+      switch (action) {
+        case 'status':
+          this.newsOutput = await this.getNewsStatus();
+          break;
+        case 'posts': {
+          const posts = await this.evalNewsJS(`
+            Array.from(document.querySelectorAll('.news-row')).slice(0, 10).map(row => {
+              const title = row.querySelector('.news-title a')?.textContent || 'untitled';
+              const meta = row.querySelector('.news-meta')?.textContent?.trim() || '';
+              return title + ' | ' + meta;
+            }).join('\\n')
+          `);
+          this.newsOutput = posts || 'No posts found';
+          break;
+        }
+        case 'user': {
+          const info = await this.evalNewsJS(`
+            JSON.stringify({
+              acUser: window.acUser || null,
+              acHandle: window.acHandle || null,
+              acToken: window.acToken ? '(present)' : null,
+              loginVisible: document.getElementById('news-login-btn')?.style.display,
+              menuVisible: document.getElementById('news-user-menu')?.style.display,
+            }, null, 2)
+          `);
+          this.newsOutput = info || 'No user info';
+          break;
+        }
+        case 'console': {
+          // Get recent console logs (if we've captured them)
+          this.newsOutput = this.newsConsoleLogs.length > 0 
+            ? this.newsConsoleLogs.slice(-20).join('\n')
+            : '(No console logs captured)\nTip: Run eval to see results';
+          break;
+        }
+        case 'eval':
+          this.newsSubMode = 'eval-input';
+          this.newsEvalInput = '';
+          this.newsOutput = 'Enter JavaScript to evaluate:\n(Press Enter to run, Esc to cancel)';
+          break;
+        case 'dom':
+          this.newsSubMode = 'dom-input';
+          this.newsEvalInput = '';
+          this.newsOutput = 'Enter CSS selector to query:\n(Press Enter to run, Esc to cancel)';
+          break;
+        case 'reload':
+          await this.evalNewsJS('location.reload()');
+          this.newsOutput = '🔄 Page reloading...';
+          // Reconnect after delay
+          setTimeout(async () => {
+            const pageId = await this.findNewsCdpPage();
+            if (pageId) {
+              this.newsCdpPageId = pageId;
+              this.newsOutput = '✓ Reconnected after reload';
+            }
+            this.render();
+          }, 2000);
+          break;
+        case 'open':
+          await this.openNews();
+          setTimeout(() => this.enterNewsMode(), 1500);
+          return;
+        case 'login':
+          await this.evalNewsJS('document.getElementById("news-login-btn")?.click()');
+          this.newsOutput = '🔐 Login button clicked';
+          break;
+      }
+      this.setStatus('Action complete', 'success');
+    } catch (e) {
+      this.newsOutput = `Error: ${e.message}`;
+      this.setStatus('Action failed', 'error');
+    }
+    this.render();
+  }
+  
+  async newsEvalExecute() {
+    const code = this.newsEvalInput.trim();
+    if (!code) {
+      this.newsSubMode = 'menu';
+      this.render();
+      return;
+    }
+    
+    try {
+      const result = await this.evalNewsJS(code, true);
+      let output = '';
+      if (result?.result) {
+        const r = result.result;
+        if (r.type === 'undefined') {
+          output = 'undefined';
+        } else if (r.type === 'object' && r.value) {
+          output = JSON.stringify(r.value, null, 2);
+        } else if (r.value !== undefined) {
+          output = String(r.value);
+        } else if (r.description) {
+          output = r.description;
+        } else {
+          output = JSON.stringify(r, null, 2);
+        }
+      }
+      if (result?.exceptionDetails) {
+        output = `❌ ${result.exceptionDetails.exception?.description || result.exceptionDetails.text}`;
+      }
+      this.newsOutput = `> ${code}\n\n${output}`;
+      this.newsConsoleLogs.push(`> ${code}`);
+      this.newsConsoleLogs.push(output);
+    } catch (e) {
+      this.newsOutput = `Error: ${e.message}`;
+    }
+    
+    this.newsSubMode = 'menu';
+    this.newsEvalInput = '';
+    this.render();
+  }
+  
+  async newsDomQuery() {
+    const selector = this.newsEvalInput.trim();
+    if (!selector) {
+      this.newsSubMode = 'menu';
+      this.render();
+      return;
+    }
+    
+    try {
+      const result = await this.evalNewsJS(`
+        const els = document.querySelectorAll(${JSON.stringify(selector)});
+        Array.from(els).slice(0, 10).map(el => {
+          const tag = el.tagName.toLowerCase();
+          const id = el.id ? '#' + el.id : '';
+          const cls = el.className ? '.' + el.className.split(' ').join('.') : '';
+          const text = el.textContent?.slice(0, 50).trim() || '';
+          return tag + id + cls + (text ? ' → "' + text + '"' : '');
+        }).join('\\n') || '(no matches)'
+      `);
+      this.newsOutput = `🔍 ${selector}\nFound ${await this.evalNewsJS(`document.querySelectorAll(${JSON.stringify(selector)}).length`)} elements:\n\n${result}`;
+    } catch (e) {
+      this.newsOutput = `Error: ${e.message}`;
+    }
+    
+    this.newsSubMode = 'menu';
+    this.newsEvalInput = '';
+    this.render();
+  }
+  
+  handleNewsInput(key) {
+    if (this.newsSubMode === 'eval-input' || this.newsSubMode === 'dom-input') {
+      if (key === 'escape') {
+        this.newsSubMode = 'menu';
+        this.newsEvalInput = '';
+        this.render();
+        return;
+      }
+      if (key === 'return') {
+        if (this.newsSubMode === 'eval-input') {
+          this.newsEvalExecute();
+        } else {
+          this.newsDomQuery();
+        }
+        return;
+      }
+      if (key === 'backspace') {
+        this.newsEvalInput = this.newsEvalInput.slice(0, -1);
+        this.render();
+        return;
+      }
+      if (key.length === 1) {
+        this.newsEvalInput += key;
+        this.render();
+        return;
+      }
+      return;
+    }
+    
+    if (key === 'escape' || key === 'q') {
+      this.mode = 'menu';
+      this.render();
+      return;
+    }
+    
+    if (key === 'up' || key === 'k') {
+      this.newsSelectedIndex = Math.max(0, this.newsSelectedIndex - 1);
+    } else if (key === 'down' || key === 'j') {
+      this.newsSelectedIndex = Math.min(this.newsMenu.length - 1, this.newsSelectedIndex + 1);
+    } else if (key === 'return') {
+      const actions = ['status', 'posts', 'user', 'console', 'eval', 'dom', 'reload', 'open', 'login'];
+      this.newsAction(actions[this.newsSelectedIndex]);
+      return;
+    } else {
+      const item = this.newsMenu.find(m => m.key === key.toLowerCase());
+      if (item) {
+        const actions = { s: 'status', p: 'posts', u: 'user', c: 'console', e: 'eval', d: 'dom', r: 'reload', o: 'open', l: 'login' };
+        this.newsAction(actions[key.toLowerCase()]);
+        return;
+      }
+    }
     this.render();
   }
 
@@ -5222,6 +5542,86 @@ class ArteryTUI {
   }
 
   // 🃏 Render KidLisp Cards Mode
+  renderNews() {
+    const boxWidth = this.innerWidth;
+    
+    // Header
+    this.writeLine(`${DOS_TITLE}${'═'.repeat(boxWidth)}${RESET}`);
+    this.writeLine(`${DOS_TITLE}  📰 News Mode - CDP Remote Control${' '.repeat(Math.max(0, boxWidth - 38))}${RESET}`);
+    this.writeLine(`${DOS_TITLE}${'═'.repeat(boxWidth)}${RESET}`);
+    this.writeLine('');
+    
+    // Connection status
+    const connStatus = this.newsCdpPageId 
+      ? `${FG_BRIGHT_GREEN}● Connected${RESET}` 
+      : `${FG_BRIGHT_RED}○ Disconnected${RESET}`;
+    this.writeLine(`${FG_CYAN}CDP Status: ${connStatus}${BG_BLUE}  ${DIM}Page: ${this.newsCdpPageId || 'none'}${RESET}`);
+    this.writeLine('');
+    
+    // Show input field if in eval or dom mode
+    if (this.newsSubMode === 'eval-input' || this.newsSubMode === 'dom-input') {
+      const label = this.newsSubMode === 'eval-input' ? 'JS>' : 'CSS>';
+      this.writeLine(`${FG_BRIGHT_YELLOW}${label} ${FG_WHITE}${this.newsEvalInput}█${RESET}`);
+      this.writeLine('');
+    }
+    
+    // Menu items
+    for (let i = 0; i < this.newsMenu.length; i++) {
+      const item = this.newsMenu[i];
+      const selected = i === this.newsSelectedIndex;
+      const prefix = selected ? `${FG_BRIGHT_YELLOW}▶ ` : `${FG_CYAN}  `;
+      const keyStyle = selected ? `${BG_CYAN}${FG_BLACK}` : `${FG_BRIGHT_MAGENTA}`;
+      const labelStyle = selected ? `${FG_BRIGHT_YELLOW}${BOLD}` : `${FG_WHITE}`;
+      const descStyle = `${DIM}${FG_CYAN}`;
+      
+      const line = `${prefix}${keyStyle}[${item.key}]${RESET}${BG_BLUE} ${labelStyle}${item.label}${RESET}${BG_BLUE} ${descStyle}${item.desc}${RESET}`;
+      this.writeLine(line);
+    }
+    
+    this.writeLine('');
+    
+    // Output box
+    this.writeLine(`${FG_CYAN}${'─'.repeat(boxWidth)}${RESET}`);
+    this.writeLine(`${FG_BRIGHT_CYAN}Output:${RESET}`);
+    this.writeLine('');
+    
+    // Split output into lines and display
+    const outputLines = (this.newsOutput || '').split('\n');
+    const maxOutputLines = Math.max(5, this.innerHeight - 22);
+    const startLine = Math.max(0, outputLines.length - maxOutputLines);
+    
+    for (let i = startLine; i < outputLines.length; i++) {
+      let line = outputLines[i];
+      // Color code output
+      if (line.includes('✓') || line.includes('✅') || line.includes('(logged in)')) {
+        line = `${FG_BRIGHT_GREEN}${line}${RESET}`;
+      } else if (line.includes('✗') || line.includes('Error') || line.includes('❌')) {
+        line = `${FG_BRIGHT_RED}${line}${RESET}`;
+      } else if (line.includes('⚠') || line.includes('not logged in')) {
+        line = `${FG_BRIGHT_YELLOW}${line}${RESET}`;
+      } else if (line.startsWith('>')) {
+        line = `${FG_BRIGHT_MAGENTA}${line}${RESET}`;
+      } else if (line.includes('📍') || line.includes('📄') || line.includes('📰') || line.includes('👤') || line.includes('🔍')) {
+        line = `${FG_BRIGHT_CYAN}${line}${RESET}`;
+      } else if (line.includes('🔄') || line.includes('🔐')) {
+        line = `${FG_BRIGHT_MAGENTA}${line}${RESET}`;
+      }
+      // Truncate long lines
+      if (this.stripAnsi(line).length > boxWidth - 2) {
+        line = line.slice(0, boxWidth - 5) + '...';
+      }
+      this.writeLine(`  ${line}`);
+    }
+    
+    // Status bar
+    this.writeLine('');
+    this.writeLine(`${FG_CYAN}${'─'.repeat(boxWidth)}${RESET}`);
+    const hint = this.newsSubMode === 'menu' 
+      ? `${DIM}ESC/Q=Back  ↑↓/JK=Navigate  Enter=Select${RESET}`
+      : `${DIM}Enter=Execute  ESC=Cancel${RESET}`;
+    this.writeLine(`${FG_GREEN}Ready${RESET}${BG_BLUE}  ${hint}`);
+  }
+
   renderKidLispCards() {
     const boxWidth = this.innerWidth;
     
@@ -5541,6 +5941,9 @@ class ArteryTUI {
         break;
       case 'kidlisp-cards':
         this.renderKidLispCards();
+        break;
+      case 'news':
+        this.renderNews();
         break;
       case 'devices':
         this.renderDevices();
