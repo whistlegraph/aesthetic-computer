@@ -74,8 +74,8 @@ function header(basePath) {
       <a href="${basePath}/submit">submit</a>
     </nav>
     <div class="news-auth">
-      <button id="news-login-btn" class="header-login-btn">login</button>
-      <button id="news-signup-btn" class="header-login-btn header-signup-btn">i'm new</button>
+      <button id="news-login-btn" class="header-login-btn">Login</button>
+      <button id="news-signup-btn" class="header-login-btn header-signup-btn">I'm New</button>
       <div id="news-user-menu" class="header-user-menu" style="display:none;">
         <span id="news-user-handle" class="header-user-handle">@anon</span>
         <span class="header-menu-arrow">▾</span>
