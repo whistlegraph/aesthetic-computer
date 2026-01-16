@@ -450,6 +450,7 @@ class ArteryTUI {
     this.menuItems = [
       { key: 'p', label: 'Toggle Panel', desc: 'Toggle AC sidebar in VS Code', action: () => this.togglePanel() },
       { key: 'k', label: 'KidLisp.com', desc: 'Open KidLisp editor window', action: () => this.openKidLisp() },
+      { key: 'n', label: 'News', desc: 'Open News window', action: () => this.openNews() },
       { key: 'd', label: 'Deck Control', desc: 'Control KidLisp.com card deck via CDP', action: () => this.enterKidLispCardsMode() },
       { key: 'o', label: 'Oven', desc: 'Bake thumbnails, previews, videos', action: () => this.enterOvenMode() },
       { key: 'v', label: 'Devices', desc: 'Connected devices (LAN)', action: () => this.enterDevicesMode() },
@@ -2727,6 +2728,21 @@ class ArteryTUI {
       this.setStatus('KidLisp.com editor opened!', 'success');
     } catch (e) {
       this.setStatus(`Failed to open KidLisp: ${e.message}`, 'error');
+    }
+    
+    this.render();
+  }
+
+  // 📰 Open News window
+  async openNews() {
+    this.setStatus('Opening News window...', 'info');
+    this.render();
+    
+    try {
+      await Artery.openNewsWindow();
+      this.setStatus('News window opened!', 'success');
+    } catch (e) {
+      this.setStatus(`Failed to open News: ${e.message}`, 'error');
     }
     
     this.render();
