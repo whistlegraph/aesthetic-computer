@@ -47,12 +47,9 @@ function layout({ title, body, assetBase }) {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(title)}</title>
-    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
-    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <link rel="icon" href="${assetBase}/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
-    <link rel="stylesheet" href="/kidlisp.com/css/variables.css" />
     <link rel="stylesheet" href="${assetBase}/main.css" />
-    <link rel="stylesheet" href="/kidlisp.com/css/components.css" />
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
   </head>
   <body>
