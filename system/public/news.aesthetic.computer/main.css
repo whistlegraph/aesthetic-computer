@@ -132,6 +132,25 @@ a:hover { text-decoration: underline; }
   flex-wrap: wrap;
 }
 
+.news-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.news-logo-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 2px solid white;
+  font-weight: bold;
+  font-size: 12px;
+  color: white !important;
+  text-decoration: none !important;
+}
+
 .news-logo a {
   font-weight: bold;
   font-size: 14px;
@@ -161,7 +180,7 @@ a:hover { text-decoration: underline; }
 }
 
 /* ===== Auth Buttons (classic AC prompt style - blue login, green signup) ===== */
-/* Using explicit colors instead of CSS variables for cross-theme reliability */
+/* Simple solid colors, no glow effects */
 .header-login-btn {
   padding: 6px 14px;
   font-size: 12px;
@@ -169,27 +188,23 @@ a:hover { text-decoration: underline; }
   border: 1px solid white;
   border-radius: 0;
   cursor: pointer;
-  background: rgba(30, 50, 120, 0.95);
+  background: rgb(30, 50, 120);
   color: white;
-  transition: all 0.15s;
+  transition: background 0.15s;
   white-space: nowrap;
-  box-shadow: 0 0 10px rgba(80, 120, 255, 0.25), 0 0 20px rgba(80, 120, 255, 0.1);
   font-family: inherit;
 }
 
 .header-login-btn:hover {
-  background: rgba(40, 60, 140, 0.95);
-  box-shadow: 0 0 15px rgba(100, 150, 255, 0.4), 0 0 30px rgba(100, 150, 255, 0.2);
+  background: rgb(50, 70, 150);
 }
 
 .header-signup-btn {
-  background: rgba(30, 90, 50, 0.95);
-  box-shadow: 0 0 10px rgba(80, 200, 120, 0.25), 0 0 20px rgba(80, 200, 120, 0.1);
+  background: rgb(30, 90, 50);
 }
 
 .header-signup-btn:hover {
-  background: rgba(40, 110, 60, 0.95);
-  box-shadow: 0 0 15px rgba(100, 255, 150, 0.4), 0 0 30px rgba(100, 255, 150, 0.2);
+  background: rgb(50, 120, 70);
 }
 
 /* ===== User Menu (AC-style dropdown) ===== */
