@@ -243,7 +243,7 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
         body = `${header(basePath)}<main class="news-main"><p>Page not found.</p></main>`;
       }
 
-      const html = layout({ title: "news.aesthetic.computer", body, assetBase });
+      const html = layout({ title: "Aesthetic News", body, assetBase });
       await database.disconnect();
       return respondFn(200, html, { "Content-Type": "text/html" });
     } catch (error) {
