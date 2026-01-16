@@ -520,6 +520,13 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
     
+    /* Empty state - outline only, hollow look to indicate "write something" */
+    #mini-send-button.empty {
+      background: transparent;
+      color: rgb(76, 175, 80);
+      box-shadow: inset 0 0 0 2px rgb(76, 175, 80), 0 1px 3px rgba(0,0,0,0.2);
+    }
+    
     #mini-send-button.playing {
       background: rgb(76, 175, 80);
     }
@@ -567,10 +574,21 @@
       #mini-send-button {
         background: rgb(102, 187, 106);
       }
+      #mini-send-button.empty {
+        background: transparent;
+        color: rgb(102, 187, 106);
+        box-shadow: inset 0 0 0 2px rgb(102, 187, 106), 0 1px 3px rgba(0,0,0,0.2);
+      }
     }
     
     [data-theme="dark"] #mini-send-button {
       background: rgb(102, 187, 106);
+    }
+    
+    [data-theme="dark"] #mini-send-button.empty {
+      background: transparent;
+      color: rgb(102, 187, 106);
+      box-shadow: inset 0 0 0 2px rgb(102, 187, 106), 0 1px 3px rgba(0,0,0,0.2);
     }
     
     /* Playback controls container */
@@ -9377,11 +9395,15 @@
         const headerHeight = editorHeader ? editorHeader.offsetHeight : 44;
         const contentHeight = editorRect.height - headerHeight;
         
+        // Check if editor is collapsed
+        const isEditorCollapsed = editorPanel.dataset.collapsed === 'true' || editorPanel.classList.contains('panel-collapsed');
+        
         // Main controls are 44px tall + 14px bottom margin = need at least ~70px to show
+        // For 1-line mode (~43px content), use mini controls
         const minHeightForControls = 70;
         
-        // Show mini controls if editor content area is too small for main controls
-        if (contentHeight < minHeightForControls) {
+        // Show mini controls if editor collapsed OR content area too small (1 line mode)
+        if (isEditorCollapsed || contentHeight < minHeightForControls) {
           miniControls.style.display = 'flex';
           mainControls.style.visibility = 'hidden'; // Hide main controls
         } else {
@@ -9479,6 +9501,7 @@
           redistributeFlex();
           window.updateCheckerboard();
           if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
+          if (window.updatePlayButtonState) window.updatePlayButtonState();
         }
         
         // Drag state
@@ -9645,6 +9668,7 @@
             
             window.updateCheckerboard();
             if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
+            if (window.updatePlayButtonState) window.updatePlayButtonState();
             
           } else {
             // This is the top panel (editor) - can only resize itself
@@ -9713,6 +9737,7 @@
             
             window.updateCheckerboard();
             if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
+            if (window.updatePlayButtonState) window.updatePlayButtonState();
           }
           
           return true;
@@ -9759,6 +9784,7 @@
             redistributeFlex();
             window.updateCheckerboard();
             if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
+            if (window.updatePlayButtonState) window.updatePlayButtonState();
           }
           
           // If wasn't dragging, it's a tap - toggle collapse
@@ -10253,11 +10279,31 @@
     function updatePlayButtonState() {
       const editorValue = window.editor?.getValue() || '';
       const hasContent = editorValue.trim().length > 0;
-      const shouldEnable = iframeReady && hasContent;
+      const editorPanel = document.getElementById('editor-panel');
+      const isEditorCollapsed = editorPanel && (editorPanel.dataset.collapsed === 'true' || editorPanel.classList.contains('panel-collapsed'));
       
-      sendButton.disabled = !shouldEnable;
-      sendButton.style.opacity = shouldEnable ? '1' : '0.4';
-      sendButton.style.cursor = shouldEnable ? 'pointer' : 'not-allowed';
+      // Main send button: enable only when iframe ready AND has content
+      const shouldEnableMain = iframeReady && hasContent;
+      sendButton.disabled = !shouldEnableMain;
+      sendButton.style.opacity = shouldEnableMain ? '1' : '0.4';
+      sendButton.style.cursor = shouldEnableMain ? 'pointer' : 'not-allowed';
+      
+      // Mini send button: enable when iframe ready AND (has content OR editor is collapsed)
+      // This allows "open editor" action when collapsed and empty
+      const miniSendButton = document.getElementById('mini-send-button');
+      if (miniSendButton) {
+        const shouldEnableMini = iframeReady && (hasContent || isEditorCollapsed);
+        miniSendButton.disabled = !shouldEnableMini;
+        miniSendButton.style.opacity = shouldEnableMini ? '1' : '0.4';
+        miniSendButton.style.cursor = shouldEnableMini ? 'pointer' : 'not-allowed';
+        
+        // Add/remove empty class for outline-only visual when collapsed and empty
+        if (isEditorCollapsed && !hasContent) {
+          miniSendButton.classList.add('empty');
+        } else {
+          miniSendButton.classList.remove('empty');
+        }
+      }
       
       // Also sync mini button state
       if (window.syncMiniPlaybackButtons) window.syncMiniPlaybackButtons();
@@ -11924,7 +11970,8 @@
           
           // If we were waiting to auto-play, do it now (but only once)
           // Only auto-play on aesthetic-computer platform
-          if (shouldAutoPlay && !isPlaying && hasInitialPreviewRun && currentPlatform === 'aesthetic-computer') {
+          // Don't auto-play if user explicitly stopped
+          if (shouldAutoPlay && !isPlaying && !userStopped && hasInitialPreviewRun && currentPlatform === 'aesthetic-computer') {
             log.playback.log('Auto-playing (piece ready)...');
             updatePreview();
             isPlaying = true;
@@ -13451,6 +13498,7 @@
     let isPlaying = false;
     let isPaused = false;
     let isSoftStopped = false; // Track if soft-stopped (paused but tab still open)
+    let userStopped = false; // Track if user explicitly stopped (prevent auto-play)
     let lastCode = ''; // Track last code for auto-reload
     
     // 📏 Pixel Rulers System (shown when paused)
@@ -14231,6 +14279,38 @@
       sendButton.classList.add('dipping');
       setTimeout(() => sendButton.classList.remove('dipping'), 150);
       
+      // If editor is empty and not already playing, pop open the editor so user can write something
+      const currentCode = editor.getValue().trim();
+      const editorPanel = document.getElementById('editor-panel');
+      const isEditorCollapsed = editorPanel && (editorPanel.dataset.collapsed === 'true' || editorPanel.classList.contains('panel-collapsed'));
+      
+      if (!currentCode && !isPlaying && isEditorCollapsed) {
+        // Only pop open if editor is collapsed - this is the "empty outline button" case
+        editorPanel.dataset.collapsed = 'false';
+        editorPanel.classList.remove('panel-collapsed');
+        // Set exactly 1-line height
+        const HEADER_HEIGHT = 40;
+        const LINE_HEIGHT = 19;
+        const PADDING = 24;
+        const singleLineHeight = HEADER_HEIGHT + LINE_HEIGHT + PADDING;
+        editorPanel.style.height = `${singleLineHeight}px`;
+        editorPanel.style.flex = `0 0 ${singleLineHeight}px`;
+        editorPanel.dataset.savedHeight = singleLineHeight;
+        
+        // Update mini controls visibility (will hide since editor now has 1 line)
+        if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
+        // Update play button state (will disable main, update mini empty state)
+        if (window.updatePlayButtonState) window.updatePlayButtonState();
+        
+        // Focus the editor so user can start typing
+        setTimeout(() => {
+          editor.focus();
+        }, 50);
+        
+        log.playback.debug('Editor empty - opening editor for user input');
+        return; // Don't try to play empty code
+      }
+      
       // Only AC platform supports live playback for now
       if (currentPlatform !== 'aesthetic-computer') {
         // Ableton platform sends code to DAW devices via session-server
@@ -14275,6 +14355,7 @@
           sendToIframe({ type: 'kidlisp-resume' });
           isPlaying = true;
           isSoftStopped = false;
+          userStopped = false; // Clear user-stopped flag when playing
           vizSystem.isPlaying = true;
           sendButton.classList.add('playing');
           stopButton.style.display = 'flex';
@@ -14318,6 +14399,7 @@
         isPlaying = true;
         isPaused = false;
         isSoftStopped = false; // Clear soft-stopped state
+        userStopped = false; // Clear user-stopped flag when playing
         vizSystem.isPlaying = true;
         vizSystem.isPaused = false;
         sendButton.classList.add('playing');
@@ -14450,6 +14532,7 @@
         isPlaying = false;
         isPaused = false;
         isSoftStopped = false; // Not soft-stopped - will start fresh
+        userStopped = true; // User explicitly stopped - prevent auto-play on next ready
         vizSystem.isPlaying = false;
         vizSystem.isPaused = false;
         vizSystem.frameCount = 0; // Reset frame count for fresh start
@@ -14475,12 +14558,42 @@
     if (miniSendButton) {
       miniSendButton.addEventListener('click', (e) => {
         e.stopPropagation();
+        // Don't respond if mini button itself is disabled
+        if (miniSendButton.disabled) return;
+        
         // Trigger dip animation
         miniSendButton.classList.remove('dipping');
         void miniSendButton.offsetWidth; // Force reflow
         miniSendButton.classList.add('dipping');
         setTimeout(() => miniSendButton.classList.remove('dipping'), 150);
-        // Trigger the main send button click
+        
+        // Check if this is the "empty collapsed" case - need to handle directly
+        const editorPanel = document.getElementById('editor-panel');
+        const isEditorCollapsed = editorPanel && (editorPanel.dataset.collapsed === 'true' || editorPanel.classList.contains('panel-collapsed'));
+        const currentCode = editor.getValue().trim();
+        
+        if (!currentCode && !isPlaying && isEditorCollapsed) {
+          // Open editor to 1 line and focus
+          editorPanel.dataset.collapsed = 'false';
+          editorPanel.classList.remove('panel-collapsed');
+          const HEADER_HEIGHT = 40;
+          const LINE_HEIGHT = 19;
+          const PADDING = 24;
+          const singleLineHeight = HEADER_HEIGHT + LINE_HEIGHT + PADDING;
+          editorPanel.style.height = `${singleLineHeight}px`;
+          editorPanel.style.flex = `0 0 ${singleLineHeight}px`;
+          editorPanel.dataset.savedHeight = singleLineHeight;
+          
+          // Update controls and button states
+          if (window.updateMiniPlaybackControls) window.updateMiniPlaybackControls();
+          if (window.updatePlayButtonState) window.updatePlayButtonState();
+          
+          setTimeout(() => editor.focus(), 50);
+          log.playback.debug('Mini button: Editor empty - opening editor for user input');
+          return;
+        }
+        
+        // Otherwise trigger the main send button click
         if (sendButton && !sendButton.disabled) {
           sendButton.click();
         }
@@ -14518,12 +14631,8 @@
         miniStopButton.style.display = shouldShowStop ? 'flex' : 'none';
       }
       
-      // Sync disabled state from main send button
-      if (miniSendButton && sendButton) {
-        miniSendButton.disabled = sendButton.disabled;
-        miniSendButton.style.opacity = sendButton.disabled ? '0.4' : '1';
-        miniSendButton.style.cursor = sendButton.disabled ? 'not-allowed' : 'pointer';
-      }
+      // Note: Mini button disabled state is managed by updatePlayButtonState()
+      // which allows mini button to be enabled when collapsed+empty (to open editor)
     };
 
     // Enable KidLisp-only console messages from the preview iframe
@@ -14790,8 +14899,9 @@
         
         // Mark that we want to auto-play, but wait for piece to be ready
         // Only auto-play on aesthetic-computer platform
+        // Don't auto-play if user explicitly stopped
         const initialCode = editor?.getValue().trim();
-        if (initialCode && !isPlaying && currentPlatform === 'aesthetic-computer') {
+        if (initialCode && !isPlaying && !userStopped && currentPlatform === 'aesthetic-computer') {
           shouldAutoPlay = true;
           
           // If piece is already ready, play immediately (but only once)

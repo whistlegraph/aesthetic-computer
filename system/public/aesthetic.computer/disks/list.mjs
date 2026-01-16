@@ -23,11 +23,13 @@ const scheme = {
     scrollbarThumb: [100, 120, 180],
     highlight: [255, 255, 100],
     chevron: [80, 100, 140],
+    dateText: [80, 100, 140],     // muted date color
     // Per-tab colors
     tabPopular: [255, 120, 80],    // 🔥 orange/red
     tabAll: [100, 180, 255],       // blue
     tabPieces: [100, 220, 150],    // green (matches pieceName)
     tabCommands: [255, 200, 100],  // yellow (matches commandName)
+    tabUser: [200, 140, 255],      // @ purple for user pieces
   },
   light: {
     background: [240, 240, 245],
@@ -45,11 +47,13 @@ const scheme = {
     scrollbarThumb: [140, 150, 180],
     highlight: [255, 220, 80],
     chevron: [120, 140, 180],
+    dateText: [130, 140, 160],    // muted date color
     // Per-tab colors
     tabPopular: [220, 80, 40],     // 🔥 orange/red
     tabAll: [40, 100, 180],        // blue
     tabPieces: [20, 120, 60],      // green (matches pieceName)
     tabCommands: [160, 100, 20],   // yellow (matches commandName)
+    tabUser: [140, 80, 200],       // @ purple for user pieces
   },
 };
 
@@ -82,8 +86,10 @@ const COMMAND_CATEGORIES = {
 let docs = null;
 let pieces = {};
 let commands = {};
+let userPieces = {};     // User-created pieces from MongoDB
 let hitStats = {};       // { pieceName: hitCount }
-let currentTab = "all"; // "all" | "pieces" | "commands" | "popular"
+let pieceDates = {};     // { pieceName: { created: Date, author: string } }
+let currentTab = "all"; // "all" | "pieces" | "commands" | "popular" | "user"
 let expandedCategories = new Set();
 let scroll = 0;
 let selectedItem = null;
@@ -104,6 +110,7 @@ let allItems = [];      // Flat list for "all" tab
 let pieceItems = [];    // Categorized pieces
 let commandItems = [];  // Categorized commands
 let popularItems = [];  // Popular pieces sorted by hits
+let userItems = [];     // User-created pieces
 let visibleItems = [];  // Currently visible items based on tab + expanded categories
 
 // Layout constants (adjusted per mode)
@@ -111,6 +118,7 @@ let ROW_HEIGHT = 14;
 let HEADER_HEIGHT = 18;
 let TAB_HEIGHT = 14;
 let LEFT_MARGIN = 6;
+let TAB_OFFSET = 32;     // Offset tabs from left to avoid HUD label overlap
 let CONTENT_TOP = 36;
 
 // 🥾 Boot
@@ -118,11 +126,13 @@ async function boot({ ui, net, store, params, screen }) {
   // Determine layout mode
   updateLayoutMode(screen);
   
-  // Fetch docs and hit stats in parallel
+  // Fetch docs, hit stats, and user pieces in parallel
   if (!params[0]) {
-    const [docsResult, hitsResult] = await Promise.all([
+    const [docsResult, hitsResult, userResult, datesResult] = await Promise.all([
       net.requestDocs(),
       fetch("/api/piece-hit?top=100").then(r => r.json()).catch(() => ({ pieces: [] })),
+      fetch("/api/kidlisp-list?limit=200").then(r => r.json()).catch(() => ({ pieces: [] })),
+      fetch("/api/piece-dates").then(r => r.json()).catch(() => ({ dates: {} })),
     ]);
     
     docs = docsResult;
@@ -134,6 +144,23 @@ async function boot({ ui, net, store, params, screen }) {
         hitStats[p.piece] = p.hits;
       });
     }
+    
+    // Build user pieces map
+    userPieces = {};
+    if (userResult?.pieces) {
+      userResult.pieces.forEach(p => {
+        const key = p.handle ? `@${p.handle}/${p.code}` : p.code;
+        userPieces[key] = { 
+          desc: p.title || "", 
+          code: p.code,
+          handle: p.handle,
+          when: p.when,
+        };
+      });
+    }
+    
+    // Build piece dates map
+    pieceDates = datesResult?.dates || {};
     
     if (docs) {
       // Separate pieces and commands, filter hidden
@@ -159,6 +186,9 @@ async function boot({ ui, net, store, params, screen }) {
       
       // Build popular list
       buildPopularList(ui);
+      
+      // Build user list
+      buildUserList(ui);
       
       // Restore state
       currentTab = (await store.retrieve("list:tab")) || "all";
@@ -285,6 +315,24 @@ function buildPopularList(ui) {
     });
 }
 
+// Build user pieces list sorted by creation date
+function buildUserList(ui) {
+  userItems = keys(userPieces)
+    .map(name => ({
+      name,
+      data: userPieces[name],
+      type: "user",
+      when: userPieces[name].when ? new Date(userPieces[name].when) : null,
+    }))
+    .sort((a, b) => {
+      // Sort by date descending (newest first), null dates last
+      if (!a.when && !b.when) return a.name.localeCompare(b.name);
+      if (!a.when) return 1;
+      if (!b.when) return -1;
+      return b.when - a.when;
+    });
+}
+
 // Rebuild visible items based on current tab and expanded categories
 function rebuildVisibleItems(ui) {
   visibleItems = [];
@@ -299,6 +347,10 @@ function rebuildVisibleItems(ui) {
   } else if (currentTab === "popular") {
     // Popular list sorted by hits (flat, no categories)
     sourceItems = popularItems;
+    visibleItems = sourceItems.map((item, i) => ({ ...item, y: CONTENT_TOP + i * ROW_HEIGHT }));
+  } else if (currentTab === "user") {
+    // User pieces sorted by date (flat, no categories)
+    sourceItems = userItems;
     visibleItems = sourceItems.map((item, i) => ({ ...item, y: CONTENT_TOP + i * ROW_HEIGHT }));
   } else {
     // Categorized list (pieces or commands)
@@ -368,6 +420,26 @@ function truncate(text, maxLen) {
   return text.slice(0, maxLen - 2) + "..";
 }
 
+// Format date to short string (e.g., "2024-12-31" or "6d ago")
+function formatShortDate(date) {
+  if (!date) return "";
+  const d = new Date(date);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  // If within last 30 days, show relative
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "1d ago";
+  if (diffDays < 30) return `${diffDays}d ago`;
+  
+  // Otherwise show date
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // 🎨 Paint
 function paint({ wipe, ink, screen, dark, paintCount }) {
   const pal = dark ? scheme.dark : scheme.light;
@@ -429,8 +501,12 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
       }
       
       // Item name (colored by type)
-      const nameColor = item.type === "piece" ? pal.pieceName : pal.commandName;
-      const indent = layoutMode === "tiny" ? 0 : (currentTab === "all" || currentTab === "popular" ? 0 : 8);
+      let nameColor;
+      if (item.type === "user") nameColor = pal.tabUser;
+      else if (item.type === "piece") nameColor = pal.pieceName;
+      else nameColor = pal.commandName;
+      
+      const indent = layoutMode === "tiny" ? 0 : (currentTab === "all" || currentTab === "popular" || currentTab === "user" ? 0 : 8);
       ink(isHighlighted ? pal.highlight : nameColor).write(item.name, { 
         x: LEFT_MARGIN + indent, 
         y: y + 1 
@@ -442,8 +518,14 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
         const hitX = LEFT_MARGIN + indent + item.name.length * 6 + 6;
         ink(pal.categoryCount).write(hitText, { x: hitX, y: y + 1 });
       }
-      // Description (if space allows and not in popular tab)
-      else if (maxDescLen > 0 && item.data?.desc && currentTab !== "popular") {
+      // Show date in user tab
+      else if (currentTab === "user" && item.when && layoutMode !== "tiny") {
+        const dateStr = formatShortDate(item.when);
+        const dateX = LEFT_MARGIN + indent + item.name.length * 6 + 6;
+        ink(pal.dateText).write(dateStr, { x: dateX, y: y + 1 });
+      }
+      // Description (if space allows and not in popular/user tab)
+      else if (maxDescLen > 0 && item.data?.desc && currentTab !== "popular" && currentTab !== "user") {
         const descX = LEFT_MARGIN + item.name.length * 6 + 8 + indent;
         const remainingSpace = floor((screen.width - descX - 4) / 6);
         const desc = truncate(item.data.desc, min(maxDescLen, remainingSpace));
@@ -487,13 +569,15 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
       all: pal.tabAll,
       pieces: pal.tabPieces,
       commands: pal.tabCommands,
+      user: pal.tabUser,
     };
     
     const tabs = layoutMode === "small" 
-      ? [["popular", "🔥"], ["all", "All"], ["pieces", "📦"], ["commands", "🎯"]]
-      : [["popular", "🔥 Hot"], ["all", "All"], ["pieces", "Pieces"], ["commands", "Commands"]];
+      ? [["popular", "🔥"], ["all", "All"], ["pieces", "📦"], ["commands", "🎯"], ["user", "@"]]
+      : [["popular", "🔥 Hot"], ["all", "All"], ["pieces", "Pieces"], ["commands", "Cmds"], ["user", "@User"]];
     
-    let tabX = LEFT_MARGIN;
+    // Start tabs offset from left to avoid HUD label overlap
+    let tabX = TAB_OFFSET;
     tabButtons = []; // Reset
     tabs.forEach(([id, label]) => {
       const isActive = currentTab === id;
@@ -534,8 +618,11 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
     ink(pal.categoryHeader, 120).box(modalX + 1, modalY, modalW - 2, 1); // Top highlight
     
     // Action label
-    const actionLabel = type === "piece" ? "Open piece?" : "Run command?";
-    const labelColor = type === "piece" ? pal.pieceName : pal.commandName;
+    const actionLabel = type === "user" ? "Open user piece?" : (type === "piece" ? "Open piece?" : "Run command?");
+    let labelColor;
+    if (type === "user") labelColor = pal.tabUser;
+    else if (type === "piece") labelColor = pal.pieceName;
+    else labelColor = pal.commandName;
     ink(labelColor).write(actionLabel, { x: modalX + 6, y: modalY + 4 });
     
     // Name

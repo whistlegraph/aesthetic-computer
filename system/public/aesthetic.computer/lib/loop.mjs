@@ -59,6 +59,7 @@ function loop(now, XR = false) {
 document.addEventListener("visibilitychange", function () {
   if (!document.hidden) {
     updateTime = 0;
+    renderTime = 0; // Also reset render time to prevent catch-up rendering
     lastNow = performance.now();
   }
 });
