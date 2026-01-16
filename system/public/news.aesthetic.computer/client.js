@@ -11,11 +11,17 @@ let acUser = null;
 let acToken = null;
 let acHandle = null;
 
-const loginBtn = document.getElementById("news-login-btn");
-const signupBtn = document.getElementById("news-signup-btn");
-const userMenu = document.getElementById("news-user-menu");
-const userHandle = document.getElementById("news-user-handle");
-const logoutBtn = document.getElementById("news-logout-btn");
+// DOM elements - initialized after DOM ready
+let loginBtn, signupBtn, userMenu, userHandle, logoutBtn;
+
+function initDOMRefs() {
+  loginBtn = document.getElementById("news-login-btn");
+  signupBtn = document.getElementById("news-signup-btn");
+  userMenu = document.getElementById("news-user-menu");
+  userHandle = document.getElementById("news-user-handle");
+  logoutBtn = document.getElementById("news-logout-btn");
+  console.log("[news] DOM refs:", { loginBtn, signupBtn, userMenu, logoutBtn });
+}
 
 async function hydrateHandleFromEmail(email) {
   if (!email) return;
@@ -61,14 +67,24 @@ function decodeSessionParam() {
 
 async function initAuth0() {
   if (!window.auth0) return;
+  
+  // Determine correct redirect URI (subdomain vs local path)
+  const isNewsDomain = window.location.hostname === 'news.aesthetic.computer';
+  const redirectUri = isNewsDomain 
+    ? window.location.origin 
+    : window.location.origin + '/news.aesthetic.computer';
+  
   auth0Client = await auth0.createAuth0Client({
     domain: config.domain,
     clientId: config.clientId,
     authorizationParams: {
-      redirect_uri: window.location.href,
+      redirect_uri: redirectUri,
       audience: config.audience,
       scope: "openid profile email",
     },
+    cacheLocation: 'localstorage',
+    useRefreshTokens: true,
+    useRefreshTokensFallback: true,
   });
 
   if (window.location.search.includes("code=") && window.location.search.includes("state=")) {
@@ -113,14 +129,20 @@ function updateAuthUI() {
 }
 
 async function acLogin() {
+  console.log("[news] acLogin called, auth0Client:", !!auth0Client);
   if (!auth0Client) await initAuth0();
-  if (!auth0Client) return;
+  if (!auth0Client) {
+    console.error("[news] auth0Client still null after init");
+    return;
+  }
+  console.log("[news] Redirecting to Auth0...");
   await auth0Client.loginWithRedirect({
     authorizationParams: { prompt: "login" },
   });
 }
 
 async function acSignup() {
+  console.log("[news] acSignup called");
   if (!auth0Client) await initAuth0();
   if (!auth0Client) return;
   await auth0Client.loginWithRedirect({
@@ -134,7 +156,14 @@ async function acLogout() {
   acToken = null;
   acHandle = null;
   updateAuthUI();
-  await auth0Client.logout({ logoutParams: { returnTo: window.location.origin + window.location.pathname } });
+  
+  // Use root URL for logout (must match Auth0 Allowed Logout URLs)
+  const isNewsDomain = window.location.hostname === 'news.aesthetic.computer';
+  const returnTo = isNewsDomain 
+    ? window.location.origin 
+    : window.location.origin + '/news.aesthetic.computer';
+  
+  await auth0Client.logout({ logoutParams: { returnTo } });
 }
 
 function attachAuthHandlers() {
@@ -150,6 +179,22 @@ function attachAuthHandlers() {
     e.preventDefault();
     acLogout();
   });
+  
+  // User menu dropdown toggle
+  if (userMenu) {
+    userMenu.addEventListener("click", (e) => {
+      // Don't toggle if clicking logout button
+      if (e.target.closest('.header-logout-btn')) return;
+      userMenu.classList.toggle("open");
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest('.header-user-menu')) {
+        userMenu.classList.remove("open");
+      }
+    });
+  }
 }
 
 function attachSessionListener() {
@@ -201,6 +246,8 @@ function initForms() {
   });
 }
 
+// Initialize everything after DOM is ready
+initDOMRefs();
 attachAuthHandlers();
 initForms();
 attachSessionListener();
