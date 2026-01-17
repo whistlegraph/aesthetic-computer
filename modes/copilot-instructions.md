@@ -294,8 +294,60 @@ The task state is stored at `/tmp/aesthetic-task-state.json`:
 VS Code watches this file and updates the status bar in real-time.
 You can also use the CLI: `node artery/task-state.mjs set working "Building..."`
 
-## CDP Tunnel (VS Code on Windows Host)
-The CDP tunnel forwards localhost:9333 to host's VS Code for remote control:
+## CDP (Chrome DevTools Protocol) 🔌
+
+VS Code exposes CDP on **port 9333** inside the devcontainer. This allows remote control of webviews, iframes, and extension panels.
+
+### Checking CDP Targets
+```bash
+# List all CDP targets (pages, iframes, webviews)
+curl -s http://localhost:9333/json | jq '.[].title'
+
+# Find a specific page (e.g., News)
+curl -s http://localhost:9333/json | jq '.[] | select(.url | contains("news"))'
+```
+
+### CDP Target Structure
+VS Code webviews appear as nested targets:
+1. **Main page** (`type: "page"`) — VS Code workbench window
+2. **Webview** (`type: "iframe"`) — Extension's webview container
+3. **Inner iframe** (`type: "iframe"`) — Actual content (e.g., `localhost:8888/news.aesthetic.computer`)
+
+### Connecting via WebSocket
+```javascript
+// Get the target's webSocketDebuggerUrl from /json endpoint
+const ws = new WebSocket('ws://localhost:9333/devtools/page/<PAGE_ID>');
+
+// Send CDP commands
+ws.send(JSON.stringify({
+  id: 1,
+  method: 'Runtime.evaluate',
+  params: { expression: 'document.title' }
+}));
+```
+
+### Common CDP Operations
+```javascript
+// Evaluate JavaScript in the page
+{ method: 'Runtime.evaluate', params: { expression: 'code' } }
+
+// Click an element
+{ method: 'Runtime.evaluate', params: { expression: 'document.querySelector("a").click()' } }
+
+// Get page info
+{ method: 'Page.getFrameTree' }
+```
+
+### CDP in Artery TUI
+Several artery modes use CDP for remote control:
+- **News Mode** (`N`) — Control the News webview
+- **KidLisp Dev** (`G`) — Mirror console.log from KidLisp.com editor
+- **Notepat tests** — Automated testing via CDP
+
+The CDP host discovery in artery tries: `localhost:9333`, `localhost:9222`, `host.docker.internal:9333`
+
+### CDP Tunnel (Windows Host)
+When running VS Code on Windows with remote container:
 - **`ac-cdp-tunnel`** — start/restart the CDP SSH tunnel
 - **`ac-cdp-status`** — check if tunnel is running and port accessible
 - Artery TUI header shows CDP status (● online / ○ offline)

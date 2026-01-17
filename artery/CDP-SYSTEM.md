@@ -11,6 +11,28 @@ The CDP system provides:
 - **Error resilience** - handles disconnections and retries
 - **Multiple interfaces** - Node.js module, CLI tools, and fish shell commands
 
+## Quick Start (Inside Devcontainer)
+
+When running VS Code inside the devcontainer (e.g., via Electron desktop app), CDP is directly accessible:
+
+```bash
+# List all CDP targets
+curl -s http://localhost:9333/json | jq '.[].title'
+
+# Find News webview
+curl -s http://localhost:9333/json | jq '.[] | select(.url | contains("news"))'
+
+# Find KidLisp.com editor
+curl -s http://localhost:9333/json | jq '.[] | select(.url | contains("kidlisp.com"))'
+```
+
+**Target hierarchy for webviews:**
+1. `type: "page"` — VS Code main workbench window
+2. `type: "iframe"` — Webview container (parentId = main page)
+3. `type: "iframe"` — Actual content iframe (e.g., `localhost:8888/news.aesthetic.computer`)
+
+Connect to the innermost iframe for page control.
+
 ## Architecture
 
 ```
