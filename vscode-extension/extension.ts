@@ -2343,7 +2343,7 @@ function getWebViewContent(webview: any, slug: string) {
         </style>
       </head>
       <body>
-        <iframe id="news" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}${path}${param}"></iframe>
+        <iframe id="news" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}${path}${param}"></iframe>
         <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
           const newsIframe = document.getElementById('news');
