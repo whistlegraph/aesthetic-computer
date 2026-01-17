@@ -135,7 +135,7 @@ export function createHandler({
 
           const shortCode = await generateUniqueCodeFn(posts, { mode: "random" });
           const now = new Date();
-          const code = `^${shortCode}`; // e.g., "^icd"
+          const code = shortCode; // e.g., "icd" (no prefix sigil, like paintings)
           const doc = {
             code,
             title,
