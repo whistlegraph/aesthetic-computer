@@ -163,6 +163,13 @@ let linkConfirmModal = null;
 // { message: string, from: string, copied: boolean, error: boolean }
 let messageCopyModal = null;
 
+// 📰 News ticker system
+let newsHeadlines = []; // Array of { title, code, user } from news.aesthetic.computer
+let newsTickerText = "Report a story"; // Default/fallback text
+let newsTickerBounds = null; // { x, y, w, h } for click detection
+let newsTickerHovered = false; // Hover state for visual feedback
+let newsFetchPromise = null; // Track fetch to avoid duplicate requests
+
 // 🔍 @handle autocomplete
 let handleAutocomplete = null;
 
@@ -367,7 +374,43 @@ async function boot(
   // 🔍 Initialize @handle autocomplete
   handleAutocomplete = createHandleAutocomplete();
 
+  // 📰 Fetch news headlines from news.aesthetic.computer
+  fetchNewsHeadlines();
+
   send({ type: "keyboard:soft-lock" });
+}
+
+// 📰 Fetch news headlines from the API
+async function fetchNewsHeadlines() {
+  if (newsFetchPromise) return newsFetchPromise; // Avoid duplicate fetches
+  
+  newsFetchPromise = (async () => {
+    try {
+      const response = await fetch("https://news.aesthetic.computer/api?path=posts&limit=5&sort=new");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      
+      if (data.posts && data.posts.length > 0) {
+        newsHeadlines = data.posts.map(p => ({
+          title: p.title,
+          code: p.code,
+          user: p.user,
+        }));
+        // Create scrolling ticker text from headlines
+        newsTickerText = newsHeadlines.map(h => `${h.title} (@${h.user})`).join("   ~   ");
+      } else {
+        newsHeadlines = [];
+        newsTickerText = "Report a story";
+      }
+    } catch (err) {
+      console.warn("📰 Failed to fetch news:", err.message);
+      newsHeadlines = [];
+      newsTickerText = "Report a story";
+    }
+    newsFetchPromise = null;
+  })();
+  
+  return newsFetchPromise;
 }
 
 function paint(
@@ -1626,7 +1669,29 @@ function act(
     });
   }
   
-  // �🔗 Link confirmation modal intercepts all events
+  // 📰 News ticker interaction (hover + click)
+  if (newsTickerBounds && !linkConfirmModal && !messageCopyModal && !modalPainting) {
+    const inBounds = pen.x >= newsTickerBounds.x && pen.x < newsTickerBounds.x + newsTickerBounds.w &&
+                     pen.y >= newsTickerBounds.y && pen.y < newsTickerBounds.y + newsTickerBounds.h;
+    
+    // Update hover state
+    if (e.is("move") || e.is("draw")) {
+      newsTickerHovered = inBounds;
+    }
+    
+    // Click to open news.aesthetic.computer
+    if ((e.is("lift") || e.is("touch")) && inBounds) {
+      beep();
+      // Open news.aesthetic.computer in new tab/window
+      if (typeof window !== "undefined") {
+        window.open("https://news.aesthetic.computer", "_blank");
+      } else {
+        jump("news.aesthetic.computer");
+      }
+    }
+  }
+  
+  // 🔗 Link confirmation modal intercepts all events
   if (linkConfirmModal) {
     const { yesBtn, noBtn, action } = linkConfirmModal;
     
@@ -3053,7 +3118,7 @@ function generateDynamicColorMessage(message, theme) {
   return colorCodedMessage;
 }
 // 📰 News ticker with scrolling text, "News" label, and @handle highlighting
-const NEWS_TEXT = "@jeffrey is hard at work on authoring AC '26";
+// Now fetches from news.aesthetic.computer API (see fetchNewsHeadlines)
 
 function paintNewsTicker($, theme) {
   const { ink, screen, text, hud } = $;
@@ -3071,14 +3136,18 @@ function paintNewsTicker($, theme) {
   const tickerRight = screen.width - rightMargin;
   const tickerY = 10;
   
-  // Seamless loop with separator
-  const separator = "   ~   ";
-  const loopText = NEWS_TEXT + separator;
+  // Use dynamic news text (fetched from API or fallback)
+  const displayText = newsTickerText || "Report a story";
+  
+  // Seamless loop with separator (only add separator if we have real news)
+  const hasNews = newsHeadlines.length > 0;
+  const separator = hasNews ? "   ~   " : "";
+  const loopText = displayText + separator;
   const loopWidth = loopText.length * tickerCharWidth;
   
-  // Scroll animation
-  const scrollSpeed = 0.4;
-  const scrollOffset = (performance.now() * scrollSpeed / 16) % loopWidth;
+  // Scroll animation (only scroll if we have news, otherwise static)
+  const scrollSpeed = hasNews ? 0.4 : 0;
+  const scrollOffset = hasNews ? (performance.now() * scrollSpeed / 16) % loopWidth : 0;
   
   // Calculate HUD label right edge to avoid overlap
   // HUD label starts at x=6 and has width from hud.currentLabel()
@@ -3107,15 +3176,24 @@ function paintNewsTicker($, theme) {
   const textColor = theme?.messageText ? 
     (Array.isArray(theme.messageText) ? theme.messageText : [200, 200, 200]) : [200, 200, 200];
   
-  // "News" label - distinct purple/magenta background
-  const newsBgColor = [80, 40, 100];
-  const newsFgColor = [255, 200, 100]; // Gold/yellow text
+  // "News" label - distinct purple/magenta background (brighter on hover)
+  const newsBgColor = newsTickerHovered ? [100, 50, 130] : [80, 40, 100];
+  const newsFgColor = newsTickerHovered ? [255, 220, 120] : [255, 200, 100]; // Gold/yellow text
   
-  // Scrolling area - darker, more subtle background  
-  const scrollBgColor = [25, 20, 35];
+  // Scrolling area - darker, more subtle background (brighter on hover)
+  const scrollBgColor = newsTickerHovered ? [35, 30, 50] : [25, 20, 35];
   
   // Calculate actual scrolling area width based on position
   const actualTickerWidth = scrollAreaRight - scrollAreaLeft;
+  
+  // Store bounds for click detection (entire ticker area including "News" label)
+  const totalWidth = newsPrefixWidth + actualTickerWidth + 1;
+  newsTickerBounds = {
+    x: newsBgX,
+    y: tickerY - 2,
+    w: totalWidth,
+    h: tickerHeight + 4,
+  };
   
   // Draw "News" label background (extend 1px right to touch scroll area)
   ink(...newsBgColor, 230).box(newsBgX, tickerY - 2, newsPrefixWidth + 1, tickerHeight + 4);
@@ -3124,6 +3202,11 @@ function paintNewsTicker($, theme) {
   
   // Draw scrolling ticker background (use actual width)
   ink(...scrollBgColor, 200).box(scrollAreaLeft, tickerY - 2, actualTickerWidth + 1, tickerHeight + 4);
+  
+  // Draw hover underline indicator (shows it's clickable)
+  if (newsTickerHovered) {
+    ink(255, 200, 100, 180).box(newsBgX, tickerY + tickerHeight + 1, totalWidth, 1);
+  }
   
   // Parse text for @handles to highlight
   const handleRegex = /@[\w]+/g;
