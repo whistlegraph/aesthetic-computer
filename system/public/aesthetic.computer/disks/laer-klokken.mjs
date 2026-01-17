@@ -25,6 +25,8 @@ function paint($) {
       scrollbar: [255, 180, 100], // Warm orange scrollbar
       messageText: [255, 255, 240], // Brighter cream/off-white text for better contrast
       messageBox: [255, 220, 180], // Warm beige for message boxes
+      log: [100, 255, 220], // Bright cyan/teal for system log messages
+      logHover: [255, 240, 120], // Bright golden yellow on hover
       handle: [255, 160, 120], // Brighter coral for handles
       handleHover: [255, 240, 120], // Bright golden yellow on hover
       url: [120, 220, 255], // Brighter light blue for contrast

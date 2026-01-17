@@ -89,7 +89,9 @@ function footer() {
     <div class="news-footer-links">
       <a href="https://aesthetic.computer/list">List</a>
       <span>|</span>
-      <a href="https://give.aesthetic.computer">Gift</a>
+      <a href="https://aesthetic.computer/weather">Weather</a>
+      <span>|</span>
+      <a href="https://give.aesthetic.computer">Give</a>
       <span>|</span>
       <a href="https://prompt.ac/commits" class="news-modal-link" data-modal-url="https://prompt.ac/commits">Commits</a>
     </div>
