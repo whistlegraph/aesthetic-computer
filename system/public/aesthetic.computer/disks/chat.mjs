@@ -412,6 +412,8 @@ function paint(
     scrollbar: "pink",
     messageText: [255, 255, 255], // Changed from "white" to explicit RGB
     messageBox: [255, 32], // white with alpha for hover
+    log: "cyan", // System log messages (hi @newuser, etc)
+    logHover: "yellow",
     handle: "pink",
     handleHover: "yellow",
     url: "cyan",
@@ -711,6 +713,8 @@ function paint(
             color = isHovered ? theme.clockHover : theme.clock;
           } else if (element.type === "r8dio") {
             color = isHovered ? theme.r8dioHover : theme.r8dio;
+          } else if (element.type === "log") {
+            color = isHovered ? theme.logHover : theme.log;
           }
           
           if (color) {
@@ -2761,7 +2765,10 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
       const elementText = msg.fullMessage.substring(element.start, element.end);
       let colorCodedText = "";
       
-      if (element.type === "handle") {
+      if (element.type === "log") {
+        // System log messages get cyan color with a distinctive look
+        colorCodedText = `\\cyan\\${elementText}\\white\\`;
+      } else if (element.type === "handle") {
         colorCodedText = `\\pink\\${elementText}\\white\\`;
       } else if (element.type === "url") {
         colorCodedText = `\\cyan\\${elementText}\\white\\`;
