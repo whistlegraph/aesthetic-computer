@@ -111,11 +111,11 @@
     .proc-label .info { font-size: 8px; color: #aaa; margin-top: 1px; }
     body[data-theme="light"] .proc-label .info { color: #806060; }
     
-    /* Dev mode indicator */
+    /* Dev mode indicator - positioned to not overlap with tour button (bottom-right) or reload status */
     .dev-badge {
       position: fixed;
-      bottom: 16px;
-      left: 16px;
+      top: 16px;
+      left: 180px;
       background: #ff69b4;
       color: #000;
       padding: 4px 8px;

@@ -407,8 +407,7 @@
   }
 };
   
-  // Detect theme from data attribute, URL param, or VS Code CSS vars
-  // Detect theme from data attribute, URL param, or VS Code CSS vars
+  // Detect theme from data attribute, URL param, VS Code CSS vars, or OS preference
   function detectTheme() {
     // Check data attribute first (set by the HTML)
     const dataTheme = document.body.dataset.theme;
@@ -438,6 +437,13 @@
         const b = parseInt(bgColor.slice(5, 7), 16);
         const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
         return luminance > 0.5 ? 'light' : 'dark';
+      }
+    }
+    
+    // Fall back to OS preference (prefers-color-scheme)
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+        return 'light';
       }
     }
     
@@ -1423,9 +1429,10 @@
   };
   
   // Add tour button to the UI (touch-friendly, no keyboard shortcuts)
+  // Positioned bottom-right but above the mem display to avoid overlap
   const tourBtn = document.createElement('button');
   tourBtn.id = 'tour-btn';
-  tourBtn.style.cssText = `position:fixed;bottom:20px;right:20px;background:${scheme.ui.overlay};padding:10px 16px;border-radius:6px;color:${scheme.foregroundMuted};font-family:monospace;font-size:12px;z-index:999;border:1px solid ${scheme.foregroundMuted}40;cursor:pointer;`;
+  tourBtn.style.cssText = `position:fixed;bottom:48px;right:16px;background:${scheme.ui.overlay};padding:10px 16px;border-radius:6px;color:${scheme.foregroundMuted};font-family:monospace;font-size:12px;z-index:999;border:1px solid ${scheme.foregroundMuted}40;cursor:pointer;`;
   tourBtn.textContent = '🎬 Tour';
   tourBtn.onclick = () => { 
     const isSourceTour = window.ASTTreeViz?.getTab() === 'sources' && window.ASTTreeViz?.isTourMode();

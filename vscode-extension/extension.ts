@@ -615,7 +615,17 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // Helper function to generate Welcome Panel HTML from shared process-tree.js
   // Helper function to detect current VS Code theme kind
+  // Priority: 1) Aesthetic theme name, 2) VS Code theme kind, 3) Falls back to dark
   function getVSCodeThemeKind(): 'dark' | 'light' {
+    // First check if user has an Aesthetic Computer theme selected
+    const themeName = vscode.window.activeColorTheme.name || '';
+    if (themeName.includes('Aesthetic Computer')) {
+      // Use the Aesthetic theme's light/dark setting
+      if (themeName.includes('Light')) return 'light';
+      if (themeName.includes('Dark')) return 'dark';
+    }
+    
+    // Fall back to VS Code theme kind
     const kind = vscode.window.activeColorTheme.kind;
     // ColorThemeKind: 1 = Light, 2 = Dark, 3 = HighContrast, 4 = HighContrastLight
     return (kind === 1 || kind === 4) ? 'light' : 'dark';
@@ -636,10 +646,13 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: ${theme === 'light' ? '#fcf7c5' : '#000'}; height: 100vh; overflow: hidden; }
     iframe { width: 100%; height: 100%; border: none; }
-    .dev-controls { position: fixed; bottom: 12px; left: 12px; z-index: 1000; display: flex; gap: 8px; align-items: center; }
+    .dev-controls { position: fixed; top: 12px; left: 12px; z-index: 1000; display: flex; gap: 8px; align-items: center; }
     .dev-btn { background: ${theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}; border: 1px solid ${theme === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'}; color: ${theme === 'light' ? '#281e5a' : '#fff'}; padding: 6px 12px; border-radius: 4px; font-size: 11px; font-family: monospace; cursor: pointer; }
     .dev-btn:hover { background: ${theme === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'}; }
     .dev-status { font-size: 10px; color: ${theme === 'light' ? '#806060' : '#888'}; font-family: monospace; }
+    .dev-status.error { color: #ff6b6b; }
+    .dev-status.connecting { color: #ffa500; }
+    .dev-status.connected { color: #0f0; }
   </style>
 </head>
 <body>
@@ -652,12 +665,65 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     const vscode = acquireVsCodeApi();
     const frame = document.getElementById('dev-frame');
     const status = document.getElementById('status');
+    let retryInterval = null;
+    let retryCount = 0;
     
     function reload() {
       status.textContent = 'Reloading...';
+      status.className = 'dev-status connecting';
       frame.src = frame.src.split('?')[0] + '?theme=${theme}&t=' + Date.now();
-      setTimeout(() => status.textContent = 'DEV MODE', 500);
     }
+    
+    // Auto-retry when server unavailable
+    function startAutoRetry() {
+      if (retryInterval) return;
+      retryInterval = setInterval(() => {
+        retryCount++;
+        status.textContent = 'Waiting for server... (' + retryCount + ')';
+        status.className = 'dev-status connecting';
+        frame.src = frame.src.split('?')[0] + '?theme=${theme}&t=' + Date.now();
+      }, 2000);
+    }
+    
+    function stopAutoRetry() {
+      if (retryInterval) {
+        clearInterval(retryInterval);
+        retryInterval = null;
+        retryCount = 0;
+      }
+    }
+    
+    // Detect iframe load success/failure
+    frame.onload = () => {
+      try {
+        // Try to access iframe content - will throw if cross-origin blocked (server working)
+        const doc = frame.contentDocument || frame.contentWindow?.document;
+        if (doc && doc.body) {
+          // Check if it's an error page or actual content
+          const text = doc.body.innerText || '';
+          if (text.includes('refused') || text.includes('ERR_')) {
+            status.textContent = 'Server offline - retrying...';
+            status.className = 'dev-status error';
+            startAutoRetry();
+          } else {
+            status.textContent = 'DEV MODE ✓';
+            status.className = 'dev-status connected';
+            stopAutoRetry();
+          }
+        }
+      } catch (e) {
+        // Cross-origin = server is running, content loaded
+        status.textContent = 'DEV MODE ✓';
+        status.className = 'dev-status connected';
+        stopAutoRetry();
+      }
+    };
+    
+    frame.onerror = () => {
+      status.textContent = 'Server offline - retrying...';
+      status.className = 'dev-status error';
+      startAutoRetry();
+    };
     
     // Listen for messages from extension and forward to iframe
     window.addEventListener('message', (e) => {
