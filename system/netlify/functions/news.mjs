@@ -74,7 +74,7 @@ function header(basePath) {
       <span>|</span>
       <a href="${basePath}/comments">comments</a>
       <span>|</span>
-      <a href="${basePath}/submit">submit</a>
+      <a href="${basePath}/report">report a story</a>
     </nav>
     <div class="news-auth">
       <button id="news-login-btn" class="header-login-btn">Log In</button>
@@ -94,8 +94,6 @@ function footer() {
   return `
   <footer class="news-footer">
     <div class="news-footer-links">
-      <a href="/guidelines">Guidelines</a>
-      <span>|</span>
       <a href="https://aesthetic.computer/list">List</a>
       <span>|</span>
       <a href="https://aesthetic.computer/about">About</a>
@@ -104,7 +102,7 @@ function footer() {
       <span>|</span>
       <a href="https://aesthetic.computer/desktop">Desktop</a>
       <span>|</span>
-      <a href="https://prompt.ac/commits">Commits</a>
+      <a href="https://prompt.ac/commits" class="news-modal-link" data-modal-url="https://prompt.ac/commits">Commits</a>
       <span>|</span>
       <a href="https://aesthetic.computer">Aesthetic Computer</a>
     </div>
@@ -232,8 +230,10 @@ async function renderItemPage(database, basePath, code) {
     ${hydratedPost.text ? `<div class="news-text">${escapeHtml(hydratedPost.text)}</div>` : ""}
     <form id="news-comment-form" class="news-comment-form" data-news-action="comment" method="post" action="/api/news/comment">
       <input type="hidden" name="postCode" value="${escapeHtml(code)}" />
-      <textarea name="text" rows="8" cols="80"></textarea>
-      <br>
+      <div class="news-comment-guidelines">
+        <p>Say something interesting or ask a question. Be nice.</p>
+      </div>
+      <textarea name="text" rows="6" cols="80" placeholder="Add a comment..."></textarea>
       <button type="submit">add comment</button>
     </form>
     <div class="news-comments">
@@ -243,19 +243,28 @@ async function renderItemPage(database, basePath, code) {
   ${footer()}`;
 }
 
-async function renderSubmitPage(basePath) {
+async function renderReportPage(basePath) {
   return `
   ${header(basePath)}
   <main class="news-main">
-    <section class="news-submit">
+    <section class="news-report">
+      <h2>Report a Story</h2>
+      <div class="news-guidelines">
+        <p>Share something interesting with the community.</p>
+        <ul>
+          <li>Links to creative tools, code, art, and experiments are welcome.</li>
+          <li>Self-promotion is fine if it's genuinely interesting.</li>
+          <li>Be curious. Be kind. Keep it weird.</li>
+        </ul>
+      </div>
       <form id="news-submit-form" data-news-action="submit" method="post" action="/api/news/submit">
         <label>title</label>
-        <input type="text" name="title" required />
-        <label>url</label>
+        <input type="text" name="title" required placeholder="What's the story?" />
+        <label>url <span class="news-optional">(optional)</span></label>
         <input type="url" name="url" placeholder="https://" />
-        <label>text</label>
-        <textarea name="text" rows="6"></textarea>
-        <button type="submit">submit</button>
+        <label>or tell us more <span class="news-optional">(optional)</span></label>
+        <textarea name="text" rows="6" placeholder="Add context, thoughts, or leave blank..."></textarea>
+        <button type="submit">report this</button>
       </form>
     </section>
   </main>
@@ -284,8 +293,8 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
       } else if (route.startsWith("item/")) {
         const code = route.split("/").slice(1).join("/");
         body = await renderItemPage(database, basePath, code);
-      } else if (route === "submit") {
-        body = await renderSubmitPage(basePath);
+      } else if (route === "report" || route === "submit") {
+        body = await renderReportPage(basePath);
       } else {
         body = `${header(basePath)}<main class="news-main"><p>Page not found.</p></main>${footer()}`;
       }

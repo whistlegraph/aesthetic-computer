@@ -450,7 +450,7 @@ class ArteryTUI {
     this.menuItems = [
       { key: 'p', label: 'Toggle Panel', desc: 'Toggle AC sidebar in VS Code', action: () => this.togglePanel() },
       { key: 'k', label: 'KidLisp.com', desc: 'Open KidLisp editor window', action: () => this.openKidLisp() },
-      { key: 'N', label: 'News Mode', desc: 'Interactive News page control via CDP', action: () => this.enterNewsMode() },
+      { key: 'n', label: 'News Mode', desc: 'Interactive News page control via CDP', action: () => this.enterNewsMode() },
       { key: 'd', label: 'Deck Control', desc: 'Control KidLisp.com card deck via CDP', action: () => this.enterKidLispCardsMode() },
       { key: 'o', label: 'Oven', desc: 'Bake thumbnails, previews, videos', action: () => this.enterOvenMode() },
       { key: 'v', label: 'Devices', desc: 'Connected devices (LAN)', action: () => this.enterDevicesMode() },
@@ -2803,8 +2803,8 @@ class ArteryTUI {
     const http = await import('http');
     return new Promise((resolve) => {
       const req = http.get({
-        hostname: 'host.docker.internal', port: 9222, path: '/json',
-        headers: { 'Host': 'localhost' }, timeout: 2000
+        hostname: 'localhost', port: 9333, path: '/json',
+        timeout: 2000
       }, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
@@ -2825,8 +2825,7 @@ class ArteryTUI {
     if (!this.newsCdpPageId) return null;
     const WebSocket = (await import('ws')).default;
     const ws = new WebSocket(
-      `ws://host.docker.internal:9222/devtools/page/${this.newsCdpPageId}`,
-      { headers: { Host: 'localhost' } }
+      `ws://localhost:9333/devtools/page/${this.newsCdpPageId}`
     );
     
     return new Promise((resolve, reject) => {
