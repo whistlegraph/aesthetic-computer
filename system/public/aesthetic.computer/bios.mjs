@@ -10729,21 +10729,57 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Direct copy text to clipboard (re-enabled for chat modal and other uses)
+    // Mobile Safari requires execCommand fallback as clipboard API often fails
     if (type === "copy") {
-      try {
-        await navigator.clipboard.writeText(content);
-        send({ type: "copy:copied" });
-      } catch (err) {
-        console.warn("📋 Clipboard copy failed:", err);
-        if (window.parent) {
-          // Try via parent message for embedded contexts
-          window.parent.postMessage(
-            { type: "clipboard:copy", value: content },
-            "*",
-          );
-        } else {
-          send({ type: "copy:failed" });
+      let success = false;
+      
+      // Try modern clipboard API first
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(content);
+          success = true;
+        } catch (err) {
+          console.warn("📋 Clipboard API failed, trying fallback:", err);
         }
+      }
+      
+      // Fallback: Use execCommand with a temporary textarea (works on mobile Safari)
+      if (!success) {
+        try {
+          const textarea = document.createElement("textarea");
+          textarea.value = content;
+          textarea.style.position = "fixed";
+          textarea.style.left = "-9999px";
+          textarea.style.top = "-9999px";
+          textarea.style.opacity = "0";
+          textarea.setAttribute("readonly", ""); // Prevent keyboard popup on mobile
+          document.body.appendChild(textarea);
+          
+          // iOS Safari specific: need to select with setSelectionRange
+          textarea.focus();
+          textarea.setSelectionRange(0, textarea.value.length);
+          
+          success = document.execCommand("copy");
+          document.body.removeChild(textarea);
+          
+          if (!success) {
+            console.warn("📋 execCommand copy failed");
+          }
+        } catch (err) {
+          console.warn("📋 Fallback copy failed:", err);
+        }
+      }
+      
+      if (success) {
+        send({ type: "copy:copied" });
+      } else if (window.parent && window.self !== window.top) {
+        // Try via parent message for embedded contexts
+        window.parent.postMessage(
+          { type: "clipboard:copy", value: content },
+          "*",
+        );
+      } else {
+        send({ type: "copy:failed" });
       }
       return;
     }
