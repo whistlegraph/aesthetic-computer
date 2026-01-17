@@ -4,7 +4,10 @@
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 
-const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
+// Dev mode: show live reload indicator
+const dev = process.env.CONTEXT === "dev" || 
+            process.env.NETLIFY_DEV === "true" ||
+            process.env.NODE_ENV === "development";
 
 function escapeHtml(value = "") {
   return String(value)
@@ -84,16 +87,24 @@ function header(basePath) {
 }
 
 function footer() {
+  // Show connectivity indicator in dev mode
+  const connectivityHtml = dev ? `
+    <div class="news-connectivity" id="news-connectivity">
+      <div class="connectivity-dot disconnected" id="connectivity-dot"></div>
+      <span id="connectivity-label">offline</span>
+    </div>` : '';
+  
   return `
   <footer class="news-footer">
     <div class="news-footer-links">
-      <a href="https://aesthetic.computer/list">List</a>
+      <a href="https://aesthetic.computer/list" class="news-modal-link" data-modal-url="https://aesthetic.computer/list">List</a>
       <span>|</span>
-      <a href="https://aesthetic.computer/weather">Weather</a>
+      <a href="https://aesthetic.computer/weather" class="news-modal-link" data-modal-url="https://aesthetic.computer/weather">Weather</a>
       <span>|</span>
-      <a href="https://give.aesthetic.computer">Give</a>
+      <a href="https://give.aesthetic.computer" class="news-external-link" target="_blank" rel="noopener">Give</a>
       <span>|</span>
       <a href="https://prompt.ac/commits" class="news-modal-link" data-modal-url="https://prompt.ac/commits">Commits</a>
+      ${connectivityHtml}
     </div>
   </footer>`;
 }

@@ -122,6 +122,21 @@ initializeApp(
 const chatManager = new ChatManager({ dev: process.env.NODE_ENV === "development" });
 await chatManager.init();
 
+// Helper function to get handles of users currently on a specific piece
+// Used by chatManager to determine who's actually viewing the chat piece
+function getHandlesOnPiece(pieceName) {
+  const handles = [];
+  for (const [id, client] of Object.entries(clients)) {
+    if (client.location === pieceName && client.handle) {
+      handles.push(client.handle);
+    }
+  }
+  return [...new Set(handles)]; // Remove duplicates
+}
+
+// Expose the function to chatManager
+chatManager.setPresenceResolver(getHandlesOnPiece);
+
 import { filter } from "./filter.mjs"; // Profanity filtering.
 import { ChatManager } from "./chat-manager.mjs"; // Multi-instance chat support.
 
@@ -2257,6 +2272,7 @@ if (dev) {
       "../system/public/kidlisp.com",
       "../system/public/gift.aesthetic.computer",
       "../system/public/give.aesthetic.computer",
+      "../system/public/news.aesthetic.computer",
     ])
     .on("all", (event, path) => {
       if (event === "change")
