@@ -212,6 +212,9 @@ RUN echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/con
     echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish && \
     chown -R me:me /home/me/.config/fish
 
+# --- GitHub Copilot CLI (gh extension) ----------------------------------------
+RUN gh extension install github/gh-copilot
+
 # --- ATProto dependencies for /at directory ------------------------------------
 # Note: These will be available globally for ATProto experiments
 # See /at directory for ATProto/Bluesky exploration tools
