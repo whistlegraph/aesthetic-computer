@@ -2620,6 +2620,11 @@ export async function handler(event, context) {
         desc: "Some nice noise.",
         done: false,
       },
+      news: {
+        sig: "news",
+        desc: "Community news and links.",
+        done: true,
+      },
       nopaint: {
         sig: "nopaint",
         desc: "",
