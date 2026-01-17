@@ -1719,11 +1719,11 @@ function act(
     }
     
     // Handle clipboard result events
-    if (e.is("clipboard:copy:copied")) {
+    if (e.is("copy:copied")) {
       messageCopyModal.copied = true;
       messageCopyModal.error = false;
     }
-    if (e.is("clipboard:copy:failed")) {
+    if (e.is("copy:failed")) {
       messageCopyModal.copied = false;
       messageCopyModal.error = true;
     }
@@ -1865,10 +1865,13 @@ function act(
 
   if (!input.canType) {
     // 👇 Message Picking
+    
+    // 🔴 Store isDragging state BEFORE we reset it, so lift handlers can use it
+    const wasScrollingOnLift = isDragging;
 
     if (e.is("lift")) {
       tapState = null;
-      // Reset drag tracking on lift
+      // Reset drag tracking on lift (AFTER storing the state above)
       isDragging = false;
       dragStartPos = null;
     }
@@ -1996,8 +1999,14 @@ function act(
         
         // Handle clicks on interactive elements with proper hit detection
         // 🚫 Skip link activation if user was scrolling/dragging
-        if (message.clicked && !isDragging) {
+        if (message.clicked) {
+          // Always reset clicked state
           message.clicked = false;
+          
+          // But only process interaction if not scrolling
+          if (wasScrollingOnLift) {
+            continue; // User was scrolling, skip link activation
+          }
           
           // Track if any interactive element was clicked
           let clickedInteractiveElement = false;
@@ -2203,6 +2212,7 @@ function act(
           }
           
           // 📋 If click was on plain message text (not interactive elements), show copy modal
+          // Only show if this was a tap, not a drag/scroll (scroll already handled above with continue)
           if (!clickedInteractiveElement && !linkConfirmModal && !modalPainting) {
             // Check if click was within the message text bounds
             const messageTextHeight = message.layout.height;
@@ -2533,20 +2543,7 @@ function act(
     (!input.canType && (e.is("touch") || e.is("lift")) && inputBtn && inputBtn.btn.box.contains(e))
   );
   
-  if (!input.canType && (e.is("touch") || e.is("lift"))) {
-    const containsInputBtn = inputBtn?.btn?.box?.contains(e);
-    const containsEnterBtn = input.enter?.btn?.box?.contains(e);
-    console.log("🗨️📍 [chat act] touch/lift when !canType |", e.name, "| containsInputBtn:", containsInputBtn, "containsEnterBtn:", containsEnterBtn, "e:", e.x, e.y);
-  }
-
-  if (input.canType && (e.is("touch") || e.is("lift"))) {
-    const enterBtnDown = input.enter?.btn?.down;
-    const enterBtnContains = input.enter?.btn?.box?.contains(e);
-    console.log("🗨️📍 [chat act] touch/lift when canType |", e.name, "| enterBtn.down:", enterBtnDown, "enterBtn.contains(e):", enterBtnContains, "e:", e.x, e.y);
-  }
-
   if (shouldCallInputAct) {
-    console.log("🗨️➡️ [chat act] calling input.act() for event:", e.name);
     input.act(api);
   }
 }
