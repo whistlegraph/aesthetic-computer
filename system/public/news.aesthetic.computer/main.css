@@ -577,8 +577,29 @@ body {
 /* ===== Empty State ===== */
 .news-empty {
   color: var(--text-meta);
-  padding: 20px 0;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.news-empty p {
+  margin: 0 0 16px 0;
   font-style: italic;
+}
+
+.news-report-link {
+  display: inline-block;
+  padding: 10px 20px;
+  background: var(--accent);
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.news-report-link:hover {
+  background: var(--accent-hover);
+  color: white;
 }
 
 /* ===== Footer (HN-style) ===== */

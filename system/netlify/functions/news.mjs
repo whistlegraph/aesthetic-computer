@@ -69,13 +69,6 @@ function header(basePath) {
       <a href="${homeHref}" class="news-logo-icon">A</a>
       <a href="${homeHref}"><b>Aesthetic News</b></a>
     </div>
-    <nav class="news-nav">
-      <a href="${basePath}/new">new</a>
-      <span>|</span>
-      <a href="${basePath}/comments">comments</a>
-      <span>|</span>
-      <a href="${basePath}/report">report a story</a>
-    </nav>
     <div class="news-auth">
       <button id="news-login-btn" class="header-login-btn">Log In</button>
       <button id="news-signup-btn" class="header-login-btn header-signup-btn">I'm New</button>
@@ -96,15 +89,9 @@ function footer() {
     <div class="news-footer-links">
       <a href="https://aesthetic.computer/list">List</a>
       <span>|</span>
-      <a href="https://aesthetic.computer/about">About</a>
-      <span>|</span>
       <a href="https://give.aesthetic.computer">Gift</a>
       <span>|</span>
-      <a href="https://aesthetic.computer/desktop">Desktop</a>
-      <span>|</span>
       <a href="https://prompt.ac/commits" class="news-modal-link" data-modal-url="https://prompt.ac/commits">Commits</a>
-      <span>|</span>
-      <a href="https://aesthetic.computer">Aesthetic Computer</a>
     </div>
   </footer>`;
 }
@@ -174,11 +161,16 @@ async function renderFrontPage(database, basePath, sort) {
   const posts = await fetchPosts(database, { sort, limit: 30 });
   const hydrated = await hydrateHandles(database, posts);
   const rows = hydrated.map((post, idx) => renderPostRow(post, idx, basePath)).join("\n");
+  const emptyState = `
+    <div class="news-empty">
+      <p>No posts yet.</p>
+      <a href="${basePath}/report" class="news-report-link">report a story</a>
+    </div>`;
   return `
   ${header(basePath)}
   <main class="news-main">
     <div class="news-list">
-      ${rows || '<div class="news-empty">No posts yet.</div>'}
+      ${rows || emptyState}
     </div>
   </main>
   ${footer()}`;
