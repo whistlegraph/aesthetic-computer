@@ -915,6 +915,14 @@ class TextButtonSmall {
     return (this.btn.down = d);
   }
   
+  get stickyScrubbing() {
+    return this.btn.stickyScrubbing;
+  }
+  
+  set stickyScrubbing(value) {
+    this.btn.stickyScrubbing = value;
+  }
+  
   get width() {
     return this.txt.length * this.#cw + this.#padX * 2;
   }
