@@ -1255,23 +1255,38 @@ function paint(
     false, undefined, false, selectedTypeface
   );
 
-  // Online counter - cycles through realtime online handles from server (always visible)
+  // Presence display - shows "here" (viewing chat) and "online" (connected anywhere)
   if (!client.connecting) {
     const chatterCount = client?.chatterCount ?? 0;
     const onlineHandles = client?.onlineHandles || [];
+    const hereHandles = client?.hereHandles || [];
     
-    // Cycle through handles every 2 seconds, or show count if no handles
-    let onlineText;
-    if (onlineHandles.length > 0) {
-      const handleIndex = Math.floor(Date.now() / 2000) % onlineHandles.length;
-      onlineText = chatterCount + " online " + onlineHandles[handleIndex];
+    // Build presence text with "here" count and cycling handle
+    let presenceText;
+    const hereCount = hereHandles.length;
+    const onlineCount = onlineHandles.length;
+    
+    if (hereCount > 0) {
+      // Cycle through "here" handles every 2 seconds
+      const handleIndex = Math.floor(Date.now() / 2000) % hereCount;
+      const hereHandle = hereHandles[handleIndex];
+      // Show: "3 here @handle • 5 online"
+      presenceText = `${hereCount} here ${hereHandle}`;
+      if (onlineCount > hereCount) {
+        presenceText += ` • ${onlineCount} online`;
+      }
+    } else if (onlineCount > 0) {
+      // No one here, but people online - cycle through online handles
+      const handleIndex = Math.floor(Date.now() / 2000) % onlineCount;
+      presenceText = `${onlineCount} online ${onlineHandles[handleIndex]}`;
     } else {
-      onlineText = chatterCount + " online";
+      // Fallback to connection count
+      presenceText = chatterCount + " online";
     }
     
-    // Draw online counter (no background)
+    // Draw presence counter (no background)
     const onlineFgColor = theme?.timestamp || 160;
-    ink(onlineFgColor).write(onlineText, {
+    ink(onlineFgColor).write(presenceText, {
       left: leftMargin,
       top: 18,
     }, false, undefined, false, "MatrixChunky8");
@@ -1679,15 +1694,11 @@ function act(
       newsTickerHovered = inBounds;
     }
     
-    // Click to open news.aesthetic.computer
-    if ((e.is("lift") || e.is("touch")) && inBounds) {
+    // Click to open news.aesthetic.computer (touch only, not lift, to avoid scroll conflicts)
+    if (e.is("touch") && inBounds) {
       beep();
       // Open news.aesthetic.computer in new tab/window
-      if (typeof window !== "undefined") {
-        window.open("https://news.aesthetic.computer", "_blank");
-      } else {
-        jump("news.aesthetic.computer");
-      }
+      jump("out:https://news.aesthetic.computer");
     }
   }
   
@@ -3139,15 +3150,15 @@ function paintNewsTicker($, theme) {
   // Use dynamic news text (fetched from API or fallback)
   const displayText = newsTickerText || "Report a story";
   
-  // Seamless loop with separator (only add separator if we have real news)
+  // Seamless loop with separator (always scroll, even for fallback text)
   const hasNews = newsHeadlines.length > 0;
-  const separator = hasNews ? "   ~   " : "";
+  const separator = "   ~   ";
   const loopText = displayText + separator;
   const loopWidth = loopText.length * tickerCharWidth;
   
-  // Scroll animation (only scroll if we have news, otherwise static)
-  const scrollSpeed = hasNews ? 0.4 : 0;
-  const scrollOffset = hasNews ? (performance.now() * scrollSpeed / 16) % loopWidth : 0;
+  // Scroll animation (always scroll, slower for fallback text)
+  const scrollSpeed = hasNews ? 0.4 : 0.25;
+  const scrollOffset = (performance.now() * scrollSpeed / 16) % loopWidth;
   
   // Calculate HUD label right edge to avoid overlap
   // HUD label starts at x=6 and has width from hud.currentLabel()

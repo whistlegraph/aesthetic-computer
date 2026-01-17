@@ -247,8 +247,30 @@ function initForms() {
   });
 }
 
-// Modal functionality for external links (like Commits)
+// ===== VS Code Detection =====
+// Check if running inside VS Code webview (sandboxed iframe)
+function isInVSCode() {
+  // Check for vscode query param or acVSCODE flag set by extension
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('vscode') === 'true' || 
+         (window.acVSCODE && window.parent !== window);
+}
+
+// Open URL externally - handles VS Code sandboxed iframe case
+function openExternal(url) {
+  if (isInVSCode()) {
+    // In VS Code extension webview, send message to parent to open externally
+    window.parent.postMessage({ type: 'openExternal', url }, '*');
+    return true;
+  }
+  // Normal browser - open in new tab
+  window.open(url, '_blank', 'noopener');
+  return true;
+}
+
+// ===== Modal functionality =====
 function initModals() {
+  // Modal links (List, Weather, Commits) - open in iframe modal
   const modalLinks = document.querySelectorAll('.news-modal-link');
   modalLinks.forEach(link => {
     link.addEventListener('click', (e) => {
@@ -257,9 +279,25 @@ function initModals() {
       openModal(url);
     });
   });
+  
+  // External links (Give) - open in new tab, with VS Code handling
+  const externalLinks = document.querySelectorAll('.news-external-link');
+  externalLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const url = link.href;
+      openExternal(url);
+    });
+  });
 }
 
 function openModal(url) {
+  // In VS Code, open modals externally too (iframes can be problematic)
+  if (isInVSCode()) {
+    openExternal(url);
+    return;
+  }
+  
   // Remove existing modal if any
   const existing = document.getElementById('news-modal');
   if (existing) existing.remove();
@@ -292,6 +330,111 @@ function handleEscape(e) {
   if (e.key === 'Escape') closeModal();
 }
 
+// ===== WebSocket Live Reload (dev only) =====
+let sessionWs = null;
+let reconnectInterval = null;
+let connectivityDot = null;
+let connectivityLabel = null;
+
+function setConnectivityState(state) {
+  if (!connectivityDot) return;
+  connectivityDot.className = 'connectivity-dot ' + state;
+  if (connectivityLabel) {
+    const labels = {
+      connected: 'live',
+      connecting: 'connecting...',
+      waiting: 'reconnecting...',
+      receiving: 'live',
+      disconnected: 'offline'
+    };
+    connectivityLabel.textContent = labels[state] || state;
+  }
+}
+
+function connectToSessionServer() {
+  // Only connect in dev mode (when connectivity indicator exists)
+  connectivityDot = document.getElementById('connectivity-dot');
+  connectivityLabel = document.getElementById('connectivity-label');
+  if (!connectivityDot) return; // Not in dev mode
+  
+  if (reconnectInterval) {
+    clearInterval(reconnectInterval);
+    reconnectInterval = null;
+  }
+  
+  // Determine connection URL
+  let connectionUrl = "wss://localhost:8889";
+  if (window.location.host === "local.aesthetic.computer" || 
+      window.location.host === "news.local.aesthetic.computer") {
+    connectionUrl = "wss://session.local.aesthetic.computer";
+  } else if (window.location.host === "news.aesthetic.computer") {
+    // Production - no live reload needed
+    return;
+  }
+  
+  setConnectivityState('connecting');
+  console.log("[news] Connecting to session server:", connectionUrl);
+  
+  try {
+    sessionWs = new WebSocket(connectionUrl);
+  } catch (error) {
+    console.warn("[news] Connection failed:", error.message);
+    setConnectivityState('disconnected');
+    scheduleReconnect();
+    return;
+  }
+
+  sessionWs.onopen = () => {
+    console.log("[news] Connected to session server");
+    setConnectivityState('connected');
+  };
+
+  sessionWs.onmessage = (e) => {
+    // Blink the dot when receiving a message
+    setConnectivityState('receiving');
+    setTimeout(() => setConnectivityState('connected'), 400);
+    
+    try {
+      const msg = JSON.parse(e.data);
+      
+      // Handle reload messages
+      if (msg.type === "reload") {
+        const piece = msg.content?.piece;
+        console.log("[news] Reload message:", piece);
+        if (piece === "*refresh*" || piece === "news.aesthetic.computer" || piece === "news") {
+          console.log("[news] Reloading page...");
+          setTimeout(() => window.location.reload(), 150);
+        }
+      }
+    } catch (error) {
+      console.warn("[news] Error parsing message:", error.message);
+    }
+  };
+
+  sessionWs.onerror = () => {
+    console.warn("[news] WebSocket error");
+    setConnectivityState('disconnected');
+  };
+
+  sessionWs.onclose = () => {
+    console.log("[news] Disconnected from session server");
+    setConnectivityState('disconnected');
+    sessionWs = null;
+    scheduleReconnect();
+  };
+}
+
+function scheduleReconnect() {
+  if (!reconnectInterval && connectivityDot) {
+    setConnectivityState('waiting');
+    reconnectInterval = setInterval(() => {
+      if (!sessionWs || sessionWs.readyState === WebSocket.CLOSED) {
+        connectToSessionServer();
+      }
+    }, 2000);
+  }
+}
+
 // Initialize everything after DOM is ready
 initDOMRefs();
 attachAuthHandlers();
@@ -300,3 +443,4 @@ initModals();
 attachSessionListener();
 applySession(decodeSessionParam());
 initAuth0();
+connectToSessionServer(); // Start WebSocket connection for live reload
