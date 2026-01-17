@@ -26,7 +26,8 @@ function initDOMRefs() {
 async function hydrateHandleFromEmail(email) {
   if (!email) return;
   try {
-    const res = await fetch(`/user?from=${encodeURIComponent(email)}&withHandle=true`);
+    // Use full URL to main API since we're on news.aesthetic.computer subdomain
+    const res = await fetch(`https://aesthetic.computer/user?from=${encodeURIComponent(email)}&withHandle=true`);
     const data = await res.json();
     if (data.handle) acHandle = data.handle;
   } catch (error) {
