@@ -302,7 +302,7 @@ export class ChatManager {
 
   async handleChatMessage(instance, ws, id, msg) {
     console.log(
-      `💬 [${instance.config.name}] Message from ${msg.content.sub}: "${msg.content.text}"`
+      `💬 [${instance.config.name}] Message from ${msg.content.sub} (${msg.content.text.length} chars)`
     );
 
     // Mute check
@@ -578,7 +578,7 @@ export class ChatManager {
 
     try {
       const parsed = typeof body === "string" ? JSON.parse(body) : body;
-      console.log(`💬 [${instance.config.name}] Log received:`, parsed);
+      console.log(`💬 [${instance.config.name}] Log received from: ${parsed.from || 'unknown'}`);
 
       instance.messages.push(parsed);
       if (instance.messages.length > MAX_MESSAGES) instance.messages.shift();
@@ -653,7 +653,13 @@ export class ChatManager {
     });
   }
 
-  // Get list of online handles for an instance
+  // Set the presence resolver function (called from session.mjs)
+  // This allows us to query which users are on a specific piece
+  setPresenceResolver(resolver) {
+    this.presenceResolver = resolver;
+  }
+
+  // Get list of online handles for an instance (all connected & authorized)
   getOnlineHandles(instance) {
     const handles = [];
     for (const [id, auth] of Object.entries(instance.authorizedConnections)) {
@@ -664,10 +670,26 @@ export class ChatManager {
     return [...new Set(handles)]; // Remove duplicates
   }
 
-  // Broadcast online handles to all clients
+  // Get handles of users actually viewing the chat piece right now
+  getHereHandles(instance) {
+    if (!this.presenceResolver) return [];
+    // Get all users on "chat" piece from session server
+    const onChatPiece = this.presenceResolver("chat");
+    // Intersect with authorized handles for this chat instance
+    const onlineHandles = this.getOnlineHandles(instance);
+    return onChatPiece.filter(h => onlineHandles.includes(h));
+  }
+
+  // Broadcast presence data (online + here) to all clients
   broadcastOnlineHandles(instance) {
-    const handles = this.getOnlineHandles(instance);
-    this.broadcast(instance, this.pack("online-handles", { handles }));
+    const online = this.getOnlineHandles(instance);
+    const here = this.getHereHandles(instance);
+    // Send both for backwards compatibility and new "here" feature
+    this.broadcast(instance, this.pack("presence", { 
+      handles: online,  // backwards compat with old "online-handles"
+      online,           // all authorized chat connections
+      here              // only those actually on chat piece
+    }));
   }
 
   // Get status for a specific instance or all
