@@ -3,21 +3,21 @@
 ## UI/UX Improvements
 
 ### "Report a Story" (Submit Redesign)
-- [ ] Rename "submit" to "report a story"
-- [ ] Combine submit page and guidelines into one unified page
-- [ ] Shorter, AC-style copy for posting guidelines
-- [ ] Less Hacker News vibe, more aesthetic.computer voice
+- [x] Rename "submit" to "report a story"
+- [x] Combine submit page and guidelines into one unified page
+- [x] Shorter, AC-style copy for posting guidelines
+- [x] Less Hacker News vibe, more aesthetic.computer voice
 
 ### Comment Guidelines
-- [ ] Split current guidelines into two pieces:
+- [x] Split current guidelines into two pieces:
   1. Story submission guidelines (shown on "report a story" page)
   2. Comment guidelines (shown when leaving a comment)
-- [ ] Keep both short and in AC voice
+- [x] Keep both short and in AC voice
 
 ### Commits Link → Modal
-- [ ] Commits link should open a modal instead of navigating away
-- [ ] Use same modal pattern as `/at` user page links
-- [ ] Modal shows commit URL content
+- [x] Commits link should open a modal instead of navigating away
+- [x] Use same modal pattern as `/at` user page links
+- [x] Modal shows commit URL content
 
 ---
 
