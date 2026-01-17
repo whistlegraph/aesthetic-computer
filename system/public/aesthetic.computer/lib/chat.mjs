@@ -23,7 +23,8 @@ export class Chat {
     this.system = {
       server: new Socket(debug, send),
       chatterCount: 0,
-      onlineHandles: [], // Realtime list of online user handles
+      onlineHandles: [], // Realtime list of online user handles (all connected)
+      hereHandles: [],   // Users actually viewing the chat piece right now
       messages: [],
       // receiver: // A custom receiver that can be defined in a piece.
       //              like `chat` to get the events.
@@ -187,6 +188,13 @@ export class Chat {
         if (type === "online-handles") {
           if (logs.chat) console.log("👥 Online handles:", content.handles);
           this.system.onlineHandles = content.handles || [];
+        }
+
+        // New presence message with both online and here handles
+        if (type === "presence") {
+          if (logs.chat) console.log("👥 Presence update - online:", content.online, "here:", content.here);
+          this.system.onlineHandles = content.online || content.handles || [];
+          this.system.hereHandles = content.here || [];
         }
 
         this.system.receiver?.(id, type, content, extra); // Run the piece receiver.

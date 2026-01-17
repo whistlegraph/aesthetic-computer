@@ -122,18 +122,25 @@ a:hover { text-decoration: underline; }
 .news-wrapper {
   width: 85%;
   max-width: 1200px;
-  margin: 0 auto;
+  margin: 8px auto; /* 8px top/bottom matches HN's white border effect */
   background: var(--bg-page);
-  min-height: 100vh;
+  min-height: calc(100vh - 16px); /* Account for top+bottom margin */
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 /* Full-width backdrop behind centered content */
+html {
+  height: 100%;
+  overflow-y: auto; /* Only show scrollbar when needed */
+}
+
 body {
   background: var(--bg-body, #fff);
   margin: 0;
-  min-height: 100vh;
+  min-height: 100%;
+  overflow-x: hidden;
 }
 
 /* ===== Header (HN exact match) ===== */
@@ -213,7 +220,7 @@ body {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 /* ===== Auth Buttons (AC-style colored, compact) ===== */
@@ -613,6 +620,49 @@ body {
   margin-top: auto;
 }
 
+/* Connectivity indicator (dev only) */
+.news-connectivity {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  font-size: 10px;
+  color: var(--text-meta);
+}
+
+.connectivity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #666;
+  transition: background 0.2s;
+}
+
+.connectivity-dot.connected {
+  background: #0f0;
+  box-shadow: 0 0 4px #0f0;
+}
+
+.connectivity-dot.connecting,
+.connectivity-dot.waiting {
+  background: #ff0;
+  animation: pulse 1s infinite;
+}
+
+.connectivity-dot.receiving {
+  background: #0ff;
+  box-shadow: 0 0 6px #0ff;
+}
+
+.connectivity-dot.disconnected {
+  background: #f00;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 .news-footer-links {
   margin-bottom: 12px;
 }
@@ -700,6 +750,7 @@ body {
     width: 100%;
     max-width: 100%;
     margin: 0;
+    min-height: 100vh; /* Full height on mobile (no margins) */
   }
   
   body {
@@ -876,28 +927,30 @@ body {
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 }
 
+/* Close button positioned outside the iframe, anchored to modal-content top-right */
 .news-modal-close {
   position: absolute;
-  top: 8px;
-  right: 12px;
+  top: -40px; /* Above the modal content */
+  right: 0;
   z-index: 10;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
   border-radius: 50%;
   width: 32px;
   height: 32px;
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
-  color: var(--text-primary);
+  color: #000;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.15s, transform 0.15s;
 }
 
 .news-modal-close:hover {
-  background: var(--accent);
-  color: white;
+  background: #fff;
+  transform: scale(1.1);
 }
 
 .news-modal-content iframe {
