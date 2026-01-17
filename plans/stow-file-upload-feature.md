@@ -415,11 +415,12 @@ Example: `auth0|abc123xyz/stow/2025.11.24.12.30.45.678.pdf`
    - Monitor for abuse and adjust policy
 
 9. 🆕 **URL format for stows?**
-   - ✅ **Decision: Use `^abc` pattern (caret prefix)**
-   - Caret works in URLs (encoded as %5E, handled transparently)
-   - Distinct from existing prefixes: `!` (tapes), `#` (paintings), `$` (kidlisp)
+   - ⚠️ **UPDATE: `^` prefix now used by news.aesthetic.computer (Jan 2026)**
+   - ✅ **New Decision: Use `~abc` pattern (tilde prefix) for stows**
+   - Tilde works in URLs, often associated with "home" directories
+   - Distinct from existing prefixes: `!` (tapes), `#` (paintings), `$` (kidlisp), `^` (news posts)
    - Clean 3-character codes, same generation as paintings/tapes
-   - Example: `https://aesthetic.computer/^abc` → stowed file
+   - Example: `https://aesthetic.computer/~abc` → stowed file
 
 ## Architecture Reference
 
@@ -499,10 +500,12 @@ stows:     { code, slug, user, when, bucket, nuked?, filename, fileSize, content
 - `#abc` → Paintings (hash)
 - `$abc` → KidLisp pieces (dollar)
 - `!abc` → Tapes (bang/exclamation)
-- `^abc` → Stows (caret) ✨ NEW
+- `^abc` → News posts (caret) — **NOTE: ^ now used by news.aesthetic.computer**
+- `~abc` → Stows (tilde) ✨ NEW — alternative since ^ taken
 
 **Code prefix patterns:**
 - `#abc` → Paintings (hash)
 - `$abc` → KidLisp pieces (dollar)
 - `!abc` → Tapes (bang/exclamation)
-- `^abc` → Stows (caret) ✨ NEW
+- `^abc` → News posts (caret) — **^ taken by news**
+- `~abc` → Stows (tilde) ✨ NEW

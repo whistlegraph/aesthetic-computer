@@ -53,7 +53,9 @@ function layout({ title, body, assetBase }) {
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
   </head>
   <body>
-    ${body}
+    <div class="news-wrapper">
+      ${body}
+    </div>
     <script src="${assetBase}/client.js" defer></script>
   </body>
 </html>`;
@@ -65,17 +67,17 @@ function header(basePath) {
   <header class="news-header">
     <div class="news-logo">
       <a href="${homeHref}" class="news-logo-icon">A</a>
-      <a href="${homeHref}">Aesthetic News</a>
+      <a href="${homeHref}"><b>Aesthetic News</b></a>
     </div>
     <nav class="news-nav">
-      <a href="${homeHref}">top</a>
-      <span>•</span>
       <a href="${basePath}/new">new</a>
-      <span>•</span>
+      <span>|</span>
+      <a href="${basePath}/comments">comments</a>
+      <span>|</span>
       <a href="${basePath}/submit">submit</a>
     </nav>
     <div class="news-auth">
-      <button id="news-login-btn" class="header-login-btn">Login</button>
+      <button id="news-login-btn" class="header-login-btn">Log In</button>
       <button id="news-signup-btn" class="header-login-btn header-signup-btn">I'm New</button>
       <div id="news-user-menu" class="header-user-menu" style="display:none;">
         <span id="news-user-handle" class="header-user-handle">@anon</span>
@@ -88,6 +90,27 @@ function header(basePath) {
   </header>`;
 }
 
+function footer() {
+  return `
+  <footer class="news-footer">
+    <div class="news-footer-links">
+      <a href="/guidelines">Guidelines</a>
+      <span>|</span>
+      <a href="https://aesthetic.computer/list">List</a>
+      <span>|</span>
+      <a href="https://aesthetic.computer/about">About</a>
+      <span>|</span>
+      <a href="https://give.aesthetic.computer">Gift</a>
+      <span>|</span>
+      <a href="https://aesthetic.computer/desktop">Desktop</a>
+      <span>|</span>
+      <a href="https://prompt.ac/commits">Commits</a>
+      <span>|</span>
+      <a href="https://aesthetic.computer">Aesthetic Computer</a>
+    </div>
+  </footer>`;
+}
+
 function renderPostRow(post, idx, basePath) {
   const title = escapeHtml(post.title || "(untitled)");
   const url = post.url ? escapeHtml(post.url) : "";
@@ -96,7 +119,15 @@ function renderPostRow(post, idx, basePath) {
   return `
   <div class="news-row">
     <div class="news-rank">${idx + 1}.</div>
-    <div class="news-main">
+    <div class="news-vote">
+      <form data-news-action="vote" method="post" action="/api/news/vote">
+        <input type="hidden" name="itemType" value="post" />
+        <input type="hidden" name="itemId" value="${post.code}" />
+        <input type="hidden" name="dir" value="1" />
+        <button type="submit" class="news-vote-btn">▲</button>
+      </form>
+    </div>
+    <div class="news-content">
       <div class="news-title">
         <a href="${url || itemUrl}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${title}</a>
         ${domain ? `<span class="news-domain">(${domain})</span>` : ""}
@@ -107,14 +138,6 @@ function renderPostRow(post, idx, basePath) {
         <span>${formatDate(post.when)}</span>
         <span><a href="${itemUrl}">${post.commentCount || 0} comments</a></span>
       </div>
-    </div>
-    <div class="news-vote">
-      <form data-news-action="vote" method="post" action="/api/news/vote">
-        <input type="hidden" name="itemType" value="post" />
-        <input type="hidden" name="itemId" value="${post.code}" />
-        <input type="hidden" name="dir" value="1" />
-        <button type="submit" class="news-vote-btn">▲</button>
-      </form>
     </div>
   </div>`;
 }
@@ -159,7 +182,8 @@ async function renderFrontPage(database, basePath, sort) {
     <div class="news-list">
       ${rows || '<div class="news-empty">No posts yet.</div>'}
     </div>
-  </main>`;
+  </main>
+  ${footer()}`;
 }
 
 async function renderItemPage(database, basePath, code) {
@@ -167,7 +191,7 @@ async function renderItemPage(database, basePath, code) {
   const comments = database.db.collection("news-comments");
   const post = await posts.findOne({ code });
   if (!post) {
-    return `${header(basePath)}<main class="news-main"><p>Post not found.</p></main>`;
+    return `${header(basePath)}<main class="news-main"><p>Post not found.</p></main>${footer()}`;
   }
   const hydratedPost = (await hydrateHandles(database, [post]))[0];
   const commentDocs = await comments
@@ -177,24 +201,46 @@ async function renderItemPage(database, basePath, code) {
   const hydratedComments = await hydrateHandles(database, commentDocs);
   const commentsHtml = hydratedComments.map((c) => renderComment(c)).join("\n");
 
+  const title = escapeHtml(hydratedPost.title || "(untitled)");
+  const url = hydratedPost.url ? escapeHtml(hydratedPost.url) : "";
+  const domain = hydratedPost.url ? new URL(hydratedPost.url).hostname.replace(/^www\./, "") : "";
+
   return `
   ${header(basePath)}
   <main class="news-main">
-    <section class="news-item">
-      ${renderPostRow(hydratedPost, 0, basePath)}
-      ${post.text ? `<div class="news-text">${escapeHtml(post.text)}</div>` : ""}
-    </section>
-    <section class="news-comment-form">
-      <form id="news-comment-form" data-news-action="comment" method="post" action="/api/news/comment">
-        <input type="hidden" name="postCode" value="${escapeHtml(code)}" />
-        <textarea name="text" rows="6" placeholder="add a comment..."></textarea>
-        <button type="submit">comment</button>
-      </form>
-    </section>
-    <section class="news-comments">
-      ${commentsHtml || '<div class="news-empty">No comments yet.</div>'}
-    </section>
-  </main>`;
+    <table class="news-item-table" border="0" cellpadding="0" cellspacing="0">
+      <tr class="news-item-row">
+        <td valign="top" class="news-item-vote">
+          <form data-news-action="vote" method="post" action="/api/news/vote">
+            <input type="hidden" name="itemType" value="post" />
+            <input type="hidden" name="itemId" value="${hydratedPost.code}" />
+            <input type="hidden" name="dir" value="1" />
+            <button type="submit" class="news-vote-btn">▲</button>
+          </form>
+        </td>
+        <td class="news-item-content">
+          <span class="news-item-title">
+            <a href="${url || '#'}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${title}</a>
+            ${domain ? `<span class="news-domain">(${domain})</span>` : ""}
+          </span>
+          <div class="news-item-meta">
+            ${hydratedPost.score || 0} points by ${escapeHtml(hydratedPost.handle || "@anon")} ${formatDate(hydratedPost.when)}
+          </div>
+        </td>
+      </tr>
+    </table>
+    ${hydratedPost.text ? `<div class="news-text">${escapeHtml(hydratedPost.text)}</div>` : ""}
+    <form id="news-comment-form" class="news-comment-form" data-news-action="comment" method="post" action="/api/news/comment">
+      <input type="hidden" name="postCode" value="${escapeHtml(code)}" />
+      <textarea name="text" rows="8" cols="80"></textarea>
+      <br>
+      <button type="submit">add comment</button>
+    </form>
+    <div class="news-comments">
+      ${commentsHtml || ''}
+    </div>
+  </main>
+  ${footer()}`;
 }
 
 async function renderSubmitPage(basePath) {
@@ -212,7 +258,8 @@ async function renderSubmitPage(basePath) {
         <button type="submit">submit</button>
       </form>
     </section>
-  </main>`;
+  </main>
+  ${footer()}`;
 }
 
 export function createHandler({ connect: connectFn = connect, respond: respondFn = respond } = {}) {
@@ -240,7 +287,7 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
       } else if (route === "submit") {
         body = await renderSubmitPage(basePath);
       } else {
-        body = `${header(basePath)}<main class="news-main"><p>Page not found.</p></main>`;
+        body = `${header(basePath)}<main class="news-main"><p>Page not found.</p></main>${footer()}`;
       }
 
       const html = layout({ title: "Aesthetic News", body, assetBase });
