@@ -247,10 +247,56 @@ function initForms() {
   });
 }
 
+// Modal functionality for external links (like Commits)
+function initModals() {
+  const modalLinks = document.querySelectorAll('.news-modal-link');
+  modalLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const url = link.dataset.modalUrl || link.href;
+      openModal(url);
+    });
+  });
+}
+
+function openModal(url) {
+  // Remove existing modal if any
+  const existing = document.getElementById('news-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'news-modal';
+  modal.className = 'news-modal';
+  modal.innerHTML = `
+    <div class="news-modal-backdrop"></div>
+    <div class="news-modal-content">
+      <button class="news-modal-close">×</button>
+      <iframe src="${url}" frameborder="0"></iframe>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // Close handlers
+  modal.querySelector('.news-modal-backdrop').addEventListener('click', closeModal);
+  modal.querySelector('.news-modal-close').addEventListener('click', closeModal);
+  document.addEventListener('keydown', handleEscape);
+}
+
+function closeModal() {
+  const modal = document.getElementById('news-modal');
+  if (modal) modal.remove();
+  document.removeEventListener('keydown', handleEscape);
+}
+
+function handleEscape(e) {
+  if (e.key === 'Escape') closeModal();
+}
+
 // Initialize everything after DOM is ready
 initDOMRefs();
 attachAuthHandlers();
 initForms();
+initModals();
 attachSessionListener();
 applySession(decodeSessionParam());
 initAuth0();

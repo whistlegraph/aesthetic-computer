@@ -1256,6 +1256,10 @@ async function halt($, text) {
     }
     jump(`out:${giveUrl}`);
     return true;
+  } else if (slug === "news" || slug === "nws") {
+    // 📰 Jump to News site
+    jump(`https://news.aesthetic.computer`);
+    return true;
   } else if (slug === "desktop" || slug === "app" || slug === "electron") {
     // 💻 Jump to Desktop app download page
     jump("desktop");

@@ -1508,6 +1508,11 @@ export async function handler(event, context) {
         desc: "Turn on notifications.",
         done: false,
       },
+      news: {
+        sig: "news",
+        desc: "Aesthetic.computer news.",
+        done: true,
+      },
       selfie: {
         sig: "selfie",
         desc: "Open the front camera.",
