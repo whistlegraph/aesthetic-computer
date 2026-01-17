@@ -3026,7 +3026,10 @@ function generateDynamicColorMessage(message, theme) {
       hoveredEl.type === element.type
     );
     
-    if (element.type === "handle") {
+    if (element.type === "log") {
+      const color = isHovered ? theme.logHover : theme.log;
+      colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
+    } else if (element.type === "handle") {
       const color = isHovered ? theme.handleHover : theme.handle;
       colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
     } else if (element.type === "url") {
