@@ -459,13 +459,7 @@
   document.body.style.color = scheme.foreground;
   document.body.dataset.theme = currentTheme;
   
-  // Show dev badge if not in VS Code
-  if (!isVSCode) {
-    const badge = document.createElement('div');
-    badge.className = 'dev-badge';
-    badge.textContent = 'DEV MODE';
-    document.body.appendChild(badge);
-  }
+  // Dev badge is now in the HTML for dev.html - no need to create dynamically
   
   let width = window.innerWidth, height = window.innerHeight;
   let meshes = new Map(), connections = new Map(), ws;
@@ -559,8 +553,26 @@
       tourUI.id = 'tour-ui';
       document.body.appendChild(tourUI);
     }
-    // Update styling each time based on current theme
-    tourUI.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${scheme.ui.overlay};padding:12px 20px;border-radius:8px;color:${scheme.foregroundBright};font-family:monospace;font-size:12px;z-index:1000;display:none;text-align:center;border:1px solid ${scheme.foregroundMuted}40;`;
+    // Tour UI positioned above center panel, non-overlapping
+    tourUI.style.cssText = `
+      position: fixed;
+      bottom: 180px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: ${scheme.ui.overlay};
+      padding: 16px 24px;
+      border-radius: 12px;
+      color: ${scheme.foregroundBright};
+      font-family: monospace;
+      font-size: 12px;
+      z-index: 1000;
+      display: none;
+      text-align: center;
+      border: 1px solid ${scheme.foregroundMuted}40;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      min-width: 280px;
+    `;
     
     if (tourMode && tourProcessList.length > 0) {
       const current = tourProcessList[tourIndex];
@@ -571,16 +583,17 @@
       
       tourUI.style.display = 'block';
       tourUI.innerHTML = `
-        <div style="margin-bottom:8px;font-size:14px;color:${scheme.accent};">🎬 TOUR MODE</div>
-        <div style="font-size:18px;margin-bottom:4px;color:${scheme.foregroundBright};">${icon} ${name}</div>
-        <div style="color:${scheme.foregroundMuted};margin-bottom:12px;">${category} • ${tourIndex + 1}/${tourProcessList.length}</div>
-        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-          <button onclick="ProcessTreeViz.tourPrev()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">← Prev</button>
-          <button onclick="ProcessTreeViz.toggleAutoPlay()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">${tourAutoPlay ? '⏸ Stop' : '▶ Auto'}</button>
-          <button onclick="ProcessTreeViz.tourNext()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">Next →</button>
-          <button onclick="ProcessTreeViz.exitTour()" style="padding:8px 16px;border-radius:4px;border:1px solid ${scheme.foregroundMuted}40;background:${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'};color:${scheme.foregroundBright};cursor:pointer;font-family:monospace;">✕ Exit</button>
+        <div style="margin-bottom:10px;font-size:12px;color:${scheme.accent};text-transform:uppercase;letter-spacing:1px;">🎬 Tour Mode</div>
+        <div style="font-size:24px;margin-bottom:4px;color:${scheme.foregroundBright};">${icon}</div>
+        <div style="font-size:14px;font-weight:bold;color:${scheme.foregroundBright};margin-bottom:2px;">${name}</div>
+        <div style="color:${scheme.foregroundMuted};margin-bottom:14px;font-size:11px;">${category} • ${tourIndex + 1}/${tourProcessList.length}</div>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button onclick="ProcessTreeViz.tourPrev()" class="header-btn" style="pointer-events:auto;padding:8px 14px;">← Prev</button>
+          <button onclick="ProcessTreeViz.toggleAutoPlay()" class="header-btn" style="pointer-events:auto;padding:8px 14px;">${tourAutoPlay ? '⏸ Stop' : '▶ Auto'}</button>
+          <button onclick="ProcessTreeViz.tourNext()" class="header-btn" style="pointer-events:auto;padding:8px 14px;">Next →</button>
+          <button onclick="ProcessTreeViz.exitTour()" class="header-btn" style="pointer-events:auto;padding:8px 14px;">✕</button>
         </div>
-        ${tourAutoPlay ? `<div style="color:${scheme.accentBright};margin-top:8px;">▶ Auto-playing...</div>` : ''}
+        ${tourAutoPlay ? `<div style="color:${scheme.accentBright};margin-top:10px;font-size:10px;">▶ Auto-playing...</div>` : ''}
       `;
       // Hide the tour button when in tour mode
       const btn = document.getElementById('tour-btn');
@@ -589,7 +602,7 @@
       tourUI.style.display = 'none';
       // Show the tour button when not in tour mode
       const btn = document.getElementById('tour-btn');
-      if (btn) btn.style.display = 'block';
+      if (btn) btn.style.display = '';
     }
   }
   
@@ -1384,19 +1397,43 @@
       document.head.appendChild(styleEl);
     }
     styleEl.textContent = `
+      /* Header styles */
       .title .dot { color: ${scheme.accentBright}; }
       .status-dot { background: ${scheme.accent}; }
       .status-dot.online { background: ${scheme.statusOnline}; }
-      .stats { color: ${scheme.foregroundMuted}; }
-      .stats .val { color: ${scheme.foregroundBright}; }
-      .mem { color: ${scheme.foregroundMuted}; }
-      .center { color: ${scheme.foregroundMuted}; }
-      .center .count { color: ${scheme.foregroundBright}; }
-      .proc-label { text-shadow: 0 0 3px ${scheme.background}, 0 0 6px ${scheme.background}; }
+      .header-center { color: ${scheme.foregroundMuted}; }
+      .header-center .val { color: ${scheme.foregroundBright}; }
+      .header-btn { 
+        background: ${currentTheme === 'light' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)'};
+        border-color: ${currentTheme === 'light' ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)'};
+        color: ${scheme.foregroundBright};
+      }
+      .header-btn:hover { border-color: ${scheme.accentBright}; }
+      
+      /* Center panel styles */
+      .center-panel {
+        background: ${currentTheme === 'light' ? 'rgba(252,247,197,0.8)' : 'rgba(24,19,24,0.7)'};
+        border-color: ${currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)'};
+      }
+      .process-counter .count { color: ${scheme.foregroundBright}; }
+      .process-counter .label { color: ${scheme.foregroundMuted}; }
+      
+      /* Status bar styles */
+      .status-bar { color: ${scheme.foregroundMuted}; }
+      .dev-badge { 
+        background: ${scheme.accentBright}; 
+        color: ${currentTheme === 'light' ? '#fff' : '#000'}; 
+      }
+      
+      /* Label styles */
+      .proc-label { 
+        text-shadow: 0 0 4px ${scheme.background}, 0 0 8px ${scheme.background}; 
+        background: ${currentTheme === 'light' ? 'rgba(252,247,197,0.5)' : 'rgba(0,0,0,0.3)'};
+      }
       .proc-label .info { color: ${scheme.foregroundMuted}; }
-      .dev-badge { background: ${currentTheme === 'light' ? scheme.accentBright : scheme.accentBright}; color: ${currentTheme === 'light' ? '#fff' : '#000'}; }
+      
+      /* Tour UI styles */
       #tour-ui { background: ${scheme.ui.overlay}; border-color: ${scheme.foregroundMuted}; }
-      #tour-hint { background: ${scheme.ui.overlay}; }
     `;
   }
   
@@ -1428,18 +1465,21 @@
     colorSchemes
   };
   
-  // Add tour button to the UI (touch-friendly, no keyboard shortcuts)
-  // Positioned bottom-right but above the mem display to avoid overlap
-  const tourBtn = document.createElement('button');
-  tourBtn.id = 'tour-btn';
-  tourBtn.style.cssText = `position:fixed;bottom:48px;right:16px;background:${scheme.ui.overlay};padding:10px 16px;border-radius:6px;color:${scheme.foregroundMuted};font-family:monospace;font-size:12px;z-index:999;border:1px solid ${scheme.foregroundMuted}40;cursor:pointer;`;
-  tourBtn.textContent = '🎬 Tour';
-  tourBtn.onclick = () => { 
-    const isSourceTour = window.ASTTreeViz?.getTab() === 'sources' && window.ASTTreeViz?.isTourMode();
-    if (!tourMode && !isSourceTour) startTour(); 
-    else exitTour(); 
-  };
-  document.body.appendChild(tourBtn);
+  // Add tour button to #header-right (new structure) or .header-right (old structure)
+  const headerRight = document.getElementById('header-right') || document.querySelector('.header-right');
+  if (headerRight) {
+    const tourBtn = document.createElement('button');
+    tourBtn.id = 'tour-btn';
+    tourBtn.className = 'hdr-btn';
+    tourBtn.textContent = '🎬';
+    tourBtn.title = 'Tour Mode';
+    tourBtn.onclick = () => { 
+      const isSourceTour = window.ASTTreeViz?.getTab() === 'sources' && window.ASTTreeViz?.isTourMode();
+      if (!tourMode && !isSourceTour) startTour(); 
+      else exitTour(); 
+    };
+    headerRight.insertBefore(tourBtn, headerRight.firstChild);
+  }
   
   animate();
   connectWS();
