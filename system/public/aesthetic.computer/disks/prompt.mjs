@@ -130,7 +130,8 @@ let login, // A login button in the center of the display.
   profileAction,
   walletBtn, // Tezos wallet button (shown when connected)
   giveBtn, // GIVE button for funding mode (top-right)
-  adBtn; // AD button for non-funding mode (top-right)
+  adBtn, // AD button for non-funding mode (top-right)
+  commitBtn; // Commit hash button (navigates to commits piece)
 let adBtnParticles = []; // Sparkle particles for AD button
 let adBtnHue = 0; // Color cycling for AD button
 let resendVerificationText;
@@ -236,7 +237,7 @@ let motdFrame = 0; // Animation frame counter for MOTD effects (time-based)
 let lastMotdTime = 0; // Timestamp for MOTD animation
 let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
 let versionInfo = null; // { deployed, latest, status, behindBy } - git commit status
-let versionBox = null; // Clickable region for version text -> GitHub commit
+let versionCommit = null; // Current commit hash for the commit button
 
 // Multilingual "Prompt" translations cycling
 const promptTranslations = [
@@ -1255,6 +1256,10 @@ async function halt($, text) {
       giveUrl += `?email=${encodeURIComponent(user.email)}`;
     }
     jump(`out:${giveUrl}`);
+    return true;
+  } else if (slug === "news" || slug === "nws") {
+    // 📰 Jump to News site
+    jump(`https://news.aesthetic.computer`);
     return true;
   } else if (slug === "desktop" || slug === "app" || slug === "electron") {
     // 💻 Jump to Desktop app download page
@@ -6289,9 +6294,9 @@ function paint($) {
         "MatrixChunky8"
       );
 
-      // Git commit status indicator - below handles
+      // Git commit status indicator - below handles (as a proper button)
       if (versionInfo && screen.height >= 120) {
-        const versionY = handlesY + 10;
+        const versionY = handlesY + 14; // Extra vertical space from handles
         let versionText, versionColor;
 
         if (versionInfo.status === "current") {
@@ -6308,54 +6313,94 @@ function paint($) {
           versionText = `? ${versionInfo.deployed || "unknown"}`;
         }
 
-        // Shadow (black in dark mode, light in light mode for contrast)
-        const versionShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255, 180];
-        ink(...versionShadowColor).write(
-          versionText,
-          { center: "x", y: versionY + 1, noFunding: true },
-          undefined,
-          undefined,
-          false,
-          "MatrixChunky8"
-        );
+        // Store current commit for click handling
+        // In local dev mode, use latest (the server's commit) since deployed is "dev"
+        let commitHash;
+        if (versionInfo.status === "local") {
+          commitHash = versionInfo.latest; // Use the server's latest commit in dev mode
+        } else {
+          commitHash = versionInfo.deployed || versionInfo.latest;
+        }
+        versionCommit = (commitHash && commitHash !== "unknown") ? commitHash : null;
 
-        // Main text - store box for click handling
-        const versionTextBox = ink(...versionColor).write(
-          versionText,
-          { center: "x", y: versionY, noFunding: true },
-          undefined,
-          undefined,
-          false,
-          "MatrixChunky8"
-        );
-
-        // Store box for click detection (add padding)
-        if (versionTextBox) {
-          const commitHash = versionInfo.deployed || versionInfo.latest;
-          if (commitHash && commitHash !== "unknown" && commitHash !== "dev") {
-            versionBox = {
-              x: versionTextBox.x - 2,
-              y: versionTextBox.y - 1,
-              w: versionTextBox.width + 4,
-              h: versionTextBox.height + 2,
-              commit: commitHash
-            };
-            // Draw subtle underline to indicate clickable
-            ink(...versionColor, 100).box(
-              versionTextBox.x,
-              versionTextBox.y + versionTextBox.height,
-              versionTextBox.width,
-              1
-            );
+        // Create or reposition commit button using TextButtonSmall (MatrixChunky8 font)
+        if (versionCommit) {
+          if (!commitBtn) {
+            commitBtn = new $.ui.TextButtonSmall(versionText, { center: "x", y: versionY, screen });
+            commitBtn.stickyScrubbing = true; // Prevent drag-between-button behavior
           } else {
-            versionBox = null;
+            commitBtn.reposition({ center: "x", y: versionY, screen }, versionText);
           }
+
+          // Paint the commit button with custom colors
+          const btnBox = commitBtn.btn.box;
+          const isDown = commitBtn.btn.down;
+
+          // Blink effect - subtle alpha pulsing
+          const blinkPhase = (performance.now() / 800) % 1; // 0.8s cycle
+          const blinkAlpha = 0.6 + 0.4 * Math.sin(blinkPhase * Math.PI * 2); // 0.2 to 1.0
+
+          // Background fill when pressed
+          if (isDown) {
+            ink(...versionColor, 60).box(btnBox, "fill");
+          }
+
+          // Shadow (black in dark mode, light in light mode for contrast)
+          const versionShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255, 180];
+          ink(...versionShadowColor).write(
+            versionText,
+            { x: btnBox.x + 2, y: btnBox.y + 3 },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8"
+          );
+
+          // Main text with blink
+          ink(...versionColor, Math.round(255 * blinkAlpha)).write(
+            versionText,
+            { x: btnBox.x + 2, y: btnBox.y + 2 },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8"
+          );
+
+          // Draw subtle underline to indicate clickable (also blinks)
+          ink(...versionColor, Math.round((isDown ? 180 : 100) * blinkAlpha)).box(
+            btnBox.x + 2,
+            btnBox.y + 2 + 7, // 7 = MatrixChunky8 char height
+            versionText.length * 4, // 4 = MatrixChunky8 char width
+            1
+          );
+        } else {
+          // No valid commit - just draw text without button
+          commitBtn = null;
+          const versionShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255, 180];
+          ink(...versionShadowColor).write(
+            versionText,
+            { center: "x", y: versionY + 1, noFunding: true },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8"
+          );
+          ink(...versionColor).write(
+            versionText,
+            { center: "x", y: versionY, noFunding: true },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8"
+          );
         }
       } else {
-        versionBox = null;
+        commitBtn = null;
+        versionCommit = null;
       }
     } else {
-      versionBox = null;
+      commitBtn = null;
+      versionCommit = null;
     }
 
     // MOTD (Mood of the Day) - show above login/signup buttons with animation
@@ -7564,7 +7609,8 @@ function act({
     e.is("draw") &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
-      (profile?.btn.disabled === false && profile?.btn.box.contains(e)))
+      (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
+      (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)))
   ) {
     send({ type: "keyboard:lock" });
   }
@@ -7576,6 +7622,7 @@ function act({
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
       (adBtn?.btn.disabled === false && adBtn?.btn.box.contains(e)) ||
+      (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (products.getActiveProduct()?.button?.disabled === false && products.getActiveProduct()?.button?.box.contains(e)) ||
       (products.getActiveProduct()?.buyButton?.disabled === false && products.getActiveProduct()?.buyButton?.box.contains(e)) ||
       (chatTickerButton?.disabled === false && chatTickerButton?.box.contains(e)) ||
@@ -7669,14 +7716,16 @@ function act({
     });
   }
 
-  // �📦 Version box click - open GitHub commit page
-  if (versionBox && e.is("touch")) {
-    const inBox = e.x >= versionBox.x && e.x <= versionBox.x + versionBox.w &&
-                  e.y >= versionBox.y && e.y <= versionBox.y + versionBox.h;
-    if (inBox && versionBox.commit) {
-      pushSound();
-      jump(`out:https://github.com/whistlegraph/aesthetic-computer/commit/${versionBox.commit}`);
-    }
+  // 📦 Commit button - navigate to commits piece
+  if (commitBtn && !commitBtn.btn.disabled) {
+    commitBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        jump("commits");
+      },
+      cancel: () => cancelSound(),
+    });
   }
 
   // 🔷 Tezos wallet button - navigate to wallet piece

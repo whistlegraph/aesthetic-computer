@@ -163,6 +163,13 @@ let linkConfirmModal = null;
 // { message: string, from: string, copied: boolean, error: boolean }
 let messageCopyModal = null;
 
+// 📰 News ticker system
+let newsHeadlines = []; // Array of { title, code, user } from news.aesthetic.computer
+let newsTickerText = "Report a story"; // Default/fallback text
+let newsTickerBounds = null; // { x, y, w, h } for click detection
+let newsTickerHovered = false; // Hover state for visual feedback
+let newsFetchPromise = null; // Track fetch to avoid duplicate requests
+
 // 🔍 @handle autocomplete
 let handleAutocomplete = null;
 
@@ -367,7 +374,43 @@ async function boot(
   // 🔍 Initialize @handle autocomplete
   handleAutocomplete = createHandleAutocomplete();
 
+  // 📰 Fetch news headlines from news.aesthetic.computer
+  fetchNewsHeadlines();
+
   send({ type: "keyboard:soft-lock" });
+}
+
+// 📰 Fetch news headlines from the API
+async function fetchNewsHeadlines() {
+  if (newsFetchPromise) return newsFetchPromise; // Avoid duplicate fetches
+  
+  newsFetchPromise = (async () => {
+    try {
+      const response = await fetch("https://news.aesthetic.computer/api?path=posts&limit=5&sort=new");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      
+      if (data.posts && data.posts.length > 0) {
+        newsHeadlines = data.posts.map(p => ({
+          title: p.title,
+          code: p.code,
+          user: p.user,
+        }));
+        // Create scrolling ticker text from headlines
+        newsTickerText = newsHeadlines.map(h => `${h.title} (@${h.user})`).join("   ~   ");
+      } else {
+        newsHeadlines = [];
+        newsTickerText = "Report a story";
+      }
+    } catch (err) {
+      console.warn("📰 Failed to fetch news:", err.message);
+      newsHeadlines = [];
+      newsTickerText = "Report a story";
+    }
+    newsFetchPromise = null;
+  })();
+  
+  return newsFetchPromise;
 }
 
 function paint(
@@ -412,6 +455,8 @@ function paint(
     scrollbar: "pink",
     messageText: [255, 255, 255], // Changed from "white" to explicit RGB
     messageBox: [255, 32], // white with alpha for hover
+    log: "cyan", // System log messages (hi @newuser, etc)
+    logHover: "yellow",
     handle: "pink",
     handleHover: "yellow",
     url: "cyan",
@@ -711,6 +756,8 @@ function paint(
             color = isHovered ? theme.clockHover : theme.clock;
           } else if (element.type === "r8dio") {
             color = isHovered ? theme.r8dioHover : theme.r8dio;
+          } else if (element.type === "log") {
+            color = isHovered ? theme.logHover : theme.log;
           }
           
           if (color) {
@@ -1208,23 +1255,38 @@ function paint(
     false, undefined, false, selectedTypeface
   );
 
-  // Online counter - cycles through realtime online handles from server (always visible)
+  // Presence display - shows "here" (viewing chat) and "online" (connected anywhere)
   if (!client.connecting) {
     const chatterCount = client?.chatterCount ?? 0;
     const onlineHandles = client?.onlineHandles || [];
+    const hereHandles = client?.hereHandles || [];
     
-    // Cycle through handles every 2 seconds, or show count if no handles
-    let onlineText;
-    if (onlineHandles.length > 0) {
-      const handleIndex = Math.floor(Date.now() / 2000) % onlineHandles.length;
-      onlineText = chatterCount + " online " + onlineHandles[handleIndex];
+    // Build presence text with "here" count and cycling handle
+    let presenceText;
+    const hereCount = hereHandles.length;
+    const onlineCount = onlineHandles.length;
+    
+    if (hereCount > 0) {
+      // Cycle through "here" handles every 2 seconds
+      const handleIndex = Math.floor(Date.now() / 2000) % hereCount;
+      const hereHandle = hereHandles[handleIndex];
+      // Show: "3 here @handle • 5 online"
+      presenceText = `${hereCount} here ${hereHandle}`;
+      if (onlineCount > hereCount) {
+        presenceText += ` • ${onlineCount} online`;
+      }
+    } else if (onlineCount > 0) {
+      // No one here, but people online - cycle through online handles
+      const handleIndex = Math.floor(Date.now() / 2000) % onlineCount;
+      presenceText = `${onlineCount} online ${onlineHandles[handleIndex]}`;
     } else {
-      onlineText = chatterCount + " online";
+      // Fallback to connection count
+      presenceText = chatterCount + " online";
     }
     
-    // Draw online counter (no background)
+    // Draw presence counter (no background)
     const onlineFgColor = theme?.timestamp || 160;
-    ink(onlineFgColor).write(onlineText, {
+    ink(onlineFgColor).write(presenceText, {
       left: leftMargin,
       top: 18,
     }, false, undefined, false, "MatrixChunky8");
@@ -1622,7 +1684,25 @@ function act(
     });
   }
   
-  // �🔗 Link confirmation modal intercepts all events
+  // 📰 News ticker interaction (hover + click)
+  if (newsTickerBounds && !linkConfirmModal && !messageCopyModal && !modalPainting) {
+    const inBounds = pen.x >= newsTickerBounds.x && pen.x < newsTickerBounds.x + newsTickerBounds.w &&
+                     pen.y >= newsTickerBounds.y && pen.y < newsTickerBounds.y + newsTickerBounds.h;
+    
+    // Update hover state
+    if (e.is("move") || e.is("draw")) {
+      newsTickerHovered = inBounds;
+    }
+    
+    // Click to open news.aesthetic.computer (touch only, not lift, to avoid scroll conflicts)
+    if (e.is("touch") && inBounds) {
+      beep();
+      // Open news.aesthetic.computer in new tab/window
+      jump("out:https://news.aesthetic.computer");
+    }
+  }
+  
+  // 🔗 Link confirmation modal intercepts all events
   if (linkConfirmModal) {
     const { yesBtn, noBtn, action } = linkConfirmModal;
     
@@ -1715,11 +1795,11 @@ function act(
     }
     
     // Handle clipboard result events
-    if (e.is("clipboard:copy:copied")) {
+    if (e.is("copy:copied")) {
       messageCopyModal.copied = true;
       messageCopyModal.error = false;
     }
-    if (e.is("clipboard:copy:failed")) {
+    if (e.is("copy:failed")) {
       messageCopyModal.copied = false;
       messageCopyModal.error = true;
     }
@@ -1861,10 +1941,13 @@ function act(
 
   if (!input.canType) {
     // 👇 Message Picking
+    
+    // 🔴 Store isDragging state BEFORE we reset it, so lift handlers can use it
+    const wasScrollingOnLift = isDragging;
 
     if (e.is("lift")) {
       tapState = null;
-      // Reset drag tracking on lift
+      // Reset drag tracking on lift (AFTER storing the state above)
       isDragging = false;
       dragStartPos = null;
     }
@@ -1992,8 +2075,14 @@ function act(
         
         // Handle clicks on interactive elements with proper hit detection
         // 🚫 Skip link activation if user was scrolling/dragging
-        if (message.clicked && !isDragging) {
+        if (message.clicked) {
+          // Always reset clicked state
           message.clicked = false;
+          
+          // But only process interaction if not scrolling
+          if (wasScrollingOnLift) {
+            continue; // User was scrolling, skip link activation
+          }
           
           // Track if any interactive element was clicked
           let clickedInteractiveElement = false;
@@ -2199,6 +2288,7 @@ function act(
           }
           
           // 📋 If click was on plain message text (not interactive elements), show copy modal
+          // Only show if this was a tap, not a drag/scroll (scroll already handled above with continue)
           if (!clickedInteractiveElement && !linkConfirmModal && !modalPainting) {
             // Check if click was within the message text bounds
             const messageTextHeight = message.layout.height;
@@ -2529,20 +2619,7 @@ function act(
     (!input.canType && (e.is("touch") || e.is("lift")) && inputBtn && inputBtn.btn.box.contains(e))
   );
   
-  if (!input.canType && (e.is("touch") || e.is("lift"))) {
-    const containsInputBtn = inputBtn?.btn?.box?.contains(e);
-    const containsEnterBtn = input.enter?.btn?.box?.contains(e);
-    console.log("🗨️📍 [chat act] touch/lift when !canType |", e.name, "| containsInputBtn:", containsInputBtn, "containsEnterBtn:", containsEnterBtn, "e:", e.x, e.y);
-  }
-
-  if (input.canType && (e.is("touch") || e.is("lift"))) {
-    const enterBtnDown = input.enter?.btn?.down;
-    const enterBtnContains = input.enter?.btn?.box?.contains(e);
-    console.log("🗨️📍 [chat act] touch/lift when canType |", e.name, "| enterBtn.down:", enterBtnDown, "enterBtn.contains(e):", enterBtnContains, "e:", e.x, e.y);
-  }
-
   if (shouldCallInputAct) {
-    console.log("🗨️➡️ [chat act] calling input.act() for event:", e.name);
     input.act(api);
   }
 }
@@ -2761,7 +2838,10 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
       const elementText = msg.fullMessage.substring(element.start, element.end);
       let colorCodedText = "";
       
-      if (element.type === "handle") {
+      if (element.type === "log") {
+        // System log messages get cyan color with a distinctive look
+        colorCodedText = `\\cyan\\${elementText}\\white\\`;
+      } else if (element.type === "handle") {
         colorCodedText = `\\pink\\${elementText}\\white\\`;
       } else if (element.type === "url") {
         colorCodedText = `\\cyan\\${elementText}\\white\\`;
@@ -3019,7 +3099,10 @@ function generateDynamicColorMessage(message, theme) {
       hoveredEl.type === element.type
     );
     
-    if (element.type === "handle") {
+    if (element.type === "log") {
+      const color = isHovered ? theme.logHover : theme.log;
+      colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
+    } else if (element.type === "handle") {
       const color = isHovered ? theme.handleHover : theme.handle;
       colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
     } else if (element.type === "url") {
@@ -3046,7 +3129,7 @@ function generateDynamicColorMessage(message, theme) {
   return colorCodedMessage;
 }
 // 📰 News ticker with scrolling text, "News" label, and @handle highlighting
-const NEWS_TEXT = "@jeffrey is hard at work on authoring AC '26";
+// Now fetches from news.aesthetic.computer API (see fetchNewsHeadlines)
 
 function paintNewsTicker($, theme) {
   const { ink, screen, text, hud } = $;
@@ -3064,13 +3147,17 @@ function paintNewsTicker($, theme) {
   const tickerRight = screen.width - rightMargin;
   const tickerY = 10;
   
-  // Seamless loop with separator
+  // Use dynamic news text (fetched from API or fallback)
+  const displayText = newsTickerText || "Report a story";
+  
+  // Seamless loop with separator (always scroll, even for fallback text)
+  const hasNews = newsHeadlines.length > 0;
   const separator = "   ~   ";
-  const loopText = NEWS_TEXT + separator;
+  const loopText = displayText + separator;
   const loopWidth = loopText.length * tickerCharWidth;
   
-  // Scroll animation
-  const scrollSpeed = 0.4;
+  // Scroll animation (always scroll, slower for fallback text)
+  const scrollSpeed = hasNews ? 0.4 : 0.25;
   const scrollOffset = (performance.now() * scrollSpeed / 16) % loopWidth;
   
   // Calculate HUD label right edge to avoid overlap
@@ -3100,15 +3187,24 @@ function paintNewsTicker($, theme) {
   const textColor = theme?.messageText ? 
     (Array.isArray(theme.messageText) ? theme.messageText : [200, 200, 200]) : [200, 200, 200];
   
-  // "News" label - distinct purple/magenta background
-  const newsBgColor = [80, 40, 100];
-  const newsFgColor = [255, 200, 100]; // Gold/yellow text
+  // "News" label - distinct purple/magenta background (brighter on hover)
+  const newsBgColor = newsTickerHovered ? [100, 50, 130] : [80, 40, 100];
+  const newsFgColor = newsTickerHovered ? [255, 220, 120] : [255, 200, 100]; // Gold/yellow text
   
-  // Scrolling area - darker, more subtle background  
-  const scrollBgColor = [25, 20, 35];
+  // Scrolling area - darker, more subtle background (brighter on hover)
+  const scrollBgColor = newsTickerHovered ? [35, 30, 50] : [25, 20, 35];
   
   // Calculate actual scrolling area width based on position
   const actualTickerWidth = scrollAreaRight - scrollAreaLeft;
+  
+  // Store bounds for click detection (entire ticker area including "News" label)
+  const totalWidth = newsPrefixWidth + actualTickerWidth + 1;
+  newsTickerBounds = {
+    x: newsBgX,
+    y: tickerY - 2,
+    w: totalWidth,
+    h: tickerHeight + 4,
+  };
   
   // Draw "News" label background (extend 1px right to touch scroll area)
   ink(...newsBgColor, 230).box(newsBgX, tickerY - 2, newsPrefixWidth + 1, tickerHeight + 4);
@@ -3117,6 +3213,11 @@ function paintNewsTicker($, theme) {
   
   // Draw scrolling ticker background (use actual width)
   ink(...scrollBgColor, 200).box(scrollAreaLeft, tickerY - 2, actualTickerWidth + 1, tickerHeight + 4);
+  
+  // Draw hover underline indicator (shows it's clickable)
+  if (newsTickerHovered) {
+    ink(255, 200, 100, 180).box(newsBgX, tickerY + tickerHeight + 1, totalWidth, 1);
+  }
   
   // Parse text for @handles to highlight
   const handleRegex = /@[\w]+/g;
