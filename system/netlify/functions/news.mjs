@@ -66,44 +66,37 @@ function layout({ title, body, assetBase }) {
 
 function header(basePath) {
   const homeHref = basePath ? `${basePath}/` : "/";
+  const connectivityHtml = dev ? `
+    <div class="news-connectivity header-connectivity" id="news-connectivity">
+      <div class="connectivity-dot disconnected" id="connectivity-dot"></div>
+      <span id="connectivity-label">offline</span>
+    </div>` : '';
   return `
   <header class="news-header">
     <div class="news-logo">
       <a href="${homeHref}" class="news-logo-icon">A</a>
       <a href="${homeHref}"><b>Aesthetic News</b></a>
     </div>
+    ${connectivityHtml}
     <div class="news-auth">
       <button id="news-login-btn" class="header-login-btn">Log In</button>
       <button id="news-signup-btn" class="header-login-btn header-signup-btn">I'm New</button>
       <div id="news-user-menu" class="header-user-menu" style="display:none;">
-        <span id="news-user-handle" class="header-user-handle">@anon</span>
-        <button id="news-logout-btn" class="header-logout-btn">logout</button>
+        <button id="news-user-handle" class="header-user-handle" type="button">@anon</button>
       </div>
     </div>
   </header>`;
 }
 
 function footer() {
-  // Show connectivity indicator in dev mode
-  const connectivityHtml = dev ? `
-    <div class="news-connectivity" id="news-connectivity">
-      <div class="connectivity-dot disconnected" id="connectivity-dot"></div>
-      <span id="connectivity-label">offline</span>
-    </div>` : '';
-  
   return `
   <footer class="news-footer">
     <div class="news-footer-links">
-      <a href="/submit">submit</a>
-      <span>|</span>
       <a href="https://aesthetic.computer/list" class="news-modal-link" data-modal-url="https://aesthetic.computer/list">List</a>
-      <span>|</span>
-      <a href="https://aesthetic.computer/weather" class="news-modal-link" data-modal-url="https://aesthetic.computer/weather">Weather</a>
       <span>|</span>
       <a href="https://give.aesthetic.computer" class="news-external-link" target="_blank" rel="noopener">Give</a>
       <span>|</span>
       <a href="https://prompt.ac/commits" class="news-modal-link" data-modal-url="https://prompt.ac/commits">Commits</a>
-      ${connectivityHtml}
     </div>
   </footer>`;
 }
@@ -295,6 +288,7 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
     const basePath = isSubdomainRequest(event) ? "" : "/news.aesthetic.computer";
     const assetBase = "/news.aesthetic.computer";
     const route = parseRoute(event);
+    let title = "Aesthetic News";
 
     let database;
     try {
@@ -314,7 +308,7 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
         body = `${header(basePath)}<main class="news-main"><p>Page not found.</p></main>${footer()}`;
       }
 
-      const html = layout({ title: "Aesthetic News", body, assetBase });
+      const html = layout({ title, body, assetBase });
       await database.disconnect();
       return respondFn(200, html, { "Content-Type": "text/html" });
     } catch (error) {

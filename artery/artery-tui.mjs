@@ -2801,10 +2801,18 @@ class ArteryTUI {
   
   async findNewsCdpPage() {
     const http = await import('http');
+    const cdpInfo = await findWorkingCDPHost();
+    CDP_HOST = cdpInfo.host;
+    CDP_PORT = cdpInfo.port;
+    this.cdpHost = CDP_HOST;
+    this.cdpPort = CDP_PORT;
     return new Promise((resolve) => {
       const req = http.get({
-        hostname: 'localhost', port: 9333, path: '/json',
-        timeout: 2000
+        hostname: CDP_HOST,
+        port: CDP_PORT,
+        path: '/json',
+        timeout: 2000,
+        headers: { 'Host': 'localhost' }
       }, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
@@ -2825,7 +2833,8 @@ class ArteryTUI {
     if (!this.newsCdpPageId) return null;
     const WebSocket = (await import('ws')).default;
     const ws = new WebSocket(
-      `ws://localhost:9333/devtools/page/${this.newsCdpPageId}`
+      `ws://${CDP_HOST}:${CDP_PORT}/devtools/page/${this.newsCdpPageId}`,
+      { headers: { Host: 'localhost' } }
     );
     
     return new Promise((resolve, reject) => {
