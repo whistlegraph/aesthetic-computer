@@ -2361,6 +2361,10 @@ function getWebViewContent(webview: any, slug: string) {
   // 📰 News WebView Content
   function getNewsWebViewContent(webview: any) {
     const nonce = getNonce();
+    
+    // Detect VS Code theme for News waiting screen
+    const themeKind = vscode.window.activeColorTheme.kind;
+    const isDark = themeKind === 2 || themeKind === 3; // Dark or HighContrast
 
     const styleUri = webview.asWebviewUri(
       vscode.Uri.joinPath(extContext.extensionUri, "main.css"),
@@ -2375,6 +2379,15 @@ function getWebViewContent(webview: any, slug: string) {
     );
 
     if (local && !localServerAvailable && !isCodespaces) {
+      // Theme-aware colors for waiting screen
+      const bg = isDark ? '#1a1a1a' : '#f7f1e1';
+      const textColor = isDark ? '#d4d4d4' : '#3b2a1a';
+      const titleColor = isDark ? '#ff69b4' : '#a85a2a';
+      const subtitleBg = isDark ? '#252525' : '#fff9f0';
+      const subtitleBorder = isDark ? '#404040' : '#e2d4c3';
+      const subtitleColor = isDark ? '#a0a0a0' : '#6b4a2e';
+      const codeColor = isDark ? '#ff69b4' : '#a85a2a';
+      
       return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -2392,23 +2405,23 @@ function getWebViewContent(webview: any, slug: string) {
               justify-content: center;
               height: 100vh;
               margin: 0;
-              background: #f7f1e1;
-              color: #3b2a1a;
+              background: ${bg};
+              color: ${textColor};
               font-family: system-ui, -apple-system, sans-serif;
             }
             .waiting { text-align: center; }
             .plug { font-size: 64px; margin-bottom: 24px; animation: wiggle 2s ease-in-out infinite; }
-            .title { font-size: 20px; font-weight: 600; color: #a85a2a; margin-bottom: 12px; letter-spacing: 0.5px; }
+            .title { font-size: 20px; font-weight: 600; color: ${titleColor}; margin-bottom: 12px; letter-spacing: 0.5px; }
             .subtitle {
               font-size: 14px;
-              color: #6b4a2e;
+              color: ${subtitleColor};
               font-family: monospace;
-              background: #fff9f0;
+              background: ${subtitleBg};
               padding: 8px 16px;
               border-radius: 4px;
-              border: 1px solid #e2d4c3;
+              border: 1px solid ${subtitleBorder};
             }
-            .subtitle code { color: #a85a2a; font-weight: 600; }
+            .subtitle code { color: ${codeColor}; font-weight: 600; }
             .dots::after { content: ''; animation: dots 1.5s steps(4, end) infinite; }
             @keyframes dots { 0%, 20% { content: ''; } 40% { content: '.'; } 60% { content: '..'; } 80%, 100% { content: '...'; } }
             @keyframes wiggle { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
