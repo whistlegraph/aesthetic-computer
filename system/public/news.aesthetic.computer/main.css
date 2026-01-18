@@ -815,6 +815,199 @@ body {
   color: var(--text-primary);
 }
 
+/* Login prompt */
+.news-login-prompt {
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.news-login-prompt p {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+}
+
+.news-login-prompt p:last-child {
+  margin-bottom: 0;
+}
+
+.news-inline-login {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.news-inline-login:hover {
+  background: var(--accent-hover);
+}
+
+.news-handle-note {
+  font-size: 11px !important;
+  color: var(--text-meta);
+}
+
+.news-handle-note a {
+  color: var(--accent);
+}
+
+/* Hide login prompt when logged in */
+.news-report.logged-in .news-login-prompt {
+  display: none;
+}
+
+.news-report form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.news-report label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.news-report input,
+.news-report textarea {
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-radius: 3px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.news-report input:focus,
+.news-report textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.news-report textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.news-report button {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 8px 20px;
+  font-size: 12px;
+  font-weight: bold;
+  border: none;
+  border-radius: 3px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.news-report button:hover {
+  background: var(--accent-hover);
+}
+
+.news-report button:disabled {
+  background: var(--text-meta);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Pick one or both hint */
+.news-pick-hint {
+  font-size: 11px;
+  color: var(--text-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+/* Either/Or field layout */
+.news-either-or {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 8px 0;
+  position: relative;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.news-either-or:focus-within,
+.news-either-or.has-content {
+  opacity: 1;
+  border-color: var(--accent);
+}
+
+.news-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.news-field-group + .news-field-group {
+  margin-top: 12px;
+}
+
+/* Field validation errors */
+.news-field-error {
+  font-size: 11px;
+  color: #d44;
+  margin-top: 4px;
+  min-height: 14px;
+}
+
+.news-report input:invalid:not(:placeholder-shown),
+.news-report input.has-error {
+  border-color: #d44;
+}
+
+/* Form messages (login/handle required) */
+.news-form-message {
+  padding: 12px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 16px;
+  display: none;
+}
+
+.news-form-message.error {
+  background: rgba(220, 68, 68, 0.15);
+  border: 1px solid #d44;
+  color: #d44;
+}
+
+.news-form-message.info {
+  background: rgba(68, 136, 220, 0.15);
+  border: 1px solid #48d;
+  color: #48d;
+}
+
+@media (prefers-color-scheme: dark) {
+  .news-form-message.error {
+    background: rgba(220, 68, 68, 0.2);
+    color: #f66;
+  }
+  .news-form-message.info {
+    background: rgba(68, 136, 220, 0.2);
+    color: #6af;
+  }
+}
+
 .news-guidelines {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -823,6 +1016,12 @@ body {
   margin-bottom: 20px;
   font-size: 10pt;
   color: var(--text-secondary);
+}
+
+/* Guidelines below the form */
+.news-guidelines-below {
+  margin-top: 24px;
+  margin-bottom: 0;
 }
 
 .news-guidelines p {
