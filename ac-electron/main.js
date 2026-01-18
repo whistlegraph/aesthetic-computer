@@ -481,7 +481,7 @@ function createMenu() {
               type: 'info',
               title: 'About Aesthetic Computer',
               message: 'Aesthetic Computer',
-              detail: `Version ${app.getVersion()}\n\nA creative coding platform.`,
+              detail: `Version ${app.getVersion()}`,
               buttons: ['OK']
             });
           }
@@ -1301,7 +1301,7 @@ async function open3DWindow() {
     }
   });
   
-  return win;
+  return { window: win, windowId };
 }
 
 // State for interactive prompt
