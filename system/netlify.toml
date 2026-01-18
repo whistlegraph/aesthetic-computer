@@ -711,7 +711,7 @@ status = 200
 force = true
 [[redirects]]
 from = "https://news.aesthetic.computer/guidelines"
-to = "/.netlify/functions/news-guidelines"
+to = "/.netlify/functions/news"
 status = 200
 force = true
 [[redirects]]
@@ -722,6 +722,11 @@ status = 200
 
 [[redirects]]
 from = "/news.aesthetic.computer"
+to = "/.netlify/functions/news"
+status = 200
+force = true
+[[redirects]]
+from = "/news.aesthetic.computer/guidelines"
 to = "/.netlify/functions/news"
 status = 200
 force = true

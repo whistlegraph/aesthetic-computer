@@ -169,8 +169,7 @@
         "settingsSync.keybindingsPerPlatform": false
       },
       "extensions": [
-        "mongodb.mongodb-vscode",
-        "GitHub.copilot-chat"
+        "mongodb.mongodb-vscode"
       ]
     }
   },

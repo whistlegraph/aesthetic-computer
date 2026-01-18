@@ -264,8 +264,12 @@ body {
 .header-user-handle {
   font-size: 8pt;
   color: white;
-  font-weight: bold;
+  font-weight: normal;
   line-height: 10px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .header-logout-btn {
@@ -281,6 +285,54 @@ body {
 
 .header-logout-btn:hover {
   background: #333;
+}
+
+/* ===== User Menu Modal ===== */
+.news-user-menu-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+}
+
+.news-user-menu-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.news-user-menu-panel {
+  position: absolute;
+  top: 56px;
+  right: 16px;
+  min-width: 180px;
+  background: var(--bg-body, #fff);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  padding: 10px 12px;
+}
+
+.news-user-menu-title {
+  font-size: 10pt;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.news-user-menu-action {
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 9pt;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.news-user-menu-action:hover {
+  background: var(--bg-input);
 }
 
 /* ===== Main Content ===== */
@@ -567,6 +619,10 @@ body {
   transition: background 0.15s;
 }
 
+.news-report-link:visited {
+  color: white;
+}
+
 .news-report-link:hover {
   background: var(--accent-hover);
   color: white;
@@ -588,14 +644,22 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 8px;
   font-size: 10px;
   color: var(--text-meta);
 }
 
+.header-connectivity {
+  margin-left: 6px;
+  margin-right: 0;
+}
+
+.header-connectivity #connectivity-label {
+  display: none;
+}
+
 .connectivity-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #666;
   transition: background 0.2s;
