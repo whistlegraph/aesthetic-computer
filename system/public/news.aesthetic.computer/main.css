@@ -225,7 +225,7 @@ body {
 
 /* ===== Auth Buttons (AC-style colored, compact, smaller text) ===== */
 .header-login-btn {
-  padding: 2px 5px;
+  padding: 4px 8px;
   font-size: 8pt;
   font-weight: normal;
   border: 1px solid white;
@@ -256,7 +256,7 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 5px;
+  padding: 4px 8px;
   background: #000;
   border: 1px solid white;
 }
@@ -269,7 +269,7 @@ body {
 }
 
 .header-logout-btn {
-  padding: 2px 5px;
+  padding: 4px 8px;
   background: transparent;
   border: 1px solid white;
   font-size: 8pt;
