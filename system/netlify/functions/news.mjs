@@ -4,7 +4,10 @@
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 
-const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
+// Dev mode: show live reload indicator
+const dev = process.env.CONTEXT === "dev" || 
+            process.env.NETLIFY_DEV === "true" ||
+            process.env.NODE_ENV === "development";
 
 function escapeHtml(value = "") {
   return String(value)
@@ -47,16 +50,15 @@ function layout({ title, body, assetBase }) {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(title)}</title>
-    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
-    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <link rel="icon" href="${assetBase}/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
-    <link rel="stylesheet" href="/kidlisp.com/css/variables.css" />
     <link rel="stylesheet" href="${assetBase}/main.css" />
-    <link rel="stylesheet" href="/kidlisp.com/css/components.css" />
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
   </head>
   <body>
-    ${body}
+    <div class="news-wrapper">
+      ${body}
+    </div>
     <script src="${assetBase}/client.js" defer></script>
   </body>
 </html>`;
@@ -67,18 +69,12 @@ function header(basePath) {
   return `
   <header class="news-header">
     <div class="news-logo">
-      <a href="${homeHref}">news.aesthetic.computer</a>
+      <a href="${homeHref}" class="news-logo-icon">A</a>
+      <a href="${homeHref}"><b>Aesthetic News</b></a>
     </div>
-    <nav class="news-nav">
-      <a href="${homeHref}">top</a>
-      <span>•</span>
-      <a href="${basePath}/new">new</a>
-      <span>•</span>
-      <a href="${basePath}/submit">submit</a>
-    </nav>
     <div class="news-auth">
-      <button id="news-login-btn" class="header-login-btn">login</button>
-      <button id="news-signup-btn" class="header-login-btn header-signup-btn">i'm new</button>
+      <button id="news-login-btn" class="header-login-btn">Log In</button>
+      <button id="news-signup-btn" class="header-login-btn header-signup-btn">I'm New</button>
       <div id="news-user-menu" class="header-user-menu" style="display:none;">
         <span id="news-user-handle" class="header-user-handle">@anon</span>
         <span class="header-menu-arrow">▾</span>
@@ -90,6 +86,29 @@ function header(basePath) {
   </header>`;
 }
 
+function footer() {
+  // Show connectivity indicator in dev mode
+  const connectivityHtml = dev ? `
+    <div class="news-connectivity" id="news-connectivity">
+      <div class="connectivity-dot disconnected" id="connectivity-dot"></div>
+      <span id="connectivity-label">offline</span>
+    </div>` : '';
+  
+  return `
+  <footer class="news-footer">
+    <div class="news-footer-links">
+      <a href="https://aesthetic.computer/list" class="news-modal-link" data-modal-url="https://aesthetic.computer/list">List</a>
+      <span>|</span>
+      <a href="https://aesthetic.computer/weather" class="news-modal-link" data-modal-url="https://aesthetic.computer/weather">Weather</a>
+      <span>|</span>
+      <a href="https://give.aesthetic.computer" class="news-external-link" target="_blank" rel="noopener">Give</a>
+      <span>|</span>
+      <a href="https://prompt.ac/commits" class="news-modal-link" data-modal-url="https://prompt.ac/commits">Commits</a>
+      ${connectivityHtml}
+    </div>
+  </footer>`;
+}
+
 function renderPostRow(post, idx, basePath) {
   const title = escapeHtml(post.title || "(untitled)");
   const url = post.url ? escapeHtml(post.url) : "";
@@ -98,7 +117,15 @@ function renderPostRow(post, idx, basePath) {
   return `
   <div class="news-row">
     <div class="news-rank">${idx + 1}.</div>
-    <div class="news-main">
+    <div class="news-vote">
+      <form data-news-action="vote" method="post" action="/api/news/vote">
+        <input type="hidden" name="itemType" value="post" />
+        <input type="hidden" name="itemId" value="${post.code}" />
+        <input type="hidden" name="dir" value="1" />
+        <button type="submit" class="news-vote-btn">▲</button>
+      </form>
+    </div>
+    <div class="news-content">
       <div class="news-title">
         <a href="${url || itemUrl}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${title}</a>
         ${domain ? `<span class="news-domain">(${domain})</span>` : ""}
@@ -109,14 +136,6 @@ function renderPostRow(post, idx, basePath) {
         <span>${formatDate(post.when)}</span>
         <span><a href="${itemUrl}">${post.commentCount || 0} comments</a></span>
       </div>
-    </div>
-    <div class="news-vote">
-      <form data-news-action="vote" method="post" action="/api/news/vote">
-        <input type="hidden" name="itemType" value="post" />
-        <input type="hidden" name="itemId" value="${post.code}" />
-        <input type="hidden" name="dir" value="1" />
-        <button type="submit" class="news-vote-btn">▲</button>
-      </form>
     </div>
   </div>`;
 }
@@ -155,13 +174,19 @@ async function renderFrontPage(database, basePath, sort) {
   const posts = await fetchPosts(database, { sort, limit: 30 });
   const hydrated = await hydrateHandles(database, posts);
   const rows = hydrated.map((post, idx) => renderPostRow(post, idx, basePath)).join("\n");
+  const emptyState = `
+    <div class="news-empty">
+      <p>No posts yet.</p>
+      <a href="${basePath}/report" class="news-report-link">report a story</a>
+    </div>`;
   return `
   ${header(basePath)}
   <main class="news-main">
     <div class="news-list">
-      ${rows || '<div class="news-empty">No posts yet.</div>'}
+      ${rows || emptyState}
     </div>
-  </main>`;
+  </main>
+  ${footer()}`;
 }
 
 async function renderItemPage(database, basePath, code) {
@@ -169,7 +194,7 @@ async function renderItemPage(database, basePath, code) {
   const comments = database.db.collection("news-comments");
   const post = await posts.findOne({ code });
   if (!post) {
-    return `${header(basePath)}<main class="news-main"><p>Post not found.</p></main>`;
+    return `${header(basePath)}<main class="news-main"><p>Post not found.</p></main>${footer()}`;
   }
   const hydratedPost = (await hydrateHandles(database, [post]))[0];
   const commentDocs = await comments
@@ -179,42 +204,76 @@ async function renderItemPage(database, basePath, code) {
   const hydratedComments = await hydrateHandles(database, commentDocs);
   const commentsHtml = hydratedComments.map((c) => renderComment(c)).join("\n");
 
+  const title = escapeHtml(hydratedPost.title || "(untitled)");
+  const url = hydratedPost.url ? escapeHtml(hydratedPost.url) : "";
+  const domain = hydratedPost.url ? new URL(hydratedPost.url).hostname.replace(/^www\./, "") : "";
+
   return `
   ${header(basePath)}
   <main class="news-main">
-    <section class="news-item">
-      ${renderPostRow(hydratedPost, 0, basePath)}
-      ${post.text ? `<div class="news-text">${escapeHtml(post.text)}</div>` : ""}
-    </section>
-    <section class="news-comment-form">
-      <form id="news-comment-form" data-news-action="comment" method="post" action="/api/news/comment">
-        <input type="hidden" name="postCode" value="${escapeHtml(code)}" />
-        <textarea name="text" rows="6" placeholder="add a comment..."></textarea>
-        <button type="submit">comment</button>
-      </form>
-    </section>
-    <section class="news-comments">
-      ${commentsHtml || '<div class="news-empty">No comments yet.</div>'}
-    </section>
-  </main>`;
+    <table class="news-item-table" border="0" cellpadding="0" cellspacing="0">
+      <tr class="news-item-row">
+        <td valign="top" class="news-item-vote">
+          <form data-news-action="vote" method="post" action="/api/news/vote">
+            <input type="hidden" name="itemType" value="post" />
+            <input type="hidden" name="itemId" value="${hydratedPost.code}" />
+            <input type="hidden" name="dir" value="1" />
+            <button type="submit" class="news-vote-btn">▲</button>
+          </form>
+        </td>
+        <td class="news-item-content">
+          <span class="news-item-title">
+            <a href="${url || '#'}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${title}</a>
+            ${domain ? `<span class="news-domain">(${domain})</span>` : ""}
+          </span>
+          <div class="news-item-meta">
+            ${hydratedPost.score || 0} points by ${escapeHtml(hydratedPost.handle || "@anon")} ${formatDate(hydratedPost.when)}
+          </div>
+        </td>
+      </tr>
+    </table>
+    ${hydratedPost.text ? `<div class="news-text">${escapeHtml(hydratedPost.text)}</div>` : ""}
+    <form id="news-comment-form" class="news-comment-form" data-news-action="comment" method="post" action="/api/news/comment">
+      <input type="hidden" name="postCode" value="${escapeHtml(code)}" />
+      <div class="news-comment-guidelines">
+        <p>Say something interesting or ask a question. Be nice.</p>
+      </div>
+      <textarea name="text" rows="6" cols="80" placeholder="Add a comment..."></textarea>
+      <button type="submit">add comment</button>
+    </form>
+    <div class="news-comments">
+      ${commentsHtml || ''}
+    </div>
+  </main>
+  ${footer()}`;
 }
 
-async function renderSubmitPage(basePath) {
+async function renderReportPage(basePath) {
   return `
   ${header(basePath)}
   <main class="news-main">
-    <section class="news-submit">
+    <section class="news-report">
+      <h2>Report a Story</h2>
+      <div class="news-guidelines">
+        <p>Share something interesting with the community.</p>
+        <ul>
+          <li>Links to creative tools, code, art, and experiments are welcome.</li>
+          <li>Self-promotion is fine if it's genuinely interesting.</li>
+          <li>Be curious. Be kind. Keep it weird.</li>
+        </ul>
+      </div>
       <form id="news-submit-form" data-news-action="submit" method="post" action="/api/news/submit">
         <label>title</label>
-        <input type="text" name="title" required />
-        <label>url</label>
+        <input type="text" name="title" required placeholder="What's the story?" />
+        <label>url <span class="news-optional">(optional)</span></label>
         <input type="url" name="url" placeholder="https://" />
-        <label>text</label>
-        <textarea name="text" rows="6"></textarea>
-        <button type="submit">submit</button>
+        <label>or tell us more <span class="news-optional">(optional)</span></label>
+        <textarea name="text" rows="6" placeholder="Add context, thoughts, or leave blank..."></textarea>
+        <button type="submit">report this</button>
       </form>
     </section>
-  </main>`;
+  </main>
+  ${footer()}`;
 }
 
 export function createHandler({ connect: connectFn = connect, respond: respondFn = respond } = {}) {
@@ -239,13 +298,13 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
       } else if (route.startsWith("item/")) {
         const code = route.split("/").slice(1).join("/");
         body = await renderItemPage(database, basePath, code);
-      } else if (route === "submit") {
-        body = await renderSubmitPage(basePath);
+      } else if (route === "report" || route === "submit") {
+        body = await renderReportPage(basePath);
       } else {
-        body = `${header(basePath)}<main class="news-main"><p>Page not found.</p></main>`;
+        body = `${header(basePath)}<main class="news-main"><p>Page not found.</p></main>${footer()}`;
       }
 
-      const html = layout({ title: "news.aesthetic.computer", body, assetBase });
+      const html = layout({ title: "Aesthetic News", body, assetBase });
       await database.disconnect();
       return respondFn(200, html, { "Content-Type": "text/html" });
     } catch (error) {

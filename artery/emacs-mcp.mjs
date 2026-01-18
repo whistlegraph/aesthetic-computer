@@ -18,12 +18,23 @@ const EMACSCLIENT = process.env.EMACSCLIENT || "/usr/sbin/emacsclient";
 // MCP Server state
 let messageId = 0;
 
-// Execute elisp via emacsclient
-async function execEmacs(code) {
+// Timeout for emacsclient calls (ms)
+const EMACSCLIENT_TIMEOUT = 10000;
+
+// Execute elisp via emacsclient with timeout
+async function execEmacs(code, timeout = EMACSCLIENT_TIMEOUT) {
   return new Promise((resolve, reject) => {
     const proc = spawn(EMACSCLIENT, ["--eval", code]);
     let stdout = "";
     let stderr = "";
+    let killed = false;
+    
+    // Set timeout to prevent hanging forever
+    const timer = setTimeout(() => {
+      killed = true;
+      proc.kill('SIGTERM');
+      reject(new Error(`emacsclient timed out after ${timeout}ms - emacs may be unresponsive`));
+    }, timeout);
 
     proc.stdout.on("data", (data) => {
       stdout += data.toString();
@@ -33,6 +44,8 @@ async function execEmacs(code) {
     });
 
     proc.on("close", (exitCode) => {
+      clearTimeout(timer);
+      if (killed) return; // Already rejected via timeout
       if (exitCode === 0) {
         resolve(stdout.trim());
       } else {
@@ -45,6 +58,7 @@ async function execEmacs(code) {
     });
 
     proc.on("error", (err) => {
+      clearTimeout(timer);
       reject(new Error(`Failed to start emacsclient: ${err.message}`));
     });
   });
@@ -214,9 +228,19 @@ async function handleMessage(message) {
 
           case "emacs_send_keys":
             // Send keys to an eat terminal buffer
-            const escapedKeys = args.keys
+            // First, convert common escape sequences to actual characters
+            // then escape for elisp string
+            let processedKeys = args.keys
+              .replace(/\\n/g, "\n")  // newline
+              .replace(/\\r/g, "\r")  // carriage return (Enter)
+              .replace(/\\t/g, "\t"); // tab
+            // Now escape for elisp: backslashes and quotes
+            const escapedKeys = processedKeys
               .replace(/\\/g, "\\\\")
-              .replace(/"/g, '\\"');
+              .replace(/"/g, '\\"')
+              .replace(/\n/g, "\\n")  // escape newlines for elisp
+              .replace(/\r/g, "\\r")  // escape CR for elisp
+              .replace(/\t/g, "\\t"); // escape tabs for elisp
             result = await execEmacs(`
               (with-current-buffer "${args.buffer}"
                 (if (and (boundp 'eat-terminal) eat-terminal)

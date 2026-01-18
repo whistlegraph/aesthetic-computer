@@ -21,7 +21,7 @@ ENV MANPAGER=cat
 # --- Base toolchain & deps ----------------------------------------------------
 RUN dnf update -y && \
     dnf install -y \
-      awk which tree procps-ng coreutils unzip jq bat ripgrep xxd \
+      awk which tree procps-ng coreutils unzip jq bat ripgrep \
       git gh gcc gcc-c++ clang make cmake \
       python3.11 python3.11-devel python3-pip python3-devel \
       emacs-nox fish util-linux-user util-linux-script sshpass \
@@ -38,7 +38,7 @@ RUN dnf update -y && \
       libXi libXdamage libXrandr alsa-lib gtk3 \
       xorg-x11-server-Xvfb psmisc lsof chromium \
       sbcl zeromq-devel redhat-rpm-config \
-            caddy htop \
+            caddy \
         && dnf clean all && rm -rf /var/cache/dnf
 
 # --- FFmpeg from RPM Fusion ---------------------------------------------------
@@ -100,19 +100,6 @@ RUN set -eux; \
     curl -fsSL "https://github.com/stripe/stripe-cli/releases/download/v1.30.0/stripe_1.30.0_linux_${ARCH}.tar.gz" \
     | tar xz -C /usr/local/bin
 
-# --- MongoDB Atlas CLI (architecture-aware) ----------------------------------
-RUN set -eux; \
-    case "$(uname -m)" in \
-        x86_64) ARCH=x86_64 ;; \
-        aarch64) ARCH=arm64 ;; \
-        *) echo "Unsupported architecture: $(uname -m)" && exit 1 ;; \
-    esac && \
-    ATLAS_VERSION=1.51.0 && \
-    curl -fsSL "https://fastdl.mongodb.org/mongocli/mongodb-atlas-cli_${ATLAS_VERSION}_linux_${ARCH}.tar.gz" \
-    | tar xz -C /tmp && \
-    mv /tmp/mongodb-atlas-cli_${ATLAS_VERSION}_linux_${ARCH}/bin/atlas /usr/local/bin/ && \
-    rm -rf /tmp/mongodb-atlas-cli_*
-
 # --- redli (architecture-aware) ----------------------------------------------
 RUN set -eux; \
     case "$(uname -m)" in \
@@ -173,17 +160,10 @@ RUN ARCH=$(uname -m) && \
     rm /tmp/powershell.tar.gz
 
 # --- s3cmd (for DigitalOcean Spaces management) -------------------------------
-# Combined with aggressive cleanup to reclaim space first
-RUN rm -rf /var/cache/dnf /var/log/dnf* /var/log/hawkey* /tmp/* /var/tmp/* \
-           /usr/share/doc/* /usr/share/man/* /usr/share/info/* \
-           /var/log/*.log /var/log/**/*.log 2>/dev/null || true && \
-    dnf clean all && \
-    dnf install -y s3cmd && \
-    dnf clean all && \
-    rm -rf /var/cache/dnf /var/log/dnf* /var/log/hawkey* /tmp/*
+RUN dnf install -y s3cmd && dnf clean all
 
 # --- Jupyter bits -------------------------------------------------------------
-RUN dnf install -y python3-notebook python3-nbconvert && dnf clean all && rm -rf /var/cache/dnf /var/log/dnf* /var/log/hawkey* /tmp/*
+RUN dnf install -y python3-notebook python3-nbconvert && dnf clean all
 
 # --- gcloud SDK ---------------------------------------------------------------
 RUN curl -sSL https://sdk.cloud.google.com > /tmp/install_gcloud.sh && \
@@ -228,7 +208,7 @@ RUN echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/con
     /home/me/.fnm/fnm install 20.5.0 && \
     /home/me/.fnm/fnm default lts-jod && \
     /home/me/.fnm/fnm use lts-jod && \
-    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli wrangler @github/copilot && \
+    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli wrangler && \
     echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish && \
     chown -R me:me /home/me/.config/fish
 
@@ -238,16 +218,6 @@ RUN echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/con
 RUN export PATH="/home/me/.fnm:${PATH}" && \
     eval "$(/home/me/.fnm/fnm env --use-on-cd)" && \
     npm i -g @atproto/api@^0.17.0 @atproto/xrpc@^0.6.5 @atproto/lexicon@^0.4.2 @atproto/identity@^0.4.3 @atproto/syntax@^0.3.1 dotenv@^16.4.5
-
-# --- Bun runtime + cli-lsp-client (LSP diagnostics for Copilot) ---------------
-RUN export PATH="/home/me/.fnm:${PATH}" && \
-    eval "$(/home/me/.fnm/fnm env --use-on-cd)" && \
-    npm i -g bun && \
-    bun --version
-# Pre-install cli-lsp-client so LSP daemon starts faster
-RUN export PATH="/home/me/.fnm:${PATH}" && \
-    eval "$(/home/me/.fnm/fnm env --use-on-cd)" && \
-    bunx cli-lsp-client --version
 
 # --- SBCL / Quicklisp ---------------------------------------------------------
 RUN curl -fsSLO https://beta.quicklisp.org/quicklisp.lisp && \
