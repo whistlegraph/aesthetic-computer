@@ -123,6 +123,9 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
       color = data.color || "white";
       viaCode = data.via || null;
       
+      // Store the source slug for pixel URLs (different from display code)
+      const sourceSlug = data.sourceSlug || sourceCode;
+      
       // Use cached preview if available
       if (data.preview) {
         console.log("☕ Loading preview:", data.preview);
@@ -154,13 +157,18 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
           // Continue without preview - don't fail the whole boot
         }
         previewLoading = false;
+      } else {
+        // No cached preview - generate one using the source slug
+        console.log("☕ No cached preview, generating from source slug:", sourceSlug);
+        apiCodeForRetry = sourceSlug;
+        fetchPreview(sourceSlug);
       }
       
       // Set up buttons
       setupButtons(ui, screen);
       
-      // Fetch checkout URL (use painting code for Printful)
-      fetchCheckout(sourceCode, api);
+      // Fetch checkout URL (use source slug for Printful pixel URL)
+      fetchCheckout(sourceSlug, api);
       return;
     } catch (e) {
       error = "Mug not found: " + (e?.message || String(e) || "Unknown error");
@@ -472,8 +480,19 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
   }
 
   if (error) {
-    // Wrap error text on narrow screens
-    ink(255, 100, 100).write(error, { center: "xy", screen }, undefined, screen.width - 16);
+    // Show a nice mug icon for oven screenshot generation (no error text)
+    // This ensures /icon/128x128/mug.png works even without params
+    const centerX = screen.width / 2;
+    const centerY = screen.height / 2;
+    const mugSize = min(screen.width, screen.height) * 0.6;
+    
+    // Draw a simple mug emoji as the default icon
+    ink(200, 150, 100).write("☕", { center: "xy", screen }, undefined, undefined, false, "unifont");
+    
+    // Only show error text on larger screens (not for icon generation)
+    if (screen.width > 200) {
+      ink(255, 100, 100, 0.8).write(error, { center: "x", y: centerY + mugSize * 0.3, screen }, undefined, screen.width - 16);
+    }
     return;
   }
 
