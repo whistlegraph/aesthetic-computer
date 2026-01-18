@@ -644,43 +644,21 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src http://localhost:5555; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: ${theme === 'light' ? '#fcf7c5' : '#000'}; height: 100vh; overflow: hidden; }
+    body { background: ${theme === 'light' ? '#fcf7c5' : '#181318'}; height: 100vh; overflow: hidden; }
     iframe { width: 100%; height: 100%; border: none; }
-    .dev-controls { position: fixed; top: 12px; left: 12px; z-index: 1000; display: flex; gap: 8px; align-items: center; }
-    .dev-btn { background: ${theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}; border: 1px solid ${theme === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'}; color: ${theme === 'light' ? '#281e5a' : '#fff'}; padding: 6px 12px; border-radius: 4px; font-size: 11px; font-family: monospace; cursor: pointer; }
-    .dev-btn:hover { background: ${theme === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'}; }
-    .dev-status { font-size: 10px; color: ${theme === 'light' ? '#806060' : '#888'}; font-family: monospace; }
-    .dev-status.error { color: #ff6b6b; }
-    .dev-status.connecting { color: #ffa500; }
-    .dev-status.connected { color: #0f0; }
   </style>
 </head>
 <body>
   <iframe id="dev-frame" src="${WELCOME_DEV_URL}?theme=${theme}"></iframe>
-  <div class="dev-controls">
-    <button class="dev-btn" onclick="reload()">🔄 Reload</button>
-    <span class="dev-status" id="status">DEV MODE</span>
-  </div>
   <script>
     const vscode = acquireVsCodeApi();
     const frame = document.getElementById('dev-frame');
-    const status = document.getElementById('status');
     let retryInterval = null;
-    let retryCount = 0;
-    
-    function reload() {
-      status.textContent = 'Reloading...';
-      status.className = 'dev-status connecting';
-      frame.src = frame.src.split('?')[0] + '?theme=${theme}&t=' + Date.now();
-    }
     
     // Auto-retry when server unavailable
     function startAutoRetry() {
       if (retryInterval) return;
       retryInterval = setInterval(() => {
-        retryCount++;
-        status.textContent = 'Waiting for server... (' + retryCount + ')';
-        status.className = 'dev-status connecting';
         frame.src = frame.src.split('?')[0] + '?theme=${theme}&t=' + Date.now();
       }, 2000);
     }
@@ -689,48 +667,34 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       if (retryInterval) {
         clearInterval(retryInterval);
         retryInterval = null;
-        retryCount = 0;
       }
     }
     
     // Detect iframe load success/failure
     frame.onload = () => {
       try {
-        // Try to access iframe content - will throw if cross-origin blocked (server working)
         const doc = frame.contentDocument || frame.contentWindow?.document;
         if (doc && doc.body) {
-          // Check if it's an error page or actual content
           const text = doc.body.innerText || '';
           if (text.includes('refused') || text.includes('ERR_')) {
-            status.textContent = 'Server offline - retrying...';
-            status.className = 'dev-status error';
             startAutoRetry();
           } else {
-            status.textContent = 'DEV MODE ✓';
-            status.className = 'dev-status connected';
             stopAutoRetry();
           }
         }
       } catch (e) {
-        // Cross-origin = server is running, content loaded
-        status.textContent = 'DEV MODE ✓';
-        status.className = 'dev-status connected';
+        // Cross-origin = server is running
         stopAutoRetry();
       }
     };
     
-    frame.onerror = () => {
-      status.textContent = 'Server offline - retrying...';
-      status.className = 'dev-status error';
-      startAutoRetry();
-    };
+    frame.onerror = () => startAutoRetry();
     
     // Listen for messages from extension and forward to iframe
     window.addEventListener('message', (e) => {
       if (e.data?.command === 'reload') {
-        reload();
+        frame.src = frame.src.split('?')[0] + '?theme=${theme}&t=' + Date.now();
       } else if (e.data?.command === 'astUpdate') {
-        // Forward AST updates to the iframe
         frame.contentWindow?.postMessage(e.data, '*');
       }
     });
@@ -782,8 +746,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     .proc-label .icon { font-size: 18px; display: block; line-height: 1; }
     .proc-label .name { font-size: 10px; margin-top: 2px; font-weight: bold; letter-spacing: 0.3px; }
     .proc-label .info { font-size: 8px; color: ${c.labelInfo}; margin-top: 1px; }
-    .theme-toggle { position: fixed; top: 16px; right: 120px; background: rgba(${theme === 'light' ? '0,0,0' : '255,255,255'},0.1); border: 1px solid rgba(${theme === 'light' ? '0,0,0' : '255,255,255'},0.2); color: ${c.fgBright}; padding: 6px 12px; border-radius: 4px; font-size: 11px; font-family: monospace; cursor: pointer; z-index: 200; pointer-events: auto; }
-    .theme-toggle:hover { background: rgba(${theme === 'light' ? '0,0,0' : '255,255,255'},0.2); }
   </style>
 </head>
 <body data-theme="${theme}">
@@ -793,7 +755,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   <div class="hud center"><div class="count" id="process-count">0</div><div>processes</div></div>
   <div class="hud mem"><span id="mem-text">— / —</span> MB</div>
   <div id="labels" class="label-container"></div>
-  <button class="theme-toggle" onclick="window.ProcessTreeViz?.toggleTheme()">🌓 Theme</button>
   <script>${PROCESS_TREE_JS}</script>
   <script>${AST_TREE_JS}</script>
   <script>
