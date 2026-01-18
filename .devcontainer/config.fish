@@ -1112,6 +1112,12 @@ function ac-emacs-crash-monitor
                 set -l new_pid (pgrep -f "emacs.*daemon" 2>/dev/null | head -1)
                 if test -n "$new_pid"
                     echo "["(date -Iseconds)"] ✅ Emacs daemon restarted (PID: $new_pid)" >> $crash_log
+                    
+                    # Auto-start aesthetic-backend after crash recovery
+                    # This runs in background so it doesn't block the monitor
+                    echo "["(date -Iseconds)"] 🚀 Starting aesthetic-backend..." >> $crash_log
+                    fish -c "sleep 3 && emacsclient -e '(aesthetic-backend)'" &>/dev/null &
+                    disown
                 else
                     echo "["(date -Iseconds)"] ❌ Failed to restart emacs daemon" >> $crash_log
                 end

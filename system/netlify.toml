@@ -710,6 +710,11 @@ to = "/.netlify/functions/news"
 status = 200
 force = true
 [[redirects]]
+from = "https://news.aesthetic.computer/guidelines"
+to = "/.netlify/functions/news-guidelines"
+status = 200
+force = true
+[[redirects]]
 from = "https://news.aesthetic.computer/*"
 to = "/.netlify/functions/news?path=:splat"
 status = 200
@@ -725,6 +730,16 @@ from = "/news.aesthetic.computer/*"
 to = "/.netlify/functions/news?path=:splat"
 status = 200
 # Note: no "force = true" so static files in public/news.aesthetic.computer/ are served first
+
+# News API routes for subdomain
+[[redirects]]
+from = "https://news.aesthetic.computer/api/news"
+to = "/.netlify/functions/news-api"
+status = 200
+[[redirects]]
+from = "https://news.aesthetic.computer/api/news/*"
+to = "/.netlify/functions/news-api?path=:splat"
+status = 200
 
 [[redirects]]
 from = "/api/news"
