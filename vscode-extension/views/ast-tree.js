@@ -597,39 +597,44 @@
   }
 
   function updateTabUI() {
+    // Insert tabs into #header-center if it exists, otherwise create floating tabs
+    let headerCenter = document.getElementById('header-center');
     let tabBar = document.getElementById('view-tabs');
-    if (!tabBar) {
-      tabBar = document.createElement('div');
-      tabBar.id = 'view-tabs';
-      document.body.appendChild(tabBar);
+    
+    if (headerCenter) {
+      // Use existing header structure
+      if (!tabBar) {
+        tabBar = document.createElement('div');
+        tabBar.id = 'view-tabs';
+        tabBar.style.cssText = 'display: flex; gap: 4px; margin-left: 16px;';
+        headerCenter.appendChild(tabBar);
+      }
+    } else {
+      // Fallback: create in header-right area
+      const headerRight = document.getElementById('header-right');
+      if (headerRight && !tabBar) {
+        tabBar = document.createElement('div');
+        tabBar.id = 'view-tabs';
+        tabBar.style.cssText = 'display: flex; gap: 4px;';
+        headerRight.insertBefore(tabBar, headerRight.firstChild);
+      }
     }
     
-    tabBar.style.cssText = `
-      position: fixed; top: 50px; left: 16px; z-index: 200;
-      display: flex; gap: 4px; font-family: monospace; font-size: 12px;
-    `;
+    if (!tabBar) return; // No place to put tabs
     
     const processActive = currentTab === 'processes';
     const sourceActive = currentTab === 'sources';
     const fileCount = astFiles.filter(f => f.ast).length;
     
     tabBar.innerHTML = `
-      <button id="tab-processes" style="
-        padding: 8px 16px; border-radius: 6px 6px 0 0;
-        background: ${processActive ? scheme.accent : 'transparent'};
-        color: ${processActive ? '#fff' : scheme.foregroundMuted};
-        border: 1px solid ${scheme.foregroundMuted}40;
-        border-bottom: ${processActive ? 'none' : '1px solid ' + scheme.foregroundMuted + '40'};
-        cursor: pointer; font-family: monospace;
-      ">🔄 Processes</button>
-      <button id="tab-sources" style="
-        padding: 8px 16px; border-radius: 6px 6px 0 0;
-        background: ${sourceActive ? scheme.accent : 'transparent'};
-        color: ${sourceActive ? '#fff' : scheme.foregroundMuted};
-        border: 1px solid ${scheme.foregroundMuted}40;
-        border-bottom: ${sourceActive ? 'none' : '1px solid ' + scheme.foregroundMuted + '40'};
-        cursor: pointer; font-family: monospace;
-      ">📜 Sources ${fileCount > 0 ? '(' + fileCount + ')' : ''}</button>
+      <button id="tab-processes" class="hdr-btn" style="
+        background: ${processActive ? (scheme?.accent || '#ff69b4') : 'rgba(255,255,255,0.08)'};
+        color: ${processActive ? '#000' : '#888'};
+      ">Proc</button>
+      <button id="tab-sources" class="hdr-btn" style="
+        background: ${sourceActive ? (scheme?.accent || '#ff69b4') : 'rgba(255,255,255,0.08)'};
+        color: ${sourceActive ? '#000' : '#888'};
+      ">Src${fileCount > 0 ? ' ' + fileCount : ''}</button>
     `;
     
     document.getElementById('tab-processes').onclick = () => setTab('processes');
