@@ -2456,7 +2456,7 @@ function getWebViewContent(webview: any, slug: string) {
         </style>
       </head>
       <body>
-        <iframe id="news" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}${path}${param}"></iframe>
+        <iframe id="news" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox allow-forms" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}${path}${param}"></iframe>
         <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
           const newsIframe = document.getElementById('news');
@@ -2471,7 +2471,8 @@ function getWebViewContent(webview: any, slug: string) {
               event.data.type.startsWith('news:') ||
               event.data.type === 'login' ||
               event.data.type === 'logout' ||
-              event.data.type === 'signup'
+              event.data.type === 'signup' ||
+              event.data.type === 'openExternal'
             )) {
               vscode.postMessage(event.data);
             }
