@@ -10,9 +10,13 @@ let auth0Client = null;
 let acUser = null;
 let acToken = null;
 let acHandle = null;
+let auth0Initialized = false;
+let sessionListenerAttached = false;
+let spaInitialized = false;
 
 // DOM elements - initialized after DOM ready
 let loginBtn, signupBtn, userMenu, userHandle, logoutBtn;
+let userMenuModalOpen = false;
 
 function initDOMRefs() {
   loginBtn = document.getElementById("news-login-btn");
@@ -35,8 +39,40 @@ async function hydrateHandleFromEmail(email) {
   }
 }
 
+function loadSessionCache() {
+  try {
+    const raw = sessionStorage.getItem('news:vscode-session');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveSessionCache(session) {
+  try {
+    if (!session) {
+      sessionStorage.removeItem('news:vscode-session');
+      return;
+    }
+    sessionStorage.setItem('news:vscode-session', JSON.stringify(session));
+  } catch (error) {
+    // ignore
+  }
+}
+
 async function applySession(session) {
   console.log("[news] applySession called:", session);
+  if (!session || typeof session !== "object") {
+    if (isInVSCode()) {
+      const cached = loadSessionCache();
+      if (cached && typeof cached === "object") {
+        session = cached;
+      } else {
+        saveSessionCache(null);
+      }
+    }
+  }
   if (!session || typeof session !== "object") {
     // Session cleared - user logged out
     acUser = null;
@@ -45,6 +81,7 @@ async function applySession(session) {
     updateAuthUI();
     return;
   }
+  saveSessionCache(session);
   if (session.accessToken) acToken = session.accessToken;
 
   const label = session.account?.label;
@@ -77,6 +114,8 @@ function decodeSessionParam() {
 
 async function initAuth0() {
   if (!window.auth0) return;
+  if (auth0Initialized) return;
+  auth0Initialized = true;
   
   // Determine correct redirect URI (subdomain vs local path)
   const isNewsDomain = window.location.hostname === 'news.aesthetic.computer';
@@ -199,6 +238,7 @@ async function acLogout() {
     acUser = null;
     acToken = null;
     acHandle = null;
+    saveSessionCache(null);
     updateAuthUI();
     return;
   }
@@ -207,6 +247,7 @@ async function acLogout() {
   acUser = null;
   acToken = null;
   acHandle = null;
+  saveSessionCache(null);
   updateAuthUI();
   
   // Use root URL for logout (must match Auth0 Allowed Logout URLs)
@@ -227,13 +268,56 @@ function attachAuthHandlers() {
     e.preventDefault();
     acSignup();
   });
-  if (logoutBtn) logoutBtn.addEventListener("click", (e) => {
+  if (userHandle) userHandle.addEventListener("click", (e) => {
     e.preventDefault();
-    acLogout();
+    openUserMenuModal();
   });
 }
 
+function openUserMenuModal() {
+  if (userMenuModalOpen) return;
+  userMenuModalOpen = true;
+  closeModal();
+
+  const existing = document.getElementById('news-user-menu-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'news-user-menu-modal';
+  modal.className = 'news-user-menu-modal';
+  modal.innerHTML = `
+    <div class="news-user-menu-backdrop"></div>
+    <div class="news-user-menu-panel">
+      <div class="news-user-menu-title">${acHandle ? `@${acHandle}` : (acUser?.email || 'account')}</div>
+      <button class="news-user-menu-action" type="button" data-action="logout">log out</button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.querySelector('.news-user-menu-backdrop')?.addEventListener('click', closeUserMenuModal);
+  modal.querySelector('[data-action="logout"]')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    closeUserMenuModal();
+    acLogout();
+  });
+  document.addEventListener('keydown', handleUserMenuEscape);
+}
+
+function closeUserMenuModal() {
+  const modal = document.getElementById('news-user-menu-modal');
+  if (modal) modal.remove();
+  userMenuModalOpen = false;
+  document.removeEventListener('keydown', handleUserMenuEscape);
+}
+
+function handleUserMenuEscape(e) {
+  if (e.key === 'Escape') closeUserMenuModal();
+}
+
 function attachSessionListener() {
+  if (sessionListenerAttached) return;
+  sessionListenerAttached = true;
   window.addEventListener("message", (event) => {
     if (event.data?.type === "setSession" && event.data?.tenant === "aesthetic") {
       applySession(event.data.session);
@@ -360,12 +444,6 @@ function initModals() {
 }
 
 function openModal(url) {
-  // In VS Code, open modals externally too (iframes can be problematic)
-  if (isInVSCode()) {
-    openExternal(url);
-    return;
-  }
-  
   // Remove existing modal if any
   const existing = document.getElementById('news-modal');
   if (existing) existing.remove();
@@ -398,6 +476,71 @@ function handleEscape(e) {
   if (e.key === 'Escape') closeModal();
 }
 
+// ===== SPA Routing =====
+function reinitPage() {
+  initDOMRefs();
+  attachAuthHandlers();
+  initForms();
+  initModals();
+  initSubmitFormConstraints();
+  updateAuthUI();
+  connectToSessionServer();
+}
+
+function shouldHandleLink(link) {
+  if (!link || link.target === '_blank') return false;
+  if (link.hasAttribute('download')) return false;
+  if (link.classList.contains('news-external-link')) return false;
+  if (link.classList.contains('news-modal-link')) return false;
+  const rawHref = link.getAttribute('href') || '';
+  if (rawHref.startsWith('#')) return false;
+
+  const url = new URL(link.href, window.location.origin);
+  if (url.origin !== window.location.origin) return false;
+  if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash) return false;
+  return true;
+}
+
+async function navigateTo(url, { push = true } = {}) {
+  const nextUrl = typeof url === 'string' ? url : url.href;
+  if (!nextUrl || nextUrl === window.location.href) return;
+
+  try {
+    closeModal();
+    const res = await fetch(nextUrl, { headers: { 'X-Requested-With': 'spa' } });
+    const html = await res.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const nextWrapper = doc.querySelector('.news-wrapper');
+    const currentWrapper = document.querySelector('.news-wrapper');
+    if (!nextWrapper || !currentWrapper) {
+      window.location.href = nextUrl;
+      return;
+    }
+    currentWrapper.innerHTML = nextWrapper.innerHTML;
+    document.title = doc.title || document.title;
+    if (push) history.pushState({}, '', nextUrl);
+    reinitPage();
+  } catch (error) {
+    window.location.href = nextUrl;
+  }
+}
+
+function initSpaRouting() {
+  if (spaInitialized) return;
+  spaInitialized = true;
+
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (!shouldHandleLink(link)) return;
+    e.preventDefault();
+    navigateTo(link.href, { push: true });
+  });
+
+  window.addEventListener('popstate', () => {
+    navigateTo(window.location.href, { push: false });
+  });
+}
+
 // ===== WebSocket Live Reload (dev only) =====
 let sessionWs = null;
 let reconnectInterval = null;
@@ -424,6 +567,15 @@ function connectToSessionServer() {
   connectivityDot = document.getElementById('connectivity-dot');
   connectivityLabel = document.getElementById('connectivity-label');
   if (!connectivityDot) return; // Not in dev mode
+
+  if (sessionWs && sessionWs.readyState === WebSocket.OPEN) {
+    setConnectivityState('connected');
+    return;
+  }
+  if (sessionWs && sessionWs.readyState === WebSocket.CONNECTING) {
+    setConnectivityState('connecting');
+    return;
+  }
   
   if (reconnectInterval) {
     clearInterval(reconnectInterval);
@@ -504,15 +656,11 @@ function scheduleReconnect() {
 }
 
 // Initialize everything after DOM is ready
-initDOMRefs();
-attachAuthHandlers();
-initForms();
-initModals();
-initSubmitFormConstraints();
+reinitPage();
 attachSessionListener();
 applySession(decodeSessionParam());
 initAuth0();
-connectToSessionServer(); // Start WebSocket connection for live reload
+initSpaRouting();
 
 // Submit form constraints - require URL or Thoughts, validate inputs
 function initSubmitFormConstraints() {
