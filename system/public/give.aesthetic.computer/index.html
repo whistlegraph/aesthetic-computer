@@ -7301,7 +7301,7 @@
         <div class="invest-content" data-lang="zh">
           <p><a href="https://aesthetic.direct" target="_blank">Aesthetic Inc.</a> 由一小群早期支持者<a href="https://prompt.ac/booted-by" target="_blank">启动</a>。<br><br>要加入这个股权持有社区，请与 <a href="https://aesthetic.computer/@jeffrey" class="handle-link">@jeffrey</a> <a href="https://calendly.com/aesthetic-computer/demo" class="demo-link" target="_blank">预约远程演示</a>。</p>
         </div>
-        <a href="https://aesthetic.computer/mug" class="invest-mug" id="investMug" title="Buy a Mug" target="_blank">
+        <a href="https://aesthetic.computer/+" class="invest-mug" id="investMug" title="Buy a Mug" target="_blank">
           <img class="invest-mug-image" id="investMugImage" alt="Mug preview" />
           <span class="invest-mug-icon" id="investMugIcon"></span>
           <span class="invest-mug-caption" id="investMugCaption"><span class="mug-color">white</span><span class="mug-of"> mug of </span><span class="mug-code">CODE</span><span class="mug-via"> in $give</span></span>
@@ -7400,6 +7400,35 @@
   </dialog>
 
   <script>
+    // ===== VS Code Detection & External Link Handling =====
+    // Check if running inside VS Code webview (sandboxed iframe)
+    function isInVSCode() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('vscode') === 'true' || 
+             (window.acVSCODE && window.parent !== window);
+    }
+
+    // Open URL externally - handles VS Code sandboxed iframe case
+    function openExternal(url) {
+      if (isInVSCode()) {
+        // In VS Code extension webview, send message to parent to open externally
+        window.parent.postMessage({ type: 'openExternal', url }, '*');
+        return true;
+      }
+      // Normal browser - open in new tab
+      window.open(url, '_blank', 'noopener');
+      return true;
+    }
+
+    // Intercept all target="_blank" links for VS Code compatibility
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('a[target="_blank"]');
+      if (link && isInVSCode()) {
+        e.preventDefault();
+        openExternal(link.href);
+      }
+    });
+
     // Dev/prod URL detection for KidLisp.com links
     const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
     const kidlispUrl = isDev ? 'https://localhost:8888/kidlisp.com' : 'https://kidlisp.com';
@@ -14141,7 +14170,7 @@
       
       // Update the link href to use correct domain
       if (mugLink) {
-        mugLink.href = `${baseUrl}/mug`;
+        mugLink.href = `${baseUrl}/+`;
       }
       
       let mug = null;
@@ -14160,7 +14189,7 @@
             
             // Update link to go directly to this mug's page
             if (mugLink && mug.code) {
-              mugLink.href = `${baseUrl}/mug~+${mug.code}`;
+              mugLink.href = `${baseUrl}/+~+${mug.code}`;
             }
             
             // Update caption with real data
@@ -14193,7 +14222,7 @@
         console.log('[InvestMug] Could not load latest mug');
       }
       
-      // Link always goes to /mug (singular mug route)
+      // Link always goes to /+ (singular mug route)
     })();
   </script>
 </body>
