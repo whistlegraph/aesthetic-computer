@@ -72,6 +72,14 @@ function header(basePath) {
       <a href="${homeHref}" class="news-logo-icon">A</a>
       <a href="${homeHref}"><b>Aesthetic News</b></a>
     </div>
+    <div class="news-auth">
+      <button id="news-login-btn" class="header-login-btn">Log In</button>
+      <button id="news-signup-btn" class="header-login-btn header-signup-btn">I'm New</button>
+      <div id="news-user-menu" class="header-user-menu" style="display:none;">
+        <span id="news-user-handle" class="header-user-handle">@anon</span>
+        <button id="news-logout-btn" class="header-logout-btn">logout</button>
+      </div>
+    </div>
   </header>`;
 }
 
@@ -94,14 +102,6 @@ function footer() {
       <span>|</span>
       <a href="https://prompt.ac/commits" class="news-modal-link" data-modal-url="https://prompt.ac/commits">Commits</a>
       ${connectivityHtml}
-    </div>
-    <div class="news-footer-auth">
-      <button id="news-login-btn" class="footer-auth-btn">Log In</button>
-      <button id="news-signup-btn" class="footer-auth-btn footer-signup-btn">I'm New</button>
-      <div id="news-user-menu" class="footer-user-menu" style="display:none;">
-        <span id="news-user-handle" class="footer-user-handle">@anon</span>
-        <button id="news-logout-btn" class="footer-logout-btn">logout</button>
-      </div>
     </div>
   </footer>`;
 }
