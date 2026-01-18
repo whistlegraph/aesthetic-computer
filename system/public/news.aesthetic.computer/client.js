@@ -36,13 +36,22 @@ async function hydrateHandleFromEmail(email) {
 }
 
 async function applySession(session) {
-  if (!session || typeof session !== "object") return;
+  console.log("[news] applySession called:", session);
+  if (!session || typeof session !== "object") {
+    // Session cleared - user logged out
+    acUser = null;
+    acToken = null;
+    acHandle = null;
+    updateAuthUI();
+    return;
+  }
   if (session.accessToken) acToken = session.accessToken;
 
   const label = session.account?.label;
   if (label) {
     if (label.startsWith("@")) {
       acHandle = label.slice(1);
+      acUser = { email: label }; // Set user object so we know they're logged in
     } else {
       acUser = { email: label };
       if (label.includes("@")) {
@@ -117,20 +126,41 @@ async function initAuth0() {
 }
 
 function updateAuthUI() {
+  const reportSection = document.querySelector('.news-report');
+  
   if (acUser) {
     if (loginBtn) loginBtn.style.display = "none";
     if (signupBtn) signupBtn.style.display = "none";
     if (userMenu) userMenu.style.display = "flex";
     if (userHandle) userHandle.textContent = acHandle ? `@${acHandle}` : acUser.email;
+    if (reportSection) reportSection.classList.add('logged-in');
   } else {
     if (loginBtn) loginBtn.style.display = "inline-flex";
     if (signupBtn) signupBtn.style.display = "inline-flex";
     if (userMenu) userMenu.style.display = "none";
+    if (reportSection) reportSection.classList.remove('logged-in');
+  }
+  
+  // Update inline login button
+  const promptLogin = document.getElementById('news-prompt-login');
+  if (promptLogin) {
+    promptLogin.addEventListener('click', (e) => {
+      e.preventDefault();
+      acLogin();
+    });
   }
 }
 
 async function acLogin() {
-  console.log("[news] acLogin called, auth0Client:", !!auth0Client);
+  console.log("[news] acLogin called, isInVSCode:", isInVSCode());
+  
+  if (isInVSCode()) {
+    // In VS Code, send message to parent to handle login
+    window.parent?.postMessage({ type: 'news:login' }, '*');
+    window.parent?.postMessage({ type: 'login', tenant: 'aesthetic' }, '*');
+    return;
+  }
+  
   if (!auth0Client) await initAuth0();
   if (!auth0Client) {
     console.error("[news] auth0Client still null after init");
@@ -143,7 +173,15 @@ async function acLogin() {
 }
 
 async function acSignup() {
-  console.log("[news] acSignup called");
+  console.log("[news] acSignup called, isInVSCode:", isInVSCode());
+  
+  if (isInVSCode()) {
+    // In VS Code, send message to parent to handle signup
+    window.parent?.postMessage({ type: 'news:signup' }, '*');
+    window.parent?.postMessage({ type: 'signup', tenant: 'aesthetic' }, '*');
+    return;
+  }
+  
   if (!auth0Client) await initAuth0();
   if (!auth0Client) return;
   await auth0Client.loginWithRedirect({
@@ -152,6 +190,19 @@ async function acSignup() {
 }
 
 async function acLogout() {
+  console.log("[news] acLogout called, isInVSCode:", isInVSCode());
+  
+  if (isInVSCode()) {
+    // In VS Code, send message to parent to handle logout
+    window.parent?.postMessage({ type: 'news:logout' }, '*');
+    window.parent?.postMessage({ type: 'logout', tenant: 'aesthetic' }, '*');
+    acUser = null;
+    acToken = null;
+    acHandle = null;
+    updateAuthUI();
+    return;
+  }
+  
   if (!auth0Client) return;
   acUser = null;
   acToken = null;
@@ -190,11 +241,38 @@ function attachSessionListener() {
   });
 }
 
+// Show form message (replaces alert for sandboxed iframes)
+function showFormMessage(form, message, isError = true) {
+  let msgEl = form.querySelector('.news-form-message');
+  if (!msgEl) {
+    msgEl = document.createElement('div');
+    msgEl.className = 'news-form-message';
+    form.insertBefore(msgEl, form.firstChild);
+  }
+  msgEl.textContent = message;
+  msgEl.classList.toggle('error', isError);
+  msgEl.classList.toggle('info', !isError);
+  msgEl.style.display = 'block';
+}
+
+function hideFormMessage(form) {
+  const msgEl = form.querySelector('.news-form-message');
+  if (msgEl) msgEl.style.display = 'none';
+}
+
 async function handleFormSubmit(form, endpoint) {
+  hideFormMessage(form);
+  
   if (!acToken) {
-    alert("Please log in to post.");
+    showFormMessage(form, "Please log in to post. Click 'Log In' above.");
     return;
   }
+  
+  if (!acHandle) {
+    showFormMessage(form, "You need a @handle to post. Visit aesthetic.computer to set one up.");
+    return;
+  }
+  
   const formData = new FormData(form);
   const body = new URLSearchParams(formData.entries());
   const res = await fetch(endpoint, {
@@ -207,11 +285,16 @@ async function handleFormSubmit(form, endpoint) {
   });
   const data = await res.json().catch(() => null);
   if (data?.redirect) {
+    // Clear draft on successful submit
+    if (form.clearDraft) form.clearDraft();
     window.location.href = data.redirect;
     return;
   }
   if (!res.ok) {
-    alert(data?.error || "Request failed");
+    showFormMessage(form, data?.error || "Request failed");
+  } else {
+    // Clear draft on successful submit (even without redirect)
+    if (form.clearDraft) form.clearDraft();
   }
 }
 
@@ -237,7 +320,8 @@ function isInVSCode() {
   // Check for vscode query param or acVSCODE flag set by extension
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get('vscode') === 'true' || 
-         (window.acVSCODE && window.parent !== window);
+         (window.acVSCODE && window.parent !== window) ||
+         window.parent !== window; // Also check if we're in any iframe
 }
 
 // Open URL externally - handles VS Code sandboxed iframe case
@@ -424,7 +508,183 @@ initDOMRefs();
 attachAuthHandlers();
 initForms();
 initModals();
+initSubmitFormConstraints();
 attachSessionListener();
 applySession(decodeSessionParam());
 initAuth0();
 connectToSessionServer(); // Start WebSocket connection for live reload
+
+// Submit form constraints - require URL or Thoughts, validate inputs
+function initSubmitFormConstraints() {
+  const form = document.getElementById('news-submit-form');
+  if (!form) return;
+  
+  const headlineInput = form.querySelector('input[name="title"]');
+  const urlInput = form.querySelector('input[name="url"]');
+  const textInput = form.querySelector('textarea[name="text"]');
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const eitherOr = form.querySelector('.news-either-or');
+  
+  if (!headlineInput || !urlInput || !textInput || !submitBtn) return;
+  
+  // ===== Draft Storage =====
+  const DRAFT_KEY = 'news-draft';
+  
+  function saveDraft() {
+    const draft = {
+      title: headlineInput.value,
+      url: urlInput.value,
+      text: textInput.value,
+      savedAt: Date.now()
+    };
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch (e) {
+      console.warn('[news] Failed to save draft:', e);
+    }
+  }
+  
+  function loadDraft() {
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (!saved) return;
+      const draft = JSON.parse(saved);
+      // Only restore if draft is less than 24 hours old
+      if (draft.savedAt && Date.now() - draft.savedAt < 24 * 60 * 60 * 1000) {
+        if (draft.title) headlineInput.value = draft.title;
+        if (draft.url) urlInput.value = draft.url;
+        if (draft.text) textInput.value = draft.text;
+        console.log('[news] Draft restored');
+      } else {
+        clearDraft();
+      }
+    } catch (e) {
+      console.warn('[news] Failed to load draft:', e);
+    }
+  }
+  
+  function clearDraft() {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+      console.log('[news] Draft cleared');
+    } catch (e) {
+      console.warn('[news] Failed to clear draft:', e);
+    }
+  }
+  
+  // Load draft on init
+  loadDraft();
+  
+  // Save draft on input (debounced)
+  let saveTimeout;
+  function debouncedSaveDraft() {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveDraft, 500);
+  }
+  
+  headlineInput.addEventListener('input', debouncedSaveDraft);
+  urlInput.addEventListener('input', debouncedSaveDraft);
+  textInput.addEventListener('input', debouncedSaveDraft);
+  
+  // Expose clearDraft for use after successful submit
+  form.clearDraft = clearDraft;
+  
+  // Add error message elements
+  function getOrCreateError(input, id) {
+    let err = document.getElementById(id);
+    if (!err) {
+      err = document.createElement('div');
+      err.id = id;
+      err.className = 'news-field-error';
+      input.parentNode.appendChild(err);
+    }
+    return err;
+  }
+  
+  const headlineError = getOrCreateError(headlineInput, 'headline-error');
+  const urlError = getOrCreateError(urlInput, 'url-error');
+  
+  function validateUrl(url) {
+    if (!url) return { valid: true, error: '' }; // Empty is OK (optional)
+    if (!url.startsWith('https://') && !url.startsWith('http://')) {
+      return { valid: false, error: 'URL must start with https://' };
+    }
+    try {
+      new URL(url);
+      return { valid: true, error: '' };
+    } catch {
+      return { valid: false, error: 'Invalid URL format' };
+    }
+  }
+  
+  function updateConstraints() {
+    const headline = headlineInput.value.trim();
+    const url = urlInput.value.trim();
+    const text = textInput.value.trim();
+    
+    const hasHeadline = headline.length > 0;
+    const hasUrl = url.length > 0;
+    const hasText = text.length > 0;
+    const urlValidation = validateUrl(url);
+    
+    // Show/hide errors
+    headlineError.textContent = '';
+    urlError.textContent = urlValidation.error;
+    
+    // Valid if: has headline AND (has valid url OR has text)
+    const hasContent = (hasUrl && urlValidation.valid) || hasText;
+    const isValid = hasHeadline && hasContent;
+    
+    submitBtn.disabled = !isValid;
+    
+    if (eitherOr) {
+      eitherOr.classList.toggle('has-content', hasUrl || hasText);
+    }
+  }
+  
+  // Validate on blur for headline
+  headlineInput.addEventListener('blur', () => {
+    if (!headlineInput.value.trim()) {
+      headlineError.textContent = 'Headline is required';
+    }
+  });
+  
+  headlineInput.addEventListener('input', updateConstraints);
+  urlInput.addEventListener('input', updateConstraints);
+  textInput.addEventListener('input', updateConstraints);
+  
+  // Prevent submit if invalid
+  form.addEventListener('submit', (e) => {
+    const headline = headlineInput.value.trim();
+    const url = urlInput.value.trim();
+    const text = textInput.value.trim();
+    const urlValidation = validateUrl(url);
+    
+    if (!headline) {
+      e.preventDefault();
+      headlineError.textContent = 'Headline is required';
+      headlineInput.focus();
+      return;
+    }
+    
+    if (url && !urlValidation.valid) {
+      e.preventDefault();
+      urlInput.focus();
+      return;
+    }
+    
+    if (!url && !text) {
+      e.preventDefault();
+      urlInput.focus();
+      return;
+    }
+  });
+  
+  // Initial state
+  updateConstraints();
+}
+
+// Notify VS Code we're ready to receive session
+if (isInVSCode()) {
+  window.parent?.postMessage({ type: 'news:ready' }, '*');
+}
