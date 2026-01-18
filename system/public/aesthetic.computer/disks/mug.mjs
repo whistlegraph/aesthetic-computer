@@ -604,14 +604,14 @@ function paint({ wipe, ink, box, paste, screen, pen, write, line }) {
     floatX += floatVelX;
     floatY += floatVelY;
     
-    // Bounce off edges
+    // Bounce off edges (full screen bounds)
     if (floatX <= 0 || floatX + floatW >= screen.width) {
       floatVelX *= -1;
       floatX = max(0, min(floatX, screen.width - floatW));
     }
-    if (floatY <= 0 || floatY + floatH >= availableHeight) {
+    if (floatY <= 0 || floatY + floatH >= screen.height) {
       floatVelY *= -1;
-      floatY = max(0, min(floatY, availableHeight - floatH));
+      floatY = max(0, min(floatY, screen.height - floatH));
     }
     
     // Add gentle floating wobble
