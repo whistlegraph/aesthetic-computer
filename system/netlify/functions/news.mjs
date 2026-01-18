@@ -94,6 +94,8 @@ function footer() {
   return `
   <footer class="news-footer">
     <div class="news-footer-links">
+      <a href="/submit">submit</a>
+      <span>|</span>
       <a href="https://aesthetic.computer/list" class="news-modal-link" data-modal-url="https://aesthetic.computer/list">List</a>
       <span>|</span>
       <a href="https://aesthetic.computer/weather" class="news-modal-link" data-modal-url="https://aesthetic.computer/weather">Weather</a>
@@ -174,7 +176,7 @@ async function renderFrontPage(database, basePath, sort) {
   const emptyState = `
     <div class="news-empty">
       <p>No posts yet.</p>
-      <a href="${basePath}/report" class="news-report-link">report a story</a>
+      <a href="${basePath}/report" class="news-report-link">Report the News</a>
     </div>`;
   return `
   ${header(basePath)}
@@ -250,8 +252,28 @@ async function renderReportPage(basePath) {
   ${header(basePath)}
   <main class="news-main">
     <section class="news-report">
-      <h2>Report a Story</h2>
-      <div class="news-guidelines">
+      <h2>Report the News</h2>
+      <div id="news-login-prompt" class="news-login-prompt">
+        <p>You need to <button id="news-prompt-login" class="news-inline-login">log in</button> to post.</p>
+        <p class="news-handle-note">You'll also need a @handle — get one at <a href="https://aesthetic.computer" target="_blank">aesthetic.computer</a></p>
+      </div>
+      <form id="news-submit-form" data-news-action="submit" method="post" action="/api/news/submit">
+        <label>Headline</label>
+        <input type="text" name="title" required placeholder="What's the story?" />
+        <div class="news-either-or">
+          <div class="news-pick-hint">pick one or both</div>
+          <div class="news-field-group">
+            <label>Source URL</label>
+            <input type="url" name="url" placeholder="https://" />
+          </div>
+          <div class="news-field-group">
+            <label>Story</label>
+            <textarea name="text" rows="4" placeholder="Share context, commentary, or tell your own story..."></textarea>
+          </div>
+        </div>
+        <button type="submit">Post</button>
+      </form>
+      <div class="news-guidelines news-guidelines-below">
         <p>Share something interesting with the community.</p>
         <ul>
           <li>Links to creative tools, code, art, and experiments are welcome.</li>
@@ -259,15 +281,6 @@ async function renderReportPage(basePath) {
           <li>Be curious. Be kind. Keep it weird.</li>
         </ul>
       </div>
-      <form id="news-submit-form" data-news-action="submit" method="post" action="/api/news/submit">
-        <label>title</label>
-        <input type="text" name="title" required placeholder="What's the story?" />
-        <label>url <span class="news-optional">(optional)</span></label>
-        <input type="url" name="url" placeholder="https://" />
-        <label>or tell us more <span class="news-optional">(optional)</span></label>
-        <textarea name="text" rows="6" placeholder="Add context, thoughts, or leave blank..."></textarea>
-        <button type="submit">report this</button>
-      </form>
     </section>
   </main>
   ${footer()}`;

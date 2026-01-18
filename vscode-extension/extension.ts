@@ -1426,12 +1426,85 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
               sendNewsSession(panel.webview);
               break;
             }
+            case "news:login": {
+              const session = await vscode.authentication.getSession(
+                "aesthetic",
+                ["profile"],
+                { createIfNone: true },
+              );
+              if (session) {
+                extContext.globalState.update("aesthetic:session", session);
+                updateUserStatusBar();
+                await sendNewsSession(panel.webview);
+              }
+              break;
+            }
+            case "news:logout": {
+              const session = await vscode.authentication.getSession(
+                "aesthetic",
+                ["profile"],
+                { silent: true },
+              );
+              if (session) {
+                await ap.removeSession(session.id);
+                extContext.globalState.update("aesthetic:session", undefined);
+              }
+              updateUserStatusBar();
+              await sendNewsSession(panel.webview);
+              break;
+            }
+            case "news:signup": {
+              // Signup is just login with a hint - Auth0 handles the rest
+              const session = await vscode.authentication.getSession(
+                "aesthetic",
+                ["profile"],
+                { createIfNone: true },
+              );
+              if (session) {
+                extContext.globalState.update("aesthetic:session", session);
+                updateUserStatusBar();
+                await sendNewsSession(panel.webview);
+              }
+              break;
+            }
             case "login": {
-              vscode.commands.executeCommand("aestheticComputer.logIn");
+              const session = await vscode.authentication.getSession(
+                "aesthetic",
+                ["profile"],
+                { createIfNone: true },
+              );
+              if (session) {
+                extContext.globalState.update("aesthetic:session", session);
+                updateUserStatusBar();
+                await sendNewsSession(panel.webview);
+              }
+              break;
+            }
+            case "signup": {
+              const session = await vscode.authentication.getSession(
+                "aesthetic",
+                ["profile"],
+                { createIfNone: true },
+              );
+              if (session) {
+                extContext.globalState.update("aesthetic:session", session);
+                updateUserStatusBar();
+                await sendNewsSession(panel.webview);
+              }
               break;
             }
             case "logout": {
-              vscode.commands.executeCommand("aestheticComputer.logOut");
+              const session = await vscode.authentication.getSession(
+                "aesthetic",
+                ["profile"],
+                { silent: true },
+              );
+              if (session) {
+                await ap.removeSession(session.id);
+                extContext.globalState.update("aesthetic:session", undefined);
+              }
+              updateUserStatusBar();
+              await sendNewsSession(panel.webview);
               break;
             }
           }
@@ -2418,7 +2491,14 @@ function getWebViewContent(webview: any, slug: string) {
             if (event.data?.type === 'setSession') {
               newsIframe?.contentWindow?.postMessage(event.data, '*');
             }
-            if (event.data?.type && (event.data.type.startsWith('vscode-extension:') || event.data.type.startsWith('news:'))) {
+            // Forward news: prefixed messages and login/logout/signup to extension
+            if (event.data?.type && (
+              event.data.type.startsWith('vscode-extension:') || 
+              event.data.type.startsWith('news:') ||
+              event.data.type === 'login' ||
+              event.data.type === 'logout' ||
+              event.data.type === 'signup'
+            )) {
               vscode.postMessage(event.data);
             }
           });
