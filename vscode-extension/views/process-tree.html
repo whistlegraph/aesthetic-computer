@@ -23,16 +23,35 @@
       color: #281e5a;
     }
     
-    #canvas { position: absolute; top: 0; left: 0; }
-    .hud {
-      position: absolute;
+    #canvas { position: absolute; top: 0; left: 0; z-index: 1; }
+    
+    /* ====== HEADER BAR ====== */
+    .header-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: linear-gradient(to bottom, rgba(24, 19, 24, 0.9) 0%, rgba(24, 19, 24, 0) 100%);
       z-index: 100;
       pointer-events: none;
     }
+    body[data-theme="light"] .header-bar {
+      background: linear-gradient(to bottom, rgba(252, 247, 197, 0.9) 0%, rgba(252, 247, 197, 0) 100%);
+    }
+    
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
     .title {
-      top: 16px;
-      left: 16px;
-      font-size: 14px;
+      font-size: 13px;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -45,56 +64,108 @@
       height: 6px;
       border-radius: 50%;
       background: #ff69b4;
+      flex-shrink: 0;
     }
     body[data-theme="light"] .status-dot { background: #387adf; }
     .status-dot.online { background: #0f0; }
     body[data-theme="light"] .status-dot.online { background: #006400; }
     
-    .stats {
-      top: 16px;
-      right: 16px;
-      text-align: right;
-      font-size: 12px;
-      color: #555;
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 11px;
+      color: #666;
     }
-    body[data-theme="light"] .stats { color: #806060; }
-    .stats .val { color: #fff; }
-    body[data-theme="light"] .stats .val { color: #281e5a; }
+    body[data-theme="light"] .header-center { color: #806060; }
+    .header-center .stat { display: flex; align-items: center; gap: 4px; }
+    .header-center .val { color: #fff; font-weight: bold; }
+    body[data-theme="light"] .header-center .val { color: #281e5a; }
     
-    .mem {
-      bottom: 16px;
-      right: 16px;
-      font-size: 12px;
-      color: #555;
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
     }
-    body[data-theme="light"] .mem { color: #806060; }
     
-    .center {
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      font-size: 12px;
-      color: #555;
-    }
-    body[data-theme="light"] .center { color: #806060; }
-    .center .count {
-      font-size: 28px;
+    .header-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       color: #fff;
-      margin-bottom: 4px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: monospace;
+      cursor: pointer;
+      transition: all 0.15s ease;
     }
-    body[data-theme="light"] .center .count { color: #281e5a; }
+    body[data-theme="light"] .header-btn {
+      background: rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      color: #281e5a;
+    }
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: #ff69b4;
+    }
+    body[data-theme="light"] .header-btn:hover {
+      background: rgba(0, 0, 0, 0.12);
+      border-color: #006400;
+    }
+    
+    /* ====== CENTER PANEL (process count + actions) ====== */
+    .center-panel {
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 100;
+      pointer-events: none;
+      padding: 12px 20px;
+      background: rgba(24, 19, 24, 0.7);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    body[data-theme="light"] .center-panel {
+      background: rgba(252, 247, 197, 0.8);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    .process-counter {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .process-counter .count {
+      font-size: 32px;
+      font-weight: bold;
+      color: #fff;
+      line-height: 1;
+    }
+    body[data-theme="light"] .process-counter .count { color: #281e5a; }
+    .process-counter .label {
+      font-size: 11px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    body[data-theme="light"] .process-counter .label { color: #806060; }
     
     .actions {
       pointer-events: auto;
       display: flex;
       gap: 8px;
-      margin-top: 16px;
       justify-content: center;
     }
     .action-btn {
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
       border-radius: 6px;
       padding: 8px 14px;
       font-size: 12px;
@@ -109,11 +180,11 @@
       color: #281e5a;
     }
     .action-btn:hover {
-      background: rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.18);
       border-color: #ff69b4;
     }
     body[data-theme="light"] .action-btn:hover {
-      background: rgba(0,0,0,0.15);
+      background: rgba(0,0,0,0.12);
       border-color: #006400;
     }
     .action-btn.primary {
@@ -133,12 +204,66 @@
       background: #008000;
     }
     
+    /* ====== STATUS BAR (bottom) ====== */
+    .status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: linear-gradient(to top, rgba(24, 19, 24, 0.9) 0%, rgba(24, 19, 24, 0) 100%);
+      z-index: 100;
+      pointer-events: none;
+      font-size: 11px;
+      color: #666;
+    }
+    body[data-theme="light"] .status-bar {
+      background: linear-gradient(to top, rgba(252, 247, 197, 0.9) 0%, rgba(252, 247, 197, 0) 100%);
+      color: #806060;
+    }
+    
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .status-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .dev-badge {
+      background: #ff69b4;
+      color: #000;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    body[data-theme="light"] .dev-badge {
+      background: #006400;
+      color: #fff;
+    }
+    
+    .mem-display {
+      font-family: monospace;
+    }
+    
+    /* ====== LABELS CONTAINER ====== */
     .label-container {
       position: absolute;
-      top: 0;
+      top: 44px; /* below header */
       left: 0;
       width: 100%;
-      height: 100%;
+      height: calc(100% - 44px - 36px); /* minus header and status bar */
       pointer-events: none;
       z-index: 50;
       overflow: hidden;
@@ -148,93 +273,63 @@
       text-align: center;
       transform: translate(-50%, -100%);
       white-space: nowrap;
-      text-shadow: 0 0 3px #000, 0 0 6px #000;
+      text-shadow: 0 0 4px #000, 0 0 8px #000;
       pointer-events: none;
+      padding: 2px 4px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.3);
     }
     body[data-theme="light"] .proc-label {
-      text-shadow: 0 0 3px #fcf7c5, 0 0 6px #fcf7c5;
+      text-shadow: 0 0 4px #fcf7c5, 0 0 8px #fcf7c5;
+      background: rgba(252, 247, 197, 0.5);
     }
-    .proc-label .icon { font-size: 18px; display: block; line-height: 1; }
+    .proc-label .icon { font-size: 16px; display: block; line-height: 1.2; }
     .proc-label .name { font-size: 10px; margin-top: 2px; font-weight: bold; letter-spacing: 0.3px; }
     .proc-label .info { font-size: 8px; color: #aaa; margin-top: 1px; }
     body[data-theme="light"] .proc-label .info { color: #806060; }
-    
-    /* Dev mode indicator */
-    .dev-badge {
-      position: fixed;
-      bottom: 16px;
-      left: 16px;
-      background: #ff69b4;
-      color: #000;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: bold;
-      z-index: 200;
-    }
-    body[data-theme="light"] .dev-badge {
-      background: #006400;
-      color: #fff;
-    }
-    
-    /* Theme toggle button */
-    .theme-toggle {
-      position: fixed;
-      top: 16px;
-      right: 120px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #fff;
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-family: monospace;
-      cursor: pointer;
-      z-index: 200;
-      pointer-events: auto;
-    }
-    body[data-theme="light"] .theme-toggle {
-      background: rgba(0, 0, 0, 0.1);
-      border: 1px solid rgba(0, 0, 0, 0.2);
-      color: #281e5a;
-    }
-    .theme-toggle:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
-    body[data-theme="light"] .theme-toggle:hover {
-      background: rgba(0, 0, 0, 0.2);
-    }
   </style>
 </head>
 <body data-theme="dark">
   <canvas id="canvas"></canvas>
   
-  <div class="hud title">
-    <div class="status-dot" id="status-dot"></div>
-    <span>Aesthetic<span class="dot">.</span>Computer Architecture</span>
+  <!-- HEADER BAR -->
+  <div class="header-bar">
+    <div class="header-left">
+      <div class="status-dot" id="status-dot"></div>
+      <div class="title">
+        <span>Aesthetic<span class="dot">.</span>Computer</span>
+      </div>
+    </div>
+    <div class="header-center">
+      <div class="stat"><span class="val" id="uptime">—</span></div>
+      <div class="stat"><span class="val" id="cpus">—</span> cpus</div>
+    </div>
+    <div class="header-right">
+      <button class="header-btn" onclick="window.ProcessTreeViz?.toggleTheme()">🌓</button>
+    </div>
   </div>
   
-  <div class="hud stats">
-    <div><span class="val" id="uptime">—</span></div>
-    <div><span class="val" id="cpus">—</span> cpus</div>
-  </div>
-  
-  <div class="hud center">
-    <div class="count" id="process-count">0</div>
-    <div>processes</div>
+  <!-- CENTER PANEL -->
+  <div class="center-panel">
+    <div class="process-counter">
+      <span class="count" id="process-count">0</span>
+      <span class="label">processes</span>
+    </div>
     <div class="actions">
       <button class="action-btn primary" id="btn-kidlisp">🎨 KidLisp</button>
       <button class="action-btn" id="btn-pane">💻 AC Pane</button>
     </div>
   </div>
   
-  <div class="hud mem">
-    <span id="mem-text">— / —</span> MB
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <div class="status-left" id="status-left"></div>
+    <div class="status-right">
+      <span class="mem-display"><span id="mem-text">— / —</span> MB</span>
+    </div>
   </div>
   
   <div id="labels" class="label-container"></div>
-  
-  <button class="theme-toggle" onclick="window.ProcessTreeViz?.toggleTheme()">🌓 Theme</button>
   
   <script src="process-tree.js"></script>
 </body>

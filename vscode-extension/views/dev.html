@@ -10,7 +10,15 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
-    /* Dark theme (default) */
+    :root {
+      --header-height: 40px;
+      --status-height: 28px;
+      --z-canvas: 1;
+      --z-labels: 50;
+      --z-ui: 100;
+      --z-overlay: 500;
+    }
+    
     body {
       background: #181318;
       color: #fff;
@@ -23,22 +31,71 @@
       color: #281e5a;
     }
     
-    #canvas { position: absolute; top: 0; left: 0; }
-    .hud {
-      position: absolute;
-      z-index: 100;
-      pointer-events: none;
+    /* ====== 3D CANVAS (layer 1) ====== */
+    #canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: var(--z-canvas);
     }
-    .title {
-      top: 16px;
-      left: 16px;
-      font-size: 14px;
+    
+    /* ====== LABELS (layer 50) ====== */
+    #labels {
+      position: fixed;
+      top: var(--header-height);
+      left: 0;
+      right: 0;
+      bottom: var(--status-height);
+      pointer-events: none;
+      z-index: var(--z-labels);
+      overflow: hidden;
+    }
+    
+    /* ====== UI LAYER (layer 100) ====== */
+    
+    /* HEADER: fixed height strip at top */
+    #header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--header-height);
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      padding: 0 12px;
+      z-index: var(--z-ui);
+      pointer-events: none;
+      font-size: 11px;
+    }
+    
+    #header-left {
       display: flex;
       align-items: center;
       gap: 8px;
+      justify-self: start;
     }
-    .title .dot { color: #ff69b4; }
-    body[data-theme="light"] .title .dot { color: #006400; }
+    
+    #header-center {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      justify-self: center;
+      color: #666;
+    }
+    body[data-theme="light"] #header-center { color: #806060; }
+    #header-center .val { color: #fff; }
+    body[data-theme="light"] #header-center .val { color: #281e5a; }
+    
+    #header-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      justify-self: end;
+      pointer-events: auto;
+    }
     
     .status-dot {
       width: 6px;
@@ -46,223 +103,201 @@
       border-radius: 50%;
       background: #ff69b4;
     }
-    body[data-theme="light"] .status-dot { background: #387adf; }
     .status-dot.online { background: #0f0; }
+    body[data-theme="light"] .status-dot { background: #387adf; }
     body[data-theme="light"] .status-dot.online { background: #006400; }
     
-    .stats {
-      top: 16px;
-      right: 16px;
-      text-align: right;
+    .title {
       font-size: 12px;
-      color: #555;
+      white-space: nowrap;
     }
-    body[data-theme="light"] .stats { color: #806060; }
-    .stats .val { color: #fff; }
-    body[data-theme="light"] .stats .val { color: #281e5a; }
+    .title .dot { color: #ff69b4; }
+    body[data-theme="light"] .title .dot { color: #006400; }
     
-    .mem {
-      bottom: 16px;
-      right: 16px;
-      font-size: 12px;
-      color: #555;
+    .hdr-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #aaa;
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-family: monospace;
+      cursor: pointer;
     }
-    body[data-theme="light"] .mem { color: #806060; }
+    body[data-theme="light"] .hdr-btn {
+      background: rgba(0,0,0,0.06);
+      border-color: rgba(0,0,0,0.1);
+      color: #666;
+    }
+    .hdr-btn:hover { border-color: #ff69b4; color: #fff; }
+    body[data-theme="light"] .hdr-btn:hover { border-color: #006400; color: #281e5a; }
     
-    .center {
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      font-size: 12px;
-      color: #555;
-    }
-    body[data-theme="light"] .center { color: #806060; }
-    .center .count {
-      font-size: 28px;
-      color: #fff;
-      margin-bottom: 4px;
-    }
-    body[data-theme="light"] .center .count { color: #281e5a; }
-
-    .label-container {
-      position: absolute;
-      top: 0;
+    /* STATUS BAR: fixed height strip at bottom */
+    #status {
+      position: fixed;
+      bottom: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
+      right: 0;
+      height: var(--status-height);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      z-index: var(--z-ui);
       pointer-events: none;
-      z-index: 50;
-      overflow: hidden;
+      font-size: 10px;
+      color: #555;
     }
+    body[data-theme="light"] #status { color: #806060; }
+    
+    #status-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    #status-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .badge {
+      background: #ff69b4;
+      color: #000;
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-size: 8px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    body[data-theme="light"] .badge { background: #006400; color: #fff; }
+    
+    /* CENTER DISPLAY: absolutely centered, above status bar */
+    #center-display {
+      position: fixed;
+      bottom: calc(var(--status-height) + 16px);
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: var(--z-ui);
+      pointer-events: none;
+      padding: 10px 16px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    body[data-theme="light"] #center-display {
+      background: rgba(252,247,197,0.8);
+      border-color: rgba(0,0,0,0.08);
+    }
+    
+    #process-count {
+      font-size: 28px;
+      font-weight: bold;
+      line-height: 1;
+    }
+    #center-display .label {
+      font-size: 9px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+    body[data-theme="light"] #center-display .label { color: #806060; }
+    
+    /* PROC LABELS */
     .proc-label {
       position: absolute;
       text-align: center;
       transform: translate(-50%, -100%);
       white-space: nowrap;
-      text-shadow: 0 0 3px #000, 0 0 6px #000;
       pointer-events: none;
+      padding: 2px 4px;
+      border-radius: 3px;
+      background: rgba(0,0,0,0.4);
+      text-shadow: 0 1px 2px #000;
     }
     body[data-theme="light"] .proc-label {
-      text-shadow: 0 0 3px #fcf7c5, 0 0 6px #fcf7c5;
+      background: rgba(252,247,197,0.6);
+      text-shadow: none;
     }
-    .proc-label .icon { font-size: 18px; display: block; line-height: 1; }
-    .proc-label .name { font-size: 10px; margin-top: 2px; font-weight: bold; letter-spacing: 0.3px; }
-    .proc-label .info { font-size: 8px; color: #aaa; margin-top: 1px; }
+    .proc-label .icon { font-size: 14px; line-height: 1.2; }
+    .proc-label .name { font-size: 9px; font-weight: bold; margin-top: 1px; }
+    .proc-label .info { font-size: 7px; color: #888; margin-top: 1px; }
     body[data-theme="light"] .proc-label .info { color: #806060; }
-    
-    /* Dev mode indicator - positioned to not overlap with tour button (bottom-right) or reload status */
-    .dev-badge {
-      position: fixed;
-      top: 16px;
-      left: 180px;
-      background: #ff69b4;
-      color: #000;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: bold;
-      z-index: 200;
-    }
-    body[data-theme="light"] .dev-badge {
-      background: #006400;
-      color: #fff;
-    }
-    
-    /* Theme toggle button */
-    .theme-toggle {
-      position: fixed;
-      top: 16px;
-      right: 120px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #fff;
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-family: monospace;
-      cursor: pointer;
-      z-index: 200;
-      pointer-events: auto;
-    }
-    body[data-theme="light"] .theme-toggle {
-      background: rgba(0, 0, 0, 0.1);
-      border: 1px solid rgba(0, 0, 0, 0.2);
-      color: #281e5a;
-    }
-    .theme-toggle:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
-    body[data-theme="light"] .theme-toggle:hover {
-      background: rgba(0, 0, 0, 0.2);
-    }
   </style>
 </head>
-<body>
+<body data-theme="dark">
   <script>
-    // Pick up theme from URL param (passed by extension) or default to dark
     const urlTheme = new URLSearchParams(window.location.search).get('theme');
-    document.body.dataset.theme = (urlTheme === 'light' || urlTheme === 'dark') ? urlTheme : 'dark';
+    if (urlTheme === 'light' || urlTheme === 'dark') document.body.dataset.theme = urlTheme;
   </script>
+  
   <canvas id="canvas"></canvas>
   
-  <div class="hud title">
-    <div class="status-dot" id="status-dot"></div>
-    <span>Aesthetic<span class="dot">.</span>Computer Architecture</span>
+  <!-- HEADER (top 40px) -->
+  <div id="header">
+    <div id="header-left">
+      <div class="status-dot" id="status-dot"></div>
+      <span class="title">Aesthetic<span class="dot">.</span>Computer</span>
+    </div>
+    <div id="header-center">
+      <span><span class="val" id="uptime">—</span></span>
+      <span><span class="val" id="cpus">—</span> cpus</span>
+    </div>
+    <div id="header-right">
+      <button class="hdr-btn" onclick="window.ProcessTreeViz?.toggleTheme()">🌓</button>
+    </div>
   </div>
   
-  <div class="hud stats">
-    <div><span class="val" id="uptime">—</span></div>
-    <div><span class="val" id="cpus">—</span> cpus</div>
+  <!-- STATUS BAR (bottom 28px) -->
+  <div id="status">
+    <div id="status-left">
+      <span class="badge">DEV</span>
+      <span id="reload-status">● connecting</span>
+    </div>
+    <div id="status-right">
+      <span><span id="mem-text">— / —</span> MB</span>
+    </div>
   </div>
   
-  <div class="hud center">
-    <div class="count" id="process-count">0</div>
-    <div>processes</div>
+  <!-- CENTER DISPLAY -->
+  <div id="center-display">
+    <div id="process-count">0</div>
+    <div class="label">processes</div>
   </div>
   
-  <div class="hud mem">
-    <span id="mem-text">— / —</span> MB
-  </div>
+  <!-- LABELS CONTAINER (between header and status) -->
+  <div id="labels"></div>
   
-  <div id="labels" class="label-container"></div>
-  
-  <button class="theme-toggle" onclick="window.ProcessTreeViz?.toggleTheme()">🌓 Theme</button>
-
   <script src="process-tree.js"></script>
   <script src="ast-tree.js"></script>
   
-  <!-- VS Code Message Handler (for AST updates) -->
   <script>
-    (function() {
-      // Listen for messages from parent (VS Code webview wrapper) or directly
-      window.addEventListener('message', (event) => {
-        const message = event.data;
-        if (message.command === 'astUpdate' && window.ASTTreeViz) {
-          console.log('🌳 AST update received:', message.files?.length, 'files');
-          window.ASTTreeViz.updateASTVisualization(message.files);
-        }
-      });
-      
-      console.log('🔌 Message handler ready (listening for AST updates)');
-      
-      // Hook AST animation into main loop
-      const checkAndHook = setInterval(() => {
-        if (window.ProcessTreeViz && window.ASTTreeViz) {
-          clearInterval(checkAndHook);
-          console.log('🌳 AST animation hooked');
-        }
-      }, 100);
-    })();
-  </script>
-  
-  <!-- Live Reload Client -->
-  <script>
-    (function() {
-      const RELOAD_PORT = 5556;
-      let reloadStatus = document.createElement('div');
-      reloadStatus.id = 'reload-status';
-      reloadStatus.style.cssText = 'position:fixed;bottom:16px;left:16px;font-size:10px;font-family:monospace;color:#888;z-index:200;';
-      reloadStatus.textContent = '🔄 connecting...';
-      document.body.appendChild(reloadStatus);
-      
-      function connectReload() {
-        try {
-          const ws = new WebSocket('ws://localhost:' + RELOAD_PORT);
-          
-          ws.onopen = () => {
-            reloadStatus.textContent = '🟢 live reload';
-            reloadStatus.style.color = '#0f0';
-          };
-          
-          ws.onmessage = (e) => {
-            try {
-              const msg = JSON.parse(e.data);
-              if (msg.type === 'reload') {
-                reloadStatus.textContent = '🔄 reloading...';
-                reloadStatus.style.color = '#ff69b4';
-                // Small delay to show status, then reload
-                setTimeout(() => location.reload(), 100);
-              }
-            } catch {}
-          };
-          
-          ws.onclose = () => {
-            reloadStatus.textContent = '⚪ no live reload';
-            reloadStatus.style.color = '#666';
-            // Retry connection after 3 seconds
-            setTimeout(connectReload, 3000);
-          };
-          
-          ws.onerror = () => ws.close();
-        } catch {
-          reloadStatus.textContent = '⚪ no live reload';
-          reloadStatus.style.color = '#666';
-          setTimeout(connectReload, 3000);
-        }
+    // VS Code message handler
+    window.addEventListener('message', (event) => {
+      if (event.data.command === 'astUpdate' && window.ASTTreeViz) {
+        window.ASTTreeViz.updateASTVisualization(event.data.files);
       }
-      
-      connectReload();
+    });
+    
+    // Live reload
+    (function() {
+      const el = document.getElementById('reload-status');
+      function connect() {
+        try {
+          const ws = new WebSocket('ws://localhost:5556');
+          ws.onopen = () => { el.textContent = '● live'; el.style.color = '#ff69b4'; };
+          ws.onmessage = (e) => {
+            const msg = JSON.parse(e.data);
+            if (msg.type === 'reload') location.reload();
+          };
+          ws.onclose = () => { el.textContent = '○ offline'; el.style.color = '#555'; setTimeout(connect, 3000); };
+          ws.onerror = () => ws.close();
+        } catch { el.textContent = '○ offline'; el.style.color = '#555'; setTimeout(connect, 3000); }
+      }
+      connect();
     })();
   </script>
 </body>
