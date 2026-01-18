@@ -216,22 +216,19 @@ body {
 .news-nav a:hover { color: var(--text-header); }
 .news-nav span { color: var(--text-header); opacity: 0.7; }
 
-/* ===== Footer Auth Section ===== */
-.news-footer-auth {
+.news-auth {
+  margin-left: auto;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-color);
+  gap: 4px;
 }
 
-.footer-auth-btn {
-  padding: 6px 12px;
-  font-size: 10pt;
+/* ===== Auth Buttons (AC-style colored, compact, smaller text) ===== */
+.header-login-btn {
+  padding: 2px 5px;
+  font-size: 8pt;
   font-weight: normal;
-  border: 1px solid var(--border-color);
+  border: 1px solid white;
   border-radius: 0;
   cursor: pointer;
   background: rgb(30, 50, 120);
@@ -239,45 +236,51 @@ body {
   transition: background 0.15s;
   white-space: nowrap;
   font-family: inherit;
+  line-height: 10px;
 }
 
-.footer-auth-btn:hover {
+.header-login-btn:hover {
   background: rgb(50, 70, 150);
 }
 
-.footer-signup-btn {
+.header-signup-btn {
   background: rgb(30, 90, 50);
 }
 
-.footer-signup-btn:hover {
+.header-signup-btn:hover {
   background: rgb(50, 120, 70);
 }
 
-.footer-user-menu {
+/* ===== User Menu (AC-style, compact) ===== */
+.header-user-menu {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  padding: 2px 5px;
+  background: #000;
+  border: 1px solid white;
 }
 
-.footer-user-handle {
-  font-size: 10pt;
-  color: var(--text-primary);
+.header-user-handle {
+  font-size: 8pt;
+  color: white;
   font-weight: bold;
+  line-height: 10px;
 }
 
-.footer-logout-btn {
-  padding: 6px 12px;
+.header-logout-btn {
+  padding: 2px 5px;
   background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-meta);
+  border: 1px solid white;
+  font-size: 8pt;
+  color: white;
   cursor: pointer;
-  font-size: 10pt;
   font-family: inherit;
+  line-height: 10px;
 }
 
-.footer-logout-btn:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+.header-logout-btn:hover {
+  background: #333;
 }
 
 /* ===== Main Content ===== */
