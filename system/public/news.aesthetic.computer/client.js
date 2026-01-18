@@ -180,22 +180,6 @@ function attachAuthHandlers() {
     e.preventDefault();
     acLogout();
   });
-  
-  // User menu dropdown toggle
-  if (userMenu) {
-    userMenu.addEventListener("click", (e) => {
-      // Don't toggle if clicking logout button
-      if (e.target.closest('.header-logout-btn')) return;
-      userMenu.classList.toggle("open");
-    });
-    
-    // Close dropdown when clicking outside
-    document.addEventListener("click", (e) => {
-      if (!e.target.closest('.header-user-menu')) {
-        userMenu.classList.remove("open");
-      }
-    });
-  }
 }
 
 function attachSessionListener() {
