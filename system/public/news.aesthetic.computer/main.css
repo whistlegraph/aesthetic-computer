@@ -216,19 +216,22 @@ body {
 .news-nav a:hover { color: var(--text-header); }
 .news-nav span { color: var(--text-header); opacity: 0.7; }
 
-.news-auth {
-  margin-left: auto;
+/* ===== Footer Auth Section ===== */
+.news-footer-auth {
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
 }
 
-/* ===== Auth Buttons (AC-style colored, compact) ===== */
-.header-login-btn {
-  padding: 3px 6px;
+.footer-auth-btn {
+  padding: 6px 12px;
   font-size: 10pt;
   font-weight: normal;
-  border: 1px solid white;
+  border: 1px solid var(--border-color);
   border-radius: 0;
   cursor: pointer;
   background: rgb(30, 50, 120);
@@ -236,88 +239,45 @@ body {
   transition: background 0.15s;
   white-space: nowrap;
   font-family: inherit;
-  line-height: 12px;
 }
 
-.header-login-btn:hover {
+.footer-auth-btn:hover {
   background: rgb(50, 70, 150);
 }
 
-.header-signup-btn {
+.footer-signup-btn {
   background: rgb(30, 90, 50);
 }
 
-.header-signup-btn:hover {
+.footer-signup-btn:hover {
   background: rgb(50, 120, 70);
 }
 
-/* ===== User Menu (AC-style, compact) ===== */
-.header-user-menu {
-  position: relative;
+.footer-user-menu {
   display: flex;
   align-items: center;
-  gap: 3px;
-  cursor: pointer;
-  padding: 3px 6px;
-  background: #000;
-  border: 1px solid white;
-  border-radius: 0;
-  transition: background 0.15s;
+  gap: 8px;
 }
 
-.header-user-menu:hover {
-  background: #222;
-}
-
-.header-user-handle {
-  font-size: 8pt;
-  color: white;
-  font-weight: bold;
-  line-height: 10px;
-}
-
-.header-menu-arrow {
-  display: none;
-  opacity: 0.7;
-  transition: transform 0.15s;
-}
-
-.header-user-menu.open .header-menu-arrow {
-  transform: rotate(180deg);
-}
-
-.header-user-dropdown {
-  display: none;
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
-  background: #000;
-  border: 1px solid white;
-  border-radius: 0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  min-width: 120px;
-  z-index: 9999;
-}
-
-.header-user-menu.open .header-user-dropdown {
-  display: block;
-}
-
-.header-logout-btn {
-  width: 100%;
-  padding: 8px 12px;
-  background: #000;
-  border: none;
-  text-align: left;
+.footer-user-handle {
   font-size: 10pt;
-  color: white;
-  cursor: pointer;
+  color: var(--text-primary);
   font-weight: bold;
 }
 
-.header-logout-btn:hover {
-  background: #222;
+.footer-logout-btn {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-meta);
+  cursor: pointer;
+  font-size: 10pt;
+  font-family: inherit;
+}
+
+.footer-logout-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 /* ===== Main Content ===== */
