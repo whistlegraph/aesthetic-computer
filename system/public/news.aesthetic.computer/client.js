@@ -11,16 +11,23 @@ let acUser = null;
 let acToken = null;
 let acHandle = null;
 
-const loginBtn = document.getElementById("news-login-btn");
-const signupBtn = document.getElementById("news-signup-btn");
-const userMenu = document.getElementById("news-user-menu");
-const userHandle = document.getElementById("news-user-handle");
-const logoutBtn = document.getElementById("news-logout-btn");
+// DOM elements - initialized after DOM ready
+let loginBtn, signupBtn, userMenu, userHandle, logoutBtn;
+
+function initDOMRefs() {
+  loginBtn = document.getElementById("news-login-btn");
+  signupBtn = document.getElementById("news-signup-btn");
+  userMenu = document.getElementById("news-user-menu");
+  userHandle = document.getElementById("news-user-handle");
+  logoutBtn = document.getElementById("news-logout-btn");
+  console.log("[news] DOM refs:", { loginBtn, signupBtn, userMenu, logoutBtn });
+}
 
 async function hydrateHandleFromEmail(email) {
   if (!email) return;
   try {
-    const res = await fetch(`/user?from=${encodeURIComponent(email)}&withHandle=true`);
+    // Use full URL to main API since we're on news.aesthetic.computer subdomain
+    const res = await fetch(`https://aesthetic.computer/user?from=${encodeURIComponent(email)}&withHandle=true`);
     const data = await res.json();
     if (data.handle) acHandle = data.handle;
   } catch (error) {
@@ -61,14 +68,24 @@ function decodeSessionParam() {
 
 async function initAuth0() {
   if (!window.auth0) return;
+  
+  // Determine correct redirect URI (subdomain vs local path)
+  const isNewsDomain = window.location.hostname === 'news.aesthetic.computer';
+  const redirectUri = isNewsDomain 
+    ? window.location.origin 
+    : window.location.origin + '/news.aesthetic.computer';
+  
   auth0Client = await auth0.createAuth0Client({
     domain: config.domain,
     clientId: config.clientId,
     authorizationParams: {
-      redirect_uri: window.location.href,
+      redirect_uri: redirectUri,
       audience: config.audience,
       scope: "openid profile email",
     },
+    cacheLocation: 'localstorage',
+    useRefreshTokens: true,
+    useRefreshTokensFallback: true,
   });
 
   if (window.location.search.includes("code=") && window.location.search.includes("state=")) {
@@ -113,14 +130,20 @@ function updateAuthUI() {
 }
 
 async function acLogin() {
+  console.log("[news] acLogin called, auth0Client:", !!auth0Client);
   if (!auth0Client) await initAuth0();
-  if (!auth0Client) return;
+  if (!auth0Client) {
+    console.error("[news] auth0Client still null after init");
+    return;
+  }
+  console.log("[news] Redirecting to Auth0...");
   await auth0Client.loginWithRedirect({
     authorizationParams: { prompt: "login" },
   });
 }
 
 async function acSignup() {
+  console.log("[news] acSignup called");
   if (!auth0Client) await initAuth0();
   if (!auth0Client) return;
   await auth0Client.loginWithRedirect({
@@ -134,7 +157,14 @@ async function acLogout() {
   acToken = null;
   acHandle = null;
   updateAuthUI();
-  await auth0Client.logout({ logoutParams: { returnTo: window.location.origin + window.location.pathname } });
+  
+  // Use root URL for logout (must match Auth0 Allowed Logout URLs)
+  const isNewsDomain = window.location.hostname === 'news.aesthetic.computer';
+  const returnTo = isNewsDomain 
+    ? window.location.origin 
+    : window.location.origin + '/news.aesthetic.computer';
+  
+  await auth0Client.logout({ logoutParams: { returnTo } });
 }
 
 function attachAuthHandlers() {
@@ -150,6 +180,22 @@ function attachAuthHandlers() {
     e.preventDefault();
     acLogout();
   });
+  
+  // User menu dropdown toggle
+  if (userMenu) {
+    userMenu.addEventListener("click", (e) => {
+      // Don't toggle if clicking logout button
+      if (e.target.closest('.header-logout-btn')) return;
+      userMenu.classList.toggle("open");
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest('.header-user-menu')) {
+        userMenu.classList.remove("open");
+      }
+    });
+  }
 }
 
 function attachSessionListener() {
@@ -201,8 +247,200 @@ function initForms() {
   });
 }
 
+// ===== VS Code Detection =====
+// Check if running inside VS Code webview (sandboxed iframe)
+function isInVSCode() {
+  // Check for vscode query param or acVSCODE flag set by extension
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('vscode') === 'true' || 
+         (window.acVSCODE && window.parent !== window);
+}
+
+// Open URL externally - handles VS Code sandboxed iframe case
+function openExternal(url) {
+  if (isInVSCode()) {
+    // In VS Code extension webview, send message to parent to open externally
+    window.parent.postMessage({ type: 'openExternal', url }, '*');
+    return true;
+  }
+  // Normal browser - open in new tab
+  window.open(url, '_blank', 'noopener');
+  return true;
+}
+
+// ===== Modal functionality =====
+function initModals() {
+  // Modal links (List, Weather, Commits) - open in iframe modal
+  const modalLinks = document.querySelectorAll('.news-modal-link');
+  modalLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const url = link.dataset.modalUrl || link.href;
+      openModal(url);
+    });
+  });
+  
+  // External links (Give) - open in new tab, with VS Code handling
+  const externalLinks = document.querySelectorAll('.news-external-link');
+  externalLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const url = link.href;
+      openExternal(url);
+    });
+  });
+}
+
+function openModal(url) {
+  // In VS Code, open modals externally too (iframes can be problematic)
+  if (isInVSCode()) {
+    openExternal(url);
+    return;
+  }
+  
+  // Remove existing modal if any
+  const existing = document.getElementById('news-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'news-modal';
+  modal.className = 'news-modal';
+  modal.innerHTML = `
+    <div class="news-modal-backdrop"></div>
+    <div class="news-modal-content">
+      <button class="news-modal-close">×</button>
+      <iframe src="${url}" frameborder="0"></iframe>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // Close handlers
+  modal.querySelector('.news-modal-backdrop').addEventListener('click', closeModal);
+  modal.querySelector('.news-modal-close').addEventListener('click', closeModal);
+  document.addEventListener('keydown', handleEscape);
+}
+
+function closeModal() {
+  const modal = document.getElementById('news-modal');
+  if (modal) modal.remove();
+  document.removeEventListener('keydown', handleEscape);
+}
+
+function handleEscape(e) {
+  if (e.key === 'Escape') closeModal();
+}
+
+// ===== WebSocket Live Reload (dev only) =====
+let sessionWs = null;
+let reconnectInterval = null;
+let connectivityDot = null;
+let connectivityLabel = null;
+
+function setConnectivityState(state) {
+  if (!connectivityDot) return;
+  connectivityDot.className = 'connectivity-dot ' + state;
+  if (connectivityLabel) {
+    const labels = {
+      connected: 'live',
+      connecting: 'connecting...',
+      waiting: 'reconnecting...',
+      receiving: 'live',
+      disconnected: 'offline'
+    };
+    connectivityLabel.textContent = labels[state] || state;
+  }
+}
+
+function connectToSessionServer() {
+  // Only connect in dev mode (when connectivity indicator exists)
+  connectivityDot = document.getElementById('connectivity-dot');
+  connectivityLabel = document.getElementById('connectivity-label');
+  if (!connectivityDot) return; // Not in dev mode
+  
+  if (reconnectInterval) {
+    clearInterval(reconnectInterval);
+    reconnectInterval = null;
+  }
+  
+  // Determine connection URL
+  let connectionUrl = "wss://localhost:8889";
+  if (window.location.host === "local.aesthetic.computer" || 
+      window.location.host === "news.local.aesthetic.computer") {
+    connectionUrl = "wss://session.local.aesthetic.computer";
+  } else if (window.location.host === "news.aesthetic.computer") {
+    // Production - no live reload needed
+    return;
+  }
+  
+  setConnectivityState('connecting');
+  console.log("[news] Connecting to session server:", connectionUrl);
+  
+  try {
+    sessionWs = new WebSocket(connectionUrl);
+  } catch (error) {
+    console.warn("[news] Connection failed:", error.message);
+    setConnectivityState('disconnected');
+    scheduleReconnect();
+    return;
+  }
+
+  sessionWs.onopen = () => {
+    console.log("[news] Connected to session server");
+    setConnectivityState('connected');
+  };
+
+  sessionWs.onmessage = (e) => {
+    // Blink the dot when receiving a message
+    setConnectivityState('receiving');
+    setTimeout(() => setConnectivityState('connected'), 400);
+    
+    try {
+      const msg = JSON.parse(e.data);
+      
+      // Handle reload messages
+      if (msg.type === "reload") {
+        const piece = msg.content?.piece;
+        console.log("[news] Reload message:", piece);
+        if (piece === "*refresh*" || piece === "news.aesthetic.computer" || piece === "news") {
+          console.log("[news] Reloading page...");
+          setTimeout(() => window.location.reload(), 150);
+        }
+      }
+    } catch (error) {
+      console.warn("[news] Error parsing message:", error.message);
+    }
+  };
+
+  sessionWs.onerror = () => {
+    console.warn("[news] WebSocket error");
+    setConnectivityState('disconnected');
+  };
+
+  sessionWs.onclose = () => {
+    console.log("[news] Disconnected from session server");
+    setConnectivityState('disconnected');
+    sessionWs = null;
+    scheduleReconnect();
+  };
+}
+
+function scheduleReconnect() {
+  if (!reconnectInterval && connectivityDot) {
+    setConnectivityState('waiting');
+    reconnectInterval = setInterval(() => {
+      if (!sessionWs || sessionWs.readyState === WebSocket.CLOSED) {
+        connectToSessionServer();
+      }
+    }, 2000);
+  }
+}
+
+// Initialize everything after DOM is ready
+initDOMRefs();
 attachAuthHandlers();
 initForms();
+initModals();
 attachSessionListener();
 applySession(decodeSessionParam());
 initAuth0();
+connectToSessionServer(); // Start WebSocket connection for live reload

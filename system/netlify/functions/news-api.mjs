@@ -133,8 +133,9 @@ export function createHandler({
             return respondFn(400, { error: "Title required" });
           }
 
-          const code = await generateUniqueCodeFn(posts, { mode: "random" });
+          const shortCode = await generateUniqueCodeFn(posts, { mode: "random" });
           const now = new Date();
+          const code = shortCode; // e.g., "icd" (no prefix sigil, like paintings)
           const doc = {
             code,
             title,

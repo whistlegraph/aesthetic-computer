@@ -21,6 +21,16 @@ export function isSensitiveUrl(url) {
 export function parseMessageElements(message) {
   const elements = [];
 
+  // Parse "log" prefix (system messages start with "log ")
+  if (message.startsWith("log ")) {
+    elements.push({
+      type: "log",
+      text: "log",
+      start: 0,
+      end: 3,
+    });
+  }
+
   // Parse prompts (text within single quotes) - ignore contractions like "I'll" or "you'll"
   // Require word boundary or whitespace before the opening quote
   const promptRegex = /(?:^|[\s\(\[\{])'([^']*)'/g;

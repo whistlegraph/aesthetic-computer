@@ -363,6 +363,9 @@ fish_add_path ~/.local/bin
 # add rust binaries to the shell path
 fish_add_path ~/.cargo/bin
 
+# add VS Code copilot CLI (for emacs terminals)
+fish_add_path ~/.vscode-server/data/User/globalStorage/github.copilot-chat/copilotCli
+
 # 📚 How to use rotation...
 # add the user to the wheel group with `usermod -aG wheel me`
 # visudo and make sure the user can skip the sudo password

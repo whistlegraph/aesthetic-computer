@@ -1508,6 +1508,11 @@ export async function handler(event, context) {
         desc: "Turn on notifications.",
         done: false,
       },
+      news: {
+        sig: "news",
+        desc: "Aesthetic.computer news.",
+        done: true,
+      },
       selfie: {
         sig: "selfie",
         desc: "Open the front camera.",
@@ -2614,6 +2619,11 @@ export async function handler(event, context) {
         sig: "noise",
         desc: "Some nice noise.",
         done: false,
+      },
+      news: {
+        sig: "news",
+        desc: "Community news and links.",
+        done: true,
       },
       nopaint: {
         sig: "nopaint",
