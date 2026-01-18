@@ -743,12 +743,13 @@ body {
   }
   
   .header-login-btn {
-    padding: 2px 6px;
+    padding: 8px 10px;
     font-size: 9pt;
+    line-height: 12px;
   }
   
   .header-user-menu {
-    padding: 2px 6px;
+    padding: 8px 10px;
   }
   
   .news-main {
