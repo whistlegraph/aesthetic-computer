@@ -278,7 +278,7 @@ async function renderReportPage(basePath) {
   <main class="news-main">
     <section class="news-report">
       <div class="news-report-header">
-        <h2 data-i18n="report-the-news">Report · Aesthetic News</h2>
+        <h2 data-i18n="report-the-news">Report the News</h2>
         <div class="news-lang-selector news-lang-inline" id="news-lang-selector-report">
           <button type="button" class="lang-trigger">
             <span class="fi fi-gb lang-flag" data-lang-flag></span>
@@ -345,7 +345,7 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
         body = result.body || result;
         title = result.title || "Aesthetic News";
       } else if (route === "report" || route === "submit") {
-        title = "Report the News | Aesthetic News";
+        title = "Report · Aesthetic News";
         body = await renderReportPage(basePath);
       } else {
         title = "Not Found | Aesthetic News";
