@@ -18,8 +18,7 @@
   <meta name="twitter:title" content="KidLisp" />
   <meta name="twitter:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
   
-  <link rel="icon" type="image/png"
-    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
+  <link rel="icon" type="image/gif" href="https://assets.aesthetic.computer/kidlisp-favicon.gif" />
   <!-- Preload fonts for iOS Safari -->
   <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
   <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2" as="font" type="font/woff2" crossorigin="anonymous">
@@ -7526,7 +7525,7 @@
         <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
           <div id="platform-selector" class="platform-selector">
             <span id="preview-title" class="booting"><span class="title-full"><span class="title-letter">A</span><span class="title-letter">e</span><span class="title-letter">s</span><span class="title-letter">t</span><span class="title-letter">h</span><span class="title-letter">e</span><span class="title-letter">t</span><span class="title-letter">i</span><span class="title-letter">c</span></span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full"><span class="title-letter">C</span><span class="title-letter">o</span><span class="title-letter">m</span><span class="title-letter">p</span><span class="title-letter">u</span><span class="title-letter">t</span><span class="title-letter">e</span><span class="title-letter">r</span></span><span class="title-short">AC</span></span>
-            <button id="popout-btn" class="popout-btn" title="Cast to VJ window" aria-label="Cast to VJ window">
+            <button id="popout-btn" class="popout-btn" title="Cast to PJ window" aria-label="Cast to PJ window">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
                 <line x1="2" y1="20" x2="2.01" y2="20"/>
@@ -7614,14 +7613,14 @@
             <div class="boot-text boot-text-status" style="font-size: 11px; opacity: 0.5; margin-top: 8px; color: #ff3333;" data-i18n="experimental">⚠️ Experimental</div>
           </div>
           <iframe id="preview-iframe" frameborder="0"></iframe>
-          <!-- VJ overlay (shown when casting to VJ window) -->
+          <!-- PJ overlay (shown when casting to PJ window) -->
           <div class="popout-overlay" id="popout-overlay">
             <svg class="popout-overlay-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
               <line x1="2" y1="20" x2="2.01" y2="20"/>
             </svg>
-            <div class="popout-overlay-text">Casting to VJ</div>
-            <canvas id="vj-qr-canvas" style="image-rendering: pixelated; border: 2px solid white; cursor: pointer;" title="Click to copy URL"></canvas>
+            <div class="popout-overlay-text">Casting to PJ</div>
+            <canvas id="pj-qr-canvas" style="image-rendering: pixelated; border: 2px solid white; cursor: pointer;" title="Click to copy URL"></canvas>
             <div class="popout-overlay-channel" id="popout-overlay-channel" style="cursor: pointer;" title="Click to copy URL"></div>
             <button class="popout-overlay-btn" id="focus-popout-btn">Focus Window</button>
           </div>
@@ -19271,62 +19270,62 @@
     let codeChannelId = null;
     let isVSCodePopout = false; // Track if pop-out was opened via VS Code (external browser)
     
-    // VJ WebSocket - prefers production, falls back to localhost
-    // This allows localhost development to broadcast to vj.kidlisp.com viewers
-    let vjWs = null;
-    let vjWsPendingChannel = null;
-    let vjIsProduction = true; // Track if connected to production or localhost
-    const VJ_PROD_URL = 'wss://session-server.aesthetic.computer';
-    const VJ_LOCAL_URL = 'wss://localhost:8889';
+    // PJ WebSocket - prefers production, falls back to localhost
+    // This allows localhost development to broadcast to pj.kidlisp.com viewers
+    let pjWs = null;
+    let pjWsPendingChannel = null;
+    let pjIsProduction = true; // Track if connected to production or localhost
+    const PJ_PROD_URL = 'wss://session-server.aesthetic.computer';
+    const PJ_LOCAL_URL = 'wss://localhost:8889';
     
-    function connectVjWebSocket(forceLocal = false) {
-      if (vjWs && vjWs.readyState === WebSocket.OPEN) return;
+    function connectPjWebSocket(forceLocal = false) {
+      if (pjWs && pjWs.readyState === WebSocket.OPEN) return;
       
-      const url = forceLocal ? VJ_LOCAL_URL : VJ_PROD_URL;
-      vjIsProduction = !forceLocal;
+      const url = forceLocal ? PJ_LOCAL_URL : PJ_PROD_URL;
+      pjIsProduction = !forceLocal;
       
       try {
-        vjWs = new WebSocket(url);
-        vjWs.onopen = () => {
-          log.socket.log(`VJ WebSocket connected to ${vjIsProduction ? 'production' : 'localhost'}`);
-          if (vjWsPendingChannel) {
-            vjWs.send(JSON.stringify({ type: 'code-channel:sub', content: vjWsPendingChannel }));
-            vjWsPendingChannel = null;
+        pjWs = new WebSocket(url);
+        pjWs.onopen = () => {
+          log.socket.log(`PJ WebSocket connected to ${pjIsProduction ? 'production' : 'localhost'}`);
+          if (pjWsPendingChannel) {
+            pjWs.send(JSON.stringify({ type: 'code-channel:sub', content: pjWsPendingChannel }));
+            pjWsPendingChannel = null;
           }
           // Update display to show correct URL
           updateCodeChannelDisplay();
         };
-        vjWs.onclose = () => {
-          log.socket.debug('VJ WebSocket disconnected');
-          vjWs = null;
+        pjWs.onclose = () => {
+          log.socket.debug('PJ WebSocket disconnected');
+          pjWs = null;
           // Reconnect if we have an active channel
-          if (codeChannelId) setTimeout(() => connectVjWebSocket(forceLocal), 3000);
+          if (codeChannelId) setTimeout(() => connectPjWebSocket(forceLocal), 3000);
         };
-        vjWs.onerror = () => {
-          vjWs?.close();
+        pjWs.onerror = () => {
+          pjWs?.close();
           // If production failed, try localhost
           if (!forceLocal) {
-            log.socket.warn('Production VJ server unreachable, trying localhost...');
-            setTimeout(() => connectVjWebSocket(true), 500);
+            log.socket.warn('Production PJ server unreachable, trying localhost...');
+            setTimeout(() => connectPjWebSocket(true), 500);
           }
         };
       } catch (e) {
-        log.socket.warn('VJ WebSocket connection failed:', e.message);
+        log.socket.warn('PJ WebSocket connection failed:', e.message);
         // If production failed, try localhost
         if (!forceLocal) {
-          setTimeout(() => connectVjWebSocket(true), 500);
+          setTimeout(() => connectPjWebSocket(true), 500);
         }
       }
     }
     
-    // Get the current VJ share URL based on connection state
-    function getVjShareUrl() {
+    // Get the current PJ share URL based on connection state
+    function getPjShareUrl() {
       if (!codeChannelId) return null;
-      if (vjIsProduction) {
-        return `https://vj.kidlisp.com/${codeChannelId}`;
+      if (pjIsProduction) {
+        return `https://pj.kidlisp.com/${codeChannelId}`;
       } else {
-        // Localhost mode - use local path
-        return `${window.location.origin}/kidlisp.com/vj/${codeChannelId}`;
+        // Localhost mode - mirror production subdomain as path
+        return `${window.location.origin}/pj.kidlisp.com/${codeChannelId}`;
       }
     }
     
@@ -19343,8 +19342,8 @@
       }
     });
     
-    // Generate a pronounceable VJ channel code (CVCV pattern like clock's codes)
-    // Examples: bako, milu, dena, tofi → vj.kidlisp.com/bako
+    // Generate a pronounceable PJ channel code (CVCV pattern like clock's codes)
+    // Examples: bako, milu, dena, tofi → pj.kidlisp.com/bako
     function generateCodeChannelId() {
       const consonants = 'bdfghjklmnprstvwz'; // 17 easy consonants
       const vowels = 'aeiou'; // 5 vowels
@@ -19353,32 +19352,32 @@
       return pick(consonants) + pick(vowels) + pick(consonants) + pick(vowels);
     }
     
-    // Update the VJ overlay (shown when casting)
+    // Update the PJ overlay (shown when casting)
     function updateCodeChannelDisplay() {
-      // Show overlay only if we have an active VJ window open
-      const hasActiveVjWindow = codeChannelId && (
+      // Show overlay only if we have an active PJ window open
+      const hasActivePjWindow = codeChannelId && (
         (popoutWindow && !popoutWindow.closed) || 
         isVSCodePopout
       );
       
-      if (hasActiveVjWindow) {
+      if (hasActivePjWindow) {
         previewIframeContainer?.classList.add('popped-out');
-        const shareUrl = getVjShareUrl();
+        const shareUrl = getPjShareUrl();
         if (popoutOverlayChannel && shareUrl) {
           // Show (local) indicator if using localhost
-          popoutOverlayChannel.textContent = vjIsProduction ? shareUrl : `${shareUrl} (local)`;
+          popoutOverlayChannel.textContent = pjIsProduction ? shareUrl : `${shareUrl} (local)`;
         }
         // Draw QR code in the overlay
-        if (shareUrl) drawVjQrCode(shareUrl);
+        if (shareUrl) drawPjQrCode(shareUrl);
       } else {
         previewIframeContainer?.classList.remove('popped-out');
       }
     }
     
-    // Draw QR code in the VJ overlay
-    function drawVjQrCode(url) {
+    // Draw QR code in the PJ overlay
+    function drawPjQrCode(url) {
       try {
-        const canvas = document.getElementById('vj-qr-canvas');
+        const canvas = document.getElementById('pj-qr-canvas');
         if (!canvas) return;
         
         const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
@@ -19398,17 +19397,17 @@
           }
         }
       } catch (e) {
-        console.error('Failed to draw VJ QR code:', e);
+        console.error('Failed to draw PJ QR code:', e);
       }
     }
     
-    // Copy VJ URL when clicking QR or channel text
-    const vjQrCanvas = document.getElementById('vj-qr-canvas');
-    vjQrCanvas?.addEventListener('click', () => copyVjUrl());
-    popoutOverlayChannel?.addEventListener('click', () => copyVjUrl());
+    // Copy PJ URL when clicking QR or channel text
+    const pjQrCanvas = document.getElementById('pj-qr-canvas');
+    pjQrCanvas?.addEventListener('click', () => copyPjUrl());
+    popoutOverlayChannel?.addEventListener('click', () => copyPjUrl());
     
-    function copyVjUrl() {
-      const url = getVjShareUrl();
+    function copyPjUrl() {
+      const url = getPjShareUrl();
       if (url) {
         navigator.clipboard.writeText(url).then(() => {
           showToast('URL copied!', 'success');
@@ -19418,27 +19417,32 @@
       }
     }
     
-    // Subscribe to code channel via production session server (for VJ broadcasting)
+    // Subscribe to code channel via production session server (for PJ broadcasting)
     function subscribeToCodeChannel(channelId) {
-      // Ensure VJ WebSocket is connected to production
-      connectVjWebSocket();
+      // Ensure PJ WebSocket is connected to production
+      connectPjWebSocket();
       
-      if (vjWs && vjWs.readyState === WebSocket.OPEN) {
-        vjWs.send(JSON.stringify({
+      if (pjWs && pjWs.readyState === WebSocket.OPEN) {
+        pjWs.send(JSON.stringify({
           type: 'code-channel:sub',
           content: channelId
         }));
-        log.socket.log(`Subscribed to VJ channel: ${channelId}`);
+        log.socket.log(`Subscribed to PJ channel: ${channelId}`);
       } else {
-        // Will subscribe when vjWs connects
-        vjWsPendingChannel = channelId;
-        log.socket.debug('VJ WebSocket connecting, will subscribe to:', channelId);
+        // Will subscribe when pjWs connects
+        pjWsPendingChannel = channelId;
+        log.socket.debug('PJ WebSocket connecting, will subscribe to:', channelId);
       }
     }
     
-    // Broadcast code to channel subscribers
+    // Check if there's an active PJ session (window open or VS Code mode)
+    function hasActivePjSession() {
+      return (popoutWindow && !popoutWindow.closed) || isVSCodePopout;
+    }
+    
+    // Broadcast code to channel subscribers (only when PJ is active)
     function broadcastCodeToChannel(code) {
-      if (!codeChannelId) return;
+      if (!codeChannelId || !hasActivePjSession()) return;
       
       // Broadcast via BroadcastChannel for same-origin windows
       if (window.BroadcastChannel) {
@@ -19465,9 +19469,9 @@
         }
       }
       
-      // Broadcast via production VJ WebSocket for cross-origin (localhost -> vj.kidlisp.com)
-      if (vjWs && vjWs.readyState === WebSocket.OPEN) {
-        vjWs.send(JSON.stringify({
+      // Broadcast via production PJ WebSocket for cross-origin (localhost -> pj.kidlisp.com)
+      if (pjWs && pjWs.readyState === WebSocket.OPEN) {
+        pjWs.send(JSON.stringify({
           type: 'code',
           content: {
             piece: code,
@@ -19475,11 +19479,11 @@
             codeChannel: codeChannelId
           }
         }));
-        log.socket.debug('Broadcast code via VJ WebSocket to channel:', codeChannelId);
-      } else {
-        // Try to reconnect and send
-        connectVjWebSocket();
-        log.socket.warn('VJ WebSocket not ready, reconnecting...');
+        log.socket.debug('Broadcast code via PJ WebSocket to channel:', codeChannelId);
+      } else if (hasActivePjSession()) {
+        // Only try to reconnect if we have an active PJ session
+        connectPjWebSocket();
+        log.socket.debug('PJ WebSocket not ready, reconnecting...');
       }
     }
     
@@ -19495,18 +19499,18 @@
       // Subscribe to the channel
       subscribeToCodeChannel(codeChannelId);
       
-      // Build the VJ URL with channel in path
+      // Build the PJ URL with channel in path
       const currentCode = localStorage.getItem('kidlisp-current-code') || '';
       const dev = window.location.hostname === 'localhost' || window.location.hostname === 'local.aesthetic.computer';
-      const vjUrl = dev 
-        ? `${window.location.origin}/kidlisp.com/vj/${codeChannelId}${currentCode ? `?code=${encodeURIComponent(currentCode)}` : ''}`
-        : `https://vj.kidlisp.com/${codeChannelId}${currentCode ? `?code=${encodeURIComponent(currentCode)}` : ''}`;
+      const pjUrl = dev 
+        ? `${window.location.origin}/pj.kidlisp.com/${codeChannelId}${currentCode ? `?code=${encodeURIComponent(currentCode)}` : ''}`
+        : `https://pj.kidlisp.com/${codeChannelId}${currentCode ? `?code=${encodeURIComponent(currentCode)}` : ''}`;
       
       // In VS Code, we can't use window.open - open in external browser instead
       if (isInVSCode()) {
-        openExternal(vjUrl);
+        openExternal(pjUrl);
         
-        // Mark as VS Code VJ mode
+        // Mark as VS Code PJ mode
         isVSCodePopout = true;
         
         // Mark button as active (we won't have a window reference)
@@ -19517,22 +19521,22 @@
         updateCodeChannelDisplay();
         
         // Show toast with channel info
-        showToast(`Casting to VJ • Channel: ${codeChannelId}`, 'success');
-        log.socket.log(`Opened VJ in external browser with channel: ${codeChannelId}`);
+        showToast(`Casting to PJ • Channel: ${codeChannelId}`, 'success');
+        log.socket.log(`Opened PJ in external browser with channel: ${codeChannelId}`);
         
         // In VS Code mode, the external browser window will receive updates via session server WebSocket
         return;
       }
       
-      // Normal browser - open a new window with specific dimensions for VJing
+      // Normal browser - open a new window with specific dimensions for PJing
       const width = Math.min(800, window.screen.width * 0.6);
       const height = Math.min(600, window.screen.height * 0.6);
       const left = (window.screen.width - width) / 2;
       const top = (window.screen.height - height) / 2;
       
       popoutWindow = window.open(
-        vjUrl,
-        `kidlisp-vj-${codeChannelId}`,
+        pjUrl,
+        `kidlisp-pj-${codeChannelId}`,
         `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`
       );
       
@@ -19562,7 +19566,7 @@
             clearInterval(checkClosed);
             popoutWindow = null;
             popoutBtn.classList.remove('active');
-            popoutBtn.title = 'Cast to VJ';
+            popoutBtn.title = 'Cast to PJ';
             updateCodeChannelDisplay(); // This will remove the overlay
             log.socket.log('Pop-out window closed');
           }
@@ -19586,7 +19590,7 @@
         codeChannelId = null;
         localStorage.removeItem('kidlisp-code-channel');
         popoutBtn.classList.remove('active');
-        popoutBtn.title = 'Cast to VJ';
+        popoutBtn.title = 'Cast to PJ';
         updateCodeChannelDisplay();
         showToast('Pop-out channel closed', 'info');
         return;
