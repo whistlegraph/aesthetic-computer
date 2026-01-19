@@ -730,7 +730,7 @@ force = true
 from = "https://news.aesthetic.computer/*"
 to = "/.netlify/functions/news?path=:splat"
 status = 200
-# No force=true - static files in public/news.aesthetic.computer/ served first
+force = true
 
 [[redirects]]
 from = "/news.aesthetic.computer"
