@@ -151,6 +151,12 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         return;
       }
 
+      if (msg.type === "volume") {
+        const nextVolume = clamp(msg.value ?? msg.content ?? msg.data ?? 1, 0, 1);
+        volume.amount.val = nextVolume;
+        return;
+      }
+
       // 🎛️ VST Bridge Mode - enable/disable sending samples to native plugin
       if (msg.type === "vst:enable") {
         this.#vstBridgeEnabled = true;
