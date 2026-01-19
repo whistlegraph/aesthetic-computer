@@ -6,6 +6,156 @@ const config = {
   audience: "https://aesthetic.us.auth0.com/api/v2/",
 };
 
+// ===== Internationalization (i18n) =====
+const translations = {
+  en: {
+    'site-title': 'Aesthetic News',
+    'log-in': 'Log In',
+    'im-new': "I'm New",
+    'list': 'List',
+    'give': 'Give',
+    'commits': 'Commits',
+    'report-the-news': 'Report the News',
+    'no-posts': 'No posts yet.',
+    'write-comment': 'write comment',
+    'comment-guidelines': 'Say something interesting or ask a question. Be nice.',
+    'comment-placeholder': 'Add a comment...',
+    'login-prompt-1': 'You need to',
+    'login-prompt-2': 'to post.',
+    'handle-note': "You'll also need a @handle — get one at",
+    'headline': 'Headline',
+    'headline-placeholder': "What's the story?",
+    'pick-hint': 'pick one or both',
+    'source-url': 'Source URL',
+    'story': 'Story',
+    'story-placeholder': 'Share context, commentary, or tell your own story...',
+    'post': 'Post',
+    'guidelines-intro': 'Share something interesting with the community.',
+    'guideline-1': 'Links to creative tools, code, art, and experiments are welcome.',
+    'guideline-2': "Self-promotion is fine if it's genuinely interesting.",
+    'guideline-3': 'Be curious. Be kind. Keep it weird.',
+    'points': 'points',
+    'by': 'by',
+    'comments': 'comments',
+  },
+  da: {
+    'site-title': 'Æstetiske Nyheder',
+    'log-in': 'Log ind',
+    'im-new': 'Jeg er ny',
+    'list': 'Liste',
+    'give': 'Giv',
+    'commits': 'Commits',
+    'report-the-news': 'Rapportér Nyheder',
+    'no-posts': 'Ingen indlæg endnu.',
+    'write-comment': 'skriv kommentar',
+    'comment-guidelines': 'Sig noget interessant eller stil et spørgsmål. Vær venlig.',
+    'comment-placeholder': 'Tilføj en kommentar...',
+    'login-prompt-1': 'Du skal',
+    'login-prompt-2': 'for at poste.',
+    'handle-note': 'Du skal også have et @handle — få et på',
+    'headline': 'Overskrift',
+    'headline-placeholder': 'Hvad er historien?',
+    'pick-hint': 'vælg en eller begge',
+    'source-url': 'Kilde URL',
+    'story': 'Historie',
+    'story-placeholder': 'Del kontekst, kommentarer, eller fortæl din egen historie...',
+    'post': 'Post',
+    'guidelines-intro': 'Del noget interessant med fællesskabet.',
+    'guideline-1': 'Links til kreative værktøjer, kode, kunst og eksperimenter er velkomne.',
+    'guideline-2': 'Selvpromovering er okay, hvis det er ægte interessant.',
+    'guideline-3': 'Vær nysgerrig. Vær venlig. Hold det mærkeligt.',
+    'points': 'point',
+    'by': 'af',
+    'comments': 'kommentarer',
+  }
+};
+
+let currentLang = localStorage.getItem('news-lang') || 'en';
+
+function setLanguage(lang) {
+  if (!translations[lang]) return;
+  currentLang = lang;
+  localStorage.setItem('news-lang', lang);
+  applyTranslations();
+  updateLangSelector();
+}
+
+function applyTranslations() {
+  const t = translations[currentLang] || translations.en;
+  
+  // Translate elements with data-i18n attribute
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key]) el.textContent = t[key];
+  });
+  
+  // Translate placeholders
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (t[key]) el.placeholder = t[key];
+  });
+  
+  // Update HTML lang attribute
+  document.documentElement.lang = currentLang;
+}
+
+function updateLangSelector() {
+  const selector = document.getElementById('news-lang-selector');
+  if (!selector) return;
+  
+  const langText = selector.querySelector('.lang-text');
+  const langCurrent = selector.querySelector('.lang-current');
+  
+  const flags = { en: '🇬🇧', da: '🇩🇰' };
+  const labels = { en: 'EN', da: 'DA' };
+  
+  if (langText) langText.textContent = labels[currentLang] || 'EN';
+  if (langCurrent) {
+    langCurrent.innerHTML = `${flags[currentLang] || '🇬🇧'} <span class="lang-text">${labels[currentLang] || 'EN'}</span>`;
+  }
+  
+  // Update active state in dropdown
+  selector.querySelectorAll('.lang-option').forEach(opt => {
+    opt.classList.toggle('active', opt.dataset.lang === currentLang);
+  });
+}
+
+function initLangSelector() {
+  const selector = document.getElementById('news-lang-selector');
+  if (!selector) return;
+  
+  // Toggle dropdown
+  selector.addEventListener('click', (e) => {
+    if (e.target.closest('.lang-option')) return;
+    selector.classList.toggle('open');
+  });
+  
+  // Handle option clicks
+  selector.querySelectorAll('.lang-option').forEach(opt => {
+    opt.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const lang = opt.dataset.lang;
+      if (lang) {
+        setLanguage(lang);
+        selector.classList.remove('open');
+      }
+    });
+  });
+  
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    if (!selector.contains(e.target)) {
+      selector.classList.remove('open');
+    }
+  });
+  
+  // Apply initial language
+  applyTranslations();
+  updateLangSelector();
+}
+
+// ===== End i18n =====
+
 let auth0Client = null;
 let acUser = null;
 let acToken = null;
@@ -483,6 +633,7 @@ function reinitPage() {
   initForms();
   initModals();
   initSubmitFormConstraints();
+  initLangSelector();
   updateAuthUI();
   connectToSessionServer();
 }
