@@ -142,12 +142,12 @@ function renderPostRow(post, idx, basePath) {
     <div class="news-content">
       <div class="news-title">
         <a href="${url || itemUrl}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${title}</a>
-        ${domain ? `<span class="news-domain">(${domain})</span>` : ""}
+        ${domain ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${domain}</a>)</span>` : ""}
       </div>
       <div class="news-meta">
         <span>${post.score || 0} points</span>
         <span>by ${renderHandle(post.handle)}</span>
-        <span>${formatDate(post.when)}</span>
+        <span><a href="${itemUrl}">${formatDate(post.when)}</a></span>
         <span><a href="${itemUrl}">${post.commentCount || 0} comments</a></span>
       </div>
     </div>
@@ -246,7 +246,7 @@ async function renderItemPage(database, basePath, code) {
         <td class="news-item-content">
           <span class="news-item-title">
             <a href="${url || '#'}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${postTitle}</a>
-            ${domain ? `<span class="news-domain">(${domain})</span>` : ""}
+            ${domain ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${domain}</a>)</span>` : ""}
           </span>
           <div class="news-item-meta">
             ${hydratedPost.score || 0} points by ${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}
