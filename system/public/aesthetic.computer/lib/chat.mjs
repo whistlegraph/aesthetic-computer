@@ -78,7 +78,7 @@ export class Chat {
         chatUrl = "chat-clock.aesthetic.computer";
       }
     }
-    // console.log("🗨️ Chat url:", chatUrl);
+    console.log("🗨️ Chat connect:", instanceName, "→", chatUrl, "debug:", this.#debug);
 
     this.system.server.connect(
       chatUrl, // host

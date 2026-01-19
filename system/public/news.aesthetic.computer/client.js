@@ -15,7 +15,7 @@ const translations = {
     'list': 'List',
     'give': 'Give',
     'commits': 'Commits',
-    'report-the-news': 'Report the News',
+    'report-the-news': 'Report · Aesthetic News',
     'no-posts': 'No posts yet.',
     'write-comment': 'write comment',
     'comment-guidelines': 'Say something interesting or ask a question. Be nice.',
@@ -30,10 +30,7 @@ const translations = {
     'story': 'Story',
     'story-placeholder': 'Share context, commentary, or tell your own story...',
     'post': 'Post',
-    'guidelines-intro': 'Share something interesting with the community.',
-    'guideline-1': 'Links to creative tools, code, art, and experiments are welcome.',
-    'guideline-2': "Self-promotion is fine if it's genuinely interesting.",
-    'guideline-3': 'Be curious. Be kind. Keep it weird.',
+    'tagline': 'Be curious. Be kind. Keep it weird.',
     'points': 'points',
     'by': 'by',
     'comments': 'comments',
@@ -45,7 +42,7 @@ const translations = {
     'list': 'Liste',
     'give': 'Giv',
     'commits': 'Commits',
-    'report-the-news': 'Rapportér Nyheder',
+    'report-the-news': 'Rapportér · Æstetiske Nyheder',
     'no-posts': 'Ingen indlæg endnu.',
     'write-comment': 'skriv kommentar',
     'comment-guidelines': 'Sig noget interessant eller stil et spørgsmål. Vær venlig.',
@@ -60,10 +57,7 @@ const translations = {
     'story': 'Historie',
     'story-placeholder': 'Del kontekst, kommentarer, eller fortæl din egen historie...',
     'post': 'Post',
-    'guidelines-intro': 'Del noget interessant med fællesskabet.',
-    'guideline-1': 'Links til kreative værktøjer, kode, kunst og eksperimenter er velkomne.',
-    'guideline-2': 'Selvpromovering er okay, hvis det er ægte interessant.',
-    'guideline-3': 'Vær nysgerrig. Vær venlig. Hold det mærkeligt.',
+    'tagline': 'Vær nysgerrig. Vær venlig. Hold det mærkeligt.',
     'points': 'point',
     'by': 'af',
     'comments': 'kommentarer',
@@ -77,7 +71,7 @@ function setLanguage(lang) {
   currentLang = lang;
   localStorage.setItem('news-lang', lang);
   applyTranslations();
-  updateLangSelector();
+  updateLangSelectors();
 }
 
 function applyTranslations() {
@@ -99,59 +93,83 @@ function applyTranslations() {
   document.documentElement.lang = currentLang;
 }
 
-function updateLangSelector() {
-  const selector = document.getElementById('news-lang-selector');
-  if (!selector) return;
-  
-  const langText = selector.querySelector('.lang-text');
-  const langCurrent = selector.querySelector('.lang-current');
-  
-  const flags = { en: '🇬🇧', da: '🇩🇰' };
+function updateLangSelectors() {
+  const selectors = document.querySelectorAll('.news-lang-selector');
   const labels = { en: 'EN', da: 'DA' };
+  const flagClasses = { en: 'fi-gb', da: 'fi-dk' };
   
-  if (langText) langText.textContent = labels[currentLang] || 'EN';
-  if (langCurrent) {
-    langCurrent.innerHTML = `${flags[currentLang] || '🇬🇧'} <span class="lang-text">${labels[currentLang] || 'EN'}</span>`;
-  }
-  
-  // Update active state in dropdown
-  selector.querySelectorAll('.lang-option').forEach(opt => {
-    opt.classList.toggle('active', opt.dataset.lang === currentLang);
+  selectors.forEach(selector => {
+    const langText = selector.querySelector('.lang-text');
+    const langFlag = selector.querySelector('[data-lang-flag]');
+    
+    if (langText) langText.textContent = labels[currentLang] || 'EN';
+    if (langFlag) {
+      // Update flag class
+      langFlag.className = `fi ${flagClasses[currentLang] || 'fi-gb'} lang-flag`;
+    }
+    
+    // Update active state in dropdown
+    selector.querySelectorAll('.lang-option').forEach(opt => {
+      opt.classList.toggle('active', opt.dataset.lang === currentLang);
+    });
   });
 }
 
-function initLangSelector() {
-  const selector = document.getElementById('news-lang-selector');
-  if (!selector) return;
+function initLangSelectors() {
+  const selectors = document.querySelectorAll('.news-lang-selector');
   
-  // Toggle dropdown
-  selector.addEventListener('click', (e) => {
-    if (e.target.closest('.lang-option')) return;
-    selector.classList.toggle('open');
-  });
-  
-  // Handle option clicks
-  selector.querySelectorAll('.lang-option').forEach(opt => {
-    opt.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const lang = opt.dataset.lang;
-      if (lang) {
-        setLanguage(lang);
-        selector.classList.remove('open');
-      }
-    });
+  selectors.forEach(selector => {
+    const trigger = selector.querySelector('.lang-trigger');
+    const dropdown = selector.querySelector('.lang-dropdown');
+    
+    // Toggle dropdown on trigger click
+    if (trigger) {
+      trigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Close other selectors first
+        selectors.forEach(s => {
+          if (s !== selector) s.classList.remove('open');
+        });
+        selector.classList.toggle('open');
+      });
+    }
+    
+    // Handle option clicks
+    if (dropdown) {
+      dropdown.addEventListener('click', (e) => {
+        const opt = e.target.closest('.lang-option');
+        if (opt) {
+          e.preventDefault();
+          e.stopPropagation();
+          const lang = opt.dataset.lang;
+          if (lang) {
+            setLanguage(lang);
+            // Close all selectors
+            selectors.forEach(s => s.classList.remove('open'));
+          }
+        }
+      });
+    }
   });
   
   // Close on outside click
   document.addEventListener('click', (e) => {
-    if (!selector.contains(e.target)) {
-      selector.classList.remove('open');
+    if (!e.target.closest('.news-lang-selector')) {
+      selectors.forEach(s => s.classList.remove('open'));
+    }
+  });
+  
+  // Close on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      selectors.forEach(s => s.classList.remove('open'));
     }
   });
   
   // Apply initial language
   applyTranslations();
-  updateLangSelector();
+  updateLangSelectors();
 }
 
 // ===== End i18n =====
@@ -626,6 +644,33 @@ function handleEscape(e) {
   if (e.key === 'Escape') closeModal();
 }
 
+// ===== Report Link Login Check =====
+function isReportLink(link) {
+  if (!link) return false;
+  const href = link.getAttribute('href') || '';
+  return link.classList.contains('news-report-link') || href.includes('/report');
+}
+
+function promptLoginForReport() {
+  // Scroll to login button and blink it
+  const loginBtn = document.getElementById('news-login-btn');
+  if (loginBtn) {
+    loginBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Add blink animation after scroll completes
+    setTimeout(() => {
+      loginBtn.classList.remove('blinking');
+      void loginBtn.offsetWidth; // Force reflow to restart animation
+      loginBtn.classList.add('blinking');
+      
+      // Remove class after animation completes
+      setTimeout(() => {
+        loginBtn.classList.remove('blinking');
+      }, 1600); // 4 blinks × 0.4s
+    }, 300); // Wait for scroll
+  }
+}
+
 // ===== SPA Routing =====
 function reinitPage() {
   initDOMRefs();
@@ -633,7 +678,7 @@ function reinitPage() {
   initForms();
   initModals();
   initSubmitFormConstraints();
-  initLangSelector();
+  initLangSelectors();
   updateAuthUI();
   connectToSessionServer();
 }
@@ -654,7 +699,10 @@ function shouldHandleLink(link) {
 
 async function navigateTo(url, { push = true } = {}) {
   const nextUrl = typeof url === 'string' ? url : url.href;
-  if (!nextUrl || nextUrl === window.location.href) return;
+  if (!nextUrl) return;
+  
+  // For push navigation, skip if same URL. For popstate (push=false), always fetch.
+  if (push && nextUrl === window.location.href) return;
 
   try {
     closeModal();
@@ -668,10 +716,16 @@ async function navigateTo(url, { push = true } = {}) {
       return;
     }
     currentWrapper.innerHTML = nextWrapper.innerHTML;
-    document.title = doc.title || document.title;
-    if (push) history.pushState({}, '', nextUrl);
+    const newTitle = doc.title || 'Aesthetic News';
+    document.title = newTitle;
+    if (push) {
+      // Cache the HTML content in history state for instant back/forward
+      history.pushState({ title: newTitle, url: nextUrl, html: nextWrapper.innerHTML }, newTitle, nextUrl);
+    }
+    window.scrollTo(0, 0);
     reinitPage();
   } catch (error) {
+    console.error('[news] Navigation error:', error);
     window.location.href = nextUrl;
   }
 }
@@ -679,15 +733,52 @@ async function navigateTo(url, { push = true } = {}) {
 function initSpaRouting() {
   if (spaInitialized) return;
   spaInitialized = true;
+  
+  // Store initial state with title and content
+  const initialWrapper = document.querySelector('.news-wrapper');
+  history.replaceState({ 
+    title: document.title, 
+    url: window.location.href,
+    html: initialWrapper ? initialWrapper.innerHTML : null
+  }, document.title, window.location.href);
 
   document.addEventListener('click', (e) => {
     const link = e.target.closest('a');
     if (!shouldHandleLink(link)) return;
+    
+    // Check if this is a report link and user is not logged in
+    if (isReportLink(link)) {
+      const isLoggedIn = acUser || acHandle || acToken;
+      if (!isLoggedIn) {
+        e.preventDefault();
+        e.stopPropagation();
+        promptLoginForReport();
+        return;
+      }
+    }
+    
     e.preventDefault();
     navigateTo(link.href, { push: true });
   });
 
-  window.addEventListener('popstate', () => {
+  window.addEventListener('popstate', (e) => {
+    // Restore title from state
+    if (e.state && e.state.title) {
+      document.title = e.state.title;
+    }
+    
+    // If we have cached HTML, use it instantly
+    if (e.state && e.state.html) {
+      const currentWrapper = document.querySelector('.news-wrapper');
+      if (currentWrapper) {
+        currentWrapper.innerHTML = e.state.html;
+        window.scrollTo(0, 0);
+        reinitPage();
+        return;
+      }
+    }
+    
+    // Fallback: fetch the page content
     navigateTo(window.location.href, { push: false });
   });
 }

@@ -40,7 +40,7 @@ export const chatInstances = {
 // Development host mappings (localhost ports)
 const devHostMappings = {
   "localhost:8083": "chat-system.aesthetic.computer",
-  "localhost:8084": "chat-sotce.aesthetic.computer",
+  "localhost:8084": "chat.sotce.net",
   "localhost:8085": "chat-clock.aesthetic.computer",
 };
 
