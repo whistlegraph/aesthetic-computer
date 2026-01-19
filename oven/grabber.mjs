@@ -888,10 +888,40 @@ async function captureFrames(piece, options = {}) {
     // KidLisp logs "KidLisp module loaded" when ready - wait for first paint cycle
     const isKidLisp = piece.startsWith('$');
     if (isKidLisp) {
-      console.log('   ⏳ KidLisp piece - waiting for load + first render...');
-      // Initial wait for KidLisp interpreter to load, piece to fetch from MongoDB,
-      // AND any assets to load (images, fonts, etc.) - some pieces like $cow need this
-      await new Promise(r => setTimeout(r, 6000)); // 6 seconds initial wait
+      console.log('   ⏳ KidLisp piece - waiting for boot to complete...');
+      
+      // First, wait for the boot canvas to be hidden (indicates boot.mjs finished)
+      const bootWaitStart = Date.now();
+      const maxBootWait = 30000; // 30 seconds max for boot
+      let bootHidden = false;
+      
+      while (!bootHidden && (Date.now() - bootWaitStart) < maxBootWait) {
+        bootHidden = await page.evaluate(() => {
+          const bootCanvas = document.getElementById('boot-canvas');
+          // Boot is done when: canvas doesn't exist, OR display is 'none', OR opacity is 0
+          if (!bootCanvas) return true;
+          const style = window.getComputedStyle(bootCanvas);
+          return style.display === 'none' || style.opacity === '0' || style.visibility === 'hidden';
+        });
+        if (!bootHidden) {
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+      
+      if (bootHidden) {
+        console.log(`   ✓ Boot canvas hidden after ${Date.now() - bootWaitStart}ms`);
+      } else {
+        console.log(`   ⚠️ Boot canvas still visible after ${maxBootWait}ms, force-hiding...`);
+        // Force hide the boot canvas so we can capture the actual content
+        await page.evaluate(() => {
+          const bootCanvas = document.getElementById('boot-canvas');
+          if (bootCanvas) bootCanvas.style.display = 'none';
+        });
+      }
+      
+      // Additional wait for KidLisp interpreter + MongoDB load + first render
+      console.log('   ⏳ Waiting for KidLisp render...');
+      await new Promise(r => setTimeout(r, 4000)); // 4 seconds after boot
       
       // Then wait for actual content with COLOR VARIATION (not just a solid wipe)
       // KidLisp pieces often start with wipe("color") which fills everything one color
@@ -3202,6 +3232,117 @@ export async function regenerateOGImagesBackground() {
   }
   
   console.log('🔄 Background OG regeneration complete');
+}
+
+// =============================================================================
+// KidLisp Backdrop - Animated WebP for login screens, etc.
+// =============================================================================
+
+// Backdrop cache (memory)
+const backdropCache = {
+  url: null,
+  date: null,
+  piece: null,
+};
+
+/**
+ * Get or generate KidLisp backdrop - a 2048px animated webp of a featured piece.
+ * Rotates daily based on top hits. Caches to CDN for fast access.
+ * @param {boolean} force - Force regeneration even if cached
+ * @returns {{ url: string, piece: string, cached: boolean }}
+ */
+export async function generateKidlispBackdrop(force = false) {
+  const today = getTodayKey();
+  const key = `backdrop/kidlisp/${today}.webp`;
+  
+  // Check memory cache
+  if (!force && backdropCache.url && backdropCache.date === today) {
+    console.log(`📦 Backdrop from memory cache: ${backdropCache.url}`);
+    return { url: backdropCache.url, piece: backdropCache.piece, cached: true };
+  }
+  
+  // Check Spaces for today's backdrop
+  if (!force) {
+    try {
+      await spacesClient.send(new HeadObjectCommand({
+        Bucket: SPACES_BUCKET,
+        Key: key,
+      }));
+      const url = `${SPACES_CDN_BASE}/${key}`;
+      backdropCache.url = url;
+      backdropCache.date = today;
+      console.log(`📦 Backdrop from Spaces cache: ${url}`);
+      return { url, piece: backdropCache.piece, cached: true };
+    } catch {
+      // Not cached, continue to generate
+    }
+  }
+  
+  // Fetch top KidLisp pieces by @jeffrey only
+  const topPieces = await fetchTopKidlispHits(50);
+  const jeffreyPieces = topPieces.filter(p => p.owner?.handle === '@jeffrey');
+  
+  if (!jeffreyPieces.length) {
+    throw new Error('No KidLisp pieces by @jeffrey available for backdrop');
+  }
+  
+  // Pick piece based on day of year (rotates daily through jeffrey's top pieces)
+  const dayOfYear = getDayOfYear();
+  const featuredIndex = dayOfYear % Math.min(jeffreyPieces.length, 10);
+  const featured = jeffreyPieces[featuredIndex];
+  const piece = `$${featured.code}`;
+  
+  console.log(`🎨 Generating backdrop: ${piece} by ${featured.owner?.handle} (${formatHits(featured.hits)} hits)`);
+  
+  // Generate 2048x2048 animated webp (12 seconds, 7.5fps capture, 15fps playback)
+  const result = await grabPiece(piece, {
+    format: 'webp',
+    width: 2048,
+    height: 2048,
+    duration: 12000,
+    fps: 7.5,
+    playbackFps: 15,
+    density: 1,
+    quality: 85,
+    skipCache: force,
+    source: 'backdrop',
+  });
+  
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to generate backdrop');
+  }
+  
+  // grabPiece returns cdnUrl from oven/grabs/ - use that directly
+  const url = result.cdnUrl;
+  
+  if (!url) {
+    throw new Error('No CDN URL returned from grabPiece');
+  }
+  
+  console.log(`📤 Backdrop generated: ${url}`);
+  
+  // Update cache with the grab URL
+  backdropCache.url = url;
+  backdropCache.date = today;
+  backdropCache.piece = piece;
+  
+  return { url, piece, cached: false };
+}
+
+/**
+ * Get cached backdrop URL without triggering generation.
+ * Returns the in-memory cached URL if available for today, null otherwise.
+ */
+export async function getLatestBackdropUrl() {
+  const today = getTodayKey();
+  
+  // Check memory cache - only return if it's from today
+  if (backdropCache.url && backdropCache.date === today) {
+    return backdropCache.url;
+  }
+  
+  // No cached URL for today - caller should trigger generation
+  return null;
 }
 
 export { IPFS_GATEWAY };

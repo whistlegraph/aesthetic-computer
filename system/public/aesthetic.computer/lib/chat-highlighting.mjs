@@ -111,16 +111,33 @@ export function parseMessageElements(message) {
   // Parse URLs (starting with http://, https://, or www.)
   const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
   const urlRanges = []; // Track URL positions to avoid matching hashtags inside them
+  
+  // YouTube URL patterns
+  const youtubeRegex = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  
   while ((match = urlRegex.exec(message)) !== null) {
     const urlText = match[0];
     const isSensitive = isSensitiveUrl(urlText);
-    elements.push({
-      type: "url",
-      text: urlText,
-      start: match.index,
-      end: match.index + urlText.length,
-      sensitive: isSensitive, // Mark sensitive URLs for special display
-    });
+    
+    // Check if this is a YouTube URL
+    const ytMatch = urlText.match(youtubeRegex);
+    if (ytMatch) {
+      elements.push({
+        type: "youtube",
+        text: urlText,
+        videoId: ytMatch[1],
+        start: match.index,
+        end: match.index + urlText.length,
+      });
+    } else {
+      elements.push({
+        type: "url",
+        text: urlText,
+        start: match.index,
+        end: match.index + urlText.length,
+        sensitive: isSensitive, // Mark sensitive URLs for special display
+      });
+    }
     urlRanges.push({ start: match.index, end: match.index + match[0].length });
   }
 
@@ -449,6 +466,12 @@ export function getElementAction(element, fullMessage, allElements) {
       result.jumpTarget = "r8dio";
       break;
       
+    case "youtube":
+      result.description = "Watch YouTube video";
+      result.videoId = element.videoId;
+      result.jumpTarget = "youtube:" + element.videoId;
+      break;
+      
     default:
       return null;
   }
@@ -457,7 +480,7 @@ export function getElementAction(element, fullMessage, allElements) {
 }
 
 // List of interactive element types that should trigger actions
-export const interactiveTypes = ["handle", "url", "prompt", "prompt-content", "kidlisp-token", "painting", "kidlisp", "clock", "r8dio"];
+export const interactiveTypes = ["handle", "url", "prompt", "prompt-content", "kidlisp-token", "painting", "kidlisp", "clock", "r8dio", "youtube"];
 
 // Check if an element type is interactive (can be clicked)
 export function isInteractiveType(type) {

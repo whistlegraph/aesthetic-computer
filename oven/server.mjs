@@ -10,7 +10,7 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl } from './grabber.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -1604,6 +1604,66 @@ app.get('/kidlisp-og/preview', (req, res) => {
   </p>
 </body>
 </html>`);
+});
+
+// =============================================================================
+// KidLisp Backdrop - Animated WebP for login screens, Auth0, etc.
+// =============================================================================
+
+// Fast redirect to CDN-cached 2048px animated webp
+app.get('/kidlisp-backdrop.webp', async (req, res) => {
+  try {
+    // Get cached URL without triggering generation (fast!)
+    const url = await getLatestBackdropUrl();
+    
+    if (url) {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('X-Cache', 'CDN');
+      return res.redirect(301, url);
+    }
+    
+    // No cached backdrop - generate synchronously (first request will be slow)
+    addServerLog('warn', '⚠️', 'Backdrop cache miss, generating...');
+    
+    const result = await generateKidlispBackdrop(false);
+    if (result.url) {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('X-Cache', 'MISS');
+      return res.redirect(302, result.url);
+    }
+    
+    res.status(503).json({ error: 'Backdrop generation in progress, try again shortly' });
+    
+  } catch (error) {
+    console.error('Backdrop error:', error);
+    res.status(500).json({ error: 'Failed to get backdrop', message: error.message });
+  }
+});
+
+// Dynamic backdrop generation (may regenerate on-demand)
+app.get('/kidlisp-backdrop', async (req, res) => {
+  try {
+    const force = req.query.force === 'true';
+    
+    addServerLog('info', '🖼️', `Backdrop request${force ? ' (force)' : ''}`);
+    
+    const result = await generateKidlispBackdrop(force);
+    
+    if (result.url) {
+      addServerLog('success', '🎨', `Backdrop: ${result.piece} → ${result.cached ? 'cached' : 'generated'}`);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('X-Cache', result.cached ? 'HIT' : 'MISS');
+      res.setHeader('X-Backdrop-Piece', result.piece || 'unknown');
+      return res.redirect(302, result.url);
+    }
+    
+    res.status(500).json({ error: 'Failed to generate backdrop' });
+    
+  } catch (error) {
+    console.error('Backdrop error:', error);
+    addServerLog('error', '❌', `Backdrop error: ${error.message}`);
+    res.status(500).json({ error: 'Failed to generate backdrop', message: error.message });
+  }
 });
 
 // 404 handler

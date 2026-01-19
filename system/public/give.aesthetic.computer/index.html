@@ -30,6 +30,8 @@
   <!-- Fonts -->
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css">
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+  <!-- Flag icons for language selector -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&display=swap" rel="stylesheet">
@@ -6728,15 +6730,15 @@
     <div style="display: flex; align-items: center; gap: 8px;">
       <div class="logo" onclick="window.location.href='https://aesthetic.computer'"><span class="logo-give">give</span><span class="logo-sep">—</span><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span><span class="logo-year">'26</span></div>
       <div class="lang-selector" id="langSelector">
-        <span class="lang-flag" id="lang-flag">🇺🇸</span>
+        <span class="lang-flag fi fi-us" id="lang-flag"></span>
         <span class="lang-text" id="lang-text">English</span>
         <span class="lang-arrow">▼</span>
         <div class="lang-dropdown" id="lang-dropdown">
-          <div class="lang-option" data-lang="en">🇺🇸 English</div>
-          <div class="lang-option" data-lang="da">🇩🇰 Dansk</div>
-          <div class="lang-option" data-lang="de">🇩🇪 Deutsch</div>
-          <div class="lang-option" data-lang="es">🇪🇸 Español</div>
-          <div class="lang-option" data-lang="zh">🇨🇳 中文</div>
+          <div class="lang-option" data-lang="en" data-flag="us"><span class="fi fi-us"></span> English</div>
+          <div class="lang-option" data-lang="da" data-flag="dk"><span class="fi fi-dk"></span> Dansk</div>
+          <div class="lang-option" data-lang="de" data-flag="de"><span class="fi fi-de"></span> Deutsch</div>
+          <div class="lang-option" data-lang="es" data-flag="es"><span class="fi fi-es"></span> Español</div>
+          <div class="lang-option" data-lang="zh" data-flag="cn"><span class="fi fi-cn"></span> 中文</div>
         </div>
       </div>
     </div>

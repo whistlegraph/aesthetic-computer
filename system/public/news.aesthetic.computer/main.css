@@ -251,6 +251,22 @@ body {
   background: rgb(50, 120, 70);
 }
 
+/* Login button blink animation (used when prompting user to log in) */
+.header-login-btn.blinking {
+  animation: login-btn-blink 0.4s ease-in-out 4;
+}
+
+@keyframes login-btn-blink {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(205, 92, 155, 0);
+    background: rgb(30, 50, 120);
+  }
+  50% { 
+    box-shadow: 0 0 15px 5px rgba(205, 92, 155, 0.8);
+    background: rgb(205, 92, 155);
+  }
+}
+
 /* ===== User Menu (AC-style, compact) ===== */
 .header-user-menu {
   display: flex;
@@ -692,34 +708,47 @@ body {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+}
+
+.news-lang-selector .lang-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 4px 8px;
   cursor: pointer;
   border-radius: 4px;
   transition: background 0.15s;
   user-select: none;
+  background: transparent;
+  border: none;
+  font-family: inherit;
 }
 
-.news-lang-selector:hover {
+.news-lang-selector .lang-trigger:hover {
   background: var(--bg-secondary);
 }
 
-.news-lang-selector .lang-current {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.news-lang-selector .lang-flag {
+  font-size: 14px;
+  line-height: 1;
 }
 
 .news-lang-selector .lang-text {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-meta);
+  letter-spacing: 0.5px;
 }
 
 .news-lang-selector .lang-arrow {
   font-size: 8px;
   color: var(--text-meta);
   opacity: 0.6;
+  transition: transform 0.15s;
+}
+
+.news-lang-selector.open .lang-arrow {
+  transform: rotate(180deg);
 }
 
 .news-lang-selector .lang-dropdown {
@@ -732,9 +761,18 @@ body {
   border-radius: 4px;
   box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
   z-index: 100;
-  min-width: 100px;
+  min-width: 110px;
   margin-bottom: 4px;
   display: none;
+}
+
+/* Inline variant (for report page) - dropdown opens downward */
+.news-lang-inline .lang-dropdown {
+  bottom: auto;
+  top: 100%;
+  margin-bottom: 0;
+  margin-top: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .news-lang-selector.open .lang-dropdown {
@@ -742,12 +780,19 @@ body {
 }
 
 .news-lang-selector .lang-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 12px;
   cursor: pointer;
   font-size: 12px;
   color: var(--text-primary);
   transition: all 0.15s;
   white-space: nowrap;
+}
+
+.news-lang-selector .lang-option .fi {
+  font-size: 14px;
 }
 
 .news-lang-selector .lang-option:hover {
@@ -1002,6 +1047,21 @@ body {
   padding: 20px;
 }
 
+.news-report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.news-report-header h2 {
+  margin: 0;
+  font-size: 16pt;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 .news-report h2 {
   margin: 0 0 16px 0;
   font-size: 16pt;
@@ -1212,23 +1272,13 @@ body {
   color: var(--text-secondary);
 }
 
-/* Guidelines below the form */
-.news-guidelines-below {
+/* Tagline below the form */
+.news-tagline {
   margin-top: 24px;
-  margin-bottom: 0;
-}
-
-.news-guidelines p {
-  margin: 0 0 8px 0;
-}
-
-.news-guidelines ul {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.news-guidelines li {
-  margin: 4px 0;
+  text-align: center;
+  font-size: 10pt;
+  color: var(--text-secondary);
+  font-style: italic;
 }
 
 .news-optional {
