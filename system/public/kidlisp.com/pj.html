@@ -30,24 +30,44 @@
       background: #000;
     }
     
-    /* Fullscreen hint */
-    #fullscreen-hint {
+    /* QR overlay - shown on tap */
+    #qr-overlay {
       position: fixed;
-      bottom: 8px;
-      right: 8px;
-      z-index: 100;
-      padding: 4px 8px;
-      background: rgba(0, 0, 0, 0.5);
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 10px;
-      color: rgba(255, 255, 255, 0.5);
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.85);
       opacity: 0;
+      pointer-events: none;
       transition: opacity 0.3s;
     }
     
-    body:hover #fullscreen-hint {
+    #qr-overlay.visible {
       opacity: 1;
+      pointer-events: auto;
+    }
+    
+    #qr-canvas {
+      image-rendering: pixelated;
+      border: 3px solid white;
+    }
+    
+    #qr-url {
+      margin-top: 16px;
+      font-family: monospace;
+      font-size: 18px;
+      color: rgb(205, 92, 155);
+      text-align: center;
+    }
+    
+    #qr-hint {
+      margin-top: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
     }
     
     /* Boot screen */
@@ -80,7 +100,12 @@
   </style>
 </head>
 <body>
-  <div id="fullscreen-hint">Press F for fullscreen</div>
+  <!-- QR overlay - tap anywhere to show, auto-hides after 4s -->
+  <div id="qr-overlay">
+    <canvas id="qr-canvas"></canvas>
+    <div id="qr-url"></div>
+    <div id="qr-hint">Scan to join this channel</div>
+  </div>
   
   <div id="boot-screen">
     <div class="boot-text">
@@ -291,6 +316,174 @@
       }
     });
     
+    // QR overlay - tap to show, auto-hide after 4 seconds
+    const qrOverlay = document.getElementById('qr-overlay');
+    const qrCanvas = document.getElementById('qr-canvas');
+    const qrUrl = document.getElementById('qr-url');
+    let qrHideTimeout = null;
+    let qrDrawn = false;
+    
+    // Simple QR code generator (inline for no dependencies)
+    // Based on qr-creator-es6 - MIT license
+    const QR = (() => {
+      const EC_L = 1, EC_M = 0, EC_Q = 3, EC_H = 2;
+      const MODE_8BIT = 4;
+      
+      function create(text, ecl = EC_L) {
+        const data = [];
+        for (let i = 0; i < text.length; i++) data.push(text.charCodeAt(i));
+        
+        // Find smallest version that fits
+        let version = 1, size, capacity;
+        const ecBlocks = [[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16]];
+        
+        for (version = 1; version <= 10; version++) {
+          size = version * 4 + 17;
+          const idx = (version - 1) * 4 + ecl;
+          if (idx < ecBlocks.length) {
+            const block = ecBlocks[idx];
+            capacity = block.length === 3 ? block[0] * block[2] : block[0] * block[2] + block[3] * block[5];
+            if (data.length + 3 <= capacity) break;
+          }
+        }
+        if (version > 10) version = 10;
+        size = version * 4 + 17;
+        
+        // Create modules array
+        const modules = [];
+        for (let i = 0; i < size; i++) {
+          modules[i] = [];
+          for (let j = 0; j < size; j++) modules[i][j] = null;
+        }
+        
+        // Add finder patterns
+        const addFinder = (row, col) => {
+          for (let r = -1; r <= 7; r++) {
+            for (let c = -1; c <= 7; c++) {
+              const rr = row + r, cc = col + c;
+              if (rr >= 0 && rr < size && cc >= 0 && cc < size) {
+                modules[rr][cc] = (r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
+                  (c >= 0 && c <= 6 && (r === 0 || r === 6)) ||
+                  (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+              }
+            }
+          }
+        };
+        addFinder(0, 0);
+        addFinder(0, size - 7);
+        addFinder(size - 7, 0);
+        
+        // Timing patterns
+        for (let i = 8; i < size - 8; i++) {
+          modules[6][i] = modules[i][6] = i % 2 === 0;
+        }
+        
+        // Dark module
+        modules[size - 8][8] = true;
+        
+        // Fill remaining with data pattern (simplified)
+        let bitIdx = 0;
+        const bits = [];
+        bits.push(0, 1, 0, 0); // Mode 4
+        const lenBits = version < 10 ? 8 : 16;
+        for (let i = lenBits - 1; i >= 0; i--) bits.push((data.length >> i) & 1);
+        for (const byte of data) for (let i = 7; i >= 0; i--) bits.push((byte >> i) & 1);
+        
+        // Fill data
+        let up = true;
+        for (let col = size - 1; col > 0; col -= 2) {
+          if (col === 6) col--;
+          for (let i = 0; i < size; i++) {
+            const row = up ? size - 1 - i : i;
+            for (let c = 0; c < 2; c++) {
+              const cc = col - c;
+              if (modules[row][cc] === null) {
+                modules[row][cc] = bitIdx < bits.length ? bits[bitIdx++] === 1 : false;
+              }
+            }
+          }
+          up = !up;
+        }
+        
+        // Fill any remaining nulls
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (modules[r][c] === null) modules[r][c] = false;
+          }
+        }
+        
+        return { modules, size };
+      }
+      
+      return { create };
+    })();
+    
+    function drawQR() {
+      if (!channelId || qrDrawn) return;
+      
+      const dev = window.location.hostname === 'localhost' || window.location.hostname === 'local.aesthetic.computer';
+      const url = dev 
+        ? `${window.location.origin}/pj.kidlisp.com/${channelId}`
+        : `https://pj.kidlisp.com/${channelId}`;
+      
+      try {
+        const { modules, size } = QR.create(url);
+        const cellSize = Math.max(4, Math.floor(200 / size));
+        const canvasSize = size * cellSize;
+        
+        qrCanvas.width = canvasSize;
+        qrCanvas.height = canvasSize;
+        const ctx = qrCanvas.getContext('2d');
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvasSize, canvasSize);
+        
+        ctx.fillStyle = '#000000';
+        for (let y = 0; y < size; y++) {
+          for (let x = 0; x < size; x++) {
+            if (modules[y][x]) {
+              ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            }
+          }
+        }
+        
+        qrUrl.textContent = url;
+        qrDrawn = true;
+      } catch (e) {
+        console.error('QR generation failed:', e);
+      }
+    }
+    
+    function showQR() {
+      drawQR();
+      qrOverlay.classList.add('visible');
+      
+      // Clear any existing timeout
+      if (qrHideTimeout) clearTimeout(qrHideTimeout);
+      
+      // Auto-hide after 4 seconds
+      qrHideTimeout = setTimeout(() => {
+        qrOverlay.classList.remove('visible');
+      }, 4000);
+    }
+    
+    function hideQR() {
+      qrOverlay.classList.remove('visible');
+      if (qrHideTimeout) {
+        clearTimeout(qrHideTimeout);
+        qrHideTimeout = null;
+      }
+    }
+    
+    // Tap anywhere to show QR (but not on overlay itself to allow it to stay)
+    document.addEventListener('click', (e) => {
+      if (qrOverlay.classList.contains('visible')) {
+        hideQR();
+      } else {
+        showQR();
+      }
+    });
+    
     // Update title when receiving code
     window.addEventListener('message', (event) => {
       if (event.data?.type === 'url:updated' && event.data?.slug) {
@@ -307,7 +500,7 @@
       }
     });
     
-    console.log('KidLisp VJ window initialized', { channel: channelId, dev });
+    console.log('KidLisp PJ window initialized', { channel: channelId, dev });
   </script>
 </body>
 </html>
