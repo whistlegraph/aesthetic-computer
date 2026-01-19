@@ -61,6 +61,7 @@ function layout({ title, body, assetBase }) {
     <title>${escapeHtml(title)}</title>
     <link rel="icon" href="${assetBase}/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css">
     <link rel="stylesheet" href="${assetBase}/main.css" />
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
   </head>
@@ -108,11 +109,14 @@ function footer() {
       <a href="https://prompt.ac/commits" class="news-modal-link" data-modal-url="https://prompt.ac/commits" data-i18n="commits">Commits</a>
       <span>|</span>
       <div class="news-lang-selector" id="news-lang-selector">
-        <span class="lang-current">🇬🇧 <span class="lang-text">EN</span></span>
-        <span class="lang-arrow">▾</span>
+        <button type="button" class="lang-trigger">
+          <span class="fi fi-gb lang-flag" data-lang-flag></span>
+          <span class="lang-text">EN</span>
+          <span class="lang-arrow">▾</span>
+        </button>
         <div class="lang-dropdown">
-          <div class="lang-option" data-lang="en">🇬🇧 English</div>
-          <div class="lang-option" data-lang="da">🇩🇰 Dansk</div>
+          <div class="lang-option" data-lang="en"><span class="fi fi-gb"></span> English</div>
+          <div class="lang-option" data-lang="da"><span class="fi fi-dk"></span> Dansk</div>
         </div>
       </div>
     </div>
@@ -208,7 +212,10 @@ async function renderItemPage(database, basePath, code) {
   const comments = database.db.collection("news-comments");
   const post = await posts.findOne({ code });
   if (!post) {
-    return `${header(basePath)}<main class="news-main"><p>Post not found.</p></main>${footer()}`;
+    return {
+      title: "Not Found | Aesthetic News",
+      body: `${header(basePath)}<main class="news-main"><p>Post not found.</p></main>${footer()}`
+    };
   }
   const hydratedPost = (await hydrateHandles(database, [post]))[0];
   const commentDocs = await comments
@@ -218,11 +225,12 @@ async function renderItemPage(database, basePath, code) {
   const hydratedComments = await hydrateHandles(database, commentDocs);
   const commentsHtml = hydratedComments.map((c) => renderComment(c)).join("\n");
 
-  const title = escapeHtml(hydratedPost.title || "(untitled)");
+  const postTitle = escapeHtml(hydratedPost.title || "(untitled)");
+  const pageTitle = `${hydratedPost.title || "(untitled)"} | Aesthetic News`;
   const url = hydratedPost.url ? escapeHtml(hydratedPost.url) : "";
   const domain = hydratedPost.url ? new URL(hydratedPost.url).hostname.replace(/^www\./, "") : "";
 
-  return `
+  const body = `
   ${header(basePath)}
   <main class="news-main">
     <table class="news-item-table" border="0" cellpadding="0" cellspacing="0">
@@ -237,7 +245,7 @@ async function renderItemPage(database, basePath, code) {
         </td>
         <td class="news-item-content">
           <span class="news-item-title">
-            <a href="${url || '#'}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${title}</a>
+            <a href="${url || '#'}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${postTitle}</a>
             ${domain ? `<span class="news-domain">(${domain})</span>` : ""}
           </span>
           <div class="news-item-meta">
@@ -260,6 +268,8 @@ async function renderItemPage(database, basePath, code) {
     </div>
   </main>
   ${footer()}`;
+  
+  return { title: pageTitle, body };
 }
 
 async function renderReportPage(basePath) {
@@ -267,7 +277,20 @@ async function renderReportPage(basePath) {
   ${header(basePath)}
   <main class="news-main">
     <section class="news-report">
-      <h2 data-i18n="report-the-news">Report the News</h2>
+      <div class="news-report-header">
+        <h2 data-i18n="report-the-news">Report · Aesthetic News</h2>
+        <div class="news-lang-selector news-lang-inline" id="news-lang-selector-report">
+          <button type="button" class="lang-trigger">
+            <span class="fi fi-gb lang-flag" data-lang-flag></span>
+            <span class="lang-text">EN</span>
+            <span class="lang-arrow">▾</span>
+          </button>
+          <div class="lang-dropdown">
+            <div class="lang-option" data-lang="en"><span class="fi fi-gb"></span> English</div>
+            <div class="lang-option" data-lang="da"><span class="fi fi-dk"></span> Dansk</div>
+          </div>
+        </div>
+      </div>
       <div id="news-login-prompt" class="news-login-prompt">
         <p><span data-i18n="login-prompt-1">You need to</span> <button id="news-prompt-login" class="news-inline-login" data-i18n="log-in">log in</button> <span data-i18n="login-prompt-2">to post.</span></p>
         <p class="news-handle-note" data-i18n="handle-note">You'll also need a @handle — get one at <a href="https://aesthetic.computer" target="_blank">aesthetic.computer</a></p>
@@ -288,14 +311,7 @@ async function renderReportPage(basePath) {
         </div>
         <button type="submit" data-i18n="post">Post</button>
       </form>
-      <div class="news-guidelines news-guidelines-below">
-        <p data-i18n="guidelines-intro">Share something interesting with the community.</p>
-        <ul>
-          <li data-i18n="guideline-1">Links to creative tools, code, art, and experiments are welcome.</li>
-          <li data-i18n="guideline-2">Self-promotion is fine if it's genuinely interesting.</li>
-          <li data-i18n="guideline-3">Be curious. Be kind. Keep it weird.</li>
-        </ul>
-      </div>
+      <p class="news-tagline" data-i18n="tagline">Be curious. Be kind. Keep it weird.</p>
     </section>
   </main>
   ${footer()}`;
@@ -318,15 +334,21 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
       let body;
 
       if (!route || route === "") {
+        title = "Aesthetic News";
         body = await renderFrontPage(database, basePath, "top");
       } else if (route === "new") {
+        title = "New | Aesthetic News";
         body = await renderFrontPage(database, basePath, "new");
       } else if (route.startsWith("item/")) {
         const code = route.split("/").slice(1).join("/");
-        body = await renderItemPage(database, basePath, code);
+        const result = await renderItemPage(database, basePath, code);
+        body = result.body || result;
+        title = result.title || "Aesthetic News";
       } else if (route === "report" || route === "submit") {
+        title = "Report the News | Aesthetic News";
         body = await renderReportPage(basePath);
       } else {
+        title = "Not Found | Aesthetic News";
         body = `${header(basePath)}<main class="news-main"><p>Page not found.</p></main>${footer()}`;
       }
 

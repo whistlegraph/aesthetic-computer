@@ -155,6 +155,14 @@ let modalPainting = null; // Track fullscreen modal painting { painting, code, m
 let modalJustOpened = false; // Prevent closing modal on the same click that opened it
 let draftMessage = ""; // Store draft message text persistently
 
+// 📺 YouTube preview system
+let youtubePreviewCache = new Map(); // Store loaded YouTube thumbnails
+let youtubeLoadQueue = new Set(); // Track which videos are being loaded
+let youtubeAnimations = new Map(); // Track Ken Burns animation state for each video
+let youtubeModalOpen = false; // Track if YouTube modal is open
+let youtubeModalVideoId = null; // Current video in modal
+let domApi = null; // Store dom API reference for modal
+
 //  Link confirmation modal system
 // { type: "prompt"|"url"|"handle"|"kidlisp"|"painting", text: string, action: function }
 let linkConfirmModal = null;
@@ -191,10 +199,14 @@ async function boot(
     typeface,
     params,
     hud,
+    dom,
   },
   otherChat,
   options,
 ) {
+  // Store dom API reference for YouTube modal
+  domApi = dom;
+  
   // Set clean label without params
   if (params && params.length > 0) {
     hud.label("chat");
@@ -473,6 +485,8 @@ function paint(
     clockHover: "yellow",
     r8dio: [255, 0, 255], // Magenta for r8dio radio links
     r8dioHover: "yellow",
+    youtube: [255, 80, 80], // Red for YouTube links
+    youtubeHover: [255, 50, 50],
     timestamp: [100 / 1.3, 100 / 1.3, 145 / 1.3],
     timestampHover: "yellow",
   };
@@ -758,6 +772,8 @@ function paint(
             color = isHovered ? theme.r8dioHover : theme.r8dio;
           } else if (element.type === "log") {
             color = isHovered ? theme.logHover : theme.log;
+          } else if (element.type === "youtube") {
+            color = isHovered ? theme.youtubeHover : theme.youtube;
           }
           
           if (color) {
@@ -1083,8 +1099,147 @@ function paint(
     }
   }
   
-  // Request continuous painting only if we have animating paintings
-  if (hasAnimatingPaintings) {
+  // 📺 Render YouTube previews and trigger loading
+  let hasAnimatingYoutube = false;
+  
+  for (let i = client.messages.length - 1; i >= 0; i--) {
+    const message = client.messages[i];
+    if (!message.layout?.youtubeVideoIds) continue;
+    
+    // YouTube previews appear after painting previews (if any)
+    const paintingOffset = message.layout.paintingCodes ? 74 : 0;
+    const previewY = message.layout.y + message.layout.height + 4 + paintingOffset;
+    const previewHeight = 68;
+    
+    // Only process if visible
+    if (previewY + previewHeight < effectiveTopMargin) continue;
+    if (previewY > screen.height - bottomMargin) continue;
+    
+    let previewX = message.layout.x;
+    
+    for (let vidIdx = 0; vidIdx < message.layout.youtubeVideoIds.length; vidIdx++) {
+      const videoId = message.layout.youtubeVideoIds[vidIdx];
+      const cached = youtubePreviewCache.get(videoId);
+      
+      if (!cached && !youtubeLoadQueue.has(videoId)) {
+        // Trigger async loading
+        loadYoutubePreview(videoId, api.get).then(result => {
+          if (result) {
+            help.repeat(); // Trigger repaint when preview loads
+          }
+        });
+      }
+      
+      if (cached) {
+        hasAnimatingYoutube = true;
+        const { thumbnail } = cached;
+        
+        const previewSize = 64;
+        const animKey = `yt-${i}-${videoId}`;
+        if (!youtubeAnimations.has(animKey)) {
+          youtubeAnimations.set(animKey, {
+            seed: Math.random(),
+            startTime: performance.now(),
+          });
+        }
+        
+        const anim = youtubeAnimations.get(animKey);
+        const KEN_BURNS_CYCLE_MS = 10000;
+        const nowTime = performance.now();
+        const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + anim.seed) % 1;
+        
+        const imgWidth = thumbnail.width || thumbnail.w;
+        const imgHeight = thumbnail.height || thumbnail.h;
+        
+        const maxPanX = Math.max(0, imgWidth - previewSize);
+        const maxPanY = Math.max(0, imgHeight - previewSize);
+        
+        const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
+        const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
+        
+        const cropX = Math.max(0, Math.min(maxPanX * panX, imgWidth - previewSize));
+        const cropY = Math.max(0, Math.min(maxPanY * panY, imgHeight - previewSize));
+        const cropW = Math.min(previewSize, imgWidth - cropX);
+        const cropH = Math.min(previewSize, imgHeight - cropY);
+        
+        const isHovered = message.layout.hoveredYoutube === videoId;
+        
+        const visibleTop = Math.max(previewY, effectiveTopMargin);
+        const visibleBottom = Math.min(previewY + previewSize, screen.height - bottomMargin);
+        const visibleHeight = visibleBottom - visibleTop;
+        
+        if (visibleHeight > 0) {
+          let renderY = floor(previewY);
+          let renderCropY = floor(cropY);
+          let renderCropH = floor(cropH);
+          
+          if (previewY < effectiveTopMargin) {
+            const clipAmount = effectiveTopMargin - previewY;
+            renderY = effectiveTopMargin;
+            renderCropY = floor(cropY + clipAmount);
+            renderCropH = floor(cropH - clipAmount);
+          }
+          
+          if (previewY + previewSize > screen.height - bottomMargin) {
+            const clipAmount = (previewY + previewSize) - (screen.height - bottomMargin);
+            renderCropH = floor(cropH - clipAmount);
+          }
+          
+          if (renderCropH > 0 && renderCropY >= 0 && renderCropY < imgHeight) {
+            paste(
+              thumbnail,
+              floor(previewX),
+              renderY,
+              { 
+                crop: {
+                  x: floor(cropX),
+                  y: renderCropY,
+                  w: floor(cropW),
+                  h: Math.min(renderCropH, imgHeight - renderCropY)
+                }
+              }
+            );
+          }
+        }
+        
+        // Red YouTube-style border
+        if (isHovered) {
+          ink(255, 50, 50).box(previewX, previewY, previewSize, previewSize, "outline");
+        } else {
+          const blinkAlpha = Math.floor(100 + (Math.sin(help.repeat * 0.15) + 1) * 50);
+          ink(255, 80, 80, blinkAlpha).box(previewX, previewY, previewSize, previewSize, "outline");
+        }
+        
+        // Small play button triangle overlay
+        const playX = previewX + previewSize / 2 - 6;
+        const playY = previewY + previewSize / 2 - 6;
+        ink(255, 255, 255, 200).box(playX, playY, 12, 12); // White background
+        ink(255, 0, 0, 230).box(playX + 3, playY + 3, 6, 6); // Red center
+        
+        previewX += previewSize + 2;
+      } else {
+        // Loading indicator for YouTube
+        const loadingW = 64;
+        const loadingH = 64;
+        const pulse = (Math.sin(help.repeat * 0.1) + 1) / 2;
+        const bgAlpha = Math.floor(100 + pulse * 40);
+        
+        ink(80, 30, 30, bgAlpha).box(previewX, previewY, loadingW, loadingH);
+        ink(255, 80, 80, 150).box(previewX, previewY, loadingW, loadingH, "outline");
+        
+        // YouTube logo-like loading
+        const centerX = previewX + loadingW / 2;
+        const centerY = previewY + loadingH / 2;
+        const pulseSize = 8 + pulse * 4;
+        ink(255, 0, 0, 200).box(floor(centerX - pulseSize/2), floor(centerY - pulseSize/2), floor(pulseSize), floor(pulseSize));
+        
+        previewX += 64;
+      }
+    }
+  }
+  
+  // Request continuous painting only if we have animating paintings or YouTube
+  if (hasAnimatingPaintings || hasAnimatingYoutube) {
     needsPaint();
   }
 
@@ -2055,6 +2210,35 @@ function act(
               }
             }
           }
+          
+          // 📺 Check for hover on YouTube previews
+          if (message.layout.youtubeVideoIds) {
+            const paintingOffset = message.layout.paintingCodes ? 74 : 0;
+            const previewY = message.layout.y + message.layout.height + 4 + paintingOffset;
+            let previewX = message.layout.x;
+            const previewSize = 64;
+            
+            message.layout.hoveredYoutube = null;
+            
+            for (let vidIdx = 0; vidIdx < message.layout.youtubeVideoIds.length; vidIdx++) {
+              const videoId = message.layout.youtubeVideoIds[vidIdx];
+              const cached = youtubePreviewCache.get(videoId);
+              if (cached) {
+                if (
+                  e.x >= previewX &&
+                  e.x < previewX + previewSize &&
+                  e.y >= previewY &&
+                  e.y < previewY + previewSize
+                ) {
+                  message.layout.hoveredYoutube = videoId;
+                  break;
+                }
+                previewX += previewSize + 2;
+              } else {
+                previewX += 64;
+              }
+            }
+          }
 
           // Store the clicked message for potential interaction
           message.clicked = true;
@@ -2248,6 +2432,12 @@ function act(
                   action: () => jump("r8dio")
                 };
                 break;
+              } else if (element.type === "youtube") {
+                beep();
+                // Open YouTube modal directly (no confirmation needed)
+                openYoutubeModal(element.videoId);
+                clickedInteractiveElement = true;
+                break;
               }
             }
           }
@@ -2283,6 +2473,35 @@ function act(
                 previewX += previewSize + 2; // Move to next preview with 2px gap
               } else {
                 previewX += 64; // Reserve space for loading preview (no gap)
+              }
+            }
+          }
+          
+          // 📺 Check if click was on a YouTube preview
+          if (message.layout.youtubeVideoIds && !clickedInteractiveElement) {
+            const paintingOffset = message.layout.paintingCodes ? 74 : 0;
+            const previewY = message.layout.y + message.layout.height + 4 + paintingOffset;
+            let previewX = message.layout.x;
+            const previewSize = 64;
+            
+            for (const videoId of message.layout.youtubeVideoIds) {
+              const cached = youtubePreviewCache.get(videoId);
+              if (cached) {
+                if (
+                  e.x >= previewX &&
+                  e.x < previewX + previewSize &&
+                  e.y >= previewY &&
+                  e.y < previewY + previewSize
+                ) {
+                  clickedInteractiveElement = true;
+                  beep();
+                  // Open YouTube modal
+                  openYoutubeModal(videoId);
+                  break;
+                }
+                previewX += previewSize + 2;
+              } else {
+                previewX += 64;
               }
             }
           }
@@ -2459,6 +2678,36 @@ function act(
                 previewX += previewSize + 2; // Move to next preview with 2px gap
               } else {
                 previewX += 64; // Reserve space for loading preview
+              }
+            }
+          }
+          
+          // 📺 Check for hover on YouTube previews
+          if (message.layout.youtubeVideoIds) {
+            const paintingOffset = message.layout.paintingCodes ? 74 : 0;
+            const previewY = message.layout.y + message.layout.height + 4 + paintingOffset;
+            let previewX = message.layout.x;
+            const previewSize = 64;
+            
+            message.layout.hoveredYoutube = null;
+            
+            for (let vidIdx = 0; vidIdx < message.layout.youtubeVideoIds.length; vidIdx++) {
+              const videoId = message.layout.youtubeVideoIds[vidIdx];
+              const cached = youtubePreviewCache.get(videoId);
+              if (cached) {
+                if (
+                  e.x >= previewX &&
+                  e.x < previewX + previewSize &&
+                  e.y >= previewY &&
+                  e.y < previewY + previewSize
+                ) {
+                  message.layout.hoveredYoutube = videoId;
+                  hoveredAnyElement = true;
+                  break;
+                }
+                previewX += previewSize + 2;
+              } else {
+                previewX += 64;
               }
             }
           }
@@ -2728,6 +2977,132 @@ async function loadPaintingPreview(code, get, store) {
   }
 }
 
+// 📺 Load YouTube thumbnail by video ID
+async function loadYoutubePreview(videoId, get) {
+  // Check cache first
+  if (youtubePreviewCache.has(videoId)) {
+    return youtubePreviewCache.get(videoId);
+  }
+  
+  // Check if already loading
+  if (youtubeLoadQueue.has(videoId)) {
+    return null; // Still loading
+  }
+  
+  youtubeLoadQueue.add(videoId);
+  
+  try {
+    // YouTube thumbnails are publicly available without API key
+    // mqdefault is 320x180, good balance of quality and size
+    const thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+    
+    // Load the thumbnail image
+    const thumbnail = await get.image(thumbnailUrl);
+    
+    if (thumbnail) {
+      const result = { thumbnail, videoId };
+      youtubePreviewCache.set(videoId, result);
+      youtubeLoadQueue.delete(videoId);
+      return result;
+    }
+    
+    youtubeLoadQueue.delete(videoId);
+    return null;
+  } catch (err) {
+    console.warn(`Failed to load YouTube thumbnail ${videoId}:`, err);
+    youtubeLoadQueue.delete(videoId);
+    return null;
+  }
+}
+
+// 📺 Open YouTube modal with embed iframe
+function openYoutubeModal(videoId) {
+  if (!domApi || youtubeModalOpen) return;
+  
+  youtubeModalOpen = true;
+  youtubeModalVideoId = videoId;
+  
+  domApi.html`
+    <style>
+      #youtube-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.92);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        animation: ytFadeIn 0.2s ease-out;
+      }
+      @keyframes ytFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      #youtube-modal-content {
+        width: min(90vw, 854px);
+        aspect-ratio: 16/9;
+        background: #000;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      }
+      #youtube-modal-content iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+      #youtube-modal-close {
+        margin-top: 16px;
+        padding: 8px 24px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        font-family: monospace;
+        font-size: 14px;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background 0.2s;
+      }
+      #youtube-modal-close:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+    </style>
+    <div id="youtube-modal-overlay" onclick="if(event.target.id === 'youtube-modal-overlay') { this.remove(); window.acCloseYoutubeModal && window.acCloseYoutubeModal(); }">
+      <div id="youtube-modal-content">
+        <iframe 
+          src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen>
+        </iframe>
+      </div>
+      <button id="youtube-modal-close" onclick="this.parentElement.remove(); window.acCloseYoutubeModal && window.acCloseYoutubeModal();">✕ Close (Esc)</button>
+    </div>
+    <script>
+      window.acCloseYoutubeModal = function() {
+        const overlay = document.getElementById('youtube-modal-overlay');
+        if (overlay) overlay.remove();
+      };
+      document.addEventListener('keydown', function ytEscHandler(e) {
+        if (e.key === 'Escape') {
+          window.acCloseYoutubeModal();
+          document.removeEventListener('keydown', ytEscHandler);
+        }
+      });
+    </script>
+  `;
+}
+
+// 📺 Close YouTube modal
+function closeYoutubeModal() {
+  youtubeModalOpen = false;
+  youtubeModalVideoId = null;
+  // The DOM cleanup happens via the onclick/escape handlers in the HTML
+}
+
 function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypefaceName, defaultRowHeight) {
   let height = 0;
   
@@ -2775,6 +3150,14 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
       const previewHeight = 74;
       height += previewHeight;
     }
+    
+    // 📺 Add space for YouTube previews (if any)
+    const youtubeElements = parseMessageElements(fullMessage).filter(el => el.type === "youtube");
+    if (youtubeElements.length > 0) {
+      // 4px gap above + 64px image + 4px padding + 2px gap below = 74px
+      const previewHeight = 74;
+      height += previewHeight;
+    }
   }
   return height;
 }
@@ -2812,9 +3195,19 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
     const paintingElements = parsedElements.filter(el => el.type === "painting");
     const paintingCodes = paintingElements.map(el => el.text.replace(/^#/, ''));
     
+    // 📺 YouTube video IDs
+    const youtubeElements = parsedElements.filter(el => el.type === "youtube");
+    const youtubeVideoIds = youtubeElements.map(el => el.videoId);
+    
     // 🎨 Move up for painting previews FIRST (before positioning this message)
     if (paintingCodes.length > 0) {
       // 4px gap above + 64px image + 4px padding + 2px gap below = 74px
+      const previewHeight = 74;
+      y -= previewHeight;
+    }
+    
+    // 📺 Move up for YouTube previews
+    if (youtubeVideoIds.length > 0) {
       const previewHeight = 74;
       y -= previewHeight;
     }
@@ -2886,6 +3279,7 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
       paintableMessage: colorCodedMessage,
       paintingCodes: paintingCodes.length > 0 ? paintingCodes : undefined, // Store painting codes
       paintingPreviews: paintingCodes.length > 0 ? [] : undefined, // Will store loaded previews
+      youtubeVideoIds: youtubeVideoIds.length > 0 ? youtubeVideoIds : undefined, // 📺 Store YouTube video IDs
     };
 
     delete msg.lastLayout;

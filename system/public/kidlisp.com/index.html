@@ -27,6 +27,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <!-- Flag icons for language selector -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Auth0 SPA SDK (same as give.aesthetic.computer) -->
   <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
@@ -11512,19 +11514,19 @@
         <span class="preferences-label">Language</span>
         <div class="lang-options" id="pref-lang-options">
           <button class="lang-option-btn" data-lang="en">
-            <span class="lang-flag">🇺🇸</span>
+            <span class="lang-flag fi fi-us"></span>
             <span>English</span>
           </button>
           <button class="lang-option-btn" data-lang="es">
-            <span class="lang-flag">🇪🇸</span>
+            <span class="lang-flag fi fi-es"></span>
             <span>Español</span>
           </button>
           <button class="lang-option-btn" data-lang="zh">
-            <span class="lang-flag">🇨🇳</span>
+            <span class="lang-flag fi fi-cn"></span>
             <span>中文</span>
           </button>
           <button class="lang-option-btn" data-lang="da">
-            <span class="lang-flag">🇩🇰</span>
+            <span class="lang-flag fi fi-dk"></span>
             <span>Dansk</span>
           </button>
         </div>
@@ -14017,10 +14019,10 @@
       
       // Language list for preferences modal
       const languages = [
-        { code: 'en', name: 'English', flag: '🇺🇸' },
-        { code: 'es', name: 'Español', flag: '🇪🇸' },
-        { code: 'zh', name: '中文', flag: '🇨🇳' },
-        { code: 'da', name: 'Dansk', flag: '🇩🇰' }
+        { code: 'en', name: 'English', flagClass: 'fi fi-us' },
+        { code: 'es', name: 'Español', flagClass: 'fi fi-es' },
+        { code: 'zh', name: '中文', flagClass: 'fi fi-cn' },
+        { code: 'da', name: 'Dansk', flagClass: 'fi fi-dk' }
       ];
       
       // Initialize UI language
