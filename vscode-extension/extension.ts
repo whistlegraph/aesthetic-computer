@@ -607,7 +607,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
           </style>
         </head>
         <body>
-          <iframe allow="clipboard-write; clipboard-read" credentialless sandbox="allow-scripts allow-modals allow-popups allow-popups-to-escape-sandbox" src="https://aesthetic.computer/docs${path}">
+          <iframe allow="clipboard-write; clipboard-read" credentialless sandbox="allow-scripts allow-modals allow-popups allow-popups-to-escape-sandbox allow-presentation" src="https://aesthetic.computer/docs${path}">
         </body>
         </html>
       `.trim();
@@ -2318,7 +2318,7 @@ function getWebViewContent(webview: any, slug: string) {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
-        <iframe id="aesthetic" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/${param}${hashFragment}" border="none"></iframe>
+        <iframe id="aesthetic" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox allow-presentation" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/${param}${hashFragment}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
@@ -2461,7 +2461,7 @@ function getWebViewContent(webview: any, slug: string) {
         </style>
       </head>
       <body>
-        <iframe id="news" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox allow-forms" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}${path}${param}"></iframe>
+        <iframe id="news" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}${path}${param}"></iframe>
         <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
           const newsIframe = document.getElementById('news');
@@ -2661,7 +2661,7 @@ function getKidLispWebViewContent(webview: any) {
       </style>
     </head>
     <body>
-      <iframe id="kidlisp" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/kidlisp.com${param}" border="none"></iframe>
+      <iframe id="kidlisp" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox allow-presentation" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/kidlisp.com${param}" border="none"></iframe>
       <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         const kidlispIframe = document.getElementById('kidlisp');
