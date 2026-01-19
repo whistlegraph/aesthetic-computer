@@ -19946,7 +19946,17 @@
         isBroadcasting
       );
       
+      console.log('📺 updateCodeChannelDisplay:', {
+        codeChannelId,
+        popoutWindow: popoutWindow ? !popoutWindow.closed : null,
+        isVSCodePopout,
+        isBroadcasting,
+        hasActivePjWindow,
+        previewIframeContainer: !!previewIframeContainer
+      });
+      
       if (hasActivePjWindow) {
+        console.log('📺 Adding popped-out class to previewIframeContainer');
         previewIframeContainer?.classList.add('popped-out');
         const shareUrl = getPjShareUrl();
         if (popoutOverlayChannel && shareUrl) {
