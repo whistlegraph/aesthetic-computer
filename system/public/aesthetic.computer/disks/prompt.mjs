@@ -6340,6 +6340,10 @@ function paint($) {
           const blinkPhase = (performance.now() / 800) % 1; // 0.8s cycle
           const blinkAlpha = 0.6 + 0.4 * Math.sin(blinkPhase * Math.PI * 2); // 0.2 to 1.0
 
+          // Draw outline around commit button
+          const outlineColor = [...versionColor, Math.round(120 * blinkAlpha)];
+          ink(...outlineColor).box(btnBox.x, btnBox.y, btnBox.w, btnBox.h, "outline");
+
           // Background fill when pressed
           if (isDown) {
             ink(...versionColor, 60).box(btnBox, "fill");
@@ -6373,6 +6377,16 @@ function paint($) {
             versionText.length * 4, // 4 = MatrixChunky8 char width
             1
           );
+
+          // Draw Tezos wallet address to the right of commit button (if connected)
+          if (tezosWalletAddress) {
+            const addrGap = 8; // Gap between commit button and address
+            const addrX = btnBox.x + btnBox.w + addrGap;
+            const addrY = btnBox.y + 2; // Align with commit text
+            // Draw domain name if available, otherwise truncated address
+            const addrDisplay = tezosDomainName || tezosWalletAddress.slice(0, 8) + "..." + tezosWalletAddress.slice(-4);
+            ink(0, 140, 180, Math.round(200 * blinkAlpha)).write(addrDisplay, { x: addrX, y: addrY }, undefined, undefined, false, "MatrixChunky8");
+          }
         } else {
           // No valid commit - just draw text without button
           commitBtn = null;
@@ -7015,8 +7029,8 @@ function paint($) {
     }
     profile?.paint($);
 
-    // ꜩ Tezos wallet button (positioned above handles count at bottom)
-    if (tezosWalletAddress) {
+    // ꜩ Tezos wallet button (positioned to the right of handle button)
+    if (tezosWalletAddress && profile) {
       // Format balance
       const balanceText = tezosWalletBalance !== null
         ? `${tezosWalletBalance.toFixed(2)}`
@@ -7025,19 +7039,29 @@ function paint($) {
       // Build button text (space for ꜩ symbol drawn separately)
       const btnTextWithSymbol = "  " + balanceText; // 2 spaces for the ꜩ symbol
 
-      // Calculate position - well above handles text (more space)
-      let walletBtnY = screen.height - 90; // Position higher up to clear handles message
+      // Position to the right of profile button with a gap
+      const gap = 6; // Gap between handle and wallet buttons
+      const profileBox = profile.btn.box;
+      const walletBtnY = profileBox.y; // Same Y as profile button
 
-      // Create or update wallet button
+      // Create or update wallet button (positioned temporarily, will adjust X after)
       if (!walletBtn) {
         walletBtn = new $.ui.TextButton(btnTextWithSymbol, {
-          y: walletBtnY,
-          center: "x",
-          screen
+          x: 0, y: walletBtnY, screen
         });
       } else {
-        walletBtn.reposition({ y: walletBtnY, center: "x", screen }, btnTextWithSymbol);
+        walletBtn.reposition({ x: 0, y: walletBtnY, screen }, btnTextWithSymbol);
       }
+
+      // Calculate combined width and center both buttons together
+      const walletWidth = walletBtn.btn.box.w;
+      const profileWidth = profileBox.w;
+      const totalWidth = profileWidth + gap + walletWidth;
+      const startX = (screen.width - totalWidth) / 2;
+
+      // Reposition both buttons to be centered together
+      profile.btn.box.x = startX;
+      walletBtn.btn.box.x = startX + profileWidth + gap;
 
       // Color schemes: [fill, outline, text, textBackground]
       const normalFill = [20, 50, 70];
@@ -7055,16 +7079,7 @@ function paint($) {
       const tezColor = walletBtn.btn.down ? [255, 255, 255] : [0, 200, 255];
       const tezBg = walletBtn.btn.down ? hoverFill : normalFill;
       ink(...tezColor).write("ꜩ", { x: tezSymbolX, y: tezSymbolY + TEZ_Y_ADJUST, bg: tezBg }, undefined, undefined, false, "unifont");
-
-      // Draw full wallet address below the button in MatrixChunky8, centered (dimmer teal/gray)
-      const addrY = walletBtnY + walletBtn.height + 6; // Below button with more gap (2px more)
-      ink(0, 140, 180).write(tezosWalletAddress, { x: screen.width / 2, y: addrY, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-
-      // Draw domain name if available (below address, brighter cyan/magenta)
-      if (tezosDomainName) {
-        ink(100, 180, 255).write(tezosDomainName, { x: screen.width / 2, y: addrY + 12, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      }
-    } else {
+    } else if (!tezosWalletAddress) {
       walletBtn = null; // Clear button when disconnected
     }
   }
