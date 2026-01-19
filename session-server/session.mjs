@@ -211,6 +211,7 @@ const info = {
 
 const codeChannels = {}; // Used to filter `code` updates from redis to
 //                          clients who explicitly have the channel set.
+const codeChannelState = {}; // Store last code sent to each channel for late joiners
 
 // DAW channel for M4L device ↔ IDE communication
 const dawDevices = new Set(); // Connection IDs of /device instances
@@ -1640,13 +1641,24 @@ wss.on("connection", (ws, req) => {
       codeChannel = msg.content;
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
+      
+      // Send current channel state to late joiners
+      if (codeChannelState[codeChannel]) {
+        const stateMsg = pack("code", JSON.stringify(codeChannelState[codeChannel]), id);
+        send(stateMsg);
+        log(`📥 Sent current state to late joiner on channel ${codeChannel}`);
+      }
     } else if (msg.type === "code" && msg.content?.codeChannel) {
       // Handle code broadcast to channel subscribers (for kidlisp.com pop-out sync)
       const targetChannel = msg.content.codeChannel;
+      
+      // Store the latest state for late joiners
+      codeChannelState[targetChannel] = msg.content;
+      
       if (codeChannels[targetChannel]) {
         const codeMsg = pack("code", JSON.stringify(msg.content), id);
         subscribers(codeChannels[targetChannel], codeMsg);
-        log(`📢 Broadcast code to channel ${targetChannel} (${codeChannels[targetChannel].size} subscribers)`);
+        log(`📢 Broadcast code to channel ${targetChannel} (${codeChannels[targetChannel].size} subscribers}`);
       }
     } else if (msg.type === "login") {
       if (msg.content?.user?.sub) {
@@ -2063,8 +2075,10 @@ wss.on("connection", (ws, req) => {
     // Clear out the codeChannel if the last user disconnects from it.
     if (codeChannel !== undefined) {
       codeChannels[codeChannel]?.delete(id);
-      if (codeChannels[codeChannel]?.values().length === 0) {
+      if (codeChannels[codeChannel]?.size === 0) {
         delete codeChannels[codeChannel];
+        delete codeChannelState[codeChannel]; // Clean up stored state too
+        log(`🗑️ Cleaned up empty channel: ${codeChannel}`);
       }
     }
   });
