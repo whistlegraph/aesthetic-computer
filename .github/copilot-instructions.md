@@ -1,3 +1,4 @@
+````instructions
 # Aesthetic Computer
 
 **Environment:** Devcontainer in `/workspaces/aesthetic-computer` monorepo (Fedora Linux).
@@ -356,26 +357,28 @@ When running VS Code on Windows with remote container:
 
 The Electron desktop app lives in `ac-electron/`. When user says **"build and release the desktop app"**:
 
-### Full Release Process
+### Standard Release (recommended)
 ```bash
-# 1. Bump version in package.json
-cd ac-electron
-# Edit package.json version (e.g., 0.1.11 -> 0.1.12)
+# From repo root
+npm run electron:release -- --bump patch
 
-# 2. Commit changes
-git add ac-electron/
-git commit -m "v0.1.12: Description of changes"
+# Or pin a specific version
+npm run electron:release -- --version 0.1.14
 
-# 3. Tag and push (triggers GitHub Actions build)
-git tag v0.1.12
-git push origin main
-git push origin v0.1.12
+# Dry run
+npm run electron:release -- --bump patch --dry-run
+```
 
-# 4. Wait for build (~5 min), then verify
+What it does:
+1. Updates `ac-electron/package.json` version
+2. Commits with `vX.Y.Z: electron desktop release`
+3. Tags `vX.Y.Z` and pushes `main` + tag
+4. GitHub Actions builds and publishes the release
+
+### Manual Verification
+```bash
 gh run list --workflow=electron-release.yml --limit 1
-
-# 5. Verify release is published (not draft)
-gh release view v0.1.12
+gh release view v0.1.14
 ```
 
 ### Key Files
@@ -498,3 +501,5 @@ export { boot, paint, sim, act, meta };
 ```
 
 Key KidLisp: `wipe`, `ink`, `line`, `box`, `def`, `now`, `repeat`, `later`, `tap`, `draw`, `wiggle`, `rainbow`, `frame`, `width`, `height`
+
+````
