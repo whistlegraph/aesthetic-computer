@@ -32,6 +32,15 @@ function formatDate(date) {
   return `${days}d ago`;
 }
 
+function renderHandle(handle) {
+  const safeHandle = escapeHtml(handle || "@anon");
+  // Extract username without @ for the URL
+  const username = safeHandle.startsWith("@") ? safeHandle.slice(1) : safeHandle;
+  if (username === "anon") return safeHandle;
+  const profileUrl = `https://aesthetic.computer/${username}`;
+  return `<a href="${profileUrl}" class="news-modal-link news-handle-link" data-modal-url="${profileUrl}">${safeHandle}</a>`;
+}
+
 function parseRoute(event) {
   const route = event.queryStringParameters?.path || "";
   const clean = route.replace(/^\/+/, "").replace(/\/+$/, "");
@@ -75,12 +84,12 @@ function header(basePath) {
   <header class="news-header">
     <div class="news-logo">
       <a href="${homeHref}" class="news-logo-icon">A</a>
-      <a href="${homeHref}"><b>Aesthetic News</b></a>
+      <a href="${homeHref}"><b data-i18n="site-title">Aesthetic News</b></a>
     </div>
     ${connectivityHtml}
     <div class="news-auth">
-      <button id="news-login-btn" class="header-login-btn">Log In</button>
-      <button id="news-signup-btn" class="header-login-btn header-signup-btn">I'm New</button>
+      <button id="news-login-btn" class="header-login-btn" data-i18n="log-in">Log In</button>
+      <button id="news-signup-btn" class="header-login-btn header-signup-btn" data-i18n="im-new">I'm New</button>
       <div id="news-user-menu" class="header-user-menu" style="display:none;">
         <button id="news-user-handle" class="header-user-handle" type="button">@anon</button>
       </div>
@@ -92,11 +101,20 @@ function footer() {
   return `
   <footer class="news-footer">
     <div class="news-footer-links">
-      <a href="https://aesthetic.computer/list" class="news-modal-link" data-modal-url="https://aesthetic.computer/list">List</a>
+      <a href="https://aesthetic.computer/list" class="news-modal-link" data-modal-url="https://aesthetic.computer/list" data-i18n="list">List</a>
       <span>|</span>
-      <a href="https://give.aesthetic.computer" class="news-external-link" target="_blank" rel="noopener">Give</a>
+      <a href="https://give.aesthetic.computer" class="news-external-link" target="_blank" rel="noopener" data-i18n="give">Give</a>
       <span>|</span>
-      <a href="https://prompt.ac/commits" class="news-modal-link" data-modal-url="https://prompt.ac/commits">Commits</a>
+      <a href="https://prompt.ac/commits" class="news-modal-link" data-modal-url="https://prompt.ac/commits" data-i18n="commits">Commits</a>
+      <span>|</span>
+      <div class="news-lang-selector" id="news-lang-selector">
+        <span class="lang-current">🇬🇧 <span class="lang-text">EN</span></span>
+        <span class="lang-arrow">▾</span>
+        <div class="lang-dropdown">
+          <div class="lang-option" data-lang="en">🇬🇧 English</div>
+          <div class="lang-option" data-lang="da">🇩🇰 Dansk</div>
+        </div>
+      </div>
     </div>
   </footer>`;
 }
@@ -124,7 +142,7 @@ function renderPostRow(post, idx, basePath) {
       </div>
       <div class="news-meta">
         <span>${post.score || 0} points</span>
-        <span>by ${escapeHtml(post.handle || "@anon")}</span>
+        <span>by ${renderHandle(post.handle)}</span>
         <span>${formatDate(post.when)}</span>
         <span><a href="${itemUrl}">${post.commentCount || 0} comments</a></span>
       </div>
@@ -136,7 +154,7 @@ function renderComment(comment) {
   return `
   <div class="news-comment">
     <div class="news-comment-meta">
-      <span>${escapeHtml(comment.handle || "@anon")}</span>
+      <span>${renderHandle(comment.handle)}</span>
       <span>${formatDate(comment.when)}</span>
     </div>
     <div class="news-comment-body">${escapeHtml(comment.text || "")}</div>
@@ -168,8 +186,11 @@ async function renderFrontPage(database, basePath, sort) {
   const rows = hydrated.map((post, idx) => renderPostRow(post, idx, basePath)).join("\n");
   const emptyState = `
     <div class="news-empty">
-      <p>No posts yet.</p>
-      <a href="${basePath}/report" class="news-report-link">Report the News</a>
+      <p data-i18n="no-posts">No posts yet.</p>
+    </div>`;
+  const reportLink = `
+    <div class="news-report-cta">
+      <a href="${basePath}/report" class="news-report-link" data-i18n="report-the-news">Report the News</a>
     </div>`;
   return `
   ${header(basePath)}
@@ -177,6 +198,7 @@ async function renderFrontPage(database, basePath, sort) {
     <div class="news-list">
       ${rows || emptyState}
     </div>
+    ${reportLink}
   </main>
   ${footer()}`;
 }
@@ -219,7 +241,7 @@ async function renderItemPage(database, basePath, code) {
             ${domain ? `<span class="news-domain">(${domain})</span>` : ""}
           </span>
           <div class="news-item-meta">
-            ${hydratedPost.score || 0} points by ${escapeHtml(hydratedPost.handle || "@anon")} ${formatDate(hydratedPost.when)}
+            ${hydratedPost.score || 0} points by ${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}
           </div>
         </td>
       </tr>
@@ -228,10 +250,10 @@ async function renderItemPage(database, basePath, code) {
     <form id="news-comment-form" class="news-comment-form" data-news-action="comment" method="post" action="/api/news/comment">
       <input type="hidden" name="postCode" value="${escapeHtml(code)}" />
       <div class="news-comment-guidelines">
-        <p>Say something interesting or ask a question. Be nice.</p>
+        <p data-i18n="comment-guidelines">Say something interesting or ask a question. Be nice.</p>
       </div>
-      <textarea name="text" rows="6" cols="80" placeholder="Add a comment..."></textarea>
-      <button type="submit">add comment</button>
+      <textarea name="text" rows="6" cols="80" data-i18n-placeholder="comment-placeholder" placeholder="Add a comment..."></textarea>
+      <button type="submit" data-i18n="write-comment">write comment</button>
     </form>
     <div class="news-comments">
       ${commentsHtml || ''}
@@ -245,33 +267,33 @@ async function renderReportPage(basePath) {
   ${header(basePath)}
   <main class="news-main">
     <section class="news-report">
-      <h2>Report the News</h2>
+      <h2 data-i18n="report-the-news">Report the News</h2>
       <div id="news-login-prompt" class="news-login-prompt">
-        <p>You need to <button id="news-prompt-login" class="news-inline-login">log in</button> to post.</p>
-        <p class="news-handle-note">You'll also need a @handle — get one at <a href="https://aesthetic.computer" target="_blank">aesthetic.computer</a></p>
+        <p><span data-i18n="login-prompt-1">You need to</span> <button id="news-prompt-login" class="news-inline-login" data-i18n="log-in">log in</button> <span data-i18n="login-prompt-2">to post.</span></p>
+        <p class="news-handle-note" data-i18n="handle-note">You'll also need a @handle — get one at <a href="https://aesthetic.computer" target="_blank">aesthetic.computer</a></p>
       </div>
       <form id="news-submit-form" data-news-action="submit" method="post" action="/api/news/submit">
-        <label>Headline</label>
-        <input type="text" name="title" required placeholder="What's the story?" />
+        <label data-i18n="headline">Headline</label>
+        <input type="text" name="title" required data-i18n-placeholder="headline-placeholder" placeholder="What's the story?" />
         <div class="news-either-or">
-          <div class="news-pick-hint">pick one or both</div>
+          <div class="news-pick-hint" data-i18n="pick-hint">pick one or both</div>
           <div class="news-field-group">
-            <label>Source URL</label>
+            <label data-i18n="source-url">Source URL</label>
             <input type="url" name="url" placeholder="https://" />
           </div>
           <div class="news-field-group">
-            <label>Story</label>
-            <textarea name="text" rows="4" placeholder="Share context, commentary, or tell your own story..."></textarea>
+            <label data-i18n="story">Story</label>
+            <textarea name="text" rows="4" data-i18n-placeholder="story-placeholder" placeholder="Share context, commentary, or tell your own story..."></textarea>
           </div>
         </div>
-        <button type="submit">Post</button>
+        <button type="submit" data-i18n="post">Post</button>
       </form>
       <div class="news-guidelines news-guidelines-below">
-        <p>Share something interesting with the community.</p>
+        <p data-i18n="guidelines-intro">Share something interesting with the community.</p>
         <ul>
-          <li>Links to creative tools, code, art, and experiments are welcome.</li>
-          <li>Self-promotion is fine if it's genuinely interesting.</li>
-          <li>Be curious. Be kind. Keep it weird.</li>
+          <li data-i18n="guideline-1">Links to creative tools, code, art, and experiments are welcome.</li>
+          <li data-i18n="guideline-2">Self-promotion is fine if it's genuinely interesting.</li>
+          <li data-i18n="guideline-3">Be curious. Be kind. Keep it weird.</li>
         </ul>
       </div>
     </section>

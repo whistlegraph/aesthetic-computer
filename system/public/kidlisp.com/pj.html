@@ -186,16 +186,18 @@
     });
     
     // Send code to iframe
-    function sendCodeToIframe(code) {
+    function sendCodeToIframe(code, isSlide = false) {
       if (!iframeReady) {
         pendingCode = code;
         return;
       }
       
-      console.log('Sending code to iframe:', code.substring(0, 50) + '...');
+      if (!isSlide) {
+        console.log('Sending code to iframe:', code.substring(0, 50) + '...');
+      }
       
       iframe.contentWindow.postMessage({
-        type: 'kidlisp-reload',
+        type: isSlide ? 'kidlisp-slide' : 'kidlisp-reload',
         code: code,
         createCode: false,
         enableTrace: false
@@ -206,7 +208,9 @@
     if (channelId && window.BroadcastChannel) {
       const bc = new BroadcastChannel(`kidlisp-channel-${channelId}`);
       bc.onmessage = (event) => {
-        if (event.data?.type === 'code-update' && event.data?.code) {
+        if (event.data?.type === 'slide-update' && event.data?.code) {
+          sendCodeToIframe(event.data.code, true); // slide mode
+        } else if (event.data?.type === 'code-update' && event.data?.code) {
           console.log('Received code via BroadcastChannel');
           sendCodeToIframe(event.data.code);
         }
@@ -254,6 +258,11 @@
         try {
           const msg = JSON.parse(e.data);
           
+          // Handle slide updates (low-latency value changes)
+          if (msg.type === 'slide' && msg.content?.piece) {
+            sendCodeToIframe(msg.content.piece, true); // true = slide mode
+          }
+          
           // Handle code updates from the channel
           if (msg.type === 'code' && msg.content?.piece) {
             console.log('Received code via session server');
@@ -289,6 +298,11 @@
     // Listen for code updates via postMessage (from parent editor)
     window.addEventListener('message', (event) => {
       const data = event.data;
+      
+      // Slide update from editor (low-latency value changes)
+      if (data?.type === 'kidlisp-slide-update' && data?.code) {
+        sendCodeToIframe(data.code, true);
+      }
       
       // Code update from editor
       if (data?.type === 'kidlisp-code-update' && data?.code) {

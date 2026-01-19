@@ -1228,7 +1228,7 @@ let hideLabel = false;
 let hideLabelViaTab = false; // Track if label is hidden via tab key toggle
 
 // Helper function to toggle HUD visibility (used by Tab key and center tap)
-function toggleHUDVisibility(isDoubleTap = false) {
+function toggleHUDVisibility(isDoubleTap = false, skipSound = false) {
   const currentTime = performance.now();
   
   if (hudAnimationState.animating) {
@@ -1263,14 +1263,16 @@ function toggleHUDVisibility(isDoubleTap = false) {
       }
     }
     
-    $commonApi.sound.synth({
-      type: "sine",
-      tone: hudAnimationState.visible ? 600 : 400,
-      duration: 0.15,
-      attack: 0.1,
-      decay: 0.8,
-      volume: 0.2,
-    });
+    if (!skipSound) {
+      $commonApi.sound.synth({
+        type: "sine",
+        tone: hudAnimationState.visible ? 600 : 400,
+        duration: 0.15,
+        attack: 0.1,
+        decay: 0.8,
+        volume: 0.2,
+      });
+    }
   } else {
     // No animation in progress: start new animation
     hudAnimationState.animating = true;
@@ -1282,14 +1284,16 @@ function toggleHUDVisibility(isDoubleTap = false) {
       hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
     }
     
-    $commonApi.sound.synth({
-      type: "sine",
-      tone: hudAnimationState.visible ? 600 : 400,
-      duration: 0.15,
-      attack: 0.1,
-      decay: 0.8,
-      volume: 0.2,
-    });
+    if (!skipSound) {
+      $commonApi.sound.synth({
+        type: "sine",
+        tone: hudAnimationState.visible ? 600 : 400,
+        duration: 0.15,
+        attack: 0.1,
+        decay: 0.8,
+        volume: 0.2,
+      });
+    }
   }
 }
 
@@ -1679,6 +1683,18 @@ function detectKidLispPiece({ currentPath, currentHUDTxt, currentText, cleanText
     hasKidLispMarkers(currentHUDTxt) ||
     textContainsColorCodes(cleanText) ||
     hasKidLispMarkers(sourceCode)
+  );
+}
+
+// Detect embedded/inline KidLisp specifically (kidlisp.com editor, PJ KidLisp)
+// Does NOT include .lisp file pieces - only inline/embedded code
+function detectEmbeddedKidLisp({ currentPath, currentHUDTxt, currentText }) {
+  const sourceCode = currentText || currentHUDTxt;
+  return (
+    currentPath === "(...)" ||
+    (sourceCode && sourceCode.startsWith("$")) ||
+    (currentPath && currentPath.includes("/disks/$")) ||
+    (currentPath && currentPath.includes("$") && !currentPath.endsWith('.lisp'))
   );
 }
 
@@ -2459,8 +2475,9 @@ const $commonApi = {
   },
   
   // Toggle HUD visibility (same as Tab key functionality)
-  toggleHUD: function (isDoubleTap = false) {
-    toggleHUDVisibility(isDoubleTap);
+  // skipSound: true for KidLisp pieces to avoid beep/bop sounds on tap
+  toggleHUD: function (isDoubleTap = false, skipSound = false) {
+    toggleHUDVisibility(isDoubleTap, skipSound);
   },
 
   jump: function jump(to, ahistorical = false, alias = false) {
@@ -7292,6 +7309,7 @@ async function load(
     source,
     codeChannel,
     createCode,
+    codeId,     // The $code identifier (e.g., "inz") from kidlisp.com
     authToken,  // Auth token from kidlisp.com login
     enableTrace,  // Enable execution trace for kidlisp.com visualization
   } = {}) {
@@ -7316,7 +7334,7 @@ async function load(
         reload._queueCount = 0;
       } else {
         console.log("🟡 Queueing reload until current load completes...");
-        setTimeout(() => reload({ source, createCode, authToken, enableTrace }), 100);
+        setTimeout(() => reload({ source, codeId, createCode, authToken, enableTrace }), 100);
         return;
       }
     } else {
@@ -7354,6 +7372,11 @@ async function load(
       // Just pass the source directly without path/text
       currentText = source;
       currentPath = source;
+      
+      // Store the $code identifier for screenshots/sharing
+      if (codeId) {
+        currentOriginalCodeId = `$${codeId}`;
+      }
       
       // Store createCode flag globally so kidlisp can access it
       if (createCode) {
@@ -8176,6 +8199,7 @@ async function load(
       setTimeout(() => {
         $commonApi.reload({
           source: pending.source,
+          codeId: pending.codeId,
           createCode: pending.createCode,
           authToken: pending.authToken,
           enableTrace: pending.enableTrace
@@ -9099,7 +9123,8 @@ async function makeFrame({ data: { type, content } }) {
     log.piece.log("Reloading with new code:", content.source?.substring(0, 30) + "...");
     if ($commonApi.reload) {
       $commonApi.reload({ 
-        source: content.source, 
+        source: content.source,
+        codeId: content.codeId,       // The $code identifier (e.g., "inz")
         createCode: content.createCode,
         authToken: content.authToken,  // Pass token from kidlisp.com login
         enableTrace: content.enableTrace  // Enable execution trace for visualization
@@ -9108,7 +9133,16 @@ async function makeFrame({ data: { type, content } }) {
       // Queue the reload request to be processed once the piece is ready
       // Always update the queue with the latest code (overwrite previous)
       log.piece.warn("Reload function not ready yet, queuing:", content.source?.substring(0, 20));
-      pendingPieceReload = { source: content.source, createCode: content.createCode, authToken: content.authToken, enableTrace: content.enableTrace };
+      pendingPieceReload = { source: content.source, codeId: content.codeId, createCode: content.createCode, authToken: content.authToken, enableTrace: content.enableTrace };
+    }
+    return;
+  }
+
+  // 🎚️ Slide mode update - re-evaluate code but preserve buffers/state
+  if (type === "piece-slide") {
+    if (globalKidLispInstance && content.source) {
+      // Update the source code and re-parse without resetting layers
+      globalKidLispInstance.slideUpdate(content.source);
     }
     return;
   }
@@ -10483,7 +10517,9 @@ async function makeFrame({ data: { type, content } }) {
             const isDoubleTap = timeSinceLastTab < 300; // 300ms double-tap window
             
             hudAnimationState.lastTabTime = currentTime;
-            toggleHUDVisibility(isDoubleTap);
+            // Skip sound only for embedded/inline KidLisp (kidlisp.com editor, PJ KidLisp)
+            const isEmbedded = detectEmbeddedKidLisp({ currentPath, currentHUDTxt, currentText });
+            toggleHUDVisibility(isDoubleTap, isEmbedded);
           }
         }
 
