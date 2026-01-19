@@ -257,10 +257,7 @@ async function renderItemPage(database, basePath, code) {
     ${hydratedPost.text ? `<div class="news-text">${escapeHtml(hydratedPost.text)}</div>` : ""}
     <form id="news-comment-form" class="news-comment-form" data-news-action="comment" method="post" action="/api/news/comment">
       <input type="hidden" name="postCode" value="${escapeHtml(code)}" />
-      <div class="news-comment-guidelines">
-        <p data-i18n="comment-guidelines">Say something interesting or ask a question. Be nice.</p>
-      </div>
-      <textarea name="text" rows="6" cols="80" data-i18n-placeholder="comment-placeholder" placeholder="Respond..."></textarea>
+      <textarea name="text" rows="6" cols="80"></textarea>
       <button type="submit" data-i18n="respond">Respond</button>
     </form>
     <div class="news-comments">
