@@ -7681,12 +7681,6 @@
         <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
           <div id="platform-selector" class="platform-selector">
             <span id="preview-title" class="booting"><span class="title-full"><span class="title-letter">A</span><span class="title-letter">e</span><span class="title-letter">s</span><span class="title-letter">t</span><span class="title-letter">h</span><span class="title-letter">e</span><span class="title-letter">t</span><span class="title-letter">i</span><span class="title-letter">c</span></span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full"><span class="title-letter">C</span><span class="title-letter">o</span><span class="title-letter">m</span><span class="title-letter">p</span><span class="title-letter">u</span><span class="title-letter">t</span><span class="title-letter">e</span><span class="title-letter">r</span></span><span class="title-short">AC</span></span>
-            <button id="popout-btn" class="popout-btn" title="Cast to PJ window" aria-label="Cast to PJ window">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
-                <line x1="2" y1="20" x2="2.01" y2="20"/>
-              </svg>
-            </button>
             <span class="platform-arrow">▼</span>
             <div class="platform-dropdown" id="platform-dropdown">
               <div class="platform-option active" data-platform="aesthetic-computer">
@@ -7718,6 +7712,17 @@
               -->
             </div>
           </div>
+          <button id="popout-btn" class="popout-btn" title="Broadcast to PJ window" aria-label="Broadcast to PJ window">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/>
+              <path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/>
+              <circle cx="12" cy="9" r="2"/>
+              <path d="M16.2 4.7c2 2.3 2.4 5.5.8 7.5"/>
+              <path d="M19.1 1.9a12.98 12.98 0 0 1 0 14.2"/>
+              <path d="M12 11v11"/>
+              <path d="M8 22h8"/>
+            </svg>
+          </button>
           <img id="preview-qr" src="" alt="QR Code" title="Click to enlarge" style="display: none; width: auto; image-rendering: pixelated;" />
           <div id="header-auth-buttons" class="header-auth-buttons" style="display: none;">
             <button id="header-login-btn" class="header-login-btn">Log in</button>
@@ -7769,13 +7774,18 @@
             <div class="boot-text boot-text-status" style="font-size: 11px; opacity: 0.5; margin-top: 8px; color: #ff3333;" data-i18n="experimental">⚠️ Experimental</div>
           </div>
           <iframe id="preview-iframe" frameborder="0"></iframe>
-          <!-- PJ overlay (shown when casting to PJ window) -->
+          <!-- PJ overlay (shown when broadcasting to PJ window) -->
           <div class="popout-overlay" id="popout-overlay">
             <svg class="popout-overlay-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
-              <line x1="2" y1="20" x2="2.01" y2="20"/>
+              <path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/>
+              <path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/>
+              <circle cx="12" cy="9" r="2"/>
+              <path d="M16.2 4.7c2 2.3 2.4 5.5.8 7.5"/>
+              <path d="M19.1 1.9a12.98 12.98 0 0 1 0 14.2"/>
+              <path d="M12 11v11"/>
+              <path d="M8 22h8"/>
             </svg>
-            <div class="popout-overlay-text">Casting to PJ</div>
+            <div class="popout-overlay-text">Broadcasting to PJ</div>
             <canvas id="pj-qr-canvas" style="image-rendering: pixelated; border: 2px solid white; cursor: pointer;" title="Click to copy URL"></canvas>
             <div class="popout-overlay-channel" id="popout-overlay-channel" style="cursor: pointer;" title="Click to copy URL"></div>
             <button class="popout-overlay-btn" id="focus-popout-btn">Focus Window</button>
@@ -19843,6 +19853,7 @@
     let popoutWindow = null;
     let codeChannelId = null;
     let isVSCodePopout = false; // Track if pop-out was opened via VS Code (external browser)
+    let isBroadcasting = false; // Track if actively broadcasting (even if popup blocked)
     
     // PJ WebSocket - prefers production, falls back to localhost
     // This allows localhost development to broadcast to pj.kidlisp.com viewers
@@ -19928,10 +19939,11 @@
     
     // Update the PJ overlay (shown when casting)
     function updateCodeChannelDisplay() {
-      // Show overlay only if we have an active PJ window open
+      // Show overlay if we have an active PJ session (window open, VS Code mode, or broadcasting)
       const hasActivePjWindow = codeChannelId && (
         (popoutWindow && !popoutWindow.closed) || 
-        isVSCodePopout
+        isVSCodePopout ||
+        isBroadcasting
       );
       
       if (hasActivePjWindow) {
@@ -20009,9 +20021,9 @@
       }
     }
     
-    // Check if there's an active PJ session (window open or VS Code mode)
+    // Check if there's an active PJ session (window open, VS Code mode, or broadcasting)
     function hasActivePjSession() {
-      return (popoutWindow && !popoutWindow.closed) || isVSCodePopout;
+      return (popoutWindow && !popoutWindow.closed) || isVSCodePopout || isBroadcasting;
     }
     
     // Broadcast code to channel subscribers (only when PJ is active)
@@ -20115,12 +20127,11 @@
       // Subscribe to the channel
       subscribeToCodeChannel(codeChannelId);
       
-      // Build the PJ URL with channel in path
-      const currentCode = localStorage.getItem('kidlisp-current-code') || '';
+      // Build the PJ URL with channel in path (no code param - WebSocket syncs it)
       const dev = window.location.hostname === 'localhost' || window.location.hostname === 'local.aesthetic.computer';
       const pjUrl = dev 
-        ? `${window.location.origin}/pj.kidlisp.com/${codeChannelId}${currentCode ? `?code=${encodeURIComponent(currentCode)}` : ''}`
-        : `https://pj.kidlisp.com/${codeChannelId}${currentCode ? `?code=${encodeURIComponent(currentCode)}` : ''}`;
+        ? `${window.location.origin}/pj.kidlisp.com/${codeChannelId}`
+        : `https://pj.kidlisp.com/${codeChannelId}`;
       
       // In VS Code, we can't use window.open - open in external browser instead
       if (isInVSCode()) {
@@ -20156,10 +20167,12 @@
         `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`
       );
       
+      // Mark as broadcasting regardless of popup success (user can still share URL)
+      isBroadcasting = true;
+      popoutBtn.classList.add('active');
+      
       if (popoutWindow) {
-        // Mark button as active
-        popoutBtn.classList.add('active');
-        popoutBtn.title = 'Casting - click to focus';
+        popoutBtn.title = 'Broadcasting - click to focus';
         
         // Update channel display
         updateCodeChannelDisplay();
@@ -20181,8 +20194,9 @@
           if (popoutWindow.closed) {
             clearInterval(checkClosed);
             popoutWindow = null;
+            isBroadcasting = false;
             popoutBtn.classList.remove('active');
-            popoutBtn.title = 'Cast to PJ';
+            popoutBtn.title = 'Broadcast to PJ';
             updateCodeChannelDisplay(); // This will remove the overlay
             log.socket.log('Pop-out window closed');
           }
@@ -20203,12 +20217,25 @@
       if (isVSCodePopout) {
         // Close VS Code pop-out mode
         isVSCodePopout = false;
+        isBroadcasting = false;
         codeChannelId = null;
         localStorage.removeItem('kidlisp-code-channel');
         popoutBtn.classList.remove('active');
-        popoutBtn.title = 'Cast to PJ';
+        popoutBtn.title = 'Broadcast to PJ';
         updateCodeChannelDisplay();
-        showToast('Pop-out channel closed', 'info');
+        showToast('Broadcast channel closed', 'info');
+        return;
+      }
+      
+      // If broadcasting but popup was blocked, clicking again toggles off
+      if (isBroadcasting && (!popoutWindow || popoutWindow.closed)) {
+        isBroadcasting = false;
+        codeChannelId = null;
+        localStorage.removeItem('kidlisp-code-channel');
+        popoutBtn.classList.remove('active');
+        popoutBtn.title = 'Broadcast to PJ';
+        updateCodeChannelDisplay();
+        showToast('Broadcast stopped', 'info');
         return;
       }
       
