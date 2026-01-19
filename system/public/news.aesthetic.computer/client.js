@@ -699,19 +699,27 @@ function shouldHandleLink(link) {
 
 async function navigateTo(url, { push = true } = {}) {
   const nextUrl = typeof url === 'string' ? url : url.href;
+  console.log('[news] navigateTo called:', nextUrl, 'push:', push);
   if (!nextUrl) return;
   
   // For push navigation, skip if same URL. For popstate (push=false), always fetch.
-  if (push && nextUrl === window.location.href) return;
+  if (push && nextUrl === window.location.href) {
+    console.log('[news] Skipping - same URL');
+    return;
+  }
 
   try {
     closeModal();
+    console.log('[news] Fetching:', nextUrl);
     const res = await fetch(nextUrl, { headers: { 'X-Requested-With': 'spa' } });
+    console.log('[news] Fetch response:', res.status);
     const html = await res.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const nextWrapper = doc.querySelector('.news-wrapper');
     const currentWrapper = document.querySelector('.news-wrapper');
+    console.log('[news] Wrappers found:', !!nextWrapper, !!currentWrapper);
     if (!nextWrapper || !currentWrapper) {
+      console.log('[news] Falling back to full navigation');
       window.location.href = nextUrl;
       return;
     }
@@ -744,11 +752,13 @@ function initSpaRouting() {
 
   document.addEventListener('click', (e) => {
     const link = e.target.closest('a');
+    console.log('[news] Click on link:', link?.href, 'shouldHandle:', shouldHandleLink(link));
     if (!shouldHandleLink(link)) return;
     
     // Check if this is a report link and user is not logged in
     if (isReportLink(link)) {
       const isLoggedIn = acUser || acHandle || acToken;
+      console.log('[news] Report link check - isLoggedIn:', isLoggedIn, { acUser, acHandle, acToken: !!acToken });
       if (!isLoggedIn) {
         e.preventDefault();
         e.stopPropagation();
@@ -757,6 +767,7 @@ function initSpaRouting() {
       }
     }
     
+    console.log('[news] Navigating to:', link.href);
     e.preventDefault();
     navigateTo(link.href, { push: true });
   });
