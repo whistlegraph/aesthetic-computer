@@ -6938,15 +6938,26 @@ async function load(
             throw new Error(`Failed to load cached code: ${cacheId}`);
           }
         }
-      // ⏰ Handle *code clock pieces - load source and redirect to clock piece
+      // ⏰ Handle *code clock pieces - load source from store-clock API and redirect to clock piece
       } else if (slug && slug.startsWith("*") && slug.length > 1) {
         const cacheId = slug.slice(1); // Remove * prefix
         console.log("⏰ Loading cached clock code:", cacheId);
         try {
-          const clockSource = await getCachedCodeMultiLevel(cacheId);
-          if (!clockSource) {
-            throw new Error(`Cached clock code not found: ${cacheId}`);
+          // Fetch from store-clock API (clocks collection), not store-kidlisp
+          const clockApiUrl = `/api/store-clock?code=${encodeURIComponent(cacheId)}`;
+          console.log("🔍 Fetching clock from:", clockApiUrl);
+          const response = await fetch(clockApiUrl);
+          
+          if (!response.ok) {
+            throw new Error(`Clock code not found: ${cacheId} (HTTP ${response.status})`);
           }
+          
+          const data = await response.json();
+          if (!data.source) {
+            throw new Error(`Clock code has no source: ${cacheId}`);
+          }
+          
+          const clockSource = data.source;
           console.log("✅ Successfully loaded clock code:", cacheId, `(${clockSource.length} chars)`);
           // Redirect to clock piece with the cached source as a parameter
           // The clock piece will receive the melody/code string and execute it

@@ -175,32 +175,31 @@
       console.log('BroadcastChannel listener ready:', `kidlisp-channel-${channelId}`);
     }
     
-    // Connect to session server for cross-origin code updates (VS Code -> external browser)
+    // Session server connection - prefers production, falls back to localhost
     let sessionWs = null;
-    function connectToSessionServer() {
-      let connectionUrl = "wss://localhost:8889";
-      if (window.location.host === "local.aesthetic.computer") {
-        connectionUrl = "wss://session.local.aesthetic.computer";
-      } else if (window.location.host === "kidlisp.com") {
-        connectionUrl = "wss://session-server.aesthetic.computer";
-      }
-      
-      console.log('Connecting to session server:', connectionUrl);
-      statusDot.classList.remove('connected');
-      statusDot.classList.add('waiting');
+    const PROD_URL = 'wss://session-server.aesthetic.computer';
+    const LOCAL_URL = 'wss://localhost:8889';
+    
+    function connectToSessionServer(forceLocal = false) {
+      const url = forceLocal ? LOCAL_URL : PROD_URL;
+      console.log('Connecting to session server:', url);
       
       try {
-        sessionWs = new WebSocket(connectionUrl);
+        sessionWs = new WebSocket(url);
       } catch (e) {
         console.warn('Session server connection failed:', e);
-        setTimeout(connectToSessionServer, 3000);
+        // If production failed, try localhost
+        if (!forceLocal) {
+          console.log('Trying localhost fallback...');
+          setTimeout(() => connectToSessionServer(true), 500);
+        } else {
+          setTimeout(() => connectToSessionServer(forceLocal), 3000);
+        }
         return;
       }
       
       sessionWs.onopen = () => {
-        console.log('Connected to session server');
-        statusDot.classList.remove('waiting');
-        statusDot.classList.add('connected');
+        console.log('Connected to session server:', forceLocal ? 'localhost' : 'production');
         
         // Subscribe to code channel
         if (channelId) {
@@ -228,14 +227,18 @@
       
       sessionWs.onerror = () => {
         console.warn('Session server error');
-        statusDot.classList.remove('connected');
+        sessionWs?.close();
+        // If production failed, try localhost
+        if (!forceLocal) {
+          console.log('Production unreachable, trying localhost...');
+          setTimeout(() => connectToSessionServer(true), 500);
+        }
       };
       
       sessionWs.onclose = () => {
         console.log('Session server disconnected, reconnecting...');
-        statusDot.classList.remove('connected');
         sessionWs = null;
-        setTimeout(connectToSessionServer, 2000);
+        setTimeout(() => connectToSessionServer(forceLocal), 2000);
       };
     }
     
