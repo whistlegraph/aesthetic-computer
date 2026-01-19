@@ -714,16 +714,20 @@ async function navigateTo(url, { push = true } = {}) {
     const res = await fetch(nextUrl, { headers: { 'X-Requested-With': 'spa' } });
     console.log('[news] Fetch response:', res.status);
     const html = await res.text();
+    console.log('[news] HTML length:', html.length, 'preview:', html.substring(0, 200));
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const nextWrapper = doc.querySelector('.news-wrapper');
     const currentWrapper = document.querySelector('.news-wrapper');
     console.log('[news] Wrappers found:', !!nextWrapper, !!currentWrapper);
+    console.log('[news] nextWrapper innerHTML length:', nextWrapper?.innerHTML?.length);
     if (!nextWrapper || !currentWrapper) {
       console.log('[news] Falling back to full navigation');
       window.location.href = nextUrl;
       return;
     }
+    console.log('[news] Replacing content, old length:', currentWrapper.innerHTML.length, 'new length:', nextWrapper.innerHTML.length);
     currentWrapper.innerHTML = nextWrapper.innerHTML;
+    console.log('[news] After replace, current length:', currentWrapper.innerHTML.length);
     const newTitle = doc.title || 'Aesthetic News';
     document.title = newTitle;
     if (push) {
