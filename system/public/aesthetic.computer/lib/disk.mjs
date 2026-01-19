@@ -1491,6 +1491,8 @@ let currentPath,
   currentHUDLabelMeasuredWidth = 0,
   currentHUDLeftPad = 0,
   currentHUDOffset,
+  currentHUDQR = null, // QR code URL to show to the left of label (set via hud.qr())
+  currentHUDQRCells = null, // Cached QR code cells
   qrOverlayCache = new Map(), // Cache for QR overlays to prevent regeneration every frame
   hudLabelCache = null; // Cache for HUD label to prevent regeneration every frame
 
@@ -3051,6 +3053,15 @@ const $commonApi = {
         currentHUDLabelMeasuredWidth = baseLabelWidth;
         hudAnimationState.labelWidth = baseLabelWidth + scrubExtension;
         hudAnimationState.labelHeight = h;
+      }
+    },
+    // 📱 Set a QR code to display to the LEFT of the HUD label
+    qr: (url) => {
+      console.log("📱 HUD QR called with:", JSON.stringify(url), "current:", JSON.stringify(currentHUDQR));
+      if (url !== currentHUDQR) {
+        currentHUDQR = url;
+        currentHUDQRCells = null; // Clear cache to regenerate
+        console.log("📱 HUD QR set to:", url);
       }
     },
     currentStatusColor: () => currentHUDStatusColor,
@@ -6788,6 +6799,20 @@ async function load(
       path = [...path.split("/").slice(0, -1), hiddenSlug].join("/");
     }
 
+    // ⏰ Normalize *clock shortcodes to the clock piece and let clock.mjs fetch
+    // the stored melody by code. This avoids intercepting later in the loader
+    // and ensures the correct module is fetched.
+    if (slug && slug.startsWith("*") && slug.length > 1) {
+      const cacheId = slug.slice(1);
+      const clockParam = `*${cacheId}`;
+      params = [clockParam, ...(params || [])];
+      slug = "clock";
+      path = "aesthetic.computer/disks/clock";
+      parsed.text = slug;
+      parsed.path = path;
+      parsed.params = params;
+    }
+
     // if (debug) console.log(debug ? "🟡 Development" : "🟢 Production");
     if (host === "") host = originalHost;
     loadFailure = undefined;
@@ -6886,6 +6911,18 @@ async function load(
     hash = parsed.hash; // tood: these probably don't work? 24.07.09.23.46
     host = parsed.host;
     slug = parsed.name; // not 'text' for this.
+
+    // ⏰ Normalize *clock shortcodes for source-based loads too.
+    if (slug && slug.startsWith("*") && slug.length > 1) {
+      const cacheId = slug.slice(1);
+      const clockParam = `*${cacheId}`;
+      params = [clockParam, ...(params || [])];
+      slug = "clock";
+      if (slug !== "(...)" && !path) path = "aesthetic.computer/disks/clock";
+      parsed.name = slug;
+      parsed.path = path || "aesthetic.computer/disks/clock";
+      parsed.params = params;
+    }
     
     // 🔍 Enable tracing for kidlisp.com visualization if requested
     if (parsed.enableTrace) {
@@ -6954,39 +6991,6 @@ async function load(
             console.error("❌ Failed to load cached code:", cacheId, error);
             throw new Error(`Failed to load cached code: ${cacheId}`);
           }
-        }
-      // ⏰ Handle *code clock pieces - load source from store-clock API and redirect to clock piece
-      } else if (slug && slug.startsWith("*") && slug.length > 1) {
-        const cacheId = slug.slice(1); // Remove * prefix
-        console.log("⏰ Loading cached clock code:", cacheId);
-        try {
-          // Fetch from store-clock API (clocks collection), not store-kidlisp
-          const clockApiUrl = `/api/store-clock?code=${encodeURIComponent(cacheId)}`;
-          console.log("🔍 Fetching clock from:", clockApiUrl);
-          const response = await fetch(clockApiUrl);
-          
-          if (!response.ok) {
-            throw new Error(`Clock code not found: ${cacheId} (HTTP ${response.status})`);
-          }
-          
-          const data = await response.json();
-          if (!data.source) {
-            throw new Error(`Clock code has no source: ${cacheId}`);
-          }
-          
-          const clockSource = data.source;
-          console.log("✅ Successfully loaded clock code:", cacheId, `(${clockSource.length} chars)`);
-          // Redirect to clock piece with the cached source as a parameter
-          // The clock piece will receive the melody/code string and execute it
-          path = "clock";
-          slug = "clock";
-          parsed.path = "clock";
-          parsed.params = [clockSource];
-          parsed.search = clockSource;
-          currentOriginalCodeId = slug;
-        } catch (error) {
-          console.error("❌ Failed to load cached clock code:", cacheId, error);
-          throw new Error(`Failed to load cached clock code: ${cacheId}`);
         }
       } else if (fullUrl) {
         // 🎄 Check if piece code is cached (for merry preloading)
@@ -12554,6 +12558,31 @@ async function makeFrame({ data: { type, content } }) {
         const lanBadgePadding = showLanBadge ? 10 : 0; // Space for letter + margin
         w += lanBadgePadding;
         
+        // 📱 HUD QR code - generate cells and calculate width
+        let hudQRSize = 0;
+        let hudQRPadding = 0;
+        // Debug: Log QR state on first few frames
+        if (pieceFrameCount < 3) {
+          console.log("📱 HUD QR render check - frame:", pieceFrameCount, "currentHUDQR:", JSON.stringify(currentHUDQR), "currentHUDQRCells:", !!currentHUDQRCells);
+        }
+        if (currentHUDQR) {
+          // Generate QR cells if not cached
+          if (!currentHUDQRCells) {
+            try {
+              currentHUDQRCells = qr(currentHUDQR, { errorCorrectLevel: ErrorCorrectLevel.L }).modules;
+              console.log("📱 QR cells generated:", currentHUDQRCells?.length, "for URL:", currentHUDQR);
+            } catch (e) {
+              console.error("HUD QR generation failed:", e);
+              currentHUDQRCells = null;
+            }
+          }
+          if (currentHUDQRCells) {
+            hudQRSize = currentHUDQRCells.length; // 1px per cell
+            hudQRPadding = 4; // Gap between QR and text
+          }
+        }
+        const hudQRTotalWidth = hudQRSize > 0 ? hudQRSize + hudQRPadding + 2 : 0; // +2 for border
+        
         // Final text dimensions: KidLisp width uses visible line metrics, height from text box
   let h = measuredTextHeight;
         
@@ -12562,8 +12591,14 @@ async function makeFrame({ data: { type, content } }) {
         const baseLabelWidth = w + shareWidth;
         
         // Use natural text dimensions for buffer - preserve original layout
-        let bufferW = baseLabelWidth + scrubExtension;
+        // Add QR code width to buffer if present
+        let bufferW = baseLabelWidth + scrubExtension + hudQRTotalWidth;
         let bufferH = h;
+        
+        // Ensure buffer height fits QR code if present
+        if (hudQRSize > 0 && bufferH < hudQRSize + 4) {
+          bufferH = hudQRSize + 4; // QR size + padding
+        }
         
         // Ensure minimum buffer size for readability
         const minTextWidth = Math.max(isKidlispPiece ? textBoxWidth : textBoxWidth, 50);
@@ -12631,7 +12666,32 @@ async function makeFrame({ data: { type, content } }) {
               text = text?.replaceAll("§", " ");
             }
             
-            const baseX = currentHUDLeftPad;
+            // 📱 Render QR code to the LEFT of the text if present
+            let qrOffset = 0;
+            if (currentHUDQR && currentHUDQRCells) {
+              console.log("📱 Rendering QR in label buffer:", currentHUDQRCells.length, "cells");
+              const qrCells = currentHUDQRCells;
+              const qrSize = qrCells.length;
+              const qrBorder = 1;
+              const qrX = 0;
+              const qrY = 1; // Slight offset from top
+              
+              // White background with minimal border
+              $.ink(255, 255, 255).box(qrX, qrY, qrSize + qrBorder * 2, qrSize + qrBorder * 2);
+              
+              // Draw QR code cells
+              for (let y = 0; y < qrSize; y++) {
+                for (let x = 0; x < qrSize; x++) {
+                  if (qrCells[y][x]) {
+                    $.ink(0, 0, 0).box(qrX + qrBorder + x, qrY + qrBorder + y, 1, 1);
+                  }
+                }
+              }
+              
+              qrOffset = qrSize + qrBorder * 2 + 4; // QR width + gap
+            }
+            
+            const baseX = currentHUDLeftPad + qrOffset;
             const hudTextX = baseX + HUD_LABEL_TEXT_MARGIN + currentHUDScrub;
             const hudTextY = 0;
             const typefaceNameForWrite = selectedHudFont;
@@ -12677,7 +12737,7 @@ async function makeFrame({ data: { type, content } }) {
 
             if (currentHUDScrub > 0) {
               const shareWidth = currentHUDShareWidth || (currentHUDLabelBlockWidth * "share ".length);
-              const shareTextX = HUD_LABEL_TEXT_MARGIN + currentHUDScrub;
+              const shareTextX = HUD_LABEL_TEXT_MARGIN + currentHUDScrub + qrOffset;
               const shareTextY = 0;
 
               drawHudLabelText($, "share", {

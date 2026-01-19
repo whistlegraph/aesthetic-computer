@@ -698,20 +698,23 @@ function shouldHandleLink(link) {
 }
 
 async function navigateTo(url, { push = true } = {}) {
-  const nextUrl = typeof url === 'string' ? url : url.href;
+  const next = new URL(typeof url === 'string' ? url : url.href, window.location.origin);
+  const nextUrl = next.href;
+  const nextPath = next.pathname + next.search + next.hash;
   console.log('[news] navigateTo called:', nextUrl, 'push:', push);
   if (!nextUrl) return;
   
+  const currentPath = window.location.pathname + window.location.search + window.location.hash;
   // For push navigation, skip if same URL. For popstate (push=false), always fetch.
-  if (push && nextUrl === window.location.href) {
+  if (push && nextPath === currentPath) {
     console.log('[news] Skipping - same URL');
     return;
   }
 
   try {
     closeModal();
-    console.log('[news] Fetching:', nextUrl);
-    const res = await fetch(nextUrl, { headers: { 'X-Requested-With': 'spa' } });
+    console.log('[news] Fetching:', nextPath);
+    const res = await fetch(nextPath, { headers: { 'X-Requested-With': 'spa' } });
     console.log('[news] Fetch response:', res.status);
     const html = await res.text();
     console.log('[news] HTML length:', html.length, 'preview:', html.substring(0, 200));
@@ -732,7 +735,7 @@ async function navigateTo(url, { push = true } = {}) {
     document.title = newTitle;
     if (push) {
       // Cache the HTML content in history state for instant back/forward
-      history.pushState({ title: newTitle, url: nextUrl, html: nextWrapper.innerHTML }, newTitle, nextUrl);
+      history.pushState({ title: newTitle, url: nextPath, html: nextWrapper.innerHTML }, newTitle, nextPath);
     }
     window.scrollTo(0, 0);
     reinitPage();
@@ -748,11 +751,12 @@ function initSpaRouting() {
   
   // Store initial state with title and content
   const initialWrapper = document.querySelector('.news-wrapper');
+  const initialPath = window.location.pathname + window.location.search + window.location.hash;
   history.replaceState({ 
     title: document.title, 
-    url: window.location.href,
+    url: initialPath,
     html: initialWrapper ? initialWrapper.innerHTML : null
-  }, document.title, window.location.href);
+  }, document.title, initialPath);
 
   document.addEventListener('click', (e) => {
     const link = e.target.closest('a');
@@ -796,7 +800,8 @@ function initSpaRouting() {
     }
     
     // Fallback: fetch the page content
-    navigateTo(window.location.href, { push: false });
+    const currentPath = window.location.pathname + window.location.search + window.location.hash;
+    navigateTo(currentPath, { push: false });
   });
 }
 

@@ -193,6 +193,14 @@ let tooltipDriftX = 0; // Drift offset X
 let tooltipDriftY = 0; // Drift offset Y
 let tooltipDriftPhase = 0; // Phase for drift animation (time-based)
 let lastTooltipTime = 0; // Timestamp for tooltip animation
+let motdBylineHandleBox = null;
+let motdBylineHandleHover = false;
+let lastContentFetchAt = 0;
+let lastClockChatFetchAt = 0;
+let contentFetchInFlight = false;
+let clockChatFetchInFlight = false;
+const CONTENT_REFRESH_MS = 60000;
+const CLOCK_CHAT_REFRESH_MS = 20000;
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
 // let firstCommandSent = false; // 🏳️
@@ -233,6 +241,7 @@ const KEN_BURNS_CYCLE_MS = 8000;
 
 let handles; // Keep track of total handles set.
 let motd; // Store the mood of the day text
+let motdByHandle; // Store the mood author handle
 let motdFrame = 0; // Animation frame counter for MOTD effects (time-based)
 let lastMotdTime = 0; // Timestamp for MOTD animation
 let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
@@ -5394,6 +5403,29 @@ function paint($) {
     const tickerHeight = tinyTickers ? 8 : 11; // MatrixChunky8 is 8px, font_1 is ~11px
     const tickerSpacing = 2; // Small gap between tickers
     const tickerPadding = tinyTickers ? 5 : 2; // Less padding for font_1
+    const labelFont = "MatrixChunky8";
+    const labelPaddingX = 4;
+    const labelGap = 6;
+    const labelTextHeight = 8;
+    const chatLabel = "CHAT";
+    const clockLabel = "LAER-KLOKKEN";
+    const mediaLabel = "MEDIA";
+    const labelWidth = Math.min(Math.max(
+      $.text.box(chatLabel, undefined, undefined, undefined, undefined, labelFont).box.width,
+      $.text.box(clockLabel, undefined, undefined, undefined, undefined, labelFont).box.width,
+      $.text.box(mediaLabel, undefined, undefined, undefined, undefined, labelFont).box.width,
+    ) + (labelPaddingX * 2), Math.floor(screen.width * 0.45));
+
+    const paintTickerLabel = (labelText, boxY, boxHeight, { bg, fg, border }, bgAlpha = 200) => {
+      ink([...bg, bgAlpha]).box(0, boxY, labelWidth, boxHeight - 1);
+      ink([...border, 255]).line(labelWidth - 1, boxY, labelWidth - 1, boxY + boxHeight - 1);
+      const labelTextWidth = $.text.box(labelText, undefined, undefined, undefined, undefined, labelFont).box.width;
+      const labelTextX = Math.floor((labelWidth - labelTextWidth) / 2);
+      const labelTextY = Math.floor(boxY + (boxHeight - labelTextHeight) / 2);
+      ink([...fg, 255]).write(labelText, { x: labelTextX, y: labelTextY }, undefined, undefined, false, labelFont);
+    };
+    const tickerContentX = labelWidth + labelGap;
+    const tickerContentWidth = Math.max(20, screen.width - tickerContentX);
 
     // Helper to ensure ticker text is long enough to fill screen without gaps
     // Repeats the content until it's at least 4x screen width for seamless looping
@@ -5505,16 +5537,22 @@ function paint($) {
 
         if (isCriticalFunding || hasChatMessages) {
           // Use Ticker's built-in paint for scrolling (syntax highlighting TODO)
-          chatTicker.paint($, 0, textY, {
+          chatTicker.paint($, tickerContentX, textY, {
             color: [0, 255, 255], // Bright cyan
             alpha: tickerAlpha,
-            width: screen.width,
+            width: tickerContentWidth,
             font: tinyTickers ? "MatrixChunky8" : undefined,
           });
         } else {
           // Show Matrix loading animation
-          paintMatrixLoading($, 0, textY, screen.width, tinyTickers ? "MatrixChunky8" : undefined, "cyan");
+          paintMatrixLoading($, tickerContentX, textY, tickerContentWidth, tinyTickers ? "MatrixChunky8" : undefined, "cyan");
         }
+
+        paintTickerLabel(chatLabel, boxY, boxHeight, {
+          bg: [0, 80, 80],
+          fg: [0, 255, 255],
+          border: [0, 200, 200],
+        }, chatTickerButton.down ? 140 : 110);
       }
 
       // Move down for next ticker
@@ -5611,16 +5649,22 @@ function paint($) {
         const textY = clockTickerY;
 
         if ((isCriticalFunding || hasClockMessages) && clockChatTicker) {
-          clockChatTicker.paint($, 0, textY, {
+          clockChatTicker.paint($, tickerContentX, textY, {
             color: [255, 200, 100],
             alpha: tickerAlpha,
-            width: screen.width,
+            width: tickerContentWidth,
             font: tinyTickers ? "MatrixChunky8" : undefined,
           });
         } else {
           // Show Matrix loading animation
-          paintMatrixLoading($, 0, textY, screen.width, tinyTickers ? "MatrixChunky8" : undefined, "orange");
+          paintMatrixLoading($, tickerContentX, textY, tickerContentWidth, tinyTickers ? "MatrixChunky8" : undefined, "orange");
         }
+
+        paintTickerLabel(clockLabel, boxY, boxHeight, {
+          bg: [80, 40, 0],
+          fg: [255, 200, 100],
+          border: [255, 160, 0],
+        }, clockChatTickerButton.down ? 140 : 110);
       }
 
       // Extra spacing after laer-klokken before content ticker
@@ -5700,7 +5744,7 @@ function paint($) {
         // If loading (no content yet), show Matrix-style characters instead of text
         if (contentItems.length === 0) {
           const textY = contentTickerY;
-          paintMatrixLoading($, 0, textY, screen.width, tinyTickers ? "MatrixChunky8" : undefined, "default");
+          paintMatrixLoading($, tickerContentX, textY, tickerContentWidth, tinyTickers ? "MatrixChunky8" : undefined, "default");
         } else if (contentTicker) {
           // Show ticker content when loaded (only if ticker exists)
           // Now render the text with color-coded prefixes
@@ -5709,8 +5753,10 @@ function paint($) {
           const contentTickerAlpha = contentTickerButton.down ? 255 : 220;
 
           // Calculate positions for each item manually and track for hover detection
-          let currentX = -contentTicker.getOffset();
+          let currentX = tickerContentX - contentTicker.getOffset();
           const displayWidth = screen.width;
+          const minContentX = tickerContentX - 100;
+          const maxContentX = screen.width + 100;
           const separator = " · ";
 
           // Track item positions for hover detection
@@ -5756,7 +5802,7 @@ function paint($) {
               const isTooltipItem = currentTooltipItem && item.code === currentTooltipItem.code;
 
               // Only render if visible
-              if (currentX > -100 && currentX < displayWidth + 100) {
+              if (currentX > minContentX && currentX < maxContentX) {
                 // Brighter and add background if hovered OR if it's the tooltip item
                 if ((isHovered || isTooltipItem) && !contentTickerButton.down) {
                   // Choose outline color based on media type
@@ -5802,7 +5848,7 @@ function paint($) {
 
               // Add separator after each item (except potentially the last in a cycle)
               if (idx < contentItems.length - 1 || cycle < numCycles - 1) {
-                if (currentX > -100 && currentX < displayWidth + 100) {
+                if (currentX > minContentX && currentX < maxContentX) {
                   // Blinking separator with high contrast
                   const blinkAlpha = 150 + Math.sin(motdFrame * 0.2) * 100;
                   ink([255, 255, 255], blinkAlpha).write(separator, { x: currentX, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
@@ -5816,6 +5862,12 @@ function paint($) {
           // Store hovered item for click handler
           contentTickerButton.hoveredItemIndex = hoveredItemIndex;
         }
+
+        paintTickerLabel(mediaLabel, boxY, boxHeight, {
+          bg: [30, 30, 30],
+          fg: [200, 200, 200],
+          border: [200, 200, 200],
+        }, contentTickerButton.down ? 140 : 110);
       }
 
       // Move down for next ticker (if we add more)
@@ -5840,7 +5892,7 @@ function paint($) {
 
       if (contentTicker) {
         const offset = contentTicker.getOffset();
-        let currentX = -offset;
+        let currentX = tickerContentX - offset;
 
         contentItems.forEach(item => {
           const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
@@ -5848,7 +5900,8 @@ function paint($) {
           const textWidth = $.text.box(text).box.width;
 
           // Check if this item is visible on screen (prefer right side)
-          if (currentX >= screen.width * 0.3 && currentX < screen.width) {
+          const rightBiasStart = tickerContentX + (screen.width - tickerContentX) * 0.3;
+          if (currentX >= rightBiasStart && currentX < screen.width) {
             // Use original item object to preserve fetchAttempted/fetchFailed flags
             item.screenX = currentX; // Add screenX directly to original object
             visibleItems.push(item);
@@ -6113,7 +6166,7 @@ function paint($) {
           // Calculate the offset in the ticker for our current item
           if (contentTicker) {
             const offset = contentTicker.getOffset();
-            let currentX = -offset;
+            let currentX = tickerContentX - offset;
             const prefix = currentTooltipItem.type === 'kidlisp' ? '$' : currentTooltipItem.type === 'painting' ? '#' : '!';
             const targetText = `${prefix}${currentTooltipItem.code}`;
 
@@ -6420,6 +6473,7 @@ function paint($) {
     // MOTD (Mood of the Day) - show above login/signup buttons with animation
     // In CRITICAL funding mode, always show regardless of screen height
     if (motd && (isCriticalFunding || screen.height >= 180)) {
+      motdBylineHandleBox = null;
       // Subtle sway (up and down)
       const swayY = Math.sin(motdFrame * 0.05) * 2; // 2 pixel sway range
 
@@ -6514,6 +6568,18 @@ function paint($) {
         writePos = { center: "x", y: Math.floor(motdY) };
       }
 
+      // Harsh shadow for MOTD (tight offset)
+      const shadowOffset = 1;
+      const shadowWritePos = writePos.x !== undefined
+        ? { x: writePos.x + shadowOffset, y: (writePos.y || Math.floor(motdY)) + shadowOffset }
+        : { center: "x", y: (writePos.y || Math.floor(motdY)) + shadowOffset };
+      ink([0, 0, 0, 220]).write(
+        displayMotd,
+        shadowWritePos,
+        undefined,
+        motdMaxWidth,
+      );
+
       ink(pal.handleColor).write(
         coloredText,
         writePos,
@@ -6577,12 +6643,77 @@ function paint($) {
           writePos = { center: "x", y: Math.floor(motdY) };
         }
 
+        // Harsh shadow for MOTD (tight offset)
+        const shadowOffset = 1;
+        const shadowWritePos = writePos.x !== undefined
+          ? { x: writePos.x + shadowOffset, y: (writePos.y || Math.floor(motdY)) + shadowOffset }
+          : { center: "x", y: (writePos.y || Math.floor(motdY)) + shadowOffset };
+        ink([0, 0, 0, 220]).write(
+          motd,
+          shadowWritePos,
+          undefined,
+          motdMaxWidth,
+        );
+
         ink(pal.handleColor).write(
           coloredText,
           writePos,
           [255, 50, 200, 24],
           motdMaxWidth,
         );
+
+        if (motdByHandle) {
+          const motdCharWidth = 6;
+          const motdLineHeight = 10;
+          const motdLines = Math.ceil((motd.length * motdCharWidth) / motdMaxWidth);
+          const bylineY = (writePos.y || Math.floor(motdY)) + (motdLines * motdLineHeight) + 4;
+          const bylinePrefix = "mood of the day by ";
+          const bylineText = `${bylinePrefix}${motdByHandle}`;
+          const bylineTextWidth = $.text.box(bylineText, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
+          const bylineBaseX = writePos.x !== undefined
+            ? writePos.x
+            : Math.floor((screen.width - Math.min(bylineTextWidth, motdMaxWidth)) / 2);
+
+          // Harsh shadow for byline
+          ink([0, 0, 0, 220]).write(
+            bylineText,
+            { x: bylineBaseX + 1, y: bylineY + 1, noFunding: true },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8"
+          );
+
+          const prefixWidth = $.text.box(bylinePrefix, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
+          const handleWidth = $.text.box(motdByHandle, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
+          motdBylineHandleBox = {
+            x: bylineBaseX + prefixWidth,
+            y: bylineY,
+            w: handleWidth,
+            h: 8,
+          };
+
+          const handleColor = motdBylineHandleHover ? [150, 190, 255, 230] : [120, 160, 255, 200];
+          ink([220, 220, 220, 170]).write(
+            bylinePrefix,
+            { x: bylineBaseX, y: bylineY, noFunding: true },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8"
+          );
+          ink(handleColor).write(
+            motdByHandle,
+            { x: bylineBaseX + prefixWidth, y: bylineY, noFunding: true },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8"
+          );
+        } else {
+          motdBylineHandleBox = null;
+          motdBylineHandleHover = false;
+        }
 
         $.needsPaint();
       }
@@ -7188,6 +7319,14 @@ function sim($) {
     $.needsPaint();
   }
 
+  const now = Date.now();
+  if (now - lastClockChatFetchAt > CLOCK_CHAT_REFRESH_MS) {
+    fetchClockChatMessages();
+  }
+  if (now - lastContentFetchAt > CONTENT_REFRESH_MS) {
+    fetchContentItems($);
+  }
+
   // 📦 Update product animations (DISABLED)
   // const showLoginCurtain =
   //   (!login?.btn.disabled && !profile) ||
@@ -7253,6 +7392,25 @@ function act({
   ) {
     system.prompt.input.blank(); // Clear the prompt.
     resendVerificationText = undefined;
+  }
+
+  const isOverMotdHandle = motdBylineHandleBox &&
+    e.x >= motdBylineHandleBox.x &&
+    e.x <= motdBylineHandleBox.x + motdBylineHandleBox.w &&
+    e.y >= motdBylineHandleBox.y &&
+    e.y <= motdBylineHandleBox.y + motdBylineHandleBox.h;
+
+  if (e.is("move") && motdBylineHandleBox) {
+    if (isOverMotdHandle !== motdBylineHandleHover) {
+      motdBylineHandleHover = isOverMotdHandle;
+      needsPaint();
+    }
+  }
+
+  if (e.is("lift") && motdByHandle && isOverMotdHandle) {
+    pushSound();
+    jump(motdByHandle);
+    return;
   }
 
   // Light and dark mode glaze shift.
@@ -7441,6 +7599,7 @@ function act({
             chatTicker.paused = false;
           }
         }
+        chatTickerButton.hasScrubbed = false;
       },
       cancel: () => {
         // Cancel sound
@@ -7450,6 +7609,7 @@ function act({
         if (chatTicker) {
           chatTicker.paused = false;
         }
+        chatTickerButton.hasScrubbed = false;
       },
     });
   }
@@ -7517,6 +7677,7 @@ function act({
             clockChatTicker.paused = false;
           }
         }
+        clockChatTickerButton.hasScrubbed = false;
       },
       cancel: () => {
         // Cancel sound
@@ -7526,6 +7687,7 @@ function act({
         if (clockChatTicker) {
           clockChatTicker.paused = false;
         }
+        clockChatTickerButton.hasScrubbed = false;
       },
     });
   }
@@ -7608,12 +7770,14 @@ function act({
             contentTicker.paused = false;
           }
         }
+        contentTickerButton.hasScrubbed = false;
       },
       cancel: () => {
         cancelSound();
         if (contentTicker) {
           contentTicker.paused = false;
         }
+        contentTickerButton.hasScrubbed = false;
       },
     });
   }
@@ -7625,7 +7789,8 @@ function act({
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
-      (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)))
+      (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
+      isOverMotdHandle)
   ) {
     send({ type: "keyboard:lock" });
   }
@@ -7642,6 +7807,7 @@ function act({
       (products.getActiveProduct()?.buyButton?.disabled === false && products.getActiveProduct()?.buyButton?.box.contains(e)) ||
       (chatTickerButton?.disabled === false && chatTickerButton?.box.contains(e)) ||
       (contentTickerButton?.disabled === false && contentTickerButton?.box.contains(e)) ||
+      isOverMotdHandle ||
       (walletBtn?.btn.disabled === false && walletBtn?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false &&
         profile?.btn.box.contains(e) &&
@@ -8034,10 +8200,13 @@ export const scheme = {
 let motdController;
 
 async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) {
+  const motdTargetHandle = "@jeffrey";
+  motdByHandle = null;
   // Use funding mode message or default (alternate EN/DA every 3 seconds)
   if (isCriticalFunding) {
     const langPhase = Math.floor(Date.now() / 3000) % 2;
     motd = langPhase === 0 ? "CRITICAL MEDIA SERVICES OFFLINE" : "KRITISKE MEDIETJENESTER OFFLINE";
+    motdByHandle = null;
   } else {
     motd = "aesthetic.computer";
   }
@@ -8047,11 +8216,16 @@ async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) 
   if (isCriticalFunding) return;
 
   try {
-    const res = await fetch("/api/mood/@jeffrey", {
+    const res = await fetch(`/api/mood/${motdTargetHandle}`, {
       signal: motdController.signal,
     });
     if (res.status === 200) {
-      motd = (await res.json()).mood;
+      const data = await res.json();
+      motd = data.mood;
+      const apiHandle = data.handle || data.handleInfo?.handle || data.owner?.handle || data.user?.handle || null;
+      motdByHandle = apiHandle
+        ? (apiHandle.startsWith("@") ? apiHandle : `@${apiHandle}`)
+        : motdTargetHandle;
       needsPaint();
     } else {
       console.warn("😢 No mood found.");
@@ -8063,6 +8237,9 @@ async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) 
 
 // Fetch all content (kidlisp, painting, tape) and combine into a single shuffled array
 async function fetchContentItems(api) {
+  if (contentFetchInFlight) return;
+  contentFetchInFlight = true;
+  lastContentFetchAt = Date.now();
   try {
     // Fetch all types mixed with frecency using the "sprinkle" filter
     // This creates a diverse feed mixing tapes, paintings, and kidlisp based on
@@ -8198,11 +8375,16 @@ async function fetchContentItems(api) {
     }
   } catch (err) {
     console.warn("⚠️ Content fetch error:", err);
+  } finally {
+    contentFetchInFlight = false;
   }
 }
 
 // Fetch recent messages from Laer-Klokken clock chat
 async function fetchClockChatMessages() {
+  if (clockChatFetchInFlight) return;
+  clockChatFetchInFlight = true;
+  lastClockChatFetchAt = Date.now();
   try {
     // Use the same chat API endpoint but for the "clock" chat instance
     const apiUrl = (typeof window !== 'undefined' ? window.location.origin : '') + "/api/chat/messages?instance=clock&limit=12";
@@ -8213,12 +8395,17 @@ async function fetchClockChatMessages() {
       if (data.messages && Array.isArray(data.messages)) {
         clockChatMessages = data.messages;
         console.log(`🕰️ Loaded ${clockChatMessages.length} clock chat messages`);
+        if (typeof promptNeedsPaint === "function") {
+          promptNeedsPaint();
+        }
       }
     } else {
       console.warn("⚠️ Clock chat fetch failed:", res.status);
     }
   } catch (err) {
     console.warn("⚠️ Clock chat fetch error:", err);
+  } finally {
+    clockChatFetchInFlight = false;
   }
 }
 
