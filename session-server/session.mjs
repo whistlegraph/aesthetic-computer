@@ -1644,7 +1644,9 @@ wss.on("connection", (ws, req) => {
       
       // Send current channel state to late joiners
       if (codeChannelState[codeChannel]) {
-        const stateMsg = pack("code", JSON.stringify(codeChannelState[codeChannel]), id);
+        // Note: codeChannelState stores the original msg.content object, 
+        // pack() will JSON.stringify it, so don't double-stringify here
+        const stateMsg = pack("code", codeChannelState[codeChannel], id);
         send(stateMsg);
         log(`📥 Sent current state to late joiner on channel ${codeChannel}`);
       }
@@ -1656,9 +1658,10 @@ wss.on("connection", (ws, req) => {
       codeChannelState[targetChannel] = msg.content;
       
       if (codeChannels[targetChannel]) {
-        const codeMsg = pack("code", JSON.stringify(msg.content), id);
+        // Note: msg.content is already an object, pack() will JSON.stringify it
+        const codeMsg = pack("code", msg.content, id);
         subscribers(codeChannels[targetChannel], codeMsg);
-        log(`📢 Broadcast code to channel ${targetChannel} (${codeChannels[targetChannel].size} subscribers}`);
+        log(`📢 Broadcast code to channel ${targetChannel} (${codeChannels[targetChannel].size} subscribers)`);
       }
     } else if (msg.type === "login") {
       if (msg.content?.user?.sub) {
