@@ -9084,14 +9084,15 @@
     
     function updateLangUI(lang) {
       const langData = {
-        en: { flag: '🇺🇸', text: 'English' },
-        da: { flag: '🇩🇰', text: 'Dansk' },
-        de: { flag: '🇩🇪', text: 'Deutsch' },
-        es: { flag: '🇪🇸', text: 'Español' },
-        zh: { flag: '🇨🇳', text: '中文' }
+        en: { flagClass: 'fi fi-us', text: 'English' },
+        da: { flagClass: 'fi fi-dk', text: 'Dansk' },
+        de: { flagClass: 'fi fi-de', text: 'Deutsch' },
+        es: { flagClass: 'fi fi-es', text: 'Español' },
+        zh: { flagClass: 'fi fi-cn', text: '中文' }
       };
       const info = langData[lang] || langData.en;
-      langFlag.textContent = info.flag;
+      // Update flag using class instead of textContent (for flag-icons)
+      langFlag.className = 'lang-flag ' + info.flagClass;
       langText.textContent = info.text;
     }
 
