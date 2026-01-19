@@ -704,6 +704,18 @@ to = "https://aesthetic.computer/kidlisp.com/:splat"
 status = 200
 force = true
 
+# VJ subdomain for kidlisp.com - vj.kidlisp.com/code
+[[redirects]]
+from = "https://vj.kidlisp.com"
+to = "/kidlisp.com/vj.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://vj.kidlisp.com/*"
+to = "/kidlisp.com/vj.html"
+status = 200
+force = true
+
 [[redirects]]
 from = "https://news.aesthetic.computer"
 to = "/.netlify/functions/news"
@@ -1276,6 +1288,12 @@ force = false
 # Serve .mjs files from the aesthetic.computer subdirectory
 from = "/*.mjs"
 to = "/aesthetic.computer/:splat.mjs"
+status = 200
+force = false
+[[redirects]]
+# VJ mode - route /kidlisp.com/vj/* to vj.html
+from = "/kidlisp.com/vj/*"
+to = "/kidlisp.com/vj.html"
 status = 200
 force = false
 [[redirects]]
