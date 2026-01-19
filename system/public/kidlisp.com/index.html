@@ -485,6 +485,154 @@
       background: rgb(239, 83, 80);
     }
     
+    /* ==================== SLIDE MODE ==================== */
+    /* Slide button - toggle numeric parameter sliding */
+    #slide-button {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+      flex-shrink: 0;
+      box-sizing: border-box;
+      background: rgb(100, 100, 120); /* Muted purple-gray */
+      color: white;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      margin: 0;
+      font-family: 'Berkeley Mono Variable', 'SF Mono', monospace;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: -0.5px;
+    }
+    
+    @media (hover: hover) {
+      #slide-button:hover {
+        background: rgb(120, 120, 145);
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+      }
+    }
+    
+    #slide-button:active {
+      background: rgb(80, 80, 100);
+      transform: scale(0.95);
+    }
+    
+    #slide-button.active {
+      background: rgb(156, 39, 176); /* Purple when active */
+      box-shadow: 0 0 0 3px rgba(156, 39, 176, 0.4), 0 2px 4px rgba(0,0,0,0.3);
+      animation: slide-button-pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes slide-button-pulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(156, 39, 176, 0.4), 0 2px 4px rgba(0,0,0,0.3); }
+      50% { box-shadow: 0 0 0 3px rgba(156, 39, 176, 0.7), 0 2px 4px rgba(0,0,0,0.3); }
+    }
+    
+    [data-theme="dark"] #slide-button {
+      background: rgb(120, 120, 145);
+    }
+    
+    [data-theme="dark"] #slide-button.active {
+      background: rgb(186, 104, 200);
+    }
+    
+    /* Slide mode number highlights in editor */
+    .slide-number-highlight {
+      background: rgba(156, 39, 176, 0.25) !important;
+      border-radius: 3px;
+      cursor: ew-resize !important;
+      transition: background 0.15s;
+    }
+    
+    .slide-number-highlight:hover {
+      background: rgba(156, 39, 176, 0.4) !important;
+    }
+    
+    .slide-number-dragging {
+      background: rgba(156, 39, 176, 0.6) !important;
+    }
+    
+    /* Slide mode overlay for drag feedback */
+    #slide-drag-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 9999;
+      cursor: ew-resize;
+    }
+    
+    #slide-value-tooltip {
+      display: none;
+      position: fixed;
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: 'Berkeley Mono Variable', monospace;
+      font-size: 14px;
+      font-weight: bold;
+      pointer-events: none;
+      z-index: 10000;
+      white-space: nowrap;
+    }
+    
+    /* Keep/Discard buttons shown during slide mode */
+    #slide-actions {
+      display: none;
+      position: absolute;
+      bottom: 66px; /* Above playback controls */
+      right: 14px;
+      flex-direction: row;
+      gap: 8px;
+      z-index: 2;
+    }
+    
+    #slide-actions.visible {
+      display: flex;
+    }
+    
+    #slide-actions button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 16px;
+      font-family: 'PP Mori', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.2s;
+    }
+    
+    #slide-keep-btn {
+      background: rgb(76, 175, 80);
+      color: white;
+    }
+    
+    #slide-discard-btn {
+      background: rgb(158, 158, 158);
+      color: white;
+    }
+    
+    #slide-actions button:hover {
+      transform: scale(1.05);
+    }
+    
+    #slide-actions button:active {
+      transform: scale(0.95);
+    }
+    /* ==================== END SLIDE MODE ==================== */
+    
     /* Mini playback controls in header (mobile only) */
     #mini-playback-controls {
       display: none; /* Hidden by default - shown via JS when main controls obscured */
@@ -7491,8 +7639,14 @@
           <div id="kidlisp-editor" class="decrypting">
           </div>
           <!-- Playback Controls - inside viz-text so they can't overlap editor-header -->
-          <!-- Order: clear (left), stop (middle), send (right) -->
+          <!-- Order: slide (left), clear, stop (middle), send (right) -->
+          <!-- Slide mode actions (Keep/Discard) - shown when slide mode has changes -->
+          <div id="slide-actions">
+            <button id="slide-discard-btn" title="Discard changes">Discard</button>
+            <button id="slide-keep-btn" title="Keep changes">Keep</button>
+          </div>
           <div id="playback-controls">
+            <button id="slide-button" aria-label="Toggle slide mode" title="Slide mode - drag numbers to adjust">123</button>
             <button id="clear-button" aria-label="Clear code">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="6" y1="6" x2="18" y2="18"/>
@@ -13445,6 +13599,401 @@
       // Initial visibility check
       updateClearButtonVisibility();
       
+      // ==================== SLIDE MODE ====================
+      // Slide mode allows dragging numbers to adjust their values in real-time
+      const slideButton = document.getElementById('slide-button');
+      const slideActions = document.getElementById('slide-actions');
+      const slideKeepBtn = document.getElementById('slide-keep-btn');
+      const slideDiscardBtn = document.getElementById('slide-discard-btn');
+      const slideDragOverlay = document.getElementById('slide-drag-overlay');
+      const slideValueTooltip = document.getElementById('slide-value-tooltip');
+      
+      let slideMode = false;
+      let slideOriginalCode = ''; // Code before slide mode started
+      let slideDecorations = [];
+      let slideWidgets = [];
+      let slideNumbers = []; // Array of { range, value, step, decorationId }
+      let slideDragging = null; // Currently dragging number info
+      let slideDragStartX = 0;
+      let slideDragStartValue = 0;
+      let slideHasChanges = false;
+      
+      // Get step size based on number precision
+      function getSlideStep(numStr) {
+        // Handle negative numbers
+        const absStr = numStr.replace(/^-/, '');
+        if (!absStr.includes('.')) return 1;
+        const decimals = absStr.split('.')[1].length;
+        return Math.pow(10, -decimals);
+      }
+      
+      // Format number preserving original precision
+      function formatSlideNumber(value, step) {
+        if (step >= 1) return Math.round(value).toString();
+        const decimals = Math.round(-Math.log10(step));
+        return value.toFixed(decimals);
+      }
+      
+      // Find all numeric literals in code with their positions
+      function findSlideNumbers(code) {
+        const numbers = [];
+        // Regex to find numeric literals (integers and floats, positive and negative)
+        // But not inside strings or comments
+        const lines = code.split('\n');
+        
+        lines.forEach((line, lineIndex) => {
+          // Skip comment lines
+          if (line.trim().startsWith(';')) return;
+          
+          // Find numbers, avoiding those in strings
+          let inString = false;
+          let stringChar = null;
+          let i = 0;
+          
+          while (i < line.length) {
+            const char = line[i];
+            
+            // Track string state
+            if ((char === '"' || char === "'") && (i === 0 || line[i-1] !== '\\')) {
+              if (!inString) {
+                inString = true;
+                stringChar = char;
+              } else if (char === stringChar) {
+                inString = false;
+                stringChar = null;
+              }
+              i++;
+              continue;
+            }
+            
+            // Skip if in string
+            if (inString) {
+              i++;
+              continue;
+            }
+            
+            // Check for comment start
+            if (char === ';') break;
+            
+            // Look for number start
+            if (/[\d\-]/.test(char)) {
+              // Check if this could be a number (not part of identifier)
+              const prevChar = i > 0 ? line[i-1] : ' ';
+              if (/[a-zA-Z_]/.test(prevChar)) {
+                i++;
+                continue;
+              }
+              
+              // For minus sign, check if followed by digit
+              if (char === '-') {
+                if (i + 1 >= line.length || !/\d/.test(line[i+1])) {
+                  i++;
+                  continue;
+                }
+              }
+              
+              // Extract the full number
+              const numMatch = line.slice(i).match(/^-?\d+\.?\d*/);
+              if (numMatch) {
+                const numStr = numMatch[0];
+                const value = parseFloat(numStr);
+                
+                // Skip if NaN or if it's just a minus sign
+                if (!isNaN(value) && numStr !== '-') {
+                  numbers.push({
+                    lineNumber: lineIndex + 1,
+                    startColumn: i + 1,
+                    endColumn: i + 1 + numStr.length,
+                    value: value,
+                    originalStr: numStr,
+                    step: getSlideStep(numStr)
+                  });
+                }
+                
+                i += numStr.length;
+                continue;
+              }
+            }
+            
+            i++;
+          }
+        });
+        
+        return numbers;
+      }
+      
+      // Apply slide mode decorations to highlight numbers
+      function applySlideDecorations() {
+        if (!editor || !slideMode) return;
+        
+        const code = editor.getValue();
+        slideNumbers = findSlideNumbers(code);
+        
+        const decorations = slideNumbers.map(num => ({
+          range: new monaco.Range(num.lineNumber, num.startColumn, num.lineNumber, num.endColumn),
+          options: {
+            inlineClassName: 'slide-number-highlight',
+            hoverMessage: { value: `Drag to adjust (step: ${num.step})` }
+          }
+        }));
+        
+        slideDecorations = editor.deltaDecorations(slideDecorations, decorations);
+      }
+      
+      // Clear slide mode decorations
+      function clearSlideDecorations() {
+        if (editor) {
+          slideDecorations = editor.deltaDecorations(slideDecorations, []);
+        }
+        slideNumbers = [];
+      }
+      
+      // Find number at mouse position
+      function findNumberAtPosition(e) {
+        if (!editor) return null;
+        
+        const target = editor.getTargetAtClientPoint(e.clientX, e.clientY);
+        if (!target || !target.position) return null;
+        
+        const pos = target.position;
+        
+        for (let i = 0; i < slideNumbers.length; i++) {
+          const num = slideNumbers[i];
+          if (pos.lineNumber === num.lineNumber &&
+              pos.column >= num.startColumn &&
+              pos.column <= num.endColumn) {
+            return { ...num, index: i };
+          }
+        }
+        
+        return null;
+      }
+      
+      // Update a number value in the editor
+      function updateSlideNumber(numInfo, newValue) {
+        if (!editor) return;
+        
+        const model = editor.getModel();
+        if (!model) return;
+        
+        const newStr = formatSlideNumber(newValue, numInfo.step);
+        const range = new monaco.Range(
+          numInfo.lineNumber,
+          numInfo.startColumn,
+          numInfo.lineNumber,
+          numInfo.endColumn
+        );
+        
+        // Apply edit without triggering full re-evaluation
+        isSettingValueProgrammatically = true;
+        editor.executeEdits('slide-mode', [{
+          range: range,
+          text: newStr,
+          forceMoveMarkers: true
+        }]);
+        isSettingValueProgrammatically = false;
+        
+        // Update the number info for future drags
+        const lengthDiff = newStr.length - (numInfo.endColumn - numInfo.startColumn);
+        numInfo.endColumn = numInfo.startColumn + newStr.length;
+        numInfo.value = newValue;
+        numInfo.originalStr = newStr;
+        
+        // Adjust subsequent numbers on the same line
+        for (let i = numInfo.index + 1; i < slideNumbers.length; i++) {
+          if (slideNumbers[i].lineNumber === numInfo.lineNumber) {
+            slideNumbers[i].startColumn += lengthDiff;
+            slideNumbers[i].endColumn += lengthDiff;
+          }
+        }
+        
+        slideHasChanges = true;
+        if (slideActions) slideActions.classList.add('visible');
+        
+        // Trigger preview update with new code
+        const newCode = editor.getValue();
+        if (typeof updatePreview === 'function') {
+          updatePreview(newCode);
+        }
+      }
+      
+      // Mouse handlers for slide dragging
+      function handleSlideMouseDown(e) {
+        if (!slideMode || !editor) return;
+        
+        const numInfo = findNumberAtPosition(e);
+        if (!numInfo) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        slideDragging = numInfo;
+        slideDragStartX = e.clientX;
+        slideDragStartValue = numInfo.value;
+        
+        // Show overlay to capture all mouse movement
+        if (slideDragOverlay) slideDragOverlay.style.display = 'block';
+        
+        // Update tooltip
+        if (slideValueTooltip) {
+          slideValueTooltip.textContent = formatSlideNumber(numInfo.value, numInfo.step);
+          slideValueTooltip.style.display = 'block';
+          slideValueTooltip.style.left = (e.clientX + 15) + 'px';
+          slideValueTooltip.style.top = (e.clientY - 10) + 'px';
+        }
+        
+        document.body.style.cursor = 'ew-resize';
+        document.body.style.userSelect = 'none';
+      }
+      
+      function handleSlideMouseMove(e) {
+        if (!slideDragging) return;
+        
+        const dx = e.clientX - slideDragStartX;
+        // Sensitivity: 1px = 0.1 * step (so 10px = 1 step)
+        const sensitivity = 0.1;
+        const delta = dx * sensitivity * slideDragging.step;
+        const newValue = slideDragStartValue + delta;
+        
+        // Update tooltip
+        if (slideValueTooltip) {
+          slideValueTooltip.textContent = formatSlideNumber(newValue, slideDragging.step);
+          slideValueTooltip.style.left = (e.clientX + 15) + 'px';
+          slideValueTooltip.style.top = (e.clientY - 10) + 'px';
+        }
+        
+        updateSlideNumber(slideDragging, newValue);
+      }
+      
+      function handleSlideMouseUp(e) {
+        if (!slideDragging) return;
+        
+        slideDragging = null;
+        
+        if (slideDragOverlay) slideDragOverlay.style.display = 'none';
+        if (slideValueTooltip) slideValueTooltip.style.display = 'none';
+        
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        
+        // Re-apply decorations after edit
+        applySlideDecorations();
+      }
+      
+      // Toggle slide mode
+      function toggleSlideMode() {
+        slideMode = !slideMode;
+        
+        if (slideButton) {
+          slideButton.classList.toggle('active', slideMode);
+        }
+        
+        if (slideMode) {
+          // Entering slide mode
+          slideOriginalCode = editor ? editor.getValue() : '';
+          slideHasChanges = false;
+          applySlideDecorations();
+          
+          // Make editor read-only except for our programmatic edits
+          if (editor) {
+            editor.updateOptions({ readOnly: true });
+          }
+          
+          // Add mouse handlers to editor
+          const editorDom = document.querySelector('#kidlisp-editor .monaco-editor');
+          if (editorDom) {
+            editorDom.addEventListener('mousedown', handleSlideMouseDown);
+          }
+          
+          log.editor.log('Slide mode enabled');
+        } else {
+          // Exiting slide mode
+          clearSlideDecorations();
+          
+          if (editor) {
+            editor.updateOptions({ readOnly: false });
+          }
+          
+          // Remove mouse handlers
+          const editorDom = document.querySelector('#kidlisp-editor .monaco-editor');
+          if (editorDom) {
+            editorDom.removeEventListener('mousedown', handleSlideMouseDown);
+          }
+          
+          // If no explicit keep, discard changes
+          if (slideHasChanges && slideActions && slideActions.classList.contains('visible')) {
+            // Default to discard
+            discardSlideChanges();
+          }
+          
+          if (slideActions) slideActions.classList.remove('visible');
+          
+          log.editor.log('Slide mode disabled');
+        }
+      }
+      
+      // Keep slide changes (creates new $code state)
+      function keepSlideChanges() {
+        slideHasChanges = false;
+        if (slideActions) slideActions.classList.remove('visible');
+        slideOriginalCode = editor ? editor.getValue() : '';
+        log.editor.log('Slide changes kept');
+      }
+      
+      // Discard slide changes (restore original code)
+      function discardSlideChanges() {
+        if (editor && slideOriginalCode) {
+          isSettingValueProgrammatically = true;
+          editor.setValue(slideOriginalCode);
+          isSettingValueProgrammatically = false;
+          
+          // Trigger preview update with restored code
+          if (typeof updatePreview === 'function') {
+            updatePreview(slideOriginalCode);
+          }
+        }
+        slideHasChanges = false;
+        if (slideActions) slideActions.classList.remove('visible');
+        log.editor.log('Slide changes discarded');
+      }
+      
+      // Set up event listeners
+      if (slideButton) {
+        slideButton.addEventListener('click', toggleSlideMode);
+      }
+      
+      if (slideKeepBtn) {
+        slideKeepBtn.addEventListener('click', () => {
+          keepSlideChanges();
+          if (slideMode) toggleSlideMode(); // Exit slide mode after keeping
+        });
+      }
+      
+      if (slideDiscardBtn) {
+        slideDiscardBtn.addEventListener('click', () => {
+          discardSlideChanges();
+          if (slideMode) toggleSlideMode(); // Exit slide mode after discarding
+        });
+      }
+      
+      // Global mouse handlers for drag
+      document.addEventListener('mousemove', handleSlideMouseMove);
+      document.addEventListener('mouseup', handleSlideMouseUp);
+      
+      if (slideDragOverlay) {
+        slideDragOverlay.addEventListener('mousemove', handleSlideMouseMove);
+        slideDragOverlay.addEventListener('mouseup', handleSlideMouseUp);
+      }
+      
+      // Expose for debugging
+      window.slideMode = {
+        toggle: toggleSlideMode,
+        keep: keepSlideChanges,
+        discard: discardSlideChanges,
+        isActive: () => slideMode
+      };
+      // ==================== END SLIDE MODE ====================
+      
       // Language list for preferences modal
       const languages = [
         { code: 'en', name: 'English', flag: '🇺🇸' },
@@ -17856,9 +18405,11 @@
                 const code = editor.getValue();
                 if (code) {
                   console.log('💊 [PILLS] Re-running code with trace enabled');
+                  const codeId = localStorage.getItem('kidlisp-current-code') || null;
                   sendToIframe({
                     type: 'kidlisp-reload',
                     code: code,
+                    codeId: codeId,
                     enableTrace: true
                   });
                 }
@@ -19735,11 +20286,14 @@
           // Handle DAW code messages in device mode
           if (isDeviceMode && msg.type === "daw:code" && msg.content?.code) {
             log.socket.log("Device mode: received code from IDE");
+            // Get current codeId from localStorage
+            const codeId = localStorage.getItem('kidlisp-current-code') || null;
             // Send code to the kidlisp iframe using the same format as normal playback
             if (iframeReady && previewIframe?.contentWindow) {
               previewIframe.contentWindow.postMessage({
                 type: 'kidlisp-reload',
                 code: msg.content.code,
+                codeId: codeId,
                 createCode: false,
                 enableTrace: false
               }, aestheticUrl);
@@ -19750,6 +20304,7 @@
               pendingMessages.push({
                 type: 'kidlisp-reload',
                 code: msg.content.code,
+                codeId: codeId,
                 createCode: false,
                 enableTrace: false
               });
@@ -19798,6 +20353,10 @@
     // Start connection on page load
     connectToSessionServer();
   </script>
+  
+  <!-- Slide mode overlays -->
+  <div id="slide-drag-overlay"></div>
+  <div id="slide-value-tooltip"></div>
 </body>
 
 </html>
