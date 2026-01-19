@@ -253,6 +253,81 @@
     .flip-tab.right .tab-back {
       border-radius: 0 6px 6px 0;
     }
+
+    /* Volume control - right side slider */
+    .volume-control {
+      position: absolute;
+      right: -46px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 240;
+      width: 36px;
+      height: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 6px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--ac-border);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(6px);
+    }
+
+    .volume-label {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--ac-text-muted);
+    }
+
+    .volume-value {
+      font-size: 11px;
+      color: var(--ac-text);
+    }
+
+    #volume-slider {
+      -webkit-appearance: slider-vertical;
+      appearance: slider-vertical;
+      writing-mode: bt-lr;
+      width: 12px;
+      height: 120px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    #volume-slider::-webkit-slider-runnable-track {
+      width: 4px;
+      background: var(--ac-border-solid);
+      border-radius: 6px;
+    }
+
+    #volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--ac-accent);
+      border: 1px solid var(--ac-border-active);
+      box-shadow: 0 0 10px var(--ac-accent-glow);
+    }
+
+    #volume-slider::-moz-range-track {
+      width: 4px;
+      background: var(--ac-border-solid);
+      border-radius: 6px;
+    }
+
+    #volume-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--ac-accent);
+      border: 1px solid var(--ac-border-active);
+      box-shadow: 0 0 10px var(--ac-accent-glow);
+    }
     
     /* Mode tags - flush against bottom of card border */
     .mode-tags {
@@ -659,6 +734,12 @@
         <div class="tab-front"></div>
         <div class="tab-back"></div>
       </div>
+
+      <div class="volume-control" aria-label="Master volume">
+        <div class="volume-label">VOL</div>
+        <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.25" />
+        <div class="volume-value" id="volume-value">25</div>
+      </div>
       
       <!-- Mode tags - inside card so they rotate with it -->
       <div class="mode-tags">
@@ -728,12 +809,63 @@
     const prodTag = document.getElementById('prod-tag');
     const localTag = document.getElementById('local-tag');
     const flipTabs = document.querySelectorAll('.flip-tab');
+    const volumeSlider = document.getElementById('volume-slider');
+    const volumeValue = document.getElementById('volume-value');
     let showingTerminal = false;
     let localhostAvailable = false;
     let currentMode = 'production'; // 'production' or 'localhost'
+
+    const DEFAULT_MASTER_VOLUME = 0.25;
+    const VOLUME_STORAGE_KEY = 'ac-master-volume';
     
     const PROD_URL = 'https://aesthetic.computer/prompt?desktop';
     const LOCAL_URL = 'http://localhost:8888/prompt?desktop';
+
+    function clampVolume(value) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return DEFAULT_MASTER_VOLUME;
+      return Math.min(1, Math.max(0, numeric));
+    }
+
+    function updateVolumeUI(value) {
+      const clamped = clampVolume(value);
+      volumeSlider.value = clamped.toString();
+      volumeValue.textContent = Math.round(clamped * 100).toString();
+      return clamped;
+    }
+
+    function sendMasterVolume(value) {
+      const clamped = clampVolume(value);
+      const code = `(() => {
+        const v = ${clamped};
+        if (window.AC && typeof window.AC.setMasterVolume === 'function') {
+          window.AC.setMasterVolume(v);
+          return true;
+        }
+        if (typeof window.acSetMasterVolume === 'function') {
+          window.acSetMasterVolume(v);
+          return true;
+        }
+        return false;
+      })()`;
+      webviewEl.executeJavaScript(code, true).catch(() => {});
+    }
+
+    function syncMasterVolume() {
+      const clamped = clampVolume(volumeSlider.value);
+      sessionStorage.setItem(VOLUME_STORAGE_KEY, String(clamped));
+      sendMasterVolume(clamped);
+    }
+
+    // Initialize per-window volume
+    const storedVolume = sessionStorage.getItem(VOLUME_STORAGE_KEY);
+    if (storedVolume !== null) {
+      updateVolumeUI(storedVolume);
+    } else {
+      updateVolumeUI(DEFAULT_MASTER_VOLUME);
+      sessionStorage.setItem(VOLUME_STORAGE_KEY, String(DEFAULT_MASTER_VOLUME));
+    }
+    syncMasterVolume();
     
     // Poll for localhost availability using an image load trick (works in webview)
     async function checkLocalhost() {
@@ -807,6 +939,7 @@
       const piece = extractPieceName(e.url);
       console.log('[flip] Navigated to piece:', piece);
       ipcRenderer.invoke('set-current-piece', piece);
+      syncMasterVolume();
     });
     
     webviewEl.addEventListener('did-navigate-in-page', (e) => {
@@ -814,7 +947,12 @@
         const piece = extractPieceName(e.url);
         console.log('[flip] In-page navigation to piece:', piece);
         ipcRenderer.invoke('set-current-piece', piece);
+        syncMasterVolume();
       }
+    });
+
+    webviewEl.addEventListener('dom-ready', () => {
+      syncMasterVolume();
     });
     
     // Handle window.open() from webview (prompt.mjs + and - commands)
@@ -850,6 +988,11 @@
     prodTag.addEventListener('click', () => switchMode('production'));
     localTag.addEventListener('click', () => {
       if (localhostAvailable) switchMode('localhost');
+    });
+
+    volumeSlider.addEventListener('input', () => {
+      updateVolumeUI(volumeSlider.value);
+      syncMasterVolume();
     });
     
     // Container control button handlers
