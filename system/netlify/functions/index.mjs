@@ -38,6 +38,10 @@ async function trackPieceHit(piece, type) {
 
 async function fun(event, context) {
   const _startTime = Date.now();
+  
+  // 🐛 DEBUG: Log the actual path resolution for troubleshooting
+  console.log(`🔍 DEBUG index.mjs: path=${event.path}, dev=${dev}, __dirname=${typeof __dirname !== 'undefined' ? __dirname : 'N/A'}`);
+  
   try {
     // TODO: Return a 500 or 404 for everything that does not exist...
     //       - [] Like for example if the below import fails...
@@ -435,11 +439,15 @@ async function fun(event, context) {
         } else {
           try {
             const basePath = `${dev ? "./" : "/var/task/"}public/aesthetic.computer/disks/${path}`;
+            console.log(`🔍 DEBUG: Trying to load disk from basePath=${basePath}`);
             try {
               sourceCode = await fs.readFile(`${basePath}.mjs`, "utf8");
+              console.log(`🔍 DEBUG: Successfully loaded ${basePath}.mjs`);
             } catch (errJavaScript) {
+              console.log(`🔍 DEBUG: Failed to load .mjs: ${errJavaScript.message}`);
               try {
                 sourceCode = await fs.readFile(`${basePath}.lisp`, "utf8");
+                console.log(`🔍 DEBUG: Successfully loaded ${basePath}.lisp`);
                 language = "lisp";
               } catch (errLisp) {
                 console.error(
@@ -447,6 +455,7 @@ async function fun(event, context) {
                   errJavaScript,
                   errLisp,
                 );
+                console.log(`🔍 DEBUG: Both .mjs and .lisp failed for ${basePath}`);
                 statusCode = 404;
                 // return respond(statusCode, `Content not found: ${path}`);
               }
