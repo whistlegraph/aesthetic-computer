@@ -814,10 +814,10 @@
     return mesh;
   }
   
-  function createConnectionLine() {
+  function createConnectionLine(color) {
     const geo = new THREE.CylinderGeometry(1.5, 1.5, 1, 8);
     const mat = new THREE.MeshBasicMaterial({
-      color: scheme.three.connectionLine, transparent: true, opacity: 0.5
+      color: color || scheme.three.connectionLine, transparent: true, opacity: 0.5
     });
     return new THREE.Mesh(geo, mat);
   }
@@ -941,13 +941,31 @@
         const cmdDisplay = d.cmdShort || d.cmd || '';
         const cmdShort = cmdDisplay.length > 50 ? cmdDisplay.slice(0, 47) + '...' : cmdDisplay;
         
+        // Calculate rotation based on connection to parent (make label parallel to line)
+        let rotation = 0;
+        const parentPid = String(d.parentInteresting || 0);
+        const parentMesh = meshes.has(parentPid) ? meshes.get(parentPid) : meshes.get('kernel');
+        if (parentMesh && pid !== 'kernel') {
+          const parentPos = new THREE.Vector3();
+          parentMesh.getWorldPosition(parentPos);
+          // Project both positions to 2D screen space
+          const childScreen = pos.clone().project(camera);
+          const parentScreen = parentPos.clone().project(camera);
+          // Calculate angle in screen space
+          const dx = (parentScreen.x - childScreen.x);
+          const dy = (parentScreen.y - childScreen.y);
+          rotation = Math.atan2(-dy, dx) * (180 / Math.PI);
+          // Clamp rotation to reasonable range (-45 to 45 degrees)
+          rotation = Math.max(-45, Math.min(45, rotation));
+        }
+        
         const label = document.createElement('div');
         label.className = 'proc-label';
         label.style.left = x + 'px';
         label.style.top = y + 'px';
         label.style.opacity = opacity;
-        label.style.transform = 'translate(-50%, -100%) scale(' + proximityScale + ')';
-        // Show name, then command on second line, then stats
+        label.style.transform = 'translate(-50%, -100%) scale(' + proximityScale + ') rotate(' + rotation + 'deg)';
+        // Show name, then command on second line, then stats (no background)
         label.innerHTML = '<div class="icon">' + (d.icon || '●') + '</div>' +
           '<div class="name" style="color:' + color + '">' + (d.name || pid) + '</div>' +
           (cmdShort ? '<div class="cmd" style="color:' + scheme.foregroundMuted + ';font-size:8px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + cmdShort + '</div>' : '') +
@@ -1036,12 +1054,13 @@
       }
       
       const parentPid = String(p.parentInteresting || 0);
+      const childColor = colors[p.category] || 0x666666;
       if (parentPid && meshes.has(parentPid)) {
         const connKey = pid + '->' + parentPid;
         if (!connections.has(connKey)) {
-          const line = createConnectionLine();
+          const line = createConnectionLine(childColor);
           scene.add(line);
-          connections.set(connKey, { line, childPid: pid, parentPid });
+          connections.set(connKey, { line, childPid: pid, parentPid, childColor });
           
           // Respect current visibility
           const isSourcesTab = window.ASTTreeViz?.getTab() === 'sources';
@@ -1050,9 +1069,9 @@
       } else {
         const connKey = pid + '->kernel';
         if (!connections.has(connKey)) {
-          const line = createConnectionLine();
+          const line = createConnectionLine(childColor);
           scene.add(line);
-          connections.set(connKey, { line, childPid: pid, parentPid: 'kernel' });
+          connections.set(connKey, { line, childPid: pid, parentPid: 'kernel', childColor });
           
           // Respect current visibility
           const isSourcesTab = window.ASTTreeViz?.getTab() === 'sources';
@@ -1214,8 +1233,11 @@
       if (childMesh && parentMesh) {
         updateConnectionMesh(conn, childMesh.position, parentMesh.position);
         const involvesFocus = focusedPid && (conn.childPid === focusedPid || conn.parentPid === focusedPid);
-        conn.line.material.opacity = focusedPid ? (involvesFocus ? 0.9 : 0.15) : 0.5;
-        conn.line.material.color.setHex(involvesFocus ? scheme.three.connectionActive : scheme.three.connectionLine);
+        conn.line.material.opacity = focusedPid ? (involvesFocus ? 0.9 : 0.15) : 0.6;
+        // Use child's category color for the line (color-coded connections)
+        const childCategory = childMesh.userData?.category;
+        const lineColor = involvesFocus ? scheme.three.connectionActive : (colors[childCategory] || conn.childColor || scheme.three.connectionLine);
+        conn.line.material.color.setHex(lineColor);
         const thickness = involvesFocus ? 2.5 : 1.5;
         conn.line.scale.x = thickness / 1.5;
         conn.line.scale.z = thickness / 1.5;
@@ -1315,6 +1337,9 @@
             document.getElementById('cpus').textContent = data.system.cpus;
             const m = data.system.memory;
             document.getElementById('mem-text').textContent = m.used + ' / ' + m.total;
+            
+            // Update stats graph with system data
+            updateStatsGraph(data.system);
           }
           updateViz(data.processes);
         } catch {}
@@ -1327,12 +1352,166 @@
     }
   }
   
+  // 📊 Stats Graph (CPU/Memory history)
+  const GRAPH_POINTS = 60; // 60 data points
+  const cpuHistory = new Array(GRAPH_POINTS).fill(0);
+  const memHistory = new Array(GRAPH_POINTS).fill(0);
+  let statsCanvas = null;
+  let statsCtx = null;
+  
+  function initStatsGraph() {
+    statsCanvas = document.getElementById('stats-graph-canvas');
+    if (statsCanvas) {
+      statsCtx = statsCanvas.getContext('2d');
+      // Set actual pixel dimensions for crisp rendering
+      const rect = statsCanvas.getBoundingClientRect();
+      statsCanvas.width = rect.width * window.devicePixelRatio;
+      statsCanvas.height = rect.height * window.devicePixelRatio;
+      statsCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+  }
+  
+  function updateStatsGraph(system) {
+    if (!statsCtx) initStatsGraph();
+    if (!statsCtx) return;
+    
+    // Parse memory usage
+    const m = system.memory;
+    let memPct = 0;
+    if (m && m.used && m.total) {
+      const usedNum = parseFloat(m.used.replace(/[^\d.]/g, ''));
+      const totalNum = parseFloat(m.total.replace(/[^\d.]/g, ''));
+      if (totalNum > 0) {
+        memPct = (usedNum / totalNum) * 100;
+      }
+    }
+    
+    // Calculate total CPU usage from all processes
+    let totalCpu = 0;
+    meshes.forEach((mesh, pid) => {
+      if (pid !== 'kernel' && mesh.userData.cpu) {
+        totalCpu += mesh.userData.cpu;
+      }
+    });
+    // Normalize to percentage (divide by number of CPUs)
+    const numCpus = parseInt(system.cpus) || 1;
+    const cpuPct = Math.min(100, totalCpu / numCpus);
+    
+    // Shift history and add new values
+    cpuHistory.shift();
+    cpuHistory.push(cpuPct);
+    memHistory.shift();
+    memHistory.push(memPct);
+    
+    // Update text labels
+    const cpuEl = document.getElementById('cpu-pct');
+    const memEl = document.getElementById('mem-pct');
+    if (cpuEl) cpuEl.textContent = cpuPct.toFixed(1);
+    if (memEl) memEl.textContent = memPct.toFixed(1);
+    
+    // Draw graph
+    drawStatsGraph();
+  }
+  
+  function drawStatsGraph() {
+    if (!statsCtx || !statsCanvas) return;
+    
+    const rect = statsCanvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    
+    // Clear canvas
+    statsCtx.clearRect(0, 0, w, h);
+    
+    // Colors based on theme
+    const cpuColor = currentTheme === 'light' ? '#006400' : '#50fa7b';
+    const memColor = currentTheme === 'light' ? '#c71585' : '#ff79c6';
+    const gridColor = currentTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
+    
+    // Draw grid lines
+    statsCtx.strokeStyle = gridColor;
+    statsCtx.lineWidth = 0.5;
+    for (let i = 0; i <= 4; i++) {
+      const y = (h / 4) * i;
+      statsCtx.beginPath();
+      statsCtx.moveTo(0, y);
+      statsCtx.lineTo(w, y);
+      statsCtx.stroke();
+    }
+    
+    // Draw CPU line
+    statsCtx.strokeStyle = cpuColor;
+    statsCtx.lineWidth = 1.5;
+    statsCtx.beginPath();
+    for (let i = 0; i < GRAPH_POINTS; i++) {
+      const x = (w / (GRAPH_POINTS - 1)) * i;
+      const y = h - (cpuHistory[i] / 100) * h;
+      if (i === 0) statsCtx.moveTo(x, y);
+      else statsCtx.lineTo(x, y);
+    }
+    statsCtx.stroke();
+    
+    // Fill CPU area (semi-transparent)
+    statsCtx.fillStyle = cpuColor.replace(')', ',0.15)').replace('rgb', 'rgba').replace('#', '');
+    if (cpuColor.startsWith('#')) {
+      const r = parseInt(cpuColor.slice(1, 3), 16);
+      const g = parseInt(cpuColor.slice(3, 5), 16);
+      const b = parseInt(cpuColor.slice(5, 7), 16);
+      statsCtx.fillStyle = `rgba(${r},${g},${b},0.15)`;
+    }
+    statsCtx.beginPath();
+    statsCtx.moveTo(0, h);
+    for (let i = 0; i < GRAPH_POINTS; i++) {
+      const x = (w / (GRAPH_POINTS - 1)) * i;
+      const y = h - (cpuHistory[i] / 100) * h;
+      statsCtx.lineTo(x, y);
+    }
+    statsCtx.lineTo(w, h);
+    statsCtx.closePath();
+    statsCtx.fill();
+    
+    // Draw Memory line
+    statsCtx.strokeStyle = memColor;
+    statsCtx.lineWidth = 1.5;
+    statsCtx.beginPath();
+    for (let i = 0; i < GRAPH_POINTS; i++) {
+      const x = (w / (GRAPH_POINTS - 1)) * i;
+      const y = h - (memHistory[i] / 100) * h;
+      if (i === 0) statsCtx.moveTo(x, y);
+      else statsCtx.lineTo(x, y);
+    }
+    statsCtx.stroke();
+    
+    // Fill Memory area (semi-transparent)
+    if (memColor.startsWith('#')) {
+      const r = parseInt(memColor.slice(1, 3), 16);
+      const g = parseInt(memColor.slice(3, 5), 16);
+      const b = parseInt(memColor.slice(5, 7), 16);
+      statsCtx.fillStyle = `rgba(${r},${g},${b},0.15)`;
+    }
+    statsCtx.beginPath();
+    statsCtx.moveTo(0, h);
+    for (let i = 0; i < GRAPH_POINTS; i++) {
+      const x = (w / (GRAPH_POINTS - 1)) * i;
+      const y = h - (memHistory[i] / 100) * h;
+      statsCtx.lineTo(x, y);
+    }
+    statsCtx.lineTo(w, h);
+    statsCtx.closePath();
+    statsCtx.fill();
+  }
+  
   window.addEventListener('resize', () => {
     width = window.innerWidth;
     height = window.innerHeight;
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setSize(width, height);
+    
+    // Reinitialize stats graph canvas on resize
+    statsCanvas = null;
+    statsCtx = null;
+    initStatsGraph();
   });
   
   // 🎨 Theme switching function
@@ -1425,10 +1604,10 @@
         color: ${currentTheme === 'light' ? '#fff' : '#000'}; 
       }
       
-      /* Label styles */
+      /* Label styles - no background, stronger text shadow */
       .proc-label { 
-        text-shadow: 0 0 4px ${scheme.background}, 0 0 8px ${scheme.background}; 
-        background: ${currentTheme === 'light' ? 'rgba(252,247,197,0.5)' : 'rgba(0,0,0,0.3)'};
+        text-shadow: 0 0 6px ${scheme.background}, 0 0 10px ${scheme.background}, 0 0 14px ${scheme.background}; 
+        background: transparent;
       }
       .proc-label .info { color: ${scheme.foregroundMuted}; }
       
