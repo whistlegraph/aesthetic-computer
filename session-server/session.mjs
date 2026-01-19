@@ -1640,6 +1640,14 @@ wss.on("connection", (ws, req) => {
       codeChannel = msg.content;
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
+    } else if (msg.type === "code" && msg.content?.codeChannel) {
+      // Handle code broadcast to channel subscribers (for kidlisp.com pop-out sync)
+      const targetChannel = msg.content.codeChannel;
+      if (codeChannels[targetChannel]) {
+        const codeMsg = pack("code", JSON.stringify(msg.content), id);
+        subscribers(codeChannels[targetChannel], codeMsg);
+        log(`📢 Broadcast code to channel ${targetChannel} (${codeChannels[targetChannel].size} subscribers)`);
+      }
     } else if (msg.type === "login") {
       if (msg.content?.user?.sub) {
         if (!clients[id]) clients[id] = { websocket: true };

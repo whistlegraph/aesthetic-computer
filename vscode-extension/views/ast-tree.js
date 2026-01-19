@@ -308,6 +308,51 @@
   
   // Helper to get consistent ID
   const getFileId = (f) => f.id || f.fileName;
+  
+  // Get icon/color for non-AST buffer files (markdown, lisp)
+  function getBufferIcon(fileName) {
+    if (fileName.endsWith('.md')) return '📝';
+    if (fileName.endsWith('.lisp')) return '🔮';
+    return '📄';
+  }
+  
+  function getBufferColor(fileName) {
+    if (fileName.endsWith('.md')) return 0x88ccff;     // Markdown - light blue
+    if (fileName.endsWith('.lisp')) return 0xff79c6;  // Lisp - pink
+    return 0x666688;
+  }
+  
+  // Create a simple buffer node mesh for non-AST files
+  function createBufferNodeMesh(file) {
+    const size = 12;
+    const color = getBufferColor(file.fileName);
+    const icon = getBufferIcon(file.fileName);
+    
+    const geo = new THREE.IcosahedronGeometry(size, 1);
+    const mat = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.85,
+    });
+    
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.userData = {
+      type: 'Buffer',
+      fileName: file.fileName,
+      filePath: file.filePath,
+      fileId: getFileId(file),
+      size,
+      baseColor: color,
+      displayName: file.fileName,
+      icon: icon,
+      targetPos: new THREE.Vector3(),
+      pulsePhase: Math.random() * Math.PI * 2,
+      isSourceNode: true,
+      isBuffer: true,
+    };
+    
+    return mesh;
+  }
 
   function updateSourceVisualization(files) {
     astFiles = files;
@@ -342,18 +387,20 @@
     });
     
     // Create/update visualizations
-    const totalFiles = files.filter(f => f.ast).length;
+    const astFiles = files.filter(f => f.ast);
+    const bufferFiles = files.filter(f => !f.ast); // Markdown, Lisp, etc.
+    const totalAstFiles = astFiles.length;
+    const totalBufferFiles = bufferFiles.length;
     let fileIndex = 0;
     
-    files.forEach((file) => {
-      if (!file.ast) return;
-      
+    // Layout AST files (existing behavior)
+    astFiles.forEach((file) => {
       const fileId = getFileId(file);
 
       // Add fileName to root node
       file.ast.fileName = file.fileName;
       
-      layoutSourceTree(file.ast, fileIndex, totalFiles);
+      layoutSourceTree(file.ast, fileIndex, totalAstFiles);
       fileIndex++;
       
       let fileData = sourceFiles.get(fileId);
@@ -421,6 +468,42 @@
           fileData.nodes.delete(nodeId);
         }
       });
+    });
+    
+    // Layout buffer files (markdown, lisp) - simple nodes in an arc
+    bufferFiles.forEach((file, bufferIndex) => {
+      const fileId = getFileId(file);
+      
+      let fileData = sourceFiles.get(fileId);
+      if (!fileData) {
+        fileData = { nodes: new Map(), isBuffer: true };
+        sourceFiles.set(fileId, fileData);
+      }
+      
+      const bufferId = `buffer-${fileId}`;
+      let mesh = fileData.nodes.get(bufferId);
+      
+      // Position buffer files in an arc below AST files
+      const bufferRadius = 80;
+      const angleSpread = Math.PI * 0.8;
+      const startAngle = Math.PI + (Math.PI - angleSpread) / 2;
+      const angle = totalBufferFiles === 1 
+        ? Math.PI * 1.5 
+        : startAngle + (angleSpread / (totalBufferFiles - 1)) * bufferIndex;
+      
+      const targetX = Math.cos(angle) * bufferRadius;
+      const targetY = -60; // Below the main AST view
+      const targetZ = Math.sin(angle) * bufferRadius;
+      
+      if (!mesh) {
+        mesh = createBufferNodeMesh(file);
+        mesh.position.set(targetX, targetY, targetZ);
+        scene.add(mesh);
+        fileData.nodes.set(bufferId, mesh);
+      }
+      
+      mesh.userData.targetPos.set(targetX, targetY, targetZ);
+      mesh.visible = sourcesVisible;
     });
     
     // Clean orphaned connections
@@ -679,8 +762,9 @@
           // Show more labels when zoomed in
           // Relaxed thresholds for visibility
           const important = ['Program', 'FunctionDeclaration', 'ClassDeclaration', 'MethodDefinition', 
-                           'VariableDeclaration', 'ImportDeclaration', 'ExportDefaultDeclaration', 'ExportNamedDeclaration'];
-          const isImportant = important.includes(d.type);
+                           'VariableDeclaration', 'ImportDeclaration', 'ExportDefaultDeclaration', 'ExportNamedDeclaration',
+                           'Buffer']; // Buffer files (markdown, lisp) are always visible
+          const isImportant = important.includes(d.type) || d.isBuffer;
           
           if (!isImportant && distToCamera > 800) return;
           if (distToCamera > 1200) return;
@@ -692,7 +776,7 @@
           const isHovered = hoveredNode === d.id;
           
           const label = document.createElement('div');
-          label.className = 'proc-label source-label' + (isFocused ? ' focused' : '') + (isHovered ? ' hovered' : '');
+          label.className = 'proc-label source-label' + (isFocused ? ' focused' : '') + (isHovered ? ' hovered' : '') + (d.isBuffer ? ' buffer' : '');
           label.style.cssText = `
             left: ${x}px; top: ${y}px;
             opacity: ${isFocused || isHovered ? 1 : opacity};
@@ -705,7 +789,7 @@
           
           label.innerHTML = `
             <div style="
-              font-size: 8px; font-weight: bold; color: ${color};
+              font-size: ${d.isBuffer ? '10px' : '8px'}; font-weight: bold; color: ${color};
               text-shadow: 0 1px 2px rgba(0,0,0,0.8);
               white-space: nowrap;
               background: rgba(0,0,0,0.4);
@@ -713,7 +797,7 @@
               border-radius: 4px;
               display: inline-flex; overflow: visible; align-items: center; gap: 4px;
             ">
-              <span style="font-size: 10px;">${d.icon}</span>${d.displayName}
+              <span style="font-size: ${d.isBuffer ? '14px' : '10px'};">${d.icon}</span>${d.displayName}
             </div>
             ${isHovered || isFocused ? `<div style="font-size: 7px; color: #888; margin-top: 1px;">${d.type}</div>` : ''}
           `;

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<!-- KidLisp.com VJ Mode - Live code visualization window -->
+<!-- Receives code updates via BroadcastChannel and session server -->
+<!-- URL format: kidlisp.com/vj/channelId -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>KidLisp.com · VJ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <link rel="icon" type="image/png"
+    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    
+    #preview-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #000;
+    }
+    
+    /* Fullscreen hint */
+    #fullscreen-hint {
+      position: fixed;
+      bottom: 8px;
+      right: 8px;
+      z-index: 100;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    
+    body:hover #fullscreen-hint {
+      opacity: 1;
+    }
+    
+    /* Boot screen */
+    #boot-screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      z-index: 10;
+      transition: opacity 0.5s;
+    }
+    
+    #boot-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    .boot-text {
+      color: rgba(255, 255, 255, 0.6);
+      font-family: monospace;
+      font-size: 14px;
+      text-align: center;
+    }
+    
+    .boot-text .channel {
+      color: rgb(205, 92, 155);
+    }
+  </style>
+</head>
+<body>
+  <div id="fullscreen-hint">Press F for fullscreen • Esc to exit</div>
+  
+  <div id="boot-screen">
+    <div class="boot-text">
+      Waiting for connection...<br>
+      <span class="channel" id="boot-channel"></span>
+    </div>
+  </div>
+  
+  <iframe id="preview-iframe"></iframe>
+  
+  <script>
+    // Parse channel from URL path: /vj/channelId or /kidlisp.com/vj/channelId
+    const pathParts = window.location.pathname.split('/').filter(p => p && p !== 'kidlisp.com');
+    // pathParts should be ['vj', 'channelId'] or just ['vj']
+    const channelId = pathParts.length >= 2 && pathParts[0] === 'vj' ? pathParts[1] : null;
+    
+    // Get initial code from query params (for direct code sharing)
+    const params = new URLSearchParams(window.location.search);
+    const initialCode = params.get('code');
+    
+    // UI elements
+    const iframe = document.getElementById('preview-iframe');
+    const bootScreen = document.getElementById('boot-screen');
+    const bootChannel = document.getElementById('boot-channel');
+    
+    // Aesthetic Computer URL (same origin for postMessage)
+    const dev = window.location.hostname === 'localhost' || 
+                window.location.hostname === 'local.aesthetic.computer';
+    const aestheticUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+    
+    // Display channel ID
+    if (channelId) {
+      bootChannel.textContent = `Channel: ${channelId}`;
+      document.title = `KidLisp.com · VJ · ${channelId}`;
+    } else {
+      bootChannel.textContent = 'No channel specified';
+    }
+    
+    // State
+    let iframeReady = false;
+    let pendingCode = null;
+    
+    // Initialize iframe with kidlisp piece
+    iframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true&popout=true&t=${Date.now()}`;
+    
+    // Wait for iframe to be ready
+    iframe.addEventListener('load', () => {
+      console.log('Iframe loaded');
+      setTimeout(() => {
+        iframeReady = true;
+        
+        // If we have pending code, send it now
+        if (pendingCode) {
+          sendCodeToIframe(pendingCode);
+          pendingCode = null;
+        } else if (initialCode) {
+          // If we have an initial code from URL, load it
+          sendCodeToIframe(initialCode);
+        }
+        
+        // Hide boot screen
+        bootScreen.classList.add('hidden');
+      }, 500);
+    });
+    
+    // Send code to iframe
+    function sendCodeToIframe(code) {
+      if (!iframeReady) {
+        pendingCode = code;
+        return;
+      }
+      
+      console.log('Sending code to iframe:', code.substring(0, 50) + '...');
+      
+      iframe.contentWindow.postMessage({
+        type: 'kidlisp-reload',
+        code: code,
+        createCode: false,
+        enableTrace: false
+      }, aestheticUrl);
+    }
+    
+    // Listen for code updates via BroadcastChannel (same-origin only)
+    if (channelId && window.BroadcastChannel) {
+      const bc = new BroadcastChannel(`kidlisp-channel-${channelId}`);
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'code-update' && event.data?.code) {
+          console.log('Received code via BroadcastChannel');
+          sendCodeToIframe(event.data.code);
+        }
+      };
+      console.log('BroadcastChannel listener ready:', `kidlisp-channel-${channelId}`);
+    }
+    
+    // Connect to session server for cross-origin code updates (VS Code -> external browser)
+    let sessionWs = null;
+    function connectToSessionServer() {
+      let connectionUrl = "wss://localhost:8889";
+      if (window.location.host === "local.aesthetic.computer") {
+        connectionUrl = "wss://session.local.aesthetic.computer";
+      } else if (window.location.host === "kidlisp.com") {
+        connectionUrl = "wss://session-server.aesthetic.computer";
+      }
+      
+      console.log('Connecting to session server:', connectionUrl);
+      statusDot.classList.remove('connected');
+      statusDot.classList.add('waiting');
+      
+      try {
+        sessionWs = new WebSocket(connectionUrl);
+      } catch (e) {
+        console.warn('Session server connection failed:', e);
+        setTimeout(connectToSessionServer, 3000);
+        return;
+      }
+      
+      sessionWs.onopen = () => {
+        console.log('Connected to session server');
+        statusDot.classList.remove('waiting');
+        statusDot.classList.add('connected');
+        
+        // Subscribe to code channel
+        if (channelId) {
+          sessionWs.send(JSON.stringify({
+            type: 'code-channel:sub',
+            content: channelId
+          }));
+          console.log('Subscribed to code channel:', channelId);
+        }
+      };
+      
+      sessionWs.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          
+          // Handle code updates from the channel
+          if (msg.type === 'code' && msg.content?.piece) {
+            console.log('Received code via session server');
+            sendCodeToIframe(msg.content.piece);
+          }
+        } catch (err) {
+          console.warn('Error parsing session message:', err);
+        }
+      };
+      
+      sessionWs.onerror = () => {
+        console.warn('Session server error');
+        statusDot.classList.remove('connected');
+      };
+      
+      sessionWs.onclose = () => {
+        console.log('Session server disconnected, reconnecting...');
+        statusDot.classList.remove('connected');
+        sessionWs = null;
+        setTimeout(connectToSessionServer, 2000);
+      };
+    }
+    
+    // Start session server connection if we have a channel
+    if (channelId) {
+      connectToSessionServer();
+    }
+    
+    // Listen for code updates via postMessage (from parent editor)
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      
+      // Code update from editor
+      if (data?.type === 'kidlisp-code-update' && data?.code) {
+        console.log('Received code via postMessage');
+        sendCodeToIframe(data.code);
+      }
+      
+      // Forward messages from iframe if needed
+      if (data?.type === 'boot-log' || data?.type === 'ready') {
+        // Boot messages - hide boot screen when ready
+        if (data?.type === 'ready') {
+          bootScreen.classList.add('hidden');
+        }
+      }
+    });
+    
+    // Fullscreen toggle
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'f' || e.key === 'F') {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    });
+    
+    // Update title when receiving code
+    window.addEventListener('message', (event) => {
+      if (event.data?.type === 'url:updated' && event.data?.slug) {
+        document.title = `$${event.data.slug} • KidLisp`;
+      }
+    });
+    
+    // Prevent accidental close
+    window.addEventListener('beforeunload', (e) => {
+      // Only warn if we have an active channel
+      if (channelId && iframeReady) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+    
+    console.log('KidLisp VJ window initialized', { channel: channelId, dev });
+  </script>
+</body>
+</html>
