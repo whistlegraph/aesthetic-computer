@@ -1178,6 +1178,86 @@
       opacity: 0.6;
       transition: filter 0.3s ease, opacity 0.3s ease;
     }
+    
+    /* Popped-out state - dark overlay with channel info */
+    .preview-iframe-container.popped-out {
+      position: relative;
+    }
+    
+    .preview-iframe-container.popped-out::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 50;
+      pointer-events: none;
+    }
+    
+    .preview-iframe-container.popped-out::after {
+      content: 'Preview in pop-out window';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 51;
+      color: rgba(255, 255, 255, 0.6);
+      font-family: monospace;
+      font-size: 14px;
+      pointer-events: none;
+      text-align: center;
+    }
+    
+    .popout-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 100;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: white;
+      font-family: monospace;
+    }
+    
+    .preview-iframe-container.popped-out .popout-overlay {
+      display: flex;
+    }
+    
+    .popout-overlay-icon {
+      width: 48px;
+      height: 48px;
+      color: rgb(205, 92, 155);
+    }
+    
+    .popout-overlay-text {
+      font-size: 14px;
+      opacity: 0.8;
+    }
+    
+    .popout-overlay-channel {
+      font-size: 16px;
+      color: rgb(205, 92, 155);
+      font-weight: bold;
+    }
+    
+    .popout-overlay-btn {
+      margin-top: 8px;
+      padding: 8px 16px;
+      background: rgba(205, 92, 155, 0.2);
+      border: 1px solid rgb(205, 92, 155);
+      color: white;
+      font-family: monospace;
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .popout-overlay-btn:hover {
+      background: rgba(205, 92, 155, 0.4);
+    }
 
     /* Pixel rulers for paused state (Photoshop-style) - all 4 sides */
     .preview-rulers {
@@ -1539,7 +1619,7 @@
       height: 100%;
       display: flex;
       flex-direction: row;
-      z-index: 1000;
+      z-index: 998; /* Below center-square drag nub (z-index: 999) */
       transition: opacity 0.5s;
     }
 
@@ -1583,7 +1663,7 @@
         color: #000;
       }
       
-      /* Invert color bars for light mode */
+      /* Inverted/muted color bars for light mode */
       .bar-1 { background: #000000 !important; }
       .bar-2 { background: #0000aa !important; }
       .bar-3 { background: #aa0000 !important; }
@@ -1592,6 +1672,26 @@
       .bar-6 { background: #00aaaa !important; }
       .bar-7 { background: #aaaa00 !important; }
       .bar-8 { background: #ffffff !important; }
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      .boot-screen {
+        background: #1a1a1a;
+      }
+      
+      .boot-text {
+        color: #fff;
+      }
+      
+      /* Standard SMPTE bright color bars for dark mode */
+      .bar-1 { background: #ffffff !important; }
+      .bar-2 { background: #ffff00 !important; }
+      .bar-3 { background: #00ffff !important; }
+      .bar-4 { background: #00ff00 !important; }
+      .bar-5 { background: #ff00ff !important; }
+      .bar-6 { background: #ff0000 !important; }
+      .bar-7 { background: #0000ff !important; }
+      .bar-8 { background: #000000 !important; }
     }
 
     /* Manual theme toggle overrides for preview iframe */
@@ -1616,6 +1716,15 @@
     [data-theme="dark"] .boot-text {
       color: #fff;
     }
+    /* Dark mode uses standard SMPTE color bars (bright on dark) */
+    [data-theme="dark"] .bar-1 { background: #ffffff !important; }
+    [data-theme="dark"] .bar-2 { background: #ffff00 !important; }
+    [data-theme="dark"] .bar-3 { background: #00ffff !important; }
+    [data-theme="dark"] .bar-4 { background: #00ff00 !important; }
+    [data-theme="dark"] .bar-5 { background: #ff00ff !important; }
+    [data-theme="dark"] .bar-6 { background: #ff0000 !important; }
+    [data-theme="dark"] .bar-7 { background: #0000ff !important; }
+    [data-theme="dark"] .bar-8 { background: #000000 !important; }
 
     /* FF1 Art Computer boot screen - theme-aware */
     #boot-screen-ff1 {
@@ -5198,6 +5307,60 @@
       .platform-arrow { display: none !important; }
     }
 
+    /* Pop-out button styles */
+    .popout-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      margin: 0 2px;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-tertiary);
+      opacity: 0;
+      transition: opacity 0.2s, background 0.15s, color 0.15s, transform 0.1s;
+      flex-shrink: 0;
+    }
+    
+    .platform-selector:hover .popout-btn,
+    .popout-btn:focus {
+      opacity: 1;
+    }
+    
+    .popout-btn:hover {
+      background: rgba(205, 92, 155, 0.15);
+      color: rgb(205, 92, 155);
+    }
+    
+    .popout-btn:active {
+      transform: scale(0.9);
+    }
+    
+    /* When popped out, show a "return" indicator */
+    .popout-btn.active {
+      opacity: 1;
+      color: rgb(205, 92, 155);
+      background: rgba(205, 92, 155, 0.1);
+    }
+    
+    .popout-btn.active:hover {
+      background: rgba(205, 92, 155, 0.25);
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      .popout-btn:hover {
+        background: rgba(205, 92, 155, 0.25);
+      }
+    }
+    
+    [data-theme="dark"] .popout-btn:hover {
+      background: rgba(205, 92, 155, 0.25);
+    }
+
     /* Platform selector dropdown */
     .platform-selector {
       display: flex;
@@ -5209,7 +5372,7 @@
       transition: background 0.2s;
       position: relative;
       min-width: 0; /* Allow shrinking */
-      overflow: hidden;
+      overflow: visible; /* Allow popout button to show */
     }
 
     .platform-selector:hover {
@@ -7363,6 +7526,12 @@
         <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
           <div id="platform-selector" class="platform-selector">
             <span id="preview-title" class="booting"><span class="title-full"><span class="title-letter">A</span><span class="title-letter">e</span><span class="title-letter">s</span><span class="title-letter">t</span><span class="title-letter">h</span><span class="title-letter">e</span><span class="title-letter">t</span><span class="title-letter">i</span><span class="title-letter">c</span></span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full"><span class="title-letter">C</span><span class="title-letter">o</span><span class="title-letter">m</span><span class="title-letter">p</span><span class="title-letter">u</span><span class="title-letter">t</span><span class="title-letter">e</span><span class="title-letter">r</span></span><span class="title-short">AC</span></span>
+            <button id="popout-btn" class="popout-btn" title="Cast to VJ window" aria-label="Cast to VJ window">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
+                <line x1="2" y1="20" x2="2.01" y2="20"/>
+              </svg>
+            </button>
             <span class="platform-arrow">▼</span>
             <div class="platform-dropdown" id="platform-dropdown">
               <div class="platform-option active" data-platform="aesthetic-computer">
@@ -7445,6 +7614,17 @@
             <div class="boot-text boot-text-status" style="font-size: 11px; opacity: 0.5; margin-top: 8px; color: #ff3333;" data-i18n="experimental">⚠️ Experimental</div>
           </div>
           <iframe id="preview-iframe" frameborder="0"></iframe>
+          <!-- VJ overlay (shown when casting to VJ window) -->
+          <div class="popout-overlay" id="popout-overlay">
+            <svg class="popout-overlay-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
+              <line x1="2" y1="20" x2="2.01" y2="20"/>
+            </svg>
+            <div class="popout-overlay-text">Casting to VJ</div>
+            <canvas id="vj-qr-canvas" style="image-rendering: pixelated; border: 2px solid white; cursor: pointer;" title="Click to copy URL"></canvas>
+            <div class="popout-overlay-channel" id="popout-overlay-channel" style="cursor: pointer;" title="Click to copy URL"></div>
+            <button class="popout-overlay-btn" id="focus-popout-btn">Focus Window</button>
+          </div>
           <!-- Pixel rulers (shown when paused) - all 4 sides -->
           <div class="preview-rulers" id="preview-rulers">
             <!-- Corners -->
@@ -7487,14 +7667,14 @@
         <div class="docs-header">
           <div class="tab mobile-only" data-tab="console" id="console-tab">Console</div>
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
-          <div class="tab active" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
-          <div class="tab" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Learn</div>
+          <div class="tab active" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Learn</div>
+          <div class="tab" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
           <div class="console-output" id="mobile-console-output"></div>
         </div>
-        <div class="docs-content hidden" id="guide-content">
+        <div class="docs-content" id="guide-content">
           <div id="guides-list"></div>
           <div id="guide-detail" class="hidden">
             <div class="guide-detail-header">
@@ -7505,7 +7685,7 @@
             <div class="guide-detail-body"></div>
           </div>
         </div>
-        <div class="docs-content" id="list-content">
+        <div class="docs-content hidden" id="list-content">
           <!-- List sub-tabs -->
           <div class="list-subtabs">
             <div class="list-subtab active" data-subtab="examples">Top Hits</div>
@@ -12131,7 +12311,13 @@
     
     const qrModal = document.getElementById('qr-modal');
     if (qrModal) {
-      qrModal.addEventListener('click', hideQRModal);
+      qrModal.addEventListener('click', (e) => {
+        // Don't close if clicking a link inside the modal
+        if (e.target.tagName === 'A' || e.target.closest('a')) {
+          return;
+        }
+        hideQRModal();
+      });
     }
 
     // Scramble characters for code transition animation
@@ -19077,6 +19263,339 @@
       }
     }, 500);
 
+    // ==========================================
+    // Pop-out Window Feature with Code Channel
+    // ==========================================
+    
+    let popoutWindow = null;
+    let codeChannelId = null;
+    let isVSCodePopout = false; // Track if pop-out was opened via VS Code (external browser)
+    const popoutBtn = document.getElementById('popout-btn');
+    const previewIframeContainer = document.getElementById('preview-iframe-container');
+    const popoutOverlay = document.getElementById('popout-overlay');
+    const popoutOverlayChannel = document.getElementById('popout-overlay-channel');
+    const focusPopoutBtn = document.getElementById('focus-popout-btn');
+    
+    // Focus popout button handler
+    focusPopoutBtn?.addEventListener('click', () => {
+      if (popoutWindow && !popoutWindow.closed) {
+        popoutWindow.focus();
+      }
+    });
+    
+    // Generate a pronounceable VJ channel code (CVCV pattern like clock's codes)
+    // Examples: bako, milu, dena, tofi → vj.kidlisp.com/bako
+    function generateCodeChannelId() {
+      const consonants = 'bdfghjklmnprstvwz'; // 17 easy consonants
+      const vowels = 'aeiou'; // 5 vowels
+      const pick = (str) => str[Math.floor(Math.random() * str.length)];
+      // CVCV pattern: 4 chars, pronounceable
+      return pick(consonants) + pick(vowels) + pick(consonants) + pick(vowels);
+    }
+    
+    // Update the VJ overlay (shown when casting)
+    function updateCodeChannelDisplay() {
+      // Show overlay only if we have an active VJ window open
+      const hasActiveVjWindow = codeChannelId && (
+        (popoutWindow && !popoutWindow.closed) || 
+        isVSCodePopout
+      );
+      
+      if (hasActiveVjWindow) {
+        previewIframeContainer?.classList.add('popped-out');
+        const shareUrl = `https://vj.kidlisp.com/${codeChannelId}`;
+        if (popoutOverlayChannel) {
+          popoutOverlayChannel.textContent = shareUrl;
+        }
+        // Draw QR code in the overlay
+        drawVjQrCode(shareUrl);
+      } else {
+        previewIframeContainer?.classList.remove('popped-out');
+      }
+    }
+    
+    // Draw QR code in the VJ overlay
+    function drawVjQrCode(url) {
+      try {
+        const canvas = document.getElementById('vj-qr-canvas');
+        if (!canvas) return;
+        
+        const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
+        const size = 120; // Fixed size for overlay
+        const cellSize = Math.floor(size / cells.length);
+        const actualSize = cells.length * cellSize;
+        
+        canvas.width = actualSize;
+        canvas.height = actualSize;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw QR code
+        for (let y = 0; y < cells.length; y++) {
+          for (let x = 0; x < cells.length; x++) {
+            ctx.fillStyle = cells[y][x] ? '#000000' : '#ffffff';
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to draw VJ QR code:', e);
+      }
+    }
+    
+    // Copy VJ URL when clicking QR or channel text
+    const vjQrCanvas = document.getElementById('vj-qr-canvas');
+    vjQrCanvas?.addEventListener('click', () => copyVjUrl());
+    popoutOverlayChannel?.addEventListener('click', () => copyVjUrl());
+    
+    function copyVjUrl() {
+      if (codeChannelId) {
+        const url = `https://vj.kidlisp.com/${codeChannelId}`;
+        navigator.clipboard.writeText(url).then(() => {
+          showToast('URL copied!', 'success');
+        }).catch(() => {
+          showToast('Failed to copy', 'error');
+        });
+      }
+    }
+    
+    // Subscribe to code channel via session server
+    function subscribeToCodeChannel(channelId) {
+      if (sessionWs && sessionWs.readyState === WebSocket.OPEN) {
+        sessionWs.send(JSON.stringify({
+          type: 'code-channel:sub',
+          content: channelId
+        }));
+        log.socket.log(`Subscribed to code channel: ${channelId}`);
+      } else {
+        log.socket.warn('Session server not connected, will subscribe when reconnected');
+        // Will subscribe when sessionWs connects
+      }
+    }
+    
+    // Broadcast code to channel subscribers
+    function broadcastCodeToChannel(code) {
+      if (!codeChannelId) return;
+      
+      // Broadcast via BroadcastChannel for same-origin windows
+      if (window.BroadcastChannel) {
+        const bc = new BroadcastChannel(`kidlisp-channel-${codeChannelId}`);
+        bc.postMessage({
+          type: 'code-update',
+          code: code,
+          channelId: codeChannelId,
+          timestamp: Date.now()
+        });
+        bc.close();
+      }
+      
+      // Also broadcast via postMessage to the pop-out window directly (if same-origin)
+      if (popoutWindow && !popoutWindow.closed) {
+        try {
+          popoutWindow.postMessage({
+            type: 'kidlisp-code-update',
+            code: code,
+            channelId: codeChannelId
+          }, '*');
+        } catch (e) {
+          log.socket.warn('Failed to postMessage to pop-out window:', e.message);
+        }
+      }
+      
+      // Also broadcast via session server WebSocket for cross-origin (VS Code -> browser)
+      // This uses the code-channel:broadcast message type
+      if (sessionWs && sessionWs.readyState === WebSocket.OPEN) {
+        sessionWs.send(JSON.stringify({
+          type: 'code',
+          content: {
+            piece: code,
+            source: code,
+            codeChannel: codeChannelId
+          }
+        }));
+        log.socket.debug('Broadcast code via session server to channel:', codeChannelId);
+      }
+    }
+    
+    // Open pop-out window
+    function openPopoutWindow() {
+      // Generate or reuse channel ID
+      if (!codeChannelId) {
+        codeChannelId = generateCodeChannelId();
+        localStorage.setItem('kidlisp-code-channel', codeChannelId);
+        log.socket.log(`Generated code channel: ${codeChannelId}`);
+      }
+      
+      // Subscribe to the channel
+      subscribeToCodeChannel(codeChannelId);
+      
+      // Build the VJ URL with channel in path
+      const currentCode = localStorage.getItem('kidlisp-current-code') || '';
+      const dev = window.location.hostname === 'localhost' || window.location.hostname === 'local.aesthetic.computer';
+      const vjUrl = dev 
+        ? `${window.location.origin}/kidlisp.com/vj/${codeChannelId}${currentCode ? `?code=${encodeURIComponent(currentCode)}` : ''}`
+        : `https://vj.kidlisp.com/${codeChannelId}${currentCode ? `?code=${encodeURIComponent(currentCode)}` : ''}`;
+      
+      // In VS Code, we can't use window.open - open in external browser instead
+      if (isInVSCode()) {
+        openExternal(vjUrl);
+        
+        // Mark as VS Code VJ mode
+        isVSCodePopout = true;
+        
+        // Mark button as active (we won't have a window reference)
+        popoutBtn.classList.add('active');
+        popoutBtn.title = 'Casting - click to stop';
+        
+        // Update channel display
+        updateCodeChannelDisplay();
+        
+        // Show toast with channel info
+        showToast(`Casting to VJ • Channel: ${codeChannelId}`, 'success');
+        log.socket.log(`Opened VJ in external browser with channel: ${codeChannelId}`);
+        
+        // In VS Code mode, the external browser window will receive updates via session server WebSocket
+        return;
+      }
+      
+      // Normal browser - open a new window with specific dimensions for VJing
+      const width = Math.min(800, window.screen.width * 0.6);
+      const height = Math.min(600, window.screen.height * 0.6);
+      const left = (window.screen.width - width) / 2;
+      const top = (window.screen.height - height) / 2;
+      
+      popoutWindow = window.open(
+        vjUrl,
+        `kidlisp-vj-${codeChannelId}`,
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`
+      );
+      
+      if (popoutWindow) {
+        // Mark button as active
+        popoutBtn.classList.add('active');
+        popoutBtn.title = 'Casting - click to focus';
+        
+        // Update channel display
+        updateCodeChannelDisplay();
+        
+        // Send current code to the pop-out window when it's ready
+        const sendInitialCode = () => {
+          if (editor && isPlaying) {
+            const code = editor.getValue().trim();
+            broadcastCodeToChannel(code);
+          }
+        };
+        
+        // Wait for window to be ready then send code
+        popoutWindow.addEventListener('load', sendInitialCode);
+        setTimeout(sendInitialCode, 500); // Fallback
+        
+        // Monitor window close
+        const checkClosed = setInterval(() => {
+          if (popoutWindow.closed) {
+            clearInterval(checkClosed);
+            popoutWindow = null;
+            popoutBtn.classList.remove('active');
+            popoutBtn.title = 'Cast to VJ';
+            updateCodeChannelDisplay(); // This will remove the overlay
+            log.socket.log('Pop-out window closed');
+          }
+        }, 500);
+        
+        log.socket.log(`Opened pop-out window with channel: ${codeChannelId}`);
+        showToast(`Pop-out opened • Channel: ${codeChannelId}`, 'success');
+      } else {
+        showToast('Pop-up blocked! Please allow pop-ups for this site.', 'error');
+      }
+    }
+    
+    // Focus or open pop-out window
+    popoutBtn?.addEventListener('click', (e) => {
+      e.stopPropagation(); // Don't trigger platform dropdown
+      
+      // VS Code mode - toggle on/off since we can't track external window
+      if (isVSCodePopout) {
+        // Close VS Code pop-out mode
+        isVSCodePopout = false;
+        codeChannelId = null;
+        localStorage.removeItem('kidlisp-code-channel');
+        popoutBtn.classList.remove('active');
+        popoutBtn.title = 'Cast to VJ';
+        updateCodeChannelDisplay();
+        showToast('Pop-out channel closed', 'info');
+        return;
+      }
+      
+      if (popoutWindow && !popoutWindow.closed) {
+        // Window exists - focus it
+        popoutWindow.focus();
+        showToast('Focused pop-out window', 'info');
+      } else if (codeChannelId && !popoutWindow) {
+        // Channel exists but no window reference (restored after refresh)
+        // Open new window with the same channel ID
+        openPopoutWindow();
+      } else {
+        // Open new window with new channel
+        openPopoutWindow();
+      }
+    });
+    
+    // Hook into updatePreview to broadcast code changes
+    const originalUpdatePreview = window.updatePreview || updatePreview;
+    window.updatePreviewWithBroadcast = function(shouldCreateCode) {
+      // Call original
+      if (typeof originalUpdatePreview === 'function') {
+        originalUpdatePreview(shouldCreateCode);
+      }
+      
+      // Broadcast to pop-out
+      if (codeChannelId && editor) {
+        const code = editor.getValue().trim();
+        broadcastCodeToChannel(code);
+      }
+    };
+    
+    // Patch updatePreview to include broadcast
+    (function() {
+      const _updatePreview = updatePreview;
+      updatePreview = function(shouldCreateCode) {
+        _updatePreview(shouldCreateCode);
+        // Broadcast code changes to pop-out window
+        if (codeChannelId && editor) {
+          const code = editor.getValue().trim();
+          broadcastCodeToChannel(code);
+        }
+      };
+    })();
+    
+    // Restore code channel from localStorage if window was refreshed
+    const savedChannel = localStorage.getItem('kidlisp-code-channel');
+    if (savedChannel) {
+      // Auto-restore the channel so we can keep broadcasting
+      codeChannelId = savedChannel;
+      
+      // In VS Code, mark as VS Code pop-out mode (we can't track external windows)
+      if (isInVSCode()) {
+        isVSCodePopout = true;
+      }
+      
+      // Update button state
+      if (popoutBtn) {
+        popoutBtn.classList.add('active');
+        popoutBtn.title = isInVSCode() 
+          ? 'Pop-out channel active - click to close' 
+          : 'Pop-out channel active - click to open new window';
+      }
+      
+      // Update display (will show channel ID)
+      updateCodeChannelDisplay();
+      
+      log.socket.log(`Restored code channel: ${savedChannel}`);
+      
+      // Show subtle reconnection toast
+      setTimeout(() => {
+        showToast(`Channel reconnected: ${savedChannel}`, 'info');
+      }, 1000);
+    }
+
     // Session server connection with connectivity feedback
     let sessionWs = null;
     let reconnectInterval = null;
@@ -19121,6 +19640,12 @@
         if (isDeviceMode && sessionWs) {
           sessionWs.send(JSON.stringify({ type: 'daw:join' }));
           log.socket.log("Device mode: joined DAW channel");
+        }
+        
+        // Re-subscribe to code channel if we have one (restored or active)
+        if (codeChannelId) {
+          subscribeToCodeChannel(codeChannelId);
+          log.socket.log(`Re-subscribed to code channel: ${codeChannelId}`);
         }
       };
 

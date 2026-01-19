@@ -170,12 +170,17 @@ function updateTrackedFile(document: vscode.TextDocument) {
   const filePath = document.fileName;
   const fileName = filePath.split('/').pop() || filePath;
   
-  // Only track JS/MJS files
-  if (!fileName.endsWith('.js') && !fileName.endsWith('.mjs') && !fileName.endsWith('.ts')) {
+  // Track JS/MJS/TS files (for AST), plus Markdown and Lisp files (as open buffers)
+  const isCodeFile = fileName.endsWith('.js') || fileName.endsWith('.mjs') || fileName.endsWith('.ts');
+  const isMarkdown = fileName.endsWith('.md');
+  const isLisp = fileName.endsWith('.lisp');
+  
+  if (!isCodeFile && !isMarkdown && !isLisp) {
     return;
   }
   
-  const ast = parseJSToAST(document.getText(), fileName);
+  // Only parse AST for code files
+  const ast = isCodeFile ? parseJSToAST(document.getText(), fileName) : null;
   
   trackedFiles.set(uri, {
     uri,
