@@ -9,16 +9,20 @@ import * as chat from "./chat.mjs"; // Import chat everywhere.
 
 let client;
 
-function boot({ api, wipe, debug, send }) {
+function boot({ api, wipe, debug, send, hud }) {
   client = new Chat(debug, send);
   client.connect("clock"); // Connect to 'clock' chat.
   chat.boot(api, client.system); // Use default font
+  
+  // 📱 Set QR code to appear LEFT of the HUD label (qr-stamp-label mode)
+  hud.qr("https://prompt.ac/laer-klokken");
 }
 
 function paint($) {
   // Custom warm color theme for laer-klokken chat
   chat.paint($, { 
     otherChat: client.system,
+    r8dioPlayer: true, // Enable r8dio mini-player
     theme: {
       background: [180, 100, 60], // Warm terracotta/rust background
       lines: [220, 150, 100, 64], // Soft peach lines

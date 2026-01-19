@@ -186,7 +186,32 @@ let newsTickerBounds = null; // { x, y, w, h } for click detection
 let newsTickerHovered = false; // Hover state for visual feedback
 let newsFetchPromise = null; // Track fetch to avoid duplicate requests
 
-// 🔍 @handle autocomplete
+// � R8dio mini-player system (for laer-klokken)
+const R8DIO_STREAM_URL = "https://s3.radio.co/s7cd1ffe2f/listen";
+const R8DIO_STREAM_ID = "chat-r8dio-stream";
+const R8DIO_METADATA_URL = "https://public.radio.co/stations/s7cd1ffe2f/status";
+let r8dioEnabled = false; // Whether r8dio player is shown
+let r8dioPlaying = false;
+let r8dioLoading = false;
+let r8dioError = null;
+let r8dioVolume = 0.5;
+let r8dioTrack = ""; // Current track/program title
+let r8dioLastMetadataFetch = 0;
+let r8dioFrequencyData = [];
+let r8dioWaveformData = [];
+let r8dioBars = []; // Visualization bars
+let r8dioNoAnalyserCount = 0;
+let r8dioAnimPhase = 0;
+let r8dioPlayerBounds = null; // { x, y, w, h } for click detection
+let r8dioPlayBtnBounds = null; // Play/pause button bounds
+let r8dioVolSliderBounds = null; // Volume slider bounds
+let r8dioHovered = false; // Hover over player area
+let r8dioPlayHovered = false; // Hover over play button
+let r8dioVolDragging = false; // Dragging volume
+const R8DIO_BAR_COUNT = 16; // Fewer bars for compact display
+const R8DIO_METADATA_INTERVAL = 15000;
+
+//  @handle autocomplete
 let handleAutocomplete = null;
 
 async function boot(
@@ -1747,10 +1772,19 @@ function paint(
     needsPaint();
   }
   
-  // 📰 News ticker (top right, always visible) - hide when modal is open
+  //  News ticker (top right, always visible) - hide when modal is open
   if (!client.connecting && !modalPainting && !messageCopyModal) {
     paintNewsTicker({ ink, screen, text, hud }, theme);
     needsPaint();
+  }
+  
+  // 📻 R8dio mini-player (laer-klokken only)
+  if (options?.r8dioPlayer && !client.connecting && !modalPainting && !messageCopyModal) {
+    r8dioEnabled = true;
+    paintR8dioPlayer({ ink, screen, help, hud }, theme);
+    needsPaint();
+  } else {
+    r8dioEnabled = false;
   }
 
   // 🔍 Paint @handle autocomplete dropdown (last, so it renders on top of everything)
@@ -1820,6 +1854,33 @@ function act(
       beep();
       // Open news.aesthetic.computer in new tab/window
       jump("out:https://news.aesthetic.computer");
+    }
+  }
+  
+  // 📻 R8dio mini-player interaction
+  if (r8dioEnabled && pen && !linkConfirmModal && !messageCopyModal && !modalPainting) {
+    // Update hover states
+    if (e.is("move") || e.is("draw")) {
+      // Player area hover
+      if (r8dioPlayerBounds) {
+        r8dioHovered = pen.x >= r8dioPlayerBounds.x && pen.x < r8dioPlayerBounds.x + r8dioPlayerBounds.w &&
+                       pen.y >= r8dioPlayerBounds.y && pen.y < r8dioPlayerBounds.y + r8dioPlayerBounds.h;
+      }
+      // Play button hover (entire bar is clickable, but button gets special hover)
+      if (r8dioPlayBtnBounds) {
+        r8dioPlayHovered = pen.x >= r8dioPlayBtnBounds.x && pen.x < r8dioPlayBtnBounds.x + r8dioPlayBtnBounds.w &&
+                           pen.y >= r8dioPlayBtnBounds.y && pen.y < r8dioPlayBtnBounds.y + r8dioPlayBtnBounds.h;
+      }
+    }
+    
+    // Touch anywhere on bar toggles playback
+    if (e.is("touch") && r8dioPlayerBounds) {
+      const inBar = pen.x >= r8dioPlayerBounds.x && pen.x < r8dioPlayerBounds.x + r8dioPlayerBounds.w &&
+                    pen.y >= r8dioPlayerBounds.y && pen.y < r8dioPlayerBounds.y + r8dioPlayerBounds.h;
+      if (inBar) {
+        beep();
+        toggleR8dioPlayback(send);
+      }
     }
   }
   
@@ -2842,7 +2903,7 @@ function act(
   }
 }
 
-function sim({ api }) {
+function sim({ api, num, send, net }) {
   if (input) {
     // 🔍 Sync autocomplete skipHistory and skipEnter flags with TextInput
     // Only skip Enter when autocomplete is truly visible with selectable items AND keyboard is open
@@ -2857,16 +2918,148 @@ function sim({ api }) {
     input.sim(api); // 💬 Chat
   }
   ellipsisTicker?.update(api.clock?.time());
+  
+  // 📻 R8dio player simulation
+  if (r8dioEnabled) {
+    r8dioAnimPhase += 0.05;
+    
+    // Request frequency/waveform data when playing
+    if (r8dioPlaying && send) {
+      send({ type: "stream:frequencies", content: { id: R8DIO_STREAM_ID } });
+      if (r8dioNoAnalyserCount >= 10) {
+        send({ type: "stream:waveform", content: { id: R8DIO_STREAM_ID } });
+      }
+    }
+    
+    // Fetch metadata periodically
+    const now = Date.now();
+    if (r8dioPlaying && now - r8dioLastMetadataFetch > R8DIO_METADATA_INTERVAL) {
+      fetchR8dioMetadata(net);
+    }
+    
+    // Update bars
+    const lerp = num?.lerp || ((a, b, t) => a + (b - a) * t);
+    for (let i = 0; i < R8DIO_BAR_COUNT; i++) {
+      if (!r8dioBars[i]) r8dioBars[i] = { height: 0, targetHeight: 0 };
+      
+      if (r8dioPlaying && r8dioFrequencyData.length > 0) {
+        const dataIndex = Math.floor((i / R8DIO_BAR_COUNT) * r8dioFrequencyData.length);
+        r8dioBars[i].targetHeight = (r8dioFrequencyData[dataIndex] || 0) / 255;
+        r8dioNoAnalyserCount = 0;
+      } else if (r8dioPlaying && r8dioWaveformData.length > 0) {
+        const dataIndex = Math.floor((i / R8DIO_BAR_COUNT) * r8dioWaveformData.length);
+        const sample = r8dioWaveformData[dataIndex] || 128;
+        r8dioBars[i].targetHeight = Math.abs(sample - 128) / 128;
+      } else if (r8dioPlaying) {
+        // Fake animation while playing without analyser data
+        const wave = Math.sin(r8dioAnimPhase + i * 0.3) * 0.3 + 0.4;
+        const noise = Math.random() * 0.2;
+        r8dioBars[i].targetHeight = wave + noise;
+      } else {
+        r8dioBars[i].targetHeight = 0;
+      }
+      
+      r8dioBars[i].height = lerp(r8dioBars[i].height, r8dioBars[i].targetHeight, 0.15);
+    }
+  }
+}
+
+// 📻 Handle BIOS messages for r8dio streaming
+function receive({ type, content }) {
+  if (!r8dioEnabled) return;
+  
+  if (type === "stream:playing" && content.id === R8DIO_STREAM_ID) {
+    r8dioPlaying = true;
+    r8dioLoading = false;
+    r8dioError = null;
+  }
+  
+  if (type === "stream:paused" && content.id === R8DIO_STREAM_ID) {
+    r8dioPlaying = false;
+  }
+  
+  if (type === "stream:stopped" && content.id === R8DIO_STREAM_ID) {
+    r8dioPlaying = false;
+    r8dioLoading = false;
+  }
+  
+  if (type === "stream:error" && content.id === R8DIO_STREAM_ID) {
+    r8dioPlaying = false;
+    r8dioLoading = false;
+    r8dioError = content.error;
+  }
+  
+  if (type === "stream:frequencies-data" && content.id === R8DIO_STREAM_ID) {
+    const data = content.data || [];
+    if (data.length > 0 && data.some(v => v > 0)) {
+      r8dioFrequencyData = data;
+      r8dioNoAnalyserCount = 0;
+    } else {
+      r8dioNoAnalyserCount++;
+      r8dioFrequencyData = [];
+    }
+  }
+  
+  if (type === "stream:waveform-data" && content.id === R8DIO_STREAM_ID) {
+    r8dioWaveformData = content.data || [];
+  }
 }
 
 // function leave() {
 // chat?.kill();
 // }
 
-export { boot, paint, act, sim };
+export { boot, paint, act, sim, receive };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
+
+// 📻 Fetch r8dio track metadata
+async function fetchR8dioMetadata(net) {
+  r8dioLastMetadataFetch = Date.now();
+  try {
+    const response = await fetch(R8DIO_METADATA_URL);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.current_track && data.current_track.title) {
+        r8dioTrack = data.current_track.title;
+      }
+    }
+  } catch (err) {
+    // Silently fail - metadata is optional
+    console.log("📻 Could not fetch r8dio metadata:", err.message);
+  }
+}
+
+// 📻 R8dio playback control
+function toggleR8dioPlayback(send) {
+  if (r8dioLoading) return;
+  
+  if (r8dioPlaying) {
+    // Pause
+    send({ type: "stream:pause", content: { id: R8DIO_STREAM_ID } });
+  } else {
+    // Play
+    r8dioLoading = true;
+    r8dioError = null;
+    send({ 
+      type: "stream:play", 
+      content: { 
+        id: R8DIO_STREAM_ID, 
+        url: R8DIO_STREAM_URL, 
+        volume: r8dioVolume 
+      } 
+    });
+  }
+}
+
+// 📻 R8dio volume control
+function setR8dioVolume(vol, send) {
+  r8dioVolume = Math.max(0, Math.min(1, vol));
+  if (r8dioPlaying && send) {
+    send({ type: "stream:volume", content: { id: R8DIO_STREAM_ID, volume: r8dioVolume } });
+  }
+}
 
 function boundScroll() {
   if (scroll < 0) scroll = 0;
@@ -3023,40 +3216,79 @@ function openYoutubeModal(videoId) {
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.92);
+        background: rgba(0, 0, 0, 0.75);
         z-index: 9999;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-direction: column;
         animation: ytFadeIn 0.2s ease-out;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: none;
       }
       @keyframes ytFadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
       }
       #youtube-modal-content {
-        width: min(80vw, 720px);
+        width: min(90vw, 720px);
+        max-width: calc(100vw - 32px);
         aspect-ratio: 16/9;
         background: #000;
         border-radius: 8px;
         overflow: hidden;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        cursor: default;
+        position: relative;
       }
       #youtube-modal-content iframe {
         width: 100%;
         height: 100%;
         border: none;
+        pointer-events: auto;
+      }
+      #youtube-modal-close {
+        position: absolute;
+        top: -40px;
+        right: 0;
+        width: 36px;
+        height: 36px;
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 24px;
+        line-height: 36px;
+        text-align: center;
+        color: #333;
+        z-index: 10000;
+        transition: background 0.15s, transform 0.15s;
+      }
+      #youtube-modal-close:hover {
+        background: #fff;
+        transform: scale(1.1);
+      }
+      #youtube-modal-close:active {
+        transform: scale(0.95);
+      }
+      #youtube-modal-tap-hint {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 14px;
+        margin-top: 16px;
+        font-family: system-ui, sans-serif;
       }
     </style>
-    <div id="youtube-modal-overlay" onclick="if(event.target.id === 'youtube-modal-overlay') { window.acCloseYoutubeModal && window.acCloseYoutubeModal(); }">
+    <div id="youtube-modal-overlay" onclick="if(event.target.id === 'youtube-modal-overlay' || event.target.id === 'youtube-modal-tap-hint') { window.acCloseYoutubeModal && window.acCloseYoutubeModal(); }">
       <div id="youtube-modal-content">
+        <button id="youtube-modal-close" onclick="window.acCloseYoutubeModal && window.acCloseYoutubeModal();">&times;</button>
         <iframe 
           src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen>
         </iframe>
       </div>
+      <div id="youtube-modal-tap-hint">tap outside to close</div>
     </div>
     <script>
       window.acCloseYoutubeModal = function() {
@@ -3514,14 +3746,14 @@ function paintNewsTicker($, theme) {
   const tickerPadding = 3;
   const rightMargin = 10;
   
-  // "News" prefix styling
+  // "News" prefix styling - uniform width with r8Dio label
   const newsPrefix = "News";
-  const newsPrefixWidth = newsPrefix.length * tickerCharWidth + tickerPadding * 2;
+  const uniformLabelWidth = 28; // Fixed width to match both labels
   
   // Ticker dimensions
   const tickerMaxWidth = 180;
   const tickerRight = screen.width - rightMargin;
-  const tickerY = 10;
+  const tickerY = 6; // Flush with top right (was 10)
   
   // Use dynamic news text (fetched from API or fallback)
   const displayText = newsTickerText || "Report a story";
@@ -3546,7 +3778,7 @@ function paintNewsTicker($, theme) {
   // Position calculations - ensure News ticker starts after HUD label
   const scrollAreaRight = tickerRight;
   const idealScrollAreaLeft = scrollAreaRight - tickerMaxWidth;
-  const idealNewsBgX = idealScrollAreaLeft - newsPrefixWidth;
+  const idealNewsBgX = idealScrollAreaLeft - uniformLabelWidth;
   
   // Push News ticker to the right if it would overlap the HUD label
   const newsBgX = Math.max(
@@ -3555,7 +3787,7 @@ function paintNewsTicker($, theme) {
   );
   
   // Recalculate scroll area left edge based on actual News ticker position
-  const scrollAreaLeft = newsBgX + newsPrefixWidth;
+  const scrollAreaLeft = newsBgX + uniformLabelWidth;
   
   // Colors from theme
   const handleColor = theme?.handle ? 
@@ -3563,18 +3795,18 @@ function paintNewsTicker($, theme) {
   const textColor = theme?.messageText ? 
     (Array.isArray(theme.messageText) ? theme.messageText : [200, 200, 200]) : [200, 200, 200];
   
-  // "News" label - distinct purple/magenta background (brighter on hover)
-  const newsBgColor = newsTickerHovered ? [100, 50, 130] : [80, 40, 100];
-  const newsFgColor = newsTickerHovered ? [255, 220, 120] : [255, 200, 100]; // Gold/yellow text
+  // "News" label - magenta background with white text (like aesthetic.news banner)
+  const newsBgColor = newsTickerHovered ? [200, 50, 150] : [180, 40, 130]; // Bright magenta
+  const newsFgColor = newsTickerHovered ? [255, 255, 255] : [255, 255, 255]; // White text
   
-  // Scrolling area - darker, more subtle background (brighter on hover)
-  const scrollBgColor = newsTickerHovered ? [35, 30, 50] : [25, 20, 35];
+  // Scrolling area - darker magenta-tinted background (brighter on hover)
+  const scrollBgColor = newsTickerHovered ? [50, 25, 45] : [35, 18, 32];
   
   // Calculate actual scrolling area width based on position
   const actualTickerWidth = scrollAreaRight - scrollAreaLeft;
   
   // Store bounds for click detection (entire ticker area including "News" label)
-  const totalWidth = newsPrefixWidth + actualTickerWidth + 1;
+  const totalWidth = uniformLabelWidth + actualTickerWidth + 1;
   newsTickerBounds = {
     x: newsBgX,
     y: tickerY - 2,
@@ -3583,16 +3815,17 @@ function paintNewsTicker($, theme) {
   };
   
   // Draw "News" label background (extend 1px right to touch scroll area)
-  ink(...newsBgColor, 230).box(newsBgX, tickerY - 2, newsPrefixWidth + 1, tickerHeight + 4);
-  // Text 1px left (reduce padding by 1)
-  ink(...newsFgColor).write(newsPrefix, { x: newsBgX + tickerPadding - 1, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+  ink(...newsBgColor, 230).box(newsBgX, tickerY - 2, uniformLabelWidth + 1, tickerHeight + 4);
+  // Center "News" text in label area
+  const newsTextX = newsBgX + Math.floor((uniformLabelWidth - newsPrefix.length * tickerCharWidth) / 2);
+  ink(...newsFgColor).write(newsPrefix, { x: newsTextX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
   
   // Draw scrolling ticker background (use actual width)
   ink(...scrollBgColor, 200).box(scrollAreaLeft, tickerY - 2, actualTickerWidth + 1, tickerHeight + 4);
   
   // Draw hover underline indicator (shows it's clickable)
   if (newsTickerHovered) {
-    ink(255, 200, 100, 180).box(newsBgX, tickerY + tickerHeight + 1, totalWidth, 1);
+    ink(255, 255, 255, 180).box(newsBgX, tickerY + tickerHeight + 1, totalWidth, 1);
   }
   
   // Parse text for @handles to highlight
@@ -3620,4 +3853,160 @@ function paintNewsTicker($, theme) {
       }
     }
   }
+}
+
+// 📻 R8dio mini-player bar for laer-klokken (styled like News ticker)
+function paintR8dioPlayer($, theme) {
+  const { ink, screen, help, hud } = $;
+  
+  // Initialize bars if needed
+  if (r8dioBars.length === 0) {
+    for (let i = 0; i < R8DIO_BAR_COUNT; i++) {
+      r8dioBars.push({ height: 0, targetHeight: 0 });
+    }
+  }
+  
+  const tickerCharWidth = 4; // MatrixChunky8 char width
+  const tickerHeight = 8;
+  const tickerPadding = 3;
+  const rightMargin = 10;
+  
+  // "r8Dio" prefix styling - uniform width with News label
+  const r8dioPrefix = "r8Dio";
+  const uniformLabelWidth = 28; // Fixed width to match both labels
+  
+  // Bar dimensions - match news ticker width
+  const tickerMaxWidth = 180;
+  const tickerRight = screen.width - rightMargin;
+  const tickerY = 18; // Right below news ticker (at y=6, ~12px tall)
+  
+  // Calculate HUD label right edge to avoid overlap (same as news ticker)
+  const hudLabelOffset = 6;
+  const hudLabelWidth = hud?.currentLabel?.()?.btn?.box?.w || 0;
+  const hudLabelRight = hudLabelOffset + hudLabelWidth;
+  const minGapAfterHud = 10;
+  
+  // Position calculations
+  const scrollAreaRight = tickerRight;
+  const idealScrollAreaLeft = scrollAreaRight - tickerMaxWidth;
+  const idealR8dioBgX = idealScrollAreaLeft - uniformLabelWidth;
+  
+  const r8dioBgX = Math.max(hudLabelRight + minGapAfterHud, idealR8dioBgX);
+  const contentAreaLeft = r8dioBgX + uniformLabelWidth;
+  const actualContentWidth = scrollAreaRight - contentAreaLeft;
+  const totalWidth = uniformLabelWidth + actualContentWidth + 1;
+  
+  // Store bounds for click detection (entire bar)
+  r8dioPlayerBounds = { x: r8dioBgX, y: tickerY - 2, w: totalWidth, h: tickerHeight + 4 };
+  
+  // "r8Dio" label background - dark with orange text (radio style)
+  const labelBgColor = r8dioHovered ? [50, 35, 25] : [35, 25, 18]; // Dark warm brown
+  const labelFgColor = r8dioHovered ? [255, 180, 80] : [255, 150, 50]; // Orange
+  
+  ink(...labelBgColor, 230).box(r8dioBgX, tickerY - 2, uniformLabelWidth + 1, tickerHeight + 4);
+  
+  // Draw "r8Dio" in orange, centered in label area
+  const labelTextWidth = r8dioPrefix.length * tickerCharWidth;
+  const labelX = r8dioBgX + Math.floor((uniformLabelWidth - labelTextWidth) / 2);
+  ink(...labelFgColor).write("r", { x: labelX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+  ink(...labelFgColor).write("8D", { x: labelX + 4, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+  ink(...labelFgColor).write("io", { x: labelX + 12, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+  
+  // Content area background - dark (brighter on hover)
+  const contentBgColor = r8dioHovered ? [40, 30, 25] : [28, 22, 18]; // Dark warm
+  ink(...contentBgColor, 200).box(contentAreaLeft, tickerY - 2, actualContentWidth + 1, tickerHeight + 4);
+  
+  // Separator line between News and r8Dio (subtle)
+  ink(80, 60, 50, 150).box(r8dioBgX, tickerY - 3, totalWidth, 1);
+  
+  // Hover underline indicator (orange)
+  if (r8dioHovered) {
+    ink(255, 150, 50, 180).box(r8dioBgX, tickerY + tickerHeight + 1, totalWidth, 1);
+  }
+  
+  // Play/Pause button right after label (not far right)
+  const btnSize = 10;
+  const btnX = contentAreaLeft + 2;
+  const btnY = tickerY - 1;
+  
+  r8dioPlayBtnBounds = { x: btnX - 2, y: btnY - 2, w: btnSize + 4, h: btnSize + 4 };
+  
+  // Button background (orange tint)
+  const btnBg = r8dioPlayHovered ? [80, 55, 35] : [55, 40, 25];
+  ink(...btnBg).box(btnX, btnY, btnSize, btnSize);
+  ink(r8dioPlayHovered ? [140, 100, 60] : [100, 70, 45]).box(btnX, btnY, btnSize, btnSize, "outline");
+  
+  // Play/Pause/Loading icon (orange)
+  const iconColor = r8dioPlayHovered ? [255, 200, 120] : [255, 160, 80];
+  const iconCenterX = btnX + btnSize / 2;
+  const iconCenterY = btnY + btnSize / 2;
+  
+  if (r8dioLoading) {
+    // Simple loading indicator (blinking dot)
+    const phase = Math.floor((help?.repeat || 0) / 15) % 2;
+    ink(255, 200, 100, phase ? 255 : 100).box(iconCenterX - 1, iconCenterY - 1, 3, 3);
+  } else if (r8dioPlaying) {
+    // Pause icon (two small bars)
+    ink(...iconColor).box(iconCenterX - 3, iconCenterY - 3, 2, 6);
+    ink(...iconColor).box(iconCenterX + 1, iconCenterY - 3, 2, 6);
+  } else {
+    // Play icon (small triangle)
+    ink(...iconColor).box(iconCenterX - 2, iconCenterY - 3, 2, 6);
+    ink(...iconColor).box(iconCenterX, iconCenterY - 2, 2, 4);
+    ink(...iconColor).box(iconCenterX + 2, iconCenterY - 1, 1, 2);
+  }
+  
+  // Content: mini visualizer bars + status text (after play button)
+  const barAreaX = btnX + btnSize + 4;
+  const barAreaWidth = Math.min(60, actualContentWidth - btnSize - 12);
+  const barWidth = Math.max(1, Math.floor(barAreaWidth / R8DIO_BAR_COUNT) - 1);
+  const maxBarHeight = tickerHeight;
+  
+  // Draw mini visualizer bars
+  for (let i = 0; i < R8DIO_BAR_COUNT; i++) {
+    const bar = r8dioBars[i];
+    const x = barAreaX + i * (barWidth + 1);
+    const height = Math.max(1, Math.floor(bar.height * maxBarHeight));
+    
+    if (r8dioPlaying || bar.height > 0.05) {
+      // Orange gradient for visualizer
+      const t = bar.height;
+      const r = Math.floor(200 + t * 55);
+      const g = Math.floor(100 + t * 80);
+      const b = Math.floor(30 + t * 40);
+      ink(r, g, b).box(x, tickerY + maxBarHeight - height, barWidth, height);
+    } else {
+      // Idle state: dim orange line
+      ink(80, 50, 30).box(x, tickerY + maxBarHeight - 1, barWidth, 1);
+    }
+  }
+  
+  // Status text after visualizer
+  const statusX = barAreaX + barAreaWidth + 4;
+  const statusTextColor = theme?.messageText || [200, 200, 200];
+  const statusEndX = scrollAreaRight - 2;
+  
+  if (r8dioError) {
+    ink(255, 100, 100).write("err", { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+  } else if (r8dioLoading) {
+    ink(255, 180, 80).write("...", { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+  } else if (r8dioPlaying) {
+    // Show truncated track or "live" (orange text)
+    const maxLen = Math.floor((statusEndX - statusX) / tickerCharWidth);
+    const text = r8dioTrack 
+      ? (r8dioTrack.length > maxLen ? r8dioTrack.substring(0, maxLen - 1) + "…" : r8dioTrack)
+      : "live";
+    ink(255, 180, 80).write(text, { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+  } else {
+    // Blinking "Listen Now" with > < arrows
+    const blink = Math.floor((help?.repeat || 0) / 20) % 2;
+    const arrowColor = blink ? [255, 180, 80] : [120, 90, 60]; // Orange blink
+    const textColor = [180, 140, 100];
+    ink(...arrowColor).write(">", { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+    ink(...textColor).write("Listen Now", { x: statusX + 6, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+    ink(...arrowColor).write("<", { x: statusX + 46, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+  }
+  
+  // Volume slider removed for slim design - could add keyboard shortcuts later
+  r8dioVolSliderBounds = null;
 }
