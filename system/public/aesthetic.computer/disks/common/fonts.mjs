@@ -218,7 +218,7 @@ export const MatrixChunky8 = {
   },
   // BDF overrides for character positioning adjustments
   bdfOverrides: {
-    'y': { y: 2 } // Push descender down by 2 pixels (positive = lower on screen)
+    '*': { x: 1 } // Add a leading space before star to avoid collisions
   }
 };
 
