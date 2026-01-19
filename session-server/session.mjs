@@ -1650,6 +1650,16 @@ wss.on("connection", (ws, req) => {
         send(stateMsg);
         log(`📥 Sent current state to late joiner on channel ${codeChannel}`);
       }
+    } else if (msg.type === "slide" && msg.content?.codeChannel) {
+      // Handle slide broadcast (low-latency value updates, no state storage)
+      const targetChannel = msg.content.codeChannel;
+      
+      // Don't store slide updates as state (they're transient)
+      // Just broadcast immediately for low latency
+      if (codeChannels[targetChannel]) {
+        const slideMsg = pack("slide", msg.content, id);
+        subscribers(codeChannels[targetChannel], slideMsg);
+      }
     } else if (msg.type === "code" && msg.content?.codeChannel) {
       // Handle code broadcast to channel subscribers (for kidlisp.com pop-out sync)
       const targetChannel = msg.content.codeChannel;
@@ -2262,6 +2272,18 @@ io.onConnection((channel) => {
         channel.broadcast.emit("1v1:move", data);
       } catch (err) {
         console.warn("1v1:move broadcast error:", err);
+      }
+    }
+  });
+
+  // 🎚️ Slide mode: real-time code value updates via UDP (lowest latency)
+  channel.on("slide:code", (data) => {
+    if (channel.webrtcConnection.state === "open") {
+      try {
+        // Broadcast to all including sender (room.emit) for sync
+        channel.room.emit("slide:code", data);
+      } catch (err) {
+        console.warn("slide:code broadcast error:", err);
       }
     }
   });
