@@ -158,10 +158,18 @@ let draftMessage = ""; // Store draft message text persistently
 // 📺 YouTube preview system
 let youtubePreviewCache = new Map(); // Store loaded YouTube thumbnails
 let youtubeLoadQueue = new Set(); // Track which videos are being loaded
-let youtubeAnimations = new Map(); // Track Ken Burns animation state for each video
 let youtubeModalOpen = false; // Track if YouTube modal is open
 let youtubeModalVideoId = null; // Current video in modal
 let domApi = null; // Store dom API reference for modal
+let netPreload = null; // Store net.preload reference for YouTube loading
+let globalYoutubeThumbCache = null;
+
+if (typeof globalThis !== "undefined") {
+  if (!globalThis.__acYoutubeThumbCache) {
+    globalThis.__acYoutubeThumbCache = new Map();
+  }
+  globalYoutubeThumbCache = globalThis.__acYoutubeThumbCache;
+}
 
 //  Link confirmation modal system
 // { type: "prompt"|"url"|"handle"|"kidlisp"|"painting", text: string, action: function }
@@ -206,6 +214,9 @@ async function boot(
 ) {
   // Store dom API reference for YouTube modal
   domApi = dom;
+  
+  // Store net.preload reference for YouTube thumbnail loading in paint()
+  netPreload = net.preload;
   
   // Set clean label without params
   if (params && params.length > 0) {
@@ -998,44 +1009,44 @@ function paint(
         
         // Draw border to indicate interactivity
         // Always show a subtle blinking border, brighter on hover
-        if (isHovered) {
-          // Solid bright border on hover
-          const borderColor = theme.paintingHover;
-          if (Array.isArray(borderColor)) {
-            ink(...borderColor).box(
-              previewX, 
-              previewY, 
-              previewSize, 
-              previewSize, 
-              "outline"
-            );
-          } else {
-            ink(borderColor).box(
-              previewX, 
-              previewY, 
-              previewSize, 
-              previewSize, 
-              "outline"
-            );
+        if (linkConfirmModal) {
+          const { yesBtn, noBtn, action } = linkConfirmModal;
+    
+          // Handle hover states
+          if ((e.is("move") || e.is("draw")) && pen) {
+            if (yesBtn && noBtn) {
+              linkConfirmModal.hoverYes = pen.x >= yesBtn.x && pen.x < yesBtn.x + yesBtn.w &&
+                                           pen.y >= yesBtn.y && pen.y < yesBtn.y + yesBtn.h;
+              linkConfirmModal.hoverNo = pen.x >= noBtn.x && pen.x < noBtn.x + noBtn.w &&
+                                          pen.y >= noBtn.y && pen.y < noBtn.y + noBtn.h;
+            }
           }
-        } else {
-          // Subtle blinking border to indicate clickability
-          const blinkAlpha = Math.floor(80 + (Math.sin(help.repeat * 0.15) + 1) * 50); // 80-180
-          ink(255, 255, 200, blinkAlpha).box(
-            previewX, 
-            previewY, 
-            previewSize, 
-            previewSize, 
-            "outline"
-          );
-        }
+    
+          // Handle clicks
+          if ((e.is("lift") || e.is("touch")) && pen) {
+            if (yesBtn && noBtn) {
+              const clickedYes = pen.x >= yesBtn.x && pen.x < yesBtn.x + yesBtn.w &&
+                                 pen.y >= yesBtn.y && pen.y < yesBtn.y + yesBtn.h;
+              const clickedNo = pen.x >= noBtn.x && pen.x < noBtn.x + noBtn.w &&
+                                pen.y >= noBtn.y && pen.y < noBtn.y + noBtn.h;
         
-        // Move X position for next preview (add 2px gap between paintings)
-        previewX += previewSize + 2;
-      } else {
-        // Show loading indicator with background and animation
-        const loadingW = 64; // Max preview size (no padding)
-        const loadingH = 64;
+              if (clickedYes) {
+                beep();
+                hud.label(piece); // Set back label to current piece
+                if (action) action(); // Execute the stored action
+                linkConfirmModal = null;
+              } else if (clickedNo) {
+                beep();
+                linkConfirmModal = null; // Just close
+              }
+              // Clicking outside buttons also closes the modal
+              else {
+                beep();
+                linkConfirmModal = null;
+              }
+            }
+          }
+        }
         
         // Get loading progress (0-1)
         const progress = paintingLoadProgress.get(code) || 0;
@@ -1123,7 +1134,7 @@ function paint(
       
       if (!cached && !youtubeLoadQueue.has(videoId)) {
         // Trigger async loading
-        loadYoutubePreview(videoId, api.get).then(result => {
+        loadYoutubePreview(videoId, netPreload).then(result => {
           if (result) {
             help.repeat(); // Trigger repaint when preview loads
           }
@@ -1134,106 +1145,61 @@ function paint(
         hasAnimatingYoutube = true;
         const { thumbnail } = cached;
         
-        const previewSize = 64;
-        const animKey = `yt-${i}-${videoId}`;
-        if (!youtubeAnimations.has(animKey)) {
-          youtubeAnimations.set(animKey, {
-            seed: Math.random(),
-            startTime: performance.now(),
-          });
-        }
+        // YouTube is 16:9 - use 120x68 preview (same height as paintings)
+        const previewW = 120;
+        const previewH = 68;
         
-        const anim = youtubeAnimations.get(animKey);
-        const KEN_BURNS_CYCLE_MS = 10000;
-        const nowTime = performance.now();
-        const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + anim.seed) % 1;
-        
-        const imgWidth = thumbnail.width || thumbnail.w;
-        const imgHeight = thumbnail.height || thumbnail.h;
-        
-        const maxPanX = Math.max(0, imgWidth - previewSize);
-        const maxPanY = Math.max(0, imgHeight - previewSize);
-        
-        const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
-        const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
-        
-        const cropX = Math.max(0, Math.min(maxPanX * panX, imgWidth - previewSize));
-        const cropY = Math.max(0, Math.min(maxPanY * panY, imgHeight - previewSize));
-        const cropW = Math.min(previewSize, imgWidth - cropX);
-        const cropH = Math.min(previewSize, imgHeight - cropY);
+        const imgWidth = thumbnail.width || thumbnail.w || 320;
+        const imgHeight = thumbnail.height || thumbnail.h || 180;
         
         const isHovered = message.layout.hoveredYoutube === videoId;
         
         const visibleTop = Math.max(previewY, effectiveTopMargin);
-        const visibleBottom = Math.min(previewY + previewSize, screen.height - bottomMargin);
+        const visibleBottom = Math.min(previewY + previewH, screen.height - bottomMargin);
         const visibleHeight = visibleBottom - visibleTop;
         
-        if (visibleHeight > 0) {
-          let renderY = floor(previewY);
-          let renderCropY = floor(cropY);
-          let renderCropH = floor(cropH);
+        if (visibleHeight > 0 && imgWidth > 0 && imgHeight > 0) {
+          // Scale factor to fit 320x180 into 120x68
+          const scaleX = previewW / imgWidth;
+          const scaleY = previewH / imgHeight;
+          const scaleFactor = Math.min(scaleX, scaleY);
           
-          if (previewY < effectiveTopMargin) {
-            const clipAmount = effectiveTopMargin - previewY;
-            renderY = effectiveTopMargin;
-            renderCropY = floor(cropY + clipAmount);
-            renderCropH = floor(cropH - clipAmount);
-          }
-          
-          if (previewY + previewSize > screen.height - bottomMargin) {
-            const clipAmount = (previewY + previewSize) - (screen.height - bottomMargin);
-            renderCropH = floor(cropH - clipAmount);
-          }
-          
-          if (renderCropH > 0 && renderCropY >= 0 && renderCropY < imgHeight) {
+          if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
             paste(
               thumbnail,
               floor(previewX),
-              renderY,
-              { 
-                crop: {
-                  x: floor(cropX),
-                  y: renderCropY,
-                  w: floor(cropW),
-                  h: Math.min(renderCropH, imgHeight - renderCropY)
-                }
-              }
+              floor(previewY),
+              scaleFactor
             );
           }
         }
         
         // Red YouTube-style border
         if (isHovered) {
-          ink(255, 50, 50).box(previewX, previewY, previewSize, previewSize, "outline");
+          ink(255, 50, 50).box(previewX, previewY, previewW, previewH, "outline");
         } else {
           const blinkAlpha = Math.floor(100 + (Math.sin(help.repeat * 0.15) + 1) * 50);
-          ink(255, 80, 80, blinkAlpha).box(previewX, previewY, previewSize, previewSize, "outline");
+          ink(255, 80, 80, blinkAlpha).box(previewX, previewY, previewW, previewH, "outline");
         }
         
-        // Small play button triangle overlay
-        const playX = previewX + previewSize / 2 - 6;
-        const playY = previewY + previewSize / 2 - 6;
-        ink(255, 255, 255, 200).box(playX, playY, 12, 12); // White background
-        ink(255, 0, 0, 230).box(playX + 3, playY + 3, 6, 6); // Red center
-        
-        previewX += previewSize + 2;
+        previewX += previewW + 4;
       } else {
-        // Loading indicator for YouTube
-        const loadingW = 64;
-        const loadingH = 64;
+        // Loading indicator for YouTube (same 16:9 size)
+        const loadingW = 120;
+        const loadingH = 68;
         const pulse = (Math.sin(help.repeat * 0.1) + 1) / 2;
-        const bgAlpha = Math.floor(100 + pulse * 40);
+        const bgAlpha = Math.floor(60 + pulse * 30);
         
-        ink(80, 30, 30, bgAlpha).box(previewX, previewY, loadingW, loadingH);
-        ink(255, 80, 80, 150).box(previewX, previewY, loadingW, loadingH, "outline");
+        ink(40, 15, 15, bgAlpha).box(previewX, previewY, loadingW, loadingH);
+        ink(255, 80, 80, 100).box(previewX, previewY, loadingW, loadingH, "outline");
         
-        // YouTube logo-like loading
+        // YouTube play icon loading pulse
         const centerX = previewX + loadingW / 2;
         const centerY = previewY + loadingH / 2;
-        const pulseSize = 8 + pulse * 4;
-        ink(255, 0, 0, 200).box(floor(centerX - pulseSize/2), floor(centerY - pulseSize/2), floor(pulseSize), floor(pulseSize));
+        const pulseSize = 10 + pulse * 4;
+        ink(255, 0, 0, 150 + pulse * 50).box(floor(centerX - pulseSize/2), floor(centerY - pulseSize/2), floor(pulseSize), floor(pulseSize * 0.75));
         
-        previewX += 64;
+        previewX += loadingW + 4;
       }
     }
   }
@@ -1840,7 +1806,7 @@ function act(
   }
   
   // 📰 News ticker interaction (hover + click)
-  if (newsTickerBounds && !linkConfirmModal && !messageCopyModal && !modalPainting) {
+  if (newsTickerBounds && pen && !linkConfirmModal && !messageCopyModal && !modalPainting) {
     const inBounds = pen.x >= newsTickerBounds.x && pen.x < newsTickerBounds.x + newsTickerBounds.w &&
                      pen.y >= newsTickerBounds.y && pen.y < newsTickerBounds.y + newsTickerBounds.h;
     
@@ -2216,7 +2182,8 @@ function act(
             const paintingOffset = message.layout.paintingCodes ? 74 : 0;
             const previewY = message.layout.y + message.layout.height + 4 + paintingOffset;
             let previewX = message.layout.x;
-            const previewSize = 64;
+            const previewW = 120;
+            const previewH = 68;
             
             message.layout.hoveredYoutube = null;
             
@@ -2226,16 +2193,16 @@ function act(
               if (cached) {
                 if (
                   e.x >= previewX &&
-                  e.x < previewX + previewSize &&
+                  e.x < previewX + previewW &&
                   e.y >= previewY &&
-                  e.y < previewY + previewSize
+                  e.y < previewY + previewH
                 ) {
                   message.layout.hoveredYoutube = videoId;
                   break;
                 }
-                previewX += previewSize + 2;
+                previewX += previewW + 4;
               } else {
-                previewX += 64;
+                previewX += 120 + 4;
               }
             }
           }
@@ -2482,16 +2449,17 @@ function act(
             const paintingOffset = message.layout.paintingCodes ? 74 : 0;
             const previewY = message.layout.y + message.layout.height + 4 + paintingOffset;
             let previewX = message.layout.x;
-            const previewSize = 64;
+            const previewW = 120;
+            const previewH = 68;
             
             for (const videoId of message.layout.youtubeVideoIds) {
               const cached = youtubePreviewCache.get(videoId);
               if (cached) {
                 if (
                   e.x >= previewX &&
-                  e.x < previewX + previewSize &&
+                  e.x < previewX + previewW &&
                   e.y >= previewY &&
-                  e.y < previewY + previewSize
+                  e.y < previewY + previewH
                 ) {
                   clickedInteractiveElement = true;
                   beep();
@@ -2499,9 +2467,9 @@ function act(
                   openYoutubeModal(videoId);
                   break;
                 }
-                previewX += previewSize + 2;
+                previewX += previewW + 4;
               } else {
-                previewX += 64;
+                previewX += 120 + 4;
               }
             }
           }
@@ -2687,7 +2655,8 @@ function act(
             const paintingOffset = message.layout.paintingCodes ? 74 : 0;
             const previewY = message.layout.y + message.layout.height + 4 + paintingOffset;
             let previewX = message.layout.x;
-            const previewSize = 64;
+            const previewW = 120;
+            const previewH = 68;
             
             message.layout.hoveredYoutube = null;
             
@@ -2697,17 +2666,17 @@ function act(
               if (cached) {
                 if (
                   e.x >= previewX &&
-                  e.x < previewX + previewSize &&
+                  e.x < previewX + previewW &&
                   e.y >= previewY &&
-                  e.y < previewY + previewSize
+                  e.y < previewY + previewH
                 ) {
                   message.layout.hoveredYoutube = videoId;
                   hoveredAnyElement = true;
                   break;
                 }
-                previewX += previewSize + 2;
+                previewX += previewW + 4;
               } else {
-                previewX += 64;
+                previewX += 120 + 4;
               }
             }
           }
@@ -2978,10 +2947,15 @@ async function loadPaintingPreview(code, get, store) {
 }
 
 // 📺 Load YouTube thumbnail by video ID
-async function loadYoutubePreview(videoId, get) {
+async function loadYoutubePreview(videoId, preload) {
   // Check cache first
   if (youtubePreviewCache.has(videoId)) {
     return youtubePreviewCache.get(videoId);
+  }
+  if (globalYoutubeThumbCache && globalYoutubeThumbCache.has(videoId)) {
+    const cached = globalYoutubeThumbCache.get(videoId);
+    youtubePreviewCache.set(videoId, cached);
+    return cached;
   }
   
   // Check if already loading
@@ -2993,15 +2967,19 @@ async function loadYoutubePreview(videoId, get) {
   
   try {
     // YouTube thumbnails are publicly available without API key
-    // mqdefault is 320x180, good balance of quality and size
+    // mqdefault is 320x180 (16:9 aspect ratio)
     const thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
     
-    // Load the thumbnail image
-    const thumbnail = await get.image(thumbnailUrl);
+    // Load the thumbnail image using net.preload
+    const loaded = await preload(thumbnailUrl);
+    const thumbnail = loaded?.img || loaded;
     
     if (thumbnail) {
       const result = { thumbnail, videoId };
       youtubePreviewCache.set(videoId, result);
+      if (globalYoutubeThumbCache) {
+        globalYoutubeThumbCache.set(videoId, result);
+      }
       youtubeLoadQueue.delete(videoId);
       return result;
     }
@@ -3017,10 +2995,25 @@ async function loadYoutubePreview(videoId, get) {
 
 // 📺 Open YouTube modal with embed iframe
 function openYoutubeModal(videoId) {
-  if (!domApi || youtubeModalOpen) return;
+  if (!domApi) return;
+  if (youtubeModalOpen) {
+    const overlay = typeof document !== "undefined"
+      ? document.getElementById("youtube-modal-overlay")
+      : null;
+    if (overlay) return;
+    youtubeModalOpen = false;
+    youtubeModalVideoId = null;
+  }
   
   youtubeModalOpen = true;
   youtubeModalVideoId = videoId;
+  if (typeof window !== "undefined") {
+    window.acYoutubeModalState = { open: true, videoId };
+    window.acYoutubeModalClose = () => {
+      youtubeModalOpen = false;
+      youtubeModalVideoId = null;
+    };
+  }
   
   domApi.html`
     <style>
@@ -3043,7 +3036,7 @@ function openYoutubeModal(videoId) {
         to { opacity: 1; }
       }
       #youtube-modal-content {
-        width: min(90vw, 854px);
+        width: min(80vw, 720px);
         aspect-ratio: 16/9;
         background: #000;
         border-radius: 8px;
@@ -3055,23 +3048,8 @@ function openYoutubeModal(videoId) {
         height: 100%;
         border: none;
       }
-      #youtube-modal-close {
-        margin-top: 16px;
-        padding: 8px 24px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        color: white;
-        font-family: monospace;
-        font-size: 14px;
-        cursor: pointer;
-        border-radius: 4px;
-        transition: background 0.2s;
-      }
-      #youtube-modal-close:hover {
-        background: rgba(255, 255, 255, 0.2);
-      }
     </style>
-    <div id="youtube-modal-overlay" onclick="if(event.target.id === 'youtube-modal-overlay') { this.remove(); window.acCloseYoutubeModal && window.acCloseYoutubeModal(); }">
+    <div id="youtube-modal-overlay" onclick="if(event.target.id === 'youtube-modal-overlay') { window.acCloseYoutubeModal && window.acCloseYoutubeModal(); }">
       <div id="youtube-modal-content">
         <iframe 
           src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0"
@@ -3079,12 +3057,16 @@ function openYoutubeModal(videoId) {
           allowfullscreen>
         </iframe>
       </div>
-      <button id="youtube-modal-close" onclick="this.parentElement.remove(); window.acCloseYoutubeModal && window.acCloseYoutubeModal();">✕ Close (Esc)</button>
     </div>
     <script>
       window.acCloseYoutubeModal = function() {
         const overlay = document.getElementById('youtube-modal-overlay');
         if (overlay) overlay.remove();
+        if (window.acYoutubeModalClose) window.acYoutubeModalClose();
+        if (window.acYoutubeModalState) {
+          window.acYoutubeModalState.open = false;
+          window.acYoutubeModalState.videoId = null;
+        }
       };
       document.addEventListener('keydown', function ytEscHandler(e) {
         if (e.key === 'Escape') {
