@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.254.0",
+  "version": "1.255.0",
   "description": "Code, run, and publish your pieces. Includes Aesthetic Computer themes and KidLisp syntax highlighting.",
   "engines": {
     "vscode": "^1.105.0"
@@ -45,47 +45,52 @@
         "path": "./themes/aesthetic-dark-color-theme.json"
       },
       {
-        "label": "Red 🔴",
+        "label": "Aesthetic Computer: Light 🌻",
+        "uiTheme": "vs",
+        "path": "./themes/aesthetic-light-color-theme.json"
+      },
+      {
+        "label": "Aesthetic Computer: Red 🔴",
         "uiTheme": "vs-dark",
         "path": "./themes/aesthetic-dark-red-color-theme.json"
       },
       {
-        "label": "Orange 🟠",
+        "label": "Aesthetic Computer: Orange 🟠",
         "uiTheme": "vs-dark",
         "path": "./themes/aesthetic-dark-orange-color-theme.json"
       },
       {
-        "label": "Yellow 🟡",
+        "label": "Aesthetic Computer: Yellow 🟡",
         "uiTheme": "vs-dark",
         "path": "./themes/aesthetic-dark-yellow-color-theme.json"
       },
       {
-        "label": "Green 🟢",
+        "label": "Aesthetic Computer: Green 🟢",
         "uiTheme": "vs-dark",
         "path": "./themes/aesthetic-dark-green-color-theme.json"
       },
       {
-        "label": "Blue 🔵",
+        "label": "Aesthetic Computer: Blue 🔵",
         "uiTheme": "vs-dark",
         "path": "./themes/aesthetic-dark-blue-color-theme.json"
       },
       {
-        "label": "Indigo 🟣",
+        "label": "Aesthetic Computer: Indigo 🟣",
         "uiTheme": "vs-dark",
         "path": "./themes/aesthetic-dark-indigo-color-theme.json"
       },
       {
-        "label": "Violet 🔮",
+        "label": "Aesthetic Computer: Violet 🔮",
         "uiTheme": "vs-dark",
         "path": "./themes/aesthetic-dark-violet-color-theme.json"
       },
       {
-        "label": "Pink 🌸",
+        "label": "Aesthetic Computer: Pink 🌸",
         "uiTheme": "vs-dark",
         "path": "./themes/aesthetic-dark-pink-color-theme.json"
       },
       {
-        "label": "Pencil ✏️",
+        "label": "Aesthetic Computer: Pencil ✏️",
         "uiTheme": "vs-dark",
         "path": "./themes/aesthetic-dark-pencil-color-theme.json"
       }
