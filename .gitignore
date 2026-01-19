@@ -43,9 +43,9 @@ packed
 packed/*/
 objkt/output
 
-# assets (ignore all subdirectories but readme)
-system/public/assets/*/
-!system/public/assets/*/readme.txt
+# assets (ignore all - synced via CDN)
+system/public/assets/*
+!system/public/assets/.gitkeep
 
 # ignore offline index.html
 system/public/index.html
