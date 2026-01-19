@@ -1225,8 +1225,11 @@ function receive(event) {
     if (code) {
       // Track the kidlisp code for console snapshots
       window.__acCurrentKidlispCode = code;
-      // Always clear and then set codeId to prevent stale values from previous runs
-      window.__acCurrentKidlispCodeId = codeId || null;
+      // Only update codeId if explicitly provided - preserve existing value otherwise
+      // This prevents stale values from being lost when reload messages don't include codeId
+      if (codeId !== undefined) {
+        window.__acCurrentKidlispCodeId = codeId || null;
+      }
       // Enable/disable execution trace based on visualization mode
       window.__acKidlispTraceEnabled = enableTrace || false;
       // Reset snap timer so first snap happens ~5s after new code loads
@@ -1235,6 +1238,17 @@ function receive(event) {
       window.acSEND({
         type: "piece-reload",
         content: { source: code, codeId: codeId, createCode: createCode, authToken: authToken, enableTrace: enableTrace }
+      });
+    }
+    return;
+  } else if (event.data?.type === "kidlisp-slide") {
+    // Slide mode update - update source but preserve state/buffers
+    const code = event.data.code;
+    if (code) {
+      window.__acCurrentKidlispCode = code;
+      window.acSEND({
+        type: "piece-slide",
+        content: { source: code }
       });
     }
     return;

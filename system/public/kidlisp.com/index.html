@@ -13816,9 +13816,20 @@
         slideHasChanges = true;
         if (slideActions) slideActions.classList.add('visible');
         
-        // Trigger preview update - it reads from editor.getValue()
-        if (typeof updatePreview === 'function') {
-          updatePreview();
+        // Get the updated code
+        const newCode = editor.getValue();
+        
+        // Broadcast slide update to PJ sessions via WebSocket (low latency)
+        if (typeof broadcastSlideToChannel === 'function') {
+          broadcastSlideToChannel(newCode);
+        }
+        
+        // Trigger preview update with slide flag to avoid buffer reset
+        if (typeof sendToIframe === 'function') {
+          sendToIframe({
+            type: 'kidlisp-slide',
+            code: newCode
+          });
         }
       }
       
@@ -20045,6 +20056,48 @@
         // Only try to reconnect if we have an active PJ session
         connectPjWebSocket();
         log.socket.debug('PJ WebSocket not ready, reconnecting...');
+      }
+    }
+    
+    // Broadcast slide update to channel (optimized for low latency)
+    function broadcastSlideToChannel(code) {
+      if (!codeChannelId || !hasActivePjSession()) return;
+      
+      // Direct postMessage to pop-out window (fastest - same origin)
+      if (popoutWindow && !popoutWindow.closed) {
+        try {
+          popoutWindow.postMessage({
+            type: 'kidlisp-slide-update',
+            code: code,
+            channelId: codeChannelId
+          }, '*');
+        } catch (e) {
+          // Ignore - cross-origin
+        }
+      }
+      
+      // Broadcast via BroadcastChannel for same-origin windows
+      if (window.BroadcastChannel) {
+        const bc = new BroadcastChannel(`kidlisp-channel-${codeChannelId}`);
+        bc.postMessage({
+          type: 'slide-update',
+          code: code,
+          channelId: codeChannelId,
+          timestamp: Date.now()
+        });
+        bc.close();
+      }
+      
+      // Broadcast via production PJ WebSocket (cross-origin)
+      if (pjWs && pjWs.readyState === WebSocket.OPEN) {
+        pjWs.send(JSON.stringify({
+          type: 'slide',
+          content: {
+            piece: code,
+            source: code,
+            codeChannel: codeChannelId
+          }
+        }));
       }
     }
     

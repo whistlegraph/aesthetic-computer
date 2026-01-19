@@ -2064,7 +2064,28 @@ class KidLisp {
     // console.log("🎯 KidLisp API context updated");
   }
 
-  // 🎵 Update audio-related global variables (called from pieces with audio data)
+  // �️ Slide update - re-parse and update AST without resetting state/layers
+  // Used for real-time parameter tweaking in slide mode
+  slideUpdate(source) {
+    if (!source) return;
+    
+    try {
+      // Parse the new source
+      const parsed = this.parse(source);
+      
+      // Update AST and source tracking (but preserve everything else)
+      this.ast = JSON.parse(JSON.stringify(parsed));
+      this.currentSource = source;
+      
+      // DON'T reset: globalDef, onceExecuted, layers, timers, etc.
+      // The next paint frame will evaluate with the new AST but existing state
+      
+    } catch (e) {
+      console.warn('🎚️ Slide update parse error:', e.message);
+    }
+  }
+
+  // �🎵 Update audio-related global variables (called from pieces with audio data)
   updateAudioGlobals(audioData) {
     if (audioData && typeof audioData === 'object') {
       if (typeof audioData.amp === 'number') {
@@ -4272,7 +4293,10 @@ class KidLisp {
             // No custom handlers - any tap toggles HUD (but not in pack mode)
             // console.log("🎯 No custom handlers, toggling HUD for any tap");
             if (!getPackMode()) {
-              api.toggleHUD();
+              // Skip sound only for embedded/inline KidLisp (kidlisp.com editor, PJ KidLisp)
+              // .lisp file pieces keep the sound
+              const skipSound = !this.isLispFile;
+              api.toggleHUD(false, skipSound);
             }
           }
         }
