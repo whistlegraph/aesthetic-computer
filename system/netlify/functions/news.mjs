@@ -260,8 +260,8 @@ async function renderItemPage(database, basePath, code) {
       <div class="news-comment-guidelines">
         <p data-i18n="comment-guidelines">Say something interesting or ask a question. Be nice.</p>
       </div>
-      <textarea name="text" rows="6" cols="80" data-i18n-placeholder="comment-placeholder" placeholder="Add a comment..."></textarea>
-      <button type="submit" data-i18n="write-comment">write comment</button>
+      <textarea name="text" rows="6" cols="80" data-i18n-placeholder="comment-placeholder" placeholder="Respond..."></textarea>
+      <button type="submit" data-i18n="respond">Respond</button>
     </form>
     <div class="news-comments">
       ${commentsHtml || ''}
