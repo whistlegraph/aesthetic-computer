@@ -387,7 +387,11 @@ Also updates VS Code task status bar to 'done'."
                        ("chat"    . ("#00008B" . "#FFFFFF"))  ; Dark blue
                        ("web 1/2" . ("#008B8B" . "#FFFFFF"))  ; Dark cyan
                        ("web 2/2" . ("#2F4F4F" . "#FFFFFF"))  ; Dark slate gray
-                       ("tests"   . ("#8B4513" . "#FFFFFF")))) ; Saddle brown
+                       ("tests"   . ("#8B4513" . "#FFFFFF"))  ; Saddle brown
+                       ("views"   . ("#556B2F" . "#FFFFFF"))  ; Dark olive green
+                       ("llm"     . ("#5B2C83" . "#FFFFFF"))  ; Deep purple
+                       ("crash"   . ("#5A1B1B" . "#FFFFFF"))  ; Dark maroon
+                       ("fishy"   . ("#005F73" . "#FFFFFF")))) ; Deep teal
          (colors (or (cdr (assoc tab-name tab-colors))
                      '("#333333" . "#FFFFFF")))  ; Default dark gray
          (bg-color (car colors))
@@ -1158,6 +1162,7 @@ Skips creation if tab already exists."
 
 (defun aesthetic-backend (target-tab)
   (interactive)
+  (setq target-tab (or target-tab "artery"))
   
   ;; Prevent double-invocation race condition
   (when ac--backend-started
