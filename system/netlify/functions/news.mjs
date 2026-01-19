@@ -59,17 +59,17 @@ function layout({ title, body, assetBase }) {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(title)}</title>
-    <link rel="icon" href="${assetBase}/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="https://aesthetic.computer${assetBase}/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css">
-    <link rel="stylesheet" href="${assetBase}/main.css" />
+    <link rel="stylesheet" href="https://aesthetic.computer${assetBase}/main.css" />
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
   </head>
   <body>
     <div class="news-wrapper">
       ${body}
     </div>
-    <script src="${assetBase}/client.js" defer></script>
+    <script src="https://aesthetic.computer${assetBase}/client.js" defer></script>
   </body>
 </html>`;
 }
