@@ -19270,6 +19270,66 @@
     let popoutWindow = null;
     let codeChannelId = null;
     let isVSCodePopout = false; // Track if pop-out was opened via VS Code (external browser)
+    
+    // VJ WebSocket - prefers production, falls back to localhost
+    // This allows localhost development to broadcast to vj.kidlisp.com viewers
+    let vjWs = null;
+    let vjWsPendingChannel = null;
+    let vjIsProduction = true; // Track if connected to production or localhost
+    const VJ_PROD_URL = 'wss://session-server.aesthetic.computer';
+    const VJ_LOCAL_URL = 'wss://localhost:8889';
+    
+    function connectVjWebSocket(forceLocal = false) {
+      if (vjWs && vjWs.readyState === WebSocket.OPEN) return;
+      
+      const url = forceLocal ? VJ_LOCAL_URL : VJ_PROD_URL;
+      vjIsProduction = !forceLocal;
+      
+      try {
+        vjWs = new WebSocket(url);
+        vjWs.onopen = () => {
+          log.socket.log(`VJ WebSocket connected to ${vjIsProduction ? 'production' : 'localhost'}`);
+          if (vjWsPendingChannel) {
+            vjWs.send(JSON.stringify({ type: 'code-channel:sub', content: vjWsPendingChannel }));
+            vjWsPendingChannel = null;
+          }
+          // Update display to show correct URL
+          updateCodeChannelDisplay();
+        };
+        vjWs.onclose = () => {
+          log.socket.debug('VJ WebSocket disconnected');
+          vjWs = null;
+          // Reconnect if we have an active channel
+          if (codeChannelId) setTimeout(() => connectVjWebSocket(forceLocal), 3000);
+        };
+        vjWs.onerror = () => {
+          vjWs?.close();
+          // If production failed, try localhost
+          if (!forceLocal) {
+            log.socket.warn('Production VJ server unreachable, trying localhost...');
+            setTimeout(() => connectVjWebSocket(true), 500);
+          }
+        };
+      } catch (e) {
+        log.socket.warn('VJ WebSocket connection failed:', e.message);
+        // If production failed, try localhost
+        if (!forceLocal) {
+          setTimeout(() => connectVjWebSocket(true), 500);
+        }
+      }
+    }
+    
+    // Get the current VJ share URL based on connection state
+    function getVjShareUrl() {
+      if (!codeChannelId) return null;
+      if (vjIsProduction) {
+        return `https://vj.kidlisp.com/${codeChannelId}`;
+      } else {
+        // Localhost mode - use local path
+        return `${window.location.origin}/kidlisp.com/vj/${codeChannelId}`;
+      }
+    }
+    
     const popoutBtn = document.getElementById('popout-btn');
     const previewIframeContainer = document.getElementById('preview-iframe-container');
     const popoutOverlay = document.getElementById('popout-overlay');
@@ -19303,12 +19363,13 @@
       
       if (hasActiveVjWindow) {
         previewIframeContainer?.classList.add('popped-out');
-        const shareUrl = `https://vj.kidlisp.com/${codeChannelId}`;
-        if (popoutOverlayChannel) {
-          popoutOverlayChannel.textContent = shareUrl;
+        const shareUrl = getVjShareUrl();
+        if (popoutOverlayChannel && shareUrl) {
+          // Show (local) indicator if using localhost
+          popoutOverlayChannel.textContent = vjIsProduction ? shareUrl : `${shareUrl} (local)`;
         }
         // Draw QR code in the overlay
-        drawVjQrCode(shareUrl);
+        if (shareUrl) drawVjQrCode(shareUrl);
       } else {
         previewIframeContainer?.classList.remove('popped-out');
       }
@@ -19347,8 +19408,8 @@
     popoutOverlayChannel?.addEventListener('click', () => copyVjUrl());
     
     function copyVjUrl() {
-      if (codeChannelId) {
-        const url = `https://vj.kidlisp.com/${codeChannelId}`;
+      const url = getVjShareUrl();
+      if (url) {
         navigator.clipboard.writeText(url).then(() => {
           showToast('URL copied!', 'success');
         }).catch(() => {
@@ -19357,17 +19418,21 @@
       }
     }
     
-    // Subscribe to code channel via session server
+    // Subscribe to code channel via production session server (for VJ broadcasting)
     function subscribeToCodeChannel(channelId) {
-      if (sessionWs && sessionWs.readyState === WebSocket.OPEN) {
-        sessionWs.send(JSON.stringify({
+      // Ensure VJ WebSocket is connected to production
+      connectVjWebSocket();
+      
+      if (vjWs && vjWs.readyState === WebSocket.OPEN) {
+        vjWs.send(JSON.stringify({
           type: 'code-channel:sub',
           content: channelId
         }));
-        log.socket.log(`Subscribed to code channel: ${channelId}`);
+        log.socket.log(`Subscribed to VJ channel: ${channelId}`);
       } else {
-        log.socket.warn('Session server not connected, will subscribe when reconnected');
-        // Will subscribe when sessionWs connects
+        // Will subscribe when vjWs connects
+        vjWsPendingChannel = channelId;
+        log.socket.debug('VJ WebSocket connecting, will subscribe to:', channelId);
       }
     }
     
@@ -19400,10 +19465,9 @@
         }
       }
       
-      // Also broadcast via session server WebSocket for cross-origin (VS Code -> browser)
-      // This uses the code-channel:broadcast message type
-      if (sessionWs && sessionWs.readyState === WebSocket.OPEN) {
-        sessionWs.send(JSON.stringify({
+      // Broadcast via production VJ WebSocket for cross-origin (localhost -> vj.kidlisp.com)
+      if (vjWs && vjWs.readyState === WebSocket.OPEN) {
+        vjWs.send(JSON.stringify({
           type: 'code',
           content: {
             piece: code,
@@ -19411,7 +19475,11 @@
             codeChannel: codeChannelId
           }
         }));
-        log.socket.debug('Broadcast code via session server to channel:', codeChannelId);
+        log.socket.debug('Broadcast code via VJ WebSocket to channel:', codeChannelId);
+      } else {
+        // Try to reconnect and send
+        connectVjWebSocket();
+        log.socket.warn('VJ WebSocket not ready, reconnecting...');
       }
     }
     
