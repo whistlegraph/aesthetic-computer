@@ -171,7 +171,7 @@ export function createHandler({
           const text = sanitizeText(body.text, MAX_TEXT);
 
           if (!postCode || !text) {
-            return respondFn(400, { error: "postCode and text required" });
+            return respondFn(400, { error: "Please write something before responding." });
           }
 
           const now = new Date();
