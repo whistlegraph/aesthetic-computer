@@ -323,6 +323,7 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
     const basePath = isSubdomainRequest(event) ? "" : "/news.aesthetic.computer";
     const assetBase = "/news.aesthetic.computer";
     const route = parseRoute(event);
+    console.log("[news] Route debug:", { path: event.path, queryStringParameters: event.queryStringParameters, parsedRoute: route });
     let title = "Aesthetic News";
 
     let database;
