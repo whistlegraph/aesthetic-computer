@@ -13784,6 +13784,9 @@
           numInfo.endColumn
         );
         
+        // Temporarily disable readOnly to allow our edit
+        editor.updateOptions({ readOnly: false });
+        
         // Apply edit without triggering full re-evaluation
         isSettingValueProgrammatically = true;
         editor.executeEdits('slide-mode', [{
@@ -13792,6 +13795,9 @@
           forceMoveMarkers: true
         }]);
         isSettingValueProgrammatically = false;
+        
+        // Re-enable readOnly
+        editor.updateOptions({ readOnly: true });
         
         // Update the number info for future drags
         const lengthDiff = newStr.length - (numInfo.endColumn - numInfo.startColumn);
@@ -13810,10 +13816,9 @@
         slideHasChanges = true;
         if (slideActions) slideActions.classList.add('visible');
         
-        // Trigger preview update with new code
-        const newCode = editor.getValue();
+        // Trigger preview update - it reads from editor.getValue()
         if (typeof updatePreview === 'function') {
-          updatePreview(newCode);
+          updatePreview();
         }
       }
       
@@ -13943,13 +13948,18 @@
       // Discard slide changes (restore original code)
       function discardSlideChanges() {
         if (editor && slideOriginalCode) {
+          // Need to temporarily disable readOnly if we're in slide mode
+          if (slideMode) editor.updateOptions({ readOnly: false });
+          
           isSettingValueProgrammatically = true;
           editor.setValue(slideOriginalCode);
           isSettingValueProgrammatically = false;
           
-          // Trigger preview update with restored code
+          if (slideMode) editor.updateOptions({ readOnly: true });
+          
+          // Trigger preview update - it reads from editor.getValue()
           if (typeof updatePreview === 'function') {
-            updatePreview(slideOriginalCode);
+            updatePreview();
           }
         }
         slideHasChanges = false;
