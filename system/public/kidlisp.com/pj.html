@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- KidLisp.com VJ Mode - Live code visualization window -->
+<!-- KidLisp.com PJ Mode - Piece Jockey live visualization window -->
 <!-- Receives code updates via BroadcastChannel and session server -->
-<!-- URL format: kidlisp.com/vj/channelId -->
+<!-- URL format: pj.kidlisp.com/code -->
 <html>
 <head>
   <meta charset="utf-8">
-  <title>KidLisp.com · VJ</title>
+  <title>KidLisp.com · PJ</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
@@ -80,7 +80,7 @@
   </style>
 </head>
 <body>
-  <div id="fullscreen-hint">Press F for fullscreen • Esc to exit</div>
+  <div id="fullscreen-hint">Press F for fullscreen</div>
   
   <div id="boot-screen">
     <div class="boot-text">
@@ -92,10 +92,24 @@
   <iframe id="preview-iframe"></iframe>
   
   <script>
-    // Parse channel from URL path: /vj/channelId or /kidlisp.com/vj/channelId
-    const pathParts = window.location.pathname.split('/').filter(p => p && p !== 'kidlisp.com');
-    // pathParts should be ['vj', 'channelId'] or just ['vj']
-    const channelId = pathParts.length >= 2 && pathParts[0] === 'vj' ? pathParts[1] : null;
+    // Parse channel from URL path:
+    // Production: pj.kidlisp.com/code (hostname is pj.kidlisp.com, path is /code)
+    // Local dev: localhost:8888/pj.kidlisp.com/code (path is /pj.kidlisp.com/code)
+    // Legacy: /kidlisp.com/pj/code
+    let channelId = null;
+    const pathname = window.location.pathname;
+    
+    if (pathname.startsWith('/pj.kidlisp.com/')) {
+      // Local dev pattern: /pj.kidlisp.com/code
+      channelId = pathname.split('/')[2] || null;
+    } else if (window.location.hostname === 'pj.kidlisp.com') {
+      // Production: hostname is pj.kidlisp.com, channel is first path segment
+      channelId = pathname.split('/').filter(p => p)[0] || null;
+    } else {
+      // Legacy pattern: /kidlisp.com/pj/code or /pj/code
+      const pathParts = pathname.split('/').filter(p => p && p !== 'kidlisp.com');
+      channelId = pathParts.length >= 2 && pathParts[0] === 'pj' ? pathParts[1] : null;
+    }
     
     // Get initial code from query params (for direct code sharing)
     const params = new URLSearchParams(window.location.search);
@@ -114,7 +128,7 @@
     // Display channel ID
     if (channelId) {
       bootChannel.textContent = `Channel: ${channelId}`;
-      document.title = `KidLisp.com · VJ · ${channelId}`;
+      document.title = `KidLisp.com · PJ · ${channelId}`;
     } else {
       bootChannel.textContent = 'No channel specified';
     }
