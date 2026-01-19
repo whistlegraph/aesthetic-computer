@@ -757,14 +757,17 @@ function initSpaRouting() {
   document.addEventListener('click', (e) => {
     const link = e.target.closest('a');
     console.log('[news] Click on link:', link?.href, 'shouldHandle:', shouldHandleLink(link));
+    console.log('[news] Current URL at click time:', window.location.href);
     if (!shouldHandleLink(link)) return;
+    
+    // Prevent default IMMEDIATELY before any async work
+    e.preventDefault();
     
     // Check if this is a report link and user is not logged in
     if (isReportLink(link)) {
       const isLoggedIn = acUser || acHandle || acToken;
       console.log('[news] Report link check - isLoggedIn:', isLoggedIn, { acUser, acHandle, acToken: !!acToken });
       if (!isLoggedIn) {
-        e.preventDefault();
         e.stopPropagation();
         promptLoginForReport();
         return;
@@ -772,7 +775,6 @@ function initSpaRouting() {
     }
     
     console.log('[news] Navigating to:', link.href);
-    e.preventDefault();
     navigateTo(link.href, { push: true });
   });
 
