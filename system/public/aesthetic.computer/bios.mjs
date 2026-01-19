@@ -625,6 +625,13 @@ window.acDISK_SEND = function (message) {
   !diskSendsConsumed ? diskSends.push(message) : window.acSEND(message);
 };
 
+// 🔊 Master volume control (for desktop app sliders, etc.)
+window.AC = window.AC || {};
+window.AC.setMasterVolume = (value) => applyMasterVolume(value);
+window.AC.getMasterVolume = () => masterVolume;
+window.acSetMasterVolume = window.AC.setMasterVolume;
+window.acGetMasterVolume = window.AC.getMasterVolume;
+
 // 🔍 CDP Debug State - Expose piece state for browser automation
 // Pieces can call `_send({ type: "debug:state", content: {...} })` to update this
 window.acPieceState = null;
@@ -2552,7 +2559,39 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     sfxStreamGain,
     micStreamGain,
     micGainNode,
-    speakerGain;
+    speakerGain,
+    speakerProcessorNode;
+
+  let masterVolume = 1;
+  let backgroundMusicBaseVolume = 1;
+
+  function clampVolume(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 1;
+    return Math.max(0, Math.min(1, numeric));
+  }
+
+  function applyMasterVolume(nextValue) {
+    masterVolume = clampVolume(nextValue);
+
+    if (speakerProcessorNode?.port) {
+      speakerProcessorNode.port.postMessage({ type: "volume", value: masterVolume });
+    }
+
+    if (backgroundMusicEl) {
+      backgroundMusicEl.volume = backgroundMusicBaseVolume * masterVolume;
+    }
+
+    for (const id in streamAudio) {
+      const stream = streamAudio[id];
+      if (stream?.audio) {
+        const base = Number.isFinite(stream.baseVolume) ? stream.baseVolume : 1;
+        stream.audio.volume = base * masterVolume;
+      }
+    }
+
+    return masterVolume;
+  }
 
   let requestMicrophoneAmplitude,
     requestMicrophoneWaveform,
@@ -2594,7 +2633,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     "16 - textual criticism ambiguity",
   ];
 
-  const backgroundMusicEl = document.createElement("audio");
+  let backgroundMusicEl;
+  backgroundMusicEl = document.createElement("audio");
   backgroundMusicEl.id = "background-music";
   backgroundMusicEl.crossOrigin = "anonymous";
   wrapper.appendChild(backgroundMusicEl);
@@ -2614,7 +2654,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       const ext = Safari ? "m4a" : "ogg";
       backgroundMusicEl.src = origin + backgroundTrackURLs[n] + "." + ext;
-      backgroundMusicEl.volume = parseFloat(volume);
+      backgroundMusicBaseVolume = clampVolume(volume);
+      backgroundMusicEl.volume = backgroundMusicBaseVolume * masterVolume;
       if (audioContext) {
         backgroundMusicEl.play();
       }
@@ -2980,6 +3021,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           },
         );
 
+        speakerProcessorNode = speakerProcessor;
+
         // 🎵 WORKLET INITIALIZATION LOGGING
         // console.log(`🎵 WORKLET_CREATED: bpm=${sound.bpm}, audioTime=${audioContext.currentTime.toFixed(6)}s, totalSetupTime=${(performance.now() - audioStartTimestamp).toFixed(3)}ms`);
 
@@ -3161,6 +3204,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         speakerProcessor.connect(sfxStreamGain); // Connect to the mediaStream.
         speakerProcessor.connect(speakerGain);
         console.log("🔊 Speaker processor connected to audio graph!");
+
+        applyMasterVolume(masterVolume);
 
         activatedSoundCallback?.();
 
@@ -15404,7 +15449,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const audio = new Audio();
       audio.crossOrigin = "anonymous";
       audio.src = url;
-      audio.volume = volume ?? 1;
+      const baseVolume = clampVolume(volume ?? 1);
+      audio.volume = baseVolume * masterVolume;
       
       // Connect to AudioContext for analysis if available
       if (audioContext) {
@@ -15414,13 +15460,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           analyser.fftSize = 256;
           source.connect(analyser);
           analyser.connect(audioContext.destination);
-          streamAudio[id] = { audio, analyser, source };
+          streamAudio[id] = { audio, analyser, source, baseVolume };
         } catch (e) {
           // If already connected, just store the audio
-          streamAudio[id] = { audio };
+          streamAudio[id] = { audio, baseVolume };
         }
       } else {
-        streamAudio[id] = { audio };
+        streamAudio[id] = { audio, baseVolume };
       }
       
       audio.play().then(() => {
@@ -15472,7 +15518,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "stream:volume") {
       const { id, volume } = content;
       if (streamAudio[id]?.audio) {
-        streamAudio[id].audio.volume = Math.max(0, Math.min(1, volume));
+        const baseVolume = clampVolume(volume);
+        streamAudio[id].baseVolume = baseVolume;
+        streamAudio[id].audio.volume = baseVolume * masterVolume;
       }
       return;
     }
