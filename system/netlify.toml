@@ -704,15 +704,15 @@ to = "https://aesthetic.computer/kidlisp.com/:splat"
 status = 200
 force = true
 
-# VJ subdomain for kidlisp.com - vj.kidlisp.com/code
+# PJ subdomain for kidlisp.com - pj.kidlisp.com/code (Piece Jockey)
 [[redirects]]
-from = "https://vj.kidlisp.com"
-to = "/kidlisp.com/vj.html"
+from = "https://pj.kidlisp.com"
+to = "/kidlisp.com/pj.html"
 status = 200
 force = true
 [[redirects]]
-from = "https://vj.kidlisp.com/*"
-to = "/kidlisp.com/vj.html"
+from = "https://pj.kidlisp.com/*"
+to = "/kidlisp.com/pj.html"
 status = 200
 force = true
 
@@ -1291,9 +1291,15 @@ to = "/aesthetic.computer/:splat.mjs"
 status = 200
 force = false
 [[redirects]]
-# VJ mode - route /kidlisp.com/vj/* to vj.html
-from = "/kidlisp.com/vj/*"
-to = "/kidlisp.com/vj.html"
+# PJ mode - route /kidlisp.com/pj/* to pj.html (legacy)
+from = "/kidlisp.com/pj/*"
+to = "/kidlisp.com/pj.html"
+status = 200
+force = false
+[[redirects]]
+# PJ mode - route /pj.kidlisp.com/* to pj.html (local dev mirroring production subdomain)
+from = "/pj.kidlisp.com/*"
+to = "/kidlisp.com/pj.html"
 status = 200
 force = false
 [[redirects]]

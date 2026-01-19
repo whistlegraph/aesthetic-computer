@@ -860,7 +860,8 @@ boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration
 // Start processing any early kidlisp messages that arrived before boot completed
 processEarlyKidlispQueue();
 
-let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acPACK_MODE || window.acSPIDER;
+// noauth mode should skip all authentication (for embedded iframes like kidlisp.com editor)
+let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acPACK_MODE || window.acSPIDER || window.acNOAUTH;
 
 // If noauth mode, immediately send session:started so disk can proceed
 if (window.acNOAUTH) {
