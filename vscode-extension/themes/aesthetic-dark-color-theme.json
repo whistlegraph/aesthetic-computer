@@ -126,104 +126,105 @@
     {
       "scope": ["comment", "punctuation.definition.comment"],
       "settings": {
-        "foreground": "#707070",
+        "foreground": "#6a7a7a",
         "fontStyle": "italic"
       }
     },
     {
       "scope": ["string", "string.quoted"],
       "settings": {
-        "foreground": "#c0b070"
+        "foreground": "#f0c674"
       }
     },
     {
       "scope": ["constant.numeric"],
       "settings": {
-        "foreground": "#d0a0b0"
+        "foreground": "#ff9ecd"
       }
     },
     {
       "scope": ["constant.language", "constant.character"],
       "settings": {
-        "foreground": "#c090a0"
+        "foreground": "#e78cd8"
       }
     },
     {
       "scope": ["keyword", "keyword.control", "keyword.operator.new"],
       "settings": {
-        "foreground": "#a87090"
+        "foreground": "#ff79c6"
       }
     },
     {
       "scope": ["keyword.operator"],
       "settings": {
-        "foreground": "#c09070"
+        "foreground": "#ffb86c"
       }
     },
     {
       "scope": ["storage", "storage.type", "storage.modifier"],
       "settings": {
-        "foreground": "#a87090"
+        "foreground": "#ff79c6"
       }
     },
     {
       "scope": ["entity.name.function", "support.function"],
       "settings": {
-        "foreground": "#70a0b0"
+        "foreground": "#8be9fd"
       }
     },
     {
       "scope": ["entity.name.class", "entity.name.type", "support.class"],
       "settings": {
-        "foreground": "#c090a0"
+        "foreground": "#bd93f9"
       }
     },
     {
       "scope": ["variable", "variable.other"],
       "settings": {
-        "foreground": "#c0a070"
+        "foreground": "#f8f8f2"
       }
     },
     {
       "scope": ["variable.parameter"],
       "settings": {
-        "foreground": "#d0b080"
+        "foreground": "#ffb86c"
       }
     },
     {
       "scope": ["variable.language"],
       "settings": {
-        "foreground": "#90b0c0"
+        "foreground": "#8be9fd",
+        "fontStyle": "italic"
       }
     },
     {
       "scope": ["entity.name.tag"],
       "settings": {
-        "foreground": "#c090a0"
+        "foreground": "#ff79c6"
       }
     },
     {
       "scope": ["entity.other.attribute-name"],
       "settings": {
-        "foreground": "#70a0b0"
+        "foreground": "#50fa7b"
       }
     },
     {
       "scope": ["support.type.property-name"],
       "settings": {
-        "foreground": "#90b0c0"
+        "foreground": "#66d9ef"
       }
     },
     {
       "scope": ["punctuation"],
       "settings": {
-        "foreground": "#a0a0a0"
+        "foreground": "#c0c0c0"
       }
     },
     {
       "scope": ["meta.brace"],
       "settings": {
-        "foreground": "#a0a0a0"
+        "foreground": "#c0c0c0"
       }
     },
     
@@ -231,7 +232,7 @@
       "name": "KidLisp Comments",
       "scope": "comment.line.semicolon.kidlisp",
       "settings": {
-        "foreground": "#707070",
+        "foreground": "#6a7a7a",
         "fontStyle": "italic"
       }
     },
@@ -239,7 +240,7 @@
       "name": "KidLisp Timing",
       "scope": ["constant.numeric.timing.cycle.kidlisp", "constant.numeric.timing.delay.kidlisp"],
       "settings": {
-        "foreground": "#c09070",
+        "foreground": "#ffb86c",
         "fontStyle": "bold"
       }
     },
@@ -247,21 +248,21 @@
       "name": "KidLisp Embedded Codes",
       "scope": "variable.other.embedded.kidlisp",
       "settings": {
-        "foreground": "#70b070"
+        "foreground": "#50fa7b"
       }
     },
     {
       "name": "KidLisp Painting Refs",
       "scope": "entity.name.tag.painting.kidlisp",
       "settings": {
-        "foreground": "#c09070"
+        "foreground": "#ffb86c"
       }
     },
     {
       "name": "KidLisp Rainbow/Zebra",
       "scope": "support.constant.rainbow.kidlisp",
       "settings": {
-        "foreground": "#a87090",
+        "foreground": "#ff79c6",
         "fontStyle": "bold"
       }
     },
@@ -269,80 +270,80 @@
       "name": "KidLisp Graphics Functions",
       "scope": "entity.name.function.graphics.kidlisp",
       "settings": {
-        "foreground": "#70a0b0"
+        "foreground": "#8be9fd"
       }
     },
     {
       "name": "KidLisp Control Functions",
       "scope": "entity.name.function.control.kidlisp",
       "settings": {
-        "foreground": "#a87090"
+        "foreground": "#ff79c6"
       }
     },
     {
       "name": "KidLisp Math Functions",
       "scope": "entity.name.function.math.kidlisp",
       "settings": {
-        "foreground": "#c090a0"
+        "foreground": "#bd93f9"
       }
     },
     {
       "name": "KidLisp Logic Functions",
       "scope": "entity.name.function.logic.kidlisp",
       "settings": {
-        "foreground": "#a87090"
+        "foreground": "#ff79c6"
       }
     },
     {
       "name": "KidLisp Sound Functions",
       "scope": "entity.name.function.sound.kidlisp",
       "settings": {
-        "foreground": "#c090a0"
+        "foreground": "#bd93f9"
       }
     },
     {
       "name": "KidLisp Text Functions",
       "scope": "entity.name.function.text.kidlisp",
       "settings": {
-        "foreground": "#70a0b0"
+        "foreground": "#8be9fd"
       }
     },
     {
       "name": "KidLisp Mode Functions",
       "scope": "entity.name.function.mode.kidlisp",
       "settings": {
-        "foreground": "#c09070"
+        "foreground": "#ffb86c"
       }
     },
     {
       "name": "KidLisp Built-ins",
       "scope": "variable.language.builtin.kidlisp",
       "settings": {
-        "foreground": "#90b0c0"
+        "foreground": "#66d9ef"
       }
     },
     {
       "name": "KidLisp Color Names",
       "scope": "support.constant.color.kidlisp",
       "settings": {
-        "foreground": "#c09070"
+        "foreground": "#f1fa8c"
       }
     },
     {
       "name": "KidLisp Parentheses",
       "scope": ["punctuation.paren.open.kidlisp", "punctuation.paren.close.kidlisp"],
       "settings": {
-        "foreground": "#a0a0a0"
+        "foreground": "#c0c0c0"
       }
     }
   ],
   "semanticHighlighting": true,
   "semanticTokenColors": {
-    "variable.readonly": "#90b0c0",
-    "parameter": "#d0b080",
-    "function.declaration": "#70a0b0",
-    "function": "#70a0b0",
-    "class": "#c090a0",
-    "interface": "#c090a0"
+    "variable.readonly": "#66d9ef",
+    "parameter": "#ffb86c",
+    "function.declaration": "#8be9fd",
+    "function": "#8be9fd",
+    "class": "#bd93f9",
+    "interface": "#bd93f9"
   }
 }
