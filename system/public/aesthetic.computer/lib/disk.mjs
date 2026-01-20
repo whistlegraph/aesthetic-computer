@@ -11506,6 +11506,7 @@ async function makeFrame({ data: { type, content } }) {
               },
               scrub: (btn) => {
                 if (piece === "share") return; // No need to share scrub while in share.
+                if (currentHUDQR || currentHUDQRCells?.length || hudAnimationState.qrFullscreen) return; // Disable swipe-to-share when QR is shown.
 
                 // Only allow scrubbing if this was a direct touch on the HUD button
                 if (!currentHUDButtonDirectTouch) return;
