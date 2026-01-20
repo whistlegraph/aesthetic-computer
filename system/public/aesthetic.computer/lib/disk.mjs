@@ -1556,6 +1556,7 @@ let currentPath,
   currentHUDOffset,
   currentHUDQR = null, // QR code URL to show to the left of label (set via hud.qr())
   currentHUDQRCells = null, // Cached QR code cells
+  forceTinyHudLabel = false, // Force MatrixChunky8 font for HUD label (set via hud.tinyLabel())
   qrOverlayCache = new Map(), // Cache for QR overlays to prevent regeneration every frame
   hudLabelCache = null; // Cache for HUD label to prevent regeneration every frame
 
@@ -3126,6 +3127,10 @@ const $commonApi = {
         currentHUDQRCells = null; // Clear cache to regenerate
         console.log("📱 HUD QR set to:", url);
       }
+    },
+    // 🔤 Force MatrixChunky8 (tiny) font for HUD label
+    tinyLabel: (enabled = true) => {
+      forceTinyHudLabel = enabled;
     },
     currentStatusColor: () => currentHUDStatusColor,
     currentLabel: () => ({ 
@@ -8819,6 +8824,7 @@ async function load(
   currentHUDLeftPad = 0;
     currentHUDQR = null; // Reset QR code when loading new piece
     currentHUDQRCells = null;
+    forceTinyHudLabel = false; // Reset tiny label flag
     // currentPromptButton = undefined;
 
     // Push last piece to a history list, skipping prompt and repeats.
@@ -12511,6 +12517,14 @@ async function makeFrame({ data: { type, content } }) {
 
         const defaultLayout = buildLayout(defaultTypeface);
         let selectedLayout = defaultLayout;
+
+        // 🔤 Force MatrixChunky8 if hud.tinyLabel() was called
+        if (forceTinyHudLabel && matrixTypeface) {
+          const matrixLayout = buildLayout(matrixTypeface);
+          if (matrixLayout) {
+            selectedLayout = matrixLayout;
+          }
+        }
 
         // Disabled: MatrixChunky8 breakpoint removed per user request
         // if (

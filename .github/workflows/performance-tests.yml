@@ -1,8 +1,7 @@
 name: Performance Testing
 
 on:
-  push:
-    branches: [main]
+  # Only run manually or on PRs - not on every push (causes noise)
   pull_request:
     branches: [main]
   workflow_dispatch:
