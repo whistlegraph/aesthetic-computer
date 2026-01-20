@@ -807,8 +807,27 @@ end
 alias reload 'source /workspaces/aesthetic-computer/.devcontainer/config.fish'
 alias refish 'source ~/.config/fish/config.fish'
 
+# Workaround for fish script execution on SELinux/btrfs bind mounts
+# The "No such file or directory" error happens when fish tries to execute
+# scripts via shebang on /workspaces (which is a bind mount from host).
+# Use `run script.fish` instead of `./script.fish` or `fish script.fish`
+function run --description "Run a fish script using source (workaround for bind mount issue)"
+    if test (count $argv) -eq 0
+        echo "Usage: run <script.fish> [args...]"
+        return 1
+    end
+    set -l script $argv[1]
+    set -l args $argv[2..-1]
+    if not test -f $script
+        echo "File not found: $script"
+        return 1
+    end
+    # Use source to run the script in current shell
+    source $script $args
+end
+
 # Port visibility helper - sets port 8888 to public in Codespaces
-alias port-public 'fish /workspaces/aesthetic-computer/.devcontainer/scripts/set-port-public.fish'
+alias port-public 'source /workspaces/aesthetic-computer/.devcontainer/scripts/set-port-public.fish'
 
 # SSH to Windows host
 alias win 'ssh me@host.docker.internal'
