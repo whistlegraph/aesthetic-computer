@@ -62,7 +62,8 @@
     "feed:deploy": "cd dp1-feed; ./deploy-feed.fish production",
     "feed:deploy:dev": "cd dp1-feed; ./deploy-feed.fish dev",
     "feed:test": "cd dp1-feed; npm run test:api",
-    "feed:logs": "cd dp1-feed; wrangler tail --env production"
+    "feed:logs": "cd dp1-feed; wrangler tail --env production",
+    "electron:release": "node ac-electron/scripts/release-electron.mjs"
   },
   "repository": {
     "type": "git",
