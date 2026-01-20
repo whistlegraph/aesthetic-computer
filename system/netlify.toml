@@ -372,6 +372,15 @@ from = "/api/version"
 to = "/.netlify/functions/version"
 status = 200
 
+# Serve type/font assets locally (allow dev edits to BDF files)
+# This must come BEFORE the general /assets/* proxy below
+# force = true ensures this takes precedence over the /assets/* rule
+[[redirects]]
+from = "/assets/type/*"
+to = "/assets/type/:splat"
+status = 200
+force = true
+
 # Proxy assets to S3 (DigitalOcean Spaces) - avoids uploading 13GB to Netlify
 [[redirects]]
 from = "/assets/*"
