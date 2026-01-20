@@ -694,17 +694,36 @@ async function handleCommentSubmit(form) {
   // Success - add comment to UI without refresh
   const commentsContainer = document.querySelector('.news-comments');
   if (commentsContainer) {
+    const commentId = data.commentId || `temp-${Date.now()}`;
     const newComment = document.createElement('div');
     newComment.className = 'news-comment';
-    newComment.dataset.commentId = data.commentId || '';
+    newComment.dataset.commentId = commentId;
     newComment.innerHTML = `
       <div class="news-comment-meta">
         <span><a href="https://aesthetic.computer/${acHandle}" class="news-modal-link news-handle-link" data-modal-url="https://aesthetic.computer/${acHandle}">@${acHandle}</a></span>
         <span>just now</span>
+        <form class="news-admin-delete" data-news-action="delete" data-item-type="comment" data-item-id="${commentId}" data-handle="${acHandle}" method="post" action="/api/news/delete" style="display:inline-flex;">
+          <input type="hidden" name="itemType" value="comment" />
+          <input type="hidden" name="itemId" value="${commentId}" />
+          <button type="submit" class="news-delete-btn" title="Delete comment">
+            <svg class="news-x-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
+            </svg>
+          </button>
+        </form>
       </div>
       <div class="news-comment-body">${escapeHtmlClient(text)}</div>
     `;
     commentsContainer.appendChild(newComment);
+    
+    // Attach form handler to new delete button
+    const deleteForm = newComment.querySelector('form[data-news-action="delete"]');
+    if (deleteForm) {
+      deleteForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleDeleteSubmit(deleteForm);
+      });
+    }
   }
   
   // Clear the textarea
@@ -752,8 +771,9 @@ async function handleDeleteSubmit(form) {
       setTimeout(() => comment.remove(), 300);
     }
   } else if (itemType === 'post') {
-    // For posts, redirect to homepage
-    window.location.href = '/';
+    // For posts, use SPA navigation to homepage (respects localhost path)
+    const basePath = window.location.hostname === 'news.aesthetic.computer' ? '' : '/news.aesthetic.computer';
+    navigateTo(basePath + '/', { push: true });
   }
 }
 
