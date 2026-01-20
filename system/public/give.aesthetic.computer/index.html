@@ -2241,7 +2241,7 @@
     }
 
     .paypal-controls {
-      padding: 1.5em 2em;
+      padding: 2em 4em;
       background: linear-gradient(180deg, rgba(0, 112, 186, 0.1) 0%, rgba(0, 48, 135, 0.15) 100%);
       border: 1px solid var(--box-border);
       border-top: none;
@@ -2250,9 +2250,8 @@
       flex-direction: row;
       align-items: center;
       justify-content: center;
-      gap: 2em;
-      max-width: 600px;
-      margin: 0 auto;
+      gap: 3em;
+      width: 100%;
       box-sizing: border-box;
       overflow: hidden;
     }
@@ -2261,13 +2260,12 @@
     .paypal-compact {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: stretch;
     }
 
     .paypal-compact .paypal-header {
-      max-width: 600px;
       width: 100%;
-      border-radius: 8px 8px 0 0;
+      border-radius: 0;
     }
 
     @media (max-width: 480px) {
@@ -2313,37 +2311,39 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 1em;
+      padding: 0.4em;
       background: #fff;
-      border-radius: 8px;
+      border-radius: 6px;
       box-shadow: inset 0 2px 8px rgba(0,0,0,0.15);
+      overflow: hidden;
     }
 
     .paypal-qr {
-      width: 140px;
-      height: 140px;
+      width: 160px;
+      height: 160px;
       display: block;
+      transform: scale(1.15);
     }
 
     .paypal-actions {
-      flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 0.8em;
+      gap: 1em;
+      min-width: 280px;
     }
 
     .paypal-link-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 0.5em;
-      padding: 0.7em 1.2em;
+      gap: 0.6em;
+      padding: 0.9em 1.8em;
       background: linear-gradient(135deg, #0070ba 0%, #003087 100%);
       color: white;
       text-decoration: none;
-      border-radius: 20px;
+      border-radius: 24px;
       font-family: 'YWFTProcessing-Regular', sans-serif;
-      font-size: 0.95em;
+      font-size: 1.1em;
       font-weight: 600;
       transition: all 0.2s ease;
       box-shadow: 0 3px 10px rgba(0, 112, 186, 0.3);
@@ -2373,10 +2373,10 @@
       display: flex;
       flex-direction: row;
       align-items: center;
-      gap: 0.5em;
-      padding: 0.6em 0.8em;
+      gap: 0.6em;
+      padding: 0.8em 1.2em;
       background: rgba(0, 0, 0, 0.2);
-      border-radius: 6px;
+      border-radius: 8px;
       cursor: pointer;
       transition: all 0.2s ease;
     }
@@ -6945,7 +6945,7 @@
               <div class="paypal-header">
                 <img src="https://aesthetic.computer/purple-pals.svg" class="paypal-logo-tiny" alt="">
                 <span class="paypal-title">🅿️ PAYPAL</span>
-                <span class="paypal-subtitle">💸 Quick & Easy</span>
+                <span class="paypal-subtitle">Pay Aesthetic.Computer on PayPal</span>
               </div>
               <div class="paypal-controls">
                 <div class="paypal-qr-wrap">
@@ -11497,6 +11497,9 @@
           muted 
           playsinline 
           autoplay
+          disablepictureinpicture
+          disableremoteplayback
+          controlslist="nodownload noremoteplayback noplaybackrate"
         ></video>
       `;
       container.appendChild(slide);
@@ -12632,7 +12635,7 @@
         }
         
         // Preferred starter codes (nice spirals for page load) - one will always be first
-        const STARTER_CODES = ['otoc', 'roz', 'cow'];
+        const STARTER_CODES = ['otoc', 'roz', 'cow', 'air'];
         const starterCode = STARTER_CODES[Math.floor(Math.random() * STARTER_CODES.length)];
         
         // Find starter data in the full hits array
@@ -13086,37 +13089,44 @@
         
         // Build changelog ticker content
         const tickerEl = document.getElementById('changelogTicker');
-        if (tickerEl && release.body) {
-          const body = release.body;
-          const items = [];
-          
-          // Extract list items from markdown
-          const lines = body.split('\n');
-          for (const line of lines) {
-            const boldMatch = line.match(/^[\-\*]\s*\*\*(.+?)\*\*\s*[-–]?\s*(.*)$/);
-            const simpleMatch = line.match(/^[\-\*]\s+(.+)$/);
+        if (tickerEl) {
+          if (release.body) {
+            const body = release.body;
+            const items = [];
             
-            if (boldMatch) {
-              const [, bold, rest] = boldMatch;
-              items.push(`${bold}${rest ? ': ' + rest : ''}`);
-            } else if (simpleMatch && !simpleMatch[1].startsWith('**')) {
-              items.push(simpleMatch[1]);
+            // Extract list items from markdown
+            const lines = body.split('\n');
+            for (const line of lines) {
+              const boldMatch = line.match(/^[\-\*]\s*\*\*(.+?)\*\*\s*[-–]?\s*(.*)$/);
+              const simpleMatch = line.match(/^[\-\*]\s+(.+)$/);
+              
+              if (boldMatch) {
+                const [, bold, rest] = boldMatch;
+                items.push(`${bold}${rest ? ': ' + rest : ''}`);
+              } else if (simpleMatch && !simpleMatch[1].startsWith('**')) {
+                items.push(simpleMatch[1]);
+              }
             }
-          }
-          
-          if (items.length > 0) {
-            // Duplicate for seamless loop
-            const tickerText = items.map(i => `<span>${i}</span>`).join('');
-            tickerEl.innerHTML = tickerText + tickerText;
+            
+            if (items.length > 0) {
+              // Duplicate for seamless loop
+              const tickerText = items.map(i => `<span>${i}</span>`).join('');
+              tickerEl.innerHTML = tickerText + tickerText;
+            } else {
+              tickerEl.innerHTML = `<span>${release.name || version} released</span><span>${release.name || version} released</span>`;
+            }
           } else {
-            tickerEl.innerHTML = `<span>${release.name || version} released</span>`;
+            // No release notes - show version info with release date
+            const dateStr = release.published_at ? new Date(release.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+            const msg = `${version} released${dateStr ? ' · ' + dateStr : ''}`;
+            tickerEl.innerHTML = `<span>${msg}</span><span>${msg}</span>`;
           }
         }
         
       } catch (e) {
         console.warn('Could not load release info:', e);
         const tickerEl = document.getElementById('changelogTicker');
-        if (tickerEl) tickerEl.innerHTML = '<span>Visit GitHub for release notes</span>';
+        if (tickerEl) tickerEl.innerHTML = '<span>Visit GitHub for release notes</span><span>Visit GitHub for release notes</span>';
       }
     }
     
