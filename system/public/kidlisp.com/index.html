@@ -503,16 +503,28 @@
       border-radius: 50%;
       cursor: pointer;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
-      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
-      display: flex;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s, opacity 0.2s;
+      display: none; /* Hidden by default - shown when code has numbers and is playing */
       align-items: center;
       justify-content: center;
       padding: 0;
       margin: 0;
       font-family: 'Berkeley Mono Variable', 'SF Mono', monospace;
-      font-size: 13px;
+      font-size: 11px;
       font-weight: bold;
-      letter-spacing: -0.5px;
+      letter-spacing: 0;
+      opacity: 0;
+    }
+    
+    #slide-button.available {
+      display: flex;
+      opacity: 1;
+    }
+    
+    /* Slider icon inside button */
+    #slide-button svg {
+      width: 22px;
+      height: 22px;
     }
     
     @media (hover: hover) {
@@ -547,20 +559,108 @@
       background: rgb(186, 104, 200);
     }
     
-    /* Slide mode number highlights in editor */
+    /* Slide mode styling */
+    #kidlisp-editor.slide-mode-active {
+      position: relative;
+    }
+    
+    /* Real overlay div inserted into Monaco editor - covers everything including gutter */
+    #slide-curtain-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.65);
+      pointer-events: none;
+      z-index: 4;
+      transition: opacity 0.2s ease;
+    }
+    
+    [data-theme="dark"] #slide-curtain-overlay {
+      background: rgba(0, 0, 0, 0.55);
+    }
+    
+    /* Also dim the gutter/margin in slide mode */
+    #kidlisp-editor.slide-mode-active .margin {
+      opacity: 0.3;
+    }
+    
+    #kidlisp-editor.slide-mode-active .view-line {
+      font-size: 0.9em;
+      transition: font-size 0.2s ease;
+    }
+    
+    /* Hide playback controls in slide mode (except slide button itself and set button) */
+    #kidlisp-editor.slide-mode-active ~ #playback-controls #clear-button,
+    #kidlisp-editor.slide-mode-active ~ #playback-controls #stop-button,
+    #kidlisp-editor.slide-mode-active ~ #playback-controls #send-button,
+    .slide-mode-controls-hidden #clear-button,
+    .slide-mode-controls-hidden #stop-button,
+    .slide-mode-controls-hidden #send-button {
+      display: none !important;
+    }
+    
+    /* Slide mode number highlights - perfect circles */
     .slide-number-highlight {
-      background: rgba(156, 39, 176, 0.25) !important;
-      border-radius: 3px;
+      position: relative;
+      z-index: 10 !important;
+      background: rgb(156, 39, 176) !important;
+      border-radius: 50% !important;
       cursor: ew-resize !important;
-      transition: background 0.15s;
+      transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1em !important;
+      font-weight: bold !important;
+      color: white !important;
+      min-width: 28px;
+      height: 28px;
+      padding: 0 6px;
+      margin: -4px -2px;
+      box-shadow: 0 2px 8px rgba(156, 39, 176, 0.5);
+      line-height: 1;
+    }
+    
+    [data-theme="dark"] .slide-number-highlight {
+      background: rgb(186, 104, 200) !important;
+      color: white !important;
+      box-shadow: 0 2px 12px rgba(186, 104, 200, 0.6);
     }
     
     .slide-number-highlight:hover {
-      background: rgba(156, 39, 176, 0.4) !important;
+      background: rgb(180, 60, 200) !important;
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(156, 39, 176, 0.7);
     }
     
     .slide-number-dragging {
-      background: rgba(156, 39, 176, 0.6) !important;
+      background: rgb(200, 80, 220) !important;
+      transform: scale(1.2);
+      box-shadow: 0 4px 16px rgba(156, 39, 176, 0.8);
+    }
+    
+    /* Hide cursor and selection in slide mode */
+    #kidlisp-editor.slide-mode-active .cursor {
+      display: none !important;
+    }
+    
+    #kidlisp-editor.slide-mode-active .cursors-layer {
+      display: none !important;
+    }
+    
+    #kidlisp-editor.slide-mode-active .selected-text {
+      display: none !important;
+    }
+    
+    /* Prevent text selection cursor appearance */
+    #kidlisp-editor.slide-mode-active .monaco-editor .view-lines {
+      cursor: default;
+    }
+    
+    #kidlisp-editor.slide-mode-active .monaco-editor .view-line {
+      cursor: default;
     }
     
     /* Slide mode overlay for drag feedback */
@@ -590,48 +690,56 @@
       white-space: nowrap;
     }
     
-    /* Keep/Discard buttons shown during slide mode */
-    #slide-actions {
+    /* Set button - shown next to slide button when slide mode is active */
+    #slide-set-btn {
       display: none;
-      position: absolute;
-      bottom: 66px; /* Above playback controls */
-      right: 14px;
-      flex-direction: row;
-      gap: 8px;
-      z-index: 2;
+      position: relative;
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+      flex-shrink: 0;
+      box-sizing: border-box;
+      background: rgb(255, 193, 7); /* Yellow */
+      color: rgb(50, 40, 0);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.3);
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      margin: 0;
+      font-family: 'Berkeley Mono Variable', 'SF Mono', monospace;
+      font-size: 11px;
+      font-weight: bold;
     }
     
-    #slide-actions.visible {
+    #slide-set-btn.visible {
       display: flex;
     }
     
-    #slide-actions button {
-      padding: 6px 12px;
-      border: none;
-      border-radius: 16px;
-      font-family: 'PP Mori', sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.1s, background 0.2s;
+    @media (hover: hover) {
+      #slide-set-btn:hover {
+        background: rgb(255, 213, 79);
+        transform: scale(1.05);
+      }
     }
     
-    #slide-keep-btn {
-      background: rgb(76, 175, 80);
-      color: white;
-    }
-    
-    #slide-discard-btn {
-      background: rgb(158, 158, 158);
-      color: white;
-    }
-    
-    #slide-actions button:hover {
-      transform: scale(1.05);
-    }
-    
-    #slide-actions button:active {
+    #slide-set-btn:active {
+      background: rgb(255, 160, 0);
       transform: scale(0.95);
+    }
+    
+    [data-theme="dark"] #slide-set-btn {
+      background: rgb(255, 213, 79);
+      color: rgb(50, 40, 0);
+    }
+    
+    /* Legacy slide-actions (hidden, keeping for compatibility) */
+    #slide-actions {
+      display: none !important;
     }
     /* ==================== END SLIDE MODE ==================== */
     
@@ -7642,13 +7750,11 @@
           </div>
           <!-- Playback Controls - inside viz-text so they can't overlap editor-header -->
           <!-- Order: slide (left), clear, stop (middle), send (right) -->
-          <!-- Slide mode actions (Keep/Discard) - shown when slide mode has changes -->
-          <div id="slide-actions">
-            <button id="slide-discard-btn" title="Discard changes">Discard</button>
-            <button id="slide-keep-btn" title="Keep changes">Keep</button>
-          </div>
+          <!-- Slide mode actions (legacy - hidden) -->
+          <div id="slide-actions"></div>
           <div id="playback-controls">
-            <button id="slide-button" aria-label="Toggle slide mode" title="Slide mode - drag numbers to adjust">123</button>
+            <button id="slide-button" aria-label="Toggle slide mode" title="Slide mode - drag numbers to adjust"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"/><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></svg></button>
+            <button id="slide-set-btn" aria-label="Set slide values" title="Set current values">Set</button>
             <button id="clear-button" aria-label="Clear code">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="6" y1="6" x2="18" y2="18"/>
@@ -13606,6 +13712,8 @@
         updateLineNumbers();
         applyColorNameDecorations();
         updateClearButtonVisibility();
+        // Also update slide button visibility (depends on whether code has numbers)
+        if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
       });
       
       // Initial visibility check
@@ -13614,9 +13722,8 @@
       // ==================== SLIDE MODE ====================
       // Slide mode allows dragging numbers to adjust their values in real-time
       const slideButton = document.getElementById('slide-button');
-      const slideActions = document.getElementById('slide-actions');
-      const slideKeepBtn = document.getElementById('slide-keep-btn');
-      const slideDiscardBtn = document.getElementById('slide-discard-btn');
+      const slideSetBtn = document.getElementById('slide-set-btn');
+      const slideActions = document.getElementById('slide-actions'); // Legacy, hidden
       const slideDragOverlay = document.getElementById('slide-drag-overlay');
       const slideValueTooltip = document.getElementById('slide-value-tooltip');
       
@@ -13629,6 +13736,34 @@
       let slideDragStartX = 0;
       let slideDragStartValue = 0;
       let slideHasChanges = false;
+      
+      // Check if code contains numbers (for slide button visibility)
+      function codeHasNumbers(code) {
+        if (!code) return false;
+        // Check for numeric literals (integers or floats)
+        return /\b-?\d+\.?\d*\b/.test(code);
+      }
+      
+      // Update slide button visibility based on: has numbers + is playing + not paused
+      function updateSlideButtonVisibility() {
+        if (!slideButton) return;
+        const code = editor ? editor.getValue() : '';
+        const hasNumbers = codeHasNumbers(code);
+        const shouldShow = hasNumbers && isPlaying && !isPaused && !isSoftStopped;
+        
+        if (shouldShow) {
+          slideButton.classList.add('available');
+        } else {
+          slideButton.classList.remove('available');
+          // If hiding and slide mode is active, exit slide mode
+          if (slideMode) {
+            exitSlideMode();
+          }
+        }
+      }
+      
+      // Expose globally for playback state changes
+      window.updateSlideButtonVisibility = updateSlideButtonVisibility;
       
       // Get step size based on number precision
       function getSlideStep(numStr) {
@@ -13826,7 +13961,8 @@
         }
         
         slideHasChanges = true;
-        if (slideActions) slideActions.classList.add('visible');
+        // Show Set button when changes are made
+        if (slideSetBtn) slideSetBtn.classList.add('visible');
         
         // Get the updated code
         const newCode = editor.getValue();
@@ -13844,13 +13980,10 @@
         
         // Trigger preview update with slide flag to avoid buffer reset
         if (typeof sendToIframe === 'function') {
-          console.log('🎚️ Sending kidlisp-slide message:', newCode.slice(0, 50));
           sendToIframe({
             type: 'kidlisp-slide',
             code: newCode
           });
-        } else {
-          console.warn('🎚️ sendToIframe not available!');
         }
       }
       
@@ -13858,11 +13991,12 @@
       function handleSlideMouseDown(e) {
         if (!slideMode || !editor) return;
         
-        const numInfo = findNumberAtPosition(e);
-        if (!numInfo) return;
-        
+        // Always prevent default in slide mode to avoid cursor movement
         e.preventDefault();
         e.stopPropagation();
+        
+        const numInfo = findNumberAtPosition(e);
+        if (!numInfo) return;
         
         slideDragging = numInfo;
         slideDragStartX = e.clientX;
@@ -13919,65 +14053,163 @@
       
       // Toggle slide mode
       function toggleSlideMode() {
-        slideMode = !slideMode;
+        if (slideMode) {
+          exitSlideMode();
+        } else {
+          enterSlideMode();
+        }
+      }
+      
+      // Enter slide mode
+      let slideSavedCursorPosition = null;
+      let slideSavedScrollTop = null;
+      
+      function enterSlideMode() {
+        if (slideMode) return;
+        slideMode = true;
         
         if (slideButton) {
-          slideButton.classList.toggle('active', slideMode);
+          slideButton.classList.add('active');
         }
         
-        if (slideMode) {
-          // Entering slide mode
-          slideOriginalCode = editor ? editor.getValue() : '';
-          slideHasChanges = false;
-          applySlideDecorations();
-          
-          // Make editor read-only except for our programmatic edits
-          if (editor) {
-            editor.updateOptions({ readOnly: true });
-          }
-          
-          // Add mouse handlers to editor
-          const editorDom = document.querySelector('#kidlisp-editor .monaco-editor');
-          if (editorDom) {
-            editorDom.addEventListener('mousedown', handleSlideMouseDown);
-          }
-          
-          log.editor.log('Slide mode enabled');
-        } else {
-          // Exiting slide mode
-          clearSlideDecorations();
-          
-          if (editor) {
-            editor.updateOptions({ readOnly: false });
-          }
-          
-          // Remove mouse handlers
-          const editorDom = document.querySelector('#kidlisp-editor .monaco-editor');
-          if (editorDom) {
-            editorDom.removeEventListener('mousedown', handleSlideMouseDown);
-          }
-          
-          // If no explicit keep, discard changes
-          if (slideHasChanges && slideActions && slideActions.classList.contains('visible')) {
-            // Default to discard
-            discardSlideChanges();
-          }
-          
-          if (slideActions) slideActions.classList.remove('visible');
-          
-          log.editor.log('Slide mode disabled');
+        // Save cursor position and scroll state
+        if (editor) {
+          slideSavedCursorPosition = editor.getPosition();
+          slideSavedScrollTop = editor.getScrollTop();
         }
-      }
-      
-      // Keep slide changes (creates new $code state)
-      function keepSlideChanges() {
-        slideHasChanges = false;
-        if (slideActions) slideActions.classList.remove('visible');
+        
+        // Add slide-mode-active class to editor for CSS styling
+        const editorContainer = document.getElementById('kidlisp-editor');
+        if (editorContainer) {
+          editorContainer.classList.add('slide-mode-active');
+        }
+        
+        // Hide other playback controls
+        const playbackControls = document.getElementById('playback-controls');
+        if (playbackControls) {
+          playbackControls.classList.add('slide-mode-controls-hidden');
+        }
+        
+        // Insert curtain overlay into Monaco editor (inside the view-lines container)
+        const viewOverlays = document.querySelector('#kidlisp-editor .monaco-editor .view-overlays');
+        if (viewOverlays && !document.getElementById('slide-curtain-overlay')) {
+          const curtain = document.createElement('div');
+          curtain.id = 'slide-curtain-overlay';
+          viewOverlays.parentElement.insertBefore(curtain, viewOverlays);
+        }
+        
+        // Entering slide mode
         slideOriginalCode = editor ? editor.getValue() : '';
-        log.editor.log('Slide changes kept');
+        slideHasChanges = false;
+        applySlideDecorations();
+        
+        // Make editor read-only except for our programmatic edits
+        if (editor) {
+          editor.updateOptions({ readOnly: true });
+          // Hide the cursor
+          editor.updateOptions({ cursorStyle: 'line', cursorBlinking: 'hidden' });
+        }
+        
+        // Add mouse handlers to editor (use capture phase to intercept before Monaco)
+        const editorDom = document.querySelector('#kidlisp-editor .monaco-editor');
+        if (editorDom) {
+          editorDom.addEventListener('mousedown', handleSlideMouseDown, true);
+        }
+        
+        log.editor.log('Slide mode enabled');
       }
       
-      // Discard slide changes (restore original code)
+      // Exit slide mode (without discarding - keeps current values)
+      function exitSlideMode() {
+        if (!slideMode) return;
+        slideMode = false;
+        
+        if (slideButton) {
+          slideButton.classList.remove('active');
+        }
+        
+        // Hide Set button
+        if (slideSetBtn) {
+          slideSetBtn.classList.remove('visible');
+        }
+        
+        // Remove slide-mode-active class from editor
+        const editorContainer = document.getElementById('kidlisp-editor');
+        if (editorContainer) {
+          editorContainer.classList.remove('slide-mode-active');
+        }
+        
+        // Show other playback controls again
+        const playbackControls = document.getElementById('playback-controls');
+        if (playbackControls) {
+          playbackControls.classList.remove('slide-mode-controls-hidden');
+        }
+        
+        // Remove curtain overlay
+        const curtain = document.getElementById('slide-curtain-overlay');
+        if (curtain) {
+          curtain.remove();
+        }
+        
+        clearSlideDecorations();
+        
+        if (editor) {
+          editor.updateOptions({ readOnly: false });
+          // Restore cursor visibility
+          editor.updateOptions({ cursorStyle: 'line', cursorBlinking: 'blink' });
+          
+          // Restore cursor position and scroll
+          if (slideSavedCursorPosition) {
+            editor.setPosition(slideSavedCursorPosition);
+          }
+          if (slideSavedScrollTop !== null) {
+            editor.setScrollTop(slideSavedScrollTop);
+          }
+        }
+        
+        // Remove mouse handlers (must match capture phase flag)
+        const editorDom = document.querySelector('#kidlisp-editor .monaco-editor');
+        if (editorDom) {
+          editorDom.removeEventListener('mousedown', handleSlideMouseDown, true);
+        }
+        
+        // Current values become the new baseline (no discard on exit)
+        slideOriginalCode = editor ? editor.getValue() : '';
+        slideHasChanges = false;
+        
+        // Sync play button state with actual playback state
+        // (exiting slide mode shouldn't change playback, but button might need sync)
+        const sendButton = document.getElementById('send-button');
+        if (sendButton && typeof isPlaying !== 'undefined' && typeof isPaused !== 'undefined') {
+          if (isPlaying && !isPaused) {
+            sendButton.classList.add('playing');
+            sendButton.classList.remove('paused');
+          } else if (isPlaying && isPaused) {
+            sendButton.classList.remove('playing');
+            sendButton.classList.add('paused');
+          } else {
+            sendButton.classList.remove('playing');
+            sendButton.classList.remove('paused');
+          }
+        }
+        
+        log.editor.log('Slide mode disabled');
+      }
+      
+      // Set slide changes (commit current values as the new original)
+      function setSlideChanges() {
+        slideHasChanges = false;
+        if (slideSetBtn) slideSetBtn.classList.remove('visible');
+        slideOriginalCode = editor ? editor.getValue() : '';
+        log.editor.log('Slide values set');
+      }
+      
+      // Keep slide changes (legacy - alias for setSlideChanges)
+      function keepSlideChanges() {
+        setSlideChanges();
+      }
+      
+      // Discard slide changes (restore original code) - legacy, not used in new UI
       function discardSlideChanges() {
         if (editor && slideOriginalCode) {
           // Need to temporarily disable readOnly if we're in slide mode
@@ -13995,7 +14227,7 @@
           }
         }
         slideHasChanges = false;
-        if (slideActions) slideActions.classList.remove('visible');
+        if (slideSetBtn) slideSetBtn.classList.remove('visible');
         log.editor.log('Slide changes discarded');
       }
       
@@ -14004,17 +14236,10 @@
         slideButton.addEventListener('click', toggleSlideMode);
       }
       
-      if (slideKeepBtn) {
-        slideKeepBtn.addEventListener('click', () => {
-          keepSlideChanges();
-          if (slideMode) toggleSlideMode(); // Exit slide mode after keeping
-        });
-      }
-      
-      if (slideDiscardBtn) {
-        slideDiscardBtn.addEventListener('click', () => {
-          discardSlideChanges();
-          if (slideMode) toggleSlideMode(); // Exit slide mode after discarding
+      if (slideSetBtn) {
+        slideSetBtn.addEventListener('click', () => {
+          setSlideChanges();
+          // Stay in slide mode after setting (don't exit)
         });
       }
       
@@ -14030,7 +14255,9 @@
       // Expose for debugging
       window.slideMode = {
         toggle: toggleSlideMode,
-        keep: keepSlideChanges,
+        enter: enterSlideMode,
+        exit: exitSlideMode,
+        set: setSlideChanges,
         discard: discardSlideChanges,
         isActive: () => slideMode
       };
@@ -14925,6 +15152,7 @@
       sendButton.classList.remove('paused'); // Remove yellow outline on stop
       stopButton.style.display = 'none';
       if (window.updateClearButtonPosition) window.updateClearButtonPosition();
+      if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
       setLiveState('idle'); // No outline for full stop
       
       // Hide QR code when not playing
@@ -15188,6 +15416,7 @@
         sendButton.classList.remove('paused'); // Remove yellow outline when playing
         stopButton.style.display = 'flex';
         if (window.updateClearButtonPosition) window.updateClearButtonPosition();
+        if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
         // Add live-running class to show green outline, remove paused state
         setLiveState('running');
         
@@ -15210,8 +15439,13 @@
         sendButton.classList.remove('paused'); // Remove yellow outline
         // Switch from paused (yellow) to running (green) outline
         setLiveState('running');
+        if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
       } else {
-        // Pause
+        // Pause - but NOT if slide mode is active
+        if (window.slideMode && window.slideMode.isActive()) {
+          log.playback.debug('Cannot pause while in slide mode');
+          return;
+        }
         log.playback.debug('Pausing');
         addStateEntry('pause');
         sendToIframe({ type: 'kidlisp-pause' });
@@ -15222,6 +15456,7 @@
         sendButton.classList.add('paused'); // Add yellow outline to play button
         // Switch from running (green) to paused (yellow) outline
         setLiveState('paused');
+        if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
         // Keep stop button visible
         stopButton.style.display = 'flex';
         if (window.updateClearButtonPosition) window.updateClearButtonPosition();
@@ -15301,6 +15536,12 @@
           return;
         }
         
+        // Don't allow stopping while in slide mode
+        if (window.slideMode && window.slideMode.isActive()) {
+          log.playback.debug('Cannot stop while in slide mode');
+          return;
+        }
+        
         log.playback.log('Stopping (full reset)');
         addStateEntry('stop');
         
@@ -15325,6 +15566,7 @@
         sendButton.classList.remove('paused'); // Remove yellow outline on stop
         stopButton.style.display = 'none';
         if (window.updateClearButtonPosition) window.updateClearButtonPosition();
+        if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
         // Show purple outline to indicate stopped state
         setLiveState('stopped');
         
