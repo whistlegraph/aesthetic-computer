@@ -555,6 +555,19 @@ async function handleFormSubmit(form, endpoint) {
     body,
   });
   const data = await res.json().catch(() => null);
+  
+  // Handle troll toll (402 Payment Required)
+  if (res.status === 402 && data?.tollRequired) {
+    handleTrollToll(data, form);
+    return;
+  }
+  
+  // Handle rate limit (429 Too Many Requests)
+  if (res.status === 429) {
+    showFormMessage(form, data?.error || "Rate limit exceeded. Please wait before posting again.");
+    return;
+  }
+  
   if (data?.redirect) {
     // Clear draft on successful submit
     if (form.clearDraft) form.clearDraft();
@@ -567,6 +580,53 @@ async function handleFormSubmit(form, endpoint) {
     // Clear draft on successful submit (even without redirect)
     if (form.clearDraft) form.clearDraft();
   }
+}
+
+// Handle troll toll - redirect to Stripe checkout
+async function handleTrollToll(data, form) {
+  const { code, message } = data;
+  
+  // Show troll toll message
+  showFormMessage(form, message, false);
+  
+  // Create toll payment button
+  let tollBtn = form.querySelector('.news-toll-btn');
+  if (!tollBtn) {
+    tollBtn = document.createElement('button');
+    tollBtn.type = 'button';
+    tollBtn.className = 'news-toll-btn';
+    tollBtn.textContent = '🧌 Pay Troll Toll ($2)';
+    form.appendChild(tollBtn);
+  }
+  tollBtn.style.display = 'block';
+  
+  tollBtn.onclick = async () => {
+    tollBtn.disabled = true;
+    tollBtn.textContent = 'Redirecting to checkout...';
+    
+    try {
+      const res = await fetch('/api/news/toll', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${acToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ postCode: code }),
+      });
+      const result = await res.json();
+      if (result.url) {
+        window.location.href = result.url;
+      } else {
+        showFormMessage(form, result.error || 'Failed to create checkout');
+        tollBtn.disabled = false;
+        tollBtn.textContent = '🧌 Pay Troll Toll ($2)';
+      }
+    } catch (err) {
+      showFormMessage(form, 'Failed to start checkout');
+      tollBtn.disabled = false;
+      tollBtn.textContent = '🧌 Pay Troll Toll ($2)';
+    }
+  };
 }
 
 function initForms() {
@@ -694,6 +754,60 @@ function promptLoginForReport() {
   }
 }
 
+// ===== Live Updates =====
+let liveUpdateInterval = null;
+let lastPostTimestamp = Date.now();
+
+function startLiveUpdates() {
+  // Only poll on the homepage
+  if (window.location.pathname !== '/' && window.location.pathname !== '') return;
+  
+  // Stop any existing polling
+  if (liveUpdateInterval) clearInterval(liveUpdateInterval);
+  
+  // Initialize timestamp from the newest post on page
+  const firstPost = document.querySelector('.news-row');
+  if (firstPost) {
+    lastPostTimestamp = Date.now(); // Start from now to only show NEW posts
+  }
+  
+  // Poll every 30 seconds
+  liveUpdateInterval = setInterval(checkForUpdates, 30000);
+}
+
+async function checkForUpdates() {
+  try {
+    const res = await fetch(`/api/news/updates?since=${lastPostTimestamp}`);
+    const data = await res.json();
+    
+    if (data.newPosts > 0) {
+      showNewPostsBanner(data.newPosts);
+      lastPostTimestamp = data.latestWhen;
+    }
+  } catch (err) {
+    console.log('[news] Live update check failed:', err.message);
+  }
+}
+
+function showNewPostsBanner(count) {
+  // Remove existing banner
+  const existing = document.getElementById('news-live-banner');
+  if (existing) existing.remove();
+  
+  const banner = document.createElement('div');
+  banner.id = 'news-live-banner';
+  banner.className = 'news-live-banner';
+  banner.innerHTML = `
+    <span>${count} new ${count === 1 ? 'story' : 'stories'}</span>
+    <button onclick="location.reload()">Refresh</button>
+  `;
+  
+  const newsList = document.querySelector('.news-list');
+  if (newsList) {
+    newsList.insertBefore(banner, newsList.firstChild);
+  }
+}
+
 // ===== SPA Routing =====
 function reinitPage() {
   initDOMRefs();
@@ -704,6 +818,7 @@ function reinitPage() {
   initLangSelectors();
   updateAuthUI();
   connectToSessionServer();
+  startLiveUpdates();
 }
 
 function shouldHandleLink(link) {

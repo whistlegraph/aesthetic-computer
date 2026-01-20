@@ -571,6 +571,66 @@ body {
   color: #c00;
 }
 
+/* ===== Troll Toll Button ===== */
+.news-toll-btn {
+  display: none;
+  margin-top: 12px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #6b4423, #8b5a2b);
+  color: #fff;
+  border: 2px solid #4a3015;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.news-toll-btn:hover {
+  background: linear-gradient(135deg, #8b5a2b, #a0522d);
+  transform: translateY(-1px);
+}
+
+.news-toll-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ===== Live Update Banner ===== */
+.news-live-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  animation: slideDown 0.3s ease;
+}
+
+.news-live-banner button {
+  padding: 4px 12px;
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.4);
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.news-live-banner button:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 /* ===== Submit Page ===== */
 .news-submit {
   max-width: 500px;
