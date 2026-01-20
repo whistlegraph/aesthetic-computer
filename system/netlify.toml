@@ -764,6 +764,23 @@ status = 200
 from = "/api/news/*"
 to = "/.netlify/functions/news-api/:splat"
 status = 200
+# News toll (troll toll) endpoints
+[[redirects]]
+from = "https://news.aesthetic.computer/api/news/toll"
+to = "/.netlify/functions/news-toll"
+status = 200
+[[redirects]]
+from = "https://news.aesthetic.computer/api/news/toll-webhook"
+to = "/.netlify/functions/news-toll-webhook"
+status = 200
+[[redirects]]
+from = "/api/news/toll"
+to = "/.netlify/functions/news-toll"
+status = 200
+[[redirects]]
+from = "/api/news/toll-webhook"
+to = "/.netlify/functions/news-toll-webhook"
+status = 200
 [[redirects]]
 from = "/news.aesthetic.computer/guidelines"
 to = "/.netlify/functions/news"
