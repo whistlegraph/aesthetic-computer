@@ -335,6 +335,23 @@ keep $newpiece     # Fresh mint → full flow
 
 ## Next Steps (Production Launch)
 
+### Next Steps (Now)
+
+1. **End-to-end mint via keep UI**
+  - Run `keep $code` from prompt and complete wallet signing.
+  - Verify `keep-confirm` writes the record and the token shows in objkt.
+
+2. **Artifact bundle validation**
+  - Confirm the “bundle” + “ipfs” steps complete.
+  - Open the IPFS artifact URL and ensure it runs.
+
+3. **v3 attribution test**
+  - Mint with creator wallet → Rebake → Update Chain (prepare mode).
+  - Confirm objkt “Created by” remains the original creator.
+
+4. **Fee/contract consistency**
+  - Ensure review step shows the contract fee and wallet sends the same amount.
+
 1. [x] Test full mint flow on ghostnet via `keep $abc`
 2. [x] Verify already-minted detection works
 3. [x] Test rebake functionality for existing tokens
