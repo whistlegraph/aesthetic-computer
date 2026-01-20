@@ -775,7 +775,12 @@ function createSystemTray() {
       iconPath = path.join(__dirname, 'build', 'icons', 'trayTemplate.png');
     }
   } else {
-    iconPath = path.join(__dirname, 'build', 'icons', '16x16.png');
+    // Windows/Linux - use packaged icon in production
+    if (app.isPackaged) {
+      iconPath = path.join(process.resourcesPath, 'tray-icon.png');
+    } else {
+      iconPath = path.join(__dirname, 'build', 'icons', '16x16.png');
+    }
   }
   
   console.log('[main] Loading tray icon from:', iconPath);
@@ -882,6 +887,21 @@ function rebuildTrayMenu() {
     label: 'New Window',
     accelerator: isMac ? 'Cmd+N' : 'Ctrl+N',
     click: () => openDevWindow()
+  });
+  
+  // Quick DevTools access (especially for Windows)
+  menuItems.push({
+    label: 'Open DevTools',
+    accelerator: 'F12',
+    click: () => {
+      const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+      if (win) {
+        // Try to open webview devtools if flip-view
+        win.webContents.send('open-devtools');
+        // Also open main window devtools
+        win.webContents.openDevTools({ mode: 'detach' });
+      }
+    }
   });
   
   menuItems.push({ type: 'separator' });

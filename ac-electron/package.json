@@ -1,6 +1,6 @@
 {
   "name": "aesthetic-computer",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "Aesthetic Computer",
   "homepage": "https://aesthetic.computer",
   "author": "Aesthetic Computer <hi@aesthetic.computer>",
@@ -45,6 +45,10 @@
       {
         "from": "build/icons/trayTemplate@2x.png",
         "to": "trayTemplate@2x.png"
+      },
+      {
+        "from": "build/icons/16x16.png",
+        "to": "tray-icon.png"
       }
     ],
     "mac": {
