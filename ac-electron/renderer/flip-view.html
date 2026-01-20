@@ -970,6 +970,19 @@
       }, 5000);
     });
     
+    // Handle IPC from main process to open devtools
+    ipcRenderer.on('open-devtools', () => {
+      console.log('[flip] Received open-devtools from main');
+      webviewEl.openDevTools();
+    });
+    
+    // Handle context menu on webview (right-click)
+    webviewEl.addEventListener('context-menu', (e) => {
+      console.log('[flip] Webview context-menu event', e.params);
+      e.preventDefault();
+      showContextMenu(e.params.x, e.params.y);
+    });
+    
     // Handle window.open() from webview (prompt.mjs + and - commands)
     // Note: Main process also handles this via setWindowOpenHandler
     webviewEl.addEventListener('new-window', (e) => {
