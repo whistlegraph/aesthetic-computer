@@ -1438,13 +1438,18 @@ function paint(
     }
     
     // Draw presence counter to the right (before News ticker)
-    // Calculate position: right of HUD label, before News
+    // Align with text area to the right of HUD label
     const onlineFgColor = theme?.timestamp || 160;
     const presenceWidth = text.width(presenceText, "MatrixChunky8");
     // Position to the right, leaving room for News ticker (~220px from right)
     const presenceX = screen.width - 230 - presenceWidth;
+    const hudLabelOffset = 6;
+    const hudLabelWidth = hud?.currentLabel?.()?.btn?.box?.w || 0;
+    const hudLabelRight = hudLabelOffset + hudLabelWidth;
+    const minGapAfterHud = 10;
+    const minPresenceX = hudLabelRight + minGapAfterHud;
     ink(onlineFgColor).write(presenceText, {
-      x: Math.max(presenceX, 80), // Don't overlap HUD label (min 80px from left)
+      x: Math.max(presenceX, minPresenceX), // Don't overlap HUD label
       top: 7, // Align with News ticker vertically
     }, false, undefined, false, "MatrixChunky8");
   }
