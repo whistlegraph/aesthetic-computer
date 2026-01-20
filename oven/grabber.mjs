@@ -3436,15 +3436,16 @@ export async function generateKidlispBackdrop(force = false) {
   
   console.log(`🎨 Generating backdrop: ${piece} by ${featured.owner?.handle} (${formatHits(featured.hits)} hits)`);
   
-  // Generate 2048x2048 animated webp (12 seconds, 7.5fps capture, 15fps playback)
+  // Generate 256x256 animated webp at 4x density (gives 1024x1024 output with chunky pixels)
+  // Lower resolution (1024 vs 2048) makes recording faster for Auth0 login backgrounds
   const result = await grabPiece(piece, {
     format: 'webp',
-    width: 2048,
-    height: 2048,
+    width: 256,
+    height: 256,
     duration: 12000,
     fps: 7.5,
     playbackFps: 15,
-    density: 1,
+    density: 4,
     quality: 85,
     skipCache: force,
     source: 'backdrop',
