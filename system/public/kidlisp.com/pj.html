@@ -215,6 +215,15 @@
       logPj('postMessage to iframe', { isSlide, length: code?.length });
     }
     
+    // Send pause/resume to iframe
+    function sendPauseToIframe(paused) {
+      if (!iframeReady) return;
+      iframe.contentWindow.postMessage({
+        type: paused ? 'kidlisp-pause' : 'kidlisp-resume'
+      }, aestheticUrl);
+      logPj('postMessage pause to iframe', { paused });
+    }
+    
     // Listen for code updates via BroadcastChannel (same-origin only)
     if (channelId && window.BroadcastChannel) {
       const bc = new BroadcastChannel(`kidlisp-channel-${channelId}`);
@@ -224,6 +233,12 @@
         } else if (event.data?.type === 'code-update' && event.data?.code) {
           console.log('Received code via BroadcastChannel');
           sendCodeToIframe(event.data.code);
+        } else if (event.data?.type === 'pause') {
+          console.log('Received pause via BroadcastChannel');
+          sendPauseToIframe(true);
+        } else if (event.data?.type === 'resume') {
+          console.log('Received resume via BroadcastChannel');
+          sendPauseToIframe(false);
         }
       };
       console.log('BroadcastChannel listener ready:', `kidlisp-channel-${channelId}`);
@@ -282,6 +297,16 @@
             console.log('Received code via session server');
             sendCodeToIframe(msg.content.piece);
           }
+          
+          // Handle pause/resume
+          if (msg.type === 'pause') {
+            console.log('Received pause via session server');
+            sendPauseToIframe(true);
+          }
+          if (msg.type === 'resume') {
+            console.log('Received resume via session server');
+            sendPauseToIframe(false);
+          }
         } catch (err) {
           console.warn('Error parsing session message:', err);
         }
@@ -322,6 +347,16 @@
       if (data?.type === 'kidlisp-code-update' && data?.code) {
         console.log('Received code via postMessage');
         sendCodeToIframe(data.code);
+      }
+      
+      // Pause/resume from editor
+      if (data?.type === 'kidlisp-pause') {
+        console.log('Received pause via postMessage');
+        sendPauseToIframe(true);
+      }
+      if (data?.type === 'kidlisp-resume') {
+        console.log('Received resume via postMessage');
+        sendPauseToIframe(false);
       }
       
       // Forward messages from iframe if needed
