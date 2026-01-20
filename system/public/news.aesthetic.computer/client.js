@@ -340,17 +340,13 @@ function isAdmin() {
 }
 
 function updateAdminUI() {
-  // Show delete buttons for admins
-  // Also show delete buttons for post/comment owners
+  // Show delete buttons for admins and post/comment owners
   const deleteButtons = document.querySelectorAll('.news-admin-delete');
   
   deleteButtons.forEach(btn => {
-    // Check if this item belongs to the current user
-    const itemMeta = btn.closest('.news-item-meta, .news-comment-meta');
-    const handleLink = itemMeta?.querySelector('.news-handle-link');
-    const handleText = handleLink?.textContent?.replace('@', '') || '';
-    
-    const isOwner = acHandle && handleText === acHandle;
+    // Use data-handle attribute for reliable owner detection
+    const itemHandle = btn.dataset.handle || '';
+    const isOwner = acHandle && itemHandle === acHandle;
     const canDelete = isAdmin() || isOwner;
     
     btn.style.display = canDelete ? 'inline-flex' : 'none';
