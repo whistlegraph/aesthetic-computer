@@ -1302,12 +1302,18 @@ function receive(event) {
   } else if (event.data?.type === "kidlisp-slide") {
     // Slide mode update - update source but preserve state/buffers
     const code = event.data.code;
+    console.log('🎚️ boot.mjs received kidlisp-slide:', {
+      hasCode: !!code,
+      codePreview: code?.slice(0, 50),
+      hasAcSEND: typeof window.acSEND === 'function'
+    });
     if (code) {
       window.__acCurrentKidlispCode = code;
       window.acSEND({
         type: "piece-slide",
         content: { source: code }
       });
+      console.log('🎚️ boot.mjs sent piece-slide via acSEND');
     }
     return;
   } else if (event.data?.type === "kidlisp-pause") {
