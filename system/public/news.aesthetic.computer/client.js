@@ -340,11 +340,20 @@ function isAdmin() {
 }
 
 function updateAdminUI() {
-  // Show/hide admin delete buttons
+  // Show delete buttons for admins
+  // Also show delete buttons for post/comment owners
   const deleteButtons = document.querySelectorAll('.news-admin-delete');
-  const display = isAdmin() ? 'inline-flex' : 'none';
+  
   deleteButtons.forEach(btn => {
-    btn.style.display = display;
+    // Check if this item belongs to the current user
+    const itemMeta = btn.closest('.news-item-meta, .news-comment-meta');
+    const handleLink = itemMeta?.querySelector('.news-handle-link');
+    const handleText = handleLink?.textContent?.replace('@', '') || '';
+    
+    const isOwner = acHandle && handleText === acHandle;
+    const canDelete = isAdmin() || isOwner;
+    
+    btn.style.display = canDelete ? 'inline-flex' : 'none';
   });
 }
 
@@ -637,16 +646,126 @@ function initForms() {
       if (action === "submit") {
         handleFormSubmit(form, "/api/news/submit");
       } else if (action === "comment") {
-        handleFormSubmit(form, "/api/news/comment");
+        handleCommentSubmit(form);
       } else if (action === "vote") {
         handleFormSubmit(form, "/api/news/vote");
       } else if (action === "delete") {
-        if (confirm("Are you sure you want to delete this?")) {
-          handleFormSubmit(form, "/api/news/delete");
-        }
+        handleDeleteSubmit(form);
       }
     });
   });
+}
+
+// Handle comment submit with real-time UI update
+async function handleCommentSubmit(form) {
+  hideFormMessage(form);
+  
+  if (!acToken) {
+    showFormMessage(form, "Please log in to post. Click 'Log In' above.");
+    return;
+  }
+  
+  if (!acHandle) {
+    showFormMessage(form, "You need a @handle to post. Visit aesthetic.computer to set one up.");
+    return;
+  }
+  
+  const formData = new FormData(form);
+  const postCode = formData.get('postCode');
+  const text = formData.get('text')?.trim();
+  
+  if (!text) {
+    showFormMessage(form, "Please write something before responding.");
+    return;
+  }
+  
+  const body = new URLSearchParams(formData.entries());
+  const res = await fetch("/api/news/comment", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${acToken}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  const data = await res.json().catch(() => null);
+  
+  if (!res.ok) {
+    showFormMessage(form, data?.error || "Failed to post comment");
+    return;
+  }
+  
+  // Success - add comment to UI without refresh
+  const commentsContainer = document.querySelector('.news-comments');
+  if (commentsContainer) {
+    const newComment = document.createElement('div');
+    newComment.className = 'news-comment';
+    newComment.dataset.commentId = data.commentId || '';
+    newComment.innerHTML = `
+      <div class="news-comment-meta">
+        <span><a href="https://aesthetic.computer/${acHandle}" class="news-modal-link news-handle-link" data-modal-url="https://aesthetic.computer/${acHandle}">@${acHandle}</a></span>
+        <span>just now</span>
+      </div>
+      <div class="news-comment-body">${escapeHtmlClient(text)}</div>
+    `;
+    commentsContainer.appendChild(newComment);
+  }
+  
+  // Clear the textarea
+  form.querySelector('textarea[name="text"]').value = '';
+  if (form.clearDraft) form.clearDraft();
+}
+
+// Handle delete with real-time UI update
+async function handleDeleteSubmit(form) {
+  const itemType = form.dataset.itemType || form.querySelector('input[name="itemType"]')?.value;
+  const itemId = form.dataset.itemId || form.querySelector('input[name="itemId"]')?.value;
+  
+  if (!confirm("Are you sure you want to delete this?")) {
+    return;
+  }
+  
+  if (!acToken) {
+    alert("Please log in to delete.");
+    return;
+  }
+  
+  const body = new URLSearchParams({ itemType, itemId });
+  const res = await fetch("/api/news/delete", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${acToken}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  const data = await res.json().catch(() => null);
+  
+  if (!res.ok) {
+    alert(data?.error || "Failed to delete");
+    return;
+  }
+  
+  // Success - remove from UI without refresh
+  if (itemType === 'comment') {
+    const comment = form.closest('.news-comment');
+    if (comment) {
+      comment.style.transition = 'opacity 0.3s, transform 0.3s';
+      comment.style.opacity = '0';
+      comment.style.transform = 'translateX(-20px)';
+      setTimeout(() => comment.remove(), 300);
+    }
+  } else if (itemType === 'post') {
+    // For posts, redirect to homepage
+    window.location.href = '/';
+  }
+}
+
+// Client-side HTML escape
+function escapeHtmlClient(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // ===== VS Code Detection =====

@@ -79,6 +79,40 @@ let lastBootMessage = ""; // Track last message to prevent duplicates
 // Store timing data globally for debugging
 window._bootTimings = window._bootTimings || [];
 
+// Buffer boot logs until the boot canvas logger is ready
+const pendingBootMessages = [];
+let bootCanvasReady = false;
+let bootCanvasPoll = null;
+
+function flushBootCanvasLogs() {
+  if (bootCanvasReady) return;
+  if (window.acBOOT_LOG_CANVAS) {
+    bootCanvasReady = true;
+    if (pendingBootMessages.length > 0) {
+      for (const msg of pendingBootMessages) {
+        window.acBOOT_LOG_CANVAS(msg);
+      }
+      pendingBootMessages.length = 0;
+    }
+    if (bootCanvasPoll) {
+      clearInterval(bootCanvasPoll);
+      bootCanvasPoll = null;
+    }
+  }
+}
+
+function ensureBootCanvasPoll() {
+  if (bootCanvasReady || bootCanvasPoll) return;
+  bootCanvasPoll = setInterval(flushBootCanvasLogs, 50);
+  // Stop polling after 30s to avoid runaway timers in edge cases
+  setTimeout(() => {
+    if (bootCanvasPoll && !bootCanvasReady) {
+      clearInterval(bootCanvasPoll);
+      bootCanvasPoll = null;
+    }
+  }, 30000);
+}
+
 function bootLog(message) {
   // Skip logging in PACK mode (NFT bundles should be silent)
   if (window.acPACK_MODE) return;
@@ -100,6 +134,9 @@ function bootLog(message) {
   // Update the boot canvas (via the canvas animation system)
   if (window.acBOOT_LOG_CANVAS) {
     window.acBOOT_LOG_CANVAS(message);
+  } else {
+    pendingBootMessages.push(message);
+    ensureBootCanvasPoll();
   }
   
   // Also send to parent for embedded contexts

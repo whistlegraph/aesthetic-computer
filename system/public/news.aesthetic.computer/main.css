@@ -550,7 +550,7 @@ body {
 
 /* ===== Admin Delete Controls ===== */
 .news-admin-delete {
-  display: none; /* Hidden by default, shown via JS for admins */
+  display: none; /* Hidden by default, shown via JS for admins/owners */
   margin: 0;
   padding: 0;
 }
@@ -560,15 +560,28 @@ body {
   border: none;
   color: var(--text-meta);
   cursor: pointer;
-  font-size: 9pt;
-  padding: 0 4px;
-  opacity: 0.6;
-  transition: opacity 0.15s;
+  padding: 0;
+  opacity: 0.5;
+  transition: opacity 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  margin-left: 6px;
 }
 
 .news-delete-btn:hover {
   opacity: 1;
   color: #c00;
+  background: rgba(200, 0, 0, 0.1);
+}
+
+/* X icon SVG - same style as kidlisp.com clear button */
+.news-x-icon {
+  width: 12px;
+  height: 12px;
 }
 
 /* ===== Troll Toll Button ===== */
@@ -629,6 +642,51 @@ body {
 @keyframes slideDown {
   from { transform: translateY(-100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* ===== KidLisp Preview ===== */
+.news-kidlisp-preview {
+  margin: 16px 0;
+  text-align: center;
+}
+
+.news-kidlisp-link {
+  display: inline-block;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.news-kidlisp-link:hover {
+  transform: scale(1.02);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+
+.news-kidlisp-webp {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  image-rendering: pixelated;
+}
+
+.news-kidlisp-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0,0,0,0.7);
+  color: #ffcc00;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: 'Berkeley Mono', monospace;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.news-kidlisp-link:hover .news-kidlisp-badge {
+  background: rgba(0,0,0,0.85);
 }
 
 /* ===== Submit Page ===== */

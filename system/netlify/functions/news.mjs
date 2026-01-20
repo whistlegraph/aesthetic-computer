@@ -9,6 +9,20 @@ const dev = process.env.CONTEXT === "dev" ||
             process.env.NETLIFY_DEV === "true" ||
             process.env.NODE_ENV === "development";
 
+// Detect KidLisp URLs and extract the $code
+function parseKidlispUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    // Match kidlisp.com/$CODE or *.kidlisp.com/$CODE
+    if (!u.hostname.includes('kidlisp.com')) return null;
+    // Path should be /$CODE (with dollar sign in URL)
+    const match = u.pathname.match(/^\/\$?([a-zA-Z0-9_-]+)$/);
+    if (!match) return null;
+    return match[1]; // Return just the code without $
+  } catch { return null; }
+}
+
 function escapeHtml(value = "") {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -139,7 +153,17 @@ function footer() {
 function renderPostRow(post, idx, basePath) {
   const title = escapeHtml(post.title || "(untitled)");
   const url = post.url ? escapeHtml(post.url) : "";
-  const domain = post.url ? new URL(post.url).hostname.replace(/^www\./, "") : "";
+  // Show full URL path, not just TLD
+  const displayUrl = post.url ? (() => {
+    try {
+      const u = new URL(post.url);
+      // Show host + pathname (truncate if too long)
+      let path = u.hostname.replace(/^www\./, "") + u.pathname;
+      if (path.endsWith("/")) path = path.slice(0, -1);
+      if (path.length > 50) path = path.slice(0, 47) + "...";
+      return path;
+    } catch { return ""; }
+  })() : "";
   const itemUrl = `${basePath}/item/${post.code}`;
   return `
   <div class="news-row">
@@ -155,7 +179,7 @@ function renderPostRow(post, idx, basePath) {
     <div class="news-content">
       <div class="news-title">
         <a href="${url || itemUrl}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${title}</a>
-        ${domain ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${domain}</a>)</span>` : ""}
+        ${displayUrl ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${displayUrl}</a>)</span>` : ""}
       </div>
       <div class="news-meta">
         <span>${post.score || 0} points</span>
@@ -174,10 +198,14 @@ function renderComment(comment) {
     <div class="news-comment-meta">
       <span>${renderHandle(comment.handle)}</span>
       <span>${formatDate(comment.when)}</span>
-      <form class="news-admin-delete" data-news-action="delete" method="post" action="/api/news/delete" style="display:none;">
+      <form class="news-admin-delete" data-news-action="delete" data-item-type="comment" data-item-id="${commentId}" method="post" action="/api/news/delete" style="display:none;">
         <input type="hidden" name="itemType" value="comment" />
         <input type="hidden" name="itemId" value="${commentId}" />
-        <button type="submit" class="news-delete-btn" title="Delete comment">🗑</button>
+        <button type="submit" class="news-delete-btn" title="Delete comment">
+          <svg class="news-x-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
+          </svg>
+        </button>
       </form>
     </div>
     <div class="news-comment-body">${escapeHtml(comment.text || "")}</div>
@@ -247,7 +275,16 @@ async function renderItemPage(database, basePath, code) {
   const postTitle = escapeHtml(hydratedPost.title || "(untitled)");
   const pageTitle = `${hydratedPost.title || "(untitled)"} | Aesthetic News`;
   const url = hydratedPost.url ? escapeHtml(hydratedPost.url) : "";
-  const domain = hydratedPost.url ? new URL(hydratedPost.url).hostname.replace(/^www\./, "") : "";
+  // Show full URL path, not just TLD
+  const displayUrl = hydratedPost.url ? (() => {
+    try {
+      const u = new URL(hydratedPost.url);
+      let path = u.hostname.replace(/^www\./, "") + u.pathname;
+      if (path.endsWith("/")) path = path.slice(0, -1);
+      if (path.length > 60) path = path.slice(0, 57) + "...";
+      return path;
+    } catch { return ""; }
+  })() : "";
 
   const body = `
   ${header(basePath)}
@@ -265,19 +302,38 @@ async function renderItemPage(database, basePath, code) {
         <td class="news-item-content">
           <span class="news-item-title">
             <a href="${url || '#'}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${postTitle}</a>
-            ${domain ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${domain}</a>)</span>` : ""}
+            ${displayUrl ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${displayUrl}</a>)</span>` : ""}
           </span>
           <div class="news-item-meta">
             ${hydratedPost.score || 0} points by ${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}
-            <form class="news-admin-delete" data-news-action="delete" method="post" action="/api/news/delete" style="display:none;">
+            <form class="news-admin-delete" data-news-action="delete" data-item-type="post" data-item-id="${hydratedPost.code}" method="post" action="/api/news/delete" style="display:none;">
               <input type="hidden" name="itemType" value="post" />
               <input type="hidden" name="itemId" value="${hydratedPost.code}" />
-              <button type="submit" class="news-delete-btn" title="Delete post">🗑 delete</button>
+              <button type="submit" class="news-delete-btn" title="Delete post">
+                <svg class="news-x-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
+                </svg>
+              </button>
             </form>
           </div>
         </td>
       </tr>
     </table>
+    ${(() => {
+      // Check if this is a KidLisp URL and add preview
+      const kidlispCode = parseKidlispUrl(hydratedPost.url);
+      if (kidlispCode) {
+        const ovenUrl = `https://oven.aesthetic.computer/grab/webp/320/320/$${kidlispCode}?duration=4000&fps=8&quality=80&density=1`;
+        return `
+    <div class="news-kidlisp-preview" data-kidlisp-code="${kidlispCode}">
+      <a href="${escapeHtml(hydratedPost.url)}" target="_blank" rel="noreferrer" class="news-kidlisp-link">
+        <img src="${ovenUrl}" alt="KidLisp preview" class="news-kidlisp-webp" loading="lazy" />
+        <span class="news-kidlisp-badge">▶ $${kidlispCode}</span>
+      </a>
+    </div>`;
+      }
+      return '';
+    })()}
     ${hydratedPost.text ? `<div class="news-text">${escapeHtml(hydratedPost.text)}</div>` : ""}
     <form id="news-comment-form" class="news-comment-form" data-news-action="comment" method="post" action="/api/news/comment">
       <input type="hidden" name="postCode" value="${escapeHtml(code)}" />
