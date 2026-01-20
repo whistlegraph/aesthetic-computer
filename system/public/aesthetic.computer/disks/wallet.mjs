@@ -335,20 +335,11 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
   if (walletState?.connected) {
     const addr = walletState.address;
     const shortAddr = addr ? `${addr.slice(0, 8)}...${addr.slice(-4)}` : "?";
-    const baseNetwork = (walletState.network || KEEPS_NETWORK).toUpperCase();
-    const network = KEEPS_STAGING && baseNetwork === "MAINNET" ? "MAINNET (STAGING V3)" : baseNetwork;
-    const balance = walletState.balance != null ? `ꜩ${walletState.balance.toFixed(2)}` : "ꜩ...";
     const domain = walletState.domain;
     const displayName = domain || shortAddr;
-
-    console.log(
-      `%c 💼 Wallet %c ${displayName} %c ${balance} %c ${network} %c Contract: ${KEEPS_CONTRACT.slice(0, 10)}... `,
-      "background: #0066FF; color: white; font-weight: bold; padding: 2px 8px; border-radius: 4px 0 0 4px;",
-      "background: #1a1a2e; color: #00d4ff; font-weight: bold; padding: 2px 8px;",
-      "background: #1a1a2e; color: #00ff88; padding: 2px 8px;",
-      `background: ${baseNetwork === "MAINNET" ? (KEEPS_STAGING ? "#cc6600" : "#00aa44") : "#ff8800"}; color: white; font-weight: bold; padding: 2px 8px;`,
-      "background: #333; color: #888; padding: 2px 8px; border-radius: 0 4px 4px 0;"
-    );
+    const bal = walletState.balance != null ? `ꜩ${walletState.balance.toFixed(2)}` : "";
+    const net = KEEPS_STAGING ? "staging" : (walletState.network || KEEPS_NETWORK);
+    console.log(`💼 ${displayName} ${bal} [${net}]`);
   }
 
   // Get logged-in user sub and handle
@@ -400,7 +391,7 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
     walletState?.address ? fetchNFTCount(walletState.address, walletState.network) : Promise.resolve(),
     walletState?.address ? fetchOwnedKeeps(walletState.address, walletState.network) : Promise.resolve(),
     userSub ? fetchUserKidlisps(userSub) : Promise.resolve(),
-  ]).catch(err => console.warn("📜 [WALLET] Background fetch error:", err));
+  ]).catch(() => {}); // Silent
 }
 
 function initDataStreams(screen) {
@@ -499,7 +490,7 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
     const res = await fetch(`${apiBase}/v1/tokens/balances?account=${address}&token.contract=${KEEPS_CONTRACT}`);
     if (res.ok) {
       const data = await res.json();
-      console.log(`📜 [WALLET] Found ${data.length} Keeps token records on contract ${KEEPS_CONTRACT.slice(0, 10)}...`);
+      // Silently loaded keeps tokens
 
       // Also fetch all tokens on the contract to get mint dates
       const tokensRes = await fetch(`${apiBase}/v1/tokens?contract=${KEEPS_CONTRACT}&limit=100`);
@@ -547,19 +538,17 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
         };
       });
 
-      const activeKeeps = ownedKeeps.filter(k => !k.burned);
-      const burnedKeeps = ownedKeeps.filter(k => k.burned);
-      console.log(`📜 [WALLET] Owned Keeps: ${activeKeeps.length} active, ${burnedKeeps.length} burned`);
+      // Keeps loaded silently
     }
   } catch (e) {
-    console.warn("📜 [WALLET] Failed to fetch owned keeps:", e);
+    // Silent
   }
 }
 
 async function fetchUserKidlisps(userSub) {
   if (!userSub) return;
 
-  console.log(`📜 [WALLET] Fetching keeps for contract: ${KEEPS_CONTRACT} (${KEEPS_NETWORK})`);
+  // Loading pieces...
 
   try {
     // Fetch recent KidLisp pieces and filter by user
@@ -569,18 +558,8 @@ async function fetchUserKidlisps(userSub) {
       // Filter pieces by this user's sub (stored in user field)
       const allUserPieces = (data.recent || []).filter(p => p.user === userSub);
 
-      // Log kept status details
+      // Filter pieces by kept status
       const keptPieces = allUserPieces.filter(p => p.kept);
-      console.log(`📜 [WALLET] Found ${allUserPieces.length} total pieces, ${keptPieces.length} marked as kept`);
-
-      if (keptPieces.length > 0) {
-        console.log(`📜 [WALLET] Kept pieces contract breakdown:`);
-        keptPieces.forEach(p => {
-          const contract = p.kept?.contractAddress || 'unknown';
-          const isCurrentContract = contract === KEEPS_CONTRACT;
-          console.log(`   - $${p.code}: ${contract.slice(0,10)}... ${isCurrentContract ? '✅ current' : '❌ old contract'}`);
-        });
-      }
 
       userKidlisps = allUserPieces
         .slice(0, 20) // Show more pieces
@@ -599,11 +578,10 @@ async function fetchUserKidlisps(userSub) {
           };
         });
 
-      const currentKeptCount = userKidlisps.filter(p => p.kept).length;
-      console.log(`📜 [WALLET] Displaying ${userKidlisps.length} pieces, ${currentKeptCount} kept on current contract`);
+      // Pieces loaded
     }
   } catch (e) {
-    console.log("Failed to fetch KidLisps:", e);
+    // Fetch error (silent)
   }
 }
 
@@ -1231,7 +1209,7 @@ function act({ event: e, wallet, jump, screen, net }) {
           pairingError = null;
           // Request pairing code from bios
           wallet.getPairingUri(KEEPS_NETWORK, (response) => {
-            console.log("🔷 Mobile pairing response:", response);
+            // Pairing response received
             if (response.result === "success" && response.pairingInfo) {
               try {
                 // pairingInfo is now the bs58check encoded string
@@ -1239,7 +1217,7 @@ function act({ event: e, wallet, jump, screen, net }) {
                   ? response.pairingInfo
                   : JSON.stringify(response.pairingInfo);
                 qrCells = qr(code).modules;
-                console.log("🔷 QR generated for mobile pairing, code length:", code.length);
+                // QR ready
               } catch (err) {
                 pairingError = "QR generation failed";
                 console.error("🔷 QR error:", err);
@@ -1287,7 +1265,7 @@ function act({ event: e, wallet, jump, screen, net }) {
     for (const [code, btn] of Object.entries(keepButtons)) {
       btn.btn.act(e, {
         push: () => {
-          console.log("🔷 Keep button clicked for:", code);
+          // Keeping...
           jump(`keep~$${code}`);
         }
       });
@@ -1298,7 +1276,7 @@ function act({ event: e, wallet, jump, screen, net }) {
       stagingLinkBtn.btn.act(e, {
         push: () => {
           const objktUrl = `https://objkt.com/collections/${KEEPS_CONTRACT}`;
-          console.log("🔗 Opening staging contract on objkt:", objktUrl);
+          // Opening objkt...
           net.web(objktUrl, true);
         }
       });
@@ -1309,7 +1287,7 @@ function act({ event: e, wallet, jump, screen, net }) {
       btn.btn.act(e, {
         push: () => {
           const objktUrl = `https://objkt.com/tokens/${KEEPS_CONTRACT}/${tokenId}`;
-          console.log("🔗 Opening token on objkt:", objktUrl);
+          // Opening token...
           net.web(objktUrl, true);
         }
       });

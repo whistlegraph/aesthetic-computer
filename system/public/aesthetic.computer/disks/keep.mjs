@@ -322,10 +322,16 @@ let cachedMedia = null; // Last generated bundle from DB { artifactUri, thumbnai
 let updatingChain = false; // True when updating on-chain metadata
 let updateChainResult = null; // Result from chain update
 let updateChainProgress = null; // Progress message during chain update
+let mintAbortController = null; // AbortController for cancelling mint preparation
+let mintCancelled = false; // True when user cancelled during preparation
 let thumbnailBitmap = null; // Loaded thumbnail image (single frame or current frame)
 let thumbnailFrames = null; // Array of frames for animated WebP { frames, width, height, loopCount }
 let thumbnailFrameIndex = 0; // Current animation frame
 let thumbnailLastFrameTime = 0; // Time of last frame change
+let piecePreviewBitmap = null; // Preview thumbnail from oven for unminted pieces
+let piecePreviewFrames = null; // Animated preview frames
+let piecePreviewFrameIndex = 0; // Current preview animation frame
+let piecePreviewLastFrameTime = 0; // Preview frame timing
 let kidlispSource = null; // Source code for syntax highlighting
 let tickerOffset = 0; // For scrolling ticker
 
@@ -467,6 +473,9 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
 
   // Fetch piece info (author, hits, source) then check if already minted
   fetchPieceInfo();
+  
+  // Load preview thumbnail from oven (small animated webp)
+  loadPiecePreview();
 }
 
 // Fetch piece info from database (author, hits, source)
@@ -531,6 +540,58 @@ async function fetchPieceInfo() {
 
   // Now check if already minted
   checkIfAlreadyMinted();
+}
+
+// Load preview thumbnail from oven (for unminted pieces)
+async function loadPiecePreview() {
+  if (!piece) return;
+  
+  console.log("🪙 KEEP: Loading preview thumbnail for $" + piece);
+  
+  try {
+    // Use oven to get a small animated WebP preview (100x100 matches other AC usages)
+    const ovenUrl = `https://oven.aesthetic.computer/grab/webp/100/100/$${piece}?duration=2000&fps=8&quality=80&density=1`;
+    
+    console.log("🪙 KEEP: Preview URL:", ovenUrl);
+    
+    const result = await _preloadAnimatedWebp?.(ovenUrl);
+    
+    console.log("🪙 KEEP: Preview loaded:", {
+      width: result?.width,
+      height: result?.height,
+      frameCount: result?.frameCount,
+      hasFrames: !!result?.frames?.length
+    });
+    
+    if (result.frameCount > 1) {
+      // Animated preview
+      piecePreviewFrames = {
+        width: result.width,
+        height: result.height,
+        frameCount: result.frameCount,
+        loopCount: result.loopCount,
+        frames: result.frames
+      };
+      piecePreviewFrameIndex = 0;
+      piecePreviewLastFrameTime = performance.now();
+      piecePreviewBitmap = {
+        width: result.width,
+        height: result.height,
+        pixels: result.frames[0].pixels
+      };
+    } else {
+      // Static preview
+      piecePreviewBitmap = {
+        width: result.width,
+        height: result.height,
+        pixels: result.frames[0].pixels
+      };
+      piecePreviewFrames = null;
+    }
+    _needsPaint?.();
+  } catch (e) {
+    // Silent - preview is optional
+  }
 }
 
 // Check if current user is the author
@@ -1061,6 +1122,11 @@ async function runProcess(forceRegenerate = false) {
   // === STEP 1: Connect Wallet ===
   // Reset timer when process actually starts (not counting initial checks)
   startTime = Date.now();
+  mintCancelled = false;
+  
+  // Create abort controller for cancellation
+  mintAbortController = new AbortController();
+  const { signal } = mintAbortController;
 
   // Start getting auth token in parallel (don't await yet)
   const tokenPromise = _net?.getToken?.();
@@ -1109,6 +1175,7 @@ async function runProcess(forceRegenerate = false) {
         screenHeight,
         regenerate: forceRegenerate,
       }),
+      signal, // Enable cancellation
     });
 
     if (!response.ok) {
@@ -1229,9 +1296,43 @@ async function runProcess(forceRegenerate = false) {
     }
 
   } catch (e) {
-    const active = getActiveStep();
-    if (active) setStep(active.id, "error", e.message);
+    // Handle cancellation gracefully
+    if (e.name === "AbortError" || mintCancelled) {
+      const active = getActiveStep();
+      if (active) setStep(active.id, "error", "Cancelled");
+      console.log("🪙 KEEP: Mint preparation cancelled by user");
+    } else {
+      const active = getActiveStep();
+      if (active) setStep(active.id, "error", e.message);
+    }
+  } finally {
+    mintAbortController = null;
   }
+}
+
+function cancelMintPreparation() {
+  if (mintAbortController) {
+    mintCancelled = true;
+    mintAbortController.abort();
+    mintAbortController = null;
+    console.log("🪙 KEEP: User requested cancellation");
+    _needsPaint?.();
+  }
+}
+
+function isPreparationInProgress() {
+  // True if we're between wallet connect and review step (server preparation phase)
+  const walletStep = timeline.find(t => t.id === "wallet");
+  const reviewStep = timeline.find(t => t.id === "review");
+  const completeStep = timeline.find(t => t.id === "complete");
+  
+  // In progress if wallet is done and review is not yet active/done, and not already complete or errored
+  return walletStep?.status === "done" && 
+         reviewStep?.status !== "active" && 
+         reviewStep?.status !== "done" &&
+         completeStep?.status !== "done" &&
+         !hasError() &&
+         mintAbortController !== null;
 }
 
 async function signAndMint() {
@@ -1391,9 +1492,28 @@ function sim() {
       };
     }
   }
+  
+  // Animate piece preview frames (for confirmation view)
+  if (piecePreviewFrames && piecePreviewFrames.frameCount > 1) {
+    const now = performance.now();
+    const currentFrame = piecePreviewFrames.frames[piecePreviewFrameIndex];
+    const frameDuration = currentFrame?.duration || 100;
 
-  // Always animate for already minted view, or when minting is active
-  return alreadyMinted || (!hasError() && timeline.some(t => t.status === "active"));
+    if (now - piecePreviewLastFrameTime >= frameDuration) {
+      piecePreviewFrameIndex = (piecePreviewFrameIndex + 1) % piecePreviewFrames.frameCount;
+      piecePreviewLastFrameTime = now;
+
+      const newFrame = piecePreviewFrames.frames[piecePreviewFrameIndex];
+      piecePreviewBitmap = {
+        width: piecePreviewFrames.width,
+        height: piecePreviewFrames.height,
+        pixels: newFrame.pixels
+      };
+    }
+  }
+
+  // Always animate for already minted view, confirmation view, or when minting is active
+  return alreadyMinted || waitingConfirmation || (!hasError() && timeline.some(t => t.status === "active"));
 }
 
 // MatrixChunky8 button constants (matching products.mjs style)
@@ -1895,9 +2015,14 @@ function paint($) {
     const gap = compact ? 10 : (spacious ? 20 : 14);
     const smallGap = compact ? 6 : (spacious ? 12 : 8);
     const tinyGap = compact ? 4 : (spacious ? 8 : 6);
+    
+    // Preview thumbnail size
+    const previewThumbSize = compact ? 48 : (spacious ? 72 : 56);
 
     // Calculate total height for centering based on content
-    let totalH = 14 + gap + 16 + smallGap; // title + gap + piece name button + gap
+    let totalH = 14 + smallGap; // title + gap
+    if (piecePreviewBitmap) totalH += previewThumbSize + smallGap; // preview thumbnail
+    totalH += 16 + smallGap; // piece name button + gap
     if (pieceSourceDisplay) totalH += 10 + tinyGap; // source preview
     totalH += 10 + gap; // author/hits info + gap before action area
     if (isAnonymous) {
@@ -1924,7 +2049,18 @@ function paint($) {
       ink(255, 220, 100, glowAlpha).write("KEEP", { x: w/2, y: cy - 1, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       ink(255, 220, 100).write("KEEP", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     }
-    cy += 14 + gap;
+    cy += 14 + smallGap;
+    
+    // Preview thumbnail from oven (animated webp)
+    if (piecePreviewBitmap) {
+      const thumbX = floor((w - previewThumbSize) / 2);
+      const scale = previewThumbSize / (piecePreviewBitmap.width || 100);
+      // Draw a subtle border/glow around thumbnail
+      const borderGlow = floor(30 + sin(rotation * 2) * 15);
+      ink(255, 200, 100, borderGlow).box(thumbX - 2, cy - 2, previewThumbSize + 4, previewThumbSize + 4);
+      paste(piecePreviewBitmap, thumbX, cy, { scale });
+      cy += previewThumbSize + smallGap;
+    }
 
     // Piece name as clickable button to preview - with subtle pulse
     const btnPulsePreview = 1 + sin(rotation * 2) * 0.08;
@@ -2595,28 +2731,9 @@ function act({ event: e, screen }) {
     contractBtn.btn.act(e, { push: () => openUrl(tzktContractUrl) });
     // Login button - trigger auth0 login (show when piece has author but user not logged in)
     if (pieceAuthorSub && !userSub) {
-      loginBtn.btn.act(e, { push: async () => {
-        console.log("🪙 KEEP: User clicked login, triggering auth...");
-        try {
-          await _api?.authorize?.(true); // Force login
-          // After login, refetch user info
-          _net?.getHandle?.().then(h => { userHandle = h; _needsPaint?.(); }).catch(() => {});
-          _api?.authorize?.().then(async (token) => {
-            if (token) {
-              try {
-                const payload = JSON.parse(atob(token.split('.')[1]));
-                userSub = payload.sub;
-                console.log("🪙 KEEP: User logged in, sub:", userSub);
-                checkOwnership();
-              } catch (e) {
-                console.warn("🪙 KEEP: Could not decode token:", e);
-              }
-            }
-            _needsPaint?.();
-          }).catch(() => {});
-        } catch (e) {
-          console.error("🪙 KEEP: Login error:", e);
-        }
+      loginBtn.btn.act(e, { push: () => {
+        console.log("🪙 KEEP: User clicked login, redirecting to login...");
+        _api?.login?.(); // Triggers full auth0 login flow via redirect
       }});
     }
     return;
@@ -3066,7 +3183,14 @@ function act({ event: e, screen }) {
     else if (hasError()) { resetTimeline(); startTime = Date.now(); runProcess(); }
   }
 
-  if (e.is("keyboard:down:escape")) _jump?.("prompt");
+  if (e.is("keyboard:down:escape")) {
+    // If preparation is in progress, cancel it instead of jumping away
+    if (isPreparationInProgress()) {
+      cancelMintPreparation();
+    } else {
+      _jump?.("prompt");
+    }
+  }
 }
 
 export { boot, paint, sim, act };

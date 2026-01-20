@@ -2064,14 +2064,21 @@ class KidLisp {
     // console.log("🎯 KidLisp API context updated");
   }
 
-  // �️ Slide update - re-parse and update AST without resetting state/layers
+  // 🎚️ Slide update - re-parse and update AST without resetting state/layers
   // Used for real-time parameter tweaking in slide mode
   slideUpdate(source) {
     if (!source) return;
     
+    console.log('🎚️ slideUpdate called:', {
+      sourceLength: source.length,
+      preview: source.slice(0, 50)
+    });
+    
     try {
       // Parse the new source
       const parsed = this.parse(source);
+      
+      console.log('🎚️ Parsed new source, updating AST');
       
       // Update AST and source tracking (but preserve everything else)
       this.ast = JSON.parse(JSON.stringify(parsed));
@@ -2079,6 +2086,8 @@ class KidLisp {
       
       // DON'T reset: globalDef, onceExecuted, layers, timers, etc.
       // The next paint frame will evaluate with the new AST but existing state
+      
+      console.log('🎚️ AST updated, next paint frame will use new values');
       
     } catch (e) {
       console.warn('🎚️ Slide update parse error:', e.message);
@@ -3968,6 +3977,12 @@ class KidLisp {
             $.screen.width = this.layer0.width;
             $.screen.height = this.layer0.height;
             $.screen.pixels = this.layer0.pixels;
+          }
+          
+          // 🎚️ DEBUG: Log AST being evaluated to verify slide updates
+          if (this.ast && this.ast.length > 0) {
+            const astPreview = JSON.stringify(this.ast).slice(0, 100);
+            console.log('🎚️ Evaluating AST:', astPreview);
           }
           
           // Evaluate the entire AST - bake() calls will switch to bake buffers

@@ -9221,9 +9221,15 @@ async function makeFrame({ data: { type, content } }) {
 
   // 🎚️ Slide mode update - re-evaluate code but preserve buffers/state
   if (type === "piece-slide") {
+    console.log('🎚️ Received piece-slide message:', {
+      hasInstance: !!globalKidLispInstance,
+      hasSource: !!content.source,
+      sourcePreview: content.source?.slice(0, 50)
+    });
     if (globalKidLispInstance && content.source) {
       // Update the source code and re-parse without resetting layers
       globalKidLispInstance.slideUpdate(content.source);
+      console.log('🎚️ Called slideUpdate on KidLisp instance');
     }
     return;
   }
