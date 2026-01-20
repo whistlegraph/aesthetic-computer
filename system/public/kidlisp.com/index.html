@@ -19910,10 +19910,11 @@
     function getPjShareUrl() {
       if (!codeChannelId) return null;
       if (pjIsProduction) {
-        return `https://pj.kidlisp.com/${codeChannelId}`;
+        // Use path-based URL for better DNS compatibility
+        return `https://kidlisp.com/pj/${codeChannelId}`;
       } else {
-        // Localhost mode - mirror production subdomain as path
-        return `${window.location.origin}/pj.kidlisp.com/${codeChannelId}`;
+        // Localhost mode - mirror production path structure
+        return `${window.location.origin}/kidlisp.com/pj/${codeChannelId}`;
       }
     }
     
@@ -20148,8 +20149,8 @@
       // Build the PJ URL with channel in path (no code param - WebSocket syncs it)
       const dev = window.location.hostname === 'localhost' || window.location.hostname === 'local.aesthetic.computer';
       const pjUrl = dev 
-        ? `${window.location.origin}/pj.kidlisp.com/${codeChannelId}`
-        : `https://pj.kidlisp.com/${codeChannelId}`;
+        ? `${window.location.origin}/kidlisp.com/pj/${codeChannelId}`
+        : `https://kidlisp.com/pj/${codeChannelId}`;
       logPj('open popout', { pjUrl, dev, codeChannelId, isInVSCode: isInVSCode() });
       
       // In VS Code, we can't use window.open - open in external browser instead
