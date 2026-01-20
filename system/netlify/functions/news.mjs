@@ -212,11 +212,28 @@ function renderComment(comment) {
   </div>`;
 }
 
+async function applyCommentCounts(database, posts) {
+  if (!posts || posts.length === 0) return posts || [];
+  const comments = database.db.collection("news-comments");
+  const codes = posts.map((post) => post.code).filter(Boolean);
+  const counts = await comments
+    .aggregate([
+      { $match: { postCode: { $in: codes }, status: { $ne: "dead" } } },
+      { $group: { _id: "$postCode", count: { $sum: 1 } } },
+    ])
+    .toArray();
+  const countMap = new Map(counts.map((row) => [row._id, row.count]));
+  return posts.map((post) => ({
+    ...post,
+    commentCount: countMap.get(post.code) || 0,
+  }));
+}
+
 async function fetchPosts(database, { sort = "top", limit = 30 }) {
   const posts = database.db.collection("news-posts");
   const sortSpec = sort === "new" ? { when: -1 } : { score: -1, when: -1 };
   const docs = await posts.find({ status: { $ne: "dead" } }).sort(sortSpec).limit(limit).toArray();
-  return docs;
+  return applyCommentCounts(database, docs);
 }
 
 async function hydrateHandles(database, docs) {

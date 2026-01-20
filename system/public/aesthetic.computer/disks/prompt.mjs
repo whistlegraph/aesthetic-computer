@@ -240,10 +240,14 @@ const KEN_BURNS_MAX_ZOOM = 1.25;
 const KEN_BURNS_CYCLE_MS = 8000;
 
 let handles; // Keep track of total handles set.
-let motd; // Store the mood of the day text
+let motd; // Store the moods of the day text
 let motdByHandle; // Store the mood author handle
 let motdFrame = 0; // Animation frame counter for MOTD effects (time-based)
 let lastMotdTime = 0; // Timestamp for MOTD animation
+let motdCandidates = [];
+let motdCandidateIndex = 0;
+let lastMotdCycleTime = 0;
+const MOTD_CYCLE_MS = 4000;
 let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
 let versionInfo = null; // { deployed, latest, status, behindBy } - git commit status
 let versionCommit = null; // Current commit hash for the commit button
@@ -3557,6 +3561,15 @@ function paint($) {
   lastMotdTime = now;
   motdFrame += deltaTime * 60; // 60 units per second (equivalent to 60fps @ 1 per frame)
 
+  if (motdCandidates.length > 1) {
+    if (!lastMotdCycleTime) lastMotdCycleTime = now;
+    if (now - lastMotdCycleTime >= MOTD_CYCLE_MS) {
+      motdCandidateIndex = (motdCandidateIndex + 1) % motdCandidates.length;
+      setMotdCandidate(motdCandidates[motdCandidateIndex]);
+      lastMotdCycleTime = now;
+    }
+  }
+
   if (fetchingUser) fetchUserAPI = $.api;
 
   // Ensure pal is always defined with a fallback
@@ -6667,7 +6680,7 @@ function paint($) {
           const motdLineHeight = 10;
           const motdLines = Math.ceil((motd.length * motdCharWidth) / motdMaxWidth);
           const bylineY = (writePos.y || Math.floor(motdY)) + (motdLines * motdLineHeight) + 4;
-          const bylinePrefix = "mood of the day by ";
+          const bylinePrefix = "moods of the day by ";
           const bylineText = `${bylinePrefix}${motdByHandle}`;
           const bylineTextWidth = $.text.box(bylineText, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
           const bylineBaseX = writePos.x !== undefined
@@ -8199,9 +8212,20 @@ export const scheme = {
 
 let motdController;
 
+function setMotdCandidate(candidate) {
+  if (!candidate?.mood) return;
+  motd = candidate.mood;
+  const apiHandle = candidate.handle || candidate.handleInfo?.handle || candidate.owner?.handle || candidate.user?.handle || null;
+  motdByHandle = apiHandle
+    ? (apiHandle.startsWith("@") ? apiHandle : `@${apiHandle}`)
+    : null;
+}
+
 async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) {
-  const motdTargetHandle = "@jeffrey";
   motdByHandle = null;
+  motdCandidates = [];
+  motdCandidateIndex = 0;
+  lastMotdCycleTime = 0;
   // Use funding mode message or default (alternate EN/DA every 3 seconds)
   if (isCriticalFunding) {
     const langPhase = Math.floor(Date.now() / 3000) % 2;
@@ -8216,16 +8240,19 @@ async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) 
   if (isCriticalFunding) return;
 
   try {
-    const res = await fetch(`/api/mood/${motdTargetHandle}`, {
+    const res = await fetch("/api/mood/moods-of-the-day?list=1", {
       signal: motdController.signal,
     });
     if (res.status === 200) {
       const data = await res.json();
-      motd = data.mood;
-      const apiHandle = data.handle || data.handleInfo?.handle || data.owner?.handle || data.user?.handle || null;
-      motdByHandle = apiHandle
-        ? (apiHandle.startsWith("@") ? apiHandle : `@${apiHandle}`)
-        : motdTargetHandle;
+      if (Array.isArray(data.moods) && data.moods.length > 0) {
+        motdCandidates = data.moods;
+        motdCandidateIndex = 0;
+        setMotdCandidate(motdCandidates[0]);
+        lastMotdCycleTime = performance.now();
+      } else if (data.mood) {
+        setMotdCandidate(data);
+      }
       needsPaint();
     } else {
       console.warn("😢 No mood found.");
