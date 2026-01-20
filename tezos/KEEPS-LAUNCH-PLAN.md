@@ -10,6 +10,8 @@
 | Ghostnet | `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K` | v2 | Active | kidlisp | 15 | Development/Testing |
 | **Mainnet** | `KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi` | **v3** | **Staging** | staging | 1 | Soft launch |
 
+**Legacy (v2):** `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` (archived, do not use for new mints)
+
 ## Wallet Architecture
 
 | Wallet | Address | Domain | Role |
@@ -167,7 +169,7 @@ User Flow:
 
 ```bash
 # Mainnet staging contract already deployed!
-# Contract: KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
+# Contract: KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi
 ```
 
 **Pre-deployment checklist:**
@@ -325,8 +327,8 @@ keep $newpiece     # Fresh mint → full flow
 | Mint UI | `system/.../disks/keep.mjs` |
 | Prompt commands | `system/.../disks/prompt.mjs` |
 | Wallet lib | `system/.../lib/tezos-wallet.mjs` |
-| Mint API | `system/backend/keep-mint.mjs` |
-| Bundle API | `system/backend/bundle-html.mjs` |
+| Mint API | `system/netlify/functions/keep-mint.mjs` |
+| Bundle API | `system/netlify/functions/bundle-html.js` |
 | kidlisp.com | `kidlisp.com/index.html` |
 
 ---
