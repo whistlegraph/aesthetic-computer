@@ -201,6 +201,24 @@ window.acHIDE_BOOT_LOG = hideBootLog;
 // Expose bootLog globally so bios and disk can update the overlay
 window.acBOOT_LOG = bootLog;
 
+// Fetch moods-of-the-day for the boot canvas (fallback in case HTML boot didn't set it)
+async function fetchBootMoodOfDay() {
+  if (!window.acBootCanvas || window.acBootCanvas.motd) return;
+  try {
+    const res = await fetch("/api/mood/moods-of-the-day", {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data?.mood) window.acBootCanvas.motd = data.mood;
+  } catch {
+    // ignore boot mood errors
+  }
+}
+
+fetchBootMoodOfDay();
+
 // 📊 Auth0/Session timing telemetry - exposed globally for CDP inspection
 window.acAuthTiming = {
   bootStart: bootStartTime,

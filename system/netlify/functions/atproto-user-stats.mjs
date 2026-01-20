@@ -31,6 +31,8 @@ export async function handler(event, context) {
     const userCodeToHandle = new Map();
     const auth0IdToCode = new Map();
     const auth0IdToHandle = new Map();
+    const codeToAuth0Id = new Map();
+    const handleToAuth0Id = new Map();
     const usersCollection = database.db.collection("users");
     const allUsersData = await usersCollection.find({}, { 
       projection: { _id: 1, code: 1, "atproto.handle": 1 } 
@@ -44,6 +46,12 @@ export async function handler(event, context) {
       if (userData._id) {
         auth0IdToCode.set(userData._id, userData.code);
         auth0IdToHandle.set(userData._id, handle);
+        if (userData.code) {
+          codeToAuth0Id.set(userData.code, userData._id);
+        }
+        if (handle) {
+          handleToAuth0Id.set(handle, userData._id);
+        }
       }
     }
 
@@ -51,7 +59,7 @@ export async function handler(event, context) {
     const userStats = new Map();
 
     // Helper to add user record count
-    const addUserStats = (identifier, collection, count) => {
+    const addUserStats = (identifier, collection, count, userId) => {
       if (!identifier) return;
       
       // Check if this is a user code (ac + year format)
@@ -82,6 +90,7 @@ export async function handler(event, context) {
           handle: handle,
           code: code,
           isUserCode: isUserCode && !userCodeToHandle.get(identifier),
+          userId: userId || codeToAuth0Id.get(code) || handleToAuth0Id.get(handle) || null,
           collections: [],
           recordCounts: {},
           totalRecords: 0
@@ -89,6 +98,9 @@ export async function handler(event, context) {
       }
 
       const stats = userStats.get(key);
+      if (!stats.userId) {
+        stats.userId = userId || codeToAuth0Id.get(code) || handleToAuth0Id.get(handle) || null;
+      }
       if (!stats.collections.includes(collection)) {
         stats.collections.push(collection);
       }
@@ -112,7 +124,7 @@ export async function handler(event, context) {
     for (const stat of paintingStats) {
       const code = auth0IdToCode.get(stat._id);
       if (code) {
-        addUserStats(code, "computer.aesthetic.painting", stat.count);
+        addUserStats(code, "computer.aesthetic.painting", stat.count, stat._id);
       }
     }
 
@@ -132,7 +144,7 @@ export async function handler(event, context) {
     for (const stat of moodStats) {
       const code = auth0IdToCode.get(stat._id);
       if (code) {
-        addUserStats(code, "computer.aesthetic.mood", stat.count);
+        addUserStats(code, "computer.aesthetic.mood", stat.count, stat._id);
       }
     }
 
@@ -152,7 +164,7 @@ export async function handler(event, context) {
     for (const stat of pieceStats) {
       const code = auth0IdToCode.get(stat._id);
       if (code) {
-        addUserStats(code, "computer.aesthetic.piece", stat.count);
+        addUserStats(code, "computer.aesthetic.piece", stat.count, stat._id);
       }
     }
 
@@ -172,12 +184,42 @@ export async function handler(event, context) {
     for (const stat of kidlispStats) {
       const code = auth0IdToCode.get(stat._id);
       if (code) {
-        addUserStats(code, "computer.aesthetic.kidlisp", stat.count);
+        addUserStats(code, "computer.aesthetic.kidlisp", stat.count, stat._id);
       }
     }
 
+    const latestMoodStats = await database.db.collection("moods").aggregate([
+      { $match: { user: { $exists: true, $ne: null } } },
+      { $sort: { when: -1 } },
+      { $group: { _id: "$user", mood: { $first: "$mood" }, when: { $first: "$when" } } }
+    ]).toArray();
+
+    const latestKidlispStats = await database.db.collection("kidlisp").aggregate([
+      { $match: { user: { $exists: true, $ne: null } } },
+      { $sort: { when: -1 } },
+      { $group: { _id: "$user", code: { $first: "$code" }, when: { $first: "$when" } } }
+    ]).toArray();
+
+    const latestMoodByUser = new Map(latestMoodStats.map(stat => [stat._id, stat]));
+    const latestKidlispByUser = new Map(latestKidlispStats.map(stat => [stat._id, stat]));
+
     // Convert to array and sort by total records (descending)
     const users = Array.from(userStats.values())
+      .map(user => {
+        if (user.userId) {
+          const mood = latestMoodByUser.get(user.userId);
+          const kidlisp = latestKidlispByUser.get(user.userId);
+          if (mood) {
+            user.latestMood = mood.mood;
+            user.latestMoodWhen = mood.when;
+          }
+          if (kidlisp) {
+            user.latestKidlispCode = kidlisp.code;
+            user.latestKidlispWhen = kidlisp.when;
+          }
+        }
+        return user;
+      })
       .sort((a, b) => b.totalRecords - a.totalRecords)
       .slice(0, limit);
 

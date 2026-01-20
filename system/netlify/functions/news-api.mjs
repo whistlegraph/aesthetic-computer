@@ -120,6 +120,22 @@ function resolveBasePath(event) {
   return host.startsWith("news.aesthetic.computer") ? "" : "/news.aesthetic.computer";
 }
 
+async function attachCommentCounts(posts, comments) {
+  if (!posts || posts.length === 0) return posts || [];
+  const codes = posts.map((post) => post.code).filter(Boolean);
+  const counts = await comments
+    .aggregate([
+      { $match: { postCode: { $in: codes }, status: { $ne: "dead" } } },
+      { $group: { _id: "$postCode", count: { $sum: 1 } } },
+    ])
+    .toArray();
+  const countMap = new Map(counts.map((row) => [row._id, row.count]));
+  return posts.map((post) => ({
+    ...post,
+    commentCount: countMap.get(post.code) || 0,
+  }));
+}
+
 export function createHandler({
   connect: connectFn = connect,
   respond: respondFn = respond,
@@ -158,7 +174,8 @@ export function createHandler({
           const limit = Math.min(parseInt(event.queryStringParameters?.limit || "30", 10), 100);
           const sort = event.queryStringParameters?.sort === "new" ? { when: -1 } : { score: -1, when: -1 };
           const docs = await posts.find({ status: "live" }).sort(sort).limit(limit).toArray();
-          return respondFn(200, { posts: docs });
+          const withCounts = await attachCommentCounts(docs, comments);
+          return respondFn(200, { posts: withCounts });
         }
         
         // Live updates endpoint - check for new posts since a timestamp
@@ -172,12 +189,13 @@ export function createHandler({
             status: "live", 
             when: { $gt: sinceDate } 
           }).sort({ when: -1 }).limit(10).toArray();
+          const withCounts = await attachCommentCounts(newPosts, comments);
           
           // Return count and latest timestamp for efficient polling
           const latestWhen = newPosts.length > 0 ? newPosts[0].when.getTime() : parseInt(since, 10);
           return respondFn(200, { 
             newPosts: newPosts.length,
-            posts: newPosts,
+            posts: withCounts,
             latestWhen,
           });
         }
@@ -368,7 +386,12 @@ export function createHandler({
             if (!isAdmin && comment.user !== user.sub) {
               return respondFn(403, { error: "You can only delete your own comments" });
             }
+            const wasLive = comment.status !== "dead";
             await comments.updateOne({ _id: commentId }, { $set: { status: "dead" } });
+            if (wasLive && comment.postCode) {
+              await posts.updateOne({ code: comment.postCode }, { $inc: { commentCount: -1 } });
+              await posts.updateOne({ code: comment.postCode }, { $max: { commentCount: 0 } });
+            }
           }
 
           const redirectTo = itemType === "post" ? resolveBasePath(event) + "/" : null;

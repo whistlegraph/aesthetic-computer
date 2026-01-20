@@ -1046,7 +1046,7 @@ async function fun(event, context) {
           window.acBOOT_ADD_FILE=function(n,s){if(window.acBootCanvas&&window.acBootCanvas.addFile)window.acBootCanvas.addFile(n,s);};
           window.acBOOT_NET_PULSE=function(){if(window.acBootCanvas&&window.acBootCanvas.netPulse)window.acBootCanvas.netPulse();};
           // Fetch MOTD for boot screen
-          (async function(){try{var r=await fetch('/api/mood/@jeffrey');if(r.ok){var d=await r.json();if(d&&d.mood)window.acBootCanvas.motd=d.mood;}}catch(e){}})();
+          (async function(){try{var r=await fetch('/api/mood/moods-of-the-day');if(r.ok){var d=await r.json();if(d&&d.mood)window.acBootCanvas.motd=d.mood;}}catch(e){}})();
           // Fetch boot files to display
           (async function(){
             var paths=['boot.mjs','bios.mjs','lib/parse.mjs','lib/graph.mjs','lib/num.mjs'];
