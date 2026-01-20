@@ -6727,7 +6727,8 @@ async function load(
     path,
     host = originalHost,
     text,
-    slug;
+    slug,
+    clockShortcode = null; // Track original *code for URL display
 
   // 🕷️ SPIDER MODE: Always log what piece we're loading
   if (typeof window !== 'undefined' && window.acSPIDER) {
@@ -6803,6 +6804,7 @@ async function load(
     // the stored melody by code. This avoids intercepting later in the loader
     // and ensures the correct module is fetched.
     if (slug && slug.startsWith("*") && slug.length > 1) {
+      clockShortcode = slug; // Preserve original *code for URL
       const cacheId = slug.slice(1);
       const clockParam = `*${cacheId}`;
       params = [clockParam, ...(params || [])];
@@ -6914,6 +6916,7 @@ async function load(
 
     // ⏰ Normalize *clock shortcodes for source-based loads too.
     if (slug && slug.startsWith("*") && slug.length > 1) {
+      clockShortcode = slug; // Preserve original *code for URL
       const cacheId = slug.slice(1);
       const clockParam = `*${cacheId}`;
       params = [clockParam, ...(params || [])];
@@ -8805,6 +8808,7 @@ async function load(
       meta,
       taping: $commonApi.rec.loadCallback !== null || $commonApi.rec.recording, // 🎏 Hacky flag. 23.09.17.05.09
       // noBeat: beat === defaults.beat,
+      clockShortcode, // ⏰ Original *code for URL display (null if not a clock shortcode)
     },
   });
 
