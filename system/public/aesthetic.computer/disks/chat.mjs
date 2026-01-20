@@ -1437,20 +1437,39 @@ function paint(
       presenceText = chatterCount + " online";
     }
     
-    // Draw presence counter to the right (before News ticker)
-    // Align with text area to the right of HUD label
+    // Draw presence counter flush left (over HUD label area) without overlapping tickers
     const onlineFgColor = theme?.timestamp || 160;
-    const presenceWidth = text.width(presenceText, "MatrixChunky8");
-    // Position to the right, leaving room for News ticker (~220px from right)
-    const presenceX = screen.width - 230 - presenceWidth;
     const hudLabelOffset = 6;
-    const hudLabelWidth = hud?.currentLabel?.()?.btn?.box?.w || 0;
-    const hudLabelRight = hudLabelOffset + hudLabelWidth;
-    const minGapAfterHud = 10;
-    const minPresenceX = hudLabelRight + minGapAfterHud;
-    ink(onlineFgColor).write(presenceText, {
-      x: Math.max(presenceX, minPresenceX), // Don't overlap HUD label
-      top: 7, // Align with News ticker vertically
+    const labelInfo = hud?.currentLabel?.() || {};
+    const qrSize = labelInfo.qrSize || 0;
+    const leftPad = labelInfo.leftPad || 0;
+    const labelX = labelInfo.btn?.box?.x ?? hudLabelOffset;
+    const qrOffset = qrSize > 0 ? (qrSize + 4) : 0;
+    const basePresenceX = Math.max(hudLabelOffset, labelX + leftPad + qrOffset);
+    const tickerLeftEdge = screen.width - 230; // Reserve space for News/r8Dio
+    let displayPresenceText = presenceText;
+    let presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
+
+    // If it would overlap the ticker area, shorten to count-only variants
+    if (basePresenceX + presenceWidth > tickerLeftEdge) {
+      if (hereCount > 0) {
+        displayPresenceText = `${hereCount} here`;
+      } else if (onlineCount > 0) {
+        displayPresenceText = `${onlineCount} online`;
+      } else {
+        displayPresenceText = chatterCount + " online";
+      }
+      presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
+    }
+
+    // Final guard: if still too wide, drop to just the count
+    if (basePresenceX + presenceWidth > tickerLeftEdge) {
+      displayPresenceText = String(hereCount > 0 ? hereCount : (onlineCount > 0 ? onlineCount : chatterCount));
+    }
+
+    ink(onlineFgColor).write(displayPresenceText, {
+      x: basePresenceX,
+      top: 13, // Align with News ticker vertically
     }, false, undefined, false, "MatrixChunky8");
   }
 
@@ -1853,6 +1872,27 @@ function act(
       cancelSound: () => beep(),
       jump,
     });
+  }
+
+  // 📺 YouTube modal intercepts all events (prevent click-through)
+  if (youtubeModalOpen) {
+    const modalState = typeof globalThis !== "undefined" ? globalThis.acYoutubeModalState : null;
+    const overlayExists = typeof document !== "undefined"
+      ? document.getElementById("youtube-modal-overlay")
+      : null;
+    const modalClosed = (modalState && modalState.open === false) || overlayExists === null;
+
+    if (modalClosed) {
+      youtubeModalOpen = false;
+      youtubeModalVideoId = null;
+    } else {
+      if (e.is("keyboard:down:escape")) {
+        const closer = typeof globalThis !== "undefined" ? globalThis.acCloseYoutubeModal : null;
+        if (typeof closer === "function") closer();
+        closeYoutubeModal();
+      }
+      return;
+    }
   }
   
   // 📰 News ticker interaction (hover + click)
@@ -3237,11 +3277,15 @@ function openYoutubeModal(videoId) {
   
   youtubeModalOpen = true;
   youtubeModalVideoId = videoId;
-  if (typeof window !== "undefined") {
-    window.acYoutubeModalState = { open: true, videoId };
-    window.acYoutubeModalClose = () => {
+  if (typeof globalThis !== "undefined") {
+    globalThis.acYoutubeModalState = { open: true, videoId };
+    globalThis.acYoutubeModalClose = () => {
       youtubeModalOpen = false;
       youtubeModalVideoId = null;
+      if (globalThis.acYoutubeModalState) {
+        globalThis.acYoutubeModalState.open = false;
+        globalThis.acYoutubeModalState.videoId = null;
+      }
     };
   }
   
