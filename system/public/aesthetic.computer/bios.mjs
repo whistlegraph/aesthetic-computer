@@ -11774,6 +11774,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 window.history.replaceState({}, "", encodedPath);
               }
             } catch (e) { /* Ignore in restricted context */ }
+          } else if (content.clockShortcode) {
+            // ⏰ For clock shortcodes (*wibe, *abc, etc.), display the shortcode URL
+            const clockPath = "/" + content.clockShortcode;
+            try {
+              if (!content.fromHistory) {
+                window.history.pushState({}, "", clockPath);
+              } else {
+                window.history.replaceState({}, "", clockPath);
+              }
+            } catch (e) { /* Ignore in restricted context */ }
           } else {
             // For regular pieces, clear parameters but keep the basic path structure
             // Preserve DAW-related params for M4L integration

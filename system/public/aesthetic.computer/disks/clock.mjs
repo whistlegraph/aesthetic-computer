@@ -732,12 +732,11 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
   // Clear speech preloading state for new melody
   speechEnabled = false;
   
-  // Initialize a temporary default melody state immediately
+  // Initialize an empty melody state immediately
   // This prevents "No melody state" warnings if sim() runs before async boot completes
-  const defaultMelody = parseSimultaneousMelody("cdefgab", octave);
-  console.log("🎵 EARLY DEFAULT MELODY:", defaultMelody, "tracks[0]:", defaultMelody?.tracks?.[0], "len:", defaultMelody?.tracks?.[0]?.length);
+  // Start with empty notes - will be populated from params/API if provided
   melodyState = {
-    notes: defaultMelody.tracks[0],
+    notes: [],
     index: 0,
     baseTempo: baseTempo,
     isPlaying: false,
@@ -745,8 +744,9 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
     timingMode: parseFloat(colon[0]) || 1.0,
     type: "single",
     isFallback: true,
+    isEmpty: true, // Track that this is an empty/silent clock
   };
-  console.log("🎵 EARLY MELODY STATE SET:", melodyState?.type, melodyState?.notes?.length, "notes");
+  console.log("🎵 EARLY MELODY STATE SET (empty):", melodyState?.type, melodyState?.notes?.length, "notes");
 
   // Determine the melody string from params or API
   let isFallbackMelody = false;
@@ -796,14 +796,32 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
     originalMelodyString = params.join(" ");
     console.log(`🎵 PARAMS BRANCH: originalMelodyString = "${originalMelodyString}"`);
   } else {
-    // No melody provided - use fallback
-    originalMelodyString = "cdefgab";
+    // No melody provided - empty/silent clock
+    originalMelodyString = "";
     isFallbackMelody = true;
-    console.log(`🎵 FALLBACK BRANCH: using default melody`);
+    console.log(`🎵 EMPTY CLOCK: silent mode, no melody`);
   }
 
   console.log(`🎵 About to process melody: "${originalMelodyString}", isFallback: ${isFallbackMelody}`);
   
+  // Handle empty clock - no melody, just black screen and silence
+  if (!originalMelodyString || originalMelodyString.trim() === "") {
+    console.log(`🎵 Empty clock - silent mode`);
+    melodyState = {
+      notes: [],
+      index: 0,
+      baseTempo: baseTempo,
+      isPlaying: false,
+      startTime: performance.now(),
+      timingMode: parseFloat(colon[0]) || 1.0,
+      type: "single",
+      isFallback: true,
+      isEmpty: true,
+    };
+    parsedMelody = [];
+    sequence = [];
+    // Skip all melody processing
+  } else
   // Process the melody string (same for API-fetched, params, or fallback)
   {
 
@@ -1030,8 +1048,9 @@ function paint({
 }) {
   const syncedDate = clock.time(); // Get time once at the beginning
 
-  // Simple gray background instead of rainbow colors
-  wipe("gray");
+  // Black background for empty clock, gray for active melody
+  const isEmpty = melodyState?.isEmpty || (melodyState?.notes?.length === 0 && !originalMelodyString);
+  wipe(isEmpty ? "black" : "gray");
 
   const availableWidth = screen.width;
   const availableHeight = screen.height;
