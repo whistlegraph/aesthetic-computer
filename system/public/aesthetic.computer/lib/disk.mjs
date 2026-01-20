@@ -216,6 +216,69 @@ let tf; // Active typeface global.
 // Cache for loaded typefaces to avoid recreating them
 const typefaceCache = new Map();
 
+// 🔤 Dev helper: Clear all font caches (call from console: clearFontCaches())
+// This clears typeface instances, advance caches, and forces fonts.mjs to reload
+async function clearFontCaches() {
+  console.log("🔤 Clearing font caches...");
+  
+  // 1. Clear typeface instance cache
+  const clearedTypefaces = typefaceCache.size;
+  for (const [name, typeface] of typefaceCache) {
+    // Clear the advance cache on each typeface
+    if (typeface.advanceCache) {
+      typeface.advanceCache.clear();
+    }
+  }
+  typefaceCache.clear();
+  
+  // 2. Clear IndexedDB glyph cache
+  try {
+    const { clearGlyphCache } = await import("./type.mjs");
+    if (clearGlyphCache) {
+      await clearGlyphCache();
+      console.log("🔤 IndexedDB glyph cache cleared");
+    }
+  } catch (e) {
+    console.log("🔤 IndexedDB cache clear skipped:", e.message);
+  }
+  
+  // 3. Force reimport of fonts.mjs by cache-busting
+  try {
+    const timestamp = Date.now();
+    const fontsModule = await import(`../disks/common/fonts.mjs?t=${timestamp}`);
+    console.log("🔤 fonts.mjs reloaded, MatrixChunky8 * advance:", fontsModule.MatrixChunky8?.advances?.['*']);
+  } catch (e) {
+    console.log("🔤 fonts.mjs reload skipped:", e.message);
+  }
+  
+  console.log(`🔤 Cleared ${clearedTypefaces} typeface(s). Refresh page or load a piece to see changes.`);
+  return true;
+}
+
+// Expose to window for dev console access
+if (typeof window !== "undefined") {
+  window.clearFontCaches = clearFontCaches;
+  
+  // 🔤 Auto-clear font caches in dev mode on page load
+  const isDevMode = location.host === "localhost:8888" || 
+                    location.host === "aesthetic.local:8888" ||
+                    location.host === "local.aesthetic.computer";
+  if (isDevMode) {
+    // Clear IndexedDB glyph cache on dev mode page loads
+    (async () => {
+      try {
+        const { clearGlyphCache } = await import("./type.mjs");
+        if (clearGlyphCache) {
+          await clearGlyphCache();
+          console.log("🔤 Dev mode: IndexedDB glyph cache auto-cleared");
+        }
+      } catch (e) {
+        // Silently ignore if not available yet
+      }
+    })();
+  }
+}
+
 const DEFAULT_TYPEFACE_BLOCK_WIDTH = 6;
 const DEFAULT_TYPEFACE_BLOCK_HEIGHT = 10;
 const HUD_LABEL_TEXT_MARGIN = 0;

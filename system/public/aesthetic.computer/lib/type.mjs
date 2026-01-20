@@ -3270,4 +3270,4 @@ class Prompt {
   }
 }
 
-export { Typeface, TextInput, Prompt };
+export { Typeface, TextInput, Prompt, clearGlyphCache };
