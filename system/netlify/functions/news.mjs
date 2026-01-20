@@ -198,7 +198,7 @@ function renderComment(comment) {
     <div class="news-comment-meta">
       <span>${renderHandle(comment.handle)}</span>
       <span>${formatDate(comment.when)}</span>
-      <form class="news-admin-delete" data-news-action="delete" data-item-type="comment" data-item-id="${commentId}" method="post" action="/api/news/delete" style="display:none;">
+      <form class="news-admin-delete" data-news-action="delete" data-item-type="comment" data-item-id="${commentId}" data-handle="${escapeHtml(comment.handle?.replace('@', '') || '')}" method="post" action="/api/news/delete" style="display:none;">
         <input type="hidden" name="itemType" value="comment" />
         <input type="hidden" name="itemId" value="${commentId}" />
         <button type="submit" class="news-delete-btn" title="Delete comment">
@@ -306,7 +306,7 @@ async function renderItemPage(database, basePath, code) {
           </span>
           <div class="news-item-meta">
             ${hydratedPost.score || 0} points by ${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}
-            <form class="news-admin-delete" data-news-action="delete" data-item-type="post" data-item-id="${hydratedPost.code}" method="post" action="/api/news/delete" style="display:none;">
+            <form class="news-admin-delete" data-news-action="delete" data-item-type="post" data-item-id="${hydratedPost.code}" data-handle="${escapeHtml(hydratedPost.handle?.replace('@', '') || '')}" method="post" action="/api/news/delete" style="display:none;">
               <input type="hidden" name="itemType" value="post" />
               <input type="hidden" name="itemId" value="${hydratedPost.code}" />
               <button type="submit" class="news-delete-btn" title="Delete post">
