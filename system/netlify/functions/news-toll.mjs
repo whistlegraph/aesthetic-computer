@@ -37,7 +37,7 @@ export async function handler(event, context) {
     // 🔔 WEBHOOK: Handle Stripe event
     const secret = dev
       ? process.env.STRIPE_ENDPOINT_DEV_SECRET
-      : process.env.STRIPE_ENDPOINT_NEWS_SECRET; // Set up in Stripe dashboard
+      : process.env.STRIPE_ENDPOINT_SECRET;
     
     let hookEvent;
     try {
