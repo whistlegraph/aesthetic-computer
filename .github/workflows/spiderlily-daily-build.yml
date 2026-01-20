@@ -1,9 +1,9 @@
 name: Spider Lily Daily Build
 
 on:
-  # Run daily at 2 AM UTC (adjust timezone as needed)
-  schedule:
-    - cron: '0 2 * * *'
+  # DISABLED: Requires self-hosted runner
+  # schedule:
+  #   - cron: '0 2 * * *'
   
   # Allow manual trigger from GitHub UI
   workflow_dispatch:

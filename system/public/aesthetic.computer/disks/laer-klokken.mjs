@@ -14,8 +14,12 @@ function boot({ api, wipe, debug, send, hud }) {
   client.connect("clock"); // Connect to 'clock' chat.
   chat.boot(api, client.system); // Use default font
   
+  // � Use MatrixChunky8 (tiny) font for HUD label
+  hud.tinyLabel(true);
   // 📱 Set QR code to appear LEFT of the HUD label (qr-stamp-label mode)
   hud.qr("https://prompt.ac/laer-klokken");
+  // 🏷️ Ensure label shows piece name (not "chat")
+  hud.label("laer-klokken");
 }
 
 function paint($) {
