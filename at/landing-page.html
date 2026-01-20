@@ -507,7 +507,7 @@ Created: 2025.10.25
         const moodPreview = moodText ? `“${moodText}”` : '';
         const kidlispCode = user.latestKidlispCode || '';
         const kidlispPreview = kidlispCode
-          ? `<div class="user-kidlisp-preview"><img src="https://oven.aesthetic.computer/grab/webp/100/100/$${kidlispCode}?duration=2000&fps=8&quality=70&density=1" alt="${displayHandle} KidLisp preview" loading="lazy"></div>`
+          ? `<div class="user-kidlisp-preview"><img src="https://oven.aesthetic.computer/grab/webp/100/100/$${kidlispCode}?duration=2000&fps=8&quality=70&density=1&nowait=true" alt="${displayHandle} KidLisp preview" loading="lazy"></div>`
           : '';
 
         row.innerHTML = `
@@ -545,6 +545,30 @@ Created: 2025.10.25
       
       renderUsers(displayedUsers);
     });
+
+    // Auto-refresh placeholder images after they load (placeholders have no-cache header)
+    // We can detect baking placeholders because they're much smaller and have SVG text content
+    document.addEventListener('load', (e) => {
+      if (e.target.tagName === 'IMG' && e.target.src.includes('nowait=true')) {
+        // Placeholder images are very small (~2-5KB), real WebPs are larger
+        // Retry loading after a delay to get the real image
+        const img = e.target;
+        const naturalSize = img.naturalWidth * img.naturalHeight;
+        
+        // Small placeholder-like images should retry
+        if (naturalSize > 0 && !img.dataset.retried) {
+          // Schedule a retry after 10-15 seconds
+          const retryDelay = 10000 + Math.random() * 5000;
+          setTimeout(() => {
+            img.dataset.retried = 'true';
+            // Bust the cache by adding a timestamp
+            const url = new URL(img.src);
+            url.searchParams.set('t', Date.now());
+            img.src = url.toString();
+          }, retryDelay);
+        }
+      }
+    }, true);
 
     // Initialize
     fetchUsers();

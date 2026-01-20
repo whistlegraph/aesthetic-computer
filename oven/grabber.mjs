@@ -207,6 +207,105 @@ async function processGrabQueue() {
 const activeGrabs = new Map();
 const recentGrabs = [];
 
+// Track in-progress grabs by captureKey for deduplication
+const inProgressByKey = new Map(); // captureKey -> { grabId, piece, format, startTime, queuePosition }
+
+/**
+ * Check if a grab is currently in progress or queued for this captureKey
+ * @param {string} captureKey - The capture key to check
+ * @returns {{ inProgress: boolean, grabId?: string, piece?: string, queuePosition?: number, estimatedWait?: number }}
+ */
+export function getInProgressGrab(captureKey) {
+  // Check activeGrabs for matching captureKey
+  for (const [grabId, grab] of activeGrabs.entries()) {
+    if (grab.captureKey === captureKey) {
+      // Find queue position if queued
+      const queueIndex = grabQueue.findIndex(q => q.metadata?.piece === grab.piece);
+      const queuePosition = queueIndex >= 0 ? queueIndex + 1 : 0;
+      return {
+        inProgress: true,
+        grabId,
+        piece: grab.piece,
+        status: grab.status,
+        queuePosition,
+        estimatedWait: queuePosition > 0 ? estimateWaitTime(queuePosition) : 5000,
+      };
+    }
+  }
+  return { inProgress: false };
+}
+
+/**
+ * Generate a "baking" placeholder image showing queue status
+ * @param {object} options - { width, height, format, piece, queuePosition, estimatedWait }
+ * @returns {Promise<Buffer>} - WebP/PNG image buffer
+ */
+export async function generateBakingPlaceholder(options = {}) {
+  const {
+    width = 200,
+    height = 200,
+    format = 'webp',
+    piece = '?',
+    queuePosition = 0,
+    estimatedWait = 30000,
+  } = options;
+  
+  // Simple gradient background with centered text
+  const bgColor = { r: 30, g: 30, b: 40 }; // Dark blue-gray
+  const accentColor = { r: 255, g: 180, b: 50 }; // Warm yellow/orange
+  
+  // Status text
+  const statusText = queuePosition > 0 
+    ? `#${queuePosition} in queue`
+    : 'baking...';
+  const etaSeconds = Math.ceil(estimatedWait / 1000);
+  const etaText = etaSeconds > 60 
+    ? `~${Math.ceil(etaSeconds / 60)}m`
+    : `~${etaSeconds}s`;
+  
+  // Create SVG with styling
+  const cleanPiece = piece.replace(/^\$/, '').slice(0, 12);
+  const svg = `
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:rgb(${bgColor.r},${bgColor.g},${bgColor.b})"/>
+          <stop offset="100%" style="stop-color:rgb(${bgColor.r + 20},${bgColor.g + 20},${bgColor.b + 30})"/>
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#bg)"/>
+      <text x="50%" y="40%" text-anchor="middle" fill="rgb(${accentColor.r},${accentColor.g},${accentColor.b})" 
+            font-family="monospace" font-size="${Math.max(12, width / 10)}px" font-weight="bold">
+        🔥
+      </text>
+      <text x="50%" y="55%" text-anchor="middle" fill="white" 
+            font-family="monospace" font-size="${Math.max(10, width / 14)}px">
+        ${statusText}
+      </text>
+      <text x="50%" y="70%" text-anchor="middle" fill="rgba(255,255,255,0.6)" 
+            font-family="monospace" font-size="${Math.max(8, width / 18)}px">
+        ${cleanPiece}
+      </text>
+      <text x="50%" y="85%" text-anchor="middle" fill="rgba(${accentColor.r},${accentColor.g},${accentColor.b},0.8)" 
+            font-family="monospace" font-size="${Math.max(8, width / 20)}px">
+        ${etaText}
+      </text>
+    </svg>
+  `;
+  
+  // Convert SVG to image
+  let image = sharp(Buffer.from(svg)).resize(width, height);
+  
+  if (format === 'webp') {
+    return image.webp({ quality: 80 }).toBuffer();
+  } else if (format === 'gif') {
+    // GIF doesn't support as easily, output PNG
+    return image.png().toBuffer();
+  } else {
+    return image.png().toBuffer();
+  }
+}
+
 // Track frozen pieces (pieces that failed due to identical frames)
 const frozenPieces = new Map(); // piece -> { piece, attempts, lastAttempt, firstDetected, error }
 
@@ -1883,10 +1982,14 @@ export async function grabHandler(req, res) {
  * GET handler for convenient URL-based grabbing
  * GET /grab/:format/:width/:height/:piece
  * e.g., /grab/gif/400/400/$roz
+ * 
+ * Query params:
+ *   - duration, fps, density, quality, source, skipCache (standard grab options)
+ *   - nowait=true: Return a placeholder image if grab is in progress/queued instead of waiting
  */
 export async function grabGetHandler(req, res) {
   const { format, width, height, piece } = req.params;
-  const { duration = 12000, fps = 7.5, density = 1, quality = 80, source = 'manual', skipCache = 'false' } = req.query;
+  const { duration = 12000, fps = 7.5, density = 1, quality = 80, source = 'manual', skipCache = 'false', nowait = 'false' } = req.query;
   
   if (!piece) {
     return res.status(400).json({ error: 'Missing piece parameter' });
@@ -1909,6 +2012,45 @@ export async function grabGetHandler(req, res) {
     return res.status(400).json({ error: 'Dimensions must be between 100 and 1000' });
   }
   
+  // Calculate captureKey to check for in-progress grabs
+  const animated = format !== 'png';
+  const parsedDensity = parseFloat(density) || 1;
+  const captureKey = getCaptureKey(piece, w * parsedDensity, h * parsedDensity, format, animated);
+  
+  // If nowait=true, check if there's already a grab in progress for this key
+  if (nowait === 'true' || nowait === true) {
+    const inProgress = getInProgressGrab(captureKey);
+    if (inProgress.inProgress) {
+      console.log(`🔥 Returning baking placeholder for ${piece} (queue: ${inProgress.queuePosition})`);
+      
+      try {
+        const placeholder = await generateBakingPlaceholder({
+          width: w,
+          height: h,
+          format,
+          piece,
+          queuePosition: inProgress.queuePosition,
+          estimatedWait: inProgress.estimatedWait,
+        });
+        
+        const contentTypes = { webp: 'image/webp', gif: 'image/gif', png: 'image/png' };
+        const contentType = contentTypes[format] || 'image/webp';
+        
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', placeholder.length);
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'); // Don't cache placeholders
+        res.setHeader('X-Oven-Status', 'baking');
+        res.setHeader('X-Queue-Position', inProgress.queuePosition || 0);
+        res.setHeader('X-Estimated-Wait', inProgress.estimatedWait || 30000);
+        res.setHeader('X-Grab-Id', inProgress.grabId || '');
+        return res.send(placeholder);
+      } catch (placeholderErr) {
+        console.error('Failed to generate placeholder:', placeholderErr.message);
+        // Fall through to normal grab
+      }
+    }
+  }
+  
   try {
     const result = await grabPiece(piece, {
       format,
@@ -1917,7 +2059,7 @@ export async function grabGetHandler(req, res) {
       skipCache: skipCache === 'true' || skipCache === true,
       duration: parseInt(duration),
       fps: parseInt(fps),
-      density: parseFloat(density) || 1,
+      density: parsedDensity,
       quality: parseInt(quality) || 80,
       source: source || 'manual',
     });
