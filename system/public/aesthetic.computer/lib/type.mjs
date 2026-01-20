@@ -237,118 +237,8 @@ class Typeface {
 
   constructor(name = "font_1") {
     this.name = name;
-    
-    // Special handling for MatrixChunky8 if not found in fonts object
-    if (name === "MatrixChunky8" && !fonts[name]) {
-      this.data = {
-        glyphHeight: 8,
-        baseline: 0,
-        bdfFont: "MatrixChunky8",
-        proportional: true,
-        advances: {
-          ' ': 2,
-          '!': 2,
-          '"': 4,
-          '#': 6,
-          '$': 4,
-          '%': 4,
-          '&': 5,
-          '\'': 2,
-          '(': 7,
-          ')': 4,
-          '*': 5,
-          '+': 4,
-          ',': 2,
-          '-': 4,
-          '.': 2,
-          '/': 4,
-          '0': 4,
-          '1': 4,
-          '2': 4,
-          '3': 4,
-          '4': 4,
-          '5': 4,
-          '6': 4,
-          '7': 4,
-          '8': 4,
-          '9': 4,
-          ':': 2,
-          ';': 2,
-          '<': 4,
-          '=': 4,
-          '>': 4,
-          '?': 4,
-          '@': 5,
-          'A': 4,
-          'B': 4,
-          'C': 4,
-          'D': 4,
-          'E': 4,
-          'F': 4,
-          'G': 5,
-          'H': 5,
-          'I': 4,
-          'J': 4,
-          'K': 4,
-          'L': 4,
-          'M': 6,
-          'N': 5,
-          'O': 5,
-          'P': 4,
-          'Q': 5,
-          'R': 4,
-          'S': 4,
-          'T': 4,
-          'U': 4,
-          'V': 4,
-          'W': 6,
-          'X': 4,
-          'Y': 4,
-          'Z': 4,
-          '[': 4,
-          "\\": 4,
-          ']': 4,
-          '^': 4,
-          '_': 4,
-          '`': 3,
-          'a': 4,
-          'b': 4,
-          'c': 4,
-          'd': 4,
-          'e': 4,
-          'f': 4,
-          'g': 4,
-          'h': 4,
-          'i': 4,
-          'j': 4,
-          'k': 4,
-          'l': 4,
-          'm': 6,
-          'n': 4,
-          'o': 4,
-          'p': 4,
-          'q': 4,
-          'r': 4,
-          's': 4,
-          't': 4,
-          'u': 4,
-          'v': 4,
-          'w': 6,
-          'x': 4,
-          'y': 4,
-          'z': 4,
-          '{': 4,
-          '|': 2,
-          '}': 4,
-          '~': 4
-        },
-        bdfOverrides: {
-          'y': { y: 2 } // Push descender down by 2 pixels (positive = lower on screen)
-        }
-      };
-    } else {
-      this.data = fonts[name] || fonts.font_1;
-    }
+    // Use fonts.mjs as the single source of truth for all font data
+    this.data = fonts[name] || fonts.font_1;
   }
 
   // Return only the character index from the data.
@@ -983,15 +873,22 @@ class Typeface {
     let advance;
     let glyph;
 
+    // Check fonts.mjs advances FIRST (highest priority - allows per-font overrides)
+    if (this.data?.advances && this.data.advances[char] !== undefined) {
+      advance = this.data.advances[char];
+    }
+
     // Safely access glyph (may trigger Proxy fetch which could fail)
-    try {
-      glyph = this.glyphs?.[char];
-      if (glyph && typeof glyph.advance === "number") {
-        advance = glyph.advance;
+    if (advance === undefined) {
+      try {
+        glyph = this.glyphs?.[char];
+        if (glyph && typeof glyph.advance === "number") {
+          advance = glyph.advance;
+        }
+      } catch (err) {
+        // Silently handle glyph access errors
+        // Will fall through to other fallback methods
       }
-    } catch (err) {
-      // Silently handle glyph access errors
-      // Will fall through to other fallback methods
     }
 
     if (advance === undefined) {
@@ -999,10 +896,6 @@ class Typeface {
       if (glyphData && typeof glyphData.advance === "number") {
         advance = glyphData.advance;
       }
-    }
-
-    if (advance === undefined && this.data?.advances) {
-      advance = this.data.advances[char];
     }
 
     if (advance === undefined && glyph?.dwidth?.x) {

@@ -254,25 +254,22 @@
       border-radius: 0 6px 6px 0;
     }
 
-    /* Volume control - right side slider */
+    /* Volume control - horizontal slider at bottom right, outside the right flip tab zone */
     .volume-control {
       position: absolute;
-      right: -46px;
-      top: 50%;
-      transform: translateY(-50%);
+      right: 8px;
+      bottom: -48px;
       z-index: 240;
-      width: 36px;
-      height: 180px;
+      height: 28px;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 8px 6px;
-      border-radius: 10px;
+      gap: 8px;
+      padding: 4px 12px;
+      border-radius: 14px;
       background: rgba(0, 0, 0, 0.35);
       border: 1px solid var(--ac-border);
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
       backdrop-filter: blur(6px);
     }
 
@@ -288,45 +285,46 @@
     }
 
     #volume-slider {
-      -webkit-appearance: slider-vertical;
-      appearance: slider-vertical;
-      writing-mode: bt-lr;
-      width: 12px;
-      height: 120px;
-      background: transparent;
+      -webkit-appearance: none;
+      appearance: none;
+      width: 80px;
+      height: 4px;
+      background: var(--ac-border-solid);
+      border-radius: 2px;
       cursor: pointer;
     }
 
     #volume-slider::-webkit-slider-runnable-track {
-      width: 4px;
-      background: var(--ac-border-solid);
-      border-radius: 6px;
+      height: 4px;
+      background: transparent;
+      border-radius: 2px;
     }
 
     #volume-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 14px;
-      height: 14px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       background: var(--ac-accent);
       border: 1px solid var(--ac-border-active);
-      box-shadow: 0 0 10px var(--ac-accent-glow);
+      box-shadow: 0 0 8px var(--ac-accent-glow);
+      margin-top: -4px;
     }
 
     #volume-slider::-moz-range-track {
-      width: 4px;
-      background: var(--ac-border-solid);
-      border-radius: 6px;
+      height: 4px;
+      background: transparent;
+      border-radius: 2px;
     }
 
     #volume-slider::-moz-range-thumb {
-      width: 14px;
-      height: 14px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       background: var(--ac-accent);
       border: 1px solid var(--ac-border-active);
-      box-shadow: 0 0 10px var(--ac-accent-glow);
+      box-shadow: 0 0 8px var(--ac-accent-glow);
     }
     
     /* Mode tags - flush against bottom of card border */
