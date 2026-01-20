@@ -42,8 +42,21 @@ function renderHandle(handle) {
 }
 
 function parseRoute(event) {
-  const route = event.queryStringParameters?.path || "";
-  const clean = route.replace(/^\/+/, "").replace(/\/+$/, "");
+  // Extract route from path, stripping the function prefix
+  let path = event.path || "";
+  // Handle both direct calls and routed calls via /news.aesthetic.computer/ prefix
+  const prefixes = ["/.netlify/functions/news", "/news.aesthetic.computer"];
+  for (const prefix of prefixes) {
+    if (path.startsWith(prefix)) {
+      path = path.slice(prefix.length);
+      break;
+    }
+  }
+  // Also check queryStringParameters for backwards compatibility
+  if (!path && event.queryStringParameters?.path) {
+    path = event.queryStringParameters.path;
+  }
+  const clean = path.replace(/^\/+/, "").replace(/\/+$/, "");
   return clean;
 }
 

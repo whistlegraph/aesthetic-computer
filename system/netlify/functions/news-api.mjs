@@ -41,7 +41,20 @@ function redirect(location) {
 }
 
 function parseRoute(event) {
-  return event.queryStringParameters?.path || "";
+  // Extract route from path, stripping the function prefix
+  let path = event.path || "";
+  const prefixes = ["/.netlify/functions/news-api", "/api/news"];
+  for (const prefix of prefixes) {
+    if (path.startsWith(prefix)) {
+      path = path.slice(prefix.length);
+      break;
+    }
+  }
+  // Also check queryStringParameters for backwards compatibility
+  if (!path && event.queryStringParameters?.path) {
+    path = event.queryStringParameters.path;
+  }
+  return path.replace(/^\/+/, "").replace(/\/+$/, "");
 }
 
 async function ensureIndexes(posts, comments, votes) {
