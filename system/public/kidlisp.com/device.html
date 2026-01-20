@@ -59,6 +59,32 @@
       color: rgb(92, 205, 155);
     }
     
+    /* Debug log display */
+    #boot-log {
+      margin-top: 20px;
+      max-width: 90%;
+      max-height: 40vh;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+      text-align: left;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    
+    #boot-log .log-entry {
+      margin: 2px 0;
+    }
+    
+    #boot-log .log-error {
+      color: rgb(255, 100, 100);
+    }
+    
+    #boot-log .log-warn {
+      color: rgb(255, 200, 100);
+    }
+
     /* Error display */
     #error-screen {
       display: none;
@@ -90,6 +116,7 @@
       Loading...<br>
       <span class="mode" id="boot-mode"></span>
     </div>
+    <div id="boot-log"></div>
   </div>
   
   <div id="error-screen">
@@ -118,14 +145,27 @@
     const iframe = document.getElementById('display-iframe');
     const bootScreen = document.getElementById('boot-screen');
     const bootMode = document.getElementById('boot-mode');
+    const bootLog = document.getElementById('boot-log');
     const errorScreen = document.getElementById('error-screen');
     const errorText = document.getElementById('error-text');
+    
+    // Boot screen logging
+    function addLog(msg, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry' + (type !== 'info' ? ` log-${type}` : '');
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      bootLog.appendChild(entry);
+      bootLog.scrollTop = bootLog.scrollHeight;
+    }
     
     // Determine display mode and URL
     const dev = hostname === 'localhost' || hostname === 'local.aesthetic.computer';
     const aestheticUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
     
-    const logDevice = (...args) => console.log('📺 DEVICE:', ...args);
+    const logDevice = (...args) => {
+      console.log('📺 DEVICE:', ...args);
+      addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
+    };
     
     // Parse codeId from path:
     // device.kidlisp.com/codeId
@@ -194,10 +234,43 @@
       // Hide boot screen when iframe loads
       iframe.addEventListener('load', () => {
         logDevice('iframe loaded');
-        setTimeout(() => {
-          bootScreen.classList.add('hidden');
-        }, 300);
+        // Don't hide boot screen automatically - wait for AC to signal ready
       });
+      
+      // Listen for iframe errors
+      iframe.addEventListener('error', (e) => {
+        addLog(`iframe error: ${e.message || 'unknown'}`, 'error');
+      });
+      
+      // Listen for messages from AC iframe
+      window.addEventListener('message', (event) => {
+        const data = event.data;
+        if (!data) return;
+        
+        // Log all messages for debugging
+        if (typeof data === 'object') {
+          if (data.type) {
+            addLog(`msg: ${data.type}`);
+          }
+          // Hide boot screen when AC signals ready
+          if (data.type === 'ac-ready' || data.type === 'disk-loaded') {
+            logDevice('AC ready, hiding boot screen');
+            setTimeout(() => bootScreen.classList.add('hidden'), 300);
+          }
+          // Show errors
+          if (data.type === 'error' || data.error) {
+            addLog(`AC error: ${data.error || data.message || JSON.stringify(data)}`, 'error');
+          }
+        }
+      });
+      
+      // Fallback: hide boot screen after 10s regardless
+      setTimeout(() => {
+        if (!bootScreen.classList.contains('hidden')) {
+          addLog('timeout - hiding boot screen', 'warn');
+          bootScreen.classList.add('hidden');
+        }
+      }, 10000);
     }
     
     // Start
