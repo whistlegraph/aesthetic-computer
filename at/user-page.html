@@ -1606,7 +1606,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       const previewCode = value.code ? value.code.replace(/[^a-zA-Z0-9_-]/g, '') : '';
       const kidlispPreviewHtml = previewCode
         ? `<a href="https://kidlisp.com/$${previewCode}" target="_blank" rel="noreferrer" class="kidlisp-preview-card">
-            <img class="kidlisp-webp" src="https://oven.aesthetic.computer/grab/webp/320/320/$${previewCode}?duration=4000&fps=8&quality=80&density=1" alt="KidLisp preview" loading="lazy" />
+            <img class="kidlisp-webp" src="https://oven.aesthetic.computer/grab/webp/200/200/$${previewCode}?duration=4000&fps=8&quality=80&density=1" alt="KidLisp preview" loading="lazy" />
             <div class="kidlisp-preview-overlay" data-kidlisp-code="${previewCode}">
               <div class="kidlisp-preview-code">${value.source ? value.source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''}</div>
               <div class="kidlisp-preview-qr">
