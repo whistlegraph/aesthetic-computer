@@ -218,7 +218,7 @@ export const MatrixChunky8 = {
   },
   // BDF overrides for character positioning adjustments
   bdfOverrides: {
-    '*': { x: 1 } // Add a leading space before star to avoid collisions
+    // Star advance width (6) handles right-side spacing
   }
 };
 

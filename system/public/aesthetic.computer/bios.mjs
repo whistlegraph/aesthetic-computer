@@ -626,6 +626,41 @@ window.acDISK_SEND = function (message) {
 };
 
 // 🔊 Master volume control (for desktop app sliders, etc.)
+// NOTE: These must be at module scope so window.AC.setMasterVolume works before boot()
+let masterVolume = 1;
+let speakerProcessorNode = null; // Will be set by boot()
+let backgroundMusicEl = null; // Will be set by boot()
+let backgroundMusicBaseVolume = 1;
+let streamAudio = {}; // Will be populated by boot()
+
+function clampVolume(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 1;
+  return Math.max(0, Math.min(1, numeric));
+}
+
+function applyMasterVolume(nextValue) {
+  masterVolume = clampVolume(nextValue);
+
+  if (speakerProcessorNode?.port) {
+    speakerProcessorNode.port.postMessage({ type: "volume", value: masterVolume });
+  }
+
+  if (backgroundMusicEl) {
+    backgroundMusicEl.volume = backgroundMusicBaseVolume * masterVolume;
+  }
+
+  for (const id in streamAudio) {
+    const stream = streamAudio[id];
+    if (stream?.audio) {
+      const base = Number.isFinite(stream.baseVolume) ? stream.baseVolume : 1;
+      stream.audio.volume = base * masterVolume;
+    }
+  }
+
+  return masterVolume;
+}
+
 window.AC = window.AC || {};
 window.AC.setMasterVolume = (value) => applyMasterVolume(value);
 window.AC.getMasterVolume = () => masterVolume;
@@ -2529,7 +2564,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const sfxPlaying = {}; // Sound sources that are currently playing.
   const sfxLoaded = {}; // Sound sources that have been buffered and loaded.
   const sfxCompletionCallbacks = {}; // Completion callbacks for sound effects.
-  const streamAudio = {}; // HTML5 Audio elements for streaming audio (e.g., radio).
+  // NOTE: streamAudio is now at module scope for master volume control
 
   // const sfX // ...
 
@@ -2559,39 +2594,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     sfxStreamGain,
     micStreamGain,
     micGainNode,
-    speakerGain,
-    speakerProcessorNode;
+    speakerGain;
 
-  let masterVolume = 1;
-  let backgroundMusicBaseVolume = 1;
-
-  function clampVolume(value) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return 1;
-    return Math.max(0, Math.min(1, numeric));
-  }
-
-  function applyMasterVolume(nextValue) {
-    masterVolume = clampVolume(nextValue);
-
-    if (speakerProcessorNode?.port) {
-      speakerProcessorNode.port.postMessage({ type: "volume", value: masterVolume });
-    }
-
-    if (backgroundMusicEl) {
-      backgroundMusicEl.volume = backgroundMusicBaseVolume * masterVolume;
-    }
-
-    for (const id in streamAudio) {
-      const stream = streamAudio[id];
-      if (stream?.audio) {
-        const base = Number.isFinite(stream.baseVolume) ? stream.baseVolume : 1;
-        stream.audio.volume = base * masterVolume;
-      }
-    }
-
-    return masterVolume;
-  }
+  // NOTE: speakerProcessorNode, masterVolume, backgroundMusicBaseVolume, streamAudio,
+  // clampVolume, and applyMasterVolume are now at module scope for window.AC.setMasterVolume
 
   let requestMicrophoneAmplitude,
     requestMicrophoneWaveform,
