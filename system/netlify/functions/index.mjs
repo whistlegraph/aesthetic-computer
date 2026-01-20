@@ -267,36 +267,12 @@ async function fun(event, context) {
     );
   }
 
-  // Handle *xxx clock shortcode - fetch melody and redirect to clock piece
+  // Handle *xxx clock shortcode - serve page directly, let client fetch melody
+  // The client-side disk.mjs normalizes *code to clock piece and preserves the URL
   if (slug.startsWith("*") && slug.length > 1 && !slug.includes("~")) {
     const code = slug.slice(1); // Remove * prefix
-    console.log(`[clock] Looking up clock shortcode: ${code}`);
-    
-    try {
-      const baseUrl = dev ? "https://localhost:8888" : "https://aesthetic.computer";
-      const { got } = await import("got");
-      const response = await got(`${baseUrl}/api/store-clock?code=${encodeURIComponent(code)}`, {
-        https: { rejectUnauthorized: false },
-        timeout: { request: 5000 },
-      }).json();
-      
-      if (response.source) {
-        // Redirect to clock piece with the melody
-        const encodedMelody = encodeURIComponent(response.source);
-        console.log(`[clock] Found melody for ${code}, redirecting to clock~${response.source}`);
-        return respond(
-          302,
-          `<a href="/clock~${encodedMelody}">Redirecting to /clock~${encodedMelody}</a>`,
-          {
-            "Content-Type": "text/html",
-            Location: `/clock~${encodedMelody}`,
-          },
-        );
-      }
-    } catch (err) {
-      console.log(`[clock] Clock shortcode lookup failed for ${code}:`, err.message);
-      // Fall through to normal piece loading (will show 404)
-    }
+    console.log(`[clock] Serving clock shortcode: *${code} (client will fetch melody)`);
+    // Fall through to normal page rendering - client handles the rest
   }
 
   // Handle permahandle URLs (e.g., /ac25namuc → /@jeffrey)
