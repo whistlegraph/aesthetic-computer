@@ -149,6 +149,7 @@
     const dev = window.location.hostname === 'localhost' || 
                 window.location.hostname === 'local.aesthetic.computer';
     const aestheticUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+    const logPj = (...args) => console.log('🧩 PJ-WINDOW:', ...args);
     
     // Display channel ID
     if (channelId) {
@@ -157,6 +158,7 @@
     } else {
       bootChannel.textContent = 'No channel specified';
     }
+    logPj('init', { hostname: window.location.hostname, pathname, channelId, dev, aestheticUrl });
     
     // State
     let iframeReady = false;
@@ -164,12 +166,14 @@
     
     // Initialize iframe with kidlisp piece
     iframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true&popout=true&t=${Date.now()}`;
+    logPj('iframe src', { src: iframe.src });
     
     // Wait for iframe to be ready
     iframe.addEventListener('load', () => {
       console.log('Iframe loaded');
       setTimeout(() => {
         iframeReady = true;
+        logPj('iframe ready', { hasPending: !!pendingCode, hasInitial: !!initialCode });
         
         // If we have pending code, send it now
         if (pendingCode) {
@@ -189,6 +193,7 @@
     function sendCodeToIframe(code, isSlide = false) {
       if (!iframeReady) {
         pendingCode = code;
+        logPj('queue code (iframe not ready)', { isSlide, length: code?.length });
         return;
       }
       
@@ -202,6 +207,7 @@
         createCode: false,
         enableTrace: false
       }, aestheticUrl);
+      logPj('postMessage to iframe', { isSlide, length: code?.length });
     }
     
     // Listen for code updates via BroadcastChannel (same-origin only)
@@ -216,6 +222,7 @@
         }
       };
       console.log('BroadcastChannel listener ready:', `kidlisp-channel-${channelId}`);
+      logPj('broadcast channel ready', { channelId });
     }
     
     // Session server connection - prefers production, falls back to localhost
@@ -226,6 +233,7 @@
     function connectToSessionServer(forceLocal = false) {
       const url = forceLocal ? LOCAL_URL : PROD_URL;
       console.log('Connecting to session server:', url);
+      logPj('connect websocket', { url, forceLocal, channelId });
       
       try {
         sessionWs = new WebSocket(url);
@@ -251,6 +259,7 @@
             content: channelId
           }));
           console.log('Subscribed to code channel:', channelId);
+          logPj('subscribed channel', { channelId, forceLocal });
         }
       };
       

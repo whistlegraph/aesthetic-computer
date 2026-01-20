@@ -19854,6 +19854,7 @@
     let codeChannelId = null;
     let isVSCodePopout = false; // Track if pop-out was opened via VS Code (external browser)
     let isBroadcasting = false; // Track if actively broadcasting (even if popup blocked)
+    const logPj = (...args) => console.log('🧩 PJ:', ...args);
     
     // PJ WebSocket - prefers production, falls back to localhost
     // This allows localhost development to broadcast to pj.kidlisp.com viewers
@@ -19868,6 +19869,7 @@
       
       const url = forceLocal ? PJ_LOCAL_URL : PJ_PROD_URL;
       pjIsProduction = !forceLocal;
+      logPj('connect websocket', { url, forceLocal, pjIsProduction, codeChannelId });
       
       try {
         pjWs = new WebSocket(url);
@@ -19888,6 +19890,7 @@
         };
         pjWs.onerror = () => {
           pjWs?.close();
+          logPj('websocket error', { forceLocal, pjIsProduction });
           // If production failed, try localhost
           if (!forceLocal) {
             log.socket.warn('Production PJ server unreachable, trying localhost...');
@@ -19954,6 +19957,7 @@
         hasActivePjWindow,
         previewIframeContainer: !!previewIframeContainer
       });
+      logPj('display', { codeChannelId, isVSCodePopout, isBroadcasting, hasActivePjWindow, pjIsProduction });
       
       if (hasActivePjWindow) {
         console.log('📺 Adding popped-out class to previewIframeContainer');
@@ -20015,6 +20019,7 @@
     
     // Subscribe to code channel via production session server (for PJ broadcasting)
     function subscribeToCodeChannel(channelId) {
+      logPj('subscribe channel', { channelId });
       // Ensure PJ WebSocket is connected to production
       connectPjWebSocket();
       
@@ -20039,6 +20044,7 @@
     // Broadcast code to channel subscribers (only when PJ is active)
     function broadcastCodeToChannel(code) {
       if (!codeChannelId || !hasActivePjSession()) return;
+      logPj('broadcast code', { codeChannelId, length: code?.length, pjIsProduction });
       
       // Broadcast via BroadcastChannel for same-origin windows
       if (window.BroadcastChannel) {
@@ -20086,6 +20092,7 @@
     // Broadcast slide update to channel (optimized for low latency)
     function broadcastSlideToChannel(code) {
       if (!codeChannelId || !hasActivePjSession()) return;
+      logPj('broadcast slide', { codeChannelId, length: code?.length, pjIsProduction });
       
       // Direct postMessage to pop-out window (fastest - same origin)
       if (popoutWindow && !popoutWindow.closed) {
@@ -20132,6 +20139,7 @@
         codeChannelId = generateCodeChannelId();
         localStorage.setItem('kidlisp-code-channel', codeChannelId);
         log.socket.log(`Generated code channel: ${codeChannelId}`);
+        logPj('generated channel', { codeChannelId });
       }
       
       // Subscribe to the channel
@@ -20142,6 +20150,7 @@
       const pjUrl = dev 
         ? `${window.location.origin}/pj.kidlisp.com/${codeChannelId}`
         : `https://pj.kidlisp.com/${codeChannelId}`;
+      logPj('open popout', { pjUrl, dev, codeChannelId, isInVSCode: isInVSCode() });
       
       // In VS Code, we can't use window.open - open in external browser instead
       if (isInVSCode()) {
@@ -20160,6 +20169,7 @@
         // Show toast with channel info
         showToast(`Casting to PJ • Channel: ${codeChannelId}`, 'success');
         log.socket.log(`Opened PJ in external browser with channel: ${codeChannelId}`);
+        logPj('vscode popout opened', { codeChannelId, pjUrl });
         
         // In VS Code mode, the external browser window will receive updates via session server WebSocket
         return;
@@ -20180,6 +20190,7 @@
       // Mark as broadcasting regardless of popup success (user can still share URL)
       isBroadcasting = true;
       popoutBtn.classList.add('active');
+      logPj('broadcasting enabled', { codeChannelId, popoutBlocked: !popoutWindow });
       
       if (popoutWindow) {
         popoutBtn.title = 'Broadcasting - click to focus';
@@ -20216,12 +20227,14 @@
         showToast(`Pop-out opened • Channel: ${codeChannelId}`, 'success');
       } else {
         showToast('Pop-up blocked! Please allow pop-ups for this site.', 'error');
+        logPj('popup blocked', { codeChannelId, pjUrl });
       }
     }
     
     // Focus or open pop-out window
     popoutBtn?.addEventListener('click', (e) => {
       e.stopPropagation(); // Don't trigger platform dropdown
+      logPj('popout click', { isVSCodePopout, isBroadcasting, codeChannelId, hasWindow: !!popoutWindow });
       
       // VS Code mode - toggle on/off since we can't track external window
       if (isVSCodePopout) {
@@ -20234,6 +20247,7 @@
         popoutBtn.title = 'Broadcast to PJ';
         updateCodeChannelDisplay();
         showToast('Broadcast channel closed', 'info');
+        logPj('vscode popout closed', { codeChannelId });
         return;
       }
       
@@ -20246,6 +20260,7 @@
         popoutBtn.title = 'Broadcast to PJ';
         updateCodeChannelDisplay();
         showToast('Broadcast stopped', 'info');
+        logPj('broadcast stopped (no window)', { hadWindow: !!popoutWindow, wasClosed: popoutWindow?.closed });
         return;
       }
       
@@ -20314,6 +20329,7 @@
       updateCodeChannelDisplay();
       
       log.socket.log(`Restored code channel: ${savedChannel}`);
+      logPj('restored channel', { savedChannel, isInVSCode: isInVSCode() });
       
       // Show subtle reconnection toast
       setTimeout(() => {
