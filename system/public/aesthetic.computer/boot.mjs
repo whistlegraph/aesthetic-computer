@@ -211,7 +211,10 @@ async function fetchBootMoodOfDay() {
     });
     if (!res.ok) return;
     const data = await res.json();
-    if (data?.mood) window.acBootCanvas.motd = data.mood;
+    if (data?.mood) {
+      window.acBootCanvas.motd = data.mood;
+      if (data.handle) window.acBootCanvas.motdHandle = data.handle;
+    }
   } catch {
     // ignore boot mood errors
   }
