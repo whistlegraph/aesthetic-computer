@@ -247,7 +247,7 @@ let lastMotdTime = 0; // Timestamp for MOTD animation
 let motdCandidates = [];
 let motdCandidateIndex = 0;
 let lastMotdCycleTime = 0;
-const MOTD_CYCLE_MS = 4000;
+const MOTD_CYCLE_MS = 8000;
 let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
 let versionInfo = null; // { deployed, latest, status, behindBy } - git commit status
 let versionCommit = null; // Current commit hash for the commit button
@@ -6680,7 +6680,7 @@ function paint($) {
           const motdLineHeight = 10;
           const motdLines = Math.ceil((motd.length * motdCharWidth) / motdMaxWidth);
           const bylineY = (writePos.y || Math.floor(motdY)) + (motdLines * motdLineHeight) + 4;
-          const bylinePrefix = "moods of the day by ";
+          const bylinePrefix = "mood of the day from ";
           const bylineText = `${bylinePrefix}${motdByHandle}`;
           const bylineTextWidth = $.text.box(bylineText, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
           const bylineBaseX = writePos.x !== undefined
