@@ -2233,6 +2233,9 @@ class KidLisp {
 
     // Reset deferred commands state
     this.postEmbedCommands = [];
+    
+    // 🎯 Reset post-composite commands (zoom/scroll/contrast that should affect the final composite)
+    this.postCompositeCommands = [];
 
     // Reset persistence flag
     this.preserveLayer0NextFrame = false;
@@ -3748,6 +3751,7 @@ class KidLisp {
         try {
           // Set up command queue to defer final drawing commands
           this.postEmbedCommands = [];
+          this.postCompositeCommands = []; // 🎯 Reset post-composite commands at frame start
           this.inEmbedPhase = false;
 
           // Scan for $codes and pre-mark them as loading for syntax highlighting
@@ -4090,6 +4094,23 @@ class KidLisp {
             } else {
               console.warn(`⚠️ Skipping burnedBuffer paste due to dimension mismatch: burned=${this.burnedBuffer.width}x${this.burnedBuffer.height}, screen=${screen.width}x${screen.height}`);
             }
+            
+            // 🎯 FIX: Also paste embedded layers on top of burned buffer
+            if (this.embeddedLayers) {
+              for (let i = 0, len = this.embeddedLayers.length; i < len; i++) {
+                const embeddedLayer = this.embeddedLayers[i];
+                if (embeddedLayer.buffer && embeddedLayer.buffer.pixels) {
+                  try {
+                    const alpha = typeof embeddedLayer.alpha === "number" ? embeddedLayer.alpha : 255;
+                    const destX = typeof embeddedLayer.x === "number" ? Math.round(embeddedLayer.x) : 0;
+                    const destY = typeof embeddedLayer.y === "number" ? Math.round(embeddedLayer.y) : 0;
+                    this.pasteWithAlpha($, embeddedLayer.buffer, destX, destY, alpha);
+                  } catch (error) {
+                    console.warn(`⚠️ Error pasting embedded layer ${i} (burn path):`, error.message, error.stack);
+                  }
+                }
+              }
+            }
           } else {
             // 🐌 SLOW PATH: No burn - composite all layers individually
             
@@ -4153,6 +4174,19 @@ class KidLisp {
                 }
               }
             }
+          }
+
+          // 🎯 STEP 4: Execute post-composite commands (zoom/scroll/contrast that should affect entire composite)
+          // These run AFTER embedded layers are composited, so they affect the full result
+          if (this.postCompositeCommands && this.postCompositeCommands.length > 0) {
+            this.postCompositeCommands.forEach((cmd, i) => {
+              try {
+                cmd.func();
+              } catch (err) {
+                console.error(`Error executing post-composite command ${cmd.name}:`, err);
+              }
+            });
+            this.postCompositeCommands = [];
           }
 
           // 🎯 Render performance HUD overlay (always rendered last)
@@ -6284,7 +6318,22 @@ class KidLisp {
 
         //console.log(`🖱️ SCROLL processed args: dx=${dx}, dy=${dy}`);
 
-        // 🍞 Scroll operates on whatever buffer is currently active (layer0 or bake buffer)
+        // � CRITICAL FIX: When embedded layers exist, defer scroll to post-composite
+        // This ensures scroll affects the ENTIRE composite (including embedded layers)
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
+          this.postCompositeCommands.push({
+            name: 'scroll',
+            func: () => {
+              if (typeof api.scroll === 'function') {
+                api.scroll(dx, dy);
+              }
+            },
+            args: [dx, dy]
+          });
+          return;
+        }
+
+        // �🍞 Scroll operates on whatever buffer is currently active (layer0 or bake buffer)
         // Scroll operates on the current drawing buffer (layer0 or bake layer)
         // This allows effects like scrolling accumulated content
         
@@ -6296,10 +6345,9 @@ class KidLisp {
         // Request persistence for next frame to allow trails
         this.preserveLayer0NextFrame = true;
 
-        // Defer spin execution if embedded layers exist and we're not in embed phase
-        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
-          //console.log("🎡 Deferring spin command until after embedded layers");
-          this.postEmbedCommands.push({
+        // 🎯 CRITICAL FIX: When embedded layers exist, defer spin to post-composite
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
+          this.postCompositeCommands.push({
             name: 'spin',
             func: () => api.spin(...args),
             args
@@ -6315,10 +6363,9 @@ class KidLisp {
         // Request persistence for next frame to allow trails
         this.preserveLayer0NextFrame = true;
 
-        // Defer smoothspin execution if embedded layers exist and we're not in embed phase
-        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
-          console.log("🎡 Deferring smoothspin command until after embedded layers");
-          this.postEmbedCommands.push({
+        // 🎯 CRITICAL FIX: When embedded layers exist, defer smoothspin to post-composite
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
+          this.postCompositeCommands.push({
             name: 'smoothspin',
             func: () => api.smoothSpin(...args),
             args
@@ -6346,10 +6393,11 @@ class KidLisp {
           return;
         }
 
-        // Only defer zoom execution if we're in the main program with embedded layers
-        // BUT allow immediate execution if we're already inside an embedded layer
+        // 🎯 CRITICAL FIX: When embedded layers exist, defer zoom to post-composite
+        // This ensures zoom affects the ENTIRE composite (including embedded layers)
+        // Not just layer0 or the burn buffer
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
-          this.postEmbedCommands.push({
+          this.postCompositeCommands.push({
             name: 'zoom',
             func: () => {
               api.zoom(...args);
@@ -6376,17 +6424,12 @@ class KidLisp {
           return;
         }
 
-        // console.log(`🌪️ Suck function called with args:`, args);
-        // console.log(`🌪️ Embedded layers length:`, this.embeddedLayers?.length);
-        // console.log(`🌪️ In embed phase:`, this.inEmbedPhase);
-
-        // Defer suck execution if embedded layers exist and we're not in embed phase
-        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
-          // console.log(`⏸️ Deferring suck execution due to embedded layers`);
-          this.postEmbedCommands.push({
+        // 🎯 CRITICAL FIX: When embedded layers exist, defer suck to post-composite
+        // This ensures suck affects the ENTIRE composite (including embedded layers)
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
+          this.postCompositeCommands.push({
             name: 'suck',
             func: () => {
-              // console.log(`⏰ Executing deferred suck with args:`, args);
               api.suck(...args);
             },
             args
@@ -6395,7 +6438,6 @@ class KidLisp {
         }
 
         // Execute suck immediately
-        // console.log(`🚀 Executing suck immediately with args:`, args);
         performSuck();
       },
       blur: (api, args = []) => {
@@ -6410,6 +6452,16 @@ class KidLisp {
           if (routed) {
             return;
           }
+          return;
+        }
+
+        // 🎯 CRITICAL FIX: When embedded layers exist, defer blur to post-composite
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
+          this.postCompositeCommands.push({
+            name: 'blur',
+            func: () => api.blur(...args),
+            args
+          });
           return;
         }
 
@@ -6431,6 +6483,16 @@ class KidLisp {
           return;
         }
 
+        // 🎯 CRITICAL FIX: When embedded layers exist, defer sharpen to post-composite
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
+          this.postCompositeCommands.push({
+            name: 'sharpen',
+            func: () => api.sharpen(...args),
+            args
+          });
+          return;
+        }
+
         // Execute sharpen immediately on the current buffer
         api.sharpen(...args);
       },
@@ -6446,6 +6508,16 @@ class KidLisp {
           if (routed) {
             return;
           }
+          return;
+        }
+
+        // 🎯 CRITICAL FIX: When embedded layers exist, defer invert to post-composite
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
+          this.postCompositeCommands.push({
+            name: 'invert',
+            func: () => api.invert(...args),
+            args
+          });
           return;
         }
 
@@ -6466,10 +6538,11 @@ class KidLisp {
           return;
         }
 
-        // Check if we should defer this command to execute after embedded layers are rendered
-        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-          this.postEmbedCommands = this.postEmbedCommands || [];
-          this.postEmbedCommands.push({
+        // 🎯 CRITICAL FIX: When embedded layers exist, defer contrast to post-composite
+        // This ensures contrast affects the ENTIRE composite (including embedded layers)
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
+          this.postCompositeCommands = this.postCompositeCommands || [];
+          this.postCompositeCommands.push({
             name: 'contrast',
             func: () => {
               performContrast();

@@ -96,7 +96,9 @@
       "node_modules/argparse/**/*",
       "node_modules/tiny-typed-emitter/**/*"
     ],
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
     "win": {
+      "artifactName": "${productName}-Setup-${version}.${ext}",
       "target": [
         {
           "target": "nsis",
