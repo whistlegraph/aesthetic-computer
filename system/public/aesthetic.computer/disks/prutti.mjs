@@ -1114,62 +1114,6 @@ function parseTimeString(timeStr) {
 }
 
 // 🎨 Paint
-// 🎨 Paint
-function paint({ wipe, ink, screen, help, text: txt, painting, paste }) {
-  // Light grey background - web 1.0 NY Times style
-  wipe(192, 192, 192); // #C0C0C0
-  
-  // Get lesson data
-  const { title, subtitle, text } = lessons[lesson];
-  
-  // Align with HUD label - 6px from left, lower down
-  const leftMargin = 6;
-  const rightMargin = 6;
-  const contentWidth = screen.width - leftMargin - rightMargin;
-  const titleY = 24; // Lower position to align better with corner label
-  
-  // Colors
-  const titleColor = [240, 240, 240]; // Light light grey for title
-  const titleShadow = [128, 128, 128]; // Medium grey shadow
-  const subtitleColor = [255, 182, 193]; // Light pink (pinkish)
-  const bodyColor = [60, 60, 60]; // Dark grey for body text
-  const bodyShadow = [255, 255, 255]; // White shadow for better visibility
-  
-  // Render title with 1px drop shadow (normal font)
-  // Shadow first
-  ink(...titleShadow).write(title, { x: leftMargin + 1, y: titleY + 1 }, undefined, contentWidth);
-  // Then main text
-  ink(...titleColor).write(title, { x: leftMargin, y: titleY }, undefined, contentWidth);
-  
-  let currentY = titleY + 16; // Start position for subtitle
-  
-  // If there's a subtitle, render it with unifont in pinkish color with shadow
-  if (subtitle && subtitle.length > 0) {
-    const subtitleBuffer = painting(contentWidth, 50, (api) => {
-      // Shadow first
-      api.ink(128, 128, 128).write(subtitle, { x: 1, y: 1 }, undefined, contentWidth, true, "unifont");
-      // Then main text
-      api.ink(...subtitleColor).write(subtitle, { x: 0, y: 0 }, undefined, contentWidth, true, "unifont");
-    });
-    
-    paste(subtitleBuffer, leftMargin, currentY);
-    currentY += 24; // Space after subtitle
-  } else {
-    currentY += 8; // Less space if no subtitle
-  }
-  
-  // Render body text with default font (to support all characters)
-  if (text && text.trim().length > 0) {
-    // Shadow first
-    ink(...bodyShadow).write(text, { x: leftMargin + 1, y: currentY + 1 }, undefined, contentWidth);
-    // Then main text
-    ink(...bodyColor).write(text, { x: leftMargin, y: currentY }, undefined, contentWidth);
-  }
-  
-  return true; // Keep repainting
-}
-
-/* COMMENTED OUT - Original paint function with rendering issues
 function paint({
   wipe,
   ink,
@@ -1228,10 +1172,6 @@ function paint({
     .write(title, titleBox.pos, noiseTint, contentWidth, true, "unifont");
   ink(color).write(text, textBox.pos, 0, contentWidth);
 
-  // Debug: Display image loading status
-  const imageStatus = `Images: ${lessonPaintings.length}/${lessons[lesson].pictures?.length || 0} loaded`;
-  ink("cyan").write(imageStatus, { x: leftMargin, y: screen.height - 20 });
-
   let lastHeight = 0;
   
   // Pre-calculate the target width to avoid recalculating it every frame
@@ -1239,7 +1179,6 @@ function paint({
   
   lessonPaintings.forEach((painting, index) => {
     if (!painting) {
-      console.log("⚠️ PRUTTI: Painting", index + 1, "is", painting, "- skipping");
       return;
     }
     
@@ -1334,25 +1273,14 @@ function paint({
   });
 
   // Progress bar under the corner label - only show if lesson has sounds
-
   if (progress !== undefined && lessons[lesson].sounds?.length > 0) {
     const barHeight = 22; // Increased height to balance with text positioning
-    const cornerLabelY = 12; // Corner label is positioned at top: 12px
     const barY = 0; // Position progress bar at the very top of the screen with no margin
 
-    // Calculate the start position after the corner label - align with first number in timecode
-    const glyphWidth = 6; // Each glyph is 6 pixels wide (typeface blockWidth)
-    const promptStartX = 6; // Prompt starts at x=6
     const cornerLabelText = "prutti"; // The corner label text
     const cornerLabelWidth = cornerLabelText.length * glyphWidth; // Character width
     const lessonNumberWidth = lesson.toString().length * glyphWidth; // Width of lesson number
     const spaceWidth = glyphWidth; // Space character width
-    const timeFirstDigitX =
-      promptStartX +
-      cornerLabelWidth +
-      spaceWidth +
-      lessonNumberWidth +
-      spaceWidth; // Position of first digit of time
     const progressBarStartX = 0; // Start progress bar at the left edge of the screen
     const progressBarWidth = screen.width; // Full width of the screen
 
@@ -1366,13 +1294,6 @@ function paint({
 
     // Draw waveform efficiently if available - with static needle approach
     if (waveformData && waveformData.length > 0) {
-      // Calculate the position for the white needle - between time code and play/pause button
-      const glyphWidth = 6; // Each glyph is 6 pixels wide
-      const promptStartX = 6; // Prompt starts at x=6
-      const cornerLabelText = "prutti"; // The corner label text
-      const cornerLabelWidth = cornerLabelText.length * glyphWidth;
-      const lessonNumberWidth = lesson.toString().length * glyphWidth;
-      const spaceWidth = glyphWidth;
       const timeCodeWidth = 5 * glyphWidth; // "00:00" is 5 characters
       const totalTimeWidth = 7 * glyphWidth; // "/ 00:00" is 7 characters
       const playButtonX = screen.width - 14 - 4; // Play button is 14px + 4px margin from right
@@ -1383,13 +1304,6 @@ function paint({
       
       // Calculate waveform offset so current position aligns with needle
       const waveformOffset = needleX - Math.floor(progress * progressBarWidth);
-      
-      const bottomY = barY + barHeight; // Bottom line for bottom-up waveform
-      const topY = barY; // Top line for top-down waveform
-
-      // Choose colors based on playing state
-      const unplayedColor = isPlaying ? [48, 48, 48, 255] : [32, 32, 64, 255]; // Blue tint when paused
-      const playedColor = isPlaying ? [64, 96, 64, 255] : [64, 64, 96, 255]; // Purple tint when paused
 
       // Draw entire waveform with offset - waveform moves, needle stays static
       for (let x = 0; x < progressBarWidth; x++) {
@@ -1442,19 +1356,10 @@ function paint({
         ink(255, 255, 255, 128).line(trackEndX, barY, trackEndX, barY + barHeight);
         ink(255, 255, 255, 64).line(trackEndX - 1, barY, trackEndX - 1, barY + barHeight);
       }
-    } else {
-      // If no waveform data, just show the subtle background - no additional lines needed
     }
 
     // Draw static needle between time code and play/pause button - always draw this after waveform
     if (progress > 0 && (isPlaying || playbackAttempted)) {
-      // Calculate the position for the white needle - between time code and play/pause button
-      const glyphWidth = 6; // Each glyph is 6 pixels wide
-      const promptStartX = 6; // Prompt starts at x=6
-      const cornerLabelText = "prutti"; // The corner label text
-      const cornerLabelWidth = cornerLabelText.length * glyphWidth;
-      const lessonNumberWidth = lesson.toString().length * glyphWidth;
-      const spaceWidth = glyphWidth;
       const timeCodeWidth = 5 * glyphWidth; // "00:00" is 5 characters
       const totalTimeWidth = 7 * glyphWidth; // "/ 00:00" is 7 characters
       const playButtonX = screen.width - 14 - 4; // Play button is 14px + 4px margin from right
@@ -1475,28 +1380,21 @@ function paint({
         .line(needleX + 1, barY, needleX + 1, barY + barHeight);
     }
 
-    // No visual scrubbing indicators needed - stample-style simplicity
-
     // Paint the scrub button if it exists
     if (scrubButton) {
       scrubButton.paint(() => {
         // Show different colors based on button state
         if (scrubButton.down) {
-          // Draw a subtle highlight when button is pressed
           ink(255, 255, 255, 32).box(scrubButton.box); // Subtle white highlight when pressed
         } else if (scrubButton.over) {
-          // Draw a very subtle overlay when hovering
           ink(255, 255, 255, 16).box(scrubButton.box); // Very subtle white overlay when hovering
         }
       });
     }
 
-    // Update HUD label with current time and draw total time on right - only if actually playing
-    // (Now integrated into HUD label, but keeping debug logs)
+    // Update HUD label with current time and draw total time on right
     if (isBuffering && playbackAttempted) {
       // Show "Buffering..." in place of the "/ --:--" text
-      
-      // Update the HUD label to show just "prutti 1" (no time while buffering)
       if (hud && hud.label) {
         hud.label(`prutti ${lesson + 1}`, undefined, 0);
       }
@@ -1509,11 +1407,11 @@ function paint({
       const bufferingY = cornerLabelY - 4 - 2;
 
       // Draw shadow (offset by 1px down and right)
-      ink(32, 32, 32, 255); // Dark gray shadow
+      ink(32, 32, 32, 255);
       write(bufferingText, bufferingX + 1, bufferingY + 1);
 
       // Draw main text in gray (to match grayed out play button)
-      ink(128, 128, 128, 255); // Gray text when buffering
+      ink(128, 128, 128, 255);
       write(bufferingText, bufferingX, bufferingY);
     } else if (
       actualDuration &&
@@ -1533,7 +1431,6 @@ function paint({
       const totalTimeText = formatTime(actualDuration);
 
       // Update the HUD label to show "prutti 1 0:01" (keeping lesson number)
-      // Show real-time updates when scrubbing
       if (hud && hud.label) {
         const labelText = `prutti ${lesson + 1} ${currentTimeText}`;
         hud.label(labelText, undefined, 0);
@@ -1541,21 +1438,20 @@ function paint({
 
       // Measure actual prompt string width for better positioning
       const promptString = `prutti ${lesson + 1} `;
-      const promptWidth = promptString.length * glyphWidth; // Character width calculation using correct glyph width
+      const promptWidth = promptString.length * glyphWidth;
       const totalTimeX =
         promptStartX +
         promptWidth +
         currentTimeText.length * glyphWidth +
-        glyphWidth; // Position after prompt and current time
-      const totalTimeY = cornerLabelY - 4 - 2; // Match corner label y position, moved up 6px
+        glyphWidth;
+      const totalTimeY = cornerLabelY - 4 - 2;
 
       // Draw shadow (offset by 1px down and right)
-      ink(32, 32, 32, 255); // Dark gray shadow
+      ink(32, 32, 32, 255);
       write(`/ ${totalTimeText}`, totalTimeX + 1, totalTimeY + 1);
 
-      // Draw main text in white - brighter when scrubbing
-      const textAlpha = 255;
-      ink(255, 255, 255, textAlpha);
+      // Draw main text in white
+      ink(255, 255, 255, 255);
       write(`/ ${totalTimeText}`, totalTimeX, totalTimeY);
     } else if (
       requestedTimeString &&
@@ -1564,57 +1460,61 @@ function paint({
     ) {
       // Show requested time only after playback has been attempted
       const currentTimeText = requestedTimeString;
-      const totalTimeText = "-:--"; // Placeholder until duration is known
+      const totalTimeText = "-:--";
 
-      // Update the HUD label to show "prutti 1 1:53" (keeping lesson number)
+      // Update the HUD label
       if (hud && hud.label) {
         hud.label(`prutti ${lesson + 1} ${currentTimeText}`, undefined, 0);
       }
 
       // Measure actual prompt string width for better positioning
       const promptString = `prutti ${lesson + 1} `;
-      const promptWidth = promptString.length * glyphWidth; // Character width calculation using correct glyph width
+      const promptWidth = promptString.length * glyphWidth;
       const totalTimeX =
         promptStartX +
         promptWidth +
         currentTimeText.length * glyphWidth +
-        glyphWidth; // Position after prompt and current time
-      const totalTimeY = cornerLabelY - 4 - 2; // Match corner label y position, moved up 6px
+        glyphWidth;
+      const totalTimeY = cornerLabelY - 4 - 2;
 
       // Draw shadow (offset by 1px down and right)
-      ink(32, 32, 32, 255); // Dark gray shadow
+      ink(32, 32, 32, 255);
       write(`/ ${totalTimeText}`, totalTimeX + 1, totalTimeY + 1);
 
       // Draw main text in white
       ink(255, 255, 255, 255);
       write(`/ ${totalTimeText}`, totalTimeX, totalTimeY);
     } else if (lessons[lesson].sounds?.length > 0) {
-      // Show default time display for lessons with sounds before playback is attempted
-      const currentTimeText = "--:--";
-      const totalTimeText = "--:--";
-
-      // Update the HUD label to show "prutti 1 --:--" (keeping lesson number)
+      // Show "▶ Tap to Play" prompt for lessons with sounds before playback is attempted
+      // Styled similar to r8dio's "Listen Now" blinking animation
+      
+      // Update the HUD label to show just "prutti 1" (no time before playback)
       if (hud && hud.label) {
-        hud.label(`prutti ${lesson + 1} ${currentTimeText}`, undefined, 0);
+        hud.label(`prutti ${lesson + 1}`, undefined, 0);
       }
 
-      // Measure actual prompt string width for better positioning
+      // Measure actual prompt string width for positioning the "Tap to Play" prompt
       const promptString = `prutti ${lesson + 1} `;
-      const promptWidth = promptString.length * glyphWidth; // Character width calculation using correct glyph width
-      const totalTimeX =
-        promptStartX +
-        promptWidth +
-        currentTimeText.length * glyphWidth +
-        glyphWidth; // Position after prompt and current time
-      const totalTimeY = cornerLabelY - 4 - 2; // Match corner label y position, moved up 6px
+      const promptWidth = promptString.length * glyphWidth;
+      const tapToPlayX = promptStartX + promptWidth;
+      const tapToPlayY = cornerLabelY - 4 - 2;
+
+      // Blinking animation (similar to r8dio's "Listen Now" style)
+      const blink = Math.floor((help?.repeat || 0) / 20) % 2;
+      const arrowColor = blink ? [255, 165, 0] : [128, 80, 0]; // Orange blink
+      const textColor = [200, 200, 200]; // Light gray for text
 
       // Draw shadow (offset by 1px down and right)
-      ink(32, 32, 32, 255); // Dark gray shadow
-      write(`/ ${totalTimeText}`, totalTimeX + 1, totalTimeY + 1);
+      ink(0, 0, 0, 255);
+      write("▶ Tap to Play", tapToPlayX + 1, tapToPlayY + 1);
 
-      // Draw main text in white
-      ink(255, 255, 255, 255);
-      write(`/ ${totalTimeText}`, totalTimeX, totalTimeY);
+      // Draw blinking play icon
+      ink(...arrowColor);
+      write("▶", tapToPlayX, tapToPlayY);
+      
+      // Draw "Tap to Play" text
+      ink(...textColor);
+      write(" Tap to Play", tapToPlayX + glyphWidth, tapToPlayY);
     }
   }
 
@@ -1622,8 +1522,8 @@ function paint({
   if (scrollMax > 0) {
     const scrollBarX = 0; // Flush left
     const scrollBarWidth = 4; // 4 pixels wide
-    const scrollBarTop = lessons[lesson].sounds?.length > 0 ? 22 : 0; // Start at bottom of progress bar or top
-    const scrollBarHeight = screen.height - scrollBarTop; // Flush to bottom
+    const scrollBarTop = lessons[lesson].sounds?.length > 0 ? 22 : 0;
+    const scrollBarHeight = screen.height - scrollBarTop;
 
     // Draw scroll bar background
     ink(24, 24, 24, 255).box(
@@ -1634,16 +1534,15 @@ function paint({
     );
 
     // Calculate scroll indicator position and size
-    const totalScrollRange = scrollMax + 6; // Total scroll range from -scrollMax to +6
-    const viewportRatio = scrollBarHeight / (scrollBarHeight + scrollMax); // Ratio of viewport to total content
+    const totalScrollRange = scrollMax + 6;
+    const viewportRatio = scrollBarHeight / (scrollBarHeight + scrollMax);
     const indicatorHeight = Math.max(
       4,
       Math.floor(scrollBarHeight * viewportRatio),
     );
 
-    // Calculate position: scroll ranges from -scrollMax (top) to +6 (bottom)
-    // Reverse the logic so indicator is at top when scroll is at top
-    const scrollProgress = (scroll + scrollMax) / totalScrollRange; // 0 = top, 1 = bottom
+    // Calculate position
+    const scrollProgress = (scroll + scrollMax) / totalScrollRange;
     const indicatorY =
       scrollBarTop +
       Math.floor((1 - scrollProgress) * (scrollBarHeight - indicatorHeight));
@@ -1665,23 +1564,16 @@ function paint({
   scrollMax = Math.max(
     0,
     totalContentHeight - availableHeight + 6 + progressBarHeight,
-  ); // Ensure last image is 6px from bottom
-
-  // Show buffering indicator in top right corner only if user has attempted playback and audio is loading
-  // (Disabled debug logging to reduce console spam)
-  // if (isBuffering && playbackAttempted && lessons[lesson].sounds?.length > 0) {
-  //   console.log("🐛 Paint DEBUG: Showing buffering indicator (in HUD label)");
-  // }
+  );
 
   // Draw pause/play icon in top right corner within progress bar area - always visible if lesson has sounds
-  // Drawing this last so it appears on top of all other elements
   if (lessons[lesson].sounds?.length > 0) {
-    const iconSize = 14; // Smaller size to fit within progress bar height (22px)
-    const iconX = screen.width - iconSize - 4; // 4px margin from right edge
-    const iconY = 4; // 4px from top, centered within progress bar area
+    const iconSize = 14;
+    const iconX = screen.width - iconSize - 4;
+    const iconY = 4;
 
     if (isPlaying && playingSfx && !playingSfx.killed && !isBuffering) {
-      // Draw pause icon - two vertical bars with shadow (only when actually playing and not buffering)
+      // Draw pause icon - two vertical bars with shadow
       const barWidth = 2;
       const barHeight = 8;
       const barSpacing = 2;
@@ -1703,7 +1595,7 @@ function paint({
     } else {
       // Draw play icon - triangle pointing right
       const triangleSize = 8;
-      const triangleX = iconX + 7; // Center the triangle in the icon area
+      const triangleX = iconX + 7;
       const triangleY = iconY + 7;
 
       // Draw black shadow (1px right and 1px down)
@@ -1716,9 +1608,9 @@ function paint({
 
       // Draw triangle - gray when buffering, yellow when ready
       if (isBuffering) {
-        ink(128, 128, 128, 255); // Gray when buffering
+        ink(128, 128, 128, 255);
       } else {
-        ink(255, 255, 0, 255); // Bright yellow when ready
+        ink(255, 255, 0, 255);
       }
       shape([
         [triangleX - triangleSize / 2, triangleY - triangleSize / 2],
@@ -1732,13 +1624,9 @@ function paint({
   if ((isPlaying && playingSfx && !playingSfx.killed) || isBuffering || isScrubbing) {
     return true;
   }
-  
-  // Don't return false - let normal repainting continue so content stays visible
-  // (returning undefined allows the system to handle repainting naturally)
 }
-*/
 
-// 🎪 Act// 🎪 Act
+// 🎪 Act
 function act({ event: e, needsPaint, jump, sound, net, screen, api, ui }) {
   // Handle the scrub button if we have sounds for this lesson
   if (scrubButton && lessons[lesson].sounds?.length > 0) {
