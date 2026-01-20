@@ -218,6 +218,7 @@ scp -i "$HOME/.ssh/$SSH_KEY_NAME" -o StrictHostKeyChecking=no $SCRIPT_DIR/packag
 scp -i "$HOME/.ssh/$SSH_KEY_NAME" -o StrictHostKeyChecking=no $SCRIPT_DIR/package-lock.json root@$DROPLET_IP:/opt/oven/
 scp -i "$HOME/.ssh/$SSH_KEY_NAME" -o StrictHostKeyChecking=no $SCRIPT_DIR/server.mjs root@$DROPLET_IP:/opt/oven/
 scp -i "$HOME/.ssh/$SSH_KEY_NAME" -o StrictHostKeyChecking=no $SCRIPT_DIR/baker.mjs root@$DROPLET_IP:/opt/oven/
+scp -i "$HOME/.ssh/$SSH_KEY_NAME" -o StrictHostKeyChecking=no $SCRIPT_DIR/grabber.mjs root@$DROPLET_IP:/opt/oven/
 scp -i "$HOME/.ssh/$SSH_KEY_NAME" -o StrictHostKeyChecking=no $SERVICE_ENV root@$DROPLET_IP:/opt/oven/.env
 
 # Update .env for production
