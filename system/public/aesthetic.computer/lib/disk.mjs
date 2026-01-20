@@ -3136,7 +3136,9 @@ const $commonApi = {
     currentLabel: () => ({ 
       text: currentHUDTxt, 
       plainText: currentHUDPlainTxt,  // Include plain text version
-      btn: currentHUDButton 
+      btn: currentHUDButton,
+      qrSize: currentHUDQRCells?.length || hudAnimationState?.qrSize || 0,
+      leftPad: currentHUDLeftPad || 0,
     }),
     labelBack: () => {
       labelBack = true;
