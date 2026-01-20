@@ -13,6 +13,8 @@
 | **Mainnet** | `KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi` | staging | Active (Staging) |
 | Ghostnet | `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K` | kidlisp | Testing |
 
+**Legacy (v2):** `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` (archived, do not use for new mints)
+
 ### Storage
 | Field | Type | Description |
 |-------|------|-------------|

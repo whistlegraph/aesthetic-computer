@@ -168,11 +168,17 @@ function renderPostRow(post, idx, basePath) {
 }
 
 function renderComment(comment) {
+  const commentId = comment._id?.toString() || '';
   return `
-  <div class="news-comment">
+  <div class="news-comment" data-comment-id="${commentId}">
     <div class="news-comment-meta">
       <span>${renderHandle(comment.handle)}</span>
       <span>${formatDate(comment.when)}</span>
+      <form class="news-admin-delete" data-news-action="delete" method="post" action="/api/news/delete" style="display:none;">
+        <input type="hidden" name="itemType" value="comment" />
+        <input type="hidden" name="itemId" value="${commentId}" />
+        <button type="submit" class="news-delete-btn" title="Delete comment">🗑</button>
+      </form>
     </div>
     <div class="news-comment-body">${escapeHtml(comment.text || "")}</div>
   </div>`;
@@ -263,6 +269,11 @@ async function renderItemPage(database, basePath, code) {
           </span>
           <div class="news-item-meta">
             ${hydratedPost.score || 0} points by ${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}
+            <form class="news-admin-delete" data-news-action="delete" method="post" action="/api/news/delete" style="display:none;">
+              <input type="hidden" name="itemType" value="post" />
+              <input type="hidden" name="itemId" value="${hydratedPost.code}" />
+              <button type="submit" class="news-delete-btn" title="Delete post">🗑 delete</button>
+            </form>
           </div>
         </td>
       </tr>
