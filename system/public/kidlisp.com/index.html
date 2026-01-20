@@ -13831,6 +13831,12 @@
         // Get the updated code
         const newCode = editor.getValue();
         
+        // Update lastCode so auto-reload doesn't see this as a mismatch
+        // (lastCode is used by the onDidChangeModelContent handler)
+        if (typeof lastCode !== 'undefined') {
+          lastCode = newCode.trim();
+        }
+        
         // Broadcast slide update to PJ sessions via WebSocket (low latency)
         if (typeof broadcastSlideToChannel === 'function') {
           broadcastSlideToChannel(newCode);
@@ -13838,10 +13844,13 @@
         
         // Trigger preview update with slide flag to avoid buffer reset
         if (typeof sendToIframe === 'function') {
+          console.log('🎚️ Sending kidlisp-slide message:', newCode.slice(0, 50));
           sendToIframe({
             type: 'kidlisp-slide',
             code: newCode
           });
+        } else {
+          console.warn('🎚️ sendToIframe not available!');
         }
       }
       
@@ -14143,6 +14152,12 @@
         editor.onDidChangeModelContent(() => {
           // Skip updates during decryption animation - the animation is changing the content
           if (window.isDecrypting && window.isDecrypting()) {
+            return;
+          }
+          
+          // Skip updates during programmatic edits (slide mode, etc.)
+          // Slide mode sends its own 'kidlisp-slide' message for live updates
+          if (isSettingValueProgrammatically) {
             return;
           }
           
@@ -16174,11 +16189,8 @@
       });
     }
     
-    // Lazy-load Taquito/Beacon SDK only when needed
-    let TezosToolkit = null;
-    let BeaconWallet = null;
-    let keepsWallet = null;
-    let keepsTezos = null;
+    // Unified Tezos wallet module (same as aesthetic.computer/bios.mjs)
+    let unifiedWallet = null;
     
     // Note: KEEPS_CONTRACT, KEEPS_NETWORK, KEEPS_RPC, keepsConstants declared earlier as forward declarations
     
@@ -16193,119 +16205,28 @@
       return keepsConstants;
     }
     
-    function loadScriptNoAMD(src) {
-      return new Promise((resolve, reject) => {
-        // Check if script already exists
-        if (document.querySelector(`script[src="${src}"]`)) {
-          resolve();
-          return;
-        }
-        
-        // Temporarily hide define.amd to prevent UMD scripts from using AMD
-        // We preserve the define function itself since Monaco may be using it async
-        const hadAmd = window.define && window.define.amd;
-        const originalAmd = hadAmd ? window.define.amd : undefined;
-        if (window.define && window.define.amd) {
-          window.define.amd = undefined;
-        }
-        
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = () => {
-          // Restore define.amd after script loads
-          if (hadAmd && window.define) {
-            window.define.amd = originalAmd;
-          }
-          resolve();
-        };
-        script.onerror = () => {
-          if (hadAmd && window.define) {
-            window.define.amd = originalAmd;
-          }
-          reject(new Error(`Failed to load ${src}`));
-        };
-        document.head.appendChild(script);
-      });
-    }
-    
-    async function loadTezosSDK() {
-      if (TezosToolkit && BeaconWallet) return;
+    async function loadUnifiedWallet() {
+      if (unifiedWallet) return unifiedWallet;
       
-      try {
-        log.wallet.debug("Loading Tezos SDK...");
-        
-        // IMPORTANT: Delete window.define entirely before loading UMD scripts
-        // Monaco's AMD loader conflicts with Beacon SDK's UMD detection
-        // Test showed: delete define -> load script -> restore define = works
-        const savedDefine = window.define;
-        delete window.define;
-        
-        // Load Taquito
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = "https://unpkg.com/@taquito/taquito@19.2.0/dist/taquito.min.js";
-          script.onload = resolve;
-          script.onerror = () => reject(new Error("Failed to load Taquito"));
-          document.head.appendChild(script);
-        });
-        
-        log.wallet.debug("Taquito loaded, window.taquito:", !!window.taquito);
-        TezosToolkit = window.taquito?.TezosToolkit;
-        
-        // Load Beacon SDK
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = "https://unpkg.com/@airgap/beacon-sdk@4.2.2/dist/walletbeacon.min.js";
-          script.onload = resolve;
-          script.onerror = () => reject(new Error("Failed to load Beacon SDK"));
-          document.head.appendChild(script);
-        });
-        
-        log.wallet.debug("Beacon loaded, window.beacon:", !!window.beacon);
-        BeaconWallet = window.beacon?.DAppClient;
-        
-        // Restore Monaco's define
-        if (savedDefine) {
-          window.define = savedDefine;
-        }
-        
-        log.wallet.debug("Final state - TezosToolkit:", !!TezosToolkit, "BeaconWallet:", !!BeaconWallet);
-        
-        if (!TezosToolkit || !BeaconWallet) {
-          log.wallet.error("SDK globals not found - taquito:", !!TezosToolkit, "beacon:", !!BeaconWallet);
-          throw new Error("SDK globals not found after loading");
-        }
-        
-        log.wallet.debug("Tezos SDK loaded successfully");
-      } catch (e) {
-        log.wallet.error("Failed to load Tezos SDK:", e);
-        throw new Error("Failed to load wallet SDK. Please refresh and try again.");
-      }
+      const base = (window.location.hostname === 'localhost' || window.location.hostname.includes('local.'))
+        ? 'https://localhost:8888' : 'https://aesthetic.computer';
+      unifiedWallet = await import(`${base}/aesthetic.computer/lib/tezos-wallet-unified.mjs`);
+      return unifiedWallet;
     }
     
     async function initKeepsWallet() {
       await loadKeepsConstants();
-      await loadTezosSDK();
+      const wallet = await loadUnifiedWallet();
       
-      if (!keepsTezos) {
-        keepsTezos = new TezosToolkit(KEEPS_RPC);
-      }
+      // Initialize with the keeps network
+      await wallet.init(KEEPS_NETWORK);
       
-      if (!keepsWallet) {
-        // DAppClient from @airgap/beacon-sdk
-        keepsWallet = new BeaconWallet({
-          name: "KidLisp.com",
-          preferredNetwork: KEEPS_NETWORK,
-        });
-        keepsTezos.setWalletProvider(keepsWallet);
-        
-        // Check for existing connection
-        const activeAccount = await keepsWallet.getActiveAccount();
-        if (activeAccount) {
-          keepsWalletAddress = activeAccount.address;
-          log.wallet.log("Reconnected:", keepsWalletAddress.slice(0, 8) + "...");
-          updateKeepsWalletUI();
-        }
+      // Check if already connected (session restore)
+      const state = wallet.getState();
+      if (state.connected && state.address) {
+        keepsWalletAddress = state.address;
+        log.wallet.log("Reconnected:", keepsWalletAddress.slice(0, 8) + "...", "via", state.walletType);
+        updateKeepsWalletUI();
       }
     }
     
@@ -16886,14 +16807,18 @@
       
       try {
         await initKeepsWallet();
+        const wallet = await loadUnifiedWallet();
         
-        // DAppClient returns permissions with address
-        const permissions = await keepsWallet.requestPermissions({
-          network: { type: KEEPS_NETWORK },
+        // Connect using unified wallet (Temple-first, Beacon fallback)
+        // User can hold Shift to force Beacon/Kukai
+        const useBeacon = window.event?.shiftKey;
+        const address = await wallet.connect(KEEPS_NETWORK, { 
+          walletType: useBeacon ? 'beacon' : 'temple' 
         });
         
-        keepsWalletAddress = permissions.address;
-        log.wallet.success("Wallet connected:", keepsWalletAddress.slice(0, 8) + "...");
+        keepsWalletAddress = address;
+        const state = wallet.getState();
+        log.wallet.success("Wallet connected:", keepsWalletAddress.slice(0, 8) + "...", "via", state.walletType);
         
         updateKeepsWalletUI();
         
@@ -16911,9 +16836,11 @@
     }
     
     async function disconnectKeepsWallet() {
-      if (keepsWallet) {
-        // DAppClient has clearActiveAccount directly, not on .client
-        await keepsWallet.clearActiveAccount();
+      try {
+        const wallet = await loadUnifiedWallet();
+        await wallet.disconnect();
+      } catch (e) {
+        log.wallet.debug("Disconnect error (ignored):", e.message);
       }
       keepsWalletAddress = null;
       keepsExistingToken = null;
@@ -17189,45 +17116,55 @@
           regenerate: isRebake,
         });
         
-        if (!preparedData || !preparedData.mintParams) {
+        if (!preparedData || !preparedData.michelsonParams) {
           throw new Error("Mint preparation incomplete");
         }
         
-        // Sign the transaction
+        // Sign the transaction using unified wallet
         setKeepsStep("sign", "active");
         
-        await loadTezosSDK();
-        const contract = await keepsTezos.wallet.at(KEEPS_CONTRACT);
+        const wallet = await loadUnifiedWallet();
         
-        let op;
+        let opHash;
         if (isRebake && keepsExistingToken) {
           // Rebake = call edit_metadata instead of keep
           // Note: User must be the token creator/owner for this to work!
-          op = await contract.methodsObject.edit_metadata({
-            token_id: keepsExistingToken.tokenId,
-            token_info: preparedData.mintParams.token_info || preparedData.tokenInfo,
-          }).send();
+          // For rebake, we need to build edit_metadata params
+          opHash = await wallet.callContract(
+            KEEPS_CONTRACT,
+            "edit_metadata",
+            {
+              prim: "Pair",
+              args: [
+                { int: String(keepsExistingToken.tokenId) },
+                preparedData.michelsonParams.value.args[1] // token_info from the keep params
+              ]
+            },
+            0
+          );
         } else {
-          // New mint
-          op = await contract.methodsObject.keep(preparedData.mintParams).send({
-            amount: 0, // Fee is 0 for now
-            mutez: true,
-          });
+          // New mint - use the prepared Michelson params
+          opHash = await wallet.callContract(
+            KEEPS_CONTRACT,
+            preparedData.entrypoint || "keep",
+            preparedData.michelsonParams.value,
+            preparedData.mintFee || 0
+          );
         }
         
         setKeepsStep("sign", "done");
         setKeepsStep("complete", "active");
         
-        await op.confirmation(1);
-        
+        // Note: We don't have built-in confirmation waiting in unified wallet
+        // For now just show success after signing
         setKeepsStep("complete", "done");
         
         if (statusEl) {
-          statusEl.textContent = `✅ ${isRebake ? 'Rebaked' : 'Minted'}! TX: ${op.opHash.slice(0, 12)}...`;
+          statusEl.textContent = `✅ ${isRebake ? 'Rebaked' : 'Minted'}! TX: ${opHash.slice(0, 12)}...`;
           statusEl.style.color = "#22c55e";
         }
         
-        log.wallet.success(`Keep ${isRebake ? 'rebaked' : 'minted'}:`, op.opHash.slice(0, 12) + "...");
+        log.wallet.success(`Keep ${isRebake ? 'rebaked' : 'minted'}:`, opHash.slice(0, 12) + "...");
         
         // Refresh the existing token view after a short delay
         setTimeout(() => {
@@ -17321,15 +17258,19 @@
           case "metadata":
             setKeepsStep("metadata", "done", eventData.message);
             break;
-          case "ready":
+          case "prepared":
             preparedData = eventData;
+            break;
+          case "ready":
+            // Legacy event - treat same as prepared
+            if (!preparedData) preparedData = eventData;
             break;
           case "error":
             throw new Error(eventData.message || eventData.error || "Mint preparation failed");
         }
       }
       
-      if (!preparedData || !preparedData.mintParams) {
+      if (!preparedData || !preparedData.michelsonParams) {
         throw new Error("Server preparation incomplete");
       }
       
@@ -17407,7 +17348,7 @@
             .sort((a, b) => (b.hits || 0) - (a.hits || 0))
             .map(item => ({
               code: item.code,
-              source: item.source || item.code,
+              source: item.source || '',
               assetUrl: item.assetUrl || item.thumbnail || null,
               hits: item.hits || 0,
               owner: item.owner?.handle || item.handle || null,
@@ -17659,8 +17600,8 @@
       const el = document.createElement('div');
       el.className = 'example-item';
       
-      // Get code snippet
-      const sourceCode = item.source || item.code || '';
+      // Get code snippet (never use item.code as fallback - that's the short identifier)
+      const sourceCode = item.source || '';
       const snippet = sourceCode.slice(0, 80).replace(/\n/g, ' ');
       const truncated = snippet.length === 80;
       
@@ -17776,7 +17717,8 @@
       const item = el._itemData;
       if (!item) return;
       
-      const sourceCode = item.source || item.code || '';
+      // Never use item.code as fallback - that's the short identifier like "h6g", not source code
+      const sourceCode = item.source || '';
       const snippet = (sourceCode).slice(0, 80).replace(/\n/g, ' ') || '(empty)';
       
       // Add to history
