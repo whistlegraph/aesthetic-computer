@@ -59,14 +59,12 @@ npm run build:linux  # Linux AppImage + deb
 ## Architecture
 
 - **main.js** - Electron main process
-  - Window management (dev/prod/shell)
+  - Window management (AC Pane)
   - IPC bridge for artery communication
   - File watcher for reboot requests
   
 - **renderer/** - Frontend HTML/JS
-  - `development.html` - Webview + terminal overlay
-  - `shell.html` - Pure terminal (xterm.js)
-  - `production.html` - Production webview
+  - `flip-view.html` - AC Pane (3D flip webview + terminal)
 
 - **preload.js** - Secure IPC bridge
 
@@ -81,7 +79,7 @@ const { ipcRenderer } = require('electron');
 await ipcRenderer.invoke('app-reboot');
 
 // Switch modes
-await ipcRenderer.invoke('switch-mode', 'development');
+await ipcRenderer.invoke('switch-mode', 'ac-pane');
 
 // Check Docker/container status
 const dockerOk = await ipcRenderer.invoke('check-docker');
