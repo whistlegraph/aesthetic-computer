@@ -45,6 +45,59 @@ Created: 2025.10.25
       margin-bottom: 1em;
     }
 
+    #pals-beacon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0.5em;
+      text-decoration: none;
+    }
+
+    #pals-beacon .pals-logo-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    #pals-beacon .pals-logo,
+    #pals-beacon .pals-logo-pink {
+      width: 72px;
+      height: auto;
+    }
+
+    #pals-beacon .pals-logo {
+      filter: grayscale(100%) opacity(0.4);
+      transition: filter 0.3s, opacity 0.3s;
+    }
+
+    #pals-beacon .pals-logo-pink {
+      position: absolute;
+      top: 0;
+      left: 0;
+      opacity: 0;
+      transition: opacity 0.3s;
+      filter: hue-rotate(-30deg) saturate(1.5) brightness(1.2) drop-shadow(0 0 8px rgba(255, 100, 200, 0.8)) drop-shadow(0 0 16px rgba(255, 100, 200, 0.5));
+    }
+
+    #pals-beacon:hover .pals-logo {
+      filter: grayscale(100%) opacity(0.2);
+    }
+
+    #pals-beacon:hover .pals-logo-pink {
+      opacity: 1;
+      animation: pals-energy 0.6s ease-in-out infinite;
+    }
+
+    @keyframes pals-energy {
+      0%, 100% { 
+        transform: rotate(0deg) scale(1);
+        filter: drop-shadow(0 0 8px rgba(255, 100, 200, 0.8)) drop-shadow(0 0 16px rgba(255, 100, 200, 0.5));
+      }
+      50% { 
+        transform: rotate(-2deg) scale(1.02);
+        filter: drop-shadow(0 0 12px rgba(255, 100, 200, 1)) drop-shadow(0 0 24px rgba(255, 100, 200, 0.7));
+      }
+    }
+
     h1 {
       font-size: 1.5em;
       font-weight: normal;
@@ -153,6 +206,32 @@ Created: 2025.10.25
       gap: 0.75em;
       flex: 1;
       min-width: 0;
+    }
+
+    .user-kidlisp-preview {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1px solid rgba(205, 92, 155, 0.2);
+    }
+
+    .user-kidlisp-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+    }
+
+    .user-mood {
+      font-size: 0.75em;
+      color: rgba(0, 0, 0, 0.6);
+      margin-left: 0.5em;
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .user-rank {
@@ -277,6 +356,14 @@ Created: 2025.10.25
       .user-total {
         color: rgba(255, 255, 255, 0.5);
       }
+
+      .user-mood {
+        color: rgba(255, 255, 255, 0.6);
+      }
+
+      .user-kidlisp-preview {
+        border-color: rgba(255, 255, 255, 0.15);
+      }
     }
   </style>
 </head>
@@ -284,6 +371,12 @@ Created: 2025.10.25
 <body>
   <div class="container">
     <header>
+      <a id="pals-beacon" href="https://aesthetic.computer" target="_blank" aria-label="Aesthetic Computer">
+        <div class="pals-logo-container">
+          <img src="https://aesthetic.computer/purple-pals.svg" alt="" class="pals-logo">
+          <img src="https://aesthetic.computer/purple-pals.svg" alt="" class="pals-logo-pink">
+        </div>
+      </a>
       <h1>at.aesthetic.computer</h1>
       <div class="subtitle">Personal Data Server · ATProto Network</div>
       <div class="stats">
@@ -409,13 +502,20 @@ Created: 2025.10.25
           badges.push(`<span class="user-badge">📼 ${count}</span>`);
         }
 
-        // User codes (ac##*) don't get @ prefix, real handles do
         const displayHandle = user.isUserCode ? shortHandle : `@${shortHandle}`;
+        const moodText = user.latestMood ? user.latestMood.replace(/\s+/g, ' ').trim() : '';
+        const moodPreview = moodText ? `“${moodText}”` : '';
+        const kidlispCode = user.latestKidlispCode || '';
+        const kidlispPreview = kidlispCode
+          ? `<div class="user-kidlisp-preview"><img src="https://oven.aesthetic.computer/grab/webp/64/64/$${kidlispCode}?duration=2000&fps=8&quality=70&density=1" alt="${displayHandle} KidLisp preview" loading="lazy"></div>`
+          : '';
 
         row.innerHTML = `
           <div class="user-left">
             <div class="user-rank">#${index + 1}</div>
+            ${kidlispPreview}
             <div class="user-handle">${displayHandle}</div>
+            ${moodPreview ? `<div class="user-mood">${moodPreview}</div>` : ''}
           </div>
           <div class="user-right">
             <div class="user-badges">${badges.join('')}</div>

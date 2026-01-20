@@ -15,7 +15,7 @@
 
 ---
 
-## 📜 Deployed Contracts (Aligned to v3)
+## 📜 Deployed Contracts
 
 ### Ghostnet (Testnet)
 
@@ -28,20 +28,11 @@
 - Next Token ID: 9
 - Keep Fee: 0 XTZ (free)
 
-### Mainnet (Staging v3)
+### Mainnet (Production)
 
 | Contract | Address | Admin | Status |
 |----------|---------|-------|--------|
-| **Keeps FA2 v3** | `KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi` | `staging` | 🟢 Staging |
-
-- Explorer: https://tzkt.io/KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi
-- Objkt: https://objkt.com/collection/KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi
-
-### Legacy (v2 - Archived)
-
-| Contract | Address | Admin | Status |
-|----------|---------|-------|--------|
-| **Keeps FA2 v2** | `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` | `kidlisp` | 🗄️ Legacy (do not use for new mints) |
+| **Keeps FA2 v2** | `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` | `kidlisp` | ✅ Active |
 
 - Explorer: https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
 - Objkt: https://objkt.com/collection/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
@@ -134,18 +125,18 @@ tezos/
 
 ---
 
-## 🚀 Deployment Roadmap (v3)
+## 🚀 Deployment Roadmap
 
 ```
 [✅] 1. Ghostnet Development
-     └── Contract: KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc (v2)
+     └── Contract: KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc
      └── Admin: aesthetic wallet
      └── Status: Active, tested, all test tokens burned
 
-[🟢] 2. Mainnet Staging (v3)
-     └── Contract: KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi
-     └── Admin: staging wallet
-     └── Status: Soft launch testing
+[✅] 2. Mainnet Production
+     └── Contract: KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
+     └── Admin: kidlisp wallet (keeps.tez)
+     └── Status: Active
 ```
 
 ---

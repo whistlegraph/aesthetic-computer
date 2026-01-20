@@ -4,6 +4,7 @@
   "type": "module",
   "description": "ATProto experiments and introspective tools for Aesthetic Computer",
   "scripts": {
+    "dev:user-pages": "node scripts/dev-user-pages.mjs",
     "query:profile": "node query-profile.mjs",
     "query:posts": "node query-posts.mjs",
     "post": "node post-to-bluesky.mjs",

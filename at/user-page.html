@@ -12,6 +12,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
   <meta name="description" content="Personal ATProto data page">
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   
   <style>
     * {
@@ -129,6 +130,78 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
     .record-card:hover {
       transform: translateY(-1px);
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .kidlisp-preview-card {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #0d0d1a;
+      aspect-ratio: 1;
+      display: flex;
+      align-items: stretch;
+      justify-content: stretch;
+      margin: 0.5em 0;
+    }
+
+    .kidlisp-preview-card img.kidlisp-webp {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+      opacity: 0.6;
+      transform: scale(1.05);
+    }
+
+    .kidlisp-preview-overlay {
+      position: absolute;
+      inset: 0;
+      padding: 0.7em 0.8em;
+      color: #fff;
+      font-family: monospace;
+      font-size: 0.75em;
+      line-height: 1.35;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.5) 80%);
+    }
+
+    .kidlisp-preview-code {
+      overflow: hidden;
+      max-height: 60%;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .kidlisp-preview-qr {
+      align-self: flex-end;
+      background: #fff;
+      padding: 2px;
+      border-radius: 2px;
+      line-height: 0;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .kidlisp-preview-qr img {
+      display: block;
+      image-rendering: pixelated;
+      width: 56px;
+      height: 56px;
+    }
+
+    .kidlisp-preview-label {
+      font-size: 0.8em;
+      background: #000;
+      color: #fff;
+      padding: 0.15em 0.35em;
+      font-family: monospace;
+      letter-spacing: 0.02em;
     }
 
     .record-header {
@@ -594,6 +667,11 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
     
     const API_BASE_URL = getBaseURL();
     const PDS_URL = 'https://at.aesthetic.computer';
+    const RECORDS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+    const FORCE_REFRESH = (() => {
+      const params = new URLSearchParams(window.location.search);
+      return params.has('refresh') || params.has('nocache');
+    })();
     
     console.log('🌐 API Base URL:', API_BASE_URL);
     
@@ -639,9 +717,28 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       }
     });
     
+    function normalizeHandle(handle) {
+      if (!handle) return null;
+      if (handle.includes('.')) return handle;
+      return `${handle}.at.aesthetic.computer`;
+    }
+
+    function getHandleFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const handle = params.get('handle') || params.get('h');
+      return normalizeHandle(handle);
+    }
+
     // Extract handle from subdomain
     function getHandleFromSubdomain() {
       const hostname = window.location.hostname;
+
+      // Query param override (local testing)
+      const queryHandle = getHandleFromQuery();
+      if (queryHandle) {
+        console.log(`🔧 Using handle from query param: ${queryHandle}`);
+        return queryHandle;
+      }
       
       // Dev mode: default to 'art' handle when running on localhost
       if (hostname === '127.0.0.1' || hostname === 'localhost') {
@@ -652,9 +749,48 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       // Match: handle.at.aesthetic.computer
       const match = hostname.match(/^([^.]+)\.at\.aesthetic\.computer$/);
       if (match) {
-        return match[1] + '.at.aesthetic.computer';
+        return normalizeHandle(match[1]);
       }
       return null;
+    }
+
+    function getCacheKey(handle, collection) {
+      return `ac:at-records:${handle}:${collection}`;
+    }
+
+    function loadCachedRecords(handle, collection) {
+      if (FORCE_REFRESH) return null;
+      try {
+        const key = getCacheKey(handle, collection);
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.ts || !Array.isArray(parsed.records)) return null;
+        if (Date.now() - parsed.ts > RECORDS_CACHE_TTL_MS) return null;
+        return parsed.records;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function saveCachedRecords(handle, collection, records) {
+      try {
+        const key = getCacheKey(handle, collection);
+        localStorage.setItem(key, JSON.stringify({ ts: Date.now(), records }));
+      } catch (error) {
+        // Ignore storage errors (quota, etc.)
+      }
+    }
+
+    function clearRecordsCache(handle) {
+      try {
+        const prefix = `ac:at-records:${handle}:`;
+        Object.keys(localStorage)
+          .filter(key => key.startsWith(prefix))
+          .forEach(key => localStorage.removeItem(key));
+      } catch (error) {
+        // Ignore storage errors
+      }
     }
 
     // Resolve handle to DID
@@ -671,7 +807,10 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
     }
 
     // List all records for a collection
-    async function listRecords(did, collection, limit = 100) {
+    async function listRecords(did, collection, handle, limit = 100) {
+      const cached = handle ? loadCachedRecords(handle, collection) : null;
+      if (cached) return cached;
+
       const records = [];
       let cursor = undefined;
 
@@ -697,6 +836,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
           cursor = data.cursor;
         } while (cursor);
 
+        if (handle) saveCachedRecords(handle, collection, records);
         return records;
       } catch (error) {
         console.error(`Error listing ${collection}:`, error);
@@ -821,22 +961,49 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       
       return result.join('');
     }
+
+    function buildQrDataUrl(text, cellSize = 4, margin = 0) {
+      try {
+        if (typeof qrcode === 'undefined') return '';
+        const qr = qrcode(0, 'M');
+        qr.addData(text);
+        qr.make();
+        return qr.createDataURL(cellSize, margin);
+      } catch (error) {
+        return '';
+      }
+    }
     
     // Load kidlisp.mjs and generate colored string
     let kidlispModule = null;
     let highlightCache = new Map(); // Cache highlighted results
+    let sourceMap = window.sourceMap || (window.sourceMap = {}); // Cache source code for modal
     
+    const kidlispModuleUrls = [
+      'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs',
+      'https://aesthetic.computer/lib/kidlisp.mjs',
+      `${window.location.origin}/aesthetic.computer/lib/kidlisp.mjs`,
+      `${window.location.origin}/lib/kidlisp.mjs`,
+    ];
+
     async function loadKidlispModule() {
       if (kidlispModule) return kidlispModule;
-      try {
-        // Load from the correct path: /aesthetic.computer/lib/kidlisp.mjs
-        kidlispModule = await import('https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs');
-        console.log('✅ Kidlisp module loaded successfully');
-        return kidlispModule;
-      } catch (error) {
-        console.error('❌ Failed to load kidlisp module:', error);
-        return null;
+
+      for (const url of kidlispModuleUrls) {
+        try {
+          const module = await import(url);
+          if (module && module.KidLisp) {
+            kidlispModule = module;
+            console.log(`✅ Kidlisp module loaded successfully from ${url}`);
+            return kidlispModule;
+          }
+        } catch (error) {
+          console.warn(`⚠️ Failed to load kidlisp module from ${url}:`, error);
+        }
       }
+
+      console.error('❌ Failed to load kidlisp module from all known locations');
+      return null;
     }
     
     async function highlightKidlisp(source) {
@@ -854,25 +1021,25 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
           const kid = new module.KidLisp();
           kid.initializeSyntaxHighlighting(source);
           const coloredString = kid.buildColoredKidlispString();
-          
-          console.log('🎨 KidLisp colored string sample:', coloredString.substring(0, 100));
-          
-          const result = parseColoredKidlisp(coloredString);
-          
-          // Cache the result
-          highlightCache.set(source, result);
-          return result;
+
+          if (coloredString && coloredString.trim()) {
+            console.log('🎨 KidLisp colored string sample:', coloredString.substring(0, 100));
+
+            const result = parseColoredKidlisp(coloredString);
+
+            // Cache the result
+            highlightCache.set(source, result);
+            return result;
+          }
         } else {
           console.warn('⚠️ Kidlisp module or KidLisp class not found');
         }
       } catch (error) {
         console.error('❌ Syntax highlighting failed:', error);
       }
-      
-      // Fallback: just escape and return plain
-      const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const color = isDark ? '#ffffff' : '#333333';
-      const fallback = `<span style="color: ${color}">${source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
+
+      // Fallback: simple syntax highlighting
+      const fallback = highlightKidLispSimple(source);
       highlightCache.set(source, fallback);
       return fallback;
     }
@@ -1436,15 +1603,27 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       card.className = 'record-card';
       
       // Create initial card HTML with preview container
+      const previewCode = value.code ? value.code.replace(/[^a-zA-Z0-9_-]/g, '') : '';
+      const kidlispPreviewHtml = previewCode
+        ? `<a href="https://kidlisp.com/$${previewCode}" target="_blank" rel="noreferrer" class="kidlisp-preview-card">
+            <img class="kidlisp-webp" src="https://oven.aesthetic.computer/grab/webp/320/320/$${previewCode}?duration=4000&fps=8&quality=80&density=1" alt="KidLisp preview" loading="lazy" />
+            <div class="kidlisp-preview-overlay" data-kidlisp-code="${previewCode}">
+              <div class="kidlisp-preview-code">${value.source ? value.source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''}</div>
+              <div class="kidlisp-preview-qr">
+                <div class="kidlisp-preview-label">$${previewCode}</div>
+                <img alt="KidLisp QR" />
+              </div>
+            </div>
+          </a>`
+        : '';
+
       card.innerHTML = `
         <div class="record-header">
           <span class="record-date">${formatDate(value.when || value.createdAt)}</span>
           <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${typeName}</span>
         </div>
         <div class="record-content">
-          <div class="source-preview-container" style="margin: 0.5em 0;">
-            <div style="font-size: 0.75em; color: rgb(150, 150, 150);">loading source...</div>
-          </div>
+          ${kidlispPreviewHtml}
           <div style="margin-top: 0.5em; display: flex; gap: 0.5em; flex-wrap: wrap;">
             ${value.code ? `<a href="${value.acUrl || `https://aesthetic.computer/$${value.code}`}" class="record-link" style="display: inline-block; padding: 0.4em 0.8em; background: rgba(205, 92, 155, 0.1); border: 1px solid rgb(205, 92, 155); border-radius: 3px; font-size: 0.85em;">█ prompt.ac/<strong>$</strong><strong>${value.code}</strong></a>` : ''}
             <a href="https://pdsls.dev/at://${uri.split('//')[1]}" class="record-link" style="display: inline-block; padding: 0.4em 0.8em; background: rgba(100, 150, 200, 0.1); border: 1px solid rgb(100, 150, 200); border-radius: 3px; font-size: 0.85em; color: rgb(100, 150, 200);">${rkey}</a>
@@ -1455,52 +1634,38 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       // Highlight and animate the source code asynchronously
       if (value.source) {
         highlightKidlisp(value.source).then(highlightedSource => {
-          const previewContainer = card.querySelector('.source-preview-container');
-          if (!previewContainer) return;
-          
           // Store source for modal
           const sourceId = `kidlisp-${rkey}`;
+          sourceMap = window.sourceMap || (window.sourceMap = sourceMap || {});
           sourceMap[sourceId] = value.source;
-          
-          // Language badge
-          const languageBadge = '<span style="display: inline-block; padding: 0.15em 0.4em; background: rgba(147, 51, 234, 0.1); color: rgb(147, 51, 234); border-radius: 3px; font-size: 0.85em; font-weight: 600; margin-left: 0.5em;">KidLisp</span>';
-          
-          // Calculate dynamic font size and animation speed based on content
-          const lineCount = value.source.split('\n').length;
-          const fontSize = lineCount > 50 ? '0.55em' : lineCount > 30 ? '0.6em' : lineCount > 15 ? '0.7em' : '0.8em';
-          
-          // Shorter programs scroll faster - scale duration based on line count
-          const animationDuration = Math.max(15, Math.min(60, lineCount * 0.8));
-          
-          // Generate line numbers (doubled for the duplicated content)
-          const lineNumbers = Array.from({length: lineCount * 2}, (_, i) => 
-            `<div>${(i % lineCount) + 1}</div>`
-          ).join('');
-          
-          previewContainer.innerHTML = `
-            <div class="source-preview" 
-                 data-source-id="${sourceId}"
-                 data-uri="${uri.replace(/"/g, '&quot;')}"
-                 data-language="lisp"
-                 onclick="openSourceModalFromElement(this)" 
-                 style="padding: 0.5em; border-radius: 2px; cursor: pointer; font-family: monospace; font-size: ${fontSize}; color: rgb(100, 100, 100);">
-              <div class="preview-scroll-container" style="animation: previewScrollLoop ${animationDuration}s linear infinite;">
-                <div class="line-numbers">${lineNumbers}</div>
-                <div class="preview-content" style="white-space: pre; overflow-wrap: normal;">
-                  ${highlightedSource}
-                  <div style="margin: 2em 0; border-top: 1px dashed rgba(100,100,100,0.3); padding-top: 2em;"></div>
-                  ${highlightedSource}
-                </div>
-              </div>
-            </div>
-          `;
+
+          // Update overlay code in WebP preview
+          const overlay = card.querySelector('.kidlisp-preview-overlay');
+          if (overlay) {
+            const overlayCode = overlay.querySelector('.kidlisp-preview-code');
+            if (overlayCode) {
+              overlayCode.innerHTML = highlightedSource;
+            }
+            const qrImg = overlay.querySelector('.kidlisp-preview-qr img');
+            if (qrImg && value.code) {
+              const qrUrl = buildQrDataUrl(`https://kidlisp.com/$${value.code}`, 3, 0);
+              if (qrUrl) qrImg.src = qrUrl;
+            }
+          }
         }).catch(error => {
           console.error('Highlighting error:', error);
-          const previewContainer = card.querySelector('.source-preview-container');
-          if (previewContainer) {
-            previewContainer.innerHTML = `<pre style="font-size: 0.85em; color: rgb(150, 150, 150);">${value.source}</pre>`;
-          }
         });
+      }
+
+      if (value.code) {
+        const overlay = card.querySelector('.kidlisp-preview-overlay');
+        if (overlay) {
+          const qrImg = overlay.querySelector('.kidlisp-preview-qr img');
+          if (qrImg) {
+            const qrUrl = buildQrDataUrl(`https://kidlisp.com/$${value.code}`, 3, 0);
+            if (qrUrl) qrImg.src = qrUrl;
+          }
+        }
       }
       
       return card;
@@ -1527,43 +1692,81 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
             <div style="font-size: 0.75em; color: rgb(150, 150, 150);">loading source...</div>
           </div>
           <div style="margin-top: 0.5em; display: flex; gap: 0.5em; flex-wrap: wrap;">
-            ${value.slug ? `<a href="https://aesthetic.computer/${value.slug}" class="record-link" style="display: inline-block; padding: 0.4em 0.8em; background: rgba(205, 92, 155, 0.1); border: 1px solid rgb(205, 92, 155); border-radius: 3px; font-size: 0.85em;">█ prompt.ac/<strong>${value.slug}</strong></a>` : ''}
+            ${value.slug ? `<a href="https://prompt.ac/@${handle ? handle.split('.at.aesthetic.computer')[0] : 'art'}/${value.slug}" class="record-link" style="display: inline-block; padding: 0.4em 0.8em; background: rgba(205, 92, 155, 0.1); border: 1px solid rgb(205, 92, 155); border-radius: 3px; font-size: 0.85em;">█ prompt.ac/<strong>@${handle ? handle.split('.at.aesthetic.computer')[0] : 'art'}</strong>/<strong>${value.slug}</strong></a>` : ''}
             <a href="https://pdsls.dev/at://${uri.split('//')[1]}" class="record-link" style="display: inline-block; padding: 0.4em 0.8em; background: rgba(100, 150, 200, 0.1); border: 1px solid rgb(100, 150, 200); border-radius: 3px; font-size: 0.85em; color: rgb(100, 150, 200);">${rkey}</a>
           </div>
         </div>
       `;
       
-      // Fetch source code from media URL if available
+      // Fetch source code from record or media URL if available
       if (value.slug && handle) {
         try {
           let source = null;
           let language = 'mjs'; // Default to JavaScript
+
+          // Use embedded source if present
+          if (typeof value.source === 'string' && value.source.trim()) {
+            source = value.source;
+            language = value.language || (value.source.trim().startsWith('(') ? 'lisp' : 'mjs');
+          } else if (typeof value.sourceCode === 'string' && value.sourceCode.trim()) {
+            source = value.sourceCode;
+            language = value.language || (value.sourceCode.trim().startsWith('(') ? 'lisp' : 'mjs');
+          }
           
-          // Anonymous pieces: try art.aesthetic.computer with both .lisp and .mjs
-          if (handle === 'art.at.aesthetic.computer') {
-            // Try .lisp first, then .mjs
-            const lispUrl = `https://art.aesthetic.computer/${value.slug}.lisp`;
-            let response = await fetch(lispUrl);
-            
-            if (response.ok) {
-              source = await response.text();
-              language = 'lisp';
-            } else {
-              // Try .mjs
-              const mjsUrl = `https://art.aesthetic.computer/${value.slug}.mjs`;
-              response = await fetch(mjsUrl);
-              if (response.ok) {
-                source = await response.text();
-                language = 'mjs';
+          if (!source) {
+            // Prefer same-origin media proxy to avoid CORS issues
+            const baseHandle = handle.replace(/^@/, '');
+            const shortHandle = baseHandle.split('.at.aesthetic.computer')[0];
+            const mediaHandles = Array.from(new Set([baseHandle, shortHandle].filter(Boolean)));
+            const rawSlug = value.slug || '';
+            const slug = rawSlug.replace(/\.(mjs|js|lisp)$/i, '');
+
+            async function tryFetchPieceSource(mediaHandle) {
+              const bases = [
+                `/media/@${mediaHandle}/piece/${slug}`,
+                `/media/@${mediaHandle}/code/${slug}`
+              ];
+              const extensions = ['.lisp', '.mjs', '.js', ''];
+
+              for (const base of bases) {
+                for (const ext of extensions) {
+                  const url = `${base}${ext}`;
+                  const response = await fetch(url);
+                  if (response.ok) {
+                    const text = await response.text();
+                    const isLisp = ext === '.lisp' || text.trim().startsWith('(');
+                    return { source: text, language: isLisp ? 'lisp' : 'mjs' };
+                  }
+                }
+              }
+
+              return null;
+            }
+
+            for (const mediaHandle of mediaHandles) {
+              const result = await tryFetchPieceSource(mediaHandle);
+              if (result) {
+                source = result.source;
+                language = result.language;
+                break;
               }
             }
-          } else {
-            // User pieces use /media/@handle/piece/slug.mjs
-            const sourceUrl = `${API_BASE_URL}/media/@${handle}/piece/${value.slug}.mjs`;
-            const response = await fetch(sourceUrl);
-            if (response.ok) {
-              source = await response.text();
-              language = 'mjs';
+
+            // Fallback for art handle legacy URLs
+            if (!source && handle === 'art.at.aesthetic.computer') {
+              const legacyLispUrl = `https://art.aesthetic.computer/${slug}.lisp`;
+              let response = await fetch(legacyLispUrl);
+              if (response.ok) {
+                source = await response.text();
+                language = 'lisp';
+              } else {
+                const legacyMjsUrl = `https://art.aesthetic.computer/${slug}.mjs`;
+                response = await fetch(legacyMjsUrl);
+                if (response.ok) {
+                  source = await response.text();
+                  language = 'mjs';
+                }
+              }
             }
           }
           
@@ -1708,18 +1911,22 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       
       for (const record of batch) {
         let card;
-        if (currentCollection.includes('painting')) {
+        const collectionKey = currentCollection === 'all'
+          ? (record._collection || '')
+          : currentCollection;
+
+        if (collectionKey.includes('painting')) {
           card = renderPainting(record);
-        } else if (currentCollection.includes('mood')) {
+        } else if (collectionKey.includes('mood')) {
           card = renderMood(record);
-        } else if (currentCollection.includes('tape')) {
+        } else if (collectionKey.includes('tape')) {
           card = renderTape(record);
-        } else if (currentCollection.includes('kidlisp')) {
+        } else if (collectionKey.includes('kidlisp')) {
           card = await renderKidlisp(record);
-        } else if (currentCollection.includes('piece')) {
+        } else if (collectionKey.includes('piece')) {
           card = await renderPiece(record, currentHandle);
         } else {
-          card = renderGenericRecord(record, currentCollection.split('.').pop());
+          card = renderGenericRecord(record, collectionKey.split('.').pop());
         }
         
         // Insert before the sentinel
@@ -1852,12 +2059,18 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         ];
 
         const recordsByCollection = {};
+        const allRecords = [];
         let totalRecords = 0;
+        let firstTab = null;
+        let firstRecords = null;
+        let firstCollection = null;
+        let loadingHidden = false;
 
-        for (const collection of collections) {
-          const records = await listRecords(did, collection);
-          recordsByCollection[collection] = records;
-          totalRecords += records.length;
+        function hideLoading() {
+          if (loadingHidden) return;
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('content').style.display = 'block';
+          loadingHidden = true;
         }
 
         // Stats section removed - counts now in tabs
@@ -1865,10 +2078,6 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
 
         // Create tabs
         const tabsContainer = document.getElementById('tabs');
-        
-        let firstTab = null;
-        let firstRecords = null;
-        let firstCollection = null;
 
         // Helper to get display name for collection
         function getDisplayName(collection) {
@@ -1881,45 +2090,104 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
           return name.charAt(0).toUpperCase() + name.slice(1);
         }
 
-        // Collection tabs (show all, disable empty ones)
-        collections.forEach(collection => {
-          const records = recordsByCollection[collection];
-          const count = records.length;
-          const displayName = getDisplayName(collection);
-          const tab = document.createElement('button');
-          tab.className = 'tab';
-          tab.innerHTML = `${displayName} (${count})`;
-          
-          if (count === 0) {
-            tab.classList.add('disabled');
-            tab.disabled = true;
-          } else {
-            tab.onclick = async () => {
-              document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-              tab.classList.add('active');
-              await renderRecords(records, collection, handle);
-            };
-            
-            // Remember first non-empty tab for default view
-            if (!firstTab) {
-              firstTab = tab;
-              firstRecords = records;
-              firstCollection = collection;
-            }
-          }
-          
-          tabsContainer.appendChild(tab);
-        });
+        const tabs = new Map();
 
-        // Show first available collection by default
-        if (firstTab) {
-          firstTab.classList.add('active');
-          await renderRecords(firstRecords, firstCollection, handle);
+        function setTabLabel(tab, label, count, loading) {
+          tab.innerHTML = `${label} (${count}${loading ? '…' : ''})`;
         }
 
-        // Hide loading, show content
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('content').style.display = 'block';
+        function activateTab(tab, records, collection) {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          renderRecords(records, collection, handle);
+        }
+
+        const allTab = document.createElement('button');
+        allTab.className = 'tab disabled';
+        allTab.disabled = true;
+        setTabLabel(allTab, 'All Media', 0, true);
+        allTab.onclick = () => activateTab(allTab, allRecords, 'all');
+        tabsContainer.appendChild(allTab);
+        tabs.set('all', allTab);
+
+        // Collection tabs (initialize with loading state)
+        collections.forEach(collection => {
+          const displayName = getDisplayName(collection);
+          const tab = document.createElement('button');
+          tab.className = 'tab disabled';
+          tab.disabled = true;
+          setTabLabel(tab, displayName, 0, true);
+          tab.onclick = () => activateTab(tab, recordsByCollection[collection] || [], collection);
+          tabsContainer.appendChild(tab);
+          tabs.set(collection, tab);
+        });
+
+        const refreshButton = document.createElement('button');
+        refreshButton.className = 'tab';
+        refreshButton.style.opacity = '0.7';
+        refreshButton.innerHTML = '↻ Refresh';
+        refreshButton.onclick = () => {
+          clearRecordsCache(handle);
+          window.location.search = window.location.search.includes('refresh')
+            ? window.location.search
+            : window.location.search + (window.location.search ? '&refresh=1' : '?refresh=1');
+        };
+        tabsContainer.appendChild(refreshButton);
+
+        // Fetch collections concurrently and update tabs as they resolve
+        const pending = new Set(collections);
+        await Promise.all(collections.map(async (collection) => {
+          const records = await listRecords(did, collection, handle);
+          recordsByCollection[collection] = records;
+          totalRecords += records.length;
+
+          const withCollection = records.map(record => ({ ...record, _collection: collection }));
+          allRecords.push(...withCollection);
+          allRecords.sort((a, b) => {
+            const dateA = new Date(a.value.createdAt || a.value.when || 0);
+            const dateB = new Date(b.value.createdAt || b.value.when || 0);
+            return dateB - dateA;
+          });
+
+          const tab = tabs.get(collection);
+          if (tab) {
+            setTabLabel(tab, getDisplayName(collection), records.length, false);
+            if (records.length > 0) {
+              tab.disabled = false;
+              tab.classList.remove('disabled');
+            }
+          }
+
+          pending.delete(collection);
+
+          const allTabRef = tabs.get('all');
+          if (allTabRef) {
+            setTabLabel(allTabRef, 'All Media', totalRecords, pending.size > 0);
+            if (totalRecords > 0) {
+              allTabRef.disabled = false;
+              allTabRef.classList.remove('disabled');
+            }
+          }
+
+          if (!firstTab && allRecords.length > 0) {
+            firstTab = allTabRef;
+            firstRecords = allRecords;
+            firstCollection = 'all';
+            hideLoading();
+            activateTab(firstTab, firstRecords, firstCollection);
+          } else if (currentCollection === 'all') {
+            // Update active All Media view when new records arrive
+            renderRecords(allRecords, 'all', handle);
+          }
+        }));
+
+        if (!loadingHidden) {
+          hideLoading();
+        }
+
+        if (!firstTab) {
+          document.getElementById('records-container').innerHTML = '<div class="empty-state">No records found</div>';
+        }
 
       } catch (error) {
         console.error('Error loading page:', error);

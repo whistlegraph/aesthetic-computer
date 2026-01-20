@@ -2,6 +2,8 @@
 
 // 1. GET `api/mood/@handle`
 // Get the most recent mood from the user's handle or email.
+// 1.1 GET `api/mood/moods-of-the-day`
+// Pick the latest @jeffrey mood or any handled mood in the last 24 hours.
 
 // 2. POST `api/mood`
 // Allows a logged in user to set their mood, which
@@ -47,6 +49,77 @@ import { filter } from "../../backend/filter.mjs"; // Profanity filtering.
 
 // let app;
 
+const MOODS_OF_THE_DAY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+async function fetchLatestMoodForSub(database, sub) {
+  if (!sub) return null;
+  const collection = database.db.collection("moods");
+  const pipeline = [
+    { $match: { user: sub, deleted: { $ne: true } } },
+    { $sort: { when: -1 } },
+    { $limit: 1 },
+    {
+      $lookup: {
+        from: "@handles",
+        localField: "user",
+        foreignField: "_id",
+        as: "handleInfo",
+      },
+    },
+    { $unwind: { path: "$handleInfo", preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        _id: 0,
+        mood: 1,
+        when: 1,
+        handle: {
+          $cond: [
+            { $ifNull: ["$handleInfo.handle", false] },
+            { $concat: ["@", "$handleInfo.handle"] },
+            null,
+          ],
+        },
+      },
+    },
+  ];
+
+  const records = await collection.aggregate(pipeline).toArray();
+  return records?.[0] || null;
+}
+
+async function fetchRecentHandledMoods(database, since) {
+  const collection = database.db.collection("moods");
+  const pipeline = [
+    {
+      $match: {
+        deleted: { $ne: true },
+        when: { $gte: since },
+      },
+    },
+    {
+      $lookup: {
+        from: "@handles",
+        localField: "user",
+        foreignField: "_id",
+        as: "handleInfo",
+      },
+    },
+    { $unwind: "$handleInfo" },
+    {
+      $project: {
+        _id: 0,
+        mood: 1,
+        when: 1,
+        handle: { $concat: ["@", "$handleInfo.handle"] },
+      },
+    },
+    { $sort: { when: -1 } },
+    { $limit: 200 },
+  ];
+
+  return await collection.aggregate(pipeline).toArray();
+}
+
 export async function handler(event, context) {
   if (event.httpMethod === "GET") {
     // 1. GET: Look up moods for user.
@@ -54,7 +127,45 @@ export async function handler(event, context) {
     const slug = pathParams(event.path)[2];
     const handle = event.queryStringParameters?.for || null;
 
-    if (slug === "all") {
+    if (slug === "moods-of-the-day" || slug === "motd") {
+      const since = new Date(Date.now() - MOODS_OF_THE_DAY_WINDOW_MS);
+      const listRequested = Boolean(event.queryStringParameters?.list);
+      const jeffreyResult = await userIDFromHandleOrEmail("@jeffrey", database);
+      const jeffreySub = typeof jeffreyResult === "string"
+        ? jeffreyResult
+        : jeffreyResult?.userID;
+
+      const candidates = [];
+      const seen = new Set();
+
+      const addCandidate = (candidate) => {
+        if (!candidate?.mood) return;
+        const whenValue = candidate.when ? new Date(candidate.when).getTime() : "";
+        const key = `${candidate.handle || ""}-${candidate.mood}-${whenValue}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        candidates.push(candidate);
+      };
+
+      const jeffreyMood = await fetchLatestMoodForSub(database, jeffreySub);
+      addCandidate(jeffreyMood);
+
+      const recentMoods = await fetchRecentHandledMoods(database, since);
+      for (const mood of recentMoods) addCandidate(mood);
+
+      await database.disconnect();
+
+      if (candidates.length === 0) {
+        return respond(404, { message: "No mood found." });
+      }
+
+      if (listRequested) {
+        return respond(200, { moods: candidates });
+      }
+
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      return respond(200, pick);
+    } else if (slug === "all") {
       // List all moods from the database and return
       // them as { moods }.
       const moods = await allMoods(database, handle);

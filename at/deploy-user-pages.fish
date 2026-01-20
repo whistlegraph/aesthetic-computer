@@ -91,6 +91,11 @@ at.aesthetic.computer {
     }
     
     root * /data/www
+
+    # Proxy media requests to aesthetic.computer to avoid CORS
+    handle /media/* {
+        reverse_proxy https://aesthetic.computer
+    }
     
     # Proxy /xrpc/* to PDS for API access
     handle /xrpc/* {

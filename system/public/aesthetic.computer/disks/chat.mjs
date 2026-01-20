@@ -434,18 +434,21 @@ async function fetchNewsHeadlines() {
   
   newsFetchPromise = (async () => {
     try {
-      const response = await fetch("https://news.aesthetic.computer/api?path=posts&limit=5&sort=new");
+      const response = await fetch("https://news.aesthetic.computer/api?path=posts&limit=1&sort=new");
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       
       if (data.posts && data.posts.length > 0) {
-        newsHeadlines = data.posts.map(p => ({
-          title: p.title,
-          code: p.code,
-          user: p.user,
-        }));
-        // Create scrolling ticker text from headlines
-        newsTickerText = newsHeadlines.map(h => `${h.title} (@${h.user})`).join("   ~   ");
+        const latest = data.posts[0];
+        newsHeadlines = [{
+          title: latest.title,
+          code: latest.code,
+          user: latest.user,
+          commentCount: latest.commentCount ?? 0,
+        }];
+        // Create scrolling ticker text from the newest headline
+        const count = latest.commentCount ?? 0;
+        newsTickerText = `${latest.title} · ${count} comment${count === 1 ? "" : "s"}`;
       } else {
         newsHeadlines = [];
         newsTickerText = "Report a story";
@@ -1857,11 +1860,14 @@ function act(
       newsTickerHovered = inBounds;
     }
     
-    // Click to open news.aesthetic.computer (touch only, not lift, to avoid scroll conflicts)
+    // Click to open the latest headline's comment page (touch only, not lift, to avoid scroll conflicts)
     if (e.is("touch") && inBounds) {
       beep();
-      // Open news.aesthetic.computer in new tab/window
-      jump("out:https://news.aesthetic.computer");
+      const latest = newsHeadlines[0];
+      const target = latest?.code
+        ? `out:https://news.aesthetic.computer/item/${latest.code}`
+        : "out:https://news.aesthetic.computer";
+      jump(target);
     }
   }
   

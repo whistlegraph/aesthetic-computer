@@ -218,6 +218,7 @@ let extContext: any;
 let webWindow: any;
 let kidlispWindow: any;
 let newsWindow: any;
+let atWindow: any;
 let welcomePanel: vscode.WebviewPanel | null = null;
 let localServerCheckInterval: NodeJS.Timeout | undefined;
 let provider: AestheticViewProvider;
@@ -275,6 +276,7 @@ function startLocalServerCheck() {
       refreshWebWindow();
       refreshKidLispWindow();
       refreshNewsWindow();
+      refreshAtWindow();
     }
   });
   
@@ -290,6 +292,7 @@ function startLocalServerCheck() {
       refreshWebWindow();
       refreshKidLispWindow();
       refreshNewsWindow();
+      refreshAtWindow();
     } else if (!localServerAvailable && wasAvailable) {
       console.log("⏳ Local server disconnected - waiting for reconnect...");
       // Don't immediately show waiting screen - server may come back quickly during hot reload
@@ -1360,6 +1363,39 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }),
   );
 
+  // 🧭 AT Window
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.openAtWindow", () => {
+      if (atWindow) {
+        atWindow.reveal(vscode.ViewColumn.One);
+        return;
+      }
+
+      const panel = vscode.window.createWebviewPanel(
+        "atWebView",
+        "AT",
+        vscode.ViewColumn.One,
+        {
+          enableScripts: true,
+          enableForms: true,
+          localResourceRoots: [extContext.extensionUri],
+        },
+      );
+
+      panel.title = "AT" + (local ? " 🧑‍🤝‍🧑" : "");
+      panel.webview.html = getAtWebViewContent(panel.webview);
+      atWindow = panel;
+
+      panel.onDidDispose(
+        () => {
+          atWindow = null;
+        },
+        null,
+        context.subscriptions,
+      );
+    }),
+  );
+
   // 📰 News Window
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.openNewsWindow", () => {
@@ -2089,6 +2125,13 @@ function refreshKidLispWindow() {
   }
 }
 
+function refreshAtWindow() {
+  if (atWindow) {
+    atWindow.title = "AT" + (local ? " 🧑‍🤝‍🧑" : "");
+    atWindow.webview.html = getAtWebViewContent(atWindow.webview);
+  }
+}
+
 function refreshNewsWindow() {
   if (newsWindow) {
     newsWindow.title = "News" + (local ? " 🧑‍🤝‍🧑" : "");
@@ -2490,6 +2533,74 @@ function getWebViewContent(webview: any, slug: string) {
       </body>
       </html>`;
   }
+
+// 🧭 AT WebView Content
+function getAtWebViewContent(webview: any) {
+  const nonce = getNonce();
+
+  const styleUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extContext.extensionUri, "main.css"),
+  );
+
+  const resetStyleUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extContext.extensionUri, "reset.css"),
+  );
+
+  const vscodeStyleUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extContext.extensionUri, "vscode.css"),
+  );
+
+  let iframeUrl;
+  let iframeProtocol = "https://";
+  if (isCodespaces && codespaceName && codespacesDomain) {
+    iframeUrl = `${codespaceName}-4177.${codespacesDomain}`;
+  } else if (local) {
+    iframeUrl = "localhost:4177";
+    iframeProtocol = "http://";
+  } else {
+    iframeUrl = "at.aesthetic.computer";
+  }
+
+  let cspFrameSrc = "frame-src https://at.aesthetic.computer http://localhost:4177";
+  let cspChildSrc = "child-src https://at.aesthetic.computer http://localhost:4177";
+
+  if (isCodespaces && codespacesDomain) {
+    const codespaceWildcard = `https://*.${codespacesDomain}`;
+    cspFrameSrc += ` ${codespaceWildcard}`;
+    cspChildSrc += ` ${codespaceWildcard}`;
+  }
+
+  const path = local ? "/user.html" : "/";
+  const param = local ? "?handle=art.at.aesthetic.computer&vscode=true" : "?vscode=true";
+
+  return `<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; ${cspFrameSrc}; ${cspChildSrc}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; media-src *; img-src ${webview.cspSource} data:;">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link href="${styleUri}" rel="stylesheet">
+      <link href="${resetStyleUri}" rel="stylesheet">
+      <link href="${vscodeStyleUri}" rel="stylesheet">
+      <title>AT</title>
+      <style>
+        body {
+          margin: 0;
+          padding: 0;
+          overflow: hidden;
+        }
+        iframe#at {
+          width: 100vw;
+          height: 100vh;
+          border: none;
+        }
+      </style>
+    </head>
+    <body>
+      <iframe id="at" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}${path}${param}" border="none"></iframe>
+    </body>
+    </html>`;
+}
 
 // 🌈 KidLisp.com WebView Content
 function getKidLispWebViewContent(webview: any) {
