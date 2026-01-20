@@ -8817,6 +8817,8 @@ async function load(
     currentHUDButton = undefined;
     currentHUDScrub = 0;
   currentHUDLeftPad = 0;
+    currentHUDQR = null; // Reset QR code when loading new piece
+    currentHUDQRCells = null;
     // currentPromptButton = undefined;
 
     // Push last piece to a history list, skipping prompt and repeats.
@@ -12740,7 +12742,8 @@ async function makeFrame({ data: { type, content } }) {
               const qrCells = currentHUDQRCells;
               const qrSize = qrCells.length;
               const qrBorder = 1;
-              const qrX = 0;
+              // Position QR after the left padding (share button space) so it appears at the visible left edge
+              const qrX = currentHUDLeftPad;
               const qrY = 1; // Slight offset from top
               
               // White background with minimal border
