@@ -1507,10 +1507,20 @@
         e.preventDefault();
         toggle();
       }
-      // Cmd+Shift+I to open webview devtools
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'i') {
+      // Cmd+Shift+I or Ctrl+Shift+I to open webview devtools (check both cases)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'i' || e.key === 'I')) {
         e.preventDefault();
-        console.log('[flip] Opening webview DevTools');
+        console.log('[flip] Opening webview DevTools via keyboard');
+        if (webviewEl.isDevToolsOpened()) {
+          webviewEl.closeDevTools();
+        } else {
+          webviewEl.openDevTools();
+        }
+      }
+      // F12 also opens devtools (Windows standard)
+      if (e.key === 'F12') {
+        e.preventDefault();
+        console.log('[flip] Opening webview DevTools via F12');
         if (webviewEl.isDevToolsOpened()) {
           webviewEl.closeDevTools();
         } else {
@@ -1518,6 +1528,83 @@
         }
       }
     });
+    
+    // Context menu for DevTools
+    document.addEventListener('contextmenu', (e) => {
+      // Show custom context menu
+      e.preventDefault();
+      showContextMenu(e.clientX, e.clientY);
+    });
+    
+    // Custom context menu
+    function showContextMenu(x, y) {
+      // Remove any existing menu
+      const existing = document.getElementById('custom-context-menu');
+      if (existing) existing.remove();
+      
+      const menu = document.createElement('div');
+      menu.id = 'custom-context-menu';
+      menu.style.cssText = `
+        position: fixed;
+        left: ${x}px;
+        top: ${y}px;
+        background: rgba(30, 30, 40, 0.95);
+        border: 1px solid var(--ac-border);
+        border-radius: 6px;
+        padding: 4px 0;
+        min-width: 160px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        z-index: 10000;
+        font-size: 12px;
+        backdrop-filter: blur(8px);
+      `;
+      
+      const menuItems = [
+        { label: '🔧 Open DevTools', action: () => webviewEl.openDevTools() },
+        { label: '🔄 Reload Page', action: () => webviewEl.reload() },
+        { label: '📋 Copy URL', action: () => navigator.clipboard.writeText(webviewEl.src) },
+        { type: 'separator' },
+        { label: '🔊 Reset Volume', action: () => { updateVolumeUI(DEFAULT_MASTER_VOLUME); syncMasterVolume(); } },
+      ];
+      
+      menuItems.forEach(item => {
+        if (item.type === 'separator') {
+          const sep = document.createElement('div');
+          sep.style.cssText = 'height: 1px; background: var(--ac-border); margin: 4px 8px;';
+          menu.appendChild(sep);
+        } else {
+          const menuItem = document.createElement('div');
+          menuItem.textContent = item.label;
+          menuItem.style.cssText = `
+            padding: 6px 12px;
+            cursor: pointer;
+            color: var(--ac-text);
+          `;
+          menuItem.addEventListener('mouseenter', () => {
+            menuItem.style.background = 'var(--ac-border-hover)';
+          });
+          menuItem.addEventListener('mouseleave', () => {
+            menuItem.style.background = 'transparent';
+          });
+          menuItem.addEventListener('click', () => {
+            item.action();
+            menu.remove();
+          });
+          menu.appendChild(menuItem);
+        }
+      });
+      
+      document.body.appendChild(menu);
+      
+      // Close menu on click outside
+      const closeMenu = (e) => {
+        if (!menu.contains(e.target)) {
+          menu.remove();
+          document.removeEventListener('click', closeMenu);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', closeMenu), 0);
+    }
     
     // Window resize
     window.addEventListener('resize', () => {
