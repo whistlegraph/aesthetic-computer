@@ -185,9 +185,9 @@
       bootMode.textContent = `$${codeId}`;
       document.title = `KidLisp.com · $${codeId}`;
       
-      // Build the code~ URL with display params
-      // code~{codeId} loads the stored kidlisp code
-      iframe.src = `${aestheticUrl}/code~${codeId}?${buildDisplayParams()}`;
+      // Build the $codeId URL with display params
+      // ${codeId} loads the stored kidlisp code from MongoDB
+      iframe.src = `${aestheticUrl}/$${codeId}?${buildDisplayParams()}`;
       
       logDevice('iframe src', { src: iframe.src });
       
