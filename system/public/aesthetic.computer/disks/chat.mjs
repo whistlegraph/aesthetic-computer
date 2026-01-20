@@ -1414,24 +1414,22 @@ function paint(
     const onlineHandles = client?.onlineHandles || [];
     const hereHandles = client?.hereHandles || [];
     
-    // Build presence text with "here" count and cycling handle
+    // Build presence text - list ALL handles instead of cycling through one
     let presenceText;
     const hereCount = hereHandles.length;
     const onlineCount = onlineHandles.length;
     
     if (hereCount > 0) {
-      // Cycle through "here" handles every 2 seconds
-      const handleIndex = Math.floor(Date.now() / 2000) % hereCount;
-      const hereHandle = hereHandles[handleIndex];
-      // Show: "3 here @handle • 5 online"
-      presenceText = `${hereCount} here ${hereHandle}`;
+      // List ALL "here" handles joined by spaces
+      const allHereHandles = hereHandles.join(" ");
+      presenceText = `${hereCount} here ${allHereHandles}`;
       if (onlineCount > hereCount) {
-        presenceText += ` • ${onlineCount} online`;
+        presenceText += ` · ${onlineCount} online`;
       }
     } else if (onlineCount > 0) {
-      // No one here, but people online - cycle through online handles
-      const handleIndex = Math.floor(Date.now() / 2000) % onlineCount;
-      presenceText = `${onlineCount} online ${onlineHandles[handleIndex]}`;
+      // List ALL online handles joined by spaces
+      const allOnlineHandles = onlineHandles.join(" ");
+      presenceText = `${onlineCount} online ${allOnlineHandles}`;
     } else {
       // Fallback to connection count
       presenceText = chatterCount + " online";
@@ -1450,16 +1448,36 @@ function paint(
     let displayPresenceText = presenceText;
     let presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
 
-    // If it would overlap the ticker area, shorten to count-only variants
+    // If it would overlap the ticker area, show truncated list with ellipsis
     if (basePresenceX + presenceWidth > tickerLeftEdge) {
+      // Try progressively shorter versions
       if (hereCount > 0) {
-        displayPresenceText = `${hereCount} here`;
+        // First try showing just first 3 handles
+        const limitedHandles = hereHandles.slice(0, 3).join(" ");
+        const hasMore = hereHandles.length > 3;
+        displayPresenceText = `${hereCount} here ${limitedHandles}${hasMore ? "…" : ""}`;
+        presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
+        
+        // If still too wide, just show count
+        if (basePresenceX + presenceWidth > tickerLeftEdge) {
+          displayPresenceText = `${hereCount} here`;
+          presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
+        }
       } else if (onlineCount > 0) {
-        displayPresenceText = `${onlineCount} online`;
+        // First try showing just first 3 handles
+        const limitedHandles = onlineHandles.slice(0, 3).join(" ");
+        const hasMore = onlineHandles.length > 3;
+        displayPresenceText = `${onlineCount} online ${limitedHandles}${hasMore ? "…" : ""}`;
+        presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
+        
+        // If still too wide, just show count
+        if (basePresenceX + presenceWidth > tickerLeftEdge) {
+          displayPresenceText = `${onlineCount} online`;
+          presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
+        }
       } else {
         displayPresenceText = chatterCount + " online";
       }
-      presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
     }
 
     // Final guard: if still too wide, drop to just the count
@@ -3825,7 +3843,7 @@ function paintNewsTicker($, theme) {
   const tickerCharWidth = 4; // MatrixChunky8 char width
   const tickerHeight = 8;
   const tickerPadding = 3;
-  const rightMargin = 6;
+  const rightMargin = 0; // Flush right, no margin
   
   // "News" prefix styling - uniform width with r8Dio label
   const newsPrefix = "News";
@@ -3950,7 +3968,7 @@ function paintR8dioPlayer($, theme) {
   const tickerCharWidth = 4; // MatrixChunky8 char width
   const tickerHeight = 8;
   const tickerPadding = 3;
-  const rightMargin = 6;
+  const rightMargin = 0; // Flush right, no margin
   
   // "r8Dio" prefix styling - uniform width with News label
   const r8dioPrefix = "r8Dio";
