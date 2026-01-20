@@ -447,9 +447,10 @@ export const handler = async (event) => {
   const charParam = event.queryStringParameters.char;
   const charsParam = event.queryStringParameters.chars; // Batch mode: comma-separated code points
   let fontParam = event.queryStringParameters.font || "unifont-16.0.03";
+  const nocache = event.queryStringParameters.nocache === "true" || dev; // Skip cache in dev mode or with nocache=true
   
   // Debug logging for all requests
-  shell.log(`🔍 BDF-GLYPH CALLED: char=${charParam}, chars=${charsParam}, font=${fontParam}`);
+  shell.log(`🔍 BDF-GLYPH CALLED: char=${charParam}, chars=${charsParam}, font=${fontParam}, nocache=${nocache}`);
   shell.log(`🔍 Query params:`, JSON.stringify(event.queryStringParameters));
   
   // Normalize font name for unifont
@@ -596,22 +597,26 @@ export const handler = async (event) => {
     charCodeToFind = charParam.codePointAt(0);
   }
 
-  // Check for cached glyph data first
-  const cachedGlyph = await getCachedGlyph(charCodeToFind, fontParam);
-  if (cachedGlyph) {
-    // Display ASCII art for cached glyph
-    logGlyphAsASCII(
-      charToFind,
-      charCodeToFind,
-      cachedGlyph.data,
-      cachedGlyph.source,
-    );
+  // Check for cached glyph data first (skip if nocache)
+  if (!nocache) {
+    const cachedGlyph = await getCachedGlyph(charCodeToFind, fontParam);
+    if (cachedGlyph) {
+      // Display ASCII art for cached glyph
+      logGlyphAsASCII(
+        charToFind,
+        charCodeToFind,
+        cachedGlyph.data,
+        cachedGlyph.source,
+      );
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(cachedGlyph.data),
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    };
+      return {
+        statusCode: 200,
+        body: JSON.stringify(cachedGlyph.data),
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      };
+    }
+  } else {
+    shell.log(`🔄 Skipping cache lookup (nocache=${nocache})`);
   }
 
   shell.log(
@@ -636,10 +641,16 @@ export const handler = async (event) => {
     ? `${assetsBaseUrl}/assets/type/${bdfFileName}`
     : `${assetsBaseUrl}/type/${bdfFileName}`;
 
-  // TEMP DEBUG: Force local file for MatrixChunky8
-  const actualBdfUrl = fontParam === "MatrixChunky8" 
-    ? "https://localhost:8888/assets/type/MatrixChunky8.bdf"
-    : bdfFileUrl;
+  // In dev mode, add cache-busting timestamp to always get fresh BDF file
+  const actualBdfUrl = dev
+    ? `${assetsBaseUrl}/assets/type/${bdfFileName}?t=${Date.now()}`
+    : (fontParam === "MatrixChunky8" 
+        ? `${assetsBaseUrl}/type/MatrixChunky8.bdf`
+        : bdfFileUrl);
+
+  if (dev) {
+    shell.log(`🔄 Dev mode: fetching fresh BDF from ${actualBdfUrl}`);
+  }
 
   // shell.log(`Attempting to fetch BDF from: ${actualBdfUrl}`);
 
@@ -827,8 +838,12 @@ export const handler = async (event) => {
           // Log glyph as ASCII art using block characters
           // logGlyphAsASCII(charToFind, charCodeToFind, glyphData, "Generated");
 
-          // Cache the parsed glyph data to S3 for future requests
-          await cacheGlyph(charCodeToFind, glyphData, fontParam);
+          // Cache the parsed glyph data (skip in dev/nocache mode)
+          if (!nocache) {
+            await cacheGlyph(charCodeToFind, glyphData, fontParam);
+          } else {
+            shell.log(`🔄 Skipping cache write (nocache=${nocache})`);
+          }
 
           return {
             statusCode: 200,
