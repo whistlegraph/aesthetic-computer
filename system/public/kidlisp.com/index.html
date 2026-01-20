@@ -15188,6 +15188,7 @@
         log.playback.debug('Resuming');
         addStateEntry('play'); // Resume shows as play
         sendToIframe({ type: 'kidlisp-resume' });
+        broadcastPauseToChannel(false); // Resume remote PJ windows
         isPaused = false;
         vizSystem.isPaused = false;
         sendButton.classList.add('playing'); // Ensure playing style (Pause icon)
@@ -15199,6 +15200,7 @@
         log.playback.debug('Pausing');
         addStateEntry('pause');
         sendToIframe({ type: 'kidlisp-pause' });
+        broadcastPauseToChannel(true); // Pause remote PJ windows
         isPaused = true;
         vizSystem.isPaused = true;
         sendButton.classList.remove('playing'); // Revert to Play icon (Green)
@@ -20127,6 +20129,45 @@
           content: {
             piece: code,
             source: code,
+            codeChannel: codeChannelId
+          }
+        }));
+      }
+    }
+    
+    // Broadcast pause/resume to channel subscribers
+    function broadcastPauseToChannel(paused) {
+      if (!codeChannelId || !hasActivePjSession()) return;
+      logPj('broadcast pause', { codeChannelId, paused });
+      
+      // Direct postMessage to pop-out window
+      if (popoutWindow && !popoutWindow.closed) {
+        try {
+          popoutWindow.postMessage({
+            type: paused ? 'kidlisp-pause' : 'kidlisp-resume',
+            channelId: codeChannelId
+          }, '*');
+        } catch (e) {
+          // Ignore - cross-origin
+        }
+      }
+      
+      // Broadcast via BroadcastChannel for same-origin windows
+      if (window.BroadcastChannel) {
+        const bc = new BroadcastChannel(`kidlisp-channel-${codeChannelId}`);
+        bc.postMessage({
+          type: paused ? 'pause' : 'resume',
+          channelId: codeChannelId,
+          timestamp: Date.now()
+        });
+        bc.close();
+      }
+      
+      // Broadcast via production PJ WebSocket (cross-origin)
+      if (pjWs && pjWs.readyState === WebSocket.OPEN) {
+        pjWs.send(JSON.stringify({
+          type: paused ? 'pause' : 'resume',
+          content: {
             codeChannel: codeChannelId
           }
         }));
