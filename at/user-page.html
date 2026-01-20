@@ -1606,7 +1606,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       const previewCode = value.code ? value.code.replace(/[^a-zA-Z0-9_-]/g, '') : '';
       const kidlispPreviewHtml = previewCode
         ? `<a href="https://kidlisp.com/$${previewCode}" target="_blank" rel="noreferrer" class="kidlisp-preview-card">
-            <img class="kidlisp-webp" src="https://oven.aesthetic.computer/grab/webp/200/200/$${previewCode}?duration=4000&fps=8&quality=80&density=1" alt="KidLisp preview" loading="lazy" />
+            <img class="kidlisp-webp" src="https://oven.aesthetic.computer/grab/webp/200/200/$${previewCode}?duration=4000&fps=8&quality=80&density=1&nowait=true" alt="KidLisp preview" loading="lazy" />
             <div class="kidlisp-preview-overlay" data-kidlisp-code="${previewCode}">
               <div class="kidlisp-preview-code">${value.source ? value.source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''}</div>
               <div class="kidlisp-preview-qr">
@@ -2196,6 +2196,23 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         document.getElementById('error').textContent = `❌ Error: ${error.message}`;
       }
     }
+
+    // Auto-refresh placeholder images (baking indicator)
+    document.addEventListener('load', (e) => {
+      if (e.target.tagName === 'IMG' && e.target.src.includes('nowait=true')) {
+        const img = e.target;
+        if (!img.dataset.retried) {
+          // Schedule a retry after 10-15 seconds to fetch the real baked image
+          const retryDelay = 10000 + Math.random() * 5000;
+          setTimeout(() => {
+            img.dataset.retried = 'true';
+            const url = new URL(img.src);
+            url.searchParams.set('t', Date.now());
+            img.src = url.toString();
+          }, retryDelay);
+        }
+      }
+    }, true);
 
     // Start
     init();
