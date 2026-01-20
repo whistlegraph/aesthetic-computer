@@ -124,7 +124,7 @@ let hoveredMessageIndex = null; // Index of message currently being hovered
 
 let rowHeight;
 const lineGap = 1,
-  topMargin = 30,
+  topMargin = 31,
   leftMargin = 6;
 
 // Dynamic bottom margin based on selected font
@@ -1076,6 +1076,10 @@ function paint(
         // Get loading progress (0-1)
         const progress = paintingLoadProgress.get(code) || 0;
         
+        // Loading indicator dimensions
+        const loadingW = 64;
+        const loadingH = 64;
+        
         // Pulsing animation based on time
         const pulse = (Math.sin(help.repeat * 0.1) + 1) / 2; // 0 to 1
         const bgAlpha = Math.floor(140 + pulse * 60); // 140-200
@@ -1430,11 +1434,15 @@ function paint(
       presenceText = chatterCount + " online";
     }
     
-    // Draw presence counter (no background)
+    // Draw presence counter to the right (before News ticker)
+    // Calculate position: right of HUD label, before News
     const onlineFgColor = theme?.timestamp || 160;
+    const presenceWidth = text.width(presenceText, "MatrixChunky8");
+    // Position to the right, leaving room for News ticker (~220px from right)
+    const presenceX = screen.width - 230 - presenceWidth;
     ink(onlineFgColor).write(presenceText, {
-      left: leftMargin,
-      top: 18,
+      x: Math.max(presenceX, 80), // Don't overlap HUD label (min 80px from left)
+      top: 7, // Align with News ticker vertically
     }, false, undefined, false, "MatrixChunky8");
   }
 
@@ -2142,6 +2150,12 @@ function act(
 
     // 👈 Tapping
     if (e.is("touch")) {
+      // Skip message interaction if clicking in top UI area (News, r8dio, online count)
+      if (e.y < topMargin) {
+        // Let the top UI buttons handle this click
+        return;
+      }
+      
       // Detect if we are inside a message or not.
       for (let i = client.messages.length - 1; i >= 0; i--) {
         const message = client.messages[i];
@@ -2615,6 +2629,18 @@ function act(
       
       let hoveredAnyElement = false;
       hoveredMessageIndex = null; // Reset hovered message tracking
+      
+      // Skip message hover detection if in top UI area
+      if (e.y < topMargin) {
+        // Clear any existing hover states
+        for (let i = 0; i < client.messages.length; i++) {
+          const message = client.messages[i];
+          if (message.layout?.hoveredElements) {
+            message.layout.hoveredElements.clear();
+          }
+        }
+        return;
+      }
       
       // Also track hover on message elements (handles, links, etc.)
       for (let i = client.messages.length - 1; i >= 0; i--) {
@@ -3744,7 +3770,7 @@ function paintNewsTicker($, theme) {
   const tickerCharWidth = 4; // MatrixChunky8 char width
   const tickerHeight = 8;
   const tickerPadding = 3;
-  const rightMargin = 10;
+  const rightMargin = 6;
   
   // "News" prefix styling - uniform width with r8Dio label
   const newsPrefix = "News";
@@ -3753,7 +3779,7 @@ function paintNewsTicker($, theme) {
   // Ticker dimensions
   const tickerMaxWidth = 180;
   const tickerRight = screen.width - rightMargin;
-  const tickerY = 6; // Flush with top right (was 10)
+  const tickerY = 2; // Align with top of QR code
   
   // Use dynamic news text (fetched from API or fallback)
   const displayText = newsTickerText || "Report a story";
@@ -3869,7 +3895,7 @@ function paintR8dioPlayer($, theme) {
   const tickerCharWidth = 4; // MatrixChunky8 char width
   const tickerHeight = 8;
   const tickerPadding = 3;
-  const rightMargin = 10;
+  const rightMargin = 6;
   
   // "r8Dio" prefix styling - uniform width with News label
   const r8dioPrefix = "r8Dio";
@@ -3878,7 +3904,7 @@ function paintR8dioPlayer($, theme) {
   // Bar dimensions - match news ticker width
   const tickerMaxWidth = 180;
   const tickerRight = screen.width - rightMargin;
-  const tickerY = 18; // Right below news ticker (at y=6, ~12px tall)
+  const tickerY = 14; // Right below news ticker (at y=2, ~12px tall)
   
   // Calculate HUD label right edge to avoid overlap (same as news ticker)
   const hudLabelOffset = 6;

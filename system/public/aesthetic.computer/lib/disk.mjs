@@ -12755,24 +12755,25 @@ async function makeFrame({ data: { type, content } }) {
               console.log("📱 Rendering QR in label buffer:", currentHUDQRCells.length, "cells");
               const qrCells = currentHUDQRCells;
               const qrSize = qrCells.length;
-              const qrBorder = 1;
-              // Position QR after the left padding (share button space) so it appears at the visible left edge
-              const qrX = currentHUDLeftPad;
-              const qrY = 1; // Slight offset from top
+              // Position QR at the start of visible area (after share button padding)
+              // Include scrub offset so QR moves with the label when swiping to "share"
+              // Move left by 4px for tighter fit (up is handled by label Y offset)
+              const qrX = currentHUDLeftPad + currentHUDScrub - 4;
+              const qrY = 0; // Top of buffer
               
-              // White background with minimal border
-              $.ink(255, 255, 255).box(qrX, qrY, qrSize + qrBorder * 2, qrSize + qrBorder * 2);
+              // White background (1px border around QR)
+              $.ink(255, 255, 255).box(qrX, qrY, qrSize + 2, qrSize + 2);
               
               // Draw QR code cells
               for (let y = 0; y < qrSize; y++) {
                 for (let x = 0; x < qrSize; x++) {
                   if (qrCells[y][x]) {
-                    $.ink(0, 0, 0).box(qrX + qrBorder + x, qrY + qrBorder + y, 1, 1);
+                    $.ink(0, 0, 0).box(qrX + 1 + x, qrY + 1 + y, 1, 1);
                   }
                 }
               }
               
-              qrOffset = qrSize + qrBorder * 2 + 4; // QR width + gap
+              qrOffset = qrSize + 4; // QR width + border + gap
             }
             
             const baseX = currentHUDLeftPad + qrOffset;
@@ -12792,6 +12793,9 @@ async function makeFrame({ data: { type, content } }) {
               y: hudTextY,
               typefaceName: typefaceNameForWrite,
               textColor: baseTextColor,
+              shadowColor: "black",
+              shadowOffsetX: 1,
+              shadowOffsetY: 1,
               preserveColors: hasColorCodes,
               bounds: wrapBounds,
               // wordWrap defaults to true when bounds is set, enabling character wrapping
@@ -12819,16 +12823,22 @@ async function makeFrame({ data: { type, content } }) {
               $.write(deviceLetter, { x: superscriptX, y: superscriptY }, undefined, undefined, false, "MatrixChunky8");
             }
 
+            // 🔗 Draw "share" text in the LEFT reveal area when scrubbing
             if (currentHUDScrub > 0) {
-              const shareWidth = currentHUDShareWidth || (currentHUDLabelBlockWidth * "share ".length);
-              const shareTextX = HUD_LABEL_TEXT_MARGIN + currentHUDScrub + qrOffset;
+              // Draw opaque background to clip content on the right edge of share area
+              const shareBgColor = [20, 20, 20]; // Dark background
+              $.ink(...shareBgColor).box(0, 0, currentHUDLeftPad, h);
+              
+              // "share" text at fixed position (left of QR), using default font
+              const shareTextX = HUD_LABEL_TEXT_MARGIN;
               const shareTextY = 0;
 
               drawHudLabelText($, "share", {
                 x: shareTextX,
                 y: shareTextY,
-                typefaceName: typefaceNameForWrite,
+                typefaceName: undefined, // Use default font, not MatrixChunky8
                 textColor: c,
+                shadowColor: "black",
                 preserveColors: false,
               });
             }
@@ -13427,7 +13437,9 @@ async function makeFrame({ data: { type, content } }) {
       // Hide label when QR is in fullscreen mode
       if (label && !hudAnimationState.qrFullscreen) {
   const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
-        const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y;
+        // Move label up by 4px when QR is present for tighter fit
+        const qrYOffset = currentHUDQR ? -4 : 0;
+        const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y + qrYOffset;
         
         sendData.label = {
           x: finalX,
