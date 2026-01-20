@@ -812,6 +812,8 @@
     let showingTerminal = false;
     let localhostAvailable = false;
     let currentMode = 'production'; // 'production' or 'localhost'
+    let webviewReady = false;
+    let pendingMasterVolume = null;
 
     const DEFAULT_MASTER_VOLUME = 0.25;
     const VOLUME_STORAGE_KEY = 'ac-master-volume';
@@ -835,6 +837,10 @@
     function sendMasterVolume(value) {
       const clamped = clampVolume(value);
       console.log('[volume] Sending master volume:', clamped);
+      if (typeof webviewEl?.executeJavaScript !== 'function') {
+        pendingMasterVolume = clamped;
+        return false;
+      }
       const code = `(() => {
         const v = ${clamped};
         console.log('[AC] setMasterVolume called with:', v);
@@ -854,11 +860,17 @@
       webviewEl.executeJavaScript(code, true)
         .then(result => console.log('[volume] executeJavaScript result:', result))
         .catch(err => console.error('[volume] executeJavaScript error:', err));
+      pendingMasterVolume = null;
+      return true;
     }
 
     function syncMasterVolume() {
       const clamped = clampVolume(volumeSlider.value);
       sessionStorage.setItem(VOLUME_STORAGE_KEY, String(clamped));
+      if (!webviewReady) {
+        pendingMasterVolume = clamped;
+        return;
+      }
       sendMasterVolume(clamped);
     }
 
@@ -958,6 +970,10 @@
 
     webviewEl.addEventListener('dom-ready', () => {
       console.log('[volume] dom-ready - syncing volume')
+      webviewReady = true;
+      if (pendingMasterVolume !== null) {
+        sendMasterVolume(pendingMasterVolume);
+      }
       syncMasterVolume();
       // Retry after AC has had time to boot
       setTimeout(() => {
