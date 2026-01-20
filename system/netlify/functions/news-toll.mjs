@@ -1,6 +1,7 @@
 // News Troll Toll, 2026.01.20
-// 🧌 Stripe checkout for posting external links on Aesthetic News
-// Endpoint: POST /api/news/toll
+// 🧌 Stripe checkout + webhook for posting external links on Aesthetic News
+// Uses existing STRIPE_ENDPOINT_DEV_SECRET pattern from mug.js
+// Endpoint: POST /api/news/toll (checkout OR webhook)
 
 import Stripe from "stripe";
 import { connect } from "../../backend/database.mjs";
@@ -30,8 +31,86 @@ export async function handler(event, context) {
 
   const stripe = Stripe(stripeKey);
 
+  // Check if this is a webhook request (has stripe-signature header)
+  const sig = event.headers["stripe-signature"];
+  if (sig) {
+    // 🔔 WEBHOOK: Handle Stripe event
+    const secret = dev
+      ? process.env.STRIPE_ENDPOINT_DEV_SECRET
+      : process.env.STRIPE_ENDPOINT_NEWS_SECRET; // Set up in Stripe dashboard
+    
+    let hookEvent;
+    try {
+      hookEvent = stripe.webhooks.constructEvent(event.body, sig, secret);
+    } catch (err) {
+      console.error("🧌 Webhook signature failed:", err.message);
+      return respond(400, { error: `Webhook Error: ${err.message}` });
+    }
+
+    if (hookEvent.type === "checkout.session.completed") {
+      const session = hookEvent.data.object;
+      const metadata = session.metadata || {};
+
+      // Only handle news toll payments
+      if (metadata.type !== "news-toll") {
+        return respond(200, { received: true, skipped: true });
+      }
+
+      const postCode = metadata.postCode;
+      const userSub = metadata.userSub;
+
+      if (!postCode) {
+        console.error("🧌 No postCode in webhook metadata");
+        return respond(200, { received: true, error: "No postCode" });
+      }
+
+      // Update post status to live
+      const database = await connect();
+      const posts = database.db.collection("news-posts");
+      const votes = database.db.collection("news-votes");
+
+      const result = await posts.updateOne(
+        { code: postCode, user: userSub, status: "pending-toll" },
+        { 
+          $set: { 
+            status: "live", 
+            tollPaid: true,
+            tollPaidAt: new Date(),
+            stripeSessionId: session.id,
+          } 
+        }
+      );
+
+      // Also create the initial upvote now that post is live
+      if (result.modifiedCount > 0) {
+        try {
+          await votes.insertOne({
+            itemType: "post",
+            itemId: postCode,
+            user: userSub,
+            when: new Date(),
+          });
+        } catch (e) {
+          // Ignore duplicate vote errors
+        }
+      }
+
+      await database.disconnect();
+
+      if (result.modifiedCount === 0) {
+        console.error("🧌 Post not found or already live:", postCode);
+        return respond(200, { received: true, warning: "Not found or already live" });
+      }
+
+      console.log(`🧌 Troll toll paid! Post ${postCode} is now live.`);
+      return respond(200, { received: true, published: postCode });
+    }
+
+    return respond(200, { received: true });
+  }
+
+  // 💳 CHECKOUT: Create Stripe checkout session
   try {
-    // Authorize user
     const user = await authorize(event.headers || {});
     if (!user) {
       return respond(401, { error: "Unauthorized" });
@@ -93,7 +172,7 @@ export async function handler(event, context) {
 
     return respond(200, { url: session.url, sessionId: session.id });
   } catch (error) {
-    console.error("Troll toll checkout error:", error);
+    console.error("🧌 Toll checkout error:", error);
     return respond(500, { error: error.message });
   }
 }
