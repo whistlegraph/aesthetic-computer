@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aesthetic Computer</title>
+  <title>AC Pane</title>
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
   <style>
     /* Theme color variables - changes based on system light/dark mode */
@@ -254,29 +254,27 @@
       border-radius: 0 6px 6px 0;
     }
 
-    /* Volume control - top right corner, horizontal slider */
+    /* Volume control - attached to right edge */
     .volume-control {
       position: absolute;
-      right: 8px;
-      top: -32px;
+      right: -26px;
+      top: 18px;
       z-index: 240;
-      height: 24px;
+      height: 26px;
       display: flex;
       flex-direction: row;
       align-items: center;
       gap: 6px;
-      padding: 3px 10px;
-      border-radius: 12px;
-      background: rgba(0, 0, 0, 0.5);
+      padding: 4px 10px 4px 8px;
+      border-radius: 0 10px 10px 0;
+      background: var(--ac-border-solid);
       border: 1px solid var(--ac-border);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-      backdrop-filter: blur(6px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     }
 
-    .volume-label {
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      color: var(--ac-text-muted);
+    body.midflip .volume-control {
+      background: var(--ac-tab-back);
+      border-color: var(--ac-border-solid);
     }
 
     .volume-value {
@@ -287,7 +285,7 @@
     #volume-slider {
       -webkit-appearance: none;
       appearance: none;
-      width: 80px;
+      width: 92px;
       height: 4px;
       background: var(--ac-border-solid);
       border-radius: 2px;
@@ -303,8 +301,8 @@
     #volume-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 12px;
-      height: 12px;
+      width: 11px;
+      height: 11px;
       border-radius: 50%;
       background: var(--ac-accent);
       border: 1px solid var(--ac-border-active);
@@ -319,83 +317,12 @@
     }
 
     #volume-slider::-moz-range-thumb {
-      width: 12px;
-      height: 12px;
+      width: 11px;
+      height: 11px;
       border-radius: 50%;
       background: var(--ac-accent);
       border: 1px solid var(--ac-border-active);
       box-shadow: 0 0 8px var(--ac-accent-glow);
-    }
-    
-    /* Mode tags - flush against bottom of card border */
-    .mode-tags {
-      position: absolute;
-      z-index: 100;
-      bottom: -19.5px;  /* Flush against the border */
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 4px;
-    }
-    
-    /* Individual mode tag with front/back */
-    .mode-tag {
-      position: relative;
-      cursor: pointer;
-    }
-    
-    /* When on backend (midflip), mode tags not interactive */
-    body.midflip .mode-tag {
-      cursor: default;
-      pointer-events: none;
-    }
-    
-    .mode-tag .tag-front {
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      padding: 3px 12px 6px 12px;
-      text-transform: uppercase;
-      border-radius: 0 0 6px 6px;
-    }
-    
-    .mode-tag .tag-back {
-      position: absolute;
-      inset: 0;
-      background: var(--ac-border-solid);
-      border-radius: 0 0 6px 6px;
-      opacity: 0;
-    }
-    
-    /* When midflip, swap front/back visibility */
-    body.midflip .mode-tag .tag-front {
-      opacity: 0;
-    }
-    
-    body.midflip .mode-tag .tag-back {
-      opacity: 1;
-    }
-    
-    /* Translucent style for mode tags - uses theme colors */
-    .mode-tag.localhost .tag-front {
-      background: var(--ac-border-solid);
-      color: var(--ac-text);
-    }
-    
-    .mode-tag.localhost.disabled .tag-front {
-      background: rgba(128, 128, 128, 0.3);
-      color: var(--ac-text-muted);
-      cursor: not-allowed;
-    }
-    
-    .mode-tag.production .tag-front {
-      background: var(--ac-border-hover);
-      color: var(--ac-text);
-    }
-    
-    .mode-tag.active .tag-front {
-      background: var(--ac-border-active);
-      box-shadow: 0 2px 12px var(--ac-accent-glow);
     }
 
     /* Backend controls - appears on backend side (counter-rotated to fix mirroring) */
@@ -459,11 +386,6 @@
       cursor: not-allowed;
     }
 
-    /* Hide mode tags on backend, show controls */
-    body.midflip .mode-tags {
-      opacity: 0;
-      pointer-events: none;
-    }
 
     /* Resize handles on the card border edge */
     .resize-handle {
@@ -734,21 +656,8 @@
       </div>
 
       <div class="volume-control" aria-label="Master volume">
-        <div class="volume-label">VOL</div>
         <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.25" />
         <div class="volume-value" id="volume-value">25</div>
-      </div>
-      
-      <!-- Mode tags - inside card so they rotate with it -->
-      <div class="mode-tags">
-        <div class="mode-tag production active" id="prod-tag">
-          <div class="tag-front">PROD</div>
-          <div class="tag-back"></div>
-        </div>
-        <div class="mode-tag localhost disabled" id="local-tag">
-          <div class="tag-front">LOCAL</div>
-          <div class="tag-back"></div>
-        </div>
       </div>
       
       <!-- Shutdown button - visible on backend side -->
@@ -766,7 +675,7 @@
     <div class="card-face card-back">
       <!-- Welcome screen before terminal starts -->
       <div class="backend-welcome" id="backend-welcome">
-        <h1>⚡ Aesthetic Computer</h1>
+        <h1>⚡ AC Pane</h1>
         <div class="subtitle">Development Environment</div>
         
         <div class="info-section">
@@ -804,23 +713,16 @@
     
     const flipCard = document.querySelector('.flip-card');
     const webviewEl = document.getElementById('front-webview');
-    const prodTag = document.getElementById('prod-tag');
-    const localTag = document.getElementById('local-tag');
     const flipTabs = document.querySelectorAll('.flip-tab');
     const volumeSlider = document.getElementById('volume-slider');
     const volumeValue = document.getElementById('volume-value');
     let showingTerminal = false;
-    let localhostAvailable = false;
-    let currentMode = 'production'; // 'production' or 'localhost'
     let webviewReady = false;
     let pendingMasterVolume = null;
 
     const DEFAULT_MASTER_VOLUME = 0.25;
     const VOLUME_STORAGE_KEY = 'ac-master-volume';
     
-    const PROD_URL = 'https://aesthetic.computer/prompt?desktop';
-    const LOCAL_URL = 'http://localhost:8888/prompt?desktop';
-
     function clampVolume(value) {
       const numeric = Number(value);
       if (!Number.isFinite(numeric)) return DEFAULT_MASTER_VOLUME;
@@ -884,59 +786,6 @@
     }
     syncMasterVolume();
     
-    // Poll for localhost availability using an image load trick (works in webview)
-    async function checkLocalhost() {
-      return new Promise((resolve) => {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => {
-          controller.abort();
-          resolve(false);
-        }, 2000);
-        
-        // Try to fetch - in Electron webview, this should work
-        fetch('http://localhost:8888/', { signal: controller.signal })
-          .then(response => {
-            clearTimeout(timeout);
-            resolve(true);
-          })
-          .catch(e => {
-            clearTimeout(timeout);
-            resolve(false);
-          });
-      });
-    }
-    
-    async function updateLocalhostStatus() {
-      const wasAvailable = localhostAvailable;
-      localhostAvailable = await checkLocalhost();
-      
-      if (localhostAvailable !== wasAvailable) {
-        console.log('[flip] Localhost availability changed:', localhostAvailable);
-        if (localhostAvailable) {
-          localTag.classList.remove('disabled');
-        } else {
-          localTag.classList.add('disabled');
-          // If we were on localhost and it went down, switch to prod
-          if (currentMode === 'localhost') {
-            switchMode('production');
-          }
-        }
-      }
-    }
-    
-    function switchMode(mode) {
-      if (mode === 'localhost' && !localhostAvailable) return;
-      if (mode === currentMode) return;
-      
-      currentMode = mode;
-      const url = mode === 'localhost' ? LOCAL_URL : PROD_URL;
-      
-      console.log('[flip] Switching to', mode, url);
-      webviewEl.src = url;
-      
-      prodTag.classList.toggle('active', mode === 'production');
-      localTag.classList.toggle('active', mode === 'localhost');
-    }
     
     // Extract piece name from URL
     function extractPieceName(url) {
@@ -1028,12 +877,6 @@
     ipcRenderer.invoke('set-main-window');
     ipcRenderer.invoke('set-current-piece', 'prompt');
     
-    // Click handlers for mode tags
-    prodTag.addEventListener('click', () => switchMode('production'));
-    localTag.addEventListener('click', () => {
-      if (localhostAvailable) switchMode('localhost');
-    });
-
     volumeSlider.addEventListener('input', () => {
       updateVolumeUI(volumeSlider.value);
       syncMasterVolume();
@@ -1111,12 +954,6 @@
     // Update button states periodically
     updateContainerButtons();
     setInterval(updateContainerButtons, 5000);
-    
-    // Start polling for localhost
-    updateLocalhostStatus();
-    setInterval(updateLocalhostStatus, 3000); // Poll every 3 seconds
-    
-    console.log('[flip] Mode system initialized, starting with production');
     
     // Listen for global flip shortcut from main process
     ipcRenderer.on('toggle-flip', () => {
