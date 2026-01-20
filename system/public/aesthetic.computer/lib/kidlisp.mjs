@@ -2069,25 +2069,28 @@ class KidLisp {
   slideUpdate(source) {
     if (!source) return;
     
-    console.log('🎚️ slideUpdate called:', {
-      sourceLength: source.length,
-      preview: source.slice(0, 50)
-    });
-    
     try {
       // Parse the new source
       const parsed = this.parse(source);
-      
-      console.log('🎚️ Parsed new source, updating AST');
       
       // Update AST and source tracking (but preserve everything else)
       this.ast = JSON.parse(JSON.stringify(parsed));
       this.currentSource = source;
       
-      // DON'T reset: globalDef, onceExecuted, layers, timers, etc.
-      // The next paint frame will evaluate with the new AST but existing state
+      // 🎚️ CRITICAL: Clear layer0 so the new code renders fresh
+      // Without this, old pixels persist and visual changes aren't visible
+      if (this.layer0 && this.layer0.pixels) {
+        this.layer0.pixels.fill(0);
+      }
       
-      console.log('🎚️ AST updated, next paint frame will use new values');
+      // Also clear bake layers for clean slate
+      if (this.bakes) {
+        this.bakes = [];
+        this.currentBakeIndex = -1;
+      }
+      
+      // DON'T reset: globalDef, onceExecuted, timers, etc.
+      // (but we DO clear visual layers for immediate feedback)
       
     } catch (e) {
       console.warn('🎚️ Slide update parse error:', e.message);
@@ -3521,9 +3524,6 @@ class KidLisp {
     perfStart("parse");
     const parsed = this.parse(source);
     perfEnd("parse");
-    
-    // 🐛 DEBUG: Log parsed result
-    console.log(`🔍 DEBUG kidlisp.module: source="${source.substring(0, 100)}", parsed=`, parsed, `length=${parsed.length}`);
 
     // 🔍 Special case: If the program consists of only a single $code atom or function call,
     // fetch the cached source and substitute it instead of navigating
@@ -3977,12 +3977,6 @@ class KidLisp {
             $.screen.width = this.layer0.width;
             $.screen.height = this.layer0.height;
             $.screen.pixels = this.layer0.pixels;
-          }
-          
-          // 🎚️ DEBUG: Log AST being evaluated to verify slide updates
-          if (this.ast && this.ast.length > 0) {
-            const astPreview = JSON.stringify(this.ast).slice(0, 100);
-            console.log('🎚️ Evaluating AST:', astPreview);
           }
           
           // Evaluate the entire AST - bake() calls will switch to bake buffers
@@ -14075,6 +14069,21 @@ function parse(program) {
   return lisp.parse(program);
 }
 
+// 🎚️ Slide update function - calls slideUpdate on the global singleton instance
+// This is the instance used by lisp.module() for loaded pieces
+function slideUpdate(source) {
+  if (globalKidLispInstance) {
+    globalKidLispInstance.slideUpdate(source);
+  } else {
+    console.warn('🎚️ slideUpdate called but no global KidLisp instance exists');
+  }
+}
+
+// Get the global KidLisp instance (for external access)
+function getGlobalInstance() {
+  return globalKidLispInstance;
+}
+
 // Standalone evaluate function (for compatibility with tests, and an empty api)
 function evaluate(parsed, api = {}) {
   const lisp = new KidLisp();
@@ -14882,6 +14891,8 @@ export {
   module,
   parse,
   evaluate,
+  slideUpdate,
+  getGlobalInstance,
   KidLisp,
   isKidlispSource,
   isValidRGBString,
