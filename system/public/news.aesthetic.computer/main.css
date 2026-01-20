@@ -538,11 +538,37 @@ body {
   font-size: 8pt;
   color: var(--text-meta);
   margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .news-comment-body {
   font-size: 9pt;
   line-height: 1.5;
+}
+
+/* ===== Admin Delete Controls ===== */
+.news-admin-delete {
+  display: none; /* Hidden by default, shown via JS for admins */
+  margin: 0;
+  padding: 0;
+}
+
+.news-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-meta);
+  cursor: pointer;
+  font-size: 9pt;
+  padding: 0 4px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.news-delete-btn:hover {
+  opacity: 1;
+  color: #c00;
 }
 
 /* ===== Submit Page ===== */

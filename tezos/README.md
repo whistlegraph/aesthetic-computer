@@ -37,6 +37,15 @@
 - Explorer: https://tzkt.io/KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi
 - Objkt: https://objkt.com/collection/KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi
 
+### Legacy (v2 - Archived)
+
+| Contract | Address | Admin | Status |
+|----------|---------|-------|--------|
+| **Keeps FA2 v2** | `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` | `kidlisp` | 🗄️ Legacy (do not use for new mints) |
+
+- Explorer: https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
+- Objkt: https://objkt.com/collection/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
+
 ---
 
 ## 👛 Wallet Details

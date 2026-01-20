@@ -332,6 +332,22 @@ async function initAuth0() {
   updateAuthUI();
 }
 
+// Admin handles who can delete/censor content
+const ADMIN_HANDLES = ['jeffrey'];
+
+function isAdmin() {
+  return acHandle && ADMIN_HANDLES.includes(acHandle);
+}
+
+function updateAdminUI() {
+  // Show/hide admin delete buttons
+  const deleteButtons = document.querySelectorAll('.news-admin-delete');
+  const display = isAdmin() ? 'inline-flex' : 'none';
+  deleteButtons.forEach(btn => {
+    btn.style.display = display;
+  });
+}
+
 function updateAuthUI() {
   const reportSection = document.querySelector('.news-report');
   
@@ -347,6 +363,9 @@ function updateAuthUI() {
     if (userMenu) userMenu.style.display = "none";
     if (reportSection) reportSection.classList.remove('logged-in');
   }
+  
+  // Update admin UI (delete buttons)
+  updateAdminUI();
   
   // Update inline login button
   const promptLogin = document.getElementById('news-prompt-login');
@@ -561,6 +580,10 @@ function initForms() {
         handleFormSubmit(form, "/api/news/comment");
       } else if (action === "vote") {
         handleFormSubmit(form, "/api/news/vote");
+      } else if (action === "delete") {
+        if (confirm("Are you sure you want to delete this?")) {
+          handleFormSubmit(form, "/api/news/delete");
+        }
       }
     });
   });

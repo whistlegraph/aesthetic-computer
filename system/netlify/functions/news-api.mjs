@@ -3,9 +3,12 @@
 
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
-import { authorize } from "../../backend/authorization.mjs";
+import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import { ObjectId } from "mongodb";
+
+// Admin users who can delete/censor content
+const ADMIN_SUBS = [process.env.ADMIN_SUB].filter(Boolean);
 
 const MAX_TITLE = 200;
 const MAX_TEXT = 5000;
@@ -242,6 +245,38 @@ export function createHandler({
           }
 
           return respondFn(200, { ok: true });
+        }
+
+        // Admin-only: delete/censor content
+        if (route === "delete") {
+          const user = await requireUserWith(event);
+          const isAdmin = await hasAdmin(user, "aesthetic");
+          if (!isAdmin) {
+            return respondFn(403, { error: "Forbidden - admin only" });
+          }
+
+          const body = parseBody(event);
+          const itemType = body.itemType;
+          const itemId = body.itemId;
+
+          if (!itemType || !itemId || !["post", "comment"].includes(itemType)) {
+            return respondFn(400, { error: "Invalid delete request" });
+          }
+
+          if (itemType === "post") {
+            await posts.updateOne({ code: itemId }, { $set: { status: "dead" } });
+            // Also mark all comments on this post as dead
+            await comments.updateMany({ postCode: itemId }, { $set: { status: "dead" } });
+          } else {
+            const commentId = ObjectIdImpl.isValid(itemId) ? new ObjectIdImpl(itemId) : itemId;
+            await comments.updateOne({ _id: commentId }, { $set: { status: "dead" } });
+          }
+
+          const redirectTo = itemType === "post" ? resolveBasePath(event) + "/" : null;
+          if (wantsHtml(event) && redirectTo) {
+            return redirect(redirectTo);
+          }
+          return respondFn(200, { ok: true, deleted: itemId, redirect: redirectTo });
         }
       }
 
