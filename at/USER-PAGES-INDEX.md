@@ -100,8 +100,17 @@ cd /workspaces/aesthetic-computer/at
 
 ### Test Locally
 ```fish
-# Open testing interface
-open test-user-pages.html
+# Run local dev server
+npm run dev:user-pages
+
+# Open test harness
+open http://localhost:4177/test-user-pages.html
+
+# Or open the user page directly with a handle override
+open "http://localhost:4177/user.html?handle=jeffrey.at.aesthetic.computer"
+
+# Optional: map a handle to localhost via /etc/hosts
+./scripts/hosts-helper.fish jeffrey
 
 # Or test APIs directly
 curl "https://at.aesthetic.computer/xrpc/com.atproto.identity.resolveHandle?handle=fifi.at.aesthetic.computer"
