@@ -12,6 +12,32 @@ const ADMIN_SUBS = [process.env.ADMIN_SUB].filter(Boolean);
 
 const MAX_TITLE = 200;
 const MAX_TEXT = 5000;
+const RATE_LIMIT_HOURS = 24; // Users can only post once per 24 hours
+
+// "Aesthetic Network" domains - links to these are free to post
+const AESTHETIC_NETWORK_DOMAINS = [
+  "aesthetic.computer",
+  "prompt.ac", 
+  "kidlisp.com",
+  "sotce.net",
+  "false.work",
+  "whistlegraph.com",
+  "digitpain.com",
+  "jas.life",
+];
+
+// Check if a URL is within the Aesthetic Network (free to post)
+function isAestheticNetwork(url) {
+  if (!url) return true; // No URL = text-only post = free
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return AESTHETIC_NETWORK_DOMAINS.some(domain => 
+      hostname === domain || hostname.endsWith(`.${domain}`)
+    );
+  } catch {
+    return false;
+  }
+}
 
 function parseBody(event) {
   if (!event.body) return {};
@@ -131,9 +157,31 @@ export function createHandler({
         if (route === "posts") {
           const limit = Math.min(parseInt(event.queryStringParameters?.limit || "30", 10), 100);
           const sort = event.queryStringParameters?.sort === "new" ? { when: -1 } : { score: -1, when: -1 };
-          const docs = await posts.find({ status: { $ne: "dead" } }).sort(sort).limit(limit).toArray();
+          const docs = await posts.find({ status: "live" }).sort(sort).limit(limit).toArray();
           return respondFn(200, { posts: docs });
         }
+        
+        // Live updates endpoint - check for new posts since a timestamp
+        if (route === "updates") {
+          const since = event.queryStringParameters?.since;
+          if (!since) {
+            return respondFn(400, { error: "Missing 'since' timestamp parameter" });
+          }
+          const sinceDate = new Date(parseInt(since, 10));
+          const newPosts = await posts.find({ 
+            status: "live", 
+            when: { $gt: sinceDate } 
+          }).sort({ when: -1 }).limit(10).toArray();
+          
+          // Return count and latest timestamp for efficient polling
+          const latestWhen = newPosts.length > 0 ? newPosts[0].when.getTime() : parseInt(since, 10);
+          return respondFn(200, { 
+            newPosts: newPosts.length,
+            posts: newPosts,
+            latestWhen,
+          });
+        }
+        
         return respondFn(404, { error: "Not found" });
       }
 
@@ -149,6 +197,28 @@ export function createHandler({
             return respondFn(400, { error: "Title required" });
           }
 
+          // Check rate limit - 1 post per 24 hours (admins exempt)
+          const isAdmin = await hasAdmin(user, "aesthetic");
+          if (!isAdmin) {
+            const rateLimitCutoff = new Date(Date.now() - RATE_LIMIT_HOURS * 60 * 60 * 1000);
+            const recentPost = await posts.findOne({
+              user: user.sub,
+              when: { $gte: rateLimitCutoff },
+              status: { $ne: "dead" },
+            });
+            if (recentPost) {
+              const hoursAgo = Math.round((Date.now() - recentPost.when.getTime()) / (60 * 60 * 1000));
+              const hoursLeft = RATE_LIMIT_HOURS - hoursAgo;
+              return respondFn(429, { 
+                error: `You can only post once every ${RATE_LIMIT_HOURS} hours. Try again in ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}.`,
+                retryAfter: hoursLeft * 60 * 60,
+              });
+            }
+          }
+
+          // Check if URL requires troll toll (external links)
+          const needsToll = url && !isAestheticNetwork(url) && !isAdmin;
+
           const shortCode = await generateUniqueCodeFn(posts, { mode: "random" });
           const now = new Date();
           const code = shortCode; // e.g., "icd" (no prefix sigil, like paintings)
@@ -162,16 +232,31 @@ export function createHandler({
             updated: now,
             score: 1,
             commentCount: 0,
-            status: "live",
+            status: needsToll ? "pending-toll" : "live",
+            tollRequired: needsToll,
           };
 
           await posts.insertOne(doc);
-          await votes.insertOne({
-            itemType: "post",
-            itemId: code,
-            user: user.sub,
-            when: now,
-          });
+          
+          // Only create initial vote if post is live
+          if (!needsToll) {
+            await votes.insertOne({
+              itemType: "post",
+              itemId: code,
+              user: user.sub,
+              when: now,
+            });
+          }
+
+          // If toll required, return special response
+          if (needsToll) {
+            return respondFn(402, { 
+              tollRequired: true, 
+              code,
+              message: "🧌 External links require a Troll Toll ($2) to post.",
+              checkoutUrl: `/api/news/toll`,
+            });
+          }
 
           const redirectTo = `${resolveBasePath(event)}/item/${code}`;
           if (wantsHtml(event)) {
@@ -247,13 +332,10 @@ export function createHandler({
           return respondFn(200, { ok: true });
         }
 
-        // Admin-only: delete/censor content
+        // Delete content - admins can delete anything, users can delete their own
         if (route === "delete") {
           const user = await requireUserWith(event);
           const isAdmin = await hasAdmin(user, "aesthetic");
-          if (!isAdmin) {
-            return respondFn(403, { error: "Forbidden - admin only" });
-          }
 
           const body = parseBody(event);
           const itemType = body.itemType;
@@ -264,11 +346,27 @@ export function createHandler({
           }
 
           if (itemType === "post") {
+            const post = await posts.findOne({ code: itemId });
+            if (!post) {
+              return respondFn(404, { error: "Post not found" });
+            }
+            // Check permission: admin OR post owner
+            if (!isAdmin && post.user !== user.sub) {
+              return respondFn(403, { error: "You can only delete your own posts" });
+            }
             await posts.updateOne({ code: itemId }, { $set: { status: "dead" } });
             // Also mark all comments on this post as dead
             await comments.updateMany({ postCode: itemId }, { $set: { status: "dead" } });
           } else {
             const commentId = ObjectIdImpl.isValid(itemId) ? new ObjectIdImpl(itemId) : itemId;
+            const comment = await comments.findOne({ _id: commentId });
+            if (!comment) {
+              return respondFn(404, { error: "Comment not found" });
+            }
+            // Check permission: admin OR comment owner
+            if (!isAdmin && comment.user !== user.sub) {
+              return respondFn(403, { error: "You can only delete your own comments" });
+            }
             await comments.updateOne({ _id: commentId }, { $set: { status: "dead" } });
           }
 
