@@ -8344,6 +8344,7 @@ class KidLisp {
         if (this.embeddedLayerCache && usesScreenDimensions) {
           const currentScreenKey = `_screen${screenWidth}x${screenHeight}`;
           const entriesToDelete = [];
+          const layerIndicesToRemove = [];
 
           for (const [key, layer] of this.embeddedLayerCache.entries()) {
             // Look for cache keys that include screen dimensions but don't match current screen
@@ -8353,16 +8354,30 @@ class KidLisp {
               if (layer && layer.buffer) {
                 this.returnBufferToPool(layer.buffer, layer.width, layer.height);
               }
+              // 🎯 FIX: Also track this layer for removal from embeddedLayers array
+              if (this.embeddedLayers) {
+                const layerIndex = this.embeddedLayers.findIndex(l => l.cacheId === key);
+                if (layerIndex !== -1) {
+                  layerIndicesToRemove.push(layerIndex);
+                }
+              }
             }
           }
 
-          // Delete the outdated screen-dependent entries
+          // Delete the outdated screen-dependent entries from cache
           if (entriesToDelete.length > 0) {
             entriesToDelete.forEach(key => {
               this.embeddedLayerCache.delete(key);
-              console.log(`🗑️ Cleared outdated responsive cache entry: ${key}`);
             });
-            console.log(`✨ Cleared ${entriesToDelete.length} outdated responsive cache entries`);
+            
+            // 🎯 FIX: Remove corresponding layers from embeddedLayers array (in reverse order to preserve indices)
+            if (layerIndicesToRemove.length > 0 && this.embeddedLayers) {
+              layerIndicesToRemove.sort((a, b) => b - a); // Sort descending
+              layerIndicesToRemove.forEach(idx => {
+                this.embeddedLayers.splice(idx, 1);
+              });
+              console.log(`✨ Cleared ${entriesToDelete.length} outdated responsive cache entries and ${layerIndicesToRemove.length} embedded layers`);
+            }
           }
         }
 
@@ -12579,9 +12594,22 @@ class KidLisp {
       this.embeddedLayers = [];
     }
 
-    this.embeddedLayers.push(embeddedLayer);
+    // 🎯 FIX: Check if a layer with this cacheId already exists (shouldn't happen but safeguard against duplication)
+    const existingIndex = this.embeddedLayers.findIndex(l => l.cacheId === layerKey);
+    if (existingIndex !== -1) {
+      // Replace the existing layer instead of pushing a new one
+      console.log(`⚠️ Replacing existing embedded layer at index ${existingIndex}: ${layerKey}`);
+      const oldLayer = this.embeddedLayers[existingIndex];
+      if (oldLayer.buffer) {
+        this.returnBufferToPool(oldLayer.buffer, oldLayer.width, oldLayer.height);
+      }
+      this.embeddedLayers[existingIndex] = embeddedLayer;
+    } else {
+      this.embeddedLayers.push(embeddedLayer);
+    }
+    
     this.embeddedLayerCache.set(layerKey, embeddedLayer);
-    console.log(`✅ Pushed layer to embeddedLayers. Count: ${this.embeddedLayers.length}. Layer ID: ${embeddedLayer.id}`);
+    // console.log(`✅ Pushed layer to embeddedLayers. Count: ${this.embeddedLayers.length}. Layer ID: ${embeddedLayer.id}`);
 
     // 🎨 IMMEDIATE PASTE: Paste the embedded layer back to main canvas right after creation
     // This allows any subsequent drawing commands to naturally draw on top
@@ -13219,6 +13247,22 @@ class KidLisp {
     // �️ PERIODIC CLEANUP: Clean buffer pools occasionally to prevent detached buffer accumulation
     if (api.frame && api.frame % 300 === 0) { // Every 5 seconds at 60fps
       this.cleanBufferPools();
+      
+      // 🎯 Also clean up orphaned embedded layers that are no longer in the cache
+      if (this.embeddedLayers && this.embeddedLayerCache) {
+        const initialCount = this.embeddedLayers.length;
+        this.embeddedLayers = this.embeddedLayers.filter(layer => {
+          if (!layer.cacheId) return true; // Keep layers without cacheId
+          const inCache = this.embeddedLayerCache.has(layer.cacheId);
+          if (!inCache && layer.buffer) {
+            this.returnBufferToPool(layer.buffer, layer.width, layer.height);
+          }
+          return inCache;
+        });
+        if (this.embeddedLayers.length < initialCount) {
+          console.log(`🧹 Cleaned up ${initialCount - this.embeddedLayers.length} orphaned embedded layers`);
+        }
+      }
     }
 
     // �🚀 BATCH OPTIMIZATION: Pre-calculate frame value once
