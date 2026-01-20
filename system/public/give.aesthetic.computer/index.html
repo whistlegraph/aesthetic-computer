@@ -2241,7 +2241,7 @@
     }
 
     .paypal-controls {
-      padding: 1em;
+      padding: 1.5em 2em;
       background: linear-gradient(180deg, rgba(0, 112, 186, 0.1) 0%, rgba(0, 48, 135, 0.15) 100%);
       border: 1px solid var(--box-border);
       border-top: none;
@@ -2249,10 +2249,25 @@
       display: flex;
       flex-direction: row;
       align-items: center;
-      gap: 1em;
-      max-width: 100%;
+      justify-content: center;
+      gap: 2em;
+      max-width: 600px;
+      margin: 0 auto;
       box-sizing: border-box;
       overflow: hidden;
+    }
+
+    /* PayPal wrapper for centering on wide screens */
+    .paypal-compact {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .paypal-compact .paypal-header {
+      max-width: 600px;
+      width: 100%;
+      border-radius: 8px 8px 0 0;
     }
 
     @media (max-width: 480px) {
@@ -12390,9 +12405,16 @@
       const carousel = document.getElementById('kidlispCarousel');
       try {
         // Fetch top hits from the TV API
-        const res = await fetch(`${apiBase}/api/tv?types=kidlisp&sort=hits&limit=50`);
+        const res = await fetch(`${apiBase}/api/tv?types=kidlisp&sort=hits&limit=100`);
         const data = await res.json();
-        const hits = data.media?.kidlisp || data.mixed || [];
+        const allHits = data.media?.kidlisp || data.mixed || [];
+        
+        // Filter to only show @jeffrey pieces or anonymous top hits
+        const hits = allHits.filter(item => {
+          const handle = item.owner?.handle?.replace('@', '') || item.handle || item.author || '';
+          // Show @jeffrey pieces or anonymous pieces (no handle/anon)
+          return handle === 'jeffrey' || !handle || handle === 'anon';
+        });
         
         if (!hits.length) {
           carousel.innerHTML = '<div style="text-align: center; color: #555; padding: 2em;">No pieces found</div>';

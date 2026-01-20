@@ -254,22 +254,22 @@
       border-radius: 0 6px 6px 0;
     }
 
-    /* Volume control - horizontal slider at bottom right, outside the right flip tab zone */
+    /* Volume control - top right corner, horizontal slider */
     .volume-control {
       position: absolute;
       right: 8px;
-      bottom: -48px;
+      top: -32px;
       z-index: 240;
-      height: 28px;
+      height: 24px;
       display: flex;
       flex-direction: row;
       align-items: center;
-      gap: 8px;
-      padding: 4px 12px;
-      border-radius: 14px;
-      background: rgba(0, 0, 0, 0.35);
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.5);
       border: 1px solid var(--ac-border);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       backdrop-filter: blur(6px);
     }
 
@@ -834,19 +834,26 @@
 
     function sendMasterVolume(value) {
       const clamped = clampVolume(value);
+      console.log('[volume] Sending master volume:', clamped);
       const code = `(() => {
         const v = ${clamped};
+        console.log('[AC] setMasterVolume called with:', v);
         if (window.AC && typeof window.AC.setMasterVolume === 'function') {
-          window.AC.setMasterVolume(v);
-          return true;
+          const result = window.AC.setMasterVolume(v);
+          console.log('[AC] setMasterVolume result:', result);
+          return { success: true, method: 'AC.setMasterVolume', result };
         }
         if (typeof window.acSetMasterVolume === 'function') {
-          window.acSetMasterVolume(v);
-          return true;
+          const result = window.acSetMasterVolume(v);
+          console.log('[AC] acSetMasterVolume result:', result);
+          return { success: true, method: 'acSetMasterVolume', result };
         }
-        return false;
+        console.warn('[AC] No volume setter found. AC:', window.AC);
+        return { success: false, AC: !!window.AC };
       })()`;
-      webviewEl.executeJavaScript(code, true).catch(() => {});
+      webviewEl.executeJavaScript(code, true)
+        .then(result => console.log('[volume] executeJavaScript result:', result))
+        .catch(err => console.error('[volume] executeJavaScript error:', err));
     }
 
     function syncMasterVolume() {
@@ -950,7 +957,17 @@
     });
 
     webviewEl.addEventListener('dom-ready', () => {
+      console.log('[volume] dom-ready - syncing volume')
       syncMasterVolume();
+      // Retry after AC has had time to boot
+      setTimeout(() => {
+        console.log('[volume] Retry sync after 2s delay');
+        syncMasterVolume();
+      }, 2000);
+      setTimeout(() => {
+        console.log('[volume] Retry sync after 5s delay');
+        syncMasterVolume();
+      }, 5000);
     });
     
     // Handle window.open() from webview (prompt.mjs + and - commands)
