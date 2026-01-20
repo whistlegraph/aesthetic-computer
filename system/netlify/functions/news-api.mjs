@@ -285,10 +285,11 @@ export function createHandler({
             score: 1,
             status: "live",
           };
-          await comments.insertOne(doc);
+          const insertResult = await comments.insertOne(doc);
+          const commentId = insertResult.insertedId.toString();
           await votes.insertOne({
             itemType: "comment",
-            itemId: doc._id.toString(),
+            itemId: commentId,
             user: user.sub,
             when: now,
           });
@@ -298,7 +299,7 @@ export function createHandler({
           if (wantsHtml(event)) {
             return redirect(redirectTo);
           }
-          return respondFn(200, { ok: true, redirect: redirectTo });
+          return respondFn(200, { ok: true, redirect: redirectTo, commentId });
         }
 
         if (route === "vote") {
