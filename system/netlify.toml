@@ -1320,6 +1320,17 @@ to = "/kidlisp.com/pj.html"
 status = 200
 force = false
 [[redirects]]
+# PJ mode via kidlisp.com domain - kidlisp.com/pj/code (subdomain fallback)
+from = "https://kidlisp.com/pj/*"
+to = "/kidlisp.com/pj.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.kidlisp.com/pj/*"
+to = "/kidlisp.com/pj.html"
+status = 200
+force = true
+[[redirects]]
 # SPA fallback for kidlisp.com routes - only for paths without file extensions
 # force = false ensures static files (js, css, etc.) are served directly
 from = "/kidlisp.com/*"

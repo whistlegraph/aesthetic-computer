@@ -118,22 +118,27 @@
   
   <script>
     // Parse channel from URL path:
-    // Production: pj.kidlisp.com/code (hostname is pj.kidlisp.com, path is /code)
-    // Local dev: localhost:8888/pj.kidlisp.com/code (path is /pj.kidlisp.com/code)
-    // Legacy: /kidlisp.com/pj/code
+    // Path-based (primary): kidlisp.com/pj/code or localhost:8888/kidlisp.com/pj/code
+    // Subdomain (legacy): pj.kidlisp.com/code
+    // Local dev subdomain: localhost:8888/pj.kidlisp.com/code
     let channelId = null;
     const pathname = window.location.pathname;
+    const hostname = window.location.hostname;
     
-    if (pathname.startsWith('/pj.kidlisp.com/')) {
-      // Local dev pattern: /pj.kidlisp.com/code
+    // Path-based pattern: /kidlisp.com/pj/code or /pj/code
+    const pathParts = pathname.split('/').filter(p => p);
+    if (pathParts[0] === 'kidlisp.com' && pathParts[1] === 'pj' && pathParts[2]) {
+      // /kidlisp.com/pj/code
+      channelId = pathParts[2];
+    } else if (pathParts[0] === 'pj' && pathParts[1]) {
+      // /pj/code (direct path)
+      channelId = pathParts[1];
+    } else if (pathname.startsWith('/pj.kidlisp.com/')) {
+      // Local dev subdomain pattern: /pj.kidlisp.com/code
       channelId = pathname.split('/')[2] || null;
-    } else if (window.location.hostname === 'pj.kidlisp.com') {
-      // Production: hostname is pj.kidlisp.com, channel is first path segment
-      channelId = pathname.split('/').filter(p => p)[0] || null;
-    } else {
-      // Legacy pattern: /kidlisp.com/pj/code or /pj/code
-      const pathParts = pathname.split('/').filter(p => p && p !== 'kidlisp.com');
-      channelId = pathParts.length >= 2 && pathParts[0] === 'pj' ? pathParts[1] : null;
+    } else if (hostname === 'pj.kidlisp.com') {
+      // Subdomain production: pj.kidlisp.com/code
+      channelId = pathParts[0] || null;
     }
     
     // Get initial code from query params (for direct code sharing)
