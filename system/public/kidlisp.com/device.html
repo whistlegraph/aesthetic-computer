@@ -30,14 +30,10 @@
       background: #000;
     }
     
-    /* Boot screen */
+    /* Boot screen with canvas */
     #boot-screen {
       position: absolute;
       inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
       background: #fff;
       z-index: 10;
       transition: opacity 0.5s;
@@ -48,33 +44,11 @@
       pointer-events: none;
     }
     
-    /* Canvas loader */
     #boot-canvas {
       width: 100%;
       height: 100%;
-    }
-    
-    /* Red vignette overlay for timeout warning */
-    #vignette {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      opacity: 0;
-      background: radial-gradient(ellipse at center, transparent 0%, transparent 30%, rgba(180, 0, 0, 0.8) 100%);
-      transition: opacity 1s ease-in;
-    }
-    
-    #vignette.warning {
-      opacity: 0.3;
-    }
-    
-    #vignette.danger {
-      opacity: 0.6;
-    }
-    
-    #vignette.critical {
-      opacity: 1;
-      background: radial-gradient(ellipse at center, transparent 0%, transparent 10%, rgba(200, 0, 0, 0.95) 100%);
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
     }
 
     /* Error display */
@@ -104,7 +78,6 @@
 </head>
 <body>
   <div id="boot-screen">
-    <div id="vignette"></div>
     <canvas id="boot-canvas"></canvas>
   </div>
   
@@ -115,62 +88,104 @@
   <iframe id="display-iframe"></iframe>
   
   <script>
-    // White bubble Canvas2D loader animation
+    // Get density from URL params (before DEVICE_DEFAULTS are defined)
+    const urlParams = new URLSearchParams(window.location.search);
+    const densityParam = parseInt(urlParams.get('density')) || 8;
+    
+    // Canvas2D floating bars loader - pixelated to match density
     const bootCanvas = document.getElementById('boot-canvas');
-    const bootCtx = bootCanvas.getContext('2d');
-    let bubbleFrame = 0;
-    let bubbleAnimating = true;
+    const ctx = bootCanvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    let animating = true;
+    let frame = 0;
     
-    function resizeBootCanvas() {
-      bootCanvas.width = window.innerWidth;
-      bootCanvas.height = window.innerHeight;
+    // Pastel colors for the floating bars
+    const COLORS = [
+      [255, 107, 107], // coral red
+      [78, 205, 196],  // teal
+      [255, 230, 109], // yellow
+      [149, 225, 211], // mint
+      [243, 129, 129], // salmon
+      [170, 150, 218], // lavender
+      [112, 214, 255], // sky blue
+    ];
+    
+    // Floating bars state
+    let bars = [];
+    
+    // Low-res canvas dimensions (matching AC density)
+    let lowW, lowH;
+    
+    function resize() {
+      // Render at low resolution, CSS scales it up pixelated
+      lowW = Math.floor(window.innerWidth / densityParam);
+      lowH = Math.floor(window.innerHeight / densityParam);
+      bootCanvas.width = lowW;
+      bootCanvas.height = lowH;
+      ctx.imageSmoothingEnabled = false;
     }
-    resizeBootCanvas();
-    window.addEventListener('resize', resizeBootCanvas);
+    resize();
+    window.addEventListener('resize', resize);
     
-    function animateBubble() {
-      if (!bubbleAnimating) return;
+    function spawnBar() {
+      bars.push({
+        x: Math.random() * lowW,
+        y: lowH + 2,
+        width: Math.floor(3 + Math.random() * 15),  // Smaller for low-res
+        height: Math.floor(1 + Math.random() * 2),   // 1-2 pixels tall
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        speed: 0.2 + Math.random() * 0.5,  // Slower for low-res
+        alpha: 0.4 + Math.random() * 0.5
+      });
+    }
+    
+    // Spawn initial bars
+    for (let i = 0; i < 15; i++) {
+      spawnBar();
+      bars[bars.length - 1].y = Math.random() * bootCanvas.height;
+    }
+    
+    function animate() {
+      if (!animating) return;
       
       const W = bootCanvas.width;
       const H = bootCanvas.height;
-      const cx = W / 2;
-      const cy = H / 2;
       
       // Clear to white
-      bootCtx.fillStyle = '#fff';
-      bootCtx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, W, H);
       
-      // Animated bubble - breathing/pulsing white circle with subtle shadow
-      const t = bubbleFrame * 0.03;
-      const baseRadius = Math.min(W, H) * 0.08;
-      const breathe = Math.sin(t) * 0.15 + 1;
-      const radius = baseRadius * breathe;
+      // Update and draw bars
+      for (let i = bars.length - 1; i >= 0; i--) {
+        const bar = bars[i];
+        bar.y -= bar.speed;
+        
+        // Fade as it rises
+        const progress = 1 - (bar.y / H);
+        const alpha = bar.alpha * (1 - progress * 0.7);
+        
+        if (bar.y < -20) {
+          bars.splice(i, 1);
+          continue;
+        }
+        
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = `rgb(${bar.color[0]}, ${bar.color[1]}, ${bar.color[2]})`;
+        
+        // Simple pixel rectangle (no rounding at low-res)
+        ctx.fillRect(Math.floor(bar.x), Math.floor(bar.y), bar.width, bar.height);
+      }
+      ctx.globalAlpha = 1;
       
-      // Subtle gray shadow
-      bootCtx.beginPath();
-      bootCtx.arc(cx + 4, cy + 4, radius, 0, Math.PI * 2);
-      bootCtx.fillStyle = 'rgba(0, 0, 0, 0.08)';
-      bootCtx.fill();
+      // Spawn new bars periodically
+      if (frame % 12 === 0 && bars.length < 30) {
+        spawnBar();
+      }
       
-      // Main white bubble with light gray stroke
-      bootCtx.beginPath();
-      bootCtx.arc(cx, cy, radius, 0, Math.PI * 2);
-      bootCtx.fillStyle = '#fff';
-      bootCtx.fill();
-      bootCtx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
-      bootCtx.lineWidth = 3;
-      bootCtx.stroke();
-      
-      // Inner highlight
-      bootCtx.beginPath();
-      bootCtx.arc(cx - radius * 0.3, cy - radius * 0.3, radius * 0.2, 0, Math.PI * 2);
-      bootCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      bootCtx.fill();
-      
-      bubbleFrame++;
-      requestAnimationFrame(animateBubble);
+      frame++;
+      requestAnimationFrame(animate);
     }
-    animateBubble();
+    animate();
     
     // Default display parameters for FF1 and 4K displays
     const DEVICE_DEFAULTS = {
@@ -250,7 +265,7 @@
       errorText.textContent = msg;
       errorScreen.classList.add('visible');
       bootScreen.classList.add('hidden');
-      bubbleAnimating = false;
+      animating = false;
     }
     
     // Initialize display
@@ -274,7 +289,7 @@
       // Hide boot screen when iframe loads
       iframe.addEventListener('load', () => {
         logDevice('iframe loaded');
-        bubbleAnimating = false;
+        animating = false;
         setTimeout(() => bootScreen.classList.add('hidden'), 500);
       });
       
