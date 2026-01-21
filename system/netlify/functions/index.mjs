@@ -86,6 +86,43 @@ async function fun(event, context) {
     );
   }
 
+  // Serve specific kidlisp.com pages before the catch-all
+  // /kidlisp.com/device* → device.html (FF1 optimized display)
+  // /kidlisp.com/pj* → pj.html (PJ mode)
+  if (event.path.startsWith("/kidlisp.com/device")) {
+    try {
+      const htmlContent = await fs.readFile(
+        path.join(process.cwd(), "public/kidlisp.com/device.html"),
+        "utf8"
+      );
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "text/html" },
+        body: htmlContent,
+      };
+    } catch (err) {
+      console.error("❌ Error serving kidlisp.com/device:", err);
+      return respond(500, "Error loading kidlisp.com device mode");
+    }
+  }
+  
+  if (event.path.startsWith("/kidlisp.com/pj")) {
+    try {
+      const htmlContent = await fs.readFile(
+        path.join(process.cwd(), "public/kidlisp.com/pj.html"),
+        "utf8"
+      );
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "text/html" },
+        body: htmlContent,
+      };
+    } catch (err) {
+      console.error("❌ Error serving kidlisp.com/pj:", err);
+      return respond(500, "Error loading kidlisp.com PJ mode");
+    }
+  }
+
   // Serve kidlisp.com/index.html for all /kidlisp.com/* paths (SPA routing)
   // This handles paths like /kidlisp.com, /kidlisp.com/, /kidlisp.com/$abc
   if (event.path.startsWith("/kidlisp.com")) {
