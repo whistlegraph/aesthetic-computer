@@ -813,23 +813,24 @@ function sim({ sound, simCount, num }) {
   }
 
   // 🛡️ Stuck note protection: Kill notes held longer than MAX_NOTE_LIFETIME
+  // Note: startedAt is in audio-time (soundTime), so we must compare against soundTime, not wall-clock
   const MAX_NOTE_LIFETIME = 30; // seconds - notes shouldn't be held this long
-  const now = performance.now() / 1000;
-  Object.keys(sounds).forEach((noteKey) => {
-    const entry = sounds[noteKey];
-    if (entry?.sound?.startedAt) {
-      // Note: We already clear all sounds on boot(), so no need for stale note detection here.
-      // The startedAt is in audio-time (soundTime), not wall-clock time.
-      const age = now - entry.sound.startedAt;
-      if (age > MAX_NOTE_LIFETIME) {
-        console.warn(`🛡️ Killing stuck note: ${noteKey} (held ${age.toFixed(1)}s)`);
-        entry.sound?.kill?.(0.1);
-        delete sounds[noteKey];
-        delete tonestack[noteKey];
-        if (buttons[noteKey]) buttons[noteKey].down = false;
+  const audioNow = sound.time; // Use audio time, not performance.now()
+  if (audioNow !== undefined) {
+    Object.keys(sounds).forEach((noteKey) => {
+      const entry = sounds[noteKey];
+      if (entry?.sound?.startedAt) {
+        const age = audioNow - entry.sound.startedAt;
+        if (age > MAX_NOTE_LIFETIME) {
+          console.warn(`🛡️ Killing stuck note: ${noteKey} (held ${age.toFixed(1)}s)`);
+          entry.sound?.kill?.(0.1);
+          delete sounds[noteKey];
+          delete tonestack[noteKey];
+          if (buttons[noteKey]) buttons[noteKey].down = false;
+        }
       }
-    }
-  });
+    });
+  }
 
   // 📊 Update performance stats
   if (perfOSD) {
