@@ -143,7 +143,7 @@ function getProxyUrl() {
   const isDev = window.location.hostname === 'localhost';
   return isDev 
     ? 'http://localhost:8889/ff1/cast'
-    : '/.netlify/functions/ff1-proxy';
+    : '/api/ff1/proxy';
 }
 
 /**

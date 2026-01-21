@@ -707,10 +707,10 @@ from = "https://kidlisp.com"
 to = "https://aesthetic.computer/kidlisp.com/"
 status = 200
 force = true
-# Proxy FF1 functions from kidlisp.com to aesthetic.computer
+# FF1 API routes - kidlisp.com/api/ff1/*
 [[redirects]]
-from = "https://kidlisp.com/.netlify/functions/ff1-*"
-to = "https://aesthetic.computer/.netlify/functions/ff1-:splat"
+from = "https://kidlisp.com/api/ff1/*"
+to = "/.netlify/functions/ff1-:splat"
 status = 200
 force = true
 [[redirects]]
@@ -723,10 +723,10 @@ from = "https://www.kidlisp.com"
 to = "https://aesthetic.computer/kidlisp.com/"
 status = 200
 force = true
-# Proxy FF1 functions from www.kidlisp.com to aesthetic.computer
+# FF1 API routes - www.kidlisp.com/api/ff1/*
 [[redirects]]
-from = "https://www.kidlisp.com/.netlify/functions/ff1-*"
-to = "https://aesthetic.computer/.netlify/functions/ff1-:splat"
+from = "https://www.kidlisp.com/api/ff1/*"
+to = "/.netlify/functions/ff1-:splat"
 status = 200
 force = true
 [[redirects]]
@@ -753,9 +753,9 @@ from = "https://device.kidlisp.com"
 to = "/kidlisp.com/device.html"
 status = 200
 force = true
-# Proxy FF1 functions from device.kidlisp.com to aesthetic.computer
+# FF1 API routes - device.kidlisp.com/api/ff1/*
 [[redirects]]
-from = "https://device.kidlisp.com/.netlify/functions/ff1-*"
+from = "https://device.kidlisp.com/api/ff1/*"
 to = "/.netlify/functions/ff1-:splat"
 status = 200
 force = true
