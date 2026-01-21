@@ -8592,7 +8592,7 @@
 
     function getFF1ProxyUrl() {
       const isDev = window.location.hostname === 'localhost';
-      return isDev ? 'http://localhost:8889/ff1/cast' : '/api/ff1/proxy';
+      return isDev ? 'http://localhost:8889/ff1/cast' : 'https://aesthetic.computer/api/ff1/proxy';
     }
 
     async function persistFF1DeviceIfAuthenticated(topicID, apiKey) {
