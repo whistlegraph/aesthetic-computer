@@ -61,6 +61,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   #performanceMode = 'auto'; // 'auto', 'low', 'disabled'
   #processingTimeHistory = [];
   #lastProcessingTime = 0;
+  #lastTelemetryTime = 0;
 
   // Frequency analysis
   #frequencyBandsLeft = [];
@@ -182,6 +183,14 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         this.#vstSampleBuffer.left = [];
         this.#vstSampleBuffer.right = [];
         this.port.postMessage({ type: "vst:samples", content: samples });
+        return;
+      }
+
+      if (msg.type === "performance:mode") {
+        const mode = msg.content?.mode ?? msg.mode;
+        if (mode === "auto" || mode === "low" || mode === "disabled") {
+          this.#performanceMode = mode;
+        }
         return;
       }
 
@@ -429,7 +438,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
             pan: msg.data.pan || 0,
           });
 
-          // console.log("🔊🚩 Sound ID:", msg.data.id);
+          console.log("🔊 Synth created:", msg.data.id, "duration:", duration, "volume:", msg.data.volume, "queue length:", this.#queue.length + 1);
 
           // if (duration === Infinity && msg.data.id > -1n) {
           this.#running[msg.data.id] = sound; // Index by the unique id.
@@ -483,6 +492,12 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   }
   
   process(inputs, outputs) {
+    // Log EVERY call for first 10 calls to debug
+    this._totalProcessCalls = (this._totalProcessCalls || 0) + 1;
+    if (this._totalProcessCalls <= 10) {
+      console.log("🔊 process() call #" + this._totalProcessCalls);
+    }
+    
     try {
       // Use global currentTime from AudioWorkletGlobalScope (not this.currentTime which doesn't exist)
       const time = currentTime;
@@ -533,8 +548,25 @@ class SpeakerProcessor extends AudioWorkletProcessor {
           console.warn('⚠️ Energy history growing too large!', this.#energyHistory.length);
         }
       }
+
+      // 🔬 Telemetry: periodically report queue/running sizes to main thread
+      if (time - this.#lastTelemetryTime >= 0.25) {
+        this.#lastTelemetryTime = time;
+        this.port.postMessage({
+          type: "telemetry",
+          content: {
+            queueLength: this.#queue.length,
+            runningCount: Object.keys(this.#running).length,
+            performanceMode: this.#performanceMode,
+          },
+        });
+      }
       
       const result = this.#processAudio(inputs, outputs, time);
+      
+      if (this._totalProcessCalls <= 10) {
+        console.log("🔊 process() completed call #" + this._totalProcessCalls + ", result:", result);
+      }
       
       // Track processing time for performance monitoring
       const processingTime = (time * 1000) - startTime;
@@ -545,12 +577,17 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       
       return result;
     } catch (error) {
-      console.error('🚨 Audio Worklet Error:', error);
+      console.error('🚨 Audio Worklet Error in process():', error, error?.stack);
       return true; // Keep processor alive
     }
   }
 
   #processAudio(inputs, outputs, time) {
+    // Log every 100 calls to see if processing continues
+    this._processCallCount = (this._processCallCount || 0) + 1;
+    if (this._processCallCount <= 3) {
+      console.log("🔊 #processAudio START call:", this._processCallCount, "time:", time, "lastTime:", this.#lastTime, "ticks:", this.#ticks);
+    }
     
     // DEBUG: Log that process is running (once per second)
     if (this.#lastTime && Math.floor(time) !== Math.floor(this.#lastTime)) {
@@ -584,6 +621,12 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     // 2️⃣ Sound generation
     // const input = inputs[0];
     const output = outputs[0];
+    
+    // Verify outputs are valid
+    if (!output || !output[0] || !output[1]) {
+      console.error("🚨 Invalid outputs:", outputs, output);
+      return true;
+    }
 
     let ampLeft = 0,
       ampRight = 0;
@@ -598,6 +641,9 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       this.#queue = this.#queue.filter((instrument) => {
         if (!instrument.playing) {
           this.#report("killed", { id: instrument.id });
+          if (instrument.id !== undefined) {
+            delete this.#running[instrument.id];
+          }
         } // Send a kill message back.
         return instrument.playing;
       });
@@ -735,7 +781,11 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       if (this.#analysisCounter % beatInterval === 0) {
         this.#detectBeats(this.#fftBufferLeft);
       }
-    }    return true;
+    }    
+    if (this._processCallCount <= 3) {
+      console.log("🔊 #processAudio END call:", this._processCallCount);
+    }
+    return true;
   } // End of #processAudio method
 
   // === FREQUENCY ANALYSIS METHODS ===

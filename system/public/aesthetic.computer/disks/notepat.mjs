@@ -260,6 +260,10 @@ if (typeof window !== 'undefined') {
 
 // 📊 Performance OSD (On-Screen Display)
 let perfOSD = false; // Toggle with ` (backtick) key - starts OFF
+let lowLatencyMode = false;
+let audioReinitRequested = false;
+let pendingAudioReinit = false;
+let bootTimestamp = 0; // Set in boot() to detect pre-boot stuck notes
 const perfStats = {
   lastKeyTime: 0,        // When the last key was pressed
   lastSoundTime: 0,      // When the sound started playing (synth call)
@@ -302,9 +306,12 @@ const QWERTY_MINIMAP_HEIGHT = 28;
 const QWERTY_MINIMAP_SPACING = 6;
 
 const MIDI_BADGE_TEXT = "USB MIDI";
+const MIDI_RATE_LABEL_TEXT = "SR";
 const MIDI_BADGE_PADDING_X = 4;
+const MIDI_BADGE_PADDING_RIGHT = 1;
 const MIDI_BADGE_PADDING_Y = 2;
 const MIDI_BADGE_MARGIN = 6;
+const MIDI_RATE_LABEL_GAP = 2;
 
 const MELODY_ALIAS_BASE_SIDE = 72;
 const MELODY_ALIAS_MIN_SIDE = 56;
@@ -347,6 +354,46 @@ const QWERTY_LAYOUT_ROWS = [
   ["z", "x", "c", "v", "b", "n", "m"],
 ];
 
+const QWERTY_ROW_OFFSETS = [0, 0.5, 1];
+const QWERTY_MAX_SPAN = Math.max(
+  ...QWERTY_LAYOUT_ROWS.map((row, i) => row.length + QWERTY_ROW_OFFSETS[i]),
+);
+const PAN_RANGE = 0.9; // Keep a safe center mix; never hard L/R.
+
+function clampPan(value) {
+  return Math.max(-PAN_RANGE, Math.min(PAN_RANGE, value));
+}
+
+function getSampleRateText(sampleRate) {
+  const fallbackRate =
+    typeof window !== "undefined" ? window.audioContext?.sampleRate : null;
+  const rate = Number.isFinite(sampleRate) ? sampleRate : fallbackRate;
+  if (!Number.isFinite(rate) || rate <= 0) return null;
+  return `${Math.round(rate / 1000)}k`;
+}
+
+function getPanForQwertyKey(key) {
+  if (typeof key !== "string" || key.length === 0) return 0;
+  const lower = key.toLowerCase();
+
+  for (let row = 0; row < QWERTY_LAYOUT_ROWS.length; row += 1) {
+    const rowKeys = QWERTY_LAYOUT_ROWS[row];
+    const col = rowKeys.indexOf(lower);
+    if (col >= 0) {
+      const x = col + QWERTY_ROW_OFFSETS[row];
+      const normalized = QWERTY_MAX_SPAN > 1 ? x / (QWERTY_MAX_SPAN - 1) : 0.5;
+      return clampPan(normalized * 2 - 1);
+    }
+  }
+
+  return 0;
+}
+
+function getPanForButtonNote(note) {
+  const key = noteToKeyboardKey(note);
+  return key ? getPanForQwertyKey(key) : 0;
+}
+
 function noteToKeyboardKey(note) {
   if (typeof note !== "string" || note.length === 0) return null;
   const lower = note.toLowerCase();
@@ -362,7 +409,7 @@ function keyboardKeyToNote(key) {
 let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
   lowerOctaveShift = 0;
 
-const attack = 0.001; // Faster onset for responsive play.
+const attack = 0.0005; // Faster onset for responsive play.
 // const attack = 0.005; // 0.025;
 // const decay = 0.9999; // 0.9;
 let toneVolume = 0.95; // 0.9;
@@ -645,6 +692,29 @@ function boot({
   painting,
   sound,
 }) {
+  // Reset state on boot to avoid stuck notes after reloads
+  bootTimestamp = performance.now() / 1000; // Current time in seconds
+  Object.keys(sounds).forEach((note) => {
+    sounds[note]?.sound?.kill?.(0.01);
+    delete sounds[note];
+  });
+  Object.keys(tonestack).forEach((note) => delete tonestack[note]);
+  Object.keys(trail).forEach((note) => delete trail[note]);
+  Object.keys(downs).forEach((note) => delete downs[note]);
+  anyDown = false;
+  audioReinitRequested = false;
+
+  // 🕒 Request minimal audio latency for this piece (must be set before AudioContext creation)
+  if (typeof window !== "undefined") {
+    window.__acLatencyHint = 0.005; // 5ms target
+    window.__acSampleRate = 48000; // Lower CPU load for tighter real-time response
+    window.__acSpeakerPerformanceMode = "disabled"; // Skip heavy analysis work in the worklet
+  }
+  lowLatencyMode = true;
+
+  // Disabled: dynamic audio reinit was breaking audio - now using 48kHz globally
+  pendingAudioReinit = false;
+
   // fps(4);
   udpServer = net.udp(); // For sending messages to `tv`.
 
@@ -695,7 +765,7 @@ function boot({
 
   if (song) {
     let x = 0;
-    const glyphWidth = typeface.glyphs["0"].resolution[0];
+    const glyphWidth = resolveMatrixGlyphMetrics(typeface).width;
     song.forEach((part, index) => {
       let word = part[1],
         space = 0;
@@ -734,7 +804,13 @@ function boot({
 }
 
 function sim({ sound, simCount, num }) {
-  sound.speaker?.poll();
+  const simTick = typeof simCount === "bigint" ? Number(simCount) : simCount;
+
+  if (lowLatencyMode) {
+    if (simTick % 3 === 0) sound.speaker?.poll();
+  } else {
+    sound.speaker?.poll();
+  }
 
   // 🛡️ Stuck note protection: Kill notes held longer than MAX_NOTE_LIFETIME
   const MAX_NOTE_LIFETIME = 30; // seconds - notes shouldn't be held this long
@@ -742,6 +818,8 @@ function sim({ sound, simCount, num }) {
   Object.keys(sounds).forEach((noteKey) => {
     const entry = sounds[noteKey];
     if (entry?.sound?.startedAt) {
+      // Note: We already clear all sounds on boot(), so no need for stale note detection here.
+      // The startedAt is in audio-time (soundTime), not wall-clock time.
       const age = now - entry.sound.startedAt;
       if (age > MAX_NOTE_LIFETIME) {
         console.warn(`🛡️ Killing stuck note: ${noteKey} (held ${age.toFixed(1)}s)`);
@@ -846,10 +924,27 @@ function resolveMatrixGlyphMetrics(fallbackTypeface) {
   return { width: 6, height: 8 };
 }
 
-function computeMidiBadgeMetrics(screen, glyphMetrics = resolveMatrixGlyphMetrics(), compactMode = false) {
+function computeMidiBadgeMetrics(
+  screen,
+  glyphMetrics = resolveMatrixGlyphMetrics(),
+  compactMode = false,
+  rateLabel = null,
+  rateText = null,
+) {
   const textWidth = MIDI_BADGE_TEXT.length * glyphMetrics.width;
-  const width = textWidth + MIDI_BADGE_PADDING_X * 2;
-  const height = glyphMetrics.height + MIDI_BADGE_PADDING_Y * 2;
+  const rateLabelWidth = rateLabel ? rateLabel.length * glyphMetrics.width : 0;
+  const rateWidth = rateText ? rateText.length * glyphMetrics.width : 0;
+  const rateLineWidth =
+    rateLabelWidth > 0
+      ? rateLabelWidth + MIDI_RATE_LABEL_GAP + rateWidth
+      : rateWidth;
+  const width =
+    Math.max(textWidth, rateLineWidth) + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
+  const lineGap = rateText ? 2 : 0;
+  const height =
+    glyphMetrics.height * (rateText ? 2 : 1) +
+    MIDI_BADGE_PADDING_Y * 2 +
+    lineGap;
   
   // In compact mode, center the badge at bottom
   const x = compactMode 
@@ -883,9 +978,17 @@ function computeMelodyButtonRect(screen, midiMetrics) {
 
 function getButtonLayoutMetrics(
   screen,
-  { songMode = false, pictureOverlay = false, midiMetrics } = {},
+  { songMode = false, pictureOverlay = false, midiMetrics, rateLabel, rateText } = {},
 ) {
-  const badgeMetrics = midiMetrics ?? computeMidiBadgeMetrics(screen);
+  const badgeMetrics =
+    midiMetrics ??
+    computeMidiBadgeMetrics(
+      screen,
+      resolveMatrixGlyphMetrics(),
+      false,
+      rateLabel,
+      rateText,
+    );
   const melodyButtonRect =
     songMode && !pictureOverlay
       ? computeMelodyButtonRect(screen, badgeMetrics)
@@ -910,7 +1013,13 @@ function getButtonLayoutMetrics(
   
   if (compactMode) {
     // Recompute badge metrics for compact mode (centered)
-    const compactBadgeMetrics = computeMidiBadgeMetrics(screen, undefined, true);
+    const compactBadgeMetrics = computeMidiBadgeMetrics(
+      screen,
+      resolveMatrixGlyphMetrics(),
+      true,
+      rateLabel,
+      rateText,
+    );
     
     // Split layout: 4x3 grid per octave (12 notes each)
     // Left side: first octave (c to b), Right side: second octave (+c to +b)
@@ -1226,7 +1335,7 @@ function paint({
   const trackY = song ? TOP_BAR_BOTTOM : null;
 
   if (song) {
-    const glyphWidth = typeface.glyphs["0"].resolution[0];
+    const glyphWidth = matrixGlyphMetrics.width;
     const startX = 6 - songShift;
     let i = 0;
 
@@ -1261,11 +1370,21 @@ function paint({
   }
   
   // Get layout info early for positioning piano/qwerty in compact mode
-  const initialBadgeMetrics = computeMidiBadgeMetrics(screen, matrixGlyphMetrics);
+  const sampleRateText = getSampleRateText(sound?.sampleRate);
+  const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
+  const initialBadgeMetrics = computeMidiBadgeMetrics(
+    screen,
+    matrixGlyphMetrics,
+    false,
+    sampleRateLabel,
+    sampleRateText,
+  );
   const layout = getButtonLayoutMetrics(screen, {
     songMode: Boolean(song),
     pictureOverlay: paintPictureOverlay,
     midiMetrics: initialBadgeMetrics,
+    rateText: sampleRateText,
+    rateLabel: sampleRateLabel,
   });
   
   // Draw tiny piano layout and QWERTY minimap
@@ -1452,11 +1571,14 @@ function paint({
   const drawMidiBadge = (
     metrics,
     connected,
+    rateLabel,
+    rateText,
     {
       connectedBackground = [0, 0, 0, 160],
       disconnectedBackground = [0, 0, 0, 70],
       connectedText = [255, 165, 0],
       disconnectedText = [140, 140, 140, 200],
+      rateTextColor = [80, 200, 255, 220],
     } = {},
   ) => {
     if (!metrics) return;
@@ -1464,6 +1586,7 @@ function paint({
     const { x, y, width, height } = metrics;
     const bgColor = connected ? connectedBackground : disconnectedBackground;
     const textColor = connected ? connectedText : disconnectedText;
+    const lineGap = rateText ? 2 : 0;
 
     ink(...bgColor).box(x, y, width, height);
 
@@ -1475,7 +1598,38 @@ function paint({
       false,
       "MatrixChunky8",
     );
+
+    if (rateText) {
+      const rateWidth = rateText.length * matrixGlyphMetrics.width;
+      const rateLabelWidth = rateLabel ? rateLabel.length * matrixGlyphMetrics.width : 0;
+      const rateY =
+        y + MIDI_BADGE_PADDING_Y + matrixGlyphMetrics.height + lineGap;
+
+      if (rateLabel) {
+        ink(...rateTextColor).write(
+          rateLabel,
+          { x: x + MIDI_BADGE_PADDING_X, y: rateY },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
+        );
+      }
+
+      ink(...rateTextColor).write(
+        rateText,
+        {
+          x: x + width - MIDI_BADGE_PADDING_RIGHT - rateWidth,
+          y: rateY,
+        },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+    }
   };
+
 
   if (projector) {
     const sy = 33;
@@ -1507,7 +1661,7 @@ function paint({
       ink(255, 255, 0).write("AUDIO OFF", audioBadgeX + 8, audioBadgeY + 4);
     }
 
-    drawMidiBadge(midiBadgeMetrics, midiConnected, {
+    drawMidiBadge(midiBadgeMetrics, midiConnected, sampleRateLabel, sampleRateText, {
       connectedBackground: [0, 0, 0, 180],
       disconnectedBackground: [0, 0, 0, 90],
     });
@@ -1590,8 +1744,8 @@ function paint({
     }
 
     if (song && melodyAliasBtn && melodyAliasBtn.box && melodyButtonRect) {
-      const baseGlyphWidth = typeface.glyphs["0"].resolution[0];
-      const baseGlyphHeight = typeface.glyphs["0"].resolution[1];
+      const baseGlyphWidth = matrixGlyphMetrics.width;
+      const baseGlyphHeight = matrixGlyphMetrics.height;
 
       melodyAliasBtn.paint((btn) => {
         const rect = btn.box;
@@ -1674,7 +1828,7 @@ function paint({
       });
     }
 
-    drawMidiBadge(midiBadgeMetrics, midiConnected);
+    drawMidiBadge(midiBadgeMetrics, midiConnected, sampleRateLabel, sampleRateText);
   }
 
   updateTheme({ num });
@@ -1862,8 +2016,8 @@ function paint({
           }
 
           // 🎵 Note label
-          const glyphWidth = typeface.glyphs["0"].resolution[0];
-          const glyphHeight = typeface.glyphs["0"].resolution[1];
+          const glyphWidth = matrixGlyphMetrics.width;
+          const glyphHeight = matrixGlyphMetrics.height;
           
           if (song) {
             // In song mode, only show note labels for current/next notes, centered
@@ -2099,6 +2253,22 @@ function act({
   painting,
   api,
 }) {
+  if (pendingAudioReinit && !audioReinitRequested && api?.send) {
+    if (e.is("touch") || e.is("keyboard:down")) {
+      api.send({
+        type: "audio:reinit",
+        content: {
+          latencyHint: 0.005,
+          sampleRate: 48000,
+          speakerPerformanceMode: "disabled",
+        },
+      });
+      audioReinitRequested = true;
+      pendingAudioReinit = false;
+      // Return early - don't process this gesture as a note, let the reinit complete first
+      return;
+    }
+  }
   if (e.is("reframed")) {
     setupButtons(api);
     buildWaveButton(api);
@@ -2500,7 +2670,7 @@ function act({
     });
   };
 
-  function makeNoteSound(tone, velocity = 127) {
+  function makeNoteSound(tone, velocity = 127, pan = 0) {
     // 📊 Track sound creation time for latency measurement
     perfStats.lastSoundTime = performance.now();
     if (perfStats.lastKeyTime > 0) {
@@ -2532,7 +2702,7 @@ function act({
       return play(startupSfx, {
         volume: volumeScale,
         pitch: freq(tone),
-        // pan: -0.5 + num.randIntRange(0, 100) / 100,
+        pan,
       });
 
       // return synth({
@@ -2559,6 +2729,7 @@ function act({
         // duration: 0.18,
         duration: "🔁",
         volume: toneVolume * volumeScale,
+        pan,
       });
 
       // TODO: Can't update straight after triggering.
@@ -2574,6 +2745,7 @@ function act({
         tone: baseFreq + 9 + num.randIntRange(-1, 1), //+ 8, //num.randIntRange(-5, 5),
         duration: "🔁",
         volume: (toneVolume / 3) * volumeScale, // / 16,
+        pan,
       });
 
       toneC = synth({
@@ -2583,6 +2755,7 @@ function act({
         tone: baseFreq + num.randIntRange(-6, 6),
         duration: 0.15 + num.rand() * 0.05,
         volume: (toneVolume / 48) * volumeScale, // / 32,
+        pan,
       });
 
       // TODO: One-shot sounds and samples need to be 'killable'.
@@ -2594,6 +2767,7 @@ function act({
         tone: baseFreq + 8 + num.randIntRange(-5, 5),
         duration: "🔁",
         volume: (toneVolume / 32) * volumeScale,
+        pan,
       });
 
       toneE = synth({
@@ -2603,6 +2777,7 @@ function act({
         tone: baseFreq + num.randIntRange(-10, 10),
         duration: "🔁",
         volume: (toneVolume / 64) * volumeScale,
+        pan,
       });
 
       return {
@@ -2625,6 +2800,7 @@ function act({
         tone,
         duration: "🔁",
         volume: toneVolume * volumeScale,
+        pan,
       });
     }
   }
@@ -2792,7 +2968,8 @@ function act({
         tone,
       };
 
-      let soundHandle = makeNoteSound(tone, velocity);
+      const pan = getPanForButtonNote(buttonNote);
+      let soundHandle = makeNoteSound(tone, velocity, pan);
 
       if (!soundHandle || typeof soundHandle.kill !== "function") {
         const velocityRatio = velocity === undefined ? 1 : velocity / 127;
@@ -2809,6 +2986,7 @@ function act({
           decay: 0.9,
           duration: 0.4,
           volume: fallbackVolume,
+          pan,
         });
       }
 
@@ -3148,10 +3326,11 @@ function act({
                   tone,
                 };
 
+                const pan = getPanForButtonNote(note);
                 sounds[note] = {
                   note,
                   count: active.length + 1,
-                  sound: makeNoteSound(tone, 127),
+                  sound: makeNoteSound(tone, 127, pan),
                 };
 
                 applyPitchBendToNotes([note], { immediate: true });
@@ -3284,7 +3463,10 @@ function act({
 
       const tone = tapped;
       if (tappedOctave) tapped = tappedOctave + tapped;
-  if (!reset) sounds[tapped] = makeNoteSound(octave + tone, e.velocity ?? 127); // Use velocity from event
+  if (!reset) {
+    const pan = getPanForButtonNote(tone.toLowerCase());
+    sounds[tapped] = makeNoteSound(octave + tone, e.velocity ?? 127, pan); // Use velocity from event
+  }
       // type: wave,
       // tone: octave + tone,
       // attack,
@@ -3502,18 +3684,11 @@ function act({
             count: Object.keys(tonestack).length,
             tone,
           };
-          // console.log("Pressed:", buttonNote);
+          const pan = getPanForQwertyKey(key);
           sounds[buttonNote] = {
             note: buttonNote,
             count: active.length + 1,
-            sound: makeNoteSound(tone, e.velocity ?? 127), // Use velocity from event
-            // type: wave,
-            // attack,
-            // decay,
-            // tone,
-            // duration: "🔁",
-            // volume: toneVolume,
-            // }),
+            sound: makeNoteSound(tone, e.velocity ?? 127, pan), // Use velocity from event
           };
 
           applyPitchBendToNotes([buttonNote], { immediate: true });
@@ -3532,6 +3707,7 @@ function act({
 
     // Just for the notes, not the octaves...
     if (e.is(`keyboard:up:${key}`) /*&& notes.indexOf(key) > -1*/) {
+      console.log("🎹 keyboard:up event for key:", key, "downs[key]:", downs[key]);
       if (tap && tapped === key) {
         tapIndex = (tapIndex + 1) % keys.length;
         tapped = undefined;
@@ -3644,8 +3820,6 @@ function act({
 
         const buttonNote = noteFromKey(key);
 
-        // console.log("Released:", buttonNote);
-
         const orderedTones = orderedByCount(tonestack);
 
         // console.log(
@@ -3754,7 +3928,13 @@ function pictureAdd({ page, screen, wipe, write, line, ink, num }, note) {
 
   // TODO: Rather than draw a whole box from 0, 0, to 128, 128, i wanna
   //       draw horizontal scanlines in aloop and randomly skip some.
-  ink(...notesToCols[letter], 32).box(0, 0, picture.width, picture.height);
+  const color = notesToCols[letter];
+  if (!color) {
+    page(screen);
+    return;
+  }
+
+  ink(...color, 32).box(0, 0, picture.width, picture.height);
 
   // for (let y = 0; y < 128; y += 1) {
   //   // Adjust step size (e.g., 2) for scanline spacing
@@ -3930,11 +4110,21 @@ function resetModeState() {
 
 // Initialize and/or lay out the UI buttons on the bottom of the display.
 function setupButtons({ ui, screen, geo }) {
-  const midiMetrics = computeMidiBadgeMetrics(screen);
+  const sampleRateText = getSampleRateText(undefined);
+  const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
+  const midiMetrics = computeMidiBadgeMetrics(
+    screen,
+    resolveMatrixGlyphMetrics(),
+    false,
+    sampleRateLabel,
+    sampleRateText,
+  );
   const layout = getButtonLayoutMetrics(screen, {
     songMode: Boolean(song),
     pictureOverlay: paintPictureOverlay,
     midiMetrics,
+    rateLabel: sampleRateLabel,
+    rateText: sampleRateText,
   });
   const {
     buttonWidth,
@@ -4012,7 +4202,10 @@ function setupButtons({ ui, screen, geo }) {
 }
 
 function buildWaveButton({ screen, ui, typeface }) {
-  const glyphWidth = typeface.glyphs["0"].resolution[0];
+  const glyphWidth =
+    typeface?.glyphs?.["0"]?.resolution?.[0] ??
+    matrixFont?.glyphs?.["0"]?.resolution?.[0] ??
+    6;
   const waveWidth = wave.length * glyphWidth;
   const margin = 4;
   waveBtn = new ui.Button(
@@ -4025,7 +4218,10 @@ function buildWaveButton({ screen, ui, typeface }) {
 }
 
 function buildOctButton({ screen, ui, typeface }) {
-  const glyphWidth = typeface.glyphs["0"].resolution[0];
+  const glyphWidth =
+    typeface?.glyphs?.["0"]?.resolution?.[0] ??
+    matrixFont?.glyphs?.["0"]?.resolution?.[0] ??
+    6;
   const octWidth = octave.length * glyphWidth;
   const margin = 4;
   octBtn = new ui.Button(
