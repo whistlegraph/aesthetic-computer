@@ -447,7 +447,19 @@ fastify.get("/chat/status", async (req) => {
 // *** FF1 Art Computer Proxy ***
 // Allows browsers to send commands to FF1 devices via cloud relay (bypasses CORS)
 // POST /ff1/cast - Send playlist to FF1 device via Feral File cloud relay
+fastify.options("/ff1/cast", async (req, reply) => {
+  reply.header("Access-Control-Allow-Origin", "*");
+  reply.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+  reply.header("Access-Control-Allow-Headers", "Content-Type");
+  reply.status(204);
+  return "";
+});
+
 fastify.post("/ff1/cast", async (req, reply) => {
+  reply.header("Access-Control-Allow-Origin", "*");
+  reply.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+  reply.header("Access-Control-Allow-Headers", "Content-Type");
+
   const { topicID, apiKey, command, request: cmdRequest } = req.body;
   
   if (!topicID) {
