@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <title>FF1 Pairing · KidLisp</title>
     <link rel="icon" href="https://assets.aesthetic.computer/kidlisp.com/favicon.ico" />
     <style>
@@ -12,118 +12,186 @@
         font-weight: 400;
         font-display: swap;
       }
-      :root {
-        color-scheme: dark;
-      }
-      body {
+      * {
         margin: 0;
-        font-family: "Berkeley Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-        background: #0b0b0b;
-        color: #f5f5f5;
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
+        padding: 0;
         box-sizing: border-box;
       }
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0a0a0a;
+        font-family: "Berkeley Mono", "Fira Code", ui-monospace, monospace;
+        color: #f5f5f5;
+      }
+      .container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
       .header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 12px;
-        margin-bottom: 16px;
+        padding: 16px;
+        padding-top: max(16px, env(safe-area-inset-top));
+        background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+        z-index: 10;
       }
       .ff1-logo {
-        height: 28px;
+        height: 24px;
         filter: invert(1);
       }
       .header-divider {
         width: 1px;
-        height: 20px;
-        background: rgba(255,255,255,0.2);
+        height: 16px;
+        background: rgba(255,255,255,0.3);
       }
       .kidlisp-logo {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: bold;
         color: #a78bfa;
       }
-      .card {
-        width: min(92vw, 420px);
-        background: #141414;
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 16px;
-        padding: 18px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      .camera-container {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
       }
-      h1 {
+      #video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      #canvas {
+        display: none;
+      }
+      .overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .scan-frame {
+        width: min(280px, 70vw);
+        height: min(280px, 70vw);
+        border: 3px solid rgba(167, 139, 250, 0.8);
+        border-radius: 24px;
+        box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+        position: relative;
+      }
+      .scan-frame::before,
+      .scan-frame::after {
+        content: '';
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        border-color: #a78bfa;
+        border-style: solid;
+        border-width: 0;
+      }
+      .scan-frame::before {
+        top: -3px;
+        left: -3px;
+        border-top-width: 4px;
+        border-left-width: 4px;
+        border-top-left-radius: 24px;
+      }
+      .scan-frame::after {
+        bottom: -3px;
+        right: -3px;
+        border-bottom-width: 4px;
+        border-right-width: 4px;
+        border-bottom-right-radius: 24px;
+      }
+      .instructions {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 24px 20px;
+        padding-bottom: max(24px, env(safe-area-inset-bottom));
+        background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+        text-align: center;
+      }
+      .instructions h1 {
         font-size: 16px;
-        margin: 0 0 8px;
-        text-align: center;
+        margin-bottom: 8px;
+        font-weight: 600;
       }
-      p {
+      .instructions p {
         font-size: 12px;
-        margin: 6px 0;
-        opacity: 0.8;
-        line-height: 1.4;
-        text-align: center;
+        opacity: 0.7;
+        line-height: 1.5;
+      }
+      .status {
+        margin-top: 12px;
+        font-size: 13px;
+        color: #a78bfa;
+        min-height: 20px;
+      }
+      .status.success {
+        color: #4ade80;
+      }
+      .status.error {
+        color: #f87171;
       }
       .illustration {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 16px;
-        margin: 12px 0;
-        font-size: 32px;
+        gap: 12px;
+        margin: 8px 0;
+        font-size: 24px;
       }
       .illustration .arrow {
-        font-size: 20px;
+        font-size: 16px;
         opacity: 0.5;
       }
-      video {
-        width: 100%;
-        aspect-ratio: 3 / 4;
-        border-radius: 10px;
-        background: #000;
-        object-fit: cover;
-        margin: 12px 0;
+      @keyframes pulse {
+        0%, 100% { opacity: 0.8; }
+        50% { opacity: 1; }
       }
-      .status {
-        font-size: 12px;
-        margin-top: 8px;
-        color: #9ca3af;
-        text-align: center;
-      }
-      .status.success { color: #4ade80; }
-      .status.error { color: #f87171; }
-      .token-note {
-        margin-top: 10px;
-        font-size: 11px;
-        opacity: 0.5;
-        text-align: center;
+      .scan-frame {
+        animation: pulse 2s ease-in-out infinite;
       }
     </style>
   </head>
   <body>
-    <div class="header">
-      <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="Feral File" class="ff1-logo" />
-      <div class="header-divider"></div>
-      <span class="kidlisp-logo">KidLisp</span>
-    </div>
-    <div class="card">
-      <h1>Scan TV QR Code</h1>
-      <p>Point your camera at the QR code displayed on your FF1.</p>
-      <div class="illustration">
-        <span>📱</span>
-        <span class="arrow">→</span>
-        <span>📺</span>
+    <div class="container">
+      <div class="header">
+        <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="Feral File" class="ff1-logo" />
+        <div class="header-divider"></div>
+        <span class="kidlisp-logo">KidLisp</span>
       </div>
-      <video id="video" autoplay playsinline muted></video>
-      <div class="status" id="status">Waiting for camera…</div>
-      <div class="token-note" id="token-note"></div>
+      <div class="camera-container">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+        <div class="overlay">
+          <div class="scan-frame"></div>
+        </div>
+      </div>
+      <div class="instructions">
+        <h1>Scan TV QR Code</h1>
+        <div class="illustration">
+          <span>📱</span>
+          <span class="arrow">→</span>
+          <span>📺</span>
+        </div>
+        <p>Point at the QR code on your FF1 screen</p>
+        <div class="status" id="status">Initializing camera…</div>
+      </div>
     </div>
-
-    <canvas id="canvas" style="display:none;"></canvas>
 
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script>
@@ -131,16 +199,12 @@
       const video = document.getElementById('video');
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
-      const tokenNote = document.getElementById('token-note');
 
       const params = new URLSearchParams(window.location.search);
       let token = params.get('token');
       if (!token) {
         const parts = window.location.pathname.split('/').filter(Boolean);
         token = parts[parts.length - 1] || '';
-      }
-      if (token) {
-        tokenNote.textContent = `Pairing token: ${token}`;
       }
 
       function setStatus(message, type) {
@@ -152,7 +216,6 @@
         if (!text) return null;
         
         // FF1 QR format: https://link.feralfile.com/device_connect/DEVICE_ID|TOPIC_ID|...|...|...
-        // Example: https://link.feralfile.com/device_connect/FF1-DVVEKLZA|1wXzgSSrGbCOYGhIRdUFLKIIX9pWXndMk|true|release|1.0.4v
         if (text.includes('feralfile.com') && text.includes('|')) {
           const parts = text.split('|');
           if (parts.length >= 2 && parts[1]) {
@@ -160,7 +223,7 @@
           }
         }
         
-        // Fallback patterns for other QR formats
+        // Fallback patterns
         const patterns = [
           /topicID=([A-Za-z0-9_-]+)/i,
           /topicId=([A-Za-z0-9_-]+)/i,
@@ -185,9 +248,9 @@
           return;
         }
 
-        setStatus('Saving…');
+        setStatus('Pairing…');
         try {
-          const response = await fetch('/.netlify/functions/ff1-pair', {
+          const response = await fetch('https://aesthetic.computer/.netlify/functions/ff1-pair', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token, topicID })
@@ -196,7 +259,11 @@
             const err = await response.json().catch(() => ({}));
             throw new Error(err.error || `HTTP ${response.status}`);
           }
-          setStatus('Paired! You can close this window.', 'success');
+          setStatus('✓ Paired! You can close this window.', 'success');
+          // Stop scanning
+          if (video.srcObject) {
+            video.srcObject.getTracks().forEach(t => t.stop());
+          }
         } catch (err) {
           setStatus(`Error: ${err.message}`, 'error');
         }
@@ -210,10 +277,10 @@
           });
           video.srcObject = stream;
           await video.play();
-          setStatus('Point at the FF1 QR code.');
+          setStatus('Scanning…');
           requestAnimationFrame(scanFrame);
         } catch (err) {
-          setStatus('Camera blocked. Paste the Topic ID instead.', 'error');
+          setStatus('Camera access denied.', 'error');
         }
       }
 
@@ -232,9 +299,6 @@
             if (topicID) {
               submitTopicId(topicID);
               return;
-            } else {
-              setStatus(`QR detected but format not recognized. Looking for FF1 pairing QR...`, 'error');
-              console.log('Unrecognized QR data:', code.data);
             }
           }
         }
