@@ -2114,8 +2114,55 @@
       box-shadow: 0 10px 40px rgba(0,0,0,0.5);
     }
     .ff1-qr-title {
-      font-size: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .ff1-qr-steps {
+      margin-bottom: 12px;
+    }
+    .ff1-qr-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
       margin-bottom: 8px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .ff1-qr-step-num {
+      width: 20px;
+      height: 20px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+    .ff1-qr-step-text {
+      opacity: 0.9;
+    }
+    .ff1-qr-step-text strong {
+      color: #fff;
+    }
+    .ff1-qr-step-final {
+      margin-top: 12px;
+      margin-bottom: 8px;
+    }
+    .ff1-qr-illustration {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin: 8px 0 12px;
+      font-size: 32px;
+    }
+    .ff1-illus-arrow {
+      font-size: 20px;
+      opacity: 0.5;
     }
     .ff1-qr-canvas {
       width: 100%;
@@ -8017,10 +8064,33 @@
           </div>
           <div class="ff1-qr-modal" id="ff1-qr-modal" aria-hidden="true">
             <div class="ff1-qr-card">
-              <div class="ff1-qr-title">Pair FF1 on your phone</div>
+              <div class="ff1-qr-title">Pair your FF1</div>
+              <div class="ff1-qr-steps">
+                <div class="ff1-qr-step">
+                  <div class="ff1-qr-step-num">1</div>
+                  <div class="ff1-qr-step-text">Open the <strong>FF1 app</strong> on your phone</div>
+                </div>
+                <div class="ff1-qr-step">
+                  <div class="ff1-qr-step-num">2</div>
+                  <div class="ff1-qr-step-text">Tap <strong>Show Painting QR Code</strong></div>
+                </div>
+                <div class="ff1-qr-step">
+                  <div class="ff1-qr-step-num">3</div>
+                  <div class="ff1-qr-step-text">Scan this QR with your phone camera:</div>
+                </div>
+              </div>
+              <div class="ff1-qr-illustration">
+                <div class="ff1-illus-phone">📱</div>
+                <div class="ff1-illus-arrow">→</div>
+                <div class="ff1-illus-tv">📺</div>
+              </div>
               <canvas id="ff1-qr-canvas" class="ff1-qr-canvas"></canvas>
+              <div class="ff1-qr-step ff1-qr-step-final">
+                <div class="ff1-qr-step-num">4</div>
+                <div class="ff1-qr-step-text">On that page, scan the QR on your <strong>TV</strong></div>
+              </div>
+              <div class="ff1-qr-status" id="ff1-qr-status">Waiting for pairing…</div>
               <div class="ff1-qr-link" id="ff1-qr-link"></div>
-              <div class="ff1-qr-status" id="ff1-qr-status">Waiting for scan…</div>
               <div class="ff1-qr-actions">
                 <button id="ff1-qr-copy" class="ff1-qr-btn">Copy link</button>
                 <button id="ff1-qr-close" class="ff1-qr-btn">Close</button>
