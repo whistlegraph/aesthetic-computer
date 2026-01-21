@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FF1 Pairing</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        font-family: "Berkeley Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        background: #0b0b0b;
+        color: #f5f5f5;
+        display: flex;
+        min-height: 100vh;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      .card {
+        width: min(92vw, 420px);
+        background: #141414;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 16px;
+        padding: 18px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      }
+      h1 {
+        font-size: 16px;
+        margin: 0 0 8px;
+      }
+      p {
+        font-size: 12px;
+        margin: 6px 0;
+        opacity: 0.8;
+        line-height: 1.4;
+      }
+      video {
+        width: 100%;
+        aspect-ratio: 3 / 4;
+        border-radius: 10px;
+        background: #000;
+        object-fit: cover;
+        margin: 12px 0;
+      }
+      .status {
+        font-size: 12px;
+        margin-top: 8px;
+        color: #9ca3af;
+      }
+      .status.success { color: #4ade80; }
+      .status.error { color: #f87171; }
+      .manual {
+        margin-top: 10px;
+        display: flex;
+        gap: 8px;
+      }
+      input {
+        flex: 1;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: #fff;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+      }
+      button {
+        background: rgba(255,255,255,0.16);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .token-note {
+        margin-top: 10px;
+        font-size: 11px;
+        opacity: 0.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Pair FF1</h1>
+      <p>Open the FF1 app on your phone, tap the painting’s QR code, and scan it here.</p>
+      <video id="video" autoplay playsinline muted></video>
+      <div class="status" id="status">Waiting for camera…</div>
+      <div class="manual">
+        <input id="topic-input" type="text" placeholder="Paste Topic ID" autocomplete="off" />
+        <button id="submit-btn">Save</button>
+      </div>
+      <div class="token-note" id="token-note"></div>
+    </div>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script>
+      const statusEl = document.getElementById('status');
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const input = document.getElementById('topic-input');
+      const submitBtn = document.getElementById('submit-btn');
+      const tokenNote = document.getElementById('token-note');
+
+      const params = new URLSearchParams(window.location.search);
+      let token = params.get('token');
+      if (!token) {
+        const parts = window.location.pathname.split('/').filter(Boolean);
+        token = parts[parts.length - 1] || '';
+      }
+      if (token) {
+        tokenNote.textContent = `Pairing token: ${token}`;
+      }
+
+      function setStatus(message, type) {
+        statusEl.textContent = message;
+        statusEl.className = `status${type ? ' ' + type : ''}`;
+      }
+
+      function extractTopicId(text) {
+        if (!text) return null;
+        const patterns = [
+          /topicID=([A-Za-z0-9_-]+)/i,
+          /topicId=([A-Za-z0-9_-]+)/i,
+          /topic=([A-Za-z0-9_-]+)/i,
+        ];
+        for (const pattern of patterns) {
+          const match = text.match(pattern);
+          if (match && match[1]) return match[1];
+        }
+        const trimmed = text.trim();
+        if (/^[A-Za-z0-9_-]{6,}$/.test(trimmed)) return trimmed;
+        return null;
+      }
+
+      async function submitTopicId(topicID) {
+        if (!token) {
+          setStatus('Missing pairing token.', 'error');
+          return;
+        }
+        if (!topicID) {
+          setStatus('No Topic ID found.', 'error');
+          return;
+        }
+
+        setStatus('Saving…');
+        submitBtn.disabled = true;
+        try {
+          const response = await fetch('/.netlify/functions/ff1-pair', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, topicID })
+          });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${response.status}`);
+          }
+          setStatus('Paired! You can close this window.', 'success');
+        } catch (err) {
+          setStatus(`Error: ${err.message}`, 'error');
+        } finally {
+          submitBtn.disabled = false;
+        }
+      }
+
+      submitBtn.addEventListener('click', () => {
+        submitTopicId(input.value.trim());
+      });
+
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          submitTopicId(input.value.trim());
+        }
+      });
+
+      async function startCamera() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' },
+            audio: false
+          });
+          video.srcObject = stream;
+          await video.play();
+          setStatus('Point at the FF1 QR code.');
+          requestAnimationFrame(scanFrame);
+        } catch (err) {
+          setStatus('Camera blocked. Paste the Topic ID instead.', 'error');
+        }
+      }
+
+      function scanFrame() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'attemptBoth'
+          });
+          if (code && code.data) {
+            const topicID = extractTopicId(code.data);
+            if (topicID) {
+              submitTopicId(topicID);
+              return;
+            } else {
+              setStatus('QR detected, but no Topic ID found.', 'error');
+            }
+          }
+        }
+        requestAnimationFrame(scanFrame);
+      }
+
+      startCamera();
+    </script>
+  </body>
+</html>
