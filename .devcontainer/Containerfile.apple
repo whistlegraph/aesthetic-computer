@@ -1,0 +1,153 @@
+# Aesthetic Computer - Apple Container Runtime Edition
+# Auto-generated from .devcontainer/Dockerfile for native macOS ARM64 virtualization
+# Regenerate with: .devcontainer/generate-apple-container.fish
+# Optimized for Apple Silicon (M1/M2/M3 Pro/Max/Ultra)
+
+FROM fedora:latest
+
+# Preconfigure DNF to minimize footprint
+RUN set -eux; \
+    echo 'fastestmirror=True' >> /etc/dnf/dnf.conf; \
+    echo 'max_parallel_downloads=5' >> /etc/dnf/dnf.conf; \
+    echo 'keepcache=0' >> /etc/dnf/dnf.conf; \
+    echo 'install_weak_deps=False' >> /etc/dnf/dnf.conf; \
+    echo 'tsflags=nodocs' >> /etc/dnf/dnf.conf
+
+ENV NODE_OPTIONS=--max_old_space_size=8192
+ENV DENO_DIR=/home/me/.cache/deno
+ENV NETLIFY_DENO_VERSION=2.4.5
+ENV PAGER=cat
+ENV GIT_PAGER=cat
+ENV SYSTEMD_PAGER=cat
+ENV MANPAGER=cat
+
+# --- Base toolchain & deps (ARM64 optimized) ---------------------------------
+RUN dnf update -y && \
+    dnf install -y \
+      awk which tree procps-ng coreutils unzip jq bat ripgrep \
+      git gh gcc gcc-c++ clang make cmake \
+      python3.11 python3.11-devel python3-pip python3-devel \
+      emacs-nox fish util-linux-user util-linux-script sshpass \
+      openssl openssl-devel awscli redis \
+      dnf-plugins-core iproute nmap-ncat \
+      inotify-tools wget curl tar gzip bzip2 \
+      libsodium libsodium-devel libffi libffi-devel \
+      gmp gmp-devel \
+      pkg-config autoconf automake libtool \
+      rsync m4 patch \
+      sbcl zeromq-devel redhat-rpm-config \
+      caddy openssh-clients \
+    && dnf clean all && rm -rf /var/cache/dnf
+
+# --- FFmpeg from RPM Fusion ---------------------------------------------------
+RUN dnf install -y \
+      https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
+      https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm \
+    && dnf install -y --allowerasing --skip-unavailable ffmpeg ffmpeg-devel \
+    && dnf clean all && rm -rf /var/cache/dnf
+
+# --- Python 3.11 venv as default "python" -------------------------------------
+RUN /usr/bin/python3.11 -m venv /opt/py311 && \
+    /opt/py311/bin/pip install -U pip setuptools wheel && \
+    ln -s /opt/py311/bin/python /usr/local/bin/python && \
+    ln -s /opt/py311/bin/pip /usr/local/bin/pip
+ENV PATH="/opt/py311/bin:${PATH}"
+
+# --- PyTezos (SmartPy skipped - no ARM64 support) ----------------------------
+RUN pip install "pytezos>=3.9.0,<4" requests
+
+# --- Stripe CLI (ARM64) ------------------------------------------------------
+RUN curl -fsSL "https://github.com/stripe/stripe-cli/releases/download/v1.30.0/stripe_1.30.0_linux_arm64.tar.gz" \
+    | tar xz -C /usr/local/bin
+
+# --- redli (ARM64) -----------------------------------------------------------
+RUN curl -fsSL "https://github.com/IBM-Cloud/redli/releases/download/v0.15.0/redli_0.15.0_linux_arm64.tar.gz" \
+    | tar xz -C /usr/local/bin && mv /usr/local/bin/redli_linux_arm64 /usr/local/bin/redli
+
+# --- mkcert (ARM64) ----------------------------------------------------------
+RUN curl -fsSL "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-arm64" -o /usr/local/bin/mkcert && \
+    chmod +x /usr/local/bin/mkcert
+
+# --- ngrok (ARM64) -----------------------------------------------------------
+RUN curl -fsSL "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz" -o /tmp/ngrok.tgz && \
+    tar -xzf /tmp/ngrok.tgz -C /usr/local/bin && rm /tmp/ngrok.tgz
+
+# --- doctl (DigitalOcean CLI, ARM64) -----------------------------------------
+RUN DOCTL_VERSION=1.109.0 && \
+    curl -fsSL "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-arm64.tar.gz" -o /tmp/doctl.tar.gz && \
+    tar -xzf /tmp/doctl.tar.gz -C /usr/local/bin && rm /tmp/doctl.tar.gz
+
+# --- PowerShell (ARM64) ------------------------------------------------------
+RUN PS_VERSION=$(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/') && \
+    curl -sSL -o /tmp/powershell.tar.gz "https://github.com/PowerShell/PowerShell/releases/download/v${PS_VERSION}/powershell-${PS_VERSION}-linux-arm64.tar.gz" && \
+    mkdir -p /opt/microsoft/powershell/7 && \
+    tar -xzf /tmp/powershell.tar.gz -C /opt/microsoft/powershell/7 && \
+    chmod +x /opt/microsoft/powershell/7/pwsh && \
+    ln -s /opt/microsoft/powershell/7/pwsh /usr/local/bin/pwsh && \
+    rm /tmp/powershell.tar.gz
+
+# --- s3cmd -------------------------------------------------------------------
+RUN dnf install -y s3cmd && dnf clean all
+
+# --- Jupyter bits ------------------------------------------------------------
+RUN dnf install -y python3-notebook python3-nbconvert && dnf clean all
+
+# --- gcloud SDK --------------------------------------------------------------
+RUN curl -sSL https://sdk.cloud.google.com > /tmp/install_gcloud.sh && \
+    bash /tmp/install_gcloud.sh --disable-prompts --install-dir=/opt && \
+    ln -s /opt/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud && \
+    ln -s /opt/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil && \
+    rm /tmp/install_gcloud.sh
+
+# --- User --------------------------------------------------------------------
+RUN useradd -m me && echo "me ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && chsh -s /usr/bin/fish me
+RUN if test ! -f /usr/bin/fish && test -f /usr/sbin/fish; then ln -s /usr/sbin/fish /usr/bin/fish; fi
+
+USER me
+WORKDIR /home/me
+
+# --- Rust + websocat ---------------------------------------------------------
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
+    . "$HOME/.cargo/env" && \
+    git clone https://github.com/vi/websocat.git && \
+    cd websocat && cargo build --release && sudo cp target/release/websocat /usr/local/bin/ && \
+    cd .. && rm -rf websocat
+
+# --- fnm / Node toolchain ----------------------------------------------------
+RUN mkdir -p /home/me/.config/fish/conf.d /home/me/.config/fish/functions /home/me/.local/share/fish
+RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$HOME/.fnm" --skip-shell
+ENV PATH="/home/me/.fnm:${PATH}"
+RUN echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/conf.d/fnm.fish && \
+    export PATH="/home/me/.fnm:${PATH}" && \
+    eval "$(/home/me/.fnm/fnm env --use-on-cd)" && \
+    /home/me/.fnm/fnm install lts-jod && \
+    /home/me/.fnm/fnm default lts-jod && \
+    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code netlify-cli wrangler
+
+# --- SBCL / Quicklisp --------------------------------------------------------
+RUN curl -fsSLO https://beta.quicklisp.org/quicklisp.lisp && \
+    sbcl --non-interactive \
+         --load quicklisp.lisp \
+         --eval '(quicklisp-quickstart:install)' \
+         --eval '(ql-util:without-prompting (ql:add-to-init-file))' \
+         --eval '(quit)' && \
+    rm quicklisp.lisp
+
+# --- uv (fast Python package manager) ----------------------------------------
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/home/me/.local/bin:${PATH}"
+
+# --- Deno --------------------------------------------------------------------
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v2.4.5
+ENV PATH="/home/me/.deno/bin:${PATH}"
+
+# --- Fish config -------------------------------------------------------------
+RUN echo 'set -gx PATH /home/me/.fnm /home/me/.deno/bin /home/me/.local/bin /home/me/.cargo/bin $PATH' >> /home/me/.config/fish/config.fish && \
+    echo 'fnm env --use-on-cd --shell fish | source' >> /home/me/.config/fish/config.fish && \
+    echo 'fnm use lts-jod --silent-if-unchanged 2>/dev/null' >> /home/me/.config/fish/config.fish && \
+    echo 'set -U fish_greeting ""' >> /home/me/.config/fish/config.fish
+
+# Default working directory for aesthetic-computer
+WORKDIR /workspaces/aesthetic-computer
+
+CMD ["/usr/bin/fish"]
