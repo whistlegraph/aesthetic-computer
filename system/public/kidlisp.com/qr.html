@@ -250,7 +250,7 @@
 
         setStatus('Pairing…');
         try {
-          const response = await fetch('https://aesthetic.computer/.netlify/functions/ff1-pair', {
+          const response = await fetch('/api/ff1/pair', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token, topicID })
