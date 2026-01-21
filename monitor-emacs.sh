@@ -68,6 +68,12 @@ restart_emacs() {
     # Verify
     if timeout 5 emacsclient -e "t" >/dev/null 2>&1; then
         log "✅ WATCHDOG: Emacs daemon restarted successfully"
+        # Trigger aesthetic-backend so tabs/terminals come back after crash
+        if timeout 15 emacsclient -e "(aesthetic-backend \"artery\")" >/dev/null 2>&1; then
+            log "🧭 WATCHDOG: aesthetic-backend triggered after restart"
+        else
+            log "⚠️  WATCHDOG: Failed to trigger aesthetic-backend after restart"
+        fi
         show_warning "$reason"
         return 0
     else
