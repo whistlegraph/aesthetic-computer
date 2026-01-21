@@ -1,336 +1,309 @@
 // Words, 2026.01.20
-// A Word Munchers-style tap and drag word game laboratory.
+// A Word Munchers-style educational word game.
 
 /* #region 📚 README 
-  Inspired by the classic Word Munchers educational game!
-  - Find hidden words in the grid by dragging in straight lines
-  - Words can be horizontal, vertical, or diagonal
-  - Tap and drag to select letters, release to submit
+  Classic Word Munchers gameplay!
+  - Grid shows whole words
+  - A category/criteria is shown at top (rhymes, synonyms, endings, etc.)
+  - Move muncher with arrow keys or tap adjacent cells
+  - Press SPACE or tap your cell to munch
+  - Munch all words that match the criteria
+  - Wrong munch = lose a life!
+  - Clear all correct words to win
 #endregion */
 
 /* #region 🏁 TODO 
   - [] Add sound effects for munching
-  - [] Add scoring system
-  - [] Add levels with different word categories
-  - [] Add timer mode
+  - [] Add enemy "troggles" that roam the grid
+  - [] Add more category types
+  - [] Add difficulty progression
 #endregion */
 
-const DEFAULT_WORDS = [
-  "munch",
-  "arcade",
-  "vector",
-  "sprite",
-  "laser",
-  "maze",
-  "retro",
-  "byte",
-  "pixel",
-  "sound",
-  "bonus",
-  "math",
-  "orbit",
-  "shield",
-  "power",
-  "score",
-  "combo",
-  "quest",
-  "grid",
-  "logic",
+// Category definitions with correct/incorrect words
+const CATEGORIES = [
+  {
+    type: "rhymes",
+    prompt: "Rhymes with CAT",
+    correct: ["bat", "hat", "mat", "rat", "sat", "flat", "chat", "that"],
+    wrong: ["dog", "cup", "tree", "book", "run", "big", "sky", "lamp", "frog", "ship"],
+  },
+  {
+    type: "rhymes",
+    prompt: "Rhymes with TREE",
+    correct: ["bee", "see", "free", "knee", "key", "flea", "plea", "glee"],
+    wrong: ["cat", "dog", "run", "hat", "book", "lamp", "frog", "ship", "cup", "map"],
+  },
+  {
+    type: "ending",
+    prompt: "Ends with -ING",
+    correct: ["sing", "ring", "king", "wing", "bring", "thing", "swing", "spring"],
+    wrong: ["cat", "dog", "tree", "book", "lamp", "frog", "ship", "cup", "hat", "run"],
+  },
+  {
+    type: "ending",
+    prompt: "Ends with -TION",
+    correct: ["action", "nation", "motion", "notion", "potion", "ration", "station", "option"],
+    wrong: ["cat", "running", "happy", "tree", "book", "lamp", "quick", "ship", "bright", "dog"],
+  },
+  {
+    type: "starting",
+    prompt: "Starts with UN-",
+    correct: ["undo", "unfit", "unfair", "unlock", "unseen", "untie", "unpack", "unreal"],
+    wrong: ["cat", "over", "happy", "tree", "only", "under", "lamp", "open", "upper", "dog"],
+  },
+  {
+    type: "synonym",
+    prompt: "Means HAPPY",
+    correct: ["glad", "joyful", "merry", "cheery", "jolly", "content", "pleased", "elated"],
+    wrong: ["sad", "angry", "tired", "cold", "fast", "big", "small", "dark", "loud", "wet"],
+  },
+  {
+    type: "synonym",
+    prompt: "Means BIG",
+    correct: ["large", "huge", "giant", "vast", "great", "grand", "massive", "immense"],
+    wrong: ["tiny", "small", "fast", "sad", "happy", "cold", "hot", "dark", "loud", "wet"],
+  },
+  {
+    type: "antonym",
+    prompt: "Opposite of HOT",
+    correct: ["cold", "cool", "chilly", "frozen", "icy", "frigid", "frosty", "freezing"],
+    wrong: ["warm", "burning", "fast", "big", "happy", "sad", "loud", "dark", "wet", "dry"],
+  },
+  {
+    type: "category",
+    prompt: "Animals",
+    correct: ["cat", "dog", "bird", "fish", "frog", "bear", "lion", "wolf"],
+    wrong: ["tree", "book", "lamp", "chair", "table", "house", "car", "phone", "shirt", "cup"],
+  },
+  {
+    type: "category",
+    prompt: "Colors",
+    correct: ["red", "blue", "green", "yellow", "orange", "purple", "pink", "brown"],
+    wrong: ["cat", "dog", "tree", "book", "lamp", "chair", "run", "happy", "big", "fast"],
+  },
 ];
 
-const DIRECTIONS = [
-  [0, 1],
-  [1, 0],
-  [0, -1],
-  [-1, 0],
-  [1, 1],
-  [1, -1],
-  [-1, 1],
-  [-1, -1],
-];
+const GRID_COLS = 5;
+const GRID_ROWS = 4;
+const TOTAL_CELLS = GRID_COLS * GRID_ROWS;
 
-let puzzle = null;
-let selection = null;
-let cellSize = 16;
+let grid = []; // Array of { word, isCorrect, munched }
+let category = null;
+let muncher = { row: 0, col: 0 };
+let lives = 3;
+let score = 0;
+let level = 1;
+let gameState = "playing"; // "playing", "won", "lost"
+let cellWidth = 38;
+let cellHeight = 28;
 let gridOffset = { x: 0, y: 0 };
-let maxWords = 8;
-let words = [...DEFAULT_WORDS];
-let found = new Set();
-let gridSize = 10;
+let flashWrong = 0; // Timer for wrong munch flash
+let lastMunchCorrect = true;
 
-const shuffle = (list) => {
-  const arr = [...list];
-  for (let i = arr.length - 1; i > 0; i -= 1) {
+const shuffle = (arr) => {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    [a[i], a[j]] = [a[j], a[i]];
   }
-  return arr;
+  return a;
 };
 
-const pickWords = () => {
-  const trimmed = words.map((w) => w.trim().toLowerCase()).filter(Boolean);
-  return shuffle(trimmed).slice(0, maxWords);
+const generateLevel = () => {
+  // Pick a random category
+  category = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
+
+  // Decide how many correct words (scales with level, 3-6)
+  const numCorrect = Math.min(3 + Math.floor(level / 2), 6);
+  const numWrong = TOTAL_CELLS - numCorrect;
+
+  // Pick words
+  const correctWords = shuffle(category.correct).slice(0, numCorrect);
+  const wrongWords = shuffle(category.wrong).slice(0, numWrong);
+
+  // Build grid items
+  const items = [
+    ...correctWords.map((w) => ({ word: w, isCorrect: true, munched: false })),
+    ...wrongWords.map((w) => ({ word: w, isCorrect: false, munched: false })),
+  ];
+
+  // Shuffle and assign to grid
+  grid = shuffle(items);
+
+  // Reset muncher to center-ish
+  muncher = { row: Math.floor(GRID_ROWS / 2), col: Math.floor(GRID_COLS / 2) };
+  gameState = "playing";
 };
 
-const buildEmptyGrid = (size) =>
-  Array.from({ length: size }, () => Array.from({ length: size }, () => null));
+const getGridIndex = (row, col) => row * GRID_COLS + col;
 
-const placeWord = (grid, word) => {
-  const size = grid.length;
-  const letters = [...word];
-  const attempts = 150;
-
-  for (let tries = 0; tries < attempts; tries += 1) {
-    const [dr, dc] = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
-    const startRow = Math.floor(Math.random() * size);
-    const startCol = Math.floor(Math.random() * size);
-
-    const endRow = startRow + dr * (letters.length - 1);
-    const endCol = startCol + dc * (letters.length - 1);
-
-    if (endRow < 0 || endRow >= size || endCol < 0 || endCol >= size) continue;
-
-    let canPlace = true;
-    for (let i = 0; i < letters.length; i += 1) {
-      const row = startRow + dr * i;
-      const col = startCol + dc * i;
-      const cell = grid[row][col];
-      if (cell && cell !== letters[i]) {
-        canPlace = false;
-        break;
-      }
-    }
-
-    if (!canPlace) continue;
-
-    for (let i = 0; i < letters.length; i += 1) {
-      const row = startRow + dr * i;
-      const col = startCol + dc * i;
-      grid[row][col] = letters[i];
-    }
-
-    return { placed: true, startRow, startCol, dr, dc };
-  }
-
-  return { placed: false };
+const getCellAt = (row, col) => {
+  if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) return null;
+  return grid[getGridIndex(row, col)];
 };
 
-const fillGrid = (grid) => {
-  const size = grid.length;
-  const alphabet = "abcdefghijklmnopqrstuvwxyz";
-  for (let row = 0; row < size; row += 1) {
-    for (let col = 0; col < size; col += 1) {
-      if (!grid[row][col]) {
-        grid[row][col] = alphabet[Math.floor(Math.random() * alphabet.length)];
-      }
-    }
+const moveMuncher = (dr, dc) => {
+  if (gameState !== "playing") return;
+  const newRow = muncher.row + dr;
+  const newCol = muncher.col + dc;
+  if (newRow >= 0 && newRow < GRID_ROWS && newCol >= 0 && newCol < GRID_COLS) {
+    muncher.row = newRow;
+    muncher.col = newCol;
   }
 };
 
-const generatePuzzle = () => {
-  const selectedWords = pickWords();
-  const maxLen = Math.max(6, ...selectedWords.map((w) => w.length));
-  gridSize = Math.max(8, Math.min(12, maxLen + 3));
-  const grid = buildEmptyGrid(gridSize);
-  const placements = new Map();
+const munch = () => {
+  if (gameState !== "playing") return;
 
-  selectedWords.forEach((word) => {
-    const result = placeWord(grid, word);
-    if (result.placed) placements.set(word, result);
-  });
+  const cell = getCellAt(muncher.row, muncher.col);
+  if (!cell || cell.munched) return;
 
-  fillGrid(grid);
-  return { grid, words: selectedWords, placements };
+  cell.munched = true;
+
+  if (cell.isCorrect) {
+    score += 10 * level;
+    lastMunchCorrect = true;
+
+    // Check win condition
+    const remaining = grid.filter((c) => c.isCorrect && !c.munched);
+    if (remaining.length === 0) {
+      level += 1;
+      generateLevel();
+    }
+  } else {
+    // Wrong munch!
+    lives -= 1;
+    flashWrong = 30;
+    lastMunchCorrect = false;
+
+    if (lives <= 0) {
+      gameState = "lost";
+    }
+  }
 };
 
 const getCellFromPos = (x, y) => {
-  const col = Math.floor((x - gridOffset.x) / cellSize);
-  const row = Math.floor((y - gridOffset.y) / cellSize);
-  if (row < 0 || row >= gridSize || col < 0 || col >= gridSize) return null;
+  const col = Math.floor((x - gridOffset.x) / cellWidth);
+  const row = Math.floor((y - gridOffset.y) / cellHeight);
+  if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) return null;
   return { row, col };
 };
 
-const getLineCells = (start, end) => {
-  const dr = Math.sign(end.row - start.row);
-  const dc = Math.sign(end.col - start.col);
-
-  if (dr === 0 && dc === 0) return [start];
-
-  if (
-    start.row !== end.row &&
-    start.col !== end.col &&
-    Math.abs(end.row - start.row) !== Math.abs(end.col - start.col)
-  ) {
-    return [];
-  }
-
-  const cells = [];
-  let row = start.row;
-  let col = start.col;
-
-  while (true) {
-    cells.push({ row, col });
-    if (row === end.row && col === end.col) break;
-    row += dr;
-    col += dc;
-  }
-
-  return cells;
-};
-
-const getWordFromCells = (cells) =>
-  cells.map((c) => puzzle.grid[c.row][c.col]).join("");
-
 // 🥾 Boot
-function boot({ screen, resize }) {
-  resize(192, 192);
-  puzzle = generatePuzzle();
-
-  // Calculate layout
-  cellSize = Math.floor(Math.min(screen.width, screen.height - 40) / gridSize);
-  gridOffset.x = Math.floor((screen.width - cellSize * gridSize) / 2);
-  gridOffset.y = 24;
+function boot({ resize }) {
+  resize(192, 144);
+  generateLevel();
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, box, line, write, screen }) {
-  wipe(20, 20, 35);
+function paint({ wipe, ink, box, write, screen }) {
+  // Flash red on wrong munch
+  if (flashWrong > 0) {
+    wipe(80, 20, 20);
+    flashWrong -= 1;
+  } else {
+    wipe(20, 25, 40);
+  }
 
-  // Title
-  ink("cyan").write("WORD MUNCHERS", { x: 4, y: 4 });
-  ink("gray").write(`${found.size}/${puzzle.words.length}`, { x: screen.width - 30, y: 4 });
+  // Calculate layout
+  cellWidth = Math.floor((screen.width - 4) / GRID_COLS);
+  cellHeight = 24;
+  gridOffset.x = Math.floor((screen.width - cellWidth * GRID_COLS) / 2);
+  gridOffset.y = 28;
 
-  // Draw grid background
-  ink(30, 30, 50).box(
-    gridOffset.x - 2,
-    gridOffset.y - 2,
-    cellSize * gridSize + 4,
-    cellSize * gridSize + 4
-  );
+  // Header: Category prompt
+  ink("yellow").write(category.prompt.toUpperCase(), { x: 4, y: 4 });
 
-  // Draw cells
-  for (let row = 0; row < gridSize; row += 1) {
-    for (let col = 0; col < gridSize; col += 1) {
-      const x = gridOffset.x + col * cellSize;
-      const y = gridOffset.y + row * cellSize;
-      const letter = puzzle.grid[row][col];
-      const key = `${row},${col}`;
+  // Header: Lives and Score
+  ink("red").write("♥".repeat(lives), { x: screen.width - 24, y: 4 });
+  ink("gray").write(`L${level}`, { x: screen.width - 50, y: 4 });
 
-      // Check if this cell is part of a found word
-      let isFound = false;
-      for (const word of found) {
-        const placement = puzzle.placements.get(word);
-        if (placement) {
-          for (let i = 0; i < word.length; i++) {
-            if (
-              placement.startRow + placement.dr * i === row &&
-              placement.startCol + placement.dc * i === col
-            ) {
-              isFound = true;
-              break;
-            }
-          }
-        }
-        if (isFound) break;
-      }
+  // Draw grid
+  for (let row = 0; row < GRID_ROWS; row++) {
+    for (let col = 0; col < GRID_COLS; col++) {
+      const idx = getGridIndex(row, col);
+      const cell = grid[idx];
+      const x = gridOffset.x + col * cellWidth;
+      const y = gridOffset.y + row * cellHeight;
 
-      // Check if cell is in current selection
-      let isSelected = false;
-      let isStart = false;
-      if (selection?.cells) {
-        selection.cells.forEach((c, idx) => {
-          if (c.row === row && c.col === col) {
-            isSelected = true;
-            if (idx === 0) isStart = true;
-          }
-        });
-      }
+      const isMuncherHere = muncher.row === row && muncher.col === col;
 
       // Cell background
-      if (isFound) {
-        ink(60, 140, 80).box(x + 1, y + 1, cellSize - 2, cellSize - 2);
-      } else if (isStart) {
-        ink(180, 120, 60).box(x + 1, y + 1, cellSize - 2, cellSize - 2);
-      } else if (isSelected) {
-        ink(80, 160, 180).box(x + 1, y + 1, cellSize - 2, cellSize - 2);
+      if (cell.munched) {
+        ink(30, 35, 50).box(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
+      } else if (isMuncherHere) {
+        ink(80, 180, 80).box(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
       } else {
-        ink(40, 45, 65).box(x + 1, y + 1, cellSize - 2, cellSize - 2);
+        ink(50, 55, 75).box(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
       }
 
-      // Letter
-      const textColor = isFound ? [180, 255, 200] : isSelected ? [220, 255, 255] : [200, 200, 220];
-      ink(...textColor).write(letter.toUpperCase(), {
-        x: x + Math.floor(cellSize / 2) - 3,
-        y: y + Math.floor(cellSize / 2) - 3,
-      });
+      // Cell border
+      ink(70, 75, 95).box(x, y, cellWidth, cellHeight, "outline");
+
+      // Word text (if not munched)
+      if (!cell.munched) {
+        const textColor = isMuncherHere ? [20, 40, 20] : [200, 200, 220];
+        ink(...textColor).write(cell.word.toUpperCase(), {
+          x: x + 3,
+          y: y + Math.floor(cellHeight / 2) - 3,
+        });
+      }
     }
   }
 
-  // Draw word list at bottom
-  const listY = gridOffset.y + cellSize * gridSize + 6;
-  let listX = 4;
-  puzzle.words.forEach((word, i) => {
-    const isWordFound = found.has(word);
-    if (isWordFound) {
-      ink(100, 200, 120);
-    } else {
-      ink(120, 120, 140);
-    }
-    write(word.toUpperCase(), { x: listX, y: listY + Math.floor(i / 4) * 10 });
-    listX += 46;
-    if ((i + 1) % 4 === 0) listX = 4;
-  });
+  // Instructions at bottom
+  const instY = gridOffset.y + GRID_ROWS * cellHeight + 6;
+  ink(100, 100, 120).write("ARROWS/TAP:MOVE  SPACE/TAP:MUNCH", { x: 4, y: instY });
 
-  // Win message
-  if (found.size === puzzle.words.length) {
-    ink(255, 220, 100).write("ALL MUNCHED! TAP TO RESTART", {
-      x: 20,
-      y: screen.height - 12,
-    });
+  // Score
+  ink("cyan").write(`SCORE: ${score}`, { x: 4, y: instY + 12 });
+
+  // Game over / win messages
+  if (gameState === "lost") {
+    ink(0, 0, 0, 180).box(0, 0, screen.width, screen.height);
+    ink("red").write("GAME OVER!", { x: 60, y: 60 });
+    ink("white").write(`FINAL SCORE: ${score}`, { x: 50, y: 75 });
+    ink("gray").write("TAP TO RESTART", { x: 55, y: 95 });
   }
 }
 
 // 🎪 Act
-function act({ event, screen }) {
-  if (event.is("touch")) {
-    // Check for restart on win
-    if (found.size === puzzle.words.length) {
-      found.clear();
-      puzzle = generatePuzzle();
-      cellSize = Math.floor(Math.min(screen.width, screen.height - 40) / gridSize);
-      gridOffset.x = Math.floor((screen.width - cellSize * gridSize) / 2);
-      return;
-    }
-
-    const cell = getCellFromPos(event.x, event.y);
-    if (cell) {
-      selection = { start: cell, cells: [cell] };
-    }
+function act({ event }) {
+  // Restart on game over
+  if (gameState === "lost" && event.is("touch")) {
+    lives = 3;
+    score = 0;
+    level = 1;
+    generateLevel();
+    return;
   }
 
-  if (event.is("draw") && selection) {
+  // Keyboard controls
+  if (event.is("keyboard:down:arrowup")) moveMuncher(-1, 0);
+  if (event.is("keyboard:down:arrowdown")) moveMuncher(1, 0);
+  if (event.is("keyboard:down:arrowleft")) moveMuncher(0, -1);
+  if (event.is("keyboard:down:arrowright")) moveMuncher(0, 1);
+  if (event.is("keyboard:down:space")) munch();
+
+  // Touch controls
+  if (event.is("touch")) {
     const cell = getCellFromPos(event.x, event.y);
     if (cell) {
-      const cells = getLineCells(selection.start, cell);
-      if (cells.length > 0) {
-        selection.cells = cells;
+      // If tapping current cell, munch
+      if (cell.row === muncher.row && cell.col === muncher.col) {
+        munch();
+      } else {
+        // Move toward tapped cell (one step at a time)
+        const dr = Math.sign(cell.row - muncher.row);
+        const dc = Math.sign(cell.col - muncher.col);
+        // Prefer vertical or horizontal
+        if (dr !== 0) {
+          moveMuncher(dr, 0);
+        } else if (dc !== 0) {
+          moveMuncher(0, dc);
+        }
       }
     }
-  }
-
-  if (event.is("lift") && selection) {
-    const letters = getWordFromCells(selection.cells);
-    const reversed = letters.split("").reverse().join("");
-
-    const match = puzzle.words.find(
-      (w) => (w === letters || w === reversed) && !found.has(w)
-    );
-
-    if (match) {
-      found.add(match);
-    }
-
-    selection = null;
   }
 }
 
@@ -338,7 +311,7 @@ function act({ event, screen }) {
 function meta() {
   return {
     title: "Words",
-    desc: "A Word Munchers-style tap and drag word game laboratory.",
+    desc: "A Word Munchers-style educational word game.",
   };
 }
 

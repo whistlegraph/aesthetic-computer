@@ -3164,19 +3164,26 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
       volume,
       isMutation,
       struck,
-      sequenceTrackCount, // Track count for this note's sequence (for reference only)
+      sequenceTrackCount, // Track count for this note's sequence
     } = historyItem;
 
-    // Use current sequence's track count for layout
-    // Notes from tracks that don't exist in current sequence will be skipped
-    const effectiveTrackCount = trackCount;
+    // Determine if this is a history note (from a previous section)
+    // History notes should use their OWN sequenceTrackCount for proper layout
+    // Current/future notes use the current trackCount
+    const isHistoryNote = endTime < musicalTimeReference;
     
-    // Skip notes from tracks that don't exist in current sequence
-    // (e.g., track 3 history when current sequence only has 3 tracks)
+    // For history notes from different sections, use their own track count
+    // This shows how the previous section was laid out visually
+    const effectiveTrackCount = (isHistoryNote && sequenceTrackCount && sequenceTrackCount !== trackCount)
+      ? sequenceTrackCount  // Use the note's own section track count
+      : trackCount;         // Use current section track count
+    
+    // Skip notes from tracks that don't exist in their own section layout
     if (trackIndex >= effectiveTrackCount) return;
 
-    // Calculate track horizontal position using current sequence's track count
-    // This makes current sequence notes use full width
+    // Calculate track horizontal position using the note's own section track count
+    // History notes from 2-track sections stay in their 2-track layout
+    // Current notes use current section layout
     const noteTrackStartPos = Math.round((timelineWidth * trackIndex) / effectiveTrackCount);
     const noteTrackEndPos = Math.round((timelineWidth * (trackIndex + 1)) / effectiveTrackCount);
     const trackX = timelineStartX + noteTrackStartPos;
