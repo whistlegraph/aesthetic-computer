@@ -1,7 +1,7 @@
 // FF1 Pairing (Netlify Function)
 // One-time topicID handoff via token (phone -> desktop)
 
-import * as KeyValue from "../backend/kv.mjs";
+import * as KeyValue from "../../backend/kv.mjs";
 
 const COLLECTION = "ff1Pairings";
 const TTL_MS = 10 * 60 * 1000; // 10 minutes
