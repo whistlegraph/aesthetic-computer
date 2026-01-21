@@ -137,6 +137,16 @@ external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 
+[functions.ff1-pair]
+external_node_modules = ["redis"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["REDIS_CONNECTION_STRING", "NETLIFY_DEV"]
+
+[functions.ff1-devices]
+external_node_modules = ["got", "mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "CONTEXT"]
+
 [functions.store-kidlisp]
 node_bundler = "esbuild"
 external_node_modules = ["@taquito/taquito", "@taquito/signer", "mongodb", "mongodb-connection-string-url", "adm-zip", "@atproto/api"]
@@ -370,6 +380,12 @@ included_files = ["public/.commit-ref"]
 [[redirects]]
 from = "/api/version"
 to = "/.netlify/functions/version"
+status = 200
+
+# FF1 API routes
+[[redirects]]
+from = "/api/ff1/*"
+to = "/.netlify/functions/ff1-:splat"
 status = 200
 
 # Serve type/font assets locally (allow dev edits to BDF files)
@@ -697,6 +713,12 @@ from = "https://kidlisp.com"
 to = "https://aesthetic.computer/kidlisp.com/"
 status = 200
 force = true
+# FF1 API routes - kidlisp.com/api/ff1/*
+[[redirects]]
+from = "https://kidlisp.com/api/ff1/*"
+to = "https://aesthetic.computer/api/ff1/:splat"
+status = 200
+force = true
 [[redirects]]
 from = "https://kidlisp.com/*"
 to = "https://aesthetic.computer/kidlisp.com/:splat"
@@ -705,6 +727,12 @@ force = true
 [[redirects]]
 from = "https://www.kidlisp.com"
 to = "https://aesthetic.computer/kidlisp.com/"
+status = 200
+force = true
+# FF1 API routes - www.kidlisp.com/api/ff1/*
+[[redirects]]
+from = "https://www.kidlisp.com/api/ff1/*"
+to = "https://aesthetic.computer/api/ff1/:splat"
 status = 200
 force = true
 [[redirects]]
@@ -722,6 +750,29 @@ force = true
 [[redirects]]
 from = "https://pj.kidlisp.com/*"
 to = "/kidlisp.com/pj.html"
+status = 200
+force = true
+
+# Device subdomain for kidlisp.com - device.kidlisp.com/codeId (FF1 display mode)
+[[redirects]]
+from = "https://device.kidlisp.com"
+to = "/kidlisp.com/device.html"
+status = 200
+force = true
+# FF1 API routes - device.kidlisp.com/api/ff1/*
+[[redirects]]
+from = "https://device.kidlisp.com/api/ff1/*"
+to = "/api/ff1/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://device.kidlisp.com/qr/*"
+to = "/kidlisp.com/qr.html?token=:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://device.kidlisp.com/*"
+to = "/kidlisp.com/device.html"
 status = 200
 force = true
 

@@ -119,16 +119,14 @@ self.addEventListener('fetch', (event) => {
                     await cache.put(cacheKey, responseToCache);
                   }
                 } catch (e) {
-                  // Response was incomplete/corrupted - use cache if available
-                  console.warn('🔧 SW: Response incomplete, using cache for:', url.pathname);
+                  // Response was incomplete/corrupted - use cache if available (silent)
                   if (cachedResponse) return cachedResponse;
                 }
               }
               return networkResponse;
             })
             .catch((err) => {
-              // Return cached version if network fails
-              console.warn('🔧 SW: Network error, using cache for:', url.pathname, err.message);
+              // Return cached version if network fails (silent)
               if (cachedResponse) return cachedResponse;
               throw err;
             });
