@@ -2055,6 +2055,19 @@
     .ff1-test-btn:hover {
       background: rgba(255,255,255,0.25);
     }
+    .ff1-scan-btn {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 4px;
+      padding: 8px 16px;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .ff1-scan-btn:hover {
+      background: rgba(255,255,255,0.25);
+    }
     .ff1-test-btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -2073,6 +2086,68 @@
     }
     [data-theme="light"] #boot-screen-ff1 .boot-text {
       color: white !important;
+    }
+
+    /* FF1 QR Scan Modal */
+    .ff1-qr-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    .ff1-qr-modal.open {
+      display: flex;
+    }
+    .ff1-qr-card {
+      width: min(90vw, 420px);
+      background: #111;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 16px;
+      color: white;
+      font-family: 'Berkeley Mono', 'Fira Code', monospace;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+    .ff1-qr-title {
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .ff1-qr-canvas {
+      width: 100%;
+      background: #fff;
+      border-radius: 8px;
+      image-rendering: pixelated;
+      margin: 4px 0 8px;
+    }
+    .ff1-qr-link {
+      font-size: 11px;
+      opacity: 0.8;
+      word-break: break-all;
+      margin-bottom: 6px;
+    }
+    .ff1-qr-status {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-bottom: 10px;
+    }
+    .ff1-qr-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .ff1-qr-btn {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
     }
     
     /* Ableton Live 12 boot screen - theme-aware */
@@ -7910,7 +7985,8 @@
             <div class="boot-text boot-text-title">FF1 Art Computer</div>
             <div class="boot-text boot-text-action" data-i18n="pressToRun">Press <span class="blink">▶</span> to run</div>
             <div class="ff1-settings" id="ff1-settings">
-              <input type="text" id="ff1-device-id" placeholder="Device ID (e.g., FF1-DVVEKLZA)" autocomplete="off" spellcheck="false">
+              <input type="text" id="ff1-topic-id" placeholder="Topic ID (from FF1 app)" autocomplete="off" spellcheck="false">
+              <button id="ff1-scan-btn" class="ff1-scan-btn">Pair via phone</button>
               <button id="ff1-test-btn" class="ff1-test-btn">Test</button>
               <span id="ff1-status" class="ff1-status"></span>
               <div class="ff1-proxy-hint" id="ff1-proxy-hint" style="display:none; font-size:11px; opacity:0.7; margin-top:8px; text-align:center; font-family:monospace;">
@@ -7938,6 +8014,18 @@
             <div style="font-size: 64px; margin-bottom: 16px;">🕹️</div>
             <div class="boot-text" style="font-size: 18px; font-weight: bold; color: #fff;">Nintendo 64</div>
             <div class="boot-text boot-text-status" style="font-size: 11px; opacity: 0.5; margin-top: 8px; color: #ff3333;" data-i18n="experimental">⚠️ Experimental</div>
+          </div>
+          <div class="ff1-qr-modal" id="ff1-qr-modal" aria-hidden="true">
+            <div class="ff1-qr-card">
+              <div class="ff1-qr-title">Pair FF1 on your phone</div>
+              <canvas id="ff1-qr-canvas" class="ff1-qr-canvas"></canvas>
+              <div class="ff1-qr-link" id="ff1-qr-link"></div>
+              <div class="ff1-qr-status" id="ff1-qr-status">Waiting for scan…</div>
+              <div class="ff1-qr-actions">
+                <button id="ff1-qr-copy" class="ff1-qr-btn">Copy link</button>
+                <button id="ff1-qr-close" class="ff1-qr-btn">Close</button>
+              </div>
+            </div>
           </div>
           <iframe id="preview-iframe" frameborder="0"></iframe>
           <!-- PJ overlay (shown when broadcasting to PJ window) -->
@@ -8523,8 +8611,9 @@
     
     // FF1 configuration
     let ff1Config = {
-      deviceId: localStorage.getItem(FF1_CONFIG_KEY) ? JSON.parse(localStorage.getItem(FF1_CONFIG_KEY)).deviceId : '',
-      proxyUrl: localStorage.getItem(FF1_CONFIG_KEY) ? JSON.parse(localStorage.getItem(FF1_CONFIG_KEY)).proxyUrl : 'http://localhost:3333',
+      deviceId: '',
+      relayTopicId: '',
+      relayApiKey: '',
     };
     
     // Load FF1 config from localStorage
@@ -8539,9 +8628,9 @@
       }
       
       // Update UI
-      const input = document.getElementById('ff1-device-id');
-      if (input && ff1Config.deviceId) {
-        input.value = ff1Config.deviceId;
+      const input = document.getElementById('ff1-topic-id');
+      if (input && ff1Config.relayTopicId) {
+        input.value = ff1Config.relayTopicId;
       }
     }
     
@@ -8565,6 +8654,27 @@
         }]
       };
     }
+
+    function getFF1ProxyUrl() {
+      const isDev = window.location.hostname === 'localhost';
+      return isDev ? 'http://localhost:8889/ff1/cast' : '/.netlify/functions/ff1-proxy';
+    }
+
+    async function persistFF1DeviceIfAuthenticated(topicID, apiKey) {
+      if (!window.acToken || !topicID) return;
+      try {
+        await fetch('/.netlify/functions/ff1-devices', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${window.acToken}`
+          },
+          body: JSON.stringify({ topicID, apiKey: apiKey || null, deviceId: ff1Config.deviceId || null })
+        });
+      } catch (err) {
+        console.warn('⚠️ Failed to save FF1 device:', err);
+      }
+    }
     
     // Send code to FF1 device
     async function sendToFF1Device() {
@@ -8574,9 +8684,9 @@
         return;
       }
       
-      if (!ff1Config.deviceId) {
-        showToast('Enter your FF1 device ID first', 'warning');
-        const input = document.getElementById('ff1-device-id');
+      if (!ff1Config.relayTopicId) {
+        showToast('Enter your FF1 Topic ID first', 'warning');
+        const input = document.getElementById('ff1-topic-id');
         if (input) input.focus();
         return;
       }
@@ -8617,9 +8727,11 @@
         // Build FF1 playlist
         const playlist = buildFF1Playlist(codeUrl);
         
-        // Send to FF1 device via local proxy (to avoid CORS issues)
-        const deviceUrl = `${ff1Config.proxyUrl}/api/cast`;
+        // Send to FF1 device via Netlify proxy (to avoid CORS issues)
+        const proxyUrl = getFF1ProxyUrl();
         const payload = {
+          topicID: ff1Config.relayTopicId,
+          apiKey: ff1Config.relayApiKey || undefined,
           command: 'displayPlaylist',
           request: {
             dp1_call: playlist,
@@ -8629,9 +8741,9 @@
           }
         };
         
-        console.log('📡 Sending to FF1 via proxy:', deviceUrl, payload);
+        console.log('📡 Sending to FF1 via proxy:', proxyUrl, payload);
         
-        const response = await fetch(deviceUrl, {
+        const response = await fetch(proxyUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -8656,10 +8768,7 @@
       } catch (e) {
         console.error('❌ FF1 error:', e);
         if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
-          // Show proxy hint
-          const proxyHint = document.getElementById('ff1-proxy-hint');
-          if (proxyHint) proxyHint.style.display = 'block';
-          showToast(`Can't reach FF1 proxy. Start the proxy server first.`, 'error');
+          showToast(`Can't reach FF1 proxy.`, 'error');
         } else {
           showToast(`FF1 error: ${e.message}`, 'error');
         }
@@ -8699,9 +8808,9 @@
       const testBtn = document.getElementById('ff1-test-btn');
       const proxyHint = document.getElementById('ff1-proxy-hint');
       
-      if (!ff1Config.deviceId) {
+      if (!ff1Config.relayTopicId) {
         if (statusEl) {
-          statusEl.textContent = 'Enter device ID';
+          statusEl.textContent = 'Enter Topic ID';
           statusEl.className = 'ff1-status error';
         }
         return;
@@ -8715,20 +8824,13 @@
       if (proxyHint) proxyHint.style.display = 'none';
       
       try {
-        // First check if proxy is running
-        const healthCheck = await fetch(`${ff1Config.proxyUrl}/health`, {
-          signal: AbortSignal.timeout(3000)
-        });
-        
-        if (!healthCheck.ok) {
-          throw new Error('Proxy not responding');
-        }
-        
-        // Now try to send a blank playlist via proxy
-        const response = await fetch(`${ff1Config.proxyUrl}/api/cast`, {
+        // Try to send a blank playlist via proxy
+        const response = await fetch(getFF1ProxyUrl(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            topicID: ff1Config.relayTopicId,
+            apiKey: ff1Config.relayApiKey || undefined,
             command: 'displayPlaylist',
             request: {
               dp1_call: buildFF1Playlist('https://aesthetic.computer/blank'),
@@ -8744,6 +8846,7 @@
             statusEl.className = 'ff1-status success';
           }
           showToast('FF1 connected!', 'success');
+          persistFF1DeviceIfAuthenticated(ff1Config.relayTopicId, ff1Config.relayApiKey);
         } else {
           const errData = await response.json().catch(() => ({}));
           throw new Error(errData.error || `HTTP ${response.status}`);
@@ -8753,9 +8856,8 @@
           statusEl.textContent = '✗ Not reachable';
           statusEl.className = 'ff1-status error';
         }
-        if (e.message.includes('Proxy') || e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
-          if (proxyHint) proxyHint.style.display = 'block';
-          showToast(`Start the FF1 proxy: node ff1-proxy.mjs`, 'error');
+        if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+          showToast(`Can't reach FF1 proxy.`, 'error');
         } else {
           showToast(`Can't reach FF1: ${e.message}`, 'error');
         }
@@ -8763,18 +8865,119 @@
         if (testBtn) testBtn.disabled = false;
       }
     }
+
+    function openFF1PairModal() {
+      const modal = document.getElementById('ff1-qr-modal');
+      const canvas = document.getElementById('ff1-qr-canvas');
+      const linkEl = document.getElementById('ff1-qr-link');
+      const statusEl = document.getElementById('ff1-qr-status');
+
+      if (!modal || !canvas || !linkEl || !statusEl) return;
+
+      const token = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
+      const pairingUrl = isLocal
+        ? `${window.location.origin}/kidlisp.com/qr.html?token=${token}`
+        : `https://device.kidlisp.com/qr/${token}`;
+
+      linkEl.textContent = pairingUrl;
+      statusEl.textContent = 'Waiting for scan…';
+
+      if (window.qr && window.ErrorCorrectLevel) {
+        const cells = window.qr(pairingUrl, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
+        const size = Math.min(280, window.innerWidth - 120);
+        const cellSize = Math.max(4, Math.floor(size / cells.length));
+        const actualSize = cells.length * cellSize;
+        canvas.width = actualSize;
+        canvas.height = actualSize;
+        const ctx = canvas.getContext('2d');
+        for (let y = 0; y < cells.length; y++) {
+          for (let x = 0; x < cells.length; x++) {
+            ctx.fillStyle = cells[y][x] ? '#000000' : '#ffffff';
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      startFF1PairPolling(token, statusEl);
+    }
+
+    let ff1PairPollInterval = null;
+
+    function stopFF1PairPolling() {
+      if (ff1PairPollInterval) {
+        clearInterval(ff1PairPollInterval);
+        ff1PairPollInterval = null;
+      }
+    }
+
+    function startFF1PairPolling(token, statusEl) {
+      stopFF1PairPolling();
+      let attempts = 0;
+      ff1PairPollInterval = setInterval(async () => {
+        attempts++;
+        try {
+          const response = await fetch(`/.netlify/functions/ff1-pair?token=${token}`);
+          if (response.status === 404) {
+            if (attempts > 120) {
+              statusEl.textContent = 'Pairing timed out.';
+              stopFF1PairPolling();
+            }
+            return;
+          }
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            statusEl.textContent = err.error || 'Pairing error.';
+            stopFF1PairPolling();
+            return;
+          }
+          const data = await response.json();
+          if (data && data.topicID) {
+            ff1Config.relayTopicId = data.topicID;
+            ff1Config.relayApiKey = data.apiKey || '';
+            saveFF1Config();
+            const input = document.getElementById('ff1-topic-id');
+            if (input) input.value = ff1Config.relayTopicId;
+            statusEl.textContent = 'Paired!';
+            persistFF1DeviceIfAuthenticated(ff1Config.relayTopicId, ff1Config.relayApiKey);
+            stopFF1PairPolling();
+            setTimeout(closeFF1PairModal, 1200);
+          }
+        } catch (err) {
+          statusEl.textContent = 'Pairing error.';
+          stopFF1PairPolling();
+        }
+      }, 1500);
+    }
+
+    function closeFF1PairModal() {
+      const modal = document.getElementById('ff1-qr-modal');
+      if (!modal) return;
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      stopFF1PairPolling();
+    }
     
     // Initialize FF1 settings UI
     function initFF1Settings() {
       loadFF1Config();
       
-      const input = document.getElementById('ff1-device-id');
+      const input = document.getElementById('ff1-topic-id');
       const testBtn = document.getElementById('ff1-test-btn');
+      const scanBtn = document.getElementById('ff1-scan-btn');
+      const closeBtn = document.getElementById('ff1-qr-close');
+      const copyBtn = document.getElementById('ff1-qr-copy');
+      const linkEl = document.getElementById('ff1-qr-link');
       
       if (input) {
-        input.value = ff1Config.deviceId || '';
+        input.value = ff1Config.relayTopicId || '';
         input.addEventListener('input', (e) => {
-          ff1Config.deviceId = e.target.value.trim();
+          ff1Config.relayTopicId = e.target.value.trim();
           saveFF1Config();
           // Clear status when typing
           const statusEl = document.getElementById('ff1-status');
@@ -8794,6 +8997,27 @@
       
       if (testBtn) {
         testBtn.addEventListener('click', testFF1Connection);
+      }
+
+      if (scanBtn) {
+        scanBtn.addEventListener('click', openFF1PairModal);
+      }
+
+      if (closeBtn) {
+        closeBtn.addEventListener('click', closeFF1PairModal);
+      }
+
+      if (copyBtn && linkEl) {
+        copyBtn.addEventListener('click', async () => {
+          const text = linkEl.textContent || '';
+          if (!text) return;
+          try {
+            await navigator.clipboard.writeText(text);
+            showToast('Pairing link copied', 'success');
+          } catch {
+            showToast('Copy failed', 'error');
+          }
+        });
       }
     }
     
