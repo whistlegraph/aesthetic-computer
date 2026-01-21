@@ -38,7 +38,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: #000;
+      background: #fff;
       z-index: 10;
       transition: opacity 0.5s;
     }
@@ -46,6 +46,12 @@
     #boot-screen.hidden {
       opacity: 0;
       pointer-events: none;
+    }
+    
+    /* Canvas loader */
+    #boot-canvas {
+      width: 100%;
+      height: 100%;
     }
     
     /* Red vignette overlay for timeout warning */
@@ -69,43 +75,6 @@
     #vignette.critical {
       opacity: 1;
       background: radial-gradient(ellipse at center, transparent 0%, transparent 10%, rgba(200, 0, 0, 0.95) 100%);
-    }
-    
-    .boot-text {
-      color: rgba(255, 255, 255, 0.6);
-      font-family: monospace;
-      font-size: 48px;
-      text-align: center;
-    }
-    
-    .boot-text .mode {
-      color: rgb(92, 205, 155);
-    }
-    
-    /* Debug log display */
-    #boot-log {
-      margin-top: 40px;
-      max-width: 90%;
-      max-height: 40vh;
-      overflow-y: auto;
-      font-family: monospace;
-      font-size: 24px;
-      color: rgba(255, 255, 255, 0.4);
-      text-align: left;
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
-    
-    #boot-log .log-entry {
-      margin: 2px 0;
-    }
-    
-    #boot-log .log-error {
-      color: rgb(255, 100, 100);
-    }
-    
-    #boot-log .log-warn {
-      color: rgb(255, 200, 100);
     }
 
     /* Error display */
@@ -136,11 +105,7 @@
 <body>
   <div id="boot-screen">
     <div id="vignette"></div>
-    <div class="boot-text">
-      Loading...<br>
-      <span class="mode" id="boot-mode"></span>
-    </div>
-    <div id="boot-log"></div>
+    <canvas id="boot-canvas"></canvas>
   </div>
   
   <div id="error-screen">
@@ -150,6 +115,63 @@
   <iframe id="display-iframe"></iframe>
   
   <script>
+    // White bubble Canvas2D loader animation
+    const bootCanvas = document.getElementById('boot-canvas');
+    const bootCtx = bootCanvas.getContext('2d');
+    let bubbleFrame = 0;
+    let bubbleAnimating = true;
+    
+    function resizeBootCanvas() {
+      bootCanvas.width = window.innerWidth;
+      bootCanvas.height = window.innerHeight;
+    }
+    resizeBootCanvas();
+    window.addEventListener('resize', resizeBootCanvas);
+    
+    function animateBubble() {
+      if (!bubbleAnimating) return;
+      
+      const W = bootCanvas.width;
+      const H = bootCanvas.height;
+      const cx = W / 2;
+      const cy = H / 2;
+      
+      // Clear to white
+      bootCtx.fillStyle = '#fff';
+      bootCtx.fillRect(0, 0, W, H);
+      
+      // Animated bubble - breathing/pulsing white circle with subtle shadow
+      const t = bubbleFrame * 0.03;
+      const baseRadius = Math.min(W, H) * 0.08;
+      const breathe = Math.sin(t) * 0.15 + 1;
+      const radius = baseRadius * breathe;
+      
+      // Subtle gray shadow
+      bootCtx.beginPath();
+      bootCtx.arc(cx + 4, cy + 4, radius, 0, Math.PI * 2);
+      bootCtx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+      bootCtx.fill();
+      
+      // Main white bubble with light gray stroke
+      bootCtx.beginPath();
+      bootCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+      bootCtx.fillStyle = '#fff';
+      bootCtx.fill();
+      bootCtx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
+      bootCtx.lineWidth = 3;
+      bootCtx.stroke();
+      
+      // Inner highlight
+      bootCtx.beginPath();
+      bootCtx.arc(cx - radius * 0.3, cy - radius * 0.3, radius * 0.2, 0, Math.PI * 2);
+      bootCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      bootCtx.fill();
+      
+      bubbleFrame++;
+      requestAnimationFrame(animateBubble);
+    }
+    animateBubble();
+    
     // Default display parameters for FF1 and 4K displays
     const DEVICE_DEFAULTS = {
       density: 8,     // Higher density = larger pixels (8x8 screen pixels per AC pixel)
@@ -168,18 +190,12 @@
     // UI elements
     const iframe = document.getElementById('display-iframe');
     const bootScreen = document.getElementById('boot-screen');
-    const bootMode = document.getElementById('boot-mode');
-    const bootLog = document.getElementById('boot-log');
     const errorScreen = document.getElementById('error-screen');
     const errorText = document.getElementById('error-text');
     
-    // Boot screen logging
+    // Boot logging (console only, no DOM log)
     function addLog(msg, type = 'info') {
-      const entry = document.createElement('div');
-      entry.className = 'log-entry' + (type !== 'info' ? ` log-${type}` : '');
-      entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-      bootLog.appendChild(entry);
-      bootLog.scrollTop = bootLog.scrollHeight;
+      console.log(`[${type.toUpperCase()}] ${msg}`);
     }
     
     // Determine display mode and URL
@@ -234,6 +250,7 @@
       errorText.textContent = msg;
       errorScreen.classList.add('visible');
       bootScreen.classList.add('hidden');
+      bubbleAnimating = false;
     }
     
     // Initialize display
@@ -245,8 +262,7 @@
         return;
       }
       
-      // Display the codeId while loading
-      bootMode.textContent = `$${codeId}`;
+      // Set page title
       document.title = `KidLisp.com · $${codeId}`;
       
       // Build the $codeId URL with display params
@@ -279,6 +295,7 @@
           // Hide boot screen when AC signals ready
           if (data.type === 'ac-ready' || data.type === 'disk-loaded') {
             logDevice('AC ready, hiding boot screen');
+            bubbleAnimating = false;
             setTimeout(() => bootScreen.classList.add('hidden'), 300);
           }
           // Show errors
