@@ -143,7 +143,7 @@ function getProxyUrl() {
   const isDev = window.location.hostname === 'localhost';
   return isDev 
     ? 'http://localhost:8889/ff1/cast'
-    : 'https://session.aesthetic.computer/ff1/cast';
+    : 'https://session-server.aesthetic.computer/ff1/cast';
 }
 
 /**
