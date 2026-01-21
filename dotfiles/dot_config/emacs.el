@@ -1147,14 +1147,17 @@ Skips creation if tab already exists."
                                       cmd)))
                 (ac-debug-log (format "Running command: ac-%s" actual-cmd))
                 ;; Create eat buffer directly without blocking
-                (let ((buf (generate-new-buffer buf-name)))
-                  (with-current-buffer buf
-                    (eat-mode)
-                    (eat-exec buf buf-name "/usr/bin/fish" nil
-                              (list "-c" (format "ac-%s" actual-cmd))))
-                  (switch-to-buffer buf)
-                  ;; Yield to let Emacs process events (prevents freeze)
-                  (redisplay t)))
+                (condition-case err
+                    (let ((buf (generate-new-buffer buf-name)))
+                      (with-current-buffer buf
+                        (eat-mode)
+                        (eat-exec buf buf-name "/usr/bin/fish" nil
+                                  (list "-c" (format "ac-%s" actual-cmd))))
+                      (switch-to-buffer buf)
+                      ;; Yield to let Emacs process events (prevents freeze)
+                      (redisplay t))
+                  (error
+                   (ac-debug-log (format "Error starting ac-%s in tab %s: %s" actual-cmd tab-name err)))))
               
               (setq cmd-index (1+ cmd-index)))
             
@@ -1165,13 +1168,25 @@ Skips creation if tab already exists."
 (defvar ac--startup-lock-file "/tmp/emacs-backend-startup.lock"
   "Lock file indicating aesthetic-backend is starting (crash monitor will be gentle).")
 
+(defvar ac--backend-initializing nil
+  "Whether aesthetic-backend is currently initializing.")
+
+(defvar ac--backend-complete nil
+  "Whether aesthetic-backend completed initialization.")
+
+(defvar ac--backend-retry-count 0
+  "Number of aesthetic-backend retries attempted this session.")
+
+(defvar ac--backend-max-retries 1
+  "Maximum number of aesthetic-backend retries.")
+
 (cl-defun aesthetic-backend (target-tab)
   (interactive)
   (setq target-tab (or target-tab "artery"))
   
   ;; Prevent double-invocation race condition
-  (when ac--backend-started
-    (ac-debug-log (format "aesthetic-backend already started, just switching to tab: %s" target-tab))
+  (when (and ac--backend-started ac--backend-complete)
+    (ac-debug-log (format "aesthetic-backend already complete, switching to tab: %s" target-tab))
     ;; Just switch to the requested tab if backend already running
     (run-with-timer 0.5 nil
                     (lambda (target)
@@ -1181,7 +1196,12 @@ Skips creation if tab already exists."
                         (error nil)))
                     target-tab)
     (cl-return-from aesthetic-backend nil))
-  (setq ac--backend-started t)
+  (when ac--backend-initializing
+    (ac-debug-log "aesthetic-backend already initializing; skipping duplicate start")
+    (cl-return-from aesthetic-backend nil))
+  (setq ac--backend-started t
+        ac--backend-initializing t
+        ac--backend-complete nil)
   
   ;; Create startup lock file to tell crash monitor we're starting up
   ;; This prevents false "unresponsive" detection during heavy init
@@ -1221,12 +1241,6 @@ Skips creation if tab already exists."
             (kill-buffer buf)))
       (error nil))
 
-    ;; Helper to check if a tab with a given name exists
-    (defun ac--tab-exists-p (name)
-      "Return t if a tab named NAME exists."
-      (seq-find (lambda (tab) (string= name (alist-get 'name tab)))
-                (tab-bar-tabs)))
-
     ;; Initialize the first tab as "artery" with artery CLI (dev mode with hot-reload)
     ;; Only create if the tab doesn't already exist
     (unless (ac--tab-exists-p "artery")
@@ -1235,14 +1249,18 @@ Skips creation if tab already exists."
             (buf (or (get-buffer "🩸-artery")
                      (generate-new-buffer "🩸-artery"))))
         (with-current-buffer buf
-          (unless (eq major-mode 'eat-mode)
-            (eat-mode)
-            (eat-exec buf "🩸-artery" "/usr/bin/fish" nil '("-c" "ac-artery-dev")))
-          ;; Enable semi-char mode so TUI gets individual keypresses
-          (eat-semi-char-mode)
-          ;; Disable evil mode for artery - use emacs state
-          (when (and (boundp 'evil-mode) evil-mode)
-            (evil-emacs-state)))
+          (condition-case err
+              (progn
+                (unless (eq major-mode 'eat-mode)
+                  (eat-mode)
+                  (eat-exec buf "🩸-artery" "/usr/bin/fish" nil '("-c" "ac-artery-dev")))
+                ;; Enable semi-char mode so TUI gets individual keypresses
+                (eat-semi-char-mode)
+                ;; Disable evil mode for artery - use emacs state
+                (when (and (boundp 'evil-mode) evil-mode)
+                  (evil-emacs-state)))
+            (error
+             (ac-debug-log (format "Error starting artery eat buffer: %s" err)))))
         (switch-to-buffer buf)
         (redisplay t)))  ; Yield to prevent freeze
 
@@ -1255,12 +1273,16 @@ Skips creation if tab already exists."
             (buf (or (get-buffer "🐟-fishy")
                      (generate-new-buffer "🐟-fishy"))))
         (with-current-buffer buf
-          (unless (eq major-mode 'eat-mode)
-            (eat-mode)
-            (eat-exec buf "🐟-fishy" "/usr/bin/fish" nil nil))
-          (eat-semi-char-mode)
-          (when (and (boundp 'evil-mode) evil-mode)
-            (evil-emacs-state)))
+          (condition-case err
+              (progn
+                (unless (eq major-mode 'eat-mode)
+                  (eat-mode)
+                  (eat-exec buf "🐟-fishy" "/usr/bin/fish" nil nil))
+                (eat-semi-char-mode)
+                (when (and (boundp 'evil-mode) evil-mode)
+                  (evil-emacs-state)))
+            (error
+             (ac-debug-log (format "Error starting fishy eat buffer: %s" err)))))
         (switch-to-buffer buf)
         (redisplay t)))
 
@@ -1304,6 +1326,16 @@ Skips creation if tab already exists."
 
     ;; Start CDP tunnel in background after tabs are created
     (run-with-timer 8.0 nil #'ac-start-cdp-tunnel-async)
+
+    ;; Retry if tabs did not initialize properly
+    (run-with-timer 9.0 nil
+                    (lambda (target)
+                      (when (and (not ac--backend-complete)
+                                 (< ac--backend-retry-count ac--backend-max-retries))
+                        (setq ac--backend-retry-count (1+ ac--backend-retry-count))
+                        (ac-debug-log (format "Retrying aesthetic-backend (attempt %d)" ac--backend-retry-count))
+                        (aesthetic-backend target)))
+                    target-tab)
     
     ;; Remove startup lock file to signal we're done initializing
     ;; Give a bit more time for everything to settle
@@ -1312,6 +1344,8 @@ Skips creation if tab already exists."
                       (when (file-exists-p ac--startup-lock-file)
                         (delete-file ac--startup-lock-file)
                         (ac-debug-log "Removed startup lock - crash monitor now active")
+                        (setq ac--backend-complete t
+                              ac--backend-initializing nil)
                         (ac-perf-log "aesthetic-backend initialization complete")))))
 
 (defun ac-start-cdp-tunnel-async ()
@@ -1335,6 +1369,22 @@ Skips creation if tab already exists."
 (defvar ac--backend-started nil
   "Flag to ensure aesthetic-backend only runs once.")
 
+(defun ac--backend-tabs-minimal-p ()
+  "Return t if minimal tabs are present (artery + fishy)."
+  (and (ac--tab-exists-p "artery")
+       (ac--tab-exists-p "fishy")))
+
+(defun ac--ensure-backend (&optional reason)
+  "Ensure aesthetic-backend is running; retries if needed.
+REASON is logged for debugging."
+  (when (and (not ac--backend-initializing)
+             (not (ac--backend-tabs-minimal-p))
+             (< ac--backend-retry-count ac--backend-max-retries))
+    (setq ac--backend-retry-count (1+ ac--backend-retry-count))
+    (ac-debug-log (format "Ensuring aesthetic-backend (attempt %d) reason=%s"
+                          ac--backend-retry-count (or reason "unknown")))
+    (aesthetic-backend "artery")))
+
 (defun ac--maybe-start-backend (frame)
   "Start aesthetic-backend when first terminal frame connects."
   (when (and (not ac--backend-started)
@@ -1348,6 +1398,16 @@ Skips creation if tab already exists."
                       (condition-case err
                           (aesthetic-backend "artery")
                         (error (message "Error starting aesthetic-backend: %s" err)))))))
+
+;; Self-heal: if backend didn't start after daemon restart, try again once.
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (run-with-timer 6 nil
+                            (lambda ()
+                              (when (and (not ac--backend-started)
+                                         (frame-live-p (selected-frame))
+                                         (<= (length (tab-bar-tabs)) 1))
+                                (ac--ensure-backend "startup self-heal"))))))
 
 ;; Auto-start full backend on first terminal frame
 (add-hook 'after-make-frame-functions #'ac--maybe-start-backend)
