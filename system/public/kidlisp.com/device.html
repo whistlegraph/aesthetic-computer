@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<!-- KidLisp.com Device Mode - Optimized for FF1 and display devices -->
+<!-- URL format: device.kidlisp.com/codeId -->
+<!-- Loads KidLisp $code URLs with default density=1 for 4K displays -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>KidLisp.com · Device</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <link rel="icon" type="image/png"
+    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    
+    #display-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #000;
+    }
+    
+    /* Boot screen with canvas */
+    #boot-screen {
+      position: absolute;
+      inset: 0;
+      background: #fff;
+      z-index: 10;
+      transition: opacity 0.5s;
+    }
+    
+    #boot-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    #boot-canvas {
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Error display */
+    #error-screen {
+      display: none;
+      position: absolute;
+      inset: 0;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      z-index: 20;
+    }
+    
+    #error-screen.visible {
+      display: flex;
+    }
+    
+    .error-text {
+      color: rgb(255, 100, 100);
+      font-family: monospace;
+      font-size: 14px;
+      text-align: center;
+      max-width: 80%;
+    }
+  </style>
+</head>
+<body>
+  <div id="boot-screen">
+    <canvas id="boot-canvas"></canvas>
+  </div>
+  
+  <div id="error-screen">
+    <div class="error-text" id="error-text"></div>
+  </div>
+  
+  <iframe id="display-iframe"></iframe>
+  
+  <script>
+    // Get density from URL params (before DEVICE_DEFAULTS are defined)
+    const urlParams = new URLSearchParams(window.location.search);
+    const densityParam = parseInt(urlParams.get('density')) || 8;
+    
+    // Canvas2D floating bars loader - pixelated to match density
+    const bootCanvas = document.getElementById('boot-canvas');
+    const ctx = bootCanvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    let animating = true;
+    let frame = 0;
+    
+    // Pastel colors for the floating bars
+    const COLORS = [
+      [255, 107, 107], // coral red
+      [78, 205, 196],  // teal
+      [255, 230, 109], // yellow
+      [149, 225, 211], // mint
+      [243, 129, 129], // salmon
+      [170, 150, 218], // lavender
+      [112, 214, 255], // sky blue
+    ];
+    
+    // Floating bars state
+    let bars = [];
+    
+    // Low-res canvas dimensions (matching AC density)
+    let lowW, lowH;
+    
+    function resize() {
+      // Render at low resolution, CSS scales it up pixelated
+      lowW = Math.floor(window.innerWidth / densityParam);
+      lowH = Math.floor(window.innerHeight / densityParam);
+      bootCanvas.width = lowW;
+      bootCanvas.height = lowH;
+      ctx.imageSmoothingEnabled = false;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    
+    function spawnBar() {
+      bars.push({
+        x: Math.random() * lowW,
+        y: lowH + 2,
+        width: Math.floor(3 + Math.random() * 15),  // Smaller for low-res
+        height: Math.floor(1 + Math.random() * 2),   // 1-2 pixels tall
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        speed: 0.2 + Math.random() * 0.5,  // Slower for low-res
+        alpha: 0.4 + Math.random() * 0.5
+      });
+    }
+    
+    // Spawn initial bars
+    for (let i = 0; i < 15; i++) {
+      spawnBar();
+      bars[bars.length - 1].y = Math.random() * bootCanvas.height;
+    }
+    
+    function animate() {
+      if (!animating) return;
+      
+      const W = bootCanvas.width;
+      const H = bootCanvas.height;
+      
+      // Clear to white
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, W, H);
+      
+      // Update and draw bars
+      for (let i = bars.length - 1; i >= 0; i--) {
+        const bar = bars[i];
+        bar.y -= bar.speed;
+        
+        // Fade as it rises
+        const progress = 1 - (bar.y / H);
+        const alpha = bar.alpha * (1 - progress * 0.7);
+        
+        if (bar.y < -20) {
+          bars.splice(i, 1);
+          continue;
+        }
+        
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = `rgb(${bar.color[0]}, ${bar.color[1]}, ${bar.color[2]})`;
+        
+        // Simple pixel rectangle (no rounding at low-res)
+        ctx.fillRect(Math.floor(bar.x), Math.floor(bar.y), bar.width, bar.height);
+      }
+      ctx.globalAlpha = 1;
+      
+      // Spawn new bars periodically
+      if (frame % 12 === 0 && bars.length < 30) {
+        spawnBar();
+      }
+      
+      frame++;
+      requestAnimationFrame(animate);
+    }
+    animate();
+    
+    // Default display parameters for FF1 and 4K displays
+    const DEVICE_DEFAULTS = {
+      density: 8,     // Higher density = larger pixels (8x8 screen pixels per AC pixel)
+      tv: true,       // Non-interactive TV mode
+      nogap: true,    // Borderless / no gap
+      nolabel: true,  // Hide labels
+      noauth: true,   // No auth prompts
+      popout: true    // Popout mode
+    };
+    
+    // Parse URL and query params
+    const params = new URLSearchParams(window.location.search);
+    const pathname = window.location.pathname;
+    const hostname = window.location.hostname;
+    
+    // UI elements
+    const iframe = document.getElementById('display-iframe');
+    const bootScreen = document.getElementById('boot-screen');
+    const errorScreen = document.getElementById('error-screen');
+    const errorText = document.getElementById('error-text');
+    
+    // Boot logging (console only, no DOM log)
+    function addLog(msg, type = 'info') {
+      console.log(`[${type.toUpperCase()}] ${msg}`);
+    }
+    
+    // Determine display mode and URL
+    const dev = hostname === 'localhost' || hostname === 'local.aesthetic.computer';
+    const aestheticUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+    
+    const logDevice = (...args) => {
+      console.log('📺 DEVICE:', ...args);
+      addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
+    };
+    
+    // Parse codeId from path:
+    // device.kidlisp.com/codeId
+    // localhost:8888/kidlisp.com/device/codeId
+    // localhost:8888/device.kidlisp.com/codeId
+    let codeId = null;
+    const pathParts = pathname.split('/').filter(p => p);
+    
+    if (hostname === 'device.kidlisp.com') {
+      // Production: device.kidlisp.com/codeId
+      codeId = pathParts[0] || null;
+    } else if (pathname.startsWith('/device.kidlisp.com/')) {
+      // Local dev: localhost:8888/device.kidlisp.com/codeId
+      codeId = pathParts[1] || null;
+    } else if (pathParts[0] === 'kidlisp.com' && pathParts[1] === 'device') {
+      // Local dev: localhost:8888/kidlisp.com/device/codeId
+      codeId = pathParts[2] || null;
+    }
+    
+    // Allow param overrides of defaults
+    const density = params.get('density') ?? DEVICE_DEFAULTS.density;
+    const tv = params.get('tv') ?? DEVICE_DEFAULTS.tv;
+    const nogap = params.get('nogap') ?? DEVICE_DEFAULTS.nogap;
+    const nolabel = params.get('nolabel') ?? DEVICE_DEFAULTS.nolabel;
+    const noauth = params.get('noauth') ?? DEVICE_DEFAULTS.noauth;
+    const popout = params.get('popout') ?? DEVICE_DEFAULTS.popout;
+    
+    // Build query string for display params
+    function buildDisplayParams() {
+      const p = new URLSearchParams();
+      if (density !== null) p.set('density', density);
+      if (tv) p.set('tv', 'true');
+      if (nogap) p.set('nogap', 'true');
+      if (nolabel) p.set('nolabel', 'true');
+      if (noauth) p.set('noauth', 'true');
+      if (popout) p.set('popout', 'true');
+      p.set('t', Date.now()); // Cache bust
+      return p.toString();
+    }
+    
+    function showError(msg) {
+      errorText.textContent = msg;
+      errorScreen.classList.add('visible');
+      bootScreen.classList.add('hidden');
+      animating = false;
+    }
+    
+    // Initialize display
+    function init() {
+      logDevice('init', { codeId, density, dev, hostname, pathname });
+      
+      if (!codeId) {
+        showError('Usage: device.kidlisp.com/{codeId}');
+        return;
+      }
+      
+      // Set page title
+      document.title = `KidLisp.com · $${codeId}`;
+      
+      // Build the $codeId URL with display params
+      // ${codeId} loads the stored kidlisp code from MongoDB
+      iframe.src = `${aestheticUrl}/$${codeId}?${buildDisplayParams()}`;
+      
+      logDevice('iframe src', { src: iframe.src });
+      
+      // Hide boot screen when iframe loads
+      iframe.addEventListener('load', () => {
+        logDevice('iframe loaded');
+        animating = false;
+        setTimeout(() => bootScreen.classList.add('hidden'), 500);
+      });
+      
+      // Listen for iframe errors
+      iframe.addEventListener('error', (e) => {
+        addLog(`iframe error: ${e.message || 'unknown'}`, 'error');
+      });
+    }
+    
+    // Start
+    init();
+  </script>
+</body>
+</html>
