@@ -8032,13 +8032,9 @@
             <div class="boot-text boot-text-title">FF1 Art Computer</div>
             <div class="boot-text boot-text-action" data-i18n="pressToRun">Press <span class="blink">▶</span> to run</div>
             <div class="ff1-settings" id="ff1-settings">
-              <input type="text" id="ff1-topic-id" placeholder="Topic ID (from FF1 app)" autocomplete="off" spellcheck="false">
-              <button id="ff1-scan-btn" class="ff1-scan-btn">Pair via phone</button>
-              <button id="ff1-test-btn" class="ff1-test-btn">Test</button>
+              <button id="ff1-scan-btn" class="ff1-scan-btn">Pair Device</button>
+              <button id="ff1-test-btn" class="ff1-test-btn" style="display:none;">Test</button>
               <span id="ff1-status" class="ff1-status"></span>
-              <div class="ff1-proxy-hint" id="ff1-proxy-hint" style="display:none; font-size:11px; opacity:0.7; margin-top:8px; text-align:center; font-family:monospace;">
-                Run: <code style="background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:4px;">node ff1-proxy.mjs</code>
-              </div>
             </div>
           </div>
           <div class="boot-screen hidden" id="boot-screen-ableton" data-platform="ableton">
@@ -8733,7 +8729,7 @@
     async function persistFF1DeviceIfAuthenticated(topicID, apiKey) {
       if (!window.acToken || !topicID) return;
       try {
-        await fetch('/.netlify/functions/ff1-devices', {
+        await fetch('https://aesthetic.computer/.netlify/functions/ff1-devices', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -8992,7 +8988,7 @@
       ff1PairPollInterval = setInterval(async () => {
         attempts++;
         try {
-          const response = await fetch(`/.netlify/functions/ff1-pair?token=${token}`);
+          const response = await fetch(`https://aesthetic.computer/.netlify/functions/ff1-pair?token=${token}`);
           if (response.status === 404) {
             if (attempts > 120) {
               statusEl.textContent = 'Pairing timed out.';
@@ -9011,9 +9007,15 @@
             ff1Config.relayTopicId = data.topicID;
             ff1Config.relayApiKey = data.apiKey || '';
             saveFF1Config();
-            const input = document.getElementById('ff1-topic-id');
-            if (input) input.value = ff1Config.relayTopicId;
             statusEl.textContent = 'Paired!';
+            // Update status on boot screen
+            const bootStatus = document.getElementById('ff1-status');
+            if (bootStatus) {
+              bootStatus.textContent = '✓ Paired';
+              bootStatus.className = 'ff1-status success';
+            }
+            const testBtn = document.getElementById('ff1-test-btn');
+            if (testBtn) testBtn.style.display = 'inline-block';
             persistFF1DeviceIfAuthenticated(ff1Config.relayTopicId, ff1Config.relayApiKey);
             stopFF1PairPolling();
             setTimeout(closeFF1PairModal, 1200);
@@ -9037,32 +9039,18 @@
     function initFF1Settings() {
       loadFF1Config();
       
-      const input = document.getElementById('ff1-topic-id');
       const testBtn = document.getElementById('ff1-test-btn');
       const scanBtn = document.getElementById('ff1-scan-btn');
       const closeBtn = document.getElementById('ff1-qr-close');
       const copyBtn = document.getElementById('ff1-qr-copy');
       const linkEl = document.getElementById('ff1-qr-link');
+      const statusEl = document.getElementById('ff1-status');
       
-      if (input) {
-        input.value = ff1Config.relayTopicId || '';
-        input.addEventListener('input', (e) => {
-          ff1Config.relayTopicId = e.target.value.trim();
-          saveFF1Config();
-          // Clear status when typing
-          const statusEl = document.getElementById('ff1-status');
-          if (statusEl) {
-            statusEl.textContent = '';
-            statusEl.className = 'ff1-status';
-          }
-        });
-        
-        input.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            testFF1Connection();
-          }
-        });
+      // Show paired status if we have a topic ID
+      if (ff1Config.relayTopicId && statusEl) {
+        statusEl.textContent = '✓ Paired';
+        statusEl.className = 'ff1-status success';
+        if (testBtn) testBtn.style.display = 'inline-block';
       }
       
       if (testBtn) {
