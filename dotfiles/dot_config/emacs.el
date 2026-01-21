@@ -597,11 +597,16 @@ Also updates VS Code task status bar to 'done'."
 (defun ac-update-packages-async ()
   "Update all packages asynchronously in background subprocess."
   (ac-debug-log "Checking for package updates in background...")
-  (let ((default-directory user-emacs-directory))
-    ;; Run in a subprocess so it doesn't block anything
-    (start-process "straight-update" "*straight-update*"
-                   "emacs" "--batch" "-l" user-init-file
-                   "--eval" "(progn (straight-pull-all) (straight-rebuild-all))")))
+  (let ((default-directory user-emacs-directory)
+        (init-file (or user-init-file
+                       (expand-file-name "init.el" user-emacs-directory)
+                       (expand-file-name ".emacs" "~"))))
+    (if (and init-file (file-exists-p init-file))
+        ;; Run in a subprocess so it doesn't block anything
+        (start-process "straight-update" "*straight-update*"
+                       "emacs" "--batch" "-l" init-file
+                       "--eval" "(progn (straight-pull-all) (straight-rebuild-all))")
+      (ac-debug-log "WARNING: Could not find init file for package update"))))
 
 ;; Manual update command
 (defun ac-update-packages ()
