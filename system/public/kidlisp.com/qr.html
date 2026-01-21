@@ -209,12 +209,15 @@
             inversionAttempts: 'attemptBoth'
           });
           if (code && code.data) {
+            console.log('QR data:', code.data);
             const topicID = extractTopicId(code.data);
             if (topicID) {
               submitTopicId(topicID);
               return;
             } else {
-              setStatus('QR detected, but no Topic ID found.', 'error');
+              setStatus(`QR detected: "${code.data.substring(0, 80)}..." - no Topic ID pattern found.`, 'error');
+              // Show it in input so user can manually copy/check
+              input.value = code.data;
             }
           }
         }
