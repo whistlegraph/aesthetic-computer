@@ -2015,34 +2015,22 @@
       opacity: 0.6;
     }
     
-    /* FF1 Settings UI */
+    /* FF1 Settings UI - Inline Pairing */
     .ff1-settings {
       display: flex;
-      flex-direction: row;
+      flex-direction: column;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
       margin-top: 16px;
-      flex-wrap: wrap;
-      justify-content: center;
+      width: 100%;
+      max-width: 280px;
     }
-    .ff1-settings input {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 4px;
-      padding: 8px 12px;
-      color: white;
-      font-size: 12px;
-      font-family: 'Berkeley Mono', 'Fira Code', monospace;
-      width: 200px;
-      outline: none;
+    .ff1-paired-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    .ff1-settings input:focus {
-      border-color: rgba(255,255,255,0.5);
-    }
-    .ff1-settings input::placeholder {
-      color: rgba(255,255,255,0.4);
-    }
-    .ff1-test-btn {
+    .ff1-btn {
       background: rgba(255,255,255,0.15);
       border: 1px solid rgba(255,255,255,0.3);
       border-radius: 4px;
@@ -2052,33 +2040,47 @@
       cursor: pointer;
       transition: background 0.2s;
     }
-    .ff1-test-btn:hover {
-      background: rgba(255,255,255,0.25);
-    }
-    .ff1-scan-btn {
-      background: rgba(255,255,255,0.15);
-      border: 1px solid rgba(255,255,255,0.3);
-      border-radius: 4px;
-      padding: 8px 16px;
-      color: white;
-      font-size: 12px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .ff1-scan-btn:hover {
-      background: rgba(255,255,255,0.25);
-    }
-    .ff1-test-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    .ff1-btn:hover { background: rgba(255,255,255,0.25); }
+    .ff1-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .ff1-status {
       font-size: 12px;
       color: rgba(255,255,255,0.7);
     }
     .ff1-status.success { color: #4ade80; }
     .ff1-status.error { color: #f87171; }
-    .ff1-status.testing { color: #fbbf24; }
+    .ff1-pairing {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+    }
+    .ff1-pairing.open { display: flex; }
+    .ff1-pairing-hint {
+      font-size: 11px;
+      opacity: 0.7;
+      text-align: center;
+      line-height: 1.4;
+    }
+    .ff1-pairing-qr {
+      width: 160px;
+      height: 160px;
+      background: #fff;
+      border-radius: 6px;
+      image-rendering: pixelated;
+    }
+    .ff1-pairing-status {
+      font-size: 11px;
+      opacity: 0.6;
+    }
+    .ff1-pairing-link {
+      font-size: 10px;
+      opacity: 0.5;
+      word-break: break-all;
+      text-align: center;
+      cursor: pointer;
+    }
+    .ff1-pairing-link:hover { text-decoration: underline; }
     
     /* FF1 light mode - keep dark aesthetic for brand consistency */
     [data-theme="light"] #boot-screen-ff1 {
@@ -2088,114 +2090,7 @@
       color: white !important;
     }
 
-    /* FF1 QR Scan Modal */
-    .ff1-qr-modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.85);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 99999;
-      padding: 24px;
-      box-sizing: border-box;
-    }
-    .ff1-qr-modal.open {
-      display: flex;
-    }
-    .ff1-qr-card {
-      width: min(90vw, 420px);
-      background: #111;
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 12px;
-      padding: 16px;
-      color: white;
-      font-family: 'Berkeley Mono', 'Fira Code', monospace;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    }
-    .ff1-qr-title {
-      font-size: 16px;
-      font-weight: bold;
-      margin-bottom: 12px;
-      text-align: center;
-    }
-    .ff1-qr-steps {
-      margin-bottom: 12px;
-    }
-    .ff1-qr-step {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      margin-bottom: 8px;
-      font-size: 12px;
-      line-height: 1.4;
-    }
-    .ff1-qr-step-num {
-      width: 20px;
-      height: 20px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: bold;
-      flex-shrink: 0;
-    }
-    .ff1-qr-step-text {
-      opacity: 0.9;
-    }
-    .ff1-qr-step-text strong {
-      color: #fff;
-    }
-    .ff1-qr-step-final {
-      margin-top: 12px;
-      margin-bottom: 8px;
-    }
-    .ff1-qr-illustration {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      margin: 8px 0 12px;
-      font-size: 32px;
-    }
-    .ff1-illus-arrow {
-      font-size: 20px;
-      opacity: 0.5;
-    }
-    .ff1-qr-canvas {
-      width: 100%;
-      background: #fff;
-      border-radius: 8px;
-      image-rendering: pixelated;
-      margin: 4px 0 8px;
-    }
-    .ff1-qr-link {
-      font-size: 11px;
-      opacity: 0.8;
-      word-break: break-all;
-      margin-bottom: 6px;
-    }
-    .ff1-qr-status {
-      font-size: 12px;
-      opacity: 0.7;
-      margin-bottom: 10px;
-    }
-    .ff1-qr-actions {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-    }
-    .ff1-qr-btn {
-      background: rgba(255,255,255,0.15);
-      border: 1px solid rgba(255,255,255,0.3);
-      border-radius: 6px;
-      padding: 6px 12px;
-      color: white;
-      font-size: 12px;
-      cursor: pointer;
-    }
+
     
     /* Ableton Live 12 boot screen - theme-aware */
     #boot-screen-ableton {
@@ -8032,9 +7927,17 @@
             <div class="boot-text boot-text-title">FF1 Art Computer</div>
             <div class="boot-text boot-text-action" data-i18n="pressToRun">Press <span class="blink">▶</span> to run</div>
             <div class="ff1-settings" id="ff1-settings">
-              <button id="ff1-scan-btn" class="ff1-scan-btn">Pair Device</button>
-              <button id="ff1-test-btn" class="ff1-test-btn" style="display:none;">Test</button>
-              <span id="ff1-status" class="ff1-status"></span>
+              <div class="ff1-paired-row" id="ff1-paired-row">
+                <span id="ff1-status" class="ff1-status"></span>
+                <button id="ff1-test-btn" class="ff1-btn" style="display:none;">Test</button>
+                <button id="ff1-pair-btn" class="ff1-btn">Pair</button>
+              </div>
+              <div class="ff1-pairing" id="ff1-pairing">
+                <canvas id="ff1-qr-canvas" class="ff1-pairing-qr"></canvas>
+                <div class="ff1-pairing-hint">Scan with phone → then scan your TV's QR</div>
+                <div class="ff1-pairing-status" id="ff1-pairing-status">Waiting…</div>
+                <div class="ff1-pairing-link" id="ff1-pairing-link" title="Click to copy"></div>
+              </div>
             </div>
           </div>
           <div class="boot-screen hidden" id="boot-screen-ableton" data-platform="ableton">
@@ -8058,41 +7961,7 @@
             <div class="boot-text" style="font-size: 18px; font-weight: bold; color: #fff;">Nintendo 64</div>
             <div class="boot-text boot-text-status" style="font-size: 11px; opacity: 0.5; margin-top: 8px; color: #ff3333;" data-i18n="experimental">⚠️ Experimental</div>
           </div>
-          <div class="ff1-qr-modal" id="ff1-qr-modal" aria-hidden="true">
-            <div class="ff1-qr-card">
-              <div class="ff1-qr-title">Pair your FF1</div>
-              <div class="ff1-qr-steps">
-                <div class="ff1-qr-step">
-                  <div class="ff1-qr-step-num">1</div>
-                  <div class="ff1-qr-step-text">Open the <strong>FF1 app</strong> on your phone</div>
-                </div>
-                <div class="ff1-qr-step">
-                  <div class="ff1-qr-step-num">2</div>
-                  <div class="ff1-qr-step-text">Tap <strong>Show Painting QR Code</strong></div>
-                </div>
-                <div class="ff1-qr-step">
-                  <div class="ff1-qr-step-num">3</div>
-                  <div class="ff1-qr-step-text">Scan this QR with your phone camera:</div>
-                </div>
-              </div>
-              <div class="ff1-qr-illustration">
-                <div class="ff1-illus-phone">📱</div>
-                <div class="ff1-illus-arrow">→</div>
-                <div class="ff1-illus-tv">📺</div>
-              </div>
-              <canvas id="ff1-qr-canvas" class="ff1-qr-canvas"></canvas>
-              <div class="ff1-qr-step ff1-qr-step-final">
-                <div class="ff1-qr-step-num">4</div>
-                <div class="ff1-qr-step-text">On that page, scan the QR on your <strong>TV</strong></div>
-              </div>
-              <div class="ff1-qr-status" id="ff1-qr-status">Waiting for pairing…</div>
-              <div class="ff1-qr-link" id="ff1-qr-link"></div>
-              <div class="ff1-qr-actions">
-                <button id="ff1-qr-copy" class="ff1-qr-btn">Copy link</button>
-                <button id="ff1-qr-close" class="ff1-qr-btn">Close</button>
-              </div>
-            </div>
-          </div>
+
           <iframe id="preview-iframe" frameborder="0"></iframe>
           <!-- PJ overlay (shown when broadcasting to PJ window) -->
           <div class="popout-overlay" id="popout-overlay">
@@ -8932,48 +8801,60 @@
       }
     }
 
-    function openFF1PairModal() {
-      const modal = document.getElementById('ff1-qr-modal');
-      const canvas = document.getElementById('ff1-qr-canvas');
-      const linkEl = document.getElementById('ff1-qr-link');
-      const statusEl = document.getElementById('ff1-qr-status');
+    let ff1PairPollInterval = null;
 
-      if (!modal || !canvas || !linkEl || !statusEl) return;
+    function toggleFF1Pairing() {
+      const pairing = document.getElementById('ff1-pairing');
+      const pairBtn = document.getElementById('ff1-pair-btn');
+      if (!pairing) return;
+      
+      if (pairing.classList.contains('open')) {
+        pairing.classList.remove('open');
+        if (pairBtn) pairBtn.textContent = 'Pair';
+        stopFF1PairPolling();
+      } else {
+        startFF1Pairing();
+      }
+    }
+
+    function startFF1Pairing() {
+      const pairing = document.getElementById('ff1-pairing');
+      const canvas = document.getElementById('ff1-qr-canvas');
+      const linkEl = document.getElementById('ff1-pairing-link');
+      const statusEl = document.getElementById('ff1-pairing-status');
+      const pairBtn = document.getElementById('ff1-pair-btn');
+      if (!pairing || !canvas) return;
 
       const token = Array.from(crypto.getRandomValues(new Uint8Array(6)))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
+        .map((b) => b.toString(16).padStart(2, '0')).join('');
 
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
       const pairingUrl = isLocal
         ? `${window.location.origin}/kidlisp.com/qr.html?token=${token}`
         : `https://device.kidlisp.com/qr/${token}`;
 
-      linkEl.textContent = pairingUrl;
-      statusEl.textContent = 'Waiting for scan…';
+      if (linkEl) linkEl.textContent = pairingUrl;
+      if (statusEl) statusEl.textContent = 'Waiting…';
+      if (pairBtn) pairBtn.textContent = 'Cancel';
 
       if (window.qr && window.ErrorCorrectLevel) {
         const cells = window.qr(pairingUrl, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
-        const size = Math.min(280, window.innerWidth - 120);
-        const cellSize = Math.max(4, Math.floor(size / cells.length));
+        const cellSize = Math.max(3, Math.floor(160 / cells.length));
         const actualSize = cells.length * cellSize;
         canvas.width = actualSize;
         canvas.height = actualSize;
         const ctx = canvas.getContext('2d');
         for (let y = 0; y < cells.length; y++) {
           for (let x = 0; x < cells.length; x++) {
-            ctx.fillStyle = cells[y][x] ? '#000000' : '#ffffff';
+            ctx.fillStyle = cells[y][x] ? '#000' : '#fff';
             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
           }
         }
       }
 
-      modal.classList.add('open');
-      modal.setAttribute('aria-hidden', 'false');
+      pairing.classList.add('open');
       startFF1PairPolling(token, statusEl);
     }
-
-    let ff1PairPollInterval = null;
 
     function stopFF1PairPolling() {
       if (ff1PairPollInterval) {
@@ -8991,48 +8872,39 @@
           const response = await fetch(`/api/ff1/pair?token=${token}`);
           if (response.status === 404) {
             if (attempts > 120) {
-              statusEl.textContent = 'Pairing timed out.';
+              if (statusEl) statusEl.textContent = 'Timed out';
               stopFF1PairPolling();
             }
             return;
           }
-          if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            statusEl.textContent = err.error || 'Pairing error.';
-            stopFF1PairPolling();
-            return;
-          }
+          if (!response.ok) return;
           const data = await response.json();
           if (data && data.topicID) {
             ff1Config.relayTopicId = data.topicID;
             ff1Config.relayApiKey = data.apiKey || '';
             saveFF1Config();
-            statusEl.textContent = 'Paired!';
-            // Update status on boot screen
-            const bootStatus = document.getElementById('ff1-status');
-            if (bootStatus) {
-              bootStatus.textContent = '✓ Paired';
-              bootStatus.className = 'ff1-status success';
+            if (statusEl) statusEl.textContent = '✓ Paired!';
+            const mainStatus = document.getElementById('ff1-status');
+            if (mainStatus) {
+              mainStatus.textContent = '✓ Paired';
+              mainStatus.className = 'ff1-status success';
             }
             const testBtn = document.getElementById('ff1-test-btn');
             if (testBtn) testBtn.style.display = 'inline-block';
+            const pairBtn = document.getElementById('ff1-pair-btn');
+            if (pairBtn) pairBtn.textContent = 'Re-pair';
             persistFF1DeviceIfAuthenticated(ff1Config.relayTopicId, ff1Config.relayApiKey);
             stopFF1PairPolling();
-            setTimeout(closeFF1PairModal, 1200);
+            setTimeout(() => {
+              const pairing = document.getElementById('ff1-pairing');
+              if (pairing) pairing.classList.remove('open');
+            }, 1500);
           }
         } catch (err) {
-          statusEl.textContent = 'Pairing error.';
+          if (statusEl) statusEl.textContent = 'Error';
           stopFF1PairPolling();
         }
       }, 1500);
-    }
-
-    function closeFF1PairModal() {
-      const modal = document.getElementById('ff1-qr-modal');
-      if (!modal) return;
-      modal.classList.remove('open');
-      modal.setAttribute('aria-hidden', 'true');
-      stopFF1PairPolling();
     }
     
     // Initialize FF1 settings UI
@@ -9040,10 +8912,8 @@
       loadFF1Config();
       
       const testBtn = document.getElementById('ff1-test-btn');
-      const scanBtn = document.getElementById('ff1-scan-btn');
-      const closeBtn = document.getElementById('ff1-qr-close');
-      const copyBtn = document.getElementById('ff1-qr-copy');
-      const linkEl = document.getElementById('ff1-qr-link');
+      const pairBtn = document.getElementById('ff1-pair-btn');
+      const linkEl = document.getElementById('ff1-pairing-link');
       const statusEl = document.getElementById('ff1-status');
       
       // Show paired status if we have a topic ID
@@ -9051,32 +8921,19 @@
         statusEl.textContent = '✓ Paired';
         statusEl.className = 'ff1-status success';
         if (testBtn) testBtn.style.display = 'inline-block';
+        if (pairBtn) pairBtn.textContent = 'Re-pair';
       }
       
-      if (testBtn) {
-        testBtn.addEventListener('click', testFF1Connection);
-      }
-
-      if (scanBtn) {
-        scanBtn.addEventListener('click', openFF1PairModal);
-      }
-
-      if (closeBtn) {
-        closeBtn.addEventListener('click', closeFF1PairModal);
-      }
-
-      if (copyBtn && linkEl) {
-        copyBtn.addEventListener('click', async () => {
-          const text = linkEl.textContent || '';
-          if (!text) return;
-          try {
-            await navigator.clipboard.writeText(text);
-            showToast('Pairing link copied', 'success');
-          } catch {
-            showToast('Copy failed', 'error');
-          }
-        });
-      }
+      if (testBtn) testBtn.addEventListener('click', testFF1Connection);
+      if (pairBtn) pairBtn.addEventListener('click', toggleFF1Pairing);
+      if (linkEl) linkEl.addEventListener('click', async () => {
+        const text = linkEl.textContent || '';
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          showToast('Link copied', 'success');
+        } catch { showToast('Copy failed', 'error'); }
+      });
     }
     
     // Initialize on load
