@@ -2848,10 +2848,11 @@ function act({
     } else {
       // Map 'noise' shorthand to 'noise-white' for the synth
       const synthType = wave === "noise" ? "noise-white" : wave;
+      const isNoise = synthType === "noise-white";
       return synth({
         type: synthType,
-        attack: quickFade ? 0.0015 : attack,
-        // decay,
+        attack: isNoise ? 0.001 : (quickFade ? 0.0015 : attack),
+        decay: isNoise ? 0.92 : undefined, // Fast decay for percussive noise
         tone,
         duration: "🔁",
         volume: toneVolume * volumeScale,
