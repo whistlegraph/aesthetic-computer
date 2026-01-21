@@ -4495,4 +4495,4 @@ function leave({ sound }) {
 }
 
 export { boot, sim, paint, act, leave };
-export { boot, sim, paint, act, leave };
+
