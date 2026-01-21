@@ -1,8 +1,8 @@
 // FF1 Devices (Netlify Function)
 // Stores FF1 device pairing info per user
 
-import { authorize } from "../backend/authorization.mjs";
-import { connect } from "../backend/database.mjs";
+import { authorize } from "../../backend/authorization.mjs";
+import { connect } from "../../backend/database.mjs";
 
 function corsHeaders() {
   return {
