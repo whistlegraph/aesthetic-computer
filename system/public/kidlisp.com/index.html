@@ -8723,13 +8723,13 @@
 
     function getFF1ProxyUrl() {
       const isDev = window.location.hostname === 'localhost';
-      return isDev ? 'http://localhost:8889/ff1/cast' : '/.netlify/functions/ff1-proxy';
+      return isDev ? 'http://localhost:8889/ff1/cast' : '/api/ff1/proxy';
     }
 
     async function persistFF1DeviceIfAuthenticated(topicID, apiKey) {
       if (!window.acToken || !topicID) return;
       try {
-        await fetch('https://aesthetic.computer/.netlify/functions/ff1-devices', {
+        await fetch('/api/ff1/devices', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -8988,7 +8988,7 @@
       ff1PairPollInterval = setInterval(async () => {
         attempts++;
         try {
-          const response = await fetch(`https://aesthetic.computer/.netlify/functions/ff1-pair?token=${token}`);
+          const response = await fetch(`/api/ff1/pair?token=${token}`);
           if (response.status === 404) {
             if (attempts > 120) {
               statusEl.textContent = 'Pairing timed out.';
