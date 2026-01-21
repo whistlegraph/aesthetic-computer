@@ -710,7 +710,7 @@ force = true
 # FF1 API routes - kidlisp.com/api/ff1/*
 [[redirects]]
 from = "https://kidlisp.com/api/ff1/*"
-to = "/.netlify/functions/ff1-:splat"
+to = "https://aesthetic.computer/.netlify/functions/ff1-:splat"
 status = 200
 force = true
 [[redirects]]
@@ -726,7 +726,7 @@ force = true
 # FF1 API routes - www.kidlisp.com/api/ff1/*
 [[redirects]]
 from = "https://www.kidlisp.com/api/ff1/*"
-to = "/.netlify/functions/ff1-:splat"
+to = "https://aesthetic.computer/.netlify/functions/ff1-:splat"
 status = 200
 force = true
 [[redirects]]
