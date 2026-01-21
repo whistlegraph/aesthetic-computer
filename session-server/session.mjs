@@ -444,6 +444,62 @@ fastify.get("/chat/status", async (req) => {
   return chatManager.getStatus();
 });
 
+// *** FF1 Art Computer Proxy ***
+// Allows browsers to send commands to FF1 devices via cloud relay (bypasses CORS)
+// POST /ff1/cast - Send playlist to FF1 device via Feral File cloud relay
+fastify.post("/ff1/cast", async (req, reply) => {
+  const { topicID, apiKey, command, request: cmdRequest } = req.body;
+  
+  if (!topicID) {
+    reply.status(400);
+    return { success: false, error: "Missing topicID - get this from your FF1 app settings" };
+  }
+  
+  // Use Feral File's cloud relay
+  const relayUrl = `https://artwork-info.feral-file.workers.dev/api/cast?topicID=${encodeURIComponent(topicID)}`;
+  
+  const payload = {
+    command: command || "displayPlaylist",
+    request: cmdRequest || req.body.request
+  };
+  
+  try {
+    const headers = { "Content-Type": "application/json" };
+    if (apiKey) {
+      headers["API-KEY"] = apiKey;
+    }
+    
+    const response = await fetch(relayUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload)
+    });
+    
+    const responseText = await response.text();
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch {
+      responseData = { raw: responseText };
+    }
+    
+    if (!response.ok) {
+      reply.status(response.status);
+      return { 
+        success: false, 
+        error: `FF1 relay error: ${response.status}`,
+        details: responseData
+      };
+    }
+    
+    return { success: true, response: responseData };
+  } catch (err) {
+    console.error("FF1 proxy error:", err);
+    reply.status(500);
+    return { success: false, error: err.message };
+  }
+});
+
 // *** Live Reload of Pieces in Development ***
 if (dev) {
   fastify.post("/reload", async (req) => {

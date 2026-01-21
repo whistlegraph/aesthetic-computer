@@ -21,12 +21,17 @@ import { state, setState, events } from './state.js';
 const FF1_CONFIG_KEY = 'kidlisp-ff1-config';
 
 // Default configuration
+// To use FF1 with kidlisp.com, you only need your Topic ID from the FF1 app:
+// 1. Open FF1 app on your phone
+// 2. Go to Settings > Developer
+// 3. Copy your "Topic ID" 
+// 4. Paste it in the FF1 settings in kidlisp.com
 const defaultConfig = {
-  deviceId: '',           // e.g., 'FF1-DVVEKLZA'
-  deviceIp: '',           // Direct IP fallback (if mDNS doesn't work)
-  useDirectApi: true,     // true = direct device API, false = relay
-  relayApiKey: '',        // For relay mode
-  relayTopicId: '',       // For relay mode
+  deviceId: '',           // e.g., 'FF1-DVVEKLZA' (optional, for display only)
+  deviceIp: '',           // Direct IP fallback (rarely needed)
+  useDirectApi: false,    // false = use session-server proxy (recommended)
+  relayApiKey: '',        // Optional API key (usually not needed)
+  relayTopicId: '',       // REQUIRED: Topic ID from FF1 app settings
   lastConnected: null,    // Timestamp of last successful connection
   deviceInfo: null,       // Cached device info
 };
@@ -131,6 +136,17 @@ function getRelayUrl() {
 }
 
 /**
+ * Get the session-server proxy URL (for browser-based access)
+ */
+function getProxyUrl() {
+  // Use session server as proxy to bypass CORS
+  const isDev = window.location.hostname === 'localhost';
+  return isDev 
+    ? 'http://localhost:8889/ff1/cast'
+    : 'https://session.aesthetic.computer/ff1/cast';
+}
+
+/**
  * Send a playlist to FF1 using direct device API
  * @param {object} playlist - The DP-1 playlist to send
  */
@@ -166,7 +182,50 @@ async function sendPlaylistDirect(playlist) {
 }
 
 /**
- * Send a playlist to FF1 using relay API
+ * Send a playlist to FF1 via session-server proxy (bypasses CORS)
+ * This is the recommended method for browser-based access
+ * @param {object} playlist - The DP-1 playlist to send
+ */
+async function sendPlaylistViaProxy(playlist) {
+  if (!config.relayTopicId) {
+    throw new Error('FF1 Topic ID not configured - get this from your FF1 app');
+  }
+
+  const url = getProxyUrl();
+  
+  const payload = {
+    topicID: config.relayTopicId,
+    apiKey: config.relayApiKey || undefined,
+    command: 'displayPlaylist',
+    request: {
+      dp1_call: playlist,
+      intent: {
+        action: 'now_display'
+      }
+    }
+  };
+
+  console.log('📡 Sending to FF1 via session proxy:', url, payload);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const result = await response.json();
+  
+  if (!response.ok || !result.success) {
+    throw new Error(result.error || `FF1 proxy error: ${response.status}`);
+  }
+
+  return result.response;
+}
+
+/**
+ * Send a playlist to FF1 using relay API (direct - may have CORS issues)
  * @param {object} playlist - The DP-1 playlist to send
  */
 async function sendPlaylistViaRelay(playlist) {
@@ -207,15 +266,23 @@ async function sendPlaylistViaRelay(playlist) {
 }
 
 /**
- * Send a playlist to FF1 (auto-selects direct vs relay)
+ * Send a playlist to FF1 (uses proxy for browser compatibility)
  * @param {object} playlist - The DP-1 playlist to send
  */
 export async function sendPlaylist(playlist) {
-  if (config.useDirectApi) {
-    return sendPlaylistDirect(playlist);
-  } else {
-    return sendPlaylistViaRelay(playlist);
+  // Always use proxy in browser to avoid CORS
+  // Direct device API only works with local proxy server or same network
+  if (config.useDirectApi && config.deviceIp) {
+    // Only try direct if explicitly configured with IP (rare)
+    try {
+      return await sendPlaylistDirect(playlist);
+    } catch (e) {
+      console.warn('Direct API failed, falling back to proxy:', e);
+    }
   }
+  
+  // Default: use session-server proxy
+  return sendPlaylistViaProxy(playlist);
 }
 
 // ============================================
@@ -348,11 +415,11 @@ export async function getDeviceStatus() {
 
 /**
  * Check if FF1 is properly configured
+ * Only requires topicId - that's all FF1 owners need from their app
  */
 export function isConfigured() {
-  const hasDevice = !!(config.deviceId || config.deviceIp);
-  const hasRelay = !!(config.relayApiKey && config.relayTopicId);
-  return hasDevice || hasRelay;
+  // Topic ID is the only required field for cloud relay via session-server
+  return !!config.relayTopicId;
 }
 
 /**
@@ -374,7 +441,7 @@ export function getStatusText() {
     if (ago < 60000) return 'Connected';
     if (ago < 3600000) return `Connected ${Math.floor(ago/60000)}m ago`;
   }
-  return config.deviceId || config.deviceIp || 'Configured';
+  return config.deviceId || 'FF1 Ready';
 }
 
 // ============================================
