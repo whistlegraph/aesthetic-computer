@@ -547,7 +547,12 @@ function metadata(host, slug, pieceMetadata, protocol = "https:", objktContext =
   }
 
   // Extract just the piece name (before ~) for icon URL
-  const pieceName = slug.split('~')[0];
+  // Special case: for 'keep~$CODE', use the $CODE for the icon since we're viewing that piece
+  const slugParts = slug.split('~');
+  let pieceName = slugParts[0];
+  if (pieceName === 'keep' && slugParts.length > 1 && slugParts[1].startsWith('$')) {
+    pieceName = slugParts[1]; // Use the $CODE for the icon
+  }
   icon = pieceMetadata?.icon_url || `https://oven.aesthetic.computer/icon/128x128/${pieceName}.png`;
   
   // Animated WebP icon for browsers that support it (Chrome, Firefox)

@@ -1,10 +1,8 @@
 /**
  * Aesthetic Computer - Electron Main Process
- * 
- * Three window types:
- * - Production windows: Full webview to aesthetic.computer (green accent)
- * - Development windows: Webview to localhost:8888 (orange accent) 
- * - Shell windows: Terminal with devcontainer + emacs (purple accent)
+ *
+ * Single window type:
+ * - AC Pane (3D flip view with front webview + back terminal)
  */
 
 const { app, BrowserWindow, ipcMain, globalShortcut, Menu, Tray, dialog, shell, nativeImage, screen, Notification, net } = require('electron');
@@ -24,7 +22,7 @@ let preferences = {
   showTrayTitle: true,
   trayTitleText: 'AC',  // Short text next to tray icon
   launchAtLogin: false,
-  defaultMode: 'development'
+  defaultMode: 'ac-pane'
 };
 
 function loadPreferences() {
@@ -296,13 +294,12 @@ let pty;
 try {
   pty = require('node-pty');
 } catch (e) {
-  console.warn('node-pty not available, shell windows will be limited');
+  console.warn('node-pty not available, terminal features will be limited');
 }
 
 // Parse command line args
 const args = process.argv.slice(2);
 const startInDevMode = args.includes('--dev') || args.includes('--development');
-const startWithShell = args.includes('--shell');
 const pieceArg = args.find(a => a.startsWith('--piece=')) || args[args.indexOf('--piece') + 1];
 const initialPiece = pieceArg?.replace('--piece=', '') || 'prompt';
 
@@ -316,7 +313,6 @@ const URLS = {
 const windows = new Map();
 let windowIdCounter = 0;
 let focusedWindowId = null;
-let shellWindowId = null; // Singleton tracking for shell window
 let mainWindowId = null;  // Track the "main" window for tray title display
 let currentPiece = 'prompt'; // Current piece/prompt shown in main window
 
@@ -453,9 +449,12 @@ async function startDevcontainer() {
 // Get the focused window's mode
 function getFocusedWindowMode() {
   if (focusedWindowId && windows.has(focusedWindowId)) {
-    return windows.get(focusedWindowId).mode;
+    const mode = windows.get(focusedWindowId).mode;
+    if (mode === 'production' || mode === 'development') {
+      return mode;
+    }
   }
-  return 'production';
+  return (app.isPackaged && !startInDevMode) ? 'production' : 'development';
 }
 
 // Get the focused window
@@ -560,9 +559,9 @@ function createMenu() {
       label: 'File',
       submenu: [
         {
-          label: 'New Window',
+          label: 'New AC Pane',
           accelerator: 'CmdOrCtrl+N',
-          click: () => openDevWindow()
+          click: () => openAcPaneWindow()
         },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }
@@ -653,113 +652,6 @@ function navigateTo(piece) {
   getFocusedWindow()?.webContents.send('navigate', `${baseUrl}/${piece}?nogap=true`);
 }
 
-function createWindow(mode = 'production') {
-  const windowId = ++windowIdCounter;
-  const isShell = mode === 'shell';
-  const isDev = mode === 'development';
-  
-  // Different colors: green=prod, orange=dev, purple=shell
-  const bgColor = isShell ? '#0a0012' : (isDev ? '#0a0a12' : '#000a0a');
-  const titleSuffix = isShell ? ' [Shell]' : (isDev ? ' [DEV]' : '');
-  
-  // Shell and Dev windows need nodeIntegration for xterm
-  // Dev window now has an integrated terminal overlay
-  const webPreferences = (isShell || isDev) ? {
-    nodeIntegration: true,
-    contextIsolation: false,
-    webviewTag: true, // Dev needs webview for AC content
-  } : {
-    preload: path.join(__dirname, 'preload.js'),
-    nodeIntegration: false,
-    contextIsolation: true,
-    webviewTag: true,
-  };
-  
-  // Get screen dimensions for smart positioning
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
-  
-  // Calculate window sizes and positions
-  let winWidth, winHeight, winX, winY;
-  
-  if (isDev) {
-    // Dev window: compact, cute size - positioned center-right
-    winWidth = 900;
-    winHeight = 700;
-    winX = Math.floor((screenWidth - winWidth) / 2) + 100;
-    winY = Math.floor((screenHeight - winHeight) / 2);
-  } else if (isShell) {
-    // Standalone shell: compact, right side of screen
-    winWidth = 800;
-    winHeight = 600;
-    winX = screenWidth - winWidth - 50;
-    winY = Math.floor((screenHeight - winHeight) / 2);
-  } else {
-    // Production: centered, compact
-    winWidth = 1024;
-    winHeight = 768;
-    winX = Math.floor((screenWidth - winWidth) / 2);
-    winY = Math.floor((screenHeight - winHeight) / 2);
-  }
-  
-  const windowOptions = {
-    width: winWidth,
-    height: winHeight,
-    x: winX,
-    y: winY,
-    minWidth: 600,
-    minHeight: 400,
-    // Frameless window for dev mode - just frame: false, no titleBarStyle
-    frame: !isDev,
-    backgroundColor: bgColor,
-    title: `Aesthetic Computer${titleSuffix}`,
-    webPreferences,
-    show: false,
-  };
-
-  const win = new BrowserWindow(windowOptions);
-  
-  // Store window reference
-  windows.set(windowId, { window: win, mode, ptyProcess: null });
-  
-  // Track focus
-  win.on('focus', () => {
-    focusedWindowId = windowId;
-  });
-
-  // Show when ready
-  win.once('ready-to-show', () => {
-    win.show();
-    // Auto-open devtools in dev mode
-    if (isDev) {
-      win.webContents.openDevTools({ mode: 'detach' });
-    }
-  });
-
-  // Load appropriate HTML
-  const htmlFile = isShell ? 'shell.html' : (isDev ? 'development.html' : 'production.html');
-  win.loadFile(path.join(__dirname, 'renderer', htmlFile));
-
-  // Cleanup on close
-  win.on('closed', () => {
-    // Kill PTY if this was a shell window
-    const winData = windows.get(windowId);
-    if (winData?.ptyProcess) {
-      winData.ptyProcess.kill();
-    }
-    windows.delete(windowId);
-    if (focusedWindowId === windowId) {
-      focusedWindowId = null;
-    }
-    // Clear shell singleton reference
-    if (shellWindowId === windowId) {
-      shellWindowId = null;
-    }
-  });
-  
-  return { window: win, windowId };
-}
-
 // ========== System Tray ==========
 let tray = null;
 
@@ -819,7 +711,7 @@ function createSystemTray() {
           win.show();
         }
       } else {
-        openDevWindow();
+        openAcPaneWindow();
       }
     });
   }
@@ -876,7 +768,7 @@ function rebuildTrayMenu() {
           allWindows.forEach(w => w.show());
         }
       } else {
-        openDevWindow();
+        openAcPaneWindow();
       }
     }
   });
@@ -884,9 +776,9 @@ function rebuildTrayMenu() {
   menuItems.push({ type: 'separator' });
   
   menuItems.push({
-    label: 'New Window',
+    label: 'New AC Pane',
     accelerator: isMac ? 'Cmd+N' : 'Ctrl+N',
-    click: () => openDevWindow()
+    click: () => openAcPaneWindow()
   });
   
   // Quick DevTools access (especially for Windows)
@@ -1095,52 +987,25 @@ function getFocusedWindow() {
 // Navigate a window to a specific piece
 function navigateToPiece(piece) {
   const win = getFocusedWindow();
+  const mode = getFocusedWindowMode();
+  const baseUrl = mode === 'production' ? 'https://aesthetic.computer' : 'http://localhost:8888';
+  const url = `${baseUrl}/${piece}?nogap=true`;
   if (win) {
-    win.webContents.executeJavaScript(`
-      window.location.href = window.location.origin + '/${piece}?nogap';
-    `);
+    win.webContents.send('navigate', url);
   } else {
     // No window open, create one and navigate
-    createWindow('development').then(result => {
+    openAcPaneWindow().then(result => {
+      if (!result?.window) return;
       result.window.webContents.once('did-finish-load', () => {
-        result.window.webContents.executeJavaScript(`
-          window.location.href = window.location.origin + '/${piece}?nogap';
-        `);
+        result.window.webContents.send('navigate', url);
       });
     });
   }
 }
 
-// Open a new dev window - now uses 3D view
-async function openDevWindow() {
-  return open3DWindow();
-}
-
-// Open a shell window (singleton - starts container and emacs)
-async function openShellWindow() {
-  // If shell window already exists, focus it
-  if (shellWindowId && windows.has(shellWindowId)) {
-    const shellWin = windows.get(shellWindowId).window;
-    if (shellWin && !shellWin.isDestroyed()) {
-      shellWin.focus();
-      return { window: shellWin, windowId: shellWindowId };
-    }
-  }
-  
-  // Check Docker first
-  const dockerOk = await checkDocker();
-  if (!dockerOk) {
-    dialog.showErrorBox(
-      'Docker Required',
-      'Shell mode requires Docker Desktop to be running.\n\n' +
-      'Please start Docker Desktop and try again.'
-    );
-    return null;
-  }
-
-  const result = createWindow('shell');
-  shellWindowId = result.windowId;
-  return result;
+// Open a new AC Pane window
+async function openAcPaneWindow() {
+  return openAcPaneWindowInternal();
 }
 
 // Open KidLisp window (kidlisp.com)
@@ -1180,7 +1045,7 @@ let ptyProcessFor3D = null;
 let lastKnownCols = 120;
 let lastKnownRows = 40;
 
-async function open3DWindow() {
+async function openAcPaneWindowInternal() {
   // Start with a wide window - extra height for mode tags at bottom
   const winWidth = 680;
   const winHeight = 520;
@@ -1190,7 +1055,7 @@ async function open3DWindow() {
     height: winHeight,
     minWidth: 320,
     minHeight: 240,
-    title: 'Aesthetic Computer',
+    title: 'AC Pane',
     frame: false,
     transparent: true,
     hasShadow: false,
@@ -1207,7 +1072,12 @@ async function open3DWindow() {
   
   // Track it
   const windowId = windowIdCounter++;
-  windows.set(windowId, { window: win, mode: '3d' });
+  windows.set(windowId, { window: win, mode: 'ac-pane' });
+  
+  // Track focus
+  win.on('focus', () => {
+    focusedWindowId = windowId;
+  });
   
   // Register global shortcut Cmd+B (Mac) / Ctrl+B (Windows/Linux) to toggle flip
   const flipShortcut = process.platform === 'darwin' ? 'CommandOrControl+B' : 'Ctrl+B';
@@ -1220,6 +1090,9 @@ async function open3DWindow() {
   
   win.on('closed', () => {
     windows.delete(windowId);
+    if (focusedWindowId === windowId) {
+      focusedWindowId = null;
+    }
     globalShortcut.unregister(flipShortcut);
     globalShortcut.unregister('CommandOrControl+Plus');
     globalShortcut.unregister('CommandOrControl+=');
@@ -1886,11 +1759,11 @@ ipcMain.handle('stop-container-aggressive', async () => {
 
 ipcMain.handle('open-shell', async () => {
   console.log('[main] open-shell called');
-  await openShellWindow();
+  await openAcPaneWindow();
   return { success: true };
 });
 
-// PTY handlers for shell windows
+// PTY handlers for AC Pane windows (legacy path)
 ipcMain.handle('connect-pty', async (event) => {
   console.log('[main] connect-pty called');
   if (!pty) {
@@ -1910,8 +1783,8 @@ ipcMain.handle('connect-pty', async (event) => {
     }
   }
 
-  if (!winData || (winData.mode !== 'shell' && winData.mode !== 'development')) {
-    console.error('connect-pty called on non-shell/dev window');
+  if (!winData || winData.mode !== 'ac-pane') {
+    console.error('connect-pty called on non-AC Pane window');
     return false;
   }
 
@@ -2006,8 +1879,8 @@ ipcMain.on('move-window', (event, position) => {
 // Open/close windows from inside the embedded AC prompt (via webview popup interception)
 ipcMain.handle('ac-open-window', async (event, { url } = {}) => {
   console.log('[main] ac-open-window called with url:', url);
-  const { window: newWindow } = await openDevWindow();
-  console.log('[main] openDevWindow returned:', !!newWindow);
+  const { window: newWindow } = await openAcPaneWindow();
+  console.log('[main] openAcPaneWindow returned:', !!newWindow);
   if (url && newWindow) {
     newWindow.webContents.once('did-finish-load', () => {
       if (!newWindow.isDestroyed()) {
@@ -2031,9 +1904,9 @@ ipcMain.handle('ac-close-window', async (event) => {
 });
 
 ipcMain.handle('switch-mode', async (event, mode) => {
-  // Always open dev window
-  await openDevWindow();
-  return 'development';
+  // Always open AC Pane
+  await openAcPaneWindow();
+  return 'ac-pane';
 });
 
 ipcMain.handle('spawn-terminal', async (event, command) => {
@@ -2050,13 +1923,13 @@ ipcMain.handle('app-reboot', async () => {
 });
 
 // ========== IPC Bridge for Artery/Tests ==========
-// Forward commands from shell to webview and vice versa
+// Forward commands from external tools to webview and vice versa
 
 // Navigate to a piece (from shell/artery-tui)
 ipcMain.on('ac-navigate', (event, piece) => {
-  // Forward to all dev windows
+  // Forward to all AC panes
   for (const [id, winData] of windows) {
-    if (winData.mode === 'development') {
+    if (winData.mode === 'ac-pane') {
       winData.window.webContents.send('ac-navigate', piece);
     }
   }
@@ -2065,7 +1938,7 @@ ipcMain.on('ac-navigate', (event, piece) => {
 // Set environment (local/prod)
 ipcMain.on('ac-set-env', (event, env) => {
   for (const [id, winData] of windows) {
-    if (winData.mode === 'development') {
+    if (winData.mode === 'ac-pane') {
       winData.window.webContents.send('ac-set-env', env);
     }
   }
@@ -2074,9 +1947,9 @@ ipcMain.on('ac-set-env', (event, env) => {
 // Evaluate JavaScript in webview
 ipcMain.handle('ac-eval', async (event, code) => {
   return new Promise((resolve) => {
-    // Find the dev window
+    // Find the AC Pane
     for (const [id, winData] of windows) {
-      if (winData.mode === 'development') {
+      if (winData.mode === 'ac-pane') {
         // Set up one-time listener for result
         const handler = (event, result) => {
           ipcMain.removeListener('ac-eval-result', handler);
@@ -2092,7 +1965,7 @@ ipcMain.handle('ac-eval', async (event, code) => {
         return;
       }
     }
-    resolve({ success: false, error: 'No dev window found' });
+    resolve({ success: false, error: 'No AC Pane found' });
   });
 });
 
@@ -2100,7 +1973,7 @@ ipcMain.handle('ac-eval', async (event, code) => {
 ipcMain.handle('ac-get-state', async (event) => {
   return new Promise((resolve) => {
     for (const [id, winData] of windows) {
-      if (winData.mode === 'development') {
+      if (winData.mode === 'ac-pane') {
         const handler = (event, state) => {
           ipcMain.removeListener('ac-state', handler);
           resolve(state);
@@ -2122,7 +1995,7 @@ ipcMain.handle('ac-get-state', async (event) => {
 ipcMain.handle('ac-screenshot', async (event) => {
   return new Promise((resolve) => {
     for (const [id, winData] of windows) {
-      if (winData.mode === 'development') {
+      if (winData.mode === 'ac-pane') {
         const handler = (event, result) => {
           ipcMain.removeListener('ac-screenshot-result', handler);
           resolve(result);
@@ -2136,14 +2009,14 @@ ipcMain.handle('ac-screenshot', async (event) => {
         return;
       }
     }
-    resolve({ success: false, error: 'No dev window found' });
+    resolve({ success: false, error: 'No AC Pane found' });
   });
 });
 
 // Reload webview
 ipcMain.on('ac-reload', (event) => {
   for (const [id, winData] of windows) {
-    if (winData.mode === 'development') {
+    if (winData.mode === 'ac-pane') {
       winData.window.webContents.send('ac-reload');
     }
   }
@@ -2184,15 +2057,13 @@ app.whenReady().then(async () => {
   setInterval(checkRebootMarker, 2000);
   setInterval(checkRebootMarker, 2000);
   
-  // Create initial window(s) based on CLI args
-  // Default to dev window with integrated terminal overlay (press Cmd+` to toggle)
-  // Use --production flag to open production window instead
-  // Always start with dev window
-  openDevWindow();
+  // Create initial window(s)
+  // Always start with an AC Pane window
+  openAcPaneWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      openDevWindow();
+      openAcPaneWindow();
     }
   });
 });
@@ -2219,8 +2090,8 @@ app.on('web-contents-created', (event, contents) => {
       }
       
       // Handle new window request (from prompt.mjs '+' command)
-      // Open a new dev window and navigate to the URL
-      openDevWindow().then(({ window: newWin }) => {
+      // Open a new AC Pane and navigate to the URL
+      openAcPaneWindow().then(({ window: newWin }) => {
         if (newWin && !newWin.isDestroyed()) {
           newWin.webContents.once('did-finish-load', () => {
             if (!newWin.isDestroyed()) {
