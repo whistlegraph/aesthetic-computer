@@ -5,6 +5,7 @@
  */
 
 import { state, setState, actions, events } from './state.js';
+import * as ff1 from './ff1.js';
 
 // ============================================
 // IFRAME COMMUNICATION
@@ -61,6 +62,12 @@ export function play() {
     return;
   }
   
+  // Handle FF1 platform separately
+  if (ff1.isFF1Platform()) {
+    playOnFF1(code);
+    return;
+  }
+  
   // Only create a NEW code if we don't already have one stored
   const existingCode = localStorage.getItem('kidlisp-current-code');
   const shouldCreateCode = !existingCode;
@@ -71,6 +78,97 @@ export function play() {
   actions.play();
   
   updatePlaybackUI(true, false);
+}
+
+/**
+ * Play code on FF1 Art Computer
+ */
+async function playOnFF1(code) {
+  // Check FF1 configuration
+  if (!ff1.isConfigured()) {
+    showToast('FF1 not configured - open settings to add your device ID', 'warning');
+    openFF1Settings();
+    return;
+  }
+  
+  console.log('🖼️ Playing on FF1 Art Computer');
+  
+  // First, send code to iframe to create/get code ID
+  const existingCode = localStorage.getItem('kidlisp-current-code');
+  const shouldCreateCode = !existingCode;
+  
+  // Send to iframe (this triggers code creation on Aesthetic.Computer)
+  sendCode(code, shouldCreateCode);
+  
+  // Wait for code ID from iframe response
+  // The iframe will post back with the code ID
+  await waitForCodeId();
+  
+  const codeId = localStorage.getItem('kidlisp-current-code');
+  if (!codeId) {
+    showToast('Failed to create code - please try again', 'error');
+    return;
+  }
+  
+  // Send to FF1 device
+  try {
+    await ff1.sendKidLispCode(codeId);
+    showToast('Sent to FF1! 🖼️', 'success');
+    actions.play();
+    updatePlaybackUI(true, false);
+  } catch (e) {
+    console.error('❌ FF1 error:', e);
+    showToast(`FF1 error: ${e.message}`, 'error');
+  }
+}
+
+/**
+ * Wait for the iframe to respond with a code ID
+ */
+function waitForCodeId(timeout = 5000) {
+  return new Promise((resolve, reject) => {
+    const startCode = localStorage.getItem('kidlisp-current-code');
+    
+    // Check if we already have a code ID
+    if (startCode) {
+      resolve(startCode);
+      return;
+    }
+    
+    let elapsed = 0;
+    const interval = setInterval(() => {
+      const codeId = localStorage.getItem('kidlisp-current-code');
+      if (codeId && codeId !== startCode) {
+        clearInterval(interval);
+        resolve(codeId);
+      }
+      elapsed += 100;
+      if (elapsed >= timeout) {
+        clearInterval(interval);
+        reject(new Error('Timeout waiting for code ID'));
+      }
+    }, 100);
+  });
+}
+
+/**
+ * Open FF1 settings panel
+ */
+function openFF1Settings() {
+  // Emit event for settings panel to handle
+  events.dispatchEvent(new CustomEvent('openFF1Settings'));
+}
+
+/**
+ * Show toast notification (helper)
+ */
+function showToast(message, type = 'info') {
+  // Use the global toast system if available
+  if (window.showToast) {
+    window.showToast(message, type);
+  } else {
+    console.log(`[${type}] ${message}`);
+  }
 }
 
 export function pause() {

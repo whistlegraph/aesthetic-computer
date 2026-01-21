@@ -2064,7 +2064,7 @@ class KidLisp {
     // console.log("🎯 KidLisp API context updated");
   }
 
-  // �️ Slide update - re-parse and update AST without resetting state/layers
+  // 🎚️ Slide update - re-parse and update AST without resetting state/layers
   // Used for real-time parameter tweaking in slide mode
   slideUpdate(source) {
     if (!source) return;
@@ -2077,8 +2077,20 @@ class KidLisp {
       this.ast = JSON.parse(JSON.stringify(parsed));
       this.currentSource = source;
       
-      // DON'T reset: globalDef, onceExecuted, layers, timers, etc.
-      // The next paint frame will evaluate with the new AST but existing state
+      // 🎚️ CRITICAL: Clear layer0 so the new code renders fresh
+      // Without this, old pixels persist and visual changes aren't visible
+      if (this.layer0 && this.layer0.pixels) {
+        this.layer0.pixels.fill(0);
+      }
+      
+      // Also clear bake layers for clean slate
+      if (this.bakes) {
+        this.bakes = [];
+        this.currentBakeIndex = -1;
+      }
+      
+      // DON'T reset: globalDef, onceExecuted, timers, etc.
+      // (but we DO clear visual layers for immediate feedback)
       
     } catch (e) {
       console.warn('🎚️ Slide update parse error:', e.message);
@@ -3512,9 +3524,6 @@ class KidLisp {
     perfStart("parse");
     const parsed = this.parse(source);
     perfEnd("parse");
-    
-    // 🐛 DEBUG: Log parsed result
-    console.log(`🔍 DEBUG kidlisp.module: source="${source.substring(0, 100)}", parsed=`, parsed, `length=${parsed.length}`);
 
     // 🔍 Special case: If the program consists of only a single $code atom or function call,
     // fetch the cached source and substitute it instead of navigating
@@ -14060,6 +14069,21 @@ function parse(program) {
   return lisp.parse(program);
 }
 
+// 🎚️ Slide update function - calls slideUpdate on the global singleton instance
+// This is the instance used by lisp.module() for loaded pieces
+function slideUpdate(source) {
+  if (globalKidLispInstance) {
+    globalKidLispInstance.slideUpdate(source);
+  } else {
+    console.warn('🎚️ slideUpdate called but no global KidLisp instance exists');
+  }
+}
+
+// Get the global KidLisp instance (for external access)
+function getGlobalInstance() {
+  return globalKidLispInstance;
+}
+
 // Standalone evaluate function (for compatibility with tests, and an empty api)
 function evaluate(parsed, api = {}) {
   const lisp = new KidLisp();
@@ -14867,6 +14891,8 @@ export {
   module,
   parse,
   evaluate,
+  slideUpdate,
+  getGlobalInstance,
   KidLisp,
   isKidlispSource,
   isValidRGBString,

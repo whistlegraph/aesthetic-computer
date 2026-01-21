@@ -2467,7 +2467,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Resolve .tez domain for an address using TzKT API (more reliable than Tezos Domains GraphQL)
   // NOTE: Always use mainnet API since .tez domains are only registered on mainnet
   async function fetchTezosDomain(address, _network = "ghostnet") {
-    console.log("🔷 fetchTezosDomain called for:", address);
     try {
       // Always use mainnet TzKT API - .tez domains only exist on mainnet
       const apiBase = "https://api.tzkt.io";
@@ -2477,32 +2476,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       // Look for domains where this address is set AND has reverse=true (primary domain)
       const url = `${apiBase}/v1/domains?address=${address}&reverse=true&select=name`;
-      console.log("🔷 Fetching from:", url);
       const res = await fetch(url, { signal: controller.signal });
       
       clearTimeout(timeout);
       
-      console.log("🔷 TzKT response status:", res.status);
       if (res.ok) {
         const data = await res.json();
-        console.log("🔷 TzKT response data:", data);
         // Returns array of domain strings (not objects) when using select=name
         if (data && data.length > 0 && data[0]) {
           const domain = data[0]; // Direct string, not data[0].name
-          console.log(`🔷 Resolved .tez domain: ${domain}`);
           return domain;
-        } else {
-          console.log("🔷 No reverse domain found in response");
         }
       }
     } catch (e) {
-      if (e.name !== 'AbortError') {
-        console.log("🔷 .tez domain lookup failed:", e.message);
-      } else {
-        console.log("🔷 .tez domain lookup timed out");
-      }
+      // Silent - domain lookup is optional
     }
-    console.log("🔷 fetchTezosDomain returning null");
     return null;
   }
   

@@ -301,3 +301,4 @@ ac-vst/vst3sdk/
 gpu/vello-wasm/target/
 gpu/vello-wasm/pkg/
 gpu/vello-wasm/Cargo.lock
+ff1-cli/

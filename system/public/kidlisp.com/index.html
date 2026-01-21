@@ -503,16 +503,28 @@
       border-radius: 50%;
       cursor: pointer;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
-      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
-      display: flex;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s, opacity 0.2s;
+      display: none; /* Hidden by default - shown when code has numbers and is playing */
       align-items: center;
       justify-content: center;
       padding: 0;
       margin: 0;
       font-family: 'Berkeley Mono Variable', 'SF Mono', monospace;
-      font-size: 13px;
+      font-size: 11px;
       font-weight: bold;
-      letter-spacing: -0.5px;
+      letter-spacing: 0;
+      opacity: 0;
+    }
+    
+    #slide-button.available {
+      display: flex;
+      opacity: 1;
+    }
+    
+    /* Slider icon inside button */
+    #slide-button svg {
+      width: 22px;
+      height: 22px;
     }
     
     @media (hover: hover) {
@@ -547,20 +559,108 @@
       background: rgb(186, 104, 200);
     }
     
-    /* Slide mode number highlights in editor */
+    /* Slide mode styling */
+    #kidlisp-editor.slide-mode-active {
+      position: relative;
+    }
+    
+    /* Real overlay div inserted into Monaco editor - covers everything including gutter */
+    #slide-curtain-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.65);
+      pointer-events: none;
+      z-index: 4;
+      transition: opacity 0.2s ease;
+    }
+    
+    [data-theme="dark"] #slide-curtain-overlay {
+      background: rgba(0, 0, 0, 0.55);
+    }
+    
+    /* Also dim the gutter/margin in slide mode */
+    #kidlisp-editor.slide-mode-active .margin {
+      opacity: 0.3;
+    }
+    
+    #kidlisp-editor.slide-mode-active .view-line {
+      font-size: 0.9em;
+      transition: font-size 0.2s ease;
+    }
+    
+    /* Hide playback controls in slide mode (except slide button itself and set button) */
+    #kidlisp-editor.slide-mode-active ~ #playback-controls #clear-button,
+    #kidlisp-editor.slide-mode-active ~ #playback-controls #stop-button,
+    #kidlisp-editor.slide-mode-active ~ #playback-controls #send-button,
+    .slide-mode-controls-hidden #clear-button,
+    .slide-mode-controls-hidden #stop-button,
+    .slide-mode-controls-hidden #send-button {
+      display: none !important;
+    }
+    
+    /* Slide mode number highlights - perfect circles */
     .slide-number-highlight {
-      background: rgba(156, 39, 176, 0.25) !important;
-      border-radius: 3px;
+      position: relative;
+      z-index: 10 !important;
+      background: rgb(156, 39, 176) !important;
+      border-radius: 50% !important;
       cursor: ew-resize !important;
-      transition: background 0.15s;
+      transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1em !important;
+      font-weight: bold !important;
+      color: white !important;
+      min-width: 28px;
+      height: 28px;
+      padding: 0 6px;
+      margin: -4px -2px;
+      box-shadow: 0 2px 8px rgba(156, 39, 176, 0.5);
+      line-height: 1;
+    }
+    
+    [data-theme="dark"] .slide-number-highlight {
+      background: rgb(186, 104, 200) !important;
+      color: white !important;
+      box-shadow: 0 2px 12px rgba(186, 104, 200, 0.6);
     }
     
     .slide-number-highlight:hover {
-      background: rgba(156, 39, 176, 0.4) !important;
+      background: rgb(180, 60, 200) !important;
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(156, 39, 176, 0.7);
     }
     
     .slide-number-dragging {
-      background: rgba(156, 39, 176, 0.6) !important;
+      background: rgb(200, 80, 220) !important;
+      transform: scale(1.2);
+      box-shadow: 0 4px 16px rgba(156, 39, 176, 0.8);
+    }
+    
+    /* Hide cursor and selection in slide mode */
+    #kidlisp-editor.slide-mode-active .cursor {
+      display: none !important;
+    }
+    
+    #kidlisp-editor.slide-mode-active .cursors-layer {
+      display: none !important;
+    }
+    
+    #kidlisp-editor.slide-mode-active .selected-text {
+      display: none !important;
+    }
+    
+    /* Prevent text selection cursor appearance */
+    #kidlisp-editor.slide-mode-active .monaco-editor .view-lines {
+      cursor: default;
+    }
+    
+    #kidlisp-editor.slide-mode-active .monaco-editor .view-line {
+      cursor: default;
     }
     
     /* Slide mode overlay for drag feedback */
@@ -590,48 +690,56 @@
       white-space: nowrap;
     }
     
-    /* Keep/Discard buttons shown during slide mode */
-    #slide-actions {
+    /* Set button - shown next to slide button when slide mode is active */
+    #slide-set-btn {
       display: none;
-      position: absolute;
-      bottom: 66px; /* Above playback controls */
-      right: 14px;
-      flex-direction: row;
-      gap: 8px;
-      z-index: 2;
+      position: relative;
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+      flex-shrink: 0;
+      box-sizing: border-box;
+      background: rgb(255, 193, 7); /* Yellow */
+      color: rgb(50, 40, 0);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.3);
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      margin: 0;
+      font-family: 'Berkeley Mono Variable', 'SF Mono', monospace;
+      font-size: 11px;
+      font-weight: bold;
     }
     
-    #slide-actions.visible {
+    #slide-set-btn.visible {
       display: flex;
     }
     
-    #slide-actions button {
-      padding: 6px 12px;
-      border: none;
-      border-radius: 16px;
-      font-family: 'PP Mori', sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.1s, background 0.2s;
+    @media (hover: hover) {
+      #slide-set-btn:hover {
+        background: rgb(255, 213, 79);
+        transform: scale(1.05);
+      }
     }
     
-    #slide-keep-btn {
-      background: rgb(76, 175, 80);
-      color: white;
-    }
-    
-    #slide-discard-btn {
-      background: rgb(158, 158, 158);
-      color: white;
-    }
-    
-    #slide-actions button:hover {
-      transform: scale(1.05);
-    }
-    
-    #slide-actions button:active {
+    #slide-set-btn:active {
+      background: rgb(255, 160, 0);
       transform: scale(0.95);
+    }
+    
+    [data-theme="dark"] #slide-set-btn {
+      background: rgb(255, 213, 79);
+      color: rgb(50, 40, 0);
+    }
+    
+    /* Legacy slide-actions (hidden, keeping for compatibility) */
+    #slide-actions {
+      display: none !important;
     }
     /* ==================== END SLIDE MODE ==================== */
     
@@ -1907,6 +2015,73 @@
       opacity: 0.6;
     }
     
+    /* FF1 Settings UI - Inline Pairing */
+    .ff1-settings {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      width: 100%;
+      max-width: 280px;
+    }
+    .ff1-paired-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .ff1-btn {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 4px;
+      padding: 8px 16px;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .ff1-btn:hover { background: rgba(255,255,255,0.25); }
+    .ff1-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ff1-status {
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
+    }
+    .ff1-status.success { color: #4ade80; }
+    .ff1-status.error { color: #f87171; }
+    .ff1-pairing {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+    }
+    .ff1-pairing.open { display: flex; }
+    .ff1-pairing-hint {
+      font-size: 11px;
+      opacity: 0.7;
+      text-align: center;
+      line-height: 1.4;
+    }
+    .ff1-pairing-qr {
+      width: 160px;
+      height: 160px;
+      background: #fff;
+      border-radius: 6px;
+      image-rendering: pixelated;
+    }
+    .ff1-pairing-status {
+      font-size: 11px;
+      opacity: 0.6;
+    }
+    .ff1-pairing-link {
+      font-size: 10px;
+      opacity: 0.5;
+      word-break: break-all;
+      text-align: center;
+      cursor: pointer;
+    }
+    .ff1-pairing-link:hover { text-decoration: underline; }
+    
     /* FF1 light mode - keep dark aesthetic for brand consistency */
     [data-theme="light"] #boot-screen-ff1 {
       background: #1a1a1a !important;
@@ -1914,6 +2089,8 @@
     [data-theme="light"] #boot-screen-ff1 .boot-text {
       color: white !important;
     }
+
+
     
     /* Ableton Live 12 boot screen - theme-aware */
     #boot-screen-ableton {
@@ -7642,13 +7819,11 @@
           </div>
           <!-- Playback Controls - inside viz-text so they can't overlap editor-header -->
           <!-- Order: slide (left), clear, stop (middle), send (right) -->
-          <!-- Slide mode actions (Keep/Discard) - shown when slide mode has changes -->
-          <div id="slide-actions">
-            <button id="slide-discard-btn" title="Discard changes">Discard</button>
-            <button id="slide-keep-btn" title="Keep changes">Keep</button>
-          </div>
+          <!-- Slide mode actions (legacy - hidden) -->
+          <div id="slide-actions"></div>
           <div id="playback-controls">
-            <button id="slide-button" aria-label="Toggle slide mode" title="Slide mode - drag numbers to adjust">123</button>
+            <button id="slide-button" aria-label="Toggle slide mode" title="Slide mode - drag numbers to adjust"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"/><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></svg></button>
+            <button id="slide-set-btn" aria-label="Set slide values" title="Set current values">Set</button>
             <button id="clear-button" aria-label="Clear code">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="6" y1="6" x2="18" y2="18"/>
@@ -7751,6 +7926,19 @@
             <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="Feral File" class="ff1-logo">
             <div class="boot-text boot-text-title">FF1 Art Computer</div>
             <div class="boot-text boot-text-action" data-i18n="pressToRun">Press <span class="blink">▶</span> to run</div>
+            <div class="ff1-settings" id="ff1-settings">
+              <div class="ff1-paired-row" id="ff1-paired-row">
+                <span id="ff1-status" class="ff1-status"></span>
+                <button id="ff1-test-btn" class="ff1-btn" style="display:none;">Test</button>
+                <button id="ff1-pair-btn" class="ff1-btn">Pair</button>
+              </div>
+              <div class="ff1-pairing" id="ff1-pairing">
+                <canvas id="ff1-qr-canvas" class="ff1-pairing-qr"></canvas>
+                <div class="ff1-pairing-hint">Scan with phone → then scan your TV's QR</div>
+                <div class="ff1-pairing-status" id="ff1-pairing-status">Waiting…</div>
+                <div class="ff1-pairing-link" id="ff1-pairing-link" title="Click to copy"></div>
+              </div>
+            </div>
           </div>
           <div class="boot-screen hidden" id="boot-screen-ableton" data-platform="ableton">
             <svg class="ableton-boot-logo" viewBox="0 0 51 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M0 0h3v24H0V0zm6 0h3v24H6V0zm6 0h3v24h-3V0zm6 0h3v24h-3V0zm9 0h24v3H27V0zm0 7h24v3H27V7zm0 7h24v3H27v-3zm0 7h24v3H27v-3z"/></svg>
@@ -7773,6 +7961,7 @@
             <div class="boot-text" style="font-size: 18px; font-weight: bold; color: #fff;">Nintendo 64</div>
             <div class="boot-text boot-text-status" style="font-size: 11px; opacity: 0.5; margin-top: 8px; color: #ff3333;" data-i18n="experimental">⚠️ Experimental</div>
           </div>
+
           <iframe id="preview-iframe" frameborder="0"></iframe>
           <!-- PJ overlay (shown when broadcasting to PJ window) -->
           <div class="popout-overlay" id="popout-overlay">
@@ -8345,6 +8534,410 @@
         setTimeout(() => toast.remove(), 300);
       }, 3000);
     }
+    
+    // Make showToast globally available
+    window.showToast = showToast;
+    
+    // ============================================
+    // FF1 ART COMPUTER INTEGRATION
+    // ============================================
+    
+    const FF1_CONFIG_KEY = 'kidlisp-ff1-config';
+    
+    // FF1 configuration
+    let ff1Config = {
+      deviceId: '',
+      relayTopicId: '',
+      relayApiKey: '',
+    };
+    
+    // Load FF1 config from localStorage
+    function loadFF1Config() {
+      try {
+        const stored = localStorage.getItem(FF1_CONFIG_KEY);
+        if (stored) {
+          ff1Config = { ...ff1Config, ...JSON.parse(stored) };
+        }
+      } catch (e) {
+        console.warn('⚠️ Failed to load FF1 config:', e);
+      }
+      
+      // Update UI
+      const input = document.getElementById('ff1-topic-id');
+      if (input && ff1Config.relayTopicId) {
+        input.value = ff1Config.relayTopicId;
+      }
+    }
+    
+    // Save FF1 config to localStorage
+    function saveFF1Config() {
+      localStorage.setItem(FF1_CONFIG_KEY, JSON.stringify(ff1Config));
+    }
+    
+    // Build a DP-1 playlist for a URL
+    function buildFF1Playlist(url) {
+      return {
+        dpVersion: '1.0.0',
+        items: [{
+          source: url,
+          duration: 0,
+          license: 'open',
+          provenance: {
+            type: 'offChainURI',
+            uri: url
+          }
+        }]
+      };
+    }
+
+    function getFF1ProxyUrl() {
+      const isDev = window.location.hostname === 'localhost';
+      return isDev ? 'http://localhost:8889/ff1/cast' : 'https://aesthetic.computer/api/ff1/proxy';
+    }
+
+    async function persistFF1DeviceIfAuthenticated(topicID, apiKey) {
+      if (!window.acToken || !topicID) return;
+      try {
+        await fetch('/api/ff1/devices', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${window.acToken}`
+          },
+          body: JSON.stringify({ topicID, apiKey: apiKey || null, deviceId: ff1Config.deviceId || null })
+        });
+      } catch (err) {
+        console.warn('⚠️ Failed to save FF1 device:', err);
+      }
+    }
+    
+    // Send code to FF1 device
+    async function sendToFF1Device() {
+      const code = window.editor?.getValue()?.trim();
+      if (!code) {
+        showToast('No code to send', 'info');
+        return;
+      }
+      
+      if (!ff1Config.relayTopicId) {
+        showToast('Enter your FF1 Topic ID first', 'warning');
+        const input = document.getElementById('ff1-topic-id');
+        if (input) input.focus();
+        return;
+      }
+      
+      // First, we need to get a code URL from aesthetic.computer
+      // Send to iframe to create the code, then get the URL back
+      showToast('Creating code...', 'info');
+      
+      try {
+        // Send code to iframe to upload and get code ID
+        const iframe = document.getElementById('preview-iframe');
+        if (!iframe?.contentWindow) {
+          showToast('Preview not ready', 'error');
+          return;
+        }
+        
+        // Send with createCode=true to get a code ID
+        const aestheticUrl = (window.location.hostname === 'localhost' || window.location.hostname.includes('local.'))
+          ? 'https://localhost:8888' : 'https://aesthetic.computer';
+        
+        iframe.contentWindow.postMessage({
+          type: 'kidlisp-reload',
+          code,
+          createCode: true,
+          authToken: window.acToken || null
+        }, aestheticUrl);
+        
+        // Wait for code ID (will be received via message event)
+        const codeId = await waitForFF1CodeId(5000);
+        if (!codeId) {
+          showToast('Failed to create code URL', 'error');
+          return;
+        }
+        
+        // Build the AC URL for this code
+        const codeUrl = `https://aesthetic.computer/code~${codeId}`;
+        
+        // Build FF1 playlist
+        const playlist = buildFF1Playlist(codeUrl);
+        
+        // Send to FF1 device via Netlify proxy (to avoid CORS issues)
+        const proxyUrl = getFF1ProxyUrl();
+        const payload = {
+          topicID: ff1Config.relayTopicId,
+          apiKey: ff1Config.relayApiKey || undefined,
+          command: 'displayPlaylist',
+          request: {
+            dp1_call: playlist,
+            intent: {
+              action: 'now_display'
+            }
+          }
+        };
+        
+        console.log('📡 Sending to FF1 via proxy:', proxyUrl, payload);
+        
+        const response = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`${response.status} - ${errorText}`);
+        }
+        
+        showToast('Sent to FF1! 🖼️', 'success');
+        
+        // Visual feedback
+        const sendButton = document.getElementById('send-button');
+        if (sendButton) {
+          sendButton.classList.add('playing');
+          setTimeout(() => sendButton.classList.remove('playing'), 1000);
+        }
+        
+      } catch (e) {
+        console.error('❌ FF1 error:', e);
+        if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+          showToast(`Can't reach FF1 proxy.`, 'error');
+        } else {
+          showToast(`FF1 error: ${e.message}`, 'error');
+        }
+      }
+    }
+    
+    // Wait for code ID from iframe
+    function waitForFF1CodeId(timeout = 5000) {
+      return new Promise((resolve) => {
+        const startCode = localStorage.getItem('kidlisp-current-code');
+        
+        // If we already have a code, use it
+        if (startCode) {
+          resolve(startCode);
+          return;
+        }
+        
+        let elapsed = 0;
+        const interval = setInterval(() => {
+          const codeId = localStorage.getItem('kidlisp-current-code');
+          if (codeId && codeId !== startCode) {
+            clearInterval(interval);
+            resolve(codeId);
+          }
+          elapsed += 100;
+          if (elapsed >= timeout) {
+            clearInterval(interval);
+            resolve(null);
+          }
+        }, 100);
+      });
+    }
+    
+    // Test FF1 device connection via proxy
+    async function testFF1Connection() {
+      const statusEl = document.getElementById('ff1-status');
+      const testBtn = document.getElementById('ff1-test-btn');
+      const proxyHint = document.getElementById('ff1-proxy-hint');
+      
+      if (!ff1Config.relayTopicId) {
+        if (statusEl) {
+          statusEl.textContent = 'Enter Topic ID';
+          statusEl.className = 'ff1-status error';
+        }
+        return;
+      }
+      
+      if (statusEl) {
+        statusEl.textContent = 'Testing...';
+        statusEl.className = 'ff1-status testing';
+      }
+      if (testBtn) testBtn.disabled = true;
+      if (proxyHint) proxyHint.style.display = 'none';
+      
+      try {
+        // Try to send a blank playlist via proxy
+        const response = await fetch(getFF1ProxyUrl(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topicID: ff1Config.relayTopicId,
+            apiKey: ff1Config.relayApiKey || undefined,
+            command: 'displayPlaylist',
+            request: {
+              dp1_call: buildFF1Playlist('https://aesthetic.computer/blank'),
+              intent: { action: 'now_display' }
+            }
+          }),
+          signal: AbortSignal.timeout(8000)
+        });
+        
+        if (response.ok) {
+          if (statusEl) {
+            statusEl.textContent = '✓ Connected';
+            statusEl.className = 'ff1-status success';
+          }
+          showToast('FF1 connected!', 'success');
+          persistFF1DeviceIfAuthenticated(ff1Config.relayTopicId, ff1Config.relayApiKey);
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP ${response.status}`);
+        }
+      } catch (e) {
+        if (statusEl) {
+          statusEl.textContent = '✗ Not reachable';
+          statusEl.className = 'ff1-status error';
+        }
+        if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+          showToast(`Can't reach FF1 proxy.`, 'error');
+        } else {
+          showToast(`Can't reach FF1: ${e.message}`, 'error');
+        }
+      } finally {
+        if (testBtn) testBtn.disabled = false;
+      }
+    }
+
+    let ff1PairPollInterval = null;
+
+    function toggleFF1Pairing() {
+      const pairing = document.getElementById('ff1-pairing');
+      const pairBtn = document.getElementById('ff1-pair-btn');
+      if (!pairing) return;
+      
+      if (pairing.classList.contains('open')) {
+        pairing.classList.remove('open');
+        if (pairBtn) pairBtn.textContent = 'Pair';
+        stopFF1PairPolling();
+      } else {
+        startFF1Pairing();
+      }
+    }
+
+    function startFF1Pairing() {
+      const pairing = document.getElementById('ff1-pairing');
+      const canvas = document.getElementById('ff1-qr-canvas');
+      const linkEl = document.getElementById('ff1-pairing-link');
+      const statusEl = document.getElementById('ff1-pairing-status');
+      const pairBtn = document.getElementById('ff1-pair-btn');
+      if (!pairing || !canvas) return;
+
+      const token = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+        .map((b) => b.toString(16).padStart(2, '0')).join('');
+
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
+      const pairingUrl = isLocal
+        ? `${window.location.origin}/kidlisp.com/qr.html?token=${token}`
+        : `https://device.kidlisp.com/qr/${token}`;
+
+      if (linkEl) linkEl.textContent = pairingUrl;
+      if (statusEl) statusEl.textContent = 'Waiting…';
+      if (pairBtn) pairBtn.textContent = 'Cancel';
+
+      if (window.qr && window.ErrorCorrectLevel) {
+        const cells = window.qr(pairingUrl, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
+        const cellSize = Math.max(3, Math.floor(160 / cells.length));
+        const actualSize = cells.length * cellSize;
+        canvas.width = actualSize;
+        canvas.height = actualSize;
+        const ctx = canvas.getContext('2d');
+        for (let y = 0; y < cells.length; y++) {
+          for (let x = 0; x < cells.length; x++) {
+            ctx.fillStyle = cells[y][x] ? '#000' : '#fff';
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+
+      pairing.classList.add('open');
+      startFF1PairPolling(token, statusEl);
+    }
+
+    function stopFF1PairPolling() {
+      if (ff1PairPollInterval) {
+        clearInterval(ff1PairPollInterval);
+        ff1PairPollInterval = null;
+      }
+    }
+
+    function startFF1PairPolling(token, statusEl) {
+      stopFF1PairPolling();
+      let attempts = 0;
+      ff1PairPollInterval = setInterval(async () => {
+        attempts++;
+        try {
+          const response = await fetch(`/api/ff1/pair?token=${token}`);
+          if (response.status === 404) {
+            if (attempts > 120) {
+              if (statusEl) statusEl.textContent = 'Timed out';
+              stopFF1PairPolling();
+            }
+            return;
+          }
+          if (!response.ok) return;
+          const data = await response.json();
+          if (data && data.topicID) {
+            ff1Config.relayTopicId = data.topicID;
+            ff1Config.relayApiKey = data.apiKey || '';
+            saveFF1Config();
+            if (statusEl) statusEl.textContent = '✓ Paired!';
+            const mainStatus = document.getElementById('ff1-status');
+            if (mainStatus) {
+              mainStatus.textContent = '✓ Paired';
+              mainStatus.className = 'ff1-status success';
+            }
+            const testBtn = document.getElementById('ff1-test-btn');
+            if (testBtn) testBtn.style.display = 'inline-block';
+            const pairBtn = document.getElementById('ff1-pair-btn');
+            if (pairBtn) pairBtn.textContent = 'Re-pair';
+            persistFF1DeviceIfAuthenticated(ff1Config.relayTopicId, ff1Config.relayApiKey);
+            stopFF1PairPolling();
+            setTimeout(() => {
+              const pairing = document.getElementById('ff1-pairing');
+              if (pairing) pairing.classList.remove('open');
+            }, 1500);
+          }
+        } catch (err) {
+          if (statusEl) statusEl.textContent = 'Error';
+          stopFF1PairPolling();
+        }
+      }, 1500);
+    }
+    
+    // Initialize FF1 settings UI
+    function initFF1Settings() {
+      loadFF1Config();
+      
+      const testBtn = document.getElementById('ff1-test-btn');
+      const pairBtn = document.getElementById('ff1-pair-btn');
+      const linkEl = document.getElementById('ff1-pairing-link');
+      const statusEl = document.getElementById('ff1-status');
+      
+      // Show paired status if we have a topic ID
+      if (ff1Config.relayTopicId && statusEl) {
+        statusEl.textContent = '✓ Paired';
+        statusEl.className = 'ff1-status success';
+        if (testBtn) testBtn.style.display = 'inline-block';
+        if (pairBtn) pairBtn.textContent = 'Re-pair';
+      }
+      
+      if (testBtn) testBtn.addEventListener('click', testFF1Connection);
+      if (pairBtn) pairBtn.addEventListener('click', toggleFF1Pairing);
+      if (linkEl) linkEl.addEventListener('click', async () => {
+        const text = linkEl.textContent || '';
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          showToast('Link copied', 'success');
+        } catch { showToast('Copy failed', 'error'); }
+      });
+    }
+    
+    // Initialize on load
+    setTimeout(initFF1Settings, 100);
 
     // Platform-specific book content
     let bookContainer = null;
@@ -13606,6 +14199,8 @@
         updateLineNumbers();
         applyColorNameDecorations();
         updateClearButtonVisibility();
+        // Also update slide button visibility (depends on whether code has numbers)
+        if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
       });
       
       // Initial visibility check
@@ -13614,9 +14209,8 @@
       // ==================== SLIDE MODE ====================
       // Slide mode allows dragging numbers to adjust their values in real-time
       const slideButton = document.getElementById('slide-button');
-      const slideActions = document.getElementById('slide-actions');
-      const slideKeepBtn = document.getElementById('slide-keep-btn');
-      const slideDiscardBtn = document.getElementById('slide-discard-btn');
+      const slideSetBtn = document.getElementById('slide-set-btn');
+      const slideActions = document.getElementById('slide-actions'); // Legacy, hidden
       const slideDragOverlay = document.getElementById('slide-drag-overlay');
       const slideValueTooltip = document.getElementById('slide-value-tooltip');
       
@@ -13629,6 +14223,34 @@
       let slideDragStartX = 0;
       let slideDragStartValue = 0;
       let slideHasChanges = false;
+      
+      // Check if code contains numbers (for slide button visibility)
+      function codeHasNumbers(code) {
+        if (!code) return false;
+        // Check for numeric literals (integers or floats)
+        return /\b-?\d+\.?\d*\b/.test(code);
+      }
+      
+      // Update slide button visibility based on: has numbers + is playing + not paused
+      function updateSlideButtonVisibility() {
+        if (!slideButton) return;
+        const code = editor ? editor.getValue() : '';
+        const hasNumbers = codeHasNumbers(code);
+        const shouldShow = hasNumbers && isPlaying && !isPaused && !isSoftStopped;
+        
+        if (shouldShow) {
+          slideButton.classList.add('available');
+        } else {
+          slideButton.classList.remove('available');
+          // If hiding and slide mode is active, exit slide mode
+          if (slideMode) {
+            exitSlideMode();
+          }
+        }
+      }
+      
+      // Expose globally for playback state changes
+      window.updateSlideButtonVisibility = updateSlideButtonVisibility;
       
       // Get step size based on number precision
       function getSlideStep(numStr) {
@@ -13826,10 +14448,17 @@
         }
         
         slideHasChanges = true;
-        if (slideActions) slideActions.classList.add('visible');
+        // Show Set button when changes are made
+        if (slideSetBtn) slideSetBtn.classList.add('visible');
         
         // Get the updated code
         const newCode = editor.getValue();
+        
+        // Update lastCode so auto-reload doesn't see this as a mismatch
+        // (lastCode is used by the onDidChangeModelContent handler)
+        if (typeof lastCode !== 'undefined') {
+          lastCode = newCode.trim();
+        }
         
         // Broadcast slide update to PJ sessions via WebSocket (low latency)
         if (typeof broadcastSlideToChannel === 'function') {
@@ -13849,11 +14478,12 @@
       function handleSlideMouseDown(e) {
         if (!slideMode || !editor) return;
         
-        const numInfo = findNumberAtPosition(e);
-        if (!numInfo) return;
-        
+        // Always prevent default in slide mode to avoid cursor movement
         e.preventDefault();
         e.stopPropagation();
+        
+        const numInfo = findNumberAtPosition(e);
+        if (!numInfo) return;
         
         slideDragging = numInfo;
         slideDragStartX = e.clientX;
@@ -13910,65 +14540,163 @@
       
       // Toggle slide mode
       function toggleSlideMode() {
-        slideMode = !slideMode;
+        if (slideMode) {
+          exitSlideMode();
+        } else {
+          enterSlideMode();
+        }
+      }
+      
+      // Enter slide mode
+      let slideSavedCursorPosition = null;
+      let slideSavedScrollTop = null;
+      
+      function enterSlideMode() {
+        if (slideMode) return;
+        slideMode = true;
         
         if (slideButton) {
-          slideButton.classList.toggle('active', slideMode);
+          slideButton.classList.add('active');
         }
         
-        if (slideMode) {
-          // Entering slide mode
-          slideOriginalCode = editor ? editor.getValue() : '';
-          slideHasChanges = false;
-          applySlideDecorations();
-          
-          // Make editor read-only except for our programmatic edits
-          if (editor) {
-            editor.updateOptions({ readOnly: true });
-          }
-          
-          // Add mouse handlers to editor
-          const editorDom = document.querySelector('#kidlisp-editor .monaco-editor');
-          if (editorDom) {
-            editorDom.addEventListener('mousedown', handleSlideMouseDown);
-          }
-          
-          log.editor.log('Slide mode enabled');
-        } else {
-          // Exiting slide mode
-          clearSlideDecorations();
-          
-          if (editor) {
-            editor.updateOptions({ readOnly: false });
-          }
-          
-          // Remove mouse handlers
-          const editorDom = document.querySelector('#kidlisp-editor .monaco-editor');
-          if (editorDom) {
-            editorDom.removeEventListener('mousedown', handleSlideMouseDown);
-          }
-          
-          // If no explicit keep, discard changes
-          if (slideHasChanges && slideActions && slideActions.classList.contains('visible')) {
-            // Default to discard
-            discardSlideChanges();
-          }
-          
-          if (slideActions) slideActions.classList.remove('visible');
-          
-          log.editor.log('Slide mode disabled');
+        // Save cursor position and scroll state
+        if (editor) {
+          slideSavedCursorPosition = editor.getPosition();
+          slideSavedScrollTop = editor.getScrollTop();
         }
-      }
-      
-      // Keep slide changes (creates new $code state)
-      function keepSlideChanges() {
-        slideHasChanges = false;
-        if (slideActions) slideActions.classList.remove('visible');
+        
+        // Add slide-mode-active class to editor for CSS styling
+        const editorContainer = document.getElementById('kidlisp-editor');
+        if (editorContainer) {
+          editorContainer.classList.add('slide-mode-active');
+        }
+        
+        // Hide other playback controls
+        const playbackControls = document.getElementById('playback-controls');
+        if (playbackControls) {
+          playbackControls.classList.add('slide-mode-controls-hidden');
+        }
+        
+        // Insert curtain overlay into Monaco editor (inside the view-lines container)
+        const viewOverlays = document.querySelector('#kidlisp-editor .monaco-editor .view-overlays');
+        if (viewOverlays && !document.getElementById('slide-curtain-overlay')) {
+          const curtain = document.createElement('div');
+          curtain.id = 'slide-curtain-overlay';
+          viewOverlays.parentElement.insertBefore(curtain, viewOverlays);
+        }
+        
+        // Entering slide mode
         slideOriginalCode = editor ? editor.getValue() : '';
-        log.editor.log('Slide changes kept');
+        slideHasChanges = false;
+        applySlideDecorations();
+        
+        // Make editor read-only except for our programmatic edits
+        if (editor) {
+          editor.updateOptions({ readOnly: true });
+          // Hide the cursor
+          editor.updateOptions({ cursorStyle: 'line', cursorBlinking: 'hidden' });
+        }
+        
+        // Add mouse handlers to editor (use capture phase to intercept before Monaco)
+        const editorDom = document.querySelector('#kidlisp-editor .monaco-editor');
+        if (editorDom) {
+          editorDom.addEventListener('mousedown', handleSlideMouseDown, true);
+        }
+        
+        log.editor.log('Slide mode enabled');
       }
       
-      // Discard slide changes (restore original code)
+      // Exit slide mode (without discarding - keeps current values)
+      function exitSlideMode() {
+        if (!slideMode) return;
+        slideMode = false;
+        
+        if (slideButton) {
+          slideButton.classList.remove('active');
+        }
+        
+        // Hide Set button
+        if (slideSetBtn) {
+          slideSetBtn.classList.remove('visible');
+        }
+        
+        // Remove slide-mode-active class from editor
+        const editorContainer = document.getElementById('kidlisp-editor');
+        if (editorContainer) {
+          editorContainer.classList.remove('slide-mode-active');
+        }
+        
+        // Show other playback controls again
+        const playbackControls = document.getElementById('playback-controls');
+        if (playbackControls) {
+          playbackControls.classList.remove('slide-mode-controls-hidden');
+        }
+        
+        // Remove curtain overlay
+        const curtain = document.getElementById('slide-curtain-overlay');
+        if (curtain) {
+          curtain.remove();
+        }
+        
+        clearSlideDecorations();
+        
+        if (editor) {
+          editor.updateOptions({ readOnly: false });
+          // Restore cursor visibility
+          editor.updateOptions({ cursorStyle: 'line', cursorBlinking: 'blink' });
+          
+          // Restore cursor position and scroll
+          if (slideSavedCursorPosition) {
+            editor.setPosition(slideSavedCursorPosition);
+          }
+          if (slideSavedScrollTop !== null) {
+            editor.setScrollTop(slideSavedScrollTop);
+          }
+        }
+        
+        // Remove mouse handlers (must match capture phase flag)
+        const editorDom = document.querySelector('#kidlisp-editor .monaco-editor');
+        if (editorDom) {
+          editorDom.removeEventListener('mousedown', handleSlideMouseDown, true);
+        }
+        
+        // Current values become the new baseline (no discard on exit)
+        slideOriginalCode = editor ? editor.getValue() : '';
+        slideHasChanges = false;
+        
+        // Sync play button state with actual playback state
+        // (exiting slide mode shouldn't change playback, but button might need sync)
+        const sendButton = document.getElementById('send-button');
+        if (sendButton && typeof isPlaying !== 'undefined' && typeof isPaused !== 'undefined') {
+          if (isPlaying && !isPaused) {
+            sendButton.classList.add('playing');
+            sendButton.classList.remove('paused');
+          } else if (isPlaying && isPaused) {
+            sendButton.classList.remove('playing');
+            sendButton.classList.add('paused');
+          } else {
+            sendButton.classList.remove('playing');
+            sendButton.classList.remove('paused');
+          }
+        }
+        
+        log.editor.log('Slide mode disabled');
+      }
+      
+      // Set slide changes (commit current values as the new original)
+      function setSlideChanges() {
+        slideHasChanges = false;
+        if (slideSetBtn) slideSetBtn.classList.remove('visible');
+        slideOriginalCode = editor ? editor.getValue() : '';
+        log.editor.log('Slide values set');
+      }
+      
+      // Keep slide changes (legacy - alias for setSlideChanges)
+      function keepSlideChanges() {
+        setSlideChanges();
+      }
+      
+      // Discard slide changes (restore original code) - legacy, not used in new UI
       function discardSlideChanges() {
         if (editor && slideOriginalCode) {
           // Need to temporarily disable readOnly if we're in slide mode
@@ -13986,7 +14714,7 @@
           }
         }
         slideHasChanges = false;
-        if (slideActions) slideActions.classList.remove('visible');
+        if (slideSetBtn) slideSetBtn.classList.remove('visible');
         log.editor.log('Slide changes discarded');
       }
       
@@ -13995,17 +14723,10 @@
         slideButton.addEventListener('click', toggleSlideMode);
       }
       
-      if (slideKeepBtn) {
-        slideKeepBtn.addEventListener('click', () => {
-          keepSlideChanges();
-          if (slideMode) toggleSlideMode(); // Exit slide mode after keeping
-        });
-      }
-      
-      if (slideDiscardBtn) {
-        slideDiscardBtn.addEventListener('click', () => {
-          discardSlideChanges();
-          if (slideMode) toggleSlideMode(); // Exit slide mode after discarding
+      if (slideSetBtn) {
+        slideSetBtn.addEventListener('click', () => {
+          setSlideChanges();
+          // Stay in slide mode after setting (don't exit)
         });
       }
       
@@ -14021,7 +14742,9 @@
       // Expose for debugging
       window.slideMode = {
         toggle: toggleSlideMode,
-        keep: keepSlideChanges,
+        enter: enterSlideMode,
+        exit: exitSlideMode,
+        set: setSlideChanges,
         discard: discardSlideChanges,
         isActive: () => slideMode
       };
@@ -14143,6 +14866,12 @@
         editor.onDidChangeModelContent(() => {
           // Skip updates during decryption animation - the animation is changing the content
           if (window.isDecrypting && window.isDecrypting()) {
+            return;
+          }
+          
+          // Skip updates during programmatic edits (slide mode, etc.)
+          // Slide mode sends its own 'kidlisp-slide' message for live updates
+          if (isSettingValueProgrammatically) {
             return;
           }
           
@@ -14910,6 +15639,7 @@
       sendButton.classList.remove('paused'); // Remove yellow outline on stop
       stopButton.style.display = 'none';
       if (window.updateClearButtonPosition) window.updateClearButtonPosition();
+      if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
       setLiveState('idle'); // No outline for full stop
       
       // Hide QR code when not playing
@@ -15102,8 +15832,13 @@
           return;
         }
         
+        // FF1 Art Computer - send URL to device
+        if (currentPlatform === 'ff1') {
+          sendToFF1Device();
+          return;
+        }
+        
         const platformNames = {
-          'ff1': 'FF1',
           'playdate': 'playdate',
           'gameboy': 'Game Boy',
           'n64': 'N64'
@@ -15173,6 +15908,7 @@
         sendButton.classList.remove('paused'); // Remove yellow outline when playing
         stopButton.style.display = 'flex';
         if (window.updateClearButtonPosition) window.updateClearButtonPosition();
+        if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
         // Add live-running class to show green outline, remove paused state
         setLiveState('running');
         
@@ -15195,8 +15931,13 @@
         sendButton.classList.remove('paused'); // Remove yellow outline
         // Switch from paused (yellow) to running (green) outline
         setLiveState('running');
+        if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
       } else {
-        // Pause
+        // Pause - but NOT if slide mode is active
+        if (window.slideMode && window.slideMode.isActive()) {
+          log.playback.debug('Cannot pause while in slide mode');
+          return;
+        }
         log.playback.debug('Pausing');
         addStateEntry('pause');
         sendToIframe({ type: 'kidlisp-pause' });
@@ -15207,6 +15948,7 @@
         sendButton.classList.add('paused'); // Add yellow outline to play button
         // Switch from running (green) to paused (yellow) outline
         setLiveState('paused');
+        if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
         // Keep stop button visible
         stopButton.style.display = 'flex';
         if (window.updateClearButtonPosition) window.updateClearButtonPosition();
@@ -15286,6 +16028,12 @@
           return;
         }
         
+        // Don't allow stopping while in slide mode
+        if (window.slideMode && window.slideMode.isActive()) {
+          log.playback.debug('Cannot stop while in slide mode');
+          return;
+        }
+        
         log.playback.log('Stopping (full reset)');
         addStateEntry('stop');
         
@@ -15310,6 +16058,7 @@
         sendButton.classList.remove('paused'); // Remove yellow outline on stop
         stopButton.style.display = 'none';
         if (window.updateClearButtonPosition) window.updateClearButtonPosition();
+        if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
         // Show purple outline to indicate stopped state
         setLiveState('stopped');
         
@@ -16174,11 +16923,8 @@
       });
     }
     
-    // Lazy-load Taquito/Beacon SDK only when needed
-    let TezosToolkit = null;
-    let BeaconWallet = null;
-    let keepsWallet = null;
-    let keepsTezos = null;
+    // Unified Tezos wallet module (same as aesthetic.computer/bios.mjs)
+    let unifiedWallet = null;
     
     // Note: KEEPS_CONTRACT, KEEPS_NETWORK, KEEPS_RPC, keepsConstants declared earlier as forward declarations
     
@@ -16193,119 +16939,28 @@
       return keepsConstants;
     }
     
-    function loadScriptNoAMD(src) {
-      return new Promise((resolve, reject) => {
-        // Check if script already exists
-        if (document.querySelector(`script[src="${src}"]`)) {
-          resolve();
-          return;
-        }
-        
-        // Temporarily hide define.amd to prevent UMD scripts from using AMD
-        // We preserve the define function itself since Monaco may be using it async
-        const hadAmd = window.define && window.define.amd;
-        const originalAmd = hadAmd ? window.define.amd : undefined;
-        if (window.define && window.define.amd) {
-          window.define.amd = undefined;
-        }
-        
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = () => {
-          // Restore define.amd after script loads
-          if (hadAmd && window.define) {
-            window.define.amd = originalAmd;
-          }
-          resolve();
-        };
-        script.onerror = () => {
-          if (hadAmd && window.define) {
-            window.define.amd = originalAmd;
-          }
-          reject(new Error(`Failed to load ${src}`));
-        };
-        document.head.appendChild(script);
-      });
-    }
-    
-    async function loadTezosSDK() {
-      if (TezosToolkit && BeaconWallet) return;
+    async function loadUnifiedWallet() {
+      if (unifiedWallet) return unifiedWallet;
       
-      try {
-        log.wallet.debug("Loading Tezos SDK...");
-        
-        // IMPORTANT: Delete window.define entirely before loading UMD scripts
-        // Monaco's AMD loader conflicts with Beacon SDK's UMD detection
-        // Test showed: delete define -> load script -> restore define = works
-        const savedDefine = window.define;
-        delete window.define;
-        
-        // Load Taquito
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = "https://unpkg.com/@taquito/taquito@19.2.0/dist/taquito.min.js";
-          script.onload = resolve;
-          script.onerror = () => reject(new Error("Failed to load Taquito"));
-          document.head.appendChild(script);
-        });
-        
-        log.wallet.debug("Taquito loaded, window.taquito:", !!window.taquito);
-        TezosToolkit = window.taquito?.TezosToolkit;
-        
-        // Load Beacon SDK
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = "https://unpkg.com/@airgap/beacon-sdk@4.2.2/dist/walletbeacon.min.js";
-          script.onload = resolve;
-          script.onerror = () => reject(new Error("Failed to load Beacon SDK"));
-          document.head.appendChild(script);
-        });
-        
-        log.wallet.debug("Beacon loaded, window.beacon:", !!window.beacon);
-        BeaconWallet = window.beacon?.DAppClient;
-        
-        // Restore Monaco's define
-        if (savedDefine) {
-          window.define = savedDefine;
-        }
-        
-        log.wallet.debug("Final state - TezosToolkit:", !!TezosToolkit, "BeaconWallet:", !!BeaconWallet);
-        
-        if (!TezosToolkit || !BeaconWallet) {
-          log.wallet.error("SDK globals not found - taquito:", !!TezosToolkit, "beacon:", !!BeaconWallet);
-          throw new Error("SDK globals not found after loading");
-        }
-        
-        log.wallet.debug("Tezos SDK loaded successfully");
-      } catch (e) {
-        log.wallet.error("Failed to load Tezos SDK:", e);
-        throw new Error("Failed to load wallet SDK. Please refresh and try again.");
-      }
+      const base = (window.location.hostname === 'localhost' || window.location.hostname.includes('local.'))
+        ? 'https://localhost:8888' : 'https://aesthetic.computer';
+      unifiedWallet = await import(`${base}/aesthetic.computer/lib/tezos-wallet-unified.mjs`);
+      return unifiedWallet;
     }
     
     async function initKeepsWallet() {
       await loadKeepsConstants();
-      await loadTezosSDK();
+      const wallet = await loadUnifiedWallet();
       
-      if (!keepsTezos) {
-        keepsTezos = new TezosToolkit(KEEPS_RPC);
-      }
+      // Initialize with the keeps network
+      await wallet.init(KEEPS_NETWORK);
       
-      if (!keepsWallet) {
-        // DAppClient from @airgap/beacon-sdk
-        keepsWallet = new BeaconWallet({
-          name: "KidLisp.com",
-          preferredNetwork: KEEPS_NETWORK,
-        });
-        keepsTezos.setWalletProvider(keepsWallet);
-        
-        // Check for existing connection
-        const activeAccount = await keepsWallet.getActiveAccount();
-        if (activeAccount) {
-          keepsWalletAddress = activeAccount.address;
-          log.wallet.log("Reconnected:", keepsWalletAddress.slice(0, 8) + "...");
-          updateKeepsWalletUI();
-        }
+      // Check if already connected (session restore)
+      const state = wallet.getState();
+      if (state.connected && state.address) {
+        keepsWalletAddress = state.address;
+        log.wallet.log("Reconnected:", keepsWalletAddress.slice(0, 8) + "...", "via", state.walletType);
+        updateKeepsWalletUI();
       }
     }
     
@@ -16886,14 +17541,18 @@
       
       try {
         await initKeepsWallet();
+        const wallet = await loadUnifiedWallet();
         
-        // DAppClient returns permissions with address
-        const permissions = await keepsWallet.requestPermissions({
-          network: { type: KEEPS_NETWORK },
+        // Connect using unified wallet (Temple-first, Beacon fallback)
+        // User can hold Shift to force Beacon/Kukai
+        const useBeacon = window.event?.shiftKey;
+        const address = await wallet.connect(KEEPS_NETWORK, { 
+          walletType: useBeacon ? 'beacon' : 'temple' 
         });
         
-        keepsWalletAddress = permissions.address;
-        log.wallet.success("Wallet connected:", keepsWalletAddress.slice(0, 8) + "...");
+        keepsWalletAddress = address;
+        const state = wallet.getState();
+        log.wallet.success("Wallet connected:", keepsWalletAddress.slice(0, 8) + "...", "via", state.walletType);
         
         updateKeepsWalletUI();
         
@@ -16911,9 +17570,11 @@
     }
     
     async function disconnectKeepsWallet() {
-      if (keepsWallet) {
-        // DAppClient has clearActiveAccount directly, not on .client
-        await keepsWallet.clearActiveAccount();
+      try {
+        const wallet = await loadUnifiedWallet();
+        await wallet.disconnect();
+      } catch (e) {
+        log.wallet.debug("Disconnect error (ignored):", e.message);
       }
       keepsWalletAddress = null;
       keepsExistingToken = null;
@@ -17189,45 +17850,55 @@
           regenerate: isRebake,
         });
         
-        if (!preparedData || !preparedData.mintParams) {
+        if (!preparedData || !preparedData.michelsonParams) {
           throw new Error("Mint preparation incomplete");
         }
         
-        // Sign the transaction
+        // Sign the transaction using unified wallet
         setKeepsStep("sign", "active");
         
-        await loadTezosSDK();
-        const contract = await keepsTezos.wallet.at(KEEPS_CONTRACT);
+        const wallet = await loadUnifiedWallet();
         
-        let op;
+        let opHash;
         if (isRebake && keepsExistingToken) {
           // Rebake = call edit_metadata instead of keep
           // Note: User must be the token creator/owner for this to work!
-          op = await contract.methodsObject.edit_metadata({
-            token_id: keepsExistingToken.tokenId,
-            token_info: preparedData.mintParams.token_info || preparedData.tokenInfo,
-          }).send();
+          // For rebake, we need to build edit_metadata params
+          opHash = await wallet.callContract(
+            KEEPS_CONTRACT,
+            "edit_metadata",
+            {
+              prim: "Pair",
+              args: [
+                { int: String(keepsExistingToken.tokenId) },
+                preparedData.michelsonParams.value.args[1] // token_info from the keep params
+              ]
+            },
+            0
+          );
         } else {
-          // New mint
-          op = await contract.methodsObject.keep(preparedData.mintParams).send({
-            amount: 0, // Fee is 0 for now
-            mutez: true,
-          });
+          // New mint - use the prepared Michelson params
+          opHash = await wallet.callContract(
+            KEEPS_CONTRACT,
+            preparedData.entrypoint || "keep",
+            preparedData.michelsonParams.value,
+            preparedData.mintFee || 0
+          );
         }
         
         setKeepsStep("sign", "done");
         setKeepsStep("complete", "active");
         
-        await op.confirmation(1);
-        
+        // Note: We don't have built-in confirmation waiting in unified wallet
+        // For now just show success after signing
         setKeepsStep("complete", "done");
         
         if (statusEl) {
-          statusEl.textContent = `✅ ${isRebake ? 'Rebaked' : 'Minted'}! TX: ${op.opHash.slice(0, 12)}...`;
+          statusEl.textContent = `✅ ${isRebake ? 'Rebaked' : 'Minted'}! TX: ${opHash.slice(0, 12)}...`;
           statusEl.style.color = "#22c55e";
         }
         
-        log.wallet.success(`Keep ${isRebake ? 'rebaked' : 'minted'}:`, op.opHash.slice(0, 12) + "...");
+        log.wallet.success(`Keep ${isRebake ? 'rebaked' : 'minted'}:`, opHash.slice(0, 12) + "...");
         
         // Refresh the existing token view after a short delay
         setTimeout(() => {
@@ -17321,15 +17992,19 @@
           case "metadata":
             setKeepsStep("metadata", "done", eventData.message);
             break;
-          case "ready":
+          case "prepared":
             preparedData = eventData;
+            break;
+          case "ready":
+            // Legacy event - treat same as prepared
+            if (!preparedData) preparedData = eventData;
             break;
           case "error":
             throw new Error(eventData.message || eventData.error || "Mint preparation failed");
         }
       }
       
-      if (!preparedData || !preparedData.mintParams) {
+      if (!preparedData || !preparedData.michelsonParams) {
         throw new Error("Server preparation incomplete");
       }
       
@@ -17407,7 +18082,7 @@
             .sort((a, b) => (b.hits || 0) - (a.hits || 0))
             .map(item => ({
               code: item.code,
-              source: item.source || item.code,
+              source: item.source || '',
               assetUrl: item.assetUrl || item.thumbnail || null,
               hits: item.hits || 0,
               owner: item.owner?.handle || item.handle || null,
@@ -17659,8 +18334,8 @@
       const el = document.createElement('div');
       el.className = 'example-item';
       
-      // Get code snippet
-      const sourceCode = item.source || item.code || '';
+      // Get code snippet (never use item.code as fallback - that's the short identifier)
+      const sourceCode = item.source || '';
       const snippet = sourceCode.slice(0, 80).replace(/\n/g, ' ');
       const truncated = snippet.length === 80;
       
@@ -17776,7 +18451,8 @@
       const item = el._itemData;
       if (!item) return;
       
-      const sourceCode = item.source || item.code || '';
+      // Never use item.code as fallback - that's the short identifier like "h6g", not source code
+      const sourceCode = item.source || '';
       const snippet = (sourceCode).slice(0, 80).replace(/\n/g, ' ') || '(empty)';
       
       // Add to history

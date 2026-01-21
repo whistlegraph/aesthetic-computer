@@ -1,12 +1,12 @@
 # Keeps Launch Plan 🔮
 
 **Status:** 🟢 Mainnet Staging (Soft Launch Testing)  
-**Last Updated:** January 1, 2026
+**Last Updated:** January 20, 2026
 
 ## Contract Status
 
 | Network | Contract | Version | Status | Admin | Tokens | Purpose |
-|---------|----------|---------|--------|-------|--------|---------||
+|---------|----------|---------|--------|-------|--------|---------|
 | Ghostnet | `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K` | v2 | Active | kidlisp | 15 | Development/Testing |
 | **Mainnet** | `KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi` | **v3** | **Staging** | staging | 1 | Soft launch |
 
@@ -26,7 +26,7 @@
 - v3 contract deployed with `token_creators` tracking
 - Staging wallet as admin for testing
 - 1 token minted so far (`$roz`)
-- Focus: Verify creator-based edit_metadata flow
+- ✅ Creator-based edit_metadata flow verified working
 
 **Future: Production Launch**
 - Option A: Continue using staging contract (KT1JEV...) — v3 already deployed
@@ -94,7 +94,7 @@ User Flow:
 - [x] Show network label (Mainnet/Ghostnet) in wallet step
 - [x] Rebake button for already-minted pieces
 - [x] Update Chain button for on-chain metadata updates
-- [ ] Add "cancel" ability during preparation
+- [x] Add "cancel" ability during preparation (Escape key)
 - [ ] Show estimated gas/fees before signing
 - [ ] Add "copy share link" after mint
 
