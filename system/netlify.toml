@@ -137,6 +137,16 @@ external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 
+[functions.ff1-pair]
+external_node_modules = ["redis"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["REDIS_CONNECTION_STRING", "NETLIFY_DEV"]
+
+[functions.ff1-devices]
+external_node_modules = ["got", "mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "CONTEXT"]
+
 [functions.store-kidlisp]
 node_bundler = "esbuild"
 external_node_modules = ["@taquito/taquito", "@taquito/signer", "mongodb", "mongodb-connection-string-url", "adm-zip", "@atproto/api"]
@@ -729,6 +739,11 @@ force = true
 [[redirects]]
 from = "https://device.kidlisp.com"
 to = "/kidlisp.com/device.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://device.kidlisp.com/qr/*"
+to = "/kidlisp.com/qr.html?token=:splat"
 status = 200
 force = true
 [[redirects]]
