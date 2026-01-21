@@ -48,6 +48,29 @@
       pointer-events: none;
     }
     
+    /* Red vignette overlay for timeout warning */
+    #vignette {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      background: radial-gradient(ellipse at center, transparent 0%, transparent 30%, rgba(180, 0, 0, 0.8) 100%);
+      transition: opacity 1s ease-in;
+    }
+    
+    #vignette.warning {
+      opacity: 0.3;
+    }
+    
+    #vignette.danger {
+      opacity: 0.6;
+    }
+    
+    #vignette.critical {
+      opacity: 1;
+      background: radial-gradient(ellipse at center, transparent 0%, transparent 10%, rgba(200, 0, 0, 0.95) 100%);
+    }
+    
     .boot-text {
       color: rgba(255, 255, 255, 0.6);
       font-family: monospace;
@@ -112,6 +135,7 @@
 </head>
 <body>
   <div id="boot-screen">
+    <div id="vignette"></div>
     <div class="boot-text">
       Loading...<br>
       <span class="mode" id="boot-mode"></span>
@@ -264,13 +288,43 @@
         }
       });
       
-      // Fallback: hide boot screen after 10s regardless
+      // Vignette element
+      const vignette = document.getElementById('vignette');
+      
+      // Fallback: reload page after 16s if stuck
+      // Start vignette warning at 12s (4s before reload)
       setTimeout(() => {
         if (!bootScreen.classList.contains('hidden')) {
-          addLog('timeout - hiding boot screen', 'warn');
-          bootScreen.classList.add('hidden');
+          addLog('warning - still loading...', 'warn');
+          vignette.classList.add('warning');
         }
-      }, 10000);
+      }, 12000);
+      
+      // Danger at 14s
+      setTimeout(() => {
+        if (!bootScreen.classList.contains('hidden')) {
+          addLog('danger - preparing to reload...', 'warn');
+          vignette.classList.remove('warning');
+          vignette.classList.add('danger');
+        }
+      }, 14000);
+      
+      // Critical at 15s
+      setTimeout(() => {
+        if (!bootScreen.classList.contains('hidden')) {
+          addLog('critical - reloading in 1s...', 'error');
+          vignette.classList.remove('danger');
+          vignette.classList.add('critical');
+        }
+      }, 15000);
+      
+      // Reload at 16s
+      setTimeout(() => {
+        if (!bootScreen.classList.contains('hidden')) {
+          addLog('timeout - reloading page', 'error');
+          window.location.reload();
+        }
+      }, 16000);
     }
     
     // Start
