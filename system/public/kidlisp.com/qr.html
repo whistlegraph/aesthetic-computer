@@ -150,6 +150,17 @@
 
       function extractTopicId(text) {
         if (!text) return null;
+        
+        // FF1 QR format: https://link.feralfile.com/device_connect/DEVICE_ID|TOPIC_ID|...|...|...
+        // Example: https://link.feralfile.com/device_connect/FF1-DVVEKLZA|1wXzgSSrGbCOYGhIRdUFLKIIX9pWXndMk|true|release|1.0.4v
+        if (text.includes('feralfile.com') && text.includes('|')) {
+          const parts = text.split('|');
+          if (parts.length >= 2 && parts[1]) {
+            return parts[1].trim();
+          }
+        }
+        
+        // Fallback patterns for other QR formats
         const patterns = [
           /topicID=([A-Za-z0-9_-]+)/i,
           /topicId=([A-Za-z0-9_-]+)/i,
