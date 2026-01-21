@@ -1160,7 +1160,7 @@ Skips creation if tab already exists."
 (defvar ac--startup-lock-file "/tmp/emacs-backend-startup.lock"
   "Lock file indicating aesthetic-backend is starting (crash monitor will be gentle).")
 
-(defun aesthetic-backend (target-tab)
+(cl-defun aesthetic-backend (target-tab)
   (interactive)
   (setq target-tab (or target-tab "artery"))
   
@@ -1347,7 +1347,7 @@ Skips creation if tab already exists."
 ;; Auto-start full backend on first terminal frame
 (add-hook 'after-make-frame-functions #'ac--maybe-start-backend)
 
-(defun aesthetic-backend-minimal ()
+(cl-defun aesthetic-backend-minimal ()
   "Minimal version - start artery and fishy only. Use M-x aesthetic-backend for all tabs."
   (interactive)
   (ac-debug-log "Starting aesthetic-backend-minimal")
@@ -1382,7 +1382,7 @@ Skips creation if tab already exists."
   (message "🚀 Artery started! Use M-x aesthetic-backend-full to load all tabs.")
   (ac-debug-log "aesthetic-backend-minimal complete"))
 
-(defun aesthetic-backend-full ()
+(cl-defun aesthetic-backend-full ()
   "Load all remaining tabs (status, stripe, chat, web, tests, views, llm, top)."
   (interactive)
   (message "Loading additional tabs...")

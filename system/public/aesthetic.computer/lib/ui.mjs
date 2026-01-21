@@ -163,9 +163,13 @@ function debugActiveButtonsState() {
         }))
       });
       
-      // Clean up stuck buttons
+      // Clean up stuck buttons - MUST call cancel callback to stop sounds
       stuckButtons.forEach(btn => {
         console.log("🧹 Cleaning up stuck button:", btn.id || "unnamed");
+        // Call cancel callback to properly clean up (e.g., stop sounds in notepat)
+        btn.actions?.cancel?.(btn);
+        btn.over = false;
+        btn.downPointer = undefined;
         activeButtons.delete(btn);
       });
     }
@@ -211,8 +215,10 @@ function emergencyButtonCleanup(reason = "unknown", netLog = null) {
     netLog.info("📊 Emergency cleanup button states:", buttonStates);
   }
   
-  // Reset all buttons
+  // Reset all buttons - MUST call cancel callback to stop sounds
   activeButtonsArray.forEach(btn => {
+    // Call cancel callback to properly clean up (e.g., stop sounds in notepat)
+    btn.actions?.cancel?.(btn);
     btn.down = false;
     btn.over = false;
     btn.downPointer = undefined;

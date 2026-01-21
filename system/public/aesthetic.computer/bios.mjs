@@ -632,6 +632,7 @@ let speakerProcessorNode = null; // Will be set by boot()
 let backgroundMusicEl = null; // Will be set by boot()
 let backgroundMusicBaseVolume = 1;
 let streamAudio = {}; // Will be populated by boot()
+let audioStarting = false;
 
 function clampVolume(value) {
   const numeric = Number(value);
@@ -2675,6 +2676,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   function startSound() {
+    if (audioStarting) return;
+    if (audioContext && audioContext.state !== "closed" && !window.__acForceStartSound) {
+      return;
+    }
+
+    audioStarting = true;
+
     if (navigator.audioSession) navigator.audioSession.type = "ambient";
 
     // Notify parent of boot progress
@@ -2694,20 +2702,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Main audio feed
     // 🎹 In DAW mode, use Ableton's sample rate; otherwise try high sample rate on Chrome desktop
     let targetSampleRate;
+    const requestedSampleRate =
+      typeof window !== "undefined" && Number.isFinite(window.__acSampleRate)
+        ? window.__acSampleRate
+        : null;
     if (_dawSampleRate) {
       // DAW mode: match Ableton's sample rate for proper sync
       targetSampleRate = _dawSampleRate;
       console.log("🎹 DAW mode: Using Ableton sample rate:", targetSampleRate);
+    } else if (requestedSampleRate) {
+      targetSampleRate = requestedSampleRate;
     } else {
-      // Non-DAW mode: Try higher sample rate on Chrome desktop for lower latency
-      const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
-      const isDesktop = !/Mobile|Android|iPhone|iPad/.test(navigator.userAgent);
-      const tryHighSampleRate = isChrome && isDesktop;
-      targetSampleRate = tryHighSampleRate ? 192000 : 48000;
+      // Force 48kHz for consistent audio across all platforms
+      // (Dynamic reinit to change sample rates was causing audio breakage)
+      targetSampleRate = 48000;
     }
     
+    let latencyHint =
+      (typeof window !== "undefined" && window.__acLatencyHint) ||
+      "interactive"; // "interactive" = lowest latency, "balanced" = default, "playback" = prioritize battery
+
+    if (latencyHint === "low" || latencyHint === "min") {
+      latencyHint = 0.005;
+    }
+
     audioContext = new AudioContext({
-      latencyHint: "interactive", // "interactive" = lowest latency, "balanced" = default, "playback" = prioritize battery
+      latencyHint,
       sampleRate: targetSampleRate,
     });
 
@@ -2747,6 +2767,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // });
 
     // BGM Analyser
+    if (analyserSrc) {
+      try {
+        analyserSrc.disconnect();
+      } catch (e) {
+        console.warn("🎵 Audio init: failed to disconnect analyser source", e);
+      }
+    }
+
     analyserCtx = new AudioContext();
     analyserSrc = analyserCtx.createMediaElementSource(backgroundMusicEl);
     analyser = analyserCtx.createAnalyser();
@@ -3082,6 +3110,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Set flag to indicate worklet is ready
         window.audioWorkletReady = true;
 
+        // Apply speaker performance mode hint if provided
+        const speakerPerfMode =
+          typeof window !== "undefined" ? window.__acSpeakerPerformanceMode : null;
+        if (speakerPerfMode) {
+          speakerProcessor.port.postMessage({
+            type: "performance:mode",
+            content: { mode: speakerPerfMode },
+          });
+        }
+
+        // 🔬 Speaker telemetry (queue/running sizes) for stability tests
+        if (typeof window !== 'undefined') {
+          window.__speaker_telemetry = window.__speaker_telemetry || {
+            queueLength: 0,
+            runningCount: 0,
+            performanceMode: 'auto',
+            lastUpdate: 0,
+          };
+        }
+
         updateBubble = function (bubble) {
           speakerProcessor.port.postMessage({ type: "bubble", data: bubble });
         };
@@ -3169,6 +3217,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             send({ type: "sfx:killed", content: msg.content });
             return;
           }
+
+          if (msg.type === "telemetry") {
+            if (typeof window !== 'undefined') {
+              window.__speaker_telemetry = window.__speaker_telemetry || {};
+              window.__speaker_telemetry.queueLength = msg.content.queueLength || 0;
+              window.__speaker_telemetry.runningCount = msg.content.runningCount || 0;
+              window.__speaker_telemetry.performanceMode = msg.content.performanceMode || 'auto';
+              window.__speaker_telemetry.lastUpdate = Date.now();
+            }
+            return;
+          }
           
           // 🎛️ VST Bridge Mode - forward audio samples to native plugin
           if (msg.type === "vst:samples") {
@@ -3219,12 +3278,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         processPendingSfx();
 
         modal.classList.remove("on");
+        audioStarting = false;
         } catch (workletError) {
           console.error("🎵 BIOS: Audio worklet setup failed:", workletError);
+        audioStarting = false;
         }
       })();
     } catch (e) {
       console.error("🎵 BIOS: Sound failed to initialize:", e);
+    audioStarting = false;
     }
 
     function enableAudioPlayback(skip = false) {
@@ -4330,6 +4392,83 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //  willReadFrequently: true,
   // });
   let tapeManager; // Multi-tape manager for smooth transitions (tv.mjs)
+
+    async function reinitAudioSystem(options = {}) {
+      const { latencyHint, sampleRate, speakerPerformanceMode } = options;
+
+      if (latencyHint !== undefined) {
+        window.__acLatencyHint = latencyHint;
+      }
+      if (Number.isFinite(sampleRate)) {
+        window.__acSampleRate = sampleRate;
+      }
+      if (speakerPerformanceMode) {
+        window.__acSpeakerPerformanceMode = speakerPerformanceMode;
+      }
+
+      try {
+        speakerProcessorNode?.port?.postMessage?.({ type: "kill:all" });
+      } catch (e) {
+        console.warn("🎵 Audio reinit: failed to kill sounds", e);
+      }
+
+      while (audioStarting) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      try {
+        analyserSrc?.disconnect?.();
+        analyser?.disconnect?.();
+        await analyserCtx?.close?.();
+      } catch (e) {
+        console.warn("🎵 Audio reinit: failed to close analyser context", e);
+      }
+
+      try {
+        if (backgroundMusicEl) {
+          backgroundMusicEl.pause?.();
+          backgroundMusicEl.src = "";
+          backgroundMusicEl.remove?.();
+        }
+      } catch (e) {
+        console.warn("🎵 Audio reinit: failed to reset background music", e);
+      }
+
+      backgroundMusicEl = document.createElement("audio");
+      backgroundMusicEl.id = "background-music";
+      backgroundMusicEl.crossOrigin = "anonymous";
+      wrapper.appendChild(backgroundMusicEl);
+      currentBackgroundTrack = null;
+
+      try {
+        if (audioContext) {
+          await audioContext.close();
+        }
+      } catch (e) {
+        console.warn("🎵 Audio reinit: failed to close AudioContext", e);
+      }
+
+      audioContext = null;
+      speakerProcessorNode = null;
+      window.audioWorkletReady = false;
+
+      window.__acForceStartSound = true;
+      startSound();
+      window.__acForceStartSound = false;
+
+      // Wait for the worklet to be fully initialized before returning
+      const maxWaitMs = 5000;
+      const startWait = performance.now();
+      while (!window.audioWorkletReady && performance.now() - startWait < maxWaitMs) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      
+      if (!window.audioWorkletReady) {
+        console.error("🎵 Audio reinit: Timed out waiting for worklet to initialize");
+      } else {
+        console.log("🎵 Audio reinit complete, sample rate:", audioContext?.sampleRate);
+      }
+    }
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
@@ -12574,6 +12713,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "audio:reinit") {
+      await reinitAudioSystem(content || {});
+      return;
+    }
+
     if (type === "download") {
       receivedDownload(content);
       return;
@@ -12971,52 +13115,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             });
           }
           
-          // 🎵 UNLOCK AUDIO SYSTEM WITH AUDIBLE TRIGGER
-          // Play a very short audible tone to ensure audio is fully unlocked for programmatic playback
-          if (audioContext && triggerSound) {
-            try {
-              console.log("🎵 TAPE_START: Triggering short audible tone to unlock system");
-              // Create a very short 50ms tone at low volume to unlock audio
-              const unlockBuffer = audioContext.createBuffer(2, Math.floor(audioContext.sampleRate * 0.05), audioContext.sampleRate);
-              const leftChannel = unlockBuffer.getChannelData(0);
-              const rightChannel = unlockBuffer.getChannelData(1);
-              
-              // Generate a very quiet 440Hz tone for 50ms
-              for (let i = 0; i < unlockBuffer.length; i++) {
-                const sample = Math.sin(2 * Math.PI * 440 * i / audioContext.sampleRate) * 0.01; // Very low volume
-                leftChannel[i] = sample;
-                rightChannel[i] = sample;
-              }
-              
-              const unlockResult = triggerSound({
-                id: "tape_unlock_audible",
-                type: "sample", 
-                options: {
-                  buffer: {
-                    channels: [leftChannel, rightChannel],
-                    sampleRate: audioContext.sampleRate,
-                    length: unlockBuffer.length
-                  },
-                  label: "tape_unlock",
-                  from: 0,
-                  to: 1,
-                  speed: 1,
-                  loop: false
-                }
-              });
-              
-              // Stop the unlock sound after a short delay
-              setTimeout(() => {
-                if (unlockResult && unlockResult.kill) {
-                  unlockResult.kill(0.01); // Quick fade
-                }
-              }, 100);
-              
-              console.log("🎵 TAPE_START: Audible unlock trigger sent successfully");
-            } catch (error) {
-              console.log("🎵 TAPE_START: Audible unlock trigger failed:", error.message);
-            }
-          }
+          // Audio unlock tone removed - it was causing unwanted sound on piece load
           
           // 🎵 PRELOAD AND DECODE PIECE AUDIO FOR INSTANT PLAYBACK
           // For pieces like wipppps that need immediate audio, force decode their audio assets
