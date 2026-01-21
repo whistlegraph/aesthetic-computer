@@ -382,6 +382,12 @@ from = "/api/version"
 to = "/.netlify/functions/version"
 status = 200
 
+# FF1 API routes
+[[redirects]]
+from = "/api/ff1/*"
+to = "/.netlify/functions/ff1-:splat"
+status = 200
+
 # Serve type/font assets locally (allow dev edits to BDF files)
 # This must come BEFORE the general /assets/* proxy below
 # force = true ensures this takes precedence over the /assets/* rule
@@ -710,7 +716,7 @@ force = true
 # FF1 API routes - kidlisp.com/api/ff1/*
 [[redirects]]
 from = "https://kidlisp.com/api/ff1/*"
-to = "https://aesthetic.computer/.netlify/functions/ff1-:splat"
+to = "https://aesthetic.computer/api/ff1/:splat"
 status = 200
 force = true
 [[redirects]]
@@ -726,7 +732,7 @@ force = true
 # FF1 API routes - www.kidlisp.com/api/ff1/*
 [[redirects]]
 from = "https://www.kidlisp.com/api/ff1/*"
-to = "https://aesthetic.computer/.netlify/functions/ff1-:splat"
+to = "https://aesthetic.computer/api/ff1/:splat"
 status = 200
 force = true
 [[redirects]]
@@ -756,7 +762,7 @@ force = true
 # FF1 API routes - device.kidlisp.com/api/ff1/*
 [[redirects]]
 from = "https://device.kidlisp.com/api/ff1/*"
-to = "/.netlify/functions/ff1-:splat"
+to = "/api/ff1/:splat"
 status = 200
 force = true
 [[redirects]]
