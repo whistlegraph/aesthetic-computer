@@ -274,74 +274,14 @@
       // Hide boot screen when iframe loads
       iframe.addEventListener('load', () => {
         logDevice('iframe loaded');
-        // Don't hide boot screen automatically - wait for AC to signal ready
+        bubbleAnimating = false;
+        setTimeout(() => bootScreen.classList.add('hidden'), 500);
       });
       
       // Listen for iframe errors
       iframe.addEventListener('error', (e) => {
         addLog(`iframe error: ${e.message || 'unknown'}`, 'error');
       });
-      
-      // Listen for messages from AC iframe
-      window.addEventListener('message', (event) => {
-        const data = event.data;
-        if (!data) return;
-        
-        // Log all messages for debugging
-        if (typeof data === 'object') {
-          if (data.type) {
-            addLog(`msg: ${data.type}`);
-          }
-          // Hide boot screen when AC signals ready
-          if (data.type === 'ac-ready' || data.type === 'disk-loaded') {
-            logDevice('AC ready, hiding boot screen');
-            bubbleAnimating = false;
-            setTimeout(() => bootScreen.classList.add('hidden'), 300);
-          }
-          // Show errors
-          if (data.type === 'error' || data.error) {
-            addLog(`AC error: ${data.error || data.message || JSON.stringify(data)}`, 'error');
-          }
-        }
-      });
-      
-      // Vignette element
-      const vignette = document.getElementById('vignette');
-      
-      // Fallback: reload page after 16s if stuck
-      // Start vignette warning at 12s (4s before reload)
-      setTimeout(() => {
-        if (!bootScreen.classList.contains('hidden')) {
-          addLog('warning - still loading...', 'warn');
-          vignette.classList.add('warning');
-        }
-      }, 12000);
-      
-      // Danger at 14s
-      setTimeout(() => {
-        if (!bootScreen.classList.contains('hidden')) {
-          addLog('danger - preparing to reload...', 'warn');
-          vignette.classList.remove('warning');
-          vignette.classList.add('danger');
-        }
-      }, 14000);
-      
-      // Critical at 15s
-      setTimeout(() => {
-        if (!bootScreen.classList.contains('hidden')) {
-          addLog('critical - reloading in 1s...', 'error');
-          vignette.classList.remove('danger');
-          vignette.classList.add('critical');
-        }
-      }, 15000);
-      
-      // Reload at 16s
-      setTimeout(() => {
-        if (!bootScreen.classList.contains('hidden')) {
-          addLog('timeout - reloading page', 'error');
-          window.location.reload();
-        }
-      }, 16000);
     }
     
     // Start
