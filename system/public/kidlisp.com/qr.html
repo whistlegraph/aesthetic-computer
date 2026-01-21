@@ -58,28 +58,7 @@
         display: flex;
         gap: 8px;
       }
-      input {
-        flex: 1;
-        background: rgba(255,255,255,0.08);
-        border: 1px solid rgba(255,255,255,0.2);
-        color: #fff;
-        padding: 8px 10px;
-        border-radius: 6px;
-        font-size: 12px;
-      }
-      button {
-        background: rgba(255,255,255,0.16);
-        border: 1px solid rgba(255,255,255,0.3);
-        color: #fff;
-        padding: 8px 12px;
-        border-radius: 6px;
-        font-size: 12px;
-        cursor: pointer;
-      }
-      button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
+
       .token-note {
         margin-top: 10px;
         font-size: 11px;
@@ -90,13 +69,14 @@
   <body>
     <div class="card">
       <h1>Pair FF1</h1>
-      <p>Open the FF1 app on your phone, tap the painting’s QR code, and scan it here.</p>
+      <p>Point your camera at the QR code shown on your TV.</p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin:12px 0;font-size:32px;">
+        <span>📱</span>
+        <span style="font-size:20px;opacity:0.5;">→</span>
+        <span>📺</span>
+      </div>
       <video id="video" autoplay playsinline muted></video>
       <div class="status" id="status">Waiting for camera…</div>
-      <div class="manual">
-        <input id="topic-input" type="text" placeholder="Paste Topic ID" autocomplete="off" />
-        <button id="submit-btn">Save</button>
-      </div>
       <div class="token-note" id="token-note"></div>
     </div>
 
@@ -108,8 +88,6 @@
       const video = document.getElementById('video');
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
-      const input = document.getElementById('topic-input');
-      const submitBtn = document.getElementById('submit-btn');
       const tokenNote = document.getElementById('token-note');
 
       const params = new URLSearchParams(window.location.search);
@@ -154,7 +132,6 @@
         }
 
         setStatus('Saving…');
-        submitBtn.disabled = true;
         try {
           const response = await fetch('/.netlify/functions/ff1-pair', {
             method: 'POST',
@@ -168,21 +145,8 @@
           setStatus('Paired! You can close this window.', 'success');
         } catch (err) {
           setStatus(`Error: ${err.message}`, 'error');
-        } finally {
-          submitBtn.disabled = false;
         }
       }
-
-      submitBtn.addEventListener('click', () => {
-        submitTopicId(input.value.trim());
-      });
-
-      input.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          submitTopicId(input.value.trim());
-        }
-      });
 
       async function startCamera() {
         try {
@@ -215,9 +179,8 @@
               submitTopicId(topicID);
               return;
             } else {
-              setStatus(`QR detected: "${code.data.substring(0, 80)}..." - no Topic ID pattern found.`, 'error');
-              // Show it in input so user can manually copy/check
-              input.value = code.data;
+              setStatus(`QR detected but format not recognized. Looking for FF1 pairing QR...`, 'error');
+              console.log('Unrecognized QR data:', code.data);
             }
           }
         }
