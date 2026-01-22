@@ -1402,14 +1402,14 @@ async function startContainerAndEmacs(dockerPath, webContents) {
   
   console.log('[main] Starting PTY with size:', cols, 'x', rows);
   writeEmacsLog(`PTY size: ${cols}x${rows}\n`);
-  writeEmacsLog(`Command: emacsclient -nw -c --eval "(aesthetic-backend 'llm)"\n`);
+  writeEmacsLog(`Command: emacsclient -nw -c --eval "(aesthetic-backend 'artery)"\n`);
   
   // Connect PTY - run aesthetic-backend to set up tabs
   ptyProcessFor3D = pty.spawn(dockerPath, [
     'exec', '-it', '-e', 'LANG=en_US.UTF-8', '-e', 'LC_ALL=en_US.UTF-8',
     '-e', `COLUMNS=${cols}`, '-e', `LINES=${rows}`,
     'aesthetic',
-    'emacsclient', '-nw', '-c', '--eval', "(aesthetic-backend 'llm)"
+    'emacsclient', '-nw', '-c', '--eval', "(aesthetic-backend 'artery)"
   ], {
     name: 'xterm-256color',
     cols: cols,
