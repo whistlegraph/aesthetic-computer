@@ -1379,13 +1379,13 @@ function ac-pix
     echo "" # Add space after sixel in eat
 end
 
-# Full aesthetic platform restart (emacs + reconnect llm)
+# Full aesthetic platform restart (emacs + reconnect artery)
 function ac-restart
     echo "🔄 Full aesthetic platform restart..."
     ac-emacs-restart
     if test $status -eq 0
-        echo "🤖 Reconnecting to llm..."
-        emacsclient -nw -c --eval '(aesthetic-backend (quote "llm"))'
+        echo "🩸 Reconnecting to artery..."
+        emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
     end
 end
 
@@ -1505,7 +1505,7 @@ end
 
 # For fast config reloading - simple approach
 function platform
-    emacsclient -nw -c --eval '(aesthetic-backend (quote "llm"))'
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
 end
 
 function ensure-emacs-daemon-ready
@@ -1707,7 +1707,7 @@ function aesthetic
     
     # Connect to emacs and run aesthetic-backend to create all tabs
     echo "🚀 Connecting to aesthetic platform..."
-    emacsclient -nw -c --eval '(aesthetic-backend (quote "llm"))'
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
     set -l exit_code $status
     if test $exit_code -ne 0
         echo ""
@@ -1733,7 +1733,7 @@ function aesthetic-direct
     end
     
     # Connect to emacs with aesthetic-backend
-    emacsclient -nw -c --eval '(aesthetic-backend (quote "llm"))'
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
 end
 
 # TODO: Automatically kill online mode and go to offline mode if necessary.

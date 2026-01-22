@@ -934,20 +934,13 @@ function computeMidiBadgeMetrics(
   rateLabel = null,
   rateText = null,
 ) {
-  const textWidth = MIDI_BADGE_TEXT.length * glyphMetrics.width;
-  const rateLabelWidth = rateLabel ? rateLabel.length * glyphMetrics.width : 0;
-  const rateWidth = rateText ? rateText.length * glyphMetrics.width : 0;
-  const rateLineWidth =
-    rateLabelWidth > 0
-      ? rateLabelWidth + MIDI_RATE_LABEL_GAP + rateWidth
-      : rateWidth;
+  const combinedText = rateText
+    ? `${MIDI_BADGE_TEXT} ${MIDI_RATE_LABEL_TEXT} ${rateText}`
+    : MIDI_BADGE_TEXT;
+  const combinedWidth = combinedText.length * glyphMetrics.width;
   const width =
-    Math.max(textWidth, rateLineWidth) + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
-  const lineGap = rateText ? 2 : 0;
-  const height =
-    glyphMetrics.height * (rateText ? 2 : 1) +
-    MIDI_BADGE_PADDING_Y * 2 +
-    lineGap;
+    combinedWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
+  const height = glyphMetrics.height + MIDI_BADGE_PADDING_Y * 2;
   
   // In compact mode, center the badge at bottom
   const x = compactMode 
@@ -1302,6 +1295,9 @@ function paint({
     wipe(bg);
   }
 
+  const isSplitMode = screen.height < 200;
+  const modeTypeface = isSplitMode ? "MatrixChunky8" : undefined;
+
   // 🎛️ Mode toggle buttons (quick, room, slide)
   if (quickBtn && !paintPictureOverlay && !projector) {
     quickBtn.paint((btn) => {
@@ -1312,7 +1308,7 @@ function paint({
       }
       box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
       ink(quickFade ? (btn.down ? "lime" : "green") : (btn.down ? "gray" : "darkgray"));
-      write("quick", btn.box.x + 3, btn.box.y + 2);
+      write("quick", btn.box.x + 3, btn.box.y + 2, undefined, undefined, false, modeTypeface);
     });
   }
 
@@ -1325,7 +1321,7 @@ function paint({
       }
       box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
       ink(roomMode ? (btn.down ? "cyan" : "blue") : (btn.down ? "gray" : "darkgray"));
-      write("room", btn.box.x + 3, btn.box.y + 2);
+      write("room", btn.box.x + 3, btn.box.y + 2, undefined, undefined, false, modeTypeface);
     });
   }
 
@@ -1338,7 +1334,7 @@ function paint({
       }
       box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
       ink(slide ? (btn.down ? "orange" : "red") : (btn.down ? "gray" : "darkgray"));
-      write("slide", btn.box.x + 3, btn.box.y + 2);
+      write("slide", btn.box.x + 3, btn.box.y + 2, undefined, undefined, false, modeTypeface);
     });
   }
 
@@ -1616,48 +1612,20 @@ function paint({
     const { x, y, width, height } = metrics;
     const bgColor = connected ? connectedBackground : disconnectedBackground;
     const textColor = connected ? connectedText : disconnectedText;
-    const lineGap = rateText ? 2 : 0;
+    const combinedText = rateText
+      ? `${MIDI_BADGE_TEXT} ${MIDI_RATE_LABEL_TEXT} ${rateText}`
+      : MIDI_BADGE_TEXT;
 
     ink(...bgColor).box(x, y, width, height);
 
     ink(...textColor).write(
-      MIDI_BADGE_TEXT,
+      combinedText,
       { x: x + MIDI_BADGE_PADDING_X, y: y + MIDI_BADGE_PADDING_Y },
       undefined,
       undefined,
       false,
       "MatrixChunky8",
     );
-
-    if (rateText) {
-      const rateWidth = rateText.length * matrixGlyphMetrics.width;
-      const rateLabelWidth = rateLabel ? rateLabel.length * matrixGlyphMetrics.width : 0;
-      const rateY =
-        y + MIDI_BADGE_PADDING_Y + matrixGlyphMetrics.height + lineGap;
-
-      if (rateLabel) {
-        ink(...rateTextColor).write(
-          rateLabel,
-          { x: x + MIDI_BADGE_PADDING_X, y: rateY },
-          undefined,
-          undefined,
-          false,
-          "MatrixChunky8",
-        );
-      }
-
-      ink(...rateTextColor).write(
-        rateText,
-        {
-          x: x + width - MIDI_BADGE_PADDING_RIGHT - rateWidth,
-          y: rateY,
-        },
-        undefined,
-        undefined,
-        false,
-        "MatrixChunky8",
-      );
-    }
   };
 
 
@@ -3714,6 +3682,9 @@ function act({
           buttonNote = note.toLowerCase();
         }
 
+        // Store the exact note mapped for this key to ensure reliable key-up cleanup
+        downs[key] = buttonNote;
+
         // Adjust active octave based on extension note
         // if needed.
 
@@ -3803,6 +3774,7 @@ function act({
       }
 
       if (downs[key]) {
+        const heldNote = typeof downs[key] === "string" ? downs[key] : null;
         delete downs[key];
 
         // let buttonNote = key;
@@ -3907,7 +3879,7 @@ function act({
           return buttonNote;
         }
 
-        const buttonNote = noteFromKey(key);
+        const buttonNote = heldNote ?? noteFromKey(key);
 
         const orderedTones = orderedByCount(tonestack);
 
