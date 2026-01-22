@@ -746,7 +746,8 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
     isFallback: true,
     isEmpty: true, // Track that this is an empty/silent clock
   };
-  console.log("🎵 EARLY MELODY STATE SET (empty):", melodyState?.type, melodyState?.notes?.length, "notes");
+  // Debug log disabled for cleaner output
+  // console.log("🎵 EARLY MELODY STATE SET (empty):", melodyState?.type, melodyState?.notes?.length, "notes");
 
   // Determine the melody string from params or API
   let isFallbackMelody = false;
@@ -755,7 +756,7 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
   // If so, fetch the melody from the store-clock API
   if (params[0] && params[0].startsWith("*")) {
     const code = params[0].slice(1); // Remove * prefix
-    console.log(`🎵 Fetching cached melody for code: *${code}`);
+    // console.log(`🎵 Fetching cached melody for code: *${code}`);
     
     try {
       const response = await fetch(
@@ -765,12 +766,12 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
       if (response.ok) {
         const data = await response.json();
         if (data.source) {
-          console.log(`🎵 Loaded cached melody: ${data.source}`);
+          // console.log(`🎵 Loaded cached melody: ${data.source}`);
           // Set the code immediately since we already have it
           cachedClockCode = code;
           // Store the author handle for byline display
           cachedClockAuthor = data.handle || null;
-          console.log(`🎵 Clock author: ${cachedClockAuthor || 'anon'}`);
+          // console.log(`🎵 Clock author: ${cachedClockAuthor || 'anon'}`);
           api.send({ type: "clock:cached", content: { code: cachedClockCode, author: cachedClockAuthor } });
           
           // Use the fetched melody as if it was passed directly
@@ -799,14 +800,14 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
     // No melody provided - empty/silent clock
     originalMelodyString = "";
     isFallbackMelody = true;
-    console.log(`🎵 EMPTY CLOCK: silent mode, no melody`);
+    // console.log(`🎵 EMPTY CLOCK: silent mode, no melody`);
   }
 
-  console.log(`🎵 About to process melody: "${originalMelodyString}", isFallback: ${isFallbackMelody}`);
+  // console.log(`🎵 About to process melody: "${originalMelodyString}", isFallback: ${isFallbackMelody}`);
   
   // Handle empty clock - no melody, just black screen and silence
   if (!originalMelodyString || originalMelodyString.trim() === "") {
-    console.log(`🎵 Empty clock - silent mode`);
+    // console.log(`🎵 Empty clock - silent mode`);
     melodyState = {
       notes: [],
       index: 0,
@@ -827,16 +828,16 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
 
     // Convert notepat notation to standard notation before parsing
     const convertedMelodyString = convertNotepatNotation(originalMelodyString);
-    console.log(`🎵 Original: "${originalMelodyString}"`);
-    console.log(`🎵 Converted: "${convertedMelodyString}"`);
+    // console.log(`🎵 Original: "${originalMelodyString}"`);
+    // console.log(`🎵 Converted: "${convertedMelodyString}"`);
     
     // Parse the melody string - first try sequential (with > separators), falls back to simultaneous
     melodyTracks = parseSequentialMelody(convertedMelodyString, octave);
-    console.log(`🎵 Parsed melodyTracks:`, melodyTracks?.type, `tracks:`, melodyTracks?.tracks?.length, `sequences:`, melodyTracks?.sequences?.length);
+    // console.log(`🎵 Parsed melodyTracks:`, melodyTracks?.type, `tracks:`, melodyTracks?.tracks?.length, `sequences:`, melodyTracks?.sequences?.length);
 
     // Handle sequential melodies (sections separated by >)
     if (melodyTracks.type === 'sequential') {
-      console.log(`🎵 Sequential melody detected with ${melodyTracks.sequences.length} sections`);
+      // console.log(`🎵 Sequential melody detected with ${melodyTracks.sequences.length} sections`);
       
       // Get the first sequence to start with
       const firstSequence = melodyTracks.sequences[0];
@@ -3145,13 +3146,14 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
     });
   }
 
-  // DEBUG: Dump geometry for all timeline items - THROTTLED
-  const now = performance.now();
-  if (now - (globalThis._lastGeomDump || 0) > 2000) { // Every 2 seconds
-    globalThis._lastGeomDump = now;
-    globalThis._collectGeom = true;
-    globalThis._geomItems = [];
-  }
+  // DEBUG: Geometry collection disabled for cleaner console output
+  // Uncomment below to enable geometry debugging:
+  // const now = performance.now();
+  // if (now - (globalThis._lastGeomDump || 0) > 2000) { // Every 2 seconds
+  //   globalThis._lastGeomDump = now;
+  //   globalThis._collectGeom = true;
+  //   globalThis._geomItems = [];
+  // }
 
   sortedTimelineItems.forEach((historyItem) => {
     const {
@@ -5092,7 +5094,7 @@ let musicalState = {
 function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
   if (!simDebugLogged) {
     simDebugLogged = true;
-    console.log("🎵 SIM FIRST RUN - melodyState:", melodyState?.type, "notes:", melodyState?.notes?.length);
+    // console.log("🎵 SIM FIRST RUN - melodyState:", melodyState?.type, "notes:", melodyState?.notes?.length);
   }
   sound.speaker?.poll();
 
@@ -5858,23 +5860,49 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             // All tracks start from the same precise UTC second boundary
             const utcStartTime = Math.ceil(currentTimeMs / 1000) * 1000;
             trackState.nextNoteTargetTime = utcStartTime;
+            
+            // Calculate total track duration and store for cycle tracking
+            const trackTotalBeats = trackState.track.reduce((sum, n) => sum + n.duration, 0);
+            const trackTotalMs = trackTotalBeats * melodyState.baseTempo;
+            trackState.expectedCycleDuration = trackTotalMs;
+            trackState.loopCount = 0;
+            trackState.cycleStartTime = currentTimeMs;
+            
+            // Log track initialization with key timing info
+            const restInfo = trackState.track[0]?.note === 'rest' ? ` (has leading rest)` : '';
+            console.log(`⏱️ T${trackIndex + 1} INIT | ${trackTotalBeats} beats = ${trackTotalMs}ms expected cycle${restInfo}`);
 
-            // Find first audible note in this track
+            // INDEPENDENT LOOPING FIX: Skip leading rests by advancing nextNoteTargetTime 
+            // instead of changing noteIndex. This preserves the track's total duration.
+            let leadingRestBeats = 0;
             let firstAudibleIndex = 0;
             while (
               firstAudibleIndex < trackState.track.length &&
               trackState.track[firstAudibleIndex].note === "rest"
             ) {
+              leadingRestBeats += trackState.track[firstAudibleIndex].duration;
               firstAudibleIndex++;
             }
 
-            if (
-              firstAudibleIndex > 0 &&
-              firstAudibleIndex < trackState.track.length
-            ) {
+            if (firstAudibleIndex > 0 && firstAudibleIndex < trackState.track.length) {
+              // Instead of skipping notes, advance the time past the rests
+              // This way the first audible note plays immediately but the track
+              // still has the same total duration as designed
               trackState.noteIndex = firstAudibleIndex;
+              trackState.nextNoteTargetTime = utcStartTime; // First audible note plays NOW
+              
+              // Store both the offset and the first audible index for proper loop handling
+              trackState.initialRestOffset = leadingRestBeats * melodyState.baseTempo;
+              trackState.firstAudibleNoteIndex = firstAudibleIndex;
+              
+              // Leading rests skipped - cycle timing preserved via initialRestOffset
             } else if (firstAudibleIndex >= trackState.track.length) {
               trackState.noteIndex = 0;
+              trackState.initialRestOffset = 0;
+              trackState.firstAudibleNoteIndex = 0;
+            } else {
+              trackState.initialRestOffset = 0;
+              trackState.firstAudibleNoteIndex = 0;
             }
           }
 
@@ -6061,6 +6089,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
 
               // Advance to next note in this track
               const oldIndex = trackState.noteIndex;
+              const playedNoteIndex = trackState.noteIndex; // Save for logging
               trackState.noteIndex =
                 (trackState.noteIndex + 1) % trackState.track.length;
 
@@ -6069,6 +6098,26 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                 oldIndex === trackState.track.length - 1 &&
                 trackState.noteIndex === 0
               ) {
+                // INDEPENDENT LOOPING FIX: When looping, skip leading rests again and add offset
+                // This ensures the track maintains its full duration across loops
+                if (trackState.initialRestOffset > 0 && trackState.firstAudibleNoteIndex > 0) {
+                  trackState.noteIndex = trackState.firstAudibleNoteIndex;
+                  trackState.nextNoteTargetTime += trackState.initialRestOffset;
+                }
+                
+                // CYCLE TRACKING: Log when each track completes a full loop
+                trackState.loopCount = (trackState.loopCount || 0) + 1;
+                const actualCycleDuration = currentTimeMs - (trackState.cycleStartTime || currentTimeMs);
+                // First cycle is shorter if we skipped leading rests (no offset added yet)
+                const isFirstCycle = trackState.loopCount === 1;
+                const expectedDuration = isFirstCycle 
+                  ? (trackState.expectedCycleDuration || 0) - (trackState.initialRestOffset || 0)
+                  : (trackState.expectedCycleDuration || 0);
+                const drift = actualCycleDuration - expectedDuration;
+                const status = Math.abs(drift) < 100 ? '✓' : (drift > 0 ? `⚠️ +${drift}ms DELAYED` : `⚡ ${drift}ms EARLY`);
+                console.log(`⏱️ T${trackIndex + 1} loop ${trackState.loopCount} @ ${Math.round(currentTimeMs)}ms | cycle: ${Math.round(actualCycleDuration)}ms (expected: ${expectedDuration}ms ${status})`);
+                trackState.cycleStartTime = currentTimeMs;
+                
                 // Check if this track has mutations
                 if (trackState.track.hasMutation) {
                   const originalTrack = [...trackState.track];
@@ -6127,10 +6176,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
               // of the previous note, respecting inherited duration modifiers like c.defg..ef
               trackState.nextNoteTargetTime = trackState.nextNoteTargetTime + noteDuration;
               
-              // DEBUG: Log timing calculation for sticky duration debugging
-              if (trackIndex === 0 && note !== "rest") {
-
-              }
+              // Per-note logging removed - use cycle logs for timing debug
             }
           }
         });

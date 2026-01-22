@@ -12648,10 +12648,10 @@ async function makeFrame({ data: { type, content } }) {
         // 📱 HUD QR code - generate cells and calculate width
         let hudQRSize = 0;
         let hudQRPadding = 0;
-        // Debug: Log QR state on first few frames
-        if (pieceFrameCount < 3) {
-          console.log("📱 HUD QR render check - frame:", pieceFrameCount, "currentHUDQR:", JSON.stringify(currentHUDQR), "currentHUDQRCells:", !!currentHUDQRCells);
-        }
+        // Debug: Log QR state on first few frames (disabled for cleaner output)
+        // if (pieceFrameCount < 3) {
+        //   console.log("📱 HUD QR render check - frame:", pieceFrameCount, "currentHUDQR:", JSON.stringify(currentHUDQR), "currentHUDQRCells:", !!currentHUDQRCells);
+        // }
         if (currentHUDQR) {
           // Generate QR cells if not cached
           if (!currentHUDQRCells) {
