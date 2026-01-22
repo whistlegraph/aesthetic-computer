@@ -3256,7 +3256,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         speakerProcessor.connect(sfxStreamGain); // Connect to the mediaStream.
         speakerProcessor.connect(speakerGain);
-        console.log("🔊 Speaker processor connected to audio graph!");
+        // console.log("🔊 Speaker processor connected to audio graph!");
 
         applyMasterVolume(masterVolume);
 
@@ -11663,7 +11663,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         input.addEventListener("focus", (e) => {
-          console.log("⌨️🟢 [input focus event] keyboardOpen was:", keyboardOpen, "method:", keyboardOpenMethod);
+          // console.log("⌨️🟢 [input focus event] keyboardOpen was:", keyboardOpen, "method:", keyboardOpenMethod);
           if (keyboardOpen) return;
           // input.removeAttribute("readonly");
           keyboardOpen = true;
@@ -11830,7 +11830,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
-      console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
+      // console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
       
       // 🧹 Clean up any GPU/stats/glaze state from previous piece
       // This ensures cleanup even if the previous piece's leave() failed
@@ -12317,13 +12317,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:close") {
       // if (keyboardFocusLock) return; // Deprecated: 23.10.02.23.18
-      console.log("⌨️🔴 [bios keyboard:close handler] calling keyboard.input.blur()");
+      // console.log("⌨️🔴 [bios keyboard:close handler] calling keyboard.input.blur()");
       keyboard?.input.blur();
       return;
     }
 
     if (type === "keyboard:open") {
-      console.log("⌨️🟢 [bios keyboard:open handler] calling keyboard.input.focus()");
+      // console.log("⌨️🟢 [bios keyboard:open handler] calling keyboard.input.focus()");
       if (keyboardFocusLock) return;
       keyboardFocusLock = false;
       currentPieceHasKeyboard = true;
