@@ -1992,6 +1992,8 @@
       padding: 16px;
       box-sizing: border-box;
       gap: 8px;
+      overflow: auto;
+      position: relative;
     }
     #boot-screen-ff1 .ff1-logo {
       height: 48px;
@@ -2000,6 +2002,7 @@
       object-fit: contain;
       filter: invert(1);
       transition: height 0.2s ease, margin 0.2s ease;
+      flex-shrink: 0;
     }
     #boot-screen-ff1 .boot-text {
       color: white !important;
@@ -2020,15 +2023,20 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       gap: 12px;
       margin-top: 16px;
       width: 100%;
       max-width: 280px;
+      box-sizing: border-box;
     }
     .ff1-paired-row {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 10px;
+      flex-wrap: wrap;
+      width: 100%;
     }
     .ff1-btn {
       background: rgba(255,255,255,0.15);
@@ -2039,21 +2047,29 @@
       font-size: 12px;
       cursor: pointer;
       transition: background 0.2s;
+      white-space: nowrap;
     }
     .ff1-btn:hover { background: rgba(255,255,255,0.25); }
     .ff1-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .ff1-status {
       font-size: 12px;
       color: rgba(255,255,255,0.7);
+      text-align: center;
     }
     .ff1-status.success { color: #4ade80; }
     .ff1-status.error { color: #f87171; }
     .ff1-pairing {
       display: none;
+      position: absolute;
+      inset: 0;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       gap: 10px;
-      width: 100%;
+      background: #1a1a1a;
+      box-sizing: border-box;
+      padding: 16px;
+      z-index: 10;
     }
     .ff1-pairing.open { display: flex; }
     .ff1-pairing-hint {
@@ -2061,17 +2077,24 @@
       opacity: 0.7;
       text-align: center;
       line-height: 1.4;
+      max-width: 200px;
+      color: white;
     }
     .ff1-pairing-qr {
-      width: 160px;
-      height: 160px;
+      width: 140px;
+      height: 140px;
+      min-width: 80px;
+      min-height: 80px;
       background: #fff;
       border-radius: 6px;
       image-rendering: pixelated;
+      flex-shrink: 0;
     }
     .ff1-pairing-status {
       font-size: 11px;
       opacity: 0.6;
+      text-align: center;
+      color: white;
     }
     .ff1-pairing-link {
       font-size: 10px;
@@ -2079,6 +2102,8 @@
       word-break: break-all;
       text-align: center;
       cursor: pointer;
+      max-width: 100%;
+      color: white;
     }
     .ff1-pairing-link:hover { text-decoration: underline; }
     
@@ -2199,7 +2224,7 @@
     
     /* Responsive boot screens - using @container for modern browsers */
     @supports (container-type: size) {
-      /* FF1 responsive - reflow on small panels */
+      /* FF1 responsive - reflow on small panels (HEIGHT) */
       @container preview (max-height: 180px) {
         #boot-screen-ff1 .ff1-logo {
           height: 32px;
@@ -2222,6 +2247,121 @@
         }
         #boot-screen-ff1 .boot-text-action {
           display: none;
+        }
+      }
+      
+      /* FF1 responsive - WIDTH-based adjustments for narrow panels */
+      @container preview (max-width: 380px) {
+        #boot-screen-ff1 .ff1-settings {
+          max-width: 100%;
+          padding: 0 8px;
+        }
+        #boot-screen-ff1 .ff1-pairing-qr {
+          width: 120px;
+          height: 120px;
+        }
+        #boot-screen-ff1 .ff1-pairing-hint {
+          font-size: 10px;
+        }
+      }
+      @container preview (max-width: 300px) {
+        #boot-screen-ff1 {
+          padding: 8px;
+          gap: 4px;
+        }
+        #boot-screen-ff1 .ff1-logo {
+          height: 28px;
+        }
+        #boot-screen-ff1 .boot-text-title {
+          font-size: 12px;
+        }
+        #boot-screen-ff1 .boot-text-action {
+          font-size: 9px;
+        }
+        #boot-screen-ff1 .ff1-settings {
+          margin-top: 8px;
+          gap: 8px;
+        }
+        #boot-screen-ff1 .ff1-pairing-qr {
+          width: 100px;
+          height: 100px;
+        }
+        #boot-screen-ff1 .ff1-btn {
+          padding: 6px 10px;
+          font-size: 10px;
+        }
+      }
+      @container preview (max-width: 240px) {
+        #boot-screen-ff1 .ff1-logo {
+          height: 22px;
+        }
+        #boot-screen-ff1 .boot-text-title {
+          font-size: 11px;
+        }
+        #boot-screen-ff1 .boot-text-action {
+          display: none;
+        }
+        #boot-screen-ff1 .ff1-pairing-qr {
+          width: 80px;
+          height: 80px;
+        }
+        #boot-screen-ff1 .ff1-pairing-hint {
+          font-size: 9px;
+        }
+        #boot-screen-ff1 .ff1-pairing-link {
+          font-size: 8px;
+        }
+      }
+      
+      /* FF1 responsive - COMBINED narrow+short for extreme cases */
+      @container preview (max-width: 300px) and (max-height: 300px) {
+        #boot-screen-ff1 {
+          flex-direction: column !important;
+          justify-content: flex-start !important;
+          align-items: center !important;
+          padding: 8px;
+          gap: 4px;
+          overflow-y: auto;
+        }
+        #boot-screen-ff1 .ff1-logo {
+          height: 24px;
+        }
+        #boot-screen-ff1 .ff1-settings {
+          margin-top: 4px;
+        }
+        #boot-screen-ff1 .ff1-pairing {
+          gap: 6px;
+        }
+        #boot-screen-ff1 .ff1-pairing-qr {
+          width: 80px;
+          height: 80px;
+        }
+      }
+      
+      /* FF1 responsive - wide layout when there's enough width */
+      @container preview (min-width: 500px) and (min-height: 280px) {
+        #boot-screen-ff1 {
+          flex-direction: row !important;
+          flex-wrap: wrap;
+          justify-content: center !important;
+          align-items: center !important;
+          gap: 24px;
+          padding: 16px 24px;
+        }
+        #boot-screen-ff1 .ff1-settings {
+          max-width: none;
+          flex-direction: row;
+          align-items: center;
+          gap: 20px;
+        }
+        #boot-screen-ff1 .ff1-pairing {
+          flex-direction: row;
+          align-items: center;
+          gap: 16px;
+        }
+        #boot-screen-ff1 .ff1-pairing-qr {
+          width: 140px;
+          height: 140px;
         }
       }
       
@@ -2301,6 +2441,34 @@
         }
         #boot-screen-ableton .ableton-boot-logo {
           width: 40px;
+        }
+      }
+      /* Width-based fallbacks for FF1 */
+      @media (max-width: 380px) {
+        #boot-screen-ff1 .ff1-settings {
+          max-width: 100%;
+          padding: 0 8px;
+        }
+        #boot-screen-ff1 .ff1-pairing-qr {
+          width: 120px;
+          height: 120px;
+        }
+      }
+      @media (max-width: 300px) {
+        #boot-screen-ff1 {
+          padding: 8px;
+          gap: 4px;
+        }
+        #boot-screen-ff1 .ff1-logo {
+          height: 28px;
+        }
+        #boot-screen-ff1 .ff1-pairing-qr {
+          width: 100px;
+          height: 100px;
+        }
+        #boot-screen-ff1 .ff1-btn {
+          padding: 6px 10px;
+          font-size: 10px;
         }
       }
     }
@@ -7934,7 +8102,7 @@
               </div>
               <div class="ff1-pairing" id="ff1-pairing">
                 <canvas id="ff1-qr-canvas" class="ff1-pairing-qr"></canvas>
-                <div class="ff1-pairing-hint">Scan with phone → then scan your TV's QR</div>
+                <div class="ff1-pairing-hint">1. Show FF1 QR on your TV in the Feral File App<br>2. Scan this QR with your iPhone<br>3. Scan your TV</div>
                 <div class="ff1-pairing-status" id="ff1-pairing-status">Waiting…</div>
                 <div class="ff1-pairing-link" id="ff1-pairing-link" title="Click to copy"></div>
               </div>
