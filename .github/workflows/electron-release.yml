@@ -30,6 +30,14 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Ensure Python tooling
+        run: |
+          python --version
+          python -m pip install --upgrade pip setuptools
+
+      - name: Configure npm to use Python
+        run: npm config set python python
+
       - name: Install dependencies
         working-directory: ac-electron
         run: npm ci
@@ -63,6 +71,19 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ac-electron/package-lock.json
 
+      - name: Setup Python for node-gyp
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Ensure Python tooling
+        run: |
+          python --version
+          python -m pip install --upgrade pip setuptools
+
+      - name: Configure npm to use Python
+        run: npm config set python python
+
       - name: Install dependencies
         working-directory: ac-electron
         run: npm ci
@@ -94,6 +115,19 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: ac-electron/package-lock.json
+
+      - name: Setup Python for node-gyp
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Ensure Python tooling
+        run: |
+          python --version
+          python -m pip install --upgrade pip setuptools
+
+      - name: Configure npm to use Python
+        run: npm config set python python
 
       - name: Install dependencies
         working-directory: ac-electron
