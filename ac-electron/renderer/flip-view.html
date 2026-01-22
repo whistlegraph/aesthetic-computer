@@ -254,22 +254,23 @@
       border-radius: 0 6px 6px 0;
     }
 
-    /* Volume control - attached to right edge */
+    /* Volume control - integrated into top-right corner of frame */
     .volume-control {
       position: absolute;
-      right: -26px;
-      top: 18px;
+      right: 0;
+      top: -26px;
       z-index: 240;
       height: 26px;
       display: flex;
       flex-direction: row;
       align-items: center;
       gap: 6px;
-      padding: 4px 10px 4px 8px;
-      border-radius: 0 10px 10px 0;
+      padding: 4px 12px 4px 10px;
+      border-radius: 10px 10px 0 0;
       background: var(--ac-border-solid);
       border: 1px solid var(--ac-border);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+      border-bottom: none;
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
     }
 
     body.midflip .volume-control {
@@ -277,15 +278,22 @@
       border-color: var(--ac-border-solid);
     }
 
+    .volume-icon {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
     .volume-value {
       font-size: 11px;
       color: var(--ac-text);
+      min-width: 20px;
+      text-align: right;
     }
 
     #volume-slider {
       -webkit-appearance: none;
       appearance: none;
-      width: 92px;
+      width: 72px;
       height: 4px;
       background: var(--ac-border-solid);
       border-radius: 2px;
@@ -656,6 +664,7 @@
       </div>
 
       <div class="volume-control" aria-label="Master volume">
+        <span class="volume-icon">🔊</span>
         <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.25" />
         <div class="volume-value" id="volume-value">25</div>
       </div>
@@ -859,6 +868,24 @@
         ipcRenderer.invoke('ac-close-window');
         return;
       }
+      
+      // Check if this is an external URL that should open in the system browser
+      try {
+        const urlObj = new URL(url);
+        const isExternal = !urlObj.hostname.includes('aesthetic.computer') &&
+                          !urlObj.hostname.includes('localhost') &&
+                          !urlObj.hostname.includes('127.0.0.1') &&
+                          !url.startsWith('ac://');
+        
+        if (isExternal) {
+          console.log('[flip] Opening external URL in system browser:', url);
+          ipcRenderer.invoke('open-external-url', url);
+          return;
+        }
+      } catch (err) {
+        console.warn('[flip] Failed to parse URL:', url, err.message);
+      }
+      
       console.log('[flip] Opening new window with url:', url);
       ipcRenderer.invoke('ac-open-window', { url });
     });

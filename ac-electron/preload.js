@@ -51,6 +51,7 @@ try {
     moveWindow: (x, y) => ipcRenderer.send('move-window', { x, y }),
     openWindow: (url) => ipcRenderer.invoke('ac-open-window', { url }),
     closeWindow: () => ipcRenderer.invoke('ac-close-window'),
+    openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
     
     // App info (for desktop.mjs)
     getAppInfo: () => ipcRenderer.invoke('get-app-info'),
