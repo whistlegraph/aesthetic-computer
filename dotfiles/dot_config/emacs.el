@@ -8,6 +8,16 @@
 (defvar ac--startup-time (current-time))
 (defvar ac--last-perf-time (current-time))
 
+;; Boot progress tracking
+(defvar ac--boot-buffer-name "*🚀 Boot*"
+  "Name of the boot progress buffer.")
+(defvar ac--boot-step-count 0
+  "Current step number in boot sequence.")
+(defvar ac--boot-total-steps 14
+  "Total expected steps: artery, fishy, + 10 tabs + cdp + finalize.")
+(defvar ac--boot-start-time nil
+  "Time when boot started.")
+
 (defun ac-debug-log (message)
   "Log a debug message with timestamp."
   (with-temp-buffer
@@ -31,6 +41,169 @@
   (with-temp-buffer
     (insert (format "\n=== NEW SESSION: %s ===\n" (format-time-string "%Y-%m-%d %H:%M:%S")))
     (append-to-file (point-min) (point-max) ac-perf-log-file)))
+
+;;; ===================================================================
+;;; BOOT PROGRESS BUFFER
+;;; ===================================================================
+
+(defface ac-boot-header-face
+  '((t :foreground "#00ff00" :weight bold :height 1.3))
+  "Face for boot header.")
+
+(defface ac-boot-step-pending-face
+  '((t :foreground "#666666"))
+  "Face for pending boot steps.")
+
+(defface ac-boot-step-active-face
+  '((t :foreground "#ffff00" :weight bold))
+  "Face for active boot step.")
+
+(defface ac-boot-step-done-face
+  '((t :foreground "#00ff00"))
+  "Face for completed boot steps.")
+
+(defface ac-boot-step-error-face
+  '((t :foreground "#ff4444" :weight bold))
+  "Face for failed boot steps.")
+
+(defface ac-boot-progress-face
+  '((t :foreground "#00aaff"))
+  "Face for progress bar.")
+
+(defvar ac--boot-steps
+  '(("artery"      . "🩸 Artery dev server")
+    ("fishy"       . "🐟 Fish shell")
+    ("status"      . "📡 Status monitors")
+    ("stripe"      . "💳 Stripe listeners")
+    ("chat"        . "💬 Chat services")
+    ("web 1/2"     . "🌐 Web servers (1/2)")
+    ("web 2/2"     . "🌐 Web servers (2/2)")
+    ("tests"       . "🧪 Test runners")
+    ("views"       . "🖼️ Extension views")
+    ("llm"         . "🤖 LLM interface")
+    ("top"         . "📊 System monitor")
+    ("crash"       . "💥 Crash diary")
+    ("cdp"         . "🔗 CDP tunnel")
+    ("finalize"    . "✨ Finalizing"))
+  "Boot steps with descriptions.")
+
+(defvar ac--boot-step-status (make-hash-table :test 'equal)
+  "Hash table tracking status of each boot step: pending, active, done, error.")
+
+(defun ac--boot-init ()
+  "Initialize the boot progress buffer."
+  (setq ac--boot-start-time (current-time)
+        ac--boot-step-count 0)
+  (clrhash ac--boot-step-status)
+  ;; Set all steps to pending
+  (dolist (step ac--boot-steps)
+    (puthash (car step) 'pending ac--boot-step-status))
+  ;; Create/get the boot buffer
+  (let ((buf (get-buffer-create ac--boot-buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (ac--boot-render)))
+    buf))
+
+(defun ac--boot-render ()
+  "Render the boot progress buffer."
+  (let ((inhibit-read-only t)
+        (elapsed (if ac--boot-start-time
+                     (float-time (time-subtract (current-time) ac--boot-start-time))
+                   0)))
+    (erase-buffer)
+    (insert "\n")
+    (insert (propertize "  ╔══════════════════════════════════════════════════════════════╗\n" 'face 'ac-boot-header-face))
+    (insert (propertize "  ║  🚀 AESTHETIC COMPUTER BOOT SEQUENCE                         ║\n" 'face 'ac-boot-header-face))
+    (insert (propertize "  ╚══════════════════════════════════════════════════════════════╝\n" 'face 'ac-boot-header-face))
+    (insert "\n")
+    
+    ;; Progress bar
+    (let* ((pct (if (> ac--boot-total-steps 0)
+                    (/ (* 100.0 ac--boot-step-count) ac--boot-total-steps)
+                  0))
+           (bar-width 50)
+           (filled (round (* bar-width (/ pct 100.0))))
+           (empty (- bar-width filled)))
+      (insert (format "  Progress: [%s%s] %d%%  (%.1fs)\n\n"
+                      (propertize (make-string filled ?█) 'face 'ac-boot-progress-face)
+                      (make-string empty ?░)
+                      (round pct)
+                      elapsed)))
+    
+    ;; Step list
+    (insert "  ─────────────────────────────────────────────────────────\n")
+    (dolist (step ac--boot-steps)
+      (let* ((step-id (car step))
+             (step-desc (cdr step))
+             (status (gethash step-id ac--boot-step-status 'pending))
+             (indicator (pcase status
+                          ('pending "  ○")
+                          ('active  "  ●")
+                          ('done    "  ✓")
+                          ('error   "  ✗")))
+             (face (pcase status
+                     ('pending 'ac-boot-step-pending-face)
+                     ('active  'ac-boot-step-active-face)
+                     ('done    'ac-boot-step-done-face)
+                     ('error   'ac-boot-step-error-face))))
+        (insert (propertize (format "%s %s\n" indicator step-desc) 'face face))))
+    (insert "  ─────────────────────────────────────────────────────────\n\n")
+    
+    ;; Status message
+    (let ((active-step (cl-find 'active (hash-table-values ac--boot-step-status))))
+      (if active-step
+          (let ((active-id (cl-find-if (lambda (k) (eq (gethash k ac--boot-step-status) 'active))
+                                        (hash-table-keys ac--boot-step-status))))
+            (insert (propertize (format "  ⏳ Currently: %s...\n" 
+                                       (cdr (assoc active-id ac--boot-steps)))
+                               'face 'ac-boot-step-active-face)))
+        (if (= ac--boot-step-count ac--boot-total-steps)
+            (insert (propertize "  ✅ Boot complete!\n" 'face 'ac-boot-step-done-face))
+          (insert "  ⏸ Waiting...\n"))))
+    
+    (insert "\n  Press 'q' to close this buffer, 'g' to refresh\n")
+    (goto-char (point-min))))
+
+(defun ac--boot-update-step (step-id status)
+  "Update STEP-ID to STATUS and refresh display."
+  (puthash step-id status ac--boot-step-status)
+  (when (eq status 'done)
+    (setq ac--boot-step-count (1+ ac--boot-step-count)))
+  ;; Also log it
+  (ac-debug-log (format "BOOT: %s -> %s" step-id status))
+  ;; Update buffer if visible
+  (when-let ((buf (get-buffer ac--boot-buffer-name)))
+    (with-current-buffer buf
+      (ac--boot-render))
+    ;; Force redisplay to show progress
+    (redisplay t)))
+
+(defun ac--boot-start-step (step-id)
+  "Mark STEP-ID as active."
+  (ac--boot-update-step step-id 'active))
+
+(defun ac--boot-complete-step (step-id)
+  "Mark STEP-ID as done."
+  (ac--boot-update-step step-id 'done))
+
+(defun ac--boot-error-step (step-id)
+  "Mark STEP-ID as error."
+  (ac--boot-update-step step-id 'error))
+
+(defun ac-boot-show ()
+  "Show the boot progress buffer."
+  (interactive)
+  (let ((buf (get-buffer ac--boot-buffer-name)))
+    (when buf
+      (display-buffer buf '(display-buffer-pop-up-window)))))
+
+(define-derived-mode ac-boot-mode special-mode "AC-Boot"
+  "Mode for viewing boot progress."
+  (setq buffer-read-only t)
+  (local-set-key (kbd "g") (lambda () (interactive) (ac--boot-render)))
+  (local-set-key (kbd "q") 'quit-window))
 
 ;;; ===================================================================
 ;;; PROFILING & DIAGNOSTICS
@@ -119,6 +292,7 @@
 (global-set-key (kbd "C-c d s") 'ac-profile-start)
 (global-set-key (kbd "C-c d x") 'ac-profile-stop)
 (global-set-key (kbd "C-c d r") 'ac-profile-report)
+(global-set-key (kbd "C-c d b") 'ac-boot-show)  ; Show boot progress
 
 ;;; --- MCP State Awareness Functions ---
 ;; These functions provide structured state info for MCP tools
@@ -1191,7 +1365,7 @@ Skips creation if tab already exists."
     (run-with-timer 0.5 nil
                     (lambda (target)
                       (condition-case nil
-                          (when (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "views"))
+                          (when (member target '("artery" "fishy" "boot" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "views"))
                             (tab-bar-switch-to-tab target))
                         (error nil)))
                     target-tab)
@@ -1202,6 +1376,9 @@ Skips creation if tab already exists."
   (setq ac--backend-started t
         ac--backend-initializing t
         ac--backend-complete nil)
+  
+  ;; Initialize boot progress buffer
+  (ac--boot-init)
   
   ;; Create startup lock file to tell crash monitor we're starting up
   ;; This prevents false "unresponsive" detection during heavy init
@@ -1217,13 +1394,6 @@ Skips creation if tab already exists."
   
   ;; Prevent OSC color query responses from leaking (shows as "11;rgb:..." text)
   (setenv "COLORFGBG" "15;0")
-  ;; NOTE: Disabled the bash watchdog - it may contribute to instability
-  ;; The fish-based crash monitor in config.fish handles recovery instead
-  ;; (let ((watchdog-script (expand-file-name "monitor-emacs.sh" ac--directory-path)))
-  ;;   (when (file-exists-p watchdog-script)
-  ;;     (ac-debug-log "Starting emacs watchdog...")
-  ;;     (start-process "emacs-watchdog" nil "bash" watchdog-script)
-  ;;     (ac-debug-log "Emacs watchdog started")))
   
   ;; Set up a watchdog timer to detect hangs (30 seconds)
   (run-with-timer 30 nil
@@ -1241,112 +1411,149 @@ Skips creation if tab already exists."
             (kill-buffer buf)))
       (error nil))
 
-    ;; Initialize the first tab as "artery" with artery CLI (dev mode with hot-reload)
-    ;; Only create if the tab doesn't already exist
-    (unless (ac--tab-exists-p "artery")
-      (tab-rename "artery")
-      (let ((default-directory ac--directory-path)
-            (buf (or (get-buffer "🩸-artery")
-                     (generate-new-buffer "🩸-artery"))))
-        (with-current-buffer buf
-          (condition-case err
-              (progn
-                (unless (eq major-mode 'eat-mode)
-                  (eat-mode)
-                  (eat-exec buf "🩸-artery" "/usr/bin/fish" nil '("-c" "ac-artery-dev")))
-                ;; Enable semi-char mode so TUI gets individual keypresses
-                (eat-semi-char-mode)
-                ;; Disable evil mode for artery - use emacs state
-                (when (and (boundp 'evil-mode) evil-mode)
-                  (evil-emacs-state)))
-            (error
-             (ac-debug-log (format "Error starting artery eat buffer: %s" err)))))
-        (switch-to-buffer buf)
-        (redisplay t)))  ; Yield to prevent freeze
-
-    ;; Create fishy tab (plain fish shell for quick terminal access via LLM)
-    ;; Only create if the tab doesn't already exist
-    (unless (ac--tab-exists-p "fishy")
-      (tab-new)
-      (tab-rename "fishy")
-      (let ((default-directory ac--directory-path)
-            (buf (or (get-buffer "🐟-fishy")
-                     (generate-new-buffer "🐟-fishy"))))
-        (with-current-buffer buf
-          (condition-case err
-              (progn
-                (unless (eq major-mode 'eat-mode)
-                  (eat-mode)
-                  (eat-exec buf "🐟-fishy" "/usr/bin/fish" nil nil))
-                (eat-semi-char-mode)
-                (when (and (boundp 'evil-mode) evil-mode)
-                  (evil-emacs-state)))
-            (error
-             (ac-debug-log (format "Error starting fishy eat buffer: %s" err)))))
-        (switch-to-buffer buf)
+    ;; Create boot tab FIRST - this shows progress
+    (tab-rename "boot")
+    (let ((boot-buf (get-buffer ac--boot-buffer-name)))
+      (when boot-buf
+        (switch-to-buffer boot-buf)
+        (ac-boot-mode)
         (redisplay t)))
 
-    ;; Create all the split tabs with staggered delays to prevent terminal garbling
+    ;; Initialize artery tab (after short delay to let boot tab render)
+    (run-with-timer 0.1 nil
+                    (lambda ()
+                      (ac--boot-start-step "artery")
+                      (unless (ac--tab-exists-p "artery")
+                        (tab-new)
+                        (tab-rename "artery")
+                        (let ((default-directory ac--directory-path)
+                              (buf (or (get-buffer "🩸-artery")
+                                       (generate-new-buffer "🩸-artery"))))
+                          (with-current-buffer buf
+                            (condition-case err
+                                (progn
+                                  (unless (eq major-mode 'eat-mode)
+                                    (eat-mode)
+                                    (eat-exec buf "🩸-artery" "/usr/bin/fish" nil '("-c" "ac-artery-dev")))
+                                  (eat-semi-char-mode)
+                                  (when (and (boundp 'evil-mode) evil-mode)
+                                    (evil-emacs-state)))
+                              (error
+                               (ac-debug-log (format "Error starting artery eat buffer: %s" err))
+                               (ac--boot-error-step "artery"))))
+                          (switch-to-buffer buf)
+                          (redisplay t)))
+                      (ac--boot-complete-step "artery")
+                      ;; Switch back to boot to show progress
+                      (tab-bar-switch-to-tab "boot")))
+
+    ;; Create fishy tab
+    (run-with-timer 0.3 nil
+                    (lambda ()
+                      (ac--boot-start-step "fishy")
+                      (unless (ac--tab-exists-p "fishy")
+                        (tab-new)
+                        (tab-rename "fishy")
+                        (let ((default-directory ac--directory-path)
+                              (buf (or (get-buffer "🐟-fishy")
+                                       (generate-new-buffer "🐟-fishy"))))
+                          (with-current-buffer buf
+                            (condition-case err
+                                (progn
+                                  (unless (eq major-mode 'eat-mode)
+                                    (eat-mode)
+                                    (eat-exec buf "🐟-fishy" "/usr/bin/fish" nil nil))
+                                  (eat-semi-char-mode)
+                                  (when (and (boundp 'evil-mode) evil-mode)
+                                    (evil-emacs-state)))
+                              (error
+                               (ac-debug-log (format "Error starting fishy eat buffer: %s" err))
+                               (ac--boot-error-step "fishy"))))
+                          (switch-to-buffer buf)
+                          (redisplay t)))
+                      (ac--boot-complete-step "fishy")
+                      (tab-bar-switch-to-tab "boot")))
+
+    ;; Create all the split tabs with optimized delays (reduced from 500ms to 350ms)
     (let ((delay 0.5)
+          (step-delay 0.35)  ; Optimized: was 0.5
           (tab-specs '(("status"   ("url" "tunnel"))
                        ("stripe"   ("stripe-print" "stripe-ticket"))
                        ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
                        ("web 1/2"  ("site" "session"))
                        ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
                        ("tests"    ("kidlisp"))
-                       ("views"    ("views"))  ; Extension views dev server (localhost:5555)
+                       ("views"    ("views"))
                        ("llm"      ("llm"))
                        ("top"      ("top"))
-                       ("crash"    ("crash-diary")))))  ; Crash log viewer tab
+                       ("crash"    ("crash-diary")))))
       (dolist (tab-spec tab-specs)
         (let ((tab-name (car tab-spec))
               (commands (cadr tab-spec))
               (current-delay delay))
           (run-with-timer current-delay nil
                           (lambda (name cmds)
-                            (ac--create-split-tab name cmds)
+                            (ac--boot-start-step name)
+                            (condition-case err
+                                (progn
+                                  (ac--create-split-tab name cmds)
+                                  (ac--boot-complete-step name))
+                              (error
+                               (ac-debug-log (format "Error creating tab %s: %s" name err))
+                               (ac--boot-error-step name)))
+                            ;; Switch back to boot tab to show progress
+                            (when (ac--tab-exists-p "boot")
+                              (tab-bar-switch-to-tab "boot"))
                             (redisplay t))
                           tab-name commands)
-          (setq delay (+ delay 0.5)))))  ; 300ms between each tab
+          (setq delay (+ delay step-delay)))))
 
-    ;; Switch to the requested tab (after all tabs created - 10 tabs * 0.3s = 3s + buffer)
-    (run-with-timer 6.0 nil
-                    (lambda (target)
-                      (condition-case nil
-                          (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "crash" "views"))
-                              (progn
-                                (tab-bar-switch-to-tab target)
-                                ;; Also refresh the buffer to ensure it's scrolled properly
-                                (when (eq major-mode 'eat-mode)
-                                  (goto-char (point-max)))
-                                (redisplay t))
-                            (message "No such tab: %s" target))
-                        (error nil)))
-                    target-tab)
-
-    ;; Start CDP tunnel in background after tabs are created
-    (run-with-timer 8.0 nil #'ac-start-cdp-tunnel-async)
-
-    ;; Retry if tabs did not initialize properly
-    (run-with-timer 9.0 nil
-                    (lambda (target)
-                      (when (and (not ac--backend-complete)
-                                 (< ac--backend-retry-count ac--backend-max-retries))
-                        (setq ac--backend-retry-count (1+ ac--backend-retry-count))
-                        (ac-debug-log (format "Retrying aesthetic-backend (attempt %d)" ac--backend-retry-count))
-                        (aesthetic-backend target)))
-                    target-tab)
-    
-    ;; Remove startup lock file to signal we're done initializing
-    ;; Give a bit more time for everything to settle
-    (run-with-timer 10.0 nil
-                    (lambda ()
-                      (when (file-exists-p ac--startup-lock-file)
-                        (delete-file ac--startup-lock-file)
-                        (ac-debug-log "Removed startup lock - crash monitor now active")
+    ;; Calculate when tabs should be done (10 tabs * 0.35s = 3.5s + 0.5s initial = 4s)
+    (let ((tabs-done-time 4.5))
+      ;; Start CDP tunnel after tabs
+      (run-with-timer tabs-done-time nil
+                      (lambda ()
+                        (ac--boot-start-step "cdp")
+                        (ac-start-cdp-tunnel-async)
+                        ;; CDP is async, mark done after a short delay
+                        (run-with-timer 1.0 nil
+                                        (lambda ()
+                                          (ac--boot-complete-step "cdp")))))
+      
+      ;; Finalize and switch to target tab
+      (run-with-timer (+ tabs-done-time 1.5) nil
+                      (lambda (target)
+                        (ac--boot-start-step "finalize")
+                        ;; Remove startup lock
+                        (when (file-exists-p ac--startup-lock-file)
+                          (delete-file ac--startup-lock-file)
+                          (ac-debug-log "Removed startup lock - crash monitor now active"))
                         (setq ac--backend-complete t
                               ac--backend-initializing nil)
-                        (ac-perf-log "aesthetic-backend initialization complete")))))
+                        (ac--boot-complete-step "finalize")
+                        (ac-perf-log "aesthetic-backend initialization complete")
+                        ;; Show final boot screen for a moment
+                        (run-with-timer 0.5 nil
+                                        (lambda (tgt)
+                                          (condition-case nil
+                                              (when (member tgt '("artery" "fishy" "boot" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top" "crash" "views"))
+                                                (tab-bar-switch-to-tab tgt)
+                                                (when (eq major-mode 'eat-mode)
+                                                  (goto-char (point-max)))
+                                                (redisplay t))
+                                            (error nil)))
+                                        target))
+                      target-tab)
+
+      ;; Retry logic
+      (run-with-timer (+ tabs-done-time 3.0) nil
+                      (lambda (target)
+                        (when (and (not ac--backend-complete)
+                                   (< ac--backend-retry-count ac--backend-max-retries))
+                          (setq ac--backend-retry-count (1+ ac--backend-retry-count))
+                          (ac-debug-log (format "Retrying aesthetic-backend (attempt %d)" ac--backend-retry-count))
+                          (aesthetic-backend target)))
+                      target-tab)))
 
 (defun ac-start-cdp-tunnel-async ()
   "Start CDP tunnel to VS Code host in background (non-blocking)."
