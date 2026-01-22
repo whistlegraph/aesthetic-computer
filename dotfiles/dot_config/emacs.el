@@ -9,7 +9,7 @@
 (defvar ac--last-perf-time (current-time))
 
 ;; Boot progress tracking
-(defvar ac--boot-buffer-name "Boot"
+(defvar ac--boot-buffer-name "boot"
   "Name of the boot progress buffer.")
 (defvar ac--boot-step-count 0
   "Current step number in boot sequence.")
