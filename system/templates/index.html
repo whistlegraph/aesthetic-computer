@@ -161,10 +161,14 @@
       const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABWUlEQVR4nN2Ru0pDQRCGg3fUzk5bEVS0ELxVwQsYTRBvJ5ed3VgZVBB8g1Q+gCDIzq6IluclUktmT1Kk8mWUWT2RTcBep1nmZ//vn53NZP5XOWU3ndTlOIoHe/UE8MxJM8s9SdxuVR9nAnMneph0Up+25esECSwEAGFK3gh4SwIvnDQ5UrgXAN5v7kcJ9HUjWx/iKZwyJ6RsxMkEWPzSTY7A5psVsxaYG+fPYyTNFZ8+qaaHSRjhzcpGrSou+knKdprH70t2Ci+Z7qS56wIAj9M7DPkJskcBIAG96gHKzKdv/X5vkU+/E7B5AtxI4GnBKasSpXf5brBIqulxB/qQjZzO4/uxwe68qZep7l6EXmKNQemv+GIzE5vKHKTL87owpbbCOQK9wj1Jvc59prcSwAqnd6J4hM0pgGGsf9TrA32mACD0Pu/Dp1bNcqJ01gMEFkjYrV/Nf7s+AS1XxDy7PXOrAAAAAElFTkSuQmCC';
       const img = new Image();
       const imgFull = new Image();
+      const pg13Img = new Image();
       let imgFullLoaded = false;
+      let pg13Loaded = false;
       img.src = tinyPng; // Instant load
       imgFull.onload = () => { imgFullLoaded = true; };
       imgFull.src = '/purple-pals.svg';
+      pg13Img.onload = () => { pg13Loaded = true; };
+      pg13Img.src = '/assets/pg-13.png';
       
       // Boot state
       let lines = [];
@@ -175,6 +179,7 @@
       let lastLogTime = performance.now();
       let logBurst = 0;
       const bootStartTime = performance.now();
+      let pg13RevealStart = null;
       
       // User handle display
       let userHandle = null;
@@ -396,6 +401,35 @@
       const setSessionConnected = (connected) => {
         sessionConnected = connected;
         sessionConnectTime = performance.now();
+      };
+
+      const sharpenCanvas = document.createElement('canvas');
+      const sharpenCtx = sharpenCanvas.getContext('2d');
+      let sharpenFrame = 0;
+
+      const applySoftSharpen = () => {
+        if (!sharpenCtx || !W || !H) return;
+        if ((sharpenFrame++ % 2) !== 0) return;
+        const scale = 0.5;
+        const sw = Math.max(1, Math.floor(W * scale));
+        const sh = Math.max(1, Math.floor(H * scale));
+        if (sharpenCanvas.width !== sw) sharpenCanvas.width = sw;
+        if (sharpenCanvas.height !== sh) sharpenCanvas.height = sh;
+        try {
+          sharpenCtx.clearRect(0, 0, sw, sh);
+          sharpenCtx.filter = 'contrast(1.15) saturate(1.05)';
+          sharpenCtx.drawImage(canvas, 0, 0, sw, sh);
+          sharpenCtx.filter = 'none';
+
+          ctx.save();
+          ctx.globalAlpha = 0.25;
+          ctx.globalCompositeOperation = 'overlay';
+          ctx.imageSmoothingEnabled = true;
+          ctx.drawImage(sharpenCanvas, 0, 0, W, H);
+          ctx.restore();
+        } catch {
+          // ignore sharpen failures
+        }
       };
       
       const animate = () => {
@@ -690,6 +724,81 @@
         });
         ctx.globalAlpha = 1;
         
+        // PG-13 badge (bottom-right, above bottom bars, VHS burn-in)
+        if (!isKidlispMode && pg13Loaded) {
+          if (pg13RevealStart === null && (imgFullLoaded || performance.now() - bootStartTime > 900)) {
+            pg13RevealStart = performance.now();
+          }
+          const pgAge = pg13RevealStart ? (performance.now() - pg13RevealStart) / 1000 : 0;
+          const pgReady = pg13RevealStart && pgAge > 0.35;
+          const pgFlicker = pgReady && (Math.sin(t * 18) > -0.2);
+          if (!pgFlicker) {
+            // skip drawing until flicker settles
+          } else {
+          const margin = 8;
+          const bottomSafe = 26;
+          const aspect = (pg13Img.naturalWidth && pg13Img.naturalHeight)
+            ? (pg13Img.naturalWidth / pg13Img.naturalHeight)
+            : 2;
+          const maxW = Math.min(160, Math.max(96, W * 0.185));
+          const badgeW = maxW;
+          const badgeH = badgeW / aspect;
+          const slide = Math.sin(t * 1.2) * 2 + Math.sin(t * 2.4) * 1;
+          const badgeX = W - badgeW - margin + shakeX * 0.4 + 10 + slide;
+          const badgeY = H - badgeH - margin - bottomSafe + shakeY * 0.4;
+          const jitter = 0.6 + chaos * 1.8;
+
+          const revealAlpha = Math.min(1, Math.max(0, (pgAge - 0.35) / 0.8));
+
+          // Color separation pass
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = 0.18 * revealAlpha;
+          ctx.filter = 'hue-rotate(18deg) saturate(1.4)';
+          ctx.imageSmoothingEnabled = true;
+          ctx.drawImage(pg13Img, badgeX - jitter * 1.2, badgeY + jitter * 0.4, badgeW, badgeH);
+          ctx.filter = 'hue-rotate(-18deg) saturate(1.4)';
+          ctx.drawImage(pg13Img, badgeX + jitter * 1.1, badgeY - jitter * 0.5, badgeW, badgeH);
+          ctx.filter = 'none';
+
+          // Burn-in shadow
+          ctx.globalCompositeOperation = 'multiply';
+          ctx.globalAlpha = 0.12 * revealAlpha;
+          ctx.drawImage(pg13Img, badgeX + jitter * 0.5, badgeY + jitter * 0.2, badgeW, badgeH);
+
+          // Neon yellow glow (pre-pass)
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = (0.25 + Math.sin(t * 10) * 0.08) * revealAlpha;
+          ctx.filter = 'blur(6px)';
+          ctx.drawImage(pg13Img, badgeX, badgeY, badgeW, badgeH);
+          ctx.filter = 'none';
+
+          // Main pass
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = 0.88 * revealAlpha;
+          ctx.drawImage(pg13Img, badgeX, badgeY, badgeW, badgeH);
+          ctx.imageSmoothingEnabled = false;
+
+          // Yellow tint on whites (flicker)
+          ctx.globalCompositeOperation = 'multiply';
+          ctx.globalAlpha = (0.4 + Math.sin(t * 8) * 0.12) * revealAlpha;
+          ctx.fillStyle = 'rgb(255, 220, 80)';
+          ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+
+          // Extra scanlines over badge
+          ctx.globalCompositeOperation = 'multiply';
+          ctx.globalAlpha = (0.18 + chaos * 0.15) * revealAlpha;
+          ctx.fillStyle = '#000';
+          for (let y = badgeY; y < badgeY + badgeH; y += 2) {
+            ctx.fillRect(badgeX, y, badgeW, 1);
+          }
+
+          ctx.globalAlpha = 1;
+          }
+        }
+
+        // Soft global sharpen
+        applySoftSharpen();
+
         // Subtle scanlines
         ctx.globalAlpha = 0.03 + chaos * 0.05;
         ctx.fillStyle = '#000';

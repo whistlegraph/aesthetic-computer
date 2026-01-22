@@ -2065,24 +2065,49 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 12px;
       background: #1a1a1a;
       box-sizing: border-box;
       padding: 16px;
       z-index: 10;
+      overflow: auto;
     }
     .ff1-pairing.open { display: flex; }
+    .ff1-pairing-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(255,255,255,0.15);
+      border: none;
+      border-radius: 4px;
+      width: 28px;
+      height: 28px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .ff1-pairing-close:hover { background: rgba(255,255,255,0.25); }
+    .ff1-pairing-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      max-width: 100%;
+    }
     .ff1-pairing-hint {
-      font-size: 11px;
-      opacity: 0.7;
-      text-align: center;
-      line-height: 1.4;
-      max-width: 200px;
+      font-size: 12px;
+      opacity: 0.85;
+      text-align: left;
+      line-height: 1.6;
       color: white;
     }
     .ff1-pairing-qr {
-      width: 140px;
-      height: 140px;
+      width: 120px;
+      height: 120px;
       min-width: 80px;
       min-height: 80px;
       background: #fff;
@@ -2354,14 +2379,56 @@
           align-items: center;
           gap: 20px;
         }
-        #boot-screen-ff1 .ff1-pairing {
-          flex-direction: row;
-          align-items: center;
-          gap: 16px;
-        }
         #boot-screen-ff1 .ff1-pairing-qr {
           width: 140px;
           height: 140px;
+        }
+      }
+      
+      /* FF1 pairing overlay - horizontal layout for wider panels */
+      @container preview (min-width: 420px) {
+        .ff1-pairing-content {
+          flex-direction: row;
+          align-items: center;
+          gap: 24px;
+        }
+        .ff1-pairing-hint {
+          text-align: left;
+        }
+        .ff1-pairing-qr {
+          width: 140px;
+          height: 140px;
+        }
+      }
+      
+      /* FF1 pairing overlay - larger QR for spacious panels */
+      @container preview (min-width: 500px) and (min-height: 300px) {
+        .ff1-pairing-qr {
+          width: 160px;
+          height: 160px;
+        }
+        .ff1-pairing-hint {
+          font-size: 13px;
+        }
+      }
+      
+      /* FF1 pairing overlay - compact vertical for narrow */
+      @container preview (max-width: 300px) {
+        .ff1-pairing {
+          padding: 12px;
+          gap: 8px;
+        }
+        .ff1-pairing-qr {
+          width: 90px;
+          height: 90px;
+        }
+        .ff1-pairing-hint {
+          font-size: 10px;
+        }
+        .ff1-pairing-close {
+          width: 24px;
+          height: 24px;
+          font-size: 14px;
         }
       }
       
@@ -8101,8 +8168,11 @@
                 <button id="ff1-pair-btn" class="ff1-btn">Pair</button>
               </div>
               <div class="ff1-pairing" id="ff1-pairing">
-                <canvas id="ff1-qr-canvas" class="ff1-pairing-qr"></canvas>
-                <div class="ff1-pairing-hint">1. Show FF1 QR on your TV in the Feral File App<br>2. Scan this QR with your iPhone<br>3. Scan your TV</div>
+                <button class="ff1-pairing-close" id="ff1-pairing-close" title="Close">✕</button>
+                <div class="ff1-pairing-content">
+                  <canvas id="ff1-qr-canvas" class="ff1-pairing-qr"></canvas>
+                  <div class="ff1-pairing-hint">1. Show FF1 QR on your TV in the Feral File App<br>2. Scan this QR with your iPhone<br>3. Scan your TV</div>
+                </div>
                 <div class="ff1-pairing-status" id="ff1-pairing-status">Waiting…</div>
                 <div class="ff1-pairing-link" id="ff1-pairing-link" title="Click to copy"></div>
               </div>
@@ -9081,6 +9151,7 @@
       
       const testBtn = document.getElementById('ff1-test-btn');
       const pairBtn = document.getElementById('ff1-pair-btn');
+      const closeBtn = document.getElementById('ff1-pairing-close');
       const linkEl = document.getElementById('ff1-pairing-link');
       const statusEl = document.getElementById('ff1-status');
       
@@ -9094,6 +9165,7 @@
       
       if (testBtn) testBtn.addEventListener('click', testFF1Connection);
       if (pairBtn) pairBtn.addEventListener('click', toggleFF1Pairing);
+      if (closeBtn) closeBtn.addEventListener('click', toggleFF1Pairing);
       if (linkEl) linkEl.addEventListener('click', async () => {
         const text = linkEl.textContent || '';
         if (!text) return;
