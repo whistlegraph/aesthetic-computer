@@ -3489,6 +3489,7 @@ function act({
                 applyPitchBendToNotes([previousKey], { immediate: true });
               } else {
                 sounds[note]?.sound.kill(quickFade ? fastFade : killFade);
+                delete sounds[note]; // Clean up the sound reference after killing
               }
 
               // console.log("🪱 Trail:", note);
@@ -3502,14 +3503,6 @@ function act({
               }
 
               delete tonestack[note]; // Remove this key from the notestack.
-              // Note: sounds[note] already deleted in slide branch above, or killed in else branch
-              //} else {
-              // console.log(note, sounds);
-              // sounds[key]?.sound?.update({
-              //  tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
-              // });
-              // sounds[orderedTones[orderedTones.length - 2]] = sounds[key];
-              //}
             },
           },
           pens?.(),
