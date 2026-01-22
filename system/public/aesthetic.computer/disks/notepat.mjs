@@ -2,8 +2,8 @@
 // Tap the pads to play musical notes, or use the keyboard keys.
 
 /* 📝 Notes 
-   - [x] Make `slide` work with `composite`.
-        (Implemented via update method on composite sound object)
+   - [] Make `slide` work with `composite`.
+        (This may require some refactoring)
    - [] Add recordable samples / custom samples... per key?
      - [] Stored under handle?
    - [🟠] Somehow represent both of these in the graphic layout.
@@ -597,7 +597,6 @@ let paintPictureOverlay = false;
 // let qrcells;
 
 let waveBtn, octBtn;
-let slideBtn, quickBtn, roomBtn; // Mode toggle buttons
 let melodyAliasBtn;
 let melodyAliasDown = false;
 let melodyAliasActiveNote = null;
@@ -792,7 +791,6 @@ function boot({
 
   buildWaveButton(api);
   buildOctButton(api);
-  buildModeButtons(api, computeButtonLayout(screen));
 
   const newOctave =
     parseInt(colon[0]) || parseInt(colon[1]) || parseInt(colon[2]);
@@ -934,13 +932,20 @@ function computeMidiBadgeMetrics(
   rateLabel = null,
   rateText = null,
 ) {
-  const combinedText = rateText
-    ? `${MIDI_BADGE_TEXT} ${MIDI_RATE_LABEL_TEXT} ${rateText}`
-    : MIDI_BADGE_TEXT;
-  const combinedWidth = combinedText.length * glyphMetrics.width;
+  const textWidth = MIDI_BADGE_TEXT.length * glyphMetrics.width;
+  const rateLabelWidth = rateLabel ? rateLabel.length * glyphMetrics.width : 0;
+  const rateWidth = rateText ? rateText.length * glyphMetrics.width : 0;
+  const rateLineWidth =
+    rateLabelWidth > 0
+      ? rateLabelWidth + MIDI_RATE_LABEL_GAP + rateWidth
+      : rateWidth;
   const width =
-    combinedWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
-  const height = glyphMetrics.height + MIDI_BADGE_PADDING_Y * 2;
+    Math.max(textWidth, rateLineWidth) + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
+  const lineGap = rateText ? 2 : 0;
+  const height =
+    glyphMetrics.height * (rateText ? 2 : 1) +
+    MIDI_BADGE_PADDING_Y * 2 +
+    lineGap;
   
   // In compact mode, center the badge at bottom
   const x = compactMode 
@@ -1295,47 +1300,17 @@ function paint({
     wipe(bg);
   }
 
-  const isSplitMode = screen.height < 200;
-  const modeTypeface = isSplitMode ? "MatrixChunky8" : undefined;
-
-  // 🎛️ Mode toggle buttons (quick, room, slide)
-  if (quickBtn && !paintPictureOverlay && !projector) {
-    quickBtn.paint((btn) => {
-      if (quickFade) {
-        ink(btn.down ? [80, 120, 80] : [40, 80, 40]);
-      } else {
-        ink(btn.down ? [60, 60, 60] : [30, 30, 30]);
-      }
-      box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
-      ink(quickFade ? (btn.down ? "lime" : "green") : (btn.down ? "gray" : "darkgray"));
-      write("quick", btn.box.x + 3, btn.box.y + 2, undefined, undefined, false, modeTypeface);
-    });
+  if (slide) {
+    ink(undefined).write("slide", { right: 4, top: 24 });
   }
 
-  if (roomBtn && !paintPictureOverlay && !projector) {
-    roomBtn.paint((btn) => {
-      if (roomMode) {
-        ink(btn.down ? [80, 80, 120] : [40, 40, 80]);
-      } else {
-        ink(btn.down ? [60, 60, 60] : [30, 30, 30]);
-      }
-      box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
-      ink(roomMode ? (btn.down ? "cyan" : "blue") : (btn.down ? "gray" : "darkgray"));
-      write("room", btn.box.x + 3, btn.box.y + 2, undefined, undefined, false, modeTypeface);
-    });
+  if (quickFade) {
+    ink(undefined).write("quick", { left: 6, top: 24 });
   }
 
-  if (slideBtn && !paintPictureOverlay && !projector) {
-    slideBtn.paint((btn) => {
-      if (slide) {
-        ink(btn.down ? [120, 80, 80] : [80, 40, 40]);
-      } else {
-        ink(btn.down ? [60, 60, 60] : [30, 30, 30]);
-      }
-      box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
-      ink(slide ? (btn.down ? "orange" : "red") : (btn.down ? "gray" : "darkgray"));
-      write("slide", btn.box.x + 3, btn.box.y + 2, undefined, undefined, false, modeTypeface);
-    });
+  // 🏠 Room mode indicator
+  if (roomMode) {
+    ink(undefined).write("room", { center: "x", top: 24 });
   }
 
   // wipe(!projector ? bg : 64);
@@ -1612,20 +1587,48 @@ function paint({
     const { x, y, width, height } = metrics;
     const bgColor = connected ? connectedBackground : disconnectedBackground;
     const textColor = connected ? connectedText : disconnectedText;
-    const combinedText = rateText
-      ? `${MIDI_BADGE_TEXT} ${MIDI_RATE_LABEL_TEXT} ${rateText}`
-      : MIDI_BADGE_TEXT;
+    const lineGap = rateText ? 2 : 0;
 
     ink(...bgColor).box(x, y, width, height);
 
     ink(...textColor).write(
-      combinedText,
+      MIDI_BADGE_TEXT,
       { x: x + MIDI_BADGE_PADDING_X, y: y + MIDI_BADGE_PADDING_Y },
       undefined,
       undefined,
       false,
       "MatrixChunky8",
     );
+
+    if (rateText) {
+      const rateWidth = rateText.length * matrixGlyphMetrics.width;
+      const rateLabelWidth = rateLabel ? rateLabel.length * matrixGlyphMetrics.width : 0;
+      const rateY =
+        y + MIDI_BADGE_PADDING_Y + matrixGlyphMetrics.height + lineGap;
+
+      if (rateLabel) {
+        ink(...rateTextColor).write(
+          rateLabel,
+          { x: x + MIDI_BADGE_PADDING_X, y: rateY },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
+        );
+      }
+
+      ink(...rateTextColor).write(
+        rateText,
+        {
+          x: x + width - MIDI_BADGE_PADDING_RIGHT - rateWidth,
+          y: rateY,
+        },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+    }
   };
 
 
@@ -2271,7 +2274,6 @@ function act({
     setupButtons(api);
     buildWaveButton(api);
     buildOctButton(api);
-    buildModeButtons(api, computeButtonLayout(screen));
     // Resize picture to quarter resolution (half width, half height)
     const resizedPictureWidth = Math.max(1, Math.floor(screen.width / 2));
     const resizedPictureHeight = Math.max(1, Math.floor(screen.height / 2));
@@ -2716,15 +2718,15 @@ function act({
       // console.log("🐦 Composite tone:", tone);
 
       let toneA, toneB, toneC, toneD, toneE;
-      let currentBaseFreq = freq(tone);
+      const baseFreq = freq(tone);
 
       toneA = synth({
         type: "sine",
         // attack: 0.5,//attack * 8,
         attack: 0.0025,
         decay: 0.9,
-        tone: currentBaseFreq,
-        // tone: currentBaseFreq + 280 + num.randIntRange(-10, 20),
+        tone: baseFreq,
+        // tone: baseFreq + 280 + num.randIntRange(-10, 20),
         // duration: 0.18,
         duration: "🔁",
         volume: toneVolume * volumeScale,
@@ -2733,7 +2735,7 @@ function act({
 
       // TODO: Can't update straight after triggering.
       // setTimeout(() => {
-      //   toneA.update({ tone: currentBaseFreq, duration: 0.02 });
+      //   toneA.update({ tone: baseFreq, duration: 0.02 });
       // }, 10);
 
       toneB = synth({
@@ -2741,7 +2743,7 @@ function act({
         // attack: attack * 8,
         attack: 0.0025,
         // decay,
-        tone: currentBaseFreq + 9 + num.randIntRange(-1, 1), //+ 8, //num.randIntRange(-5, 5),
+        tone: baseFreq + 9 + num.randIntRange(-1, 1), //+ 8, //num.randIntRange(-5, 5),
         duration: "🔁",
         volume: (toneVolume / 3) * volumeScale, // / 16,
         pan,
@@ -2751,7 +2753,7 @@ function act({
         type: "sawtooth",
         attack,
         decay: 0.9,
-        tone: currentBaseFreq + num.randIntRange(-6, 6),
+        tone: baseFreq + num.randIntRange(-6, 6),
         duration: 0.15 + num.rand() * 0.05,
         volume: (toneVolume / 48) * volumeScale, // / 32,
         pan,
@@ -2763,7 +2765,7 @@ function act({
         type: "triangle",
         attack: 0.999, //attack * 8,
         // decay,
-        tone: currentBaseFreq + 8 + num.randIntRange(-5, 5),
+        tone: baseFreq + 8 + num.randIntRange(-5, 5),
         duration: "🔁",
         volume: (toneVolume / 32) * volumeScale,
         pan,
@@ -2773,38 +2775,14 @@ function act({
         type: "square",
         attack: 0.05, //attack * 8,
         // decay,
-        tone: currentBaseFreq + num.randIntRange(-10, 10),
+        tone: baseFreq + num.randIntRange(-10, 10),
         duration: "🔁",
         volume: (toneVolume / 64) * volumeScale,
         pan,
       });
 
-      // Store the random offsets so we can preserve them during slide updates
-      const offsets = {
-        B: 9 + num.randIntRange(-1, 1),
-        D: 8 + num.randIntRange(-5, 5),
-        E: num.randIntRange(-10, 10),
-      };
-
       return {
         startedAt: toneA?.startedAt || toneB.startedAt,
-        // 🎚️ Update method for slide mode - updates all composite voices
-        update: (payload) => {
-          if (payload.tone !== undefined) {
-            // payload.tone can be a frequency number or a note string
-            const newBaseFreq = typeof payload.tone === "number" 
-              ? payload.tone 
-              : freq(payload.tone);
-            currentBaseFreq = newBaseFreq;
-            const dur = payload.duration || 0.1;
-            // Update all continuous voices to new frequencies
-            toneA?.update?.({ tone: newBaseFreq, duration: dur });
-            toneB?.update?.({ tone: newBaseFreq + offsets.B, duration: dur });
-            // toneC is a one-shot, don't update it
-            toneD?.update?.({ tone: newBaseFreq + offsets.D, duration: dur * 1.4 });
-            toneE?.update?.({ tone: newBaseFreq + offsets.E, duration: dur * 0.5 });
-          }
-        },
         kill: (fade) => {
           toneA?.kill(fade);
           toneB?.kill(fade);
@@ -2816,11 +2794,10 @@ function act({
     } else {
       // Map 'noise' shorthand to 'noise-white' for the synth
       const synthType = wave === "noise" ? "noise-white" : wave;
-      const isNoise = synthType === "noise-white";
       return synth({
         type: synthType,
-        attack: isNoise ? 0.001 : (quickFade ? 0.0015 : attack),
-        decay: isNoise ? 0.92 : undefined, // Fast decay for percussive noise
+        attack: quickFade ? 0.0015 : attack,
+        // decay,
         tone,
         duration: "🔁",
         volume: toneVolume * volumeScale,
@@ -3224,45 +3201,6 @@ function act({
       },
     });
 
-    // 🎛️ Mode toggle button handlers
-    quickBtn?.act(e, {
-      down: () => api.beep(400),
-      push: () => {
-        api.beep();
-        quickFade = !quickFade;
-      },
-    });
-
-    roomBtn?.act(e, {
-      down: () => api.beep(400),
-      push: () => {
-        api.beep();
-        roomMode = !roomMode;
-        room.toggle();
-      },
-    });
-
-    slideBtn?.act(e, {
-      down: () => api.beep(400),
-      push: () => {
-        api.beep();
-        slide = !slide;
-        // When enabling slide mode, kill all but the most recent note
-        if (slide && Object.keys(tonestack).length > 1) {
-          const orderedTones = orderedByCount(tonestack);
-          orderedTones.forEach((tone, index) => {
-            if (index > 0) {
-              sounds[tone]?.sound.kill(quickFade ? fastFade : fade);
-              trail[tone] = 1;
-              delete tonestack[tone];
-              delete sounds[tone];
-              if (buttons[tone]) buttons[tone].down = false;
-            }
-          });
-        }
-      },
-    });
-
     const activateMelodyAlias = () => {
       if (!song || paintPictureOverlay || projector) return false;
       const currentNote = song?.[songIndex]?.[0];
@@ -3453,11 +3391,9 @@ function act({
                 const previousKey = orderedTones[orderedTones.length - 2];
                 sounds[previousKey] = sounds[note];
                 if (sounds[previousKey]) sounds[previousKey].note = previousKey;
-                delete sounds[note]; // Clean up old reference before tonestack cleanup
                 applyPitchBendToNotes([previousKey], { immediate: true });
               } else {
                 sounds[note]?.sound.kill(quickFade ? fastFade : killFade);
-                delete sounds[note]; // Clean up the sound reference after killing
               }
 
               // console.log("🪱 Trail:", note);
@@ -3471,6 +3407,14 @@ function act({
               }
 
               delete tonestack[note]; // Remove this key from the notestack.
+              delete sounds[note];
+              //} else {
+              // console.log(note, sounds);
+              // sounds[key]?.sound?.update({
+              //  tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
+              // });
+              // sounds[orderedTones[orderedTones.length - 2]] = sounds[key];
+              //}
             },
           },
           pens?.(),
@@ -3682,9 +3626,6 @@ function act({
           buttonNote = note.toLowerCase();
         }
 
-        // Store the exact note mapped for this key to ensure reliable key-up cleanup
-        downs[key] = buttonNote;
-
         // Adjust active octave based on extension note
         // if needed.
 
@@ -3774,7 +3715,6 @@ function act({
       }
 
       if (downs[key]) {
-        const heldNote = typeof downs[key] === "string" ? downs[key] : null;
         delete downs[key];
 
         // let buttonNote = key;
@@ -3879,7 +3819,7 @@ function act({
           return buttonNote;
         }
 
-        const buttonNote = heldNote ?? noteFromKey(key);
+        const buttonNote = noteFromKey(key);
 
         const orderedTones = orderedByCount(tonestack);
 
@@ -3914,9 +3854,10 @@ function act({
           const n = noteFromKey(previousKeyRaw);
           sounds[n] = sounds[buttonNote];
           if (sounds[n]) sounds[n].note = n;
-          delete sounds[buttonNote]; // Clean up old reference after transfer
           applyPitchBendToNotes([previousKeyRaw], { immediate: true });
           // console.log("Replaced:", buttonNote, "with:", n);
+
+          // delete sounds[buttonNote];
         } else if (hasSound) {
           // Only kill the sound if we still have a reference to it
           // console.log("Killing sound:", buttonNote);
@@ -4294,128 +4235,6 @@ function buildOctButton({ screen, ui, typeface }) {
   octBtn.id = "oct-button";  // Add identifier for debugging
 }
 
-// � Helper to compute basic layout info for button positioning
-function computeButtonLayout(screen) {
-  const compactMode = screen.height < 200;
-  
-  if (compactMode) {
-    // Compact/DAW mode: split layout with center area
-    const margin = 2;
-    const whiteKeyWidth = 7;
-    const pianoWidth = 14 * whiteKeyWidth;
-    const qKeyWidth = 9;
-    const qKeySpacing = 1;
-    const qwertyWidth = 10 * (qKeyWidth + qKeySpacing);
-    const centerWidth = Math.max(pianoWidth, qwertyWidth) + 4;
-    
-    const notesPerSide = 12;
-    const buttonsPerRow = 4;
-    const totalRows = Math.ceil(notesPerSide / buttonsPerRow);
-    const hudReserved = TOP_BAR_BOTTOM;
-    const bottomPadding = 16;
-    
-    const availableSideWidth = (screen.width - centerWidth) / 2 - margin * 2;
-    const availableHeight = screen.height - hudReserved - bottomPadding - margin;
-    const maxButtonWidth = Math.floor(availableSideWidth / buttonsPerRow);
-    const maxButtonHeight = Math.floor(availableHeight / totalRows);
-    const buttonSize = Math.min(maxButtonWidth, maxButtonHeight);
-    
-    const leftOctaveX = margin;
-    const buttonBlockWidth = buttonsPerRow * buttonSize;
-    const rightOctaveX = screen.width - margin - buttonBlockWidth;
-    const centerX = leftOctaveX + buttonBlockWidth + margin;
-    const centerAreaWidth = rightOctaveX - centerX - margin;
-    
-    return {
-      compactMode: true,
-      splitLayout: true,
-      centerX,
-      centerAreaWidth,
-    };
-  }
-  
-  return {
-    compactMode: false,
-    splitLayout: false,
-    centerX: 0,
-    centerAreaWidth: 0,
-  };
-}
-
-// �🎛️ Build mode toggle buttons (slide, quick, room)
-function buildModeButtons({ screen, ui, typeface, geo }, layout) {
-  const glyphWidth =
-    typeface?.glyphs?.["0"]?.resolution?.[0] ??
-    matrixFont?.glyphs?.["0"]?.resolution?.[0] ??
-    6;
-  const glyphHeight =
-    typeface?.glyphs?.["0"]?.resolution?.[1] ??
-    matrixFont?.glyphs?.["0"]?.resolution?.[1] ??
-    8;
-  
-  const paddingX = 3;
-  const paddingY = 2;
-  const spacing = 2; // Space between buttons
-  const btnHeight = glyphHeight + paddingY * 2;
-  
-  // Calculate widths for each button
-  const quickWidth = "quick".length * glyphWidth + paddingX * 2;
-  const roomWidth = "room".length * glyphWidth + paddingX * 2;
-  const slideWidth = "slide".length * glyphWidth + paddingX * 2;
-  const totalWidth = quickWidth + roomWidth + slideWidth + spacing * 2;
-  
-  let startX, y;
-  
-  if (layout?.compactMode && layout?.splitLayout) {
-    // Split mode: center buttons horizontally in the center area, below QWERTY minimap
-    // The QWERTY minimap ends around y = TOP_BAR_BOTTOM + miniKeyboard + spacing + qwertyHeight
-    // Position below the qwerty minimap
-    const centerX = layout.centerX;
-    const centerAreaWidth = layout.centerAreaWidth;
-    startX = centerX + Math.floor((centerAreaWidth - totalWidth) / 2);
-    // Position below qwerty minimap (approximately)
-    const pianoY = TOP_BAR_BOTTOM + 2;
-    const whiteKeyHeight = 14;
-    const qwertyStartY = pianoY + whiteKeyHeight + QWERTY_MINIMAP_SPACING;
-    const qwertyHeight = 3 * (8 + 1); // 3 rows of 8px keys with 1px spacing
-    y = qwertyStartY + qwertyHeight + 4;
-  } else if (layout?.compactMode) {
-    // Single column compact mode: position on right side, below top bar
-    startX = screen.width - totalWidth - 4;
-    y = TOP_BAR_BOTTOM + 2;
-  } else {
-    // Normal mode: position on right side, below top bar  
-    startX = screen.width - totalWidth - 4;
-    y = TOP_BAR_BOTTOM + 2;
-  }
-  
-  // Position buttons in a row: quick, room, slide
-  const quickX = startX;
-  const roomX = quickX + quickWidth + spacing;
-  const slideX = roomX + roomWidth + spacing;
-  
-  if (!quickBtn) {
-    quickBtn = new ui.Button(quickX, y, quickWidth, btnHeight);
-    quickBtn.id = "quick-button";
-  } else {
-    quickBtn.box = new geo.Box(quickX, y, quickWidth, btnHeight);
-  }
-  
-  if (!roomBtn) {
-    roomBtn = new ui.Button(roomX, y, roomWidth, btnHeight);
-    roomBtn.id = "room-button";
-  } else {
-    roomBtn.box = new geo.Box(roomX, y, roomWidth, btnHeight);
-  }
-  
-  if (!slideBtn) {
-    slideBtn = new ui.Button(slideX, y, slideWidth, btnHeight);
-    slideBtn.id = "slide-button";
-  } else {
-    slideBtn.box = new geo.Box(slideX, y, slideWidth, btnHeight);
-  }
-}
-
 let primaryColor = [0, 0, 0];
 let currentAverage = [0, 0, 0];
 
@@ -4450,15 +4269,3 @@ function averageRGB(colors) {
     )
     .map((sum) => round(sum / colors.length));
 }
-
-// 🏃 Leave - runs when exiting the piece
-function leave({ sound }) {
-  // Reset room mode when leaving
-  if (roomMode) {
-    roomMode = false;
-    sound?.room?.off?.();
-  }
-}
-
-export { boot, sim, paint, act, leave };
-

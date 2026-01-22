@@ -126,7 +126,7 @@
     clock verse 4> chorus 2>  - Verse plays 4x, chorus plays 2x, then loops
 */
 
-// console.log("🕰️ CLOCK MODULE LOADING at", Date.now());
+console.log("🕰️ CLOCK MODULE LOADING at", Date.now());
 
 import {
   parseMelody,
@@ -205,6 +205,7 @@ let octaveFlashTime = 0; // Track when octave changed for flash effect
 let melodyTracks = null; // Will store parsed simultaneous tracks
 let melodyState = null;
 let baseTempo = 500; // Default 500ms per quarter note (120 BPM)
+let maxTrackCountSeen = 1; // Track the highest track count across all sequences (for history persistence)
 
 // History buffer system for visual timeline
 let historyBuffer = []; // Array to store all played notes with timestamps
@@ -691,7 +692,7 @@ async function cacheMelody(melody) {
 
 async function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num, help }) {
   try {
-    // console.log(`🎵 CLOCK BOOT STARTED - params:`, params, `colon:`, colon);
+    console.log(`🎵 CLOCK BOOT STARTED - params:`, params, `colon:`, colon);
   
     // Reset leaving flag when piece starts
     isLeavingPiece = false;
@@ -746,8 +747,7 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
     isFallback: true,
     isEmpty: true, // Track that this is an empty/silent clock
   };
-  // Debug log disabled for cleaner output
-  // console.log("🎵 EARLY MELODY STATE SET (empty):", melodyState?.type, melodyState?.notes?.length, "notes");
+  console.log("🎵 EARLY MELODY STATE SET (empty):", melodyState?.type, melodyState?.notes?.length, "notes");
 
   // Determine the melody string from params or API
   let isFallbackMelody = false;
@@ -756,7 +756,7 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
   // If so, fetch the melody from the store-clock API
   if (params[0] && params[0].startsWith("*")) {
     const code = params[0].slice(1); // Remove * prefix
-    // console.log(`🎵 Fetching cached melody for code: *${code}`);
+    console.log(`🎵 Fetching cached melody for code: *${code}`);
     
     try {
       const response = await fetch(
@@ -766,12 +766,12 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
       if (response.ok) {
         const data = await response.json();
         if (data.source) {
-          // console.log(`🎵 Loaded cached melody: ${data.source}`);
+          console.log(`🎵 Loaded cached melody: ${data.source}`);
           // Set the code immediately since we already have it
           cachedClockCode = code;
           // Store the author handle for byline display
           cachedClockAuthor = data.handle || null;
-          // console.log(`🎵 Clock author: ${cachedClockAuthor || 'anon'}`);
+          console.log(`🎵 Clock author: ${cachedClockAuthor || 'anon'}`);
           api.send({ type: "clock:cached", content: { code: cachedClockCode, author: cachedClockAuthor } });
           
           // Use the fetched melody as if it was passed directly
@@ -800,14 +800,14 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
     // No melody provided - empty/silent clock
     originalMelodyString = "";
     isFallbackMelody = true;
-    // console.log(`🎵 EMPTY CLOCK: silent mode, no melody`);
+    console.log(`🎵 EMPTY CLOCK: silent mode, no melody`);
   }
 
-  // console.log(`🎵 About to process melody: "${originalMelodyString}", isFallback: ${isFallbackMelody}`);
+  console.log(`🎵 About to process melody: "${originalMelodyString}", isFallback: ${isFallbackMelody}`);
   
   // Handle empty clock - no melody, just black screen and silence
   if (!originalMelodyString || originalMelodyString.trim() === "") {
-    // console.log(`🎵 Empty clock - silent mode`);
+    console.log(`🎵 Empty clock - silent mode`);
     melodyState = {
       notes: [],
       index: 0,
@@ -828,16 +828,16 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
 
     // Convert notepat notation to standard notation before parsing
     const convertedMelodyString = convertNotepatNotation(originalMelodyString);
-    // console.log(`🎵 Original: "${originalMelodyString}"`);
-    // console.log(`🎵 Converted: "${convertedMelodyString}"`);
+    console.log(`🎵 Original: "${originalMelodyString}"`);
+    console.log(`🎵 Converted: "${convertedMelodyString}"`);
     
     // Parse the melody string - first try sequential (with > separators), falls back to simultaneous
     melodyTracks = parseSequentialMelody(convertedMelodyString, octave);
-    // console.log(`🎵 Parsed melodyTracks:`, melodyTracks?.type, `tracks:`, melodyTracks?.tracks?.length, `sequences:`, melodyTracks?.sequences?.length);
+    console.log(`🎵 Parsed melodyTracks:`, melodyTracks?.type, `tracks:`, melodyTracks?.tracks?.length, `sequences:`, melodyTracks?.sequences?.length);
 
     // Handle sequential melodies (sections separated by >)
     if (melodyTracks.type === 'sequential') {
-      // console.log(`🎵 Sequential melody detected with ${melodyTracks.sequences.length} sections`);
+      console.log(`🎵 Sequential melody detected with ${melodyTracks.sequences.length} sections`);
       
       // Get the first sequence to start with
       const firstSequence = melodyTracks.sequences[0];
@@ -1254,24 +1254,9 @@ function paint({
             }
           }
           
-          // Add sequence indicator for sequential melodies
-          let sequenceDisplay = "";
-          if (melodyState && melodyState.type === "sequential" && melodyState.sequences) {
-            const currentSeq = melodyState.sequences[melodyState.currentSequence];
-            const seqNum = melodyState.currentSequence + 1;
-            const totalSeqs = melodyState.sequences.length;
-            const loopNum = (currentSeq?.currentLoop || 0) + 1;
-            const totalLoops = currentSeq?.loopCount || 1;
-            // Show: [seq 1/3 loop 2/4]
-            sequenceDisplay = ` \\cyan\\[${seqNum}/${totalSeqs}`;
-            if (totalLoops > 1) {
-              sequenceDisplay += ` \\yellow\\×${loopNum}/${totalLoops}`;
-            }
-            sequenceDisplay += `\\cyan\\]`;
-          }
-
           // Ensure the space after "clock" doesn't get colored by the melody colors
-          previewStringDecorative = `\\white\\clock \\white\\` + coloredMelody + hzDisplay + sequenceDisplay;
+          // Note: Sequence indicator moved to footer (next to octave controls)
+          previewStringDecorative = `\\white\\clock \\white\\` + coloredMelody + hzDisplay;
         
         // ALWAYS use original melody string for plain text (backspace preservation)
         // This ensures that backspace always returns to the original melody, not mutated state
@@ -2113,6 +2098,67 @@ function paint({
         scale: 1,
       });
     });
+
+    // Paint sequence indicator for sequential melodies (next to octave controls)
+    if (melodyState && melodyState.type === "sequential" && melodyState.sequences) {
+      const currentSeq = melodyState.sequences[melodyState.currentSequence];
+      const seqIndex = melodyState.currentSequence;
+      const totalSeqs = melodyState.sequences.length;
+      const loopNum = (currentSeq?.currentLoop || 0);
+      const totalLoops = currentSeq?.loopCount || 1;
+      
+      // Position to the right of the octave buttons
+      const seqX = startX + totalWidth + 4;
+      const seqY = startY;
+      
+      // Visual block-based indicator - SQUARE blocks
+      const blockSize = buttonHeight; // Square: same width and height
+      const blockGap = 2;
+      
+      // Calculate progress through current section
+      // Get current note index and total notes in this section
+      let currentNoteInSection = 0;
+      let totalNotesInSection = 1;
+      
+      if (melodyState.currentSequenceState) {
+        const seqState = melodyState.currentSequenceState;
+        if (seqState.type === "single" && seqState.notes) {
+          currentNoteInSection = seqState.index || 0;
+          totalNotesInSection = seqState.notes.length || 1;
+        } else if (seqState.type === "parallel" && seqState.trackStates) {
+          // For parallel, use the longest track's progress
+          const maxTrackLen = Math.max(...seqState.trackStates.map(ts => ts.track?.length || 0));
+          const maxNoteIdx = Math.max(...seqState.trackStates.map(ts => ts.noteIndex || 0));
+          currentNoteInSection = maxNoteIdx;
+          totalNotesInSection = maxTrackLen || 1;
+        }
+      }
+      
+      // Calculate overall progress including loops
+      // Progress = (completedLoops * totalNotes + currentNote) / (totalLoops * totalNotes)
+      const totalProgress = (loopNum * totalNotesInSection + currentNoteInSection) / (totalLoops * totalNotesInSection);
+      
+      // Draw each sequence as a block
+      for (let i = 0; i < totalSeqs; i++) {
+        const blockX = seqX + i * (blockSize + blockGap);
+        const isActive = i === seqIndex;
+        const isPast = i < seqIndex;
+        
+        // Block background
+        ink(isPast ? "gray" : (isActive ? "darkblue" : "darkgray")).box(blockX, seqY, blockSize, blockSize);
+        
+        // Fill for completed sections
+        if (isPast) {
+          ink("cyan").box(blockX, seqY, blockSize, blockSize);
+        }
+        
+        // Progress fill for active section
+        if (isActive) {
+          const fillWidth = Math.round(totalProgress * blockSize);
+          ink("cyan").box(blockX, seqY, fillWidth, blockSize);
+        }
+      }
+    }
   }
 
   // No separate UTC time display - consolidated into main clock
@@ -2744,6 +2790,11 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
       trackCount = currentSeqState.trackStates.length;
     }
   }
+  
+  // Track the maximum track count we've seen for persistent history display
+  if (trackCount > maxTrackCountSeen) {
+    maxTrackCountSeen = trackCount;
+  }
 
   // First draw simplified timeline background (background layer)
   drawTimelineBackground(
@@ -2787,10 +2838,11 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
   ink(nowLineColor).line(timelineEndX - crosshairLength, nowLineY, timelineEndX, nowLineY);
 
   // ENABLED: Get ALL history items that would be visible from top to bottom of screen
+  // Use maxTrackCountSeen to preserve history from sequences with more tracks
   const extendedHistoryItems = getExtendedHistoryItems(
     currentTimeMs,
     futureTimeWindowMs,
-    trackCount,
+    maxTrackCountSeen, // Use max seen, not current, to preserve history across sequence changes
     screen.height,
     scaledPixelsPerSecond,
   );
@@ -2911,9 +2963,10 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
   const trackWidths = [];
   
   // Distribute tracks evenly across the timeline width with no gaps or overlaps
-  for (let i = 0; i < trackCount; i++) {
-    const startPos = Math.round((timelineWidth * i) / trackCount);
-    const endPos = Math.round((timelineWidth * (i + 1)) / trackCount);
+  // Use maxTrackCountSeen to include positions for history tracks that may not be in current section
+  for (let i = 0; i < maxTrackCountSeen; i++) {
+    const startPos = Math.round((timelineWidth * i) / maxTrackCountSeen);
+    const endPos = Math.round((timelineWidth * (i + 1)) / maxTrackCountSeen);
     trackPositions.push(timelineStartX + startPos);
     trackWidths.push(endPos - startPos);
   }
@@ -2961,7 +3014,7 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
   const allPositions = new Map();
   
   // Pre-calculate pixel-perfect positions for all notes in each track to eliminate gaps
-  for (let trackIdx = 0; trackIdx < trackCount; trackIdx++) {
+  for (let trackIdx = 0; trackIdx < maxTrackCountSeen; trackIdx++) {
     // Get all notes for this track, sorted chronologically (future → current → history)
     const trackNotes = sortedTimelineItems
       .filter(item => item.trackIndex === trackIdx)
@@ -3062,7 +3115,7 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
     // Group history notes by track index
     const historyByTrack = new Map();
     
-    for (let trackIdx = 0; trackIdx < trackCount; trackIdx++) {
+    for (let trackIdx = 0; trackIdx < maxTrackCountSeen; trackIdx++) {
       const trackHistoryNotes = historyNotes.filter(item => item.trackIndex === trackIdx);
       if (trackHistoryNotes.length > 0) {
         historyByTrack.set(trackIdx, trackHistoryNotes.sort((a, b) => b.endTime - a.endTime));
@@ -3071,89 +3124,87 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
     
     // Calculate positions for each track independently
     historyByTrack.forEach((trackHistoryNotes, trackIdx) => {
-      // Start from the bottom of the active note for this track, or NOW line if no active note
-      let currentEndY = nowLineY;
-      
       // Check if this track is active in the current sequence
       const trackActiveInCurrentSequence = effectiveMelodyStateForViz && 
         effectiveMelodyStateForViz.type === "parallel" && 
         effectiveMelodyStateForViz.trackStates && 
         trackIdx < effectiveMelodyStateForViz.trackStates.length;
       
-      // Find the active note for this specific track using stable timing detection
-      const activeNoteForTrack = sortedTimelineItems.find(item => {
-        if (item.trackIndex !== trackIdx) return false;
-        // Use consistent timing detection to prevent flickering - track-specific for parallel tracks
-        const timingTolerance = 50; // Consistent with main detection logic
-        
-        let isCurrentlyPlayingByTiming = false;
-        if (trackActiveInCurrentSequence) {
+      // Only look for active notes if this track is in the current sequence
+      // For inactive tracks (from previous sections), always use time-based positioning
+      let activeNoteForTrack = null;
+      if (trackActiveInCurrentSequence) {
+        // Find the active note for this specific track using stable timing detection
+        activeNoteForTrack = sortedTimelineItems.find(item => {
+          if (item.trackIndex !== trackIdx) return false;
+          // Use consistent timing detection to prevent flickering - track-specific for parallel tracks
+          const timingTolerance = 50; // Consistent with main detection logic
+          
+          let isCurrentlyPlayingByTiming = false;
           // For parallel tracks, use track-specific timing
           const trackState = effectiveMelodyStateForViz.trackStates[trackIdx];
           if (trackState.lastNoteStartTime > 0) {
             isCurrentlyPlayingByTiming = Math.abs(item.startTime - trackState.lastNoteStartTime) < timingTolerance;
           }
-        } else {
-          // For single tracks, use global timing
-          isCurrentlyPlayingByTiming = lastNoteStartTime > 0 && Math.abs(item.startTime - lastNoteStartTime) < timingTolerance;
-        }
-        
-        const isCurrentlyPlaying = (musicalTimeReference >= item.startTime && musicalTimeReference <= item.endTime) ||
-                                   isCurrentlyPlayingByTiming;
-        return isCurrentlyPlaying;
-      });
+          
+          const isCurrentlyPlaying = (musicalTimeReference >= item.startTime && musicalTimeReference <= item.endTime) ||
+                                      isCurrentlyPlayingByTiming;
+          return isCurrentlyPlaying;
+        });
+      }
       
+      // Calculate starting position for history notes based on active note (if any)
+      let currentEndY = nowLineY;
       if (activeNoteForTrack) {
-        // Calculate where the active note ends for this track using its actual timing
+        // Calculate where the active note ends for this track
         const activeNoteDurationMs = activeNoteForTrack.endTime - activeNoteForTrack.startTime;
         const activeNoteHeightPixels = Math.max(1, Math.round((activeNoteDurationMs / 1000) * scaledPixelsPerSecond));
-        // Use the note's actual timing for progress calculation with smooth positioning
         const noteProgress = (musicalTimeReference - activeNoteForTrack.startTime) / activeNoteDurationMs;
         const noteProgressClamped = Math.max(0, Math.min(1, noteProgress));
-        // For smooth movement, keep as floating point until final render
         const adjustedNoteTopY = nowLineY - activeNoteHeightPixels + noteProgressClamped * activeNoteHeightPixels;
-        const activeNoteStartY = adjustedNoteTopY; // Keep as float for smooth positioning
+        const activeNoteStartY = adjustedNoteTopY;
         const activeNoteEndY = activeNoteStartY + activeNoteHeightPixels;
         currentEndY = activeNoteEndY; // Start history notes from the bottom of the active note
-      } else if (!trackActiveInCurrentSequence && trackHistoryNotes.length > 0) {
-        // This track is NOT active in current sequence (e.g. track 3 when in 3-track sequence)
-        // Position history based on time elapsed since most recent note ended
-        const mostRecentNote = trackHistoryNotes[0]; // Already sorted by endTime descending
-        const timeSinceEnd = (musicalTimeReference - mostRecentNote.endTime) / 1000;
-        const pixelOffset = timeSinceEnd * scaledPixelsPerSecond;
-        // Start positioning from where that note would be on the timeline
-        const mostRecentNoteDuration = mostRecentNote.endTime - mostRecentNote.startTime;
-        const mostRecentNoteHeight = Math.max(1, (mostRecentNoteDuration / 1000) * scaledPixelsPerSecond);
-        currentEndY = nowLineY + pixelOffset + mostRecentNoteHeight;
       }
+      
+      // Check if this track has an active note (to determine positioning strategy)
+      const hasActiveNote = !!activeNoteForTrack;
       
       // Position history notes for this track
       for (const historyNote of trackHistoryNotes) {
         const noteDurationMs = historyNote.endTime - historyNote.startTime;
         const noteHeightPixels = Math.max(1, (noteDurationMs / 1000) * scaledPixelsPerSecond); // Keep as float
         
-        // Position this note so it starts at currentEndY (seamless connection)
-        // Round the start position to ensure pixel-perfect alignment
-        const barStartY = Math.round(currentEndY);
-        const barHeightRounded = Math.max(1, Math.round(noteHeightPixels));
-        const barEndY = barStartY + barHeightRounded;
+        let barStartY, barEndY;
+        
+        if (hasActiveNote) {
+          // Track has active note - chain history notes seamlessly from currentEndY
+          barStartY = Math.round(currentEndY);
+          const barHeightRounded = Math.max(1, Math.round(noteHeightPixels));
+          barEndY = barStartY + barHeightRounded;
+          // Next note (older) should start exactly where this note ends
+          currentEndY = barEndY;
+        } else {
+          // Track has NO active note - use time-based positioning for each note
+          // This ensures history scrolls smoothly down from NOW line based on actual timestamps
+          const timeSinceNoteEnded = (musicalTimeReference - historyNote.endTime) / 1000;
+          // The TOP of this note = nowLineY + time offset (history goes DOWN from NOW)
+          barStartY = Math.round(nowLineY + timeSinceNoteEnded * scaledPixelsPerSecond);
+          barEndY = barStartY + Math.max(1, Math.round(noteHeightPixels));
+        }
         
         historyPositions.set(historyNote, { barStartY, barEndY });
-        
-        // Next note (older) should start exactly where this note ends (use rounded end position)
-        currentEndY = barEndY;
       }
     });
   }
 
-  // DEBUG: Geometry collection disabled for cleaner console output
-  // Uncomment below to enable geometry debugging:
-  // const now = performance.now();
-  // if (now - (globalThis._lastGeomDump || 0) > 2000) { // Every 2 seconds
-  //   globalThis._lastGeomDump = now;
-  //   globalThis._collectGeom = true;
-  //   globalThis._geomItems = [];
-  // }
+  // DEBUG: Dump geometry for all timeline items - THROTTLED
+  const now = performance.now();
+  if (now - (globalThis._lastGeomDump || 0) > 2000) { // Every 2 seconds
+    globalThis._lastGeomDump = now;
+    globalThis._collectGeom = true;
+    globalThis._geomItems = [];
+  }
 
   sortedTimelineItems.forEach((historyItem) => {
     const {
@@ -3174,14 +3225,22 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
     // Current/future notes use the current trackCount
     const isHistoryNote = endTime < musicalTimeReference;
     
-    // For history notes from different sections, use their own track count
-    // This shows how the previous section was laid out visually
-    const effectiveTrackCount = (isHistoryNote && sequenceTrackCount && sequenceTrackCount !== trackCount)
-      ? sequenceTrackCount  // Use the note's own section track count
-      : trackCount;         // Use current section track count
+    // A note should also be treated as "from different section" if its trackIndex
+    // exceeds the current section's track count (e.g., track 1 note when current section has 1 track)
+    const isFromDifferentSection = trackIndex >= trackCount;
     
-    // Skip notes from tracks that don't exist in their own section layout
-    if (trackIndex >= effectiveTrackCount) return;
+    // For history notes OR notes from different sections, use their own track count
+    // This shows how the previous section was laid out visually
+    // Current/future notes use the current section's track count for proper full-width layout
+    const effectiveTrackCount = ((isHistoryNote || isFromDifferentSection) && sequenceTrackCount)
+      ? sequenceTrackCount  // History/different section: use the note's own section track count
+      : trackCount;         // Current/future: use current section track count
+    
+    // Skip notes that can't be rendered properly (shouldn't happen but safety check)
+    if (trackIndex >= effectiveTrackCount) {
+      console.warn(`⚠️ Skipping note ${note}@trk${trackIndex} - trackIndex >= effectiveTrackCount (${effectiveTrackCount})`);
+      return;
+    }
 
     // Calculate track horizontal position using the note's own section track count
     // History notes from 2-track sections stay in their 2-track layout
@@ -3258,11 +3317,19 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
       isNearTrackTiming = lastNoteStartTime > 0 && Math.abs(startTime - lastNoteStartTime) < timingTolerance;
     }
     
-  isCurrentlyPlaying = isWithinNoteTiming || (isNearTrackTiming && !isWithinNoteTiming);
-  
-  // More precise history/future detection to prevent state flickering
-  isHistory = endTime < musicalTimeReference && !isCurrentlyPlaying;
-  isFuture = startTime > musicalTimeReference && !isCurrentlyPlaying;
+  // Notes from different sections (trackIndex >= current trackCount) should ALWAYS
+  // be treated as history, not playing/future - they belong to a previous sequence
+  if (isFromDifferentSection) {
+    isCurrentlyPlaying = false;
+    isHistory = true;
+    isFuture = false;
+  } else {
+    isCurrentlyPlaying = isWithinNoteTiming || (isNearTrackTiming && !isWithinNoteTiming);
+    
+    // More precise history/future detection to prevent state flickering
+    isHistory = endTime < musicalTimeReference && !isCurrentlyPlaying;
+    isFuture = startTime > musicalTimeReference && !isCurrentlyPlaying;
+  }
 
   // DEBUG: Log timing state for debugging skipping - THROTTLED with sequence tracking
   if (note !== "rest" && trackIndex === 0) {
@@ -4955,6 +5022,7 @@ function act({ event: e, clock, sound, screen, ui, typeface, api }) {
 
       // Clear history buffer to remove mutation traces
       historyBuffer = [];
+      maxTrackCountSeen = 1; // Reset max track count on melody reset
       
       console.log("🔄 Mutations reset - melody restored to original state");
     }
@@ -5094,7 +5162,7 @@ let musicalState = {
 function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
   if (!simDebugLogged) {
     simDebugLogged = true;
-    // console.log("🎵 SIM FIRST RUN - melodyState:", melodyState?.type, "notes:", melodyState?.notes?.length);
+    console.log("🎵 SIM FIRST RUN - melodyState:", melodyState?.type, "notes:", melodyState?.notes?.length);
   }
   sound.speaker?.poll();
 
@@ -5223,6 +5291,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           volume || 0.8,
           false, // Not a mutation
           struck,
+          1, // Single track section
         );
         
         // Flash green for special character (speech)
@@ -5290,6 +5359,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             volume || 0.8,
             false, // Not a mutation (mutations are added separately)
             struck,
+            1, // Single track section
           );
 
           // Increment total notes played for persistent white note history
@@ -5315,6 +5385,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           volume || 0.8,
           false,
           struck,
+          1, // Single track section
         );
       }
 
@@ -5860,49 +5931,23 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             // All tracks start from the same precise UTC second boundary
             const utcStartTime = Math.ceil(currentTimeMs / 1000) * 1000;
             trackState.nextNoteTargetTime = utcStartTime;
-            
-            // Calculate total track duration and store for cycle tracking
-            const trackTotalBeats = trackState.track.reduce((sum, n) => sum + n.duration, 0);
-            const trackTotalMs = trackTotalBeats * melodyState.baseTempo;
-            trackState.expectedCycleDuration = trackTotalMs;
-            trackState.loopCount = 0;
-            trackState.cycleStartTime = currentTimeMs;
-            
-            // Log track initialization with key timing info
-            const restInfo = trackState.track[0]?.note === 'rest' ? ` (has leading rest)` : '';
-            console.log(`⏱️ T${trackIndex + 1} INIT | ${trackTotalBeats} beats = ${trackTotalMs}ms expected cycle${restInfo}`);
 
-            // INDEPENDENT LOOPING FIX: Skip leading rests by advancing nextNoteTargetTime 
-            // instead of changing noteIndex. This preserves the track's total duration.
-            let leadingRestBeats = 0;
+            // Find first audible note in this track
             let firstAudibleIndex = 0;
             while (
               firstAudibleIndex < trackState.track.length &&
               trackState.track[firstAudibleIndex].note === "rest"
             ) {
-              leadingRestBeats += trackState.track[firstAudibleIndex].duration;
               firstAudibleIndex++;
             }
 
-            if (firstAudibleIndex > 0 && firstAudibleIndex < trackState.track.length) {
-              // Instead of skipping notes, advance the time past the rests
-              // This way the first audible note plays immediately but the track
-              // still has the same total duration as designed
+            if (
+              firstAudibleIndex > 0 &&
+              firstAudibleIndex < trackState.track.length
+            ) {
               trackState.noteIndex = firstAudibleIndex;
-              trackState.nextNoteTargetTime = utcStartTime; // First audible note plays NOW
-              
-              // Store both the offset and the first audible index for proper loop handling
-              trackState.initialRestOffset = leadingRestBeats * melodyState.baseTempo;
-              trackState.firstAudibleNoteIndex = firstAudibleIndex;
-              
-              // Leading rests skipped - cycle timing preserved via initialRestOffset
             } else if (firstAudibleIndex >= trackState.track.length) {
               trackState.noteIndex = 0;
-              trackState.initialRestOffset = 0;
-              trackState.firstAudibleNoteIndex = 0;
-            } else {
-              trackState.initialRestOffset = 0;
-              trackState.firstAudibleNoteIndex = 0;
             }
           }
 
@@ -5971,6 +6016,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   volume || 0.8,
                   false, // Not a mutation
                   struck,
+                  melodyState.trackStates.length, // Track count for this parallel section
                 );
                 
                 // Flash green for special character (speech)
@@ -6041,6 +6087,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     volume || 0.8,
                     false, // Not a mutation (mutations are added separately)
                     struck,
+                    melodyState.trackStates.length, // Track count for this parallel section
                   );
 
                   totalNotesPlayed++;
@@ -6063,6 +6110,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   volume || 0.8,
                   false,
                   struck,
+                  melodyState.trackStates.length, // Track count for this parallel section
                 );
               }
 
@@ -6089,35 +6137,20 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
 
               // Advance to next note in this track
               const oldIndex = trackState.noteIndex;
-              const playedNoteIndex = trackState.noteIndex; // Save for logging
               trackState.noteIndex =
                 (trackState.noteIndex + 1) % trackState.track.length;
+
+              // DEBUG: Track loop detection
+              if (trackIndex === 1) {
+                console.log(`🎵 Track 2 played note ${oldIndex} (${note}), next=${trackState.noteIndex}`);
+              }
 
               // Check for mutations when this track loops back to beginning
               if (
                 oldIndex === trackState.track.length - 1 &&
                 trackState.noteIndex === 0
               ) {
-                // INDEPENDENT LOOPING FIX: When looping, skip leading rests again and add offset
-                // This ensures the track maintains its full duration across loops
-                if (trackState.initialRestOffset > 0 && trackState.firstAudibleNoteIndex > 0) {
-                  trackState.noteIndex = trackState.firstAudibleNoteIndex;
-                  trackState.nextNoteTargetTime += trackState.initialRestOffset;
-                }
-                
-                // CYCLE TRACKING: Log when each track completes a full loop
-                trackState.loopCount = (trackState.loopCount || 0) + 1;
-                const actualCycleDuration = currentTimeMs - (trackState.cycleStartTime || currentTimeMs);
-                // First cycle is shorter if we skipped leading rests (no offset added yet)
-                const isFirstCycle = trackState.loopCount === 1;
-                const expectedDuration = isFirstCycle 
-                  ? (trackState.expectedCycleDuration || 0) - (trackState.initialRestOffset || 0)
-                  : (trackState.expectedCycleDuration || 0);
-                const drift = actualCycleDuration - expectedDuration;
-                const status = Math.abs(drift) < 100 ? '✓' : (drift > 0 ? `⚠️ +${drift}ms DELAYED` : `⚡ ${drift}ms EARLY`);
-                console.log(`⏱️ T${trackIndex + 1} loop ${trackState.loopCount} @ ${Math.round(currentTimeMs)}ms | cycle: ${Math.round(actualCycleDuration)}ms (expected: ${expectedDuration}ms ${status})`);
-                trackState.cycleStartTime = currentTimeMs;
-                
+                console.log(`🔄 Track ${trackIndex + 1} LOOPED back to start!`);
                 // Check if this track has mutations
                 if (trackState.track.hasMutation) {
                   const originalTrack = [...trackState.track];
@@ -6176,7 +6209,10 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
               // of the previous note, respecting inherited duration modifiers like c.defg..ef
               trackState.nextNoteTargetTime = trackState.nextNoteTargetTime + noteDuration;
               
-              // Per-note logging removed - use cycle logs for timing debug
+              // DEBUG: Log timing calculation for sticky duration debugging
+              if (trackIndex === 0 && note !== "rest") {
+
+              }
             }
           }
         });
