@@ -11637,7 +11637,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // console.log(e.target);
 
-          console.log("⌨️📍 [bios pointerup] hasKB:", currentPieceHasKeyboard, "focusLock:", keyboardFocusLock, "softLock:", keyboardSoftLock, "kbOpen:", keyboardOpen);
+          // console.log("⌨️📍 [bios pointerup] hasKB:", currentPieceHasKeyboard, "focusLock:", keyboardFocusLock, "softLock:", keyboardSoftLock, "kbOpen:", keyboardOpen);
 
           if (
             currentPieceHasKeyboard &&
@@ -11649,13 +11649,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (MetaBrowser && e.target !== window) {
                 // Skip dragging the finger outside of the Meta Browser.
               } else {
-                console.log("⌨️🔴 [bios pointerup] calling input.blur() | keyboardOpen:", keyboardOpen, "target:", e.target?.tagName);
+                // console.log("⌨️🔴 [bios pointerup] calling input.blur() | keyboardOpen:", keyboardOpen, "target:", e.target?.tagName);
                 input.blur();
               }
             } else {
               keyboardOpenMethod = "pointer";
               // input.removeAttribute("readonly");
-              console.log("⌨️🟢 [bios pointerup] calling input.focus() | keyboardOpen:", keyboardOpen);
+              // console.log("⌨️🟢 [bios pointerup] calling input.focus() | keyboardOpen:", keyboardOpen);
               window.focus();
               input.focus();
             }
@@ -11672,18 +11672,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             method: keyboardOpenMethod,
           });
           keyboardOpenMethod = undefined;
-          console.log("⌨️🟢 [input focus event] pushed keyboard:open event");
+          // console.log("⌨️🟢 [input focus event] pushed keyboard:open event");
         });
 
         input.addEventListener("blur", (e) => {
-          console.log("⌨️🔴 [input blur event] keyboardOpen was:", keyboardOpen, new Error().stack);
+          // console.log("⌨️🔴 [input blur event] keyboardOpen was:", keyboardOpen, new Error().stack);
           // input.setAttribute("readonly", true);
           // const temp = input.value;
           // input.value = "";
           // input.value = temp;
           keyboardOpen = false;
           keyboard.events.push({ name: "keyboard:close" });
-          console.log("⌨️🔴 [input blur event] pushed keyboard:close event");
+          // console.log("⌨️🔴 [input blur event] pushed keyboard:close event");
         });
 
         window.addEventListener("blur", (e) => {
