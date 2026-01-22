@@ -463,17 +463,35 @@ class Button {
             reason: "up() returned false"
           });
         } else {
-          btn.down = false;
-          btn.over = false;
-          btn.downPointer = undefined;
-          // Only remove if still in activeButtons (avoid double removal)
-          if (activeButtons.has(btn)) {
-            removeActiveButton(btn, "button up callback", netLog);
+          // Check if any other pens are still touching this button
+          // If so, transfer ownership to one of them instead of fully releasing
+          const otherPensOnButton = (pens || []).filter(pen => 
+            pen && pen.pointer !== e.pointer && btn.box.contains(pen)
+          );
+          
+          if (otherPensOnButton.length > 0 && btn.box.contains(otherPensOnButton[0])) {
+            // Transfer ownership to another pen that's still touching
+            btn.downPointer = otherPensOnButton[0].pointer;
+            // Keep button down, don't call cancel
+            console.log("🔄 Button pointer transferred:", {
+              buttonId: btn.id || "unnamed",
+              fromPointer: e.pointer,
+              toPointer: btn.downPointer,
+              reason: "other pen still touching"
+            });
+          } else {
+            btn.down = false;
+            btn.over = false;
+            btn.downPointer = undefined;
+            // Only remove if still in activeButtons (avoid double removal)
+            if (activeButtons.has(btn)) {
+              removeActiveButton(btn, "button up callback", netLog);
+            }
+            // console.log("🏁 Button fully released:", {
+            //   buttonId: btn.id || "unnamed",
+            //   activeButtonsCount: activeButtons.size
+            // });
           }
-          // console.log("🏁 Button fully released:", {
-          //   buttonId: btn.id || "unnamed",
-          //   activeButtonsCount: activeButtons.size
-          // });
         }
       }
 
@@ -557,6 +575,28 @@ class Button {
             reason: "lift event ignored - waiting for controlling pointer"
           });
         }
+      }
+    }
+    
+    // Additional check: If this is a lift event from a non-controlling pointer,
+    // but NO pens are touching the button anymore, force release it.
+    // This handles the case where the controlling pointer was transferred but then
+    // that new pointer lifted without being tracked properly.
+    if (e.is(`lift:${t}`) && btn.down && !isControllingLiftPointer) {
+      const anyPensOnButton = (pens || []).some(pen => pen && btn.box.contains(pen));
+      if (!anyPensOnButton) {
+        console.log("🧹 Force cleanup - no pens touching button:", {
+          buttonId: btn.id || "unnamed",
+          pointer: e.pointer,
+          downPointer: btn.downPointer
+        });
+        btn.down = false;
+        btn.over = false;
+        btn.downPointer = undefined;
+        if (activeButtons.has(btn)) {
+          removeActiveButton(btn, "force cleanup - no pens touching", netLog);
+        }
+        callbacks.cancel?.(btn);
       }
     }
 
