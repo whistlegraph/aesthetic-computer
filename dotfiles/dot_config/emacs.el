@@ -1279,7 +1279,7 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
          (or (get-buffer-process buf)
              (> (buffer-size buf) 0)))))
 
-(defun ac--create-split-tab (tab-name commands)
+(cl-defun ac--create-split-tab (tab-name commands)
   "Create a new tab with split windows running the specified commands.
 Skips creation if tab already exists."
   ;; Guard: Skip if tab already exists
