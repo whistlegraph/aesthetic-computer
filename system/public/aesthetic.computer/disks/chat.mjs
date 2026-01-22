@@ -1035,47 +1035,6 @@ function paint(
           }
         }
         
-        // Draw border to indicate interactivity
-        // Always show a subtle blinking border, brighter on hover
-        if (linkConfirmModal) {
-          const { yesBtn, noBtn, action } = linkConfirmModal;
-    
-          // Handle hover states
-          if ((e.is("move") || e.is("draw")) && pen) {
-            if (yesBtn && noBtn) {
-              linkConfirmModal.hoverYes = pen.x >= yesBtn.x && pen.x < yesBtn.x + yesBtn.w &&
-                                           pen.y >= yesBtn.y && pen.y < yesBtn.y + yesBtn.h;
-              linkConfirmModal.hoverNo = pen.x >= noBtn.x && pen.x < noBtn.x + noBtn.w &&
-                                          pen.y >= noBtn.y && pen.y < noBtn.y + noBtn.h;
-            }
-          }
-    
-          // Handle clicks
-          if ((e.is("lift") || e.is("touch")) && pen) {
-            if (yesBtn && noBtn) {
-              const clickedYes = pen.x >= yesBtn.x && pen.x < yesBtn.x + yesBtn.w &&
-                                 pen.y >= yesBtn.y && pen.y < yesBtn.y + yesBtn.h;
-              const clickedNo = pen.x >= noBtn.x && pen.x < noBtn.x + noBtn.w &&
-                                pen.y >= noBtn.y && pen.y < noBtn.y + noBtn.h;
-        
-              if (clickedYes) {
-                beep();
-                hud.label(piece); // Set back label to current piece
-                if (action) action(); // Execute the stored action
-                linkConfirmModal = null;
-              } else if (clickedNo) {
-                beep();
-                linkConfirmModal = null; // Just close
-              }
-              // Clicking outside buttons also closes the modal
-              else {
-                beep();
-                linkConfirmModal = null;
-              }
-            }
-          }
-        }
-        
         // Get loading progress (0-1)
         const progress = paintingLoadProgress.get(code) || 0;
         
