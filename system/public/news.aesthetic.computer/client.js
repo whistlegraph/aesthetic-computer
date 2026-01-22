@@ -984,8 +984,28 @@ async function navigateTo(url, { push = true } = {}) {
     return;
   }
 
+  const currentWrapper = document.querySelector('.news-wrapper');
+  
+  // Helper to wait for transition end
+  const waitForTransition = (el, duration = 150) => new Promise(resolve => {
+    const timeout = setTimeout(resolve, duration + 50); // fallback
+    el.addEventListener('transitionend', function handler(e) {
+      if (e.target === el) {
+        clearTimeout(timeout);
+        el.removeEventListener('transitionend', handler);
+        resolve();
+      }
+    });
+  });
+
   try {
     closeModal();
+    
+    // Start fade-out transition
+    if (currentWrapper) {
+      currentWrapper.classList.add('page-transitioning-out');
+    }
+    
     console.log('[news] Fetching:', nextPath);
     const res = await fetch(nextPath, { headers: { 'X-Requested-With': 'spa' } });
     console.log('[news] Fetch response:', res.status);
@@ -993,7 +1013,6 @@ async function navigateTo(url, { push = true } = {}) {
     console.log('[news] HTML length:', html.length, 'preview:', html.substring(0, 200));
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const nextWrapper = doc.querySelector('.news-wrapper');
-    const currentWrapper = document.querySelector('.news-wrapper');
     console.log('[news] Wrappers found:', !!nextWrapper, !!currentWrapper);
     console.log('[news] nextWrapper innerHTML length:', nextWrapper?.innerHTML?.length);
     if (!nextWrapper || !currentWrapper) {
@@ -1001,9 +1020,27 @@ async function navigateTo(url, { push = true } = {}) {
       window.location.href = nextUrl;
       return;
     }
+    
+    // Wait for fade-out to complete (or timeout if fetch was fast)
+    if (currentWrapper.classList.contains('page-transitioning-out')) {
+      await waitForTransition(currentWrapper);
+    }
+    
+    // Swap content while hidden
     console.log('[news] Replacing content, old length:', currentWrapper.innerHTML.length, 'new length:', nextWrapper.innerHTML.length);
     currentWrapper.innerHTML = nextWrapper.innerHTML;
     console.log('[news] After replace, current length:', currentWrapper.innerHTML.length);
+    
+    // Prepare for fade-in
+    currentWrapper.classList.remove('page-transitioning-out');
+    currentWrapper.classList.add('page-transitioning-in');
+    
+    // Force reflow to ensure transition triggers
+    currentWrapper.offsetHeight;
+    
+    // Fade in
+    currentWrapper.classList.remove('page-transitioning-in');
+    
     const newTitle = doc.title || 'Aesthetic News';
     document.title = newTitle;
     if (push) {
@@ -1014,6 +1051,10 @@ async function navigateTo(url, { push = true } = {}) {
     reinitPage();
   } catch (error) {
     console.error('[news] Navigation error:', error);
+    // Clean up transition state on error
+    if (currentWrapper) {
+      currentWrapper.classList.remove('page-transitioning-out', 'page-transitioning-in');
+    }
     window.location.href = nextUrl;
   }
 }
@@ -1055,17 +1096,29 @@ function initSpaRouting() {
     navigateTo(link.href, { push: true });
   });
 
-  window.addEventListener('popstate', (e) => {
+  window.addEventListener('popstate', async (e) => {
     // Restore title from state
     if (e.state && e.state.title) {
       document.title = e.state.title;
     }
     
-    // If we have cached HTML, use it instantly
+    // If we have cached HTML, use it with transition
     if (e.state && e.state.html) {
       const currentWrapper = document.querySelector('.news-wrapper');
       if (currentWrapper) {
+        // Fade out
+        currentWrapper.classList.add('page-transitioning-out');
+        await new Promise(r => setTimeout(r, 150));
+        
+        // Swap content
         currentWrapper.innerHTML = e.state.html;
+        
+        // Prepare for fade-in
+        currentWrapper.classList.remove('page-transitioning-out');
+        currentWrapper.classList.add('page-transitioning-in');
+        currentWrapper.offsetHeight; // force reflow
+        currentWrapper.classList.remove('page-transitioning-in');
+        
         window.scrollTo(0, 0);
         reinitPage();
         return;
