@@ -126,7 +126,7 @@
     clock verse 4> chorus 2>  - Verse plays 4x, chorus plays 2x, then loops
 */
 
-console.log("🕰️ CLOCK MODULE LOADING at", Date.now());
+// console.log("🕰️ CLOCK MODULE LOADING at", Date.now());
 
 import {
   parseMelody,
@@ -691,7 +691,7 @@ async function cacheMelody(melody) {
 
 async function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num, help }) {
   try {
-    console.log(`🎵 CLOCK BOOT STARTED - params:`, params, `colon:`, colon);
+    // console.log(`🎵 CLOCK BOOT STARTED - params:`, params, `colon:`, colon);
   
     // Reset leaving flag when piece starts
     isLeavingPiece = false;

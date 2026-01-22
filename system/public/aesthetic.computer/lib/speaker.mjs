@@ -93,7 +93,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   #vstBufferSize = 128; // Send samples in chunks
 
   constructor(options) {
-    console.log("🔊 Sound Synthesis Worklet CONSTRUCTOR, bpm:", options.processorOptions.bpm);
+    // console.log("🔊 Sound Synthesis Worklet CONSTRUCTOR, bpm:", options.processorOptions.bpm);
     // console.log("🎼 Sample rate:", sampleRate);
 
     super();
@@ -103,7 +103,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     this.#bpm = options.processorOptions.bpm;
     this.#bpmInSec = 60 / this.#bpm;
     this.#ticks = this.#bpmInSec;
-    console.log("🔊 Worklet initialized: bpm=", this.#bpm, "bpmInSec=", this.#bpmInSec, "ticks=", this.#ticks);
+    // console.log("🔊 Worklet initialized: bpm=", this.#bpm, "bpmInSec=", this.#bpmInSec, "ticks=", this.#ticks);
 
     volume.amount.val = 0.9; // Set global volume.
 
