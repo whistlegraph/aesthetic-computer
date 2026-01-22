@@ -1903,6 +1903,13 @@ ipcMain.handle('ac-close-window', async (event) => {
   return { success: true };
 });
 
+// Open external URL in the system's default browser
+ipcMain.handle('open-external-url', async (event, url) => {
+  console.log('[main] Opening external URL:', url);
+  shell.openExternal(url);
+  return { success: true };
+});
+
 ipcMain.handle('switch-mode', async (event, mode) => {
   // Always open AC Pane
   await openAcPaneWindow();
@@ -2087,6 +2094,24 @@ app.on('web-contents-created', (event, contents) => {
           }
         }
         return { action: 'deny' };
+      }
+      
+      // Check if this is an external URL (not aesthetic.computer or localhost)
+      // External URLs should open in the system's default browser
+      try {
+        const urlObj = new URL(url);
+        const isExternal = !urlObj.hostname.includes('aesthetic.computer') &&
+                          !urlObj.hostname.includes('localhost') &&
+                          !urlObj.hostname.includes('127.0.0.1') &&
+                          !url.startsWith('ac://');
+        
+        if (isExternal) {
+          console.log('[main] Opening external URL in system browser:', url);
+          shell.openExternal(url);
+          return { action: 'deny' };
+        }
+      } catch (e) {
+        console.warn('[main] Failed to parse URL:', url, e.message);
       }
       
       // Handle new window request (from prompt.mjs '+' command)
