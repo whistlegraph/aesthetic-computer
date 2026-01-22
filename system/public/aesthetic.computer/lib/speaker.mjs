@@ -93,7 +93,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   #vstBufferSize = 128; // Send samples in chunks
 
   constructor(options) {
-    // console.log("🔊 Sound Synthesis Worklet CONSTRUCTOR, bpm:", options.processorOptions.bpm);
+    console.log("🔊 Sound Synthesis Worklet CONSTRUCTOR, bpm:", options.processorOptions.bpm);
     // console.log("🎼 Sample rate:", sampleRate);
 
     super();
@@ -103,7 +103,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     this.#bpm = options.processorOptions.bpm;
     this.#bpmInSec = 60 / this.#bpm;
     this.#ticks = this.#bpmInSec;
-    // console.log("🔊 Worklet initialized: bpm=", this.#bpm, "bpmInSec=", this.#bpmInSec, "ticks=", this.#ticks);
+    console.log("🔊 Worklet initialized: bpm=", this.#bpm, "bpmInSec=", this.#bpmInSec, "ticks=", this.#ticks);
 
     volume.amount.val = 0.9; // Set global volume.
 
@@ -438,6 +438,8 @@ class SpeakerProcessor extends AudioWorkletProcessor {
             pan: msg.data.pan || 0,
           });
 
+          console.log("🔊 Synth created:", msg.data.id, "duration:", duration, "volume:", msg.data.volume, "queue length:", this.#queue.length + 1);
+
           // if (duration === Infinity && msg.data.id > -1n) {
           this.#running[msg.data.id] = sound; // Index by the unique id.
           // }
@@ -490,6 +492,12 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   }
   
   process(inputs, outputs) {
+    // Log EVERY call for first 10 calls to debug
+    this._totalProcessCalls = (this._totalProcessCalls || 0) + 1;
+    if (this._totalProcessCalls <= 10) {
+      console.log("🔊 process() call #" + this._totalProcessCalls);
+    }
+    
     try {
       // Use global currentTime from AudioWorkletGlobalScope (not this.currentTime which doesn't exist)
       const time = currentTime;
@@ -556,6 +564,10 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       
       const result = this.#processAudio(inputs, outputs, time);
       
+      if (this._totalProcessCalls <= 10) {
+        console.log("🔊 process() completed call #" + this._totalProcessCalls + ", result:", result);
+      }
+      
       // Track processing time for performance monitoring
       const processingTime = (time * 1000) - startTime;
       this.#processingTimeHistory.push(processingTime);
@@ -571,6 +583,12 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   }
 
   #processAudio(inputs, outputs, time) {
+    // Log every 100 calls to see if processing continues
+    this._processCallCount = (this._processCallCount || 0) + 1;
+    if (this._processCallCount <= 3) {
+      console.log("🔊 #processAudio START call:", this._processCallCount, "time:", time, "lastTime:", this.#lastTime, "ticks:", this.#ticks);
+    }
+    
     // DEBUG: Log that process is running (once per second)
     if (this.#lastTime && Math.floor(time) !== Math.floor(this.#lastTime)) {
       // console.log("🔊 Worklet process running, time:", time.toFixed(2), "ticks:", this.#ticks?.toFixed(3), "bpmInSec:", this.#bpmInSec);
@@ -764,6 +782,9 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         this.#detectBeats(this.#fftBufferLeft);
       }
     }    
+    if (this._processCallCount <= 3) {
+      console.log("🔊 #processAudio END call:", this._processCallCount);
+    }
     return true;
   } // End of #processAudio method
 
