@@ -14,6 +14,9 @@ on:
 jobs:
   build-macos:
     runs-on: macos-latest
+    env:
+      PYTHON: python
+      npm_config_python: python
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,8 +38,6 @@ jobs:
           python --version
           python -m pip install --upgrade pip setuptools
 
-      - name: Configure npm to use Python
-        run: npm config set python python
 
       - name: Install dependencies
         working-directory: ac-electron
@@ -60,6 +61,9 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    env:
+      PYTHON: python
+      npm_config_python: python
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -81,8 +85,6 @@ jobs:
           python --version
           python -m pip install --upgrade pip setuptools
 
-      - name: Configure npm to use Python
-        run: npm config set python python
 
       - name: Install dependencies
         working-directory: ac-electron
@@ -105,6 +107,9 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-latest
+    env:
+      PYTHON: python
+      npm_config_python: python
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -126,8 +131,6 @@ jobs:
           python --version
           python -m pip install --upgrade pip setuptools
 
-      - name: Configure npm to use Python
-        run: npm config set python python
 
       - name: Install dependencies
         working-directory: ac-electron
