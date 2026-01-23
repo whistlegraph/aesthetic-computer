@@ -120,6 +120,17 @@
           isLightMode = e.data.theme === 'light';
           // console.log('[boot-canvas] Theme set via message:', isLightMode ? 'light' : 'dark');
         }
+        // Respond to screen color requests from device.kidlisp.com
+        if (e.data?.type === 'ac:get-screen-color') {
+          try {
+            // Sample center pixel from the canvas
+            const centerX = Math.floor(canvas.width / 2);
+            const centerY = Math.floor(canvas.height / 2);
+            const pixel = ctx.getImageData(centerX, centerY, 1, 1).data;
+            const color = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+            window.parent?.postMessage({ type: 'ac:screen-color', color }, '*');
+          } catch (err) { /* ignore */ }
+        }
       });
       
       // Also listen for system theme changes
