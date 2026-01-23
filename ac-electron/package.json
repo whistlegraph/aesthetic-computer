@@ -1,6 +1,6 @@
 {
   "name": "aesthetic-computer",
-  "version": "0.1.29",
+  "version": "0.1.30",
   "description": "Aesthetic Computer",
   "homepage": "https://aesthetic.computer",
   "author": "Aesthetic Computer <hi@aesthetic.computer>",
@@ -75,6 +75,7 @@
       "main.js",
       "preload.js",
       "offscreen-manager.js",
+      "ff1-bridge.js",
       "renderer/**/*",
       "build/icons/trayTemplate.png",
       "build/icons/trayTemplate@2x.png",
