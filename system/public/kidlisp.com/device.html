@@ -122,11 +122,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const densityParam = parseInt(urlParams.get('density')) || 8;
     
-    // Scale factor for boot animation - make it visually larger for high density
-    // At density 8, we want bars that are 4-8 "AC pixels" tall (32-64 screen pixels)
-    const bootScale = Math.min(6, Math.max(1, densityParam / 2));
-    
-    // Canvas2D floating bars loader - pixelated to match density
+    // Canvas2D floating bars loader - renders at low-res, CSS scales up pixelated
     const bootCanvas = document.getElementById('boot-canvas');
     const ctx = bootCanvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
@@ -164,17 +160,17 @@
     function spawnBar() {
       bars.push({
         x: Math.random() * lowW,
-        y: lowH + 2 * bootScale,
-        width: Math.floor((20 + Math.random() * 60) * bootScale),  // Larger bars for visibility
-        height: Math.floor((2 + Math.random() * 3) * bootScale),   // 2-5 pixels tall * scale
+        y: lowH + 2,
+        width: Math.floor(5 + Math.random() * 25),   // 5-30 canvas pixels wide
+        height: Math.floor(2 + Math.random() * 3),   // 2-5 canvas pixels tall
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        speed: (0.3 + Math.random() * 0.7) * bootScale,  // Scaled speed
-        alpha: 0.4 + Math.random() * 0.5
+        speed: 0.3 + Math.random() * 0.6,
+        alpha: 0.5 + Math.random() * 0.4
       });
     }
     
     // Spawn initial bars
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 25; i++) {
       spawnBar();
       bars[bars.length - 1].y = Math.random() * bootCanvas.height;
     }
@@ -198,7 +194,7 @@
         const progress = 1 - (bar.y / H);
         const alpha = bar.alpha * (1 - progress * 0.7);
         
-        if (bar.y < -20 * bootScale) {
+        if (bar.y < -20) {
           bars.splice(i, 1);
           continue;
         }
@@ -210,6 +206,13 @@
         ctx.fillRect(Math.floor(bar.x), Math.floor(bar.y), bar.width, bar.height);
       }
       ctx.globalAlpha = 1;
+      
+      // Draw "loading..." text at bottom - pixel font size for chunky look
+      const fontSize = Math.max(8, Math.floor(H / 20)); // ~13px for 270px height
+      ctx.font = `bold ${fontSize}px monospace`;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.textAlign = 'center';
+      ctx.fillText('loading...', W / 2, H - fontSize);
       
       // Spawn new bars periodically
       if (frame % 8 === 0 && bars.length < 40) {
