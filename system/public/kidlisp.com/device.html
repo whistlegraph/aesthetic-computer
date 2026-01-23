@@ -227,6 +227,7 @@
     // Default display parameters for FF1 and 4K displays
     const DEVICE_DEFAULTS = {
       density: 8,     // Higher density = larger pixels (8x8 screen pixels per AC pixel)
+      device: true,   // Device mode - auto-enables audio, combines tv+nogap+noauth
       tv: true,       // Non-interactive TV mode
       nogap: true,    // Borderless / no gap
       nolabel: true,  // Hide labels
@@ -279,6 +280,7 @@
     
     // Allow param overrides of defaults
     const density = params.get('density') ?? DEVICE_DEFAULTS.density;
+    const device = params.get('device') ?? DEVICE_DEFAULTS.device;
     const tv = params.get('tv') ?? DEVICE_DEFAULTS.tv;
     const nogap = params.get('nogap') ?? DEVICE_DEFAULTS.nogap;
     const nolabel = params.get('nolabel') ?? DEVICE_DEFAULTS.nolabel;
@@ -293,6 +295,7 @@
     function buildDisplayParams() {
       const p = new URLSearchParams();
       if (density !== null) p.set('density', density);
+      if (device) p.set('device', 'true');
       if (tv) p.set('tv', 'true');
       if (nogap) p.set('nogap', 'true');
       if (nolabel) p.set('nolabel', 'true');
