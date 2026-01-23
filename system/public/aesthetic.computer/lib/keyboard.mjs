@@ -10,7 +10,7 @@ export class Keyboard {
   input;
   focusHandler;
   #held = new Set();
-  #rebootSequence = []; // Track Ctrl+R+B sequence for reboot, Ctrl+R+R for quick tape
+  #rebootSequence = []; // Track Ctrl+R sequences: B (reboot), R (quick tape), V (new version)
   #sequenceTimeout = null;
   needsImmediateOpen = false;
 
@@ -51,6 +51,19 @@ export class Keyboard {
         this.events.push({
           name: "keyboard:quick-tape",
           key: "QuickTape",
+          ctrl: true,
+        });
+        return; // Don't process this event further
+      } else if (this.#rebootSequence.length === 1 && this.#rebootSequence[0] === "r" && e.key.toLowerCase() === "v") {
+        // 🔄 New version sequence: Ctrl+R+V (reload piece from network)
+        e.preventDefault();
+        clearTimeout(this.#sequenceTimeout);
+        this.#rebootSequence = [];
+        console.log("🔄 New version sequence triggered: Ctrl+R+V");
+        // Send a keyboard event that disk.mjs can listen for
+        this.events.push({
+          name: "keyboard:reload-piece",
+          key: "ReloadPiece",
           ctrl: true,
         });
         return; // Don't process this event further

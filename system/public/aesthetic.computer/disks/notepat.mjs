@@ -1338,31 +1338,55 @@ function paint({
     
     // Paint slide button
     slideBtn?.paint((btn) => {
-      const bgColor = slide ? [0, 180, 100, 220] : [40, 40, 60, 180];
-      const textColor = slide ? "white" : [160, 160, 180];
-      const outlineColor = slide ? [0, 255, 150, 255] : [80, 80, 100, 180];
+      const base = [0, 220, 140];
+      const bgColor = slide
+        ? [base[0], base[1], base[2], 230]
+        : [Math.round(base[0] * 0.3), Math.round(base[1] * 0.3), Math.round(base[2] * 0.3), 170];
+      const textColor = slide ? "white" : [180, 190, 200];
+      const outlineColor = slide
+        ? [0, 255, 170, 255]
+        : [70, 90, 80, 180];
       ink(...bgColor).box(btn.box);
       ink(...outlineColor).box(btn.box, "outline");
+      if (btn.over && !btn.down) {
+        ink(255, 255, 255, 24).box(btn.box);
+      }
       ink(textColor).write("slide", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
     // Paint room button
     roomBtn?.paint((btn) => {
-      const bgColor = roomMode ? [100, 80, 180, 220] : [40, 40, 60, 180];
-      const textColor = roomMode ? "white" : [160, 160, 180];
-      const outlineColor = roomMode ? [150, 120, 255, 255] : [80, 80, 100, 180];
+      const base = [150, 110, 255];
+      const bgColor = roomMode
+        ? [base[0], base[1], base[2], 230]
+        : [Math.round(base[0] * 0.3), Math.round(base[1] * 0.3), Math.round(base[2] * 0.3), 170];
+      const textColor = roomMode ? "white" : [180, 190, 200];
+      const outlineColor = roomMode
+        ? [190, 160, 255, 255]
+        : [90, 80, 120, 180];
       ink(...bgColor).box(btn.box);
       ink(...outlineColor).box(btn.box, "outline");
+      if (btn.over && !btn.down) {
+        ink(255, 255, 255, 24).box(btn.box);
+      }
       ink(textColor).write("room", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
     // Paint quick button
     quickBtn?.paint((btn) => {
-      const bgColor = quickFade ? [180, 120, 0, 220] : [40, 40, 60, 180];
-      const textColor = quickFade ? "white" : [160, 160, 180];
-      const outlineColor = quickFade ? [255, 180, 0, 255] : [80, 80, 100, 180];
+      const base = [255, 170, 0];
+      const bgColor = quickFade
+        ? [base[0], base[1], base[2], 230]
+        : [Math.round(base[0] * 0.3), Math.round(base[1] * 0.3), Math.round(base[2] * 0.3), 170];
+      const textColor = quickFade ? "white" : [180, 190, 200];
+      const outlineColor = quickFade
+        ? [255, 200, 80, 255]
+        : [120, 100, 60, 180];
       ink(...bgColor).box(btn.box);
       ink(...outlineColor).box(btn.box, "outline");
+      if (btn.over && !btn.down) {
+        ink(255, 255, 255, 24).box(btn.box);
+      }
       ink(textColor).write("quick", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
   }
@@ -4322,9 +4346,8 @@ function buildOctButton({ screen, ui, typeface }) {
 }
 
 // Build toggle buttons for slide, room, quick modes in secondary top bar
-function buildToggleButtons({ screen, ui, typeface }) {
-  // Use actual MatrixChunky8 glyph metrics
-  const glyphWidth = resolveMatrixGlyphMetrics(typeface).width;
+function buildToggleButtons({ screen, ui, typeface, text }) {
+  // Use MatrixChunky8 text.box width when available
   
   const labels = ["slide", "room", "quick"];
   const btnHeight = SECONDARY_BAR_HEIGHT - 2;
@@ -4334,7 +4357,10 @@ function buildToggleButtons({ screen, ui, typeface }) {
   let totalWidth = 0;
   labels.forEach((label) => {
     // Width = text width + padding on each side
-    totalWidth += measureMatrixTextWidth(label, typeface) + TOGGLE_BTN_PADDING_X * 2;
+    const labelWidth =
+      measureMatrixTextBoxWidth(label, { text }, screen.width) ||
+      measureMatrixTextWidth(label, typeface);
+    totalWidth += labelWidth + TOGGLE_BTN_PADDING_X * 2;
   });
   totalWidth += (labels.length - 1) * TOGGLE_BTN_GAP;
   
@@ -4343,7 +4369,10 @@ function buildToggleButtons({ screen, ui, typeface }) {
   
   labels.forEach((label, index) => {
     // Width = text width + padding on each side
-    const btnWidth = measureMatrixTextWidth(label, typeface) + TOGGLE_BTN_PADDING_X * 2;
+    const labelWidth =
+      measureMatrixTextBoxWidth(label, { text }, screen.width) ||
+      measureMatrixTextWidth(label, typeface);
+    const btnWidth = labelWidth + TOGGLE_BTN_PADDING_X * 2;
     
     if (label === "slide") {
       slideBtn = new ui.Button(btnX, btnY, btnWidth, btnHeight);
