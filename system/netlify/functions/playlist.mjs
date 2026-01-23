@@ -47,7 +47,7 @@ export async function handler(event, context) {
           .map((item, index) => ({
             id: `kidlisp-${item.code}`,
             title: `$${item.code}`,
-            source: `${deviceUrl}/${item.code}?density=${density}`,
+            source: `${deviceUrl}/${item.code}?density=${density}&playlist=true&duration=${duration}`,
             duration: duration,
             license: "open",
             provenance: {
@@ -67,21 +67,21 @@ export async function handler(event, context) {
       {
         id: "kidlisp-ceo",
         title: "$ceo",
-        source: `${deviceUrl}/ceo?density=${density}`,
+        source: `${deviceUrl}/ceo?density=${density}&playlist=true&duration=${duration}`,
         duration: duration,
         license: "open",
       },
       {
         id: "kidlisp-roz",
         title: "$roz",
-        source: `${deviceUrl}/roz?density=${density}`,
+        source: `${deviceUrl}/roz?density=${density}&playlist=true&duration=${duration}`,
         duration: duration,
         license: "open",
       },
       {
         id: "kidlisp-bels",
         title: "$bels",
-        source: `${deviceUrl}/bels?density=${density}`,
+        source: `${deviceUrl}/bels?density=${density}&playlist=true&duration=${duration}`,
         duration: duration,
         license: "open",
       },

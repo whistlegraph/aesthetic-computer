@@ -315,16 +315,59 @@ Created: 2025.10.25
     }
 
     @media (max-width: 768px) {
-      .user-right {
+      .user-row {
         flex-direction: column;
-        align-items: flex-end;
-        gap: 0.3em;
+        align-items: flex-start;
+        gap: 0.5em;
+      }
+
+      .user-left {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+
+      .user-mood {
+        max-width: 100%;
+        width: 100%;
+        margin-left: 0;
+        margin-top: 0.3em;
+      }
+
+      .user-right {
+        width: 100%;
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 0.5em;
       }
 
       .user-badges {
         display: flex;
         gap: 0.3em;
         flex-wrap: wrap;
+      }
+
+      .user-rank {
+        min-width: auto;
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 0.5em 0.3em;
+      }
+
+      .user-row {
+        padding: 0.6em;
+      }
+
+      .user-handle {
+        font-size: 0.95em;
+      }
+
+      .user-kidlisp-preview {
+        width: 32px;
+        height: 32px;
       }
     }
 

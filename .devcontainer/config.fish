@@ -2889,7 +2889,7 @@ kill %1 2>/dev/null"
             echo "📺 Pushing playlist to FF1 ("(count $codes)" items, "$duration"s each)..."
             echo "   Codes:" $codes
             
-            # Build DP-1 playlist items
+            # Build DP-1 playlist items with playlist mode hints
             set -l items_json "["
             set -l first true
             for code in $codes
@@ -2897,7 +2897,7 @@ kill %1 2>/dev/null"
                     set items_json "$items_json,"
                 end
                 set first false
-                set items_json "$items_json{\"source\":\"https://device.kidlisp.com/$code\",\"duration\":$duration}"
+                set items_json "$items_json{\"source\":\"https://device.kidlisp.com/$code?density=8&playlist=true&duration=$duration\",\"duration\":$duration}"
             end
             set items_json "$items_json]"
             
