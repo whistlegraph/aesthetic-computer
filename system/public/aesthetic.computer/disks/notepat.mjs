@@ -1829,6 +1829,9 @@ function paint({
 
         ink(...backgroundColor).box(rect.x, rect.y, rect.w, rect.h);
         ink(...borderColor).box(rect.x, rect.y, rect.w, rect.h, "outline");
+        if (btn.over && !btn.down) {
+          ink(255, 255, 255, 24).box(rect.x, rect.y, rect.w, rect.h);
+        }
 
         // Note value intentionally omitted per design request
 
@@ -1918,6 +1921,14 @@ function paint({
         btn.box.w,
         btn.box.h - 3,
       );
+      if (btn.over && !btn.down) {
+        ink(255, 255, 255, 24).box(
+          btn.box.x,
+          btn.box.y + 3,
+          btn.box.w,
+          btn.box.h - 3,
+        );
+      }
       // ink("white", 64).box(btn.box);
       ink("orange").line(
         btn.box.x + btn.box.w,
@@ -1936,6 +1947,14 @@ function paint({
         ink(octaveTheme[octave], 196);
       }
       box(btn.box.x, btn.box.y + 3, btn.box.w - 4, btn.box.h - 3);
+      if (btn.over && !btn.down) {
+        ink(255, 255, 255, 24).box(
+          btn.box.x,
+          btn.box.y + 3,
+          btn.box.w - 4,
+          btn.box.h - 3,
+        );
+      }
       // ink("white", 64).box(btn.box);
       ink(btn.down ? "yellow" : "pink");
       write(octave, { right: 8, top: 6 });
@@ -2069,6 +2088,10 @@ function paint({
           } else {
             ink(color, 48).box(btn.box); // One solid colored box per note.
             // ink("white", 32).box(btn.box, "inline"); // One solid colored box per note.
+          }
+          if (btn.over && !btn.down && !isBlocked) {
+            ink(255, 255, 255, 24).box(btn.box);
+            ink(255, 255, 255, 48).box(btn.box, "outline");
           }
           // const accent = colorFromNote(note, num);
           // ink(accent).box(btn.box.x + btn.box.w - 8, btn.box.y + 4, 4);
