@@ -735,6 +735,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   if (resolution.gap === 0) preservedParams.nogap = "true"; // gap: 0 means nogap was true
   if (resolution.nolabel === true) preservedParams.nolabel = "true";
   if (resolution.tv === true) preservedParams.tv = "true";
+  if (resolution.device === true) preservedParams.device = "true";
   if (resolution.highlight) preservedParams.highlight = resolution.highlight === true ? "true" : resolution.highlight;
   
   // Only preserve density/zoom/duration if they were actually in the URL (not from localStorage)
@@ -11777,12 +11778,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // 🔊 Sound
       // TODO: Disable sound engine entirely... unless it is enabled by a disk. 2022.04.07.03.33
       // Only start this after a user-interaction to prevent warnings.
+      // Exception: device mode auto-starts audio (for FF1 and display devices)
 
       activateSound = () => {
         startSound();
         window.removeEventListener("keydown", activateSound);
         window.removeEventListener("pointerdown", activateSound);
       };
+
+      // 📺 Device mode: Auto-start audio for display devices like FF1
+      // These devices can't provide user gestures, so we force audio on immediately
+      if (resolution.device === true) {
+        console.log("📺 Device mode: Auto-starting audio context");
+        startSound();
+      }
 
       diskSupervisor = { requestBeat, requestFrame };
 

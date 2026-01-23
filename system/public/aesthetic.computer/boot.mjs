@@ -340,7 +340,7 @@ const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
-  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop'
+  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device'
 ];
 
 // Auth0 parameters that need to be temporarily processed but then removed
@@ -889,6 +889,10 @@ if (durationParam) {
 const tvParam = params.has("tv") || location.search.includes("tv");
 const tv = tvParam === true || tvParam === "true";
 
+// Check for device parameter (FF1/display device mode - auto-enables audio, combines tv+nogap+noauth)
+const deviceParam = params.has("device") || location.search.includes("device");
+const device = deviceParam === true || deviceParam === "true";
+
 // Check for highlight parameter (enables HUD background highlighting with optional color)
 const highlightParam = params.get("highlight");
 const highlight = highlightParam ? (highlightParam === "true" ? true : highlightParam) : false;
@@ -913,7 +917,7 @@ if (window.acVSCODE) {
 
 // Pass the parameters directly without stripping them
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device }, debug);
 
 // Start processing any early kidlisp messages that arrived before boot completed
 processEarlyKidlispQueue();
