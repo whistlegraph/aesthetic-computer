@@ -2794,44 +2794,49 @@ kill %1 2>/dev/null"
             ssh jas@host.docker.internal "curl -s --connect-timeout 3 http://$ff1_ip:$ff1_port/ && echo 'FF1 responding!' || echo 'FF1 not responding'"
         case cast
             if test (count $argv) -lt 2
-                echo "Usage: ac-ff1 cast <piece|url> [options]"
+                echo "Usage: ac-ff1 cast <piece|url>"
                 echo ""
-                echo "Options:"
-                echo "  (no flag)    Cast aesthetic.computer URL directly"
-                echo "  --device     Use device.kidlisp.com wrapper (optimized for FF1)"
-                echo "  --relay      Use cloud relay (requires API key)"
+                echo "Pieces starting with \$ are KidLisp and auto-use device.kidlisp.com"
+                echo "Regular pieces use aesthetic.computer with ?device param"
                 echo ""
                 echo "Examples:"
-                echo "  ac-ff1 cast ceo              # Casts https://aesthetic.computer/ceo"
-                echo "  ac-ff1 cast ceo --device     # Casts https://device.kidlisp.com/ceo"
+                echo "  ac-ff1 cast \$mtz             # KidLisp → device.kidlisp.com/mtz"
+                echo "  ac-ff1 cast ceo              # Regular → aesthetic.computer/ceo?device"
                 echo "  ac-ff1 cast https://example.com/art.html"
+                echo ""
+                echo "Options:"
+                echo "  --relay      Use cloud relay (requires API key)"
                 return 1
             end
             set -l input $argv[2]
             set -l use_relay false
-            set -l use_device false
             
             # Parse flags
             for arg in $argv[3..-1]
                 switch $arg
                     case '--relay'
                         set use_relay true
-                    case '--device'
-                        set use_device true
                 end
             end
             
-            # Build URL from input
+            # Build URL from input - auto-detect KidLisp ($) vs regular pieces
             set -l url
             if string match -q 'http*' $input
-                # Already a full URL
-                set url $input
-            else if test "$use_device" = true
-                # Use device.kidlisp.com wrapper with codeId
-                set url "https://device.kidlisp.com/$input"
+                # Already a full URL - add ?device if no query params
+                if string match -q '*\?*' $input
+                    set url $input
+                else
+                    set url "$input?device"
+                end
+            else if string match -rq '^\$' $input
+                # KidLisp piece (starts with $) - use device.kidlisp.com
+                # Strip the $ prefix for device.kidlisp.com URL
+                set -l code_id (string replace '$' '' $input)
+                set url "https://device.kidlisp.com/$code_id"
+                echo "🎨 KidLisp piece detected"
             else
-                # Default to aesthetic.computer/$piece
-                set url "https://aesthetic.computer/$input"
+                # Regular aesthetic.computer piece with device param for auto-audio
+                set url "https://aesthetic.computer/$input?device"
             end
             
             if test "$use_relay" = true
@@ -2922,8 +2927,8 @@ kill %1 2>/dev/null"
             echo "Commands:"
             echo "  ac-ff1 scan                   - Find FF1 via mDNS"
             echo "  ac-ff1 ping                   - Check if FF1 is responding"  
-            echo "  ac-ff1 cast <piece>           - Cast aesthetic.computer piece"
-            echo "  ac-ff1 cast <piece> --device  - Cast via device.kidlisp.com (FF1 optimized)"
+            echo "  ac-ff1 cast \$mtz              - Cast KidLisp piece (auto device.kidlisp.com)"
+            echo "  ac-ff1 cast ceo               - Cast regular piece (auto ?device param)"
             echo "  ac-ff1 cast <url>             - Cast any URL"
             echo "  ac-ff1 playlist [--limit=N] [--duration=S] [--handle=H] - Push KidLisp playlist"
             echo "  ac-ff1 tunnel                 - Create SSH tunnel for local dev"
