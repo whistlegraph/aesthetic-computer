@@ -16,6 +16,7 @@ export async function handler(event, context) {
   const duration = parseInt(params.get('duration')) || 60; // Default 60s per item
   const density = parseInt(params.get('density')) || 8;
   const type = params.get('type') || 'kidlisp'; // kidlisp, static, or custom list name
+  const handle = params.get('handle'); // Optional: filter by @handle (with or without @)
 
   // 🔧 Environment detection
   const dev = process.env.NETLIFY_DEV || process.env.CONTEXT === "dev";
@@ -36,12 +37,24 @@ export async function handler(event, context) {
   if (type === 'kidlisp') {
     // Fetch top KidLisp hits from /api/tv
     try {
-      const tvUrl = `${baseUrl}/api/tv?types=kidlisp&sort=hits&limit=${limit}`;
+      // Fetch more items to allow for filtering
+      const fetchLimit = handle ? limit * 4 : limit;
+      const tvUrl = `${baseUrl}/api/tv?types=kidlisp&sort=hits&limit=${fetchLimit}`;
       const response = await fetch(tvUrl);
       const data = await response.json();
       
       if (data.media && data.media.kidlisp) {
-        items = data.media.kidlisp
+        let filtered = data.media.kidlisp;
+        
+        // Filter by handle if specified
+        if (handle) {
+          const normalizedHandle = handle.startsWith('@') ? handle : `@${handle}`;
+          filtered = filtered.filter(item => 
+            item.owner?.handle?.toLowerCase() === normalizedHandle.toLowerCase()
+          );
+        }
+        
+        items = filtered
           .sort((a, b) => (b.hits || 0) - (a.hits || 0))
           .slice(0, limit)
           .map((item, index) => ({
@@ -91,7 +104,7 @@ export async function handler(event, context) {
   // 📜 Build DP-1 playlist
   const playlistData = {
     "dpVersion": "1.0.0",
-    "id": `aesthetic-computer-${type}-playlist`,
+    "id": `aesthetic-computer-${type}${handle ? `-${handle.replace('@', '')}` : ''}-playlist`,
     "created": new Date().toISOString(),
     "defaults": {
       "display": {
