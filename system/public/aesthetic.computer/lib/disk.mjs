@@ -10663,6 +10663,22 @@ async function makeFrame({ data: { type, content } }) {
         return; // Don't process this event further
       }
       
+      // 🔄 [Ctrl+R+V] New version - reload piece from network
+      if (data.name === "keyboard:reload-piece" && !getPackMode()) {
+        console.log("🔄 New version: Reloading piece from network...");
+        // Play a sound to indicate reload
+        $commonApi.sound.synth({
+          tone: 1200,
+          duration: 0.05,
+          attack: 0.01,
+          decay: 0.3,
+          volume: 0.2,
+        });
+        // Send reload-piece message to bios
+        send({ type: "reload-piece", content: currentText || "prompt" });
+        return; // Don't process this event further
+      }
+      
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
         // If not on prompt, then move backwards through the history of
