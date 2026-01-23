@@ -4526,26 +4526,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // 🔄 Piece update available notification from disk worker
-    if (type === "piece-update-available") {
-      console.log(`🔄 Update available for piece: ${content}`);
-      // Store globally for HUD indicator access
-      window.acPendingPieceUpdate = content;
-      return;
-    }
-
-    // 🔄 Reload piece request from disk worker (after applying pending update)
-    if (type === "reload-piece") {
-      console.log(`🔄 Reloading piece: ${content}`);
-      // Trigger a piece reload through the normal jump mechanism
-      if (window.acJump) {
-        window.acJump(content);
-      } else if (send) {
-        send({ type: "load", content: { path: content } });
-      }
-      return;
-    }
-
     // 🎹 Debug messages from disk worker (DAW sync debugging)
     if (type === "disk:debug") {
       console.log("🎹 BIOS received disk:debug from worker:", content);

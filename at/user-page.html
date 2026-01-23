@@ -178,14 +178,10 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
 
     .kidlisp-preview-qr {
       align-self: flex-end;
-      background: #fff;
-      padding: 2px;
-      border-radius: 2px;
-      line-height: 0;
-      display: inline-flex;
+      display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 4px;
+      line-height: 0;
     }
 
     .kidlisp-preview-qr img {
@@ -193,15 +189,19 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       image-rendering: pixelated;
       width: 56px;
       height: 56px;
+      background: #fff;
+      padding: 2px;
+      border-radius: 2px;
     }
 
     .kidlisp-preview-label {
       font-size: 0.8em;
       background: #000;
       color: #fff;
-      padding: 0.15em 0.35em;
+      padding: 0.1em 0.3em;
       font-family: monospace;
       letter-spacing: 0.02em;
+      margin-bottom: 2px;
     }
 
     .record-header {
