@@ -122,6 +122,10 @@
     const urlParams = new URLSearchParams(window.location.search);
     const densityParam = parseInt(urlParams.get('density')) || 8;
     
+    // Scale factor for boot animation - make it visually larger for high density
+    // At density 8, we want bars that are 4-8 "AC pixels" tall (32-64 screen pixels)
+    const bootScale = Math.min(6, Math.max(1, densityParam / 2));
+    
     // Canvas2D floating bars loader - pixelated to match density
     const bootCanvas = document.getElementById('boot-canvas');
     const ctx = bootCanvas.getContext('2d');
@@ -160,17 +164,17 @@
     function spawnBar() {
       bars.push({
         x: Math.random() * lowW,
-        y: lowH + 2,
-        width: Math.floor(3 + Math.random() * 15),  // Smaller for low-res
-        height: Math.floor(1 + Math.random() * 2),   // 1-2 pixels tall
+        y: lowH + 2 * bootScale,
+        width: Math.floor((20 + Math.random() * 60) * bootScale),  // Larger bars for visibility
+        height: Math.floor((2 + Math.random() * 3) * bootScale),   // 2-5 pixels tall * scale
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        speed: 0.2 + Math.random() * 0.5,  // Slower for low-res
+        speed: (0.3 + Math.random() * 0.7) * bootScale,  // Scaled speed
         alpha: 0.4 + Math.random() * 0.5
       });
     }
     
     // Spawn initial bars
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 20; i++) {
       spawnBar();
       bars[bars.length - 1].y = Math.random() * bootCanvas.height;
     }
@@ -194,7 +198,7 @@
         const progress = 1 - (bar.y / H);
         const alpha = bar.alpha * (1 - progress * 0.7);
         
-        if (bar.y < -20) {
+        if (bar.y < -20 * bootScale) {
           bars.splice(i, 1);
           continue;
         }
@@ -208,7 +212,7 @@
       ctx.globalAlpha = 1;
       
       // Spawn new bars periodically
-      if (frame % 12 === 0 && bars.length < 30) {
+      if (frame % 8 === 0 && bars.length < 40) {
         spawnBar();
       }
       
