@@ -1058,54 +1058,56 @@ function paint($) {
       ink(...colors.primaryBright, 180).write(tickerText, { x: Math.floor(tickerX), y: tickerY });
     }
   } else {
-    // Not connected - show connection UI
-    const cy = h / 2 - 30;
+    // Not connected - show connection UI (centered vertically)
+    // Content height: ~50 (tez symbol) + 30 (title) + 10 (handle) + 40 (button) = ~130
+    const contentH = userHandle ? 100 : 90;
+    const cy = h / 2 - contentH / 2 + 20;
 
     // Title
-    ink(...colors.primary).write("ꜩ", { x: w/2, y: cy - 50 + TEZ_Y_ADJUST, center: "x" }, undefined, undefined, false, "unifont");
-    ink(...colors.text).write("CONNECT WALLET", { x: w/2, y: cy - 20, center: "x" });
+    ink(...colors.primary).write("ꜩ", { x: w/2, y: cy - 30 + TEZ_Y_ADJUST, center: "x" }, undefined, undefined, false, "unifont");
+    ink(...colors.text).write("CONNECT WALLET", { x: w/2, y: cy, center: "x" });
     if (userHandle) {
       const displayHandle = userHandle.startsWith("@") ? userHandle : `@${userHandle}`;
-      ink(...colors.primaryBright).write(displayHandle, { x: w/2, y: cy - 6, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      ink(...colors.primaryBright).write(displayHandle, { x: w/2, y: cy + 14, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     }
+
+    const btnOffsetY = userHandle ? 35 : 25;
 
     if (showConnectOptions) {
       // Show two options: Browser Extension and Mobile App
-      connectExtensionBtn?.reposition({ center: "x", y: cy + 5, screen });
-      connectExtensionBtn?.paint($,
-        [[0, 60, 100], [0, 140, 200], [200, 230, 255], [0, 60, 100]],
-        [[0, 80, 130], [0, 180, 255], [255, 255, 255], [0, 80, 130]]
-      );
+      connectExtensionBtn?.reposition({ center: "x", y: cy + btnOffsetY, screen });
+      const extBtnColors = $.dark
+        ? [[[0, 60, 100], [0, 140, 200], [200, 230, 255], [0, 60, 100]],
+           [[0, 80, 130], [0, 180, 255], [255, 255, 255], [0, 80, 130]]]
+        : [[[210, 230, 245], [0, 100, 160], [0, 70, 120], [210, 230, 245]],
+           [[225, 240, 250], [0, 130, 190], [0, 90, 150], [225, 240, 250]]];
+      connectExtensionBtn?.paint($, ...extBtnColors);
 
-      connectMobileBtn?.reposition({ center: "x", y: cy + 35, screen });
-      connectMobileBtn?.paint($,
-        [[60, 40, 80], [120, 80, 160], [200, 160, 255], [60, 40, 80]],
-        [[80, 60, 100], [160, 120, 200], [255, 255, 255], [80, 60, 100]]
-      );
+      connectMobileBtn?.reposition({ center: "x", y: cy + btnOffsetY + 30, screen });
+      const mobileBtnColors = $.dark
+        ? [[[60, 40, 80], [120, 80, 160], [200, 160, 255], [60, 40, 80]],
+           [[80, 60, 100], [160, 120, 200], [255, 255, 255], [80, 60, 100]]]
+        : [[[235, 225, 245], [100, 60, 140], [70, 40, 100], [235, 225, 245]],
+           [[245, 235, 250], [130, 80, 170], [90, 50, 120], [245, 235, 250]]];
+      connectMobileBtn?.paint($, ...mobileBtnColors);
 
-      ink(...colors.textDim).write("Choose connection method", { x: w/2, y: cy + 70, center: "x" });
+      ink(...colors.textDim).write("Choose connection method", { x: w/2, y: cy + btnOffsetY + 65, center: "x" });
     } else {
       // Connect Wallet button
-      connectTempleBtn?.reposition({ center: "x", y: cy + 15, screen });
-      connectTempleBtn?.paint($,
-        [[0, 60, 100], [0, 140, 200], [200, 230, 255], [0, 60, 100]],
-        [[0, 80, 130], [0, 180, 255], [255, 255, 255], [0, 80, 130]]
-      );
+      connectTempleBtn?.reposition({ center: "x", y: cy + btnOffsetY, screen });
+      const connectBtnColors = $.dark
+        ? [[[0, 60, 100], [0, 140, 200], [200, 230, 255], [0, 60, 100]],
+           [[0, 80, 130], [0, 180, 255], [255, 255, 255], [0, 80, 130]]]
+        : [[[210, 230, 245], [0, 100, 160], [0, 70, 120], [210, 230, 245]],
+           [[225, 240, 250], [0, 130, 190], [0, 90, 150], [225, 240, 250]]];
+      connectTempleBtn?.paint($, ...connectBtnColors);
     }
 
     // Show connecting state or error
     if (connecting) {
-      ink(...colors.primaryBright).write("Connecting...", { x: w/2, y: cy + 90, center: "x" });
+      ink(...colors.primaryBright).write("Connecting...", { x: w/2, y: cy + btnOffsetY + 40, center: "x" });
     } else if (connectError) {
-      ink(...colors.negative).write(connectError, { x: w/2, y: cy + 90, center: "x" });
-    }
-
-    // Hint
-    ink(...colors.textDim).write("ESC to go back", { x: w/2, y: cy + 110, center: "x" });
-
-    if (tezPrice?.usd) {
-      ink(...colors.primary).write("ꜩ", { x: w/2 - 30, y: h - 12 + TEZ_Y_ADJUST }, undefined, undefined, false, "unifont");
-      ink(...colors.text).write(`$${tezPrice.usd.toFixed(4)}`, { x: w/2 - 18, y: h - 12 });
+      ink(...colors.negative).write(connectError, { x: w/2, y: cy + btnOffsetY + 40, center: "x" });
     }
   }
 
