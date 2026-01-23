@@ -16,6 +16,35 @@ Run from the repo root unless noted:
 - `npm run test:kidlisp` — watches and runs KidLisp specs in `spec/`.  
 - `npm run url` — prints your local tunnel URL for hitting the app in browsers/devices.
 
+## Fish Shell Commands (DevContainer)
+The devcontainer provides these `ac-*` commands (defined in `.devcontainer/config.fish`):
+
+### Machine & SSH Helpers
+- `ac-host` — List all machines from `vault/machines.json` with SSH connection info.
+- `ac-host <key> ssh` — SSH to a specific machine (e.g., `ac-host jeffrey-macbook ssh`).
+- `ac-host <key> ip` — Get just the IP address of a machine.
+- `ac-host <key> info` — Show full JSON config for a machine.
+- `ac-machines` — Alias for `ac-host` (list all machines).
+
+### FF1 Art Computer
+- `ac-ff1` — Show FF1 info and available commands.
+- `ac-ff1 scan` — Find FF1 via MacBook mDNS (discovers IP changes).
+- `ac-ff1 ping` — Check if FF1 is responding.
+- `ac-ff1 cast <url>` — Send a URL to display on FF1 (e.g., `ac-ff1 cast https://aesthetic.computer/purple`).
+- `ac-ff1 tunnel` — Create SSH tunnel for local FF1 development (localhost:1111 → FF1).
+
+### Electron App (Mac Host)
+- `ac-electron-restart` — Restart the Electron app on the host Mac.
+- `ac-electron-stop` — Stop the Electron app.
+- `ac-electron-start` — Start the Electron app.
+
+### Development
+- `ac-tv` — Query TV API endpoints.
+- `ac-pack` — Package a piece for NFT minting.
+- `ac-keep` — Mint a KidLisp piece as an NFT.
+- `ac-repl` — Start KidLisp REPL.
+- `ac-emacs-restart` — Restart Emacs daemon.
+
 ## Coding Style & Naming Conventions
 - JavaScript/TypeScript modules use ESM (`.mjs`); prefer 2-space indentation and trailing commas.  
 - Run Prettier where available (`npx prettier --write <files>`); respect existing file conventions (some legacy scripts mix shell/Fish).  

@@ -97,6 +97,14 @@
       const isKidlispMode = window !== window.top && 
         (window.location.search.includes('nolabel=true') || window.location.search.includes('nogap=true'));
       
+      // Get density parameter for boot canvas scaling (higher density = larger UI elements)
+      // This makes boot text readable on high-DPI/4K displays like FF1
+      const urlParams = new URLSearchParams(window.location.search);
+      const densityParam = parseFloat(urlParams.get('density')) || 1;
+      // For density 8 (FF1 default), we want a scale of about 4x to make text visible
+      // Scale factor: density/2, clamped between 1-6
+      const bootScale = isKidlispMode ? Math.min(6, Math.max(1, densityParam / 2)) : 1;
+      
       // Theme detection for light/dark mode support
       let isLightMode = window.matchMedia?.('(prefers-color-scheme: light)').matches;
       // Also check parent's data-theme attribute (kidlisp.com manual theme toggle)
@@ -354,25 +362,25 @@
         const deltaMs = now - lastLogTime;
         lastLogTime = now;
         
-        // KidLisp mode: add to colored log display
+        // KidLisp mode: add to colored log display (scaled for high-density displays)
         if (isKidlispMode) {
           // Store color index, not actual color - so theme changes work
           const colorIndex = kidlispLogs.length % getKidlispColors().length;
           kidlispLogs.unshift({
             text: msg,
             colorIndex: colorIndex,  // Use index for dynamic theme lookup
-            y: H + 20,
+            y: H + 20 * bootScale,
             alpha: 1,
             spawnTime: now
           });
-          // Spawn decorative bar (also use index)
+          // Spawn decorative bar (also use index, scaled dimensions)
           kidlispBars.push({
             x: Math.random() * W,
-            y: H + 10,
-            width: 30 + Math.random() * 80,
-            height: 3 + Math.random() * 4,
+            y: H + 10 * bootScale,
+            width: (30 + Math.random() * 80) * bootScale,
+            height: (3 + Math.random() * 4) * bootScale,
             colorIndex: colorIndex,
-            speed: 1 + Math.random() * 2,
+            speed: (1 + Math.random() * 2) * bootScale,
             alpha: 0.4 + Math.random() * 0.3
           });
           if (kidlispLogs.length > 12) kidlispLogs.pop();
@@ -452,7 +460,7 @@
         const shakeX = (Math.random() - 0.5) * shakeAmount;
         const shakeY = (Math.random() - 0.5) * shakeAmount;
         
-        // === KIDLISP MODE: Simpler colored bars animation ===
+        // === KIDLISP MODE: Simpler colored bars animation (scaled for high-density displays) ===
         if (isKidlispMode) {
           kidlispFrame++;
           ctx.clearRect(0, 0, W, H);
@@ -465,35 +473,39 @@
           }
           ctx.fillRect(0, 0, W, H);
           
-          // Subtle scanlines - lighter in light mode
+          // Subtle scanlines - lighter in light mode (scaled spacing for high-density)
+          const scanlineSpacing = Math.max(2, Math.round(3 * bootScale));
           ctx.globalAlpha = isLightMode ? 0.015 : 0.03;
           ctx.fillStyle = isLightMode ? '#888' : '#000';
-          for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+          for (let y = 0; y < H; y += scanlineSpacing) ctx.fillRect(0, y, W, Math.ceil(bootScale / 2));
           ctx.globalAlpha = 1;
           
-          // Draw decorative bars flowing up
+          // Draw decorative bars flowing up (scaled for high-density displays)
           const colors = getKidlispColors(); // Get current theme colors
           for (let i = kidlispBars.length - 1; i >= 0; i--) {
             const bar = kidlispBars[i];
-            bar.y -= bar.speed;
+            bar.y -= bar.speed * bootScale;
             const progress = 1 - (bar.y / H);
             const fade = Math.max(0, bar.alpha * (1 - progress * 0.5));
-            if (bar.y < -20) { kidlispBars.splice(i, 1); continue; }
+            if (bar.y < -20 * bootScale) { kidlispBars.splice(i, 1); continue; }
             ctx.globalAlpha = fade;
             // Look up color dynamically for theme support
             const color = bar.colorIndex !== undefined ? colors[bar.colorIndex % colors.length] : (bar.color || colors[0]);
             ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-            const radius = bar.height / 2;
+            const scaledWidth = bar.width * bootScale;
+            const scaledHeight = bar.height * bootScale;
+            const radius = scaledHeight / 2;
             ctx.beginPath();
-            ctx.roundRect(bar.x, bar.y, bar.width, bar.height, radius);
+            ctx.roundRect(bar.x, bar.y, scaledWidth, scaledHeight, radius);
             ctx.fill();
           }
           ctx.globalAlpha = 1;
           
-          // Draw log messages flowing up from bottom
-          const klLineHeight = 18;
-          const startY = H - 30;
-          ctx.font = '11px "SF Mono", "Monaco", "Consolas", monospace';
+          // Draw log messages flowing up from bottom (scaled for high-density displays)
+          const klLineHeight = 18 * bootScale;
+          const startY = H - 30 * bootScale;
+          const fontSize = Math.round(11 * bootScale);
+          ctx.font = `${fontSize}px "SF Mono", "Monaco", "Consolas", monospace`;
           
           for (let i = 0; i < kidlispLogs.length; i++) {
             const log = kidlispLogs[i];
@@ -505,30 +517,32 @@
             // Look up color dynamically for theme support
             const logColor = log.colorIndex !== undefined ? colors[log.colorIndex % colors.length] : (log.color || colors[0]);
             
-            // Colored bar behind text
+            // Colored bar behind text (scaled)
             const textWidth = ctx.measureText(log.text).width;
+            const boxPadding = 8 * bootScale;
+            const boxHeight = 16 * bootScale;
             ctx.fillStyle = `rgba(${logColor[0]}, ${logColor[1]}, ${logColor[2]}, ${log.alpha * 0.15})`;
             ctx.beginPath();
-            ctx.roundRect(10, log.y - 12, textWidth + 16, 16, 4);
+            ctx.roundRect(10 * bootScale, log.y - boxHeight * 0.75, textWidth + boxPadding * 2, boxHeight, 4 * bootScale);
             ctx.fill();
             
             // Text
             ctx.globalAlpha = log.alpha;
             ctx.fillStyle = `rgb(${logColor[0]}, ${logColor[1]}, ${logColor[2]})`;
-            ctx.fillText(log.text, 18, log.y);
+            ctx.fillText(log.text, 18 * bootScale, log.y);
           }
           ctx.globalAlpha = 1;
           
-          // Spawn ambient bars occasionally (use colorIndex for theme support)
+          // Spawn ambient bars occasionally (use colorIndex for theme support, scaled dimensions)
           if (kidlispFrame % 15 === 0 && kidlispBars.length < 30) {
             const colorIndex = Math.floor(Math.random() * getKidlispColors().length);
             kidlispBars.push({
               x: Math.random() * W,
-              y: H + 10,
-              width: 20 + Math.random() * 60,
-              height: 2 + Math.random() * 3,
+              y: H + 10 * bootScale,
+              width: (20 + Math.random() * 60) * bootScale,
+              height: (2 + Math.random() * 3) * bootScale,
               colorIndex: colorIndex,
-              speed: 0.5 + Math.random() * 1,
+              speed: (0.5 + Math.random() * 1) * bootScale,
               alpha: 0.2 + Math.random() * 0.2
             });
           }

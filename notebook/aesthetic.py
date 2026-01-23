@@ -12,12 +12,91 @@ if "aesthetic" in sys.modules:
 from IPython.display import display, IFrame, HTML
 from IPython.core.magic import Magics, cell_magic, line_magic, magics_class
 
-def show(piece, width="100%", height=54):
+DEFAULT_DENSITY = 2
+
+def _get_ipython_context():
+    try:
+        from IPython import get_ipython
+        ip = get_ipython()
+        if ip is not None:
+            return ip.user_ns.copy()
+    except Exception:
+        pass
+    return {}
+
+def _safe_eval(expr, context=None):
+    """Safely evaluate math expressions with access to IPython variables"""
+    if context is None:
+        context = {}
+
+    if expr == "100%" or (isinstance(expr, str) and expr.endswith('%')):
+        return expr
+
+    try:
+        return int(expr)
+    except (ValueError, TypeError):
+        pass
+
+    try:
+        return float(expr)
+    except (ValueError, TypeError):
+        pass
+
+    import math
+    safe_dict = {
+        '__builtins__': {},
+        'abs': abs, 'min': min, 'max': max, 'round': round,
+        'int': int, 'float': float, 'sum': sum, 'len': len,
+        'pow': pow,
+        'math': math, 'pi': math.pi, 'e': math.e,
+        'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
+        'sqrt': math.sqrt, 'log': math.log, 'log10': math.log10,
+        'exp': math.exp, 'floor': math.floor, 'ceil': math.ceil,
+        **context,
+    }
+
+    try:
+        result = eval(expr, safe_dict)
+        if isinstance(result, float) and result.is_integer():
+            return int(result)
+        return result
+    except Exception as e:
+        print(f"Warning: Could not evaluate '{expr}': {e}")
+        return expr
+
+def _normalize_density(value, context=None, default=DEFAULT_DENSITY):
+    if value is None:
+        return default
+    if isinstance(value, (int, float)):
+        return value
+    if isinstance(value, str):
+        evaluated = _safe_eval(value, context)
+        if isinstance(evaluated, (int, float)):
+            return evaluated
+    return default
+
+def _scale_dimension(value, density):
+    if isinstance(value, (int, float)) and isinstance(density, (int, float)):
+        scaled = value * density
+        if isinstance(scaled, float) and scaled.is_integer():
+            return int(scaled)
+        return scaled
+    return value
+
+def _compute_iframe_dimensions(width, height, density):
+    return _scale_dimension(width, density), _scale_dimension(height, density)
+
+def show(piece, width="100%", height=54, density=None):
     importlib.reload(importlib.import_module('aesthetic'))
     # Ensure parameters are separated explicitly in the URL
     # url = f"https://aesthetic.computer/{piece}?nolabel&nogap"
     url = f"https://localhost:8888/{piece}?nolabel=true&nogap=true"
-    display(IFrame(src=url, width=width, height=height, frameborder="0"))
+    density_value = _normalize_density(density, _get_ipython_context())
+    iframe_width, iframe_height = _compute_iframe_dimensions(width, height, density_value)
+    if density_value is not None:
+        separator = "&" if "?" in url else "?"
+        url += f"{separator}density={density_value}"
+    display(IFrame(src=url, width=iframe_width, height=iframe_height, frameborder="0"))
 
 def encode_kidlisp_with_node(code):
     """
@@ -49,16 +128,17 @@ def encode_kidlisp_with_node(code):
         encoded = code.replace(' ', '_').replace('\n', '~')
         return f"https://localhost:8888/{encoded}?nolabel=true&nogap=true"
 
-def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False):
+def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False, density=None):
     """
     Run kidlisp code in Aesthetic Computer.
     
     Args:
         code (str): The kidlisp code to execute
-        width: Width of the iframe (default: "100%")
-        height: Height of the iframe (default: 400)
+        width: Virtual width in AC pixels (default: "100%")
+        height: Virtual height in AC pixels (default: 400)
         auto_scale (bool): If True, iframe will scale to fit content (default: False)
         tv_mode (bool): If True, disables touch and keyboard input for TV display (default: False)
+        density (number|str): Virtual pixel density (default: 2)
     """
     importlib.reload(importlib.import_module('aesthetic'))
     
@@ -70,20 +150,25 @@ def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False):
     if tv_mode:
         separator = "&" if "?" in url else "?"
         url += f"{separator}tv=true"
+
+    density_value = _normalize_density(density, _get_ipython_context())
+    if density_value is not None:
+        separator = "&" if "?" in url else "?"
+        url += f"{separator}density={density_value}"
     
     # Create a stable ID based on content hash to reduce flicker on re-runs
-    content_hash = hashlib.md5(f"{clean_code}{width}{height}{tv_mode}".encode()).hexdigest()[:8]
+    content_hash = hashlib.md5(f"{clean_code}{width}{height}{tv_mode}{density_value}".encode()).hexdigest()[:8]
     iframe_id = f"ac-iframe-{content_hash}"
-    content_hash = hashlib.md5(f"{clean_code}{width}{height}".encode()).hexdigest()[:8]
-    iframe_id = f"ac-iframe-{content_hash}"
+
+    iframe_width, iframe_height = _compute_iframe_dimensions(width, height, density_value)
     
     # Always use HTML approach with no margins, positioned at top-left
     if auto_scale:
         iframe_html = f'''
         <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
             <iframe id="{iframe_id}" src="{url}" 
-                    width="{width}" 
-                    height="{height}" 
+                    width="{iframe_width}" 
+                    height="{iframe_height}" 
                     frameborder="0"
                     style="background: transparent; margin: 0; padding: 0; border: none; display: block; transform-origin: top left; max-width: 100%; height: auto; aspect-ratio: 1/1;">
             </iframe>
@@ -93,8 +178,8 @@ def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False):
         iframe_html = f'''
         <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
             <iframe id="{iframe_id}" src="{url}" 
-                    width="{width}" 
-                    height="{height}" 
+                    width="{iframe_width}" 
+                    height="{iframe_height}" 
                     frameborder="0"
                     style="background: transparent; margin: 0; padding: 0; border: none; display: block;">
             </iframe>
@@ -103,7 +188,7 @@ def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False):
     
     display(HTML(iframe_html))
 
-def kidlisp_display(code, width="100%", height=400, auto_scale=False):
+def kidlisp_display(code, width="100%", height=400, auto_scale=False, density=None):
     """
     Run kidlisp code with minimal visual footprint - designed for display-only cells.
     
@@ -112,10 +197,11 @@ def kidlisp_display(code, width="100%", height=400, auto_scale=False):
         width: Width of the iframe (default: "100%")
         height: Height of the iframe (default: 400)
         auto_scale (bool): If True, iframe will scale to fit content (default: False)
+        density (number|str): Virtual pixel density (default: 2)
     """
     # This function is identical to kidlisp() but with a different name
     # The "display-only" aspect comes from how you use it in your notebook
-    return kidlisp(code, width, height, auto_scale)
+    return kidlisp(code, width, height, auto_scale, False, density)
 
 def show_side_by_side(*pieces_and_options):
     """
@@ -167,7 +253,7 @@ def l(*args, **kwargs):
     return λ(*args, **kwargs)
 
 # Lambda symbol alias - perfect for functional programming!
-def λ(*args, **kwargs):
+    def λ(*args, **kwargs):
     """
     Lambda symbol alias for kidlisp function - λ()
     
@@ -184,6 +270,7 @@ def λ(*args, **kwargs):
     width = "100%"
     height = 30
     auto_scale = kwargs.get('auto_scale', False)
+    density = kwargs.get('density', None)
     resolution = kwargs.get('resolution', None)
     
     # Parse positional arguments
@@ -230,7 +317,7 @@ def λ(*args, **kwargs):
         else:
             raise ValueError("Resolution must be a tuple of (width, height)")
     
-    return kidlisp(code, width, height, auto_scale)
+    return kidlisp(code, width, height, auto_scale, False, density)
 
 # IPython Magic Commands for Native Kidlisp Syntax
 @magics_class
@@ -256,102 +343,53 @@ class AestheticComputerMagics(Magics):
             %%ac 800 600      # Width and height
             %%ac 320 240*2    # Math expressions supported
             (your kidlisp code here)
+
+        Note: Width/height are virtual AC pixels. Iframe size is scaled by density.
             
         Parameters support math expressions and variables from the current namespace.
         Examples:
             %%ac 400*2        # Height = 800, width = 100%
             %%ac my_width my_height
             %%ac int(800/2) int(600*1.5)  # Width = 400, height = 900
+            %%ac 320 240 density=2        # Virtual size with explicit density
         """
         # Parse and evaluate arguments with math support
         args = line.strip().split() if line.strip() else []
         width = "100%"
         height = 30
         tv_mode = False
+        density = None
         
         # Look for tv_mode parameter
         filtered_args = []
         for arg in args:
             if arg.startswith('tv_mode='):
                 tv_mode = arg.split('=')[1].lower() in ('true', '1', 'yes')
+            elif arg.startswith('density=') or arg.startswith('d='):
+                density = arg.split('=', 1)[1]
             else:
                 filtered_args.append(arg)
         
         args = filtered_args
         
-        def safe_eval(expr, context=None):
-            """Safely evaluate math expressions with access to IPython variables"""
-            if context is None:
-                context = {}
-            
-            # Handle special cases first
-            if expr == "100%" or expr.endswith('%'):
-                return expr
-            
-            # Try simple int conversion first
-            try:
-                return int(expr)
-            except ValueError:
-                pass
-            
-            # Try float conversion
-            try:
-                return float(expr)
-            except ValueError:
-                pass
-            
-            # Set up safe evaluation context with math functions and user variables
-            import math
-            safe_dict = {
-                '__builtins__': {},
-                # Basic functions
-                'abs': abs, 'min': min, 'max': max, 'round': round,
-                'int': int, 'float': float, 'sum': sum, 'len': len,
-                'pow': pow,
-                # Math module
-                'math': math, 'pi': math.pi, 'e': math.e,
-                'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
-                'sqrt': math.sqrt, 'log': math.log, 'log10': math.log10,
-                'exp': math.exp, 'floor': math.floor, 'ceil': math.ceil,
-                # Add all variables from the IPython user namespace
-                **context
-            }
-            
-            try:
-                result = eval(expr, safe_dict)
-                # Convert to int if it's a clean number
-                if isinstance(result, float) and result.is_integer():
-                    return int(result)
-                return result
-            except Exception as e:
-                # If evaluation fails, return the original expression
-                print(f"Warning: Could not evaluate '{expr}': {e}")
-                return expr
-        
-        # Get IPython user namespace for variable access
-        context = {}
-        try:
-            from IPython import get_ipython
-            ip = get_ipython()
-            if ip is not None:
-                # Include user variables in the evaluation context
-                context = ip.user_ns.copy()
-        except:
-            pass
+        context = _get_ipython_context()
         
         if len(args) >= 1:
             # If only one argument, treat it as height and keep width as "100%"
             if len(args) == 1:
                 height_expr = args[0]
-                height = safe_eval(height_expr, context)
+                height = _safe_eval(height_expr, context)
                 # width stays as "100%" (already set above)
             else:
                 # If two or more arguments, first is width, second is height
                 width_expr = args[0]
-                width = safe_eval(width_expr, context)
+                width = _safe_eval(width_expr, context)
                 if len(args) >= 2:
                     height_expr = args[1]
-                    height = safe_eval(height_expr, context)
+                    height = _safe_eval(height_expr, context)
+
+        density_value = _normalize_density(density, context)
+        iframe_width, iframe_height = _compute_iframe_dimensions(width, height, density_value)
         
         # Check if the cell content is a piece invocation or kidlisp code
         cell_content = cell.strip()
@@ -379,16 +417,19 @@ class AestheticComputerMagics(Magics):
             # Add TV mode parameter if requested
             if tv_mode:
                 url += "&tv=true"
+
+            if density_value is not None:
+                url += f"&density={density_value}"
             
             # Create iframe directly
-            content_hash = hashlib.md5(f"{cell_content}{width}{height}{tv_mode}".encode()).hexdigest()[:8]
+            content_hash = hashlib.md5(f"{cell_content}{width}{height}{tv_mode}{density_value}".encode()).hexdigest()[:8]
             iframe_id = f"ac-iframe-{content_hash}"
             
             iframe_html = f'''
             <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
                 <iframe id="{iframe_id}" src="{url}" 
-                        width="{width}" 
-                        height="{height}" 
+                        width="{iframe_width}" 
+                        height="{iframe_height}" 
                         frameborder="0"
                         style="background: transparent; margin: 0; padding: 0; border: none; display: block;">
                 </iframe>
@@ -398,7 +439,7 @@ class AestheticComputerMagics(Magics):
             display(HTML(iframe_html))
         else:
             # Handle as kidlisp code
-            return kidlisp(cell_content, width, height, False, tv_mode)
+            return kidlisp(cell_content, width, height, False, tv_mode, density_value)
     
     @line_magic
     def ac_line(self, line):
@@ -410,6 +451,9 @@ class AestheticComputerMagics(Magics):
             %ac clock cdefg
             %ac 100 clock cdefg          # Height = 100, width = 100%
             %ac 400 200 clock cdefg      # Width = 400, height = 200
+            %ac 320 240 density=2 clock  # Virtual size with explicit density
+
+        Note: Width/height are virtual AC pixels. Iframe size is scaled by density.
             
         Note: For piece invocations with special characters like {}, use cell magic %%ac instead
         to avoid Python syntax parsing issues.
@@ -420,17 +464,33 @@ class AestheticComputerMagics(Magics):
         parts = line_content.split()
         width = "100%"
         height = 30
+        density = None
         content_start_index = 0
+
+        context = _get_ipython_context()
+
+        filtered_parts = []
+        for part in parts:
+            if part.startswith('density=') or part.startswith('d='):
+                density = part.split('=', 1)[1]
+            else:
+                filtered_parts.append(part)
+
+        parts = filtered_parts
         
         # Check if first part(s) are numeric parameters
         if len(parts) >= 2:  # Need at least 2 parts to have a size parameter + content
             try:
                 # Try to parse first part as a number (height only)
-                first_num = int(parts[0])
+                first_num = _safe_eval(parts[0], context)
+                if not isinstance(first_num, (int, float)):
+                    raise ValueError
                 if len(parts) >= 3:
                     try:
                         # Try to parse second part as a number (width, height)
-                        second_num = int(parts[1])
+                        second_num = _safe_eval(parts[1], context)
+                        if not isinstance(second_num, (int, float)):
+                            raise ValueError
                         width = first_num
                         height = second_num
                         content_start_index = 2
@@ -461,21 +521,27 @@ class AestheticComputerMagics(Magics):
             len(actual_content.split()) >= 1
         )
         
+        density_value = _normalize_density(density, context)
+        iframe_width, iframe_height = _compute_iframe_dimensions(width, height, density_value)
+
         if is_piece_invocation:
             # Handle as piece invocation - construct URL directly
             # Replace spaces with ~ for piece parameters
             piece_url = actual_content.replace(' ', '~')
             url = f"https://localhost:8888/{piece_url}?nolabel=true&nogap=true"
+
+            if density_value is not None:
+                url += f"&density={density_value}"
             
             # Create iframe directly
-            content_hash = hashlib.md5(f"{actual_content}{width}{height}".encode()).hexdigest()[:8]
+            content_hash = hashlib.md5(f"{actual_content}{width}{height}{density_value}".encode()).hexdigest()[:8]
             iframe_id = f"ac-iframe-{content_hash}"
             
             iframe_html = f'''
             <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
                 <iframe id="{iframe_id}" src="{url}" 
-                        width="{width}" 
-                        height="{height}" 
+                        width="{iframe_width}" 
+                        height="{iframe_height}" 
                         frameborder="0"
                         style="background: transparent; margin: 0; padding: 0; border: none; display: block;">
                 </iframe>
@@ -485,7 +551,7 @@ class AestheticComputerMagics(Magics):
             display(HTML(iframe_html))
         else:
             # Handle as kidlisp code
-            return kidlisp(actual_content, width, height, False)
+            return kidlisp(actual_content, width, height, False, False, density_value)
 
 # Automatic IPython/Jupyter setup - makes λ globally available
 def _setup_ipython():
