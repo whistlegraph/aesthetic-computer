@@ -37,8 +37,8 @@ export async function handler(event, context) {
   if (type === 'kidlisp') {
     // Fetch top KidLisp hits from /api/tv
     try {
-      // Fetch more items to allow for filtering
-      const fetchLimit = handle ? limit * 4 : limit;
+      // Fetch more items when filtering by handle (need full collection)
+      const fetchLimit = handle ? 200 : limit;
       const tvUrl = `${baseUrl}/api/tv?types=kidlisp&sort=hits&limit=${fetchLimit}`;
       const response = await fetch(tvUrl);
       const data = await response.json();
