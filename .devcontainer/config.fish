@@ -2863,6 +2863,7 @@ kill %1 2>/dev/null"
             # Generate and push a DP-1 playlist of top KidLisp hits
             set -l limit 10
             set -l duration 60
+            set -l handle ""
             
             # Parse options using string match with -- separator
             for arg in $argv[2..-1]
@@ -2870,36 +2871,40 @@ kill %1 2>/dev/null"
                     set limit (string replace -- '--limit=' '' "$arg")
                 else if string match -q -- '--duration=*' "$arg"
                     set duration (string replace -- '--duration=' '' "$arg")
+                else if string match -q -- '--handle=*' "$arg"
+                    set handle (string replace -- '--handle=' '' "$arg")
+                else if string match -q -- 'handle=*' "$arg"
+                    # Support handle=jeffrey without --
+                    set handle (string replace -- 'handle=' '' "$arg")
                 end
             end
             
-            echo "🎵 Fetching top $limit KidLisp hits..."
+            # Build playlist API URL
+            set -l playlist_url "https://aesthetic.computer/api/playlist?limit=$limit&duration=$duration&density=8"
+            if test -n "$handle"
+                set playlist_url "$playlist_url&handle=$handle"
+                echo "🎵 Fetching top $limit KidLisp hits by @$handle..."
+            else
+                echo "🎵 Fetching top $limit KidLisp hits..."
+            end
             
-            # Fetch top hits from TV API and extract codes
-            set -l codes (curl -s "https://aesthetic.computer/api/tv?types=kidlisp&sort=hits&limit=$limit" | jq -r ".media.kidlisp | sort_by(-.hits) | .[:$limit] | .[].code")
+            # Fetch playlist from API
+            set -l playlist_json (curl -s "$playlist_url")
             
-            if test -z "$codes"
-                echo "❌ Failed to fetch KidLisp hits"
+            if test -z "$playlist_json"
+                echo "❌ Failed to fetch playlist"
                 return 1
             end
             
-            # Convert newline-separated codes to array
+            # Extract codes for display
+            set -l codes (echo $playlist_json | jq -r '.items[].title | ltrimstr("$")')
             set codes (string split \n -- $codes)
             
             echo "📺 Pushing playlist to FF1 ("(count $codes)" items, "$duration"s each)..."
             echo "   Codes:" $codes
             
-            # Build DP-1 playlist items with playlist mode hints
-            set -l items_json "["
-            set -l first true
-            for code in $codes
-                if test "$first" = "false"
-                    set items_json "$items_json,"
-                end
-                set first false
-                set items_json "$items_json{\"source\":\"https://device.kidlisp.com/$code?density=8&playlist=true&duration=$duration\",\"duration\":$duration}"
-            end
-            set items_json "$items_json]"
+            # Extract items array from playlist response
+            set -l items_json (echo $playlist_json | jq -c '.items | map({source, duration})')
             
             # Build full DP-1 payload
             set -l playlist_payload (printf '{"command":"displayPlaylist","request":{"dp1_call":{"dpVersion":"1.0.0","items":%s},"intent":{"action":"now_display"}}}' "$items_json")
@@ -2920,7 +2925,7 @@ kill %1 2>/dev/null"
             echo "  ac-ff1 cast <piece>           - Cast aesthetic.computer piece"
             echo "  ac-ff1 cast <piece> --device  - Cast via device.kidlisp.com (FF1 optimized)"
             echo "  ac-ff1 cast <url>             - Cast any URL"
-            echo "  ac-ff1 playlist [--limit=N] [--duration=S] - Push top KidLisp hits"
+            echo "  ac-ff1 playlist [--limit=N] [--duration=S] [--handle=H] - Push KidLisp playlist"
             echo "  ac-ff1 tunnel                 - Create SSH tunnel for local dev"
     end
 end
