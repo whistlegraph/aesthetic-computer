@@ -3,13 +3,13 @@
  * 
  * Sends artwork URLs to Feral File FF1 devices using the DP-1 protocol.
  * 
- * API Reference: https://docs.feralfile.com/ff1/send-playlists
+ * Connection Methods (in priority order):
+ *   1. Electron Bridge: localhost:19999 (Aesthetic Computer desktop app)
+ *   2. Session Server Proxy: localhost:8889 (dev) or aesthetic.computer/api/ff1/proxy
+ *   3. Cloud Relay: artwork-info.feral-file.workers.dev (requires topicID + apiKey)
  * 
- * Device Discovery Notes:
- * - The FF1 iOS app uses Bluetooth Low Energy (BLE) for device discovery
- * - Web browsers cannot use BLE scanning, so we use:
- *   1. Direct mDNS: http://{deviceId}.local:1111/api/cast (same WiFi network)
- *   2. Cloud Relay: https://artwork-info.feral-file.workers.dev/api/cast (with API key)
+ * The Electron app can discover and communicate with FF1 devices on the local
+ * network, bypassing browser security restrictions.
  */
 
 import { state, setState, events } from './state.js';
@@ -19,21 +19,25 @@ import { state, setState, events } from './state.js';
 // ============================================
 
 const FF1_CONFIG_KEY = 'kidlisp-ff1-config';
+const ELECTRON_BRIDGE_URL = 'http://127.0.0.1:19999';
+
+// Bridge status
+let electronBridgeAvailable = null; // null = not checked, true/false = checked
+let electronBridgeDevices = [];
 
 // Default configuration
-// To use FF1 with kidlisp.com, you only need your Topic ID from the FF1 app:
-// 1. Open FF1 app on your phone
-// 2. Go to Settings > Developer
-// 3. Copy your "Topic ID" 
-// 4. Paste it in the FF1 settings in kidlisp.com
+// To use FF1 with kidlisp.com:
+// - Best: Install Aesthetic Computer desktop app (auto-discovers FF1s)
+// - Alternative: Get Topic ID from FF1 app > Settings > Developer
 const defaultConfig = {
-  deviceId: '',           // e.g., 'FF1-DVVEKLZA' (optional, for display only)
+  deviceId: '',           // e.g., 'FF1-DVVEKLZA' (from Electron bridge or manual)
   deviceIp: '',           // Direct IP fallback (rarely needed)
   useDirectApi: false,    // false = use session-server proxy (recommended)
-  relayApiKey: '',        // Optional API key (usually not needed)
-  relayTopicId: '',       // REQUIRED: Topic ID from FF1 app settings
+  relayApiKey: '',        // Optional API key for cloud relay
+  relayTopicId: '',       // Topic ID from FF1 app settings (for cloud relay)
   lastConnected: null,    // Timestamp of last successful connection
   deviceInfo: null,       // Cached device info
+  preferElectronBridge: true, // Try Electron bridge first
 };
 
 let config = { ...defaultConfig };
@@ -63,6 +67,123 @@ export function saveConfig(newConfig) {
 
 export function getConfig() {
   return { ...config };
+}
+
+// ============================================
+// ELECTRON BRIDGE (Aesthetic Computer Desktop App)
+// ============================================
+
+/**
+ * Check if the Aesthetic Computer Electron app is running
+ * with FF1 bridge enabled
+ */
+export async function checkElectronBridge() {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    
+    const response = await fetch(`${ELECTRON_BRIDGE_URL}/status`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    
+    if (response.ok) {
+      const data = await response.json();
+      electronBridgeAvailable = data.ok === true;
+      console.log('🌉 Electron FF1 bridge detected:', data);
+      return { available: true, ...data };
+    }
+  } catch (e) {
+    // Bridge not running (connection refused, timeout, etc.)
+    electronBridgeAvailable = false;
+  }
+  
+  return { available: false };
+}
+
+/**
+ * Get the Electron bridge status
+ */
+export function getElectronBridgeStatus() {
+  return {
+    available: electronBridgeAvailable,
+    checked: electronBridgeAvailable !== null,
+    devices: electronBridgeDevices,
+  };
+}
+
+/**
+ * Discover FF1 devices via Electron bridge
+ */
+export async function discoverDevicesViaBridge() {
+  if (!electronBridgeAvailable) {
+    const status = await checkElectronBridge();
+    if (!status.available) {
+      return { ok: false, error: 'Electron bridge not available' };
+    }
+  }
+  
+  try {
+    const response = await fetch(`${ELECTRON_BRIDGE_URL}/discover`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    
+    const data = await response.json();
+    if (data.ok && data.devices) {
+      electronBridgeDevices = data.devices;
+      console.log('🔍 FF1 devices discovered via bridge:', data.devices);
+      
+      // Auto-configure first device if none set
+      if (data.devices.length > 0 && !config.deviceId) {
+        const first = data.devices[0];
+        saveConfig({
+          deviceId: first.deviceId || first.info?.deviceId,
+          deviceIp: first.ip,
+          deviceInfo: first.info,
+        });
+      }
+    }
+    return data;
+  } catch (e) {
+    console.warn('⚠️ Failed to discover devices via bridge:', e);
+    return { ok: false, error: e.message };
+  }
+}
+
+/**
+ * Send playlist via Electron bridge
+ */
+async function sendPlaylistViaBridge(playlist) {
+  const payload = {
+    deviceId: config.deviceId,
+    deviceIp: config.deviceIp,
+    command: 'displayPlaylist',
+    request: {
+      playlist: playlist,
+      intent: { action: 'now_display' }
+    }
+  };
+  
+  console.log('🌉 Sending to FF1 via Electron bridge:', payload);
+  
+  const response = await fetch(`${ELECTRON_BRIDGE_URL}/cast`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  
+  const result = await response.json();
+  
+  if (!result.ok) {
+    throw new Error(result.error || 'Bridge cast failed');
+  }
+  
+  // Update last connected timestamp
+  saveConfig({ lastConnected: Date.now() });
+  
+  return result.response;
 }
 
 // ============================================
@@ -266,23 +387,54 @@ async function sendPlaylistViaRelay(playlist) {
 }
 
 /**
- * Send a playlist to FF1 (uses proxy for browser compatibility)
+ * Send a playlist to FF1 (tries methods in priority order)
+ * Priority: 1. Electron Bridge, 2. Session Proxy, 3. Direct API
  * @param {object} playlist - The DP-1 playlist to send
  */
 export async function sendPlaylist(playlist) {
-  // Always use proxy in browser to avoid CORS
-  // Direct device API only works with local proxy server or same network
-  if (config.useDirectApi && config.deviceIp) {
-    // Only try direct if explicitly configured with IP (rare)
-    try {
-      return await sendPlaylistDirect(playlist);
-    } catch (e) {
-      console.warn('Direct API failed, falling back to proxy:', e);
+  // Strategy 1: Try Electron bridge first (best for local devices)
+  if (config.preferElectronBridge !== false) {
+    // Check bridge if not yet checked
+    if (electronBridgeAvailable === null) {
+      await checkElectronBridge();
+    }
+    
+    if (electronBridgeAvailable) {
+      try {
+        console.log('🌉 Trying Electron bridge...');
+        return await sendPlaylistViaBridge(playlist);
+      } catch (e) {
+        console.warn('⚠️ Electron bridge failed, trying fallback:', e.message);
+      }
     }
   }
   
-  // Default: use session-server proxy
+  // Strategy 2: Try direct device API if configured
+  if (config.useDirectApi && config.deviceIp) {
+    try {
+      console.log('📡 Trying direct device API...');
+      return await sendPlaylistDirect(playlist);
+    } catch (e) {
+      console.warn('⚠️ Direct API failed, trying proxy:', e.message);
+    }
+  }
+  
+  // Strategy 3: Use session-server proxy (cloud relay)
+  console.log('☁️ Using session proxy...');
   return sendPlaylistViaProxy(playlist);
+}
+
+/**
+ * Get the current connection method that will be used
+ */
+export function getConnectionMethod() {
+  if (config.preferElectronBridge !== false && electronBridgeAvailable) {
+    return 'electron-bridge';
+  }
+  if (config.useDirectApi && config.deviceIp) {
+    return 'direct';
+  }
+  return 'proxy';
 }
 
 // ============================================
@@ -415,11 +567,77 @@ export async function getDeviceStatus() {
 
 /**
  * Check if FF1 is properly configured
- * Only requires topicId - that's all FF1 owners need from their app
+ * - Electron bridge: auto-discovers devices (no config needed)
+ * - Cloud relay: requires topicId from FF1 app
  */
 export function isConfigured() {
-  // Topic ID is the only required field for cloud relay via session-server
+  // If Electron bridge is available with devices, we're good
+  if (electronBridgeAvailable && (electronBridgeDevices.length > 0 || config.deviceId || config.deviceIp)) {
+    return true;
+  }
+  // Otherwise, need topic ID for cloud relay
   return !!config.relayTopicId;
+}
+
+/**
+ * Get comprehensive FF1 connection status for UI
+ */
+export function getConnectionStatus() {
+  const method = getConnectionMethod();
+  
+  return {
+    configured: isConfigured(),
+    method,
+    electronBridge: {
+      available: electronBridgeAvailable,
+      checked: electronBridgeAvailable !== null,
+      deviceCount: electronBridgeDevices.length,
+    },
+    device: {
+      id: config.deviceId,
+      ip: config.deviceIp,
+      info: config.deviceInfo,
+      lastConnected: config.lastConnected,
+    },
+    cloudRelay: {
+      configured: !!config.relayTopicId,
+      hasApiKey: !!config.relayApiKey,
+    },
+    // User-friendly status message
+    message: getStatusMessage(method),
+  };
+}
+
+function getStatusMessage(method) {
+  if (method === 'electron-bridge') {
+    const count = electronBridgeDevices.length;
+    if (count > 0) {
+      return `Connected via AC app (${count} device${count > 1 ? 's' : ''} found)`;
+    }
+    return 'AC app connected - scanning for devices...';
+  }
+  if (method === 'direct') {
+    return `Direct connection to ${config.deviceIp || config.deviceId}`;
+  }
+  if (config.relayTopicId) {
+    return 'Using cloud relay';
+  }
+  return 'Not configured - install AC app or enter Topic ID';
+}
+
+/**
+ * Get download URL for Aesthetic Computer app
+ */
+export function getAppDownloadUrl() {
+  const platform = navigator.platform.toLowerCase();
+  if (platform.includes('mac')) {
+    return 'https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic-Computer.dmg';
+  }
+  if (platform.includes('win')) {
+    return 'https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic-Computer-Setup.exe';
+  }
+  // Linux / other
+  return 'https://github.com/whistlegraph/aesthetic-computer/releases/latest';
 }
 
 /**
