@@ -313,6 +313,14 @@ const MIDI_BADGE_PADDING_Y = 2;
 const MIDI_BADGE_MARGIN = 6;
 const MIDI_RATE_LABEL_GAP = 2;
 
+// Secondary top bar for mode toggle buttons (using MatrixChunky8 font)
+const SECONDARY_BAR_TOP = TOP_BAR_BOTTOM;
+const SECONDARY_BAR_HEIGHT = 12;
+const SECONDARY_BAR_BOTTOM = SECONDARY_BAR_TOP + SECONDARY_BAR_HEIGHT;
+const TOGGLE_BTN_PADDING_X = 2;
+const TOGGLE_BTN_PADDING_Y = 2;
+const TOGGLE_BTN_GAP = 3;
+
 const MELODY_ALIAS_BASE_SIDE = 72;
 const MELODY_ALIAS_MIN_SIDE = 56;
 const MELODY_ALIAS_MARGIN = 6;
@@ -597,6 +605,7 @@ let paintPictureOverlay = false;
 // let qrcells;
 
 let waveBtn, octBtn;
+let slideBtn, roomBtn, quickBtn; // Toggle buttons for slide/room/quick modes
 let melodyAliasBtn;
 let melodyAliasDown = false;
 let melodyAliasActiveNote = null;
@@ -791,6 +800,7 @@ function boot({
 
   buildWaveButton(api);
   buildOctButton(api);
+  buildToggleButtons(api);
 
   const newOctave =
     parseInt(colon[0]) || parseInt(colon[1]) || parseInt(colon[2]);
@@ -925,6 +935,32 @@ function resolveMatrixGlyphMetrics(fallbackTypeface) {
   return { width: 6, height: 8 };
 }
 
+function measureMatrixTextWidth(text, fallbackTypeface) {
+  if (!text || !text.length) return 0;
+  const advances = matrixFont?.data?.advances || fallbackTypeface?.data?.advances;
+  const defaultAdvance = resolveMatrixGlyphMetrics(fallbackTypeface).width;
+  let width = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    width += advances && advances[ch] !== undefined ? advances[ch] : defaultAdvance;
+  }
+  return width;
+}
+
+function measureMatrixTextBoxWidth(text, api, screenWidth) {
+  if (!text || !text.length || !api?.text?.box) return 0;
+  const bounds = Math.max(screenWidth || 0, 200);
+  const tb = api.text.box(
+    text,
+    { x: 0, y: 0 },
+    bounds,
+    1,
+    false,
+    "MatrixChunky8",
+  );
+  return tb?.box?.width || 0;
+}
+
 function computeMidiBadgeMetrics(
   screen,
   glyphMetrics = resolveMatrixGlyphMetrics(),
@@ -935,17 +971,12 @@ function computeMidiBadgeMetrics(
   const textWidth = MIDI_BADGE_TEXT.length * glyphMetrics.width;
   const rateLabelWidth = rateLabel ? rateLabel.length * glyphMetrics.width : 0;
   const rateWidth = rateText ? rateText.length * glyphMetrics.width : 0;
-  const rateLineWidth =
-    rateLabelWidth > 0
-      ? rateLabelWidth + MIDI_RATE_LABEL_GAP + rateWidth
-      : rateWidth;
-  const width =
-    Math.max(textWidth, rateLineWidth) + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
-  const lineGap = rateText ? 2 : 0;
-  const height =
-    glyphMetrics.height * (rateText ? 2 : 1) +
-    MIDI_BADGE_PADDING_Y * 2 +
-    lineGap;
+  
+  // Single line layout: "USB MIDI 48k" all on one line
+  const singleLineGap = rateText ? 4 : 0;
+  const totalTextWidth = textWidth + singleLineGap + rateWidth;
+  const width = totalTextWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
+  const height = glyphMetrics.height + MIDI_BADGE_PADDING_Y * 2;
   
   // In compact mode, center the badge at bottom
   const x = compactMode 
@@ -953,7 +984,7 @@ function computeMidiBadgeMetrics(
     : screen.width - width - MIDI_BADGE_MARGIN;
   const y = screen.height - height - MIDI_BADGE_MARGIN;
 
-  return { x, y, width, height };
+  return { x, y, width, height, singleLineGap };
 }
 
 function computeMelodyButtonRect(screen, midiMetrics) {
@@ -1027,7 +1058,7 @@ function getButtonLayoutMetrics(
     const notesPerSide = 12;
     const buttonsPerRow = 4;  // 4 notes per row on each side
     const totalRows = Math.ceil(notesPerSide / buttonsPerRow);  // 3 rows
-    const hudReserved = TOP_BAR_BOTTOM;
+    const hudReserved = SECONDARY_BAR_BOTTOM;
     
     // Piano dimensions (2 octaves = 14 white keys)
     const whiteKeyWidth = 7;
@@ -1126,7 +1157,7 @@ function getButtonLayoutMetrics(
     };
   }
 
-  const hudReserved = TOP_BAR_BOTTOM;
+  const hudReserved = SECONDARY_BAR_BOTTOM;
   const trackHeight = songMode ? TRACK_HEIGHT : 0;
   const trackSpacing = songMode ? TRACK_GAP : 0;
   const qwertyReserved = songMode
@@ -1300,17 +1331,40 @@ function paint({
     wipe(bg);
   }
 
-  if (slide) {
-    ink(undefined).write("slide", { right: 4, top: 24 });
-  }
-
-  if (quickFade) {
-    ink(undefined).write("quick", { left: 6, top: 24 });
-  }
-
-  // 🏠 Room mode indicator
-  if (roomMode) {
-    ink(undefined).write("room", { center: "x", top: 24 });
+  // 🎛️ Draw secondary top bar with toggle buttons
+  if (!paintPictureOverlay && !projector && !visualizerFullscreen) {
+    // Draw secondary bar background
+    ink(0, 0, 0, 100).box(0, SECONDARY_BAR_TOP, screen.width, SECONDARY_BAR_HEIGHT);
+    
+    // Paint slide button
+    slideBtn?.paint((btn) => {
+      const bgColor = slide ? [0, 180, 100, 220] : [40, 40, 60, 180];
+      const textColor = slide ? "white" : [160, 160, 180];
+      const outlineColor = slide ? [0, 255, 150, 255] : [80, 80, 100, 180];
+      ink(...bgColor).box(btn.box);
+      ink(...outlineColor).box(btn.box, "outline");
+      ink(textColor).write("slide", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
+    
+    // Paint room button
+    roomBtn?.paint((btn) => {
+      const bgColor = roomMode ? [100, 80, 180, 220] : [40, 40, 60, 180];
+      const textColor = roomMode ? "white" : [160, 160, 180];
+      const outlineColor = roomMode ? [150, 120, 255, 255] : [80, 80, 100, 180];
+      ink(...bgColor).box(btn.box);
+      ink(...outlineColor).box(btn.box, "outline");
+      ink(textColor).write("room", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
+    
+    // Paint quick button
+    quickBtn?.paint((btn) => {
+      const bgColor = quickFade ? [180, 120, 0, 220] : [40, 40, 60, 180];
+      const textColor = quickFade ? "white" : [160, 160, 180];
+      const outlineColor = quickFade ? [255, 180, 0, 255] : [80, 80, 100, 180];
+      ink(...bgColor).box(btn.box);
+      ink(...outlineColor).box(btn.box, "outline");
+      ink(textColor).write("quick", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
   }
 
   // wipe(!projector ? bg : 64);
@@ -1333,7 +1387,7 @@ function paint({
   // TODO: Precompute the full song length with x stops next to indices.
 
   const trackHeight = song ? TRACK_HEIGHT : 0;
-  const trackY = song ? TOP_BAR_BOTTOM : null;
+  const trackY = song ? SECONDARY_BAR_BOTTOM : null;
 
   if (song) {
     const glyphWidth = matrixGlyphMetrics.width;
@@ -1394,19 +1448,19 @@ function paint({
   
   // Compact mode: center the piano/qwerty between the split button octaves
   if (layout.compactMode && layout.splitLayout) {
-    pianoY = TOP_BAR_BOTTOM + 2;
+    pianoY = SECONDARY_BAR_BOTTOM + 2;
     // Center the piano in the center area
     const totalWhiteKeys = 14;
     const whiteKeyWidth = 7;
     const pianoWidth = totalWhiteKeys * whiteKeyWidth;
     pianoStartX = layout.centerX + (layout.centerAreaWidth - pianoWidth) / 2;
   } else if (song) {
-    const effectiveTrackY = trackY ?? TOP_BAR_BOTTOM;
+    const effectiveTrackY = trackY ?? SECONDARY_BAR_BOTTOM;
     pianoY = effectiveTrackY + trackHeight + 2; // Just below the track
     const pianoWidth = 14 * 7;  // 14 white keys * 7px each
     pianoStartX = screen.width - pianoWidth - 2; // Align with right edge (2px margin)
   } else {
-    pianoY = TOP_BAR_BOTTOM; // Below HUD label when no track
+    pianoY = SECONDARY_BAR_BOTTOM; // Below secondary bar when no track
     pianoStartX = 58; // Align with visualizer start when no track
   }
 
@@ -1584,13 +1638,14 @@ function paint({
   ) => {
     if (!metrics) return;
 
-    const { x, y, width, height } = metrics;
+    const { x, y, width, height, singleLineGap = 4 } = metrics;
     const bgColor = connected ? connectedBackground : disconnectedBackground;
     const textColor = connected ? connectedText : disconnectedText;
-    const lineGap = rateText ? 2 : 0;
 
     ink(...bgColor).box(x, y, width, height);
 
+    // Draw "USB MIDI" text
+    const midiTextWidth = MIDI_BADGE_TEXT.length * matrixGlyphMetrics.width;
     ink(...textColor).write(
       MIDI_BADGE_TEXT,
       { x: x + MIDI_BADGE_PADDING_X, y: y + MIDI_BADGE_PADDING_Y },
@@ -1600,29 +1655,12 @@ function paint({
       "MatrixChunky8",
     );
 
+    // Draw sample rate on same line (e.g., "48k")
     if (rateText) {
-      const rateWidth = rateText.length * matrixGlyphMetrics.width;
-      const rateLabelWidth = rateLabel ? rateLabel.length * matrixGlyphMetrics.width : 0;
-      const rateY =
-        y + MIDI_BADGE_PADDING_Y + matrixGlyphMetrics.height + lineGap;
-
-      if (rateLabel) {
-        ink(...rateTextColor).write(
-          rateLabel,
-          { x: x + MIDI_BADGE_PADDING_X, y: rateY },
-          undefined,
-          undefined,
-          false,
-          "MatrixChunky8",
-        );
-      }
-
+      const rateX = x + MIDI_BADGE_PADDING_X + midiTextWidth + singleLineGap;
       ink(...rateTextColor).write(
         rateText,
-        {
-          x: x + width - MIDI_BADGE_PADDING_RIGHT - rateWidth,
-          y: rateY,
-        },
+        { x: rateX, y: y + MIDI_BADGE_PADDING_Y },
         undefined,
         undefined,
         false,
@@ -1657,9 +1695,16 @@ function paint({
     let audioBadgeX;
 
     if (!audioReady) {
-      audioBadgeX = screen.width - audioBadgeWidth - 10;
-      ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, audioBadgeWidth, audioBadgeHeight);
-      ink(255, 255, 0).write("AUDIO OFF", audioBadgeX + 8, audioBadgeY + 4);
+      // "AUDIO ENGINE OFF" using actual MatrixChunky8 glyph metrics
+      const audioText = "AUDIO ENGINE OFF";
+      const audioTextWidth =
+        measureMatrixTextBoxWidth(audioText, api, screen.width) ||
+        measureMatrixTextWidth(audioText, typeface);
+      const audioPadding = 4;
+      const totalBadgeWidth = audioTextWidth + audioPadding * 2;
+      audioBadgeX = Math.floor((screen.width - totalBadgeWidth) / 2); // Center horizontally
+      ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, totalBadgeWidth, audioBadgeHeight);
+      ink(255, 255, 0).write(audioText, { x: audioBadgeX + audioPadding, y: audioBadgeY + 3 }, undefined, undefined, false, "MatrixChunky8");
     }
 
     drawMidiBadge(midiBadgeMetrics, midiConnected, sampleRateLabel, sampleRateText, {
@@ -1736,12 +1781,16 @@ function paint({
     let audioBadgeX;
 
     if (!audioReady) {
-      audioBadgeX = min(
-        max(54, rightEdge - audioBadgeWidth - 4),
-        screen.width - audioBadgeWidth - 8,
-      );
-      ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, audioBadgeWidth, audioBadgeHeight);
-      ink(255, 255, 0).write("AUDIO OFF", audioBadgeX + 8, audioBadgeY + 3);
+      // "AUDIO ENGINE OFF" using actual MatrixChunky8 glyph metrics
+      const audioText = "AUDIO ENGINE OFF";
+      const audioTextWidth =
+        measureMatrixTextBoxWidth(audioText, api, screen.width) ||
+        measureMatrixTextWidth(audioText, typeface);
+      const audioPadding = 4;
+      const totalBadgeWidth = audioTextWidth + audioPadding * 2;
+      audioBadgeX = Math.floor((screen.width - totalBadgeWidth) / 2); // Center horizontally
+      ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, totalBadgeWidth, max(9, audioBadgeHeight));
+      ink(255, 255, 0).write(audioText, { x: audioBadgeX + audioPadding, y: audioBadgeY + 2 }, undefined, undefined, false, "MatrixChunky8");
     }
 
     if (song && melodyAliasBtn && melodyAliasBtn.box && melodyButtonRect) {
@@ -2186,7 +2235,7 @@ function paint({
     // Use layout metrics to find a safe spot
     const padTop = layout?.topButtonY || (screen.height - 120);
     const osdX = screen.width - osdWidth - 4;
-    const osdY = Math.max(TOP_BAR_BOTTOM + 2, padTop - osdHeight - 4);
+    const osdY = Math.max(SECONDARY_BAR_BOTTOM + 2, padTop - osdHeight - 4);
     
     // Semi-transparent background
     ink(0, 0, 0, 210).box(osdX - 2, osdY - 2, osdWidth, osdHeight);
@@ -2274,6 +2323,7 @@ function act({
     setupButtons(api);
     buildWaveButton(api);
     buildOctButton(api);
+    buildToggleButtons(api);
     // Resize picture to quarter resolution (half width, half height)
     const resizedPictureWidth = Math.max(1, Math.floor(screen.width / 2));
     const resizedPictureHeight = Math.max(1, Math.floor(screen.height / 2));
@@ -3198,6 +3248,42 @@ function act({
         waveIndex = (waveIndex + 1) % wavetypes.length;
         wave = wavetypes[waveIndex];
         buildWaveButton(api);
+      },
+    });
+
+    // 🎛️ Toggle button interactions
+    slideBtn?.act(e, {
+      push: () => {
+        api.beep();
+        slide = !slide;
+        // Kill extra tones when enabling slide mode (keep only most recent)
+        if (slide && Object.keys(tonestack).length > 1) {
+          const orderedTones = orderedByCount(tonestack);
+          orderedTones.forEach((tone, index) => {
+            if (index > 0) {
+              sounds[tone]?.sound.kill(quickFade ? fastFade : fade);
+              trail[tone] = 1;
+              delete tonestack[tone];
+              delete sounds[tone];
+              if (buttons[tone]) buttons[tone].down = false;
+            }
+          });
+        }
+      },
+    });
+
+    roomBtn?.act(e, {
+      push: () => {
+        api.beep();
+        roomMode = !roomMode;
+        room.toggle();
+      },
+    });
+
+    quickBtn?.act(e, {
+      push: () => {
+        api.beep();
+        quickFade = !quickFade;
       },
     });
 
@@ -4233,6 +4319,45 @@ function buildOctButton({ screen, ui, typeface }) {
     10 + margin * 2 - 1 + 2,
   );
   octBtn.id = "oct-button";  // Add identifier for debugging
+}
+
+// Build toggle buttons for slide, room, quick modes in secondary top bar
+function buildToggleButtons({ screen, ui, typeface }) {
+  // Use actual MatrixChunky8 glyph metrics
+  const glyphWidth = resolveMatrixGlyphMetrics(typeface).width;
+  
+  const labels = ["slide", "room", "quick"];
+  const btnHeight = SECONDARY_BAR_HEIGHT - 2;
+  const btnY = SECONDARY_BAR_TOP + 1;
+  
+  // Calculate total width of all buttons to right-align them
+  let totalWidth = 0;
+  labels.forEach((label) => {
+    // Width = text width + padding on each side
+    totalWidth += measureMatrixTextWidth(label, typeface) + TOGGLE_BTN_PADDING_X * 2;
+  });
+  totalWidth += (labels.length - 1) * TOGGLE_BTN_GAP;
+  
+  // Start from right side with margin
+  let btnX = screen.width - totalWidth - 6;
+  
+  labels.forEach((label, index) => {
+    // Width = text width + padding on each side
+    const btnWidth = measureMatrixTextWidth(label, typeface) + TOGGLE_BTN_PADDING_X * 2;
+    
+    if (label === "slide") {
+      slideBtn = new ui.Button(btnX, btnY, btnWidth, btnHeight);
+      slideBtn.id = "slide-toggle";
+    } else if (label === "room") {
+      roomBtn = new ui.Button(btnX, btnY, btnWidth, btnHeight);
+      roomBtn.id = "room-toggle";
+    } else if (label === "quick") {
+      quickBtn = new ui.Button(btnX, btnY, btnWidth, btnHeight);
+      quickBtn.id = "quick-toggle";
+    }
+    
+    btnX += btnWidth + TOGGLE_BTN_GAP;
+  });
 }
 
 let primaryColor = [0, 0, 0];
