@@ -63,7 +63,7 @@
   "javascript.suggest.enabled": true,
   "workbench.list.smoothScrolling": true,
   "terminal.integrated.smoothScrolling": true,
-  "notebook.lineNumbers": "off",
+  "notebook.lineNumbers": "on",
   "editor.minimap.autohide": "mouseover",
   "python-envs.defaultEnvManager": "ms-python.python:system",
   "python-envs.pythonProjects": [],

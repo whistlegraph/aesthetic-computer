@@ -2698,6 +2698,233 @@ function ac-electron-start --description "Start the Aesthetic Computer Electron 
     echo "✅ Electron app started"
 end
 
+# 🖥️ Machine Info / SSH Helpers
+# Read machine configs from vault/machines.json
+
+function ac-host --description "Show current host SSH config from machines.json"
+    set -l machines_file "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json"
+    
+    if not test -f $machines_file
+        echo "❌ machines.json not found at $machines_file"
+        return 1
+    end
+    
+    set -l machine_key $argv[1]
+    
+    if test -z "$machine_key"
+        # Show all machines
+        echo "📍 Available machines (from vault/machines.json):"
+        echo ""
+        cat $machines_file | jq -r '.machines | to_entries[] | "\(.value.emoji // "🖥️") \(.key): \(.value.label) [\(.value.os // "unknown")]"'
+        echo ""
+        echo "Usage: ac-host <machine-key> [ssh|ip|info]"
+        echo "Examples:"
+        echo "  ac-host jeffrey-macbook ssh   # SSH to the machine"
+        echo "  ac-host ff1-dvveklza ip       # Show just the IP"
+        echo "  ac-host mac-mini info         # Show full info"
+        return 0
+    end
+    
+    set -l action $argv[2]
+    set -l machine_data (cat $machines_file | jq -r ".machines[\"$machine_key\"]")
+    
+    if test "$machine_data" = "null"
+        echo "❌ Machine '$machine_key' not found"
+        echo "Available: "(cat $machines_file | jq -r '.machines | keys | join(", ")')
+        return 1
+    end
+    
+    set -l ip (echo $machine_data | jq -r '.ip // empty')
+    set -l user (echo $machine_data | jq -r '.user // "jas"')
+    set -l host (echo $machine_data | jq -r '.host // empty')
+    set -l label (echo $machine_data | jq -r '.label // .key')
+    set -l port (echo $machine_data | jq -r '.port // empty')
+    
+    # Use host if specified (e.g., host.docker.internal), else ip
+    set -l target $host
+    if test -z "$target"
+        set target $ip
+    end
+    
+    switch $action
+        case ssh
+            if test -z "$target"
+                echo "❌ No IP/host configured for $machine_key"
+                return 1
+            end
+            echo "🔗 Connecting to $label ($user@$target)..."
+            ssh -o StrictHostKeyChecking=no $user@$target
+        case ip
+            if test -n "$ip"
+                echo $ip
+            else if test -n "$host"
+                echo $host
+            else
+                echo "❌ No IP configured"
+                return 1
+            end
+        case info '*'
+            echo "📋 $label"
+            echo $machine_data | jq .
+    end
+end
+
+function ac-machines --description "List all machines from vault/machines.json"
+    ac-host
+end
+
+# 🖼️ FF1 Art Computer Helpers
+
+function ac-ff1 --description "Control FF1 Art Computer via SSH to MacBook"
+    set -l machines_file "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json"
+    set -l ff1_data (cat $machines_file 2>/dev/null | jq -r '.machines["ff1-dvveklza"]')
+    set -l ff1_ip (echo $ff1_data | jq -r '.ip')
+    set -l ff1_port (echo $ff1_data | jq -r '.port // 1111')
+    
+    set -l action $argv[1]
+    
+    switch $action
+        case scan
+            echo "🔍 Scanning for FF1 via MacBook mDNS..."
+            ssh jas@host.docker.internal "dns-sd -G v4 FF1-DVVEKLZA.local 2>&1 &
+sleep 2
+kill %1 2>/dev/null"
+        case ping
+            echo "🏓 Pinging FF1 at $ff1_ip:$ff1_port..."
+            ssh jas@host.docker.internal "curl -s --connect-timeout 3 http://$ff1_ip:$ff1_port/ && echo 'FF1 responding!' || echo 'FF1 not responding'"
+        case cast
+            if test (count $argv) -lt 2
+                echo "Usage: ac-ff1 cast <piece|url> [options]"
+                echo ""
+                echo "Options:"
+                echo "  (no flag)    Cast aesthetic.computer URL directly"
+                echo "  --device     Use device.kidlisp.com wrapper (optimized for FF1)"
+                echo "  --relay      Use cloud relay (requires API key)"
+                echo ""
+                echo "Examples:"
+                echo "  ac-ff1 cast ceo              # Casts https://aesthetic.computer/ceo"
+                echo "  ac-ff1 cast ceo --device     # Casts https://device.kidlisp.com/ceo"
+                echo "  ac-ff1 cast https://example.com/art.html"
+                return 1
+            end
+            set -l input $argv[2]
+            set -l use_relay false
+            set -l use_device false
+            
+            # Parse flags
+            for arg in $argv[3..-1]
+                switch $arg
+                    case '--relay'
+                        set use_relay true
+                    case '--device'
+                        set use_device true
+                end
+            end
+            
+            # Build URL from input
+            set -l url
+            if string match -q 'http*' $input
+                # Already a full URL
+                set url $input
+            else if test "$use_device" = true
+                # Use device.kidlisp.com wrapper with codeId
+                set url "https://device.kidlisp.com/$input"
+            else
+                # Default to aesthetic.computer/$piece
+                set url "https://aesthetic.computer/$input"
+            end
+            
+            if test "$use_relay" = true
+                # Use Feral File cloud relay API (requires topicId and API key)
+                set -l topic_id (echo $ff1_data | jq -r '.topicId')
+                set -l api_key (echo $ff1_data | jq -r '.apiKey // ""')
+                if test -z "$topic_id" -o "$topic_id" = "null"
+                    echo "❌ No topicId configured for FF1 in machines.json"
+                    return 1
+                end
+                if test -z "$api_key" -o "$api_key" = "null"
+                    echo "⚠️  Cloud relay requires API-KEY. Get it from FF1 app or use direct mode."
+                    echo "   Add 'apiKey' to machines.json or use: ac-ff1 cast <url> (without --relay)"
+                    return 1
+                end
+                echo "☁️ Casting $url to FF1 via cloud relay..."
+                set -l payload (printf '{"command":"displayPlaylist","request":{"playlist":{"dpVersion":"1.0.0","items":[{"source":"%s","duration":0}]},"intent":{"action":"now_display"}}}' "$url")
+                curl -s -X POST -H 'Content-Type: application/json' -H "topicID: $topic_id" -H "API-KEY: $api_key" "https://artwork-info.feral-file.workers.dev/api/cast" -d "$payload"
+            else
+                # Direct via SSH tunnel through MacBook
+                echo "📺 Casting $url to FF1 via direct connection..."
+                ssh jas@host.docker.internal "curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' http://$ff1_ip:$ff1_port/api/cast -d '{\"command\":\"displayPlaylist\",\"request\":{\"dp1_call\":{\"dpVersion\":\"1.0.0\",\"items\":[{\"source\":\"$url\",\"duration\":0}]},\"intent\":{\"action\":\"now_display\"}}}'"
+            end
+        case tunnel
+            echo "🚇 Starting SSH tunnel to FF1 (localhost:1111 -> $ff1_ip:$ff1_port)..."
+            echo "Press Ctrl+C to stop the tunnel"
+            ssh -L 1111:$ff1_ip:$ff1_port jas@host.docker.internal -N
+        case playlist
+            # Generate and push a DP-1 playlist of top KidLisp hits
+            set -l limit 10
+            set -l duration 60
+            
+            # Parse options using string match with -- separator
+            for arg in $argv[2..-1]
+                if string match -q -- '--limit=*' "$arg"
+                    set limit (string replace -- '--limit=' '' "$arg")
+                else if string match -q -- '--duration=*' "$arg"
+                    set duration (string replace -- '--duration=' '' "$arg")
+                end
+            end
+            
+            echo "🎵 Fetching top $limit KidLisp hits..."
+            
+            # Fetch top hits from TV API and extract codes
+            set -l codes (curl -s "https://aesthetic.computer/api/tv?types=kidlisp&sort=hits&limit=$limit" | jq -r ".media.kidlisp | sort_by(-.hits) | .[:$limit] | .[].code")
+            
+            if test -z "$codes"
+                echo "❌ Failed to fetch KidLisp hits"
+                return 1
+            end
+            
+            # Convert newline-separated codes to array
+            set codes (string split \n -- $codes)
+            
+            echo "📺 Pushing playlist to FF1 ("(count $codes)" items, "$duration"s each)..."
+            echo "   Codes:" $codes
+            
+            # Build DP-1 playlist items
+            set -l items_json "["
+            set -l first true
+            for code in $codes
+                if test "$first" = "false"
+                    set items_json "$items_json,"
+                end
+                set first false
+                set items_json "$items_json{\"source\":\"https://device.kidlisp.com/$code\",\"duration\":$duration}"
+            end
+            set items_json "$items_json]"
+            
+            # Build full DP-1 payload
+            set -l playlist_payload (printf '{"command":"displayPlaylist","request":{"dp1_call":{"dpVersion":"1.0.0","items":%s},"intent":{"action":"now_display"}}}' "$items_json")
+            
+            # Send to FF1
+            ssh jas@host.docker.internal "curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' http://$ff1_ip:$ff1_port/api/cast -d '$playlist_payload'"
+        case info '*'
+            set -l topic_id (echo $ff1_data | jq -r '.topicId // "not set"')
+            echo "🖼️ FF1 Art Computer"
+            echo "   IP: $ff1_ip"
+            echo "   Port: $ff1_port"
+            echo "   Device ID: "(echo $ff1_data | jq -r '.deviceId')
+            echo "   Topic ID: $topic_id"
+            echo ""
+            echo "Commands:"
+            echo "  ac-ff1 scan                   - Find FF1 via mDNS"
+            echo "  ac-ff1 ping                   - Check if FF1 is responding"  
+            echo "  ac-ff1 cast <piece>           - Cast aesthetic.computer piece"
+            echo "  ac-ff1 cast <piece> --device  - Cast via device.kidlisp.com (FF1 optimized)"
+            echo "  ac-ff1 cast <url>             - Cast any URL"
+            echo "  ac-ff1 playlist [--limit=N] [--duration=S] - Push top KidLisp hits"
+            echo "  ac-ff1 tunnel                 - Create SSH tunnel for local dev"
+    end
+end
+
 # Auto-start aesthetic when fish runs in the VS Code task context
 # aesthetic-launch.sh sets AC_TASK_LAUNCH=1 before exec fish --login
 if set -q AC_TASK_LAUNCH

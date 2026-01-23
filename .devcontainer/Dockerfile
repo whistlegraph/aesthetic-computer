@@ -50,7 +50,7 @@ RUN dnf install -y \
 
 # --- Python 3.11 venv as default "python" -------------------------------------
 RUN /usr/bin/python3.11 -m venv /opt/py311 && \
-    /opt/py311/bin/pip install -U pip setuptools wheel && \
+    /opt/py311/bin/pip install -U pip setuptools wheel ipykernel && \
     ln -s /opt/py311/bin/python /usr/local/bin/python && \
     ln -s /opt/py311/bin/pip /usr/local/bin/pip
 ENV PATH="/opt/py311/bin:${PATH}"

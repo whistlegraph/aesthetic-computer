@@ -1552,7 +1552,6 @@ let currentPath,
   currentHUDLabelBlockHeight = tf?.blockHeight ?? DEFAULT_TYPEFACE_BLOCK_HEIGHT,
   currentHUDShareWidth = (tf?.blockWidth ?? DEFAULT_TYPEFACE_BLOCK_WIDTH) * "share ".length,
   currentHUDLabelMeasuredWidth = 0,
-  currentHUDTextOnlyWidth = 0, // Actual text width from text.box (excludes share/padding)
   currentHUDLeftPad = 0,
   currentHUDOffset,
   currentHUDQR = null, // QR code URL to show to the left of label (set via hud.qr())
@@ -1563,51 +1562,6 @@ let currentPath,
 
 // 📱 LAN Dev mode identity (set by session server in dev mode)
 let devIdentity = null; // { name, host, hostIp, mode, connectionId }
-
-// 🔄 Pending piece update - set when background fetch finds newer code
-let pendingPieceUpdate = null; // { slug, code, etag, lastModified } - newer version ready to load
-let pendingUpdateBlink = 0; // Animation frame counter for RGB blink
-
-// 🔄 Apply pending update - hot-reload with newer code
-function applyPendingUpdate() {
-  if (!pendingPieceUpdate) return false;
-  
-  const { slug, code, etag, lastModified, url } = pendingPieceUpdate;
-  console.log(`🔄 Applying update for: ${slug}`);
-  
-  // Update the smart cache with new code
-  const cached = smartModuleCache.get(slug);
-  if (cached) {
-    cached.code = code;
-    cached.etag = etag;
-    cached.lastModified = lastModified;
-    cached.module = null; // Clear module so it gets re-parsed
-    cached.cachedAt = Date.now();
-  } else {
-    smartModuleCache.set(slug, {
-      code,
-      etag,
-      lastModified,
-      url,
-      type: url?.endsWith('.lisp') ? 'lisp' : 'mjs',
-      module: null,
-      cachedAt: Date.now()
-    });
-  }
-  
-  pendingPieceUpdate = null;
-  pendingUpdateBlink = 0;
-  
-  // Trigger a reload of the current piece
-  send({ type: "reload-piece", content: slug });
-  return true;
-}
-
-// 🔄 Clear pending update (called when leaving piece)
-function clearPendingUpdate() {
-  pendingPieceUpdate = null;
-  pendingUpdateBlink = 0;
-}
 
 // 📡 Remote log forwarding for LAN Dev mode
 let remoteLogQueue = [];
@@ -2108,13 +2062,6 @@ let loadFailure;
 // 🎄 Piece code cache for merry preloading
 // Maps piece slug -> { code, blobUrl, type: 'mjs' | 'lisp' }
 const pieceCodeCache = new Map();
-
-// 🚀 Smart module cache - caches parsed modules with ETag for instant returns
-// Maps piece slug -> { module, code, etag, lastModified, url, type, cachedAt }
-const smartModuleCache = new Map();
-
-// ⚡ Freshness window - skip network validation if piece was loaded recently
-const FRESH_WINDOW_MS = 5000; // 5 seconds - skip network if visited within this time
 
 // Duration tracking for playlist progress bar (similar to tape system)
 let durationStartTime = null;  // When the piece started (null if no duration) - using performance.now()
@@ -2630,7 +2577,6 @@ const $commonApi = {
     } else {
       leaving = true;
       graph.unmask(); // Clear any active mask when leaving a piece
-      clearPendingUpdate(); // Clear any pending update notification
     }
 
     function loadLine() {
@@ -7145,133 +7091,36 @@ async function load(
           
           // Notify boot progress
           const fetchStartTime = performance.now();
+          send({
+            type: "boot-log",
+            content: `fetching: ${path}`
+          });
           
-          // 🚀 Smart caching: check if we have a cached version
-          const cached = pieceSlug ? smartModuleCache.get(pieceSlug) : null;
-          
-          // ⚡ INSTANT PATH: If we have a cached module and it's fresh, skip network entirely!
-          const isFresh = cached?.cachedAt && (Date.now() - cached.cachedAt < FRESH_WINDOW_MS);
-          
-          if (cached?.module && isFresh) {
-            // 🚀 INSTANT - no network at all!
-            const elapsed = Date.now() - cached.cachedAt;
-            console.log(`⚡ INSTANT return for: ${pieceSlug} (cached ${elapsed}ms ago, skipping network)`);
-            sourceToRun = cached.code;
-            // Will reuse cached module below
-            
-            // 🔄 Background check for updates (non-blocking)
-            // This runs async while the cached version loads instantly
-            if (pieceSlug && cached.url) {
-              const bgCheckUrl = cached.url.replace(/\?v=\d+$/, '');
-              const bgHeaders = {};
-              if (cached.etag) bgHeaders['If-None-Match'] = cached.etag;
-              else if (cached.lastModified) bgHeaders['If-Modified-Since'] = cached.lastModified;
-              
-              fetch(bgCheckUrl, { cache: 'default', headers: bgHeaders })
-                .then(async (bgResponse) => {
-                  if (bgResponse.status === 200) {
-                    // New version available!
-                    const newCode = await bgResponse.text();
-                    const newEtag = bgResponse.headers.get('ETag');
-                    const newLastModified = bgResponse.headers.get('Last-Modified');
-                    
-                    // Only notify if code actually changed
-                    if (newCode !== cached.code) {
-                      console.log(`🔄 UPDATE AVAILABLE for: ${pieceSlug} (new etag: ${newEtag})`);
-                      pendingPieceUpdate = {
-                        slug: pieceSlug,
-                        code: newCode,
-                        etag: newEtag,
-                        lastModified: newLastModified,
-                        url: bgCheckUrl
-                      };
-                      // Notify main thread about available update
-                      send({ type: "piece-update-available", content: pieceSlug });
-                    }
-                  }
-                  // 304 means no update - do nothing
-                })
-                .catch(err => console.log(`🔄 Background check failed (non-critical):`, err.message));
-            }
-          } else {
-            // 🔄 STALE or NO CACHE PATH: Do network request (conditional if we have cached data)
-            send({
-              type: "boot-log",
-              content: `fetching: ${path}`
-            });
-            
-            const fetchHeaders = {};
-            
-            // Use conditional request if we have cached data (but it's stale)
-            if (cached?.etag) {
-              fetchHeaders['If-None-Match'] = cached.etag;
-            } else if (cached?.lastModified) {
-              fetchHeaders['If-Modified-Since'] = cached.lastModified;
-            }
-            
-            // Strip cache-busting param if we're doing conditional request
-            let fetchUrl = fullUrl;
-            if (cached && (cached.etag || cached.lastModified)) {
-              // Remove ?v=timestamp for conditional requests - server will validate freshness
-              fetchUrl = fullUrl.replace(/\?v=\d+$/, '');
-            }
-            
-            response = await fetch(fetchUrl, { 
-              cache: cached ? 'default' : 'no-store',
-              headers: fetchHeaders 
-            });
-            const fetchEndTime = performance.now();
-            diskTimings.fetchComplete = Math.round(fetchEndTime - diskTimingStart);
-          
-            // 🚀 304 Not Modified - use cached code instantly!
-            if (response.status === 304 && cached) {
-              const elapsed = Math.round(fetchEndTime - fetchStartTime);
-              console.log(`🚀 304 Not Modified - instant return for: ${pieceSlug} (${elapsed}ms network, module cached: ${!!cached.module})`);
-              sourceToRun = cached.code;
-              // Update cachedAt so future returns within window are instant
-              cached.cachedAt = Date.now();
-              // Module is already cached, will be reused in lisp/mjs detection below
-            } else if (response.status === 404 || response.status === 403) {
-              const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
-              // Handle sandboxed environments for anon URL construction
-              const { protocol } = getSafeUrlParts();
-              const anonUrl =
-                protocol +
-                "//" +
-                "art.aesthetic.computer" +
-                "/" +
-                path.split("/").pop() +
-                extension +
-                "#" +
-                Date.now();
-              if (logs.loading)
-                console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
-              response = await fetch(anonUrl, { cache: 'no-store' });
-              if (response.status === 404 || response.status === 403)
-                throw new Error(response.status);
-              sourceToRun = await response.text();
-            } else {
-              // New or updated code - read it and cache
-              sourceToRun = await response.text();
-              
-              // 🚀 Cache the response with ETag/Last-Modified for future conditional requests
-              const etag = response.headers.get('ETag');
-              const lastModified = response.headers.get('Last-Modified');
-              if (pieceSlug) {
-                // Store code in smart cache (module will be added after parsing)
-                smartModuleCache.set(pieceSlug, {
-                  code: sourceToRun,
-                  etag,
-                  lastModified,
-                  url: fetchUrl,
-                  type: path.endsWith('.lisp') ? 'lisp' : 'mjs',
-                  module: null, // Will be set after module is parsed
-                  cachedAt: Date.now() // Track when cached for freshness window
-                });
-                console.log(`🚀 Cached ${pieceSlug} (etag: ${etag ? 'yes' : 'no'}, last-modified: ${lastModified ? 'yes' : 'no'})`);
-              }
-            }
-          } // End of network fetch block (not taken for instant path)
+          // Use cache: 'no-store' to force fresh fetch, especially important for LAN IP access
+          response = await fetch(fullUrl, { cache: 'no-store' });
+          const fetchEndTime = performance.now();
+          diskTimings.fetchComplete = Math.round(fetchEndTime - diskTimingStart);
+          // Silent: fetch completed
+          if (response.status === 404 || response.status === 403) {
+            const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
+            // Handle sandboxed environments for anon URL construction
+            const { protocol } = getSafeUrlParts();
+            const anonUrl =
+              protocol +
+              "//" +
+              "art.aesthetic.computer" +
+              "/" +
+              path.split("/").pop() +
+              extension +
+              "#" +
+              Date.now();
+            if (logs.loading)
+              console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+            response = await fetch(anonUrl, { cache: 'no-store' });
+            if (response.status === 404 || response.status === 403)
+              throw new Error(response.status);
+          }
+          sourceToRun = await response.text();
         }
       } else {
         sourceToRun = source;
@@ -7318,65 +7167,37 @@ async function load(
         // Notify boot progress
         const compileStartTime = performance.now();
         const fetchElapsed = Math.round(compileStartTime - fetchStartTime);
-        
-        // 🚀 Check if we have a cached module from 304 response
-        const pieceSlugForCache = slug?.split("~")[0];
-        const cachedEntry = pieceSlugForCache ? smartModuleCache.get(pieceSlugForCache) : null;
-        
-        if (cachedEntry?.module && cachedEntry.code === sourceToRun) {
-          // 🚀 Instant module reuse - skip recompilation!
-          console.log(`🚀 Reusing cached KidLisp module for: ${pieceSlugForCache} (skipped compile)`);
-          loadedModule = cachedEntry.module;
-        } else {
-          // console.log("📢 Disk sending boot-log: compiling kidlisp");
-          // Ensure send is available before using it
-          if (typeof send === 'function') {
-            send({
-              type: "boot-log",
-              content: `compiling kidlisp (fetch: ${fetchElapsed}ms)`
-            });
-          } else {
-            log.lisp.warn("send function not available for boot-log");
-          }
-          
-          // Initialize persistent cache for $codes (only needs to be done once)
-          initPersistentCache(store);
-          
-          // Initialize persistent image cache for paste/stamp (only needs to be done once)
-          imageCache.init(store);
-          
-          loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
-          
-          const compileEndTime = performance.now();
-          const compileElapsed = Math.round(compileEndTime - compileStartTime);
-          diskTimings.compileComplete = Math.round(compileEndTime - diskTimingStart);
-          // Silent: KidLisp compiled
-          log.lisp.success(`KidLisp module loaded (${compileElapsed}ms)`);
-          
-          // 🚀 Cache the parsed module for future returns
-          if (pieceSlugForCache && cachedEntry) {
-            cachedEntry.module = loadedModule;
-            console.log(`🚀 Cached KidLisp module for: ${pieceSlugForCache}`);
-          } else if (pieceSlugForCache) {
-            // Create new cache entry if one doesn't exist
-            smartModuleCache.set(pieceSlugForCache, {
-              code: sourceToRun,
-              module: loadedModule,
-              type: 'lisp',
-              etag: null,
-              lastModified: null,
-              url: fullUrl,
-              cachedAt: Date.now()
-            });
-          }
-          
-          // Notify boot progress
-          // console.log("📢 Disk sending boot-log: kidlisp compiled");
+        // console.log("📢 Disk sending boot-log: compiling kidlisp");
+        // Ensure send is available before using it
+        if (typeof send === 'function') {
           send({
             type: "boot-log",
-            content: `kidlisp compiled (${compileElapsed}ms)`
+            content: `compiling kidlisp (fetch: ${fetchElapsed}ms)`
           });
+        } else {
+          log.lisp.warn("send function not available for boot-log");
         }
+        
+        // Initialize persistent cache for $codes (only needs to be done once)
+        initPersistentCache(store);
+        
+        // Initialize persistent image cache for paste/stamp (only needs to be done once)
+        imageCache.init(store);
+        
+        loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
+        
+        const compileEndTime = performance.now();
+        const compileElapsed = Math.round(compileEndTime - compileStartTime);
+        diskTimings.compileComplete = Math.round(compileEndTime - diskTimingStart);
+        // Silent: KidLisp compiled
+        log.lisp.success(`KidLisp module loaded (${compileElapsed}ms)`);
+        
+        // Notify boot progress
+        // console.log("📢 Disk sending boot-log: kidlisp compiled");
+        send({
+          type: "boot-log",
+          content: `kidlisp compiled (${compileElapsed}ms)`
+        });
         
         // Send source file to boot canvas for display
         send({
@@ -7404,69 +7225,39 @@ async function load(
         imageCache.init(store);
 
         originalCode = sourceToRun;
+        const updatedCode = updateCode(sourceToRun, host, debug);
+
+        prefetches = updatedCode
+          .match(/"(@\w[\w.]*\/[^"]*)"/g)
+          ?.map((match) => match.slice(1, -1)); // for "@name/code".
+
+        const blob = new Blob([updatedCode], {
+          type: "application/javascript",
+        });
+
+        blobUrl = URL.createObjectURL(blob);
         
-        // 🚀 Check if we have a cached module from 304 response (for mjs)
-        const pieceSlugForMjsCache = slug?.split("~")[0];
-        const cachedMjsEntry = pieceSlugForMjsCache ? smartModuleCache.get(pieceSlugForMjsCache) : null;
+        // Notify boot progress
+        const importStartTime = performance.now();
+        const importFetchElapsed = Math.round(importStartTime - fetchStartTime);
+        // console.log("📢 Disk sending boot-log: importing module");
+        send({
+          type: "boot-log",
+          content: `importing module (fetch: ${importFetchElapsed}ms)`
+        });
         
-        if (cachedMjsEntry?.module && cachedMjsEntry.code === sourceToRun) {
-          // 🚀 Instant module reuse - skip re-import!
-          console.log(`🚀 Reusing cached JS module for: ${pieceSlugForMjsCache} (skipped import)`);
-          loadedModule = cachedMjsEntry.module;
-          sourceCode = updateCode(sourceToRun, host, debug);
-        } else {
-          const updatedCode = updateCode(sourceToRun, host, debug);
-
-          prefetches = updatedCode
-            .match(/"(@\w[\w.]*\/[^"]*)"/g)
-            ?.map((match) => match.slice(1, -1)); // for "@name/code".
-
-          const blob = new Blob([updatedCode], {
-            type: "application/javascript",
-          });
-
-          blobUrl = URL.createObjectURL(blob);
-          
-          // Notify boot progress
-          const importStartTime = performance.now();
-          const importFetchElapsed = Math.round(importStartTime - fetchStartTime);
-          // console.log("📢 Disk sending boot-log: importing module");
-          send({
-            type: "boot-log",
-            content: `importing module (fetch: ${importFetchElapsed}ms)`
-          });
-          
-          sourceCode = updatedCode;
-          loadedModule = await import(blobUrl);
-          
-          const importEndTime = performance.now();
-          const importElapsed = Math.round(importEndTime - importStartTime);
-          diskTimings.compileComplete = Math.round(importEndTime - diskTimingStart);
-          // Silent: JS module imported
-          if (logs.loading) console.log(`✅ Module imported (${importElapsed}ms)`);
-          send({
-            type: "boot-log",
-            content: `module imported (${importElapsed}ms)`
-          });
-          
-          // 🚀 Cache the imported module for future returns
-          if (pieceSlugForMjsCache && cachedMjsEntry) {
-            cachedMjsEntry.module = loadedModule;
-            cachedMjsEntry.cachedAt = Date.now();
-            console.log(`🚀 Cached JS module for: ${pieceSlugForMjsCache}`);
-          } else if (pieceSlugForMjsCache) {
-            // Create new cache entry if one doesn't exist
-            smartModuleCache.set(pieceSlugForMjsCache, {
-              code: sourceToRun,
-              module: loadedModule,
-              type: 'mjs',
-              etag: null,
-              lastModified: null,
-              url: fullUrl,
-              cachedAt: Date.now()
-            });
-          }
-        }
+        sourceCode = updatedCode;
+        loadedModule = await import(blobUrl);
+        
+        const importEndTime = performance.now();
+        const importElapsed = Math.round(importEndTime - importStartTime);
+        diskTimings.compileComplete = Math.round(importEndTime - diskTimingStart);
+        // Silent: JS module imported
+        if (logs.loading) console.log(`✅ Module imported (${importElapsed}ms)`);
+        send({
+          type: "boot-log",
+          content: `module imported (${importElapsed}ms)`
+        });
         
         // Send source file to boot canvas for display
         send({
@@ -10663,22 +10454,6 @@ async function makeFrame({ data: { type, content } }) {
         return; // Don't process this event further
       }
       
-      // 🔄 [Ctrl+R+V] New version - reload piece from network
-      if (data.name === "keyboard:reload-piece" && !getPackMode()) {
-        console.log("🔄 New version: Reloading piece from network...");
-        // Play a sound to indicate reload
-        $commonApi.sound.synth({
-          tone: 1200,
-          duration: 0.05,
-          attack: 0.01,
-          decay: 0.3,
-          volume: 0.2,
-        });
-        // Send reload-piece message to bios
-        send({ type: "reload-piece", content: currentText || "prompt" });
-        return; // Don't process this event further
-      }
-      
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
         // If not on prompt, then move backwards through the history of
@@ -12947,7 +12722,6 @@ async function makeFrame({ data: { type, content } }) {
         
         // Store actual dimensions for animation calculations
   currentHUDLabelMeasuredWidth = baseLabelWidth;
-  currentHUDTextOnlyWidth = longestVisibleLineWidth; // Use trimmed line width (excludes trailing spaces)
   hudAnimationState.labelWidth = bufferW;
         hudAnimationState.labelHeight = bufferH;
         h = bufferH;
@@ -13051,36 +12825,6 @@ async function makeFrame({ data: { type, content } }) {
               // Draw letter in cyan using MatrixChunky8
               $.ink(0, 220, 255); // Bright cyan matching original badge
               $.write(deviceLetter, { x: superscriptX, y: superscriptY }, undefined, undefined, false, "MatrixChunky8");
-            }
-
-            // 🔄 Update Available Indicator - blinking RGB dot when new code is ready
-            if (pendingPieceUpdate && pendingPieceUpdate.slug === piece) {
-              pendingUpdateBlink = (pendingUpdateBlink + 1) % 60; // 60-frame cycle
-              
-              // Get the first line of text for positioning
-              const firstLine = text?.split('\n')[0] || text;
-              const firstLineWidth = cachedAPI.text.width(
-                stripColorCodes(firstLine),
-                selectedTypeface
-              );
-              
-              // Position after LAN badge (if present) or after text
-              const lanBadgeWidth = showLanBadge ? 10 : 0;
-              const indicatorX = hudTextX + firstLineWidth + 2 + lanBadgeWidth + 2;
-              const indicatorY = 2; // Slightly below top for visual balance
-              
-              // RGB cycle colors (red -> green -> blue -> white flash)
-              const phase = Math.floor(pendingUpdateBlink / 15); // 4 phases
-              const colors = [
-                [255, 60, 60],    // Red
-                [60, 255, 60],    // Green
-                [60, 60, 255],    // Blue
-                [255, 255, 255]   // White flash
-              ];
-              const color = colors[phase % 4];
-              
-              // Draw blinking dot (3x3 for visibility)
-              $.ink(...color).box(indicatorX, indicatorY, 3, 3);
             }
 
             // 🔗 Draw "share" text in the LEFT reveal area when scrubbing
@@ -13188,21 +12932,13 @@ async function makeFrame({ data: { type, content } }) {
             h: h, // Use just the calculated height without extra y-offset
           });
 
-        // Update button hitbox to cover from top-left corner to visible label extent
-        // This makes the corner easier to tap while still covering the label
-        const visibleLabelX = currentHUDOffset.x + hudAnimationState.slideOffset.x;
-        const visibleLabelY = currentHUDOffset.y + hudAnimationState.slideOffset.y;
-        // Use actual text width from text.box (not the buffer width with padding)
-        const textOnlyWidth = currentHUDTextOnlyWidth || 50;
-        
-        // Button starts at corner (0,0) and extends to cover the label
-        currentHUDButton.box.x = 0;
-        currentHUDButton.box.y = 0;
-        // Width covers from corner to end of visible text
-        currentHUDButton.box.w = visibleLabelX + textOnlyWidth + 4; // +4 for small padding
-        // Height covers from corner to bottom of label (use font height, not buffer height)
-        const fontHeight = currentHUDLabelBlockHeight || 10;
-        currentHUDButton.box.h = visibleLabelY + fontHeight + 2;
+        // Update button position to match label position (with slide offset)
+        const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
+        const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y;
+        currentHUDButton.box.x = finalX;
+        currentHUDButton.box.y = finalY;
+        currentHUDButton.box.w = currentHUDLabelMeasuredWidth;
+        currentHUDButton.box.h = h;
 
         // Mark HUD button to bypass the global HUD active check (it checks itself)
         currentHUDButton.noEdgeDetection = true;
@@ -13716,13 +13452,6 @@ async function makeFrame({ data: { type, content } }) {
           img: (({ width, height, pixels }) => ({ width, height, pixels }))(
             label,
           ),
-          // DEBUG: Include button hitbox bounds for visualization in bios
-          buttonBox: currentHUDButton ? {
-            x: currentHUDButton.box.x,
-            y: currentHUDButton.box.y,
-            w: currentHUDButton.box.w,
-            h: currentHUDButton.box.h,
-          } : null,
         };
         
         // DEBUG: Add hitbox visualization overlay
