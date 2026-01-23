@@ -10,6 +10,9 @@ const path = require('path');
 const fs = require('fs');
 const { spawn, execSync } = require('child_process');
 
+// FF1 Bridge - local server for kidlisp.com to communicate with FF1 devices
+const ff1Bridge = require('./ff1-bridge');
+
 // macOS Tahoe + Chromium fontations workaround (testing with Electron 39 / Chromium M142)
 // Disable problematic font features that may trigger fontations_ffi crash
 app.commandLine.appendSwitch('disable-features', 'FontationsFontBackend,Fontations');
@@ -2035,6 +2038,9 @@ app.whenReady().then(async () => {
   createMenu();
   createSystemTray();
   
+  // Start FF1 Bridge server for kidlisp.com integration
+  ff1Bridge.startBridge();
+  
   // Start GitHub update checks (works in dev and production)
   startGitHubUpdateChecks();
   
@@ -2138,6 +2144,9 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  
+  // Stop FF1 Bridge server
+  ff1Bridge.stopBridge();
   
   // Kill all PTY processes
   for (const [id, winData] of windows) {

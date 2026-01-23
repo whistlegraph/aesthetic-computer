@@ -422,6 +422,160 @@ fastify.post("/build-status", async (req) => {
   return { status: "ok" };
 });
 
+// *** FF1 Art Computer Proxy ***
+// Proxies displayPlaylist commands to FF1 via direct connection or cloud relay
+const FF1_RELAY_URL = "https://artwork-info.feral-file.workers.dev/api/cast";
+
+// Load FF1 config from machines.json
+function getFF1Config() {
+  try {
+    const machinesPath = path.resolve(process.cwd(), "../aesthetic-computer-vault/machines.json");
+    const machines = JSON.parse(fs.readFileSync(machinesPath, "utf8"));
+    return machines.machines?.["ff1-dvveklza"] || null;
+  } catch (e) {
+    log("⚠️ Could not load FF1 config from machines.json:", e.message);
+    return null;
+  }
+}
+
+// Execute FF1 cast via SSH through MacBook (for devcontainer)
+async function castViaSSH(ff1Config, payload) {
+  const { exec } = await import("child_process");
+  const { promisify } = await import("util");
+  const execAsync = promisify(exec);
+  
+  const ip = ff1Config.ip;
+  const port = ff1Config.port || 1111;
+  const payloadJson = JSON.stringify(payload).replace(/'/g, "'\\''"); // Escape for shell
+  
+  // SSH through MacBook to reach FF1 on local network
+  const sshCmd = `ssh -o ConnectTimeout=5 jas@host.docker.internal "curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' http://${ip}:${port}/api/cast -d '${payloadJson}'"`;
+  
+  log(`📡 FF1 cast via SSH: http://${ip}:${port}/api/cast`);
+  const { stdout, stderr } = await execAsync(sshCmd, { timeout: 15000 });
+  
+  if (stderr && !stdout) {
+    throw new Error(stderr);
+  }
+  
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    return { raw: stdout };
+  }
+}
+
+fastify.post("/ff1/cast", async (req, reply) => {
+  reply.header("Access-Control-Allow-Origin", "*");
+  reply.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+  reply.header("Access-Control-Allow-Headers", "Content-Type");
+  
+  const { topicID, apiKey, command, request, useDirect } = req.body || {};
+  const ff1Config = getFF1Config();
+  
+  // Build the DP-1 payload
+  const payload = {
+    command: command || "displayPlaylist",
+    request: request || {}
+  };
+  
+  // Strategy 1: Try direct connection via SSH tunnel (in dev mode)
+  if (dev && ff1Config?.ip) {
+    try {
+      const result = await castViaSSH(ff1Config, payload);
+      return { success: true, method: "direct-ssh", response: result };
+    } catch (sshErr) {
+      log(`⚠️ FF1 SSH cast failed: ${sshErr.message}`);
+      // Fall through to cloud relay
+    }
+  }
+  
+  // Strategy 2: Try direct connection (if useDirect or localhost tunnel is running)
+  if (useDirect) {
+    const deviceUrl = `http://localhost:1111/api/cast`;
+    try {
+      log(`📡 FF1 direct cast to ${deviceUrl}`);
+      const directResponse = await fetch(deviceUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(5000), // 5s timeout
+      });
+      
+      if (directResponse.ok) {
+        const result = await directResponse.json();
+        return { success: true, method: "direct", response: result };
+      }
+      log(`⚠️ FF1 direct cast failed: ${directResponse.status}`);
+    } catch (directErr) {
+      log(`⚠️ FF1 direct connection failed: ${directErr.message}`);
+    }
+  }
+  
+  // Strategy 3: Use cloud relay with topicID
+  const relayTopicId = topicID || ff1Config?.topicId;
+  if (!relayTopicId) {
+    reply.status(400);
+    return { 
+      success: false, 
+      error: "No topicID provided and no FF1 config found. Get topicID from your FF1 app settings." 
+    };
+  }
+  
+  const relayUrl = `${FF1_RELAY_URL}?topicID=${encodeURIComponent(relayTopicId)}`;
+  
+  try {
+    log(`☁️ FF1 relay cast to ${relayUrl}`);
+    const headers = { "Content-Type": "application/json" };
+    if (apiKey || ff1Config?.apiKey) {
+      headers["API-KEY"] = apiKey || ff1Config?.apiKey;
+    }
+    
+    const relayResponse = await fetch(relayUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(10000), // 10s timeout
+    });
+    
+    const responseText = await relayResponse.text();
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch {
+      responseData = { raw: responseText };
+    }
+    
+    if (!relayResponse.ok) {
+      // Check if relay is down (404 or Cloudflare errors)
+      if (relayResponse.status === 404 || responseText.includes("error code:")) {
+        reply.status(503);
+        return { 
+          success: false, 
+          error: "FF1 cloud relay is unavailable",
+          hint: "The Feral File relay service appears to be down. Use ac-ff1 tunnel for local development.",
+          details: responseData 
+        };
+      }
+      reply.status(relayResponse.status);
+      return { success: false, error: `FF1 relay error: ${relayResponse.status}`, details: responseData };
+    }
+    
+    return { success: true, method: "relay", response: responseData };
+  } catch (relayErr) {
+    reply.status(500);
+    return { success: false, error: relayErr.message };
+  }
+});
+
+// FF1 CORS preflight
+fastify.options("/ff1/cast", async (req, reply) => {
+  reply.header("Access-Control-Allow-Origin", "*");
+  reply.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+  reply.header("Access-Control-Allow-Headers", "Content-Type");
+  return "";
+});
+
 // *** Chat Log Endpoint (for system logs from other services) ***
 fastify.post("/chat/log", async (req, reply) => {
   const host = req.headers.host;
