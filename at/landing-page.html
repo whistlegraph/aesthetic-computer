@@ -49,7 +49,7 @@ Created: 2025.10.25
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 0.5em;
+      margin-bottom: 0.2em;
       text-decoration: none;
     }
 
@@ -60,12 +60,12 @@ Created: 2025.10.25
 
     #pals-beacon .pals-logo,
     #pals-beacon .pals-logo-pink {
-      width: 72px;
+      width: 100px;
       height: auto;
     }
 
     #pals-beacon .pals-logo {
-      filter: grayscale(100%) opacity(0.4);
+      filter: grayscale(100%) opacity(0.3);
       transition: filter 0.3s, opacity 0.3s;
     }
 
@@ -73,28 +73,48 @@ Created: 2025.10.25
       position: absolute;
       top: 0;
       left: 0;
-      opacity: 0;
-      transition: opacity 0.3s;
+      opacity: 1;
       filter: hue-rotate(-30deg) saturate(1.5) brightness(1.2) drop-shadow(0 0 8px rgba(255, 100, 200, 0.8)) drop-shadow(0 0 16px rgba(255, 100, 200, 0.5));
+      animation: pals-idle 2s ease-in-out infinite;
     }
 
     #pals-beacon:hover .pals-logo {
-      filter: grayscale(100%) opacity(0.2);
+      filter: grayscale(100%) opacity(0.1);
     }
 
     #pals-beacon:hover .pals-logo-pink {
-      opacity: 1;
-      animation: pals-energy 0.6s ease-in-out infinite;
+      animation: pals-energy 0.4s ease-in-out infinite;
+    }
+
+    @keyframes pals-idle {
+      0%, 100% { 
+        transform: rotate(0deg) scale(1);
+        opacity: 0.7;
+        filter: hue-rotate(-30deg) saturate(1.2) brightness(1.1) drop-shadow(0 0 6px rgba(255, 100, 200, 0.5)) drop-shadow(0 0 12px rgba(255, 100, 200, 0.3));
+      }
+      50% { 
+        transform: rotate(-1deg) scale(1.01);
+        opacity: 1;
+        filter: hue-rotate(-30deg) saturate(1.5) brightness(1.2) drop-shadow(0 0 10px rgba(255, 100, 200, 0.8)) drop-shadow(0 0 20px rgba(255, 100, 200, 0.5));
+      }
     }
 
     @keyframes pals-energy {
       0%, 100% { 
         transform: rotate(0deg) scale(1);
-        filter: drop-shadow(0 0 8px rgba(255, 100, 200, 0.8)) drop-shadow(0 0 16px rgba(255, 100, 200, 0.5));
+        filter: drop-shadow(0 0 12px rgba(255, 100, 200, 1)) drop-shadow(0 0 24px rgba(255, 100, 200, 0.7));
+      }
+      25% { 
+        transform: rotate(-4deg) scale(1.05);
+        filter: drop-shadow(0 0 16px rgba(255, 100, 200, 1)) drop-shadow(0 0 32px rgba(255, 100, 200, 0.8));
       }
       50% { 
-        transform: rotate(-2deg) scale(1.02);
-        filter: drop-shadow(0 0 12px rgba(255, 100, 200, 1)) drop-shadow(0 0 24px rgba(255, 100, 200, 0.7));
+        transform: rotate(3deg) scale(1.08);
+        filter: drop-shadow(0 0 20px rgba(255, 100, 200, 1)) drop-shadow(0 0 40px rgba(255, 100, 200, 0.9));
+      }
+      75% { 
+        transform: rotate(-2deg) scale(1.04);
+        filter: drop-shadow(0 0 16px rgba(255, 100, 200, 1)) drop-shadow(0 0 32px rgba(255, 100, 200, 0.8));
       }
     }
 
@@ -315,59 +335,70 @@ Created: 2025.10.25
     }
 
     @media (max-width: 768px) {
-      .user-row {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5em;
-      }
-
-      .user-left {
-        width: 100%;
-        flex-wrap: wrap;
-      }
-
       .user-mood {
-        max-width: 100%;
-        width: 100%;
-        margin-left: 0;
-        margin-top: 0.3em;
+        max-width: 150px;
       }
 
       .user-right {
-        width: 100%;
-        flex-direction: row;
-        justify-content: flex-start;
-        gap: 0.5em;
-      }
-
-      .user-badges {
-        display: flex;
         gap: 0.3em;
-        flex-wrap: wrap;
       }
 
-      .user-rank {
-        min-width: auto;
-        text-align: left;
+      .user-badge {
+        font-size: 0.65em;
+        padding: 0.2em 0.4em;
       }
     }
 
-    @media (max-width: 480px) {
+    @media (max-width: 560px) {
       .container {
         padding: 0.5em 0.3em;
       }
 
       .user-row {
-        padding: 0.6em;
+        padding: 0.5em;
+        gap: 0.5em;
+      }
+
+      .user-left {
+        gap: 0.5em;
       }
 
       .user-handle {
-        font-size: 0.95em;
+        font-size: 0.85em;
+      }
+
+      .user-mood {
+        display: none;
       }
 
       .user-kidlisp-preview {
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
+        border-radius: 4px;
+      }
+
+      .user-rank {
+        font-size: 0.65em;
+        min-width: 2em;
+      }
+
+      .user-badge {
+        font-size: 0.6em;
+      }
+
+      .user-total {
+        font-size: 0.65em;
+        min-width: 2.5em;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .user-right {
+        display: none;
+      }
+
+      .user-handle {
+        font-size: 0.8em;
       }
     }
 
