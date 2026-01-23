@@ -74,6 +74,42 @@
       text-align: center;
       max-width: 80%;
     }
+
+    /* YouTube-style progress bar for playlist mode */
+    #progress-bar {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      z-index: 100;
+    }
+
+    #progress-bar.visible {
+      display: block;
+    }
+
+    #progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, 
+        rgb(255, 107, 107),
+        rgb(255, 230, 109),
+        rgb(78, 205, 196),
+        rgb(170, 150, 218)
+      );
+      background-size: 300% 100%;
+      animation: progressGradient 8s ease infinite;
+      transition: width 0.25s linear;
+    }
+
+    @keyframes progressGradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
   </style>
 </head>
 <body>
@@ -86,6 +122,11 @@
   </div>
   
   <iframe id="display-iframe"></iframe>
+  
+  <!-- YouTube-style progress bar for playlist mode -->
+  <div id="progress-bar">
+    <div id="progress-fill"></div>
+  </div>
   
   <script>
     // Get density from URL params (before DEVICE_DEFAULTS are defined)
@@ -248,6 +289,10 @@
     const noauth = params.get('noauth') ?? DEVICE_DEFAULTS.noauth;
     const popout = params.get('popout') ?? DEVICE_DEFAULTS.popout;
     
+    // Playlist mode params (for DP-1 playlist progress bar)
+    const isPlaylist = params.get('playlist') === 'true';
+    const playlistDuration = parseInt(params.get('duration')) || 60; // seconds
+    
     // Build query string for display params
     function buildDisplayParams() {
       const p = new URLSearchParams();
@@ -297,6 +342,34 @@
       iframe.addEventListener('error', (e) => {
         addLog(`iframe error: ${e.message || 'unknown'}`, 'error');
       });
+      
+      // Start playlist progress bar if in playlist mode
+      if (isPlaylist) {
+        startProgressBar();
+      }
+    }
+    
+    // YouTube-style progress bar for playlist mode
+    const progressBar = document.getElementById('progress-bar');
+    const progressFill = document.getElementById('progress-fill');
+    let progressStartTime = null;
+    
+    function startProgressBar() {
+      progressBar.classList.add('visible');
+      progressStartTime = Date.now();
+      updateProgressBar();
+    }
+    
+    function updateProgressBar() {
+      if (!progressStartTime) return;
+      
+      const elapsed = (Date.now() - progressStartTime) / 1000;
+      const progress = Math.min(100, (elapsed / playlistDuration) * 100);
+      progressFill.style.width = `${progress}%`;
+      
+      if (progress < 100) {
+        requestAnimationFrame(updateProgressBar);
+      }
     }
     
     // Start
