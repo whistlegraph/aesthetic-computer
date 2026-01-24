@@ -4,7 +4,7 @@ namespace AestheticComputer;
 
 public partial class App : Application
 {
-    private Window? m_window;
+    private Window? _window;
 
     public App()
     {
@@ -13,7 +13,7 @@ public partial class App : Application
 
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
-        m_window = new MainWindow();
-        m_window.Activate();
+        _window = new MainWindow();
+        _window.Activate();
     }
 }
