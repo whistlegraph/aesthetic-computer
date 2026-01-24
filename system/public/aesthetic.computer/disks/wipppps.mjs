@@ -1380,13 +1380,14 @@ function startVisualTimeline(baseProgress, reason = "unspecified") {
 }
 
 // Boot function to load files over network
-export const boot = async ({ net, query }) => {
+export const boot = async ({ net, params }) => {
   netAPI = net;
   
   // Check for autoplay mode (for FF1/device displays)
-  if (query?.autoplay === "1" || query?.autoplay === "true" || query?.autoplay === true) {
+  // Use params array: wipppps~autoplay sets params[0] = "autoplay"
+  if (params?.[0] === "autoplay" || params?.includes("autoplay")) {
     autoplayMode = true;
-    console.log("🎵 AUTOPLAY: Enabled via query param");
+    console.log("🎵 AUTOPLAY: Enabled via params (wipppps~autoplay)");
   }
   
   try {
