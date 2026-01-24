@@ -2822,9 +2822,9 @@ kill %1 2>/dev/null"
             # Build URL from input - auto-detect KidLisp ($) vs regular pieces
             set -l url
             if string match -q 'http*' $input
-                # Already a full URL - add ?device if no query params
-                if string match -q '*\?*' $input
-                    set url $input
+                # Already a full URL - add &device if has query, else ?device
+                if string match -q '*?*' $input
+                    set url "$input&device"
                 else
                     set url "$input?device"
                 end
@@ -2835,8 +2835,12 @@ kill %1 2>/dev/null"
                 set url "https://device.kidlisp.com/$code_id"
                 echo "🎨 KidLisp piece detected"
             else
-                # Regular aesthetic.computer piece with device param for auto-audio
-                set url "https://aesthetic.computer/$input?device"
+                # Regular aesthetic.computer piece - add &device if has query, else ?device
+                if string match -q '*?*' $input
+                    set url "https://aesthetic.computer/$input&device"
+                else
+                    set url "https://aesthetic.computer/$input?device"
+                end
             end
             
             if test "$use_relay" = true
