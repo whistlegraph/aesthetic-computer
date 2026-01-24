@@ -3,6 +3,7 @@
 // URL examples:
 //   /merry:0.5-tone:0.5-clock -> merry 0.5-tone 0.5-clock
 //   /merry:tone:clock -> merry tone clock (5s default each)
+//   Works with KidLisp: /merry:16-$ceo:16-$roz:16-$mtz
 
 export function boot({ colon, params, jump }) {
   // Build the merry command from URL params
@@ -28,8 +29,8 @@ export function boot({ colon, params, jump }) {
     return;
   }
   
-  // Jump to prompt with merry command pre-filled
-  jump("prompt~merry " + args.join(" "));
+  // Jump to prompt with merry command AND !autorun flag to execute immediately
+  jump("prompt~merry " + args.join(" ") + "~!autorun");
 }
 
 export const nohud = true;

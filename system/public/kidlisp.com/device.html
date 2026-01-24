@@ -129,16 +129,34 @@
     let animating = true;
     let frame = 0;
     
-    // Pastel colors for the floating bars
-    const COLORS = [
-      [255, 107, 107], // coral red
-      [78, 205, 196],  // teal
-      [255, 230, 109], // yellow
-      [149, 225, 211], // mint
-      [243, 129, 129], // salmon
-      [170, 150, 218], // lavender
-      [112, 214, 255], // sky blue
+    // FF1/Device mode: Force dark mode after 6pm local time (evening viewing)
+    const hour = new Date().getHours();
+    const forceDarkMode = hour >= 18 || hour < 6; // 6pm-6am = dark mode
+    
+    // Cinematic color palette for FF1 device mode (muted, gallery-appropriate)
+    const COLORS_DARK = [
+      [180, 130, 255], // soft violet
+      [130, 200, 180], // sage green
+      [255, 180, 130], // warm amber
+      [130, 180, 220], // steel blue
+      [200, 160, 180], // dusty rose
+      [160, 200, 140], // moss
+      [220, 200, 160], // sand
     ];
+    
+    const COLORS_LIGHT = [
+      [120, 80, 180],  // deep violet
+      [60, 140, 120],  // deep sage
+      [180, 120, 70],  // deep amber
+      [70, 120, 160],  // deep steel
+      [140, 100, 120], // deep rose
+      [100, 140, 80],  // deep moss
+      [160, 140, 100], // deep sand
+    ];
+    
+    // Use dark mode colors during evening hours
+    const COLORS = forceDarkMode ? COLORS_DARK : COLORS_LIGHT;
+    const bgColor = forceDarkMode ? 'rgb(18, 16, 20)' : 'rgb(245, 243, 240)';
     
     // Floating bars state
     let bars = [];
@@ -181,8 +199,8 @@
       const W = bootCanvas.width;
       const H = bootCanvas.height;
       
-      // Clear to white
-      ctx.fillStyle = '#fff';
+      // Clear to gallery-appropriate background (dark or light based on time)
+      ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, W, H);
       
       // Update and draw bars
@@ -207,12 +225,7 @@
       }
       ctx.globalAlpha = 1;
       
-      // Draw "loading..." text at bottom - pixel font size for chunky look
-      const fontSize = Math.max(8, Math.floor(H / 20)); // ~13px for 270px height
-      ctx.font = `bold ${fontSize}px monospace`;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-      ctx.textAlign = 'center';
-      ctx.fillText('loading...', W / 2, H - fontSize);
+      // No loading text - clean gallery aesthetic
       
       // Spawn new bars periodically
       if (frame % 8 === 0 && bars.length < 40) {
