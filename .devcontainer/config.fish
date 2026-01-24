@@ -2939,8 +2939,60 @@ kill %1 2>/dev/null"
     end
 end
 
-# Auto-start aesthetic when fish runs in the VS Code task context
-# aesthetic-launch.sh sets AC_TASK_LAUNCH=1 before exec fish --login
+# 🎮 Xbox helper - connect to Xbox on local network
+function ac-xbox --description "Interact with Xbox on 1244 Innes Ave LAN"
+    set -l vault_path "$HOME/aesthetic-computer/aesthetic-computer-vault/machines.json"
+    if not test -f $vault_path
+        echo "❌ machines.json not found"
+        return 1
+    end
+    
+    set -l xbox_ip (jq -r '.machines.xbox.ip' $vault_path)
+    set -l portal_port (jq -r '.machines.xbox.devicePortalPort' $vault_path)
+    
+    if test -z "$xbox_ip" -o "$xbox_ip" = "null"
+        echo "❌ Xbox not configured in machines.json"
+        return 1
+    end
+    
+    switch $argv[1]
+        case ping
+            echo "🏓 Pinging Xbox at $xbox_ip..."
+            ssh jas@host.docker.internal "ping -c 3 $xbox_ip"
+        case portal
+            echo "🌐 Xbox Device Portal: https://$xbox_ip:$portal_port"
+            echo "   Opening in browser..."
+            ssh jas@host.docker.internal "open 'https://$xbox_ip:$portal_port'"
+        case info
+            echo "🎮 Xbox Series X"
+            echo "   IP: $xbox_ip"
+            echo "   Device Portal: https://$xbox_ip:$portal_port"
+            echo "   Network: 1244 Innes Ave Home LAN"
+            echo ""
+            echo "To deploy from Visual Studio:"
+            echo "   1. Debug → Remote Machine → $xbox_ip"
+            echo "   2. Enter PIN from Xbox Dev Home app"
+            echo "   3. F5 to deploy"
+        case tunnel
+            echo "🚇 Creating SSH tunnel to Xbox Device Portal..."
+            echo "   Local: https://localhost:11443 → Xbox: $xbox_ip:$portal_port"
+            echo "   Press Ctrl+C to stop"
+            ssh -L 11443:$xbox_ip:$portal_port jas@host.docker.internal -N
+        case '*'
+            echo "🎮 Xbox Helper (1244 Innes Ave LAN)"
+            echo ""
+            echo "Usage: ac-xbox <command>"
+            echo ""
+            echo "Commands:"
+            echo "  ac-xbox ping     - Check if Xbox is reachable"
+            echo "  ac-xbox portal   - Open Device Portal in browser"
+            echo "  ac-xbox info     - Show connection info"
+            echo "  ac-xbox tunnel   - Create SSH tunnel to Device Portal"
+            echo ""
+            echo "Xbox IP: $xbox_ip"
+    end
+end
+
 if set -q AC_TASK_LAUNCH
     set -e AC_TASK_LAUNCH  # Clear it so nested shells don't re-trigger
     aesthetic
