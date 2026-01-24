@@ -2969,25 +2969,54 @@ function ac-xbox --description "Interact with Xbox on 1244 Innes Ave LAN"
             echo "   Device Portal: https://$xbox_ip:$portal_port"
             echo "   Network: 1244 Innes Ave Home LAN"
             echo ""
-            echo "To deploy from Visual Studio:"
-            echo "   1. Debug → Remote Machine → $xbox_ip"
-            echo "   2. Enter PIN from Xbox Dev Home app"
-            echo "   3. F5 to deploy"
+            echo "Deploy from Mac:"
+            echo "   1. Push to trigger GitHub Actions build"
+            echo "   2. Download .msix from Actions artifacts"
+            echo "   3. ac-xbox deploy <path-to.msix>"
+            echo ""
+            echo "Or open Device Portal: ac-xbox portal"
         case tunnel
             echo "🚇 Creating SSH tunnel to Xbox Device Portal..."
             echo "   Local: https://localhost:11443 → Xbox: $xbox_ip:$portal_port"
             echo "   Press Ctrl+C to stop"
             ssh -L 11443:$xbox_ip:$portal_port jas@host.docker.internal -N
+        case deploy
+            if test (count $argv) -lt 2
+                echo "Usage: ac-xbox deploy <package.msix>"
+                echo ""
+                echo "Get the package from GitHub Actions:"
+                echo "  1. Push changes to xbox/ folder"
+                echo "  2. Go to Actions → Build Xbox App → Download artifact"
+                echo "  3. ac-xbox deploy ~/Downloads/AestheticComputer.msix"
+                return 1
+            end
+            set -l pkg $argv[2]
+            if not test -f $pkg
+                echo "❌ Package not found: $pkg"
+                return 1
+            end
+            echo "📦 Deploying $pkg to Xbox..."
+            # Upload via Mac host curl to Device Portal
+            ssh jas@host.docker.internal "curl -k -X POST -F 'file=@$pkg' 'https://$xbox_ip:$portal_port/api/app/packagemanager/package'"
+        case build
+            echo "🔨 Triggering GitHub Actions build..."
+            echo "   This will build the Xbox app in the cloud."
+            gh workflow run xbox-build.yml
+            echo ""
+            echo "   Watch progress: gh run watch"
+            echo "   Download when done: gh run download"
         case '*'
             echo "🎮 Xbox Helper (1244 Innes Ave LAN)"
             echo ""
             echo "Usage: ac-xbox <command>"
             echo ""
             echo "Commands:"
-            echo "  ac-xbox ping     - Check if Xbox is reachable"
-            echo "  ac-xbox portal   - Open Device Portal in browser"
-            echo "  ac-xbox info     - Show connection info"
-            echo "  ac-xbox tunnel   - Create SSH tunnel to Device Portal"
+            echo "  ac-xbox ping      - Check if Xbox is reachable"
+            echo "  ac-xbox portal    - Open Device Portal in browser"
+            echo "  ac-xbox info      - Show connection info"
+            echo "  ac-xbox tunnel    - Create SSH tunnel to Device Portal"
+            echo "  ac-xbox build     - Trigger GitHub Actions build"
+            echo "  ac-xbox deploy <file.msix> - Deploy package to Xbox"
             echo ""
             echo "Xbox IP: $xbox_ip"
     end

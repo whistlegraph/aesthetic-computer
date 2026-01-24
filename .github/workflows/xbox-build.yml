@@ -1,0 +1,42 @@
+name: Build Xbox App
+
+on:
+  push:
+    paths:
+      - 'xbox/**'
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+    
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+    
+    - name: Restore NuGet packages
+      run: nuget restore xbox/AestheticComputer.sln
+    
+    - name: Build Release (x64)
+      run: msbuild xbox/AestheticComputer.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundlePlatforms="x64" /p:AppxBundle=Always /p:UapAppxPackageBuildMode=SideloadOnly /p:AppxPackageSigningEnabled=false
+    
+    - name: Upload MSIX Bundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: AestheticComputer-Xbox
+        path: |
+          xbox/AestheticComputer/AppPackages/**/*.msix
+          xbox/AestheticComputer/AppPackages/**/*.msixbundle
+          xbox/AestheticComputer/AppPackages/**/*.appx
+          xbox/AestheticComputer/AppPackages/**/*.appxbundle
+        retention-days: 30
