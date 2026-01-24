@@ -132,16 +132,27 @@
       
       // Theme detection for light/dark mode support
       let isLightMode = window.matchMedia?.('(prefers-color-scheme: light)').matches;
+      
+      // FF1/Device mode: Force dark mode after 6pm local time (evening viewing)
+      if (isDeviceMode) {
+        const hour = new Date().getHours();
+        if (hour >= 18 || hour < 6) {
+          isLightMode = false; // Force dark mode 6pm-6am
+        }
+      }
+      
       // Also check parent's data-theme attribute (kidlisp.com manual theme toggle)
-      try {
+      // Skip this for device mode since we want time-based control
+      if (!isDeviceMode) try {
         const parentTheme = window.parent?.document?.documentElement?.getAttribute?.('data-theme');
         if (parentTheme === 'light') isLightMode = true;
         else if (parentTheme === 'dark') isLightMode = false;
       } catch(e) { /* cross-origin, ignore */ }
       
       // Listen for theme messages from parent (kidlisp.com sends this)
+      // In device mode, only respond to time-based themes, not external messages
       window.addEventListener('message', (e) => {
-        if (e.data?.type === 'kidlisp-theme') {
+        if (e.data?.type === 'kidlisp-theme' && !isDeviceMode) {
           isLightMode = e.data.theme === 'light';
           // console.log('[boot-canvas] Theme set via message:', isLightMode ? 'light' : 'dark');
         }
@@ -159,10 +170,13 @@
       });
       
       // Also listen for system theme changes
-      window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change', (e) => {
-        // Only update if no explicit theme was set
-        isLightMode = e.matches;
-      });
+      // In device mode, ignore system theme changes - use time-based control
+      if (!isDeviceMode) {
+        window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change', (e) => {
+          // Only update if no explicit theme was set
+          isLightMode = e.matches;
+        });
+      }
       
       // KidLisp pastel colors - bright for dark mode
       const KIDLISP_COLORS_DARK = [
@@ -186,8 +200,35 @@
         [40, 130, 190],  // deep sky blue
       ];
       
-      // Helper to get theme-aware colors
-      const getKidlispColors = () => isLightMode ? KIDLISP_COLORS_LIGHT : KIDLISP_COLORS_DARK;
+      // FF1/Device mode colors - cinematic, gallery-appropriate palette
+      // Muted, sophisticated colors for art display contexts
+      const DEVICE_COLORS_DARK = [
+        [180, 130, 255], // soft violet
+        [130, 200, 180], // sage green
+        [255, 180, 130], // warm amber
+        [130, 180, 220], // steel blue
+        [200, 160, 180], // dusty rose
+        [160, 200, 140], // moss
+        [220, 200, 160], // sand
+      ];
+      
+      const DEVICE_COLORS_LIGHT = [
+        [120, 80, 180],  // deep violet
+        [60, 140, 120],  // deep sage
+        [180, 120, 70],  // deep amber
+        [70, 120, 160],  // deep steel
+        [140, 100, 120], // deep rose
+        [100, 140, 80],  // deep moss
+        [160, 140, 100], // deep sand
+      ];
+      
+      // Helper to get theme-aware colors (device vs kidlisp)
+      const getKidlispColors = () => {
+        if (isDeviceMode) {
+          return isLightMode ? DEVICE_COLORS_LIGHT : DEVICE_COLORS_DARK;
+        }
+        return isLightMode ? KIDLISP_COLORS_LIGHT : KIDLISP_COLORS_DARK;
+      };
       
       // KidLisp mode state (also used for device mode)
       let kidlispLogs = [];
@@ -501,17 +542,27 @@
           kidlispFrame++;
           ctx.clearRect(0, 0, W, H);
           
-          // Theme-aware background
-          if (isLightMode) {
-            ctx.fillStyle = 'rgba(247, 247, 247, 0.92)'; // Light gray, matches editor bg
+          // Theme-aware background - device mode uses deeper, gallery-like colors
+          if (isDeviceMode) {
+            if (isLightMode) {
+              ctx.fillStyle = 'rgba(245, 243, 240, 0.95)'; // Warm off-white gallery wall
+            } else {
+              ctx.fillStyle = 'rgba(18, 16, 20, 0.92)'; // Deep charcoal, almost black
+            }
           } else {
-            ctx.fillStyle = 'rgba(30, 28, 26, 0.85)'; // Dark overlay
+            // Standard KidLisp colors
+            if (isLightMode) {
+              ctx.fillStyle = 'rgba(247, 247, 247, 0.92)'; // Light gray, matches editor bg
+            } else {
+              ctx.fillStyle = 'rgba(30, 28, 26, 0.85)'; // Dark overlay
+            }
           }
           ctx.fillRect(0, 0, W, H);
           
           // Subtle scanlines - lighter in light mode (scaled spacing for high-density)
+          // Device mode: even subtler scanlines for cleaner gallery look
           const scanlineSpacing = Math.max(2, Math.round(3 * bootScale));
-          ctx.globalAlpha = isLightMode ? 0.015 : 0.03;
+          ctx.globalAlpha = isDeviceMode ? (isLightMode ? 0.008 : 0.015) : (isLightMode ? 0.015 : 0.03);
           ctx.fillStyle = isLightMode ? '#888' : '#000';
           for (let y = 0; y < H; y += scanlineSpacing) ctx.fillRect(0, y, W, Math.ceil(bootScale / 2));
           ctx.globalAlpha = 1;
