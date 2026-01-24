@@ -72,6 +72,15 @@ let connectError = null;
 let connecting = false; // Connection in progress
 let marqueeOffset = 0; // For scrolling source preview
 let selectedKidlisp = null; // Currently selected KidLisp for keeping
+let keepsScroll = 0;
+let keepsScrollMax = 0;
+let keepsSectionRect = null;
+let keepThumbs = new Map(); // key -> { bitmap, frames, frameIndex, lastFrameTime, loading }
+let keepThumbQueue = [];
+let activeThumbLoads = 0;
+const MAX_THUMB_LOADS = 2;
+let _preloadAnimatedWebp = null;
+let _preload = null;
 
 // Theme scheme - Tezos blue/cyan
 export const scheme = {
@@ -324,9 +333,76 @@ function tokenizeKidlisp(source) {
   return tokens;
 }
 
-async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
+function toIpfsUrl(uri) {
+  if (!uri) return null;
+  if (uri.startsWith("ipfs://")) return `https://ipfs.aesthetic.computer/ipfs/${uri.slice(7)}`;
+  if (uri.startsWith("https://ipfs")) return uri;
+  return uri;
+}
+
+function getKeepThumbUrl(keep) {
+  const uri = keep.thumbnailUri || keep.displayUri || keep.artifactUri;
+  const ipfsUrl = toIpfsUrl(uri);
+  if (ipfsUrl) return ipfsUrl;
+  if (keep.code) {
+    const code = keep.code.startsWith("$") ? keep.code.slice(1) : keep.code;
+    return `https://oven.aesthetic.computer/grab/webp/64/64/$${code}?duration=2000&fps=6&quality=70&density=1`;
+  }
+  return null;
+}
+
+function queueKeepThumb(keep) {
+  const key = keep.tokenId || keep.code;
+  if (!key || keepThumbs.has(key)) return;
+  if (!_preloadAnimatedWebp && !_preload) return;
+  const url = getKeepThumbUrl(keep);
+  if (!url) return;
+  keepThumbs.set(key, { loading: true });
+  keepThumbQueue.push({ key, url });
+}
+
+async function loadKeepThumb({ key, url }) {
+  try {
+    const result = await _preloadAnimatedWebp?.(url);
+    if (result?.frameCount > 1) {
+      const firstFrame = result.frames[0];
+      keepThumbs.set(key, {
+        bitmap: { width: result.width, height: result.height, pixels: firstFrame.pixels },
+        frames: result.frames,
+        frameIndex: 0,
+        lastFrameTime: performance.now(),
+      });
+      return;
+    }
+    if (result?.frames?.[0]) {
+      keepThumbs.set(key, {
+        bitmap: { width: result.width, height: result.height, pixels: result.frames[0].pixels },
+        frames: null,
+      });
+      return;
+    }
+  } catch (e) {
+    // fallback below
+  }
+
+  try {
+    const imgResult = await _preload?.({ path: url, extension: "webp" });
+    if (imgResult?.img) {
+      keepThumbs.set(key, { bitmap: imgResult.img, frames: null });
+    } else {
+      keepThumbs.delete(key);
+    }
+  } catch (e) {
+    keepThumbs.delete(key);
+  }
+}
+
+async function boot({ wallet, wipe, hud, ui, screen, user, handle, net }) {
   wipe(colors.bg);
   hud.label("wallet");
+
+  _preloadAnimatedWebp = net?.preloadAnimatedWebp || null;
+  _preload = net?.preload || null;
 
   wallet.sync();
   walletState = wallet.get();
@@ -535,6 +611,8 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
           lastActivity: burned ? burn.burnedAt : (mintedAt ? new Date(mintedAt) : null),
           contract: KEEPS_CONTRACT,
           objktUrl: `https://objkt.com/asset/${KEEPS_CONTRACT}/${tokenId}`,
+          thumbnailUri: meta.thumbnailUri || meta.displayUri || meta.artifactUri || null,
+          artifactUri: meta.artifactUri || null,
         };
       });
 
@@ -650,6 +728,34 @@ function sim({ wallet, jump, screen }) {
     }
   }
 
+  // Animate keep thumbnails (animated WebP frames)
+  const nowPerf = performance.now();
+  for (const thumb of keepThumbs.values()) {
+    if (!thumb?.frames || thumb.frames.length <= 1) continue;
+    const currentFrame = thumb.frames[thumb.frameIndex || 0];
+    const frameDuration = currentFrame?.duration || 100;
+    if (!thumb.lastFrameTime || nowPerf - thumb.lastFrameTime >= frameDuration) {
+      const nextIndex = ((thumb.frameIndex || 0) + 1) % thumb.frames.length;
+      const nextFrame = thumb.frames[nextIndex];
+      thumb.frameIndex = nextIndex;
+      thumb.lastFrameTime = nowPerf;
+      thumb.bitmap = {
+        width: thumb.bitmap?.width || nextFrame.width || 1,
+        height: thumb.bitmap?.height || nextFrame.height || 1,
+        pixels: nextFrame.pixels,
+      };
+    }
+  }
+
+  // Process thumbnail preload queue
+  while (activeThumbLoads < MAX_THUMB_LOADS && keepThumbQueue.length > 0) {
+    const job = keepThumbQueue.shift();
+    activeThumbLoads += 1;
+    loadKeepThumb(job).finally(() => {
+      activeThumbLoads -= 1;
+    });
+  }
+
   // Animate news ticker (smooth, slower)
   if (frameCount % 4 === 0) {
     tickerX -= 1;
@@ -695,7 +801,7 @@ function paint($) {
   // Set theme colors based on dark mode
   colors = $.dark ? scheme.dark : scheme.light;
 
-  const { wipe, ink, screen, line, box, ui, write } = $;
+  const { wipe, ink, screen, line, box, ui, write, paste } = $;
 
   const w = screen.width;
   const h = screen.height;
@@ -847,6 +953,9 @@ function paint($) {
           objktUrl: owned?.objktUrl || (tid ? `https://objkt.com/tokens/${KEEPS_CONTRACT}/${tid}` : `https://objkt.com/collection/${KEEPS_CONTRACT}`),
           authored: true,
           source: p.source || '',
+          hits: p.hits || 0,
+          thumbnailUri: p.kept?.thumbnailUri || owned?.thumbnailUri || null,
+          artifactUri: owned?.artifactUri || null,
         };
       });
 
@@ -866,7 +975,11 @@ function paint($) {
             balance: owned.balance,
             objktUrl: owned.objktUrl,
             authored: false,
-            collected: true
+            collected: true,
+            hits: null,
+            source: '',
+            thumbnailUri: owned.thumbnailUri || null,
+            artifactUri: owned.artifactUri || null,
           });
         }
       }
@@ -878,15 +991,16 @@ function paint($) {
         return bTime - aTime;
       });
 
-      const rowH = 18; // Taller rows for buttons
+      const rowH = 28;
       const headerH = 14;
       const innerPad = SECTION_PAD;
       const fullW = w - SECTION_MARGIN * 2;
 
       // === YOUR KIDLISP KEEPS section (unified) ===
       if (unifiedKeeps.length > 0) {
-        const maxKeepsRows = Math.min(8, Math.max(4, Math.floor((h - y - 60) / rowH / 2)));
-        const keepsH = innerPad + headerH + Math.min(maxKeepsRows, unifiedKeeps.length) * rowH + innerPad;
+        const maxKeepsRows = Math.min(10, Math.max(4, Math.floor((h - y - 60) / rowH)));
+        const visibleKeepsRows = Math.min(maxKeepsRows, unifiedKeeps.length);
+        const keepsH = innerPad + headerH + visibleKeepsRows * rowH + innerPad;
 
         // Background with left/right borders
         ink(0, 40, 30, 180).box(SECTION_MARGIN, y, fullW, keepsH, "fill");
@@ -915,57 +1029,75 @@ function paint($) {
         const keepsStartY = headerY + headerH;
         const activeOwnedIds = new Set();
 
-        for (let i = 0; i < Math.min(maxKeepsRows, unifiedKeeps.length); i++) {
-          const keep = unifiedKeeps[i];
-          const rowY = keepsStartY + i * rowH;
-          const textY = rowY + 3; // Center text vertically in row
+        keepsScrollMax = Math.max(0, (unifiedKeeps.length - visibleKeepsRows) * rowH);
+        if (keepsScroll > keepsScrollMax) keepsScroll = keepsScrollMax;
+        if (keepsScroll < 0) keepsScroll = 0;
+
+        keepsSectionRect = {
+          x: SECTION_MARGIN,
+          y,
+          w: fullW,
+          h: keepsH,
+          innerX,
+          innerY: keepsStartY,
+          innerH: visibleKeepsRows * rowH,
+        };
+
+        const startIdx = Math.floor(keepsScroll / rowH);
+        const offsetY = -(keepsScroll % rowH);
+
+        for (let i = 0; i < visibleKeepsRows; i++) {
+          const keep = unifiedKeeps[startIdx + i];
+          if (!keep) continue;
+          const rowY = keepsStartY + i * rowH + offsetY;
+          const textY = rowY + 4;
+          const subY = rowY + 16;
+          const thumbSize = 20;
+          const thumbX = innerX;
+          const thumbY = rowY + 4;
+
           activeOwnedIds.add(keep.tokenId);
+          queueKeepThumb(keep);
+
+          // Thumbnail
+          const thumbKey = keep.tokenId || keep.code;
+          const thumb = thumbKey ? keepThumbs.get(thumbKey) : null;
+          if (thumb?.bitmap) {
+            const scale = thumbSize / (thumb.bitmap.width || thumbSize);
+            paste(thumb.bitmap, thumbX, thumbY, { scale });
+          } else {
+            ink(20, 30, 35).box(thumbX, thumbY, thumbSize, thumbSize);
+            ink(60, 80, 90).box(thumbX, thumbY, thumbSize, thumbSize, "outline");
+          }
+
+          const textX = innerX + thumbSize + 6;
 
           // Token ID
-          ink(...colors.primaryBright).write(`#${keep.tokenId}`, { x: innerX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+          ink(...colors.primaryBright).write(`#${keep.tokenId}`, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
 
           // Code name (color indicates status)
           const isBurned = keep.burned;
           const nameColor = isBurned ? colors.negative : (keep.owned ? colors.positive : colors.textDim);
-          ink(...nameColor).write(`$${keep.code}`, { x: innerX + 16, y: textY }, undefined, undefined, false, "MatrixChunky8");
+          ink(...nameColor).write(`$${keep.code}`, { x: textX + 16, y: textY }, undefined, undefined, false, "MatrixChunky8");
 
-          // Info section: mint date or burn info
-          let infoX = innerX + 16 + (keep.code.length + 1) * 4 + 6;
+          // Source preview + hits
+          const btnRightEdge = w - SECTION_MARGIN - innerPad;
+          const objktBtnX = btnRightEdge - 42;
+          const sourceMaxW = Math.max(40, objktBtnX - textX - 4);
+          const sourceMaxChars = Math.max(0, Math.floor(sourceMaxW / 4));
+          const rawSource = (keep.source || '').replace(/\s+/g, ' ').trim();
+          const sourceText = rawSource && sourceMaxChars > 2 ? rawSource.slice(0, sourceMaxChars - 1) : '';
+          if (sourceText) {
+            ink(...colors.textDim).write(sourceText, { x: textX, y: subY }, undefined, undefined, false, "MatrixChunky8");
+          }
 
-          if (isBurned) {
-            // Show burn info: "burned by X on Date"
-            ink(255, 100, 100).write("burned", { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-            infoX += 7 * 4; // "burned" length
-            if (keep.burnedBy) {
-              ink(...colors.textDim).write("by ", { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-              infoX += 3 * 4;
-              ink(255, 150, 150).write(keep.burnedBy, { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-              infoX += keep.burnedBy.length * 4 + 2;
-            }
-            if (keep.burnedAt) {
-              const burnDateStr = keep.burnedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-              ink(...colors.textDim).write(burnDateStr, { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-            }
-          } else {
-            // Show mint date
-            if (keep.mintedAt) {
-              const dateStr = keep.mintedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-              ink(...colors.textDim).write(dateStr, { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-              infoX += dateStr.length * 4 + 4;
-            }
-
-            // Held by badge if collected (not authored)
-            if (keep.collected) {
-              const holder = walletState?.domain || (walletState?.address ? walletState.address.slice(0, 8) + "..." : "you");
-              ink(...colors.secondary).write("held ", { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-              ink(...colors.primaryBright).write(holder, { x: infoX + 5 * 4, y: textY }, undefined, undefined, false, "MatrixChunky8");
-            }
+          if (keep.hits !== null && keep.hits !== undefined) {
+            const hitsText = `${keep.hits} hits`;
+            ink(...colors.textDim).write(hitsText, { x: objktBtnX - 6, y: subY, right: true }, undefined, undefined, false, "MatrixChunky8");
           }
 
           // OBJKT.com button (flush right)
-          const btnRightEdge = w - SECTION_MARGIN - innerPad;
-          const objktBtnX = btnRightEdge - 42; // ~42px button width
-          const btnY = rowY + 2; // Center in row
+          const btnY = rowY + 6;
           if (!ownedKeepBtns[keep.tokenId]) {
             ownedKeepBtns[keep.tokenId] = new ui.TextButtonSmall("OBJKT.com", { x: objktBtnX, y: btnY });
           } else {
@@ -977,6 +1109,17 @@ function paint($) {
           );
         }
 
+        // Scrollbar
+        if (keepsScrollMax > 0) {
+          const trackX = SECTION_MARGIN + fullW - 3;
+          const trackY = keepsStartY;
+          const trackH = visibleKeepsRows * rowH;
+          const thumbH = Math.max(12, Math.floor(trackH * (visibleKeepsRows / unifiedKeeps.length)));
+          const thumbY = trackY + Math.floor((trackH - thumbH) * (keepsScroll / keepsScrollMax));
+          ink(0, 80, 60, 120).box(trackX, trackY, 2, trackH);
+          ink(0, 140, 90, 200).box(trackX, thumbY, 2, thumbH);
+        }
+
         // Clean up buttons
         for (const tokenId of Object.keys(ownedKeepBtns)) {
           if (!activeOwnedIds.has(parseInt(tokenId))) {
@@ -985,12 +1128,16 @@ function paint($) {
         }
 
         y += keepsH + SECTION_GAP;
+      } else {
+        keepsSectionRect = null;
       }
 
       // === YOUR KIDLISP section (unkept pieces) ===
       if (unkeptPieces.length > 0) {
-        const maxRows = Math.min(6, Math.max(3, Math.floor((h - y - 30) / rowH)));
-        const kidlispH = innerPad + headerH + Math.min(maxRows, unkeptPieces.length) * rowH + innerPad;
+        const kidlispRowH = 26;
+        const maxRows = Math.max(3, Math.floor((h - y - 30) / kidlispRowH));
+        const visibleRows = Math.min(maxRows, unkeptPieces.length);
+        const kidlispH = innerPad + headerH + visibleRows * kidlispRowH + innerPad;
 
         // Background with left/right borders
         ink(40, 20, 60, 180).box(SECTION_MARGIN, y, fullW, kidlispH, "fill");
@@ -1003,28 +1150,63 @@ function paint($) {
         ink(...colors.secondary).write("YOUR KIDLISP", { x: innerX, y: headerY });
         const kidlispStartY = headerY + headerH;
 
+        const sortedUnkept = [...unkeptPieces].sort((a, b) => (b.hits || 0) - (a.hits || 0));
+
         // Draw unkept pieces with KEEP buttons and syntax-highlighted source ticker
         const activeKeepCodes = new Set();
-        for (let i = 0; i < Math.min(maxRows, unkeptPieces.length); i++) {
-          const piece = unkeptPieces[i];
-          const rowY = kidlispStartY + i * rowH;
-          const textY = rowY + 3; // Center text vertically
+        for (let i = 0; i < visibleRows; i++) {
+          const piece = sortedUnkept[i];
+          if (!piece) continue;
+          const rowY = kidlispStartY + i * kidlispRowH;
+          const textY = rowY + 4;
+          const subY = rowY + 16;
           activeKeepCodes.add(piece.code);
+
+          const thumbSize = 18;
+          const thumbX = innerX;
+          const thumbY = rowY + 4;
+          queueKeepThumb(piece);
+
+          const thumbKey = piece.code;
+          const thumb = thumbKey ? keepThumbs.get(thumbKey) : null;
+          if (thumb?.bitmap) {
+            const scale = thumbSize / (thumb.bitmap.width || thumbSize);
+            paste(thumb.bitmap, thumbX, thumbY, { scale });
+          } else {
+            ink(20, 30, 35).box(thumbX, thumbY, thumbSize, thumbSize);
+            ink(60, 80, 90).box(thumbX, thumbY, thumbSize, thumbSize, "outline");
+          }
+
+          const textX = innerX + thumbSize + 6;
 
           // Code name
           const codeW = (piece.code.length + 1) * 4 + 4;
-          ink(...colors.secondary).write(`$${piece.code}`, { x: innerX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+          ink(...colors.secondary).write(`$${piece.code}`, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
 
           // Timestamp (relative time)
           const timeStr = piece.when ? relativeTime(piece.when) : "";
           if (timeStr) {
-            ink(...colors.textDim).write(timeStr, { x: innerX + codeW, y: textY }, undefined, undefined, false, "MatrixChunky8");
+            ink(...colors.textDim).write(timeStr, { x: textX + codeW, y: textY }, undefined, undefined, false, "MatrixChunky8");
+          }
+
+          // Source preview + hits
+          const btnRightEdge = w - SECTION_MARGIN - innerPad;
+          const btnX = btnRightEdge - 22;
+          const sourceMaxW = Math.max(40, btnX - textX - 4);
+          const sourceMaxChars = Math.max(0, Math.floor(sourceMaxW / 4));
+          const rawSource = (piece.source || piece.preview || '').replace(/\s+/g, ' ').trim();
+          const sourceText = rawSource && sourceMaxChars > 2 ? rawSource.slice(0, sourceMaxChars - 1) : '';
+          if (sourceText) {
+            ink(...colors.textDim).write(sourceText, { x: textX, y: subY }, undefined, undefined, false, "MatrixChunky8");
+          }
+
+          if (piece.hits !== null && piece.hits !== undefined) {
+            const hitsText = `${piece.hits} hits`;
+            ink(...colors.textDim).write(hitsText, { x: btnX - 6, y: subY, right: true }, undefined, undefined, false, "MatrixChunky8");
           }
 
           // Keep button (flush right)
-          const btnRightEdge = w - SECTION_MARGIN - innerPad;
-          const btnX = btnRightEdge - 22; // ~22px button width
-          const btnY = rowY + 3;
+          const btnY = rowY + 5;
           if (!keepButtons[piece.code]) {
             keepButtons[piece.code] = new ui.TextButtonSmall("Keep", { x: btnX, y: btnY });
           } else {
@@ -1182,6 +1364,33 @@ function act({ event: e, wallet, jump, screen, net }) {
   if (showConnectOptions && e.is("keyboard:down:escape")) {
     showConnectOptions = false;
     return;
+  }
+
+  // Scroll keeps list (mouse wheel or drag)
+  if (keepsSectionRect) {
+    const inKeeps = e.x >= keepsSectionRect.x && e.x <= keepsSectionRect.x + keepsSectionRect.w &&
+      e.y >= keepsSectionRect.y && e.y <= keepsSectionRect.y + keepsSectionRect.h;
+
+    if (inKeeps && e.is("scroll")) {
+      keepsScroll -= e.y;
+      if (keepsScroll < 0) keepsScroll = 0;
+      if (keepsScroll > keepsScrollMax) keepsScroll = keepsScrollMax;
+      return;
+    }
+
+    if (inKeeps && e.is("draw:1")) {
+      keepsScroll += e.delta.y;
+      if (keepsScroll < 0) keepsScroll = 0;
+      if (keepsScroll > keepsScrollMax) keepsScroll = keepsScrollMax;
+      return;
+    }
+  }
+
+
+  if (e.is("keyboard:down:arrowdown")) {
+    if (keepsSectionRect) keepsScroll = Math.min(keepsScrollMax, keepsScroll + 20);
+  } else if (e.is("keyboard:down:arrowup")) {
+    if (keepsSectionRect) keepsScroll = Math.max(0, keepsScroll - 20);
   }
 
   // Handle wallet connect buttons when not connected

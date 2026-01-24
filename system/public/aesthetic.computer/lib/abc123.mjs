@@ -1,6 +1,11 @@
 // ABC123 - Shared library for alphabet and number learning pieces
 // Coordinates visual themes, musical notes, and speech across all 36 pieces
 
+import {
+  getNoteColorWithOctave,
+  parseNotepatNote,
+} from "./note-colors.mjs";
+
 // 🎹 Musical mapping based on notepat QWERTY layout
 // Letters a-g are natural notes, h-n are second octave, others are sharps
 export const letterToNote = {
@@ -67,6 +72,22 @@ export const numberThemes = {
   8: { color: [255, 20, 147], emoji: "🎱", words: ["eight", "octopus", "spider", "octave", "infinity"], shape: "octagon" },
   9: { color: [0, 255, 255], emoji: "🎳", words: ["nine", "cloud", "ninth", "baseball", "lives"], shape: "nonagon" },
 };
+
+function getThemeColorFromNote(note, baseOctave = 4) {
+  if (!note) return null;
+  const { noteName, octave } = parseNotepatNote(note, baseOctave);
+  return getNoteColorWithOctave(noteName, octave, { baseOctave, accentStep: 25 });
+}
+
+export function getLetterNoteColor(letter, baseOctave = 4) {
+  const note = letterToNote[letter?.toLowerCase?.()];
+  return getThemeColorFromNote(note, baseOctave);
+}
+
+export function getNumberNoteColor(num, baseOctave = 4) {
+  const note = numberToNote[num];
+  return getThemeColorFromNote(note, baseOctave);
+}
 
 // Note frequencies for synth (octave 4 base)
 const NOTE_FREQUENCIES = {
@@ -163,12 +184,14 @@ function getContrastColor(bgColor) {
 export function drawLetter(letter, { wipe, ink, screen, write, text, box }, theme, frame = 0) {
   const th = theme || letterThemes[letter.toLowerCase()];
   if (!th) return;
-  
-  wipe(th.color);
+  const noteColor = getLetterNoteColor(letter);
+  const bgColor = noteColor || th.color;
+
+  wipe(bgColor);
   
   const displayChar = letter.toUpperCase();
   const centerX = screen.width / 2;
-  const textColor = getContrastColor(th.color);
+  const textColor = getContrastColor(bgColor);
   const shadowColor = textColor[0] > 128 ? [255, 255, 255, 40] : [0, 0, 0, 80];
   
   // Calculate vertical spacing - divide screen into sections for each font
@@ -237,12 +260,14 @@ export function drawLetter(letter, { wipe, ink, screen, write, text, box }, them
 export function drawNumber(num, { wipe, ink, screen, write, box, line, text }, frame = 0) {
   const th = numberThemes[num];
   if (!th) return;
-  
-  wipe(th.color);
+  const noteColor = getNumberNoteColor(num);
+  const bgColor = noteColor || th.color;
+
+  wipe(bgColor);
   
   const displayChar = `${num}`;
   const centerX = screen.width / 2;
-  const textColor = getContrastColor(th.color);
+  const textColor = getContrastColor(bgColor);
   const shadowColor = textColor[0] > 128 ? [255, 255, 255, 40] : [0, 0, 0, 80];
   
   // Draw counting dots at the top with animation

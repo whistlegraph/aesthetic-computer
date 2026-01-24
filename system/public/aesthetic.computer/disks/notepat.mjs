@@ -1,6 +1,12 @@
 // Notepat, 2024.6.26.23.17.58.736
 // Tap the pads to play musical notes, or use the keyboard keys.
 
+import {
+  getNoteColorWithOctave,
+  parseNotepatNote,
+} from "../lib/note-colors.mjs";
+import { drawMiniControllerDiagram } from "../lib/gamepad-diagram.mjs";
+
 /* 📝 Notes 
    - [] Make `slide` work with `composite`.
         (This may require some refactoring)
@@ -231,7 +237,7 @@ const wavetypes = [
   "square", // 3
   "noise", // 4 - white noise filtered by pitch
   "composite", // 5
-  "sample", // 6
+  "stample", // 6
 ];
 let waveIndex = 0; // 0;
 const STARTING_WAVE = wavetypes[waveIndex]; //"sine";
@@ -240,6 +246,7 @@ let wave = STARTING_WAVE;
 let slide = false;
 let quickFade = false;
 let roomMode = false; // 🏠 Global reverb toggle
+let glitchMode = false; // 🧩 Global glitch toggle
 let octave = STARTING_OCTAVE;
 let keys = "";
 let tap = false;
@@ -302,16 +309,18 @@ const TRACK_HEIGHT = 25;
 const TRACK_GAP = 6;
 const MINI_KEYBOARD_HEIGHT = 16;
 const MINI_KEYBOARD_SPACING = 6;
-const QWERTY_MINIMAP_HEIGHT = 28;
 const QWERTY_MINIMAP_SPACING = 6;
 
 const MIDI_BADGE_TEXT = "USB MIDI";
 const MIDI_RATE_LABEL_TEXT = "SR";
-const MIDI_BADGE_PADDING_X = 4;
-const MIDI_BADGE_PADDING_RIGHT = 1;
+const MIDI_BADGE_PADDING_X = 3;
+const MIDI_BADGE_PADDING_RIGHT = 0;
 const MIDI_BADGE_PADDING_Y = 2;
-const MIDI_BADGE_MARGIN = 6;
+const MIDI_BADGE_MARGIN = 4;
 const MIDI_RATE_LABEL_GAP = 2;
+
+const QWERTY_MINIMAP_KEY_HEIGHT = 8;
+const QWERTY_MINIMAP_KEY_SPACING = 1;
 
 // Secondary top bar for mode toggle buttons (using MatrixChunky8 font)
 const SECONDARY_BAR_TOP = TOP_BAR_BOTTOM;
@@ -326,6 +335,9 @@ const MELODY_ALIAS_MIN_SIDE = 56;
 const MELODY_ALIAS_MARGIN = 6;
 
 const NOTE_TO_KEYBOARD_KEY = {
+  "-a": "control",
+  "-a#": "z",
+  "-b": "x",
   c: "c",
   "c#": "v",
   d: "d",
@@ -350,6 +362,9 @@ const NOTE_TO_KEYBOARD_KEY = {
   "+a": "m",
   "+a#": "p",
   "+b": "n",
+  "++c": ";",
+  "++c#": "'",
+  "++d": "]",
 };
 
 const KEYBOARD_TO_NOTE = Object.fromEntries(
@@ -357,16 +372,76 @@ const KEYBOARD_TO_NOTE = Object.fromEntries(
 );
 
 const QWERTY_LAYOUT_ROWS = [
-  ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
-  ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
-  ["z", "x", "c", "v", "b", "n", "m"],
+  ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "]"],
+  ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'"],
+  ["control", "z", "x", "c", "v", "b", "n", "m", "alt"],
+  ["left", "down", "up", "right", "space"],
 ];
+
+const QWERTY_MINIMAP_HEIGHT =
+  QWERTY_LAYOUT_ROWS.length * QWERTY_MINIMAP_KEY_HEIGHT +
+  (QWERTY_LAYOUT_ROWS.length - 1) * QWERTY_MINIMAP_KEY_SPACING;
 
 const QWERTY_ROW_OFFSETS = [0, 0.5, 1];
 const QWERTY_MAX_SPAN = Math.max(
   ...QWERTY_LAYOUT_ROWS.map((row, i) => row.length + QWERTY_ROW_OFFSETS[i]),
 );
 const PAN_RANGE = 0.9; // Keep a safe center mix; never hard L/R.
+
+const MINI_PIANO_WHITE_KEYS = [
+  "-A",
+  "-B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "A",
+  "B",
+  "+C",
+  "+D",
+  "+E",
+  "+F",
+  "+G",
+  "+A",
+  "+B",
+  "++C",
+  "++D",
+];
+
+const MINI_PIANO_BLACK_KEYS = [
+  { note: "-A#", afterWhite: 0 },
+  { note: "C#", afterWhite: 2 },
+  { note: "D#", afterWhite: 3 },
+  { note: "F#", afterWhite: 5 },
+  { note: "G#", afterWhite: 6 },
+  { note: "A#", afterWhite: 7 },
+  { note: "+C#", afterWhite: 9 },
+  { note: "+D#", afterWhite: 10 },
+  { note: "+F#", afterWhite: 12 },
+  { note: "+G#", afterWhite: 13 },
+  { note: "+A#", afterWhite: 14 },
+  { note: "++C#", afterWhite: 16 },
+];
+
+const MINI_PIANO_WHITE_KEY_WIDTH = 6;
+const MINI_PIANO_WHITE_KEY_WIDTH_COMPACT = 4;
+const MINI_PIANO_BLACK_KEY_WIDTH = 4;
+const MINI_PIANO_BLACK_KEY_WIDTH_COMPACT = 3;
+const MINI_PIANO_BLACK_KEY_HEIGHT = 9;
+const MINI_PIANO_BLACK_KEY_HEIGHT_COMPACT = 7;
+
+function getMiniPianoWhiteKeyWidth(isCompact) {
+  return isCompact ? MINI_PIANO_WHITE_KEY_WIDTH_COMPACT : MINI_PIANO_WHITE_KEY_WIDTH;
+}
+
+function getMiniPianoBlackKeyWidth(isCompact) {
+  return isCompact ? MINI_PIANO_BLACK_KEY_WIDTH_COMPACT : MINI_PIANO_BLACK_KEY_WIDTH;
+}
+
+function getMiniPianoBlackKeyHeight(isCompact) {
+  return isCompact ? MINI_PIANO_BLACK_KEY_HEIGHT_COMPACT : MINI_PIANO_BLACK_KEY_HEIGHT;
+}
 
 function clampPan(value) {
   return Math.max(-PAN_RANGE, Math.min(PAN_RANGE, value));
@@ -377,7 +452,8 @@ function getSampleRateText(sampleRate) {
     typeof window !== "undefined" ? window.audioContext?.sampleRate : null;
   const rate = Number.isFinite(sampleRate) ? sampleRate : fallbackRate;
   if (!Number.isFinite(rate) || rate <= 0) return null;
-  return `${Math.round(rate / 1000)}k`;
+  if (rate >= 1000) return `${Math.round(rate / 1000)}k`;
+  return `${Math.round(rate)}Hz`;
 }
 
 function getPanForQwertyKey(key) {
@@ -412,6 +488,28 @@ function keyboardKeyToNote(key) {
   if (typeof key !== "string" || key.length === 0) return null;
   const lower = key.toLowerCase();
   return KEYBOARD_TO_NOTE[lower] ?? null;
+}
+
+function formatKeyLabel(key) {
+  if (!key) return "";
+  switch (key) {
+    case "control":
+      return "CTL";
+    case "space":
+      return "SP";
+    case "alt":
+      return "ALT";
+    case "left":
+      return "L";
+    case "right":
+      return "R";
+    case "up":
+      return "U";
+    case "down":
+      return "D";
+    default:
+      return key.toUpperCase();
+  }
 }
 
 let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
@@ -539,31 +637,40 @@ const notesToColorsFinal = {
   "4b": [165, 42, 42], // brown
 };
 
-function colorFromNote(note, num) {
-  let oct = parseInt(octave);
-  if (note.startsWith("+")) {
-    note = note.slice(1);
-    oct += 1;
-  }
-  // const noteIndex = noteOrder.indexOf(note);
-  // console.log("Note Index:", noteIndex, "Octave:", oct);
-  // const hue = (noteIndex / noteOrder.length * 360);
-  // const satOctMod = (oct - 4) * 10;
-  // const saturation = 80 + satOctMod;
-  // const lightOctMod = (oct - 4) * 15;
-  // const lightness = 50 + lightOctMod;
-  // const color = num.hslToRgb(hue, saturation, lightness);
-  let color = notesToColorsFinal?.[oct + note]?.slice(); // || "yellow";
+function colorFromNote(note, num, octaveOverride = null) {
+  const baseOctave = Number.isFinite(octaveOverride)
+    ? octaveOverride
+    : parseInt(octave);
+  const { noteName, octave: noteOctave } = parseNotepatNote(note, baseOctave);
+  return getNoteColorWithOctave(noteName, noteOctave, {
+    baseOctave: 4,
+    accentStep: 25,
+  });
+}
 
-  if (!color) {
-    color = notesToColorsFinal[4 + note]?.slice() || [0, 255, 0];
-    const octMod = oct - 4;
-    color[0] = num.clamp(color[0] + 65 * octMod, 0, 255);
-    color[1] = num.clamp(color[1] + 65 * octMod, 0, 255);
-    color[2] = num.clamp(color[2] + 65 * octMod, 0, 255);
-  }
+function brightenColor(color, amount = 40) {
+  if (!Array.isArray(color) || color.length < 3) return color;
+  return [
+    Math.min(255, color[0] + amount),
+    Math.min(255, color[1] + amount),
+    Math.min(255, color[2] + amount),
+  ];
+}
 
-  return color; //[0, 0, 0];
+function darkenColor(color, factor = 0.65) {
+  if (!Array.isArray(color) || color.length < 3) return color;
+  return [
+    Math.max(0, Math.round(color[0] * factor)),
+    Math.max(0, Math.round(color[1] * factor)),
+    Math.max(0, Math.round(color[2] * factor)),
+  ];
+}
+
+function getContrastingTextColor(color) {
+  if (!Array.isArray(color) || color.length < 3) return [255, 255, 255];
+  const [r, g, b] = color;
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 150 ? [20, 20, 20] : [245, 245, 245];
 }
 
 const buttonOctaves = ["3", "4", "5", "6", "7", "8"]; // ❤️‍🔥 Add octaves...
@@ -605,7 +712,7 @@ let paintPictureOverlay = false;
 // let qrcells;
 
 let waveBtn, octBtn;
-let slideBtn, roomBtn, quickBtn; // Toggle buttons for slide/room/quick modes
+let slideBtn, roomBtn, glitchBtn, quickBtn; // Toggle buttons for slide/room/glitch/quick modes
 let melodyAliasBtn;
 let melodyAliasDown = false;
 let melodyAliasActiveNote = null;
@@ -627,6 +734,89 @@ let song,
   songShift = 0,
   songShifting = false,
   songProgress = 0; // Track progress through current note (0 to 1)
+
+let autopatConfig = {
+  enabled: false,
+  rawSong: null,
+  events: null,
+  bpm: 88,
+  beatsPerNote: 1,
+  restBeats: 0.1,
+  startDelay: 0.35,
+  ignoreInput: false,
+  hudLabel: "autopat",
+  paused: false,
+  showTrack: true,
+  sidePanelWidth: 0,
+};
+
+let autopatState = {
+  activeNote: null,
+  activeNoteEnd: 0,
+  nextTime: 0,
+  started: false,
+  eventIndex: 0,
+};
+
+let autopatApi = null;
+
+function rebuildAutopatSong() {
+  if (!autopatConfig.enabled) return;
+  if (autopatConfig.events?.length) {
+    song = null;
+    songStops = [];
+    songIndex = 0;
+    songShift = 0;
+    songShifting = false;
+    songProgress = 0;
+    if (autopatConfig.hudLabel && autopatHud?.label) {
+      autopatHud.label(autopatConfig.hudLabel);
+    }
+    return;
+  }
+  const autopatSong = autopatConfig.rawSong || rawSong;
+  song = parseSong(autopatSong);
+  songStops = [];
+  songIndex = 0;
+  songShift = 0;
+  songShifting = false;
+  songProgress = 0;
+
+  if (song) {
+    let x = 0;
+    const glyphWidth = resolveMatrixGlyphMetrics(autopatTypeface).width;
+    song.forEach((part) => {
+      let word = part[1],
+        space = 0;
+      word.endsWith("-") ? (word = word.slice(0, -1)) : (space = glyphWidth);
+      if (word.startsWith("-")) word = word.slice(1);
+      songStops.push([word, x]);
+      x += word.length * glyphWidth + space;
+    });
+  }
+
+  if (autopatConfig.hudLabel && autopatHud?.label) {
+    autopatHud.label(autopatConfig.hudLabel);
+  }
+}
+
+function configureAutopat(options = {}) {
+  autopatConfig = {
+    ...autopatConfig,
+    ...options,
+    enabled: options.enabled ?? true,
+  };
+
+  autopatState = {
+    activeNote: null,
+    activeNoteEnd: 0,
+    nextTime: 0,
+    started: false,
+    eventIndex: 0,
+  };
+
+  rebuildAutopatSong();
+}
 
 // Convert various note notations to notepat keyboard notation
 function convertNoteToKeyboardKey(note) {
@@ -685,10 +875,20 @@ function parseSong(raw) {
 let startupSfx;
 let udpServer;
 
+let stampleSampleId = null;
+let stampleSampleData = null;
+let stampleSampleRate = null;
+let stampleNeedleProgress = 0;
+let stampleNeedleNote = null;
+let stampleProgressTick = 0;
+
+let autopatHud = null;
+let autopatTypeface = null;
+
 let picture;
 let matrixFont; // MatrixChunky8 font for note letters
 
-function boot({
+async function boot({
   params,
   api,
   colon,
@@ -698,9 +898,14 @@ function boot({
   typeface,
   hud,
   net,
+  store,
   painting,
   sound,
 }) {
+  autopatApi = api;
+  autopatHud = hud;
+  autopatTypeface = typeface;
+
   // Reset state on boot to avoid stuck notes after reloads
   bootTimestamp = performance.now() / 1000; // Current time in seconds
   Object.keys(sounds).forEach((note) => {
@@ -739,6 +944,25 @@ function boot({
     .then((sfx) => (startupSfx = sfx))
     .catch((err) => console.warn(err)); // Load startup
 
+  stampleSampleId = null;
+  stampleSampleData = null;
+  stampleSampleRate = null;
+  stampleNeedleProgress = 0;
+  stampleNeedleNote = null;
+
+  if (store?.retrieve) {
+    const storedSample =
+      store["stample:sample"] ||
+      (await store.retrieve("stample:sample", "local:db"));
+    if (storedSample?.data?.length) {
+      const storedId = storedSample.id || "stample";
+      stampleSampleId = storedId;
+      stampleSampleData = storedSample.data;
+      stampleSampleRate = storedSample.sampleRate;
+      sound?.registerSample?.(storedId, storedSample.data, storedSample.sampleRate);
+    }
+  }
+
   try {
     sound?.midi?.connect?.();
   } catch (err) {
@@ -772,6 +996,10 @@ function boot({
     hud.label("notepat"); // Clear the label
   }
 
+  if (autopatConfig.enabled) {
+    rebuildAutopatSong();
+  }
+
   if (song) {
     let x = 0;
     const glyphWidth = resolveMatrixGlyphMetrics(typeface).width;
@@ -792,8 +1020,18 @@ function boot({
   //   editable = false;
   // }
 
-  const wavetypes = ["square", "sine", "triangle", "sawtooth", "noise-white", "noise"];
-  wave = wavetypes.indexOf(colon[0]) > -1 ? colon[0] : wave;
+  const wavetypes = [
+    "square",
+    "sine",
+    "triangle",
+    "sawtooth",
+    "noise-white",
+    "noise",
+    "stample",
+    "sample",
+  ];
+  const requestedWave = wavetypes.indexOf(colon[0]) > -1 ? colon[0] : wave;
+  wave = requestedWave === "sample" ? "stample" : requestedWave;
   // Map 'noise' shorthand to 'noise-white' for the synth
   if (wave === "noise") wave = "noise-white";
   // slide = true; // colon[0] === "slide" || colon[1] === "slide";
@@ -889,12 +1127,114 @@ function sim({ sound, simCount, num }) {
     }
   }
 
+  if (autopatConfig.enabled && autopatConfig.events?.length && !autopatConfig.paused) {
+    const now = typeof sound?.time === "number" ? sound.time : performance.now() / 1000;
+    const beatSeconds = 60 / (autopatConfig.bpm || 88);
+
+    if (!autopatState.started) {
+      autopatState.started = true;
+      autopatState.nextTime = now + (autopatConfig.startDelay || 0);
+      autopatState.eventIndex = 0;
+    }
+
+    if (autopatState.activeNote && now >= autopatState.activeNoteEnd) {
+      stopButtonNote(autopatState.activeNote, { force: true });
+      autopatState.activeNote = null;
+      autopatState.activeNoteEnd = 0;
+      autopatState.nextTime = now;
+    }
+
+    if (!autopatState.activeNote && now >= autopatState.nextTime) {
+      const event = autopatConfig.events[autopatState.eventIndex];
+      if (!event) {
+        autopatState.eventIndex = 0;
+      } else {
+        const beats = event.beats ?? autopatConfig.beatsPerNote ?? 1;
+        const durationSeconds = beatSeconds * beats;
+        const key = event.key;
+        if (key) {
+          const note = key.toLowerCase();
+          const started = startButtonNote(note, 127, autopatApi);
+          if (started) {
+            autopatState.activeNote = note;
+            autopatState.activeNoteEnd = now + durationSeconds;
+          } else {
+            autopatState.activeNote = null;
+            autopatState.activeNoteEnd = now;
+          }
+        } else {
+          autopatState.activeNote = null;
+          autopatState.activeNoteEnd = now + durationSeconds;
+        }
+        autopatState.eventIndex =
+          (autopatState.eventIndex + 1) % autopatConfig.events.length;
+        if (!key) {
+          autopatState.nextTime = now + durationSeconds;
+        }
+      }
+    }
+  } else if (autopatConfig.enabled && song?.length && !autopatConfig.paused) {
+    const now = typeof sound?.time === "number" ? sound.time : performance.now() / 1000;
+    const beatSeconds = 60 / (autopatConfig.bpm || 88);
+    const noteSeconds = beatSeconds * (autopatConfig.beatsPerNote || 1);
+    const restSeconds = beatSeconds * (autopatConfig.restBeats || 0);
+
+    if (!autopatState.started) {
+      autopatState.started = true;
+      autopatState.nextTime = now + (autopatConfig.startDelay || 0);
+    }
+
+    if (autopatState.activeNote && now >= autopatState.activeNoteEnd) {
+      stopButtonNote(autopatState.activeNote, { force: true });
+      autopatState.activeNote = null;
+      autopatState.activeNoteEnd = 0;
+      autopatState.nextTime = now + restSeconds;
+    }
+
+    if (!autopatState.activeNote && now >= autopatState.nextTime) {
+      const current = song?.[songIndex]?.[0];
+      if (current) {
+        const note = current.toLowerCase();
+        const started = startButtonNote(note, 127, autopatApi);
+        if (started) {
+          autopatState.activeNote = note;
+          autopatState.activeNoteEnd = now + noteSeconds;
+        } else if (song?.length) {
+          songIndex = (songIndex + 1) % song.length;
+        }
+      }
+    }
+  } else if (autopatConfig.enabled && autopatConfig.paused) {
+    if (autopatState.activeNote) {
+      stopButtonNote(autopatState.activeNote, { force: true });
+      autopatState.activeNote = null;
+      autopatState.activeNoteEnd = 0;
+    }
+  }
+
   Object.keys(trail).forEach((note) => {
     trail[note] -= 0.0065;
     if (trail[note] <= 0) delete trail[note];
   });
 
   const active = orderedByCount(sounds);
+
+  if (wave === "stample" && active.length > 0) {
+    stampleProgressTick = (stampleProgressTick + 1) % 12;
+    if (stampleProgressTick === 0) {
+      const note = active[active.length - 1];
+      const entry = sounds[note];
+      entry?.sound?.progress?.().then((progressData) => {
+        if (progressData && typeof progressData.progress === "number") {
+          stampleNeedleProgress = progressData.progress;
+          stampleNeedleNote = note;
+        }
+      });
+    }
+  } else if (active.length === 0) {
+    stampleNeedleProgress = 0;
+    stampleNeedleNote = null;
+  }
 
   if (active.length > 0 && transposeOverlayFade < 1) {
     // transposeOverlayFade += 0.05;
@@ -961,6 +1301,162 @@ function measureMatrixTextBoxWidth(text, api, screenWidth) {
   return tb?.box?.width || 0;
 }
 
+function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
+  const isCompact = layout?.compactMode && layout?.splitLayout;
+  const whiteKeyWidth = getMiniPianoWhiteKeyWidth(isCompact);
+  const whiteKeyHeight = MINI_KEYBOARD_HEIGHT;
+  const blackKeyWidth = getMiniPianoBlackKeyWidth(isCompact);
+  const blackKeyHeight = getMiniPianoBlackKeyHeight(isCompact);
+  const pianoWidth = MINI_PIANO_WHITE_KEYS.length * whiteKeyWidth;
+  const sidePanelWidth = layout?.sidePanelWidth || 0;
+  const effectiveWidth = screen.width - sidePanelWidth;
+  const qKeyWidth = 9;
+  const qKeySpacing = QWERTY_MINIMAP_KEY_SPACING;
+  const qwertyWidth =
+    Math.max(...QWERTY_LAYOUT_ROWS.map((row) => row.length)) *
+    (qKeyWidth + qKeySpacing);
+  const qwertyHeight = QWERTY_MINIMAP_HEIGHT;
+
+  let pianoY = SECONDARY_BAR_BOTTOM;
+  let pianoStartX = 58;
+  const centerX = layout?.centerX ?? (effectiveWidth - pianoWidth) / 2;
+  const centerWidth = layout?.centerAreaWidth ?? pianoWidth;
+  const centerRight = centerX + centerWidth;
+  const clamp = (value, minValue, maxValue) =>
+    Math.min(Math.max(value, minValue), maxValue);
+
+  if (isCompact) {
+    pianoY = SECONDARY_BAR_BOTTOM + 2;
+    const idealX = centerX + (centerWidth - pianoWidth) / 2;
+    const minX = centerX;
+    const maxX = Math.max(minX, centerRight - pianoWidth);
+    pianoStartX = clamp(idealX, minX, maxX);
+  } else if (song) {
+    const effectiveTrackY = trackY ?? SECONDARY_BAR_BOTTOM;
+    pianoY = effectiveTrackY + (trackHeight || 0) + 2;
+    pianoStartX = effectiveWidth - pianoWidth - 2;
+  } else {
+    const rightAlignedX = effectiveWidth - pianoWidth - 2;
+    if (rightAlignedX > pianoStartX + 12) {
+      pianoStartX = rightAlignedX;
+    }
+  }
+
+  let qwertyStartX = pianoStartX;
+  if (layout?.splitLayout) {
+    const idealQwertyX = centerX + (centerWidth - qwertyWidth) / 2;
+    const minQwertyX = centerX;
+    const maxQwertyX = Math.max(minQwertyX, centerRight - qwertyWidth);
+    qwertyStartX = clamp(idealQwertyX, minQwertyX, maxQwertyX);
+  }
+  let qwertyStartY = pianoY + whiteKeyHeight + QWERTY_MINIMAP_SPACING;
+  const maxY = layout?.topButtonY ? layout.topButtonY - 2 : screen.height;
+  if (qwertyStartY + qwertyHeight > maxY) {
+    const gap = 4;
+    const rightX = pianoStartX + pianoWidth + gap;
+    const leftX = pianoStartX - gap - qwertyWidth;
+    if (layout?.splitLayout) {
+      const leftFits = leftX >= centerX + 2;
+      const rightFits = rightX + qwertyWidth <= centerRight - 2;
+      if (leftFits) {
+        qwertyStartX = leftX;
+        qwertyStartY = pianoY;
+      } else if (rightFits) {
+        qwertyStartX = rightX;
+        qwertyStartY = pianoY;
+      }
+    } else if (leftX >= 2) {
+      qwertyStartX = leftX;
+      qwertyStartY = pianoY;
+    } else if (rightX + qwertyWidth <= effectiveWidth - 2) {
+      qwertyStartX = rightX;
+      qwertyStartY = pianoY;
+    }
+  }
+
+  return {
+    x: pianoStartX,
+    y: pianoY,
+    whiteKeyWidth,
+    whiteKeyHeight,
+    blackKeyWidth,
+    blackKeyHeight,
+    pianoWidth,
+    qwertyStartX,
+    qwertyStartY,
+  };
+}
+
+function getMiniPianoNoteAt(x, y, geometry) {
+  if (!geometry) return null;
+  const {
+    x: startX,
+    y: startY,
+    whiteKeyWidth,
+    whiteKeyHeight,
+    blackKeyWidth,
+    blackKeyHeight,
+  } = geometry;
+  const relX = x - startX;
+  const relY = y - startY;
+  if (relX < 0 || relY < 0 || relY > whiteKeyHeight) return null;
+
+  for (const { note, afterWhite } of MINI_PIANO_BLACK_KEYS) {
+    const bx = afterWhite * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2;
+    if (
+      relX >= bx &&
+      relX <= bx + blackKeyWidth &&
+      relY <= blackKeyHeight
+    ) {
+      return note.toLowerCase();
+    }
+  }
+
+  const index = Math.floor(relX / whiteKeyWidth);
+  if (index < 0 || index >= MINI_PIANO_WHITE_KEYS.length) return null;
+  return MINI_PIANO_WHITE_KEYS[index].toLowerCase();
+}
+
+function getQwertyKeyAt(x, y, pianoGeometry) {
+  if (!pianoGeometry) return null;
+  const qKeyWidth = 9;
+  const qKeyHeight = QWERTY_MINIMAP_KEY_HEIGHT;
+  const qKeySpacing = QWERTY_MINIMAP_KEY_SPACING;
+  const qwertyStartX = pianoGeometry.qwertyStartX ?? pianoGeometry.x;
+  const qwertyStartY =
+    pianoGeometry.qwertyStartY ??
+    pianoGeometry.y + pianoGeometry.whiteKeyHeight + QWERTY_MINIMAP_SPACING;
+
+  for (let rowIndex = 0; rowIndex < QWERTY_LAYOUT_ROWS.length; rowIndex += 1) {
+    const row = QWERTY_LAYOUT_ROWS[rowIndex];
+    const rowOffset =
+      rowIndex === 0
+        ? 0
+        : rowIndex === 1
+        ? (qKeyWidth + qKeySpacing) / 2
+        : rowIndex === 2
+        ? qKeyWidth
+        : Math.floor(
+            (pianoGeometry.pianoWidth -
+              row.length * (qKeyWidth + qKeySpacing)) /
+              2,
+          );
+    const rowY = qwertyStartY + rowIndex * (qKeyHeight + qKeySpacing);
+    const relY = y - rowY;
+    if (relY < 0 || relY > qKeyHeight) continue;
+
+    for (let keyIndex = 0; keyIndex < row.length; keyIndex += 1) {
+      const keyX =
+        qwertyStartX + rowOffset + keyIndex * (qKeyWidth + qKeySpacing);
+      if (x >= keyX && x <= keyX + qKeyWidth) {
+        return row[keyIndex];
+      }
+    }
+  }
+
+  return null;
+}
+
 function computeMidiBadgeMetrics(
   screen,
   glyphMetrics = resolveMatrixGlyphMetrics(),
@@ -969,12 +1465,13 @@ function computeMidiBadgeMetrics(
   rateText = null,
 ) {
   const textWidth = MIDI_BADGE_TEXT.length * glyphMetrics.width;
-  const rateLabelWidth = rateLabel ? rateLabel.length * glyphMetrics.width : 0;
   const rateWidth = rateText ? rateText.length * glyphMetrics.width : 0;
   
   // Single line layout: "USB MIDI 48k" all on one line
-  const singleLineGap = rateText ? 4 : 0;
-  const totalTextWidth = textWidth + singleLineGap + rateWidth;
+  const singleLineGap = rateText ? 2 : 0;
+  const totalTextWidth =
+    textWidth +
+    (rateText ? singleLineGap + rateWidth : 0);
   const width = totalTextWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
   const height = glyphMetrics.height + MIDI_BADGE_PADDING_Y * 2;
   
@@ -985,6 +1482,24 @@ function computeMidiBadgeMetrics(
   const y = screen.height - height - MIDI_BADGE_MARGIN;
 
   return { x, y, width, height, singleLineGap };
+}
+
+function computeMidiBadgeTopMetrics(
+  screen,
+  glyphMetrics = resolveMatrixGlyphMetrics(),
+  rateLabel = null,
+  rateText = null,
+) {
+  const base = computeMidiBadgeMetrics(
+    screen,
+    glyphMetrics,
+    false,
+    rateLabel,
+    rateText,
+  );
+  const x = MIDI_BADGE_MARGIN;
+  const y = SECONDARY_BAR_TOP + Math.max(0, Math.floor((SECONDARY_BAR_HEIGHT - base.height) / 2));
+  return { ...base, x, y };
 }
 
 function computeMelodyButtonRect(screen, midiMetrics) {
@@ -1010,8 +1525,16 @@ function computeMelodyButtonRect(screen, midiMetrics) {
 
 function getButtonLayoutMetrics(
   screen,
-  { songMode = false, pictureOverlay = false, midiMetrics, rateLabel, rateText } = {},
+  {
+    songMode = false,
+    pictureOverlay = false,
+    midiMetrics,
+    rateLabel,
+    rateText,
+    sidePanelWidth = 0,
+  } = {},
 ) {
+  const reservedSide = sidePanelWidth || autopatConfig.sidePanelWidth || 0;
   const badgeMetrics =
     midiMetrics ??
     computeMidiBadgeMetrics(
@@ -1044,6 +1567,7 @@ function getButtonLayoutMetrics(
   const compactMode = screen.height < 200;
   
   if (compactMode) {
+    const usableWidth = max(0, screen.width - reservedSide);
     // Recompute badge metrics for compact mode (centered)
     const compactBadgeMetrics = computeMidiBadgeMetrics(
       screen,
@@ -1060,21 +1584,23 @@ function getButtonLayoutMetrics(
     const totalRows = Math.ceil(notesPerSide / buttonsPerRow);  // 3 rows
     const hudReserved = SECONDARY_BAR_BOTTOM;
     
-    // Piano dimensions (2 octaves = 14 white keys)
-    const whiteKeyWidth = 7;
-    const pianoWidth = 14 * whiteKeyWidth;  // 98px
+    // Piano dimensions (extended mini layout)
+    const whiteKeyWidth = getMiniPianoWhiteKeyWidth(true);
+    const pianoWidth = MINI_PIANO_WHITE_KEYS.length * whiteKeyWidth;
     
     // QWERTY minimap dimensions (10 keys per row roughly)
     const qKeyWidth = 9;
     const qKeySpacing = 1;
-    const qwertyWidth = 10 * (qKeyWidth + qKeySpacing);  // ~100px
+    const qwertyWidth =
+      Math.max(...QWERTY_LAYOUT_ROWS.map((row) => row.length)) *
+      (qKeyWidth + qKeySpacing);
     
     // Center area for piano + qwerty
     const centerWidth = Math.max(pianoWidth, qwertyWidth) + 4;  // ~102px with padding
     
     // Available width for buttons on each side
     const sideMargin = margin;
-    const availableSideWidth = (screen.width - centerWidth) / 2 - sideMargin * 2;
+    const availableSideWidth = (usableWidth - centerWidth) / 2 - sideMargin * 2;
     
     // Calculate square button size based on available space
     const maxButtonWidth = floor(availableSideWidth / buttonsPerRow);
@@ -1096,7 +1622,7 @@ function getButtonLayoutMetrics(
     const leftOctaveX = sideMargin;
     
     // Right octave starts after center area
-    const rightOctaveX = screen.width - sideMargin - buttonBlockWidth;
+    const rightOctaveX = usableWidth - sideMargin - buttonBlockWidth;
     
     // Center area position
     const centerX = leftOctaveX + buttonBlockWidth + sideMargin;
@@ -1120,6 +1646,8 @@ function getButtonLayoutMetrics(
       melodyButtonRect: null,
       midiBadge: compactBadgeMetrics,  // Use centered badge metrics
       compactMode: true,
+      sidePanelWidth: reservedSide,
+      usableWidth,
       // Split layout info
       splitLayout: true,
       leftOctaveX,
@@ -1154,6 +1682,7 @@ function getButtonLayoutMetrics(
       melodyButtonRect: null,
       midiBadge: badgeMetrics,
       compactMode: false,
+      sidePanelWidth: reservedSide,
     };
   }
 
@@ -1167,7 +1696,8 @@ function getButtonLayoutMetrics(
     MINI_KEYBOARD_HEIGHT + MINI_KEYBOARD_SPACING + qwertyReserved;
   const reservedTop = hudReserved + trackHeight + trackSpacing + keyboardReserved;
 
-  const widthLimit = ceil((screen.width - margin * 2) / buttonsPerRow);
+  const usableWidth = max(0, screen.width - reservedSide);
+  const widthLimit = ceil((usableWidth - margin * 2) / buttonsPerRow);
   const minButtonSize = 20;
   const maxButtonSize = 48;
 
@@ -1205,6 +1735,8 @@ function getButtonLayoutMetrics(
     melodyButtonRect,
     midiBadge: badgeMetrics,
     compactMode: false,
+    sidePanelWidth: reservedSide,
+    usableWidth,
   };
 }
 
@@ -1262,16 +1794,20 @@ function paint({
     Number.isFinite(amplitudeRaw);
   const matrixGlyphMetrics = resolveMatrixGlyphMetrics(typeface);
   let bg;
+  const latestNote = active.length > 0 ? active[active.length - 1] : null;
+  const activeBg = latestNote
+    ? darkenColor(colorFromNote(latestNote, num), tap ? 0.55 : 0.45)
+    : null;
 
   if (!tap) {
-    bg = active.length > 0 ? [50, 50, 255] : "blue";
+    bg = activeBg ?? [50, 50, 255];
 
-    if (perc) {
+    if (perc && !activeBg) {
       bg = perc;
       perc = null;
     }
   } else {
-    bg = active.length > 0 ? [0, 0, 180] : "darkblue";
+    bg = activeBg ?? [0, 0, 180];
   }
 
   if (paintPictureOverlay) {
@@ -1331,6 +1867,10 @@ function paint({
     wipe(bg);
   }
 
+  const sampleRateText = getSampleRateText(sound?.sampleRate);
+  const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
+  const showTrack = Boolean(song) && autopatConfig.showTrack !== false;
+
   // 🎛️ Draw secondary top bar with toggle buttons
   if (!paintPictureOverlay && !projector && !visualizerFullscreen) {
     // Draw secondary bar background
@@ -1371,6 +1911,24 @@ function paint({
       }
       ink(textColor).write("room", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
+
+    // Paint glitch button
+    glitchBtn?.paint((btn) => {
+      const base = [255, 80, 160];
+      const bgColor = glitchMode
+        ? [base[0], base[1], base[2], 230]
+        : [Math.round(base[0] * 0.3), Math.round(base[1] * 0.3), Math.round(base[2] * 0.3), 170];
+      const textColor = glitchMode ? "white" : [180, 190, 200];
+      const outlineColor = glitchMode
+        ? [255, 140, 210, 255]
+        : [110, 70, 100, 180];
+      ink(...bgColor).box(btn.box);
+      ink(...outlineColor).box(btn.box, "outline");
+      if (btn.over && !btn.down) {
+        ink(255, 255, 255, 24).box(btn.box);
+      }
+      ink(textColor).write("glitch", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
     
     // Paint quick button
     quickBtn?.paint((btn) => {
@@ -1389,6 +1947,88 @@ function paint({
       }
       ink(textColor).write("quick", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
+
+    // 🔌🎹 Draw USB/MIDI/sample-rate badge on the left side of the mini bar
+    const topMidiMetrics = computeMidiBadgeTopMetrics(
+      screen,
+      matrixGlyphMetrics,
+      sampleRateLabel,
+      sampleRateText,
+    );
+    drawMidiBadge(
+      topMidiMetrics,
+      midiConnected,
+      sampleRateLabel,
+      sampleRateText,
+    );
+
+    const streamLeft = topMidiMetrics.x + topMidiMetrics.width + 5;
+    const streamRight = slideBtn?.box?.x ? slideBtn.box.x - 6 : screen.width - 6;
+    const streamWidth = Math.max(0, Math.min(52, streamRight - streamLeft));
+    const streamHeight = 6;
+    if (streamWidth > 6) {
+      const streamY =
+        SECONDARY_BAR_TOP +
+        Math.floor((SECONDARY_BAR_HEIGHT - streamHeight) / 2);
+      drawSampleStream(
+        {
+          x: streamLeft,
+          y: streamY,
+          width: streamWidth,
+          height: streamHeight,
+        },
+        waveformsForBars,
+        paintCount,
+      );
+    }
+
+    // Linear active note list (colored) between stream and toggle buttons
+    const listStartX = streamLeft + (streamWidth > 0 ? streamWidth + 6 : 0);
+    const listRight = slideBtn?.box?.x ? slideBtn.box.x - 6 : screen.width - 6;
+    const listHeight = 8;
+    const listY =
+      SECONDARY_BAR_TOP +
+      Math.floor((SECONDARY_BAR_HEIGHT - listHeight) / 2);
+    const activeNotes = orderedByCount(sounds);
+    if (activeNotes.length > 0 && listRight - listStartX > 8) {
+      let x = listStartX;
+      activeNotes.forEach((note) => {
+        if (!note) return;
+        const keyLabel = noteToKeyboardKey(note) || note;
+        const label = formatKeyLabel(keyLabel);
+        const labelWidth = label.length * matrixGlyphMetrics.width;
+        const boxW = Math.max(6, labelWidth + 4);
+        if (x + boxW > listRight) return;
+
+        const baseColor = colorFromNote(note, num);
+        const textColor = getContrastingTextColor(baseColor);
+        const outline = darkenColor(baseColor, 0.7);
+        const shadow = darkenColor(baseColor, 0.85);
+        const labelX = x + Math.max(1, Math.floor((boxW - labelWidth) / 2));
+        const labelY = listY + 0;
+
+        ink(...baseColor, 200).box(x, listY, boxW, listHeight);
+        ink(...outline, 200).box(x, listY, boxW, listHeight, "outline");
+        ink(...shadow, 220).write(
+          label,
+          { x: labelX + 1, y: labelY + 1 },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
+        );
+        ink(...textColor).write(
+          label,
+          { x: labelX, y: labelY },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
+        );
+
+        x += boxW + 2;
+      });
+    }
   }
 
   // wipe(!projector ? bg : 64);
@@ -1410,10 +2050,10 @@ function paint({
 
   // TODO: Precompute the full song length with x stops next to indices.
 
-  const trackHeight = song ? TRACK_HEIGHT : 0;
-  const trackY = song ? SECONDARY_BAR_BOTTOM : null;
+  const trackHeight = showTrack ? TRACK_HEIGHT : 0;
+  const trackY = showTrack ? SECONDARY_BAR_BOTTOM : null;
 
-  if (song) {
+  if (showTrack) {
     const glyphWidth = matrixGlyphMetrics.width;
     const startX = 6 - songShift;
     let i = 0;
@@ -1449,8 +2089,6 @@ function paint({
   }
   
   // Get layout info early for positioning piano/qwerty in compact mode
-  const sampleRateText = getSampleRateText(sound?.sampleRate);
-  const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
   const initialBadgeMetrics = computeMidiBadgeMetrics(
     screen,
     matrixGlyphMetrics,
@@ -1459,56 +2097,33 @@ function paint({
     sampleRateText,
   );
   const layout = getButtonLayoutMetrics(screen, {
-    songMode: Boolean(song),
+    songMode: Boolean(showTrack),
     pictureOverlay: paintPictureOverlay,
     midiMetrics: initialBadgeMetrics,
     rateText: sampleRateText,
     rateLabel: sampleRateLabel,
+    sidePanelWidth: autopatConfig.sidePanelWidth,
   });
   
-  // Draw tiny piano layout and QWERTY minimap
-  // Position it dynamically based on available space
-  let pianoY, pianoStartX;
-  
-  // Compact mode: center the piano/qwerty between the split button octaves
-  if (layout.compactMode && layout.splitLayout) {
-    pianoY = SECONDARY_BAR_BOTTOM + 2;
-    // Center the piano in the center area
-    const totalWhiteKeys = 14;
-    const whiteKeyWidth = 7;
-    const pianoWidth = totalWhiteKeys * whiteKeyWidth;
-    pianoStartX = layout.centerX + (layout.centerAreaWidth - pianoWidth) / 2;
-  } else if (song) {
-    const effectiveTrackY = trackY ?? SECONDARY_BAR_BOTTOM;
-    pianoY = effectiveTrackY + trackHeight + 2; // Just below the track
-    const pianoWidth = 14 * 7;  // 14 white keys * 7px each
-    pianoStartX = screen.width - pianoWidth - 2; // Align with right edge (2px margin)
-  } else {
-    pianoY = SECONDARY_BAR_BOTTOM; // Below secondary bar when no track
-    pianoStartX = 58; // Align with visualizer start when no track
-  }
+  const pianoGeometry = getMiniPianoGeometry({
+    screen,
+    layout,
+    song: showTrack ? song : null,
+    trackY,
+    trackHeight,
+  });
+  let pianoY = pianoGeometry.y;
+  let pianoStartX = pianoGeometry.x;
 
-  const whiteKeyWidth = 7;
+  const whiteKeyWidth = getMiniPianoWhiteKeyWidth(layout.compactMode);
   const whiteKeyHeight = MINI_KEYBOARD_HEIGHT;
-  const blackKeyWidth = 5;
-  const blackKeyHeight = 10;
-  const totalWhiteKeys = 14;
-  const pianoWidth = totalWhiteKeys * whiteKeyWidth;
+  const blackKeyWidth = getMiniPianoBlackKeyWidth(layout.compactMode);
+  const blackKeyHeight = getMiniPianoBlackKeyHeight(layout.compactMode);
 
-  // Two octaves: notes in order
-  const whiteKeys = ['C', 'D', 'E', 'F', 'G', 'A', 'B', '+C', '+D', '+E', '+F', '+G', '+A', '+B'];
-  const blackKeys = [
-    {note: 'C#', afterWhite: 0},
-    {note: 'D#', afterWhite: 1},
-    {note: 'F#', afterWhite: 3},
-    {note: 'G#', afterWhite: 4},
-    {note: 'A#', afterWhite: 5},
-    {note: '+C#', afterWhite: 7},
-    {note: '+D#', afterWhite: 8},
-    {note: '+F#', afterWhite: 10},
-    {note: '+G#', afterWhite: 11},
-    {note: '+A#', afterWhite: 12}
-  ];
+  const whiteKeys = MINI_PIANO_WHITE_KEYS;
+  const blackKeys = MINI_PIANO_BLACK_KEYS;
+  const totalWhiteKeys = whiteKeys.length;
+  const pianoWidth = totalWhiteKeys * whiteKeyWidth;
 
   // Draw white keys
   whiteKeys.forEach((note, index) => {
@@ -1519,16 +2134,29 @@ function paint({
     const isCurrentAndPlaying = isCurrentNote && isActivePlaying;
     const isCurrentAwaiting = isCurrentNote && !isActivePlaying;
 
-    if (isCurrentAndPlaying) {
-      ink(0, 255, 234).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Bright cyan for current note sounding
-    } else if (isCurrentAwaiting) {
-      ink(0, 120, 140).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Muted teal for expected note
-    } else if (isActivePlaying) {
-      ink(255, 255, 0).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Yellow for other active notes
-    } else {
-      ink(200, 200, 200).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Default white
-    }
-    ink(100, 100, 100).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight, "outline"); // Border
+    const baseFill = isCurrentAndPlaying
+      ? [230, 240, 245]
+      : isActivePlaying
+      ? [215, 225, 230]
+      : [195, 205, 210];
+    ink(...baseFill).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight);
+
+    const stripBase = colorFromNote(noteKey, num);
+    const stripColor = isCurrentAndPlaying
+      ? brightenColor(stripBase, 70)
+      : isCurrentAwaiting
+      ? darkenColor(stripBase, 0.6)
+      : isActivePlaying
+      ? brightenColor(stripBase, 40)
+      : stripBase;
+    const stripHeight = layout.compactMode ? 2 : 3;
+    ink(...stripColor).box(
+      x,
+      pianoY + whiteKeyHeight - stripHeight,
+      whiteKeyWidth - 1,
+      stripHeight,
+    );
+    ink(90, 110, 120).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight, "outline"); // Border
   });
 
   // Draw black keys on top
@@ -1540,15 +2168,28 @@ function paint({
     const isCurrentAndPlaying = isCurrentNote && isActivePlaying;
     const isCurrentAwaiting = isCurrentNote && !isActivePlaying;
 
-    if (isCurrentAndPlaying) {
-      ink(0, 220, 210).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Bright teal for current sounding
-    } else if (isCurrentAwaiting) {
-      ink(0, 100, 110).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Muted teal for expected
-    } else if (isActivePlaying) {
-      ink(200, 200, 0).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Dark yellow for other actives
-    } else {
-      ink(40, 40, 40).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Default black
-    }
+    const baseFill = isCurrentAndPlaying
+      ? [35, 40, 45]
+      : isActivePlaying
+      ? [28, 32, 36]
+      : [14, 18, 20];
+    ink(...baseFill).box(x, pianoY, blackKeyWidth, blackKeyHeight);
+
+    const stripBase = colorFromNote(noteKey, num);
+    const stripColor = isCurrentAndPlaying
+      ? brightenColor(stripBase, 70)
+      : isCurrentAwaiting
+      ? darkenColor(stripBase, 0.6)
+      : isActivePlaying
+      ? brightenColor(stripBase, 40)
+      : stripBase;
+    const stripHeight = layout.compactMode ? 2 : 3;
+    ink(...stripColor).box(
+      x,
+      pianoY + blackKeyHeight - stripHeight,
+      blackKeyWidth,
+      stripHeight,
+    );
   });
 
   // Show QWERTY minimap in compact mode (always) or in song mode
@@ -1560,12 +2201,25 @@ function paint({
         .map((activeNote) => noteToKeyboardKey(activeNote))
         .filter(Boolean),
     );
+    const isPercKeyActive = (key) => {
+      if (!key) return false;
+      if (miniMapActiveKey === key) return true;
+      if (key === "space") return Boolean(percDowns.space);
+      if (key === "alt") return Boolean(percDowns.alt);
+      if (key === "left") return Boolean(percDowns.left);
+      if (key === "right") return Boolean(percDowns.right);
+      if (key === "up") return Boolean(percDowns.up);
+      if (key === "down") return Boolean(percDowns.down);
+      return false;
+    };
 
     const qKeyWidth = 9;
-    const qKeyHeight = 8;
-    const qKeySpacing = 1;
-    const qwertyStartX = pianoStartX;
-    const qwertyStartY = pianoY + whiteKeyHeight + QWERTY_MINIMAP_SPACING;
+    const qKeyHeight = QWERTY_MINIMAP_KEY_HEIGHT;
+    const qKeySpacing = QWERTY_MINIMAP_KEY_SPACING;
+    const qwertyStartX = pianoGeometry.qwertyStartX ?? pianoStartX;
+    const qwertyStartY =
+      pianoGeometry.qwertyStartY ??
+      pianoY + whiteKeyHeight + QWERTY_MINIMAP_SPACING;
 
     QWERTY_LAYOUT_ROWS.forEach((row, rowIndex) => {
       const rowOffset =
@@ -1573,7 +2227,9 @@ function paint({
           ? 0
           : rowIndex === 1
           ? (qKeyWidth + qKeySpacing) / 2
-          : qKeyWidth;
+          : rowIndex === 2
+          ? qKeyWidth
+          : Math.floor((pianoWidth - (row.length * (qKeyWidth + qKeySpacing))) / 2);
       const y = qwertyStartY + rowIndex * (qKeyHeight + qKeySpacing);
 
       row.forEach((keyLetter, keyIndex) => {
@@ -1585,9 +2241,10 @@ function paint({
         const mappedNote = keyboardKeyToNote(keyLetter);
         const isMapped = Boolean(mappedNote);
         const isCurrentKey = keyLetter === currentKeyLetter;
-        const isActiveKey = activeKeyLetters.has(keyLetter);
+        const isActiveKey = activeKeyLetters.has(keyLetter) || isPercKeyActive(keyLetter);
         const isCurrentAndActive = isCurrentKey && isActiveKey;
         const isNextKey = keyLetter === nextKeyLetter;
+        const isSpecialKey = ["space", "alt", "left", "right", "up", "down"].includes(keyLetter);
 
         let fillColor;
         if (isCurrentAndActive) {
@@ -1599,15 +2256,19 @@ function paint({
         } else if (isNextKey) {
           fillColor = [0, 200, 220, 120];
         } else if (isMapped) {
-          fillColor = [40, 40, 40, 180];
+          const mappedColor = colorFromNote(mappedNote, num);
+          const toned = darkenColor(mappedColor, 0.7);
+          fillColor = [toned[0], toned[1], toned[2], 190];
+        } else if (isSpecialKey) {
+          fillColor = [30, 45, 60, 180];
         } else {
-          fillColor = [20, 20, 20, 140];
+          fillColor = [20, 30, 40, 150];
         }
 
         ink(...fillColor).box(x, y, qKeyWidth, qKeyHeight);
         ink(100, 100, 100, 220).box(x, y, qKeyWidth, qKeyHeight, "outline");
 
-        const label = keyLetter.toUpperCase();
+        const label = formatKeyLabel(keyLetter);
         const glyphWidth = matrixGlyphMetrics.width;
         const glyphHeight = matrixGlyphMetrics.height;
         const labelWidth = label.length * glyphWidth;
@@ -1618,22 +2279,40 @@ function paint({
         if (isCurrentAndActive || isActiveKey) {
           textColor = [0, 0, 0, 240];
         } else if (isMapped) {
-          textColor = [230, 230, 230, 230];
+          const baseText = getContrastingTextColor(Array.isArray(fillColor) ? fillColor : [60, 60, 60]);
+          textColor = [baseText[0], baseText[1], baseText[2], 230];
         } else {
           textColor = [150, 150, 150, 200];
         }
 
-        ink(...textColor).write(
-          label,
-          { x: labelX, y: labelY },
-          undefined,
-          undefined,
-          false,
-          "MatrixChunky8",
-        );
+        if (labelWidth <= qKeyWidth) {
+          ink(...textColor).write(
+            label,
+            { x: labelX, y: labelY },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8",
+          );
+        }
 
       });
     });
+
+    const gamepad = Object.values(connectedGamepads).find(
+      (gp) => gp && (gp.id || gp.pressedButtons.length > 0 || Object.keys(gp.axes).length > 0),
+    );
+    if (gamepad) {
+      const gamepadWidth = 48;
+      const gamepadHeight = 24;
+      const gamepadX =
+        qwertyStartX + Math.floor((pianoWidth - gamepadWidth) / 2);
+      const gamepadY = qwertyStartY + QWERTY_MINIMAP_HEIGHT + 2;
+      const maxY = layout?.topButtonY ? layout.topButtonY - 2 : screen.height;
+      if (gamepadY + gamepadHeight <= maxY) {
+        drawMiniControllerDiagram(ink, gamepad, gamepadX, gamepadY);
+      }
+    }
   }
 
   // layout already computed above for piano/qwerty positioning
@@ -1647,51 +2326,122 @@ function paint({
     melodyAliasBtn.box.h = melodyButtonRect.height;
   }
 
-  const drawMidiBadge = (
+  function drawSampleStream(
+    rect,
+    waveforms,
+    tick,
+    {
+      color = [80, 200, 255, 220],
+      idleColor = [120, 120, 120, 120],
+    } = {},
+  ) {
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+    const { x, y, width, height } = rect;
+    const half = Math.max(1, Math.floor(height / 2));
+    const mid = y + half;
+    const hasWaveforms = Array.isArray(waveforms) && waveforms.length > 0;
+
+    if (!hasWaveforms) {
+      for (let i = 0; i < width; i += 2) {
+        ink(...idleColor).box(x + i, mid, 1, 1);
+      }
+      return;
+    }
+
+    const step = waveforms.length / width;
+    const offset = waveforms.length > 0 ? (tick || 0) % waveforms.length : 0;
+    for (let i = 0; i < width; i += 1) {
+      const idx = Math.floor(i * step + offset) % waveforms.length;
+      const sample = waveforms[idx] || 0;
+      const clamped = Math.max(-1, Math.min(1, sample));
+      const py = Math.max(y, Math.min(y + height - 1, Math.round(mid - clamped * half)));
+      ink(...color).box(x + i, py, 1, 1);
+    }
+  }
+
+  function drawStampleWaveform(
+    rect,
+    data,
+    progress,
+    needleColor,
+    {
+      lineColor = [180, 200, 220, 220],
+      background = [0, 0, 0, 120],
+    } = {},
+  ) {
+    if (!rect || rect.width <= 2 || rect.height <= 2 || !data?.length) return;
+
+    const { x, y, width, height } = rect;
+    const mid = y + Math.floor(height / 2);
+    ink(...background).box(x, y, width, height);
+
+    const step = data.length / width;
+    for (let i = 0; i < width; i += 1) {
+      const idx = Math.floor(i * step);
+      const sample = data[idx] || 0;
+      const clamped = Math.max(-1, Math.min(1, sample));
+      const py = Math.round(mid - clamped * (height * 0.45));
+      ink(...lineColor).box(x + i, py, 1, 1);
+    }
+
+    if (typeof progress === "number" && progress >= 0) {
+      const needleX = Math.round(x + progress * width);
+      if (needleX >= x && needleX <= x + width) {
+        const color = Array.isArray(needleColor)
+          ? needleColor
+          : [255, 255, 255];
+        ink(...color).box(needleX, y, 1, height);
+      }
+    }
+  }
+
+  function drawMidiBadge(
     metrics,
     connected,
     rateLabel,
     rateText,
     {
-      connectedBackground = [0, 0, 0, 160],
-      disconnectedBackground = [0, 0, 0, 70],
       connectedText = [255, 165, 0],
       disconnectedText = [140, 140, 140, 200],
       rateTextColor = [80, 200, 255, 220],
     } = {},
-  ) => {
+  ) {
     if (!metrics) return;
 
-    const { x, y, width, height, singleLineGap = 4 } = metrics;
-    const bgColor = connected ? connectedBackground : disconnectedBackground;
+    const { x, y, singleLineGap = 4 } = metrics;
     const textColor = connected ? connectedText : disconnectedText;
-
-    ink(...bgColor).box(x, y, width, height);
 
     // Draw "USB MIDI" text
     const midiTextWidth = MIDI_BADGE_TEXT.length * matrixGlyphMetrics.width;
+    const baseX = x + MIDI_BADGE_PADDING_X;
+    const baseY = y + MIDI_BADGE_PADDING_Y;
     ink(...textColor).write(
       MIDI_BADGE_TEXT,
-      { x: x + MIDI_BADGE_PADDING_X, y: y + MIDI_BADGE_PADDING_Y },
+      { x: baseX, y: baseY },
       undefined,
       undefined,
       false,
       "MatrixChunky8",
     );
 
-    // Draw sample rate on same line (e.g., "48k")
+    let cursorX = baseX + midiTextWidth;
+
+    // Draw sample rate on same line (e.g., "48kHz")
     if (rateText) {
-      const rateX = x + MIDI_BADGE_PADDING_X + midiTextWidth + singleLineGap;
+      const rateX = cursorX + singleLineGap;
       ink(...rateTextColor).write(
         rateText,
-        { x: rateX, y: y + MIDI_BADGE_PADDING_Y },
+        { x: rateX, y: baseY },
         undefined,
         undefined,
         false,
         "MatrixChunky8",
       );
+      cursorX = rateX + rateText.length * matrixGlyphMetrics.width;
     }
-  };
+
+  }
 
 
   if (projector) {
@@ -1731,10 +2481,7 @@ function paint({
       ink(255, 255, 0).write(audioText, { x: audioBadgeX + audioPadding, y: audioBadgeY + 3 }, undefined, undefined, false, "MatrixChunky8");
     }
 
-    drawMidiBadge(midiBadgeMetrics, midiConnected, sampleRateLabel, sampleRateText, {
-      connectedBackground: [0, 0, 0, 180],
-      disconnectedBackground: [0, 0, 0, 90],
-    });
+    // MIDI badge now renders in the top mini bar (left)
   } else if (!paintPictureOverlay) {
     const sy = 3;
     const sh = 15; // screen.height - sy;
@@ -1756,43 +2503,26 @@ function paint({
       { primaryColor, secondaryColor },
     );
 
-    // Draw active notes to the right of the mini piano (not in song mode, not in compact mode)
-    if (!song && !layout.compactMode) {
-      const activeNotes = orderedByCount(sounds);
-      if (activeNotes.length > 0) {
-        // Position to the right of the piano (piano is 14 white keys * 7px = 98px wide)
-        const pianoWidth = 98;
-        const pianoStartX = 58;
-        const notesStartX = pianoStartX + pianoWidth + 4; // 4px gap after piano
-        const pianoY = 21;
-        
-        // Draw a subtle dark background for the active notes area
-        const notesWidth = activeNotes.length * 14 + 8;
-        ink(0, 0, 0, 128).box(notesStartX, pianoY, notesWidth, 16);
-        
-        // Draw each active note
-        activeNotes.forEach((note, index) => {
-          const noteX = notesStartX + 4 + index * 14;
-          ink(255, 255, 0).write(note.toUpperCase(), noteX, pianoY + 4);
-        });
-      }
+    if (wave === "stample" && stampleSampleData?.length) {
+      const needleNote = stampleNeedleNote || active?.[active.length - 1];
+      const needleColor = needleNote ? colorFromNote(needleNote, num) : [255, 255, 255];
+      const stripRight = waveBtn?.box?.x ? waveBtn.box.x - 6 : screen.width - 6;
+      const stripWidth = Math.min(72, Math.max(24, stripRight - 56));
+      const stripLeft = Math.max(56, stripRight - stripWidth);
+      drawStampleWaveform(
+        {
+          x: stripLeft,
+          y: sy + 2,
+          width: stripRight - stripLeft,
+          height: 10,
+        },
+        stampleSampleData,
+        stampleNeedleProgress,
+        needleColor,
+      );
     }
-    
-    // In compact mode: unified active note display at bottom center
-    if (layout.compactMode && layout.splitLayout) {
-      const activeNotes = orderedByCount(sounds);
-      if (activeNotes.length > 0) {
-        const displayY = layout.bottomCenterY;
-        const displayText = activeNotes.map(n => n.toUpperCase()).join(" ");
-        const textWidth = displayText.length * 6; // Approximate glyph width
-        const displayX = (screen.width - textWidth) / 2;
-        
-        // Draw background
-        ink(0, 0, 0, 180).box(displayX - 4, displayY, textWidth + 8, 12);
-        // Draw active notes
-        ink(255, 255, 0).write(displayText, displayX, displayY + 2);
-      }
-    }
+
+    // Active notes now render in the secondary mini bar.
 
     // ink("yellow").write(scope, 56 + 120 + 2, sy + 3);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
@@ -1905,7 +2635,7 @@ function paint({
       });
     }
 
-    drawMidiBadge(midiBadgeMetrics, midiConnected, sampleRateLabel, sampleRateText);
+    // MIDI badge now renders in the top mini bar (left)
   }
 
   updateTheme({ num });
@@ -2069,15 +2799,15 @@ function paint({
           if (song && note.toUpperCase() !== song?.[songIndex][0]) {
             isBlocked = true;
             color = "black"; // Blocked notes are black
-          } else if ((!slide && btn.down) || (btn.down && slide)) {
-            // If this button is pressed down.
-            color = "maroon";
           } else {
             const outOctave =
               parseInt(octave) +
               (note.startsWith("+") ? upperOctaveShift : lowerOctaveShift);
-            // console.log("Output octave:", outOctave);
-            color = note.indexOf("#") === -1 ? octaveTheme[outOctave] : "gray";
+            const baseColor = colorFromNote(note, num, outOctave);
+            const tinted = note.includes("#") ? darkenColor(baseColor, 0.65) : baseColor;
+            color = (!slide && btn.down) || (btn.down && slide)
+              ? brightenColor(tinted, 60)
+              : tinted;
           }
 
           // Remove red highlighting - we just use the boxes now
@@ -2085,6 +2815,16 @@ function paint({
 
           if (!projector) {
             ink(color, isBlocked ? 128 : 196).box(btn.box); // Blocked notes are darker
+            // Ivory wash like piano keys
+            if (!isBlocked) {
+              const ivoryHeight = Math.max(2, Math.floor(btn.box.h * 0.35));
+              ink(255, 255, 240, 28).box(
+                btn.box.x + 1,
+                btn.box.y + 1,
+                btn.box.w - 2,
+                ivoryHeight,
+              );
+            }
           } else {
             ink(color, 48).box(btn.box); // One solid colored box per note.
             // ink("white", 32).box(btn.box, "inline"); // One solid colored box per note.
@@ -2113,27 +2853,99 @@ function paint({
           }
 
           // 🎵 Note label
-          const glyphWidth = matrixGlyphMetrics.width;
-          const glyphHeight = matrixGlyphMetrics.height;
-          
+          const noteFont = btn.box.w >= 22 ? "unifont" : "MatrixChunky8";
+          const glyphWidth = noteFont === "unifont" ? 8 : matrixGlyphMetrics.width;
+          const glyphHeight = noteFont === "unifont" ? 16 : matrixGlyphMetrics.height;
+          const noteName = note.replace(/^[+-]+/, "").toLowerCase();
+          const forceWhiteText = ["d", "e", "f"].includes(noteName[0]);
+          const baseTextColor = forceWhiteText ? [255, 255, 255] : getContrastingTextColor(color);
+
+          let noteLabelText = null;
+          let noteLabelBounds = null;
+
           if (song) {
-            // In song mode, only show note labels for current/next notes, centered
             const isCurrentNote = note.toUpperCase() === song?.[songIndex][0];
             const isNextNote = note.toUpperCase() === song?.[songIndex + 1]?.[0];
-            
             if (isCurrentNote || isNextNote) {
-              const noteLabel = note.toUpperCase();
-              const labelWidth = noteLabel.length * glyphWidth;
+              noteLabelText = note.toUpperCase();
+              const labelWidth = noteLabelText.length * glyphWidth;
               const centerX = btn.box.x + btn.box.w / 2 - labelWidth / 2;
               const centerY = btn.box.y + btn.box.h / 2 - glyphHeight / 2;
-              
-              // Use darker color that's visible on yellow
-              ink(0, 0, 50).write(noteLabel, centerX, centerY);
+              noteLabelBounds = {
+                x: centerX,
+                y: centerY,
+                w: labelWidth,
+                h: glyphHeight,
+              };
             }
-            // Don't show labels for blocked notes
           } else {
-            // Normal mode - show label in top-left corner
-            ink("white").write(note.toUpperCase(), btn.box.x + 2, btn.box.y + 1);
+            noteLabelText = note.toUpperCase();
+            const labelWidth = noteLabelText.length * glyphWidth;
+            noteLabelBounds = {
+              x: btn.box.x + 2,
+              y: btn.box.y + 1,
+              w: labelWidth,
+              h: glyphHeight,
+            };
+          }
+
+          const rectsOverlap = (a, b) =>
+            a && b &&
+            a.x < b.x + b.w &&
+            a.x + a.w > b.x &&
+            a.y < b.y + b.h &&
+            a.y + a.h > b.y;
+
+          const keyLabelCandidate = noteToKeyboardKey(note) || note.toLowerCase();
+          const keyLabelMatchesNote =
+            noteLabelText &&
+            keyLabelCandidate &&
+            keyLabelCandidate.toUpperCase() === noteLabelText.toUpperCase();
+          const keyLabel = keyLabelMatchesNote ? null : keyLabelCandidate;
+          const keyFont = btn.box.w >= 22 ? "unifont" : "MatrixChunky8";
+          const keyGlyphWidth = keyFont === "unifont" ? 8 : matrixGlyphMetrics.width;
+          const keyGlyphHeight = keyFont === "unifont" ? 16 : matrixGlyphMetrics.height;
+
+          let keyBounds = null;
+
+          if (keyLabel) {
+            const keyLabelWidth = keyLabel.length * keyGlyphWidth;
+            const keyBottom = {
+              x: btn.box.x + btn.box.w - keyLabelWidth - 2,
+              y: btn.box.y + btn.box.h - keyGlyphHeight - 1,
+              w: keyLabelWidth,
+              h: keyGlyphHeight,
+            };
+            const keyTop = {
+              x: btn.box.x + btn.box.w - keyLabelWidth - 2,
+              y: btn.box.y + 1,
+              w: keyLabelWidth,
+              h: keyGlyphHeight,
+            };
+
+            keyBounds = rectsOverlap(keyBottom, noteLabelBounds) ? keyTop : keyBottom;
+            if (rectsOverlap(keyBounds, noteLabelBounds)) {
+              noteLabelText = null; // Keep keyboard key visible; drop note label if needed.
+            }
+          }
+
+          if (noteLabelText && noteLabelBounds) {
+            ink(0, 0, 0, 160).write(
+              noteLabelText,
+              { x: noteLabelBounds.x + 1, y: noteLabelBounds.y + 1 },
+              undefined,
+              undefined,
+              false,
+              noteFont,
+            );
+            ink(...baseTextColor).write(
+              noteLabelText,
+              { x: noteLabelBounds.x, y: noteLabelBounds.y },
+              undefined,
+              undefined,
+              false,
+              noteFont,
+            );
           }
 
           // � Repeat boxes for current note
@@ -2174,47 +2986,6 @@ function paint({
             }
           }
 
-          // 🎵 Paint note label OVER boxes (in song mode only)
-          if (song) {
-            const isCurrentNote = note.toUpperCase() === song?.[songIndex][0];
-            const isNextNote = note.toUpperCase() === song?.[songIndex + 1]?.[0];
-            
-            if (isCurrentNote) {
-              // Show the note letter in top-left using MatrixChunky8
-              const noteLetter = note.toUpperCase();
-              ink("white").write(noteLetter, { x: btn.box.x + 1, y: btn.box.y }, undefined, undefined, false, "MatrixChunky8");
-              
-              // Show the word/syllable to sing for current note (centered)
-              let label = song[songIndex][1];
-              // Remove hyphens for display
-              label = label.replace(/-/g, '');
-              const labelWidth = label.length * glyphWidth;
-              const centerX = btn.box.x + btn.box.w / 2 - labelWidth / 2;
-              const centerY = btn.box.y + btn.box.h / 2 - glyphHeight / 2;
-              
-              // Use white for labels
-              ink("white").write(label, centerX, centerY);
-            } else if (isNextNote) {
-              // Use white with fade based on progress
-              const fadeOpacity = Math.floor(songProgress * 255);
-              if (fadeOpacity > 0) {
-                // Show the note letter in top-left using MatrixChunky8
-                const noteLetter = note.toUpperCase();
-                ink("white", fadeOpacity).write(noteLetter, { x: btn.box.x + 1, y: btn.box.y }, undefined, undefined, false, "MatrixChunky8");
-                
-                // Show the word/syllable to sing for next note (centered)
-                let label = song[songIndex + 1][1];
-                // Remove hyphens for display
-                label = label.replace(/-/g, '');
-                const labelWidth = label.length * glyphWidth;
-                const centerX = btn.box.x + btn.box.w / 2 - labelWidth / 2;
-                const centerY = btn.box.y + btn.box.h / 2 - glyphHeight / 2;
-                
-                ink("white", fadeOpacity).write(label, centerX, centerY);
-              }
-            }
-          }
-
           // 🧮 Transpose label
           if (paintTransposeOverlay && lastActiveNote >= 0) {
             let dist = index - lastActiveNote;
@@ -2232,17 +3003,24 @@ function paint({
             }
           }
 
-          // Paint keyboard shortcuts (if they differ from the note)
-          // Hide in song mode
-          if (!song) {
-            const keyLabel = noteToKeyboardKey(note);
-            if (keyLabel && keyLabel !== note.toLowerCase()) {
-              ink("white", 96).write(
-                keyLabel,
-                btn.box.x + 2,
-                btn.box.y + 10,
-              );
-            }
+          // Paint keyboard shortcuts (always)
+          if (keyLabel && keyBounds) {
+            ink(0, 0, 0, 120).write(
+              keyLabel,
+              { x: keyBounds.x + 1, y: keyBounds.y + 1 },
+              undefined,
+              undefined,
+              false,
+              keyFont,
+            );
+            ink("white", 180).write(
+              keyLabel,
+              { x: keyBounds.x, y: keyBounds.y },
+              undefined,
+              undefined,
+              false,
+              keyFont,
+            );
           }
         });
       }
@@ -2339,10 +3117,327 @@ function paint({
 let anyDown = true;
 
 const percDowns = {};
+const connectedGamepads = {};
+let miniMapActiveNote = null;
+let miniMapActiveKey = null;
+let soundContext = null;
+
+function setSoundContext(ctx) {
+  soundContext = ctx;
+}
+
+function makeNoteSound(tone, velocity = 127, pan = 0) {
+  const synth = soundContext?.synth;
+  const play = soundContext?.play;
+  const freq = soundContext?.freq;
+  const num = soundContext?.num;
+
+  if (!synth || !play || !freq) return null;
+
+  // 📊 Track sound creation time for latency measurement
+  perfStats.lastSoundTime = performance.now();
+  if (perfStats.lastKeyTime > 0) {
+    const latency = perfStats.lastSoundTime - perfStats.lastKeyTime;
+    perfStats.latency = latency;
+    perfStats.latencyHistory.push(latency);
+    if (perfStats.latencyHistory.length > 30) perfStats.latencyHistory.shift();
+    perfStats.avgLatency = perfStats.latencyHistory.reduce((a, b) => a + b, 0) / perfStats.latencyHistory.length;
+    perfStats.maxLatency = Math.max(perfStats.maxLatency, latency);
+    perfStats.minLatency = Math.min(perfStats.minLatency, latency);
+  }
+  
+  const velocityRatioRaw = velocity === undefined ? 1 : velocity / 127;
+  const velocityRatio = num?.clamp
+    ? num.clamp(velocityRatioRaw, 0, 1)
+    : Math.max(0, Math.min(1, velocityRatioRaw));
+  const minVelocityVolume = 0.05; // Keep a subtle floor so very light taps still play.
+  const volumeScale = minVelocityVolume + (1 - minVelocityVolume) * velocityRatio;
+
+  if (wave === "stample" || wave === "sample") {
+    const sampleId = stampleSampleId || startupSfx;
+    return play(sampleId, {
+      volume: volumeScale,
+      pitch: freq(tone),
+      pan,
+      loop: true,
+    });
+  } else if (wave === "composite") {
+    let toneA, toneB, toneC, toneD, toneE;
+    const baseFreq = freq(tone);
+
+    toneA = synth({
+      type: "sine",
+      attack: 0.0025,
+      decay: 0.9,
+      tone: baseFreq,
+      duration: "🔁",
+      volume: toneVolume * volumeScale,
+      pan,
+    });
+
+    toneB = synth({
+      type: "sine",
+      attack: 0.0025,
+      tone: baseFreq + 9 + num.randIntRange(-1, 1),
+      duration: "🔁",
+      volume: (toneVolume / 3) * volumeScale,
+      pan,
+    });
+
+    toneC = synth({
+      type: "sawtooth",
+      attack,
+      decay: 0.9,
+      tone: baseFreq + num.randIntRange(-6, 6),
+      duration: 0.15 + num.rand() * 0.05,
+      volume: (toneVolume / 48) * volumeScale,
+      pan,
+    });
+
+    toneD = synth({
+      type: "triangle",
+      attack: 0.999,
+      tone: baseFreq + 8 + num.randIntRange(-5, 5),
+      duration: "🔁",
+      volume: (toneVolume / 32) * volumeScale,
+      pan,
+    });
+
+    toneE = synth({
+      type: "square",
+      attack: 0.05,
+      tone: baseFreq + num.randIntRange(-10, 10),
+      duration: "🔁",
+      volume: (toneVolume / 64) * volumeScale,
+      pan,
+    });
+
+    return {
+      startedAt: toneA?.startedAt || toneB.startedAt,
+      kill: (fade) => {
+        toneA?.kill(fade);
+        toneB?.kill(fade);
+        toneC?.kill(fade * 2); // TODO: Does not kill 1 shot sounds. 24.11.19.20.56
+        toneD?.kill(fade * 1.4);
+        toneE?.kill(fade / 2);
+      },
+    };
+  } else {
+    // Map 'noise' shorthand to 'noise-white' for the synth
+    const synthType = wave === "noise" ? "noise-white" : wave;
+    return synth({
+      type: synthType,
+      attack: quickFade ? 0.0015 : attack,
+      tone,
+      duration: "🔁",
+      volume: toneVolume * volumeScale,
+      pan,
+    });
+  }
+}
+
+function computePitchBendRatio() {
+  const semitoneOffset = midiPitchBendValue * MIDI_PITCH_BEND_RANGE;
+  return 2 ** (semitoneOffset / 12);
+}
+
+function applyPitchBendToNotes(noteKeys, { immediate = false } = {}) {
+  const freq = soundContext?.freq;
+  if (!freq) return;
+
+  const ratio = computePitchBendRatio();
+  const targets = Array.isArray(noteKeys) && noteKeys.length > 0
+    ? noteKeys
+    : Object.keys(sounds);
+
+  targets.forEach((noteKey) => {
+    const soundEntry = sounds[noteKey];
+    const toneInfo = tonestack[noteKey];
+    if (!soundEntry?.sound?.update || !toneInfo?.tone) return;
+
+    const baseFrequency = freq(toneInfo.tone);
+    if (typeof baseFrequency !== "number" || Number.isNaN(baseFrequency)) return;
+
+    const bentFrequency = baseFrequency * ratio;
+    const payload = immediate ? { tone: bentFrequency } : { tone: bentFrequency, duration: 0.05 };
+    try {
+      soundEntry.sound.update(payload);
+    } catch (err) {
+      console.warn("🎛️ Pitch bend update failed", { noteKey, err });
+    }
+  });
+}
+
+function startButtonNote(note, velocity = 127, apiRef = null) {
+  anyDown = true;
+  perfStats.lastKeyTime = performance.now();
+
+  if (song && note.toUpperCase() !== song?.[songIndex][0]) {
+    synth({
+      type: "noise-white",
+      tone: 1000,
+      duration: 0.05,
+      volume: 0.3,
+      attack: 0,
+    });
+    return false;
+  }
+
+  if (downs[note]) return false;
+
+  let noteUpper = note.toUpperCase();
+  keys += noteUpper;
+  const active = orderedByCount(sounds);
+
+  let tempOctave = octave;
+  if (note[0] === "+") {
+    noteUpper = noteUpper.replace("+", "");
+    tempOctave = parseInt(octave) + 1 + upperOctaveShift;
+  } else {
+    tempOctave = parseInt(octave) + lowerOctaveShift;
+  }
+
+  const tone = `${tempOctave}${noteUpper}`;
+
+  if (slide && active.length > 0) {
+    sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
+    tonestack[note] = {
+      count: Object.keys(tonestack).length,
+      tone,
+    };
+    sounds[note] = sounds[active[0]];
+    if (sounds[note]) sounds[note].note = note;
+    delete sounds[active[0]];
+    applyPitchBendToNotes([note], { immediate: true });
+  } else {
+    tonestack[note] = {
+      count: Object.keys(tonestack).length,
+      tone,
+    };
+
+    const pan = getPanForButtonNote(note);
+    sounds[note] = {
+      note,
+      count: active.length + 1,
+      sound: makeNoteSound(tone, velocity, pan),
+    };
+
+    applyPitchBendToNotes([note], { immediate: true });
+
+    if (note.toUpperCase() === song?.[songIndex][0]) {
+      songNoteDown = true;
+    }
+
+    delete trail[note];
+
+    if (apiRef) {
+      pictureAdd(apiRef, tone);
+    }
+    udpServer?.send("tv", { note });
+  }
+
+  return true;
+}
+
+function stopButtonNote(note, { force = false } = {}) {
+  if (downs[note]) return false;
+
+  const orderedTones = orderedByCount(tonestack);
+
+  if (slide && orderedTones.length > 1 && sounds[note]) {
+    sounds[note]?.sound?.update({
+      tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
+      duration: 0.1,
+    });
+    const previousKey = orderedTones[orderedTones.length - 2];
+    sounds[previousKey] = sounds[note];
+    if (sounds[previousKey]) sounds[previousKey].note = previousKey;
+    applyPitchBendToNotes([previousKey], { immediate: true });
+  } else {
+    sounds[note]?.sound.kill(force ? fastFade : quickFade ? fastFade : killFade);
+  }
+
+  trail[note] = 1;
+
+  if (note.toUpperCase() === song?.[songIndex][0]) {
+    songIndex = (songIndex + 1) % song.length;
+    songNoteDown = false;
+    songShifting = true;
+  }
+
+  delete tonestack[note];
+  delete sounds[note];
+  delete trail[note];
+  return true;
+}
+
+function triggerPercKey(key, velocity = 1, isDown = true) {
+  if (key === "space" && isDown && !tap) {
+    perc = pc;
+    percDowns.space = true;
+    makeSnare(velocity);
+    return true;
+  }
+  if (key === "space" && !isDown) {
+    delete percDowns.space;
+    return true;
+  }
+  if (key === "alt" && isDown) {
+    perc = pc;
+    percDowns.alt = true;
+    makeCrash(velocity);
+    return true;
+  }
+  if (key === "alt" && !isDown) {
+    delete percDowns.alt;
+    return true;
+  }
+  if (key === "left") {
+    if (isDown && !percDowns.left) {
+      perc = "brown";
+      percDowns.left = true;
+      makeTomLow(velocity);
+    } else if (!isDown) {
+      delete percDowns.left;
+    }
+    return true;
+  }
+  if (key === "down") {
+    if (isDown && !percDowns.down) {
+      perc = "pink";
+      percDowns.down = true;
+      makeKick(velocity);
+    } else if (!isDown) {
+      delete percDowns.down;
+    }
+    return true;
+  }
+  if (key === "right") {
+    if (isDown && !percDowns.right) {
+      perc = "orange";
+      percDowns.right = true;
+      makeTomHigh(velocity);
+    } else if (!isDown) {
+      delete percDowns.right;
+    }
+    return true;
+  }
+  if (key === "up") {
+    if (isDown && !percDowns.up) {
+      perc = "cyan";
+      percDowns.up = true;
+      makeHihat(velocity);
+    } else if (!isDown) {
+      delete percDowns.up;
+    }
+    return true;
+  }
+  return false;
+}
 
 function act({
   event: e,
-  sound: { synth, speaker, play, freq, midi: midiUtil, room },
+  sound: { synth, speaker, play, freq, midi: midiUtil, room, glitch },
   num,
   pens,
   hud,
@@ -2350,6 +3445,7 @@ function act({
   painting,
   api,
 }) {
+  setSoundContext({ synth, play, freq, num });
   if (pendingAudioReinit && !audioReinitRequested && api?.send) {
     if (e.is("touch") || e.is("keyboard:down")) {
       api.send({
@@ -2379,6 +3475,59 @@ function act({
     });
   }
 
+  if (
+    autopatConfig.enabled &&
+    autopatConfig.ignoreInput &&
+    (e.is("touch") ||
+      e.is("lift") ||
+      e.is("keyboard:down") ||
+      e.is("keyboard:up") ||
+      e.is("gamepad"))
+  ) {
+    return;
+  }
+
+  if (e.is("gamepad")) {
+    const gpIndex = e.gamepad ?? 0;
+    if (!connectedGamepads[gpIndex]) {
+      connectedGamepads[gpIndex] = {
+        id: e.gamepadId || null,
+        pressedButtons: [],
+        axes: {},
+        lastEvent: null,
+      };
+    }
+
+    const gp = connectedGamepads[gpIndex];
+
+    if (e.gamepadId && !gp.id) {
+      gp.id = e.gamepadId;
+    }
+
+    gp.lastEvent = e.name;
+
+    if (e.button !== undefined) {
+      const buttonIndex = e.button;
+      if (e.action === "push") {
+        if (!gp.pressedButtons.includes(buttonIndex)) {
+          gp.pressedButtons.push(buttonIndex);
+        }
+      } else if (e.action === "release") {
+        gp.pressedButtons = gp.pressedButtons.filter((b) => b !== buttonIndex);
+      }
+    }
+
+    if (e.axis !== undefined) {
+      const axisIndex = e.axis;
+      const value = e.value;
+      if (Math.abs(value) > 0.1) {
+        gp.axes[axisIndex] = value.toFixed(2);
+      } else {
+        delete gp.axes[axisIndex];
+      }
+    }
+  }
+
   // 🎨 Tap on visualizer bar (top bar) to toggle fullscreen visualizer
   if (e.is("touch") && e.y < TOP_BAR_BOTTOM && !projector && !paintPictureOverlay) {
     // Check that tap is in the visualizer area (between left edge and waveBtn)
@@ -2386,6 +3535,94 @@ function act({
     const vizRight = waveBtn?.box?.x || screen.width;
     if (e.x >= vizLeft && e.x <= vizRight) {
       visualizerFullscreen = !visualizerFullscreen;
+    }
+  }
+
+  if ((e.is("touch") || e.is("lift")) && !paintPictureOverlay && !projector) {
+    const sampleRateText = getSampleRateText(speaker?.sampleRate);
+    const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
+    const showTrack = Boolean(song) && autopatConfig.showTrack !== false;
+    const layout = getButtonLayoutMetrics(screen, {
+      songMode: Boolean(showTrack),
+      pictureOverlay: paintPictureOverlay,
+      midiMetrics: computeMidiBadgeMetrics(
+        screen,
+        resolveMatrixGlyphMetrics(),
+        false,
+        sampleRateLabel,
+        sampleRateText,
+      ),
+      rateText: sampleRateText,
+      rateLabel: sampleRateLabel,
+      sidePanelWidth: autopatConfig.sidePanelWidth,
+    });
+
+    const trackHeight = showTrack ? TRACK_HEIGHT : 0;
+    const trackY = showTrack ? SECONDARY_BAR_BOTTOM : null;
+    const pianoGeometry = getMiniPianoGeometry({
+      screen,
+      layout,
+      song: showTrack ? song : null,
+      trackY,
+      trackHeight,
+    });
+
+    if (e.is("touch")) {
+      const velocity = e.velocity ?? 1;
+      const pianoNote = getMiniPianoNoteAt(e.x, e.y, pianoGeometry);
+      if (pianoNote) {
+        if (miniMapActiveNote && miniMapActiveNote !== pianoNote) {
+          stopButtonNote(miniMapActiveNote, { force: true });
+        }
+        if (miniMapActiveKey) {
+          triggerPercKey(miniMapActiveKey, 1, false);
+          miniMapActiveKey = null;
+        }
+        if (miniMapActiveNote !== pianoNote) {
+          startButtonNote(pianoNote, 127, api);
+        }
+        miniMapActiveNote = pianoNote;
+        return;
+      }
+
+      const key = getQwertyKeyAt(e.x, e.y, pianoGeometry);
+      if (key) {
+        const mappedNote = keyboardKeyToNote(key);
+        miniMapActiveKey = key;
+        if (mappedNote) {
+          if (miniMapActiveNote && miniMapActiveNote !== mappedNote) {
+            stopButtonNote(miniMapActiveNote, { force: true });
+          }
+          if (miniMapActiveKey && miniMapActiveKey !== key) {
+            triggerPercKey(miniMapActiveKey, 1, false);
+          }
+          if (miniMapActiveNote !== mappedNote) {
+            startButtonNote(mappedNote, 127, api);
+          }
+          miniMapActiveNote = mappedNote;
+        } else {
+          if (miniMapActiveNote) {
+            stopButtonNote(miniMapActiveNote, { force: true });
+            miniMapActiveNote = null;
+          }
+          if (miniMapActiveKey && miniMapActiveKey !== key) {
+            triggerPercKey(miniMapActiveKey, 1, false);
+          }
+          triggerPercKey(key, velocity, true);
+        }
+        return;
+      }
+    }
+
+    if (e.is("lift")) {
+      if (miniMapActiveNote) {
+        stopButtonNote(miniMapActiveNote, { force: true });
+      }
+      if (miniMapActiveKey) {
+        triggerPercKey(miniMapActiveKey, 1, false);
+      }
+      miniMapActiveNote = null;
+      miniMapActiveKey = null;
     }
   }
 
@@ -2401,6 +3638,12 @@ function act({
   if (e.is("keyboard:down:/") && !e.repeat) {
     roomMode = !roomMode;
     room.toggle();
+  }
+
+  // 🧩 Glitch mode toggle (backspace key) - global raw synth effect
+  if (e.is("keyboard:down:backspace") && !e.repeat) {
+    glitchMode = !glitchMode;
+    glitch?.toggle?.();
   }
 
   if (
@@ -2441,6 +3684,13 @@ function act({
   //  ) {
   //    lowerOctaveShift += 1;
   //  }
+
+  if (e.is("keyboard:down:tab") && !e.repeat) {
+    api.beep();
+    waveIndex = (waveIndex + 1) % wavetypes.length;
+    wave = wavetypes[waveIndex];
+    buildWaveButton(api);
+  }
 
   // if (e.is("keyboard:down:shift") && !e.repeat) {
   //   lowerOctaveShift -= 1;
@@ -2768,141 +4018,6 @@ function act({
     });
   };
 
-  function makeNoteSound(tone, velocity = 127, pan = 0) {
-    // 📊 Track sound creation time for latency measurement
-    perfStats.lastSoundTime = performance.now();
-    if (perfStats.lastKeyTime > 0) {
-      const latency = perfStats.lastSoundTime - perfStats.lastKeyTime;
-      perfStats.latency = latency;
-      perfStats.latencyHistory.push(latency);
-      if (perfStats.latencyHistory.length > 30) perfStats.latencyHistory.shift();
-      perfStats.avgLatency = perfStats.latencyHistory.reduce((a, b) => a + b, 0) / perfStats.latencyHistory.length;
-      perfStats.maxLatency = Math.max(perfStats.maxLatency, latency);
-      perfStats.minLatency = Math.min(perfStats.minLatency, latency);
-    }
-    
-    const velocityRatioRaw = velocity === undefined ? 1 : velocity / 127;
-    const velocityRatio = num?.clamp
-      ? num.clamp(velocityRatioRaw, 0, 1)
-      : Math.max(0, Math.min(1, velocityRatioRaw));
-    const minVelocityVolume = 0.05; // Keep a subtle floor so very light taps still play.
-    const volumeScale = minVelocityVolume + (1 - minVelocityVolume) * velocityRatio;
-
-    if (wave === "sample") {
-      // synth({
-      //   type: "sine",
-      //   attack,
-      //   tone: freq(tone),
-      //   duration: 0.5,
-      //   volume: toneVolume / 2, // / 32,
-      // });
-
-      return play(startupSfx, {
-        volume: volumeScale,
-        pitch: freq(tone),
-        pan,
-      });
-
-      // return synth({
-      //   type: wave,
-      //   attack,
-      //   // decay,
-      //   tone,
-      //   duration: "🔁",
-      //   volume: toneVolume,
-      // });
-    } else if (wave === "composite") {
-      // console.log("🐦 Composite tone:", tone);
-
-      let toneA, toneB, toneC, toneD, toneE;
-      const baseFreq = freq(tone);
-
-      toneA = synth({
-        type: "sine",
-        // attack: 0.5,//attack * 8,
-        attack: 0.0025,
-        decay: 0.9,
-        tone: baseFreq,
-        // tone: baseFreq + 280 + num.randIntRange(-10, 20),
-        // duration: 0.18,
-        duration: "🔁",
-        volume: toneVolume * volumeScale,
-        pan,
-      });
-
-      // TODO: Can't update straight after triggering.
-      // setTimeout(() => {
-      //   toneA.update({ tone: baseFreq, duration: 0.02 });
-      // }, 10);
-
-      toneB = synth({
-        type: "sine",
-        // attack: attack * 8,
-        attack: 0.0025,
-        // decay,
-        tone: baseFreq + 9 + num.randIntRange(-1, 1), //+ 8, //num.randIntRange(-5, 5),
-        duration: "🔁",
-        volume: (toneVolume / 3) * volumeScale, // / 16,
-        pan,
-      });
-
-      toneC = synth({
-        type: "sawtooth",
-        attack,
-        decay: 0.9,
-        tone: baseFreq + num.randIntRange(-6, 6),
-        duration: 0.15 + num.rand() * 0.05,
-        volume: (toneVolume / 48) * volumeScale, // / 32,
-        pan,
-      });
-
-      // TODO: One-shot sounds and samples need to be 'killable'.
-
-      toneD = synth({
-        type: "triangle",
-        attack: 0.999, //attack * 8,
-        // decay,
-        tone: baseFreq + 8 + num.randIntRange(-5, 5),
-        duration: "🔁",
-        volume: (toneVolume / 32) * volumeScale,
-        pan,
-      });
-
-      toneE = synth({
-        type: "square",
-        attack: 0.05, //attack * 8,
-        // decay,
-        tone: baseFreq + num.randIntRange(-10, 10),
-        duration: "🔁",
-        volume: (toneVolume / 64) * volumeScale,
-        pan,
-      });
-
-      return {
-        startedAt: toneA?.startedAt || toneB.startedAt,
-        kill: (fade) => {
-          toneA?.kill(fade);
-          toneB?.kill(fade);
-          toneC?.kill(fade * 2); // TODO: Does not kill 1 shot sounds. 24.11.19.20.56
-          toneD?.kill(fade * 1.4);
-          toneE?.kill(fade / 2);
-        },
-      };
-    } else {
-      // Map 'noise' shorthand to 'noise-white' for the synth
-      const synthType = wave === "noise" ? "noise-white" : wave;
-      return synth({
-        type: synthType,
-        attack: quickFade ? 0.0015 : attack,
-        // decay,
-        tone,
-        duration: "🔁",
-        volume: toneVolume * volumeScale,
-        pan,
-      });
-    }
-  }
-
   const lowerBaseOctave = () => parseInt(octave) + lowerOctaveShift;
   const upperBaseOctave = () => parseInt(octave) + 1 + upperOctaveShift;
 
@@ -2993,35 +4108,6 @@ function act({
       console.warn("🎹 MIDI note unmapped:", { noteNumber, raw, lowerOct, upperOct });
       return null;
     };
-
-  const computePitchBendRatio = () => {
-    const semitoneOffset = midiPitchBendValue * MIDI_PITCH_BEND_RANGE;
-    return 2 ** (semitoneOffset / 12);
-  };
-
-  const applyPitchBendToNotes = (noteKeys, { immediate = false } = {}) => {
-    const ratio = computePitchBendRatio();
-    const targets = Array.isArray(noteKeys) && noteKeys.length > 0
-      ? noteKeys
-      : Object.keys(sounds);
-
-    targets.forEach((noteKey) => {
-      const soundEntry = sounds[noteKey];
-      const toneInfo = tonestack[noteKey];
-      if (!soundEntry?.sound?.update || !toneInfo?.tone) return;
-
-      const baseFrequency = freq(toneInfo.tone);
-      if (typeof baseFrequency !== "number" || Number.isNaN(baseFrequency)) return;
-
-      const bentFrequency = baseFrequency * ratio;
-      const payload = immediate ? { tone: bentFrequency } : { tone: bentFrequency, duration: 0.05 };
-      try {
-        soundEntry.sound.update(payload);
-      } catch (err) {
-        console.warn("🎛️ Pitch bend update failed", { noteKey, err });
-      }
-    });
-  };
 
   const startMidiButtonNote = (buttonNote, velocity = 127) => {
     if (!buttonNote) return false;
@@ -3216,17 +4302,20 @@ function act({
   if (!tap) {
     if (e.is("keyboard:down:space") && !e.repeat) {
       perc = pc; //"cyan";
+      percDowns.space = true;
       makeSnare(e.velocity);
     }
   }
 
   if (e.is("keyboard:down:alt") && !e.repeat && e.code === "AltLeft") {
     perc = pc; //"cyan";
+    percDowns.alt = true;
     makeCrash(e.velocity);
   }
 
   if (e.is("keyboard:down:alt") && !e.repeat && e.code === "AltRight") {
     perc = pc; //"cyan";
+    percDowns.alt = true;
     makeRide(e.velocity);
   }
 
@@ -3267,6 +4356,14 @@ function act({
 
   if (e.is("keyboard:up:arrowup")) {
     delete percDowns.up;
+  }
+
+  if (e.is("keyboard:up:space") && !tap) {
+    delete percDowns.space;
+  }
+
+  if (e.is("keyboard:up:alt")) {
+    delete percDowns.alt;
   }
 
   if (!tap) {
@@ -3324,6 +4421,14 @@ function act({
         api.beep();
         roomMode = !roomMode;
         room.toggle();
+      },
+    });
+
+    glitchBtn?.act(e, {
+      push: () => {
+        api.beep();
+        glitchMode = !glitchMode;
+        glitch?.toggle?.();
       },
     });
 
@@ -3403,86 +4508,12 @@ function act({
           e,
           {
             down: (btn) => {
-              anyDown = true;
-              // 📊 Track key press time for latency measurement
-              perfStats.lastKeyTime = performance.now();
-              
-              // In song mode, block all notes except the current one
-              if (song && note.toUpperCase() !== song?.[songIndex][0]) {
-                // Play white noise bump for wrong note
-                synth({
-                  type: "noise-white",
-                  tone: 1000,
-                  duration: 0.05,
-                  volume: 0.3,
-                  attack: 0,
-                });
-                return false; // Block the interaction
-              }
-
-              if (downs[note]) return false; // Cancel the down if the key is held.
-
-              let noteUpper = note.toUpperCase();
-              // console.log("Note upper:", noteUpper);
-              keys += noteUpper;
-              const active = orderedByCount(sounds);
-
-              let tempOctave = octave;
-
-              if (note[0] === "+") {
-                noteUpper = noteUpper.replace("+", "");
-                tempOctave = parseInt(octave) + 1;
-                tempOctave += upperOctaveShift;
-              } else {
-                tempOctave = parseInt(octave) + lowerOctaveShift;
-              }
-
-              const tone = `${tempOctave}${noteUpper}`;
-
-              // console.log("🔴 Chosen tone:", tone, noteUpper);
-
-              if (slide && active.length > 0) {
-                sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
-                // 🟠 TODO: Instead of just duration here also be able to add
-                //          a swing / easing function so it's not necessarily
-                //          linear? 24.07.28.22.19
-                tonestack[note] = {
-                  count: Object.keys(tonestack).length,
-                  tone,
-                };
-                sounds[note] = sounds[active[0]]; // Switch the note label.
-                if (sounds[note]) sounds[note].note = note;
-                delete sounds[active[0]]; // Swap the sound reference.
-                applyPitchBendToNotes([note], { immediate: true });
-              } else {
-                tonestack[note] = {
-                  count: Object.keys(tonestack).length,
-                  tone,
-                };
-
-                const pan = getPanForButtonNote(note);
-                sounds[note] = {
-                  note,
-                  count: active.length + 1,
-                  sound: makeNoteSound(tone, 127, pan),
-                };
-
-                applyPitchBendToNotes([note], { immediate: true });
-
-                if (note.toUpperCase() === song?.[songIndex][0]) {
-                  songNoteDown = true;
-                }
-
-                delete trail[note];
-
-                pictureAdd(api, tone);
-                udpServer?.send("tv", { note }); // Send udp message for note.
-              }
+              return startButtonNote(note, 127, api);
             },
             over: (btn) => {
               if (btn.up && anyDown) {
                 btn.up = false;
-                btn.actions.down(btn);
+                startButtonNote(note, 127, api);
                 
                 // In song mode, if we drag into the correct note, mark it as pressed
                 if (song && note.toUpperCase() === song?.[songIndex][0]) {
@@ -3542,10 +4573,7 @@ function act({
               delete tonestack[note]; // Remove this key from the notestack.
               delete sounds[note];
               //} else {
-              // console.log(note, sounds);
-              // sounds[key]?.sound?.update({
-              //  tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
-              // });
+                stopButtonNote(note);
               // sounds[orderedTones[orderedTones.length - 2]] = sounds[key];
               //}
             },
@@ -3556,59 +4584,37 @@ function act({
     });
   }
 
-  // if (editable && e.is("keyboard:down:tab") && !e.repeat) {
-  //   tap = !tap;
-  //   resetModeState();
-  // }
-
-  if (e.is("keyboard:down:tab")) {
-    waveBtn.actions.push?.();
-  }
-
-  // Clear Track
-  if (editable && e.is("keyboard:down:0") && !e.repeat) {
-    keys = "";
-    tap = false;
-    editable = false;
-    resetModeState();
-  }
-
   if (tap) {
-    if ((e.is("keyboard:down:space") || e.is("touch")) && !sounds[tapped]) {
+    if ((e.is("touch") || e.is("keyboard:down:space")) && !e.repeat) {
       let reset = false;
-      //if (!hold) {
-      // TODO: ❤️‍🔥 Fix this.
-      // }
+      let tappedOctave;
+      let tempTapIndex = tapIndex;
 
-      let tempTapIndex = tapIndex,
-        tappedOctave;
+      if (!keys || keys.length === 0) {
+        reset = true;
+      } else {
+        if (octaves.indexOf(keys[tempTapIndex]) > -1) {
+          tappedOctave = keys[tempTapIndex];
+          tempTapIndex += 1;
+        }
 
-      if (octaves.indexOf(keys[tapIndex]) > -1) {
-        octave = keys[tapIndex];
-        tappedOctave = octave;
-        tempTapIndex += 1;
+        tapped = keys[tempTapIndex];
+        if (!tapped) reset = true;
       }
 
-      tapped = keys[tempTapIndex];
+      if (!reset) {
+        if (accents.indexOf(keys[tempTapIndex + 1]) > -1) {
+          tapped = keys[tempTapIndex] + keys[tempTapIndex + 1];
+        }
 
-      if (accents.indexOf(keys[tempTapIndex + 1]) > -1) {
-        tapped = keys[tempTapIndex] + keys[tempTapIndex + 1];
+        const tone = tapped;
+        if (tappedOctave) tapped = tappedOctave + tapped;
+
+        const pan = getPanForButtonNote(tone.toLowerCase());
+        sounds[tapped] = makeNoteSound(octave + tone, e.velocity ?? 127, pan); // Use velocity from event
+      } else {
+        resetModeState();
       }
-
-      const tone = tapped;
-      if (tappedOctave) tapped = tappedOctave + tapped;
-  if (!reset) {
-    const pan = getPanForButtonNote(tone.toLowerCase());
-    sounds[tapped] = makeNoteSound(octave + tone, e.velocity ?? 127, pan); // Use velocity from event
-  }
-      // type: wave,
-      // tone: octave + tone,
-      // attack,
-      // decay,
-      // count: orderedByCount(sounds).length,
-      // duration: "🔁",
-      // volume: toneVolume,
-      // });
     }
 
     // TODO: This needs to work for multi-touch.
@@ -4254,11 +5260,12 @@ function setupButtons({ ui, screen, geo }) {
     sampleRateText,
   );
   const layout = getButtonLayoutMetrics(screen, {
-    songMode: Boolean(song),
+    songMode: Boolean(song) && autopatConfig.showTrack !== false,
     pictureOverlay: paintPictureOverlay,
     midiMetrics,
     rateLabel: sampleRateLabel,
     rateText: sampleRateText,
+    sidePanelWidth: autopatConfig.sidePanelWidth,
   });
   const {
     buttonWidth,
@@ -4272,6 +5279,7 @@ function setupButtons({ ui, screen, geo }) {
     leftOctaveX,
     rightOctaveX,
     notesPerSide,
+    usableWidth,
   } = layout;
 
   buttonNotes.forEach((label, i) => {
@@ -4295,7 +5303,12 @@ function setupButtons({ ui, screen, geo }) {
       const row = floor(i / buttonsPerRow);
       const col = i % buttonsPerRow;
       y = topButtonY + row * buttonHeight;
-      x = ceil(margin + col * buttonWidth);
+      const gridWidth = buttonsPerRow * buttonWidth;
+      const availableWidth = usableWidth ?? screen.width;
+      const baseX = ceil(
+        margin + Math.max(0, floor((availableWidth - margin * 2 - gridWidth) / 2)),
+      );
+      x = baseX + col * buttonWidth;
     }
     
     const geometry = [x, y, buttonWidth, buttonHeight];
@@ -4368,11 +5381,11 @@ function buildOctButton({ screen, ui, typeface }) {
   octBtn.id = "oct-button";  // Add identifier for debugging
 }
 
-// Build toggle buttons for slide, room, quick modes in secondary top bar
+// Build toggle buttons for slide, room, glitch, quick modes in secondary top bar
 function buildToggleButtons({ screen, ui, typeface, text }) {
   // Use MatrixChunky8 text.box width when available
   
-  const labels = ["slide", "room", "quick"];
+  const labels = ["slide", "room", "glitch", "quick"];
   const btnHeight = SECONDARY_BAR_HEIGHT - 2;
   const btnY = SECONDARY_BAR_TOP + 1;
   
@@ -4403,6 +5416,9 @@ function buildToggleButtons({ screen, ui, typeface, text }) {
     } else if (label === "room") {
       roomBtn = new ui.Button(btnX, btnY, btnWidth, btnHeight);
       roomBtn.id = "room-toggle";
+    } else if (label === "glitch") {
+      glitchBtn = new ui.Button(btnX, btnY, btnWidth, btnHeight);
+      glitchBtn.id = "glitch-toggle";
     } else if (label === "quick") {
       quickBtn = new ui.Button(btnX, btnY, btnWidth, btnHeight);
       quickBtn.id = "quick-toggle";
@@ -4446,3 +5462,5 @@ function averageRGB(colors) {
     )
     .map((sum) => round(sum / colors.length));
 }
+
+export { boot, paint, sim, act, configureAutopat };
