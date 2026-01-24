@@ -3549,6 +3549,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     content: {
       parsed,
       debug,
+      debugHud: true,
       rootPiece: window.acSTARTING_PIECE,
       user: window.acUSER,
       lanHost: window.acLAN_HOST,
@@ -3753,6 +3754,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           worker.postMessage(e, shared);
         };
         window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
+        
+        // 🔍 Debug utility: Toggle HUD hitbox visualization from console
+        window.toggleHudDebug = () => {
+          console.log("🔍 toggleHudDebug(): sending debug:hud-hitbox:toggle");
+          send({ type: "debug:hud-hitbox:toggle" });
+        };
+        
         worker.onmessage = (e) => {
           if (workerFailed) return; // Ignore messages if we've switched to fallback
           
@@ -12704,8 +12712,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // 🏠 Room/Reverb control messages
-    if (type === "room:toggle" || type === "room:set" || type === "room:get") {
+    // 🏠🧩 Room/Reverb + Glitch control messages
+    if (
+      type === "room:toggle" ||
+      type === "room:set" ||
+      type === "room:get" ||
+      type === "glitch:toggle" ||
+      type === "glitch:set" ||
+      type === "glitch:get"
+    ) {
       sendRoomMessage?.(type, content);
       return;
     }
@@ -15474,6 +15489,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "sfx:register") {
+      const { id, data, sampleRate } = content || {};
+      if (!id || !data || !Array.isArray(data) || data.length === 0) return;
+
+      const safeRate =
+        typeof sampleRate === "number" && Number.isFinite(sampleRate)
+          ? sampleRate
+          : audioContext?.sampleRate || 48000;
+      const samples = Float32Array.from(data);
+
+      if (audioContext) {
+        const buffer = audioContext.createBuffer(1, samples.length, safeRate);
+        buffer.getChannelData(0).set(samples);
+        sfx[id] = buffer;
+      } else {
+        sfx[id] = {
+          left: Array.from(samples),
+          right: Array.from(samples),
+          totalSamples: samples.length,
+          sampleRate: safeRate,
+        };
+      }
+      if (sfxLoaded && typeof sfxLoaded === "object") {
+        sfxLoaded[id] = false;
+      }
+      return;
+    }
+
     if (type === "sfx:update") {
       sfxPlaying[content.id]?.update(content.properties);
       return;
@@ -16479,7 +16522,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 if (paintOverlays["qrFullscreenLabel"]) paintOverlays["qrFullscreenLabel"]();
                 if (paintOverlays["tapeProgressBar"] && !window.currentRecordingOptions?.cleanMode) paintOverlays["tapeProgressBar"]();
                 if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
-                if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay
+                if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay (green hitbox)
               }).catch(err => {
                 console.warn('🟡 Fallback async rendering failed:', err);
                 ctx.putImageData(imageData, 0, 0);
@@ -16619,7 +16662,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           paintOverlays["qrOverlay"]();
         }
 
-        // Paint hitbox debug overlay immediately if debug is enabled
+        // Paint hitbox debug overlay immediately (green, shows button hitbox)
         if (!skipImmediateOverlays && paintOverlays["hitboxDebug"]) {
           paintOverlays["hitboxDebug"]();
         }

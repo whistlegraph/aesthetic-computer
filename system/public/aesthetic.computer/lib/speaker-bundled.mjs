@@ -901,6 +901,11 @@ var mix = 0.5;
 var roomEnabled = false;
 var roomMix = 0.5;
 var roomFeedback = 0.6;
+var glitchEnabled = false;
+var glitchMix = 0.65;
+var glitchCrush = 6;
+var glitchRate = 1600;
+var glitchJitter = 0.15;
 var sampleStore = {};
 var SpeakerProcessor = class extends AudioWorkletProcessor {
   // TODO: Fix current Firefox bug with private fields: https://bugzilla.mozilla.org/show_bug.cgi?id=1435826
@@ -952,6 +957,10 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
   #mixDivisor = 1;
   #reverbLeft;
   #reverbRight;
+  #glitchHoldCounter = 0;
+  #glitchHoldSamples = 1;
+  #glitchHeldLeft = 0;
+  #glitchHeldRight = 0;
   // VST Bridge Mode - sends samples to plugin instead of Web Audio output
   #vstBridgeEnabled = false;
   #vstSampleBuffer = { left: [], right: [] };
@@ -966,6 +975,7 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
     volume2.amount.val = 0.9;
     this.#reverbLeft = new Reverb(sampleRate, delayTime, feedback, mix);
     this.#reverbRight = new Reverb(sampleRate, delayTime, feedback, mix);
+    this.#glitchHoldSamples = Math.max(1, Math.floor(sampleRate / glitchRate));
     this.port.onmessage = (e) => {
       const msg = e.data;
       if (msg.type === "get-waveforms") {
@@ -1125,6 +1135,45 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
       }
       if (msg.type === "room:get") {
         this.#report("room:state", { enabled: roomEnabled, mix: roomMix, feedback: roomFeedback });
+        return;
+      }
+      if (msg.type === "glitch:toggle") {
+        glitchEnabled = !glitchEnabled;
+        console.log("🧩 GLITCH TOGGLE:", glitchEnabled ? "ON" : "OFF");
+        this.#report("glitch:state", {
+          enabled: glitchEnabled,
+          mix: glitchMix,
+          crush: glitchCrush,
+          rate: glitchRate,
+          jitter: glitchJitter
+        });
+        return;
+      }
+      if (msg.type === "glitch:set") {
+        const data = msg.data || {};
+        if (data.enabled !== void 0) glitchEnabled = data.enabled;
+        if (data.mix !== void 0) glitchMix = clamp(data.mix, 0, 1);
+        if (data.crush !== void 0) glitchCrush = clamp(round2(data.crush), 2, 12);
+        if (data.rate !== void 0) glitchRate = clamp(data.rate, 20, 8000);
+        if (data.jitter !== void 0) glitchJitter = clamp(data.jitter, 0, 1);
+        this.#glitchHoldSamples = Math.max(1, Math.floor(sampleRate / glitchRate));
+        this.#report("glitch:state", {
+          enabled: glitchEnabled,
+          mix: glitchMix,
+          crush: glitchCrush,
+          rate: glitchRate,
+          jitter: glitchJitter
+        });
+        return;
+      }
+      if (msg.type === "glitch:get") {
+        this.#report("glitch:state", {
+          enabled: glitchEnabled,
+          mix: glitchMix,
+          crush: glitchCrush,
+          rate: glitchRate,
+          jitter: glitchJitter
+        });
         return;
       }
       if (msg.type === "cache:clear") {
@@ -1290,6 +1339,21 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
       }
       output[0][s] = volume2.apply(output[0][s] / this.#mixDivisor);
       output[1][s] = volume2.apply(output[1][s] / this.#mixDivisor);
+      if (glitchEnabled) {
+        if (this.#glitchHoldCounter <= 0) {
+          const jitter = glitchJitter ? (Math.random() - 0.5) * glitchJitter : 0;
+          const holdSamples = Math.max(1, Math.floor(this.#glitchHoldSamples * (1 + jitter)));
+          this.#glitchHoldCounter = holdSamples;
+          this.#glitchHeldLeft = output[0][s];
+          this.#glitchHeldRight = output[1][s];
+        }
+        this.#glitchHoldCounter -= 1;
+        const crushLevels = 2 ** glitchCrush;
+        const crushedLeft = Math.round(this.#glitchHeldLeft * crushLevels) / crushLevels;
+        const crushedRight = Math.round(this.#glitchHeldRight * crushLevels) / crushLevels;
+        output[0][s] = output[0][s] * (1 - glitchMix) + crushedLeft * glitchMix;
+        output[1][s] = output[1][s] * (1 - glitchMix) + crushedRight * glitchMix;
+      }
       if (roomEnabled) {
         if (s === 0 && Math.floor(currentTime2) !== this._lastReverbLogTime) {
           this._lastReverbLogTime = Math.floor(currentTime2);

@@ -32,6 +32,9 @@ const BUTTON_LABEL_CONNECTING = "Wait...";
 const menuHeight = 32;
 const labelHeight = 24;
 const maxPats = 10;
+const bitmapPreviewSize = 120;
+const bitmapPreviewMargin = 6;
+const bitmapColumnWidth = 148;
 
 let loop = true; // Global setting.
 
@@ -44,9 +47,18 @@ let sfx,
   sampleData,
   mic,
   micRecordButton,
+  notepatButton,
   micRecordButtonLabel = "Connect",
   micConnected = false,
-  patsButton;
+  patsButton,
+  bitmapLoopButton,
+  bitmapPreviewButton,
+  bitmapPreview;
+
+let bitmapMeta = null;
+let bitmapLooping = false;
+let bitmapLoopSound = null;
+const bitmapSampleId = "stample:bitmap";
 
 const sounds = [],
   progressions = [];
@@ -60,12 +72,13 @@ const { floor } = Math;
 
 async function boot({
   net: { preload },
-  sound: { microphone, getSampleData, enabled },
+  sound: { microphone, getSampleData, enabled, registerSample, sampleRate },
   play,
   ui,
   params,
   screen,
   delay,
+  store,
 }) {
   // const name = params[0] || "startup";
   const name = "startup"; // TODO: Recall previous samples from `store`.
@@ -76,6 +89,16 @@ async function boot({
   mic = microphone; // Microphone access.
 
   patsButton = new ui.Button(screen.width - 24, 0, 24, labelHeight - 1);
+  notepatButton = new ui.Button(
+    screen.width - 24 - 36 - 6,
+    0,
+    36,
+    labelHeight - 1,
+  );
+
+  bitmapLoopButton = new ui.Button(0, 0, bitmapPreviewSize, 18);
+  bitmapPreviewButton = new ui.Button(0, 0, bitmapPreviewSize, bitmapPreviewSize);
+  layoutBitmapUI(screen);
 
   if (mic.permission === "granted" && enabled()) {
     // TODO: Also check to see if we have a working audioContext yet here...
@@ -83,6 +106,35 @@ async function boot({
     delay(() => {
       microphone.connect();
     }, 15);
+  }
+
+  if (store?.retrieve) {
+    const storedSample =
+      store["stample:sample"] ||
+      (await store.retrieve("stample:sample", "local:db"));
+    if (storedSample?.data?.length) {
+      const storedId = storedSample.id || "stample";
+      sampleId = storedId;
+      sampleData = storedSample.data;
+      if (registerSample) {
+        registerSample(storedId, storedSample.data, storedSample.sampleRate);
+      }
+    }
+
+    const storedBitmap =
+      store["stample:bitmap"] ||
+      (await store.retrieve("stample:bitmap", "local:db"));
+    if (storedBitmap?.pixels?.length && storedBitmap?.width && storedBitmap?.height) {
+      bitmapPreview = {
+        width: storedBitmap.width,
+        height: storedBitmap.height,
+        pixels: new Uint8ClampedArray(storedBitmap.pixels),
+      };
+      bitmapMeta = {
+        sampleLength: storedBitmap.sampleLength,
+        sampleRate: storedBitmap.sampleRate,
+      };
+    }
   }
 
   getSampleData(sampleId).then((data) => {
@@ -251,11 +303,30 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     ink("yellow", btn.down ? 128 : 64).box(btn.box);
   });
 
+  notepatButton.paint((btn) => {
+    ink("cyan", btn.down ? 160 : 90).box(btn.box);
+    ink("black").box(btn.box, "out");
+    ink("black").write("pat", btn.box.x + 6, btn.box.y + 6);
+  });
+
+  bitmapLoopButton?.paint((btn) => {
+    const hasBitmap = !!bitmapPreview?.pixels?.length;
+    const label = bitmapLooping ? "Stop" : "Loop";
+    const bg = hasBitmap ? (bitmapLooping ? "magenta" : "purple") : "gray";
+    ink(bg, btn.down ? 200 : 120).box(btn.box);
+    ink("black").box(btn.box, "out");
+    ink("white").write(
+      label,
+      btn.box.x + btn.box.w / 2 - text.width(label) / 2,
+      btn.box.y + btn.box.h / 2 - text.height(label) / 2,
+    );
+  });
+
   ink("white").write(pats, { right: pats > 9 ? 6 : 8, top: 6 });
 
   // console.log(sound.speaker.amplitudes.left);
 
-  const availableWidth = patsButton.box.x - 54;
+  const availableWidth = notepatButton.box.x - 54;
 
   sound.paint.bars(
     api,
@@ -282,6 +353,22 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     );
   }
 
+  if (bitmapPreview?.pixels?.length) {
+    const previewW = bitmapPreviewButton?.box?.w || bitmapPreviewSize;
+    const previewH = bitmapPreviewButton?.box?.h || bitmapPreviewSize;
+    const previewX = bitmapPreviewButton?.box?.x ??
+      screen.width - previewW - bitmapPreviewMargin;
+    const previewY = bitmapPreviewButton?.box?.y ??
+      (bitmapLoopButton?.box?.y || 0) - previewH - 4;
+
+    ink("black", 160).box(previewX - 2, previewY - 2, previewW + 4, previewH + 4);
+    api.paste(bitmapPreview, previewX, previewY, {
+      width: previewW,
+      height: previewH,
+    });
+    ink("white").write("bitmap", previewX + 4, previewY + 4);
+  }
+
   if (pens()) {
     pens().forEach((p) => {
       if (p.dragBox) {
@@ -298,7 +385,7 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
 
 const btnSounds = {};
 
-function act({ event: e, sound, pens, screen, ui, notice, beep }) {
+function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump }) {
   const sliceLength = 1 / btns.length; // Divide the total duration (1.0) by the number of buttons.
 
   btns.forEach((btn, index) => {
@@ -420,10 +507,82 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
     up: async (btn) => {
       if (sound.microphone.recording) {
         const { id, data } = await sound.microphone.cut(); // Get the sample.
+        const storedId = "stample";
         sampleData = data;
-        sampleId = id;
+        sampleId = storedId;
+        sound.registerSample?.(storedId, data, sound.sampleRate);
+
+        const encoded = encodeSampleToBitmap(data);
+        if (encoded) {
+          bitmapPreview = {
+            width: encoded.width,
+            height: encoded.height,
+            pixels: encoded.pixels,
+          };
+          bitmapMeta = {
+            sampleLength: encoded.sampleLength,
+            sampleRate: sound.sampleRate,
+          };
+          if (store) {
+            store["stample:bitmap"] = {
+              width: encoded.width,
+              height: encoded.height,
+              pixels: Array.from(encoded.pixels),
+              sampleLength: encoded.sampleLength,
+              sampleRate: sound.sampleRate,
+            };
+            store.persist?.("stample:bitmap", "local:db");
+          }
+        }
+
+        if (store) {
+          store["stample:sample"] = {
+            id: storedId,
+            data,
+            sampleRate: sound.sampleRate,
+          };
+          store.persist?.("stample:sample", "local:db");
+        }
         console.log("🎤 Microphone sample id:", sampleId);
       }
+    },
+  });
+
+  bitmapLoopButton?.act(e, {
+    up: () => {
+      if (!bitmapPreview?.pixels?.length) return;
+
+      if (bitmapLooping) {
+        bitmapLoopSound?.kill?.(0.1);
+        bitmapLoopSound = null;
+        bitmapLooping = false;
+        return;
+      }
+
+      const decoded = decodeBitmapToSample(bitmapPreview, bitmapMeta);
+      if (!decoded?.length) return;
+
+      sound.registerSample?.(
+        bitmapSampleId,
+        decoded,
+        bitmapMeta?.sampleRate || sound.sampleRate,
+      );
+      bitmapLoopSound = sound.play(bitmapSampleId, { loop: true });
+      bitmapLooping = true;
+    },
+  });
+
+  bitmapPreviewButton?.act(e, {
+    up: () => {
+      if (!bitmapPreview?.pixels?.length) return;
+      const decoded = decodeBitmapToSample(bitmapPreview, bitmapMeta);
+      if (!decoded?.length) return;
+      sound.registerSample?.(
+        bitmapSampleId,
+        decoded,
+        bitmapMeta?.sampleRate || sound.sampleRate,
+      );
+      sound.play(bitmapSampleId, { loop: false });
     },
   });
 
@@ -432,6 +591,10 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
     beep();
     if (pats > maxPats) pats = 1;
     genPats({ screen, ui });
+  });
+
+  notepatButton?.act(e, () => {
+    jump?.("notepat:stample");
   });
 
   if (e.is("microphone-connect:failure")) {
@@ -482,6 +645,7 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
     // micRecordButton.reposition()
     micRecordButton.box.y = screen.height - 32; // = new ui.Button(0, screen.height - 32, 32, 32);
     patsButton.box.x = screen.width - patsButton.box.w; // = new ui.Button(0, screen.height - 32, 32, 32);
+    layoutBitmapUI(screen);
   }
 }
 
@@ -496,11 +660,64 @@ function genPats({ screen, ui }) {
     const strip = (screen.height - menuHeight - labelHeight) / pats,
       x = 0,
       y = labelHeight + strip * i,
-      width = screen.width,
+      width = Math.max(32, screen.width - bitmapColumnWidth),
       height = strip;
     const button = new ui.Button(x, y, width, height);
     button.stickyScrubbing = true; // Keep scrubbing on the original button, allow off-screen movement
     button.noRolloverActivation = true; // Prevent activating other buttons when dragging from a sticky button
     btns.push(button);
   }
+}
+
+function layoutBitmapUI(screen) {
+  if (!bitmapLoopButton) return;
+  const buttonW = bitmapPreviewSize;
+  const buttonH = 18;
+  bitmapLoopButton.box.w = buttonW;
+  bitmapLoopButton.box.h = buttonH;
+  bitmapLoopButton.box.x = screen.width - buttonW - bitmapPreviewMargin;
+  bitmapLoopButton.box.y = screen.height - buttonH - bitmapPreviewMargin;
+
+  if (bitmapPreviewButton) {
+    const previewW = Math.min(bitmapPreviewSize, bitmapColumnWidth - bitmapPreviewMargin * 2);
+    const previewH = previewW;
+    bitmapPreviewButton.box.w = previewW;
+    bitmapPreviewButton.box.h = previewH;
+    bitmapPreviewButton.box.x = screen.width - previewW - bitmapPreviewMargin;
+    bitmapPreviewButton.box.y =
+      bitmapLoopButton.box.y - previewH - 6;
+  }
+}
+
+function encodeSampleToBitmap(data, width = 256) {
+  if (!Array.isArray(data) || data.length === 0) return null;
+  const sampleLength = data.length;
+  const height = Math.ceil(sampleLength / width);
+  const pixels = new Uint8ClampedArray(width * height * 4);
+
+  for (let i = 0; i < sampleLength; i += 1) {
+    const v = Math.max(-1, Math.min(1, data[i]));
+    const byte = Math.round((v + 1) * 127.5);
+    const idx = i * 4;
+    pixels[idx] = byte;
+    pixels[idx + 1] = byte;
+    pixels[idx + 2] = byte;
+    pixels[idx + 3] = 255;
+  }
+
+  return { width, height, pixels, sampleLength };
+}
+
+function decodeBitmapToSample(bitmap, meta) {
+  if (!bitmap?.pixels?.length || !bitmap?.width || !bitmap?.height) return null;
+  const totalPixels = bitmap.width * bitmap.height;
+  const sampleLength = Math.min(meta?.sampleLength || totalPixels, totalPixels);
+  const data = new Array(sampleLength);
+
+  for (let i = 0; i < sampleLength; i += 1) {
+    const byte = bitmap.pixels[i * 4] || 0;
+    data[i] = byte / 127.5 - 1;
+  }
+
+  return data;
 }

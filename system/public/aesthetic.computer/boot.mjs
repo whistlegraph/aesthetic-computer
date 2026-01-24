@@ -70,6 +70,84 @@ if ('serviceWorker' in navigator && !window.acPACK_MODE && window === window.top
 const bootStartTime = performance.now();
 window.acBOOT_START_TIME = bootStartTime;
 
+// 🧾 Boot telemetry (logs to /api/boot-log)
+const bootTelemetry = (() => {
+  const bootId = (crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const queue = [];
+  let flushTimer = null;
+  let started = false;
+  const meta = {
+    bootId,
+    startedAt: new Date().toISOString(),
+    href: typeof location !== "undefined" ? location.href : null,
+    host: typeof location !== "undefined" ? location.host : null,
+    path: typeof location !== "undefined" ? location.pathname : null,
+    search: typeof location !== "undefined" ? location.search : null,
+    hash: typeof location !== "undefined" ? location.hash : null,
+    userAgent: navigator?.userAgent,
+    language: navigator?.language,
+    timezone: Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone,
+    embedded: window !== window.top,
+    packMode: Boolean(window.acPACK_MODE),
+    localDev: typeof location !== "undefined" && location.hostname === "localhost",
+    user: window.acUSER ? {
+      sub: window.acUSER?.sub,
+      handle: window.acUSER?.handle,
+    } : null,
+  };
+
+  async function sendBootEvent(phase, data = {}) {
+    try {
+      await fetch("/api/boot-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bootId, phase, meta, data }),
+        keepalive: true,
+      });
+    } catch {
+      // ignore telemetry errors
+    }
+  }
+
+  function enqueue(message, level = "info") {
+    const elapsed = Math.round(performance.now() - bootStartTime);
+    queue.push({ message, level, elapsed, at: Date.now() });
+    if (queue.length >= 10) flush("batch");
+    else if (!flushTimer) flushTimer = setTimeout(() => flush("timer"), 1500);
+  }
+
+  async function flush(reason = "manual") {
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    if (!queue.length) return;
+    const events = queue.splice(0, queue.length);
+    await sendBootEvent("log", { reason, events });
+  }
+
+  return {
+    bootId,
+    meta,
+    start: async () => {
+      if (started) return;
+      started = true;
+      await sendBootEvent("start", { bootStartTime: Date.now() });
+    },
+    enqueue,
+    flush,
+    error: async (error) => {
+      await sendBootEvent("error", { error });
+    },
+    complete: async (data = {}) => {
+      await flush("complete");
+      await sendBootEvent("complete", data);
+    },
+  };
+})();
+
+bootTelemetry.start();
+
 // Get the boot canvas element (if present in the DOM)
 const bootCanvas = document.getElementById("boot-canvas");
 const MAX_BOOT_LINES = 12; // Maximum lines to show
@@ -130,6 +208,7 @@ function bootLog(message) {
     console.log(`🚀 [BOOT] ${message} (+${elapsed}ms)`);
   }
   window._bootTimings.push({ message, elapsed });
+  bootTelemetry.enqueue(message, "info");
   
   // Update the boot canvas (via the canvas animation system)
   if (window.acBOOT_LOG_CANVAS) {
@@ -150,6 +229,11 @@ function hideBootLog() {
   if (window.acBootCanvas?.hide) {
     window.acBootCanvas.hide();
   }
+  const elapsedTotal = Math.round(performance.now() - bootStartTime);
+  bootTelemetry.complete({
+    elapsedTotal,
+    timings: window._bootTimings || [],
+  });
 }
 
 // Show connection error and retry UI
@@ -163,6 +247,11 @@ function showConnectionError(error) {
     ? `⚠️ connection error - retrying (${retryCount}/${MAX_RETRIES})...`
     : `❌ connection failed - please refresh`;
   bootLog(message);
+  bootTelemetry.error({
+    message: error?.message || String(error),
+    retryCount,
+    maxRetries: MAX_RETRIES,
+  });
   
   if (retryCount <= MAX_RETRIES) {
     setTimeout(() => {
