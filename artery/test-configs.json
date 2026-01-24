@@ -18,6 +18,15 @@
       "icon": "⚡",
       "desc": "Quick notepat test (Electron compatible)"
     },
+    "test-notepat-bach-prelude.mjs": {
+      "name": "bach-prelude",
+      "icon": "🎻",
+      "desc": "Bach Cello Suite No. 1 Prelude (opening 8 bars)",
+      "params": {
+        "bpm": { "type": "range", "min": 60, "max": 200, "step": 5, "default": 120 },
+        "loop": { "type": "toggle", "default": false }
+      }
+    },
     "test-notepat-latency.mjs": {
       "name": "notepat-latency",
       "icon": "⏱️",

@@ -137,6 +137,7 @@ import {
   noteToTone,
 } from "../lib/melody-parser.mjs";
 import { convertNotepatNotation } from "../lib/notepat-convert.mjs";
+import { getNoteColor } from "../lib/note-colors.mjs";
 
 // Utility function for padding numbers with zeros
 function pad(num, size = 2) {
@@ -285,41 +286,6 @@ function calculateFrequencyWithLowerBound(tone, hzShift = 0, sound, trackId = nu
     console.warn(`🎵 Error calculating frequency for ${tone}:`, error);
     return { frequency: null, wasReset: false, toneShift: hzShift };
   }
-}
-
-// Rainbow color mapping for notes (ROYGBIV) using RGB arrays
-const noteColorMap = {
-  c: [255, 0, 0], // Red
-  d: [255, 127, 0], // Orange
-  e: [255, 255, 0], // Yellow
-  f: [0, 255, 0], // Green
-  g: [0, 128, 255], // Blue
-  a: [75, 0, 130], // Indigo
-  b: [148, 0, 211], // Violet
-  // Handle sharps/flats with similar colors
-  "c#": [255, 68, 68],
-  cs: [255, 68, 68],
-  db: [255, 68, 68],
-  "d#": [255, 153, 68],
-  ds: [255, 153, 68],
-  eb: [255, 153, 68],
-  "f#": [68, 255, 68],
-  fs: [68, 255, 68],
-  gb: [68, 255, 68],
-  "g#": [68, 153, 255],
-  gs: [68, 153, 255],
-  ab: [68, 153, 255],
-  "a#": [119, 68, 187],
-  as: [119, 68, 187],
-  bb: [119, 68, 187],
-};
-
-// Helper function to get note color
-function getNoteColor(noteName) {
-  if (!noteName || noteName === "rest") return [102, 102, 102]; // Gray for rests
-  if (noteName === "speech") return [255, 200, 100]; // Orange for speech notes
-  const cleanNote = noteName.toLowerCase().replace(/[0-9]/g, ""); // Remove octave numbers
-  return noteColorMap[cleanNote] || [255, 255, 255]; // Default to white if not found
 }
 
 // Helper function to make a color brighter for active notes
