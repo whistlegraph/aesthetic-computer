@@ -53,9 +53,7 @@
 
   <Capabilities>
     <Capability Name="internetClient" />
-    <uap:Capability Name="musicLibrary"/>
-    <DeviceCapability Name="microphone"/>
-    <DeviceCapability Name="webcam"/>
+    <rescap:Capability Name="runFullTrust" />
     <DeviceCapability Name="gamepad"/>
   </Capabilities>
 </Package>
