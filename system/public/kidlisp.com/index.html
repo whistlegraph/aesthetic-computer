@@ -2073,22 +2073,13 @@
     .ff1-download-btn:hover {
       background: rgba(74, 222, 128, 0.3);
     }
-    .ff1-step {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-    }
-    .ff1-step-buttons {
+    .ff1-paired-row {
       display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+      align-items: center;
       justify-content: center;
-    }
-    .ff1-device-info {
-      text-align: center;
-      color: rgba(255,255,255,0.7);
+      gap: 10px;
+      flex-wrap: wrap;
+      width: 100%;
     }
     .ff1-btn {
       background: rgba(255,255,255,0.15);
@@ -8212,38 +8203,28 @@
           <div class="boot-screen hidden" id="boot-screen-ff1" data-platform="ff1">
             <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="Feral File" class="ff1-logo">
             <div class="boot-text boot-text-title">FF1 Art Computer</div>
-            <div class="boot-text boot-text-action" id="ff1-boot-action" data-i18n="pressToRun">Press <span class="blink">▶</span> to run</div>
+            <div class="boot-text boot-text-action" data-i18n="pressToRun">Press <span class="blink">▶</span> to run</div>
             <div class="ff1-settings" id="ff1-settings">
-              <!-- Step 1: No Desktop App - Download Required -->
-              <div class="ff1-step" id="ff1-step-download" style="display:none;">
-                <span class="ff1-status">Desktop app required</span>
-                <a href="https://github.com/whistlegraph/aesthetic-computer/releases/latest" target="_blank" rel="noopener" class="ff1-btn ff1-download-btn">Download Desktop App</a>
-                <button id="ff1-recheck-btn" class="ff1-btn" style="opacity:0.7;">I've installed it</button>
+              <!-- Desktop App Connected State -->
+              <div class="ff1-bridge-status" id="ff1-bridge-status" style="display:none;">
+                <span class="ff1-status success">✓ Desktop App Connected</span>
+                <div class="ff1-devices-list" id="ff1-devices-list"></div>
+                <button id="ff1-refresh-btn" class="ff1-btn">Refresh Devices</button>
               </div>
-              <!-- Step 2: App Running, Need to Pair Device -->
-              <div class="ff1-step" id="ff1-step-pair" style="display:none;">
-                <span class="ff1-status success">✓ Desktop App Running</span>
-                <button id="ff1-pair-btn" class="ff1-btn">Pair FF1 Device</button>
+              <!-- No Desktop App State -->
+              <div class="ff1-no-bridge" id="ff1-no-bridge">
+                <span class="ff1-status" id="ff1-status">Checking...</span>
+                <a href="https://github.com/whistlegraph/aesthetic-computer/releases/latest" target="_blank" rel="noopener" class="ff1-btn ff1-download-btn" id="ff1-download-btn" style="display:none;">Download Desktop App</a>
+                <button id="ff1-pair-btn" class="ff1-btn" style="display:none;">Manual Pair (Advanced)</button>
               </div>
-              <!-- Step 3: Device Paired - Ready -->
-              <div class="ff1-step" id="ff1-step-ready" style="display:none;">
-                <span class="ff1-status success">✓ Ready</span>
-                <div class="ff1-device-info" id="ff1-device-info"></div>
-                <div class="ff1-step-buttons">
-                  <button id="ff1-test-btn" class="ff1-btn">Test</button>
-                  <button id="ff1-repair-btn" class="ff1-btn" style="opacity:0.7;">Re-pair</button>
-                </div>
-              </div>
-              <!-- Checking State -->
-              <div class="ff1-step" id="ff1-step-checking">
-                <span class="ff1-status">Checking...</span>
-              </div>
-              <!-- QR Pairing Modal -->
+              <!-- Test button (shown when connected) -->
+              <button id="ff1-test-btn" class="ff1-btn" style="display:none;">Test Connection</button>
+              <!-- QR Pairing (fallback) -->
               <div class="ff1-pairing" id="ff1-pairing">
                 <button class="ff1-pairing-close" id="ff1-pairing-close" title="Close">✕</button>
                 <div class="ff1-pairing-content">
                   <canvas id="ff1-qr-canvas" class="ff1-pairing-qr"></canvas>
-                  <div class="ff1-pairing-hint">1. Open Feral File app on your iPhone<br>2. Go to your FF1 → Settings → Show QR<br>3. Scan this QR with your iPhone<br>4. Scan your TV's QR code</div>
+                  <div class="ff1-pairing-hint">1. Show FF1 QR on your TV in the Feral File App<br>2. Scan this QR with your iPhone<br>3. Scan your TV</div>
                 </div>
                 <div class="ff1-pairing-status" id="ff1-pairing-status">Waiting…</div>
                 <div class="ff1-pairing-link" id="ff1-pairing-link" title="Click to copy"></div>
@@ -9192,20 +9173,22 @@
           if (data && data.topicID) {
             ff1Config.relayTopicId = data.topicID;
             ff1Config.relayApiKey = data.apiKey || '';
-            ff1Config.deviceId = data.deviceId || '';
             saveFF1Config();
             if (statusEl) statusEl.textContent = '✓ Paired!';
+            const mainStatus = document.getElementById('ff1-status');
+            if (mainStatus) {
+              mainStatus.textContent = '✓ Paired';
+              mainStatus.className = 'ff1-status success';
+            }
+            const testBtn = document.getElementById('ff1-test-btn');
+            if (testBtn) testBtn.style.display = 'inline-block';
+            const pairBtn = document.getElementById('ff1-pair-btn');
+            if (pairBtn) pairBtn.textContent = 'Re-pair';
             persistFF1DeviceIfAuthenticated(ff1Config.relayTopicId, ff1Config.relayApiKey);
             stopFF1PairPolling();
             setTimeout(() => {
               const pairing = document.getElementById('ff1-pairing');
               if (pairing) pairing.classList.remove('open');
-              // Show ready state
-              showFF1Step('ff1-step-ready');
-              const deviceInfoEl = document.getElementById('ff1-device-info');
-              if (deviceInfoEl) {
-                deviceInfoEl.innerHTML = `<span style="font-size:11px;opacity:0.7;">Device: ${ff1Config.deviceId || ff1Config.relayTopicId.slice(0,12) + '...'}</span>`;
-              }
             }, 1500);
           }
         } catch (err) {
@@ -9232,22 +9215,42 @@
       return { available: false };
     }
 
-    // Show a specific FF1 setup step
-    function showFF1Step(stepId) {
-      const steps = ['ff1-step-checking', 'ff1-step-download', 'ff1-step-pair', 'ff1-step-ready'];
-      steps.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = id === stepId ? 'flex' : 'none';
-      });
-      // Update boot action text based on step
-      const bootAction = document.getElementById('ff1-boot-action');
-      if (bootAction) {
-        if (stepId === 'ff1-step-ready') {
-          bootAction.innerHTML = 'Press <span class="blink">▶</span> to run';
-          bootAction.style.opacity = '1';
-        } else {
-          bootAction.innerHTML = 'Complete setup below to run';
-          bootAction.style.opacity = '0.5';
+    // Discover FF1 devices via Electron bridge
+    async function discoverFF1Devices() {
+      try {
+        const response = await fetch('http://127.0.0.1:19999/discover', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await response.json();
+        return data.ok ? (data.devices || []) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    // Update FF1 device list UI
+    function updateFF1DeviceList(devices) {
+      const listEl = document.getElementById('ff1-devices-list');
+      if (!listEl) return;
+      if (devices.length === 0) {
+        listEl.innerHTML = '<div style="font-size:11px;opacity:0.6;">Scanning for FF1 devices...</div>';
+      } else {
+        listEl.innerHTML = devices.map((d, i) => {
+          const name = d.info?.deviceId || d.deviceId || `Device ${i + 1}`;
+          const ip = d.ip || '';
+          const selected = i === 0 ? 'selected' : '';
+          return `<div class="ff1-device-item ${selected}" data-ip="${ip}" data-id="${name}">
+            <span class="ff1-device-name">${name}</span>
+            <span class="ff1-device-ip" style="font-size:10px;opacity:0.5;">${ip}</span>
+          </div>`;
+        }).join('');
+        // Store first device as default
+        if (devices[0]) {
+          ff1Config.deviceId = devices[0].info?.deviceId || devices[0].deviceId || '';
+          ff1Config.deviceIp = devices[0].ip || '';
+          saveFF1Config();
         }
       }
     }
@@ -9256,56 +9259,56 @@
     async function initFF1Settings() {
       loadFF1Config();
       
-      const pairBtn = document.getElementById('ff1-pair-btn');
-      const repairBtn = document.getElementById('ff1-repair-btn');
       const testBtn = document.getElementById('ff1-test-btn');
-      const recheckBtn = document.getElementById('ff1-recheck-btn');
+      const pairBtn = document.getElementById('ff1-pair-btn');
       const closeBtn = document.getElementById('ff1-pairing-close');
       const linkEl = document.getElementById('ff1-pairing-link');
-      const deviceInfoEl = document.getElementById('ff1-device-info');
+      const statusEl = document.getElementById('ff1-status');
+      const bridgeStatusEl = document.getElementById('ff1-bridge-status');
+      const noBridgeEl = document.getElementById('ff1-no-bridge');
+      const downloadBtn = document.getElementById('ff1-download-btn');
+      const refreshBtn = document.getElementById('ff1-refresh-btn');
       
       // Check for Electron bridge
       const bridge = await checkFF1Bridge();
       
-      if (!bridge.available) {
-        // Step 1: No app - show download
-        showFF1Step('ff1-step-download');
-      } else if (!ff1Config.relayTopicId) {
-        // Step 2: App running but no device paired
-        showFF1Step('ff1-step-pair');
+      if (bridge.available) {
+        // Desktop app is running!
+        if (bridgeStatusEl) bridgeStatusEl.style.display = 'flex';
+        if (noBridgeEl) noBridgeEl.style.display = 'none';
+        if (testBtn) testBtn.style.display = 'inline-block';
+        
+        // Discover devices
+        const devices = await discoverFF1Devices();
+        updateFF1DeviceList(devices);
+        
+        // Refresh button
+        if (refreshBtn) refreshBtn.addEventListener('click', async () => {
+          refreshBtn.textContent = 'Scanning...';
+          const devices = await discoverFF1Devices();
+          updateFF1DeviceList(devices);
+          refreshBtn.textContent = 'Refresh Devices';
+        });
       } else {
-        // Step 3: App running + device paired - ready!
-        showFF1Step('ff1-step-ready');
-        if (deviceInfoEl) {
-          deviceInfoEl.innerHTML = `<span style="font-size:11px;opacity:0.7;">Device ID: ${ff1Config.deviceId || ff1Config.relayTopicId.slice(0,12) + '...'}</span>`;
+        // No desktop app - show download link
+        if (bridgeStatusEl) bridgeStatusEl.style.display = 'none';
+        if (noBridgeEl) noBridgeEl.style.display = 'flex';
+        if (statusEl) statusEl.textContent = 'Desktop app not detected';
+        if (downloadBtn) downloadBtn.style.display = 'inline-block';
+        if (pairBtn) pairBtn.style.display = 'inline-block';
+        
+        // If already paired via QR, show that
+        if (ff1Config.relayTopicId && statusEl) {
+          statusEl.textContent = '✓ Paired (cloud relay)';
+          statusEl.className = 'ff1-status success';
+          if (testBtn) testBtn.style.display = 'inline-block';
+          if (pairBtn) pairBtn.textContent = 'Re-pair';
         }
       }
       
-      // Recheck button (after install)
-      if (recheckBtn) recheckBtn.addEventListener('click', async () => {
-        recheckBtn.textContent = 'Checking...';
-        const bridge = await checkFF1Bridge();
-        if (bridge.available) {
-          if (ff1Config.relayTopicId) {
-            showFF1Step('ff1-step-ready');
-          } else {
-            showFF1Step('ff1-step-pair');
-          }
-        } else {
-          recheckBtn.textContent = 'Not detected - try again';
-          setTimeout(() => { recheckBtn.textContent = "I've installed it"; }, 2000);
-        }
-      });
-      
-      // Pair button
-      if (pairBtn) pairBtn.addEventListener('click', toggleFF1Pairing);
-      if (repairBtn) repairBtn.addEventListener('click', toggleFF1Pairing);
-      if (closeBtn) closeBtn.addEventListener('click', toggleFF1Pairing);
-      
-      // Test button
       if (testBtn) testBtn.addEventListener('click', testFF1Connection);
-      
-      // Copy link
+      if (pairBtn) pairBtn.addEventListener('click', toggleFF1Pairing);
+      if (closeBtn) closeBtn.addEventListener('click', toggleFF1Pairing);
       if (linkEl) linkEl.addEventListener('click', async () => {
         const text = linkEl.textContent || '';
         if (!text) return;

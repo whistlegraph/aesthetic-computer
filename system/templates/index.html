@@ -100,10 +100,13 @@
       // Get density parameter for boot canvas scaling (higher density = larger UI elements)
       // This makes boot text readable on high-DPI/4K displays like FF1
       const urlParams = new URLSearchParams(window.location.search);
-      const densityParam = parseFloat(urlParams.get('density')) || 1;
+      const isDeviceMode = urlParams.get('device') === 'true';
+      // In device mode, default to density 8 (FF1's typical setting) if not specified
+      const densityParam = parseFloat(urlParams.get('density')) || (isDeviceMode ? 8 : 1);
       // For density 8 (FF1 default), we want a scale of about 4x to make text visible
       // Scale factor: density/2, clamped between 1-6
-      const bootScale = isKidlispMode ? Math.min(6, Math.max(1, densityParam / 2)) : 1;
+      // Apply scaling in KidLisp mode OR device mode (FF1 direct access)
+      const bootScale = (isKidlispMode || isDeviceMode) ? Math.min(6, Math.max(1, densityParam / 2)) : 1;
       
       // Theme detection for light/dark mode support
       let isLightMode = window.matchMedia?.('(prefers-color-scheme: light)').matches;
@@ -164,14 +167,17 @@
       // Helper to get theme-aware colors
       const getKidlispColors = () => isLightMode ? KIDLISP_COLORS_LIGHT : KIDLISP_COLORS_DARK;
       
-      // KidLisp mode state
+      // Use simple bar animation mode for KidLisp embedded OR direct device mode (FF1)
+      const useSimpleBootAnimation = isKidlispMode || isDeviceMode;
+      
+      // KidLisp mode state (also used for device mode)
       let kidlispLogs = [];
       let kidlispBars = [];
       let kidlispFrame = 0;
       
-      const logoSize = isKidlispMode ? 0 : 64;  // No logo in kidlisp mode
+      const logoSize = useSimpleBootAnimation ? 0 : 64;  // No logo in simple mode
       const logoX = 8, logoY = 8;
-      const textX = isKidlispMode ? 18 : logoX + logoSize + 14;
+      const textX = useSimpleBootAnimation ? 18 : logoX + logoSize + 14;
       const textStartY = 18;
       const lineHeight = 14;
       const maxLines = 18;
@@ -361,8 +367,8 @@
       // Add a file to display (called by boot.mjs)
       const addFile = (filename, content) => {
         if (!content || typeof content !== 'string') return;
-        // Skip file blocks in kidlisp mode - just use simple bars
-        if (isKidlispMode) return;
+        // Skip file blocks in simple boot mode (KidLisp or device) - just use simple bars
+        if (useSimpleBootAnimation) return;
         const block = createFileBlock(filename, content);
         fileBlocks.push(block);
         bootProgress = Math.min(1, fileBlocks.length / 6);
@@ -373,8 +379,8 @@
         const deltaMs = now - lastLogTime;
         lastLogTime = now;
         
-        // KidLisp mode: add to colored log display (scaled for high-density displays)
-        if (isKidlispMode) {
+        // Simple boot mode (KidLisp or device): add to colored log display (scaled for high-density displays)
+        if (useSimpleBootAnimation) {
           // Store color index, not actual color - so theme changes work
           const colorIndex = kidlispLogs.length % getKidlispColors().length;
           kidlispLogs.unshift({
@@ -471,8 +477,8 @@
         const shakeX = (Math.random() - 0.5) * shakeAmount;
         const shakeY = (Math.random() - 0.5) * shakeAmount;
         
-        // === KIDLISP MODE: Simpler colored bars animation (scaled for high-density displays) ===
-        if (isKidlispMode) {
+        // === SIMPLE BOOT MODE (KidLisp or device): Colored bars animation (scaled for high-density displays) ===
+        if (useSimpleBootAnimation) {
           kidlispFrame++;
           ctx.clearRect(0, 0, W, H);
           
@@ -749,8 +755,8 @@
         });
         ctx.globalAlpha = 1;
         
-        // PG-13 badge (bottom-right, above bottom bars, VHS burn-in)
-        if (!isKidlispMode && pg13Loaded) {
+        // PG-13 badge (bottom-right, above bottom bars, VHS burn-in) - only in full boot animation
+        if (!useSimpleBootAnimation && pg13Loaded) {
           if (pg13RevealStart === null && (imgFullLoaded || performance.now() - bootStartTime > 900)) {
             pg13RevealStart = performance.now();
           }
