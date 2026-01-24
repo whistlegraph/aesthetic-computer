@@ -1,6 +1,5 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.Web.WebView2.Core;
 using System;
 using Windows.Gaming.Input;
 using Windows.System;
@@ -40,7 +39,7 @@ public sealed partial class MainWindow : Window
             settings.AreBrowserAcceleratorKeysEnabled = false;
             
             // Inject Xbox-specific info
-            webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(@"
+            await webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(@"
                 window.isXboxApp = true;
                 window.isDeviceMode = true;
                 console.log('🎮 Aesthetic Computer Xbox App');
