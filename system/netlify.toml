@@ -208,6 +208,12 @@ included_files = ["backend/**/*.mjs"]
 external_node_modules = ["mongodb", "@taquito/taquito", "@taquito/signer"]
 included_env_vars = ["CONTEXT", "TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "TEZOS_KIDLISP_KEY", "PINATA_API_KEY", "PINATA_API_SECRET", "OVEN_URL", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
 
+[functions.boot-log]
+# Store boot telemetry in MongoDB
+included_files = ["backend/**/*.mjs"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+
 [functions.keep-confirm]
 # Confirm client-side wallet mints and update MongoDB
 included_files = ["backend/**/*.mjs"]
@@ -977,6 +983,10 @@ status = 200
 [[redirects]]
 from = "/api/bundle-html"
 to = "/.netlify/functions/bundle-html"
+status = 200
+[[redirects]]
+from = "/api/boot-log"
+to = "/.netlify/functions/boot-log"
 status = 200
 [[redirects]]
 from = "/api/keep-mint"

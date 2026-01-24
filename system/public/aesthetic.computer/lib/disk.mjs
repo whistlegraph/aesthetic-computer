@@ -1552,6 +1552,9 @@ let currentPath,
   currentHUDLabelBlockHeight = tf?.blockHeight ?? DEFAULT_TYPEFACE_BLOCK_HEIGHT,
   currentHUDShareWidth = (tf?.blockWidth ?? DEFAULT_TYPEFACE_BLOCK_WIDTH) * "share ".length,
   currentHUDLabelMeasuredWidth = 0,
+  currentHUDTextHeight = 0,
+  currentHUDTextBoxWidth = 0,
+  currentHUDTextBoxHeight = 0,
   currentHUDLeftPad = 0,
   currentHUDOffset,
   currentHUDQR = null, // QR code URL to show to the left of label (set via hud.qr())
@@ -8966,6 +8969,12 @@ async function makeFrame({ data: { type, content } }) {
     debug = content.debug;
     setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
+
+    if (content.debugHud) {
+      globalThis.debugHudHitbox = true;
+      console.log("🔍 HUD Hitbox Debug: ON (init-from-bios)");
+      $commonApi.needsPaint();
+    }
     
     // Store noauth flag for iframe embedding (kidlisp.com)
     if (content.noauth) {
@@ -9081,7 +9090,15 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  // 🛑 Watchdog ping - respond immediately with pong
+  // � Toggle HUD hitbox debug visualization from main thread
+  if (type === "debug:hud-hitbox:toggle") {
+    globalThis.debugHudHitbox = !globalThis.debugHudHitbox;
+    console.log("🔍 HUD Hitbox Debug:", globalThis.debugHudHitbox ? "ON" : "OFF");
+    $commonApi.needsPaint();
+    return;
+  }
+
+  // �🛑 Watchdog ping - respond immediately with pong
   if (type === "watchdog:ping") {
     send({ type: "watchdog:pong", content: { timestamp: content?.timestamp } });
     return;
@@ -10990,6 +11007,11 @@ async function makeFrame({ data: { type, content } }) {
       return prom;
     };
 
+    $sound.registerSample = function registerSample(id, data, sampleRate) {
+      if (!id || !data) return;
+      send({ type: "sfx:register", content: { id, data, sampleRate } });
+    };
+
     soundTime = content.audioTime;
 
     $sound.play = function play(sfx, options, callbacks) {
@@ -11188,6 +11210,30 @@ async function makeFrame({ data: { type, content } }) {
       // Get current room state (async via callback)
       get: function () {
         send({ type: "room:get" });
+      },
+    };
+
+    // 🧩 Glitch API - global raw synth effect
+    $sound.glitch = {
+      // Toggle glitch on/off
+      toggle: function () {
+        send({ type: "glitch:toggle" });
+      },
+      // Enable glitch
+      on: function () {
+        send({ type: "glitch:set", content: { enabled: true } });
+      },
+      // Disable glitch
+      off: function () {
+        send({ type: "glitch:set", content: { enabled: false } });
+      },
+      // Set glitch parameters: { enabled, mix (0-1), crush (2-12), rate (Hz), jitter (0-1) }
+      set: function (options = {}) {
+        send({ type: "glitch:set", content: options });
+      },
+      // Get current glitch state (async via callback)
+      get: function () {
+        send({ type: "glitch:get" });
       },
     };
 
@@ -12561,6 +12607,9 @@ async function makeFrame({ data: { type, content } }) {
         const longestVisibleLineWidth = selectedLayout?.longestLineWidth ?? 0;
   const wrappedLineCount = textBounds?.lines?.length ?? visibleLineCount;
   const measuredTextHeight = textBoxHeight || (wrappedLineCount * hudBlockHeight);
+  currentHUDTextBoxWidth = textBounds?.box?.width || 0;
+  currentHUDTextBoxHeight = textBounds?.box?.height || 0;
+  currentHUDTextHeight = measuredTextHeight;
 
         // 🔤 Font Loading Check: If MatrixChunky8 was selected but not loaded, skip rendering HUD
         // This prevents pop-in where font_1 renders briefly before MatrixChunky8 glyphs load
@@ -12935,10 +12984,14 @@ async function makeFrame({ data: { type, content } }) {
         // Update button position to match label position (with slide offset)
         const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
         const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y;
-        currentHUDButton.box.x = finalX;
-        currentHUDButton.box.y = finalY;
-        currentHUDButton.box.w = currentHUDLabelMeasuredWidth;
-        currentHUDButton.box.h = h;
+        const textWidthForHitbox = currentHUDTextBoxWidth || currentHUDLabelMeasuredWidth;
+        const hitboxWidth = Math.max(1, Math.round(textWidthForHitbox + 7));
+        const baseTextHeight = currentHUDTextHeight || currentHUDTextBoxHeight || h;
+        const hitboxHeight = Math.max(1, Math.round(baseTextHeight + 7));
+        currentHUDButton.box.x = 0;
+        currentHUDButton.box.y = 0;
+        currentHUDButton.box.w = hitboxWidth;
+        currentHUDButton.box.h = Math.max(1, Math.round(hitboxHeight));
 
         // Mark HUD button to bypass the global HUD active check (it checks itself)
         currentHUDButton.noEdgeDetection = true;
@@ -13458,18 +13511,24 @@ async function makeFrame({ data: { type, content } }) {
         if (globalThis.debugHudHitbox && currentHUDButton) {
           const hitboxWidth = currentHUDButton.box.w;
           const hitboxHeight = currentHUDButton.box.h;
+          const blinkFrame = Number($api.paintCount || 0n);
+          const blinkOn = (blinkFrame % 30) < 15;
+          const outerAlpha = blinkOn ? 200 : 80;
+          const innerAlpha = blinkOn ? 120 : 40;
           
           const hitboxOverlay = $api.painting(hitboxWidth, hitboxHeight, ($) => {
             $.unpan();
             $.unmask(); // Ensure hitbox overlay renders without piece mask
-            // Draw a semi-transparent green border to show the hitbox
-            $.ink(0, 255, 0, 128).box(0, 0, hitboxWidth, hitboxHeight, "outline");
-            $.ink(0, 255, 0, 64).box(1, 1, hitboxWidth - 2, hitboxHeight - 2, "outline");
+            // Draw a blinking green border to show the hitbox
+            $.ink(0, 255, 0, outerAlpha).box(0, 0, hitboxWidth, hitboxHeight, "outline");
+            if (hitboxWidth > 2 && hitboxHeight > 2) {
+              $.ink(0, 255, 0, innerAlpha).box(1, 1, hitboxWidth - 2, hitboxHeight - 2, "outline");
+            }
           });
           
           sendData.hitboxDebug = {
-            x: currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad,
-            y: currentHUDOffset.y + hudAnimationState.slideOffset.y,
+            x: currentHUDButton.box.x,
+            y: currentHUDButton.box.y,
             opacity: hudAnimationState.opacity,
             img: (({ width, height, pixels }) => ({ width, height, pixels }))(
               hitboxOverlay,

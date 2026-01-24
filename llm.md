@@ -160,6 +160,22 @@ artery 1v1                # Split-screen 1v1 test
 artery perf 10            # Performance monitor (10 seconds)
 ```
 
+### 🌸 Poppy (Default Log Capture)
+
+Use **Poppy** when you need runtime console logs. It opens the AC panel,
+jumps to the piece, and streams logs until you stop it.
+
+```bash
+node artery/poppy.mjs <piece>
+
+# Examples
+node artery/poppy.mjs notepat
+node artery/poppy.mjs prompt
+```
+
+**Default behavior:** Prefer Poppy for debugging instead of asking for manual
+copy/paste of logs.
+
 ### TUI Mode (`artery-tui.mjs`)
 
 Interactive curses-style interface with:

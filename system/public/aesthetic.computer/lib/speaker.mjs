@@ -32,6 +32,13 @@ let roomEnabled = false;
 let roomMix = 0.5; // Default reverb amount when enabled (additive)
 let roomFeedback = 0.6; // Default feedback (long tail)
 
+// Global glitch state
+let glitchEnabled = false;
+let glitchMix = 0.65; // Blend of glitch signal
+let glitchCrush = 6; // Bit depth (2-12)
+let glitchRate = 1600; // Sample hold rate (Hz)
+let glitchJitter = 0.15; // Jitter in hold length (0-1)
+
 const sampleStore = {}; // A global store for sample buffers previously added.
 
 class SpeakerProcessor extends AudioWorkletProcessor {
@@ -86,6 +93,12 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
   #reverbLeft;
   #reverbRight;
+
+  // Glitch effect state
+  #glitchHoldCounter = 0;
+  #glitchHoldSamples = 1;
+  #glitchHeldLeft = 0;
+  #glitchHeldRight = 0;
   
   // VST Bridge Mode - sends samples to plugin instead of Web Audio output
   #vstBridgeEnabled = false;
@@ -109,6 +122,8 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
     this.#reverbLeft = new Reverb(sampleRate, delayTime, feedback, mix);
     this.#reverbRight = new Reverb(sampleRate, delayTime, feedback, mix);
+
+    this.#glitchHoldSamples = Math.max(1, Math.floor(sampleRate / glitchRate));
 
     // Change BPM, or queue up an instrument note.
     this.port.onmessage = (e) => {
@@ -334,6 +349,49 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
       if (msg.type === "room:get") {
         this.#report("room:state", { enabled: roomEnabled, mix: roomMix, feedback: roomFeedback });
+        return;
+      }
+
+      // 🧩 Glitch control
+      if (msg.type === "glitch:toggle") {
+        glitchEnabled = !glitchEnabled;
+        console.log("🧩 GLITCH TOGGLE:", glitchEnabled ? "ON" : "OFF");
+        this.#report("glitch:state", {
+          enabled: glitchEnabled,
+          mix: glitchMix,
+          crush: glitchCrush,
+          rate: glitchRate,
+          jitter: glitchJitter,
+        });
+        return;
+      }
+
+      if (msg.type === "glitch:set") {
+        const data = msg.data || {};
+        if (data.enabled !== undefined) glitchEnabled = data.enabled;
+        if (data.mix !== undefined) glitchMix = clamp(data.mix, 0, 1);
+        if (data.crush !== undefined) glitchCrush = clamp(round(data.crush), 2, 12);
+        if (data.rate !== undefined) glitchRate = clamp(data.rate, 20, 8000);
+        if (data.jitter !== undefined) glitchJitter = clamp(data.jitter, 0, 1);
+        this.#glitchHoldSamples = Math.max(1, Math.floor(sampleRate / glitchRate));
+        this.#report("glitch:state", {
+          enabled: glitchEnabled,
+          mix: glitchMix,
+          crush: glitchCrush,
+          rate: glitchRate,
+          jitter: glitchJitter,
+        });
+        return;
+      }
+
+      if (msg.type === "glitch:get") {
+        this.#report("glitch:state", {
+          enabled: glitchEnabled,
+          mix: glitchMix,
+          crush: glitchCrush,
+          rate: glitchRate,
+          jitter: glitchJitter,
+        });
         return;
       }
 
@@ -688,6 +746,25 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       output[0][s] = volume.apply(output[0][s] / this.#mixDivisor);
       output[1][s] = volume.apply(output[1][s] / this.#mixDivisor);
 
+      // 🧩 Apply glitch (sample-hold + bitcrush) if enabled
+      if (glitchEnabled) {
+        if (this.#glitchHoldCounter <= 0) {
+          const jitter = glitchJitter ? (Math.random() - 0.5) * glitchJitter : 0;
+          const holdSamples = Math.max(1, Math.floor(this.#glitchHoldSamples * (1 + jitter)));
+          this.#glitchHoldCounter = holdSamples;
+          this.#glitchHeldLeft = output[0][s];
+          this.#glitchHeldRight = output[1][s];
+        }
+        this.#glitchHoldCounter -= 1;
+
+        const crushLevels = 2 ** glitchCrush;
+        const crushedLeft = Math.round(this.#glitchHeldLeft * crushLevels) / crushLevels;
+        const crushedRight = Math.round(this.#glitchHeldRight * crushLevels) / crushLevels;
+
+        output[0][s] = output[0][s] * (1 - glitchMix) + crushedLeft * glitchMix;
+        output[1][s] = output[1][s] * (1 - glitchMix) + crushedRight * glitchMix;
+      }
+
       // 🏠 Apply room reverb if enabled
       if (roomEnabled) {
         // Debug: log once per second that reverb is active
@@ -759,7 +836,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     
     // Skip all frequency analysis if performance mode is disabled
     if (this.#performanceMode === 'disabled') {
-      return; // Exit early, no frequency analysis
+      return true; // Exit early, keep audio alive without frequency analysis
     }
     
     // Adaptive analysis frequency based on performance mode

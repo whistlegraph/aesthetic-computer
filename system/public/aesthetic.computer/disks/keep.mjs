@@ -2009,30 +2009,43 @@ function paint($) {
     // Check if anonymous (no author recorded and not loading)
     const isAnonymous = !pieceAuthorSub && !loadingPieceInfo;
 
-    // Responsive spacing based on screen height
-    const compact = h < 180;
+    // Responsive spacing based on screen size
+    const compact = h < 200 || w < 220;
+    const tiny = h < 170 || w < 170;
     const spacious = h > 280;
-    const gap = compact ? 10 : (spacious ? 20 : 14);
-    const smallGap = compact ? 6 : (spacious ? 12 : 8);
-    const tinyGap = compact ? 4 : (spacious ? 8 : 6);
+    const gap = compact ? 8 : (spacious ? 20 : 14);
+    const smallGap = compact ? 5 : (spacious ? 12 : 8);
+    const tinyGap = compact ? 3 : (spacious ? 8 : 6);
+
+    const showSourcePreview = pieceSourceDisplay && !tiny;
+    const showInfo = !tiny;
+    const showDate = !compact;
+    const showProse = !compact;
+    const showNetwork = !tiny;
+    const showContract = !tiny;
     
     // Preview thumbnail size
-    const previewThumbSize = compact ? 48 : (spacious ? 72 : 56);
+    const previewThumbSize = tiny ? 42 : (compact ? 50 : (spacious ? 72 : 56));
 
     // Calculate total height for centering based on content
     let totalH = 14 + smallGap; // title + gap
     if (piecePreviewBitmap) totalH += previewThumbSize + smallGap; // preview thumbnail
     totalH += 16 + smallGap; // piece name button + gap
-    if (pieceSourceDisplay) totalH += 10 + tinyGap; // source preview
-    totalH += 10 + gap; // author/hits info + gap before action area
+    if (showSourcePreview) totalH += 10 + tinyGap; // source preview
+    if (showInfo) totalH += 10 + gap; // author/hits info + gap before action area
     if (isAnonymous) {
       totalH += 14 + tinyGap + 9; // anonymous message (can't keep)
     } else if (isAuthor === true) {
-      totalH += 10 + smallGap + 12 + smallGap + 10 + gap + 10 + smallGap + 12 + gap + 16; // ownership + gaps + keep it + prose + network + contract + button
+      totalH += 10 + smallGap; // ownership
+      if (!compact) totalH += 12 + smallGap; // Keep It?
+      if (showProse) totalH += 10 + smallGap; // prose
+      totalH += 16; // keep button
+      if (showNetwork) totalH += 10 + smallGap; // network badge
+      if (showContract) totalH += 12 + smallGap; // contract button
     } else if (pieceAuthorSub && !userSub) {
-      totalH += 9 + tinyGap + 9 + gap + 10 + smallGap + 16; // not logged in message + button
+      totalH += (compact ? 12 : (9 + tinyGap + 9)) + gap + 16; // not logged in message + button
     } else if (isAuthor === false) {
-      totalH += 10 + smallGap + 12 + tinyGap + 9 + tinyGap + 9 + smallGap + 10; // logged in + not author message
+      totalH += 10 + smallGap + 12 + tinyGap + (compact ? 12 : (9 + tinyGap + 9)) + 10; // logged in + not author message
     } else {
       totalH += 10 + gap + 16; // loading message + button area
     }
@@ -2086,7 +2099,7 @@ function paint($) {
     cy += 16 + smallGap;
 
     // Source code preview with syntax highlighting (scrolling ticker if long)
-    if (pieceSourceDisplay) {
+    if (showSourcePreview) {
       const maxSourceLen = floor(w / 6) - 4; // Responsive to screen width
       let displaySource = pieceSourceDisplay;
       if (displaySource.length > maxSourceLen) {
@@ -2116,11 +2129,13 @@ function paint($) {
     }
     // Build info string with all available parts
     let infoParts = [`by ${authorStr}`];
-    if (dateStr) infoParts.push(dateStr);
+    if (dateStr && showDate) infoParts.push(dateStr);
     if (hitsStr) infoParts.push(hitsStr);
     const infoStr = infoParts.join(" · ");
-    ink(100, 105, 115).write(infoStr, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-    cy += 10 + gap;
+    if (showInfo) {
+      ink(100, 105, 115).write(infoStr, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 10 + gap;
+    }
 
     // Ownership status and action area
     if (isAuthor === true) {
@@ -2130,34 +2145,19 @@ function paint($) {
       ink(100, 200, 130).write(ownershipMsg, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 10 + smallGap;
 
-      // "Keep It?" prompt in yellow with glow
-      const keepItGlow = floor(30 + sin(rotation * 3) * 15);
-      ink(255, 220, 100, keepItGlow).write("Keep It?", { x: w/2, y: cy - 1, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      ink(255, 220, 100).write("Keep It?", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += 12 + smallGap;
+      if (!compact) {
+        // "Keep It?" prompt in yellow with glow
+        const keepItGlow = floor(30 + sin(rotation * 3) * 15);
+        ink(255, 220, 100, keepItGlow).write("Keep It?", { x: w/2, y: cy - 1, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        ink(255, 220, 100).write("Keep It?", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 12 + smallGap;
+      }
 
       // Prose explanation (softer, elegant)
-      ink(150, 145, 135).write(`Keep $${piece} in your wallet.`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += 10 + gap;
-
-      // Network badge
-      const netLabel = KEEPS_STAGING ? "STAGING V3" : NETWORK.toUpperCase();
-      const isMainnet = NETWORK === "mainnet";
-      const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
-      ink(netColor[0], netColor[1], netColor[2], 200).write(netLabel, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += 10 + smallGap;
-
-      // Contract button (clickable link to TzKT)
-      const contractScheme = pal.btnContract;
-      const shortContract = KEEPS_CONTRACT.slice(0, 8) + "..";
-      const contractSize = mc8ButtonSize(shortContract);
-      const contractX = floor((w - contractSize.w) / 2);
-      contractBtn.btn.box.x = contractX;
-      contractBtn.btn.box.y = cy;
-      contractBtn.btn.box.w = contractSize.w;
-      contractBtn.btn.box.h = contractSize.h;
-      paintMC8Btn(contractX, cy, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down);
-      cy += 12 + gap;
+      if (showProse) {
+        ink(150, 145, 135).write(`Keep $${piece} in your wallet.`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 10 + smallGap;
+      }
 
       // Main action button (prominent, glowing)
       const btnPulse = sin(rotation * 2.5) * 0.15 + 1;
@@ -2175,16 +2175,50 @@ function paint($) {
       btn.btn.box.w = confirmSize.w;
       btn.btn.box.h = confirmSize.h;
       paintLgBtn(confirmX, cy, confirmText, { ink, line: ink }, confirmScheme, btn.btn.down);
+      cy += confirmSize.h + smallGap;
+
+      // Network badge
+      if (showNetwork) {
+        const netLabel = KEEPS_STAGING ? "STAGING V3" : NETWORK.toUpperCase();
+        const isMainnet = NETWORK === "mainnet";
+        const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
+        ink(netColor[0], netColor[1], netColor[2], 200).write(netLabel, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 10 + smallGap;
+      }
+
+      // Contract button (clickable link to TzKT)
+      if (showContract) {
+        const contractScheme = pal.btnContract;
+        const shortContract = KEEPS_CONTRACT.slice(0, 8) + "..";
+        const contractSize = mc8ButtonSize(shortContract);
+        const contractX = floor((w - contractSize.w) / 2);
+        contractBtn.btn.box.x = contractX;
+        contractBtn.btn.box.y = cy;
+        contractBtn.btn.box.w = contractSize.w;
+        contractBtn.btn.box.h = contractSize.h;
+        paintMC8Btn(contractX, cy, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down);
+        cy += 12 + gap;
+      } else {
+        contractBtn.btn.box.x = 0;
+        contractBtn.btn.box.y = 0;
+        contractBtn.btn.box.w = 0;
+        contractBtn.btn.box.h = 0;
+      }
 
     } else if (pieceAuthorSub && !userSub) {
       // Piece has an author, but user is NOT logged in yet
-      ink(210, 160, 110).write("You can only keep KidLisp", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += 9 + tinyGap;
-      ink(210, 160, 110).write("that you authored.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += gap;
+      if (compact) {
+        ink(210, 160, 110).write("Login to keep your own KidLisp", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += gap;
+      } else {
+        ink(210, 160, 110).write("You can only keep KidLisp", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 9 + tinyGap;
+        ink(210, 160, 110).write("that you authored.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += gap;
 
-      ink(150, 150, 165).write("Login to verify ownership", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += 10 + smallGap;
+        ink(150, 150, 165).write("Login to verify ownership", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 10 + smallGap;
+      }
 
       // Login button with pulse
       const loginPulse = sin(rotation * 2) * 0.1 + 1;
@@ -2212,10 +2246,15 @@ function paint($) {
       ink(210, 110, 110).write("✗ Not your code", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 12 + tinyGap;
 
-      ink(180, 155, 145).write("You can only keep KidLisp", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += 9 + tinyGap;
-      ink(180, 155, 145).write("that you authored.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += 10 + smallGap;
+      if (compact) {
+        ink(180, 155, 145).write("Only the author can keep this", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 10 + smallGap;
+      } else {
+        ink(180, 155, 145).write("You can only keep KidLisp", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 9 + tinyGap;
+        ink(180, 155, 145).write("that you authored.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 10 + smallGap;
+      }
 
       ink(130, 130, 145).write(`Author: ${pieceAuthor || "unknown"}`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
 
