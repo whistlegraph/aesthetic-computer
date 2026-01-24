@@ -89,24 +89,46 @@
       const canvas = document.getElementById('boot-canvas');
       if (!canvas) return {};
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      let W = window.innerWidth, H = window.innerHeight;
-      canvas.width = W; canvas.height = H;
-      window.addEventListener('resize', () => { W = window.innerWidth; H = window.innerHeight; canvas.width = W; canvas.height = H; });
       
       // Detect KidLisp embedded mode (iframe with nolabel/nogap params)
       const isKidlispMode = window !== window.top && 
         (window.location.search.includes('nolabel=true') || window.location.search.includes('nogap=true'));
       
-      // Get density parameter for boot canvas scaling (higher density = larger UI elements)
-      // This makes boot text readable on high-DPI/4K displays like FF1
+      // Get density parameter for boot canvas scaling
       const urlParams = new URLSearchParams(window.location.search);
       const isDeviceMode = urlParams.get('device') === 'true';
       // In device mode, default to density 8 (FF1's typical setting) if not specified
       const densityParam = parseFloat(urlParams.get('density')) || (isDeviceMode ? 8 : 1);
-      // For density 8 (FF1 default), we want a scale of about 4x to make text visible
-      // Scale factor: density/2, clamped between 1-6
-      // Apply scaling in KidLisp mode OR device mode (FF1 direct access)
-      const bootScale = (isKidlispMode || isDeviceMode) ? Math.min(6, Math.max(1, densityParam / 2)) : 1;
+      
+      // Use simple boot animation for KidLisp or device mode
+      const useSimpleBootAnimation = isKidlispMode || isDeviceMode;
+      
+      // For device/KidLisp mode, scale DOWN the canvas resolution for crisp pixels
+      // The CSS keeps it fullscreen, but we render at lower resolution
+      const canvasScale = useSimpleBootAnimation ? (1 / densityParam) : 1;
+      
+      let W = Math.ceil(window.innerWidth * canvasScale);
+      let H = Math.ceil(window.innerHeight * canvasScale);
+      canvas.width = W; canvas.height = H;
+      
+      // Disable image smoothing for crisp pixel art look in device mode
+      if (useSimpleBootAnimation) {
+        ctx.imageSmoothingEnabled = false;
+        canvas.style.imageRendering = 'pixelated';
+      }
+      
+      window.addEventListener('resize', () => { 
+        W = Math.ceil(window.innerWidth * canvasScale); 
+        H = Math.ceil(window.innerHeight * canvasScale); 
+        canvas.width = W; 
+        canvas.height = H;
+        if (useSimpleBootAnimation) {
+          ctx.imageSmoothingEnabled = false;
+        }
+      });
+      
+      // bootScale is now 1 since we're scaling the canvas itself
+      const bootScale = 1;
       
       // Theme detection for light/dark mode support
       let isLightMode = window.matchMedia?.('(prefers-color-scheme: light)').matches;
@@ -166,9 +188,6 @@
       
       // Helper to get theme-aware colors
       const getKidlispColors = () => isLightMode ? KIDLISP_COLORS_LIGHT : KIDLISP_COLORS_DARK;
-      
-      // Use simple bar animation mode for KidLisp embedded OR direct device mode (FF1)
-      const useSimpleBootAnimation = isKidlispMode || isDeviceMode;
       
       // KidLisp mode state (also used for device mode)
       let kidlispLogs = [];
