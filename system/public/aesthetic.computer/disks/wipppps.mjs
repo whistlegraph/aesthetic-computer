@@ -39,6 +39,7 @@ let pauseOverlayStartTime = 0;
 let audioStarting = false; // NEW: Track when audio is starting but not yet playing
 let tapeAutoPlayStarted = false; // Track if auto-play has been triggered for tape mode
 let isCurrentlyRecording = false; // Track recording state for paint function
+let autoplayMode = false; // Autoplay mode for FF1/device displays (skip user gesture)
 
 // Emergency escape mechanism for stuck detection loops
 let emergencyTapCount = 0;
@@ -1379,8 +1380,14 @@ function startVisualTimeline(baseProgress, reason = "unspecified") {
 }
 
 // Boot function to load files over network
-export const boot = async ({ net }) => {
+export const boot = async ({ net, query }) => {
   netAPI = net;
+  
+  // Check for autoplay mode (for FF1/device displays)
+  if (query?.autoplay === "1" || query?.autoplay === "true" || query?.autoplay === true) {
+    autoplayMode = true;
+    console.log("🎵 AUTOPLAY: Enabled via query param");
+  }
   
   try {
     // Load the .als file
@@ -3114,6 +3121,53 @@ async function act({ event: e, sound, api }) {
     };
     
     // Temporarily override the event and recursively call act to trigger playback
+    return act({ event: syntheticTouchEvent, sound, api });
+  }
+
+  // 🎵 AUTOPLAY_MODE: Automatically start playback when autoplay=1 query param is set
+  // Used for FF1 and display devices that can't provide user gestures
+  if (autoplayMode && !isPlaying && !audioStarting && preloadedAudio && !tapeAutoPlayStarted) {
+    console.log("🎵 AUTOPLAY_MODE: Auto-starting playback (device/FF1 mode)");
+    tapeAutoPlayStarted = true; // Reuse this flag to prevent multiple auto-starts
+    
+    // Force audio context to running state
+    try {
+      if (sound.bios && sound.bios.audioContext) {
+        console.log(`🎵 AUTOPLAY_MODE: Audio context state: ${sound.bios.audioContext.state}`);
+        if (sound.bios.audioContext.state === 'suspended') {
+          console.log("🎵 AUTOPLAY_MODE: Resuming suspended audio context");
+          sound.bios.audioContext.resume();
+        }
+      }
+    } catch (error) {
+      console.log("🎵 AUTOPLAY_MODE: Could not check audio context:", error);
+    }
+    
+    // Try to start audio directly
+    try {
+      if (preloadedAudio && typeof preloadedAudio.play === 'function') {
+        console.log("🎵 AUTOPLAY_MODE: Attempting direct audio play");
+        const playPromise = preloadedAudio.play();
+        if (playPromise && playPromise.then) {
+          playPromise.then(() => {
+            console.log("🎵 AUTOPLAY_MODE: Direct audio play succeeded");
+            isPlaying = true;
+            audioStarting = false;
+            startAudioStartDetection();
+          }).catch(err => {
+            console.log("🎵 AUTOPLAY_MODE: Direct audio play failed, trying synthetic event:", err);
+            const syntheticTouchEvent = { is: (type) => type === "touch" };
+            return act({ event: syntheticTouchEvent, sound, api });
+          });
+        }
+        return;
+      }
+    } catch (error) {
+      console.log("🎵 AUTOPLAY_MODE: Direct play error:", error);
+    }
+    
+    // Fallback: use synthetic touch event
+    const syntheticTouchEvent = { is: (type) => type === "touch" };
     return act({ event: syntheticTouchEvent, sound, api });
   }
 
