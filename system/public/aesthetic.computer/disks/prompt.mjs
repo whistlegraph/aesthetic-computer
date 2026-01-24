@@ -121,6 +121,9 @@ let progressPercentage = 0; // 0-100
 let bundleProgress = null; // { stage, message, startTime, animPhase }
 const BUNDLE_STAGES = ['fetch', 'deps', 'cache-hit', 'discover', 'minify', 'paintings', 'fonts', 'generate', 'compress', 'complete'];
 
+// 🎄 Autorun state (for URL-based command execution like merry URLs)
+let pendingAutorun = null; // { text: string, api: object }
+
 // Manual adjustment for ꜩ symbol (unifont has yOffset: -2 which shifts it down)
 const TEZ_Y_ADJUST = -5;
 
@@ -774,7 +777,10 @@ async function boot({
   }
   // Handle params - content is already decoded by parse.mjs
   if (params[0]) {
-    const text = params.join(" "); // Already decoded, just join if multiple params
+    // Check for !autorun flag (last param) - auto-execute the command
+    const hasAutorun = params[params.length - 1] === "!autorun";
+    const effectiveParams = hasAutorun ? params.slice(0, -1) : params;
+    const text = effectiveParams.join(" "); // Already decoded, just join if multiple params
 
     // Set the text and user text first before activating
     system.prompt.input.text = text;
@@ -783,10 +789,15 @@ async function boot({
     system.prompt.input.snap();
     send({ type: "keyboard:text:replace", content: { text } });
 
-    activated({ ...api, params }, true);
+    activated({ ...api, params: effectiveParams }, true);
     system.prompt.input.canType = true;
     send({ type: "keyboard:unlock" });
     send({ type: "keyboard:open" }); // Necessary for desktop.
+
+    // If !autorun was specified, schedule execution via sim function
+    if (hasAutorun) {
+      pendingAutorun = { text };
+    }
 
     // Ensure text and cursor position persist after any system initialization
     setTimeout(() => {
@@ -7285,6 +7296,16 @@ function paint($) {
 
 // 🧮 Sim
 function sim($) {
+  // 🎄 Handle pending autorun commands (from URL-based merry, etc.)
+  if (pendingAutorun) {
+    const { text } = pendingAutorun;
+    pendingAutorun = null; // Clear immediately to prevent re-execution
+    // Execute the command via halt
+    if ($.system.prompt.input.text === text) {
+      halt($, text);
+    }
+  }
+
   ellipsisTicker?.sim();
   progressTrick?.step();
 
