@@ -10,9 +10,12 @@
   - /status - Check if bridge is running
   - /discover - Find FF1 devices on the network
   - /cast - Send a URL/piece to an FF1 device
+  
+  This works from aesthetic.computer (HTTPS) because localhost requests
+  are allowed from secure contexts (not blocked by Mixed Content).
 #endregion */
 
-const FF1_BRIDGE_URL = "http://127.0.0.1:19999";
+import { ff1 as bridge } from "./common/ff1.mjs";
 
 let status = "checking"; // checking, connected, disconnected, sending, sent, error
 let statusMessage = "Checking for desktop app...";
@@ -43,63 +46,33 @@ export function boot({ params, net }) {
 }
 
 async function checkBridge() {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
+  const result = await bridge.checkBridge();
+  
+  if (result.available) {
+    status = "connected";
+    statusMessage = "Desktop app connected!";
+    // Auto-discover devices
+    await discoverDevices();
     
-    const response = await fetch(`${FF1_BRIDGE_URL}/status`, {
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.ok) {
-        status = "connected";
-        statusMessage = "Desktop app connected!";
-        // Auto-discover devices
-        await discoverDevices();
-        
-        // If we have a piece to send and devices, auto-send
-        if (pieceToSend && devices.length > 0) {
-          await sendToFF1(pieceToSend);
-        }
-      } else {
-        status = "disconnected";
-        statusMessage = "Bridge not responding";
-      }
-    } else {
-      status = "disconnected";
-      statusMessage = "Bridge returned error";
+    // If we have a piece to send and devices, auto-send
+    if (pieceToSend && devices.length > 0) {
+      await sendToFF1(pieceToSend);
     }
-  } catch (e) {
+  } else {
     status = "disconnected";
-    statusMessage = "Desktop app not running";
+    statusMessage = result.error || "Desktop app not running";
   }
 }
 
 async function discoverDevices() {
-  try {
-    statusMessage = "Discovering FF1 devices...";
-    
-    const response = await fetch(`${FF1_BRIDGE_URL}/discover`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-    
-    const data = await response.json();
-    if (data.ok && data.devices) {
-      devices = data.devices;
-      if (devices.length > 0) {
-        selectedDevice = devices[0];
-        statusMessage = `Found ${devices.length} FF1 device${devices.length > 1 ? "s" : ""}`;
-      } else {
-        statusMessage = "No FF1 devices found on network";
-      }
-    }
-  } catch (e) {
-    statusMessage = "Failed to discover devices: " + e.message;
+  statusMessage = "Discovering FF1 devices...";
+  devices = await bridge.discoverDevices(true);
+  
+  if (devices.length > 0) {
+    selectedDevice = devices[0];
+    statusMessage = `Found ${devices.length} FF1 device${devices.length > 1 ? "s" : ""}`;
+  } else {
+    statusMessage = "No FF1 devices found on network";
   }
 }
 
@@ -111,56 +84,18 @@ async function sendToFF1(piece) {
   }
   
   status = "sending";
-  statusMessage = `Sending "${piece}" to ${selectedDevice.info?.deviceId || selectedDevice.ip}...`;
+  const deviceName = selectedDevice.info?.deviceId || selectedDevice.ip;
+  statusMessage = `Sending "${piece}" to ${deviceName}...`;
   
-  try {
-    // Build the URL to send - use device.kidlisp.com or aesthetic.computer
-    const baseUrl = "https://aesthetic.computer";
-    const pieceUrl = `${baseUrl}/${piece}`;
-    
-    // Build DP-1 playlist
-    const playlist = {
-      dpVersion: "1.0.0",
-      items: [{
-        source: pieceUrl,
-        duration: 0, // Infinite
-        license: "open",
-        provenance: {
-          type: "offChainURI",
-          uri: pieceUrl,
-        },
-      }],
-    };
-    
-    const payload = {
-      deviceId: selectedDevice.info?.deviceId || selectedDevice.deviceId,
-      deviceIp: selectedDevice.ip,
-      command: "displayPlaylist",
-      request: {
-        playlist: playlist,
-        intent: { action: "now_display" },
-      },
-    };
-    
-    const response = await fetch(`${FF1_BRIDGE_URL}/cast`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    
-    const result = await response.json();
-    lastSendResult = result;
-    
-    if (result.ok) {
-      status = "sent";
-      statusMessage = `✓ Sent "${piece}" to FF1!`;
-    } else {
-      status = "error";
-      statusMessage = `Failed: ${result.error || "Unknown error"}`;
-    }
-  } catch (e) {
+  const result = await bridge.cast(piece, selectedDevice);
+  lastSendResult = result;
+  
+  if (result.ok) {
+    status = "sent";
+    statusMessage = `✓ Sent "${piece}" to FF1!`;
+  } else {
     status = "error";
-    statusMessage = `Error: ${e.message}`;
+    statusMessage = `Failed: ${result.error || "Unknown error"}`;
   }
 }
 
