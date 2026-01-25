@@ -271,6 +271,7 @@ let lowLatencyMode = false;
 let audioReinitRequested = false;
 let pendingAudioReinit = false;
 let bootTimestamp = 0; // Set in boot() to detect pre-boot stuck notes
+let storedSampleRate = null; // Store sample rate at boot for layout calculations
 let miniInputsEnabled = true; // Show mini piano/qwerty when there is space
 let paintPerfEnabled = false; // Console timing logs for paint
 let paintPerfEvery = 60; // Log every N frames
@@ -1009,6 +1010,9 @@ async function boot({
     window.__acSpeakerPerformanceMode = "disabled"; // Skip heavy analysis work in the worklet
   }
   lowLatencyMode = true;
+  
+  // Store sample rate for layout calculations
+  storedSampleRate = sound?.sampleRate || (typeof window !== "undefined" ? window.audioContext?.sampleRate : null);
 
   if (Array.isArray(colon)) {
     if (colon.includes("perf")) {
@@ -6186,15 +6190,28 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
   const btnHeight = SECONDARY_BAR_HEIGHT - 2;
   const btnY = SECONDARY_BAR_TOP + 1;
   const glyphWidth = typeface?.glyphs?.["0"]?.resolution?.[0] ?? matrixFont?.glyphs?.["0"]?.resolution?.[0] ?? 6;
+  const glyphMetrics = resolveMatrixGlyphMetrics();
+  
+  // Calculate actual MIDI badge width (same logic as computeMidiBadgeTopMetrics)
+  // Use stored sample rate or fallback to window.audioContext
+  const sampleRate = storedSampleRate || (typeof window !== "undefined" ? window.audioContext?.sampleRate : null);
+  const sampleRateText = getSampleRateText(sampleRate);
+  const midiWidth = 4 * glyphMetrics.width; // "MIDI"
+  const divWidth = 5; // divider + spacing
+  const shortRate = sampleRateText ? sampleRateText.replace("Hz", "") : "";
+  const rateWidth = shortRate.length * glyphMetrics.width;
+  const fpsWidth = 2 * glyphMetrics.width; // "60" or "--"
+  const totalMidiTextWidth = midiWidth + divWidth + rateWidth + divWidth + fpsWidth;
+  const midiBadgeWidth = totalMidiTextWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
+  
+  // Left reserved = MIDI badge margin + badge width + gap
+  const leftReserved = MIDI_BADGE_MARGIN + midiBadgeWidth + 5;
+  const rightMargin = 6;
   
   // Fixed elements: [-] [BPM] [+]
   const minusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;
   const plusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;
   const bpmTextWidth = 3 * glyphWidth + TOGGLE_BTN_PADDING_X * 2;
-  
-  // Reserved left area (MIDI badge + waveform stream ~54px + ~52px + gap)
-  const leftReserved = 54;
-  const rightMargin = 6;
   
   // Available width for metronome + toggle buttons
   const availableWidth = screen.width - leftReserved - rightMargin;
@@ -6260,7 +6277,7 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
     toggleX += width + TOGGLE_BTN_GAP;
   });
   
-  // Position metronome controls from left, after reserved area
+  // Position metronome controls from left, after MIDI badge
   let btnX = leftReserved;
   
   // Build minus button
