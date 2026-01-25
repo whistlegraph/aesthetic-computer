@@ -30,7 +30,7 @@
   ; (label "'train', 25.06.20.07.29")
 ;  (label "")
 
-; (label "")
+(label "")
 (once (wipe black))
 
 (0.5s (zoom 0.5))

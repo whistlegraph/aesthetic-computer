@@ -3558,7 +3558,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     content: {
       parsed,
       debug,
-      debugHud: true,
+      debugHud: false,
       rootPiece: window.acSTARTING_PIECE,
       user: window.acUSER,
       lanHost: window.acLAN_HOST,
