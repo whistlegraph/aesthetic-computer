@@ -1341,18 +1341,26 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
       output[1][s] = volume2.apply(output[1][s] / this.#mixDivisor);
       if (glitchEnabled) {
         if (this.#glitchHoldCounter <= 0) {
-          const jitter = glitchJitter ? (Math.random() - 0.5) * glitchJitter : 0;
-          const holdSamples = Math.max(1, Math.floor(this.#glitchHoldSamples * (1 + jitter)));
+          const jitter = glitchJitter ? (Math.random() - 0.5) * glitchJitter * 0.6 : 0;
+          const rateSwing = (Math.random() * 0.3 - 0.15) * (0.4 + glitchJitter);
+          const holdSamples = Math.max(1, Math.floor(this.#glitchHoldSamples * (1 + jitter + rateSwing)));
           this.#glitchHoldCounter = holdSamples;
-          this.#glitchHeldLeft = output[0][s];
-          this.#glitchHeldRight = output[1][s];
+          if (Math.random() < 0.08 + glitchJitter * 0.15) {
+            this.#glitchHeldLeft = output[0][s];
+            this.#glitchHeldRight = output[1][s];
+          }
         }
         this.#glitchHoldCounter -= 1;
-        const crushLevels = 2 ** glitchCrush;
+        const crushLevels = 2 ** Math.max(4, glitchCrush);
         const crushedLeft = Math.round(this.#glitchHeldLeft * crushLevels) / crushLevels;
         const crushedRight = Math.round(this.#glitchHeldRight * crushLevels) / crushLevels;
-        output[0][s] = output[0][s] * (1 - glitchMix) + crushedLeft * glitchMix;
-        output[1][s] = output[1][s] * (1 - glitchMix) + crushedRight * glitchMix;
+        const skipChance = 1e-3 + glitchJitter * 0.01;
+        const skipMix = Math.random() < skipChance ? 0.2 : 0;
+        const wetMix = glitchMix * (0.15 + Math.random() * 0.25);
+        output[0][s] = output[0][s] * (1 - wetMix) + crushedLeft * wetMix;
+        output[1][s] = output[1][s] * (1 - wetMix) + crushedRight * wetMix;
+        output[0][s] *= 1 - skipMix;
+        output[1][s] *= 1 - skipMix;
       }
       if (roomEnabled) {
         if (s === 0 && Math.floor(currentTime2) !== this._lastReverbLogTime) {
