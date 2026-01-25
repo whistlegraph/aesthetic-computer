@@ -1894,22 +1894,30 @@ function getButtonLayoutMetrics(
   // Only reserve top space if using vertical layout (not horizontal)
   const reservedTop = baseReservedTop + (showMiniInputs && verticalSpaceForMini && !horizontalSpaceForMini ? keyboardReservedBase : 0);
 
-  const widthLimit = ceil((usableWidth - margin * 2) / buttonsPerRow);
-  const maxButtonSize = 48;
-
+  // Calculate maximum button dimensions to fill available space
+  const widthLimit = floor((usableWidth - margin * 2) / buttonsPerRow);
+  const available = max(0, screen.height - bottomPadding - reservedTop);
+  const heightLimit = floor(available / totalRows);
+  
+  // In single-column mode, maximize pad size - allow non-square pads to fill space
+  // Use minimum of width/height to keep some proportionality, but don't cap artificially
+  const maxDimension = min(widthLimit, heightLimit);
+  const maxButtonSize = 64; // Allow larger pads on bigger screens
+  
+  // Width fills horizontal space (up to max)
   let buttonWidth = min(maxButtonSize, widthLimit);
   buttonWidth = max(minButtonSize, buttonWidth);
-  buttonWidth = min(buttonWidth, widthLimit);
-  let buttonHeight = buttonWidth;
-
-  const available = max(0, screen.height - bottomPadding - reservedTop);
-
-  if (available < totalRows * buttonHeight) {
-    const maxPerRow = max(minButtonSize, floor(available / totalRows));
-    buttonHeight = maxPerRow;
-    buttonWidth = min(buttonWidth, maxPerRow, widthLimit);
-  } else {
-    buttonWidth = min(buttonWidth, widthLimit);
+  
+  // Height fills vertical space independently (up to max, min of width for proportionality)
+  let buttonHeight = min(maxButtonSize, heightLimit);
+  buttonHeight = max(minButtonSize, buttonHeight);
+  
+  // Keep some proportionality - don't let aspect ratio get too extreme
+  const aspectRatio = buttonWidth / buttonHeight;
+  if (aspectRatio > 1.5) {
+    buttonWidth = floor(buttonHeight * 1.5);
+  } else if (aspectRatio < 0.67) {
+    buttonHeight = floor(buttonWidth * 1.5);
   }
 
   const buttonsAreaHeight = totalRows * buttonHeight;
@@ -6197,15 +6205,15 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
   const sampleRate = storedSampleRate || (typeof window !== "undefined" ? window.audioContext?.sampleRate : null);
   const sampleRateText = getSampleRateText(sampleRate);
   const midiWidth = 4 * glyphMetrics.width; // "MIDI"
-  const divWidth = 5; // divider + spacing
+  const divWidth = 5; // divider (2px) + spacing (3px)
   const shortRate = sampleRateText ? sampleRateText.replace("Hz", "") : "";
   const rateWidth = shortRate.length * glyphMetrics.width;
-  const fpsWidth = 2 * glyphMetrics.width; // "60" or "--"
+  const fpsWidth = 3 * glyphMetrics.width; // FPS can be 3 chars like "120"
   const totalMidiTextWidth = midiWidth + divWidth + rateWidth + divWidth + fpsWidth;
-  const midiBadgeWidth = totalMidiTextWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
+  const midiBadgeWidth = totalMidiTextWidth + MIDI_BADGE_PADDING_X + 4; // +4 for safety margin
   
   // Left reserved = MIDI badge margin + badge width + gap
-  const leftReserved = MIDI_BADGE_MARGIN + midiBadgeWidth + 5;
+  const leftReserved = MIDI_BADGE_MARGIN + midiBadgeWidth + 4;
   const rightMargin = 6;
   
   // Fixed elements: [-] [BPM] [+]
