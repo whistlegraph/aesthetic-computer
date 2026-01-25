@@ -7727,9 +7727,12 @@ async function load(
       objktContext = { author: window.acOBJKT_COLOPHON.build.author };
     }
     
+    // Use parsed.piece for the title (just the piece name, not full slug with params)
+    const titleSlug = parsed.piece || slug;
+    
     const { title, desc, ogImage, twitterImage, icon } = metadata(
       location.host, // "aesthetic.computer",
-      slug,
+      titleSlug,
       loadedModule.meta?.({
         ...parsed,
         num: $commonApi.num,

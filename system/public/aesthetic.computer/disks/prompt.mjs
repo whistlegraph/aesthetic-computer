@@ -1805,7 +1805,10 @@ async function halt($, text) {
       try {
         progressPhase = "FINISHING...";
         console.log(`📞 Calling upload with recordingSlug: ${recordingSlug}`);
-        const data = await upload(filename, store["painting"], (p) => {
+        const uploadData = store["painting:tags"]
+          ? { ...store["painting"], tags: store["painting:tags"] }
+          : store["painting"];
+        const data = await upload(filename, uploadData, (p) => {
           console.log("🖌️ Painting progress:", p);
           if (p < 1.0) {
             // During S3 upload: 30-80%
@@ -1820,6 +1823,10 @@ async function halt($, text) {
           needsPaint(); // Update display during upload
         }, undefined, recordingSlug); // Pass bucket as undefined (use auth), recordingSlug as 5th param
         console.log("🪄 Painting uploaded:", filename, data);
+        if (store["painting:tags"]) {
+          delete store["painting:tags"];
+          store.persist?.("painting:tags", "local:db");
+        }
 
         // The upload function includes the database call, so this happens after everything
         progressPhase = "COMPLETE";
@@ -1950,11 +1957,18 @@ async function halt($, text) {
 
       try {
         console.log(`📞 Calling upload with recordingSlug: ${recordingSlug}`);
-        const data = await upload(filename, store["painting"], (p) => {
+        const uploadData = store["painting:tags"]
+          ? { ...store["painting"], tags: store["painting:tags"] }
+          : store["painting"];
+        const data = await upload(filename, uploadData, (p) => {
           console.log("🖌️ Painting progress:", p);
           progressBar = p;
         }, undefined, recordingSlug); // Pass bucket as undefined (use auth), recordingSlug as 5th param
         console.log("🪄 Painting uploaded:", filename, data);
+        if (store["painting:tags"]) {
+          delete store["painting:tags"];
+          store.persist?.("painting:tags", "local:db");
+        }
 
         // Show completed progress bar briefly before jumping
         progressBar = 1.0; // Full bar
@@ -2032,6 +2046,15 @@ async function halt($, text) {
     return true;
   } else if (slug === "p" || slug === "pain") {
     jump("painting");
+    return true;
+  } else if (slug === "stample") {
+    const arg = params[0];
+    if (arg) {
+      const safeArg = arg.startsWith("#") ? `%23${arg.slice(1)}` : arg;
+      jump(["stample", safeArg].join("~"));
+    } else {
+      jump("stample");
+    }
     return true;
   } else if (slug === "load") {
     // Load a file via URL.
