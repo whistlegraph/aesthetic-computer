@@ -348,7 +348,25 @@ const SECONDARY_BAR_HEIGHT = 12;
 const SECONDARY_BAR_BOTTOM = SECONDARY_BAR_TOP + SECONDARY_BAR_HEIGHT;
 const TOGGLE_BTN_PADDING_X = 2;
 const TOGGLE_BTN_PADDING_Y = 2;
-const TOGGLE_BTN_GAP = 3;
+const TOGGLE_BTN_GAP = 2;
+
+// Responsive label shortening for tight layouts
+const LABEL_VARIANTS = {
+  slide: ["slide", "sld", "s"],
+  room: ["room", "rm", "r"],
+  glitch: ["glitch", "glt", "g"],
+  quick: ["quick", "qk", "q"],
+  metro: ["metro", "mtr", "m"],
+};
+
+// Current chosen labels (set by buildSecondaryBarLayout)
+let secondaryBarLabels = {
+  slide: "slide",
+  room: "room", 
+  glitch: "glitch",
+  quick: "quick",
+  metro: "metro",
+};
 
 const MELODY_ALIAS_BASE_SIDE = 72;
 const MELODY_ALIAS_MIN_SIDE = 56;
@@ -2226,25 +2244,25 @@ function paint({
     slideBtn?.paint((btn) => {
       const active = slide;
       ink(...(active ? recitalColor : recitalDim), active ? 180 : 80).box(btn.box, "outline");
-      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write("slide", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write(secondaryBarLabels.slide, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
     roomBtn?.paint((btn) => {
       const active = roomMode;
       ink(...(active ? recitalColor : recitalDim), active ? 180 : 80).box(btn.box, "outline");
-      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write("room", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write(secondaryBarLabels.room, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
 
     glitchBtn?.paint((btn) => {
       const active = glitchMode;
       ink(...(active ? recitalColor : recitalDim), active ? 180 : 80).box(btn.box, "outline");
-      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write("glitch", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write(secondaryBarLabels.glitch, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
     quickBtn?.paint((btn) => {
       const active = quickFade;
       ink(...(active ? recitalColor : recitalDim), active ? 180 : 80).box(btn.box, "outline");
-      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write("quick", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write(secondaryBarLabels.quick, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
     // 🥁 Wireframe metronome controls in recital mode
@@ -2271,7 +2289,7 @@ function paint({
       // Flash the button on beat in recital mode
       const flashAlpha = active && metronomeVisualPhase > 0.5 ? 255 : (active ? 180 : 80);
       ink(...(active ? recitalColor : recitalDim), flashAlpha).box(btn.box, "outline");
-      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write("metro", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write(secondaryBarLabels.metro, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
   }
 
@@ -2295,7 +2313,7 @@ function paint({
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(btn.box);
       }
-      ink(textColor).write("slide", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(textColor).write(secondaryBarLabels.slide, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
     // Paint room button
@@ -2313,7 +2331,7 @@ function paint({
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(btn.box);
       }
-      ink(textColor).write("room", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(textColor).write(secondaryBarLabels.room, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
 
     // Paint glitch button
@@ -2331,7 +2349,7 @@ function paint({
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(btn.box);
       }
-      ink(textColor).write("glitch", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(textColor).write(secondaryBarLabels.glitch, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
     // Paint quick button
@@ -2349,7 +2367,7 @@ function paint({
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(btn.box);
       }
-      ink(textColor).write("quick", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(textColor).write(secondaryBarLabels.quick, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
 
     // 🥁 Paint metronome controls: [-] [BPM] [+] [metro]
@@ -2404,7 +2422,7 @@ function paint({
       if (metronomeEnabled && metronomeVisualPhase > 0.5) {
         ink(255, 255, 255, Math.floor(metronomeVisualPhase * 80)).box(btn.box);
       }
-      ink(textColor).write("metro", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(textColor).write(secondaryBarLabels.metro, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
 
     // 🔌🎹 Draw USB/MIDI/sample-rate badge on the left side of the mini bar
@@ -6160,29 +6178,95 @@ function buildOctButton({ screen, ui, typeface }) {
   octBtn.id = "oct-button";  // Add identifier for debugging
 }
 
-// Build metronome controls: [-] [BPM] [+] [metro]
+// Build metronome controls and toggle buttons with responsive layout
+// Calculates available space and shortens labels as needed to prevent overlap
 function buildMetronomeButtons({ screen, ui, typeface, text }) {
   const btnHeight = SECONDARY_BAR_HEIGHT - 2;
   const btnY = SECONDARY_BAR_TOP + 1;
   const glyphWidth = typeface?.glyphs?.["0"]?.resolution?.[0] ?? matrixFont?.glyphs?.["0"]?.resolution?.[0] ?? 6;
   
-  // Calculate widths for each element
-  const minusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2; // "-"
-  const plusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;  // "+"
-  const bpmTextWidth = 3 * glyphWidth + TOGGLE_BTN_PADDING_X * 2; // "120"
-  const metroLabelWidth = measureMatrixTextBoxWidth("metro", { text }, screen.width) || (5 * glyphWidth);
-  const metroBtnWidth = metroLabelWidth + TOGGLE_BTN_PADDING_X * 2;
+  // Fixed elements: [-] [BPM] [+]
+  const minusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;
+  const plusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;
+  const bpmTextWidth = 3 * glyphWidth + TOGGLE_BTN_PADDING_X * 2;
   
-  // Position after the FPS graph area (around x=54 + graph width ~52 + some gap)
-  // This puts metronome between FPS graph and slide button
-  let btnX = 112; // Start after MIDI badge + waveform graph area
+  // Reserved left area (MIDI badge + waveform stream ~54px + ~52px + gap)
+  const leftReserved = 54;
+  const rightMargin = 6;
+  
+  // Available width for metronome + toggle buttons
+  const availableWidth = screen.width - leftReserved - rightMargin;
+  
+  // Calculate width needed for each label variant level
+  const calcLabelWidth = (label) => {
+    return (measureMatrixTextBoxWidth(label, { text }, screen.width) || (label.length * glyphWidth)) + TOGGLE_BTN_PADDING_X * 2;
+  };
+  
+  // Fixed metronome elements width
+  const metroFixedWidth = minusBtnWidth + 1 + bpmTextWidth + 1 + plusBtnWidth + TOGGLE_BTN_GAP;
+  
+  // Try different label lengths until everything fits
+  let variantLevel = 0;
+  let totalNeeded = Infinity;
+  
+  while (variantLevel < 3 && totalNeeded > availableWidth) {
+    // Get labels at this variant level
+    const metroLabel = LABEL_VARIANTS.metro[Math.min(variantLevel, LABEL_VARIANTS.metro.length - 1)];
+    const slideLabel = LABEL_VARIANTS.slide[Math.min(variantLevel, LABEL_VARIANTS.slide.length - 1)];
+    const roomLabel = LABEL_VARIANTS.room[Math.min(variantLevel, LABEL_VARIANTS.room.length - 1)];
+    const glitchLabel = LABEL_VARIANTS.glitch[Math.min(variantLevel, LABEL_VARIANTS.glitch.length - 1)];
+    const quickLabel = LABEL_VARIANTS.quick[Math.min(variantLevel, LABEL_VARIANTS.quick.length - 1)];
+    
+    const metroBtnWidth = calcLabelWidth(metroLabel);
+    const toggleWidths = calcLabelWidth(slideLabel) + calcLabelWidth(roomLabel) + 
+                        calcLabelWidth(glitchLabel) + calcLabelWidth(quickLabel) + (3 * TOGGLE_BTN_GAP);
+    
+    totalNeeded = metroFixedWidth + metroBtnWidth + TOGGLE_BTN_GAP + toggleWidths;
+    variantLevel++;
+  }
+  
+  // Use the labels that fit (or shortest if nothing fits)
+  const finalLevel = Math.min(variantLevel - 1, 2);
+  secondaryBarLabels = {
+    metro: LABEL_VARIANTS.metro[Math.min(finalLevel, LABEL_VARIANTS.metro.length - 1)],
+    slide: LABEL_VARIANTS.slide[Math.min(finalLevel, LABEL_VARIANTS.slide.length - 1)],
+    room: LABEL_VARIANTS.room[Math.min(finalLevel, LABEL_VARIANTS.room.length - 1)],
+    glitch: LABEL_VARIANTS.glitch[Math.min(finalLevel, LABEL_VARIANTS.glitch.length - 1)],
+    quick: LABEL_VARIANTS.quick[Math.min(finalLevel, LABEL_VARIANTS.quick.length - 1)],
+  };
+  
+  const metroBtnWidth = calcLabelWidth(secondaryBarLabels.metro);
+  
+  // Calculate toggle button widths with chosen labels
+  const toggleBtns = [
+    { key: "slide", width: calcLabelWidth(secondaryBarLabels.slide) },
+    { key: "room", width: calcLabelWidth(secondaryBarLabels.room) },
+    { key: "glitch", width: calcLabelWidth(secondaryBarLabels.glitch) },
+    { key: "quick", width: calcLabelWidth(secondaryBarLabels.quick) },
+  ];
+  const toggleTotalWidth = toggleBtns.reduce((sum, b) => sum + b.width, 0) + (toggleBtns.length - 1) * TOGGLE_BTN_GAP;
+  
+  // Position toggle buttons from right side
+  let toggleX = screen.width - rightMargin - toggleTotalWidth;
+  toggleBtns.forEach(({ key, width }) => {
+    const btn = new ui.Button(toggleX, btnY, width, btnHeight);
+    btn.id = `${key}-toggle`;
+    if (key === "slide") slideBtn = btn;
+    else if (key === "room") roomBtn = btn;
+    else if (key === "glitch") glitchBtn = btn;
+    else if (key === "quick") quickBtn = btn;
+    toggleX += width + TOGGLE_BTN_GAP;
+  });
+  
+  // Position metronome controls from left, after reserved area
+  let btnX = leftReserved;
   
   // Build minus button
   bpmMinusBtn = new ui.Button(btnX, btnY, minusBtnWidth, btnHeight);
   bpmMinusBtn.id = "bpm-minus";
   btnX += minusBtnWidth + 1;
   
-  // BPM display area (not a button, just for layout reference)
+  // BPM display area
   const bpmDisplayX = btnX;
   btnX += bpmTextWidth + 1;
   
@@ -6195,56 +6279,15 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
   metroBtn = new ui.Button(btnX, btnY, metroBtnWidth, btnHeight);
   metroBtn.id = "metro-toggle";
   
-  // Store the BPM display position for paint
+  // Store BPM display position for paint
   metroBtn.bpmDisplayX = bpmDisplayX;
   metroBtn.bpmDisplayWidth = bpmTextWidth;
 }
 
-// Build toggle buttons for slide, room, glitch, quick modes in secondary top bar
+// Build toggle buttons - now handled by buildMetronomeButtons for unified layout
 function buildToggleButtons({ screen, ui, typeface, text }) {
-  // Use MatrixChunky8 text.box width when available
-  
-  const labels = ["slide", "room", "glitch", "quick"];
-  const btnHeight = SECONDARY_BAR_HEIGHT - 2;
-  const btnY = SECONDARY_BAR_TOP + 1;
-  
-  // Calculate total width of all buttons to right-align them
-  let totalWidth = 0;
-  labels.forEach((label) => {
-    // Width = text width + padding on each side
-    const labelWidth =
-      measureMatrixTextBoxWidth(label, { text }, screen.width) ||
-      measureMatrixTextWidth(label, typeface);
-    totalWidth += labelWidth + TOGGLE_BTN_PADDING_X * 2;
-  });
-  totalWidth += (labels.length - 1) * TOGGLE_BTN_GAP;
-  
-  // Start from right side with margin
-  let btnX = screen.width - totalWidth - 6;
-  
-  labels.forEach((label, index) => {
-    // Width = text width + padding on each side
-    const labelWidth =
-      measureMatrixTextBoxWidth(label, { text }, screen.width) ||
-      measureMatrixTextWidth(label, typeface);
-    const btnWidth = labelWidth + TOGGLE_BTN_PADDING_X * 2;
-    
-    if (label === "slide") {
-      slideBtn = new ui.Button(btnX, btnY, btnWidth, btnHeight);
-      slideBtn.id = "slide-toggle";
-    } else if (label === "room") {
-      roomBtn = new ui.Button(btnX, btnY, btnWidth, btnHeight);
-      roomBtn.id = "room-toggle";
-    } else if (label === "glitch") {
-      glitchBtn = new ui.Button(btnX, btnY, btnWidth, btnHeight);
-      glitchBtn.id = "glitch-toggle";
-    } else if (label === "quick") {
-      quickBtn = new ui.Button(btnX, btnY, btnWidth, btnHeight);
-      quickBtn.id = "quick-toggle";
-    }
-    
-    btnX += btnWidth + TOGGLE_BTN_GAP;
-  });
+  // Toggle buttons are now built in buildMetronomeButtons for responsive layout
+  // This function is kept for backwards compatibility but does nothing
 }
 
 let primaryColor = [0, 0, 0];
