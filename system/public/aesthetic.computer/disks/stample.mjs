@@ -35,6 +35,7 @@ const maxPats = 10;
 const bitmapPreviewSize = 120;
 const bitmapPreviewMargin = 6;
 const bitmapColumnWidth = 148;
+const recordingBitmapWidth = 200; // Larger preview during recording
 
 let loop = true; // Global setting.
 
@@ -194,14 +195,86 @@ function sim({ sound }) {
 
   mic?.poll(); // Query for updated amplitude and waveform data.
   sound.speaker?.poll();
+  
+  // Live encode recording buffer to bitmap preview
+  if (mic?.recording && mic?.recordingBuffer?.buffer?.length > 0) {
+    const liveEncoded = encodeSampleToBitmap(mic.recordingBuffer.buffer);
+    if (liveEncoded) {
+      bitmapPreview = {
+        width: liveEncoded.width,
+        height: liveEncoded.height,
+        pixels: liveEncoded.pixels,
+      };
+    }
+  }
 }
 
 function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
-  if (mic.recording) {
-    wipe("red");
-  } else {
-    wipe(0, 0, 255);
+  const isRecording = mic?.recording;
+  
+  if (isRecording) {
+    wipe(40, 0, 0); // Dark red background
+    
+    // 🔴 RECORDING MODE: Show large live bitmap preview - CENTERED
+    const margin = 20;
+    const stopBtnH = 40;
+    const livePreviewW = Math.min(screen.width - margin * 2, 300);
+    const livePreviewH = screen.height - labelHeight - stopBtnH - margin * 3;
+    const livePreviewX = (screen.width - livePreviewW) / 2;
+    const livePreviewY = labelHeight + margin;
+    
+    // Dark background for preview area
+    ink("black", 220).box(livePreviewX - 4, livePreviewY - 4, livePreviewW + 8, livePreviewH + 8);
+    
+    if (bitmapPreview?.pixels?.length) {
+      // Draw the live-filling bitmap
+      api.paste(bitmapPreview, livePreviewX, livePreviewY, {
+        width: livePreviewW,
+        height: livePreviewH,
+      });
+    } else {
+      ink("red", 60).box(livePreviewX, livePreviewY, livePreviewW, livePreviewH);
+      ink("white", 120).write("recording...", livePreviewX + livePreviewW/2 - 30, livePreviewY + livePreviewH / 2 - 6);
+    }
+    
+    // Show recording stats at top
+    const sampleCount = mic?.recordingBuffer?.length || 0;
+    const fullLength = sampleCount * 128; // Undo downsampling to estimate real length
+    const duration = fullLength > 0 ? (fullLength / 48000).toFixed(1) : "0.0";
+    ink("white").write(`REC ${duration}s`, 10, 6);
+    if (bitmapPreview?.width) {
+      ink("yellow").write(`${bitmapPreview.width}x${bitmapPreview.height}px`, screen.width - 80, 6);
+    }
+    
+    // Live waveform indicator at top right
+    if (mic?.waveform?.length > 0) {
+      const waveX = screen.width - 60;
+      const waveY = labelHeight + 4;
+      const waveW = 50;
+      const waveH = 20;
+      ink("black", 150).box(waveX - 2, waveY - 2, waveW + 4, waveH + 4);
+      sound.paint.waveform(api, mic.amplitude, mic.waveform, waveX, waveY, waveW, waveH);
+    }
+    
+    // Draw STOP button at bottom center
+    const stopBtnW = 100;
+    const stopBtnX = (screen.width - stopBtnW) / 2;
+    const stopBtnY = screen.height - stopBtnH - margin;
+    ink("white").box(stopBtnX, stopBtnY, stopBtnW, stopBtnH);
+    ink("red").box(stopBtnX + 3, stopBtnY + 3, stopBtnW - 6, stopBtnH - 6);
+    ink("white").write("STOP", stopBtnX + stopBtnW/2 - text.width("STOP")/2, stopBtnY + stopBtnH/2 - 6);
+    
+    // Update record button box for hit testing
+    micRecordButton.box.x = stopBtnX;
+    micRecordButton.box.y = stopBtnY;
+    micRecordButton.box.w = stopBtnW;
+    micRecordButton.box.h = stopBtnH;
+    
+    return; // Skip normal UI during recording
   }
+  
+  wipe(0, 0, 255);
+  
   btns.forEach((btn, index) => {
     btn.paint(() => {
       ink(btn.down ? "white" : "cyan").box(btn.box); // Paint box a teal color.
@@ -805,6 +878,7 @@ function layoutBitmapUI(screen) {
 
 // RGB encoding: 3 samples per pixel (R, G, B channels)
 // This gives 3x data density compared to grayscale
+// Visual enhancement: Add slight color tint based on sample rate of change
 function encodeSampleToBitmap(data, width = 256) {
   if (!Array.isArray(data) || data.length === 0) return null;
   const sampleLength = data.length;

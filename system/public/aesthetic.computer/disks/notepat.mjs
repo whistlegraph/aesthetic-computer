@@ -742,6 +742,16 @@ let scope = 32; // Reduced from 64 for better visualizer performance
 
 let projector = false;
 let visualizerFullscreen = false; // Toggle visualizer as full background behind buttons
+let recitalMode = false; // 🎭 Recital mode - wireframe single-color minimal UI
+let recitalBlinkPhase = 0; // For blinking back button in recital mode
+
+// 🥁 Metronome state - UTC-synced like clock.mjs
+let metronomeEnabled = false;
+let metronomeBPM = 120; // Default 120 BPM
+let metronomeLastBeatTime = 0; // Last time a beat was triggered (UTC ms)
+let metronomeVisualPhase = 0; // 0-1 visual pulse phase
+let metronomeBeatCount = 0; // Count beats for visual display
+let metronomeClockRef = null; // Reference to clock API for UTC sync
 
 const trail = {};
 
@@ -761,6 +771,7 @@ let paintPictureOverlay = false;
 
 let waveBtn, octBtn;
 let slideBtn, roomBtn, glitchBtn, quickBtn; // Toggle buttons for slide/room/glitch/quick modes
+let metroBtn, bpmMinusBtn, bpmPlusBtn; // Metronome controls
 let melodyAliasBtn;
 let melodyAliasDown = false;
 let melodyAliasActiveNote = null;
@@ -949,10 +960,17 @@ async function boot({
   store,
   painting,
   sound,
+  clock,
 }) {
   autopatApi = api;
   autopatHud = hud;
   autopatTypeface = typeface;
+
+  // 🕒 Store clock reference for UTC-synced metronome
+  metronomeClockRef = clock;
+  if (clock?.resync) {
+    clock.resync(); // Sync to UTC on boot
+  }
 
   // Reset state on boot to avoid stuck notes after reloads
   bootTimestamp = performance.now() / 1000; // Current time in seconds
@@ -1112,6 +1130,7 @@ async function boot({
   buildWaveButton(api);
   buildOctButton(api);
   buildToggleButtons(api);
+  buildMetronomeButtons(api);
 
   const newOctave =
     parseInt(colon[0]) || parseInt(colon[1]) || parseInt(colon[2]);
@@ -1124,13 +1143,56 @@ async function boot({
   setupButtons(api);
 }
 
-function sim({ sound, simCount, num }) {
+function sim({ sound, simCount, num, clock }) {
   const simTick = typeof simCount === "bigint" ? Number(simCount) : simCount;
 
   if (lowLatencyMode) {
     if (simTick % 3 === 0) sound.speaker?.poll();
   } else {
     sound.speaker?.poll();
+  }
+
+  // 🥁 UTC-synced metronome tick (like clock.mjs)
+  if (metronomeEnabled && metronomeBPM > 0) {
+    const clockRef = clock || metronomeClockRef;
+    const syncedTime = clockRef?.time?.();
+    const currentTimeMs = syncedTime ? syncedTime.getTime() : Date.now();
+    
+    // Calculate beat interval in milliseconds
+    const msPerBeat = 60000 / metronomeBPM;
+    
+    // Calculate which beat we should be on based on UTC time
+    // This ensures all instances sync to the same beat boundaries
+    const beatNumber = Math.floor(currentTimeMs / msPerBeat);
+    
+    // Check if we've moved to a new beat
+    if (beatNumber !== metronomeBeatCount) {
+      metronomeBeatCount = beatNumber;
+      metronomeLastBeatTime = currentTimeMs;
+      metronomeVisualPhase = 1.0; // Flash on beat
+      
+      // Play metronome click sound
+      // Accent on beat 1 of each measure (every 4 beats)
+      const isDownbeat = (beatNumber % 4) === 0;
+      const clickFreq = isDownbeat ? 1200 : 800; // Higher pitch for downbeat
+      const clickVol = isDownbeat ? 0.4 : 0.25;
+      
+      sound.synth({
+        type: "sine",
+        tone: clickFreq,
+        attack: 0.001,
+        decay: 0.05,
+        sustain: 0,
+        release: 0.02,
+        volume: clickVol,
+        duration: 0.03,
+      });
+    }
+    
+    // Decay visual phase smoothly
+    if (metronomeVisualPhase > 0) {
+      metronomeVisualPhase = Math.max(0, metronomeVisualPhase - 0.08);
+    }
   }
 
   // 🛡️ Stuck note protection: Kill notes held longer than MAX_NOTE_LIFETIME
@@ -1953,7 +2015,9 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
         parseInt(octave) +
         (note.startsWith("+") ? upperOctaveShift : lowerOctaveShift);
       const baseColor = colorFromNote(note, num, outOctave);
-      const tinted = note.includes("#") ? darkenColor(baseColor, 0.65) : baseColor;
+      const isSemitone = note.includes("#");
+      // Semitones get darker for clear visual distinction from white notes
+      const tinted = isSemitone ? darkenColor(baseColor, 0.45) : baseColor;
 
       // Offset box Y by gridTop since painting starts at gridTop
       const relBox = { ...btn.box, y: btn.box.y - gridTop };
@@ -2116,8 +2180,12 @@ function paint({
     return;
   }
   
+  // � Recital mode color scheme - single cyan wireframe color
+  const recitalColor = [0, 255, 220]; // Cyan wireframe color
+  const recitalDim = [0, 120, 100]; // Dimmer version for inactive
+  
   // 🎨 Fullscreen visualizer mode - draw bars as background behind everything
-  if (visualizerFullscreen) {
+  if (visualizerFullscreen && !recitalMode) {
     wipe(0); // Black background first
     sound.paint.bars(
       api,
@@ -2130,6 +2198,10 @@ function paint({
       [255, 0, 0, 255],
       { primaryColor, secondaryColor },
     );
+  } else if (recitalMode) {
+    wipe(0); // Pure black background for recital mode
+    // Update blink phase for back button
+    recitalBlinkPhase = (recitalBlinkPhase + 0.05) % (Math.PI * 2);
   } else {
     wipe(bg);
   }
@@ -2138,8 +2210,73 @@ function paint({
   const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
   const showTrack = Boolean(song) && autopatConfig.showTrack !== false;
 
-  // 🎛️ Draw secondary top bar with toggle buttons
-  if (!paintPictureOverlay && !projector && !visualizerFullscreen) {
+  // 🎭 Recital mode: Draw minimal top bar with "BACK" button
+  if (recitalMode && !paintPictureOverlay && !projector) {
+    // Draw minimal top bar outline
+    ink(...recitalColor, 60).box(0, 0, screen.width, TOP_BAR_BOTTOM, "outline");
+    
+    // Blinking "BACK" text
+    const blinkAlpha = Math.floor(128 + Math.sin(recitalBlinkPhase * 3) * 80);
+    ink(...recitalColor, blinkAlpha).write("< BACK", { x: 6, y: 6 }, undefined, undefined, false, "MatrixChunky8");
+    
+    // Draw secondary bar with wireframe toggle buttons
+    ink(...recitalColor, 40).box(0, SECONDARY_BAR_TOP, screen.width, SECONDARY_BAR_HEIGHT, "outline");
+    
+    // Wireframe toggle buttons in recital mode
+    slideBtn?.paint((btn) => {
+      const active = slide;
+      ink(...(active ? recitalColor : recitalDim), active ? 180 : 80).box(btn.box, "outline");
+      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write("slide", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
+    
+    roomBtn?.paint((btn) => {
+      const active = roomMode;
+      ink(...(active ? recitalColor : recitalDim), active ? 180 : 80).box(btn.box, "outline");
+      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write("room", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
+
+    glitchBtn?.paint((btn) => {
+      const active = glitchMode;
+      ink(...(active ? recitalColor : recitalDim), active ? 180 : 80).box(btn.box, "outline");
+      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write("glitch", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
+    
+    quickBtn?.paint((btn) => {
+      const active = quickFade;
+      ink(...(active ? recitalColor : recitalDim), active ? 180 : 80).box(btn.box, "outline");
+      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write("quick", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
+    
+    // 🥁 Wireframe metronome controls in recital mode
+    bpmMinusBtn?.paint((btn) => {
+      ink(...recitalDim, 80).box(btn.box, "outline");
+      ink(...recitalDim, 100).write("-", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
+    
+    if (metroBtn?.bpmDisplayX !== undefined) {
+      const bpmText = metronomeBPM.toString().padStart(3, " ");
+      // Flash on beat when enabled
+      const flashAlpha = metronomeEnabled && metronomeVisualPhase > 0.5 ? 180 : 80;
+      ink(...(metronomeEnabled ? recitalColor : recitalDim), flashAlpha).box(metroBtn.bpmDisplayX, SECONDARY_BAR_TOP + 1, metroBtn.bpmDisplayWidth, SECONDARY_BAR_HEIGHT - 2, "outline");
+      ink(...(metronomeEnabled ? recitalColor : recitalDim), metronomeEnabled ? 200 : 100).write(bpmText, { x: metroBtn.bpmDisplayX + TOGGLE_BTN_PADDING_X, y: SECONDARY_BAR_TOP + TOGGLE_BTN_PADDING_Y + 1 }, undefined, undefined, false, "MatrixChunky8");
+    }
+    
+    bpmPlusBtn?.paint((btn) => {
+      ink(...recitalDim, 80).box(btn.box, "outline");
+      ink(...recitalDim, 100).write("+", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
+    
+    metroBtn?.paint((btn) => {
+      const active = metronomeEnabled;
+      // Flash the button on beat in recital mode
+      const flashAlpha = active && metronomeVisualPhase > 0.5 ? 255 : (active ? 180 : 80);
+      ink(...(active ? recitalColor : recitalDim), flashAlpha).box(btn.box, "outline");
+      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write("metro", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
+  }
+
+  // 🎛️ Draw secondary top bar with toggle buttons (normal mode)
+  if (!paintPictureOverlay && !projector && !visualizerFullscreen && !recitalMode) {
     // Draw secondary bar background
     ink(0, 0, 0, 100).box(0, SECONDARY_BAR_TOP, screen.width, SECONDARY_BAR_HEIGHT);
     
@@ -2213,6 +2350,61 @@ function paint({
         ink(255, 255, 255, 24).box(btn.box);
       }
       ink(textColor).write("quick", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
+
+    // 🥁 Paint metronome controls: [-] [BPM] [+] [metro]
+    const metroBase = [255, 100, 100]; // Red-ish for metronome
+    
+    // Paint BPM minus button
+    bpmMinusBtn?.paint((btn) => {
+      const bgColor = btn.down ? [200, 80, 80, 230] : [80, 40, 40, 170];
+      const textColor = btn.down ? "white" : [180, 190, 200];
+      ink(...bgColor).box(btn.box);
+      ink(100, 60, 60, 180).box(btn.box, "outline");
+      if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
+      ink(textColor).write("-", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
+    
+    // Paint BPM display (between minus and plus)
+    if (metroBtn?.bpmDisplayX !== undefined) {
+      const bpmText = metronomeBPM.toString().padStart(3, " ");
+      // Flash background on beat when metronome is enabled
+      const flashAlpha = metronomeEnabled ? Math.floor(60 + metronomeVisualPhase * 140) : 60;
+      const flashColor = metronomeEnabled && metronomeVisualPhase > 0 
+        ? [255, 100 + Math.floor(metronomeVisualPhase * 100), 100, flashAlpha]
+        : [60, 40, 40, flashAlpha];
+      ink(...flashColor).box(metroBtn.bpmDisplayX, SECONDARY_BAR_TOP + 1, metroBtn.bpmDisplayWidth, SECONDARY_BAR_HEIGHT - 2);
+      ink(100, 60, 60, 120).box(metroBtn.bpmDisplayX, SECONDARY_BAR_TOP + 1, metroBtn.bpmDisplayWidth, SECONDARY_BAR_HEIGHT - 2, "outline");
+      ink(metronomeEnabled ? "white" : [160, 170, 180]).write(bpmText, { x: metroBtn.bpmDisplayX + TOGGLE_BTN_PADDING_X, y: SECONDARY_BAR_TOP + TOGGLE_BTN_PADDING_Y + 1 }, undefined, undefined, false, "MatrixChunky8");
+    }
+    
+    // Paint BPM plus button
+    bpmPlusBtn?.paint((btn) => {
+      const bgColor = btn.down ? [200, 80, 80, 230] : [80, 40, 40, 170];
+      const textColor = btn.down ? "white" : [180, 190, 200];
+      ink(...bgColor).box(btn.box);
+      ink(100, 60, 60, 180).box(btn.box, "outline");
+      if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
+      ink(textColor).write("+", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
+    
+    // Paint metro toggle button
+    metroBtn?.paint((btn) => {
+      const bgColor = metronomeEnabled
+        ? [metroBase[0], metroBase[1], metroBase[2], 230]
+        : [Math.round(metroBase[0] * 0.3), Math.round(metroBase[1] * 0.3), Math.round(metroBase[2] * 0.3), 170];
+      const textColor = metronomeEnabled ? "white" : [180, 190, 200];
+      const outlineColor = metronomeEnabled
+        ? [255, 150, 150, 255]
+        : [100, 60, 60, 180];
+      ink(...bgColor).box(btn.box);
+      ink(...outlineColor).box(btn.box, "outline");
+      if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
+      // Flash the button on beat
+      if (metronomeEnabled && metronomeVisualPhase > 0.5) {
+        ink(255, 255, 255, Math.floor(metronomeVisualPhase * 80)).box(btn.box);
+      }
+      ink(textColor).write("metro", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
 
     // 🔌🎹 Draw USB/MIDI/sample-rate badge on the left side of the mini bar
@@ -2364,12 +2556,13 @@ function paint({
     sidePanelWidth: autopatConfig.sidePanelWidth,
   });
   const layout = cachedLayout.layout;
-  const usePadsBase = !song && !projector && !paintPictureOverlay;
+  const usePadsBase = !song && !projector && !paintPictureOverlay && !recitalMode;
   const padsBaseCacheKey = [
     cachedLayout.key,
     octave,
     upperOctaveShift,
     lowerOctaveShift,
+    recitalMode ? 1 : 0,
   ].join("|");
   
   if (layout.miniInputsEnabled) {
@@ -2393,7 +2586,33 @@ function paint({
     const totalWhiteKeys = whiteKeys.length;
     const pianoWidth = totalWhiteKeys * whiteKeyWidth;
 
-    // Draw white keys
+    // 🎭 Recital mode: Wireframe piano
+    if (recitalMode) {
+      // Draw piano outline
+      ink(...recitalColor, 80).box(pianoStartX, pianoY, pianoWidth, whiteKeyHeight, "outline");
+      // Draw vertical separators between white keys
+      whiteKeys.forEach((note, index) => {
+        const x = pianoStartX + index * whiteKeyWidth;
+        const noteKey = note.toLowerCase();
+        const isActivePlaying = sounds[noteKey] !== undefined;
+        if (isActivePlaying) {
+          ink(...recitalColor, 200).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight);
+        }
+        ink(...recitalColor, 50).line(x, pianoY, x, pianoY + whiteKeyHeight);
+      });
+      // Draw black key outlines
+      blackKeys.forEach(({note, afterWhite}) => {
+        const x = pianoStartX + afterWhite * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2;
+        const noteKey = note.toLowerCase();
+        const isActivePlaying = sounds[noteKey] !== undefined;
+        if (isActivePlaying) {
+          ink(...recitalColor, 200).box(x, pianoY, blackKeyWidth, blackKeyHeight);
+        } else {
+          ink(...recitalColor, 100).box(x, pianoY, blackKeyWidth, blackKeyHeight, "outline");
+        }
+      });
+    } else {
+    // Normal mode: Draw white keys
     whiteKeys.forEach((note, index) => {
       const x = pianoStartX + index * whiteKeyWidth;
       const noteKey = note.toLowerCase();
@@ -2427,7 +2646,7 @@ function paint({
       ink(90, 110, 120).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight, "outline"); // Border
     });
 
-    // Draw black keys on top
+    // Draw black keys on top (normal mode)
     blackKeys.forEach(({note, afterWhite}) => {
       const x = pianoStartX + afterWhite * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2;
       const noteKey = note.toLowerCase();
@@ -2459,6 +2678,7 @@ function paint({
         stripHeight,
       );
     });
+    } // End of normal mode piano/keys block
 
     // Show QWERTY minimap in compact mode (always) or in song mode
     if (layout.compactMode || song) {
@@ -2489,6 +2709,55 @@ function paint({
         pianoGeometry.qwertyStartY ??
         pianoY + whiteKeyHeight + QWERTY_MINIMAP_SPACING;
 
+      // 🎭 Recital mode: Wireframe QWERTY
+      if (recitalMode) {
+        QWERTY_LAYOUT_ROWS.forEach((row, rowIndex) => {
+          const rowOffset =
+            rowIndex === 0
+              ? 0
+              : rowIndex === 1
+              ? (qKeyWidth + qKeySpacing) / 2
+              : rowIndex === 2
+              ? qKeyWidth
+              : Math.floor((pianoWidth - (row.length * (qKeyWidth + qKeySpacing))) / 2);
+          const y = qwertyStartY + rowIndex * (qKeyHeight + qKeySpacing);
+
+          row.forEach((keyLetter, keyIndex) => {
+            const x =
+              qwertyStartX +
+              rowOffset +
+              keyIndex * (qKeyWidth + qKeySpacing);
+
+            const mappedNote = keyboardKeyToNote(keyLetter);
+            const isActiveKey = activeKeyLetters.has(keyLetter) || isPercKeyActive(keyLetter);
+
+            // Wireframe keys - brighter when active
+            if (isActiveKey) {
+              ink(...recitalColor, 200).box(x, y, qKeyWidth, qKeyHeight);
+            } else {
+              ink(...recitalColor, 50).box(x, y, qKeyWidth, qKeyHeight, "outline");
+            }
+
+            const label = formatKeyLabel(keyLetter);
+            const glyphWidth = matrixGlyphMetrics.width;
+            const labelWidth = label.length * glyphWidth;
+            const labelX = x + (qKeyWidth - labelWidth) / 2;
+            const labelY = y + (qKeyHeight - matrixGlyphMetrics.height) / 2;
+
+            if (labelWidth <= qKeyWidth) {
+              ink(...recitalColor, isActiveKey ? 255 : 80).write(
+                label,
+                { x: labelX, y: labelY },
+                undefined,
+                undefined,
+                false,
+                "MatrixChunky8",
+              );
+            }
+          });
+        });
+      } else {
+      // Normal mode QWERTY
       QWERTY_LAYOUT_ROWS.forEach((row, rowIndex) => {
         const rowOffset =
           rowIndex === 0
@@ -2566,6 +2835,7 @@ function paint({
 
         });
       });
+      } // End of normal mode QWERTY
 
       const gamepad = Object.values(connectedGamepads).find(
         (gp) => gp && (gp.id || gp.pressedButtons.length > 0 || Object.keys(gp.axes).length > 0),
@@ -3114,17 +3384,56 @@ function paint({
               parseInt(octave) +
               (note.startsWith("+") ? upperOctaveShift : lowerOctaveShift);
             const baseColor = colorFromNote(note, num, outOctave);
-            const tinted = note.includes("#") ? darkenColor(baseColor, 0.65) : baseColor;
+            const isSemitone = note.includes("#");
+            // Semitones get darker and shifted toward black for clear visual distinction
+            const tinted = isSemitone ? darkenColor(baseColor, 0.45) : baseColor;
             color = (!slide && btn.down) || (btn.down && slide)
               ? brightenColor(tinted, 60)
               : tinted;
           }
 
-          const shouldRedrawFull = !usePadsBase || btn.down || isBlocked;
+          const shouldRedrawFull = !usePadsBase || btn.down || isBlocked || recitalMode;
 
-          // Remove red highlighting - we just use the boxes now
-          // (keeping this section empty for clarity)
+          // 🎭 Recital mode: Wireframe pads
+          if (recitalMode) {
+            const isActivePlaying = sounds[note] !== undefined || btn.down;
+            if (isActivePlaying) {
+              ink(...recitalColor, 200).box(btn.box);
+            }
+            ink(...recitalColor, isActivePlaying ? 180 : 50).box(btn.box, "outline");
+            
+            // Ghost trails in recital mode
+            if (trail[note] > 0) {
+              ink(...recitalColor, max(1, trail[note] * 150)).box(
+                btn.box.x + btn.box.w / 2,
+                btn.box.y + btn.box.h / 2,
+                trail[note] * btn.box.w,
+                "center",
+              );
+            }
+            
+            // Note label in recital mode
+            const meta = btn.meta || {};
+            const noteLabelText = meta.noteLabelText || note.toUpperCase();
+            const noteFont = meta.noteFont || "MatrixChunky8";
+            const glyphWidth = meta.noteGlyphWidth || matrixGlyphMetrics.width;
+            const glyphHeight = meta.noteGlyphHeight || matrixGlyphMetrics.height;
+            const labelWidth = noteLabelText.length * glyphWidth;
+            const labelX = btn.box.x + 2;
+            const labelY = btn.box.y + 1;
+            
+            ink(...recitalColor, isActivePlaying ? 255 : 100).write(
+              noteLabelText,
+              { x: labelX, y: labelY },
+              undefined,
+              undefined,
+              false,
+              noteFont,
+            );
+            return; // Skip normal rendering in recital mode
+          }
 
+          // Normal mode rendering
           if (shouldRedrawFull) {
             if (!projector) {
               ink(color, isBlocked ? 128 : 196).box(btn.box); // Blocked notes are darker
@@ -3158,7 +3467,7 @@ function paint({
 
           // Ghost trails 👻
           if (trail[note] > 0) {
-            ink("maroon", max(1, trail[note] * 96)).box(
+            ink("maroon", max(1, trail[note] * 180)).box(
               btn.box.x + btn.box.w / 2,
               btn.box.y + btn.box.h / 2,
               trail[note] * btn.box.w,
@@ -3557,12 +3866,26 @@ function applyPitchBendToNotes(noteKeys, { immediate = false } = {}) {
     const baseFrequency = freq(toneInfo.tone);
     if (typeof baseFrequency !== "number" || Number.isNaN(baseFrequency)) return;
 
-    const bentFrequency = baseFrequency * ratio;
-    const payload = immediate ? { tone: bentFrequency } : { tone: bentFrequency, duration: 0.05 };
-    try {
-      soundEntry.sound.update(payload);
-    } catch (err) {
-      console.warn("🎛️ Pitch bend update failed", { noteKey, err });
+    // For sample-based waves, use sampleSpeed instead of tone frequency
+    if (wave === "stample" || wave === "sample") {
+      // Calculate the target speed based on the base speed and pitch bend ratio
+      // The base speed is calculated from the original pitch / 440 (A4)
+      const baseSpeed = baseFrequency / 440;
+      const targetSpeed = baseSpeed * ratio;
+      const payload = { sampleSpeed: targetSpeed };
+      try {
+        soundEntry.sound.update(payload);
+      } catch (err) {
+        console.warn("🎛️ Sample pitch bend update failed", { noteKey, err });
+      }
+    } else {
+      const bentFrequency = baseFrequency * ratio;
+      const payload = immediate ? { tone: bentFrequency } : { tone: bentFrequency, duration: 0.05 };
+      try {
+        soundEntry.sound.update(payload);
+      } catch (err) {
+        console.warn("🎛️ Pitch bend update failed", { noteKey, err });
+      }
     }
   });
 }
@@ -3599,7 +3922,16 @@ function startButtonNote(note, velocity = 127, apiRef = null) {
   const tone = `${tempOctave}${noteUpper}`;
 
   if (slide && active.length > 0) {
-    sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
+    // For sample-based waves, use sampleSpeed; for synths, use tone frequency
+    const freq = soundContext?.freq;
+    if (wave === "stample" || wave === "sample") {
+      // Calculate sample speed from the target pitch
+      const targetFreq = freq ? freq(tone) : 440;
+      const targetSpeed = targetFreq / 440; // Speed ratio relative to A4
+      sounds[active[0]]?.sound?.update({ sampleSpeed: targetSpeed });
+    } else {
+      sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
+    }
     tonestack[note] = {
       count: Object.keys(tonestack).length,
       tone,
@@ -3644,11 +3976,21 @@ function stopButtonNote(note, { force = false } = {}) {
   const orderedTones = orderedByCount(tonestack);
 
   if (slide && orderedTones.length > 1 && sounds[note]) {
-    sounds[note]?.sound?.update({
-      tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
-      duration: 0.1,
-    });
     const previousKey = orderedTones[orderedTones.length - 2];
+    const previousTone = tonestack[previousKey]?.tone;
+    
+    // For sample-based waves, use sampleSpeed; for synths, use tone frequency
+    const freq = soundContext?.freq;
+    if (wave === "stample" || wave === "sample") {
+      const targetFreq = freq ? freq(previousTone) : 440;
+      const targetSpeed = targetFreq / 440;
+      sounds[note]?.sound?.update({ sampleSpeed: targetSpeed });
+    } else {
+      sounds[note]?.sound?.update({
+        tone: previousTone,
+        duration: 0.1,
+      });
+    }
     sounds[previousKey] = sounds[note];
     if (sounds[previousKey]) sounds[previousKey].note = previousKey;
     applyPitchBendToNotes([previousKey], { immediate: true });
@@ -3766,6 +4108,7 @@ function act({
     buildWaveButton(api);
     buildOctButton(api);
     buildToggleButtons(api);
+    buildMetronomeButtons(api);
     // Resize picture to quarter resolution (half width, half height)
     const resizedPictureWidth = Math.max(1, Math.floor(screen.width / 2));
     const resizedPictureHeight = Math.max(1, Math.floor(screen.height / 2));
@@ -3827,13 +4170,20 @@ function act({
     }
   }
 
-  // 🎨 Tap on visualizer bar (top bar) to toggle fullscreen visualizer
-  if (e.is("touch") && e.y < TOP_BAR_BOTTOM && !projector && !paintPictureOverlay) {
+  // 🎭 In recital mode, tap on top bar (BACK button) to exit recital mode
+  if (recitalMode && e.is("touch") && e.y < TOP_BAR_BOTTOM) {
+    recitalMode = false;
+    return;
+  }
+
+  // 🎭 Tap on top bar to toggle recital mode (minimal wireframe UI)
+  if (e.is("touch") && e.y < TOP_BAR_BOTTOM && !projector && !paintPictureOverlay && !recitalMode) {
     // Check that tap is in the visualizer area (between left edge and waveBtn)
     const vizLeft = 54;
     const vizRight = waveBtn?.box?.x || screen.width;
     if (e.x >= vizLeft && e.x <= vizRight) {
-      visualizerFullscreen = !visualizerFullscreen;
+      recitalMode = true;
+      recitalBlinkPhase = 0;
     }
   }
 
@@ -4743,6 +5093,37 @@ function act({
       push: () => {
         api.beep();
         quickFade = !quickFade;
+      },
+    });
+
+    // 🥁 Metronome button interactions
+    bpmMinusBtn?.act(e, {
+      push: () => {
+        api.beep();
+        // Decrease BPM by 5 (min 20)
+        metronomeBPM = Math.max(20, metronomeBPM - 5);
+        metronomeBeatCount = 0; // Reset beat sync
+      },
+    });
+
+    bpmPlusBtn?.act(e, {
+      push: () => {
+        api.beep();
+        // Increase BPM by 5 (max 300)
+        metronomeBPM = Math.min(300, metronomeBPM + 5);
+        metronomeBeatCount = 0; // Reset beat sync
+      },
+    });
+
+    metroBtn?.act(e, {
+      push: () => {
+        api.beep();
+        metronomeEnabled = !metronomeEnabled;
+        if (metronomeEnabled) {
+          // Reset beat count to resync on enable
+          metronomeBeatCount = 0;
+          metronomeVisualPhase = 0;
+        }
       },
     });
 
@@ -5657,7 +6038,8 @@ function setupButtons({ ui, screen, geo }) {
     const keyLabelMatchesNote =
       keyLabelCandidate &&
       keyLabelCandidate.toUpperCase() === noteLabelText.toUpperCase();
-    const keyLabel = keyLabelMatchesNote ? null : keyLabelCandidate;
+    // Skip apostrophe key - it's too wide and cuts into narrow pads
+    const keyLabel = keyLabelMatchesNote || keyLabelCandidate === "'" ? null : keyLabelCandidate;
     const keyFont = buttonWidth >= 22 ? "unifont" : "MatrixChunky8";
     const keyGlyphWidth = keyFont === "unifont" ? 8 : glyphMetrics.width;
     const keyGlyphHeight = keyFont === "unifont" ? 16 : glyphMetrics.height;
@@ -5668,7 +6050,14 @@ function setupButtons({ ui, screen, geo }) {
     let keyOverlapsDefault = false;
     let keyOverlapsCentered = false;
 
-    if (keyLabel) {
+    // Skip key label when both note and key are single letters on small buttons (homogenize)
+    const skipKeyForHomogenization = 
+      keyLabel && 
+      noteLabelText.length === 1 && 
+      keyLabel.length === 1 && 
+      buttonWidth < 30;
+
+    if (keyLabel && !skipKeyForHomogenization) {
       keyLabelWidth = keyLabel.length * keyGlyphWidth;
       const keyBottom = {
         x: x + buttonWidth - keyLabelWidth - 2,
@@ -5697,7 +6086,7 @@ function setupButtons({ ui, screen, geo }) {
       noteGlyphHeight,
       noteLabelBoundsDefault,
       noteLabelBoundsCentered,
-      keyLabel,
+      keyLabel: skipKeyForHomogenization ? null : keyLabel,
       keyFont,
       keyGlyphWidth,
       keyGlyphHeight,
@@ -5768,6 +6157,46 @@ function buildOctButton({ screen, ui, typeface }) {
     10 + margin * 2 - 1 + 2,
   );
   octBtn.id = "oct-button";  // Add identifier for debugging
+}
+
+// Build metronome controls: [-] [BPM] [+] [metro]
+function buildMetronomeButtons({ screen, ui, typeface, text }) {
+  const btnHeight = SECONDARY_BAR_HEIGHT - 2;
+  const btnY = SECONDARY_BAR_TOP + 1;
+  const glyphWidth = typeface?.glyphs?.["0"]?.resolution?.[0] ?? matrixFont?.glyphs?.["0"]?.resolution?.[0] ?? 6;
+  
+  // Calculate widths for each element
+  const minusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2; // "-"
+  const plusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;  // "+"
+  const bpmTextWidth = 3 * glyphWidth + TOGGLE_BTN_PADDING_X * 2; // "120"
+  const metroLabelWidth = measureMatrixTextBoxWidth("metro", { text }, screen.width) || (5 * glyphWidth);
+  const metroBtnWidth = metroLabelWidth + TOGGLE_BTN_PADDING_X * 2;
+  
+  // Position after the FPS graph area (around x=54 + graph width ~52 + some gap)
+  // This puts metronome between FPS graph and slide button
+  let btnX = 112; // Start after MIDI badge + waveform graph area
+  
+  // Build minus button
+  bpmMinusBtn = new ui.Button(btnX, btnY, minusBtnWidth, btnHeight);
+  bpmMinusBtn.id = "bpm-minus";
+  btnX += minusBtnWidth + 1;
+  
+  // BPM display area (not a button, just for layout reference)
+  const bpmDisplayX = btnX;
+  btnX += bpmTextWidth + 1;
+  
+  // Build plus button
+  bpmPlusBtn = new ui.Button(btnX, btnY, plusBtnWidth, btnHeight);
+  bpmPlusBtn.id = "bpm-plus";
+  btnX += plusBtnWidth + TOGGLE_BTN_GAP;
+  
+  // Build metro toggle button
+  metroBtn = new ui.Button(btnX, btnY, metroBtnWidth, btnHeight);
+  metroBtn.id = "metro-toggle";
+  
+  // Store the BPM display position for paint
+  metroBtn.bpmDisplayX = bpmDisplayX;
+  metroBtn.bpmDisplayWidth = bpmTextWidth;
 }
 
 // Build toggle buttons for slide, room, glitch, quick modes in secondary top bar
