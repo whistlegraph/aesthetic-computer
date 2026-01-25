@@ -91,6 +91,32 @@ class Microphone extends AudioWorkletProcessor {
           content: this.currentPitch,
         });
       }
+
+      // Get live recording buffer for preview
+      if (msg.type === "get-recording-buffer") {
+        if (this.recording && this.currentRecording?.length > 0) {
+          // Downsample for preview - use smaller stride for more detail
+          // With RGB encoding (3 samples/pixel), stride of 48 gives ~1000 samples/sec of preview
+          const stride = 48;
+          const preview = [];
+          for (let i = 0; i < this.currentRecording.length; i += stride) {
+            preview.push(this.currentRecording[i]);
+          }
+          this.port.postMessage({
+            type: "recording-buffer",
+            content: { 
+              buffer: preview, 
+              length: this.currentRecording.length,
+              stride 
+            },
+          });
+        } else {
+          this.port.postMessage({
+            type: "recording-buffer",
+            content: null,
+          });
+        }
+      }
     };
   }
 
