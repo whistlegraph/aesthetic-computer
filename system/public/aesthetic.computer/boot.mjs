@@ -858,6 +858,18 @@ const hashLooksLikePaintingCode =
   loweredHashCandidate !== "debug" &&
   loweredHashCandidate !== "nodebug";
 
+// Allow stample~#code to pass the code as a param instead of stripping it.
+if (
+  hashLooksLikePaintingCode &&
+  sluggedUrl &&
+  (sluggedUrl === "stample" || sluggedUrl.startsWith("stample~"))
+) {
+  sluggedUrl = `stample~%23${hashCandidate}`;
+  if (typeof window !== "undefined") {
+    window.acSTARTING_PIECE = "stample";
+  }
+}
+
 if (
   hashLooksLikePaintingCode &&
   (!sluggedUrl || sluggedUrl === "" || sluggedUrl === "prompt")
