@@ -2593,7 +2593,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     requestMicrophoneWaveform,
     requestMicrophonePitch,
     requestMicrophoneRecordingStart,
-    requestMicrophoneRecordingStop;
+    requestMicrophoneRecordingStop,
+    requestMicrophoneRecordingBuffer;
 
   // 🔬 Sound Telemetry for latency testing (exposed via window.__bios_sound_telemetry)
   const soundTelemetry = {
@@ -2901,6 +2902,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           send({ type: "microphone-pitch", content: msg.content });
         }
 
+        if (msg.type === "recording-buffer") {
+          send({ type: "microphone-recording-buffer", content: msg.content });
+        }
+
         if (msg.type === "recording:complete") {
           // console.log("Recording complete:", msg.content);
           // Turn this into a sample with a playback ID here and send
@@ -2951,6 +2956,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       requestMicrophonePitch = () => {
         micProcessorNode.port.postMessage({ type: "get-pitch" });
+      };
+
+      requestMicrophoneRecordingBuffer = () => {
+        micProcessorNode.port.postMessage({ type: "get-recording-buffer" });
       };
 
       micStreamGain = audioContext.createGain();
@@ -12775,6 +12784,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "get-microphone-waveform") {
       requestMicrophoneWaveform?.();
+      return;
+    }
+
+    if (type === "get-microphone-recording-buffer") {
+      requestMicrophoneRecordingBuffer?.();
       return;
     }
 

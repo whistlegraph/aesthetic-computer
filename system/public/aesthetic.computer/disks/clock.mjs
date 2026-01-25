@@ -793,7 +793,7 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
   {
 
     // Convert notepat notation to standard notation before parsing
-    const convertedMelodyString = convertNotepatNotation(originalMelodyString);
+    const convertedMelodyString = convertNotepatNotation(originalMelodyString, octave);
     console.log(`🎵 Original: "${originalMelodyString}"`);
     console.log(`🎵 Converted: "${convertedMelodyString}"`);
     
@@ -1447,49 +1447,118 @@ function paint({
             noteIndex++;
             i = noteEnd;
           }
-          // Handle regular note letters (without octave prefix) or relative octave modifiers (+c, -f, etc.)
-          // Also include notepat characters: vswrq (sharps), hijklmn (white notes), tyuop (sharps in higher octave)
-          else if (/[a-g#_+-vswrqhijklmntyuop]/i.test(char)) {
-            let noteStart = i;
-            let noteEnd = i;
-
-            // Handle relative octave modifiers (++, --, etc.)
-            if (char === "+" || char === "-") {
-              while (
-                noteEnd + 1 < group.length &&
-                group[noteEnd + 1] === char
-              ) {
+          // Handle struck mode toggle (^) - NOT a timing unit, just skip it
+          else if (char === "^") {
+            // Skip ^ characters, they don't count as notes or timing units
+            continue;
+          }
+          // Handle standalone dashes (-) - NOT a timing unit for syntax highlighting
+          // (Only - with a note like -c counts, standalone --- doesn't)
+          else if (char === "-") {
+            // Check if this is a series of dashes that leads to a note
+            let dashEnd = i;
+            while (dashEnd + 1 < group.length && group[dashEnd + 1] === "-") {
+              dashEnd++;
+            }
+            // Check if followed by a note letter (relative octave modifier like ---c)
+            if (
+              dashEnd + 1 < group.length &&
+              /[a-gvswrqhijklmntyuop]/i.test(group[dashEnd + 1])
+            ) {
+              // This is a relative octave modifier, treat as part of a note
+              let noteStart = i;
+              let noteEnd = dashEnd + 1;
+              
+              // Check for sharp modifiers
+              if (noteEnd + 1 < group.length && group[noteEnd + 1] === "#") {
                 noteEnd++;
               }
-              // Now we should have a note letter
-              if (
-                noteEnd + 1 < group.length &&
-                /[a-gvswrqhijklmntyuop]/i.test(group[noteEnd + 1])
-              ) {
-                noteEnd++;
-              } else {
-                // Handle standalone dash as rest (like ---)
-                if (char === "-") {
-                  const noteIndexToUse = noteIndex;
-                  const trackIndexToUse = isSequentialMelody ? trackIdxForColoring :
-                    (effectiveMelodyState && effectiveMelodyState.type === "parallel" ? groupIdx : 0);
-                  for (let j = noteStart; j <= noteEnd; j++) {
-                    noteCharPositions.push({
-                      charIndex: groupStartChar + j,
-                      noteIndex: noteIndexToUse,
-                      trackIndex: trackIndexToUse,
-                      isInCurrentSequence: isInCurrentSequence,
-                    });
-                  }
-                  noteIndex++;
-                  i = noteEnd;
-                  continue;
+              
+              // Check for duration modifiers
+              while (noteEnd + 1 < group.length) {
+                const nextChar = group[noteEnd + 1];
+                if (nextChar === "." || nextChar === "," || nextChar === "*" || 
+                    nextChar === "[" || nextChar === "]") {
+                  noteEnd++;
                 } else {
-                  // Invalid + without note, skip
-                  continue;
+                  break;
                 }
               }
+              
+              const noteIndexToUse = noteIndex;
+              const trackIndexToUse = isSequentialMelody ? trackIdxForColoring :
+                (effectiveMelodyState && effectiveMelodyState.type === "parallel" ? groupIdx : 0);
+              for (let j = noteStart; j <= noteEnd; j++) {
+                noteCharPositions.push({
+                  charIndex: groupStartChar + j,
+                  noteIndex: noteIndexToUse,
+                  trackIndex: trackIndexToUse,
+                  isInCurrentSequence: isInCurrentSequence,
+                });
+              }
+              noteIndex++;
+              i = noteEnd;
+            } else {
+              // Standalone dashes - skip them, they're not timing units
+              i = dashEnd;
+              continue;
             }
+          }
+          // Handle + relative octave modifier (must be followed by a note)
+          else if (char === "+") {
+            let plusEnd = i;
+            while (plusEnd + 1 < group.length && group[plusEnd + 1] === "+") {
+              plusEnd++;
+            }
+            // Check if followed by a note letter
+            if (
+              plusEnd + 1 < group.length &&
+              /[a-gvswrqhijklmntyuop]/i.test(group[plusEnd + 1])
+            ) {
+              // This is a relative octave modifier, treat as part of a note
+              let noteStart = i;
+              let noteEnd = plusEnd + 1;
+              
+              // Check for sharp modifiers
+              if (noteEnd + 1 < group.length && group[noteEnd + 1] === "#") {
+                noteEnd++;
+              }
+              
+              // Check for duration modifiers
+              while (noteEnd + 1 < group.length) {
+                const nextChar = group[noteEnd + 1];
+                if (nextChar === "." || nextChar === "," || nextChar === "*" || 
+                    nextChar === "[" || nextChar === "]") {
+                  noteEnd++;
+                } else {
+                  break;
+                }
+              }
+              
+              const noteIndexToUse = noteIndex;
+              const trackIndexToUse = isSequentialMelody ? trackIdxForColoring :
+                (effectiveMelodyState && effectiveMelodyState.type === "parallel" ? groupIdx : 0);
+              for (let j = noteStart; j <= noteEnd; j++) {
+                noteCharPositions.push({
+                  charIndex: groupStartChar + j,
+                  noteIndex: noteIndexToUse,
+                  trackIndex: trackIndexToUse,
+                  isInCurrentSequence: isInCurrentSequence,
+                });
+              }
+              noteIndex++;
+              i = noteEnd;
+            } else {
+              // Standalone + without note - skip
+              i = plusEnd;
+              continue;
+            }
+          }
+          // Handle regular note letters (without octave prefix)
+          // Also include notepat characters: vswrq (sharps), hijklmn (white notes), tyuop (sharps in higher octave)
+          else if (/[a-g#_vswrqhijklmntyuop]/i.test(char)) {
+            let noteStart = i;
+            let noteEnd = i;
 
             // Check for sharp modifiers (for regular notes or after relative modifiers)
             if (noteEnd + 1 < group.length) {
@@ -4660,8 +4729,11 @@ function reparseMelodyWithNewOctave(newOctave) {
     // Store current mutation state before reparsing
     const oldMutationState = preserveMutationState();
 
+    // Convert notepat notation with the new octave first
+    const convertedMelodyString = convertNotepatNotation(originalMelodyString, newOctave);
+
     // Reparse the melody with the new base octave
-    melodyTracks = parseSimultaneousMelody(originalMelodyString, newOctave);
+    melodyTracks = parseSimultaneousMelody(convertedMelodyString, newOctave);
 
     if (melodyTracks.isSingleTrack) {
       // Single track

@@ -3,13 +3,13 @@
 //
 // Exported separately so we can share logic between runtime and tests.
 
-export function convertNotepatNotation(melodyString) {
+export function convertNotepatNotation(melodyString, startingOctave = 4) {
   if (!melodyString) return melodyString;
 
   // Create a character-by-character conversion
   let result = "";
   let i = 0;
-  let currentOctave = 4; // Track the current base octave for conversion
+  let currentOctave = startingOctave; // Track the current base octave for conversion
   let braceDepth = 0; // Track when we're inside { ... }
   let inQuote = false; // Track when we're inside " ... "
 

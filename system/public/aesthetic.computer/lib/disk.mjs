@@ -6703,6 +6703,7 @@ class Microphone {
   recording = false;
   recordingPromise;
   permission = "";
+  recordingBuffer = null; // Live recording buffer for preview
 
   // Note: can send `{monitor: true}` in `options` for audio feedback.
   connect(options) {
@@ -6718,6 +6719,9 @@ class Microphone {
     send({ type: "get-microphone-amplitude" });
     send({ type: "get-microphone-waveform" });
     send({ type: "get-microphone-pitch" });
+    if (this.recording) {
+      send({ type: "get-microphone-recording-buffer" });
+    }
   }
 
   // Start recording.
@@ -9965,6 +9969,11 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "microphone-waveform") {
     microphone.waveform = content;
+    return;
+  }
+
+  if (type === "microphone-recording-buffer") {
+    microphone.recordingBuffer = content;
     return;
   }
 
