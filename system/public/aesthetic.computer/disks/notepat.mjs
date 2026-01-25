@@ -4200,7 +4200,8 @@ function act({
     });
     const layout = cachedLayout.layout;
 
-    if (layout.miniInputsEnabled) {
+    // Skip mini input interactions in recital mode (wireframe-only rendering)
+    if (layout.miniInputsEnabled && !recitalMode) {
 
       const trackHeight = showTrack ? TRACK_HEIGHT : 0;
       const trackY = showTrack ? SECONDARY_BAR_BOTTOM : null;
