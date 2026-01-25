@@ -52,6 +52,7 @@ let sfx,
   micConnected = false,
   patsButton,
   bitmapLoopButton,
+  bitmapPaintButton,
   bitmapPreviewButton,
   bitmapPreview;
 
@@ -59,6 +60,10 @@ let bitmapMeta = null;
 let bitmapLooping = false;
 let bitmapLoopSound = null;
 const bitmapSampleId = "stample:bitmap";
+let paintJumpPending = false;
+let bitmapLoading = false;
+let bitmapLoaded = false;
+let bitmapProgress = 0; // Playback progress 0-1 for scrubber
 
 const sounds = [],
   progressions = [];
@@ -74,6 +79,7 @@ async function boot({
   net: { preload },
   sound: { microphone, getSampleData, enabled, registerSample, sampleRate },
   play,
+  get,
   ui,
   params,
   screen,
@@ -82,7 +88,27 @@ async function boot({
 }) {
   // const name = params[0] || "startup";
   const name = "startup"; // TODO: Recall previous samples from `store`.
-  if (params[0]) pats = parseInt(params[0]);
+  if (params[0]) {
+    const rawParam = params[0];
+    const decodedParam = rawParam.startsWith("%23")
+      ? `#${rawParam.slice(3)}`
+      : decodeURIComponent(rawParam);
+    if (decodedParam.startsWith("#")) {
+      bitmapLoading = true;
+      bitmapLoaded = false;
+      bitmapPreview = null;
+      bitmapMeta = null;
+      await loadPaintingCode(decodedParam, {
+      get,
+      preload,
+      store,
+      sound: { registerSample, sampleRate },
+    });
+    } else {
+      const parsedPats = parseInt(decodedParam);
+      if (!Number.isNaN(parsedPats)) pats = parsedPats;
+    }
+  }
   sampleId = await preload(name);
   genPats({ screen, ui });
   micRecordButton = new ui.Button(0, screen.height - 31, 64, 31);
@@ -97,6 +123,7 @@ async function boot({
   );
 
   bitmapLoopButton = new ui.Button(0, 0, bitmapPreviewSize, 18);
+  bitmapPaintButton = new ui.Button(0, 0, bitmapPreviewSize, 18);
   bitmapPreviewButton = new ui.Button(0, 0, bitmapPreviewSize, bitmapPreviewSize);
   layoutBitmapUI(screen);
 
@@ -109,35 +136,39 @@ async function boot({
   }
 
   if (store?.retrieve) {
-    const storedSample =
-      store["stample:sample"] ||
-      (await store.retrieve("stample:sample", "local:db"));
-    if (storedSample?.data?.length) {
-      const storedId = storedSample.id || "stample";
-      sampleId = storedId;
-      sampleData = storedSample.data;
-      if (registerSample) {
-        registerSample(storedId, storedSample.data, storedSample.sampleRate);
+    // Only restore cached sample if we didn't load from a #code
+    if (!bitmapLoaded) {
+      const storedSample =
+        store["stample:sample"] ||
+        (await store.retrieve("stample:sample", "local:db"));
+      if (storedSample?.data?.length) {
+        const storedId = storedSample.id || "stample";
+        sampleId = storedId;
+        sampleData = storedSample.data;
+        if (registerSample) {
+          registerSample(storedId, storedSample.data, storedSample.sampleRate);
+        }
       }
-    }
 
-    const storedBitmap =
-      store["stample:bitmap"] ||
-      (await store.retrieve("stample:bitmap", "local:db"));
-    if (storedBitmap?.pixels?.length && storedBitmap?.width && storedBitmap?.height) {
-      bitmapPreview = {
-        width: storedBitmap.width,
-        height: storedBitmap.height,
-        pixels: new Uint8ClampedArray(storedBitmap.pixels),
-      };
-      bitmapMeta = {
-        sampleLength: storedBitmap.sampleLength,
-        sampleRate: storedBitmap.sampleRate,
-      };
+      const storedBitmap =
+        store["stample:bitmap"] ||
+        (await store.retrieve("stample:bitmap", "local:db"));
+      if (storedBitmap?.pixels?.length && storedBitmap?.width && storedBitmap?.height) {
+        bitmapPreview = {
+          width: storedBitmap.width,
+          height: storedBitmap.height,
+          pixels: new Uint8ClampedArray(storedBitmap.pixels),
+        };
+        bitmapMeta = {
+          sampleLength: storedBitmap.sampleLength,
+          sampleRate: storedBitmap.sampleRate,
+        };
+      }
     }
   }
 
   getSampleData(sampleId).then((data) => {
+    if (bitmapLoaded) return;
     sampleData = data;
     // console.log("🔴 Sample Data:", sampleData);
   });
@@ -148,6 +179,13 @@ function sim({ sound }) {
     // Get progress data.
     sound?.progress().then((p) => (progressions[index] = p.progress));
   });
+
+  // Track bitmap loop playback progress for scrubber
+  if (bitmapLoopSound) {
+    bitmapLoopSound.progress?.().then((p) => {
+      bitmapProgress = p?.progress || 0;
+    });
+  }
 
   mic?.poll(); // Query for updated amplitude and waveform data.
   sound.speaker?.poll();
@@ -322,6 +360,19 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     );
   });
 
+  bitmapPaintButton?.paint((btn) => {
+    const hasBitmap = !!bitmapPreview?.pixels?.length;
+    const label = "Paint";
+    const bg = hasBitmap ? "lime" : "gray";
+    ink(bg, btn.down ? 200 : 120).box(btn.box);
+    ink("black").box(btn.box, "out");
+    ink("black").write(
+      label,
+      btn.box.x + btn.box.w / 2 - text.width(label) / 2,
+      btn.box.y + btn.box.h / 2 - text.height(label) / 2,
+    );
+  });
+
   ink("white").write(pats, { right: pats > 9 ? 6 : 8, top: 6 });
 
   // console.log(sound.speaker.amplitudes.left);
@@ -339,16 +390,20 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     [255, 0, 0, 255],
   );
 
-  if (sampleData) {
+  // Use bitmap sample data for waveform if loaded, otherwise use regular sample
+  const waveformData = bitmapLoaded && sampleData ? sampleData : sampleData;
+  const waveformColor = bitmapLoaded ? [255, 100, 0, 48] : [0, 0, 255, 32]; // Orange for bitmap, blue for regular
+  
+  if (waveformData) {
     sound.paint.waveform(
       api,
-      num.arrMax(sampleData),
-      num.arrCompress(sampleData, 256), // 🔴 TODO: This could be made much faster.
+      num.arrMax(waveformData),
+      num.arrCompress(waveformData, 256), // 🔴 TODO: This could be made much faster.
       0,
       labelHeight,
       screen.width,
       screen.height - menuHeight - labelHeight,
-      [0, 0, 255, 32],
+      waveformColor,
       { direction: "bottom-to-top" },
     );
   }
@@ -366,7 +421,34 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
       width: previewW,
       height: previewH,
     });
+    
+    // Draw scrubber line showing playback progress
+    if (bitmapLooping && bitmapProgress > 0) {
+      const totalPixels = bitmapPreview.width * bitmapPreview.height;
+      const currentPixel = Math.floor(bitmapProgress * totalPixels);
+      const scrubY = Math.floor(currentPixel / bitmapPreview.width);
+      const scrubX = currentPixel % bitmapPreview.width;
+      // Map to preview coordinates
+      const mappedY = previewY + (scrubY / bitmapPreview.height) * previewH;
+      const mappedX = previewX + (scrubX / bitmapPreview.width) * previewW;
+      // Draw horizontal line at current row
+      ink("yellow", 200).line(previewX, mappedY, previewX + previewW, mappedY);
+      // Draw small marker at exact position
+      ink("red").box(mappedX - 1, mappedY - 1, 3, 3);
+    }
+    
     ink("white").write("bitmap", previewX + 4, previewY + 4);
+  } else if (bitmapLoading) {
+    const previewW = bitmapPreviewButton?.box?.w || bitmapPreviewSize;
+    const previewH = bitmapPreviewButton?.box?.h || bitmapPreviewSize;
+    const previewX = bitmapPreviewButton?.box?.x ??
+      screen.width - previewW - bitmapPreviewMargin;
+    const previewY = bitmapPreviewButton?.box?.y ??
+      (bitmapPaintButton?.box?.y || bitmapLoopButton?.box?.y || 0) -
+        previewH -
+        4;
+    ink("black", 120).box(previewX - 2, previewY - 2, previewW + 4, previewH + 4);
+    ink("white").write("loading", previewX + 6, previewY + previewH / 2 - 6);
   }
 
   if (pens()) {
@@ -385,7 +467,7 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
 
 const btnSounds = {};
 
-function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump }) {
+function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, system, needsPaint }) {
   const sliceLength = 1 / btns.length; // Divide the total duration (1.0) by the number of buttons.
 
   btns.forEach((btn, index) => {
@@ -556,6 +638,7 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump }) {
         bitmapLoopSound?.kill?.(0.1);
         bitmapLoopSound = null;
         bitmapLooping = false;
+        bitmapProgress = 0; // Reset scrubber
         return;
       }
 
@@ -583,6 +666,25 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump }) {
         bitmapMeta?.sampleRate || sound.sampleRate,
       );
       sound.play(bitmapSampleId, { loop: false });
+    },
+  });
+
+  bitmapPaintButton?.act(e, {
+    up: () => {
+      if (!bitmapPreview?.pixels?.length || !system?.nopaint?.replace) return;
+      if (paintJumpPending) return;
+      paintJumpPending = true;
+      system.nopaint.replace({ system, store, needsPaint }, bitmapPreview, "stample");
+      if (store) {
+        store["painting:tags"] = ["stample"];
+        store.persist?.("painting:tags", "local:db");
+      }
+      setTimeout(() => {
+        jump?.("prompt");
+      }, 30);
+      setTimeout(() => {
+        paintJumpPending = false;
+      }, 1500);
     },
   });
 
@@ -678,6 +780,13 @@ function layoutBitmapUI(screen) {
   bitmapLoopButton.box.x = screen.width - buttonW - bitmapPreviewMargin;
   bitmapLoopButton.box.y = screen.height - buttonH - bitmapPreviewMargin;
 
+  if (bitmapPaintButton) {
+    bitmapPaintButton.box.w = buttonW;
+    bitmapPaintButton.box.h = buttonH;
+    bitmapPaintButton.box.x = bitmapLoopButton.box.x;
+    bitmapPaintButton.box.y = bitmapLoopButton.box.y - buttonH - 4;
+  }
+
   if (bitmapPreviewButton) {
     const previewW = Math.min(bitmapPreviewSize, bitmapColumnWidth - bitmapPreviewMargin * 2);
     const previewH = previewW;
@@ -685,39 +794,201 @@ function layoutBitmapUI(screen) {
     bitmapPreviewButton.box.h = previewH;
     bitmapPreviewButton.box.x = screen.width - previewW - bitmapPreviewMargin;
     bitmapPreviewButton.box.y =
-      bitmapLoopButton.box.y - previewH - 6;
+      (bitmapPaintButton?.box?.y ?? bitmapLoopButton.box.y) - previewH - 6;
   }
 }
 
+// RGB encoding: 3 samples per pixel (R, G, B channels)
+// This gives 3x data density compared to grayscale
 function encodeSampleToBitmap(data, width = 256) {
   if (!Array.isArray(data) || data.length === 0) return null;
   const sampleLength = data.length;
-  const height = Math.ceil(sampleLength / width);
+  const samplesPerPixel = 3; // R, G, B
+  const totalPixels = Math.ceil(sampleLength / samplesPerPixel);
+  const height = Math.ceil(totalPixels / width);
   const pixels = new Uint8ClampedArray(width * height * 4);
 
   for (let i = 0; i < sampleLength; i += 1) {
     const v = Math.max(-1, Math.min(1, data[i]));
     const byte = Math.round((v + 1) * 127.5);
-    const idx = i * 4;
+    const pixelIndex = Math.floor(i / samplesPerPixel);
+    const channel = i % samplesPerPixel; // 0=R, 1=G, 2=B
+    const idx = pixelIndex * 4 + channel;
     pixels[idx] = byte;
-    pixels[idx + 1] = byte;
-    pixels[idx + 2] = byte;
-    pixels[idx + 3] = 255;
+    // Set alpha to 255 for each pixel (only once per pixel)
+    if (channel === 0) pixels[pixelIndex * 4 + 3] = 255;
   }
 
   return { width, height, pixels, sampleLength };
 }
 
+// RGB decoding: 3 samples per pixel (R, G, B channels)
 function decodeBitmapToSample(bitmap, meta) {
   if (!bitmap?.pixels?.length || !bitmap?.width || !bitmap?.height) return null;
   const totalPixels = bitmap.width * bitmap.height;
-  const sampleLength = Math.min(meta?.sampleLength || totalPixels, totalPixels);
+  const samplesPerPixel = 3; // R, G, B
+  const maxSamples = totalPixels * samplesPerPixel;
+  const sampleLength = Math.min(meta?.sampleLength || maxSamples, maxSamples);
   const data = new Array(sampleLength);
 
   for (let i = 0; i < sampleLength; i += 1) {
-    const byte = bitmap.pixels[i * 4] || 0;
+    const pixelIndex = Math.floor(i / samplesPerPixel);
+    const channel = i % samplesPerPixel; // 0=R, 1=G, 2=B
+    const byte = bitmap.pixels[pixelIndex * 4 + channel] || 0;
     data[i] = byte / 127.5 - 1;
   }
 
   return data;
+}
+
+async function loadPaintingCode(code, { get, preload, store, sound }) {
+  if (!code) return;
+  const normalized = decodeURIComponent(code).replace(/^#/, "");
+  const baseUrl =
+    typeof location !== "undefined" && location.origin
+      ? location.origin
+      : "https://aesthetic.computer";
+
+  // Fast path: short code direct media endpoint
+  if (preload && normalized.length <= 6) {
+    try {
+      const directUrl = `${baseUrl}/media/paintings/${normalized}.png?t=${Date.now()}`;
+      const directImg = await preload(directUrl, true);
+      const directBuffer = await imageToBuffer(directImg);
+      if (directBuffer?.pixels?.length) {
+        bitmapPreview = {
+          width: directBuffer.width,
+          height: directBuffer.height,
+          pixels: directBuffer.pixels,
+        };
+        // Update sampleLength to account for RGB encoding (3 samples per pixel)
+        const totalPixels = directBuffer.width * directBuffer.height;
+        bitmapMeta = {
+          sampleLength: totalPixels * 3, // RGB = 3 samples per pixel
+          sampleRate: sound?.sampleRate || 48000,
+        };
+
+        const decoded = decodeBitmapToSample(bitmapPreview, bitmapMeta);
+        if (decoded?.length) {
+          sampleData = decoded;
+          sampleId = bitmapSampleId;
+          sound?.registerSample?.(bitmapSampleId, decoded, bitmapMeta.sampleRate);
+          bitmapLoaded = true;
+          bitmapLoading = false;
+        }
+        return;
+      }
+    } catch (err) {
+      console.warn("🖼️ Stample direct code load failed", err);
+    }
+  }
+
+  let metadata = store?.[`painting-code:${normalized}`];
+  if (!metadata?.slug || !metadata?.handle) {
+    try {
+      const response = await fetch(`/api/painting-code?code=${normalized}`);
+      if (response.ok) {
+        metadata = await response.json();
+        if (metadata?.slug && metadata?.handle && store) {
+          store[`painting-code:${normalized}`] = metadata;
+        }
+      }
+    } catch (err) {
+      console.warn("🖼️ Stample failed to resolve painting code", err);
+      return;
+    }
+  }
+
+  if (!metadata?.slug || !metadata?.handle) return;
+
+  try {
+    let img;
+
+    if (preload) {
+      const handle = metadata.handle.replace(/^@/, "");
+      const base = `${baseUrl}/media/@${handle}/painting/${metadata.slug}.png`;
+      const bust = `${base}?t=${Date.now()}`;
+      img = await preload(bust, true);
+    }
+
+    if (!img && get?.painting) {
+      const got = await get.painting(metadata.slug).by(metadata.handle);
+      img = got?.img || got?.painting || got;
+    }
+
+    if (!img) return;
+
+    const buffer = await imageToBuffer(img);
+    if (!buffer?.pixels?.length) return;
+
+    bitmapPreview = {
+      width: buffer.width,
+      height: buffer.height,
+      pixels: buffer.pixels,
+    };
+    const totalPixels = buffer.width * buffer.height;
+    bitmapMeta = {
+      sampleLength: totalPixels * 3, // RGB = 3 samples per pixel
+      sampleRate: sound?.sampleRate || 48000,
+    };
+
+    const decoded = decodeBitmapToSample(bitmapPreview, bitmapMeta);
+    if (decoded?.length) {
+      sampleData = decoded;
+      sampleId = bitmapSampleId;
+      sound?.registerSample?.(bitmapSampleId, decoded, bitmapMeta.sampleRate);
+      bitmapLoaded = true;
+      bitmapLoading = false;
+    }
+  } catch (err) {
+    console.warn("🖼️ Stample failed to load painting", err);
+    bitmapLoading = false;
+  }
+}
+
+async function imageToBuffer(image) {
+  if (!image) return null;
+  const source = image.img || image.bitmap || image;
+
+  if (source?.pixels && source?.width && source?.height) {
+    return {
+      width: source.width,
+      height: source.height,
+      pixels: new Uint8ClampedArray(source.pixels),
+    };
+  }
+
+  if (source?.data && source?.width && source?.height) {
+    return {
+      width: source.width,
+      height: source.height,
+      pixels: new Uint8ClampedArray(source.data),
+    };
+  }
+
+  const width = source.width || source.naturalWidth || source.videoWidth;
+  const height = source.height || source.naturalHeight || source.videoHeight;
+  if (!width || !height) return null;
+
+  let canvas;
+  if (typeof OffscreenCanvas !== "undefined") {
+    canvas = new OffscreenCanvas(width, height);
+  } else if (typeof document !== "undefined") {
+    canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+  }
+  if (!canvas) return null;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(source, 0, 0, width, height);
+  const imageData = ctx.getImageData(0, 0, width, height);
+
+  return {
+    width,
+    height,
+    pixels: new Uint8ClampedArray(imageData.data),
+  };
 }
