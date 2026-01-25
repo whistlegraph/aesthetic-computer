@@ -50,7 +50,13 @@ const wavetypes = [
   "triangle",
   "sawtooth",
   "square",
+  "stample",
 ];
+
+// Stample sample support
+let stampleSampleId = null;
+let stampleSampleData = null;
+let stampleSampleRate = null;
 
 let matrixFont;
 
@@ -243,12 +249,34 @@ function layoutBandButtons({ screen, ui }) {
 
 let bandCount;
 
-function boot({ api, params, sound, net }) {
+function boot({ api, params, sound, net, store }) {
   // Load MatrixChunky8 font
   if (api.Typeface) {
     matrixFont = new api.Typeface("MatrixChunky8");
     matrixFont.load(net.preload);
   }
+
+  // Load stample sample from store (like notepat does)
+  stampleSampleId = null;
+  stampleSampleData = null;
+  stampleSampleRate = null;
+
+  if (store?.retrieve) {
+    const storedSample = store["stample:sample"];
+    const loadSample = async () => {
+      const sample = storedSample || (await store.retrieve("stample:sample", "local:db"));
+      if (sample?.data?.length) {
+        const storedId = sample.id || "stample";
+        stampleSampleId = storedId;
+        stampleSampleData = sample.data;
+        stampleSampleRate = sample.sampleRate;
+        sound?.registerSample?.(storedId, sample.data, sample.sampleRate);
+        console.log("🎵 Toss loaded stample sample:", storedId, sample.data.length, "samples");
+      }
+    };
+    loadSample();
+  }
+
   let count;
   let noteChars = [];
   
@@ -414,14 +442,24 @@ function act({ event: e, api, sound, pens }) {
           band.lastX = e.x; // Store touch position
           
           console.log("🎵 Toss band starting sound:", index, band.tone, "volume:", volumeFactor.toFixed(2));
-          band.sound = sound.synth({
-            type: band.waveType,
-            attack,
-            tone: band.tone,
-            duration: "🔁",
-            volume: volumeFactor,
-            decay: 0.9995, // Slower decay for smoother release
-          });
+          
+          // Use play() for stample, synth() for other wave types
+          if (band.waveType === "stample" && stampleSampleId) {
+            band.sound = sound.play(stampleSampleId, {
+              volume: volumeFactor,
+              pitch: band.tone / startTone, // Pitch relative to 220Hz base
+              loop: true,
+            });
+          } else {
+            band.sound = sound.synth({
+              type: band.waveType,
+              attack,
+              tone: band.tone,
+              duration: "🔁",
+              volume: volumeFactor,
+              decay: 0.9995, // Slower decay for smoother release
+            });
+          }
           band.currentVolume = volumeFactor;
         },
         up: () => {
@@ -465,11 +503,19 @@ function act({ event: e, api, sound, pens }) {
           const maxDistance = btn.box.w / 2;
           const volumeFactor = 1 - (distanceFromCenter / maxDistance) * 0.7;
           
-          band.sound.update({
-            tone: band.tone,
-            duration: 0.05,
-            volume: volumeFactor,
-          });
+          // Update sound with new parameters (stample uses pitch, synth uses tone)
+          if (band.waveType === "stample" && stampleSampleId) {
+            band.sound?.update?.({
+              pitch: band.tone / startTone,
+              volume: volumeFactor,
+            });
+          } else {
+            band.sound?.update?.({
+              tone: band.tone,
+              duration: 0.05,
+              volume: volumeFactor,
+            });
+          }
           band.currentVolume = volumeFactor;
         },
       },
@@ -518,12 +564,21 @@ function act({ event: e, api, sound, pens }) {
     if (e.is(`keyboard:down:${play}`)) {
       if (!band.btn.down) {
         band.btn.down = true;
-        band.sound = sound.synth({
-          type: band.waveType,
-          attack,
-          tone: band.tone,
-          duration: "🔁",
-        });
+        // Use play() for stample, synth() for other wave types
+        if (band.waveType === "stample" && stampleSampleId) {
+          band.sound = sound.play(stampleSampleId, {
+            volume: 1,
+            pitch: band.tone / startTone,
+            loop: true,
+          });
+        } else {
+          band.sound = sound.synth({
+            type: band.waveType,
+            attack,
+            tone: band.tone,
+            duration: "🔁",
+          });
+        }
       }
     }
 
@@ -565,18 +620,33 @@ function sim() {
     if (band.upping) {
       band.tone = min(band.tone + 1, toneHigh);
 
-      band.sound?.update({
-        tone: band.tone,
-        duration: 0.05,
-      });
+      // Update with pitch for stample, tone for synth
+      if (band.waveType === "stample" && stampleSampleId) {
+        band.sound?.update?.({
+          pitch: band.tone / startTone,
+        });
+      } else {
+        band.sound?.update?.({
+          tone: band.tone,
+          duration: 0.05,
+        });
+      }
     }
 
     if (band.downing) {
       band.tone = max(band.tone - 1, toneLow);
-      band.sound?.update({
-        tone: band.tone,
-        duration: 0.05,
-      });
+      
+      // Update with pitch for stample, tone for synth
+      if (band.waveType === "stample" && stampleSampleId) {
+        band.sound?.update?.({
+          pitch: band.tone / startTone,
+        });
+      } else {
+        band.sound?.update?.({
+          tone: band.tone,
+          duration: 0.05,
+        });
+      }
     }
   });
 }
