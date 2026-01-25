@@ -2440,7 +2440,8 @@ function paint({
     );
 
     const streamLeft = topMidiMetrics.x + topMidiMetrics.width + 5;
-    const streamRight = slideBtn?.box?.x ? slideBtn.box.x - 6 : screen.width - 6;
+    // Stream should stop before metronome buttons (bpmMinusBtn), not the toggle buttons
+    const streamRight = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 4 : (slideBtn?.box?.x ? slideBtn.box.x - 6 : screen.width - 6);
     const streamWidth = Math.max(0, Math.min(52, streamRight - streamLeft));
     const streamHeight = 6;
     if (streamWidth > 6) {
@@ -2459,9 +2460,10 @@ function paint({
       );
     }
 
-    // Linear active note list (colored) between stream and toggle buttons
+    // Linear active note list (colored) between stream and metronome buttons
     const listStartX = streamLeft + (streamWidth > 0 ? streamWidth + 6 : 0);
-    const listRight = slideBtn?.box?.x ? slideBtn.box.x - 6 : screen.width - 6;
+    // List should also stop before metronome buttons
+    const listRight = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 4 : (slideBtn?.box?.x ? slideBtn.box.x - 6 : screen.width - 6);
     const listHeight = 8;
     const listY =
       SECONDARY_BAR_TOP +
