@@ -109,7 +109,12 @@ async function boot({
       if (!Number.isNaN(parsedPats)) pats = parsedPats;
     }
   }
-  sampleId = await preload(name);
+  
+  // Only load default sample if we didn't load from a #code bitmap
+  if (!bitmapLoaded) {
+    sampleId = await preload(name);
+  }
+  
   genPats({ screen, ui });
   micRecordButton = new ui.Button(0, screen.height - 31, 64, 31);
   mic = microphone; // Microphone access.
