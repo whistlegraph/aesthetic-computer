@@ -632,6 +632,7 @@ let VSCODE; // Whether we are running the vscode extesion or not. (From boot.)
 let TV_MODE = false; // Whether running in TV mode (disables touch/keyboard input)
 let HIGHLIGHT_MODE = false; // Whether HUD highlighting is enabled
 let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
+let PERF_MODE = false; // Whether to show KidLisp performance/FPS HUD
 let AUDIO_SAMPLE_RATE = 0;
 let loopPaused = false; // Whether the main loop is paused (sent from bios)
 let debug = false; // This can be overwritten on boot.
@@ -4867,6 +4868,10 @@ function initializeGlobalKidLisp(api) {
     if (typeof window !== 'undefined') {
       window.__acGlobalKidLispInstance = globalKidLispInstance;
     }
+    // Enable performance HUD if PERF_MODE is active
+    if (PERF_MODE) {
+      globalKidLispInstance.startPerformanceMonitoring();
+    }
   }
   return globalKidLispInstance;
 }
@@ -9032,6 +9037,9 @@ async function makeFrame({ data: { type, content } }) {
     } else {
       HIGHLIGHT_MODE = false;
     }
+
+    // Parse perf parameter for KidLisp performance HUD
+    PERF_MODE = content.resolution?.perf === true;
 
     microphone.permission = content.microphonePermission;
 
