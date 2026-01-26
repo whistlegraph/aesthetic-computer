@@ -3910,7 +3910,18 @@ function paint({
     }
 
     // Paint all the keyboard buttons - use for loop for performance
-    const songCurrentNote = song?.[songIndex]?.[0];\n    const btnNotesLength = buttonNotes.length;\n    const parsedOctave = parseInt(octave);\n    \n    for (let index = 0; index < btnNotesLength; index++) {\n      const note = buttonNotes[index];\n      const btn = buttons[note];\n      if (!btn) continue;\n      \n      btn.paint((btn) => {\n          let color;\n          let isBlocked = false;
+    const songCurrentNote = song?.[songIndex]?.[0];
+    const btnNotesLength = buttonNotes.length;
+    const parsedOctave = parseInt(octave);
+
+    for (let index = 0; index < btnNotesLength; index++) {
+      const note = buttonNotes[index];
+      const btn = buttons[note];
+      if (!btn) continue;
+
+      btn.paint((btn) => {
+          let color;
+          let isBlocked = false;
 
           // In song mode, check if this note is blocked (not the current note)
           if (song && note.toUpperCase() !== songCurrentNote) {
