@@ -86,6 +86,7 @@ async function boot({
   screen,
   delay,
   store,
+  system,
 }) {
   // const name = params[0] || "startup";
   const name = "startup"; // TODO: Recall previous samples from `store`.
@@ -100,11 +101,17 @@ async function boot({
       bitmapPreview = null;
       bitmapMeta = null;
       await loadPaintingCode(decodedParam, {
-      get,
-      preload,
-      store,
-      sound: { registerSample, sampleRate },
-    });
+        get,
+        preload,
+        store,
+        sound: { registerSample, sampleRate },
+      });
+    } else if (decodedParam === "painting" || decodedParam === "p") {
+      bitmapLoading = true;
+      bitmapLoaded = false;
+      bitmapPreview = null;
+      bitmapMeta = null;
+      await loadSystemPainting({ system, sound: { registerSample, sampleRate } });
     } else {
       const parsedPats = parseInt(decodedParam);
       if (!Number.isNaN(parsedPats)) pats = parsedPats;
@@ -1023,6 +1030,40 @@ async function loadPaintingCode(code, { get, preload, store, sound }) {
     console.warn("🖼️ Stample failed to load painting", err);
     bitmapLoading = false;
   }
+}
+
+async function loadSystemPainting({ system, sound }) {
+  const source =
+    (system?.nopaint?.buffer?.pixels?.length && system?.nopaint?.buffer) ||
+    system?.painting ||
+    null;
+
+  if (!source?.pixels?.length || !source?.width || !source?.height) {
+    bitmapLoading = false;
+    return;
+  }
+
+  bitmapPreview = {
+    width: source.width,
+    height: source.height,
+    pixels: new Uint8ClampedArray(source.pixels),
+  };
+
+  const totalPixels = source.width * source.height;
+  bitmapMeta = {
+    sampleLength: totalPixels * 3, // RGB = 3 samples per pixel
+    sampleRate: sound?.sampleRate || 48000,
+  };
+
+  const decoded = decodeBitmapToSample(bitmapPreview, bitmapMeta);
+  if (decoded?.length) {
+    sampleData = decoded;
+    sampleId = bitmapSampleId;
+    sound?.registerSample?.(bitmapSampleId, decoded, bitmapMeta.sampleRate);
+    bitmapLoaded = true;
+  }
+
+  bitmapLoading = false;
 }
 
 async function imageToBuffer(image) {

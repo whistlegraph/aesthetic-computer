@@ -94,7 +94,7 @@ User Flow:
 - [x] Show network label (Mainnet/Ghostnet) in wallet step
 - [x] Rebake button for already-minted pieces
 - [x] Update Chain button for on-chain metadata updates
-- [x] Add "cancel" ability during preparation (Escape key)
+- [x] Add cancel button + Escape (cancels prep and returns to prompt)
 - [ ] Show estimated gas/fees before signing
 - [ ] Add "copy share link" after mint
 
@@ -103,7 +103,7 @@ User Flow:
 - [x] KidLisp source scrolling in YOUR KIDLISP section
 - [x] Fix objkt URL fallback when tokenId is null
 - [ ] Add `keeps` command to list user's minted tokens
-- [ ] Add `keep:status $code` to check if already minted
+- [x] `keep $code` already checks minted state (TzKT) and shows existing keep UI
 
 ### 1.3 Analysis & Metadata
 
@@ -301,7 +301,7 @@ keep $newpiece     # Fresh mint → full flow
 
 1. ~~**Wallet reconnection flaky**~~ ✅ Fixed - Beacon session restoration improved
 2. ~~**Error messages cryptic**~~ ✅ Fixed - Better user messages
-3. **No cancel during prep** - Users stuck if they change mind
+3. ~~**No cancel during prep**~~ ✅ Cancel button + Esc returns to prompt
 
 ### Medium Priority 🟡
 
