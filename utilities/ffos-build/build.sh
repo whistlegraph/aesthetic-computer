@@ -51,22 +51,24 @@ docker build -t "$IMAGE_NAME" -f "$WORK_DIR/Dockerfile" "$WORK_DIR"
 # Run mkarchiso inside container
 # The ffos repo expects ffos-user content merged into archiso profile during build.
 # We mirror that workflow by mounting both repos and a build output directory.
+# Run as root to avoid permission issues with mounted volumes.
 
 docker run --rm \
+  --user root \
   -v "$CACHE_DIR/ffos:/work/ffos" \
   -v "$CACHE_DIR/ffos-user:/work/ffos-user" \
   -v "$OUT_DIR:/work/out" \
   "$IMAGE_NAME" "\
     set -euo pipefail; \
     cd /work/ffos; \
-    # Optional: apply overlays if present
-    if [ -d /work/ffos/overlays ]; then echo 'Using /work/ffos/overlays'; fi; \
     # Use archiso profile in repo
     PROFILE=archiso-ff1; \
+    # Ensure airootfs/home exists
+    mkdir -p /work/ffos/\$PROFILE/airootfs/home; \
     # Merge ffos-user data into airootfs
-    rsync -a --delete /work/ffos-user/users/ /work/ffos/\$PROFILE/airootfs/home/; \
+    rsync -a /work/ffos-user/users/ /work/ffos/\$PROFILE/airootfs/home/; \
     # Build ISO
-    sudo mkarchiso -v -o /work/out /work/ffos/\$PROFILE; \
+    mkarchiso -v -o /work/out /work/ffos/\$PROFILE; \
     # Rename ISO if version provided
     if [ -n \"$FFOS_VERSION\" ]; then \
       ISO=\$(ls -1 /work/out/*.iso | head -n 1); \
