@@ -1,0 +1,13 @@
+[Unit]
+Description=Aesthetic Computer Kiosk
+After=graphical-session.target
+
+[Service]
+Type=simple
+Environment=AC_URL=https://aesthetic.computer?tv=true&nogap=true&nolabel=true
+ExecStart=/home/feralfile/scripts/start-aesthetic-kiosk.sh
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target
