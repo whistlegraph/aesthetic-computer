@@ -2390,6 +2390,43 @@ function paint({
     wipe(bg);
   }
 
+  // 🎹 Draw mini piano strip in top bar (not in recital mode or fullscreen modes)
+  if (!recitalMode && !visualizerFullscreen && !paintPictureOverlay && !projector) {
+    const topPianoY = TOP_BAR_BOTTOM - TOP_BAR_PIANO_HEIGHT;
+    const topPianoWhiteKeyWidth = Math.floor(screen.width / MINI_PIANO_WHITE_KEYS.length);
+    const topPianoBlackKeyWidth = Math.floor(topPianoWhiteKeyWidth * 0.6);
+    const topPianoBlackKeyHeight = Math.floor(TOP_BAR_PIANO_HEIGHT * 0.55);
+    
+    // Draw white keys
+    MINI_PIANO_WHITE_KEYS.forEach((note, index) => {
+      const x = index * topPianoWhiteKeyWidth;
+      const noteKey = note.toLowerCase();
+      const isActivePlaying = sounds[noteKey] !== undefined;
+      const baseColor = colorFromNote(noteKey, num);
+      
+      // Dark tinted keys, brighter when playing
+      const keyColor = isActivePlaying 
+        ? [baseColor[0], baseColor[1], baseColor[2], 200]
+        : [Math.floor(baseColor[0] * 0.25), Math.floor(baseColor[1] * 0.25), Math.floor(baseColor[2] * 0.25), 150];
+      
+      ink(...keyColor).box(x, topPianoY, topPianoWhiteKeyWidth - 1, TOP_BAR_PIANO_HEIGHT);
+    });
+    
+    // Draw black keys
+    MINI_PIANO_BLACK_KEYS.forEach(({ note, afterWhite }) => {
+      const x = afterWhite * topPianoWhiteKeyWidth + topPianoWhiteKeyWidth - topPianoBlackKeyWidth / 2;
+      const noteKey = note.toLowerCase();
+      const isActivePlaying = sounds[noteKey] !== undefined;
+      
+      // Black keys are darker, flash white when playing
+      const keyColor = isActivePlaying 
+        ? [180, 180, 180, 220]
+        : [15, 15, 15, 200];
+      
+      ink(...keyColor).box(x, topPianoY, topPianoBlackKeyWidth, topPianoBlackKeyHeight);
+    });
+  }
+
   const sampleRateText = getSampleRateText(sound?.sampleRate);
   const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
   const showTrack = Boolean(song) && autopatConfig.showTrack !== false;
