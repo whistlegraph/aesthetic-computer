@@ -12181,7 +12181,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             urlPath = "/" + encodeKidlispForUrl(content.text);
           } else {
             // For regular pieces, use normal text
-            urlPath = "/" + content.text;
+            // Encode {# as {%23 to preserve stample codes in clock syntax
+            // e.g., clock~{#abc}cdefg becomes clock~{%23abc}cdefg in URL
+            let encodedText = content.text;
+            if (encodedText && encodedText.includes("{#")) {
+              encodedText = encodedText.replace(/\{#/g, "{%23");
+            }
+            urlPath = "/" + encodedText;
           }
 
           history.pushState(

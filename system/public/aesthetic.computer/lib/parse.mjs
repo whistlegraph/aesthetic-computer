@@ -212,6 +212,12 @@ function parse(text, location = self?.location) {
     return `~§HASH§${code}`;
   });
   
+  // Preserve {# patterns (stample codes in clock syntax like {#abc}cdefg)
+  // e.g., {#abc}cdefg becomes {§HASH§abc}cdefg, then restored after # split
+  text = text.replace(/\{#([^}]*)\}/g, (match, code) => {
+    return `{§HASH§${code}}`;
+  });
+  
   [text, hash] = text.split("#");
   
   // Restore preserved # symbols in params
