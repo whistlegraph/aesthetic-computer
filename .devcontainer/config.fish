@@ -2794,28 +2794,33 @@ kill %1 2>/dev/null"
             ssh jas@host.docker.internal "curl -s --connect-timeout 3 http://$ff1_ip:$ff1_port/ && echo 'FF1 responding!' || echo 'FF1 not responding'"
         case cast
             if test (count $argv) -lt 2
-                echo "Usage: ac-ff1 cast <piece|url>"
+                echo "Usage: ac-ff1 cast <piece|url> [options]"
                 echo ""
                 echo "Pieces starting with \$ are KidLisp and auto-use device.kidlisp.com"
                 echo "Regular pieces use aesthetic.computer with ?device param"
                 echo ""
                 echo "Examples:"
                 echo "  ac-ff1 cast \$mtz             # KidLisp → device.kidlisp.com/mtz"
+                echo "  ac-ff1 cast \$mtz --perf      # With FPS/performance HUD"
                 echo "  ac-ff1 cast ceo              # Regular → aesthetic.computer/ceo?device"
                 echo "  ac-ff1 cast https://example.com/art.html"
                 echo ""
                 echo "Options:"
+                echo "  --perf       Enable KidLisp performance/FPS HUD overlay"
                 echo "  --relay      Use cloud relay (requires API key)"
                 return 1
             end
             set -l input $argv[2]
             set -l use_relay false
+            set -l use_perf false
             
             # Parse flags
             for arg in $argv[3..-1]
                 switch $arg
                     case '--relay'
                         set use_relay true
+                    case '--perf'
+                        set use_perf true
                 end
             end
             
@@ -2828,18 +2833,31 @@ kill %1 2>/dev/null"
                 else
                     set url "$input?device"
                 end
+                # Add perf param if requested
+                if test "$use_perf" = true
+                    set url "$url&perf"
+                end
             else if string match -rq '^\$' $input
                 # KidLisp piece (starts with $) - use device.kidlisp.com
                 # Strip the $ prefix for device.kidlisp.com URL
                 set -l code_id (string replace '$' '' $input)
-                set url "https://device.kidlisp.com/$code_id"
-                echo "🎨 KidLisp piece detected"
+                if test "$use_perf" = true
+                    set url "https://device.kidlisp.com/$code_id?perf=true"
+                    echo "🎨 KidLisp piece detected (perf mode)"
+                else
+                    set url "https://device.kidlisp.com/$code_id"
+                    echo "🎨 KidLisp piece detected"
+                end
             else
                 # Regular aesthetic.computer piece - add &device if has query, else ?device
                 if string match -q '*?*' $input
                     set url "https://aesthetic.computer/$input&device"
                 else
                     set url "https://aesthetic.computer/$input?device"
+                end
+                # Add perf param if requested
+                if test "$use_perf" = true
+                    set url "$url&perf"
                 end
             end
             
@@ -2929,13 +2947,20 @@ kill %1 2>/dev/null"
             echo "   Topic ID: $topic_id"
             echo ""
             echo "Commands:"
+            echo "  ac-ff1                        - Show this help"
             echo "  ac-ff1 scan                   - Find FF1 via mDNS"
             echo "  ac-ff1 ping                   - Check if FF1 is responding"  
             echo "  ac-ff1 cast \$mtz              - Cast KidLisp piece (auto device.kidlisp.com)"
+            echo "  ac-ff1 cast \$mtz --perf       - Cast with FPS/performance HUD"
             echo "  ac-ff1 cast ceo               - Cast regular piece (auto ?device param)"
             echo "  ac-ff1 cast <url>             - Cast any URL"
-            echo "  ac-ff1 playlist [--limit=N] [--duration=S] [--handle=H] - Push KidLisp playlist"
+            echo "  ac-ff1 playlist [options]     - Push KidLisp playlist"
             echo "  ac-ff1 tunnel                 - Create SSH tunnel for local dev"
+            echo ""
+            echo "Playlist options:"
+            echo "  --limit=N     Number of items (default: 10)"
+            echo "  --duration=S  Seconds per item (default: 60)"
+            echo "  --handle=H    Filter by user handle"
     end
 end
 
