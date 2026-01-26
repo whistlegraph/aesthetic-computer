@@ -1648,7 +1648,12 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     pianoY = SECONDARY_BAR_BOTTOM + 2;
     // Check if piano fits in center area - if not, skip it (return hidden flag)
     if (centerWidth < pianoWidth + 4) {
-      // Piano doesn't fit - hide it and let buttons use more space
+      // Piano doesn't fit - hide it but still compute QWERTY position for center
+      // Center the QWERTY in the available center area
+      const idealQwertyX = centerX + (centerWidth - qwertyWidth) / 2;
+      const minQwertyX = centerX;
+      const maxQwertyX = Math.max(minQwertyX, centerRight - qwertyWidth);
+      const clampedQwertyX = clamp(idealQwertyX, minQwertyX, maxQwertyX);
       return {
         x: 0,
         y: 0,
@@ -1658,8 +1663,8 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
         blackKeyHeight,
         pianoWidth,
         hidden: true, // Flag to skip painting piano
-        qwertyStartX: null,
-        qwertyStartY: null,
+        qwertyStartX: clampedQwertyX,
+        qwertyStartY: pianoY,
       };
     }
     const idealX = centerX + (centerWidth - pianoWidth) / 2;
@@ -1899,9 +1904,11 @@ function getButtonLayoutMetrics(
   const margin = 2;
 
   // Compact/DAW mode: split layout - octaves on sides, piano/qwerty in center
+  // Only use split layout for landscape screens (wider than tall)
   const compactMode = screen.height < 200;
+  const isLandscape = screen.width > screen.height;
   
-  if (compactMode) {
+  if (compactMode && isLandscape) {
     const usableWidth = max(0, screen.width - reservedSide);
     // Recompute badge metrics for compact mode (centered)
     const compactBadgeMetrics = computeMidiBadgeMetrics(
@@ -2779,7 +2786,9 @@ function paint({
       sampleRateText,
     );
     // Pass metronome button start as maxX to prevent FPS from overlapping
-    const midiMaxX = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 4 : screen.width;
+    // Ensure maxX is reasonable (at least 80px from left) to avoid cutting off FPS
+    const bpmBtnX = bpmMinusBtn?.box?.x;
+    const midiMaxX = (bpmBtnX && bpmBtnX > 80) ? bpmBtnX - 4 : screen.width;
     drawMidiBadge(
       topMidiMetrics,
       midiConnected,
@@ -3933,9 +3942,21 @@ function paint({
             const isSemitone = note.includes("#");
             // Semitones get darker and shifted toward black for clear visual distinction
             const tinted = isSemitone ? darkenColor(baseColor, 0.45) : baseColor;
-            color = (!slide && btn.down) || (btn.down && slide)
-              ? brightenColor(tinted, 60)
-              : tinted;
+            // When held: extreme dayglow neon flash effect - cycle through RGB
+            if ((!slide && btn.down) || (btn.down && slide)) {
+              const flashPhase = (paintCount * 0.15) % 3;
+              const flashR = flashPhase < 1 ? 255 : (flashPhase < 2 ? 80 : 120);
+              const flashG = flashPhase < 1 ? 80 : (flashPhase < 2 ? 255 : 80);
+              const flashB = flashPhase < 1 ? 120 : (flashPhase < 2 ? 80 : 255);
+              // Blend base color with flash color for neon effect
+              color = [
+                Math.min(255, Math.floor(tinted[0] * 0.4 + flashR * 0.6)),
+                Math.min(255, Math.floor(tinted[1] * 0.4 + flashG * 0.6)),
+                Math.min(255, Math.floor(tinted[2] * 0.4 + flashB * 0.6)),
+              ];
+            } else {
+              color = tinted;
+            }
           }
 
           const shouldRedrawFull = !usePadsBase || btn.down || isBlocked || recitalMode;
@@ -4022,7 +4043,9 @@ function paint({
           const glyphHeight = meta.noteGlyphHeight || (noteFont === "unifont" ? 16 : matrixGlyphMetrics.height);
           const noteName = note.replace(/^[+-]+/, "").toLowerCase();
           const forceWhiteText = ["d", "e", "f"].includes(noteName[0]);
-          const baseTextColor = forceWhiteText ? [255, 255, 255] : getContrastingTextColor(color);
+          const isSemitoneKey = note.includes("#");
+          // Black keys get slightly grayer text for subtler look
+          const baseTextColor = isSemitoneKey ? [140, 140, 140] : (forceWhiteText ? [255, 255, 255] : getContrastingTextColor(color));
 
           let noteLabelText = null;
           let noteLabelBounds = null;

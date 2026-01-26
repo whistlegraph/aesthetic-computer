@@ -1,25 +1,25 @@
 // Shared note color helpers for music pieces (clock, notepat, abc123)
 
-// Base octave (4): Standard Crayola/CSS/ANSI-style colors
+// Base octave (4): Saturated ROYGBIV colors (brighter/more vivid)
 const NOTE_COLOR_MAP_BASE = {
-  c: [205, 38, 38],    // Firebrick red (Crayola Red)
-  d: [255, 140, 0],    // Dark orange (CSS)
-  e: [255, 215, 0],    // Gold (CSS)
-  f: [34, 139, 34],    // Forest green (CSS)
-  g: [30, 90, 180],    // Steel blue
-  a: [75, 0, 130],     // Indigo (CSS)
-  b: [138, 43, 226],   // Blue violet (CSS)
+  c: [255, 50, 50],    // Bright red
+  d: [255, 160, 0],    // Vivid orange
+  e: [255, 230, 0],    // Bright yellow
+  f: [50, 200, 50],    // Vivid green
+  g: [50, 120, 255],   // Bright blue
+  a: [130, 50, 200],   // Vivid purple
+  b: [180, 80, 255],   // Bright violet
 };
 
-// Upper octave (+1): Dayglo/neon palette
+// Upper octave (+1): Extreme dayglo/neon palette
 const NOTE_COLOR_MAP_DAYGLO = {
-  c: [255, 65, 85],    // Neon red/coral
-  d: [255, 165, 50],   // Neon orange
-  e: [255, 255, 80],   // Neon yellow
-  f: [65, 255, 120],   // Neon green
-  g: [80, 180, 255],   // Neon blue
-  a: [160, 80, 255],   // Neon purple
-  b: [220, 100, 255],  // Neon violet/magenta
+  c: [255, 40, 80],    // Hot neon pink-red
+  d: [255, 180, 0],    // Blazing neon orange
+  e: [255, 255, 50],   // Electric neon yellow
+  f: [50, 255, 100],   // Radioactive neon green
+  g: [50, 200, 255],   // Electric neon cyan-blue
+  a: [180, 50, 255],   // UV neon purple
+  b: [255, 80, 255],   // Hot neon magenta
 };
 
 // Lower octave (-1): Muted/darker tones
