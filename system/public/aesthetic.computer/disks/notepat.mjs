@@ -4166,8 +4166,7 @@ function paint({
             );
           }
         });
-      }
-    });
+    }
 
     if (!projector && !usePadsBase) {
       const gridAlpha = 40;
