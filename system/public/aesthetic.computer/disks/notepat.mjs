@@ -2393,37 +2393,46 @@ function paint({
   // 🎹 Draw mini piano strip in top bar (not in recital mode or fullscreen modes)
   if (!recitalMode && !visualizerFullscreen && !paintPictureOverlay && !projector) {
     const topPianoY = TOP_BAR_BOTTOM - TOP_BAR_PIANO_HEIGHT;
-    const topPianoWhiteKeyWidth = Math.floor(screen.width / MINI_PIANO_WHITE_KEYS.length);
+    const topPianoWidth = Math.min(160, Math.floor(screen.width * 0.45)); // Limit piano width to leave room for visualizer
+    const topPianoStartX = 2; // Small margin from left
+    const topPianoWhiteKeyWidth = Math.floor(topPianoWidth / MINI_PIANO_WHITE_KEYS.length);
     const topPianoBlackKeyWidth = Math.floor(topPianoWhiteKeyWidth * 0.6);
     const topPianoBlackKeyHeight = Math.floor(TOP_BAR_PIANO_HEIGHT * 0.55);
+    const topPianoStripHeight = 2; // Color strip at bottom of keys
     
-    // Draw white keys
+    // Draw white keys (ivory fill with color strip)
     MINI_PIANO_WHITE_KEYS.forEach((note, index) => {
-      const x = index * topPianoWhiteKeyWidth;
+      const x = topPianoStartX + index * topPianoWhiteKeyWidth;
       const noteKey = note.toLowerCase();
       const isActivePlaying = sounds[noteKey] !== undefined;
-      const baseColor = colorFromNote(noteKey, num);
       
-      // Dark tinted keys, brighter when playing
-      const keyColor = isActivePlaying 
-        ? [baseColor[0], baseColor[1], baseColor[2], 200]
-        : [Math.floor(baseColor[0] * 0.25), Math.floor(baseColor[1] * 0.25), Math.floor(baseColor[2] * 0.25), 150];
+      // Ivory/off-white fill like the main piano
+      const baseFill = isActivePlaying ? [215, 225, 230] : [195, 205, 210];
+      ink(...baseFill).box(x, topPianoY, topPianoWhiteKeyWidth - 1, TOP_BAR_PIANO_HEIGHT);
       
-      ink(...keyColor).box(x, topPianoY, topPianoWhiteKeyWidth - 1, TOP_BAR_PIANO_HEIGHT);
+      // Color strip at bottom
+      const stripBase = colorFromNote(noteKey, num);
+      const stripColor = isActivePlaying ? brightenColor(stripBase, 40) : stripBase;
+      ink(...stripColor).box(x, topPianoY + TOP_BAR_PIANO_HEIGHT - topPianoStripHeight, topPianoWhiteKeyWidth - 1, topPianoStripHeight);
+      
+      // Subtle border
+      ink(90, 110, 120, 80).box(x, topPianoY, topPianoWhiteKeyWidth - 1, TOP_BAR_PIANO_HEIGHT, "outline");
     });
     
-    // Draw black keys
+    // Draw black keys on top
     MINI_PIANO_BLACK_KEYS.forEach(({ note, afterWhite }) => {
-      const x = afterWhite * topPianoWhiteKeyWidth + topPianoWhiteKeyWidth - topPianoBlackKeyWidth / 2;
+      const x = topPianoStartX + afterWhite * topPianoWhiteKeyWidth + topPianoWhiteKeyWidth - topPianoBlackKeyWidth / 2;
       const noteKey = note.toLowerCase();
       const isActivePlaying = sounds[noteKey] !== undefined;
       
-      // Black keys are darker, flash white when playing
-      const keyColor = isActivePlaying 
-        ? [180, 180, 180, 220]
-        : [15, 15, 15, 200];
+      // Pure black fill, slightly lighter when playing
+      const baseFill = isActivePlaying ? [28, 32, 36] : [0, 0, 0];
+      ink(...baseFill).box(x, topPianoY, topPianoBlackKeyWidth, topPianoBlackKeyHeight);
       
-      ink(...keyColor).box(x, topPianoY, topPianoBlackKeyWidth, topPianoBlackKeyHeight);
+      // Color strip at bottom of black key
+      const stripBase = colorFromNote(noteKey, num);
+      const stripColor = isActivePlaying ? brightenColor(stripBase, 40) : stripBase;
+      ink(...stripColor).box(x, topPianoY + topPianoBlackKeyHeight - topPianoStripHeight, topPianoBlackKeyWidth, topPianoStripHeight);
     });
   }
 
