@@ -149,16 +149,29 @@ PKGBUILD
     
     echo "=== Setting up local pacman repo ==="
     cd "$LOCAL_REPO"
-    repo-add local.db.tar.gz *.pkg.tar.*
+    ls -la *.pkg.tar.* || echo "Warning: No packages found"
+    repo-add ac-local.db.tar.gz *.pkg.tar.*
     
     echo "=== Configuring archiso to use local repo ==="
-    PROFILE=/work/ffos/archiso-ff1
+    # Copy profile to avoid modifying the original
+    PROFILE_SRC=/work/ffos/archiso-ff1
+    PROFILE=/tmp/archiso-profile
+    rm -rf "$PROFILE"
+    cp -r "$PROFILE_SRC" "$PROFILE"
     
-    # Add local repo to pacman.conf
+    # Add local repo to pacman.conf (using unique name to avoid conflicts)
     echo "" >> "$PROFILE/pacman.conf"
-    echo "[local]" >> "$PROFILE/pacman.conf"
+    echo "[ac-local]" >> "$PROFILE/pacman.conf"
     echo "SigLevel = Optional TrustAll" >> "$PROFILE/pacman.conf"
     echo "Server = file://$LOCAL_REPO" >> "$PROFILE/pacman.conf"
+    
+    # Debug: show pacman.conf tail
+    echo "--- pacman.conf tail ---"
+    tail -10 "$PROFILE/pacman.conf"
+    
+    # Debug: show repo contents
+    echo "--- Local repo contents ---"
+    ls -la "$LOCAL_REPO/"
     
     # Merge ffos-user data into airootfs
     mkdir -p "$PROFILE/airootfs/home"
