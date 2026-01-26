@@ -45,6 +45,11 @@ const attack = 0.005;
 const killFade = 0.3; // Longer fade to hear pitch return
 let scrollOffset = 0; // For animated dotted line
 
+// Gamepad support
+let connectedGamepad = null;
+let gamepadBandMapping = [0, 1, 2, 3]; // Map buttons A(0), B(1), X(2), Y(3) to band indices
+let selectedBand = 0; // Currently selected band for d-pad pitch control
+
 const wavetypes = [
   "sine",
   "triangle",
@@ -57,6 +62,7 @@ const wavetypes = [
 let stampleSampleId = null;
 let stampleSampleData = null;
 let stampleSampleRate = null;
+let fallbackSfx = null; // Fallback sound if no stample recorded
 
 let matrixFont;
 
@@ -256,25 +262,45 @@ function boot({ api, params, sound, net, store }) {
     matrixFont.load(net.preload);
   }
 
-  // Load stample sample from store (like notepat does)
+  // Preload fallback sound for stample mode (like notepat does)
+  net
+    .preload("startup")
+    .then((sfx) => {
+      fallbackSfx = sfx;
+      console.log("🎵 Toss: Loaded fallback sfx:", sfx);
+    })
+    .catch((err) => console.warn("🎵 Toss: Failed to load fallback sfx:", err));
+
+  // Load stample sample from store (like notepat does) - runs async in background
   stampleSampleId = null;
   stampleSampleData = null;
   stampleSampleRate = null;
 
+  console.log("🎵 Toss boot: store available?", !!store, "retrieve available?", !!store?.retrieve);
+
   if (store?.retrieve) {
-    const storedSample = store["stample:sample"];
-    const loadSample = async () => {
-      const sample = storedSample || (await store.retrieve("stample:sample", "local:db"));
-      if (sample?.data?.length) {
-        const storedId = sample.id || "stample";
-        stampleSampleId = storedId;
-        stampleSampleData = sample.data;
-        stampleSampleRate = sample.sampleRate;
-        sound?.registerSample?.(storedId, sample.data, sample.sampleRate);
-        console.log("🎵 Toss loaded stample sample:", storedId, sample.data.length, "samples");
+    (async () => {
+      try {
+        const storedSample =
+          store["stample:sample"] ||
+          (await store.retrieve("stample:sample", "local:db"));
+        console.log("🎵 Toss: Retrieved sample from store:", !!storedSample, storedSample?.data?.length);
+        if (storedSample?.data?.length) {
+          const storedId = storedSample.id || "stample";
+          stampleSampleId = storedId;
+          stampleSampleData = storedSample.data;
+          stampleSampleRate = storedSample.sampleRate;
+          sound?.registerSample?.(storedId, storedSample.data, storedSample.sampleRate);
+          console.log("🎵 Toss loaded stample sample:", storedId, storedSample.data.length, "samples");
+        } else {
+          console.log("🎵 Toss: No stample sample found in store (record one in `stample` piece first)");
+        }
+      } catch (err) {
+        console.warn("🎵 Toss: Failed to load stample sample:", err);
       }
-    };
-    loadSample();
+    })();
+  } else {
+    console.log("🎵 Toss: store.retrieve not available");
   }
 
   let count;
@@ -304,15 +330,37 @@ function boot({ api, params, sound, net, store }) {
   makeBands({ api, ...api, sound }, count, noteChars);
 }
 
-function paint({ api, wipe, ink, line, screen, box, circle, pen, write, num }) {
+function paint({ api, wipe, ink, line, screen, box, circle, pen, write, num, sound, help, poly }) {
   wipe("purple"); // Clear the background.
+  
+  // Guard: don't try to paint bands if they haven't been created yet
+  if (!bands || bands.length === 0) return;
+  
+  // Get waveform data from speaker for visualization
+  const waveformLeft = sound?.speaker?.waveforms?.left || [];
+  // Handle amplitude - could be number or array
+  const amplitudeRaw = sound?.speaker?.amplitudes?.left;
+  const amplitude = typeof amplitudeRaw === "number" ? amplitudeRaw : 
+                    (Array.isArray(amplitudeRaw) && amplitudeRaw.length > 0 ? amplitudeRaw[0] : 0);
+  
+  // Check if any band is actively playing
+  const anyPlaying = bands.some(b => b?.btn?.down || b?.sound);
+  
   bands.forEach((band, index) => {
+    if (!band?.btn) return; // Guard against undefined bands
     const btn = band.btn;
+    const isSelected = connectedGamepad && selectedBand === index;
     btn.paint((b) => {
       const hue = num.map(band.tone, toneLow, toneHigh, 0, 359.9);
       const colorA = num.hslToRgb(hue, 100, 30); // theme[index];
       const colorB = num.hslToRgb(hue, 50, 10); // theme[index];
       ink(b.down ? colorA : colorB).box(b.box.x, b.box.y, b.box.w, b.box.h);
+      
+      // Draw selection indicator for gamepad
+      if (isSelected) {
+        ink("white", 180).box(b.box.x + 2, b.box.y + 2, b.box.w - 4, 2);
+        ink("white", 180).box(b.box.x + 2, b.box.y + b.box.h - 4, b.box.w - 4, 2);
+      }
       
       // Draw separator line on left edge (except first strip)
       if (b.box.x !== 0) {
@@ -417,12 +465,190 @@ function paint({ api, wipe, ink, line, screen, box, circle, pen, write, num }) {
       });
     }
   });
-  const gap = 32;
+  
+  // Draw waveform overlay on top of active bands (AFTER all btn.paint calls)
+  bands.forEach((band, index) => {
+    if (!band?.btn) return;
+    const b = band.btn;
+    const isActive = b.down || band.sound;
+    
+    if (isActive) {
+      const hue = num.map(band.tone, toneLow, toneHigh, 0, 359.9);
+      const waveColor = num.hslToRgb(hue, 80, 75);
+      
+      // If we have waveform data, draw it
+      if (waveformLeft.length > 0) {
+        const waveformSamples = Math.min(64, Math.floor(b.box.w / 2));
+        const resampled = help?.resampleArray 
+          ? help.resampleArray(waveformLeft, waveformSamples)
+          : waveformLeft.slice(0, waveformSamples);
+        
+        if (resampled.length > 1) {
+          const xStep = b.box.w / (resampled.length - 1);
+          const yMid = b.box.y + b.box.h / 2;
+          const yMax = b.box.h / 2.5;
+          
+          ink(waveColor[0], waveColor[1], waveColor[2], 255);
+          const points = resampled.map((v, i) => [
+            b.box.x + i * xStep,
+            yMid + v * yMax
+          ]);
+          poly(points);
+        }
+      } else {
+        // Fallback: draw a simple animated sine wave when no waveform data
+        const waveformSamples = 32;
+        const xStep = b.box.w / (waveformSamples - 1);
+        const yMid = b.box.y + b.box.h / 2;
+        const yMax = b.box.h / 4;
+        const phase = (scrollOffset / 10) + index * Math.PI / 2;
+        const freq = band.tone / 100; // Scale frequency for visual
+        
+        ink(waveColor[0], waveColor[1], waveColor[2], 200);
+        const points = [];
+        for (let i = 0; i < waveformSamples; i++) {
+          const x = b.box.x + i * xStep;
+          const y = yMid + Math.sin(phase + i * freq * 0.3) * yMax * (amplitude > 0 ? 1 : 0.5);
+          points.push([x, y]);
+        }
+        poly(points);
+      }
+    }
+  });
+  
+  // Draw gamepad indicator if connected
+  if (connectedGamepad) {
+    drawGamepadDiagram({ ink, box, circle, write }, screen, bands);
+  }
+}
+
+// Draw a simple gamepad diagram showing which buttons map to which bands
+function drawGamepadDiagram({ ink, box, circle, write }, screen, bands) {
+  const padW = 56;
+  const padH = 28;
+  const padX = screen.width - padW - 4;
+  const padY = 4;
+  
+  // Background
+  ink("dimgray").box(padX, padY, padW, padH);
+  
+  // ABXY buttons in diamond - map to first 4 bands
+  const faceX = padX + 40;
+  const faceY = padY + 14;
+  const btnSize = 5;
+  
+  // A (bottom) - band 0
+  const aActive = bands[0]?.btn?.down;
+  ink(aActive ? "lime" : "green").box(faceX, faceY + 5, btnSize, btnSize);
+  
+  // B (right) - band 1  
+  const bActive = bands[1]?.btn?.down;
+  ink(bActive ? "red" : "darkred").box(faceX + 5, faceY, btnSize, btnSize);
+  
+  // X (left) - band 2
+  const xActive = bands[2]?.btn?.down;
+  ink(xActive ? "cyan" : "blue").box(faceX - 5, faceY, btnSize, btnSize);
+  
+  // Y (top) - band 3
+  const yActive = bands[3]?.btn?.down;
+  ink(yActive ? "yellow" : "olive").box(faceX, faceY - 5, btnSize, btnSize);
+  
+  // D-pad
+  const dpadX = padX + 12;
+  const dpadY = padY + 14;
+  const dSize = 4;
+  
+  ink("gray").box(dpadX, dpadY - 4, dSize, dSize); // Up
+  ink("gray").box(dpadX, dpadY + 4, dSize, dSize); // Down
+  ink("gray").box(dpadX - 4, dpadY, dSize, dSize); // Left
+  ink("gray").box(dpadX + 4, dpadY, dSize, dSize); // Right
+  
+  // Show selected band indicator
+  ink("white", 128);
+  write(`B${selectedBand}`, { x: padX + 2, y: padY + 2 });
 }
 
 function act({ event: e, api, sound, pens }) {
   // Resize
   if (e.is("reframed")) layoutBandButtons(api);
+
+  // Gamepad connection/disconnection
+  if (e.is("gamepad:connected")) {
+    connectedGamepad = e.gamepad;
+    console.log("🎮 Toss: Gamepad connected:", e.gamepad);
+  }
+  if (e.is("gamepad:disconnected")) {
+    connectedGamepad = null;
+    console.log("🎮 Toss: Gamepad disconnected");
+  }
+
+  // Gamepad button events - map A(0), B(1), X(2), Y(3) to bands
+  // 8BitDo Micro: A=0, B=1, X=3, Y=4 (different mapping!)
+  const buttonToBand = { 0: 0, 1: 1, 3: 2, 4: 3 }; // A->0, B->1, X->2, Y->3
+  
+  for (const [btn, bandIdx] of Object.entries(buttonToBand)) {
+    const band = bands[bandIdx];
+    if (!band) continue;
+    
+    if (e.is(`gamepad:0:button:${btn}:push`)) {
+      connectedGamepad = true;
+      if (!band.btn.down) {
+        band.btn.down = true;
+        const sampleId = stampleSampleId || fallbackSfx;
+        if (band.waveType === "stample" && sampleId) {
+          band.sound = sound.play(sampleId, {
+            volume: 1,
+            pitch: band.tone,
+            loop: true,
+          });
+        } else {
+          band.sound = sound.synth({
+            type: band.waveType === "stample" ? "sine" : band.waveType,
+            attack,
+            tone: band.tone,
+            duration: "🔁",
+          });
+        }
+      }
+    }
+    
+    if (e.is(`gamepad:0:button:${btn}:release`)) {
+      band.btn.down = false;
+      band.sound?.kill(killFade);
+      band.sound = null;
+    }
+  }
+  
+  // D-pad for band selection and pitch control
+  // D-pad: Up=12, Down=13, Left=14, Right=15
+  if (e.is("gamepad:0:button:14:push")) {
+    // Left - select previous band
+    selectedBand = (selectedBand - 1 + bands.length) % bands.length;
+    connectedGamepad = true;
+  }
+  if (e.is("gamepad:0:button:15:push")) {
+    // Right - select next band
+    selectedBand = (selectedBand + 1) % bands.length;
+    connectedGamepad = true;
+  }
+  if (e.is("gamepad:0:button:12:push")) {
+    // Up - increase pitch of selected band
+    const band = bands[selectedBand];
+    if (band) {
+      band.tone = min(band.tone + 20, toneHigh);
+      band.sound?.update?.({ tone: band.tone, duration: 0.05 });
+    }
+    connectedGamepad = true;
+  }
+  if (e.is("gamepad:0:button:13:push")) {
+    // Down - decrease pitch of selected band
+    const band = bands[selectedBand];
+    if (band) {
+      band.tone = max(band.tone - 20, toneLow);
+      band.sound?.update?.({ tone: band.tone, duration: 0.05 });
+    }
+    connectedGamepad = true;
+  }
 
   // Pointer input.
   bands.forEach((band, index) => {
@@ -441,18 +667,19 @@ function act({ event: e, api, sound, pens }) {
           
           band.lastX = e.x; // Store touch position
           
-          console.log("🎵 Toss band starting sound:", index, band.tone, "volume:", volumeFactor.toFixed(2));
+          console.log("🎵 Toss band starting sound:", index, band.tone, "volume:", volumeFactor.toFixed(2), "waveType:", band.waveType, "stampleId:", stampleSampleId, "fallback:", fallbackSfx);
           
           // Use play() for stample, synth() for other wave types
-          if (band.waveType === "stample" && stampleSampleId) {
-            band.sound = sound.play(stampleSampleId, {
+          const sampleId = stampleSampleId || fallbackSfx;
+          if (band.waveType === "stample" && sampleId) {
+            band.sound = sound.play(sampleId, {
               volume: volumeFactor,
-              pitch: band.tone / startTone, // Pitch relative to 220Hz base
+              pitch: band.tone, // Pitch in Hz (bios divides by basePitch 440)
               loop: true,
             });
           } else {
             band.sound = sound.synth({
-              type: band.waveType,
+              type: band.waveType === "stample" ? "sine" : band.waveType, // Fallback to sine if stample but no sample
               attack,
               tone: band.tone,
               duration: "🔁",
@@ -506,7 +733,7 @@ function act({ event: e, api, sound, pens }) {
           // Update sound with new parameters (stample uses pitch, synth uses tone)
           if (band.waveType === "stample" && stampleSampleId) {
             band.sound?.update?.({
-              pitch: band.tone / startTone,
+              pitch: band.tone, // Pitch in Hz
               volume: volumeFactor,
             });
           } else {
@@ -565,15 +792,16 @@ function act({ event: e, api, sound, pens }) {
       if (!band.btn.down) {
         band.btn.down = true;
         // Use play() for stample, synth() for other wave types
-        if (band.waveType === "stample" && stampleSampleId) {
-          band.sound = sound.play(stampleSampleId, {
+        const sampleId = stampleSampleId || fallbackSfx;
+        if (band.waveType === "stample" && sampleId) {
+          band.sound = sound.play(sampleId, {
             volume: 1,
-            pitch: band.tone / startTone,
+            pitch: band.tone, // Pitch in Hz
             loop: true,
           });
         } else {
           band.sound = sound.synth({
-            type: band.waveType,
+            type: band.waveType === "stample" ? "sine" : band.waveType,
             attack,
             tone: band.tone,
             duration: "🔁",
@@ -623,7 +851,7 @@ function sim() {
       // Update with pitch for stample, tone for synth
       if (band.waveType === "stample" && stampleSampleId) {
         band.sound?.update?.({
-          pitch: band.tone / startTone,
+          pitch: band.tone, // Pitch in Hz
         });
       } else {
         band.sound?.update?.({
@@ -635,11 +863,11 @@ function sim() {
 
     if (band.downing) {
       band.tone = max(band.tone - 1, toneLow);
-      
+
       // Update with pitch for stample, tone for synth
       if (band.waveType === "stample" && stampleSampleId) {
         band.sound?.update?.({
-          pitch: band.tone / startTone,
+          pitch: band.tone, // Pitch in Hz
         });
       } else {
         band.sound?.update?.({

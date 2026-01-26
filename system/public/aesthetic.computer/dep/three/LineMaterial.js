@@ -1,24 +1,10 @@
-/**
- * parameters = {
- *  color: <hex>,
- *  linewidth: <float>,
- *  dashed: <boolean>,
- *  dashScale: <float>,
- *  dashSize: <float>,
- *  dashOffset: <float>,
- *  gapSize: <float>,
- *  resolution: <Vector2>, // to be set by renderer
- * }
- */
-
 import {
 	ShaderLib,
 	ShaderMaterial,
 	UniformsLib,
 	UniformsUtils,
-	Vector2
-} from './three.module.js';
-
+	Vector2,
+} from 'three';
 
 UniformsLib.line = {
 
@@ -169,51 +155,34 @@ ShaderLib[ 'line' ] = {
 
 			#ifdef WORLD_UNITS
 
-				// get the offset direction as perpendicular to the view vector
 				vec3 worldDir = normalize( end.xyz - start.xyz );
-				vec3 offset;
-				if ( position.y < 0.5 ) {
+				vec3 tmpFwd = normalize( mix( start.xyz, end.xyz, 0.5 ) );
+				vec3 worldUp = normalize( cross( worldDir, tmpFwd ) );
+				vec3 worldFwd = cross( worldDir, worldUp );
+				worldPos = position.y < 0.5 ? start: end;
 
-					offset = normalize( cross( start.xyz, worldDir ) );
-
-				} else {
-
-					offset = normalize( cross( end.xyz, worldDir ) );
-
-				}
-
-				// sign flip
-				if ( position.x < 0.0 ) offset *= - 1.0;
-
-				float forwardOffset = dot( worldDir, vec3( 0.0, 0.0, 1.0 ) );
+				// height offset
+				float hw = linewidth * 0.5;
+				worldPos.xyz += position.x < 0.0 ? hw * worldUp : - hw * worldUp;
 
 				// don't extend the line if we're rendering dashes because we
 				// won't be rendering the endcaps
 				#ifndef USE_DASH
 
-					// extend the line bounds to encompass  endcaps
-					start.xyz += - worldDir * linewidth * 0.5;
-					end.xyz += worldDir * linewidth * 0.5;
+					// cap extension
+					worldPos.xyz += position.y < 0.5 ? - hw * worldDir : hw * worldDir;
 
-					// shift the position of the quad so it hugs the forward edge of the line
-					offset.xy -= dir * forwardOffset;
-					offset.z += 0.5;
+					// add width to the box
+					worldPos.xyz += worldFwd * hw;
+
+					// endcaps
+					if ( position.y > 1.0 || position.y < 0.0 ) {
+
+						worldPos.xyz -= worldFwd * 2.0 * hw;
+
+					}
 
 				#endif
-
-				// endcaps
-				if ( position.y > 1.0 || position.y < 0.0 ) {
-
-					offset.xy += dir * 2.0 * forwardOffset;
-
-				}
-
-				// adjust for linewidth
-				offset *= linewidth * 0.5;
-
-				// set the world position
-				worldPos = ( position.y < 0.5 ) ? start : end;
-				worldPos.xyz += offset;
 
 				// project the worldpos
 				vec4 clip = projectionMatrix * worldPos;
@@ -342,6 +311,9 @@ ShaderLib[ 'line' ] = {
 
 		void main() {
 
+			float alpha = opacity;
+			vec4 diffuseColor = vec4( diffuse, alpha );
+
 			#include <clipping_planes_fragment>
 
 			#ifdef USE_DASH
@@ -351,8 +323,6 @@ ShaderLib[ 'line' ] = {
 				if ( mod( vLineDistance + dashOffset, dashSize + gapSize ) > dashSize ) discard; // todo - FIX
 
 			#endif
-
-			float alpha = opacity;
 
 			#ifdef WORLD_UNITS
 
@@ -418,15 +388,13 @@ ShaderLib[ 'line' ] = {
 
 			#endif
 
-			vec4 diffuseColor = vec4( diffuse, alpha );
-
 			#include <logdepthbuf_fragment>
 			#include <color_fragment>
 
 			gl_FragColor = vec4( diffuseColor.rgb, alpha );
 
 			#include <tonemapping_fragment>
-			#include <encodings_fragment>
+			#include <colorspace_fragment>
 			#include <fog_fragment>
 			#include <premultiplied_alpha_fragment>
 
@@ -434,14 +402,34 @@ ShaderLib[ 'line' ] = {
 		`
 };
 
+/**
+ * A material for drawing wireframe-style geometries.
+ *
+ * Unlike {@link LineBasicMaterial}, it supports arbitrary line widths and allows using world units
+ * instead of screen space units. This material is used with {@link LineSegments2} and {@link Line2}.
+ *
+ * This module can only be used with {@link WebGLRenderer}. When using {@link WebGPURenderer},
+ * use {@link Line2NodeMaterial}.
+ *
+ * @augments ShaderMaterial
+ * @three_import import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+ */
 class LineMaterial extends ShaderMaterial {
 
+	/**
+	 * Constructs a new line segments geometry.
+	 *
+	 * @param {Object} [parameters] - An object with one or more properties
+	 * defining the material's appearance. Any property of the material
+	 * (including any property from inherited materials) can be passed
+	 * in here. Color values can be passed any type of value accepted
+	 * by {@link Color#set}.
+	 */
 	constructor( parameters ) {
 
 		super( {
 
 			type: 'LineMaterial',
-
 			uniforms: UniformsUtils.clone( ShaderLib[ 'line' ].uniforms ),
 
 			vertexShader: ShaderLib[ 'line' ].vertexShader,
@@ -451,249 +439,256 @@ class LineMaterial extends ShaderMaterial {
 
 		} );
 
+		/**
+		 * This flag can be used for type testing.
+		 *
+		 * @type {boolean}
+		 * @readonly
+		 * @default true
+		 */
 		this.isLineMaterial = true;
 
-		Object.defineProperties( this, {
-
-			color: {
-
-				enumerable: true,
-
-				get: function () {
-
-					return this.uniforms.diffuse.value;
-
-				},
-
-				set: function ( value ) {
-
-					this.uniforms.diffuse.value = value;
-
-				}
-
-			},
-
-			worldUnits: {
-
-				enumerable: true,
-
-				get: function () {
-
-					return 'WORLD_UNITS' in this.defines;
-
-				},
-
-				set: function ( value ) {
-
-					if ( value === true ) {
-
-						this.defines.WORLD_UNITS = '';
-
-					} else {
-
-						delete this.defines.WORLD_UNITS;
-
-					}
-
-				}
-
-			},
-
-			linewidth: {
-
-				enumerable: true,
-
-				get: function () {
-
-					return this.uniforms.linewidth.value;
-
-				},
-
-				set: function ( value ) {
-
-					this.uniforms.linewidth.value = value;
-
-				}
-
-			},
-
-			dashed: {
-
-				enumerable: true,
-
-				get: function () {
-
-					return Boolean( 'USE_DASH' in this.defines );
-
-				},
-
-				set( value ) {
-
-					if ( Boolean( value ) !== Boolean( 'USE_DASH' in this.defines ) ) {
-
-						this.needsUpdate = true;
-
-					}
-
-					if ( value === true ) {
-
-						this.defines.USE_DASH = '';
-
-					} else {
-
-						delete this.defines.USE_DASH;
-
-					}
-
-				}
-
-			},
-
-			dashScale: {
-
-				enumerable: true,
-
-				get: function () {
-
-					return this.uniforms.dashScale.value;
-
-				},
-
-				set: function ( value ) {
-
-					this.uniforms.dashScale.value = value;
-
-				}
-
-			},
-
-			dashSize: {
-
-				enumerable: true,
-
-				get: function () {
-
-					return this.uniforms.dashSize.value;
-
-				},
-
-				set: function ( value ) {
-
-					this.uniforms.dashSize.value = value;
-
-				}
-
-			},
-
-			dashOffset: {
-
-				enumerable: true,
-
-				get: function () {
-
-					return this.uniforms.dashOffset.value;
-
-				},
-
-				set: function ( value ) {
-
-					this.uniforms.dashOffset.value = value;
-
-				}
-
-			},
-
-			gapSize: {
-
-				enumerable: true,
-
-				get: function () {
-
-					return this.uniforms.gapSize.value;
-
-				},
-
-				set: function ( value ) {
-
-					this.uniforms.gapSize.value = value;
-
-				}
-
-			},
-
-			opacity: {
-
-				enumerable: true,
-
-				get: function () {
-
-					return this.uniforms.opacity.value;
-
-				},
-
-				set: function ( value ) {
-
-					this.uniforms.opacity.value = value;
-
-				}
-
-			},
-
-			resolution: {
-
-				enumerable: true,
-
-				get: function () {
-
-					return this.uniforms.resolution.value;
-
-				},
-
-				set: function ( value ) {
-
-					this.uniforms.resolution.value.copy( value );
-
-				}
-
-			},
-
-			alphaToCoverage: {
-
-				enumerable: true,
-
-				get: function () {
-
-					return Boolean( 'USE_ALPHA_TO_COVERAGE' in this.defines );
-
-				},
-
-				set: function ( value ) {
-
-					if ( Boolean( value ) !== Boolean( 'USE_ALPHA_TO_COVERAGE' in this.defines ) ) {
-
-						this.needsUpdate = true;
-
-					}
-
-					if ( value === true ) {
-
-						this.defines.USE_ALPHA_TO_COVERAGE = '';
-						this.extensions.derivatives = true;
-
-					} else {
-
-						delete this.defines.USE_ALPHA_TO_COVERAGE;
-						this.extensions.derivatives = false;
-
-					}
-
-				}
-
-			}
-
-		} );
-
 		this.setValues( parameters );
+
+	}
+
+	/**
+	 * The material's color.
+	 *
+	 * @type {Color}
+	 * @default (1,1,1)
+	 */
+	get color() {
+
+		return this.uniforms.diffuse.value;
+
+	}
+
+	set color( value ) {
+
+		this.uniforms.diffuse.value = value;
+
+	}
+
+	/**
+	 * Whether the material's sizes (width, dash gaps) are in world units.
+	 *
+	 * @type {boolean}
+	 * @default false
+	 */
+	get worldUnits() {
+
+		return 'WORLD_UNITS' in this.defines;
+
+	}
+
+	set worldUnits( value ) {
+
+		if ( value === true ) {
+
+			this.defines.WORLD_UNITS = '';
+
+		} else {
+
+			delete this.defines.WORLD_UNITS;
+
+		}
+
+	}
+
+	/**
+	 * Controls line thickness in CSS pixel units when `worldUnits` is `false` (default),
+	 * or in world units when `worldUnits` is `true`.
+	 *
+	 * @type {number}
+	 * @default 1
+	 */
+	get linewidth() {
+
+		return this.uniforms.linewidth.value;
+
+	}
+
+	set linewidth( value ) {
+
+		if ( ! this.uniforms.linewidth ) return;
+		this.uniforms.linewidth.value = value;
+
+	}
+
+	/**
+	 * Whether the line is dashed, or solid.
+	 *
+	 * @type {boolean}
+	 * @default false
+	 */
+	get dashed() {
+
+		return 'USE_DASH' in this.defines;
+
+	}
+
+	set dashed( value ) {
+
+		if ( ( value === true ) !== this.dashed ) {
+
+			this.needsUpdate = true;
+
+		}
+
+		if ( value === true ) {
+
+			this.defines.USE_DASH = '';
+
+		} else {
+
+			delete this.defines.USE_DASH;
+
+		}
+
+	}
+
+	/**
+	 * The scale of the dashes and gaps.
+	 *
+	 * @type {number}
+	 * @default 1
+	 */
+	get dashScale() {
+
+		return this.uniforms.dashScale.value;
+
+	}
+
+	set dashScale( value ) {
+
+		this.uniforms.dashScale.value = value;
+
+	}
+
+	/**
+	 * The size of the dash.
+	 *
+	 * @type {number}
+	 * @default 1
+	 */
+	get dashSize() {
+
+		return this.uniforms.dashSize.value;
+
+	}
+
+	set dashSize( value ) {
+
+		this.uniforms.dashSize.value = value;
+
+	}
+
+	/**
+	 * Where in the dash cycle the dash starts.
+	 *
+	 * @type {number}
+	 * @default 0
+	 */
+	get dashOffset() {
+
+		return this.uniforms.dashOffset.value;
+
+	}
+
+	set dashOffset( value ) {
+
+		this.uniforms.dashOffset.value = value;
+
+	}
+
+	/**
+	 * The size of the gap.
+	 *
+	 * @type {number}
+	 * @default 0
+	 */
+	get gapSize() {
+
+		return this.uniforms.gapSize.value;
+
+	}
+
+	set gapSize( value ) {
+
+		this.uniforms.gapSize.value = value;
+
+	}
+
+	/**
+	 * The opacity.
+	 *
+	 * @type {number}
+	 * @default 1
+	 */
+	get opacity() {
+
+		return this.uniforms.opacity.value;
+
+	}
+
+	set opacity( value ) {
+
+		if ( ! this.uniforms ) return;
+		this.uniforms.opacity.value = value;
+
+	}
+
+	/**
+	 * The size of the viewport, in screen pixels. This must be kept updated to make
+	 * screen-space rendering accurate.The `LineSegments2.onBeforeRender` callback
+	 * performs the update for visible objects.
+	 *
+	 * @type {Vector2}
+	 */
+	get resolution() {
+
+		return this.uniforms.resolution.value;
+
+	}
+
+	set resolution( value ) {
+
+		this.uniforms.resolution.value.copy( value );
+
+	}
+
+	/**
+	 * Whether to use alphaToCoverage or not. When enabled, this can improve the
+	 * anti-aliasing of line edges when using MSAA.
+	 *
+	 * @type {boolean}
+	 */
+	get alphaToCoverage() {
+
+		return 'USE_ALPHA_TO_COVERAGE' in this.defines;
+
+	}
+
+	set alphaToCoverage( value ) {
+
+		if ( ! this.defines ) return;
+
+		if ( ( value === true ) !== this.alphaToCoverage ) {
+
+			this.needsUpdate = true;
+
+		}
+
+		if ( value === true ) {
+
+			this.defines.USE_ALPHA_TO_COVERAGE = '';
+
+		} else {
+
+			delete this.defines.USE_ALPHA_TO_COVERAGE;
+
+		}
 
 	}
 
