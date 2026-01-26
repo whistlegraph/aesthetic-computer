@@ -4,6 +4,7 @@
 import {
   getNoteColorWithOctave,
   parseNotepatNote,
+  isBlackKey,
 } from "../lib/note-colors.mjs";
 import { drawMiniControllerDiagram } from "../lib/gamepad-diagram.mjs";
 
@@ -326,6 +327,7 @@ const edges = "zx;']"; // below and above the octave
 // This is a notes -> keys mapping, that uses v for c#
 
 const TOP_BAR_BOTTOM = 21;
+const TOP_BAR_PIANO_HEIGHT = 10; // Mini piano strip in top bar
 const TRACK_HEIGHT = 25;
 const TRACK_GAP = 6;
 const MINI_KEYBOARD_HEIGHT = 16;
@@ -334,10 +336,10 @@ const QWERTY_MINIMAP_SPACING = 6;
 
 const MIDI_BADGE_TEXT = "USB MIDI";
 const MIDI_RATE_LABEL_TEXT = "SR";
-const MIDI_BADGE_PADDING_X = 3;
+const MIDI_BADGE_PADDING_X = 2;
 const MIDI_BADGE_PADDING_RIGHT = 0;
 const MIDI_BADGE_PADDING_Y = 2;
-const MIDI_BADGE_MARGIN = 4;
+const MIDI_BADGE_MARGIN = 2;
 const MIDI_RATE_LABEL_GAP = 2;
 
 const QWERTY_MINIMAP_KEY_HEIGHT = 8;
@@ -761,6 +763,7 @@ let projector = false;
 let visualizerFullscreen = false; // Toggle visualizer as full background behind buttons
 let recitalMode = false; // 🎭 Recital mode - wireframe single-color minimal UI
 let recitalBlinkPhase = 0; // For blinking back button in recital mode
+let shakeAmount = 0; // Typography shake when playing notes
 
 // 🥁 Metronome state - UTC-synced like clock.mjs
 let metronomeEnabled = false;
@@ -1372,6 +1375,12 @@ function sim({ sound, simCount, num, clock }) {
     if (trail[note] <= 0) delete trail[note];
   });
 
+  // Decay shake effect
+  if (shakeAmount > 0) {
+    shakeAmount -= 0.15;
+    if (shakeAmount < 0) shakeAmount = 0;
+  }
+
   const active = orderedByCount(sounds);
 
   if (wave === "stample" && active.length > 0) {
@@ -1459,6 +1468,7 @@ function measureMatrixTextBoxWidth(text, api, screenWidth) {
 function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
   const isCompact = layout?.compactMode && layout?.splitLayout;
   const isHorizontalLayout = layout?.miniInputsHorizontal;
+  const isVerticalLayout = layout?.miniInputsVertical;
   const whiteKeyWidth = getMiniPianoWhiteKeyWidth(isCompact);
   const whiteKeyHeight = MINI_KEYBOARD_HEIGHT;
   const blackKeyWidth = getMiniPianoBlackKeyWidth(isCompact);
@@ -1481,12 +1491,79 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
   const clamp = (value, minValue, maxValue) =>
     Math.min(Math.max(value, minValue), maxValue);
 
+  // Vertical/rotated layout: piano keys run vertically on the right side
+  if (isVerticalLayout) {
+    const gridWidth = (layout?.buttonsPerRow || 4) * (layout?.buttonWidth || 20) + (layout?.margin || 2) * 2;
+    const gridLeft = layout?.margin || 2;
+    // In vertical mode, the "width" of the piano becomes its height
+    // whiteKeyWidth becomes the height of each key, whiteKeyHeight becomes the width
+    const rotatedPianoWidth = whiteKeyHeight + 2; // Keys drawn horizontally but stacked vertically
+    const rotatedPianoHeight = MINI_PIANO_WHITE_KEYS.length * whiteKeyWidth; // Full piano height when rotated
+    pianoStartX = gridLeft + gridWidth + 4; // Gap from grid
+    pianoY = layout?.topButtonY || SECONDARY_BAR_BOTTOM;
+    
+    // Check if rotated piano fits horizontally (x + width within screen)
+    const pianoRight = pianoStartX + rotatedPianoWidth;
+    // Check if rotated piano fits vertically (y + height within screen)
+    const availableHeight = screen.height - pianoY - 4;
+    
+    // If piano doesn't fit, hide it
+    if (pianoRight > screen.width - 2 || rotatedPianoHeight > availableHeight) {
+      return {
+        x: 0,
+        y: 0,
+        whiteKeyWidth,
+        whiteKeyHeight,
+        blackKeyWidth,
+        blackKeyHeight,
+        pianoWidth,
+        hidden: true, // Flag to skip painting piano
+        qwertyStartX: null,
+        qwertyStartY: null,
+      };
+    }
+    
+    return {
+      x: pianoStartX,
+      y: pianoY,
+      whiteKeyWidth,
+      whiteKeyHeight,
+      blackKeyWidth,
+      blackKeyHeight,
+      pianoWidth,
+      rotated: true, // Flag to indicate 90-degree rotation
+      rotatedWidth: rotatedPianoWidth,
+      rotatedHeight: rotatedPianoHeight,
+      qwertyStartX: null, // No qwerty in narrow mode
+      qwertyStartY: null,
+    };
+  }
+
   // Horizontal layout: place piano/qwerty to the right of the grid, stacked vertically
   if (isHorizontalLayout) {
     const gridWidth = (layout?.buttonsPerRow || 4) * (layout?.buttonWidth || 20) + (layout?.margin || 2) * 2;
     const gridLeft = layout?.margin || 2;
     pianoStartX = gridLeft + gridWidth + 8; // 8px gap from grid
     pianoY = layout?.topButtonY || SECONDARY_BAR_BOTTOM;
+    
+    // Check if piano fits horizontally
+    const pianoRight = pianoStartX + pianoWidth;
+    if (pianoRight > screen.width - 2) {
+      // Piano doesn't fit - hide it
+      return {
+        x: 0,
+        y: 0,
+        whiteKeyWidth,
+        whiteKeyHeight,
+        blackKeyWidth,
+        blackKeyHeight,
+        pianoWidth,
+        hidden: true, // Flag to skip painting piano
+        qwertyStartX: null,
+        qwertyStartY: null,
+      };
+    }
+    
     // Stack qwerty below piano
     const qwertyStartX = pianoStartX;
     const qwertyStartY = pianoY + whiteKeyHeight + QWERTY_MINIMAP_SPACING;
@@ -1506,6 +1583,22 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
 
   if (isCompact) {
     pianoY = SECONDARY_BAR_BOTTOM + 2;
+    // Check if piano fits in center area - if not, skip it (return hidden flag)
+    if (centerWidth < pianoWidth + 4) {
+      // Piano doesn't fit - hide it and let buttons use more space
+      return {
+        x: 0,
+        y: 0,
+        whiteKeyWidth,
+        whiteKeyHeight,
+        blackKeyWidth,
+        blackKeyHeight,
+        pianoWidth,
+        hidden: true, // Flag to skip painting piano
+        qwertyStartX: null,
+        qwertyStartY: null,
+      };
+    }
     const idealX = centerX + (centerWidth - pianoWidth) / 2;
     const minX = centerX;
     const maxX = Math.max(minX, centerRight - pianoWidth);
@@ -1567,7 +1660,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
 }
 
 function getMiniPianoNoteAt(x, y, geometry) {
-  if (!geometry) return null;
+  if (!geometry || geometry.hidden) return null;
   const {
     x: startX,
     y: startY,
@@ -1597,7 +1690,7 @@ function getMiniPianoNoteAt(x, y, geometry) {
 }
 
 function getQwertyKeyAt(x, y, pianoGeometry) {
-  if (!pianoGeometry) return null;
+  if (!pianoGeometry || pianoGeometry.hidden) return null;
   const qKeyWidth = 9;
   const qKeyHeight = QWERTY_MINIMAP_KEY_HEIGHT;
   const qKeySpacing = QWERTY_MINIMAP_KEY_SPACING;
@@ -1643,12 +1736,12 @@ function computeMidiBadgeMetrics(
   rateLabel = null,
   rateText = null,
 ) {
-  // Compact layout: "MIDI|48k|60"
-  const midiWidth = 4 * glyphMetrics.width; // "MIDI"
+  // Compact layout: "M|48k|60fps"
+  const midiWidth = 1 * glyphMetrics.width; // "M" instead of "MIDI"
   const divWidth = 5; // divider + spacing
   const shortRate = rateText ? rateText.replace("Hz", "") : "";
   const rateWidth = shortRate.length * glyphMetrics.width;
-  const fpsWidth = 2 * glyphMetrics.width; // "60" or "--"
+  const fpsWidth = 6 * glyphMetrics.width; // "60fps", "120fps", or "--" (6 chars max)
   
   const totalTextWidth = midiWidth + divWidth + rateWidth + divWidth + fpsWidth;
   const width = totalTextWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
@@ -1766,6 +1859,7 @@ function getButtonLayoutMetrics(
     // Piano dimensions (extended mini layout)
     const whiteKeyWidth = getMiniPianoWhiteKeyWidth(true);
     const pianoWidth = MINI_PIANO_WHITE_KEYS.length * whiteKeyWidth;
+    const rotatedPianoWidth = MINI_KEYBOARD_HEIGHT + 4; // Width when piano is rotated
     
     // QWERTY minimap dimensions (10 keys per row roughly)
     const qKeyWidth = 9;
@@ -1774,22 +1868,35 @@ function getButtonLayoutMetrics(
       Math.max(...QWERTY_LAYOUT_ROWS.map((row) => row.length)) *
       (qKeyWidth + qKeySpacing);
     
-    // Center area for piano + qwerty
-    const centerWidth = Math.max(pianoWidth, qwertyWidth) + 4;  // ~102px with padding
+    // Center area: use smaller of piano or rotated piano, depending on available space
+    // Minimum center width is the rotated piano width (for narrow screens)
+    const minCenterWidth = rotatedPianoWidth + 4;
+    const idealCenterWidth = Math.max(pianoWidth, qwertyWidth) + 4;
+    // Check how much space we'd have for buttons with each center width
+    const spaceWithIdeal = (usableWidth - idealCenterWidth) / 2;
+    const spaceWithMin = (usableWidth - minCenterWidth) / 2;
+    // In split mode, if buttons would be too small even with minimum center, hide piano entirely
+    // This means center width = 0, and buttons get the full width
+    const pianoHidden = (spaceWithMin / buttonsPerRow < 16);
+    const centerWidth = pianoHidden ? 0 : 
+      (spaceWithIdeal / buttonsPerRow >= 16) ? idealCenterWidth : minCenterWidth;
     
     // Available width for buttons on each side
     const sideMargin = margin;
     const availableSideWidth = (usableWidth - centerWidth) / 2 - sideMargin * 2;
     
-    // Calculate square button size based on available space
+    // Calculate button size - allow non-square to fill space better on narrow screens
     const maxButtonWidth = floor(availableSideWidth / buttonsPerRow);
     const availableHeight = screen.height - hudReserved - bottomPadding - margin;
     const maxButtonHeight = floor(availableHeight / totalRows);
     
-    // Make buttons square
-    const buttonSize = min(maxButtonWidth, maxButtonHeight);
-    const buttonWidth = buttonSize;
-    const buttonHeight = buttonSize;
+    // Use available width and height, but keep some proportionality
+    let buttonWidth = max(12, maxButtonWidth);
+    let buttonHeight = max(12, maxButtonHeight);
+    // Keep aspect ratio reasonable (between 0.5 and 2.0)
+    const aspect = buttonWidth / buttonHeight;
+    if (aspect > 2.0) buttonWidth = floor(buttonHeight * 2.0);
+    else if (aspect < 0.5) buttonHeight = floor(buttonWidth * 2.0);
     
     const topButtonY = hudReserved + margin;
     
@@ -1800,12 +1907,15 @@ function getButtonLayoutMetrics(
     // Left octave starts at left margin
     const leftOctaveX = sideMargin;
     
-    // Right octave starts after center area
+    // Right octave ends at right edge, position accordingly
     const rightOctaveX = usableWidth - sideMargin - buttonBlockWidth;
     
-    // Center area position
+    // Center area position - recalculate based on actual button sizes
     const centerX = leftOctaveX + buttonBlockWidth + sideMargin;
-    const centerAreaWidth = rightOctaveX - centerX - sideMargin;
+    // When piano is hidden, center area width should be minimal (just gap between button groups)
+    const centerAreaWidth = pianoHidden ? 
+      Math.max(0, rightOctaveX - centerX - sideMargin) : 
+      max(minCenterWidth, rightOctaveX - centerX - sideMargin);
     
     // Bottom center area for unified active note display - position above MIDI badge
     const bottomCenterY = screen.height - compactBadgeMetrics.height - MIDI_BADGE_MARGIN - 14;
@@ -1883,14 +1993,24 @@ function getButtonLayoutMetrics(
   const pianoWidth = MINI_PIANO_WHITE_KEYS.length * getMiniPianoWhiteKeyWidth(false);
   const horizontalSpaceForMini = usableWidth - gridWidthEstimate - pianoWidth > 10;
   
+  // Check for narrow screens where we can fit a vertical/rotated piano on the right
+  // Rotated piano: width = MINI_KEYBOARD_HEIGHT, height = pianoWidth (all keys stacked)
+  const rotatedPianoWidth = MINI_KEYBOARD_HEIGHT + 4; // Piano keys become vertical
+  const rotatedPianoHeight = pianoWidth; // Height needed to fit ALL white keys
+  const availableHeightForRotated = screen.height - SECONDARY_BAR_BOTTOM - 4; // Leave some margin
+  // Only show rotated piano if ALL keys fit vertically
+  const narrowVerticalSpace = !horizontalSpaceForMini && 
+    usableWidth - gridWidthEstimate - rotatedPianoWidth > 4 &&
+    availableHeightForRotated >= rotatedPianoHeight;
+  
   // Show mini inputs if there's either vertical or horizontal space
   const availableWithoutMini = screen.height - bottomPadding - baseReservedTop;
   const verticalSpaceForMini =
     availableWithoutMini - keyboardReservedBase >= totalRows * minButtonSize;
-  const canFitMini = horizontalSpaceForMini || verticalSpaceForMini;
+  const canFitMini = horizontalSpaceForMini || verticalSpaceForMini || narrowVerticalSpace;
   const showMiniInputs = miniInputsEnabled && canFitMini;
-  // Only reserve top space if using vertical layout (not horizontal)
-  const reservedTop = baseReservedTop + (showMiniInputs && verticalSpaceForMini && !horizontalSpaceForMini ? keyboardReservedBase : 0);
+  // Only reserve top space if using vertical layout (not horizontal or narrow vertical)
+  const reservedTop = baseReservedTop + (showMiniInputs && verticalSpaceForMini && !horizontalSpaceForMini && !narrowVerticalSpace ? keyboardReservedBase : 0);
 
   // Calculate maximum button dimensions to fill available space
   const widthLimit = floor((usableWidth - margin * 2) / buttonsPerRow);
@@ -1941,6 +2061,7 @@ function getButtonLayoutMetrics(
     usableWidth,
     miniInputsEnabled: showMiniInputs,
     miniInputsHorizontal: horizontalSpaceForMini && showMiniInputs,
+    miniInputsVertical: narrowVerticalSpace && showMiniInputs && !horizontalSpaceForMini,
   };
 }
 
@@ -2208,9 +2329,32 @@ function paint({
     return;
   }
   
-  // � Recital mode color scheme - single cyan wireframe color
-  const recitalColor = [0, 255, 220]; // Cyan wireframe color
-  const recitalDim = [0, 120, 100]; // Dimmer version for inactive
+  // 🎭 Recital mode color scheme - dynamically set by active note
+  // Get the first active note to determine the wireframe color
+  const activeNoteKeys = Object.keys(sounds);
+  let recitalColor = [0, 255, 220]; // Default cyan wireframe color
+  let recitalDim = [0, 120, 100]; // Dimmer version for inactive
+  
+  if (recitalMode && activeNoteKeys.length > 0) {
+    // Use the most recent/first active note's color
+    const activeNote = activeNoteKeys[0];
+    const parsed = parseNotepatNote(activeNote);
+    if (parsed) {
+      const noteColor = getNoteColorWithOctave(parsed.baseNote, parsed.octave);
+      // Brighten the color for wireframe visibility
+      recitalColor = [
+        Math.min(255, noteColor[0] + 80),
+        Math.min(255, noteColor[1] + 80),
+        Math.min(255, noteColor[2] + 80),
+      ];
+      // Create dim version
+      recitalDim = [
+        Math.floor(recitalColor[0] * 0.5),
+        Math.floor(recitalColor[1] * 0.5),
+        Math.floor(recitalColor[2] * 0.5),
+      ];
+    }
+  }
   
   // 🎨 Fullscreen visualizer mode - draw bars as background behind everything
   if (visualizerFullscreen && !recitalMode) {
@@ -2228,6 +2372,18 @@ function paint({
     );
   } else if (recitalMode) {
     wipe(0); // Pure black background for recital mode
+    // Draw fullscreen visualizer behind wireframe UI
+    sound.paint.bars(
+      api,
+      amplitude,
+      waveformsForBars,
+      0,
+      0,
+      screen.width,
+      screen.height,
+      [255, 0, 0, 255],
+      { primaryColor: recitalColor, secondaryColor: recitalDim },
+    );
     // Update blink phase for back button
     recitalBlinkPhase = (recitalBlinkPhase + 0.05) % (Math.PI * 2);
   } else {
@@ -2238,17 +2394,15 @@ function paint({
   const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
   const showTrack = Boolean(song) && autopatConfig.showTrack !== false;
 
-  // 🎭 Recital mode: Draw minimal top bar with "BACK" button
+  // 🎭 Recital mode: Draw wireframe UI on top of visualizer
   if (recitalMode && !paintPictureOverlay && !projector) {
-    // Draw minimal top bar outline
-    ink(...recitalColor, 60).box(0, 0, screen.width, TOP_BAR_BOTTOM, "outline");
+    // Draw wireframe top bar (outline only, transparent inside)
+    ink(...recitalColor, 80).box(0, 0, screen.width, TOP_BAR_BOTTOM, "outline");
+    // Horizontal line under top bar
+    ink(...recitalColor, 60).line(0, TOP_BAR_BOTTOM - 1, screen.width, TOP_BAR_BOTTOM - 1);
     
-    // Blinking "BACK" text
-    const blinkAlpha = Math.floor(128 + Math.sin(recitalBlinkPhase * 3) * 80);
-    ink(...recitalColor, blinkAlpha).write("< BACK", { x: 6, y: 6 }, undefined, undefined, false, "MatrixChunky8");
-    
-    // Draw secondary bar with wireframe toggle buttons
-    ink(...recitalColor, 40).box(0, SECONDARY_BAR_TOP, screen.width, SECONDARY_BAR_HEIGHT, "outline");
+    // Draw wireframe secondary bar
+    ink(...recitalColor, 60).box(0, SECONDARY_BAR_TOP, screen.width, SECONDARY_BAR_HEIGHT, "outline");
     
     // Wireframe toggle buttons in recital mode
     slideBtn?.paint((btn) => {
@@ -2295,6 +2449,10 @@ function paint({
       ink(...recitalDim, 80).box(btn.box, "outline");
       ink(...recitalDim, 100).write("+", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
+    
+    // 🔙 Blinking "BACK" text - drawn LAST so it's on top of everything
+    const blinkAlpha = Math.floor(180 + Math.sin(recitalBlinkPhase * 3) * 75);
+    ink(...recitalColor, blinkAlpha).write("< BACK", { x: 6, y: 6 }, undefined, undefined, false, "MatrixChunky8");
   }
 
   // 🎛️ Draw secondary top bar with toggle buttons (normal mode)
@@ -2436,10 +2594,12 @@ function paint({
       sampleRateText,
     );
 
-    const streamLeft = topMidiMetrics.x + topMidiMetrics.width + 5;
+    const streamLeft = topMidiMetrics.x + topMidiMetrics.width + 3;
     // Stream should stop before metronome buttons (bpmMinusBtn), not the toggle buttons
-    const streamRight = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 4 : (slideBtn?.box?.x ? slideBtn.box.x - 6 : screen.width - 6);
-    const streamWidth = Math.max(0, Math.min(52, streamRight - streamLeft));
+    const streamRight = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 2 : (slideBtn?.box?.x ? slideBtn.box.x - 4 : screen.width - 4);
+    const streamMaxWidth = streamRight - streamLeft;
+    // Use up to 40% of available space for stream, rest for active notes list
+    const streamWidth = Math.max(0, Math.min(Math.floor(streamMaxWidth * 0.4), streamMaxWidth));
     const streamHeight = 6;
     if (streamWidth > 6) {
       const streamY =
@@ -2458,9 +2618,9 @@ function paint({
     }
 
     // Linear active note list (colored) between stream and metronome buttons
-    const listStartX = streamLeft + (streamWidth > 0 ? streamWidth + 6 : 0);
+    const listStartX = streamLeft + (streamWidth > 0 ? streamWidth + 4 : 0);
     // List should also stop before metronome buttons
-    const listRight = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 4 : (slideBtn?.box?.x ? slideBtn.box.x - 6 : screen.width - 6);
+    const listRight = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 2 : (slideBtn?.box?.x ? slideBtn.box.x - 4 : screen.width - 4);
     const listHeight = 8;
     const listY =
       SECONDARY_BAR_TOP +
@@ -2593,6 +2753,8 @@ function paint({
     let pianoY = pianoGeometry.y;
     let pianoStartX = pianoGeometry.x;
 
+    // Skip piano/qwerty painting entirely if hidden (split mode with no room)
+    if (!pianoGeometry.hidden) {
     const whiteKeyWidth = getMiniPianoWhiteKeyWidth(layout.compactMode);
     const whiteKeyHeight = MINI_KEYBOARD_HEIGHT;
     const blackKeyWidth = getMiniPianoBlackKeyWidth(layout.compactMode);
@@ -2603,8 +2765,64 @@ function paint({
     const totalWhiteKeys = whiteKeys.length;
     const pianoWidth = totalWhiteKeys * whiteKeyWidth;
 
-    // 🎭 Recital mode: Wireframe piano
-    if (recitalMode) {
+    // � Rotated vertical piano mode (for narrow screens)
+    if (pianoGeometry.rotated && !recitalMode) {
+      // In rotated mode: keys run vertically, white keys are stacked from top to bottom
+      // Each key is drawn as a horizontal bar
+      const keyHeight = whiteKeyWidth; // Key "width" becomes vertical height
+      const keyWidth = whiteKeyHeight; // Key "height" becomes horizontal width
+      const blackKeyH = blackKeyWidth; // Black key vertical size
+      const blackKeyW = blackKeyHeight; // Black key horizontal size
+      
+      // Draw white keys (stacked vertically, lowest note at bottom)
+      whiteKeys.forEach((note, index) => {
+        // Reverse index so low notes are at bottom
+        const reversedIndex = totalWhiteKeys - 1 - index;
+        const y = pianoY + reversedIndex * keyHeight;
+        const x = pianoStartX;
+        const noteKey = note.toLowerCase();
+        const isActivePlaying = sounds[noteKey] !== undefined;
+        
+        const baseFill = isActivePlaying ? [215, 225, 230] : [195, 205, 210];
+        ink(...baseFill).box(x, y, keyWidth, keyHeight - 1);
+        
+        // Color strip on right edge
+        const stripBase = colorFromNote(noteKey, num);
+        const stripColor = isActivePlaying ? brightenColor(stripBase, 40) : stripBase;
+        const stripWidth = 3;
+        ink(...stripColor).box(x + keyWidth - stripWidth, y, stripWidth, keyHeight - 1);
+        ink(90, 110, 120).box(x, y, keyWidth, keyHeight - 1, "outline");
+      });
+      
+      // Draw black keys (overlaid, positioned between white keys)
+      blackKeys.forEach(({note, afterWhite}) => {
+        // afterWhite indicates which white key this black key is after
+        // In vertical mode, we position it between the reversed indices
+        const reversedAfterWhite = totalWhiteKeys - 1 - afterWhite;
+        const y = pianoY + reversedAfterWhite * keyHeight + keyHeight - blackKeyH / 2;
+        const x = pianoStartX;
+        const noteKey = note.toLowerCase();
+        const isActivePlaying = sounds[noteKey] !== undefined;
+        
+        // Black keys are pure black now
+        const baseFill = isActivePlaying ? [28, 32, 36] : [0, 0, 0];
+        ink(...baseFill).box(x, y, blackKeyW, blackKeyH);
+        
+        // White text label for black key
+        if (blackKeyH >= 6) {
+          const label = noteKey.replace("#", "").toUpperCase();
+          ink(255, 255, 255, isActivePlaying ? 255 : 180).write(
+            label,
+            { x: x + 1, y: y + 1 },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8",
+          );
+        }
+      });
+    } else if (recitalMode) {
+      // 🎭 Recital mode: Wireframe piano
       // Draw piano outline
       ink(...recitalColor, 80).box(pianoStartX, pianoY, pianoWidth, whiteKeyHeight, "outline");
       // Draw vertical separators between white keys
@@ -2628,7 +2846,7 @@ function paint({
           ink(...recitalColor, 100).box(x, pianoY, blackKeyWidth, blackKeyHeight, "outline");
         }
       });
-    } else {
+    } else if (!pianoGeometry.rotated) {
     // Normal mode: Draw white keys
     whiteKeys.forEach((note, index) => {
       const x = pianoStartX + index * whiteKeyWidth;
@@ -2697,8 +2915,8 @@ function paint({
     });
     } // End of normal mode piano/keys block
 
-    // Show QWERTY minimap in compact mode (always) or in song mode
-    if (layout.compactMode || song) {
+    // Show QWERTY minimap in compact mode (always) or in song mode (skip in rotated mode - no space)
+    if ((layout.compactMode || song) && !pianoGeometry.rotated) {
       const currentKeyLetter = song ? noteToKeyboardKey(song?.[songIndex]?.[0]) : null;
       const nextKeyLetter = song ? noteToKeyboardKey(song?.[songIndex + 1]?.[0]) : null;
       const activeKeyLetters = new Set(
@@ -2774,7 +2992,7 @@ function paint({
           });
         });
       } else {
-      // Normal mode QWERTY
+      // Normal mode QWERTY - styled like a real computer keyboard (gray tones)
       QWERTY_LAYOUT_ROWS.forEach((row, rowIndex) => {
         const rowOffset =
           rowIndex === 0
@@ -2800,27 +3018,24 @@ function paint({
           const isNextKey = keyLetter === nextKeyLetter;
           const isSpecialKey = ["space", "alt", "left", "right", "up", "down"].includes(keyLetter);
 
+          // Computer keyboard style: gray keys with subtle highlights for active
           let fillColor;
           if (isCurrentAndActive) {
-            fillColor = [0, 255, 234, 220];
-          } else if (isCurrentKey) {
-            fillColor = [0, 120, 140, 200];
+            fillColor = [180, 200, 180, 230]; // Light green-gray when current and active
           } else if (isActiveKey) {
-            fillColor = [255, 255, 0, 210];
+            fillColor = [200, 200, 180, 220]; // Light yellow-gray when active
+          } else if (isCurrentKey) {
+            fillColor = [140, 160, 160, 200]; // Slightly highlighted gray
           } else if (isNextKey) {
-            fillColor = [0, 200, 220, 120];
-          } else if (isMapped) {
-            const mappedColor = colorFromNote(mappedNote, num);
-            const toned = darkenColor(mappedColor, 0.7);
-            fillColor = [toned[0], toned[1], toned[2], 190];
+            fillColor = [120, 140, 150, 180]; // Subtle blue-gray hint
           } else if (isSpecialKey) {
-            fillColor = [30, 45, 60, 180];
+            fillColor = [55, 60, 65, 200]; // Darker gray for special keys
           } else {
-            fillColor = [20, 30, 40, 150];
+            fillColor = [70, 75, 80, 200]; // Standard keyboard gray
           }
 
           ink(...fillColor).box(x, y, qKeyWidth, qKeyHeight);
-          ink(100, 100, 100, 220).box(x, y, qKeyWidth, qKeyHeight, "outline");
+          ink(45, 50, 55, 200).box(x, y, qKeyWidth, qKeyHeight, "outline");
 
           const label = formatKeyLabel(keyLetter);
           const glyphWidth = matrixGlyphMetrics.width;
@@ -2829,20 +3044,31 @@ function paint({
           const labelX = x + (qKeyWidth - labelWidth) / 2;
           const labelY = y + (qKeyHeight - glyphHeight) / 2;
 
+          // Keyboard-style text colors - tinted by mapped note color
           let textColor;
           if (isCurrentAndActive || isActiveKey) {
-            textColor = [0, 0, 0, 240];
+            textColor = [30, 30, 30, 255]; // Dark text on light active keys
           } else if (isMapped) {
-            const baseText = getContrastingTextColor(Array.isArray(fillColor) ? fillColor : [60, 60, 60]);
-            textColor = [baseText[0], baseText[1], baseText[2], 230];
+            // Tint text with the mapped note's color (brightened for visibility)
+            const noteColor = colorFromNote(mappedNote, num);
+            textColor = [
+              Math.min(255, noteColor[0] + 100),
+              Math.min(255, noteColor[1] + 100),
+              Math.min(255, noteColor[2] + 100),
+              230
+            ];
           } else {
-            textColor = [150, 150, 150, 200];
+            textColor = [140, 145, 150, 200]; // Dimmer gray for unmapped keys
           }
+
+          // Apply shake offset when playing
+          const shakeX = shakeAmount > 0 ? Math.floor((Math.random() - 0.5) * shakeAmount * 2) : 0;
+          const shakeY = shakeAmount > 0 ? Math.floor((Math.random() - 0.5) * shakeAmount * 2) : 0;
 
           if (labelWidth <= qKeyWidth) {
             ink(...textColor).write(
               label,
-              { x: labelX, y: labelY },
+              { x: labelX + shakeX, y: labelY + shakeY },
               undefined,
               undefined,
               false,
@@ -2869,6 +3095,7 @@ function paint({
         }
       }
     }
+    } // End of !pianoGeometry.hidden check
   }
 
   // layout already computed above for piano/qwerty positioning
@@ -2976,8 +3203,8 @@ function paint({
 
     let cursorX = baseX;
 
-    // Draw "MIDI" (shortened)
-    const midiText = "MIDI";
+    // Draw "M" (shortened from MIDI)
+    const midiText = "M";
     ink(...textColor).write(
       midiText,
       { x: cursorX, y: baseY },
@@ -3012,9 +3239,9 @@ function paint({
     ink(...dividerColor).line(cursorX, y + 2, cursorX, y + gh + 1);
     cursorX += 3;
 
-    // Draw FPS
+    // Draw FPS with suffix
     const fpsVal = Math.round(perfStats.fps);
-    const fpsText = fpsVal > 0 ? `${fpsVal}` : "--";
+    const fpsText = fpsVal > 0 ? `${fpsVal}fps` : "--";
     const fpsBadColor = fpsVal < 30 ? [255, 80, 80] : fpsVal < 50 ? [255, 200, 80] : fpsColor;
     ink(...fpsBadColor).write(
       fpsText,
@@ -3052,12 +3279,24 @@ function paint({
     let audioBadgeX;
 
     if (!audioReady) {
-      // "AUDIO ENGINE OFF" using actual MatrixChunky8 glyph metrics
-      const audioText = "AUDIO ENGINE OFF";
-      const audioTextWidth =
-        measureMatrixTextBoxWidth(audioText, api, screen.width) ||
-        measureMatrixTextWidth(audioText, typeface);
+      // "AUDIO ENGINE OFF" using actual MatrixChunky8 glyph metrics - shorten for narrow screens
+      const fullText = "AUDIO ENGINE OFF";
+      const shortText = "ENGINE OFF";
+      const tinyText = "OFF";
+      const fullWidth = measureMatrixTextBoxWidth(fullText, api, screen.width) || measureMatrixTextWidth(fullText, typeface);
+      const shortWidth = measureMatrixTextBoxWidth(shortText, api, screen.width) || measureMatrixTextWidth(shortText, typeface);
       const audioPadding = 4;
+      // Choose text based on available width
+      let audioText = fullText;
+      let audioTextWidth = fullWidth;
+      if (fullWidth + audioPadding * 2 > screen.width - 20) {
+        audioText = shortText;
+        audioTextWidth = shortWidth;
+      }
+      if (shortWidth + audioPadding * 2 > screen.width - 20) {
+        audioText = tinyText;
+        audioTextWidth = measureMatrixTextBoxWidth(tinyText, api, screen.width) || measureMatrixTextWidth(tinyText, typeface);
+      }
       const totalBadgeWidth = audioTextWidth + audioPadding * 2;
       audioBadgeX = Math.floor((screen.width - totalBadgeWidth) / 2); // Center horizontally
       ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, totalBadgeWidth, audioBadgeHeight);
@@ -3118,12 +3357,24 @@ function paint({
     let audioBadgeX;
 
     if (!audioReady) {
-      // "AUDIO ENGINE OFF" using actual MatrixChunky8 glyph metrics
-      const audioText = "AUDIO ENGINE OFF";
-      const audioTextWidth =
-        measureMatrixTextBoxWidth(audioText, api, screen.width) ||
-        measureMatrixTextWidth(audioText, typeface);
+      // "AUDIO ENGINE OFF" using actual MatrixChunky8 glyph metrics - shorten for narrow screens
+      const fullText = "AUDIO ENGINE OFF";
+      const shortText = "ENGINE OFF";
+      const tinyText = "OFF";
+      const fullWidth = measureMatrixTextBoxWidth(fullText, api, screen.width) || measureMatrixTextWidth(fullText, typeface);
+      const shortWidth = measureMatrixTextBoxWidth(shortText, api, screen.width) || measureMatrixTextWidth(shortText, typeface);
       const audioPadding = 4;
+      // Choose text based on available width
+      let audioText = fullText;
+      let audioTextWidth = fullWidth;
+      if (fullWidth + audioPadding * 2 > screen.width - 20) {
+        audioText = shortText;
+        audioTextWidth = shortWidth;
+      }
+      if (shortWidth + audioPadding * 2 > screen.width - 20) {
+        audioText = tinyText;
+        audioTextWidth = measureMatrixTextBoxWidth(tinyText, api, screen.width) || measureMatrixTextWidth(tinyText, typeface);
+      }
       const totalBadgeWidth = audioTextWidth + audioPadding * 2;
       audioBadgeX = Math.floor((screen.width - totalBadgeWidth) / 2); // Center horizontally
       ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, totalBadgeWidth, max(9, audioBadgeHeight));
@@ -3254,7 +3505,6 @@ function paint({
           btn.box.h - 3,
         );
       }
-      // ink("white", 64).box(btn.box);
       ink("orange").line(
         btn.box.x + btn.box.w,
         btn.box.y + 3,
@@ -3262,7 +3512,17 @@ function paint({
         btn.box.y + btn.box.h - 1,
       );
       ink(btn.down ? "yellow" : "orange");
-      write(wave, { right: 27, top: 6 });
+      // Use shortened wave name and smaller font on narrow screens
+      const displayWave = btn.displayWave || wave;
+      if (btn.isNarrow) {
+        ink(btn.down ? "yellow" : "orange").write(
+          displayWave,
+          { x: btn.box.x + 3, y: btn.box.y + 5 },
+          undefined, undefined, false, "MatrixChunky8"
+        );
+      } else {
+        write(wave, { right: 27, top: 6 });
+      }
     });
 
     octBtn?.paint((btn) => {
@@ -3280,9 +3540,17 @@ function paint({
           btn.box.h - 3,
         );
       }
-      // ink("white", 64).box(btn.box);
       ink(btn.down ? "yellow" : "pink");
-      write(octave, { right: 8, top: 6 });
+      // Use smaller font on narrow screens
+      if (btn.isNarrow) {
+        ink(btn.down ? "yellow" : "pink").write(
+          octave,
+          { x: btn.box.x + 3, y: btn.box.y + 5 },
+          undefined, undefined, false, "MatrixChunky8"
+        );
+      } else {
+        write(octave, { right: 8, top: 6 });
+      }
     });
   }
 
@@ -3425,13 +3693,15 @@ function paint({
                 btn.box.x + btn.box.w / 2,
                 btn.box.y + btn.box.h / 2,
                 trail[note] * btn.box.w,
+                trail[note] * btn.box.h,
                 "center",
               );
             }
             
             // Note label in recital mode
             const meta = btn.meta || {};
-            const noteLabelText = meta.noteLabelText || note.toUpperCase();
+            // Natural notes uppercase, black keys (sharps/flats) lowercase
+            const noteLabelText = meta.noteLabelText || (isBlackKey(note) ? note.toLowerCase() : note.toUpperCase());
             const noteFont = meta.noteFont || "MatrixChunky8";
             const glyphWidth = meta.noteGlyphWidth || matrixGlyphMetrics.width;
             const glyphHeight = meta.noteGlyphHeight || matrixGlyphMetrics.height;
@@ -3454,16 +3724,6 @@ function paint({
           if (shouldRedrawFull) {
             if (!projector) {
               ink(color, isBlocked ? 128 : 196).box(btn.box); // Blocked notes are darker
-              // Ivory wash like piano keys
-              if (!isBlocked) {
-                const ivoryHeight = Math.max(2, Math.floor(btn.box.h * 0.35));
-                ink(255, 255, 240, 28).box(
-                  btn.box.x + 1,
-                  btn.box.y + 1,
-                  btn.box.w - 2,
-                  ivoryHeight,
-                );
-              }
             } else {
               ink(color, 48).box(btn.box); // One solid colored box per note.
               // ink("white", 32).box(btn.box, "inline"); // One solid colored box per note.
@@ -3488,6 +3748,7 @@ function paint({
               btn.box.x + btn.box.w / 2,
               btn.box.y + btn.box.h / 2,
               trail[note] * btn.box.w,
+              trail[note] * btn.box.h,
               "center",
             );
           }
@@ -3508,7 +3769,8 @@ function paint({
             const isCurrentNote = note.toUpperCase() === song?.[songIndex][0];
             const isNextNote = note.toUpperCase() === song?.[songIndex + 1]?.[0];
             if (isCurrentNote || isNextNote) {
-              noteLabelText = meta.noteLabelText || note.toUpperCase();
+              // Natural notes uppercase, black keys (sharps/flats) lowercase
+              noteLabelText = meta.noteLabelText || (isBlackKey(note) ? note.toLowerCase() : note.toUpperCase());
               noteLabelBounds = meta.noteLabelBoundsCentered || {
                 x: btn.box.x + btn.box.w / 2 - (noteLabelText.length * glyphWidth) / 2,
                 y: btn.box.y + btn.box.h / 2 - glyphHeight / 2,
@@ -3517,7 +3779,8 @@ function paint({
               };
             }
           } else {
-            noteLabelText = meta.noteLabelText || note.toUpperCase();
+            // Natural notes uppercase, black keys (sharps/flats) lowercase
+            noteLabelText = meta.noteLabelText || (isBlackKey(note) ? note.toLowerCase() : note.toUpperCase());
             noteLabelBounds = meta.noteLabelBoundsDefault || {
               x: btn.box.x + 2,
               y: btn.box.y + 1,
@@ -3542,10 +3805,14 @@ function paint({
           }
 
           // Always draw labels (padsBase cache only has boxes, not text)
+          // Apply shake offset when playing
+          const padShakeX = shakeAmount > 0 ? Math.floor((Math.random() - 0.5) * shakeAmount * 2) : 0;
+          const padShakeY = shakeAmount > 0 ? Math.floor((Math.random() - 0.5) * shakeAmount * 2) : 0;
+          
           if (noteLabelText && noteLabelBounds) {
             ink(0, 0, 0, 160).write(
               noteLabelText,
-              { x: noteLabelBounds.x + 1, y: noteLabelBounds.y + 1 },
+              { x: noteLabelBounds.x + 1 + padShakeX, y: noteLabelBounds.y + 1 + padShakeY },
               undefined,
               undefined,
               false,
@@ -3553,7 +3820,7 @@ function paint({
             );
             ink(...baseTextColor).write(
               noteLabelText,
-              { x: noteLabelBounds.x, y: noteLabelBounds.y },
+              { x: noteLabelBounds.x + padShakeX, y: noteLabelBounds.y + padShakeY },
               undefined,
               undefined,
               false,
@@ -3910,6 +4177,7 @@ function applyPitchBendToNotes(noteKeys, { immediate = false } = {}) {
 function startButtonNote(note, velocity = 127, apiRef = null) {
   anyDown = true;
   perfStats.lastKeyTime = performance.now();
+  shakeAmount = 3; // Trigger typography shake
 
   if (song && note.toUpperCase() !== song?.[songIndex][0]) {
     synth({
@@ -6145,36 +6413,52 @@ function setupButtons({ ui, screen, geo }) {
 }
 
 function buildWaveButton({ screen, ui, typeface }) {
-  const glyphWidth =
-    typeface?.glyphs?.["0"]?.resolution?.[0] ??
-    matrixFont?.glyphs?.["0"]?.resolution?.[0] ??
-    6;
-  const waveWidth = wave.length * glyphWidth;
-  const margin = 4;
+  const isNarrow = screen.width < 200;
+  const useSmallFont = isNarrow;
+  const glyphWidth = useSmallFont 
+    ? (matrixFont?.glyphs?.["0"]?.resolution?.[0] ?? 6)
+    : (typeface?.glyphs?.["0"]?.resolution?.[0] ?? matrixFont?.glyphs?.["0"]?.resolution?.[0] ?? 6);
+  
+  // Shorten wave names for narrow screens
+  const shortWaveNames = {
+    sine: "sin",
+    triangle: "tri",
+    sawtooth: "saw",
+    square: "sqr",
+    noise: "noi",
+    composite: "cmp",
+    stample: "stp",
+  };
+  const displayWave = isNarrow ? (shortWaveNames[wave] || wave.slice(0, 3)) : wave;
+  const waveWidth = displayWave.length * glyphWidth;
+  const margin = isNarrow ? 2 : 4;
   waveBtn = new ui.Button(
     screen.width - waveWidth - 26 - margin * 2,
     0,
     waveWidth + margin * 2 + 5,
     10 + margin * 2 - 1 + 2,
   );
-  waveBtn.id = "wave-button";  // Add identifier for debugging
+  waveBtn.id = "wave-button";
+  waveBtn.isNarrow = isNarrow;
+  waveBtn.displayWave = displayWave;
 }
 
 function buildOctButton({ screen, ui, typeface }) {
-  const glyphWidth =
-    typeface?.glyphs?.["0"]?.resolution?.[0] ??
-    matrixFont?.glyphs?.["0"]?.resolution?.[0] ??
-    6;
+  const isNarrow = screen.width < 200;
+  const useSmallFont = isNarrow;
+  const glyphWidth = useSmallFont
+    ? (matrixFont?.glyphs?.["0"]?.resolution?.[0] ?? 6)
+    : (typeface?.glyphs?.["0"]?.resolution?.[0] ?? matrixFont?.glyphs?.["0"]?.resolution?.[0] ?? 6);
   const octWidth = octave.length * glyphWidth;
-  const margin = 4;
+  const margin = isNarrow ? 2 : 4;
   octBtn = new ui.Button(
-    // screen.width - octWidth - 6, 6 + 12, octWidth, 10
     screen.width - octWidth - 6 - margin * 2,
     0,
     octWidth + margin * 2 + 7,
     10 + margin * 2 - 1 + 2,
   );
-  octBtn.id = "oct-button";  // Add identifier for debugging
+  octBtn.id = "oct-button";
+  octBtn.isNarrow = isNarrow;
 }
 
 // Build metronome controls and toggle buttons with responsive layout
@@ -6189,22 +6473,22 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
   // Use stored sample rate or fallback to window.audioContext
   const sampleRate = storedSampleRate || (typeof window !== "undefined" ? window.audioContext?.sampleRate : null);
   const sampleRateText = getSampleRateText(sampleRate);
-  const midiWidth = 4 * glyphMetrics.width; // "MIDI"
+  const midiWidth = 1 * glyphMetrics.width; // "M" instead of "MIDI"
   const divWidth = 5; // divider (2px) + spacing (3px)
   const shortRate = sampleRateText ? sampleRateText.replace("Hz", "") : "";
   const rateWidth = shortRate.length * glyphMetrics.width;
-  const fpsWidth = 2 * glyphMetrics.width; // FPS is 2 chars like "60" or "--"
+  const fpsWidth = 6 * glyphMetrics.width; // FPS is 6 chars like "120fps"
   const totalMidiTextWidth = midiWidth + divWidth + rateWidth + divWidth + fpsWidth;
   const midiBadgeWidth = totalMidiTextWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
   
-  // Left reserved = MIDI badge margin + badge width + small gap
-  const leftReserved = MIDI_BADGE_MARGIN + midiBadgeWidth + 2;
-  const rightMargin = 6;
+  // Left reserved = MIDI badge margin + badge width + tiny gap
+  const leftReserved = MIDI_BADGE_MARGIN + midiBadgeWidth + 1;
+  const rightMargin = 4;
   
-  // Fixed elements: [-] [BPM] [+]
+  // Fixed elements: [-] [BPM] [+] - BPM is now 3 chars with minimal padding
   const minusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;
   const plusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;
-  const bpmTextWidth = 3 * glyphWidth + TOGGLE_BTN_PADDING_X * 2;
+  const bpmTextWidth = 3 * glyphWidth + TOGGLE_BTN_PADDING_X; // Reduced padding - only left side
   
   // Available width for metronome + toggle buttons
   const availableWidth = screen.width - leftReserved - rightMargin;
