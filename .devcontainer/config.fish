@@ -1634,6 +1634,10 @@ end
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
 
 function aesthetic
+    # Kill any existing emacs processes first to ensure clean slate
+    # (prevents issues when emacs crashed and tabs don't reinitialize properly)
+    ac-emacs-kill
+    
     # Check if --no-wait flag is passed
     if test "$argv[1]" = "--no-wait"
         echo "Skipping wait for .waiter file..."

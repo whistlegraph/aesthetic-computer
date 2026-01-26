@@ -293,6 +293,27 @@ let zeroWaveformsCache = {
 };
 let padsBase = null;
 let padsBaseKey = null;
+
+// 🎨 Color cache for performance - cleared when octave changes
+let colorCache = new Map();
+let colorCacheOctave = null;
+
+function getCachedColor(note, num, forceOctave = null) {
+  const currentOctave = forceOctave ?? octave;
+  // Clear cache if octave changed
+  if (colorCacheOctave !== currentOctave) {
+    colorCache.clear();
+    colorCacheOctave = currentOctave;
+  }
+  const key = `${note}:${currentOctave}`;
+  let color = colorCache.get(key);
+  if (!color) {
+    color = colorFromNote(note, num, currentOctave);
+    colorCache.set(key, color);
+  }
+  return color;
+}
+
 const perfStats = {
   lastKeyTime: 0,        // When the last key was pressed
   lastSoundTime: 0,      // When the sound started playing (synth call)
@@ -480,6 +501,40 @@ function getMiniPianoBlackKeyWidth(isCompact) {
 
 function getMiniPianoBlackKeyHeight(isCompact) {
   return isCompact ? MINI_PIANO_BLACK_KEY_HEIGHT_COMPACT : MINI_PIANO_BLACK_KEY_HEIGHT;
+}
+
+// Get note from top bar piano click (returns note like 'c', 'c#', '+d', etc.)
+function getTopBarPianoNoteAt(x, y, screen) {
+  const topPianoY = 3;
+  const topPianoHeight = 15;
+  const topPianoStartX = 54;
+  const topPianoWidth = Math.min(140, Math.floor((screen.width - topPianoStartX) * 0.5));
+  const topPianoWhiteKeyWidth = Math.floor(topPianoWidth / MINI_PIANO_WHITE_KEYS.length);
+  const topPianoBlackKeyWidth = Math.floor(topPianoWhiteKeyWidth * 0.6);
+  const topPianoBlackKeyHeight = Math.floor(topPianoHeight * 0.55);
+  
+  const relX = x - topPianoStartX;
+  const relY = y - topPianoY;
+  
+  // Check if within piano bounds
+  if (relX < 0 || relY < 0 || relY > topPianoHeight) return null;
+  if (relX >= MINI_PIANO_WHITE_KEYS.length * topPianoWhiteKeyWidth) return null;
+  
+  // Check black keys first (they're on top)
+  for (const { note, afterWhite } of MINI_PIANO_BLACK_KEYS) {
+    const bx = afterWhite * topPianoWhiteKeyWidth + topPianoWhiteKeyWidth - topPianoBlackKeyWidth / 2;
+    if (relX >= bx && relX <= bx + topPianoBlackKeyWidth && relY <= topPianoBlackKeyHeight) {
+      return note.toLowerCase();
+    }
+  }
+  
+  // Check white keys
+  const index = Math.floor(relX / topPianoWhiteKeyWidth);
+  if (index >= 0 && index < MINI_PIANO_WHITE_KEYS.length) {
+    return MINI_PIANO_WHITE_KEYS[index].toLowerCase();
+  }
+  
+  return null;
 }
 
 function clampPan(value) {
@@ -763,7 +818,7 @@ let projector = false;
 let visualizerFullscreen = false; // Toggle visualizer as full background behind buttons
 let recitalMode = false; // 🎭 Recital mode - wireframe single-color minimal UI
 let recitalBlinkPhase = 0; // For blinking back button in recital mode
-let shakeAmount = 0; // Typography shake when playing notes
+const noteShake = {}; // Per-note shake amounts (note -> shake value)
 
 // 🥁 Metronome state - UTC-synced like clock.mjs
 let metronomeEnabled = false;
@@ -772,6 +827,7 @@ let metronomeLastBeatTime = 0; // Last time a beat was triggered (UTC ms)
 let metronomeVisualPhase = 0; // 0-1 visual pulse phase
 let metronomeBeatCount = 0; // Count beats for visual display
 let metronomeClockRef = null; // Reference to clock API for UTC sync
+let metronomeBallPos = 0; // 0-1 bouncing ball position (bounces between beats)
 
 const trail = {};
 
@@ -1212,6 +1268,13 @@ function sim({ sound, simCount, num, clock }) {
       });
     }
     
+    // Update bouncing ball position - oscillates between 0 and 1 within each beat
+    // Use a smooth sine-based bounce that peaks in the middle of the beat interval
+    const msPerBeatForBall = 60000 / metronomeBPM;
+    const beatProgress = (currentTimeMs % msPerBeatForBall) / msPerBeatForBall;
+    // Sine wave creates smooth back-and-forth motion
+    metronomeBallPos = Math.sin(beatProgress * Math.PI);
+    
     // Decay visual phase smoothly
     if (metronomeVisualPhase > 0) {
       metronomeVisualPhase = Math.max(0, metronomeVisualPhase - 0.08);
@@ -1375,11 +1438,11 @@ function sim({ sound, simCount, num, clock }) {
     if (trail[note] <= 0) delete trail[note];
   });
 
-  // Decay shake effect
-  if (shakeAmount > 0) {
-    shakeAmount -= 0.15;
-    if (shakeAmount < 0) shakeAmount = 0;
-  }
+  // Decay shake effect per-note
+  Object.keys(noteShake).forEach((note) => {
+    noteShake[note] -= 0.15;
+    if (noteShake[note] <= 0) delete noteShake[note];
+  });
 
   const active = orderedByCount(sounds);
 
@@ -2200,25 +2263,19 @@ function paint({
   scroll
 }) {
   const paintStart = performance.now();
-  const paintTick = typeof paintCount === "bigint" ? Number(paintCount) : paintCount;
   
-  // Track FPS
-  if (perfStats.lastFrameTimestamp > 0) {
-    const delta = paintStart - perfStats.lastFrameTimestamp;
+  // Track FPS - optimized to reduce calculations
+  const lastTimestamp = perfStats.lastFrameTimestamp;
+  if (lastTimestamp > 0) {
+    const delta = paintStart - lastTimestamp;
     if (delta > 0) {
       perfStats.frameTime = delta;
       const instantFps = 1000 / delta;
-      // Faster smoothing (0.8) and initialize properly on first few frames
-      if (perfStats.fps === 0 || perfStats.fpsFrameCount < 10) {
-        // Quick ramp up for first 10 frames
-        perfStats.fps = perfStats.fps === 0 
-          ? instantFps 
-          : perfStats.fps * 0.5 + instantFps * 0.5;
-        perfStats.fpsFrameCount = (perfStats.fpsFrameCount || 0) + 1;
-      } else {
-        // Normal smoothing after warmup
-        perfStats.fps = perfStats.fps * 0.8 + instantFps * 0.2;
-      }
+      const frameCount = perfStats.fpsFrameCount || 0;
+      // Quick ramp up for first 10 frames, then smooth
+      const smoothing = frameCount < 10 ? 0.5 : 0.8;
+      perfStats.fps = perfStats.fps === 0 ? instantFps : perfStats.fps * smoothing + instantFps * (1 - smoothing);
+      perfStats.fpsFrameCount = frameCount + 1;
     }
   }
   perfStats.lastFrameTimestamp = paintStart;
@@ -2394,50 +2451,61 @@ function paint({
   // Store piano end position for visualizer to use
   let topBarPianoEndX = 54; // Default if piano not shown
   if (!recitalMode && !visualizerFullscreen && !paintPictureOverlay && !projector) {
-    const topPianoY = 3; // Same top margin as visualizer
-    const topPianoHeight = 15; // Same height as visualizer
-    const topPianoStartX = 54; // Start after the HUD corner label
-    const topPianoWidth = Math.min(140, Math.floor((screen.width - topPianoStartX) * 0.5)); // Wider piano keys
+    const topPianoY = 3;
+    const topPianoHeight = 15;
+    const topPianoStartX = 54;
+    const topPianoWidth = Math.min(140, Math.floor((screen.width - topPianoStartX) * 0.5));
     const topPianoWhiteKeyWidth = Math.floor(topPianoWidth / MINI_PIANO_WHITE_KEYS.length);
     const topPianoBlackKeyWidth = Math.floor(topPianoWhiteKeyWidth * 0.6);
     const topPianoBlackKeyHeight = Math.floor(topPianoHeight * 0.55);
-    const topPianoStripHeight = 2; // Color strip at bottom of keys
-    topBarPianoEndX = topPianoStartX + MINI_PIANO_WHITE_KEYS.length * topPianoWhiteKeyWidth; // Flush with visualizer
+    const topPianoStripHeight = 2;
+    topBarPianoEndX = topPianoStartX + MINI_PIANO_WHITE_KEYS.length * topPianoWhiteKeyWidth;
     
-    // Draw white keys (ivory fill with color strip)
-    MINI_PIANO_WHITE_KEYS.forEach((note, index) => {
-      const x = topPianoStartX + index * topPianoWhiteKeyWidth;
+    // Pre-calculate common values
+    const whiteKeyBottom = topPianoY + topPianoHeight - topPianoStripHeight;
+    const blackKeyBottom = topPianoY + topPianoBlackKeyHeight - topPianoStripHeight;
+    const whiteKeyW = topPianoWhiteKeyWidth - 1;
+    
+    // Draw white keys - use for loop instead of forEach for performance
+    const whiteKeyCount = MINI_PIANO_WHITE_KEYS.length;
+    for (let i = 0; i < whiteKeyCount; i++) {
+      const note = MINI_PIANO_WHITE_KEYS[i];
+      const x = topPianoStartX + i * topPianoWhiteKeyWidth;
       const noteKey = note.toLowerCase();
       const isActivePlaying = sounds[noteKey] !== undefined;
       
-      // Ivory/off-white fill like the main piano
+      // Use cached color lookup
       const baseFill = isActivePlaying ? [215, 225, 230] : [195, 205, 210];
-      ink(...baseFill).box(x, topPianoY, topPianoWhiteKeyWidth - 1, topPianoHeight);
+      ink(baseFill[0], baseFill[1], baseFill[2]).box(x, topPianoY, whiteKeyW, topPianoHeight);
       
-      // Color strip at bottom
-      const stripBase = colorFromNote(noteKey, num);
-      const stripColor = isActivePlaying ? brightenColor(stripBase, 40) : stripBase;
-      ink(...stripColor).box(x, topPianoY + topPianoHeight - topPianoStripHeight, topPianoWhiteKeyWidth - 1, topPianoStripHeight);
+      const stripBase = getCachedColor(noteKey, num);
+      if (isActivePlaying) {
+        ink(Math.min(255, stripBase[0] + 40), Math.min(255, stripBase[1] + 40), Math.min(255, stripBase[2] + 40)).box(x, whiteKeyBottom, whiteKeyW, topPianoStripHeight);
+      } else {
+        ink(stripBase[0], stripBase[1], stripBase[2]).box(x, whiteKeyBottom, whiteKeyW, topPianoStripHeight);
+      }
       
-      // Subtle border
-      ink(90, 110, 120, 80).box(x, topPianoY, topPianoWhiteKeyWidth - 1, topPianoHeight, "outline");
-    });
+      ink(90, 110, 120, 80).box(x, topPianoY, whiteKeyW, topPianoHeight, "outline");
+    }
     
-    // Draw black keys on top
-    MINI_PIANO_BLACK_KEYS.forEach(({ note, afterWhite }) => {
+    // Draw black keys - use for loop
+    const blackKeyCount = MINI_PIANO_BLACK_KEYS.length;
+    for (let i = 0; i < blackKeyCount; i++) {
+      const { note, afterWhite } = MINI_PIANO_BLACK_KEYS[i];
       const x = topPianoStartX + afterWhite * topPianoWhiteKeyWidth + topPianoWhiteKeyWidth - topPianoBlackKeyWidth / 2;
       const noteKey = note.toLowerCase();
       const isActivePlaying = sounds[noteKey] !== undefined;
       
-      // Pure black fill, slightly lighter when playing
       const baseFill = isActivePlaying ? [28, 32, 36] : [0, 0, 0];
-      ink(...baseFill).box(x, topPianoY, topPianoBlackKeyWidth, topPianoBlackKeyHeight);
+      ink(baseFill[0], baseFill[1], baseFill[2]).box(x, topPianoY, topPianoBlackKeyWidth, topPianoBlackKeyHeight);
       
-      // Color strip at bottom of black key
-      const stripBase = colorFromNote(noteKey, num);
-      const stripColor = isActivePlaying ? brightenColor(stripBase, 40) : stripBase;
-      ink(...stripColor).box(x, topPianoY + topPianoBlackKeyHeight - topPianoStripHeight, topPianoBlackKeyWidth, topPianoStripHeight);
-    });
+      const stripBase = getCachedColor(noteKey, num);
+      if (isActivePlaying) {
+        ink(Math.min(255, stripBase[0] + 40), Math.min(255, stripBase[1] + 40), Math.min(255, stripBase[2] + 40)).box(x, blackKeyBottom, topPianoBlackKeyWidth, topPianoStripHeight);
+      } else {
+        ink(stripBase[0], stripBase[1], stripBase[2]).box(x, blackKeyBottom, topPianoBlackKeyWidth, topPianoStripHeight);
+      }
+    }
   }
 
   const sampleRateText = getSampleRateText(sound?.sampleRate);
@@ -2507,21 +2575,38 @@ function paint({
 
   // 🎛️ Draw secondary top bar with toggle buttons (normal mode)
   if (!paintPictureOverlay && !projector && !visualizerFullscreen && !recitalMode) {
-    // Draw secondary bar background
-    ink(0, 0, 0, 100).box(0, SECONDARY_BAR_TOP, screen.width, SECONDARY_BAR_HEIGHT);
+    // Draw segmented secondary bar backgrounds with distinct colors
+    // Calculate segment boundaries
+    const midiBadgeEnd = MIDI_BADGE_MARGIN + (computeMidiBadgeTopMetrics(screen, matrixGlyphMetrics, sampleRateLabel, sampleRateText)?.width || 60) + 2;
+    const metroStart = bpmMinusBtn?.box?.x ?? midiBadgeEnd + 40;
+    const toggleStart = slideBtn?.box?.x ?? screen.width - 80;
+    
+    // Segment 1: MIDI badge area (dark blue tint)
+    ink(15, 20, 35, 180).box(0, SECONDARY_BAR_TOP, midiBadgeEnd, SECONDARY_BAR_HEIGHT);
+    
+    // Segment 2: Content area - stream & notes (dark neutral)
+    ink(20, 20, 25, 160).box(midiBadgeEnd, SECONDARY_BAR_TOP, metroStart - midiBadgeEnd, SECONDARY_BAR_HEIGHT);
+    
+    // Segment 3: Metronome controls (dark warm/red tint)
+    ink(30, 18, 18, 180).box(metroStart, SECONDARY_BAR_TOP, toggleStart - metroStart, SECONDARY_BAR_HEIGHT);
+    
+    // Segment 4: Toggle buttons (dark purple tint)
+    ink(25, 18, 30, 180).box(toggleStart, SECONDARY_BAR_TOP, screen.width - toggleStart, SECONDARY_BAR_HEIGHT);
     
     // Paint slide button
     slideBtn?.paint((btn) => {
       const base = [0, 220, 140];
-      const bgColor = slide
-        ? [base[0], base[1], base[2], 230]
-        : [Math.round(base[0] * 0.3), Math.round(base[1] * 0.3), Math.round(base[2] * 0.3), 170];
+      let bgR, bgG, bgB, bgA, olR, olG, olB, olA;
+      if (slide) {
+        bgR = base[0]; bgG = base[1]; bgB = base[2]; bgA = 230;
+        olR = 0; olG = 255; olB = 170; olA = 255;
+      } else {
+        bgR = Math.round(base[0] * 0.3); bgG = Math.round(base[1] * 0.3); bgB = Math.round(base[2] * 0.3); bgA = 170;
+        olR = 70; olG = 90; olB = 80; olA = 180;
+      }
       const textColor = slide ? "white" : [180, 190, 200];
-      const outlineColor = slide
-        ? [0, 255, 170, 255]
-        : [70, 90, 80, 180];
-      ink(...bgColor).box(btn.box);
-      ink(...outlineColor).box(btn.box, "outline");
+      ink(bgR, bgG, bgB, bgA).box(btn.box);
+      ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(btn.box);
       }
@@ -2531,15 +2616,17 @@ function paint({
     // Paint room button
     roomBtn?.paint((btn) => {
       const base = [150, 110, 255];
-      const bgColor = roomMode
-        ? [base[0], base[1], base[2], 230]
-        : [Math.round(base[0] * 0.3), Math.round(base[1] * 0.3), Math.round(base[2] * 0.3), 170];
+      let bgR, bgG, bgB, bgA, olR, olG, olB, olA;
+      if (roomMode) {
+        bgR = base[0]; bgG = base[1]; bgB = base[2]; bgA = 230;
+        olR = 190; olG = 160; olB = 255; olA = 255;
+      } else {
+        bgR = Math.round(base[0] * 0.3); bgG = Math.round(base[1] * 0.3); bgB = Math.round(base[2] * 0.3); bgA = 170;
+        olR = 90; olG = 80; olB = 120; olA = 180;
+      }
       const textColor = roomMode ? "white" : [180, 190, 200];
-      const outlineColor = roomMode
-        ? [190, 160, 255, 255]
-        : [90, 80, 120, 180];
-      ink(...bgColor).box(btn.box);
-      ink(...outlineColor).box(btn.box, "outline");
+      ink(bgR, bgG, bgB, bgA).box(btn.box);
+      ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(btn.box);
       }
@@ -2549,15 +2636,17 @@ function paint({
     // Paint glitch button
     glitchBtn?.paint((btn) => {
       const base = [255, 80, 160];
-      const bgColor = glitchMode
-        ? [base[0], base[1], base[2], 230]
-        : [Math.round(base[0] * 0.3), Math.round(base[1] * 0.3), Math.round(base[2] * 0.3), 170];
+      let bgR, bgG, bgB, bgA, olR, olG, olB, olA;
+      if (glitchMode) {
+        bgR = base[0]; bgG = base[1]; bgB = base[2]; bgA = 230;
+        olR = 255; olG = 140; olB = 210; olA = 255;
+      } else {
+        bgR = Math.round(base[0] * 0.3); bgG = Math.round(base[1] * 0.3); bgB = Math.round(base[2] * 0.3); bgA = 170;
+        olR = 110; olG = 70; olB = 100; olA = 180;
+      }
       const textColor = glitchMode ? "white" : [180, 190, 200];
-      const outlineColor = glitchMode
-        ? [255, 140, 210, 255]
-        : [110, 70, 100, 180];
-      ink(...bgColor).box(btn.box);
-      ink(...outlineColor).box(btn.box, "outline");
+      ink(bgR, bgG, bgB, bgA).box(btn.box);
+      ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(btn.box);
       }
@@ -2567,15 +2656,17 @@ function paint({
     // Paint quick button
     quickBtn?.paint((btn) => {
       const base = [255, 170, 0];
-      const bgColor = quickFade
-        ? [base[0], base[1], base[2], 230]
-        : [Math.round(base[0] * 0.3), Math.round(base[1] * 0.3), Math.round(base[2] * 0.3), 170];
+      let bgR, bgG, bgB, bgA, olR, olG, olB, olA;
+      if (quickFade) {
+        bgR = base[0]; bgG = base[1]; bgB = base[2]; bgA = 230;
+        olR = 255; olG = 200; olB = 80; olA = 255;
+      } else {
+        bgR = Math.round(base[0] * 0.3); bgG = Math.round(base[1] * 0.3); bgB = Math.round(base[2] * 0.3); bgA = 170;
+        olR = 120; olG = 100; olB = 60; olA = 180;
+      }
       const textColor = quickFade ? "white" : [180, 190, 200];
-      const outlineColor = quickFade
-        ? [255, 200, 80, 255]
-        : [120, 100, 60, 180];
-      ink(...bgColor).box(btn.box);
-      ink(...outlineColor).box(btn.box, "outline");
+      ink(bgR, bgG, bgB, bgA).box(btn.box);
+      ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(btn.box);
       }
@@ -2585,50 +2676,100 @@ function paint({
     // 🥁 Paint metronome controls: [-] [BPM] [+] [metro]
     const metroBase = [255, 100, 100]; // Red-ish for metronome
     
-    // Paint BPM minus button
+    // Paint BPM minus button (RED color coded)
     bpmMinusBtn?.paint((btn) => {
-      const bgColor = btn.down ? [200, 80, 80, 230] : [80, 40, 40, 170];
-      const textColor = btn.down ? "white" : [180, 190, 200];
-      ink(...bgColor).box(btn.box);
-      ink(100, 60, 60, 180).box(btn.box, "outline");
+      let bgR, bgG, bgB, bgA, olR, olG, olB, olA;
+      if (btn.down) {
+        bgR = 220; bgG = 60; bgB = 60; bgA = 230;
+        olR = 255; olG = 100; olB = 100; olA = 255;
+      } else {
+        bgR = 140; bgG = 40; bgB = 40; bgA = 200;
+        olR = 180; olG = 60; olB = 60; olA = 200;
+      }
+      const textColor = btn.down ? "white" : [255, 120, 120];
+      ink(bgR, bgG, bgB, bgA).box(btn.box);
+      ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
       ink(textColor).write("-", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
-    // BPM display IS the toggle button now - clicking it toggles metronome on/off
+    // BPM display IS the toggle button now - clicking it toggles metronome on/off (BLACK/WHITE themed)
     metroBtn?.paint((btn) => {
       const bpmText = metronomeBPM.toString().padStart(3, " ");
       // Flash background on beat when metronome is enabled
-      const flashAlpha = metronomeEnabled ? Math.floor(60 + metronomeVisualPhase * 140) : 60;
-      const flashColor = metronomeEnabled && metronomeVisualPhase > 0 
-        ? [255, 100 + Math.floor(metronomeVisualPhase * 100), 100, flashAlpha]
-        : [60, 40, 40, flashAlpha];
-      const bgColor = metronomeEnabled
-        ? [metroBase[0], metroBase[1], metroBase[2], 230]
-        : [Math.round(metroBase[0] * 0.3), Math.round(metroBase[1] * 0.3), Math.round(metroBase[2] * 0.3), 170];
-      const outlineColor = metronomeEnabled
-        ? [255, 150, 150, 255]
-        : [100, 60, 60, 180];
-      ink(...bgColor).box(btn.box);
-      ink(...flashColor).box(btn.box);
-      ink(...outlineColor).box(btn.box, "outline");
+      const flashAlpha = metronomeEnabled ? Math.floor(40 + metronomeVisualPhase * 100) : 0;
+      // Black/white theme for BPM value
+      let bgR, bgG, bgB, bgA, olR, olG, olB, olA;
+      if (metronomeEnabled) {
+        bgR = 40; bgG = 40; bgB = 40; bgA = 230;
+        olR = 255; olG = 255; olB = 255; olA = 255;
+      } else {
+        bgR = 20; bgG = 20; bgB = 20; bgA = 200;
+        olR = 80; olG = 80; olB = 80; olA = 180;
+      }
+      ink(bgR, bgG, bgB, bgA).box(btn.box);
+      if (metronomeEnabled && metronomeVisualPhase > 0) {
+        ink(255, 255, 255, flashAlpha).box(btn.box);
+      }
+      ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
       // Flash the button on beat
       if (metronomeEnabled && metronomeVisualPhase > 0.5) {
-        ink(255, 255, 255, Math.floor(metronomeVisualPhase * 80)).box(btn.box);
+        ink(255, 255, 255, Math.floor(metronomeVisualPhase * 60)).box(btn.box);
       }
-      ink(metronomeEnabled ? "white" : [160, 170, 180]).write(bpmText, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(metronomeEnabled ? "white" : [160, 160, 160]).write(bpmText, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
-    // Paint BPM plus button
+    // Paint BPM plus button (GREEN color coded)
     bpmPlusBtn?.paint((btn) => {
-      const bgColor = btn.down ? [200, 80, 80, 230] : [80, 40, 40, 170];
-      const textColor = btn.down ? "white" : [180, 190, 200];
-      ink(...bgColor).box(btn.box);
-      ink(100, 60, 60, 180).box(btn.box, "outline");
+      let bgR, bgG, bgB, bgA, olR, olG, olB, olA;
+      if (btn.down) {
+        bgR = 60; bgG = 200; bgB = 80; bgA = 230;
+        olR = 100; olG = 255; olB = 120; olA = 255;
+      } else {
+        bgR = 40; bgG = 120; bgB = 50; bgA = 200;
+        olR = 60; olG = 160; olB = 70; olA = 200;
+      }
+      const textColor = btn.down ? "white" : [120, 255, 140];
+      ink(bgR, bgG, bgB, bgA).box(btn.box);
+      ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
       ink(textColor).write("+", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
+
+    // 🏀 Draw bouncing ball animation when metronome is running
+    if (metronomeEnabled && bpmPlusBtn?.box && slideBtn?.box) {
+      const ballTrackStartX = bpmPlusBtn.box.x + bpmPlusBtn.box.w + 4;
+      const ballTrackEndX = slideBtn.box.x - 4;
+      const ballTrackWidth = ballTrackEndX - ballTrackStartX;
+      
+      if (ballTrackWidth > 16) {
+        const ballY = SECONDARY_BAR_TOP + Math.floor(SECONDARY_BAR_HEIGHT / 2);
+        const ballRadius = 3;
+        // Ball bounces from left to right based on metronomeBallPos (0-1)
+        const ballX = ballTrackStartX + metronomeBallPos * ballTrackWidth;
+        
+        // Draw faint track line
+        ink(80, 80, 80, 100).line(ballTrackStartX, ballY, ballTrackEndX, ballY);
+        
+        // Draw the bouncing ball with glow effect
+        const flashIntensity = metronomeVisualPhase;
+        const ballFloorX = Math.floor(ballX);
+        let ballR, ballG, ballB, ballA, glowR, glowG, glowB, glowA;
+        if (flashIntensity > 0.5) {
+          ballR = 255; ballG = 255; ballB = 255; ballA = 255;
+          glowR = 255; glowG = 255; glowB = 255; glowA = Math.floor(80 + flashIntensity * 100);
+        } else {
+          ballR = 200; ballG = 200; ballB = 255; ballA = 220;
+          glowR = 150; glowG = 150; glowB = 255; glowA = 60;
+        }
+        
+        // Glow
+        ink(glowR, glowG, glowB, glowA).box(ballFloorX - ballRadius - 1, ballY - ballRadius - 1, ballRadius * 2 + 3, ballRadius * 2 + 3);
+        // Ball
+        ink(ballR, ballG, ballB, ballA).box(ballFloorX - ballRadius, ballY - ballRadius, ballRadius * 2 + 1, ballRadius * 2 + 1);
+      }
+    }
 
     // 🔌🎹 Draw USB/MIDI/sample-rate badge on the left side of the mini bar
     const topMidiMetrics = computeMidiBadgeTopMetrics(
@@ -2637,11 +2778,14 @@ function paint({
       sampleRateLabel,
       sampleRateText,
     );
+    // Pass metronome button start as maxX to prevent FPS from overlapping
+    const midiMaxX = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 4 : screen.width;
     drawMidiBadge(
       topMidiMetrics,
       midiConnected,
       sampleRateLabel,
       sampleRateText,
+      midiMaxX,
     );
 
     const streamLeft = topMidiMetrics.x + topMidiMetrics.width + 3;
@@ -2676,26 +2820,29 @@ function paint({
       SECONDARY_BAR_TOP +
       Math.floor((SECONDARY_BAR_HEIGHT - listHeight) / 2);
     const activeNotes = orderedByCount(sounds);
-    if (activeNotes.length > 0 && listRight - listStartX > 8) {
+    const activeNotesLen = activeNotes.length;
+    if (activeNotesLen > 0 && listRight - listStartX > 8) {
       let x = listStartX;
-      activeNotes.forEach((note) => {
-        if (!note) return;
+      const mgWidth = matrixGlyphMetrics.width;
+      for (let ani = 0; ani < activeNotesLen; ani++) {
+        const note = activeNotes[ani];
+        if (!note) continue;
         const keyLabel = noteToKeyboardKey(note) || note;
         const label = formatKeyLabel(keyLabel);
-        const labelWidth = label.length * matrixGlyphMetrics.width;
+        const labelWidth = label.length * mgWidth;
         const boxW = Math.max(6, labelWidth + 4);
-        if (x + boxW > listRight) return;
+        if (x + boxW > listRight) break;
 
-        const baseColor = colorFromNote(note, num);
+        const baseColor = getCachedColor(note, num);
         const textColor = getContrastingTextColor(baseColor);
         const outline = darkenColor(baseColor, 0.7);
         const shadow = darkenColor(baseColor, 0.85);
         const labelX = x + Math.max(1, Math.floor((boxW - labelWidth) / 2));
         const labelY = listY + 0;
 
-        ink(...baseColor, 200).box(x, listY, boxW, listHeight);
-        ink(...outline, 200).box(x, listY, boxW, listHeight, "outline");
-        ink(...shadow, 220).write(
+        ink(baseColor[0], baseColor[1], baseColor[2], 200).box(x, listY, boxW, listHeight);
+        ink(outline[0], outline[1], outline[2], 200).box(x, listY, boxW, listHeight, "outline");
+        ink(shadow[0], shadow[1], shadow[2], 220).write(
           label,
           { x: labelX + 1, y: labelY + 1 },
           undefined,
@@ -2703,7 +2850,7 @@ function paint({
           false,
           "MatrixChunky8",
         );
-        ink(...textColor).write(
+        ink(textColor[0], textColor[1], textColor[2]).write(
           label,
           { x: labelX, y: labelY },
           undefined,
@@ -2713,7 +2860,7 @@ function paint({
         );
 
         x += boxW + 2;
-      });
+      }
     }
   }
 
@@ -2826,7 +2973,9 @@ function paint({
       const blackKeyW = blackKeyHeight; // Black key horizontal size
       
       // Draw white keys (stacked vertically, lowest note at bottom)
-      whiteKeys.forEach((note, index) => {
+      const wkLen = whiteKeys.length;
+      for (let index = 0; index < wkLen; index++) {
+        const note = whiteKeys[index];
         // Reverse index so low notes are at bottom
         const reversedIndex = totalWhiteKeys - 1 - index;
         const y = pianoY + reversedIndex * keyHeight;
@@ -2834,19 +2983,24 @@ function paint({
         const noteKey = note.toLowerCase();
         const isActivePlaying = sounds[noteKey] !== undefined;
         
-        const baseFill = isActivePlaying ? [215, 225, 230] : [195, 205, 210];
-        ink(...baseFill).box(x, y, keyWidth, keyHeight - 1);
+        if (isActivePlaying) {
+          ink(215, 225, 230).box(x, y, keyWidth, keyHeight - 1);
+        } else {
+          ink(195, 205, 210).box(x, y, keyWidth, keyHeight - 1);
+        }
         
         // Color strip on right edge
-        const stripBase = colorFromNote(noteKey, num);
+        const stripBase = getCachedColor(noteKey, num);
         const stripColor = isActivePlaying ? brightenColor(stripBase, 40) : stripBase;
         const stripWidth = 3;
-        ink(...stripColor).box(x + keyWidth - stripWidth, y, stripWidth, keyHeight - 1);
+        ink(stripColor[0], stripColor[1], stripColor[2]).box(x + keyWidth - stripWidth, y, stripWidth, keyHeight - 1);
         ink(90, 110, 120).box(x, y, keyWidth, keyHeight - 1, "outline");
-      });
+      }
       
       // Draw black keys (overlaid, positioned between white keys)
-      blackKeys.forEach(({note, afterWhite}) => {
+      const bkLen = blackKeys.length;
+      for (let bi = 0; bi < bkLen; bi++) {
+        const { note, afterWhite } = blackKeys[bi];
         // afterWhite indicates which white key this black key is after
         // In vertical mode, we position it between the reversed indices
         const reversedAfterWhite = totalWhiteKeys - 1 - afterWhite;
@@ -2856,8 +3010,11 @@ function paint({
         const isActivePlaying = sounds[noteKey] !== undefined;
         
         // Black keys are pure black now
-        const baseFill = isActivePlaying ? [28, 32, 36] : [0, 0, 0];
-        ink(...baseFill).box(x, y, blackKeyW, blackKeyH);
+        if (isActivePlaying) {
+          ink(28, 32, 36).box(x, y, blackKeyW, blackKeyH);
+        } else {
+          ink(0, 0, 0).box(x, y, blackKeyW, blackKeyH);
+        }
         
         // White text label for black key
         if (blackKeyH >= 6) {
@@ -2871,50 +3028,59 @@ function paint({
             "MatrixChunky8",
           );
         }
-      });
+      }
     } else if (recitalMode) {
       // 🎭 Recital mode: Wireframe piano
+      const rR = recitalColor[0], rG = recitalColor[1], rB = recitalColor[2];
       // Draw piano outline
-      ink(...recitalColor, 80).box(pianoStartX, pianoY, pianoWidth, whiteKeyHeight, "outline");
+      ink(rR, rG, rB, 80).box(pianoStartX, pianoY, pianoWidth, whiteKeyHeight, "outline");
       // Draw vertical separators between white keys
-      whiteKeys.forEach((note, index) => {
+      const rwkLen = whiteKeys.length;
+      for (let index = 0; index < rwkLen; index++) {
+        const note = whiteKeys[index];
         const x = pianoStartX + index * whiteKeyWidth;
         const noteKey = note.toLowerCase();
         const isActivePlaying = sounds[noteKey] !== undefined;
         if (isActivePlaying) {
-          ink(...recitalColor, 200).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight);
+          ink(rR, rG, rB, 200).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight);
         }
-        ink(...recitalColor, 50).line(x, pianoY, x, pianoY + whiteKeyHeight);
-      });
+        ink(rR, rG, rB, 50).line(x, pianoY, x, pianoY + whiteKeyHeight);
+      }
       // Draw black key outlines
-      blackKeys.forEach(({note, afterWhite}) => {
+      const rbkLen = blackKeys.length;
+      for (let bi = 0; bi < rbkLen; bi++) {
+        const { note, afterWhite } = blackKeys[bi];
         const x = pianoStartX + afterWhite * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2;
         const noteKey = note.toLowerCase();
         const isActivePlaying = sounds[noteKey] !== undefined;
         if (isActivePlaying) {
-          ink(...recitalColor, 200).box(x, pianoY, blackKeyWidth, blackKeyHeight);
+          ink(rR, rG, rB, 200).box(x, pianoY, blackKeyWidth, blackKeyHeight);
         } else {
-          ink(...recitalColor, 100).box(x, pianoY, blackKeyWidth, blackKeyHeight, "outline");
+          ink(rR, rG, rB, 100).box(x, pianoY, blackKeyWidth, blackKeyHeight, "outline");
         }
-      });
+      }
     } else if (!pianoGeometry.rotated) {
     // Normal mode: Draw white keys
-    whiteKeys.forEach((note, index) => {
+    const normalStripHeight = layout.compactMode ? 2 : 3;
+    const songCurrentNoteForPiano = song?.[songIndex]?.[0];
+    const nwkLen = whiteKeys.length;
+    for (let index = 0; index < nwkLen; index++) {
+      const note = whiteKeys[index];
       const x = pianoStartX + index * whiteKeyWidth;
       const noteKey = note.toLowerCase();
-      const isCurrentNote = song && note === song?.[songIndex][0];
+      const isCurrentNote = song && note === songCurrentNoteForPiano;
       const isActivePlaying = sounds[noteKey] !== undefined;
       const isCurrentAndPlaying = isCurrentNote && isActivePlaying;
       const isCurrentAwaiting = isCurrentNote && !isActivePlaying;
 
-      const baseFill = isCurrentAndPlaying
-        ? [230, 240, 245]
-        : isActivePlaying
-        ? [215, 225, 230]
-        : [195, 205, 210];
-      ink(...baseFill).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight);
+      // Inline fill colors to avoid array allocation and spread
+      let bfR, bfG, bfB;
+      if (isCurrentAndPlaying) { bfR = 230; bfG = 240; bfB = 245; }
+      else if (isActivePlaying) { bfR = 215; bfG = 225; bfB = 230; }
+      else { bfR = 195; bfG = 205; bfB = 210; }
+      ink(bfR, bfG, bfB).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight);
 
-      const stripBase = colorFromNote(noteKey, num);
+      const stripBase = getCachedColor(noteKey, num);
       const stripColor = isCurrentAndPlaying
         ? brightenColor(stripBase, 70)
         : isCurrentAwaiting
@@ -2922,33 +3088,34 @@ function paint({
         : isActivePlaying
         ? brightenColor(stripBase, 40)
         : stripBase;
-      const stripHeight = layout.compactMode ? 2 : 3;
-      ink(...stripColor).box(
+      ink(stripColor[0], stripColor[1], stripColor[2]).box(
         x,
-        pianoY + whiteKeyHeight - stripHeight,
+        pianoY + whiteKeyHeight - normalStripHeight,
         whiteKeyWidth - 1,
-        stripHeight,
+        normalStripHeight,
       );
       ink(90, 110, 120).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight, "outline"); // Border
-    });
+    }
 
     // Draw black keys on top (normal mode)
-    blackKeys.forEach(({note, afterWhite}) => {
+    const nbkLen = blackKeys.length;
+    for (let bi = 0; bi < nbkLen; bi++) {
+      const { note, afterWhite } = blackKeys[bi];
       const x = pianoStartX + afterWhite * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2;
       const noteKey = note.toLowerCase();
-      const isCurrentNote = song && note === song?.[songIndex][0];
+      const isCurrentNote = song && note === songCurrentNoteForPiano;
       const isActivePlaying = sounds[noteKey] !== undefined;
       const isCurrentAndPlaying = isCurrentNote && isActivePlaying;
       const isCurrentAwaiting = isCurrentNote && !isActivePlaying;
 
-      const baseFill = isCurrentAndPlaying
-        ? [35, 40, 45]
-        : isActivePlaying
-        ? [28, 32, 36]
-        : [14, 18, 20];
-      ink(...baseFill).box(x, pianoY, blackKeyWidth, blackKeyHeight);
+      // Inline fill colors to avoid array allocation and spread
+      let bbfR, bbfG, bbfB;
+      if (isCurrentAndPlaying) { bbfR = 35; bbfG = 40; bbfB = 45; }
+      else if (isActivePlaying) { bbfR = 28; bbfG = 32; bbfB = 36; }
+      else { bbfR = 14; bbfG = 18; bbfB = 20; }
+      ink(bbfR, bbfG, bbfB).box(x, pianoY, blackKeyWidth, blackKeyHeight);
 
-      const stripBase = colorFromNote(noteKey, num);
+      const stripBase = getCachedColor(noteKey, num);
       const stripColor = isCurrentAndPlaying
         ? brightenColor(stripBase, 70)
         : isCurrentAwaiting
@@ -2956,14 +3123,13 @@ function paint({
         : isActivePlaying
         ? brightenColor(stripBase, 40)
         : stripBase;
-      const stripHeight = layout.compactMode ? 2 : 3;
-      ink(...stripColor).box(
+      ink(stripColor[0], stripColor[1], stripColor[2]).box(
         x,
-        pianoY + blackKeyHeight - stripHeight,
+        pianoY + blackKeyHeight - normalStripHeight,
         blackKeyWidth,
-        stripHeight,
+        normalStripHeight,
       );
-    });
+    }
     } // End of normal mode piano/keys block
 
     // Show QWERTY minimap in compact mode (always) or in song mode (skip in rotated mode - no space)
@@ -2997,7 +3163,14 @@ function paint({
 
       // 🎭 Recital mode: Wireframe QWERTY
       if (recitalMode) {
-        QWERTY_LAYOUT_ROWS.forEach((row, rowIndex) => {
+        const recitalR = recitalColor[0], recitalG = recitalColor[1], recitalB = recitalColor[2];
+        const qGlyphWidth = matrixGlyphMetrics.width;
+        const qGlyphHeight = matrixGlyphMetrics.height;
+        const qRowCount = QWERTY_LAYOUT_ROWS.length;
+        
+        for (let rowIndex = 0; rowIndex < qRowCount; rowIndex++) {
+          const row = QWERTY_LAYOUT_ROWS[rowIndex];
+          const rowLen = row.length;
           const rowOffset =
             rowIndex === 0
               ? 0
@@ -3005,33 +3178,29 @@ function paint({
               ? (qKeyWidth + qKeySpacing) / 2
               : rowIndex === 2
               ? qKeyWidth
-              : Math.floor((pianoWidth - (row.length * (qKeyWidth + qKeySpacing))) / 2);
+              : Math.floor((pianoWidth - (rowLen * (qKeyWidth + qKeySpacing))) / 2);
           const y = qwertyStartY + rowIndex * (qKeyHeight + qKeySpacing);
 
-          row.forEach((keyLetter, keyIndex) => {
-            const x =
-              qwertyStartX +
-              rowOffset +
-              keyIndex * (qKeyWidth + qKeySpacing);
+          for (let keyIndex = 0; keyIndex < rowLen; keyIndex++) {
+            const keyLetter = row[keyIndex];
+            const x = qwertyStartX + rowOffset + keyIndex * (qKeyWidth + qKeySpacing);
 
-            const mappedNote = keyboardKeyToNote(keyLetter);
             const isActiveKey = activeKeyLetters.has(keyLetter) || isPercKeyActive(keyLetter);
 
             // Wireframe keys - brighter when active
             if (isActiveKey) {
-              ink(...recitalColor, 200).box(x, y, qKeyWidth, qKeyHeight);
+              ink(recitalR, recitalG, recitalB, 200).box(x, y, qKeyWidth, qKeyHeight);
             } else {
-              ink(...recitalColor, 50).box(x, y, qKeyWidth, qKeyHeight, "outline");
+              ink(recitalR, recitalG, recitalB, 50).box(x, y, qKeyWidth, qKeyHeight, "outline");
             }
 
             const label = formatKeyLabel(keyLetter);
-            const glyphWidth = matrixGlyphMetrics.width;
-            const labelWidth = label.length * glyphWidth;
+            const labelWidth = label.length * qGlyphWidth;
             const labelX = x + (qKeyWidth - labelWidth) / 2;
-            const labelY = y + (qKeyHeight - matrixGlyphMetrics.height) / 2;
+            const labelY = y + (qKeyHeight - qGlyphHeight) / 2;
 
             if (labelWidth <= qKeyWidth) {
-              ink(...recitalColor, isActiveKey ? 255 : 80).write(
+              ink(recitalR, recitalG, recitalB, isActiveKey ? 255 : 80).write(
                 label,
                 { x: labelX, y: labelY },
                 undefined,
@@ -3040,11 +3209,19 @@ function paint({
                 "MatrixChunky8",
               );
             }
-          });
-        });
+          }
+        }
       } else {
       // Normal mode QWERTY - styled like a real computer keyboard (gray tones)
-      QWERTY_LAYOUT_ROWS.forEach((row, rowIndex) => {
+      // Pre-create special keys Set for O(1) lookup
+      const specialKeysSet = new Set(["space", "alt", "left", "right", "up", "down"]);
+      const nGlyphWidth = matrixGlyphMetrics.width;
+      const nGlyphHeight = matrixGlyphMetrics.height;
+      const nRowCount = QWERTY_LAYOUT_ROWS.length;
+      
+      for (let rowIndex = 0; rowIndex < nRowCount; rowIndex++) {
+        const row = QWERTY_LAYOUT_ROWS[rowIndex];
+        const rowLen = row.length;
         const rowOffset =
           rowIndex === 0
             ? 0
@@ -3052,14 +3229,12 @@ function paint({
             ? (qKeyWidth + qKeySpacing) / 2
             : rowIndex === 2
             ? qKeyWidth
-            : Math.floor((pianoWidth - (row.length * (qKeyWidth + qKeySpacing))) / 2);
+            : Math.floor((pianoWidth - (rowLen * (qKeyWidth + qKeySpacing))) / 2);
         const y = qwertyStartY + rowIndex * (qKeyHeight + qKeySpacing);
 
-        row.forEach((keyLetter, keyIndex) => {
-          const x =
-            qwertyStartX +
-            rowOffset +
-            keyIndex * (qKeyWidth + qKeySpacing);
+        for (let keyIndex = 0; keyIndex < rowLen; keyIndex++) {
+          const keyLetter = row[keyIndex];
+          const x = qwertyStartX + rowOffset + keyIndex * (qKeyWidth + qKeySpacing);
 
           const mappedNote = keyboardKeyToNote(keyLetter);
           const isMapped = Boolean(mappedNote);
@@ -3068,62 +3243,62 @@ function paint({
           const isActiveKey = activeKeyLetters.has(keyLetter) || isPercKeyActive(keyLetter);
           const isCurrentAndActive = isCurrentKey && isActiveKey;
           const isNextKey = keyLetter === nextKeyLetter;
-          const isSpecialKey = ["space", "alt", "left", "right", "up", "down"].includes(keyLetter);
+          const isSpecialKey = specialKeysSet.has(keyLetter);
 
           // Computer keyboard style: gray keys, pure black for black note keys
-          let fillColor;
+          // Use direct ink calls instead of spread operator
+          let fr, fg, fb, fa;
           if (isCurrentAndActive) {
-            fillColor = isBlackKeyMapped ? [28, 32, 36, 255] : [180, 200, 180, 230]; // Black key stays dark
+            if (isBlackKeyMapped) { fr = 28; fg = 32; fb = 36; fa = 255; }
+            else { fr = 180; fg = 200; fb = 180; fa = 230; }
           } else if (isActiveKey) {
-            fillColor = isBlackKeyMapped ? [28, 32, 36, 255] : [200, 200, 180, 220]; // Black key stays dark
+            if (isBlackKeyMapped) { fr = 28; fg = 32; fb = 36; fa = 255; }
+            else { fr = 200; fg = 200; fb = 180; fa = 220; }
           } else if (isBlackKeyMapped) {
-            fillColor = [0, 0, 0, 255]; // Pure black for black note keys (like pads)
+            fr = 0; fg = 0; fb = 0; fa = 255;
           } else if (isCurrentKey) {
-            fillColor = [140, 160, 160, 200]; // Slightly highlighted gray
+            fr = 140; fg = 160; fb = 160; fa = 200;
           } else if (isNextKey) {
-            fillColor = [120, 140, 150, 180]; // Subtle blue-gray hint
+            fr = 120; fg = 140; fb = 150; fa = 180;
           } else if (isSpecialKey) {
-            fillColor = [55, 60, 65, 200]; // Darker gray for special keys
+            fr = 55; fg = 60; fb = 65; fa = 200;
           } else {
-            fillColor = [70, 75, 80, 200]; // Standard keyboard gray
+            fr = 70; fg = 75; fb = 80; fa = 200;
           }
 
-          ink(...fillColor).box(x, y, qKeyWidth, qKeyHeight);
+          ink(fr, fg, fb, fa).box(x, y, qKeyWidth, qKeyHeight);
           ink(45, 50, 55, 200).box(x, y, qKeyWidth, qKeyHeight, "outline");
 
           const label = formatKeyLabel(keyLetter);
-          const glyphWidth = matrixGlyphMetrics.width;
-          const glyphHeight = matrixGlyphMetrics.height;
-          const labelWidth = label.length * glyphWidth;
+          const labelWidth = label.length * nGlyphWidth;
           const labelX = x + (qKeyWidth - labelWidth) / 2;
-          const labelY = y + (qKeyHeight - glyphHeight) / 2;
+          const labelY = y + (qKeyHeight - nGlyphHeight) / 2;
 
           // Keyboard-style text colors - tinted by mapped note color
-          let textColor;
+          let tr, tg, tb, ta;
           if (isBlackKeyMapped) {
             // White text on black keys (like the pads)
-            textColor = isActiveKey ? [255, 255, 255, 255] : [255, 255, 255, 180];
+            tr = 255; tg = 255; tb = 255; ta = isActiveKey ? 255 : 180;
           } else if (isCurrentAndActive || isActiveKey) {
-            textColor = [30, 30, 30, 255]; // Dark text on light active keys
+            tr = 30; tg = 30; tb = 30; ta = 255;
           } else if (isMapped) {
             // Tint text with the mapped note's color (brightened for visibility)
-            const noteColor = colorFromNote(mappedNote, num);
-            textColor = [
-              Math.min(255, noteColor[0] + 100),
-              Math.min(255, noteColor[1] + 100),
-              Math.min(255, noteColor[2] + 100),
-              230
-            ];
+            const noteColor = getCachedColor(mappedNote, num);
+            tr = Math.min(255, noteColor[0] + 100);
+            tg = Math.min(255, noteColor[1] + 100);
+            tb = Math.min(255, noteColor[2] + 100);
+            ta = 230;
           } else {
-            textColor = [140, 145, 150, 200]; // Dimmer gray for unmapped keys
+            tr = 140; tg = 145; tb = 150; ta = 200;
           }
 
-          // Apply shake offset when playing
-          const shakeX = shakeAmount > 0 ? Math.floor((Math.random() - 0.5) * shakeAmount * 2) : 0;
-          const shakeY = shakeAmount > 0 ? Math.floor((Math.random() - 0.5) * shakeAmount * 2) : 0;
+          // Apply shake offset when playing - only for the specific note being pressed
+          const keyNoteShake = mappedNote ? (noteShake[mappedNote] || noteShake[`+${mappedNote}`] || 0) : 0;
+          const shakeX = keyNoteShake > 0 ? Math.floor((Math.random() - 0.5) * keyNoteShake * 2) : 0;
+          const shakeY = keyNoteShake > 0 ? Math.floor((Math.random() - 0.5) * keyNoteShake * 2) : 0;
 
           if (labelWidth <= qKeyWidth) {
-            ink(...textColor).write(
+            ink(tr, tg, tb, ta).write(
               label,
               { x: labelX + shakeX, y: labelY + shakeY },
               undefined,
@@ -3132,9 +3307,8 @@ function paint({
               "MatrixChunky8",
             );
           }
-
-        });
-      });
+        }
+      }
       } // End of normal mode QWERTY
 
       const gamepad = Object.values(connectedGamepads).find(
@@ -3182,21 +3356,25 @@ function paint({
     const mid = y + half;
     const hasWaveforms = Array.isArray(waveforms) && waveforms.length > 0;
 
+    const idleR = idleColor[0], idleG = idleColor[1], idleB = idleColor[2], idleA = idleColor[3] ?? 255;
     if (!hasWaveforms) {
       for (let i = 0; i < width; i += 2) {
-        ink(...idleColor).box(x + i, mid, 1, 1);
+        ink(idleR, idleG, idleB, idleA).box(x + i, mid, 1, 1);
       }
       return;
     }
 
+    const colR = color[0], colG = color[1], colB = color[2], colA = color[3] ?? 255;
     const step = waveforms.length / width;
     const offset = waveforms.length > 0 ? (tick || 0) % waveforms.length : 0;
+    const wfLen = waveforms.length;
+    const yMax = y + height - 1;
     for (let i = 0; i < width; i += 1) {
-      const idx = Math.floor(i * step + offset) % waveforms.length;
+      const idx = Math.floor(i * step + offset) % wfLen;
       const sample = waveforms[idx] || 0;
       const clamped = Math.max(-1, Math.min(1, sample));
-      const py = Math.max(y, Math.min(y + height - 1, Math.round(mid - clamped * half)));
-      ink(...color).box(x + i, py, 1, 1);
+      const py = Math.max(y, Math.min(yMax, Math.round(mid - clamped * half)));
+      ink(colR, colG, colB, colA).box(x + i, py, 1, 1);
     }
   }
 
@@ -3214,24 +3392,27 @@ function paint({
 
     const { x, y, width, height } = rect;
     const mid = y + Math.floor(height / 2);
-    ink(...background).box(x, y, width, height);
+    const bgR = background[0], bgG = background[1], bgB = background[2], bgA = background[3] ?? 255;
+    ink(bgR, bgG, bgB, bgA).box(x, y, width, height);
 
+    const lcR = lineColor[0], lcG = lineColor[1], lcB = lineColor[2], lcA = lineColor[3] ?? 255;
     const step = data.length / width;
+    const halfHeight = height * 0.45;
     for (let i = 0; i < width; i += 1) {
       const idx = Math.floor(i * step);
       const sample = data[idx] || 0;
       const clamped = Math.max(-1, Math.min(1, sample));
-      const py = Math.round(mid - clamped * (height * 0.45));
-      ink(...lineColor).box(x + i, py, 1, 1);
+      const py = Math.round(mid - clamped * halfHeight);
+      ink(lcR, lcG, lcB, lcA).box(x + i, py, 1, 1);
     }
 
     if (typeof progress === "number" && progress >= 0) {
       const needleX = Math.round(x + progress * width);
       if (needleX >= x && needleX <= x + width) {
-        const color = Array.isArray(needleColor)
-          ? needleColor
-          : [255, 255, 255];
-        ink(...color).box(needleX, y, 1, height);
+        const ncR = Array.isArray(needleColor) ? needleColor[0] : 255;
+        const ncG = Array.isArray(needleColor) ? needleColor[1] : 255;
+        const ncB = Array.isArray(needleColor) ? needleColor[2] : 255;
+        ink(ncR, ncG, ncB).box(needleX, y, 1, height);
       }
     }
   }
@@ -3241,6 +3422,7 @@ function paint({
     connected,
     rateLabel,
     rateText,
+    maxX = Infinity,
     {
       connectedText = [255, 165, 0],
       disconnectedText = [140, 140, 140, 200],
@@ -3253,6 +3435,9 @@ function paint({
 
     const { x, y } = metrics;
     const textColor = connected ? connectedText : disconnectedText;
+    const tcR = textColor[0], tcG = textColor[1], tcB = textColor[2], tcA = textColor[3] ?? 255;
+    const divR = dividerColor[0], divG = dividerColor[1], divB = dividerColor[2];
+    const rtR = rateTextColor[0], rtG = rateTextColor[1], rtB = rateTextColor[2], rtA = rateTextColor[3] ?? 255;
     const gw = matrixGlyphMetrics.width;
     const gh = matrixGlyphMetrics.height;
     const baseX = x + MIDI_BADGE_PADDING_X;
@@ -3262,7 +3447,8 @@ function paint({
 
     // Draw "M" (shortened from MIDI)
     const midiText = "M";
-    ink(...textColor).write(
+    if (cursorX + midiText.length * gw > maxX) return;
+    ink(tcR, tcG, tcB, tcA).write(
       midiText,
       { x: cursorX, y: baseY },
       undefined,
@@ -3274,13 +3460,15 @@ function paint({
 
     // Divider
     cursorX += 2;
-    ink(...dividerColor).line(cursorX, y + 2, cursorX, y + gh + 1);
+    if (cursorX > maxX) return;
+    ink(divR, divG, divB).line(cursorX, y + 2, cursorX, y + gh + 1);
     cursorX += 3;
 
     // Draw sample rate (e.g., "48k")
     if (rateText) {
       const shortRate = rateText.replace("Hz", ""); // "48kHz" -> "48k"
-      ink(...rateTextColor).write(
+      if (cursorX + shortRate.length * gw > maxX) return;
+      ink(rtR, rtG, rtB, rtA).write(
         shortRate,
         { x: cursorX, y: baseY },
         undefined,
@@ -3293,14 +3481,19 @@ function paint({
 
     // Divider
     cursorX += 2;
-    ink(...dividerColor).line(cursorX, y + 2, cursorX, y + gh + 1);
+    if (cursorX > maxX) return;
+    ink(divR, divG, divB).line(cursorX, y + 2, cursorX, y + gh + 1);
     cursorX += 3;
 
-    // Draw FPS with suffix
+    // Draw FPS with suffix (skip if it would overlap metronome)
     const fpsVal = Math.round(perfStats.fps);
     const fpsText = fpsVal > 0 ? `${fpsVal}fps` : "--";
-    const fpsBadColor = fpsVal < 30 ? [255, 80, 80] : fpsVal < 50 ? [255, 200, 80] : fpsColor;
-    ink(...fpsBadColor).write(
+    if (cursorX + fpsText.length * gw > maxX) return;
+    let fpsR, fpsG, fpsB;
+    if (fpsVal < 30) { fpsR = 255; fpsG = 80; fpsB = 80; }
+    else if (fpsVal < 50) { fpsR = 255; fpsG = 200; fpsB = 80; }
+    else { fpsR = fpsColor[0]; fpsG = fpsColor[1]; fpsB = fpsColor[2]; }
+    ink(fpsR, fpsG, fpsB).write(
       fpsText,
       { x: cursorX, y: baseY },
       undefined,
@@ -3421,19 +3614,20 @@ function paint({
       const fullWidth = measureMatrixTextBoxWidth(fullText, api, screen.width) || measureMatrixTextWidth(fullText, typeface);
       const shortWidth = measureMatrixTextBoxWidth(shortText, api, screen.width) || measureMatrixTextWidth(shortText, typeface);
       const audioPadding = 4;
-      // Choose text based on available width
+      // Choose text based on available width before waveBtn
+      const availableForAudio = rightEdge - topBarPianoEndX - 4;
       let audioText = fullText;
       let audioTextWidth = fullWidth;
-      if (fullWidth + audioPadding * 2 > screen.width - 20) {
+      if (fullWidth + audioPadding * 2 > availableForAudio) {
         audioText = shortText;
         audioTextWidth = shortWidth;
       }
-      if (shortWidth + audioPadding * 2 > screen.width - 20) {
+      if (shortWidth + audioPadding * 2 > availableForAudio) {
         audioText = tinyText;
         audioTextWidth = measureMatrixTextBoxWidth(tinyText, api, screen.width) || measureMatrixTextWidth(tinyText, typeface);
       }
       const totalBadgeWidth = audioTextWidth + audioPadding * 2;
-      audioBadgeX = Math.floor((screen.width - totalBadgeWidth) / 2); // Center horizontally
+      audioBadgeX = rightEdge - totalBadgeWidth - 4; // Position on right side before waveBtn
       ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, totalBadgeWidth, max(9, audioBadgeHeight));
       ink(255, 255, 0).write(audioText, { x: audioBadgeX + audioPadding, y: audioBadgeY + 2 }, undefined, undefined, false, "MatrixChunky8");
     }
@@ -3685,19 +3879,24 @@ function paint({
       transposeOverlayFade = 0;
     }
 
-    // 🎵 Draw grid outlines for melody notes
+    // 🎵 Draw grid outlines for melody notes - cache melody notes set
     if (song) {
-      // Collect all unique notes used in the melody
+      // Build melody notes set once per song change (could be cached at song load time)
       const melodyNotes = new Set();
-      song.forEach(([note]) => melodyNotes.add(note.toLowerCase()));
+      const songLen = song.length;
+      for (let i = 0; i < songLen; i++) {
+        melodyNotes.add(song[i][0].toLowerCase());
+      }
       
-      // Draw outline for each melody note button
-      buttonNotes.forEach((note) => {
-        if (buttons[note] && melodyNotes.has(note.toUpperCase())) {
-          const btn = buttons[note];
-          ink("cyan", 64).box(btn.box, "outline"); // Subtle cyan outline
+      // Draw outline for each melody note button - use for loop
+      const btnNotesLen = buttonNotes.length;
+      for (let i = 0; i < btnNotesLen; i++) {
+        const note = buttonNotes[i];
+        const btn = buttons[note];
+        if (btn && melodyNotes.has(note.toUpperCase())) {
+          ink(0, 255, 255, 64).box(btn.box, "outline");
         }
-      });
+      }
     }
 
     if (usePadsBase) {
@@ -3710,22 +3909,16 @@ function paint({
       }
     }
 
-    // Paint all the keyboard buttons.
-    buttonNotes.forEach((note, index) => {
-      if (buttons[note]) {
-        buttons[note].paint((btn) => {
-          let color;
-          let isBlocked = false;
+    // Paint all the keyboard buttons - use for loop for performance
+    const songCurrentNote = song?.[songIndex]?.[0];\n    const btnNotesLength = buttonNotes.length;\n    const parsedOctave = parseInt(octave);\n    \n    for (let index = 0; index < btnNotesLength; index++) {\n      const note = buttonNotes[index];\n      const btn = buttons[note];\n      if (!btn) continue;\n      \n      btn.paint((btn) => {\n          let color;\n          let isBlocked = false;
 
           // In song mode, check if this note is blocked (not the current note)
-          if (song && note.toUpperCase() !== song?.[songIndex][0]) {
+          if (song && note.toUpperCase() !== songCurrentNote) {
             isBlocked = true;
             color = "black"; // Blocked notes are black
           } else {
-            const outOctave =
-              parseInt(octave) +
-              (note.startsWith("+") ? upperOctaveShift : lowerOctaveShift);
-            const baseColor = colorFromNote(note, num, outOctave);
+            const outOctave = parsedOctave + (note.startsWith("+") ? upperOctaveShift : lowerOctaveShift);
+            const baseColor = getCachedColor(note, num, outOctave);
             const isSemitone = note.includes("#");
             // Semitones get darker and shifted toward black for clear visual distinction
             const tinted = isSemitone ? darkenColor(baseColor, 0.45) : baseColor;
@@ -3740,17 +3933,18 @@ function paint({
           if (recitalMode) {
             const isActivePlaying = sounds[note] !== undefined || btn.down;
             if (isActivePlaying) {
-              ink(...recitalColor, 200).box(btn.box);
+              ink(recitalColor[0], recitalColor[1], recitalColor[2], 200).box(btn.box);
             }
-            ink(...recitalColor, isActivePlaying ? 180 : 50).box(btn.box, "outline");
+            ink(recitalColor[0], recitalColor[1], recitalColor[2], isActivePlaying ? 180 : 50).box(btn.box, "outline");
             
             // Ghost trails in recital mode
-            if (trail[note] > 0) {
-              ink(...recitalColor, max(1, trail[note] * 150)).box(
+            const trailVal = trail[note];
+            if (trailVal > 0) {
+              ink(recitalColor[0], recitalColor[1], recitalColor[2], max(1, trailVal * 150)).box(
                 btn.box.x + btn.box.w / 2,
                 btn.box.y + btn.box.h / 2,
-                trail[note] * btn.box.w,
-                trail[note] * btn.box.h,
+                trailVal * btn.box.w,
+                trailVal * btn.box.h,
                 "center",
               );
             }
@@ -3862,9 +4056,10 @@ function paint({
           }
 
           // Always draw labels (padsBase cache only has boxes, not text)
-          // Apply shake offset when playing
-          const padShakeX = shakeAmount > 0 ? Math.floor((Math.random() - 0.5) * shakeAmount * 2) : 0;
-          const padShakeY = shakeAmount > 0 ? Math.floor((Math.random() - 0.5) * shakeAmount * 2) : 0;
+          // Apply shake offset when playing - only for the specific note being pressed
+          const padNoteShake = noteShake[note] || 0;
+          const padShakeX = padNoteShake > 0 ? Math.floor((Math.random() - 0.5) * padNoteShake * 2) : 0;
+          const padShakeY = padNoteShake > 0 ? Math.floor((Math.random() - 0.5) * padNoteShake * 2) : 0;
           
           if (noteLabelText && noteLabelBounds) {
             ink(0, 0, 0, 160).write(
@@ -4069,6 +4264,7 @@ const percDowns = {};
 const connectedGamepads = {};
 let miniMapActiveNote = null;
 let miniMapActiveKey = null;
+let topBarPianoActiveNote = null; // Track active note from top bar piano
 let soundContext = null;
 
 function setSoundContext(ctx) {
@@ -4234,7 +4430,7 @@ function applyPitchBendToNotes(noteKeys, { immediate = false } = {}) {
 function startButtonNote(note, velocity = 127, apiRef = null) {
   anyDown = true;
   perfStats.lastKeyTime = performance.now();
-  shakeAmount = 3; // Trigger typography shake
+  noteShake[note] = 3; // Trigger per-note typography shake
 
   if (song && note.toUpperCase() !== song?.[songIndex][0]) {
     synth({
@@ -4350,7 +4546,7 @@ function stopButtonNote(note, { force = false } = {}) {
 
   delete tonestack[note];
   delete sounds[note];
-  delete trail[note];
+  // Note: trail[note] is intentionally NOT deleted here so the trail animation can play
   return true;
 }
 
@@ -4518,10 +4714,36 @@ function act({
     return;
   }
 
-  // 🎭 Tap on top bar to toggle recital mode (minimal wireframe UI)
+  // � Handle top bar piano touches (before recital mode toggle check)
   if (e.is("touch") && e.y < TOP_BAR_BOTTOM && !projector && !paintPictureOverlay && !recitalMode) {
-    // Check that tap is in the visualizer area (between left edge and waveBtn)
-    const vizLeft = 54;
+    const topBarPianoNote = getTopBarPianoNoteAt(e.x, e.y, screen);
+    if (topBarPianoNote) {
+      // Stop any previous top bar piano note
+      if (topBarPianoActiveNote && topBarPianoActiveNote !== topBarPianoNote) {
+        stopButtonNote(topBarPianoActiveNote, { force: true });
+      }
+      // Start the new note if different
+      if (topBarPianoActiveNote !== topBarPianoNote) {
+        startButtonNote(topBarPianoNote, 127, api);
+      }
+      topBarPianoActiveNote = topBarPianoNote;
+      return; // Don't process further (don't toggle recital mode)
+    }
+  }
+
+  // 🎹 Handle lift for top bar piano
+  if (e.is("lift") && topBarPianoActiveNote) {
+    stopButtonNote(topBarPianoActiveNote, { force: true });
+    topBarPianoActiveNote = null;
+  }
+
+  // 🎭 Tap on top bar to toggle recital mode (minimal wireframe UI)
+  // Only in visualizer area (between piano end and waveBtn), not on piano keys
+  if (e.is("touch") && e.y < TOP_BAR_BOTTOM && !projector && !paintPictureOverlay && !recitalMode) {
+    // Check that tap is in the visualizer area (after piano, before waveBtn)
+    const topPianoWidth = Math.min(140, Math.floor((screen.width - 54) * 0.5));
+    const topPianoEndX = 54 + topPianoWidth;
+    const vizLeft = topPianoEndX; // Start after piano
     const vizRight = waveBtn?.box?.x || screen.width;
     if (e.x >= vizLeft && e.x <= vizRight) {
       recitalMode = true;
@@ -5116,6 +5338,7 @@ function act({
     }
 
     anyDown = true;
+    noteShake[buttonNote] = 3; // Trigger per-note typography shake
 
     let noteName = buttonNote;
     let targetOctave = lowerBaseOctave();
