@@ -2210,10 +2210,25 @@ async function halt($, text) {
       href: location.href 
     });
     try {
-      const result = window.open(location.href, "_blank", "noopener");
-      console.log("[prompt] window.open result:", result);
+      send({ type: "window:open", content: { url: location.href } });
     } catch (err) {
-      console.error("[prompt] window.open failed:", err);
+      console.error("[prompt] window:open send failed:", err);
+      try {
+        const result = window.open(location.href, "_blank", "noopener");
+        console.log("[prompt] window.open result:", result);
+        if (isElectron && !result) {
+          const fallbackUrl = `ac://open?url=${encodeURIComponent(location.href)}`;
+          console.log("[prompt] window.open blocked, falling back to", fallbackUrl);
+          location.href = fallbackUrl;
+        }
+      } catch (innerErr) {
+        console.error("[prompt] window.open failed:", innerErr);
+        if (isElectron) {
+          const fallbackUrl = `ac://open?url=${encodeURIComponent(location.href)}`;
+          console.log("[prompt] window.open error, falling back to", fallbackUrl);
+          location.href = fallbackUrl;
+        }
+      }
     }
     makeFlash($);
     return true;
@@ -2223,19 +2238,30 @@ async function halt($, text) {
       isElectron, 
       userAgent: navigator.userAgent 
     });
-    if (isElectron) {
-      // Ask the Electron host to close this BrowserWindow (intercepted as a popup).
-      console.log("[prompt] Attempting ac://close popup...");
-      try {
-        const result = window.open("ac://close", "_blank");
-        console.log("[prompt] ac://close result:", result);
-      } catch (err) {
-        console.error("[prompt] ac://close failed:", err);
+    try {
+      send({ type: "window:close" });
+    } catch (err) {
+      console.error("[prompt] window:close send failed:", err);
+      if (isElectron) {
+        // Ask the Electron host to close this BrowserWindow (intercepted as a popup).
+        console.log("[prompt] Attempting ac://close popup...");
+        try {
+          const result = window.open("ac://close", "_blank");
+          console.log("[prompt] ac://close result:", result);
+          if (!result) {
+            console.log("[prompt] ac://close popup blocked, falling back to navigation");
+            location.href = "ac://close";
+          }
+        } catch (innerErr) {
+          console.error("[prompt] ac://close failed:", innerErr);
+          console.log("[prompt] ac://close error, falling back to navigation");
+          location.href = "ac://close";
+        }
+      } else {
+        // Browsers will only allow this for script-opened tabs/windows.
+        console.log("[prompt] Attempting window.close()...");
+        window.close();
       }
-    } else {
-      // Browsers will only allow this for script-opened tabs/windows.
-      console.log("[prompt] Attempting window.close()...");
-      window.close();
     }
     makeFlash($);
     return true;

@@ -139,8 +139,8 @@ Before moving from staging to production contract:
 
 ### 📋 Missing Features from Plan
 - [ ] `keeps` command to list user's minted tokens
-- [ ] `keep:status $code` to check if already minted  
-- [ ] Cancel ability during preparation
+- [x] `keep $code` already checks minted state and shows existing keep UI
+- [x] Cancel button + Escape during preparation
 - [ ] Show estimated gas/fees before signing
 - [ ] Copy share link after mint
 
