@@ -111,7 +111,11 @@ async function boot({
       bitmapLoaded = false;
       bitmapPreview = null;
       bitmapMeta = null;
-      await loadSystemPainting({ system, sound: { registerSample, sampleRate } });
+      await loadSystemPainting({
+        system,
+        store,
+        sound: { registerSample, sampleRate },
+      });
     } else {
       const parsedPats = parseInt(decodedParam);
       if (!Number.isNaN(parsedPats)) pats = parsedPats;
@@ -1032,11 +1036,23 @@ async function loadPaintingCode(code, { get, preload, store, sound }) {
   }
 }
 
-async function loadSystemPainting({ system, sound }) {
-  const source =
+async function loadSystemPainting({ system, store, sound }) {
+  let source =
     (system?.nopaint?.buffer?.pixels?.length && system?.nopaint?.buffer) ||
     system?.painting ||
     null;
+
+  if (!source?.pixels?.length || !source?.width || !source?.height) {
+    source = store?.painting || store?.["painting"] || null;
+  }
+
+  if (!source?.pixels?.length || !source?.width || !source?.height) {
+    try {
+      source = await store?.retrieve?.("painting", "local:db");
+    } catch (err) {
+      source = null;
+    }
+  }
 
   if (!source?.pixels?.length || !source?.width || !source?.height) {
     bitmapLoading = false;
