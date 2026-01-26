@@ -245,7 +245,8 @@
       nogap: true,    // Borderless / no gap
       nolabel: true,  // Hide labels
       noauth: true,   // No auth prompts
-      popout: true    // Popout mode
+      popout: true,   // Popout mode
+      perf: false     // Performance/FPS HUD (opt-in)
     };
     
     // Parse URL and query params
@@ -299,6 +300,7 @@
     const nolabel = params.get('nolabel') ?? DEVICE_DEFAULTS.nolabel;
     const noauth = params.get('noauth') ?? DEVICE_DEFAULTS.noauth;
     const popout = params.get('popout') ?? DEVICE_DEFAULTS.popout;
+    const perf = params.get('perf') ?? DEVICE_DEFAULTS.perf;
     
     // Playlist mode params (for DP-1 playlist progress bar)
     const isPlaylist = params.get('playlist') === 'true';
@@ -314,6 +316,7 @@
       if (nolabel) p.set('nolabel', 'true');
       if (noauth) p.set('noauth', 'true');
       if (popout) p.set('popout', 'true');
+      if (perf) p.set('perf', 'true');
       p.set('t', Date.now()); // Cache bust
       return p.toString();
     }

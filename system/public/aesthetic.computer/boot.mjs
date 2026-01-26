@@ -429,7 +429,7 @@ const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
-  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device'
+  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf'
 ];
 
 // Auth0 parameters that need to be temporarily processed but then removed
@@ -994,9 +994,18 @@ const tv = tvParam === true || tvParam === "true";
 const deviceParam = params.has("device") || location.search.includes("device");
 const device = deviceParam === true || deviceParam === "true";
 
+// In device mode, default density to 8 if not explicitly set (matches FF1's typical setting)
+if (device && density === undefined) {
+  density = 8;
+}
+
 // Check for highlight parameter (enables HUD background highlighting with optional color)
 const highlightParam = params.get("highlight");
 const highlight = highlightParam ? (highlightParam === "true" ? true : highlightParam) : false;
+
+// Check for perf parameter (enables KidLisp performance/FPS HUD overlay)
+const perfParam = params.has("perf") || location.search.includes("perf");
+const perf = perfParam === true || perfParam === "true";
 
 // Note: zoom parameter is available but not automatically applied to avoid text rendering issues
 // It's passed to the boot function for selective use
@@ -1018,7 +1027,7 @@ if (window.acVSCODE) {
 
 // Pass the parameters directly without stripping them
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device, perf }, debug);
 
 // Start processing any early kidlisp messages that arrived before boot completed
 processEarlyKidlispQueue();
