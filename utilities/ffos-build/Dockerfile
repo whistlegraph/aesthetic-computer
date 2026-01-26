@@ -7,9 +7,15 @@ RUN pacman -Syu --noconfirm \
   sudo \
   base-devel \
   jq \
+  go \
+  rust \
   && pacman -Scc --noconfirm
 
 # mkarchiso requires root for chroot mount operations
+# makepkg needs a non-root user, so we create one
+RUN useradd -m builder && \
+  echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
 WORKDIR /work
 
 ENTRYPOINT ["/bin/bash", "-lc"]

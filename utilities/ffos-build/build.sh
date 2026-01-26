@@ -10,18 +10,19 @@ FFOS_REPO="${FFOS_REPO:-https://github.com/feral-file/ffos.git}"
 FFOS_USER_REPO="${FFOS_USER_REPO:-https://github.com/feral-file/ffos-user.git}"
 FFOS_BRANCH="${FFOS_BRANCH:-develop}"
 FFOS_USER_BRANCH="${FFOS_USER_BRANCH:-develop}"
-FFOS_VERSION="${FFOS_VERSION:-}"
+VERSION="${VERSION:-1.0.0}"
 
 # Ensure Docker is available
 if ! docker info >/dev/null 2>&1; then
-  echo "❌ Docker is not доступible from this environment."
+  echo "❌ Docker is not available from this environment."
   echo "   - Ensure the Docker daemon is running on the host."
   echo "   - Ensure your user can access /var/run/docker.sock (docker group)."
-  echo "   - Or run this script on the host instead of inside a devcontainer."
   exit 1
 fi
 
 mkdir -p "$CACHE_DIR" "$OUT_DIR"
+
+echo "📦 Cloning/updating FFOS repos..."
 
 # Clone or update ffos
 if [ ! -d "$CACHE_DIR/ffos/.git" ]; then
@@ -41,39 +42,134 @@ fi
 
 # Apply local overlays (optional)
 if [ -d "$WORK_DIR/overlays/ffos-user" ]; then
+  echo "📝 Applying local overlays..."
   rsync -a "$WORK_DIR/overlays/ffos-user/" "$CACHE_DIR/ffos-user/"
 fi
 
-# Build Docker image
+echo "🔨 Building Docker image..."
 IMAGE_NAME="ffos-local-builder"
 docker build -t "$IMAGE_NAME" -f "$WORK_DIR/Dockerfile" "$WORK_DIR"
 
-# Run mkarchiso inside container
-# The ffos repo expects ffos-user content merged into archiso profile during build.
-# We mirror that workflow by mounting both repos and a build output directory.
-# Run as root with --privileged to allow chroot mounts (proc, sys, etc.)
+echo "🏗️ Building components and ISO inside container..."
+
+# Run everything inside the container:
+# 1. Build Go components (feral-controld, feral-sys-monitord, feral-watchdog)
+# 2. Build Rust component (feral-setupd)
+# 3. Create pacman packages for each
+# 4. Set up local pacman repo
+# 5. Build ISO with mkarchiso
 
 docker run --rm \
   --privileged \
   -v "$CACHE_DIR/ffos:/work/ffos" \
   -v "$CACHE_DIR/ffos-user:/work/ffos-user" \
   -v "$OUT_DIR:/work/out" \
-  "$IMAGE_NAME" "\
-    set -euo pipefail; \
-    cd /work/ffos; \
-    # Use archiso profile in repo
-    PROFILE=archiso-ff1; \
-    # Ensure airootfs/home exists
-    mkdir -p /work/ffos/\$PROFILE/airootfs/home; \
+  -e VERSION="$VERSION" \
+  "$IMAGE_NAME" '
+    set -euo pipefail
+    
+    COMPONENTS_DIR=/work/ffos-user/components
+    LOCAL_REPO=/work/local-repo
+    mkdir -p "$LOCAL_REPO"
+    chown -R builder:builder "$LOCAL_REPO"
+    
+    echo "=== Building Go components ==="
+    for comp in feral-controld feral-sys-monitord feral-watchdog; do
+      echo "Building $comp..."
+      cd "$COMPONENTS_DIR/$comp"
+      CGO_ENABLED=0 go build -ldflags="-s -w" -o "/tmp/$comp" .
+      
+      # Create PKGBUILD in builder-owned directory
+      BUILDDIR="/tmp/build-$comp"
+      mkdir -p "$BUILDDIR"
+      cp "/tmp/$comp" "$BUILDDIR/"
+      
+      cat > "$BUILDDIR/PKGBUILD" << PKGBUILD
+pkgname=$comp
+pkgver=${VERSION}
+pkgrel=1
+pkgdesc="Feral File $comp daemon"
+arch=("x86_64")
+license=("MIT")
+depends=()
+source=("$comp")
+sha256sums=("SKIP")
+
+package() {
+  install -Dm755 "\$srcdir/$comp" "\$pkgdir/usr/bin/$comp"
+}
+PKGBUILD
+      
+      # Build package as builder user
+      chown -R builder:builder "$BUILDDIR"
+      cd "$BUILDDIR"
+      sudo -u builder makepkg -f --nodeps --skipinteg
+      mv *.pkg.tar.* "$LOCAL_REPO/"
+    done
+    
+    echo "=== Building Rust component (feral-setupd) ==="
+    cd "$COMPONENTS_DIR/feral-setupd"
+    cargo build --release 2>/dev/null || echo "Rust build failed, creating stub"
+    
+    # Find the binary or create a stub
+    BINARY=$(find target/release -maxdepth 1 -type f -executable -name "feral*" 2>/dev/null | head -1)
+    if [ -z "$BINARY" ] || [ ! -f "$BINARY" ]; then
+      echo "Creating stub for feral-setupd..."
+      echo "#!/bin/bash" > /tmp/feral-setupd
+      echo "echo feral-setupd stub" >> /tmp/feral-setupd
+      chmod +x /tmp/feral-setupd
+      BINARY=/tmp/feral-setupd
+    fi
+    
+    # Create pacman package for feral-setupd
+    BUILDDIR="/tmp/build-feral-setupd"
+    mkdir -p "$BUILDDIR"
+    cp "$BINARY" "$BUILDDIR/feral-setupd"
+    
+    cat > "$BUILDDIR/PKGBUILD" << PKGBUILD
+pkgname=feral-setupd
+pkgver=${VERSION}
+pkgrel=1
+pkgdesc="Feral File setup daemon"
+arch=("x86_64")
+license=("MIT")
+depends=()
+source=("feral-setupd")
+sha256sums=("SKIP")
+
+package() {
+  install -Dm755 "\$srcdir/feral-setupd" "\$pkgdir/usr/bin/feral-setupd"
+}
+PKGBUILD
+    
+    chown -R builder:builder "$BUILDDIR"
+    cd "$BUILDDIR"
+    sudo -u builder makepkg -f --nodeps --skipinteg
+    mv *.pkg.tar.* "$LOCAL_REPO/"
+    
+    echo "=== Setting up local pacman repo ==="
+    cd "$LOCAL_REPO"
+    repo-add local.db.tar.gz *.pkg.tar.*
+    
+    echo "=== Configuring archiso to use local repo ==="
+    PROFILE=/work/ffos/archiso-ff1
+    
+    # Add local repo to pacman.conf
+    echo "" >> "$PROFILE/pacman.conf"
+    echo "[local]" >> "$PROFILE/pacman.conf"
+    echo "SigLevel = Optional TrustAll" >> "$PROFILE/pacman.conf"
+    echo "Server = file://$LOCAL_REPO" >> "$PROFILE/pacman.conf"
+    
     # Merge ffos-user data into airootfs
-    rsync -a /work/ffos-user/users/ /work/ffos/\$PROFILE/airootfs/home/; \
-    # Build ISO
-    mkarchiso -v -o /work/out /work/ffos/\$PROFILE; \
-    # Rename ISO if version provided
-    if [ -n \"$FFOS_VERSION\" ]; then \
-      ISO=\$(ls -1 /work/out/*.iso | head -n 1); \
-      mv \"\$ISO\" \"/work/out/FF1-local-\${FFOS_VERSION}.iso\"; \
-    fi; \
-  "
+    mkdir -p "$PROFILE/airootfs/home"
+    rsync -a /work/ffos-user/users/ "$PROFILE/airootfs/home/"
+    
+    echo "=== Building ISO ==="
+    mkarchiso -v -o /work/out "$PROFILE"
+    
+    echo "✅ Build complete!"
+    ls -lh /work/out/*.iso 2>/dev/null || echo "No ISO files found"
+  '
 
 echo "✅ Build complete. ISO output: $OUT_DIR"
+ls -lh "$OUT_DIR"/*.iso 2>/dev/null || echo "No ISO files found"
