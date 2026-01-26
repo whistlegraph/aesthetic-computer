@@ -870,6 +870,22 @@ if (
   }
 }
 
+// Allow clock with {#code} syntax - append the hash back into the braces
+// e.g., clock~{#abc}cdefg where #abc}cdefg was stripped becomes clock~{%23abc}cdefg
+// The hash contains everything after # including } and the notes
+if (
+  hashCandidate.length > 0 &&
+  sluggedUrl &&
+  (sluggedUrl.startsWith("clock~") || sluggedUrl.startsWith("clock:"))
+) {
+  // Check if the slug has an unclosed brace (the # was stripped from inside {#...})
+  if (sluggedUrl.includes("{") && !sluggedUrl.includes("}")) {
+    // The hash contains: "abc}cdefg" - we need to reconstruct as {%23abc}cdefg
+    // Reinsert the hash with URL-encoded #
+    sluggedUrl = sluggedUrl + `%23${hashCandidate}`;
+  }
+}
+
 if (
   hashLooksLikePaintingCode &&
   (!sluggedUrl || sluggedUrl === "" || sluggedUrl === "prompt")

@@ -125,6 +125,8 @@
     clock {triangle} cd ef ga - Three parallel tracks with triangle wave
     clock ceg dfa > abc def   - Sequential sections (first plays, then second, loops)
     clock verse 4> chorus 2>  - Verse plays 4x, chorus plays 2x, then loops
+    clock {#abc123} cdefg     - Load painting code as stample sample
+    clock {#abc123} ceg {#xyz789} dfa - Different stamples per parallel track
 */
 
 console.log("🕰️ CLOCK MODULE LOADING at", Date.now());
@@ -136,6 +138,7 @@ import {
   parseSequentialMelody,
   mutateMelodyTrack,
   noteToTone,
+  extractStampleCodes,
 } from "../lib/melody-parser.mjs";
 import { convertNotepatNotation } from "../lib/notepat-convert.mjs";
 import { getNoteColor } from "../lib/note-colors.mjs";
@@ -501,6 +504,14 @@ let stampleSampleData = null;
 let stampleSampleRate = null;
 let fallbackSfx = null; // Fallback sound if no stample recorded
 
+// Stample code cache for {#code} painting references
+// Maps painting code -> { sampleId, data, sampleRate, loaded, loading, error }
+const stampleCache = new Map();
+
+// Module-level references for lazy loading (set in boot)
+let netPreload = null;
+let soundRef = null;
+
 // UI Buttons for octave control
 let octaveMinusBtn, octavePlusBtn;
 
@@ -663,12 +674,176 @@ async function cacheMelody(melody) {
   }
 }
 
+// RGB decoding: 3 samples per pixel (R, G, B channels) - adapted from stample.mjs
+function decodeBitmapToSample(bitmap, meta) {
+  if (!bitmap?.pixels?.length || !bitmap?.width || !bitmap?.height) return null;
+  const totalPixels = bitmap.width * bitmap.height;
+  const samplesPerPixel = 3; // R, G, B
+  const maxSamples = totalPixels * samplesPerPixel;
+  const sampleLength = Math.min(meta?.sampleLength || maxSamples, maxSamples);
+  const data = new Array(sampleLength);
+
+  for (let i = 0; i < sampleLength; i += 1) {
+    const pixelIndex = Math.floor(i / samplesPerPixel);
+    const channel = i % samplesPerPixel; // 0=R, 1=G, 2=B
+    const byte = bitmap.pixels[pixelIndex * 4 + channel] || 0;
+    data[i] = byte / 127.5 - 1;
+  }
+
+  return data;
+}
+
+// Convert an image to a pixel buffer - adapted from stample.mjs
+async function imageToBuffer(image) {
+  if (!image) return null;
+  const source = image.img || image.bitmap || image;
+
+  if (source?.pixels && source?.width && source?.height) {
+    return {
+      width: source.width,
+      height: source.height,
+      pixels: new Uint8ClampedArray(source.pixels),
+    };
+  }
+
+  if (source?.data && source?.width && source?.height) {
+    return {
+      width: source.width,
+      height: source.height,
+      pixels: new Uint8ClampedArray(source.data),
+    };
+  }
+
+  const width = source.width || source.naturalWidth || source.videoWidth;
+  const height = source.height || source.naturalHeight || source.videoHeight;
+  if (!width || !height) return null;
+
+  let canvas;
+  if (typeof OffscreenCanvas !== "undefined") {
+    canvas = new OffscreenCanvas(width, height);
+  } else if (typeof document !== "undefined") {
+    canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+  }
+  if (!canvas) return null;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(source, 0, 0, width, height);
+  const imageData = ctx.getImageData(0, 0, width, height);
+
+  return {
+    width,
+    height,
+    pixels: new Uint8ClampedArray(imageData.data),
+  };
+}
+
+// Load a painting code as a stample sample (lazy loading)
+async function loadStampleCode(code, { preload, sound }) {
+  if (!code) return null;
+  
+  // Check if already loaded or loading
+  const existing = stampleCache.get(code);
+  if (existing?.loaded) {
+    return existing;
+  }
+  if (existing?.loading) {
+    // Wait for ongoing load to complete
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        const cached = stampleCache.get(code);
+        if (cached && !cached.loading) {
+          clearInterval(checkInterval);
+          resolve(cached);
+        }
+      }, 50);
+    });
+  }
+  
+  // Mark as loading
+  stampleCache.set(code, { loading: true, loaded: false });
+  
+  const baseUrl = typeof location !== "undefined" && location.origin
+    ? location.origin
+    : "https://aesthetic.computer";
+  
+  try {
+    // Fast path: short code direct media endpoint
+    const directUrl = `${baseUrl}/media/paintings/${code}.png?t=${Date.now()}`;
+    console.log(`🎵 Clock: Loading stample #${code} from ${directUrl}`);
+    
+    const img = await preload(directUrl, true);
+    const buffer = await imageToBuffer(img);
+    
+    if (!buffer?.pixels?.length) {
+      throw new Error("Failed to decode painting image");
+    }
+    
+    // Decode bitmap to audio
+    const totalPixels = buffer.width * buffer.height;
+    const meta = {
+      sampleLength: totalPixels * 3, // RGB = 3 samples per pixel
+      sampleRate: 48000,
+    };
+    
+    const decoded = decodeBitmapToSample(buffer, meta);
+    if (!decoded?.length) {
+      throw new Error("Failed to decode bitmap to audio samples");
+    }
+    
+    const sampleId = `stample:${code}`;
+    sound?.registerSample?.(sampleId, decoded, meta.sampleRate);
+    
+    const result = {
+      sampleId,
+      data: decoded,
+      sampleRate: meta.sampleRate,
+      loaded: true,
+      loading: false,
+    };
+    
+    stampleCache.set(code, result);
+    console.log(`🎵 Clock: Loaded stample #${code} (${decoded.length} samples)`);
+    
+    return result;
+  } catch (err) {
+    console.warn(`🎵 Clock: Failed to load stample #${code}:`, err.message);
+    stampleCache.set(code, { loading: false, loaded: false, error: err.message });
+    return null;
+  }
+}
+
+// Get a stample by code (returns cached or triggers load)
+function getStampleByCode(code, { preload, sound }) {
+  const cached = stampleCache.get(code);
+  if (cached?.loaded) {
+    return cached.sampleId;
+  }
+  
+  // Trigger lazy load if not already loading
+  if (!cached?.loading) {
+    loadStampleCode(code, { preload, sound });
+  }
+  
+  return null; // Not yet loaded, will be available on next note
+}
+
 async function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num, help, store, net, sound }) {
   try {
     console.log(`🎵 CLOCK BOOT STARTED - params:`, params, `colon:`, colon);
   
     // Reset leaving flag when piece starts
     isLeavingPiece = false;
+    
+    // Clear stample cache on new boot
+    stampleCache.clear();
+    
+    // Store references for lazy loading
+    netPreload = net?.preload;
+    soundRef = sound;
 
     // Preload fallback sound for stample mode (like toss and notepat do)
     if (net?.preload) {
@@ -1934,7 +2109,36 @@ function paint({
               inWaveformForColoring = false;
               color = shouldFlashGreen ? "green" : "yellow"; // Always show yellow for braces
             } else if (inWaveformForColoring) {
-              color = "cyan"; // Always show cyan for waveform content
+              // Check if we're inside a stample code block {#code}
+              // Look back to find the opening { and check for #
+              let lookBack = i - 1;
+              let waveContent = "";
+              while (lookBack >= 0 && melodyString[lookBack] !== "{") {
+                waveContent = melodyString[lookBack] + waveContent;
+                lookBack--;
+              }
+              waveContent = waveContent + char;
+              
+              // Check if this waveform starts with # (painting code)
+              if (waveContent.startsWith("#") || (lookBack >= 0 && melodyString[lookBack + 1] === "#")) {
+                // Extract the code (everything after #)
+                const hashIdx = waveContent.indexOf("#");
+                const code = waveContent.substring(hashIdx + 1).replace(/[^a-zA-Z0-9]/g, "");
+                
+                // Check cache status for coloring
+                const cached = stampleCache.get(code);
+                if (cached && cached.loaded) {
+                  color = "lime"; // Loaded - bright green
+                } else if (cached && cached.loading) {
+                  color = "cyan"; // Loading - cyan
+                } else if (cached && cached.error) {
+                  color = [255, 100, 100]; // Error - light red
+                } else {
+                  color = "orange"; // Not started yet
+                }
+              } else {
+                color = "cyan"; // Regular waveform content (sine, square, stample, etc.)
+              }
             } else if (char === "*") {
               // Special handling for mutation asterisk - white flash when triggered, rainbow otherwise
               if (
@@ -4237,6 +4441,7 @@ function createManagedSound(
   toneShift = 0, // New parameter for Hz pitch shift
   screen = null, // Screen object for floating displays
   trackIndex = 0, // Track index for floating display positioning
+  stampleCode = null, // NEW: Painting code for stample loading (e.g., "abc123" from {#abc123})
 ) {
   // Prevent new sounds from being created after leave() is called
   if (isLeavingPiece) {
@@ -4344,7 +4549,33 @@ function createManagedSound(
     console.log(`🧋 BUBBLE: ${tone} (${Math.round(finalFreq)}Hz) → radius:${bubbleRadius.toFixed(1)} ${struck ? 'struck' : 'held'} vol:${volume.toFixed(2)}`);
   } else if (waveType === "stample" || waveType === "sample") {
     // Handle stample/sample waveform type using sound.play() like toss and notepat do
-    const sampleId = stampleSampleId || fallbackSfx;
+    let sampleId = null;
+    
+    // Check for specific painting code first
+    if (stampleCode) {
+      const cached = stampleCache.get(stampleCode);
+      if (cached?.loaded) {
+        sampleId = cached.sampleId;
+        console.log(`🎤 STAMPLE: Using cached painting #${stampleCode}`);
+      } else if (cached?.loading) {
+        // Sample is loading - stay silent until loaded
+        console.log(`🎤 STAMPLE: #${stampleCode} still loading (silent)`);
+        return null; // Don't play anything while loading
+      } else if (!cached && netPreload && soundRef) {
+        // Trigger lazy load for next time, stay silent for now
+        loadStampleCode(stampleCode, { preload: netPreload, sound: soundRef });
+        console.log(`🎤 STAMPLE: Started loading #${stampleCode} (silent until loaded)`);
+        return null; // Don't play anything while loading
+      } else if (cached?.error) {
+        // Loading failed - use fallback
+        console.log(`🎤 STAMPLE: #${stampleCode} failed to load, using fallback`);
+        sampleId = stampleSampleId || fallbackSfx;
+      }
+    } else {
+      // No painting code specified - use default stample
+      sampleId = stampleSampleId || fallbackSfx;
+    }
+    
     if (sampleId) {
       // Get frequency for pitch adjustment
       const baseFreq = sound.freq(tone);
@@ -4356,7 +4587,8 @@ function createManagedSound(
         loop: !struck, // Loop for held notes, don't loop for struck notes
       });
       
-      console.log(`🎤 STAMPLE: ${tone} (${Math.round(finalFreq)}Hz) vol:${volume.toFixed(2)} ${struck ? 'struck' : 'held'}`);
+      const codeInfo = stampleCode ? ` #${stampleCode}` : '';
+      console.log(`🎤 STAMPLE${codeInfo}: ${tone} (${Math.round(finalFreq)}Hz) vol:${volume.toFixed(2)} ${struck ? 'struck' : 'held'}`);
     } else {
       // Fallback to sine if no sample available
       console.log(`🎤 STAMPLE: No sample available, falling back to sine for ${tone}`);
@@ -5357,6 +5589,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
         volume,
         struck,
         toneShift,
+        stampleCode,
       } = noteData;
 
       // Debug: Log toneShift value and handle cumulative Hz shifts
@@ -5456,6 +5689,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             finalToneShift, // Use the frequency-bounded Hz shift
             screen, // Pass screen for floating displays
             0, // Track index 0 for single track
+            stampleCode, // Painting code for stample waveform
           );
 
           // Add note to history buffer for visual timeline
@@ -6078,6 +6312,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                 volume,
                 struck,
                 toneShift,
+                stampleCode,
               } = noteData;
 
               // Handle cumulative Hz shifts for parallel tracks
@@ -6184,6 +6419,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     finalToneShift, // Use the frequency-bounded Hz shift
                     screen, // Pass screen for floating displays
                     trackIndex, // Pass actual track index for positioning
+                    stampleCode, // Painting code for stample waveform
                   );
 
                   // Add note to history buffer for visual timeline
@@ -6348,7 +6584,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           if (seqState.nextNoteTargetTime > 0 && currentTimeMs >= seqState.nextNoteTargetTime) {
             const noteData = seqState.notes[seqState.index];
             if (noteData) {
-              const { note, octave: noteOctave, duration, sonicDuration, waveType, volume, struck, toneShift } = noteData;
+              const { note, octave: noteOctave, duration, sonicDuration, waveType, volume, struck, toneShift, stampleCode } = noteData;
               
               if (note !== "rest") {
                 let tone = noteOctave ? `${noteOctave}${note.toUpperCase()}` : `${octave}${note.toUpperCase()}`;
@@ -6370,6 +6606,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     frequencyResult.toneShift,
                     screen,
                     0,
+                    stampleCode, // Painting code for stample waveform
                   );
                   
                   // Track count is 1 for single-track sequence
@@ -6429,7 +6666,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             if (trackState.nextNoteTargetTime > 0 && currentTimeMs >= trackState.nextNoteTargetTime) {
               const noteData = trackState.track[trackState.noteIndex];
               if (noteData) {
-                const { note, octave: noteOctave, duration, sonicDuration, waveType, volume, struck, toneShift } = noteData;
+                const { note, octave: noteOctave, duration, sonicDuration, waveType, volume, struck, toneShift, stampleCode } = noteData;
                 
                 if (note !== "rest") {
                   let tone = noteOctave ? `${noteOctave}${note.toUpperCase()}` : `${octave}${note.toUpperCase()}`;
@@ -6451,6 +6688,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                       frequencyResult.toneShift,
                       screen,
                       trackIndex,
+                      stampleCode, // Painting code for stample waveform
                     );
                     
                     // Track count from parallel sequence state
