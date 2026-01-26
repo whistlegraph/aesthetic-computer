@@ -51,10 +51,10 @@ docker build -t "$IMAGE_NAME" -f "$WORK_DIR/Dockerfile" "$WORK_DIR"
 # Run mkarchiso inside container
 # The ffos repo expects ffos-user content merged into archiso profile during build.
 # We mirror that workflow by mounting both repos and a build output directory.
-# Run as root to avoid permission issues with mounted volumes.
+# Run as root with --privileged to allow chroot mounts (proc, sys, etc.)
 
 docker run --rm \
-  --user root \
+  --privileged \
   -v "$CACHE_DIR/ffos:/work/ffos" \
   -v "$CACHE_DIR/ffos-user:/work/ffos-user" \
   -v "$OUT_DIR:/work/out" \
