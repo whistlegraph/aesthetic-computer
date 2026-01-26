@@ -60,6 +60,7 @@ let sfx,
 let bitmapMeta = null;
 let bitmapLooping = false;
 let bitmapLoopSound = null;
+let bitmapPlaySound = null;
 const bitmapSampleId = "stample:bitmap";
 let paintJumpPending = false;
 let bitmapLoading = false;
@@ -197,9 +198,10 @@ function sim({ sound }) {
     sound?.progress().then((p) => (progressions[index] = p.progress));
   });
 
-  // Track bitmap loop playback progress for scrubber
-  if (bitmapLoopSound) {
-    bitmapLoopSound.progress?.().then((p) => {
+  // Track bitmap playback progress for scrubber
+  if (bitmapLoopSound || bitmapPlaySound) {
+    const activeSound = bitmapLoopSound || bitmapPlaySound;
+    activeSound?.progress?.().then((p) => {
       bitmapProgress = p?.progress || 0;
     });
   }
@@ -512,7 +514,7 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     });
     
     // Draw scrubber line showing playback progress
-    if (bitmapLooping && bitmapProgress > 0) {
+    if (bitmapProgress > 0) {
       const totalPixels = bitmapPreview.width * bitmapPreview.height;
       const currentPixel = Math.floor(bitmapProgress * totalPixels);
       const scrubY = Math.floor(currentPixel / bitmapPreview.width);
@@ -739,6 +741,9 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, sys
         decoded,
         bitmapMeta?.sampleRate || sound.sampleRate,
       );
+      bitmapPlaySound?.kill?.(0.05);
+      bitmapPlaySound = null;
+      bitmapProgress = 0;
       bitmapLoopSound = sound.play(bitmapSampleId, { loop: true });
       bitmapLooping = true;
     },
@@ -754,7 +759,11 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, sys
         decoded,
         bitmapMeta?.sampleRate || sound.sampleRate,
       );
-      sound.play(bitmapSampleId, { loop: false });
+      bitmapLoopSound?.kill?.(0.05);
+      bitmapLoopSound = null;
+      bitmapLooping = false;
+      bitmapProgress = 0;
+      bitmapPlaySound = sound.play(bitmapSampleId, { loop: false });
     },
   });
 
