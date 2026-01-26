@@ -342,6 +342,7 @@ let piecePreviewBitmap = null; // Preview thumbnail from oven for unminted piece
 let piecePreviewFrames = null; // Animated preview frames
 let piecePreviewFrameIndex = 0; // Current preview animation frame
 let piecePreviewLastFrameTime = 0; // Preview frame timing
+let piecePreviewLoading = false; // True while loading preview from oven
 let kidlispSource = null; // Source code for syntax highlighting
 let tickerOffset = 0; // For scrolling ticker
 
@@ -560,6 +561,8 @@ async function loadPiecePreview() {
   if (!piece) return;
   
   console.log("🪙 KEEP: Loading preview thumbnail for $" + piece);
+  piecePreviewLoading = true;
+  _needsPaint?.();
   
   try {
     // Use oven to get a small animated WebP preview (100x100 matches other AC usages)
@@ -601,8 +604,11 @@ async function loadPiecePreview() {
       };
       piecePreviewFrames = null;
     }
+    piecePreviewLoading = false;
     _needsPaint?.();
   } catch (e) {
+    piecePreviewLoading = false;
+    _needsPaint?.();
     // Silent - preview is optional
   }
 }
@@ -2023,48 +2029,236 @@ function paint($) {
     const isAnonymous = !pieceAuthorSub && !loadingPieceInfo;
 
     // Responsive spacing based on screen size
-    const compact = h < 200 || w < 220;
-    const tiny = h < 170 || w < 170;
-    const spacious = h > 280;
-    const gap = compact ? 8 : (spacious ? 20 : 14);
-    const smallGap = compact ? 5 : (spacious ? 12 : 8);
-    const tinyGap = compact ? 3 : (spacious ? 8 : 6);
+    const tiny = h < 140 || w < 140;
+    const compact = h < 200 || w < 200;
+    const spacious = h > 280 && w > 280;
+    const gap = tiny ? 4 : (compact ? 6 : (spacious ? 16 : 10));
+    const smallGap = tiny ? 2 : (compact ? 4 : (spacious ? 10 : 6));
+    const tinyGap = tiny ? 2 : (compact ? 3 : (spacious ? 6 : 4));
 
-    const showSourcePreview = pieceSourceDisplay && !tiny;
-    const showInfo = !tiny;
-    const showDate = !compact;
-    const showProse = !compact;
-    const showNetwork = !tiny;
-    const showContract = !tiny;
+    const hasPreview = piecePreviewBitmap || piecePreviewLoading;
     
-    // Preview thumbnail size
-    const previewThumbSize = tiny ? 42 : (compact ? 50 : (spacious ? 72 : 56));
+    // Calculate estimated content height for vertical layout
+    const basePreviewSize = tiny ? 32 : (compact ? 40 : (spacious ? 56 : 48));
+    let estimatedH = 12 + tinyGap; // title + gap (tight)
+    if (hasPreview) estimatedH += basePreviewSize + tinyGap;
+    estimatedH += 14 + tinyGap; // piece name button
+    estimatedH += 10 + tinyGap; // source preview
+    estimatedH += 10 + tinyGap; // author info
+    estimatedH += 10 + tinyGap + 24; // ownership + button (minimum)
+    
+    // Calculate how much overflow we have
+    const verticalMargin = 8;
+    const availableH = h - verticalMargin;
+    const contentWouldOverflow = estimatedH > availableH;
+    const overflowAmount = estimatedH - availableH;
+    
+    // Use horizontal layout if:
+    // 1. Wide screens always (>300px) with preview
+    // 2. Moderate screens (>180px) when content would overflow by more than 20px
+    // 3. Small screens (>140px) when severely overflowing (>40px)
+    const useHorizontalLayout = hasPreview && (
+      (w > 300) ||
+      (w > 180 && overflowAmount > 20) ||
+      (w > 140 && overflowAmount > 40)
+    );
+    
+    // Adjust what to show based on available space - be more aggressive about hiding
+    const severeSpace = h < 100 || overflowAmount > 30;
+    const tightSpace = h < 130 || overflowAmount > 15;
+    const showSourcePreview = pieceSourceDisplay && !tiny && !severeSpace;
+    const showInfo = !tiny && !severeSpace;
+    const showDate = !compact && !tightSpace;
+    const showProse = !compact && !tightSpace;
+    const showNetwork = !tiny && !severeSpace;
+    const showContract = !tiny && !tightSpace;
+    
+    // Preview thumbnail size - responsive to layout mode and space constraints
+    const previewThumbSize = useHorizontalLayout 
+      ? min(72, max(40, floor(h * 0.45))) // Horizontal: fit to height
+      : (tiny ? 32 : (compact ? 40 : (spacious ? 56 : 48))); // Vertical: based on screen size, smaller than before
 
-    // Calculate total height for centering based on content
-    let totalH = 14 + smallGap; // title + gap
-    if (piecePreviewBitmap) totalH += previewThumbSize + smallGap; // preview thumbnail
-    totalH += 16 + smallGap; // piece name button + gap
-    if (showSourcePreview) totalH += 10 + tinyGap; // source preview
-    if (showInfo) totalH += 10 + gap; // author/hits info + gap before action area
+    // === HORIZONTAL LAYOUT (side-by-side) ===
+    if (useHorizontalLayout) {
+      const previewAreaW = previewThumbSize + 16; // preview + padding
+      const contentAreaX = previewAreaW;
+      const contentAreaW = w - previewAreaW - 8;
+      
+      // Draw preview on left side (vertically centered)
+      const previewX = 8;
+      const previewY = floor((h - previewThumbSize) / 2);
+      const borderGlow = floor(30 + sin(rotation * 2) * 15);
+      ink(255, 200, 100, borderGlow).box(previewX - 2, previewY - 2, previewThumbSize + 4, previewThumbSize + 4);
+      
+      if (piecePreviewBitmap) {
+        const scale = previewThumbSize / (piecePreviewBitmap.width || 100);
+        paste(piecePreviewBitmap, previewX, previewY, { scale });
+      } else if (piecePreviewLoading) {
+        ink(40, 50, 60).box(previewX, previewY, previewThumbSize, previewThumbSize);
+        const dots = ".".repeat((floor(rotation * 3) % 3) + 1);
+        ink(100, 120, 140).write(dots, { x: previewX + previewThumbSize / 2, y: previewY + previewThumbSize / 2 - 4, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      }
+      
+      // Content on right side - calculate vertical centering
+      const cx = contentAreaX + contentAreaW / 2;
+      let contentH = 12 + tinyGap + 14 + tinyGap; // title + piece button
+      if (showSourcePreview) contentH += 10 + tinyGap;
+      if (showInfo) contentH += 10 + smallGap;
+      contentH += 10 + tinyGap + 26; // ownership + button (minimum)
+      
+      let cy = max(6, floor((h - contentH) / 2));
+      
+      // Title
+      const glowAlpha = floor(50 + sin(rotation * 2.5) * 30);
+      if (isAnonymous) {
+        ink(200, 120, 100, glowAlpha).write("ANONYMOUS", { x: cx, y: cy - 1, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        ink(200, 120, 100).write("ANONYMOUS", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      } else {
+        ink(255, 220, 100, glowAlpha).write("KEEP", { x: cx, y: cy - 1, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        ink(255, 220, 100).write("KEEP", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      }
+      cy += 12 + tinyGap;
+      
+      // Piece name button
+      const btnPulsePreview = 1 + sin(rotation * 2) * 0.08;
+      const base = pal.btnPreview.normalBase;
+      const previewScheme = {
+        normal: {
+          bg: [floor(base.bg[0] * btnPulsePreview), floor(base.bg[1] * btnPulsePreview), floor(base.bg[2] * btnPulsePreview)],
+          outline: [floor(base.outline[0] * btnPulsePreview), floor(base.outline[1] * btnPulsePreview), floor(base.outline[2] * btnPulsePreview)],
+          outlineAlpha: base.outlineAlpha,
+          text: base.text
+        },
+        hover: pal.btnPreview.hover,
+        disabled: pal.btnPreview.disabled
+      };
+      const previewText = `$${piece}`;
+      const previewSize = mc8ButtonSize(previewText);
+      const btnX = floor(cx - previewSize.w / 2);
+      previewBtn.btn.box.x = btnX;
+      previewBtn.btn.box.y = cy;
+      previewBtn.btn.box.w = previewSize.w;
+      previewBtn.btn.box.h = previewSize.h;
+      paintMC8Btn(btnX, cy, previewText, { ink, line: ink }, previewScheme, previewBtn.btn.down);
+      cy += 14 + tinyGap;
+      
+      // Source preview (scrolling) - only if space
+      if (showSourcePreview && cy + 40 < h) {
+        const maxSourceLen = floor(contentAreaW / 4) - 2;
+        let displaySource = pieceSourceDisplay;
+        if (displaySource.length > maxSourceLen) {
+          const scrollOffset = floor(rotation * 3) % (displaySource.length + 10);
+          const paddedSource = displaySource + "          " + displaySource;
+          displaySource = paddedSource.substring(scrollOffset, scrollOffset + maxSourceLen);
+        }
+        const coloredSource = buildColoredSourceString(displaySource);
+        ink(200, 200, 200, 140).write(coloredSource, { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 10 + tinyGap;
+      }
+      
+      // Author info - compact version
+      if (showInfo && cy + 30 < h) {
+        const authorStr = pieceAuthor || "anon";
+        const hitsStr = pieceHits !== null ? `${pieceHits}▶` : "";
+        const infoStr = hitsStr ? `${authorStr} · ${hitsStr}` : authorStr;
+        ink(100, 105, 115).write(infoStr, { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 10 + smallGap;
+      }
+      
+      // Action area for horizontal layout - condensed
+      if (isAuthor === true) {
+        ink(100, 200, 130).write("✓ Your code", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 10 + tinyGap;
+        
+        // Keep button
+        const btnPulse = sin(rotation * 2.5) * 0.15 + 1;
+        const confirmBase = pal.btnConfirm.normalBase;
+        const confirmScheme = {
+          normal: { bg: [floor(confirmBase.bg[0] * btnPulse), floor(confirmBase.bg[1] * btnPulse), floor(confirmBase.bg[2] * btnPulse)], outline: [floor(confirmBase.outline[0] * btnPulse), floor(confirmBase.outline[1] * btnPulse), floor(confirmBase.outline[2] * btnPulse)], outlineAlpha: confirmBase.outlineAlpha, text: confirmBase.text },
+          hover: pal.btnConfirm.hover,
+          disabled: pal.btnConfirm.disabled
+        };
+        const confirmText = "Keep";
+        const confirmSize = lgButtonSize(confirmText);
+        const confirmX = floor(cx - confirmSize.w / 2);
+        btn.btn.box.x = confirmX;
+        btn.btn.box.y = cy;
+        btn.btn.box.w = confirmSize.w;
+        btn.btn.box.h = confirmSize.h;
+        paintLgBtn(confirmX, cy, confirmText, { ink, line: ink }, confirmScheme, btn.btn.down);
+        cy += confirmSize.h + tinyGap;
+        
+        // Network label only if space
+        if (cy + 12 < h) {
+          const netLabel = KEEPS_STAGING ? "STAGING" : NETWORK.toUpperCase();
+          const netColor = KEEPS_STAGING ? [255, 180, 100] : [100, 220, 100];
+          ink(netColor[0], netColor[1], netColor[2], 180).write(netLabel, { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        }
+        // Hide contract button in horizontal layout to save space
+        contractBtn.btn.box.w = 0;
+      } else if (pieceAuthorSub && !userSub) {
+        ink(210, 160, 110).write("Login to keep", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 10 + tinyGap;
+        const loginPulse = sin(rotation * 2) * 0.1 + 1;
+        const loginBase = pal.btnLogin.normalBase;
+        const loginScheme = {
+          normal: { bg: [floor(loginBase.bg[0] * loginPulse), floor(loginBase.bg[1] * loginPulse), floor(loginBase.bg[2] * loginPulse)], outline: [floor(loginBase.outline[0] * loginPulse), floor(loginBase.outline[1] * loginPulse), floor(loginBase.outline[2] * loginPulse)], outlineAlpha: loginBase.outlineAlpha, text: loginBase.text },
+          hover: pal.btnLogin.hover,
+          disabled: pal.btnLogin.disabled
+        };
+        const loginText = "Login";
+        const loginSize = lgButtonSize(loginText);
+        const loginX = floor(cx - loginSize.w / 2);
+        loginBtn.btn.box.x = loginX;
+        loginBtn.btn.box.y = cy;
+        loginBtn.btn.box.w = loginSize.w;
+        loginBtn.btn.box.h = loginSize.h;
+        paintLgBtn(loginX, cy, loginText, { ink, line: ink }, loginScheme, loginBtn.btn.down);
+      } else if (isAuthor === false) {
+        ink(210, 110, 110).write("✗ Not yours", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 10 + tinyGap;
+        ink(130, 130, 145).write(pieceAuthor || "unknown", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      } else if (isAnonymous) {
+        ink(210, 130, 110).write("Anonymous", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 10 + tinyGap;
+        ink(150, 140, 130).write("Can't keep", { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      } else {
+        const dots = ".".repeat((floor(rotation * 3) % 3) + 1);
+        ink(180, 175, 150).write(`Loading${dots}`, { x: cx, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      }
+      return;
+    }
+
+    // === VERTICAL (NARROW) LAYOUT ===
+    
+    // Use tighter spacing when space is constrained
+    const vGap = tightSpace ? tinyGap : smallGap;
+    const vGapLarge = severeSpace ? tinyGap : (tightSpace ? smallGap : gap);
+    
+    // Recalculate total height with actual values
+    let totalH = 12 + vGap; // title + gap
+    if (hasPreview) totalH += previewThumbSize + vGap;
+    totalH += 14 + vGap; // piece name button + gap
+    if (showSourcePreview) totalH += 10 + tinyGap;
+    if (showInfo) totalH += 10 + vGapLarge;
     if (isAnonymous) {
-      totalH += 14 + tinyGap + 9; // anonymous message (can't keep)
+      totalH += 14 + tinyGap + 9;
     } else if (isAuthor === true) {
-      totalH += 10 + smallGap; // ownership
-      if (!compact) totalH += 12 + smallGap; // Keep It?
-      if (showProse) totalH += 10 + smallGap; // prose
-      totalH += 16; // keep button
-      if (showNetwork) totalH += 10 + smallGap; // network badge
-      if (showContract) totalH += 12 + smallGap; // contract button
+      totalH += 10 + vGap; // ownership
+      if (showProse) totalH += 10 + vGap;
+      totalH += 24; // keep button (slightly smaller)
+      if (showNetwork) totalH += 10 + vGap;
+      if (showContract) totalH += 12 + vGap;
     } else if (pieceAuthorSub && !userSub) {
-      totalH += (compact ? 12 : (9 + tinyGap + 9)) + gap + 16; // not logged in message + button
+      totalH += 10 + vGap + 24;
     } else if (isAuthor === false) {
-      totalH += 10 + smallGap + 12 + tinyGap + (compact ? 12 : (9 + tinyGap + 9)) + 10; // logged in + not author message
+      totalH += 10 + vGap + 12 + tinyGap + 10;
     } else {
-      totalH += 10 + gap + 16; // loading message + button area
+      totalH += 10 + vGapLarge + 16;
     }
 
     let cy = floor((h - totalH) / 2);
-    if (cy < 12) cy = 12;
+    if (cy < 2) cy = 2; // Allow very tight top margin
 
     // Title with glow effect - show ANONYMOUS in red/orange if anonymous piece
     const glowAlpha = floor(50 + sin(rotation * 2.5) * 30);
@@ -2075,9 +2269,9 @@ function paint($) {
       ink(255, 220, 100, glowAlpha).write("KEEP", { x: w/2, y: cy - 1, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       ink(255, 220, 100).write("KEEP", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     }
-    cy += 14 + smallGap;
+    cy += 12 + vGap;
     
-    // Preview thumbnail from oven (animated webp)
+    // Preview thumbnail from oven (animated webp) or loading placeholder
     if (piecePreviewBitmap) {
       const thumbX = floor((w - previewThumbSize) / 2);
       const scale = previewThumbSize / (piecePreviewBitmap.width || 100);
@@ -2085,7 +2279,16 @@ function paint($) {
       const borderGlow = floor(30 + sin(rotation * 2) * 15);
       ink(255, 200, 100, borderGlow).box(thumbX - 2, cy - 2, previewThumbSize + 4, previewThumbSize + 4);
       paste(piecePreviewBitmap, thumbX, cy, { scale });
-      cy += previewThumbSize + smallGap;
+      cy += previewThumbSize + vGap;
+    } else if (piecePreviewLoading) {
+      // Loading placeholder box with animated dots
+      const thumbX = floor((w - previewThumbSize) / 2);
+      const borderGlow = floor(30 + sin(rotation * 2) * 15);
+      ink(255, 200, 100, borderGlow).box(thumbX - 2, cy - 2, previewThumbSize + 4, previewThumbSize + 4);
+      ink(40, 50, 60).box(thumbX, cy, previewThumbSize, previewThumbSize);
+      const dots = ".".repeat((floor(rotation * 3) % 3) + 1);
+      ink(100, 120, 140).write(dots, { x: w/2, y: cy + previewThumbSize / 2 - 4, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += previewThumbSize + vGap;
     }
 
     // Piece name as clickable button to preview - with subtle pulse
@@ -2109,7 +2312,7 @@ function paint($) {
     previewBtn.btn.box.w = previewSize.w;
     previewBtn.btn.box.h = previewSize.h;
     paintMC8Btn(previewX, cy, previewText, { ink, line: ink }, previewScheme, previewBtn.btn.down);
-    cy += 16 + smallGap;
+    cy += 14 + vGap;
 
     // Source code preview with syntax highlighting (scrolling ticker if long)
     if (showSourcePreview) {
@@ -2147,7 +2350,7 @@ function paint($) {
     const infoStr = infoParts.join(" · ");
     if (showInfo) {
       ink(100, 105, 115).write(infoStr, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += 10 + gap;
+      cy += 10 + vGapLarge;
     }
 
     // Ownership status and action area
@@ -2156,20 +2359,14 @@ function paint($) {
       const checkmark = "✓";
       const ownershipMsg = userHandle ? `${checkmark} Logged in as @${userHandle}` : `${checkmark} You wrote this code`;
       ink(100, 200, 130).write(ownershipMsg, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += 10 + smallGap;
+      cy += 10 + vGap;
 
-      if (!compact) {
-        // "Keep It?" prompt in yellow with glow
+      if (showProse) {
+        // "Keep It?" prompt in yellow with glow - only when we have space
         const keepItGlow = floor(30 + sin(rotation * 3) * 15);
         ink(255, 220, 100, keepItGlow).write("Keep It?", { x: w/2, y: cy - 1, center: "x" }, undefined, undefined, false, "MatrixChunky8");
         ink(255, 220, 100).write("Keep It?", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-        cy += 12 + smallGap;
-      }
-
-      // Prose explanation (softer, elegant)
-      if (showProse) {
-        ink(150, 145, 135).write(`Keep $${piece} in your wallet.`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-        cy += 10 + smallGap;
+        cy += 12 + vGap;
       }
 
       // Main action button (prominent, glowing)
@@ -2180,7 +2377,7 @@ function paint($) {
         hover: pal.btnConfirm.hover,
         disabled: pal.btnConfirm.disabled
       };
-      const confirmText = "Keep It";
+      const confirmText = tightSpace ? "Keep" : "Keep It";
       const confirmSize = lgButtonSize(confirmText);
       const confirmX = floor((w - confirmSize.w) / 2);
       btn.btn.box.x = confirmX;
@@ -2188,7 +2385,7 @@ function paint($) {
       btn.btn.box.w = confirmSize.w;
       btn.btn.box.h = confirmSize.h;
       paintLgBtn(confirmX, cy, confirmText, { ink, line: ink }, confirmScheme, btn.btn.down);
-      cy += confirmSize.h + smallGap;
+      cy += confirmSize.h + vGap;
 
       // Network badge
       if (showNetwork) {
@@ -2196,7 +2393,7 @@ function paint($) {
         const isMainnet = NETWORK === "mainnet";
         const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
         ink(netColor[0], netColor[1], netColor[2], 200).write(netLabel, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-        cy += 10 + smallGap;
+        cy += 10 + vGap;
       }
 
       // Contract button (clickable link to TzKT)
@@ -2210,7 +2407,7 @@ function paint($) {
         contractBtn.btn.box.w = contractSize.w;
         contractBtn.btn.box.h = contractSize.h;
         paintMC8Btn(contractX, cy, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down);
-        cy += 12 + gap;
+        cy += 12 + vGapLarge;
       } else {
         contractBtn.btn.box.x = 0;
         contractBtn.btn.box.y = 0;
@@ -2220,17 +2417,17 @@ function paint($) {
 
     } else if (pieceAuthorSub && !userSub) {
       // Piece has an author, but user is NOT logged in yet
-      if (compact) {
-        ink(210, 160, 110).write("Login to keep your own KidLisp", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-        cy += gap;
+      if (tightSpace) {
+        ink(210, 160, 110).write("Login to keep", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += vGapLarge;
       } else {
         ink(210, 160, 110).write("You can only keep KidLisp", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
         cy += 9 + tinyGap;
         ink(210, 160, 110).write("that you authored.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-        cy += gap;
+        cy += vGapLarge;
 
         ink(150, 150, 165).write("Login to verify ownership", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-        cy += 10 + smallGap;
+        cy += 10 + vGap;
       }
 
       // Login button with pulse
@@ -2254,19 +2451,19 @@ function paint($) {
       // User IS logged in but NOT the author
       const loggedInMsg = userHandle ? `Logged in as @${userHandle}` : "Logged in";
       ink(110, 150, 195).write(loggedInMsg, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += 10 + smallGap;
+      cy += 10 + vGap;
 
       ink(210, 110, 110).write("✗ Not your code", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 12 + tinyGap;
 
-      if (compact) {
-        ink(180, 155, 145).write("Only the author can keep this", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-        cy += 10 + smallGap;
+      if (tightSpace) {
+        ink(180, 155, 145).write("Only the author can keep", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 10 + vGap;
       } else {
         ink(180, 155, 145).write("You can only keep KidLisp", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
         cy += 9 + tinyGap;
         ink(180, 155, 145).write("that you authored.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-        cy += 10 + smallGap;
+        cy += 10 + vGap;
       }
 
       ink(130, 130, 145).write(`Author: ${pieceAuthor || "unknown"}`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
@@ -2274,12 +2471,16 @@ function paint($) {
     } else if (isAnonymous) {
       // Anonymous piece - can't be kept
       ink(210, 130, 110).write("Anonymous piece", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += 14 + tinyGap;
+      cy += 12 + tinyGap;
 
-      // Explanation
-      ink(150, 140, 130).write("Anonymous pieces cannot", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      cy += 9 + tinyGap;
-      ink(150, 140, 130).write("be kept at this time.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      // Explanation - condensed for tight space
+      if (!severeSpace) {
+        ink(150, 140, 130).write("Anonymous pieces cannot", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        cy += 9 + tinyGap;
+        ink(150, 140, 130).write("be kept at this time.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      } else {
+        ink(150, 140, 130).write("Cannot be kept", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      }
     } else {
       // Still loading - show animated dots
       const dots = ".".repeat((floor(rotation * 3) % 3) + 1);

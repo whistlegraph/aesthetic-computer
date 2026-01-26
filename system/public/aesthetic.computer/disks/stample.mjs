@@ -25,19 +25,214 @@
     - [x] Add start and end trimming to sound.play();
  */
 
-const { abs } = Math;
+const { abs, min, max, floor, ceil } = Math;
 
-// Layout
+// Layout Constants
 const BUTTON_LABEL_CONNECTING = "Wait...";
-const menuHeight = 32;
-const labelHeight = 24;
 const maxPats = 10;
-const bitmapPreviewSize = 120;
-const bitmapPreviewMargin = 6;
-const bitmapColumnWidth = 148;
-const recordingBitmapWidth = 200; // Larger preview during recording
+
+// Responsive Layout Thresholds
+const COMPACT_HEIGHT = 160;
+const NARROW_WIDTH = 180;
+const BITMAP_BESIDE_MIN_WIDTH = 280;
+
+// Layout Zone Defaults
+const TOP_BAR_HEIGHT = 24;
+const BOTTOM_BAR_HEIGHT = 36;
+const COMPACT_TOP_BAR = 18;
+const COMPACT_BOTTOM_BAR = 28;
+
+// Bitmap Preview Sizing
+const BITMAP_MIN_SIZE = 56;
+const BITMAP_MAX_SIZE = 120;
+const BITMAP_MARGIN = 8;
+const BITMAP_BTN_HEIGHT = 18;
+const BITMAP_BTN_GAP = 4;
+
+// Strip Button Constraints
+const MIN_STRIP_WIDTH = 40;
+const MIN_STRIP_HEIGHT = 20;
+
+// Layout Cache
+let layoutCache = { key: null, metrics: null };
 
 let loop = true; // Global setting.
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🎨 RESPONSIVE LAYOUT SYSTEM (inspired by notepat.mjs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Computes all layout metrics based on screen size and state.
+ * Returns a metrics object that can be used for positioning all UI elements.
+ */
+function getLayoutMetrics(screen, { hasBitmap = false, isRecording = false, patCount = 1 } = {}) {
+  const isCompact = screen.height < COMPACT_HEIGHT;
+  const isNarrow = screen.width < NARROW_WIDTH;
+  const isLandscape = screen.width > screen.height;
+  
+  // Calculate zone heights
+  const topBar = isCompact ? COMPACT_TOP_BAR : TOP_BAR_HEIGHT;
+  const bottomBar = isCompact ? COMPACT_BOTTOM_BAR : BOTTOM_BAR_HEIGHT;
+  const availableHeight = max(0, screen.height - topBar - bottomBar);
+  
+  // ─────────────────────────────────────────────────────────────────────────
+  // RECORDING MODE: Full-screen centered layout
+  // ─────────────────────────────────────────────────────────────────────────
+  if (isRecording) {
+    const margin = isCompact ? 12 : 20;
+    const stopBtnH = isCompact ? 32 : 44;
+    const stopBtnW = isCompact ? 80 : 110;
+    
+    const previewW = min(screen.width - margin * 2, 320);
+    const previewH = max(60, screen.height - topBar - stopBtnH - margin * 3);
+    const previewX = floor((screen.width - previewW) / 2);
+    const previewY = topBar + margin;
+    
+    return {
+      mode: 'recording',
+      isCompact,
+      topBar,
+      bottomBar,
+      // Recording preview
+      previewX,
+      previewY,
+      previewW,
+      previewH,
+      // Stop button
+      stopBtnX: floor((screen.width - stopBtnW) / 2),
+      stopBtnY: screen.height - stopBtnH - margin,
+      stopBtnW,
+      stopBtnH,
+    };
+  }
+  
+  // ─────────────────────────────────────────────────────────────────────────
+  // NORMAL MODE: Determine bitmap position and strip layout
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  // Decide if bitmap goes beside strips or below (portrait stacking)
+  const canFitBitmapBeside = isLandscape && screen.width >= BITMAP_BESIDE_MIN_WIDTH;
+  const bitmapBeside = hasBitmap && canFitBitmapBeside;
+  
+  // Calculate bitmap size (responsive to available space)
+  let bitmapSize = 0;
+  let bitmapColumnW = 0;
+  let bitmapX = 0;
+  let bitmapY = 0;
+  let bitmapBtnY = 0;
+  let bitmapBtnW = 0;
+  
+  if (hasBitmap) {
+    if (bitmapBeside) {
+      // Bitmap column on the right side
+      const maxBitmapH = availableHeight - BITMAP_BTN_HEIGHT * 2 - BITMAP_BTN_GAP * 2 - BITMAP_MARGIN * 2;
+      bitmapSize = min(BITMAP_MAX_SIZE, max(BITMAP_MIN_SIZE, floor(maxBitmapH)));
+      bitmapColumnW = bitmapSize + BITMAP_MARGIN * 2;
+      bitmapX = screen.width - bitmapSize - BITMAP_MARGIN;
+      bitmapY = topBar + BITMAP_MARGIN;
+      bitmapBtnW = bitmapSize;
+      bitmapBtnY = bitmapY + bitmapSize + BITMAP_BTN_GAP;
+    } else {
+      // Bitmap overlaid in bottom-right corner (portrait/narrow mode)
+      bitmapSize = min(BITMAP_MAX_SIZE, max(BITMAP_MIN_SIZE, floor(screen.width * 0.35)));
+      bitmapColumnW = 0; // No column, overlaid
+      bitmapX = screen.width - bitmapSize - BITMAP_MARGIN;
+      bitmapY = screen.height - bottomBar - bitmapSize - BITMAP_BTN_HEIGHT * 2 - BITMAP_BTN_GAP * 2 - BITMAP_MARGIN;
+      bitmapBtnW = bitmapSize;
+      bitmapBtnY = bitmapY + bitmapSize + BITMAP_BTN_GAP;
+    }
+  }
+  
+  // Calculate strip button dimensions
+  const stripAreaW = max(MIN_STRIP_WIDTH, screen.width - bitmapColumnW);
+  const stripAreaH = availableHeight;
+  const stripH = max(MIN_STRIP_HEIGHT, floor(stripAreaH / patCount));
+  const stripX = 0;
+  const stripY = topBar;
+  
+  // Record button in bottom-left
+  const recordBtnW = isCompact ? 52 : 68;
+  const recordBtnH = isCompact ? 24 : 32;
+  const recordBtnX = BITMAP_MARGIN;
+  const recordBtnY = screen.height - recordBtnH - floor((bottomBar - recordBtnH) / 2);
+  
+  // Pats button in top-right corner
+  const patsBtnW = 24;
+  const patsBtnH = topBar - 2;
+  const patsBtnX = screen.width - patsBtnW - 2;
+  const patsBtnY = 1;
+  
+  // Notepat button next to pats
+  const notepatBtnW = 36;
+  const notepatBtnH = patsBtnH;
+  const notepatBtnX = patsBtnX - notepatBtnW - 6;
+  const notepatBtnY = 1;
+  
+  return {
+    mode: 'normal',
+    isCompact,
+    isNarrow,
+    isLandscape,
+    bitmapBeside,
+    
+    // Zones
+    topBar,
+    bottomBar,
+    availableHeight,
+    
+    // Strip buttons
+    stripX,
+    stripY,
+    stripW: stripAreaW,
+    stripH,
+    stripAreaH,
+    
+    // Bitmap preview
+    hasBitmap,
+    bitmapSize,
+    bitmapColumnW,
+    bitmapX,
+    bitmapY,
+    bitmapBtnW,
+    bitmapBtnY,
+    
+    // Control buttons
+    recordBtnX,
+    recordBtnY,
+    recordBtnW,
+    recordBtnH,
+    patsBtnX,
+    patsBtnY,
+    patsBtnW,
+    patsBtnH,
+    notepatBtnX,
+    notepatBtnY,
+    notepatBtnW,
+    notepatBtnH,
+  };
+}
+
+/**
+ * Get cached layout metrics to avoid recalculation every frame.
+ */
+function getCachedLayout(screen, options) {
+  const key = [
+    screen.width,
+    screen.height,
+    options.hasBitmap ? 1 : 0,
+    options.isRecording ? 1 : 0,
+    options.patCount || 1,
+  ].join('|');
+  
+  if (layoutCache.key === key && layoutCache.metrics) {
+    return layoutCache.metrics;
+  }
+  
+  const metrics = getLayoutMetrics(screen, options);
+  layoutCache = { key, metrics };
+  return metrics;
+}
 
 // System
 let sfx,
@@ -128,21 +323,41 @@ async function boot({
     sampleId = await preload(name);
   }
   
+  // Initialize all buttons using layout metrics
+  const hasBitmap = !!(bitmapPreview?.pixels?.length);
+  const layout = getCachedLayout(screen, { hasBitmap, patCount: pats });
+  
   genPats({ screen, ui });
-  micRecordButton = new ui.Button(0, screen.height - 31, 64, 31);
+  
+  // Record button (bottom left)
+  micRecordButton = new ui.Button(
+    layout.recordBtnX, 
+    layout.recordBtnY, 
+    layout.recordBtnW, 
+    layout.recordBtnH
+  );
   mic = microphone; // Microphone access.
 
-  patsButton = new ui.Button(screen.width - 24, 0, 24, labelHeight - 1);
+  // Pats button (top right corner)
+  patsButton = new ui.Button(
+    layout.patsBtnX, 
+    layout.patsBtnY, 
+    layout.patsBtnW, 
+    layout.patsBtnH
+  );
+  
+  // Notepat button (next to pats)
   notepatButton = new ui.Button(
-    screen.width - 24 - 36 - 6,
-    0,
-    36,
-    labelHeight - 1,
+    layout.notepatBtnX,
+    layout.notepatBtnY,
+    layout.notepatBtnW,
+    layout.notepatBtnH,
   );
 
-  bitmapLoopButton = new ui.Button(0, 0, bitmapPreviewSize, 18);
-  bitmapPaintButton = new ui.Button(0, 0, bitmapPreviewSize, 18);
-  bitmapPreviewButton = new ui.Button(0, 0, bitmapPreviewSize, bitmapPreviewSize);
+  // Bitmap control buttons (will be positioned by layoutBitmapUI)
+  bitmapLoopButton = new ui.Button(0, 0, BITMAP_MIN_SIZE, BITMAP_BTN_HEIGHT);
+  bitmapPaintButton = new ui.Button(0, 0, BITMAP_MIN_SIZE, BITMAP_BTN_HEIGHT);
+  bitmapPreviewButton = new ui.Button(0, 0, BITMAP_MIN_SIZE, BITMAP_MIN_SIZE);
   layoutBitmapUI(screen);
 
   if (mic.permission === "granted" && enabled()) {
@@ -224,68 +439,80 @@ function sim({ sound }) {
 
 function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
   const isRecording = mic?.recording;
+  const hasBitmap = !!(bitmapPreview?.pixels?.length);
+  const layout = getCachedLayout(screen, { hasBitmap, isRecording, patCount: pats });
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🔴 RECORDING MODE
+  // ─────────────────────────────────────────────────────────────────────────
   if (isRecording) {
     wipe(40, 0, 0); // Dark red background
     
-    // 🔴 RECORDING MODE: Show large live bitmap preview - CENTERED
-    const margin = 20;
-    const stopBtnH = 40;
-    const livePreviewW = Math.min(screen.width - margin * 2, 300);
-    const livePreviewH = screen.height - labelHeight - stopBtnH - margin * 3;
-    const livePreviewX = (screen.width - livePreviewW) / 2;
-    const livePreviewY = labelHeight + margin;
-    
     // Dark background for preview area
-    ink("black", 220).box(livePreviewX - 4, livePreviewY - 4, livePreviewW + 8, livePreviewH + 8);
+    ink("black", 220).box(
+      layout.previewX - 4, 
+      layout.previewY - 4, 
+      layout.previewW + 8, 
+      layout.previewH + 8
+    );
     
     if (bitmapPreview?.pixels?.length) {
       // Draw the live-filling bitmap
-      api.paste(bitmapPreview, livePreviewX, livePreviewY, {
-        width: livePreviewW,
-        height: livePreviewH,
+      api.paste(bitmapPreview, layout.previewX, layout.previewY, {
+        width: layout.previewW,
+        height: layout.previewH,
       });
     } else {
-      ink("red", 60).box(livePreviewX, livePreviewY, livePreviewW, livePreviewH);
-      ink("white", 120).write("recording...", livePreviewX + livePreviewW/2 - 30, livePreviewY + livePreviewH / 2 - 6);
+      ink("red", 60).box(layout.previewX, layout.previewY, layout.previewW, layout.previewH);
+      ink("white", 120).write(
+        "recording...", 
+        layout.previewX + layout.previewW / 2 - 30, 
+        layout.previewY + layout.previewH / 2 - 6
+      );
     }
     
     // Show recording stats at top
     const sampleCount = mic?.recordingBuffer?.length || 0;
     const fullLength = sampleCount * 128; // Undo downsampling to estimate real length
     const duration = fullLength > 0 ? (fullLength / 48000).toFixed(1) : "0.0";
-    ink("white").write(`REC ${duration}s`, 10, 6);
+    ink("white").write(`REC ${duration}s`, 8, 4);
     if (bitmapPreview?.width) {
-      ink("yellow").write(`${bitmapPreview.width}x${bitmapPreview.height}px`, screen.width - 80, 6);
+      const sizeText = `${bitmapPreview.width}x${bitmapPreview.height}`;
+      ink("yellow").write(sizeText, screen.width - text.width(sizeText) - 8, 4);
     }
     
-    // Live waveform indicator at top right
-    if (mic?.waveform?.length > 0) {
-      const waveX = screen.width - 60;
-      const waveY = labelHeight + 4;
+    // Live waveform indicator
+    if (mic?.waveform?.length > 0 && !layout.isCompact) {
       const waveW = 50;
       const waveH = 20;
+      const waveX = screen.width - waveW - 8;
+      const waveY = layout.topBar + 4;
       ink("black", 150).box(waveX - 2, waveY - 2, waveW + 4, waveH + 4);
       sound.paint.waveform(api, mic.amplitude, mic.waveform, waveX, waveY, waveW, waveH);
     }
     
-    // Draw STOP button at bottom center
-    const stopBtnW = 100;
-    const stopBtnX = (screen.width - stopBtnW) / 2;
-    const stopBtnY = screen.height - stopBtnH - margin;
-    ink("white").box(stopBtnX, stopBtnY, stopBtnW, stopBtnH);
-    ink("red").box(stopBtnX + 3, stopBtnY + 3, stopBtnW - 6, stopBtnH - 6);
-    ink("white").write("STOP", stopBtnX + stopBtnW/2 - text.width("STOP")/2, stopBtnY + stopBtnH/2 - 6);
+    // Draw STOP button
+    ink("white").box(layout.stopBtnX, layout.stopBtnY, layout.stopBtnW, layout.stopBtnH);
+    ink("red").box(layout.stopBtnX + 3, layout.stopBtnY + 3, layout.stopBtnW - 6, layout.stopBtnH - 6);
+    const stopText = "STOP";
+    ink("white").write(
+      stopText, 
+      layout.stopBtnX + layout.stopBtnW / 2 - text.width(stopText) / 2, 
+      layout.stopBtnY + layout.stopBtnH / 2 - 6
+    );
     
     // Update record button box for hit testing
-    micRecordButton.box.x = stopBtnX;
-    micRecordButton.box.y = stopBtnY;
-    micRecordButton.box.w = stopBtnW;
-    micRecordButton.box.h = stopBtnH;
+    micRecordButton.box.x = layout.stopBtnX;
+    micRecordButton.box.y = layout.stopBtnY;
+    micRecordButton.box.w = layout.stopBtnW;
+    micRecordButton.box.h = layout.stopBtnH;
     
     return; // Skip normal UI during recording
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🎹 NORMAL MODE
+  // ─────────────────────────────────────────────────────────────────────────
   wipe(0, 0, 255);
   
   btns.forEach((btn, index) => {
@@ -346,7 +573,7 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
           ink("magenta").line(
             0,
             startY /* + 2*/,
-            screen.width,
+            layout.stripW,
             startY /* + 2*/,
           );
           // console.log(startY);
@@ -361,7 +588,7 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
 
           let y;
           let basey;
-          const originaly = 24;
+          const originaly = layout.topBar; // Use layout-based top bar height
           if (options.speed > 0 || !options.speed) {
             basey = floor(
               originaly + (1 - options.from) * (btn.box.h * btns.length),
@@ -382,8 +609,8 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
             y = btn.box.y + (1 - options.to * progressions[index]) * btn.box.h;
           }
 
-          ink("orange").line(0, y, btn.box.x + btn.box.w, y);
-          ink("blue").line(0, basey, btn.box.x + btn.box.w, basey);
+          ink("orange").line(0, y, layout.stripW, y);
+          ink("blue").line(0, basey, layout.stripW, basey);
           // ink("lime").line(0, 100, btn.box.x + btn.box.w, 100);
 
           // const y =
@@ -468,16 +695,17 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
 
   // console.log(sound.speaker.amplitudes.left);
 
-  const availableWidth = notepatButton.box.x - 54;
-
+  // Audio level bars (top area)
+  const barsX = 54;
+  const barsW = layout.notepatBtnX - barsX - 8;
   sound.paint.bars(
     api,
     sound.speaker.amplitudes.left,
     help.resampleArray(sound.speaker.waveforms.left, 16),
-    54,
+    barsX,
     0,
-    availableWidth,
-    24 - 2,
+    barsW,
+    layout.topBar - 2,
     [255, 0, 0, 255],
   );
 
@@ -485,27 +713,31 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
   const waveformData = bitmapLoaded && sampleData ? sampleData : sampleData;
   const waveformColor = bitmapLoaded ? [255, 100, 0, 48] : [0, 0, 255, 32]; // Orange for bitmap, blue for regular
   
+  // Background waveform (in strip button area)
   if (waveformData) {
+    const waveX = layout.stripX;
+    const waveY = layout.stripY;
+    const waveW = layout.stripW;
+    const waveH = layout.stripAreaH;
     sound.paint.waveform(
       api,
       num.arrMax(waveformData),
       num.arrCompress(waveformData, 256), // 🔴 TODO: This could be made much faster.
-      0,
-      labelHeight,
-      screen.width,
-      screen.height - menuHeight - labelHeight,
+      waveX,
+      waveY,
+      waveW,
+      waveH,
       waveformColor,
       { direction: "bottom-to-top" },
     );
   }
 
-  if (bitmapPreview?.pixels?.length) {
-    const previewW = bitmapPreviewButton?.box?.w || bitmapPreviewSize;
-    const previewH = bitmapPreviewButton?.box?.h || bitmapPreviewSize;
-    const previewX = bitmapPreviewButton?.box?.x ??
-      screen.width - previewW - bitmapPreviewMargin;
-    const previewY = bitmapPreviewButton?.box?.y ??
-      (bitmapLoopButton?.box?.y || 0) - previewH - 4;
+  // Bitmap preview (if present)
+  if (layout.hasBitmap && bitmapPreview?.pixels?.length) {
+    const previewX = layout.bitmapX;
+    const previewY = layout.bitmapY;
+    const previewW = layout.bitmapSize;
+    const previewH = layout.bitmapSize;
 
     ink("black", 160).box(previewX - 2, previewY - 2, previewW + 4, previewH + 4);
     api.paste(bitmapPreview, previewX, previewY, {
@@ -530,14 +762,10 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     
     ink("white").write("bitmap", previewX + 4, previewY + 4);
   } else if (bitmapLoading) {
-    const previewW = bitmapPreviewButton?.box?.w || bitmapPreviewSize;
-    const previewH = bitmapPreviewButton?.box?.h || bitmapPreviewSize;
-    const previewX = bitmapPreviewButton?.box?.x ??
-      screen.width - previewW - bitmapPreviewMargin;
-    const previewY = bitmapPreviewButton?.box?.y ??
-      (bitmapPaintButton?.box?.y || bitmapLoopButton?.box?.y || 0) -
-        previewH -
-        4;
+    const previewX = layout.bitmapX || (screen.width - BITMAP_MIN_SIZE - BITMAP_MARGIN);
+    const previewY = layout.bitmapY || layout.topBar + BITMAP_MARGIN;
+    const previewW = layout.bitmapSize || BITMAP_MIN_SIZE;
+    const previewH = layout.bitmapSize || BITMAP_MIN_SIZE;
     ink("black", 120).box(previewX - 2, previewY - 2, previewW + 4, previewH + 4);
     ink("white").write("loading", previewX + 6, previewY + previewH / 2 - 6);
   }
@@ -841,10 +1069,32 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, sys
   }
 
   if (e.is("reframed")) {
+    // Regenerate strip buttons and all UI with new layout
     genPats({ screen, ui });
-    // micRecordButton.reposition()
-    micRecordButton.box.y = screen.height - 32; // = new ui.Button(0, screen.height - 32, 32, 32);
-    patsButton.box.x = screen.width - patsButton.box.w; // = new ui.Button(0, screen.height - 32, 32, 32);
+    
+    // Get layout metrics for control button repositioning
+    const hasBitmap = !!(bitmapPreview?.pixels?.length);
+    const layout = getCachedLayout(screen, { hasBitmap, patCount: pats });
+    
+    // Reposition record button using layout metrics
+    micRecordButton.box.x = layout.recordBtnX;
+    micRecordButton.box.y = layout.recordBtnY;
+    micRecordButton.box.w = layout.recordBtnW;
+    micRecordButton.box.h = layout.recordBtnH;
+    
+    // Reposition pats button
+    patsButton.box.x = layout.patsBtnX;
+    patsButton.box.y = layout.patsBtnY;
+    patsButton.box.w = layout.patsBtnW;
+    patsButton.box.h = layout.patsBtnH;
+    
+    // Reposition notepat button
+    notepatButton.box.x = layout.notepatBtnX;
+    notepatButton.box.y = layout.notepatBtnY;
+    notepatButton.box.w = layout.notepatBtnW;
+    notepatButton.box.h = layout.notepatBtnH;
+    
+    // Reposition bitmap UI elements
     layoutBitmapUI(screen);
   }
 }
@@ -855,13 +1105,15 @@ export { boot, paint, act, sim };
 
 // Generate sectional strips of buttons to split the sample by.
 function genPats({ screen, ui }) {
+  const hasBitmap = !!(bitmapPreview?.pixels?.length);
+  const layout = getCachedLayout(screen, { hasBitmap, patCount: pats });
+  
   btns.length = 0;
   for (let i = 0; i < pats; i += 1) {
-    const strip = (screen.height - menuHeight - labelHeight) / pats,
-      x = 0,
-      y = labelHeight + strip * i,
-      width = Math.max(32, screen.width - bitmapColumnWidth),
-      height = strip;
+    const x = layout.stripX;
+    const y = layout.stripY + layout.stripH * i;
+    const width = layout.stripW;
+    const height = layout.stripH;
     const button = new ui.Button(x, y, width, height);
     button.stickyScrubbing = true; // Keep scrubbing on the original button, allow off-screen movement
     button.noRolloverActivation = true; // Prevent activating other buttons when dragging from a sticky button
@@ -871,28 +1123,30 @@ function genPats({ screen, ui }) {
 
 function layoutBitmapUI(screen) {
   if (!bitmapLoopButton) return;
-  const buttonW = bitmapPreviewSize;
-  const buttonH = 18;
-  bitmapLoopButton.box.w = buttonW;
-  bitmapLoopButton.box.h = buttonH;
-  bitmapLoopButton.box.x = screen.width - buttonW - bitmapPreviewMargin;
-  bitmapLoopButton.box.y = screen.height - buttonH - bitmapPreviewMargin;
+  
+  const hasBitmap = !!(bitmapPreview?.pixels?.length);
+  const layout = getCachedLayout(screen, { hasBitmap, patCount: pats });
+  
+  // Loop button
+  bitmapLoopButton.box.w = layout.bitmapBtnW || layout.bitmapSize || 80;
+  bitmapLoopButton.box.h = BITMAP_BTN_HEIGHT;
+  bitmapLoopButton.box.x = layout.bitmapX;
+  bitmapLoopButton.box.y = layout.bitmapBtnY;
 
+  // Paint button (above loop button)
   if (bitmapPaintButton) {
-    bitmapPaintButton.box.w = buttonW;
-    bitmapPaintButton.box.h = buttonH;
+    bitmapPaintButton.box.w = bitmapLoopButton.box.w;
+    bitmapPaintButton.box.h = BITMAP_BTN_HEIGHT;
     bitmapPaintButton.box.x = bitmapLoopButton.box.x;
-    bitmapPaintButton.box.y = bitmapLoopButton.box.y - buttonH - 4;
+    bitmapPaintButton.box.y = bitmapLoopButton.box.y + BITMAP_BTN_HEIGHT + BITMAP_BTN_GAP;
   }
 
+  // Preview button (clickable bitmap area)
   if (bitmapPreviewButton) {
-    const previewW = Math.min(bitmapPreviewSize, bitmapColumnWidth - bitmapPreviewMargin * 2);
-    const previewH = previewW;
-    bitmapPreviewButton.box.w = previewW;
-    bitmapPreviewButton.box.h = previewH;
-    bitmapPreviewButton.box.x = screen.width - previewW - bitmapPreviewMargin;
-    bitmapPreviewButton.box.y =
-      (bitmapPaintButton?.box?.y ?? bitmapLoopButton.box.y) - previewH - 6;
+    bitmapPreviewButton.box.w = layout.bitmapSize;
+    bitmapPreviewButton.box.h = layout.bitmapSize;
+    bitmapPreviewButton.box.x = layout.bitmapX;
+    bitmapPreviewButton.box.y = layout.bitmapY;
   }
 }
 

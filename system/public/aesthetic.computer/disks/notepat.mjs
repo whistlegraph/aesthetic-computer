@@ -352,6 +352,10 @@ const TOP_BAR_BOTTOM = 21;
 const TOP_BAR_PIANO_HEIGHT = 10; // Mini piano strip in top bar
 const TRACK_HEIGHT = 25;
 const TRACK_GAP = 6;
+// Vertical track view constants (scrolls vertically, positioned beside pads)
+const VERTICAL_TRACK_WIDTH = 48;
+const VERTICAL_TRACK_MIN_WIDTH = 36;
+const VERTICAL_TRACK_ITEM_HEIGHT = 20; // Height per song item in vertical track
 const MINI_KEYBOARD_HEIGHT = 16;
 const MINI_KEYBOARD_SPACING = 6;
 const QWERTY_MINIMAP_SPACING = 6;
@@ -1995,6 +1999,16 @@ function getButtonLayoutMetrics(
     // Bottom center area for unified active note display - position above MIDI badge
     const bottomCenterY = screen.height - compactBadgeMetrics.height - MIDI_BADGE_MARGIN - 14;
     
+    // Vertical track in split mode: position in center area between the two octave grids
+    const verticalTrackWidth = songMode && centerAreaWidth >= VERTICAL_TRACK_MIN_WIDTH 
+      ? min(VERTICAL_TRACK_WIDTH, centerAreaWidth - 4) 
+      : 0;
+    const verticalTrackX = verticalTrackWidth > 0 
+      ? centerX + floor((centerAreaWidth - verticalTrackWidth) / 2) 
+      : 0;
+    const verticalTrackY = hudReserved + 2;
+    const verticalTrackHeight = screen.height - hudReserved - bottomPadding - 4;
+    
     return {
       buttonWidth,
       buttonHeight,
@@ -2022,6 +2036,12 @@ function getButtonLayoutMetrics(
       notesPerSide,
       bottomCenterY,
       buttonBlockHeight,
+      // Vertical track (for split layout)
+      verticalTrack: verticalTrackWidth > 0,
+      verticalTrackX,
+      verticalTrackY,
+      verticalTrackWidth,
+      verticalTrackHeight,
     };
   }
 
@@ -2097,8 +2117,21 @@ function getButtonLayoutMetrics(
   const maxDimension = min(widthLimit, heightLimit);
   const maxButtonSize = 64; // Allow larger pads on bigger screens
   
+  // Check if vertical track can fit to the right of the button grid
+  const gridWidth = buttonsPerRow * min(maxButtonSize, widthLimit);
+  const spaceForVerticalTrack = songMode ? usableWidth - gridWidth - margin * 3 : 0;
+  const canFitVerticalTrack = spaceForVerticalTrack >= VERTICAL_TRACK_MIN_WIDTH;
+  const verticalTrackWidth = canFitVerticalTrack 
+    ? min(VERTICAL_TRACK_WIDTH, spaceForVerticalTrack) 
+    : 0;
+  
+  // Adjust width limit if we're reserving space for vertical track
+  const adjustedWidthLimit = canFitVerticalTrack 
+    ? floor((usableWidth - verticalTrackWidth - margin * 3) / buttonsPerRow)
+    : widthLimit;
+  
   // Width fills horizontal space (up to max)
-  let buttonWidth = min(maxButtonSize, widthLimit);
+  let buttonWidth = min(maxButtonSize, adjustedWidthLimit);
   buttonWidth = max(minButtonSize, buttonWidth);
   
   // Height fills vertical space independently (up to max, min of width for proportionality)
@@ -2116,6 +2149,12 @@ function getButtonLayoutMetrics(
   const buttonsAreaHeight = totalRows * buttonHeight;
   let topButtonY = screen.height - bottomPadding - buttonsAreaHeight;
   topButtonY = max(topButtonY, reservedTop);
+  
+  // Calculate vertical track position (to the right of button grid)
+  const actualGridWidth = buttonsPerRow * buttonWidth;
+  const verticalTrackX = canFitVerticalTrack ? margin + actualGridWidth + margin : 0;
+  const verticalTrackY = reservedTop + 2;
+  const verticalTrackHeight = screen.height - reservedTop - bottomPadding - 4;
 
   return {
     buttonWidth,
@@ -2126,8 +2165,8 @@ function getButtonLayoutMetrics(
     margin,
     bottomPadding,
     hudReserved,
-    trackHeight,
-    trackSpacing,
+    trackHeight: canFitVerticalTrack ? 0 : trackHeight, // Hide horizontal track if using vertical
+    trackSpacing: canFitVerticalTrack ? 0 : trackSpacing,
     reservedTop,
     melodyButtonRect,
     midiBadge: badgeMetrics,
@@ -2137,6 +2176,12 @@ function getButtonLayoutMetrics(
     miniInputsEnabled: showMiniInputs,
     miniInputsHorizontal: horizontalSpaceForMini && showMiniInputs,
     miniInputsVertical: narrowVerticalSpace && showMiniInputs && !horizontalSpaceForMini,
+    // Vertical track (for single-column with space)
+    verticalTrack: canFitVerticalTrack,
+    verticalTrackX,
+    verticalTrackY,
+    verticalTrackWidth,
+    verticalTrackHeight,
   };
 }
 
@@ -2911,12 +2956,24 @@ function paint({
   //   }
   // }
 
-  // Song
+  // Get layout info early for positioning track and piano/qwerty
+  const cachedLayout = getCachedLayout(screen, {
+    songMode: Boolean(showTrack),
+    pictureOverlay: paintPictureOverlay,
+    rateText: sampleRateText,
+    rateLabel: sampleRateLabel,
+    sidePanelWidth: autopatConfig.sidePanelWidth,
+  });
+  const layout = cachedLayout.layout;
+
+  // Song Track View - can be horizontal (top) or vertical (side)
 
   // TODO: Precompute the full song length with x stops next to indices.
 
-  const trackHeight = showTrack ? TRACK_HEIGHT : 0;
-  const trackY = showTrack ? SECONDARY_BAR_BOTTOM : null;
+  const useVerticalTrack = showTrack && layout.verticalTrack;
+  const trackHeight = showTrack && !useVerticalTrack ? TRACK_HEIGHT : 0;
+  const trackY = showTrack && !useVerticalTrack ? SECONDARY_BAR_BOTTOM : null;
+
 
   if (showTrack) {
     const glyphWidth = matrixGlyphMetrics.width;
@@ -2953,15 +3010,70 @@ function paint({
     }
   }
   
-  // Get layout info early for positioning piano/qwerty in compact mode
-  const cachedLayout = getCachedLayout(screen, {
-    songMode: Boolean(showTrack),
-    pictureOverlay: paintPictureOverlay,
-    rateText: sampleRateText,
-    rateLabel: sampleRateLabel,
-    sidePanelWidth: autopatConfig.sidePanelWidth,
-  });
-  const layout = cachedLayout.layout;
+  // Vertical track view (scrolls vertically, positioned beside pads)
+  if (useVerticalTrack && song && layout.verticalTrackWidth > 0) {
+    const vTrackX = layout.verticalTrackX;
+    const vTrackY = layout.verticalTrackY;
+    const vTrackW = layout.verticalTrackWidth;
+    const vTrackH = layout.verticalTrackHeight;
+    
+    // Background
+    ink(20, 30, 50).box(vTrackX, vTrackY, vTrackW, vTrackH);
+    
+    // Calculate vertical scroll offset to keep current item centered
+    const itemH = VERTICAL_TRACK_ITEM_HEIGHT;
+    const visibleItems = floor(vTrackH / itemH);
+    const centerOffset = floor(visibleItems / 2);
+    const scrollOffset = max(0, songIndex - centerOffset) * itemH;
+    
+    let i = 0;
+    let yPos = vTrackY + 2 - (scrollOffset % itemH);
+    const startIdx = max(0, songIndex - centerOffset - 1);
+    i = startIdx;
+    
+    while (i < song.length && yPos < vTrackY + vTrackH) {
+      if (yPos + itemH > vTrackY) {
+        const word = songStops[i]?.[0] || "";
+        const note = song[i]?.[0] || "";
+        const current = i === songIndex;
+        
+        // Highlight current item
+        if (current) {
+          ink(40, 60, 80).box(vTrackX, yPos, vTrackW, itemH - 1);
+        }
+        
+        // Note on left side
+        if (current) {
+          const noteColor = songNoteDown ? [0, 140, 160] : [0, 180, 200];
+          ink(noteColor).write(note, vTrackX + 2, yPos + 2);
+        } else {
+          ink(80, 100, 120).write(note, vTrackX + 2, yPos + 2);
+        }
+        
+        // Word/lyric (truncate if needed)
+        const maxWordLen = floor((vTrackW - 18) / 6); // Approx char width
+        const displayWord = word.length > maxWordLen ? word.slice(0, maxWordLen) : word;
+        if (current) {
+          const wordColor = songNoteDown ? [180, 200, 210] : "white";
+          ink(wordColor).write(displayWord, vTrackX + 16, yPos + 2);
+        } else {
+          ink(120, 140, 150).write(displayWord, vTrackX + 16, yPos + 2);
+        }
+      }
+      
+      yPos += itemH;
+      i += 1;
+    }
+    
+    // Draw scroll indicator if there are items above or below
+    if (startIdx > 0) {
+      ink(100, 120, 140).write("▲", vTrackX + vTrackW - 10, vTrackY + 2);
+    }
+    if (i < song.length) {
+      ink(100, 120, 140).write("▼", vTrackX + vTrackW - 10, vTrackY + vTrackH - 10);
+    }
+  }
+  
   const usePadsBase = !song && !projector && !paintPictureOverlay && !recitalMode;
   const padsBaseCacheKey = [
     cachedLayout.key,
@@ -4314,47 +4426,150 @@ function paint({
   }
 
   // 🎹 Piano Roll Timeline - pixel-by-pixel held note history
+  // Can be horizontal (bottom-right) or vertical (center/right side based on layout)
   if (!paintPictureOverlay && !projector && !recitalMode) {
-    const rollHeight = buttonNotes.length; // 24 rows (1 per note)
-    const rollWidth = Math.min(PIANO_ROLL_WIDTH, screen.width);
-    const rollY = screen.height - rollHeight - 1;
-    const rollX = screen.width - rollWidth;
+    const noteCount = buttonNotes.length; // 24 notes
     
-    // Update history: shift all columns left, add current state on right
-    for (let noteIdx = 0; noteIdx < buttonNotes.length; noteIdx++) {
-      const row = pianoRollHistory[noteIdx];
-      // Shift left by 1 pixel
-      for (let x = 0; x < PIANO_ROLL_WIDTH - 1; x++) {
-        row[x] = row[x + 1];
-      }
-      // Set rightmost pixel based on current note state
-      const note = buttonNotes[noteIdx];
-      row[PIANO_ROLL_WIDTH - 1] = sounds[note] !== undefined ? 1 : 0;
-    }
+    // Determine if we should use vertical layout based on available space
+    const useVerticalRoll = layout.splitLayout || layout.verticalTrack;
     
-    // Draw subtle background
-    ink(10, 10, 15, 180).box(rollX, rollY, rollWidth, rollHeight);
-    
-    // Draw each pixel
-    for (let noteIdx = 0; noteIdx < buttonNotes.length; noteIdx++) {
-      const note = buttonNotes[noteIdx];
-      const row = pianoRollHistory[noteIdx];
-      const y = rollY + noteIdx;
-      const baseColor = getCachedColor(note, num);
+    if (useVerticalRoll) {
+      // 🎹 VERTICAL Piano Roll - time flows downward, notes spread horizontally
+      // Position: center of split layout, or right of single column
+      let rollX, rollY, rollW, rollH;
       
-      for (let x = 0; x < rollWidth; x++) {
-        const histIdx = PIANO_ROLL_WIDTH - rollWidth + x;
-        if (row[histIdx]) {
-          // Fade older notes slightly
-          const age = rollWidth - x;
-          const alpha = Math.max(80, 255 - age * 2);
-          ink(baseColor[0], baseColor[1], baseColor[2], alpha).box(rollX + x, y, 1, 1);
+      if (layout.splitLayout && layout.centerAreaWidth > noteCount + 4) {
+        // In split layout: position in center area
+        rollW = Math.min(noteCount, layout.centerAreaWidth - 4);
+        rollH = Math.min(PIANO_ROLL_WIDTH, layout.verticalTrackHeight || (screen.height - layout.hudReserved - layout.bottomPadding - 4));
+        rollX = layout.centerX + Math.floor((layout.centerAreaWidth - rollW) / 2);
+        rollY = layout.hudReserved + 2;
+      } else if (layout.verticalTrack) {
+        // Single column with vertical track space
+        rollW = Math.min(noteCount, layout.verticalTrackWidth || 36);
+        rollH = Math.min(PIANO_ROLL_WIDTH, screen.height - layout.hudReserved - layout.bottomPadding - 4);
+        rollX = layout.verticalTrackX || (screen.width - rollW - 2);
+        rollY = layout.verticalTrackY || layout.hudReserved + 2;
+      } else {
+        // Fallback: right side
+        rollW = noteCount;
+        rollH = Math.min(PIANO_ROLL_WIDTH, screen.height - 60);
+        rollX = screen.width - rollW - 2;
+        rollY = 34;
+      }
+      
+      // Update history: shift all rows up, add current state at bottom
+      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
+        const row = pianoRollHistory[noteIdx];
+        // Shift up by 1 pixel (older history moves toward index 0)
+        for (let y = 0; y < PIANO_ROLL_WIDTH - 1; y++) {
+          row[y] = row[y + 1];
+        }
+        // Set bottom pixel based on current note state
+        const note = buttonNotes[noteIdx];
+        row[PIANO_ROLL_WIDTH - 1] = sounds[note] !== undefined ? 1 : 0;
+      }
+      
+      // Draw subtle background
+      ink(10, 10, 15, 180).box(rollX, rollY, rollW, rollH);
+      
+      // 🎨 Draw colored "groove" indicators - full height desaturated note colors
+      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
+        const note = buttonNotes[noteIdx];
+        const x = rollX + noteIdx;
+        const baseColor = getCachedColor(note, num);
+        // Desaturate: blend toward gray (reduce saturation by ~60%)
+        const gray = (baseColor[0] + baseColor[1] + baseColor[2]) / 3;
+        const desat = [
+          Math.round(baseColor[0] * 0.4 + gray * 0.6),
+          Math.round(baseColor[1] * 0.4 + gray * 0.6),
+          Math.round(baseColor[2] * 0.4 + gray * 0.6),
+        ];
+        // Full height groove for each note lane
+        ink(desat[0], desat[1], desat[2], 40).box(x, rollY, 1, rollH);
+      }
+      
+      // Draw each pixel - vertical layout (time = Y axis, notes = X axis)
+      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
+        const note = buttonNotes[noteIdx];
+        const row = pianoRollHistory[noteIdx];
+        const x = rollX + noteIdx;
+        const baseColor = getCachedColor(note, num);
+        
+        for (let yOff = 0; yOff < rollH; yOff++) {
+          // Map y position to history index (bottom = newest)
+          const histIdx = PIANO_ROLL_WIDTH - rollH + yOff;
+          if (row[histIdx]) {
+            // Fade older notes (top = older)
+            const age = rollH - yOff;
+            const alpha = Math.max(80, 255 - age * 2);
+            ink(baseColor[0], baseColor[1], baseColor[2], alpha).box(x, rollY + yOff, 1, 1);
+          }
         }
       }
+      
+      // Draw subtle grid lines for octave separation (vertical lines)
+      ink(40, 40, 50, 100).line(rollX + 12, rollY, rollX + 12, rollY + rollH);
+      
+    } else {
+      // 🎹 HORIZONTAL Piano Roll (original) - time flows left-to-right, notes stacked vertically
+      const rollHeight = noteCount;
+      const rollWidth = Math.min(PIANO_ROLL_WIDTH, screen.width);
+      const rollY = screen.height - rollHeight - 1;
+      const rollX = screen.width - rollWidth;
+      
+      // Update history: shift all columns left, add current state on right
+      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
+        const row = pianoRollHistory[noteIdx];
+        // Shift left by 1 pixel
+        for (let x = 0; x < PIANO_ROLL_WIDTH - 1; x++) {
+          row[x] = row[x + 1];
+        }
+        // Set rightmost pixel based on current note state
+        const note = buttonNotes[noteIdx];
+        row[PIANO_ROLL_WIDTH - 1] = sounds[note] !== undefined ? 1 : 0;
+      }
+      
+      // Draw subtle background
+      ink(10, 10, 15, 180).box(rollX, rollY, rollWidth, rollHeight);
+      
+      // 🎨 Draw colored "groove" indicators - full length desaturated note colors
+      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
+        const note = buttonNotes[noteIdx];
+        const y = rollY + noteIdx;
+        const baseColor = getCachedColor(note, num);
+        // Desaturate: blend toward gray
+        const gray = (baseColor[0] + baseColor[1] + baseColor[2]) / 3;
+        const desat = [
+          Math.round(baseColor[0] * 0.4 + gray * 0.6),
+          Math.round(baseColor[1] * 0.4 + gray * 0.6),
+          Math.round(baseColor[2] * 0.4 + gray * 0.6),
+        ];
+        // Full length groove for each note row
+        ink(desat[0], desat[1], desat[2], 40).box(rollX, y, rollWidth, 1);
+      }
+      
+      // Draw each pixel
+      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
+        const note = buttonNotes[noteIdx];
+        const row = pianoRollHistory[noteIdx];
+        const y = rollY + noteIdx;
+        const baseColor = getCachedColor(note, num);
+        
+        for (let x = 0; x < rollWidth; x++) {
+          const histIdx = PIANO_ROLL_WIDTH - rollWidth + x;
+          if (row[histIdx]) {
+            // Fade older notes slightly
+            const age = rollWidth - x;
+            const alpha = Math.max(80, 255 - age * 2);
+            ink(baseColor[0], baseColor[1], baseColor[2], alpha).box(rollX + x, y, 1, 1);
+          }
+        }
+      }
+      
+      // Draw subtle grid lines for octave separation
+      ink(40, 40, 50, 100).line(rollX, rollY + 12, rollX + rollWidth, rollY + 12);
     }
-    
-    // Draw subtle grid lines for octave separation
-    ink(40, 40, 50, 100).line(rollX, rollY + 12, rollX + rollWidth, rollY + 12);
   }
 }
 
