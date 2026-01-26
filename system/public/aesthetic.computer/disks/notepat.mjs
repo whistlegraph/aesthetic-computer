@@ -247,6 +247,7 @@ let wave = STARTING_WAVE;
 let slide = false;
 let quickFade = false;
 let roomMode = false; // 🏠 Global reverb toggle
+let roomAmount = 0.5; // 🎚️ Room/reverb amount (0-1)
 let glitchMode = false; // 🧩 Global glitch toggle
 let octave = STARTING_OCTAVE;
 let keys = "";
@@ -830,6 +831,10 @@ let metronomeClockRef = null; // Reference to clock API for UTC sync
 let metronomeBallPos = 0; // 0-1 bouncing ball position (bounces between beats)
 
 const trail = {};
+
+// 🎹 Piano roll history - pixel timeline of held notes
+const PIANO_ROLL_WIDTH = 200; // pixels of history
+const pianoRollHistory = buttonNotes.map(() => new Uint8Array(PIANO_ROLL_WIDTH)); // 1 row per note, 0=off, 1=on
 
 // 🔬 Telemetry: Expose trail for stability testing
 if (typeof window !== 'undefined') {
@@ -2640,6 +2645,24 @@ function paint({
       ink(textColor).write(secondaryBarLabels.room, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
 
+    // 🎚️ Room parameter bar - appears when room mode is enabled
+    if (roomMode && roomBtn?.box) {
+      const barHeight = 6;
+      const barY = SECONDARY_BAR_BOTTOM + 2;
+      const barX = roomBtn.box.x;
+      const barWidth = Math.max(40, roomBtn.box.w * 2);
+      const fillWidth = Math.floor(barWidth * roomAmount);
+      
+      // Background
+      ink(30, 25, 45, 200).box(barX, barY, barWidth, barHeight);
+      // Fill based on room amount
+      ink(150, 110, 255, 220).box(barX, barY, fillWidth, barHeight);
+      // Border
+      ink(100, 80, 160, 180).box(barX, barY, barWidth, barHeight, "outline");
+      // Label
+      ink(180, 160, 220).write(Math.round(roomAmount * 100) + "%", { x: barX + barWidth + 3, y: barY - 1 }, undefined, undefined, false, "MatrixChunky8");
+    }
+
     // Paint glitch button
     glitchBtn?.paint((btn) => {
       const base = [255, 80, 160];
@@ -4289,6 +4312,50 @@ function paint({
     const totalStr = totalEst > 0 ? `~${totalEst.toFixed(1)}ms` : "--";
     writeRow("white", `TOTAL EST: ${totalStr}`);
   }
+
+  // 🎹 Piano Roll Timeline - pixel-by-pixel held note history
+  if (!paintPictureOverlay && !projector && !recitalMode) {
+    const rollHeight = buttonNotes.length; // 24 rows (1 per note)
+    const rollWidth = Math.min(PIANO_ROLL_WIDTH, screen.width);
+    const rollY = screen.height - rollHeight - 1;
+    const rollX = screen.width - rollWidth;
+    
+    // Update history: shift all columns left, add current state on right
+    for (let noteIdx = 0; noteIdx < buttonNotes.length; noteIdx++) {
+      const row = pianoRollHistory[noteIdx];
+      // Shift left by 1 pixel
+      for (let x = 0; x < PIANO_ROLL_WIDTH - 1; x++) {
+        row[x] = row[x + 1];
+      }
+      // Set rightmost pixel based on current note state
+      const note = buttonNotes[noteIdx];
+      row[PIANO_ROLL_WIDTH - 1] = sounds[note] !== undefined ? 1 : 0;
+    }
+    
+    // Draw subtle background
+    ink(10, 10, 15, 180).box(rollX, rollY, rollWidth, rollHeight);
+    
+    // Draw each pixel
+    for (let noteIdx = 0; noteIdx < buttonNotes.length; noteIdx++) {
+      const note = buttonNotes[noteIdx];
+      const row = pianoRollHistory[noteIdx];
+      const y = rollY + noteIdx;
+      const baseColor = getCachedColor(note, num);
+      
+      for (let x = 0; x < rollWidth; x++) {
+        const histIdx = PIANO_ROLL_WIDTH - rollWidth + x;
+        if (row[histIdx]) {
+          // Fade older notes slightly
+          const age = rollWidth - x;
+          const alpha = Math.max(80, 255 - age * 2);
+          ink(baseColor[0], baseColor[1], baseColor[2], alpha).box(rollX + x, y, 1, 1);
+        }
+      }
+    }
+    
+    // Draw subtle grid lines for octave separation
+    ink(40, 40, 50, 100).line(rollX, rollY + 12, rollX + rollWidth, rollY + 12);
+  }
 }
 
 let anyDown = true;
@@ -5677,6 +5744,22 @@ function act({
         room.toggle();
       },
     });
+
+    // 🎚️ Room parameter bar interaction (drag to adjust room amount)
+    if (roomMode && roomBtn?.box && (e.is("touch") || e.is("draw"))) {
+      const barY = SECONDARY_BAR_BOTTOM + 2;
+      const barHeight = 6;
+      const barX = roomBtn.box.x;
+      const barWidth = Math.max(40, roomBtn.box.w * 2);
+      const px = e.x ?? e.pointer?.x;
+      const py = e.y ?? e.pointer?.y;
+      if (px >= barX && px <= barX + barWidth && py >= barY && py <= barY + barHeight + 4) {
+        const newAmount = Math.max(0, Math.min(1, (px - barX) / barWidth));
+        roomAmount = newAmount;
+        // Apply room amount to reverb if supported
+        room?.setAmount?.(roomAmount);
+      }
+    }
 
     glitchBtn?.act(e, {
       push: () => {
