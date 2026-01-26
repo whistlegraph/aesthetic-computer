@@ -51,6 +51,7 @@
         "to": "tray-icon.png"
       }
     ],
+    "afterSign": "scripts/notarize.js",
     "mac": {
       "category": "public.app-category.graphics-design",
       "target": [
@@ -59,12 +60,19 @@
           "arch": [
             "universal"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
         }
       ],
-      "hardenedRuntime": false,
+      "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "notarize": false,
       "extendInfo": {
         "NSDesktopFolderUsageDescription": "Aesthetic Computer needs access to your Desktop to manage the workspace.",
         "NSDocumentsFolderUsageDescription": "Aesthetic Computer needs access to Documents for file operations.",
