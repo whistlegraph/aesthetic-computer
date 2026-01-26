@@ -63,6 +63,7 @@ docker run --rm \
   --privileged \
   -v "$CACHE_DIR/ffos:/work/ffos" \
   -v "$CACHE_DIR/ffos-user:/work/ffos-user" \
+  -v "$WORK_DIR/overlays:/work/overlays:ro" \
   -v "$OUT_DIR:/work/out" \
   -e VERSION="$VERSION" \
   "$IMAGE_NAME" '
@@ -158,6 +159,37 @@ PKGBUILD
     PROFILE=/tmp/archiso-profile
     rm -rf "$PROFILE"
     cp -r "$PROFILE_SRC" "$PROFILE"
+    
+    # Apply FFOS overlays if present (additional packages, etc.)
+    if [ -d /work/overlays/ffos/archiso-ff1 ]; then
+      echo "Applying FFOS overlays..."
+      # Append additional packages
+      if [ -f /work/overlays/ffos/archiso-ff1/packages.x86_64.append ]; then
+        cat /work/overlays/ffos/archiso-ff1/packages.x86_64.append >> "$PROFILE/packages.x86_64"
+        echo "Added packages:"
+        cat /work/overlays/ffos/archiso-ff1/packages.x86_64.append
+      fi
+    fi
+    
+    # Add BIOS boot support (for older systems or if UEFI fails)
+    # Modify profiledef.sh to include both UEFI and BIOS boot modes
+    sed -i "s/bootmodes=.*/bootmodes=('bios.syslinux.mbr' 'bios.syslinux.eltorito' 'uefi-x64.systemd-boot.esp' 'uefi-x64.systemd-boot.eltorito')/" "$PROFILE/profiledef.sh"
+    
+    # Install syslinux for BIOS boot
+    echo "syslinux" >> "$PROFILE/packages.x86_64"
+    
+    # Create syslinux config for BIOS boot
+    mkdir -p "$PROFILE/syslinux"
+    cat > "$PROFILE/syslinux/syslinux.cfg" << SYSLINUX
+DEFAULT arch
+PROMPT 0
+TIMEOUT 50
+
+LABEL arch
+    LINUX ../boot/x86_64/vmlinuz-linux
+    INITRD ../boot/x86_64/initramfs-linux.img
+    APPEND archisobasedir=arch archisolabel=ARCH_FFOS
+SYSLINUX
     
     # Add local repo to pacman.conf (using unique name to avoid conflicts)
     echo "" >> "$PROFILE/pacman.conf"

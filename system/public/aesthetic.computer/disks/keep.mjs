@@ -116,6 +116,11 @@ export const scheme = {
       hover: { bg: [140, 70, 70], outline: [255, 160, 160], outlineAlpha: 200, text: [255, 255, 255] },
       disabled: { bg: [60, 40, 40], outline: [120, 80, 80], outlineAlpha: 100, text: [140, 120, 120] }
     },
+    btnCancel: {
+      normal: { bg: [80, 45, 45], outline: [220, 110, 110], outlineAlpha: 140, text: [255, 230, 230] },
+      hover: { bg: [110, 60, 60], outline: [255, 150, 150], outlineAlpha: 200, text: [255, 255, 255] },
+      disabled: { bg: [50, 35, 35], outline: [120, 80, 80], outlineAlpha: 100, text: [140, 120, 120] }
+    },
   },
   light: {
     bg: [245, 243, 238],
@@ -208,6 +213,11 @@ export const scheme = {
     btnRetry: {
       normal: { bg: [245, 225, 225], outline: [180, 80, 80], outlineAlpha: 180, text: [140, 50, 50] },
       hover: { bg: [240, 210, 210], outline: [160, 60, 60], outlineAlpha: 220, text: [120, 40, 40] },
+      disabled: { bg: [240, 235, 235], outline: [180, 160, 160], outlineAlpha: 120, text: [160, 140, 140] }
+    },
+    btnCancel: {
+      normal: { bg: [240, 215, 215], outline: [180, 90, 90], outlineAlpha: 180, text: [130, 50, 50] },
+      hover: { bg: [235, 200, 200], outline: [160, 70, 70], outlineAlpha: 220, text: [110, 40, 40] },
       disabled: { bg: [240, 235, 235], outline: [180, 160, 160], outlineAlpha: 120, text: [160, 140, 140] }
     },
   },
@@ -401,6 +411,7 @@ let txBtn; // Transaction hash button after sync
 let contractBtn; // Link to contract on TzKT
 let loginBtn; // Login button for non-authors
 let previewBtn; // Preview piece button
+let cancelBtn; // Cancel preparation button
 let _api, _net, _jump, _store, _needsPaint, _send, _ui, _screen, _preload, _preloadAnimatedWebp;
 
 function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, screen, send, user }) {
@@ -437,6 +448,7 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   contractBtn = new ui.TextButton("Contract", { x: 0, y: 0, screen });
   loginBtn = new ui.TextButton("Login", { x: 0, y: 0, screen });
   previewBtn = new ui.TextButton("Preview", { x: 0, y: 0, screen });
+  cancelBtn = new ui.TextButton("Cancel", { x: 0, y: 0, screen });
   htmlBtn.btn.stickyScrubbing = true;
   thumbBtn.btn.stickyScrubbing = true;
   metaBtn.btn.stickyScrubbing = true;
@@ -450,6 +462,7 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   contractBtn.btn.stickyScrubbing = true;
   loginBtn.btn.stickyScrubbing = true;
   previewBtn.btn.stickyScrubbing = true;
+  cancelBtn.btn.stickyScrubbing = true;
 
   let rawPiece = params[0] || store["keep:piece"];
   piece = rawPiece?.startsWith("$") ? rawPiece.slice(1) : rawPiece;
@@ -2437,7 +2450,20 @@ function paint($) {
   // Step counter (small, centered)
   const stepText = `${doneCount}/${totalSteps}`;
   ink(pal.arrow[0], pal.arrow[1], pal.arrow[2]).write(stepText, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-  y += 10;
+
+  // Cancel button during preparation
+  if (isPreparationInProgress()) {
+    const cancelScheme = pal.btnCancel;
+    const cancelSize = mc8ButtonSize("Cancel");
+    const cancelX = w - margin - cancelSize.w;
+    const cancelY = y - 2;
+    cancelBtn.btn.box.x = cancelX;
+    cancelBtn.btn.box.y = cancelY;
+    cancelBtn.btn.box.w = cancelSize.w;
+    cancelBtn.btn.box.h = cancelSize.h;
+    paintMC8Btn(cancelX, cancelY, "Cancel", { ink, line: ink }, cancelScheme, cancelBtn.btn.down);
+  }
+  y += 12;
 
   // Timeline with striped sections
   let shownPending = false;
@@ -2776,6 +2802,13 @@ function act({ event: e, screen }) {
       }});
     }
     return;
+  }
+
+  if (isPreparationInProgress()) {
+    cancelBtn.btn.act(e, { push: () => {
+      cancelMintPreparation();
+      _jump?.("prompt");
+    }});
   }
 
   const reviewStep = timeline.find(t => t.id === "review");
@@ -3223,12 +3256,11 @@ function act({ event: e, screen }) {
   }
 
   if (e.is("keyboard:down:escape")) {
-    // If preparation is in progress, cancel it instead of jumping away
+    // If preparation is in progress, cancel it before jumping away
     if (isPreparationInProgress()) {
       cancelMintPreparation();
-    } else {
-      _jump?.("prompt");
     }
+    _jump?.("prompt");
   }
 }
 
