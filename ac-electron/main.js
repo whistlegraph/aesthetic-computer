@@ -2086,6 +2086,40 @@ app.whenReady().then(async () => {
 app.on('web-contents-created', (event, contents) => {
   // Only handle webviews
   if (contents.getType() === 'webview') {
+    contents.on('will-navigate', (navEvent, url) => {
+      if (!url) return;
+      if (url.startsWith('ac://close')) {
+        navEvent.preventDefault();
+        const allWindows = BrowserWindow.getAllWindows();
+        for (const win of allWindows) {
+          if (!win.isDestroyed() && win.webContents.id === contents.hostWebContents?.id) {
+            win.close();
+            break;
+          }
+        }
+        return;
+      }
+      if (url.startsWith('ac://open')) {
+        navEvent.preventDefault();
+        let targetUrl = '';
+        try {
+          const urlObj = new URL(url);
+          targetUrl = urlObj.searchParams.get('url') || '';
+        } catch (err) {
+          console.warn('[main] Failed to parse ac://open URL:', url, err.message);
+        }
+        openAcPaneWindow().then(({ window: newWin }) => {
+          if (newWin && !newWin.isDestroyed()) {
+            newWin.webContents.once('did-finish-load', () => {
+              if (!newWin.isDestroyed() && targetUrl) {
+                newWin.webContents.send('navigate', targetUrl);
+              }
+            });
+          }
+        });
+      }
+    });
+
     contents.setWindowOpenHandler(({ url }) => {
       console.log('[main] Webview window.open:', url);
       

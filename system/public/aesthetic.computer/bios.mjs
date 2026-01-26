@@ -4939,6 +4939,48 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Window control requests from pieces (e.g., prompt.mjs running in worker)
+    if (type === "window:open") {
+      const url = content?.url || content?.href || content?.path;
+      if (url) {
+        const isElectron = /Electron/i.test(navigator.userAgent || "");
+        try {
+          const result = window.open(url, "_blank", "noopener");
+          if (isElectron && !result) {
+            const fallbackUrl = `ac://open?url=${encodeURIComponent(url)}`;
+            location.href = fallbackUrl;
+          }
+        } catch (err) {
+          if (isElectron) {
+            const fallbackUrl = `ac://open?url=${encodeURIComponent(url)}`;
+            location.href = fallbackUrl;
+          }
+        }
+      }
+      return;
+    }
+
+    if (type === "window:close") {
+      const isElectron = /Electron/i.test(navigator.userAgent || "");
+      if (isElectron) {
+        try {
+          const result = window.open("ac://close", "_blank");
+          if (!result) {
+            location.href = "ac://close";
+          }
+        } catch (err) {
+          location.href = "ac://close";
+        }
+      } else {
+        try {
+          window.close();
+        } catch (err) {
+          // ignore
+        }
+      }
+      return;
+    }
+
     // Post a message to a potential iframe parent, like in the VSCode extension.
     if (type === "post-to-parent") {
       // Note: kidlisp-code-created and setCode contain cached $identifiers (like "nece"),
