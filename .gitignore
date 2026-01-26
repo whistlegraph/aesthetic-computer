@@ -115,6 +115,9 @@ system/types/
 # Local Netlify folder
 .netlify
 
+# FFOS local build cache
+utilities/ffos-build/.ffos-cache/
+
 # Parcel's caching folder (I don't even really use parcel.)
 .parcel-cache/
 

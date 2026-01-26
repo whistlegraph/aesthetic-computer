@@ -1,0 +1,36 @@
+name: Build FFOS ISO (local pipeline)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ffos_branch:
+        description: "FFOS branch"
+        required: false
+        default: "develop"
+      ffos_user_branch:
+        description: "FFOS-USER branch"
+        required: false
+        default: "develop"
+
+jobs:
+  build-ffos-iso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build FFOS ISO
+        env:
+          FFOS_BRANCH: ${{ inputs.ffos_branch }}
+          FFOS_USER_BRANCH: ${{ inputs.ffos_user_branch }}
+          DOCKER_BUILDKIT: "0"
+        run: bash utilities/ffos-build/build.sh
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffos-iso
+          path: utilities/ffos-build/.ffos-cache/out/*.iso
+          if-no-files-found: error
