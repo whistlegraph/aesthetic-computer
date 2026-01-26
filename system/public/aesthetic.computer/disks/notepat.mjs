@@ -357,7 +357,6 @@ const LABEL_VARIANTS = {
   room: ["room", "rm", "r"],
   glitch: ["glitch", "glt", "g"],
   quick: ["quick", "qk", "q"],
-  metro: ["metro", "mtr", "m"],
 };
 
 // Current chosen labels (set by buildSecondaryBarLayout)
@@ -366,7 +365,6 @@ let secondaryBarLabels = {
   room: "room", 
   glitch: "glitch",
   quick: "quick",
-  metro: "metro",
 };
 
 const MELODY_ALIAS_BASE_SIDE = 72;
@@ -2283,25 +2281,19 @@ function paint({
       ink(...recitalDim, 100).write("-", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
-    if (metroBtn?.bpmDisplayX !== undefined) {
+    // BPM display IS the toggle button now
+    metroBtn?.paint((btn) => {
       const bpmText = metronomeBPM.toString().padStart(3, " ");
+      const active = metronomeEnabled;
       // Flash on beat when enabled
-      const flashAlpha = metronomeEnabled && metronomeVisualPhase > 0.5 ? 180 : 80;
-      ink(...(metronomeEnabled ? recitalColor : recitalDim), flashAlpha).box(metroBtn.bpmDisplayX, SECONDARY_BAR_TOP + 1, metroBtn.bpmDisplayWidth, SECONDARY_BAR_HEIGHT - 2, "outline");
-      ink(...(metronomeEnabled ? recitalColor : recitalDim), metronomeEnabled ? 200 : 100).write(bpmText, { x: metroBtn.bpmDisplayX + TOGGLE_BTN_PADDING_X, y: SECONDARY_BAR_TOP + TOGGLE_BTN_PADDING_Y + 1 }, undefined, undefined, false, "MatrixChunky8");
-    }
+      const flashAlpha = active && metronomeVisualPhase > 0.5 ? 255 : (active ? 180 : 80);
+      ink(...(active ? recitalColor : recitalDim), flashAlpha).box(btn.box, "outline");
+      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write(bpmText, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
     
     bpmPlusBtn?.paint((btn) => {
       ink(...recitalDim, 80).box(btn.box, "outline");
       ink(...recitalDim, 100).write("+", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
-    });
-    
-    metroBtn?.paint((btn) => {
-      const active = metronomeEnabled;
-      // Flash the button on beat in recital mode
-      const flashAlpha = active && metronomeVisualPhase > 0.5 ? 255 : (active ? 180 : 80);
-      ink(...(active ? recitalColor : recitalDim), flashAlpha).box(btn.box, "outline");
-      ink(...(active ? recitalColor : recitalDim), active ? 200 : 100).write(secondaryBarLabels.metro, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
   }
 
@@ -2395,18 +2387,30 @@ function paint({
       ink(textColor).write("-", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
-    // Paint BPM display (between minus and plus)
-    if (metroBtn?.bpmDisplayX !== undefined) {
+    // BPM display IS the toggle button now - clicking it toggles metronome on/off
+    metroBtn?.paint((btn) => {
       const bpmText = metronomeBPM.toString().padStart(3, " ");
       // Flash background on beat when metronome is enabled
       const flashAlpha = metronomeEnabled ? Math.floor(60 + metronomeVisualPhase * 140) : 60;
       const flashColor = metronomeEnabled && metronomeVisualPhase > 0 
         ? [255, 100 + Math.floor(metronomeVisualPhase * 100), 100, flashAlpha]
         : [60, 40, 40, flashAlpha];
-      ink(...flashColor).box(metroBtn.bpmDisplayX, SECONDARY_BAR_TOP + 1, metroBtn.bpmDisplayWidth, SECONDARY_BAR_HEIGHT - 2);
-      ink(100, 60, 60, 120).box(metroBtn.bpmDisplayX, SECONDARY_BAR_TOP + 1, metroBtn.bpmDisplayWidth, SECONDARY_BAR_HEIGHT - 2, "outline");
-      ink(metronomeEnabled ? "white" : [160, 170, 180]).write(bpmText, { x: metroBtn.bpmDisplayX + TOGGLE_BTN_PADDING_X, y: SECONDARY_BAR_TOP + TOGGLE_BTN_PADDING_Y + 1 }, undefined, undefined, false, "MatrixChunky8");
-    }
+      const bgColor = metronomeEnabled
+        ? [metroBase[0], metroBase[1], metroBase[2], 230]
+        : [Math.round(metroBase[0] * 0.3), Math.round(metroBase[1] * 0.3), Math.round(metroBase[2] * 0.3), 170];
+      const outlineColor = metronomeEnabled
+        ? [255, 150, 150, 255]
+        : [100, 60, 60, 180];
+      ink(...bgColor).box(btn.box);
+      ink(...flashColor).box(btn.box);
+      ink(...outlineColor).box(btn.box, "outline");
+      if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
+      // Flash the button on beat
+      if (metronomeEnabled && metronomeVisualPhase > 0.5) {
+        ink(255, 255, 255, Math.floor(metronomeVisualPhase * 80)).box(btn.box);
+      }
+      ink(metronomeEnabled ? "white" : [160, 170, 180]).write(bpmText, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+    });
     
     // Paint BPM plus button
     bpmPlusBtn?.paint((btn) => {
@@ -2416,25 +2420,6 @@ function paint({
       ink(100, 60, 60, 180).box(btn.box, "outline");
       if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
       ink(textColor).write("+", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
-    });
-    
-    // Paint metro toggle button
-    metroBtn?.paint((btn) => {
-      const bgColor = metronomeEnabled
-        ? [metroBase[0], metroBase[1], metroBase[2], 230]
-        : [Math.round(metroBase[0] * 0.3), Math.round(metroBase[1] * 0.3), Math.round(metroBase[2] * 0.3), 170];
-      const textColor = metronomeEnabled ? "white" : [180, 190, 200];
-      const outlineColor = metronomeEnabled
-        ? [255, 150, 150, 255]
-        : [100, 60, 60, 180];
-      ink(...bgColor).box(btn.box);
-      ink(...outlineColor).box(btn.box, "outline");
-      if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
-      // Flash the button on beat
-      if (metronomeEnabled && metronomeVisualPhase > 0.5) {
-        ink(255, 255, 255, Math.floor(metronomeVisualPhase * 80)).box(btn.box);
-      }
-      ink(textColor).write(secondaryBarLabels.metro, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
 
     // 🔌🎹 Draw USB/MIDI/sample-rate badge on the left side of the mini bar
@@ -6208,12 +6193,12 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
   const divWidth = 5; // divider (2px) + spacing (3px)
   const shortRate = sampleRateText ? sampleRateText.replace("Hz", "") : "";
   const rateWidth = shortRate.length * glyphMetrics.width;
-  const fpsWidth = 3 * glyphMetrics.width; // FPS can be 3 chars like "120"
+  const fpsWidth = 2 * glyphMetrics.width; // FPS is 2 chars like "60" or "--"
   const totalMidiTextWidth = midiWidth + divWidth + rateWidth + divWidth + fpsWidth;
-  const midiBadgeWidth = totalMidiTextWidth + MIDI_BADGE_PADDING_X + 4; // +4 for safety margin
+  const midiBadgeWidth = totalMidiTextWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
   
-  // Left reserved = MIDI badge margin + badge width + gap
-  const leftReserved = MIDI_BADGE_MARGIN + midiBadgeWidth + 4;
+  // Left reserved = MIDI badge margin + badge width + small gap
+  const leftReserved = MIDI_BADGE_MARGIN + midiBadgeWidth + 2;
   const rightMargin = 6;
   
   // Fixed elements: [-] [BPM] [+]
@@ -6229,7 +6214,7 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
     return (measureMatrixTextBoxWidth(label, { text }, screen.width) || (label.length * glyphWidth)) + TOGGLE_BTN_PADDING_X * 2;
   };
   
-  // Fixed metronome elements width
+  // Fixed metronome elements width: [-] [BPM] [+] (BPM is the toggle button now)
   const metroFixedWidth = minusBtnWidth + 1 + bpmTextWidth + 1 + plusBtnWidth + TOGGLE_BTN_GAP;
   
   // Try different label lengths until everything fits
@@ -6237,32 +6222,27 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
   let totalNeeded = Infinity;
   
   while (variantLevel < 3 && totalNeeded > availableWidth) {
-    // Get labels at this variant level
-    const metroLabel = LABEL_VARIANTS.metro[Math.min(variantLevel, LABEL_VARIANTS.metro.length - 1)];
+    // Get labels at this variant level (no metro label needed - BPM display is the toggle)
     const slideLabel = LABEL_VARIANTS.slide[Math.min(variantLevel, LABEL_VARIANTS.slide.length - 1)];
     const roomLabel = LABEL_VARIANTS.room[Math.min(variantLevel, LABEL_VARIANTS.room.length - 1)];
     const glitchLabel = LABEL_VARIANTS.glitch[Math.min(variantLevel, LABEL_VARIANTS.glitch.length - 1)];
     const quickLabel = LABEL_VARIANTS.quick[Math.min(variantLevel, LABEL_VARIANTS.quick.length - 1)];
     
-    const metroBtnWidth = calcLabelWidth(metroLabel);
     const toggleWidths = calcLabelWidth(slideLabel) + calcLabelWidth(roomLabel) + 
                         calcLabelWidth(glitchLabel) + calcLabelWidth(quickLabel) + (3 * TOGGLE_BTN_GAP);
     
-    totalNeeded = metroFixedWidth + metroBtnWidth + TOGGLE_BTN_GAP + toggleWidths;
+    totalNeeded = metroFixedWidth + toggleWidths;
     variantLevel++;
   }
   
   // Use the labels that fit (or shortest if nothing fits)
   const finalLevel = Math.min(variantLevel - 1, 2);
   secondaryBarLabels = {
-    metro: LABEL_VARIANTS.metro[Math.min(finalLevel, LABEL_VARIANTS.metro.length - 1)],
     slide: LABEL_VARIANTS.slide[Math.min(finalLevel, LABEL_VARIANTS.slide.length - 1)],
     room: LABEL_VARIANTS.room[Math.min(finalLevel, LABEL_VARIANTS.room.length - 1)],
     glitch: LABEL_VARIANTS.glitch[Math.min(finalLevel, LABEL_VARIANTS.glitch.length - 1)],
     quick: LABEL_VARIANTS.quick[Math.min(finalLevel, LABEL_VARIANTS.quick.length - 1)],
   };
-  
-  const metroBtnWidth = calcLabelWidth(secondaryBarLabels.metro);
   
   // Calculate toggle button widths with chosen labels
   const toggleBtns = [
@@ -6300,15 +6280,10 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
   // Build plus button
   bpmPlusBtn = new ui.Button(btnX, btnY, plusBtnWidth, btnHeight);
   bpmPlusBtn.id = "bpm-plus";
-  btnX += plusBtnWidth + TOGGLE_BTN_GAP;
   
-  // Build metro toggle button
-  metroBtn = new ui.Button(btnX, btnY, metroBtnWidth, btnHeight);
+  // The BPM display itself is the metronome toggle button (no separate metro button)
+  metroBtn = new ui.Button(bpmDisplayX, btnY, bpmTextWidth, btnHeight);
   metroBtn.id = "metro-toggle";
-  
-  // Store BPM display position for paint
-  metroBtn.bpmDisplayX = bpmDisplayX;
-  metroBtn.bpmDisplayWidth = bpmTextWidth;
 }
 
 // Build toggle buttons - now handled by buildMetronomeButtons for unified layout
