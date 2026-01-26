@@ -77,7 +77,7 @@ docker run --rm \
     for comp in feral-controld feral-sys-monitord feral-watchdog; do
       echo "Building $comp..."
       cd "$COMPONENTS_DIR/$comp"
-      CGO_ENABLED=0 go build -ldflags="-s -w" -o "/tmp/$comp" .
+      CGO_ENABLED=0 go build -buildvcs=false -ldflags="-s -w" -o "/tmp/$comp" .
       
       # Create PKGBUILD in builder-owned directory
       BUILDDIR="/tmp/build-$comp"
