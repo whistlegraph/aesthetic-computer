@@ -756,7 +756,7 @@ const octaveTheme = [
 
 const { abs, round, floor, ceil, min, max } = Math;
 
-let scope = 32; // Reduced from 64 for better visualizer performance
+let scope = 16; // Reduced for better visualizer performance
 // let scopeTrim = 0;
 
 let projector = false;
@@ -2391,14 +2391,18 @@ function paint({
   }
 
   // 🎹 Draw mini piano strip in top bar (not in recital mode or fullscreen modes)
+  // Store piano end position for visualizer to use
+  let topBarPianoEndX = 54; // Default if piano not shown
   if (!recitalMode && !visualizerFullscreen && !paintPictureOverlay && !projector) {
-    const topPianoY = TOP_BAR_BOTTOM - TOP_BAR_PIANO_HEIGHT;
-    const topPianoWidth = Math.min(160, Math.floor(screen.width * 0.45)); // Limit piano width to leave room for visualizer
-    const topPianoStartX = 2; // Small margin from left
+    const topPianoY = 3; // Same top margin as visualizer
+    const topPianoHeight = 15; // Same height as visualizer
+    const topPianoStartX = 54; // Start after the HUD corner label
+    const topPianoWidth = Math.min(140, Math.floor((screen.width - topPianoStartX) * 0.5)); // Wider piano keys
     const topPianoWhiteKeyWidth = Math.floor(topPianoWidth / MINI_PIANO_WHITE_KEYS.length);
     const topPianoBlackKeyWidth = Math.floor(topPianoWhiteKeyWidth * 0.6);
-    const topPianoBlackKeyHeight = Math.floor(TOP_BAR_PIANO_HEIGHT * 0.55);
+    const topPianoBlackKeyHeight = Math.floor(topPianoHeight * 0.55);
     const topPianoStripHeight = 2; // Color strip at bottom of keys
+    topBarPianoEndX = topPianoStartX + MINI_PIANO_WHITE_KEYS.length * topPianoWhiteKeyWidth; // Flush with visualizer
     
     // Draw white keys (ivory fill with color strip)
     MINI_PIANO_WHITE_KEYS.forEach((note, index) => {
@@ -2408,15 +2412,15 @@ function paint({
       
       // Ivory/off-white fill like the main piano
       const baseFill = isActivePlaying ? [215, 225, 230] : [195, 205, 210];
-      ink(...baseFill).box(x, topPianoY, topPianoWhiteKeyWidth - 1, TOP_BAR_PIANO_HEIGHT);
+      ink(...baseFill).box(x, topPianoY, topPianoWhiteKeyWidth - 1, topPianoHeight);
       
       // Color strip at bottom
       const stripBase = colorFromNote(noteKey, num);
       const stripColor = isActivePlaying ? brightenColor(stripBase, 40) : stripBase;
-      ink(...stripColor).box(x, topPianoY + TOP_BAR_PIANO_HEIGHT - topPianoStripHeight, topPianoWhiteKeyWidth - 1, topPianoStripHeight);
+      ink(...stripColor).box(x, topPianoY + topPianoHeight - topPianoStripHeight, topPianoWhiteKeyWidth - 1, topPianoStripHeight);
       
       // Subtle border
-      ink(90, 110, 120, 80).box(x, topPianoY, topPianoWhiteKeyWidth - 1, TOP_BAR_PIANO_HEIGHT, "outline");
+      ink(90, 110, 120, 80).box(x, topPianoY, topPianoWhiteKeyWidth - 1, topPianoHeight, "outline");
     });
     
     // Draw black keys on top
@@ -2799,8 +2803,9 @@ function paint({
     let pianoY = pianoGeometry.y;
     let pianoStartX = pianoGeometry.x;
 
-    // Skip piano/qwerty painting entirely if hidden (split mode with no room)
-    if (!pianoGeometry.hidden) {
+    // Skip main piano drawing - now using top bar piano instead
+    // Keep pianoGeometry calculations for QWERTY positioning
+    if (false && !pianoGeometry.hidden) { // Piano disabled - use top bar piano
     const whiteKeyWidth = getMiniPianoWhiteKeyWidth(layout.compactMode);
     const whiteKeyHeight = MINI_KEYBOARD_HEIGHT;
     const blackKeyWidth = getMiniPianoBlackKeyWidth(layout.compactMode);
@@ -3058,18 +3063,21 @@ function paint({
 
           const mappedNote = keyboardKeyToNote(keyLetter);
           const isMapped = Boolean(mappedNote);
+          const isBlackKeyMapped = isMapped && isBlackKey(mappedNote);
           const isCurrentKey = keyLetter === currentKeyLetter;
           const isActiveKey = activeKeyLetters.has(keyLetter) || isPercKeyActive(keyLetter);
           const isCurrentAndActive = isCurrentKey && isActiveKey;
           const isNextKey = keyLetter === nextKeyLetter;
           const isSpecialKey = ["space", "alt", "left", "right", "up", "down"].includes(keyLetter);
 
-          // Computer keyboard style: gray keys with subtle highlights for active
+          // Computer keyboard style: gray keys, pure black for black note keys
           let fillColor;
           if (isCurrentAndActive) {
-            fillColor = [180, 200, 180, 230]; // Light green-gray when current and active
+            fillColor = isBlackKeyMapped ? [28, 32, 36, 255] : [180, 200, 180, 230]; // Black key stays dark
           } else if (isActiveKey) {
-            fillColor = [200, 200, 180, 220]; // Light yellow-gray when active
+            fillColor = isBlackKeyMapped ? [28, 32, 36, 255] : [200, 200, 180, 220]; // Black key stays dark
+          } else if (isBlackKeyMapped) {
+            fillColor = [0, 0, 0, 255]; // Pure black for black note keys (like pads)
           } else if (isCurrentKey) {
             fillColor = [140, 160, 160, 200]; // Slightly highlighted gray
           } else if (isNextKey) {
@@ -3092,7 +3100,10 @@ function paint({
 
           // Keyboard-style text colors - tinted by mapped note color
           let textColor;
-          if (isCurrentAndActive || isActiveKey) {
+          if (isBlackKeyMapped) {
+            // White text on black keys (like the pads)
+            textColor = isActiveKey ? [255, 255, 255, 255] : [255, 255, 255, 180];
+          } else if (isCurrentAndActive || isActiveKey) {
             textColor = [30, 30, 30, 255]; // Dark text on light active keys
           } else if (isMapped) {
             // Tint text with the mapped note's color (brightened for visibility)
@@ -3354,15 +3365,15 @@ function paint({
     const sy = 3;
     const sh = 15; // screen.height - sy;
 
-    // const right = (54 + 120);
-    // const leftOfWav = wavBtn.box.x
-    const availableWidth = waveBtn.box.x - 54;
+    // Visualizer starts after the top bar piano (or at 54 if piano not shown)
+    const vizStartX = topBarPianoEndX;
+    const availableWidth = waveBtn.box.x - vizStartX;
 
     sound.paint.bars(
       api,
       amplitude,
       waveformsForBars,
-      54, //0,
+      vizStartX, //0,
       sy, //sy,
       availableWidth,
       //screen.width, // width
