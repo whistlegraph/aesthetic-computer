@@ -49,7 +49,7 @@
  * - Swing timing: Each symbol = 1/16 beat offset (small, musical adjustments)
  * - Relative octave: + (one octave up) - (one octave down) ++ (two up) -- (two down)
  * - Struck mode: ^ (toggle between held and struck notes) - STICKY: applies to following notes until changed
- * - Waveform types: {sine} {sawtooth} {saw} {square} {triangle} {noise-white} {sample} {custom} {bubble} - persists until changed
+ * - Waveform types: {sine} {sawtooth} {saw} {square} {triangle} {noise-white} {sample} {stample} {custom} {bubble} - persists until changed
  * - Volume control: {0.5} (volume only) or {square:0.3} (type and volume) - persists until changed
  * - Hz shift: {100hz} {-50hz} {50hz&} (frequency shift in Hz, & for cumulative) - persists until changed
  * - Speech synthesis: "text" (quoted text for speech synthesis with random voice selection)
@@ -187,7 +187,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
           const [waveType, volumeStr] = contentLower.split(':');
           // Handle 'saw' as shorthand for 'sawtooth'
           const normalizedWaveType = waveType === 'saw' ? 'sawtooth' : waveType;
-          if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'custom', 'bubble'].includes(normalizedWaveType)) {
+          if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'stample', 'custom', 'bubble'].includes(normalizedWaveType)) {
             currentWaveType = normalizedWaveType;
           }
           const volume = parseFloat(volumeStr);
@@ -203,7 +203,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
           }
         }
         // Check for waveform-only syntax like {sine} or {saw}
-        else if (['sine', 'sawtooth', 'saw', 'square', 'triangle', 'noise-white', 'sample', 'custom', 'bubble'].includes(contentLower)) {
+        else if (['sine', 'sawtooth', 'saw', 'square', 'triangle', 'noise-white', 'sample', 'stample', 'custom', 'bubble'].includes(contentLower)) {
           // Handle 'saw' as shorthand for 'sawtooth'
           currentWaveType = contentLower === 'saw' ? 'sawtooth' : contentLower;
         }
@@ -770,7 +770,7 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
   let processedMelodyString = melodyString.trim();
   
   // Find waveform types at the beginning of the string
-  const globalWaveTypePattern = /^{(sine|sawtooth|saw|square|triangle|noise-white|sample|custom|bubble)}/;
+  const globalWaveTypePattern = /^{(sine|sawtooth|saw|square|triangle|noise-white|sample|stample|custom|bubble)}/;
   const waveMatch = globalWaveTypePattern.exec(processedMelodyString);
   
   if (waveMatch) {
@@ -826,7 +826,7 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     }
     
     // Apply global wave type to the single track if one was specified
-    const hasLocalWaveType = /{(sine|sawtooth|saw|square|triangle|noise-white|sample|custom|bubble)}/.test(contentForParsing);
+    const hasLocalWaveType = /{(sine|sawtooth|saw|square|triangle|noise-white|sample|stample|custom|bubble)}/.test(contentForParsing);
     const contentWithGlobalWave = hasLocalWaveType ? contentForParsing : 
                                    (globalWaveType !== "sine" ? `{${globalWaveType}} ${contentForParsing}` : contentForParsing);
     
@@ -904,7 +904,7 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     }
     
     // Prepend the global wave type to each group if it doesn't have its own
-    const hasLocalWaveType = /{(sine|sawtooth|saw|square|triangle|noise-white|sample|custom|bubble)}/.test(contentForParsing);
+    const hasLocalWaveType = /{(sine|sawtooth|saw|square|triangle|noise-white|sample|stample|custom|bubble)}/.test(contentForParsing);
     const contentWithGlobalWave = hasLocalWaveType ? contentForParsing : `{${globalWaveType}} ${contentForParsing}`;
     
     const parsedTrack = parseMelody(contentWithGlobalWave, startingOctave);

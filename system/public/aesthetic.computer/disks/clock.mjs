@@ -51,7 +51,8 @@
     {sawtooth} cdefg - Sawtooth wave  
     {triangle} cdefg - Triangle wave
     {noise-white} cdefg - White noise
-    {sample} cdefg - Sample playback
+    {sample} cdefg - Sample playback (alias for stample)
+    {stample} cdefg - Stample playback (uses sample recorded in stample piece)
     {custom} cdefg - Custom waveform generation
     {bubble} cdefg - Physical bubble modeling (frequency controls bubble size)
     {0.5} cdefg - Set volume to 50% (keeps current waveform)
@@ -494,6 +495,12 @@ const activeSounds = {}; // Track active synth instances for proper timing contr
 const scheduledNotes = []; // Queue of notes to be released at specific times
 let isLeavingPiece = false; // Flag to prevent new sounds from being created after leave() is called
 
+// Stample sample support (like toss and notepat)
+let stampleSampleId = null;
+let stampleSampleData = null;
+let stampleSampleRate = null;
+let fallbackSfx = null; // Fallback sound if no stample recorded
+
 // UI Buttons for octave control
 let octaveMinusBtn, octavePlusBtn;
 
@@ -656,12 +663,49 @@ async function cacheMelody(melody) {
   }
 }
 
-async function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num, help }) {
+async function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num, help, store, net, sound }) {
   try {
     console.log(`🎵 CLOCK BOOT STARTED - params:`, params, `colon:`, colon);
   
     // Reset leaving flag when piece starts
     isLeavingPiece = false;
+
+    // Preload fallback sound for stample mode (like toss and notepat do)
+    if (net?.preload) {
+      net.preload("startup")
+        .then((sfx) => {
+          fallbackSfx = sfx;
+          console.log("🎵 Clock: Loaded fallback sfx:", sfx);
+        })
+        .catch((err) => console.warn("🎵 Clock: Failed to load fallback sfx:", err));
+    }
+
+    // Load stample sample from store (like toss and notepat do)
+    stampleSampleId = null;
+    stampleSampleData = null;
+    stampleSampleRate = null;
+
+    if (store?.retrieve) {
+      (async () => {
+        try {
+          const storedSample =
+            store["stample:sample"] ||
+            (await store.retrieve("stample:sample", "local:db"));
+          if (storedSample?.data?.length) {
+            const storedId = storedSample.id || "stample";
+            stampleSampleId = storedId;
+            stampleSampleData = storedSample.data;
+            stampleSampleRate = storedSample.sampleRate;
+            sound?.registerSample?.(storedId, storedSample.data, storedSample.sampleRate);
+            console.log("🎵 Clock loaded stample sample:", storedId, storedSample.data.length, "samples");
+          } else {
+            console.log("🎵 Clock: No stample sample found in store (record one in `stample` piece first)");
+          }
+        } catch (err) {
+          console.warn("🎵 Clock: Failed to load stample sample:", err);
+        }
+      })();
+    }
 
     // Reset cached clock code and author
     cachedClockCode = null;
@@ -4298,6 +4342,34 @@ function createManagedSound(
 
     // Debug bubble parameters with more detail
     console.log(`🧋 BUBBLE: ${tone} (${Math.round(finalFreq)}Hz) → radius:${bubbleRadius.toFixed(1)} ${struck ? 'struck' : 'held'} vol:${volume.toFixed(2)}`);
+  } else if (waveType === "stample" || waveType === "sample") {
+    // Handle stample/sample waveform type using sound.play() like toss and notepat do
+    const sampleId = stampleSampleId || fallbackSfx;
+    if (sampleId) {
+      // Get frequency for pitch adjustment
+      const baseFreq = sound.freq(tone);
+      const finalFreq = baseFreq + (toneShift || 0);
+      
+      synthInstance = sound.play(sampleId, {
+        volume: volume,
+        pitch: finalFreq, // Pitch in Hz (bios divides by basePitch 440)
+        loop: !struck, // Loop for held notes, don't loop for struck notes
+      });
+      
+      console.log(`🎤 STAMPLE: ${tone} (${Math.round(finalFreq)}Hz) vol:${volume.toFixed(2)} ${struck ? 'struck' : 'held'}`);
+    } else {
+      // Fallback to sine if no sample available
+      console.log(`🎤 STAMPLE: No sample available, falling back to sine for ${tone}`);
+      synthInstance = sound.synth({
+        type: "sine",
+        tone: tone,
+        duration: synthDuration,
+        attack: struck ? 0.0 : 0.01,
+        decay: struck ? 1 : 0.1,
+        volume: volume,
+        toneShift: toneShift,
+      });
+    }
   } else {
     // Use normal synth for all other waveform types
     synthInstance = sound.synth({
