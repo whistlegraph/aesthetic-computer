@@ -479,7 +479,7 @@ async function getCoreBundle(acDir, onProgress = () => {}, forceRefresh = false)
 }
 
 // Create bundle for JavaScript .mjs pieces (notepat, metronome, etc.)
-async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false) {
+async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null) {
   onProgress({ stage: 'init', message: `Bundling ${pieceName}...` });
   
   const packTime = Date.now();
@@ -836,7 +836,7 @@ function generateJSPieceHTMLBundle(opts) {
 }
 
 // Main bundle creation for KidLisp pieces
-async function createBundle(pieceName, onProgress = () => {}, nocompress = false) {
+async function createBundle(pieceName, onProgress = () => {}, nocompress = false, density = null) {
   const PIECE_NAME_NO_DOLLAR = pieceName.replace(/^\$/, '');
   const PIECE_NAME = '$' + PIECE_NAME_NO_DOLLAR;
   
@@ -920,6 +920,7 @@ async function createBundle(pieceName, onProgress = () => {}, nocompress = false
     packTime,
     gitVersion: GIT_COMMIT,
     filename,
+    density, // Pass density for FF1/device performance
   });
   
   onProgress({ stage: 'compress', message: nocompress ? 'Skipping compression (nocompress mode)...' : 'Compressing...' });
@@ -1011,6 +1012,7 @@ function generateHTMLBundle(opts) {
     packTime,
     gitVersion,
     filename,
+    density,
   } = opts;
 
   return `<!DOCTYPE html>
@@ -1090,7 +1092,8 @@ function generateHTMLBundle(opts) {
     window.acPACK_GIT = "${gitVersion}";
     window.acKIDLISP_SOURCE = ${JSON.stringify(mainSource)};
     
-    // Don't set acPACK_DENSITY - let bios.mjs use its default logic
+    // Set density if provided (e.g., density=8 for FF1/device mode)
+    ${density ? `window.acPACK_DENSITY = ${density};` : '// No density override - using default'}
     
     window.acPACK_COLOPHON = {
       piece: {
@@ -1313,6 +1316,7 @@ exports.handler = stream(async (event) => {
   const nocache = event.queryStringParameters?.nocache === '1' || event.queryStringParameters?.nocache === 'true';
   const nocompress = event.queryStringParameters?.nocompress === '1' || event.queryStringParameters?.nocompress === 'true';
   const inline = event.queryStringParameters?.inline === '1' || event.queryStringParameters?.inline === 'true';
+  const density = parseInt(event.queryStringParameters?.density) || null; // e.g., density=8 for FF1
   
   // Force cache refresh if requested
   if (nocache) {
@@ -1392,8 +1396,8 @@ exports.handler = stream(async (event) => {
     };
     
     const bundleResult = isJSPiece
-      ? await createJSPieceBundle(bundleTarget, onProgress, nocompress)
-      : await createBundle(bundleTarget, onProgress, nocompress);
+      ? await createJSPieceBundle(bundleTarget, onProgress, nocompress, density)
+      : await createBundle(bundleTarget, onProgress, nocompress, density);
     
     const { html, filename, sizeKB, mainSource, authorHandle, userCode, packDate, depCount } = bundleResult;
     
