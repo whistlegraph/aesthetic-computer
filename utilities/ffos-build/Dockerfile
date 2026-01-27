@@ -1,4 +1,4 @@
-FROM archlinux:base
+FROM --platform=linux/amd64 archlinux:base
 
 RUN pacman -Syu --noconfirm \
   archiso \

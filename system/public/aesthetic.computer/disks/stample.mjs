@@ -249,7 +249,6 @@ let sfx,
   patsButton,
   bitmapLoopButton,
   bitmapPaintButton,
-  bitmapPreviewButton,
   bitmapPreview;
 
 let bitmapMeta = null;
@@ -269,8 +268,6 @@ const keyToSfx = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 7, 9: 8, 0: 9 };
 const sfxToKey = Object.fromEntries(
   Object.entries(keyToSfx).map(([key, index]) => [index, Number(key)]),
 );
-
-const { floor } = Math;
 
 async function boot({
   net: { preload },
@@ -357,7 +354,6 @@ async function boot({
   // Bitmap control buttons (will be positioned by layoutBitmapUI)
   bitmapLoopButton = new ui.Button(0, 0, BITMAP_MIN_SIZE, BITMAP_BTN_HEIGHT);
   bitmapPaintButton = new ui.Button(0, 0, BITMAP_MIN_SIZE, BITMAP_BTN_HEIGHT);
-  bitmapPreviewButton = new ui.Button(0, 0, BITMAP_MIN_SIZE, BITMAP_MIN_SIZE);
   layoutBitmapUI(screen);
 
   if (mic.permission === "granted" && enabled()) {
@@ -413,12 +409,14 @@ function sim({ sound }) {
     sound?.progress().then((p) => (progressions[index] = p.progress));
   });
 
-  // Track bitmap playback progress for scrubber
-  if (bitmapLoopSound || bitmapPlaySound) {
-    const activeSound = bitmapLoopSound || bitmapPlaySound;
+  // Track bitmap playback progress for scrubber from any active sound source
+  const activeSound = bitmapLoopSound || bitmapPlaySound || sounds.find(s => s);
+  if (activeSound) {
     activeSound?.progress?.().then((p) => {
       bitmapProgress = p?.progress || 0;
     });
+  } else {
+    bitmapProgress = 0;
   }
 
   mic?.poll(); // Query for updated amplitude and waveform data.
@@ -732,12 +730,21 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     );
   }
 
-  // Bitmap preview (if present)
+  // Bitmap preview (if present) - uses actual aspect ratio
   if (layout.hasBitmap && bitmapPreview?.pixels?.length) {
-    const previewX = layout.bitmapX;
-    const previewY = layout.bitmapY;
-    const previewW = layout.bitmapSize;
-    const previewH = layout.bitmapSize;
+    const bmpAspect = bitmapPreview.width / bitmapPreview.height;
+    let previewW, previewH;
+    if (bmpAspect >= 1) {
+      // Wider than tall
+      previewW = layout.bitmapSize;
+      previewH = floor(layout.bitmapSize / bmpAspect);
+    } else {
+      // Taller than wide
+      previewH = layout.bitmapSize;
+      previewW = floor(layout.bitmapSize * bmpAspect);
+    }
+    const previewX = layout.bitmapX + floor((layout.bitmapSize - previewW) / 2);
+    const previewY = layout.bitmapY + floor((layout.bitmapSize - previewH) / 2);
 
     ink("black", 160).box(previewX - 2, previewY - 2, previewW + 4, previewH + 4);
     api.paste(bitmapPreview, previewX, previewY, {
@@ -759,8 +766,6 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
       // Draw small marker at exact position
       ink("red").box(mappedX - 1, mappedY - 1, 3, 3);
     }
-    
-    ink("white").write("bitmap", previewX + 4, previewY + 4);
   } else if (bitmapLoading) {
     const previewX = layout.bitmapX || (screen.width - BITMAP_MIN_SIZE - BITMAP_MARGIN);
     const previewY = layout.bitmapY || layout.topBar + BITMAP_MARGIN;
@@ -977,24 +982,6 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, sys
     },
   });
 
-  bitmapPreviewButton?.act(e, {
-    up: () => {
-      if (!bitmapPreview?.pixels?.length) return;
-      const decoded = decodeBitmapToSample(bitmapPreview, bitmapMeta);
-      if (!decoded?.length) return;
-      sound.registerSample?.(
-        bitmapSampleId,
-        decoded,
-        bitmapMeta?.sampleRate || sound.sampleRate,
-      );
-      bitmapLoopSound?.kill?.(0.05);
-      bitmapLoopSound = null;
-      bitmapLooping = false;
-      bitmapProgress = 0;
-      bitmapPlaySound = sound.play(bitmapSampleId, { loop: false });
-    },
-  });
-
   bitmapPaintButton?.act(e, {
     up: () => {
       if (!bitmapPreview?.pixels?.length || !system?.nopaint?.replace) return;
@@ -1139,14 +1126,6 @@ function layoutBitmapUI(screen) {
     bitmapPaintButton.box.h = BITMAP_BTN_HEIGHT;
     bitmapPaintButton.box.x = bitmapLoopButton.box.x;
     bitmapPaintButton.box.y = bitmapLoopButton.box.y + BITMAP_BTN_HEIGHT + BITMAP_BTN_GAP;
-  }
-
-  // Preview button (clickable bitmap area)
-  if (bitmapPreviewButton) {
-    bitmapPreviewButton.box.w = layout.bitmapSize;
-    bitmapPreviewButton.box.h = layout.bitmapSize;
-    bitmapPreviewButton.box.x = layout.bitmapX;
-    bitmapPreviewButton.box.y = layout.bitmapY;
   }
 }
 
