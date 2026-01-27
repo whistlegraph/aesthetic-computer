@@ -1295,9 +1295,13 @@ function generateHTMLBundle(opts) {
       return originalFetch.call(this, url, options);
     };
     
-    // 📊 Bundle Telemetry - only when served inline from aesthetic.computer
+    // 📊 Bundle Telemetry - collect FPS and boot data
     (function initTelemetry() {
-      if (!window.location?.origin?.includes('aesthetic.computer')) return;
+      // Skip if not on aesthetic.computer domain (sandboxed iframes have null origin)
+      const origin = window.location?.origin || '';
+      const isAcDomain = origin.includes('aesthetic.computer') || origin.includes('localhost');
+      console.log('[Telemetry] origin:', origin, 'isAcDomain:', isAcDomain);
+      if (!isAcDomain) return;
       
       const bootStart = performance.now();
       const sessionId = Math.random().toString(36).slice(2) + Date.now().toString(36);
