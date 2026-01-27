@@ -1334,6 +1334,49 @@ exports.handler = stream(async (event) => {
   const nocompress = event.queryStringParameters?.nocompress === '1' || event.queryStringParameters?.nocompress === 'true';
   const inline = event.queryStringParameters?.inline === '1' || event.queryStringParameters?.inline === 'true';
   const density = parseInt(event.queryStringParameters?.density) || null; // e.g., density=8 for FF1
+  const mode = event.queryStringParameters?.mode; // 'device' for simple iframe wrapper
+  
+  // Device mode: return a simple iframe wrapper (like device.kidlisp.com)
+  // This is much faster and more reliable on devices like FF1
+  if (mode === 'device') {
+    const pieceCode = code || piece;
+    if (!pieceCode) {
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": "text/plain" },
+        body: "Missing code or piece parameter",
+      };
+    }
+    
+    const densityParam = density ? `?density=${density}` : '';
+    const pieceUrl = `https://aesthetic.computer/${pieceCode}${densityParam}`;
+    
+    const deviceHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>${pieceCode} · Aesthetic Computer (Device)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: black; }
+    iframe { width: 100%; height: 100%; border: none; }
+  </style>
+</head>
+<body>
+  <iframe src="${pieceUrl}" allow="autoplay; fullscreen"></iframe>
+</body>
+</html>`;
+    
+    return {
+      statusCode: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "public, max-age=60",
+      },
+      body: deviceHtml,
+    };
+  }
   
   // Force cache refresh if requested
   if (nocache) {
