@@ -1,8 +1,8 @@
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
 // Don't clear console if we're in an embedded/iframe context (like kidlisp.com editor)
-if (window === window.top) {
-  console.clear();
-}
+// if (window === window.top) {
+//   console.clear();
+// }
 
 // 📦 Early WebSocket module loader initialization
 // This runs before anything else to establish connection ASAP
@@ -429,7 +429,7 @@ const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
-  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf'
+  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale'
 ];
 
 // Auth0 parameters that need to be temporarily processed but then removed
@@ -1023,6 +1023,10 @@ const highlight = highlightParam ? (highlightParam === "true" ? true : highlight
 const perfParam = params.has("perf") || location.search.includes("perf");
 const perf = perfParam === true || perfParam === "true";
 
+// Check for auto-scale parameter (enables automatic density scaling to maintain target FPS)
+const autoScaleParam = params.has("auto-scale") || location.search.includes("auto-scale");
+const autoScale = autoScaleParam === true || autoScaleParam === "true";
+
 // Note: zoom parameter is available but not automatically applied to avoid text rendering issues
 // It's passed to the boot function for selective use
 
@@ -1043,7 +1047,7 @@ if (window.acVSCODE) {
 
 // Pass the parameters directly without stripping them
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device, perf }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale }, debug);
 
 // Start processing any early kidlisp messages that arrived before boot completed
 processEarlyKidlispQueue();

@@ -160,6 +160,16 @@ PKGBUILD
     rm -rf "$PROFILE"
     cp -r "$PROFILE_SRC" "$PROFILE"
     
+    # Add our locally-built Feral components to packages list
+    echo "=== Adding locally-built components to packages.x86_64 ==="
+    # Ensure file ends with newline before appending
+    sed -i -e '$a\' "$PROFILE/packages.x86_64"
+    echo "feral-controld" >> "$PROFILE/packages.x86_64"
+    echo "feral-sys-monitord" >> "$PROFILE/packages.x86_64"
+    echo "feral-watchdog" >> "$PROFILE/packages.x86_64"
+    echo "feral-setupd" >> "$PROFILE/packages.x86_64"
+    echo "Added: feral-controld, feral-sys-monitord, feral-watchdog, feral-setupd"
+    
     # Apply FFOS overlays if present (additional packages, etc.)
     if [ -d /work/overlays/ffos/archiso-ff1 ]; then
       echo "Applying FFOS overlays..."
