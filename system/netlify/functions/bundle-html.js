@@ -335,8 +335,7 @@ async function minifyJS(content, relativePath) {
         side_effects: true,
         collapse_vars: true,
         reduce_vars: true,
-        inline: 3,
-        drop_console: true  // Also let SWC drop any remaining console calls
+        inline: 3
       },
       mangle: {
         toplevel: true,
