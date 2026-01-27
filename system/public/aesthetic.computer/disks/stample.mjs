@@ -11,6 +11,7 @@
   - [] Automatically dip the max volume if multiple samples are playing.
   - [] Add visual printing / stamping of pixel data and loading of that
        data.
+  - [] Support `stample $code` to sample pixels from a running KidLisp piece
   + Done
   - [x] Add positional swiping.
   - [x] Add `paintSound` to the disk library / make a really good abstraction for
@@ -261,6 +262,13 @@ let bitmapLoading = false;
 let bitmapLoaded = false;
 let bitmapProgress = 0; // Playback progress 0-1 for scrubber
 
+// 🎭 KidLisp embedding state - for `stample $code` feature
+let kidlispSource = null;      // The KidLisp source code to render
+let kidlispCacheId = null;     // The $code identifier (without $)
+let kidlispBuffer = null;      // The rendered KidLisp pixel buffer
+let kidlispLoading = false;    // Whether we're loading KidLisp source
+let kidlispActive = false;     // Whether we're in KidLisp sampling mode
+
 const sounds = [],
   progressions = [];
 
@@ -288,7 +296,15 @@ async function boot({
     const decodedParam = rawParam.startsWith("%23")
       ? `#${rawParam.slice(3)}`
       : decodeURIComponent(rawParam);
-    if (decodedParam.startsWith("#")) {
+    
+    // 🎭 Check for $code KidLisp embedding (e.g., `stample $berz`)
+    if (decodedParam.startsWith("$") && decodedParam.length > 1) {
+      kidlispCacheId = decodedParam.slice(1); // Remove the $
+      kidlispLoading = true;
+      kidlispActive = true;
+      console.log(`🎭 Stample: Loading KidLisp piece $${kidlispCacheId}`);
+      // KidLisp source will be loaded in sim() on first frame
+    } else if (decodedParam.startsWith("#")) {
       bitmapLoading = true;
       bitmapLoaded = false;
       bitmapPreview = null;
@@ -315,8 +331,8 @@ async function boot({
     }
   }
   
-  // Only load default sample if we didn't load from a #code bitmap
-  if (!bitmapLoaded) {
+  // Only load default sample if we didn't load from a #code bitmap or KidLisp
+  if (!bitmapLoaded && !kidlispActive) {
     sampleId = await preload(name);
   }
   
@@ -403,7 +419,7 @@ async function boot({
   });
 }
 
-function sim({ sound }) {
+function sim({ sound, api, screen, kidlisp, painting }) {
   sounds.forEach((sound, index) => {
     // Get progress data.
     sound?.progress().then((p) => (progressions[index] = p.progress));
@@ -431,6 +447,60 @@ function sim({ sound }) {
         height: liveEncoded.height,
         pixels: liveEncoded.pixels,
       };
+    }
+  }
+  
+  // 🎭 KidLisp rendering: Update the buffer each frame when in KidLisp mode
+  if (kidlispActive && kidlispCacheId && kidlisp && painting && screen) {
+    // Determine buffer size - use a reasonable default or match screen aspect
+    const bufferSize = 128; // Square buffer for consistent sampling
+    const bufferWidth = bufferSize;
+    const bufferHeight = bufferSize;
+    
+    // Create a painting buffer and render KidLisp into it
+    try {
+      const lispPainting = painting(bufferWidth, bufferHeight, (paintApi) => {
+        // Render the KidLisp piece using the $code syntax
+        // The kidlisp function will fetch and execute the cached code
+        kidlisp(0, 0, bufferWidth, bufferHeight, `$${kidlispCacheId}`);
+      });
+      
+      // Extract pixels from the painting buffer
+      if (lispPainting?.pixels?.length) {
+        kidlispBuffer = {
+          width: bufferWidth,
+          height: bufferHeight,
+          pixels: new Uint8ClampedArray(lispPainting.pixels),
+        };
+        
+        // Update the bitmap preview with the KidLisp render
+        bitmapPreview = kidlispBuffer;
+        
+        // Convert to audio sample
+        const totalPixels = bufferWidth * bufferHeight;
+        bitmapMeta = {
+          sampleLength: totalPixels * 3, // RGB = 3 samples per pixel
+          sampleRate: sound?.sampleRate || 48000,
+        };
+        
+        // Decode pixels to audio sample and register it
+        const decoded = decodeBitmapToSample(kidlispBuffer, bitmapMeta);
+        if (decoded?.length) {
+          sampleData = decoded;
+          sampleId = bitmapSampleId;
+          sound?.registerSample?.(bitmapSampleId, decoded, bitmapMeta.sampleRate);
+          
+          if (kidlispLoading) {
+            kidlispLoading = false;
+            bitmapLoaded = true;
+            console.log(`🎭 Stample: KidLisp $${kidlispCacheId} rendering live (${bufferWidth}x${bufferHeight})`);
+          }
+        }
+      }
+    } catch (err) {
+      if (kidlispLoading) {
+        console.warn(`🎭 Stample: Error rendering KidLisp $${kidlispCacheId}:`, err);
+      }
     }
   }
 }

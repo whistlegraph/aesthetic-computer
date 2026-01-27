@@ -202,6 +202,16 @@ included_files = [
 external_node_modules = ["@swc/wasm"]
 included_env_vars = ["GIT_COMMIT", "CONTEXT"]
 
+[functions.bundle-telemetry]
+# Collects performance telemetry from inline bundles
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+
+[functions.bundle-telemetry-query]
+# Query collected bundle telemetry
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+
 [functions.keep-mint]
 # Mint KidLisp pieces as NFTs on Tezos (streaming SSE)
 included_files = ["backend/**/*.mjs"]
@@ -983,6 +993,14 @@ status = 200
 [[redirects]]
 from = "/api/bundle-html"
 to = "/.netlify/functions/bundle-html"
+status = 200
+[[redirects]]
+from = "/api/bundle-telemetry"
+to = "/.netlify/functions/bundle-telemetry"
+status = 200
+[[redirects]]
+from = "/api/bundle-telemetry-query"
+to = "/.netlify/functions/bundle-telemetry-query"
 status = 200
 [[redirects]]
 from = "/api/boot-log"
