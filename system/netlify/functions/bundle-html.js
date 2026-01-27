@@ -574,22 +574,39 @@ async function createJSPieceBundle(pieceName, onProgress = () => {}) {
 <head>
   <meta charset="utf-8">
   <title>${pieceName} · Aesthetic Computer</title>
-  <style>body{margin:0;background:#000;overflow:hidden}</style>
+  <style>body{margin:0;background:#000;overflow:hidden;color:#0f0;font:24px monospace;padding:20px}</style>
 </head>
 <body>
+  <div id="dbg"></div>
   <script>
+    function log(m){document.getElementById('dbg').innerHTML+='<div>'+m+'</div>';console.log(m);}
+    function err(m){document.getElementById('dbg').innerHTML+='<div style="color:red">'+m+'</div>';console.error(m);}
+    window.onerror=function(m,s,l,c,e){err('ERROR: '+m+' at '+s+':'+l);return false;};
+    log('Bundle loader starting...');
     // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
     const b64='${gzipBase64}';
-    const bin=atob(b64);
-    const bytes=new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-    const blob=new Blob([bytes],{type:'application/gzip'});
-    const url=URL.createObjectURL(blob);
-    fetch(url)
-      .then(r=>r.blob())
-      .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
-      .then(s=>new Response(s).text())
-      .then(h=>{URL.revokeObjectURL(url);document.open();document.write(h);document.close();});
+    log('Base64 length: '+b64.length);
+    try {
+      const bin=atob(b64);
+      log('Decoded binary length: '+bin.length);
+      const bytes=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+      log('Created Uint8Array');
+      const blob=new Blob([bytes],{type:'application/gzip'});
+      log('Created blob');
+      const url=URL.createObjectURL(blob);
+      log('Created blob URL');
+      if(typeof DecompressionStream==='undefined'){err('DecompressionStream NOT SUPPORTED!');throw new Error('No DecompressionStream');}
+      log('DecompressionStream available');
+      fetch(url)
+        .then(r=>{log('Fetched blob');return r.blob();})
+        .then(b=>{log('Got blob, decompressing...');return b.stream().pipeThrough(new DecompressionStream('gzip'));})
+        .then(s=>{log('Decompressed, reading text...');return new Response(s).text();})
+        .then(h=>{log('Got HTML ('+h.length+' chars), writing...');URL.revokeObjectURL(url);document.open();document.write(h);document.close();})
+        .catch(e=>err('Decompress error: '+e.message));
+    } catch(e) {
+      err('Init error: '+e.message);
+    }
   </script>
 </body>
 </html>`;
@@ -910,22 +927,39 @@ async function createBundle(pieceName, onProgress = () => {}) {
 <head>
   <meta charset="utf-8">
   <title>${PIECE_NAME} · Aesthetic Computer</title>
-  <style>body{margin:0;background:#000;overflow:hidden}</style>
+  <style>body{margin:0;background:#000;overflow:hidden;color:#0f0;font:24px monospace;padding:20px}</style>
 </head>
 <body>
+  <div id="dbg"></div>
   <script>
+    function log(m){document.getElementById('dbg').innerHTML+='<div>'+m+'</div>';console.log(m);}
+    function err(m){document.getElementById('dbg').innerHTML+='<div style="color:red">'+m+'</div>';console.error(m);}
+    window.onerror=function(m,s,l,c,e){err('ERROR: '+m+' at '+s+':'+l);return false;};
+    log('Bundle loader starting...');
     // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
     const b64='${gzipBase64}';
-    const bin=atob(b64);
-    const bytes=new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-    const blob=new Blob([bytes],{type:'application/gzip'});
-    const url=URL.createObjectURL(blob);
-    fetch(url)
-      .then(r=>r.blob())
-      .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
-      .then(s=>new Response(s).text())
-      .then(h=>{URL.revokeObjectURL(url);document.open();document.write(h);document.close();});
+    log('Base64 length: '+b64.length);
+    try {
+      const bin=atob(b64);
+      log('Decoded binary length: '+bin.length);
+      const bytes=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+      log('Created Uint8Array');
+      const blob=new Blob([bytes],{type:'application/gzip'});
+      log('Created blob');
+      const url=URL.createObjectURL(blob);
+      log('Created blob URL');
+      if(typeof DecompressionStream==='undefined'){err('DecompressionStream NOT SUPPORTED!');throw new Error('No DecompressionStream');}
+      log('DecompressionStream available');
+      fetch(url)
+        .then(r=>{log('Fetched blob');return r.blob();})
+        .then(b=>{log('Got blob, decompressing...');return b.stream().pipeThrough(new DecompressionStream('gzip'));})
+        .then(s=>{log('Decompressed, reading text...');return new Response(s).text();})
+        .then(h=>{log('Got HTML ('+h.length+' chars), writing...');URL.revokeObjectURL(url);document.open();document.write(h);document.close();})
+        .catch(e=>err('Decompress error: '+e.message));
+    } catch(e) {
+      err('Init error: '+e.message);
+    }
   </script>
 </body>
 </html>`;
