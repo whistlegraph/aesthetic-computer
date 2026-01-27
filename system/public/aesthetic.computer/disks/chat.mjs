@@ -3509,6 +3509,19 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
       const previewHeight = 74;
       height += previewHeight;
     }
+    
+    // 🔗 Add space for OG link previews (non-YouTube URLs with images)
+    const urlElements = parseMessageElements(fullMessage).filter(el => el.type === "url" && !el.sensitive);
+    // Only add space for URLs that have loaded OG data with images
+    const urlsWithPreviews = urlElements.filter(el => {
+      const cached = ogPreviewCache.get(el.text) || (globalOgPreviewCache && globalOgPreviewCache.get(el.text));
+      return cached && cached.imageData && !cached.failed;
+    });
+    if (urlsWithPreviews.length > 0) {
+      // 4px gap above + 64px image + 4px padding + 2px gap below = 74px
+      const previewHeight = 74;
+      height += previewHeight;
+    }
   }
   return height;
 }
@@ -3550,6 +3563,15 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
     const youtubeElements = parsedElements.filter(el => el.type === "youtube");
     const youtubeVideoIds = youtubeElements.map(el => el.videoId);
     
+    // 🔗 OG preview URLs (non-YouTube, non-sensitive URLs)
+    const urlElements = parsedElements.filter(el => el.type === "url" && !el.sensitive);
+    const ogUrls = urlElements.map(el => el.text);
+    // Check which URLs have loaded OG data with images
+    const ogUrlsWithPreviews = ogUrls.filter(url => {
+      const cached = ogPreviewCache.get(url) || (globalOgPreviewCache && globalOgPreviewCache.get(url));
+      return cached && cached.imageData && !cached.failed;
+    });
+    
     // 🎨 Move up for painting previews FIRST (before positioning this message)
     if (paintingCodes.length > 0) {
       // 4px gap above + 64px image + 4px padding + 2px gap below = 74px
@@ -3559,6 +3581,12 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
     
     // 📺 Move up for YouTube previews
     if (youtubeVideoIds.length > 0) {
+      const previewHeight = 74;
+      y -= previewHeight;
+    }
+    
+    // 🔗 Move up for OG link previews
+    if (ogUrlsWithPreviews.length > 0) {
       const previewHeight = 74;
       y -= previewHeight;
     }
