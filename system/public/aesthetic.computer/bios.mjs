@@ -17239,8 +17239,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     const packNow = performance.now();
     const packTimeSinceLastSnap = window._lastPackSnapTime ? (packNow - window._lastPackSnapTime) : Infinity;
     const shouldTakePackSnap = packTimeSinceLastSnap >= 5000; // 5 seconds
+    const suppressPackSnapLogs = window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS === true;
     
-    if (window.acPACK_MODE && shouldTakePackSnap && canvas) {
+    if (window.acPACK_MODE && shouldTakePackSnap && canvas && !suppressPackSnapLogs) {
       window._lastPackSnapTime = packNow;
       try {
         const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
