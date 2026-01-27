@@ -42,6 +42,7 @@ import { timestamp, radians } from "./lib/num.mjs";
 import * as graph from "./lib/graph.mjs";
 import * as WebGPU from "./lib/webgpu.mjs";
 import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backend system (auto-registers backends)
+import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
@@ -66,6 +67,11 @@ const isOpaqueOrigin = (() => {
 
 // Export to globalThis so pieces can detect sandbox mode
 globalThis.acIsSandboxed = isOpaqueOrigin;
+
+// Default to WebGL composite unless explicitly disabled
+if (globalThis.acUseWebGLComposite === undefined) {
+  globalThis.acUseWebGLComposite = true;
+}
 
 // Log once if we detect sandbox restrictions
 if (isOpaqueOrigin) {
@@ -952,6 +958,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   webgpuCanvas.style.pointerEvents = "none"; // Let events pass through to main canvas
   webgpuCanvas.style.display = "none"; // Hidden by default until WebGPU is enabled
 
+  // 🖥️🎨 WebGL Composite Canvas (blitted pixel buffer)
+  const webglCompositeCanvas = document.createElement("canvas");
+  webglCompositeCanvas.dataset.type = "webgl-composite";
+  webglCompositeCanvas.style.position = "absolute";
+  webglCompositeCanvas.style.top = "0";
+  webglCompositeCanvas.style.left = "0";
+  webglCompositeCanvas.style.zIndex = "0";
+  webglCompositeCanvas.style.pointerEvents = "none";
+  webglCompositeCanvas.style.display = "none";
+
   // � DOM-based Stats Overlay (always on top of everything)
   const statsOverlay = document.createElement("div");
   statsOverlay.id = "ac-stats-overlay";
@@ -977,6 +993,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let statsFrameCount = 0;
   let statsLastTime = performance.now();
 
+  let webglBlitter = null;
+  let captureCompositeCanvas = null;
+  let captureCompositeCtx = null;
+
   function updateStatsOverlay() {
     if (!statsOverlayEnabled) return;
     const now = performance.now();
@@ -993,6 +1013,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (statsOverlayData.lines) lines.push(`Lines: ${statsOverlayData.lines}`);
     if (statsOverlayData.extra) lines.push(statsOverlayData.extra);
     statsOverlay.textContent = lines.join("\n");
+  }
+
+  function shouldUseWebGLComposite(content) {
+    if (!content) return false;
+    if (content.webgpuEnabled) return false;
+    return content.webglCompositeEnabled === true || globalThis.acUseWebGLComposite === true;
+  }
+
+  function ensureCaptureCompositeCanvas(width, height) {
+    if (!captureCompositeCanvas) {
+      captureCompositeCanvas = document.createElement("canvas");
+      captureCompositeCtx = captureCompositeCanvas.getContext("2d");
+    }
+    if (captureCompositeCanvas.width !== width) captureCompositeCanvas.width = width;
+    if (captureCompositeCanvas.height !== height) captureCompositeCanvas.height = height;
+    return captureCompositeCtx;
   }
 
   // �🖥️🔌 Secondary main display surface. (3D GPU Renderer)
@@ -1046,6 +1082,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // A buffer for corner label overlays.
   const overlayCan = document.createElement("canvas");
   const octx = overlayCan.getContext("2d");
+  overlayCan.style.position = "absolute";
+  overlayCan.style.top = "0";
+  overlayCan.style.left = "0";
+  overlayCan.style.zIndex = "2";
+  overlayCan.style.pointerEvents = "none";
+  overlayCan.style.display = "none";
 
   // Reusable canvas for dirtyBox updates
   let dirtyBoxCanvas = document.createElement("canvas");
@@ -1267,6 +1309,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     webgpuCanvas.width = width;
     webgpuCanvas.height = height;
 
+    // Resize WebGL composite and overlay canvases to match
+    webglCompositeCanvas.width = width;
+    webglCompositeCanvas.height = height;
+    overlayCan.width = width;
+    overlayCan.height = height;
+
     // Restore the clean pixels onto the resized canvas
     ctx.drawImage(tempCanvas, 0, 0);
 
@@ -1453,8 +1501,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Canvases also fill 100% in nogap mode to avoid subpixel rounding gaps
       canvas.style.width = "100%";
       canvas.style.height = "100%";
+      webglCompositeCanvas.style.width = "100%";
+      webglCompositeCanvas.style.height = "100%";
       webgpuCanvas.style.width = "100%";
       webgpuCanvas.style.height = "100%";
+      overlayCan.style.width = "100%";
+      overlayCan.style.height = "100%";
       uiCanvas.style.width = "100%";
       uiCanvas.style.height = "100%";
     } else if (TikTok) {
@@ -1465,8 +1517,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       canvas.style.width = projectedWidth + "px";
       canvas.style.height = projectedHeight + "px";
+      webglCompositeCanvas.style.width = projectedWidth + "px";
+      webglCompositeCanvas.style.height = projectedHeight + "px";
       webgpuCanvas.style.width = projectedWidth + "px";
       webgpuCanvas.style.height = projectedHeight + "px";
+      overlayCan.style.width = projectedWidth + "px";
+      overlayCan.style.height = projectedHeight + "px";
       uiCanvas.style.width = projectedWidth + "px";
       uiCanvas.style.height = projectedHeight + "px";
     } else {
@@ -1477,8 +1533,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       canvas.style.width = projectedWidth + "px";
       canvas.style.height = projectedHeight + "px";
+      webglCompositeCanvas.style.width = projectedWidth + "px";
+      webglCompositeCanvas.style.height = projectedHeight + "px";
       webgpuCanvas.style.width = projectedWidth + "px";
       webgpuCanvas.style.height = projectedHeight + "px";
+      overlayCan.style.width = projectedWidth + "px";
+      overlayCan.style.height = projectedHeight + "px";
       uiCanvas.style.width = projectedWidth + "px";
       uiCanvas.style.height = projectedHeight + "px";
     }
@@ -1511,12 +1571,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (!wrapper.contains(canvas)) {
       perf.markBoot("canvas-setup-start");
       wrapper.append(canvas);
+      wrapper.append(webglCompositeCanvas);
       wrapper.append(modal);
 
       const bumper = document.createElement("div");
       bumper.id = "bumper";
       modal.append(bumper);
 
+      wrapper.append(overlayCan);
       wrapper.append(uiCanvas);
       if (debug) wrapper.append(debugCanvas);
       wrapper.append(webgpuCanvas); // Add WebGPU canvas (initially hidden)
@@ -1529,6 +1591,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         initWebGPU(webgpuCanvas).catch(err => {
           console.warn("⚠️ WebGPU initialization failed:", err);
         });
+      }
+
+      if (!webglBlitter) {
+        webglBlitter = createWebGLBlitter(webglCompositeCanvas);
+        const ok = webglBlitter.init();
+        if (!ok) webglBlitter = null;
       }
 
       const fonts = [
@@ -1611,9 +1679,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // });
       }
 
-      // document.fonts.ready.then(function () {});
-
-      // Trigger it to re-draw whenever the window resizes.
       let timeout;
       let lastWidth = window.innerWidth;
       let lastHeight = window.innerHeight;
@@ -16235,6 +16300,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     pixelsDidChange = content.paintChanged || false;
 
+    const useWebGLComposite = shouldUseWebGLComposite(content);
+    const webglCompositeActive = useWebGLComposite && webglBlitter?.isReady();
+    let overlayTargetCtx = webglCompositeActive ? octx : ctx;
+
     // ✨ UI Overlay (Composite) Layer
     // This currently paints corner labels and tape progress bars only.
     // (So they can be skipped for recordings?)
@@ -16443,7 +16512,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Paint overlay to main canvas (ctx is the main canvas context)
         if (name === "tapeProgressBar") {
-          ctx.drawImage(canvas, o.x, o.y);
+          overlayTargetCtx.drawImage(canvas, o.x, o.y);
         } else {
           // Add debug logging for durationTimecode
           if (name === "durationTimecode") {
@@ -16455,7 +16524,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             console.log(`🔍 Drawing qrFullscreenLabel to main canvas at (${o.x}, ${o.y}) with size ${canvas.width}x${canvas.height}`);
           }
           
-          ctx.drawImage(canvas, o.x, o.y);
+          overlayTargetCtx.drawImage(canvas, o.x, o.y);
           
           if (name === "durationTimecode") {
             console.log(`🕐 Finished drawing durationTimecode`);
@@ -16553,8 +16622,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       const db = content.dirtyBox;
       if (db) {
-        ctx.drawImage(dirtyBoxBitmapCan, db.x, db.y);
-        if (glaze.on) Glaze.update(dirtyBoxBitmapCan, db.x, db.y);
+        if (webglCompositeActive && imageData) {
+          if (canvas.style.visibility !== "hidden") {
+            canvas.style.visibility = "hidden";
+          }
+          if (webglCompositeCanvas.style.display === "none") {
+            webglCompositeCanvas.style.display = "block";
+          }
+          if (overlayCan.style.display === "none") {
+            overlayCan.style.display = "block";
+          }
+          if (webgpuCanvas.style.display !== "none") {
+            webgpuCanvas.style.display = "none";
+          }
+          webglBlitter.render(imageData);
+        } else {
+          if (canvas.style.visibility !== "visible") {
+            canvas.style.visibility = "visible";
+          }
+          if (webglCompositeCanvas.style.display !== "none") {
+            webglCompositeCanvas.style.display = "none";
+          }
+          if (overlayCan.style.display !== "none") {
+            overlayCan.style.display = "none";
+          }
+          ctx.drawImage(dirtyBoxBitmapCan, db.x, db.y);
+          if (glaze.on) Glaze.update(dirtyBoxBitmapCan, db.x, db.y);
+        }
       } else if (
         pixelsDidChange ||
         needs$creenshot ||
@@ -16601,13 +16695,40 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (webgpuCanvas.style.display === "none") {
               webgpuCanvas.style.display = "block";
             }
+            if (webglCompositeCanvas.style.display !== "none") {
+              webglCompositeCanvas.style.display = "none";
+            }
+            if (overlayCan.style.display !== "none") {
+              overlayCan.style.display = "none";
+            }
             skipImmediateOverlays = true; // Overlays will be handled separately
+          } else if (webglCompositeActive) {
+            if (canvas.style.visibility !== "hidden") {
+              canvas.style.visibility = "hidden";
+            }
+            if (webglCompositeCanvas.style.display === "none") {
+              webglCompositeCanvas.style.display = "block";
+            }
+            if (overlayCan.style.display === "none") {
+              overlayCan.style.display = "block";
+            }
+            if (webgpuCanvas.style.display !== "none") {
+              webgpuCanvas.style.display = "none";
+            }
+            webglBlitter.render(imageData);
+            skipImmediateOverlays = false;
           } else if (underlayFrame) {
             if (canvas.style.visibility !== "visible") {
               canvas.style.visibility = "visible";
             }
             if (webgpuCanvas.style.display !== "none") {
               webgpuCanvas.style.display = "none";
+            }
+            if (webglCompositeCanvas.style.display !== "none") {
+              webglCompositeCanvas.style.display = "none";
+            }
+            if (overlayCan.style.display !== "none") {
+              overlayCan.style.display = "none";
             }
             // Force sync rendering during tape playback for immediate UI updates
             ctx.putImageData(imageData, 0, 0);
@@ -16618,6 +16739,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
               if (webgpuCanvas.style.display !== "none") {
                 webgpuCanvas.style.display = "none";
+              }
+              if (webglCompositeCanvas.style.display !== "none") {
+                webglCompositeCanvas.style.display = "none";
+              }
+              if (overlayCan.style.display !== "none") {
+                overlayCan.style.display = "none";
               }
               // Non-blocking async rendering
               window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, 0).then(() => {
@@ -16642,6 +16769,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (webgpuCanvas.style.display !== "none") {
                 webgpuCanvas.style.display = "none";
               }
+              if (webglCompositeCanvas.style.display !== "none") {
+                webglCompositeCanvas.style.display = "none";
+              }
+              if (overlayCan.style.display !== "none") {
+                overlayCan.style.display = "none";
+              }
               ctx.putImageData(imageData, 0, 0);
               skipImmediateOverlays = false;
             }
@@ -16651,6 +16784,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             if (webgpuCanvas.style.display !== "none") {
               webgpuCanvas.style.display = "none";
+            }
+            if (webglCompositeCanvas.style.display !== "none") {
+              webglCompositeCanvas.style.display = "none";
+            }
+            if (overlayCan.style.display !== "none") {
+              overlayCan.style.display = "none";
             }
             ctx.putImageData(imageData, 0, 0);
             skipImmediateOverlays = false;
@@ -16736,15 +16875,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // 📸 Capture clean screenshot data BEFORE overlays are painted (only when needed)
         let cleanScreenshotData = null;
         if (needs$creenshot) {
-          cleanScreenshotData = ctx.getImageData(
-            0,
-            0,
-            ctx.canvas.width,
-            ctx.canvas.height,
-          );
+          if (webglCompositeActive && webglCompositeCanvas) {
+            const capCtx = ensureCaptureCompositeCanvas(
+              ctx.canvas.width,
+              ctx.canvas.height,
+            );
+            capCtx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            capCtx.drawImage(webglCompositeCanvas, 0, 0);
+            cleanScreenshotData = capCtx.getImageData(
+              0,
+              0,
+              ctx.canvas.width,
+              ctx.canvas.height,
+            );
+          } else {
+            cleanScreenshotData = ctx.getImageData(
+              0,
+              0,
+              ctx.canvas.width,
+              ctx.canvas.height,
+            );
+          }
         }
 
         // Paint overlays (but exclude tape progress from recordings)
+        if (webglCompositeActive) {
+          octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
+        }
         
         // console.log("🎨 Available overlay painters:", Object.keys(paintOverlays));
         let tapeProgressPainter = paintOverlays["tapeProgressBar"] || null;
@@ -16790,29 +16947,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const utcLine1 = `UTC ${content.merryUTC.time}`;
             const utcLine2 = `cycle ${content.merryUTC.cycle}s · ${content.merryUTC.index}/${content.merryUTC.total} · ${content.merryUTC.piece}`;
 
-            ctx.save();
-            ctx.globalAlpha = 0.95;
-            ctx.font = `12px YWFTProcessing-Regular, Arial, sans-serif`;
-            ctx.textBaseline = "top";
+            overlayTargetCtx.save();
+            overlayTargetCtx.globalAlpha = 0.95;
+            overlayTargetCtx.font = `12px YWFTProcessing-Regular, Arial, sans-serif`;
+            overlayTargetCtx.textBaseline = "top";
 
             const pad = 6;
             const lineH = 14;
-            const w1 = ctx.measureText(utcLine1).width;
-            const w2 = ctx.measureText(utcLine2).width;
+            const w1 = overlayTargetCtx.measureText(utcLine1).width;
+            const w2 = overlayTargetCtx.measureText(utcLine2).width;
             const boxW = Math.ceil(Math.max(w1, w2) + pad * 2);
             const boxH = Math.ceil(lineH * 2 + pad * 2);
-            const x = Math.max(0, ctx.canvas.width - boxW - 8);
+            const x = Math.max(0, overlayTargetCtx.canvas.width - boxW - 8);
             const y = 8;
 
             // Backplate
-            ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
-            ctx.fillRect(x, y, boxW, boxH);
+            overlayTargetCtx.fillStyle = "rgba(0, 0, 0, 0.55)";
+            overlayTargetCtx.fillRect(x, y, boxW, boxH);
 
             // Text
-            ctx.fillStyle = "white";
-            ctx.fillText(utcLine1, x + pad, y + pad);
-            ctx.fillText(utcLine2, x + pad, y + pad + lineH);
-            ctx.restore();
+            overlayTargetCtx.fillStyle = "white";
+            overlayTargetCtx.fillText(utcLine1, x + pad, y + pad);
+            overlayTargetCtx.fillText(utcLine2, x + pad, y + pad + lineH);
+            overlayTargetCtx.restore();
           } catch (e) {
             // Silent fail: debug-only overlay
           }
@@ -16864,12 +17021,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             (Number.isFinite(window.recordingStartTimestamp)
               ? window.recordingStartTimestamp
               : Date.now()) + relativeTimestamp;
-          const frameDataWithHUD = ctx.getImageData(
-            0,
-            0,
-            ctx.canvas.width,
-            ctx.canvas.height,
-          );
+          let frameDataWithHUD;
+          if (webglCompositeActive && webglCompositeCanvas) {
+            const capCtx = ensureCaptureCompositeCanvas(
+              ctx.canvas.width,
+              ctx.canvas.height,
+            );
+            capCtx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            capCtx.drawImage(webglCompositeCanvas, 0, 0);
+            capCtx.drawImage(overlayCan, 0, 0);
+            frameDataWithHUD = capCtx.getImageData(
+              0,
+              0,
+              ctx.canvas.width,
+              ctx.canvas.height,
+            );
+          } else {
+            frameDataWithHUD = ctx.getImageData(
+              0,
+              0,
+              ctx.canvas.width,
+              ctx.canvas.height,
+            );
+          }
           
           // Capture pen position data for crosshair rendering during export
           // Only capture pen data if cursor is within canvas bounds
@@ -16931,7 +17105,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         if (glaze.on) {
           ThreeD?.pasteTo(glazeCompositeCtx);
-          glazeCompositeCtx.drawImage(canvas, 0, 0);
+          const glazeSource = webglCompositeActive ? webglCompositeCanvas : canvas;
+          glazeCompositeCtx.drawImage(glazeSource, 0, 0);
           Glaze.update(glazeComposite);
         }
 
