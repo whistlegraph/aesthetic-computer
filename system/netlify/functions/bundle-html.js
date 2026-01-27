@@ -319,31 +319,22 @@ async function minifyJS(content, relativePath) {
   try {
     const { minify } = require("@swc/wasm");
     
+    // Use conservative minification settings to avoid breaking code
     const result = await minify(processedContent, {
       compress: {
         dead_code: true,
         unused: true,
-        passes: 3,
-        pure_getters: true,
-        unsafe_math: true,
-        join_vars: true,
-        sequences: true,
-        evaluate: true,
-        conditionals: true,
-        booleans: true,
-        loops: true,
-        side_effects: true,
-        collapse_vars: true,
-        reduce_vars: true,
-        inline: 3
+        passes: 1,
+        // Disable aggressive optimizations that can break code
+        pure_getters: false,
+        unsafe_math: false,
+        side_effects: false,
+        collapse_vars: false,
+        reduce_vars: false,
+        inline: false
       },
-      mangle: {
-        toplevel: true,
-        keep_classnames: false,
-        keep_fnames: false,
-        safari10: false
-      },
-      format: { comments: false, ascii_only: false },
+      mangle: false,  // Don't mangle - can break dynamic lookups
+      format: { comments: false },
       module: true,
       sourceMap: false
     });

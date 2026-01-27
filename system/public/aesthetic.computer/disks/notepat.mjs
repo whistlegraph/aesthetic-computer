@@ -844,7 +844,9 @@ let dawPlaying = false; // Transport playing state from DAW
 const trail = {};
 
 // 🎹 Piano roll history - pixel timeline of held notes
-const PIANO_ROLL_WIDTH = 200; // pixels of history
+const PIANO_ROLL_WIDTH = 400; // pixels of history (larger buffer for more context)
+const PIANO_ROLL_SCROLL_DIVISOR = 4; // Only scroll every N frames (slower = more history visible)
+let pianoRollFrameCounter = 0; // Frame counter for scroll timing
 const pianoRollHistory = buttonNotes.map(() => new Uint8Array(PIANO_ROLL_WIDTH)); // 1 row per note, 0=off, 1=on
 
 // 🔬 Telemetry: Expose trail for stability testing
@@ -4526,6 +4528,10 @@ function paint({
   if (!paintPictureOverlay && !projector && !recitalMode) {
     const noteCount = buttonNotes.length; // 24 notes
     
+    // Increment frame counter and check if we should scroll this frame
+    pianoRollFrameCounter = (pianoRollFrameCounter + 1) % PIANO_ROLL_SCROLL_DIVISOR;
+    const shouldScrollPianoRoll = pianoRollFrameCounter === 0;
+    
     // Determine if we should use vertical layout based on available space
     const useVerticalRoll = layout.splitLayout || layout.verticalTrack;
     
@@ -4555,15 +4561,26 @@ function paint({
       }
       
       // Update history: shift all rows up, add current state at bottom
-      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-        const row = pianoRollHistory[noteIdx];
-        // Shift up by 1 pixel (older history moves toward index 0)
-        for (let y = 0; y < PIANO_ROLL_WIDTH - 1; y++) {
-          row[y] = row[y + 1];
+      // Only scroll on designated frames for slower movement
+      if (shouldScrollPianoRoll) {
+        for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
+          const row = pianoRollHistory[noteIdx];
+          // Shift up by 1 pixel (older history moves toward index 0)
+          for (let y = 0; y < PIANO_ROLL_WIDTH - 1; y++) {
+            row[y] = row[y + 1];
+          }
+          // Set bottom pixel based on current note state
+          const note = buttonNotes[noteIdx];
+          row[PIANO_ROLL_WIDTH - 1] = sounds[note] !== undefined ? 1 : 0;
         }
-        // Set bottom pixel based on current note state
-        const note = buttonNotes[noteIdx];
-        row[PIANO_ROLL_WIDTH - 1] = sounds[note] !== undefined ? 1 : 0;
+      } else {
+        // Even when not scrolling, update the current pixel to reflect held notes
+        for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
+          const note = buttonNotes[noteIdx];
+          if (sounds[note] !== undefined) {
+            pianoRollHistory[noteIdx][PIANO_ROLL_WIDTH - 1] = 1;
+          }
+        }
       }
       
       // 🎹 Draw mini piano keys above the track to show note relationship
@@ -4643,15 +4660,26 @@ function paint({
       const rollX = screen.width - rollWidth;
       
       // Update history: shift all columns left, add current state on right
-      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-        const row = pianoRollHistory[noteIdx];
-        // Shift left by 1 pixel
-        for (let x = 0; x < PIANO_ROLL_WIDTH - 1; x++) {
-          row[x] = row[x + 1];
+      // Only scroll on designated frames for slower movement
+      if (shouldScrollPianoRoll) {
+        for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
+          const row = pianoRollHistory[noteIdx];
+          // Shift left by 1 pixel
+          for (let x = 0; x < PIANO_ROLL_WIDTH - 1; x++) {
+            row[x] = row[x + 1];
+          }
+          // Set rightmost pixel based on current note state
+          const note = buttonNotes[noteIdx];
+          row[PIANO_ROLL_WIDTH - 1] = sounds[note] !== undefined ? 1 : 0;
         }
-        // Set rightmost pixel based on current note state
-        const note = buttonNotes[noteIdx];
-        row[PIANO_ROLL_WIDTH - 1] = sounds[note] !== undefined ? 1 : 0;
+      } else {
+        // Even when not scrolling, update the current pixel to reflect held notes
+        for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
+          const note = buttonNotes[noteIdx];
+          if (sounds[note] !== undefined) {
+            pianoRollHistory[noteIdx][PIANO_ROLL_WIDTH - 1] = 1;
+          }
+        }
       }
       
       // Draw subtle background
