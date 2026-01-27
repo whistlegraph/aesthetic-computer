@@ -50,6 +50,28 @@ const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
 const { isFinite } = Number;
 
+// 🔒 Sandbox Detection - Detect if we're running in a restrictive iframe sandbox
+// (like objkt.com's default mode which lacks allow-same-origin)
+const isOpaqueOrigin = (() => {
+  try {
+    // In sandboxed iframes without allow-same-origin, origin is 'null' string
+    if (window.origin === 'null') return true;
+    // Also check if we can access localStorage (blocked in opaque origins)
+    localStorage.getItem('__sandbox_test__');
+    return false;
+  } catch (e) {
+    return true;
+  }
+})();
+
+// Export to globalThis so pieces can detect sandbox mode
+globalThis.acIsSandboxed = isOpaqueOrigin;
+
+// Log once if we detect sandbox restrictions
+if (isOpaqueOrigin) {
+  console.warn('⚠️ Running in sandboxed iframe (opaque origin) - some features disabled, performance may be reduced');
+}
+
 // 🎹 DAW Sync (for Max for Live integration)
 // The global window.acDaw* functions are defined in index.mjs HTML before modules load.
 // This allows M4L's executejavascript to call them immediately.
@@ -1274,6 +1296,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ctx.clearRect(0, tempCanvas.height, width, height - tempCanvas.height);
         }
       } else {
+        // 🔐 In sandboxed contexts, skip expensive pixel sampling for reframe fill
+        // Just use black - this only affects edge fill during resolution changes
+        if (isOpaqueOrigin) {
+          ctx.fillStyle = 'rgb(0, 0, 0)';
+          if (width > tempCanvas.width) {
+            ctx.fillRect(tempCanvas.width, 0, width - tempCanvas.width, height);
+          }
+          if (height > tempCanvas.height) {
+            ctx.fillRect(0, tempCanvas.height, width, height - tempCanvas.height);
+          }
+        } else {
         const coerceToRGB = (color) => {
           if (!color) return null;
           try {
@@ -1401,6 +1434,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ctx.fillRect(0, tempCanvas.height, width, height - tempCanvas.height);
           }
         }
+        } // end non-sandbox path
       }
     }
 
@@ -4958,19 +4992,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Window control requests from pieces (e.g., prompt.mjs running in worker)
     if (type === "window:open") {
       const url = content?.url || content?.href || content?.path;
+      const index = content?.index ?? 0;
+      const total = content?.total ?? 1;
       if (url) {
         const isElectron = /Electron/i.test(navigator.userAgent || "");
-        try {
-          const result = window.open(url, "_blank", "noopener");
-          if (isElectron && !result) {
-            const fallbackUrl = `ac://open?url=${encodeURIComponent(url)}`;
-            location.href = fallbackUrl;
+        // Use IPC in Electron (handled by flip-view.html)
+        if (isElectron && window.electronAPI?.openWindow) {
+          window.electronAPI.openWindow({ url, index, total });
+        } else if (isElectron) {
+          // Fallback: post message to parent (flip-view.html will handle it)
+          window.parent?.postMessage({ type: 'ac-open-window', url, index, total }, '*');
+          // Also try window.open but don't use location.href (causes blur)
+          try {
+            window.open(url, "_blank", "noopener");
+          } catch (err) {
+            console.warn('[bios] window.open failed:', err);
           }
-        } catch (err) {
-          if (isElectron) {
-            const fallbackUrl = `ac://open?url=${encodeURIComponent(url)}`;
-            location.href = fallbackUrl;
-          }
+        } else {
+          // Browser: just open a new tab
+          window.open(url, "_blank", "noopener");
         }
       }
       return;
@@ -17881,6 +17921,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Add a crop to square modifier.
 
   async function bufferToBlob(data, MIME = "image/png", modifiers) {
+    // 🔐 Guard: In sandboxed iframes (opaque origin), toBlob/toDataURL will fail
+    // Return null early to prevent SecurityError exceptions
+    if (isOpaqueOrigin) {
+      console.warn('⚠️ bufferToBlob skipped: canvas export blocked in sandboxed iframe');
+      return null;
+    }
+
     let can;
     // Encode a pixel buffer as a png.
     // See also: https://stackoverflow.com/questions/11112321/how-to-save-canvas-as-png-image

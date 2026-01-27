@@ -2200,35 +2200,19 @@ async function halt($, text) {
     );
     makeFlash($);
     return true;
-  } else if (text === "+") {
-    // New window/tab. In Electron, the host webview wrapper intercepts popups and
-    // opens a new BrowserWindow.
+  } else if (/^\++$/.test(text)) {
+    // New window(s). '+' opens 1, '++' opens 2, '+++' opens 3, etc.
+    // In Electron, the host webview wrapper intercepts and opens new BrowserWindows.
+    const count = text.length;
     const isElectron = /Electron/i.test(navigator.userAgent || "");
-    console.log("[prompt] '+' command - opening new window", { 
+    console.log(`[prompt] '${text}' command - opening ${count} new window(s)`, { 
       isElectron, 
       userAgent: navigator.userAgent,
       href: location.href 
     });
-    try {
-      send({ type: "window:open", content: { url: location.href } });
-    } catch (err) {
-      console.error("[prompt] window:open send failed:", err);
-      try {
-        const result = window.open(location.href, "_blank", "noopener");
-        console.log("[prompt] window.open result:", result);
-        if (isElectron && !result) {
-          const fallbackUrl = `ac://open?url=${encodeURIComponent(location.href)}`;
-          console.log("[prompt] window.open blocked, falling back to", fallbackUrl);
-          location.href = fallbackUrl;
-        }
-      } catch (innerErr) {
-        console.error("[prompt] window.open failed:", innerErr);
-        if (isElectron) {
-          const fallbackUrl = `ac://open?url=${encodeURIComponent(location.href)}`;
-          console.log("[prompt] window.open error, falling back to", fallbackUrl);
-          location.href = fallbackUrl;
-        }
-      }
+    // Send one request per window, with index for positioning
+    for (let i = 0; i < count; i++) {
+      send({ type: "window:open", content: { url: location.href, index: i, total: count } });
     }
     makeFlash($);
     return true;

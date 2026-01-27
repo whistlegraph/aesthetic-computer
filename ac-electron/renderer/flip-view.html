@@ -887,7 +887,19 @@
       }
       
       console.log('[flip] Opening new window with url:', url);
-      ipcRenderer.invoke('ac-open-window', { url });
+      ipcRenderer.invoke('ac-open-window', { url, index: 0 });
+    });
+    
+    // Listen for postMessage from webview (bios.mjs sends ac-open-window messages)
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'ac-open-window') {
+        console.log('[flip] Received ac-open-window postMessage:', e.data);
+        ipcRenderer.invoke('ac-open-window', { 
+          url: e.data.url, 
+          index: e.data.index || 0, 
+          total: e.data.total || 1 
+        });
+      }
     });
     
     // Also try did-create-window (Electron 22+)
