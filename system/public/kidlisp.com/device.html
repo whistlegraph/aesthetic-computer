@@ -136,44 +136,38 @@
   <div id="fps-meter">FPS: --</div>
   
   <script>
-    // FPS meter with diagnostics
+    // FPS meter - receives actual FPS from iframe via postMessage
     (function() {
       const meter = document.getElementById('fps-meter');
-      let frames = 0;
-      let lastTime = performance.now();
-      let fps = 0;
-      let minFrameTime = Infinity;
-      let maxFrameTime = 0;
-      let lastFrameTime = performance.now();
+      const iframe = document.getElementById('display-iframe');
+      let lastFps = 0;
+      let fpsRequested = false;
       
-      function tick() {
-        const now = performance.now();
-        const frameTime = now - lastFrameTime;
-        lastFrameTime = now;
-        
-        if (frameTime > 0 && frameTime < 10000) {
-          minFrameTime = Math.min(minFrameTime, frameTime);
-          maxFrameTime = Math.max(maxFrameTime, frameTime);
+      // Listen for FPS reports from the iframe
+      window.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'ac:fps-report') {
+          lastFps = e.data.fps;
+          meter.innerHTML = 'FPS: ' + lastFps;
+          meter.style.color = lastFps >= 30 ? 'lime' : lastFps >= 15 ? 'yellow' : 'red';
         }
-        
-        frames++;
-        if (now - lastTime >= 1000) {
-          fps = Math.round(frames * 1000 / (now - lastTime));
-          frames = 0;
-          lastTime = now;
-          
-          // Show FPS and frame time range
-          const mem = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + 'MB' : '?';
-          meter.innerHTML = 'FPS: ' + fps + '<br>Frame: ' + Math.round(minFrameTime) + '-' + Math.round(maxFrameTime) + 'ms<br>Mem: ' + mem;
-          meter.style.color = fps >= 30 ? 'lime' : fps >= 15 ? 'yellow' : 'red';
-          
-          // Reset for next second
-          minFrameTime = Infinity;
-          maxFrameTime = 0;
+      });
+      
+      // Request FPS reporting from iframe once it loads
+      iframe.addEventListener('load', () => {
+        setTimeout(() => {
+          if (!fpsRequested) {
+            fpsRequested = true;
+            iframe.contentWindow?.postMessage({ type: 'ac:request-fps' }, '*');
+          }
+        }, 1000);
+      });
+      
+      // Also try requesting periodically in case iframe reloads
+      setInterval(() => {
+        if (iframe.contentWindow) {
+          iframe.contentWindow.postMessage({ type: 'ac:request-fps' }, '*');
         }
-        requestAnimationFrame(tick);
-      }
-      tick();
+      }, 5000);
     })();
   </script>
   
