@@ -319,13 +319,6 @@ async function minifyJS(content, relativePath) {
   try {
     const { minify } = require("@swc/wasm");
     
-    // Strip console.log/warn/info statements at build time for performance
-    // Keep console.error for debugging critical issues
-    processedContent = processedContent
-      .replace(/console\.log\s*\([^)]*\)\s*;?/g, '')
-      .replace(/console\.warn\s*\([^)]*\)\s*;?/g, '')
-      .replace(/console\.info\s*\([^)]*\)\s*;?/g, '');
-    
     const result = await minify(processedContent, {
       compress: {
         dead_code: true,
