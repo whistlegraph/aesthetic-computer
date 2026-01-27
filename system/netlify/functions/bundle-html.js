@@ -1301,6 +1301,7 @@ function generateHTMLBundle(opts) {
       
       const bootStart = performance.now();
       const sessionId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      const telemetryUrl = 'https://aesthetic.computer/api/bundle-telemetry';
       
       // Collect performance samples
       const perfSamples = [];
@@ -1318,12 +1319,17 @@ function generateHTMLBundle(opts) {
               screenWidth: window.innerWidth,
               screenHeight: window.innerHeight,
               devicePixelRatio: window.devicePixelRatio || 1,
+              userAgent: navigator.userAgent,
               ...data
             }
           };
-          navigator.sendBeacon?.('/api/bundle-telemetry', JSON.stringify(payload)) ||
-            fetch('/api/bundle-telemetry', { method: 'POST', body: JSON.stringify(payload), keepalive: true });
-        } catch (e) {}
+          const body = JSON.stringify(payload);
+          // Try sendBeacon first, fall back to fetch
+          if (navigator.sendBeacon && navigator.sendBeacon(telemetryUrl, body)) {
+            return;
+          }
+          fetch(telemetryUrl, { method: 'POST', body, headers: {'Content-Type': 'application/json'}, keepalive: true }).catch(() => {});
+        } catch (e) { console.warn('Telemetry error:', e); }
       }
       
       // Send boot telemetry once loaded
