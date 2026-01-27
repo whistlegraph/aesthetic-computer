@@ -283,26 +283,27 @@ function rewriteImports(code, filepath) {
   code = code.replace(/import\s*\((['"]aesthetic\.computer\/disks\/([^'"]+)['")])\)/g, 
     (match, fullPath, p) => 'import(\'ac/disks/' + p + '\')');
   
-  code = code.replace(/from\s*['"](\.\.\/[^'"]+|\.\/[^'"]+)['"]/g, (match, p) => {
+  code = code.replace(/from\s*['"](\.\.\/[^'"]+|\.\/[^'"]+)(\?[^'"]+)?['"]/g, (match, p) => {
     const resolved = resolvePath(filepath, p);
     return 'from"' + resolved + '"';
   });
   
-  code = code.replace(/import\s*\((['"](\.\.\/[^'"]+|\.\/[^'"]+)['")])\)/g, (match, fullPath, p) => {
+  code = code.replace(/import\s*\((['"](\.\.\/[^'"]+|\.\/[^'"]+)(\?[^'"]+)?['")])\)/g, (match, fullPath, p) => {
     const resolved = resolvePath(filepath, p);
     return 'import("' + resolved + '")';
   });
   
   // Handle template literal imports like import(`./lib/disk.mjs`)
   code = code.replace(/import\s*\(\`(\.\.\/[^\`]+|\.\/[^\`]+)\`\)/g, (match, p) => {
-    const resolved = resolvePath(filepath, p);
+    const clean = p.split('?')[0];
+    const resolved = resolvePath(filepath, clean);
     return 'import("' + resolved + '")';
   });
   
   // Also rewrite string literals that look like relative module paths (for wrapper functions like importWithRetry)
   // This catches patterns like: importWithRetry("./bios.mjs") or anyFunction("./lib/parse.mjs")
   // But be careful not to rewrite strings that aren't module paths
-  code = code.replace(/\(\s*['"](\.\.?\/[^'"]+\.m?js)['"]\s*\)/g, (match, p) => {
+  code = code.replace(/\(\s*['"](\.\.?\/[^'"]+\.m?js)(\?[^'"]+)?['"]\s*\)/g, (match, p) => {
     const resolved = resolvePath(filepath, p);
     return '("' + resolved + '")';
   });
