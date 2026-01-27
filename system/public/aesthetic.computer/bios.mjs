@@ -1296,17 +1296,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ctx.clearRect(0, tempCanvas.height, width, height - tempCanvas.height);
         }
       } else {
-        // 🔐 In sandboxed contexts, skip expensive pixel sampling for reframe fill
-        // Just use black - this only affects edge fill during resolution changes
-        if (isOpaqueOrigin) {
-          ctx.fillStyle = 'rgb(0, 0, 0)';
-          if (width > tempCanvas.width) {
-            ctx.fillRect(tempCanvas.width, 0, width - tempCanvas.width, height);
-          }
-          if (height > tempCanvas.height) {
-            ctx.fillRect(0, tempCanvas.height, width, height - tempCanvas.height);
-          }
-        } else {
         const coerceToRGB = (color) => {
           if (!color) return null;
           try {
@@ -1434,7 +1423,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ctx.fillRect(0, tempCanvas.height, width, height - tempCanvas.height);
           }
         }
-        } // end non-sandbox path
       }
     }
 
