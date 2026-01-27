@@ -318,6 +318,14 @@ async function minifyJS(content, relativePath) {
   
   try {
     const { minify } = require("@swc/wasm");
+    
+    // Strip console.log/warn/info statements at build time for performance
+    // Keep console.error for debugging critical issues
+    processedContent = processedContent
+      .replace(/console\.log\s*\([^)]*\)\s*;?/g, '')
+      .replace(/console\.warn\s*\([^)]*\)\s*;?/g, '')
+      .replace(/console\.info\s*\([^)]*\)\s*;?/g, '');
+    
     const result = await minify(processedContent, {
       compress: {
         dead_code: true,
@@ -334,7 +342,8 @@ async function minifyJS(content, relativePath) {
         side_effects: true,
         collapse_vars: true,
         reduce_vars: true,
-        inline: 3
+        inline: 3,
+        drop_console: true  // Also let SWC drop any remaining console calls
       },
       mangle: {
         toplevel: true,
@@ -638,60 +647,6 @@ function generateJSPieceHTMLBundle(opts) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>${pieceName} · Aesthetic Computer</title>
-  <script>
-    // Console suppression for cleaner output
-    (function() {
-      const originalWarn = console.warn;
-      const originalLog = console.log;
-      const originalError = console.error;
-      const originalInfo = console.info;
-      
-      const shouldSuppress = (...args) => {
-        const fullMessage = args.map(a => {
-          if (typeof a === 'string') return a;
-          if (a instanceof Error) return a.message + a.stack;
-          try { return String(a); } catch { return ''; }
-        }).join(' ');
-        
-        return fullMessage.includes('WebGPU') ||
-               fullMessage.includes('Implementation Status') ||
-               fullMessage.includes('experimental on this platform') ||
-               fullMessage.includes('gpuweb') ||
-               fullMessage.includes('Context Provider') ||
-               fullMessage.includes('VFS fetch:') ||
-               fullMessage.includes('VFS miss:') ||
-               fullMessage.includes('Boot completed') ||
-               fullMessage.includes('🥾') ||
-               fullMessage.includes('🟡 Error loading mjs') ||
-               fullMessage.includes('hotSwap:') ||
-               fullMessage.includes('🔍') ||
-               fullMessage.includes('📤') ||
-               fullMessage.includes('✅') ||
-               fullMessage.includes('Initializing WebGPU') ||
-               fullMessage.includes('🎨') ||
-               fullMessage.includes('🎹 MIDI') ||
-               fullMessage.includes('requestMIDIAccess') ||
-               fullMessage.includes('permissions policy');
-      };
-      
-      console.warn = function(...args) {
-        if (shouldSuppress(...args)) return;
-        return originalWarn.apply(console, args);
-      };
-      console.info = function(...args) {
-        if (shouldSuppress(...args)) return;
-        return originalInfo.apply(console, args);
-      };
-      console.log = function(...args) {
-        if (shouldSuppress(...args)) return;
-        return originalLog.apply(console, args);
-      };
-      console.error = function(...args) {
-        if (shouldSuppress(...args)) return;
-        return originalError.apply(console, args);
-      };
-    })();
-  </script>
   <style>
     body { margin: 0; padding: 0; background: black; overflow: hidden; }
     canvas { display: block; image-rendering: pixelated; }
@@ -1021,62 +976,6 @@ function generateHTMLBundle(opts) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>${PIECE_NAME} · Aesthetic Computer</title>
-  <script>
-    // Console suppression
-    (function() {
-      const originalWarn = console.warn;
-      const originalLog = console.log;
-      const originalError = console.error;
-      const originalInfo = console.info;
-      
-      const shouldSuppress = (...args) => {
-        const fullMessage = args.map(a => {
-          if (typeof a === 'string') return a;
-          if (a instanceof Error) return a.message + a.stack;
-          try { return String(a); } catch { return ''; }
-        }).join(' ');
-        
-        return fullMessage.includes('WebGPU') ||
-               fullMessage.includes('Implementation Status') ||
-               fullMessage.includes('experimental on this platform') ||
-               fullMessage.includes('gpuweb') ||
-               fullMessage.includes('Context Provider') ||
-               fullMessage.includes('viewpoint.svg') ||
-               fullMessage.includes('VFS fetch:') ||
-               fullMessage.includes('VFS miss:') ||
-               fullMessage.includes('Boot completed') ||
-               fullMessage.includes('🥾') ||
-               fullMessage.includes('🟡 Error loading mjs') ||
-               fullMessage.includes('Sending kidlisp-ready') ||
-               fullMessage.includes('kidlisp-ready message') ||
-               fullMessage.includes('hotSwap:') ||
-               fullMessage.includes('typeof window:') ||
-               fullMessage.includes('Response:') ||
-               fullMessage.includes('🔍') ||
-               fullMessage.includes('📤') ||
-               fullMessage.includes('✅') ||
-               fullMessage.includes('Initializing WebGPU') ||
-               fullMessage.includes('🎨');
-      };
-      
-      console.warn = function(...args) {
-        if (shouldSuppress(...args)) return;
-        return originalWarn.apply(console, args);
-      };
-      console.info = function(...args) {
-        if (shouldSuppress(...args)) return;
-        return originalInfo.apply(console, args);
-      };
-      console.log = function(...args) {
-        if (shouldSuppress(...args)) return;
-        return originalLog.apply(console, args);
-      };
-      console.error = function(...args) {
-        if (shouldSuppress(...args)) return;
-        return originalError.apply(console, args);
-      };
-    })();
-  </script>
   <style>
     body { margin: 0; padding: 0; background: black; overflow: hidden; }
     canvas { display: block; image-rendering: pixelated; }
@@ -1192,12 +1091,9 @@ function generateHTMLBundle(opts) {
     const importMapEntries = {};
     for (const filepath of window.modulePaths) {
       if (window.VFS_BLOB_URLS[filepath]) {
+        // Only add essential mappings to reduce import map size
         importMapEntries[filepath] = window.VFS_BLOB_URLS[filepath];
         importMapEntries['/' + filepath] = window.VFS_BLOB_URLS[filepath];
-        importMapEntries[\`aesthetic.computer/\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
-        importMapEntries[\`/aesthetic.computer/\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
-        importMapEntries[\`./aesthetic.computer/\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
-        importMapEntries[\`https://aesthetic.computer/\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
         importMapEntries[\`./\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
       }
     }
@@ -1235,11 +1131,6 @@ function generateHTMLBundle(opts) {
         .replace(/\\?.*$/g, '');
       
       vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '').replace(/^aesthetic\\.computer\\//g, '');
-      
-      // Debug: log font requests
-      if (vfsPath.includes('font_1')) {
-        console.log('[VFS] Font request:', urlStr, '->', vfsPath, 'exists:', !!window.VFS[vfsPath]);
-      }
       
       if (urlStr.includes('/media/') && urlStr.includes('/painting/')) {
         for (const [code, info] of Object.entries(window.acPAINTING_CODE_MAP || {})) {
