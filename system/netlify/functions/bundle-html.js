@@ -314,35 +314,9 @@ async function minifyJS(content, relativePath) {
   const ext = path.extname(relativePath);
   if (ext !== ".mjs" && ext !== ".js") return content;
   
+  // Skip minification entirely - just rewrite imports
   let processedContent = rewriteImports(content, relativePath);
-  
-  try {
-    const { minify } = require("@swc/wasm");
-    
-    // Use conservative minification settings to avoid breaking code
-    const result = await minify(processedContent, {
-      compress: {
-        dead_code: true,
-        unused: true,
-        passes: 1,
-        // Disable aggressive optimizations that can break code
-        pure_getters: false,
-        unsafe_math: false,
-        side_effects: false,
-        collapse_vars: false,
-        reduce_vars: false,
-        inline: false
-      },
-      mangle: false,  // Don't mangle - can break dynamic lookups
-      format: { comments: false },
-      module: true,
-      sourceMap: false
-    });
-    
-    return result.code || processedContent;
-  } catch {
-    return processedContent;
-  }
+  return processedContent;
 }
 
 // Auto-discover dependencies from imports
