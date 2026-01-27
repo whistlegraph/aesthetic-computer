@@ -5741,17 +5741,10 @@ const $paintApiUnwrapped = {
       return;
     }
     
-    // 🎨 REFRAME FIX: Use explicit canvas fill to ensure extended areas are covered
-    // For reframe operations, graph.clear() may not cover new extended areas
-    graph.withForceReplaceMode(() => {
-      if (screen && screen.width && screen.height) {
-        // Fill the entire canvas area explicitly to ensure reframe extensions are covered
-        $paintApiUnwrapped.box(0, 0, screen.width, screen.height);
-      } else {
-        // Fallback to standard clear if screen dimensions unavailable
-        graph.clear();
-      }
-    });
+    // 🚀 Use optimized clear() which writes directly to pixels array
+    // clear() already handles fade colors and uses copyWithin doubling for solid colors
+    // This is much faster than box() which goes through plot/blend per pixel
+    graph.clear();
     
     twoDCommands.push(["wipe", ...graph.c]);
     ink(...cc);
