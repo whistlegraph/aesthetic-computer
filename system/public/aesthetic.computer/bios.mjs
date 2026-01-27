@@ -17236,37 +17236,37 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // 📸 PACK mode: Log frame to console every 5 seconds (time-based, framerate independent)
-    const packNow = performance.now();
-    const packTimeSinceLastSnap = window._lastPackSnapTime ? (packNow - window._lastPackSnapTime) : Infinity;
-    const shouldTakePackSnap = packTimeSinceLastSnap >= 5000; // 5 seconds
-    const suppressPackSnapLogs = window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS === true;
-    
-    if (window.acPACK_MODE && shouldTakePackSnap && canvas && !suppressPackSnapLogs) {
-      window._lastPackSnapTime = packNow;
-      try {
-        const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
-          scaleFactor: 3,
-          displayMax: 200
-        });
-        const ts = formatTimestamp();
-        
-        // Get piece code (use acPACK_PIECE for the short name like "roz")
-        const pieceName = window.acPACK_PIECE || 'piece';
-        const pieceCode = pieceName.startsWith('$') ? pieceName : `$${pieceName}`;
-        
-        console.log(
-          `%c📸 ${pieceCode} %c@ ${ts} %c• Frame ${frameCount} %c[${dimensions.width}×${dimensions.height}]`,
-          `color: #4ecdc4; font-weight: bold; font-size: 11px; font-family: monospace;`,
-          `color: #f8b500; font-size: 10px; font-family: monospace;`,
-          `color: #888; font-size: 10px; font-family: monospace;`,
-          `color: #666; font-size: 10px; font-family: monospace;`
-        );
-        console.log(
-          `%c `,
-          `font-size: 1px; padding: ${displayHeight/2}px ${displayWidth/2}px; background: url("${dataUrl}") no-repeat center; background-size: ${displayWidth}px ${displayHeight}px; image-rendering: pixelated;`
-        );
-      } catch (e) {
-        // Silently fail - frame capture is not essential
+    // Skip entirely if snapshots are suppressed (bundles set KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true)
+    if (window.acPACK_MODE && window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS !== true && canvas) {
+      const packNow = performance.now();
+      const packTimeSinceLastSnap = window._lastPackSnapTime ? (packNow - window._lastPackSnapTime) : Infinity;
+      if (packTimeSinceLastSnap >= 5000) { // 5 seconds
+        window._lastPackSnapTime = packNow;
+        try {
+          const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
+            scaleFactor: 3,
+            displayMax: 200
+          });
+          const ts = formatTimestamp();
+          
+          // Get piece code (use acPACK_PIECE for the short name like "roz")
+          const pieceName = window.acPACK_PIECE || 'piece';
+          const pieceCode = pieceName.startsWith('$') ? pieceName : `$${pieceName}`;
+          
+          console.log(
+            `%c📸 ${pieceCode} %c@ ${ts} %c• Frame ${frameCount} %c[${dimensions.width}×${dimensions.height}]`,
+            `color: #4ecdc4; font-weight: bold; font-size: 11px; font-family: monospace;`,
+            `color: #f8b500; font-size: 10px; font-family: monospace;`,
+            `color: #888; font-size: 10px; font-family: monospace;`,
+            `color: #666; font-size: 10px; font-family: monospace;`
+          );
+          console.log(
+            `%c `,
+            `font-size: 1px; padding: ${displayHeight/2}px ${displayWidth/2}px; background: url("${dataUrl}") no-repeat center; background-size: ${displayWidth}px ${displayHeight}px; image-rendering: pixelated;`
+          );
+        } catch (e) {
+          // Silently fail - frame capture is not essential
+        }
       }
     }
 
