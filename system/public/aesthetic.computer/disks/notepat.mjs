@@ -1971,9 +1971,11 @@ function getButtonLayoutMetrics(
   const margin = 2;
 
   // Compact/DAW mode: split layout - octaves on sides, piano/qwerty in center
-  // Only use split layout for landscape screens (wider than tall)
-  const compactMode = screen.height < 200;
+  // Use split layout for landscape screens that are short enough (DAW embeds, wide windows)
   const isLandscape = screen.width > screen.height;
+  const aspectRatio = screen.width / screen.height;
+  // Trigger split layout when: landscape AND (short OR very wide aspect ratio)
+  const compactMode = screen.height < 280 || (isLandscape && aspectRatio > 1.8);
   
   if (compactMode && isLandscape) {
     const usableWidth = max(0, screen.width - reservedSide);
@@ -2176,11 +2178,15 @@ function getButtonLayoutMetrics(
   const maxButtonSize = 64; // Allow larger pads on bigger screens
   
   // Check if vertical track can fit to the right of the button grid
+  // In landscape mode, always prefer vertical piano roll on the right
+  const isLandscapeSingle = screen.width > screen.height;
   const gridWidth = buttonsPerRow * min(maxButtonSize, widthLimit);
-  const spaceForVerticalTrack = songMode ? usableWidth - gridWidth - margin * 3 : 0;
-  const canFitVerticalTrack = spaceForVerticalTrack >= VERTICAL_TRACK_MIN_WIDTH;
+  const spaceForVerticalTrack = usableWidth - gridWidth - margin * 3;
+  // In landscape, use vertical track even with minimal space; in portrait, need more room
+  const minTrackWidth = isLandscapeSingle ? 24 : VERTICAL_TRACK_MIN_WIDTH;
+  const canFitVerticalTrack = spaceForVerticalTrack >= minTrackWidth;
   const verticalTrackWidth = canFitVerticalTrack 
-    ? min(VERTICAL_TRACK_WIDTH, spaceForVerticalTrack) 
+    ? min(VERTICAL_TRACK_WIDTH, max(24, spaceForVerticalTrack)) 
     : 0;
   
   // Adjust width limit if we're reserving space for vertical track
@@ -2197,10 +2203,10 @@ function getButtonLayoutMetrics(
   buttonHeight = max(minButtonSize, buttonHeight);
   
   // Keep some proportionality - don't let aspect ratio get too extreme
-  const aspectRatio = buttonWidth / buttonHeight;
-  if (aspectRatio > 1.5) {
+  const buttonAspectRatio = buttonWidth / buttonHeight;
+  if (buttonAspectRatio > 1.5) {
     buttonWidth = floor(buttonHeight * 1.5);
-  } else if (aspectRatio < 0.67) {
+  } else if (buttonAspectRatio < 0.67) {
     buttonHeight = floor(buttonWidth * 1.5);
   }
 
@@ -4533,7 +4539,9 @@ function paint({
     const shouldScrollPianoRoll = pianoRollFrameCounter === 0;
     
     // Determine if we should use vertical layout based on available space
-    const useVerticalRoll = layout.splitLayout || layout.verticalTrack;
+    // In landscape mode, always prefer vertical roll on the right side
+    const isLandscapeScreen = screen.width > screen.height;
+    const useVerticalRoll = layout.splitLayout || layout.verticalTrack || isLandscapeScreen;
     
     if (useVerticalRoll) {
       // 🎹 VERTICAL Piano Roll - time flows downward, notes spread horizontally
@@ -4553,11 +4561,14 @@ function paint({
         rollX = layout.verticalTrackX || (screen.width - rollW - 2);
         rollY = layout.verticalTrackY || layout.hudReserved + 2;
       } else {
-        // Fallback: right side
-        rollW = noteCount;
-        rollH = Math.min(PIANO_ROLL_WIDTH, screen.height - 60);
+        // Fallback for landscape: right side vertical roll
+        // Calculate available space on the right of the button grid
+        const gridWidth = layout.buttonsPerRow * layout.buttonWidth;
+        const availableRight = screen.width - gridWidth - layout.margin * 3;
+        rollW = Math.min(noteCount, Math.max(24, availableRight));
+        rollH = Math.min(PIANO_ROLL_WIDTH, screen.height - (layout.hudReserved || 34) - (layout.bottomPadding || 2) - 4);
         rollX = screen.width - rollW - 2;
-        rollY = 34;
+        rollY = (layout.hudReserved || 34) + 2;
       }
       
       // Update history: shift all rows up, add current state at bottom
