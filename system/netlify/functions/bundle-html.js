@@ -637,7 +637,9 @@ function generateJSPieceHTMLBundle(opts) {
 </head>
 <body>
   <script type="module">
-    window.acPACK_MODE = true;
+    window.acPACK_MODE = false; // Disabled for bundle performance
+    window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true; // Disable console screenshots
+    window.__acKidlispConsoleEnabled = false; // Disable KidLisp console auto-snaps
     window.acSTARTING_PIECE = "${pieceName}";
     window.acPACK_PIECE = "${pieceName}";
     window.acPACK_DATE = "${packDate}";
@@ -1021,7 +1023,9 @@ function generateHTMLBundle(opts) {
     })();
   </script>
   <script type="module">
-    window.acPACK_MODE = true;
+    window.acPACK_MODE = false; // Disabled for bundle performance
+    window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true; // Disable console screenshots
+    window.__acKidlispConsoleEnabled = false; // Disable KidLisp console auto-snaps
     window.acKEEP_MODE = true;
     window.acSTARTING_PIECE = "${PIECE_NAME}";
     window.acPACK_PIECE = "${PIECE_NAME}";

@@ -1,13 +1,29 @@
 // 📸 Frame Capture Utility
 // Shared module for capturing canvas frames as data URLs
 
+// 🔐 Detect sandbox/opaque origin (where toDataURL will throw)
+const isOpaqueOrigin = (() => {
+  try {
+    if (typeof window !== 'undefined' && window.origin === 'null') return true;
+    if (typeof localStorage !== 'undefined') localStorage.getItem('__sandbox_test__');
+    return false;
+  } catch (e) {
+    return true;
+  }
+})();
+
 /**
  * Capture a frame from a canvas and generate a data URL
  * @param {HTMLCanvasElement} canvas - Source canvas
  * @param {Object} options - Capture options
- * @returns {Object} - { dataUrl, displayWidth, displayHeight, dimensions }
+ * @returns {Object} - { dataUrl, displayWidth, displayHeight, dimensions } or null if in sandbox
  */
 export function captureFrame(canvas, options = {}) {
+  // 🔐 Guard: In sandboxed iframes, toDataURL will throw SecurityError
+  if (isOpaqueOrigin) {
+    return null;
+  }
+
   const {
     scaleFactor = 3,        // For crisp pixelated display
     displayMax = 200,       // Max display dimension
