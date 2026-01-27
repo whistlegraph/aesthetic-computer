@@ -2968,6 +2968,70 @@ kill %1 2>/dev/null"
     end
 end
 
+# 📊 Bundle Telemetry - query performance data from inline bundles
+function ac-telemetry --description "Query bundle telemetry from MongoDB"
+    set -l action $argv[1]
+    set -l limit 20
+    set -l piece ""
+    
+    # Parse options
+    for arg in $argv[2..-1]
+        if string match -q -- '--limit=*' "$arg"
+            set limit (string replace -- '--limit=' '' "$arg")
+        else if string match -q -- '--piece=*' "$arg"
+            set piece (string replace -- '--piece=' '' "$arg")
+        end
+    end
+    
+    set -l base_url "https://aesthetic.computer/api/bundle-telemetry-query"
+    set -l piece_param ""
+    if test -n "$piece"
+        set piece_param "&piece=$piece"
+    end
+    
+    switch $action
+        case recent boot
+            echo "📊 Recent bundle boots (last $limit)..."
+            curl -s "$base_url?type=boot&limit=$limit$piece_param" | jq -r '
+                .results[] | 
+                "\(.timestamp | split(".")[0] | gsub("T"; " ")) | \(.piece // "?") | boot:\(.bootTime // "?")ms | density:\(.density // "?") | \(.screen // "?")"
+            ' 2>/dev/null || echo "❌ Query failed"
+        case fps perf
+            echo "📈 FPS data from recent sessions..."
+            curl -s "$base_url?type=perf&limit=$limit$piece_param" | jq -r '
+                .results[] | 
+                "\(.timestamp | split(".")[0] | gsub("T"; " ")) | \(.piece // "?") | samples:\(.samples | length // 0) | density:\(.density // "?")"
+            ' 2>/dev/null || echo "❌ Query failed"
+        case errors error
+            echo "❌ Recent bundle errors..."
+            curl -s "$base_url?type=error&limit=$limit$piece_param" | jq -r '
+                .results[] | 
+                "\(.timestamp | split(".")[0] | gsub("T"; " ")) | \(.piece // "?") | \(.message // "unknown")"
+            ' 2>/dev/null || echo "❌ Query failed"
+        case summary
+            echo "📊 Bundle telemetry summary (last 24h)..."
+            curl -s "$base_url?type=summary" | jq '.' 2>/dev/null || echo "❌ Query failed"
+        case raw
+            echo "🔍 Raw telemetry documents..."
+            curl -s "$base_url?type=boot&limit=$limit$piece_param" | jq '.' 2>/dev/null || echo "❌ Query failed"
+        case '*'
+            echo "📊 Bundle Telemetry Query Tool"
+            echo ""
+            echo "Usage: ac-telemetry <command> [options]"
+            echo ""
+            echo "Commands:"
+            echo "  ac-telemetry recent   - Show recent bundle boots"
+            echo "  ac-telemetry fps      - Show FPS data from sessions"
+            echo "  ac-telemetry errors   - Show recent errors"
+            echo "  ac-telemetry summary  - Show 24h summary stats"
+            echo "  ac-telemetry raw      - Show raw JSON"
+            echo ""
+            echo "Options:"
+            echo "  --limit=N      Number of results (default: 20)"
+            echo "  --piece=NAME   Filter by piece name"
+    end
+end
+
 # 🎮 Xbox helper - connect to Xbox on local network
 function ac-xbox --description "Interact with Xbox on 1244 Innes Ave LAN"
     set -l vault_path "$HOME/aesthetic-computer/aesthetic-computer-vault/machines.json"
