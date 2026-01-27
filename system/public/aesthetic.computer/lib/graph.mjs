@@ -1367,7 +1367,99 @@ function clear() {
   // 🎨 Check if current color is a fade string
   const fadeInfo = parseFadeColor(c);
   const isLocalFade = fadeInfo !== null;
-
+  
+  if (isLocalFade) {
+    // 🚀 OPTIMIZED FADE CLEAR: Pre-compute colors and use fast row/column filling
+    const colors = fadeInfo.colors;
+    const hasSpecialColors = colors.some(col => col[0] === "rainbow" || col[0] === "zebra");
+    
+    // For simple 2-color gradients without special colors, use ultra-fast path
+    if (!hasSpecialColors && colors.length >= 2) {
+      const c1 = colors[0];
+      const c2 = colors[colors.length - 1];
+      const r1 = c1[0], g1 = c1[1], b1 = c1[2], a1 = c1[3] ?? 255;
+      const r2 = c2[0], g2 = c2[1], b2 = c2[2], a2 = c2[3] ?? 255;
+      const dr = r2 - r1, dg = g2 - g1, db = b2 - b1, da = a2 - a1;
+      
+      const workingWidth = maxX - minX;
+      const workingHeight = maxY - minY;
+      const direction = fadeInfo.direction;
+      
+      if (direction === "vertical" || direction === "vertical-reverse") {
+        // 🚀 VERTICAL: Pre-compute one color per row, then use copyWithin
+        const reverse = direction === "vertical-reverse";
+        const maxT = Math.max(1, workingHeight - 1);
+        
+        for (let y = minY; y < maxY; y++) {
+          const t = reverse ? (maxY - 1 - y) / maxT : (y - minY) / maxT;
+          const r = (r1 + dr * t) | 0;
+          const g = (g1 + dg * t) | 0;
+          const b = (b1 + db * t) | 0;
+          const a = (a1 + da * t) | 0;
+          
+          const rowStart = (y * width + minX) * 4;
+          // Set first pixel
+          pixels[rowStart] = r;
+          pixels[rowStart + 1] = g;
+          pixels[rowStart + 2] = b;
+          pixels[rowStart + 3] = a;
+          
+          // Copy across row using doubling strategy
+          const rowWidth = workingWidth * 4;
+          for (let copySize = 4; copySize < rowWidth; copySize *= 2) {
+            const copyEnd = Math.min(copySize * 2, rowWidth);
+            pixels.copyWithin(rowStart + copySize, rowStart, rowStart + copyEnd - copySize);
+          }
+        }
+        return;
+      } else if (direction === "horizontal" || direction === "horizontal-reverse") {
+        // 🚀 HORIZONTAL: Pre-compute color lookup table, then blast rows
+        const reverse = direction === "horizontal-reverse";
+        const maxT = Math.max(1, workingWidth - 1);
+        
+        // Pre-compute color for each x position (reused for all rows)
+        const rowColors = new Uint8ClampedArray(workingWidth * 4);
+        for (let x = 0; x < workingWidth; x++) {
+          const t = reverse ? (workingWidth - 1 - x) / maxT : x / maxT;
+          const idx = x * 4;
+          rowColors[idx] = (r1 + dr * t) | 0;
+          rowColors[idx + 1] = (g1 + dg * t) | 0;
+          rowColors[idx + 2] = (b1 + db * t) | 0;
+          rowColors[idx + 3] = (a1 + da * t) | 0;
+        }
+        
+        // Copy pre-computed row to each row
+        for (let y = minY; y < maxY; y++) {
+          const rowStart = (y * width + minX) * 4;
+          pixels.set(rowColors, rowStart);
+        }
+        return;
+      } else if (direction === "diagonal" || direction === "diagonal-reverse") {
+        // 🚀 DIAGONAL: Direct pixel write with inline interpolation (no function calls)
+        const reverse = direction === "diagonal-reverse";
+        const maxTx = Math.max(1, workingWidth - 1);
+        const maxTy = Math.max(1, workingHeight - 1);
+        
+        for (let y = minY; y < maxY; y++) {
+          const dy = reverse ? (maxY - 1 - y) / maxTy : (y - minY) / maxTy;
+          const rowOffset = y * width;
+          
+          for (let x = minX; x < maxX; x++) {
+            const dx = reverse ? (maxX - 1 - x) / maxTx : (x - minX) / maxTx;
+            const t = (dx + dy) * 0.5;
+            const i = (rowOffset + x) * 4;
+            pixels[i] = (r1 + dr * t) | 0;
+            pixels[i + 1] = (g1 + dg * t) | 0;
+            pixels[i + 2] = (b1 + db * t) | 0;
+            pixels[i + 3] = (a1 + da * t) | 0;
+          }
+        }
+        return;
+      }
+      // Fall through for angle-based fades
+    }
+    // Fall through to slow path for special colors or complex gradients
+  }
   if (isLocalFade) {
     // Handle fade colors pixel by pixel (cannot use fast optimization)
     for (let y = minY; y < maxY; y++) {
