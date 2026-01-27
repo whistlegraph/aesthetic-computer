@@ -1207,8 +1207,99 @@ function paint(
     }
   }
   
-  // Request continuous painting only if we have animating paintings or YouTube
-  if (hasAnimatingPaintings || hasAnimatingYoutube) {
+  // 🔗 Render OG link previews and trigger loading
+  let hasAnimatingOg = false;
+  
+  for (let i = client.messages.length - 1; i >= 0; i--) {
+    const message = client.messages[i];
+    if (!message.layout?.ogUrls) continue;
+    
+    // OG previews appear after painting and YouTube previews
+    const paintingOffset = message.layout.paintingCodes ? 74 : 0;
+    const youtubeOffset = message.layout.youtubeVideoIds ? 74 : 0;
+    const previewY = message.layout.y + message.layout.height + 4 + paintingOffset + youtubeOffset;
+    const previewHeight = 68;
+    
+    // Only process if visible
+    if (previewY + previewHeight < effectiveTopMargin) continue;
+    if (previewY > screen.height - bottomMargin) continue;
+    
+    let previewX = message.layout.x;
+    
+    for (let urlIdx = 0; urlIdx < message.layout.ogUrls.length; urlIdx++) {
+      const url = message.layout.ogUrls[urlIdx];
+      const cached = ogPreviewCache.get(url);
+      
+      if (!cached && !ogLoadQueue.has(url)) {
+        // Trigger async loading
+        loadOgPreview(url, netPreload).then(result => {
+          if (result && result.imageData) {
+            messagesNeedLayout = true; // Relayout to add space for preview
+            help.repeat(); // Trigger repaint when preview loads
+          }
+        });
+      }
+      
+      if (cached && cached.imageData && !cached.failed) {
+        hasAnimatingOg = true;
+        const { imageData, title, siteName } = cached;
+        
+        // OG previews use 120x68 (same as YouTube)
+        const previewW = 120;
+        const previewH = 68;
+        
+        const imgWidth = imageData.width || imageData.w || 320;
+        const imgHeight = imageData.height || imageData.h || 180;
+        
+        const isHovered = message.layout.hoveredOgUrl === url;
+        
+        const visibleTop = Math.max(previewY, effectiveTopMargin);
+        const visibleBottom = Math.min(previewY + previewH, screen.height - bottomMargin);
+        const visibleHeight = visibleBottom - visibleTop;
+        
+        if (visibleHeight > 0 && imgWidth > 0 && imgHeight > 0) {
+          // Scale factor to fit image into 120x68
+          const scaleX = previewW / imgWidth;
+          const scaleY = previewH / imgHeight;
+          const scaleFactor = Math.min(scaleX, scaleY);
+          
+          if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
+            // Center the image if it doesn't fill the space
+            const scaledW = imgWidth * scaleFactor;
+            const scaledH = imgHeight * scaleFactor;
+            const offsetX = (previewW - scaledW) / 2;
+            const offsetY = (previewH - scaledH) / 2;
+            
+            paste(
+              imageData,
+              floor(previewX + offsetX),
+              floor(previewY + offsetY),
+              scaleFactor
+            );
+          }
+        }
+        
+        // Cyan border for OG links (matching URL color)
+        if (isHovered) {
+          ink(0, 255, 255).box(previewX, previewY, previewW, previewH, "outline");
+        } else {
+          const blinkAlpha = Math.floor(100 + (Math.sin(help.repeat * 0.15) + 1) * 50);
+          ink(0, 200, 200, blinkAlpha).box(previewX, previewY, previewW, previewH, "outline");
+        }
+        
+        // Draw title below the preview if we have space
+        if (title && previewY + previewH + 10 < screen.height - bottomMargin) {
+          const truncatedTitle = title.length > 20 ? title.slice(0, 18) + "…" : title;
+          ink(150, 150, 180).write(truncatedTitle, { x: previewX, y: previewY + previewH + 2 }, undefined, undefined, false, "MatrixChunky8");
+        }
+        
+        previewX += previewW + 4;
+      }
+    }
+  }
+  
+  // Request continuous painting only if we have animating paintings, YouTube, or OG previews
+  if (hasAnimatingPaintings || hasAnimatingYoutube || hasAnimatingOg) {
     needsPaint();
   }
 
@@ -2321,6 +2412,35 @@ function act(
               }
             }
           }
+          
+          // 🔗 Check for hover on OG link previews
+          if (message.layout.ogUrls) {
+            const paintingOffset = message.layout.paintingCodes ? 74 : 0;
+            const youtubeOffset = message.layout.youtubeVideoIds ? 74 : 0;
+            const previewY = message.layout.y + message.layout.height + 4 + paintingOffset + youtubeOffset;
+            let previewX = message.layout.x;
+            const previewW = 120;
+            const previewH = 68;
+            
+            message.layout.hoveredOgUrl = null;
+            
+            for (let urlIdx = 0; urlIdx < message.layout.ogUrls.length; urlIdx++) {
+              const url = message.layout.ogUrls[urlIdx];
+              const cached = ogPreviewCache.get(url);
+              if (cached && cached.imageData && !cached.failed) {
+                if (
+                  e.x >= previewX &&
+                  e.x < previewX + previewW &&
+                  e.y >= previewY &&
+                  e.y < previewY + previewH
+                ) {
+                  message.layout.hoveredOgUrl = url;
+                  break;
+                }
+                previewX += previewW + 4;
+              }
+            }
+          }
 
           // Store the clicked message for potential interaction
           message.clicked = true;
@@ -2589,6 +2709,42 @@ function act(
             }
           }
           
+          // 🔗 Check if click was on an OG link preview
+          if (message.layout.ogUrls && !clickedInteractiveElement) {
+            const paintingOffset = message.layout.paintingCodes ? 74 : 0;
+            const youtubeOffset = message.layout.youtubeVideoIds ? 74 : 0;
+            const previewY = message.layout.y + message.layout.height + 4 + paintingOffset + youtubeOffset;
+            let previewX = message.layout.x;
+            const previewW = 120;
+            const previewH = 68;
+            
+            for (const url of message.layout.ogUrls) {
+              const cached = ogPreviewCache.get(url);
+              if (cached && cached.imageData && !cached.failed) {
+                if (
+                  e.x >= previewX &&
+                  e.x < previewX + previewW &&
+                  e.y >= previewY &&
+                  e.y < previewY + previewH
+                ) {
+                  clickedInteractiveElement = true;
+                  beep();
+                  // Show confirmation modal for external URL (same as text link)
+                  const ogTitle = cached.title || url;
+                  linkConfirmModal = {
+                    type: "url",
+                    text: url,
+                    displayText: ogTitle.length > 40 ? ogTitle.slice(0, 38) + "…" : ogTitle,
+                    description: cached.siteName || "Open in browser",
+                    action: () => jump("out:" + url)
+                  };
+                  break;
+                }
+                previewX += previewW + 4;
+              }
+            }
+          }
+          
           // 📋 If click was on plain message text (not interactive elements), show copy modal
           // Only show if this was a tap, not a drag/scroll (scroll already handled above with continue)
           if (!clickedInteractiveElement && !linkConfirmModal && !modalPainting) {
@@ -2804,6 +2960,36 @@ function act(
                 previewX += previewW + 4;
               } else {
                 previewX += 120 + 4;
+              }
+            }
+          }
+          
+          // 🔗 Check for hover on OG link previews
+          if (message.layout.ogUrls) {
+            const paintingOffset = message.layout.paintingCodes ? 74 : 0;
+            const youtubeOffset = message.layout.youtubeVideoIds ? 74 : 0;
+            const previewY = message.layout.y + message.layout.height + 4 + paintingOffset + youtubeOffset;
+            let previewX = message.layout.x;
+            const previewW = 120;
+            const previewH = 68;
+            
+            message.layout.hoveredOgUrl = null;
+            
+            for (let urlIdx = 0; urlIdx < message.layout.ogUrls.length; urlIdx++) {
+              const url = message.layout.ogUrls[urlIdx];
+              const cached = ogPreviewCache.get(url);
+              if (cached && cached.imageData && !cached.failed) {
+                if (
+                  e.x >= previewX &&
+                  e.x < previewX + previewW &&
+                  e.y >= previewY &&
+                  e.y < previewY + previewH
+                ) {
+                  message.layout.hoveredOgUrl = url;
+                  hoveredAnyElement = true;
+                  break;
+                }
+                previewX += previewW + 4;
               }
             }
           }
@@ -3659,6 +3845,7 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
       paintingCodes: paintingCodes.length > 0 ? paintingCodes : undefined, // Store painting codes
       paintingPreviews: paintingCodes.length > 0 ? [] : undefined, // Will store loaded previews
       youtubeVideoIds: youtubeVideoIds.length > 0 ? youtubeVideoIds : undefined, // 📺 Store YouTube video IDs
+      ogUrls: ogUrls.length > 0 ? ogUrls : undefined, // 🔗 Store OG preview URLs
     };
 
     delete msg.lastLayout;
