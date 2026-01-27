@@ -329,22 +329,16 @@ async function minifyJS(content, relativePath) {
   try {
     const { minify } = require("@swc/wasm");
     
-    // Use conservative minification settings to avoid breaking code
+    // 🚀 PERF FIX: Disable compression entirely - it breaks JIT optimization of hot loops
+    // SWC compression can transform loops in ways that V8/SpiderMonkey can't optimize
+    // (e.g., spin function goes from 30fps to 16fps with compression enabled)
+    // Just strip comments and whitespace for smaller files without perf impact
     const result = await minify(processedContent, {
-      compress: {
-        dead_code: true,
-        unused: true,
-        passes: 1,
-        // Disable aggressive optimizations that can break code
-        pure_getters: false,
-        unsafe_math: false,
-        side_effects: false,
-        collapse_vars: false,
-        reduce_vars: false,
-        inline: false
+      compress: false,  // Disable all compression - preserves JIT-friendly code patterns
+      mangle: false,    // Don't mangle - can break dynamic lookups
+      format: { 
+        comments: false,  // Strip comments for smaller files
       },
-      mangle: false,  // Don't mangle - can break dynamic lookups
-      format: { comments: false },
       module: true,
       sourceMap: false
     });
