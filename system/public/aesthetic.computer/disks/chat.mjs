@@ -171,6 +171,18 @@ if (typeof globalThis !== "undefined") {
   globalYoutubeThumbCache = globalThis.__acYoutubeThumbCache;
 }
 
+// 🔗 Open Graph link preview system
+let ogPreviewCache = new Map(); // Store loaded OG metadata { url, title, image, imageData }
+let ogLoadQueue = new Set(); // Track which URLs are being loaded
+let globalOgPreviewCache = null;
+
+if (typeof globalThis !== "undefined") {
+  if (!globalThis.__acOgPreviewCache) {
+    globalThis.__acOgPreviewCache = new Map();
+  }
+  globalOgPreviewCache = globalThis.__acOgPreviewCache;
+}
+
 //  Link confirmation modal system
 // { type: "prompt"|"url"|"handle"|"kidlisp"|"painting", text: string, action: function }
 let linkConfirmModal = null;
@@ -3193,7 +3205,74 @@ async function loadPaintingPreview(code, get, store) {
   }
 }
 
-// 📺 Load YouTube thumbnail by video ID
+// � Load Open Graph preview for a URL
+async function loadOgPreview(url, preload) {
+  // Check cache first
+  if (ogPreviewCache.has(url)) {
+    return ogPreviewCache.get(url);
+  }
+  if (globalOgPreviewCache && globalOgPreviewCache.has(url)) {
+    const cached = globalOgPreviewCache.get(url);
+    ogPreviewCache.set(url, cached);
+    return cached;
+  }
+  
+  // Check if already loading
+  if (ogLoadQueue.has(url)) {
+    return null; // Still loading
+  }
+  
+  ogLoadQueue.add(url);
+  
+  try {
+    // Fetch OG metadata from our serverless function
+    const apiUrl = `/api/og-preview?url=${encodeURIComponent(url)}`;
+    const response = await fetch(apiUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch OG data: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // If there's an og:image, load it
+    let imageData = null;
+    if (data.image) {
+      try {
+        const loaded = await preload(data.image);
+        imageData = loaded?.img || loaded;
+      } catch (imgErr) {
+        console.warn(`Failed to load OG image for ${url}:`, imgErr);
+      }
+    }
+    
+    const result = {
+      url,
+      title: data.title,
+      description: data.description,
+      image: data.image,
+      imageData,
+      siteName: data.siteName,
+      favicon: data.favicon,
+    };
+    
+    ogPreviewCache.set(url, result);
+    if (globalOgPreviewCache) {
+      globalOgPreviewCache.set(url, result);
+    }
+    ogLoadQueue.delete(url);
+    return result;
+  } catch (err) {
+    console.warn(`Failed to load OG preview for ${url}:`, err);
+    // Cache a minimal result to avoid repeated failed requests
+    const result = { url, title: null, image: null, imageData: null, failed: true };
+    ogPreviewCache.set(url, result);
+    ogLoadQueue.delete(url);
+    return result;
+  }
+}
+
+// �📺 Load YouTube thumbnail by video ID
 async function loadYoutubePreview(videoId, preload) {
   // Check cache first
   if (youtubePreviewCache.has(videoId)) {
