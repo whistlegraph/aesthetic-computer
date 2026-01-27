@@ -4279,19 +4279,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // 🛑 Frame pump stall watchdog
   // If bios requests a frame and the worker never replies with render/update,
   // the UI can appear to freeze silently. Detect that and surface an error.
-  const FRAME_STALL_MS =
-    typeof window !== "undefined" && typeof window.acFRAME_STALL_MS === "number"
-      ? window.acFRAME_STALL_MS
-      : 8000;
-  let frameStallTimer = null;
+  // 🚀 OPTIMIZED: Uses frame counting instead of setTimeout/clearTimeout per frame
+  const FRAME_STALL_FRAMES = 480; // ~8 seconds at 60fps
   let frameStallArmedAt = 0;
   let frameStallArmedFrame = 0n;
+  let framesSinceLastRender = 0;
 
   function clearFrameStallWatchdog() {
-    if (frameStallTimer) {
-      clearTimeout(frameStallTimer);
-      frameStallTimer = null;
-    }
+    framesSinceLastRender = 0;
   }
 
   function showFrameStallOverlay(message) {
@@ -4344,18 +4339,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   function armFrameStallWatchdog() {
-    clearFrameStallWatchdog();
-    if (document.visibilityState && document.visibilityState !== "visible") return;
-    frameStallArmedAt = performance.now();
-    frameStallArmedFrame = frameCount;
-    frameStallTimer = setTimeout(() => {
-      if (!frameAlreadyRequested) return;
-      const elapsed = Math.round(performance.now() - frameStallArmedAt);
+    // 🚀 OPTIMIZED: Just increment counter, check threshold
+    if (document.visibilityState && document.visibilityState !== "visible") {
+      framesSinceLastRender = 0;
+      return;
+    }
+    
+    framesSinceLastRender++;
+    
+    if (framesSinceLastRender >= FRAME_STALL_FRAMES && frameAlreadyRequested) {
       const piece = typeof currentPiece === "string" ? currentPiece : "(unknown piece)";
       triggerFrameStall(
-        `SYSTEM STALL\n\nNo render/update from disk after requesting a frame.\n\nPiece: ${piece}\nFrame: ${String(frameStallArmedFrame)}\nWaited: ${elapsed}ms`,
+        `SYSTEM STALL\n\nNo render/update from disk after requesting a frame.\n\nPiece: ${piece}\nFrame: ${String(frameStallArmedFrame)}\nWaited: ~${Math.round(framesSinceLastRender / 60)}s`,
       );
-    }, FRAME_STALL_MS);
+    }
   }
 
   function requestFrame(needsRender, updateCount, nowUpdate) {
