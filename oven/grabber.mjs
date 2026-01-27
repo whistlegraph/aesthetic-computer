@@ -1796,6 +1796,9 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
   if (source === 'keep' && keepId) {
     console.log(`   Source: Keep #${keepId}`);
   }
+  if (options.skipCache) {
+    console.log(`   skipCache: true (forcing fresh grab)`);
+  }
   
   // Grab the piece
   const grabResult = await grabPiece(piece, {
@@ -1807,6 +1810,7 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
     playbackFps: options.playbackFps || 15,
     density: options.density || 1,
     quality: options.quality || 90,
+    skipCache: options.skipCache || false,
     baseUrl: options.baseUrl || 'https://aesthetic.computer',
     source,
     keepId,
@@ -1820,13 +1824,51 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
     };
   }
   
+  // Get the buffer - either from grab result or fetch from CDN if cached
+  let buffer = grabResult.buffer;
+  if (!buffer && grabResult.cached && grabResult.cdnUrl) {
+    console.log(`📥 Fetching cached thumbnail from CDN: ${grabResult.cdnUrl}`);
+    try {
+      const cdnResponse = await fetch(grabResult.cdnUrl);
+      if (!cdnResponse.ok) {
+        throw new Error(`CDN fetch failed: ${cdnResponse.status}`);
+      }
+      buffer = Buffer.from(await cdnResponse.arrayBuffer());
+      console.log(`   Downloaded ${(buffer.length / 1024).toFixed(1)} KB from CDN`);
+    } catch (cdnErr) {
+      console.error(`❌ Failed to fetch from CDN:`, cdnErr.message);
+      // Try regenerating without cache
+      console.log(`🔄 Regenerating thumbnail without cache...`);
+      const freshGrab = await grabPiece(piece, {
+        ...options,
+        skipCache: true,
+      });
+      if (!freshGrab.success || !freshGrab.buffer) {
+        return {
+          success: false,
+          error: `Failed to generate thumbnail: ${freshGrab.error || 'no buffer returned'}`,
+          grabResult: freshGrab
+        };
+      }
+      buffer = freshGrab.buffer;
+    }
+  }
+  
+  if (!buffer) {
+    return {
+      success: false,
+      error: 'No thumbnail buffer available',
+      grabResult
+    };
+  }
+  
   // Upload to IPFS
   console.log(`📤 Uploading ${format} to IPFS...`);
   const mimeType = format === 'webp' ? 'image/webp' : format === 'gif' ? 'image/gif' : 'image/png';
   const filename = `${pieceName}-thumbnail.${format}`;
   
   try {
-    const ipfsUri = await uploadToIPFS(grabResult.buffer, filename, credentials);
+    const ipfsUri = await uploadToIPFS(buffer, filename, credentials);
     const ipfsCid = ipfsUri.replace('ipfs://', '');
     console.log(`✅ Thumbnail uploaded: ${ipfsUri}`);
     
@@ -1837,7 +1879,7 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
       piece: pieceName,
       format,
       mimeType,
-      size: grabResult.size,
+      size: buffer.length,
       timestamp: Date.now(),
     };
     latestIPFSUploads.set(pieceName, uploadInfo);
@@ -1864,8 +1906,9 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
       piece: pieceName,
       format,
       mimeType,
-      size: grabResult.size,
+      size: buffer.length,
       grabDuration: grabResult.duration,
+      cached: grabResult.cached || false,
     };
   } catch (error) {
     console.error(`❌ IPFS upload failed:`, error.message);
@@ -2132,6 +2175,7 @@ export async function grabIPFSHandler(req, res) {
     playbackFps = 20, // 20fps playback = 2x speed
     density = 2,      // 2x density for crisp pixels (was 1)
     quality = 70,     // Lower quality for smaller files
+    skipCache = false, // Force regeneration (bypass CDN cache)
     pinataKey,
     pinataSecret,
     source,           // Optional: 'keep', 'manual', etc.
@@ -2166,6 +2210,7 @@ export async function grabIPFSHandler(req, res) {
       playbackFps: parseFloat(playbackFps),
       density: parseFloat(density) || 1,
       quality: parseInt(quality) || 90,
+      skipCache: skipCache === true || skipCache === 'true',
       source: source || 'manual',
       keepId: keepId || null,
     });

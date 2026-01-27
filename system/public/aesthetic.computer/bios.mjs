@@ -3373,6 +3373,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
   }, { capture: true });
 
+  // 🎯 Auto-density message handler - listen for density change requests from KidLisp
+  window.addEventListener("message", (e) => {
+    if (e.data && e.data.type === 'ac-density-change' && typeof e.data.density === 'number') {
+      const newDensity = e.data.density;
+      if (newDensity !== density) {
+        density = newDensity;
+        window.acPACK_DENSITY = newDensity;
+        try {
+          localStorage.setItem("ac-density", newDensity.toString());
+        } catch {}
+        frame();
+        // console.log(`🎯 Auto-density applied: ${newDensity}`);
+      }
+    }
+  });
+
   // Play a sound back through the sfx system.
   // 🌡️ TODO: `sfx` could be scraped for things that need to be decoded
   //          upon audio activation. This would probably be helpful

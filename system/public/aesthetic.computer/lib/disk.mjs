@@ -633,6 +633,7 @@ let TV_MODE = false; // Whether running in TV mode (disables touch/keyboard inpu
 let HIGHLIGHT_MODE = false; // Whether HUD highlighting is enabled
 let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
 let PERF_MODE = false; // Whether to show KidLisp performance/FPS HUD
+let AUTO_SCALE_MODE = false; // Whether to enable auto-density scaling to maintain target FPS
 let AUDIO_SAMPLE_RATE = 0;
 let loopPaused = false; // Whether the main loop is paused (sent from bios)
 let debug = false; // This can be overwritten on boot.
@@ -4872,6 +4873,10 @@ function initializeGlobalKidLisp(api) {
     if (PERF_MODE) {
       globalKidLispInstance.startPerformanceMonitoring();
     }
+    // Enable auto-density scaling if AUTO_SCALE_MODE is active
+    if (AUTO_SCALE_MODE) {
+      globalKidLispInstance.enableAutoDensity();
+    }
   }
   return globalKidLispInstance;
 }
@@ -9040,6 +9045,9 @@ async function makeFrame({ data: { type, content } }) {
 
     // Parse perf parameter for KidLisp performance HUD
     PERF_MODE = content.resolution?.perf === true;
+    
+    // Parse auto-scale parameter for automatic density scaling
+    AUTO_SCALE_MODE = content.resolution?.autoScale === true;
 
     microphone.permission = content.microphonePermission;
 

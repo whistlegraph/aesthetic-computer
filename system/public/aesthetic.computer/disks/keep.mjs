@@ -1137,11 +1137,16 @@ function syntaxHighlightKidlisp(source) {
 
 async function runProcess(forceRegenerate = false) {
   console.log("🪙 KEEP: Starting mint process for $" + piece + (forceRegenerate ? " (force regenerate)" : ""));
+  console.log("🪙 KEEP: Network:", NETWORK, "Contract:", KEEPS_CONTRACT);
+  console.log("🪙 KEEP: Staging mode:", KEEPS_STAGING);
 
   // === STEP 1: Connect Wallet ===
   // Reset timer when process actually starts (not counting initial checks)
   startTime = Date.now();
   mintCancelled = false;
+  
+  // Track timing for each stage
+  const stageTimes = {};
   
   // Create abort controller for cancellation
   mintAbortController = new AbortController();
@@ -1223,7 +1228,13 @@ async function runProcess(forceRegenerate = false) {
 
       if (eventType === "progress" && eventData?.stage) {
         const { stage, message, source, author } = eventData;
-        console.log(`🪙 KEEP SSE: ${stage}`, eventData);
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`🪙 KEEP SSE [${elapsed}s]: ${stage} →`, message || '(no message)', eventData);
+        
+        // Track when each stage starts
+        if (!stageTimes[stage]) {
+          stageTimes[stage] = { start: Date.now() };
+        }
 
         // No delay on first event - start immediately
         if (!firstEvent) await delay(STEP_DELAY);
@@ -1268,8 +1279,18 @@ async function runProcess(forceRegenerate = false) {
           const detail = isCached ? "Cached" : message || "HTML packed";
           setStep("bundle", "done", detail);
         } else if (stage === "ipfs") {
+          // Track IPFS progress more granularly
+          if (stageTimes.ipfs) {
+            stageTimes.ipfs.lastUpdate = Date.now();
+          }
           const detail = isCached ? "Cached" : message || "Pinned";
-          setStep("ipfs", "done", detail);
+          // Only mark done if message indicates completion
+          if (message?.includes("Pinned") || message?.includes("Cached") || message?.includes("ipfs://")) {
+            setStep("ipfs", "done", detail);
+            console.log(`🪙 KEEP: IPFS complete in ${stageTimes.ipfs ? ((Date.now() - stageTimes.ipfs.start) / 1000).toFixed(1) : '?'}s`);
+          } else {
+            setStep("ipfs", "active", detail);
+          }
         } else if (stage === "metadata") {
           // Mark done if uploaded
           if (message?.includes("uploaded") || message?.includes("✓")) {
@@ -1291,6 +1312,11 @@ async function runProcess(forceRegenerate = false) {
       }
 
       if (eventType === "prepared" && eventData) {
+        const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`🪙 KEEP: Preparation complete in ${totalElapsed}s`, eventData);
+        console.log(`🪙 KEEP: Stage times:`, Object.entries(stageTimes).map(([k, v]) => 
+          `${k}: ${v.lastUpdate ? ((v.lastUpdate - v.start) / 1000).toFixed(1) : '?'}s`
+        ).join(', '));
         preparedData = eventData;
         await delay(STEP_DELAY);
         // Update timeline label with actual fee from contract
@@ -1304,6 +1330,8 @@ async function runProcess(forceRegenerate = false) {
           loadThumbnail(preparedData.thumbnailUri);
         }
       } else if (eventType === "error" && eventData) {
+        const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.error(`🪙 KEEP ERROR [${totalElapsed}s]:`, eventData.error || eventData.message);
         const active = getActiveStep();
         if (active) setStep(active.id, "error", eventData.error || eventData.message);
         return;
@@ -1725,7 +1753,7 @@ function paint($) {
       htmlBtn.btn.box.y = y;
       htmlBtn.btn.box.w = htmlSize.w;
       htmlBtn.btn.box.h = htmlSize.h;
-      paintMC8Btn(linkX, y, "HTML", { ink, line: ink }, linkScheme, htmlBtn.btn.down);
+      paintMC8Btn(linkX, y, "HTML", { ink, line: ink }, linkScheme, htmlBtn.btn.down || htmlBtn.btn.over);
       linkX += htmlSize.w + 4;
     }
     if (alreadyMinted.thumbnailUri) {
@@ -1734,7 +1762,7 @@ function paint($) {
       thumbBtn.btn.box.y = y;
       thumbBtn.btn.box.w = thumbBtnSize.w;
       thumbBtn.btn.box.h = thumbBtnSize.h;
-      paintMC8Btn(linkX, y, "THUMB", { ink, line: ink }, linkScheme, thumbBtn.btn.down);
+      paintMC8Btn(linkX, y, "THUMB", { ink, line: ink }, linkScheme, thumbBtn.btn.down || thumbBtn.btn.over);
       linkX += thumbBtnSize.w + 4;
     }
     // META button - link to TzKT metadata view
@@ -1743,7 +1771,7 @@ function paint($) {
     metaBtn.btn.box.y = y;
     metaBtn.btn.box.w = metaBtnSize.w;
     metaBtn.btn.box.h = metaBtnSize.h;
-    paintMC8Btn(linkX, y, "META", { ink, line: ink }, linkScheme, metaBtn.btn.down);
+    paintMC8Btn(linkX, y, "META", { ink, line: ink }, linkScheme, metaBtn.btn.down || metaBtn.btn.over);
     linkX += metaBtnSize.w + 4;
     // Show short CID
     if (alreadyMinted.artifactUri) {
@@ -1775,7 +1803,7 @@ function paint($) {
         oldHtmlBtn.btn.box.y = y;
         oldHtmlBtn.btn.box.w = oldHtmlSize.w;
         oldHtmlBtn.btn.box.h = oldHtmlSize.h;
-        paintMC8Btn(linkX, y, "HTML", { ink, line: ink }, cachedScheme, oldHtmlBtn.btn.down);
+        paintMC8Btn(linkX, y, "HTML", { ink, line: ink }, cachedScheme, oldHtmlBtn.btn.down || oldHtmlBtn.btn.over);
         linkX += oldHtmlSize.w + 4;
       }
       if (latestThumb) {
@@ -1784,7 +1812,7 @@ function paint($) {
         oldThumbBtn.btn.box.y = y;
         oldThumbBtn.btn.box.w = oldThumbSize.w;
         oldThumbBtn.btn.box.h = oldThumbSize.h;
-        paintMC8Btn(linkX, y, "THUMB", { ink, line: ink }, cachedScheme, oldThumbBtn.btn.down);
+        paintMC8Btn(linkX, y, "THUMB", { ink, line: ink }, cachedScheme, oldThumbBtn.btn.down || oldThumbBtn.btn.over);
         linkX += oldThumbSize.w + 4;
       }
       // Show short CID
@@ -1926,7 +1954,7 @@ function paint($) {
     btn.btn.box.y = y;
     btn.btn.box.w = objktSize.w;
     btn.btn.box.h = objktSize.h;
-    paintMC8Btn(btnX, y, "objkt", { ink, line: ink }, objktScheme, btn.btn.down);
+    paintMC8Btn(btnX, y, "objkt", { ink, line: ink }, objktScheme, btn.btn.down || btn.btn.over);
     btnX += objktSize.w + 4;
 
     // Rebake button
@@ -1935,7 +1963,7 @@ function paint($) {
     rebakeBtn.btn.box.y = y;
     rebakeBtn.btn.box.w = rebakeSize.w;
     rebakeBtn.btn.box.h = rebakeSize.h;
-    paintMC8Btn(btnX, y, rebaking ? "..." : "Rebake", { ink, line: ink }, rebaking ? { normal: rebakeScheme.disabled, hover: rebakeScheme.disabled, disabled: rebakeScheme.disabled } : rebakeScheme, rebakeBtn.btn.down);
+    paintMC8Btn(btnX, y, rebaking ? "..." : "Rebake", { ink, line: ink }, rebaking ? { normal: rebakeScheme.disabled, hover: rebakeScheme.disabled, disabled: rebakeScheme.disabled } : rebakeScheme, rebakeBtn.btn.down || rebakeBtn.btn.over);
     btnX += rebakeSize.w + 4;
 
     // Sync button - always visible, grayed out when synced
@@ -1946,7 +1974,7 @@ function paint($) {
     updateChainBtn.btn.box.y = y;
     updateChainBtn.btn.box.w = updateSize.w;
     updateChainBtn.btn.box.h = updateSize.h;
-    paintMC8Btn(btnX, y, updatingChain ? "..." : syncBtnText, { ink, line: ink }, syncDisabled ? { normal: syncScheme.disabled, hover: syncScheme.disabled, disabled: syncScheme.disabled } : syncScheme, updateChainBtn.btn.down);
+    paintMC8Btn(btnX, y, updatingChain ? "..." : syncBtnText, { ink, line: ink }, syncDisabled ? { normal: syncScheme.disabled, hover: syncScheme.disabled, disabled: syncScheme.disabled } : syncScheme, updateChainBtn.btn.down || updateChainBtn.btn.over);
     y += objktSize.h + 4;
 
     // Wallet shortcut - bottom left corner
@@ -1956,7 +1984,7 @@ function paint($) {
     walletBtn.btn.box.y = h - walletSize.h - 4;
     walletBtn.btn.box.w = walletSize.w;
     walletBtn.btn.box.h = walletSize.h;
-    paintMC8Btn(margin, h - walletSize.h - 4, "wallet", { ink, line: ink }, walletScheme, walletBtn.btn.down);
+    paintMC8Btn(margin, h - walletSize.h - 4, "wallet", { ink, line: ink }, walletScheme, walletBtn.btn.down || walletBtn.btn.over);
 
     // Contract button - bottom right corner
     const contractScheme = pal.btnContract;
@@ -1966,7 +1994,7 @@ function paint($) {
     contractBtn.btn.box.y = h - contractSize.h - 4;
     contractBtn.btn.box.w = contractSize.w;
     contractBtn.btn.box.h = contractSize.h;
-    paintMC8Btn(w - margin - contractSize.w, h - contractSize.h - 4, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down);
+    paintMC8Btn(w - margin - contractSize.w, h - contractSize.h - 4, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down || contractBtn.btn.over);
 
     // Show streaming progress
     if (rebaking && rebakeProgress) {
@@ -1992,7 +2020,7 @@ function paint($) {
         txBtn.btn.box.y = y;
         txBtn.btn.box.w = txSize.w;
         txBtn.btn.box.h = txSize.h;
-        paintMC8Btn(txX, y, shortHash, { ink, line: ink }, txScheme, txBtn.btn.down);
+        paintMC8Btn(txX, y, shortHash, { ink, line: ink }, txScheme, txBtn.btn.down || txBtn.btn.over);
       }
       y += 14;
     }
@@ -2139,7 +2167,7 @@ function paint($) {
       previewBtn.btn.box.y = cy;
       previewBtn.btn.box.w = previewSize.w;
       previewBtn.btn.box.h = previewSize.h;
-      paintMC8Btn(btnX, cy, previewText, { ink, line: ink }, previewScheme, previewBtn.btn.down);
+      paintMC8Btn(btnX, cy, previewText, { ink, line: ink }, previewScheme, previewBtn.btn.down || previewBtn.btn.over);
       cy += 14 + tinyGap;
       
       // Source preview (scrolling) - only if space
@@ -2311,7 +2339,7 @@ function paint($) {
     previewBtn.btn.box.y = cy;
     previewBtn.btn.box.w = previewSize.w;
     previewBtn.btn.box.h = previewSize.h;
-    paintMC8Btn(previewX, cy, previewText, { ink, line: ink }, previewScheme, previewBtn.btn.down);
+    paintMC8Btn(previewX, cy, previewText, { ink, line: ink }, previewScheme, previewBtn.btn.down || previewBtn.btn.over);
     cy += 14 + vGap;
 
     // Source code preview with syntax highlighting (scrolling ticker if long)
@@ -2406,7 +2434,7 @@ function paint($) {
         contractBtn.btn.box.y = cy;
         contractBtn.btn.box.w = contractSize.w;
         contractBtn.btn.box.h = contractSize.h;
-        paintMC8Btn(contractX, cy, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down);
+        paintMC8Btn(contractX, cy, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down || contractBtn.btn.over);
         cy += 12 + vGapLarge;
       } else {
         contractBtn.btn.box.x = 0;
@@ -2662,7 +2690,7 @@ function paint($) {
     cancelBtn.btn.box.y = cancelY;
     cancelBtn.btn.box.w = cancelSize.w;
     cancelBtn.btn.box.h = cancelSize.h;
-    paintMC8Btn(cancelX, cancelY, "Cancel", { ink, line: ink }, cancelScheme, cancelBtn.btn.down);
+    paintMC8Btn(cancelX, cancelY, "Cancel", { ink, line: ink }, cancelScheme, cancelBtn.btn.down || cancelBtn.btn.over);
   }
   y += 12;
 
@@ -2807,7 +2835,7 @@ function paint($) {
         rebakeBtn.btn.box.y = rebakeY;
         rebakeBtn.btn.box.w = rebakeSize.w;
         rebakeBtn.btn.box.h = rebakeSize.h;
-        paintMC8Btn(rebakeX, rebakeY, "REBAKE", { ink, line: ink }, rebakeScheme, rebakeBtn.btn.down);
+        paintMC8Btn(rebakeX, rebakeY, "REBAKE", { ink, line: ink }, rebakeScheme, rebakeBtn.btn.down || rebakeBtn.btn.over);
       }
       y += thumbH + 2;
     }
@@ -2823,7 +2851,7 @@ function paint($) {
         htmlBtn.btn.box.y = y;
         htmlBtn.btn.box.w = htmlSize.w;
         htmlBtn.btn.box.h = htmlSize.h;
-        paintMC8Btn(linkX, y, "HTML", { ink, line: ink }, linkScheme, htmlBtn.btn.down);
+        paintMC8Btn(linkX, y, "HTML", { ink, line: ink }, linkScheme, htmlBtn.btn.down || htmlBtn.btn.over);
         linkX += htmlSize.w + 4;
       }
       if (preparedData.thumbnailUri) {
@@ -2832,7 +2860,7 @@ function paint($) {
         thumbBtn.btn.box.y = y;
         thumbBtn.btn.box.w = thumbSize.w;
         thumbBtn.btn.box.h = thumbSize.h;
-        paintMC8Btn(linkX, y, "THUMB", { ink, line: ink }, linkScheme, thumbBtn.btn.down);
+        paintMC8Btn(linkX, y, "THUMB", { ink, line: ink }, linkScheme, thumbBtn.btn.down || thumbBtn.btn.over);
         linkX += thumbSize.w + 4;
       }
       if (preparedData.metadataUri) {
@@ -2841,7 +2869,7 @@ function paint($) {
         metaBtn.btn.box.y = y;
         metaBtn.btn.box.w = metaSize.w;
         metaBtn.btn.box.h = metaSize.h;
-        paintMC8Btn(linkX, y, "META", { ink, line: ink }, linkScheme, metaBtn.btn.down);
+        paintMC8Btn(linkX, y, "META", { ink, line: ink }, linkScheme, metaBtn.btn.down || metaBtn.btn.over);
       }
       y += mc8ButtonSize("X").h + 4;
     }
@@ -2955,7 +2983,7 @@ function paint($) {
     btn.btn.box.w = viewSize.w;
     btn.btn.box.h = viewSize.h;
     btn.txt = "View on objkt";
-    paintMC8Btn(viewX, y, "View on objkt", { ink, line: ink }, viewScheme, btn.btn.down);
+    paintMC8Btn(viewX, y, "View on objkt", { ink, line: ink }, viewScheme, btn.btn.down || btn.btn.over);
 
   } else if (isError) {
     const retryScheme = pal.btnRetry;
@@ -2966,7 +2994,7 @@ function paint($) {
     btn.btn.box.w = retrySize.w;
     btn.btn.box.h = retrySize.h;
     btn.txt = "Retry";
-    paintMC8Btn(retryX, y, "Retry", { ink, line: ink }, retryScheme, btn.btn.down);
+    paintMC8Btn(retryX, y, "Retry", { ink, line: ink }, retryScheme, btn.btn.down || btn.btn.over);
   }
 }
 
@@ -2975,11 +3003,12 @@ function act({ event: e, screen }) {
 
   // Confirmation button handler
   if (waitingConfirmation) {
+    const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
     // Only enable keep button if user is author - anonymous pieces cannot be kept
     const isAnonymousClick = !pieceAuthorSub && !loadingPieceInfo;
     const canKeep = isAuthor === true && !isAnonymousClick;
     if (canKeep) {
-      btn.btn.act(e, { push: () => {
+      btn.btn.act(e, { ...hoverCb, push: () => {
         console.log("🪙 KEEP: User confirmed, starting mint process...");
         waitingConfirmation = false;
         resetTimeline();
@@ -2988,16 +3017,16 @@ function act({ event: e, screen }) {
       }});
     }
     // Preview button - jump to the piece to preview it
-    previewBtn.btn.act(e, { push: () => {
+    previewBtn.btn.act(e, { ...hoverCb, push: () => {
       console.log("🪙 KEEP: Jumping to preview piece $" + piece);
       _jump?.(`$${piece}`);
     }});
     // Contract button - link to TzKT
     const tzktContractUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
-    contractBtn.btn.act(e, { push: () => openUrl(tzktContractUrl) });
+    contractBtn.btn.act(e, { ...hoverCb, push: () => openUrl(tzktContractUrl) });
     // Login button - trigger auth0 login (show when piece has author but user not logged in)
     if (pieceAuthorSub && !userSub) {
-      loginBtn.btn.act(e, { push: () => {
+      loginBtn.btn.act(e, { ...hoverCb, push: () => {
         console.log("🪙 KEEP: User clicked login, redirecting to login...");
         _api?.login?.(); // Triggers full auth0 login flow via redirect
       }});
@@ -3006,7 +3035,8 @@ function act({ event: e, screen }) {
   }
 
   if (isPreparationInProgress()) {
-    cancelBtn.btn.act(e, { push: () => {
+    const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
+    cancelBtn.btn.act(e, { ...hoverCb, push: () => {
       cancelMintPreparation();
       _jump?.("prompt");
     }});
@@ -3017,9 +3047,10 @@ function act({ event: e, screen }) {
 
   // Asset link buttons + network button + rebake
   if (reviewStep?.status === "active" && preparedData) {
-    if (preparedData.artifactUri) htmlBtn.btn.act(e, { push: () => openUrl(preparedData.artifactUri) });
-    if (preparedData.thumbnailUri) thumbBtn.btn.act(e, { push: () => openUrl(preparedData.thumbnailUri) });
-    if (preparedData.metadataUri) metaBtn.btn.act(e, { push: () => openUrl(preparedData.metadataUri) });
+    const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
+    if (preparedData.artifactUri) htmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(preparedData.artifactUri) });
+    if (preparedData.thumbnailUri) thumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(preparedData.thumbnailUri) });
+    if (preparedData.metadataUri) metaBtn.btn.act(e, { ...hoverCb, push: () => openUrl(preparedData.metadataUri) });
 
     // REBAKE button - regenerate media without resetting timeline
     if (preparedData.usedCachedMedia && !rebaking) {
@@ -3081,6 +3112,12 @@ function act({ event: e, screen }) {
                     thumbnailBitmap = null; // Clear cached thumbnail so it reloads
                     rebakeProgress = "✓ Regenerated!";
                     console.log("🪙 REBAKE complete:", eventData.artifactUri);
+                    // Reload the thumbnail with the new IPFS URI (fire and forget)
+                    if (eventData.thumbnailUri) {
+                      loadThumbnail(eventData.thumbnailUri).catch(e => 
+                        console.warn("🪙 REBAKE: Thumbnail reload failed:", e.message)
+                      );
+                    }
                   } else if (eventType === "error") {
                     rebakeProgress = "✗ " + (eventData.error || "Failed");
                     console.error("🪙 REBAKE error:", eventData);
@@ -3105,7 +3142,7 @@ function act({ event: e, screen }) {
     // Network button links to contract collection on objkt
     const contractAddress = preparedData.contractAddress || KEEPS_CONTRACT;
     const networkPrefix = preparedData.network === "mainnet" ? "" : "ghostnet.";
-    networkBtn.btn.act(e, { push: () => openUrl(`https://${networkPrefix}objkt.com/collection/${contractAddress}`) });
+    networkBtn.btn.act(e, { ...hoverCb, push: () => openUrl(`https://${networkPrefix}objkt.com/collection/${contractAddress}`) });
 
     // Staging contract link
     if (KEEPS_STAGING && btn.staging) {
@@ -3117,11 +3154,12 @@ function act({ event: e, screen }) {
       btn.staging.act(e, { push: () => openUrl(tzktStagingUrl) });
     }
 
-    btn.btn.act(e, { push: () => signAndMint() });
+    btn.btn.act(e, { ...hoverCb, push: () => signAndMint() });
   }
 
   if (completeStep?.status === "done") {
-    btn.btn.act(e, { push: () => {
+    const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
+    btn.btn.act(e, { ...hoverCb, push: () => {
       const networkPrefix = preparedData?.network === "mainnet" ? "" : "ghostnet.";
       const url = tokenId
         ? `https://${networkPrefix}objkt.com/tokens/${preparedData.contractAddress}/${tokenId}`
@@ -3131,7 +3169,8 @@ function act({ event: e, screen }) {
   }
 
   if (hasError()) {
-    btn.btn.act(e, { push: () => {
+    const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
+    btn.btn.act(e, { ...hoverCb, push: () => {
       resetTimeline();
       startTime = Date.now();
       runProcess();
@@ -3140,35 +3179,36 @@ function act({ event: e, screen }) {
 
   // Already minted view interactions
   if (alreadyMinted) {
-    if (alreadyMinted.artifactUri) htmlBtn.btn.act(e, { push: () => openUrl(alreadyMinted.artifactUri) });
-    if (alreadyMinted.thumbnailUri) thumbBtn.btn.act(e, { push: () => openUrl(alreadyMinted.thumbnailUri) });
+    const hoverCb = { over: () => _needsPaint?.(), out: () => _needsPaint?.() };
+    if (alreadyMinted.artifactUri) htmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.artifactUri) });
+    if (alreadyMinted.thumbnailUri) thumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.thumbnailUri) });
     // META button - open TzKT token metadata view
-    metaBtn.btn.act(e, { push: () => openUrl(alreadyMinted.tzktUrl) });
-    btn.btn.act(e, { push: () => openUrl(alreadyMinted.objktUrl) });
-    walletBtn.btn.act(e, { push: () => _jump("wallet") });
+    metaBtn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.tzktUrl) });
+    btn.btn.act(e, { ...hoverCb, push: () => openUrl(alreadyMinted.objktUrl) });
+    walletBtn.btn.act(e, { ...hoverCb, push: () => _jump("wallet") });
 
     // Contract button - open contract on TzKT
     const tzktContractUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
-    contractBtn.btn.act(e, { push: () => openUrl(tzktContractUrl) });
+    contractBtn.btn.act(e, { ...hoverCb, push: () => openUrl(tzktContractUrl) });
 
     // TX button - open transaction on TzKT
     if (updateChainResult?.opHash) {
       const tzktTxUrl = `https://${NETWORK}.tzkt.io/${updateChainResult.opHash}`;
-      txBtn.btn.act(e, { push: () => openUrl(tzktTxUrl) });
+      txBtn.btn.act(e, { ...hoverCb, push: () => openUrl(tzktTxUrl) });
     }
 
     // Cached/Pending URI buttons (show latest generated bundle, not yet on-chain)
     const latestMedia = pendingRebake || cachedMedia;
     if (latestMedia?.artifactUri) {
-      oldHtmlBtn.btn.act(e, { push: () => openUrl(latestMedia.artifactUri) });
+      oldHtmlBtn.btn.act(e, { ...hoverCb, push: () => openUrl(latestMedia.artifactUri) });
     }
     if (latestMedia?.thumbnailUri) {
-      oldThumbBtn.btn.act(e, { push: () => openUrl(latestMedia.thumbnailUri) });
+      oldThumbBtn.btn.act(e, { ...hoverCb, push: () => openUrl(latestMedia.thumbnailUri) });
     }
 
     // Rebake button - regenerate bundle and thumbnail
     if (!rebaking) {
-      rebakeBtn.btn.act(e, { push: async () => {
+      rebakeBtn.btn.act(e, { ...hoverCb, push: async () => {
         console.log("🪙 KEEP: Starting rebake for already-minted piece $" + piece);
 
         // Ensure wallet is connected (needed for on-chain ownership verification)
@@ -3252,6 +3292,12 @@ function act({ event: e, screen }) {
                     };
                     rebakeProgress = "✓ Bundle regenerated!";
                     console.log("🪙 REBAKE complete! New artifact:", rebakeResult.artifactUri);
+                    // Reload the thumbnail with the new IPFS URI (fire and forget)
+                    if (eventData.thumbnailUri) {
+                      loadThumbnail(eventData.thumbnailUri).catch(e => 
+                        console.warn("🪙 REBAKE: Thumbnail reload failed:", e.message)
+                      );
+                    }
                   } else if (eventType === "error") {
                     rebakeProgress = "✗ " + (eventData.error || "Failed");
                     console.error("🪙 REBAKE error:", eventData);
@@ -3276,7 +3322,7 @@ function act({ event: e, screen }) {
     // Update Chain button - push new metadata on-chain (requires wallet)
     // Can sync if: rebakeResult exists, or pendingRebake exists, or we just want to force resync
     if (!updatingChain) {
-      updateChainBtn.btn.act(e, { push: async () => {
+      updateChainBtn.btn.act(e, { ...hoverCb, push: async () => {
         // Determine which URIs to sync - prefer rebake result, then pending, then current on-chain
         console.log("🪙 UPDATE CHAIN: Checking URIs...");
         console.log("  rebakeResult:", rebakeResult);
