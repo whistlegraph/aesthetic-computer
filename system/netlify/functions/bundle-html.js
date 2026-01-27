@@ -1312,6 +1312,7 @@ exports.handler = stream(async (event) => {
   const format = event.queryStringParameters?.format || 'html';
   const nocache = event.queryStringParameters?.nocache === '1' || event.queryStringParameters?.nocache === 'true';
   const nocompress = event.queryStringParameters?.nocompress === '1' || event.queryStringParameters?.nocompress === 'true';
+  const inline = event.queryStringParameters?.inline === '1' || event.queryStringParameters?.inline === 'true';
   
   // Force cache refresh if requested
   if (nocache) {
@@ -1415,14 +1416,21 @@ exports.handler = stream(async (event) => {
       };
     }
     
-    // Default: return as downloadable HTML file
+    // Default: return as HTML (inline for viewing, attachment for download)
+    const headers = {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "public, max-age=3600",
+    };
+    
+    // Only add Content-Disposition: attachment if NOT inline mode
+    // inline=1 serves the HTML directly for viewing in browser/FF1
+    if (!inline) {
+      headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+    }
+    
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "public, max-age=3600",
-      },
+      headers,
       body: html,
     };
     
