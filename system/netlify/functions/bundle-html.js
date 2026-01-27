@@ -639,7 +639,7 @@ function generateJSPieceHTMLBundle(opts) {
 </head>
 <body>
   <script type="module">
-    window.acPACK_MODE = false; // Disabled for bundle performance
+    window.acPACK_MODE = true; // Required for import map resolution from blob URLs
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true; // Disable console screenshots
     window.__acKidlispConsoleEnabled = false; // Disable KidLisp console auto-snaps
     window.acSTARTING_PIECE = "${pieceName}";
@@ -1025,7 +1025,7 @@ function generateHTMLBundle(opts) {
     })();
   </script>
   <script type="module">
-    window.acPACK_MODE = false; // Disabled for bundle performance
+    window.acPACK_MODE = true; // Required for import map resolution from blob URLs
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true; // Disable console screenshots
     window.__acKidlispConsoleEnabled = false; // Disable KidLisp console auto-snaps
     window.acKEEP_MODE = true;
