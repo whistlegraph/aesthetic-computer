@@ -962,9 +962,46 @@ function generateHTMLBundle(opts) {
   <style>
     body { margin: 0; padding: 0; background: black; overflow: hidden; }
     canvas { display: block; image-rendering: pixelated; }
+    #fps-meter {
+      position: fixed;
+      top: 4px;
+      left: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      color: lime;
+      background: rgba(0,0,0,0.7);
+      padding: 2px 6px;
+      z-index: 99999;
+      pointer-events: none;
+      border-radius: 2px;
+    }
   </style>
 </head>
 <body>
+  <div id="fps-meter">FPS: --</div>
+  <script>
+    // FPS meter
+    (function() {
+      const meter = document.getElementById('fps-meter');
+      let frames = 0;
+      let lastTime = performance.now();
+      let fps = 0;
+      
+      function tick() {
+        frames++;
+        const now = performance.now();
+        if (now - lastTime >= 1000) {
+          fps = Math.round(frames * 1000 / (now - lastTime));
+          frames = 0;
+          lastTime = now;
+          meter.textContent = 'FPS: ' + fps;
+          meter.style.color = fps >= 30 ? 'lime' : fps >= 15 ? 'yellow' : 'red';
+        }
+        requestAnimationFrame(tick);
+      }
+      tick();
+    })();
+  </script>
   <script type="module">
     window.acPACK_MODE = true;
     window.acKEEP_MODE = true;
