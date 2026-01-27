@@ -479,7 +479,7 @@ async function getCoreBundle(acDir, onProgress = () => {}, forceRefresh = false)
 }
 
 // Create bundle for JavaScript .mjs pieces (notepat, metronome, etc.)
-async function createJSPieceBundle(pieceName, onProgress = () => {}) {
+async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false) {
   onProgress({ stage: 'init', message: `Bundling ${pieceName}...` });
   
   const packTime = Date.now();
@@ -563,7 +563,15 @@ async function createJSPieceBundle(pieceName, onProgress = () => {}) {
     gitVersion: GIT_COMMIT,
   });
   
-  onProgress({ stage: 'compress', message: 'Compressing...' });
+  const filename = `${pieceName}-${bundleTimestamp}.html`;
+  
+  onProgress({ stage: 'compress', message: nocompress ? 'Skipping compression (nocompress mode)...' : 'Compressing...' });
+  
+  // If nocompress is true, return the raw HTML without gzip wrapper
+  // This is needed for devices without DecompressionStream support (e.g., FF1)
+  if (nocompress) {
+    return { html: htmlContent, filename, sizeKB: Math.round(htmlContent.length / 1024) };
+  }
   
   // Create gzip-compressed self-extracting bundle
   const gzipCompressed = gzipSync(htmlContent, { level: 9 });
@@ -611,8 +619,6 @@ async function createJSPieceBundle(pieceName, onProgress = () => {}) {
 </body>
 </html>`;
 
-  const filename = `${pieceName}-${bundleTimestamp}.html`;
-  
   return { html: finalHtml, filename, sizeKB: Math.round(finalHtml.length / 1024) };
 }
 
@@ -830,7 +836,7 @@ function generateJSPieceHTMLBundle(opts) {
 }
 
 // Main bundle creation for KidLisp pieces
-async function createBundle(pieceName, onProgress = () => {}) {
+async function createBundle(pieceName, onProgress = () => {}, nocompress = false) {
   const PIECE_NAME_NO_DOLLAR = pieceName.replace(/^\$/, '');
   const PIECE_NAME = '$' + PIECE_NAME_NO_DOLLAR;
   
@@ -916,7 +922,22 @@ async function createBundle(pieceName, onProgress = () => {}) {
     filename,
   });
   
-  onProgress({ stage: 'compress', message: 'Compressing...' });
+  onProgress({ stage: 'compress', message: nocompress ? 'Skipping compression (nocompress mode)...' : 'Compressing...' });
+  
+  // If nocompress is true, return the raw HTML without gzip wrapper
+  // This is needed for devices without DecompressionStream support (e.g., FF1)
+  if (nocompress) {
+    return { 
+      html: htmlContent, 
+      filename, 
+      sizeKB: Math.round(htmlContent.length / 1024),
+      mainSource,
+      authorHandle,
+      userCode,
+      packDate,
+      depCount,
+    };
+  }
   
   // Create gzip-compressed self-extracting bundle
   const gzipCompressed = gzipSync(htmlContent, { level: 9 });
@@ -1290,6 +1311,7 @@ exports.handler = stream(async (event) => {
   const piece = event.queryStringParameters?.piece;
   const format = event.queryStringParameters?.format || 'html';
   const nocache = event.queryStringParameters?.nocache === '1' || event.queryStringParameters?.nocache === 'true';
+  const nocompress = event.queryStringParameters?.nocompress === '1' || event.queryStringParameters?.nocompress === 'true';
   
   // Force cache refresh if requested
   if (nocache) {
@@ -1369,8 +1391,8 @@ exports.handler = stream(async (event) => {
     };
     
     const bundleResult = isJSPiece
-      ? await createJSPieceBundle(bundleTarget, onProgress)
-      : await createBundle(bundleTarget, onProgress);
+      ? await createJSPieceBundle(bundleTarget, onProgress, nocompress)
+      : await createBundle(bundleTarget, onProgress, nocompress);
     
     const { html, filename, sizeKB, mainSource, authorHandle, userCode, packDate, depCount } = bundleResult;
     
