@@ -311,12 +311,20 @@ function rewriteImports(code, filepath) {
   return code;
 }
 
+// Global flag for skipping minification (set per-request)
+let skipMinification = false;
+
 // Minify JS content
 async function minifyJS(content, relativePath) {
   const ext = path.extname(relativePath);
   if (ext !== ".mjs" && ext !== ".js") return content;
   
   let processedContent = rewriteImports(content, relativePath);
+  
+  // Skip minification if nominify flag is set
+  if (skipMinification) {
+    return processedContent;
+  }
   
   try {
     const { minify } = require("@swc/wasm");
@@ -1338,6 +1346,7 @@ exports.handler = stream(async (event) => {
   const format = event.queryStringParameters?.format || 'html';
   const nocache = event.queryStringParameters?.nocache === '1' || event.queryStringParameters?.nocache === 'true';
   const nocompress = event.queryStringParameters?.nocompress === '1' || event.queryStringParameters?.nocompress === 'true';
+  const nominify = event.queryStringParameters?.nominify === '1' || event.queryStringParameters?.nominify === 'true';
   const inline = event.queryStringParameters?.inline === '1' || event.queryStringParameters?.inline === 'true';
   const density = parseInt(event.queryStringParameters?.density) || null; // e.g., density=8 for FF1
   const mode = event.queryStringParameters?.mode; // 'device' for simple iframe wrapper
@@ -1384,8 +1393,11 @@ exports.handler = stream(async (event) => {
     };
   }
   
-  // Force cache refresh if requested
-  if (nocache) {
+  // Set minification flag (nominify=1 skips SWC minification for debugging)
+  skipMinification = nominify;
+  
+  // Force cache refresh if requested (also needed when nominify changes)
+  if (nocache || nominify) {
     coreBundleCache = null;
     coreBundleCacheCommit = null;
   }
