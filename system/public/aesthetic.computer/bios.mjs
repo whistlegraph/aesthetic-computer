@@ -998,14 +998,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let captureCompositeCtx = null;
 
   function updateStatsOverlay() {
-    if (!statsOverlayEnabled) return;
+    if (!statsOverlayEnabled && !window.acReportFpsToParent) return;
     const now = performance.now();
     statsFrameCount++;
     if (now - statsLastTime >= 1000) {
       statsFps = statsFrameCount;
       statsFrameCount = 0;
       statsLastTime = now;
+      // Report FPS to parent window if requested
+      if (window.acReportFpsToParent && window.parent !== window) {
+        window.parent.postMessage({ type: 'ac:fps-report', fps: statsFps }, '*');
+      }
     }
+    if (!statsOverlayEnabled) return;
     const lines = [
       `${statsOverlayData.backend || "GPU"}`,
       `FPS: ${statsFps}`,
@@ -3473,6 +3478,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         frame();
         // console.log(`🎯 Auto-density applied: ${newDensity}`);
       }
+    }
+    // FPS reporting for parent window (device.kidlisp.com)
+    if (e.data && e.data.type === 'ac:request-fps') {
+      window.acReportFpsToParent = true;
     }
   });
 
