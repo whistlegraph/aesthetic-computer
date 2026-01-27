@@ -1295,6 +1295,84 @@ function generateHTMLBundle(opts) {
       return originalFetch.call(this, url, options);
     };
     
+    // 📊 Bundle Telemetry - only when served inline from aesthetic.computer
+    (function initTelemetry() {
+      if (!window.location?.origin?.includes('aesthetic.computer')) return;
+      
+      const bootStart = performance.now();
+      const sessionId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      
+      // Collect performance samples
+      const perfSamples = [];
+      let sampleCount = 0;
+      const maxSamples = 60; // 1 minute of data at 1 sample/second
+      
+      function sendTelemetry(type, data) {
+        try {
+          const payload = {
+            type,
+            data: {
+              sessionId,
+              piece: window.acPACK_PIECE || 'unknown',
+              density: window.acPACK_DENSITY || 2,
+              screenWidth: window.innerWidth,
+              screenHeight: window.innerHeight,
+              devicePixelRatio: window.devicePixelRatio || 1,
+              ...data
+            }
+          };
+          navigator.sendBeacon?.('/api/bundle-telemetry', JSON.stringify(payload)) ||
+            fetch('/api/bundle-telemetry', { method: 'POST', body: JSON.stringify(payload), keepalive: true });
+        } catch (e) {}
+      }
+      
+      // Send boot telemetry once loaded
+      window.addEventListener('load', () => {
+        const bootTime = performance.now() - bootStart;
+        sendTelemetry('boot', {
+          bootTime: Math.round(bootTime),
+          vfsFileCount: Object.keys(window.VFS || {}).length,
+          blobUrlCount: Object.keys(window.VFS_BLOB_URLS || {}).length,
+        });
+      });
+      
+      // Collect FPS samples every second
+      let lastFrameTime = performance.now();
+      let frameCount = 0;
+      
+      function measureFrame() {
+        frameCount++;
+        const now = performance.now();
+        if (now - lastFrameTime >= 1000) {
+          const fps = frameCount;
+          frameCount = 0;
+          lastFrameTime = now;
+          
+          if (sampleCount < maxSamples) {
+            perfSamples.push({ t: Math.round(now - bootStart), fps });
+            sampleCount++;
+            
+            // Send perf batch every 10 samples
+            if (sampleCount % 10 === 0) {
+              sendTelemetry('perf', { samples: perfSamples.slice(-10) });
+            }
+          }
+        }
+        requestAnimationFrame(measureFrame);
+      }
+      requestAnimationFrame(measureFrame);
+      
+      // Send error telemetry
+      window.addEventListener('error', (e) => {
+        sendTelemetry('error', {
+          message: e.message,
+          filename: e.filename,
+          lineno: e.lineno,
+          colno: e.colno,
+        });
+      });
+    })();
+
     (async function() {
       if (window.acDecodePaintingsPromise) {
         await window.acDecodePaintingsPromise;
