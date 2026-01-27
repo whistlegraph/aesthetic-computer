@@ -71,6 +71,7 @@ const ESSENTIAL_FILES = [
   'lib/pen.mjs',
   'lib/num.mjs',
   'lib/gl.mjs',
+  'lib/webgl-blit.mjs',
   
   // System essentials
   'lib/helpers.mjs',
