@@ -287,7 +287,7 @@ const KIDLISP_FUNCTIONS = new Set([
   "resolution", "scroll", "spin", "resetSpin", "smoothspin", "zoom", "blur", "contrast", "pan", "unpan",
   "mask", "unmask", "steal", "putback", "fill", "outline", "stroke", "nofill", "nostroke",
   // Animation
-  "wiggle", "sort", "fade", "jump", "bake", "frame", "fps",
+  "wiggle", "sort", "fade", "jump", "bake", "frame", "fps", "auto-density", "scale",
   // Variables
   "def", "set", "let", "var", "const",
   // Control
@@ -1670,6 +1670,23 @@ class KidLisp {
     this.evaluationCounts = new Map(); // Track evaluation counts per expression type
     this.totalEvaluations = 0; // Total evaluations this frame
     this.currentFrameStart = 0; // Start time of current frame
+
+    // 🎯 Auto-density system for automatic performance scaling
+    this.autoDensity = {
+      enabled: false, // Toggle for auto-density scaling
+      targetFpsMin: 30, // Minimum acceptable FPS (reduce density if below this)
+      targetFpsMax: 55, // Target FPS ceiling (increase density if consistently above)
+      densityMin: 0.5, // Minimum density (largest pixels)
+      densityMax: 4, // Maximum density (smallest pixels) 
+      densityStep: 0.5, // Step size for density changes
+      stabilityFrames: 30, // Number of frames to average before adjusting
+      cooldownFrames: 60, // Minimum frames between adjustments
+      lastAdjustFrame: 0, // Frame count at last adjustment
+      currentDensity: null, // Current density (null = use system default)
+      fpsHistory: [], // Recent FPS samples for stability detection
+      adjustmentCount: 0, // Count of density adjustments made
+      direction: null, // 'up', 'down', or null - tracks trend
+    };
   }
 
   // 🎯 Performance monitoring methods
@@ -1774,7 +1791,121 @@ class KidLisp {
       if (globalThis.graphPerf) {
         globalThis.graphPerf.lastFPS = this.perf.avg.fps;
       }
+
+      // 🎯 Auto-density check (if enabled)
+      if (this.autoDensity.enabled) {
+        this.checkAutoDensity(this.perf.avg.fps);
+      }
     }
+  }
+
+  // 🎯 Auto-density system - automatically adjust pixel density based on FPS
+  enableAutoDensity(options = {}) {
+    this.autoDensity.enabled = true;
+    this.perf.enabled = true; // Auto-density requires performance monitoring
+    
+    // Apply custom options
+    if (options.targetFpsMin !== undefined) this.autoDensity.targetFpsMin = options.targetFpsMin;
+    if (options.targetFpsMax !== undefined) this.autoDensity.targetFpsMax = options.targetFpsMax;
+    if (options.densityMin !== undefined) this.autoDensity.densityMin = options.densityMin;
+    if (options.densityMax !== undefined) this.autoDensity.densityMax = options.densityMax;
+    if (options.densityStep !== undefined) this.autoDensity.densityStep = options.densityStep;
+    
+    // Initialize current density from window if not set
+    if (this.autoDensity.currentDensity === null) {
+      this.autoDensity.currentDensity = window.acPACK_DENSITY || 2;
+    }
+    
+    console.log(`🎯 Auto-density enabled: target ${this.autoDensity.targetFpsMin}-${this.autoDensity.targetFpsMax} FPS, density ${this.autoDensity.densityMin}-${this.autoDensity.densityMax}`);
+    return this;
+  }
+
+  disableAutoDensity() {
+    this.autoDensity.enabled = false;
+    console.log('🎯 Auto-density disabled');
+    return this;
+  }
+
+  checkAutoDensity(currentFps) {
+    const ad = this.autoDensity;
+    
+    // Add current FPS to history
+    ad.fpsHistory.push(currentFps);
+    if (ad.fpsHistory.length > ad.stabilityFrames) {
+      ad.fpsHistory.shift();
+    }
+    
+    // Not enough samples yet
+    if (ad.fpsHistory.length < ad.stabilityFrames) return;
+    
+    // Cooldown check - don't adjust too frequently
+    if (this.frameCount - ad.lastAdjustFrame < ad.cooldownFrames) return;
+    
+    // Calculate average FPS over stability window
+    const avgFps = ad.fpsHistory.reduce((a, b) => a + b, 0) / ad.fpsHistory.length;
+    const currentDensity = ad.currentDensity || window.acPACK_DENSITY || 2;
+    
+    let newDensity = currentDensity;
+    let reason = '';
+    
+    // Check if FPS is consistently below minimum threshold
+    if (avgFps < ad.targetFpsMin) {
+      // Performance is bad - reduce density (increase pixel size)
+      newDensity = Math.max(ad.densityMin, currentDensity - ad.densityStep);
+      reason = `FPS ${avgFps.toFixed(1)} < ${ad.targetFpsMin} min`;
+      ad.direction = 'down';
+    }
+    // Check if FPS is consistently above maximum threshold
+    else if (avgFps > ad.targetFpsMax && currentDensity < ad.densityMax) {
+      // Performance is great - try increasing density (decrease pixel size)
+      newDensity = Math.min(ad.densityMax, currentDensity + ad.densityStep);
+      reason = `FPS ${avgFps.toFixed(1)} > ${ad.targetFpsMax} target`;
+      ad.direction = 'up';
+    }
+    
+    // Apply density change if needed
+    if (newDensity !== currentDensity) {
+      this.setDensity(newDensity);
+      ad.lastAdjustFrame = this.frameCount;
+      ad.adjustmentCount++;
+      ad.fpsHistory = []; // Clear history after adjustment
+      console.log(`🎯 Auto-density: ${currentDensity} → ${newDensity} (${reason})`);
+    }
+  }
+
+  setDensity(newDensity) {
+    // Round to nearest step
+    newDensity = Math.round(newDensity / this.autoDensity.densityStep) * this.autoDensity.densityStep;
+    newDensity = Math.max(this.autoDensity.densityMin, Math.min(this.autoDensity.densityMax, newDensity));
+    
+    this.autoDensity.currentDensity = newDensity;
+    window.acPACK_DENSITY = newDensity;
+    
+    // Persist to localStorage
+    try {
+      localStorage.setItem('ac-density', newDensity.toString());
+    } catch {}
+    
+    // Trigger reframe by posting message to main thread
+    if (typeof window !== 'undefined') {
+      // Signal bios to reframe with new density
+      window.postMessage({ type: 'ac-density-change', density: newDensity }, '*');
+    }
+    
+    return newDensity;
+  }
+
+  getAutoDensityStatus() {
+    const ad = this.autoDensity;
+    return {
+      enabled: ad.enabled,
+      currentDensity: ad.currentDensity || window.acPACK_DENSITY || 2,
+      currentFps: this.perf.avg.fps,
+      targetFpsMin: ad.targetFpsMin,
+      targetFpsMax: ad.targetFpsMax,
+      adjustmentCount: ad.adjustmentCount,
+      direction: ad.direction,
+    };
   }
 
   trackFunction(name, duration) {
@@ -7168,6 +7299,38 @@ class KidLisp {
           }
         }
         return this.targetFps || 60; // Default to 60 FPS if no fps was set
+      },
+      // 🎯 Auto-density: automatic pixel density scaling based on FPS
+      // Usage: (auto-density) - enable with defaults
+      //        (auto-density on) - enable
+      //        (auto-density off) - disable
+      //        (auto-density 30 55) - enable with min/max FPS targets
+      //        (auto-density status) - get current status
+      "auto-density": (api, args) => {
+        if (args.length === 0 || args[0] === "on" || args[0] === true) {
+          this.enableAutoDensity();
+          return true;
+        } else if (args[0] === "off" || args[0] === false) {
+          this.disableAutoDensity();
+          return false;
+        } else if (args[0] === "status") {
+          return this.getAutoDensityStatus();
+        } else if (typeof args[0] === "number") {
+          // (auto-density minFps) or (auto-density minFps maxFps)
+          const options = {
+            targetFpsMin: args[0],
+          };
+          if (args.length > 1 && typeof args[1] === "number") {
+            options.targetFpsMax = args[1];
+          }
+          this.enableAutoDensity(options);
+          return true;
+        }
+        return this.autoDensity.enabled;
+      },
+      // Alias for auto-density
+      "scale": (api, args) => {
+        return this.globalEnv["auto-density"](api, args);
       },
       // 🔄 Repeat function (highly optimized)
       repeat: (api, args, env) => {

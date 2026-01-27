@@ -377,7 +377,7 @@ const SECONDARY_BAR_HEIGHT = 12;
 const SECONDARY_BAR_BOTTOM = SECONDARY_BAR_TOP + SECONDARY_BAR_HEIGHT;
 const TOGGLE_BTN_PADDING_X = 2;
 const TOGGLE_BTN_PADDING_Y = 2;
-const TOGGLE_BTN_GAP = 2;
+const TOGGLE_BTN_GAP = 3; // At least 1px visible gap between buttons
 
 // Responsive label shortening for tight layouts
 const LABEL_VARIANTS = {
@@ -834,6 +834,13 @@ let metronomeBeatCount = 0; // Count beats for visual display
 let metronomeClockRef = null; // Reference to clock API for UTC sync
 let metronomeBallPos = 0; // 0-1 bouncing ball position (bounces between beats)
 
+// 🎹 DAW sync state (Ableton Live via M4L)
+let dawMode = false; // Set from query param OR auto-detected from DAW messages
+let dawAutoDetected = false; // True if we auto-detected DAW mode from messages
+let dawSynced = false; // True when receiving valid DAW data
+let dawBpm = null; // BPM from DAW
+let dawPlaying = false; // Transport playing state from DAW
+
 const trail = {};
 
 // 🎹 Piano roll history - pixel timeline of held notes
@@ -1046,10 +1053,26 @@ async function boot({
   painting,
   sound,
   clock,
+  query,
 }) {
   autopatApi = api;
   autopatHud = hud;
   autopatTypeface = typeface;
+
+  // 🎹 Check if we're in DAW mode (loaded from Ableton M4L)
+  dawMode = query?.daw === "1" || query?.daw === 1 || query?.daw === true;
+  console.log("🎹 Notepat: dawMode =", dawMode, "query.daw =", query?.daw, typeof query?.daw);
+  
+  // Also check if we already have DAW data (survives hot reload)
+  if (!dawMode && sound.daw?.bpm) {
+    dawMode = true;
+    dawAutoDetected = true;
+    console.log("🎹 Notepat: DAW mode AUTO-DETECTED from existing sound.daw:", sound.daw);
+  }
+  
+  if (dawMode) {
+    console.log("🎹 Notepat: DAW mode enabled", dawAutoDetected ? "(auto-detected)" : "(from query)");
+  }
 
   // 🕒 Store clock reference for UTC-synced metronome
   metronomeClockRef = clock;
@@ -1240,8 +1263,37 @@ function sim({ sound, simCount, num, clock }) {
     sound.speaker?.poll();
   }
 
+  // 🎹 Update DAW state from sound.daw (updated continuously by bios.mjs)
+  if (sound.daw) {
+    // Auto-enable DAW mode if we receive DAW data
+    if (!dawMode && sound.daw.bpm !== undefined && sound.daw.bpm !== null) {
+      dawMode = true;
+      dawAutoDetected = true;
+      console.log("🎹 Notepat sim() AUTO-DETECTED DAW mode from sound.daw:", JSON.stringify(sound.daw));
+    }
+    
+    if (sound.daw.bpm !== undefined && sound.daw.bpm !== null) {
+      dawSynced = true;
+      dawBpm = Math.round(sound.daw.bpm);
+      // Sync notepat's metronome BPM to DAW BPM when in DAW mode
+      if (dawMode) {
+        metronomeBPM = dawBpm;
+      }
+    }
+    if (sound.daw.playing !== undefined && sound.daw.playing !== null) {
+      dawPlaying = sound.daw.playing;
+    }
+  }
+
   // 🥁 UTC-synced metronome tick (like clock.mjs)
-  if (metronomeEnabled && metronomeBPM > 0) {
+  // In DAW mode: metronome auto-enables when DAW is playing, disabled when stopped
+  // 🥁 UTC-synced metronome tick (like clock.mjs)
+  // In DAW mode: Tick when metronome is enabled AND DAW is playing (sync to Ableton transport)
+  // In standalone mode: Tick when metronome is manually enabled
+  const shouldTickMetronome = metronomeEnabled && metronomeBPM > 0 && 
+    (!dawMode || dawPlaying);  // In DAW mode, also require dawPlaying
+  
+  if (shouldTickMetronome) {
     const clockRef = clock || metronomeClockRef;
     const syncedTime = clockRef?.time?.();
     const currentTimeMs = syncedTime ? syncedTime.getTime() : Date.now();
@@ -1288,6 +1340,10 @@ function sim({ sound, simCount, num, clock }) {
     if (metronomeVisualPhase > 0) {
       metronomeVisualPhase = Math.max(0, metronomeVisualPhase - 0.08);
     }
+  } else if (metronomeEnabled && dawMode && !dawPlaying) {
+    // Reset visual state when metronome is enabled but DAW is stopped
+    metronomeVisualPhase = 0;
+    metronomeBallPos = 0;
   }
 
   // 🛡️ Stuck note protection: Kill notes held longer than MAX_NOTE_LIFETIME
@@ -2824,6 +2880,9 @@ function paint({
         // Ball bounces from left to right based on metronomeBallPos (0-1)
         const ballX = ballTrackStartX + metronomeBallPos * ballTrackWidth;
         
+        // Draw distinct background for metronome bounce area
+        ink(35, 25, 45, 150).box(ballTrackStartX - 2, SECONDARY_BAR_TOP + 1, ballTrackWidth + 4, SECONDARY_BAR_HEIGHT - 2);
+        
         // Draw faint track line
         ink(80, 80, 80, 100).line(ballTrackStartX, ballY, ballTrackEndX, ballY);
         
@@ -3573,6 +3632,10 @@ function paint({
       rateTextColor = [80, 200, 255, 220],
       dividerColor = [80, 80, 80],
       fpsColor = [120, 255, 120],
+      // Distinct background colors for each section
+      midiBgColor = [40, 30, 20, 160],
+      rateBgColor = [20, 35, 45, 160],
+      fpsBgColor = [20, 40, 25, 160],
     } = {},
   ) {
     if (!metrics) return;
@@ -3586,12 +3649,15 @@ function paint({
     const gh = matrixGlyphMetrics.height;
     const baseX = x + MIDI_BADGE_PADDING_X;
     const baseY = y + MIDI_BADGE_PADDING_Y;
+    const sectionH = gh + MIDI_BADGE_PADDING_Y * 2;
 
     let cursorX = baseX;
 
-    // Draw "M" (shortened from MIDI)
+    // Draw "M" (shortened from MIDI) with background
     const midiText = "M";
-    if (cursorX + midiText.length * gw > maxX) return;
+    const midiW = midiText.length * gw + 2;
+    if (cursorX + midiW > maxX) return;
+    ink(midiBgColor[0], midiBgColor[1], midiBgColor[2], midiBgColor[3]).box(cursorX - 1, y, midiW + 1, sectionH);
     ink(tcR, tcG, tcB, tcA).write(
       midiText,
       { x: cursorX, y: baseY },
@@ -3608,10 +3674,12 @@ function paint({
     ink(divR, divG, divB).line(cursorX, y + 2, cursorX, y + gh + 1);
     cursorX += 3;
 
-    // Draw sample rate (e.g., "48k")
+    // Draw sample rate (e.g., "48k") with background
     if (rateText) {
       const shortRate = rateText.replace("Hz", ""); // "48kHz" -> "48k"
-      if (cursorX + shortRate.length * gw > maxX) return;
+      const rateW = shortRate.length * gw + 2;
+      if (cursorX + rateW > maxX) return;
+      ink(rateBgColor[0], rateBgColor[1], rateBgColor[2], rateBgColor[3]).box(cursorX - 1, y, rateW + 1, sectionH);
       ink(rtR, rtG, rtB, rtA).write(
         shortRate,
         { x: cursorX, y: baseY },
@@ -3629,10 +3697,12 @@ function paint({
     ink(divR, divG, divB).line(cursorX, y + 2, cursorX, y + gh + 1);
     cursorX += 3;
 
-    // Draw FPS with suffix (skip if it would overlap metronome)
+    // Draw FPS with suffix and background (skip if it would overlap metronome)
     const fpsVal = Math.round(perfStats.fps);
     const fpsText = fpsVal > 0 ? `${fpsVal}fps` : "--";
-    if (cursorX + fpsText.length * gw > maxX) return;
+    const fpsW = fpsText.length * gw + 2;
+    if (cursorX + fpsW > maxX) return;
+    ink(fpsBgColor[0], fpsBgColor[1], fpsBgColor[2], fpsBgColor[3]).box(cursorX - 1, y, fpsW + 1, sectionH);
     let fpsR, fpsG, fpsB;
     if (fpsVal < 30) { fpsR = 255; fpsG = 80; fpsB = 80; }
     else if (fpsVal < 50) { fpsR = 255; fpsG = 200; fpsB = 80; }
@@ -3645,6 +3715,32 @@ function paint({
       false,
       "MatrixChunky8",
     );
+    cursorX += fpsText.length * gw;
+
+    // 🎹 Draw DAW label when in DAW mode
+    if (dawMode) {
+      // Divider
+      cursorX += 2;
+      if (cursorX > maxX) return;
+      ink(divR, divG, divB).line(cursorX, y + 2, cursorX, y + gh + 1);
+      cursorX += 3;
+
+      const dawText = "DAW";
+      const dawW = dawText.length * gw + 2;
+      if (cursorX + dawW > maxX) return;
+      // Purple/magenta background for DAW mode indicator
+      const dawBgColor = dawSynced ? [60, 30, 80, 180] : [40, 30, 50, 160];
+      const dawTextColor = dawSynced ? [220, 140, 255] : [140, 100, 160];
+      ink(dawBgColor[0], dawBgColor[1], dawBgColor[2], dawBgColor[3]).box(cursorX - 1, y, dawW + 1, sectionH);
+      ink(dawTextColor[0], dawTextColor[1], dawTextColor[2]).write(
+        dawText,
+        { x: cursorX, y: baseY },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+    }
   }
 
 
@@ -4470,23 +4566,51 @@ function paint({
         row[PIANO_ROLL_WIDTH - 1] = sounds[note] !== undefined ? 1 : 0;
       }
       
-      // Draw subtle background
+      // 🎹 Draw mini piano keys above the track to show note relationship
+      const miniKeyH = 4; // Height of mini piano keys
+      const pianoY = rollY; // Piano at top of roll area
+      const trackStartY = rollY + miniKeyH + 1; // Track starts below piano
+      const actualRollH = rollH - miniKeyH - 1; // Adjust roll height for piano
+      
+      // Draw subtle background for the whole area
       ink(10, 10, 15, 180).box(rollX, rollY, rollW, rollH);
+      
+      // Draw mini piano keys at the top (white keys full color, black keys darker)
+      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
+        const note = buttonNotes[noteIdx];
+        const x = rollX + noteIdx;
+        const baseColor = getCachedColor(note, num);
+        const isActive = sounds[note] !== undefined;
+        const isBlack = note.includes('#');
+        
+        if (isBlack) {
+          // Black keys: darker version
+          const dark = [Math.floor(baseColor[0] * 0.3), Math.floor(baseColor[1] * 0.3), Math.floor(baseColor[2] * 0.3)];
+          ink(dark[0], dark[1], dark[2], isActive ? 255 : 180).box(x, pianoY, 1, miniKeyH);
+        } else {
+          // White keys: full or slightly dimmed
+          ink(baseColor[0], baseColor[1], baseColor[2], isActive ? 255 : 140).box(x, pianoY, 1, miniKeyH);
+        }
+        // Flash bright when active
+        if (isActive) {
+          ink(255, 255, 255, 120).box(x, pianoY, 1, miniKeyH);
+        }
+      }
       
       // 🎨 Draw colored "groove" indicators - full height desaturated note colors
       for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
         const note = buttonNotes[noteIdx];
         const x = rollX + noteIdx;
         const baseColor = getCachedColor(note, num);
-        // Desaturate: blend toward gray (reduce saturation by ~60%)
+        // Desaturate: blend toward gray (reduce saturation by ~70%)
         const gray = (baseColor[0] + baseColor[1] + baseColor[2]) / 3;
         const desat = [
-          Math.round(baseColor[0] * 0.4 + gray * 0.6),
-          Math.round(baseColor[1] * 0.4 + gray * 0.6),
-          Math.round(baseColor[2] * 0.4 + gray * 0.6),
+          Math.round(baseColor[0] * 0.3 + gray * 0.7),
+          Math.round(baseColor[1] * 0.3 + gray * 0.7),
+          Math.round(baseColor[2] * 0.3 + gray * 0.7),
         ];
-        // Full height groove for each note lane
-        ink(desat[0], desat[1], desat[2], 40).box(x, rollY, 1, rollH);
+        // Full height groove for each note lane (pixel-perfect 1px wide)
+        ink(desat[0], desat[1], desat[2], 35).box(x, trackStartY, 1, actualRollH);
       }
       
       // Draw each pixel - vertical layout (time = Y axis, notes = X axis)
@@ -4496,20 +4620,20 @@ function paint({
         const x = rollX + noteIdx;
         const baseColor = getCachedColor(note, num);
         
-        for (let yOff = 0; yOff < rollH; yOff++) {
+        for (let yOff = 0; yOff < actualRollH; yOff++) {
           // Map y position to history index (bottom = newest)
-          const histIdx = PIANO_ROLL_WIDTH - rollH + yOff;
+          const histIdx = PIANO_ROLL_WIDTH - actualRollH + yOff;
           if (row[histIdx]) {
             // Fade older notes (top = older)
-            const age = rollH - yOff;
+            const age = actualRollH - yOff;
             const alpha = Math.max(80, 255 - age * 2);
-            ink(baseColor[0], baseColor[1], baseColor[2], alpha).box(x, rollY + yOff, 1, 1);
+            ink(baseColor[0], baseColor[1], baseColor[2], alpha).box(x, trackStartY + yOff, 1, 1);
           }
         }
       }
       
-      // Draw subtle grid lines for octave separation (vertical lines)
-      ink(40, 40, 50, 100).line(rollX + 12, rollY, rollX + 12, rollY + rollH);
+      // Draw subtle grid lines for octave separation (vertical lines at note 12)
+      ink(40, 40, 50, 100).line(rollX + 12, trackStartY, rollX + 12, trackStartY + actualRollH);
       
     } else {
       // 🎹 HORIZONTAL Piano Roll (original) - time flows left-to-right, notes stacked vertically

@@ -161,8 +161,8 @@ function isCachedMediaValid(piece) {
   return true;
 }
 
-// Upload file to IPFS via Pinata
-async function uploadToIPFS(content, filename, mimeType = "text/html") {
+// Upload file to IPFS via Pinata (with optional progress callback for SSE updates)
+async function uploadToIPFS(content, filename, mimeType = "text/html", onProgress = null) {
   const { apiKey, apiSecret } = await getPinataCredentials();
   
   const formData = new FormData();
@@ -172,20 +172,61 @@ async function uploadToIPFS(content, filename, mimeType = "text/html") {
   // Don't wrap with directory - we want direct access to the HTML file
   formData.append("pinataOptions", JSON.stringify({ wrapWithDirectory: false }));
 
-  const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
-    method: "POST",
-    headers: {
-      pinata_api_key: apiKey,
-      pinata_secret_api_key: apiSecret,
-    },
-    body: formData,
-  });
+  // Add timeout to prevent hanging on slow Pinata responses
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+  
+  const sizeKB = Math.round(content.length / 1024);
+  console.log(`🪙 KEEP: Uploading ${filename} to IPFS (${sizeKB}KB)...`);
+  const startTime = Date.now();
+  
+  // Send periodic progress updates while waiting
+  let progressInterval = null;
+  if (onProgress) {
+    let dots = 0;
+    progressInterval = setInterval(async () => {
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+      dots = (dots + 1) % 4;
+      const dotStr = '.'.repeat(dots + 1);
+      await onProgress(`Pinning ${sizeKB}KB${dotStr} (${elapsed}s)`);
+    }, 3000); // Update every 3 seconds
+  }
+
+  let response;
+  try {
+    response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+      method: "POST",
+      headers: {
+        pinata_api_key: apiKey,
+        pinata_secret_api_key: apiSecret,
+      },
+      body: formData,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (progressInterval) clearInterval(progressInterval);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.error(`🪙 KEEP: IPFS upload failed after ${elapsed}s:`, err.message);
+    if (err.name === "AbortError") {
+      throw new Error(`IPFS upload timed out after 60s. Pinata may be slow. Please try again.`);
+    }
+    throw err;
+  }
+  clearTimeout(timeout);
+  if (progressInterval) clearInterval(progressInterval);
+  
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`🪙 KEEP: IPFS upload response in ${elapsed}s, status: ${response.status}`);
 
   if (!response.ok) {
-    throw new Error(`IPFS upload failed: ${response.status}`);
+    const errorText = await response.text().catch(() => 'Unknown error');
+    console.error(`🪙 KEEP: IPFS upload error response:`, errorText);
+    throw new Error(`IPFS upload failed: ${response.status} - ${errorText.slice(0, 100)}`);
   }
 
   const result = await response.json();
+  console.log(`🪙 KEEP: IPFS pin successful: ${result.IpfsHash}`);
   return `ipfs://${result.IpfsHash}`;
 }
 
@@ -193,18 +234,41 @@ async function uploadToIPFS(content, filename, mimeType = "text/html") {
 async function uploadJsonToIPFS(data, name) {
   const { apiKey, apiSecret } = await getPinataCredentials();
   
-  const response = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      pinata_api_key: apiKey,
-      pinata_secret_api_key: apiSecret,
-    },
-    body: JSON.stringify({
-      pinataContent: data,
-      pinataMetadata: { name },
-    }),
-  });
+  // Add timeout to prevent hanging on slow Pinata responses
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+  
+  console.log(`🪙 KEEP: Uploading metadata ${name} to IPFS...`);
+  const startTime = Date.now();
+
+  let response;
+  try {
+    response = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        pinata_api_key: apiKey,
+        pinata_secret_api_key: apiSecret,
+      },
+      body: JSON.stringify({
+        pinataContent: data,
+        pinataMetadata: { name },
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.error(`🪙 KEEP: Metadata upload failed after ${elapsed}s:`, err.message);
+    if (err.name === "AbortError") {
+      throw new Error(`Metadata upload timed out after 30s. Pinata may be slow. Please try again.`);
+    }
+    throw err;
+  }
+  clearTimeout(timeout);
+  
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`🪙 KEEP: Metadata upload response in ${elapsed}s, status: ${response.status}`);
 
   if (!response.ok) {
     throw new Error(`Metadata upload failed: ${response.status}`);
@@ -252,6 +316,15 @@ export const handler = stream(async (event, context) => {
 
   // Track if stream is closed to prevent double-close
   let streamClosed = false;
+  const processStartTime = Date.now();
+  const stageTimes = {};
+  
+  const logStage = (stage, message) => {
+    const elapsed = ((Date.now() - processStartTime) / 1000).toFixed(1);
+    if (!stageTimes[stage]) stageTimes[stage] = { start: Date.now() };
+    stageTimes[stage].last = Date.now();
+    console.log(`🪙 KEEP [${elapsed}s] ${stage}: ${message}`);
+  };
   
   const closeStream = async () => {
     if (!streamClosed) {
@@ -285,6 +358,7 @@ export const handler = stream(async (event, context) => {
       // ═══════════════════════════════════════════════════════════════════
       // STAGE 1: VALIDATE
       // ═══════════════════════════════════════════════════════════════════
+      logStage('validate', `Starting validation for $${pieceName}`);
       await send("progress", { stage: "validate", message: `Validating $${pieceName}...` });
 
       // Get piece from database first (needed for ownership checks)
@@ -481,6 +555,7 @@ export const handler = stream(async (event, context) => {
       const thumbH = 256;
       
       if (!useCachedMedia) {
+        logStage('thumbnail', `Starting ${thumbW * 2}x${thumbH * 2} WebP generation`);
         await send("progress", { stage: "thumbnail", message: `Baking ${thumbW * 2}x${thumbH * 2} WebP...` });
         
         // Helper to try oven thumbnail generation
@@ -498,6 +573,7 @@ export const handler = stream(async (event, context) => {
             fps: 10,
             playbackFps: 20,
             quality: 70,
+            skipCache: true, // Force fresh grab to ensure we have buffer for IPFS upload
             pinataKey: pinataCredentials.apiKey,
             pinataSecret: pinataCredentials.apiSecret,
           }),
@@ -509,19 +585,29 @@ export const handler = stream(async (event, context) => {
       // Try local oven first, then fallback to production
       thumbnailPromise = !useCachedMedia ? (async () => {
         try {
-          return await tryOvenThumbnail(OVEN_URL);
+          const result = await tryOvenThumbnail(OVEN_URL);
+          console.log(`🪙 KEEP: Oven response:`, JSON.stringify(result));
+          if (!result?.ipfsUri && result?.error) {
+            throw new Error(result.error);
+          }
+          return result;
         } catch (localErr) {
-          console.warn(`Local oven failed (${OVEN_URL}):`, localErr.message);
+          console.warn(`🪙 KEEP: Oven failed (${OVEN_URL}):`, localErr.message);
           if (OVEN_URL !== OVEN_FALLBACK_URL) {
-            console.log(`Trying fallback oven: ${OVEN_FALLBACK_URL}`);
+            console.log(`🪙 KEEP: Trying fallback oven: ${OVEN_FALLBACK_URL}`);
             try {
-              return await tryOvenThumbnail(OVEN_FALLBACK_URL);
+              const fallbackResult = await tryOvenThumbnail(OVEN_FALLBACK_URL);
+              console.log(`🪙 KEEP: Fallback oven response:`, JSON.stringify(fallbackResult));
+              if (!fallbackResult?.ipfsUri && fallbackResult?.error) {
+                throw new Error(fallbackResult.error);
+              }
+              return fallbackResult;
             } catch (fallbackErr) {
-              console.warn(`Fallback oven failed:`, fallbackErr.message);
-              return null;
+              console.warn(`🪙 KEEP: Fallback oven failed:`, fallbackErr.message);
+              return { error: fallbackErr.message };
             }
           }
-          return null;
+          return { error: localErr.message };
         }
       })() : Promise.resolve({ ipfsUri: thumbnailUri });
       }
@@ -549,6 +635,7 @@ export const handler = stream(async (event, context) => {
       let bundleHtml, bundleFilename, authorHandle, userCode, packDate, depCount;
       
       if (!useCachedMedia) {
+        logStage('bundle', 'Generating HTML bundle');
         await send("progress", { stage: "bundle", message: "Packing HTML bundle..." });
         
         const bundleUrl = dev 
@@ -614,17 +701,30 @@ export const handler = stream(async (event, context) => {
       // STAGE 5: UPLOAD BUNDLE TO IPFS (skip if cached)
       // ═══════════════════════════════════════════════════════════════════
       if (!useCachedMedia) {
-        await send("progress", { stage: "ipfs", message: "Pinning bundle..." });
+        logStage('ipfs', `Uploading bundle to Pinata (${Math.round(bundleHtml.length / 1024)}KB)`);
+        await send("progress", { stage: "ipfs", message: "Connecting to Pinata..." });
+        
+        const ipfsStartTime = Date.now();
+        console.log(`🪙 KEEP: Starting IPFS bundle upload...`);
+        
+        // Pass progress callback for periodic updates during upload
+        const onIPFSProgress = async (msg) => {
+          await send("progress", { stage: "ipfs", message: msg });
+        };
         
         artifactUri = await uploadToIPFS(
           bundleHtml, 
           bundleFilename,
-          "text/html"
+          "text/html",
+          onIPFSProgress
         );
         
-        // Show full IPFS hash
+        const ipfsElapsed = ((Date.now() - ipfsStartTime) / 1000).toFixed(1);
+        logStage('ipfs', `Upload complete in ${ipfsElapsed}s`);
+        
+        // Show IPFS hash with timing
         const hash = artifactUri.replace("ipfs://", "");
-        await send("progress", { stage: "ipfs", message: `Pinned ${hash}` });
+        await send("progress", { stage: "ipfs", message: `Pinned in ${ipfsElapsed}s` });
       } else {
         // Show cached IPFS hash (full)
         const hash = artifactUri.replace("ipfs://", "");
@@ -635,12 +735,14 @@ export const handler = stream(async (event, context) => {
       // STAGE 6: AWAIT THUMBNAIL (skip if cached)
       // ═══════════════════════════════════════════════════════════════════
       if (!useCachedMedia) {
-        await send("progress", { stage: "thumbnail", message: "Baking 256x256 WebP..." });
+        await send("progress", { stage: "thumbnail", message: `Awaiting ${thumbW}x${thumbH}@2x WebP...` });
         
         const thumbResult = await thumbnailPromise;
         
         if (!thumbResult?.ipfsUri) {
-          throw new Error("Thumbnail generation failed - oven unavailable");
+          const errorMsg = thumbResult?.error || "unknown error";
+          console.error(`🪙 KEEP: Thumbnail failed:`, errorMsg);
+          throw new Error(`Thumbnail generation failed - ${errorMsg}`);
         }
         
         thumbnailUri = thumbResult.ipfsUri;
@@ -814,6 +916,12 @@ export const handler = stream(async (event, context) => {
 
       // PREPARE MODE: Return data for client-side wallet minting
       if (mode === "prepare") {
+        const totalElapsed = ((Date.now() - processStartTime) / 1000).toFixed(1);
+        console.log(`🪙 KEEP: Preparation complete in ${totalElapsed}s`);
+        console.log(`🪙 KEEP: Stage timing summary:`, Object.entries(stageTimes).map(([k, v]) => 
+          `${k}: ${((v.last - v.start) / 1000).toFixed(1)}s`
+        ).join(', '));
+        
         await send("progress", { stage: "ready", message: "Ready for wallet signature..." });
         
         // Use Taquito to generate the Michelson parameters for the contract call
