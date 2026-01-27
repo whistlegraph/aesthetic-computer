@@ -980,22 +980,40 @@ function generateHTMLBundle(opts) {
 <body>
   <div id="fps-meter">FPS: --</div>
   <script>
-    // FPS meter
+    // FPS meter with diagnostics
     (function() {
       const meter = document.getElementById('fps-meter');
       let frames = 0;
       let lastTime = performance.now();
       let fps = 0;
+      let minFrameTime = Infinity;
+      let maxFrameTime = 0;
+      let lastFrameTime = performance.now();
       
       function tick() {
-        frames++;
         const now = performance.now();
+        const frameTime = now - lastFrameTime;
+        lastFrameTime = now;
+        
+        if (frameTime > 0 && frameTime < 10000) {
+          minFrameTime = Math.min(minFrameTime, frameTime);
+          maxFrameTime = Math.max(maxFrameTime, frameTime);
+        }
+        
+        frames++;
         if (now - lastTime >= 1000) {
           fps = Math.round(frames * 1000 / (now - lastTime));
           frames = 0;
           lastTime = now;
-          meter.textContent = 'FPS: ' + fps;
+          
+          // Show FPS and frame time range
+          const mem = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + 'MB' : '?';
+          meter.innerHTML = 'FPS: ' + fps + '<br>Frame: ' + Math.round(minFrameTime) + '-' + Math.round(maxFrameTime) + 'ms<br>Mem: ' + mem;
           meter.style.color = fps >= 30 ? 'lime' : fps >= 15 ? 'yellow' : 'red';
+          
+          // Reset for next second
+          minFrameTime = Infinity;
+          maxFrameTime = 0;
         }
         requestAnimationFrame(tick);
       }
