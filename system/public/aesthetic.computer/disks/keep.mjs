@@ -1207,24 +1207,16 @@ async function runProcess(forceRegenerate = false) {
       return;
     }
 
-    const text = await response.text();
-    const events = text.split('\n\n').filter(e => e.trim());
-
     // Process events with staggered delays so user sees each step
     const delay = (ms) => new Promise(r => setTimeout(r, ms));
     const STEP_DELAY = 350; // ms between each visual step
     let firstEvent = true;
+    let lastEventType = null;
+    let lastEventData = null;
 
-    for (const event of events) {
-      const lines = event.split('\n');
-      let eventType = null, eventData = null;
-
-      for (const line of lines) {
-        if (line.startsWith('event: ')) eventType = line.slice(7);
-        else if (line.startsWith('data: ')) {
-          try { eventData = JSON.parse(line.slice(6)); } catch {}
-        }
-      }
+    const handleEvent = async (eventType, eventData) => {
+      lastEventType = eventType;
+      lastEventData = eventData;
 
       if (eventType === "progress" && eventData?.stage) {
         const { stage, message, source, author } = eventData;
@@ -1334,12 +1326,80 @@ async function runProcess(forceRegenerate = false) {
         console.error(`🪙 KEEP ERROR [${totalElapsed}s]:`, eventData.error || eventData.message);
         const active = getActiveStep();
         if (active) setStep(active.id, "error", eventData.error || eventData.message);
-        return;
+      }
+    };
+
+    if (response.body?.getReader) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop() || "";
+
+        for (const chunk of chunks) {
+          const lines = chunk.split("\n");
+          let eventType = null;
+          let eventData = null;
+          for (const line of lines) {
+            if (line.startsWith("event: ")) eventType = line.slice(7);
+            else if (line.startsWith("data: ")) {
+              try { eventData = JSON.parse(line.slice(6)); } catch {}
+            }
+          }
+          if (eventType) {
+            await handleEvent(eventType, eventData);
+            if (eventType === "error") return;
+          }
+        }
+      }
+
+      if (buffer.trim()) {
+        const lines = buffer.split("\n");
+        let eventType = null;
+        let eventData = null;
+        for (const line of lines) {
+          if (line.startsWith("event: ")) eventType = line.slice(7);
+          else if (line.startsWith("data: ")) {
+            try { eventData = JSON.parse(line.slice(6)); } catch {}
+          }
+        }
+        if (eventType) await handleEvent(eventType, eventData);
+      }
+    } else {
+      const text = await response.text();
+      const events = text.split("\n\n").filter(e => e.trim());
+      for (const event of events) {
+        const lines = event.split("\n");
+        let eventType = null, eventData = null;
+
+        for (const line of lines) {
+          if (line.startsWith("event: ")) eventType = line.slice(7);
+          else if (line.startsWith("data: ")) {
+            try { eventData = JSON.parse(line.slice(6)); } catch {}
+          }
+        }
+
+        if (eventType) {
+          await handleEvent(eventType, eventData);
+          if (eventType === "error") return;
+        }
       }
     }
 
     if (!preparedData) {
-      setStep("validate", "error", "Server did not return prepared data");
+      const lastStage = lastEventData?.stage || lastEventType || "unknown";
+      const tail = lastEventData?.message ? ` (last: ${lastEventData.message})` : "";
+      if (!forceRegenerate && !mintCancelled) {
+        setStep("validate", "active", `Retrying with regenerate… (${lastStage})`);
+        await delay(350);
+        return await runProcess(true);
+      }
+      setStep("validate", "error", `Server did not return prepared data (${lastStage})${tail}`);
     }
 
   } catch (e) {
