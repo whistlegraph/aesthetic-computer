@@ -801,6 +801,90 @@ function rebuildTrayMenu() {
   
   menuItems.push({ type: 'separator' });
   
+  // FF1 Art Computer Bridge section
+  const ff1Devices = ff1Bridge.getDevices();
+  const ff1Running = ff1Bridge.isRunning();
+  menuItems.push({
+    label: '🖼️ FF1 Art Computer',
+    submenu: [
+      {
+        label: ff1Running ? '✓ Bridge Running (port 19999)' : '✗ Bridge Not Running',
+        enabled: false
+      },
+      {
+        label: `Devices Found: ${ff1Devices.length}`,
+        enabled: false
+      },
+      { type: 'separator' },
+      ...ff1Devices.map(device => ({
+        label: `${device.deviceId} (${device.ip})`,
+        submenu: [
+          {
+            label: 'Cast Current Piece',
+            click: () => {
+              const win = getFocusedWindow();
+              if (win) {
+                const mode = getFocusedWindowMode();
+                const baseUrl = mode === 'production' ? 'https://aesthetic.computer' : 'http://localhost:8888';
+                const piece = currentPiece || 'prompt';
+                const url = `${baseUrl}/${piece}`;
+                // Send cast request through the bridge
+                const http = require('http');
+                const payload = JSON.stringify({
+                  deviceId: device.deviceId,
+                  playlist: [{ url, duration: 0 }]
+                });
+                const req = http.request({
+                  hostname: '127.0.0.1',
+                  port: 19999,
+                  path: '/cast',
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' }
+                });
+                req.write(payload);
+                req.end();
+              }
+            }
+          },
+          {
+            label: 'Open Device IP',
+            click: () => shell.openExternal(`http://${device.ip}:1111`)
+          }
+        ]
+      })),
+      ...(ff1Devices.length === 0 ? [{
+        label: 'No devices found',
+        enabled: false
+      }] : []),
+      { type: 'separator' },
+      {
+        label: 'Scan for Devices',
+        click: () => {
+          ff1Bridge.scanForDevices();
+          setTimeout(() => rebuildTrayMenu(), 3000);
+        }
+      },
+      {
+        label: 'Open KidLisp.com Editor',
+        click: () => shell.openExternal('https://kidlisp.com')
+      },
+      { type: 'separator' },
+      {
+        label: 'About FF1 Bridge',
+        click: () => {
+          dialog.showMessageBox({
+            type: 'info',
+            title: 'FF1 Art Computer Bridge',
+            message: 'FF1 Bridge',
+            detail: 'The FF1 Bridge allows kidlisp.com to send KidLisp pieces to FF1 Art Computers on your local network.\n\nThe bridge runs on port 19999 and automatically discovers FF1 devices via mDNS.\n\nVisit kidlisp.com to create and cast pieces!'
+          });
+        }
+      }
+    ]
+  });
+  
+  menuItems.push({ type: 'separator' });
+  
   // Edit section
   menuItems.push({
     label: 'Edit',
@@ -1007,8 +1091,8 @@ function navigateToPiece(piece) {
 }
 
 // Open a new AC Pane window
-async function openAcPaneWindow() {
-  return openAcPaneWindowInternal();
+async function openAcPaneWindow(options = {}) {
+  return openAcPaneWindowInternal(options);
 }
 
 // Open KidLisp window (kidlisp.com)
@@ -1048,14 +1132,52 @@ let ptyProcessFor3D = null;
 let lastKnownCols = 120;
 let lastKnownRows = 40;
 
-async function openAcPaneWindowInternal() {
+// Calculate offset position for new windows to avoid overlap
+function getOffsetWindowPosition(sourceWindow, index = 0) {
+  const offset = 40; // Pixels to offset each new window
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  
+  let baseX, baseY;
+  
+  if (sourceWindow && !sourceWindow.isDestroyed()) {
+    const [srcX, srcY] = sourceWindow.getPosition();
+    const [srcW, srcH] = sourceWindow.getSize();
+    // Position to the right of source window
+    baseX = srcX + srcW + 20;
+    baseY = srcY;
+    // If it would go off screen, wrap to upper-left with offset
+    if (baseX + 680 > width) {
+      baseX = 50 + (index * offset);
+      baseY = 50 + (index * offset);
+    }
+  } else {
+    // No source window, use cascading from top-left
+    baseX = 100 + (index * offset);
+    baseY = 100 + (index * offset);
+  }
+  
+  // Apply index offset for multiple windows
+  const x = Math.min(baseX + (index * offset), width - 680);
+  const y = Math.min(baseY + (index * offset), height - 520);
+  
+  return { x: Math.max(0, x), y: Math.max(0, y) };
+}
+
+async function openAcPaneWindowInternal(options = {}) {
+  const { sourceWindow = null, index = 0 } = options;
+  
   // Start with a wide window - extra height for mode tags at bottom
   const winWidth = 680;
   const winHeight = 520;
   
+  // Calculate position to avoid overlap
+  const { x, y } = getOffsetWindowPosition(sourceWindow, index);
+  
   const win = new BrowserWindow({
     width: winWidth,
     height: winHeight,
+    x,
+    y,
     minWidth: 320,
     minHeight: 240,
     title: 'AC Pane',
@@ -1880,9 +2002,10 @@ ipcMain.on('move-window', (event, position) => {
 });
 
 // Open/close windows from inside the embedded AC prompt (via webview popup interception)
-ipcMain.handle('ac-open-window', async (event, { url } = {}) => {
-  console.log('[main] ac-open-window called with url:', url);
-  const { window: newWindow } = await openAcPaneWindow();
+ipcMain.handle('ac-open-window', async (event, { url, index = 0, total = 1 } = {}) => {
+  console.log('[main] ac-open-window called with url:', url, 'index:', index, 'total:', total);
+  const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+  const { window: newWindow } = await openAcPaneWindowInternal({ sourceWindow, index });
   console.log('[main] openAcPaneWindow returned:', !!newWindow);
   if (url && newWindow) {
     newWindow.webContents.once('did-finish-load', () => {
@@ -2156,7 +2279,11 @@ app.on('web-contents-created', (event, contents) => {
       
       // Handle new window request (from prompt.mjs '+' command)
       // Open a new AC Pane and navigate to the URL
-      openAcPaneWindow().then(({ window: newWin }) => {
+      // Find the source window from the webview's host
+      const sourceWindow = BrowserWindow.getAllWindows().find(win => 
+        !win.isDestroyed() && win.webContents.id === contents.hostWebContents?.id
+      );
+      openAcPaneWindowInternal({ sourceWindow, index: 0 }).then(({ window: newWin }) => {
         if (newWin && !newWin.isDestroyed()) {
           newWin.webContents.once('did-finish-load', () => {
             if (!newWin.isDestroyed()) {
