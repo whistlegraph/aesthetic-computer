@@ -277,7 +277,50 @@ window.addEventListener('unhandledrejection', (event) => {
     showConnectionError(event.reason);
     event.preventDefault();
   }
+  
+  // Detect stale module cache errors (export not found, usually after deploy)
+  // These require a hard refresh to clear the browser's module cache
+  if (reason.includes('does not provide an export') ||
+      reason.includes('SyntaxError') ||
+      reason.includes('Unexpected token')) {
+    showFatalBootError(event.reason);
+    event.preventDefault();
+  }
 });
+
+// Show fatal boot error with red flash and auto-refresh
+let fatalErrorCount = 0;
+const MAX_FATAL_RETRIES = 2;
+
+function showFatalBootError(error) {
+  fatalErrorCount++;
+  const errorMsg = error?.message || String(error);
+  
+  // Trigger red error mode on boot canvas
+  if (window.acBootCanvas?.setErrorMode) {
+    window.acBootCanvas.setErrorMode(true, errorMsg);
+  }
+  
+  bootLog(`❌ module error - refreshing...`);
+  bootTelemetry.error({
+    type: 'fatal-module-error',
+    message: errorMsg,
+    retryCount: fatalErrorCount,
+    maxRetries: MAX_FATAL_RETRIES,
+  });
+  
+  if (fatalErrorCount <= MAX_FATAL_RETRIES) {
+    // Flash red for a moment, then hard refresh to clear module cache
+    setTimeout(() => {
+      // Force hard refresh by adding cache-bust param
+      const url = new URL(window.location.href);
+      url.searchParams.set('_bust', Date.now().toString());
+      window.location.replace(url.toString());
+    }, 1500);
+  } else {
+    bootLog(`❌ boot failed - please clear cache`);
+  }
+}
 
 // Expose hideBootLog globally so bios can call it when fully ready
 window.acHIDE_BOOT_LOG = hideBootLog;
