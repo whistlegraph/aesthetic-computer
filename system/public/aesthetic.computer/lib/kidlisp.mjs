@@ -14825,6 +14825,43 @@ async function fetchCachedCode(nanoidCode, api = null) {
   return productionSource;
 }
 
+// Fetch full metadata for a KidLisp piece (including author handle, hits, etc.)
+// Returns { source, handle, when, hits } or null
+async function fetchKidlispMetadata(nanoidCode) {
+  // Skip in OBJKT mode
+  const isObjktMode = checkPackMode();
+  if (isObjktMode) return null;
+
+  const tryFetchMeta = async (url) => {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.source) {
+          return {
+            source: data.source,
+            handle: data.handle || null,
+            when: data.when || null,
+            hits: data.hits || 0,
+            kept: data.kept || null,
+          };
+        }
+      }
+    } catch (error) {
+      console.error(`❌ Failed to fetch metadata: ${nanoidCode}`, error);
+    }
+    return null;
+  };
+
+  // Try local first, then production
+  const localUrl = `/api/store-kidlisp?code=${nanoidCode}`;
+  const localMeta = await tryFetchMeta(localUrl);
+  if (localMeta) return localMeta;
+
+  const productionUrl = `https://aesthetic.computer/api/store-kidlisp?code=${nanoidCode}`;
+  return await tryFetchMeta(productionUrl);
+}
+
 // Export function to get syntax highlighting colors for progress bars
 function getSyntaxHighlightingColors(source) {
   if (!source) {
@@ -15077,6 +15114,7 @@ export {
   isActualKidLisp,
   fetchCachedCode,
   fetchMultipleCachedCodes,
+  fetchKidlispMetadata,
   getCachedCode,
   setCachedCode,
   getSyntaxHighlightingColors,
