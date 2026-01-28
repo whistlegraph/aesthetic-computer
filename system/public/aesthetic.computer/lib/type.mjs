@@ -2501,14 +2501,15 @@ class TextInput {
         }, 50);
       }
       
-      // Always unlock keyboard on lift (unless locked)
-      if (!this.#lock) {
-        $.send({ type: "keyboard:unlock" });
-      }
-      
       // Store the current backdropTouchOff state before resetting it
       const shouldPreventActivation = this.backdropTouchOff;
       this.backdropTouchOff = false;
+      
+      // Unlock keyboard on lift (unless locked or a button was touched)
+      // Don't unlock if a button interaction was happening - let bios handle it
+      if (!this.#lock && !shouldPreventActivation) {
+        $.send({ type: "keyboard:unlock" });
+      }
       
       // Process activation for inactive TextInput
       if (!this.canType) {
