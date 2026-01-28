@@ -1049,13 +1049,34 @@ async function fun(event, context) {
           window.addEventListener('message',function(e){if(e.data&&e.data.type==='kidlisp-theme'){isLightMode=e.data.theme==='light';}});
           function setH(h){uH=h;hST=performance.now();}
           function setConn(c){if(c&&!sessionConnected){connFlash=1;connFlashStart=performance.now();}sessionConnected=c;}
+          // Error mode state - flashes red when fatal boot errors occur
+          var errorMode=false,errorFlash=0,errorMsg='';
+          function setErrorMode(on,msg){errorMode=on;if(on){errorFlash=1;errorMsg=msg||'boot error';}else{errorFlash=0;errorMsg='';}}
+          // Touch/mouse interaction - yanks and glitches the animation
+          var touchGlitch=0,touchX=0,touchY=0,lastTouch=0;
+          c.style.pointerEvents='auto';c.style.touchAction='manipulation';
+          function handleInteraction(ex,ey){touchGlitch=Math.min(1.5,touchGlitch+0.4);touchX=ex/W;touchY=ey/H;lastTouch=performance.now();
+            // Add some extra chaos when touched
+            lb=Math.min(1,lb+0.3);bp=Math.min(1,bp+0.1);}
+          c.addEventListener('touchstart',function(e){e.preventDefault();var t=e.touches[0];if(t)handleInteraction(t.clientX/SCL,t.clientY/SCL);},{passive:false});
+          c.addEventListener('touchmove',function(e){e.preventDefault();var t=e.touches[0];if(t)handleInteraction(t.clientX/SCL,t.clientY/SCL);},{passive:false});
+          c.addEventListener('mousedown',function(e){handleInteraction(e.clientX/SCL,e.clientY/SCL);});
+          c.addEventListener('mousemove',function(e){if(e.buttons>0)handleInteraction(e.clientX/SCL,e.clientY/SCL);});
+          // File cycling - rotate through different files as boot progresses
+          var displayFileIdx=0,lastFileSwap=0,FILE_SWAP_INTERVAL=3000;
           var lastSCL=1;
-          function anim(){if(!run||!c)return;f++;lb*=0.94;var chaos=0.3+bp*0.4+lb*0.3;var t=f*0.05;
+          function anim(){if(!run||!c)return;f++;lb*=0.94;touchGlitch*=0.92;var chaos=0.3+bp*0.4+lb*0.3+touchGlitch*0.5;var t=f*0.05;
+            // Error flash decay (slower than connection flash)
+            if(errorFlash>0)errorFlash*=0.96;
             // Connection flash decay
             if(connFlash>0)connFlash*=0.92;
             var newSCL=Math.min(targetSCL,1+Math.floor(bp*(targetSCL-1)));if(newSCL!==lastSCL){lastSCL=newSCL;updateScale(newSCL);}
             x.clearRect(0,0,W,H);var S=targetSCL/SCL;
-            var baseShk=0.5+Math.sin(t*2)*0.3,shk=baseShk+chaos*chaos*4+lb*3,sx=(Math.random()-0.5)*shk,sy=(Math.random()-0.5)*shk;
+            // Touch interaction adds directional pull toward touch point
+            var touchPull=touchGlitch*15*S,touchDx=(touchX-0.5)*touchPull,touchDy=(touchY-0.5)*touchPull;
+            var baseShk=0.5+Math.sin(t*2)*0.3,shk=baseShk+chaos*chaos*4+lb*3+touchGlitch*8,sx=(Math.random()-0.5)*shk+touchDx,sy=(Math.random()-0.5)*shk+touchDy;
+            // File cycling - swap displayed files periodically as boot progresses
+            var now=performance.now();if(files.length>1&&now-lastFileSwap>FILE_SWAP_INTERVAL){lastFileSwap=now;displayFileIdx=(displayFileIdx+1)%files.length;for(var k in scrollYs)scrollYs[k]=0;}
             // KidLisp simplified mode: colored bars + logs only
             if(isKidlisp){var klBg=isLightMode?'rgba(247,247,247,0.95)':'rgba(42,37,32,0.95)';x.fillStyle=klBg;x.fillRect(0,0,W,H);x.globalAlpha=isLightMode?0.015:0.03;x.fillStyle=isLightMode?'#888':'#000';for(var yy=0;yy<H;yy+=3*S)x.fillRect(0,yy,W,S);x.globalAlpha=1;var klCols=getKidlispCols();
               if(f%15===0&&KIDLISP_BARS.length<40){var bci=Math.floor(Math.random()*klCols.length);KIDLISP_BARS.push({x:Math.random()*W,y:H+5*S,w:(30+Math.random()*80)*S,h:(2+Math.random()*3)*S,ci:bci,s:(0.5+Math.random()*1.5)*S,a:0.3+Math.random()*0.3});}
@@ -1069,7 +1090,8 @@ async function fun(event, context) {
             var HDRCOLS=isKidlisp?['#3d2818','#3d3018','#3d2810','#3d3410','#3d2a18','#3d2c10','#3d2610','#3d3218']:(isLightMode?['#e8dcc8','#dce8d0','#d8d0e8','#e8e0c8','#e0d0e8','#d0e0e0','#e8d0d8','#d0e8d0']:['#3d2828','#283d2c','#28283d','#3d3428','#34283d','#283d3d','#3d2834','#2c3d28']);
             if(files.length>0){var nF=files.length,maxCols=Math.min(nF,4),colW=Math.floor(W/maxCols),pH=H;
             var hScale=Math.min(1,colW/(W/1.5)),baseFnt=Math.max(2*S,Math.floor(4*S/maxCols*2)),baseLH=Math.max(3*S,Math.floor(baseFnt*1.3));
-            for(var fc=0;fc<maxCols;fc++){var fi=files[fc],pX=fc*colW,pY=0,bgC=BGCOLS[fc%BGCOLS.length],nameC=NAMECOLS[fc%NAMECOLS.length],hdrC=HDRCOLS[fc%HDRCOLS.length];
+            // Cycle through files - each column shows a different file from the rotating offset
+            for(var fc=0;fc<maxCols;fc++){var fileIdx=(displayFileIdx+fc)%nF;var fi=files[fileIdx],pX=fc*colW,pY=0,bgC=BGCOLS[(displayFileIdx+fc)%BGCOLS.length],nameC=NAMECOLS[(displayFileIdx+fc)%NAMECOLS.length],hdrC=HDRCOLS[(displayFileIdx+fc)%HDRCOLS.length];
             x.fillStyle=bgC;x.globalAlpha=0.9;x.fillRect(pX,pY,colW,pH);x.globalAlpha=1;x.fillStyle=hdrC;x.fillRect(pX,pH-sHH,colW,sHH);
             x.font='bold '+Math.max(2*S,baseFnt)+'px monospace';x.fillStyle=nameC;x.fillText(fi.name,pX+2*S,pH-sHH+5*S);
             x.save();x.beginPath();x.rect(pX,pY,colW,pH-sHH);x.clip();x.translate(pX,0);x.scale(hScale,1);x.translate(-pX/hScale,0);var sY=scrollYs[fi.name]||0,cY=pY+3*S-sY,lnW=Math.floor(baseFnt*2.5);x.font=baseFnt+'px monospace';
@@ -1128,16 +1150,25 @@ async function fun(event, context) {
             // Connection status VHS tint
             if(!sessionConnected){x.globalCompositeOperation='screen';x.globalAlpha=0.15+Math.sin(t*3)*0.06;x.fillStyle='rgb('+(255+Math.sin(t*7)*20|0)+','+(60+Math.cos(t*5)*30|0)+','+(100+Math.sin(t*9)*40|0)+')';x.fillRect(0,0,W,H);x.globalCompositeOperation='source-over';}
             if(connFlash>0.01){x.globalCompositeOperation='screen';x.globalAlpha=connFlash*0.6;x.fillStyle='rgb(80,255,180)';x.fillRect(0,0,W,H);x.globalCompositeOperation='source-over';}
+            // Error mode - intense red flash with glitch effect
+            if(errorMode||errorFlash>0.01){x.globalCompositeOperation='screen';var errA=errorMode?0.4+Math.sin(t*8)*0.2:errorFlash*0.5;x.globalAlpha=errA;x.fillStyle='rgb(255,'+(40+Math.sin(t*12)*30|0)+','+(60+Math.cos(t*9)*40|0)+')';x.fillRect(0,0,W,H);
+              // Extra glitch lines in error mode
+              if(errorMode&&Math.random()<0.3){var gy=Math.random()*H|0,gh=(S*3+Math.random()*S*8)|0;x.globalAlpha=0.6;x.fillStyle='rgb(255,0,0)';x.fillRect(0,gy,W,gh);}
+              x.globalCompositeOperation='source-over';}
+            // Touch interaction visual feedback - ripple effect
+            if(touchGlitch>0.05){var rippleR=(1-touchGlitch)*100*S+10*S;x.globalAlpha=touchGlitch*0.3;x.strokeStyle=isLightMode?'rgb(100,60,140)':'rgb(200,150,255)';x.lineWidth=2*S;x.beginPath();x.arc(touchX*W,touchY*H,rippleR,0,Math.PI*2);x.stroke();x.globalAlpha=1;}
             x.globalAlpha=1;requestAnimationFrame(anim);}anim();
-          var obj={log:add,hide:function(){run=false;c.remove();},setHandle:setH,addFile:addFile,netPulse:netPulse,setSessionConnected:setConn};Object.defineProperty(obj,'motd',{get:function(){return motd;},set:function(v){motd=v;motdStart=performance.now();}});Object.defineProperty(obj,'motdHandle',{get:function(){return motdHandle;},set:function(v){motdHandle=v||'';}});return obj;})();
+          var obj={log:add,hide:function(){run=false;c.remove();},setHandle:setH,addFile:addFile,netPulse:netPulse,setSessionConnected:setConn,setErrorMode:setErrorMode};Object.defineProperty(obj,'motd',{get:function(){return motd;},set:function(v){motd=v;motdStart=performance.now();}});Object.defineProperty(obj,'motdHandle',{get:function(){return motdHandle;},set:function(v){motdHandle=v||'';}});return obj;})();
           window.acBOOT_LOG_CANVAS=function(m){if(window.acBootCanvas&&window.acBootCanvas.log)window.acBootCanvas.log(m);};
           window.acBOOT_ADD_FILE=function(n,s){if(window.acBootCanvas&&window.acBootCanvas.addFile)window.acBootCanvas.addFile(n,s);};
           window.acBOOT_NET_PULSE=function(){if(window.acBootCanvas&&window.acBootCanvas.netPulse)window.acBootCanvas.netPulse();};
           // Fetch MOTD for boot screen
           (async function(){try{var r=await fetch('/api/mood/moods-of-the-day');if(r.ok){var d=await r.json();if(d&&d.mood){window.acBootCanvas.motd=d.mood;if(d.handle)window.acBootCanvas.motdHandle=d.handle;}}}catch(e){}})();
-          // Fetch boot files to display
+          // Fetch boot files to display - more variety for cycling display
           (async function(){
-            var paths=['boot.mjs','bios.mjs','lib/parse.mjs','lib/graph.mjs','lib/num.mjs'];
+            var paths=['boot.mjs','bios.mjs','lib/parse.mjs','lib/graph.mjs','lib/num.mjs','lib/disk.mjs','lib/geo.mjs','lib/text.mjs','lib/pen.mjs','lib/help.mjs'];
+            // Shuffle paths for variety on each boot
+            for(var i=paths.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=paths[i];paths[i]=paths[j];paths[j]=tmp;}
             for(var i=0;i<paths.length;i++){try{window.acBOOT_NET_PULSE();var r=await fetch('/aesthetic.computer/'+paths[i]);window.acBOOT_NET_PULSE();if(r.ok){var t=await r.text();window.acBOOT_ADD_FILE(paths[i],t);}}catch(e){}}
           })();
         </script>
