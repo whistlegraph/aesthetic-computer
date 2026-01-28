@@ -261,11 +261,14 @@ let paintJumpPending = false;
 let bitmapLoading = false;
 let bitmapLoaded = false;
 let bitmapProgress = 0; // Playback progress 0-1 for scrubber
+let bitmapPlaybackHz = 0; // Current playback rate in Hz (samples per second / total samples)
+let lastBitmapProgress = 0; // Previous progress for Hz calculation
+let lastProgressTime = 0; // Time of last progress update
 
 // 🎭 KidLisp embedding state - for `stample $code` feature
 let kidlispSource = null;      // The KidLisp source code to render
 let kidlispCacheId = null;     // The $code identifier (without $)
-let kidlispBuffer = null;      // The rendered KidLisp pixel buffer
+let kidlispBuffer = null;      // The rendered KidLisp pixel buffer (persistent for layering)
 let kidlispLoading = false;    // Whether we're loading KidLisp source
 let kidlispActive = false;     // Whether we're in KidLisp sampling mode
 
@@ -289,6 +292,30 @@ async function boot({
   store,
   system,
 }) {
+  // 🔄 Reset all module state for re-entrancy (when coming back to stample)
+  bitmapPreview = null;
+  bitmapMeta = null;
+  bitmapLooping = false;
+  bitmapLoopSound = null;
+  bitmapPlaySound = null;
+  paintJumpPending = false;
+  bitmapLoading = false;
+  bitmapLoaded = false;
+  bitmapProgress = 0;
+  bitmapPlaybackHz = 0;
+  lastBitmapProgress = 0;
+  lastProgressTime = 0;
+  kidlispSource = null;
+  kidlispCacheId = null;
+  kidlispBuffer = null;
+  kidlispLoading = false;
+  kidlispActive = false;
+  sampleId = undefined;
+  sampleData = undefined;
+  sounds.length = 0;
+  progressions.length = 0;
+  layoutCache = { key: null, metrics: null };
+  
   // const name = params[0] || "startup";
   const name = "startup"; // TODO: Recall previous samples from `store`.
   if (params[0]) {
@@ -302,8 +329,10 @@ async function boot({
       kidlispCacheId = decodedParam.slice(1); // Remove the $
       kidlispLoading = true;
       kidlispActive = true;
+      bitmapLoaded = true; // Mark as loaded so we don't try to load default sample
+      sampleId = bitmapSampleId; // Use the bitmap sample ID for KidLisp audio
       console.log(`🎭 Stample: Loading KidLisp piece $${kidlispCacheId}`);
-      // KidLisp source will be loaded in sim() on first frame
+      // KidLisp source will be rendered in sim() each frame
     } else if (decodedParam.startsWith("#")) {
       bitmapLoading = true;
       bitmapLoaded = false;
@@ -420,19 +449,33 @@ async function boot({
 }
 
 function sim({ sound, api, screen, kidlisp, painting }) {
-  sounds.forEach((sound, index) => {
+  sounds.forEach((snd, index) => {
     // Get progress data.
-    sound?.progress().then((p) => (progressions[index] = p.progress));
+    snd?.progress().then((p) => (progressions[index] = p.progress));
   });
 
   // Track bitmap playback progress for scrubber from any active sound source
   const activeSound = bitmapLoopSound || bitmapPlaySound || sounds.find(s => s);
   if (activeSound) {
     activeSound?.progress?.().then((p) => {
-      bitmapProgress = p?.progress || 0;
+      const newProgress = p?.progress || 0;
+      const now = performance.now();
+      const deltaTime = now - lastProgressTime;
+      
+      // Calculate Hz (full cycles per second based on progress change)
+      if (deltaTime > 0 && lastProgressTime > 0) {
+        const deltaProgress = Math.abs(newProgress - lastBitmapProgress);
+        // Hz = (progress change per ms) * 1000 ms/s * (1 / 1 full cycle)
+        bitmapPlaybackHz = (deltaProgress / deltaTime) * 1000;
+      }
+      
+      lastBitmapProgress = newProgress;
+      lastProgressTime = now;
+      bitmapProgress = newProgress;
     });
   } else {
     bitmapProgress = 0;
+    bitmapPlaybackHz = 0;
   }
 
   mic?.poll(); // Query for updated amplitude and waveform data.
@@ -451,21 +494,38 @@ function sim({ sound, api, screen, kidlisp, painting }) {
   }
   
   // 🎭 KidLisp rendering: Update the buffer each frame when in KidLisp mode
-  if (kidlispActive && kidlispCacheId && kidlisp && painting && screen) {
+  if (kidlispActive && kidlispCacheId && painting && screen) {
     // Determine buffer size - use a reasonable default or match screen aspect
     const bufferSize = 128; // Square buffer for consistent sampling
     const bufferWidth = bufferSize;
     const bufferHeight = bufferSize;
     
-    // Create a painting buffer and render KidLisp into it
+    // Use the painting() function from sim to create a proper buffer context
+    // This ensures $activePaintApi is set correctly when kidlisp() is called
     try {
       const lispPainting = painting(bufferWidth, bufferHeight, (paintApi) => {
-        // Render the KidLisp piece using the $code syntax
-        // The kidlisp function will fetch and execute the cached code
-        kidlisp(0, 0, bufferWidth, bufferHeight, `$${kidlispCacheId}`);
+        // Paste previous buffer first for accumulation/layering
+        if (kidlispBuffer?.pixels?.length) {
+          paintApi.paste(kidlispBuffer, 0, 0);
+        }
+        // Now call kidlisp on this buffer's paintApi - this sets $activePaintApi correctly
+        paintApi.kidlisp(0, 0, bufferWidth, bufferHeight, `$${kidlispCacheId}`);
       });
       
-      // Extract pixels from the painting buffer
+      // Debug: Log what we got back
+      if (kidlispLoading) {
+        if (!lispPainting) {
+          console.log(`🎭 Stample: painting() returned null for $${kidlispCacheId}`);
+        } else if (!lispPainting.pixels) {
+          console.log(`🎭 Stample: painting() returned buffer with no pixels for $${kidlispCacheId}`, Object.keys(lispPainting));
+        } else if (!lispPainting.pixels.length) {
+          console.log(`🎭 Stample: painting() returned buffer with empty pixels for $${kidlispCacheId}`);
+        } else {
+          console.log(`🎭 Stample: painting() returned valid buffer ${lispPainting.width}x${lispPainting.height} with ${lispPainting.pixels.length} pixels`);
+        }
+      }
+      
+      // Extract pixels from the returned painting buffer
       if (lispPainting?.pixels?.length) {
         kidlispBuffer = {
           width: bufferWidth,
@@ -483,17 +543,26 @@ function sim({ sound, api, screen, kidlisp, painting }) {
           sampleRate: sound?.sampleRate || 48000,
         };
         
-        // Decode pixels to audio sample and register it
+        // Decode pixels to audio sample and register it EVERY frame for live updates
         const decoded = decodeBitmapToSample(kidlispBuffer, bitmapMeta);
         if (decoded?.length) {
           sampleData = decoded;
           sampleId = bitmapSampleId;
-          sound?.registerSample?.(bitmapSampleId, decoded, bitmapMeta.sampleRate);
+          
+          // 🔴 LIVE AUDIO UPDATE: Use updateSample for truly seamless buffer swapping
+          if (bitmapLoopSound && bitmapLooping && sound?.updateSample) {
+            // Update the buffer in place - no crossfade needed, maintains position
+            sound.updateSample(bitmapSampleId, decoded, bitmapMeta.sampleRate);
+          } else {
+            // Re-register sample for NEW sounds to use the latest buffer
+            if (sound?.registerSample) {
+              sound.registerSample(bitmapSampleId, decoded, bitmapMeta.sampleRate);
+            }
+          }
           
           if (kidlispLoading) {
             kidlispLoading = false;
-            bitmapLoaded = true;
-            console.log(`🎭 Stample: KidLisp $${kidlispCacheId} rendering live (${bufferWidth}x${bufferHeight})`);
+            console.log(`🎭 Stample: KidLisp $${kidlispCacheId} live audio registered (${decoded.length} samples at ${bitmapMeta.sampleRate}Hz)`);
           }
         }
       }
@@ -695,32 +764,35 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
       );
     });
 
-    micRecordButton.paint((btn) => {
-      const color = mic.connected ? "red" : "orange";
-      //if (mic.connected)
+    // Only show record button if NOT in KidLisp mode
+    if (!kidlispActive) {
+      micRecordButton.paint((btn) => {
+        const color = mic.connected ? "red" : "orange";
+        //if (mic.connected)
 
-      ink(btn.down ? "white" : color).box(btn.box);
-      ink(btn.down ? color : "white").box(btn.box, "inline");
+        ink(btn.down ? "white" : color).box(btn.box);
+        ink(btn.down ? color : "white").box(btn.box, "inline");
 
-      ink(btn.down ? color : "white").write(
-        micRecordButtonLabel,
-        btn.box.x + btn.box.w / 2 - text.width(micRecordButtonLabel) / 2,
-        btn.box.y + btn.box.h / 2 - text.height(micRecordButtonLabel) / 2,
-      );
-
-      // Graph microphone (1 channel)
-      if (mic?.waveform.length > 0 && mic?.amplitude !== undefined) {
-        sound.paint.waveform(
-          api,
-          mic.amplitude,
-          mic.waveform,
-          btn.box.x,
-          btn.box.y,
-          btn.box.w - 1,
-          btn.box.h,
+        ink(btn.down ? color : "white").write(
+          micRecordButtonLabel,
+          btn.box.x + btn.box.w / 2 - text.width(micRecordButtonLabel) / 2,
+          btn.box.y + btn.box.h / 2 - text.height(micRecordButtonLabel) / 2,
         );
-      }
-    });
+
+        // Graph microphone (1 channel)
+        if (mic?.waveform.length > 0 && mic?.amplitude !== undefined) {
+          sound.paint.waveform(
+            api,
+            mic.amplitude,
+            mic.waveform,
+            btn.box.x,
+            btn.box.y,
+            btn.box.w - 1,
+            btn.box.h,
+          );
+        }
+      });
+    }
   });
 
   patsButton.paint((btn) => {
@@ -733,31 +805,37 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     ink("black").write("pat", btn.box.x + 6, btn.box.y + 6);
   });
 
-  bitmapLoopButton?.paint((btn) => {
-    const hasBitmap = !!bitmapPreview?.pixels?.length;
-    const label = bitmapLooping ? "Stop" : "Loop";
-    const bg = hasBitmap ? (bitmapLooping ? "magenta" : "purple") : "gray";
-    ink(bg, btn.down ? 200 : 120).box(btn.box);
-    ink("black").box(btn.box, "out");
-    ink("white").write(
-      label,
-      btn.box.x + btn.box.w / 2 - text.width(label) / 2,
-      btn.box.y + btn.box.h / 2 - text.height(label) / 2,
-    );
-  });
+  // Only show loop button if NOT in KidLisp mode
+  if (!kidlispActive) {
+    bitmapLoopButton?.paint((btn) => {
+      const hasBitmap = !!bitmapPreview?.pixels?.length;
+      const label = bitmapLooping ? "Stop" : "Loop";
+      const bg = hasBitmap ? (bitmapLooping ? "magenta" : "purple") : "gray";
+      ink(bg, btn.down ? 200 : 120).box(btn.box);
+      ink("black").box(btn.box, "out");
+      ink("white").write(
+        label,
+        btn.box.x + btn.box.w / 2 - text.width(label) / 2,
+        btn.box.y + btn.box.h / 2 - text.height(label) / 2,
+      );
+    });
+  }
 
-  bitmapPaintButton?.paint((btn) => {
-    const hasBitmap = !!bitmapPreview?.pixels?.length;
-    const label = "Paint";
-    const bg = hasBitmap ? "lime" : "gray";
-    ink(bg, btn.down ? 200 : 120).box(btn.box);
-    ink("black").box(btn.box, "out");
-    ink("black").write(
-      label,
-      btn.box.x + btn.box.w / 2 - text.width(label) / 2,
-      btn.box.y + btn.box.h / 2 - text.height(label) / 2,
-    );
-  });
+  // Only show paint button if NOT in KidLisp mode
+  if (!kidlispActive) {
+    bitmapPaintButton?.paint((btn) => {
+      const hasBitmap = !!bitmapPreview?.pixels?.length;
+      const label = "Paint";
+      const bg = hasBitmap ? "lime" : "gray";
+      ink(bg, btn.down ? 200 : 120).box(btn.box);
+      ink("black").box(btn.box, "out");
+      ink("black").write(
+        label,
+        btn.box.x + btn.box.w / 2 - text.width(label) / 2,
+        btn.box.y + btn.box.h / 2 - text.height(label) / 2,
+      );
+    });
+  }
 
   ink("white").write(pats, { right: pats > 9 ? 6 : 8, top: 6 });
 
@@ -835,6 +913,14 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
       ink("yellow", 200).line(previewX, mappedY, previewX + previewW, mappedY);
       // Draw small marker at exact position
       ink("red").box(mappedX - 1, mappedY - 1, 3, 3);
+      
+      // 📊 Hz readout - show playback rate below the preview
+      if (bitmapPlaybackHz > 0.001) {
+        const hzText = bitmapPlaybackHz >= 1 
+          ? `${bitmapPlaybackHz.toFixed(1)} Hz`
+          : `${(bitmapPlaybackHz * 1000).toFixed(0)} mHz`;
+        ink("cyan", 200).write(hzText, previewX, previewY + previewH + 4);
+      }
     }
   } else if (bitmapLoading) {
     const previewX = layout.bitmapX || (screen.width - BITMAP_MIN_SIZE - BITMAP_MARGIN);
@@ -958,9 +1044,30 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, sys
 
           // if (e.pointer === btn.downPointer) {
           if (abs(e.delta.y) > 0) {
-            // console.log(`Pitch shift ${index}:`, e.delta.x);
-            sounds[index]?.update({ shift: 0.03 * -e.delta.y });
-            // sound.play(startupSfx, { pitch: freq(tone) });
+            // 🎮 Exponential scrub sensitivity (like game controller acceleration)
+            // Small movements = fine control, large movements = fast scrub
+            const rawDelta = -e.delta.y;
+            const sign = rawDelta >= 0 ? 1 : -1;
+            const absDelta = abs(rawDelta);
+            
+            // Apply exponential curve: slower at low values, faster at high values
+            // Formula: output = sign * (abs^exponent) * scale
+            // Exponent > 1 makes small values even smaller, large values larger
+            const exponent = 1.8; // Higher = more dramatic curve (1.0 = linear)
+            const baseScale = 0.015; // Base sensitivity multiplier
+            const minThreshold = 0.5; // Ignore tiny movements below this
+            
+            let scaledDelta = 0;
+            if (absDelta > minThreshold) {
+              // Normalize to 0-1 range, apply curve, then scale back
+              const normalized = absDelta / 50; // Assume max reasonable delta is ~50px
+              const curved = Math.pow(normalized, exponent);
+              scaledDelta = sign * curved * 50 * baseScale;
+            }
+            
+            if (scaledDelta !== 0) {
+              sounds[index]?.update({ shift: scaledDelta });
+            }
           }
           // }
         },

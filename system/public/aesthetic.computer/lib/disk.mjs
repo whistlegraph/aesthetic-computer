@@ -5947,7 +5947,7 @@ const $paintApiUnwrapped = {
     // console.log(`🎯 Simple kidlisp call: ${width}x${height} at (${x},${y})`);
     
     // Extract options
-    const { noCache = false } = options;
+    const { noCache = false, accumulate: forceAccumulate = false, noPaste = false } = options;
     
     try {
       // Initialize persistent paintings cache if needed  
@@ -5983,20 +5983,21 @@ const $paintApiUnwrapped = {
           return null;
         } else {
           // Start loading and mark as loading
-          // console.log(`🎯 Loading ${source} for first time...`);
+          console.log(`🎯 Loading ${source} for first time...`);
           globalKidLispInstance.loadingDollarCodes.add(cacheId);
           
           getCachedCodeMultiLevel(cacheId).then(loadedSource => {
             if (loadedSource) {
-              // console.log(`🎯 Cached source for ${cacheId}:`, loadedSource);
+              console.log(`🎯 ✅ Loaded source for ${cacheId}: ${loadedSource.length} chars`);
               globalKidLispInstance.singletonDollarCodeCache.set(cacheId, loadedSource);
             } else {
-              // console.warn(`❌ Could not load source for ${cacheId}`);
+              console.warn(`❌ Could not load source for ${cacheId}`);
             }
           }).catch(error => {
             console.error(`❌ Error loading ${cacheId}:`, error);
           }).finally(() => {
             // Remove from loading set when done (success or failure)
+            console.log(`🎯 Finished loading attempt for ${cacheId}`);
             globalKidLispInstance.loadingDollarCodes.delete(cacheId);
           });
           
@@ -6010,13 +6011,13 @@ const $paintApiUnwrapped = {
         return null;
       }
 
-      // 🎨 AUTO-DETECT ACCUMULATION: Check if source starts with a color word
+      // 🎨 AUTO-DETECT ACCUMULATION: Check if source starts with a color word or forced via option
       const colorWords = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'magenta', 'black', 'white', 'gray', 'grey', 'brown', 'pink'];
       const firstWord = resolvedSource.trim().split(/\s+/)[0]?.toLowerCase();
       const startsWithColor = colorWords.includes(firstWord);
       
-      // Auto-generate accumulation settings
-      const accumulate = startsWithColor;
+      // Auto-generate accumulation settings (can be forced via option)
+      const accumulate = forceAccumulate || startsWithColor;
       const accumulateKey = accumulate ? `auto_${x}_${y}_${width}_${height}_${firstWord}` : null;
       
       // Create persistent painting key with accumulation support
@@ -6292,8 +6293,8 @@ const $paintApiUnwrapped = {
         }
       }
       
-      // Paste the painting to the specified location
-      if ($activePaintApi.paste && painting) {
+      // Paste the painting to the specified location (unless noPaste is set)
+      if (!noPaste && $activePaintApi.paste && painting) {
         // console.log(`🎯 Pasting painting to (${x},${y})`);
         $activePaintApi.paste(painting, x, y);
       }
@@ -9071,6 +9072,13 @@ async function makeFrame({ data: { type, content } }) {
       codeChannelAutoLoader = null;
     };
 
+    // 🚀 Eagerly initialize GPU effects module for faster spin/blur/zoom
+    // Currently GPU effects are disabled due to Y-flip issues, so this is non-blocking
+    // TODO: Re-enable await when GPU effects Y-coordinate handling is fixed
+    graph.initGpuEffects().catch(e => {
+      console.warn('🎮 GPU Effects initialization failed:', e);
+    });
+
     // console.log("Init:", content);
     // await handle(); // Get the user's handle.
     // console.log("🟢 Loading after preamble:", content.parsed);
@@ -11031,6 +11039,12 @@ async function makeFrame({ data: { type, content } }) {
     $sound.registerSample = function registerSample(id, data, sampleRate) {
       if (!id || !data) return;
       send({ type: "sfx:register", content: { id, data, sampleRate } });
+    };
+
+    // 🔄 Live buffer update - updates sample data for currently playing sounds
+    $sound.updateSample = function updateSample(id, data, sampleRate) {
+      if (!id || !data) return;
+      send({ type: "sfx:update-sample", content: { id, data, sampleRate } });
     };
 
     soundTime = content.audioTime;
