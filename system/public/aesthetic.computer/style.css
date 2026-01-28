@@ -123,8 +123,8 @@ body.nogap #aesthetic-computer {
 
 /* Underlay DOM Content */
 #underlay {
-  position: absolute;
-  z-index: 0;
+  position: fixed;
+  z-index: -1;
   top: 0;
   left: 0;
   width: 100%;

@@ -5457,96 +5457,71 @@
     #keeps-container {
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      padding: 8px 0;
+      gap: 0;
+      padding: 0;
+      height: 100%;
     }
 
-    .keeps-header {
+    /* Compact status bar for contract info */
+    .keeps-status-bar {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding-bottom: 12px;
+      padding: 6px 10px;
+      background: var(--bg-secondary);
       border-bottom: 1px solid var(--border-subtle);
-    }
-
-    .keeps-icon {
-      font-size: 20px;
-    }
-
-    .keeps-title {
-      font-size: 16px;
-      font-weight: bold;
-      color: var(--text-primary);
+      flex-shrink: 0;
     }
 
     .keeps-network {
-      margin-left: auto;
-      font-size: 11px;
-      padding: 2px 8px;
+      font-size: 10px;
+      padding: 2px 6px;
       background: #4a9c5d;
       color: white;
-      border-radius: 10px;
+      border-radius: 8px;
       font-family: monospace;
-    }
-
-    .keeps-contract-details {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 0;
-      font-size: 12px;
-      flex-wrap: wrap;
-    }
-
-    .keeps-contract-label {
-      color: var(--text-secondary);
     }
 
     .keeps-contract-address {
       font-family: monospace;
-      font-size: 11px;
-      color: var(--text-primary);
+      font-size: 10px;
+      color: var(--text-tertiary);
       text-decoration: none;
-      background: var(--bg-secondary);
-      padding: 2px 6px;
-      border-radius: 4px;
+      background: transparent;
+      padding: 2px 4px;
+      border-radius: 3px;
       border: none;
       cursor: pointer;
+      transition: all 0.15s;
     }
 
     .keeps-contract-address:hover {
-      background: var(--bg-hover);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
     }
 
     .keeps-staging-badge {
-      font-size: 10px;
-      padding: 2px 6px;
+      font-size: 9px;
+      padding: 2px 5px;
       background: #ff9800;
       color: white;
-      border-radius: 8px;
+      border-radius: 6px;
       font-weight: bold;
       text-transform: uppercase;
+      margin-left: auto;
     }
 
     .keeps-gallery {
-      padding: 12px;
-    }
-
-    .keeps-gallery-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 13px;
-      font-weight: bold;
-      color: var(--text-primary);
-      margin-bottom: 10px;
-      padding: 0 2px;
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
     }
 
     .keeps-gallery-count {
       font-size: 11px;
-      color: var(--text-secondary);
-      font-weight: normal;
+      color: var(--text-tertiary);
+      padding: 4px 8px;
+      text-align: center;
     }
 
     .keeps-gallery-grid {
@@ -6562,32 +6537,35 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 40px 20px;
+      padding: 20px 16px;
       text-align: center;
+      border-top: 1px solid var(--border-subtle);
     }
 
     .keeps-login-prompt {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 16px;
+      gap: 10px;
     }
 
     .keeps-login-prompt .keeps-icon {
-      font-size: 32px;
+      font-size: 24px;
+      opacity: 0.7;
     }
 
     .keeps-login-prompt p {
-      font-size: 14px;
-      color: var(--text-secondary);
+      font-size: 13px;
+      color: var(--text-tertiary);
       margin: 0;
     }
 
     .keeps-logged-in {
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      padding: 8px 0;
+      gap: 12px;
+      padding: 12px;
+      border-top: 1px solid var(--border-subtle);
     }
 
     a {
@@ -8674,135 +8652,124 @@
             </div>
           </div>
           <div class="list-subcontent hidden" id="keeps-subcontent">
-          <div id="keeps-container">
-            <!-- Contract Info - Always visible -->
-            <div class="keeps-contract-info" id="keeps-contract-info">
-              <div class="keeps-header">
-                <span class="keeps-icon">ꜩ</span>
-                <span class="keeps-title">Keeps</span>
-                <span class="keeps-network" id="keeps-network">mainnet</span>
-              </div>
-              <div class="keeps-contract-details">
-                <span class="keeps-contract-label">Contract:</span>
-                <button id="keeps-contract-link" class="keeps-contract-address"></button>
-                <span class="keeps-staging-badge" id="keeps-staging-badge">staging v3</span>
-              </div>
-            </div>
-            
-            <!-- Latest Keeps Gallery - Always visible -->
-            <div class="keeps-gallery" id="keeps-gallery">
-              <div class="keeps-gallery-header">
-                <span>Latest Keeps</span>
-                <span class="keeps-gallery-count" id="keeps-gallery-count"></span>
-              </div>
-              <div class="keeps-gallery-grid" id="keeps-gallery-grid">
-                <div class="keeps-gallery-loading">Loading...</div>
-              </div>
-            </div>
-            
-            <!-- Divider -->
-            <div class="keeps-divider"></div>
-            
-            <!-- Logged out state -->
-            <div class="keeps-logged-out" id="keeps-logged-out">
-              <div class="keeps-login-prompt">
-                <span class="keeps-icon">🔒</span>
-                <p>Login to play for keeps!</p>
-                <button class="keeps-login-btn" id="keeps-login-btn">Login</button>
-              </div>
-            </div>
-            
-            <!-- Logged in state -->
-            <div class="keeps-logged-in hidden" id="keeps-logged-in">
-              <!-- Wallet connection -->
-              <div class="keeps-wallet" id="keeps-wallet">
-                <button class="keeps-connect-btn" id="keeps-connect-btn">Connect Wallet</button>
-                <div class="keeps-address hidden" id="keeps-address"></div>
-              </div>
-              
-              <!-- Code info section (shown after wallet connected) -->
-              <div class="keeps-code-section hidden" id="keeps-code-section">
-                <div class="keeps-code-label">Code to Keep:</div>
-                <div class="keeps-code-id" id="keeps-code-id">—</div>
-                <div class="keeps-code-preview">
-                  <pre id="keeps-code-text"></pre>
+            <div class="code-list-panel">
+              <div id="keeps-container">
+                <!-- Contract status bar -->
+                <div class="keeps-status-bar" id="keeps-contract-info">
+                  <span class="keeps-network" id="keeps-network">mainnet</span>
+                  <button id="keeps-contract-link" class="keeps-contract-address"></button>
+                  <span class="keeps-staging-badge" id="keeps-staging-badge">staging v3</span>
                 </div>
-              </div>
-              
-              <!-- Already minted view -->
-              <div class="keeps-existing hidden" id="keeps-existing">
-                <div class="keeps-existing-header">
-                  <span class="keeps-existing-icon">✓</span>
-                  <span>Already Kept!</span>
+                
+                <!-- Keeps Gallery -->
+                <div class="keeps-gallery" id="keeps-gallery">
+                  <div class="keeps-gallery-grid" id="keeps-gallery-grid">
+                    <div class="keeps-gallery-loading">Loading...</div>
+                  </div>
+                  <div class="keeps-gallery-count" id="keeps-gallery-count"></div>
                 </div>
-                <div class="keeps-existing-info">
-                  <div class="keeps-existing-token">Token #<span id="keeps-token-id">0</span></div>
-                  <div class="keeps-existing-thumb" id="keeps-existing-thumb"></div>
-                  <div class="keeps-existing-links">
-                    <button id="keeps-objkt-link" class="keeps-link-btn">View on objkt</button>
-                    <button id="keeps-tzkt-link" class="keeps-link-btn">View on TzKT</button>
+            
+                <!-- Logged out state -->
+                <div class="keeps-logged-out" id="keeps-logged-out">
+                  <div class="keeps-login-prompt">
+                    <span class="keeps-icon">🔒</span>
+                    <p>Login to keep your code on-chain</p>
+                    <button class="keeps-login-btn" id="keeps-login-btn">Login</button>
                   </div>
                 </div>
-                <div class="keeps-rebake-section">
-                  <button class="keeps-rebake-btn" id="keeps-rebake-btn">Rebake</button>
-                  <div class="keeps-rebake-hint">Update thumbnail & metadata</div>
+            
+                <!-- Logged in state -->
+                <div class="keeps-logged-in hidden" id="keeps-logged-in">
+                  <!-- Wallet connection -->
+                  <div class="keeps-wallet" id="keeps-wallet">
+                    <button class="keeps-connect-btn" id="keeps-connect-btn">Connect Wallet</button>
+                    <div class="keeps-address hidden" id="keeps-address"></div>
+                  </div>
+              
+                  <!-- Code info section (shown after wallet connected) -->
+                  <div class="keeps-code-section hidden" id="keeps-code-section">
+                    <div class="keeps-code-label">Code to Keep:</div>
+                    <div class="keeps-code-id" id="keeps-code-id">—</div>
+                    <div class="keeps-code-preview">
+                      <pre id="keeps-code-text"></pre>
+                    </div>
+                  </div>
+              
+                  <!-- Already minted view -->
+                  <div class="keeps-existing hidden" id="keeps-existing">
+                    <div class="keeps-existing-header">
+                      <span class="keeps-existing-icon">✓</span>
+                      <span>Already Kept!</span>
+                    </div>
+                    <div class="keeps-existing-info">
+                      <div class="keeps-existing-token">Token #<span id="keeps-token-id">0</span></div>
+                      <div class="keeps-existing-thumb" id="keeps-existing-thumb"></div>
+                      <div class="keeps-existing-links">
+                        <button id="keeps-objkt-link" class="keeps-link-btn">View on objkt</button>
+                        <button id="keeps-tzkt-link" class="keeps-link-btn">View on TzKT</button>
+                      </div>
+                    </div>
+                    <div class="keeps-rebake-section">
+                      <button class="keeps-rebake-btn" id="keeps-rebake-btn">Rebake</button>
+                      <div class="keeps-rebake-hint">Update thumbnail & metadata</div>
+                    </div>
+                  </div>
+              
+                  <!-- Timeline for mint progress -->
+                  <div class="keeps-timeline hidden" id="keeps-timeline">
+                    <div class="keeps-timeline-item" data-step="validate">
+                      <span class="keeps-step-icon">○</span>
+                      <span class="keeps-step-label">Validate Code</span>
+                      <span class="keeps-step-time"></span>
+                    </div>
+                    <div class="keeps-timeline-item" data-step="analyze">
+                      <span class="keeps-step-icon">○</span>
+                      <span class="keeps-step-label">Analyze Source</span>
+                      <span class="keeps-step-time"></span>
+                    </div>
+                    <div class="keeps-timeline-item" data-step="thumbnail">
+                      <span class="keeps-step-icon">○</span>
+                      <span class="keeps-step-label">Bake Thumbnail</span>
+                      <span class="keeps-step-time"></span>
+                    </div>
+                    <div class="keeps-timeline-item" data-step="bundle">
+                      <span class="keeps-step-icon">○</span>
+                      <span class="keeps-step-label">Pack HTML Bundle</span>
+                      <span class="keeps-step-time"></span>
+                    </div>
+                    <div class="keeps-timeline-item" data-step="ipfs">
+                      <span class="keeps-step-icon">○</span>
+                      <span class="keeps-step-label">Pin to IPFS</span>
+                      <span class="keeps-step-time"></span>
+                    </div>
+                    <div class="keeps-timeline-item" data-step="metadata">
+                      <span class="keeps-step-icon">○</span>
+                      <span class="keeps-step-label">Build Metadata</span>
+                      <span class="keeps-step-time"></span>
+                    </div>
+                    <div class="keeps-timeline-item" data-step="sign">
+                      <span class="keeps-step-icon">○</span>
+                      <span class="keeps-step-label">Sign Transaction</span>
+                      <span class="keeps-step-time"></span>
+                    </div>
+                    <div class="keeps-timeline-item" data-step="complete">
+                      <span class="keeps-step-icon">○</span>
+                      <span class="keeps-step-label">Complete!</span>
+                      <span class="keeps-step-time"></span>
+                    </div>
+                  </div>
+              
+                  <!-- Mint button section (shown when code not yet minted) -->
+                  <div class="keeps-mint-section hidden" id="keeps-mint-section">
+                    <button class="keeps-mint-btn" id="keeps-mint-btn">Keep It!</button>
+                  </div>
+              
+                  <!-- Status message -->
+                  <div class="keeps-status" id="keeps-status"></div>
                 </div>
               </div>
-              
-              <!-- Timeline for mint progress -->
-              <div class="keeps-timeline hidden" id="keeps-timeline">
-                <div class="keeps-timeline-item" data-step="validate">
-                  <span class="keeps-step-icon">○</span>
-                  <span class="keeps-step-label">Validate Code</span>
-                  <span class="keeps-step-time"></span>
-                </div>
-                <div class="keeps-timeline-item" data-step="analyze">
-                  <span class="keeps-step-icon">○</span>
-                  <span class="keeps-step-label">Analyze Source</span>
-                  <span class="keeps-step-time"></span>
-                </div>
-                <div class="keeps-timeline-item" data-step="thumbnail">
-                  <span class="keeps-step-icon">○</span>
-                  <span class="keeps-step-label">Bake Thumbnail</span>
-                  <span class="keeps-step-time"></span>
-                </div>
-                <div class="keeps-timeline-item" data-step="bundle">
-                  <span class="keeps-step-icon">○</span>
-                  <span class="keeps-step-label">Pack HTML Bundle</span>
-                  <span class="keeps-step-time"></span>
-                </div>
-                <div class="keeps-timeline-item" data-step="ipfs">
-                  <span class="keeps-step-icon">○</span>
-                  <span class="keeps-step-label">Pin to IPFS</span>
-                  <span class="keeps-step-time"></span>
-                </div>
-                <div class="keeps-timeline-item" data-step="metadata">
-                  <span class="keeps-step-icon">○</span>
-                  <span class="keeps-step-label">Build Metadata</span>
-                  <span class="keeps-step-time"></span>
-                </div>
-                <div class="keeps-timeline-item" data-step="sign">
-                  <span class="keeps-step-icon">○</span>
-                  <span class="keeps-step-label">Sign Transaction</span>
-                  <span class="keeps-step-time"></span>
-                </div>
-                <div class="keeps-timeline-item" data-step="complete">
-                  <span class="keeps-step-icon">○</span>
-                  <span class="keeps-step-label">Complete!</span>
-                  <span class="keeps-step-time"></span>
-                </div>
-              </div>
-              
-              <!-- Mint button section (shown when code not yet minted) -->
-              <div class="keeps-mint-section hidden" id="keeps-mint-section">
-                <button class="keeps-mint-btn" id="keeps-mint-btn">Keep It!</button>
-              </div>
-              
-              <!-- Status message -->
-              <div class="keeps-status" id="keeps-status"></div>
             </div>
           </div>
-          </div><!-- /keeps-subcontent -->
         </div><!-- /list-content -->
         <div class="docs-content hidden" id="reference-content">
           <div id="book-container"></div>
@@ -19765,8 +19732,8 @@
         sendBtn.disabled = true;
         
         try {
-          // Load the KidLisp prompt template
-          const templateResp = await fetch('/aesthetic.computer/prompts/kidlisp-make.prompt');
+          // Load the KidLisp prompt template from aesthetic.computer
+          const templateResp = await fetch(`${aestheticUrl}/aesthetic.computer/prompts/kidlisp-make.prompt`);
           let template = await templateResp.text();
           
           // Check for HTML response (wrong path)
@@ -19787,8 +19754,8 @@
           const controller = new AbortController();
           aiAssistAbort = () => controller.abort();
           
-          // Call the ask API with Claude Haiku 4.5 (fast & cheap)
-          const response = await fetch('/api/ask', {
+          // Call the ask API on aesthetic.computer with Claude Haiku 4.5 (fast & cheap)
+          const response = await fetch(`${aestheticUrl}/api/ask`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
