@@ -13,8 +13,8 @@ const allowedOrigins = [
 // Model detection: Any model name containing "claude" routes to Anthropic API
 //
 // CLAUDE MODELS (Anthropic):
-// - claude-opus-4-20250514 (Most capable, $15/MTok input)
-// - claude-sonnet-4-20250514 (High-performance, $3/MTok input) 
+// - claude-opus-4-20250514 (Opus 4.5 - Most capable, $15/MTok input) ⭐ RECOMMENDED
+// - claude-sonnet-4-20250514 (Sonnet 4 - High-performance, $3/MTok input) 
 // - claude-3-7-sonnet-20250219 (Extended thinking, $3/MTok input)
 // - claude-3-5-sonnet-20241022 (Previous flagship, $3/MTok input)
 // - claude-3-5-haiku-20241022 (Fastest, $0.80/MTok input)

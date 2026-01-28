@@ -134,7 +134,8 @@ let login, // A login button in the center of the display.
   walletBtn, // Tezos wallet button (shown when connected)
   giveBtn, // GIVE button for funding mode (top-right)
   adBtn, // AD button for non-funding mode (top-right)
-  commitBtn; // Commit hash button (navigates to commits piece)
+  commitBtn, // Commit hash button (navigates to commits piece)
+  kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
 let adBtnParticles = []; // Sparkle particles for AD button
 let adBtnHue = 0; // Color cycling for AD button
 let resendVerificationText;
@@ -4890,8 +4891,42 @@ function paint($) {
       ink(...blendedColor, pulseAlpha).box(screen.width - dotSize, (y + scrollOffset) % screen.height, dotSize, dotSize);
     }
 
+    // 🟢 KidLisp.com button in bottom-left corner
+    const kidlispBtnText = "KidLisp.com";
+    const kidlispBtnX = 6;
+    const kidlispBtnY = screen.height - 26;
+    
+    if (!kidlispBtn) {
+      kidlispBtn = new $.ui.TextButton(kidlispBtnText, { x: kidlispBtnX, y: kidlispBtnY });
+      kidlispBtn.stickyScrubbing = true;
+    } else {
+      kidlispBtn.reposition({ x: kidlispBtnX, y: kidlispBtnY }, kidlispBtnText);
+      kidlispBtn.btn.disabled = false;
+    }
+    
+    // Paint the button with green KidLisp theme
+    const kidlispBtnBox = kidlispBtn.btn.box;
+    const isKidlispBtnDown = kidlispBtn.btn.down;
+    const isKidlispBtnOver = kidlispBtn.btn.over;
+    
+    // Background - green gradient based on state
+    const kidlispBtnBg = isKidlispBtnDown ? [40, 120, 40] : (isKidlispBtnOver ? [30, 100, 30] : [20, 80, 20]);
+    ink(...kidlispBtnBg).box(kidlispBtnBox);
+    
+    // Border with animated color
+    ink(...blendedColor, pulseAlpha).box(kidlispBtnBox, "outline");
+    
+    // Text
+    const kidlispTextColor = isKidlispBtnDown ? [255, 255, 100] : [100, 255, 100];
+    ink(...kidlispTextColor).write(kidlispBtnText, { x: kidlispBtnBox.x + 4, y: kidlispBtnBox.y + 5 }, undefined, undefined, false, "MatrixChunky8");
+
     // Keep animating
     $.needsPaint();
+  } else {
+    // Disable KidLisp button when not in KidLisp mode
+    if (kidlispBtn) {
+      kidlispBtn.btn.disabled = true;
+    }
   }
 
   // 🎰 Polychrome border effect pointing to top-left corner (on login curtain)
@@ -7337,6 +7372,7 @@ function act({
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
+      (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       isOverMotdHandle)
   ) {
     send({ type: "keyboard:lock" });
@@ -7350,6 +7386,7 @@ function act({
       (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
       (adBtn?.btn.disabled === false && adBtn?.btn.box.contains(e)) ||
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
+      (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (products.getActiveProduct()?.button?.disabled === false && products.getActiveProduct()?.button?.box.contains(e)) ||
       (products.getActiveProduct()?.buyButton?.disabled === false && products.getActiveProduct()?.buyButton?.box.contains(e)) ||
       (unitickerButton?.disabled === false && unitickerButton?.box.contains(e)) ||
@@ -7464,6 +7501,34 @@ function act({
       push: () => {
         pushSound();
         jump("wallet");
+      },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  // 🟢 KidLisp.com button - copy code and open IDE
+  if (kidlispBtn && !kidlispBtn.btn.disabled) {
+    kidlispBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        // Get the current code from the prompt
+        const code = system.prompt.input.text || "";
+        // Encode the code for URL
+        const encodedCode = encodeURIComponent(code);
+        // Open KidLisp.com IDE with the code
+        const kidlispUrl = `https://kidlisp.com?code=${encodedCode}`;
+        // Copy code to clipboard first
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(code).catch(() => {});
+        }
+        // Open in new tab
+        if (typeof window !== "undefined" && window.open) {
+          window.open(kidlispUrl, "_blank");
+        } else {
+          // Fallback for non-browser environments
+          send({ type: "open-url", content: kidlispUrl });
+        }
       },
       cancel: () => cancelSound(),
     });
