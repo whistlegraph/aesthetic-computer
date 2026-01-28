@@ -298,16 +298,24 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       // 🔄 Update sample buffer for a labeled sample and any running sounds using it
       if (msg.type === "sample:update") {
         const { label, buffer } = msg.data;
+        const runningIds = Object.keys(this.#running);
+        const runningLabels = Object.values(this.#running).map(s => s?.sampleLabel).filter(Boolean);
+        console.log(`🔴 SPEAKER: sample:update for "${label}", running: ${runningIds.length} sounds, labels: [${runningLabels.join(', ')}]`);
         // Update the stored sample buffer
         if (sampleStore[label]) {
           sampleStore[label] = buffer;
+          console.log(`🔴 SPEAKER: Updated sampleStore["${label}"]`);
         }
         // Update all running sounds that are using this sample
+        let updatedCount = 0;
         Object.values(this.#running).forEach((sound) => {
           if (sound && sound.sampleLabel === label) {
+            console.log(`🔴 SPEAKER: Updating synth buffer for label="${label}", sound.id=${sound.id}`);
             sound.update({ sampleData: buffer });
+            updatedCount++;
           }
         });
+        console.log(`🔴 SPEAKER: Updated ${updatedCount} running sounds`);
         return;
       }
 
@@ -512,7 +520,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
             pan: msg.data.pan || 0,
           });
 
-          console.log("🔊 Synth created:", msg.data.id, "duration:", duration, "volume:", msg.data.volume, "queue length:", this.#queue.length + 1);
+          console.log("🔊 Synth created:", msg.data.id, "label:", synthOptions.label, "loop:", synthOptions.loop, "duration:", duration, "volume:", msg.data.volume, "queue length:", this.#queue.length + 1);
 
           // if (duration === Infinity && msg.data.id > -1n) {
           this.#running[msg.data.id] = sound; // Index by the unique id.

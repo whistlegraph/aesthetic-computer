@@ -8030,6 +8030,12 @@ class KidLisp {
       // 🍞 Bake function - creates a new painting buffer for subsequent drawing
       // Like: bakes[index] || painting(screen.width, screen.height, (api) => {...})
       bake: (api, args = []) => {
+        // 🎯 EMBEDDED CONTEXT: In embedded contexts, bake is a no-op since there's
+        // no layer compositing infrastructure. Just continue drawing to current buffer.
+        if (this.isEmbeddedContext) {
+          return 0;
+        }
+        
         // Initialize bakes array and index if not present
         if (!this.bakes) {
           this.bakes = [];
@@ -8135,6 +8141,12 @@ class KidLisp {
       //        (burn zoom 1.5) - zooms all bake layers by 1.5x
       // This lets you apply transformations to the entire bake stack at once
       burn: (api, args = []) => {
+        // 🎯 EMBEDDED CONTEXT: In embedded contexts, burn is a no-op since there's
+        // no layer infrastructure. Just return early - the drawing is already on the buffer.
+        if (this.isEmbeddedContext) {
+          return 0;
+        }
+        
         // Get display screen dimensions (not api.screen which could be pointing to a buffer)
         // Use the saved displayBuffer dimensions to ensure consistency
         const width = this.displayBuffer?.width || api.screen?.width || 256;
