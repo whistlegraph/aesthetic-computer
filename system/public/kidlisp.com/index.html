@@ -20344,31 +20344,116 @@
       let processedItems = items;
       let ownerHiddenCounts = {}; // Track hidden items per owner
       
-      if (groupByOwner) {
-        const ownerCounts = {}; // Count items per owner
-        const ownerShown = {};  // Track how many shown per owner
+      // Helper: calculate similarity ratio between two strings (0-1)
+      function codeSimilarity(a, b) {
+        if (!a || !b) return 0;
+        const strA = a.trim();
+        const strB = b.trim();
+        if (strA === strB) return 1;
+        if (strA.length === 0 || strB.length === 0) return 0;
         
-        // First pass: count items per owner
-        items.forEach(item => {
-          const owner = item.owner || '_anonymous';
-          ownerCounts[owner] = (ownerCounts[owner] || 0) + 1;
-        });
+        // Simple Levenshtein-based similarity for short codes
+        // For longer codes, use character frequency comparison (faster)
+        const maxLen = Math.max(strA.length, strB.length);
+        if (maxLen > 500) {
+          // Character frequency comparison for longer codes
+          const freqA = {}, freqB = {};
+          for (const c of strA) freqA[c] = (freqA[c] || 0) + 1;
+          for (const c of strB) freqB[c] = (freqB[c] || 0) + 1;
+          const allChars = new Set([...Object.keys(freqA), ...Object.keys(freqB)]);
+          let diff = 0;
+          for (const c of allChars) {
+            diff += Math.abs((freqA[c] || 0) - (freqB[c] || 0));
+          }
+          return 1 - (diff / (strA.length + strB.length));
+        }
         
-        // Second pass: filter and track hidden counts
-        processedItems = [];
-        items.forEach(item => {
-          const owner = item.owner || '_anonymous';
-          ownerShown[owner] = ownerShown[owner] || 0;
-          
-          if (ownerShown[owner] < maxPerOwner) {
-            processedItems.push(item);
-            ownerShown[owner]++;
-            
-            // If this is the last shown item for this owner and there are more hidden
-            if (ownerShown[owner] === maxPerOwner && ownerCounts[owner] > maxPerOwner) {
-              ownerHiddenCounts[owner] = ownerCounts[owner] - maxPerOwner;
+        // Levenshtein distance for shorter codes
+        const matrix = [];
+        for (let i = 0; i <= strB.length; i++) {
+          matrix[i] = [i];
+        }
+        for (let j = 0; j <= strA.length; j++) {
+          matrix[0][j] = j;
+        }
+        for (let i = 1; i <= strB.length; i++) {
+          for (let j = 1; j <= strA.length; j++) {
+            if (strB[i-1] === strA[j-1]) {
+              matrix[i][j] = matrix[i-1][j-1];
+            } else {
+              matrix[i][j] = Math.min(
+                matrix[i-1][j-1] + 1,
+                matrix[i][j-1] + 1,
+                matrix[i-1][j] + 1
+              );
             }
           }
+        }
+        return 1 - (matrix[strB.length][strA.length] / maxLen);
+      }
+      
+      // Helper: check if two items are "similar" (same owner + close in time OR similar code)
+      function areSimilar(itemA, itemB) {
+        // Must be same owner
+        if ((itemA.owner || '_anonymous') !== (itemB.owner || '_anonymous')) return false;
+        
+        // Check if created within 30 minutes of each other
+        const timeA = itemA.timestamp ? new Date(itemA.timestamp).getTime() : 0;
+        const timeB = itemB.timestamp ? new Date(itemB.timestamp).getTime() : 0;
+        const thirtyMinutes = 30 * 60 * 1000;
+        if (timeA && timeB && Math.abs(timeA - timeB) < thirtyMinutes) {
+          return true;
+        }
+        
+        // Check if code is 90%+ similar
+        if (itemA.code && itemB.code && codeSimilarity(itemA.code, itemB.code) >= 0.9) {
+          return true;
+        }
+        
+        return false;
+      }
+      
+      if (groupByOwner) {
+        // Group items into "similarity clusters" per owner
+        const clusters = []; // Array of { owner, items: [...], representative }
+        
+        items.forEach(item => {
+          const owner = item.owner || '_anonymous';
+          
+          // Find an existing cluster this item is similar to
+          let foundCluster = null;
+          for (const cluster of clusters) {
+            if (cluster.owner === owner && areSimilar(cluster.representative, item)) {
+              foundCluster = cluster;
+              break;
+            }
+          }
+          
+          if (foundCluster) {
+            foundCluster.items.push(item);
+          } else {
+            // Start a new cluster with this item as representative
+            clusters.push({ owner, items: [item], representative: item });
+          }
+        });
+        
+        // Build processedItems: show up to maxPerOwner from each cluster, track hidden
+        processedItems = [];
+        clusters.forEach(cluster => {
+          const shown = cluster.items.slice(0, maxPerOwner);
+          const hidden = cluster.items.length - shown.length;
+          
+          shown.forEach((item, idx) => {
+            processedItems.push(item);
+            // Mark the last shown item as having hidden siblings
+            if (idx === shown.length - 1 && hidden > 0) {
+              ownerHiddenCounts[item.owner || '_anonymous'] = ownerHiddenCounts[item.owner || '_anonymous'] || {};
+              ownerHiddenCounts[item.owner || '_anonymous'][cluster.representative.code || 'cluster'] = {
+                count: hidden,
+                allItems: cluster.items
+              };
+            }
+          });
         });
       }
       
@@ -20386,50 +20471,60 @@
         el.addEventListener('click', () => handleCodeItemClick(el));
         listEl.appendChild(el);
         
-        // Add "... and X more" indicator after the last item from this owner
+        // Add "... and X more similar" indicator after items with hidden cluster siblings
         const owner = item.owner || '_anonymous';
-        if (ownerHiddenCounts[owner]) {
-          const hiddenCount = ownerHiddenCounts[owner];
-          const ownerClean = owner.replace(/^@/, '');
-          const moreEl = document.createElement('div');
-          moreEl.className = 'owner-more-indicator';
-          moreEl.innerHTML = `<span class="more-count">... and ${hiddenCount} more from @${ownerClean}</span>`;
-          moreEl.addEventListener('click', () => {
-            // Filter to show all items from this owner
-            const ownerItems = items.filter(i => (i.owner || '_anonymous') === owner);
-            
-            // Add "Back to all" header before re-rendering
-            listEl.innerHTML = '';
-            const backEl = document.createElement('div');
-            backEl.className = 'owner-back-indicator';
-            backEl.innerHTML = `<span class="back-text">← Back to all</span><span class="owner-filter">Showing ${ownerItems.length} from @${ownerClean}</span>`;
-            backEl.addEventListener('click', () => {
-              // Re-render with original grouped view
-              renderCodeList(config);
-            });
-            listEl.appendChild(backEl);
-            
-            // Render filtered items (no grouping)
-            ownerItems.forEach(ownerItem => {
-              const itemEl = renderCodeListItem(ownerItem, {
-                syntaxHighlight,
-                tickerAnimation,
-                showOwner,
-                showTimeAgo,
-                showTimestamp,
-                showHits,
-                pendingThumb,
+        const ownerClusters = ownerHiddenCounts[owner];
+        if (ownerClusters) {
+          // Find cluster for this item
+          const clusterKey = item.code || 'cluster';
+          for (const key of Object.keys(ownerClusters)) {
+            const cluster = ownerClusters[key];
+            // Check if this item is in this cluster (by matching code)
+            if (cluster.allItems.some(ci => ci.code === item.code)) {
+              const hiddenCount = cluster.count;
+              const ownerClean = owner.replace(/^@/, '');
+              const moreEl = document.createElement('div');
+              moreEl.className = 'owner-more-indicator';
+              moreEl.innerHTML = `<span class="more-count">... and ${hiddenCount} more similar from @${ownerClean}</span>`;
+              moreEl.addEventListener('click', () => {
+                // Show all items from this cluster
+                const clusterItems = cluster.allItems;
+                
+                // Add "Back to all" header before re-rendering
+                listEl.innerHTML = '';
+                const backEl = document.createElement('div');
+                backEl.className = 'owner-back-indicator';
+                backEl.innerHTML = `<span class="back-text">← Back to all</span><span class="owner-filter">Showing ${clusterItems.length} similar from @${ownerClean}</span>`;
+                backEl.addEventListener('click', () => {
+                  // Re-render with original grouped view
+                  renderCodeList(config);
+                });
+                listEl.appendChild(backEl);
+                
+                // Render cluster items (no grouping)
+                clusterItems.forEach(clusterItem => {
+                  const itemEl = renderCodeListItem(clusterItem, {
+                    syntaxHighlight,
+                    tickerAnimation,
+                    showOwner,
+                    showTimeAgo,
+                    showTimestamp,
+                    showHits,
+                    pendingThumb,
+                  });
+                  itemEl.addEventListener('click', () => handleCodeItemClick(itemEl));
+                  listEl.appendChild(itemEl);
+                });
+                
+                if (tickerAnimation) {
+                  requestAnimationFrame(() => processTickerAnimations(listEl));
+                }
               });
-              itemEl.addEventListener('click', () => handleCodeItemClick(itemEl));
-              listEl.appendChild(itemEl);
-            });
-            
-            if (tickerAnimation) {
-              requestAnimationFrame(() => processTickerAnimations(listEl));
+              listEl.appendChild(moreEl);
+              delete ownerClusters[key]; // Only show once per cluster
+              break;
             }
-          });
-          listEl.appendChild(moreEl);
-          delete ownerHiddenCounts[owner]; // Only show once per owner
+          }
         }
       });
       
