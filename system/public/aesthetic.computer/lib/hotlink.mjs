@@ -16,6 +16,9 @@ import {
 export {
   parseMessageElements,
   applyColorCodes,
+  calculateElementPosition,
+  isClickInsideElement,
+  getElementAction,
   defaultColorTheme,
   isInteractiveType,
 };
