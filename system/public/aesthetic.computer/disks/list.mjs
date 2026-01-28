@@ -1,9 +1,15 @@
 // List, 2024.1.30.13.18.29.955
 // A comprehensive directory of pieces and prompt commands.
 // Redesigned 2025.12.31 with categories, tabs, and responsive layout.
+// Updated 2026.01.28 with Brushes category and multi-font support.
 
 const { keys, entries } = Object;
 const { min, max, floor } = Math;
+
+// 🔤 Font configurations for different display densities
+const COMPACT_FONT = "MatrixChunky8"; // 4px char width, great for metadata
+const COMPACT_CHAR_WIDTH = 4;
+const COMPACT_ROW_HEIGHT = 9;
 
 // 🎨 Color schemes for dark/light mode
 const scheme = {
@@ -24,6 +30,7 @@ const scheme = {
     highlight: [255, 255, 100],
     chevron: [80, 100, 140],
     dateText: [80, 100, 140],     // muted date color
+    brushCategory: [255, 180, 100], // 🖌️ warm gold for brushes category
     // Per-tab colors
     tabPopular: [255, 120, 80],    // 🔥 orange/red
     tabAll: [100, 180, 255],       // blue
@@ -48,6 +55,7 @@ const scheme = {
     highlight: [255, 220, 80],
     chevron: [120, 140, 180],
     dateText: [130, 140, 160],    // muted date color
+    brushCategory: [200, 120, 40], // 🖌️ warm gold for brushes category
     // Per-tab colors
     tabPopular: [220, 80, 40],     // 🔥 orange/red
     tabAll: [40, 100, 180],        // blue
@@ -59,16 +67,17 @@ const scheme = {
 
 // 📁 Category definitions for pieces
 const PIECE_CATEGORIES = {
-  "🎨 Creative": ["box", "line", "circle", "colors", "fill", "brush", "crop", "download", "pixel", "shape", "poly", "oval", "blur", "nopaint", "painting", "plot", "drawings", "doodle", "handprint"],
+  "🖌️ Brushes": ["line", "rect", "oval", "box", "circle", "shape", "poly", "smear", "blur", "spray", "fill", "wipe", "marker", "sparkle", "pull", "bits", "vary"],
+  "🎨 Creative": ["colors", "nopaint", "painting", "plot", "drawings", "doodle", "crop", "download", "pixel", "handprint", "icon", "signature", "brush"],
   "🎵 Audio": ["clock", "tone", "bleep", "chord", "synth", "bubble", "bgm", "colplay", "metronome", "notepat", "sing", "whistlegraph"],
-  "📹 Media": ["tape", "video", "camera", "selfie", "cam", "camu", "recorder", "mic"],
+  "📹 Media": ["tape", "video", "camera", "selfie", "cam", "camu", "recorder", "mic", "snap", "cap"],
   "💬 Social": ["chat", "mood", "moods", "field", "scream", "handle", "profile", "me"],
   "🤖 AI Chat": ["sotce", "bf", "gf", "bro", "sis", "dad", "mom", "angel", "gargoyle", "boyfriend", "girlfriend", "brother", "sister"],
   "🎮 Games": ["pong", "snake", "balls", "brick-breaker", "gostop", "spin", "wand", "wiggle"],
   "💼 System": ["prompt", "list", "about", "help", "docs", "api", "debug", "404", "blank"],
   "💰 Wallet": ["wallet", "tezos", "keep", "kept", "mint", "ff", "freaky-flowers"],
   "🌍 World": ["world", "fly", "field", "handtime", "vr"],
-  "🔧 Utilities": ["encode", "decode", "baktok", "qr", "resize", "icon", "preview"],
+  "🔧 Utilities": ["encode", "decode", "baktok", "qr", "resize", "preview"],
 };
 
 // 📁 Category definitions for commands (prompts)
@@ -293,15 +302,24 @@ function buildAllList(ui) {
   }));
 }
 
-// Build popular list sorted by hit count
+// Build popular list sorted by hit count (Top 100 style)
+// Includes both documented pieces AND tracked pieces from hit stats
 function buildPopularList(ui) {
-  // Combine pieces and commands with their hit counts
+  // Start with documented pieces and commands
   const combined = {
     ...Object.fromEntries(keys(pieces).map(k => [k, { ...pieces[k], _type: "piece" }])),
     ...Object.fromEntries(keys(commands).map(k => [k, { ...commands[k], _type: "command" }])),
   };
   
+  // Also add any pieces from hit stats that aren't in docs (like KidLisp $xxx pieces)
+  keys(hitStats).forEach(name => {
+    if (!combined[name] && !name.startsWith("api/")) { // Skip API endpoints
+      combined[name] = { desc: "", _type: "piece" };
+    }
+  });
+  
   // Sort by hits (descending), then alphabetically for ties
+  // Add rank number for Top 100 style display
   popularItems = keys(combined)
     .map(name => ({
       name,
@@ -309,10 +327,13 @@ function buildPopularList(ui) {
       type: combined[name]._type,
       hits: hitStats[name] || 0,
     }))
+    .filter(item => item.hits > 0) // Only show items with actual hits
     .sort((a, b) => {
       if (b.hits !== a.hits) return b.hits - a.hits;
       return a.name.localeCompare(b.name);
-    });
+    })
+    .slice(0, 100) // Top 100 only
+    .map((item, index) => ({ ...item, rank: index + 1 })); // Add rank
 }
 
 // Build user pieces list sorted by creation date
@@ -480,15 +501,18 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
         const chevron = item.expanded ? "▼" : "▸";
         ink(pal.chevron).write(chevron, { x: LEFT_MARGIN, y: y + 1 });
         
-        // Category name
-        ink(pal.categoryHeader).write(item.name, { x: LEFT_MARGIN + 10, y: y + 1 });
+        // Category name (special color for Brushes)
+        const isBrushes = item.name.includes("Brushes");
+        const catColor = isBrushes ? pal.brushCategory : pal.categoryHeader;
+        ink(catColor).write(item.name, { x: LEFT_MARGIN + 10, y: y + 1 });
         
-        // Count
-        const countStr = `(${item.count})`;
+        // Count (using compact font, right-aligned)
+        const countStr = `${item.count}`;
+        const countWidth = countStr.length * COMPACT_CHAR_WIDTH;
         ink(pal.categoryCount).write(countStr, { 
-          x: LEFT_MARGIN + 10 + item.name.length * 6 + 6, 
-          y: y + 1 
-        });
+          x: screen.width - countWidth - 6, 
+          y: y + 2 
+        }, undefined, undefined, false, COMPACT_FONT);
       }
     } else {
       // Item row
@@ -506,23 +530,37 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
       else if (item.type === "piece") nameColor = pal.pieceName;
       else nameColor = pal.commandName;
       
-      const indent = layoutMode === "tiny" ? 0 : (currentTab === "all" || currentTab === "popular" || currentTab === "user" ? 0 : 8);
+      // In Top 100 tab, show rank number prefix
+      let nameX = LEFT_MARGIN;
+      if (currentTab === "popular" && item.rank && layoutMode !== "tiny") {
+        // Draw rank number (e.g., #1, #12, #100)
+        const rankText = `#${item.rank}`;
+        const rankWidth = rankText.length * COMPACT_CHAR_WIDTH;
+        ink(pal.tabPopular).write(rankText, { x: LEFT_MARGIN, y: y + 2 }, undefined, undefined, false, COMPACT_FONT);
+        nameX = LEFT_MARGIN + rankWidth + 4; // Offset name after rank
+      }
+      
+      const indent = layoutMode === "tiny" ? 0 : (currentTab === "all" || currentTab === "user" ? 0 : (currentTab === "popular" ? 0 : 8));
       ink(isHighlighted ? pal.highlight : nameColor).write(item.name, { 
-        x: LEFT_MARGIN + indent, 
+        x: nameX + indent, 
         y: y + 1 
       });
       
-      // Show hit count in popular tab
+      // Show hit count in Top 100 tab (use compact font for metadata, right-aligned)
       if (currentTab === "popular" && item.hits > 0 && layoutMode !== "tiny") {
         const hitText = item.hits >= 1000 ? `${(item.hits / 1000).toFixed(1)}k` : `${item.hits}`;
-        const hitX = LEFT_MARGIN + indent + item.name.length * 6 + 6;
-        ink(pal.categoryCount).write(hitText, { x: hitX, y: y + 1 });
+        // Position at right edge with compact font
+        const hitWidth = hitText.length * COMPACT_CHAR_WIDTH;
+        const hitX = screen.width - hitWidth - 6;
+        ink(pal.categoryCount).write(hitText, { x: hitX, y: y + 2 }, undefined, undefined, false, COMPACT_FONT);
       }
-      // Show date in user tab
+      // Show date in user tab (use compact font for metadata)
       else if (currentTab === "user" && item.when && layoutMode !== "tiny") {
         const dateStr = formatShortDate(item.when);
-        const dateX = LEFT_MARGIN + indent + item.name.length * 6 + 6;
-        ink(pal.dateText).write(dateStr, { x: dateX, y: y + 1 });
+        // Position at right edge with compact font
+        const dateWidth = dateStr.length * COMPACT_CHAR_WIDTH;
+        const dateX = screen.width - dateWidth - 6;
+        ink(pal.dateText).write(dateStr, { x: dateX, y: y + 2 }, undefined, undefined, false, COMPACT_FONT);
       }
       // Description (if space allows and not in popular/user tab)
       else if (maxDescLen > 0 && item.data?.desc && currentTab !== "popular" && currentTab !== "user") {
@@ -573,8 +611,8 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
     };
     
     const tabs = layoutMode === "small" 
-      ? [["popular", "🔥"], ["all", "All"], ["pieces", "📦"], ["commands", "🎯"], ["user", "@"]]
-      : [["popular", "🔥 Hot"], ["all", "All"], ["pieces", "Pieces"], ["commands", "Cmds"], ["user", "@User"]];
+      ? [["popular", "Top"], ["all", "All"], ["pieces", "📦"], ["commands", "🎯"], ["user", "@"]]
+      : [["popular", "Top 100"], ["all", "All"], ["pieces", "Pieces"], ["commands", "Cmds"], ["user", "@User"]];
     
     // Start tabs offset from left to avoid HUD label overlap
     let tabX = TAB_OFFSET;
