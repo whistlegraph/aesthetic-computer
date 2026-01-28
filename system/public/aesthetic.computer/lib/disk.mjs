@@ -1561,6 +1561,8 @@ let currentPath,
   currentHUDOffset,
   currentHUDQR = null, // QR code URL to show to the left of label (set via hud.qr())
   currentHUDQRCells = null, // Cached QR code cells
+  currentHUDAuthor = null, // @handle of the author for KidLisp pieces
+  currentHUDHits = null, // Hit count for KidLisp pieces
   forceTinyHudLabel = false, // Force MatrixChunky8 font for HUD label (set via hud.tinyLabel())
   qrOverlayCache = new Map(), // Cache for QR overlays to prevent regeneration every frame
   hudLabelCache = null; // Cache for HUD label to prevent regeneration every frame
@@ -7112,6 +7114,8 @@ async function load(
         if (globalScope.objktKidlispCodes && globalScope.objktKidlispCodes[cacheId]) {
           sourceToRun = globalScope.objktKidlispCodes[cacheId];
           currentOriginalCodeId = slug;
+          currentHUDAuthor = null; // No author info in offline bundles
+          currentHUDHits = null;
         } else {
           console.log("💾 Loading cached kidlisp code:", cacheId);
           try {
@@ -7123,6 +7127,17 @@ async function load(
             // Track the original $code identifier for sharing
             currentOriginalCodeId = slug; // Keep the full $code format
             console.log("✅ Successfully loaded cached code:", cacheId, `(${sourceToRun.length} chars)`);
+            
+            // 👤 Fetch author metadata in background (don't block loading)
+            fetchKidlispMetadata(cacheId).then(meta => {
+              if (meta) {
+                currentHUDAuthor = meta.handle;
+                currentHUDHits = meta.hits;
+                console.log(`👤 Author: ${meta.handle || 'anonymous'}, Hits: ${meta.hits}`);
+              }
+            }).catch(err => {
+              console.warn("⚠️ Failed to fetch KidLisp metadata:", err);
+            });
           } catch (error) {
             console.error("❌ Failed to load cached code:", cacheId, error);
             throw new Error(`Failed to load cached code: ${cacheId}`);
@@ -8883,6 +8898,8 @@ async function load(
     // Clear original code ID for non-$code pieces (unless this was a $code load)
     if (!slug?.startsWith("$")) {
       currentOriginalCodeId = undefined;
+      currentHUDAuthor = null; // Reset author for non-KidLisp pieces
+      currentHUDHits = null;
     }
     currentHUDOffset = undefined; // Always reset these to the defaults.
     currentHUDTextColor = undefined;
@@ -14408,6 +14425,70 @@ async function makeFrame({ data: { type, content } }) {
         }
       }
 
+      // 👤 Author attribution overlay for KidLisp pieces (bottom-left corner)
+      // Only show when: HUD is visible, we have an author, and it's a KidLisp piece
+      if (currentHUDAuthor && hudAnimationState.visible && !hudAnimationState.qrFullscreen) {
+        try {
+          const authorText = currentHUDAuthor; // Already formatted as @handle
+          const hitsText = currentHUDHits ? `${currentHUDHits.toLocaleString()} hits` : null;
+          
+          // Use MatrixChunky8 for compact display
+          const font = typefaceCache.get("MatrixChunky8");
+          const charWidth = 4; // MatrixChunky8 char width
+          const charHeight = 8; // MatrixChunky8 char height
+          const padding = 2;
+          const lineGap = 2;
+          
+          // Calculate dimensions
+          const authorWidth = authorText.length * charWidth;
+          const hitsWidth = hitsText ? hitsText.length * charWidth : 0;
+          const maxWidth = Math.max(authorWidth, hitsWidth);
+          const height = hitsText ? (charHeight * 2 + lineGap + padding * 2) : (charHeight + padding * 2);
+          const width = maxWidth + padding * 2;
+          
+          // Create attribution overlay painting
+          const authorOverlay = $api.painting(width + 1, height + 1, ($) => {
+            $.unmask();
+            
+            // Semi-transparent black background for readability
+            $.ink(0, 0, 0, 180).box(0, 0, width, height);
+            
+            // Draw author handle in pink (matching give.aesthetic.computer style)
+            $.ink(255, 107, 157); // Pink color from give page CSS --pink
+            if (font && font.glyphs) {
+              $.write(authorText, { x: padding, y: padding }, undefined, undefined, false, "MatrixChunky8");
+            } else {
+              $.write(authorText, { x: padding, y: padding });
+            }
+            
+            // Draw hits count in gold if available
+            if (hitsText) {
+              $.ink(255, 217, 61); // Gold color from give page CSS --gold
+              if (font && font.glyphs) {
+                $.write(hitsText, { x: padding, y: padding + charHeight + lineGap }, undefined, undefined, false, "MatrixChunky8");
+              } else {
+                $.write(hitsText, { x: padding, y: padding + charHeight + lineGap });
+              }
+            }
+          });
+          
+          // Position in bottom-left corner with same margin as QR code
+          const margin = 4;
+          const startX = margin;
+          const startY = screen.height - height - margin;
+          
+          // Add author overlay to sendData with animation effects
+          sendData.authorOverlay = {
+            x: startX - hudAnimationState.qrSlideOffset.x, // Slide opposite direction from QR
+            y: startY + hudAnimationState.qrSlideOffset.y,
+            opacity: hudAnimationState.opacity,
+            img: (({ width, height, pixels }) => ({ width, height, pixels }))(authorOverlay),
+          };
+        } catch (err) {
+          console.warn("Failed to generate author overlay:", err);
+        }
+      }
+
       let transferredPixels;
 
       // Check to see if we have a dirtyBox to render from.
@@ -14503,6 +14584,12 @@ async function makeFrame({ data: { type, content } }) {
         // 🔗 Create a copy for transfer to avoid detaching the LAN badge buffer
         const lanBadgePixelsCopy = new Uint8ClampedArray(sendData.lanBadge.img.pixels);
         transferredObjects.push(lanBadgePixelsCopy.buffer);
+      }
+
+      if (sendData.authorOverlay) {
+        // 👤 Create a copy for transfer to avoid detaching the author overlay buffer
+        const authorPixelsCopy = new Uint8ClampedArray(sendData.authorOverlay.img.pixels);
+        transferredObjects.push(authorPixelsCopy.buffer);
       }
 
       // 🎬 Add recording UI overlays (visible on screen but NOT captured in tape)
