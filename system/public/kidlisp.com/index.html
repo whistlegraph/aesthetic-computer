@@ -4010,6 +4010,7 @@
     #guides-list,
     #guide-detail {
       width: 100%;
+      height: 100%;
     }
 
     .book-deck-controls {
@@ -4575,9 +4576,106 @@
       }
     }
 
-    /* Guides Coming Soon - Minimal */
+    /* Learn Tab - Live Documentation */
+    .learn-container {
+      padding: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .learn-doc-section {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    
+    .learn-doc-empty {
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-style: italic;
+      padding: 8px 0;
+    }
+    
+    .learn-doc-hint {
+      font-family: monospace;
+      font-size: 10px;
+      color: var(--text-tertiary);
+      opacity: 0.7;
+      margin-top: 8px;
+    }
+    
+    .learn-doc-content {
+      font-family: monospace;
+    }
+    
+    .learn-doc-name {
+      font-size: 14px;
+      font-weight: bold;
+      color: rgb(205, 92, 155);
+      margin-bottom: 4px;
+    }
+    
+    .learn-doc-signature {
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: var(--bg-tertiary);
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      display: inline-block;
+    }
+    
+    .learn-doc-category {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-tertiary);
+      margin-bottom: 8px;
+    }
+    
+    .learn-doc-description {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    
+    .learn-doc-examples-title {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .learn-doc-example {
+      font-size: 10px;
+      color: var(--text-secondary);
+      background: var(--bg-tertiary);
+      padding: 4px 8px;
+      border-radius: 3px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .learn-doc-example:hover {
+      background: rgba(205, 92, 155, 0.15);
+      color: rgb(205, 92, 155);
+    }
+    
+    /* Guides Coming Soon - with preset buttons */
     .guides-coming-soon {
       padding: 12px;
+      border-top: 1px solid var(--border-subtle);
+      flex-shrink: 0;
     }
     
     .guides-coming-text {
@@ -4595,47 +4693,32 @@
     .guides-fund-row {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
     
-    .guides-amount-slider {
-      width: 60px;
-      height: 4px;
-      -webkit-appearance: none;
-      appearance: none;
-      background: var(--bg-tertiary);
-      border-radius: 2px;
-      outline: none;
-    }
-    
-    .guides-amount-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: rgb(205, 92, 155);
-      cursor: pointer;
-      border: 2px solid var(--bg-primary);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    }
-    
-    .guides-amount-slider::-moz-range-thumb {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: rgb(205, 92, 155);
-      cursor: pointer;
-      border: 2px solid var(--bg-primary);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    }
-    
-    .guides-amount-display {
+    .guides-amount-btn {
       font-family: monospace;
       font-size: 10px;
-      color: var(--text-tertiary);
-      min-width: 28px;
+      padding: 4px 8px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    
+    .guides-amount-btn:hover {
+      background: rgba(205, 92, 155, 0.15);
+      border-color: rgb(205, 92, 155);
+      color: rgb(205, 92, 155);
+    }
+    
+    .guides-amount-btn.selected {
+      background: rgb(205, 92, 155);
+      color: #fff;
+      border-color: rgb(205, 92, 155);
     }
     
     .guides-give-btn {
@@ -14924,6 +15007,24 @@
         }
       });
       
+      // Listen for cursor position changes to update Learn tab documentation
+      editor.onDidChangeCursorPosition((e) => {
+        const model = editor.getModel();
+        if (!model) return;
+        
+        const position = e.position;
+        const word = model.getWordAtPosition(position);
+        const wordText = word ? word.word : null;
+        
+        // Only update if word changed
+        if (wordText !== currentCursorWord) {
+          currentCursorWord = wordText;
+          if (typeof updateLearnDocumentation === 'function') {
+            updateLearnDocumentation(wordText);
+          }
+        }
+      });
+      
       // Listen for content changes to enforce line limit
       editor.onDidChangeModelContent(() => {
         enforceLineLimit();
@@ -19380,36 +19481,100 @@
       ? 'https://localhost:8888/give.aesthetic.computer'
       : 'https://give.aesthetic.computer';
     
+    // Track current cursor word for live docs
+    let currentCursorWord = null;
+    
+    function updateLearnDocumentation(word) {
+      const docSection = document.getElementById('learn-doc-section');
+      if (!docSection) return;
+      
+      if (!word || !KIDLISP_DOCS[word]) {
+        // Show empty state with hint
+        docSection.innerHTML = `
+          <div class="learn-doc-empty">
+            Place your cursor on a KidLisp function to see its documentation here.
+          </div>
+          <div class="learn-doc-hint">
+            Try: wipe, ink, box, circle, line, wiggle, beat...
+          </div>
+        `;
+        return;
+      }
+      
+      const doc = KIDLISP_DOCS[word];
+      const examplesHtml = doc.examples && doc.examples.length > 0
+        ? `<div class="learn-doc-examples-title">Examples</div>
+           ${doc.examples.map(ex => `<div class="learn-doc-example" data-example="${encodeURIComponent(ex)}">${ex}</div>`).join('')}`
+        : '';
+      
+      docSection.innerHTML = `
+        <div class="learn-doc-content">
+          <div class="learn-doc-name">${word}</div>
+          ${doc.signature ? `<div class="learn-doc-signature">${doc.signature}</div>` : ''}
+          ${doc.category ? `<div class="learn-doc-category">${doc.category}</div>` : ''}
+          <div class="learn-doc-description">${doc.description || 'No description available.'}</div>
+          ${examplesHtml}
+        </div>
+      `;
+      
+      // Add click handlers for examples
+      docSection.querySelectorAll('.learn-doc-example').forEach(el => {
+        el.addEventListener('click', () => {
+          const example = decodeURIComponent(el.getAttribute('data-example'));
+          if (editor && example) {
+            // Insert at cursor or replace selection
+            const selection = editor.getSelection();
+            editor.executeEdits('learn-insert', [{
+              range: selection,
+              text: example,
+              forceMoveMarkers: true
+            }]);
+            editor.focus();
+          }
+        });
+      });
+    }
+    
     function initGuides() {
       const guidesList = document.getElementById('guides-list');
       if (!guidesList) return;
       
-      // Render minimal coming soon placeholder
+      // Render Learn tab with live docs section and fund section
       guidesList.innerHTML = `
-        <div class="guides-coming-soon">
-          <div class="guides-coming-text">The first KidLisp guide from <span class="author">@jeffrey</span> is coming soon.</div>
-          <div class="guides-fund-row">
-            <input type="range" class="guides-amount-slider" id="guides-amount-slider" 
-                   min="0" max="${GUIDE_AMOUNTS.length - 1}" value="2" step="1">
-            <span class="guides-amount-display" id="guides-amount-display">$${selectedGuideAmount}</span>
-            <button class="guides-give-btn" id="guides-give-btn">Give</button>
+        <div class="learn-container">
+          <div class="learn-doc-section" id="learn-doc-section">
+            <div class="learn-doc-empty">
+              Place your cursor on a KidLisp function to see its documentation here.
+            </div>
+            <div class="learn-doc-hint">
+              Try: wipe, ink, box, circle, line, wiggle, beat...
+            </div>
+          </div>
+          <div class="guides-coming-soon">
+            <div class="guides-coming-text">Guides from <span class="author">@jeffrey</span> coming soon. Fund development:</div>
+            <div class="guides-fund-row">
+              ${GUIDE_AMOUNTS.map((amt, i) => 
+                `<button class="guides-amount-btn${i === 2 ? ' selected' : ''}" data-amount="${amt}">$${amt}</button>`
+              ).join('')}
+              <button class="guides-give-btn" id="guides-give-btn">Give</button>
+            </div>
           </div>
         </div>
       `;
       
-      // Set up slider interaction
-      const slider = document.getElementById('guides-amount-slider');
-      const display = document.getElementById('guides-amount-display');
+      // Set up preset button interaction
+      const amountBtns = guidesList.querySelectorAll('.guides-amount-btn');
       const giveBtn = document.getElementById('guides-give-btn');
       
-      if (slider && display && giveBtn) {
-        slider.addEventListener('input', (e) => {
-          const idx = parseInt(e.target.value);
-          selectedGuideAmount = GUIDE_AMOUNTS[idx];
-          display.textContent = `$${selectedGuideAmount}`;
+      amountBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          amountBtns.forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          selectedGuideAmount = parseInt(btn.getAttribute('data-amount'));
         });
-        
-        // Use openExternal for proper VS Code handling
+      });
+      
+      if (giveBtn) {
         giveBtn.addEventListener('click', () => {
           openExternal(`${giveBaseUrl}?amount=${selectedGuideAmount}`);
         });
