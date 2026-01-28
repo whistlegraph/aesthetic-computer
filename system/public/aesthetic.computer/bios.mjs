@@ -1083,6 +1083,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const freezeFrameCan = document.createElement("canvas");
   const ffCtx = freezeFrameCan.getContext("2d");
   freezeFrameCan.dataset.type = "freeze";
+  // Add smooth fade transition for seamless resize
+  freezeFrameCan.style.transition = "opacity 50ms ease-out";
+  freezeFrameCan.style.willChange = "opacity";
 
   // A buffer for corner label overlays.
   const overlayCan = document.createElement("canvas");
@@ -1093,6 +1096,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   overlayCan.style.zIndex = "2";
   overlayCan.style.pointerEvents = "none";
   overlayCan.style.display = "none";
+
+  // 🎬 Recording UI Canvas - NOT included in tape captures
+  // This is for piece UIs like cap.mjs that need to show controls during recording
+  // but should not have those controls recorded in the tape itself
+  const recordingUICan = document.createElement("canvas");
+  const recordingUICtx = recordingUICan.getContext("2d");
+  recordingUICan.style.position = "absolute";
+  recordingUICan.style.top = "0";
+  recordingUICan.style.left = "0";
+  recordingUICan.style.zIndex = "3"; // Above overlay canvas
+  recordingUICan.style.pointerEvents = "none";
+  recordingUICan.style.display = "none";
+  recordingUICan.dataset.type = "recording-ui"; // Mark for identification
 
   // Reusable canvas for dirtyBox updates
   let dirtyBoxCanvas = document.createElement("canvas");
@@ -1221,8 +1237,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         freezeFrameCan.style.removeProperty("opacity");
       }
 
-      canvas.style.opacity = 0;
-      // console.log("Setting canvas opacity to 0...");
+      // Keep canvas visible during resize to avoid flickering
+      // The freeze frame overlay provides the visual continuity
+      // canvas.style.opacity = 0;
 
       freezeFrameFrozen = true;
     }
@@ -1319,6 +1336,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     webglCompositeCanvas.height = height;
     overlayCan.width = width;
     overlayCan.height = height;
+    recordingUICan.width = width;
+    recordingUICan.height = height;
 
     // Restore the clean pixels onto the resized canvas
     ctx.drawImage(tempCanvas, 0, 0);
@@ -1512,6 +1531,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       webgpuCanvas.style.height = "100%";
       overlayCan.style.width = "100%";
       overlayCan.style.height = "100%";
+      recordingUICan.style.width = "100%";
+      recordingUICan.style.height = "100%";
       uiCanvas.style.width = "100%";
       uiCanvas.style.height = "100%";
     } else if (TikTok) {
@@ -1528,6 +1549,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       webgpuCanvas.style.height = projectedHeight + "px";
       overlayCan.style.width = projectedWidth + "px";
       overlayCan.style.height = projectedHeight + "px";
+      recordingUICan.style.width = projectedWidth + "px";
+      recordingUICan.style.height = projectedHeight + "px";
       uiCanvas.style.width = projectedWidth + "px";
       uiCanvas.style.height = projectedHeight + "px";
     } else {
@@ -1544,6 +1567,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       webgpuCanvas.style.height = projectedHeight + "px";
       overlayCan.style.width = projectedWidth + "px";
       overlayCan.style.height = projectedHeight + "px";
+      recordingUICan.style.width = projectedWidth + "px";
+      recordingUICan.style.height = projectedHeight + "px";
       uiCanvas.style.width = projectedWidth + "px";
       uiCanvas.style.height = projectedHeight + "px";
     }
@@ -1584,6 +1609,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       modal.append(bumper);
 
       wrapper.append(overlayCan);
+      wrapper.append(recordingUICan); // Recording UI canvas (NOT captured in tape)
       wrapper.append(uiCanvas);
       if (debug) wrapper.append(debugCanvas);
       wrapper.append(webgpuCanvas); // Add WebGPU canvas (initially hidden)
@@ -3406,7 +3432,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // 🔍 Density Keyboard Controls (Cmd/Ctrl + / - / 0)
   // Uses standard zoom keys - browser may also zoom, but density will change too
   const DENSITY_MIN = 0.5;
-  const DENSITY_MAX = 4;
+  const DENSITY_MAX = 32;
   const DENSITY_STEP = 0.5;
   const DENSITY_DEFAULT = 2;
 
@@ -13225,6 +13251,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   if (shouldConnect) {
                     // Audio is actually playing - connect the processor now
                     sfxStreamGain.connect(rawAudioProcessor);
+                    // ALSO connect microphone stream if available for mic audio capture
+                    if (micStreamGain) {
+                      micStreamGain.connect(rawAudioProcessor);
+                      console.log("🎵 Microphone stream connected to raw audio capture");
+                    }
                     rawAudioProcessor.connect(audioContext.destination);
                     audioConnected = true;
                     
@@ -13246,6 +13277,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (!audioConnected && rawAudioProcessor && sfxStreamGain) {
                 try {
                   sfxStreamGain.connect(rawAudioProcessor);
+                  // ALSO connect microphone stream if available for mic audio capture
+                  if (micStreamGain) {
+                    micStreamGain.connect(rawAudioProcessor);
+                    console.log("🎵 Microphone stream connected to raw audio capture (fallback)");
+                  }
                   rawAudioProcessor.connect(audioContext.destination);
                   console.log("🎵 Raw audio capture connected after 1s timeout fallback");
                 } catch (error) {
@@ -13722,11 +13758,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             send({ type: "recorder:present-playing" });
           };
 
-          seekTapePlayback = (progress) => {
+          // Track scrubbing state to avoid constant audio restarts
+          let isScrubbing = false;
+          let lastSeekProgress = 0;
+          
+          seekTapePlayback = (progress, { scrubbing = false, scrubEnd = false } = {}) => {
             // Seek to a specific position in the tape (0.0 to 1.0)
-            console.log(`📼 🎯 Seeking to ${(progress * 100).toFixed(1)}%`);
-            const wasPlaying = continuePlaying;
-            // DON'T pause - maintain playback state during scrub
+            // If scrubbing=true, we mute audio instead of restarting it every frame
+            // If scrubEnd=true, we sync audio to final position
             
             // Clamp progress to valid range
             progress = Math.max(0, Math.min(1, progress));
@@ -13735,11 +13774,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const targetFrame = Math.floor(progress * recordedFrames.length);
             f = Math.max(0, Math.min(recordedFrames.length - 1, targetFrame));
             
-            console.log(`📼 🎯 Seeking to frame ${f}/${recordedFrames.length}`);
-            
             // Update playback progress
             playbackProgress = progress;
             pausedAtPosition = progress;
+            lastSeekProgress = progress;
             
             // Adjust playback start time to match new position
             const currentTime = performance.now();
@@ -13751,29 +13789,49 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               send({ type: "recorder:present-progress", content: progress });
             }
             
-            // Maintain playback state - don't need to restart if already playing
-            // The update loop will continue naturally if continuePlaying is true
-            
-            // Sync audio if available
             const workletReady = window.audioWorkletReady === true;
             const audioContextReady = audioContext?.state === "running";
-            if (!render && workletReady && audioContextReady && mediaRecorderDuration > 0) {
-              // Kill existing audio
+            
+            // Handle scrubbing state transitions
+            if (scrubbing && !isScrubbing) {
+              // Starting scrub - mute audio but don't kill it
+              isScrubbing = true;
               Object.keys(sfxPlaying).forEach(id => {
                 if (id.startsWith("tape:audio_")) {
                   sfxPlaying[id]?.kill();
                   delete sfxPlaying[id];
                 }
               });
-              
-              // Restart audio from new position if currently playing
-              if (continuePlaying) {
+            } else if (scrubEnd && isScrubbing) {
+              // Ending scrub - restart audio at final position
+              isScrubbing = false;
+              if (!render && workletReady && audioContextReady && mediaRecorderDuration > 0 && continuePlaying) {
                 tapeSoundId = "tape:audio_" + performance.now();
                 playSfx(tapeSoundId, "tape:audio", {
                   from: progress,
                 });
               }
+            } else if (!scrubbing && !isScrubbing) {
+              // Normal seek (not scrubbing) - sync audio immediately
+              if (!render && workletReady && audioContextReady && mediaRecorderDuration > 0) {
+                // Kill existing audio
+                Object.keys(sfxPlaying).forEach(id => {
+                  if (id.startsWith("tape:audio_")) {
+                    sfxPlaying[id]?.kill();
+                    delete sfxPlaying[id];
+                  }
+                });
+                
+                // Restart audio from new position if currently playing
+                if (continuePlaying) {
+                  tapeSoundId = "tape:audio_" + performance.now();
+                  playSfx(tapeSoundId, "tape:audio", {
+                    from: progress,
+                  });
+                }
+              }
             }
+            // During active scrubbing (scrubbing=true, isScrubbing=true), we don't touch audio
           };
 
           async function update() {
@@ -14128,8 +14186,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "recorder:present:seek") {
       if (underlayFrame && seekTapePlayback) {
-        const progress = content; // 0.0 to 1.0
-        seekTapePlayback?.(progress);
+        // Support both simple progress value and object with scrubbing options
+        if (typeof content === "object") {
+          seekTapePlayback?.(content.progress, { 
+            scrubbing: content.scrubbing, 
+            scrubEnd: content.scrubEnd 
+          });
+        } else {
+          const progress = content; // 0.0 to 1.0
+          seekTapePlayback?.(progress);
+        }
       }
       return;
     }
@@ -16600,6 +16666,60 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
+    // 🎬 Recording UI overlay painters (rendered to recordingUICan, NOT captured in tapes)
+    let recordingUIOverlays = {};
+    
+    function buildRecordingUIOverlay(name, o) {
+      if (!o || !o.img) return;
+      
+      // Create or reuse dedicated canvas for this overlay
+      if (!window.recordingUIOverlayCache) {
+        window.recordingUIOverlayCache = {};
+      }
+      if (!window.recordingUIOverlayCache[name]) {
+        window.recordingUIOverlayCache[name] = {
+          canvas: document.createElement("canvas"),
+          lastKey: null,
+        };
+        window.recordingUIOverlayCache[name].ctx =
+          window.recordingUIOverlayCache[name].canvas.getContext("2d");
+      }
+      
+      const overlayCache = window.recordingUIOverlayCache[name];
+      const currentKey = `${o.img.width}x${o.img.height}_${o.x}_${o.y}_${performance.now()}`;
+      
+      // Always regenerate recording UI overlays (no caching)
+      overlayCache.lastKey = null;
+      
+      if (overlayCache.canvas.width !== o.img.width) {
+        overlayCache.canvas.width = o.img.width;
+      }
+      if (overlayCache.canvas.height !== o.img.height) {
+        overlayCache.canvas.height = o.img.height;
+      }
+      
+      const overlayCtx = overlayCache.ctx;
+      overlayCtx.imageSmoothingEnabled = false;
+      
+      const imageData = new ImageData(
+        new Uint8ClampedArray(o.img.pixels),
+        o.img.width,
+        o.img.height,
+      );
+      overlayCtx.putImageData(imageData, 0, 0);
+      
+      // Create painter function that draws to recordingUICtx
+      recordingUIOverlays[name] = () => {
+        if (o.opacity !== undefined && o.opacity < 1) {
+          recordingUICtx.globalAlpha = o.opacity;
+        }
+        recordingUICtx.drawImage(overlayCache.canvas, o.x, o.y);
+        if (o.opacity !== undefined && o.opacity < 1) {
+          recordingUICtx.globalAlpha = 1;
+        }
+      };
+    }
+
     buildOverlay("label", content.label);
     buildOverlay("qrOverlay", content.qrOverlay);
     buildOverlay("qrCornerLabel", content.qrCornerLabel);
@@ -16609,6 +16729,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     buildOverlay("durationProgressBar", content.durationProgressBar);
     buildOverlay("durationTimecode", content.durationTimecode);
     buildOverlay("hitboxDebug", content.hitboxDebug); // Debug overlay for HUD hitbox visualization
+    
+    // 🎬 Build recording UI overlays (NOT captured in recordings)
+    if (content.recordingUI) {
+      for (const [name, overlayData] of Object.entries(content.recordingUI)) {
+        buildRecordingUIOverlay(name, overlayData);
+      }
+    }
     
     // Debug: Log overlay data reception
     if (content.durationTimecode) {
@@ -17152,6 +17279,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           tapeProgressPainter();
         }
 
+        // 🎬 Paint recording UI overlays to recordingUICan (NOT captured in recordings)
+        // These are UI elements that should be visible on screen but not in the tape
+        const hasRecordingUIOverlays = Object.keys(recordingUIOverlays).length > 0;
+        if (hasRecordingUIOverlays) {
+          recordingUICtx.clearRect(0, 0, recordingUICan.width, recordingUICan.height);
+          for (const name of Object.keys(recordingUIOverlays)) {
+            recordingUIOverlays[name]();
+          }
+          if (recordingUICan.style.display === "none") {
+            recordingUICan.style.display = "block";
+          }
+        } else {
+          if (recordingUICan.style.display !== "none") {
+            recordingUICan.style.display = "none";
+          }
+        }
+
         if (glaze.on) {
           ThreeD?.pasteTo(glazeCompositeCtx);
           const glazeSource = webglCompositeActive ? webglCompositeCanvas : canvas;
@@ -17257,8 +17401,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (glaze.on === false) {
         canvas.style.removeProperty("opacity");
       }
-      //freezeFrameCan.style.opacity = 0;
-      freezeFrameCan.remove();
+      // Fade out freeze frame smoothly then remove
+      freezeFrameCan.style.opacity = "0";
+      setTimeout(() => {
+        if (wrapper.contains(freezeFrameCan)) {
+          freezeFrameCan.remove();
+          freezeFrameCan.style.removeProperty("opacity");
+        }
+      }, 60); // Match CSS transition duration
       freezeFrame = false;
       freezeFrameGlaze = false;
       freezeFrameFrozen = false;
@@ -18281,6 +18431,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Camera properties.
       let facingMode = options.facing || "user",
         zoom = 1;
+      
+      // Fit mode: "cover" crops to fill, "contain" letterboxes to fit
+      const fitMode = options.fit || "cover";
 
       video.id = "camera-feed";
       video.autoplay = true; // Allow video footage to play automatically.
@@ -18340,6 +18493,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             frameRate: { ideal: 30 },
           };
 
+          // Calculate target aspect ratio for better matching
+          const targetAR = cWidth / cHeight;
+
           if (
             (iOS || Android) &&
             window.matchMedia("(orientation: portrait)").matches &&
@@ -18355,8 +18511,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // alert(cWidth + " " + cHeight);
 
+          // Request ideal dimensions with aspect ratio hint
           constraints.width = { ideal: cWidth };
           constraints.height = { ideal: cHeight };
+          
+          // Add aspect ratio constraint if supported (helps get better match)
+          if (targetAR > 0 && isFinite(targetAR)) {
+            constraints.aspectRatio = { ideal: targetAR };
+          }
 
           stream = await navigator.mediaDevices.getUserMedia({
             video: { ...constraints },
@@ -18607,14 +18769,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           outX = 0,
           outY = 0;
 
-        if (videoAR <= bufferAR) {
-          // Tall to wide.
-          outWidth = buffer.width;
-          outHeight = outWidth / videoAR;
+        if (fitMode === "contain") {
+          // "contain" mode: letterbox to fit entire video in buffer
+          if (videoAR >= bufferAR) {
+            // Video is wider - fit to width, letterbox top/bottom
+            outWidth = buffer.width;
+            outHeight = outWidth / videoAR;
+          } else {
+            // Video is taller - fit to height, letterbox left/right
+            outHeight = buffer.height;
+            outWidth = outHeight * videoAR;
+          }
         } else {
-          // Wide to tall.
-          outHeight = buffer.height;
-          outWidth = outHeight * videoAR;
+          // "cover" mode (default): crop to fill buffer completely
+          if (videoAR <= bufferAR) {
+            // Tall to wide.
+            outWidth = buffer.width;
+            outHeight = outWidth / videoAR;
+          } else {
+            // Wide to tall.
+            outHeight = buffer.height;
+            outWidth = outHeight * videoAR;
+          }
         }
 
         outY = (buffer.height - outHeight) / 2; // Adjusting position.
