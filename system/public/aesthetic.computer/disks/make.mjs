@@ -209,7 +209,7 @@ Generate animated, creative code only - no explanations.`;
         { 
           prompt: userPromptText || "colorful abstract art", // The user's actual prompt
           program: program,
-          hint: "code:claude-sonnet-4-20250514", // Use Claude Sonnet 4 (same as oldmake)
+          hint: "code:claude-opus-4-20250514", // Use Claude Opus 4.5 for best KidLisp generation
           temperature: 1
         },
         function onChunk(msg) {
