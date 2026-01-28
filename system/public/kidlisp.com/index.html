@@ -22474,8 +22474,6 @@
     let codeChannelId = null;
     let isVSCodePopout = false; // Track if pop-out was opened via VS Code (external browser)
     let isBroadcasting = false; // Track if actively broadcasting (even if popup blocked)
-    let pjPingInterval = null; // Interval for ping/pong heartbeat to PJ windows
-    const PJ_PING_INTERVAL_MS = 2000; // Send ping every 2 seconds
     const logPj = (...args) => console.log('🧩 PJ:', ...args);
     
     // PJ WebSocket - prefers production, falls back to localhost
@@ -22662,46 +22660,6 @@
     // Check if there's an active PJ session (window open, VS Code mode, or broadcasting)
     function hasActivePjSession() {
       return (popoutWindow && !popoutWindow.closed) || isVSCodePopout || isBroadcasting;
-    }
-    
-    // Start ping interval for PJ connection heartbeat
-    function startPjPing() {
-      if (pjPingInterval) return; // Already running
-      
-      pjPingInterval = setInterval(() => {
-        if (!codeChannelId || !hasActivePjSession()) {
-          stopPjPing();
-          return;
-        }
-        
-        // Send ping via BroadcastChannel (same-origin)
-        if (window.BroadcastChannel) {
-          const bc = new BroadcastChannel(`kidlisp-channel-${codeChannelId}`);
-          bc.postMessage({ type: 'pj-ping', channelId: codeChannelId, timestamp: Date.now() });
-          bc.close();
-        }
-        
-        // Send ping via WebSocket (cross-origin)
-        if (pjWs && pjWs.readyState === WebSocket.OPEN) {
-          pjWs.send(JSON.stringify({
-            type: 'pj-ping',
-            content: codeChannelId
-          }));
-        }
-        
-        logPj('ping sent', { codeChannelId });
-      }, PJ_PING_INTERVAL_MS);
-      
-      logPj('ping interval started');
-    }
-    
-    // Stop ping interval
-    function stopPjPing() {
-      if (pjPingInterval) {
-        clearInterval(pjPingInterval);
-        pjPingInterval = null;
-        logPj('ping interval stopped');
-      }
     }
     
     // Broadcast code to channel subscribers (only when PJ is active)
@@ -22893,7 +22851,6 @@
       isBroadcasting = true;
       popoutBtn.classList.add('active');
       logPj('broadcasting enabled', { codeChannelId, popoutBlocked: !popoutWindow });
-      startPjPing(); // Start ping heartbeat for connection status
       
       if (popoutWindow) {
         popoutBtn.title = 'Broadcasting - click to focus';
@@ -22919,7 +22876,6 @@
             clearInterval(checkClosed);
             popoutWindow = null;
             isBroadcasting = false;
-            stopPjPing(); // Stop ping heartbeat
             popoutBtn.classList.remove('active');
             popoutBtn.title = 'Broadcast to PJ';
             updateCodeChannelDisplay(); // This will remove the overlay
@@ -22945,7 +22901,6 @@
         // Close VS Code pop-out mode
         isVSCodePopout = false;
         isBroadcasting = false;
-        stopPjPing(); // Stop ping heartbeat
         codeChannelId = null;
         localStorage.removeItem('kidlisp-code-channel');
         popoutBtn.classList.remove('active');
@@ -22959,7 +22914,6 @@
       // If broadcasting but popup was blocked, clicking again toggles off
       if (isBroadcasting && (!popoutWindow || popoutWindow.closed)) {
         isBroadcasting = false;
-        stopPjPing(); // Stop ping heartbeat
         codeChannelId = null;
         localStorage.removeItem('kidlisp-code-channel');
         popoutBtn.classList.remove('active');
