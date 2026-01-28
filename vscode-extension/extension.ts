@@ -12,6 +12,11 @@ import { Buffer } from "buffer";
 // Import the generated process tree JS and AST tree JS (built from views/)
 import { PROCESS_TREE_JS, AST_TREE_JS } from "./generated-views";
 
+// 🌈 KidLisp Syntax Highlighting
+// Embedded copy of shared/kidlisp-syntax.mjs for bundling
+// This provides Monaco-parity highlighting for .lisp files in VS Code
+import * as KidLispSyntax from "./kidlisp-syntax";
+
 // Dynamically import path and fs to ensure web compatibility.
 let path: any, fs: any;
 (async () => {
@@ -309,6 +314,197 @@ function stopLocalServerCheck() {
   }
 }
 
+// 🌈 KidLisp Syntax Highlighting Setup
+// Creates decoration types and sets up refresh interval for timing blinks
+const kidlispDecorationTypes = new Map<string, vscode.TextEditorDecorationType>();
+let kidlispHighlightInterval: NodeJS.Timeout | undefined;
+
+function getOrCreateDecorationType(color: string, options: { bold?: boolean } = {}): vscode.TextEditorDecorationType {
+  const key = `${color}-${options.bold ? 'bold' : 'normal'}`;
+  if (!kidlispDecorationTypes.has(key)) {
+    const hexColor = KidLispSyntax.colorToHex(color);
+    kidlispDecorationTypes.set(key, vscode.window.createTextEditorDecorationType({
+      color: hexColor,
+      fontWeight: options.bold ? 'bold' : 'normal',
+    }));
+  }
+  return kidlispDecorationTypes.get(key)!;
+}
+
+function applyKidLispDecorations(editor: vscode.TextEditor, isEditMode: boolean = true) {
+  if (!editor || editor.document.languageId !== 'kidlisp') {
+    return;
+  }
+
+  const document = editor.document;
+  const text = document.getText();
+  const tokens = KidLispSyntax.tokenizeWithPositions(text);
+  const tokenValues = tokens.map(t => t.value);
+  
+  // Group decorations by color
+  const decorationsByColor = new Map<string, vscode.DecorationOptions[]>();
+  
+  // Check if we're in light mode
+  const isLightTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Light ||
+                       vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrastLight;
+  
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    let color = KidLispSyntax.getTokenColor(token.value, tokenValues, i, { isEditMode });
+    
+    // Handle special color markers
+    if (color === 'RAINBOW') {
+      // Rainbow: each character gets a different color
+      for (let j = 0; j < token.value.length; j++) {
+        const charColor = KidLispSyntax.RAINBOW_COLORS[j % KidLispSyntax.RAINBOW_COLORS.length];
+        const startPos = document.positionAt(token.pos + j);
+        const endPos = document.positionAt(token.pos + j + 1);
+        const range = new vscode.Range(startPos, endPos);
+        
+        if (!decorationsByColor.has(charColor)) {
+          decorationsByColor.set(charColor, []);
+        }
+        decorationsByColor.get(charColor)!.push({ range });
+      }
+      continue;
+    }
+    
+    if (color === 'ZEBRA') {
+      // Zebra: alternating black and white
+      for (let j = 0; j < token.value.length; j++) {
+        const charColor = KidLispSyntax.ZEBRA_COLORS[j % KidLispSyntax.ZEBRA_COLORS.length];
+        const startPos = document.positionAt(token.pos + j);
+        const endPos = document.positionAt(token.pos + j + 1);
+        const range = new vscode.Range(startPos, endPos);
+        
+        if (!decorationsByColor.has(charColor)) {
+          decorationsByColor.set(charColor, []);
+        }
+        decorationsByColor.get(charColor)!.push({ range });
+      }
+      continue;
+    }
+    
+    if (color.startsWith('COMPOUND:')) {
+      // Compound: prefix char in one color, rest in another
+      const [, prefixColor, identifierColor] = color.split(':');
+      
+      // Prefix character ($ or # or !)
+      const prefixStart = document.positionAt(token.pos);
+      const prefixEnd = document.positionAt(token.pos + 1);
+      const prefixRange = new vscode.Range(prefixStart, prefixEnd);
+      
+      const finalPrefixColor = isLightTheme ? KidLispSyntax.getLightModeColor(prefixColor) : prefixColor;
+      if (!decorationsByColor.has(finalPrefixColor)) {
+        decorationsByColor.set(finalPrefixColor, []);
+      }
+      decorationsByColor.get(finalPrefixColor)!.push({ range: prefixRange });
+      
+      // Identifier part
+      const idStart = document.positionAt(token.pos + 1);
+      const idEnd = document.positionAt(token.pos + token.value.length);
+      const idRange = new vscode.Range(idStart, idEnd);
+      
+      const finalIdColor = isLightTheme ? KidLispSyntax.getLightModeColor(identifierColor) : identifierColor;
+      if (!decorationsByColor.has(finalIdColor)) {
+        decorationsByColor.set(finalIdColor, []);
+      }
+      decorationsByColor.get(finalIdColor)!.push({ range: idRange });
+      
+      continue;
+    }
+    
+    // Regular color
+    const finalColor = isLightTheme ? KidLispSyntax.getLightModeColor(color) : color;
+    const startPos = document.positionAt(token.pos);
+    const endPos = document.positionAt(token.pos + token.value.length);
+    const range = new vscode.Range(startPos, endPos);
+    
+    if (!decorationsByColor.has(finalColor)) {
+      decorationsByColor.set(finalColor, []);
+    }
+    decorationsByColor.get(finalColor)!.push({ range });
+  }
+  
+  // Clear all previous decorations first
+  for (const [, decorationType] of kidlispDecorationTypes) {
+    editor.setDecorations(decorationType, []);
+  }
+  
+  // Apply decorations by color
+  for (const [color, ranges] of decorationsByColor) {
+    const decorationType = getOrCreateDecorationType(color, { bold: true });
+    editor.setDecorations(decorationType, ranges);
+  }
+}
+
+function setupKidLispHighlighting(context: vscode.ExtensionContext) {
+  // Apply highlighting to currently visible KidLisp editors
+  function refreshAllKidLispEditors() {
+    for (const editor of vscode.window.visibleTextEditors) {
+      if (editor.document.languageId === 'kidlisp') {
+        applyKidLispDecorations(editor, true);
+      }
+    }
+  }
+  
+  // Initial application
+  refreshAllKidLispEditors();
+  
+  // Refresh when editors change
+  context.subscriptions.push(
+    vscode.window.onDidChangeVisibleTextEditors(() => {
+      refreshAllKidLispEditors();
+    })
+  );
+  
+  // Refresh when document content changes
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument(event => {
+      const editor = vscode.window.visibleTextEditors.find(
+        e => e.document === event.document
+      );
+      if (editor && editor.document.languageId === 'kidlisp') {
+        applyKidLispDecorations(editor, true);
+      }
+    })
+  );
+  
+  // Refresh when theme changes (for light/dark mode support)
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveColorTheme(() => {
+      // Clear cached decoration types since colors may need updating
+      for (const [, decorationType] of kidlispDecorationTypes) {
+        decorationType.dispose();
+      }
+      kidlispDecorationTypes.clear();
+      refreshAllKidLispEditors();
+    })
+  );
+  
+  // Start interval for timing blink animations (~60fps equivalent, but limited to 16fps for performance)
+  if (kidlispHighlightInterval) {
+    clearInterval(kidlispHighlightInterval);
+  }
+  kidlispHighlightInterval = setInterval(() => {
+    refreshAllKidLispEditors();
+  }, 62.5); // ~16fps for blink animation
+  
+  // Clean up on deactivation
+  context.subscriptions.push({
+    dispose: () => {
+      if (kidlispHighlightInterval) {
+        clearInterval(kidlispHighlightInterval);
+        kidlispHighlightInterval = undefined;
+      }
+      for (const [, decorationType] of kidlispDecorationTypes) {
+        decorationType.dispose();
+      }
+      kidlispDecorationTypes.clear();
+    }
+  });
+}
+
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   // local = context.globalState.get("aesthetic:local", false); // Retrieve env.
 
@@ -393,6 +589,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       });
     }
   };
+
+  // 🌈 KidLisp Syntax Highlighting with Decorations
+  // This provides Monaco-parity highlighting for .lisp files including:
+  // - Rainbow/zebra color words, timing blinks, fade expressions
+  // - Color codes, CSS colors, RGB channels, nested paren colors
+  setupKidLispHighlighting(context);
 
   // console.log("🟢 Aesthetic Computer Extension: Activated");
   extContext = context;
