@@ -754,23 +754,41 @@ export const handler = stream(async (event, context) => {
         });
         
         // Cache the IPFS media in MongoDB for future use
-        await collection.updateOne(
-          { code: pieceName },
-          { 
-            $set: { 
-              ipfsMedia: {
-                artifactUri,
-                thumbnailUri,
-                sourceHash: hashSource(piece.source || ""),
-                authorHandle,
-                userCode,
-                packDate,
-                depCount,
-                createdAt: new Date(),
-              }
+        // First, preserve old media in history for cleanup tracking
+        const updateOps = { 
+          $set: { 
+            ipfsMedia: {
+              artifactUri,
+              thumbnailUri,
+              sourceHash: hashSource(piece.source || ""),
+              authorHandle,
+              userCode,
+              packDate,
+              depCount,
+              createdAt: new Date(),
             }
           }
-        );
+        };
+        
+        // If there was previous media, push it to history (for cleanup tracking)
+        if (piece.ipfsMedia?.artifactUri || piece.ipfsMedia?.thumbnailUri) {
+          updateOps.$push = {
+            mediaHistory: {
+              $each: [{
+                artifactUri: piece.ipfsMedia.artifactUri,
+                thumbnailUri: piece.ipfsMedia.thumbnailUri,
+                sourceHash: piece.ipfsMedia.sourceHash,
+                createdAt: piece.ipfsMedia.createdAt,
+                archivedAt: new Date(),
+                reason: isRebake ? 'rebake' : 'mint',
+              }],
+              $slice: -20, // Keep last 20 entries max
+            }
+          };
+          console.log(`🪙 KEEP: Archived previous media to history`);
+        }
+        
+        await collection.updateOne({ code: pieceName }, updateOps);
         console.log(`🪙 KEEP: Cached IPFS media for $${pieceName}`);
         
         // REBAKE MODE: Return early with new URIs (don't proceed to minting)

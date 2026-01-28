@@ -48,19 +48,57 @@ class ModuleLoader {
   }
 
   // Initialize the loader - connect WebSocket and open IndexedDB
-  async init(timeoutMs = 2000) {
+  // 🚀 Default timeout reduced to 800ms for faster HTTP fallback
+  async init(timeoutMs = 800) {
     if (this.connecting) return this.connecting;
     
     this.connecting = (async () => {
+      // 🚀 Check for early WebSocket connection started in HTML <script>
+      const earlyWS = window.acEarlyWS;
+      if (earlyWS) {
+        // Use the early connection if it's already connected or wait for it
+        const earlyConnected = earlyWS.isConnected() || await earlyWS.connected;
+        if (earlyConnected && earlyWS.ws.readyState === 1) {
+          // Reuse the early WebSocket connection
+          this.ws = earlyWS.ws;
+          this.connected = true;
+          this.wsUrl = earlyWS.ws.url;
+          
+          // Set up message handler
+          this.ws.onmessage = (event) => {
+            this.handleMessage(JSON.parse(event.data));
+          };
+          this.ws.onclose = () => {
+            this.connected = false;
+            for (const [path, { reject }] of this.pending) {
+              reject(new Error("WebSocket closed"));
+            }
+            this.pending.clear();
+          };
+          
+          // Open IndexedDB in parallel
+          await this.openDatabase();
+          console.log("📦 ModuleLoader ready (early WebSocket ⚡)");
+          return true;
+        }
+      }
+      
+      // Fall back to normal connection flow
       // Get WebSocket URL (may involve fetch to session endpoint)
       this.wsUrl = await getSessionWsUrl();
       
-      await Promise.all([
+      // 🚀 Run DB and WS connection in parallel, but don't let WS failure block DB
+      const [dbResult] = await Promise.all([
         this.openDatabase(),
-        this.connectWebSocket(timeoutMs)
+        this.connectWebSocket(timeoutMs).catch(() => false) // WS failure is OK
       ]);
-      console.log("📦 ModuleLoader ready");
-      return true;
+      
+      if (this.connected) {
+        console.log("📦 ModuleLoader ready (WebSocket)");
+      } else {
+        console.log("📦 ModuleLoader ready (HTTP fallback)");
+      }
+      return this.connected;
     })().catch(err => {
       console.warn("📦 ModuleLoader init failed:", err.message);
       return false;

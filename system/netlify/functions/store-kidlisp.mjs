@@ -574,7 +574,34 @@ export async function handler(event, context) {
 
       console.log(`🔍 Looking up code: ${code}`);
 
-      const doc = await collection.findOne({ code });
+      // Use aggregation pipeline to fetch doc with handle lookup
+      const pipeline = [
+        { $match: { code } },
+        {
+          $lookup: {
+            from: "@handles",
+            localField: "user",
+            foreignField: "_id",
+            as: "handleInfo"
+          }
+        },
+        {
+          $addFields: {
+            handle: { 
+              $cond: {
+                if: { $gt: [{ $size: "$handleInfo" }, 0] },
+                then: { $concat: ["@", { $arrayElemAt: ["$handleInfo.handle", 0] }] },
+                else: null
+              }
+            }
+          }
+        },
+        { $limit: 1 }
+      ];
+      
+      const docs = await collection.aggregate(pipeline).toArray();
+      const doc = docs[0];
+      
       if (!doc) {
         await database.disconnect();
         return respond(404, { error: 'Not found' });
@@ -598,6 +625,7 @@ export async function handler(event, context) {
         when: doc.when,
         hits: doc.hits + 1,
         user: doc.user || null,
+        handle: doc.handle || null,
       };
       
       // Include cached IPFS media if present (from bundle generation)

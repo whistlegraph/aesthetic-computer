@@ -801,8 +801,6 @@ function sim({ needsPaint, rec, send }) {
   // STAMPLE-style lazy needle following during scrubbing AND inertia
   // This runs every frame for super smooth physics
   if ((isScrubbing || inertiaActive) && rec?.presenting) {
-    console.log(`🎯 Physics tick: scrubbing=${isScrubbing}, inertia=${inertiaActive}, target=${targetProgress.toFixed(3)}, needle=${needleProgress.toFixed(3)}, velocity=${needleVelocity.toFixed(4)}`);
-    
     // Calculate the "pull" force from target to needle (EXPONENTIAL rubber band effect)
     const lag = targetProgress - needleProgress;
     
@@ -843,29 +841,33 @@ function sim({ needsPaint, rec, send }) {
       needleVelocity *= -0.5; // Stronger bounce back
     }
     
-    console.log(`🎯 Physics: lag=${lag.toFixed(3)}, lagSquared=${lagSquared.toFixed(4)}, targetVel=${targetVelocity.toFixed(4)}, needleVel=${needleVelocity.toFixed(4)}, delta=${(needleProgress - oldNeedle).toFixed(5)}`);
-    
-    // Seek video to needle position
+    // Seek video to needle position - pass scrubbing state to avoid audio restart spam
     if (send) {
-      send({ type: "recorder:present:seek", content: Math.max(0, Math.min(1, needleProgress)) });
-    }
-    
-    // Calculate and send audio pitch shift based on needle velocity
-    const pitchShift = needleVelocity * velocityScale * 300; // Scale velocity to pitch
-    if (send && Math.abs(pitchShift) > 0.01) {
-      send({ type: "tape:audio-shift", content: pitchShift });
+      send({ 
+        type: "recorder:present:seek", 
+        content: { 
+          progress: Math.max(0, Math.min(1, needleProgress)),
+          scrubbing: isScrubbing || inertiaActive  // Tell bios we're in scrub mode
+        }
+      });
     }
     
     // Stop inertia when velocity becomes very small AND close to target
     if (!isScrubbing && inertiaActive) {
       if (Math.abs(needleVelocity) < 0.0003 && Math.abs(lag) < 0.01) {
-        console.log(`💨 Stopping inertia - velocity: ${needleVelocity.toFixed(5)}, lag: ${lag.toFixed(4)}`);
         inertiaActive = false;
         needleVelocity = 0;
         targetProgress = needleProgress; // Snap target to needle to avoid drift
         
+        // Signal scrub end to resume audio at final position
         if (send) {
-          send({ type: "tape:audio-shift", content: 0 }); // Reset pitch
+          send({ 
+            type: "recorder:present:seek", 
+            content: { 
+              progress: Math.max(0, Math.min(1, needleProgress)),
+              scrubEnd: true  // Tell bios to sync audio at final position
+            }
+          });
         }
         
         // Make sure playback continues at normal speed
