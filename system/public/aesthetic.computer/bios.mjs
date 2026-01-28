@@ -15696,6 +15696,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // 🔄 Live buffer update - updates sample data for currently playing sounds
     if (type === "sfx:update-sample") {
+      console.log(`🔴 BIOS: Received sfx:update-sample for ${content?.id}`);
       const { id, data, sampleRate } = content || {};
       if (!id || !data || !Array.isArray(data) || data.length === 0) return;
 
@@ -15720,17 +15721,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Send update to speaker worklet for running sounds
-      speaker.postMessage({
-        type: "sample:update",
-        data: {
-          label: id,
-          buffer: {
-            channels: [samples],
-            length: samples.length,
-            sampleRate: safeRate,
+      if (speakerProcessorNode) {
+        speakerProcessorNode.port.postMessage({
+          type: "sample:update",
+          data: {
+            label: id,
+            buffer: {
+              channels: [samples],
+              length: samples.length,
+              sampleRate: safeRate,
+            },
           },
-        },
-      });
+        });
+      }
       return;
     }
 

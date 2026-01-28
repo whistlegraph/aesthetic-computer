@@ -6135,6 +6135,12 @@ const $paintApiUnwrapped = {
           const originalInEmbedPhase = globalKidLispInstance.inEmbedPhase;
           const originalIsNestedInstance = globalKidLispInstance.isNestedInstance;
           const originalEmbeddedLayers = globalKidLispInstance.embeddedLayers;
+          const originalIsEmbeddedContext = globalKidLispInstance.isEmbeddedContext;
+          
+          // 🎯 CRITICAL: Set isEmbeddedContext=true so effects (zoom, blur, scroll, etc.)
+          // execute immediately instead of being deferred to postCompositeCommands
+          // This aligns embedded kidlisp() with the main KidLisp paint behavior
+          globalKidLispInstance.isEmbeddedContext = true;
           
           // Check if source contains timing expressions that need proper scheduling
           const hasTimingExpressions = /\d+\.?\d*s(\.\.\.|!)?/.test(resolvedSource);
@@ -6167,6 +6173,7 @@ const $paintApiUnwrapped = {
           globalKidLispInstance.inEmbedPhase = originalInEmbedPhase;
           globalKidLispInstance.isNestedInstance = originalIsNestedInstance;
           globalKidLispInstance.embeddedLayers = originalEmbeddedLayers;
+          globalKidLispInstance.isEmbeddedContext = originalIsEmbeddedContext;
           
           globalKidLispInstance.setAPI($activePaintApi);
         });
@@ -6251,6 +6258,12 @@ const $paintApiUnwrapped = {
           const originalInEmbedPhase = globalKidLispInstance.inEmbedPhase;
           const originalIsNestedInstance = globalKidLispInstance.isNestedInstance;
           const originalEmbeddedLayers = globalKidLispInstance.embeddedLayers;
+          const originalIsEmbeddedContext = globalKidLispInstance.isEmbeddedContext;
+          
+          // 🎯 CRITICAL: Set isEmbeddedContext=true so effects (zoom, blur, scroll, etc.)
+          // execute immediately instead of being deferred to postCompositeCommands
+          // This aligns embedded kidlisp() with the main KidLisp paint behavior
+          globalKidLispInstance.isEmbeddedContext = true;
           
           // Check if source contains timing expressions that need proper scheduling
           const hasTimingExpressions = /\d+\.?\d*s(\.\.\.|!)?/.test(resolvedSource);
@@ -6284,6 +6297,7 @@ const $paintApiUnwrapped = {
           globalKidLispInstance.inEmbedPhase = originalInEmbedPhase;
           globalKidLispInstance.isNestedInstance = originalIsNestedInstance;
           globalKidLispInstance.embeddedLayers = originalEmbeddedLayers;
+          globalKidLispInstance.isEmbeddedContext = originalIsEmbeddedContext;
           
           globalKidLispInstance.setAPI($activePaintApi);
         });

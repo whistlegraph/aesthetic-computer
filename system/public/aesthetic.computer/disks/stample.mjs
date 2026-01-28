@@ -550,8 +550,12 @@ function sim({ sound, api, screen, kidlisp, painting }) {
           sampleId = bitmapSampleId;
           
           // 🔴 LIVE AUDIO UPDATE: Use updateSample for truly seamless buffer swapping
-          if (bitmapLoopSound && bitmapLooping && sound?.updateSample) {
+          // Check if any sounds are currently playing that use this sample
+          const hasPlayingSounds = bitmapLoopSound || sounds.some(s => s);
+          
+          if (hasPlayingSounds && sound?.updateSample) {
             // Update the buffer in place - no crossfade needed, maintains position
+            console.log(`🔴 LIVE BUFFER UPDATE: Sending updateSample for ${bitmapSampleId}`);
             sound.updateSample(bitmapSampleId, decoded, bitmapMeta.sampleRate);
           } else {
             // Re-register sample for NEW sounds to use the latest buffer
@@ -949,6 +953,60 @@ const btnSounds = {};
 
 function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, system, needsPaint }) {
   const sliceLength = 1 / btns.length; // Divide the total duration (1.0) by the number of buttons.
+
+  // 🎭 KidLisp mode: clicking on bitmap toggles looping for live buffer updates
+  if (kidlispActive) {
+    btns.forEach((btn) => {
+      btn.act(e, {
+        down: () => {
+          if (!kidlispBuffer?.pixels?.length) return;
+          
+          // Toggle looping
+          if (bitmapLooping) {
+            // Stop looping
+            bitmapLoopSound?.kill?.(0.1);
+            bitmapLoopSound = null;
+            bitmapLooping = false;
+            bitmapProgress = 0;
+          } else {
+            // Start looping
+            const decoded = decodeBitmapToSample(kidlispBuffer, bitmapMeta);
+            if (!decoded?.length) return;
+            sound.registerSample?.(bitmapSampleId, decoded, bitmapMeta?.sampleRate || sound.sampleRate);
+            bitmapPlaySound?.kill?.(0.05);
+            bitmapPlaySound = null;
+            bitmapProgress = 0;
+            bitmapLoopSound = sound.play(bitmapSampleId, { loop: true });
+            bitmapLooping = true;
+            console.log(`🎭 KidLisp: Started loop for live buffer updates`);
+          }
+        },
+      });
+    });
+    // Also handle bitmap area click (outside buttons)
+    bitmapButton?.act(e, {
+      down: () => {
+        if (!kidlispBuffer?.pixels?.length) return;
+        if (bitmapLooping) {
+          bitmapLoopSound?.kill?.(0.1);
+          bitmapLoopSound = null;
+          bitmapLooping = false;
+          bitmapProgress = 0;
+        } else {
+          const decoded = decodeBitmapToSample(kidlispBuffer, bitmapMeta);
+          if (!decoded?.length) return;
+          sound.registerSample?.(bitmapSampleId, decoded, bitmapMeta?.sampleRate || sound.sampleRate);
+          bitmapPlaySound?.kill?.(0.05);
+          bitmapPlaySound = null;
+          bitmapProgress = 0;
+          bitmapLoopSound = sound.play(bitmapSampleId, { loop: true });
+          bitmapLooping = true;
+          console.log(`🎭 KidLisp: Started loop for live buffer updates`);
+        }
+      },
+    });
+    return; // Skip normal button handling in KidLisp mode
+  }
 
   btns.forEach((btn, index) => {
     let from = (btns.length - 1 - index) * sliceLength;
