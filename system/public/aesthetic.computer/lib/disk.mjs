@@ -64,7 +64,7 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, fetchCachedCode, fetchKidlispMetadata, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
 
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
@@ -4232,6 +4232,44 @@ const $commonApi = {
 $commonApi.net.log.info = (...args) => $commonApi.net.log("info", ...args);
 $commonApi.net.log.warn = (...args) => $commonApi.net.log("warn", ...args);
 $commonApi.net.log.error = (...args) => $commonApi.net.log("error", ...args);
+
+// 🎬 Recording UI overlays - UI elements drawn on screen but NOT captured in tape recordings
+// These are stored per-frame and cleared after sending to the main thread
+let pendingRecordingUIOverlays = {};
+
+// Add recording UI API to $commonApi
+$commonApi.recordingUI = {
+  // Add an overlay that will be visible on screen but not recorded in tapes
+  // name: unique identifier for the overlay
+  // painting: a painting buffer created with $api.painting()
+  // x, y: position to draw the overlay
+  // opacity: optional opacity (0-1)
+  add: function(name, painting, x, y, opacity = 1) {
+    if (!painting || !painting.pixels) return;
+    pendingRecordingUIOverlays[name] = {
+      x: x,
+      y: y,
+      opacity: opacity,
+      img: {
+        width: painting.width,
+        height: painting.height,
+        pixels: painting.pixels,
+      },
+    };
+  },
+  // Clear all recording UI overlays
+  clear: function() {
+    pendingRecordingUIOverlays = {};
+  },
+  // Get pending overlays (used internally when sending frame data)
+  _getPending: function() {
+    return pendingRecordingUIOverlays;
+  },
+  // Clear pending overlays (used internally after sending)
+  _clearPending: function() {
+    pendingRecordingUIOverlays = {};
+  },
+};
 
 chatClient.$commonApi = $commonApi; // Add a reference to the `Chat` module.
 
@@ -14465,6 +14503,28 @@ async function makeFrame({ data: { type, content } }) {
         // 🔗 Create a copy for transfer to avoid detaching the LAN badge buffer
         const lanBadgePixelsCopy = new Uint8ClampedArray(sendData.lanBadge.img.pixels);
         transferredObjects.push(lanBadgePixelsCopy.buffer);
+      }
+
+      // 🎬 Add recording UI overlays (visible on screen but NOT captured in tape)
+      const recordingUIData = $commonApi.recordingUI._getPending();
+      if (Object.keys(recordingUIData).length > 0) {
+        sendData.recordingUI = {};
+        for (const [name, overlayData] of Object.entries(recordingUIData)) {
+          // Create a copy of the pixels for transfer
+          const pixelsCopy = new Uint8ClampedArray(overlayData.img.pixels);
+          sendData.recordingUI[name] = {
+            x: overlayData.x,
+            y: overlayData.y,
+            opacity: overlayData.opacity,
+            img: {
+              width: overlayData.img.width,
+              height: overlayData.img.height,
+              pixels: pixelsCopy,
+            },
+          };
+          transferredObjects.push(pixelsCopy.buffer);
+        }
+        $commonApi.recordingUI._clearPending();
       }
 
       // console.log("TO:", transferredObjects);
