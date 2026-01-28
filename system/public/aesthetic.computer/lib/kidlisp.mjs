@@ -1,6 +1,6 @@
 // Kidlisp, 24.4.17.12.03
 // A lisp interpreter / compiler for writing Aesthetic Computer pieces.
-// FORCE RELOAD: 2025-08-23-CACHE-BUSTER-UPDATE
+// FORCE RELOAD: 2026-01-28-FETCH-KIDLISP-METADATA
 
 // ❤️‍🔥 TODO: Add UTC Support to s... timers. etc. to be compatible with 'clock.mjs'.
 //        - Selectabe values via game controller.
