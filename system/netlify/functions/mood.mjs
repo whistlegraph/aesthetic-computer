@@ -282,10 +282,10 @@ export async function handler(event, context) {
           }
 
           // Mirror to Bluesky for configured handles (e.g., @jeffrey)
-          if (atprotoRkey && shouldMirror(handle)) {
+          if (atprotoRkey && await shouldMirror(database, handle)) {
             console.log(`🦋 Mirroring mood to Bluesky for ${handle}...`);
             try {
-              const blueskyResult = await postMoodToBluesky(mood, handle, atprotoRkey);
+              const blueskyResult = await postMoodToBluesky(database, mood, handle, atprotoRkey);
               if (blueskyResult) {
                 // Store Bluesky post reference for engagement tracking
                 await collection.updateOne(
