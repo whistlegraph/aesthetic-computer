@@ -11041,7 +11041,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Paste should always happen on a pointerdown.
           if (content.label === "paste") {
             try {
-              const pastedText = await navigator.clipboard.readText();
+              let pastedText = await navigator.clipboard.readText();
               // This routes through to the `pasted:text` event in `disk`.
               // where `pastedText` is sent on the next frame.
               if (pastedText.length === 0) {
@@ -11058,8 +11058,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     selLen > 0 ? end : start,
                   );
 
+                  // Enforce 256 character limit for prompt input
+                  const PROMPT_CHAR_LIMIT = 256;
+                  const currentLen = beforeCursor.length + afterCursor.length;
+                  const availableSpace = Math.max(0, PROMPT_CHAR_LIMIT - currentLen);
+                  if (pastedText.length > availableSpace) {
+                    pastedText = pastedText.slice(0, availableSpace);
+                  }
+
                   keyboard.input.value =
                     beforeCursor + pastedText + afterCursor;
+                  
+                  // Also enforce limit on final result
+                  if (keyboard.input.value.length > PROMPT_CHAR_LIMIT) {
+                    keyboard.input.value = keyboard.input.value.slice(0, PROMPT_CHAR_LIMIT);
+                  }
 
                   const newCursorPosition = start + pastedText.length;
                   keyboard.input.setSelectionRange(
@@ -11735,13 +11748,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             .replace(/[\u2018\u2019]/g, "'")
             .replace(/[\u201C\u201D]/g, '"');
 
+          // Enforce 256 character limit for prompt input
+          const PROMPT_CHAR_LIMIT = 256;
+          if (text.length > PROMPT_CHAR_LIMIT) {
+            text = text.slice(0, PROMPT_CHAR_LIMIT);
+          }
+
           e.target.value = text;
 
           send({
             type: "prompt:text:replace",
             content: {
               text: text,
-              cursor: input.selectionStart,
+              cursor: Math.min(input.selectionStart, PROMPT_CHAR_LIMIT),
             },
           });
 

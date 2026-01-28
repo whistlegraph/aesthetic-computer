@@ -1846,7 +1846,10 @@ const imageCache = {
     if (this.store && imageBitmap) {
       try {
         // Convert ImageBitmap to ImageData for storage
-        const canvas = document.createElement('canvas');
+        // Use OffscreenCanvas in Worker context, regular canvas in main thread
+        const canvas = typeof OffscreenCanvas !== 'undefined' 
+          ? new OffscreenCanvas(imageBitmap.width, imageBitmap.height)
+          : document.createElement('canvas');
         canvas.width = imageBitmap.width;
         canvas.height = imageBitmap.height;
         const ctx = canvas.getContext('2d');

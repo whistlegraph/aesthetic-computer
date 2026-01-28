@@ -790,7 +790,7 @@ async function boot({
     }
     system.prompt.input.showButton(api, {
       nocopy: true,
-      nopaste: pieceCount === 0,
+      nopaste: false, // Always show paste button
     });
   }
   // Handle params - content is already decoded by parse.mjs
@@ -3815,6 +3815,44 @@ function paint($) {
       if (tooltipState.visible && tooltipState.command && (activeCompletions.length === 0 || hasSpace || isExactMatch)) {
         paintTooltip($, currentInputText);
       }
+    }
+
+    // 📊 Character limit meter (show when typing, similar to chat.mjs)
+    const PROMPT_CHAR_LIMIT = 256;
+    const charLen = currentInputText.length;
+    const charCountText = `${charLen}/${PROMPT_CHAR_LIMIT}`;
+    const isOverLimit = charLen > PROMPT_CHAR_LIMIT;
+    const isNearLimit = charLen > PROMPT_CHAR_LIMIT * 0.8; // 80% = 204 chars
+    
+    // Position in bottom-right, above any buttons
+    const charCountX = screen.width - (charCountText.length * 4) - 8;
+    const charCountY = screen.height - 30;
+    
+    // Color based on usage: gray -> yellow -> red
+    let meterColor;
+    if (isOverLimit) {
+      meterColor = [255, 60, 60]; // Red when over
+    } else if (isNearLimit) {
+      meterColor = [255, 200, 60]; // Yellow when near limit
+    } else {
+      meterColor = $.dark ? [100, 100, 120] : [120, 120, 140]; // Gray normally
+    }
+    
+    // Draw character count
+    ink(...meterColor).write(charCountText, { x: charCountX, y: charCountY }, undefined, undefined, false, "MatrixChunky8");
+    
+    // Draw small progress bar below the count
+    const barWidth = 40;
+    const barX = charCountX;
+    const barY = charCountY + 10;
+    const fillRatio = Math.min(1, charLen / PROMPT_CHAR_LIMIT);
+    const fillWidth = Math.floor(barWidth * fillRatio);
+    
+    // Background bar
+    ink($.dark ? [40, 40, 50] : [200, 200, 210]).box(barX, barY, barWidth, 3);
+    // Fill bar
+    if (fillWidth > 0) {
+      ink(...meterColor).box(barX, barY, fillWidth, 3);
     }
   }
 
