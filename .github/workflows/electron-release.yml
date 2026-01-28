@@ -184,8 +184,12 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
             echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
-          else
+          elif [ "${{ github.event_name }}" = "push" ] && [[ "$GITHUB_REF" == refs/tags/electron-v* ]]; then
             echo "version=${GITHUB_REF#refs/tags/electron-v}" >> $GITHUB_OUTPUT
+          else
+            # Read version from package.json for workflow_dispatch without input
+            VERSION=$(cat ac-electron/package.json | grep '"version"' | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
           fi
 
       - name: Create Release
