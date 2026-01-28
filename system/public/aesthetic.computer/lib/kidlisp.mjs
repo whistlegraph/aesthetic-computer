@@ -312,6 +312,936 @@ const KIDLISP_COLORS = new Set([
 // All known KidLisp words (for recognition testing)
 const KIDLISP_VOCABULARY = new Set([...KIDLISP_FUNCTIONS, ...KIDLISP_COLORS]);
 
+// ==================== KIDLISP DOCUMENTATION ====================
+// Exportable documentation for all KidLisp functions, intended for:
+// - Monaco editor hover/context menu in kidlisp.com
+// - LLM assistance and code generation
+// - Developer reference
+//
+// Structure: { name: { signature, description, category, examples?, params?, returns? } }
+
+const KIDLISP_DOCS = {
+  // === SCREEN MANAGEMENT ===
+  wipe: {
+    signature: "(wipe color)",
+    description: "Clear the entire screen with the specified color.",
+    category: "screen",
+    params: [
+      { name: "color", type: "color", description: "Color name, RGB array, or hex value" }
+    ],
+    examples: [
+      '(wipe "black")',
+      '(wipe "navy")',
+      "(wipe 30 30 40)"
+    ]
+  },
+  resolution: {
+    signature: "(resolution width height)",
+    description: "Set the canvas resolution. Changes the drawing area dimensions.",
+    category: "screen",
+    params: [
+      { name: "width", type: "number", description: "Canvas width in pixels" },
+      { name: "height", type: "number", description: "Canvas height in pixels" }
+    ],
+    examples: ["(resolution 512 512)", "(resolution 128 128)"]
+  },
+
+  // === DRAWING PRIMITIVES ===
+  ink: {
+    signature: "(ink color [alpha])",
+    description: "Set the drawing color for subsequent operations. All shapes and lines will use this color until changed.",
+    category: "drawing",
+    params: [
+      { name: "color", type: "color", description: "Color name (e.g., 'red'), RGB values, or special value" },
+      { name: "alpha", type: "number", optional: true, description: "Transparency (0-255, where 255 is opaque)" }
+    ],
+    examples: [
+      '(ink "red")',
+      "(ink 255 0 128)",
+      '(ink "blue" 128)',
+      "(ink rainbow)"
+    ]
+  },
+  line: {
+    signature: "(line x1 y1 x2 y2)",
+    description: "Draw a line from point (x1, y1) to point (x2, y2) using the current ink color.",
+    category: "drawing",
+    params: [
+      { name: "x1", type: "number", description: "Starting X coordinate" },
+      { name: "y1", type: "number", description: "Starting Y coordinate" },
+      { name: "x2", type: "number", description: "Ending X coordinate" },
+      { name: "y2", type: "number", description: "Ending Y coordinate" }
+    ],
+    examples: ["(line 0 0 100 100)", "(line 50 0 50 height)"]
+  },
+  box: {
+    signature: "(box x y width height [mode])",
+    description: "Draw a rectangle. Respects the global fill/outline mode, or can override with explicit mode parameter.",
+    category: "drawing",
+    params: [
+      { name: "x", type: "number", description: "X coordinate of top-left corner" },
+      { name: "y", type: "number", description: "Y coordinate of top-left corner" },
+      { name: "width", type: "number", description: "Width of the box" },
+      { name: "height", type: "number", description: "Height of the box" },
+      { name: "mode", type: "string", optional: true, description: '"fill", "outline", or "outline:N" for thickness' }
+    ],
+    examples: [
+      "(box 10 10 50 50)",
+      '(box 100 100 40 40 "outline")',
+      '(box 0 0 width height "fill")'
+    ]
+  },
+  circle: {
+    signature: "(circle x y radius [mode])",
+    description: "Draw a circle centered at (x, y). Respects the global fill/outline mode.",
+    category: "drawing",
+    params: [
+      { name: "x", type: "number", description: "Center X coordinate" },
+      { name: "y", type: "number", description: "Center Y coordinate" },
+      { name: "radius", type: "number", description: "Radius of the circle" },
+      { name: "mode", type: "string", optional: true, description: '"fill", "outline", or "outline:N" for thickness' }
+    ],
+    examples: [
+      "(circle 100 100 50)",
+      '(circle 50 50 25 "outline")',
+      '(circle (/ width 2) (/ height 2) 30 "fill")'
+    ]
+  },
+  tri: {
+    signature: "(tri x1 y1 x2 y2 x3 y3 [mode])",
+    description: "Draw a triangle with three vertices. Respects the global fill/outline mode.",
+    category: "drawing",
+    params: [
+      { name: "x1", type: "number", description: "First vertex X" },
+      { name: "y1", type: "number", description: "First vertex Y" },
+      { name: "x2", type: "number", description: "Second vertex X" },
+      { name: "y2", type: "number", description: "Second vertex Y" },
+      { name: "x3", type: "number", description: "Third vertex X" },
+      { name: "y3", type: "number", description: "Third vertex Y" },
+      { name: "mode", type: "string", optional: true, description: '"fill" or "outline"' }
+    ],
+    examples: ["(tri 50 0 100 100 0 100)", "(tri 0 0 width 0 (/ width 2) height)"]
+  },
+  plot: {
+    signature: "(plot x y)",
+    description: "Set a single pixel at the specified coordinates using the current ink color.",
+    category: "drawing",
+    params: [
+      { name: "x", type: "number", description: "X coordinate" },
+      { name: "y", type: "number", description: "Y coordinate" }
+    ],
+    examples: ["(plot 50 50)", "(plot (wiggle width) (wiggle height))"]
+  },
+  point: {
+    signature: "(point x y)",
+    description: "Alias for plot. Set a single pixel at (x, y).",
+    category: "drawing",
+    params: [
+      { name: "x", type: "number", description: "X coordinate" },
+      { name: "y", type: "number", description: "Y coordinate" }
+    ],
+    examples: ["(point 100 100)"]
+  },
+  shape: {
+    signature: "(shape points... [mode])",
+    description: "Draw a polygon from a list of coordinate pairs.",
+    category: "drawing",
+    params: [
+      { name: "points", type: "numbers", description: "Alternating x, y coordinates" },
+      { name: "mode", type: "string", optional: true, description: '"fill" or "outline"' }
+    ],
+    examples: ['(shape 0 0 50 0 50 50 0 50 "fill")']
+  },
+  flood: {
+    signature: "(flood x y [color])",
+    description: "Flood fill starting at (x, y). Uses current ink if no color specified.",
+    category: "drawing",
+    params: [
+      { name: "x", type: "number", description: "Starting X coordinate" },
+      { name: "y", type: "number", description: "Starting Y coordinate" },
+      { name: "color", type: "color", optional: true, description: "Fill color (uses current ink if omitted)" }
+    ],
+    examples: ["(flood 100 100)", '(flood 50 50 "red")']
+  },
+
+  // === FILL/OUTLINE MODE ===
+  fill: {
+    signature: "(fill)",
+    description: "Set global fill mode. All subsequent shapes (circle, box, tri) will be filled. This is the default mode.",
+    category: "mode",
+    examples: ["(fill)", "(fill) (circle 50 50 30)"]
+  },
+  outline: {
+    signature: "(outline)",
+    description: "Set global outline mode. All subsequent shapes will only draw their outline/stroke.",
+    category: "mode",
+    examples: ["(outline)", "(outline) (box 0 0 100 100)"]
+  },
+  stroke: {
+    signature: "(stroke)",
+    description: "Alias for outline. Set global outline mode (Processing compatibility).",
+    category: "mode",
+    examples: ["(stroke)"]
+  },
+  nofill: {
+    signature: "(nofill)",
+    description: "Alias for outline. Set shapes to be outlined only (Processing-style).",
+    category: "mode",
+    examples: ["(nofill)"]
+  },
+  nostroke: {
+    signature: "(nostroke)",
+    description: "Alias for fill. Set shapes to be filled (Processing-style).",
+    category: "mode",
+    examples: ["(nostroke)"]
+  },
+
+  // === IMAGE FUNCTIONS ===
+  paste: {
+    signature: "(paste url x y [scale])",
+    description: "Paste an image from a URL at the specified coordinates. URLs can be unquoted.",
+    category: "image",
+    params: [
+      { name: "url", type: "string|url", description: "Image URL (can be unquoted)" },
+      { name: "x", type: "number", description: "X coordinate" },
+      { name: "y", type: "number", description: "Y coordinate" },
+      { name: "scale", type: "number", optional: true, description: "Scale factor (1.0 = original size)" }
+    ],
+    examples: [
+      "(paste https://example.com/image.png 0 0)",
+      '(paste "https://example.com/logo.png" 50 50 0.5)',
+      "(paste @user/123456 0 0)"
+    ]
+  },
+  stamp: {
+    signature: "(stamp url x y [scale])",
+    description: "Paste an image centered at the specified coordinates.",
+    category: "image",
+    params: [
+      { name: "url", type: "string|url", description: "Image URL" },
+      { name: "x", type: "number", description: "Center X coordinate" },
+      { name: "y", type: "number", description: "Center Y coordinate" },
+      { name: "scale", type: "number", optional: true, description: "Scale factor" }
+    ],
+    examples: ["(stamp https://example.com/sprite.png (/ width 2) (/ height 2))"]
+  },
+
+  // === TEXT ===
+  write: {
+    signature: "(write text position [options])",
+    description: "Write text at a position. Position can be {x, y} or {center: 'xy'}.",
+    category: "text",
+    params: [
+      { name: "text", type: "string", description: "Text to display" },
+      { name: "position", type: "object|coords", description: "Position object or x, y coordinates" }
+    ],
+    examples: [
+      '(write "Hello!" { x: 10 y: 10 })',
+      '(write "Centered" { center: "xy" })'
+    ]
+  },
+
+  // === ANIMATION & EFFECTS ===
+  wiggle: {
+    signature: "(wiggle amount)",
+    description: "Returns a random value in the range ±amount/2. Changes each frame for animation.",
+    category: "animation",
+    params: [
+      { name: "amount", type: "number", description: "Range of random variation" }
+    ],
+    returns: "number",
+    examples: [
+      "(wiggle 10)",
+      "(circle (+ 100 (wiggle 20)) 100 10)",
+      "(ink (wiggle 255) 0 0)"
+    ]
+  },
+  scroll: {
+    signature: "(scroll [dx] [dy])",
+    description: "Scroll the canvas by dx horizontally and dy vertically. With no args, picks a random direction once.",
+    category: "animation",
+    params: [
+      { name: "dx", type: "number", optional: true, description: "Horizontal scroll amount" },
+      { name: "dy", type: "number", optional: true, description: "Vertical scroll amount" }
+    ],
+    examples: ["(scroll)", "(scroll 1 0)", "(scroll 0 -1)"]
+  },
+  spin: {
+    signature: "(spin [speed])",
+    description: "Rotate the canvas. Creates spinning/rotating effects.",
+    category: "animation",
+    params: [
+      { name: "speed", type: "number", optional: true, description: "Rotation speed" }
+    ],
+    examples: ["(spin)", "(spin 0.5)"]
+  },
+  resetSpin: {
+    signature: "(resetSpin)",
+    description: "Reset the spin rotation back to zero.",
+    category: "animation",
+    examples: ["(resetSpin)"]
+  },
+  smoothspin: {
+    signature: "(smoothspin [speed])",
+    description: "Smooth rotation of the canvas with interpolation.",
+    category: "animation",
+    examples: ["(smoothspin 0.01)"]
+  },
+  zoom: {
+    signature: "(zoom factor)",
+    description: "Zoom the canvas by a factor.",
+    category: "animation",
+    params: [
+      { name: "factor", type: "number", description: "Zoom factor (>1 zooms in, <1 zooms out)" }
+    ],
+    examples: ["(zoom 1.01)", "(zoom 0.99)"]
+  },
+  fade: {
+    signature: "(fade amount)",
+    description: "Fade the screen by reducing alpha. Creates trail effects.",
+    category: "animation",
+    params: [
+      { name: "amount", type: "number", description: "Fade amount (0-255)" }
+    ],
+    examples: ["(fade 10)", "(fade 50)"]
+  },
+  bake: {
+    signature: "(bake)",
+    description: "Render current drawing to a persistent background layer. Drawing accumulates on top.",
+    category: "animation",
+    examples: ["(bake)", "(once (bake))"]
+  },
+
+  // === VARIABLES & CONTROL ===
+  def: {
+    signature: "(def name value)",
+    description: "Define a variable with a name and value. The variable persists across frames.",
+    category: "variable",
+    params: [
+      { name: "name", type: "symbol", description: "Variable name (no dashes, use underscores)" },
+      { name: "value", type: "any", description: "Value to assign" }
+    ],
+    examples: [
+      "(def x 100)",
+      '(def color "red")',
+      "(def speed 2.5)"
+    ]
+  },
+  set: {
+    signature: "(set name value)",
+    description: "Update an existing variable's value.",
+    category: "variable",
+    params: [
+      { name: "name", type: "symbol", description: "Variable name" },
+      { name: "value", type: "any", description: "New value" }
+    ],
+    examples: ["(set x (+ x 1))"]
+  },
+  later: {
+    signature: "(later name params... body)",
+    description: "Define a reusable function with parameters. Call it later by name.",
+    category: "control",
+    params: [
+      { name: "name", type: "symbol", description: "Function name" },
+      { name: "params", type: "symbols", description: "Parameter names" },
+      { name: "body", type: "expressions", description: "Function body (one or more expressions)" }
+    ],
+    examples: [
+      "(later star x y (circle x y 10))",
+      "(later cross x y (line (- x 5) y (+ x 5) y) (line x (- y 5) x (+ y 5)))"
+    ]
+  },
+  repeat: {
+    signature: "(repeat count [iterator] body...)",
+    description: "Execute body multiple times. Optional iterator variable gets the current index (0-based).",
+    category: "control",
+    params: [
+      { name: "count", type: "number", description: "Number of repetitions" },
+      { name: "iterator", type: "symbol", optional: true, description: "Variable name for current index" },
+      { name: "body", type: "expressions", description: "Expressions to repeat" }
+    ],
+    examples: [
+      "(repeat 10 (plot (wiggle width) (wiggle height)))",
+      "(repeat height i (line 0 i width i))",
+      "(repeat 100 n (ink rainbow) (circle n n 5))"
+    ]
+  },
+  bunch: {
+    signature: "(bunch count [iterator] body...)",
+    description: "Alias for repeat. Shorter, more playful name.",
+    category: "control",
+    examples: ["(bunch 50 (plot (wiggle width) (wiggle height)))"]
+  },
+  loop: {
+    signature: "(loop count body...)",
+    description: "Alias for repeat.",
+    category: "control",
+    examples: ["(loop 10 (circle (wiggle width) (wiggle height) 5))"]
+  },
+  once: {
+    signature: "(once expression)",
+    description: "Execute expression only once (first frame), not every frame. Useful for initialization.",
+    category: "control",
+    examples: [
+      '(once (wipe "black"))',
+      "(once (def x 0))",
+      "(once (bake))"
+    ]
+  },
+  now: {
+    signature: "(now expression)",
+    description: "Execute expression immediately (opposite of scheduled). Executes every frame.",
+    category: "control",
+    examples: ["(now (wipe))"]
+  },
+  jump: {
+    signature: "(jump destination)",
+    description: "Navigate to another piece or URL. Resets KidLisp state.",
+    category: "control",
+    params: [
+      { name: "destination", type: "string|code", description: 'Piece name, URL, or $code reference' }
+    ],
+    examples: [
+      '(jump "prompt")',
+      '(jump "https://example.com")',
+      "(jump $abc123)"
+    ]
+  },
+
+  // === LOGIC ===
+  if: {
+    signature: "(if condition then-expr [else-expr])",
+    description: "Conditional expression. Returns then-expr if condition is truthy, else-expr otherwise.",
+    category: "logic",
+    params: [
+      { name: "condition", type: "any", description: "Condition to test" },
+      { name: "then-expr", type: "expression", description: "Expression if true" },
+      { name: "else-expr", type: "expression", optional: true, description: "Expression if false" }
+    ],
+    examples: [
+      "(if (> x 100) (set x 0))",
+      '(if (< x 50) (ink "red") (ink "blue"))'
+    ]
+  },
+  choose: {
+    signature: "(choose option1 option2 ...)",
+    description: "Randomly choose one of the provided options each frame.",
+    category: "logic",
+    params: [
+      { name: "options", type: "any...", description: "Values to choose from" }
+    ],
+    returns: "any",
+    examples: [
+      '(ink (choose "red" "blue" "green"))',
+      "(circle 100 100 (choose 10 20 30))"
+    ]
+  },
+  and: {
+    signature: "(and a b ...)",
+    description: "Logical AND. Returns true if all arguments are truthy.",
+    category: "logic",
+    examples: ["(and (> x 0) (< x 100))"]
+  },
+  or: {
+    signature: "(or a b ...)",
+    description: "Logical OR. Returns true if any argument is truthy.",
+    category: "logic",
+    examples: ['(or (= color "red") (= color "blue"))']
+  },
+  not: {
+    signature: "(not value)",
+    description: "Logical NOT. Returns true if value is falsy.",
+    category: "logic",
+    examples: ["(not (= x 0))"]
+  },
+
+  // === MATH ===
+  "+": {
+    signature: "(+ a b ...)",
+    description: "Add multiple numbers together.",
+    category: "math",
+    examples: ["(+ 1 2)", "(+ x 10)", "(+ 1 2 3 4 5)"]
+  },
+  "-": {
+    signature: "(- a b)",
+    description: "Subtract b from a.",
+    category: "math",
+    examples: ["(- 10 5)", "(- x 1)"]
+  },
+  "*": {
+    signature: "(* a b ...)",
+    description: "Multiply multiple numbers together.",
+    category: "math",
+    examples: ["(* 2 3)", "(* x 1.5)"]
+  },
+  "/": {
+    signature: "(/ a b)",
+    description: "Divide a by b.",
+    category: "math",
+    examples: ["(/ 10 2)", "(/ width 2)"]
+  },
+  "%": {
+    signature: "(% a b)",
+    description: "Modulo (remainder) of a divided by b.",
+    category: "math",
+    examples: ["(% frame 60)", "(% x width)"]
+  },
+  mod: {
+    signature: "(mod a b)",
+    description: "Alias for %. Modulo operation.",
+    category: "math",
+    examples: ["(mod frame 100)"]
+  },
+  sin: {
+    signature: "(sin angle)",
+    description: "Sine of angle (in radians).",
+    category: "math",
+    returns: "number",
+    examples: ["(sin time)", "(* 50 (sin (* time 2)))"]
+  },
+  cos: {
+    signature: "(cos angle)",
+    description: "Cosine of angle (in radians).",
+    category: "math",
+    returns: "number",
+    examples: ["(cos time)", "(+ 100 (* 50 (cos time)))"]
+  },
+  tan: {
+    signature: "(tan angle)",
+    description: "Tangent of angle (in radians).",
+    category: "math",
+    returns: "number",
+    examples: ["(tan time)"]
+  },
+  abs: {
+    signature: "(abs value)",
+    description: "Absolute value.",
+    category: "math",
+    returns: "number",
+    examples: ["(abs -10)", "(abs (- x 100))"]
+  },
+  floor: {
+    signature: "(floor value)",
+    description: "Round down to nearest integer.",
+    category: "math",
+    returns: "number",
+    examples: ["(floor 3.7)", "(floor (/ width 3))"]
+  },
+  ceil: {
+    signature: "(ceil value)",
+    description: "Round up to nearest integer.",
+    category: "math",
+    returns: "number",
+    examples: ["(ceil 3.2)"]
+  },
+  round: {
+    signature: "(round value)",
+    description: "Round to nearest integer.",
+    category: "math",
+    returns: "number",
+    examples: ["(round 3.5)"]
+  },
+  sqrt: {
+    signature: "(sqrt value)",
+    description: "Square root.",
+    category: "math",
+    returns: "number",
+    examples: ["(sqrt 16)", "(sqrt (+ (* dx dx) (* dy dy)))"]
+  },
+  pow: {
+    signature: "(pow base exponent)",
+    description: "Raise base to the power of exponent.",
+    category: "math",
+    returns: "number",
+    examples: ["(pow 2 8)", "(pow x 2)"]
+  },
+  min: {
+    signature: "(min a b ...)",
+    description: "Return the smallest value.",
+    category: "math",
+    returns: "number",
+    examples: ["(min 10 20)", "(min x width)"]
+  },
+  max: {
+    signature: "(max a b ...)",
+    description: "Return the largest value.",
+    category: "math",
+    returns: "number",
+    examples: ["(max 0 x)", "(max width height)"]
+  },
+  lerp: {
+    signature: "(lerp a b t)",
+    description: "Linear interpolation between a and b. t=0 returns a, t=1 returns b.",
+    category: "math",
+    params: [
+      { name: "a", type: "number", description: "Start value" },
+      { name: "b", type: "number", description: "End value" },
+      { name: "t", type: "number", description: "Interpolation factor (0-1)" }
+    ],
+    returns: "number",
+    examples: ["(lerp 0 100 0.5)", "(lerp startX endX progress)"]
+  },
+  random: {
+    signature: "(random [max] [min max])",
+    description: "Generate a random number. With no args: 0-1. With one arg: 0-max. With two args: min-max.",
+    category: "math",
+    returns: "number",
+    examples: ["(random)", "(random 100)", "(random 50 100)"]
+  },
+  noise: {
+    signature: "(noise x [y] [z])",
+    description: "Perlin noise function. Returns smooth random values based on coordinates.",
+    category: "math",
+    returns: "number",
+    examples: ["(noise time)", "(noise x y)"]
+  },
+  dist: {
+    signature: "(dist x1 y1 x2 y2)",
+    description: "Calculate distance between two points.",
+    category: "math",
+    returns: "number",
+    examples: ["(dist 0 0 100 100)", "(dist x y mouseX mouseY)"]
+  },
+  map: {
+    signature: "(map value inMin inMax outMin outMax)",
+    description: "Re-map a value from one range to another.",
+    category: "math",
+    returns: "number",
+    examples: ["(map x 0 width 0 255)"]
+  },
+  constrain: {
+    signature: "(constrain value min max)",
+    description: "Constrain a value to be within a range.",
+    category: "math",
+    returns: "number",
+    examples: ["(constrain x 0 width)"]
+  },
+
+  // === SPECIAL VALUES ===
+  rainbow: {
+    signature: "rainbow",
+    description: "Special color value that cycles through rainbow colors. Changes each time it's used.",
+    category: "color",
+    examples: ["(ink rainbow)", "(repeat 100 i (ink rainbow) (line 0 i width i))"]
+  },
+  zebra: {
+    signature: "zebra",
+    description: "Special color value that alternates between black and white.",
+    category: "color",
+    examples: ["(ink zebra)"]
+  },
+  width: {
+    signature: "width",
+    description: "The current canvas width in pixels. Read-only global variable.",
+    category: "global",
+    returns: "number",
+    examples: ["(line 0 0 width height)", "(/ width 2)"]
+  },
+  height: {
+    signature: "height",
+    description: "The current canvas height in pixels. Read-only global variable.",
+    category: "global",
+    returns: "number",
+    examples: ["(circle (/ width 2) (/ height 2) 50)"]
+  },
+  time: {
+    signature: "time",
+    description: "Elapsed time in seconds since the piece started. Useful for smooth animations.",
+    category: "global",
+    returns: "number",
+    examples: ["(sin time)", "(* 100 (sin (* time 2)))"]
+  },
+  elapsed: {
+    signature: "elapsed",
+    description: "Alias for time. Elapsed time in seconds.",
+    category: "global",
+    returns: "number",
+    examples: ["elapsed"]
+  },
+  frame: {
+    signature: "frame",
+    description: "The current frame number (increments each animation frame).",
+    category: "global",
+    returns: "number",
+    examples: ["(% frame 60)", "(sin (/ frame 30))"]
+  },
+  delta: {
+    signature: "delta",
+    description: "Time since last frame in seconds. Useful for frame-rate independent animation.",
+    category: "global",
+    returns: "number",
+    examples: ["(* speed delta)"]
+  },
+  fps: {
+    signature: "fps",
+    description: "Current frames per second.",
+    category: "global",
+    returns: "number",
+    examples: ["fps"]
+  },
+  mic: {
+    signature: "mic",
+    description: "Microphone amplitude (0-1). Responds to audio input when enabled.",
+    category: "audio",
+    returns: "number",
+    examples: ["(circle 100 100 (* mic 100))", "(if (> mic 0.5) (wipe))"]
+  },
+
+  // === AUDIO ===
+  tone: {
+    signature: "(tone frequency [duration] [type])",
+    description: "Play a tone at the specified frequency.",
+    category: "audio",
+    params: [
+      { name: "frequency", type: "number", description: "Frequency in Hz" },
+      { name: "duration", type: "number", optional: true, description: "Duration in seconds" },
+      { name: "type", type: "string", optional: true, description: '"sine", "square", "triangle", "sawtooth"' }
+    ],
+    examples: ["(tone 440)", '(tone 880 0.5 "square")']
+  },
+  beep: {
+    signature: "(beep [frequency])",
+    description: "Play a short beep sound.",
+    category: "audio",
+    examples: ["(beep)", "(beep 880)"]
+  },
+  melody: {
+    signature: "(melody notes)",
+    description: "Play a sequence of notes. Uses ABC notation or custom format.",
+    category: "audio",
+    params: [
+      { name: "notes", type: "string", description: "Note sequence" }
+    ],
+    examples: ['(melody "C D E F G")']
+  },
+  amplitude: {
+    signature: "amplitude",
+    description: "Current audio amplitude (0-1). Alias for mic.",
+    category: "audio",
+    returns: "number",
+    examples: ["amplitude"]
+  },
+
+  // === EMBEDDED CONTENT ===
+  embed: {
+    signature: "(embed $code x y width height [alpha])",
+    description: "Embed another KidLisp piece at a position with custom dimensions.",
+    category: "embed",
+    params: [
+      { name: "$code", type: "code", description: "Code reference (e.g., $abc123)" },
+      { name: "x", type: "number", description: "X position" },
+      { name: "y", type: "number", description: "Y position" },
+      { name: "width", type: "number", description: "Embed width" },
+      { name: "height", type: "number", description: "Embed height" },
+      { name: "alpha", type: "number", optional: true, description: "Transparency (0-255)" }
+    ],
+    examples: ["(embed $abc123 0 0 128 128)", "(embed $xyz789 50 50 64 64 200)"]
+  },
+  tape: {
+    signature: "(tape !code [x y] [w h] [speed])",
+    description: "Embed a tape video. Use ! prefix for tape codes.",
+    category: "embed",
+    params: [
+      { name: "!code", type: "code", description: "Tape code (e.g., !abc123)" },
+      { name: "x", type: "number", optional: true, description: "X position" },
+      { name: "y", type: "number", optional: true, description: "Y position" },
+      { name: "w", type: "number", optional: true, description: "Width" },
+      { name: "h", type: "number", optional: true, description: "Height" },
+      { name: "speed", type: "number", optional: true, description: "Playback speed (1.0 = normal)" }
+    ],
+    examples: ["(tape !abc)", "(tape !xyz 0 0 256 256)", "(tape !video 0 0 width height 2)"]
+  },
+
+  // === INTERACTIVITY ===
+  tap: {
+    signature: "(tap body...)",
+    description: "Define a tap/click handler. Body executes when user taps the screen.",
+    category: "interactive",
+    examples: [
+      '(tap (wipe (choose "red" "blue")))',
+      "(tap (set x mouseX) (set y mouseY))"
+    ]
+  },
+  draw: {
+    signature: "(draw body...)",
+    description: "Define a drag/draw handler. Body executes during finger/mouse drag.",
+    category: "interactive",
+    examples: [
+      "(draw (line lastX lastY mouseX mouseY))"
+    ]
+  },
+
+  // === OUTPUT ===
+  print: {
+    signature: "(print value...)",
+    description: "Print values to the KidLisp console (visible in kidlisp.com).",
+    category: "output",
+    examples: ['(print "Hello")', "(print x y)", '(print "x =" x)']
+  },
+  debug: {
+    signature: "(debug value...)",
+    description: "Print debug information to the console.",
+    category: "output",
+    examples: ["(debug frame)", "(debug x y)"]
+  },
+  log: {
+    signature: "(log value...)",
+    description: "Alias for print. Output to console.",
+    category: "output",
+    examples: ["(log x)"]
+  },
+
+  // === DATA STRUCTURES ===
+  list: {
+    signature: "(list item1 item2 ...)",
+    description: "Create a list of items.",
+    category: "data",
+    returns: "list",
+    examples: ['(list 1 2 3)', '(list "red" "green" "blue")']
+  },
+  get: {
+    signature: "(get list index)",
+    description: "Get item at index from a list (0-based).",
+    category: "data",
+    returns: "any",
+    examples: ["(get myList 0)", "(get colors 2)"]
+  },
+  first: {
+    signature: "(first list)",
+    description: "Get the first item of a list.",
+    category: "data",
+    returns: "any",
+    examples: ["(first myList)"]
+  },
+  rest: {
+    signature: "(rest list)",
+    description: "Get all items except the first.",
+    category: "data",
+    returns: "list",
+    examples: ["(rest myList)"]
+  },
+  len: {
+    signature: "(len list)",
+    description: "Get the length of a list.",
+    category: "data",
+    returns: "number",
+    examples: ["(len myList)"]
+  },
+  push: {
+    signature: "(push list item)",
+    description: "Add an item to the end of a list.",
+    category: "data",
+    examples: ["(push myList 42)"]
+  },
+  pop: {
+    signature: "(pop list)",
+    description: "Remove and return the last item from a list.",
+    category: "data",
+    returns: "any",
+    examples: ["(pop myList)"]
+  },
+
+  // === DISPLAY EFFECTS ===
+  blur: {
+    signature: "(blur amount)",
+    description: "Apply blur effect to the canvas.",
+    category: "effects",
+    params: [
+      { name: "amount", type: "number", description: "Blur radius" }
+    ],
+    examples: ["(blur 2)", "(blur 5)"]
+  },
+  contrast: {
+    signature: "(contrast amount)",
+    description: "Adjust canvas contrast.",
+    category: "effects",
+    params: [
+      { name: "amount", type: "number", description: "Contrast level" }
+    ],
+    examples: ["(contrast 1.5)"]
+  },
+  mask: {
+    signature: "(mask)",
+    description: "Start masking mode. Drawing only affects visible areas.",
+    category: "effects",
+    examples: ["(mask)"]
+  },
+  unmask: {
+    signature: "(unmask)",
+    description: "End masking mode.",
+    category: "effects",
+    examples: ["(unmask)"]
+  },
+
+  // === LABELS ===
+  label: {
+    signature: "(label text)",
+    description: "Set a label/title for the piece. Shown in UI and embeds.",
+    category: "meta",
+    params: [
+      { name: "text", type: "string", description: "Label text" }
+    ],
+    examples: ['(label "My Cool Piece")', '(label "Untitled")']
+  },
+
+  // === COMPARISON OPERATORS ===
+  "=": {
+    signature: "(= a b)",
+    description: "Check if a equals b.",
+    category: "logic",
+    returns: "boolean",
+    examples: ['(= x 10)', '(= color "red")']
+  },
+  ">": {
+    signature: "(> a b)",
+    description: "Check if a is greater than b.",
+    category: "logic",
+    returns: "boolean",
+    examples: ["(> x 100)", "(> frame 60)"]
+  },
+  "<": {
+    signature: "(< a b)",
+    description: "Check if a is less than b.",
+    category: "logic",
+    returns: "boolean",
+    examples: ["(< x 0)", "(< y height)"]
+  },
+  ">=": {
+    signature: "(>= a b)",
+    description: "Check if a is greater than or equal to b.",
+    category: "logic",
+    returns: "boolean",
+    examples: ["(>= x 0)"]
+  },
+  "<=": {
+    signature: "(<= a b)",
+    description: "Check if a is less than or equal to b.",
+    category: "logic",
+    returns: "boolean",
+    examples: ["(<= y height)"]
+  },
+
+  // === TIMING EXPRESSIONS (documented as concepts) ===
+  "1s": {
+    signature: "1s (expression)",
+    description: "Execute expression after 1 second delay.",
+    category: "timing",
+    examples: ['1s (wipe "red")', "2s (circle 100 100 50)"]
+  },
+  "1s...": {
+    signature: "1s... (expression)",
+    description: "Execute expression every 1 second (repeating).",
+    category: "timing",
+    examples: ['1s... (ink (choose "red" "blue"))', "0.5s... (plot (wiggle width) (wiggle height))"]
+  },
+  "1s!": {
+    signature: "1s! (expression)",
+    description: "Execute expression exactly once after 1 second.",
+    category: "timing",
+    examples: ['3s! (jump "outro")']
+  }
+};
+
 /**
  * Detect if source code is "chaotic" - meaning it's unlikely to parse correctly
  * as valid KidLisp and should instead produce artistic visual output.
@@ -430,7 +1360,7 @@ function isChaoticSource(source) {
 }
 
 // Export for testing
-export { isChaoticSource, KIDLISP_VOCABULARY, KIDLISP_FUNCTIONS, KIDLISP_COLORS };
+export { isChaoticSource, KIDLISP_VOCABULARY, KIDLISP_FUNCTIONS, KIDLISP_COLORS, KIDLISP_DOCS };
 
 // ==================== END CHAOS MODE DETECTION ====================
 
