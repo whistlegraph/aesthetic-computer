@@ -848,6 +848,90 @@
       box-shadow: inset 0 0 0 2px rgb(102, 187, 106), 0 1px 3px rgba(0,0,0,0.2);
     }
     
+    /* AI Assist Bar - describe what you want */
+    #ai-assist-bar {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      right: 90px; /* Leave room for playback controls */
+      z-index: 1;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+      opacity: 0.7;
+      transition: opacity 0.2s ease;
+    }
+    
+    #ai-assist-bar:focus-within {
+      opacity: 1;
+    }
+    
+    #ai-assist-input {
+      flex: 1;
+      height: 32px;
+      padding: 0 12px;
+      font-family: 'Berkeley Mono Variable', monospace;
+      font-size: 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      color: var(--text-primary);
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    
+    #ai-assist-input::placeholder {
+      color: var(--text-tertiary);
+      font-style: italic;
+    }
+    
+    #ai-assist-input:focus {
+      border-color: rgb(205, 92, 155);
+      box-shadow: 0 0 0 2px rgba(205, 92, 155, 0.2);
+    }
+    
+    #ai-assist-send {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgb(205, 92, 155);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+    
+    #ai-assist-send:hover {
+      background: rgb(185, 72, 135);
+      transform: scale(1.05);
+    }
+    
+    #ai-assist-send:active {
+      transform: scale(0.95);
+    }
+    
+    #ai-assist-send:disabled {
+      background: var(--bg-tertiary);
+      color: var(--text-tertiary);
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    #ai-assist-send.loading {
+      animation: ai-assist-pulse 1s ease-in-out infinite;
+    }
+    
+    @keyframes ai-assist-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
     /* Playback controls container */
     #playback-controls {
       position: absolute;
@@ -6814,6 +6898,24 @@
         height: 16px !important;
       }
       
+      /* AI Assist Bar mobile */
+      #ai-assist-bar {
+        bottom: 8px;
+        left: 8px;
+        right: 80px;
+      }
+      
+      #ai-assist-input {
+        height: 28px;
+        font-size: 11px;
+        padding: 0 10px;
+      }
+      
+      #ai-assist-send {
+        width: 28px;
+        height: 28px;
+      }
+      
       #playback-controls {
         bottom: 8px;
         right: 8px;
@@ -8300,6 +8402,16 @@
         <!-- Text View (Monaco Editor) -->
         <div class="viz-container active" id="viz-text">
           <div id="kidlisp-editor" class="decrypting">
+          </div>
+          <!-- AI Assist Input - describe what you want -->
+          <div id="ai-assist-bar">
+            <input type="text" id="ai-assist-input" placeholder="Describe what you want..." autocomplete="off" />
+            <button id="ai-assist-send" aria-label="Generate" title="Generate KidLisp from description">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 2L11 13"/>
+                <path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+              </svg>
+            </button>
           </div>
           <!-- Playback Controls - inside viz-text so they can't overlap editor-header -->
           <!-- Order: slide (left), clear, stop (middle), send (right) -->
@@ -19583,6 +19695,150 @@
     
     // Initialize guides on load
     initGuides();
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AI ASSIST - Generate KidLisp from natural language descriptions
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    let aiAssistAbort = null;
+    
+    function initAIAssist() {
+      const input = document.getElementById('ai-assist-input');
+      const sendBtn = document.getElementById('ai-assist-send');
+      if (!input || !sendBtn) return;
+      
+      // Handle Enter key
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          generateFromPrompt();
+        }
+        if (e.key === 'Escape') {
+          input.blur();
+          if (aiAssistAbort) {
+            aiAssistAbort();
+            aiAssistAbort = null;
+            sendBtn.classList.remove('loading');
+            sendBtn.disabled = false;
+          }
+        }
+      });
+      
+      // Handle send button click
+      sendBtn.addEventListener('click', generateFromPrompt);
+      
+      async function generateFromPrompt() {
+        const prompt = input.value.trim();
+        if (!prompt) return;
+        
+        // Abort any in-progress request
+        if (aiAssistAbort) {
+          aiAssistAbort();
+          aiAssistAbort = null;
+        }
+        
+        sendBtn.classList.add('loading');
+        sendBtn.disabled = true;
+        
+        try {
+          // Load the KidLisp prompt template
+          const templateResp = await fetch('/aesthetic.computer/prompts/kidlisp-make.prompt');
+          let template = await templateResp.text();
+          
+          // Check for HTML response (wrong path)
+          if (template.includes('<!doctype html>') || template.includes('<!DOCTYPE html>')) {
+            throw new Error('Could not load prompt template');
+          }
+          
+          // Replace placeholder with user prompt
+          const systemPrompt = template.replace(/\{\{USER_PROMPT\}\}/g, prompt);
+          
+          // Prepare messages for the API
+          const messages = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: prompt }
+          ];
+          
+          // Create abort controller
+          const controller = new AbortController();
+          aiAssistAbort = () => controller.abort();
+          
+          // Call the ask API with Claude Opus 4.5
+          const response = await fetch('/api/ask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages,
+              hint: 'code:claude-opus-4-20250514'
+            }),
+            signal: controller.signal
+          });
+          
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+          }
+          
+          // Stream the response
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let generatedCode = '';
+          
+          // Clear editor and start streaming
+          if (editor) {
+            editor.setValue('');
+          }
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            generatedCode += chunk;
+            
+            // Update editor with streaming content
+            if (editor) {
+              isSettingValueProgrammatically = true;
+              editor.setValue(generatedCode);
+              isSettingValueProgrammatically = false;
+              // Move cursor to end
+              const model = editor.getModel();
+              if (model) {
+                const lastLine = model.getLineCount();
+                const lastCol = model.getLineMaxColumn(lastLine);
+                editor.setPosition({ lineNumber: lastLine, column: lastCol });
+              }
+            }
+          }
+          
+          // Clear input on success
+          input.value = '';
+          
+          // Auto-play the generated code
+          setTimeout(() => {
+            if (sendButton && !sendButton.disabled) {
+              if (isPlaying) stopButton?.click();
+              sendButton?.click();
+            }
+          }, 100);
+          
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            console.error('AI Assist error:', err);
+            // Show error in editor
+            if (editor) {
+              editor.setValue(`; Error generating code: ${err.message}\n; Try again with a different prompt.`);
+            }
+          }
+        } finally {
+          aiAssistAbort = null;
+          sendBtn.classList.remove('loading');
+          sendBtn.disabled = false;
+        }
+      }
+    }
+    
+    // Initialize AI assist on load
+    initAIAssist();
 
     async function loadExamples() {
       try {
