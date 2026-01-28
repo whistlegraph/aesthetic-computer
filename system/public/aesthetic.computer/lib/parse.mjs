@@ -200,15 +200,13 @@ function parse(text, location = self?.location) {
   console.log("⚠️  URI decode skipped (literal legacy % or # symbols):", text);
   }
 
-  // 0. Pull off any "hash" from text, filtering the edge case for #hex colors.
-  // But preserve painting codes like #k3d (which aren't valid hex colors).
-  // Only convert to 0x if it looks like a valid hex color (3 or 6 hex digits).
-  text = text.replace(/~#([0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?)(?=~|$)/g, "~0x$1");
+  // 0. Pull off any "hash" from text, preserving painting codes like #ada.
+  // Don't auto-convert #hex to 0x - painting codes can also look like hex colors.
+  // Let each piece handle the # prefix appropriately in their params.
   
-  // Preserve ~# patterns (painting codes) that aren't hex colors by using placeholder
-  // e.g., ~#Vcg becomes ~§HASH§Vcg, then restored after # split
+  // Preserve ~# patterns (painting codes) by using placeholder before # split
+  // e.g., ~#ada becomes ~§HASH§ada, then restored after # split
   text = text.replace(/~#([^~]*)/g, (match, code) => {
-    // If it wasn't converted to 0x above, it's a painting code - preserve it
     return `~§HASH§${code}`;
   });
   

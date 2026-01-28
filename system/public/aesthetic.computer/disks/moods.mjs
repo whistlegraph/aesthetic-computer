@@ -22,6 +22,10 @@ let totalContentItems = 0; // Track total items including date headers
 let retrieving = true,
   failed = false;
 
+// Single mood view (permalink mode)
+let singleMoodView = false;
+let singleMood = null;
+
 let ellipsisTicker; // For animated "Retrieving..." text
 
 let scroll = 0; // Start immediately, no delay
@@ -136,6 +140,35 @@ function boot({ wipe, screen, colon, params, typeface, gizmo }) {
   
   // Initialize ellipsis ticker for "Retrieving..." animation
   ellipsisTicker = new gizmo.EllipsisTicker();
+
+  // Check for single mood permalink: moods~@handle~rkey or moods~handle~rkey
+  // params would be ['@handle', 'rkey'] or ['handle', 'rkey']
+  if (params.length === 2 && params[1].length > 5) {
+    // Looks like a permalink (second param is rkey which is ~13 chars)
+    singleMoodView = true;
+    const handle = params[0].startsWith('@') ? params[0] : `@${params[0]}`;
+    const rkey = params[1];
+    
+    fetch(`/api/mood/single?handle=${encodeURIComponent(handle)}&rkey=${encodeURIComponent(rkey)}`)
+      .then((res) => res.json())
+      .then((body) => {
+        if (body.mood) {
+          singleMood = body;
+          retrieving = false;
+        } else {
+          throw new Error(body.message || "Mood not found");
+        }
+      })
+      .catch((err) => {
+        failed = true;
+        retrieving = false;
+        console.warn("📶🙁 Single mood error:", err);
+      });
+    return; // Exit early, don't fetch all moods
+  }
+
+  // Regular list view
+  singleMoodView = false;
   let query = `/api/mood/all`;
   if (params.length > 0) query += `?for=${params.join(',')}`;
   fetch(query)
@@ -205,6 +238,13 @@ function paint({ wipe, ink, text, pan, unpan, screen, num, help: { choose, repea
     ink(...currentScheme.retrievingText).write(`Retrieving${ellipsis}`, { center: "xy" });
   }
   if (failed) ink(currentScheme.failedText).write("failed", { center: "xy" });
+
+  // Single mood permalink view
+  if (singleMoodView && singleMood) {
+    renderSingleMood({ ink, text, screen, dark });
+    return;
+  }
+
   if (allItems.length > 0) {
     // NEW: Update viewport based on scroll position
     updateViewport(screen);
@@ -239,6 +279,172 @@ function paint({ wipe, ink, text, pan, unpan, screen, num, help: { choose, repea
     
     ink(...currentScheme.scrollBarTrack).box(progressX, progressY, 4, progressHeight);
     ink(...currentScheme.scrollBarThumb).box(progressX, progressY + thumbPosition, 4, thumbHeight);
+  }
+}
+
+// Render single mood permalink view
+function renderSingleMood({ ink, text, screen, dark }) {
+  const currentScheme = dark ? scheme.dark : scheme.light;
+  const mood = singleMood;
+  
+  // Background
+  ink(...currentScheme.background).box(0, 0, screen.width, screen.height);
+  
+  // Clean mood text
+  const moodText = mood.mood
+    .trim()
+    .replace(/[\n\r]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // Format timestamp
+  const date = new Date(mood.when);
+  const dateStr = date.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
+  // Layout
+  const centerX = screen.width / 2;
+  let y = 40;
+  
+  // Handle
+  ink(...currentScheme.handleDefault).write(mood.handle, { 
+    x: centerX, 
+    y, 
+    size: 2, 
+    center: "x" 
+  }, undefined, undefined, false, "MatrixChunky8");
+  y += 30;
+  
+  // Mood text (larger, centered, with wrapping consideration)
+  const moodColor = dark ? [255, 255, 255] : [30, 30, 30];
+  
+  // Simple word wrap for long moods
+  const maxWidth = screen.width - 40;
+  const words = moodText.split(' ');
+  let lines = [];
+  let currentLine = '';
+  
+  words.forEach(word => {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const lineWidth = text.box(testLine, undefined, undefined, 2, "unifont").box.width;
+    if (lineWidth > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  });
+  if (currentLine) lines.push(currentLine);
+  
+  // Limit to 5 lines max
+  if (lines.length > 5) {
+    lines = lines.slice(0, 5);
+    lines[4] = lines[4].substring(0, lines[4].length - 3) + '...';
+  }
+  
+  // Render mood lines
+  lines.forEach(line => {
+    ink(...moodColor).write(line, { 
+      x: centerX, 
+      y, 
+      size: 2, 
+      center: "x" 
+    }, undefined, undefined, false, "unifont");
+    y += 28;
+  });
+  
+  y += 10;
+  
+  // Date and time
+  ink(...currentScheme.timestampDefault).write(`${dateStr} at ${timeStr}`, { 
+    x: centerX, 
+    y, 
+    size: 1, 
+    center: "x" 
+  });
+  y += 30;
+  
+  // Engagement stats (if available from Bluesky)
+  if (mood.engagement) {
+    const { likes, reposts, replies, webUrl } = mood.engagement;
+    
+    // Stats line
+    const statsText = `♥ ${likes}  ↻ ${reposts}  💬 ${replies?.length || 0}`;
+    ink(255, 100, 150).write(statsText, { 
+      x: centerX, 
+      y, 
+      size: 1, 
+      center: "x" 
+    });
+    y += 25;
+    
+    // Replies
+    if (replies && replies.length > 0) {
+      ink(...currentScheme.divider).box(20, y, screen.width - 40, 1);
+      y += 15;
+      
+      ink(...currentScheme.timestampDefault).write("Replies from Bluesky:", { 
+        x: 20, 
+        y 
+      });
+      y += 20;
+      
+      // Show up to 5 replies
+      const displayReplies = replies.slice(0, 5);
+      displayReplies.forEach(reply => {
+        // Author
+        ink(100, 150, 255).write(`@${reply.author.handle}`, { 
+          x: 20, 
+          y, 
+          size: 1 
+        }, undefined, undefined, false, "MatrixChunky8");
+        y += 14;
+        
+        // Reply text (truncate if too long)
+        let replyText = reply.text.replace(/[\n\r]+/g, ' ').trim();
+        if (replyText.length > 80) {
+          replyText = replyText.substring(0, 77) + '...';
+        }
+        ink(...moodColor).write(replyText, { 
+          x: 20, 
+          y, 
+          size: 1 
+        });
+        y += 18;
+      });
+      
+      if (replies.length > 5) {
+        ink(...currentScheme.timestampDefault).write(`+ ${replies.length - 5} more replies`, { 
+          x: 20, 
+          y 
+        });
+        y += 18;
+      }
+    }
+    
+    // Link to Bluesky
+    if (webUrl) {
+      y = screen.height - 30;
+      ink(100, 150, 255).write("View on Bluesky ↗", { 
+        x: centerX, 
+        y, 
+        size: 1, 
+        center: "x" 
+      });
+    }
+  } else if (mood.bluesky) {
+    // Has Bluesky mirror but no engagement fetched yet
+    ink(...currentScheme.timestampDefault).write("Mirrored to Bluesky", { 
+      x: centerX, 
+      y, 
+      size: 1, 
+      center: "x" 
+    });
   }
 }
 
@@ -498,6 +704,17 @@ function sim({ clock }) {
 
 // 📰 Meta
 function meta() {
+  if (singleMoodView && singleMood) {
+    // Truncate mood for title
+    let moodPreview = singleMood.mood.replace(/[\n\r]+/g, ' ').trim();
+    if (moodPreview.length > 50) {
+      moodPreview = moodPreview.substring(0, 47) + '...';
+    }
+    return {
+      title: `${singleMood.handle}: "${moodPreview}"`,
+      desc: `Mood from ${singleMood.handle} on Aesthetic Computer`,
+    };
+  }
   return {
     title: "Moods",
     desc: "A live list of all our moods.",

@@ -76,6 +76,7 @@ export default class Synth {
       //                                    option here?
 
       this.#sampleData = options.buffer;
+      this.sampleLabel = options.label; // Track the label for live buffer updates
 
       this.#sampleSpeed = options.speed || 1;
       this.#sampleLoop = options.loop || false;
@@ -371,7 +372,7 @@ export default class Synth {
     return out;
   }
 
-  update({ tone, volume, shift, sampleSpeed, samplePosition, duration = 0.1 }) {
+  update({ tone, volume, shift, sampleSpeed, samplePosition, sampleData, duration = 0.1 }) {
     if (typeof tone === "number" && tone > 0) {
       this.#futureFrequency = tone;
       this.#frequencyUpdatesTotal = duration * sampleRate;
@@ -398,7 +399,32 @@ export default class Synth {
     }
 
     if (typeof samplePosition === "number" && this.#sampleData) {
-      this.#sampleIndex = floor(samplePosition * this.#sampleData.length);
+      this.#sampleIndex = floor(samplePosition * this.#sampleData.channels[0].length);
+    }
+
+    // 🔄 Live buffer swap - update sample data while maintaining playback position
+    if (sampleData && this.type === "sample") {
+      const oldLength = this.#sampleData?.channels?.[0]?.length || 1;
+      const newLength = sampleData.channels?.[0]?.length || sampleData.length || 1;
+      const progress = this.#sampleIndex / oldLength; // 0 to 1 progress
+      this.#sampleData = sampleData;
+      // Recalculate indices for new buffer length
+      this.#sampleEndIndex = clamp(
+        Math.floor((this.#sampleEndIndex / oldLength) * newLength),
+        0,
+        newLength - 1,
+      );
+      this.#sampleStartIndex = clamp(
+        Math.floor((this.#sampleStartIndex / oldLength) * newLength),
+        0,
+        newLength - 1,
+      );
+      // Maintain relative playback position
+      this.#sampleIndex = clamp(
+        Math.floor(progress * newLength),
+        this.#sampleStartIndex,
+        this.#sampleEndIndex,
+      );
     }
 
     // console.log("🟠 Update properties:", arguments);

@@ -15694,6 +15694,46 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🔄 Live buffer update - updates sample data for currently playing sounds
+    if (type === "sfx:update-sample") {
+      const { id, data, sampleRate } = content || {};
+      if (!id || !data || !Array.isArray(data) || data.length === 0) return;
+
+      const safeRate =
+        typeof sampleRate === "number" && Number.isFinite(sampleRate)
+          ? sampleRate
+          : audioContext?.sampleRate || 48000;
+      const samples = Float32Array.from(data);
+
+      // Update the local sfx cache
+      if (audioContext) {
+        const buffer = audioContext.createBuffer(1, samples.length, safeRate);
+        buffer.getChannelData(0).set(samples);
+        sfx[id] = buffer;
+      } else {
+        sfx[id] = {
+          left: Array.from(samples),
+          right: Array.from(samples),
+          totalSamples: samples.length,
+          sampleRate: safeRate,
+        };
+      }
+
+      // Send update to speaker worklet for running sounds
+      speaker.postMessage({
+        type: "sample:update",
+        data: {
+          label: id,
+          buffer: {
+            channels: [samples],
+            length: samples.length,
+            sampleRate: safeRate,
+          },
+        },
+      });
+      return;
+    }
+
     if (type === "sfx:update") {
       sfxPlaying[content.id]?.update(content.properties);
       return;
@@ -16946,40 +16986,40 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
 
-        // 🎄⏰ Merry UTC debug overlay (top-right)
+        // 🎄⏰ Merry UTC debug overlay (top-right) - DISABLED
         // Useful for verifying that `mo`/`merryo` pipelines are aligned to the same UTC authority as `clock`.
-        if (!window.currentRecordingOptions?.cleanMode && content.merryUTC) {
-          try {
-            const utcLine1 = `UTC ${content.merryUTC.time}`;
-            const utcLine2 = `cycle ${content.merryUTC.cycle}s · ${content.merryUTC.index}/${content.merryUTC.total} · ${content.merryUTC.piece}`;
+        // if (!window.currentRecordingOptions?.cleanMode && content.merryUTC) {
+        //   try {
+        //     const utcLine1 = `UTC ${content.merryUTC.time}`;
+        //     const utcLine2 = `cycle ${content.merryUTC.cycle}s · ${content.merryUTC.index}/${content.merryUTC.total} · ${content.merryUTC.piece}`;
 
-            overlayTargetCtx.save();
-            overlayTargetCtx.globalAlpha = 0.95;
-            overlayTargetCtx.font = `12px YWFTProcessing-Regular, Arial, sans-serif`;
-            overlayTargetCtx.textBaseline = "top";
+        //     overlayTargetCtx.save();
+        //     overlayTargetCtx.globalAlpha = 0.95;
+        //     overlayTargetCtx.font = `12px YWFTProcessing-Regular, Arial, sans-serif`;
+        //     overlayTargetCtx.textBaseline = "top";
 
-            const pad = 6;
-            const lineH = 14;
-            const w1 = overlayTargetCtx.measureText(utcLine1).width;
-            const w2 = overlayTargetCtx.measureText(utcLine2).width;
-            const boxW = Math.ceil(Math.max(w1, w2) + pad * 2);
-            const boxH = Math.ceil(lineH * 2 + pad * 2);
-            const x = Math.max(0, overlayTargetCtx.canvas.width - boxW - 8);
-            const y = 8;
+        //     const pad = 6;
+        //     const lineH = 14;
+        //     const w1 = overlayTargetCtx.measureText(utcLine1).width;
+        //     const w2 = overlayTargetCtx.measureText(utcLine2).width;
+        //     const boxW = Math.ceil(Math.max(w1, w2) + pad * 2);
+        //     const boxH = Math.ceil(lineH * 2 + pad * 2);
+        //     const x = Math.max(0, overlayTargetCtx.canvas.width - boxW - 8);
+        //     const y = 8;
 
-            // Backplate
-            overlayTargetCtx.fillStyle = "rgba(0, 0, 0, 0.55)";
-            overlayTargetCtx.fillRect(x, y, boxW, boxH);
+        //     // Backplate
+        //     overlayTargetCtx.fillStyle = "rgba(0, 0, 0, 0.55)";
+        //     overlayTargetCtx.fillRect(x, y, boxW, boxH);
 
-            // Text
-            overlayTargetCtx.fillStyle = "white";
-            overlayTargetCtx.fillText(utcLine1, x + pad, y + pad);
-            overlayTargetCtx.fillText(utcLine2, x + pad, y + pad + lineH);
-            overlayTargetCtx.restore();
-          } catch (e) {
-            // Silent fail: debug-only overlay
-          }
-        }
+        //     // Text
+        //     overlayTargetCtx.fillStyle = "white";
+        //     overlayTargetCtx.fillText(utcLine1, x + pad, y + pad);
+        //     overlayTargetCtx.fillText(utcLine2, x + pad, y + pad + lineH);
+        //     overlayTargetCtx.restore();
+        //   } catch (e) {
+        //     // Silent fail: debug-only overlay
+        //   }
+        // }
 
         // Paint tape progress bar immediately (not affected by async skip)
         // Skip in clean mode (neat tapes)

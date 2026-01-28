@@ -182,8 +182,54 @@ async function allMoods(database, handles = null) {
   return records;
 }
 
+/**
+ * Get a single mood by handle and ATProto rkey (for permalinks)
+ * @param {Object} database - MongoDB connection
+ * @param {string} handle - Handle like "@jeffrey" or "jeffrey"
+ * @param {string} rkey - ATProto record key
+ * @returns {Promise<Object|null>} Mood object or null
+ */
+async function getMoodByRkey(database, handle, rkey) {
+  const collection = database.db.collection("moods");
 
-export { connect, ObjectId, moodFor, allMoods };
+  // Normalize handle (remove @ if present)
+  const normalizedHandle = handle.replace(/^@/, "");
+
+  const pipeline = [
+    {
+      $lookup: {
+        from: "@handles",
+        localField: "user",
+        foreignField: "_id",
+        as: "handleInfo",
+      },
+    },
+    { $unwind: "$handleInfo" },
+    {
+      $match: {
+        "handleInfo.handle": normalizedHandle,
+        "atproto.rkey": rkey,
+        deleted: { $ne: true },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        mood: 1,
+        when: 1,
+        handle: { $concat: ["@", "$handleInfo.handle"] },
+        atproto: 1,
+        bluesky: 1,
+      },
+    },
+  ];
+
+  const records = await collection.aggregate(pipeline).toArray();
+  return records[0] || null;
+}
+
+
+export { connect, ObjectId, moodFor, allMoods, getMoodByRkey };
 
 // Demo code from MongoDB's connection page: (23.08.15.19.59)
 
