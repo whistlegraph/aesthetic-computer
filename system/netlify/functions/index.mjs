@@ -1009,7 +1009,9 @@ async function fun(event, context) {
         <script>
           window.acBootCanvas=(function(){var c=document.getElementById('boot-canvas');if(!c)return{};var x=c.getContext('2d',{willReadFrequently:true});x.imageSmoothingEnabled=false;
           // Detect kidlisp.com iframe context and system light/dark mode for themed boot animation
+          // Also detect based on nolabel/nogap query params which indicate embedded preview mode
           var isKidlisp=false;try{isKidlisp=window.self!==window.top&&(window.parent.location.hostname.indexOf('kidlisp')>=0||document.referrer.indexOf('kidlisp')>=0);}catch(e){isKidlisp=document.referrer.indexOf('kidlisp')>=0;}
+          if(!isKidlisp&&window.self!==window.top){var qs=location.search||'';if(qs.indexOf('nolabel')>=0&&qs.indexOf('nogap')>=0)isKidlisp=true;}
           var isLightMode=window.matchMedia&&window.matchMedia('(prefers-color-scheme:light)').matches;
           var SCL=1,targetSCL=3,W=Math.ceil(window.innerWidth/SCL),H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;
           function updateScale(newSCL){SCL=newSCL;W=Math.ceil(window.innerWidth/SCL);H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;x.imageSmoothingEnabled=false;for(var k in scrollYs)scrollYs[k]=0;}
