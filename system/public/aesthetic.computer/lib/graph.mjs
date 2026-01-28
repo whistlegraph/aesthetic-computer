@@ -5051,9 +5051,8 @@ function scroll(dx = 0, dy = 0) {
     return; // No effective shift after normalization
   }
 
-  // 🚀 TRY GPU SCROLL FIRST (disabled - Y flip issues cause artifacts)
-  // TODO: Fix GPU scroll/composite Y coordinate handling
-  if (false && gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuScroll && pixels && width && height) {
+  // 🚀 TRY GPU SCROLL FIRST
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuScroll && pixels && width && height) {
     const mask = activeMask ? {
       x: minX,
       y: minY,
@@ -5179,9 +5178,8 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
     return;
   }
 
-  // 🚀 TRY GPU SPIN FIRST (disabled - Y flip issues cause visual artifacts)
-  // TODO: Fix GPU spin Y coordinate handling
-  if (false && gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule && pixels && width && height) {
+  // 🚀 TRY GPU SPIN FIRST
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule && pixels && width && height) {
     const mask = activeMask ? {
       x: activeMask.x + panTranslation.x,
       y: activeMask.y + panTranslation.y,
@@ -5662,9 +5660,8 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
     zoomAccumulator -= zoomToApply;
   }
 
-  // 🚀 TRY GPU ZOOM FIRST (disabled - Y flip issues cause artifacts)
-  // TODO: Fix GPU composite Y coordinate handling
-  if (false && gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuZoom && pixels && width && height) {
+  // 🚀 TRY GPU ZOOM FIRST
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuZoom && pixels && width && height) {
     const mask = activeMask ? {
       x: activeMask.x,
       y: activeMask.y,
@@ -6219,9 +6216,8 @@ function blur(strength = 1, quality = "medium") {
   const threshold = 0.5;
   if (Math.abs(blurAccumulator) < threshold) return;
   
-  // 🚀 TRY GPU BLUR FIRST (disabled - Y flip issues cause flickering)
-  // TODO: Fix GPU blur Y coordinate handling
-  if (false && gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuBlur && pixels && width && height) {
+  // 🚀 TRY GPU BLUR FIRST
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuBlur && pixels && width && height) {
     const mask = activeMask ? {
       x: activeMask.x + panTranslation.x,
       y: activeMask.y + panTranslation.y,
