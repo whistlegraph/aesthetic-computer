@@ -624,6 +624,7 @@ const fastFade = 0.005;
 const killFade = 0.15; //0.05;
 
 let perc; // A one frame percussion flash color.
+let metronomeFlash = 0; // Peripheral screen flash intensity for metronome beats (0-1)
 
 //             |
 // CVDSEFWGRAQB|QARGWFESDVC
@@ -1312,6 +1313,7 @@ function sim({ sound, simCount, num, clock }) {
       metronomeBeatCount = beatNumber;
       metronomeLastBeatTime = currentTimeMs;
       metronomeVisualPhase = 1.0; // Flash on beat
+      metronomeFlash = 1.0; // Trigger peripheral screen flash
       
       // Play metronome click sound
       // Accent on beat 1 of each measure (every 4 beats)
@@ -1342,10 +1344,15 @@ function sim({ sound, simCount, num, clock }) {
     if (metronomeVisualPhase > 0) {
       metronomeVisualPhase = Math.max(0, metronomeVisualPhase - 0.08);
     }
+    // Decay peripheral flash faster for snappier effect
+    if (metronomeFlash > 0) {
+      metronomeFlash = Math.max(0, metronomeFlash - 0.15);
+    }
   } else if (metronomeEnabled && dawMode && !dawPlaying) {
     // Reset visual state when metronome is enabled but DAW is stopped
     metronomeVisualPhase = 0;
     metronomeBallPos = 0;
+    metronomeFlash = 0;
   }
 
   // 🛡️ Stuck note protection: Kill notes held longer than MAX_NOTE_LIFETIME
@@ -2566,6 +2573,21 @@ function paint({
     recitalBlinkPhase = (recitalBlinkPhase + 0.05) % (Math.PI * 2);
   } else {
     wipe(bg);
+  }
+
+  // 🥁 Draw peripheral screen flash for metronome beats
+  if (metronomeFlash > 0 && metronomeEnabled) {
+    const flashAlpha = Math.floor(metronomeFlash * 120); // Max alpha 120 for subtle effect
+    const flashWidth = Math.max(3, Math.floor(6 * metronomeFlash)); // Shrinking border width
+    // Choose color based on beat (downbeat = brighter)
+    const isDownbeat = (metronomeBeatCount % 4) === 0;
+    const flashColor = isDownbeat ? [255, 255, 255, flashAlpha] : [180, 200, 255, flashAlpha];
+    ink(...flashColor);
+    // Draw border boxes on all four edges
+    box(0, 0, screen.width, flashWidth); // Top
+    box(0, screen.height - flashWidth, screen.width, flashWidth); // Bottom
+    box(0, 0, flashWidth, screen.height); // Left
+    box(screen.width - flashWidth, 0, flashWidth, screen.height); // Right
   }
 
   // 🎹 Draw mini piano strip in top bar (not in recital mode or fullscreen modes)

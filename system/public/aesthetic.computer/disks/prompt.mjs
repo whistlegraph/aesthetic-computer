@@ -4891,10 +4891,29 @@ function paint($) {
       ink(...blendedColor, pulseAlpha).box(screen.width - dotSize, (y + scrollOffset) % screen.height, dotSize, dotSize);
     }
 
-    // 🟢 KidLisp.com button in top-left corner (below header area, avoids paste button)
+    // 🟢 KidLisp.com button centered at bottom (between paste and enter buttons)
     const kidlispBtnText = "KidLisp.com";
-    const kidlispBtnX = 6;
-    const kidlispBtnY = 6; // Top-left corner instead of bottom-left (avoids paste button)
+    
+    // Get paste and enter button positions to center between them
+    const pasteBox = $.system.prompt.input?.paste?.btn?.box;
+    const enterBox = $.system.prompt.input?.enter?.btn?.box;
+    
+    // Calculate center position between paste (left) and enter (right) buttons
+    let kidlispBtnX, kidlispBtnY;
+    if (pasteBox && enterBox) {
+      // Position horizontally centered between paste's right edge and enter's left edge
+      const gapStart = pasteBox.x + pasteBox.w;
+      const gapEnd = enterBox.x;
+      const gapCenter = gapStart + (gapEnd - gapStart) / 2;
+      const btnWidth = kidlispBtnText.length * 4 + 4; // MatrixChunky8: 4px per char + 4px padding
+      kidlispBtnX = Math.floor(gapCenter - btnWidth / 2);
+      kidlispBtnY = pasteBox.y; // Same Y position as the bottom buttons
+    } else {
+      // Fallback to bottom center if buttons not available
+      const btnWidth = kidlispBtnText.length * 4 + 4;
+      kidlispBtnX = Math.floor(screen.width / 2 - btnWidth / 2);
+      kidlispBtnY = screen.height - 18;
+    }
     
     if (!kidlispBtn) {
       kidlispBtn = new $.ui.TextButton(kidlispBtnText, { x: kidlispBtnX, y: kidlispBtnY });
@@ -4943,6 +4962,13 @@ function paint($) {
     const klTextColor = klHslToRgb((klHue + 180) % 360, 100, 85); // Complementary color for text
     const klOutlineColor = klHslToRgb((klHue + 120) % 360, 100, 60); // Triadic color for outline
     
+    // Manually size the button box to fit the text tightly (reduce right padding)
+    const textWidth = kidlispBtnText.length * 4; // MatrixChunky8: 4px per char
+    const btnPadX = 2; // Tighter horizontal padding
+    const btnPadY = 2; // Tighter vertical padding  
+    kidlispBtnBox.w = textWidth + btnPadX * 2;
+    kidlispBtnBox.h = 7 + btnPadY * 2; // MatrixChunky8 height is 7px
+    
     // Background - rainbow cycling with blink effect
     if (klBlink || isKidlispBtnOver || isKidlispBtnDown) {
       const bgColor = isKidlispBtnDown ? [klFillColor[0] + 40, klFillColor[1] + 40, klFillColor[2] + 40] : klFillColor;
@@ -4954,8 +4980,8 @@ function paint($) {
     // Animated outline
     ink(...klOutlineColor).box(kidlispBtnBox, "outline");
     
-    // Text with complementary color
-    ink(...klTextColor).write(kidlispBtnText, { x: kidlispBtnBox.x + 4, y: kidlispBtnBox.y + 5 }, undefined, undefined, false, "MatrixChunky8");
+    // Text with complementary color (tighter positioning)
+    ink(...klTextColor).write(kidlispBtnText, { x: kidlispBtnBox.x + btnPadX, y: kidlispBtnBox.y + btnPadY }, undefined, undefined, false, "MatrixChunky8");
 
     // Keep animating
     $.needsPaint();
