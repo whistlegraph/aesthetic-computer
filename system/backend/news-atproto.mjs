@@ -1,0 +1,127 @@
+// news-atproto.mjs
+// Helper functions for syncing news to ATProto PDS
+// 2026.01.28
+
+import { AtpAgent } from "@atproto/api";
+import { shell } from "./shell.mjs";
+
+const PDS_URL = process.env.PDS_URL || "https://at.aesthetic.computer";
+const NEWS_COLLECTION = "computer.aesthetic.news";
+
+// Use the art account (system account) for posting news to ATProto PDS
+// This is the @art.at.aesthetic.computer account on our PDS
+const NEWS_DID = process.env.ART_ATPROTO_DID;
+const NEWS_PASSWORD = process.env.ART_ATPROTO_PASSWORD;
+
+/**
+ * Create a news item on ATProto PDS
+ * @param {Object} newsData - { headline, body?, link?, tags?, when }
+ * @param {string} refId - Database record _id as string
+ * @returns {Promise<{rkey: string, uri: string} | {error: string}>}
+ */
+export async function createNewsOnAtproto(newsData, refId) {
+  if (!NEWS_DID || !NEWS_PASSWORD) {
+    shell.log("⚠️ ATProto news credentials not configured, skipping sync");
+    return { error: "No ATProto credentials configured" };
+  }
+
+  try {
+    const agent = new AtpAgent({ service: PDS_URL });
+    await agent.login({
+      identifier: NEWS_DID,
+      password: NEWS_PASSWORD,
+    });
+
+    const record = {
+      $type: NEWS_COLLECTION,
+      headline: newsData.headline,
+      when: newsData.when?.toISOString() || new Date().toISOString(),
+      ref: refId,
+    };
+
+    // Add optional fields
+    if (newsData.body) record.body = newsData.body;
+    if (newsData.link) record.link = newsData.link;
+    if (newsData.tags?.length) record.tags = newsData.tags;
+
+    const result = await agent.com.atproto.repo.createRecord({
+      repo: NEWS_DID,
+      collection: NEWS_COLLECTION,
+      record,
+    });
+
+    const uri = result.uri || result.data?.uri;
+    if (!uri) {
+      shell.error(`⚠️ ATProto response missing URI: ${JSON.stringify(result)}`);
+      return { error: "Missing URI in response" };
+    }
+
+    const rkey = uri.split("/").pop();
+    shell.log(`📰 Created ATProto news: ${rkey}`);
+
+    return { rkey, uri };
+  } catch (error) {
+    shell.error(`❌ Failed to create news on ATProto: ${error.message}`);
+    return { error: error.message };
+  }
+}
+
+/**
+ * Delete a news item from ATProto PDS
+ * @param {string} rkey - ATProto record key
+ * @returns {Promise<boolean>}
+ */
+export async function deleteNewsFromAtproto(rkey) {
+  if (!NEWS_DID || !NEWS_PASSWORD) {
+    return false;
+  }
+
+  try {
+    const agent = new AtpAgent({ service: PDS_URL });
+    await agent.login({
+      identifier: NEWS_DID,
+      password: NEWS_PASSWORD,
+    });
+
+    await agent.com.atproto.repo.deleteRecord({
+      repo: NEWS_DID,
+      collection: NEWS_COLLECTION,
+      rkey,
+    });
+
+    shell.log(`🗑️ Deleted ATProto news: ${rkey}`);
+    return true;
+  } catch (error) {
+    shell.error(`❌ Failed to delete news from ATProto: ${error.message}`);
+    return false;
+  }
+}
+
+/**
+ * List all news items from ATProto PDS (public, no auth needed)
+ * @param {number} limit - Max items to fetch
+ * @param {string} cursor - Pagination cursor
+ * @returns {Promise<{records: Array, cursor?: string}>}
+ */
+export async function listNewsFromAtproto(limit = 50, cursor = null) {
+  try {
+    const agent = new AtpAgent({ service: PDS_URL });
+    
+    const params = {
+      repo: NEWS_DID,
+      collection: NEWS_COLLECTION,
+      limit,
+    };
+    if (cursor) params.cursor = cursor;
+
+    const result = await agent.com.atproto.repo.listRecords(params);
+
+    return {
+      records: result.data?.records || [],
+      cursor: result.data?.cursor,
+    };
+  } catch (error) {
+    shell.error(`❌ Failed to list news from ATProto: ${error.message}`);
+    return { records: [] };
+  }
+}
