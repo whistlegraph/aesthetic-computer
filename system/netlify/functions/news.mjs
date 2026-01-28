@@ -46,6 +46,14 @@ function formatDate(date) {
   return `${days}d ago`;
 }
 
+// Generate ATProto permalink URLs
+function atprotoPermalink(atprotoData) {
+  if (!atprotoData?.uri) return null;
+  // at://did:plc:xxx/computer.aesthetic.news/rkey → pds.ls viewer
+  const pdsLsUrl = `https://pds.ls/${atprotoData.uri}`;
+  return { pdsLs: pdsLsUrl, uri: atprotoData.uri };
+}
+
 function renderHandle(handle) {
   const safeHandle = escapeHtml(handle || "@anon");
   // Extract username without @ for the URL
@@ -303,6 +311,13 @@ async function renderItemPage(database, basePath, code) {
     } catch { return ""; }
   })() : "";
 
+  // Generate ATProto permalink if available
+  const atLinks = atprotoPermalink(hydratedPost.atproto);
+  const atLinkHtml = atLinks ? `
+            <span class="news-at-link">
+              <a href="${atLinks.pdsLs}" target="_blank" rel="noopener" title="View on ATProto (${atLinks.uri})">🔗 AT</a>
+            </span>` : '';
+
   const body = `
   ${header(basePath)}
   <main class="news-main">
@@ -322,7 +337,7 @@ async function renderItemPage(database, basePath, code) {
             ${displayUrl ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${displayUrl}</a>)</span>` : ""}
           </span>
           <div class="news-item-meta">
-            ${hydratedPost.score || 0} points by ${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}
+            ${hydratedPost.score || 0} points by ${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}${atLinkHtml}
             <form class="news-admin-delete" data-news-action="delete" data-item-type="post" data-item-id="${hydratedPost.code}" data-handle="${escapeHtml(hydratedPost.handle?.replace('@', '') || '')}" method="post" action="/api/news/delete" style="display:none;">
               <input type="hidden" name="itemType" value="post" />
               <input type="hidden" name="itemId" value="${hydratedPost.code}" />
