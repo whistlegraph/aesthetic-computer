@@ -903,6 +903,39 @@ async function fun(event, context) {
             window.acSTARTING_HASH = hash;
           })();
         </script>
+        <!-- 🚀 Eager WebSocket connection - starts BEFORE boot.mjs loads -->
+        <script>
+          (function() {
+            // Start WebSocket connection immediately for faster module loading
+            // boot.mjs will pick up this connection via window.acEarlyWS
+            try {
+              var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+              var wsUrl = isLocal ? 'wss://localhost:8889' : 'wss://session-server.aesthetic.computer';
+              var ws = new WebSocket(wsUrl);
+              var connected = false;
+              var connectPromise = new Promise(function(resolve) {
+                var timeout = setTimeout(function() {
+                  if (!connected && ws.readyState !== 1) {
+                    ws.close();
+                    resolve(false);
+                  }
+                }, 800); // 800ms timeout
+                ws.onopen = function() {
+                  connected = true;
+                  clearTimeout(timeout);
+                  resolve(true);
+                };
+                ws.onerror = function() {
+                  clearTimeout(timeout);
+                  resolve(false);
+                };
+              });
+              window.acEarlyWS = { ws: ws, connected: connectPromise, isConnected: function() { return connected; } };
+            } catch(e) {
+              window.acEarlyWS = null;
+            }
+          })();
+        </script>
         <script
           crossorigin="anonymous"
           src="/aesthetic.computer/boot.mjs"

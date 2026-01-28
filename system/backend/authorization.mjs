@@ -532,9 +532,24 @@ export async function activeUsers(tenant = "aesthetic") {
 // Helper function to introduce a delay (in milliseconds).
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// � Token cache for M2M tokens (added 2026.01.28 for boot speed)
+// Auth0 M2M tokens are valid for 24 hours, we cache for 23 hours to be safe
+const tokenCache = {
+  aesthetic: { token: null, expiry: 0 },
+  sotce: { token: null, expiry: 0 }
+};
+const TOKEN_CACHE_MS = 23 * 60 * 60 * 1000; // 23 hours
+
 // 📚 Library (Useful functions used throughout the file.)
 // Obtain an auth0 access token for our M2M API.
 async function getAccessToken(got, tenant = "aesthetic") {
+  // 🚀 Check in-memory token cache first
+  const cached = tokenCache[tenant];
+  if (cached && cached.token && Date.now() < cached.expiry) {
+    shell.log(`🚀 Using cached M2M token for ${tenant} (expires in ${Math.round((cached.expiry - Date.now()) / 1000 / 60)} min)`);
+    return cached.token;
+  }
+
   let baseURI, client_id, client_secret;
   if (tenant === "aesthetic") {
     baseURI = aestheticBaseURI;
@@ -547,7 +562,7 @@ async function getAccessToken(got, tenant = "aesthetic") {
     client_secret = process.env.SOTCE_AUTH0_M2M_SECRET;
   }
 
-  shell.log(`🔑 Getting access token for ${tenant}`);
+  shell.log(`🔑 Getting fresh access token for ${tenant}`);
   shell.log(`   Client ID: ${client_id?.substring(0, 10)}...`);
   shell.log(`   Secret length: ${client_secret?.length || 0}`);
 
@@ -563,5 +578,14 @@ async function getAccessToken(got, tenant = "aesthetic") {
     responseType: "json",
   });
 
-  return tokenResponse.body.access_token;
+  const token = tokenResponse.body.access_token;
+  
+  // 🚀 Cache the token
+  tokenCache[tenant] = {
+    token,
+    expiry: Date.now() + TOKEN_CACHE_MS
+  };
+  shell.log(`💾 Cached M2M token for ${tenant}`);
+
+  return token;
 }

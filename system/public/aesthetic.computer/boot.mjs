@@ -8,31 +8,26 @@
 // This runs before anything else to establish connection ASAP
 // Skip in PACK mode (NFT bundles use import maps)
 let moduleLoader = null;
+let moduleLoaderReady = Promise.resolve(false); // Promise that resolves when loader is ready
+
 if (!window.acPACK_MODE) {
   try {
     // Dynamic import of module-loader (this one file loads via HTTP)
     const { moduleLoader: ml } = await import("./module-loader.mjs");
     moduleLoader = ml;
     
-    // Start connecting immediately (don't await - let it race)
-    const initPromise = moduleLoader.init(1500); // 1.5s timeout for initial connect
-    
-    // Prefetch critical modules while we continue booting
-    initPromise.then(connected => {
+    // 🚀 Start connecting immediately with shorter timeout (800ms)
+    // Store the promise so we can await it before importing modules
+    moduleLoaderReady = moduleLoader.init(800).then(connected => {
       if (connected) {
         // Show connection status in boot canvas (static indicator)
         if (window.acBootCanvas?.setSessionConnected) {
           window.acBootCanvas.setSessionConnected(true);
         }
-        // Only prefetch the two main entry points - they include all dependencies
-        // Don't prefetch individual modules (num, geo, help, etc.) since they're
-        // already included in disk.mjs and bios.mjs bundles. Requesting them
-        // separately causes race conditions with overlapping blob URLs.
-        moduleLoader.prefetch([
-          "lib/disk.mjs",
-          "bios.mjs"
-        ]);
+        // Prefetch disk.mjs for when bios needs it
+        moduleLoader.prefetch(["lib/disk.mjs"]);
       }
+      return connected;
     });
     
     // Store globally for use by importWithRetry
@@ -752,12 +747,10 @@ async function fetchAndShowSource(path, displayName) {
 
 let boot, parse, slug;
 try {
-  // Check WebSocket module loader status (don't wait - use if already connected)
+  // 🚀 Wait for WebSocket module loader (max 800ms, already started at top of file)
+  // This ensures we USE the WebSocket when available instead of falling back to HTTP
+  const useWsBundle = await moduleLoaderReady;
   const loader = window.acModuleLoader;
-  
-  // Use WebSocket bundle loading if already connected (from early init at top of file)
-  // Don't block boot waiting for WS - HTTP fallback works fine
-  const useWsBundle = loader?.connected;
   
   // Update boot canvas with session status
   if (typeof window.setSessionConnected === 'function') {
@@ -1055,8 +1048,35 @@ processEarlyKidlispQueue();
 // noauth mode should skip all authentication (for embedded iframes like kidlisp.com editor)
 let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acPACK_MODE || window.acSPIDER || window.acNOAUTH;
 
-// If noauth mode, immediately send session:started so disk can proceed
-if (window.acNOAUTH) {
+// 🚀 Fast-path for anonymous users: check localStorage before loading Auth0
+// Auth0 SPA SDK stores auth state with keys starting with "@@auth0spajs@@"
+let likelyLoggedIn = false;
+if (!sandboxed && !localStorageBlocked) {
+  try {
+    // Check if Auth0 has any cached auth state
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('@@auth0spajs@@')) {
+        likelyLoggedIn = true;
+        break;
+      }
+    }
+  } catch (e) {
+    // localStorage access failed, assume not logged in
+  }
+}
+
+// If noauth mode OR no Auth0 cache found, skip auth entirely
+const skipAuth = window.acNOAUTH || (!likelyLoggedIn && !sandboxed && !location.search.includes('code=') && !location.search.includes('state='));
+
+if (skipAuth && !sandboxed) {
+  if (window === window.top) console.log("🚀 Fast boot: no auth cache found, skipping Auth0");
+  bootLog("skipping auth (anonymous user)");
+  window.acDISK_SEND({
+    type: "session:started",
+    content: { user: null },
+  });
+} else if (window.acNOAUTH) {
   if (window === window.top) console.log("🔕 noauth mode: sending session:started immediately");
   window.acDISK_SEND({
     type: "session:started",
@@ -1085,7 +1105,8 @@ function loadAuth0Script() {
 }
 
 // Call this function at the desired point in your application
-if (!sandboxed) {
+// 🚀 Only load Auth0 if user likely has an auth session (or is doing OAuth callback)
+if (!sandboxed && !skipAuth) {
   window.acAuthTiming.auth0ScriptLoadStart = performance.now();
   bootLog("loading auth0 script");
   loadAuth0Script()

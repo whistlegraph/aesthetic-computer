@@ -32,8 +32,8 @@ void main() {
 }`;
 
 // =========================================================================
-// SPIN SHADER - Exact match to CPU algorithm (integer steps, nearest neighbor)
-// Works entirely in "CPU space" (Y=0 at top) - Y flipping handled during readback
+// SPIN SHADER - Exact match to CPU algorithm
+// Uses gl_FragCoord and texelFetch for pixel-perfect addressing
 // =========================================================================
 const SPIN_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
@@ -41,8 +41,8 @@ precision highp float;
 uniform sampler2D u_texture;
 uniform vec2 u_resolution;
 uniform vec2 u_center;
-uniform float u_steps;  // Integer steps only!
-uniform vec4 u_bounds;  // minX, minY, maxX, maxY
+uniform float u_steps;
+uniform vec4 u_bounds;
 
 in vec2 v_texCoord;
 out vec4 fragColor;
@@ -51,81 +51,73 @@ const float PI = 3.14159265359;
 const float TWO_PI = 6.28318530718;
 
 void main() {
-  // Convert UV to pixel coordinates in CPU space (Y=0 at top)
-  // v_texCoord.y goes 0->1 from bottom to top in WebGL, so flip to get CPU coords
-  vec2 pixelCoord = vec2(v_texCoord.x * u_resolution.x, (1.0 - v_texCoord.y) * u_resolution.y);
+  int destX = int(gl_FragCoord.x);
+  int destY = int(gl_FragCoord.y);
   
-  // Check if outside working area
-  if (pixelCoord.x < u_bounds.x || pixelCoord.x >= u_bounds.z ||
-      pixelCoord.y < u_bounds.y || pixelCoord.y >= u_bounds.w) {
-    // Sample original pixel (need to flip Y for texture lookup)
-    fragColor = texture(u_texture, vec2(v_texCoord.x, 1.0 - v_texCoord.y));
+  int minX = int(u_bounds.x);
+  int minY = int(u_bounds.y);
+  int maxX = int(u_bounds.z);
+  int maxY = int(u_bounds.w);
+  
+  if (destX < minX || destX >= maxX || destY < minY || destY >= maxY) {
+    fragColor = texelFetch(u_texture, ivec2(destX, destY), 0);
     return;
   }
   
-  // Calculate offset from center (in CPU space)
-  float dx = pixelCoord.x - u_center.x;
-  float dy = pixelCoord.y - u_center.y;
+  float dx = float(destX) - u_center.x;
+  float dy = float(destY) - u_center.y;
   float distanceSquared = dx * dx + dy * dy;
   
-  // Fast path for center pixels (same as CPU: distanceSquared < 1.0)
   if (distanceSquared < 1.0) {
-    fragColor = texture(u_texture, vec2(v_texCoord.x, 1.0 - v_texCoord.y));
+    fragColor = texelFetch(u_texture, ivec2(destX, destY), 0);
     return;
   }
   
-  // Skip very distant pixels (same threshold as CPU)
   if (distanceSquared > 16000000.0) {
     fragColor = vec4(0.0);
     return;
   }
   
-  // Exact CPU algorithm reproduction
   float distance = sqrt(distanceSquared);
   float angle = atan(dy, dx);
   float totalAngleChange = u_steps / distance;
-  
-  // source angle = angle - totalAngleChange
   float sourceAngle = angle - totalAngleChange;
   
-  // Normalize to [0, 2π) - exact CPU logic
   sourceAngle = sourceAngle - TWO_PI * floor(sourceAngle / TWO_PI);
   if (sourceAngle < 0.0) sourceAngle += TWO_PI;
   
-  // Calculate source position (in CPU space)
-  float srcX = u_center.x + distance * cos(sourceAngle);
-  float srcY = u_center.y + distance * sin(sourceAngle);
+  float srcXf = u_center.x + distance * cos(sourceAngle);
+  float srcYf = u_center.y + distance * sin(sourceAngle);
   
-  // Wrapping logic - exact match to CPU
-  vec2 boundsMin = u_bounds.xy;
-  vec2 boundsMax = u_bounds.zw;
-  vec2 boundsSize = boundsMax - boundsMin;
+  int boundsWidth = maxX - minX;
+  int boundsHeight = maxY - minY;
+  
+  int srcX = int(floor(srcXf));
+  int srcY = int(floor(srcYf));
   
   // Wrap X
-  if (srcX < boundsMin.x || srcX >= boundsMax.x) {
-    float normalizedX = srcX - boundsMin.x;
-    srcX = boundsMin.x + mod(normalizedX, boundsSize.x);
-    if (srcX < boundsMin.x) srcX += boundsSize.x;
+  if (srcX < minX || srcX >= maxX) {
+    int localX = srcX - minX;
+    localX = ((localX % boundsWidth) + boundsWidth) % boundsWidth;
+    srcX = minX + localX;
   }
   
   // Wrap Y
-  if (srcY < boundsMin.y || srcY >= boundsMax.y) {
-    float normalizedY = srcY - boundsMin.y;
-    srcY = boundsMin.y + mod(normalizedY, boundsSize.y);
-    if (srcY < boundsMin.y) srcY += boundsSize.y;
+  if (srcY < minY || srcY >= maxY) {
+    int localY = srcY - minY;
+    localY = ((localY % boundsHeight) + boundsHeight) % boundsHeight;
+    srcY = minY + localY;
   }
   
-  // Nearest neighbor with clamping (exact CPU: Math.round then clamp)
-  float nearestSrcX = max(boundsMin.x, min(boundsMax.x - 1.0, floor(srcX + 0.5)));
-  float nearestSrcY = max(boundsMin.y, min(boundsMax.y - 1.0, floor(srcY + 0.5)));
+  srcX = clamp(srcX, minX, maxX - 1);
+  srcY = clamp(srcY, minY, maxY - 1);
   
-  // Convert to UV for texture sampling (flip Y for WebGL texture)
-  vec2 sourceUV = vec2(nearestSrcX / u_resolution.x, 1.0 - nearestSrcY / u_resolution.y);
-  fragColor = texture(u_texture, sourceUV);
+  fragColor = texelFetch(u_texture, ivec2(srcX, srcY), 0);
 }`;
 
 // =========================================================================
-// COMPOSITE SHADER - Zoom + Scroll + Contrast in single pass
+// COMPOSITE SHADER - Zoom OR Scroll OR Contrast (not combined)
+// Uses gl_FragCoord and texelFetch for pixel-perfect addressing
 // =========================================================================
 const COMPOSITE_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
@@ -134,14 +126,9 @@ uniform sampler2D u_texture;
 uniform vec2 u_resolution;
 uniform vec4 u_bounds;  // minX, minY, maxX, maxY
 
-// Zoom parameters
 uniform float u_zoomScale;
-uniform vec2 u_zoomAnchor;  // Pixel coordinates
-
-// Scroll parameters
-uniform vec2 u_scrollOffset;  // Integer pixel offsets
-
-// Contrast/brightness parameters
+uniform vec2 u_zoomAnchor;  // Anchor in pixel coords
+uniform vec2 u_scrollOffset;  // dx, dy
 uniform float u_contrast;
 uniform float u_brightness;
 
@@ -149,44 +136,75 @@ in vec2 v_texCoord;
 out vec4 fragColor;
 
 void main() {
-  vec2 pixelCoord = vec2(v_texCoord.x * u_resolution.x, (1.0 - v_texCoord.y) * u_resolution.y);
+  int destX = int(gl_FragCoord.x);
+  int destY = int(gl_FragCoord.y);
+  
+  int minX = int(u_bounds.x);
+  int minY = int(u_bounds.y);
+  int maxX = int(u_bounds.z);
+  int maxY = int(u_bounds.w);
+  int boundsWidth = maxX - minX;
+  int boundsHeight = maxY - minY;
   
   // Check if outside working area
-  if (pixelCoord.x < u_bounds.x || pixelCoord.x >= u_bounds.z ||
-      pixelCoord.y < u_bounds.y || pixelCoord.y >= u_bounds.w) {
-    vec2 flippedUV = vec2(v_texCoord.x, 1.0 - v_texCoord.y);
-    fragColor = texture(u_texture, flippedUV);
+  if (destX < minX || destX >= maxX || destY < minY || destY >= maxY) {
+    fragColor = texelFetch(u_texture, ivec2(destX, destY), 0);
     return;
   }
   
-  vec2 boundsSize = u_bounds.zw - u_bounds.xy;
-  vec2 srcPixel = pixelCoord;
+  int srcX, srcY;
   
-  // Apply inverse zoom (to find source pixel)
-  if (u_zoomScale != 1.0) {
+  // Check which operation to perform (they're mutually exclusive in practice)
+  bool hasZoom = u_zoomScale != 1.0;
+  bool hasScroll = u_scrollOffset.x != 0.0 || u_scrollOffset.y != 0.0;
+  
+  if (hasZoom && !hasScroll) {
+    // ZOOM ONLY - find source pixel by inverse transform from anchor
+    float localX = float(destX - minX);
+    float localY = float(destY - minY);
+    
     float invScale = 1.0 / u_zoomScale;
-    srcPixel = u_zoomAnchor + (srcPixel - u_zoomAnchor) * invScale;
+    float anchorLocalX = u_zoomAnchor.x - float(minX);
+    float anchorLocalY = u_zoomAnchor.y - float(minY);
+    
+    float srcLocalX = anchorLocalX + (localX - anchorLocalX) * invScale;
+    float srcLocalY = anchorLocalY + (localY - anchorLocalY) * invScale;
+    
+    // Wrap around bounds (match CPU behavior)
+    srcLocalX = mod(srcLocalX, float(boundsWidth));
+    srcLocalY = mod(srcLocalY, float(boundsHeight));
+    if (srcLocalX < 0.0) srcLocalX += float(boundsWidth);
+    if (srcLocalY < 0.0) srcLocalY += float(boundsHeight);
+    
+    srcX = minX + int(floor(srcLocalX));
+    srcY = minY + int(floor(srcLocalY));
+    
+  } else if (hasScroll) {
+    // SCROLL ONLY - wrap around bounds
+    int localX = destX - minX;
+    int localY = destY - minY;
+    
+    int dx = int(u_scrollOffset.x);
+    int dy = int(u_scrollOffset.y);
+    
+    int srcLocalX = (localX + dx) % boundsWidth;
+    int srcLocalY = (localY + boundsHeight - dy) % boundsHeight;
+    
+    if (srcLocalX < 0) srcLocalX += boundsWidth;
+    if (srcLocalY < 0) srcLocalY += boundsHeight;
+    
+    srcX = minX + srcLocalX;
+    srcY = minY + srcLocalY;
+    
+  } else {
+    // NO TRANSFORM - just pass through
+    srcX = destX;
+    srcY = destY;
   }
   
-  // Apply inverse scroll (to find source pixel)
-  srcPixel -= u_scrollOffset;
+  vec4 color = texelFetch(u_texture, ivec2(srcX, srcY), 0);
   
-  // Wrap within bounds
-  vec2 relPos = srcPixel - u_bounds.xy;
-  relPos = mod(relPos, boundsSize);
-  if (relPos.x < 0.0) relPos.x += boundsSize.x;
-  if (relPos.y < 0.0) relPos.y += boundsSize.y;
-  srcPixel = u_bounds.xy + relPos;
-  
-  // Clamp to bounds
-  srcPixel = clamp(srcPixel, u_bounds.xy, u_bounds.zw - vec2(1.0));
-  
-  // Nearest neighbor sampling
-  srcPixel = floor(srcPixel + 0.5);
-  vec2 sourceUV = vec2(srcPixel.x / u_resolution.x, 1.0 - srcPixel.y / u_resolution.y);
-  vec4 color = texture(u_texture, sourceUV);
-  
-  // Apply contrast: ((color - 0.5) * contrast + 0.5)
+  // Apply contrast
   if (u_contrast != 1.0) {
     color.rgb = clamp((color.rgb - 0.5) * u_contrast + 0.5, 0.0, 1.0);
   }
@@ -544,7 +562,7 @@ export function gpuSpin(pixels, width, height, steps, anchorX = null, anchorY = 
     const centerX = anchorX ?? (minX + Math.floor(workingWidth / 2));
     const centerY = anchorY ?? (minY + Math.floor(workingHeight / 2));
     
-    // Upload pixels to texture
+    // Upload pixels directly (no flip - shader handles Y flip when sampling)
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     
@@ -568,16 +586,8 @@ export function gpuSpin(pixels, width, height, steps, anchorX = null, anchorY = 
     
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     
-    // Read back pixels (WebGL returns Y-flipped, so we flip rows when copying)
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
-    
-    // Flip Y when copying back to pixels buffer
-    const rowSize = width * 4;
-    for (let y = 0; y < height; y++) {
-      const srcRow = (height - 1 - y) * rowSize;
-      const dstRow = y * rowSize;
-      pixels.set(readbackBuffer.subarray(srcRow, srcRow + rowSize), dstRow);
-    }
+    // Read back pixels directly - shader output is already in CPU orientation
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     
@@ -630,6 +640,7 @@ export function gpuComposite(pixels, width, height, options = {}) {
     const anchorPixelX = minX + workingWidth * zoomAnchorX;
     const anchorPixelY = minY + workingHeight * zoomAnchorY;
     
+    // Upload pixels directly (no flip - shader handles Y flip when sampling)
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     
@@ -654,8 +665,8 @@ export function gpuComposite(pixels, width, height, options = {}) {
     
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
-    pixels.set(readbackBuffer);
+    // Read back pixels directly - shader output is already in CPU orientation
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     
@@ -783,9 +794,11 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
     const kernelSize = Math.min(blurRadius * 2 + 1, 15);
     const weights = generateGaussianWeights(kernelSize);
     
-    // Upload pixels to texture
+    // Upload pixels to texture with Y-flip
     gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     
     // PASS 1: Horizontal blur (texture -> pingPong)
     gl.bindFramebuffer(gl.FRAMEBUFFER, pingPongFramebuffer);
@@ -858,9 +871,11 @@ export function gpuSharpen(pixels, width, height, strength = 1, mask = null) {
     const maxX = mask ? mask.x + mask.width : width;
     const maxY = mask ? mask.y + mask.height : height;
     
-    // Upload pixels to texture
+    // Upload pixels to texture with Y-flip
     gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     
     // Render sharpen to framebuffer
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
