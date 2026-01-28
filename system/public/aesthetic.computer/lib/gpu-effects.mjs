@@ -16,6 +16,16 @@ let initialized = false;
 let lastWidth = 0;
 let lastHeight = 0;
 
+// VAO for efficient attribute setup
+let vao = null;
+
+// Cached uniform locations to avoid getUniformLocation calls every frame
+let spinUniforms = null;
+let compositeUniforms = null;
+let blurHUniforms = null;
+let blurVUniforms = null;
+let sharpenUniforms = null;
+
 // Accumulated values (matching CPU behavior)
 let spinAccumulator = 0;
 let scrollAccumulatorX = 0;
@@ -91,24 +101,36 @@ void main() {
   
   int boundsWidth = maxX - minX;
   int boundsHeight = maxY - minY;
+  float fBoundsWidth = float(boundsWidth);
+  float fBoundsHeight = float(boundsHeight);
+  float fMinX = float(minX);
+  float fMinY = float(minY);
+  float fMaxX = float(maxX);
+  float fMaxY = float(maxY);
   
-  int srcX = int(floor(srcXf));
-  int srcY = int(floor(srcYf));
+  // Wrap as floats FIRST (matching CPU behavior), then round
+  float wrappedSrcX = srcXf;
+  float wrappedSrcY = srcYf;
   
-  // Wrap X
-  if (srcX < minX || srcX >= maxX) {
-    int localX = srcX - minX;
-    localX = ((localX % boundsWidth) + boundsWidth) % boundsWidth;
-    srcX = minX + localX;
+  // Wrap X (same float math as CPU)
+  if (srcXf < fMinX || srcXf >= fMaxX) {
+    float normalizedX = srcXf - fMinX;
+    wrappedSrcX = fMinX + (normalizedX - fBoundsWidth * floor(normalizedX / fBoundsWidth));
+    if (wrappedSrcX < fMinX) wrappedSrcX += fBoundsWidth;
   }
   
-  // Wrap Y
-  if (srcY < minY || srcY >= maxY) {
-    int localY = srcY - minY;
-    localY = ((localY % boundsHeight) + boundsHeight) % boundsHeight;
-    srcY = minY + localY;
+  // Wrap Y (same float math as CPU)
+  if (srcYf < fMinY || srcYf >= fMaxY) {
+    float normalizedY = srcYf - fMinY;
+    wrappedSrcY = fMinY + (normalizedY - fBoundsHeight * floor(normalizedY / fBoundsHeight));
+    if (wrappedSrcY < fMinY) wrappedSrcY += fBoundsHeight;
   }
   
+  // NOW round to nearest integer (matching CPU's Math.round)
+  int srcX = int(round(wrappedSrcX));
+  int srcY = int(round(wrappedSrcY));
+  
+  // Final clamp (matching CPU's Math.max/min)
   srcX = clamp(srcX, minX, maxX - 1);
   srcY = clamp(srcY, minY, maxY - 1);
   
@@ -160,24 +182,37 @@ void main() {
   
   if (hasZoom && !hasScroll) {
     // ZOOM ONLY - find source pixel by inverse transform from anchor
+    // CPU uses: srcX = (destX - anchorPixelX) * invScale + anchorPixelX
+    float anchorLocalX = u_zoomAnchor.x - float(minX);
+    float anchorLocalY = u_zoomAnchor.y - float(minY);
     float localX = float(destX - minX);
     float localY = float(destY - minY);
     
     float invScale = 1.0 / u_zoomScale;
-    float anchorLocalX = u_zoomAnchor.x - float(minX);
-    float anchorLocalY = u_zoomAnchor.y - float(minY);
+    float srcXf = (localX - anchorLocalX) * invScale + anchorLocalX;
+    float srcYf = (localY - anchorLocalY) * invScale + anchorLocalY;
     
-    float srcLocalX = anchorLocalX + (localX - anchorLocalX) * invScale;
-    float srcLocalY = anchorLocalY + (localY - anchorLocalY) * invScale;
+    // Match CPU: wrap floats FIRST using normalize-then-denormalize approach
+    // CPU: normalizedX = (srcX - minX) / workingWidth
+    //      wrappedNormX = normalizedX - floor(normalizedX)
+    //      wrappedSrcX = minX + wrappedNormX * workingWidth
+    float invWidth = 1.0 / float(boundsWidth);
+    float invHeight = 1.0 / float(boundsHeight);
     
-    // Wrap around bounds (match CPU behavior)
-    srcLocalX = mod(srcLocalX, float(boundsWidth));
-    srcLocalY = mod(srcLocalY, float(boundsHeight));
-    if (srcLocalX < 0.0) srcLocalX += float(boundsWidth);
-    if (srcLocalY < 0.0) srcLocalY += float(boundsHeight);
+    float normalizedX = srcXf * invWidth;
+    float normalizedY = srcYf * invHeight;
+    float wrappedNormX = normalizedX - floor(normalizedX);
+    float wrappedNormY = normalizedY - floor(normalizedY);
+    float wrappedSrcXf = wrappedNormX * float(boundsWidth);
+    float wrappedSrcYf = wrappedNormY * float(boundsHeight);
     
-    srcX = minX + int(floor(srcLocalX));
-    srcY = minY + int(floor(srcLocalY));
+    // CPU uses round() for nearest-neighbor, then final modulo clamp
+    int nearestX = int(round(wrappedSrcXf));
+    int nearestY = int(round(wrappedSrcYf));
+    
+    // Final modulo wrap and clamp (match CPU's finalSrcX calculation)
+    srcX = minX + ((nearestX % boundsWidth) + boundsWidth) % boundsWidth;
+    srcY = minY + ((nearestY % boundsHeight) + boundsHeight) % boundsHeight;
     
   } else if (hasScroll) {
     // SCROLL ONLY - wrap around bounds
@@ -336,8 +371,37 @@ let sharpenProgram = null;
 let pingPongTexture = null;  // For multi-pass effects
 let pingPongFramebuffer = null;
 
+// Helper to resize textures without recreating the entire context
+function resizeTextures(width, height) {
+  // Resize input texture
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  
+  // Resize output texture
+  gl.bindTexture(gl.TEXTURE_2D, outputTexture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  
+  // Resize ping-pong texture
+  gl.bindTexture(gl.TEXTURE_2D, pingPongTexture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  
+  // Resize canvas
+  canvas.width = width;
+  canvas.height = height;
+  
+  // Reallocate readback buffer
+  readbackBuffer = new Uint8Array(width * height * 4);
+  
+  lastWidth = width;
+  lastHeight = height;
+}
+
 function initWebGL2(width, height) {
-  if (initialized && width === lastWidth && height === lastHeight) {
+  // If already initialized, just resize textures if needed
+  if (initialized && gl) {
+    if (width !== lastWidth || height !== lastHeight) {
+      resizeTextures(width, height);
+    }
     return true;
   }
   
@@ -427,6 +491,55 @@ function initWebGL2(width, height) {
       return false;
     }
     
+    // Cache all uniform locations to avoid getUniformLocation calls every frame
+    spinUniforms = {
+      u_resolution: gl.getUniformLocation(spinProgram, 'u_resolution'),
+      u_center: gl.getUniformLocation(spinProgram, 'u_center'),
+      u_steps: gl.getUniformLocation(spinProgram, 'u_steps'),
+      u_bounds: gl.getUniformLocation(spinProgram, 'u_bounds'),
+      u_texture: gl.getUniformLocation(spinProgram, 'u_texture'),
+    };
+    
+    compositeUniforms = {
+      u_resolution: gl.getUniformLocation(compositeProgram, 'u_resolution'),
+      u_bounds: gl.getUniformLocation(compositeProgram, 'u_bounds'),
+      u_zoomScale: gl.getUniformLocation(compositeProgram, 'u_zoomScale'),
+      u_zoomAnchor: gl.getUniformLocation(compositeProgram, 'u_zoomAnchor'),
+      u_scrollOffset: gl.getUniformLocation(compositeProgram, 'u_scrollOffset'),
+      u_contrast: gl.getUniformLocation(compositeProgram, 'u_contrast'),
+      u_brightness: gl.getUniformLocation(compositeProgram, 'u_brightness'),
+      u_texture: gl.getUniformLocation(compositeProgram, 'u_texture'),
+    };
+    
+    blurHUniforms = {
+      u_resolution: gl.getUniformLocation(blurHProgram, 'u_resolution'),
+      u_bounds: gl.getUniformLocation(blurHProgram, 'u_bounds'),
+      u_radius: gl.getUniformLocation(blurHProgram, 'u_radius'),
+      u_weights: gl.getUniformLocation(blurHProgram, 'u_weights'),
+      u_kernelSize: gl.getUniformLocation(blurHProgram, 'u_kernelSize'),
+      u_texture: gl.getUniformLocation(blurHProgram, 'u_texture'),
+    };
+    
+    blurVUniforms = {
+      u_resolution: gl.getUniformLocation(blurVProgram, 'u_resolution'),
+      u_bounds: gl.getUniformLocation(blurVProgram, 'u_bounds'),
+      u_radius: gl.getUniformLocation(blurVProgram, 'u_radius'),
+      u_weights: gl.getUniformLocation(blurVProgram, 'u_weights'),
+      u_kernelSize: gl.getUniformLocation(blurVProgram, 'u_kernelSize'),
+      u_texture: gl.getUniformLocation(blurVProgram, 'u_texture'),
+    };
+    
+    sharpenUniforms = {
+      u_resolution: gl.getUniformLocation(sharpenProgram, 'u_resolution'),
+      u_bounds: gl.getUniformLocation(sharpenProgram, 'u_bounds'),
+      u_strength: gl.getUniformLocation(sharpenProgram, 'u_strength'),
+      u_texture: gl.getUniformLocation(sharpenProgram, 'u_texture'),
+    };
+    
+    // Create VAO for efficient attribute setup
+    vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    
     // Create geometry (full-screen quad)
     positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -435,12 +548,24 @@ function initWebGL2(width, height) {
       -1,  1,  1, -1,   1, 1
     ]), gl.STATIC_DRAW);
     
+    // Set up position attribute in VAO
+    const posLoc = gl.getAttribLocation(spinProgram, 'a_position');
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+    
     texCoordBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
       0, 0,  1, 0,  0, 1,
       0, 1,  1, 0,  1, 1
     ]), gl.STATIC_DRAW);
+    
+    // Set up texCoord attribute in VAO
+    const texLoc = gl.getAttribLocation(spinProgram, 'a_texCoord');
+    gl.enableVertexAttribArray(texLoc);
+    gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 0, 0);
+    
+    gl.bindVertexArray(null);
     
     // Create input texture (NEAREST for pixel-perfect sampling)
     texture = gl.createTexture();
@@ -507,17 +632,8 @@ function compileShader(gl, type, source) {
   return shader;
 }
 
-function setupAttributes(program) {
-  const posLoc = gl.getAttribLocation(program, 'a_position');
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-  gl.enableVertexAttribArray(posLoc);
-  gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-  
-  const texLoc = gl.getAttribLocation(program, 'a_texCoord');
-  gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-  gl.enableVertexAttribArray(texLoc);
-  gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 0, 0);
-}
+// Note: setupAttributes is no longer used - we use VAOs instead for better performance
+// The VAO is set up once during initialization and bound before each draw call
 
 /**
  * GPU-accelerated spin operation - EXACT MATCH to CPU algorithm
@@ -572,14 +688,15 @@ export function gpuSpin(pixels, width, height, steps, anchorX = null, anchorY = 
     
     gl.useProgram(spinProgram);
     
-    // Set uniforms
-    gl.uniform2f(gl.getUniformLocation(spinProgram, 'u_resolution'), width, height);
-    gl.uniform2f(gl.getUniformLocation(spinProgram, 'u_center'), centerX, centerY);
-    gl.uniform1f(gl.getUniformLocation(spinProgram, 'u_steps'), integerSteps);
-    gl.uniform4f(gl.getUniformLocation(spinProgram, 'u_bounds'), minX, minY, maxX, maxY);
-    gl.uniform1i(gl.getUniformLocation(spinProgram, 'u_texture'), 0);
+    // Set uniforms (using cached locations for performance)
+    gl.uniform2f(spinUniforms.u_resolution, width, height);
+    gl.uniform2f(spinUniforms.u_center, centerX, centerY);
+    gl.uniform1f(spinUniforms.u_steps, integerSteps);
+    gl.uniform4f(spinUniforms.u_bounds, minX, minY, maxX, maxY);
+    gl.uniform1i(spinUniforms.u_texture, 0);
     
-    setupAttributes(spinProgram);
+    // Use VAO for efficient attribute binding
+    gl.bindVertexArray(vao);
     
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -649,16 +766,18 @@ export function gpuComposite(pixels, width, height, options = {}) {
     
     gl.useProgram(compositeProgram);
     
-    gl.uniform2f(gl.getUniformLocation(compositeProgram, 'u_resolution'), width, height);
-    gl.uniform4f(gl.getUniformLocation(compositeProgram, 'u_bounds'), minX, minY, maxX, maxY);
-    gl.uniform1f(gl.getUniformLocation(compositeProgram, 'u_zoomScale'), zoom);
-    gl.uniform2f(gl.getUniformLocation(compositeProgram, 'u_zoomAnchor'), anchorPixelX, anchorPixelY);
-    gl.uniform2f(gl.getUniformLocation(compositeProgram, 'u_scrollOffset'), scrollX, scrollY);
-    gl.uniform1f(gl.getUniformLocation(compositeProgram, 'u_contrast'), contrast);
-    gl.uniform1f(gl.getUniformLocation(compositeProgram, 'u_brightness'), brightness);
-    gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_texture'), 0);
+    // Set uniforms (using cached locations for performance)
+    gl.uniform2f(compositeUniforms.u_resolution, width, height);
+    gl.uniform4f(compositeUniforms.u_bounds, minX, minY, maxX, maxY);
+    gl.uniform1f(compositeUniforms.u_zoomScale, zoom);
+    gl.uniform2f(compositeUniforms.u_zoomAnchor, anchorPixelX, anchorPixelY);
+    gl.uniform2f(compositeUniforms.u_scrollOffset, scrollX, scrollY);
+    gl.uniform1f(compositeUniforms.u_contrast, contrast);
+    gl.uniform1f(compositeUniforms.u_brightness, brightness);
+    gl.uniform1i(compositeUniforms.u_texture, 0);
     
-    setupAttributes(compositeProgram);
+    // Use VAO for efficient attribute binding
+    gl.bindVertexArray(vao);
     
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -805,14 +924,15 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
     gl.viewport(0, 0, width, height);
     gl.useProgram(blurHProgram);
     
-    gl.uniform2f(gl.getUniformLocation(blurHProgram, 'u_resolution'), width, height);
-    gl.uniform4f(gl.getUniformLocation(blurHProgram, 'u_bounds'), minX, minY, maxX, maxY);
-    gl.uniform1f(gl.getUniformLocation(blurHProgram, 'u_radius'), blurRadius);
-    gl.uniform1fv(gl.getUniformLocation(blurHProgram, 'u_weights'), weights);
-    gl.uniform1i(gl.getUniformLocation(blurHProgram, 'u_kernelSize'), kernelSize);
-    gl.uniform1i(gl.getUniformLocation(blurHProgram, 'u_texture'), 0);
+    // Set uniforms (using cached locations for performance)
+    gl.uniform2f(blurHUniforms.u_resolution, width, height);
+    gl.uniform4f(blurHUniforms.u_bounds, minX, minY, maxX, maxY);
+    gl.uniform1f(blurHUniforms.u_radius, blurRadius);
+    gl.uniform1fv(blurHUniforms.u_weights, weights);
+    gl.uniform1i(blurHUniforms.u_kernelSize, kernelSize);
+    gl.uniform1i(blurHUniforms.u_texture, 0);
     
-    setupAttributes(blurHProgram);
+    gl.bindVertexArray(vao);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -821,14 +941,15 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.useProgram(blurVProgram);
     
-    gl.uniform2f(gl.getUniformLocation(blurVProgram, 'u_resolution'), width, height);
-    gl.uniform4f(gl.getUniformLocation(blurVProgram, 'u_bounds'), minX, minY, maxX, maxY);
-    gl.uniform1f(gl.getUniformLocation(blurVProgram, 'u_radius'), blurRadius);
-    gl.uniform1fv(gl.getUniformLocation(blurVProgram, 'u_weights'), weights);
-    gl.uniform1i(gl.getUniformLocation(blurVProgram, 'u_kernelSize'), kernelSize);
-    gl.uniform1i(gl.getUniformLocation(blurVProgram, 'u_texture'), 0);
+    // Set uniforms (using cached locations for performance)
+    gl.uniform2f(blurVUniforms.u_resolution, width, height);
+    gl.uniform4f(blurVUniforms.u_bounds, minX, minY, maxX, maxY);
+    gl.uniform1f(blurVUniforms.u_radius, blurRadius);
+    gl.uniform1fv(blurVUniforms.u_weights, weights);
+    gl.uniform1i(blurVUniforms.u_kernelSize, kernelSize);
+    gl.uniform1i(blurVUniforms.u_texture, 0);
     
-    setupAttributes(blurVProgram);
+    // VAO already bound
     gl.bindTexture(gl.TEXTURE_2D, pingPongTexture);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     
@@ -882,12 +1003,13 @@ export function gpuSharpen(pixels, width, height, strength = 1, mask = null) {
     gl.viewport(0, 0, width, height);
     gl.useProgram(sharpenProgram);
     
-    gl.uniform2f(gl.getUniformLocation(sharpenProgram, 'u_resolution'), width, height);
-    gl.uniform4f(gl.getUniformLocation(sharpenProgram, 'u_bounds'), minX, minY, maxX, maxY);
-    gl.uniform1f(gl.getUniformLocation(sharpenProgram, 'u_strength'), strength);
-    gl.uniform1i(gl.getUniformLocation(sharpenProgram, 'u_texture'), 0);
+    // Set uniforms (using cached locations for performance)
+    gl.uniform2f(sharpenUniforms.u_resolution, width, height);
+    gl.uniform4f(sharpenUniforms.u_bounds, minX, minY, maxX, maxY);
+    gl.uniform1f(sharpenUniforms.u_strength, strength);
+    gl.uniform1i(sharpenUniforms.u_texture, 0);
     
-    setupAttributes(sharpenProgram);
+    gl.bindVertexArray(vao);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
