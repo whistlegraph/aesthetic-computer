@@ -1545,3 +1545,26 @@ body {
   height: 100%;
   border: none;
 }
+
+
+/* ===== ATProto Link ===== */
+.news-at-link {
+  margin-left: 6px;
+}
+
+.news-at-link a {
+  font-size: 9pt;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  transition: background 0.15s, color 0.15s;
+}
+
+.news-at-link a:hover {
+  background: var(--accent);
+  color: var(--text-header);
+  border-color: var(--accent);
+}
