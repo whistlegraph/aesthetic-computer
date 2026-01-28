@@ -1196,6 +1196,71 @@
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), 0 0 20px rgba(138, 43, 226, 0.3);
     }
     
+    /* KidLisp Documentation Tooltip */
+    #kidlisp-doc-tooltip {
+      background: var(--bg-secondary, #252526);
+      color: var(--text-primary, #d4d4d4);
+      border: 2px solid #FF69B4;
+      border-radius: 8px;
+      padding: 12px 16px;
+      max-width: 420px;
+      font-family: 'Berkeley Mono', 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+      line-height: 1.5;
+    }
+    
+    [data-theme="light"] #kidlisp-doc-tooltip {
+      background: #fffacd;
+      color: #333;
+      border-color: #FF1493;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+    }
+    
+    #kidlisp-doc-tooltip .doc-signature {
+      display: block;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 6px 10px;
+      margin-top: 6px;
+      border-radius: 4px;
+      color: #98c379;
+      font-size: 14px;
+    }
+    
+    [data-theme="light"] #kidlisp-doc-tooltip .doc-signature {
+      background: rgba(0, 0, 0, 0.08);
+      color: #2e7d32;
+    }
+    
+    #kidlisp-doc-tooltip .doc-category {
+      background: var(--bg-tertiary, #3a3530);
+      color: #61afef;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      display: inline-block;
+    }
+    
+    [data-theme="light"] #kidlisp-doc-tooltip .doc-category {
+      background: #e0e0e0;
+      color: #1565c0;
+    }
+    
+    #kidlisp-doc-tooltip .doc-example {
+      display: block;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 4px 8px;
+      margin-top: 4px;
+      border-radius: 3px;
+      font-size: 12px;
+      color: #e5c07b;
+    }
+    
+    [data-theme="light"] #kidlisp-doc-tooltip .doc-example {
+      background: rgba(0, 0, 0, 0.06);
+      color: #8b5a00;
+    }
+    
     /* Live running state - green outline matching play button (#90EE90) */
     /* Applied to editor-panel to show across all viz views */
     .editor-panel.live-running::before,
@@ -4148,6 +4213,64 @@
       padding: 24px;
       color: var(--text-tertiary);
       font-size: 13px;
+      font-style: italic;
+    }
+    
+    /* "... and X more from @author" indicator */
+    .owner-more-indicator {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      padding: 6px 12px 6px 60px; /* Indent to align with code text */
+      cursor: pointer;
+      transition: background 0.15s ease;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    
+    .owner-more-indicator:hover {
+      background: rgba(var(--accent-rgb, 147, 51, 234), 0.08);
+    }
+    
+    .owner-more-indicator .more-count {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-style: italic;
+      opacity: 0.8;
+    }
+    
+    .owner-more-indicator:hover .more-count {
+      color: var(--accent-color, #9333ea);
+      opacity: 1;
+    }
+    
+    /* "Back to all" header when viewing single author */
+    .owner-back-indicator {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      cursor: pointer;
+      background: rgba(var(--accent-rgb, 147, 51, 234), 0.06);
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      transition: background 0.15s ease;
+    }
+    
+    .owner-back-indicator:hover {
+      background: rgba(var(--accent-rgb, 147, 51, 234), 0.12);
+    }
+    
+    .owner-back-indicator .back-text {
+      font-size: 11px;
+      color: var(--accent-color, #9333ea);
+      font-weight: 500;
+    }
+    
+    .owner-back-indicator .owner-filter {
+      font-size: 10px;
+      color: var(--text-tertiary);
       font-style: italic;
     }
     
@@ -13716,7 +13839,7 @@
         lightbulb: { enabled: 'off' },
         inlayHints: { enabled: 'off' },
         links: false,
-        contextmenu: false,
+        contextmenu: true, // Enable for KidLisp documentation lookup
         // Disable accessibility features (removes keyboard icon in top-right)
         accessibilitySupport: 'off',
         ariaLabel: 'KidLisp Code Editor',
@@ -13724,6 +13847,832 @@
       
       // Make editor globally accessible for other parts of the page
       window.editor = editor;
+      
+      // ==================== KIDLISP DOCUMENTATION CONTEXT MENU ====================
+      // Custom right-click context menu for KidLisp documentation lookup
+      
+      // KidLisp Documentation - mirrors KIDLISP_DOCS from kidlisp.mjs
+      // Keep this in sync with system/public/aesthetic.computer/lib/kidlisp.mjs
+      const KIDLISP_DOCS = {
+        // === SCREEN MANAGEMENT ===
+        wipe: {
+          signature: "(wipe color)",
+          description: "Clear the entire screen with the specified color.",
+          category: "screen",
+          examples: ['(wipe "black")', '(wipe "navy")', "(wipe 30 30 40)"]
+        },
+        resolution: {
+          signature: "(resolution width height)",
+          description: "Set the canvas resolution. Changes the drawing area dimensions.",
+          category: "screen",
+          examples: ["(resolution 512 512)", "(resolution 128 128)"]
+        },
+        // === DRAWING PRIMITIVES ===
+        ink: {
+          signature: "(ink color [alpha])",
+          description: "Set the drawing color for subsequent operations. All shapes and lines will use this color until changed.",
+          category: "drawing",
+          examples: ['(ink "red")', "(ink 255 0 128)", '(ink "blue" 128)', "(ink rainbow)"]
+        },
+        line: {
+          signature: "(line x1 y1 x2 y2)",
+          description: "Draw a line from point (x1, y1) to point (x2, y2) using the current ink color.",
+          category: "drawing",
+          examples: ["(line 0 0 100 100)", "(line 50 0 50 height)"]
+        },
+        box: {
+          signature: "(box x y width height [mode])",
+          description: "Draw a rectangle. Respects the global fill/outline mode, or can override with explicit mode parameter.",
+          category: "drawing",
+          examples: ["(box 10 10 50 50)", '(box 100 100 40 40 "outline")', '(box 0 0 width height "fill")']
+        },
+        circle: {
+          signature: "(circle x y radius [mode])",
+          description: "Draw a circle centered at (x, y). Respects the global fill/outline mode.",
+          category: "drawing",
+          examples: ["(circle 100 100 50)", '(circle 50 50 25 "outline")', '(circle (/ width 2) (/ height 2) 30 "fill")']
+        },
+        tri: {
+          signature: "(tri x1 y1 x2 y2 x3 y3 [mode])",
+          description: "Draw a triangle with three vertices. Respects the global fill/outline mode.",
+          category: "drawing",
+          examples: ["(tri 50 0 100 100 0 100)", "(tri 0 0 width 0 (/ width 2) height)"]
+        },
+        plot: {
+          signature: "(plot x y)",
+          description: "Set a single pixel at the specified coordinates using the current ink color.",
+          category: "drawing",
+          examples: ["(plot 50 50)", "(plot (wiggle width) (wiggle height))"]
+        },
+        point: {
+          signature: "(point x y)",
+          description: "Alias for plot. Set a single pixel at (x, y).",
+          category: "drawing",
+          examples: ["(point 100 100)"]
+        },
+        shape: {
+          signature: "(shape points... [mode])",
+          description: "Draw a polygon from a list of coordinate pairs.",
+          category: "drawing",
+          examples: ['(shape 0 0 50 0 50 50 0 50 "fill")']
+        },
+        flood: {
+          signature: "(flood x y [color])",
+          description: "Flood fill starting at (x, y). Uses current ink if no color specified.",
+          category: "drawing",
+          examples: ["(flood 100 100)", '(flood 50 50 "red")']
+        },
+        // === FILL/OUTLINE MODE ===
+        fill: {
+          signature: "(fill)",
+          description: "Set global fill mode. All subsequent shapes (circle, box, tri) will be filled. This is the default mode.",
+          category: "mode",
+          examples: ["(fill)", "(fill) (circle 50 50 30)"]
+        },
+        outline: {
+          signature: "(outline)",
+          description: "Set global outline mode. All subsequent shapes will only draw their outline/stroke.",
+          category: "mode",
+          examples: ["(outline)", "(outline) (box 0 0 100 100)"]
+        },
+        stroke: {
+          signature: "(stroke)",
+          description: "Alias for outline. Set global outline mode (Processing compatibility).",
+          category: "mode",
+          examples: ["(stroke)"]
+        },
+        nofill: {
+          signature: "(nofill)",
+          description: "Alias for outline. Set shapes to be outlined only (Processing-style).",
+          category: "mode",
+          examples: ["(nofill)"]
+        },
+        nostroke: {
+          signature: "(nostroke)",
+          description: "Alias for fill. Set shapes to be filled (Processing-style).",
+          category: "mode",
+          examples: ["(nostroke)"]
+        },
+        // === IMAGE FUNCTIONS ===
+        paste: {
+          signature: "(paste url x y [scale])",
+          description: "Paste an image from a URL at the specified coordinates. URLs can be unquoted.",
+          category: "image",
+          examples: ["(paste https://example.com/image.png 0 0)", '(paste "https://example.com/logo.png" 50 50 0.5)']
+        },
+        stamp: {
+          signature: "(stamp url x y [scale])",
+          description: "Paste an image centered at the specified coordinates.",
+          category: "image",
+          examples: ["(stamp https://example.com/sprite.png (/ width 2) (/ height 2))"]
+        },
+        // === TEXT ===
+        write: {
+          signature: "(write text position [options])",
+          description: "Write text at a position. Position can be {x, y} or {center: 'xy'}.",
+          category: "text",
+          examples: ['(write "Hello!" { x: 10 y: 10 })', '(write "Centered" { center: "xy" })']
+        },
+        // === ANIMATION & EFFECTS ===
+        wiggle: {
+          signature: "(wiggle amount)",
+          description: "Returns a random value in the range ±amount/2. Changes each frame for animation.",
+          category: "animation",
+          examples: ["(wiggle 10)", "(circle (+ 100 (wiggle 20)) 100 10)", "(ink (wiggle 255) 0 0)"]
+        },
+        scroll: {
+          signature: "(scroll [dx] [dy])",
+          description: "Scroll the canvas by dx horizontally and dy vertically. With no args, picks a random direction once.",
+          category: "animation",
+          examples: ["(scroll)", "(scroll 1 0)", "(scroll 0 -1)"]
+        },
+        spin: {
+          signature: "(spin [speed])",
+          description: "Rotate the canvas. Creates spinning/rotating effects.",
+          category: "animation",
+          examples: ["(spin)", "(spin 0.5)"]
+        },
+        resetSpin: {
+          signature: "(resetSpin)",
+          description: "Reset the spin rotation back to zero.",
+          category: "animation",
+          examples: ["(resetSpin)"]
+        },
+        smoothspin: {
+          signature: "(smoothspin [speed])",
+          description: "Smooth rotation of the canvas with interpolation.",
+          category: "animation",
+          examples: ["(smoothspin 0.01)"]
+        },
+        zoom: {
+          signature: "(zoom factor)",
+          description: "Zoom the canvas by a factor.",
+          category: "animation",
+          examples: ["(zoom 1.01)", "(zoom 0.99)"]
+        },
+        fade: {
+          signature: "(fade amount)",
+          description: "Fade the screen by reducing alpha. Creates trail effects.",
+          category: "animation",
+          examples: ["(fade 10)", "(fade 50)"]
+        },
+        bake: {
+          signature: "(bake)",
+          description: "Render current drawing to a persistent background layer. Drawing accumulates on top.",
+          category: "animation",
+          examples: ["(bake)", "(once (bake))"]
+        },
+        // === VARIABLES & CONTROL ===
+        def: {
+          signature: "(def name value)",
+          description: "Define a variable with a name and value. The variable persists across frames.",
+          category: "variable",
+          examples: ["(def x 100)", '(def color "red")', "(def speed 2.5)"]
+        },
+        set: {
+          signature: "(set name value)",
+          description: "Update an existing variable's value.",
+          category: "variable",
+          examples: ["(set x (+ x 1))"]
+        },
+        later: {
+          signature: "(later name params... body)",
+          description: "Define a reusable function with parameters. Call it later by name.",
+          category: "control",
+          examples: ["(later star x y (circle x y 10))", "(later cross x y (line (- x 5) y (+ x 5) y) (line x (- y 5) x (+ y 5)))"]
+        },
+        repeat: {
+          signature: "(repeat count [iterator] body...)",
+          description: "Execute body multiple times. Optional iterator variable gets the current index (0-based).",
+          category: "control",
+          examples: ["(repeat 10 (plot (wiggle width) (wiggle height)))", "(repeat height i (line 0 i width i))", "(repeat 100 n (ink rainbow) (circle n n 5))"]
+        },
+        bunch: {
+          signature: "(bunch count [iterator] body...)",
+          description: "Alias for repeat. Shorter, more playful name.",
+          category: "control",
+          examples: ["(bunch 50 (plot (wiggle width) (wiggle height)))"]
+        },
+        loop: {
+          signature: "(loop count body...)",
+          description: "Alias for repeat.",
+          category: "control",
+          examples: ["(loop 10 (circle (wiggle width) (wiggle height) 5))"]
+        },
+        once: {
+          signature: "(once expression)",
+          description: "Execute expression only once (first frame), not every frame. Useful for initialization.",
+          category: "control",
+          examples: ['(once (wipe "black"))', "(once (def x 0))", "(once (bake))"]
+        },
+        now: {
+          signature: "(now expression)",
+          description: "Execute expression immediately (opposite of scheduled). Executes every frame.",
+          category: "control",
+          examples: ["(now (wipe))"]
+        },
+        jump: {
+          signature: "(jump destination)",
+          description: "Navigate to another piece or URL. Resets KidLisp state.",
+          category: "control",
+          examples: ['(jump "prompt")', '(jump "https://example.com")', "(jump $abc123)"]
+        },
+        // === LOGIC ===
+        if: {
+          signature: "(if condition then-expr [else-expr])",
+          description: "Conditional expression. Returns then-expr if condition is truthy, else-expr otherwise.",
+          category: "logic",
+          examples: ["(if (> x 100) (set x 0))", '(if (< x 50) (ink "red") (ink "blue"))']
+        },
+        choose: {
+          signature: "(choose option1 option2 ...)",
+          description: "Randomly choose one of the provided options each frame.",
+          category: "logic",
+          examples: ['(ink (choose "red" "blue" "green"))', "(circle 100 100 (choose 10 20 30))"]
+        },
+        and: {
+          signature: "(and a b ...)",
+          description: "Logical AND. Returns true if all arguments are truthy.",
+          category: "logic",
+          examples: ["(and (> x 0) (< x 100))"]
+        },
+        or: {
+          signature: "(or a b ...)",
+          description: "Logical OR. Returns true if any argument is truthy.",
+          category: "logic",
+          examples: ['(or (= color "red") (= color "blue"))']
+        },
+        not: {
+          signature: "(not value)",
+          description: "Logical NOT. Returns true if value is falsy.",
+          category: "logic",
+          examples: ["(not (= x 0))"]
+        },
+        // === MATH ===
+        "+": {
+          signature: "(+ a b ...)",
+          description: "Add multiple numbers together.",
+          category: "math",
+          examples: ["(+ 1 2)", "(+ x 10)", "(+ 1 2 3 4 5)"]
+        },
+        "-": {
+          signature: "(- a b)",
+          description: "Subtract b from a.",
+          category: "math",
+          examples: ["(- 10 5)", "(- x 1)"]
+        },
+        "*": {
+          signature: "(* a b ...)",
+          description: "Multiply multiple numbers together.",
+          category: "math",
+          examples: ["(* 2 3)", "(* x 1.5)"]
+        },
+        "/": {
+          signature: "(/ a b)",
+          description: "Divide a by b.",
+          category: "math",
+          examples: ["(/ 10 2)", "(/ width 2)"]
+        },
+        "%": {
+          signature: "(% a b)",
+          description: "Modulo (remainder) of a divided by b.",
+          category: "math",
+          examples: ["(% frame 60)", "(% x width)"]
+        },
+        mod: {
+          signature: "(mod a b)",
+          description: "Alias for %. Modulo operation.",
+          category: "math",
+          examples: ["(mod frame 100)"]
+        },
+        sin: {
+          signature: "(sin angle)",
+          description: "Sine of angle (in radians).",
+          category: "math",
+          examples: ["(sin time)", "(* 50 (sin (* time 2)))"]
+        },
+        cos: {
+          signature: "(cos angle)",
+          description: "Cosine of angle (in radians).",
+          category: "math",
+          examples: ["(cos time)", "(+ 100 (* 50 (cos time)))"]
+        },
+        tan: {
+          signature: "(tan angle)",
+          description: "Tangent of angle (in radians).",
+          category: "math",
+          examples: ["(tan time)"]
+        },
+        abs: {
+          signature: "(abs value)",
+          description: "Absolute value.",
+          category: "math",
+          examples: ["(abs -10)", "(abs (- x 100))"]
+        },
+        floor: {
+          signature: "(floor value)",
+          description: "Round down to nearest integer.",
+          category: "math",
+          examples: ["(floor 3.7)", "(floor (/ width 3))"]
+        },
+        ceil: {
+          signature: "(ceil value)",
+          description: "Round up to nearest integer.",
+          category: "math",
+          examples: ["(ceil 3.2)"]
+        },
+        round: {
+          signature: "(round value)",
+          description: "Round to nearest integer.",
+          category: "math",
+          examples: ["(round 3.5)"]
+        },
+        sqrt: {
+          signature: "(sqrt value)",
+          description: "Square root.",
+          category: "math",
+          examples: ["(sqrt 16)", "(sqrt (+ (* dx dx) (* dy dy)))"]
+        },
+        pow: {
+          signature: "(pow base exponent)",
+          description: "Raise base to the power of exponent.",
+          category: "math",
+          examples: ["(pow 2 8)", "(pow x 2)"]
+        },
+        min: {
+          signature: "(min a b ...)",
+          description: "Return the smallest value.",
+          category: "math",
+          examples: ["(min 10 20)", "(min x width)"]
+        },
+        max: {
+          signature: "(max a b ...)",
+          description: "Return the largest value.",
+          category: "math",
+          examples: ["(max 0 x)", "(max width height)"]
+        },
+        lerp: {
+          signature: "(lerp a b t)",
+          description: "Linear interpolation between a and b. t=0 returns a, t=1 returns b.",
+          category: "math",
+          examples: ["(lerp 0 100 0.5)", "(lerp startX endX progress)"]
+        },
+        random: {
+          signature: "(random [max] [min max])",
+          description: "Generate a random number. With no args: 0-1. With one arg: 0-max. With two args: min-max.",
+          category: "math",
+          examples: ["(random)", "(random 100)", "(random 50 100)"]
+        },
+        noise: {
+          signature: "(noise x [y] [z])",
+          description: "Perlin noise function. Returns smooth random values based on coordinates.",
+          category: "math",
+          examples: ["(noise time)", "(noise x y)"]
+        },
+        dist: {
+          signature: "(dist x1 y1 x2 y2)",
+          description: "Calculate distance between two points.",
+          category: "math",
+          examples: ["(dist 0 0 100 100)", "(dist x y mouseX mouseY)"]
+        },
+        map: {
+          signature: "(map value inMin inMax outMin outMax)",
+          description: "Re-map a value from one range to another.",
+          category: "math",
+          examples: ["(map x 0 width 0 255)"]
+        },
+        constrain: {
+          signature: "(constrain value min max)",
+          description: "Constrain a value to be within a range.",
+          category: "math",
+          examples: ["(constrain x 0 width)"]
+        },
+        // === SPECIAL VALUES ===
+        rainbow: {
+          signature: "rainbow",
+          description: "Special color value that cycles through rainbow colors. Changes each time it's used.",
+          category: "color",
+          examples: ["(ink rainbow)", "(repeat 100 i (ink rainbow) (line 0 i width i))"]
+        },
+        zebra: {
+          signature: "zebra",
+          description: "Special color value that alternates between black and white.",
+          category: "color",
+          examples: ["(ink zebra)"]
+        },
+        width: {
+          signature: "width",
+          description: "The current canvas width in pixels. Read-only global variable.",
+          category: "global",
+          examples: ["(line 0 0 width height)", "(/ width 2)"]
+        },
+        height: {
+          signature: "height",
+          description: "The current canvas height in pixels. Read-only global variable.",
+          category: "global",
+          examples: ["(circle (/ width 2) (/ height 2) 50)"]
+        },
+        time: {
+          signature: "time",
+          description: "Elapsed time in seconds since the piece started. Useful for smooth animations.",
+          category: "global",
+          examples: ["(sin time)", "(* 100 (sin (* time 2)))"]
+        },
+        elapsed: {
+          signature: "elapsed",
+          description: "Alias for time. Elapsed time in seconds.",
+          category: "global",
+          examples: ["elapsed"]
+        },
+        frame: {
+          signature: "frame",
+          description: "The current frame number (increments each animation frame).",
+          category: "global",
+          examples: ["(% frame 60)", "(sin (/ frame 30))"]
+        },
+        delta: {
+          signature: "delta",
+          description: "Time since last frame in seconds. Useful for frame-rate independent animation.",
+          category: "global",
+          examples: ["(* speed delta)"]
+        },
+        fps: {
+          signature: "fps",
+          description: "Current frames per second.",
+          category: "global",
+          examples: ["fps"]
+        },
+        mic: {
+          signature: "mic",
+          description: "Microphone amplitude (0-1). Responds to audio input when enabled.",
+          category: "audio",
+          examples: ["(circle 100 100 (* mic 100))", "(if (> mic 0.5) (wipe))"]
+        },
+        // === AUDIO ===
+        tone: {
+          signature: "(tone frequency [duration] [type])",
+          description: "Play a tone at the specified frequency.",
+          category: "audio",
+          examples: ["(tone 440)", '(tone 880 0.5 "square")']
+        },
+        beep: {
+          signature: "(beep [frequency])",
+          description: "Play a short beep sound.",
+          category: "audio",
+          examples: ["(beep)", "(beep 880)"]
+        },
+        melody: {
+          signature: "(melody notes)",
+          description: "Play a sequence of notes. Uses ABC notation or custom format.",
+          category: "audio",
+          examples: ['(melody "C D E F G")']
+        },
+        amplitude: {
+          signature: "amplitude",
+          description: "Current audio amplitude (0-1). Alias for mic.",
+          category: "audio",
+          examples: ["amplitude"]
+        },
+        // === EMBEDDED CONTENT ===
+        embed: {
+          signature: "(embed $code x y width height [alpha])",
+          description: "Embed another KidLisp piece at a position with custom dimensions.",
+          category: "embed",
+          examples: ["(embed $abc123 0 0 128 128)", "(embed $xyz789 50 50 64 64 200)"]
+        },
+        tape: {
+          signature: "(tape !code [x y] [w h] [speed])",
+          description: "Embed a tape video. Use ! prefix for tape codes.",
+          category: "embed",
+          examples: ["(tape !abc)", "(tape !xyz 0 0 256 256)", "(tape !video 0 0 width height 2)"]
+        },
+        // === INTERACTIVITY ===
+        tap: {
+          signature: "(tap body...)",
+          description: "Define a tap/click handler. Body executes when user taps the screen.",
+          category: "interactive",
+          examples: ['(tap (wipe (choose "red" "blue")))', "(tap (set x mouseX) (set y mouseY))"]
+        },
+        draw: {
+          signature: "(draw body...)",
+          description: "Define a drag/draw handler. Body executes during finger/mouse drag.",
+          category: "interactive",
+          examples: ["(draw (line lastX lastY mouseX mouseY))"]
+        },
+        // === OUTPUT ===
+        print: {
+          signature: "(print value...)",
+          description: "Print values to the KidLisp console (visible in kidlisp.com).",
+          category: "output",
+          examples: ['(print "Hello")', "(print x y)", '(print "x =" x)']
+        },
+        debug: {
+          signature: "(debug value...)",
+          description: "Print debug information to the console.",
+          category: "output",
+          examples: ["(debug frame)", "(debug x y)"]
+        },
+        log: {
+          signature: "(log value...)",
+          description: "Alias for print. Output to console.",
+          category: "output",
+          examples: ["(log x)"]
+        },
+        // === DATA STRUCTURES ===
+        list: {
+          signature: "(list item1 item2 ...)",
+          description: "Create a list of items.",
+          category: "data",
+          examples: ['(list 1 2 3)', '(list "red" "green" "blue")']
+        },
+        get: {
+          signature: "(get list index)",
+          description: "Get item at index from a list (0-based).",
+          category: "data",
+          examples: ["(get myList 0)", "(get colors 2)"]
+        },
+        first: {
+          signature: "(first list)",
+          description: "Get the first item of a list.",
+          category: "data",
+          examples: ["(first myList)"]
+        },
+        rest: {
+          signature: "(rest list)",
+          description: "Get all items except the first.",
+          category: "data",
+          examples: ["(rest myList)"]
+        },
+        len: {
+          signature: "(len list)",
+          description: "Get the length of a list.",
+          category: "data",
+          examples: ["(len myList)"]
+        },
+        push: {
+          signature: "(push list item)",
+          description: "Add an item to the end of a list.",
+          category: "data",
+          examples: ["(push myList 42)"]
+        },
+        pop: {
+          signature: "(pop list)",
+          description: "Remove and return the last item from a list.",
+          category: "data",
+          examples: ["(pop myList)"]
+        },
+        // === DISPLAY EFFECTS ===
+        blur: {
+          signature: "(blur amount)",
+          description: "Apply blur effect to the canvas.",
+          category: "effects",
+          examples: ["(blur 2)", "(blur 5)"]
+        },
+        contrast: {
+          signature: "(contrast amount)",
+          description: "Adjust canvas contrast.",
+          category: "effects",
+          examples: ["(contrast 1.5)"]
+        },
+        mask: {
+          signature: "(mask)",
+          description: "Start masking mode. Drawing only affects visible areas.",
+          category: "effects",
+          examples: ["(mask)"]
+        },
+        unmask: {
+          signature: "(unmask)",
+          description: "End masking mode.",
+          category: "effects",
+          examples: ["(unmask)"]
+        },
+        // === LABELS ===
+        label: {
+          signature: "(label text)",
+          description: "Set a label/title for the piece. Shown in UI and embeds.",
+          category: "meta",
+          examples: ['(label "My Cool Piece")', '(label "Untitled")']
+        },
+        // === COMPARISON OPERATORS ===
+        "=": {
+          signature: "(= a b)",
+          description: "Check if a equals b.",
+          category: "logic",
+          examples: ['(= x 10)', '(= color "red")']
+        },
+        ">": {
+          signature: "(> a b)",
+          description: "Check if a is greater than b.",
+          category: "logic",
+          examples: ["(> x 100)", "(> frame 60)"]
+        },
+        "<": {
+          signature: "(< a b)",
+          description: "Check if a is less than b.",
+          category: "logic",
+          examples: ["(< x 0)", "(< y height)"]
+        },
+        ">=": {
+          signature: "(>= a b)",
+          description: "Check if a is greater than or equal to b.",
+          category: "logic",
+          examples: ["(>= x 0)"]
+        },
+        "<=": {
+          signature: "(<= a b)",
+          description: "Check if a is less than or equal to b.",
+          category: "logic",
+          examples: ["(<= y height)"]
+        }
+      };
+      
+      // Make docs globally accessible for external use
+      window.KIDLISP_DOCS = KIDLISP_DOCS;
+      
+      // Helper function to get the word at cursor position
+      function getWordAtPosition(model, position) {
+        const word = model.getWordAtPosition(position);
+        if (word) return word.word;
+        
+        // Check for special characters (operators like +, -, *, /, etc.)
+        const lineContent = model.getLineContent(position.lineNumber);
+        const col = position.column - 1;
+        const char = lineContent[col];
+        
+        // Check if it's a special operator character
+        if (['+', '-', '*', '/', '%', '=', '<', '>', '!'].includes(char)) {
+          // Check for two-char operators
+          if (col + 1 < lineContent.length) {
+            const twoChar = char + lineContent[col + 1];
+            if (['>=', '<=', '!='].includes(twoChar)) {
+              return twoChar;
+            }
+          }
+          return char;
+        }
+        
+        return null;
+      }
+      
+      // Create documentation tooltip popup
+      function createDocTooltip() {
+        let tooltip = document.getElementById('kidlisp-doc-tooltip');
+        if (!tooltip) {
+          tooltip = document.createElement('div');
+          tooltip.id = 'kidlisp-doc-tooltip';
+          tooltip.style.cssText = `position: fixed; z-index: 10000; display: none;`;
+          document.body.appendChild(tooltip);
+        }
+        return tooltip;
+      }
+      
+      // Escape HTML for safe display
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+      
+      // Show documentation for a function
+      function showDocumentation(funcName, x, y) {
+        const doc = KIDLISP_DOCS[funcName];
+        if (!doc) return false;
+        
+        const tooltip = createDocTooltip();
+        
+        // Build HTML content using CSS classes
+        let html = `<div style="margin-bottom: 8px;">
+          <strong style="color: #FF69B4; font-size: 15px;">${escapeHtml(funcName)}</strong>
+          <code class="doc-signature">${escapeHtml(doc.signature)}</code>
+        </div>`;
+        
+        html += `<div style="margin-bottom: 8px; opacity: 0.9;">${escapeHtml(doc.description)}</div>`;
+        
+        if (doc.category) {
+          html += `<div style="margin-bottom: 8px;">
+            <span class="doc-category">${escapeHtml(doc.category)}</span>
+          </div>`;
+        }
+        
+        if (doc.examples && doc.examples.length > 0) {
+          html += `<div style="margin-top: 8px; border-top: 1px solid var(--border-subtle, #3a3530); padding-top: 8px;">
+            <span style="color: var(--text-tertiary, #888); font-size: 11px;">Examples:</span>
+            <div style="margin-top: 4px;">`;
+          doc.examples.slice(0, 3).forEach(ex => {
+            html += `<code class="doc-example">${escapeHtml(ex)}</code>`;
+          });
+          html += `</div></div>`;
+        }
+        
+        tooltip.innerHTML = html;
+        tooltip.style.display = 'block';
+        
+        // Position tooltip near cursor but ensure it stays on screen
+        const rect = tooltip.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        let posX = x + 10;
+        let posY = y + 10;
+        
+        if (posX + rect.width > viewportWidth - 20) {
+          posX = x - rect.width - 10;
+        }
+        if (posY + rect.height > viewportHeight - 20) {
+          posY = y - rect.height - 10;
+        }
+        
+        tooltip.style.left = posX + 'px';
+        tooltip.style.top = posY + 'px';
+        
+        return true;
+      }
+      
+      // Hide documentation tooltip
+      function hideDocumentation() {
+        const tooltip = document.getElementById('kidlisp-doc-tooltip');
+        if (tooltip) {
+          tooltip.style.display = 'none';
+        }
+      }
+      
+      // Add context menu action for documentation lookup
+      editor.addAction({
+        id: 'kidlisp-docs-lookup',
+        label: '📖 KidLisp Docs',
+        keybindings: [
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD
+        ],
+        contextMenuGroupId: 'navigation',
+        contextMenuOrder: 0,
+        run: function(ed) {
+          const position = ed.getPosition();
+          const model = ed.getModel();
+          const word = getWordAtPosition(model, position);
+          
+          if (word && KIDLISP_DOCS[word]) {
+            // Get cursor screen position
+            const coords = ed.getScrolledVisiblePosition(position);
+            const editorDom = ed.getDomNode();
+            const editorRect = editorDom.getBoundingClientRect();
+            
+            const x = editorRect.left + (coords ? coords.left : 100);
+            const y = editorRect.top + (coords ? coords.top : 100);
+            
+            showDocumentation(word, x, y);
+            
+            // Auto-hide after 8 seconds or on next click/keypress
+            const hideHandler = () => {
+              hideDocumentation();
+              document.removeEventListener('click', hideHandler);
+              document.removeEventListener('keydown', hideHandler);
+            };
+            setTimeout(hideHandler, 8000);
+            setTimeout(() => {
+              document.addEventListener('click', hideHandler);
+              document.addEventListener('keydown', hideHandler);
+            }, 100);
+          } else if (word) {
+            // Show "not found" message briefly
+            const tooltip = createDocTooltip();
+            tooltip.innerHTML = `<div style="color: #e06c75;">No documentation found for: <strong>${escapeHtml(word)}</strong></div>
+              <div style="color: var(--text-tertiary, #888); font-size: 11px; margin-top: 8px;">This might be a variable or custom function.</div>`;
+            tooltip.style.display = 'block';
+            
+            const coords = ed.getScrolledVisiblePosition(position);
+            const editorDom = ed.getDomNode();
+            const editorRect = editorDom.getBoundingClientRect();
+            tooltip.style.left = (editorRect.left + (coords ? coords.left : 100) + 10) + 'px';
+            tooltip.style.top = (editorRect.top + (coords ? coords.top : 100) + 10) + 'px';
+            
+            setTimeout(hideDocumentation, 3000);
+          }
+        }
+      });
+      
+      // Add "Insert Example" submenu action
+      editor.addAction({
+        id: 'kidlisp-insert-example',
+        label: '✨ Insert Example',
+        contextMenuGroupId: 'navigation',
+        contextMenuOrder: 1,
+        run: function(ed) {
+          const position = ed.getPosition();
+          const model = ed.getModel();
+          const word = getWordAtPosition(model, position);
+          
+          if (word && KIDLISP_DOCS[word] && KIDLISP_DOCS[word].examples && KIDLISP_DOCS[word].examples.length > 0) {
+            const example = KIDLISP_DOCS[word].examples[0];
+            ed.executeEdits('kidlisp-example', [{
+              range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+              text: '\n' + example,
+              forceMoveMarkers: true
+            }]);
+          }
+        }
+      });
+      
+      // ==================== END KIDLISP DOCUMENTATION CONTEXT MENU ====================
       
       // Log editor initialization
       logEditorInit('Monaco', { theme: initialTheme, language: 'kidlisp' });
@@ -16323,7 +17272,11 @@
         }
         log.playback.debug('Pausing');
         addStateEntry('pause');
-        sendToIframe({ type: 'kidlisp-pause' });
+        // 🎯 Skip sending pause if we already froze the frame on mousedown
+        // This ensures we use the exact frame from when user started pressing
+        if (!prePauseFrozeFrame) {
+          sendToIframe({ type: 'kidlisp-pause' });
+        }
         broadcastPauseToChannel(true); // Pause remote PJ windows
         isPaused = true;
         vizSystem.isPaused = true;
@@ -16342,6 +17295,7 @@
     let prePlayActive = false;
     let prePlayRulersWereVisible = false; // Track if rulers were showing before press
     let prePauseActive = false; // Track if we're previewing pause (shrink for rulers)
+    let prePauseFrozeFrame = false; // Track if we froze the frame on mousedown for pause preview
     
     const startPrePlay = (e) => {
       if (sendButton.disabled) return;
@@ -16352,6 +17306,13 @@
         // Currently playing - preview PAUSE state (shrink to show ruler gap)
         prePauseActive = true;
         if (iframeContainer) iframeContainer.classList.add('rulers-active');
+        
+        // 🎯 IMMEDIATE FRAME FREEZE: Send pause NOW to capture the exact frame
+        // This ensures embedded layers ($cow, etc.) are captured at this moment
+        // If user cancels (drags off), we'll resume immediately
+        sendToIframe({ type: 'kidlisp-pause' });
+        prePauseFrozeFrame = true;
+        log.playback.debug('Pre-pause: frame frozen on mousedown');
       } else if (isPaused || !isPlaying) {
         // Currently paused or stopped - preview PLAY state (hide rulers)
         prePlayActive = true;
@@ -16367,6 +17328,7 @@
       prePlayActive = false;
       prePlayRulersWereVisible = false;
       prePauseActive = false;
+      prePauseFrozeFrame = false; // Will be handled by click handler
     };
     
     const cancelPrePlay = () => {
@@ -16382,11 +17344,18 @@
       if (prePauseActive) {
         // Was previewing pause - remove the ruler gap preview
         if (iframeContainer) iframeContainer.classList.remove('rulers-active');
+        
+        // 🎯 CANCEL FRAME FREEZE: Resume if we froze on mousedown but user cancelled
+        if (prePauseFrozeFrame) {
+          sendToIframe({ type: 'kidlisp-resume' });
+          log.playback.debug('Pre-pause cancelled: frame unfrozen');
+        }
       }
       
       prePlayActive = false;
       prePlayRulersWereVisible = false;
       prePauseActive = false;
+      prePauseFrozeFrame = false;
     };
     
     // Track if pointer leaves button while held
@@ -17217,7 +18186,7 @@
         }
       }, 1000);
       
-      // Set initial tab based on viewport: Console for mobile, Top Hits for desktop
+      // Set initial tab based on viewport: Console for mobile, Learn (Guide) for desktop
       const isMobileView = window.innerWidth <= 768;
       if (isMobileView && consoleTab && mobileConsoleContent) {
         deactivateAllTabs();
@@ -17225,12 +18194,11 @@
         consoleTab.classList.add('active');
         mobileConsoleContent.classList.remove('hidden');
       } else {
-        // Desktop: ensure List tab (Top Hits) is active and visible
+        // Desktop: start with Learn tab (Guide) - more welcoming than History
         deactivateAllTabs();
         hideAllTabContents();
-        listTab.classList.add('active');
-        listContent.classList.remove('hidden');
-        showListSubtab('examples');
+        guideTab.classList.add('active');
+        guideContent.classList.remove('hidden');
       }
       
       // If session was hydrated before DOM was ready, switch to History now
@@ -18481,6 +19449,8 @@
             showHits: true,
             showOwner: true,
             showTimestamp: true,
+            groupByOwner: true,  // Group similar items by author for diversity
+            maxPerOwner: 2,      // Show max 2 per author, then "... and X more"
           });
           
           examplesLoaded = true;
@@ -18911,6 +19881,8 @@
         showHits = true,
         pendingThumb = false,
         hitsLabel = 'hits',
+        groupByOwner = false,     // Group similar items by owner
+        maxPerOwner = 2,          // Max items shown per owner before collapsing
       } = config;
       
       const listEl = document.getElementById(listId);
@@ -18923,7 +19895,39 @@
       
       listEl.innerHTML = '';
       
-      items.forEach(item => {
+      // Process items with optional owner grouping
+      let processedItems = items;
+      let ownerHiddenCounts = {}; // Track hidden items per owner
+      
+      if (groupByOwner) {
+        const ownerCounts = {}; // Count items per owner
+        const ownerShown = {};  // Track how many shown per owner
+        
+        // First pass: count items per owner
+        items.forEach(item => {
+          const owner = item.owner || '_anonymous';
+          ownerCounts[owner] = (ownerCounts[owner] || 0) + 1;
+        });
+        
+        // Second pass: filter and track hidden counts
+        processedItems = [];
+        items.forEach(item => {
+          const owner = item.owner || '_anonymous';
+          ownerShown[owner] = ownerShown[owner] || 0;
+          
+          if (ownerShown[owner] < maxPerOwner) {
+            processedItems.push(item);
+            ownerShown[owner]++;
+            
+            // If this is the last shown item for this owner and there are more hidden
+            if (ownerShown[owner] === maxPerOwner && ownerCounts[owner] > maxPerOwner) {
+              ownerHiddenCounts[owner] = ownerCounts[owner] - maxPerOwner;
+            }
+          }
+        });
+      }
+      
+      processedItems.forEach(item => {
         const el = renderCodeListItem(item, {
           syntaxHighlight,
           tickerAnimation,
@@ -18936,6 +19940,52 @@
         
         el.addEventListener('click', () => handleCodeItemClick(el));
         listEl.appendChild(el);
+        
+        // Add "... and X more" indicator after the last item from this owner
+        const owner = item.owner || '_anonymous';
+        if (ownerHiddenCounts[owner]) {
+          const hiddenCount = ownerHiddenCounts[owner];
+          const ownerClean = owner.replace(/^@/, '');
+          const moreEl = document.createElement('div');
+          moreEl.className = 'owner-more-indicator';
+          moreEl.innerHTML = `<span class="more-count">... and ${hiddenCount} more from @${ownerClean}</span>`;
+          moreEl.addEventListener('click', () => {
+            // Filter to show all items from this owner
+            const ownerItems = items.filter(i => (i.owner || '_anonymous') === owner);
+            
+            // Add "Back to all" header before re-rendering
+            listEl.innerHTML = '';
+            const backEl = document.createElement('div');
+            backEl.className = 'owner-back-indicator';
+            backEl.innerHTML = `<span class="back-text">← Back to all</span><span class="owner-filter">Showing ${ownerItems.length} from @${ownerClean}</span>`;
+            backEl.addEventListener('click', () => {
+              // Re-render with original grouped view
+              renderCodeList(config);
+            });
+            listEl.appendChild(backEl);
+            
+            // Render filtered items (no grouping)
+            ownerItems.forEach(ownerItem => {
+              const itemEl = renderCodeListItem(ownerItem, {
+                syntaxHighlight,
+                tickerAnimation,
+                showOwner,
+                showTimeAgo,
+                showTimestamp,
+                showHits,
+                pendingThumb,
+              });
+              itemEl.addEventListener('click', () => handleCodeItemClick(itemEl));
+              listEl.appendChild(itemEl);
+            });
+            
+            if (tickerAnimation) {
+              requestAnimationFrame(() => processTickerAnimations(listEl));
+            }
+          });
+          listEl.appendChild(moreEl);
+          delete ownerHiddenCounts[owner]; // Only show once per owner
+        }
       });
       
       // Process ticker animations after DOM render
@@ -19129,6 +20179,8 @@
         showOwner: true,
         showTimeAgo: true,
         showHits: true,
+        groupByOwner: true,  // Group similar items by author for diversity
+        maxPerOwner: 2,      // Show max 2 per author, then "... and X more"
       });
     }
 
