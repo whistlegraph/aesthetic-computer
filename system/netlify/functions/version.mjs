@@ -56,6 +56,14 @@ export default async (request) => {
 
     const status = behindBy === 0 ? "current" : "behind";
 
+    // Extract recent commits for ticker display (last 10)
+    const recentCommits = commits.slice(0, 10).map((c) => ({
+      hash: c.sha.slice(0, 7),
+      message: c.commit?.message?.split("\n")[0]?.slice(0, 60) || "no message", // First line, truncated
+      author: c.commit?.author?.name || c.author?.login || "unknown",
+      date: c.commit?.author?.date,
+    }));
+
     return new Response(
       JSON.stringify({
         deployed: deployedCommit.slice(0, 7),
@@ -63,6 +71,7 @@ export default async (request) => {
         status,
         behindBy,
         timestamp: new Date().toISOString(),
+        recentCommits, // Include recent commits for ticker
       }),
       {
         headers: {

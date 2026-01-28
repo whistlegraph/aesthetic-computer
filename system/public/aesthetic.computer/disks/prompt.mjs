@@ -261,6 +261,7 @@ const MOTD_CYCLE_MS = 8000;
 let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
 let versionInfo = null; // { deployed, latest, status, behindBy } - git commit status
 let versionCommit = null; // Current commit hash for the commit button
+let recentCommits = []; // Recent commits for uniticker display: [{hash, message, author, date}]
 
 // Multilingual "Prompt" translations cycling
 const promptTranslations = [
@@ -674,7 +675,7 @@ async function boot({
       // On localhost, fetch GitHub directly to show latest remote commit
       if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
         const ghRes = await fetch(
-          "https://api.github.com/repos/whistlegraph/aesthetic-computer/commits?per_page=1",
+          "https://api.github.com/repos/whistlegraph/aesthetic-computer/commits?per_page=10",
           { headers: { Accept: "application/vnd.github.v3+json" } }
         );
         if (ghRes.ok) {
@@ -684,8 +685,16 @@ async function boot({
             latest: commits[0]?.sha?.slice(0, 7),
             status: "local",
           };
+          // Extract commits for uniticker (local dev mode)
+          recentCommits = commits.map(c => ({
+            hash: c.sha.slice(0, 7),
+            message: c.commit?.message?.split("\n")[0]?.slice(0, 60) || "no message",
+            author: c.commit?.author?.name || c.author?.login || "unknown",
+            date: c.commit?.author?.date,
+          }));
         } else {
           versionInfo = { deployed: "dev", status: "local" };
+          recentCommits = [];
         }
         needsPaint();
         return;
@@ -693,6 +702,8 @@ async function boot({
       const res = await fetch("/api/version");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       versionInfo = await res.json();
+      // Store recent commits from the version API
+      recentCommits = versionInfo.recentCommits || [];
       needsPaint();
     } catch (e) {
       console.warn("📦 Could not fetch version info:", e);
@@ -4165,7 +4176,8 @@ function paint($) {
   }
 
   // 📢 AD MODE button in top-right corner when funding is off (replace GIVE button)
-  if (!showFundingEffects && showLoginCurtain) {
+  // DISABLED for now - toggle back on by removing the `false &&` below
+  if (false && !showFundingEffects && showLoginCurtain) {
     const now = Date.now();
     
     // Cycle through catchy ad phrases
@@ -5176,126 +5188,8 @@ function paint($) {
         // Draw filled cursor box with subtle transparency (no outline)
         ink(...fillColor).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h);
 
-        // 🎯 TAP/TOUCH/TYPE vertical label with arrow pointing to cursor
-        // Shows cycling action words with bounce animation and color cycling
-        if (input.text === "" && !input.canType) {
-          const isDark = $.dark;
-          const now = performance.now();
-
-          // Update animation frame counter
-          if (!lastLanguageChangeTime) lastLanguageChangeTime = now;
-          const deltaTime = (now - lastLanguageChangeTime) / 1000;
-          lastLanguageChangeTime = now;
-          promptLanguageChangeFrame += deltaTime * 60;
-
-          // Multilingual prompt text positioned to right/below cursor
-          const textX = cursorPos.x + cursorPos.w + 8;
-          const textY = cursorPos.y + cursorPos.h + 4;
-
-          // High contrast polychrome colors - cycle through vibrant colors
-          const textColorCycle = isDark ? [
-            [255, 100, 255], // Bright magenta
-            [100, 255, 255], // Bright cyan
-            [255, 255, 100], // Bright yellow
-            [100, 255, 100], // Bright green
-            [255, 150, 100], // Bright orange
-            [255, 100, 150], // Bright pink
-          ] : [
-            [255, 0, 255],   // Pure magenta
-            [0, 255, 255],   // Pure cyan
-            [255, 255, 0],   // Pure yellow
-            [0, 255, 0],     // Pure green
-            [255, 128, 0],   // Pure orange
-            [255, 0, 128],   // Pure pink
-          ];
-
-          // Alpha oscillation for pulsing effect
-          const alphaOscillation = Math.floor(180 + Math.sin(promptLanguageChangeFrame * 0.1) * 75);
-
-          // Vertical action text on LEFT side of screen - ROTATED
-          const actionVerbs = ["TOUCH", "TAP", "TYPE"];
-          const actionIndex = Math.floor(promptLanguageChangeFrame / 60) % actionVerbs.length; // Change every 60 frames
-          const actionText = actionVerbs[actionIndex];
-
-          // Bounce animation - subtle up and down movement
-          const bounceOffset = Math.sin(promptLanguageChangeFrame * 0.1) * 3; // 3 pixel bounce range
-
-          // Calculate text dimensions for background
-          const verticalTextWidth = actionText.length * 4; // MatrixChunky8 width per char
-          const verticalTextHeight = 8; // MatrixChunky8 height
-
-          // Position flush to left side
-          const leftMargin = 5;
-          const verticalTextX = leftMargin;
-
-          // Position label box near cursor
-          const bgX = leftMargin - 1;
-          const bgY = textY + bounceOffset;
-          const verticalBgWidth = verticalTextHeight + 1;
-          const verticalBgHeight = verticalTextWidth + 4;
-
-          // Position text inside the box (accounting for rotation)
-          const verticalTextY = bgY + verticalTextWidth + 1 + bounceOffset;
-
-          // Draw simple background box for label (no arrow)
-          ink(0, 0, 0, 200).box(bgX, bgY, verticalBgWidth, verticalBgHeight);
-
-          // Draw white text with flickering per-character brightness
-          let flickeringText = "";
-          for (let i = 0; i < actionText.length; i++) {
-            const char = actionText[i];
-            const flickerSeed = Math.sin((promptLanguageChangeFrame * 0.15) + (i * 0.5));
-            const brightness = Math.floor(200 + flickerSeed * 55);
-            flickeringText += `\\${brightness},${brightness},${brightness}\\${char}`;
-          }
-
-          ink(255, 255, 255, 150).write(flickeringText, {
-            x: verticalTextX,
-            y: verticalTextY,
-            rotation: 270
-          }, undefined, undefined, false, "MatrixChunky8");
-
-          // Color cycling for cursor overlay
-          const blinkColorIndex = Math.floor(promptLanguageChangeFrame * 0.05) % textColorCycle.length;
-
-          // Blinking overlay on the cursor block - magic jewel/gem effect
-          const blinkSpeed = Math.sin(promptLanguageChangeFrame * 0.08);
-          const blinkAlpha = isDark
-            ? Math.floor((blinkSpeed + 1) * 60 + 60)
-            : Math.floor((blinkSpeed + 1) * 80 + 100);
-
-          // Rhythmic subdivision pattern - changes every 30 frames
-          const patternPhase = Math.floor(promptLanguageChangeFrame / 30) % 4;
-          let cols, rows;
-
-          if (patternPhase === 0) {
-            cols = 2; rows = 2;
-          } else if (patternPhase === 1) {
-            cols = 4; rows = 2;
-          } else if (patternPhase === 2) {
-            cols = 2; rows = 4;
-          } else {
-            cols = 3; rows = 3;
-          }
-
-          const cellWidth = cursorPos.w / cols;
-          const cellHeight = cursorPos.h / rows;
-
-          for (let row = 0; row < rows; row++) {
-            for (let col = 0; col < cols; col++) {
-              const isCheckerSquare = ((col + row + Math.floor(promptLanguageChangeFrame / 20)) % 2 === 0);
-              if (isCheckerSquare) {
-                const squareColorIndex = (blinkColorIndex + col + row) % textColorCycle.length;
-                const squareColor = [...textColorCycle[squareColorIndex], blinkAlpha];
-                const cellX = cursorPos.x + Math.floor(col * cellWidth);
-                const cellY = cursorPos.y + Math.floor(row * cellHeight);
-                const cellW = Math.floor(cellWidth);
-                const cellH = Math.floor(cellHeight);
-                ink(...squareColor).box(cellX, cellY, cellW, cellH);
-              }
-            }
-          }
-        }
+        // 🎯 TAP/TOUCH/TYPE vertical label - DISABLED for now
+        // (Was showing cycling action words with bounce animation and color cycling)
 
         // Reset to default layer
         $.layer(1);
@@ -5409,6 +5303,33 @@ function paint($) {
           color: color,
           mediaItem: item, // Keep reference to original item for media preview
         });
+      });
+    }
+
+    // Add recent commits (lime green for hash and author visibility)
+    // Each commit shows: [hash] message ~author
+    if (recentCommits.length > 0) {
+      const numCommits = Math.min(5, recentCommits.length);
+      recentCommits.slice(0, numCommits).forEach(commit => {
+        // Clean format that's readable in ticker
+        const displayText = `[${commit.hash}] ${commit.message} ~${commit.author}`;
+        unitickerItems.push({
+          type: 'commit',
+          text: displayText,
+          code: 'commits', // Navigate to commits piece on click
+          color: [100, 255, 100], // Lime green for commits
+        });
+      });
+    }
+
+    // Add handles count (magenta/pink for visibility)
+    if (handles) {
+      const handlesText = `${handles.toLocaleString()} HANDLES SET`;
+      unitickerItems.push({
+        type: 'stats',
+        text: handlesText,
+        code: 'handle', // Navigate to handle piece on click
+        color: [255, 100, 255], // Magenta/pink for handles stat
       });
     }
 
@@ -6011,184 +5932,10 @@ function paint($) {
       }
     }
 
-    // Handle Stats - always at bottom of screen
-    if (handles && screen.height >= 100) {
-      // Always position at bottom of screen
-      const handlesY = screen.height - 28; // Bottom position (moved up for version indicator)
-
-      // Use MatrixChunky8 font for more compact display, centered
-      const handlesText = `${handles.toLocaleString()} HANDLES SET`;
-
-      // Shadow color (black in dark mode, light in light mode for contrast with blue text)
-      const handlesShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255, 180];
-
-      // Draw shadow first (offset by 1px) - noFunding to prevent $ replacement
-      ink(...handlesShadowColor).write(
-        handlesText,
-        {
-          center: "x",
-          y: handlesY + 1,
-          noFunding: true,
-        },
-        undefined,
-        undefined,
-        false,
-        "MatrixChunky8"
-      );
-
-      // Cyberpunk-style flicker effect - build colored text string with per-character colors
-      const baseHandleColor = pal.handleColor;
-      let coloredHandlesText = "";
-
-      // Build text with individual character colors for flicker effect
-      for (let i = 0; i < handlesText.length; i++) {
-        const char = handlesText[i];
-
-        // Each character has a chance to flicker independently
-        const flickerIntensity = Math.random() < 0.15 ? Math.random() * 0.6 : 0; // 15% chance of flicker
-        const r = Math.floor(Math.max(0, baseHandleColor[0] * (1 - flickerIntensity)));
-        const g = Math.floor(Math.max(0, baseHandleColor[1] * (1 - flickerIntensity * 0.8)));
-        const b = Math.floor(Math.max(0, baseHandleColor[2] * (1 - flickerIntensity * 0.5)));
-
-        coloredHandlesText += `\\${r},${g},${b}\\${char}`;
-      }
-
-      // Draw main text with per-character flicker - noFunding to prevent $ replacement
-      ink(pal.handleColor).write(
-        coloredHandlesText,
-        {
-          center: "x",
-          y: handlesY,
-          noFunding: true,
-        },
-        undefined,
-        undefined,
-        false,
-        "MatrixChunky8"
-      );
-
-      // Git commit status indicator - below handles (as a proper button)
-      if (versionInfo && screen.height >= 120) {
-        const versionY = handlesY + 14; // Extra vertical space from handles
-        let versionText, versionColor;
-
-        if (versionInfo.status === "current") {
-          versionColor = $.dark ? [0, 255, 0] : [0, 140, 0]; // Green (darker in light mode)
-          versionText = `OK ${versionInfo.deployed}`;
-        } else if (versionInfo.status === "behind") {
-          versionColor = $.dark ? [255, 165, 0] : [180, 100, 0]; // Orange (darker in light mode)
-          versionText = `+${versionInfo.behindBy} ${versionInfo.latest} (${versionInfo.deployed})`;
-        } else if (versionInfo.status === "local") {
-          versionColor = $.dark ? [100, 200, 255] : [0, 100, 180]; // Blue (darker in light mode)
-          versionText = versionInfo.latest ? `DEV -> ${versionInfo.latest}` : `DEV`;
-        } else {
-          versionColor = $.dark ? [128, 128, 128] : [80, 80, 80]; // Gray (darker in light mode)
-          versionText = `? ${versionInfo.deployed || "unknown"}`;
-        }
-
-        // Store current commit for click handling
-        // In local dev mode, use latest (the server's commit) since deployed is "dev"
-        let commitHash;
-        if (versionInfo.status === "local") {
-          commitHash = versionInfo.latest; // Use the server's latest commit in dev mode
-        } else {
-          commitHash = versionInfo.deployed || versionInfo.latest;
-        }
-        versionCommit = (commitHash && commitHash !== "unknown") ? commitHash : null;
-
-        // Create or reposition commit button using TextButtonSmall (MatrixChunky8 font)
-        if (versionCommit) {
-          if (!commitBtn) {
-            commitBtn = new $.ui.TextButtonSmall(versionText, { center: "x", y: versionY, screen });
-            commitBtn.stickyScrubbing = true; // Prevent drag-between-button behavior
-          } else {
-            commitBtn.reposition({ center: "x", y: versionY, screen }, versionText);
-          }
-
-          // Paint the commit button with custom colors
-          const btnBox = commitBtn.btn.box;
-          const isDown = commitBtn.btn.down;
-
-          // Blink effect - subtle alpha pulsing
-          const blinkPhase = (performance.now() / 800) % 1; // 0.8s cycle
-          const blinkAlpha = 0.6 + 0.4 * Math.sin(blinkPhase * Math.PI * 2); // 0.2 to 1.0
-
-          // Draw outline around commit button
-          const outlineColor = [...versionColor, Math.round(120 * blinkAlpha)];
-          ink(...outlineColor).box(btnBox.x, btnBox.y, btnBox.w, btnBox.h, "outline");
-
-          // Background fill when pressed
-          if (isDown) {
-            ink(...versionColor, 60).box(btnBox, "fill");
-          }
-
-          // Shadow (black in dark mode, light in light mode for contrast)
-          const versionShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255, 180];
-          ink(...versionShadowColor).write(
-            versionText,
-            { x: btnBox.x + 2, y: btnBox.y + 3 },
-            undefined,
-            undefined,
-            false,
-            "MatrixChunky8"
-          );
-
-          // Main text with blink
-          ink(...versionColor, Math.round(255 * blinkAlpha)).write(
-            versionText,
-            { x: btnBox.x + 2, y: btnBox.y + 2 },
-            undefined,
-            undefined,
-            false,
-            "MatrixChunky8"
-          );
-
-          // Draw subtle underline to indicate clickable (also blinks)
-          ink(...versionColor, Math.round((isDown ? 180 : 100) * blinkAlpha)).box(
-            btnBox.x + 2,
-            btnBox.y + 2 + 7, // 7 = MatrixChunky8 char height
-            versionText.length * 4, // 4 = MatrixChunky8 char width
-            1
-          );
-
-          // Draw Tezos wallet address to the right of commit button (if connected)
-          if (tezosWalletAddress) {
-            const addrGap = 8; // Gap between commit button and address
-            const addrX = btnBox.x + btnBox.w + addrGap;
-            const addrY = btnBox.y + 2; // Align with commit text
-            // Draw domain name if available, otherwise truncated address
-            const addrDisplay = tezosDomainName || tezosWalletAddress.slice(0, 8) + "..." + tezosWalletAddress.slice(-4);
-            ink(0, 140, 180, Math.round(200 * blinkAlpha)).write(addrDisplay, { x: addrX, y: addrY }, undefined, undefined, false, "MatrixChunky8");
-          }
-        } else {
-          // No valid commit - just draw text without button
-          commitBtn = null;
-          const versionShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255, 180];
-          ink(...versionShadowColor).write(
-            versionText,
-            { center: "x", y: versionY + 1, noFunding: true },
-            undefined,
-            undefined,
-            false,
-            "MatrixChunky8"
-          );
-          ink(...versionColor).write(
-            versionText,
-            { center: "x", y: versionY, noFunding: true },
-            undefined,
-            undefined,
-            false,
-            "MatrixChunky8"
-          );
-        }
-      } else {
-        commitBtn = null;
-        versionCommit = null;
-      }
-    } else {
-      commitBtn = null;
-      versionCommit = null;
-    }
+    // 🚫 DEPRECATED: Handle Stats - now shown in uniticker instead
+    // Handles count is now displayed as a ticker item with the rest of the content
+    commitBtn = null;
+    versionCommit = null;
 
     // 🚫 DEPRECATED: MOTD (Mood of the Day) - now shown in boot canvas2d initializer instead
     // The boot loader shows MOTDs faster with potential redis caching
