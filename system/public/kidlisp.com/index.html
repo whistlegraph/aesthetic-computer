@@ -19787,13 +19787,13 @@
           const controller = new AbortController();
           aiAssistAbort = () => controller.abort();
           
-          // Call the ask API with Claude Opus 4.5
+          // Call the ask API with Claude Haiku 4.5 (fast & cheap)
           const response = await fetch('/api/ask', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               messages,
-              hint: 'code:claude-opus-4-20250514'
+              hint: 'code:claude-haiku-4-5-20251001'
             }),
             signal: controller.signal
           });

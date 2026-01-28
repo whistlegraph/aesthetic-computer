@@ -12,12 +12,14 @@ const allowedOrigins = [
 // 
 // Model detection: Any model name containing "claude" routes to Anthropic API
 //
-// CLAUDE MODELS (Anthropic):
-// - claude-opus-4-20250514 (Opus 4.5 - Most capable, $15/MTok input) ⭐ RECOMMENDED
-// - claude-sonnet-4-20250514 (Sonnet 4 - High-performance, $3/MTok input) 
-// - claude-3-7-sonnet-20250219 (Extended thinking, $3/MTok input)
-// - claude-3-5-sonnet-20241022 (Previous flagship, $3/MTok input)
-// - claude-3-5-haiku-20241022 (Fastest, $0.80/MTok input)
+// CLAUDE 4.5 MODELS (Anthropic) - Current as of Jan 2026:
+// - claude-haiku-4-5-20251001 (Fastest, $1/MTok input, $5/MTok output) ⭐ RECOMMENDED for simple tasks
+// - claude-sonnet-4-5-20250929 (Best balance, $3/MTok input, $15/MTok output)
+// - claude-opus-4-5-20251101 (Most intelligent, $5/MTok input, $25/MTok output)
+//
+// LEGACY CLAUDE MODELS (may be deprecated):
+// - claude-sonnet-4-20250514, claude-opus-4-20250514
+// - claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022
 //
 // OPENAI MODELS:
 // - gpt-4o (Default for code hints)
@@ -25,9 +27,8 @@ const allowedOrigins = [
 // - gpt-3.5-turbo
 //
 // USAGE EXAMPLES:
-// "character:claude-3-5-sonnet-20241022" - Character roleplay with Claude
-// "code:claude-sonnet-4-20250514" - Code generation with Claude Sonnet 4
-// "code:gpt-4o" - Code generation with OpenAI (default)
+// "code:claude-haiku-4-5-20251001" - Fast code generation with Haiku 4.5
+// "code:claude-sonnet-4-5-20250929" - High quality code with Sonnet 4.5
 // "character:gpt-4o-mini" - Character interactions with OpenAI
 //
 // ENVIRONMENT VARIABLES REQUIRED:
