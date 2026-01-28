@@ -268,7 +268,7 @@ function startRecording(rec, sound, notice) {
     },
   );
 
-  notice("RECORDING", ["red", "white"]);
+  // Recording status is shown via recording UI overlay (not captured in tape)
 }
 
 function stopRecording(rec, sound, jump) {

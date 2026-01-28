@@ -36,3 +36,4 @@ Two viable ways to match sotce-net’s “single function” feel while keeping 
 
 ## Suggested next step
 If you want the fastest flip with minimal risk to design, start with **Option A** (single-function consolidation). If the goal is full SPA behavior, proceed with Option B and migrate the existing SSR render functions into client-side templates without altering styles.
+
