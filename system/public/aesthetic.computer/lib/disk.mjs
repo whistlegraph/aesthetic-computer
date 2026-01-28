@@ -9147,9 +9147,11 @@ async function makeFrame({ data: { type, content } }) {
     // 🚀 Eagerly initialize GPU effects module for faster spin/blur/zoom
     // Currently GPU effects are disabled due to Y-flip issues, so this is non-blocking
     // TODO: Re-enable await when GPU effects Y-coordinate handling is fixed
-    graph.initGpuEffects().catch(e => {
-      console.warn('🎮 GPU Effects initialization failed:', e);
-    });
+    if (typeof graph.initGpuEffects === 'function') {
+      graph.initGpuEffects().catch(e => {
+        console.warn('🎮 GPU Effects initialization failed:', e);
+      });
+    }
 
     // console.log("Init:", content);
     // await handle(); // Get the user's handle.
