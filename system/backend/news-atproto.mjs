@@ -8,28 +8,33 @@ import { shell } from "./shell.mjs";
 const PDS_URL = process.env.PDS_URL || "https://at.aesthetic.computer";
 const NEWS_COLLECTION = "computer.aesthetic.news";
 
-// Use the art account (system account) for posting news to ATProto PDS
-// This is the @art.at.aesthetic.computer account on our PDS
-const NEWS_DID = process.env.ART_ATPROTO_DID;
-const NEWS_PASSWORD = process.env.ART_ATPROTO_PASSWORD;
-
 /**
- * Create a news item on ATProto PDS
+ * Create a news item on ATProto PDS using the submitting user's account
+ * @param {Object} database - MongoDB connection
+ * @param {string} sub - User sub (auth0|...) 
  * @param {Object} newsData - { headline, body?, link?, tags?, when }
  * @param {string} refId - Database record _id as string
- * @returns {Promise<{rkey: string, uri: string} | {error: string}>}
+ * @returns {Promise<{rkey: string, uri: string, did: string} | {error: string}>}
  */
-export async function createNewsOnAtproto(newsData, refId) {
-  if (!NEWS_DID || !NEWS_PASSWORD) {
-    shell.log("⚠️ ATProto news credentials not configured, skipping sync");
-    return { error: "No ATProto credentials configured" };
+export async function createNewsOnAtproto(database, sub, newsData, refId) {
+  const users = database.db.collection("users");
+
+  // Look up user's ATProto credentials
+  const user = await users.findOne({ _id: sub });
+
+  if (!user?.atproto?.did || !user?.atproto?.password) {
+    shell.log(`ℹ️  User ${sub} has no ATProto account, skipping news sync`);
+    return { error: "No ATProto account" };
   }
+
+  const atprotoDid = user.atproto.did;
+  const atprotoPassword = user.atproto.password;
 
   try {
     const agent = new AtpAgent({ service: PDS_URL });
     await agent.login({
-      identifier: NEWS_DID,
-      password: NEWS_PASSWORD,
+      identifier: atprotoDid,
+      password: atprotoPassword,
     });
 
     const record = {
@@ -45,7 +50,7 @@ export async function createNewsOnAtproto(newsData, refId) {
     if (newsData.tags?.length) record.tags = newsData.tags;
 
     const result = await agent.com.atproto.repo.createRecord({
-      repo: NEWS_DID,
+      repo: atprotoDid,
       collection: NEWS_COLLECTION,
       record,
     });
@@ -57,9 +62,9 @@ export async function createNewsOnAtproto(newsData, refId) {
     }
 
     const rkey = uri.split("/").pop();
-    shell.log(`📰 Created ATProto news: ${rkey}`);
+    shell.log(`📰 Created ATProto news for ${atprotoDid}: ${rkey}`);
 
-    return { rkey, uri };
+    return { rkey, uri, did: atprotoDid };
   } catch (error) {
     shell.error(`❌ Failed to create news on ATProto: ${error.message}`);
     return { error: error.message };
@@ -68,23 +73,31 @@ export async function createNewsOnAtproto(newsData, refId) {
 
 /**
  * Delete a news item from ATProto PDS
+ * @param {Object} database - MongoDB connection
+ * @param {string} sub - User sub (auth0|...) 
  * @param {string} rkey - ATProto record key
  * @returns {Promise<boolean>}
  */
-export async function deleteNewsFromAtproto(rkey) {
-  if (!NEWS_DID || !NEWS_PASSWORD) {
+export async function deleteNewsFromAtproto(database, sub, rkey) {
+  const users = database.db.collection("users");
+  const user = await users.findOne({ _id: sub });
+
+  if (!user?.atproto?.did || !user?.atproto?.password) {
     return false;
   }
+
+  const atprotoDid = user.atproto.did;
+  const atprotoPassword = user.atproto.password;
 
   try {
     const agent = new AtpAgent({ service: PDS_URL });
     await agent.login({
-      identifier: NEWS_DID,
-      password: NEWS_PASSWORD,
+      identifier: atprotoDid,
+      password: atprotoPassword,
     });
 
     await agent.com.atproto.repo.deleteRecord({
-      repo: NEWS_DID,
+      repo: atprotoDid,
       collection: NEWS_COLLECTION,
       rkey,
     });
@@ -98,17 +111,22 @@ export async function deleteNewsFromAtproto(rkey) {
 }
 
 /**
- * List all news items from ATProto PDS (public, no auth needed)
+ * List news items from a specific user's ATProto repo (public, no auth needed)
+ * @param {string} did - User's ATProto DID
  * @param {number} limit - Max items to fetch
  * @param {string} cursor - Pagination cursor
  * @returns {Promise<{records: Array, cursor?: string}>}
  */
-export async function listNewsFromAtproto(limit = 50, cursor = null) {
+export async function listNewsFromAtproto(did, limit = 50, cursor = null) {
+  if (!did) {
+    return { records: [] };
+  }
+
   try {
     const agent = new AtpAgent({ service: PDS_URL });
     
     const params = {
-      repo: NEWS_DID,
+      repo: did,
       collection: NEWS_COLLECTION,
       limit,
     };
