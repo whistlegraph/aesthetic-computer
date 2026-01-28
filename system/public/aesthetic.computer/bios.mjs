@@ -10586,7 +10586,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             frameCan.width = 1920;
             frameCan.height = 1080;
             underlayFrame.appendChild(frameCan);
-            underlayFrame.style.cssText = "position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;";
+            underlayFrame.style.cssText = "position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;";
             document.body.insertBefore(underlayFrame, document.body.firstChild);
             console.log("📼 Created underlayFrame for TapeManager");
           }
@@ -14177,8 +14177,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           freezeFrameFrozen = false;
         }
 
+        // Style the underlay to be positioned BEHIND everything
+        // z-index: -1 places it below the main canvas (1), glaze (2), and UI (6)
+        underlayFrame.style.cssText = "position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;";
+
         underlayFrame.appendChild(frameCan);
-        wrapper.appendChild(underlayFrame);
+        // Insert at the very beginning of body to ensure it's below the wrapper
+        document.body.insertBefore(underlayFrame, document.body.firstChild);
+        
+        // Hide only the glaze canvas during video presentation (it has alpha:false so it's opaque)
+        // The main canvas stays visible - the piece uses wipe(0,0,0,0) for transparent background
+        // so drawn UI elements appear on top of the video
+        const glazeCan = Glaze.getCan();
+        if (glazeCan) glazeCan.style.display = "none";
+        
+        // Make wrapper background transparent so underlay shows through
+        wrapper.style.background = "transparent";
+        
         send({ type: "recorder:presented" });
         send({ type: "recorder:present-playing" });
       } else {
@@ -14225,6 +14240,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (media?.src) URL.revokeObjectURL(media.src);
         underlayFrame?.remove();
         underlayFrame = undefined;
+        
+        // Restore glaze canvas visibility
+        const glazeCan = Glaze.getCan();
+        if (glazeCan) glazeCan.style.display = "";
+        
+        // Restore wrapper background
+        wrapper.style.removeProperty("background");
+        
         send({ type: "recorder:unpresented" });
       }
       return;
