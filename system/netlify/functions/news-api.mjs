@@ -267,8 +267,8 @@ export function createHandler({
               when: now,
             });
             
-            // Sync to ATProto PDS (non-blocking)
-            createNewsOnAtproto({
+            // Sync to ATProto PDS using the user's account (non-blocking)
+            createNewsOnAtproto(database, user.sub, {
               headline: title,
               body: text || null,
               link: url || null,
@@ -277,7 +277,7 @@ export function createHandler({
               if (atprotoResult.rkey) {
                 posts.updateOne(
                   { code },
-                  { $set: { atproto: { rkey: atprotoResult.rkey, uri: atprotoResult.uri } } }
+                  { $set: { atproto: { rkey: atprotoResult.rkey, uri: atprotoResult.uri, did: atprotoResult.did } } }
                 ).catch(e => console.error('Failed to save ATProto rkey:', e));
               }
             }).catch(e => console.error('ATProto sync error:', e));
