@@ -14185,13 +14185,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Insert at the very beginning of body to ensure it's below the wrapper
         document.body.insertBefore(underlayFrame, document.body.firstChild);
         
-        // Hide only the glaze canvas during video presentation (it has alpha:false so it's opaque)
-        // The main canvas stays visible - the piece uses wipe(0,0,0,0) for transparent background
-        // so drawn UI elements appear on top of the video
+        // Hide only the opaque compositor layers during presentation
+        // Keep the main canvas visible - the piece uses wipe(0,0,0,0) for transparency
         const glazeCan = Glaze.getCan();
         if (glazeCan) glazeCan.style.display = "none";
-        
-        // Make wrapper background transparent so underlay shows through
+        if (webglCompositeCanvas) webglCompositeCanvas.style.display = "none";
+        if (overlayCan) overlayCan.style.display = "none";
+        canvas.style.visibility = "visible";
+
+        // Make backgrounds transparent so the underlay shows through (avoid checkerboard bleed)
+        document.body.style.background = "transparent";
+        document.body.style.backgroundImage = "none";
         wrapper.style.background = "transparent";
         
         send({ type: "recorder:presented" });
@@ -14241,11 +14245,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         underlayFrame?.remove();
         underlayFrame = undefined;
         
-        // Restore glaze canvas visibility
+        // Restore compositor layers visibility
         const glazeCan = Glaze.getCan();
         if (glazeCan) glazeCan.style.display = "";
-        
-        // Restore wrapper background
+        if (webglCompositeCanvas) webglCompositeCanvas.style.removeProperty("display");
+        if (overlayCan) overlayCan.style.removeProperty("display");
+        canvas.style.removeProperty("visibility");
+
+        // Restore backgrounds
+        document.body.style.removeProperty("background");
+        document.body.style.removeProperty("background-image");
         wrapper.style.removeProperty("background");
         
         send({ type: "recorder:unpresented" });
@@ -16827,22 +16836,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       lastFrameTime = currentTime;
       
-      // During tape playback, render main canvas but make it semi-transparent so video shows through
+      // During tape playback, keep canvas fully opaque but transparent in its pixels
+      // (the video underlay sits behind; the piece uses wipe(0,0,0,0) for transparency)
       if (underlayFrame) {
-        // Set canvas to be semi-transparent so the video shows underneath but UI is still visible
-        canvas.style.opacity = 0.95; // Allow video to show through slightly
-        canvas.style.mixBlendMode = "normal"; // Ensure proper blending
-      } else {
-        // Restore canvas visibility when not playing tape
         canvas.style.removeProperty("opacity");
         canvas.style.removeProperty("mix-blend-mode");
+        canvas.style.background = "transparent";
+      } else {
+        // Restore canvas styling when not playing tape
+        canvas.style.removeProperty("opacity");
+        canvas.style.removeProperty("mix-blend-mode");
+        canvas.style.removeProperty("background");
       }
 
       // �🅰️ Draw updated content from the piece.
 
       const db = content.dirtyBox;
       if (db) {
-        if (webglCompositeActive && imageData) {
+        if (!underlayFrame && webglCompositeActive && imageData) {
           if (canvas.style.visibility !== "hidden") {
             canvas.style.visibility = "hidden";
           }
