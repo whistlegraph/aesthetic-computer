@@ -148,6 +148,13 @@ let contentTicker; // Ticker instance for mixed $kidlisp, #painting, !tape conte
 let contentTickerButton; // Button for content ticker hover interaction
 let mediaPreviewBox; // Shared preview box renderer for all media types
 
+// 🎰 UNITICKER - Unified ticker combining chat, laer-klokken, and media content
+let uniticker; // Single ticker for all combined content
+let unitickerButton; // Button for hover interaction
+let unitickerItems = []; // Combined items: {type: 'chat'|'clock'|'media', text: string, code: string, ...}
+let unitickerHoveredItem = null; // Currently hovered item for tooltip
+let unitickerTooltipVisible = false; // Whether to show the "Enter code" tooltip
+
 // 💸 FUNDING SEVERITY: Controls funding mode features
 // "critical" = full lockdown (chat offline, all alerts)
 // "yikes" = chat works, but keep $ effect, GIVE button, emotional face
@@ -5169,30 +5176,23 @@ function paint($) {
         // Draw filled cursor box with subtle transparency (no outline)
         ink(...fillColor).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h);
 
-        // 👻 Draw "Prompt" ghost text when prompt is empty and curtain is up (can't type)
+        // 🎯 TAP/TOUCH/TYPE vertical label with arrow pointing to cursor
+        // Shows cycling action words with bounce animation and color cycling
         if (input.text === "" && !input.canType) {
-          // Check dark mode once for all color decisions
           const isDark = $.dark;
-
-          // Cycle through languages (time-based)
           const now = performance.now();
+
+          // Update animation frame counter
           if (!lastLanguageChangeTime) lastLanguageChangeTime = now;
-          const deltaLanguage = (now - lastLanguageChangeTime) / 1000; // Convert to seconds
+          const deltaTime = (now - lastLanguageChangeTime) / 1000;
           lastLanguageChangeTime = now;
-          promptLanguageChangeFrame += deltaLanguage * 60; // 60 units per second
-          if (promptLanguageChangeFrame >= promptLanguageChangeInterval) {
-            promptLanguageChangeFrame = 0;
-            promptLanguageIndex = (promptLanguageIndex + 1) % promptTranslations.length;
-          }
+          promptLanguageChangeFrame += deltaTime * 60;
 
-          const ghostText = promptTranslations[promptLanguageIndex];
+          // Multilingual prompt text positioned to right/below cursor
+          const textX = cursorPos.x + cursorPos.w + 8;
+          const textY = cursorPos.y + cursorPos.h + 4;
 
-          // Replace unsupported characters with spaces to avoid question marks
-          // Support: Latin (+ Extended & Vietnamese), Greek, Cyrillic, Hebrew, Arabic, Thai, Devanagari, Bengali, CJK
-          const cleanGhostText = ghostText.replace(/[^\u0020-\u007E\u00A0-\u024F\u1E00-\u1EFF\u0370-\u03FF\u0400-\u04FF\u0590-\u05FF\u0600-\u06FF\u0E00-\u0E7F\u0900-\u097F\u0980-\u09FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF]/g, ' ');
-
-          // High contrast polychrome colors - cycle through vibrant colors at different speeds
-          // In light mode, use much brighter, more saturated colors
+          // High contrast polychrome colors - cycle through vibrant colors
           const textColorCycle = isDark ? [
             [255, 100, 255], // Bright magenta
             [100, 255, 255], // Bright cyan
@@ -5208,163 +5208,44 @@ function paint($) {
             [255, 128, 0],   // Pure orange
             [255, 0, 128],   // Pure pink
           ];
-          const textColorIndex = Math.floor(motdFrame * 0.08) % textColorCycle.length;
-          const baseColor = textColorCycle[textColorIndex];
 
-          // Background cycles at a different speed for more animation
-          // In light mode, use much darker, more saturated backgrounds for contrast
-          const bgColorCycle = isDark ? [
-            [100, 0, 100],   // Dark magenta
-            [0, 100, 100],   // Dark cyan
-            [100, 100, 0],   // Dark yellow
-            [0, 100, 0],     // Dark green
-            [100, 50, 0],    // Dark orange
-            [100, 0, 50],    // Dark pink
-          ] : [
-            [150, 0, 150],   // Deeper magenta
-            [0, 150, 150],   // Deeper cyan
-            [150, 150, 0],   // Deeper yellow
-            [0, 150, 0],     // Deeper green
-            [150, 75, 0],    // Deeper orange
-            [150, 0, 75],    // Deeper pink
-          ];
-          const bgColorIndex = Math.floor(motdFrame * 0.05) % bgColorCycle.length; // Slower cycle
-          const bgColor = [...bgColorCycle[bgColorIndex], 255]; // Full opacity for vibrant effect
-
-          // Oscillate alpha for pulsing effect (from 180 to 255 for high visibility)
-          const alphaOscillation = 180 + (Math.sin(motdFrame * 0.1) + 1) * 37.5; // Ranges from 180 to 255
-          const ghostColor = [...baseColor, alphaOscillation];
-
-          // Animate text moving left and right with more movement
-          const textSway = Math.sin(motdFrame * 0.08) * 6; // Increased from 3 to 6 pixel sway range
-
-          // Position "Prompt" text to the right of cursor
-          const textX = cursorPos.x + cursorPos.w + 34 + textSway;
-          const textY = cursorPos.y + cursorPos.h + 10; // Below cursor with some spacing
-
-          // Use text.box() API to get accurate text width based on actual BDF glyph widths
-          const textMeasurement = $.text.box(cleanGhostText, { x: 0, y: 0 }, undefined, 1, false, "unifont");
-          const textWidth = textMeasurement?.box?.width || (cleanGhostText.length * 8); // Fallback to 8px/char
-          const textHeight = 16; // Unifont height at scale 1
-
-          // Add padding for background box
-          const bgWidth = textWidth + 4; // Consistent 4px padding for all languages
-
-          // Draw drop shadow for background box
-          ink(0, 0, 0, 100).box(textX - 1, textY - 1, bgWidth, textHeight + 4);
-
-          // Draw polychrome background box with high contrast
-          ink(...bgColor).box(textX - 2, textY - 2, bgWidth, textHeight + 4);
-
-          // Draw text with per-character color cycling for rainbow effect
-          // We need to track actual rendered widths, so measure each character individually
-          let charX = textX;
-          for (let i = 0; i < cleanGhostText.length; i++) {
-            const char = cleanGhostText[i];
-            // Each character gets a different color from the cycle
-            const charColorIndex = (textColorIndex + i) % textColorCycle.length;
-            const charColor = [...textColorCycle[charColorIndex], alphaOscillation];
-
-            ink(...charColor).write(
-              char,
-              { x: charX, y: textY, noFunding: true },
-              undefined,
-              undefined,
-              false,
-              "unifont"
-            );
-
-            // Get accurate character width from text.box API (uses actual BDF advance widths)
-            const charMeasurement = $.text.box(char, { x: 0, y: 0 }, undefined, 1, false, "unifont");
-            const charWidth = charMeasurement?.box?.width || 8; // Fallback to 8px if measurement fails
-            charX += charWidth;
-          }
-
-          // Draw language name label below the prompt text in small font
-          const languageName = promptLanguageNames[promptLanguageIndex];
-          const labelY = textY + textHeight + 4; // 4px below the prompt text (closer)
-          // Right-align with the actual rendered text's right edge (use charX which is final position)
-          const labelWidth = languageName.length * 4; // 4px per char for MatrixChunky8
-          const actualTextRightEdge = charX; // charX is the final x position after all characters
-          const labelX = actualTextRightEdge - labelWidth;
-
-          // Invert colors based on light/dark mode (isDark already declared above)
-          const labelTextColor = isDark ? [150, 150, 150, 120] : [100, 100, 100, 150];
-          const labelShadowColor = isDark ? [0, 0, 0, 50] : [255, 255, 255, 80];
-
-          // Draw shadow for language label - noFunding to prevent $ replacement
-          ink(...labelShadowColor).write(languageName, { x: labelX + 1, y: labelY + 1, noFunding: true }, undefined, undefined, false, "MatrixChunky8");
-          // Draw language label - noFunding to prevent $ replacement
-          ink(...labelTextColor).write(languageName, { x: labelX, y: labelY, noFunding: true }, undefined, undefined, false, "MatrixChunky8");
+          // Alpha oscillation for pulsing effect
+          const alphaOscillation = Math.floor(180 + Math.sin(promptLanguageChangeFrame * 0.1) * 75);
 
           // Vertical action text on LEFT side of screen - ROTATED
           const actionVerbs = ["TOUCH", "TAP", "TYPE"];
-          const actionIndex = Math.floor(motdFrame / 60) % actionVerbs.length; // Change every 60 frames
+          const actionIndex = Math.floor(promptLanguageChangeFrame / 60) % actionVerbs.length; // Change every 60 frames
           const actionText = actionVerbs[actionIndex];
 
           // Bounce animation - subtle up and down movement
-          const bounceOffset = Math.sin(motdFrame * 0.1) * 3; // 3 pixel bounce range
+          const bounceOffset = Math.sin(promptLanguageChangeFrame * 0.1) * 3; // 3 pixel bounce range
 
           // Calculate text dimensions for background
           const verticalTextWidth = actionText.length * 4; // MatrixChunky8 width per char
           const verticalTextHeight = 8; // MatrixChunky8 height
 
-          // Position flush to left side, next to the ghost hint
-          const leftMargin = 5; // Moved 1px closer to left (was 6)
-          const verticalTextX = leftMargin; // No horizontal sway
+          // Position flush to left side
+          const leftMargin = 5;
+          const verticalTextX = leftMargin;
 
-          // Calculate fixed arrow position first
-          const arrowHeight = 10; // Even sharper/longer arrow (was 7)
-          const arrowTipY = textY - 1; // 4px lower (was -5)
-          const bgY = arrowTipY + arrowHeight; // Box starts where arrow ends
+          // Position label box near cursor
+          const bgX = leftMargin - 1;
+          const bgY = textY + bounceOffset;
+          const verticalBgWidth = verticalTextHeight + 1;
+          const verticalBgHeight = verticalTextWidth + 4;
 
           // Position text inside the box (accounting for rotation)
-          const verticalTextY = bgY + verticalTextWidth + 1 + bounceOffset; // Text at bottom of box content area, with bounce
+          const verticalTextY = bgY + verticalTextWidth + 1 + bounceOffset;
 
-          // Calculate arrow dimensions first (needed for shadow rendering order)
-          const arrowStartX = textX - 1;
-          const arrowStartY = textY - 3;
-          const arrowTargetX = cursorPos.x + (cursorPos.w / 2);
-          const arrowTargetY = cursorPos.y + (cursorPos.h / 2);
-          const verticalOscillation = Math.abs(Math.sin(motdFrame * 0.05) * 2);
-          const minVerticalLength = 2 + verticalOscillation;
-          const arrowElbowY = Math.min(arrowTargetY, arrowStartY - minVerticalLength);
-          const horizontalOscillation = Math.abs(Math.sin(motdFrame * 0.06) * 4);
-          const minHorizontalLength = 18 + horizontalOscillation; // Longer: 18-22px (was 10-14px)
-          const minArrowEnd = arrowStartX - minHorizontalLength;
-          const arrowEndX = Math.max(arrowTargetX, minArrowEnd);
-
-          // Draw background box with integrated arrow using shape
-          const bgX = leftMargin - 1; // No sway
-          const arrowTipYWithBounce = arrowTipY + bounceOffset; // Arrow tip bounces
-          const bgYWithBounce = arrowTipYWithBounce + arrowHeight; // Box starts where arrow ends
-          const verticalBgWidth = verticalTextHeight + 1; // 2px narrower
-          const verticalBgHeight = verticalTextWidth + 4; // More space at bottom (1 top + 3 bottom)
-          const arrowCenterX = bgX + verticalBgWidth / 2;
-
-          // Draw arrow drop shadows FIRST (behind sign)
-          ink(0, 0, 0, 80).line(arrowStartX + 1, arrowStartY + 1, arrowStartX + 1, arrowElbowY + 1);
-          ink(0, 0, 0, 80).line(arrowStartX + 1, arrowElbowY + 1, arrowEndX + 1, arrowElbowY + 1);
-          ink(0, 0, 0, 80).line(arrowEndX + 1, arrowElbowY + 1, arrowEndX + 3, arrowElbowY - 1);
-          ink(0, 0, 0, 80).line(arrowEndX + 1, arrowElbowY + 1, arrowEndX + 3, arrowElbowY + 3);
-
-          // Use consistent dark background with less opaque white text
-          ink(0, 0, 0, 200).shape([
-            [bgX, bgYWithBounce],                          // Top left of box
-            [bgX, arrowTipYWithBounce],                    // Arrow tip at left edge (right triangle style)
-            [bgX + verticalBgWidth, bgYWithBounce],        // Top right of box
-            [bgX + verticalBgWidth, bgYWithBounce + verticalBgHeight], // Bottom right
-            [bgX, bgYWithBounce + verticalBgHeight],       // Bottom left
-            [bgX, bgYWithBounce]                           // Close the shape
-          ]);
+          // Draw simple background box for label (no arrow)
+          ink(0, 0, 0, 200).box(bgX, bgY, verticalBgWidth, verticalBgHeight);
 
           // Draw white text with flickering per-character brightness
           let flickeringText = "";
           for (let i = 0; i < actionText.length; i++) {
             const char = actionText[i];
-            // Each character flickers independently based on frame and position
-            const flickerSeed = Math.sin((motdFrame * 0.15) + (i * 0.5));
-            const brightness = Math.floor(200 + flickerSeed * 55); // Range: 145-255
+            const flickerSeed = Math.sin((promptLanguageChangeFrame * 0.15) + (i * 0.5));
+            const brightness = Math.floor(200 + flickerSeed * 55);
             flickeringText += `\\${brightness},${brightness},${brightness}\\${char}`;
           }
 
@@ -5374,46 +5255,27 @@ function paint($) {
             rotation: 270
           }, undefined, undefined, false, "MatrixChunky8");
 
-          // Color cycling for arrow segments - each part gets a different color
-          const verticalColorIndex = Math.floor(motdFrame * 0.07) % textColorCycle.length;
-          const horizontalColorIndex = (verticalColorIndex + 2) % textColorCycle.length;
-          const arrowHeadColorIndex = (verticalColorIndex + 4) % textColorCycle.length;
+          // Color cycling for cursor overlay
+          const blinkColorIndex = Math.floor(promptLanguageChangeFrame * 0.05) % textColorCycle.length;
 
-          const verticalColor = [...textColorCycle[verticalColorIndex], alphaOscillation];
-          const horizontalColor = [...textColorCycle[horizontalColorIndex], alphaOscillation];
-          const arrowHeadColor = [...textColorCycle[arrowHeadColorIndex], alphaOscillation];
-
-          // Draw vertical line going up from text (1px wide) - colored
-          ink(...verticalColor).line(arrowStartX, arrowStartY, arrowStartX, arrowElbowY);
-          // Draw horizontal line going left with minimum length (1px wide) - colored
-          ink(...horizontalColor).line(arrowStartX, arrowElbowY, arrowEndX, arrowElbowY);
-          // Draw arrow head pointing left - colored
-          ink(...arrowHeadColor).line(arrowEndX, arrowElbowY, arrowEndX + 2, arrowElbowY - 2);
-          ink(...arrowHeadColor).line(arrowEndX, arrowElbowY, arrowEndX + 2, arrowElbowY + 2);
-
-          // Blinking overlay on the cursor block itself - magic jewel/gem effect
-          // Always show checkerboard, but blink the overall alpha
-          const blinkSpeed = Math.sin(motdFrame * 0.08); // Slower blink (reduced from 0.15)
-          // In light mode, use higher alpha range for more vibrant effect
+          // Blinking overlay on the cursor block - magic jewel/gem effect
+          const blinkSpeed = Math.sin(promptLanguageChangeFrame * 0.08);
           const blinkAlpha = isDark
-            ? Math.floor((blinkSpeed + 1) * 60 + 60)   // Dark: 60-180
-            : Math.floor((blinkSpeed + 1) * 80 + 100); // Light: 100-260 (clamped to 255)
-          // Fun color cycle for the blink overlay - slower
-          const blinkColorIndex = Math.floor(motdFrame * 0.05) % textColorCycle.length; // Slower (reduced from 0.1)
+            ? Math.floor((blinkSpeed + 1) * 60 + 60)
+            : Math.floor((blinkSpeed + 1) * 80 + 100);
 
-          // Rhythmic subdivision pattern - changes every 30 frames for more punctual feel
-          const patternPhase = Math.floor(motdFrame / 30) % 4; // 4 different patterns, change every 30 frames
+          // Rhythmic subdivision pattern - changes every 30 frames
+          const patternPhase = Math.floor(promptLanguageChangeFrame / 30) % 4;
           let cols, rows;
 
-          // Define 4 distinct rhythmic subdivision patterns
           if (patternPhase === 0) {
-            cols = 2; rows = 2; // 2x2 grid (large blocks)
+            cols = 2; rows = 2;
           } else if (patternPhase === 1) {
-            cols = 4; rows = 2; // 4x2 grid (horizontal stripes)
+            cols = 4; rows = 2;
           } else if (patternPhase === 2) {
-            cols = 2; rows = 4; // 2x4 grid (vertical stripes)
+            cols = 2; rows = 4;
           } else {
-            cols = 3; rows = 3; // 3x3 grid (medium blocks)
+            cols = 3; rows = 3;
           }
 
           const cellWidth = cursorPos.w / cols;
@@ -5421,10 +5283,8 @@ function paint($) {
 
           for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
-              // Create checkerboard pattern with slower rhythm
-              const isCheckerSquare = ((col + row + Math.floor(motdFrame / 20)) % 2 === 0);
+              const isCheckerSquare = ((col + row + Math.floor(promptLanguageChangeFrame / 20)) % 2 === 0);
               if (isCheckerSquare) {
-                // Vary color per square for gem facets
                 const squareColorIndex = (blinkColorIndex + col + row) % textColorCycle.length;
                 const squareColor = [...textColorCycle[squareColorIndex], blinkAlpha];
                 const cellX = cursorPos.x + Math.floor(col * cellWidth);
@@ -5451,44 +5311,21 @@ function paint($) {
       color: $.hud.currentStatusColor() || [255, 0, 200],
     });
 
-    // Stats / Analytics - Unified Ticker System
-    $.layer(2); // Render tickers on top of tooltips
+    // Stats / Analytics - UNITICKER System (unified ticker combining chat, laer-klokken, and media)
+    $.layer(2); // Render ticker on top of tooltips
 
     const loginY = screen.height / 2;
 
-    // Calculate dynamic positioning to prevent overlap
-    const tickerHeight = tinyTickers ? 8 : 11; // MatrixChunky8 is 8px, font_1 is ~11px
-    const tickerSpacing = 2; // Small gap between tickers
-    const tickerPadding = tinyTickers ? 5 : 2; // Less padding for font_1
-    const labelFont = "MatrixChunky8";
-    const labelPaddingX = 4;
-    const labelGap = 6;
-    const labelTextHeight = 8;
-    const chatLabel = "CHAT";
-    const clockLabel = "LAER-KLOKKEN";
-    const mediaLabel = "MEDIA";
-    const labelWidth = Math.min(Math.max(
-      $.text.box(chatLabel, undefined, undefined, undefined, undefined, labelFont).box.width,
-      $.text.box(clockLabel, undefined, undefined, undefined, undefined, labelFont).box.width,
-      $.text.box(mediaLabel, undefined, undefined, undefined, undefined, labelFont).box.width,
-    ) + (labelPaddingX * 2), Math.floor(screen.width * 0.45));
-
-    const paintTickerLabel = (labelText, boxY, boxHeight, { bg, fg, border }, bgAlpha = 200) => {
-      ink([...bg, bgAlpha]).box(0, boxY, labelWidth, boxHeight - 1);
-      ink([...border, 255]).line(labelWidth - 1, boxY, labelWidth - 1, boxY + boxHeight - 1);
-      const labelTextWidth = $.text.box(labelText, undefined, undefined, undefined, undefined, labelFont).box.width;
-      const labelTextX = Math.floor((labelWidth - labelTextWidth) / 2);
-      const labelTextY = Math.floor(boxY + (boxHeight - labelTextHeight) / 2);
-      ink([...fg, 255]).write(labelText, { x: labelTextX, y: labelTextY }, undefined, undefined, false, labelFont);
-    };
-    const tickerContentX = labelWidth + labelGap;
-    const tickerContentWidth = Math.max(20, screen.width - tickerContentX);
+    // Calculate dynamic positioning
+    const tickerHeight = 8; // MatrixChunky8 is 8px
+    const tickerPadding = 5; // Padding around ticker
+    const tickerFont = "MatrixChunky8";
 
     // Helper to ensure ticker text is long enough to fill screen without gaps
     // Repeats the content until it's at least 4x screen width for seamless looping
     const ensureMinTickerLength = (text, separator = " · ") => {
       if (!text) return text;
-      const charWidth = tinyTickers ? 4 : 6; // Conservative char width estimate
+      const charWidth = 4; // MatrixChunky8 char width estimate
       const minWidth = screen.width * 4; // 4x screen width for smooth seamless loop
       const textWidthApprox = text.length * charWidth;
       if (textWidthApprox < minWidth) {
@@ -5498,440 +5335,260 @@ function paint($) {
       return text;
     };
 
-    let currentTickerY = loginY + 44; // Start 44px below login (moved down from 30px)
-    let contentTickerY = 0; // Y position of content ticker (declared here for tooltip access)
+    const unitickerY = loginY + 44; // Position below login
+    let contentTickerY = unitickerY; // Y position of content ticker (declared here for tooltip access)
 
-    // 1. CHAT TICKER (top priority)
-    // Show recent chat messages with syntax highlighting
-    // Note: $.chat is the global chat system (automatically connected)
+    // Build combined uniticker items from all sources
+    // Types: 'chat' (blue), 'clock' (orange), 'kidlisp' ($), 'painting' (#), 'tape' (!)
     const hasChatMessages = $.chat?.messages && $.chat.messages.length > 0;
-    if (screen.height >= 180) {
-      let fullText;
+    const hasClockMessages = clockChatMessages && clockChatMessages.length > 0;
+    const hasMediaItems = contentItems.length > 0;
 
-      if (isCriticalFunding) {
-        // Show funding alert message instead of chat (colorful, specific to 'chat')
-        fullText = ensureMinTickerLength(FUNDING_MESSAGE_CHAT, " · ");
-      } else {
-        // Show last 12 messages with syntax highlighting
-        const numMessages = Math.min(12, $.chat.messages.length);
-        const recentMessages = $.chat.messages.slice(-numMessages);
+    // Build unified items array for rendering with hover detection
+    unitickerItems = [];
 
-        fullText = recentMessages.map(msg => {
-          const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
-          const fullMessage = msg.from + ": " + sanitizedText;
-
-          // Parse and apply color codes
-          const elements = parseMessageElements(fullMessage);
-          const colorMap = {
-            handle: "pink",
-            url: "cyan",
-            prompt: "lime",
-            promptcontent: "cyan",
-            painting: "orange",
-            kidlisp: "magenta",
-          };
-
-          return applyColorCodes(fullMessage, elements, colorMap, [0, 255, 255]);
-        }).join(" · ");
-
-        // Repeat content to fill screen without gaps
-        fullText = ensureMinTickerLength(fullText, " · ");
-      }
-      const chatTickerY = currentTickerY;
-
-      // Create or update ticker instance
-      if (!chatTicker) {
-        chatTicker = new $.gizmo.Ticker(fullText, {
-          speed: 1, // Positive = scroll left (text moves left, appears from right)
-          separator: "", // No extra separator - text already has · between messages
+    // Add chat messages (blue) - code: 'chat'
+    if (!isCriticalFunding && hasChatMessages) {
+      const numMessages = Math.min(6, $.chat.messages.length);
+      const recentMessages = $.chat.messages.slice(-numMessages);
+      recentMessages.forEach(msg => {
+        const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
+        const displayText = msg.from + ": " + sanitizedText.slice(0, 50) + (sanitizedText.length > 50 ? "..." : "");
+        unitickerItems.push({
+          type: 'chat',
+          text: displayText,
+          code: 'chat',
+          color: [100, 200, 255], // Bright blue
         });
-        chatTicker.paused = false;
-        chatTicker.offset = 0; // No offset for chat
+      });
+    }
+
+    // Add clock messages (orange) - code: 'laer-klokken'
+    if (!isCriticalFunding && hasClockMessages) {
+      const numClockMessages = Math.min(4, clockChatMessages.length);
+      const recentClockMessages = clockChatMessages.slice(-numClockMessages);
+      recentClockMessages.forEach(msg => {
+        const sanitizedText = (msg.text || msg.message || '').replace(/[\r\n]+/g, ' ');
+        const from = msg.from || msg.handle || msg.author || 'anon';
+        const displayText = from + ": " + sanitizedText.slice(0, 50) + (sanitizedText.length > 50 ? "..." : "");
+        unitickerItems.push({
+          type: 'clock',
+          text: displayText,
+          code: 'laer-klokken',
+          color: [255, 180, 80], // Bright orange
+        });
+      });
+    }
+
+    // Add media items (kidlisp, painting, tape)
+    if (hasMediaItems) {
+      contentItems.forEach(item => {
+        let prefix, color, code;
+        if (item.type === 'kidlisp') {
+          prefix = '$';
+          color = [150, 255, 150]; // Bright lime green
+          code = `$${item.code}`;
+        } else if (item.type === 'painting') {
+          prefix = '#';
+          color = [255, 150, 255]; // Bright magenta
+          // Determine proper code for paintings
+          if (!item.handle || item.handle === 'undefined' || item.handle === 'null') {
+            code = `painting#${item.code}`;
+          } else {
+            code = `#${item.code}`;
+          }
+        } else { // tape
+          prefix = '!';
+          color = [255, 200, 100]; // Bright orange/yellow
+          code = `!${item.code}`;
+        }
+        unitickerItems.push({
+          type: item.type,
+          text: `${prefix}${item.code}`,
+          code: code,
+          color: color,
+          mediaItem: item, // Keep reference to original item for media preview
+        });
+      });
+    }
+
+    // Show uniticker if we have any items
+    const showUniticker = screen.height >= 180 && unitickerItems.length > 0;
+
+    if (showUniticker) {
+      // Build full text for ticker (just for width calculation)
+      const fullText = unitickerItems.map(item => item.text).join(" · ");
+
+      // Create or update uniticker instance
+      if (!uniticker) {
+        mediaPreviewBox = new MediaPreviewBox(); // Initialize shared preview box
+        uniticker = new $.gizmo.Ticker(fullText, {
+          speed: 1, // 1px per frame
+          separator: " · ",
+        });
+        uniticker.paused = false;
+        uniticker.offset = 0;
       } else {
-        chatTicker.setText(fullText);
+        uniticker.setText(fullText);
       }
 
-      // Update ticker animation only if not paused
-      if (!chatTicker.paused) {
-        chatTicker.update($);
+      // Update ticker animation
+      if (uniticker && !uniticker.paused) {
+        uniticker.update($);
       }
 
       // Create or update invisible button over ticker area
-      if (!chatTickerButton) {
-        chatTickerButton = new $.ui.Button({
+      const boxHeight = tickerHeight + (tickerPadding * 2);
+      const boxY = unitickerY - tickerPadding;
+
+      if (!unitickerButton) {
+        unitickerButton = new $.ui.Button({
           x: 0,
-          y: chatTickerY - tickerPadding,
+          y: boxY,
           w: screen.width,
-          h: tickerHeight + (tickerPadding * 2),
+          h: boxHeight,
         });
-        chatTickerButton.noEdgeDetection = true;
-        chatTickerButton.noRolloverActivation = true;
-        chatTickerButton.stickyScrubbing = true;
+        unitickerButton.noEdgeDetection = true;
+        unitickerButton.noRolloverActivation = true;
+        unitickerButton.stickyScrubbing = true;
       } else {
-        chatTickerButton.box.x = 0;
-        chatTickerButton.box.y = chatTickerY - tickerPadding;
-        chatTickerButton.box.w = screen.width;
-        chatTickerButton.box.h = tickerHeight + (tickerPadding * 2);
+        unitickerButton.box.x = 0;
+        unitickerButton.box.y = boxY;
+        unitickerButton.box.w = screen.width;
+        unitickerButton.box.h = boxHeight;
       }
 
       // Paint background and borders
-      if (!chatTickerButton.disabled) {
-        const boxHeight = tickerHeight + (tickerPadding * 2);
-        const boxY = chatTickerY - tickerPadding;
-
+      if (!unitickerButton.disabled) {
         // Dark background for high contrast
-        const bgAlpha = chatTickerButton.down ? 120 : 80;
-        ink([0, 80, 80, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
+        const bgAlpha = unitickerButton.down ? 100 : 60;
+        ink([20, 20, 30, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
 
-        // Top border (1px)
-        ink([0, 200, 200, 255]).line(0, boxY, screen.width, boxY);
+        // Subtle top and bottom borders (purple/pink tint)
+        ink([150, 100, 200, 180]).line(0, boxY, screen.width, boxY);
+        ink([150, 100, 200, 180]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
 
-        // Bottom border (1px, non-overlapping)
-        ink([0, 200, 200, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
+        // Render items with individual colors and hover detection
+        const textY = unitickerY;
+        const tickerAlpha = unitickerButton.down ? 255 : 220;
 
-        const tickerAlpha = chatTickerButton.down ? 255 : 220;
-        const textY = chatTickerY;
-
-        if (isCriticalFunding || hasChatMessages) {
-          // Use Ticker's built-in paint for scrolling (syntax highlighting TODO)
-          chatTicker.paint($, tickerContentX, textY, {
-            color: [0, 255, 255], // Bright cyan
-            alpha: tickerAlpha,
-            width: tickerContentWidth,
-            font: tinyTickers ? "MatrixChunky8" : undefined,
-          });
-        } else {
-          // Show Matrix loading animation
-          paintMatrixLoading($, tickerContentX, textY, tickerContentWidth, tinyTickers ? "MatrixChunky8" : undefined, "cyan");
-        }
-
-        paintTickerLabel(chatLabel, boxY, boxHeight, {
-          bg: [0, 80, 80],
-          fg: [0, 255, 255],
-          border: [0, 200, 200],
-        }, chatTickerButton.down ? 140 : 110);
-      }
-
-      // Move down for next ticker
-      currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing;
-    } else {
-      chatTicker = null;
-      chatTickerButton = null;
-    }
-
-    // 1B. LAER-KLOKKEN CLOCK CHAT TICKER
-    // Always show, Matrix animation when no messages
-    if (screen.height >= 240) {
-      const hasClockMessages = clockChatMessages && clockChatMessages.length > 0;
-      const clockTickerY = currentTickerY;
-
-      if (isCriticalFunding || hasClockMessages) {
-        let clockFullText;
-
-        if (isCriticalFunding) {
-          // Show funding alert message (colorful, specific to 'laer-klokken')
-          clockFullText = ensureMinTickerLength(FUNDING_MESSAGE_CLOCK, " · ");
-        } else {
-          const numClockMessages = Math.min(12, clockChatMessages.length);
-          const recentClockMessages = clockChatMessages.slice(-numClockMessages);
-
-          // Build ticker text with syntax highlighting for @handles, URLs, 'prompts', etc.
-          clockFullText = recentClockMessages.map(msg => {
-            const sanitizedText = (msg.text || msg.message || '').replace(/[\r\n]+/g, ' ');
-            const from = msg.from || msg.handle || msg.author || 'anon';
-            const fullMessage = from + ": " + sanitizedText;
-
-            // Parse and apply color codes
-            const elements = parseMessageElements(fullMessage);
-            const colorMap = {
-              handle: "pink",
-              url: "cyan",
-              prompt: "lime",
-              promptcontent: "cyan",
-              painting: "orange",
-              kidlisp: "magenta",
-            };
-
-            return applyColorCodes(fullMessage, elements, colorMap, [255, 200, 100]);
-          }).join(" · ");
-
-          // Repeat content to fill screen without gaps
-          clockFullText = ensureMinTickerLength(clockFullText, " · ");
-        }
-
-        if (!clockChatTicker) {
-          clockChatTicker = new $.gizmo.Ticker(clockFullText, {
-            speed: -1, // Negative = scroll opposite direction (right to left)
-            separator: "", // No extra separator - text already has · between messages
-          });
-          clockChatTicker.paused = false;
-          clockChatTicker.offset = 0;
-        } else {
-          clockChatTicker.setText(clockFullText);
-        }
-      }
-
-      if ((isCriticalFunding || hasClockMessages) && clockChatTicker && !clockChatTicker.paused) {
-        clockChatTicker.update($);
-      }
-
-      if (!clockChatTickerButton) {
-        clockChatTickerButton = new $.ui.Button({
-          x: 0,
-          y: clockTickerY - tickerPadding,
-          w: screen.width,
-          h: tickerHeight + (tickerPadding * 2),
-        });
-        clockChatTickerButton.noEdgeDetection = true;
-        clockChatTickerButton.noRolloverActivation = true;
-        clockChatTickerButton.stickyScrubbing = true;
-      } else {
-        clockChatTickerButton.box.x = 0;
-        clockChatTickerButton.box.y = clockTickerY - tickerPadding;
-        clockChatTickerButton.box.w = screen.width;
-        clockChatTickerButton.box.h = tickerHeight + (tickerPadding * 2);
-      }
-
-      if (!clockChatTickerButton.disabled) {
-        const boxHeight = tickerHeight + (tickerPadding * 2);
-        const boxY = clockTickerY - tickerPadding;
-
-        const bgAlpha = clockChatTickerButton.down ? 120 : 80;
-        ink([80, 40, 0, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
-
-        ink([255, 160, 0, 255]).line(0, boxY, screen.width, boxY);
-        ink([255, 160, 0, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
-
-        const tickerAlpha = clockChatTickerButton.down ? 255 : 220;
-        const textY = clockTickerY;
-
-        if ((isCriticalFunding || hasClockMessages) && clockChatTicker) {
-          clockChatTicker.paint($, tickerContentX, textY, {
-            color: [255, 200, 100],
-            alpha: tickerAlpha,
-            width: tickerContentWidth,
-            font: tinyTickers ? "MatrixChunky8" : undefined,
-          });
-        } else {
-          // Show Matrix loading animation
-          paintMatrixLoading($, tickerContentX, textY, tickerContentWidth, tinyTickers ? "MatrixChunky8" : undefined, "orange");
-        }
-
-        paintTickerLabel(clockLabel, boxY, boxHeight, {
-          bg: [80, 40, 0],
-          fg: [255, 200, 100],
-          border: [255, 160, 0],
-        }, clockChatTickerButton.down ? 140 : 110);
-      }
-
-      // Extra spacing after laer-klokken before content ticker
-      currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing + 1;
-    } else {
-      clockChatTicker = null;
-      clockChatTickerButton = null;
-    }
-
-    // 2. CONTENT TICKER (combined $kidlisp, #painting, !tape, *clock)
-    const showContentTicker = !DISABLE_CONTENT_TICKER && screen.height >= 220;
-    const contentIsLoading = contentItems.length === 0;
-
-    if (showContentTicker && (contentItems.length > 0 || contentIsLoading)) {
-      contentTickerY = currentTickerY; // Assign to outer scope variable
-
-      // Build text with prefixes: $ for kidlisp, # for painting, ! for tape, * for clock
-      const fullText = contentItems.length > 0
-        ? contentItems.map(item => {
-            const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : item.type === 'tape' ? '!' : '*';
-            return `${prefix}${item.code}`;
-          }).join(" · ")
-        : ""; // Empty when loading
-
-      // Create or update content ticker instance
-      if (!contentTicker && contentItems.length > 0) {
-        mediaPreviewBox = new MediaPreviewBox(); // Initialize shared preview box
-        contentTicker = new $.gizmo.Ticker(fullText, {
-          speed: 1, // 1px per frame
-          separator: " · ",
-          reverse: true, // Right to left (opposite of chat)
-        });
-        contentTicker.paused = false;
-        contentTicker.offset = 100; // Offset by 100px for stagger
-      } else if (contentTicker && contentItems.length > 0) {
-        contentTicker.setText(fullText);
-      }
-
-      // Update ticker animation (only if content is loaded)
-      if (contentTicker && !contentTicker.paused && contentItems.length > 0) {
-        contentTicker.update($);
-      }
-
-      // Create or update invisible button over ticker area
-      if (!contentTickerButton) {
-        contentTickerButton = new $.ui.Button({
-          x: 0,
-          y: contentTickerY - tickerPadding,
-          w: screen.width,
-          h: tickerHeight + (tickerPadding * 2),
-        });
-        contentTickerButton.noEdgeDetection = true;
-        contentTickerButton.noRolloverActivation = true;
-        contentTickerButton.stickyScrubbing = true;
-      } else {
-        contentTickerButton.box.x = 0;
-        contentTickerButton.box.y = contentTickerY - tickerPadding;
-        contentTickerButton.box.w = screen.width;
-        contentTickerButton.box.h = tickerHeight + (tickerPadding * 2);
-      }
-
-      // Paint background and border
-      if (!contentTickerButton.disabled) {
-        const boxHeight = tickerHeight + (tickerPadding * 2);
-        const boxY = contentTickerY - tickerPadding;
-
-        // Dark background for high contrast
-        const bgAlpha = contentTickerButton.down ? 120 : 80;
-        ink([30, 30, 30, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
-
-        // Top border (1px)
-        ink([200, 200, 200, 255]).line(0, boxY, screen.width, boxY);
-
-        // Bottom border (1px, non-overlapping)
-        ink([200, 200, 200, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
-
-        // If loading (no content yet), show Matrix-style characters instead of text
-        if (contentItems.length === 0) {
-          const textY = contentTickerY;
-          paintMatrixLoading($, tickerContentX, textY, tickerContentWidth, tinyTickers ? "MatrixChunky8" : undefined, "default");
-        } else if (contentTicker) {
-          // Show ticker content when loaded (only if ticker exists)
-          // Now render the text with color-coded prefixes
-          // We need to manually render each item with its own color
-          const textY = contentTickerY; // No offset - text baseline is already at correct Y
-          const contentTickerAlpha = contentTickerButton.down ? 255 : 220;
-
-          // Calculate positions for each item manually and track for hover detection
-          let currentX = tickerContentX - contentTicker.getOffset();
-          const displayWidth = screen.width;
-          const minContentX = tickerContentX - 100;
-          const maxContentX = screen.width + 100;
-          const separator = " · ";
-
-          // Track item positions for hover detection
-          const itemPositions = [];
-          let hoveredItemIndex = -1;
-
-          // Render items multiple times to fill the screen (cycling)
-          const cycleWidth = contentTicker.getCycleWidth();
-          const numCycles = Math.ceil((displayWidth + cycleWidth) / cycleWidth) + 1;
-
-          for (let cycle = 0; cycle < numCycles; cycle++) {
-            contentItems.forEach((item, idx) => {
-              const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
-              const text = `${prefix}${item.code}`;
-
-              // Color-code by type
-              let color;
-              if (item.type === 'kidlisp') {
-                color = [150, 255, 150]; // Bright lime green
-              } else if (item.type === 'painting') {
-                color = [255, 150, 255]; // Bright magenta
-              } else { // tape
-                color = [255, 200, 100]; // Bright orange/yellow
-              }
-
-              const textWidth = $.text.box(text, undefined, undefined, undefined, undefined, tinyTickers ? "MatrixChunky8" : undefined).box.width;
-
-              // Check if mouse is hovering over this item (only check first cycle)
-              // Use $.pen for mouse position (available in paint context)
-              const mouseX = $.pen?.x ?? -1;
-              const mouseY = $.pen?.y ?? -1;
-              const isHovered = cycle === 0 &&
-                               mouseX >= currentX &&
-                               mouseX < currentX + textWidth &&
-                               mouseY >= boxY &&
-                               mouseY < boxY + boxHeight;
-
-              if (isHovered && cycle === 0) {
-                hoveredItemIndex = idx;
-              }
-
-              // Check if this is the currently displayed tooltip item
-              const isTooltipItem = currentTooltipItem && item.code === currentTooltipItem.code;
-
-              // Only render if visible
-              if (currentX > minContentX && currentX < maxContentX) {
-                // Brighter and add background if hovered OR if it's the tooltip item
-                if ((isHovered || isTooltipItem) && !contentTickerButton.down) {
-                  // Choose outline color based on media type
-                  let outlineColor;
-                  if (item.type === 'kidlisp') {
-                    outlineColor = [150, 255, 150, 180]; // Green
-                  } else if (item.type === 'painting') {
-                    outlineColor = [255, 150, 255, 180]; // Magenta
-                  } else { // tape
-                    outlineColor = [255, 200, 100, 180]; // Orange
-                  }
-
-                  // Bright background (colored tint for tooltip item, white for hover)
-                  const bgColor = isTooltipItem
-                    ? [...color, 60] // Use media type color at low alpha
-                    : [255, 255, 255, 40]; // White for hover
-                  $.ink(bgColor).box(currentX, boxY, textWidth, boxHeight - 1);
-
-                  // Draw box outline around tooltip item (any media type)
-                  if (isTooltipItem) {
-                    $.ink(outlineColor).box(currentX - 2, boxY - 1, textWidth + 4, boxHeight, "inline");
-                  }
-
-                  // Brighter text when hovered or selected
-                  $.ink(color, 255).write(text, { x: currentX, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
-                } else {
-                  $.ink(color, contentTickerAlpha).write(text, { x: currentX, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
-                }
-              }
-
-              // Store position for click detection (only first cycle)
-              if (cycle === 0) {
-                itemPositions.push({
-                  x: currentX,
-                  width: textWidth,
-                  item: item,
-                  index: idx
-                });
-              }
-
-              // Move to next position
-              currentX += textWidth;
-
-              // Add separator after each item (except potentially the last in a cycle)
-              if (idx < contentItems.length - 1 || cycle < numCycles - 1) {
-                if (currentX > minContentX && currentX < maxContentX) {
-                  // Blinking separator with high contrast
-                  const blinkAlpha = 150 + Math.sin(motdFrame * 0.2) * 100;
-                  ink([255, 255, 255], blinkAlpha).write(separator, { x: currentX, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
-                }
-                const sepWidth = $.text.box(separator, undefined, undefined, undefined, undefined, tinyTickers ? "MatrixChunky8" : undefined).box.width;
-                currentX += sepWidth;
-              }
-            });
+        // Calculate per-item widths and total cycle width
+        const separator = " · ";
+        const separatorWidth = $.text.box(separator, undefined, undefined, undefined, undefined, tickerFont).box.width;
+        let itemWidths = [];
+        let totalCycleWidth = 0;
+        unitickerItems.forEach((item, idx) => {
+          const textWidth = $.text.box(item.text, undefined, undefined, undefined, undefined, tickerFont).box.width;
+          itemWidths.push(textWidth);
+          totalCycleWidth += textWidth;
+          if (idx < unitickerItems.length - 1) {
+            totalCycleWidth += separatorWidth;
           }
+        });
+        totalCycleWidth += separatorWidth; // Add trailing separator for seamless loop
 
-          // Store hovered item for click handler
-          contentTickerButton.hoveredItemIndex = hoveredItemIndex;
+        // Use modulo offset for seamless looping
+        const rawOffset = uniticker.getOffset();
+        const loopedOffset = totalCycleWidth > 0 ? (rawOffset % totalCycleWidth) : 0;
+
+        // Track hovered item
+        let hoveredItem = null;
+        let hoveredItemX = 0;
+        let hoveredItemWidth = 0;
+
+        // Calculate starting X position with looped offset
+        const startMargin = 6;
+        let baseX = startMargin - loopedOffset;
+
+        // Render enough cycles to fill screen plus buffer
+        const numCycles = Math.ceil((screen.width + totalCycleWidth) / totalCycleWidth) + 1;
+
+        for (let cycle = 0; cycle < numCycles; cycle++) {
+          let currentX = baseX + (cycle * totalCycleWidth);
+
+          unitickerItems.forEach((item, idx) => {
+            const text = item.text;
+            const color = item.color;
+            const textWidth = itemWidths[idx];
+
+            // Check if mouse is hovering over this item
+            const mouseX = $.pen?.x ?? -1;
+            const mouseY = $.pen?.y ?? -1;
+            const isHovered = mouseX >= currentX &&
+                             mouseX < currentX + textWidth &&
+                             mouseY >= boxY &&
+                             mouseY < boxY + boxHeight;
+
+            // Track hovered item (prefer items visible on screen)
+            if (isHovered && currentX >= 0 && currentX < screen.width) {
+              hoveredItem = item;
+              hoveredItemX = currentX;
+              hoveredItemWidth = textWidth;
+            }
+
+            // Only render if visible on screen (with small buffer)
+            const isVisible = (currentX + textWidth) > -10 && currentX < (screen.width + 10);
+            if (isVisible) {
+              if (isHovered && !unitickerButton.down) {
+                // Highlight background on hover
+                $.ink([...color, 50]).box(currentX - 1, boxY + 1, textWidth + 2, boxHeight - 3);
+                // Brighter text when hovered
+                $.ink(color, 255).write(text, { x: currentX, y: textY }, undefined, undefined, false, tickerFont);
+              } else {
+                $.ink(color, tickerAlpha).write(text, { x: currentX, y: textY }, undefined, undefined, false, tickerFont);
+              }
+            }
+
+            // Move to next position
+            currentX += textWidth;
+
+            // Add separator after each item
+            const sepVisible = (currentX + separatorWidth) > -10 && currentX < (screen.width + 10);
+            if (sepVisible) {
+              const blinkAlpha = 120 + Math.sin(motdFrame * 0.2) * 60;
+              ink([180, 180, 200], blinkAlpha).write(separator, { x: currentX, y: textY }, undefined, undefined, false, tickerFont);
+            }
+            currentX += separatorWidth;
+          });
         }
 
-        paintTickerLabel(mediaLabel, boxY, boxHeight, {
-          bg: [30, 30, 30],
-          fg: [200, 200, 200],
-          border: [200, 200, 200],
-        }, contentTickerButton.down ? 140 : 110);
-      }
+        // Store hovered item for click handler and tooltip
+        unitickerHoveredItem = hoveredItem;
+        unitickerButton.hoveredItem = hoveredItem;
 
-      // Move down for next ticker (if we add more)
-      currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing;
+        // 🎯 Draw "Enter [code]" tooltip above hovered item
+        if (hoveredItem && !unitickerButton.down) {
+          const tooltipText = `Enter '${hoveredItem.code}'`;
+          const tooltipWidth = $.text.box(tooltipText, undefined, undefined, undefined, undefined, tickerFont).box.width;
+          const tooltipHeight = 10;
+          const tooltipPadding = 3;
+
+          // Position tooltip above the hovered item, centered
+          let tooltipX = hoveredItemX + (hoveredItemWidth / 2) - (tooltipWidth / 2) - tooltipPadding;
+          const tooltipY = boxY - tooltipHeight - tooltipPadding * 2 - 4;
+
+          // Clamp to screen bounds
+          tooltipX = Math.max(4, Math.min(tooltipX, screen.width - tooltipWidth - tooltipPadding * 2 - 4));
+
+          // Draw tooltip background
+          const tooltipBgColor = [...hoveredItem.color, 180];
+          ink([10, 10, 20, 220]).box(tooltipX, tooltipY, tooltipWidth + tooltipPadding * 2, tooltipHeight + tooltipPadding * 2);
+          ink(tooltipBgColor).box(tooltipX, tooltipY, tooltipWidth + tooltipPadding * 2, tooltipHeight + tooltipPadding * 2, "inline");
+
+          // Draw tooltip text
+          ink([255, 255, 255, 255]).write(tooltipText, { x: tooltipX + tooltipPadding, y: tooltipY + tooltipPadding + 1 }, undefined, undefined, false, tickerFont);
+
+          // Draw small arrow pointing down to the item
+          const arrowX = hoveredItemX + (hoveredItemWidth / 2);
+          const arrowY = tooltipY + tooltipHeight + tooltipPadding * 2;
+          ink([...hoveredItem.color, 200]).line(arrowX, arrowY, arrowX - 3, arrowY + 3);
+          ink([...hoveredItem.color, 200]).line(arrowX, arrowY, arrowX + 3, arrowY + 3);
+        }
+      }
     } else {
-      contentTicker = null;
-      contentTickerButton = null;
+      uniticker = null;
+      unitickerButton = null;
+      unitickerHoveredItem = null;
       currentTooltipItem = null; // Clear when ticker is hidden
       tooltipTimer = 0;
       if (activeTapePreview) {
@@ -5943,28 +5600,34 @@ function paint($) {
 
     // 🎨 CONTENT TOOLTIP (ambient floating preview)
     // Automatically cycles through content items (KidLisp + Paintings), showing previews
-    if (!DISABLE_CONTENT_PREVIEWS && showContentTicker && contentItems.length > 0) {
-      // Filter to only items that are currently visible on screen (from the right side)
+    // Now uses uniticker instead of the old contentTicker
+    if (!DISABLE_CONTENT_PREVIEWS && showUniticker && contentItems.length > 0) {
+      // Filter to only media items (not chat/clock messages) for preview
       const visibleItems = [];
 
-      if (contentTicker) {
-        const offset = contentTicker.getOffset();
-        let currentX = tickerContentX - offset;
+      if (uniticker) {
+        const offset = uniticker.getOffset();
+        let currentX = 6 - offset;
 
-        contentItems.forEach(item => {
-          const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
-          const text = `${prefix}${item.code}`;
-          const textWidth = $.text.box(text).box.width;
+        // Only show previews for media items (kidlisp, painting, tape)
+        const mediaItems = unitickerItems.filter(item => 
+          item.type === 'kidlisp' || item.type === 'painting' || item.type === 'tape'
+        );
+
+        mediaItems.forEach(item => {
+          const text = item.text;
+          const textWidth = $.text.box(text, undefined, undefined, undefined, undefined, tickerFont).box.width;
 
           // Check if this item is visible on screen (prefer right side)
-          const rightBiasStart = tickerContentX + (screen.width - tickerContentX) * 0.3;
+          const rightBiasStart = (screen.width) * 0.3;
           if (currentX >= rightBiasStart && currentX < screen.width) {
-            // Use original item object to preserve fetchAttempted/fetchFailed flags
-            item.screenX = currentX; // Add screenX directly to original object
-            visibleItems.push(item);
+            // Use original media item object if available
+            const mediaItem = item.mediaItem || item;
+            mediaItem.screenX = currentX;
+            visibleItems.push(mediaItem);
           }
 
-          currentX += textWidth + $.text.box(" · ").box.width;
+          currentX += textWidth + $.text.box(" · ", undefined, undefined, undefined, undefined, tickerFont).box.width;
         });
       }
 
@@ -6527,6 +6190,9 @@ function paint($) {
       versionCommit = null;
     }
 
+    // 🚫 DEPRECATED: MOTD (Mood of the Day) - now shown in boot canvas2d initializer instead
+    // The boot loader shows MOTDs faster with potential redis caching
+    /*
     // MOTD (Mood of the Day) - show above login/signup buttons with animation
     // In CRITICAL funding mode, always show regardless of screen height
     if (motd && (isCriticalFunding || screen.height >= 180)) {
@@ -6775,6 +6441,10 @@ function paint($) {
         $.needsPaint();
       }
     }
+    */ // End of deprecated MOTD section
+    // Reset motd handle hover state since MOTD is deprecated
+    motdBylineHandleBox = null;
+    motdBylineHandleHover = false;
 
     // 🎭 MASTHEAD DECORATIONS (commented out)
     // 😡😢😭 Emotional face stamp - cycles through angry, sad, crying
@@ -7602,14 +7272,81 @@ function act({
   //   }
   // }
 
-  // Chat ticker button (invisible, just for click interaction)
+  // 🎰 UNITICKER button handler (unified ticker combining all content)
+  if (unitickerButton && !unitickerButton.disabled) {
+    unitickerButton.act(e, {
+      down: () => {
+        downSound();
+        if (uniticker) {
+          uniticker.paused = true;
+          unitickerButton.scrubStartX = e.x;
+          unitickerButton.scrubInitialOffset = uniticker.getOffset();
+          unitickerButton.hasScrubbed = false;
+        }
+        needsPaint();
+      },
+      scrub: (btn) => {
+        if (uniticker && e.x !== undefined && e.y !== undefined) {
+          const scrubDelta = e.x - unitickerButton.scrubStartX;
+          let newOffset = unitickerButton.scrubInitialOffset - scrubDelta;
+
+          if (newOffset < 0) {
+            newOffset = newOffset * 0.3; // Elastic effect
+          }
+
+          uniticker.setOffset(newOffset);
+          unitickerButton.hasScrubbed = Math.abs(scrubDelta) > 5;
+
+          synth({
+            type: "sine",
+            tone: 1200 + Math.abs(scrubDelta) * 2,
+            attack: 0.005,
+            decay: 0.9,
+            volume: 0.08,
+            duration: 0.01,
+          });
+
+          needsPaint();
+        }
+      },
+      push: () => {
+        if (!unitickerButton.hasScrubbed) {
+          pushSound();
+        }
+
+        if (!unitickerButton.hasScrubbed && unitickerButton.hoveredItem) {
+          // Jump to the hovered item's destination
+          const item = unitickerButton.hoveredItem;
+          const destination = item.code;
+
+          // Set prompt input text to show what's loading
+          system.prompt.input.text = destination;
+          system.prompt.input.snap();
+
+          // Jump to the destination
+          jump(destination);
+        } else {
+          if (uniticker) {
+            uniticker.paused = false;
+          }
+        }
+        unitickerButton.hasScrubbed = false;
+      },
+      cancel: () => {
+        cancelSound();
+        if (uniticker) {
+          uniticker.paused = false;
+        }
+        unitickerButton.hasScrubbed = false;
+      },
+    });
+  }
+
+  // (DEPRECATED - Now using uniticker) Chat ticker button
   if (chatTickerButton && !chatTickerButton.disabled) {
     chatTickerButton.act(e, {
       down: () => {
-        // Sound feedback on tap down
         downSound();
-
-        // Stop ticker animation and store initial scrub position
         if (chatTicker) {
           chatTicker.paused = true;
           chatTickerButton.scrubStartX = e.x;
@@ -7619,49 +7356,32 @@ function act({
         needsPaint();
       },
       scrub: (btn) => {
-        // Manual scrubbing - move content left/right using current position vs start
         if (chatTicker && e.x !== undefined && e.y !== undefined) {
           const scrubDelta = e.x - chatTickerButton.scrubStartX;
-
-          // Calculate the raw offset
           let newOffset = chatTickerButton.scrubInitialOffset - scrubDelta;
-
-          // Add elastic bounce effect for negative values
           if (newOffset < 0) {
-            // Apply diminishing returns for negative movement (elastic effect)
-            // The further negative, the less responsive it becomes
-            newOffset = newOffset * 0.3; // Scale down negative movement to 30%
+            newOffset = newOffset * 0.3;
           }
-
           chatTicker.setOffset(newOffset);
-
           chatTickerButton.hasScrubbed = Math.abs(scrubDelta) > 5;
-
-          // Play softer, shorter tick sound during scrubbing
           synth({
             type: "sine",
-            tone: 1200 + Math.abs(scrubDelta) * 2, // Pitch varies with scrub distance
+            tone: 1200 + Math.abs(scrubDelta) * 2,
             attack: 0.005,
             decay: 0.9,
             volume: 0.08,
             duration: 0.01,
           });
-
           needsPaint();
         }
       },
       push: () => {
-        // Sound feedback on successful action
         if (!chatTickerButton.hasScrubbed) {
           pushSound();
         }
-
-        // Only jump to chat if we didn't scrub
         if (!chatTickerButton.hasScrubbed) {
-          // Keep ticker stopped when jumping to chat
           jump("chat");
         } else {
-          // Resume animation if we scrubbed
           if (chatTicker) {
             chatTicker.paused = false;
           }
@@ -7669,10 +7389,7 @@ function act({
         chatTickerButton.hasScrubbed = false;
       },
       cancel: () => {
-        // Cancel sound
         cancelSound();
-
-        // Resume animation on cancel
         if (chatTicker) {
           chatTicker.paused = false;
         }
@@ -7681,14 +7398,11 @@ function act({
     });
   }
 
-  // Clock chat ticker button (invisible, just for click interaction)
+  // (DEPRECATED - Now using uniticker) Clock chat ticker button
   if (clockChatTickerButton && !clockChatTickerButton.disabled) {
     clockChatTickerButton.act(e, {
       down: () => {
-        // Sound feedback on tap down
         downSound();
-
-        // Stop ticker animation and store initial scrub position
         if (clockChatTicker) {
           clockChatTicker.paused = true;
           clockChatTickerButton.scrubStartX = e.x;
@@ -7698,48 +7412,32 @@ function act({
         needsPaint();
       },
       scrub: (btn) => {
-        // Manual scrubbing - move content left/right using current position vs start
         if (clockChatTicker && e.x !== undefined && e.y !== undefined) {
           const scrubDelta = e.x - clockChatTickerButton.scrubStartX;
-
-          // Calculate the raw offset
           let newOffset = clockChatTickerButton.scrubInitialOffset - scrubDelta;
-
-          // Add elastic bounce effect for negative values
           if (newOffset < 0) {
-            // Apply diminishing returns for negative movement (elastic effect)
-            newOffset = newOffset * 0.3; // Scale down negative movement to 30%
+            newOffset = newOffset * 0.3;
           }
-
           clockChatTicker.setOffset(newOffset);
-
           clockChatTickerButton.hasScrubbed = Math.abs(scrubDelta) > 5;
-
-          // Play softer, shorter tick sound during scrubbing
           synth({
             type: "sine",
-            tone: 1200 + Math.abs(scrubDelta) * 2, // Pitch varies with scrub distance
+            tone: 1200 + Math.abs(scrubDelta) * 2,
             attack: 0.005,
             decay: 0.9,
             volume: 0.08,
             duration: 0.01,
           });
-
           needsPaint();
         }
       },
       push: () => {
-        // Sound feedback on successful action
         if (!clockChatTickerButton.hasScrubbed) {
           pushSound();
         }
-
-        // Only open URL if we didn't scrub
         if (!clockChatTickerButton.hasScrubbed) {
-          // Jump to Laer-Klokken piece
           jump("laer-klokken");
         } else {
-          // Resume animation if we scrubbed
           if (clockChatTicker) {
             clockChatTicker.paused = false;
           }
@@ -7747,10 +7445,7 @@ function act({
         clockChatTickerButton.hasScrubbed = false;
       },
       cancel: () => {
-        // Cancel sound
         cancelSound();
-
-        // Resume animation on cancel
         if (clockChatTicker) {
           clockChatTicker.paused = false;
         }
@@ -7872,6 +7567,7 @@ function act({
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (products.getActiveProduct()?.button?.disabled === false && products.getActiveProduct()?.button?.box.contains(e)) ||
       (products.getActiveProduct()?.buyButton?.disabled === false && products.getActiveProduct()?.buyButton?.box.contains(e)) ||
+      (unitickerButton?.disabled === false && unitickerButton?.box.contains(e)) ||
       (chatTickerButton?.disabled === false && chatTickerButton?.box.contains(e)) ||
       (contentTickerButton?.disabled === false && contentTickerButton?.box.contains(e)) ||
       isOverMotdHandle ||
