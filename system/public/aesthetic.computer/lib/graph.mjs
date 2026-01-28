@@ -1373,17 +1373,28 @@ function clear() {
     const colors = fadeInfo.colors;
     const hasSpecialColors = colors.some(col => col[0] === "rainbow" || col[0] === "zebra");
     
-    // For simple 2-color gradients without special colors, use ultra-fast path
+    // For gradients without special colors, use fast path with proper multi-stop interpolation
     if (!hasSpecialColors && colors.length >= 2) {
-      const c1 = colors[0];
-      const c2 = colors[colors.length - 1];
-      const r1 = c1[0], g1 = c1[1], b1 = c1[2], a1 = c1[3] ?? 255;
-      const r2 = c2[0], g2 = c2[1], b2 = c2[2], a2 = c2[3] ?? 255;
-      const dr = r2 - r1, dg = g2 - g1, db = b2 - b1, da = a2 - a1;
-      
       const workingWidth = maxX - minX;
       const workingHeight = maxY - minY;
       const direction = fadeInfo.direction;
+      const numColors = colors.length;
+      const numSegments = numColors - 1;
+      
+      // Helper to interpolate between multiple color stops
+      const interpolateMultiColor = (t) => {
+        t = Math.max(0, Math.min(1, t));
+        const segment = Math.min(Math.floor(t * numSegments), numSegments - 1);
+        const localT = (t * numSegments) - segment;
+        const c1 = colors[segment];
+        const c2 = colors[segment + 1];
+        return [
+          (c1[0] + (c2[0] - c1[0]) * localT) | 0,
+          (c1[1] + (c2[1] - c1[1]) * localT) | 0,
+          (c1[2] + (c2[2] - c1[2]) * localT) | 0,
+          ((c1[3] ?? 255) + ((c2[3] ?? 255) - (c1[3] ?? 255)) * localT) | 0
+        ];
+      };
       
       if (direction === "vertical" || direction === "vertical-reverse") {
         // 🚀 VERTICAL: Pre-compute one color per row, then use copyWithin
@@ -1392,10 +1403,7 @@ function clear() {
         
         for (let y = minY; y < maxY; y++) {
           const t = reverse ? (maxY - 1 - y) / maxT : (y - minY) / maxT;
-          const r = (r1 + dr * t) | 0;
-          const g = (g1 + dg * t) | 0;
-          const b = (b1 + db * t) | 0;
-          const a = (a1 + da * t) | 0;
+          const [r, g, b, a] = interpolateMultiColor(t);
           
           const rowStart = (y * width + minX) * 4;
           // Set first pixel
@@ -1421,11 +1429,12 @@ function clear() {
         const rowColors = new Uint8ClampedArray(workingWidth * 4);
         for (let x = 0; x < workingWidth; x++) {
           const t = reverse ? (workingWidth - 1 - x) / maxT : x / maxT;
+          const [r, g, b, a] = interpolateMultiColor(t);
           const idx = x * 4;
-          rowColors[idx] = (r1 + dr * t) | 0;
-          rowColors[idx + 1] = (g1 + dg * t) | 0;
-          rowColors[idx + 2] = (b1 + db * t) | 0;
-          rowColors[idx + 3] = (a1 + da * t) | 0;
+          rowColors[idx] = r;
+          rowColors[idx + 1] = g;
+          rowColors[idx + 2] = b;
+          rowColors[idx + 3] = a;
         }
         
         // Copy pre-computed row to each row
@@ -1435,7 +1444,7 @@ function clear() {
         }
         return;
       } else if (direction === "diagonal" || direction === "diagonal-reverse") {
-        // 🚀 DIAGONAL: Direct pixel write with inline interpolation (no function calls)
+        // 🚀 DIAGONAL: Direct pixel write with multi-color interpolation
         const reverse = direction === "diagonal-reverse";
         const maxTx = Math.max(1, workingWidth - 1);
         const maxTy = Math.max(1, workingHeight - 1);
@@ -1447,11 +1456,12 @@ function clear() {
           for (let x = minX; x < maxX; x++) {
             const dx = reverse ? (maxX - 1 - x) / maxTx : (x - minX) / maxTx;
             const t = (dx + dy) * 0.5;
+            const [r, g, b, a] = interpolateMultiColor(t);
             const i = (rowOffset + x) * 4;
-            pixels[i] = (r1 + dr * t) | 0;
-            pixels[i + 1] = (g1 + dg * t) | 0;
-            pixels[i + 2] = (b1 + db * t) | 0;
-            pixels[i + 3] = (a1 + da * t) | 0;
+            pixels[i] = r;
+            pixels[i + 1] = g;
+            pixels[i + 2] = b;
+            pixels[i + 3] = a;
           }
         }
         return;
@@ -2548,6 +2558,76 @@ function erase(pixels, i, normalizedAlpha) {
   pixels[i + 3] *= normalizedAlpha;
 }
 
+// 🚀 FAST LINE: Inline Bresenham without array allocation or per-pixel function calls
+// Used when no fade, no gradient, no skip list - just pure pixel writing
+function lineFast(x0, y0, x1, y1) {
+  if (!pixels) return;
+  
+  // Floor coordinates
+  x0 = floor(x0) || 0;
+  y0 = floor(y0) || 0;
+  x1 = floor(x1) || 0;
+  y1 = floor(y1) || 0;
+  
+  // Get mask bounds (or full screen)
+  let minX = 0, minY = 0, maxX = width, maxY = height;
+  if (activeMask) {
+    minX = activeMask.x;
+    minY = activeMask.y;
+    maxX = activeMask.x + activeMask.width;
+    maxY = activeMask.y + activeMask.height;
+  }
+  
+  // Pre-cache color values
+  const r = c[0], g = c[1], b = c[2], a = c[3];
+  const isErase = r === -1 && g === -1 && b === -1;
+  const normalAlpha = isErase ? 1 - a / 255 : 0;
+  const isOpaque = a === 255 && !isErase;
+  const hasAlpha = a !== 0 && a !== 255 && !isErase;
+  
+  // Bresenham's algorithm inlined
+  const dx = abs(x1 - x0);
+  const dy = -abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  
+  while (true) {
+    // Bounds check
+    if (x0 >= minX && x0 < maxX && y0 >= minY && y0 < maxY) {
+      const i = (x0 + y0 * width) * 4;
+      
+      if (forceReplaceMode || isOpaque) {
+        pixels[i] = r;
+        pixels[i + 1] = g;
+        pixels[i + 2] = b;
+        pixels[i + 3] = isOpaque ? 255 : a;
+      } else if (isErase) {
+        pixels[i + 3] *= normalAlpha;
+      } else if (hasAlpha) {
+        // Inline alpha blend
+        const invA = 255 - a;
+        pixels[i] = (r * a + pixels[i] * invA) >> 8;
+        pixels[i + 1] = (g * a + pixels[i + 1] * invA) >> 8;
+        pixels[i + 2] = (b * a + pixels[i + 2] * invA) >> 8;
+        pixels[i + 3] = a + (pixels[i + 3] * invA >> 8);
+      }
+    }
+    
+    if (x0 === x1 && y0 === y1) break;
+    
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y0 += sy;
+    }
+  }
+}
+
 // Draws a horizontal line. (Should be very fast...)
 function lineh(x0, x1, y) {
   x0 = floor(x0);
@@ -2696,10 +2776,20 @@ function line() {
   const localFadeInfo = parseFadeColor(c);
   const usingLocalFade = !!localFadeInfo;
 
-  // Check if line is perfectly horizontal and no gradient/fade is present, otherwise run bresenham.
-  if (y0 === y1 && !c2 && !fadeMode) {
+  // 🚀 FAST PATH: Use lineFast when no special effects are needed
+  // This is much faster than bresenham + forEach + plot
+  if (!fadeMode && !usingLocalFade && !c2 && skips.length === 0) {
+    // Check if horizontal line (even faster)
+    if (y0 === y1) {
+      lineh(x0, x1, y0);
+    } else {
+      lineFast(x0, y0, x1, y1);
+    }
+  } else if (y0 === y1 && !c2 && !fadeMode) {
+    // Horizontal line without gradient/fade
     lineh(x0, x1, y0);
   } else {
+    // SLOW PATH: Need per-pixel color calculations
     const lineLength = sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2);
     
     bresenham(x0, y0, x1, y1).forEach((p, index, points) => {
@@ -4961,6 +5051,23 @@ function scroll(dx = 0, dy = 0) {
     return; // No effective shift after normalization
   }
 
+  // 🚀 TRY GPU SCROLL FIRST (disabled - Y flip issues cause artifacts)
+  // TODO: Fix GPU scroll/composite Y coordinate handling
+  if (false && gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuScroll && pixels && width && height) {
+    const mask = activeMask ? {
+      x: minX,
+      y: minY,
+      width: boundsWidth,
+      height: boundsHeight
+    } : null;
+    
+    const success = gpuSpinModule.gpuScroll(pixels, width, height, finalDx, finalDy, mask);
+    if (success) {
+      return;
+    }
+  }
+
+  // CPU FALLBACK
   // Create a complete copy of the working area for safe reading
   // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
   if (pixels.buffer && pixels.buffer.detached) {
@@ -5022,6 +5129,41 @@ const BLOCK_SIZE = 64; // Process in 64x64 blocks
 
 let spinSkipCounter = 0;
 
+// 🚀 GPU EFFECTS: WebGL2-accelerated effects via OffscreenCanvas
+let gpuSpinModule = null;
+let gpuSpinEnabled = true; // Enable by default, falls back to CPU if unavailable
+let gpuSpinAvailable = null; // null = not checked yet
+let gpuInitPromise = null; // Promise for initialization
+
+// 🚀 Initialize GPU effects module eagerly (call this at startup)
+async function initGpuEffects() {
+  if (gpuInitPromise) return gpuInitPromise;
+  
+  gpuInitPromise = (async () => {
+    try {
+      gpuSpinModule = await import('./gpu-effects.mjs');
+      gpuSpinAvailable = gpuSpinModule.isGpuEffectsAvailable();
+      if (gpuSpinAvailable) {
+        console.log('🎮 GPU Effects: Available and enabled');
+      } else {
+        console.log('🎮 GPU Effects: Not available, using CPU fallback');
+      }
+    } catch (e) {
+      console.warn('🎮 GPU Effects: Module load failed, using CPU fallback', e);
+      gpuSpinAvailable = false;
+    }
+    return gpuSpinAvailable;
+  })();
+  
+  return gpuInitPromise;
+}
+
+// 🧪 EXPERIMENTAL: Toggle GPU effects for performance testing
+function setGpuSpin(enabled) {
+  gpuSpinEnabled = enabled;
+  console.log(`🎮 GPU Effects ${enabled ? 'ENABLED' : 'DISABLED'}`);
+}
+
 // 🧪 EXPERIMENTAL: Toggle block-based processing for performance testing
 function setBlockProcessing(enabled) {
   useBlockProcessing = enabled;
@@ -5037,7 +5179,26 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
     return;
   }
 
-  // 🚀 DEFAULT: Use block-based processing for better performance (26% faster)
+  // 🚀 TRY GPU SPIN FIRST (disabled - Y flip issues cause visual artifacts)
+  // TODO: Fix GPU spin Y coordinate handling
+  if (false && gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule && pixels && width && height) {
+    const mask = activeMask ? {
+      x: activeMask.x + panTranslation.x,
+      y: activeMask.y + panTranslation.y,
+      width: activeMask.width,
+      height: activeMask.height
+    } : null;
+    
+    const success = gpuSpinModule.gpuSpin(pixels, width, height, steps, anchorX, anchorY, mask);
+    if (success) {
+      const spinEnd = performance.now();
+      graphPerf.track("spin", spinEnd - spinStart);
+      return;
+    }
+    // Fall through to CPU if GPU failed
+  }
+
+  // 🚀 CPU FALLBACK: Use block-based processing for better performance (26% faster)
   return spinBlockBased(steps, anchorX, anchorY, spinStart);
 }
 
@@ -5472,6 +5633,8 @@ function spinBlockBased(steps, anchorX, anchorY, spinStart) {
 function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
   if (level === 1.0) return; // No change needed - neutral zoom
   
+  const zoomStartTime = performance.now();
+  
   // For large zoom changes, apply immediately
   // For small zoom changes, accumulate for aggregative effects
   let actualZoomLevel;
@@ -5499,6 +5662,25 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
     zoomAccumulator -= zoomToApply;
   }
 
+  // 🚀 TRY GPU ZOOM FIRST (disabled - Y flip issues cause artifacts)
+  // TODO: Fix GPU composite Y coordinate handling
+  if (false && gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuZoom && pixels && width && height) {
+    const mask = activeMask ? {
+      x: activeMask.x,
+      y: activeMask.y,
+      width: activeMask.width,
+      height: activeMask.height
+    } : null;
+    
+    const success = gpuSpinModule.gpuZoom(pixels, width, height, actualZoomLevel, anchorX, anchorY, mask);
+    if (success) {
+      const zoomEndTime = performance.now();
+      graphPerf.track('zoom', zoomEndTime - zoomStartTime);
+      return;
+    }
+  }
+
+  // CPU FALLBACK
   // Determine the area to process (mask or full screen)
   let minX = 0,
     minY = 0,
@@ -6037,6 +6219,26 @@ function blur(strength = 1, quality = "medium") {
   const threshold = 0.5;
   if (Math.abs(blurAccumulator) < threshold) return;
   
+  // 🚀 TRY GPU BLUR FIRST (disabled - Y flip issues cause flickering)
+  // TODO: Fix GPU blur Y coordinate handling
+  if (false && gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuBlur && pixels && width && height) {
+    const mask = activeMask ? {
+      x: activeMask.x + panTranslation.x,
+      y: activeMask.y + panTranslation.y,
+      width: activeMask.width,
+      height: activeMask.height
+    } : null;
+    
+    const success = gpuSpinModule.gpuBlur(pixels, width, height, Math.abs(blurAccumulator), mask);
+    if (success) {
+      blurAccumulator = 0.0;
+      const blurEndTime = performance.now();
+      graphPerf.track('blur', blurEndTime - blurStartTime);
+      return;
+    }
+  }
+  
+  // CPU FALLBACK
   // Determine the area to process (mask or full screen)
   let minX = 0,
     minY = 0,
@@ -6245,6 +6447,24 @@ function sharpen(strength = 1) {
   // Start timing for performance monitoring
   const sharpenStartTime = performance.now();
   
+  // 🚀 TRY GPU SHARPEN FIRST
+  if (gpuSpinEnabled && gpuSpinAvailable && gpuSpinModule?.gpuSharpen && pixels && width && height) {
+    const mask = activeMask ? {
+      x: activeMask.x + panTranslation.x,
+      y: activeMask.y + panTranslation.y,
+      width: activeMask.width,
+      height: activeMask.height
+    } : null;
+    
+    const success = gpuSpinModule.gpuSharpen(pixels, width, height, strength, mask);
+    if (success) {
+      const sharpenEndTime = performance.now();
+      graphPerf.track('sharpen', sharpenEndTime - sharpenStartTime);
+      return;
+    }
+  }
+  
+  // CPU FALLBACK
   // Determine the area to process (mask or full screen)
   let minX = 0,
     minY = 0,
@@ -8354,4 +8574,6 @@ export {
   renderStats,
   setKidLispContext,
   clearKidLispContext,
+  setGpuSpin,
+  initGpuEffects,
 };

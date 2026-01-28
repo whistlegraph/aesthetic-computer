@@ -295,6 +295,22 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         return;
       }
 
+      // 🔄 Update sample buffer for a labeled sample and any running sounds using it
+      if (msg.type === "sample:update") {
+        const { label, buffer } = msg.data;
+        // Update the stored sample buffer
+        if (sampleStore[label]) {
+          sampleStore[label] = buffer;
+        }
+        // Update all running sounds that are using this sample
+        Object.values(this.#running).forEach((sound) => {
+          if (sound && sound.sampleLabel === label) {
+            sound.update({ sampleData: buffer });
+          }
+        });
+        return;
+      }
+
       // Update custom generator for a custom synth
       if (msg.type === "update-generator") {
         // console.log("🎨 Got custom generator update!", msg.data);

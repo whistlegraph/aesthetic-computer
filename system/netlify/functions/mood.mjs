@@ -33,9 +33,11 @@ import {
   userIDFromHandleOrEmail,
   getHandleOrEmail,
 } from "../../backend/authorization.mjs";
-import { connect, moodFor, allMoods } from "../../backend/database.mjs";
+import { connect, moodFor, allMoods, getMoodByRkey } from "../../backend/database.mjs";
 import { respond, pathParams } from "../../backend/http.mjs";
 import { createMoodOnAtproto } from "../../backend/mood-atproto.mjs";
+import { shouldMirror, postMoodToBluesky } from "../../backend/bluesky-mirror.mjs";
+import { fetchBlueskyEngagement } from "../../backend/bluesky-engagement.mjs";
 // const dev = process.env.CONTEXT === "dev";
 
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
@@ -173,6 +175,35 @@ export async function handler(event, context) {
       return moods && moods.length > 0
         ? respond(200, { moods })
         : respond(500, { message: "No mood found." });
+    } else if (slug === "single") {
+      // GET /api/mood/single?handle=@jeffrey&rkey=<atproto_rkey>
+      // Returns a single mood by handle and ATProto rkey (for permalinks)
+      const handleParam = event.queryStringParameters?.handle;
+      const rkeyParam = event.queryStringParameters?.rkey;
+
+      if (!handleParam || !rkeyParam) {
+        await database.disconnect();
+        return respond(400, { message: "Missing handle or rkey parameter" });
+      }
+
+      const mood = await getMoodByRkey(database, handleParam, rkeyParam);
+      await database.disconnect();
+
+      if (!mood) {
+        return respond(404, { message: "Mood not found" });
+      }
+
+      // Fetch Bluesky engagement if mood was mirrored
+      let engagement = null;
+      if (mood.bluesky?.uri) {
+        try {
+          engagement = await fetchBlueskyEngagement(mood.bluesky.uri);
+        } catch (e) {
+          shell.log("⚠️ Failed to fetch Bluesky engagement:", e.message);
+        }
+      }
+
+      return respond(200, { ...mood, engagement });
     } else {
       shell.log("Getting user id from:", slug);
       const user = await userIDFromHandleOrEmail(slug, database);
@@ -223,6 +254,7 @@ export async function handler(event, context) {
 
           // Dual-write: Also create mood on ATProto
           console.log("🔄 Syncing mood to ATProto...");
+          let atprotoRkey = null;
           try {
             const atprotoResult = await createMoodOnAtproto(
               database,
@@ -233,6 +265,7 @@ export async function handler(event, context) {
             );
 
             if (atprotoResult.rkey) {
+              atprotoRkey = atprotoResult.rkey;
               // Update MongoDB with the ATProto rkey
               await collection.updateOne(
                 { _id: insertResult.insertedId },
@@ -246,6 +279,25 @@ export async function handler(event, context) {
           } catch (atprotoError) {
             // Log the error but don't fail the request - mood is already saved in MongoDB
             console.error("⚠️  Failed to sync mood to ATProto:", atprotoError);
+          }
+
+          // Mirror to Bluesky for configured handles (e.g., @jeffrey)
+          if (atprotoRkey && shouldMirror(handle)) {
+            console.log(`🦋 Mirroring mood to Bluesky for ${handle}...`);
+            try {
+              const blueskyResult = await postMoodToBluesky(mood, handle, atprotoRkey);
+              if (blueskyResult) {
+                // Store Bluesky post reference for engagement tracking
+                await collection.updateOne(
+                  { _id: insertResult.insertedId },
+                  { $set: { bluesky: { uri: blueskyResult.uri, cid: blueskyResult.cid, rkey: blueskyResult.rkey } } },
+                );
+                console.log("✅ Mood mirrored to Bluesky:", blueskyResult.rkey);
+              }
+            } catch (blueskyError) {
+              // Don't fail the request - mood is already saved
+              console.error("⚠️  Failed to mirror to Bluesky:", blueskyError);
+            }
           }
 
           const { got } = await import("got");
