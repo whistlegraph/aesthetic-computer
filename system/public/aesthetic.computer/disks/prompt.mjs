@@ -4891,10 +4891,10 @@ function paint($) {
       ink(...blendedColor, pulseAlpha).box(screen.width - dotSize, (y + scrollOffset) % screen.height, dotSize, dotSize);
     }
 
-    // 🟢 KidLisp.com button in bottom-left corner
+    // 🟢 KidLisp.com button in top-left corner (below header area, avoids paste button)
     const kidlispBtnText = "KidLisp.com";
     const kidlispBtnX = 6;
-    const kidlispBtnY = screen.height - 26;
+    const kidlispBtnY = 6; // Top-left corner instead of bottom-left (avoids paste button)
     
     if (!kidlispBtn) {
       kidlispBtn = new $.ui.TextButton(kidlispBtnText, { x: kidlispBtnX, y: kidlispBtnY });
@@ -4904,21 +4904,58 @@ function paint($) {
       kidlispBtn.btn.disabled = false;
     }
     
-    // Paint the button with green KidLisp theme
+    // Paint the button with rainbow cycling colors (like GIVE button) + blinking
     const kidlispBtnBox = kidlispBtn.btn.box;
     const isKidlispBtnDown = kidlispBtn.btn.down;
     const isKidlispBtnOver = kidlispBtn.btn.over;
     
-    // Background - green gradient based on state
-    const kidlispBtnBg = isKidlispBtnDown ? [40, 120, 40] : (isKidlispBtnOver ? [30, 100, 30] : [20, 80, 20]);
-    ink(...kidlispBtnBg).box(kidlispBtnBox);
+    // 🌈 Rainbow cycling colors for attention-seeking effect
+    const klT = performance.now() / 1000;
+    const klHue = (klT * 60) % 360; // Cycle through hues
+    const klPulse = Math.sin(klT * 4) * 0.5 + 0.5; // Pulsing effect (0-1)
+    const klBlink = Math.floor(klT * 3) % 2; // Blink on/off 3 times per second
     
-    // Border with animated color
-    ink(...blendedColor, pulseAlpha).box(kidlispBtnBox, "outline");
+    // Convert HSL to RGB
+    const klHslToRgb = (h, s, l) => {
+      h /= 360; s /= 100; l /= 100;
+      let r, g, b;
+      if (s === 0) { r = g = b = l; }
+      else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    };
     
-    // Text
-    const kidlispTextColor = isKidlispBtnDown ? [255, 255, 100] : [100, 255, 100];
-    ink(...kidlispTextColor).write(kidlispBtnText, { x: kidlispBtnBox.x + 4, y: kidlispBtnBox.y + 5 }, undefined, undefined, false, "MatrixChunky8");
+    // Bright saturated fill that cycles through rainbow
+    const klFillColor = klHslToRgb(klHue, 90, 40 + klPulse * 15);
+    const klTextColor = klHslToRgb((klHue + 180) % 360, 100, 85); // Complementary color for text
+    const klOutlineColor = klHslToRgb((klHue + 120) % 360, 100, 60); // Triadic color for outline
+    
+    // Background - rainbow cycling with blink effect
+    if (klBlink || isKidlispBtnOver || isKidlispBtnDown) {
+      const bgColor = isKidlispBtnDown ? [klFillColor[0] + 40, klFillColor[1] + 40, klFillColor[2] + 40] : klFillColor;
+      ink(...bgColor).box(kidlispBtnBox);
+    } else {
+      ink(20, 20, 30).box(kidlispBtnBox); // Dark background during "off" blink
+    }
+    
+    // Animated outline
+    ink(...klOutlineColor).box(kidlispBtnBox, "outline");
+    
+    // Text with complementary color
+    ink(...klTextColor).write(kidlispBtnText, { x: kidlispBtnBox.x + 4, y: kidlispBtnBox.y + 5 }, undefined, undefined, false, "MatrixChunky8");
 
     // Keep animating
     $.needsPaint();
