@@ -983,28 +983,6 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, sys
         },
       });
     });
-    // Also handle bitmap area click (outside buttons)
-    bitmapButton?.act(e, {
-      down: () => {
-        if (!kidlispBuffer?.pixels?.length) return;
-        if (bitmapLooping) {
-          bitmapLoopSound?.kill?.(0.1);
-          bitmapLoopSound = null;
-          bitmapLooping = false;
-          bitmapProgress = 0;
-        } else {
-          const decoded = decodeBitmapToSample(kidlispBuffer, bitmapMeta);
-          if (!decoded?.length) return;
-          sound.registerSample?.(bitmapSampleId, decoded, bitmapMeta?.sampleRate || sound.sampleRate);
-          bitmapPlaySound?.kill?.(0.05);
-          bitmapPlaySound = null;
-          bitmapProgress = 0;
-          bitmapLoopSound = sound.play(bitmapSampleId, { loop: true });
-          bitmapLooping = true;
-          console.log(`🎭 KidLisp: Started loop for live buffer updates`);
-        }
-      },
-    });
     return; // Skip normal button handling in KidLisp mode
   }
 
