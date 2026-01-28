@@ -848,14 +848,14 @@
       box-shadow: inset 0 0 0 2px rgb(102, 187, 106), 0 1px 3px rgba(0,0,0,0.2);
     }
     
-    /* AI Assist Bar - describe what you want */
+    /* AI Assist Bar - describe what you want (hidden until Ctrl+G or context menu) */
     #ai-assist-bar {
+      display: none; /* Hidden by default, toggled via context menu */
       position: absolute;
       bottom: 14px;
       left: 14px;
       right: 90px; /* Leave room for playback controls */
       z-index: 1;
-      display: flex;
       flex-direction: row;
       align-items: center;
       gap: 6px;
@@ -14867,6 +14867,30 @@
         }
       });
       
+      // AI Assist - show/hide the input bar from context menu
+      editor.addAction({
+        id: 'kidlisp-ai-assist',
+        label: '🤖 AI Assist',
+        keybindings: [
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG
+        ],
+        contextMenuGroupId: 'navigation',
+        contextMenuOrder: 2,
+        run: function(ed) {
+          const bar = document.getElementById('ai-assist-bar');
+          if (bar) {
+            // Toggle visibility
+            if (bar.style.display === 'none' || bar.style.display === '') {
+              bar.style.display = 'flex';
+              const input = document.getElementById('ai-assist-input');
+              if (input) input.focus();
+            } else {
+              bar.style.display = 'none';
+            }
+          }
+        }
+      });
+      
       // ==================== END KIDLISP DOCUMENTATION CONTEXT MENU ====================
       
       // Log editor initialization
@@ -19837,7 +19861,7 @@
       }
     }
     
-    // Initialize AI assist on load
+    // Initialize AI assist on load (hidden until triggered via context menu)
     initAIAssist();
 
     async function loadExamples() {
