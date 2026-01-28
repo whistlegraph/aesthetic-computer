@@ -6,6 +6,7 @@ import { respond } from "../../backend/http.mjs";
 import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import { ObjectId } from "mongodb";
+import { createNewsOnAtproto } from "../../backend/news-atproto.mjs";
 
 // Admin users who can delete/censor content
 const ADMIN_SUBS = [process.env.ADMIN_SUB].filter(Boolean);
@@ -254,7 +255,8 @@ export function createHandler({
             tollRequired: needsToll,
           };
 
-          await posts.insertOne(doc);
+          const insertResult = await posts.insertOne(doc);
+          const postId = insertResult.insertedId.toString();
           
           // Only create initial vote if post is live
           if (!needsToll) {
@@ -264,6 +266,21 @@ export function createHandler({
               user: user.sub,
               when: now,
             });
+            
+            // Sync to ATProto PDS (non-blocking)
+            createNewsOnAtproto({
+              headline: title,
+              body: text || null,
+              link: url || null,
+              when: now,
+            }, postId).then(atprotoResult => {
+              if (atprotoResult.rkey) {
+                posts.updateOne(
+                  { code },
+                  { $set: { atproto: { rkey: atprotoResult.rkey, uri: atprotoResult.uri } } }
+                ).catch(e => console.error('Failed to save ATProto rkey:', e));
+              }
+            }).catch(e => console.error('ATProto sync error:', e));
           }
 
           // If toll required, return special response
