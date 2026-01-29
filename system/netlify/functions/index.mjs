@@ -1012,6 +1012,10 @@ async function fun(event, context) {
           // Also detect based on nolabel/nogap query params which indicate embedded preview mode
           var isKidlisp=false;try{isKidlisp=window.self!==window.top&&(window.parent.location.hostname.indexOf('kidlisp')>=0||document.referrer.indexOf('kidlisp')>=0);}catch(e){isKidlisp=document.referrer.indexOf('kidlisp')>=0;}
           if(!isKidlisp&&window.self!==window.top){var qs=location.search||'';if(qs.indexOf('nolabel')>=0&&qs.indexOf('nogap')>=0)isKidlisp=true;}
+          // Device mode: FF1/display device with black background and white/gray bars
+          var qs=location.search||'';var isDeviceMode=qs.indexOf('device=true')>=0;
+          // Density param for scaling (default 1, FF1 uses 8 for 4K)
+          var densityMatch=qs.match(/density=(\d+)/);var densityParam=densityMatch?parseInt(densityMatch[1]):1;
           var isLightMode=window.matchMedia&&window.matchMedia('(prefers-color-scheme:light)').matches;
           var SCL=1,targetSCL=3,W=Math.ceil(window.innerWidth/SCL),H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;
           function updateScale(newSCL){SCL=newSCL;W=Math.ceil(window.innerWidth/SCL);H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;x.imageSmoothingEnabled=false;for(var k in scrollYs)scrollYs[k]=0;}
@@ -1044,7 +1048,9 @@ async function fun(event, context) {
           // Theme-aware KidLisp colors - darker/more saturated for light mode
           var KIDLISP_COLS_DARK=[[255,107,107],[78,205,196],[255,230,109],[149,225,211],[243,129,129],[170,150,218],[112,214,255]];
           var KIDLISP_COLS_LIGHT=[[200,60,60],[30,140,130],[180,150,40],[50,150,130],[180,70,70],[100,80,160],[40,130,190]];
-          function getKidlispCols(){return isLightMode?KIDLISP_COLS_LIGHT:KIDLISP_COLS_DARK;}
+          // Device mode: black/white for clean FF1 aesthetic
+          var KIDLISP_COLS_DEVICE=[[255,255,255],[220,220,220],[200,200,200],[240,240,240],[180,180,180]];
+          function getKidlispCols(){return isDeviceMode?KIDLISP_COLS_DEVICE:(isLightMode?KIDLISP_COLS_LIGHT:KIDLISP_COLS_DARK);}
           // Listen for theme changes from parent (kidlisp.com)
           window.addEventListener('message',function(e){if(e.data&&e.data.type==='kidlisp-theme'){isLightMode=e.data.theme==='light';}});
           function setH(h){uH=h;hST=performance.now();}
@@ -1077,11 +1083,11 @@ async function fun(event, context) {
             var baseShk=0.5+Math.sin(t*2)*0.3,shk=baseShk+chaos*chaos*4+lb*3+touchGlitch*8,sx=(Math.random()-0.5)*shk+touchDx,sy=(Math.random()-0.5)*shk+touchDy;
             // File cycling - swap displayed files periodically as boot progresses
             var now=performance.now();if(files.length>1&&now-lastFileSwap>FILE_SWAP_INTERVAL){lastFileSwap=now;displayFileIdx=(displayFileIdx+1)%files.length;for(var k in scrollYs)scrollYs[k]=0;}
-            // KidLisp simplified mode: colored bars + logs only
-            if(isKidlisp){var klBg=isLightMode?'rgba(247,247,247,0.95)':'rgba(42,37,32,0.95)';x.fillStyle=klBg;x.fillRect(0,0,W,H);x.globalAlpha=isLightMode?0.015:0.03;x.fillStyle=isLightMode?'#888':'#000';for(var yy=0;yy<H;yy+=3*S)x.fillRect(0,yy,W,S);x.globalAlpha=1;var klCols=getKidlispCols();
-              if(f%15===0&&KIDLISP_BARS.length<40){var bci=Math.floor(Math.random()*klCols.length);KIDLISP_BARS.push({x:Math.random()*W,y:H+5*S,w:(30+Math.random()*80)*S,h:(2+Math.random()*3)*S,ci:bci,s:(0.5+Math.random()*1.5)*S,a:0.3+Math.random()*0.3});}
-              for(var bi=KIDLISP_BARS.length-1;bi>=0;bi--){var b=KIDLISP_BARS[bi];b.y-=b.s;if(b.y<-10*S){KIDLISP_BARS.splice(bi,1);continue;}var fade=b.a*(1-(H-b.y)/H*0.5);x.globalAlpha=fade;var bc=klCols[b.ci%klCols.length];x.fillStyle='rgb('+bc[0]+','+bc[1]+','+bc[2]+')';x.beginPath();x.roundRect(b.x,b.y,b.w,b.h,b.h/2);x.fill();}
-              x.globalAlpha=1;x.font=(4*S)+'px monospace';var logY=H-10*S;for(var li=0;li<lines.length&&li<10;li++){var ln=lines[li],ly=logY-li*5*S,la=Math.max(0.3,1-li*0.08),lc=klCols[li%klCols.length];x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';var tw=x.measureText(ln.text).width;x.beginPath();x.roundRect(5*S,ly-4*S,tw+8*S,5*S,2*S);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.fillText(ln.text,9*S,ly);}
+            // KidLisp simplified mode: colored bars + logs only (or device mode: black/white)
+            if(isKidlisp||isDeviceMode){var klBg=isDeviceMode?'#000000':(isLightMode?'rgba(247,247,247,0.95)':'rgba(42,37,32,0.95)');x.fillStyle=klBg;x.fillRect(0,0,W,H);if(!isDeviceMode){x.globalAlpha=isLightMode?0.015:0.03;x.fillStyle=isLightMode?'#888':'#000';for(var yy=0;yy<H;yy+=3*S)x.fillRect(0,yy,W,S);}x.globalAlpha=1;var klCols=getKidlispCols();var dS=isDeviceMode?densityParam:1;
+              if(f%15===0&&KIDLISP_BARS.length<40){var bci=Math.floor(Math.random()*klCols.length);KIDLISP_BARS.push({x:Math.random()*W,y:H+5*S*dS,w:(30+Math.random()*80)*S*dS,h:(2+Math.random()*3)*S*dS,ci:bci,s:(0.5+Math.random()*1.5)*S*dS,a:isDeviceMode?(0.6+Math.random()*0.4):(0.3+Math.random()*0.3)});}
+              for(var bi=KIDLISP_BARS.length-1;bi>=0;bi--){var b=KIDLISP_BARS[bi];b.y-=b.s;if(b.y<-10*S*dS){KIDLISP_BARS.splice(bi,1);continue;}var fade=b.a*(1-(H-b.y)/H*0.5);x.globalAlpha=fade;var bc=klCols[b.ci%klCols.length];x.fillStyle='rgb('+bc[0]+','+bc[1]+','+bc[2]+')';x.beginPath();x.roundRect(b.x,b.y,b.w,b.h,b.h/2);x.fill();}
+              x.globalAlpha=1;x.font=(4*S*dS)+'px monospace';var logY=H-10*S*dS;for(var li=0;li<lines.length&&li<10;li++){var ln=lines[li],ly=logY-li*5*S*dS,la=Math.max(0.3,1-li*0.08),lc=klCols[li%klCols.length];x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';var tw=x.measureText(ln.text).width;x.beginPath();x.roundRect(5*S*dS,ly-4*S*dS,tw+8*S*dS,5*S*dS,2*S*dS);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.fillText(ln.text,9*S*dS,ly);}
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
             // Light mode: warm sandy/tan/cream tones (matching kidlisp.com & AC light theme); Dark mode: deep moody colors
             var BGCOLS=isLightMode?['#fcf7c5','#f5f0c0','#fffacd','#f5ebe0','#e8e3b0','#f0ebd0','#fcf5c8','#f5ecd0']:['#2d2020','#202d24','#20202d','#2d2820','#28202d','#202d2d','#2d2028','#242d20'];
