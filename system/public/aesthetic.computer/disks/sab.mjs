@@ -155,12 +155,6 @@ function gatherReport(net, sound) {
   });
   
   platformsSection.items.push({
-    label: "fxhash",
-    value: "Generative art",
-    detail: "Sandboxed, PACK mode with $fx"
-  });
-  
-  platformsSection.items.push({
     label: "kidlisp.com",
     value: "Code editor",
     detail: "iframe with noauth mode"
@@ -227,7 +221,7 @@ function gatherReport(net, sound) {
   enableSection.items.push({
     label: "⚠️ Warning",
     value: "Breaks NFT embeds",
-    detail: "objkt/fxhash iframes may fail"
+    detail: "objkt iframes may fail"
   });
   
   enableSection.items.push({
