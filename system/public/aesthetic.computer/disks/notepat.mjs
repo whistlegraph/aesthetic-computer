@@ -5994,12 +5994,6 @@ function act({
       if (clamped !== midiPitchBendValue) {
         midiPitchBendValue = clamped;
         applyPitchBendToNotes(undefined, { immediate: true });
-        console.log("🎛️ MIDI pitch bend", {
-          rawValue,
-          normalized,
-          clamped,
-          ratio: computePitchBendRatio(),
-        });
       }
 
       return;
@@ -6012,13 +6006,11 @@ function act({
         
         const buttonNote = midiNoteToButton(noteNumber);
         if (buttonNote && startMidiButtonNote(buttonNote, velocity)) {
-          console.log("🎹 MIDI note on", { noteNumber, velocity, buttonNote });
           midiActiveNotes.set(noteNumber, buttonNote);
         }
       } else if (command === MIDI_NOTE_OFF || (command === MIDI_NOTE_ON && velocity === 0)) {
         const mappedNote = midiActiveNotes.get(noteNumber) ?? midiNoteToButton(noteNumber);
         if (mappedNote) {
-          console.log("🎹 MIDI note off", { noteNumber, buttonNote: mappedNote });
           stopMidiButtonNote(mappedNote);
         }
         midiActiveNotes.delete(noteNumber);
@@ -6631,7 +6623,6 @@ function act({
 
     // Just for the notes, not the octaves...
     if (e.is(`keyboard:up:${key}`) /*&& notes.indexOf(key) > -1*/) {
-      console.log("🎹 keyboard:up event for key:", key, "downs[key]:", downs[key]);
       if (tap && tapped === key) {
         tapIndex = (tapIndex + 1) % keys.length;
         tapped = undefined;
