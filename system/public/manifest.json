@@ -1,6 +1,41 @@
 {
   "name": "Aesthetic Computer",
   "short_name": "Aesthetic",
-  "start_url": "/",
-  "display": "standalone"
+  "description": "Creative coding platform for artists and hackers",
+  "start_url": "/prompt",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "categories": ["entertainment", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "https://oven.aesthetic.computer/icon/192x192/prompt.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://oven.aesthetic.computer/icon/512x512/prompt.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://oven.aesthetic.computer/icon/512x512/prompt.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "https://oven.aesthetic.computer/preview/1280x720/prompt.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Aesthetic Computer Prompt"
+    }
+  ]
 }
