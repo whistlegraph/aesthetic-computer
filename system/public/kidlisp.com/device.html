@@ -37,25 +37,9 @@
       background: #000;
     }
     
-    /* Boot screen with canvas */
+    /* Boot screen - now handled by iframe's boot animation */
     #boot-screen {
-      position: absolute;
-      inset: 0;
-      background: #fff;
-      z-index: 10;
-      transition: opacity 0.5s;
-    }
-    
-    #boot-screen.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-    
-    #boot-canvas {
-      width: 100%;
-      height: 100%;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
+      display: none;
     }
 
     /* KidLisp source overlay - shows during loading */
@@ -283,9 +267,7 @@
   </style>
 </head>
 <body>
-  <div id="boot-screen">
-    <canvas id="boot-canvas"></canvas>
-  </div>
+  <!-- Boot animation now handled by iframe's acBootCanvas with device mode -->
   
   <!-- KidLisp source overlay with syntax highlighting and QR -->
   <div id="source-overlay">
@@ -347,142 +329,15 @@
   </script>
   
   <script>
-    // Get density from URL params (before DEVICE_DEFAULTS are defined)
+    // Get density from URL params
     const urlParams = new URLSearchParams(window.location.search);
     const densityParam = parseInt(urlParams.get('density')) || 8;
     
     // Set CSS custom property for density-based sizing
     document.documentElement.style.setProperty('--density', densityParam);
     
-    // KidLisp-style floating bars boot animation (matches acBootCanvas kidlisp mode)
-    const bootCanvas = document.getElementById('boot-canvas');
-    const ctx = bootCanvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    let animating = true;
-    let frame = 0;
-    
-    // FF1/Device mode: Always use black & white theme for clean display
-    // (Different from light/dark mode in the editor)
-    const DEVICE_MODE = true;
-    
-    // Device mode: Black background, white bars (clean FF1 aesthetic)
-    const COLORS_DEVICE = [
-      [255, 255, 255], // white
-      [220, 220, 220], // light gray
-      [200, 200, 200], // medium gray
-    ];
-    
-    // KidLisp theme colors (same as acBootCanvas KIDLISP_COLS) - kept for reference
-    const COLORS_DARK = [
-      [255, 107, 107], // coral
-      [78, 205, 196],  // teal
-      [255, 230, 109], // yellow
-      [149, 225, 211], // mint
-      [243, 129, 129], // pink
-      [170, 150, 218], // lavender
-      [112, 214, 255], // sky blue
-    ];
-    
-    const COLORS_LIGHT = [
-      [200, 60, 60],   // deep coral
-      [30, 140, 130],  // deep teal
-      [180, 150, 40],  // deep yellow
-      [50, 150, 130],  // deep mint
-      [180, 70, 70],   // deep pink
-      [100, 80, 160],  // deep lavender
-      [40, 130, 190],  // deep sky
-    ];
-    
-    // Device mode: Use black/white for FF1 clean aesthetic
-    const COLORS = DEVICE_MODE ? COLORS_DEVICE : COLORS_DARK;
-    const bgColor = DEVICE_MODE ? '#000000' : 'rgba(42, 37, 32, 0.95)';
-    
-    // Floating bars state
-    let bars = [];
-    
-    // Canvas dimensions - use density for bar scaling
-    let W, H;
-    const barScale = densityParam; // Scale bars based on density (default 8)
-    
-    function resize() {
-      W = window.innerWidth;
-      H = window.innerHeight;
-      bootCanvas.width = W;
-      bootCanvas.height = H;
-    }
-    resize();
-    window.addEventListener('resize', resize);
-    
-    function spawnBar() {
-      const ci = Math.floor(Math.random() * COLORS.length);
-      // Scale bar dimensions by density for larger bars on 4K displays
-      bars.push({
-        x: Math.random() * W,
-        y: H + 5,
-        w: (30 + Math.random() * 80) * barScale / 2,
-        h: (2 + Math.random() * 3) * barScale / 2,
-        ci: ci,
-        speed: (0.5 + Math.random() * 1.5) * barScale / 2,
-        alpha: DEVICE_MODE ? (0.6 + Math.random() * 0.4) : (0.3 + Math.random() * 0.3)
-      });
-    }
-    
-    // Spawn initial bars
-    for (let i = 0; i < 25; i++) {
-      spawnBar();
-      bars[bars.length - 1].y = Math.random() * H;
-    }
-    
-    function animate() {
-      if (!animating) return;
-      
-      // Clear to KidLisp-style background
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(0, 0, W, H);
-      
-      // Scanlines (subtle) - skip in device mode for clean look
-      if (!DEVICE_MODE) {
-        ctx.globalAlpha = 0.03;
-        ctx.fillStyle = '#000';
-        for (let yy = 0; yy < H; yy += 3) {
-          ctx.fillRect(0, yy, W, 1);
-        }
-        ctx.globalAlpha = 1;
-      }
-      
-      // Spawn new bars periodically
-      if (frame % 15 === 0 && bars.length < 40) {
-        spawnBar();
-      }
-      
-      // Update and draw bars with rounded ends (pill shape)
-      for (let i = bars.length - 1; i >= 0; i--) {
-        const bar = bars[i];
-        bar.y -= bar.speed;
-        
-        if (bar.y < -10) {
-          bars.splice(i, 1);
-          continue;
-        }
-        
-        // Fade as it rises
-        const fade = bar.alpha * (1 - (H - bar.y) / H * 0.5);
-        ctx.globalAlpha = fade;
-        
-        const c = COLORS[bar.ci % COLORS.length];
-        ctx.fillStyle = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
-        
-        // Draw rounded rectangle (pill shape like acBootCanvas)
-        ctx.beginPath();
-        ctx.roundRect(bar.x, bar.y, bar.w, bar.h, bar.h / 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-      
-      frame++;
-      requestAnimationFrame(animate);
-    }
-    animate();
+    // Boot animation is now handled by the iframe's acBootCanvas with device mode
+    // (black background, white/gray bars, density scaling)
     
     // Default display parameters for FF1 and 4K displays
     const DEVICE_DEFAULTS = {
@@ -503,7 +358,6 @@
     
     // UI elements
     const iframe = document.getElementById('display-iframe');
-    const bootScreen = document.getElementById('boot-screen');
     const errorScreen = document.getElementById('error-screen');
     const errorText = document.getElementById('error-text');
     
@@ -576,8 +430,6 @@
     function showError(msg) {
       errorText.textContent = msg;
       errorScreen.classList.add('visible');
-      bootScreen.classList.add('hidden');
-      animating = false;
     }
     
     // Initialize display
@@ -598,21 +450,16 @@
       
       logDevice('iframe src', { src: iframe.src });
       
-      // Hide boot screen when iframe loads
+      // Handle iframe load
       iframe.addEventListener('load', () => {
         logDevice('iframe loaded');
-        animating = false;
-        setTimeout(() => {
-          bootScreen.classList.add('hidden');
-          // Only hide source overlay if NOT in playlist mode
-          // In playlist mode, keep overlay visible the whole time
-          if (!isPlaylist) {
-            setTimeout(() => {
-              const sourceOverlay = document.getElementById('source-overlay');
-              if (sourceOverlay) sourceOverlay.classList.add('hidden');
-            }, 1500);
-          }
-        }, 500);
+        // Hide source overlay after a delay (unless in playlist mode)
+        if (!isPlaylist) {
+          setTimeout(() => {
+            const sourceOverlay = document.getElementById('source-overlay');
+            if (sourceOverlay) sourceOverlay.classList.add('hidden');
+          }, 2000);
+        }
       });
       
       // Listen for iframe errors
