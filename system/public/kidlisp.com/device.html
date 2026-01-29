@@ -124,35 +124,41 @@
     
     #qr-container {
       background: #fff;
-      padding: calc(var(--density, 8) * 1px);
+      padding: calc(var(--density, 8) * 0.25px);
       line-height: 0;
       border: calc(var(--density, 8) * 0.5px) solid #000;
     }
     
     #qr-container svg {
       display: block;
-      width: calc(var(--density, 8) * 32px);
-      height: calc(var(--density, 8) * 32px);
+      width: calc(var(--density, 8) * 48px);
+      height: calc(var(--density, 8) * 48px);
     }
     
-    /* Handle and hits info below QR */
+    /* Handle and hits info - bottom left (device replaces disk.mjs overlay) */
     #piece-info {
+      position: absolute;
+      bottom: calc(var(--density, 8) * 4px);
+      left: calc(var(--density, 8) * 4px);
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
-      margin-top: calc(var(--density, 8) * 1px);
+      align-items: flex-start;
       font-family: 'JetBrains Mono', monospace;
-      font-size: calc(var(--density, 8) * 2px);
+      font-size: calc(var(--density, 8) * 2.5px);
       line-height: 1.4;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.95);
+      z-index: 16;
     }
     
     #piece-handle {
-      color: rgb(205, 92, 155);
+      color: rgb(255, 107, 157);
+      background: rgba(0,0,0,0.7);
+      padding: calc(var(--density, 8) * 0.5px) calc(var(--density, 8) * 1px);
     }
     
     #piece-hits {
-      color: rgba(255, 255, 255, 0.6);
+      color: rgb(255, 217, 61);
+      background: rgba(0,0,0,0.7);
+      padding: calc(var(--density, 8) * 0.5px) calc(var(--density, 8) * 1px);
     }
     
     /* KidLisp syntax highlighting */
@@ -297,10 +303,10 @@
     <div id="qr-wrap">
       <div id="code-label"></div>
       <div id="qr-container"></div>
-      <div id="piece-info">
-        <div id="piece-handle"></div>
-        <div id="piece-hits"></div>
-      </div>
+    </div>
+    <div id="piece-info">
+      <div id="piece-handle"></div>
+      <div id="piece-hits"></div>
     </div>
   </div>
   
