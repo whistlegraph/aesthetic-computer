@@ -181,27 +181,32 @@ function generateColorPlaylist() {
     day: 'numeric' 
   });
 
+  const duration = 8; // seconds per color
+
   const playlist = {
-    dpVersion: '1.0.0',
+    dpVersion: '1.1.0',
     title: 'Colors',
-    description: 'Explore all CSS color names available in Aesthetic Computer\'s KidLisp! Each color is rendered as a solid fill.',
-    license: 'open',
-    attribution: 'Curated by prompt.ac',
+    summary: "Explore all CSS color names available in Aesthetic Computer's KidLisp! Each color is rendered as a solid fill.",
     items: colorNames.map((colorName, index) => ({
-      source: `https://aesthetic.computer/${colorName}?tv=true&density=5`,
       title: colorName,
-      creator: 'Aesthetic Computer',
-      duration: 24,
+      // Include playlist params so device.kidlisp.com shows progress bar
+      source: `https://device.kidlisp.com/${colorName}?playlist=true&duration=${duration}&index=${index}&total=${colorNames.length}`,
+      duration: duration,
       license: 'open',
       provenance: {
         type: 'offChainURI',
-        contract: {
-          chain: 'other',
-          uri: `https://aesthetic.computer/${colorName}`,
-        }
+        uri: `https://kidlisp.com/${colorName}`,
       },
-      url: `/${colorName}`,
     })),
+    defaults: {
+      display: {
+        scaling: 'fit',
+        background: '#000000',
+        margin: '0%'
+      },
+      license: 'open',
+      duration: 24
+    }
   };
 
   return playlist;
@@ -297,6 +302,7 @@ async function main() {
     console.log(`🔗 ${FEED_API_URL}/channels/${channelResult.id}\n`);
 
     console.log('🎉 Done!');
+    process.exit(0);
   } catch (error) {
     console.error('❌ Error:', error.message);
     process.exit(1);
