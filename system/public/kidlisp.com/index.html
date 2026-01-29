@@ -23879,7 +23879,7 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
         await strudelAudioContext.resume();
       }
       
-      const code = document.getElementById('strudel-code').value.trim();
+      let code = document.getElementById('strudel-code').value.trim();
       if (!code) {
         document.getElementById('strudel-status').textContent = 'Enter code first';
         return;
@@ -23887,6 +23887,17 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
       
       // Stop samples if playing
       stopJukebox();
+      
+      // Auto-inject .analyze(1) for audio analysis if not already present
+      if (!code.includes('.analyze(') && !code.includes('analyze(')) {
+        // Append .analyze(1) to route audio through analyser
+        // Handle common patterns: s(...), note(...), sound(...)
+        code = code.replace(/\.play\(\s*\)/, '.analyze(1).play()');
+        // If no .play(), try appending analyze before final pattern
+        if (!code.includes('.analyze(')) {
+          code = code + '.analyze(1)';
+        }
+      }
       
       try {
         // Evaluate and play the pattern
@@ -23917,19 +23928,27 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
     function startStrudelAnalysis() {
       if (strudelAnimationFrame) return;
       
-      // Use Strudel's built-in analyser if available, otherwise use global audio context
-      const ctx = window.getAudioContext?.() || strudelAudioContext;
-      if (!ctx) return;
+      // Use Strudel's AudioContext
+      const ctx = window.getAudioContext?.();
+      if (!ctx) {
+        console.warn('Strudel AudioContext not available');
+        return;
+      }
       
-      // Try to get Strudel's analyser
-      let analyser = strudelAnalyser;
+      // Get Strudel's analyser (created by .analyze(1) in the pattern)
+      let analyser = null;
       try {
         if (window.getAnalyserById) {
           analyser = window.getAnalyserById(1, 512, 0.5);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Failed to get Strudel analyser:', e);
+      }
       
-      if (!analyser) return;
+      if (!analyser) {
+        console.warn('No analyser available - make sure pattern includes .analyze(1)');
+        return;
+      }
       
       const freqData = new Uint8Array(analyser.frequencyBinCount);
       const timeData = new Uint8Array(analyser.fftSize);
