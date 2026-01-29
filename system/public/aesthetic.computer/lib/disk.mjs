@@ -9344,6 +9344,12 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 🎵 Audio data from jukebox - update KidLisp audio state
+  if (type === "kidlisp-audio") {
+    lisp.updateKidLispAudio(content);
+    return;
+  }
+
   // Confirming if the pen has been locked or unlocked by the Pointer Lock API.
   if (type === "pen:locked" || type === "pen:unlocked") {
     actAlerts.push(type);
