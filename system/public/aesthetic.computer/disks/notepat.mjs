@@ -2753,6 +2753,7 @@ function paint({
   const sampleRateText = getSampleRateText(sound?.sampleRate);
   const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
   const showTrack = Boolean(song) && autopatConfig.showTrack !== false;
+  const hideMidiBadge = screen.width < 240;
 
   // 🎭 Recital mode: Draw wireframe UI on top of visualizer
   if (recitalMode && !paintPictureOverlay && !projector) {
@@ -2819,12 +2820,17 @@ function paint({
   if (!paintPictureOverlay && !projector && !visualizerFullscreen && !recitalMode) {
     // Draw segmented secondary bar backgrounds with distinct colors
     // Calculate segment boundaries
-    const midiBadgeEnd = MIDI_BADGE_MARGIN + (computeMidiBadgeTopMetrics(screen, matrixGlyphMetrics, sampleRateLabel, sampleRateText)?.width || 60) + 2;
+    const hideMidiBadge = screen.width < 240;
+    const midiBadgeEnd = hideMidiBadge
+      ? 0
+      : MIDI_BADGE_MARGIN + (computeMidiBadgeTopMetrics(screen, matrixGlyphMetrics, sampleRateLabel, sampleRateText)?.width || 60) + 2;
     const metroStart = bpmMinusBtn?.box?.x ?? midiBadgeEnd + 40;
     const toggleStart = slideBtn?.box?.x ?? screen.width - 80;
     
     // Segment 1: MIDI badge area (dark blue tint)
-    ink(15, 20, 35, 180).box(0, SECONDARY_BAR_TOP, midiBadgeEnd, SECONDARY_BAR_HEIGHT);
+    if (!hideMidiBadge) {
+      ink(15, 20, 35, 180).box(0, SECONDARY_BAR_TOP, midiBadgeEnd, SECONDARY_BAR_HEIGHT);
+    }
     
     // Segment 2: Content area - stream & notes (dark neutral)
     ink(20, 20, 25, 160).box(midiBadgeEnd, SECONDARY_BAR_TOP, metroStart - midiBadgeEnd, SECONDARY_BAR_HEIGHT);
@@ -2950,12 +2956,18 @@ function paint({
       ink(bgR, bgG, bgB, bgA).box(btn.box);
       ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
-      ink(textColor).write("-", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(textColor).write("-", { x: btn.box.x + TOGGLE_BTN_PADDING_X + 1, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
     // BPM display IS the toggle button now - clicking it toggles metronome on/off (BLACK/WHITE themed)
     metroBtn?.paint((btn) => {
       const bpmText = metronomeBPM.toString().padStart(3, " ");
+      const bounceY = metronomeEnabled ? Math.round(Math.sin(metronomeVisualPhase * Math.PI * 2) * 2) : 0;
+      const textY = btn.box.y + TOGGLE_BTN_PADDING_Y + (bounceY < 0 ? bounceY : 0);
+      const bx = btn.box.x;
+      const by = btn.box.y + bounceY;
+      const bw = btn.box.w;
+      const bh = btn.box.h;
       // Flash background on beat when metronome is enabled
       const flashAlpha = metronomeEnabled ? Math.floor(40 + metronomeVisualPhase * 100) : 0;
       // Black/white theme for BPM value
@@ -2967,17 +2979,24 @@ function paint({
         bgR = 20; bgG = 20; bgB = 20; bgA = 200;
         olR = 80; olG = 80; olB = 80; olA = 180;
       }
-      ink(bgR, bgG, bgB, bgA).box(btn.box);
+      ink(bgR, bgG, bgB, bgA).box(bx, by, bw, bh);
       if (metronomeEnabled && metronomeVisualPhase > 0) {
-        ink(255, 255, 255, flashAlpha).box(btn.box);
+        ink(255, 255, 255, flashAlpha).box(bx, by, bw, bh);
       }
-      ink(olR, olG, olB, olA).box(btn.box, "outline");
-      if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
+      ink(olR, olG, olB, olA).box(bx, by, bw, bh, "outline");
+      if (btn.over && !btn.down) ink(255, 255, 255, 24).box(bx, by, bw, bh);
       // Flash the button on beat
       if (metronomeEnabled && metronomeVisualPhase > 0.5) {
-        ink(255, 255, 255, Math.floor(metronomeVisualPhase * 60)).box(btn.box);
+        ink(255, 255, 255, Math.floor(metronomeVisualPhase * 60)).box(bx, by, bw, bh);
       }
-      ink(metronomeEnabled ? "white" : [160, 160, 160]).write(bpmText, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(metronomeEnabled ? "white" : [160, 160, 160]).write(
+        bpmText,
+        { x: bx + TOGGLE_BTN_PADDING_X, y: textY },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
     });
     
     // Paint BPM plus button (GREEN color coded)
@@ -2994,7 +3013,7 @@ function paint({
       ink(bgR, bgG, bgB, bgA).box(btn.box);
       ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
-      ink(textColor).write("+", { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(textColor).write("+", { x: btn.box.x + TOGGLE_BTN_PADDING_X + 2, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
 
     // 🏀 Draw bouncing ball animation when metronome is running
@@ -3035,26 +3054,32 @@ function paint({
     }
 
     // 🔌🎹 Draw USB/MIDI/sample-rate badge on the left side of the mini bar
-    const topMidiMetrics = computeMidiBadgeTopMetrics(
-      screen,
-      matrixGlyphMetrics,
-      sampleRateLabel,
-      sampleRateText,
-    );
+    const topMidiMetrics = hideMidiBadge
+      ? null
+      : computeMidiBadgeTopMetrics(
+          screen,
+          matrixGlyphMetrics,
+          sampleRateLabel,
+          sampleRateText,
+        );
     // Pass metronome button start as maxX to prevent FPS from overlapping
     // Ensure maxX is reasonable (at least 80px from left) to avoid cutting off FPS
     const bpmBtnX = bpmMinusBtn?.box?.x;
     const midiMaxX = (bpmBtnX && bpmBtnX > 80) ? bpmBtnX - 4 : screen.width;
-    drawMidiBadge(
-      topMidiMetrics,
-      midiConnected,
-      sampleRateLabel,
-      sampleRateText,
-      midiMaxX,
-      { api, screenWidth: screen.width },
-    );
+    if (!hideMidiBadge) {
+      drawMidiBadge(
+        topMidiMetrics,
+        midiConnected,
+        sampleRateLabel,
+        sampleRateText,
+        midiMaxX,
+        { api, screenWidth: screen.width },
+      );
+    }
 
-    const streamLeft = topMidiMetrics.x + topMidiMetrics.width + 3;
+    const streamLeft = hideMidiBadge
+      ? MIDI_BADGE_MARGIN
+      : topMidiMetrics.x + topMidiMetrics.width + 3;
     // Stream should stop before metronome buttons (bpmMinusBtn), not the toggle buttons
     const streamRight = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 2 : (slideBtn?.box?.x ? slideBtn.box.x - 4 : screen.width - 4);
     const streamMaxWidth = streamRight - streamLeft;
@@ -7458,6 +7483,7 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
   const btnY = SECONDARY_BAR_TOP + 1;
   const glyphWidth = typeface?.glyphs?.["0"]?.resolution?.[0] ?? matrixFont?.glyphs?.["0"]?.resolution?.[0] ?? 6;
   const glyphMetrics = resolveMatrixGlyphMetrics();
+  const hideMidiBadge = screen.width < 240;
   
   // Calculate actual MIDI badge width using proper text measurement
   // Use stored sample rate or fallback to window.audioContext
@@ -7469,13 +7495,13 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
   const rateTextW = measureMatrixTextWidth(shortRate);
   const fpsTextW = measureMatrixTextWidth("120fps"); // Max FPS width (6 chars)
   const totalMidiTextWidth = midiTextW + divWidth + rateTextW + divWidth + fpsTextW;
-  const midiBadgeWidth = totalMidiTextWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
+  const midiBadgeWidth = hideMidiBadge ? 0 : totalMidiTextWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
   
   // Left reserved = MIDI badge margin + badge width + tiny gap
-  const leftReserved = MIDI_BADGE_MARGIN + midiBadgeWidth + 1;
+  const leftReserved = hideMidiBadge ? 0 : MIDI_BADGE_MARGIN + midiBadgeWidth + 1;
   const rightMargin = 4;
   
-  // Fixed elements: [-] [BPM] [+] - BPM is now 3 chars with minimal padding
+  // Fixed elements: [-] [+] [BPM] - BPM is now 3 chars with minimal padding
   const minusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;
   const plusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;
   const bpmTextWidth = 3 * glyphWidth + TOGGLE_BTN_PADDING_X; // Reduced padding - only left side
@@ -7488,8 +7514,8 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
     return (measureMatrixTextBoxWidth(label, { text }, screen.width) || (label.length * glyphWidth)) + TOGGLE_BTN_PADDING_X * 2;
   };
   
-  // Fixed metronome elements width: [-] [BPM] [+] (BPM is the toggle button now)
-  const metroFixedWidth = minusBtnWidth + 1 + bpmTextWidth + 1 + plusBtnWidth + TOGGLE_BTN_GAP;
+  // Fixed metronome elements width: [-] [+] [BPM] (BPM is the toggle button now)
+  const metroFixedWidth = minusBtnWidth + 1 + plusBtnWidth + 1 + bpmTextWidth + TOGGLE_BTN_GAP;
   
   // Try different label lengths until everything fits
   let variantLevel = 0;
@@ -7547,14 +7573,15 @@ function buildMetronomeButtons({ screen, ui, typeface, text }) {
   bpmMinusBtn.id = "bpm-minus";
   btnX += minusBtnWidth + 1;
   
+  // Build plus button (to the left of BPM display)
+  bpmPlusBtn = new ui.Button(btnX, btnY, plusBtnWidth, btnHeight);
+  bpmPlusBtn.id = "bpm-plus";
+  btnX += plusBtnWidth + 1;
+
   // BPM display area
   const bpmDisplayX = btnX;
   btnX += bpmTextWidth + 1;
-  
-  // Build plus button
-  bpmPlusBtn = new ui.Button(btnX, btnY, plusBtnWidth, btnHeight);
-  bpmPlusBtn.id = "bpm-plus";
-  
+
   // The BPM display itself is the metronome toggle button (no separate metro button)
   metroBtn = new ui.Button(bpmDisplayX, btnY, bpmTextWidth, btnHeight);
   metroBtn.id = "metro-toggle";
