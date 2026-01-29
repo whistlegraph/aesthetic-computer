@@ -23529,6 +23529,17 @@
       if (jukeboxAnimationFrame) return;
       const freqData = new Uint8Array(jukeboxAnalyser.frequencyBinCount);
       const timeData = new Uint8Array(jukeboxAnalyser.fftSize);
+      const sampleRate = jukeboxAudioContext.sampleRate;
+      const binFreq = sampleRate / jukeboxAnalyser.fftSize;
+      
+      // Helper to get average energy in a frequency range
+      function getBandEnergy(minHz, maxHz) {
+        const startBin = Math.floor(minHz / binFreq);
+        const endBin = Math.min(Math.floor(maxHz / binFreq), freqData.length - 1);
+        let sum = 0;
+        for (let i = startBin; i <= endBin; i++) sum += freqData[i];
+        return (endBin > startBin) ? (sum / (endBin - startBin + 1)) / 255 : 0;
+      }
       
       function analyze() {
         if (!jukeboxIsPlaying) return;
@@ -23542,7 +23553,14 @@
         }
         const amp = Math.min(10, Math.sqrt(sum / timeData.length) * 15);
         
-        const bassEnd = Math.floor(250 * jukeboxAnalyser.fftSize / jukeboxAudioContext.sampleRate);
+        // Calculate frequency bands (0-1 scale)
+        const bass = getBandEnergy(20, 250);       // Bass (kick, bass guitar)
+        const mid = getBandEnergy(250, 2000);      // Mids (vocals, snare)
+        const treble = getBandEnergy(2000, 20000); // Treble (hi-hats, cymbals)
+        const highMid = getBandEnergy(1000, 4000); // High-mids (guitar presence)
+        const presence = getBandEnergy(2500, 5000); // Presence (clarity)
+        
+        const bassEnd = Math.floor(250 * jukeboxAnalyser.fftSize / sampleRate);
         let bassEnergy = 0;
         for (let i = 0; i < Math.min(bassEnd, freqData.length); i++) bassEnergy += freqData[i] * freqData[i];
         bassEnergy = Math.sqrt(bassEnergy / bassEnd) / 255;
@@ -23567,7 +23585,7 @@
         document.getElementById('jukebox-amp-value').textContent = amp.toFixed(1);
         document.getElementById('jukebox-kick-indicator').classList.toggle('active', jukeboxCurrentBeat);
         
-        const audioData = { amp, leftAmp: amp, rightAmp: amp, beat: kick, kick };
+        const audioData = { amp, leftAmp: amp, rightAmp: amp, beat: kick, kick, bass, mid, treble, highMid, presence };
         sendJukeboxAudioToPreview(audioData);
         broadcastJukeboxAudioToPJ(audioData);
         
