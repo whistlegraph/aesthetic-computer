@@ -890,7 +890,7 @@ const noteShake = {}; // Per-note shake amounts (note -> shake value)
 
 // 🥁 Metronome state - UTC-synced like clock.mjs
 let metronomeEnabled = false;
-let metronomeBPM = 120; // Default 120 BPM
+let metronomeBPM = 180; // Default 180 BPM
 let metronomeLastBeatTime = 0; // Last time a beat was triggered (UTC ms)
 let metronomeVisualPhase = 0; // 0-1 visual pulse phase
 let metronomeBeatCount = 0; // Count beats for visual display
@@ -3051,6 +3051,7 @@ function paint({
       sampleRateLabel,
       sampleRateText,
       midiMaxX,
+      { api, screenWidth: screen.width },
     );
 
     const streamLeft = topMidiMetrics.x + topMidiMetrics.width + 3;
@@ -3768,6 +3769,8 @@ function paint({
       midiBgColor = [40, 30, 20, 160],
       rateBgColor = [20, 35, 45, 160],
       fpsBgColor = [20, 40, 25, 160],
+      api,
+      screenWidth,
     } = {},
   ) {
     if (!metrics) return;
@@ -3836,11 +3839,14 @@ function paint({
     // Draw FPS with suffix and background (skip if it would overlap metronome)
     const fpsVal = Math.round(perfStats.fps);
     const fpsText = fpsVal > 0 ? `${fpsVal}fps` : "--";
-    const fpsTextW = measureMatrixTextWidth(fpsText);
+    const fpsTextW =
+      measureMatrixTextBoxWidth(fpsText, api, screenWidth) ||
+      measureMatrixTextWidth(fpsText);
     // Check if FPS box would overlap maxX (BPM button area) - need at least space for text
-    const availableFpsSpace = maxX - cursorX;
+    const fpsGap = 2; // extra safety gap before metronome buttons
+    const availableFpsSpace = maxX - cursorX - fpsGap;
     if (fpsTextW > availableFpsSpace) return;
-    // Clip FPS background to never exceed maxX
+    // Clip FPS background to never exceed maxX (with safety gap)
     const clippedFpsW = Math.min(fpsTextW, availableFpsSpace);
     ink(fpsBgColor[0], fpsBgColor[1], fpsBgColor[2], fpsBgColor[3]).box(cursorX, boxY, clippedFpsW, SECONDARY_BAR_HEIGHT);
     let fpsR, fpsG, fpsB;
