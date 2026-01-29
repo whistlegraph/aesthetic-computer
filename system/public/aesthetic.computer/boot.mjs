@@ -1508,6 +1508,16 @@ function receive(event) {
       });
     }
     return;
+  } else if (event.data?.type === "kidlisp-audio") {
+    // Audio data from jukebox - forward to disk worker for KidLisp
+    const data = event.data.data;
+    if (data) {
+      window.acSEND({
+        type: "kidlisp-audio",
+        content: data
+      });
+    }
+    return;
   } else if (event.data?.type === "kidlisp-pause") {
     window.acPAUSE?.();
     return;

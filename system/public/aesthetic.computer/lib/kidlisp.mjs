@@ -3176,7 +3176,22 @@ class KidLisp {
       if (typeof audioData.kick === 'number') {
         this.globalDef.kick = audioData.kick;
       }
-      // Add more audio variables as needed
+      // Frequency bands
+      if (typeof audioData.bass === 'number') {
+        this.globalDef.bass = audioData.bass;
+      }
+      if (typeof audioData.mid === 'number') {
+        this.globalDef.mid = audioData.mid;
+      }
+      if (typeof audioData.treble === 'number') {
+        this.globalDef.treble = audioData.treble;
+      }
+      if (typeof audioData.highMid === 'number') {
+        this.globalDef.highMid = audioData.highMid;
+      }
+      if (typeof audioData.presence === 'number') {
+        this.globalDef.presence = audioData.presence;
+      }
     }
   }
 
@@ -3193,6 +3208,12 @@ class KidLisp {
     this.globalDef.beat = 0; // Beat detection (0 or 1)
     this.globalDef.kick = 0; // Kick drum / beat detected (0 or 1)
     this.globalDef.mic = 0; // Microphone amplitude (0-1 scale, fun default when disconnected)
+    // Frequency band analysis (0-1 scale)
+    this.globalDef.bass = 0; // Bass frequencies (20-250Hz)
+    this.globalDef.mid = 0; // Mid frequencies (250-2000Hz)
+    this.globalDef.treble = 0; // Treble frequencies (2000-20000Hz)
+    this.globalDef.highMid = 0; // High-mid frequencies (1000-4000Hz)
+    this.globalDef.presence = 0; // Presence frequencies (2500-5000Hz)
 
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
@@ -15184,6 +15205,14 @@ function slideUpdate(source) {
   }
 }
 
+// 🎵 Update KidLisp audio globals - calls updateAudioGlobals on the global singleton instance
+// This is used by the jukebox to send audio data to KidLisp pieces
+function updateKidLispAudio(audioData) {
+  if (globalKidLispInstance) {
+    globalKidLispInstance.updateAudioGlobals(audioData);
+  }
+}
+
 // Get the global KidLisp instance (for external access)
 function getGlobalInstance() {
   return globalKidLispInstance;
@@ -16034,6 +16063,7 @@ export {
   parse,
   evaluate,
   slideUpdate,
+  updateKidLispAudio,
   getGlobalInstance,
   KidLisp,
   isKidlispSource,
