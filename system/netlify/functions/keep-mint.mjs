@@ -36,6 +36,20 @@ const RPC_URL = NETWORK === "mainnet"
   ? "https://mainnet.ecadinfra.com"
   : "https://ghostnet.ecadinfra.com";
 
+// IPFS Gateway configuration
+// When USE_GATEWAY_URLS is true, metadata will use full HTTPS URLs instead of ipfs:// URIs
+// This ensures compatibility with platforms that use slow/unreliable public gateways
+const USE_GATEWAY_URLS = process.env.USE_IPFS_GATEWAY_URLS === "true";
+const IPFS_GATEWAY = process.env.IPFS_GATEWAY || "https://ipfs.aesthetic.computer";
+
+// Helper to format IPFS URI - returns gateway URL or ipfs:// based on config
+function formatIpfsUri(hash) {
+  if (USE_GATEWAY_URLS) {
+    return `${IPFS_GATEWAY}/ipfs/${hash}`;
+  }
+  return `ipfs://${hash}`;
+}
+
 // Cache credentials in memory for warm function invocations
 let cachedPinataCredentials = null;
 let cachedTezosCredentials = null;
@@ -227,7 +241,7 @@ async function uploadToIPFS(content, filename, mimeType = "text/html", onProgres
 
   const result = await response.json();
   console.log(`🪙 KEEP: IPFS pin successful: ${result.IpfsHash}`);
-  return `ipfs://${result.IpfsHash}`;
+  return formatIpfsUri(result.IpfsHash);
 }
 
 // Upload JSON metadata to IPFS
@@ -275,7 +289,7 @@ async function uploadJsonToIPFS(data, name) {
   }
 
   const result = await response.json();
-  return `ipfs://${result.IpfsHash}`;
+  return formatIpfsUri(result.IpfsHash);
 }
 
 // SSE helper
