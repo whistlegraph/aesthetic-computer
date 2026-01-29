@@ -13,10 +13,10 @@ FFOS_USER_BRANCH="${FFOS_USER_BRANCH:-develop}"
 VERSION="${VERSION:-1.0.0}"
 
 # Ensure Docker is available
-if ! docker info >/dev/null 2>&1; then
+if ! sudo docker info >/dev/null 2>&1; then
   echo "❌ Docker is not available from this environment."
   echo "   - Ensure the Docker daemon is running on the host."
-  echo "   - Ensure your user can access /var/run/docker.sock (docker group)."
+  echo "   - Ensure you have sudo access to docker."
   exit 1
 fi
 
@@ -264,9 +264,46 @@ CUSTOMIZE
     echo "=== Building ISO ==="
     mkarchiso -v -o /work/out "$PROFILE"
     
+    echo "=== Generating checksums ==="
+    cd /work/out
+    for iso in *.iso; do
+      if [ -f "$iso" ]; then
+        echo "Generating SHA256 for $iso..."
+        sha256sum "$iso" > "${iso}.sha256"
+        echo "Checksum: $(cat "${iso}.sha256")"
+        
+        # Also verify the squashfs inside the ISO
+        echo "Verifying SquashFS integrity..."
+        mkdir -p /tmp/iso-verify
+        mount -o loop,ro "$iso" /tmp/iso-verify
+        if [ -f /tmp/iso-verify/arch/x86_64/airootfs.sfs ]; then
+          if unsquashfs -l /tmp/iso-verify/arch/x86_64/airootfs.sfs > /dev/null 2>&1; then
+            echo "✅ SquashFS integrity verified"
+          else
+            echo "❌ SquashFS integrity check FAILED!"
+            umount /tmp/iso-verify
+            rm -rf /tmp/iso-verify
+            exit 1
+          fi
+        fi
+        umount /tmp/iso-verify
+        rm -rf /tmp/iso-verify
+      fi
+    done
+    
     echo "✅ Build complete!"
     ls -lh /work/out/*.iso 2>/dev/null || echo "No ISO files found"
   '
 
 echo "✅ Build complete. ISO output: $OUT_DIR"
 ls -lh "$OUT_DIR"/*.iso 2>/dev/null || echo "No ISO files found"
+
+# Show verification info
+echo ""
+echo "════════════════════════════════════════════════════════════════"
+echo "  To verify and flash the ISO, use:"
+echo "    bash utilities/ffos-build/verify-iso.sh $OUT_DIR/*.iso /dev/sdX"
+echo ""
+echo "  Or verify only:"
+echo "    bash utilities/ffos-build/verify-iso.sh --verify-only $OUT_DIR/*.iso"
+echo "════════════════════════════════════════════════════════════════"
