@@ -11855,10 +11855,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           if (currentPieceHasKeyboard) e.preventDefault();
 
-          // console.log(e.target);
-
-          console.log("⌨️📍 [bios pointerup] hasKB:", currentPieceHasKeyboard, "focusLock:", keyboardFocusLock, "softLock:", keyboardSoftLock, "kbOpen:", keyboardOpen);
-
           if (
             currentPieceHasKeyboard &&
             !keyboardFocusLock &&
