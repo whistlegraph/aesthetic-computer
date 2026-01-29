@@ -54,8 +54,9 @@
       transition: opacity 0.5s ease;
     }
     
-    #source-overlay.hidden {
-      opacity: 0;
+    /* Source code always visible with piece info */
+    #source-overlay {
+      /* Always visible - no hidden state */
     }
     
     /* Source code display - top left */
@@ -453,13 +454,7 @@
       // Handle iframe load
       iframe.addEventListener('load', () => {
         logDevice('iframe loaded');
-        // Hide source overlay after a delay (unless in playlist mode)
-        if (!isPlaylist) {
-          setTimeout(() => {
-            const sourceOverlay = document.getElementById('source-overlay');
-            if (sourceOverlay) sourceOverlay.classList.add('hidden');
-          }, 2000);
-        }
+        // Source overlay stays visible always - shows code and QR
       });
       
       // Listen for iframe errors
@@ -467,12 +462,10 @@
         addLog(`iframe error: ${e.message || 'unknown'}`, 'error');
       });
       
-      // Start playlist progress bar if in playlist mode
+      // Always start playlist progress bar (visible indicator of time remaining)
       console.log('📺 Playlist mode:', isPlaylist, 'duration:', playlistDuration);
-      if (isPlaylist) {
-        console.log('📺 Starting progress bar...');
-        startProgressBar();
-      }
+      console.log('📺 Starting progress bar...');
+      startProgressBar();
       
       // Fetch and display KidLisp source code with syntax highlighting
       fetchAndDisplaySource(codeId);
@@ -480,29 +473,38 @@
     
     // Fetch KidLisp source from API
     async function fetchAndDisplaySource(codeId) {
+      console.log('📺 fetchAndDisplaySource called with:', codeId);
       // Strip $ prefix if present for API call
       const pieceCode = codeId.startsWith('$') ? codeId.slice(1) : codeId;
       const displayCode = codeId.startsWith('$') ? codeId : '$' + codeId;
       
+      // Always generate QR code and label first (even before source loads)
+      generateQRAndLabel(displayCode);
+      
       try {
         // Fetch source from aesthetic.computer API
         const apiUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
-        const response = await fetch(`${apiUrl}/api/kidlisp-source?piece=${pieceCode}`, {
+        const url = `${apiUrl}/api/kidlisp-source?piece=${pieceCode}`;
+        console.log('📺 Fetching source from:', url);
+        const response = await fetch(url, {
           credentials: 'omit'
         });
+        console.log('📺 Source fetch response:', response.status, response.statusText);
         
         if (response.ok) {
           const data = await response.json();
+          console.log('📺 Source data:', data);
           if (data.source) {
             displaySourceCode(data.source);
+          } else {
+            console.log('📺 No source in response');
           }
+        } else {
+          console.log('📺 Source fetch failed:', response.status);
         }
       } catch (e) {
-        console.log('Could not fetch source:', e);
+        console.log('📺 Could not fetch source:', e);
       }
-      
-      // Generate QR code and label (always, even if source fetch fails)
-      generateQRAndLabel(displayCode);
     }
     
     // Display syntax-highlighted source code
@@ -537,6 +539,7 @@
     
     // Generate QR code pointing to kidlisp.com/$piece
     function generateQRAndLabel(displayCode) {
+      console.log('📺 generateQRAndLabel called with:', displayCode);
       const labelEl = document.getElementById('code-label');
       const qrContainer = document.getElementById('qr-container');
       
@@ -545,12 +548,14 @@
         const dollar = displayCode[0] === '$' ? '$' : '';
         const code = displayCode.startsWith('$') ? displayCode.slice(1) : displayCode;
         labelEl.innerHTML = `<span class="code-dollar">${dollar}</span><span class="code-name">${code}</span>`;
+        console.log('📺 Label set:', dollar + code);
       }
       
       // Generate QR code pointing to kidlisp.com (NOT aesthetic.computer)
       if (qrContainer && typeof qrcode !== 'undefined') {
         try {
           const qrUrl = `https://kidlisp.com/${displayCode}`;
+          console.log('📺 Generating QR for:', qrUrl);
           const qrGen = qrcode(0, 'L');
           qrGen.addData(qrUrl);
           qrGen.make();
@@ -558,13 +563,17 @@
           qrContainer.innerHTML = svg;
           const svgEl = qrContainer.querySelector('svg');
           if (svgEl) {
+            // Size is set by CSS using --density variable
             svgEl.style.display = 'block';
-            svgEl.style.width = '64px';
-            svgEl.style.height = '64px';
+            svgEl.style.width = '100%';
+            svgEl.style.height = '100%';
+            console.log('📺 QR SVG created');
           }
         } catch (e) {
-          console.error('QR generation error:', e);
+          console.error('📺 QR generation error:', e);
         }
+      } else {
+        console.log('📺 QR container not found or qrcode lib not loaded');
       }
     }
     
