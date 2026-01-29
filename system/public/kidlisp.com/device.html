@@ -391,12 +391,12 @@
         return;
       }
       
-      // Set page title
-      document.title = `KidLisp.com · $${codeId}`;
+      // Set page title (codeId already includes $ prefix)
+      document.title = `KidLisp.com · ${codeId}`;
       
-      // Build the $codeId URL with display params
-      // ${codeId} loads the stored kidlisp code from MongoDB
-      iframe.src = `${aestheticUrl}/$${codeId}?${buildDisplayParams()}`;
+      // Build the codeId URL with display params
+      // codeId (e.g. "$zo5") loads the stored kidlisp code from MongoDB
+      iframe.src = `${aestheticUrl}/${codeId}?${buildDisplayParams()}`;
       
       logDevice('iframe src', { src: iframe.src });
       
