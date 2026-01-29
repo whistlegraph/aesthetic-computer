@@ -359,8 +359,6 @@ class Button {
     // 1. Down: Enable the button if we touched over it. (Repeatable)
     if (e.is(`touch:${t}`) && btn.box.contains(e) && !btn.down) {
       const wasRecentRollout = wasRecentlyRolledOut(btn.id || "unnamed");
-      
-      console.log("🟢📍 [ui.mjs btn.act] TOUCH - btn:", btn.id, "contains(e):", btn.box.contains(e), "btn.down:", btn.down, "e:", e.x, e.y, "box:", btn.box?.x, btn.box?.y, btn.box?.w, btn.box?.h);
       //   buttonId: btn.id || "unnamed",
       //   timestamp: performance.now(),
       //   pointer: e.pointer,

@@ -4963,15 +4963,34 @@ function startButtonNote(note, velocity = 127, apiRef = null) {
   keys += noteUpper;
   const active = orderedByCount(sounds);
 
-  let tempOctave = octave;
-  if (note[0] === "+") {
-    noteUpper = noteUpper.replace("+", "");
-    tempOctave = parseInt(octave) + 1 + upperOctaveShift;
+  let tempOctave = parseInt(octave);
+  
+  // Handle octave prefix modifiers: ++ (2 up), + (1 up), - (1 down)
+  if (note.startsWith("++")) {
+    noteUpper = noteUpper.replace(/^\+\+/, "");
+    tempOctave += 2 + upperOctaveShift;
+  } else if (note.startsWith("+")) {
+    noteUpper = noteUpper.replace(/^\+/, "");
+    tempOctave += 1 + upperOctaveShift;
+  } else if (note.startsWith("-")) {
+    noteUpper = noteUpper.replace(/^-/, "");
+    tempOctave -= 1 + lowerOctaveShift;
   } else {
-    tempOctave = parseInt(octave) + lowerOctaveShift;
+    tempOctave += lowerOctaveShift;
   }
 
   const tone = `${tempOctave}${noteUpper}`;
+  
+  // Validate the tone can be parsed before trying to make a sound
+  const freq = soundContext?.freq;
+  if (freq) {
+    try {
+      freq(tone); // Test if it's valid
+    } catch (e) {
+      console.warn("Invalid note:", note, "tone:", tone);
+      return false;
+    }
+  }
 
   if (slide && active.length > 0) {
     // For sample-based waves, use sampleSpeed; for synths, use tone frequency
