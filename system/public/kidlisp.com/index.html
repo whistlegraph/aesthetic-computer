@@ -3651,7 +3651,7 @@
         background: rgba(120, 120, 120, 0.3);
       }
       #jukebox-tab:hover {
-        background: rgba(236, 72, 153, 0.35);
+        background: rgba(59, 130, 246, 0.35);
       }
       #reference-tab:hover {
         background: rgba(34, 197, 94, 0.35);
@@ -3717,14 +3717,14 @@
       color: #262626;
     }
     
-    /* Jukebox - Pink */
+    /* Jukebox - Blue */
     #jukebox-tab {
-      background: rgba(236, 72, 153, 0.2);
-      color: #be185d;
+      background: rgba(59, 130, 246, 0.2);
+      color: #1d4ed8;
     }
     #jukebox-tab.active {
-      background: rgba(236, 72, 153, 0.5);
-      color: #9d174d;
+      background: rgba(59, 130, 246, 0.5);
+      color: #1e40af;
     }
 
     /* Cards/Reference - keep existing green */
@@ -3784,12 +3784,12 @@
     }
     
     :root.dark #jukebox-tab {
-      background: rgba(236, 72, 153, 0.3);
-      color: #f9a8d4;
+      background: rgba(59, 130, 246, 0.3);
+      color: #93c5fd;
     }
     :root.dark #jukebox-tab.active {
-      background: rgba(236, 72, 153, 0.5);
-      color: #fce7f3;
+      background: rgba(59, 130, 246, 0.5);
+      color: #dbeafe;
     }
     
     :root.dark #reference-tab {
@@ -3957,6 +3957,36 @@
       height: 100%;
       width: 100%;
       overflow: hidden;
+      transition: background 0.3s ease;
+    }
+    
+    /* === MODE-BASED THEMING === */
+    /* Songs Mode: Spotify-style (lime green #1DB954 on dark) */
+    .jukebox-panel[data-mode="songs"] {
+      --jukebox-accent: #1DB954;
+      --jukebox-accent-hover: #1ed760;
+      --jukebox-accent-dim: rgba(29, 185, 84, 0.15);
+      --jukebox-accent-mid: rgba(29, 185, 84, 0.3);
+      --jukebox-bg: #121212;
+      --jukebox-bg-elevated: #181818;
+      --jukebox-text: #fff;
+      --jukebox-text-dim: #b3b3b3;
+      background: var(--jukebox-bg);
+      color: var(--jukebox-text);
+    }
+    
+    /* Strudel Mode: dark with gold accent */
+    .jukebox-panel[data-mode="strudel"] {
+      --jukebox-accent: #ffcc00;
+      --jukebox-accent-hover: #ffd633;
+      --jukebox-accent-dim: rgba(255, 204, 0, 0.15);
+      --jukebox-accent-mid: rgba(255, 204, 0, 0.3);
+      --jukebox-bg: #222;
+      --jukebox-bg-elevated: #2a2a2a;
+      --jukebox-text: #fff;
+      --jukebox-text-dim: #8a919966;
+      background: var(--jukebox-bg);
+      color: var(--jukebox-text);
     }
     
     /* Jukebox fixed controls area */
@@ -3966,7 +3996,7 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      border-bottom: 1px solid rgba(236, 72, 153, 0.2);
+      border-bottom: 1px solid var(--jukebox-accent-dim, rgba(236, 72, 153, 0.2));
     }
     
     /* Jukebox scrollable content area */
@@ -3981,7 +4011,7 @@
       align-items: center;
       gap: 8px;
       padding: 8px 12px;
-      background: rgba(236, 72, 153, 0.15);
+      background: var(--jukebox-accent-dim, rgba(236, 72, 153, 0.15));
       border-radius: 6px;
       font-weight: 600;
     }
@@ -4002,13 +4032,13 @@
       height: 40px;
       border: none;
       border-radius: 50%;
-      background: linear-gradient(to bottom, #ec4899, #be185d);
-      color: white;
+      background: var(--jukebox-accent, #1DB954);
+      color: #000;
       font-size: 16px;
       cursor: pointer;
-      transition: transform 0.1s, opacity 0.2s;
+      transition: transform 0.1s, opacity 0.2s, background 0.2s;
     }
-    .jukebox-btn:hover:not(:disabled) { transform: scale(1.1); }
+    .jukebox-btn:hover:not(:disabled) { transform: scale(1.1); background: var(--jukebox-accent-hover, #1ed760); }
     .jukebox-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .jukebox-progress {
       display: flex;
@@ -4019,20 +4049,20 @@
       flex: 1;
       height: 6px;
       -webkit-appearance: none;
-      background: rgba(236, 72, 153, 0.3);
+      background: var(--jukebox-accent-mid, rgba(29, 185, 84, 0.3));
       border-radius: 3px;
     }
     .jukebox-progress input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 14px;
       height: 14px;
-      background: #ec4899;
+      background: var(--jukebox-accent, #1DB954);
       border-radius: 50%;
       cursor: pointer;
     }
     .jukebox-time {
       font-size: 11px;
-      color: #888;
+      color: var(--jukebox-text-dim, #b3b3b3);
       min-width: 80px;
       text-align: right;
     }
@@ -4047,14 +4077,14 @@
       max-width: 100px;
       height: 4px;
       -webkit-appearance: none;
-      background: rgba(236, 72, 153, 0.3);
+      background: var(--jukebox-accent-mid, rgba(29, 185, 84, 0.3));
       border-radius: 2px;
     }
     .jukebox-volume input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 12px;
       height: 12px;
-      background: #ec4899;
+      background: var(--jukebox-accent, #1DB954);
       border-radius: 50%;
       cursor: pointer;
     }
@@ -4063,7 +4093,7 @@
       flex-direction: column;
       gap: 6px;
       padding: 8px;
-      background: rgba(0, 0, 0, 0.1);
+      background: rgba(0, 0, 0, 0.2);
       border-radius: 6px;
     }
     .jukebox-meter-row {
@@ -4075,19 +4105,19 @@
       width: 32px;
       font-size: 11px;
       font-weight: 600;
-      color: #ec4899;
+      color: var(--jukebox-accent, #1DB954);
     }
     .jukebox-meter-bar {
       flex: 1;
       height: 8px;
-      background: rgba(236, 72, 153, 0.2);
+      background: var(--jukebox-accent-dim, rgba(29, 185, 84, 0.2));
       border-radius: 4px;
       overflow: hidden;
     }
     .jukebox-meter-fill {
       height: 100%;
       width: 0%;
-      background: linear-gradient(to right, #ec4899, #f472b6);
+      background: var(--jukebox-accent, #1DB954);
       border-radius: 4px;
       transition: width 0.05s;
     }
@@ -4096,17 +4126,18 @@
       font-size: 11px;
       text-align: right;
       font-family: monospace;
+      color: var(--jukebox-text-dim, #b3b3b3);
     }
     .jukebox-beat-indicator {
       width: 16px;
       height: 16px;
       border-radius: 50%;
       background: #333;
-      transition: background 0.05s;
+      transition: background 0.05s, box-shadow 0.05s;
     }
     .jukebox-beat-indicator.active {
-      background: #ec4899;
-      box-shadow: 0 0 8px #ec4899;
+      background: var(--jukebox-accent, #1DB954);
+      box-shadow: 0 0 8px var(--jukebox-accent, #1DB954);
     }
     .jukebox-tracklist {
       display: flex;
@@ -4115,27 +4146,27 @@
     }
     .jukebox-track {
       padding: 8px 12px;
-      background: rgba(236, 72, 153, 0.1);
+      background: var(--jukebox-bg-elevated, #181818);
       border-radius: 4px;
       cursor: pointer;
       transition: background 0.15s;
       font-size: 13px;
+      color: var(--jukebox-text, #fff);
     }
-    .jukebox-track:hover { background: rgba(236, 72, 153, 0.25); }
+    .jukebox-track:hover { background: var(--jukebox-accent-dim, rgba(29, 185, 84, 0.15)); }
     .jukebox-track.playing {
-      background: rgba(236, 72, 153, 0.4);
+      background: var(--jukebox-accent-mid, rgba(29, 185, 84, 0.3));
+      color: var(--jukebox-accent, #1DB954);
       font-weight: 600;
     }
-    .jukebox-track.playing::before { content: '▶ '; }
+    .jukebox-track.playing::before { content: ''; }
     .jukebox-status {
       font-size: 11px;
-      color: #888;
+      color: var(--jukebox-text-dim, #b3b3b3);
       text-align: center;
       min-height: 16px;
+      padding: 8px;
     }
-    [data-theme="dark"] .jukebox-panel { color: #f5f5f5; }
-    [data-theme="dark"] .jukebox-now-playing { background: rgba(236, 72, 153, 0.25); }
-    [data-theme="dark"] .jukebox-meters { background: rgba(255, 255, 255, 0.05); }
     
     /* Jukebox Mode Tabs */
     .jukebox-mode-tabs {
@@ -4145,25 +4176,44 @@
     }
     .jukebox-mode-tab {
       flex: 1;
-      padding: 8px 12px;
+      padding: 10px 16px;
       border: none;
-      border-radius: 6px;
-      background: rgba(236, 72, 153, 0.15);
-      color: inherit;
-      font-size: 12px;
-      font-weight: 600;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #b3b3b3;
+      font-size: 13px;
+      font-weight: 700;
       cursor: pointer;
-      transition: background 0.15s, transform 0.1s;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
-    .jukebox-mode-tab:hover { background: rgba(236, 72, 153, 0.3); }
-    .jukebox-mode-tab.active {
-      background: linear-gradient(to bottom, #ec4899, #be185d);
-      color: white;
+    .jukebox-mode-tab:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+    
+    /* Songs tab (Spotify green) */
+    .jukebox-mode-tab[data-mode="songs"].active {
+      background: #1DB954;
+      color: #000;
     }
+    .jukebox-mode-tab[data-mode="songs"].active:hover {
+      background: #1ed760;
+    }
+    
+    /* Strudel tab (gold) */
+    .jukebox-mode-tab[data-mode="strudel"].active {
+      background: #ffcc00;
+      color: #000;
+    }
+    .jukebox-mode-tab[data-mode="strudel"].active:hover {
+      background: #ffd633;
+    }
+    
     .jukebox-mode-content { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
     .jukebox-mode-content.hidden { display: none; }
     
-    /* Strudel Editor */
+    /* Strudel Editor - matches strudel.cc theme */
     .strudel-editor-container {
       flex: 1;
       min-height: 100px;
@@ -4175,57 +4225,52 @@
       flex: 1;
       min-height: 100px;
       padding: 12px;
-      border: 1px solid rgba(236, 72, 153, 0.3);
+      border: 1px solid rgba(255, 204, 0, 0.3);
       border-radius: 8px;
-      background: rgba(0, 0, 0, 0.25);
-      color: inherit;
+      background: #22222299;
+      color: #fff;
       font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
       font-size: 13px;
       line-height: 1.6;
       resize: none;
       box-sizing: border-box;
+      caret-color: #ffcc00;
     }
     #strudel-code:focus {
       outline: none;
-      border-color: #ec4899;
-      box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.25);
+      border-color: #ffcc00;
+      box-shadow: 0 0 0 2px rgba(255, 204, 0, 0.25);
     }
     #strudel-code::placeholder {
-      color: rgba(236, 72, 153, 0.4);
+      color: rgba(255, 204, 0, 0.4);
     }
-    [data-theme="dark"] #strudel-code {
-      background: rgba(0, 0, 0, 0.4);
+    #strudel-code::selection {
+      background: rgba(128, 203, 196, 0.5);
     }
     
-    /* Strudel Presets */
+    /* Strudel Presets - gold accents */
     .strudel-presets {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       align-items: center;
     }
-    .strudel-preset-label {
-      font-size: 11px;
-      color: #888;
-      margin-right: 4px;
-    }
     .strudel-preset {
-      padding: 4px 10px;
-      border: 1px solid rgba(236, 72, 153, 0.3);
-      border-radius: 12px;
+      padding: 5px 12px;
+      border: 1px solid rgba(255, 204, 0, 0.4);
+      border-radius: 14px;
       background: transparent;
-      color: #ec4899;
+      color: #ffcc00;
       font-size: 11px;
+      font-weight: 600;
       cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
+      transition: all 0.15s ease;
     }
     .strudel-preset:hover {
-      background: rgba(236, 72, 153, 0.15);
-      border-color: #ec4899;
+      background: rgba(255, 204, 0, 0.15);
+      border-color: #ffcc00;
+      transform: scale(1.05);
     }
-    [data-theme="dark"] .jukebox-track { background: rgba(236, 72, 153, 0.15); }
-    [data-theme="dark"] .jukebox-track:hover { background: rgba(236, 72, 153, 0.3); }
-    [data-theme="dark"] .jukebox-track.playing { background: rgba(236, 72, 153, 0.5); }
     
     @media (hover: hover) {
       .list-subtab:hover {
@@ -8693,7 +8738,7 @@
           </div>
           <!-- AI Assist Input - describe what you want -->
           <div id="ai-assist-bar">
-            <input type="text" id="ai-assist-input" placeholder="Describe what you want..." autocomplete="off" />
+            <input type="text" id="ai-assist-input" placeholder="I wish..." autocomplete="off" />
             <button id="ai-assist-send" aria-label="Generate" title="Generate KidLisp from description">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 2L11 13"/>
@@ -8920,7 +8965,7 @@
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
           <div class="tab active" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Learn</div>
           <div class="tab" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
-          <div class="tab" data-tab="jukebox" id="jukebox-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">🎵 Jukebox</div>
+          <div class="tab" data-tab="jukebox" id="jukebox-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Jukebox</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
@@ -9083,12 +9128,12 @@
           </div>
         </div><!-- /list-content -->
         <div class="docs-content hidden" id="jukebox-content">
-            <div class="jukebox-panel">
+            <div class="jukebox-panel" data-mode="songs">
               <!-- Mode Tabs + Meters (always visible at top) -->
               <div class="jukebox-controls-area">
                 <div class="jukebox-mode-tabs">
-                  <button class="jukebox-mode-tab active" data-mode="samples">🎵 Samples</button>
-                  <button class="jukebox-mode-tab" data-mode="strudel">🌀 Strudel</button>
+                  <button class="jukebox-mode-tab active" data-mode="songs"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16" fill="#000"/></svg> Songs</button>
+                  <button class="jukebox-mode-tab" data-mode="strudel"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2"/><path d="M12 6c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg> Strudel</button>
                 </div>
                 
                 <!-- Audio Meters (shared, always visible) -->
@@ -9105,12 +9150,11 @@
                 </div>
               </div>
               
-              <!-- Samples Mode -->
+              <!-- Songs Mode -->
               <div class="jukebox-mode-content" id="jukebox-samples-mode">
                 <div class="jukebox-controls-area" style="border-bottom: none; padding-top: 0;">
                   <!-- Now Playing -->
                   <div class="jukebox-now-playing">
-                    <span class="jukebox-track-icon">🎵</span>
                     <span class="jukebox-track-name" id="jukebox-track-name">Select a track</span>
                   </div>
                   
@@ -9154,14 +9198,12 @@
                 <div class="jukebox-controls-area" style="border-bottom: none; padding-top: 0;">
                   <!-- Strudel Status -->
                   <div class="jukebox-now-playing">
-                    <span class="jukebox-track-icon">🌀</span>
                     <span class="jukebox-track-name" id="strudel-status">Ready</span>
                   </div>
                   
                   <!-- Strudel Controls -->
                   <div class="jukebox-controls">
                     <button class="jukebox-btn" id="strudel-play" title="Play (Ctrl+Enter)">▶</button>
-                    <button class="jukebox-btn" id="strudel-pause" title="Pause (N/A)" disabled style="opacity: 0.25;">⏸</button>
                     <button class="jukebox-btn" id="strudel-stop" title="Stop" disabled>⏹</button>
                   </div>
                   
@@ -9173,7 +9215,6 @@
                   
                   <!-- Preset Patterns -->
                   <div class="strudel-presets">
-                    <span class="strudel-preset-label">Presets:</span>
                     <button class="strudel-preset" data-code="s('bd sd hh sd')">Basic</button>
                     <button class="strudel-preset" data-code="s('bd*2, hh*4, ~ sd')">Drums</button>
                     <button class="strudel-preset" data-code="note('c3 e3 g3 b3').s('sawtooth').cutoff(800)">Synth</button>
@@ -15341,7 +15382,7 @@
       // AI Assist - show/hide the input bar from context menu
       editor.addAction({
         id: 'kidlisp-ai-assist',
-        label: '🤖 AI Assist',
+        label: '✨ Wish',
         keybindings: [
           monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG
         ],
@@ -15354,7 +15395,15 @@
             if (bar.style.display === 'none' || bar.style.display === '') {
               bar.style.display = 'flex';
               const input = document.getElementById('ai-assist-input');
-              if (input) input.focus();
+              if (input) {
+                // Prefill with "I wish " if empty
+                if (!input.value.trim()) {
+                  input.value = 'I wish ';
+                }
+                input.focus();
+                // Move cursor to end
+                input.setSelectionRange(input.value.length, input.value.length);
+              }
             } else {
               bar.style.display = 'none';
             }
@@ -18105,6 +18154,10 @@
         // When play is pressed again, it will start fresh
         sendToIframe({ type: 'kidlisp-stop' });
         
+        // Also stop any Jukebox or Strudel audio that may be playing
+        if (typeof stopJukebox === 'function') stopJukebox();
+        if (typeof stopStrudel === 'function') stopStrudel();
+        
         // Update state - fully stopped (will restart fresh on play)
         isPlaying = false;
         isPaused = false;
@@ -20262,13 +20315,22 @@
             throw new Error('Could not load prompt template');
           }
           
+          // Get current code from editor for context
+          const currentCode = editor ? editor.getValue().trim() : '';
+          
           // Replace placeholder with user prompt
           const systemPrompt = template.replace(/\{\{USER_PROMPT\}\}/g, prompt);
+          
+          // Build user message with current code context if available
+          let userMessage = prompt;
+          if (currentCode) {
+            userMessage = `Current KidLisp code:\n\`\`\`\n${currentCode}\n\`\`\`\n\nWish: ${prompt}`;
+          }
           
           // Prepare messages for the API
           const messages = [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: prompt }
+            { role: 'user', content: userMessage }
           ];
           
           // Create abort controller
@@ -23022,6 +23084,22 @@
           }
           // Update display to show correct URL
           updateCodeChannelDisplay();
+          
+          // Send current code to server for late joiners (if playing)
+          if (codeChannelId && isPlaying && editor) {
+            const code = editor.getValue().trim();
+            if (code) {
+              pjWs.send(JSON.stringify({
+                type: 'code',
+                content: {
+                  piece: code,
+                  source: code,
+                  codeChannel: codeChannelId
+                }
+              }));
+              log.socket.debug('Sent current code to server on reconnect');
+            }
+          }
         };
         pjWs.onclose = () => {
           log.socket.debug('PJ WebSocket disconnected');
@@ -23183,13 +23261,17 @@
       return (popoutWindow && !popoutWindow.closed) || isVSCodePopout || isBroadcasting;
     }
     
-    // Broadcast code to channel subscribers (only when PJ is active)
+    // Broadcast code to channel subscribers
+    // Always sends to WebSocket (for late joiner state), but only sends to local
+    // BroadcastChannel/postMessage when there's an active PJ session
     function broadcastCodeToChannel(code) {
-      if (!codeChannelId || !hasActivePjSession()) return;
-      logPj('broadcast code', { codeChannelId, length: code?.length, pjIsProduction });
+      if (!codeChannelId) return;
       
-      // Broadcast via BroadcastChannel for same-origin windows
-      if (window.BroadcastChannel) {
+      const hasActiveSession = hasActivePjSession();
+      logPj('broadcast code', { codeChannelId, length: code?.length, pjIsProduction, hasActiveSession });
+      
+      // Broadcast via BroadcastChannel for same-origin windows (only if active session)
+      if (hasActiveSession && window.BroadcastChannel) {
         const bc = new BroadcastChannel(`kidlisp-channel-${codeChannelId}`);
         bc.postMessage({
           type: 'code-update',
@@ -23201,7 +23283,7 @@
       }
       
       // Also broadcast via postMessage to the pop-out window directly (if same-origin)
-      if (popoutWindow && !popoutWindow.closed) {
+      if (hasActiveSession && popoutWindow && !popoutWindow.closed) {
         try {
           popoutWindow.postMessage({
             type: 'kidlisp-code-update',
@@ -23213,7 +23295,8 @@
         }
       }
       
-      // Broadcast via production PJ WebSocket for cross-origin (localhost -> pj.kidlisp.com)
+      // ALWAYS broadcast via WebSocket to store state for late joiners
+      // The session server keeps track of the latest code for each channel
       if (pjWs && pjWs.readyState === WebSocket.OPEN) {
         pjWs.send(JSON.stringify({
           type: 'code',
@@ -23224,8 +23307,8 @@
           }
         }));
         log.socket.debug('Broadcast code via PJ WebSocket to channel:', codeChannelId);
-      } else if (hasActivePjSession()) {
-        // Only try to reconnect if we have an active PJ session
+      } else {
+        // Try to connect and send - important for late joiners
         connectPjWebSocket();
         log.socket.debug('PJ WebSocket not ready, reconnecting...');
       }
@@ -23509,6 +23592,9 @@
       // Update display (will show channel ID)
       updateCodeChannelDisplay();
       
+      // Connect to PJ WebSocket immediately so we can send code updates
+      connectPjWebSocket();
+      
       log.socket.log(`Restored code channel: ${savedChannel}`);
       logPj('restored channel', { savedChannel, isInVSCode: isInVSCode() });
       
@@ -23663,15 +23749,111 @@
     let jukeboxGainNode = null;
     let jukeboxAnalyser = null;
     let jukeboxSource = null;
+    let jukeboxWorkletNode = null;
     let jukeboxAnimationFrame = null;
     let jukeboxCurrentTrack = null;
     let jukeboxIsPlaying = false;
     let jukeboxEnergyHistory = [];
-    const JUKEBOX_ENERGY_HISTORY_SIZE = 20;
-    const JUKEBOX_BEAT_SENSITIVITY = 1.15;
-    const JUKEBOX_BEAT_COOLDOWN = 80;
+    const JUKEBOX_ENERGY_HISTORY_SIZE = 10;
+    const JUKEBOX_BEAT_SENSITIVITY = 1.12;
+    const JUKEBOX_BEAT_COOLDOWN = 60;
     let jukeboxLastBeatTime = 0;
     let jukeboxCurrentBeat = false;
+    
+    // AudioWorklet processor code (runs on audio thread for sample-accurate timing)
+    const audioAnalyzerWorkletCode = `
+      class AudioAnalyzerProcessor extends AudioWorkletProcessor {
+        constructor() {
+          super();
+          this.sampleCount = 0;
+          this.sumSquares = 0;
+          this.blockSize = 128; // Process every 128 samples (~2.7ms at 48kHz)
+          this.energyHistory = new Float32Array(10);
+          this.historyIndex = 0;
+          this.lastBeatFrame = 0;
+          this.beatCooldownFrames = Math.floor(sampleRate * 0.06 / 128); // 60ms cooldown
+        }
+        
+        process(inputs, outputs, parameters) {
+          const input = inputs[0];
+          if (!input || !input[0]) return true;
+          
+          const channelData = input[0];
+          const channelDataR = input[1] || channelData;
+          
+          // Pass through audio
+          for (let c = 0; c < outputs[0].length; c++) {
+            outputs[0][c].set(inputs[0][c] || inputs[0][0]);
+          }
+          
+          // Calculate RMS for this block
+          let sum = 0;
+          let sumL = 0;
+          let sumR = 0;
+          for (let i = 0; i < channelData.length; i++) {
+            sum += channelData[i] * channelData[i];
+            sumL += channelData[i] * channelData[i];
+            sumR += channelDataR[i] * channelDataR[i];
+          }
+          
+          const rms = Math.sqrt(sum / channelData.length);
+          const rmsL = Math.sqrt(sumL / channelData.length);
+          const rmsR = Math.sqrt(sumR / channelDataR.length);
+          const amp = Math.min(10, rms * 15);
+          const leftAmp = Math.min(10, rmsL * 15);
+          const rightAmp = Math.min(10, rmsR * 15);
+          
+          // Simple bass energy estimation (low frequencies have larger samples)
+          let bassEnergy = 0;
+          let prevSample = 0;
+          for (let i = 0; i < channelData.length; i++) {
+            // Low-pass approximation: samples that don't change much = bass
+            const diff = Math.abs(channelData[i] - prevSample);
+            bassEnergy += channelData[i] * channelData[i] * (1 - Math.min(1, diff * 10));
+            prevSample = channelData[i];
+          }
+          bassEnergy = Math.sqrt(bassEnergy / channelData.length);
+          
+          // Beat detection
+          this.energyHistory[this.historyIndex] = bassEnergy;
+          this.historyIndex = (this.historyIndex + 1) % this.energyHistory.length;
+          
+          let avgEnergy = 0;
+          for (let i = 0; i < this.energyHistory.length; i++) avgEnergy += this.energyHistory[i];
+          avgEnergy /= this.energyHistory.length;
+          
+          let kick = 0;
+          if (bassEnergy > avgEnergy * 1.12 && currentFrame - this.lastBeatFrame > this.beatCooldownFrames) {
+            kick = 1;
+            this.lastBeatFrame = currentFrame;
+          }
+          
+          // Send data to main thread
+          this.port.postMessage({
+            amp, leftAmp, rightAmp, kick,
+            bass: bassEnergy * 4,
+            beat: kick
+          });
+          
+          return true;
+        }
+      }
+      registerProcessor('audio-analyzer', AudioAnalyzerProcessor);
+    `;
+    
+    async function createAudioWorklet(ctx) {
+      const blob = new Blob([audioAnalyzerWorkletCode], { type: 'application/javascript' });
+      const url = URL.createObjectURL(blob);
+      try {
+        await ctx.audioWorklet.addModule(url);
+        return true;
+      } catch (e) {
+        console.warn('AudioWorklet not supported, falling back to setInterval:', e);
+        return false;
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
     
     function initJukebox() {
       const playBtn = document.getElementById('jukebox-play');
@@ -23708,6 +23890,8 @@
       });
     }
     
+    let jukeboxUseWorklet = false; // Will be set to true if worklet loads successfully
+    
     async function initJukeboxAudio() {
       if (jukeboxAudioContext) return;
       jukeboxAudioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -23715,11 +23899,62 @@
       jukeboxAudioElement.crossOrigin = 'anonymous';
       jukeboxSource = jukeboxAudioContext.createMediaElementSource(jukeboxAudioElement);
       jukeboxGainNode = jukeboxAudioContext.createGain();
-      jukeboxAnalyser = jukeboxAudioContext.createAnalyser();
-      jukeboxAnalyser.fftSize = 512;
-      jukeboxSource.connect(jukeboxGainNode);
-      jukeboxGainNode.connect(jukeboxAnalyser);
-      jukeboxAnalyser.connect(jukeboxAudioContext.destination);
+      
+      // Try to use AudioWorklet for sample-accurate analysis
+      jukeboxUseWorklet = await createAudioWorklet(jukeboxAudioContext);
+      
+      if (jukeboxUseWorklet) {
+        // Worklet path: source -> gain -> worklet -> destination
+        jukeboxWorkletNode = new AudioWorkletNode(jukeboxAudioContext, 'audio-analyzer');
+        jukeboxWorkletNode.port.onmessage = (e) => {
+          const data = e.data;
+          // Update beat state
+          if (data.kick) {
+            jukeboxCurrentBeat = true;
+            jukeboxLastBeatTime = performance.now();
+          } else if (performance.now() - jukeboxLastBeatTime > 50) {
+            jukeboxCurrentBeat = false;
+          }
+          // Send to preview immediately (worklet fires at audio rate!)
+          const audioData = { 
+            amp: data.amp, 
+            leftAmp: data.leftAmp, 
+            rightAmp: data.rightAmp, 
+            beat: data.beat, 
+            kick: data.kick, 
+            bass: data.bass,
+            mid: data.bass * 0.6, // Approximate
+            treble: data.amp * 0.3, // Approximate
+            highMid: data.bass * 0.4,
+            presence: data.amp * 0.25
+          };
+          sendJukeboxAudioToPreview(audioData);
+          broadcastJukeboxAudioToPJ(audioData);
+          // Throttle UI updates
+          if (!jukeboxAnimationFrame) {
+            jukeboxAnimationFrame = requestAnimationFrame(() => {
+              document.getElementById('jukebox-amp-meter').style.width = `${(data.amp/10)*100}%`;
+              document.getElementById('jukebox-amp-value').textContent = data.amp.toFixed(1);
+              document.getElementById('jukebox-kick-indicator').classList.toggle('active', jukeboxCurrentBeat);
+              jukeboxAnimationFrame = null;
+            });
+          }
+        };
+        jukeboxSource.connect(jukeboxGainNode);
+        jukeboxGainNode.connect(jukeboxWorkletNode);
+        jukeboxWorkletNode.connect(jukeboxAudioContext.destination);
+        console.log('🎵 Jukebox: Using AudioWorklet for sample-accurate analysis');
+      } else {
+        // Fallback: AnalyserNode with setInterval
+        jukeboxAnalyser = jukeboxAudioContext.createAnalyser();
+        jukeboxAnalyser.fftSize = 256;
+        jukeboxAnalyser.smoothingTimeConstant = 0;
+        jukeboxSource.connect(jukeboxGainNode);
+        jukeboxGainNode.connect(jukeboxAnalyser);
+        jukeboxAnalyser.connect(jukeboxAudioContext.destination);
+        console.log('🎵 Jukebox: Using AnalyserNode fallback');
+      }
+      
       const vol = document.getElementById('jukebox-volume');
       if (vol) jukeboxGainNode.gain.value = vol.value / 100;
       jukeboxAudioElement.addEventListener('timeupdate', updateJukeboxProgress);
@@ -23796,11 +24031,21 @@
     }
     
     function startJukeboxAnalysis() {
+      // If using AudioWorklet, analysis happens automatically via worklet messages
+      if (jukeboxUseWorklet) return;
+      
+      // Fallback: setInterval-based analysis with AnalyserNode
       if (jukeboxAnimationFrame) return;
+      if (!jukeboxAnalyser) return;
+      
       const freqData = new Uint8Array(jukeboxAnalyser.frequencyBinCount);
       const timeData = new Uint8Array(jukeboxAnalyser.fftSize);
       const sampleRate = jukeboxAudioContext.sampleRate;
       const binFreq = sampleRate / jukeboxAnalyser.fftSize;
+      
+      // Throttle UI updates to ~30fps (every ~33ms) to avoid layout thrashing
+      let lastUIUpdate = 0;
+      const UI_UPDATE_INTERVAL = 33;
       
       // Helper to get average energy in a frequency range
       function getBandEnergy(minHz, maxHz) {
@@ -23851,22 +24096,28 @@
           }
         }
         
-        document.getElementById('jukebox-amp-meter').style.width = `${(amp/10)*100}%`;
-        document.getElementById('jukebox-amp-value').textContent = amp.toFixed(1);
         document.getElementById('jukebox-kick-indicator').classList.toggle('active', jukeboxCurrentBeat);
         
         const audioData = { amp, leftAmp: amp, rightAmp: amp, beat: kick, kick, bass, mid, treble, highMid, presence };
         sendJukeboxAudioToPreview(audioData);
         broadcastJukeboxAudioToPJ(audioData);
         
-        jukeboxAnimationFrame = requestAnimationFrame(analyze);
+        // Update UI at throttled rate (DOM updates are expensive)
+        const now = performance.now();
+        if (now - lastUIUpdate > UI_UPDATE_INTERVAL) {
+          document.getElementById('jukebox-amp-meter').style.width = `${(amp/10)*100}%`;
+          document.getElementById('jukebox-amp-value').textContent = amp.toFixed(1);
+          lastUIUpdate = now;
+        }
       }
-      analyze();
+      // Run at ~250Hz (4ms) for fast audio response, much faster than rAF's 60fps
+      jukeboxAnimationFrame = setInterval(analyze, 4);
+      analyze(); // Run immediately
     }
     
     function stopJukeboxAnalysis() {
       if (jukeboxAnimationFrame) {
-        cancelAnimationFrame(jukeboxAnimationFrame);
+        clearInterval(jukeboxAnimationFrame);
         jukeboxAnimationFrame = null;
       }
       jukeboxEnergyHistory = [];
@@ -23901,6 +24152,9 @@
     let strudelAudioContext = null;
     let strudelAnalyser = null;
     let strudelGainNode = null;
+    let strudelWorkletNode = null;
+    let strudelUseWorklet = false;
+    let strudelWorkletConnected = false; // Track if worklet is actually connected to audio
     let strudelAnimationFrame = null;
     let strudelEnergyHistory = [];
     let strudelRepl = null; // Store reference to Strudel repl for stop functionality
@@ -23919,16 +24173,43 @@
           document.head.appendChild(script);
         });
         
-        // Create our own AudioContext with analyser
-        strudelAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        strudelAnalyser = strudelAudioContext.createAnalyser();
-        strudelAnalyser.fftSize = 512;
-        strudelGainNode = strudelAudioContext.createGain();
-        
         // Initialize Strudel with sample loading - returns the repl
         strudelRepl = await window.initStrudel({
           prebake: () => window.samples('github:tidalcycles/dirt-samples'),
         });
+        
+        // Get Strudel's AudioContext
+        strudelAudioContext = window.getAudioContext?.();
+        if (strudelAudioContext) {
+          // Try to set up worklet for sample-accurate analysis
+          strudelUseWorklet = await createAudioWorklet(strudelAudioContext);
+          
+          if (strudelUseWorklet) {
+            // Create worklet node
+            strudelWorkletNode = new AudioWorkletNode(strudelAudioContext, 'audio-analyzer');
+            strudelWorkletNode.port.onmessage = handleStrudelWorkletMessage;
+            
+            // Hook into Strudel's audio output using ScriptProcessorNode as a tap
+            // We'll use getDestination() if available, or create a global gain intercept
+            try {
+              // Strudel's superdough uses getDestination() which returns a gain node
+              const dest = window.getDestination?.();
+              if (dest) {
+                // Insert our worklet between Strudel's output and destination
+                dest.disconnect();
+                dest.connect(strudelWorkletNode);
+                strudelWorkletNode.connect(strudelAudioContext.destination);
+                strudelWorkletConnected = true;
+                console.log('🌀 Strudel: AudioWorklet connected via getDestination()');
+              } else {
+                // Fallback: Will use Strudel's built-in analyser via .analyze(1)
+                console.log('🌀 Strudel: AudioWorklet loaded but getDestination() not available yet - will use Strudel analyser');
+              }
+            } catch (e) {
+              console.warn('Could not intercept Strudel output:', e);
+            }
+          }
+        }
         
         strudelLoaded = true;
         document.getElementById('strudel-status').textContent = 'Ready';
@@ -23937,6 +24218,42 @@
         console.error('Failed to load Strudel:', err);
         document.getElementById('strudel-status').textContent = 'Failed to load';
         return false;
+      }
+    }
+    
+    function handleStrudelWorkletMessage(e) {
+      if (!strudelPlaying) return;
+      const data = e.data;
+      // Update beat state
+      if (data.kick) {
+        jukeboxCurrentBeat = true;
+        jukeboxLastBeatTime = performance.now();
+      } else if (performance.now() - jukeboxLastBeatTime > 50) {
+        jukeboxCurrentBeat = false;
+      }
+      // Send to preview immediately
+      const audioData = { 
+        amp: data.amp, 
+        leftAmp: data.leftAmp, 
+        rightAmp: data.rightAmp, 
+        beat: data.beat, 
+        kick: data.kick, 
+        bass: data.bass,
+        mid: data.bass * 0.6,
+        treble: data.amp * 0.3,
+        highMid: data.bass * 0.4,
+        presence: data.amp * 0.25
+      };
+      sendJukeboxAudioToPreview(audioData);
+      broadcastJukeboxAudioToPJ(audioData);
+      // Throttle UI updates
+      if (!strudelAnimationFrame) {
+        strudelAnimationFrame = requestAnimationFrame(() => {
+          document.getElementById('jukebox-amp-meter').style.width = `${(data.amp/10)*100}%`;
+          document.getElementById('jukebox-amp-value').textContent = data.amp.toFixed(1);
+          document.getElementById('jukebox-kick-indicator').classList.toggle('active', jukeboxCurrentBeat);
+          strudelAnimationFrame = null;
+        });
       }
     }
     
@@ -23958,10 +24275,7 @@
       
       // Auto-inject .analyze(1) for audio analysis if not already present
       if (!code.includes('.analyze(') && !code.includes('analyze(')) {
-        // Append .analyze(1) to route audio through analyser
-        // Handle common patterns: s(...), note(...), sound(...)
         code = code.replace(/\.play\(\s*\)/, '.analyze(1).play()');
-        // If no .play(), try appending analyze before final pattern
         if (!code.includes('.analyze(')) {
           code = code + '.analyze(1)';
         }
@@ -23974,6 +24288,24 @@
         document.getElementById('strudel-play').disabled = true;
         document.getElementById('strudel-stop').disabled = false;
         document.getElementById('strudel-status').textContent = 'Playing';
+        
+        // Try to hook worklet into Strudel's destination after pattern starts
+        if (strudelUseWorklet && strudelWorkletNode && !strudelWorkletConnected) {
+          try {
+            const dest = window.getDestination?.();
+            if (dest) {
+              dest.disconnect();
+              dest.connect(strudelWorkletNode);
+              strudelWorkletNode.connect(strudelAudioContext.destination);
+              strudelWorkletConnected = true;
+              console.log('🌀 Strudel: Worklet connected on play');
+            }
+          } catch (e) {
+            console.log('🌀 Strudel: Worklet connection failed, using Strudel analyser');
+          }
+        }
+        
+        // Always start analysis - will use worklet if connected, otherwise Strudel's built-in analyser
         startStrudelAnalysis();
       } catch (err) {
         console.error('Strudel error:', err);
@@ -24011,6 +24343,15 @@
     }
     
     function startStrudelAnalysis() {
+      // If worklet is actually connected, analysis happens via worklet messages
+      if (strudelWorkletConnected) {
+        console.log('🌀 Strudel: Using AudioWorklet for analysis');
+        return;
+      }
+      
+      console.log('🌀 Strudel: Using Strudel built-in analyser (worklet not connected)');
+      
+      // Fallback: setInterval-based analysis
       if (strudelAnimationFrame) return;
       
       // Use Strudel's AudioContext
@@ -24024,7 +24365,8 @@
       let analyser = null;
       try {
         if (window.getAnalyserById) {
-          analyser = window.getAnalyserById(1, 512, 0.5);
+          // Request analyser with no smoothing
+          analyser = window.getAnalyserById(1, 256, 0);
         }
       } catch (e) {
         console.warn('Failed to get Strudel analyser:', e);
@@ -24035,10 +24377,17 @@
         return;
       }
       
+      // Override smoothing for fastest response
+      analyser.smoothingTimeConstant = 0;
+      
       const freqData = new Uint8Array(analyser.frequencyBinCount);
       const timeData = new Uint8Array(analyser.fftSize);
-      const sampleRate = ctx.sampleRate || 44100;
+      const sampleRate = ctx.sampleRate || 48000;
       const binFreq = sampleRate / analyser.fftSize;
+      
+      // Throttle UI updates to ~30fps
+      let lastUIUpdate = 0;
+      const UI_UPDATE_INTERVAL = 33;
       
       function getBandEnergy(minHz, maxHz) {
         const startBin = Math.floor(minHz / binFreq);
@@ -24055,8 +24404,7 @@
           analyser.getByteFrequencyData(freqData);
           analyser.getByteTimeDomainData(timeData);
         } catch (e) {
-          strudelAnimationFrame = requestAnimationFrame(analyze);
-          return;
+          return; // Will retry on next interval
         }
         
         let sum = 0;
@@ -24093,22 +24441,27 @@
           }
         }
         
-        document.getElementById('jukebox-amp-meter').style.width = `${(amp/10)*100}%`;
-        document.getElementById('jukebox-amp-value').textContent = amp.toFixed(1);
-        document.getElementById('jukebox-kick-indicator').classList.toggle('active', jukeboxCurrentBeat);
-        
         const audioData = { amp, leftAmp: amp, rightAmp: amp, beat: kick, kick, bass, mid, treble, highMid, presence };
         sendJukeboxAudioToPreview(audioData);
         broadcastJukeboxAudioToPJ(audioData);
         
-        strudelAnimationFrame = requestAnimationFrame(analyze);
+        // Update UI at throttled rate
+        const now = performance.now();
+        if (now - lastUIUpdate > UI_UPDATE_INTERVAL) {
+          document.getElementById('jukebox-amp-meter').style.width = `${(amp/10)*100}%`;
+          document.getElementById('jukebox-amp-value').textContent = amp.toFixed(1);
+          document.getElementById('jukebox-kick-indicator').classList.toggle('active', jukeboxCurrentBeat);
+          lastUIUpdate = now;
+        }
       }
+      // Run at ~250Hz (4ms) for fast audio response
+      strudelAnimationFrame = setInterval(analyze, 4);
       analyze();
     }
     
     function stopStrudelAnalysis() {
       if (strudelAnimationFrame) {
-        cancelAnimationFrame(strudelAnimationFrame);
+        clearInterval(strudelAnimationFrame);
         strudelAnimationFrame = null;
       }
       strudelEnergyHistory = [];
@@ -24116,15 +24469,19 @@
     
     function initStrudelUI() {
       // Mode tab switching
+      const jukeboxPanel = document.querySelector('.jukebox-panel');
       document.querySelectorAll('.jukebox-mode-tab').forEach(tab => {
         tab.addEventListener('click', () => {
           const mode = tab.dataset.mode;
           document.querySelectorAll('.jukebox-mode-tab').forEach(t => t.classList.toggle('active', t === tab));
-          document.getElementById('jukebox-samples-mode').classList.toggle('hidden', mode !== 'samples');
+          document.getElementById('jukebox-samples-mode').classList.toggle('hidden', mode !== 'songs');
           document.getElementById('jukebox-strudel-mode').classList.toggle('hidden', mode !== 'strudel');
           
+          // Update panel theme based on mode
+          if (jukeboxPanel) jukeboxPanel.dataset.mode = mode;
+          
           // Stop other mode when switching
-          if (mode === 'samples' && strudelPlaying) stopStrudel();
+          if (mode === 'songs' && strudelPlaying) stopStrudel();
           if (mode === 'strudel' && jukeboxIsPlaying) stopJukebox();
         });
       });
