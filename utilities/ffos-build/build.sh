@@ -219,6 +219,52 @@ SYSLINUX
     mkdir -p "$PROFILE/airootfs/home"
     rsync -a /work/ffos-user/users/ "$PROFILE/airootfs/home/"
     
+    echo "=== Installing systemd service files ==="
+    # Install system-level services
+    mkdir -p "$PROFILE/airootfs/etc/systemd/system"
+    SERVICES_SRC="$PROFILE/airootfs/home/feralfile/systemd-services"
+    if [ -d "$SERVICES_SRC" ]; then
+      for svc in feral-controld feral-sys-monitord feral-watchdog feral-setupd; do
+        if [ -f "$SERVICES_SRC/${svc}.service" ]; then
+          cp "$SERVICES_SRC/${svc}.service" "$PROFILE/airootfs/etc/systemd/system/"
+          # Create symlink to enable service at boot
+          mkdir -p "$PROFILE/airootfs/etc/systemd/system/multi-user.target.wants"
+          ln -sf "/etc/systemd/system/${svc}.service" "$PROFILE/airootfs/etc/systemd/system/multi-user.target.wants/${svc}.service"
+          echo "Installed and enabled: ${svc}.service"
+        fi
+      done
+    fi
+    
+    # Also install user-level services for the feralfile user
+    mkdir -p "$PROFILE/airootfs/home/feralfile/.config/systemd/user/default.target.wants"
+    if [ -d "$PROFILE/airootfs/home/feralfile/.config/systemd/user" ]; then
+      for svc in aesthetic-kiosk; do
+        if [ -f "$PROFILE/airootfs/home/feralfile/.config/systemd/user/${svc}.service" ]; then
+          ln -sf "/home/feralfile/.config/systemd/user/${svc}.service" "$PROFILE/airootfs/home/feralfile/.config/systemd/user/default.target.wants/${svc}.service"
+          echo "Enabled user service: ${svc}.service"
+        fi
+      done
+    fi
+    
+    # Create feralfile user setup
+    mkdir -p "$PROFILE/airootfs/etc"
+    # Ensure feralfile user exists (uid 1000)
+    echo "feralfile:x:1000:1000:Feral File:/home/feralfile:/bin/bash" >> "$PROFILE/airootfs/etc/passwd"
+    echo "feralfile:x:1000:" >> "$PROFILE/airootfs/etc/group"
+    echo "feralfile:!:19000:0:99999:7:::" >> "$PROFILE/airootfs/etc/shadow"
+    
+    # Set proper permissions via customize script
+    cat > "$PROFILE/airootfs/root/customize_airootfs.sh" << 'CUSTOMIZE'
+#!/bin/bash
+# Create logs directory
+mkdir -p /home/feralfile/.logs
+chown -R feralfile:feralfile /home/feralfile
+# Enable lingering for user services
+mkdir -p /var/lib/systemd/linger
+touch /var/lib/systemd/linger/feralfile
+CUSTOMIZE
+    chmod +x "$PROFILE/airootfs/root/customize_airootfs.sh"
+    
     echo "=== Building ISO ==="
     mkarchiso -v -o /work/out "$PROFILE"
     
