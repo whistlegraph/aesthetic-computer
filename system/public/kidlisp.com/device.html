@@ -99,19 +99,19 @@
       bottom: calc(var(--density, 8) * 8px);
       right: calc(var(--density, 8) * 8px);
       display: flex;
-      flex-direction: column;
-      align-items: flex-end;
+      flex-direction: row;
+      align-items: flex-start;
       z-index: 16;
     }
     
     #code-label {
       font-family: 'Comic Relief', 'Comic Sans MS', cursive;
-      font-size: calc(var(--density, 8) * 6px);
+      font-size: calc(var(--density, 8) * 8px);
       font-weight: 700;
       color: #fff;
       background: transparent;
-      padding: calc(var(--density, 8) * 1px) calc(var(--density, 8) * 2px);
-      margin-bottom: calc(var(--density, 8) * 1px);
+      padding: calc(var(--density, 8) * 2px);
+      margin-left: calc(var(--density, 8) * 2px);
       line-height: 1.2;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
       letter-spacing: 0.05em;
@@ -134,8 +134,8 @@
     
     #qr-container svg {
       display: block;
-      width: calc(var(--density, 8) * 240px);
-      height: calc(var(--density, 8) * 240px);
+      width: calc(var(--density, 8) * 320px);
+      height: calc(var(--density, 8) * 320px);
       image-rendering: pixelated;
     }
     
