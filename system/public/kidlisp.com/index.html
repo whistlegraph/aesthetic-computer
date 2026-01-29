@@ -24316,17 +24316,20 @@
     function stopStrudel() {
       // Try multiple ways to stop Strudel
       try {
-        // Method 1: Use the repl's stop method
+        // Method 1: Use the repl's stop method directly (most reliable - strudelRepl is the repl returned by initStrudel)
         if (strudelRepl?.stop) {
           strudelRepl.stop();
+          console.log('🌀 Strudel stopped via repl.stop()');
         }
-        // Method 2: Try window.hush (may be available in some builds)
-        if (window.hush) {
+        // Method 2: Use strudel.hush() - the official API from IIFE bundle
+        else if (window.strudel?.hush) {
+          window.strudel.hush();
+          console.log('🌀 Strudel stopped via strudel.hush()');
+        }
+        // Method 3: Try window.hush (exposed globally after prebake via evalScope)
+        else if (window.hush) {
           window.hush();
-        }
-        // Method 3: Try to stop the scheduler directly
-        if (strudelRepl?.scheduler?.stop) {
-          strudelRepl.scheduler.stop();
+          console.log('🌀 Strudel stopped via window.hush()');
         }
       } catch (e) {
         console.warn('Strudel stop error:', e);
@@ -24365,11 +24368,27 @@
       let analyser = null;
       try {
         if (window.getAnalyserById) {
-          // Request analyser with no smoothing
+          // Request analyser with small FFT for low latency and no smoothing
           analyser = window.getAnalyserById(1, 256, 0);
         }
       } catch (e) {
         console.warn('Failed to get Strudel analyser:', e);
+      }
+      
+      // Fallback: Create our own analyser connected to Strudel's destination
+      if (!analyser && ctx) {
+        try {
+          const dest = window.getDestination?.();
+          if (dest) {
+            analyser = ctx.createAnalyser();
+            analyser.fftSize = 256;
+            analyser.smoothingTimeConstant = 0;
+            dest.connect(analyser);
+            console.log('🌀 Strudel: Created fallback analyser via getDestination()');
+          }
+        } catch (e) {
+          console.warn('Failed to create fallback analyser:', e);
+        }
       }
       
       if (!analyser) {
@@ -24377,8 +24396,9 @@
         return;
       }
       
-      // Override smoothing for fastest response
+      // Override smoothing for fastest response (minimum latency)
       analyser.smoothingTimeConstant = 0;
+      analyser.fftSize = 256; // Small FFT for low latency
       
       const freqData = new Uint8Array(analyser.frequencyBinCount);
       const timeData = new Uint8Array(analyser.fftSize);
