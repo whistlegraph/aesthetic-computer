@@ -23799,9 +23799,9 @@
           const rms = Math.sqrt(sum / channelData.length);
           const rmsL = Math.sqrt(sumL / channelData.length);
           const rmsR = Math.sqrt(sumR / channelDataR.length);
-          const amp = Math.min(10, rms * 15);
-          const leftAmp = Math.min(10, rmsL * 15);
-          const rightAmp = Math.min(10, rmsR * 15);
+          const amp = Math.min(1, rms * 1.5);
+          const leftAmp = Math.min(1, rmsL * 1.5);
+          const rightAmp = Math.min(1, rmsR * 1.5);
           
           // Simple bass energy estimation (low frequencies have larger samples)
           let bassEnergy = 0;
@@ -23933,7 +23933,7 @@
           // Throttle UI updates
           if (!jukeboxAnimationFrame) {
             jukeboxAnimationFrame = requestAnimationFrame(() => {
-              document.getElementById('jukebox-amp-meter').style.width = `${(data.amp/10)*100}%`;
+              document.getElementById('jukebox-amp-meter').style.width = `${data.amp*100}%`;
               document.getElementById('jukebox-amp-value').textContent = data.amp.toFixed(1);
               document.getElementById('jukebox-kick-indicator').classList.toggle('active', jukeboxCurrentBeat);
               jukeboxAnimationFrame = null;
@@ -24066,7 +24066,7 @@
           const n = (timeData[i] - 128) / 128;
           sum += n * n;
         }
-        const amp = Math.min(10, Math.sqrt(sum / timeData.length) * 15);
+        const amp = Math.min(1, Math.sqrt(sum / timeData.length) * 1.5);
         
         // Calculate frequency bands (0-1 scale)
         const bass = getBandEnergy(20, 250);       // Bass (kick, bass guitar)
@@ -24105,8 +24105,8 @@
         // Update UI at throttled rate (DOM updates are expensive)
         const now = performance.now();
         if (now - lastUIUpdate > UI_UPDATE_INTERVAL) {
-          document.getElementById('jukebox-amp-meter').style.width = `${(amp/10)*100}%`;
-          document.getElementById('jukebox-amp-value').textContent = amp.toFixed(1);
+          document.getElementById('jukebox-amp-meter').style.width = `${amp*100}%`;
+          document.getElementById('jukebox-amp-value').textContent = amp.toFixed(2);
           lastUIUpdate = now;
         }
       }
@@ -24249,8 +24249,8 @@
       // Throttle UI updates
       if (!strudelAnimationFrame) {
         strudelAnimationFrame = requestAnimationFrame(() => {
-          document.getElementById('jukebox-amp-meter').style.width = `${(data.amp/10)*100}%`;
-          document.getElementById('jukebox-amp-value').textContent = data.amp.toFixed(1);
+          document.getElementById('jukebox-amp-meter').style.width = `${data.amp*100}%`;
+          document.getElementById('jukebox-amp-value').textContent = data.amp.toFixed(2);
           document.getElementById('jukebox-kick-indicator').classList.toggle('active', jukeboxCurrentBeat);
           strudelAnimationFrame = null;
         });
@@ -24432,7 +24432,7 @@
           const n = (timeData[i] - 128) / 128;
           sum += n * n;
         }
-        const amp = Math.min(10, Math.sqrt(sum / timeData.length) * 15);
+        const amp = Math.min(1, Math.sqrt(sum / timeData.length) * 1.5);
         
         const bass = getBandEnergy(20, 250);
         const mid = getBandEnergy(250, 2000);
@@ -24468,8 +24468,8 @@
         // Update UI at throttled rate
         const now = performance.now();
         if (now - lastUIUpdate > UI_UPDATE_INTERVAL) {
-          document.getElementById('jukebox-amp-meter').style.width = `${(amp/10)*100}%`;
-          document.getElementById('jukebox-amp-value').textContent = amp.toFixed(1);
+          document.getElementById('jukebox-amp-meter').style.width = `${amp*100}%`;
+          document.getElementById('jukebox-amp-value').textContent = amp.toFixed(2);
           document.getElementById('jukebox-kick-indicator').classList.toggle('active', jukeboxCurrentBeat);
           lastUIUpdate = now;
         }
