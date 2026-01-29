@@ -15184,6 +15184,14 @@ function slideUpdate(source) {
   }
 }
 
+// 🎵 Update KidLisp audio globals - calls updateAudioGlobals on the global singleton instance
+// This is used by the jukebox to send audio data to KidLisp pieces
+function updateKidLispAudio(audioData) {
+  if (globalKidLispInstance) {
+    globalKidLispInstance.updateAudioGlobals(audioData);
+  }
+}
+
 // Get the global KidLisp instance (for external access)
 function getGlobalInstance() {
   return globalKidLispInstance;
@@ -16034,6 +16042,7 @@ export {
   parse,
   evaluate,
   slideUpdate,
+  updateKidLispAudio,
   getGlobalInstance,
   KidLisp,
   isKidlispSource,
