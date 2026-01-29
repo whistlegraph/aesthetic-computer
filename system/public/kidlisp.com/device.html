@@ -9,6 +9,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
+  <!-- Google Fonts - JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   <!-- QR Code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <style>
@@ -23,6 +27,7 @@
       height: 100%;
       overflow: hidden;
       background: #000;
+      font-family: 'JetBrains Mono', monospace;
     }
     
     #display-iframe {
@@ -72,12 +77,12 @@
     /* Source code display - top left */
     #source-code {
       position: absolute;
-      top: 3em;
-      left: 2em;
-      right: 12em;
-      bottom: 6em;
-      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-      font-size: 2em;
+      top: calc(var(--density, 8) * 8px);
+      left: calc(var(--density, 8) * 6px);
+      right: calc(var(--density, 8) * 40px);
+      bottom: calc(var(--density, 8) * 12px);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: calc(var(--density, 8) * 4px);
       line-height: 1.6;
       color: #fff;
       overflow: hidden;
@@ -105,8 +110,8 @@
     /* QR code and label - bottom right */
     #qr-wrap {
       position: absolute;
-      bottom: 3em;
-      right: 2em;
+      bottom: calc(var(--density, 8) * 6px);
+      right: calc(var(--density, 8) * 6px);
       display: flex;
       flex-direction: column;
       align-items: flex-end;
@@ -114,12 +119,13 @@
     }
     
     #code-label {
-      font-family: 'JetBrains Mono', 'Fira Code', monospace;
-      font-size: 2.5em;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: calc(var(--density, 8) * 6px);
+      font-weight: 700;
       color: #fff;
       background: rgba(0,0,0,0.7);
-      padding: 0.3em 0.5em;
-      margin-bottom: 0.4em;
+      padding: calc(var(--density, 8) * 1px) calc(var(--density, 8) * 2px);
+      margin-bottom: calc(var(--density, 8) * 1px);
       text-shadow: 0 2px 4px rgba(0,0,0,0.9);
     }
     
@@ -133,14 +139,14 @@
     
     #qr-container {
       background: #fff;
-      padding: 8px;
-      border-radius: 8px;
+      padding: calc(var(--density, 8) * 1.5px);
+      border-radius: calc(var(--density, 8) * 1px);
     }
     
     #qr-container svg {
       display: block;
-      width: 160px;
-      height: 160px;
+      width: calc(var(--density, 8) * 32px);
+      height: calc(var(--density, 8) * 32px);
     }
     
     /* KidLisp syntax highlighting */
@@ -344,6 +350,9 @@
     // Get density from URL params (before DEVICE_DEFAULTS are defined)
     const urlParams = new URLSearchParams(window.location.search);
     const densityParam = parseInt(urlParams.get('density')) || 8;
+    
+    // Set CSS custom property for density-based sizing
+    document.documentElement.style.setProperty('--density', densityParam);
     
     // KidLisp-style floating bars boot animation (matches acBootCanvas kidlisp mode)
     const bootCanvas = document.getElementById('boot-canvas');
