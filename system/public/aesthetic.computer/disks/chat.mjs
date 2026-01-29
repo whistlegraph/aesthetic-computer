@@ -176,6 +176,9 @@ let ogPreviewCache = new Map(); // Store loaded OG metadata { url, title, image,
 let ogLoadQueue = new Set(); // Track which URLs are being loaded
 let globalOgPreviewCache = null;
 
+const LINK_PREVIEW_WIDTH = 120;
+const LINK_PREVIEW_HEIGHT = 68;
+
 if (typeof globalThis !== "undefined") {
   if (!globalThis.__acOgPreviewCache) {
     globalThis.__acOgPreviewCache = new Map();
@@ -225,6 +228,24 @@ const R8DIO_METADATA_INTERVAL = 15000;
 
 //  @handle autocomplete
 let handleAutocomplete = null;
+
+function buildScaledPreview(imageData, targetW, targetH, api) {
+  if (!imageData || !api?.painting) return null;
+  const imgWidth = imageData.width || imageData.w || 0;
+  const imgHeight = imageData.height || imageData.h || 0;
+  if (!imgWidth || !imgHeight) return null;
+  const scaleX = targetW / imgWidth;
+  const scaleY = targetH / imgHeight;
+  const scaleFactor = Math.min(scaleX, scaleY);
+  if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) return null;
+  const scaledW = imgWidth * scaleFactor;
+  const scaledH = imgHeight * scaleFactor;
+  const offsetX = (targetW - scaledW) / 2;
+  const offsetY = (targetH - scaledH) / 2;
+  return api.painting(targetW, targetH, (p) => {
+    p.paste(imageData, floor(offsetX), floor(offsetY), scaleFactor);
+  });
+}
 
 async function boot(
   {
@@ -1148,9 +1169,9 @@ function paint(
         hasAnimatingYoutube = true;
         const { thumbnail } = cached;
         
-        // YouTube is 16:9 - use 120x68 preview (same height as paintings)
-        const previewW = 120;
-        const previewH = 68;
+        // YouTube is 16:9 - use standard preview size
+        const previewW = LINK_PREVIEW_WIDTH;
+        const previewH = LINK_PREVIEW_HEIGHT;
         
         const imgWidth = thumbnail.width || thumbnail.w || 320;
         const imgHeight = thumbnail.height || thumbnail.h || 180;
@@ -1162,18 +1183,34 @@ function paint(
         const visibleHeight = visibleBottom - visibleTop;
         
         if (visibleHeight > 0 && imgWidth > 0 && imgHeight > 0) {
-          // Scale factor to fit 320x180 into 120x68
-          const scaleX = previewW / imgWidth;
-          const scaleY = previewH / imgHeight;
-          const scaleFactor = Math.min(scaleX, scaleY);
-          
-          if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
-            paste(
+          if (!Object.hasOwn(cached, "previewPainting")) {
+            cached.previewPainting = buildScaledPreview(
               thumbnail,
-              floor(previewX),
-              floor(previewY),
-              scaleFactor
+              previewW,
+              previewH,
+              api,
             );
+          }
+          if (cached.previewPainting) {
+            paste(
+              cached.previewPainting,
+              floor(previewX),
+              floor(previewY)
+            );
+          } else {
+            // Fallback if preview cache fails
+            const scaleX = previewW / imgWidth;
+            const scaleY = previewH / imgHeight;
+            const scaleFactor = Math.min(scaleX, scaleY);
+            
+            if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
+              paste(
+                thumbnail,
+                floor(previewX),
+                floor(previewY),
+                scaleFactor
+              );
+            }
           }
         }
         
@@ -1244,9 +1281,9 @@ function paint(
         hasAnimatingOg = true;
         const { imageData, title, siteName } = cached;
         
-        // OG previews use 120x68 (same as YouTube)
-        const previewW = 120;
-        const previewH = 68;
+        // OG previews use standard preview size
+        const previewW = LINK_PREVIEW_WIDTH;
+        const previewH = LINK_PREVIEW_HEIGHT;
         
         const imgWidth = imageData.width || imageData.w || 320;
         const imgHeight = imageData.height || imageData.h || 180;
@@ -1258,24 +1295,40 @@ function paint(
         const visibleHeight = visibleBottom - visibleTop;
         
         if (visibleHeight > 0 && imgWidth > 0 && imgHeight > 0) {
-          // Scale factor to fit image into 120x68
-          const scaleX = previewW / imgWidth;
-          const scaleY = previewH / imgHeight;
-          const scaleFactor = Math.min(scaleX, scaleY);
-          
-          if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
-            // Center the image if it doesn't fill the space
-            const scaledW = imgWidth * scaleFactor;
-            const scaledH = imgHeight * scaleFactor;
-            const offsetX = (previewW - scaledW) / 2;
-            const offsetY = (previewH - scaledH) / 2;
-            
-            paste(
+          if (!Object.hasOwn(cached, "previewPainting")) {
+            cached.previewPainting = buildScaledPreview(
               imageData,
-              floor(previewX + offsetX),
-              floor(previewY + offsetY),
-              scaleFactor
+              previewW,
+              previewH,
+              api,
             );
+          }
+          if (cached.previewPainting) {
+            paste(
+              cached.previewPainting,
+              floor(previewX),
+              floor(previewY)
+            );
+          } else {
+            // Fallback if preview cache fails
+            const scaleX = previewW / imgWidth;
+            const scaleY = previewH / imgHeight;
+            const scaleFactor = Math.min(scaleX, scaleY);
+            
+            if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
+              // Center the image if it doesn't fill the space
+              const scaledW = imgWidth * scaleFactor;
+              const scaledH = imgHeight * scaleFactor;
+              const offsetX = (previewW - scaledW) / 2;
+              const offsetY = (previewH - scaledH) / 2;
+              
+              paste(
+                imageData,
+                floor(previewX + offsetX),
+                floor(previewY + offsetY),
+                scaleFactor
+              );
+            }
           }
         }
         
@@ -3412,7 +3465,12 @@ async function loadOgPreview(url, preload) {
   
   try {
     // Fetch OG metadata from our serverless function
-    const apiUrl = `/api/og-preview?url=${encodeURIComponent(url)}`;
+    // In local dev, Netlify Dev can't make outbound HTTP from functions,
+    // so use the production endpoint instead
+    const isLocal = typeof window !== "undefined" && 
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    const apiBase = isLocal ? "https://aesthetic.computer" : "";
+    const apiUrl = `${apiBase}/api/og-preview?url=${encodeURIComponent(url)}`;
     const response = await fetch(apiUrl);
     
     if (!response.ok) {

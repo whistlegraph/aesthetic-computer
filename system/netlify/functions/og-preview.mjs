@@ -3,6 +3,9 @@
 
 export const config = { path: "/api/og-preview" };
 
+// Detect dev mode - Netlify Dev sets NETLIFY_DEV=true
+const isDev = process.env.NETLIFY_DEV === "true" || process.env.CONTEXT === "dev";
+
 // Simple in-memory cache with TTL (1 hour)
 const cache = new Map();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
@@ -93,23 +96,48 @@ export default async function handler(req) {
     });
   }
 
-  try {
-    // Fetch the page with a reasonable timeout
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-
-    const response = await fetch(targetUrl, {
-      signal: controller.signal,
+  // In dev mode, Netlify Dev intercepts all outbound HTTP from functions,
+  // which breaks curl/fetch. Return placeholder data instead.
+  if (isDev) {
+    console.log(`[og-preview] Dev mode: returning placeholder for ${targetUrl}`);
+    const hostname = parsedUrl.hostname;
+    const devData = {
+      url: targetUrl,
+      title: hostname,
+      image: null,
+      description: `Link to ${hostname}`,
+      siteName: hostname,
+      favicon: null,
+      dev: true, // Flag so client knows this is dev placeholder
+    };
+    // Don't cache dev placeholders
+    return new Response(JSON.stringify(devData), {
+      status: 200,
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; AestheticComputer/1.0; +https://aesthetic.computer)",
-        "Accept": "text/html,application/xhtml+xml",
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
       },
     });
+  }
 
+  try {
+    // Use fetch to get the page HTML
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    
+    const response = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; AestheticComputer/1.0)',
+        'Accept': 'text/html',
+      },
+      signal: controller.signal,
+      redirect: 'follow',
+    });
+    
     clearTimeout(timeout);
-
+    
     if (!response.ok) {
-      return new Response(JSON.stringify({ error: "Failed to fetch URL", status: response.status }), {
+      return new Response(JSON.stringify({ error: `HTTP ${response.status}` }), {
         status: 502,
         headers: {
           "Content-Type": "application/json",
@@ -117,53 +145,14 @@ export default async function handler(req) {
         },
       });
     }
-
-    // Only process HTML content
-    const contentType = response.headers.get("content-type") || "";
-    if (!contentType.includes("text/html")) {
-      const result = { 
-        url: targetUrl, 
-        title: null, 
-        image: null, 
-        description: null,
-        siteName: null,
-        favicon: null,
-      };
-      setCache(targetUrl, result);
-      return new Response(JSON.stringify(result), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Cache-Control": "public, max-age=3600",
-        },
-      });
-    }
-
-    // Read only the first 50KB to find meta tags (they're usually in <head>)
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let html = "";
-    let bytesRead = 0;
-    const maxBytes = 50 * 1024;
-
-    while (bytesRead < maxBytes) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      html += decoder.decode(value, { stream: true });
-      bytesRead += value.length;
-      
-      // Stop early if we've found </head>
-      if (html.includes("</head>")) break;
-    }
     
-    reader.cancel();
+    const html = await response.text();
 
     // Parse Open Graph and other meta tags
-    const result = parseMetaTags(html, targetUrl);
-    setCache(targetUrl, result);
+    const resultData = parseMetaTags(html.slice(0, 50 * 1024), targetUrl);
+    setCache(targetUrl, resultData);
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify(resultData), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
@@ -172,8 +161,9 @@ export default async function handler(req) {
       },
     });
   } catch (err) {
+    console.error(`[og-preview] Error fetching ${targetUrl}:`, err.message, err.code || '');
     const errorMessage = err.name === "AbortError" ? "Request timed out" : err.message;
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    return new Response(JSON.stringify({ error: errorMessage, code: err.code }), {
       status: 500,
       headers: {
         "Content-Type": "application/json",

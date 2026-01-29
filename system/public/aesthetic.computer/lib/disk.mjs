@@ -12738,26 +12738,15 @@ async function makeFrame({ data: { type, content } }) {
           const hasGlyphs = dollarGlyph && dollarGlyph !== null && 
             (dollarGlyph.dwidth || dollarGlyph.advance !== undefined || dollarGlyph.resolution);
           
-          console.log('[HUD] MatrixChunky8 check:', {
-            hasGlyphsObject: !!matrixTypeface.glyphs,
-            dollarGlyph: dollarGlyph ? 'exists' : 'missing',
-            dollarGlyphIsNull: dollarGlyph === null,
-            dollarGlyphHasProps: !!(dollarGlyph && (dollarGlyph.dwidth || dollarGlyph.advance !== undefined)),
-            hasGlyphs
-          });
-          
           if (!hasGlyphs) {
-            console.log('[HUD] Skipping HUD render - glyphs not ready');
             // Trigger loading if not started
             if (!matrixTypeface.__loadPromise) {
-              console.log('[HUD] Starting font load...');
               ensureTypefaceLoaded(matrixTypeface);
             }
             
             // Wait for font to load
             if (matrixTypeface.__loadPromise) {
               matrixTypeface.__loadPromise.then(() => {
-                console.log('[HUD] Font load promise resolved');
                 matrixTypeface.__loaded = true;
                 // Trigger repaint once loaded
                 if (typeof window !== "undefined" && window.$activePaintApi?.needsPaint) {
@@ -12770,8 +12759,6 @@ async function makeFrame({ data: { type, content } }) {
             }
             // Skip rendering this frame - wait for font to load
             skipHudRender = true;
-          } else {
-            console.log('[HUD] Rendering with MatrixChunky8 - glyphs ready');
           }
         }
 
@@ -12920,7 +12907,6 @@ async function makeFrame({ data: { type, content } }) {
             // 📱 Render QR code to the LEFT of the text if present
             let qrOffset = 0;
             if (currentHUDQR && currentHUDQRCells) {
-              console.log("📱 Rendering QR in label buffer:", currentHUDQRCells.length, "cells");
               const qrCells = currentHUDQRCells;
               const qrSize = qrCells.length;
               // Position QR at the start of visible area (after share button padding)
