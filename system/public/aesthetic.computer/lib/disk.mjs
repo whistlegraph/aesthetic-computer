@@ -14429,9 +14429,9 @@ async function makeFrame({ data: { type, content } }) {
       // 👤 Author attribution overlay for KidLisp pieces (bottom-left corner)
       // Only show when: HUD is visible, we have an author, and it's a KidLisp piece
       // Skip in device mode (device.kidlisp.com has its own DOM overlay)
-      const isDeviceMode = location.search.indexOf('device=true') > -1;
+      // Note: Reuse isDeviceModeQR from earlier in the function
       // In device mode, completely skip author overlay creation
-      if (isDeviceMode) {
+      if (isDeviceModeQR) {
         // Don't create author overlay - device.html has its own DOM-based display
       } else if (currentHUDAuthor && hudAnimationState.visible && !hudAnimationState.qrFullscreen) {
         try {
