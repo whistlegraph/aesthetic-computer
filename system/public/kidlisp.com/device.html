@@ -62,20 +62,20 @@
     /* Source code display - top left */
     #source-code {
       position: absolute;
-      top: calc(var(--density, 8) * 8px);
-      left: calc(var(--density, 8) * 6px);
-      right: calc(var(--density, 8) * 40px);
-      bottom: calc(var(--density, 8) * 12px);
+      top: calc(var(--density, 8) * 4px);
+      left: calc(var(--density, 8) * 4px);
+      right: calc(var(--density, 8) * 30px);
+      bottom: calc(var(--density, 8) * 30px);
       font-family: 'JetBrains Mono', monospace;
-      font-size: calc(var(--density, 8) * 4px);
-      line-height: 1.6;
+      font-size: calc(var(--density, 8) * 3px);
+      line-height: 1.5;
       color: #fff;
       overflow: hidden;
-      text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0 16px rgba(0,0,0,0.8);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 12px rgba(0,0,0,0.8);
       white-space: pre-wrap;
       word-break: break-word;
-      -webkit-mask-image: linear-gradient(to bottom, black 0%, black 80%, transparent 100%);
-      mask-image: linear-gradient(to bottom, black 0%, black 80%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
+      mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
     }
     
     #source-code-inner {
@@ -92,11 +92,11 @@
       85%, 100% { transform: translateY(var(--scroll-distance, 0)); }
     }
     
-    /* QR code and label - bottom right */
+    /* QR code and label - bottom right (like give.aesthetic.computer) */
     #qr-wrap {
       position: absolute;
-      bottom: calc(var(--density, 8) * 6px);
-      right: calc(var(--density, 8) * 6px);
+      bottom: calc(var(--density, 8) * 4px);
+      right: calc(var(--density, 8) * 4px);
       display: flex;
       flex-direction: column;
       align-items: flex-end;
@@ -105,13 +105,13 @@
     
     #code-label {
       font-family: 'JetBrains Mono', monospace;
-      font-size: calc(var(--density, 8) * 6px);
+      font-size: calc(var(--density, 8) * 2.5px);
       font-weight: 700;
       color: #fff;
-      background: rgba(0,0,0,0.7);
-      padding: calc(var(--density, 8) * 1px) calc(var(--density, 8) * 2px);
-      margin-bottom: calc(var(--density, 8) * 1px);
-      text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+      background: #000;
+      padding: calc(var(--density, 8) * 0.3px) calc(var(--density, 8) * 0.8px);
+      margin-bottom: calc(var(--density, 8) * 0.25px);
+      line-height: 1.2;
     }
     
     #code-label .code-dollar {
@@ -124,14 +124,35 @@
     
     #qr-container {
       background: #fff;
-      padding: calc(var(--density, 8) * 1.5px);
-      border-radius: calc(var(--density, 8) * 1px);
+      padding: calc(var(--density, 8) * 1px);
+      line-height: 0;
+      border: calc(var(--density, 8) * 0.5px) solid #000;
     }
     
     #qr-container svg {
       display: block;
       width: calc(var(--density, 8) * 32px);
       height: calc(var(--density, 8) * 32px);
+    }
+    
+    /* Handle and hits info below QR */
+    #piece-info {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      margin-top: calc(var(--density, 8) * 1px);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: calc(var(--density, 8) * 2px);
+      line-height: 1.4;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.95);
+    }
+    
+    #piece-handle {
+      color: rgb(205, 92, 155);
+    }
+    
+    #piece-hits {
+      color: rgba(255, 255, 255, 0.6);
     }
     
     /* KidLisp syntax highlighting */
@@ -250,19 +271,19 @@
       transition: width 0.25s linear, background-color 0.5s ease;
     }
 
-    /* FPS meter for performance comparison */
+    /* FPS meter - top right */
     #fps-meter {
       position: fixed;
-      top: 4px;
-      left: 4px;
-      font-family: monospace;
-      font-size: 12px;
+      top: calc(var(--density, 8) * 2px);
+      right: calc(var(--density, 8) * 2px);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: calc(var(--density, 8) * 3px);
       color: lime;
-      background: rgba(0,0,0,0.7);
-      padding: 2px 6px;
+      background: rgba(0,0,0,0.8);
+      padding: calc(var(--density, 8) * 1px) calc(var(--density, 8) * 2px);
       z-index: 99999;
       pointer-events: none;
-      border-radius: 2px;
+      border-radius: calc(var(--density, 8) * 0.5px);
     }
 
   </style>
@@ -276,6 +297,10 @@
     <div id="qr-wrap">
       <div id="code-label"></div>
       <div id="qr-container"></div>
+      <div id="piece-info">
+        <div id="piece-handle"></div>
+        <div id="piece-hits"></div>
+      </div>
     </div>
   </div>
   
@@ -294,38 +319,48 @@
   <div id="fps-meter">FPS: --</div>
   
   <script>
-    // FPS meter - receives actual FPS from iframe via postMessage
+    // FPS meter - calculated locally from iframe's frame timing
     (function() {
       const meter = document.getElementById('fps-meter');
       const iframe = document.getElementById('display-iframe');
-      let lastFps = 0;
-      let fpsRequested = false;
+      let frameCount = 0;
+      let lastTime = performance.now();
+      let currentFps = 0;
       
-      // Listen for FPS reports from the iframe
+      // Listen for FPS reports from the iframe (if supported)
       window.addEventListener('message', (e) => {
         if (e.data && e.data.type === 'ac:fps-report') {
-          lastFps = e.data.fps;
-          meter.innerHTML = 'FPS: ' + lastFps;
-          meter.style.color = lastFps >= 30 ? 'lime' : lastFps >= 15 ? 'yellow' : 'red';
+          currentFps = e.data.fps;
+          meter.innerHTML = 'FPS: ' + currentFps;
+          meter.style.color = currentFps >= 30 ? 'lime' : currentFps >= 15 ? 'yellow' : 'red';
         }
       });
       
-      // Request FPS reporting from iframe once it loads
+      // Fallback: calculate FPS from local animation frame
+      function updateFps() {
+        frameCount++;
+        const now = performance.now();
+        const elapsed = now - lastTime;
+        
+        if (elapsed >= 1000) {
+          currentFps = Math.round(frameCount * 1000 / elapsed);
+          meter.innerHTML = 'FPS: ' + currentFps;
+          meter.style.color = currentFps >= 30 ? 'lime' : currentFps >= 15 ? 'yellow' : 'red';
+          frameCount = 0;
+          lastTime = now;
+        }
+        
+        requestAnimationFrame(updateFps);
+      }
+      
+      // Start FPS counting after iframe loads
       iframe.addEventListener('load', () => {
         setTimeout(() => {
-          if (!fpsRequested) {
-            fpsRequested = true;
-            iframe.contentWindow?.postMessage({ type: 'ac:request-fps' }, '*');
-          }
-        }, 1000);
+          updateFps();
+          // Also request FPS from iframe in case it reports its own
+          iframe.contentWindow?.postMessage({ type: 'ac:request-fps' }, '*');
+        }, 500);
       });
-      
-      // Also try requesting periodically in case iframe reloads
-      setInterval(() => {
-        if (iframe.contentWindow) {
-          iframe.contentWindow.postMessage({ type: 'ac:request-fps' }, '*');
-        }
-      }, 5000);
     })();
   </script>
   
@@ -482,9 +517,9 @@
       generateQRAndLabel(displayCode);
       
       try {
-        // Fetch source from aesthetic.computer API
+        // Fetch source from store-kidlisp API
         const apiUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
-        const url = `${apiUrl}/api/kidlisp-source?piece=${pieceCode}`;
+        const url = `${apiUrl}/api/store-kidlisp?code=${pieceCode}`;
         console.log('📺 Fetching source from:', url);
         const response = await fetch(url, {
           credentials: 'omit'
@@ -499,6 +534,8 @@
           } else {
             console.log('📺 No source in response');
           }
+          // Display handle and hits
+          displayPieceInfo(data);
         } else {
           console.log('📺 Source fetch failed:', response.status);
         }
@@ -574,6 +611,22 @@
         }
       } else {
         console.log('📺 QR container not found or qrcode lib not loaded');
+      }
+    }
+    
+    // Display handle and hits info
+    function displayPieceInfo(data) {
+      const handleEl = document.getElementById('piece-handle');
+      const hitsEl = document.getElementById('piece-hits');
+      
+      if (handleEl && data.handle) {
+        handleEl.textContent = data.handle;
+        console.log('📺 Handle:', data.handle);
+      }
+      
+      if (hitsEl && typeof data.hits === 'number') {
+        hitsEl.textContent = data.hits.toLocaleString() + ' hits';
+        console.log('📺 Hits:', data.hits);
       }
     }
     
