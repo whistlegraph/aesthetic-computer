@@ -9,10 +9,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
-  <!-- Google Fonts - JetBrains Mono -->
+  <!-- Google Fonts - Noto Sans Mono (Monaco-like) and Comic Relief (kidlisp branding) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
   <!-- QR Code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <style>
@@ -27,7 +27,7 @@
       height: 100%;
       overflow: hidden;
       background: #000;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
     }
     
     #display-iframe {
@@ -66,7 +66,7 @@
       left: calc(var(--density, 8) * 8px);
       right: calc(var(--density, 8) * 8px);
       bottom: calc(var(--density, 8) * 40px);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
       font-size: calc(var(--density, 8) * 5px);
       line-height: 1.5;
       color: #fff;
@@ -105,23 +105,24 @@
     }
     
     #code-label {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: calc(var(--density, 8) * 5px);
+      font-family: 'Comic Relief', 'Comic Sans MS', cursive;
+      font-size: calc(var(--density, 8) * 6px);
       font-weight: 700;
       color: #fff;
-      background: #000;
+      background: transparent;
       padding: calc(var(--density, 8) * 1px) calc(var(--density, 8) * 2px);
       margin-bottom: calc(var(--density, 8) * 1px);
       line-height: 1.2;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+      letter-spacing: 0.05em;
     }
     
     #code-label .code-dollar {
-      color: #32cd32; /* limegreen */
+      color: limegreen;
     }
     
     #code-label .code-name {
-      color: #90EE90; /* lightgreen */
+      color: lime;
     }
     
     #qr-container {
@@ -146,7 +147,7 @@
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
       font-size: calc(var(--density, 8) * 5px);
       line-height: 1.4;
       z-index: 16;
@@ -293,7 +294,7 @@
       position: fixed;
       top: calc(var(--density, 8) * 4px);
       right: calc(var(--density, 8) * 4px);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
       font-size: calc(var(--density, 8) * 3px);
       color: lime;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
