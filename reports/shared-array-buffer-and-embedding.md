@@ -31,7 +31,7 @@ Cross-Origin-Resource-Policy = "cross-origin"
 The comment indicates it was originally for **ffmpeg.wasm** support but was disabled. Likely reasons:
 
 1. **COEP `require-corp` breaks cross-origin resources** - All external resources (images, scripts, fonts) must have `Cross-Origin-Resource-Policy: cross-origin` headers or use `crossorigin` attribute
-2. **Breaks iframes from external origins** - NFT platforms (objkt, OpenSea, fxhash) embedding AC pieces would fail
+2. **Breaks iframes from external origins** - NFT platforms (objkt, OpenSea, teia) embedding AC pieces would fail
 3. **Breaks external CDN assets** - Any assets without proper CORP headers would be blocked
 
 ---
@@ -55,7 +55,7 @@ let sandboxed = (window.origin === "null" && !window.acVSCODE)
 
 | Mode | Detection | Description |
 |------|-----------|-------------|
-| **PACK_MODE** | `window.acPACK_MODE` | NFT bundle mode (objkt, fxhash, etc.) |
+| **PACK_MODE** | `window.acPACK_MODE` | NFT bundle mode (objkt, teia, etc.) |
 | **VSCODE** | `window.acVSCODE` | VS Code extension webview |
 | **SPIDER** | `window.acSPIDER` | Spider/crawler mode |
 | **NOAUTH** | `window.acNOAUTH` | No authentication mode (kidlisp.com editor) |
@@ -79,7 +79,6 @@ The system explicitly handles:
 
 - **objkt.com** - Tezos NFT marketplace
 - **OpenSea** - Ethereum NFT marketplace  
-- **fxhash** - Generative art platform
 - **teia.art** - Tezos NFT marketplace
 
 These platforms use sandboxed iframes with restricted permissions, so:
