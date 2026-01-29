@@ -1097,7 +1097,7 @@ async function boot({
 
   // 🕒 Request minimal audio latency for this piece (must be set before AudioContext creation)
   if (typeof window !== "undefined") {
-    window.__acLatencyHint = 0.005; // 5ms target
+    window.__acLatencyHint = 0.003; // 3ms target - very aggressive for low latency
     window.__acSampleRate = 48000; // Lower CPU load for tighter real-time response
     window.__acSpeakerPerformanceMode = "disabled"; // Skip heavy analysis work in the worklet
   }
