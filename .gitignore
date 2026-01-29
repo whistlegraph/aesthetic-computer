@@ -55,6 +55,10 @@ aesthetic-computer-vault/
 # any instance of the aesthetic-computer-code repository
 aesthetic-computer-code/
 
+# Local clones of external repos
+feral-file/
+modes/
+
 # SSH deploy keys (secrets)
 oven/ssh/
 
@@ -75,6 +79,9 @@ gigs/thomaslawson.com/ssl/
 
 # Scratch directory for temp files
 scratch/
+
+# Temporary webapp inspection artifacts
+/.tmp/
 
 # Dev logs from remote debugging
 dev-logs.txt
