@@ -6,17 +6,47 @@ This folder provides a **local FFOS ISO build pipeline** using Docker (Arch Linu
 - Build FFOS ISO locally from a fork of `feral-file/ffos` + `feral-file/ffos-user`.
 - Keep **all external repos out of the monorepo** (no submodules).
 - Keep Netlify builds safe (no extra top‑level build steps).
+- **Verify ISO integrity** before flashing to USB.
 
 ## What it does
 - Clones FFOS + FFOS-USER into a local cache directory (`.ffos-cache/`).
 - Applies **optional overlay patches** from `overlays/` (example: AC kiosk service).
 - Runs `mkarchiso` inside an Arch Linux container to produce an ISO.
+- **Generates SHA256 checksums** for built ISOs.
+- **Verifies SquashFS integrity** to catch corruption early.
 
 ## Quick Start
 ```bash
 # From repo root
 bash utilities/ffos-build/build.sh
 ```
+
+## Verify & Flash ISO
+After building (or downloading) an ISO, use the verification tool:
+
+```bash
+# Verify ISO integrity only
+bash utilities/ffos-build/verify-iso.sh --verify-only path/to/FF1.iso
+
+# Verify and flash to USB
+bash utilities/ffos-build/verify-iso.sh path/to/FF1.iso /dev/sdb
+```
+
+The verification tool:
+1. **Checks SHA256** against `.sha256` file (generates one if missing)
+2. **Validates SquashFS** inside the ISO (catches xz decompression issues)
+3. **Safely writes to USB** with progress and verification
+4. **Verifies the write** by comparing first 4MB
+
+### Common Installation Errors This Prevents
+
+If you see these during FFOS installation, the ISO is corrupted:
+- `SQUASHFS error: Failed to read block`
+- `xz decompression failed, data probably corrupt`
+- `rsync error: some files/attrs were not transferred`
+- `p11-kit failed verification`
+
+Always run `verify-iso.sh` before flashing!
 
 ## GitHub Actions
 A workflow is provided to build the ISO on GitHub runners and upload the ISO as an artifact:
