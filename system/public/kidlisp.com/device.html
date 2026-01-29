@@ -345,7 +345,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const densityParam = parseInt(urlParams.get('density')) || 8;
     
-    // Canvas2D floating bars loader - renders at low-res, CSS scales up pixelated
+    // KidLisp-style floating bars boot animation (matches acBootCanvas kidlisp mode)
     const bootCanvas = document.getElementById('boot-canvas');
     const ctx = bootCanvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
@@ -356,104 +356,108 @@
     const hour = new Date().getHours();
     const forceDarkMode = hour >= 18 || hour < 6; // 6pm-6am = dark mode
     
-    // Cinematic color palette for FF1 device mode (muted, gallery-appropriate)
+    // KidLisp theme colors (same as acBootCanvas KIDLISP_COLS)
     const COLORS_DARK = [
-      [180, 130, 255], // soft violet
-      [130, 200, 180], // sage green
-      [255, 180, 130], // warm amber
-      [130, 180, 220], // steel blue
-      [200, 160, 180], // dusty rose
-      [160, 200, 140], // moss
-      [220, 200, 160], // sand
+      [255, 107, 107], // coral
+      [78, 205, 196],  // teal
+      [255, 230, 109], // yellow
+      [149, 225, 211], // mint
+      [243, 129, 129], // pink
+      [170, 150, 218], // lavender
+      [112, 214, 255], // sky blue
     ];
     
     const COLORS_LIGHT = [
-      [120, 80, 180],  // deep violet
-      [60, 140, 120],  // deep sage
-      [180, 120, 70],  // deep amber
-      [70, 120, 160],  // deep steel
-      [140, 100, 120], // deep rose
-      [100, 140, 80],  // deep moss
-      [160, 140, 100], // deep sand
+      [200, 60, 60],   // deep coral
+      [30, 140, 130],  // deep teal
+      [180, 150, 40],  // deep yellow
+      [50, 150, 130],  // deep mint
+      [180, 70, 70],   // deep pink
+      [100, 80, 160],  // deep lavender
+      [40, 130, 190],  // deep sky
     ];
     
     // Use dark mode colors during evening hours
     const COLORS = forceDarkMode ? COLORS_DARK : COLORS_LIGHT;
-    const bgColor = forceDarkMode ? 'rgb(18, 16, 20)' : 'rgb(245, 243, 240)';
+    const bgColor = forceDarkMode ? 'rgba(42, 37, 32, 0.95)' : 'rgba(247, 247, 247, 0.95)';
     
     // Floating bars state
     let bars = [];
     
-    // Low-res canvas dimensions (matching AC density)
-    let lowW, lowH;
+    // Canvas dimensions (full resolution for smooth rounded bars)
+    let W, H;
     
     function resize() {
-      // Render at low resolution, CSS scales it up pixelated
-      lowW = Math.floor(window.innerWidth / densityParam);
-      lowH = Math.floor(window.innerHeight / densityParam);
-      bootCanvas.width = lowW;
-      bootCanvas.height = lowH;
-      ctx.imageSmoothingEnabled = false;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      bootCanvas.width = W;
+      bootCanvas.height = H;
     }
     resize();
     window.addEventListener('resize', resize);
     
     function spawnBar() {
+      const ci = Math.floor(Math.random() * COLORS.length);
       bars.push({
-        x: Math.random() * lowW,
-        y: lowH + 2,
-        width: Math.floor(5 + Math.random() * 25),   // 5-30 canvas pixels wide
-        height: Math.floor(2 + Math.random() * 3),   // 2-5 canvas pixels tall
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        speed: 0.3 + Math.random() * 0.6,
-        alpha: 0.5 + Math.random() * 0.4
+        x: Math.random() * W,
+        y: H + 5,
+        w: 30 + Math.random() * 80,
+        h: 2 + Math.random() * 3,
+        ci: ci,
+        speed: 0.5 + Math.random() * 1.5,
+        alpha: 0.3 + Math.random() * 0.3
       });
     }
     
     // Spawn initial bars
     for (let i = 0; i < 25; i++) {
       spawnBar();
-      bars[bars.length - 1].y = Math.random() * bootCanvas.height;
+      bars[bars.length - 1].y = Math.random() * H;
     }
     
     function animate() {
       if (!animating) return;
       
-      const W = bootCanvas.width;
-      const H = bootCanvas.height;
-      
-      // Clear to gallery-appropriate background (dark or light based on time)
+      // Clear to KidLisp-style background
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, W, H);
       
-      // Update and draw bars
+      // Scanlines (subtle)
+      ctx.globalAlpha = forceDarkMode ? 0.03 : 0.015;
+      ctx.fillStyle = forceDarkMode ? '#000' : '#888';
+      for (let yy = 0; yy < H; yy += 3) {
+        ctx.fillRect(0, yy, W, 1);
+      }
+      ctx.globalAlpha = 1;
+      
+      // Spawn new bars periodically
+      if (frame % 15 === 0 && bars.length < 40) {
+        spawnBar();
+      }
+      
+      // Update and draw bars with rounded ends (pill shape)
       for (let i = bars.length - 1; i >= 0; i--) {
         const bar = bars[i];
         bar.y -= bar.speed;
         
-        // Fade as it rises
-        const progress = 1 - (bar.y / H);
-        const alpha = bar.alpha * (1 - progress * 0.7);
-        
-        if (bar.y < -20) {
+        if (bar.y < -10) {
           bars.splice(i, 1);
           continue;
         }
         
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = `rgb(${bar.color[0]}, ${bar.color[1]}, ${bar.color[2]})`;
+        // Fade as it rises
+        const fade = bar.alpha * (1 - (H - bar.y) / H * 0.5);
+        ctx.globalAlpha = fade;
         
-        // Simple pixel rectangle (no rounding at low-res)
-        ctx.fillRect(Math.floor(bar.x), Math.floor(bar.y), bar.width, bar.height);
+        const c = COLORS[bar.ci % COLORS.length];
+        ctx.fillStyle = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+        
+        // Draw rounded rectangle (pill shape like acBootCanvas)
+        ctx.beginPath();
+        ctx.roundRect(bar.x, bar.y, bar.w, bar.h, bar.h / 2);
+        ctx.fill();
       }
       ctx.globalAlpha = 1;
-      
-      // No loading text - clean gallery aesthetic
-      
-      // Spawn new bars periodically
-      if (frame % 8 === 0 && bars.length < 40) {
-        spawnBar();
-      }
       
       frame++;
       requestAnimationFrame(animate);
@@ -513,6 +517,11 @@
     } else if (pathParts[0] === 'kidlisp.com' && pathParts[1] === 'device') {
       // Local dev: localhost:8888/kidlisp.com/device/codeId
       codeId = pathParts[2] || null;
+    }
+    
+    // Ensure $ prefix on codeId (device.kidlisp.com/roz → $roz)
+    if (codeId && !codeId.startsWith('$')) {
+      codeId = '$' + codeId;
     }
     
     // Allow param overrides of defaults
