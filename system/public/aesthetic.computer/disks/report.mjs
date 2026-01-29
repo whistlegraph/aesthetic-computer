@@ -1,14 +1,24 @@
 // report, 2025.01.29.00.00
-// System resources and embedding context report
+// Live system status check - SharedArrayBuffer, embedding context, audio
 
 const { abs, round, floor } = Math;
 
 let reportData = null;
 let scrollY = 0;
+let lastUpdate = 0;
 
 export function boot({ screen }) {
   // Gather all the data on boot
   reportData = gatherReport();
+  lastUpdate = Date.now();
+}
+
+export function sim({ simCount }) {
+  // Refresh every 2 seconds for live status
+  if (Date.now() - lastUpdate > 2000) {
+    reportData = gatherReport();
+    lastUpdate = Date.now();
+  }
 }
 
 function gatherReport() {
@@ -358,10 +368,16 @@ export function paint({ wipe, ink, write, screen, typeface }) {
   const valueX = 160;
   const detailX = labelX;
   
-  ink(255, 200, 100).write("System Resources Report", { x: labelX, y });
+  // Big status indicator at top
+  const sabEnabled = typeof window !== 'undefined' && window.crossOriginIsolated === true;
+  if (sabEnabled) {
+    ink(50, 200, 100).write("✓ CROSS-ORIGIN ISOLATED", { x: labelX, y });
+  } else {
+    ink(200, 100, 50).write("✗ NOT ISOLATED (SAB disabled)", { x: labelX, y });
+  }
   y += lineHeight * 1.5;
   
-  ink(100).write(reportData.timestamp, { x: labelX, y });
+  ink(100).write(`Live Status • ${reportData.timestamp}`, { x: labelX, y });
   y += lineHeight * 2;
   
   for (const section of reportData.sections) {
@@ -392,7 +408,8 @@ export function paint({ wipe, ink, write, screen, typeface }) {
   }
   
   // Scroll hint at bottom
-  ink(80).write("↑↓ scroll | esc to exit", { x: labelX, y: screen.height - 12 });
+  const refreshAgo = round((Date.now() - lastUpdate) / 1000);
+  ink(80).write(`↑↓ scroll | r refresh | esc exit | updated ${refreshAgo}s ago`, { x: labelX, y: screen.height - 12 });
 }
 
 export function act({ event: e, jump }) {
@@ -425,6 +442,9 @@ export function act({ event: e, jump }) {
   if (e.is("keyboard:down:escape") || e.is("keyboard:down:q")) {
     jump("prompt");
   }
+  
+  // Refresh data
+  if (e.is("keyboard:down:r")) {
+    reportData = gatherReport();
+  }
 }
-
-export { boot, paint, act };
