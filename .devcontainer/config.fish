@@ -2890,8 +2890,8 @@ kill %1 2>/dev/null"
                 curl -s -X POST -H 'Content-Type: application/json' -H "topicID: $topic_id" -H "API-KEY: $api_key" "https://artwork-info.feral-file.workers.dev/api/cast" -d "$payload"
             else
                 # Direct network access to FF1
-                # Check if it's a playlist URL (contains /playlists/ or /api/playlist)
-                if string match -q '*playlists*' $url; or string match -q '*/api/playlist*' $url
+                # Check if it's a playlist URL (feed server or contains /playlists/ or /api/playlist)
+                if string match -q '*feed.aesthetic.computer*' $url; or string match -q '*playlists*' $url; or string match -q '*/api/playlist*' $url
                     # It's a playlist URL - send as playlistUrl so FF1 fetches and displays it
                     echo "📺 Casting playlist to FF1: $url"
                     curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' "http://$ff1_ip:$ff1_port/api/cast" -d "{\"command\":\"displayPlaylist\",\"request\":{\"playlistUrl\":\"$url\",\"intent\":{\"action\":\"now_display\"}}}"
@@ -2901,6 +2901,25 @@ kill %1 2>/dev/null"
                     curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' "http://$ff1_ip:$ff1_port/api/cast" -d "{\"command\":\"displayPlaylist\",\"request\":{\"dp1_call\":{\"dpVersion\":\"1.1.0\",\"items\":[{\"source\":\"$url\",\"duration\":0}]},\"intent\":{\"action\":\"now_display\"}}}"
                 end
             end
+        case top colors chords
+            # Shortcut for feed.aesthetic.computer playlists
+            set -l playlist_name $action
+            echo "🎵 Looking up $playlist_name playlist from feed server..."
+            
+            # Map playlist names to their IDs (hardcoded for now, could fetch dynamically)
+            set -l playlist_id
+            switch $playlist_name
+                case top
+                    set playlist_id "6e53465e-976f-4e93-89ff-c58b6d434fa7"
+                case colors
+                    set playlist_id "4b872517-e4d8-4433-af8b-a9a4a8204cc9"
+                case chords
+                    set playlist_id "49f0ee0e-0303-4192-9cb2-aa3c5abb64b5"
+            end
+            
+            set -l playlist_url "https://feed.aesthetic.computer/api/v1/playlists/$playlist_id"
+            echo "📺 Casting playlist to FF1: $playlist_url"
+            curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' "http://$ff1_ip:$ff1_port/api/cast" -d "{\"command\":\"displayPlaylist\",\"request\":{\"playlistUrl\":\"$playlist_url\",\"intent\":{\"action\":\"now_display\"}}}"
         case tunnel
             echo "🚇 Starting SSH tunnel to FF1 (localhost:1111 -> $ff1_ip:$ff1_port)..."
             echo "Press Ctrl+C to stop the tunnel"
@@ -2973,7 +2992,10 @@ kill %1 2>/dev/null"
             echo "  ac-ff1 cast \$mtz --perf       - Cast with FPS/performance HUD"
             echo "  ac-ff1 cast ceo               - Cast regular piece (auto ?device param)"
             echo "  ac-ff1 cast <url>             - Cast any URL"
-            echo "  ac-ff1 playlist [options]     - Push KidLisp playlist"
+            echo "  ac-ff1 top                    - Cast Top KidLisp Hits playlist"
+            echo "  ac-ff1 colors                 - Cast KidLisp Colors playlist"
+            echo "  ac-ff1 chords                 - Cast KidLisp Chords playlist"
+            echo "  ac-ff1 playlist [options]     - Push dynamic KidLisp playlist"
             echo "  ac-ff1 tunnel                 - Create SSH tunnel for local dev"
             echo ""
             echo "Playlist options:"
