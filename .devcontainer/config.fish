@@ -2901,16 +2901,34 @@ kill %1 2>/dev/null"
                     curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' "http://$ff1_ip:$ff1_port/api/cast" -d "{\"command\":\"displayPlaylist\",\"request\":{\"dp1_call\":{\"dpVersion\":\"1.1.0\",\"items\":[{\"source\":\"$url\",\"duration\":0}]},\"intent\":{\"action\":\"now_display\"}}}"
                 end
             end
-        case top colors chords
-            # Shortcut for feed.aesthetic.computer playlists
+        case top
+            # Top 100 KidLisp hits - uses TV endpoint directly (no Cloudflare KV dependency)
+            set -l limit 100
+            set -l duration 24
+            
+            # Parse options
+            for arg in $argv[2..-1]
+                if string match -q -- '--limit=*' "$arg"
+                    set limit (string replace -- '--limit=' '' "$arg")
+                else if string match -q -- '--duration=*' "$arg"
+                    set duration (string replace -- '--duration=' '' "$arg")
+                end
+            end
+            
+            set -l playlist_url "https://aesthetic.computer/api/tv?types=kidlisp&sort=hits&limit=$limit&format=dp1&duration=$duration"
+            echo "🎵 Fetching Top $limit KidLisp Hits from TV endpoint..."
+            echo "   URL: $playlist_url"
+            echo "📺 Casting playlist to FF1..."
+            curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' "http://$ff1_ip:$ff1_port/api/cast" -d "{\"command\":\"displayPlaylist\",\"request\":{\"playlistUrl\":\"$playlist_url\",\"intent\":{\"action\":\"now_display\"}}}"
+        case colors chords
+            # Legacy feed server playlists (may hit KV limits)
             set -l playlist_name $action
             echo "🎵 Looking up $playlist_name playlist from feed server..."
+            echo "⚠️  Note: Feed server may hit Cloudflare KV limits. Consider using 'ac-ff1 top' instead."
             
-            # Map playlist names to their IDs (hardcoded for now, could fetch dynamically)
+            # Map playlist names to their IDs
             set -l playlist_id
             switch $playlist_name
-                case top
-                    set playlist_id "6e53465e-976f-4e93-89ff-c58b6d434fa7"
                 case colors
                     set playlist_id "4b872517-e4d8-4433-af8b-a9a4a8204cc9"
                 case chords
