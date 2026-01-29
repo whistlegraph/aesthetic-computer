@@ -3650,6 +3650,9 @@
       #keeps-tab:hover {
         background: rgba(120, 120, 120, 0.3);
       }
+      #jukebox-tab:hover {
+        background: rgba(236, 72, 153, 0.35);
+      }
       #reference-tab:hover {
         background: rgba(34, 197, 94, 0.35);
       }
@@ -3713,6 +3716,16 @@
       background: rgba(120, 120, 120, 0.35);
       color: #262626;
     }
+    
+    /* Jukebox - Pink */
+    #jukebox-tab {
+      background: rgba(236, 72, 153, 0.2);
+      color: #be185d;
+    }
+    #jukebox-tab.active {
+      background: rgba(236, 72, 153, 0.5);
+      color: #9d174d;
+    }
 
     /* Cards/Reference - keep existing green */
     #reference-tab {
@@ -3770,6 +3783,15 @@
       color: #f5f5f5;
     }
     
+    :root.dark #jukebox-tab {
+      background: rgba(236, 72, 153, 0.3);
+      color: #f9a8d4;
+    }
+    :root.dark #jukebox-tab.active {
+      background: rgba(236, 72, 153, 0.5);
+      color: #fce7f3;
+    }
+    
     :root.dark #reference-tab {
       background: rgba(34, 197, 94, 0.35);
       color: #a7f3d0;
@@ -3785,6 +3807,7 @@
     :root.dark #recent-content:not(.hidden) { background: linear-gradient(to bottom, rgba(249, 115, 22, 0.4) 0%, rgba(249, 115, 22, 0.1) 40%, transparent 100%); }
     :root.dark #history-content:not(.hidden) { background: linear-gradient(to bottom, rgba(180, 130, 90, 0.4) 0%, rgba(180, 130, 90, 0.1) 40%, transparent 100%); }
     :root.dark #keeps-content:not(.hidden) { background: linear-gradient(to bottom, rgba(150, 150, 150, 0.35) 0%, rgba(150, 150, 150, 0.1) 40%, transparent 100%); }
+    :root.dark #jukebox-content:not(.hidden) { background: linear-gradient(to bottom, rgba(236, 72, 153, 0.4) 0%, rgba(236, 72, 153, 0.1) 40%, transparent 100%); }
     :root.dark #reference-content:not(.hidden) { background: linear-gradient(to bottom, rgba(34, 197, 94, 0.45) 0%, rgba(34, 197, 94, 0.1) 40%, transparent 100%); }
 
     /* List Tab - Yellow (like old Top Hits) */
@@ -3917,6 +3940,292 @@
       background: linear-gradient(to bottom, #737373 0%, #525252 100%);
       color: #f5f5f5;
     }
+    
+    /* Jukebox Panel Styles */
+    #jukebox-content {
+      padding: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .jukebox-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+    
+    /* Jukebox fixed controls area */
+    .jukebox-controls-area {
+      flex-shrink: 0;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-bottom: 1px solid rgba(236, 72, 153, 0.2);
+    }
+    
+    /* Jukebox scrollable content area */
+    .jukebox-scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px 12px;
+      min-height: 0;
+    }
+    .jukebox-now-playing {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(236, 72, 153, 0.15);
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .jukebox-track-icon { font-size: 1.2em; }
+    .jukebox-track-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .jukebox-controls {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    .jukebox-btn {
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 50%;
+      background: linear-gradient(to bottom, #ec4899, #be185d);
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .jukebox-btn:hover:not(:disabled) { transform: scale(1.1); }
+    .jukebox-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .jukebox-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .jukebox-progress input[type="range"] {
+      flex: 1;
+      height: 6px;
+      -webkit-appearance: none;
+      background: rgba(236, 72, 153, 0.3);
+      border-radius: 3px;
+    }
+    .jukebox-progress input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: #ec4899;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .jukebox-time {
+      font-size: 11px;
+      color: #888;
+      min-width: 80px;
+      text-align: right;
+    }
+    .jukebox-volume {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .jukebox-volume input[type="range"] {
+      flex: 1;
+      max-width: 100px;
+      height: 4px;
+      -webkit-appearance: none;
+      background: rgba(236, 72, 153, 0.3);
+      border-radius: 2px;
+    }
+    .jukebox-volume input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background: #ec4899;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .jukebox-meters {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 6px;
+    }
+    .jukebox-meter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .jukebox-meter-label {
+      width: 32px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #ec4899;
+    }
+    .jukebox-meter-bar {
+      flex: 1;
+      height: 8px;
+      background: rgba(236, 72, 153, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .jukebox-meter-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(to right, #ec4899, #f472b6);
+      border-radius: 4px;
+      transition: width 0.05s;
+    }
+    .jukebox-meter-value {
+      width: 32px;
+      font-size: 11px;
+      text-align: right;
+      font-family: monospace;
+    }
+    .jukebox-beat-indicator {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #333;
+      transition: background 0.05s;
+    }
+    .jukebox-beat-indicator.active {
+      background: #ec4899;
+      box-shadow: 0 0 8px #ec4899;
+    }
+    .jukebox-tracklist {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .jukebox-track {
+      padding: 8px 12px;
+      background: rgba(236, 72, 153, 0.1);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-size: 13px;
+    }
+    .jukebox-track:hover { background: rgba(236, 72, 153, 0.25); }
+    .jukebox-track.playing {
+      background: rgba(236, 72, 153, 0.4);
+      font-weight: 600;
+    }
+    .jukebox-track.playing::before { content: '▶ '; }
+    .jukebox-status {
+      font-size: 11px;
+      color: #888;
+      text-align: center;
+      min-height: 16px;
+    }
+    [data-theme="dark"] .jukebox-panel { color: #f5f5f5; }
+    [data-theme="dark"] .jukebox-now-playing { background: rgba(236, 72, 153, 0.25); }
+    [data-theme="dark"] .jukebox-meters { background: rgba(255, 255, 255, 0.05); }
+    
+    /* Jukebox Mode Tabs */
+    .jukebox-mode-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    .jukebox-mode-tab {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(236, 72, 153, 0.15);
+      color: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .jukebox-mode-tab:hover { background: rgba(236, 72, 153, 0.3); }
+    .jukebox-mode-tab.active {
+      background: linear-gradient(to bottom, #ec4899, #be185d);
+      color: white;
+    }
+    .jukebox-mode-content { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+    .jukebox-mode-content.hidden { display: none; }
+    
+    /* Strudel Editor */
+    .strudel-editor-container {
+      flex: 1;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+    }
+    #strudel-code {
+      width: 100%;
+      flex: 1;
+      min-height: 100px;
+      padding: 12px;
+      border: 1px solid rgba(236, 72, 153, 0.3);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.25);
+      color: inherit;
+      font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      resize: none;
+      box-sizing: border-box;
+    }
+    #strudel-code:focus {
+      outline: none;
+      border-color: #ec4899;
+      box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.25);
+    }
+    #strudel-code::placeholder {
+      color: rgba(236, 72, 153, 0.4);
+    }
+    [data-theme="dark"] #strudel-code {
+      background: rgba(0, 0, 0, 0.4);
+    }
+    
+    /* Strudel Presets */
+    .strudel-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .strudel-preset-label {
+      font-size: 11px;
+      color: #888;
+      margin-right: 4px;
+    }
+    .strudel-preset {
+      padding: 4px 10px;
+      border: 1px solid rgba(236, 72, 153, 0.3);
+      border-radius: 12px;
+      background: transparent;
+      color: #ec4899;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .strudel-preset:hover {
+      background: rgba(236, 72, 153, 0.15);
+      border-color: #ec4899;
+    }
+    [data-theme="dark"] .jukebox-track { background: rgba(236, 72, 153, 0.15); }
+    [data-theme="dark"] .jukebox-track:hover { background: rgba(236, 72, 153, 0.3); }
+    [data-theme="dark"] .jukebox-track.playing { background: rgba(236, 72, 153, 0.5); }
     
     @media (hover: hover) {
       .list-subtab:hover {
@@ -4085,6 +4394,7 @@
     #recent-content:not(.hidden) { background: linear-gradient(to bottom, rgba(249, 115, 22, 0.4) 0%, rgba(249, 115, 22, 0.1) 40%, transparent 100%); }
     #history-content:not(.hidden) { background: linear-gradient(to bottom, rgba(180, 130, 90, 0.4) 0%, rgba(180, 130, 90, 0.1) 40%, transparent 100%); }
     #keeps-content:not(.hidden) { background: linear-gradient(to bottom, rgba(120, 120, 120, 0.3) 0%, rgba(120, 120, 120, 0.08) 40%, transparent 100%); }
+    #jukebox-content:not(.hidden) { background: linear-gradient(to bottom, rgba(236, 72, 153, 0.4) 0%, rgba(236, 72, 153, 0.1) 40%, transparent 100%); }
     #reference-content:not(.hidden) { background: linear-gradient(to bottom, rgba(34, 197, 94, 0.45) 0%, rgba(34, 197, 94, 0.1) 40%, transparent 100%); }
 
     #examples-content > div,
@@ -8610,6 +8920,7 @@
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
           <div class="tab active" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Learn</div>
           <div class="tab" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
+          <div class="tab" data-tab="jukebox" id="jukebox-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">🎵 Jukebox</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
@@ -8771,6 +9082,117 @@
             </div>
           </div>
         </div><!-- /list-content -->
+        <div class="docs-content hidden" id="jukebox-content">
+            <div class="jukebox-panel">
+              <!-- Mode Tabs + Meters (always visible at top) -->
+              <div class="jukebox-controls-area">
+                <div class="jukebox-mode-tabs">
+                  <button class="jukebox-mode-tab active" data-mode="samples">🎵 Samples</button>
+                  <button class="jukebox-mode-tab" data-mode="strudel">🌀 Strudel</button>
+                </div>
+                
+                <!-- Audio Meters (shared, always visible) -->
+                <div class="jukebox-meters">
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">amp</span>
+                    <div class="jukebox-meter-bar"><div class="jukebox-meter-fill" id="jukebox-amp-meter"></div></div>
+                    <span class="jukebox-meter-value" id="jukebox-amp-value">0.0</span>
+                  </div>
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">kick</span>
+                    <div class="jukebox-beat-indicator" id="jukebox-kick-indicator"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Samples Mode -->
+              <div class="jukebox-mode-content" id="jukebox-samples-mode">
+                <div class="jukebox-controls-area" style="border-bottom: none; padding-top: 0;">
+                  <!-- Now Playing -->
+                  <div class="jukebox-now-playing">
+                    <span class="jukebox-track-icon">🎵</span>
+                    <span class="jukebox-track-name" id="jukebox-track-name">Select a track</span>
+                  </div>
+                  
+                  <!-- Player Controls -->
+                  <div class="jukebox-controls">
+                    <button class="jukebox-btn" id="jukebox-play" title="Play">▶</button>
+                    <button class="jukebox-btn" id="jukebox-pause" title="Pause" disabled>⏸</button>
+                    <button class="jukebox-btn" id="jukebox-stop" title="Stop" disabled>⏹</button>
+                  </div>
+                  
+                  <!-- Progress Bar -->
+                  <div class="jukebox-progress">
+                    <input type="range" id="jukebox-seek" min="0" max="100" value="0" disabled>
+                    <span class="jukebox-time" id="jukebox-time">0:00 / 0:00</span>
+                  </div>
+                  
+                  <!-- Volume -->
+                  <div class="jukebox-volume">
+                    <span>🔊</span>
+                    <input type="range" id="jukebox-volume" min="0" max="100" value="70">
+                  </div>
+                </div>
+                
+                <!-- Track List (scrollable) -->
+                <div class="jukebox-scroll-area">
+                  <div class="jukebox-tracklist" id="jukebox-tracklist">
+                    <div class="jukebox-track" data-track="zzzZWAP.wav">zzzZWAP</div>
+                    <div class="jukebox-track" data-track="ARrrGh.wav">ARrrGh</div>
+                    <div class="jukebox-track" data-track="BLuRP.wav">BLuRP</div>
+                    <div class="jukebox-track" data-track="GrRr.wav">GrRr</div>
+                    <div class="jukebox-track" data-track="HoNK.wav">HoNK</div>
+                    <div class="jukebox-track" data-track="KLOnK.wav">KLOnK</div>
+                    <div class="jukebox-track" data-track="PaFf_master.wav">PaFf</div>
+                    <div class="jukebox-track" data-track="WHoOSh.wav">WHoOSh</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Strudel Mode -->
+              <div class="jukebox-mode-content hidden" id="jukebox-strudel-mode">
+                <div class="jukebox-controls-area" style="border-bottom: none; padding-top: 0;">
+                  <!-- Strudel Status -->
+                  <div class="jukebox-now-playing">
+                    <span class="jukebox-track-icon">🌀</span>
+                    <span class="jukebox-track-name" id="strudel-status">Ready</span>
+                  </div>
+                  
+                  <!-- Strudel Controls -->
+                  <div class="jukebox-controls">
+                    <button class="jukebox-btn" id="strudel-play" title="Play (Ctrl+Enter)">▶</button>
+                    <button class="jukebox-btn" id="strudel-pause" title="Pause (N/A)" disabled style="opacity: 0.25;">⏸</button>
+                    <button class="jukebox-btn" id="strudel-stop" title="Stop" disabled>⏹</button>
+                  </div>
+                  
+                  <!-- Volume -->
+                  <div class="jukebox-volume">
+                    <span>🔊</span>
+                    <input type="range" id="strudel-volume" min="0" max="100" value="70">
+                  </div>
+                  
+                  <!-- Preset Patterns -->
+                  <div class="strudel-presets">
+                    <span class="strudel-preset-label">Presets:</span>
+                    <button class="strudel-preset" data-code="s('bd sd hh sd')">Basic</button>
+                    <button class="strudel-preset" data-code="s('bd*2, hh*4, ~ sd')">Drums</button>
+                    <button class="strudel-preset" data-code="note('c3 e3 g3 b3').s('sawtooth').cutoff(800)">Synth</button>
+                    <button class="strudel-preset" data-code="s('bd sd hh sd').jux(rev)">Jux</button>
+                  </div>
+                </div>
+                
+                <!-- Strudel Code Editor (scrollable area) -->
+                <div class="jukebox-scroll-area">
+                  <div class="strudel-editor-container">
+                    <textarea id="strudel-code" placeholder="// Strudel live coding - press Ctrl+Enter to play&#10;// Try: s('bd sd hh sd')&#10;// Or: note('c3 e3 g3').s('sawtooth')">s("bd sd hh sd")</textarea>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Status -->
+              <div class="jukebox-status" id="jukebox-status"></div>
+            </div>
+        </div><!-- /jukebox-content -->
         <div class="docs-content hidden" id="reference-content">
           <div id="book-container"></div>
         </div>
@@ -9484,20 +9906,97 @@
     }
     
     // Check for Electron FF1 bridge
+    let ff1BridgeDetected = false;
+    let ff1BridgePollingInterval = null;
+    
     async function checkFF1Bridge() {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 2000);
-        const response = await fetch('http://127.0.0.1:19999/status', { signal: controller.signal });
+        // Use mode: 'no-cors' won't work, so just catch silently
+        const response = await fetch('http://127.0.0.1:19999/status', { 
+          signal: controller.signal,
+          // Prevent preflight which causes extra console noise
+          headers: { 'Accept': 'application/json' }
+        });
         clearTimeout(timeout);
         if (response.ok) {
           const data = await response.json();
           return { available: data.ok === true, ...data };
         }
       } catch (e) {
-        // Bridge not running
+        // Bridge not running - this is expected, suppress silently
       }
       return { available: false };
+    }
+    
+    // Auto-detect FF1 bridge when desktop app starts
+    function startFF1BridgePolling() {
+      if (ff1BridgePollingInterval) return; // Already polling
+      
+      ff1BridgePollingInterval = setInterval(async () => {
+        const bridge = await checkFF1Bridge();
+        
+        if (bridge.available && !ff1BridgeDetected) {
+          // Desktop app just connected!
+          ff1BridgeDetected = true;
+          onFF1BridgeConnected();
+        } else if (!bridge.available && ff1BridgeDetected) {
+          // Desktop app disconnected
+          ff1BridgeDetected = false;
+          onFF1BridgeDisconnected();
+        }
+      }, 3000); // Check every 3 seconds
+    }
+    
+    function stopFF1BridgePolling() {
+      if (ff1BridgePollingInterval) {
+        clearInterval(ff1BridgePollingInterval);
+        ff1BridgePollingInterval = null;
+      }
+    }
+    
+    async function onFF1BridgeConnected() {
+      const bridgeStatusEl = document.getElementById('ff1-bridge-status');
+      const noBridgeEl = document.getElementById('ff1-no-bridge');
+      const testBtn = document.getElementById('ff1-test-btn');
+      const statusEl = document.getElementById('ff1-status');
+      
+      if (bridgeStatusEl) bridgeStatusEl.style.display = 'flex';
+      if (noBridgeEl) noBridgeEl.style.display = 'none';
+      if (testBtn) testBtn.style.display = 'inline-block';
+      if (statusEl) {
+        statusEl.textContent = '✓ Desktop app connected';
+        statusEl.className = 'ff1-status success';
+      }
+      
+      // Discover devices
+      const devices = await discoverFF1Devices();
+      updateFF1DeviceList(devices);
+      
+      showToast('FF1 Desktop app detected!', 'success');
+    }
+    
+    function onFF1BridgeDisconnected() {
+      const bridgeStatusEl = document.getElementById('ff1-bridge-status');
+      const noBridgeEl = document.getElementById('ff1-no-bridge');
+      const statusEl = document.getElementById('ff1-status');
+      const downloadBtn = document.getElementById('ff1-download-btn');
+      const pairBtn = document.getElementById('ff1-pair-btn');
+      
+      if (bridgeStatusEl) bridgeStatusEl.style.display = 'none';
+      if (noBridgeEl) noBridgeEl.style.display = 'flex';
+      if (statusEl) statusEl.textContent = 'Desktop app not detected';
+      if (downloadBtn) downloadBtn.style.display = 'inline-block';
+      if (pairBtn) pairBtn.style.display = 'inline-block';
+      
+      // If already paired via QR, restore that status
+      if (ff1Config.relayTopicId && statusEl) {
+        statusEl.textContent = '✓ Paired (cloud relay)';
+        statusEl.className = 'ff1-status success';
+      }
+      
+      showToast('FF1 Desktop app disconnected', 'info');
     }
 
     // Discover FF1 devices via Electron bridge
@@ -9559,6 +10058,7 @@
       
       if (bridge.available) {
         // Desktop app is running!
+        ff1BridgeDetected = true;
         if (bridgeStatusEl) bridgeStatusEl.style.display = 'flex';
         if (noBridgeEl) noBridgeEl.style.display = 'none';
         if (testBtn) testBtn.style.display = 'inline-block';
@@ -9576,6 +10076,7 @@
         });
       } else {
         // No desktop app - show download link
+        ff1BridgeDetected = false;
         if (bridgeStatusEl) bridgeStatusEl.style.display = 'none';
         if (noBridgeEl) noBridgeEl.style.display = 'flex';
         if (statusEl) statusEl.textContent = 'Desktop app not detected';
@@ -9590,6 +10091,9 @@
           if (pairBtn) pairBtn.textContent = 'Re-pair';
         }
       }
+      
+      // Start polling for bridge connection/disconnection
+      startFF1BridgePolling();
       
       if (testBtn) testBtn.addEventListener('click', testFF1Connection);
       if (pairBtn) pairBtn.addEventListener('click', toggleFF1Pairing);
@@ -18226,10 +18730,12 @@
     const referenceContent = document.getElementById('reference-content');
     const guideContent = document.getElementById('guide-content');
     const listContent = document.getElementById('list-content');
+    const jukeboxContent = document.getElementById('jukebox-content');
     const mobileConsoleContent = document.getElementById('mobile-console-content');
     const codeTab = document.getElementById('reference-tab');
     const guideTab = document.getElementById('guide-tab');
     const listTab = document.getElementById('list-tab');
+    const jukeboxTab = document.getElementById('jukebox-tab');
     const consoleTab = document.getElementById('console-tab');
     let examplesLoaded = false;
     let recentLoaded = false;
@@ -18240,6 +18746,7 @@
       referenceContent?.classList.add('hidden');
       guideContent?.classList.add('hidden');
       listContent?.classList.add('hidden');
+      jukeboxContent?.classList.add('hidden');
       mobileConsoleContent?.classList.add('hidden');
     }
     
@@ -18248,6 +18755,7 @@
       codeTab?.classList.remove('active');
       guideTab?.classList.remove('active');
       listTab?.classList.remove('active');
+      jukeboxTab?.classList.remove('active');
       consoleTab?.classList.remove('active');
     }
     
@@ -18351,6 +18859,19 @@
         listTab.classList.add('active');
         listContent.classList.remove('hidden');
         showListSubtab(currentListSubtab);
+        expandReferencePanelOnMobile();
+      });
+      
+      // Jukebox tab - shows audio player and Strudel
+      jukeboxTab?.addEventListener('click', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        log.tabs.debug('Jukebox tab');
+        
+        deactivateAllTabs();
+        hideAllTabContents();
+        jukeboxTab.classList.add('active');
+        jukeboxContent.classList.remove('hidden');
         expandReferencePanelOnMobile();
       });
       
@@ -23130,6 +23651,527 @@
     
     // Start connection on page load
     connectToSessionServer();
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🎵 Jukebox - Audio player with real-time analysis for KidLisp
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const JUKEBOX_ASSET_BASE = 'https://aesthetic.computer/assets/oskie/wipppps/';
+    
+    let jukeboxAudioContext = null;
+    let jukeboxAudioElement = null;
+    let jukeboxGainNode = null;
+    let jukeboxAnalyser = null;
+    let jukeboxSource = null;
+    let jukeboxAnimationFrame = null;
+    let jukeboxCurrentTrack = null;
+    let jukeboxIsPlaying = false;
+    let jukeboxEnergyHistory = [];
+    const JUKEBOX_ENERGY_HISTORY_SIZE = 20;
+    const JUKEBOX_BEAT_SENSITIVITY = 1.15;
+    const JUKEBOX_BEAT_COOLDOWN = 80;
+    let jukeboxLastBeatTime = 0;
+    let jukeboxCurrentBeat = false;
+    
+    function initJukebox() {
+      const playBtn = document.getElementById('jukebox-play');
+      const pauseBtn = document.getElementById('jukebox-pause');
+      const stopBtn = document.getElementById('jukebox-stop');
+      const seekSlider = document.getElementById('jukebox-seek');
+      const volumeSlider = document.getElementById('jukebox-volume');
+      const trackList = document.getElementById('jukebox-tracklist');
+      
+      if (!playBtn || !trackList) return;
+      
+      trackList.addEventListener('click', (e) => {
+        const trackEl = e.target.closest('.jukebox-track');
+        if (trackEl) loadJukeboxTrack(trackEl.dataset.track);
+      });
+      
+      playBtn.addEventListener('click', () => {
+        if (jukeboxAudioElement?.src) playJukebox();
+        else if (jukeboxCurrentTrack) loadJukeboxTrack(jukeboxCurrentTrack);
+      });
+      pauseBtn.addEventListener('click', pauseJukebox);
+      stopBtn.addEventListener('click', stopJukebox);
+      
+      seekSlider.addEventListener('input', (e) => {
+        if (jukeboxAudioElement?.duration) {
+          jukeboxAudioElement.currentTime = (e.target.value / 100) * jukeboxAudioElement.duration;
+        }
+      });
+      
+      volumeSlider.addEventListener('input', (e) => {
+        const vol = e.target.value / 100;
+        if (jukeboxGainNode) jukeboxGainNode.gain.value = vol;
+        if (jukeboxAudioElement) jukeboxAudioElement.volume = vol;
+      });
+    }
+    
+    async function initJukeboxAudio() {
+      if (jukeboxAudioContext) return;
+      jukeboxAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      jukeboxAudioElement = new Audio();
+      jukeboxAudioElement.crossOrigin = 'anonymous';
+      jukeboxSource = jukeboxAudioContext.createMediaElementSource(jukeboxAudioElement);
+      jukeboxGainNode = jukeboxAudioContext.createGain();
+      jukeboxAnalyser = jukeboxAudioContext.createAnalyser();
+      jukeboxAnalyser.fftSize = 512;
+      jukeboxSource.connect(jukeboxGainNode);
+      jukeboxGainNode.connect(jukeboxAnalyser);
+      jukeboxAnalyser.connect(jukeboxAudioContext.destination);
+      const vol = document.getElementById('jukebox-volume');
+      if (vol) jukeboxGainNode.gain.value = vol.value / 100;
+      jukeboxAudioElement.addEventListener('timeupdate', updateJukeboxProgress);
+      jukeboxAudioElement.addEventListener('ended', stopJukebox);
+      jukeboxAudioElement.addEventListener('loadedmetadata', () => {
+        updateJukeboxTime();
+        document.getElementById('jukebox-seek').disabled = false;
+      });
+    }
+    
+    async function loadJukeboxTrack(trackFile) {
+      await initJukeboxAudio();
+      if (jukeboxAudioContext.state === 'suspended') await jukeboxAudioContext.resume();
+      jukeboxCurrentTrack = trackFile;
+      document.getElementById('jukebox-track-name').textContent = trackFile.replace('.wav', '').replace('_master', '');
+      document.getElementById('jukebox-status').textContent = 'Loading...';
+      document.querySelectorAll('.jukebox-track').forEach(el => {
+        el.classList.toggle('playing', el.dataset.track === trackFile);
+      });
+      jukeboxAudioElement.src = JUKEBOX_ASSET_BASE + trackFile;
+      await jukeboxAudioElement.load();
+      playJukebox();
+    }
+    
+    function playJukebox() {
+      if (!jukeboxAudioElement) return;
+      jukeboxAudioElement.play().then(() => {
+        jukeboxIsPlaying = true;
+        document.getElementById('jukebox-play').disabled = true;
+        document.getElementById('jukebox-pause').disabled = false;
+        document.getElementById('jukebox-stop').disabled = false;
+        document.getElementById('jukebox-status').textContent = 'Playing';
+        startJukeboxAnalysis();
+      });
+    }
+    
+    function pauseJukebox() {
+      if (!jukeboxAudioElement) return;
+      jukeboxAudioElement.pause();
+      jukeboxIsPlaying = false;
+      document.getElementById('jukebox-play').disabled = false;
+      document.getElementById('jukebox-pause').disabled = true;
+      document.getElementById('jukebox-status').textContent = 'Paused';
+      stopJukeboxAnalysis();
+    }
+    
+    function stopJukebox() {
+      if (!jukeboxAudioElement) return;
+      jukeboxAudioElement.pause();
+      jukeboxAudioElement.currentTime = 0;
+      jukeboxIsPlaying = false;
+      document.getElementById('jukebox-play').disabled = false;
+      document.getElementById('jukebox-pause').disabled = true;
+      document.getElementById('jukebox-stop').disabled = true;
+      document.getElementById('jukebox-seek').value = 0;
+      document.getElementById('jukebox-status').textContent = 'Stopped';
+      stopJukeboxAnalysis();
+      document.getElementById('jukebox-amp-meter').style.width = '0%';
+      document.getElementById('jukebox-amp-value').textContent = '0.0';
+      document.getElementById('jukebox-kick-indicator').classList.remove('active');
+      document.querySelectorAll('.jukebox-track').forEach(el => el.classList.remove('playing'));
+    }
+    
+    function updateJukeboxProgress() {
+      if (!jukeboxAudioElement?.duration) return;
+      document.getElementById('jukebox-seek').value = (jukeboxAudioElement.currentTime / jukeboxAudioElement.duration) * 100;
+      updateJukeboxTime();
+    }
+    
+    function updateJukeboxTime() {
+      if (!jukeboxAudioElement) return;
+      const fmt = (s) => !isFinite(s) ? '0:00' : `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}`;
+      document.getElementById('jukebox-time').textContent = `${fmt(jukeboxAudioElement.currentTime)} / ${fmt(jukeboxAudioElement.duration || 0)}`;
+    }
+    
+    function startJukeboxAnalysis() {
+      if (jukeboxAnimationFrame) return;
+      const freqData = new Uint8Array(jukeboxAnalyser.frequencyBinCount);
+      const timeData = new Uint8Array(jukeboxAnalyser.fftSize);
+      const sampleRate = jukeboxAudioContext.sampleRate;
+      const binFreq = sampleRate / jukeboxAnalyser.fftSize;
+      
+      // Helper to get average energy in a frequency range
+      function getBandEnergy(minHz, maxHz) {
+        const startBin = Math.floor(minHz / binFreq);
+        const endBin = Math.min(Math.floor(maxHz / binFreq), freqData.length - 1);
+        let sum = 0;
+        for (let i = startBin; i <= endBin; i++) sum += freqData[i];
+        return (endBin > startBin) ? (sum / (endBin - startBin + 1)) / 255 : 0;
+      }
+      
+      function analyze() {
+        if (!jukeboxIsPlaying) return;
+        jukeboxAnalyser.getByteFrequencyData(freqData);
+        jukeboxAnalyser.getByteTimeDomainData(timeData);
+        
+        let sum = 0;
+        for (let i = 0; i < timeData.length; i++) {
+          const n = (timeData[i] - 128) / 128;
+          sum += n * n;
+        }
+        const amp = Math.min(10, Math.sqrt(sum / timeData.length) * 15);
+        
+        // Calculate frequency bands (0-1 scale)
+        const bass = getBandEnergy(20, 250);       // Bass (kick, bass guitar)
+        const mid = getBandEnergy(250, 2000);      // Mids (vocals, snare)
+        const treble = getBandEnergy(2000, 20000); // Treble (hi-hats, cymbals)
+        const highMid = getBandEnergy(1000, 4000); // High-mids (guitar presence)
+        const presence = getBandEnergy(2500, 5000); // Presence (clarity)
+        
+        const bassEnd = Math.floor(250 * jukeboxAnalyser.fftSize / sampleRate);
+        let bassEnergy = 0;
+        for (let i = 0; i < Math.min(bassEnd, freqData.length); i++) bassEnergy += freqData[i] * freqData[i];
+        bassEnergy = Math.sqrt(bassEnergy / bassEnd) / 255;
+        
+        jukeboxEnergyHistory.push(bassEnergy);
+        if (jukeboxEnergyHistory.length > JUKEBOX_ENERGY_HISTORY_SIZE) jukeboxEnergyHistory.shift();
+        
+        let kick = 0;
+        if (jukeboxEnergyHistory.length >= JUKEBOX_ENERGY_HISTORY_SIZE) {
+          const avg = jukeboxEnergyHistory.reduce((a,b)=>a+b,0) / jukeboxEnergyHistory.length;
+          const now = performance.now();
+          if (bassEnergy > avg * JUKEBOX_BEAT_SENSITIVITY && now - jukeboxLastBeatTime > JUKEBOX_BEAT_COOLDOWN) {
+            kick = 1;
+            jukeboxLastBeatTime = now;
+            jukeboxCurrentBeat = true;
+          } else if (now - jukeboxLastBeatTime > 50) {
+            jukeboxCurrentBeat = false;
+          }
+        }
+        
+        document.getElementById('jukebox-amp-meter').style.width = `${(amp/10)*100}%`;
+        document.getElementById('jukebox-amp-value').textContent = amp.toFixed(1);
+        document.getElementById('jukebox-kick-indicator').classList.toggle('active', jukeboxCurrentBeat);
+        
+        const audioData = { amp, leftAmp: amp, rightAmp: amp, beat: kick, kick, bass, mid, treble, highMid, presence };
+        sendJukeboxAudioToPreview(audioData);
+        broadcastJukeboxAudioToPJ(audioData);
+        
+        jukeboxAnimationFrame = requestAnimationFrame(analyze);
+      }
+      analyze();
+    }
+    
+    function stopJukeboxAnalysis() {
+      if (jukeboxAnimationFrame) {
+        cancelAnimationFrame(jukeboxAnimationFrame);
+        jukeboxAnimationFrame = null;
+      }
+      jukeboxEnergyHistory = [];
+    }
+    
+    function sendJukeboxAudioToPreview(audioData) {
+      if (iframeReady && previewIframe?.contentWindow) {
+        previewIframe.contentWindow.postMessage({ type: 'kidlisp-audio', data: audioData }, aestheticUrl);
+      }
+    }
+    
+    function broadcastJukeboxAudioToPJ(audioData) {
+      if (!codeChannelId) return;
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          const bc = new BroadcastChannel(`kidlisp-channel-${codeChannelId}`);
+          bc.postMessage({ type: 'audio-data', channelId: codeChannelId, data: audioData, timestamp: Date.now() });
+          bc.close();
+        } catch (e) {}
+      }
+      if (sessionWs?.readyState === WebSocket.OPEN) {
+        sessionWs.send(JSON.stringify({ type: 'audio', content: { codeChannel: codeChannelId, ...audioData, timestamp: Date.now() } }));
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🌀 Strudel Integration - Live coding patterns with audio analysis
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    let strudelLoaded = false;
+    let strudelPlaying = false;
+    let strudelAudioContext = null;
+    let strudelAnalyser = null;
+    let strudelGainNode = null;
+    let strudelAnimationFrame = null;
+    let strudelEnergyHistory = [];
+    let strudelRepl = null; // Store reference to Strudel repl for stop functionality
+    
+    async function loadStrudel() {
+      if (strudelLoaded) return true;
+      document.getElementById('strudel-status').textContent = 'Loading Strudel...';
+      
+      try {
+        // Load @strudel/web from CDN
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/@strudel/web@1.3.0';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+        
+        // Create our own AudioContext with analyser
+        strudelAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        strudelAnalyser = strudelAudioContext.createAnalyser();
+        strudelAnalyser.fftSize = 512;
+        strudelGainNode = strudelAudioContext.createGain();
+        
+        // Initialize Strudel with sample loading - returns the repl
+        strudelRepl = await window.initStrudel({
+          prebake: () => window.samples('github:tidalcycles/dirt-samples'),
+        });
+        
+        strudelLoaded = true;
+        document.getElementById('strudel-status').textContent = 'Ready';
+        return true;
+      } catch (err) {
+        console.error('Failed to load Strudel:', err);
+        document.getElementById('strudel-status').textContent = 'Failed to load';
+        return false;
+      }
+    }
+    
+    async function playStrudel() {
+      if (!await loadStrudel()) return;
+      
+      if (strudelAudioContext?.state === 'suspended') {
+        await strudelAudioContext.resume();
+      }
+      
+      let code = document.getElementById('strudel-code').value.trim();
+      if (!code) {
+        document.getElementById('strudel-status').textContent = 'Enter code first';
+        return;
+      }
+      
+      // Stop samples if playing
+      stopJukebox();
+      
+      // Auto-inject .analyze(1) for audio analysis if not already present
+      if (!code.includes('.analyze(') && !code.includes('analyze(')) {
+        // Append .analyze(1) to route audio through analyser
+        // Handle common patterns: s(...), note(...), sound(...)
+        code = code.replace(/\.play\(\s*\)/, '.analyze(1).play()');
+        // If no .play(), try appending analyze before final pattern
+        if (!code.includes('.analyze(')) {
+          code = code + '.analyze(1)';
+        }
+      }
+      
+      try {
+        // Evaluate and play the pattern
+        await window.evaluate(code, true);
+        strudelPlaying = true;
+        document.getElementById('strudel-play').disabled = true;
+        document.getElementById('strudel-stop').disabled = false;
+        document.getElementById('strudel-status').textContent = 'Playing';
+        startStrudelAnalysis();
+      } catch (err) {
+        console.error('Strudel error:', err);
+        document.getElementById('strudel-status').textContent = `Error: ${err.message}`;
+      }
+    }
+    
+    function stopStrudel() {
+      // Try multiple ways to stop Strudel
+      try {
+        // Method 1: Use the repl's stop method
+        if (strudelRepl?.stop) {
+          strudelRepl.stop();
+        }
+        // Method 2: Try window.hush (may be available in some builds)
+        if (window.hush) {
+          window.hush();
+        }
+        // Method 3: Try to stop the scheduler directly
+        if (strudelRepl?.scheduler?.stop) {
+          strudelRepl.scheduler.stop();
+        }
+      } catch (e) {
+        console.warn('Strudel stop error:', e);
+      }
+      
+      strudelPlaying = false;
+      document.getElementById('strudel-play').disabled = false;
+      document.getElementById('strudel-stop').disabled = true;
+      document.getElementById('strudel-status').textContent = 'Stopped';
+      stopStrudelAnalysis();
+      document.getElementById('jukebox-amp-meter').style.width = '0%';
+      document.getElementById('jukebox-amp-value').textContent = '0.0';
+      document.getElementById('jukebox-kick-indicator').classList.remove('active');
+    }
+    
+    function startStrudelAnalysis() {
+      if (strudelAnimationFrame) return;
+      
+      // Use Strudel's AudioContext
+      const ctx = window.getAudioContext?.();
+      if (!ctx) {
+        console.warn('Strudel AudioContext not available');
+        return;
+      }
+      
+      // Get Strudel's analyser (created by .analyze(1) in the pattern)
+      let analyser = null;
+      try {
+        if (window.getAnalyserById) {
+          analyser = window.getAnalyserById(1, 512, 0.5);
+        }
+      } catch (e) {
+        console.warn('Failed to get Strudel analyser:', e);
+      }
+      
+      if (!analyser) {
+        console.warn('No analyser available - make sure pattern includes .analyze(1)');
+        return;
+      }
+      
+      const freqData = new Uint8Array(analyser.frequencyBinCount);
+      const timeData = new Uint8Array(analyser.fftSize);
+      const sampleRate = ctx.sampleRate || 44100;
+      const binFreq = sampleRate / analyser.fftSize;
+      
+      function getBandEnergy(minHz, maxHz) {
+        const startBin = Math.floor(minHz / binFreq);
+        const endBin = Math.min(Math.floor(maxHz / binFreq), freqData.length - 1);
+        let sum = 0;
+        for (let i = startBin; i <= endBin; i++) sum += freqData[i];
+        return (endBin > startBin) ? (sum / (endBin - startBin + 1)) / 255 : 0;
+      }
+      
+      function analyze() {
+        if (!strudelPlaying) return;
+        
+        try {
+          analyser.getByteFrequencyData(freqData);
+          analyser.getByteTimeDomainData(timeData);
+        } catch (e) {
+          strudelAnimationFrame = requestAnimationFrame(analyze);
+          return;
+        }
+        
+        let sum = 0;
+        for (let i = 0; i < timeData.length; i++) {
+          const n = (timeData[i] - 128) / 128;
+          sum += n * n;
+        }
+        const amp = Math.min(10, Math.sqrt(sum / timeData.length) * 15);
+        
+        const bass = getBandEnergy(20, 250);
+        const mid = getBandEnergy(250, 2000);
+        const treble = getBandEnergy(2000, 20000);
+        const highMid = getBandEnergy(1000, 4000);
+        const presence = getBandEnergy(2500, 5000);
+        
+        const bassEnd = Math.floor(250 * analyser.fftSize / sampleRate);
+        let bassEnergy = 0;
+        for (let i = 0; i < Math.min(bassEnd, freqData.length); i++) bassEnergy += freqData[i] * freqData[i];
+        bassEnergy = Math.sqrt(bassEnergy / bassEnd) / 255;
+        
+        strudelEnergyHistory.push(bassEnergy);
+        if (strudelEnergyHistory.length > JUKEBOX_ENERGY_HISTORY_SIZE) strudelEnergyHistory.shift();
+        
+        let kick = 0;
+        if (strudelEnergyHistory.length >= JUKEBOX_ENERGY_HISTORY_SIZE) {
+          const avg = strudelEnergyHistory.reduce((a,b)=>a+b,0) / strudelEnergyHistory.length;
+          const now = performance.now();
+          if (bassEnergy > avg * JUKEBOX_BEAT_SENSITIVITY && now - jukeboxLastBeatTime > JUKEBOX_BEAT_COOLDOWN) {
+            kick = 1;
+            jukeboxLastBeatTime = now;
+            jukeboxCurrentBeat = true;
+          } else if (now - jukeboxLastBeatTime > 50) {
+            jukeboxCurrentBeat = false;
+          }
+        }
+        
+        document.getElementById('jukebox-amp-meter').style.width = `${(amp/10)*100}%`;
+        document.getElementById('jukebox-amp-value').textContent = amp.toFixed(1);
+        document.getElementById('jukebox-kick-indicator').classList.toggle('active', jukeboxCurrentBeat);
+        
+        const audioData = { amp, leftAmp: amp, rightAmp: amp, beat: kick, kick, bass, mid, treble, highMid, presence };
+        sendJukeboxAudioToPreview(audioData);
+        broadcastJukeboxAudioToPJ(audioData);
+        
+        strudelAnimationFrame = requestAnimationFrame(analyze);
+      }
+      analyze();
+    }
+    
+    function stopStrudelAnalysis() {
+      if (strudelAnimationFrame) {
+        cancelAnimationFrame(strudelAnimationFrame);
+        strudelAnimationFrame = null;
+      }
+      strudelEnergyHistory = [];
+    }
+    
+    function initStrudelUI() {
+      // Mode tab switching
+      document.querySelectorAll('.jukebox-mode-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const mode = tab.dataset.mode;
+          document.querySelectorAll('.jukebox-mode-tab').forEach(t => t.classList.toggle('active', t === tab));
+          document.getElementById('jukebox-samples-mode').classList.toggle('hidden', mode !== 'samples');
+          document.getElementById('jukebox-strudel-mode').classList.toggle('hidden', mode !== 'strudel');
+          
+          // Stop other mode when switching
+          if (mode === 'samples' && strudelPlaying) stopStrudel();
+          if (mode === 'strudel' && jukeboxIsPlaying) stopJukebox();
+        });
+      });
+      
+      // Strudel controls
+      document.getElementById('strudel-play')?.addEventListener('click', playStrudel);
+      document.getElementById('strudel-stop')?.addEventListener('click', stopStrudel);
+      
+      // Volume control
+      document.getElementById('strudel-volume')?.addEventListener('input', (e) => {
+        const vol = e.target.value / 100;
+        if (strudelGainNode) strudelGainNode.gain.value = vol;
+        // Also try to set Strudel's internal gain if available
+        try {
+          if (window.getAudioContext) {
+            const ctx = window.getAudioContext();
+            // Strudel uses destination directly, so we can't easily control volume
+          }
+        } catch (e) {}
+      });
+      
+      // Preset buttons
+      document.querySelectorAll('.strudel-preset').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const code = btn.dataset.code;
+          document.getElementById('strudel-code').value = code;
+        });
+      });
+      
+      // Keyboard shortcut: Ctrl/Cmd+Enter to play
+      document.getElementById('strudel-code')?.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          playStrudel();
+        }
+      });
+    }
+    
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        initJukebox();
+        initStrudelUI();
+      });
+    } else {
+      initJukebox();
+      initStrudelUI();
+    }
   </script>
   
   <!-- Slide mode overlays -->
