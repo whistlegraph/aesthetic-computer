@@ -520,8 +520,6 @@ class SpeakerProcessor extends AudioWorkletProcessor {
             pan: msg.data.pan || 0,
           });
 
-          console.log("🔊 Synth created:", msg.data.id, "label:", synthOptions.label, "loop:", synthOptions.loop, "duration:", duration, "volume:", msg.data.volume, "queue length:", this.#queue.length + 1);
-
           // if (duration === Infinity && msg.data.id > -1n) {
           this.#running[msg.data.id] = sound; // Index by the unique id.
           // }
