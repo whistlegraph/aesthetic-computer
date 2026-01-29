@@ -3945,15 +3945,36 @@
     #jukebox-content {
       padding: 0;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
     }
     
     .jukebox-panel {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      padding: 12px;
+      gap: 0;
+      padding: 0;
       height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+    
+    /* Jukebox fixed controls area */
+    .jukebox-controls-area {
+      flex-shrink: 0;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-bottom: 1px solid rgba(236, 72, 153, 0.2);
+    }
+    
+    /* Jukebox scrollable content area */
+    .jukebox-scroll-area {
+      flex: 1;
       overflow-y: auto;
+      padding: 8px 12px 12px;
+      min-height: 0;
     }
     .jukebox-now-playing {
       display: flex;
@@ -4088,12 +4109,9 @@
       box-shadow: 0 0 8px #ec4899;
     }
     .jukebox-tracklist {
-      flex: 1;
       display: flex;
       flex-direction: column;
       gap: 4px;
-      overflow-y: auto;
-      min-height: 100px;
     }
     .jukebox-track {
       padding: 8px 12px;
@@ -4142,35 +4160,41 @@
       background: linear-gradient(to bottom, #ec4899, #be185d);
       color: white;
     }
-    .jukebox-mode-content { display: flex; flex-direction: column; gap: 12px; }
+    .jukebox-mode-content { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
     .jukebox-mode-content.hidden { display: none; }
     
     /* Strudel Editor */
     .strudel-editor-container {
       flex: 1;
-      min-height: 120px;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
     }
     #strudel-code {
       width: 100%;
-      height: 100%;
-      min-height: 120px;
-      padding: 10px;
+      flex: 1;
+      min-height: 100px;
+      padding: 12px;
       border: 1px solid rgba(236, 72, 153, 0.3);
-      border-radius: 6px;
-      background: rgba(0, 0, 0, 0.15);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.25);
       color: inherit;
       font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
-      font-size: 12px;
-      line-height: 1.5;
-      resize: vertical;
+      font-size: 13px;
+      line-height: 1.6;
+      resize: none;
+      box-sizing: border-box;
     }
     #strudel-code:focus {
       outline: none;
       border-color: #ec4899;
-      box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.2);
+      box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.25);
+    }
+    #strudel-code::placeholder {
+      color: rgba(236, 72, 153, 0.4);
     }
     [data-theme="dark"] #strudel-code {
-      background: rgba(0, 0, 0, 0.3);
+      background: rgba(0, 0, 0, 0.4);
     }
     
     /* Strudel Presets */
@@ -9060,99 +9084,108 @@
         </div><!-- /list-content -->
         <div class="docs-content hidden" id="jukebox-content">
             <div class="jukebox-panel">
-              <!-- Mode Tabs -->
-              <div class="jukebox-mode-tabs">
-                <button class="jukebox-mode-tab active" data-mode="samples">🎵 Samples</button>
-                <button class="jukebox-mode-tab" data-mode="strudel">🌀 Strudel</button>
+              <!-- Mode Tabs + Meters (always visible at top) -->
+              <div class="jukebox-controls-area">
+                <div class="jukebox-mode-tabs">
+                  <button class="jukebox-mode-tab active" data-mode="samples">🎵 Samples</button>
+                  <button class="jukebox-mode-tab" data-mode="strudel">🌀 Strudel</button>
+                </div>
+                
+                <!-- Audio Meters (shared, always visible) -->
+                <div class="jukebox-meters">
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">amp</span>
+                    <div class="jukebox-meter-bar"><div class="jukebox-meter-fill" id="jukebox-amp-meter"></div></div>
+                    <span class="jukebox-meter-value" id="jukebox-amp-value">0.0</span>
+                  </div>
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">kick</span>
+                    <div class="jukebox-beat-indicator" id="jukebox-kick-indicator"></div>
+                  </div>
+                </div>
               </div>
               
               <!-- Samples Mode -->
               <div class="jukebox-mode-content" id="jukebox-samples-mode">
-                <!-- Now Playing -->
-                <div class="jukebox-now-playing">
-                  <span class="jukebox-track-icon">🎵</span>
-                  <span class="jukebox-track-name" id="jukebox-track-name">Select a track</span>
+                <div class="jukebox-controls-area" style="border-bottom: none; padding-top: 0;">
+                  <!-- Now Playing -->
+                  <div class="jukebox-now-playing">
+                    <span class="jukebox-track-icon">🎵</span>
+                    <span class="jukebox-track-name" id="jukebox-track-name">Select a track</span>
+                  </div>
+                  
+                  <!-- Player Controls -->
+                  <div class="jukebox-controls">
+                    <button class="jukebox-btn" id="jukebox-play" title="Play">▶</button>
+                    <button class="jukebox-btn" id="jukebox-pause" title="Pause" disabled>⏸</button>
+                    <button class="jukebox-btn" id="jukebox-stop" title="Stop" disabled>⏹</button>
+                  </div>
+                  
+                  <!-- Progress Bar -->
+                  <div class="jukebox-progress">
+                    <input type="range" id="jukebox-seek" min="0" max="100" value="0" disabled>
+                    <span class="jukebox-time" id="jukebox-time">0:00 / 0:00</span>
+                  </div>
+                  
+                  <!-- Volume -->
+                  <div class="jukebox-volume">
+                    <span>🔊</span>
+                    <input type="range" id="jukebox-volume" min="0" max="100" value="70">
+                  </div>
                 </div>
                 
-                <!-- Player Controls -->
-                <div class="jukebox-controls">
-                  <button class="jukebox-btn" id="jukebox-play" title="Play">▶</button>
-                  <button class="jukebox-btn" id="jukebox-pause" title="Pause" disabled>⏸</button>
-                  <button class="jukebox-btn" id="jukebox-stop" title="Stop" disabled>⏹</button>
-                </div>
-                
-                <!-- Progress Bar -->
-                <div class="jukebox-progress">
-                  <input type="range" id="jukebox-seek" min="0" max="100" value="0" disabled>
-                  <span class="jukebox-time" id="jukebox-time">0:00 / 0:00</span>
-                </div>
-                
-                <!-- Volume -->
-                <div class="jukebox-volume">
-                  <span>🔊</span>
-                  <input type="range" id="jukebox-volume" min="0" max="100" value="70">
-                </div>
-                
-                <!-- Track List -->
-                <div class="jukebox-tracklist" id="jukebox-tracklist">
-                  <div class="jukebox-track" data-track="zzzZWAP.wav">zzzZWAP</div>
-                  <div class="jukebox-track" data-track="ARrrGh.wav">ARrrGh</div>
-                  <div class="jukebox-track" data-track="BLuRP.wav">BLuRP</div>
-                  <div class="jukebox-track" data-track="GrRr.wav">GrRr</div>
-                  <div class="jukebox-track" data-track="HoNK.wav">HoNK</div>
-                  <div class="jukebox-track" data-track="KLOnK.wav">KLOnK</div>
-                  <div class="jukebox-track" data-track="PaFf_master.wav">PaFf</div>
-                  <div class="jukebox-track" data-track="WHoOSh.wav">WHoOSh</div>
+                <!-- Track List (scrollable) -->
+                <div class="jukebox-scroll-area">
+                  <div class="jukebox-tracklist" id="jukebox-tracklist">
+                    <div class="jukebox-track" data-track="zzzZWAP.wav">zzzZWAP</div>
+                    <div class="jukebox-track" data-track="ARrrGh.wav">ARrrGh</div>
+                    <div class="jukebox-track" data-track="BLuRP.wav">BLuRP</div>
+                    <div class="jukebox-track" data-track="GrRr.wav">GrRr</div>
+                    <div class="jukebox-track" data-track="HoNK.wav">HoNK</div>
+                    <div class="jukebox-track" data-track="KLOnK.wav">KLOnK</div>
+                    <div class="jukebox-track" data-track="PaFf_master.wav">PaFf</div>
+                    <div class="jukebox-track" data-track="WHoOSh.wav">WHoOSh</div>
+                  </div>
                 </div>
               </div>
               
               <!-- Strudel Mode -->
               <div class="jukebox-mode-content hidden" id="jukebox-strudel-mode">
-                <!-- Strudel Status -->
-                <div class="jukebox-now-playing">
-                  <span class="jukebox-track-icon">🌀</span>
-                  <span class="jukebox-track-name" id="strudel-status">Ready</span>
+                <div class="jukebox-controls-area" style="border-bottom: none; padding-top: 0;">
+                  <!-- Strudel Status -->
+                  <div class="jukebox-now-playing">
+                    <span class="jukebox-track-icon">🌀</span>
+                    <span class="jukebox-track-name" id="strudel-status">Ready</span>
+                  </div>
+                  
+                  <!-- Strudel Controls -->
+                  <div class="jukebox-controls">
+                    <button class="jukebox-btn" id="strudel-play" title="Play (Ctrl+Enter)">▶</button>
+                    <button class="jukebox-btn" id="strudel-pause" title="Pause (N/A)" disabled style="opacity: 0.25;">⏸</button>
+                    <button class="jukebox-btn" id="strudel-stop" title="Stop" disabled>⏹</button>
+                  </div>
+                  
+                  <!-- Volume -->
+                  <div class="jukebox-volume">
+                    <span>🔊</span>
+                    <input type="range" id="strudel-volume" min="0" max="100" value="70">
+                  </div>
+                  
+                  <!-- Preset Patterns -->
+                  <div class="strudel-presets">
+                    <span class="strudel-preset-label">Presets:</span>
+                    <button class="strudel-preset" data-code="s('bd sd hh sd')">Basic</button>
+                    <button class="strudel-preset" data-code="s('bd*2, hh*4, ~ sd')">Drums</button>
+                    <button class="strudel-preset" data-code="note('c3 e3 g3 b3').s('sawtooth').cutoff(800)">Synth</button>
+                    <button class="strudel-preset" data-code="s('bd sd hh sd').jux(rev)">Jux</button>
+                  </div>
                 </div>
                 
-                <!-- Strudel Controls -->
-                <div class="jukebox-controls">
-                  <button class="jukebox-btn" id="strudel-play" title="Play">▶</button>
-                  <button class="jukebox-btn" id="strudel-pause" title="Pause (N/A for Strudel)" disabled style="opacity: 0.3; cursor: not-allowed;">⏸</button>
-                  <button class="jukebox-btn" id="strudel-stop" title="Stop" disabled>⏹</button>
-                </div>
-                
-                <!-- Volume -->
-                <div class="jukebox-volume">
-                  <span>🔊</span>
-                  <input type="range" id="strudel-volume" min="0" max="100" value="70">
-                </div>
-                
-                <!-- Strudel Code Editor -->
-                <div class="strudel-editor-container">
-                  <textarea id="strudel-code" placeholder="// Enter Strudel code...
-s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
-                </div>
-                
-                <!-- Preset Patterns -->
-                <div class="strudel-presets">
-                  <span class="strudel-preset-label">Presets:</span>
-                  <button class="strudel-preset" data-code="s('bd sd hh sd')">Basic</button>
-                  <button class="strudel-preset" data-code="s('bd*2, hh*4, ~ sd')">Drums</button>
-                  <button class="strudel-preset" data-code="note('c3 e3 g3 b3').s('sawtooth').cutoff(800)">Synth</button>
-                  <button class="strudel-preset" data-code="s('bd sd hh sd').jux(rev)">Jux</button>
-                </div>
-              </div>
-              
-              <!-- Audio Meters (shared) -->
-              <div class="jukebox-meters">
-                <div class="jukebox-meter-row">
-                  <span class="jukebox-meter-label">amp</span>
-                  <div class="jukebox-meter-bar"><div class="jukebox-meter-fill" id="jukebox-amp-meter"></div></div>
-                  <span class="jukebox-meter-value" id="jukebox-amp-value">0.0</span>
-                </div>
-                <div class="jukebox-meter-row">
-                  <span class="jukebox-meter-label">kick</span>
-                  <div class="jukebox-beat-indicator" id="jukebox-kick-indicator"></div>
+                <!-- Strudel Code Editor (scrollable area) -->
+                <div class="jukebox-scroll-area">
+                  <div class="strudel-editor-container">
+                    <textarea id="strudel-code" placeholder="// Strudel live coding - press Ctrl+Enter to play&#10;// Try: s('bd sd hh sd')&#10;// Or: note('c3 e3 g3').s('sawtooth')">s("bd sd hh sd")</textarea>
+                  </div>
                 </div>
               </div>
               
@@ -9880,14 +9913,19 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 2000);
-        const response = await fetch('http://127.0.0.1:19999/status', { signal: controller.signal });
+        // Use mode: 'no-cors' won't work, so just catch silently
+        const response = await fetch('http://127.0.0.1:19999/status', { 
+          signal: controller.signal,
+          // Prevent preflight which causes extra console noise
+          headers: { 'Accept': 'application/json' }
+        });
         clearTimeout(timeout);
         if (response.ok) {
           const data = await response.json();
           return { available: data.ok === true, ...data };
         }
       } catch (e) {
-        // Bridge not running
+        // Bridge not running - this is expected, suppress silently
       }
       return { available: false };
     }
