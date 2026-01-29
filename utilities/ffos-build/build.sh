@@ -162,6 +162,8 @@ PKGBUILD
     
     # Add our locally-built Feral components to packages list
     echo "=== Adding locally-built components to packages.x86_64 ==="
+    # Ensure file ends with newline before appending
+    echo "" >> "$PROFILE/packages.x86_64"
     echo "feral-controld" >> "$PROFILE/packages.x86_64"
     echo "feral-sys-monitord" >> "$PROFILE/packages.x86_64"
     echo "feral-watchdog" >> "$PROFILE/packages.x86_64"
