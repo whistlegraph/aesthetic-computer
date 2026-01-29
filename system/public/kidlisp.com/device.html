@@ -409,19 +409,40 @@
         }).join('');
       }
       
-      // Show scrambled placeholder immediately on page load
+      // Show scrambled placeholder immediately on page load with continuous animation
+      let initialScrambleFrame = null;
+      let initialScrambleActive = true;
       (function showInitialScramble() {
         const inner = document.getElementById('source-code-inner');
         if (!inner) return;
-        // Generate random scrambled placeholder until real source loads
-        const placeholder = Array(200).fill(0).map(() => SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]).join('');
-        inner.textContent = placeholder;
+        
+        // Continuous scramble animation until real source loads
+        function animateInitialScramble() {
+          if (!initialScrambleActive) return;
+          // Generate random scrambled placeholder
+          const placeholder = Array(200).fill(0).map(() => SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]).join('');
+          inner.textContent = placeholder;
+          initialScrambleFrame = requestAnimationFrame(animateInitialScramble);
+        }
+        animateInitialScramble();
       })();
+      
+      // Stop initial scramble when real scramble starts
+      function stopInitialScramble() {
+        initialScrambleActive = false;
+        if (initialScrambleFrame) {
+          cancelAnimationFrame(initialScrambleFrame);
+          initialScrambleFrame = null;
+        }
+      }
       
       // Start scramble animation - keeps scrambling until signaled
       window.startScrambleAnimation = function(source, highlightedHtml) {
         const inner = document.getElementById('source-code-inner');
         if (!inner || !source) return;
+        
+        // Stop the initial placeholder scramble
+        stopInitialScramble();
         
         pendingSource = source;
         pendingHighlightedHtml = highlightedHtml;
