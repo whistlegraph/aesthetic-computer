@@ -3650,6 +3650,9 @@
       #keeps-tab:hover {
         background: rgba(120, 120, 120, 0.3);
       }
+      #jukebox-tab:hover {
+        background: rgba(236, 72, 153, 0.35);
+      }
       #reference-tab:hover {
         background: rgba(34, 197, 94, 0.35);
       }
@@ -3713,6 +3716,16 @@
       background: rgba(120, 120, 120, 0.35);
       color: #262626;
     }
+    
+    /* Jukebox - Pink */
+    #jukebox-tab {
+      background: rgba(236, 72, 153, 0.2);
+      color: #be185d;
+    }
+    #jukebox-tab.active {
+      background: rgba(236, 72, 153, 0.5);
+      color: #9d174d;
+    }
 
     /* Cards/Reference - keep existing green */
     #reference-tab {
@@ -3770,6 +3783,15 @@
       color: #f5f5f5;
     }
     
+    :root.dark #jukebox-tab {
+      background: rgba(236, 72, 153, 0.3);
+      color: #f9a8d4;
+    }
+    :root.dark #jukebox-tab.active {
+      background: rgba(236, 72, 153, 0.5);
+      color: #fce7f3;
+    }
+    
     :root.dark #reference-tab {
       background: rgba(34, 197, 94, 0.35);
       color: #a7f3d0;
@@ -3785,6 +3807,7 @@
     :root.dark #recent-content:not(.hidden) { background: linear-gradient(to bottom, rgba(249, 115, 22, 0.4) 0%, rgba(249, 115, 22, 0.1) 40%, transparent 100%); }
     :root.dark #history-content:not(.hidden) { background: linear-gradient(to bottom, rgba(180, 130, 90, 0.4) 0%, rgba(180, 130, 90, 0.1) 40%, transparent 100%); }
     :root.dark #keeps-content:not(.hidden) { background: linear-gradient(to bottom, rgba(150, 150, 150, 0.35) 0%, rgba(150, 150, 150, 0.1) 40%, transparent 100%); }
+    :root.dark #jukebox-content:not(.hidden) { background: linear-gradient(to bottom, rgba(236, 72, 153, 0.4) 0%, rgba(236, 72, 153, 0.1) 40%, transparent 100%); }
     :root.dark #reference-content:not(.hidden) { background: linear-gradient(to bottom, rgba(34, 197, 94, 0.45) 0%, rgba(34, 197, 94, 0.1) 40%, transparent 100%); }
 
     /* List Tab - Yellow (like old Top Hits) */
@@ -3918,25 +3941,12 @@
       color: #f5f5f5;
     }
     
-    /* Sub-tab colors - Jukebox (Magenta) */
-    .list-subtab[data-subtab="jukebox"] {
-      background: rgba(236, 72, 153, 0.65);
-      color: #78716c;
-    }
-    .list-subtab[data-subtab="jukebox"].active {
-      background: linear-gradient(to bottom, #ec4899 0%, #be185d 100%);
-      color: #fdf2f8;
-    }
-    [data-theme="dark"] .list-subtab[data-subtab="jukebox"] {
-      background: rgba(236, 72, 153, 0.8);
-      color: #57534e;
-    }
-    [data-theme="dark"] .list-subtab[data-subtab="jukebox"].active {
-      background: linear-gradient(to bottom, #db2777 0%, #9d174d 100%);
-      color: #fce7f3;
+    /* Jukebox Panel Styles */
+    #jukebox-content {
+      padding: 0;
+      overflow-y: auto;
     }
     
-    /* Jukebox Panel Styles */
     .jukebox-panel {
       display: flex;
       flex-direction: column;
@@ -4360,6 +4370,7 @@
     #recent-content:not(.hidden) { background: linear-gradient(to bottom, rgba(249, 115, 22, 0.4) 0%, rgba(249, 115, 22, 0.1) 40%, transparent 100%); }
     #history-content:not(.hidden) { background: linear-gradient(to bottom, rgba(180, 130, 90, 0.4) 0%, rgba(180, 130, 90, 0.1) 40%, transparent 100%); }
     #keeps-content:not(.hidden) { background: linear-gradient(to bottom, rgba(120, 120, 120, 0.3) 0%, rgba(120, 120, 120, 0.08) 40%, transparent 100%); }
+    #jukebox-content:not(.hidden) { background: linear-gradient(to bottom, rgba(236, 72, 153, 0.4) 0%, rgba(236, 72, 153, 0.1) 40%, transparent 100%); }
     #reference-content:not(.hidden) { background: linear-gradient(to bottom, rgba(34, 197, 94, 0.45) 0%, rgba(34, 197, 94, 0.1) 40%, transparent 100%); }
 
     #examples-content > div,
@@ -8885,6 +8896,7 @@
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
           <div class="tab active" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Learn</div>
           <div class="tab" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
+          <div class="tab" data-tab="jukebox" id="jukebox-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">🎵 Jukebox</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
@@ -8908,7 +8920,6 @@
             <div class="list-subtab" data-subtab="recent">Recent</div>
             <div class="list-subtab" data-subtab="history">History</div>
             <div class="list-subtab" data-subtab="keeps">Keeps</div>
-            <div class="list-subtab" data-subtab="jukebox">🎵</div>
           </div>
           <!-- List sub-contents -->
           <div class="list-subcontent" id="examples-subcontent">
@@ -9046,7 +9057,8 @@
               </div>
             </div>
           </div>
-          <div class="list-subcontent hidden" id="jukebox-subcontent">
+        </div><!-- /list-content -->
+        <div class="docs-content hidden" id="jukebox-content">
             <div class="jukebox-panel">
               <!-- Mode Tabs -->
               <div class="jukebox-mode-tabs">
@@ -9147,8 +9159,7 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
               <!-- Status -->
               <div class="jukebox-status" id="jukebox-status"></div>
             </div>
-          </div>
-        </div><!-- /list-content -->
+        </div><!-- /jukebox-content -->
         <div class="docs-content hidden" id="reference-content">
           <div id="book-container"></div>
         </div>
@@ -18681,10 +18692,12 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
     const referenceContent = document.getElementById('reference-content');
     const guideContent = document.getElementById('guide-content');
     const listContent = document.getElementById('list-content');
+    const jukeboxContent = document.getElementById('jukebox-content');
     const mobileConsoleContent = document.getElementById('mobile-console-content');
     const codeTab = document.getElementById('reference-tab');
     const guideTab = document.getElementById('guide-tab');
     const listTab = document.getElementById('list-tab');
+    const jukeboxTab = document.getElementById('jukebox-tab');
     const consoleTab = document.getElementById('console-tab');
     let examplesLoaded = false;
     let recentLoaded = false;
@@ -18695,6 +18708,7 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
       referenceContent?.classList.add('hidden');
       guideContent?.classList.add('hidden');
       listContent?.classList.add('hidden');
+      jukeboxContent?.classList.add('hidden');
       mobileConsoleContent?.classList.add('hidden');
     }
     
@@ -18703,6 +18717,7 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
       codeTab?.classList.remove('active');
       guideTab?.classList.remove('active');
       listTab?.classList.remove('active');
+      jukeboxTab?.classList.remove('active');
       consoleTab?.classList.remove('active');
     }
     
@@ -18806,6 +18821,19 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
         listTab.classList.add('active');
         listContent.classList.remove('hidden');
         showListSubtab(currentListSubtab);
+        expandReferencePanelOnMobile();
+      });
+      
+      // Jukebox tab - shows audio player and Strudel
+      jukeboxTab?.addEventListener('click', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        log.tabs.debug('Jukebox tab');
+        
+        deactivateAllTabs();
+        hideAllTabContents();
+        jukeboxTab.classList.add('active');
+        jukeboxContent.classList.remove('hidden');
         expandReferencePanelOnMobile();
       });
       
