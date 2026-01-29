@@ -755,8 +755,7 @@
       return html;
     }
     
-    // Start
-    init();
+    // Progress bar elements (must be declared before init() calls startProgressBar)
     const progressBar = document.getElementById('progress-bar');
     const progressFill = document.getElementById('progress-fill');
     let progressStartTime = null;
@@ -805,6 +804,9 @@
         requestAnimationFrame(updateProgressBar);
       }
     }
+    
+    // Start the app
+    init();
   </script>
 </body>
 </html>
