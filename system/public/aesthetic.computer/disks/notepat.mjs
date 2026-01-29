@@ -2599,10 +2599,16 @@ function paint({
     const topPianoStartX = 54;
     const topPianoWidth = Math.min(140, Math.floor((screen.width - topPianoStartX) * 0.5));
     const topPianoWhiteKeyWidth = Math.floor(topPianoWidth / MINI_PIANO_WHITE_KEYS.length);
+    
+    // Skip rendering top bar piano if keys are too narrow (3 pixels or less)
+    const topBarPianoTooNarrow = topPianoWhiteKeyWidth <= 3;
+    
     const topPianoBlackKeyWidth = Math.floor(topPianoWhiteKeyWidth * 0.6);
     const topPianoBlackKeyHeight = Math.floor(topPianoHeight * 0.55);
     const topPianoStripHeight = 2;
     topBarPianoEndX = topPianoStartX + MINI_PIANO_WHITE_KEYS.length * topPianoWhiteKeyWidth;
+    
+  if (!topBarPianoTooNarrow) {
     
     // Pre-calculate common values
     const whiteKeyBottom = topPianoY + topPianoHeight - topPianoStripHeight;
@@ -2649,6 +2655,7 @@ function paint({
         ink(stripBase[0], stripBase[1], stripBase[2]).box(x, blackKeyBottom, topPianoBlackKeyWidth, topPianoStripHeight);
       }
     }
+  } // End of topBarPianoTooNarrow check
   }
 
   const sampleRateText = getSampleRateText(sound?.sampleRate);
@@ -3060,11 +3067,13 @@ function paint({
   // TODO: Precompute the full song length with x stops next to indices.
 
   const useVerticalTrack = showTrack && layout.verticalTrack;
-  const trackHeight = showTrack && !useVerticalTrack ? TRACK_HEIGHT : 0;
-  const trackY = showTrack && !useVerticalTrack ? SECONDARY_BAR_BOTTOM : null;
+  // In single-column mode (non-split), hide horizontal track entirely - only show vertical track if available
+  const showHorizontalTrack = showTrack && !useVerticalTrack && layout.splitLayout;
+  const trackHeight = showHorizontalTrack ? TRACK_HEIGHT : 0;
+  const trackY = showHorizontalTrack ? SECONDARY_BAR_BOTTOM : null;
 
 
-  if (showTrack) {
+  if (showHorizontalTrack) {
     const glyphWidth = matrixGlyphMetrics.width;
     const startX = 6 - songShift;
     let i = 0;
@@ -4553,6 +4562,7 @@ function paint({
 
   // 🎹 Piano Roll Timeline - pixel-by-pixel held note history
   // Can be horizontal (bottom-right) or vertical (center/right side based on layout)
+  // In single-column portrait mode, skip the horizontal piano roll entirely
   if (!paintPictureOverlay && !projector && !recitalMode) {
     const noteCount = buttonNotes.length; // 24 notes
     
@@ -4564,6 +4574,9 @@ function paint({
     // In landscape mode, always prefer vertical roll on the right side
     const isLandscapeScreen = screen.width > screen.height;
     const useVerticalRoll = layout.splitLayout || layout.verticalTrack || isLandscapeScreen;
+    
+    // In single-column mode (non-split, portrait), hide piano roll entirely
+    const isSingleColumnPortrait = !layout.splitLayout && !isLandscapeScreen;
     
     if (useVerticalRoll) {
       // 🎹 VERTICAL Piano Roll - time flows downward, notes spread horizontally
@@ -4685,8 +4698,9 @@ function paint({
       // Draw subtle grid lines for octave separation (vertical lines at note 12)
       ink(40, 40, 50, 100).line(rollX + 12, trackStartY, rollX + 12, trackStartY + actualRollH);
       
-    } else {
+    } else if (!isSingleColumnPortrait) {
       // 🎹 HORIZONTAL Piano Roll (original) - time flows left-to-right, notes stacked vertically
+      // Skip in single-column portrait mode to avoid cluttering the compact layout
       const rollHeight = noteCount;
       const rollWidth = Math.min(PIANO_ROLL_WIDTH, screen.width);
       const rollY = screen.height - rollHeight - 1;
