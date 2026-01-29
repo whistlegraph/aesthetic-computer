@@ -13641,6 +13641,9 @@ async function makeFrame({ data: { type, content } }) {
       //  Generate QR code overlay for KidLisp pieces
       let qrOverlay;
       
+      // Skip QR/HUD overlay in device mode - device.kidlisp.com has its own DOM overlay
+      const isDeviceModeQR = location.search.indexOf('device=true') > -1;
+      
       // Clear QR cache if caching is disabled to prevent memory buildup
       if (isQROverlayCacheDisabled() && qrOverlayCache.size > 0) {
         qrOverlayCache.clear();
@@ -13672,7 +13675,8 @@ async function makeFrame({ data: { type, content } }) {
       const shouldShowQRForKidLisp = (isInlineKidlispPiece && sourceCode) && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen);
       const shouldShowQRForClock = isClockPieceWithCode; // Always show for clock pieces
       
-      if ((shouldShowQRForKidLisp || shouldShowQRForClock) && !hideLabel) {
+      // Skip ALL pixelated HUD overlays in device mode (device.html has DOM-based overlays)
+      if (!isDeviceModeQR && (shouldShowQRForKidLisp || shouldShowQRForClock) && !hideLabel) {
         // console.log("🎵 [QR Debug] Entering QR generation for clock");
         try {
           // For clock pieces with cached code, use the cached clock code directly
