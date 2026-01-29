@@ -9861,6 +9861,9 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
     }
     
     // Check for Electron FF1 bridge
+    let ff1BridgeDetected = false;
+    let ff1BridgePollingInterval = null;
+    
     async function checkFF1Bridge() {
       try {
         const controller = new AbortController();
@@ -9875,6 +9878,75 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
         // Bridge not running
       }
       return { available: false };
+    }
+    
+    // Auto-detect FF1 bridge when desktop app starts
+    function startFF1BridgePolling() {
+      if (ff1BridgePollingInterval) return; // Already polling
+      
+      ff1BridgePollingInterval = setInterval(async () => {
+        const bridge = await checkFF1Bridge();
+        
+        if (bridge.available && !ff1BridgeDetected) {
+          // Desktop app just connected!
+          ff1BridgeDetected = true;
+          onFF1BridgeConnected();
+        } else if (!bridge.available && ff1BridgeDetected) {
+          // Desktop app disconnected
+          ff1BridgeDetected = false;
+          onFF1BridgeDisconnected();
+        }
+      }, 3000); // Check every 3 seconds
+    }
+    
+    function stopFF1BridgePolling() {
+      if (ff1BridgePollingInterval) {
+        clearInterval(ff1BridgePollingInterval);
+        ff1BridgePollingInterval = null;
+      }
+    }
+    
+    async function onFF1BridgeConnected() {
+      const bridgeStatusEl = document.getElementById('ff1-bridge-status');
+      const noBridgeEl = document.getElementById('ff1-no-bridge');
+      const testBtn = document.getElementById('ff1-test-btn');
+      const statusEl = document.getElementById('ff1-status');
+      
+      if (bridgeStatusEl) bridgeStatusEl.style.display = 'flex';
+      if (noBridgeEl) noBridgeEl.style.display = 'none';
+      if (testBtn) testBtn.style.display = 'inline-block';
+      if (statusEl) {
+        statusEl.textContent = '✓ Desktop app connected';
+        statusEl.className = 'ff1-status success';
+      }
+      
+      // Discover devices
+      const devices = await discoverFF1Devices();
+      updateFF1DeviceList(devices);
+      
+      showToast('FF1 Desktop app detected!', 'success');
+    }
+    
+    function onFF1BridgeDisconnected() {
+      const bridgeStatusEl = document.getElementById('ff1-bridge-status');
+      const noBridgeEl = document.getElementById('ff1-no-bridge');
+      const statusEl = document.getElementById('ff1-status');
+      const downloadBtn = document.getElementById('ff1-download-btn');
+      const pairBtn = document.getElementById('ff1-pair-btn');
+      
+      if (bridgeStatusEl) bridgeStatusEl.style.display = 'none';
+      if (noBridgeEl) noBridgeEl.style.display = 'flex';
+      if (statusEl) statusEl.textContent = 'Desktop app not detected';
+      if (downloadBtn) downloadBtn.style.display = 'inline-block';
+      if (pairBtn) pairBtn.style.display = 'inline-block';
+      
+      // If already paired via QR, restore that status
+      if (ff1Config.relayTopicId && statusEl) {
+        statusEl.textContent = '✓ Paired (cloud relay)';
+        statusEl.className = 'ff1-status success';
+      }
+      
+      showToast('FF1 Desktop app disconnected', 'info');
     }
 
     // Discover FF1 devices via Electron bridge
@@ -9936,6 +10008,7 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
       
       if (bridge.available) {
         // Desktop app is running!
+        ff1BridgeDetected = true;
         if (bridgeStatusEl) bridgeStatusEl.style.display = 'flex';
         if (noBridgeEl) noBridgeEl.style.display = 'none';
         if (testBtn) testBtn.style.display = 'inline-block';
@@ -9953,6 +10026,7 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
         });
       } else {
         // No desktop app - show download link
+        ff1BridgeDetected = false;
         if (bridgeStatusEl) bridgeStatusEl.style.display = 'none';
         if (noBridgeEl) noBridgeEl.style.display = 'flex';
         if (statusEl) statusEl.textContent = 'Desktop app not detected';
@@ -9967,6 +10041,9 @@ s('bd sd hh sd').play()">s("bd sd hh sd").play()</textarea>
           if (pairBtn) pairBtn.textContent = 'Re-pair';
         }
       }
+      
+      // Start polling for bridge connection/disconnection
+      startFF1BridgePolling();
       
       if (testBtn) testBtn.addEventListener('click', testFF1Connection);
       if (pairBtn) pairBtn.addEventListener('click', toggleFF1Pairing);
