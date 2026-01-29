@@ -181,6 +181,13 @@ PKGBUILD
     # Modify profiledef.sh to include both UEFI and BIOS boot modes
     sed -i "s/bootmodes=.*/bootmodes=('bios.syslinux.mbr' 'bios.syslinux.eltorito' 'uefi-x64.systemd-boot.esp' 'uefi-x64.systemd-boot.eltorito')/" "$PROFILE/profiledef.sh"
     
+    # FIX: Change squashfs compression from xz to zstd to prevent corruption
+    # xz with 1M dict can cause corruption on memory-constrained GitHub runners
+    echo "=== Fixing SquashFS compression (xz -> zstd) ==="
+    sed -i "s/airootfs_image_tool_options=.*/airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '19' '-b' '1M')/" "$PROFILE/profiledef.sh"
+    echo "Updated compression settings:"
+    grep airootfs_image_tool_options "$PROFILE/profiledef.sh"
+    
     # Install syslinux for BIOS boot
     echo "syslinux" >> "$PROFILE/packages.x86_64"
     
