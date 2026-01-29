@@ -15,6 +15,37 @@
   <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
   <!-- QR Code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <!-- 🚀 Eager source fetch - starts immediately before DOM loads -->
+  <script>
+    (function() {
+      // Parse codeId from URL immediately
+      const pathname = window.location.pathname;
+      const hostname = window.location.hostname;
+      const pathParts = pathname.split('/').filter(p => p);
+      let codeId = null;
+      
+      if (hostname === 'device.kidlisp.com') {
+        codeId = pathParts[0] || null;
+      } else if (pathname.startsWith('/device.kidlisp.com/')) {
+        codeId = pathParts[1] || null;
+      } else if (pathParts[0] === 'kidlisp.com' && pathParts[1] === 'device') {
+        codeId = pathParts[2] || null;
+      }
+      
+      if (codeId) {
+        const pieceCode = codeId.startsWith('$') ? codeId.slice(1) : codeId;
+        const dev = hostname === 'localhost' || hostname === 'local.aesthetic.computer';
+        const apiUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+        const url = `${apiUrl}/api/store-kidlisp?code=${pieceCode}`;
+        
+        // Start fetch immediately - store promise globally for later use
+        window.__eagerSourceFetch = fetch(url, { credentials: 'omit' })
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null);
+        console.log('🚀 Eager source fetch started for:', pieceCode);
+      }
+    })();
+  </script>
   <style>
     * {
       margin: 0;
@@ -410,18 +441,31 @@
       }
       
       // Show scrambled placeholder immediately on page load with continuous animation
+      // Uses eager-fetched source for correct length
       let initialScrambleFrame = null;
       let initialScrambleActive = true;
+      let eagerSource = null; // Will be set from eager fetch
       (function showInitialScramble() {
         const inner = document.getElementById('source-code-inner');
         if (!inner) return;
         
+        // Check if eager fetch completed - use that source for scrambling
+        if (window.__eagerSourceFetch) {
+          window.__eagerSourceFetch.then(data => {
+            if (data?.source && initialScrambleActive) {
+              eagerSource = data.source;
+              console.log('🚀 Eager source ready for scramble:', eagerSource.length, 'chars');
+            }
+          });
+        }
+        
         // Continuous scramble animation until real source loads
         function animateInitialScramble() {
           if (!initialScrambleActive) return;
-          // Generate random scrambled placeholder
-          const placeholder = Array(200).fill(0).map(() => SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]).join('');
-          inner.textContent = placeholder;
+          // Use eager source if available, otherwise show nothing (waiting)
+          if (eagerSource) {
+            inner.textContent = buildScrambledText(eagerSource);
+          }
           initialScrambleFrame = requestAnimationFrame(animateInitialScramble);
         }
         animateInitialScramble();
@@ -774,7 +818,7 @@
       fetchAndDisplaySource(codeId);
     }
     
-    // Fetch KidLisp source from API
+    // Fetch KidLisp source from API (uses eager fetch if available)
     async function fetchAndDisplaySource(codeId) {
       console.log('📺 fetchAndDisplaySource called with:', codeId);
       // Strip $ prefix if present for API call
@@ -785,17 +829,26 @@
       generateQRAndLabel(displayCode);
       
       try {
-        // Fetch source from store-kidlisp API
-        const apiUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
-        const url = `${apiUrl}/api/store-kidlisp?code=${pieceCode}`;
-        console.log('📺 Fetching source from:', url);
-        const response = await fetch(url, {
-          credentials: 'omit'
-        });
-        console.log('📺 Source fetch response:', response.status, response.statusText);
+        // Use eager fetch result if available, otherwise fetch now
+        let data = null;
+        if (window.__eagerSourceFetch) {
+          console.log('📺 Using eager-fetched source');
+          data = await window.__eagerSourceFetch;
+        }
         
-        if (response.ok) {
-          const data = await response.json();
+        // Fallback to regular fetch if eager fetch failed or wasn't available
+        if (!data) {
+          const apiUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+          const url = `${apiUrl}/api/store-kidlisp?code=${pieceCode}`;
+          console.log('📺 Fetching source from:', url);
+          const response = await fetch(url, { credentials: 'omit' });
+          console.log('📺 Source fetch response:', response.status, response.statusText);
+          if (response.ok) {
+            data = await response.json();
+          }
+        }
+        
+        if (data) {
           console.log('📺 Source data:', data);
           if (data.source) {
             displaySourceCode(data.source);
@@ -805,7 +858,7 @@
           // Display handle and hits
           displayPieceInfo(data);
         } else {
-          console.log('📺 Source fetch failed:', response.status);
+          console.log('📺 Source fetch failed or no data');
         }
       } catch (e) {
         console.log('📺 Could not fetch source:', e);
