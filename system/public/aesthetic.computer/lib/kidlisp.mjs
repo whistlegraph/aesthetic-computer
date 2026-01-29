@@ -5376,7 +5376,23 @@ class KidLisp {
           this.globalDef.mic = this.getMicDefaultValue();
         }
         
-        // 🎤 DEBUG: Log mic value occasionally
+        // � Poll audio data directly from window for lowest latency
+        // (bypasses worker message queue - updated by boot.mjs on postMessage)
+        if (typeof window !== 'undefined' && window.__acAudioData) {
+          const ad = window.__acAudioData;
+          if (typeof ad.amp === 'number') this.globalDef.amp = ad.amp;
+          if (typeof ad.leftAmp === 'number') this.globalDef.leftAmp = ad.leftAmp;
+          if (typeof ad.rightAmp === 'number') this.globalDef.rightAmp = ad.rightAmp;
+          if (typeof ad.kick === 'number') this.globalDef.kick = ad.kick;
+          if (typeof ad.beat === 'number') this.globalDef.beat = ad.beat;
+          if (typeof ad.bass === 'number') this.globalDef.bass = ad.bass;
+          if (typeof ad.mid === 'number') this.globalDef.mid = ad.mid;
+          if (typeof ad.treble === 'number') this.globalDef.treble = ad.treble;
+          if (typeof ad.highMid === 'number') this.globalDef.highMid = ad.highMid;
+          if (typeof ad.presence === 'number') this.globalDef.presence = ad.presence;
+        }
+        
+        // �🎤 DEBUG: Log mic value occasionally
         // if (this.frameCount % 120 === 0) {
         //   console.log("🎤 Mic global:", {
         //     value: this.globalDef.mic.toFixed(3),

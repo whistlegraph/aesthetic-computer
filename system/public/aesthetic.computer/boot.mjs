@@ -1509,9 +1509,13 @@ function receive(event) {
     }
     return;
   } else if (event.data?.type === "kidlisp-audio") {
-    // Audio data from jukebox - forward to disk worker for KidLisp
+    // Audio data from jukebox - store directly on window for instant access
+    // AND forward to disk worker for KidLisp
     const data = event.data.data;
     if (data) {
+      // Store on window for direct access (lowest latency path)
+      window.__acAudioData = data;
+      // Also send to worker (for backward compatibility)
       window.acSEND({
         type: "kidlisp-audio",
         content: data
