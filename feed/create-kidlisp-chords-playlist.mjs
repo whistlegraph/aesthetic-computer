@@ -65,27 +65,33 @@ const API_SECRET = process.env.FEED_API_SECRET || 'YOUR_FEED_API_SECRET_HERE';
  * Generate DP-1 compliant playlist from chord definitions
  */
 function generateChordsPlaylist() {
+  const duration = 16; // seconds per chord
+  
   // Create the DP-1 playlist
   const playlist = {
-    dpVersion: '1.0.0',
+    dpVersion: '1.1.0',
     title: 'Chords for `clock`',
-    description: 'Western musical chords using the clock piece with notepat notation',
-    license: 'open',
+    summary: 'Western musical chords using the clock piece with notepat notation',
     items: chords.map((chord, index) => ({
-      source: `https://aesthetic.computer/clock~^${chord.notes}?tv=true&density=5`,
       title: chord.name,
-      creator: 'Aesthetic Computer',
-      duration: 24,
+      // Include playlist params so device.kidlisp.com shows progress bar
+      source: `https://device.kidlisp.com/clock~^${chord.notes}?playlist=true&duration=${duration}&index=${index}&total=${chords.length}`,
+      duration: duration,
       license: 'open',
       provenance: {
         type: 'offChainURI',
-        contract: {
-          chain: 'other',
-          uri: `https://aesthetic.computer/clock~^${chord.notes}`,
-        }
+        uri: `https://kidlisp.com/clock~^${chord.notes}`,
       },
-      url: `/clock~^${chord.notes}`,
     })),
+    defaults: {
+      display: {
+        scaling: 'fit',
+        background: '#000000',
+        margin: '0%'
+      },
+      license: 'open',
+      duration: 24
+    }
   };
 
   return playlist;
@@ -131,6 +137,7 @@ async function main() {
     console.log(`🔗 ${FEED_API_URL}/playlists/${playlistResult.id}\n`);
 
     console.log('🎉 Done!');
+    process.exit(0);
   } catch (error) {
     console.error('❌ Error:', error.message);
     process.exit(1);

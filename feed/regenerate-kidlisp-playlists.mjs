@@ -299,6 +299,7 @@ async function main() {
 
   console.log('\n🎉 Regeneration complete!');
   console.log('All KidLisp playlists now include provenance blocks according to DP-1 spec.\n');
+  process.exit(0);
 }
 
 main().catch(error => {
