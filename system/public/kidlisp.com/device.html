@@ -9,6 +9,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
+  <!-- QR Code library -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -49,6 +51,164 @@
       height: 100%;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
+    }
+
+    /* KidLisp source overlay - shows during loading */
+    #source-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 15;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
+    
+    #source-overlay.hidden {
+      opacity: 0;
+    }
+    
+    /* Source code display - top left */
+    #source-code {
+      position: absolute;
+      top: 1.5em;
+      left: 1em;
+      right: 6em;
+      bottom: 4em;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 1.1em;
+      line-height: 1.5;
+      color: #fff;
+      overflow: hidden;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.7);
+      white-space: pre-wrap;
+      word-break: break-word;
+      -webkit-mask-image: linear-gradient(to bottom, black 0%, black 80%, transparent 100%);
+      mask-image: linear-gradient(to bottom, black 0%, black 80%, transparent 100%);
+    }
+    
+    #source-code-inner {
+      /* For scrolling long code */
+    }
+    
+    #source-code-inner.scrolling {
+      animation: codeScroll var(--scroll-duration, 12s) ease-in-out infinite;
+      animation-delay: 2s;
+    }
+    
+    @keyframes codeScroll {
+      0%, 15% { transform: translateY(0); }
+      85%, 100% { transform: translateY(var(--scroll-distance, 0)); }
+    }
+    
+    /* QR code and label - bottom right */
+    #qr-wrap {
+      position: absolute;
+      bottom: 1.5em;
+      right: 1em;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      z-index: 16;
+    }
+    
+    #code-label {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 1.2em;
+      color: #fff;
+      background: rgba(0,0,0,0.7);
+      padding: 0.2em 0.4em;
+      margin-bottom: 0.3em;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+    }
+    
+    #code-label .code-dollar {
+      color: #32cd32; /* limegreen */
+    }
+    
+    #code-label .code-name {
+      color: #90EE90; /* lightgreen */
+    }
+    
+    #qr-container {
+      background: #fff;
+      padding: 4px;
+      border-radius: 4px;
+    }
+    
+    #qr-container svg {
+      display: block;
+      width: 64px;
+      height: 64px;
+    }
+    
+    /* KidLisp syntax highlighting */
+    .hl-comment { color: #6272a4; font-style: italic; }
+    .hl-string { color: orange; }
+    .hl-number { color: lime; }
+    .hl-keyword { color: pink; }
+    .hl-api { color: cyan; }
+    .hl-color { /* inline style sets actual color */ }
+    .hl-timing { color: #ffb86c; font-weight: bold; }
+    .hl-paren { color: #888; }
+    .hl-code-ref { color: limegreen; font-weight: bold; }
+    .hl-code-id { color: lime; }
+    .hl-paint-ref { color: magenta; font-weight: bold; }
+    .hl-paint-id { color: orange; }
+    .hl-fade { font-weight: bold; }
+    .hl-fade-sep { color: mediumseagreen; }
+    .hl-fade-dir { color: cyan; }
+    .hl-fade-colon { color: lime; }
+    
+    /* Rainbow animation */
+    @keyframes rainbowCycle {
+      0% { color: red; }
+      14% { color: orange; }
+      28% { color: yellow; }
+      42% { color: lime; }
+      57% { color: cyan; }
+      71% { color: blue; }
+      85% { color: magenta; }
+      100% { color: red; }
+    }
+    
+    .hl-rainbow {
+      animation: rainbowCycle 2s linear infinite;
+      font-weight: bold;
+    }
+    
+    .hl-rainbow-0 { animation-delay: 0s; }
+    .hl-rainbow-1 { animation-delay: -0.28s; }
+    .hl-rainbow-2 { animation-delay: -0.56s; }
+    .hl-rainbow-3 { animation-delay: -0.84s; }
+    .hl-rainbow-4 { animation-delay: -1.12s; }
+    .hl-rainbow-5 { animation-delay: -1.40s; }
+    .hl-rainbow-6 { animation-delay: -1.68s; }
+    
+    /* Zebra animation */
+    @keyframes zebraCycle {
+      0%, 49% { color: white; }
+      50%, 100% { color: #333; }
+    }
+    
+    .hl-zebra {
+      animation: zebraCycle 1s steps(1) infinite;
+      font-weight: bold;
+    }
+    
+    .hl-zebra-0 { animation-delay: 0s; }
+    .hl-zebra-1 { animation-delay: -0.5s; }
+    
+    /* Timing blink animation */
+    @keyframes hl-timing-blink {
+      0%, 90% { opacity: 1; }
+      95% { opacity: 0.4; color: lime; }
+      100% { opacity: 1; }
+    }
+    
+    .hl-timing-active {
+      animation: hl-timing-blink var(--timing-duration, 1s) ease-in-out infinite;
     }
 
     /* Error display */
@@ -119,6 +279,15 @@
 <body>
   <div id="boot-screen">
     <canvas id="boot-canvas"></canvas>
+  </div>
+  
+  <!-- KidLisp source overlay with syntax highlighting and QR -->
+  <div id="source-overlay">
+    <div id="source-code"><div id="source-code-inner"></div></div>
+    <div id="qr-wrap">
+      <div id="code-label"></div>
+      <div id="qr-container"></div>
+    </div>
   </div>
   
   <div id="error-screen">
@@ -404,7 +573,14 @@
       iframe.addEventListener('load', () => {
         logDevice('iframe loaded');
         animating = false;
-        setTimeout(() => bootScreen.classList.add('hidden'), 500);
+        setTimeout(() => {
+          bootScreen.classList.add('hidden');
+          // Also hide source overlay after a delay
+          setTimeout(() => {
+            const sourceOverlay = document.getElementById('source-overlay');
+            if (sourceOverlay) sourceOverlay.classList.add('hidden');
+          }, 1500);
+        }, 500);
       });
       
       // Listen for iframe errors
@@ -416,9 +592,281 @@
       if (isPlaylist) {
         startProgressBar();
       }
+      
+      // Fetch and display KidLisp source code with syntax highlighting
+      fetchAndDisplaySource(codeId);
     }
     
-    // YouTube-style progress bar for playlist mode
+    // Fetch KidLisp source from API
+    async function fetchAndDisplaySource(codeId) {
+      // Strip $ prefix if present for API call
+      const pieceCode = codeId.startsWith('$') ? codeId.slice(1) : codeId;
+      const displayCode = codeId.startsWith('$') ? codeId : '$' + codeId;
+      
+      try {
+        // Fetch source from aesthetic.computer API
+        const apiUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+        const response = await fetch(`${apiUrl}/api/kidlisp-source?piece=${pieceCode}`, {
+          credentials: 'omit'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.source) {
+            displaySourceCode(data.source);
+          }
+        }
+      } catch (e) {
+        console.log('Could not fetch source:', e);
+      }
+      
+      // Generate QR code and label (always, even if source fetch fails)
+      generateQRAndLabel(displayCode);
+    }
+    
+    // Display syntax-highlighted source code
+    function displaySourceCode(source) {
+      const codeEl = document.getElementById('source-code');
+      const inner = document.getElementById('source-code-inner');
+      if (!inner || !source) return;
+      
+      inner.innerHTML = highlightKidlisp(source);
+      
+      // Setup scrolling for long code
+      requestAnimationFrame(() => {
+        const containerHeight = codeEl.clientHeight;
+        const contentHeight = inner.scrollHeight;
+        
+        if (contentHeight > containerHeight + 20) {
+          const scrollDistance = contentHeight - containerHeight + 20;
+          inner.classList.add('scrolling');
+          inner.style.setProperty('--scroll-distance', `-${scrollDistance}px`);
+          const scrollDuration = 12 + (scrollDistance / 150);
+          inner.style.setProperty('--scroll-duration', `${scrollDuration}s`);
+        }
+      });
+      
+      // Apply timing durations to timing elements
+      inner.querySelectorAll('.hl-timing-active[data-duration]').forEach(el => {
+        const duration = parseFloat(el.dataset.duration) || 1;
+        const clampedDuration = Math.max(0.1, Math.min(duration, 10));
+        el.style.setProperty('--timing-duration', clampedDuration + 's');
+      });
+    }
+    
+    // Generate QR code pointing to kidlisp.com/$piece
+    function generateQRAndLabel(displayCode) {
+      const labelEl = document.getElementById('code-label');
+      const qrContainer = document.getElementById('qr-container');
+      
+      // Build label with colored $ and code
+      if (labelEl) {
+        const dollar = displayCode[0] === '$' ? '$' : '';
+        const code = displayCode.startsWith('$') ? displayCode.slice(1) : displayCode;
+        labelEl.innerHTML = `<span class="code-dollar">${dollar}</span><span class="code-name">${code}</span>`;
+      }
+      
+      // Generate QR code pointing to kidlisp.com (NOT aesthetic.computer)
+      if (qrContainer && typeof qrcode !== 'undefined') {
+        try {
+          const qrUrl = `https://kidlisp.com/${displayCode}`;
+          const qrGen = qrcode(0, 'L');
+          qrGen.addData(qrUrl);
+          qrGen.make();
+          const svg = qrGen.createSvgTag(2, 0);
+          qrContainer.innerHTML = svg;
+          const svgEl = qrContainer.querySelector('svg');
+          if (svgEl) {
+            svgEl.style.display = 'block';
+            svgEl.style.width = '64px';
+            svgEl.style.height = '64px';
+          }
+        } catch (e) {
+          console.error('QR generation error:', e);
+        }
+      }
+    }
+    
+    // KidLisp syntax highlighter (matches kidlisp.com/give.aesthetic.computer)
+    function highlightKidlisp(code) {
+      if (!code) return '';
+      // Escape HTML first
+      let html = code
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      
+      // CSS color map
+      const cssColors = {
+        aliceblue: [240, 248, 255], aqua: [0, 255, 255], aquamarine: [127, 255, 212],
+        azure: [240, 255, 255], beige: [245, 245, 220], black: [0, 0, 0],
+        blue: [0, 0, 255], brown: [165, 42, 42], chartreuse: [127, 255, 0],
+        coral: [255, 127, 80], crimson: [220, 20, 60], cyan: [0, 255, 255],
+        darkblue: [0, 0, 139], darkcyan: [0, 139, 139], darkgreen: [0, 100, 0],
+        darkgray: [169, 169, 169], darkgrey: [169, 169, 169], darkmagenta: [139, 0, 139],
+        darkorange: [255, 140, 0], darkred: [139, 0, 0], darkviolet: [148, 0, 211],
+        deeppink: [255, 20, 147], deepskyblue: [0, 191, 255], dodgerblue: [30, 144, 255],
+        firebrick: [178, 34, 34], forestgreen: [34, 139, 34], fuchsia: [255, 0, 255],
+        gold: [255, 215, 0], gray: [128, 128, 128], grey: [128, 128, 128],
+        green: [0, 128, 0], greenyellow: [173, 255, 47], hotpink: [255, 105, 180],
+        indigo: [75, 0, 130], ivory: [255, 255, 240], khaki: [240, 230, 140],
+        lavender: [230, 230, 250], lawngreen: [124, 252, 0], lemonchiffon: [255, 250, 205],
+        lightblue: [173, 216, 230], lightcoral: [240, 128, 128], lightcyan: [224, 255, 255],
+        lightgray: [211, 211, 211], lightgrey: [211, 211, 211], lightgreen: [144, 238, 144],
+        lightpink: [255, 182, 193], lightskyblue: [135, 206, 250], lightyellow: [255, 255, 224],
+        lime: [0, 255, 0], limegreen: [50, 205, 50], magenta: [255, 0, 255],
+        maroon: [128, 0, 0], mediumblue: [0, 0, 205], mediumorchid: [186, 85, 211],
+        mediumpurple: [147, 112, 219], mediumseagreen: [60, 179, 113], midnightblue: [25, 25, 112],
+        mintcream: [245, 255, 250], mistyrose: [255, 228, 225], navy: [0, 0, 128],
+        olive: [128, 128, 0], olivedrab: [107, 142, 35], orange: [255, 165, 0],
+        orangered: [255, 69, 0], orchid: [218, 112, 214], palegreen: [152, 251, 152],
+        pink: [255, 192, 203], plum: [221, 160, 221], purple: [128, 0, 128],
+        rebeccapurple: [102, 51, 153], red: [255, 0, 0], royalblue: [65, 105, 225],
+        salmon: [250, 128, 114], seagreen: [46, 139, 87], sienna: [160, 82, 45],
+        silver: [192, 192, 192], skyblue: [135, 206, 235], slateblue: [106, 90, 205],
+        slategray: [112, 128, 144], snow: [255, 250, 250], springgreen: [0, 255, 127],
+        steelblue: [70, 130, 180], tan: [210, 180, 140], teal: [0, 128, 128],
+        thistle: [216, 191, 216], tomato: [255, 99, 71], turquoise: [64, 224, 208],
+        violet: [238, 130, 238], wheat: [245, 222, 179], white: [255, 255, 255],
+        yellow: [255, 255, 0], yellowgreen: [154, 205, 50]
+      };
+      
+      // Rainbow text helper
+      function rainbowText(text) {
+        return text.split('').map((char, i) => 
+          `<span class="hl-rainbow hl-rainbow-${i % 7}">${char}</span>`
+        ).join('');
+      }
+      
+      // Zebra text helper
+      function zebraText(text) {
+        return text.split('').map((char, i) => 
+          `<span class="hl-zebra hl-zebra-${i % 2}">${char}</span>`
+        ).join('');
+      }
+      
+      // Fade text helper
+      function fadeText(fadeStr) {
+        const parts = fadeStr.split(':');
+        if (parts.length < 2) return `<span class="hl-fade">${fadeStr}</span>`;
+        const colors = parts[1].split('-');
+        const direction = parts[2] || '';
+        
+        let result = '<span class="hl-fade" style="color: #ffb86c;">fade</span><span class="hl-fade-colon">:</span>';
+        colors.forEach((c, i) => {
+          const rgb = cssColors[c.toLowerCase()];
+          if (rgb) {
+            result += `<span class="hl-color" style="color: rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})">${c}</span>`;
+          } else if (c === 'rainbow') {
+            result += rainbowText(c);
+          } else if (c === 'zebra') {
+            result += zebraText(c);
+          } else {
+            result += `<span class="hl-fade">${c}</span>`;
+          }
+          if (i < colors.length - 1) result += '<span class="hl-fade-sep">-</span>';
+        });
+        if (direction) {
+          result += `<span class="hl-fade-colon">:</span><span class="hl-fade-dir">${direction}</span>`;
+        }
+        return result;
+      }
+      
+      // Code reference helper ($code)
+      function codeRefText(codeRef) {
+        const dollar = codeRef[0];
+        const id = codeRef.slice(1);
+        return `<span class="hl-code-ref">${dollar}</span><span class="hl-code-id">${id}</span>`;
+      }
+      
+      // Paint reference helper (#painting)
+      function paintRefText(paintRef) {
+        const hash = paintRef[0];
+        const id = paintRef.slice(1);
+        return `<span class="hl-paint-ref">${hash}</span><span class="hl-paint-id">${id}</span>`;
+      }
+      
+      // Token placeholders
+      const tokens = [];
+      function token(match, cls, style) {
+        const idx = tokens.length;
+        const styleAttr = style ? ` style="${style}"` : '';
+        tokens.push(`<span class="${cls}"${styleAttr}>${match}</span>`);
+        return `\x01T${idx}T\x01`;
+      }
+      
+      function tokenRaw(html) {
+        const idx = tokens.length;
+        tokens.push(html);
+        return `\x01T${idx}T\x01`;
+      }
+      
+      // Apply syntax highlighting (order matters)
+      
+      // $code references
+      html = html.replace(/(\$[0-9A-Za-z]+)/g, m => tokenRaw(codeRefText(m)));
+      
+      // #painting references
+      html = html.replace(/(#[0-9A-Fa-f]{1,8})\b/g, m => tokenRaw(paintRefText(m)));
+      
+      // Fade patterns
+      html = html.replace(/\b(fade:[a-z0-9-]+(?::[a-z]+)?)\b/gi, m => tokenRaw(fadeText(m)));
+      
+      // Rainbow keyword
+      html = html.replace(/\b(rainbow)\b/g, m => tokenRaw(rainbowText(m)));
+      
+      // Zebra keyword
+      html = html.replace(/\b(zebra)\b/g, m => tokenRaw(zebraText(m)));
+      
+      // Comments
+      html = html.replace(/(^|\n)(;[^\n]*)/g, (m, pre, comment) => pre + token(comment, 'hl-comment'));
+      
+      // Timing patterns
+      html = html.replace(/(^|[\s(])(\d*\.?\d+)([sf](\.{1,3}|!?))/g, (m, pre, num, suffix) => {
+        const full = num + suffix;
+        const unit = suffix[0];
+        const duration = unit === 's' ? parseFloat(num) : parseFloat(num) / 60;
+        const idx = tokens.length;
+        tokens.push(`<span class="hl-timing hl-timing-active" data-duration="${duration}">${full}</span>`);
+        return pre + `\x01T${idx}T\x01`;
+      });
+      
+      // Strings
+      html = html.replace(/("[^"]*")/g, m => token(m, 'hl-string'));
+      
+      // Numbers
+      html = html.replace(/\b(\d+\.?\d*)\b/g, m => token(m, 'hl-number'));
+      
+      // Keywords
+      const keywords = ['def', 'fn', 'if', 'cond', 'let', 'loop', 'repeat', 'later', 'tap', 'drag', 'lift', 'key', 'draw', 'frame', 'now', 'once'];
+      keywords.forEach(kw => {
+        html = html.replace(new RegExp(`\\b(${kw})\\b`, 'g'), m => token(m, 'hl-keyword'));
+      });
+      
+      // API calls
+      const apiCalls = ['wipe', 'ink', 'line', 'box', 'circle', 'text', 'pan', 'zoom', 'blur', 'noise', 'width', 'height', 'wiggle', 'grid', 'plot', 'stamp', 'scroll', 'contrast', 'fps'];
+      apiCalls.forEach(api => {
+        html = html.replace(new RegExp(`\\b(${api})\\b`, 'g'), m => token(m, 'hl-api'));
+      });
+      
+      // Colors
+      const colorNames = Object.keys(cssColors).filter(c => c !== 'rainbow' && c !== 'zebra');
+      colorNames.forEach(colorName => {
+        const rgb = cssColors[colorName];
+        const colorStyle = `color: rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+        html = html.replace(new RegExp(`\\b(${colorName})\\b`, 'gi'), m => token(m, 'hl-color', colorStyle));
+      });
+      
+      // Parens
+      html = html.replace(/([()])/g, m => token(m, 'hl-paren'));
+      
+      // Replace tokens back
+      html = html.replace(/\x01T(\d+)T\x01/g, (_, idx) => tokens[parseInt(idx)]);
+      return html;
+    }
+    
+    // Start
+    init();
     const progressBar = document.getElementById('progress-bar');
     const progressFill = document.getElementById('progress-fill');
     let progressStartTime = null;

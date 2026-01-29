@@ -2779,7 +2779,7 @@ end
 
 # 🖼️ FF1 Art Computer Helpers
 
-function ac-ff1 --description "Control FF1 Art Computer via SSH to MacBook"
+function ac-ff1 --description "Control FF1 Art Computer (direct network access)"
     set -l machines_file "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json"
     set -l ff1_data (cat $machines_file 2>/dev/null | jq -r '.machines["ff1-dvveklza"]')
     set -l ff1_ip (echo $ff1_data | jq -r '.ip')
@@ -2789,13 +2789,13 @@ function ac-ff1 --description "Control FF1 Art Computer via SSH to MacBook"
     
     switch $action
         case scan
-            echo "🔍 Scanning for FF1 via MacBook mDNS..."
+            echo "🔍 Scanning for FF1 via MacBook mDNS (requires SSH)..."
             ssh jas@host.docker.internal "dns-sd -G v4 FF1-DVVEKLZA.local 2>&1 &
 sleep 2
 kill %1 2>/dev/null"
         case ping
             echo "🏓 Pinging FF1 at $ff1_ip:$ff1_port..."
-            ssh jas@host.docker.internal "curl -s --connect-timeout 3 http://$ff1_ip:$ff1_port/ && echo 'FF1 responding!' || echo 'FF1 not responding'"
+            curl -s --connect-timeout 3 "http://$ff1_ip:$ff1_port/" >/dev/null 2>&1 && echo "✅ FF1 responding!" || echo "❌ FF1 not responding"
         case cast
             if test (count $argv) -lt 2
                 echo "Usage: ac-ff1 cast <piece|url> [options]"
@@ -2831,20 +2831,27 @@ kill %1 2>/dev/null"
             # Build URL from input - auto-detect KidLisp ($) vs regular pieces
             set -l url
             if string match -q 'http*' $input
-                # Already a full URL - add &device if has query, else ?device
-                if string match -q '*?*' $input
+                # Already a full URL
+                # Don't add &device for device.kidlisp.com (already device-optimized)
+                if string match -q '*device.kidlisp.com*' $input
+                    set url $input
+                else if string match -q '*?*' $input
                     set url "$input&device"
                 else
                     set url "$input?device"
                 end
                 # Add perf param if requested
                 if test "$use_perf" = true
-                    set url "$url&perf"
+                    if string match -q '*?*' $url
+                        set url "$url&perf"
+                    else
+                        set url "$url?perf"
+                    end
                 end
             else if string match -rq '^\$' $input
                 # KidLisp piece (starts with $) - use device.kidlisp.com
-                # Strip the $ prefix for device.kidlisp.com URL
-                set -l code_id (string replace '$' '' $input)
+                # Keep the $ prefix - device.kidlisp.com passes it to aesthetic.computer
+                set -l code_id $input
                 if test "$use_perf" = true
                     set url "https://device.kidlisp.com/$code_id?perf=true"
                     echo "🎨 KidLisp piece detected (perf mode)"
@@ -2882,9 +2889,17 @@ kill %1 2>/dev/null"
                 set -l payload (printf '{"command":"displayPlaylist","request":{"playlist":{"dpVersion":"1.0.0","items":[{"source":"%s","duration":0}]},"intent":{"action":"now_display"}}}' "$url")
                 curl -s -X POST -H 'Content-Type: application/json' -H "topicID: $topic_id" -H "API-KEY: $api_key" "https://artwork-info.feral-file.workers.dev/api/cast" -d "$payload"
             else
-                # Direct via SSH tunnel through MacBook
-                echo "📺 Casting $url to FF1 via direct connection..."
-                ssh jas@host.docker.internal "curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' http://$ff1_ip:$ff1_port/api/cast -d '{\"command\":\"displayPlaylist\",\"request\":{\"dp1_call\":{\"dpVersion\":\"1.0.0\",\"items\":[{\"source\":\"$url\",\"duration\":0}]},\"intent\":{\"action\":\"now_display\"}}}'"
+                # Direct network access to FF1
+                # Check if it's a playlist URL (contains /playlists/ or /api/playlist)
+                if string match -q '*playlists*' $url; or string match -q '*/api/playlist*' $url
+                    # It's a playlist URL - send as playlistUrl so FF1 fetches and displays it
+                    echo "📺 Casting playlist to FF1: $url"
+                    curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' "http://$ff1_ip:$ff1_port/api/cast" -d "{\"command\":\"displayPlaylist\",\"request\":{\"playlistUrl\":\"$url\",\"intent\":{\"action\":\"now_display\"}}}"
+                else
+                    # Single URL - wrap in a minimal playlist
+                    echo "📺 Casting $url to FF1..."
+                    curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' "http://$ff1_ip:$ff1_port/api/cast" -d "{\"command\":\"displayPlaylist\",\"request\":{\"dp1_call\":{\"dpVersion\":\"1.1.0\",\"items\":[{\"source\":\"$url\",\"duration\":0}]},\"intent\":{\"action\":\"now_display\"}}}"
+                end
             end
         case tunnel
             echo "🚇 Starting SSH tunnel to FF1 (localhost:1111 -> $ff1_ip:$ff1_port)..."
@@ -2940,8 +2955,8 @@ kill %1 2>/dev/null"
             # Build full DP-1 payload
             set -l playlist_payload (printf '{"command":"displayPlaylist","request":{"dp1_call":{"dpVersion":"1.0.0","items":%s},"intent":{"action":"now_display"}}}' "$items_json")
             
-            # Send to FF1
-            ssh jas@host.docker.internal "curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' http://$ff1_ip:$ff1_port/api/cast -d '$playlist_payload'"
+            # Send to FF1 directly
+            curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' "http://$ff1_ip:$ff1_port/api/cast" -d "$playlist_payload"
         case info '*'
             set -l topic_id (echo $ff1_data | jq -r '.topicId // "not set"')
             echo "🖼️ FF1 Art Computer"
