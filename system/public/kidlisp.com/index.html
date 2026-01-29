@@ -23903,6 +23903,7 @@
     let strudelGainNode = null;
     let strudelAnimationFrame = null;
     let strudelEnergyHistory = [];
+    let strudelRepl = null; // Store reference to Strudel repl for stop functionality
     
     async function loadStrudel() {
       if (strudelLoaded) return true;
@@ -23924,8 +23925,8 @@
         strudelAnalyser.fftSize = 512;
         strudelGainNode = strudelAudioContext.createGain();
         
-        // Initialize Strudel with sample loading
-        await window.initStrudel({
+        // Initialize Strudel with sample loading - returns the repl
+        strudelRepl = await window.initStrudel({
           prebake: () => window.samples('github:tidalcycles/dirt-samples'),
         });
         
@@ -23981,7 +23982,24 @@
     }
     
     function stopStrudel() {
-      if (window.hush) window.hush();
+      // Try multiple ways to stop Strudel
+      try {
+        // Method 1: Use the repl's stop method
+        if (strudelRepl?.stop) {
+          strudelRepl.stop();
+        }
+        // Method 2: Try window.hush (may be available in some builds)
+        if (window.hush) {
+          window.hush();
+        }
+        // Method 3: Try to stop the scheduler directly
+        if (strudelRepl?.scheduler?.stop) {
+          strudelRepl.scheduler.stop();
+        }
+      } catch (e) {
+        console.warn('Strudel stop error:', e);
+      }
+      
       strudelPlaying = false;
       document.getElementById('strudel-play').disabled = false;
       document.getElementById('strudel-stop').disabled = true;
