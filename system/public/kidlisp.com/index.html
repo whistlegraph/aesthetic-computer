@@ -3918,6 +3918,200 @@
       color: #f5f5f5;
     }
     
+    /* Sub-tab colors - Jukebox (Magenta) */
+    .list-subtab[data-subtab="jukebox"] {
+      background: rgba(236, 72, 153, 0.65);
+      color: #78716c;
+    }
+    .list-subtab[data-subtab="jukebox"].active {
+      background: linear-gradient(to bottom, #ec4899 0%, #be185d 100%);
+      color: #fdf2f8;
+    }
+    [data-theme="dark"] .list-subtab[data-subtab="jukebox"] {
+      background: rgba(236, 72, 153, 0.8);
+      color: #57534e;
+    }
+    [data-theme="dark"] .list-subtab[data-subtab="jukebox"].active {
+      background: linear-gradient(to bottom, #db2777 0%, #9d174d 100%);
+      color: #fce7f3;
+    }
+    
+    /* Jukebox Panel Styles */
+    .jukebox-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 12px;
+      height: 100%;
+      overflow-y: auto;
+    }
+    .jukebox-now-playing {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(236, 72, 153, 0.15);
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .jukebox-track-icon { font-size: 1.2em; }
+    .jukebox-track-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .jukebox-controls {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    .jukebox-btn {
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 50%;
+      background: linear-gradient(to bottom, #ec4899, #be185d);
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .jukebox-btn:hover:not(:disabled) { transform: scale(1.1); }
+    .jukebox-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .jukebox-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .jukebox-progress input[type="range"] {
+      flex: 1;
+      height: 6px;
+      -webkit-appearance: none;
+      background: rgba(236, 72, 153, 0.3);
+      border-radius: 3px;
+    }
+    .jukebox-progress input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: #ec4899;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .jukebox-time {
+      font-size: 11px;
+      color: #888;
+      min-width: 80px;
+      text-align: right;
+    }
+    .jukebox-volume {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .jukebox-volume input[type="range"] {
+      flex: 1;
+      max-width: 100px;
+      height: 4px;
+      -webkit-appearance: none;
+      background: rgba(236, 72, 153, 0.3);
+      border-radius: 2px;
+    }
+    .jukebox-volume input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background: #ec4899;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .jukebox-meters {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 6px;
+    }
+    .jukebox-meter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .jukebox-meter-label {
+      width: 32px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #ec4899;
+    }
+    .jukebox-meter-bar {
+      flex: 1;
+      height: 8px;
+      background: rgba(236, 72, 153, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .jukebox-meter-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(to right, #ec4899, #f472b6);
+      border-radius: 4px;
+      transition: width 0.05s;
+    }
+    .jukebox-meter-value {
+      width: 32px;
+      font-size: 11px;
+      text-align: right;
+      font-family: monospace;
+    }
+    .jukebox-beat-indicator {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #333;
+      transition: background 0.05s;
+    }
+    .jukebox-beat-indicator.active {
+      background: #ec4899;
+      box-shadow: 0 0 8px #ec4899;
+    }
+    .jukebox-tracklist {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow-y: auto;
+      min-height: 100px;
+    }
+    .jukebox-track {
+      padding: 8px 12px;
+      background: rgba(236, 72, 153, 0.1);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-size: 13px;
+    }
+    .jukebox-track:hover { background: rgba(236, 72, 153, 0.25); }
+    .jukebox-track.playing {
+      background: rgba(236, 72, 153, 0.4);
+      font-weight: 600;
+    }
+    .jukebox-track.playing::before { content: '▶ '; }
+    .jukebox-status {
+      font-size: 11px;
+      color: #888;
+      text-align: center;
+      min-height: 16px;
+    }
+    [data-theme="dark"] .jukebox-panel { color: #f5f5f5; }
+    [data-theme="dark"] .jukebox-now-playing { background: rgba(236, 72, 153, 0.25); }
+    [data-theme="dark"] .jukebox-meters { background: rgba(255, 255, 255, 0.05); }
+    [data-theme="dark"] .jukebox-track { background: rgba(236, 72, 153, 0.15); }
+    [data-theme="dark"] .jukebox-track:hover { background: rgba(236, 72, 153, 0.3); }
+    [data-theme="dark"] .jukebox-track.playing { background: rgba(236, 72, 153, 0.5); }
+    
     @media (hover: hover) {
       .list-subtab:hover {
         filter: brightness(1.1);
@@ -8633,6 +8827,7 @@
             <div class="list-subtab" data-subtab="recent">Recent</div>
             <div class="list-subtab" data-subtab="history">History</div>
             <div class="list-subtab" data-subtab="keeps">Keeps</div>
+            <div class="list-subtab" data-subtab="jukebox">🎵</div>
           </div>
           <!-- List sub-contents -->
           <div class="list-subcontent" id="examples-subcontent">
@@ -8768,6 +8963,62 @@
                   <div class="keeps-status" id="keeps-status"></div>
                 </div>
               </div>
+            </div>
+          </div>
+          <div class="list-subcontent hidden" id="jukebox-subcontent">
+            <div class="jukebox-panel">
+              <!-- Now Playing -->
+              <div class="jukebox-now-playing">
+                <span class="jukebox-track-icon">🎵</span>
+                <span class="jukebox-track-name" id="jukebox-track-name">Select a track</span>
+              </div>
+              
+              <!-- Player Controls -->
+              <div class="jukebox-controls">
+                <button class="jukebox-btn" id="jukebox-play" title="Play">▶</button>
+                <button class="jukebox-btn" id="jukebox-pause" title="Pause" disabled>⏸</button>
+                <button class="jukebox-btn" id="jukebox-stop" title="Stop" disabled>⏹</button>
+              </div>
+              
+              <!-- Progress Bar -->
+              <div class="jukebox-progress">
+                <input type="range" id="jukebox-seek" min="0" max="100" value="0" disabled>
+                <span class="jukebox-time" id="jukebox-time">0:00 / 0:00</span>
+              </div>
+              
+              <!-- Volume -->
+              <div class="jukebox-volume">
+                <span>🔊</span>
+                <input type="range" id="jukebox-volume" min="0" max="100" value="70">
+              </div>
+              
+              <!-- Audio Meters -->
+              <div class="jukebox-meters">
+                <div class="jukebox-meter-row">
+                  <span class="jukebox-meter-label">amp</span>
+                  <div class="jukebox-meter-bar"><div class="jukebox-meter-fill" id="jukebox-amp-meter"></div></div>
+                  <span class="jukebox-meter-value" id="jukebox-amp-value">0.0</span>
+                </div>
+                <div class="jukebox-meter-row">
+                  <span class="jukebox-meter-label">kick</span>
+                  <div class="jukebox-beat-indicator" id="jukebox-kick-indicator"></div>
+                </div>
+              </div>
+              
+              <!-- Track List -->
+              <div class="jukebox-tracklist" id="jukebox-tracklist">
+                <div class="jukebox-track" data-track="zzzZWAP.wav">zzzZWAP</div>
+                <div class="jukebox-track" data-track="ARrrGh.wav">ARrrGh</div>
+                <div class="jukebox-track" data-track="BLuRP.wav">BLuRP</div>
+                <div class="jukebox-track" data-track="GrRr.wav">GrRr</div>
+                <div class="jukebox-track" data-track="HoNK.wav">HoNK</div>
+                <div class="jukebox-track" data-track="KLOnK.wav">KLOnK</div>
+                <div class="jukebox-track" data-track="PaFf_master.wav">PaFf</div>
+                <div class="jukebox-track" data-track="WHoOSh.wav">WHoOSh</div>
+              </div>
+              
+              <!-- Status -->
+              <div class="jukebox-status" id="jukebox-status"></div>
             </div>
           </div>
         </div><!-- /list-content -->
@@ -23130,6 +23381,231 @@
     
     // Start connection on page load
     connectToSessionServer();
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🎵 Jukebox - Audio player with real-time analysis for KidLisp
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const JUKEBOX_ASSET_BASE = 'https://aesthetic.computer/assets/oskie/wipppps/';
+    
+    let jukeboxAudioContext = null;
+    let jukeboxAudioElement = null;
+    let jukeboxGainNode = null;
+    let jukeboxAnalyser = null;
+    let jukeboxSource = null;
+    let jukeboxAnimationFrame = null;
+    let jukeboxCurrentTrack = null;
+    let jukeboxIsPlaying = false;
+    let jukeboxEnergyHistory = [];
+    const JUKEBOX_ENERGY_HISTORY_SIZE = 20;
+    const JUKEBOX_BEAT_SENSITIVITY = 1.15;
+    const JUKEBOX_BEAT_COOLDOWN = 80;
+    let jukeboxLastBeatTime = 0;
+    let jukeboxCurrentBeat = false;
+    
+    function initJukebox() {
+      const playBtn = document.getElementById('jukebox-play');
+      const pauseBtn = document.getElementById('jukebox-pause');
+      const stopBtn = document.getElementById('jukebox-stop');
+      const seekSlider = document.getElementById('jukebox-seek');
+      const volumeSlider = document.getElementById('jukebox-volume');
+      const trackList = document.getElementById('jukebox-tracklist');
+      
+      if (!playBtn || !trackList) return;
+      
+      trackList.addEventListener('click', (e) => {
+        const trackEl = e.target.closest('.jukebox-track');
+        if (trackEl) loadJukeboxTrack(trackEl.dataset.track);
+      });
+      
+      playBtn.addEventListener('click', () => {
+        if (jukeboxAudioElement?.src) playJukebox();
+        else if (jukeboxCurrentTrack) loadJukeboxTrack(jukeboxCurrentTrack);
+      });
+      pauseBtn.addEventListener('click', pauseJukebox);
+      stopBtn.addEventListener('click', stopJukebox);
+      
+      seekSlider.addEventListener('input', (e) => {
+        if (jukeboxAudioElement?.duration) {
+          jukeboxAudioElement.currentTime = (e.target.value / 100) * jukeboxAudioElement.duration;
+        }
+      });
+      
+      volumeSlider.addEventListener('input', (e) => {
+        const vol = e.target.value / 100;
+        if (jukeboxGainNode) jukeboxGainNode.gain.value = vol;
+        if (jukeboxAudioElement) jukeboxAudioElement.volume = vol;
+      });
+    }
+    
+    async function initJukeboxAudio() {
+      if (jukeboxAudioContext) return;
+      jukeboxAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      jukeboxAudioElement = new Audio();
+      jukeboxAudioElement.crossOrigin = 'anonymous';
+      jukeboxSource = jukeboxAudioContext.createMediaElementSource(jukeboxAudioElement);
+      jukeboxGainNode = jukeboxAudioContext.createGain();
+      jukeboxAnalyser = jukeboxAudioContext.createAnalyser();
+      jukeboxAnalyser.fftSize = 512;
+      jukeboxSource.connect(jukeboxGainNode);
+      jukeboxGainNode.connect(jukeboxAnalyser);
+      jukeboxAnalyser.connect(jukeboxAudioContext.destination);
+      const vol = document.getElementById('jukebox-volume');
+      if (vol) jukeboxGainNode.gain.value = vol.value / 100;
+      jukeboxAudioElement.addEventListener('timeupdate', updateJukeboxProgress);
+      jukeboxAudioElement.addEventListener('ended', stopJukebox);
+      jukeboxAudioElement.addEventListener('loadedmetadata', () => {
+        updateJukeboxTime();
+        document.getElementById('jukebox-seek').disabled = false;
+      });
+    }
+    
+    async function loadJukeboxTrack(trackFile) {
+      await initJukeboxAudio();
+      if (jukeboxAudioContext.state === 'suspended') await jukeboxAudioContext.resume();
+      jukeboxCurrentTrack = trackFile;
+      document.getElementById('jukebox-track-name').textContent = trackFile.replace('.wav', '').replace('_master', '');
+      document.getElementById('jukebox-status').textContent = 'Loading...';
+      document.querySelectorAll('.jukebox-track').forEach(el => {
+        el.classList.toggle('playing', el.dataset.track === trackFile);
+      });
+      jukeboxAudioElement.src = JUKEBOX_ASSET_BASE + trackFile;
+      await jukeboxAudioElement.load();
+      playJukebox();
+    }
+    
+    function playJukebox() {
+      if (!jukeboxAudioElement) return;
+      jukeboxAudioElement.play().then(() => {
+        jukeboxIsPlaying = true;
+        document.getElementById('jukebox-play').disabled = true;
+        document.getElementById('jukebox-pause').disabled = false;
+        document.getElementById('jukebox-stop').disabled = false;
+        document.getElementById('jukebox-status').textContent = 'Playing';
+        startJukeboxAnalysis();
+      });
+    }
+    
+    function pauseJukebox() {
+      if (!jukeboxAudioElement) return;
+      jukeboxAudioElement.pause();
+      jukeboxIsPlaying = false;
+      document.getElementById('jukebox-play').disabled = false;
+      document.getElementById('jukebox-pause').disabled = true;
+      document.getElementById('jukebox-status').textContent = 'Paused';
+      stopJukeboxAnalysis();
+    }
+    
+    function stopJukebox() {
+      if (!jukeboxAudioElement) return;
+      jukeboxAudioElement.pause();
+      jukeboxAudioElement.currentTime = 0;
+      jukeboxIsPlaying = false;
+      document.getElementById('jukebox-play').disabled = false;
+      document.getElementById('jukebox-pause').disabled = true;
+      document.getElementById('jukebox-stop').disabled = true;
+      document.getElementById('jukebox-seek').value = 0;
+      document.getElementById('jukebox-status').textContent = 'Stopped';
+      stopJukeboxAnalysis();
+      document.getElementById('jukebox-amp-meter').style.width = '0%';
+      document.getElementById('jukebox-amp-value').textContent = '0.0';
+      document.getElementById('jukebox-kick-indicator').classList.remove('active');
+      document.querySelectorAll('.jukebox-track').forEach(el => el.classList.remove('playing'));
+    }
+    
+    function updateJukeboxProgress() {
+      if (!jukeboxAudioElement?.duration) return;
+      document.getElementById('jukebox-seek').value = (jukeboxAudioElement.currentTime / jukeboxAudioElement.duration) * 100;
+      updateJukeboxTime();
+    }
+    
+    function updateJukeboxTime() {
+      if (!jukeboxAudioElement) return;
+      const fmt = (s) => !isFinite(s) ? '0:00' : `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}`;
+      document.getElementById('jukebox-time').textContent = `${fmt(jukeboxAudioElement.currentTime)} / ${fmt(jukeboxAudioElement.duration || 0)}`;
+    }
+    
+    function startJukeboxAnalysis() {
+      if (jukeboxAnimationFrame) return;
+      const freqData = new Uint8Array(jukeboxAnalyser.frequencyBinCount);
+      const timeData = new Uint8Array(jukeboxAnalyser.fftSize);
+      
+      function analyze() {
+        if (!jukeboxIsPlaying) return;
+        jukeboxAnalyser.getByteFrequencyData(freqData);
+        jukeboxAnalyser.getByteTimeDomainData(timeData);
+        
+        let sum = 0;
+        for (let i = 0; i < timeData.length; i++) {
+          const n = (timeData[i] - 128) / 128;
+          sum += n * n;
+        }
+        const amp = Math.min(10, Math.sqrt(sum / timeData.length) * 15);
+        
+        const bassEnd = Math.floor(250 * jukeboxAnalyser.fftSize / jukeboxAudioContext.sampleRate);
+        let bassEnergy = 0;
+        for (let i = 0; i < Math.min(bassEnd, freqData.length); i++) bassEnergy += freqData[i] * freqData[i];
+        bassEnergy = Math.sqrt(bassEnergy / bassEnd) / 255;
+        
+        jukeboxEnergyHistory.push(bassEnergy);
+        if (jukeboxEnergyHistory.length > JUKEBOX_ENERGY_HISTORY_SIZE) jukeboxEnergyHistory.shift();
+        
+        let kick = 0;
+        if (jukeboxEnergyHistory.length >= JUKEBOX_ENERGY_HISTORY_SIZE) {
+          const avg = jukeboxEnergyHistory.reduce((a,b)=>a+b,0) / jukeboxEnergyHistory.length;
+          const now = performance.now();
+          if (bassEnergy > avg * JUKEBOX_BEAT_SENSITIVITY && now - jukeboxLastBeatTime > JUKEBOX_BEAT_COOLDOWN) {
+            kick = 1;
+            jukeboxLastBeatTime = now;
+            jukeboxCurrentBeat = true;
+          } else if (now - jukeboxLastBeatTime > 50) {
+            jukeboxCurrentBeat = false;
+          }
+        }
+        
+        document.getElementById('jukebox-amp-meter').style.width = `${(amp/10)*100}%`;
+        document.getElementById('jukebox-amp-value').textContent = amp.toFixed(1);
+        document.getElementById('jukebox-kick-indicator').classList.toggle('active', jukeboxCurrentBeat);
+        
+        const audioData = { amp, leftAmp: amp, rightAmp: amp, beat: kick, kick };
+        sendJukeboxAudioToPreview(audioData);
+        broadcastJukeboxAudioToPJ(audioData);
+        
+        jukeboxAnimationFrame = requestAnimationFrame(analyze);
+      }
+      analyze();
+    }
+    
+    function stopJukeboxAnalysis() {
+      if (jukeboxAnimationFrame) {
+        cancelAnimationFrame(jukeboxAnimationFrame);
+        jukeboxAnimationFrame = null;
+      }
+      jukeboxEnergyHistory = [];
+    }
+    
+    function sendJukeboxAudioToPreview(audioData) {
+      if (iframeReady && previewIframe?.contentWindow) {
+        previewIframe.contentWindow.postMessage({ type: 'kidlisp-audio', data: audioData }, aestheticUrl);
+      }
+    }
+    
+    function broadcastJukeboxAudioToPJ(audioData) {
+      if (!codeChannelId) return;
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          const bc = new BroadcastChannel(`kidlisp-channel-${codeChannelId}`);
+          bc.postMessage({ type: 'audio-data', channelId: codeChannelId, data: audioData, timestamp: Date.now() });
+          bc.close();
+        } catch (e) {}
+      }
+      if (sessionWs?.readyState === WebSocket.OPEN) {
+        sessionWs.send(JSON.stringify({ type: 'audio', content: { codeChannel: codeChannelId, ...audioData, timestamp: Date.now() } }));
+      }
+    }
+    
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initJukebox);
+    else initJukebox();
   </script>
   
   <!-- Slide mode overlays -->

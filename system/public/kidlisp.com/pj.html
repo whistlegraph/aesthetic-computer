@@ -335,6 +335,15 @@
       logPj('postMessage to iframe', { isSlide, length: code?.length });
     }
     
+    // Send audio data to iframe
+    function sendAudioToIframe(audioData) {
+      if (!iframeReady) return;
+      iframe.contentWindow.postMessage({
+        type: 'kidlisp-audio',
+        data: audioData
+      }, aestheticUrl);
+    }
+    
     // Send pause/resume to iframe
     function sendPauseToIframe(paused) {
       if (!iframeReady) return;
@@ -352,6 +361,12 @@
         if (event.data?.type === 'pj-ping') {
           handleEditorPing();
           bc.postMessage({ type: 'pj-pong', channelId });
+          return;
+        }
+        
+        // Handle audio data from jukebox
+        if (event.data?.type === 'audio-data' && event.data?.data) {
+          sendAudioToIframe(event.data.data);
           return;
         }
         
@@ -426,6 +441,12 @@
               type: 'pj-pong',
               content: channelId
             }));
+            return;
+          }
+          
+          // Handle audio data from jukebox
+          if (msg.type === 'audio' && msg.content) {
+            sendAudioToIframe(msg.content);
             return;
           }
           
