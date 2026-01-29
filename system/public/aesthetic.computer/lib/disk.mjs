@@ -630,6 +630,7 @@ let SHARE_SUPPORTED; // Whether navigator.share is supported. (For `dl`)
 let PREVIEW_OR_ICON; // Whether we are in preview or icon mode. (From boot.)
 let VSCODE; // Whether we are running the vscode extesion or not. (From boot.)
 let TV_MODE = false; // Whether running in TV mode (disables touch/keyboard input)
+let DEVICE_MODE = false; // Whether running in device mode (device.kidlisp.com - skip HUD overlays)
 let HIGHLIGHT_MODE = false; // Whether HUD highlighting is enabled
 let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
 let PERF_MODE = false; // Whether to show KidLisp performance/FPS HUD
@@ -9083,6 +9084,7 @@ async function makeFrame({ data: { type, content } }) {
     }
     
     TV_MODE = content.resolution?.tv === true;
+    DEVICE_MODE = content.resolution?.device === true;
     
     // Parse highlight parameter
     const highlightParam = content.resolution?.highlight;
@@ -13642,7 +13644,8 @@ async function makeFrame({ data: { type, content } }) {
       let qrOverlay;
       
       // Skip QR/HUD overlay in device mode - device.kidlisp.com has its own DOM overlay
-      const isDeviceModeQR = location.search.indexOf('device=true') > -1;
+      // DEVICE_MODE is set from bios init message (can't use location.search in worker)
+      const isDeviceModeQR = DEVICE_MODE;
       
       // Clear QR cache if caching is disabled to prevent memory buildup
       if (isQROverlayCacheDisabled() && qrOverlayCache.size > 0) {
