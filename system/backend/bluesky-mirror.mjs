@@ -10,13 +10,13 @@ let cachedBlueskyCredentials = null;
 
 /**
  * Get Bluesky credentials from MongoDB secrets collection
- * @param {Object} db - MongoDB database instance
+ * @param {Object} database - Database connection object from connect()
  * @returns {Promise<{identifier: string, appPassword: string, service: string, mirrorHandles: string[]}>}
  */
-async function getBlueskyCredentials(db) {
+async function getBlueskyCredentials(database) {
   if (cachedBlueskyCredentials) return cachedBlueskyCredentials;
   
-  const secrets = await db.collection("secrets").findOne({ _id: "bluesky" });
+  const secrets = await database.db.collection("secrets").findOne({ _id: "bluesky" });
   
   if (!secrets) {
     throw new Error("Bluesky credentials not found in database");
@@ -34,13 +34,13 @@ async function getBlueskyCredentials(db) {
 
 /**
  * Check if a handle should have moods mirrored to Bluesky
- * @param {Object} db - MongoDB database instance  
+ * @param {Object} database - Database connection object from connect()
  * @param {string} handle - Handle like "@jeffrey"
  * @returns {Promise<boolean>}
  */
-export async function shouldMirror(db, handle) {
+export async function shouldMirror(database, handle) {
   try {
-    const creds = await getBlueskyCredentials(db);
+    const creds = await getBlueskyCredentials(database);
     return creds.mirrorHandles.includes(handle.toLowerCase());
   } catch (e) {
     shell.error(`⚠️ Could not check mirror status: ${e.message}`);
@@ -50,16 +50,16 @@ export async function shouldMirror(db, handle) {
 
 /**
  * Post a mood to the @aesthetic.computer Bluesky account
- * @param {Object} db - MongoDB database instance
+ * @param {Object} database - Database connection object from connect()
  * @param {string} moodText - The mood content
  * @param {string} handle - The author's handle (e.g., "@jeffrey")
  * @param {string} atprotoRkey - The ATProto record key for permalink
  * @returns {Promise<{uri: string, cid: string, rkey: string} | null>}
  */
-export async function postMoodToBluesky(db, moodText, handle, atprotoRkey) {
+export async function postMoodToBluesky(database, moodText, handle, atprotoRkey) {
   let creds;
   try {
-    creds = await getBlueskyCredentials(db);
+    creds = await getBlueskyCredentials(database);
   } catch (e) {
     shell.log(`⚠️ ${e.message}, skipping Bluesky mirror`);
     return null;
@@ -124,14 +124,14 @@ export async function postMoodToBluesky(db, moodText, handle, atprotoRkey) {
 
 /**
  * Delete a mirrored post from Bluesky
- * @param {Object} db - MongoDB database instance
+ * @param {Object} database - Database connection object from connect()
  * @param {string} blueskyRkey - The Bluesky post rkey
  * @returns {Promise<boolean>}
  */
-export async function deleteMoodFromBluesky(db, blueskyRkey) {
+export async function deleteMoodFromBluesky(database, blueskyRkey) {
   let creds;
   try {
-    creds = await getBlueskyCredentials(db);
+    creds = await getBlueskyCredentials(database);
   } catch (e) {
     return false;
   }
