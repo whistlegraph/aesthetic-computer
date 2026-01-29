@@ -5,7 +5,7 @@
 import { connect } from '../system/backend/database.mjs';
 
 const FEED_API_URL = 'https://feed.aesthetic.computer/api/v1';
-const API_SECRET = 'YOUR_FEED_API_SECRET_HERE';
+const API_SECRET = process.env.FEED_API_SECRET || 'YOUR_FEED_API_SECRET_HERE';
 
 async function getTop100KidLispPieces() {
   const { db, disconnect } = await connect();
@@ -60,7 +60,6 @@ async function getTop100KidLispPieces() {
 }
 
 function generateDP1Playlist(pieces) {
-  const playlistId = `top-100-kidlisp-${Date.now()}`;
   const timestamp = new Date().toISOString();
   const dateFormatted = new Date().toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -69,51 +68,34 @@ function generateDP1Playlist(pieces) {
     day: 'numeric' 
   });
   
+  const duration = 24; // seconds per piece
+  
   const items = pieces.map((piece, index) => ({
-    id: `item-${index + 1}`,
-    type: 'kidlisp',
     title: `$${piece.code}`,
-    description: `By @${piece.handle || 'anonymous'} • ${piece.hits} hits`,
-    source: `https://aesthetic.computer/$${piece.code}?tv=true&density=5`, // TV-friendly URL with HUD and labels
-    duration: 24, // KidLisp pieces are interactive/generative, using 24s as placeholder
+    // Include playlist params so device.kidlisp.com shows progress bar
+    source: `https://device.kidlisp.com/$${piece.code}?playlist=true&duration=${duration}&index=${index}&total=${pieces.length}`,
+    duration: duration,
     license: 'open',
     provenance: {
       type: 'offChainURI',
-      contract: {
-        chain: 'other',
-        uri: `https://aesthetic.computer/$${piece.code}`,
-      }
+      uri: `https://kidlisp.com/$${piece.code}`,
     },
-    content: {
-      code: piece.code,
-      source: piece.source,
-      url: `/$${piece.code}`
-    },
-    metadata: {
-      hits: piece.hits,
-      created: piece.when,
-      author: piece.handle || 'anonymous',
-      userId: piece.user
-    },
-    position: index + 1,
-    created_at: timestamp,
-    updated_at: timestamp
   }));
   
   return {
-    id: playlistId,
-    dpVersion: '1.0.0',
-    version: '1.0.0',
+    dpVersion: '1.1.0',
     title: `Top 100 as of ${dateFormatted}`,
-    description: 'The 100 most popular KidLisp pieces by total hits',
+    summary: 'The 100 most popular KidLisp pieces by total hits',
     items: items,
-    metadata: {
-      totalHits: pieces.reduce((sum, p) => sum + (p.hits || 0), 0),
-      generatedAt: timestamp,
-      source: 'aesthetic-computer-mongodb'
-    },
-    created_at: timestamp,
-    updated_at: timestamp
+    defaults: {
+      display: {
+        scaling: 'fit',
+        background: '#000000',
+        margin: '0%'
+      },
+      license: 'open',
+      duration: 24
+    }
   };
 }
 
@@ -228,4 +210,4 @@ async function main() {
   }
 }
 
-main();
+main().then(() => process.exit(0)).catch(() => process.exit(1));
