@@ -1008,13 +1008,18 @@ async function fun(event, context) {
         <!-- Boot Canvas - VHS style with floating code pages -->
         <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;pointer-events:none;margin:0;padding:0;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
         <script>
-          window.acBootCanvas=(function(){var c=document.getElementById('boot-canvas');if(!c)return{};var x=c.getContext('2d',{willReadFrequently:true});x.imageSmoothingEnabled=false;
+          window.acBootCanvas=(function(){var c=document.getElementById('boot-canvas');if(!c)return{};
+          // Check for noboot param - skip all boot animation for clean device display
+          var qs=location.search||'';var params=new URLSearchParams(qs);
+          console.log('[BOOT] noboot check:', params.get('noboot'), 'qs:', qs);
+          if(params.get('noboot')==='true'){console.log('[BOOT] noboot=true - hiding boot canvas');c.style.display='none';return{hide:function(){},log:function(){},netPulse:function(){},addFile:function(){},setHandle:function(){},setSessionConnected:function(){},setErrorMode:function(){}};}
+          var x=c.getContext('2d',{willReadFrequently:true});x.imageSmoothingEnabled=false;
           // Detect kidlisp.com iframe context and system light/dark mode for themed boot animation
           // Also detect based on nolabel/nogap query params which indicate embedded preview mode
           var isKidlisp=false;try{isKidlisp=window.self!==window.top&&(window.parent.location.hostname.indexOf('kidlisp')>=0||document.referrer.indexOf('kidlisp')>=0);}catch(e){isKidlisp=document.referrer.indexOf('kidlisp')>=0;}
-          if(!isKidlisp&&window.self!==window.top){var qs=location.search||'';if(qs.indexOf('nolabel')>=0&&qs.indexOf('nogap')>=0)isKidlisp=true;}
+          if(!isKidlisp&&window.self!==window.top){if(qs.indexOf('nolabel')>=0&&qs.indexOf('nogap')>=0)isKidlisp=true;}
           // Device mode: FF1/display device with black background and white/gray bars
-          var qs=location.search||'';var isDeviceMode=qs.indexOf('device=true')>=0;
+          var isDeviceMode=qs.indexOf('device=true')>=0;
           // Density param for scaling (default 1, FF1 uses 8 for 4K)
           var densityMatch=qs.match(/density=(\d+)/);var densityParam=densityMatch?parseInt(densityMatch[1]):1;
           var isLightMode=window.matchMedia&&window.matchMedia('(prefers-color-scheme:light)').matches;

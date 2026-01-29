@@ -2,7 +2,7 @@
 <!-- KidLisp.com Device Mode - Optimized for FF1 and display devices -->
 <!-- URL format: device.kidlisp.com/codeId -->
 <!-- Loads KidLisp $code URLs with default density=1 for 4K displays -->
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>KidLisp.com · Device</title>
@@ -62,12 +62,12 @@
     /* Source code display - top left */
     #source-code {
       position: absolute;
-      top: calc(var(--density, 8) * 8px);
-      left: calc(var(--density, 8) * 8px);
-      right: calc(var(--density, 8) * 8px);
-      bottom: calc(var(--density, 8) * 40px);
+      top: calc(var(--density, 8) * 4px);
+      left: calc(var(--density, 8) * 4px);
+      right: calc(var(--density, 8) * 4px);
+      bottom: calc(var(--density, 8) * 24px);
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--density, 8) * 5px);
+      font-size: calc(var(--density, 8) * 2.5px);
       line-height: 1.5;
       color: #fff;
       overflow: hidden;
@@ -96,59 +96,59 @@
     /* QR code and label - bottom right (like give.aesthetic.computer) */
     #qr-wrap {
       position: absolute;
-      bottom: calc(var(--density, 8) * 8px);
-      right: calc(var(--density, 8) * 8px);
+      bottom: calc(var(--density, 8) * 4px);
+      right: calc(var(--density, 8) * 4px);
       display: flex;
-      flex-direction: row;
-      align-items: flex-start;
+      flex-direction: column;
+      align-items: flex-end;
       z-index: 16;
     }
     
     #code-label {
-      font-family: 'Comic Relief', 'Comic Sans MS', cursive;
-      font-size: calc(var(--density, 8) * 8px);
-      font-weight: 700;
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: calc(var(--density, 8) * 2.5px);
+      font-weight: 400;
       color: #fff;
-      background: transparent;
-      padding: calc(var(--density, 8) * 2px);
-      margin-left: calc(var(--density, 8) * 2px);
-      line-height: 1.2;
-      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
-      letter-spacing: 0.05em;
+      background: #000;
+      padding: calc(var(--density, 8) * 0.25px) calc(var(--density, 8) * 0.5px);
+      padding-bottom: calc(var(--density, 8) * 0.75px); /* Extra space below label */
+      line-height: 1;
+      text-transform: none; /* Keep original case */
     }
     
     #code-label .code-dollar {
-      color: limegreen;
+      color: #fff;
     }
     
     #code-label .code-name {
-      color: lime;
+      color: #fff;
     }
     
     #qr-container {
       background: #fff;
-      padding: calc(var(--density, 8) * 0.5px);
+      padding: calc(var(--density, 8) * 0.25px);
       line-height: 0;
-      border: calc(var(--density, 8) * 0.5px) solid #000;
+      width: calc(var(--density, 8) * 10px);
+      height: calc(var(--density, 8) * 10px);
     }
     
     #qr-container svg {
       display: block;
-      width: calc(var(--density, 8) * 320px);
-      height: calc(var(--density, 8) * 320px);
+      width: 100%;
+      height: 100%;
       image-rendering: pixelated;
     }
     
     /* Handle and hits info - bottom left (device replaces disk.mjs overlay) */
     #piece-info {
       position: absolute;
-      bottom: calc(var(--density, 8) * 8px);
-      left: calc(var(--density, 8) * 8px);
+      bottom: calc(var(--density, 8) * 4px);
+      left: calc(var(--density, 8) * 4px);
       display: flex;
       flex-direction: column;
       align-items: flex-start;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--density, 8) * 5px);
+      font-size: calc(var(--density, 8) * 2.5px);
       line-height: 1.4;
       z-index: 16;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
@@ -156,21 +156,17 @@
     
     #piece-handle {
       color: rgb(255, 107, 157);
-      background: rgba(0,0,0,0.7);
-      padding: calc(var(--density, 8) * 1px) calc(var(--density, 8) * 2px);
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
     #piece-hits {
       color: rgb(255, 217, 61);
-      background: rgba(0,0,0,0.7);
-      padding: calc(var(--density, 8) * 1px) calc(var(--density, 8) * 2px);
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
     #piece-when {
       color: rgb(180, 180, 180);
-      background: rgba(0,0,0,0.7);
-      padding: calc(var(--density, 8) * 0.5px) calc(var(--density, 8) * 2px);
-      font-size: calc(var(--density, 8) * 3px);
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
     /* KidLisp syntax highlighting */
@@ -271,10 +267,12 @@
       position: fixed;
       bottom: 0;
       left: 0;
-      width: 100%;
-      height: 16px; /* Default, overridden by JS based on density */
-      background: #111; /* Solid dark background */
+      width: 100%; /* Full width of screen */
+      height: 1px; /* Thin line, overridden by JS based on density */
+      background: #000; /* Black background */
       z-index: 100;
+      margin: 0;
+      padding: 0;
     }
 
     #progress-bar.visible {
@@ -284,23 +282,25 @@
     #progress-fill {
       height: 100%;
       width: 0%;
-      /* Color set dynamically based on screen content */
-      background: rgb(170, 150, 218); /* Fallback lavender */
-      transition: width 0.25s linear, background-color 0.5s ease;
+      /* White fill over black background - looks like it's filling in */
+      background: #fff;
+      transition: width 0.25s linear;
     }
 
-    /* FPS meter - top right */
+    /* FPS meter - top right (hidden by default) */
     #fps-meter {
+      display: none;
       position: fixed;
-      top: calc(var(--density, 8) * 4px);
-      right: calc(var(--density, 8) * 4px);
+      top: 0;
+      right: 0;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--density, 8) * 3px);
+      font-size: calc(var(--density, 8) * 1.5px);
       color: lime;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
       z-index: 99999;
       pointer-events: none;
       text-align: right;
+      padding: calc(var(--density, 8) * 0.5px);
     }
 
   </style>
@@ -408,6 +408,15 @@
           return getScrambledChar(char);
         }).join('');
       }
+      
+      // Show scrambled placeholder immediately on page load
+      (function showInitialScramble() {
+        const inner = document.getElementById('source-code-inner');
+        if (!inner) return;
+        // Generate random scrambled placeholder until real source loads
+        const placeholder = Array(200).fill(0).map(() => SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]).join('');
+        inner.textContent = placeholder;
+      })();
       
       // Start scramble animation - keeps scrambling until signaled
       window.startScrambleAnimation = function(source, highlightedHtml) {
@@ -592,10 +601,22 @@
   <script>
     // Get density from URL params
     const urlParams = new URLSearchParams(window.location.search);
-    const densityParam = parseInt(urlParams.get('density')) || 8;
+    let densityParam = parseInt(urlParams.get('density')) || 8;
     
     // Set CSS custom property for density-based sizing
     document.documentElement.style.setProperty('--density', densityParam);
+    
+    // Listen for density changes from iframe (Cmd+/- keyboard controls)
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'ac:density-change' && typeof e.data.density === 'number') {
+        densityParam = e.data.density;
+        document.documentElement.style.setProperty('--density', densityParam);
+        // Update progress bar height (0.5x density for thin line)
+        const progressBar = document.getElementById('progress-bar');
+        if (progressBar) progressBar.style.height = `${Math.max(1, Math.round(0.5 * densityParam))}px`;
+        console.log('📺 Density updated from iframe:', densityParam);
+      }
+    });
     
     // Boot animation is now handled by the iframe's acBootCanvas with device mode
     // (black background, white/gray bars, density scaling)
@@ -684,6 +705,7 @@
       if (noauth) p.set('noauth', 'true');
       if (popout) p.set('popout', 'true');
       if (perf) p.set('perf', 'true');
+      p.set('noboot', 'true'); // Skip boot animation for clean device display
       p.set('t', Date.now()); // Cache bust
       return p.toString();
     }
@@ -1070,36 +1092,24 @@
     
     function startProgressBar() {
       console.log('📺 startProgressBar called, densityParam:', densityParam);
-      // Set height based on density (2 logical pixels)
-      const barHeight = 2 * densityParam;
+      // Set height based on density (0.5x for thin line, min 1px)
+      const barHeight = Math.max(1, Math.round(0.5 * densityParam));
       console.log('📺 Progress bar height:', barHeight);
       progressBar.style.height = `${barHeight}px`;
       progressBar.classList.add('visible');
       console.log('📺 Progress bar visible class added');
       progressStartTime = Date.now();
       updateProgressBar();
-      
-      // Listen for color updates from the iframe
-      window.addEventListener('message', (e) => {
-        if (e.data?.type === 'ac:screen-color' && e.data.color) {
-          progressFill.style.backgroundColor = e.data.color;
-        }
-      });
-      
-      // Request colors periodically from the iframe
-      requestScreenColor();
     }
     
-    function requestScreenColor() {
-      if (!isPlaylist) return;
-      try {
-        iframe.contentWindow?.postMessage({ type: 'ac:get-screen-color' }, '*');
-      } catch (e) {
-        // Cross-origin, ignore
+    // Track if piece has changed (for auto-reload logic)
+    let pieceHasChanged = false;
+    window.addEventListener('message', (e) => {
+      // Listen for boot-log, ready, or any paint frame as sign piece is running
+      if (e.data?.type === 'boot-log' || e.data?.type === 'ready' || e.data?.type === 'ac:fps-report') {
+        pieceHasChanged = true;
       }
-      // Request every 2 seconds
-      setTimeout(requestScreenColor, 2000);
-    }
+    });
     
     function updateProgressBar() {
       if (!progressStartTime) return;
@@ -1110,7 +1120,32 @@
       
       if (progress < 100) {
         requestAnimationFrame(updateProgressBar);
+      } else {
+        // Progress bar complete - check if we should reload
+        // Wait 2 seconds after progress bar completes
+        setTimeout(() => {
+          if (!pieceHasChanged) {
+            console.log('📺 Page stuck - reloading after progress bar timeout');
+            reloadPiece();
+          } else {
+            // Reset for next cycle and restart progress bar
+            pieceHasChanged = false;
+            progressStartTime = Date.now();
+            progressFill.style.width = '0%';
+            requestAnimationFrame(updateProgressBar);
+          }
+        }, 2000);
       }
+    }
+    
+    // Reload the current piece (soft reload - just iframe)
+    function reloadPiece() {
+      console.log('📺 Reloading piece...');
+      pieceHasChanged = false;
+      progressStartTime = Date.now();
+      progressFill.style.width = '0%';
+      iframe.src = iframe.src.replace(/&t=\d+/, '') + '&t=' + Date.now();
+      requestAnimationFrame(updateProgressBar);
     }
     
     // Start the app
