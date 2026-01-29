@@ -9346,7 +9346,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // 🎵 Audio data from jukebox - update KidLisp audio state
   if (type === "kidlisp-audio") {
-    lisp.updateKidLispAudio(content);
+    lisp.updateKidLispAudio?.(content);
     return;
   }
 
