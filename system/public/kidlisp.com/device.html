@@ -382,6 +382,213 @@
   </script>
   
   <script>
+    // 🔓 KidLisp Scramble/Decode Animation for Device Mode
+    // Shows scrambled code during boot, reveals when piece starts running
+    (function() {
+      const SCRAMBLE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789(),-=+*/<>:;\"\'.!?@#$%^&_~`[]{}|';
+      
+      let isScrambling = false;
+      let scrambleAnimationFrame = null;
+      let pendingSource = null;
+      let pendingHighlightedHtml = null;
+      let decodeResolver = null;
+      let waitingForDecode = false;
+      
+      // Scramble a character (preserve whitespace)
+      function getScrambledChar(original) {
+        if (original === '\n' || original === ' ' || original === '\t') return original;
+        return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+      }
+      
+      // Build scrambled version of source
+      function buildScrambledText(source) {
+        return source.split('').map(char => {
+          if (char === '\n' || char === ' ' || char === '\t') return char;
+          return getScrambledChar(char);
+        }).join('');
+      }
+      
+      // Start scramble animation - keeps scrambling until signaled
+      window.startScrambleAnimation = function(source, highlightedHtml) {
+        const inner = document.getElementById('source-code-inner');
+        if (!inner || !source) return;
+        
+        pendingSource = source;
+        pendingHighlightedHtml = highlightedHtml;
+        isScrambling = true;
+        waitingForDecode = true;
+        
+        console.log('📺 Starting scramble animation...');
+        
+        // Scramble loop
+        function scrambleLoop() {
+          if (!isScrambling || !waitingForDecode) return;
+          
+          // Show scrambled plain text (no highlighting during scramble)
+          inner.textContent = buildScrambledText(pendingSource);
+          
+          scrambleAnimationFrame = requestAnimationFrame(scrambleLoop);
+        }
+        
+        scrambleLoop();
+        
+        // Return promise that resolves when decode is triggered
+        return new Promise(resolve => {
+          decodeResolver = resolve;
+        });
+      };
+      
+      // Signal to start decoding (called when piece starts running)
+      window.signalDecode = function() {
+        if (!waitingForDecode || !pendingSource) return;
+        
+        console.log('📺 Signal received - starting decode animation');
+        waitingForDecode = false;
+        
+        if (scrambleAnimationFrame) {
+          cancelAnimationFrame(scrambleAnimationFrame);
+        }
+        
+        // Start reveal animation
+        revealCode();
+      };
+      
+      // Reveal animation - progressively show real code
+      function revealCode() {
+        const inner = document.getElementById('source-code-inner');
+        if (!inner || !pendingSource) {
+          finalize();
+          return;
+        }
+        
+        const chars = pendingSource.split('');
+        const settled = new Array(chars.length).fill(false);
+        const scrambleCounts = new Array(chars.length).fill(0);
+        let currentRevealIndex = 0;
+        let lastRevealTime = 0;
+        const revealStartTime = performance.now();
+        
+        // Animation settings
+        const revealDuration = 400; // Total reveal time in ms
+        const scrambleIterations = 1; // Scrambles before settling
+        const minCharDelay = 1;
+        
+        const charDelay = Math.max(minCharDelay, Math.floor(revealDuration / (chars.length * scrambleIterations)));
+        
+        function animateReveal() {
+          if (!isScrambling) {
+            finalize();
+            return;
+          }
+          
+          const now = performance.now();
+          const elapsed = now - revealStartTime;
+          
+          // Safety: Force complete if exceeded duration
+          if (elapsed > revealDuration * 1.5) {
+            finalize();
+            return;
+          }
+          
+          // Reveal next character
+          if (now - lastRevealTime >= charDelay && currentRevealIndex < chars.length) {
+            scrambleCounts[currentRevealIndex]++;
+            
+            if (scrambleCounts[currentRevealIndex] >= scrambleIterations) {
+              settled[currentRevealIndex] = true;
+              currentRevealIndex++;
+              lastRevealTime = now;
+            }
+          }
+          
+          // Build current text
+          const currentText = chars.map((char, i) => {
+            if (settled[i]) return char;
+            if (char === '\n' || char === ' ' || char === '\t') return char;
+            return getScrambledChar(char);
+          }).join('');
+          
+          inner.textContent = currentText;
+          
+          // Check if done
+          if (settled.every(s => s)) {
+            finalize();
+            return;
+          }
+          
+          requestAnimationFrame(animateReveal);
+        }
+        
+        requestAnimationFrame(animateReveal);
+      }
+      
+      // Finalize - show highlighted code and setup scrolling
+      function finalize() {
+        const inner = document.getElementById('source-code-inner');
+        const codeEl = document.getElementById('source-code');
+        
+        if (inner && pendingHighlightedHtml) {
+          inner.innerHTML = pendingHighlightedHtml;
+          
+          // Setup scrolling for long code
+          requestAnimationFrame(() => {
+            const containerHeight = codeEl.clientHeight;
+            const contentHeight = inner.scrollHeight;
+            
+            if (contentHeight > containerHeight + 20) {
+              const scrollDistance = contentHeight - containerHeight + 20;
+              inner.classList.add('scrolling');
+              inner.style.setProperty('--scroll-distance', `-${scrollDistance}px`);
+              const scrollDuration = 12 + (scrollDistance / 150);
+              inner.style.setProperty('--scroll-duration', `${scrollDuration}s`);
+            }
+          });
+          
+          // Apply timing durations to timing elements
+          inner.querySelectorAll('.hl-timing-active[data-duration]').forEach(el => {
+            const duration = parseFloat(el.dataset.duration) || 1;
+            const clampedDuration = Math.max(0.1, Math.min(duration, 10));
+            el.style.setProperty('--timing-duration', clampedDuration + 's');
+          });
+        }
+        
+        isScrambling = false;
+        pendingSource = null;
+        pendingHighlightedHtml = null;
+        
+        if (decodeResolver) {
+          decodeResolver();
+          decodeResolver = null;
+        }
+      }
+      
+      // Stop scramble immediately
+      window.stopScramble = function() {
+        isScrambling = false;
+        waitingForDecode = false;
+        if (scrambleAnimationFrame) {
+          cancelAnimationFrame(scrambleAnimationFrame);
+        }
+        finalize();
+      };
+      
+      // Listen for boot-log messages from iframe
+      window.addEventListener('message', (e) => {
+        if (e.data?.type === 'boot-log') {
+          const msg = e.data.message;
+          console.log('📺 Boot log:', msg);
+          
+          // Signal decode when piece starts running
+          // "loaded" is sent when the piece finishes loading
+          if (msg === 'loaded' || msg === 'running boot' || msg?.includes?.('running')) {
+            window.signalDecode?.();
+          }
+        }
+      });
+    })();
+  </script>
+  
+  <script>
     // Get density from URL params
     const urlParams = new URLSearchParams(window.location.search);
     const densityParam = parseInt(urlParams.get('density')) || 8;
@@ -561,15 +768,27 @@
       }
     }
     
-    // Display syntax-highlighted source code
+    // Display syntax-highlighted source code with scramble animation
     function displaySourceCode(source) {
       const codeEl = document.getElementById('source-code');
       const inner = document.getElementById('source-code-inner');
       if (!inner || !source) return;
       
-      inner.innerHTML = highlightKidlisp(source);
+      // Generate highlighted HTML for later
+      const highlightedHtml = highlightKidlisp(source);
       
-      // Setup scrolling for long code
+      // Start scramble animation - will decode when piece starts running
+      if (window.startScrambleAnimation) {
+        window.startScrambleAnimation(source, highlightedHtml);
+      } else {
+        // Fallback: show highlighted code immediately
+        inner.innerHTML = highlightedHtml;
+        setupScrolling(codeEl, inner);
+      }
+    }
+    
+    // Setup scrolling for long code (called after decode finishes)
+    function setupScrolling(codeEl, inner) {
       requestAnimationFrame(() => {
         const containerHeight = codeEl.clientHeight;
         const contentHeight = inner.scrollHeight;
