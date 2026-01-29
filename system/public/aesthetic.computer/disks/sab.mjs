@@ -246,7 +246,8 @@ export function paint({ wipe, ink, screen }) {
   
   if (!reportData) return;
   
-  let y = 10 - scrollY;
+  // Start below the HUD label (which is ~12px tall at top-left)
+  let y = 18 - scrollY;
   const lineHeight = 10;
   const labelX = 8;
   const valueX = 160;
