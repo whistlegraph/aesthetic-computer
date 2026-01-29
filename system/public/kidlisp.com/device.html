@@ -352,11 +352,18 @@
     let animating = true;
     let frame = 0;
     
-    // FF1/Device mode: Force dark mode after 6pm local time (evening viewing)
-    const hour = new Date().getHours();
-    const forceDarkMode = hour >= 18 || hour < 6; // 6pm-6am = dark mode
+    // FF1/Device mode: Always use black & white theme for clean display
+    // (Different from light/dark mode in the editor)
+    const DEVICE_MODE = true;
     
-    // KidLisp theme colors (same as acBootCanvas KIDLISP_COLS)
+    // Device mode: Black background, white bars (clean FF1 aesthetic)
+    const COLORS_DEVICE = [
+      [255, 255, 255], // white
+      [220, 220, 220], // light gray
+      [200, 200, 200], // medium gray
+    ];
+    
+    // KidLisp theme colors (same as acBootCanvas KIDLISP_COLS) - kept for reference
     const COLORS_DARK = [
       [255, 107, 107], // coral
       [78, 205, 196],  // teal
@@ -377,15 +384,16 @@
       [40, 130, 190],  // deep sky
     ];
     
-    // Use dark mode colors during evening hours
-    const COLORS = forceDarkMode ? COLORS_DARK : COLORS_LIGHT;
-    const bgColor = forceDarkMode ? 'rgba(42, 37, 32, 0.95)' : 'rgba(247, 247, 247, 0.95)';
+    // Device mode: Use black/white for FF1 clean aesthetic
+    const COLORS = DEVICE_MODE ? COLORS_DEVICE : COLORS_DARK;
+    const bgColor = DEVICE_MODE ? '#000000' : 'rgba(42, 37, 32, 0.95)';
     
     // Floating bars state
     let bars = [];
     
-    // Canvas dimensions (full resolution for smooth rounded bars)
+    // Canvas dimensions - use density for bar scaling
     let W, H;
+    const barScale = densityParam; // Scale bars based on density (default 8)
     
     function resize() {
       W = window.innerWidth;
@@ -398,14 +406,15 @@
     
     function spawnBar() {
       const ci = Math.floor(Math.random() * COLORS.length);
+      // Scale bar dimensions by density for larger bars on 4K displays
       bars.push({
         x: Math.random() * W,
         y: H + 5,
-        w: 30 + Math.random() * 80,
-        h: 2 + Math.random() * 3,
+        w: (30 + Math.random() * 80) * barScale / 2,
+        h: (2 + Math.random() * 3) * barScale / 2,
         ci: ci,
-        speed: 0.5 + Math.random() * 1.5,
-        alpha: 0.3 + Math.random() * 0.3
+        speed: (0.5 + Math.random() * 1.5) * barScale / 2,
+        alpha: DEVICE_MODE ? (0.6 + Math.random() * 0.4) : (0.3 + Math.random() * 0.3)
       });
     }
     
@@ -422,13 +431,15 @@
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, W, H);
       
-      // Scanlines (subtle)
-      ctx.globalAlpha = forceDarkMode ? 0.03 : 0.015;
-      ctx.fillStyle = forceDarkMode ? '#000' : '#888';
-      for (let yy = 0; yy < H; yy += 3) {
-        ctx.fillRect(0, yy, W, 1);
+      // Scanlines (subtle) - skip in device mode for clean look
+      if (!DEVICE_MODE) {
+        ctx.globalAlpha = 0.03;
+        ctx.fillStyle = '#000';
+        for (let yy = 0; yy < H; yy += 3) {
+          ctx.fillRect(0, yy, W, 1);
+        }
+        ctx.globalAlpha = 1;
       }
-      ctx.globalAlpha = 1;
       
       // Spawn new bars periodically
       if (frame % 15 === 0 && bars.length < 40) {
@@ -601,7 +612,9 @@
       });
       
       // Start playlist progress bar if in playlist mode
+      console.log('📺 Playlist mode:', isPlaylist, 'duration:', playlistDuration);
       if (isPlaylist) {
+        console.log('📺 Starting progress bar...');
         startProgressBar();
       }
       
@@ -884,10 +897,13 @@
     let progressStartTime = null;
     
     function startProgressBar() {
+      console.log('📺 startProgressBar called, densityParam:', densityParam);
       // Set height based on density (2 logical pixels)
       const barHeight = 2 * densityParam;
+      console.log('📺 Progress bar height:', barHeight);
       progressBar.style.height = `${barHeight}px`;
       progressBar.classList.add('visible');
+      console.log('📺 Progress bar visible class added');
       progressStartTime = Date.now();
       updateProgressBar();
       
