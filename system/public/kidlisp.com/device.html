@@ -584,11 +584,14 @@
         animating = false;
         setTimeout(() => {
           bootScreen.classList.add('hidden');
-          // Also hide source overlay after a delay
-          setTimeout(() => {
-            const sourceOverlay = document.getElementById('source-overlay');
-            if (sourceOverlay) sourceOverlay.classList.add('hidden');
-          }, 1500);
+          // Only hide source overlay if NOT in playlist mode
+          // In playlist mode, keep overlay visible the whole time
+          if (!isPlaylist) {
+            setTimeout(() => {
+              const sourceOverlay = document.getElementById('source-overlay');
+              if (sourceOverlay) sourceOverlay.classList.add('hidden');
+            }, 1500);
+          }
         }, 500);
       });
       
