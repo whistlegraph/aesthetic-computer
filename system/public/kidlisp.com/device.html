@@ -133,8 +133,8 @@
     
     #qr-container svg {
       display: block;
-      width: calc(var(--density, 8) * 120px);
-      height: calc(var(--density, 8) * 120px);
+      width: calc(var(--density, 8) * 160px);
+      height: calc(var(--density, 8) * 160px);
       image-rendering: pixelated;
     }
     
@@ -163,6 +163,13 @@
       color: rgb(255, 217, 61);
       background: rgba(0,0,0,0.7);
       padding: calc(var(--density, 8) * 1px) calc(var(--density, 8) * 2px);
+    }
+    
+    #piece-when {
+      color: rgb(180, 180, 180);
+      background: rgba(0,0,0,0.7);
+      padding: calc(var(--density, 8) * 0.5px) calc(var(--density, 8) * 2px);
+      font-size: calc(var(--density, 8) * 3px);
     }
     
     /* KidLisp syntax highlighting */
@@ -284,16 +291,15 @@
     /* FPS meter - top right */
     #fps-meter {
       position: fixed;
-      top: calc(var(--density, 8) * 8px);
-      right: calc(var(--density, 8) * 8px);
+      top: calc(var(--density, 8) * 4px);
+      right: calc(var(--density, 8) * 4px);
       font-family: 'JetBrains Mono', monospace;
-      font-size: calc(var(--density, 8) * 5px);
+      font-size: calc(var(--density, 8) * 3px);
       color: lime;
-      background: rgba(0,0,0,0.8);
-      padding: calc(var(--density, 8) * 2px) calc(var(--density, 8) * 4px);
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
       z-index: 99999;
       pointer-events: none;
-      border-radius: calc(var(--density, 8) * 1px);
+      text-align: right;
     }
 
   </style>
@@ -311,6 +317,7 @@
     <div id="piece-info">
       <div id="piece-handle"></div>
       <div id="piece-hits"></div>
+      <div id="piece-when"></div>
     </div>
   </div>
   
@@ -628,15 +635,33 @@
     function displayPieceInfo(data) {
       const handleEl = document.getElementById('piece-handle');
       const hitsEl = document.getElementById('piece-hits');
+      const whenEl = document.getElementById('piece-when');
       
-      if (handleEl && data.handle) {
-        handleEl.textContent = data.handle;
-        console.log('📺 Handle:', data.handle);
+      if (handleEl) {
+        if (data.handle) {
+          handleEl.textContent = data.handle;
+          console.log('📺 Handle:', data.handle);
+        } else {
+          handleEl.textContent = 'anonymous';
+          handleEl.style.color = 'rgb(150, 150, 150)';
+          console.log('📺 Handle: anonymous');
+        }
       }
       
       if (hitsEl && typeof data.hits === 'number') {
         hitsEl.textContent = data.hits.toLocaleString() + ' hits';
         console.log('📺 Hits:', data.hits);
+      }
+      
+      if (whenEl && data.when) {
+        const date = new Date(data.when);
+        const formatted = date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        });
+        whenEl.textContent = formatted;
+        console.log('📺 When:', formatted);
       }
     }
     
