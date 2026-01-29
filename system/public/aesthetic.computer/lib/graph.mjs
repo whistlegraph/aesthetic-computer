@@ -673,7 +673,7 @@ function makeBuffer(width, height, fillProcess, painting, api) {
   if (typeof fillProcess === "function") {
     // Remember the current buffer and color.
     const savedBuffer = getBuffer();
-    const rc = c; // Remember color.
+    const rc = c.slice(); // Remember color (copy, not reference).
     // Save and reset panTranslation to prevent paste operations in new buffers from being offset
     const savedPan = { x: panTranslation.x, y: panTranslation.y };
     panTranslation.x = 0;
@@ -800,7 +800,7 @@ function flood(x, y, fillColor = c) {
   }
 
   color(...resolvedFillColor);
-  const oldColor = c;
+  const oldColor = c.slice(); // Copy, not reference
   while (stack.length) {
     const [cx, cy] = stack.pop();
     

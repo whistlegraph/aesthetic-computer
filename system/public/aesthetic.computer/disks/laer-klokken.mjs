@@ -80,8 +80,8 @@ function paint($) {
     
     // Main character with cycling color based on position and frame
     const colorIndex = (i + Math.floor(frame / 8)) % colors.length;
-    const color = colors[colorIndex];
-    $.ink(...color).write(char, { x: charX, y: labelY }, false, undefined, false, "MatrixChunky8");
+    const color = colors[colorIndex] || [255, 180, 100]; // Fallback color
+    $.ink(color[0], color[1], color[2]).write(char, { x: charX, y: labelY }, false, undefined, false, "MatrixChunky8");
   }
 }
 
