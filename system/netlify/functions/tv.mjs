@@ -425,9 +425,11 @@ export async function handler(event) {
   const filter = params.filter?.toLowerCase() || "recent"; // "recent" or "sprinkle"
   const sort = params.sort?.toLowerCase(); // "hits" for all-time popularity
   const boost = params.boost; // "false" to disable handle boosting for kidlisp
+  const format = params.format?.toLowerCase(); // "dp1" for DP-1 playlist format
+  const duration = parseInt(params.duration) || 24; // Duration per item in DP-1 playlist (default 24s)
 
   // Create cache key from query params
-  const cacheKey = `give:tv:${requestedTypes.join(',')}:${limit}:${filter}:${sort || 'default'}:${boost || 'true'}`;
+  const cacheKey = `give:tv:${requestedTypes.join(',')}:${limit}:${filter}:${sort || 'default'}:${boost || 'true'}:${format || 'json'}:${duration}`;
   
   try {
     // Use caching for TV feed (5 min TTL)
@@ -437,11 +439,72 @@ export async function handler(event) {
       CACHE_TTLS.TV_RECENT
     );
     
+    // If DP-1 format requested, transform the response
+    if (format === 'dp1') {
+      const dp1Playlist = transformToDP1(result, { duration, requestedTypes });
+      return respond(200, dp1Playlist);
+    }
+    
     return respond(200, result);
   } catch (error) {
     console.error("Failed to build TV feed", error);
     return respond(500, { error: "Failed to build TV feed", details: error.message });
   }
+}
+
+/**
+ * Transform TV feed response to DP-1 playlist format
+ * Used by FF1 and other DP-1 compatible devices
+ */
+function transformToDP1(tvResult, { duration, requestedTypes }) {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  
+  // Determine which items to use based on requested types
+  let items = [];
+  
+  // For kidlisp-only, use the kidlisp array directly (maintains sort order)
+  if (requestedTypes.length === 1 && requestedTypes[0] === 'kidlisp' && tvResult.media?.kidlisp) {
+    items = tvResult.media.kidlisp;
+  } else {
+    // For mixed feeds, use the mixed array
+    items = tvResult.mixed || [];
+  }
+  
+  const total = items.length;
+  
+  // Build DP-1 playlist
+  const playlist = {
+    dpVersion: "1.1.0",
+    title: `Top ${total} KidLisp Hits`,
+    summary: `The ${total} most popular KidLisp pieces by total hits`,
+    items: items
+      .filter(item => item.type === 'kidlisp') // Only KidLisp items for now
+      .map((item, index) => {
+        const code = item.code;
+        return {
+          title: `$${code}`,
+          source: `https://device.kidlisp.com/$${code}?playlist=true&duration=${duration}&index=${index}&total=${total}`,
+          duration: duration,
+          license: "open",
+          provenance: {
+            type: "offChainURI",
+            uri: `https://kidlisp.com/$${code}`
+          }
+        };
+      }),
+    defaults: {
+      display: {
+        scaling: "fit",
+        background: "#000000",
+        margin: "0%"
+      },
+      license: "open",
+      duration: duration
+    }
+  };
+  
+  return playlist;
 }
 
 // Extracted TV feed fetching logic for caching
