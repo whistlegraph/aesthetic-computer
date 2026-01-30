@@ -10458,7 +10458,8 @@ async function makeFrame({ data: { type, content } }) {
       
       screen.width = content.width;
       screen.height = content.height;
-      // Recreate the pixel buffer with new dimensions
+      // Create fresh buffer - bios.mjs freeze frame provides visual continuity
+      // The piece's paint() will fill correct content on next frame
       screen.pixels = new Uint8ClampedArray(content.width * content.height * 4);
       
       if ($commonApi.rec.presenting && (oldWidth !== content.width || oldHeight !== content.height)) {
