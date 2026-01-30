@@ -2,6 +2,7 @@
 
 ## Project Structure & Module Organization
 - `system/` holds the main web app (Netlify config, public assets, templates, scripts) and is the primary entry for feature work.  
+- `ac-electron/` is the macOS/Windows desktop Electron app (AC Pane). Edit files here when working on the desktop app.
 - `session-server/` contains the real-time session backend (Jamsocket).  
 - `shared/` offers reusable browser/server utilities; use these before adding new helpers.  
 - `utilities/` scripts generate or sync assets (e.g., `generate-new-piece.mjs`).  
@@ -38,6 +39,21 @@ The devcontainer provides these `ac-*` commands (defined in `.devcontainer/confi
 - `ac-electron-restart` — Restart the Electron app on the host Mac.
 - `ac-electron-stop` — Stop the Electron app.
 - `ac-electron-start` — Start the Electron app.
+- `ac-electron-dev` — Toggle dev mode (on/off/status). When enabled, the production app loads files from the repo.
+- `ac-electron-reload` — Reload Electron windows (triggers Cmd+R).
+
+**Electron App Source**: `ac-electron/` contains the desktop app:
+- `main.js` — Main process (window management, IPC handlers, tray menu)
+- `preload.js` — Preload for BrowserWindows (exposes `window.ac` API)
+- `webview-preload.js` — Preload for webviews (exposes `window.acElectron` for window control)
+- `renderer/flip-view.html` — Main AC Pane UI (3D flip card with webview + terminal)
+- `renderer/preferences.html` — Preferences window
+
+**Dev Mode**: Create `~/.ac-electron-dev` on the Mac host to make the production app load renderer files from `~/aesthetic-computer/ac-electron/` instead of the app bundle. This enables live iteration without rebuilding:
+1. `ac-electron-dev on` — Enable dev mode
+2. Edit files in `ac-electron/`
+3. `ac-electron-reload` or Cmd+R in app — See changes
+4. `ac-electron-dev off` — Disable when done
 
 ### Development
 - `ac-tv` — Query TV API endpoints.
