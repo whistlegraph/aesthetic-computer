@@ -334,6 +334,37 @@
       padding: calc(var(--density, 8) * 0.5px);
     }
 
+    /* Playlist info display - top right during slideshow mode */
+    #playlist-info {
+      display: none;
+      position: fixed;
+      top: calc(var(--density, 8) * 2px);
+      right: calc(var(--density, 8) * 2px);
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: calc(var(--density, 8) * 2px);
+      color: rgba(255, 255, 255, 0.8);
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+      z-index: 99;
+      pointer-events: none;
+      text-align: right;
+      padding: calc(var(--density, 8) * 1px);
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: calc(var(--density, 8) * 0.5px);
+    }
+    
+    #playlist-info.visible {
+      display: block;
+    }
+    
+    #playlist-title {
+      font-weight: bold;
+      margin-bottom: calc(var(--density, 8) * 0.5px);
+    }
+    
+    #playlist-position {
+      color: rgba(255, 215, 0, 0.9);
+    }
+
   </style>
 </head>
 <body>
@@ -366,6 +397,12 @@
   
   <!-- FPS meter for performance comparison -->
   <div id="fps-meter">FPS: --</div>
+  
+  <!-- Playlist info overlay for slideshow mode -->
+  <div id="playlist-info">
+    <div id="playlist-title"></div>
+    <div id="playlist-position"></div>
+  </div>
   
   <script>
     // FPS meter - calculated locally from iframe's frame timing
@@ -759,6 +796,17 @@
     const isPlaylist = params.get('playlist') === 'true';
     const playlistDuration = parseInt(params.get('duration')) || 60; // seconds
     
+    // Slideshow mode params (for full DP-1 playlist client)
+    // playlist_url: URL to a DP-1 playlist JSON (e.g., feed.aesthetic.computer/api/v1/playlists/{id})
+    // start_index: Which item to start from (0-based, default 0)
+    const playlistUrl = params.get('playlist_url');
+    const startIndex = parseInt(params.get('start_index')) || 0;
+    
+    // Slideshow state (populated when playlist_url is provided)
+    let slideshowPlaylist = null;  // The fetched DP-1 playlist
+    let slideshowIndex = startIndex;  // Current item index
+    let slideshowTimer = null;  // Timer for auto-advance
+    
     // Build query string for display params
     function buildDisplayParams() {
       const p = new URLSearchParams();
@@ -782,10 +830,16 @@
     
     // Initialize display
     function init() {
-      logDevice('init', { codeId, density, dev, hostname, pathname });
+      logDevice('init', { codeId, density, dev, hostname, pathname, playlistUrl });
+      
+      // Check if we're in slideshow mode (playlist_url param provided)
+      if (playlistUrl) {
+        initSlideshow();
+        return;
+      }
       
       if (!codeId) {
-        showError('Usage: device.kidlisp.com/{codeId}');
+        showError('Usage: device.kidlisp.com/{codeId} or ?playlist_url=...');
         return;
       }
       
@@ -816,6 +870,148 @@
       
       // Fetch and display KidLisp source code with syntax highlighting
       fetchAndDisplaySource(codeId);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SLIDESHOW MODE - Full DP-1 playlist client
+    // Fetches playlist from playlist_url and auto-advances through items
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    async function initSlideshow() {
+      console.log('📺 Initializing slideshow mode with URL:', playlistUrl);
+      
+      // Show playlist info overlay
+      const playlistInfo = document.getElementById('playlist-info');
+      const playlistTitle = document.getElementById('playlist-title');
+      const playlistPosition = document.getElementById('playlist-position');
+      
+      playlistTitle.textContent = 'Loading playlist...';
+      playlistInfo.classList.add('visible');
+      
+      try {
+        // Fetch the DP-1 playlist
+        const response = await fetch(playlistUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch playlist: ${response.status}`);
+        }
+        
+        slideshowPlaylist = await response.json();
+        console.log('📺 Playlist loaded:', slideshowPlaylist.title, 'with', slideshowPlaylist.items?.length, 'items');
+        
+        if (!slideshowPlaylist.items || slideshowPlaylist.items.length === 0) {
+          showError('Playlist is empty');
+          return;
+        }
+        
+        // Update playlist title
+        playlistTitle.textContent = slideshowPlaylist.title || 'Untitled Playlist';
+        
+        // Clamp start index to valid range
+        if (slideshowIndex >= slideshowPlaylist.items.length) {
+          slideshowIndex = 0;
+        }
+        
+        // Set page title
+        document.title = `KidLisp.com · ${slideshowPlaylist.title || 'Slideshow'}`;
+        
+        // Start playing from the start index
+        playCurrentItem();
+        
+      } catch (e) {
+        console.error('📺 Failed to load playlist:', e);
+        showError(`Failed to load playlist: ${e.message}`);
+      }
+    }
+    
+    function playCurrentItem() {
+      if (!slideshowPlaylist || !slideshowPlaylist.items) return;
+      
+      const item = slideshowPlaylist.items[slideshowIndex];
+      if (!item) {
+        console.log('📺 No more items, looping to start');
+        slideshowIndex = 0;
+        playCurrentItem();
+        return;
+      }
+      
+      console.log('📺 Playing item', slideshowIndex + 1, '/', slideshowPlaylist.items.length, ':', item.title);
+      
+      // Update position display
+      const playlistPosition = document.getElementById('playlist-position');
+      playlistPosition.textContent = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
+      
+      // Get the source URL from the item
+      // DP-1 items have a 'source' field with the display URL
+      let itemUrl = item.source || item.url || '';
+      
+      // If it's a device.kidlisp.com URL, use it directly (already has display params)
+      // Otherwise, build the URL ourselves
+      if (!itemUrl.includes('device.kidlisp.com')) {
+        // It's a raw URL, add display params
+        const separator = itemUrl.includes('?') ? '&' : '?';
+        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+      }
+      
+      // Load the item in the iframe
+      iframe.src = itemUrl;
+      
+      // Get duration from item or playlist defaults
+      const duration = item.duration || slideshowPlaylist.defaults?.duration || 24;
+      
+      // Clear any existing timer
+      if (slideshowTimer) {
+        clearTimeout(slideshowTimer);
+      }
+      
+      // Start progress bar for this item
+      startSlideshowProgressBar(duration);
+      
+      // Try to extract codeId from URL for source display
+      const codeMatch = itemUrl.match(/\/(\$[a-z0-9]+)/i) || itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9]+)/i);
+      if (codeMatch) {
+        let extractedCodeId = codeMatch[1];
+        if (!extractedCodeId.startsWith('$')) extractedCodeId = '$' + extractedCodeId;
+        fetchAndDisplaySource(extractedCodeId);
+      } else {
+        // Clear source display for non-kidlisp items
+        document.getElementById('source-code-inner').innerHTML = '';
+        document.getElementById('piece-handle').textContent = '';
+        document.getElementById('piece-hits').textContent = '';
+      }
+      
+      // Set timer to advance to next item
+      slideshowTimer = setTimeout(() => {
+        slideshowIndex++;
+        playCurrentItem();
+      }, duration * 1000);
+    }
+    
+    function startSlideshowProgressBar(duration) {
+      const progressBar = document.getElementById('progress-bar');
+      const progressFill = document.getElementById('progress-fill');
+      
+      // Set height based on density
+      const barHeight = Math.max(1, Math.round(0.5 * densityParam));
+      progressBar.style.height = `${barHeight}px`;
+      progressBar.classList.add('visible');
+      
+      // Reset progress
+      progressFill.style.width = '0%';
+      
+      const startTime = Date.now();
+      const durationMs = duration * 1000;
+      
+      function updateProgress() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(100, (elapsed / durationMs) * 100);
+        progressFill.style.width = `${progress}%`;
+        
+        if (progress < 100) {
+          requestAnimationFrame(updateProgress);
+        }
+      }
+      
+      requestAnimationFrame(updateProgress);
     }
     
     // Fetch KidLisp source from API (uses eager fetch if available)
