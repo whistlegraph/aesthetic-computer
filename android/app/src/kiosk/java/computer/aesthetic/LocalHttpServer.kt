@@ -19,18 +19,15 @@ class LocalHttpServer(
     }
 
     private fun loadSSLServerSocketFactory(): SSLServerSocketFactory {
-        val keyStore = KeyStore.getInstance("BKS") // Use BKS or JKS format
-        val keystoreStream: InputStream = context.resources.openRawResource(R.raw.keystore) // Your keystore
+        val keyStore = KeyStore.getInstance("BKS")
+        val keystoreStream: InputStream = context.resources.openRawResource(R.raw.keystore)
         val keystorePassword = "password".toCharArray()
 
-        // Load the keystore
         keyStore.load(keystoreStream, keystorePassword)
 
-        // Initialize KeyManagerFactory
         val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
         keyManagerFactory.init(keyStore, keystorePassword)
 
-        // Set up SSLContext
         val sslContext = SSLContext.getInstance("TLS")
         sslContext.init(keyManagerFactory.keyManagers, null, null)
 
