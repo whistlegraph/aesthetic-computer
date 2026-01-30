@@ -6,6 +6,7 @@
 - `shared/` offers reusable browser/server utilities; use these before adding new helpers.  
 - `utilities/` scripts generate or sync assets (e.g., `generate-new-piece.mjs`).  
 - `tests/` covers integration/performance; `spec/` is for KidLisp language specs; project-wide docs live at the repo root. Place new feature code next to its runtime (client in `system/`, server in `session-server/`).
+- `reference/strudel/` contains a local clone of the Strudel live coding project (from Codeberg). Key packages for audio/scheduling: `packages/core/cyclist.mjs` (event scheduler), `packages/core/pattern.mjs` (`.onTrigger()` callback for hooking into pattern events), `packages/webaudio/` (Web Audio integration), `packages/draw/` (visualization sync). Use this reference when working on Strudel integration in `kidlisp.com`.
 
 ## Build, Test, and Development Commands
 Run from the repo root unless noted:

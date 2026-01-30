@@ -677,7 +677,7 @@
       
       <!-- Front face: AC Webview -->
       <div class="card-face card-front">
-        <webview id="front-webview" src="https://aesthetic.computer/prompt?desktop" allowpopups></webview>
+        <webview id="front-webview" src="https://aesthetic.computer/prompt?desktop" allowpopups preload="../webview-preload.js"></webview>
       </div>
     
     <!-- Back face: Terminal -->
@@ -857,7 +857,23 @@
       showContextMenu(e.params.x, e.params.y);
     });
     
-    // Handle window.open() from webview (prompt.mjs + and - commands)
+    // Handle IPC messages from webview preload (the primary communication channel)
+    webviewEl.addEventListener('ipc-message', (e) => {
+      const channel = e.channel;
+      const args = e.args?.[0] || {};
+      console.log('[flip] ipc-message from webview:', channel, args);
+      
+      if (channel === 'ac-open-window') {
+        const { url, index = 0, total = 1 } = args;
+        console.log('[flip] Opening new window via ipc-message:', url, index, total);
+        ipcRenderer.invoke('ac-open-window', { url, index, total });
+      } else if (channel === 'ac-close-window') {
+        console.log('[flip] Closing window via ipc-message');
+        ipcRenderer.invoke('ac-close-window');
+      }
+    });
+    
+    // Handle window.open() from webview (fallback for older code paths)
     // Note: Main process also handles this via setWindowOpenHandler
     webviewEl.addEventListener('new-window', (e) => {
       console.log('[flip] new-window event received:', e?.url, e);
@@ -890,7 +906,7 @@
       ipcRenderer.invoke('ac-open-window', { url, index: 0 });
     });
     
-    // Listen for postMessage from webview (bios.mjs sends ac-open-window messages)
+    // Listen for postMessage from webview (legacy fallback)
     window.addEventListener('message', (e) => {
       if (e.data?.type === 'ac-open-window') {
         console.log('[flip] Received ac-open-window postMessage:', e.data);
@@ -899,6 +915,17 @@
           index: e.data.index || 0, 
           total: e.data.total || 1 
         });
+      } else if (e.data?.type === 'ac-close-window') {
+        console.log('[flip] Received ac-close-window postMessage');
+        ipcRenderer.invoke('ac-close-window');
+      }
+    });
+    
+    // Listen for navigate commands from main process (for new windows)
+    ipcRenderer.on('navigate', (event, url) => {
+      console.log('[flip] Received navigate command:', url);
+      if (url && webviewEl) {
+        webviewEl.src = url;
       }
     });
     
