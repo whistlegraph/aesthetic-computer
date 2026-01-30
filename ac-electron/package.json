@@ -82,6 +82,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "webview-preload.js",
       "offscreen-manager.js",
       "ff1-bridge.js",
       "renderer/**/*",

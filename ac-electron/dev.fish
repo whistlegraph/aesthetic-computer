@@ -119,7 +119,7 @@ end
 # Watch mode using fswatch
 if test "$watch" = true
     echo "$magenta👁 Watch mode enabled - will restart on file changes$normal"
-    echo "  Watching: main.js, preload.js, renderer/"
+    echo "  Watching: main.js, preload.js, webview-preload.js, renderer/"
     echo "  Press Ctrl+C to stop"
     echo ""
     
@@ -155,7 +155,7 @@ if test "$watch" = true
     
     # Watch for changes
     if command -v fswatch >/dev/null
-        fswatch -o main.js preload.js offscreen-manager.js "renderer/" | while read -l event
+        fswatch -o main.js preload.js webview-preload.js offscreen-manager.js "renderer/" | while read -l event
             restart_electron
         end
     else

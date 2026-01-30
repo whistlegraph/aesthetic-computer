@@ -2702,6 +2702,58 @@ function ac-electron-start --description "Start the Aesthetic Computer Electron 
     echo "✅ Electron app started"
 end
 
+function ac-electron-dev --description "Toggle dev mode for Electron app (loads files from repo)"
+    set -l host "jas@host.docker.internal"
+    set -l dev_flag ".ac-electron-dev"
+    
+    # Check current state
+    set -l is_dev (ssh -o StrictHostKeyChecking=no $host "test -f ~/$dev_flag && echo yes || echo no" 2>/dev/null)
+    
+    if test "$argv[1]" = "status"
+        if test "$is_dev" = "yes"
+            echo "🔧 Dev mode is ENABLED"
+            echo "   Files load from: ~/aesthetic-computer/ac-electron/"
+        else
+            echo "📦 Dev mode is DISABLED"
+            echo "   Files load from: app bundle"
+        end
+        return 0
+    end
+    
+    if test "$argv[1]" = "on"
+        ssh -o StrictHostKeyChecking=no $host "touch ~/$dev_flag"
+        echo "🔧 Dev mode ENABLED - restart Electron app to apply"
+        echo "   Run: ac-electron-restart"
+        return 0
+    end
+    
+    if test "$argv[1]" = "off"
+        ssh -o StrictHostKeyChecking=no $host "rm -f ~/$dev_flag"
+        echo "📦 Dev mode DISABLED - restart Electron app to apply"
+        echo "   Run: ac-electron-restart"
+        return 0
+    end
+    
+    # Toggle
+    if test "$is_dev" = "yes"
+        ssh -o StrictHostKeyChecking=no $host "rm -f ~/$dev_flag"
+        echo "📦 Dev mode DISABLED - restart Electron app to apply"
+    else
+        ssh -o StrictHostKeyChecking=no $host "touch ~/$dev_flag"
+        echo "🔧 Dev mode ENABLED - restart Electron app to apply"
+    end
+    echo "   Run: ac-electron-restart"
+end
+
+function ac-electron-reload --description "Reload all Electron windows (dev mode: picks up file changes)"
+    set -l host "jas@host.docker.internal"
+    
+    echo "♻️ Reloading Electron windows..."
+    # Use osascript to send Cmd+R to Aesthetic Computer windows
+    ssh -o StrictHostKeyChecking=no $host 'osascript -e "tell application \"Aesthetic Computer\" to activate" -e "delay 0.2" -e "tell application \"System Events\" to keystroke \"r\" using command down"' 2>/dev/null
+    echo "✅ Reload triggered"
+end
+
 # 🖥️ Machine Info / SSH Helpers
 # Read machine configs from vault/machines.json
 

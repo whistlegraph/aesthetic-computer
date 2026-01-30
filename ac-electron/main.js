@@ -13,6 +13,30 @@ const { spawn, execSync } = require('child_process');
 // FF1 Bridge - local server for kidlisp.com to communicate with FF1 devices
 const ff1Bridge = require('./ff1-bridge');
 
+// =============================================================================
+// DEV MODE - Load files from repo instead of app bundle
+// =============================================================================
+// To enable: touch ~/.ac-electron-dev
+// To disable: rm ~/.ac-electron-dev
+// When enabled, renderer files load from ~/aesthetic-computer/ac-electron/
+// This lets you iterate on the Electron app without rebuilding!
+// =============================================================================
+const DEV_FLAG_PATH = path.join(require('os').homedir(), '.ac-electron-dev');
+const DEV_REPO_PATH = path.join(require('os').homedir(), 'aesthetic-computer', 'ac-electron');
+const isDevMode = fs.existsSync(DEV_FLAG_PATH) && fs.existsSync(DEV_REPO_PATH);
+
+if (isDevMode) {
+  console.log('[main] 🔧 DEV MODE ENABLED - loading files from:', DEV_REPO_PATH);
+}
+
+// Helper to get file path (repo in dev mode, bundle in production)
+function getAppPath(relativePath) {
+  if (isDevMode) {
+    return path.join(DEV_REPO_PATH, relativePath);
+  }
+  return path.join(__dirname, relativePath);
+}
+
 // macOS Tahoe + Chromium fontations workaround (testing with Electron 39 / Chromium M142)
 // Disable problematic font features that may trigger fontations_ffi crash
 app.commandLine.appendSwitch('disable-features', 'FontationsFontBackend,Fontations');
@@ -1054,7 +1078,7 @@ function openPreferencesWindow() {
     }
   });
   
-  preferencesWindow.loadFile(path.join(__dirname, 'renderer', 'preferences.html'));
+  preferencesWindow.loadFile(getAppPath('renderer/preferences.html'));
   
   preferencesWindow.on('closed', () => {
     preferencesWindow = null;
@@ -1193,7 +1217,7 @@ async function openAcPaneWindowInternal(options = {}) {
     },
   });
   
-  win.loadFile(path.join(__dirname, 'renderer', 'flip-view.html'));
+  win.loadFile(getAppPath('renderer/flip-view.html'));
   
   // Track it
   const windowId = windowIdCounter++;
@@ -2201,6 +2225,28 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       openAcPaneWindow();
     }
+  });
+  
+  // Allow webview preload scripts (required for webview-preload.js to work)
+  app.on('web-contents-created', (_, contents) => {
+    contents.on('will-attach-webview', (wawevent, webPreferences, params) => {
+      // Verify the preload path is our legitimate webview-preload.js
+      const preloadPath = params.preload;
+      if (preloadPath) {
+        // Use dev path if in dev mode, otherwise use bundled path
+        const expectedPreload = getAppPath('webview-preload.js');
+        // Allow if it matches our webview-preload.js
+        if (preloadPath.includes('webview-preload.js')) {
+          // Set the absolute path for the preload
+          webPreferences.preload = expectedPreload;
+          console.log('[main] Allowing webview preload:', expectedPreload);
+        } else {
+          // Block unknown preload scripts for security
+          console.warn('[main] Blocking unknown webview preload:', preloadPath);
+          delete webPreferences.preload;
+        }
+      }
+    });
   });
 });
 

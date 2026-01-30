@@ -5103,15 +5103,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const total = content?.total ?? 1;
       if (url) {
         const isElectron = /Electron/i.test(navigator.userAgent || "");
-        // Use IPC in Electron (handled by flip-view.html)
-        if (isElectron && window.electronAPI?.openWindow) {
-          window.electronAPI.openWindow({ url, index, total });
+        // Use the Electron webview preload API if available (preferred)
+        if (isElectron && window.acElectron?.openWindow) {
+          console.log('[bios] Using acElectron.openWindow:', url, index, total);
+          window.acElectron.openWindow({ url, index, total });
         } else if (isElectron) {
-          // Fallback: post message to parent (flip-view.html will handle it)
-          window.parent?.postMessage({ type: 'ac-open-window', url, index, total }, '*');
-          // Also try window.open but don't use location.href (causes blur)
+          // Fallback: window.open triggers setWindowOpenHandler in main.js
+          console.log('[bios] Using window.open for new window:', url);
           try {
-            window.open(url, "_blank", "noopener");
+            window.open(url, "_blank");
           } catch (err) {
             console.warn('[bios] window.open failed:', err);
           }
@@ -5126,13 +5126,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "window:close") {
       const isElectron = /Electron/i.test(navigator.userAgent || "");
       if (isElectron) {
-        try {
-          const result = window.open("ac://close", "_blank");
-          if (!result) {
+        // Use the Electron webview preload API if available (preferred)
+        if (window.acElectron?.closeWindow) {
+          console.log('[bios] Using acElectron.closeWindow');
+          window.acElectron.closeWindow();
+        } else {
+          // Fallback: window.open with ac://close triggers setWindowOpenHandler
+          console.log('[bios] Using window.open ac://close');
+          try {
+            const result = window.open("ac://close", "_blank");
+            if (!result) {
+              // If popup blocked, try navigation (will-navigate handler catches it)
+              location.href = "ac://close";
+            }
+          } catch (err) {
             location.href = "ac://close";
           }
-        } catch (err) {
-          location.href = "ac://close";
         }
       } else {
         try {
