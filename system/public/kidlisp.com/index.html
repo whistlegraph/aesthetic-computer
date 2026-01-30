@@ -24216,12 +24216,18 @@
       jukeboxEnergyHistory = [];
     }
     
+    // Track last log time to avoid spamming console
+    let lastAudioDebugLog = 0;
     function sendJukeboxAudioToPreview(audioData) {
       if (iframeReady && previewIframe?.contentWindow) {
         previewIframe.contentWindow.postMessage({ type: 'kidlisp-audio', data: audioData }, aestheticUrl);
-      } else if (audioData.kick) {
-        // Debug: log when kick events can't be sent
-        console.log('🎵 Audio data not sent - iframeReady:', iframeReady, 'previewIframe:', !!previewIframe?.contentWindow);
+      } else {
+        // Debug: log when events can't be sent (throttled to 1/sec)
+        const now = Date.now();
+        if (now - lastAudioDebugLog > 1000) {
+          console.log('🎵 Audio NOT sent - iframeReady:', iframeReady, 'iframe:', !!previewIframe, 'contentWindow:', !!previewIframe?.contentWindow, 'url:', aestheticUrl);
+          lastAudioDebugLog = now;
+        }
       }
     }
     
@@ -24240,20 +24246,24 @@
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // 🌀 Strudel Integration - Live coding patterns with SCHEDULER-BASED beat detection
+    // 🌀 Strudel Integration - HYBRID: Scheduler-based beats + continuous audio stream
     // ═══════════════════════════════════════════════════════════════════════════
-    // Uses Strudel's pattern scheduler (.onTrigger) for zero-latency beat events
-    // instead of audio sample analysis. This hooks into the pattern scheduler directly.
+    // Uses Strudel's pattern scheduler (.onTrigger) for precise beat timing
+    // PLUS continuous audio analysis for real-time amplitude streaming to KidLisp
     
     let strudelLoaded = false;
     let strudelPlaying = false;
     let strudelAudioContext = null;
     let strudelRepl = null; // Store reference to Strudel repl for stop functionality
+    let strudelAnalyser = null; // For continuous amplitude monitoring
+    let strudelStreamInterval = null; // Continuous data stream to KidLisp
     let strudelSchedulerHooked = false; // Track if we've set up scheduler hooks
     let strudelLastTriggerTime = 0;
     let strudelTriggerCooldown = 50; // ms between triggers to debounce
+    let strudelCurrentKick = false; // Set by scheduler, read by stream
+    let strudelKickDecay = 0; // Decay counter for kick indicator
     
-    // Scheduler-based beat callback - called when pattern events are scheduled
+    // Scheduler-based beat callback - sets kick flag for the continuous stream
     function handleStrudelTrigger(hap, currentTime, cps, targetTime) {
       if (!strudelPlaying) return;
       
@@ -24261,7 +24271,6 @@
       const value = hap.value || {};
       
       // Determine if this is a "kick" or beat event
-      // Check for bass drum sounds: bd, kick, bass, or low-frequency sounds
       const sound = value.s || value.sound || '';
       const note = value.n || value.note || 0;
       const isKick = /^(bd|kick|bass|k|808|909)/i.test(sound) || 
@@ -24271,57 +24280,121 @@
       // Debounce rapid triggers
       const shouldTrigger = now - strudelLastTriggerTime > strudelTriggerCooldown;
       
-      if (shouldTrigger) {
+      if (shouldTrigger && isKick) {
         strudelLastTriggerTime = now;
         
         // Calculate when this sound will actually play
-        const playTime = targetTime * 1000; // Convert to ms
+        const playTime = targetTime * 1000;
         const latencyMs = Math.max(0, playTime - (currentTime * 1000));
         
-        // Schedule the beat event to fire when the sound actually plays
+        // Schedule the kick flag to be set when the sound plays
         setTimeout(() => {
           if (!strudelPlaying) return;
-          
+          strudelCurrentKick = true;
+          strudelKickDecay = 3; // Will decay over 3 stream cycles (~12ms)
           jukeboxCurrentBeat = true;
           jukeboxLastBeatTime = performance.now();
-          
-          // Generate audio data based on pattern info
-          const audioData = {
-            amp: 0.8, // Default amplitude for scheduler events
-            leftAmp: 0.8,
-            rightAmp: 0.8,
-            beat: 1,
-            kick: isKick ? 1 : 0,
-            bass: isKick ? 0.9 : 0.3,
-            mid: 0.5,
-            treble: 0.3,
-            highMid: 0.4,
-            presence: 0.25,
-            // Include pattern info for advanced use
-            sound: sound,
-            note: note
-          };
-          
-          sendJukeboxAudioToPreview(audioData);
-          broadcastJukeboxAudioToPJ(audioData);
-          
-          // Update UI
-          document.getElementById('jukebox-amp-meter').style.width = '80%';
-          document.getElementById('jukebox-amp-value').textContent = '0.80';
-          document.getElementById('jukebox-kick-indicator').classList.toggle('active', isKick);
-          
-          // Reset beat indicator after short delay
-          setTimeout(() => {
-            if (strudelPlaying) {
-              jukeboxCurrentBeat = false;
-              document.getElementById('jukebox-kick-indicator').classList.remove('active');
-              // Fade out meter
-              document.getElementById('jukebox-amp-meter').style.width = '20%';
-              document.getElementById('jukebox-amp-value').textContent = '0.20';
-            }
-          }, 50);
         }, latencyMs);
       }
+    }
+    
+    // Continuous audio stream - runs while Strudel plays, sends data to KidLisp
+    function startStrudelStream() {
+      if (strudelStreamInterval) return;
+      
+      // Try to create analyser from Strudel's audio output
+      const ctx = window.getAudioContext?.();
+      if (ctx) {
+        try {
+          const dest = window.getDestination?.();
+          if (dest && !strudelAnalyser) {
+            strudelAnalyser = ctx.createAnalyser();
+            strudelAnalyser.fftSize = 256;
+            strudelAnalyser.smoothingTimeConstant = 0.3;
+            dest.connect(strudelAnalyser);
+            console.log('🌀 Strudel: Analyser connected for continuous amplitude');
+          }
+        } catch (e) {
+          console.log('🌀 Strudel: Could not connect analyser, using synthetic values');
+        }
+      }
+      
+      const timeData = strudelAnalyser ? new Uint8Array(strudelAnalyser.fftSize) : null;
+      const freqData = strudelAnalyser ? new Uint8Array(strudelAnalyser.frequencyBinCount) : null;
+      
+      // Run at ~250Hz for smooth streaming (matching songs tab)
+      strudelStreamInterval = setInterval(() => {
+        if (!strudelPlaying) return;
+        
+        let amp = 0.1; // Base level when no audio
+        let bass = 0.1, mid = 0.1, treble = 0.1;
+        
+        // Get real amplitude if analyser available
+        if (strudelAnalyser && timeData) {
+          try {
+            strudelAnalyser.getByteTimeDomainData(timeData);
+            let sum = 0;
+            for (let i = 0; i < timeData.length; i++) {
+              const n = (timeData[i] - 128) / 128;
+              sum += n * n;
+            }
+            amp = Math.min(1, Math.sqrt(sum / timeData.length) * 2);
+            
+            // Get frequency bands
+            strudelAnalyser.getByteFrequencyData(freqData);
+            const binFreq = (ctx?.sampleRate || 48000) / 256;
+            const getBand = (minHz, maxHz) => {
+              const start = Math.floor(minHz / binFreq);
+              const end = Math.min(Math.floor(maxHz / binFreq), freqData.length - 1);
+              let s = 0;
+              for (let i = start; i <= end; i++) s += freqData[i];
+              return (end > start) ? (s / (end - start + 1)) / 255 : 0;
+            };
+            bass = getBand(20, 250);
+            mid = getBand(250, 2000);
+            treble = getBand(2000, 20000);
+          } catch (e) {}
+        }
+        
+        // Decay kick flag
+        if (strudelKickDecay > 0) {
+          strudelKickDecay--;
+          if (strudelKickDecay === 0) {
+            strudelCurrentKick = false;
+            jukeboxCurrentBeat = false;
+          }
+        }
+        
+        const audioData = {
+          amp,
+          leftAmp: amp,
+          rightAmp: amp,
+          beat: strudelCurrentKick ? 1 : 0,
+          kick: strudelCurrentKick ? 1 : 0,
+          bass,
+          mid,
+          treble,
+          highMid: mid * 0.8,
+          presence: treble * 0.6
+        };
+        
+        sendJukeboxAudioToPreview(audioData);
+        broadcastJukeboxAudioToPJ(audioData);
+        
+        // Update UI (throttled)
+        document.getElementById('jukebox-amp-meter').style.width = `${amp * 100}%`;
+        document.getElementById('jukebox-amp-value').textContent = amp.toFixed(2);
+        document.getElementById('jukebox-kick-indicator').classList.toggle('active', strudelCurrentKick);
+      }, 4); // ~250Hz
+    }
+    
+    function stopStrudelStream() {
+      if (strudelStreamInterval) {
+        clearInterval(strudelStreamInterval);
+        strudelStreamInterval = null;
+      }
+      strudelCurrentKick = false;
+      strudelKickDecay = 0;
     }
     
     async function loadStrudel() {
@@ -24395,30 +24468,39 @@
         strudelPlaying = true;
         document.getElementById('strudel-play').disabled = true;
         document.getElementById('strudel-stop').disabled = false;
-        document.getElementById('strudel-status').textContent = 'Playing (scheduler mode)';
+        document.getElementById('strudel-status').textContent = 'Playing';
         
         // Evaluate and play the pattern
         await window.evaluate(code, true);
+        
+        // Start continuous audio stream to KidLisp
+        startStrudelStream();
       } catch (err) {
+        strudelPlaying = false;
         console.error('Strudel error:', err);
         document.getElementById('strudel-status').textContent = `Error: ${err.message}`;
+        document.getElementById('strudel-play').disabled = false;
+        document.getElementById('strudel-stop').disabled = true;
       }
     }
     
     function stopStrudel() {
+      // Stop continuous audio stream first
+      stopStrudelStream();
+      
       // Try multiple ways to stop Strudel
       try {
-        // Method 1: Use the repl's stop method directly (most reliable - strudelRepl is the repl returned by initStrudel)
+        // Method 1: Use the repl's stop method directly
         if (strudelRepl?.stop) {
           strudelRepl.stop();
           console.log('🌀 Strudel stopped via repl.stop()');
         }
-        // Method 2: Use strudel.hush() - the official API from IIFE bundle
+        // Method 2: Use strudel.hush()
         else if (window.strudel?.hush) {
           window.strudel.hush();
           console.log('🌀 Strudel stopped via strudel.hush()');
         }
-        // Method 3: Try window.hush (exposed globally after prebake via evalScope)
+        // Method 3: Try window.hush
         else if (window.hush) {
           window.hush();
           console.log('🌀 Strudel stopped via window.hush()');
