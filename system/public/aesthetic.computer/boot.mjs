@@ -1112,17 +1112,43 @@ if (!sandboxed && !localStorageBlocked) {
 // If noauth mode OR no Auth0 cache found, skip auth entirely
 const skipAuth = window.acNOAUTH || (!likelyLoggedIn && !sandboxed && !location.search.includes('code=') && !location.search.includes('state='));
 
+// Define login/logout functions when skipping initial auth, for on-demand login
+if (skipAuth && !sandboxed && !window.acNOAUTH) {
+  window.acLOGIN = async (mode) => {
+    // Lazy-load Auth0 if not already loaded
+    if (!window.auth0Client) {
+      console.log("🔐 Loading Auth0 on-demand for login...");
+      await loadAuth0Script();
+      await setupAuth0Client();
+    }
+    const opts = { prompt: "login" };
+    if (mode === "signup") opts.screen_hint = mode;
+    window.auth0Client.loginWithRedirect({ authorizationParams: opts });
+  };
+
+  window.acLOGOUT = () => {
+    console.log("⚠️ Not logged in, nothing to log out from.");
+  };
+}
+
+if (skipAuth && !sandboxed) {
+  if (window === window.top) console.log("🚀 Fast boot: no auth cache found, skipping Auth0");
+  bootLog("skipping auth (anonymous user)");
+  window.acDISK_SEND({
+    type: "session:started",
+    content: { user: null },
+  });
+} else if (window.acNOAUTH) {
+  if (window === window.top) console.log("🔕 noauth mode: sending session:started immediately");
+  window.acDISK_SEND({
+    type: "session:started",
+    content: { user: null },
+  });
+}
+
 // #region 🔐 Auth0: Universal Login & Authentication
-let auth0LoadingPromise = null;
 function loadAuth0Script() {
-  // Return existing promise if already loaded or currently loading
-  if (window.auth0) {
-    return Promise.resolve();
-  }
-  if (auth0LoadingPromise) {
-    return auth0LoadingPromise;
-  }
-  auth0LoadingPromise = new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.src = "/aesthetic.computer/dep/auth0-spa-js.production.js";
     script.crossOrigin = "anonymous";
@@ -1135,61 +1161,31 @@ function loadAuth0Script() {
 
     script.onerror = () => {
       console.error("🔴 Error loading Auth0.");
-      auth0LoadingPromise = null; // Reset so it can be retried
       reject(new Error("Script loading failed"));
     };
   });
-  return auth0LoadingPromise;
 }
 
-if (skipAuth && !sandboxed) {
-  if (window === window.top) console.log("🚀 Fast boot: no auth cache found, skipping Auth0");
-  bootLog("skipping auth (anonymous user)");
-  window.acDISK_SEND({
-    type: "session:started",
-    content: { user: null },
+// Setup Auth0 client - can be called on-demand or during boot
+async function setupAuth0Client() {
+  if (window.auth0Client) return window.auth0Client; // Already set up
+  
+  const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
+  window.acAuthTiming.auth0ClientCreateStart = performance.now();
+  bootLog("initializing auth0 client");
+
+  const auth0Client = await window.auth0?.createAuth0Client({
+    domain: "https://hi.aesthetic.computer",
+    clientId,
+    cacheLocation: "localstorage",
+    useRefreshTokens: true,
+    authorizationParams: { redirect_uri: window.location.origin },
   });
-  // Define lazy-loading acLOGIN for when user tries to log in without Auth0 preloaded
-  let lazyLoginInProgress = false;
-  window.acLOGIN = async (mode) => {
-    // Prevent duplicate login attempts from rapid clicks
-    if (lazyLoginInProgress) return;
-    lazyLoginInProgress = true;
-    try {
-      bootLog("lazy-loading auth0 for login");
-      await loadAuth0Script();
-      if (!window.auth0) {
-        throw new Error("Auth0 script loaded but auth0 not available");
-      }
-      // Reuse existing client if already created
-      if (!window.auth0Client) {
-        const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
-        const auth0Client = await window.auth0.createAuth0Client({
-          domain: "https://hi.aesthetic.computer",
-          clientId,
-          cacheLocation: "localstorage",
-          useRefreshTokens: true,
-          authorizationParams: { redirect_uri: window.location.origin },
-        });
-        if (!auth0Client) {
-          throw new Error("Failed to create Auth0 client");
-        }
-        window.auth0Client = auth0Client;
-      }
-      const opts = { prompt: "login" };
-      if (mode === "signup") opts.screen_hint = mode;
-      window.auth0Client.loginWithRedirect({ authorizationParams: opts });
-    } catch (error) {
-      console.error("🔴 Failed to load Auth0 for login:", error);
-      lazyLoginInProgress = false; // Reset on error to allow retry
-    }
-  };
-} else if (window.acNOAUTH) {
-  if (window === window.top) console.log("🔕 noauth mode: sending session:started immediately");
-  window.acDISK_SEND({
-    type: "session:started",
-    content: { user: null },
-  });
+  window.acAuthTiming.auth0ClientCreateEnd = performance.now();
+  bootLog(`auth0 client created (${Math.round(window.acAuthTiming.auth0ClientCreateEnd - window.acAuthTiming.auth0ClientCreateStart)}ms)`);
+
+  window.auth0Client = auth0Client;
+  return auth0Client;
 }
 
 // Call this function at the desired point in your application
@@ -1202,21 +1198,7 @@ if (!sandboxed && !skipAuth) {
       window.acAuthTiming.auth0ScriptLoadEnd = performance.now();
       bootLog(`auth0 script loaded (${Math.round(window.acAuthTiming.auth0ScriptLoadEnd - window.acAuthTiming.auth0ScriptLoadStart)}ms)`);
       if (!sandboxed && window.auth0 && !previewOrIcon) {
-      const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
-      window.acAuthTiming.auth0ClientCreateStart = performance.now();
-      bootLog("initializing auth0 client");
-
-      const auth0Client = await window.auth0?.createAuth0Client({
-        domain: "https://hi.aesthetic.computer",
-        clientId,
-        cacheLocation: "localstorage",
-        useRefreshTokens: true,
-        authorizationParams: { redirect_uri: window.location.origin },
-      });
-      window.acAuthTiming.auth0ClientCreateEnd = performance.now();
-      bootLog(`auth0 client created (${Math.round(window.acAuthTiming.auth0ClientCreateEnd - window.acAuthTiming.auth0ClientCreateStart)}ms)`);
-
-      window.auth0Client = auth0Client;
+      const auth0Client = await setupAuth0Client();
 
       if (
         location.search.includes("state=") &&
@@ -1426,7 +1408,7 @@ if (!sandboxed && !skipAuth) {
         bootLog(`auth0 getUser (${Math.round(window.acAuthTiming.getUserEnd - window.acAuthTiming.getUserStart)}ms)`);
         window.acAuthTiming.userExistsFetchStart = performance.now();
         const userExists = await fetch(
-          `/user?from=${encodeURIComponent(userProfile.email)}&tenant=aesthetic`,
+          `/user?from=${encodeURIComponent(userProfile.email)}&tenant=aesthetic&withHandle=true`,
         );
         const u = await userExists.json();
         window.acAuthTiming.userExistsFetchEnd = performance.now();
@@ -1438,6 +1420,10 @@ if (!sandboxed && !skipAuth) {
           } catch (err) {
             console.warn("🧔 Could not retrieve user from network.");
           }
+        }
+        // Merge handle from user lookup into the profile
+        if (u.handle) {
+          userProfile.handle = u.handle;
         }
         window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
         window.acAuthTiming.sessionStartedSent = performance.now();
