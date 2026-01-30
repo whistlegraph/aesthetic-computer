@@ -517,6 +517,17 @@
         }
       }
       
+      // Global stop function for slideshow mode to cancel any scramble
+      window.stopScrambleAnimation = function() {
+        stopInitialScramble();
+        isScrambling = false;
+        waitingForDecode = false;
+        if (scrambleAnimationFrame) {
+          cancelAnimationFrame(scrambleAnimationFrame);
+          scrambleAnimationFrame = null;
+        }
+      };
+      
       // Start scramble animation - keeps scrambling until signaled
       window.startScrambleAnimation = function(source, highlightedHtml) {
         const inner = document.getElementById('source-code-inner');
@@ -759,19 +770,37 @@
       addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
     };
     
-    // Parse codeId from path:
+    // Known playlist shortcuts (for nice URLs like /slideshow/top100)
+    const KNOWN_PLAYLISTS = {
+      'top100': '6e53465e-976f-4e93-89ff-c58b6d434fa7',
+      'colors': '4b872517-e4d8-4433-af8b-a9a4a8204cc9',
+      'chords': '49f0ee0e-0303-4192-9cb2-aa3c5abb64b5',
+    };
+    const FEED_URL = 'https://feed.aesthetic.computer';
+    
+    // Parse codeId or slideshow path:
     // device.kidlisp.com/codeId
+    // device.kidlisp.com/slideshow/top100 (short playlist URL)
     // localhost:8888/kidlisp.com/device/codeId
     // localhost:8888/device.kidlisp.com/codeId
     let codeId = null;
+    let slideshowShortcut = null;  // Will be set if using /slideshow/xxx path
     const pathParts = pathname.split('/').filter(p => p);
     
     if (hostname === 'device.kidlisp.com') {
-      // Production: device.kidlisp.com/codeId
-      codeId = pathParts[0] || null;
+      // Production: device.kidlisp.com/codeId or /slideshow/top100
+      if (pathParts[0] === 'slideshow' && pathParts[1]) {
+        slideshowShortcut = pathParts[1].toLowerCase();
+      } else {
+        codeId = pathParts[0] || null;
+      }
     } else if (pathname.startsWith('/device.kidlisp.com/')) {
-      // Local dev: localhost:8888/device.kidlisp.com/codeId
-      codeId = pathParts[1] || null;
+      // Local dev: localhost:8888/device.kidlisp.com/codeId or /slideshow/top100
+      if (pathParts[1] === 'slideshow' && pathParts[2]) {
+        slideshowShortcut = pathParts[2].toLowerCase();
+      } else {
+        codeId = pathParts[1] || null;
+      }
     } else if (pathParts[0] === 'kidlisp.com' && pathParts[1] === 'device') {
       // Local dev: localhost:8888/kidlisp.com/device/codeId
       codeId = pathParts[2] || null;
@@ -799,8 +828,18 @@
     // Slideshow mode params (for full DP-1 playlist client)
     // playlist_url: URL to a DP-1 playlist JSON (e.g., feed.aesthetic.computer/api/v1/playlists/{id})
     // start_index: Which item to start from (0-based, default 0)
-    const playlistUrl = params.get('playlist_url');
+    // OR use short path: /slideshow/top100, /slideshow/colors, /slideshow/chords
+    let playlistUrl = params.get('playlist_url');
     const startIndex = parseInt(params.get('start_index')) || 0;
+    
+    // Resolve slideshow shortcut to full playlist URL
+    if (slideshowShortcut && KNOWN_PLAYLISTS[slideshowShortcut]) {
+      playlistUrl = `${FEED_URL}/api/v1/playlists/${KNOWN_PLAYLISTS[slideshowShortcut]}`;
+      console.log('📺 Resolved slideshow shortcut:', slideshowShortcut, '→', playlistUrl);
+    }
+    
+    // Flag to indicate we're in slideshow mode (skip scramble animation)
+    const slideshowMode = !!playlistUrl;
     
     // Slideshow state (populated when playlist_url is provided)
     let slideshowPlaylist = null;  // The fetched DP-1 playlist
@@ -1067,8 +1106,22 @@
       const inner = document.getElementById('source-code-inner');
       if (!inner || !source) return;
       
-      // Generate highlighted HTML for later
+      // Generate highlighted HTML
       const highlightedHtml = highlightKidlisp(source);
+      
+      // In slideshow mode, skip scramble - show highlighted code immediately
+      if (slideshowMode) {
+        // Stop any running scramble animation
+        if (window.stopScrambleAnimation) window.stopScrambleAnimation();
+        inner.innerHTML = highlightedHtml;
+        // Reset scrolling classes
+        inner.classList.remove('scrolling');
+        inner.style.removeProperty('--scroll-distance');
+        inner.style.removeProperty('--scroll-duration');
+        // Setup fresh scrolling for this source
+        setupScrolling(codeEl, inner);
+        return;
+      }
       
       // Start scramble animation - will decode when piece starts running
       if (window.startScrambleAnimation) {
