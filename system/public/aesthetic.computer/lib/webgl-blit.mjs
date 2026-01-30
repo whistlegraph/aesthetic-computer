@@ -100,7 +100,7 @@ export function createWebGLBlitter(canvas) {
         depth: false,
         stencil: false,
         premultipliedAlpha: false,
-        preserveDrawingBuffer: false,
+        preserveDrawingBuffer: true, // Keep previous frame to prevent black flash during resize
         powerPreference: "high-performance",
       });
 

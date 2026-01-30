@@ -1086,6 +1086,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Add smooth fade transition for seamless resize
   freezeFrameCan.style.transition = "opacity 50ms ease-out";
   freezeFrameCan.style.willChange = "opacity";
+  freezeFrameCan.style.position = "absolute";
+  freezeFrameCan.style.zIndex = "10"; // Above all other canvases during reframe
+  freezeFrameCan.style.pointerEvents = "none";
 
   // A buffer for corner label overlays.
   const overlayCan = document.createElement("canvas");
@@ -1199,36 +1202,39 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
       }
 
-      freezeFrameCan.style.width = canvas.getBoundingClientRect().width + "px";
-      freezeFrameCan.style.height =
-        canvas.getBoundingClientRect().height + "px";
+      // Size freeze frame canvas to match imageData dimensions (the actual pixel content)
+      freezeFrameCan.width = imageData.width;
+      freezeFrameCan.height = imageData.height;
+      
+      // Position freeze frame to cover entire wrapper area
+      // Using 100% ensures it covers regardless of canvas scaling/positioning
+      freezeFrameCan.style.width = "100%";
+      freezeFrameCan.style.height = "100%";
+      freezeFrameCan.style.left = "0";
+      freezeFrameCan.style.top = "0";
+      freezeFrameCan.style.imageRendering = "pixelated";
 
-      // TODO: Get margin of canvasRect or make freezeFrame work on top of everything...
-      // Is this still relevant? 2022.4.09
-
-      /*
-      console.log(
-        "Freezeframe offset",
-        wrapper.offsetLeft,
-        canvasRect.x,
-        canvasRect.width - canvasRect.x
-      );
-      */
-
-      freezeFrameCan.style.left = canvasRect.x + "px";
-      freezeFrameCan.style.top = canvasRect.y + "px";
-
-      // TODO: Save the Glaze canvas if glaze is enabled / figure out how to deal
-      //       with Glaze.
-
+      // Capture the current frame content
       if (freezeFrameGlaze) {
         Glaze.freeze(ffCtx);
-        // ffCtx.fillStyle = "lime";
-        // ffCtx.fillRect(0, 0, ffCtx.canvas.width, ffCtx.canvas.height);
         freezeFrameGlaze = false;
       } else {
-        ffCtx.drawImage(canvas, 0, 0);
-        // ffCtx.putImageData(imageData, 0, 0); // TODO: Fix source data detached error here.
+        // Best approach: use imageData directly if available (avoids WebGL readback issues)
+        if (imageData && imageData.data && imageData.data.buffer && imageData.data.buffer.byteLength > 0) {
+          try {
+            ffCtx.putImageData(imageData, 0, 0);
+          } catch (e) {
+            // Fallback to canvas copy if putImageData fails
+            const webglCompositeIsActive = webglBlitter?.isReady() && webglCompositeCanvas.style.display !== "none";
+            const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
+            ffCtx.drawImage(freezeSource, 0, 0);
+          }
+        } else {
+          // Fallback: capture from appropriate canvas
+          const webglCompositeIsActive = webglBlitter?.isReady() && webglCompositeCanvas.style.display !== "none";
+          const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
+          ffCtx.drawImage(freezeSource, 0, 0);
+        }
       }
 
       if (!wrapper.contains(freezeFrameCan)) {
@@ -1236,10 +1242,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       } else {
         freezeFrameCan.style.removeProperty("opacity");
       }
-
-      // Keep canvas visible during resize to avoid flickering
-      // The freeze frame overlay provides the visual continuity
-      // canvas.style.opacity = 0;
+      
+      // Force browser to paint the freeze frame before we continue
+      // This ensures it's visible before we clear the canvases
+      freezeFrameCan.offsetHeight;
 
       freezeFrameFrozen = true;
     }
@@ -1322,6 +1328,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Fallback to copying from canvas if imageData doesn't match or data is detached
       tempCtx.drawImage(canvas, 0, 0);
     }
+
+    // Hide rendering canvases before resize to prevent black flash
+    // (resizing a canvas clears it, and the freeze frame will provide visual continuity)
+    const wasWebglVisible = webglCompositeCanvas.style.display !== "none";
+    const wasWebgpuVisible = webgpuCanvas.style.display !== "none";
+    const wasOverlayVisible = overlayCan.style.display !== "none";
+    if (wasWebglVisible) webglCompositeCanvas.style.display = "none";
+    if (wasWebgpuVisible) webgpuCanvas.style.display = "none";
+    if (wasOverlayVisible) overlayCan.style.display = "none";
 
     // Resize the original canvas
     canvas.width = width;
@@ -1733,6 +1748,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         window.clearTimeout(timeout); // Small timer to save on performance.
         timeout = setTimeout(() => {
+          // Capture freeze frame before reframing to prevent black flicker
+          if (imageData && imageData.data && imageData.data.buffer && imageData.data.buffer.byteLength > 0) {
+            freezeFrame = true;
+            freezeFrameGlaze = glaze.on;
+            freezeFrameCan.width = imageData.width;
+            freezeFrameCan.height = imageData.height;
+          }
           needsReframe = true; // This makes zooming work / not work.
           curReframeDelay = REFRAME_DELAY;
         }, curReframeDelay); // Is this needed?
