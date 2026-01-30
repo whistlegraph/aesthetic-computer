@@ -26,6 +26,10 @@ import androidx.core.view.WindowInsetsControllerCompat
 import computer.aesthetic.ui.theme.AestheticComputerTheme
 import android.view.WindowManager
 
+/**
+ * Kiosk version of Aesthetic Computer - for dedicated device installations
+ * Enables device owner mode, lock task, and local HTTPS server
+ */
 class MainActivity : ComponentActivity() {
     private lateinit var localHttpServer: LocalHttpServer
     private lateinit var devicePolicyManager: DevicePolicyManager
@@ -34,8 +38,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.decorView.setBackgroundColor(android.graphics.Color.BLACK)
-
-        // overridePendingTransition(0, 0) // Disable enter and exit animations
 
         // Start the local HTTP server
         localHttpServer = LocalHttpServer(this)
@@ -47,16 +49,12 @@ class MainActivity : ComponentActivity() {
 
         // Check if app is device owner
         if (devicePolicyManager.isDeviceOwnerApp(packageName)) {
-            // Hide status and action bar.
-            // window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
-            // actionBar?.hide()
             // Request full screen before the content view is set
-            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN;
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
             window.setFlags(
                 WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN
             )
-
 
             // Block back gestures and edge swipe
             onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -78,17 +76,16 @@ class MainActivity : ComponentActivity() {
             Log.i("Aesthetic", "Task locked.")
         } else {
             try {
-                throw IllegalStateException("Something went wrong!")
+                throw IllegalStateException("App is not device owner - kiosk mode requires device owner!")
             } catch (e: IllegalStateException) {
-                // Handle the exception gracefully
-                Log.e("MyApp", "Exception caught: ${e.message}")
+                Log.e("Aesthetic", "Exception caught: ${e.message}")
             }
         }
 
         // Load the WebView into the screen
         setContent {
             AestheticComputerTheme {
-                WebViewPage(url = "https://localhost:8443")
+                KioskWebView(url = BuildConfig.BASE_URL)
             }
         }
     }
@@ -97,16 +94,14 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.apply {
-            hide(WindowInsetsCompat.Type.systemBars()) // Hide system bars (status bar and navigation bar)
-            // Prevent system bars from reappearing on swipe
+            hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
     }
 
     private fun addGestureBlockingOverlay() {
         val overlay = FrameLayout(this)
-        overlay.setOnTouchListener { _, _ -> true } // Intercept all touches
-
+        overlay.setOnTouchListener { _, _ -> true }
         overlay.setBackgroundColor(0x00000000) // Fully transparent
         addContentView(
             overlay, FrameLayout.LayoutParams(
@@ -118,7 +113,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Stop the HTTP server when the activity is destroyed
         localHttpServer.stop()
     }
 
@@ -131,35 +125,19 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
-        // Intercept all touch events outside the app
         return true
     }
 }
 
-//@Composable
-//fun WebViewPage(url: String) {
-//    AndroidView(
-//        factory = { context ->
-//            WebView(context).apply {
-//                setBackgroundColor(0xFF000000.toInt()) // Set WebView background to black
-//                settings.javaScriptEnabled = true
-//                webViewClient = CustomWebViewClient()
-//                loadUrl(url)
-//            }
-//        },
-//        modifier = Modifier.fillMaxSize()
-//    )
-//}
-
 @Composable
-fun WebViewPage(url: String) {
+fun KioskWebView(url: String) {
     AndroidView(
         factory = { context ->
             WebView(context).apply {
                 settings.javaScriptEnabled = true
-                setBackgroundColor(android.graphics.Color.TRANSPARENT) // Transparent background
-                setLayerType(View.LAYER_TYPE_SOFTWARE, null) // Ensures transparency works correctly
-                webViewClient = CustomWebViewClient()
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+                webViewClient = KioskWebViewClient()
                 loadUrl(url)
             }
         },
@@ -167,10 +145,9 @@ fun WebViewPage(url: String) {
     )
 }
 
-
-class CustomWebViewClient : WebViewClient() {
+class KioskWebViewClient : WebViewClient() {
     override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
-        handler?.proceed() // Ignore SSL errors for development only
+        handler?.proceed() // Accept self-signed certs for local server
     }
 
     override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
