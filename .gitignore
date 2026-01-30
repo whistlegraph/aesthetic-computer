@@ -39,6 +39,8 @@ reference/tools/recording/.tape-frames-cache
 reference/tools/recording/_
 reference/tools/output
 !reference/tools/output/.gitkeep
+# ignore strudel reference (local clone only, not needed for builds)
+reference/strudel/
 packed
 packed/*/
 objkt/output
