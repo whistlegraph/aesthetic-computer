@@ -350,6 +350,9 @@
       padding: calc(var(--density, 8) * 1px);
       background: rgba(0, 0, 0, 0.3);
       border-radius: calc(var(--density, 8) * 0.5px);
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
     }
     
     #playlist-info.visible {
@@ -363,6 +366,47 @@
     
     #playlist-position {
       color: rgba(255, 215, 0, 0.9);
+    }
+    
+    /* FF1 cast button */
+    #ff1-cast-btn {
+      display: flex;
+      align-items: center;
+      gap: calc(var(--density, 8) * 0.75px);
+      margin-top: calc(var(--density, 8) * 1px);
+      padding: calc(var(--density, 8) * 0.5px) calc(var(--density, 8) * 1px);
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: calc(var(--density, 8) * 0.5px);
+      color: white;
+      font-size: calc(var(--density, 8) * 1.5px);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      pointer-events: auto;
+    }
+    
+    #ff1-cast-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+    
+    #ff1-cast-btn:active {
+      transform: scale(0.95);
+    }
+    
+    #ff1-cast-btn.copied {
+      background: rgba(0, 200, 100, 0.3);
+      border-color: rgba(0, 200, 100, 0.6);
+    }
+    
+    #ff1-cast-btn .ff1-logo {
+      height: calc(var(--density, 8) * 2px);
+      width: auto;
+      filter: invert(1);
+    }
+    
+    #ff1-cast-btn .ff1-text {
+      font-family: 'Noto Sans Mono', monospace;
     }
 
   </style>
@@ -402,6 +446,10 @@
   <div id="playlist-info">
     <div id="playlist-title"></div>
     <div id="playlist-position"></div>
+    <button id="ff1-cast-btn" title="Copy FF1 CLI command to cast this playlist">
+      <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="FF1" class="ff1-logo">
+      <span class="ff1-text">Copy FF1 Command</span>
+    </button>
   </div>
   
   <script>
@@ -923,9 +971,31 @@
       const playlistInfo = document.getElementById('playlist-info');
       const playlistTitle = document.getElementById('playlist-title');
       const playlistPosition = document.getElementById('playlist-position');
+      const ff1CastBtn = document.getElementById('ff1-cast-btn');
       
       playlistTitle.textContent = 'Loading playlist...';
       playlistInfo.classList.add('visible');
+      
+      // Setup FF1 cast button
+      ff1CastBtn.addEventListener('click', async () => {
+        // Build the FF1 CLI displayPlaylist command
+        const cmd = `ff1 displayPlaylist --url "${playlistUrl}"`;
+        
+        try {
+          await navigator.clipboard.writeText(cmd);
+          ff1CastBtn.classList.add('copied');
+          ff1CastBtn.querySelector('.ff1-text').textContent = 'Copied!';
+          
+          setTimeout(() => {
+            ff1CastBtn.classList.remove('copied');
+            ff1CastBtn.querySelector('.ff1-text').textContent = 'Copy FF1 Command';
+          }, 2000);
+        } catch (e) {
+          console.error('Failed to copy:', e);
+          // Fallback: show the command in an alert
+          alert('FF1 CLI Command:\n\n' + cmd);
+        }
+      });
       
       try {
         // Fetch the DP-1 playlist
