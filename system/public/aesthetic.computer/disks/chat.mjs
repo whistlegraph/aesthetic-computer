@@ -38,6 +38,7 @@ import { getCommandDescription, isPromptOnlyCommand } from "../lib/prompt-comman
 import { FUNDING_MODE, showFundingEffectsFlag, getRecoveryTicker } from "./prompt.mjs";
 import { paintGiveButton, actGiveButton, clearGiveButton, paintRecoveryTicker } from "../lib/give-button.mjs";
 import { createHandleAutocomplete } from "../lib/autocomplete.mjs";
+import { iOS } from "../lib/platform.mjs";
 
 // 🔤 Chat Font System
 // Available fonts for chat messages - each user can pick their preferred font
@@ -3564,8 +3565,18 @@ async function loadYoutubePreview(videoId, preload) {
 }
 
 // 📺 Open YouTube modal with embed iframe
+// On iOS, we skip the embed modal and open YouTube directly 
+// because the iframe embed has audio issues and tap-outside-to-close doesn't work reliably
+// (All iOS browsers use WebKit and have the same iframe restrictions)
 function openYoutubeModal(videoId) {
   if (!domApi) return;
+  
+  // On iOS, open YouTube directly instead of embed (audio doesn't work, touch handling issues)
+  if (iOS) {
+    window.open(`https://www.youtube.com/watch?v=${videoId}`, "_blank");
+    return;
+  }
+  
   if (youtubeModalOpen) {
     const overlay = typeof document !== "undefined"
       ? document.getElementById("youtube-modal-overlay")
