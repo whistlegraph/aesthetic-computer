@@ -1141,6 +1141,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     freezeFrameFrozen = false,
     freezeFrameGlaze = false,
     glazeReady = true; // Track when glaze shaders have finished loading after resize
+  let awaitingReframePixels = false; // Keep freeze frame until valid pixels arrive
 
   const screen = apiObject("pixels", "width", "height");
   let subdivisions = 1; // Gets set in frame.
@@ -1755,6 +1756,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             freezeFrameCan.width = imageData.width;
             freezeFrameCan.height = imageData.height;
           }
+          awaitingReframePixels = true;
+          if (window.acReframeDebug) {
+            console.log("🧊 REFRAME: awaiting pixels", {
+              width: imageData?.width,
+              height: imageData?.height,
+            });
+          }
           needsReframe = true; // This makes zooming work / not work.
           curReframeDelay = REFRAME_DELAY;
         }, curReframeDelay); // Is this needed?
@@ -1813,6 +1821,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (underlayFrame) {
       console.log('📤 REFRAME: Sending reframe message to worker. New dimensions:', width, 'x', height);
     }
+    awaitingReframePixels = true;
     send({
       type: "reframed",
       content: {
@@ -16252,6 +16261,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             width: content.width,
             height: content.height,
           });
+          awaitingReframePixels = false;
           window.pixelOptimizer.stats.framesProcessed++;
         } catch (err) {
           console.warn('🟡 Zero-copy optimization failed, using fallback:', err);
@@ -16268,6 +16278,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (underlayFrame) {
                 console.log('🔄 REFRAME PATH (pixelOptimizer): Created fresh imageData with dimensions:', width, 'x', height);
               }
+              awaitingReframePixels = false;
             }
             reframeJustCompleted = false;
           } else if (
@@ -16275,6 +16286,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             screen.pixels.length === expectedLength
           ) {
             imageData = new ImageData(screen.pixels, width, height);
+            awaitingReframePixels = false;
             if (underlayFrame) {
               // console.log("🎬 Fallback ImageData created during tape playback");
             }
@@ -16291,6 +16303,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (reframeJustCompleted) {
           if (screen.pixels.length === expectedLength) {
             imageData = new ImageData(screen.pixels, width, height);
+            awaitingReframePixels = false;
           }
           reframeJustCompleted = false;
         } else if (
@@ -16298,6 +16311,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           screen.pixels.length === expectedLength
         ) {
           imageData = new ImageData(screen.pixels, width, height);
+          awaitingReframePixels = false;
         }
         // REMOVED: Special blocking case for underlayFrame + content.reframe
         // This was preventing imageData updates during tape playback reframes
@@ -16318,6 +16332,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             width: content.width,
             height: content.height,
           });
+          awaitingReframePixels = false;
           window.pixelOptimizer.stats.framesProcessed++;
         } else {
           // Original fallback
@@ -16329,6 +16344,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             width: content.width,
             height: content.height,
           });
+          awaitingReframePixels = false;
         }
         reframeJustCompleted = false;
       } catch (err) {
@@ -17486,7 +17502,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Hide the freezeFrame - wait for glaze to be ready if it's enabled
-    if (freezeFrame && freezeFrameFrozen && (!glaze.on || glazeReady)) {
+    if (freezeFrame && freezeFrameFrozen && !awaitingReframePixels && (!glaze.on || glazeReady)) {
       if (glaze.on === false) {
         canvas.style.removeProperty("opacity");
       }
@@ -17498,6 +17514,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           freezeFrameCan.style.removeProperty("opacity");
         }
       }, 60); // Match CSS transition duration
+      if (window.acReframeDebug) {
+        console.log("✅ REFRAME: freeze frame removed");
+      }
       freezeFrame = false;
       freezeFrameGlaze = false;
       freezeFrameFrozen = false;
