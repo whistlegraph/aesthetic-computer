@@ -993,6 +993,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let statsFrameCount = 0;
   let statsLastTime = performance.now();
 
+  // Enable reframe debug logging by default for flicker investigation
+  if (typeof window !== "undefined" && window.acReframeDebug === undefined) {
+    window.acReframeDebug = true;
+  }
+
   let webglBlitter = null;
   let captureCompositeCanvas = null;
   let captureCompositeCtx = null;
@@ -1142,6 +1147,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     freezeFrameGlaze = false,
     glazeReady = true; // Track when glaze shaders have finished loading after resize
   let awaitingReframePixels = false; // Keep freeze frame until valid pixels arrive
+  let reframeDrawn = false;
+  let reframeDrawnAt = 0;
+  let lastReframeTime = 0; // Track when the last reframe was requested for debouncing
+
+  function markReframePixelsReceived(source, width, height) {
+    if (!awaitingReframePixels) return;
+    if (width && height) {
+      if (width !== canvas.width || height !== canvas.height) {
+        if (window.acReframeDebug) {
+          console.log("⚠️ REFRAME: pixel size mismatch", {
+            source,
+            width,
+            height,
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+          });
+        }
+        return;
+      }
+    }
+    awaitingReframePixels = false;
+    if (window.acReframeDebug) {
+      console.log("✅ REFRAME: pixels received", { source, width, height });
+    }
+  }
 
   const screen = apiObject("pixels", "width", "height");
   let subdivisions = 1; // Gets set in frame.
@@ -1184,14 +1214,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (gap === undefined) gap = lastGap ?? startGap;
     lastGap = gap;
 
-    // Cache the current canvas if needed.
+    // Cache the current canvas if needed (only if not already frozen - resize handler handles the capture now)
     if (
       freezeFrame &&
+      !freezeFrameFrozen && // Skip if already captured in resize handler
       imageData &&
       imageData.data &&
       imageData.data.buffer &&
       imageData.data.buffer.byteLength > 0 &&
-      !document.body.contains(freezeFrameCan) &&
       !underlayFrame // Don't show freeze frame during tape playback
     ) {
       if (debug && logs.frame) {
@@ -1332,12 +1362,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Hide rendering canvases before resize to prevent black flash
     // (resizing a canvas clears it, and the freeze frame will provide visual continuity)
+    // Note: Keep overlay canvas visible - it contains UI elements that should stay visible during resize
     const wasWebglVisible = webglCompositeCanvas.style.display !== "none";
     const wasWebgpuVisible = webgpuCanvas.style.display !== "none";
-    const wasOverlayVisible = overlayCan.style.display !== "none";
     if (wasWebglVisible) webglCompositeCanvas.style.display = "none";
     if (wasWebgpuVisible) webgpuCanvas.style.display = "none";
-    if (wasOverlayVisible) overlayCan.style.display = "none";
 
     // Resize the original canvas
     canvas.width = width;
@@ -1753,10 +1782,49 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (imageData && imageData.data && imageData.data.buffer && imageData.data.buffer.byteLength > 0) {
             freezeFrame = true;
             freezeFrameGlaze = glaze.on;
-            freezeFrameCan.width = imageData.width;
-            freezeFrameCan.height = imageData.height;
+            
+            // Capture freeze frame content BEFORE resizing (resizing clears canvas)
+            // Only resize if dimensions are different to avoid unnecessary clears
+            if (freezeFrameCan.width !== imageData.width || freezeFrameCan.height !== imageData.height) {
+              freezeFrameCan.width = imageData.width;
+              freezeFrameCan.height = imageData.height;
+            }
+            
+            // Capture current frame to freeze frame canvas
+            if (freezeFrameGlaze) {
+              Glaze.freeze(ffCtx);
+            } else {
+              try {
+                ffCtx.putImageData(imageData, 0, 0);
+              } catch (e) {
+                // Fallback to canvas copy
+                const webglCompositeIsActive = webglBlitter?.isReady() && webglCompositeCanvas.style.display !== "none";
+                const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
+                ffCtx.drawImage(freezeSource, 0, 0);
+              }
+            }
+            
+            // Position freeze frame
+            freezeFrameCan.style.width = "100%";
+            freezeFrameCan.style.height = "100%";
+            freezeFrameCan.style.left = "0";
+            freezeFrameCan.style.top = "0";
+            freezeFrameCan.style.imageRendering = "pixelated";
+            
+            // Ensure freeze frame is visible
+            if (!wrapper.contains(freezeFrameCan)) {
+              wrapper.append(freezeFrameCan);
+            }
+            freezeFrameCan.style.removeProperty("opacity");
+            
+            // Force paint before continuing
+            freezeFrameCan.offsetHeight;
+            freezeFrameFrozen = true;
           }
           awaitingReframePixels = true;
+          reframeDrawn = false;
+          reframeDrawnAt = 0;
+          lastReframeTime = performance.now();
           if (window.acReframeDebug) {
             console.log("🧊 REFRAME: awaiting pixels", {
               width: imageData?.width,
@@ -1822,6 +1890,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       console.log('📤 REFRAME: Sending reframe message to worker. New dimensions:', width, 'x', height);
     }
     awaitingReframePixels = true;
+    reframeDrawn = false;
+    reframeDrawnAt = 0;
     send({
       type: "reframed",
       content: {
@@ -16261,7 +16331,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             width: content.width,
             height: content.height,
           });
-          awaitingReframePixels = false;
+          markReframePixelsReceived("zero-copy", content.width, content.height);
           window.pixelOptimizer.stats.framesProcessed++;
         } catch (err) {
           console.warn('🟡 Zero-copy optimization failed, using fallback:', err);
@@ -16278,7 +16348,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (underlayFrame) {
                 console.log('🔄 REFRAME PATH (pixelOptimizer): Created fresh imageData with dimensions:', width, 'x', height);
               }
-              awaitingReframePixels = false;
+              markReframePixelsReceived("pixelOptimizer-reframe", width, height);
             }
             reframeJustCompleted = false;
           } else if (
@@ -16286,7 +16356,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             screen.pixels.length === expectedLength
           ) {
             imageData = new ImageData(screen.pixels, width, height);
-            awaitingReframePixels = false;
+            markReframePixelsReceived("pixelOptimizer", width, height);
             if (underlayFrame) {
               // console.log("🎬 Fallback ImageData created during tape playback");
             }
@@ -16303,7 +16373,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (reframeJustCompleted) {
           if (screen.pixels.length === expectedLength) {
             imageData = new ImageData(screen.pixels, width, height);
-            awaitingReframePixels = false;
+            markReframePixelsReceived("fallback-reframe", width, height);
           }
           reframeJustCompleted = false;
         } else if (
@@ -16311,45 +16381,56 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           screen.pixels.length === expectedLength
         ) {
           imageData = new ImageData(screen.pixels, width, height);
-          awaitingReframePixels = false;
+          markReframePixelsReceived("fallback", width, height);
         }
         // REMOVED: Special blocking case for underlayFrame + content.reframe
         // This was preventing imageData updates during tape playback reframes
       }
     } else if (reframeJustCompleted && content.pixels?.byteLength > 0) {
       // Special case: after reframe with new dimensions, create ImageData even if screen dimensions don't match yet
-      try {
-        if (window.pixelOptimizer) {
-          // 🚀 OPTIMIZATION: Zero-copy reframe handling
-          imageData = window.pixelOptimizer.createImageDataZeroCopy(
-            content.pixels,
-            content.width,
-            content.height
-          );
-          // Update screen dimensions to match
-          assign(screen, {
-            pixels: imageData.data,
-            width: content.width,
-            height: content.height,
+      if (content.width !== canvas.width || content.height !== canvas.height) {
+        if (window.acReframeDebug) {
+          console.log("⚠️ REFRAME: post-reframe size mismatch, deferring", {
+            contentWidth: content.width,
+            contentHeight: content.height,
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
           });
-          awaitingReframePixels = false;
-          window.pixelOptimizer.stats.framesProcessed++;
-        } else {
-          // Original fallback
-          const newPixels = new Uint8ClampedArray(content.pixels);
-          imageData = new ImageData(newPixels, content.width, content.height);
-          // Update screen dimensions to match
-          assign(screen, {
-            pixels: imageData.data,
-            width: content.width,
-            height: content.height,
-          });
-          awaitingReframePixels = false;
         }
-        reframeJustCompleted = false;
-      } catch (err) {
-        console.warn("⚠️ Failed to create post-reframe ImageData:", err);
-        reframeJustCompleted = false;
+      } else {
+        try {
+          if (window.pixelOptimizer) {
+            // 🚀 OPTIMIZATION: Zero-copy reframe handling
+            imageData = window.pixelOptimizer.createImageDataZeroCopy(
+              content.pixels,
+              content.width,
+              content.height
+            );
+            // Update screen dimensions to match
+            assign(screen, {
+              pixels: imageData.data,
+              width: content.width,
+              height: content.height,
+            });
+            markReframePixelsReceived("post-reframe-zero-copy", content.width, content.height);
+            window.pixelOptimizer.stats.framesProcessed++;
+          } else {
+            // Original fallback
+            const newPixels = new Uint8ClampedArray(content.pixels);
+            imageData = new ImageData(newPixels, content.width, content.height);
+            // Update screen dimensions to match
+            assign(screen, {
+              pixels: imageData.data,
+              width: content.width,
+              height: content.height,
+            });
+            markReframePixelsReceived("post-reframe", content.width, content.height);
+          }
+          reframeJustCompleted = false;
+        } catch (err) {
+          console.warn("⚠️ Failed to create post-reframe ImageData:", err);
+          reframeJustCompleted = false;
+        }
       }
     }
 
@@ -17145,6 +17226,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
         }
 
+        if (freezeFrameFrozen && !awaitingReframePixels) {
+          reframeDrawn = true;
+          reframeDrawnAt = performance.now();
+        }
+
         // Check if we need to record frames (before painting overlays)
         // const isRecording determined earlier for overlay decisions
 
@@ -17502,7 +17588,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Hide the freezeFrame - wait for glaze to be ready if it's enabled
-    if (freezeFrame && freezeFrameFrozen && !awaitingReframePixels && (!glaze.on || glazeReady)) {
+    // Also ensure resize has stabilized by waiting 100ms after last reframe request
+    const reframeStabilized = performance.now() - lastReframeTime > 100;
+    if (freezeFrame && freezeFrameFrozen && !awaitingReframePixels && reframeDrawn && reframeStabilized && (!glaze.on || glazeReady)) {
       if (glaze.on === false) {
         canvas.style.removeProperty("opacity");
       }
