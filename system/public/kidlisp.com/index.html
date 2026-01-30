@@ -3941,6 +3941,54 @@
       color: #f5f5f5;
     }
     
+    /* Slideshow button in code list header */
+    .code-list-header {
+      display: flex;
+      justify-content: flex-end;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.3);
+    }
+    
+    [data-theme="dark"] .code-list-header {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    
+    .slideshow-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
+    }
+    
+    .slideshow-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(79, 70, 229, 0.4);
+      background: linear-gradient(135deg, #5b52f0 0%, #8b49f6 100%);
+    }
+    
+    .slideshow-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 2px rgba(79, 70, 229, 0.3);
+    }
+    
+    .slideshow-icon {
+      font-size: 10px;
+    }
+    
+    .slideshow-text {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
     /* Jukebox Panel Styles */
     #jukebox-content {
       padding: 0;
@@ -9003,6 +9051,12 @@
           <!-- List sub-contents -->
           <div class="list-subcontent" id="examples-subcontent">
             <div class="code-list-panel">
+              <div class="code-list-header">
+                <button class="slideshow-btn" id="slideshow-btn" title="Play as slideshow on device.kidlisp.com">
+                  <span class="slideshow-icon">▶</span>
+                  <span class="slideshow-text">Slideshow</span>
+                </button>
+              </div>
               <div id="examples-list" class="code-list-items"><div class="code-list-loading">Loading...</div></div>
             </div>
           </div>
@@ -9163,8 +9217,9 @@
               <!-- Songs Mode -->
               <div class="jukebox-mode-content" id="jukebox-samples-mode">
                 <div class="jukebox-controls-area" style="border-bottom: none; padding-top: 0;">
-                  <!-- Now Playing -->
-                  <div class="jukebox-now-playing">
+                  <!-- Now Playing with Cover Art -->
+                  <div class="jukebox-now-playing" style="display: flex; align-items: center; gap: 12px;">
+                    <img id="jukebox-cover-art" src="https://aesthetic.computer/assets/oskie/wipppps/wipppps_cover.jpeg" alt="Album cover" style="width: 48px; height: 48px; border-radius: 4px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
                     <span class="jukebox-track-name" id="jukebox-track-name">Select a track</span>
                   </div>
                   
@@ -20467,6 +20522,34 @@
         document.getElementById('examples-list').innerHTML = `<div class="code-list-empty">${t('examplesError')}</div>`;
       }
     }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SLIDESHOW MODE
+    // Opens the Top 100 playlist on device.kidlisp.com in a new tab
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Top 100 playlist ID from feed.aesthetic.computer
+    const TOP_100_PLAYLIST_ID = '6e53465e-976f-4e93-89ff-c58b6d434fa7';
+    const FEED_URL = 'https://feed.aesthetic.computer';
+    
+    function initSlideshowButton() {
+      const slideshowBtn = document.getElementById('slideshow-btn');
+      if (!slideshowBtn) return;
+      
+      slideshowBtn.addEventListener('click', () => {
+        // Build the device.kidlisp.com URL with playlist_url param
+        const playlistUrl = `${FEED_URL}/api/v1/playlists/${TOP_100_PLAYLIST_ID}`;
+        const deviceUrl = `https://device.kidlisp.com/?playlist_url=${encodeURIComponent(playlistUrl)}`;
+        
+        console.log('🎬 Opening slideshow:', deviceUrl);
+        
+        // Open in new tab/window (fullscreen for best effect)
+        window.open(deviceUrl, '_blank');
+      });
+    }
+    
+    // Initialize slideshow button on load
+    initSlideshowButton();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SHARED CODE LIST COMPONENT
@@ -24136,6 +24219,9 @@
     function sendJukeboxAudioToPreview(audioData) {
       if (iframeReady && previewIframe?.contentWindow) {
         previewIframe.contentWindow.postMessage({ type: 'kidlisp-audio', data: audioData }, aestheticUrl);
+      } else if (audioData.kick) {
+        // Debug: log when kick events can't be sent
+        console.log('🎵 Audio data not sent - iframeReady:', iframeReady, 'previewIframe:', !!previewIframe?.contentWindow);
       }
     }
     
@@ -24305,12 +24391,14 @@
       console.log('🌀 Strudel: Playing with scheduler hooks:', code.substring(0, 100) + '...');
       
       try {
-        // Evaluate and play the pattern
-        await window.evaluate(code, true);
+        // Set playing BEFORE evaluate - events can fire during evaluation
         strudelPlaying = true;
         document.getElementById('strudel-play').disabled = true;
         document.getElementById('strudel-stop').disabled = false;
         document.getElementById('strudel-status').textContent = 'Playing (scheduler mode)';
+        
+        // Evaluate and play the pattern
+        await window.evaluate(code, true);
       } catch (err) {
         console.error('Strudel error:', err);
         document.getElementById('strudel-status').textContent = `Error: ${err.message}`;
