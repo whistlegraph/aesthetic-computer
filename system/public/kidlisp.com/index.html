@@ -2984,6 +2984,27 @@
       letter-spacing: -0.02em; /* Tighter letter spacing */
       padding-right: 8px; /* Extra room for $code display */
     }
+
+    .route-code-tab {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 8px;
+      background: rgba(88, 78, 108, 0.08);
+      border: 1px solid rgba(88, 78, 108, 0.25);
+      font-family: 'Comic Relief', 'Comic Sans MS', cursive;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      line-height: 1;
+      margin-left: 6px;
+    }
+
+    .route-code-tab.visible {
+      display: inline-flex;
+    }
     
     #preview-title .platform-logo {
       height: 16px;
@@ -3056,7 +3077,8 @@
     }
     
     /* Code display with KidLisp font to match the branding */
-    #preview-title .code-display {
+    #preview-title .code-display,
+    .route-code-tab .code-display {
       font-family: 'Comic Relief', 'Comic Sans MS', cursive;
       font-weight: bold;
       letter-spacing: 0.05em;
@@ -3067,24 +3089,34 @@
     }
     
     /* Code display states */
-    #preview-title .code-display.stale {
+    #preview-title .code-display.stale,
+    .route-code-tab .code-display.stale {
       pointer-events: none;
     }
     
     /* Stale code chars blast off and fade - POOF! */
-    #preview-title .code-display.stale .code-char {
+    #preview-title .code-display.stale .code-char,
+    .route-code-tab .code-display.stale .code-char {
       animation: charBlastOff 0.4s ease-out forwards;
     }
     
     /* Stagger the blast-off for each character */
-    #preview-title .code-display.stale .code-char:nth-child(1) { animation-delay: 0ms; }
-    #preview-title .code-display.stale .code-char:nth-child(2) { animation-delay: 30ms; }
-    #preview-title .code-display.stale .code-char:nth-child(3) { animation-delay: 50ms; }
-    #preview-title .code-display.stale .code-char:nth-child(4) { animation-delay: 70ms; }
-    #preview-title .code-display.stale .code-char:nth-child(5) { animation-delay: 90ms; }
-    #preview-title .code-display.stale .code-char:nth-child(6) { animation-delay: 110ms; }
-    #preview-title .code-display.stale .code-char:nth-child(7) { animation-delay: 130ms; }
-    #preview-title .code-display.stale .code-char:nth-child(8) { animation-delay: 150ms; }
+    #preview-title .code-display.stale .code-char:nth-child(1),
+    .route-code-tab .code-display.stale .code-char:nth-child(1) { animation-delay: 0ms; }
+    #preview-title .code-display.stale .code-char:nth-child(2),
+    .route-code-tab .code-display.stale .code-char:nth-child(2) { animation-delay: 30ms; }
+    #preview-title .code-display.stale .code-char:nth-child(3),
+    .route-code-tab .code-display.stale .code-char:nth-child(3) { animation-delay: 50ms; }
+    #preview-title .code-display.stale .code-char:nth-child(4),
+    .route-code-tab .code-display.stale .code-char:nth-child(4) { animation-delay: 70ms; }
+    #preview-title .code-display.stale .code-char:nth-child(5),
+    .route-code-tab .code-display.stale .code-char:nth-child(5) { animation-delay: 90ms; }
+    #preview-title .code-display.stale .code-char:nth-child(6),
+    .route-code-tab .code-display.stale .code-char:nth-child(6) { animation-delay: 110ms; }
+    #preview-title .code-display.stale .code-char:nth-child(7),
+    .route-code-tab .code-display.stale .code-char:nth-child(7) { animation-delay: 130ms; }
+    #preview-title .code-display.stale .code-char:nth-child(8),
+    .route-code-tab .code-display.stale .code-char:nth-child(8) { animation-delay: 150ms; }
     
     @keyframes charBlastOff {
       0% {
@@ -3102,32 +3134,41 @@
     }
     
     /* Randomize rotation direction per character */
-    #preview-title .code-display.stale .code-char:nth-child(odd) { --blast-rotate: 15deg; }
-    #preview-title .code-display.stale .code-char:nth-child(even) { --blast-rotate: -15deg; }
-    #preview-title .code-display.stale .code-char:nth-child(3n) { --blast-rotate: 25deg; }
-    #preview-title .code-display.stale .code-char:nth-child(3n+1) { --blast-rotate: -20deg; }
+    #preview-title .code-display.stale .code-char:nth-child(odd),
+    .route-code-tab .code-display.stale .code-char:nth-child(odd) { --blast-rotate: 15deg; }
+    #preview-title .code-display.stale .code-char:nth-child(even),
+    .route-code-tab .code-display.stale .code-char:nth-child(even) { --blast-rotate: -15deg; }
+    #preview-title .code-display.stale .code-char:nth-child(3n),
+    .route-code-tab .code-display.stale .code-char:nth-child(3n) { --blast-rotate: 25deg; }
+    #preview-title .code-display.stale .code-char:nth-child(3n+1),
+    .route-code-tab .code-display.stale .code-char:nth-child(3n+1) { --blast-rotate: -20deg; }
     
-    #preview-title .code-display.generating .code-char {
+    #preview-title .code-display.generating .code-char,
+    .route-code-tab .code-display.generating .code-char {
       animation: charScramble 0.1s ease-in-out infinite;
     }
     
-    #preview-title .code-display .code-char {
+    #preview-title .code-display .code-char,
+    .route-code-tab .code-display .code-char {
       display: inline-block;
     }
     
     /* Color coding for $code: / is gray, $ is light green, code is darker green */
-    #preview-title .code-display .code-char.slash {
+    #preview-title .code-display .code-char.slash,
+    .route-code-tab .code-display .code-char.slash {
       color: #888 !important;
       font-weight: normal !important;
       transition: color 0.05s ease, text-shadow 0.05s ease, transform 0.1s ease;
     }
-    #preview-title .code-display .code-char.dollar {
+    #preview-title .code-display .code-char.dollar,
+    .route-code-tab .code-display .code-char.dollar {
       color: limegreen;
       font-weight: bold;
       transition: color 0.05s ease, text-shadow 0.05s ease, transform 0.1s ease;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5); /* Harsh shadow for light mode visibility */
     }
-    #preview-title .code-display .code-char.code {
+    #preview-title .code-display .code-char.code,
+    .route-code-tab .code-display .code-char.code {
       color: lime;
       transition: color 0.05s ease, text-shadow 0.05s ease, transform 0.1s ease;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5); /* Harsh shadow for light mode visibility */
@@ -3142,35 +3183,50 @@
       100% { transform: scale(1) rotate(0deg); }
     }
     
-    #preview-title.state-changed .code-display .code-char {
+    #preview-title.state-changed .code-display .code-char,
+    .route-code-tab.state-changed .code-display .code-char {
       animation: codeBump 0.2s ease-out;
     }
     
     /* Stagger the bump for each character */
-    #preview-title.state-changed .code-display .code-char:nth-child(1) { animation-delay: 0ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(2) { animation-delay: 15ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(3) { animation-delay: 30ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(4) { animation-delay: 45ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(5) { animation-delay: 60ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(6) { animation-delay: 75ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(7) { animation-delay: 90ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(8) { animation-delay: 105ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(1),
+    .route-code-tab.state-changed .code-display .code-char:nth-child(1) { animation-delay: 0ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(2),
+    .route-code-tab.state-changed .code-display .code-char:nth-child(2) { animation-delay: 15ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(3),
+    .route-code-tab.state-changed .code-display .code-char:nth-child(3) { animation-delay: 30ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(4),
+    .route-code-tab.state-changed .code-display .code-char:nth-child(4) { animation-delay: 45ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(5),
+    .route-code-tab.state-changed .code-display .code-char:nth-child(5) { animation-delay: 60ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(6),
+    .route-code-tab.state-changed .code-display .code-char:nth-child(6) { animation-delay: 75ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(7),
+    .route-code-tab.state-changed .code-display .code-char:nth-child(7) { animation-delay: 90ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(8),
+    .route-code-tab.state-changed .code-display .code-char:nth-child(8) { animation-delay: 105ms; }
     
     /* Dark mode: remove the dark shadow, use glow instead */
     @media (prefers-color-scheme: dark) {
       #preview-title .code-display .code-char.dollar,
-      #preview-title .code-display .code-char.code {
+      #preview-title .code-display .code-char.code,
+      .route-code-tab .code-display .code-char.dollar,
+      .route-code-tab .code-display .code-char.code {
         text-shadow: none;
       }
     }
     
     [data-theme="dark"] #preview-title .code-display .code-char.dollar,
-    [data-theme="dark"] #preview-title .code-display .code-char.code {
+    [data-theme="dark"] #preview-title .code-display .code-char.code,
+    [data-theme="dark"] .route-code-tab .code-display .code-char.dollar,
+    [data-theme="dark"] .route-code-tab .code-display .code-char.code {
       text-shadow: none;
     }
     
     [data-theme="light"] #preview-title .code-display .code-char.dollar,
-    [data-theme="light"] #preview-title .code-display .code-char.code {
+    [data-theme="light"] #preview-title .code-display .code-char.code,
+    [data-theme="light"] .route-code-tab .code-display .code-char.dollar,
+    [data-theme="light"] .route-code-tab .code-display .code-char.code {
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
     }
     
@@ -3975,31 +4031,63 @@
     /* Play on TV card (first item in Top Hits) */
     .play-on-tv-card {
       padding: 12px 10px;
-      border-bottom: 1px solid var(--border-subtle);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 12px;
-      background: linear-gradient(135deg, rgba(79, 70, 229, 0.15) 0%, rgba(124, 58, 237, 0.1) 100%);
+      background: linear-gradient(135deg, rgba(24, 24, 28, 0.95) 0%, rgba(40, 40, 46, 0.9) 100%);
       transition: all 0.2s ease;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 6px 16px rgba(0, 0, 0, 0.25);
     }
     
     .play-on-tv-card:hover {
-      background: linear-gradient(135deg, rgba(79, 70, 229, 0.25) 0%, rgba(124, 58, 237, 0.18) 100%);
+      background: linear-gradient(135deg, rgba(36, 36, 42, 0.98) 0%, rgba(52, 52, 60, 0.95) 100%);
     }
     
     .play-on-tv-icon {
       width: 48px;
       height: 48px;
       border-radius: 10px;
-      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      background: linear-gradient(135deg, #2b2b33 0%, #3a3a45 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
       color: white;
       flex-shrink: 0;
-      box-shadow: 0 2px 6px rgba(79, 70, 229, 0.4);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 6px 12px rgba(0, 0, 0, 0.35);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .play-on-tv-stack {
+      position: relative;
+      width: 30px;
+      height: 22px;
+    }
+
+    .play-on-tv-slide {
+      position: absolute;
+      inset: 0;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.1) 100%);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .play-on-tv-slide.back {
+      transform: translate(-4px, -4px);
+      opacity: 0.4;
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .play-on-tv-slide.mid {
+      transform: translate(-2px, -2px);
+      opacity: 0.65;
+    }
+
+    .play-on-tv-slide.front {
+      opacity: 0.9;
     }
     
     .play-on-tv-content {
@@ -4018,6 +4106,11 @@
       font-size: 11px;
       color: var(--text-secondary);
       opacity: 0.8;
+    }
+
+    .play-on-tv-highlight {
+      color: #3b82f6;
+      font-weight: 600;
     }
     
     .play-on-tv-arrow {
@@ -4714,6 +4807,24 @@
       justify-content: space-between;
       align-items: center;
       gap: 10px;
+    }
+
+    .example-meta-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 2px;
+      min-width: 44px;
+      flex-shrink: 0;
+    }
+
+    .example-rank {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      color: #3b82f6;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
     }
     
     .thumb-container {
@@ -6774,6 +6885,12 @@
       #preview-title .title-full { display: none; }
       #preview-title .title-short { display: inline; }
     }
+
+    /* When a slug is present, switch to prompt.AC sooner to make room */
+    @container preview (max-width: 520px) {
+      body.has-route-code #preview-title .title-full { display: none; }
+      body.has-route-code #preview-title .title-short { display: inline; }
+    }
     
     /* Level 2 (< 360px): Hide "I'm new" button */
     @container preview (max-width: 360px) {
@@ -6799,20 +6916,6 @@
       .platform-arrow { display: none !important; }
     }
 
-    /* When a route code is active, show it in the KidLisp.com logo on wide screens */
-    body.has-route-code #preview-title .code-display {
-      display: none;
-    }
-
-    @media (max-width: 900px) {
-      body.has-route-code #preview-title .code-display {
-        display: inline;
-      }
-
-      body.has-route-code #splash-logo .splash-route {
-        display: none;
-      }
-    }
 
     /* Pop-out button styles */
     .popout-btn {
@@ -8162,6 +8265,8 @@
     #splash-logo .splash-route:empty {
       display: none;
     }
+
+
     
     @media (max-width: 768px) {
       #splash-logo.landed {
@@ -8199,6 +8304,14 @@
     // Splash animation - must be inline to run early
     (function() {
       let animationTriggered = false;
+
+      window.getInitialRouteCode = window.getInitialRouteCode || function() {
+        const urlPath = window.location.pathname;
+        const match = urlPath.match(/\/\$?([a-zA-Z0-9]+)$/);
+        return match?.[1] || '';
+      };
+
+      window.setRouteCodeInUI = window.setRouteCodeInUI || function() {};
       
       window.triggerSplashAnimation = function() {
         if (animationTriggered) return;
@@ -8208,8 +8321,26 @@
         const splashLogo = document.getElementById('splash-logo');
         const mainEl = document.getElementById('main-split');
         const landingZone = document.getElementById('logo-landing-zone');
+        const initialRouteCode = window.getInitialRouteCode ? window.getInitialRouteCode() : '';
+        const splashRoute = splashLogo?.querySelector('.splash-route');
         
         if (splash && splashLogo && mainEl && landingZone) {
+          if (splashRoute) {
+            if (initialRouteCode) {
+              const slug = `/$${initialRouteCode}`;
+              splashRoute.innerHTML = slug
+                .split('')
+                .map((char, index) => {
+                  const delay = 520 + index * 35;
+                  const safeChar = char === ' ' ? '&nbsp;' : char;
+                  return `<span class="splash-letter" style="color: var(--text-tertiary); animation-delay: ${delay}ms;">${safeChar}</span>`;
+                })
+                .join('');
+            } else {
+              splashRoute.innerHTML = '';
+            }
+          }
+
           // Get actual computed font size (from clamp CSS)
           const computedStyle = window.getComputedStyle(splashLogo);
           const startFontSize = parseFloat(computedStyle.fontSize);
@@ -8286,6 +8417,13 @@
                 lastColorIndex = randomIndex;
                 color = colors[randomIndex];
               }
+
+              if (initialRouteCode) {
+                if (splashRoute) {
+                  splashRoute.innerHTML = '';
+                }
+                window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
+              }
               letter.style.color = color;
               
               // Add subtle shadow
@@ -8297,6 +8435,7 @@
                 letter.style.textShadow = `1px 1px 0px rgb(${r}, ${g}, ${b})`;
               }
             });
+
             
 
             
@@ -8333,6 +8472,9 @@
             splashLogo.classList.add('landed');
             splashLogo.style.cssText = '';
             landingZone.appendChild(splashLogo);
+            if (initialRouteCode) {
+              window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
+            }
             
             // Add click handler - back navigation OR preferences modal
             splashLogo.style.cursor = 'pointer';
@@ -9149,6 +9291,7 @@
               -->
             </div>
           </div>
+          <span id="route-code-tab" class="route-code-tab"></span>
           <button id="popout-btn" class="popout-btn" title="Broadcast to PJ window" aria-label="Broadcast to PJ window">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/>
@@ -9298,7 +9441,7 @@
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
           <div class="tab active" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Learn</div>
           <div class="tab" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
-          <div class="tab" data-tab="jukebox" id="jukebox-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Jukebox</div>
+          <div class="tab" data-tab="jukebox" id="jukebox-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Music</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
@@ -14749,6 +14892,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
         document.title = `KidLisp.com/$${cleanCode}`;
         window.history.pushState({ code: cleanCode }, document.title, newPath);
       }
+
+      setRouteCodeInUI(cleanCode, { animate: false });
       
       // Generate QR code
       generateAndDisplayQR(code);
@@ -15975,6 +16120,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         
         // Set title immediately to match URL
         document.title = `KidLisp.com/$${code}`;
+        setRouteCodeInUI(code, { immediate: true, animate: false });
         
         // Clear editor and localStorage immediately while we load from DB
         // This prevents old cached code from flashing or being used
@@ -16034,10 +16180,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
             // Update URL and title (only on AC platform)
             if (currentPlatform === 'aesthetic-computer') {
               updateURLForCode(code);
-              // Update preview pane title (no animation for initial load)
-              const previewTitle = document.getElementById('preview-title');
-              const codeChars = `/$${code}`.split('').map((c, i) => `<span class="code-char${i === 0 ? ' slash' : i === 1 ? ' dollar' : ' code'}">${c}</span>`).join('');
-              previewTitle.innerHTML = getACTitleHTML(codeChars);
+              // Update route code tab (no animation for initial load)
+              setRouteCodeInUI(code, { immediate: true, animate: false });
             }
           } else {
             log.code.error(`Failed to load code: $${code}`);
@@ -16063,10 +16207,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
           log.code.debug(`Restored code from localStorage: $${savedCode}`);
           // Update URL and title to match the saved code
           updateURLForCode(savedCode);
-          // Update preview pane title (no animation for restore)
-          const previewTitle = document.getElementById('preview-title');
-          const codeChars = `/$${savedCode}`.split('').map((c, i) => `<span class="code-char${i === 0 ? ' slash' : i === 1 ? ' dollar' : ' code'}">${c}</span>`).join('');
-          previewTitle.innerHTML = getACTitleHTML(codeChars);
+          // Update route code tab (no animation for restore)
+          setRouteCodeInUI(savedCode, { immediate: true, animate: false });
+        } else {
+          setRouteCodeInUI(null, { immediate: true, animate: false });
         }
       }
 
@@ -16706,6 +16850,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           window.history.pushState({}, 'KidLisp.com', '/kidlisp.com');
           document.title = 'KidLisp.com';
           localStorage.removeItem('kidlisp-current-code');
+          setRouteCodeInUI(null, { immediate: true, animate: false });
           // Reset preview title to current platform name (using global helper)
           const previewTitle = document.getElementById('preview-title');
           if (previewTitle) {
@@ -18091,20 +18236,58 @@ s("ape_breaks_3").loopAt(2)</textarea>
     let currentPlatform = 'aesthetic-computer';
     
     // Global helper to generate platform title HTML with short/full variants for responsive collapse
-    function getACTitleHTML(codeChars = '') {
+    function getACTitleHTML() {
       // Wrap each letter in spans for rainbow animation during boot
       const wrapLetters = (word) => word.split('').map(c => `<span class="title-letter">${c}</span>`).join('');
-      return `<span class="title-full">${wrapLetters('Aesthetic')}</span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full">${wrapLetters('Computer')}</span><span class="title-short">AC</span><span class="code-display">${codeChars}</span>`;
+      return `<span class="title-full">${wrapLetters('Aesthetic')}</span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full">${wrapLetters('Computer')}</span><span class="title-short">AC</span>`;
     }
 
-    function setRouteCodeInUI(code) {
+    function setRouteCodeInUI(code, options = {}) {
+      const { immediate = false, animate = true } = options;
       const cleanCode = code ? (code.startsWith('$') ? code.slice(1) : code) : '';
-      const splashRoute = document.querySelector('#splash-logo .splash-route');
-      if (splashRoute) {
-        splashRoute.textContent = cleanCode ? `/$${cleanCode}` : '';
-      }
       document.body?.classList.toggle('has-route-code', Boolean(cleanCode));
+      if (currentPlatform !== 'aesthetic-computer') return;
+
+      const previewTitle = document.getElementById('preview-title');
+      if (!previewTitle) return;
+
+      if (!cleanCode) {
+        previewTitle.innerHTML = getACTitleHTML();
+        const routeCodeTab = document.getElementById('route-code-tab');
+        if (routeCodeTab) {
+          routeCodeTab.classList.remove('visible');
+          routeCodeTab.innerHTML = '';
+        }
+        return;
+      }
+
+      const codeChars = `/$${cleanCode}`
+        .split('')
+        .map((c, i) => `<span class="code-char${i === 0 ? ' slash' : i === 1 ? ' dollar' : ' code'}">${c}</span>`)
+        .join('');
+      previewTitle.innerHTML = getACTitleHTML();
+      const routeCodeTab = document.getElementById('route-code-tab');
+      if (routeCodeTab) {
+        routeCodeTab.classList.add('visible');
+        routeCodeTab.innerHTML = `<span class="code-display">${codeChars}</span>`;
+      }
+
+      if (!immediate) {
+        const codeDisplay = routeCodeTab?.querySelector('.code-display');
+        if (codeDisplay && animate && typeof scrambleToCode === 'function') {
+          scrambleToCode(cleanCode, codeDisplay);
+        }
+      }
     }
+
+    window.setRouteCodeInUI = setRouteCodeInUI;
+
+    window.getInitialRouteCode = function() {
+      const urlPath = window.location.pathname;
+      const match = urlPath.match(/\/\$?([a-zA-Z0-9]+)$/);
+      return match?.[1] || '';
+    };
+
     
     // Helper to generate platform title HTML (with logo for FF1, short/full for AC)
     function getPlatformTitleHTML(platformId, platformName) {
@@ -21408,6 +21591,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         showTimestamp = false,
         showHits = true,
         pendingThumb = false,
+        rank = null,
       } = options;
       
       const el = document.createElement('div');
@@ -21461,6 +21645,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
       
       // Build hits display
       const hitsHtml = showHits ? `<div class="example-hits">${item.hits || 0} hits</div>` : '';
+      const rankHtml = typeof rank === 'number' ? `<div class="example-rank">#${rank}</div>` : '';
+      const rightMetaHtml = (rankHtml || hitsHtml)
+        ? `<div class="example-meta-right">${rankHtml}${hitsHtml}</div>`
+        : '';
       
       // Assemble HTML
       el.innerHTML = `
@@ -21471,7 +21659,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           ${handleText && !ownerText ? `<div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${handleText}</div>` : ''}
           ${timeLine ? `<div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${timeLine}</div>` : ''}
         </div>
-        ${hitsHtml}
+        ${rightMetaHtml}
       `;
       
       // Now populate the thumbnail container
@@ -21566,13 +21754,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (currentPlatform === 'aesthetic-computer' && item.code) {
         updateURLForCode(item.code);
         localStorage.setItem('kidlisp-current-code', item.code);
-        const previewTitle = document.getElementById('preview-title');
-        if (previewTitle) {
-          const codeChars = `/$${item.code}`.split('').map((c, i) => 
-            `<span class="code-char${i === 0 ? ' slash' : i === 1 ? ' dollar' : ' code'}">${c}</span>`
-          ).join('');
-          previewTitle.innerHTML = getACTitleHTML(codeChars);
-        }
+        setRouteCodeInUI(item.code, { immediate: true, animate: false });
       }
       
       updatePreview();
@@ -21626,10 +21808,16 @@ s("ape_breaks_3").loopAt(2)</textarea>
         const playOnTvCard = document.createElement('div');
         playOnTvCard.className = 'play-on-tv-card';
         playOnTvCard.innerHTML = `
-          <div class="play-on-tv-icon">▶</div>
+          <div class="play-on-tv-icon">
+            <div class="play-on-tv-stack">
+              <span class="play-on-tv-slide back"></span>
+              <span class="play-on-tv-slide mid"></span>
+              <span class="play-on-tv-slide front"></span>
+            </div>
+          </div>
           <div class="play-on-tv-content">
             <div class="play-on-tv-title">Play on your TV</div>
-            <div class="play-on-tv-subtitle">Watch Top Hits as a slideshow</div>
+            <div class="play-on-tv-subtitle">Watch <span class="play-on-tv-highlight">Top 100</span> as a playlist slideshow</div>
           </div>
           <div class="play-on-tv-arrow">→</div>
         `;
@@ -21758,7 +21946,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         });
       }
       
-      processedItems.forEach(item => {
+      processedItems.forEach((item, index) => {
         const el = renderCodeListItem(item, {
           syntaxHighlight,
           tickerAnimation,
@@ -21767,6 +21955,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           showTimestamp,
           showHits,
           pendingThumb,
+          rank: listId === 'examples-list' ? index + 1 : null,
         });
         
         el.addEventListener('click', () => handleCodeItemClick(el));
