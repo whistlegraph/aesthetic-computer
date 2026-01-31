@@ -409,6 +409,125 @@
       font-family: 'Noto Sans Mono', monospace;
     }
 
+    /* ═══════════════════════════════════════════════════════════════════════════
+       MOBILE RESPONSIVE STYLES - 9x16 portrait aspect ratio
+       Targets phones in portrait mode to prevent element overlapping
+       ═══════════════════════════════════════════════════════════════════════════ */
+    @media (max-aspect-ratio: 10/16) and (max-width: 600px) {
+      :root {
+        /* Mobile layout spacing and dimensions */
+        --mobile-spacing: 8px;
+        --mobile-qr-size: 48px;
+        --mobile-qr-padding: 2px;
+        /* Height reserved for bottom overlays (QR + label + piece info area) */
+        --mobile-bottom-reserve: 100px;
+        /* 
+         * Total width for QR section to prevent piece-info overlap:
+         * QR container (48px) + inner padding (2px * 2) + right margin (8px) + gap from piece-info (8px * 2)
+         */
+        --mobile-qr-total-width: calc(var(--mobile-qr-size) + var(--mobile-qr-padding) * 2 + var(--mobile-spacing) * 3);
+      }
+      
+      /* Source code - smaller on mobile */
+      #source-code {
+        top: var(--mobile-spacing);
+        left: var(--mobile-spacing);
+        right: var(--mobile-spacing);
+        bottom: var(--mobile-bottom-reserve); /* Leave room for bottom overlays */
+        font-size: 10px;
+      }
+      
+      /* QR wrap - smaller and repositioned for mobile */
+      #qr-wrap {
+        bottom: var(--mobile-spacing);
+        right: var(--mobile-spacing);
+      }
+      
+      #code-label {
+        font-size: 10px;
+        padding: var(--mobile-qr-padding) 4px;
+      }
+      
+      #qr-container {
+        width: var(--mobile-qr-size);
+        height: var(--mobile-qr-size);
+        padding: var(--mobile-qr-padding);
+      }
+      
+      /* Piece info - smaller on mobile */
+      #piece-info {
+        bottom: var(--mobile-spacing);
+        left: var(--mobile-spacing);
+        font-size: 10px;
+        max-width: calc(100% - var(--mobile-qr-total-width)); /* Prevent overlap with QR */
+      }
+      
+      /* Playlist info - compact layout for mobile slideshow */
+      #playlist-info {
+        top: var(--mobile-spacing);
+        right: var(--mobile-spacing);
+        left: var(--mobile-spacing); /* Full width on mobile */
+        padding: var(--mobile-spacing);
+        font-size: 12px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--mobile-spacing);
+      }
+      
+      #playlist-info.visible {
+        display: flex;
+      }
+      
+      #playlist-title {
+        font-size: 12px;
+        margin-bottom: 0;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      
+      #playlist-position {
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      
+      /* FF1 button - compact single button on mobile */
+      #ff1-cast-btn {
+        gap: 6px;
+        margin-top: 0;
+        padding: 6px 10px;
+        font-size: 11px;
+        border-radius: 4px;
+        width: 100%;
+        justify-content: center;
+        order: 3; /* Put button on its own row */
+        flex-basis: 100%;
+      }
+      
+      #ff1-cast-btn .ff1-logo {
+        height: 14px;
+      }
+      
+      #ff1-cast-btn .ff1-text {
+        font-size: 11px;
+      }
+      
+      /* Progress bar - thinner on mobile */
+      #progress-bar {
+        height: 2px;
+      }
+      
+      /* FPS meter - smaller on mobile */
+      #fps-meter {
+        font-size: 10px;
+        padding: 4px;
+      }
+    }
+
   </style>
 </head>
 <body>
