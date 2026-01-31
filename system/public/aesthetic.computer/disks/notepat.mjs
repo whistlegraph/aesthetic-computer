@@ -3970,23 +3970,8 @@ function paint({
     const sy = 3;
     const sh = 15; // screen.height - sy;
 
-    // Visualizer starts after the top bar piano (or at 54 if piano not shown)
-    const vizStartX = topBarPianoEndX;
-    const availableWidth = waveBtn.box.x - vizStartX;
-
-    sound.paint.bars(
-      api,
-      amplitude,
-      waveformsForBars,
-      vizStartX, //0,
-      sy, //sy,
-      availableWidth,
-      //screen.width, // width
-      sh, // height
-      [255, 0, 0, 255],
-      { primaryColor, secondaryColor },
-    );
-
+    // Visualizer removed from top bar (was sound.paint.bars here)
+    // Only show stample waveform needle when relevant
     if (wave === "stample" && stampleSampleData?.length) {
       const needleNote = stampleNeedleNote || active?.[active.length - 1];
       const needleColor = needleNote ? colorFromNote(needleNote, num) : [255, 255, 255];

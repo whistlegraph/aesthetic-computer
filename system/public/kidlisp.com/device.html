@@ -96,53 +96,37 @@
     /* Source code display - top left */
     #source-code {
       position: absolute;
-      top: calc(var(--ui-scale, 8) * 4px);
-      left: calc(var(--ui-scale, 8) * 4px);
-      right: calc(var(--ui-scale, 8) * 4px);
-      bottom: calc(var(--ui-scale, 8) * 24px);
+      top: calc(var(--ui-scale, 8) * 2px);
+      left: calc(var(--ui-scale, 8) * 2px);
+      right: calc(var(--ui-scale, 8) * 2px);
+      bottom: calc(var(--ui-scale, 8) * 20px);
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
       font-size: calc(var(--ui-scale, 8) * 2.5px);
       line-height: 1.5;
       color: #fff;
       overflow: hidden;
-      /* Sharp shadow like kidlisp.com monaco editor */
-      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+      /* Harsh shadow matching stats for visibility on complex animations */
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
       white-space: pre-wrap;
       word-break: break-word;
       -webkit-mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
       mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
+      transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
     
     #source-code-inner {
       /* For scrolling long code */
     }
     
-    /* Boot status indicator - shows loading messages during scramble */
-    #boot-status {
-      position: absolute;
-      top: calc(var(--ui-scale, 8) * 4px);
-      left: calc(var(--ui-scale, 8) * 4px);
-      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--ui-scale, 8) * 2px);
-      color: rgba(100, 255, 100, 0.9);
-      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.8);
-      z-index: 17;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.15s ease;
-      white-space: nowrap;
-    }
-    
-    #boot-status.visible {
-      opacity: 1;
-    }
-    
-    #boot-status.fading {
-      opacity: 0;
-      transition: opacity 0.5s ease;
-    }
-    
     /* Hide UI elements during scramble animation - only show code and FF1 module */
+    #qr-wrap,
+    #piece-handle,
+    #piece-hits,
+    #piece-when,
+    .ff1-module {
+      transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    
     #source-overlay.scrambling #qr-wrap,
     #source-overlay.scrambling #piece-handle,
     #source-overlay.scrambling #piece-hits,
@@ -153,6 +137,27 @@
     
     #source-overlay.scrambling .ff1-module {
       opacity: 1;
+    }
+    
+    /* Slide animations for overlay elements during playback */
+    /* QR slides to bottom-right corner */
+    #source-overlay.slid-out #qr-wrap {
+      transform: translate(120%, 120%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    /* Stats slide to bottom-left corner */
+    #source-overlay.slid-out #piece-info {
+      transform: translate(-120%, 120%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    /* Source code slides to top-left corner */
+    #source-overlay.slid-out #source-code {
+      transform: translate(-50%, -120%);
+      opacity: 0;
     }
     
     #source-code-inner.scrolling {
@@ -168,12 +173,23 @@
     /* QR code and label - bottom right (like give.aesthetic.computer) */
     #qr-wrap {
       position: absolute;
-      bottom: calc(var(--ui-scale, 8) * 4px);
-      right: calc(var(--ui-scale, 8) * 4px);
+      bottom: calc(var(--ui-scale, 8) * 2px);
+      right: calc(var(--ui-scale, 8) * 2px);
       display: flex;
       flex-direction: column;
       align-items: flex-end;
       z-index: 16;
+      pointer-events: auto;
+      cursor: pointer;
+      transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    
+    #qr-wrap:hover {
+      transform: scale(1.08);
+    }
+    
+    #qr-wrap:active {
+      transform: scale(0.98);
     }
     
     #code-label {
@@ -186,6 +202,8 @@
       padding-bottom: calc(var(--ui-scale, 8) * 0.75px); /* Extra space below label */
       line-height: 1;
       text-transform: none; /* Keep original case */
+      /* Gray offset shadow matching QR container */
+      box-shadow: calc(var(--ui-scale, 8) * 0.5px) calc(var(--ui-scale, 8) * 0.5px) 0 rgba(64, 64, 64, 0.8);
     }
     
     #code-label .code-dollar {
@@ -216,8 +234,8 @@
     /* Handle and hits info - bottom left (device replaces disk.mjs overlay) */
     #piece-info {
       position: absolute;
-      bottom: calc(var(--ui-scale, 8) * 4px);
-      left: calc(var(--ui-scale, 8) * 4px);
+      bottom: calc(var(--ui-scale, 8) * 2px);
+      left: calc(var(--ui-scale, 8) * 2px);
       display: flex;
       flex-direction: column;
       align-items: flex-start;
@@ -226,6 +244,7 @@
       line-height: 1.4;
       z-index: 16;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+      transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
     
     #piece-handle {
@@ -249,12 +268,12 @@
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: calc(var(--ui-scale, 8) * 0.3px);
-      margin-top: calc(var(--ui-scale, 8) * 0.75px);
-      padding: calc(var(--ui-scale, 8) * 0.5px) calc(var(--ui-scale, 8) * 0.8px);
-      background: rgba(0, 0, 0, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: calc(var(--ui-scale, 8) * 0.5px);
+      gap: 0;
+      margin-top: 0;
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
       pointer-events: auto;
     }
     
@@ -274,16 +293,18 @@
     .ff1-playlist-title {
       color: rgba(255, 255, 255, 0.9);
       font-family: 'Noto Sans Mono', monospace;
-      font-size: calc(var(--ui-scale, 8) * 1.4px);
+      font-size: calc(var(--ui-scale, 8) * 2px);
       font-weight: bold;
       line-height: 1.2;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
     .ff1-playlist-position {
       color: rgba(255, 215, 0, 0.9);
       font-family: 'Noto Sans Mono', monospace;
-      font-size: calc(var(--ui-scale, 8) * 1.2px);
+      font-size: calc(var(--ui-scale, 8) * 1.8px);
       margin-top: calc(var(--ui-scale, 8) * 0.15px);
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
     /* FF1 CLI copy button inside module */
@@ -298,11 +319,11 @@
       border-radius: 0;
       color: rgba(255, 255, 255, 0.9);
       font-family: 'Noto Sans Mono', monospace;
-      font-size: calc(var(--ui-scale, 8) * 1.5px);
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
       cursor: pointer;
       transition: all 0.15s ease;
       pointer-events: auto;
-      text-shadow: none;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
       width: 100%;
     }
     
@@ -314,15 +335,15 @@
       transform: scale(0.98);
     }
     
-    .ff1-module.copied {
-      background: rgba(0, 200, 100, 0.3);
-      border-color: rgba(0, 200, 100, 0.6);
+    .ff1-module.copied .piece-ff1-copy {
+      color: rgba(100, 255, 100, 0.9);
     }
     
     .piece-ff1-copy .ff1-icon {
-      height: calc(var(--ui-scale, 8) * 1.5px);
+      height: calc(var(--ui-scale, 8) * 3px);
       width: auto;
-      filter: invert(1);
+      margin-right: calc(var(--ui-scale, 8) * 0.5px);
+      filter: invert(1) drop-shadow(1px 1px 0 #000) drop-shadow(-1px -1px 0 #000) drop-shadow(1px -1px 0 #000) drop-shadow(-1px 1px 0 #000) drop-shadow(2px 2px 0 #000);
     }
     
     .piece-ff1-copy .ff1-cmd {
@@ -434,10 +455,15 @@
       z-index: 100;
       margin: 0;
       padding: 0;
+      transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
 
     #progress-bar.visible {
       display: block;
+    }
+    
+    #progress-bar.hidden-mid {
+      opacity: 0;
     }
 
     #progress-fill {
@@ -445,7 +471,17 @@
       width: 0%;
       /* White fill over black background - looks like it's filling in */
       background: #fff;
-      transition: width 0.25s linear;
+      transition: width 0.25s linear, background-color 0.2s ease;
+    }
+    
+    /* Blinking red at end */
+    @keyframes blinkRed {
+      0%, 50% { background: #ff3333; }
+      51%, 100% { background: #990000; }
+    }
+    
+    #progress-fill.ending {
+      animation: blinkRed 0.5s ease-in-out infinite;
     }
 
     /* FPS meter - top right (hidden by default) */
@@ -586,7 +622,6 @@
   
   <!-- KidLisp source overlay with syntax highlighting and QR -->
   <div id="source-overlay">
-    <div id="boot-status"></div>
     <div id="source-code"><div id="source-code-inner"></div></div>
     <div id="qr-wrap">
       <div id="code-label"></div>
@@ -683,16 +718,26 @@
   <script>
     // 🔓 KidLisp Scramble/Decode Animation for Device Mode
     // Shows scrambled code during boot, reveals when piece starts running
+    // Each character has its own rhythm seeded by its original source character
     (function() {
-      const SCRAMBLE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789(),-=+*/<>:;\"\'.!?@#$%^&_~`[]{}|';
+      const SCRAMBLE_CHARS_LOWER = 'abcdefghijklmnopqrstuvwxyz';
+      const SCRAMBLE_CHARS_UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const SCRAMBLE_CHARS_OTHER = '0123456789(),-=+*/<>:;\"\'.!?@#$%^&_~`[]{}|';
       
       let isScrambling = false;
       let scrambleAnimationFrame = null;
+      let scrambleIntervalId = null;
+      const SCRAMBLE_FPS = 12; // Slower base rate (12fps)
+      const SCRAMBLE_INTERVAL = 1000 / SCRAMBLE_FPS;
       let pendingSource = null;
       let pendingHighlightedHtml = null;
       let decodeResolver = null;
       let waitingForDecode = false;
       let currentBootMessage = ''; // Current boot message to weave into scramble
+      
+      // Per-character state for seeded rhythms
+      let charStates = []; // { lastChange: timestamp, interval: ms, currentChar: string }
+      let globalTick = 0;
       
       // Expose setter for boot message
       window.setBootMessage = function(msg) {
@@ -707,23 +752,72 @@
         }
       };
       
-      // Scramble a character (preserve whitespace)
-      function getScrambledChar(original) {
-        if (original === '\n' || original === ' ' || original === '\t') return original;
-        return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+      // Get a seeded "random" value from a character (deterministic per char)
+      function charSeed(char) {
+        return char.charCodeAt(0);
       }
       
-      // Build scrambled version of source, weaving boot message throughout
-      function buildScrambledText(source) {
+      // Scramble a character (preserve whitespace and casing)
+      function getScrambledChar(original) {
+        if (original === '\n' || original === ' ' || original === '\t') return original;
+        // Preserve casing
+        if (original >= 'a' && original <= 'z') {
+          return SCRAMBLE_CHARS_LOWER[Math.floor(Math.random() * SCRAMBLE_CHARS_LOWER.length)];
+        }
+        if (original >= 'A' && original <= 'Z') {
+          return SCRAMBLE_CHARS_UPPER[Math.floor(Math.random() * SCRAMBLE_CHARS_UPPER.length)];
+        }
+        // For numbers and symbols, use other chars
+        return SCRAMBLE_CHARS_OTHER[Math.floor(Math.random() * SCRAMBLE_CHARS_OTHER.length)];
+      }
+      
+      // Initialize per-character states from source
+      function initCharStates(source) {
         const chars = source.split('');
-        const result = chars.map(char => {
-          if (char === '\n' || char === ' ' || char === '\t') return char;
-          return getScrambledChar(char);
+        charStates = chars.map((char, idx) => {
+          if (char === '\n' || char === ' ' || char === '\t') {
+            return { isWhitespace: true, char: char };
+          }
+          // Seed interval from character code: range 100ms to 600ms
+          const seed = charSeed(char);
+          const interval = 100 + ((seed * 7 + idx * 3) % 500);
+          return {
+            isWhitespace: false,
+            original: char,
+            currentChar: getScrambledChar(char),
+            interval: interval,
+            lastChange: performance.now() - Math.random() * interval, // Stagger start times
+            tickOffset: (seed + idx) % 20 // Phase offset for visual variety
+          };
+        });
+      }
+      
+      // Build scrambled text using per-character rhythm
+      function buildScrambledTextWithRhythm(source) {
+        const now = performance.now();
+        globalTick++;
+        
+        // Initialize states if needed
+        if (charStates.length !== source.length) {
+          initCharStates(source);
+        }
+        
+        const result = charStates.map((state, idx) => {
+          if (state.isWhitespace) return state.char;
+          
+          // Check if this character should change based on its own rhythm
+          const elapsed = now - state.lastChange;
+          if (elapsed >= state.interval) {
+            state.currentChar = getScrambledChar(state.original);
+            state.lastChange = now;
+          }
+          
+          return state.currentChar;
         });
         
-        // Weave boot message into MULTIPLE random lines for visibility
+        // Weave boot message into random positions
         if (currentBootMessage && currentBootMessage.length > 0) {
-          // Find all newline positions
+          // Find all line boundaries
           const lines = [];
           let lineStart = 0;
           for (let i = 0; i < result.length; i++) {
@@ -734,25 +828,20 @@
               lineStart = i + 1;
             }
           }
-          // Add last line if long enough
           if (result.length - lineStart > currentBootMessage.length + 4) {
             lines.push({ start: lineStart, end: result.length });
           }
           
-          // Insert message into multiple lines (every 2-4 lines for good coverage)
+          // Insert into ~30% of lines
           if (lines.length > 0) {
-            // Shuffle lines for random distribution
             const shuffled = [...lines].sort(() => Math.random() - 0.5);
-            // Insert into ~30-50% of lines
-            const insertCount = Math.max(1, Math.floor(shuffled.length * (0.3 + Math.random() * 0.2)));
+            const insertCount = Math.max(1, Math.floor(shuffled.length * 0.3));
             
             for (let n = 0; n < insertCount; n++) {
               const line = shuffled[n];
               const lineLength = line.end - line.start;
-              // Random position within line (not at edges)
               const insertPos = line.start + Math.floor(Math.random() * (lineLength - currentBootMessage.length - 2)) + 1;
               
-              // Insert the boot message
               for (let i = 0; i < currentBootMessage.length; i++) {
                 const targetIdx = insertPos + i;
                 if (targetIdx < result.length && result[targetIdx] !== '\n') {
@@ -767,7 +856,7 @@
       }
       
       // Show scrambled placeholder immediately on page load with continuous animation
-      // Uses eager-fetched source for correct length
+      // Uses eager-fetched source for correct length, with per-character rhythm
       let initialScrambleFrame = null;
       let initialScrambleActive = true;
       let eagerSource = null; // Will be set from eager fetch
@@ -784,17 +873,18 @@
           window.__eagerSourceFetch.then(data => {
             if (data?.source && initialScrambleActive) {
               eagerSource = data.source;
+              initCharStates(eagerSource); // Initialize per-character rhythms
               console.log('🚀 Eager source ready for scramble:', eagerSource.length, 'chars');
             }
           });
         }
         
-        // Continuous scramble animation until real source loads
+        // Use requestAnimationFrame for smoother per-character updates
         function animateInitialScramble() {
           if (!initialScrambleActive) return;
           // Use eager source if available, otherwise show nothing (waiting)
           if (eagerSource) {
-            inner.textContent = buildScrambledText(eagerSource);
+            inner.textContent = buildScrambledTextWithRhythm(eagerSource);
           }
           initialScrambleFrame = requestAnimationFrame(animateInitialScramble);
         }
@@ -819,6 +909,10 @@
           cancelAnimationFrame(scrambleAnimationFrame);
           scrambleAnimationFrame = null;
         }
+        if (scrambleIntervalId) {
+          clearInterval(scrambleIntervalId);
+          scrambleIntervalId = null;
+        }
         // Remove scrambling class to show QR/stats
         const overlay = document.getElementById('source-overlay');
         if (overlay) overlay.classList.remove('scrambling');
@@ -841,18 +935,20 @@
         isScrambling = true;
         waitingForDecode = true;
         
-        console.log('📺 Starting scramble animation...');
+        // Initialize per-character rhythms for the source
+        initCharStates(source);
         
-        // Scramble loop
+        console.log('📺 Starting scramble animation with per-character rhythm...');
+        
+        // Use requestAnimationFrame for smooth per-character rhythm updates
         function scrambleLoop() {
           if (!isScrambling || !waitingForDecode) return;
           
-          // Show scrambled plain text (no highlighting during scramble)
-          inner.textContent = buildScrambledText(pendingSource);
+          // Show scrambled plain text with per-character rhythm
+          inner.textContent = buildScrambledTextWithRhythm(pendingSource);
           
           scrambleAnimationFrame = requestAnimationFrame(scrambleLoop);
         }
-        
         scrambleLoop();
         
         // Return promise that resolves when decode is triggered
@@ -871,12 +967,16 @@
         if (scrambleAnimationFrame) {
           cancelAnimationFrame(scrambleAnimationFrame);
         }
+        if (scrambleIntervalId) {
+          clearInterval(scrambleIntervalId);
+          scrambleIntervalId = null;
+        }
         
         // Start reveal animation
         revealCode();
       };
       
-      // Reveal animation - progressively show real code
+      // Reveal animation - characters reveal individually based on their seeded timing
       function revealCode() {
         const inner = document.getElementById('source-code-inner');
         if (!inner || !pendingSource) {
@@ -885,18 +985,22 @@
         }
         
         const chars = pendingSource.split('');
-        const settled = new Array(chars.length).fill(false);
-        const scrambleCounts = new Array(chars.length).fill(0);
-        let currentRevealIndex = 0;
-        let lastRevealTime = 0;
         const revealStartTime = performance.now();
+        const revealDuration = 800; // Total reveal time in ms
         
-        // Animation settings
-        const revealDuration = 400; // Total reveal time in ms
-        const scrambleIterations = 1; // Scrambles before settling
-        const minCharDelay = 1;
+        // Each character has a reveal time based on its seed
+        const revealTimes = chars.map((char, idx) => {
+          if (char === '\n' || char === ' ' || char === '\t') return 0; // Whitespace reveals instantly
+          const seed = char.charCodeAt(0);
+          // Stagger reveals: seed determines when in the reveal window this char appears
+          // Mix in position for variety, but keep some randomness
+          const positionFactor = idx / chars.length;
+          const seedFactor = (seed % 100) / 100;
+          // Combine: mostly position-based (left to right feel) with seed variation
+          return (positionFactor * 0.7 + seedFactor * 0.3) * revealDuration;
+        });
         
-        const charDelay = Math.max(minCharDelay, Math.floor(revealDuration / (chars.length * scrambleIterations)));
+        const settled = new Array(chars.length).fill(false);
         
         function animateReveal() {
           if (!isScrambling) {
@@ -913,21 +1017,27 @@
             return;
           }
           
-          // Reveal next character
-          if (now - lastRevealTime >= charDelay && currentRevealIndex < chars.length) {
-            scrambleCounts[currentRevealIndex]++;
-            
-            if (scrambleCounts[currentRevealIndex] >= scrambleIterations) {
-              settled[currentRevealIndex] = true;
-              currentRevealIndex++;
-              lastRevealTime = now;
-            }
-          }
-          
-          // Build current text
+          // Build current text - each char reveals at its own time
           const currentText = chars.map((char, i) => {
-            if (settled[i]) return char;
             if (char === '\n' || char === ' ' || char === '\t') return char;
+            
+            // Check if this character should be revealed yet
+            if (elapsed >= revealTimes[i]) {
+              settled[i] = true;
+              return char;
+            }
+            
+            // Still scrambling - use the charStates rhythm if available
+            if (charStates[i] && !charStates[i].isWhitespace) {
+              const state = charStates[i];
+              const stateElapsed = now - state.lastChange;
+              if (stateElapsed >= state.interval) {
+                state.currentChar = getScrambledChar(state.original);
+                state.lastChange = now;
+              }
+              return state.currentChar;
+            }
+            
             return getScrambledChar(char);
           }).join('');
           
@@ -999,42 +1109,19 @@
         finalize();
       };
       
-      // Boot status display (disabled - now using inline weaving into scramble)
-      let lastBootMessage = '';
-      let bootStatusTimeout = null;
-      
-      function updateBootStatus(msg) {
-        // Boot status is now shown inline in the scrambled text
-        // Keep this function but don't show the overlay
-        return;
-      }
-      
-      function hideBootStatus() {
-        // No-op - overlay not used
-        return;
-      }
-      
       // Listen for boot-log messages from iframe
       window.addEventListener('message', (e) => {
         if (e.data?.type === 'boot-log') {
           const msg = e.data.message;
           console.log('📺 Boot log:', msg);
           
-          // Update the boot status display
-          updateBootStatus(msg);
-          
-          // Also feed the boot message to the scramble animation
+          // Feed the boot message to the scramble animation (woven into text)
           window.setBootMessage?.(msg);
           
           // Signal decode when piece starts running
           // "loaded" is sent when the piece finishes loading
           if (msg === 'loaded' || msg === 'running boot' || msg?.includes?.('running')) {
             window.signalDecode?.();
-          }
-          
-          // Hide boot status when piece is fully ready
-          if (msg?.startsWith?.('ready:')) {
-            setTimeout(hideBootStatus, 500);
           }
         }
       });
@@ -1400,14 +1487,18 @@
     function startSlideshowProgressBar(duration) {
       const progressBar = document.getElementById('progress-bar');
       const progressFill = document.getElementById('progress-fill');
+      const overlay = document.getElementById('source-overlay');
       
       // Set height based on density
       const barHeight = Math.max(1, Math.round(0.5 * densityParam));
       progressBar.style.height = `${barHeight}px`;
       progressBar.classList.add('visible');
       
-      // Reset progress
+      // Reset progress and clear any ending state
       progressFill.style.width = '0%';
+      progressFill.classList.remove('ending');
+      progressBar.classList.remove('hidden-mid');
+      if (overlay) overlay.classList.remove('slid-out');
       
       const startTime = Date.now();
       const durationMs = duration * 1000;
@@ -1416,6 +1507,35 @@
         const elapsed = Date.now() - startTime;
         const progress = Math.min(100, (elapsed / durationMs) * 100);
         progressFill.style.width = `${progress}%`;
+        
+        // Slide overlay elements based on progress:
+        // First 1/6 (0-16.7%): show elements
+        // Middle 4/6 (16.7%-83.3%): slide off
+        // Last 1/6 (83.3%-100%): bring back
+        if (overlay) {
+          const shouldSlideOut = progress > 16.67 && progress < 83.33;
+          if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
+            overlay.classList.add('slid-out');
+          } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
+            overlay.classList.remove('slid-out');
+          }
+        }
+        
+        // Hide progress bar during middle section (same timing as slide out)
+        const shouldHideBar = progress > 16.67 && progress < 83.33;
+        if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
+          progressBar.classList.add('hidden-mid');
+        } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
+          progressBar.classList.remove('hidden-mid');
+        }
+        
+        // Blink red towards the end (last 10%)
+        const shouldBlink = progress > 90;
+        if (shouldBlink && !progressFill.classList.contains('ending')) {
+          progressFill.classList.add('ending');
+        } else if (!shouldBlink && progressFill.classList.contains('ending')) {
+          progressFill.classList.remove('ending');
+        }
         
         if (progress < 100) {
           requestAnimationFrame(updateProgress);
@@ -1533,6 +1653,7 @@
       console.log('📺 generateQRAndLabel called with:', displayCode);
       const labelEl = document.getElementById('code-label');
       const qrContainer = document.getElementById('qr-container');
+      const qrWrap = document.getElementById('qr-wrap');
       
       // Build label with colored $ and code
       if (labelEl) {
@@ -1543,9 +1664,16 @@
       }
       
       // Generate QR code pointing to kidlisp.com (NOT aesthetic.computer)
+      const qrUrl = `https://kidlisp.com/${displayCode}`;
+      
+      // Make QR wrap clickable to open the URL
+      if (qrWrap) {
+        qrWrap.onclick = () => window.open(qrUrl, '_blank');
+        qrWrap.title = qrUrl;
+      }
+      
       if (qrContainer && typeof qrcode !== 'undefined') {
         try {
-          const qrUrl = `https://kidlisp.com/${displayCode}`;
           console.log('📺 Generating QR for:', qrUrl);
           const qrGen = qrcode(0, 'L');
           qrGen.addData(qrUrl);
@@ -1935,23 +2063,42 @@
       const progress = Math.min(100, (elapsed / playlistDuration) * 100);
       progressFill.style.width = `${progress}%`;
       
+      // Slide overlay elements based on progress:
+      // First 1/6 (0-16.7%): show elements
+      // Middle 4/6 (16.7%-83.3%): slide off
+      // Last 1/6 (83.3%-100%): bring back
+      const overlay = document.getElementById('source-overlay');
+      if (overlay) {
+        const shouldSlideOut = progress > 16.67 && progress < 83.33;
+        if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
+          overlay.classList.add('slid-out');
+        } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
+          overlay.classList.remove('slid-out');
+        }
+      }
+      
+      // Hide progress bar during middle section (same timing as slide out)
+      const shouldHideBar = progress > 16.67 && progress < 83.33;
+      if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
+        progressBar.classList.add('hidden-mid');
+      } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
+        progressBar.classList.remove('hidden-mid');
+      }
+      
+      // Blink red towards the end (last 10%)
+      const shouldBlink = progress > 90;
+      if (shouldBlink && !progressFill.classList.contains('ending')) {
+        progressFill.classList.add('ending');
+      } else if (!shouldBlink && progressFill.classList.contains('ending')) {
+        progressFill.classList.remove('ending');
+      }
+      
       if (progress < 100) {
         requestAnimationFrame(updateProgressBar);
       } else {
-        // Progress bar complete - check if we should reload
-        // Wait 2 seconds after progress bar completes
-        setTimeout(() => {
-          if (!pieceHasChanged) {
-            console.log('📺 Page stuck - reloading after progress bar timeout');
-            reloadPiece();
-          } else {
-            // Reset for next cycle and restart progress bar
-            pieceHasChanged = false;
-            progressStartTime = Date.now();
-            progressFill.style.width = '0%';
-            requestAnimationFrame(updateProgressBar);
-          }
-        }, 2000);
+        // Progress bar complete - just refresh the page
+        console.log('📺 Progress bar complete - refreshing page');
+        window.location.reload();
       }
     }
     
