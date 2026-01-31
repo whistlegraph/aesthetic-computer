@@ -409,6 +409,116 @@
       font-family: 'Noto Sans Mono', monospace;
     }
 
+    /* ═══════════════════════════════════════════════════════════════════════════
+       MOBILE RESPONSIVE STYLES - 9x16 portrait aspect ratio
+       Targets phones in portrait mode to prevent element overlapping
+       ═══════════════════════════════════════════════════════════════════════════ */
+    @media (max-aspect-ratio: 10/16) and (max-width: 600px) {
+      /* Reduce density-based scaling for mobile */
+      :root {
+        --mobile-density: 4;
+      }
+      
+      /* Source code - smaller on mobile */
+      #source-code {
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        bottom: 100px; /* Leave room for bottom overlays */
+        font-size: 10px;
+      }
+      
+      /* QR wrap - smaller and repositioned for mobile */
+      #qr-wrap {
+        bottom: 8px;
+        right: 8px;
+      }
+      
+      #code-label {
+        font-size: 10px;
+        padding: 2px 4px;
+      }
+      
+      #qr-container {
+        width: 48px;
+        height: 48px;
+        padding: 2px;
+      }
+      
+      /* Piece info - smaller on mobile */
+      #piece-info {
+        bottom: 8px;
+        left: 8px;
+        font-size: 10px;
+        max-width: calc(100% - 80px); /* Prevent overlap with QR */
+      }
+      
+      /* Playlist info - compact layout for mobile slideshow */
+      #playlist-info {
+        top: 8px;
+        right: 8px;
+        left: 8px; /* Full width on mobile */
+        padding: 8px;
+        font-size: 12px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      
+      #playlist-info.visible {
+        display: flex;
+      }
+      
+      #playlist-title {
+        font-size: 12px;
+        margin-bottom: 0;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      
+      #playlist-position {
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      
+      /* FF1 button - compact single button on mobile */
+      #ff1-cast-btn {
+        gap: 6px;
+        margin-top: 0;
+        padding: 6px 10px;
+        font-size: 11px;
+        border-radius: 4px;
+        width: 100%;
+        justify-content: center;
+        order: 3; /* Put button on its own row */
+        flex-basis: 100%;
+      }
+      
+      #ff1-cast-btn .ff1-logo {
+        height: 14px;
+      }
+      
+      #ff1-cast-btn .ff1-text {
+        font-size: 11px;
+      }
+      
+      /* Progress bar - thinner on mobile */
+      #progress-bar {
+        height: 2px;
+      }
+      
+      /* FPS meter - smaller on mobile */
+      #fps-meter {
+        font-size: 10px;
+        padding: 4px;
+      }
+    }
+
   </style>
 </head>
 <body>
