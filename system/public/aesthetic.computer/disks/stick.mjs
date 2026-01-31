@@ -2,152 +2,224 @@
 // USB Stick Laboratory - Format, write, and create DJ sticks from AC
 
 /* #region 📚 README 
-  This piece explores WebUSB capabilities for:
-  - Detecting USB mass storage devices
-  - Formatting drives (FAT32)
-  - Writing audio files (MP3s from clock, tones, recordings)
-  - Creating "DJ Sticks" with custom track libraries
+  Generate audio files from clock melodies and export to USB sticks.
   
-  WebUSB Limitations:
-  - Mass storage devices are typically blocked by browsers
-  - May need File System Access API + USB together
-  - Consider Electron/native bridge for full access
+  Usage:
+    stick                          - Interactive mode
+    stick 30 clock ^c,,,,,,        - Render 30s of clock melody to track list
+    stick 10 tone 440              - Render 10s of 440Hz tone
+  
+  Architecture:
+    - Piece runs in worker, sends render requests to bios
+    - Bios handles offline audio rendering via OfflineAudioContext
+    - File System Access API for writing to USB (user picks folder)
+    
+  Workflow:
+    1. Add tracks via command or UI
+    2. Select output folder (USB stick)
+    3. Render & write all tracks as WAV files
 #endregion */
 
 /* #region 🏁 TODO 
-  - [ ] Implement WebUSB device detection
-  - [ ] Test File System Access API for USB drives
-  - [ ] Create audio export pipeline (WAV → MP3)
-  - [ ] Build track list UI
-  - [ ] Add progress indicator for writes
-  - [ ] Explore native bridge for Electron app
+  - [x] Basic UI scaffold
+  - [ ] Command parsing for "stick 30 clock ^c,,,,"
+  - [ ] Bios: offline audio rendering handler
+  - [ ] WAV encoding from rendered audio
+  - [ ] File System Access API for folder selection
+  - [ ] Progress indication during render
+  - [ ] Preview playback before export
 #endregion */
 
-let status = "Ready - Click to request USB device";
-let device = null;
+import { parseMelody } from "../lib/melody-parser.mjs";
+
+let status = "Ready";
 let tracks = [];
-let usbSupported = false;
+let selectedFolder = null;
+let inputText = "";
+let inputActive = false;
+let rendering = false;
+let renderProgress = 0;
 
 // 🥾 Boot
-function boot({ screen, resize }) {
-  resize(256, 192);
-  usbSupported = typeof navigator !== "undefined" && !!navigator.usb;
-  if (!usbSupported) {
-    status = "WebUSB not supported in this browser";
+function boot({ params, screen, resize }) {
+  resize(320, 240);
+  
+  // Parse URL params: stick~30~clock~^c,,,,
+  if (params.length >= 3) {
+    const duration = parseFloat(params[0]);
+    const source = params[1];
+    const sourceParams = params.slice(2).join(" ");
+    
+    if (!isNaN(duration) && source) {
+      addTrack({ duration, source, sourceParams });
+      status = `Added: ${source} (${duration}s)`;
+    }
+  } else if (params.length > 0) {
+    status = "Usage: stick <duration> <source> <params>";
   }
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, text, screen }) {
+function paint({ wipe, ink, screen, ui: { TextInput } }) {
   wipe("black");
   
-  // Title
+  // Title bar
   ink("cyan").write("💾 STICK", { x: 8, y: 8 });
-  ink("gray").write("USB Laboratory", { x: 8, y: 20 });
+  ink("gray").write("DJ Stick Generator", { x: 72, y: 8 });
   
-  // Status
-  ink(device ? "lime" : "yellow").write(status, { x: 8, y: 40, width: screen.width - 16 });
+  // Folder selection
+  ink("white").write("Output:", { x: 8, y: 28 });
+  const folderText = selectedFolder || "[F] Select Folder...";
+  ink(selectedFolder ? "lime" : "yellow").write(folderText, { x: 60, y: 28, width: screen.width - 68 });
   
-  // USB Support indicator
-  ink(usbSupported ? "green" : "red").write(
-    usbSupported ? "✓ WebUSB Available" : "✗ WebUSB Unavailable", 
-    { x: 8, y: 56 }
+  // Input area
+  ink("white").write("Add Track:", { x: 8, y: 48 });
+  ink("gray").box(8, 60, screen.width - 16, 16);
+  ink(inputActive ? "white" : "gray").write(
+    inputText || "30 clock ^c,,,,,", 
+    { x: 12, y: 64 }
   );
   
-  // Instructions
-  ink("white").write("Controls:", { x: 8, y: 80 });
-  ink("gray").write("[U] Request USB Device", { x: 8, y: 92 });
-  ink("gray").write("[F] Open File Picker", { x: 8, y: 104 });
-  ink("gray").write("[T] Add Test Tone Track", { x: 8, y: 116 });
-  ink("gray").write("[W] Write to Stick", { x: 8, y: 128 });
-  
   // Track list
-  if (tracks.length > 0) {
-    ink("magenta").write(`Tracks (${tracks.length}):`, { x: 8, y: 148 });
-    tracks.slice(0, 3).forEach((track, i) => {
-      ink("white").write(`${i + 1}. ${track.name}`, { x: 16, y: 160 + i * 12 });
-    });
+  const trackY = 88;
+  ink("magenta").write(`Tracks (${tracks.length}):`, { x: 8, y: trackY });
+  
+  tracks.slice(0, 5).forEach((track, i) => {
+    const y = trackY + 16 + i * 14;
+    const prefix = track.rendering ? "⏳" : track.rendered ? "✓" : "○";
+    const color = track.rendering ? "yellow" : track.rendered ? "lime" : "white";
+    ink(color).write(`${prefix} ${i + 1}. ${track.name} (${track.duration}s)`, { x: 12, y });
+    ink("red").write("[×]", { x: screen.width - 28, y });
+  });
+  
+  if (tracks.length > 5) {
+    ink("gray").write(`...and ${tracks.length - 5} more`, { x: 12, y: trackY + 16 + 5 * 14 });
   }
+  
+  // Progress bar (when rendering)
+  if (rendering) {
+    const barY = screen.height - 50;
+    ink("gray").box(8, barY, screen.width - 16, 12);
+    ink("cyan").box(8, barY, (screen.width - 16) * renderProgress, 12);
+    ink("white").write(`Rendering: ${Math.round(renderProgress * 100)}%`, { x: 8, y: barY + 16 });
+  }
+  
+  // Controls
+  const ctrlY = screen.height - 28;
+  ink("gray").write("[F]older  [Enter]Add  [W]rite  [P]review", { x: 8, y: ctrlY });
+  
+  // Status
+  ink("yellow").write(status, { x: 8, y: screen.height - 12, width: screen.width - 16 });
 }
 
 // ✒ Act
-async function act({ event: e, sound, download }) {
-  if (e.is("keyboard:down:u")) {
-    await requestUSBDevice();
-  }
-  
+async function act({ event: e, sound, download, send, needsPaint }) {
+  // Keyboard: F - Select folder
   if (e.is("keyboard:down:f")) {
-    await openFilePicker();
+    await selectOutputFolder();
+    needsPaint();
   }
   
-  if (e.is("keyboard:down:t")) {
-    addTestTone(sound);
+  // Keyboard: Enter - Add track from input
+  if (e.is("keyboard:down:enter") && inputText.trim()) {
+    const parsed = parseTrackInput(inputText.trim());
+    if (parsed) {
+      addTrack(parsed);
+      inputText = "";
+      status = `Added: ${parsed.source} (${parsed.duration}s)`;
+    } else {
+      status = "Invalid format. Use: <seconds> <source> <params>";
+    }
+    needsPaint();
   }
   
+  // Keyboard: W - Write all tracks to stick
   if (e.is("keyboard:down:w")) {
-    await writeToStick(download);
+    if (tracks.length === 0) {
+      status = "No tracks to write!";
+    } else if (!selectedFolder) {
+      status = "Select a folder first [F]";
+    } else {
+      await renderAndWrite(send, download);
+    }
+    needsPaint();
   }
   
-  if (e.is("touch")) {
-    await requestUSBDevice();
+  // Keyboard: P - Preview first track
+  if (e.is("keyboard:down:p")) {
+    if (tracks.length > 0) {
+      previewTrack(tracks[0], sound);
+    } else {
+      status = "No tracks to preview";
+    }
+    needsPaint();
+  }
+  
+  // Keyboard: T - Add test tone
+  if (e.is("keyboard:down:t")) {
+    const freq = 440 * (tracks.length + 1);
+    addTrack({ duration: 5, source: "tone", sourceParams: String(freq) });
+    status = `Added tone: ${freq}Hz`;
+    needsPaint();
+  }
+  
+  // Keyboard: Typing for input
+  if (e.is("keyboard:down") && e.key?.length === 1) {
+    inputText += e.key;
+    inputActive = true;
+    needsPaint();
+  }
+  if (e.is("keyboard:down:backspace")) {
+    inputText = inputText.slice(0, -1);
+    needsPaint();
+  }
+  
+  // Touch: Tap to focus input area
+  if (e.is("touch") && e.y > 48 && e.y < 88) {
+    inputActive = true;
+    needsPaint();
   }
 }
 
-// 🔌 Request USB Device (WebUSB)
-async function requestUSBDevice() {
-  if (!usbSupported) {
-    status = "WebUSB not available";
-    return;
+// 🔔 Receive messages from bios
+function receiver({ content }) {
+  if (content.type === "stick:render:progress") {
+    renderProgress = content.progress;
   }
-  
+  if (content.type === "stick:render:complete") {
+    const track = tracks.find(t => t.id === content.id);
+    if (track) {
+      track.rendered = true;
+      track.rendering = false;
+      track.audioData = content.audioData;
+    }
+  }
+  if (content.type === "stick:render:error") {
+    status = `Render error: ${content.error}`;
+    rendering = false;
+  }
+}
+
+// � Select Output Folder (File System Access API)
+async function selectOutputFolder() {
   try {
-    status = "Requesting USB device...";
+    if (!window.showDirectoryPicker) {
+      status = "Folder picker not supported (try Chrome)";
+      return;
+    }
     
-    // Note: Mass storage devices are typically blocked
-    // This will show available USB devices
-    device = await navigator.usb.requestDevice({
-      filters: [] // Empty = show all devices
+    status = "Selecting folder...";
+    const dirHandle = await window.showDirectoryPicker({
+      id: "dj-stick-output",
+      mode: "readwrite",
+      startIn: "desktop"
     });
     
-    status = `Connected: ${device.productName || device.serialNumber || "Unknown"}`;
-    console.log("USB Device:", device);
+    selectedFolder = dirHandle.name;
+    window._stickDirHandle = dirHandle; // Store for later use
+    status = `Folder selected: ${selectedFolder}`;
+    console.log("📂 Selected folder:", dirHandle);
     
-    // Try to open the device
-    await device.open();
-    console.log("Device opened, configurations:", device.configurations);
-    
-  } catch (err) {
-    if (err.name === "NotFoundError") {
-      status = "No device selected";
-    } else {
-      status = `Error: ${err.message}`;
-      console.error("USB Error:", err);
-    }
-  }
-}
-
-// 📂 Open File Picker (File System Access API)
-async function openFilePicker() {
-  try {
-    // Try to get a directory handle (could be USB drive)
-    if (window.showDirectoryPicker) {
-      status = "Opening directory picker...";
-      const dirHandle = await window.showDirectoryPicker({
-        mode: "readwrite",
-        startIn: "desktop"
-      });
-      
-      status = `Opened: ${dirHandle.name}`;
-      console.log("Directory handle:", dirHandle);
-      
-      // List contents
-      for await (const entry of dirHandle.values()) {
-        console.log(`  ${entry.kind}: ${entry.name}`);
-      }
-      
-    } else {
-      status = "File System Access API not supported";
-    }
   } catch (err) {
     if (err.name === "AbortError") {
       status = "Cancelled";
@@ -157,67 +229,173 @@ async function openFilePicker() {
   }
 }
 
-// 🎵 Add Test Tone Track
-function addTestTone(sound) {
-  const freq = 440 * (tracks.length + 1); // A4, A5, A6...
-  tracks.push({
-    name: `Tone ${freq}Hz`,
-    type: "tone",
-    frequency: freq,
-    duration: 5
-  });
-  status = `Added tone track: ${freq}Hz`;
+// 🎵 Parse track input: "30 clock ^c,,,," or "10 tone 440"
+function parseTrackInput(input) {
+  const parts = input.split(/\s+/);
+  if (parts.length < 2) return null;
+  
+  const duration = parseFloat(parts[0]);
+  if (isNaN(duration) || duration <= 0) return null;
+  
+  const source = parts[1].toLowerCase();
+  const sourceParams = parts.slice(2).join(" ");
+  
+  return { duration, source, sourceParams };
 }
 
-// 💾 Write to Stick (placeholder)
-async function writeToStick(download) {
-  if (tracks.length === 0) {
-    status = "No tracks to write!";
-    return;
+// ➕ Add track to list
+let trackIdCounter = 0;
+function addTrack({ duration, source, sourceParams }) {
+  const id = ++trackIdCounter;
+  const name = source === "clock" 
+    ? `clock-${(sourceParams || "melody").slice(0, 12)}`
+    : source === "tone"
+    ? `tone-${sourceParams || 440}hz`
+    : `${source}-${id}`;
+    
+  tracks.push({
+    id,
+    name,
+    duration,
+    source,
+    sourceParams,
+    rendered: false,
+    rendering: false,
+    audioData: null
+  });
+}
+
+// 🔊 Preview track (play via real-time audio)
+function previewTrack(track, sound) {
+  if (track.source === "tone") {
+    const freq = parseFloat(track.sourceParams) || 440;
+    sound.synth({
+      type: "sine",
+      tone: freq,
+      duration: Math.min(track.duration, 2), // Preview max 2 seconds
+      volume: 0.5
+    });
+    status = `Preview: ${track.name}`;
+  } else if (track.source === "clock") {
+    // For clock, we'd need to trigger the melody player
+    // This is a simplified preview - just play first note
+    status = `Preview not yet implemented for clock`;
   }
+}
+
+// 💾 Render all tracks and write to folder
+async function renderAndWrite(send, download) {
+  rendering = true;
+  renderProgress = 0;
+  status = "Rendering tracks...";
   
-  status = "Generating audio files...";
+  const dirHandle = window._stickDirHandle;
   
-  // For now, just download as a workaround
-  // Real implementation would write directly to USB
-  for (const track of tracks) {
-    if (track.type === "tone") {
-      // Generate WAV data for the tone
-      const wavData = generateToneWAV(track.frequency, track.duration);
-      // download would trigger a file save
-      console.log(`Would write: ${track.name}.wav (${wavData.byteLength} bytes)`);
+  for (let i = 0; i < tracks.length; i++) {
+    const track = tracks[i];
+    track.rendering = true;
+    renderProgress = i / tracks.length;
+    
+    try {
+      // Request offline render from bios
+      // For now, generate simple WAV data directly
+      let audioData;
+      
+      if (track.source === "tone") {
+        audioData = generateToneWAV(
+          parseFloat(track.sourceParams) || 440, 
+          track.duration
+        );
+      } else if (track.source === "clock") {
+        // Send render request to bios for clock melody
+        // Bios will use offline synth rendering
+        send({
+          type: "stick:render",
+          content: {
+            id: track.id,
+            source: track.source,
+            melody: track.sourceParams,
+            duration: track.duration,
+            sampleRate: 44100
+          }
+        });
+        // Wait for response via receiver()
+        // For now, generate placeholder
+        audioData = generateToneWAV(440, track.duration);
+        status = `Note: Clock offline render coming soon`;
+      } else {
+        audioData = generateToneWAV(440, track.duration);
+      }
+      
+      track.audioData = audioData;
+      track.rendered = true;
+      track.rendering = false;
+      
+      // Write to folder
+      if (dirHandle) {
+        const filename = `${String(i + 1).padStart(2, "0")}-${track.name}.wav`;
+        const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(new Blob([audioData], { type: "audio/wav" }));
+        await writable.close();
+        console.log(`💾 Wrote: ${filename}`);
+      }
+      
+    } catch (err) {
+      console.error(`Error rendering track ${track.name}:`, err);
+      track.rendering = false;
+      status = `Error: ${err.message}`;
     }
   }
   
-  status = `Prepared ${tracks.length} tracks (download mode)`;
+  rendering = false;
+  renderProgress = 1;
+  status = `✓ Wrote ${tracks.length} tracks to ${selectedFolder}`;
 }
 
 // 🔊 Generate WAV file data for a sine tone
 function generateToneWAV(frequency, durationSec) {
   const sampleRate = 44100;
+  const numChannels = 2; // Stereo
   const numSamples = sampleRate * durationSec;
-  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const bytesPerSample = 2; // 16-bit
+  const dataSize = numSamples * numChannels * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataSize);
   const view = new DataView(buffer);
   
   // WAV header
   writeString(view, 0, "RIFF");
-  view.setUint32(4, 36 + numSamples * 2, true);
+  view.setUint32(4, 36 + dataSize, true);
   writeString(view, 8, "WAVE");
   writeString(view, 12, "fmt ");
-  view.setUint32(16, 16, true); // PCM
-  view.setUint16(20, 1, true);  // Audio format
-  view.setUint16(22, 1, true);  // Mono
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true); // Byte rate
-  view.setUint16(32, 2, true);  // Block align
-  view.setUint16(34, 16, true); // Bits per sample
+  view.setUint32(16, 16, true);              // PCM chunk size
+  view.setUint16(20, 1, true);               // Audio format (PCM)
+  view.setUint16(22, numChannels, true);     // Stereo
+  view.setUint32(24, sampleRate, true);      // Sample rate
+  view.setUint32(28, sampleRate * numChannels * bytesPerSample, true); // Byte rate
+  view.setUint16(32, numChannels * bytesPerSample, true);  // Block align
+  view.setUint16(34, 16, true);              // Bits per sample
   writeString(view, 36, "data");
-  view.setUint32(40, numSamples * 2, true);
+  view.setUint32(40, dataSize, true);
   
-  // Audio data
+  // Audio data (stereo interleaved)
+  let offset = 44;
   for (let i = 0; i < numSamples; i++) {
-    const sample = Math.sin(2 * Math.PI * frequency * i / sampleRate);
-    view.setInt16(44 + i * 2, sample * 0x7FFF, true);
+    // Apply fade in/out to avoid clicks
+    let envelope = 1;
+    const fadeLen = sampleRate * 0.01; // 10ms fade
+    if (i < fadeLen) envelope = i / fadeLen;
+    if (i > numSamples - fadeLen) envelope = (numSamples - i) / fadeLen;
+    
+    const sample = Math.sin(2 * Math.PI * frequency * i / sampleRate) * envelope;
+    const intSample = Math.max(-32768, Math.min(32767, sample * 0x7FFF));
+    
+    // Left channel
+    view.setInt16(offset, intSample, true);
+    offset += 2;
+    // Right channel
+    view.setInt16(offset, intSample, true);
+    offset += 2;
   }
   
   return buffer;
@@ -231,7 +409,7 @@ function writeString(view, offset, string) {
 
 // 💗 Beat
 function beat({ sound }) {
-  // Could sync with clock here
+  // Could sync with clock here for live preview
 }
 
-export { boot, paint, act, beat };
+export { boot, paint, act, beat, receiver };

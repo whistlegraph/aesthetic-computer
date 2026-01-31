@@ -766,17 +766,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   if (resolution.device === true) preservedParams.device = "true";
   if (resolution.highlight) preservedParams.highlight = resolution.highlight === true ? "true" : resolution.highlight;
   
-  // Only preserve these params if they were actually in the URL (not from defaults)
+  // Only preserve density/zoom/duration if they were actually in the URL (not from localStorage)
   const currentParams = new URLSearchParams(location.search);
   if (currentParams.has("density")) preservedParams.density = currentParams.get("density");
   if (currentParams.has("zoom")) preservedParams.zoom = currentParams.get("zoom");
   if (currentParams.has("duration")) preservedParams.duration = currentParams.get("duration");
-  // Preserve device mode flags that are critical for proper iframe operation
-  if (currentParams.has("noboot")) preservedParams.noboot = currentParams.get("noboot");
-  if (currentParams.has("noauth")) preservedParams.noauth = currentParams.get("noauth");
-  if (currentParams.has("popout")) preservedParams.popout = currentParams.get("popout");
-  if (currentParams.has("perf")) preservedParams.perf = currentParams.get("perf");
-  if (currentParams.has("autoScale")) preservedParams.autoScale = currentParams.get("autoScale");
 
   if (debug) {
     if (window.isSecureContext) {
@@ -999,10 +993,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let statsFrameCount = 0;
   let statsLastTime = performance.now();
 
-  // Reframe debug logging - disabled by default, enable with window.acReframeDebug = true
-  // if (typeof window !== "undefined" && window.acReframeDebug === undefined) {
-  //   window.acReframeDebug = true;
-  // }
+  // Enable reframe debug logging by default for flicker investigation
+  if (typeof window !== "undefined" && window.acReframeDebug === undefined) {
+    window.acReframeDebug = true;
+  }
 
   let webglBlitter = null;
   let captureCompositeCanvas = null;
@@ -1100,14 +1094,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   freezeFrameCan.style.position = "absolute";
   freezeFrameCan.style.zIndex = "10"; // Above all other canvases during reframe
   freezeFrameCan.style.pointerEvents = "none";
-
-  // Freeze overlay canvas - preserves HUD/labels during resize
-  const freezeOverlayCan = document.createElement("canvas");
-  const freezeOverlayCtx = freezeOverlayCan.getContext("2d");
-  freezeOverlayCan.style.position = "absolute";
-  freezeOverlayCan.style.zIndex = "11"; // Above freeze frame
-  freezeOverlayCan.style.pointerEvents = "none";
-  freezeOverlayCan.style.transition = "opacity 50ms ease-out";
 
   // A buffer for corner label overlays.
   const overlayCan = document.createElement("canvas");
@@ -1816,22 +1802,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
                 ffCtx.drawImage(freezeSource, 0, 0);
               }
-            }
-            
-            // Also capture overlay canvas (HUD/labels) if it has content
-            if (overlayCan.width > 0 && overlayCan.height > 0 && overlayCan.style.display !== "none") {
-              freezeOverlayCan.width = overlayCan.width;
-              freezeOverlayCan.height = overlayCan.height;
-              freezeOverlayCtx.drawImage(overlayCan, 0, 0);
-              freezeOverlayCan.style.width = "100%";
-              freezeOverlayCan.style.height = "100%";
-              freezeOverlayCan.style.left = "0";
-              freezeOverlayCan.style.top = "0";
-              freezeOverlayCan.style.imageRendering = "pixelated";
-              if (!wrapper.contains(freezeOverlayCan)) {
-                wrapper.append(freezeOverlayCan);
-              }
-              freezeOverlayCan.style.removeProperty("opacity");
             }
             
             // Position freeze frame
@@ -3593,11 +3563,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     
     // Trigger reframe to apply new density
     frame();
-    
-    // Notify parent window (device.kidlisp.com) of density change
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: 'ac:density-change', density: newDensity }, '*');
-    }
     
     console.log(`🔍 Density: ${newDensity}`);
   }
@@ -12998,14 +12963,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "refresh") {
-      // Reconstruct URL with ALL preserved parameters (device mode flags, display settings, etc.)
+      // Reconstruct URL with preserved parameters (nogap, nolabel, duration)
       const currentUrl = new URL(window.location);
 
-      // Add ALL preserved parameters back to the URL
-      for (const [key, value] of Object.entries(preservedParams)) {
-        if (value !== undefined && value !== null) {
-          currentUrl.searchParams.set(key, value);
-        }
+      // Add preserved parameters back to the URL
+      if (preservedParams.nogap) {
+        currentUrl.searchParams.set("nogap", preservedParams.nogap);
+      }
+      if (preservedParams.nolabel) {
+        currentUrl.searchParams.set("nolabel", preservedParams.nolabel);
+      }
+      if (preservedParams.duration) {
+        currentUrl.searchParams.set("duration", preservedParams.duration);
       }
 
       // Update the URL and reload
@@ -13081,6 +13050,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "audio:reinit") {
       await reinitAudioSystem(content || {});
+      return;
+    }
+
+    // 💾 Stick: Offline audio rendering for USB export
+    if (type === "stick:render") {
+      await handleStickRender(content);
       return;
     }
 
@@ -17625,17 +17600,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (glaze.on === false) {
         canvas.style.removeProperty("opacity");
       }
-      // Fade out freeze frame and overlay smoothly then remove
+      // Fade out freeze frame smoothly then remove
       freezeFrameCan.style.opacity = "0";
-      freezeOverlayCan.style.opacity = "0";
       setTimeout(() => {
         if (wrapper.contains(freezeFrameCan)) {
           freezeFrameCan.remove();
           freezeFrameCan.style.removeProperty("opacity");
-        }
-        if (wrapper.contains(freezeOverlayCan)) {
-          freezeOverlayCan.remove();
-          freezeOverlayCan.style.removeProperty("opacity");
         }
       }, 60); // Match CSS transition duration
       if (window.acReframeDebug) {
@@ -18249,6 +18219,59 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       token = null; // Ensure token is null on any error
     }
     return token;
+  }
+
+  // 💾 Stick: Handle offline audio rendering request
+  // Renders audio without real-time playback using OfflineAudioContext
+  async function handleStickRender(content) {
+    const { id, source, melody, duration, sampleRate = 44100 } = content;
+    console.log("💾 Stick render request:", { id, source, melody, duration });
+    
+    try {
+      // Report progress start
+      send({ type: "stick:render:progress", content: { id, progress: 0 } });
+      
+      if (source === "clock") {
+        // TODO: Implement full clock melody offline rendering
+        // This requires:
+        // 1. Parsing the melody string (reuse melody-parser.mjs)
+        // 2. Creating an OfflineAudioContext
+        // 3. Scheduling oscillator/synth nodes based on beat timing
+        // 4. Rendering to buffer
+        
+        // For now, send back a placeholder response
+        // Full implementation would use OfflineAudioContext:
+        //
+        // const offlineCtx = new OfflineAudioContext(2, sampleRate * duration, sampleRate);
+        // ... schedule notes from parsed melody ...
+        // const audioBuffer = await offlineCtx.startRendering();
+        // const audioData = audioBufferToWav(audioBuffer);
+        
+        console.log("💾 Clock offline render not yet implemented - using placeholder");
+        send({
+          type: "stick:render:complete",
+          content: { 
+            id,
+            audioData: null, // Would be ArrayBuffer of WAV data
+            message: "Clock offline render coming soon"
+          }
+        });
+        
+      } else if (source === "tone") {
+        // Simple tone can be rendered directly
+        send({
+          type: "stick:render:complete", 
+          content: { id, audioData: null }
+        });
+      }
+      
+    } catch (err) {
+      console.error("💾 Stick render error:", err);
+      send({
+        type: "stick:render:error",
+        content: { id, error: err.message }
+      });
+    }
   }
 
   // Reads the extension off of filename to determine the mimetype and then
