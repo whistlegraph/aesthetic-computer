@@ -8042,7 +8042,7 @@
     transform: translate(-50%, -50%);
     font-family: 'Comic Relief', 'Comic Sans MS', cursive;
     font-weight: bold;
-    font-size: clamp(56px, min(16vw, 22vh), 140px);
+    font-size: var(--splash-logo-size);
     display: inline-flex;
     width: fit-content;
     height: fit-content;
@@ -8064,6 +8064,17 @@
   
   <style>
     /* Splash animation styles */
+    :root {
+      /* Slightly smaller on desktop for more breathing room */
+      --splash-logo-size: clamp(48px, min(12vw, 16vh), 120px);
+    }
+    
+    @media (max-width: 768px) {
+      /* Slightly larger on single-column/mobile */
+      :root {
+        --splash-logo-size: clamp(64px, min(22vw, 24vh), 140px);
+      }
+    }
     @keyframes letterWiggle {
       0%, 100% { transform: translateY(0) rotate(0deg); }
       25% { transform: translateY(-3px) rotate(-3deg); }
