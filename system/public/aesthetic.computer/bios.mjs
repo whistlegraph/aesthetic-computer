@@ -993,10 +993,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let statsFrameCount = 0;
   let statsLastTime = performance.now();
 
-  // Enable reframe debug logging by default for flicker investigation
-  if (typeof window !== "undefined" && window.acReframeDebug === undefined) {
-    window.acReframeDebug = true;
-  }
+  // Reframe debug logging - disabled by default, enable with window.acReframeDebug = true
+  // if (typeof window !== "undefined" && window.acReframeDebug === undefined) {
+  //   window.acReframeDebug = true;
+  // }
 
   let webglBlitter = null;
   let captureCompositeCanvas = null;
@@ -1094,6 +1094,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   freezeFrameCan.style.position = "absolute";
   freezeFrameCan.style.zIndex = "10"; // Above all other canvases during reframe
   freezeFrameCan.style.pointerEvents = "none";
+
+  // Freeze overlay canvas - preserves HUD/labels during resize
+  const freezeOverlayCan = document.createElement("canvas");
+  const freezeOverlayCtx = freezeOverlayCan.getContext("2d");
+  freezeOverlayCan.style.position = "absolute";
+  freezeOverlayCan.style.zIndex = "11"; // Above freeze frame
+  freezeOverlayCan.style.pointerEvents = "none";
+  freezeOverlayCan.style.transition = "opacity 50ms ease-out";
 
   // A buffer for corner label overlays.
   const overlayCan = document.createElement("canvas");
@@ -1802,6 +1810,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
                 ffCtx.drawImage(freezeSource, 0, 0);
               }
+            }
+            
+            // Also capture overlay canvas (HUD/labels) if it has content
+            if (overlayCan.width > 0 && overlayCan.height > 0 && overlayCan.style.display !== "none") {
+              freezeOverlayCan.width = overlayCan.width;
+              freezeOverlayCan.height = overlayCan.height;
+              freezeOverlayCtx.drawImage(overlayCan, 0, 0);
+              freezeOverlayCan.style.width = "100%";
+              freezeOverlayCan.style.height = "100%";
+              freezeOverlayCan.style.left = "0";
+              freezeOverlayCan.style.top = "0";
+              freezeOverlayCan.style.imageRendering = "pixelated";
+              if (!wrapper.contains(freezeOverlayCan)) {
+                wrapper.append(freezeOverlayCan);
+              }
+              freezeOverlayCan.style.removeProperty("opacity");
             }
             
             // Position freeze frame
@@ -17594,12 +17618,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (glaze.on === false) {
         canvas.style.removeProperty("opacity");
       }
-      // Fade out freeze frame smoothly then remove
+      // Fade out freeze frame and overlay smoothly then remove
       freezeFrameCan.style.opacity = "0";
+      freezeOverlayCan.style.opacity = "0";
       setTimeout(() => {
         if (wrapper.contains(freezeFrameCan)) {
           freezeFrameCan.remove();
           freezeFrameCan.style.removeProperty("opacity");
+        }
+        if (wrapper.contains(freezeOverlayCan)) {
+          freezeOverlayCan.remove();
+          freezeOverlayCan.style.removeProperty("opacity");
         }
       }, 60); // Match CSS transition duration
       if (window.acReframeDebug) {

@@ -2477,9 +2477,10 @@ function paint({
   const lastTimestamp = perfStats.lastFrameTimestamp;
   if (lastTimestamp > 0) {
     const delta = paintStart - lastTimestamp;
-    if (delta > 0) {
+    // Only update FPS if at least 1ms has passed (prevents absurd values from rapid calls)
+    if (delta >= 1) {
       perfStats.frameTime = delta;
-      const instantFps = 1000 / delta;
+      const instantFps = Math.min(1000 / delta, 240); // Cap at 240 FPS for display
       const frameCount = perfStats.fpsFrameCount || 0;
       // Quick ramp up for first 10 frames, then smooth
       const smoothing = frameCount < 10 ? 0.5 : 0.8;
