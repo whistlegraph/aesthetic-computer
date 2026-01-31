@@ -182,9 +182,16 @@ async function act({ event: e, sound, download, send, needsPaint }) {
 }
 
 // 🔔 Receive messages from bios
+// Pending render promises keyed by track id
+const pendingRenders = {};
+
 function receiver({ content }) {
   if (content.type === "stick:render:progress") {
     renderProgress = content.progress;
+    const track = tracks.find(t => t.id === content.id);
+    if (track) {
+      status = `Rendering ${track.name}: ${Math.round(content.progress * 100)}%`;
+    }
   }
   if (content.type === "stick:render:complete") {
     const track = tracks.find(t => t.id === content.id);
@@ -193,10 +200,20 @@ function receiver({ content }) {
       track.rendering = false;
       track.audioData = content.audioData;
     }
+    // Resolve pending promise
+    if (pendingRenders[content.id]) {
+      pendingRenders[content.id].resolve(content.audioData);
+      delete pendingRenders[content.id];
+    }
   }
   if (content.type === "stick:render:error") {
     status = `Render error: ${content.error}`;
     rendering = false;
+    // Reject pending promise
+    if (pendingRenders[content.id]) {
+      pendingRenders[content.id].reject(new Error(content.error));
+      delete pendingRenders[content.id];
+    }
   }
 }
 
@@ -297,18 +314,32 @@ async function renderAndWrite(send, download) {
     renderProgress = i / tracks.length;
     
     try {
-      // Request offline render from bios
-      // For now, generate simple WAV data directly
       let audioData;
       
       if (track.source === "tone") {
+        // Tones are rendered locally
         audioData = generateToneWAV(
           parseFloat(track.sourceParams) || 440, 
           track.duration
         );
       } else if (track.source === "clock") {
-        // Send render request to bios for clock melody
-        // Bios will use offline synth rendering
+        // Clock melodies are rendered via bios using OfflineAudioContext
+        status = `Rendering ${track.name}...`;
+        
+        // Create a promise that will be resolved by receiver()
+        const renderPromise = new Promise((resolve, reject) => {
+          pendingRenders[track.id] = { resolve, reject };
+          
+          // Set a timeout in case something goes wrong
+          setTimeout(() => {
+            if (pendingRenders[track.id]) {
+              reject(new Error("Render timeout"));
+              delete pendingRenders[track.id];
+            }
+          }, 60000); // 60 second timeout
+        });
+        
+        // Send render request to bios
         send({
           type: "stick:render",
           content: {
@@ -319,10 +350,13 @@ async function renderAndWrite(send, download) {
             sampleRate: 44100
           }
         });
-        // Wait for response via receiver()
-        // For now, generate placeholder
-        audioData = generateToneWAV(440, track.duration);
-        status = `Note: Clock offline render coming soon`;
+        
+        // Wait for bios to complete rendering
+        audioData = await renderPromise;
+        
+        if (!audioData) {
+          throw new Error("No audio data returned from render");
+        }
       } else {
         audioData = generateToneWAV(440, track.duration);
       }
@@ -334,6 +368,7 @@ async function renderAndWrite(send, download) {
       // Write to folder
       if (dirHandle) {
         const filename = `${String(i + 1).padStart(2, "0")}-${track.name}.wav`;
+        status = `Writing ${filename}...`;
         const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
         const writable = await fileHandle.createWritable();
         await writable.write(new Blob([audioData], { type: "audio/wav" }));
