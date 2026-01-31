@@ -7190,16 +7190,29 @@
       }
       
       /* Ensure iframe container fills preview panel properly in mobile */
+      #preview-panel {
+        position: relative !important;
+      }
+      
       #preview-panel .preview-iframe-container {
-        flex: 1 1 0 !important;
-        min-height: 0 !important;
+        position: absolute !important;
+        top: 40px !important; /* Below header */
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
         height: auto !important;
+        min-height: 0 !important;
+        flex: none !important;
       }
       
       /* Ensure preview panel header doesn't shrink */
       #preview-panel > .docs-header {
         flex: 0 0 40px !important;
         height: 40px !important;
+        min-height: 40px !important;
+        max-height: 40px !important;
+        position: relative !important;
+        z-index: 2 !important;
       }
       
       /* Default flex distribution for mobile (totals ~100) */
