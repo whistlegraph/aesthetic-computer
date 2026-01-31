@@ -118,7 +118,7 @@
       /* For scrolling long code */
     }
     
-    /* Hide UI elements during scramble animation - only show code and FF1 module */
+    /* Hide UI elements during scramble animation - only show code */
     #qr-wrap,
     #piece-handle,
     #piece-hits,
@@ -130,13 +130,10 @@
     #source-overlay.scrambling #qr-wrap,
     #source-overlay.scrambling #piece-handle,
     #source-overlay.scrambling #piece-hits,
-    #source-overlay.scrambling #piece-when {
+    #source-overlay.scrambling #piece-when,
+    #source-overlay.scrambling .ff1-module {
       opacity: 0;
       pointer-events: none;
-    }
-    
-    #source-overlay.scrambling .ff1-module {
-      opacity: 1;
     }
     
     /* Slide animations for overlay elements during playback */
@@ -158,6 +155,15 @@
     #source-overlay.slid-out #source-code {
       transform: translate(-50%, -120%);
       opacity: 0;
+    }
+    
+    /* Hover override - when user hovers, reveal all elements even if slid-out */
+    #source-overlay.slid-out.hover-reveal #qr-wrap,
+    #source-overlay.slid-out.hover-reveal #piece-info,
+    #source-overlay.slid-out.hover-reveal #source-code {
+      transform: translate(0, 0);
+      opacity: 1;
+      pointer-events: auto;
     }
     
     #source-code-inner.scrolling {
@@ -2111,6 +2117,63 @@
       iframe.src = iframe.src.replace(/&t=\d+/, '') + '&t=' + Date.now();
       requestAnimationFrame(updateProgressBar);
     }
+    
+    // Mouse hover handling - reveal elements on hover, hide on mouseout based on timeline
+    (function setupHoverReveal() {
+      const overlay = document.getElementById('source-overlay');
+      const body = document.body;
+      
+      // Mouse enters - reveal elements
+      body.addEventListener('mouseenter', () => {
+        if (overlay && overlay.classList.contains('slid-out')) {
+          overlay.classList.add('hover-reveal');
+        }
+        // Also show progress bar on hover
+        progressBar.classList.remove('hidden-mid');
+      });
+      
+      // Mouse leaves - restore timeline state
+      body.addEventListener('mouseleave', () => {
+        if (overlay) {
+          overlay.classList.remove('hover-reveal');
+        }
+        // Restore progress bar visibility based on timeline
+        if (progressStartTime) {
+          const elapsed = (Date.now() - progressStartTime) / 1000;
+          const progress = Math.min(100, (elapsed / playlistDuration) * 100);
+          const shouldHideBar = progress > 16.67 && progress < 83.33;
+          if (shouldHideBar) {
+            progressBar.classList.add('hidden-mid');
+          }
+        }
+      });
+      
+      // Also handle mouse movement to catch any interaction
+      let hoverTimeout = null;
+      body.addEventListener('mousemove', () => {
+        if (overlay && overlay.classList.contains('slid-out')) {
+          overlay.classList.add('hover-reveal');
+          progressBar.classList.remove('hidden-mid');
+        }
+        
+        // Auto-hide after 3 seconds of no movement
+        if (hoverTimeout) clearTimeout(hoverTimeout);
+        hoverTimeout = setTimeout(() => {
+          if (overlay && overlay.classList.contains('slid-out')) {
+            overlay.classList.remove('hover-reveal');
+            // Restore progress bar visibility based on timeline
+            if (progressStartTime) {
+              const elapsed = (Date.now() - progressStartTime) / 1000;
+              const progress = Math.min(100, (elapsed / playlistDuration) * 100);
+              const shouldHideBar = progress > 16.67 && progress < 83.33;
+              if (shouldHideBar) {
+                progressBar.classList.add('hidden-mid');
+              }
+            }
+          }
+        }, 3000);
+      });
+    })();
     
     // Start the app
     init();
