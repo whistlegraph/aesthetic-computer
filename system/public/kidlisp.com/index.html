@@ -7189,6 +7189,19 @@
         overflow: hidden !important;
       }
       
+      /* Ensure iframe container fills preview panel properly in mobile */
+      #preview-panel .preview-iframe-container {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        height: auto !important;
+      }
+      
+      /* Ensure preview panel header doesn't shrink */
+      #preview-panel > .docs-header {
+        flex: 0 0 40px !important;
+        height: 40px !important;
+      }
+      
       /* Default flex distribution for mobile (totals ~100) */
       /* NO !important - JS needs to override during drag */
       #editor-panel { flex: 25 1 0; }
