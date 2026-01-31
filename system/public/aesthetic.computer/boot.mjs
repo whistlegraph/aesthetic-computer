@@ -980,29 +980,18 @@ const nolabel = params.has("nolabel") || params.has("desktop") || location.searc
 // Check for desktop mode (Electron app) - combines nogap + nolabel
 const desktop = params.has("desktop") || location.search.includes("desktop");
 
-// Check for device parameter early (needed for density handling)
-// FF1/display device mode - auto-enables audio, combines tv+nogap+noauth
-const deviceParamEarly = params.has("device") || location.search.includes("device");
-const deviceMode = deviceParamEarly === true || deviceParamEarly === "true";
-
 // Check for density parameter with localStorage persistence
-// In device mode, DON'T persist to localStorage (device has its own density setting)
 const densityParam = params.get("density");
 let density;
 
 if (densityParam) {
-  // URL parameter provided - use it
+  // URL parameter provided - use it and save to localStorage
   density = parseFloat(densityParam);
-  // Only persist to localStorage if NOT in device mode
-  if (!deviceMode) {
-    safeLocalStorageSet("ac-density", density.toString());
-  }
+  safeLocalStorageSet("ac-density", density.toString());
 } else {
-  // No URL parameter - check localStorage for saved density (only if not in device mode)
-  if (!deviceMode) {
-    const savedDensity = safeLocalStorageGet("ac-density");
-    density = savedDensity ? parseFloat(savedDensity) : undefined;
-  }
+  // No URL parameter - check localStorage for saved density
+  const savedDensity = safeLocalStorageGet("ac-density");
+  density = savedDensity ? parseFloat(savedDensity) : undefined;
 }
 
 // Check for zoom parameter (device/navigator zoom level) with localStorage persistence
@@ -1053,8 +1042,9 @@ if (durationParam) {
 const tvParam = params.has("tv") || location.search.includes("tv");
 const tv = tvParam === true || tvParam === "true";
 
-// Use the device mode flag computed earlier (for density handling)
-const device = deviceMode;
+// Check for device parameter (FF1/display device mode - auto-enables audio, combines tv+nogap+noauth)
+const deviceParam = params.has("device") || location.search.includes("device");
+const device = deviceParam === true || deviceParam === "true";
 
 // In device mode, default density to 8 if not explicitly set (matches FF1's typical setting)
 if (device && density === undefined) {

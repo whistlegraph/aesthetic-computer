@@ -2984,27 +2984,6 @@
       letter-spacing: -0.02em; /* Tighter letter spacing */
       padding-right: 8px; /* Extra room for $code display */
     }
-
-    .route-code-tab {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 8px;
-      background: rgba(88, 78, 108, 0.08);
-      border: 1px solid rgba(88, 78, 108, 0.25);
-      font-family: 'Comic Relief', 'Comic Sans MS', cursive;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      white-space: nowrap;
-      line-height: 1;
-      margin-left: 6px;
-    }
-
-    .route-code-tab.visible {
-      display: inline-flex;
-    }
     
     #preview-title .platform-logo {
       height: 16px;
@@ -3077,8 +3056,7 @@
     }
     
     /* Code display with KidLisp font to match the branding */
-    #preview-title .code-display,
-    .route-code-tab .code-display {
+    #preview-title .code-display {
       font-family: 'Comic Relief', 'Comic Sans MS', cursive;
       font-weight: bold;
       letter-spacing: 0.05em;
@@ -3089,34 +3067,24 @@
     }
     
     /* Code display states */
-    #preview-title .code-display.stale,
-    .route-code-tab .code-display.stale {
+    #preview-title .code-display.stale {
       pointer-events: none;
     }
     
     /* Stale code chars blast off and fade - POOF! */
-    #preview-title .code-display.stale .code-char,
-    .route-code-tab .code-display.stale .code-char {
+    #preview-title .code-display.stale .code-char {
       animation: charBlastOff 0.4s ease-out forwards;
     }
     
     /* Stagger the blast-off for each character */
-    #preview-title .code-display.stale .code-char:nth-child(1),
-    .route-code-tab .code-display.stale .code-char:nth-child(1) { animation-delay: 0ms; }
-    #preview-title .code-display.stale .code-char:nth-child(2),
-    .route-code-tab .code-display.stale .code-char:nth-child(2) { animation-delay: 30ms; }
-    #preview-title .code-display.stale .code-char:nth-child(3),
-    .route-code-tab .code-display.stale .code-char:nth-child(3) { animation-delay: 50ms; }
-    #preview-title .code-display.stale .code-char:nth-child(4),
-    .route-code-tab .code-display.stale .code-char:nth-child(4) { animation-delay: 70ms; }
-    #preview-title .code-display.stale .code-char:nth-child(5),
-    .route-code-tab .code-display.stale .code-char:nth-child(5) { animation-delay: 90ms; }
-    #preview-title .code-display.stale .code-char:nth-child(6),
-    .route-code-tab .code-display.stale .code-char:nth-child(6) { animation-delay: 110ms; }
-    #preview-title .code-display.stale .code-char:nth-child(7),
-    .route-code-tab .code-display.stale .code-char:nth-child(7) { animation-delay: 130ms; }
-    #preview-title .code-display.stale .code-char:nth-child(8),
-    .route-code-tab .code-display.stale .code-char:nth-child(8) { animation-delay: 150ms; }
+    #preview-title .code-display.stale .code-char:nth-child(1) { animation-delay: 0ms; }
+    #preview-title .code-display.stale .code-char:nth-child(2) { animation-delay: 30ms; }
+    #preview-title .code-display.stale .code-char:nth-child(3) { animation-delay: 50ms; }
+    #preview-title .code-display.stale .code-char:nth-child(4) { animation-delay: 70ms; }
+    #preview-title .code-display.stale .code-char:nth-child(5) { animation-delay: 90ms; }
+    #preview-title .code-display.stale .code-char:nth-child(6) { animation-delay: 110ms; }
+    #preview-title .code-display.stale .code-char:nth-child(7) { animation-delay: 130ms; }
+    #preview-title .code-display.stale .code-char:nth-child(8) { animation-delay: 150ms; }
     
     @keyframes charBlastOff {
       0% {
@@ -3134,41 +3102,32 @@
     }
     
     /* Randomize rotation direction per character */
-    #preview-title .code-display.stale .code-char:nth-child(odd),
-    .route-code-tab .code-display.stale .code-char:nth-child(odd) { --blast-rotate: 15deg; }
-    #preview-title .code-display.stale .code-char:nth-child(even),
-    .route-code-tab .code-display.stale .code-char:nth-child(even) { --blast-rotate: -15deg; }
-    #preview-title .code-display.stale .code-char:nth-child(3n),
-    .route-code-tab .code-display.stale .code-char:nth-child(3n) { --blast-rotate: 25deg; }
-    #preview-title .code-display.stale .code-char:nth-child(3n+1),
-    .route-code-tab .code-display.stale .code-char:nth-child(3n+1) { --blast-rotate: -20deg; }
+    #preview-title .code-display.stale .code-char:nth-child(odd) { --blast-rotate: 15deg; }
+    #preview-title .code-display.stale .code-char:nth-child(even) { --blast-rotate: -15deg; }
+    #preview-title .code-display.stale .code-char:nth-child(3n) { --blast-rotate: 25deg; }
+    #preview-title .code-display.stale .code-char:nth-child(3n+1) { --blast-rotate: -20deg; }
     
-    #preview-title .code-display.generating .code-char,
-    .route-code-tab .code-display.generating .code-char {
+    #preview-title .code-display.generating .code-char {
       animation: charScramble 0.1s ease-in-out infinite;
     }
     
-    #preview-title .code-display .code-char,
-    .route-code-tab .code-display .code-char {
+    #preview-title .code-display .code-char {
       display: inline-block;
     }
     
     /* Color coding for $code: / is gray, $ is light green, code is darker green */
-    #preview-title .code-display .code-char.slash,
-    .route-code-tab .code-display .code-char.slash {
+    #preview-title .code-display .code-char.slash {
       color: #888 !important;
       font-weight: normal !important;
       transition: color 0.05s ease, text-shadow 0.05s ease, transform 0.1s ease;
     }
-    #preview-title .code-display .code-char.dollar,
-    .route-code-tab .code-display .code-char.dollar {
+    #preview-title .code-display .code-char.dollar {
       color: limegreen;
       font-weight: bold;
       transition: color 0.05s ease, text-shadow 0.05s ease, transform 0.1s ease;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5); /* Harsh shadow for light mode visibility */
     }
-    #preview-title .code-display .code-char.code,
-    .route-code-tab .code-display .code-char.code {
+    #preview-title .code-display .code-char.code {
       color: lime;
       transition: color 0.05s ease, text-shadow 0.05s ease, transform 0.1s ease;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5); /* Harsh shadow for light mode visibility */
@@ -3183,50 +3142,35 @@
       100% { transform: scale(1) rotate(0deg); }
     }
     
-    #preview-title.state-changed .code-display .code-char,
-    .route-code-tab.state-changed .code-display .code-char {
+    #preview-title.state-changed .code-display .code-char {
       animation: codeBump 0.2s ease-out;
     }
     
     /* Stagger the bump for each character */
-    #preview-title.state-changed .code-display .code-char:nth-child(1),
-    .route-code-tab.state-changed .code-display .code-char:nth-child(1) { animation-delay: 0ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(2),
-    .route-code-tab.state-changed .code-display .code-char:nth-child(2) { animation-delay: 15ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(3),
-    .route-code-tab.state-changed .code-display .code-char:nth-child(3) { animation-delay: 30ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(4),
-    .route-code-tab.state-changed .code-display .code-char:nth-child(4) { animation-delay: 45ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(5),
-    .route-code-tab.state-changed .code-display .code-char:nth-child(5) { animation-delay: 60ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(6),
-    .route-code-tab.state-changed .code-display .code-char:nth-child(6) { animation-delay: 75ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(7),
-    .route-code-tab.state-changed .code-display .code-char:nth-child(7) { animation-delay: 90ms; }
-    #preview-title.state-changed .code-display .code-char:nth-child(8),
-    .route-code-tab.state-changed .code-display .code-char:nth-child(8) { animation-delay: 105ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(1) { animation-delay: 0ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(2) { animation-delay: 15ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(3) { animation-delay: 30ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(4) { animation-delay: 45ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(5) { animation-delay: 60ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(6) { animation-delay: 75ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(7) { animation-delay: 90ms; }
+    #preview-title.state-changed .code-display .code-char:nth-child(8) { animation-delay: 105ms; }
     
     /* Dark mode: remove the dark shadow, use glow instead */
     @media (prefers-color-scheme: dark) {
       #preview-title .code-display .code-char.dollar,
-      #preview-title .code-display .code-char.code,
-      .route-code-tab .code-display .code-char.dollar,
-      .route-code-tab .code-display .code-char.code {
+      #preview-title .code-display .code-char.code {
         text-shadow: none;
       }
     }
     
     [data-theme="dark"] #preview-title .code-display .code-char.dollar,
-    [data-theme="dark"] #preview-title .code-display .code-char.code,
-    [data-theme="dark"] .route-code-tab .code-display .code-char.dollar,
-    [data-theme="dark"] .route-code-tab .code-display .code-char.code {
+    [data-theme="dark"] #preview-title .code-display .code-char.code {
       text-shadow: none;
     }
     
     [data-theme="light"] #preview-title .code-display .code-char.dollar,
-    [data-theme="light"] #preview-title .code-display .code-char.code,
-    [data-theme="light"] .route-code-tab .code-display .code-char.dollar,
-    [data-theme="light"] .route-code-tab .code-display .code-char.code {
+    [data-theme="light"] #preview-title .code-display .code-char.code {
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
     }
     
@@ -4028,97 +3972,6 @@
       box-shadow: 0 1px 2px rgba(79, 70, 229, 0.3);
     }
 
-    /* Play on TV card (first item in Top Hits) */
-    .play-on-tv-card {
-      padding: 12px 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: linear-gradient(135deg, rgba(24, 24, 28, 0.95) 0%, rgba(40, 40, 46, 0.9) 100%);
-      transition: all 0.2s ease;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 6px 16px rgba(0, 0, 0, 0.25);
-    }
-    
-    .play-on-tv-card:hover {
-      background: linear-gradient(135deg, rgba(36, 36, 42, 0.98) 0%, rgba(52, 52, 60, 0.95) 100%);
-    }
-    
-    .play-on-tv-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #2b2b33 0%, #3a3a45 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      flex-shrink: 0;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 6px 12px rgba(0, 0, 0, 0.35);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .play-on-tv-stack {
-      position: relative;
-      width: 30px;
-      height: 22px;
-    }
-
-    .play-on-tv-slide {
-      position: absolute;
-      inset: 0;
-      border-radius: 5px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      background: linear-gradient(90deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.1) 100%);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    }
-
-    .play-on-tv-slide.back {
-      transform: translate(-4px, -4px);
-      opacity: 0.4;
-      border-color: rgba(255, 255, 255, 0.12);
-    }
-
-    .play-on-tv-slide.mid {
-      transform: translate(-2px, -2px);
-      opacity: 0.65;
-    }
-
-    .play-on-tv-slide.front {
-      opacity: 0.9;
-    }
-    
-    .play-on-tv-content {
-      flex: 1;
-      min-width: 0;
-    }
-    
-    .play-on-tv-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 2px;
-    }
-    
-    .play-on-tv-subtitle {
-      font-size: 11px;
-      color: var(--text-secondary);
-      opacity: 0.8;
-    }
-
-    .play-on-tv-highlight {
-      color: #3b82f6;
-      font-weight: 600;
-    }
-    
-    .play-on-tv-arrow {
-      font-size: 16px;
-      color: var(--text-secondary);
-      opacity: 0.6;
-    }
-
     /* Jukebox Panel Styles */
     #jukebox-content {
       padding: 0;
@@ -4127,8 +3980,20 @@
       flex-direction: column;
     }
     
-    /* Songs subcontent: Spotify-style (lime green #1DB954 on dark) */
-    #songs-subcontent {
+    .jukebox-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      transition: background 0.3s ease;
+    }
+    
+    /* === MODE-BASED THEMING === */
+    /* Songs Mode: Spotify-style (lime green #1DB954 on dark) */
+    .jukebox-panel[data-mode="songs"] {
       --jukebox-accent: #1DB954;
       --jukebox-accent-hover: #1ed760;
       --jukebox-accent-dim: rgba(29, 185, 84, 0.15);
@@ -4141,8 +4006,8 @@
       color: var(--jukebox-text);
     }
     
-    /* Strudel subcontent: dark with gold accent */
-    #strudel-subcontent {
+    /* Strudel Mode: dark with gold accent */
+    .jukebox-panel[data-mode="strudel"] {
       --jukebox-accent: #ffcc00;
       --jukebox-accent-hover: #ffd633;
       --jukebox-accent-dim: rgba(255, 204, 0, 0.15);
@@ -4344,6 +4209,51 @@
       padding: 8px;
     }
     
+    /* Jukebox Mode Tabs */
+    .jukebox-mode-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    .jukebox-mode-tab {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #b3b3b3;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .jukebox-mode-tab:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+    
+    /* Songs tab (Spotify green) */
+    .jukebox-mode-tab[data-mode="songs"].active {
+      background: #1DB954;
+      color: #000;
+    }
+    .jukebox-mode-tab[data-mode="songs"].active:hover {
+      background: #1ed760;
+    }
+    
+    /* Strudel tab (gold) */
+    .jukebox-mode-tab[data-mode="strudel"].active {
+      background: #ffcc00;
+      color: #000;
+    }
+    .jukebox-mode-tab[data-mode="strudel"].active:hover {
+      background: #ffd633;
+    }
+    
+    .jukebox-mode-content { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+    .jukebox-mode-content.hidden { display: none; }
+    
     /* Strudel Editor - matches strudel.cc theme */
     .strudel-editor-container {
       flex: 1;
@@ -4407,197 +4317,6 @@
       .list-subtab:hover {
         filter: brightness(1.1);
       }
-    }
-    
-    /* Jukebox sub-tabs bar (similar to list subtabs) */
-    .jukebox-subtabs {
-      display: flex;
-      justify-content: flex-start;
-      width: 100%;
-      border-bottom: none;
-      background: rgba(59, 130, 246, 0.65);
-      height: 44px;
-    }
-    
-    [data-theme="dark"] .jukebox-subtabs {
-      background: rgba(59, 130, 246, 0.8);
-    }
-    
-    .jukebox-subtab {
-      width: 94px;
-      min-width: 94px;
-      box-sizing: border-box;
-      padding: 0;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-right: 1px solid var(--border-color);
-      border-left: 1px solid transparent;
-      border: none;
-      transition: all 0.2s;
-      background: transparent;
-    }
-    
-    .jukebox-subtab.active {
-      font-weight: 600;
-    }
-    
-    /* Sub-tab colors - Songs (Spotify Green) */
-    .jukebox-subtab[data-subtab="songs"] {
-      background: rgba(59, 130, 246, 0.65);
-      color: #1e3a5f;
-    }
-    .jukebox-subtab[data-subtab="songs"].active {
-      background: linear-gradient(to bottom, #1DB954 0%, #169c46 100%);
-      color: #fff;
-    }
-    
-    /* Sub-tab colors - Strudel (Gold) */
-    .jukebox-subtab[data-subtab="strudel"] {
-      background: rgba(59, 130, 246, 0.65);
-      color: #1e3a5f;
-    }
-    .jukebox-subtab[data-subtab="strudel"].active {
-      background: linear-gradient(to bottom, #ffcc00 0%, #e6b800 100%);
-      color: #1a1a00;
-    }
-    
-    /* Dark mode jukebox sub-tabs */
-    [data-theme="dark"] .jukebox-subtab[data-subtab="songs"] {
-      background: rgba(59, 130, 246, 0.8);
-      color: #93c5fd;
-    }
-    [data-theme="dark"] .jukebox-subtab[data-subtab="songs"].active {
-      background: linear-gradient(to bottom, #1DB954 0%, #15803d 100%);
-      color: #fff;
-    }
-    [data-theme="dark"] .jukebox-subtab[data-subtab="strudel"] {
-      background: rgba(59, 130, 246, 0.8);
-      color: #93c5fd;
-    }
-    [data-theme="dark"] .jukebox-subtab[data-subtab="strudel"].active {
-      background: linear-gradient(to bottom, #ffcc00 0%, #cc9900 100%);
-      color: #1a1a00;
-    }
-    
-    @media (hover: hover) {
-      .jukebox-subtab:hover {
-        filter: brightness(1.1);
-      }
-    }
-    
-    .jukebox-subcontent {
-      flex: 1;
-      overflow: auto;
-      width: 100%;
-      min-width: 0;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-    }
-    
-    .jukebox-subcontent.hidden {
-      display: none;
-    }
-    
-    /* Spotify-style player transport controls */
-    .spotify-transport {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      padding: 16px 0;
-    }
-    
-    .spotify-btn {
-      border: none;
-      background: transparent;
-      cursor: pointer;
-      transition: transform 0.1s, opacity 0.2s;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .spotify-btn:hover:not(:disabled) {
-      transform: scale(1.1);
-    }
-    
-    .spotify-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-    
-    .spotify-btn svg {
-      fill: currentColor;
-    }
-    
-    .spotify-btn-prev,
-    .spotify-btn-next {
-      width: 32px;
-      height: 32px;
-      color: var(--jukebox-text, #fff);
-    }
-    
-    .spotify-btn-play {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: var(--jukebox-accent, #1DB954) !important;
-      color: #000;
-    }
-    
-    .spotify-btn-play:hover:not(:disabled) {
-      background: var(--jukebox-accent-hover, #1ed760) !important;
-    }
-    
-    /* Strudel play controls - different style */
-    .strudel-transport {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      padding: 16px 0;
-    }
-    
-    .strudel-btn {
-      width: 48px;
-      height: 48px;
-      border: 2px solid var(--jukebox-accent, #ffcc00);
-      border-radius: 8px;
-      background: transparent;
-      color: var(--jukebox-accent, #ffcc00);
-      cursor: pointer;
-      transition: all 0.15s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-    }
-    
-    .strudel-btn:hover:not(:disabled) {
-      background: var(--jukebox-accent-dim, rgba(255, 204, 0, 0.2));
-      transform: scale(1.05);
-    }
-    
-    .strudel-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-    
-    .strudel-btn.playing {
-      background: var(--jukebox-accent, #ffcc00);
-      color: #000;
-      animation: strudel-pulse 0.5s ease-in-out infinite alternate;
-    }
-    
-    @keyframes strudel-pulse {
-      from { box-shadow: 0 0 5px var(--jukebox-accent); }
-      to { box-shadow: 0 0 15px var(--jukebox-accent); }
     }
     
     .list-subcontent {
@@ -4807,24 +4526,6 @@
       justify-content: space-between;
       align-items: center;
       gap: 10px;
-    }
-
-    .example-meta-right {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 2px;
-      min-width: 44px;
-      flex-shrink: 0;
-    }
-
-    .example-rank {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.2px;
-      color: #3b82f6;
-      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
     }
     
     .thumb-container {
@@ -5119,9 +4820,6 @@
       flex: 1;
       min-width: 0;
       position: relative;
-      /* Prevent text descenders and shadows from being clipped */
-      padding-bottom: 4px;
-      margin-bottom: -4px;
       /* Monaco-style sharp text shadow for depth */
       text-shadow: 
         0 1px 1px rgba(0, 0, 0, 0.5),
@@ -5450,44 +5148,8 @@
     
     .learn-doc-example:hover {
       background: rgba(205, 92, 155, 0.15);
+      color: rgb(205, 92, 155);
     }
-    
-    /* Syntax highlighting in Learn docs */
-    .learn-doc-signature,
-    .learn-doc-example {
-      font-family: 'Berkeley Mono Variable', monospace;
-    }
-    
-    .learn-doc-signature .kl-fn { color: #00b8b8; font-weight: bold; }
-    .learn-doc-signature .kl-paren { color: #ff6b6b; }
-    .learn-doc-signature .kl-param { color: #ffa500; font-style: italic; }
-    .learn-doc-signature .kl-bracket { color: #888; }
-    .learn-doc-example .kl-fn { color: #00b8b8; font-weight: bold; }
-    .learn-doc-example .kl-paren { color: #ff6b6b; }
-    .learn-doc-example .kl-str { color: #cc9900; }
-    .learn-doc-example .kl-num { color: #ff69b4; }
-    .learn-doc-example .kl-var { color: #ffa500; }
-    .learn-doc-example .kl-math { color: #00ff00; font-weight: bold; }
-    .learn-doc-example .kl-color { font-weight: bold; }
-    .learn-doc-example .kl-rainbow { background: linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: bold; }
-    .learn-doc-example .kl-special { color: #00b8b8; font-weight: bold; }
-    .learn-doc-example .kl-timing { color: #ffff00; font-weight: bold; }
-    
-    @media (prefers-color-scheme: dark) {
-      .learn-doc-signature .kl-fn { color: #00ffff; }
-      .learn-doc-signature .kl-param { color: #ffb347; }
-      .learn-doc-example .kl-fn { color: #00ffff; }
-      .learn-doc-example .kl-str { color: #ffff00; }
-      .learn-doc-example .kl-num { color: #ffb6c1; }
-      .learn-doc-example .kl-var { color: #ffb347; }
-    }
-    
-    [data-theme="dark"] .learn-doc-signature .kl-fn,
-    [data-theme="dark"] .learn-doc-example .kl-fn { color: #00ffff; }
-    [data-theme="dark"] .learn-doc-signature .kl-param,
-    [data-theme="dark"] .learn-doc-example .kl-var { color: #ffb347; }
-    [data-theme="dark"] .learn-doc-example .kl-str { color: #ffff00; }
-    [data-theme="dark"] .learn-doc-example .kl-num { color: #ffb6c1; }
     
     /* Guides Coming Soon - with preset buttons */
     .guides-coming-soon {
@@ -6885,12 +6547,6 @@
       #preview-title .title-full { display: none; }
       #preview-title .title-short { display: inline; }
     }
-
-    /* When a slug is present, switch to prompt.AC sooner to make room */
-    @container preview (max-width: 520px) {
-      body.has-route-code #preview-title .title-full { display: none; }
-      body.has-route-code #preview-title .title-short { display: inline; }
-    }
     
     /* Level 2 (< 360px): Hide "I'm new" button */
     @container preview (max-width: 360px) {
@@ -6915,7 +6571,6 @@
       #preview-title .code-display { display: inline !important; }
       .platform-arrow { display: none !important; }
     }
-
 
     /* Pop-out button styles */
     .popout-btn {
@@ -7398,29 +7053,6 @@
         min-height: 40px !important; /* Header height minimum */
         flex-shrink: 0 !important;
         overflow: hidden !important;
-      }
-      
-      /* Ensure iframe container fills preview panel properly in mobile */
-      #preview-panel {
-        display: flex !important;
-        flex-direction: column !important;
-        overflow: hidden !important;
-      }
-      
-      #preview-panel .preview-iframe-container {
-        flex: 1 1 auto !important;
-        min-height: 0 !important;
-        height: 0 !important; /* Let flex-grow handle the height */
-        position: relative !important;
-        overflow: hidden !important;
-      }
-      
-      /* Ensure preview panel header is exactly 40px and doesn't shrink/grow */
-      #preview-panel > .docs-header {
-        flex: 0 0 40px !important;
-        height: 40px !important;
-        min-height: 40px !important;
-        max-height: 40px !important;
       }
       
       /* Default flex distribution for mobile (totals ~100) */
@@ -8160,7 +7792,7 @@
     transform: translate(-50%, -50%);
     font-family: 'Comic Relief', 'Comic Sans MS', cursive;
     font-weight: bold;
-    font-size: var(--splash-logo-size);
+    font-size: clamp(56px, min(16vw, 22vh), 140px);
     display: inline-flex;
     width: fit-content;
     height: fit-content;
@@ -8178,22 +7810,10 @@
     <span class="splash-letter com-part" style="color: #FF6B6B;">c</span>
     <span class="splash-letter com-part" style="color: #9370DB;">o</span>
     <span class="splash-letter com-part" style="color: #90EE90;">m</span>
-    <span class="splash-route" aria-hidden="true"></span>
   </div>
   
   <style>
     /* Splash animation styles */
-    :root {
-      /* Slightly smaller on desktop for more breathing room */
-      --splash-logo-size: clamp(48px, min(12vw, 16vh), 120px);
-    }
-    
-    @media (max-width: 768px) {
-      /* Slightly larger on single-column/mobile */
-      :root {
-        --splash-logo-size: clamp(64px, min(22vw, 24vh), 140px);
-      }
-    }
     @keyframes letterWiggle {
       0%, 100% { transform: translateY(0) rotate(0deg); }
       25% { transform: translateY(-3px) rotate(-3deg); }
@@ -8250,23 +7870,6 @@
     #splash-logo.landed .splash-letter {
       animation: none !important;
     }
-
-    #splash-logo .splash-route {
-      margin-left: 6px;
-      font-family: 'YWFTProcessing-Regular', monospace;
-      font-size: 0.85em;
-      letter-spacing: 0.02em;
-      color: var(--text-tertiary);
-      text-shadow: none;
-      display: inline-flex;
-      align-items: center;
-    }
-
-    #splash-logo .splash-route:empty {
-      display: none;
-    }
-
-
     
     @media (max-width: 768px) {
       #splash-logo.landed {
@@ -8304,14 +7907,6 @@
     // Splash animation - must be inline to run early
     (function() {
       let animationTriggered = false;
-
-      window.getInitialRouteCode = window.getInitialRouteCode || function() {
-        const urlPath = window.location.pathname;
-        const match = urlPath.match(/\/\$?([a-zA-Z0-9]+)$/);
-        return match?.[1] || '';
-      };
-
-      window.setRouteCodeInUI = window.setRouteCodeInUI || function() {};
       
       window.triggerSplashAnimation = function() {
         if (animationTriggered) return;
@@ -8321,26 +7916,8 @@
         const splashLogo = document.getElementById('splash-logo');
         const mainEl = document.getElementById('main-split');
         const landingZone = document.getElementById('logo-landing-zone');
-        const initialRouteCode = window.getInitialRouteCode ? window.getInitialRouteCode() : '';
-        const splashRoute = splashLogo?.querySelector('.splash-route');
         
         if (splash && splashLogo && mainEl && landingZone) {
-          if (splashRoute) {
-            if (initialRouteCode) {
-              const slug = `/$${initialRouteCode}`;
-              splashRoute.innerHTML = slug
-                .split('')
-                .map((char, index) => {
-                  const delay = 520 + index * 35;
-                  const safeChar = char === ' ' ? '&nbsp;' : char;
-                  return `<span class="splash-letter" style="color: var(--text-tertiary); animation-delay: ${delay}ms;">${safeChar}</span>`;
-                })
-                .join('');
-            } else {
-              splashRoute.innerHTML = '';
-            }
-          }
-
           // Get actual computed font size (from clamp CSS)
           const computedStyle = window.getComputedStyle(splashLogo);
           const startFontSize = parseFloat(computedStyle.fontSize);
@@ -8417,13 +7994,6 @@
                 lastColorIndex = randomIndex;
                 color = colors[randomIndex];
               }
-
-              if (initialRouteCode) {
-                if (splashRoute) {
-                  splashRoute.innerHTML = '';
-                }
-                window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
-              }
               letter.style.color = color;
               
               // Add subtle shadow
@@ -8435,7 +8005,6 @@
                 letter.style.textShadow = `1px 1px 0px rgb(${r}, ${g}, ${b})`;
               }
             });
-
             
 
             
@@ -8472,9 +8041,6 @@
             splashLogo.classList.add('landed');
             splashLogo.style.cssText = '';
             landingZone.appendChild(splashLogo);
-            if (initialRouteCode) {
-              window.setRouteCodeInUI?.(initialRouteCode, { immediate: true, animate: false });
-            }
             
             // Add click handler - back navigation OR preferences modal
             splashLogo.style.cursor = 'pointer';
@@ -9291,7 +8857,6 @@
               -->
             </div>
           </div>
-          <span id="route-code-tab" class="route-code-tab"></span>
           <button id="popout-btn" class="popout-btn" title="Broadcast to PJ window" aria-label="Broadcast to PJ window">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/>
@@ -9441,7 +9006,7 @@
           <div class="tab" data-tab="reference" id="reference-tab" style="display: none;">Cards</div>
           <div class="tab active" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Learn</div>
           <div class="tab" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
-          <div class="tab" data-tab="jukebox" id="jukebox-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Music</div>
+          <div class="tab" data-tab="jukebox" id="jukebox-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Jukebox</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
@@ -9465,6 +9030,7 @@
             <div class="list-subtab" data-subtab="recent">Recent</div>
             <div class="list-subtab" data-subtab="history">History</div>
             <div class="list-subtab" data-subtab="keeps">Keeps</div>
+            <button class="slideshow-icon-btn" id="slideshow-btn" title="Play Top 100 as slideshow">▶</button>
           </div>
           <!-- List sub-contents -->
           <div class="list-subcontent" id="examples-subcontent">
@@ -9604,130 +9170,112 @@
           </div>
         </div><!-- /list-content -->
         <div class="docs-content hidden" id="jukebox-content">
-          <!-- Jukebox sub-tabs -->
-          <div class="jukebox-subtabs">
-            <div class="jukebox-subtab active" data-subtab="songs">Songs</div>
-            <div class="jukebox-subtab" data-subtab="strudel">Strudel</div>
-          </div>
-          
-          <!-- Songs subcontent -->
-          <div class="jukebox-subcontent" id="songs-subcontent">
-            <div class="jukebox-controls-area">
-              <!-- Now Playing with Cover Art -->
-              <div class="jukebox-now-playing" style="display: flex; align-items: center; gap: 12px;">
-                <img id="jukebox-cover-art" src="https://aesthetic.computer/assets/oskie/wipppps/wipppps_cover.jpeg" alt="Album cover" style="width: 48px; height: 48px; border-radius: 4px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-                <span class="jukebox-track-name" id="jukebox-track-name">Select a track</span>
-              </div>
-              
-              <!-- Spotify-style Transport Controls -->
-              <div class="spotify-transport">
-                <button class="spotify-btn spotify-btn-prev" id="jukebox-prev" title="Previous">
-                  <svg width="32" height="32" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                </button>
-                <button class="spotify-btn spotify-btn-play" id="jukebox-play-pause" title="Play">
-                  <svg width="28" height="28" viewBox="0 0 24 24" id="jukebox-play-icon"><polygon points="8,5 19,12 8,19"/></svg>
-                  <svg width="28" height="28" viewBox="0 0 24 24" id="jukebox-pause-icon" style="display:none;"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                </button>
-                <button class="spotify-btn spotify-btn-next" id="jukebox-next" title="Next">
-                  <svg width="32" height="32" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6z"/></svg>
-                </button>
-              </div>
-              
-              <!-- Progress Bar -->
-              <div class="jukebox-progress">
-                <input type="range" id="jukebox-seek" min="0" max="100" value="0" disabled>
-                <span class="jukebox-time" id="jukebox-time">0:00 / 0:00</span>
-              </div>
-              
-              <!-- Volume -->
-              <div class="jukebox-volume">
-                <span>🔊</span>
-                <input type="range" id="jukebox-volume" min="0" max="100" value="70">
-              </div>
-              
-              <!-- Audio Meters -->
-              <div class="jukebox-meters">
-                <div class="jukebox-meter-row">
-                  <span class="jukebox-meter-label">amp</span>
-                  <div class="jukebox-meter-bar"><div class="jukebox-meter-fill" id="jukebox-amp-meter"></div></div>
-                  <span class="jukebox-meter-value" id="jukebox-amp-value">0.0</span>
+            <div class="jukebox-panel" data-mode="songs">
+              <!-- Mode Tabs + Meters (always visible at top) -->
+              <div class="jukebox-controls-area">
+                <div class="jukebox-mode-tabs">
+                  <button class="jukebox-mode-tab active" data-mode="songs"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16" fill="#000"/></svg> Songs</button>
+                  <button class="jukebox-mode-tab" data-mode="strudel"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2"/><path d="M12 6c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg> Strudel</button>
                 </div>
-                <div class="jukebox-meter-row">
-                  <span class="jukebox-meter-label">kick</span>
-                  <div class="jukebox-beat-indicator" id="jukebox-kick-indicator"></div>
+                
+                <!-- Audio Meters (shared, always visible) -->
+                <div class="jukebox-meters">
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">amp</span>
+                    <div class="jukebox-meter-bar"><div class="jukebox-meter-fill" id="jukebox-amp-meter"></div></div>
+                    <span class="jukebox-meter-value" id="jukebox-amp-value">0.0</span>
+                  </div>
+                  <div class="jukebox-meter-row">
+                    <span class="jukebox-meter-label">kick</span>
+                    <div class="jukebox-beat-indicator" id="jukebox-kick-indicator"></div>
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <!-- Track List (scrollable) -->
-            <div class="jukebox-scroll-area">
-              <div class="jukebox-tracklist" id="jukebox-tracklist">
-                <div class="jukebox-track" data-track="zzzZWAP.wav"><span class="jukebox-track-title">zzzZWAP</span><span class="jukebox-track-artist">oskie</span></div>
-                <div class="jukebox-track" data-track="ARrrGh.wav"><span class="jukebox-track-title">ARrrGh</span><span class="jukebox-track-artist">oskie</span></div>
-                <div class="jukebox-track" data-track="BLuRP.wav"><span class="jukebox-track-title">BLuRP</span><span class="jukebox-track-artist">oskie</span></div>
-                <div class="jukebox-track" data-track="GrRr.wav"><span class="jukebox-track-title">GrRr</span><span class="jukebox-track-artist">oskie</span></div>
-                <div class="jukebox-track" data-track="HoNK.wav"><span class="jukebox-track-title">HoNK</span><span class="jukebox-track-artist">oskie</span></div>
-                <div class="jukebox-track" data-track="KLOnK.wav"><span class="jukebox-track-title">KLOnK</span><span class="jukebox-track-artist">oskie</span></div>
-                <div class="jukebox-track" data-track="PaFf_master.wav"><span class="jukebox-track-title">PaFf</span><span class="jukebox-track-artist">oskie</span></div>
-                <div class="jukebox-track" data-track="WHoOSh.wav"><span class="jukebox-track-title">WHoOSh</span><span class="jukebox-track-artist">oskie</span></div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Strudel subcontent -->
-          <div class="jukebox-subcontent hidden" id="strudel-subcontent">
-            <div class="jukebox-controls-area">
-              <!-- Strudel Status -->
-              <div class="jukebox-now-playing">
-                <span class="jukebox-track-name" id="strudel-status">Ready</span>
-              </div>
               
-              <!-- Strudel Transport Controls -->
-              <div class="strudel-transport">
-                <button class="strudel-btn" id="strudel-play" title="Play (Ctrl+Enter)">▶</button>
-                <button class="strudel-btn" id="strudel-stop" title="Stop" disabled>⏹</button>
-              </div>
-              
-              <!-- Volume -->
-              <div class="jukebox-volume">
-                <span>🔊</span>
-                <input type="range" id="strudel-volume" min="0" max="100" value="70">
-              </div>
-              
-              <!-- Preset Patterns -->
-              <div class="strudel-presets">
-                <button class="strudel-preset" data-code="s('bd sd hh sd')">Basic</button>
-                <button class="strudel-preset" data-code="s('bd*2, hh*4, ~ sd')">Drums</button>
-                <button class="strudel-preset" data-code="note('c3 e3 g3 b3').s('sawtooth').cutoff(800)">Synth</button>
-                <button class="strudel-preset" data-code="s('bd sd hh sd').jux(rev)">Jux</button>
-                <button class="strudel-preset" data-code="s('ape_breaks_3').loopAt(2).chop(8)">c_robo</button>
-              </div>
-              
-              <!-- Audio Meters (for Strudel) -->
-              <div class="jukebox-meters">
-                <div class="jukebox-meter-row">
-                  <span class="jukebox-meter-label">amp</span>
-                  <div class="jukebox-meter-bar"><div class="jukebox-meter-fill" id="strudel-amp-meter"></div></div>
-                  <span class="jukebox-meter-value" id="strudel-amp-value">0.0</span>
+              <!-- Songs Mode -->
+              <div class="jukebox-mode-content" id="jukebox-samples-mode">
+                <div class="jukebox-controls-area" style="border-bottom: none; padding-top: 0;">
+                  <!-- Now Playing with Cover Art -->
+                  <div class="jukebox-now-playing" style="display: flex; align-items: center; gap: 12px;">
+                    <img id="jukebox-cover-art" src="https://aesthetic.computer/assets/oskie/wipppps/wipppps_cover.jpeg" alt="Album cover" style="width: 48px; height: 48px; border-radius: 4px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                    <span class="jukebox-track-name" id="jukebox-track-name">Select a track</span>
+                  </div>
+                  
+                  <!-- Player Controls -->
+                  <div class="jukebox-controls">
+                    <button class="jukebox-btn" id="jukebox-play" title="Play">▶</button>
+                    <button class="jukebox-btn" id="jukebox-pause" title="Pause" disabled>⏸</button>
+                    <button class="jukebox-btn" id="jukebox-stop" title="Stop" disabled>⏹</button>
+                  </div>
+                  
+                  <!-- Progress Bar -->
+                  <div class="jukebox-progress">
+                    <input type="range" id="jukebox-seek" min="0" max="100" value="0" disabled>
+                    <span class="jukebox-time" id="jukebox-time">0:00 / 0:00</span>
+                  </div>
+                  
+                  <!-- Volume -->
+                  <div class="jukebox-volume">
+                    <span>🔊</span>
+                    <input type="range" id="jukebox-volume" min="0" max="100" value="70">
+                  </div>
                 </div>
-                <div class="jukebox-meter-row">
-                  <span class="jukebox-meter-label">kick</span>
-                  <div class="jukebox-beat-indicator" id="strudel-kick-indicator"></div>
+                
+                <!-- Track List (scrollable) -->
+                <div class="jukebox-scroll-area">
+                  <div class="jukebox-tracklist" id="jukebox-tracklist">
+                    <div class="jukebox-track" data-track="zzzZWAP.wav"><span class="jukebox-track-title">zzzZWAP</span><span class="jukebox-track-artist">oskie</span></div>
+                    <div class="jukebox-track" data-track="ARrrGh.wav"><span class="jukebox-track-title">ARrrGh</span><span class="jukebox-track-artist">oskie</span></div>
+                    <div class="jukebox-track" data-track="BLuRP.wav"><span class="jukebox-track-title">BLuRP</span><span class="jukebox-track-artist">oskie</span></div>
+                    <div class="jukebox-track" data-track="GrRr.wav"><span class="jukebox-track-title">GrRr</span><span class="jukebox-track-artist">oskie</span></div>
+                    <div class="jukebox-track" data-track="HoNK.wav"><span class="jukebox-track-title">HoNK</span><span class="jukebox-track-artist">oskie</span></div>
+                    <div class="jukebox-track" data-track="KLOnK.wav"><span class="jukebox-track-title">KLOnK</span><span class="jukebox-track-artist">oskie</span></div>
+                    <div class="jukebox-track" data-track="PaFf_master.wav"><span class="jukebox-track-title">PaFf</span><span class="jukebox-track-artist">oskie</span></div>
+                    <div class="jukebox-track" data-track="WHoOSh.wav"><span class="jukebox-track-title">WHoOSh</span><span class="jukebox-track-artist">oskie</span></div>
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <!-- Strudel Code Editor (scrollable area) -->
-            <div class="jukebox-scroll-area">
-              <div class="strudel-editor-container">
-                <textarea id="strudel-code" placeholder="// Strudel live coding - press Ctrl+Enter to play&#10;// Try: s('bd sd hh sd')&#10;// Or: note('c3 e3 g3').s('sawtooth')">// c_robo's sample library: cc.oooooooooooooooo.cc
-s("ape_breaks_3").loopAt(2)</textarea>
+              
+              <!-- Strudel Mode -->
+              <div class="jukebox-mode-content hidden" id="jukebox-strudel-mode">
+                <div class="jukebox-controls-area" style="border-bottom: none; padding-top: 0;">
+                  <!-- Strudel Status -->
+                  <div class="jukebox-now-playing">
+                    <span class="jukebox-track-name" id="strudel-status">Ready</span>
+                  </div>
+                  
+                  <!-- Strudel Controls -->
+                  <div class="jukebox-controls">
+                    <button class="jukebox-btn" id="strudel-play" title="Play (Ctrl+Enter)">▶</button>
+                    <button class="jukebox-btn" id="strudel-stop" title="Stop" disabled>⏹</button>
+                  </div>
+                  
+                  <!-- Volume -->
+                  <div class="jukebox-volume">
+                    <span>🔊</span>
+                    <input type="range" id="strudel-volume" min="0" max="100" value="70">
+                  </div>
+                  
+                  <!-- Preset Patterns -->
+                  <div class="strudel-presets">
+                    <button class="strudel-preset" data-code="s('bd sd hh sd')">Basic</button>
+                    <button class="strudel-preset" data-code="s('bd*2, hh*4, ~ sd')">Drums</button>
+                    <button class="strudel-preset" data-code="note('c3 e3 g3 b3').s('sawtooth').cutoff(800)">Synth</button>
+                    <button class="strudel-preset" data-code="s('bd sd hh sd').jux(rev)">Jux</button>
+                  </div>
+                </div>
+                
+                <!-- Strudel Code Editor (scrollable area) -->
+                <div class="jukebox-scroll-area">
+                  <div class="strudel-editor-container">
+                    <textarea id="strudel-code" placeholder="// Strudel live coding - press Ctrl+Enter to play&#10;// Try: s('bd sd hh sd')&#10;// Or: note('c3 e3 g3').s('sawtooth')">s("bd sd hh sd")</textarea>
+                  </div>
+                </div>
               </div>
+              
+              <!-- Status -->
+              <div class="jukebox-status" id="jukebox-status"></div>
             </div>
-          </div>
-          
-          <!-- Status -->
-          <div class="jukebox-status" id="jukebox-status"></div>
         </div><!-- /jukebox-content -->
         <div class="docs-content hidden" id="reference-content">
           <div id="book-container"></div>
@@ -14892,8 +14440,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
         document.title = `KidLisp.com/$${cleanCode}`;
         window.history.pushState({ code: cleanCode }, document.title, newPath);
       }
-
-      setRouteCodeInUI(cleanCode, { animate: false });
       
       // Generate QR code
       generateAndDisplayQR(code);
@@ -15687,185 +15233,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
           description: "Check if a is less than or equal to b.",
           category: "logic",
           examples: ["(<= y height)"]
-        },
-        // === SPECIAL SYNTAX ===
-        "?": {
-          signature: "(? option1 option2 ...)",
-          description: "Alias for choose. Randomly pick one of the options each frame. Short and sweet!",
-          category: "logic",
-          examples: ['(ink (? "red" "blue" "green"))', "(? 10 20 30 40)"]
-        },
-        "...": {
-          signature: "(timing... expr1 expr2 ...)",
-          description: "Cycle through expressions at timing intervals. The ... makes expressions repeat in sequence.",
-          category: "timing",
-          examples: ['(1s... (ink "red") (ink "blue"))', '(500ms... (wipe "black") (wipe "white"))']
-        },
-        "..": {
-          signature: "(timing.. expr1 expr2 ...)",
-          description: "Like ... but plays expressions once in sequence, then stops. Good for animations.",
-          category: "timing",
-          examples: ['(1s.. (circle 10 10 5) (circle 20 20 10) (circle 30 30 15))']
-        },
-        // === TIMING PATTERNS ===
-        "1s": {
-          signature: "1s, 0.5s, 2.5s, etc.",
-          description: "Delay timer in seconds. Waits the specified time before executing the following expressions.",
-          category: "timing",
-          examples: ["(1s (wipe))", "(0.5s (beep))", "(2s (jump))"]
-        },
-        "1f": {
-          signature: "1f, 10f, 60f, etc.",
-          description: "Delay timer in frames. Waits the specified number of frames (at 60fps) before executing.",
-          category: "timing",
-          examples: ["(30f (wipe))", "(60f (beep))"]
-        },
-        "1s...": {
-          signature: "1s..., 0.5s..., etc.",
-          description: "Cycle timer in seconds. Cycles through following expressions at this interval forever.",
-          category: "timing",
-          examples: ['(1s... (ink "red") (ink "blue"))', "(0.25s... (wiggle 10))"]
-        },
-        // === COLOR NAMES (Common ones) ===
-        red: {
-          signature: "red",
-          description: "The color red (255, 0, 0). Use with ink to set the drawing color.",
-          category: "color",
-          examples: ['(ink red)', '(ink "red")', "(wipe red)"]
-        },
-        blue: {
-          signature: "blue",
-          description: "The color blue (0, 0, 255). A primary color.",
-          category: "color",
-          examples: ['(ink blue)', "(wipe blue)"]
-        },
-        green: {
-          signature: "green",
-          description: "The color green (0, 128, 0). Note: this is darker than lime.",
-          category: "color",
-          examples: ['(ink green)', "(wipe green)"]
-        },
-        yellow: {
-          signature: "yellow",
-          description: "The color yellow (255, 255, 0). Bright and sunny!",
-          category: "color",
-          examples: ['(ink yellow)', "(wipe yellow)"]
-        },
-        purple: {
-          signature: "purple",
-          description: "The color purple (128, 0, 128). A mix of red and blue.",
-          category: "color",
-          examples: ['(ink purple)', "(wipe purple)"]
-        },
-        orange: {
-          signature: "orange",
-          description: "The color orange (255, 165, 0). Warm and vibrant!",
-          category: "color",
-          examples: ['(ink orange)', "(wipe orange)"]
-        },
-        pink: {
-          signature: "pink",
-          description: "The color pink (255, 192, 203). Soft and rosy.",
-          category: "color",
-          examples: ['(ink pink)', "(wipe pink)"]
-        },
-        cyan: {
-          signature: "cyan",
-          description: "The color cyan (0, 255, 255). A bright blue-green.",
-          category: "color",
-          examples: ['(ink cyan)', "(wipe cyan)"]
-        },
-        magenta: {
-          signature: "magenta",
-          description: "The color magenta (255, 0, 255). Bright pink-purple.",
-          category: "color",
-          examples: ['(ink magenta)', "(wipe magenta)"]
-        },
-        lime: {
-          signature: "lime",
-          description: "The color lime (0, 255, 0). Bright neon green!",
-          category: "color",
-          examples: ['(ink lime)', "(wipe lime)"]
-        },
-        white: {
-          signature: "white",
-          description: "The color white (255, 255, 255). Maximum brightness.",
-          category: "color",
-          examples: ['(ink white)', "(wipe white)"]
-        },
-        black: {
-          signature: "black",
-          description: "The color black (0, 0, 0). Complete darkness.",
-          category: "color",
-          examples: ['(ink black)', "(wipe black)"]
-        },
-        gray: {
-          signature: "gray",
-          description: "The color gray (128, 128, 128). Neutral midtone.",
-          category: "color",
-          examples: ['(ink gray)', "(wipe gray)"]
-        },
-        navy: {
-          signature: "navy",
-          description: "The color navy (0, 0, 128). Dark blue.",
-          category: "color",
-          examples: ['(ink navy)', "(wipe navy)"]
-        },
-        teal: {
-          signature: "teal",
-          description: "The color teal (0, 128, 128). Dark cyan.",
-          category: "color",
-          examples: ['(ink teal)', "(wipe teal)"]
-        },
-        coral: {
-          signature: "coral",
-          description: "The color coral (255, 127, 80). Warm orange-pink.",
-          category: "color",
-          examples: ['(ink coral)', "(wipe coral)"]
-        },
-        gold: {
-          signature: "gold",
-          description: "The color gold (255, 215, 0). Shiny and precious!",
-          category: "color",
-          examples: ['(ink gold)', "(wipe gold)"]
-        },
-        // === SPECIAL GLOBALS ===
-        mouseX: {
-          signature: "mouseX",
-          description: "The current X position of the mouse/touch pointer. Updates every frame.",
-          category: "input",
-          examples: ["(circle mouseX mouseY 10)", "(line 0 0 mouseX mouseY)"]
-        },
-        mouseY: {
-          signature: "mouseY",
-          description: "The current Y position of the mouse/touch pointer. Updates every frame.",
-          category: "input",
-          examples: ["(circle mouseX mouseY 10)", "(plot mouseX mouseY)"]
-        },
-        lastX: {
-          signature: "lastX",
-          description: "The previous frame's X position of the mouse/touch. Useful for drawing lines.",
-          category: "input",
-          examples: ["(draw (line lastX lastY mouseX mouseY))"]
-        },
-        lastY: {
-          signature: "lastY",
-          description: "The previous frame's Y position of the mouse/touch. Useful for drawing lines.",
-          category: "input",
-          examples: ["(draw (line lastX lastY mouseX mouseY))"]
-        },
-        // === BEAT/MUSIC ===
-        beat: {
-          signature: "(beat [division])",
-          description: "Returns true on musical beats. Division can be 1, 2, 4, 8, 16 for whole, half, quarter notes etc.",
-          category: "audio",
-          examples: ["(if (beat) (wipe))", "(if (beat 4) (circle 100 100 20))"]
-        },
-        bpm: {
-          signature: "bpm",
-          description: "The current beats per minute for timing. Can be set or read.",
-          category: "audio",
-          examples: ["bpm", "(set bpm 120)"]
         }
       };
       
@@ -16120,7 +15487,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
         
         // Set title immediately to match URL
         document.title = `KidLisp.com/$${code}`;
-        setRouteCodeInUI(code, { immediate: true, animate: false });
         
         // Clear editor and localStorage immediately while we load from DB
         // This prevents old cached code from flashing or being used
@@ -16180,8 +15546,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
             // Update URL and title (only on AC platform)
             if (currentPlatform === 'aesthetic-computer') {
               updateURLForCode(code);
-              // Update route code tab (no animation for initial load)
-              setRouteCodeInUI(code, { immediate: true, animate: false });
+              // Update preview pane title (no animation for initial load)
+              const previewTitle = document.getElementById('preview-title');
+              const codeChars = `/$${code}`.split('').map((c, i) => `<span class="code-char${i === 0 ? ' slash' : i === 1 ? ' dollar' : ' code'}">${c}</span>`).join('');
+              previewTitle.innerHTML = getACTitleHTML(codeChars);
             }
           } else {
             log.code.error(`Failed to load code: $${code}`);
@@ -16207,10 +15575,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
           log.code.debug(`Restored code from localStorage: $${savedCode}`);
           // Update URL and title to match the saved code
           updateURLForCode(savedCode);
-          // Update route code tab (no animation for restore)
-          setRouteCodeInUI(savedCode, { immediate: true, animate: false });
-        } else {
-          setRouteCodeInUI(null, { immediate: true, animate: false });
+          // Update preview pane title (no animation for restore)
+          const previewTitle = document.getElementById('preview-title');
+          const codeChars = `/$${savedCode}`.split('').map((c, i) => `<span class="code-char${i === 0 ? ' slash' : i === 1 ? ' dollar' : ' code'}">${c}</span>`).join('');
+          previewTitle.innerHTML = getACTitleHTML(codeChars);
         }
       }
 
@@ -16850,7 +16218,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
           window.history.pushState({}, 'KidLisp.com', '/kidlisp.com');
           document.title = 'KidLisp.com';
           localStorage.removeItem('kidlisp-current-code');
-          setRouteCodeInUI(null, { immediate: true, animate: false });
           // Reset preview title to current platform name (using global helper)
           const previewTitle = document.getElementById('preview-title');
           if (previewTitle) {
@@ -18236,58 +17603,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
     let currentPlatform = 'aesthetic-computer';
     
     // Global helper to generate platform title HTML with short/full variants for responsive collapse
-    function getACTitleHTML() {
+    function getACTitleHTML(codeChars = '') {
       // Wrap each letter in spans for rainbow animation during boot
       const wrapLetters = (word) => word.split('').map(c => `<span class="title-letter">${c}</span>`).join('');
-      return `<span class="title-full">${wrapLetters('Aesthetic')}</span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full">${wrapLetters('Computer')}</span><span class="title-short">AC</span>`;
+      return `<span class="title-full">${wrapLetters('Aesthetic')}</span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full">${wrapLetters('Computer')}</span><span class="title-short">AC</span><span class="code-display">${codeChars}</span>`;
     }
-
-    function setRouteCodeInUI(code, options = {}) {
-      const { immediate = false, animate = true } = options;
-      const cleanCode = code ? (code.startsWith('$') ? code.slice(1) : code) : '';
-      document.body?.classList.toggle('has-route-code', Boolean(cleanCode));
-      if (currentPlatform !== 'aesthetic-computer') return;
-
-      const previewTitle = document.getElementById('preview-title');
-      if (!previewTitle) return;
-
-      if (!cleanCode) {
-        previewTitle.innerHTML = getACTitleHTML();
-        const routeCodeTab = document.getElementById('route-code-tab');
-        if (routeCodeTab) {
-          routeCodeTab.classList.remove('visible');
-          routeCodeTab.innerHTML = '';
-        }
-        return;
-      }
-
-      const codeChars = `/$${cleanCode}`
-        .split('')
-        .map((c, i) => `<span class="code-char${i === 0 ? ' slash' : i === 1 ? ' dollar' : ' code'}">${c}</span>`)
-        .join('');
-      previewTitle.innerHTML = getACTitleHTML();
-      const routeCodeTab = document.getElementById('route-code-tab');
-      if (routeCodeTab) {
-        routeCodeTab.classList.add('visible');
-        routeCodeTab.innerHTML = `<span class="code-display">${codeChars}</span>`;
-      }
-
-      if (!immediate) {
-        const codeDisplay = routeCodeTab?.querySelector('.code-display');
-        if (codeDisplay && animate && typeof scrambleToCode === 'function') {
-          scrambleToCode(cleanCode, codeDisplay);
-        }
-      }
-    }
-
-    window.setRouteCodeInUI = setRouteCodeInUI;
-
-    window.getInitialRouteCode = function() {
-      const urlPath = window.location.pathname;
-      const match = urlPath.match(/\/\$?([a-zA-Z0-9]+)$/);
-      return match?.[1] || '';
-    };
-
     
     // Helper to generate platform title HTML (with logo for FF1, short/full for AC)
     function getPlatformTitleHTML(platformId, platformName) {
@@ -20884,141 +20204,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
     // Track current cursor word for live docs
     let currentCursorWord = null;
     
-    // Helper function to syntax highlight KidLisp code for Learn docs
-    function highlightKidlispCodeForLearn(code, isSignature = false) {
-      // Escape HTML first
-      const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      
-      // CSS color name to RGB mapping (common colors for highlighting)
-      const learnColorMap = {
-        red: [255, 0, 0], blue: [0, 0, 255], green: [0, 128, 0], yellow: [255, 255, 0],
-        purple: [128, 0, 128], orange: [255, 165, 0], pink: [255, 192, 203], cyan: [0, 255, 255],
-        magenta: [255, 0, 255], lime: [0, 255, 0], white: [255, 255, 255], black: [0, 0, 0],
-        gray: [128, 128, 128], grey: [128, 128, 128], navy: [0, 0, 128], teal: [0, 128, 128],
-        coral: [255, 127, 80], gold: [255, 215, 0], silver: [192, 192, 192], maroon: [128, 0, 0],
-        olive: [128, 128, 0], aqua: [0, 255, 255], fuchsia: [255, 0, 255], indigo: [75, 0, 130],
-        violet: [238, 130, 238], brown: [165, 42, 42], tan: [210, 180, 140], salmon: [250, 128, 114],
-        crimson: [220, 20, 60], turquoise: [64, 224, 208], plum: [221, 160, 221], khaki: [240, 230, 140],
-        tomato: [255, 99, 71], peru: [205, 133, 63], sienna: [160, 82, 45], chocolate: [210, 105, 30],
-        firebrick: [178, 34, 34], hotpink: [255, 105, 180], deeppink: [255, 20, 147]
-      };
-      
-      // Known functions for highlighting
-      const knownFunctions = new Set([
-        'wipe', 'ink', 'line', 'box', 'flood', 'circle', 'write', 'paste', 'stamp', 'point', 'poly', 'embed',
-        'print', 'debug', 'random', 'sin', 'cos', 'tan', 'floor', 'ceil', 'round', 'tri', 'shape',
-        'noise', 'choose', '?', '...', '..', 'overtone', 'mic', 'amplitude', 'tone', 'beep', 'melody',
-        'resolution', 'wiggle', 'scroll', 'spin', 'resetSpin', 'smoothspin', 'zoom', 'blur', 'contrast',
-        'fade', 'bake', 'mask', 'unmask', 'label', 'len', 'now', 'once', 'die', 'jump', 'plot',
-        'tap', 'draw', 'not', 'range', 'if', 'def', 'set', 'later', 'repeat', 'bunch', 'loop',
-        'list', 'get', 'first', 'rest', 'push', 'pop', 'fill', 'outline', 'stroke', 'nofill', 'nostroke',
-        'and', 'or', 'beat'
-      ]);
-      
-      // Math operators
-      const mathOps = new Set(['+', '-', '*', '/', '%', 'mod', '=', '>', '<', '>=', '<=', 'abs', 'sqrt', 'min', 'max', 'lerp', 'map', 'constrain', 'dist', 'pow']);
-      
-      // Color names (common CSS colors)
-      const colorNames = new Set([
-        'red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'cyan', 'magenta', 'lime',
-        'white', 'black', 'gray', 'grey', 'navy', 'teal', 'coral', 'gold', 'silver', 'maroon',
-        'olive', 'aqua', 'fuchsia', 'indigo', 'violet', 'brown', 'tan', 'salmon', 'crimson',
-        'turquoise', 'plum', 'khaki', 'tomato', 'peru', 'sienna', 'chocolate', 'firebrick', 'hotpink', 'deeppink'
-      ]);
-      
-      // Global variables
-      const globals = new Set(['width', 'height', 'time', 'elapsed', 'frame', 'delta', 'fps', 'mic', 'mouseX', 'mouseY', 'lastX', 'lastY', 'bpm', 'amplitude']);
-      
-      let result = '';
-      let i = 0;
-      
-      while (i < code.length) {
-        const char = code[i];
-        
-        // Handle parentheses
-        if (char === '(' || char === ')') {
-          result += `<span class="kl-paren">${char}</span>`;
-          i++;
-          continue;
-        }
-        
-        // Handle brackets (optional params in signatures)
-        if (char === '[' || char === ']') {
-          result += `<span class="kl-bracket">${char}</span>`;
-          i++;
-          continue;
-        }
-        
-        // Handle strings
-        if (char === '"') {
-          let str = char;
-          i++;
-          while (i < code.length && code[i] !== '"') {
-            str += code[i];
-            i++;
-          }
-          if (i < code.length) str += code[i++];
-          result += `<span class="kl-str">${escapeHtml(str)}</span>`;
-          continue;
-        }
-        
-        // Handle whitespace
-        if (/\s/.test(char)) {
-          result += char;
-          i++;
-          continue;
-        }
-        
-        // Collect a word/token
-        let token = '';
-        while (i < code.length && !/[\s()\[\]"]/.test(code[i])) {
-          token += code[i];
-          i++;
-        }
-        
-        if (!token) continue;
-        
-        // Determine token type and apply class
-        if (token === 'rainbow') {
-          result += `<span class="kl-rainbow">${escapeHtml(token)}</span>`;
-        } else if (token === 'zebra') {
-          result += `<span class="kl-special">${escapeHtml(token)}</span>`;
-        } else if (/^\d*\.?\d+[sf]\.\.\.?$/.test(token) || /^\d*\.?\d+[sf]!?$/.test(token)) {
-          // Timing patterns like 1s, 0.5s, 1s..., 2f
-          result += `<span class="kl-timing">${escapeHtml(token)}</span>`;
-        } else if (/^-?\d+(\.\d+)?$/.test(token)) {
-          // Numbers
-          result += `<span class="kl-num">${escapeHtml(token)}</span>`;
-        } else if (mathOps.has(token)) {
-          result += `<span class="kl-math">${escapeHtml(token)}</span>`;
-        } else if (knownFunctions.has(token)) {
-          result += `<span class="kl-fn">${escapeHtml(token)}</span>`;
-        } else if (colorNames.has(token.toLowerCase())) {
-          // Show color names in their actual color
-          const colorRgb = learnColorMap[token.toLowerCase()];
-          if (colorRgb) {
-            const [r, g, b] = colorRgb;
-            // Add text shadow for dark colors
-            const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-            const shadow = luminance < 80 ? 'text-shadow: 1px 1px 0 rgba(255,255,255,0.5);' : '';
-            result += `<span class="kl-color" style="color: rgb(${r},${g},${b}); ${shadow}">${escapeHtml(token)}</span>`;
-          } else {
-            result += `<span class="kl-color">${escapeHtml(token)}</span>`;
-          }
-        } else if (globals.has(token)) {
-          result += `<span class="kl-var">${escapeHtml(token)}</span>`;
-        } else if (isSignature && /^[a-z]/.test(token)) {
-          // In signatures, lowercase words are likely parameters
-          result += `<span class="kl-param">${escapeHtml(token)}</span>`;
-        } else {
-          // Default - likely a variable
-          result += `<span class="kl-var">${escapeHtml(token)}</span>`;
-        }
-      }
-      
-      return result;
-    }
-    
     function updateLearnDocumentation(word) {
       const docSection = document.getElementById('learn-doc-section');
       if (!docSection) return;
@@ -21030,57 +20215,22 @@ s("ape_breaks_3").loopAt(2)</textarea>
             Place your cursor on a KidLisp function to see its documentation here.
           </div>
           <div class="learn-doc-hint">
-            Try: wipe, ink, box, circle, line, wiggle, beat, purple, ?...
+            Try: wipe, ink, box, circle, line, wiggle, beat...
           </div>
         `;
         return;
       }
       
       const doc = KIDLISP_DOCS[word];
-      
-      // Syntax highlight the signature
-      const signatureHtml = doc.signature ? highlightKidlispCodeForLearn(doc.signature, true) : '';
-      
-      // Syntax highlight each example
       const examplesHtml = doc.examples && doc.examples.length > 0
         ? `<div class="learn-doc-examples-title">Examples</div>
-           ${doc.examples.map(ex => `<div class="learn-doc-example" data-example="${encodeURIComponent(ex)}">${highlightKidlispCodeForLearn(ex)}</div>`).join('')}`
+           ${doc.examples.map(ex => `<div class="learn-doc-example" data-example="${encodeURIComponent(ex)}">${ex}</div>`).join('')}`
         : '';
-      
-      // Color map for doc name coloring
-      const docColorMap = {
-        red: [255, 0, 0], blue: [0, 0, 255], green: [0, 128, 0], yellow: [255, 255, 0],
-        purple: [128, 0, 128], orange: [255, 165, 0], pink: [255, 192, 203], cyan: [0, 255, 255],
-        magenta: [255, 0, 255], lime: [0, 255, 0], white: [255, 255, 255], black: [0, 0, 0],
-        gray: [128, 128, 128], navy: [0, 0, 128], teal: [0, 128, 128], coral: [255, 127, 80],
-        gold: [255, 215, 0], silver: [192, 192, 192]
-      };
-      
-      // Determine name color based on category
-      let nameColor = 'rgb(205, 92, 155)'; // Default pink
-      if (doc.category === 'color') {
-        // Show color name in its actual color
-        const colorRgb = docColorMap[word.toLowerCase()];
-        if (colorRgb) {
-          nameColor = `rgb(${colorRgb[0]},${colorRgb[1]},${colorRgb[2]})`;
-        }
-      } else if (doc.category === 'timing') {
-        nameColor = '#ffff00'; // Yellow for timing
-      } else if (doc.category === 'math' || doc.category === 'logic') {
-        nameColor = '#00ff00'; // Green for math/logic
-      } else if (word === 'rainbow') {
-        nameColor = 'transparent';
-      }
-      
-      // Special rainbow treatment for the name
-      const nameStyle = word === 'rainbow' 
-        ? 'background: linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'
-        : `color: ${nameColor};`;
       
       docSection.innerHTML = `
         <div class="learn-doc-content">
-          <div class="learn-doc-name" style="${nameStyle}">${word}</div>
-          ${doc.signature ? `<div class="learn-doc-signature">${signatureHtml}</div>` : ''}
+          <div class="learn-doc-name">${word}</div>
+          ${doc.signature ? `<div class="learn-doc-signature">${doc.signature}</div>` : ''}
           ${doc.category ? `<div class="learn-doc-category">${doc.category}</div>` : ''}
           <div class="learn-doc-description">${doc.description || 'No description available.'}</div>
           ${examplesHtml}
@@ -21117,7 +20267,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
               Place your cursor on a KidLisp function to see its documentation here.
             </div>
             <div class="learn-doc-hint">
-              Try: wipe, ink, box, circle, wiggle, purple, ?, 1s...
+              Try: wipe, ink, box, circle, line, wiggle, beat...
             </div>
           </div>
           <div class="guides-coming-soon">
@@ -21356,21 +20506,23 @@ s("ape_breaks_3").loopAt(2)</textarea>
     // Opens the Top 100 playlist on device.kidlisp.com in a new tab
     // ═══════════════════════════════════════════════════════════════════════════
     
-    function initPlayOnTvCard() {
-      // This will be called after renderCodeList adds the card
-      const playOnTvCard = document.querySelector('.play-on-tv-card');
-      if (!playOnTvCard) return;
+    function initSlideshowButton() {
+      const slideshowBtn = document.getElementById('slideshow-btn');
+      if (!slideshowBtn) return;
       
-      playOnTvCard.addEventListener('click', () => {
+      slideshowBtn.addEventListener('click', () => {
         // Use nice short URL path
         const deviceUrl = 'https://device.kidlisp.com/slideshow/top100';
         
-        console.log('📺 Opening slideshow:', deviceUrl);
+        console.log('🎬 Opening slideshow:', deviceUrl);
         
         // Open in new tab/window (fullscreen for best effect)
         window.open(deviceUrl, '_blank');
       });
     }
+    
+    // Initialize slideshow button on load
+    initSlideshowButton();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SHARED CODE LIST COMPONENT
@@ -21591,7 +20743,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
         showTimestamp = false,
         showHits = true,
         pendingThumb = false,
-        rank = null,
       } = options;
       
       const el = document.createElement('div');
@@ -21645,10 +20796,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
       
       // Build hits display
       const hitsHtml = showHits ? `<div class="example-hits">${item.hits || 0} hits</div>` : '';
-      const rankHtml = typeof rank === 'number' ? `<div class="example-rank">#${rank}</div>` : '';
-      const rightMetaHtml = (rankHtml || hitsHtml)
-        ? `<div class="example-meta-right">${rankHtml}${hitsHtml}</div>`
-        : '';
       
       // Assemble HTML
       el.innerHTML = `
@@ -21659,7 +20806,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           ${handleText && !ownerText ? `<div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${handleText}</div>` : ''}
           ${timeLine ? `<div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${timeLine}</div>` : ''}
         </div>
-        ${rightMetaHtml}
+        ${hitsHtml}
       `;
       
       // Now populate the thumbnail container
@@ -21754,7 +20901,13 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (currentPlatform === 'aesthetic-computer' && item.code) {
         updateURLForCode(item.code);
         localStorage.setItem('kidlisp-current-code', item.code);
-        setRouteCodeInUI(item.code, { immediate: true, animate: false });
+        const previewTitle = document.getElementById('preview-title');
+        if (previewTitle) {
+          const codeChars = `/$${item.code}`.split('').map((c, i) => 
+            `<span class="code-char${i === 0 ? ' slash' : i === 1 ? ' dollar' : ' code'}">${c}</span>`
+          ).join('');
+          previewTitle.innerHTML = getACTitleHTML(codeChars);
+        }
       }
       
       updatePreview();
@@ -21802,32 +20955,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
       }
       
       listEl.innerHTML = '';
-      
-      // Add "Play on your TV" card as first item for Top Hits (examples-list)
-      if (listId === 'examples-list') {
-        const playOnTvCard = document.createElement('div');
-        playOnTvCard.className = 'play-on-tv-card';
-        playOnTvCard.innerHTML = `
-          <div class="play-on-tv-icon">
-            <div class="play-on-tv-stack">
-              <span class="play-on-tv-slide back"></span>
-              <span class="play-on-tv-slide mid"></span>
-              <span class="play-on-tv-slide front"></span>
-            </div>
-          </div>
-          <div class="play-on-tv-content">
-            <div class="play-on-tv-title">Play on your TV</div>
-            <div class="play-on-tv-subtitle">Watch <span class="play-on-tv-highlight">Top 100</span> as a playlist slideshow</div>
-          </div>
-          <div class="play-on-tv-arrow">→</div>
-        `;
-        playOnTvCard.addEventListener('click', () => {
-          const deviceUrl = 'https://device.kidlisp.com/slideshow/top100';
-          console.log('📺 Opening slideshow:', deviceUrl);
-          window.open(deviceUrl, '_blank');
-        });
-        listEl.appendChild(playOnTvCard);
-      }
       
       // Process items with optional owner grouping
       let processedItems = items;
@@ -21946,7 +21073,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         });
       }
       
-      processedItems.forEach((item, index) => {
+      processedItems.forEach(item => {
         const el = renderCodeListItem(item, {
           syntaxHighlight,
           tickerAnimation,
@@ -21955,7 +21082,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
           showTimestamp,
           showHits,
           pendingThumb,
-          rank: listId === 'examples-list' ? index + 1 : null,
         });
         
         el.addEventListener('click', () => handleCodeItemClick(el));
@@ -24796,76 +23922,26 @@ s("ape_breaks_3").loopAt(2)</textarea>
     }
     
     function initJukebox() {
-      const playPauseBtn = document.getElementById('jukebox-play-pause');
-      const prevBtn = document.getElementById('jukebox-prev');
-      const nextBtn = document.getElementById('jukebox-next');
-      const playIcon = document.getElementById('jukebox-play-icon');
-      const pauseIcon = document.getElementById('jukebox-pause-icon');
+      const playBtn = document.getElementById('jukebox-play');
+      const pauseBtn = document.getElementById('jukebox-pause');
+      const stopBtn = document.getElementById('jukebox-stop');
       const seekSlider = document.getElementById('jukebox-seek');
       const volumeSlider = document.getElementById('jukebox-volume');
       const trackList = document.getElementById('jukebox-tracklist');
       
-      if (!playPauseBtn || !trackList) return;
-      
-      // Get all tracks for prev/next navigation
-      function getAllTracks() {
-        return Array.from(trackList.querySelectorAll('.jukebox-track'));
-      }
-      
-      function getCurrentTrackIndex() {
-        const tracks = getAllTracks();
-        return tracks.findIndex(t => t.dataset.track === jukeboxCurrentTrack);
-      }
-      
-      // Update play/pause icon state
-      function updatePlayPauseIcon() {
-        if (playIcon && pauseIcon) {
-          playIcon.style.display = jukeboxIsPlaying ? 'none' : 'block';
-          pauseIcon.style.display = jukeboxIsPlaying ? 'block' : 'none';
-        }
-      }
+      if (!playBtn || !trackList) return;
       
       trackList.addEventListener('click', (e) => {
         const trackEl = e.target.closest('.jukebox-track');
         if (trackEl) loadJukeboxTrack(trackEl.dataset.track);
       });
       
-      playPauseBtn.addEventListener('click', () => {
-        if (jukeboxIsPlaying) {
-          pauseJukebox();
-        } else if (jukeboxAudioElement?.src) {
-          playJukebox();
-        } else if (jukeboxCurrentTrack) {
-          loadJukeboxTrack(jukeboxCurrentTrack);
-        } else {
-          // Auto-play first track if nothing selected
-          const tracks = getAllTracks();
-          if (tracks.length > 0) loadJukeboxTrack(tracks[0].dataset.track);
-        }
-        updatePlayPauseIcon();
+      playBtn.addEventListener('click', () => {
+        if (jukeboxAudioElement?.src) playJukebox();
+        else if (jukeboxCurrentTrack) loadJukeboxTrack(jukeboxCurrentTrack);
       });
-      
-      prevBtn?.addEventListener('click', () => {
-        const tracks = getAllTracks();
-        const currentIndex = getCurrentTrackIndex();
-        if (currentIndex > 0) {
-          loadJukeboxTrack(tracks[currentIndex - 1].dataset.track);
-        } else if (tracks.length > 0) {
-          // Wrap to last track
-          loadJukeboxTrack(tracks[tracks.length - 1].dataset.track);
-        }
-      });
-      
-      nextBtn?.addEventListener('click', () => {
-        const tracks = getAllTracks();
-        const currentIndex = getCurrentTrackIndex();
-        if (currentIndex < tracks.length - 1) {
-          loadJukeboxTrack(tracks[currentIndex + 1].dataset.track);
-        } else if (tracks.length > 0) {
-          // Wrap to first track
-          loadJukeboxTrack(tracks[0].dataset.track);
-        }
-      });
+      pauseBtn.addEventListener('click', pauseJukebox);
+      stopBtn.addEventListener('click', stopJukebox);
       
       seekSlider.addEventListener('input', (e) => {
         if (jukeboxAudioElement?.duration) {
@@ -24878,9 +23954,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
         if (jukeboxGainNode) jukeboxGainNode.gain.value = vol;
         if (jukeboxAudioElement) jukeboxAudioElement.volume = vol;
       });
-      
-      // Store updatePlayPauseIcon for external use
-      window.updateJukeboxPlayPauseIcon = updatePlayPauseIcon;
     }
     
     let jukeboxUseWorklet = false; // Will be set to true if worklet loads successfully
@@ -24976,8 +24049,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (!jukeboxAudioElement) return;
       jukeboxAudioElement.play().then(() => {
         jukeboxIsPlaying = true;
+        document.getElementById('jukebox-play').disabled = true;
+        document.getElementById('jukebox-pause').disabled = false;
+        document.getElementById('jukebox-stop').disabled = false;
         document.getElementById('jukebox-status').textContent = 'Playing';
-        if (window.updateJukeboxPlayPauseIcon) window.updateJukeboxPlayPauseIcon();
         startJukeboxAnalysis();
       });
     }
@@ -24986,8 +24061,9 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (!jukeboxAudioElement) return;
       jukeboxAudioElement.pause();
       jukeboxIsPlaying = false;
+      document.getElementById('jukebox-play').disabled = false;
+      document.getElementById('jukebox-pause').disabled = true;
       document.getElementById('jukebox-status').textContent = 'Paused';
-      if (window.updateJukeboxPlayPauseIcon) window.updateJukeboxPlayPauseIcon();
       stopJukeboxAnalysis();
     }
     
@@ -24996,9 +24072,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
       jukeboxAudioElement.pause();
       jukeboxAudioElement.currentTime = 0;
       jukeboxIsPlaying = false;
+      document.getElementById('jukebox-play').disabled = false;
+      document.getElementById('jukebox-pause').disabled = true;
+      document.getElementById('jukebox-stop').disabled = true;
       document.getElementById('jukebox-seek').value = 0;
       document.getElementById('jukebox-status').textContent = 'Stopped';
-      if (window.updateJukeboxPlayPauseIcon) window.updateJukeboxPlayPauseIcon();
       stopJukeboxAnalysis();
       document.getElementById('jukebox-amp-meter').style.width = '0%';
       document.getElementById('jukebox-amp-value').textContent = '0.0';
@@ -25276,13 +24354,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
         sendJukeboxAudioToPreview(audioData);
         broadcastJukeboxAudioToPJ(audioData);
         
-        // Update Strudel UI meters (throttled)
-        const strudelAmpMeter = document.getElementById('strudel-amp-meter');
-        const strudelAmpValue = document.getElementById('strudel-amp-value');
-        const strudelKickIndicator = document.getElementById('strudel-kick-indicator');
-        if (strudelAmpMeter) strudelAmpMeter.style.width = `${amp * 100}%`;
-        if (strudelAmpValue) strudelAmpValue.textContent = amp.toFixed(2);
-        if (strudelKickIndicator) strudelKickIndicator.classList.toggle('active', strudelCurrentKick);
+        // Update UI (throttled)
+        document.getElementById('jukebox-amp-meter').style.width = `${amp * 100}%`;
+        document.getElementById('jukebox-amp-value').textContent = amp.toFixed(2);
+        document.getElementById('jukebox-kick-indicator').classList.toggle('active', strudelCurrentKick);
       }, 4); // ~250Hz
     }
     
@@ -25310,20 +24385,16 @@ s("ape_breaks_3").loopAt(2)</textarea>
         });
         
         // Initialize Strudel with sample loading - returns the repl
-        // Loads both default dirt-samples AND c_robo's sample library
         strudelRepl = await window.initStrudel({
-          prebake: () => Promise.all([
-            window.samples('github:tidalcycles/dirt-samples'),
-            window.samples('https://cc.oooooooooooooooo.cc/strudel.json', 'https://cc.oooooooooooooooo.cc'),
-          ]),
+          prebake: () => window.samples('github:tidalcycles/dirt-samples'),
         });
         
         // Get Strudel's AudioContext (still needed for audio output)
         strudelAudioContext = window.getAudioContext?.();
         
-        console.log('🌀 Strudel: Loaded with scheduler-based beat detection + c_robo samples (cc.oooooooooooooooo.cc)');
+        console.log('🌀 Strudel: Loaded with scheduler-based beat detection');
         strudelLoaded = true;
-        document.getElementById('strudel-status').textContent = 'Ready (+ c_robo samples)';
+        document.getElementById('strudel-status').textContent = 'Ready';
         return true;
       } catch (err) {
         console.error('Failed to load Strudel:', err);
@@ -25415,44 +24486,27 @@ s("ape_breaks_3").loopAt(2)</textarea>
       document.getElementById('strudel-play').disabled = false;
       document.getElementById('strudel-stop').disabled = true;
       document.getElementById('strudel-status').textContent = 'Stopped';
-      const strudelAmpMeter = document.getElementById('strudel-amp-meter');
-      const strudelAmpValue = document.getElementById('strudel-amp-value');
-      const strudelKickIndicator = document.getElementById('strudel-kick-indicator');
-      if (strudelAmpMeter) strudelAmpMeter.style.width = '0%';
-      if (strudelAmpValue) strudelAmpValue.textContent = '0.0';
-      if (strudelKickIndicator) strudelKickIndicator.classList.remove('active');
+      document.getElementById('jukebox-amp-meter').style.width = '0%';
+      document.getElementById('jukebox-amp-value').textContent = '0.0';
+      document.getElementById('jukebox-kick-indicator').classList.remove('active');
     }
     
     function initStrudelUI() {
-      // Jukebox subtab switching (similar to list subtabs)
-      let currentJukeboxSubtab = 'songs';
-      
-      function showJukeboxSubtab(subtab) {
-        currentJukeboxSubtab = subtab;
-        
-        // Update sub-tab active states
-        document.querySelectorAll('.jukebox-subtab').forEach(el => {
-          el.classList.toggle('active', el.dataset.subtab === subtab);
-        });
-        
-        // Hide all subcontents
-        document.querySelectorAll('.jukebox-subcontent').forEach(el => el.classList.add('hidden'));
-        
-        // Show the corresponding subcontent
-        const subcontent = document.getElementById(`${subtab}-subcontent`);
-        if (subcontent) subcontent.classList.remove('hidden');
-        
-        // Stop other mode when switching
-        if (subtab === 'songs' && strudelPlaying) stopStrudel();
-        if (subtab === 'strudel' && jukeboxIsPlaying) stopJukebox();
-      }
-      
-      // Subtab click handlers
-      document.querySelectorAll('.jukebox-subtab').forEach(subtab => {
-        subtab.addEventListener('click', function(e) {
-          e.stopPropagation();
-          const subtabType = this.dataset.subtab;
-          showJukeboxSubtab(subtabType);
+      // Mode tab switching
+      const jukeboxPanel = document.querySelector('.jukebox-panel');
+      document.querySelectorAll('.jukebox-mode-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const mode = tab.dataset.mode;
+          document.querySelectorAll('.jukebox-mode-tab').forEach(t => t.classList.toggle('active', t === tab));
+          document.getElementById('jukebox-samples-mode').classList.toggle('hidden', mode !== 'songs');
+          document.getElementById('jukebox-strudel-mode').classList.toggle('hidden', mode !== 'strudel');
+          
+          // Update panel theme based on mode
+          if (jukeboxPanel) jukeboxPanel.dataset.mode = mode;
+          
+          // Stop other mode when switching
+          if (mode === 'songs' && strudelPlaying) stopStrudel();
+          if (mode === 'strudel' && jukeboxIsPlaying) stopJukebox();
         });
       });
       

@@ -1,29 +1,3 @@
-# In-Progress Report
-
-## 🤖 Android App Distribution (2026-01-31)
-
-### Status
-- **Play Store Account**: Created with `me@jas.life`, identity verification pending
-- **GitHub Release**: Published at [android-v1.1.0](https://github.com/whistlegraph/aesthetic-computer/releases/tag/android-v1.1.0)
-- **Sideload APK**: `aesthetic-computer-v1.1.0-debug.apk` (~10MB)
-
-### Completed
-- [x] Consumer Android app working on Uniherz Jelly (tested via WiFi debugging)
-- [x] APK uploaded to GitHub releases
-- [x] `/mobile` piece updated with Android sideload option
-
-### Pending
-- [ ] Google Play identity verification (email: me@jas.life)
-- [ ] Generate signing keystore for production release
-- [ ] Build signed release AAB for Play Store submission
-- [ ] Create app listing (screenshots, description, etc.)
-
-### Build Flavors
-- `consumer`: Points to https://aesthetic.computer (Play Store version)
-- `kiosk`: Points to localhost:8443 (device installations)
-
----
-
 # Aesthetic News — Architecture Notes (2026-01-18)
 
 ## Summary of request
