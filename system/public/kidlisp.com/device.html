@@ -396,7 +396,7 @@
     /* Scramble coloring: start white, then transition to target color */
     .scramble-char {
       color: #fff;
-      transition: color 5s ease 1.2s;
+      transition: color 4s ease var(--color-delay, 0s);
     }
 
     #source-code-inner.scramble-coloring .scramble-char {
@@ -815,7 +815,7 @@
         }
         scrambleColorTimeout = setTimeout(() => {
           inner.classList.add('scramble-coloring');
-        }, 1200);
+        }, 0);
       }
       
       // Expose setter for boot message
@@ -929,7 +929,7 @@
           initCharStates(source, pendingHighlightedHtml);
         }
         
-        const result = charStates.map((state) => {
+        const result = charStates.map((state, idx) => {
           if (state.isWhitespace) return escapeHtmlChar(state.char);
           
           // Check if this character should change based on its own rhythm
@@ -940,7 +940,11 @@
           }
           
           const char = escapeHtmlChar(state.currentChar);
-          const colorStyle = state.color ? ` style="--target-color: ${state.color};"` : '';
+          const colorDelayMs = 200 + ((state.original.charCodeAt(0) * 5 + idx * 7) % 1800);
+          const colorDelay = (colorDelayMs / 1000).toFixed(2);
+          const colorStyle = state.color
+            ? ` style="--target-color: ${state.color}; --color-delay: ${colorDelay}s;"`
+            : ` style="--color-delay: ${colorDelay}s;"`;
           return `<span class="scramble-char"${colorStyle}>${char}</span>`;
         });
         
