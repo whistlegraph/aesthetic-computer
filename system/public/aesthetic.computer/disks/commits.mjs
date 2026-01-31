@@ -19,9 +19,9 @@ let loadingMore = false;
 let error = null;
 let lastFetch = 0;
 let pollTimer = null;
-let rowHeight = 9; // MatrixChunky8 is 8px + 1px spacing
-let topMargin = 24; // Below HUD label
-let bottomMargin = 16; // Footer area
+let rowHeight = 10; // MatrixChunky8 is 8px + 2px spacing for elegance
+let topMargin = 28; // Below HUD label with breathing room
+let bottomMargin = 20; // Footer area
 let hue = 0;
 let pulsePhase = 0;
 let needsLayout = true;
@@ -360,12 +360,12 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
   
   // Calculate heights - expanded view with stats
   chatHeight = h - topMargin - bottomMargin;
-  const baseCommitHeight = rowHeight * 2;
-  const expandedCommitHeight = rowHeight * 4; // Extra space for stats
+  const baseCommitHeight = rowHeight * 2 + 4; // Add padding between commits
+  const expandedCommitHeight = rowHeight * 5 + 6; // Extra space for stats + generous padding
   const commitHeight = showDetailedView ? expandedCommitHeight : baseCommitHeight;
-  const yearMarkerHeight = 14;
-  const monthMarkerHeight = 12;
-  const smallMarkerHeight = rowHeight + 2;
+  const yearMarkerHeight = 18; // More prominent year markers
+  const monthMarkerHeight = 14;
+  const smallMarkerHeight = rowHeight + 4;
   
   // Calculate total height including timeline markers
   if (needsLayout) {
@@ -461,38 +461,43 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
       continue;
     }
     
-    // Commit row background (alternating subtle stripes)
+    // Commit row background (alternating subtle stripes with inner padding)
+    const rowPadding = 3;
     if (i % 2 === 0) {
-      ink(18, 20, 28, 100).box(0, y, w, commitHeight);
+      ink(18, 20, 28, 100).box(0, y + rowPadding, w, commitHeight - rowPadding * 2);
     }
     
-    // Row 1: SHA, time, author
+    // Subtle separator line between commits
+    ink(40, 45, 60, 40).line(4, y + commitHeight - 1, w - 4, y + commitHeight - 1);
+    
+    // Row 1: SHA, time, author (with vertical offset for padding)
+    const contentY = y + 4; // Top padding within commit block
     const isNew = i === 0 && hue > 60;
     const shaPulse = isNew ? 200 + sin(pulsePhase * 4) * 55 : 0;
     const shaColor = isNew ? [150 + shaPulse * 0.4, 255, 150 + shaPulse * 0.2] : COLORS.sha;
     
     // SHA with subtle box
-    ink(30, 32, 42).box(2, y + 1, 32, rowHeight - 1);
-    ink(...shaColor).write(commit.sha, { x: 4, y: y + 1 }, false, undefined, false, FONT);
+    ink(30, 32, 42).box(2, contentY, 34, rowHeight);
+    ink(...shaColor).write(commit.sha, { x: 4, y: contentY + 1 }, false, undefined, false, FONT);
     
     // Merge indicator
-    let xOffset = 36;
+    let xOffset = 38;
     if (commit.parents > 1) {
-      ink(180, 140, 200).write("⊕", { x: xOffset, y: y + 1 }, false, undefined, false, FONT);
-      xOffset += 8;
+      ink(180, 140, 200).write("⊕", { x: xOffset, y: contentY + 1 }, false, undefined, false, FONT);
+      xOffset += 10;
     }
     
     // Time ago
     const ago = timeAgo(commit.date);
-    ink(...COLORS.time).write(ago, { x: xOffset, y: y + 1 }, false, undefined, false, FONT);
-    xOffset += text.width(ago + " ", FONT);
+    ink(...COLORS.time).write(ago, { x: xOffset, y: contentY + 1 }, false, undefined, false, FONT);
+    xOffset += text.width(ago + "  ", FONT); // Extra space
     
     // Author (truncate to fit)
     const author = "@" + commit.author.split(" ")[0].toLowerCase().slice(0, 12);
-    ink(...COLORS.author).write(author, { x: xOffset, y: y + 1 }, false, undefined, false, FONT);
+    ink(...COLORS.author).write(author, { x: xOffset, y: contentY + 1 }, false, undefined, false, FONT);
     
-    // Row 2: Message
-    const msgY = y + rowHeight;
+    // Row 2: Message (with extra line spacing)
+    const msgY = contentY + rowHeight + 2;
     const charWidth = 4;
     const maxChars = Math.floor((w - 8) / charWidth);
     const msg = commit.message.slice(0, maxChars);
@@ -500,7 +505,7 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
     
     // Row 3-4: Stats (if detailed view and stats loaded)
     if (showDetailedView) {
-      const statsY = y + rowHeight * 2;
+      const statsY = contentY + rowHeight * 2 + 4; // Extra spacing before stats
       
       if (stats) {
         // Stats line: +additions -deletions files
@@ -532,7 +537,7 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
         
         // File names preview (Row 4)
         if (stats.fileList?.length > 0) {
-          const fileY = statsY + rowHeight;
+          const fileY = statsY + rowHeight + 2; // Extra spacing for file list
           let fx = 4;
           const maxFileWidth = w - 8;
           
