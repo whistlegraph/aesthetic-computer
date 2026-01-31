@@ -414,57 +414,61 @@
        Targets phones in portrait mode to prevent element overlapping
        ═══════════════════════════════════════════════════════════════════════════ */
     @media (max-aspect-ratio: 10/16) and (max-width: 600px) {
-      /* Reduce density-based scaling for mobile */
       :root {
-        --mobile-density: 4;
+        /* Mobile QR container dimensions for layout calculations */
+        --mobile-qr-size: 48px;
+        --mobile-qr-padding: 2px;
+        --mobile-spacing: 8px;
+        /* Total space needed for QR: size + padding*2 + margin from edge + extra gap */
+        --mobile-qr-total-width: calc(var(--mobile-qr-size) + var(--mobile-qr-padding) * 2 + var(--mobile-spacing) * 3);
       }
       
       /* Source code - smaller on mobile */
       #source-code {
-        top: 8px;
-        left: 8px;
-        right: 8px;
+        top: var(--mobile-spacing);
+        left: var(--mobile-spacing);
+        right: var(--mobile-spacing);
         bottom: 100px; /* Leave room for bottom overlays */
         font-size: 10px;
       }
       
       /* QR wrap - smaller and repositioned for mobile */
       #qr-wrap {
-        bottom: 8px;
-        right: 8px;
+        bottom: var(--mobile-spacing);
+        right: var(--mobile-spacing);
       }
       
       #code-label {
         font-size: 10px;
-        padding: 2px 4px;
+        padding: var(--mobile-qr-padding) 4px;
       }
       
       #qr-container {
-        width: 48px;
-        height: 48px;
-        padding: 2px;
+        width: var(--mobile-qr-size);
+        height: var(--mobile-qr-size);
+        padding: var(--mobile-qr-padding);
       }
       
       /* Piece info - smaller on mobile */
       #piece-info {
-        bottom: 8px;
-        left: 8px;
+        bottom: var(--mobile-spacing);
+        left: var(--mobile-spacing);
         font-size: 10px;
-        max-width: calc(100% - 80px); /* Prevent overlap with QR */
+        max-width: calc(100% - var(--mobile-qr-total-width)); /* Prevent overlap with QR */
       }
       
       /* Playlist info - compact layout for mobile slideshow */
       #playlist-info {
-        top: 8px;
-        right: 8px;
-        left: 8px; /* Full width on mobile */
-        padding: 8px;
+        top: var(--mobile-spacing);
+        right: var(--mobile-spacing);
+        left: var(--mobile-spacing); /* Full width on mobile */
+        padding: var(--mobile-spacing);
         font-size: 12px;
         flex-direction: row;
         flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: var(--mobile-spacing);
       }
       
       #playlist-info.visible {
