@@ -1,31 +1,23 @@
-// Mobile, 2026.01.04 → 2026.01.31
-// Download page for the Aesthetic Computer mobile apps (iOS & Android).
-// Redirects to App Store or shows download options.
+// Mobile, 2026.01.04
+// Download page for the Aesthetic Computer mobile app (iOS).
+// Redirects to App Store or shows info page.
 
 const APP_STORE_URL = "https://apps.apple.com/ag/app/aesthetic-computer/id6450940883";
 const APP_ID = "6450940883";
-const ANDROID_APK_URL = "https://github.com/whistlegraph/aesthetic-computer/releases/download/android-v1.1.0/aesthetic-computer-v1.1.0-debug.apk";
-const ANDROID_RELEASE_URL = "https://github.com/whistlegraph/aesthetic-computer/releases/tag/android-v1.1.0";
 
 let TB;
 let animFrame = 0;
 let buttons = [];
 let pulsePhase = 0;
-let isAndroid = false;
 
 function boot({ colon, params, jump, dom, net }) {
-  // Detect platform
+  // If accessed from iOS, redirect directly to App Store
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  isAndroid = /Android/.test(navigator.userAgent);
+  const isAndroid = /Android/.test(navigator.userAgent);
   
   // Check for direct redirect
   if (params[0] === "ios" || params[0] === "appstore") {
     jump(APP_STORE_URL);
-    return;
-  }
-  
-  if (params[0] === "android" || params[0] === "apk") {
-    jump(ANDROID_APK_URL);
     return;
   }
   
@@ -125,23 +117,10 @@ function paint({ wipe, ink, text, box, screen, line, help }) {
   
   btnY += btnHeight + 15;
   
-  // Android button (now with download!)
-  const androidBtnHover = help.button?.index === 1;
-  const androidColor = androidBtnHover ? [60, 80, 60] : [40, 60, 40];
-  ink(...androidColor).box(btnX, btnY, btnWidth, btnHeight);
-  ink(150, 255, 150, 100).box(btnX, btnY, btnWidth, 1);
-  ink(150, 255, 150, 50).box(btnX, btnY + btnHeight - 1, btnWidth, 1);
-  
-  ink(150, 255, 150).text("🤖 Android APK", { x: centerX, y: btnY + btnHeight / 2, center: "xy" });
-  
-  buttons.push({
-    x: btnX,
-    y: btnY,
-    w: btnWidth,
-    h: btnHeight,
-    action: "android",
-    label: "Android APK"
-  });
+  // Android (Coming Soon)
+  ink(40, 40, 40).box(btnX, btnY, btnWidth, btnHeight);
+  ink(100, 100, 100).text("🤖 Android", { x: centerX - 30, y: btnY + btnHeight / 2, center: "y" });
+  ink(80, 80, 80).text("Soon", { x: centerX + 50, y: btnY + btnHeight / 2, center: "y", size: 0.7 });
   
   btnY += btnHeight + 30;
   
@@ -162,8 +141,6 @@ function act({ event: e, jump, help }) {
           e.y >= btn.y && e.y <= btn.y + btn.h) {
         if (btn.action === "ios") {
           jump(APP_STORE_URL);
-        } else if (btn.action === "android") {
-          jump(ANDROID_APK_URL);
         }
       }
     }
@@ -191,7 +168,7 @@ function sim() {
 function meta() {
   return {
     title: "Mobile App",
-    desc: "Download Aesthetic Computer for iOS and Android",
+    desc: "Download Aesthetic Computer for iOS",
     image: "https://aesthetic.computer/thumbnail/mobile.png",
   };
 }

@@ -2472,20 +2472,14 @@ function paint({
   sharpen
 }) {
   const paintStart = performance.now();
-
-  // Hover state (for newbie-friendly overlays)
-  let hoveredNote = null;
-  let hoveredKeyLabel = null;
-  let hoveredNoteColor = null;
   
   // Track FPS - optimized to reduce calculations
   const lastTimestamp = perfStats.lastFrameTimestamp;
   if (lastTimestamp > 0) {
     const delta = paintStart - lastTimestamp;
-    // Only update FPS if at least 1ms has passed (prevents absurd values from rapid calls)
-    if (delta >= 1) {
+    if (delta > 0) {
       perfStats.frameTime = delta;
-      const instantFps = Math.min(1000 / delta, 240); // Cap at 240 FPS for display
+      const instantFps = 1000 / delta;
       const frameCount = perfStats.fpsFrameCount || 0;
       // Quick ramp up for first 10 frames, then smooth
       const smoothing = frameCount < 10 ? 0.5 : 0.8;
@@ -2863,7 +2857,6 @@ function paint({
       ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(btn.box);
-        ink(0, 255, 200, 140).box(btn.box, "outline");
       }
       ink(textColor).write(secondaryBarLabels.slide, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
@@ -2884,7 +2877,6 @@ function paint({
       ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(btn.box);
-        ink(190, 160, 255, 140).box(btn.box, "outline");
       }
       ink(textColor).write(secondaryBarLabels.room, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
@@ -2923,7 +2915,6 @@ function paint({
       ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(btn.box);
-        ink(255, 140, 210, 140).box(btn.box, "outline");
       }
       ink(textColor).write(secondaryBarLabels.glitch, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
@@ -2944,7 +2935,6 @@ function paint({
       ink(olR, olG, olB, olA).box(btn.box, "outline");
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(btn.box);
-        ink(255, 200, 80, 140).box(btn.box, "outline");
       }
       ink(textColor).write(secondaryBarLabels.quick, { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
@@ -2965,10 +2955,7 @@ function paint({
       const textColor = btn.down ? "white" : [255, 120, 120];
       ink(bgR, bgG, bgB, bgA).box(btn.box);
       ink(olR, olG, olB, olA).box(btn.box, "outline");
-      if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(btn.box);
-        ink(255, 120, 120, 140).box(btn.box, "outline");
-      }
+      if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
       ink(textColor).write("-", { x: btn.box.x + TOGGLE_BTN_PADDING_X + 1, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
     
@@ -2997,10 +2984,7 @@ function paint({
         ink(255, 255, 255, flashAlpha).box(bx, by, bw, bh);
       }
       ink(olR, olG, olB, olA).box(bx, by, bw, bh, "outline");
-      if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(bx, by, bw, bh);
-        ink(200, 220, 255, 140).box(bx, by, bw, bh, "outline");
-      }
+      if (btn.over && !btn.down) ink(255, 255, 255, 24).box(bx, by, bw, bh);
       // Flash the button on beat
       if (metronomeEnabled && metronomeVisualPhase > 0.5) {
         ink(255, 255, 255, Math.floor(metronomeVisualPhase * 60)).box(bx, by, bw, bh);
@@ -3028,10 +3012,7 @@ function paint({
       const textColor = btn.down ? "white" : [120, 255, 140];
       ink(bgR, bgG, bgB, bgA).box(btn.box);
       ink(olR, olG, olB, olA).box(btn.box, "outline");
-      if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(btn.box);
-        ink(120, 255, 140, 140).box(btn.box, "outline");
-      }
+      if (btn.over && !btn.down) ink(255, 255, 255, 24).box(btn.box);
       ink(textColor).write("+", { x: btn.box.x + TOGGLE_BTN_PADDING_X + 2, y: btn.box.y + TOGGLE_BTN_PADDING_Y }, undefined, undefined, false, "MatrixChunky8");
     });
 
@@ -3101,39 +3082,28 @@ function paint({
       : topMidiMetrics.x + topMidiMetrics.width + 3;
     // Stream should stop before metronome buttons (bpmMinusBtn), not the toggle buttons
     const streamRight = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 2 : (slideBtn?.box?.x ? slideBtn.box.x - 4 : screen.width - 4);
-    // Stream (waveform preview) removed from the mini bar
-    const streamWidth = 0;
-
-    // Hover ghost-note preview for newbies
-    let hoverPillWidth = 0;
-    if (hoveredNote) {
-      const hoverNoteText = isBlackKey(hoveredNote) ? hoveredNote.toLowerCase() : hoveredNote.toUpperCase();
-      const keySuffix = hoveredKeyLabel ? ` / ${hoveredKeyLabel}` : "";
-      const hoverText = `${hoverNoteText}${keySuffix}`;
-      const hoverTextW = hoverText.length * matrixGlyphMetrics.width;
-      const hoverPad = 6;
-      const hoverMaxW = Math.max(0, streamRight - streamLeft);
-      const hoverW = Math.min(hoverTextW + hoverPad, hoverMaxW);
-      if (hoverW > 10) {
-        const hoverY = SECONDARY_BAR_TOP + Math.floor((SECONDARY_BAR_HEIGHT - 8) / 2);
-        const hoverColor = hoveredNoteColor || getCachedColor(hoveredNote, num);
-        const hoverTextColor = getContrastingTextColor(hoverColor);
-        ink(hoverColor[0], hoverColor[1], hoverColor[2], 200).box(streamLeft, hoverY, hoverW, 8);
-        ink(hoverColor[0], hoverColor[1], hoverColor[2], 255).box(streamLeft, hoverY, hoverW, 8, "outline");
-        ink(hoverTextColor).write(
-          hoverText,
-          { x: streamLeft + 3, y: hoverY + 1 },
-          undefined,
-          undefined,
-          false,
-          "MatrixChunky8",
-        );
-        hoverPillWidth = hoverW;
-      }
+    const streamMaxWidth = streamRight - streamLeft;
+    // Use up to 40% of available space for stream, rest for active notes list
+    const streamWidth = Math.max(0, Math.min(Math.floor(streamMaxWidth * 0.4), streamMaxWidth));
+    const streamHeight = 6;
+    if (streamWidth > 6) {
+      const streamY =
+        SECONDARY_BAR_TOP +
+        Math.floor((SECONDARY_BAR_HEIGHT - streamHeight) / 2);
+      drawSampleStream(
+        {
+          x: streamLeft,
+          y: streamY,
+          width: streamWidth,
+          height: streamHeight,
+        },
+        waveformsForBars,
+        paintCount,
+      );
     }
 
     // Linear active note list (colored) between stream and metronome buttons
-    const listStartX = streamLeft + (streamWidth > 0 ? streamWidth + 4 : 0) + (hoverPillWidth > 0 ? hoverPillWidth + 4 : 0);
+    const listStartX = streamLeft + (streamWidth > 0 ? streamWidth + 4 : 0);
     // List should also stop before metronome buttons
     const listRight = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 2 : (slideBtn?.box?.x ? slideBtn.box.x - 4 : screen.width - 4);
     const listHeight = 8;
@@ -4016,7 +3986,6 @@ function paint({
       { primaryColor, secondaryColor },
     );
 
-    // Only show stample waveform needle when relevant
     if (wave === "stample" && stampleSampleData?.length) {
       const needleNote = stampleNeedleNote || active?.[active.length - 1];
       const needleColor = needleNote ? colorFromNote(needleNote, num) : [255, 255, 255];
@@ -4197,13 +4166,6 @@ function paint({
           btn.box.w,
           btn.box.h - 3,
         );
-        ink(80, 140, 255, 140).box(
-          btn.box.x,
-          btn.box.y + 3,
-          btn.box.w,
-          btn.box.h - 3,
-          "outline",
-        );
       }
       ink("orange").line(
         btn.box.x + btn.box.w,
@@ -4238,13 +4200,6 @@ function paint({
           btn.box.y + 3,
           btn.box.w - 4,
           btn.box.h - 3,
-        );
-        ink(255, 160, 220, 140).box(
-          btn.box.x,
-          btn.box.y + 3,
-          btn.box.w - 4,
-          btn.box.h - 3,
-          "outline",
         );
       }
       ink(btn.down ? "yellow" : "pink");
@@ -4380,7 +4335,6 @@ function paint({
           let isBlocked = false;
 
           // In song mode, check if this note is blocked (not the current note)
-          let hoverBaseColor = null;
           if (song && note.toUpperCase() !== songCurrentNote) {
             isBlocked = true;
             color = "black"; // Blocked notes are black
@@ -4390,7 +4344,6 @@ function paint({
             const isSemitone = note.includes("#");
             // Semitones get darker and shifted toward black for clear visual distinction
             const tinted = isSemitone ? darkenColor(baseColor, 0.45) : baseColor;
-            hoverBaseColor = tinted;
             // When held: extreme dayglow neon flash effect - cycle through RGB
             if ((!slide && btn.down) || (btn.down && slide)) {
               const flashPhase = (paintCount * 0.15) % 3;
@@ -4462,15 +4415,8 @@ function paint({
             }
           }
           if (btn.over && !btn.down && !isBlocked) {
-            const hoverTint = hoverBaseColor || [200, 220, 255];
-            ink(hoverTint[0], hoverTint[1], hoverTint[2], 40).box(btn.box);
-            ink(hoverTint[0], hoverTint[1], hoverTint[2], 140).box(btn.box, "outline");
-
-            if (!hoveredNote) {
-              hoveredNote = note;
-              hoveredKeyLabel = formatKeyLabel(noteToKeyboardKey(note) || "");
-              hoveredNoteColor = hoverTint;
-            }
+            ink(255, 255, 255, 24).box(btn.box);
+            ink(255, 255, 255, 48).box(btn.box, "outline");
           }
           // const accent = colorFromNote(note, num);
           // ink(accent).box(btn.box.x + btn.box.w - 8, btn.box.y + 4, 4);
