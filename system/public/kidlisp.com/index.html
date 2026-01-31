@@ -3980,20 +3980,8 @@
       flex-direction: column;
     }
     
-    .jukebox-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
-      overflow: hidden;
-      transition: background 0.3s ease;
-    }
-    
-    /* === MODE-BASED THEMING === */
-    /* Songs Mode: Spotify-style (lime green #1DB954 on dark) */
-    .jukebox-panel[data-mode="songs"] {
+    /* Songs subcontent: Spotify-style (lime green #1DB954 on dark) */
+    #songs-subcontent {
       --jukebox-accent: #1DB954;
       --jukebox-accent-hover: #1ed760;
       --jukebox-accent-dim: rgba(29, 185, 84, 0.15);
@@ -4006,8 +3994,8 @@
       color: var(--jukebox-text);
     }
     
-    /* Strudel Mode: dark with gold accent */
-    .jukebox-panel[data-mode="strudel"] {
+    /* Strudel subcontent: dark with gold accent */
+    #strudel-subcontent {
       --jukebox-accent: #ffcc00;
       --jukebox-accent-hover: #ffd633;
       --jukebox-accent-dim: rgba(255, 204, 0, 0.15);
@@ -4209,51 +4197,6 @@
       padding: 8px;
     }
     
-    /* Jukebox Mode Tabs */
-    .jukebox-mode-tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 8px;
-    }
-    .jukebox-mode-tab {
-      flex: 1;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 20px;
-      background: rgba(255, 255, 255, 0.1);
-      color: #b3b3b3;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-    .jukebox-mode-tab:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
-    
-    /* Songs tab (Spotify green) */
-    .jukebox-mode-tab[data-mode="songs"].active {
-      background: #1DB954;
-      color: #000;
-    }
-    .jukebox-mode-tab[data-mode="songs"].active:hover {
-      background: #1ed760;
-    }
-    
-    /* Strudel tab (gold) */
-    .jukebox-mode-tab[data-mode="strudel"].active {
-      background: #ffcc00;
-      color: #000;
-    }
-    .jukebox-mode-tab[data-mode="strudel"].active:hover {
-      background: #ffd633;
-    }
-    
-    .jukebox-mode-content { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
-    .jukebox-mode-content.hidden { display: none; }
-    
     /* Strudel Editor - matches strudel.cc theme */
     .strudel-editor-container {
       flex: 1;
@@ -4317,6 +4260,197 @@
       .list-subtab:hover {
         filter: brightness(1.1);
       }
+    }
+    
+    /* Jukebox sub-tabs bar (similar to list subtabs) */
+    .jukebox-subtabs {
+      display: flex;
+      justify-content: flex-start;
+      width: 100%;
+      border-bottom: none;
+      background: rgba(59, 130, 246, 0.65);
+      height: 44px;
+    }
+    
+    [data-theme="dark"] .jukebox-subtabs {
+      background: rgba(59, 130, 246, 0.8);
+    }
+    
+    .jukebox-subtab {
+      width: 94px;
+      min-width: 94px;
+      box-sizing: border-box;
+      padding: 0;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid var(--border-color);
+      border-left: 1px solid transparent;
+      border: none;
+      transition: all 0.2s;
+      background: transparent;
+    }
+    
+    .jukebox-subtab.active {
+      font-weight: 600;
+    }
+    
+    /* Sub-tab colors - Songs (Spotify Green) */
+    .jukebox-subtab[data-subtab="songs"] {
+      background: rgba(59, 130, 246, 0.65);
+      color: #1e3a5f;
+    }
+    .jukebox-subtab[data-subtab="songs"].active {
+      background: linear-gradient(to bottom, #1DB954 0%, #169c46 100%);
+      color: #fff;
+    }
+    
+    /* Sub-tab colors - Strudel (Gold) */
+    .jukebox-subtab[data-subtab="strudel"] {
+      background: rgba(59, 130, 246, 0.65);
+      color: #1e3a5f;
+    }
+    .jukebox-subtab[data-subtab="strudel"].active {
+      background: linear-gradient(to bottom, #ffcc00 0%, #e6b800 100%);
+      color: #1a1a00;
+    }
+    
+    /* Dark mode jukebox sub-tabs */
+    [data-theme="dark"] .jukebox-subtab[data-subtab="songs"] {
+      background: rgba(59, 130, 246, 0.8);
+      color: #93c5fd;
+    }
+    [data-theme="dark"] .jukebox-subtab[data-subtab="songs"].active {
+      background: linear-gradient(to bottom, #1DB954 0%, #15803d 100%);
+      color: #fff;
+    }
+    [data-theme="dark"] .jukebox-subtab[data-subtab="strudel"] {
+      background: rgba(59, 130, 246, 0.8);
+      color: #93c5fd;
+    }
+    [data-theme="dark"] .jukebox-subtab[data-subtab="strudel"].active {
+      background: linear-gradient(to bottom, #ffcc00 0%, #cc9900 100%);
+      color: #1a1a00;
+    }
+    
+    @media (hover: hover) {
+      .jukebox-subtab:hover {
+        filter: brightness(1.1);
+      }
+    }
+    
+    .jukebox-subcontent {
+      flex: 1;
+      overflow: auto;
+      width: 100%;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .jukebox-subcontent.hidden {
+      display: none;
+    }
+    
+    /* Spotify-style player transport controls */
+    .spotify-transport {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 16px 0;
+    }
+    
+    .spotify-btn {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .spotify-btn:hover:not(:disabled) {
+      transform: scale(1.1);
+    }
+    
+    .spotify-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
+    .spotify-btn svg {
+      fill: currentColor;
+    }
+    
+    .spotify-btn-prev,
+    .spotify-btn-next {
+      width: 32px;
+      height: 32px;
+      color: var(--jukebox-text, #fff);
+    }
+    
+    .spotify-btn-play {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--jukebox-accent, #1DB954) !important;
+      color: #000;
+    }
+    
+    .spotify-btn-play:hover:not(:disabled) {
+      background: var(--jukebox-accent-hover, #1ed760) !important;
+    }
+    
+    /* Strudel play controls - different style */
+    .strudel-transport {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px 0;
+    }
+    
+    .strudel-btn {
+      width: 48px;
+      height: 48px;
+      border: 2px solid var(--jukebox-accent, #ffcc00);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--jukebox-accent, #ffcc00);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    
+    .strudel-btn:hover:not(:disabled) {
+      background: var(--jukebox-accent-dim, rgba(255, 204, 0, 0.2));
+      transform: scale(1.05);
+    }
+    
+    .strudel-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
+    .strudel-btn.playing {
+      background: var(--jukebox-accent, #ffcc00);
+      color: #000;
+      animation: strudel-pulse 0.5s ease-in-out infinite alternate;
+    }
+    
+    @keyframes strudel-pulse {
+      from { box-shadow: 0 0 5px var(--jukebox-accent); }
+      to { box-shadow: 0 0 15px var(--jukebox-accent); }
     }
     
     .list-subcontent {
@@ -9170,112 +9304,128 @@
           </div>
         </div><!-- /list-content -->
         <div class="docs-content hidden" id="jukebox-content">
-            <div class="jukebox-panel" data-mode="songs">
-              <!-- Mode Tabs + Meters (always visible at top) -->
-              <div class="jukebox-controls-area">
-                <div class="jukebox-mode-tabs">
-                  <button class="jukebox-mode-tab active" data-mode="songs"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16" fill="#000"/></svg> Songs</button>
-                  <button class="jukebox-mode-tab" data-mode="strudel"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2"/><path d="M12 6c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg> Strudel</button>
-                </div>
-                
-                <!-- Audio Meters (shared, always visible) -->
-                <div class="jukebox-meters">
-                  <div class="jukebox-meter-row">
-                    <span class="jukebox-meter-label">amp</span>
-                    <div class="jukebox-meter-bar"><div class="jukebox-meter-fill" id="jukebox-amp-meter"></div></div>
-                    <span class="jukebox-meter-value" id="jukebox-amp-value">0.0</span>
-                  </div>
-                  <div class="jukebox-meter-row">
-                    <span class="jukebox-meter-label">kick</span>
-                    <div class="jukebox-beat-indicator" id="jukebox-kick-indicator"></div>
-                  </div>
-                </div>
+          <!-- Jukebox sub-tabs -->
+          <div class="jukebox-subtabs">
+            <div class="jukebox-subtab active" data-subtab="songs">Songs</div>
+            <div class="jukebox-subtab" data-subtab="strudel">Strudel</div>
+          </div>
+          
+          <!-- Songs subcontent -->
+          <div class="jukebox-subcontent" id="songs-subcontent">
+            <div class="jukebox-controls-area">
+              <!-- Now Playing with Cover Art -->
+              <div class="jukebox-now-playing" style="display: flex; align-items: center; gap: 12px;">
+                <img id="jukebox-cover-art" src="https://aesthetic.computer/assets/oskie/wipppps/wipppps_cover.jpeg" alt="Album cover" style="width: 48px; height: 48px; border-radius: 4px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                <span class="jukebox-track-name" id="jukebox-track-name">Select a track</span>
               </div>
               
-              <!-- Songs Mode -->
-              <div class="jukebox-mode-content" id="jukebox-samples-mode">
-                <div class="jukebox-controls-area" style="border-bottom: none; padding-top: 0;">
-                  <!-- Now Playing with Cover Art -->
-                  <div class="jukebox-now-playing" style="display: flex; align-items: center; gap: 12px;">
-                    <img id="jukebox-cover-art" src="https://aesthetic.computer/assets/oskie/wipppps/wipppps_cover.jpeg" alt="Album cover" style="width: 48px; height: 48px; border-radius: 4px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-                    <span class="jukebox-track-name" id="jukebox-track-name">Select a track</span>
-                  </div>
-                  
-                  <!-- Player Controls -->
-                  <div class="jukebox-controls">
-                    <button class="jukebox-btn" id="jukebox-play" title="Play">▶</button>
-                    <button class="jukebox-btn" id="jukebox-pause" title="Pause" disabled>⏸</button>
-                    <button class="jukebox-btn" id="jukebox-stop" title="Stop" disabled>⏹</button>
-                  </div>
-                  
-                  <!-- Progress Bar -->
-                  <div class="jukebox-progress">
-                    <input type="range" id="jukebox-seek" min="0" max="100" value="0" disabled>
-                    <span class="jukebox-time" id="jukebox-time">0:00 / 0:00</span>
-                  </div>
-                  
-                  <!-- Volume -->
-                  <div class="jukebox-volume">
-                    <span>🔊</span>
-                    <input type="range" id="jukebox-volume" min="0" max="100" value="70">
-                  </div>
-                </div>
-                
-                <!-- Track List (scrollable) -->
-                <div class="jukebox-scroll-area">
-                  <div class="jukebox-tracklist" id="jukebox-tracklist">
-                    <div class="jukebox-track" data-track="zzzZWAP.wav"><span class="jukebox-track-title">zzzZWAP</span><span class="jukebox-track-artist">oskie</span></div>
-                    <div class="jukebox-track" data-track="ARrrGh.wav"><span class="jukebox-track-title">ARrrGh</span><span class="jukebox-track-artist">oskie</span></div>
-                    <div class="jukebox-track" data-track="BLuRP.wav"><span class="jukebox-track-title">BLuRP</span><span class="jukebox-track-artist">oskie</span></div>
-                    <div class="jukebox-track" data-track="GrRr.wav"><span class="jukebox-track-title">GrRr</span><span class="jukebox-track-artist">oskie</span></div>
-                    <div class="jukebox-track" data-track="HoNK.wav"><span class="jukebox-track-title">HoNK</span><span class="jukebox-track-artist">oskie</span></div>
-                    <div class="jukebox-track" data-track="KLOnK.wav"><span class="jukebox-track-title">KLOnK</span><span class="jukebox-track-artist">oskie</span></div>
-                    <div class="jukebox-track" data-track="PaFf_master.wav"><span class="jukebox-track-title">PaFf</span><span class="jukebox-track-artist">oskie</span></div>
-                    <div class="jukebox-track" data-track="WHoOSh.wav"><span class="jukebox-track-title">WHoOSh</span><span class="jukebox-track-artist">oskie</span></div>
-                  </div>
-                </div>
+              <!-- Spotify-style Transport Controls -->
+              <div class="spotify-transport">
+                <button class="spotify-btn spotify-btn-prev" id="jukebox-prev" title="Previous">
+                  <svg width="32" height="32" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                </button>
+                <button class="spotify-btn spotify-btn-play" id="jukebox-play-pause" title="Play">
+                  <svg width="28" height="28" viewBox="0 0 24 24" id="jukebox-play-icon"><polygon points="8,5 19,12 8,19"/></svg>
+                  <svg width="28" height="28" viewBox="0 0 24 24" id="jukebox-pause-icon" style="display:none;"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                </button>
+                <button class="spotify-btn spotify-btn-next" id="jukebox-next" title="Next">
+                  <svg width="32" height="32" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6z"/></svg>
+                </button>
               </div>
               
-              <!-- Strudel Mode -->
-              <div class="jukebox-mode-content hidden" id="jukebox-strudel-mode">
-                <div class="jukebox-controls-area" style="border-bottom: none; padding-top: 0;">
-                  <!-- Strudel Status -->
-                  <div class="jukebox-now-playing">
-                    <span class="jukebox-track-name" id="strudel-status">Ready</span>
-                  </div>
-                  
-                  <!-- Strudel Controls -->
-                  <div class="jukebox-controls">
-                    <button class="jukebox-btn" id="strudel-play" title="Play (Ctrl+Enter)">▶</button>
-                    <button class="jukebox-btn" id="strudel-stop" title="Stop" disabled>⏹</button>
-                  </div>
-                  
-                  <!-- Volume -->
-                  <div class="jukebox-volume">
-                    <span>🔊</span>
-                    <input type="range" id="strudel-volume" min="0" max="100" value="70">
-                  </div>
-                  
-                  <!-- Preset Patterns -->
-                  <div class="strudel-presets">
-                    <button class="strudel-preset" data-code="s('bd sd hh sd')">Basic</button>
-                    <button class="strudel-preset" data-code="s('bd*2, hh*4, ~ sd')">Drums</button>
-                    <button class="strudel-preset" data-code="note('c3 e3 g3 b3').s('sawtooth').cutoff(800)">Synth</button>
-                    <button class="strudel-preset" data-code="s('bd sd hh sd').jux(rev)">Jux</button>
-                  </div>
-                </div>
-                
-                <!-- Strudel Code Editor (scrollable area) -->
-                <div class="jukebox-scroll-area">
-                  <div class="strudel-editor-container">
-                    <textarea id="strudel-code" placeholder="// Strudel live coding - press Ctrl+Enter to play&#10;// Try: s('bd sd hh sd')&#10;// Or: note('c3 e3 g3').s('sawtooth')">s("bd sd hh sd")</textarea>
-                  </div>
-                </div>
+              <!-- Progress Bar -->
+              <div class="jukebox-progress">
+                <input type="range" id="jukebox-seek" min="0" max="100" value="0" disabled>
+                <span class="jukebox-time" id="jukebox-time">0:00 / 0:00</span>
               </div>
               
-              <!-- Status -->
-              <div class="jukebox-status" id="jukebox-status"></div>
+              <!-- Volume -->
+              <div class="jukebox-volume">
+                <span>🔊</span>
+                <input type="range" id="jukebox-volume" min="0" max="100" value="70">
+              </div>
+              
+              <!-- Audio Meters -->
+              <div class="jukebox-meters">
+                <div class="jukebox-meter-row">
+                  <span class="jukebox-meter-label">amp</span>
+                  <div class="jukebox-meter-bar"><div class="jukebox-meter-fill" id="jukebox-amp-meter"></div></div>
+                  <span class="jukebox-meter-value" id="jukebox-amp-value">0.0</span>
+                </div>
+                <div class="jukebox-meter-row">
+                  <span class="jukebox-meter-label">kick</span>
+                  <div class="jukebox-beat-indicator" id="jukebox-kick-indicator"></div>
+                </div>
+              </div>
             </div>
+            
+            <!-- Track List (scrollable) -->
+            <div class="jukebox-scroll-area">
+              <div class="jukebox-tracklist" id="jukebox-tracklist">
+                <div class="jukebox-track" data-track="zzzZWAP.wav"><span class="jukebox-track-title">zzzZWAP</span><span class="jukebox-track-artist">oskie</span></div>
+                <div class="jukebox-track" data-track="ARrrGh.wav"><span class="jukebox-track-title">ARrrGh</span><span class="jukebox-track-artist">oskie</span></div>
+                <div class="jukebox-track" data-track="BLuRP.wav"><span class="jukebox-track-title">BLuRP</span><span class="jukebox-track-artist">oskie</span></div>
+                <div class="jukebox-track" data-track="GrRr.wav"><span class="jukebox-track-title">GrRr</span><span class="jukebox-track-artist">oskie</span></div>
+                <div class="jukebox-track" data-track="HoNK.wav"><span class="jukebox-track-title">HoNK</span><span class="jukebox-track-artist">oskie</span></div>
+                <div class="jukebox-track" data-track="KLOnK.wav"><span class="jukebox-track-title">KLOnK</span><span class="jukebox-track-artist">oskie</span></div>
+                <div class="jukebox-track" data-track="PaFf_master.wav"><span class="jukebox-track-title">PaFf</span><span class="jukebox-track-artist">oskie</span></div>
+                <div class="jukebox-track" data-track="WHoOSh.wav"><span class="jukebox-track-title">WHoOSh</span><span class="jukebox-track-artist">oskie</span></div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Strudel subcontent -->
+          <div class="jukebox-subcontent hidden" id="strudel-subcontent">
+            <div class="jukebox-controls-area">
+              <!-- Strudel Status -->
+              <div class="jukebox-now-playing">
+                <span class="jukebox-track-name" id="strudel-status">Ready</span>
+              </div>
+              
+              <!-- Strudel Transport Controls -->
+              <div class="strudel-transport">
+                <button class="strudel-btn" id="strudel-play" title="Play (Ctrl+Enter)">▶</button>
+                <button class="strudel-btn" id="strudel-stop" title="Stop" disabled>⏹</button>
+              </div>
+              
+              <!-- Volume -->
+              <div class="jukebox-volume">
+                <span>🔊</span>
+                <input type="range" id="strudel-volume" min="0" max="100" value="70">
+              </div>
+              
+              <!-- Preset Patterns -->
+              <div class="strudel-presets">
+                <button class="strudel-preset" data-code="s('bd sd hh sd')">Basic</button>
+                <button class="strudel-preset" data-code="s('bd*2, hh*4, ~ sd')">Drums</button>
+                <button class="strudel-preset" data-code="note('c3 e3 g3 b3').s('sawtooth').cutoff(800)">Synth</button>
+                <button class="strudel-preset" data-code="s('bd sd hh sd').jux(rev)">Jux</button>
+              </div>
+              
+              <!-- Audio Meters (for Strudel) -->
+              <div class="jukebox-meters">
+                <div class="jukebox-meter-row">
+                  <span class="jukebox-meter-label">amp</span>
+                  <div class="jukebox-meter-bar"><div class="jukebox-meter-fill" id="strudel-amp-meter"></div></div>
+                  <span class="jukebox-meter-value" id="strudel-amp-value">0.0</span>
+                </div>
+                <div class="jukebox-meter-row">
+                  <span class="jukebox-meter-label">kick</span>
+                  <div class="jukebox-beat-indicator" id="strudel-kick-indicator"></div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Strudel Code Editor (scrollable area) -->
+            <div class="jukebox-scroll-area">
+              <div class="strudel-editor-container">
+                <textarea id="strudel-code" placeholder="// Strudel live coding - press Ctrl+Enter to play&#10;// Try: s('bd sd hh sd')&#10;// Or: note('c3 e3 g3').s('sawtooth')">s("bd sd hh sd")</textarea>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Status -->
+          <div class="jukebox-status" id="jukebox-status"></div>
         </div><!-- /jukebox-content -->
         <div class="docs-content hidden" id="reference-content">
           <div id="book-container"></div>
@@ -23922,26 +24072,76 @@
     }
     
     function initJukebox() {
-      const playBtn = document.getElementById('jukebox-play');
-      const pauseBtn = document.getElementById('jukebox-pause');
-      const stopBtn = document.getElementById('jukebox-stop');
+      const playPauseBtn = document.getElementById('jukebox-play-pause');
+      const prevBtn = document.getElementById('jukebox-prev');
+      const nextBtn = document.getElementById('jukebox-next');
+      const playIcon = document.getElementById('jukebox-play-icon');
+      const pauseIcon = document.getElementById('jukebox-pause-icon');
       const seekSlider = document.getElementById('jukebox-seek');
       const volumeSlider = document.getElementById('jukebox-volume');
       const trackList = document.getElementById('jukebox-tracklist');
       
-      if (!playBtn || !trackList) return;
+      if (!playPauseBtn || !trackList) return;
+      
+      // Get all tracks for prev/next navigation
+      function getAllTracks() {
+        return Array.from(trackList.querySelectorAll('.jukebox-track'));
+      }
+      
+      function getCurrentTrackIndex() {
+        const tracks = getAllTracks();
+        return tracks.findIndex(t => t.dataset.track === jukeboxCurrentTrack);
+      }
+      
+      // Update play/pause icon state
+      function updatePlayPauseIcon() {
+        if (playIcon && pauseIcon) {
+          playIcon.style.display = jukeboxIsPlaying ? 'none' : 'block';
+          pauseIcon.style.display = jukeboxIsPlaying ? 'block' : 'none';
+        }
+      }
       
       trackList.addEventListener('click', (e) => {
         const trackEl = e.target.closest('.jukebox-track');
         if (trackEl) loadJukeboxTrack(trackEl.dataset.track);
       });
       
-      playBtn.addEventListener('click', () => {
-        if (jukeboxAudioElement?.src) playJukebox();
-        else if (jukeboxCurrentTrack) loadJukeboxTrack(jukeboxCurrentTrack);
+      playPauseBtn.addEventListener('click', () => {
+        if (jukeboxIsPlaying) {
+          pauseJukebox();
+        } else if (jukeboxAudioElement?.src) {
+          playJukebox();
+        } else if (jukeboxCurrentTrack) {
+          loadJukeboxTrack(jukeboxCurrentTrack);
+        } else {
+          // Auto-play first track if nothing selected
+          const tracks = getAllTracks();
+          if (tracks.length > 0) loadJukeboxTrack(tracks[0].dataset.track);
+        }
+        updatePlayPauseIcon();
       });
-      pauseBtn.addEventListener('click', pauseJukebox);
-      stopBtn.addEventListener('click', stopJukebox);
+      
+      prevBtn?.addEventListener('click', () => {
+        const tracks = getAllTracks();
+        const currentIndex = getCurrentTrackIndex();
+        if (currentIndex > 0) {
+          loadJukeboxTrack(tracks[currentIndex - 1].dataset.track);
+        } else if (tracks.length > 0) {
+          // Wrap to last track
+          loadJukeboxTrack(tracks[tracks.length - 1].dataset.track);
+        }
+      });
+      
+      nextBtn?.addEventListener('click', () => {
+        const tracks = getAllTracks();
+        const currentIndex = getCurrentTrackIndex();
+        if (currentIndex < tracks.length - 1) {
+          loadJukeboxTrack(tracks[currentIndex + 1].dataset.track);
+        } else if (tracks.length > 0) {
+          // Wrap to first track
+          loadJukeboxTrack(tracks[0].dataset.track);
+        }
+      });
       
       seekSlider.addEventListener('input', (e) => {
         if (jukeboxAudioElement?.duration) {
@@ -23954,6 +24154,9 @@
         if (jukeboxGainNode) jukeboxGainNode.gain.value = vol;
         if (jukeboxAudioElement) jukeboxAudioElement.volume = vol;
       });
+      
+      // Store updatePlayPauseIcon for external use
+      window.updateJukeboxPlayPauseIcon = updatePlayPauseIcon;
     }
     
     let jukeboxUseWorklet = false; // Will be set to true if worklet loads successfully
@@ -24049,10 +24252,8 @@
       if (!jukeboxAudioElement) return;
       jukeboxAudioElement.play().then(() => {
         jukeboxIsPlaying = true;
-        document.getElementById('jukebox-play').disabled = true;
-        document.getElementById('jukebox-pause').disabled = false;
-        document.getElementById('jukebox-stop').disabled = false;
         document.getElementById('jukebox-status').textContent = 'Playing';
+        if (window.updateJukeboxPlayPauseIcon) window.updateJukeboxPlayPauseIcon();
         startJukeboxAnalysis();
       });
     }
@@ -24061,9 +24262,8 @@
       if (!jukeboxAudioElement) return;
       jukeboxAudioElement.pause();
       jukeboxIsPlaying = false;
-      document.getElementById('jukebox-play').disabled = false;
-      document.getElementById('jukebox-pause').disabled = true;
       document.getElementById('jukebox-status').textContent = 'Paused';
+      if (window.updateJukeboxPlayPauseIcon) window.updateJukeboxPlayPauseIcon();
       stopJukeboxAnalysis();
     }
     
@@ -24072,11 +24272,9 @@
       jukeboxAudioElement.pause();
       jukeboxAudioElement.currentTime = 0;
       jukeboxIsPlaying = false;
-      document.getElementById('jukebox-play').disabled = false;
-      document.getElementById('jukebox-pause').disabled = true;
-      document.getElementById('jukebox-stop').disabled = true;
       document.getElementById('jukebox-seek').value = 0;
       document.getElementById('jukebox-status').textContent = 'Stopped';
+      if (window.updateJukeboxPlayPauseIcon) window.updateJukeboxPlayPauseIcon();
       stopJukeboxAnalysis();
       document.getElementById('jukebox-amp-meter').style.width = '0%';
       document.getElementById('jukebox-amp-value').textContent = '0.0';
@@ -24354,10 +24552,13 @@
         sendJukeboxAudioToPreview(audioData);
         broadcastJukeboxAudioToPJ(audioData);
         
-        // Update UI (throttled)
-        document.getElementById('jukebox-amp-meter').style.width = `${amp * 100}%`;
-        document.getElementById('jukebox-amp-value').textContent = amp.toFixed(2);
-        document.getElementById('jukebox-kick-indicator').classList.toggle('active', strudelCurrentKick);
+        // Update Strudel UI meters (throttled)
+        const strudelAmpMeter = document.getElementById('strudel-amp-meter');
+        const strudelAmpValue = document.getElementById('strudel-amp-value');
+        const strudelKickIndicator = document.getElementById('strudel-kick-indicator');
+        if (strudelAmpMeter) strudelAmpMeter.style.width = `${amp * 100}%`;
+        if (strudelAmpValue) strudelAmpValue.textContent = amp.toFixed(2);
+        if (strudelKickIndicator) strudelKickIndicator.classList.toggle('active', strudelCurrentKick);
       }, 4); // ~250Hz
     }
     
@@ -24486,27 +24687,44 @@
       document.getElementById('strudel-play').disabled = false;
       document.getElementById('strudel-stop').disabled = true;
       document.getElementById('strudel-status').textContent = 'Stopped';
-      document.getElementById('jukebox-amp-meter').style.width = '0%';
-      document.getElementById('jukebox-amp-value').textContent = '0.0';
-      document.getElementById('jukebox-kick-indicator').classList.remove('active');
+      const strudelAmpMeter = document.getElementById('strudel-amp-meter');
+      const strudelAmpValue = document.getElementById('strudel-amp-value');
+      const strudelKickIndicator = document.getElementById('strudel-kick-indicator');
+      if (strudelAmpMeter) strudelAmpMeter.style.width = '0%';
+      if (strudelAmpValue) strudelAmpValue.textContent = '0.0';
+      if (strudelKickIndicator) strudelKickIndicator.classList.remove('active');
     }
     
     function initStrudelUI() {
-      // Mode tab switching
-      const jukeboxPanel = document.querySelector('.jukebox-panel');
-      document.querySelectorAll('.jukebox-mode-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          const mode = tab.dataset.mode;
-          document.querySelectorAll('.jukebox-mode-tab').forEach(t => t.classList.toggle('active', t === tab));
-          document.getElementById('jukebox-samples-mode').classList.toggle('hidden', mode !== 'songs');
-          document.getElementById('jukebox-strudel-mode').classList.toggle('hidden', mode !== 'strudel');
-          
-          // Update panel theme based on mode
-          if (jukeboxPanel) jukeboxPanel.dataset.mode = mode;
-          
-          // Stop other mode when switching
-          if (mode === 'songs' && strudelPlaying) stopStrudel();
-          if (mode === 'strudel' && jukeboxIsPlaying) stopJukebox();
+      // Jukebox subtab switching (similar to list subtabs)
+      let currentJukeboxSubtab = 'songs';
+      
+      function showJukeboxSubtab(subtab) {
+        currentJukeboxSubtab = subtab;
+        
+        // Update sub-tab active states
+        document.querySelectorAll('.jukebox-subtab').forEach(el => {
+          el.classList.toggle('active', el.dataset.subtab === subtab);
+        });
+        
+        // Hide all subcontents
+        document.querySelectorAll('.jukebox-subcontent').forEach(el => el.classList.add('hidden'));
+        
+        // Show the corresponding subcontent
+        const subcontent = document.getElementById(`${subtab}-subcontent`);
+        if (subcontent) subcontent.classList.remove('hidden');
+        
+        // Stop other mode when switching
+        if (subtab === 'songs' && strudelPlaying) stopStrudel();
+        if (subtab === 'strudel' && jukeboxIsPlaying) stopJukebox();
+      }
+      
+      // Subtab click handlers
+      document.querySelectorAll('.jukebox-subtab').forEach(subtab => {
+        subtab.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const subtabType = this.dataset.subtab;
+          showJukeboxSubtab(subtabType);
         });
       });
       
