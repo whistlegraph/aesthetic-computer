@@ -6799,6 +6799,21 @@
       .platform-arrow { display: none !important; }
     }
 
+    /* When a route code is active, show it in the KidLisp.com logo on wide screens */
+    body.has-route-code #preview-title .code-display {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      body.has-route-code #preview-title .code-display {
+        display: inline;
+      }
+
+      body.has-route-code #splash-logo .splash-route {
+        display: none;
+      }
+    }
+
     /* Pop-out button styles */
     .popout-btn {
       display: flex;
@@ -8060,6 +8075,7 @@
     <span class="splash-letter com-part" style="color: #FF6B6B;">c</span>
     <span class="splash-letter com-part" style="color: #9370DB;">o</span>
     <span class="splash-letter com-part" style="color: #90EE90;">m</span>
+    <span class="splash-route" aria-hidden="true"></span>
   </div>
   
   <style>
@@ -8130,6 +8146,21 @@
     
     #splash-logo.landed .splash-letter {
       animation: none !important;
+    }
+
+    #splash-logo .splash-route {
+      margin-left: 6px;
+      font-family: 'YWFTProcessing-Regular', monospace;
+      font-size: 0.85em;
+      letter-spacing: 0.02em;
+      color: var(--text-tertiary);
+      text-shadow: none;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    #splash-logo .splash-route:empty {
+      display: none;
     }
     
     @media (max-width: 768px) {
@@ -18064,6 +18095,15 @@ s("ape_breaks_3").loopAt(2)</textarea>
       // Wrap each letter in spans for rainbow animation during boot
       const wrapLetters = (word) => word.split('').map(c => `<span class="title-letter">${c}</span>`).join('');
       return `<span class="title-full">${wrapLetters('Aesthetic')}</span><span class="title-short">prompt</span><span class="bounce-dot">.</span><span class="title-full">${wrapLetters('Computer')}</span><span class="title-short">AC</span><span class="code-display">${codeChars}</span>`;
+    }
+
+    function setRouteCodeInUI(code) {
+      const cleanCode = code ? (code.startsWith('$') ? code.slice(1) : code) : '';
+      const splashRoute = document.querySelector('#splash-logo .splash-route');
+      if (splashRoute) {
+        splashRoute.textContent = cleanCode ? `/$${cleanCode}` : '';
+      }
+      document.body?.classList.toggle('has-route-code', Boolean(cleanCode));
     }
     
     // Helper to generate platform title HTML (with logo for FF1, short/full for AC)

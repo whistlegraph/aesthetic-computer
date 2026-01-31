@@ -185,7 +185,7 @@
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      z-index: 16;
+      z-index: 24;
       pointer-events: auto;
       cursor: pointer;
       transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -285,10 +285,13 @@
       border-radius: 0;
       pointer-events: auto;
       transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      position: relative;
+      z-index: 10;
     }
 
     .ff1-module.overlap-fade {
-      opacity: 1;
+      opacity: 0;
+      pointer-events: none;
     }
 
     .ff1-module.overlap-fade .ff1-playlist-title,
@@ -510,10 +513,16 @@
       margin: 0;
       padding: 0;
       transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      opacity: 0;
     }
 
     #progress-bar.visible {
       display: block;
+    }
+
+    #progress-bar.fading-in {
+      opacity: 1;
+      transition: opacity 2s ease;
     }
     
     #progress-bar.hidden-mid {
@@ -1344,9 +1353,9 @@
         densityParam = e.data.density;
         document.documentElement.style.setProperty('--density', densityParam);
         // Keep --ui-scale fixed (do not tie to density changes)
-        // Update progress bar height (2.0x density for extra thickness)
+        // Update progress bar height (1.5x density for medium thickness)
         const progressBar = document.getElementById('progress-bar');
-        if (progressBar) progressBar.style.height = `${Math.max(2, Math.round(2.0 * densityParam))}px`;
+        if (progressBar) progressBar.style.height = `${Math.max(2, Math.round(1.5 * densityParam))}px`;
         console.log('📺 Density updated from iframe:', densityParam);
       }
     });
@@ -1614,7 +1623,8 @@
         // Extract the code from device.kidlisp.com URL and convert to aesthetic.computer
         const deviceMatch = itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9_-]+)/i);
         if (deviceMatch) {
-          const code = deviceMatch[1];
+          const rawCode = deviceMatch[1];
+          const code = rawCode.startsWith('$') ? rawCode : `$${rawCode}`;
           itemUrl = `${aestheticUrl}/${code}?${buildDisplayParams()}`;
         }
       } else if (!itemUrl.includes('aesthetic.computer')) {
@@ -1672,15 +1682,17 @@
       const progressFill = document.getElementById('progress-fill');
       const overlay = document.getElementById('source-overlay');
       
-      // Set height based on density (2.0x for extra thickness)
-      const barHeight = Math.max(2, Math.round(2.0 * densityParam));
+      // Set height based on density (1.5x for medium thickness)
+      const barHeight = Math.max(2, Math.round(1.5 * densityParam));
       progressBar.style.height = `${barHeight}px`;
       progressBar.classList.add('visible');
+      progressBar.classList.add('fading-in');
       
       // Reset progress and clear any ending state
       progressFill.style.width = '0%';
       progressFill.classList.remove('ending');
       progressBar.classList.remove('hidden-mid');
+      setTimeout(() => progressBar.classList.remove('fading-in'), 2000);
       if (overlay) overlay.classList.remove('slid-out');
       
       const startTime = Date.now();
@@ -1918,40 +1930,36 @@
 
       // Re-check overlap after stats update
       requestAnimationFrame(updateFF1Overlap);
-
+    }
 
     function updateFF1Overlap() {
       const ff1Module = document.getElementById('ff1-module');
       const qrWrap = document.getElementById('qr-wrap');
       if (!ff1Module || !qrWrap) return;
-      const a = ff1Module.getBoundingClientRect();
-      const b = qrWrap.getBoundingClientRect();
-      const overlap = !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+
+      const ff1Rect = ff1Module.getBoundingClientRect();
+      const qrRect = qrWrap.getBoundingClientRect();
+      const uiScaleValue = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale')) || 10;
+      const margin = Math.max(12, uiScaleValue * 1.5);
+
+      const expanded = {
+        left: qrRect.left - margin,
+        right: qrRect.right + margin,
+        top: qrRect.top - margin,
+        bottom: qrRect.bottom + margin,
+      };
+
+      const overlap = !(
+        ff1Rect.right < expanded.left ||
+        ff1Rect.left > expanded.right ||
+        ff1Rect.bottom < expanded.top ||
+        ff1Rect.top > expanded.bottom
+      );
+
       ff1Module.classList.toggle('overlap-fade', overlap);
     }
 
     window.addEventListener('resize', () => requestAnimationFrame(updateFF1Overlap));
-      updateFF1Overlap();
-    }
-
-    function updateFF1Overlap() {
-      const ff1Module = document.getElementById('ff1-module');
-      const qrWrap = document.getElementById('qr-wrap');
-      if (!ff1Module || !qrWrap) return;
-      const ff1Rect = ff1Module.getBoundingClientRect();
-      const qrRect = qrWrap.getBoundingClientRect();
-      const overlap = !(
-        ff1Rect.right < qrRect.left ||
-        ff1Rect.left > qrRect.right ||
-        ff1Rect.bottom < qrRect.top ||
-        ff1Rect.top > qrRect.bottom
-      );
-      if (overlap) {
-        ff1Module.classList.add('overlap-fade');
-      } else {
-        ff1Module.classList.remove('overlap-fade');
-      }
-    }
     
     // Track current FF1 CLI command (shared between single and playlist modes)
     let currentFF1Command = '';
@@ -1982,7 +1990,7 @@
         try {
           await navigator.clipboard.writeText(currentFF1Command);
           if (ff1Module) ff1Module.classList.add('copied');
-          if (cmdSpan) cmdSpan.textContent = 'Copied!';
+          if (cmdSpan) cmdSpan.textContent = 'COPIED TO CLIPBOARD';
           
           setTimeout(() => {
             if (ff1Module) ff1Module.classList.remove('copied');
@@ -2249,14 +2257,16 @@
     
     function startProgressBar() {
       console.log('📺 startProgressBar called, densityParam:', densityParam);
-      // Set height based on density (2.0x for extra thickness, min 2px)
-      const barHeight = Math.max(2, Math.round(2.0 * densityParam));
+      // Set height based on density (1.5x for medium thickness, min 2px)
+      const barHeight = Math.max(2, Math.round(1.5 * densityParam));
       console.log('📺 Progress bar height:', barHeight);
       progressBar.style.height = `${barHeight}px`;
       progressBar.classList.add('visible');
+      progressBar.classList.add('fading-in');
       console.log('📺 Progress bar visible class added');
       progressStartTime = Date.now();
       updateProgressBar();
+      setTimeout(() => progressBar.classList.remove('fading-in'), 2000);
     }
     
     // Track if piece has changed (for auto-reload logic)
