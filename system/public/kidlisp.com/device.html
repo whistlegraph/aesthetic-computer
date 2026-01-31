@@ -200,39 +200,59 @@
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
-    /* Slideshow info (playlist title & position) - shown in piece-info during slideshow mode */
-    #slideshow-info {
-      display: none;
+    /* FF1 module - self-contained box for FF1 cast functionality */
+    /* In playlist mode, includes title and position; always includes copy button */
+    .ff1-module {
+      display: flex;
       flex-direction: column;
       align-items: flex-start;
-      margin-bottom: calc(var(--density, 8) * 0.5px);
+      gap: calc(var(--density, 8) * 0.3px);
+      margin-top: calc(var(--density, 8) * 0.75px);
+      padding: calc(var(--density, 8) * 0.5px) calc(var(--density, 8) * 0.8px);
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: calc(var(--density, 8) * 0.5px);
+      pointer-events: auto;
     }
     
-    #slideshow-info.visible {
-      display: flex;
+    /* Playlist header inside FF1 module (only shown in slideshow mode) */
+    .ff1-playlist-header {
+      display: none;
+      width: 100%;
+      padding-bottom: calc(var(--density, 8) * 0.3px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      margin-bottom: calc(var(--density, 8) * 0.2px);
     }
     
-    #slideshow-title {
+    .ff1-playlist-header.visible {
+      display: block;
+    }
+    
+    .ff1-playlist-title {
       color: rgba(255, 255, 255, 0.9);
+      font-family: 'Noto Sans Mono', monospace;
+      font-size: calc(var(--density, 8) * 1.4px);
       font-weight: bold;
-      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+      line-height: 1.2;
     }
     
-    #slideshow-position {
+    .ff1-playlist-position {
       color: rgba(255, 215, 0, 0.9);
-      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+      font-family: 'Noto Sans Mono', monospace;
+      font-size: calc(var(--density, 8) * 1.2px);
+      margin-top: calc(var(--density, 8) * 0.15px);
     }
     
-    /* FF1 CLI copy button in piece-info */
+    /* FF1 CLI copy button inside module */
     .piece-ff1-copy {
       display: flex;
       align-items: center;
       gap: calc(var(--density, 8) * 0.5px);
-      margin-top: calc(var(--density, 8) * 1px);
-      padding: calc(var(--density, 8) * 0.4px) calc(var(--density, 8) * 0.8px);
-      background: rgba(0, 0, 0, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: calc(var(--density, 8) * 0.5px);
+      margin: 0;
+      padding: calc(var(--density, 8) * 0.25px) 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
       color: rgba(255, 255, 255, 0.9);
       font-family: 'Noto Sans Mono', monospace;
       font-size: calc(var(--density, 8) * 1.5px);
@@ -240,18 +260,18 @@
       transition: all 0.15s ease;
       pointer-events: auto;
       text-shadow: none;
+      width: 100%;
     }
     
     .piece-ff1-copy:hover {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: rgba(255, 255, 255, 0.4);
+      opacity: 0.8;
     }
     
     .piece-ff1-copy:active {
-      transform: scale(0.97);
+      transform: scale(0.98);
     }
     
-    .piece-ff1-copy.copied {
+    .ff1-module.copied {
       background: rgba(0, 200, 100, 0.3);
       border-color: rgba(0, 200, 100, 0.6);
     }
@@ -264,9 +284,6 @@
     
     .piece-ff1-copy .ff1-cmd {
       color: rgba(255, 255, 255, 0.8);
-      max-width: calc(var(--density, 8) * 30px);
-      overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
     
@@ -472,10 +489,29 @@
         max-width: calc(100% - var(--mobile-qr-total-width)); /* Prevent overlap with QR */
       }
       
-      /* FF1 copy button - compact on mobile */
-      .piece-ff1-copy {
+      /* FF1 module - compact on mobile */
+      .ff1-module {
         margin-top: 6px;
         padding: 4px 8px;
+        gap: 3px;
+      }
+      
+      .ff1-playlist-header {
+        padding-bottom: 3px;
+        margin-bottom: 2px;
+      }
+      
+      .ff1-playlist-title {
+        font-size: 9px;
+      }
+      
+      .ff1-playlist-position {
+        font-size: 8px;
+      }
+      
+      /* FF1 copy button - compact on mobile */
+      .piece-ff1-copy {
+        padding: 2px 0;
         font-size: 9px;
         gap: 4px;
       }
@@ -485,20 +521,7 @@
       }
       
       .piece-ff1-copy .ff1-cmd {
-        max-width: 150px;
-      }
-      
-      /* Slideshow info - compact for mobile */
-      #slideshow-info {
-        margin-bottom: 4px;
-      }
-      
-      #slideshow-title {
-        font-size: 10px;
-      }
-      
-      #slideshow-position {
-        font-size: 9px;
+        /* Full command always visible */
       }
       
       /* Progress bar - thinner on mobile */
@@ -526,17 +549,19 @@
       <div id="qr-container"></div>
     </div>
     <div id="piece-info">
-      <div id="slideshow-info">
-        <div id="slideshow-title"></div>
-        <div id="slideshow-position"></div>
-      </div>
       <div id="piece-handle"></div>
       <div id="piece-hits"></div>
       <div id="piece-when"></div>
-      <button id="piece-ff1-copy" class="piece-ff1-copy" title="Copy FF1 CLI command">
-        <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="ff1-icon">
-        <span class="ff1-cmd">ac-ff1 cast ...</span>
-      </button>
+      <div id="ff1-module" class="ff1-module">
+        <div id="ff1-playlist-header" class="ff1-playlist-header">
+          <div id="ff1-playlist-title" class="ff1-playlist-title"></div>
+          <div id="ff1-playlist-position" class="ff1-playlist-position"></div>
+        </div>
+        <button id="piece-ff1-copy" class="piece-ff1-copy" title="Copy FF1 CLI command">
+          <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="ff1-icon">
+          <span class="ff1-cmd">ff1 chat "display ..."</span>
+        </button>
+      </div>
     </div>
   </div>
   
@@ -555,7 +580,7 @@
   <div id="fps-meter">FPS: --</div>
   
   <!-- DEPRECATED: Playlist info overlay - kept for backwards compatibility but hidden via CSS -->
-  <!-- All playlist/slideshow info is now in #piece-info's #slideshow-info -->
+  <!-- All playlist/slideshow info is now in the #ff1-module inside #piece-info -->
   <div id="playlist-info">
     <div id="playlist-title"></div>
     <div id="playlist-position"></div>
@@ -1083,15 +1108,13 @@
     async function initSlideshow() {
       console.log('📺 Initializing slideshow mode with URL:', playlistUrl);
       
-      // Use the bottom-left slideshow info (consolidated from deprecated top-right overlay)
-      const slideshowInfo = document.getElementById('slideshow-info');
-      const slideshowTitle = document.getElementById('slideshow-title');
-      const slideshowPosition = document.getElementById('slideshow-position');
+      // Get the FF1 module elements (playlist info is now inside the FF1 module)
+      const playlistTitle = document.getElementById('ff1-playlist-title');
+      const playlistPosition = document.getElementById('ff1-playlist-position');
       
-      slideshowTitle.textContent = 'Loading playlist...';
-      slideshowInfo.classList.add('visible');
+      if (playlistTitle) playlistTitle.textContent = 'Loading playlist...';
       
-      // Setup FF1 copy button for playlist mode (reuse the piece-ff1-copy button)
+      // Setup FF1 copy button for playlist mode (also shows playlist header)
       setupFF1CopyButtonForPlaylist();
       
       try {
@@ -1109,8 +1132,8 @@
           return;
         }
         
-        // Update slideshow title in bottom-left
-        slideshowTitle.textContent = slideshowPlaylist.title || 'Untitled Playlist';
+        // Update playlist title in FF1 module
+        if (playlistTitle) playlistTitle.textContent = slideshowPlaylist.title || 'Untitled Playlist';
         
         // Clamp start index to valid range
         if (slideshowIndex >= slideshowPlaylist.items.length) {
@@ -1142,9 +1165,9 @@
       
       console.log('📺 Playing item', slideshowIndex + 1, '/', slideshowPlaylist.items.length, ':', item.title);
       
-      // Update position display in bottom-left
-      const slideshowPosition = document.getElementById('slideshow-position');
-      slideshowPosition.textContent = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
+      // Update position display in FF1 module
+      const playlistPosition = document.getElementById('ff1-playlist-position');
+      if (playlistPosition) playlistPosition.textContent = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
       
       // Get the source URL from the item
       // DP-1 items have a 'source' field with the display URL
@@ -1400,12 +1423,13 @@
     // Setup the FF1 CLI copy button for single pieces
     function setupFF1CopyButton(pieceCodeId) {
       const copyBtn = document.getElementById('piece-ff1-copy');
+      const ff1Module = document.getElementById('ff1-module');
       if (!copyBtn) return;
       
-      // Build the device URL for the CLI command
+      // Build the device URL for the CLI command (official FF1 CLI format)
       const cleanCode = pieceCodeId.startsWith('$') ? pieceCodeId.slice(1) : pieceCodeId;
       const deviceUrl = `https://device.kidlisp.com/${cleanCode}`;
-      const cliCmd = `ac-ff1 cast ${deviceUrl}`;
+      const cliCmd = `ff1 chat "display ${deviceUrl}"`;
       
       // Update button text to show the actual command
       const cmdSpan = copyBtn.querySelector('.ff1-cmd');
@@ -1418,11 +1442,11 @@
       copyBtn.addEventListener('click', async () => {
         try {
           await navigator.clipboard.writeText(cliCmd);
-          copyBtn.classList.add('copied');
+          if (ff1Module) ff1Module.classList.add('copied');
           if (cmdSpan) cmdSpan.textContent = 'Copied!';
           
           setTimeout(() => {
-            copyBtn.classList.remove('copied');
+            if (ff1Module) ff1Module.classList.remove('copied');
             if (cmdSpan) cmdSpan.textContent = cliCmd;
           }, 2000);
         } catch (e) {
@@ -1437,11 +1461,19 @@
     
     // Setup the FF1 CLI copy button for slideshow/playlist mode
     // Shows the slideshow URL instead of individual piece URLs
+    // Also shows playlist title/position inside the FF1 module
     function setupFF1CopyButtonForPlaylist() {
       const copyBtn = document.getElementById('piece-ff1-copy');
+      const ff1Module = document.getElementById('ff1-module');
+      const playlistHeader = document.getElementById('ff1-playlist-header');
       if (!copyBtn) return;
       
-      // Build the slideshow URL for the CLI command
+      // Show the playlist header inside the FF1 module
+      if (playlistHeader) {
+        playlistHeader.classList.add('visible');
+      }
+      
+      // Build the slideshow URL for the CLI command (official FF1 CLI format)
       // Use the short path if we're in a known playlist, otherwise use full URL
       let slideshowUrl;
       if (slideshowShortcut) {
@@ -1450,7 +1482,7 @@
         // Fall back to full playlist_url encoded
         slideshowUrl = `https://device.kidlisp.com/?playlist_url=${encodeURIComponent(playlistUrl)}`;
       }
-      const cliCmd = `ac-ff1 cast ${slideshowUrl}`;
+      const cliCmd = `ff1 chat "display ${slideshowUrl}"`;
       
       // Update button text to show the actual command
       const cmdSpan = copyBtn.querySelector('.ff1-cmd');
@@ -1463,11 +1495,11 @@
       copyBtn.addEventListener('click', async () => {
         try {
           await navigator.clipboard.writeText(cliCmd);
-          copyBtn.classList.add('copied');
+          if (ff1Module) ff1Module.classList.add('copied');
           if (cmdSpan) cmdSpan.textContent = 'Copied!';
           
           setTimeout(() => {
-            copyBtn.classList.remove('copied');
+            if (ff1Module) ff1Module.classList.remove('copied');
             if (cmdSpan) cmdSpan.textContent = cliCmd;
           }, 2000);
         } catch (e) {
