@@ -3825,10 +3825,6 @@ function paint($) {
     const isOverLimit = charLen > PROMPT_CHAR_LIMIT;
     const isNearLimit = charLen > PROMPT_CHAR_LIMIT * 0.8; // 80% = 204 chars
     
-    // Position in top-right corner to avoid Enter button overlap
-    const charCountX = screen.width - (charCountText.length * 4) - 8;
-    const charCountY = 6;
-    
     // Color based on usage: gray -> yellow -> red
     let meterColor;
     if (isOverLimit) {
@@ -3839,11 +3835,26 @@ function paint($) {
       meterColor = $.dark ? [100, 100, 120] : [120, 120, 140]; // Gray normally
     }
     
-    // Draw character count
+    // Module dimensions and positioning with margin from screen edges
+    const margin = 4;
+    const padding = 3;
+    const barWidth = 40;
+    const textWidth = charCountText.length * 4;
+    const moduleWidth = Math.max(barWidth, textWidth) + padding * 2;
+    const moduleHeight = 8 + 3 + padding * 2; // text height + bar height + padding
+    const moduleX = screen.width - moduleWidth - margin;
+    const moduleY = margin;
+    
+    // Draw bounding box background
+    const bgColor = $.dark ? [30, 30, 40, 180] : [240, 240, 245, 200];
+    ink(...bgColor).box(moduleX, moduleY, moduleWidth, moduleHeight);
+    
+    // Draw character count text inside module
+    const charCountX = moduleX + padding;
+    const charCountY = moduleY + padding;
     ink(...meterColor).write(charCountText, { x: charCountX, y: charCountY }, undefined, undefined, false, "MatrixChunky8");
     
     // Draw small progress bar below the count
-    const barWidth = 40;
     const barX = charCountX;
     const barY = charCountY + 10;
     const fillRatio = Math.min(1, charLen / PROMPT_CHAR_LIMIT);
