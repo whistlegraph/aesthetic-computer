@@ -404,6 +404,13 @@ from = "/api/ff1/*"
 to = "/.netlify/functions/ff1-:splat"
 status = 200
 
+# Normalize accidental double slashes in paths (e.g., //kidlisp.com)
+[[redirects]]
+from = "//*"
+to = "/:splat"
+status = 301
+force = true
+
 # Serve type/font assets locally (allow dev edits to BDF files)
 # This must come BEFORE the general /assets/* proxy below
 # force = true ensures this takes precedence over the /assets/* rule

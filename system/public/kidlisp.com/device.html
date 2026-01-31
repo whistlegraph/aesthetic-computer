@@ -84,7 +84,8 @@
       right: 0;
       bottom: 0;
       z-index: 15;
-      pointer-events: none;
+      pointer-events: auto;
+      touch-action: manipulation;
       transition: opacity 0.5s ease;
     }
     
@@ -139,21 +140,24 @@
     
     /* Slide animations for overlay elements during playback */
     /* QR slides to bottom-right corner */
-    #source-overlay.slid-out #qr-wrap {
+    #source-overlay.slid-out #qr-wrap,
+    #source-overlay.tap-hidden #qr-wrap {
       transform: translate(120%, 120%);
       opacity: 0;
       pointer-events: none;
     }
     
     /* Stats slide to bottom-left corner */
-    #source-overlay.slid-out #piece-info {
+    #source-overlay.slid-out #piece-info,
+    #source-overlay.tap-hidden #piece-info {
       transform: translate(-120%, 120%);
       opacity: 0;
       pointer-events: none;
     }
     
     /* Source code slides to top-left corner */
-    #source-overlay.slid-out #source-code {
+    #source-overlay.slid-out #source-code,
+    #source-overlay.tap-hidden #source-code {
       transform: translate(-50%, -120%);
       opacity: 0;
     }
@@ -161,7 +165,10 @@
     /* Hover override - when user hovers, reveal all elements even if slid-out */
     #source-overlay.slid-out.hover-reveal #qr-wrap,
     #source-overlay.slid-out.hover-reveal #piece-info,
-    #source-overlay.slid-out.hover-reveal #source-code {
+    #source-overlay.slid-out.hover-reveal #source-code,
+    #source-overlay.tap-hidden.hover-reveal #qr-wrap,
+    #source-overlay.tap-hidden.hover-reveal #piece-info,
+    #source-overlay.tap-hidden.hover-reveal #source-code {
       transform: translate(0, 0);
       opacity: 1;
       pointer-events: auto;
@@ -297,8 +304,11 @@
     .ff1-module.overlap-fade .ff1-playlist-title,
     .ff1-module.overlap-fade .ff1-playlist-position,
     .ff1-module.overlap-fade .piece-ff1-copy .ff1-cmd {
-      -webkit-mask-image: linear-gradient(to right, #000 0%, #000 70%, transparent 100%);
-      mask-image: linear-gradient(to right, #000 0%, #000 70%, transparent 100%);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: block;
+      max-width: 100%;
     }
     
     /* Playlist header inside FF1 module (only shown in slideshow mode) */
@@ -533,6 +543,10 @@
       opacity: 1 !important;
     }
 
+    #progress-bar.force-hidden {
+      opacity: 0 !important;
+    }
+
     #progress-fill {
       height: 100%;
       width: 0%;
@@ -688,7 +702,7 @@
   <!-- Boot animation now handled by iframe's acBootCanvas with device mode -->
   
   <!-- KidLisp source overlay with syntax highlighting and QR -->
-  <div id="source-overlay">
+  <div id="source-overlay" class="scrambling">
     <div id="source-code"><div id="source-code-inner"></div></div>
     <div id="qr-wrap">
       <div id="code-label"></div>
@@ -2359,38 +2373,44 @@
       requestAnimationFrame(updateProgressBar);
     }
     
-    // Mouse hover handling - reveal elements on hover, hide on mouseout based on timeline
-    (function setupHoverReveal() {
+    // Tap-to-toggle UI: tap empty space to hide/show overlay elements
+    (function setupTapToggle() {
       const overlay = document.getElementById('source-overlay');
-      const body = document.body;
-      
-      function showUiForHover() {
-        if (overlay) {
-          overlay.classList.add('hover-reveal');
-        }
+      if (!overlay) return;
+
+      const isInteractiveTarget = (target) => {
+        return !!target?.closest?.(
+          'a, button, #qr-wrap, #piece-info, #ff1-module, #piece-ff1-copy, #progress-bar, #fps-meter'
+        );
+      };
+
+      function applyManualHidden() {
+        overlay.classList.add('tap-hidden');
+        overlay.classList.remove('hover-reveal');
+        progressBar.classList.add('force-hidden');
+        progressBar.classList.remove('force-visible');
+        updateFF1Overlap();
+      }
+
+      function applyManualVisible() {
+        overlay.classList.remove('tap-hidden');
+        overlay.classList.add('hover-reveal');
         progressBar.classList.add('force-visible');
+        progressBar.classList.remove('force-hidden');
         progressBar.classList.remove('hidden-mid');
         updateFF1Overlap();
       }
 
-      function restoreUiForTimeline() {
-        if (overlay) {
-          overlay.classList.remove('hover-reveal');
+      document.body.addEventListener('pointerdown', (e) => {
+        if (isInteractiveTarget(e.target)) return;
+        if (overlay.classList.contains('scrambling')) return;
+
+        if (overlay.classList.contains('tap-hidden')) {
+          applyManualVisible();
+        } else {
+          applyManualHidden();
         }
-        progressBar.classList.remove('force-visible');
-        const shouldHideBar = currentProgressPercent > 16.67 && currentProgressPercent < 83.33;
-        if (shouldHideBar) {
-          progressBar.classList.add('hidden-mid');
-        }
-        updateFF1Overlap();
-      }
-      
-      // Mouse enters - UI elements always on while inside window
-      body.addEventListener('mouseenter', showUiForHover);
-      // Mouse moves - keep UI elements on
-      body.addEventListener('mousemove', showUiForHover);
-      // Mouse leaves - restore timeline state
-      body.addEventListener('mouseleave', restoreUiForTimeline);
+      });
     })();
     
     // Start the app
