@@ -5282,8 +5282,44 @@
     
     .learn-doc-example:hover {
       background: rgba(205, 92, 155, 0.15);
-      color: rgb(205, 92, 155);
     }
+    
+    /* Syntax highlighting in Learn docs */
+    .learn-doc-signature,
+    .learn-doc-example {
+      font-family: 'Berkeley Mono Variable', monospace;
+    }
+    
+    .learn-doc-signature .kl-fn { color: #00b8b8; font-weight: bold; }
+    .learn-doc-signature .kl-paren { color: #ff6b6b; }
+    .learn-doc-signature .kl-param { color: #ffa500; font-style: italic; }
+    .learn-doc-signature .kl-bracket { color: #888; }
+    .learn-doc-example .kl-fn { color: #00b8b8; font-weight: bold; }
+    .learn-doc-example .kl-paren { color: #ff6b6b; }
+    .learn-doc-example .kl-str { color: #cc9900; }
+    .learn-doc-example .kl-num { color: #ff69b4; }
+    .learn-doc-example .kl-var { color: #ffa500; }
+    .learn-doc-example .kl-math { color: #00ff00; font-weight: bold; }
+    .learn-doc-example .kl-color { font-weight: bold; }
+    .learn-doc-example .kl-rainbow { background: linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: bold; }
+    .learn-doc-example .kl-special { color: #00b8b8; font-weight: bold; }
+    .learn-doc-example .kl-timing { color: #ffff00; font-weight: bold; }
+    
+    @media (prefers-color-scheme: dark) {
+      .learn-doc-signature .kl-fn { color: #00ffff; }
+      .learn-doc-signature .kl-param { color: #ffb347; }
+      .learn-doc-example .kl-fn { color: #00ffff; }
+      .learn-doc-example .kl-str { color: #ffff00; }
+      .learn-doc-example .kl-num { color: #ffb6c1; }
+      .learn-doc-example .kl-var { color: #ffb347; }
+    }
+    
+    [data-theme="dark"] .learn-doc-signature .kl-fn,
+    [data-theme="dark"] .learn-doc-example .kl-fn { color: #00ffff; }
+    [data-theme="dark"] .learn-doc-signature .kl-param,
+    [data-theme="dark"] .learn-doc-example .kl-var { color: #ffb347; }
+    [data-theme="dark"] .learn-doc-example .kl-str { color: #ffff00; }
+    [data-theme="dark"] .learn-doc-example .kl-num { color: #ffb6c1; }
     
     /* Guides Coming Soon - with preset buttons */
     .guides-coming-soon {
@@ -7191,28 +7227,25 @@
       
       /* Ensure iframe container fills preview panel properly in mobile */
       #preview-panel {
-        position: relative !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
       }
       
       #preview-panel .preview-iframe-container {
-        position: absolute !important;
-        top: 40px !important; /* Below header */
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        height: auto !important;
+        flex: 1 1 auto !important;
         min-height: 0 !important;
-        flex: none !important;
+        height: 0 !important; /* Let flex-grow handle the height */
+        position: relative !important;
+        overflow: hidden !important;
       }
       
-      /* Ensure preview panel header doesn't shrink */
+      /* Ensure preview panel header is exactly 40px and doesn't shrink/grow */
       #preview-panel > .docs-header {
         flex: 0 0 40px !important;
         height: 40px !important;
         min-height: 40px !important;
         max-height: 40px !important;
-        position: relative !important;
-        z-index: 2 !important;
       }
       
       /* Default flex distribution for mobile (totals ~100) */
@@ -9426,6 +9459,7 @@
                 <button class="strudel-preset" data-code="s('bd*2, hh*4, ~ sd')">Drums</button>
                 <button class="strudel-preset" data-code="note('c3 e3 g3 b3').s('sawtooth').cutoff(800)">Synth</button>
                 <button class="strudel-preset" data-code="s('bd sd hh sd').jux(rev)">Jux</button>
+                <button class="strudel-preset" data-code="s('ape_breaks_3').loopAt(2).chop(8)">c_robo</button>
               </div>
               
               <!-- Audio Meters (for Strudel) -->
@@ -9445,7 +9479,8 @@
             <!-- Strudel Code Editor (scrollable area) -->
             <div class="jukebox-scroll-area">
               <div class="strudel-editor-container">
-                <textarea id="strudel-code" placeholder="// Strudel live coding - press Ctrl+Enter to play&#10;// Try: s('bd sd hh sd')&#10;// Or: note('c3 e3 g3').s('sawtooth')">s("bd sd hh sd")</textarea>
+                <textarea id="strudel-code" placeholder="// Strudel live coding - press Ctrl+Enter to play&#10;// Try: s('bd sd hh sd')&#10;// Or: note('c3 e3 g3').s('sawtooth')">// c_robo's sample library: cc.oooooooooooooooo.cc
+s("ape_breaks_3").loopAt(2)</textarea>
               </div>
             </div>
           </div>
@@ -15409,6 +15444,185 @@
           description: "Check if a is less than or equal to b.",
           category: "logic",
           examples: ["(<= y height)"]
+        },
+        // === SPECIAL SYNTAX ===
+        "?": {
+          signature: "(? option1 option2 ...)",
+          description: "Alias for choose. Randomly pick one of the options each frame. Short and sweet!",
+          category: "logic",
+          examples: ['(ink (? "red" "blue" "green"))', "(? 10 20 30 40)"]
+        },
+        "...": {
+          signature: "(timing... expr1 expr2 ...)",
+          description: "Cycle through expressions at timing intervals. The ... makes expressions repeat in sequence.",
+          category: "timing",
+          examples: ['(1s... (ink "red") (ink "blue"))', '(500ms... (wipe "black") (wipe "white"))']
+        },
+        "..": {
+          signature: "(timing.. expr1 expr2 ...)",
+          description: "Like ... but plays expressions once in sequence, then stops. Good for animations.",
+          category: "timing",
+          examples: ['(1s.. (circle 10 10 5) (circle 20 20 10) (circle 30 30 15))']
+        },
+        // === TIMING PATTERNS ===
+        "1s": {
+          signature: "1s, 0.5s, 2.5s, etc.",
+          description: "Delay timer in seconds. Waits the specified time before executing the following expressions.",
+          category: "timing",
+          examples: ["(1s (wipe))", "(0.5s (beep))", "(2s (jump))"]
+        },
+        "1f": {
+          signature: "1f, 10f, 60f, etc.",
+          description: "Delay timer in frames. Waits the specified number of frames (at 60fps) before executing.",
+          category: "timing",
+          examples: ["(30f (wipe))", "(60f (beep))"]
+        },
+        "1s...": {
+          signature: "1s..., 0.5s..., etc.",
+          description: "Cycle timer in seconds. Cycles through following expressions at this interval forever.",
+          category: "timing",
+          examples: ['(1s... (ink "red") (ink "blue"))', "(0.25s... (wiggle 10))"]
+        },
+        // === COLOR NAMES (Common ones) ===
+        red: {
+          signature: "red",
+          description: "The color red (255, 0, 0). Use with ink to set the drawing color.",
+          category: "color",
+          examples: ['(ink red)', '(ink "red")', "(wipe red)"]
+        },
+        blue: {
+          signature: "blue",
+          description: "The color blue (0, 0, 255). A primary color.",
+          category: "color",
+          examples: ['(ink blue)', "(wipe blue)"]
+        },
+        green: {
+          signature: "green",
+          description: "The color green (0, 128, 0). Note: this is darker than lime.",
+          category: "color",
+          examples: ['(ink green)', "(wipe green)"]
+        },
+        yellow: {
+          signature: "yellow",
+          description: "The color yellow (255, 255, 0). Bright and sunny!",
+          category: "color",
+          examples: ['(ink yellow)', "(wipe yellow)"]
+        },
+        purple: {
+          signature: "purple",
+          description: "The color purple (128, 0, 128). A mix of red and blue.",
+          category: "color",
+          examples: ['(ink purple)', "(wipe purple)"]
+        },
+        orange: {
+          signature: "orange",
+          description: "The color orange (255, 165, 0). Warm and vibrant!",
+          category: "color",
+          examples: ['(ink orange)', "(wipe orange)"]
+        },
+        pink: {
+          signature: "pink",
+          description: "The color pink (255, 192, 203). Soft and rosy.",
+          category: "color",
+          examples: ['(ink pink)', "(wipe pink)"]
+        },
+        cyan: {
+          signature: "cyan",
+          description: "The color cyan (0, 255, 255). A bright blue-green.",
+          category: "color",
+          examples: ['(ink cyan)', "(wipe cyan)"]
+        },
+        magenta: {
+          signature: "magenta",
+          description: "The color magenta (255, 0, 255). Bright pink-purple.",
+          category: "color",
+          examples: ['(ink magenta)', "(wipe magenta)"]
+        },
+        lime: {
+          signature: "lime",
+          description: "The color lime (0, 255, 0). Bright neon green!",
+          category: "color",
+          examples: ['(ink lime)', "(wipe lime)"]
+        },
+        white: {
+          signature: "white",
+          description: "The color white (255, 255, 255). Maximum brightness.",
+          category: "color",
+          examples: ['(ink white)', "(wipe white)"]
+        },
+        black: {
+          signature: "black",
+          description: "The color black (0, 0, 0). Complete darkness.",
+          category: "color",
+          examples: ['(ink black)', "(wipe black)"]
+        },
+        gray: {
+          signature: "gray",
+          description: "The color gray (128, 128, 128). Neutral midtone.",
+          category: "color",
+          examples: ['(ink gray)', "(wipe gray)"]
+        },
+        navy: {
+          signature: "navy",
+          description: "The color navy (0, 0, 128). Dark blue.",
+          category: "color",
+          examples: ['(ink navy)', "(wipe navy)"]
+        },
+        teal: {
+          signature: "teal",
+          description: "The color teal (0, 128, 128). Dark cyan.",
+          category: "color",
+          examples: ['(ink teal)', "(wipe teal)"]
+        },
+        coral: {
+          signature: "coral",
+          description: "The color coral (255, 127, 80). Warm orange-pink.",
+          category: "color",
+          examples: ['(ink coral)', "(wipe coral)"]
+        },
+        gold: {
+          signature: "gold",
+          description: "The color gold (255, 215, 0). Shiny and precious!",
+          category: "color",
+          examples: ['(ink gold)', "(wipe gold)"]
+        },
+        // === SPECIAL GLOBALS ===
+        mouseX: {
+          signature: "mouseX",
+          description: "The current X position of the mouse/touch pointer. Updates every frame.",
+          category: "input",
+          examples: ["(circle mouseX mouseY 10)", "(line 0 0 mouseX mouseY)"]
+        },
+        mouseY: {
+          signature: "mouseY",
+          description: "The current Y position of the mouse/touch pointer. Updates every frame.",
+          category: "input",
+          examples: ["(circle mouseX mouseY 10)", "(plot mouseX mouseY)"]
+        },
+        lastX: {
+          signature: "lastX",
+          description: "The previous frame's X position of the mouse/touch. Useful for drawing lines.",
+          category: "input",
+          examples: ["(draw (line lastX lastY mouseX mouseY))"]
+        },
+        lastY: {
+          signature: "lastY",
+          description: "The previous frame's Y position of the mouse/touch. Useful for drawing lines.",
+          category: "input",
+          examples: ["(draw (line lastX lastY mouseX mouseY))"]
+        },
+        // === BEAT/MUSIC ===
+        beat: {
+          signature: "(beat [division])",
+          description: "Returns true on musical beats. Division can be 1, 2, 4, 8, 16 for whole, half, quarter notes etc.",
+          category: "audio",
+          examples: ["(if (beat) (wipe))", "(if (beat 4) (circle 100 100 20))"]
+        },
+        bpm: {
+          signature: "bpm",
+          description: "The current beats per minute for timing. Can be set or read.",
+          category: "audio",
+          examples: ["bpm", "(set bpm 120)"]
         }
       };
       
@@ -20380,6 +20594,141 @@
     // Track current cursor word for live docs
     let currentCursorWord = null;
     
+    // Helper function to syntax highlight KidLisp code for Learn docs
+    function highlightKidlispCode(code, isSignature = false) {
+      // Escape HTML first
+      const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
+      // CSS color name to RGB mapping (common colors for highlighting)
+      const learnColorMap = {
+        red: [255, 0, 0], blue: [0, 0, 255], green: [0, 128, 0], yellow: [255, 255, 0],
+        purple: [128, 0, 128], orange: [255, 165, 0], pink: [255, 192, 203], cyan: [0, 255, 255],
+        magenta: [255, 0, 255], lime: [0, 255, 0], white: [255, 255, 255], black: [0, 0, 0],
+        gray: [128, 128, 128], grey: [128, 128, 128], navy: [0, 0, 128], teal: [0, 128, 128],
+        coral: [255, 127, 80], gold: [255, 215, 0], silver: [192, 192, 192], maroon: [128, 0, 0],
+        olive: [128, 128, 0], aqua: [0, 255, 255], fuchsia: [255, 0, 255], indigo: [75, 0, 130],
+        violet: [238, 130, 238], brown: [165, 42, 42], tan: [210, 180, 140], salmon: [250, 128, 114],
+        crimson: [220, 20, 60], turquoise: [64, 224, 208], plum: [221, 160, 221], khaki: [240, 230, 140],
+        tomato: [255, 99, 71], peru: [205, 133, 63], sienna: [160, 82, 45], chocolate: [210, 105, 30],
+        firebrick: [178, 34, 34], hotpink: [255, 105, 180], deeppink: [255, 20, 147]
+      };
+      
+      // Known functions for highlighting
+      const knownFunctions = new Set([
+        'wipe', 'ink', 'line', 'box', 'flood', 'circle', 'write', 'paste', 'stamp', 'point', 'poly', 'embed',
+        'print', 'debug', 'random', 'sin', 'cos', 'tan', 'floor', 'ceil', 'round', 'tri', 'shape',
+        'noise', 'choose', '?', '...', '..', 'overtone', 'mic', 'amplitude', 'tone', 'beep', 'melody',
+        'resolution', 'wiggle', 'scroll', 'spin', 'resetSpin', 'smoothspin', 'zoom', 'blur', 'contrast',
+        'fade', 'bake', 'mask', 'unmask', 'label', 'len', 'now', 'once', 'die', 'jump', 'plot',
+        'tap', 'draw', 'not', 'range', 'if', 'def', 'set', 'later', 'repeat', 'bunch', 'loop',
+        'list', 'get', 'first', 'rest', 'push', 'pop', 'fill', 'outline', 'stroke', 'nofill', 'nostroke',
+        'and', 'or', 'beat'
+      ]);
+      
+      // Math operators
+      const mathOps = new Set(['+', '-', '*', '/', '%', 'mod', '=', '>', '<', '>=', '<=', 'abs', 'sqrt', 'min', 'max', 'lerp', 'map', 'constrain', 'dist', 'pow']);
+      
+      // Color names (common CSS colors)
+      const colorNames = new Set([
+        'red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'cyan', 'magenta', 'lime',
+        'white', 'black', 'gray', 'grey', 'navy', 'teal', 'coral', 'gold', 'silver', 'maroon',
+        'olive', 'aqua', 'fuchsia', 'indigo', 'violet', 'brown', 'tan', 'salmon', 'crimson',
+        'turquoise', 'plum', 'khaki', 'tomato', 'peru', 'sienna', 'chocolate', 'firebrick', 'hotpink', 'deeppink'
+      ]);
+      
+      // Global variables
+      const globals = new Set(['width', 'height', 'time', 'elapsed', 'frame', 'delta', 'fps', 'mic', 'mouseX', 'mouseY', 'lastX', 'lastY', 'bpm', 'amplitude']);
+      
+      let result = '';
+      let i = 0;
+      
+      while (i < code.length) {
+        const char = code[i];
+        
+        // Handle parentheses
+        if (char === '(' || char === ')') {
+          result += `<span class="kl-paren">${char}</span>`;
+          i++;
+          continue;
+        }
+        
+        // Handle brackets (optional params in signatures)
+        if (char === '[' || char === ']') {
+          result += `<span class="kl-bracket">${char}</span>`;
+          i++;
+          continue;
+        }
+        
+        // Handle strings
+        if (char === '"') {
+          let str = char;
+          i++;
+          while (i < code.length && code[i] !== '"') {
+            str += code[i];
+            i++;
+          }
+          if (i < code.length) str += code[i++];
+          result += `<span class="kl-str">${escapeHtml(str)}</span>`;
+          continue;
+        }
+        
+        // Handle whitespace
+        if (/\s/.test(char)) {
+          result += char;
+          i++;
+          continue;
+        }
+        
+        // Collect a word/token
+        let token = '';
+        while (i < code.length && !/[\s()\[\]"]/.test(code[i])) {
+          token += code[i];
+          i++;
+        }
+        
+        if (!token) continue;
+        
+        // Determine token type and apply class
+        if (token === 'rainbow') {
+          result += `<span class="kl-rainbow">${escapeHtml(token)}</span>`;
+        } else if (token === 'zebra') {
+          result += `<span class="kl-special">${escapeHtml(token)}</span>`;
+        } else if (/^\d*\.?\d+[sf]\.\.\.?$/.test(token) || /^\d*\.?\d+[sf]!?$/.test(token)) {
+          // Timing patterns like 1s, 0.5s, 1s..., 2f
+          result += `<span class="kl-timing">${escapeHtml(token)}</span>`;
+        } else if (/^-?\d+(\.\d+)?$/.test(token)) {
+          // Numbers
+          result += `<span class="kl-num">${escapeHtml(token)}</span>`;
+        } else if (mathOps.has(token)) {
+          result += `<span class="kl-math">${escapeHtml(token)}</span>`;
+        } else if (knownFunctions.has(token)) {
+          result += `<span class="kl-fn">${escapeHtml(token)}</span>`;
+        } else if (colorNames.has(token.toLowerCase())) {
+          // Show color names in their actual color
+          const colorRgb = learnColorMap[token.toLowerCase()];
+          if (colorRgb) {
+            const [r, g, b] = colorRgb;
+            // Add text shadow for dark colors
+            const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+            const shadow = luminance < 80 ? 'text-shadow: 1px 1px 0 rgba(255,255,255,0.5);' : '';
+            result += `<span class="kl-color" style="color: rgb(${r},${g},${b}); ${shadow}">${escapeHtml(token)}</span>`;
+          } else {
+            result += `<span class="kl-color">${escapeHtml(token)}</span>`;
+          }
+        } else if (globals.has(token)) {
+          result += `<span class="kl-var">${escapeHtml(token)}</span>`;
+        } else if (isSignature && /^[a-z]/.test(token)) {
+          // In signatures, lowercase words are likely parameters
+          result += `<span class="kl-param">${escapeHtml(token)}</span>`;
+        } else {
+          // Default - likely a variable
+          result += `<span class="kl-var">${escapeHtml(token)}</span>`;
+        }
+      }
+      
+      return result;
+    }
+    
     function updateLearnDocumentation(word) {
       const docSection = document.getElementById('learn-doc-section');
       if (!docSection) return;
@@ -20391,22 +20740,57 @@
             Place your cursor on a KidLisp function to see its documentation here.
           </div>
           <div class="learn-doc-hint">
-            Try: wipe, ink, box, circle, line, wiggle, beat...
+            Try: wipe, ink, box, circle, line, wiggle, beat, purple, ?...
           </div>
         `;
         return;
       }
       
       const doc = KIDLISP_DOCS[word];
+      
+      // Syntax highlight the signature
+      const signatureHtml = doc.signature ? highlightKidlispCode(doc.signature, true) : '';
+      
+      // Syntax highlight each example
       const examplesHtml = doc.examples && doc.examples.length > 0
         ? `<div class="learn-doc-examples-title">Examples</div>
-           ${doc.examples.map(ex => `<div class="learn-doc-example" data-example="${encodeURIComponent(ex)}">${ex}</div>`).join('')}`
+           ${doc.examples.map(ex => `<div class="learn-doc-example" data-example="${encodeURIComponent(ex)}">${highlightKidlispCode(ex)}</div>`).join('')}`
         : '';
+      
+      // Color map for doc name coloring
+      const docColorMap = {
+        red: [255, 0, 0], blue: [0, 0, 255], green: [0, 128, 0], yellow: [255, 255, 0],
+        purple: [128, 0, 128], orange: [255, 165, 0], pink: [255, 192, 203], cyan: [0, 255, 255],
+        magenta: [255, 0, 255], lime: [0, 255, 0], white: [255, 255, 255], black: [0, 0, 0],
+        gray: [128, 128, 128], navy: [0, 0, 128], teal: [0, 128, 128], coral: [255, 127, 80],
+        gold: [255, 215, 0], silver: [192, 192, 192]
+      };
+      
+      // Determine name color based on category
+      let nameColor = 'rgb(205, 92, 155)'; // Default pink
+      if (doc.category === 'color') {
+        // Show color name in its actual color
+        const colorRgb = docColorMap[word.toLowerCase()];
+        if (colorRgb) {
+          nameColor = `rgb(${colorRgb[0]},${colorRgb[1]},${colorRgb[2]})`;
+        }
+      } else if (doc.category === 'timing') {
+        nameColor = '#ffff00'; // Yellow for timing
+      } else if (doc.category === 'math' || doc.category === 'logic') {
+        nameColor = '#00ff00'; // Green for math/logic
+      } else if (word === 'rainbow') {
+        nameColor = 'transparent';
+      }
+      
+      // Special rainbow treatment for the name
+      const nameStyle = word === 'rainbow' 
+        ? 'background: linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'
+        : `color: ${nameColor};`;
       
       docSection.innerHTML = `
         <div class="learn-doc-content">
-          <div class="learn-doc-name">${word}</div>
-          ${doc.signature ? `<div class="learn-doc-signature">${doc.signature}</div>` : ''}
+          <div class="learn-doc-name" style="${nameStyle}">${word}</div>
+          ${doc.signature ? `<div class="learn-doc-signature">${signatureHtml}</div>` : ''}
           ${doc.category ? `<div class="learn-doc-category">${doc.category}</div>` : ''}
           <div class="learn-doc-description">${doc.description || 'No description available.'}</div>
           ${examplesHtml}
@@ -20443,7 +20827,7 @@
               Place your cursor on a KidLisp function to see its documentation here.
             </div>
             <div class="learn-doc-hint">
-              Try: wipe, ink, box, circle, line, wiggle, beat...
+              Try: wipe, ink, box, circle, wiggle, purple, ?, 1s...
             </div>
           </div>
           <div class="guides-coming-soon">
@@ -24612,16 +24996,20 @@
         });
         
         // Initialize Strudel with sample loading - returns the repl
+        // Loads both default dirt-samples AND c_robo's sample library
         strudelRepl = await window.initStrudel({
-          prebake: () => window.samples('github:tidalcycles/dirt-samples'),
+          prebake: () => Promise.all([
+            window.samples('github:tidalcycles/dirt-samples'),
+            window.samples('https://cc.oooooooooooooooo.cc/strudel.json', 'https://cc.oooooooooooooooo.cc'),
+          ]),
         });
         
         // Get Strudel's AudioContext (still needed for audio output)
         strudelAudioContext = window.getAudioContext?.();
         
-        console.log('🌀 Strudel: Loaded with scheduler-based beat detection');
+        console.log('🌀 Strudel: Loaded with scheduler-based beat detection + c_robo samples (cc.oooooooooooooooo.cc)');
         strudelLoaded = true;
-        document.getElementById('strudel-status').textContent = 'Ready';
+        document.getElementById('strudel-status').textContent = 'Ready (+ c_robo samples)';
         return true;
       } catch (err) {
         console.error('Failed to load Strudel:', err);
