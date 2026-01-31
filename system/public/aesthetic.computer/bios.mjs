@@ -18232,33 +18232,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       send({ type: "stick:render:progress", content: { id, progress: 0 } });
       
       if (source === "clock") {
-        // TODO: Implement full clock melody offline rendering
-        // This requires:
-        // 1. Parsing the melody string (reuse melody-parser.mjs)
-        // 2. Creating an OfflineAudioContext
-        // 3. Scheduling oscillator/synth nodes based on beat timing
-        // 4. Rendering to buffer
+        // Parse the melody and render offline
+        const audioData = await renderClockOffline(melody, duration, sampleRate, (progress) => {
+          send({ type: "stick:render:progress", content: { id, progress } });
+        });
         
-        // For now, send back a placeholder response
-        // Full implementation would use OfflineAudioContext:
-        //
-        // const offlineCtx = new OfflineAudioContext(2, sampleRate * duration, sampleRate);
-        // ... schedule notes from parsed melody ...
-        // const audioBuffer = await offlineCtx.startRendering();
-        // const audioData = audioBufferToWav(audioBuffer);
-        
-        console.log("💾 Clock offline render not yet implemented - using placeholder");
         send({
           type: "stick:render:complete",
-          content: { 
-            id,
-            audioData: null, // Would be ArrayBuffer of WAV data
-            message: "Clock offline render coming soon"
-          }
+          content: { id, audioData }
         });
         
       } else if (source === "tone") {
-        // Simple tone can be rendered directly
+        // Simple tone - handled in stick.mjs directly
         send({
           type: "stick:render:complete", 
           content: { id, audioData: null }
@@ -18271,6 +18256,267 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         type: "stick:render:error",
         content: { id, error: err.message }
       });
+    }
+  }
+  
+  // 🎵 Render clock melody offline using OfflineAudioContext
+  async function renderClockOffline(melodyString, durationSec, sampleRate, onProgress) {
+    // Note frequency table (same as disk.mjs)
+    const noteFrequencies = {
+      c: 16.35, "c#": 17.32, db: 17.32, d: 18.35, "d#": 19.45, eb: 19.45,
+      e: 20.6, f: 21.83, "f#": 23.12, gb: 23.12, g: 24.5, "g#": 25.96,
+      ab: 25.96, a: 27.5, "a#": 29.14, bb: 29.14, b: 30.87,
+    };
+    
+    // Convert note string to frequency
+    function noteToFreq(input) {
+      if (typeof input === "number") return input;
+      if (!input || input === "rest" || input === "_") return null;
+      
+      let octave = 4;
+      let note = String(input).trim().toLowerCase();
+      
+      const prefixMatch = note.match(/^(-?\d+)([a-z#]+)$/);
+      const suffixMatch = note.match(/^([a-z#]+)(-?\d+)$/);
+      
+      if (prefixMatch) {
+        octave = parseInt(prefixMatch[1], 10);
+        note = prefixMatch[2];
+      } else if (suffixMatch) {
+        note = suffixMatch[1];
+        octave = parseInt(suffixMatch[2], 10);
+      }
+      
+      note = note.replace(/^([a-g])s$/, "$1#");
+      const baseFreq = noteFrequencies[note];
+      if (!baseFreq) return 440; // Default to A4
+      
+      return baseFreq * Math.pow(2, octave);
+    }
+    
+    // Simple melody parser (subset of full parser)
+    function parseSimpleMelody(str) {
+      const notes = [];
+      let i = 0;
+      let currentOctave = 4;
+      let isStruck = false;
+      let durationMod = 1;
+      let waveType = "sine";
+      
+      while (i < str.length) {
+        const char = str[i];
+        
+        // Skip whitespace and visual separators
+        if (" |~".includes(char)) { i++; continue; }
+        
+        // Struck mode toggle
+        if (char === "^") { isStruck = !isStruck; i++; continue; }
+        
+        // Duration modifiers (sticky)
+        if (char === ".") {
+          let dots = 0;
+          while (str[i] === ".") { dots++; i++; }
+          durationMod = 1 / Math.pow(2, dots);
+          continue;
+        }
+        if (char === ",") {
+          let commas = 0;
+          while (str[i] === ",") { commas++; i++; }
+          durationMod = Math.pow(2, commas);
+          continue;
+        }
+        
+        // Octave changes
+        if (char === "+") { currentOctave++; i++; continue; }
+        if (char === "-") { currentOctave--; i++; continue; }
+        if (/[0-9]/.test(char)) { currentOctave = parseInt(char); i++; continue; }
+        
+        // Waveform type in braces
+        if (char === "{") {
+          const endBrace = str.indexOf("}", i);
+          if (endBrace > i) {
+            const content = str.slice(i + 1, endBrace).toLowerCase();
+            if (["sine", "square", "triangle", "sawtooth", "noise-white"].includes(content)) {
+              waveType = content;
+            }
+            i = endBrace + 1;
+            continue;
+          }
+        }
+        
+        // Rest
+        if (char === "_") {
+          notes.push({ note: "rest", octave: currentOctave, duration: durationMod, waveType, struck: isStruck });
+          i++;
+          continue;
+        }
+        
+        // Note (a-g)
+        if (/[a-g]/i.test(char)) {
+          let note = char.toLowerCase();
+          i++;
+          // Check for sharp
+          if (str[i] === "#" || str[i]?.toLowerCase() === "s") {
+            note += "#";
+            i++;
+          }
+          notes.push({ note, octave: currentOctave, duration: durationMod, waveType, struck: isStruck });
+          continue;
+        }
+        
+        i++; // Skip unknown characters
+      }
+      
+      return notes;
+    }
+    
+    // Parse the melody
+    const parsedNotes = parseSimpleMelody(melodyString);
+    if (parsedNotes.length === 0) {
+      throw new Error("No notes found in melody");
+    }
+    
+    console.log("💾 Parsed notes:", parsedNotes.length);
+    
+    // Create offline audio context
+    const numChannels = 2;
+    const totalSamples = Math.ceil(sampleRate * durationSec);
+    const offlineCtx = new OfflineAudioContext(numChannels, totalSamples, sampleRate);
+    
+    // Calculate timing
+    const bpm = 60; // Default BPM
+    const beatDuration = 60 / bpm; // 1 second per beat at 60 BPM
+    
+    // Schedule all notes
+    let currentTime = 0;
+    let noteIndex = 0;
+    
+    while (currentTime < durationSec) {
+      const noteData = parsedNotes[noteIndex % parsedNotes.length];
+      const noteDuration = beatDuration * noteData.duration;
+      
+      if (noteData.note !== "rest") {
+        const freq = noteToFreq(`${noteData.octave}${noteData.note}`);
+        
+        if (freq) {
+          // Create oscillator
+          const oscillator = offlineCtx.createOscillator();
+          const gainNode = offlineCtx.createGain();
+          
+          // Set waveform type
+          if (noteData.waveType === "noise-white") {
+            // For noise, use a buffer source with random values
+            const bufferSize = sampleRate * noteDuration;
+            const noiseBuffer = offlineCtx.createBuffer(1, bufferSize, sampleRate);
+            const data = noiseBuffer.getChannelData(0);
+            for (let j = 0; j < bufferSize; j++) {
+              data[j] = Math.random() * 2 - 1;
+            }
+            const noiseSource = offlineCtx.createBufferSource();
+            noiseSource.buffer = noiseBuffer;
+            noiseSource.connect(gainNode);
+            gainNode.connect(offlineCtx.destination);
+            
+            // Envelope
+            const attackTime = 0.01;
+            const releaseTime = noteData.struck ? noteDuration * 0.5 : noteDuration * 0.1;
+            gainNode.gain.setValueAtTime(0, currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.5, currentTime + attackTime);
+            gainNode.gain.setValueAtTime(0.5, currentTime + noteDuration - releaseTime);
+            gainNode.gain.linearRampToValueAtTime(0, currentTime + noteDuration);
+            
+            noiseSource.start(currentTime);
+            noiseSource.stop(currentTime + noteDuration);
+          } else {
+            oscillator.type = noteData.waveType;
+            oscillator.frequency.setValueAtTime(freq, currentTime);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(offlineCtx.destination);
+            
+            // Envelope
+            const attackTime = 0.01;
+            const releaseTime = noteData.struck ? noteDuration * 0.5 : noteDuration * 0.1;
+            gainNode.gain.setValueAtTime(0, currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.5, currentTime + attackTime);
+            gainNode.gain.setValueAtTime(0.5, currentTime + noteDuration - releaseTime);
+            gainNode.gain.linearRampToValueAtTime(0, currentTime + noteDuration);
+            
+            oscillator.start(currentTime);
+            oscillator.stop(currentTime + noteDuration);
+          }
+        }
+      }
+      
+      currentTime += noteDuration;
+      noteIndex++;
+      
+      // Report progress
+      if (onProgress && noteIndex % 10 === 0) {
+        onProgress(Math.min(currentTime / durationSec, 0.9));
+      }
+    }
+    
+    // Render the audio
+    console.log("💾 Starting offline render...");
+    const audioBuffer = await offlineCtx.startRendering();
+    console.log("💾 Render complete, converting to WAV...");
+    
+    // Convert AudioBuffer to WAV
+    const wavData = audioBufferToWav(audioBuffer);
+    
+    onProgress?.(1);
+    return wavData;
+  }
+  
+  // Convert AudioBuffer to WAV ArrayBuffer
+  function audioBufferToWav(audioBuffer) {
+    const numChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const numSamples = audioBuffer.length;
+    const bytesPerSample = 2; // 16-bit
+    const dataSize = numSamples * numChannels * bytesPerSample;
+    
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+    
+    // WAV header
+    writeWavString(view, 0, "RIFF");
+    view.setUint32(4, 36 + dataSize, true);
+    writeWavString(view, 8, "WAVE");
+    writeWavString(view, 12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+    view.setUint16(32, numChannels * bytesPerSample, true);
+    view.setUint16(34, 16, true);
+    writeWavString(view, 36, "data");
+    view.setUint32(40, dataSize, true);
+    
+    // Get channel data
+    const channels = [];
+    for (let c = 0; c < numChannels; c++) {
+      channels.push(audioBuffer.getChannelData(c));
+    }
+    
+    // Interleave and write samples
+    let offset = 44;
+    for (let i = 0; i < numSamples; i++) {
+      for (let c = 0; c < numChannels; c++) {
+        const sample = Math.max(-1, Math.min(1, channels[c][i]));
+        view.setInt16(offset, sample * 0x7FFF, true);
+        offset += 2;
+      }
+    }
+    
+    return buffer;
+  }
+  
+  function writeWavString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
     }
   }
 
