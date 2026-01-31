@@ -200,6 +200,53 @@
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
+    /* FF1 CLI copy button in piece-info */
+    .piece-ff1-copy {
+      display: flex;
+      align-items: center;
+      gap: calc(var(--density, 8) * 0.5px);
+      margin-top: calc(var(--density, 8) * 1px);
+      padding: calc(var(--density, 8) * 0.4px) calc(var(--density, 8) * 0.8px);
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: calc(var(--density, 8) * 0.5px);
+      color: rgba(255, 255, 255, 0.9);
+      font-family: 'Noto Sans Mono', monospace;
+      font-size: calc(var(--density, 8) * 1.5px);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      pointer-events: auto;
+      text-shadow: none;
+    }
+    
+    .piece-ff1-copy:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    
+    .piece-ff1-copy:active {
+      transform: scale(0.97);
+    }
+    
+    .piece-ff1-copy.copied {
+      background: rgba(0, 200, 100, 0.3);
+      border-color: rgba(0, 200, 100, 0.6);
+    }
+    
+    .piece-ff1-copy .ff1-icon {
+      height: calc(var(--density, 8) * 1.5px);
+      width: auto;
+      filter: invert(1);
+    }
+    
+    .piece-ff1-copy .ff1-cmd {
+      color: rgba(255, 255, 255, 0.8);
+      max-width: calc(var(--density, 8) * 30px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
     /* KidLisp syntax highlighting */
     .hl-comment { color: #6272a4; font-style: italic; }
     .hl-string { color: orange; }
@@ -462,6 +509,22 @@
         max-width: calc(100% - var(--mobile-qr-total-width)); /* Prevent overlap with QR */
       }
       
+      /* FF1 copy button - compact on mobile */
+      .piece-ff1-copy {
+        margin-top: 6px;
+        padding: 4px 8px;
+        font-size: 9px;
+        gap: 4px;
+      }
+      
+      .piece-ff1-copy .ff1-icon {
+        height: 12px;
+      }
+      
+      .piece-ff1-copy .ff1-cmd {
+        max-width: 150px;
+      }
+      
       /* Playlist info - compact layout for mobile slideshow */
       #playlist-info {
         top: var(--mobile-spacing);
@@ -544,6 +607,10 @@
       <div id="piece-handle"></div>
       <div id="piece-hits"></div>
       <div id="piece-when"></div>
+      <button id="piece-ff1-copy" class="piece-ff1-copy" title="Copy FF1 CLI command">
+        <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="ff1-icon">
+        <span class="ff1-cmd">ac-ff1 cast ...</span>
+      </button>
     </div>
   </div>
   
@@ -1076,6 +1143,9 @@
       
       // Fetch and display KidLisp source code with syntax highlighting
       fetchAndDisplaySource(codeId);
+      
+      // Setup the FF1 CLI copy button for single pieces
+      setupFF1CopyButton(codeId);
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1417,6 +1487,44 @@
         whenEl.textContent = formatted;
         console.log('📺 When:', formatted);
       }
+    }
+    
+    // Setup the FF1 CLI copy button for single pieces
+    function setupFF1CopyButton(pieceCodeId) {
+      const copyBtn = document.getElementById('piece-ff1-copy');
+      if (!copyBtn) return;
+      
+      // Build the device URL for the CLI command
+      const cleanCode = pieceCodeId.startsWith('$') ? pieceCodeId.slice(1) : pieceCodeId;
+      const deviceUrl = `https://device.kidlisp.com/${cleanCode}`;
+      const cliCmd = `ac-ff1 cast ${deviceUrl}`;
+      
+      // Update button text to show the actual command
+      const cmdSpan = copyBtn.querySelector('.ff1-cmd');
+      if (cmdSpan) {
+        cmdSpan.textContent = cliCmd;
+        cmdSpan.title = cliCmd;
+      }
+      
+      // Handle click to copy
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(cliCmd);
+          copyBtn.classList.add('copied');
+          if (cmdSpan) cmdSpan.textContent = 'Copied!';
+          
+          setTimeout(() => {
+            copyBtn.classList.remove('copied');
+            if (cmdSpan) cmdSpan.textContent = cliCmd;
+          }, 2000);
+        } catch (e) {
+          console.error('📺 Failed to copy:', e);
+          // Fallback: show alert with the command
+          alert('FF1 CLI Command:\n\n' + cliCmd);
+        }
+      });
+      
+      console.log('📺 FF1 copy button setup with command:', cliCmd);
     }
     
     // KidLisp syntax highlighter (matches kidlisp.com/give.aesthetic.computer)
