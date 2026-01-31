@@ -766,11 +766,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   if (resolution.device === true) preservedParams.device = "true";
   if (resolution.highlight) preservedParams.highlight = resolution.highlight === true ? "true" : resolution.highlight;
   
-  // Only preserve density/zoom/duration if they were actually in the URL (not from localStorage)
+  // Only preserve these params if they were actually in the URL (not from defaults)
   const currentParams = new URLSearchParams(location.search);
   if (currentParams.has("density")) preservedParams.density = currentParams.get("density");
   if (currentParams.has("zoom")) preservedParams.zoom = currentParams.get("zoom");
   if (currentParams.has("duration")) preservedParams.duration = currentParams.get("duration");
+  // Preserve device mode flags that are critical for proper iframe operation
+  if (currentParams.has("noboot")) preservedParams.noboot = currentParams.get("noboot");
+  if (currentParams.has("noauth")) preservedParams.noauth = currentParams.get("noauth");
+  if (currentParams.has("popout")) preservedParams.popout = currentParams.get("popout");
+  if (currentParams.has("perf")) preservedParams.perf = currentParams.get("perf");
+  if (currentParams.has("autoScale")) preservedParams.autoScale = currentParams.get("autoScale");
 
   if (debug) {
     if (window.isSecureContext) {
@@ -3587,6 +3593,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     
     // Trigger reframe to apply new density
     frame();
+    
+    // Notify parent window (device.kidlisp.com) of density change
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'ac:density-change', density: newDensity }, '*');
+    }
     
     console.log(`🔍 Density: ${newDensity}`);
   }
@@ -12987,18 +12998,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "refresh") {
-      // Reconstruct URL with preserved parameters (nogap, nolabel, duration)
+      // Reconstruct URL with ALL preserved parameters (device mode flags, display settings, etc.)
       const currentUrl = new URL(window.location);
 
-      // Add preserved parameters back to the URL
-      if (preservedParams.nogap) {
-        currentUrl.searchParams.set("nogap", preservedParams.nogap);
-      }
-      if (preservedParams.nolabel) {
-        currentUrl.searchParams.set("nolabel", preservedParams.nolabel);
-      }
-      if (preservedParams.duration) {
-        currentUrl.searchParams.set("duration", preservedParams.duration);
+      // Add ALL preserved parameters back to the URL
+      for (const [key, value] of Object.entries(preservedParams)) {
+        if (value !== undefined && value !== null) {
+          currentUrl.searchParams.set(key, value);
+        }
       }
 
       // Update the URL and reload
