@@ -96,10 +96,10 @@
     /* Source code display - top left */
     #source-code {
       position: absolute;
-      top: calc(var(--ui-scale, 8) * 2px);
-      left: calc(var(--ui-scale, 8) * 2px);
-      right: calc(var(--ui-scale, 8) * 2px);
-      bottom: calc(var(--ui-scale, 8) * 20px);
+      top: calc(var(--ui-scale, 8) * 3px);
+      left: calc(var(--ui-scale, 8) * 3px);
+      right: calc(var(--ui-scale, 8) * 3px);
+      bottom: calc(var(--ui-scale, 8) * 22px);
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
       font-size: calc(var(--ui-scale, 8) * 2.5px);
       line-height: 1.5;
@@ -179,8 +179,8 @@
     /* QR code and label - bottom right (like give.aesthetic.computer) */
     #qr-wrap {
       position: absolute;
-      bottom: calc(var(--ui-scale, 8) * 2px);
-      right: calc(var(--ui-scale, 8) * 2px);
+      bottom: calc(var(--ui-scale, 8) * 3px);
+      right: calc(var(--ui-scale, 8) * 3px);
       display: flex;
       flex-direction: column;
       align-items: flex-end;
@@ -188,6 +188,8 @@
       pointer-events: auto;
       cursor: pointer;
       transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      padding-right: calc(var(--ui-scale, 8) * 0.5px);
+      padding-bottom: calc(var(--ui-scale, 8) * 0.5px);
     }
     
     #qr-wrap:hover {
@@ -240,8 +242,8 @@
     /* Handle and hits info - bottom left (device replaces disk.mjs overlay) */
     #piece-info {
       position: absolute;
-      bottom: calc(var(--ui-scale, 8) * 2px);
-      left: calc(var(--ui-scale, 8) * 2px);
+      bottom: calc(var(--ui-scale, 8) * 3px);
+      left: calc(var(--ui-scale, 8) * 3px);
       display: flex;
       flex-direction: column;
       align-items: flex-start;
@@ -281,6 +283,18 @@
       border: none;
       border-radius: 0;
       pointer-events: auto;
+      transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    .ff1-module.overlap-fade {
+      opacity: 1;
+    }
+
+    .ff1-module.overlap-fade .ff1-playlist-title,
+    .ff1-module.overlap-fade .ff1-playlist-position,
+    .ff1-module.overlap-fade .piece-ff1-copy .ff1-cmd {
+      -webkit-mask-image: linear-gradient(to right, #000 0%, #000 70%, transparent 100%);
+      mask-image: linear-gradient(to right, #000 0%, #000 70%, transparent 100%);
     }
     
     /* Playlist header inside FF1 module (only shown in slideshow mode) */
@@ -344,6 +358,10 @@
     .ff1-module.copied .piece-ff1-copy {
       color: rgba(100, 255, 100, 0.9);
     }
+
+    .ff1-module.overlap-fade {
+      opacity: 1;
+    }
     
     .piece-ff1-copy .ff1-icon {
       height: calc(var(--ui-scale, 8) * 3px);
@@ -374,6 +392,27 @@
     .hl-fade-sep { color: mediumseagreen; }
     .hl-fade-dir { color: cyan; }
     .hl-fade-colon { color: lime; }
+
+    /* Scramble coloring: start white, then transition to target color */
+    .scramble-char {
+      color: #fff;
+      transition: color 5s ease 1.2s;
+    }
+
+    #source-code-inner.scramble-coloring .scramble-char {
+      color: var(--target-color, #fff);
+    }
+
+    /* Hide overlay until boot starts (avoid initial flicker) */
+    body.booting #source-overlay {
+      opacity: 0;
+    }
+
+    /* Reduce ghosting during scramble */
+    #source-overlay.scrambling #source-code,
+    #source-overlay.scrambling #source-code .scramble-char {
+      text-shadow: none;
+    }
     
     /* Rainbow animation */
     @keyframes rainbowCycle {
@@ -740,10 +779,44 @@
       let decodeResolver = null;
       let waitingForDecode = false;
       let currentBootMessage = ''; // Current boot message to weave into scramble
+      let scrambleColorTimeout = null;
+
+      // Detect slideshow/playlist mode early to skip legacy initial scramble
+      const scrambleParams = new URLSearchParams(window.location.search);
+      const hasPlaylist = !!(scrambleParams.get('playlist_url') || scrambleParams.get('slideshow'));
+      
+      const HL_COLOR_MAP = {
+        'hl-comment': '#6272a4',
+        'hl-string': 'orange',
+        'hl-number': 'lime',
+        'hl-keyword': 'pink',
+        'hl-api': 'cyan',
+        'hl-timing': '#ffb86c',
+        'hl-paren': '#888',
+        'hl-code-ref': 'limegreen',
+        'hl-code-id': 'lime',
+        'hl-paint-ref': 'magenta',
+        'hl-paint-id': 'orange',
+        'hl-fade-sep': 'mediumseagreen',
+        'hl-fade-dir': 'cyan',
+        'hl-fade-colon': 'lime',
+      };
       
       // Per-character state for seeded rhythms
       let charStates = []; // { lastChange: timestamp, interval: ms, currentChar: string }
+      let charColors = []; // Per-character target colors based on syntax highlight
       let globalTick = 0;
+
+      function scheduleScrambleColoring(inner) {
+        if (!inner) return;
+        inner.classList.remove('scramble-coloring');
+        if (scrambleColorTimeout) {
+          clearTimeout(scrambleColorTimeout);
+        }
+        scrambleColorTimeout = setTimeout(() => {
+          inner.classList.add('scramble-coloring');
+        }, 1200);
+      }
       
       // Expose setter for boot message
       window.setBootMessage = function(msg) {
@@ -763,6 +836,49 @@
         return char.charCodeAt(0);
       }
       
+      function escapeHtmlChar(char) {
+        if (char === '&') return '&amp;';
+        if (char === '<') return '&lt;';
+        if (char === '>') return '&gt;';
+        return char;
+      }
+      
+      function buildColorMapFromHighlightedHtml(highlightedHtml) {
+        if (!highlightedHtml) return [];
+        const temp = document.createElement('div');
+        temp.innerHTML = highlightedHtml;
+        const colors = [];
+        const walker = document.createTreeWalker(temp, NodeFilter.SHOW_TEXT, null);
+        let node = walker.nextNode();
+        while (node) {
+          let color = null;
+          let el = node.parentElement;
+          while (el) {
+            if (!color && el.classList?.contains('hl-color')) {
+              const style = el.getAttribute('style') || '';
+              const match = style.match(/color\s*:\s*([^;]+)/i);
+              if (match) color = match[1];
+            }
+            if (!color && el.classList) {
+              for (const cls of el.classList) {
+                if (HL_COLOR_MAP[cls]) {
+                  color = HL_COLOR_MAP[cls];
+                  break;
+                }
+              }
+            }
+            if (color) break;
+            el = el.parentElement;
+          }
+          const text = node.textContent || '';
+          for (let i = 0; i < text.length; i++) {
+            colors.push(color);
+          }
+          node = walker.nextNode();
+        }
+        return colors;
+      }
+      
       // Scramble a character (preserve whitespace and casing)
       function getScrambledChar(original) {
         if (original === '\n' || original === ' ' || original === '\t') return original;
@@ -778,8 +894,12 @@
       }
       
       // Initialize per-character states from source
-      function initCharStates(source) {
+      function initCharStates(source, highlightedHtml) {
         const chars = source.split('');
+        charColors = buildColorMapFromHighlightedHtml(highlightedHtml);
+        if (charColors.length !== chars.length) {
+          charColors = new Array(chars.length).fill(null);
+        }
         charStates = chars.map((char, idx) => {
           if (char === '\n' || char === ' ' || char === '\t') {
             return { isWhitespace: true, char: char };
@@ -793,23 +913,24 @@
             currentChar: getScrambledChar(char),
             interval: interval,
             lastChange: performance.now() - Math.random() * interval, // Stagger start times
-            tickOffset: (seed + idx) % 20 // Phase offset for visual variety
+            tickOffset: (seed + idx) % 20, // Phase offset for visual variety
+            color: charColors[idx] || null,
           };
         });
       }
       
-      // Build scrambled text using per-character rhythm
+      // Build scrambled HTML using per-character rhythm and syntax colors
       function buildScrambledTextWithRhythm(source) {
         const now = performance.now();
         globalTick++;
         
         // Initialize states if needed
         if (charStates.length !== source.length) {
-          initCharStates(source);
+          initCharStates(source, pendingHighlightedHtml);
         }
         
-        const result = charStates.map((state, idx) => {
-          if (state.isWhitespace) return state.char;
+        const result = charStates.map((state) => {
+          if (state.isWhitespace) return escapeHtmlChar(state.char);
           
           // Check if this character should change based on its own rhythm
           const elapsed = now - state.lastChange;
@@ -818,7 +939,9 @@
             state.lastChange = now;
           }
           
-          return state.currentChar;
+          const char = escapeHtmlChar(state.currentChar);
+          const colorStyle = state.color ? ` style="--target-color: ${state.color};"` : '';
+          return `<span class="scramble-char"${colorStyle}>${char}</span>`;
         });
         
         // Weave boot message into random positions
@@ -866,20 +989,24 @@
       let initialScrambleFrame = null;
       let initialScrambleActive = true;
       let eagerSource = null; // Will be set from eager fetch
+      let lastScrambleRenderTime = 0;
       (function showInitialScramble() {
         const inner = document.getElementById('source-code-inner');
         const overlay = document.getElementById('source-overlay');
         if (!inner) return;
+        if (hasPlaylist) return;
+        document.body.classList.add('booting');
         
         // Add scrambling class to hide QR/stats during initial load
         if (overlay) overlay.classList.add('scrambling');
+        scheduleScrambleColoring(inner);
         
         // Check if eager fetch completed - use that source for scrambling
         if (window.__eagerSourceFetch) {
           window.__eagerSourceFetch.then(data => {
             if (data?.source && initialScrambleActive) {
               eagerSource = data.source;
-              initCharStates(eagerSource); // Initialize per-character rhythms
+              initCharStates(eagerSource, null); // Initialize per-character rhythms
               console.log('🚀 Eager source ready for scramble:', eagerSource.length, 'chars');
             }
           });
@@ -889,8 +1016,11 @@
         function animateInitialScramble() {
           if (!initialScrambleActive) return;
           // Use eager source if available, otherwise show nothing (waiting)
-          if (eagerSource) {
-            inner.textContent = buildScrambledTextWithRhythm(eagerSource);
+          const now = performance.now();
+          if (eagerSource && now - lastScrambleRenderTime >= 33) {
+            inner.innerHTML = buildScrambledTextWithRhythm(eagerSource);
+            document.body.classList.remove('booting');
+            lastScrambleRenderTime = now;
           }
           initialScrambleFrame = requestAnimationFrame(animateInitialScramble);
         }
@@ -904,6 +1034,7 @@
           cancelAnimationFrame(initialScrambleFrame);
           initialScrambleFrame = null;
         }
+        document.body.classList.remove('booting');
       }
       
       // Global stop function for slideshow mode to cancel any scramble
@@ -922,6 +1053,8 @@
         // Remove scrambling class to show QR/stats
         const overlay = document.getElementById('source-overlay');
         if (overlay) overlay.classList.remove('scrambling');
+        const inner = document.getElementById('source-code-inner');
+        if (inner) inner.classList.remove('scramble-coloring');
       };
       
       // Start scramble animation - keeps scrambling until signaled
@@ -935,6 +1068,7 @@
         
         // Add scrambling class to hide QR/stats during scramble
         if (overlay) overlay.classList.add('scrambling');
+        scheduleScrambleColoring(inner);
         
         pendingSource = source;
         pendingHighlightedHtml = highlightedHtml;
@@ -942,20 +1076,32 @@
         waitingForDecode = true;
         
         // Initialize per-character rhythms for the source
-        initCharStates(source);
+        initCharStates(source, highlightedHtml);
         
         console.log('📺 Starting scramble animation with per-character rhythm...');
         
         // Use requestAnimationFrame for smooth per-character rhythm updates
+        let lastScrambleFrameTime = 0;
         function scrambleLoop() {
           if (!isScrambling || !waitingForDecode) return;
           
-          // Show scrambled plain text with per-character rhythm
-          inner.textContent = buildScrambledTextWithRhythm(pendingSource);
+          const now = performance.now();
+          // Show scrambled plain text with per-character rhythm (throttled to ~30fps)
+          if (now - lastScrambleFrameTime >= 33) {
+            inner.innerHTML = buildScrambledTextWithRhythm(pendingSource);
+            lastScrambleFrameTime = now;
+          }
           
           scrambleAnimationFrame = requestAnimationFrame(scrambleLoop);
         }
         scrambleLoop();
+
+        // Start color transition after a short delay (start whiter)
+        setTimeout(() => {
+          if (isScrambling && waitingForDecode) {
+            inner.classList.add('scramble-coloring');
+          }
+        }, 600);
         
         // Return promise that resolves when decode is triggered
         return new Promise(resolve => {
@@ -1167,9 +1313,9 @@
         document.documentElement.style.setProperty('--density', densityParam);
         // Also update --ui-scale to match so DOM elements scale with density changes
         document.documentElement.style.setProperty('--ui-scale', densityParam);
-        // Update progress bar height (0.5x density for thin line)
+        // Update progress bar height (2.0x density for extra thickness)
         const progressBar = document.getElementById('progress-bar');
-        if (progressBar) progressBar.style.height = `${Math.max(1, Math.round(0.5 * densityParam))}px`;
+        if (progressBar) progressBar.style.height = `${Math.max(2, Math.round(2.0 * densityParam))}px`;
         console.log('📺 Density updated from iframe:', densityParam);
       }
     });
@@ -1495,8 +1641,8 @@
       const progressFill = document.getElementById('progress-fill');
       const overlay = document.getElementById('source-overlay');
       
-      // Set height based on density
-      const barHeight = Math.max(1, Math.round(0.5 * densityParam));
+      // Set height based on density (2.0x for extra thickness)
+      const barHeight = Math.max(2, Math.round(2.0 * densityParam));
       progressBar.style.height = `${barHeight}px`;
       progressBar.classList.add('visible');
       
@@ -1512,6 +1658,7 @@
       function updateProgress() {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(100, (elapsed / durationMs) * 100);
+        currentProgressPercent = progress;
         progressFill.style.width = `${progress}%`;
         
         // Slide overlay elements based on progress:
@@ -1542,6 +1689,8 @@
         } else if (!shouldBlink && progressFill.classList.contains('ending')) {
           progressFill.classList.remove('ending');
         }
+
+        updateFF1Overlap();
         
         if (progress < 100) {
           requestAnimationFrame(updateProgress);
@@ -1612,6 +1761,7 @@
         // Stop any running scramble animation
         if (window.stopScrambleAnimation) window.stopScrambleAnimation();
         inner.innerHTML = highlightedHtml;
+        document.body.classList.remove('booting');
         // Reset scrolling classes
         inner.classList.remove('scrolling');
         inner.style.removeProperty('--scroll-distance');
@@ -1733,6 +1883,42 @@
         });
         whenEl.textContent = formatted;
         console.log('📺 When:', formatted);
+      }
+
+      // Re-check overlap after stats update
+      requestAnimationFrame(updateFF1Overlap);
+
+
+    function updateFF1Overlap() {
+      const ff1Module = document.getElementById('ff1-module');
+      const qrWrap = document.getElementById('qr-wrap');
+      if (!ff1Module || !qrWrap) return;
+      const a = ff1Module.getBoundingClientRect();
+      const b = qrWrap.getBoundingClientRect();
+      const overlap = !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+      ff1Module.classList.toggle('overlap-fade', overlap);
+    }
+
+    window.addEventListener('resize', () => requestAnimationFrame(updateFF1Overlap));
+      updateFF1Overlap();
+    }
+
+    function updateFF1Overlap() {
+      const ff1Module = document.getElementById('ff1-module');
+      const qrWrap = document.getElementById('qr-wrap');
+      if (!ff1Module || !qrWrap) return;
+      const ff1Rect = ff1Module.getBoundingClientRect();
+      const qrRect = qrWrap.getBoundingClientRect();
+      const overlap = !(
+        ff1Rect.right < qrRect.left ||
+        ff1Rect.left > qrRect.right ||
+        ff1Rect.bottom < qrRect.top ||
+        ff1Rect.top > qrRect.bottom
+      );
+      if (overlap) {
+        ff1Module.classList.add('overlap-fade');
+      } else {
+        ff1Module.classList.remove('overlap-fade');
       }
     }
     
@@ -2018,11 +2204,12 @@
     const progressBar = document.getElementById('progress-bar');
     const progressFill = document.getElementById('progress-fill');
     let progressStartTime = null;
+    let currentProgressPercent = 0;
     
     function startProgressBar() {
       console.log('📺 startProgressBar called, densityParam:', densityParam);
-      // Set height based on density (0.5x for thin line, min 1px)
-      const barHeight = Math.max(1, Math.round(0.5 * densityParam));
+      // Set height based on density (2.0x for extra thickness, min 2px)
+      const barHeight = Math.max(2, Math.round(2.0 * densityParam));
       console.log('📺 Progress bar height:', barHeight);
       progressBar.style.height = `${barHeight}px`;
       progressBar.classList.add('visible');
@@ -2067,6 +2254,7 @@
       
       const elapsed = (Date.now() - progressStartTime) / 1000;
       const progress = Math.min(100, (elapsed / playlistDuration) * 100);
+      currentProgressPercent = progress;
       progressFill.style.width = `${progress}%`;
       
       // Slide overlay elements based on progress:
@@ -2098,6 +2286,8 @@
       } else if (!shouldBlink && progressFill.classList.contains('ending')) {
         progressFill.classList.remove('ending');
       }
+
+      updateFF1Overlap();
       
       if (progress < 100) {
         requestAnimationFrame(updateProgressBar);
@@ -2130,6 +2320,7 @@
         }
         // Also show progress bar on hover
         progressBar.classList.remove('hidden-mid');
+        updateFF1Overlap();
       });
       
       // Mouse leaves - restore timeline state
@@ -2138,14 +2329,11 @@
           overlay.classList.remove('hover-reveal');
         }
         // Restore progress bar visibility based on timeline
-        if (progressStartTime) {
-          const elapsed = (Date.now() - progressStartTime) / 1000;
-          const progress = Math.min(100, (elapsed / playlistDuration) * 100);
-          const shouldHideBar = progress > 16.67 && progress < 83.33;
-          if (shouldHideBar) {
-            progressBar.classList.add('hidden-mid');
-          }
+        const shouldHideBar = currentProgressPercent > 16.67 && currentProgressPercent < 83.33;
+        if (shouldHideBar) {
+          progressBar.classList.add('hidden-mid');
         }
+        updateFF1Overlap();
       });
       
       // Also handle mouse movement to catch any interaction
@@ -2155,6 +2343,7 @@
           overlay.classList.add('hover-reveal');
           progressBar.classList.remove('hidden-mid');
         }
+        updateFF1Overlap();
         
         // Auto-hide after 3 seconds of no movement
         if (hoverTimeout) clearTimeout(hoverTimeout);
@@ -2162,14 +2351,11 @@
           if (overlay && overlay.classList.contains('slid-out')) {
             overlay.classList.remove('hover-reveal');
             // Restore progress bar visibility based on timeline
-            if (progressStartTime) {
-              const elapsed = (Date.now() - progressStartTime) / 1000;
-              const progress = Math.min(100, (elapsed / playlistDuration) * 100);
-              const shouldHideBar = progress > 16.67 && progress < 83.33;
-              if (shouldHideBar) {
-                progressBar.classList.add('hidden-mid');
-              }
+            const shouldHideBar = currentProgressPercent > 16.67 && currentProgressPercent < 83.33;
+            if (shouldHideBar) {
+              progressBar.classList.add('hidden-mid');
             }
+            updateFF1Overlap();
           }
         }, 3000);
       });
