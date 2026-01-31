@@ -60,8 +60,8 @@
       background: #000;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
       /* UI scale for DOM elements - independent of piece rendering density */
-      /* Default to 8 for good visibility on FF1/device displays */
-      --ui-scale: 8;
+      /* Default to 10 for good visibility on FF1/device displays */
+      --ui-scale: 10;
     }
     
     #display-iframe {
@@ -116,6 +116,7 @@
     
     #source-code-inner {
       /* For scrolling long code */
+      transition: opacity 0.25s ease;
     }
     
     /* Hide UI elements during scramble animation - only show code */
@@ -374,6 +375,14 @@
       color: rgba(255, 255, 255, 0.8);
       white-space: nowrap;
     }
+
+    .piece-ff1-copy .ff1-quote {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .piece-ff1-copy .ff1-url {
+      color: cyan;
+    }
     
     /* KidLisp syntax highlighting */
     .hl-comment { color: #6272a4; font-style: italic; }
@@ -509,6 +518,10 @@
     
     #progress-bar.hidden-mid {
       opacity: 0;
+    }
+
+    #progress-bar.force-visible {
+      opacity: 1 !important;
     }
 
     #progress-fill {
@@ -1143,6 +1156,9 @@
         const chars = pendingSource.split('');
         const revealStartTime = performance.now();
         const revealDuration = 800; // Total reveal time in ms
+
+        // Keep scramble coloring active during reveal to avoid white flash
+        inner.classList.add('scramble-coloring');
         
         // Each character has a reveal time based on its seed
         const revealTimes = chars.map((char, idx) => {
@@ -1173,16 +1189,23 @@
             return;
           }
           
-          // Build current text - each char reveals at its own time
-          const currentText = chars.map((char, i) => {
-            if (char === '\n' || char === ' ' || char === '\t') return char;
-            
+          // Build current HTML - each char reveals at its own time
+          const currentHtml = chars.map((char, i) => {
+            if (char === '\n' || char === ' ' || char === '\t') return escapeHtmlChar(char);
+
+            const targetColor = charColors[i] || null;
+            const colorDelayMs = 200 + ((char.charCodeAt(0) * 5 + i * 7) % 1800);
+            const colorDelay = (colorDelayMs / 1000).toFixed(2);
+            const colorStyle = targetColor
+              ? ` style="--target-color: ${targetColor}; --color-delay: ${colorDelay}s;"`
+              : ` style="--color-delay: ${colorDelay}s;"`;
+
             // Check if this character should be revealed yet
             if (elapsed >= revealTimes[i]) {
               settled[i] = true;
-              return char;
+              return `<span class="scramble-char"${colorStyle}>${escapeHtmlChar(char)}</span>`;
             }
-            
+
             // Still scrambling - use the charStates rhythm if available
             if (charStates[i] && !charStates[i].isWhitespace) {
               const state = charStates[i];
@@ -1191,13 +1214,13 @@
                 state.currentChar = getScrambledChar(state.original);
                 state.lastChange = now;
               }
-              return state.currentChar;
+              return `<span class="scramble-char"${colorStyle}>${escapeHtmlChar(state.currentChar)}</span>`;
             }
-            
-            return getScrambledChar(char);
+
+            return `<span class="scramble-char"${colorStyle}>${escapeHtmlChar(getScrambledChar(char))}</span>`;
           }).join('');
-          
-          inner.textContent = currentText;
+
+          inner.innerHTML = currentHtml;
           
           // Check if done
           if (settled.every(s => s)) {
@@ -1217,7 +1240,12 @@
         const codeEl = document.getElementById('source-code');
         
         if (inner && pendingHighlightedHtml) {
+          // Crossfade into highlighted code to avoid a white flash
+          inner.style.opacity = '0';
           inner.innerHTML = pendingHighlightedHtml;
+          requestAnimationFrame(() => {
+            inner.style.opacity = '1';
+          });
           
           // Setup scrolling for long code
           requestAnimationFrame(() => {
@@ -1306,7 +1334,7 @@
     
     // Set UI scale to a fixed value for consistent DOM element sizing
     // UI elements (text, QR, labels) should be consistently sized regardless of piece density
-    const uiScale = 8; // Fixed at 8 for good visibility on FF1/devices
+    const uiScale = 10; // Fixed at 10 for better visibility on FF1/devices
     document.documentElement.style.setProperty('--ui-scale', uiScale);
     
     // Listen for density changes from iframe (Cmd+/- keyboard controls)
@@ -1315,8 +1343,7 @@
       if ((e.data?.type === 'ac:density-change' || e.data?.type === 'ac-density-change') && typeof e.data.density === 'number') {
         densityParam = e.data.density;
         document.documentElement.style.setProperty('--density', densityParam);
-        // Also update --ui-scale to match so DOM elements scale with density changes
-        document.documentElement.style.setProperty('--ui-scale', densityParam);
+        // Keep --ui-scale fixed (do not tie to density changes)
         // Update progress bar height (2.0x density for extra thickness)
         const progressBar = document.getElementById('progress-bar');
         if (progressBar) progressBar.style.height = `${Math.max(2, Math.round(2.0 * densityParam))}px`;
@@ -1931,6 +1958,16 @@
     let ff1ButtonInitialized = false;
     
     // Initialize FF1 button click handler (only once)
+    function formatFF1Command(cmd) {
+      const match = cmd.match(/ff1 play\s+"(.+)"/i);
+      if (!match) return cmd;
+      const url = match[1]
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      return `ff1 play <span class="ff1-quote">"</span><span class="ff1-url">${url}</span><span class="ff1-quote">"</span>`;
+    }
+
     function initFF1Button() {
       if (ff1ButtonInitialized) return;
       
@@ -1949,7 +1986,7 @@
           
           setTimeout(() => {
             if (ff1Module) ff1Module.classList.remove('copied');
-            if (cmdSpan) cmdSpan.textContent = currentFF1Command;
+            if (cmdSpan) cmdSpan.innerHTML = formatFF1Command(currentFF1Command);
           }, 2000);
         } catch (e) {
           console.error('📺 Failed to copy:', e);
@@ -1982,7 +2019,7 @@
       // Update button text to show the actual command
       const cmdSpan = copyBtn.querySelector('.ff1-cmd');
       if (cmdSpan) {
-        cmdSpan.textContent = currentFF1Command;
+        cmdSpan.innerHTML = formatFF1Command(currentFF1Command);
         cmdSpan.title = currentFF1Command;
       }
       
@@ -2019,7 +2056,7 @@
       // Update button text to show the actual command
       const cmdSpan = copyBtn.querySelector('.ff1-cmd');
       if (cmdSpan) {
-        cmdSpan.textContent = cliCmd;
+        cmdSpan.innerHTML = formatFF1Command(cliCmd);
         cmdSpan.title = cliCmd;
       }
       
@@ -2317,52 +2354,33 @@
       const overlay = document.getElementById('source-overlay');
       const body = document.body;
       
-      // Mouse enters - reveal elements
-      body.addEventListener('mouseenter', () => {
-        if (overlay && overlay.classList.contains('slid-out')) {
+      function showUiForHover() {
+        if (overlay) {
           overlay.classList.add('hover-reveal');
         }
-        // Also show progress bar on hover
+        progressBar.classList.add('force-visible');
         progressBar.classList.remove('hidden-mid');
         updateFF1Overlap();
-      });
-      
-      // Mouse leaves - restore timeline state
-      body.addEventListener('mouseleave', () => {
+      }
+
+      function restoreUiForTimeline() {
         if (overlay) {
           overlay.classList.remove('hover-reveal');
         }
-        // Restore progress bar visibility based on timeline
+        progressBar.classList.remove('force-visible');
         const shouldHideBar = currentProgressPercent > 16.67 && currentProgressPercent < 83.33;
         if (shouldHideBar) {
           progressBar.classList.add('hidden-mid');
         }
         updateFF1Overlap();
-      });
+      }
       
-      // Also handle mouse movement to catch any interaction
-      let hoverTimeout = null;
-      body.addEventListener('mousemove', () => {
-        if (overlay && overlay.classList.contains('slid-out')) {
-          overlay.classList.add('hover-reveal');
-          progressBar.classList.remove('hidden-mid');
-        }
-        updateFF1Overlap();
-        
-        // Auto-hide after 3 seconds of no movement
-        if (hoverTimeout) clearTimeout(hoverTimeout);
-        hoverTimeout = setTimeout(() => {
-          if (overlay && overlay.classList.contains('slid-out')) {
-            overlay.classList.remove('hover-reveal');
-            // Restore progress bar visibility based on timeline
-            const shouldHideBar = currentProgressPercent > 16.67 && currentProgressPercent < 83.33;
-            if (shouldHideBar) {
-              progressBar.classList.add('hidden-mid');
-            }
-            updateFF1Overlap();
-          }
-        }, 3000);
-      });
+      // Mouse enters - UI elements always on while inside window
+      body.addEventListener('mouseenter', showUiForHover);
+      // Mouse moves - keep UI elements on
+      body.addEventListener('mousemove', showUiForHover);
+      // Mouse leaves - restore timeline state
+      body.addEventListener('mouseleave', restoreUiForTimeline);
     })();
     
     // Start the app
