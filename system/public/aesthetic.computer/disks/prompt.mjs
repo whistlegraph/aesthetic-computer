@@ -3825,9 +3825,9 @@ function paint($) {
     const isOverLimit = charLen > PROMPT_CHAR_LIMIT;
     const isNearLimit = charLen > PROMPT_CHAR_LIMIT * 0.8; // 80% = 204 chars
     
-    // Position in bottom-right, above any buttons
+    // Position in top-right corner to avoid Enter button overlap
     const charCountX = screen.width - (charCountText.length * 4) - 8;
-    const charCountY = screen.height - 30;
+    const charCountY = 6;
     
     // Color based on usage: gray -> yellow -> red
     let meterColor;
