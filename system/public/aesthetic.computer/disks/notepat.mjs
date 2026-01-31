@@ -3083,25 +3083,8 @@ function paint({
       : topMidiMetrics.x + topMidiMetrics.width + 3;
     // Stream should stop before metronome buttons (bpmMinusBtn), not the toggle buttons
     const streamRight = bpmMinusBtn?.box?.x ? bpmMinusBtn.box.x - 2 : (slideBtn?.box?.x ? slideBtn.box.x - 4 : screen.width - 4);
-    const streamMaxWidth = streamRight - streamLeft;
-    // Use up to 40% of available space for stream, rest for active notes list
-    const streamWidth = Math.max(0, Math.min(Math.floor(streamMaxWidth * 0.4), streamMaxWidth));
-    const streamHeight = 6;
-    if (streamWidth > 6) {
-      const streamY =
-        SECONDARY_BAR_TOP +
-        Math.floor((SECONDARY_BAR_HEIGHT - streamHeight) / 2);
-      drawSampleStream(
-        {
-          x: streamLeft,
-          y: streamY,
-          width: streamWidth,
-          height: streamHeight,
-        },
-        waveformsForBars,
-        paintCount,
-      );
-    }
+    // Stream (waveform preview) removed from the mini bar
+    const streamWidth = 0;
 
     // Linear active note list (colored) between stream and metronome buttons
     const listStartX = streamLeft + (streamWidth > 0 ? streamWidth + 4 : 0);
