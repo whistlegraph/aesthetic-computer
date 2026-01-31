@@ -1,14 +1,11 @@
 // commits, 2025.1.14
 // Live GitHub commit feed for aesthetic-computer
-// ╔═══════════════════════════════════════════════════════════╗
-// ║  A typographically ornate commit history visualization    ║
-// ╚═══════════════════════════════════════════════════════════╝
 
-const { max, min, floor, ceil, abs, sin, cos, PI } = Math;
+const { max, floor, ceil } = Math;
 
 const REPO = "whistlegraph/aesthetic-computer";
 const POLL_INTERVAL = 30000; // 30 seconds
-const COMMITS_PER_PAGE = 30; // Fewer per page since we fetch details
+const COMMITS_PER_PAGE = 100;
 
 let commits = [];
 let scroll = 0;
@@ -20,46 +17,17 @@ let error = null;
 let lastFetch = 0;
 let pollTimer = null;
 let rowHeight = 9; // MatrixChunky8 is 8px + 1px spacing
-let topMargin = 24; // Below HUD label
-let bottomMargin = 16; // Footer area
+let topMargin = 19; // Below HUD label
+let bottomMargin = 12; // Footer area
 let hue = 0;
-let pulsePhase = 0;
 let needsLayout = true;
 let autoScroll = false; // Start paused
 let autoScrollDelay = 2000; // 2 second delay before auto-scroll
 let loadTime = 0; // When commits first loaded
-let autoScrollSpeed = 0.25;
+let autoScrollSpeed = 0.3;
 let currentPage = 1;
 let hasMoreCommits = true;
-let showDetailedView = true; // Toggle detailed stats
-let frameCount = 0;
-let hoveredCommit = null;
-let selectedCommit = null;
-
-// Stats cache for detailed commit info
-const statsCache = new Map();
-const statsFetching = new Set();
-
-// Visual theming
 const FONT = "MatrixChunky8";
-const COLORS = {
-  bg: [10, 12, 18],
-  bgAccent: [16, 18, 26],
-  line: [35, 40, 55],
-  lineAccent: [50, 55, 75],
-  sha: [255, 180, 100],
-  shaNew: [150, 255, 150],
-  author: [180, 150, 255],
-  message: [200, 200, 220],
-  time: [90, 100, 120],
-  additions: [100, 220, 130],
-  deletions: [255, 120, 120],
-  files: [140, 180, 220],
-  year: [255, 200, 100],
-  month: [180, 160, 220],
-  week: [140, 180, 140],
-  day: [120, 140, 160],
-};
 
 // Parse relative time
 function timeAgo(dateStr) {
@@ -84,59 +52,11 @@ function timeAgo(dateStr) {
   return "now";
 }
 
-// Format numbers with commas
-function formatNum(n) {
-  if (n >= 1000) return (n / 1000).toFixed(1) + "k";
-  return String(n);
-}
-
-// Generate sparkline bar for additions/deletions
-function statsBar(add, del, maxWidth = 30) {
-  const total = add + del;
-  if (total === 0) return { addW: 0, delW: 0 };
-  const scale = min(1, total / 200); // Scale to max 200 changes
-  const w = floor(maxWidth * scale);
-  const addW = total > 0 ? max(1, floor((add / total) * w)) : 0;
-  const delW = total > 0 ? max(1, floor((del / total) * w)) : 0;
-  return { addW, delW };
-}
-
 // Bound scroll like chat.mjs does
 function boundScroll() {
   if (scroll < 0) scroll = 0;
   if (scroll > totalScrollHeight - chatHeight + 5) {
     scroll = totalScrollHeight - chatHeight + 5;
-  }
-}
-
-// Fetch detailed stats for a single commit
-async function fetchCommitStats(sha) {
-  if (statsCache.has(sha) || statsFetching.has(sha)) return;
-  statsFetching.add(sha);
-  
-  try {
-    const response = await fetch(
-      `https://api.github.com/repos/${REPO}/commits/${sha}`
-    );
-    if (response.ok) {
-      const data = await response.json();
-      statsCache.set(sha, {
-        additions: data.stats?.additions || 0,
-        deletions: data.stats?.deletions || 0,
-        files: data.files?.length || 0,
-        fileList: (data.files || []).slice(0, 5).map(f => ({
-          name: f.filename.split('/').pop(),
-          path: f.filename,
-          add: f.additions,
-          del: f.deletions,
-          status: f.status,
-        })),
-      });
-    }
-  } catch (e) {
-    console.warn("Failed to fetch commit stats:", sha, e);
-  } finally {
-    statsFetching.delete(sha);
   }
 }
 
@@ -150,12 +70,12 @@ function getTimelineMarker(dateStr, prevDateStr) {
   
   // Check for year change (biggest)
   if (!prev || d.getFullYear() !== prev.getFullYear()) {
-    return { type: "year", label: `◆ ${d.getFullYear()} ◆`, color: COLORS.year };
+    return { type: "year", label: `${d.getFullYear()}`, color: [255, 200, 100] };
   }
   
   // Check for month change
   if (d.getMonth() !== prev.getMonth()) {
-    return { type: "month", label: `── ${months[d.getMonth()]} ──`, color: COLORS.month };
+    return { type: "month", label: `${months[d.getMonth()]}`, color: [180, 160, 220] };
   }
   
   // Check for week change (Sunday boundary)
@@ -164,12 +84,12 @@ function getTimelineMarker(dateStr, prevDateStr) {
     return Math.ceil(((date - start) / 86400000 + start.getDay() + 1) / 7);
   };
   if (weekOfYear(d) !== weekOfYear(prev)) {
-    return { type: "week", label: `· Week ${weekOfYear(d)} ·`, color: COLORS.week };
+    return { type: "week", label: `Week ${weekOfYear(d)}`, color: [140, 180, 140] };
   }
   
   // Check for day change
   if (d.getDate() !== prev.getDate()) {
-    return { type: "day", label: `${days[d.getDay()]} ${d.getDate()}`, color: COLORS.day };
+    return { type: "day", label: `${days[d.getDay()]} ${d.getDate()}`, color: [120, 140, 160] };
   }
   
   return null;
@@ -200,12 +120,9 @@ async function fetchCommits(page = 1, append = false) {
       sha: c.sha.slice(0, 7),
       fullSha: c.sha,
       message: c.commit.message.split("\n")[0], // First line only
-      fullMessage: c.commit.message, // Keep full message for expanded view
       author: c.commit.author.name,
-      email: c.commit.author.email,
       date: c.commit.author.date,
       avatar: c.author?.avatar_url,
-      parents: c.parents?.length || 0, // For merge detection
     }));
     
     if (append) {
@@ -224,9 +141,6 @@ async function fetchCommits(page = 1, append = false) {
         hue = 120; // Flash green for new commit
       }
     }
-    
-    // Fetch stats for visible commits
-    newCommits.slice(0, 10).forEach(c => fetchCommitStats(c.fullSha));
     
     lastFetch = Date.now();
     loading = false;
@@ -268,88 +182,24 @@ function boot({ screen, store }) {
   scroll = 0;
   autoScroll = false;
   loadTime = 0;
-  frameCount = 0;
 }
 
-// Draw decorative elements
-function drawDecor(ink, line, box, w, h, phase) {
-  // Subtle corner decorations
-  const cornerSize = 6;
-  const c = [40, 45, 60, 150 + sin(phase) * 30];
-  
-  // Top-left corner
-  ink(...c).line(0, cornerSize, 0, 0);
-  ink(...c).line(0, 0, cornerSize, 0);
-  
-  // Top-right corner
-  ink(...c).line(w - cornerSize, 0, w - 1, 0);
-  ink(...c).line(w - 1, 0, w - 1, cornerSize);
-  
-  // Bottom-left corner  
-  ink(...c).line(0, h - cornerSize, 0, h - 1);
-  ink(...c).line(0, h - 1, cornerSize, h - 1);
-  
-  // Bottom-right corner
-  ink(...c).line(w - cornerSize, h - 1, w - 1, h - 1);
-  ink(...c).line(w - 1, h - cornerSize, w - 1, h - 1);
-}
-
-// Render stats bars with smooth animation
-function drawStats(ink, box, x, y, stats, w) {
-  if (!stats) return y;
-  
-  const { addW, delW } = statsBar(stats.additions, stats.deletions, min(w - 60, 40));
-  const barY = y;
-  const barH = 4;
-  
-  // Stats bar background
-  ink(25, 28, 35).box(x, barY, addW + delW + 2, barH);
-  
-  // Additions bar (green)
-  if (addW > 0) {
-    ink(...COLORS.additions).box(x, barY, addW, barH);
-  }
-  
-  // Deletions bar (red)
-  if (delW > 0) {
-    ink(...COLORS.deletions).box(x + addW, barY, delW, barH);
-  }
-  
-  return barY + barH + 2;
-}
-
-function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, mask, unmask }) {
+function paint({ wipe, ink, screen, line, text, typeface, num, needsPaint, mask, unmask }) {
   const { width: w, height: h } = screen;
-  frameCount++;
-  pulsePhase += 0.05;
   
-  // Rich dark background with subtle gradient simulation
-  const bgPulse = sin(pulsePhase * 0.3) * 2;
-  wipe(COLORS.bg[0] + bgPulse, COLORS.bg[1] + bgPulse, COLORS.bg[2] + bgPulse);
+  // Background with subtle hue shift
+  hue = (hue + 0.1) % 360;
+  const bgHue = hue * 0.1;
+  wipe(12 + Math.sin(bgHue) * 2, 12, 20);
   
-  // Draw decorative corner elements
-  drawDecor(ink, line, box, w, h, pulsePhase);
+  // Top divider line (below HUD label area)
+  ink(50, 50, 70).line(0, topMargin - 1, w, topMargin - 1);
   
-  // Top divider line with gradient effect
-  const topLineY = topMargin - 1;
-  for (let i = 0; i < w; i++) {
-    const alpha = 40 + sin(i * 0.02 + pulsePhase) * 15;
-    ink(50, 55, 75, alpha).box(i, topLineY, 1, 1);
-  }
-  
-  // Bottom divider line
-  const botLineY = h - bottomMargin;
-  for (let i = 0; i < w; i++) {
-    const alpha = 40 + sin(i * 0.02 - pulsePhase) * 15;
-    ink(50, 55, 75, alpha).box(i, botLineY, 1, 1);
-  }
+  // Bottom divider line (above footer)
+  ink(50, 50, 70).line(0, h - bottomMargin, w, h - bottomMargin);
   
   if (loading && commits.length === 0) {
-    // Animated loading indicator
-    const dots = ".".repeat((floor(frameCount / 10) % 4));
-    const loadText = `Loading commits${dots}`;
-    ink(150, 150, 180).write(loadText, { center: "xy", x: w / 2, y: h / 2 }, false, undefined, false, FONT);
-    needsPaint();
+    ink(150, 150, 180).write("Loading commits...", { center: "xy", x: w / 2, y: h / 2 }, false, undefined, false, FONT);
     return;
   }
   
@@ -358,14 +208,12 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
     return;
   }
   
-  // Calculate heights - expanded view with stats
+  // Calculate heights
   chatHeight = h - topMargin - bottomMargin;
-  const baseCommitHeight = rowHeight * 2;
-  const expandedCommitHeight = rowHeight * 4; // Extra space for stats
-  const commitHeight = showDetailedView ? expandedCommitHeight : baseCommitHeight;
-  const yearMarkerHeight = 14;
-  const monthMarkerHeight = 12;
-  const smallMarkerHeight = rowHeight + 2;
+  const commitHeight = rowHeight * 2; // Each commit takes 2 rows
+  const yearMarkerHeight = 12; // Bigger for years
+  const monthMarkerHeight = 10; // Medium for months
+  const smallMarkerHeight = rowHeight; // Small for weeks/days
   
   // Calculate total height including timeline markers
   if (needsLayout) {
@@ -384,23 +232,13 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
     needsLayout = false;
   }
   
-  // Mask off the scrollable area
+  // Mask off the scrollable area (like chat.mjs)
   mask({
     x: 0,
     y: topMargin,
     width: w,
     height: chatHeight,
   });
-  
-  // Fetch stats for visible commits
-  let visibleStart = floor(scroll / commitHeight);
-  let visibleEnd = ceil((scroll + chatHeight) / commitHeight);
-  for (let i = max(0, visibleStart - 2); i < min(commits.length, visibleEnd + 2); i++) {
-    const c = commits[i];
-    if (c && !statsCache.has(c.fullSha) && !statsFetching.has(c.fullSha)) {
-      fetchCommitStats(c.fullSha);
-    }
-  }
   
   // Draw commits with timeline markers
   let y = topMargin - scroll;
@@ -409,7 +247,6 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
     const commit = commits[i];
     const prevDate = i > 0 ? commits[i - 1].date : null;
     const marker = getTimelineMarker(commit.date, prevDate);
-    const stats = statsCache.get(commit.fullSha);
     
     // Timeline marker
     if (marker) {
@@ -422,30 +259,23 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
       }
       
       if (y + markerH >= topMargin - markerH && y < h - bottomMargin + markerH) {
-        // Background for marker with gradient
-        const bgAlpha = marker.type === "year" ? 220 : (marker.type === "month" ? 180 : 100);
-        ink(30, 28, 45, bgAlpha).box(0, y, w, markerH);
+        // Background for marker
+        const bgAlpha = marker.type === "year" ? 200 : (marker.type === "month" ? 150 : 80);
+        ink(40, 35, 60, bgAlpha).box(0, y, w, markerH);
         
-        // Marker text
-        const textY = y + Math.floor((markerH - 8) / 2);
+        // Marker text - use default font for year/month, MatrixChunky8 for week/day
+        const useDefaultFont = marker.type === "year" || marker.type === "month";
+        const textY = y + Math.floor((markerH - (useDefaultFont ? 10 : 8)) / 2);
         
         if (marker.type === "year") {
-          // Year: centered, ornate
-          const yearGlow = 180 + sin(pulsePhase * 2) * 40;
-          ink(marker.color[0], marker.color[1], marker.color[2], yearGlow).write(
-            marker.label, { center: "x", x: w / 2, y: textY }, false, undefined, false, FONT
-          );
+          // Year: centered, default font
+          ink(...marker.color).write(`- ${marker.label} -`, { center: "x", x: w / 2, y: textY });
         } else if (marker.type === "month") {
-          // Month: left aligned with accent line
-          ink(...marker.color).write(marker.label, { x: 4, y: textY }, false, undefined, false, FONT);
-          // Accent line
-          const labelW = text.width(marker.label, FONT) + 8;
-          ink(marker.color[0], marker.color[1], marker.color[2], 60).line(labelW, y + markerH / 2, w - 4, y + markerH / 2);
+          // Month: left aligned, default font
+          ink(...marker.color).write(`- ${marker.label}`, { x: 4, y: textY });
         } else {
-          // Week/Day: subtle with dot
-          ink(marker.color[0], marker.color[1], marker.color[2], 180).write(
-            marker.label, { x: 4, y: textY }, false, undefined, false, FONT
-          );
+          // Week/Day: subtle, MatrixChunky8
+          ink(...marker.color, 180).write(`${marker.label}`, { x: 4, y: textY }, false, undefined, false, FONT);
         }
       }
       y += markerH;
@@ -461,145 +291,55 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
       continue;
     }
     
-    // Commit row background (alternating subtle stripes)
-    if (i % 2 === 0) {
-      ink(18, 20, 28, 100).box(0, y, w, commitHeight);
-    }
-    
-    // Row 1: SHA, time, author
+    // Commit SHA with color based on recency
     const isNew = i === 0 && hue > 60;
-    const shaPulse = isNew ? 200 + sin(pulsePhase * 4) * 55 : 0;
-    const shaColor = isNew ? [150 + shaPulse * 0.4, 255, 150 + shaPulse * 0.2] : COLORS.sha;
-    
-    // SHA with subtle box
-    ink(30, 32, 42).box(2, y + 1, 32, rowHeight - 1);
-    ink(...shaColor).write(commit.sha, { x: 4, y: y + 1 }, false, undefined, false, FONT);
-    
-    // Merge indicator
-    let xOffset = 36;
-    if (commit.parents > 1) {
-      ink(180, 140, 200).write("⊕", { x: xOffset, y: y + 1 }, false, undefined, false, FONT);
-      xOffset += 8;
-    }
+    const shaColor = isNew ? [150, 255, 150] : [255, 180, 100];
+    ink(...shaColor).write(commit.sha, { x: 4, y }, false, undefined, false, FONT);
     
     // Time ago
     const ago = timeAgo(commit.date);
-    ink(...COLORS.time).write(ago, { x: xOffset, y: y + 1 }, false, undefined, false, FONT);
-    xOffset += text.width(ago + " ", FONT);
+    const agoX = 4 + text.width(commit.sha + " ", FONT);
+    ink(100, 100, 130).write(ago, { x: agoX, y }, false, undefined, false, FONT);
     
     // Author (truncate to fit)
-    const author = "@" + commit.author.split(" ")[0].toLowerCase().slice(0, 12);
-    ink(...COLORS.author).write(author, { x: xOffset, y: y + 1 }, false, undefined, false, FONT);
+    const authorX = agoX + text.width(ago + " ", FONT);
+    const author = "@" + commit.author.split(" ")[0].toLowerCase().slice(0, 10);
+    ink(180, 150, 255).write(author, { x: authorX, y }, false, undefined, false, FONT);
     
-    // Row 2: Message
+    // Message on second line
     const msgY = y + rowHeight;
     const charWidth = 4;
     const maxChars = Math.floor((w - 8) / charWidth);
     const msg = commit.message.slice(0, maxChars);
-    ink(...COLORS.message).write(msg, { x: 4, y: msgY }, false, undefined, false, FONT);
+    ink(200, 200, 220).write(msg, { x: 4, y: msgY }, false, undefined, false, FONT);
     
-    // Row 3-4: Stats (if detailed view and stats loaded)
-    if (showDetailedView) {
-      const statsY = y + rowHeight * 2;
-      
-      if (stats) {
-        // Stats line: +additions -deletions files
-        let sx = 4;
-        
-        // Additions
-        const addText = `+${formatNum(stats.additions)}`;
-        ink(...COLORS.additions).write(addText, { x: sx, y: statsY }, false, undefined, false, FONT);
-        sx += text.width(addText + " ", FONT);
-        
-        // Deletions
-        const delText = `-${formatNum(stats.deletions)}`;
-        ink(...COLORS.deletions).write(delText, { x: sx, y: statsY }, false, undefined, false, FONT);
-        sx += text.width(delText + " ", FONT);
-        
-        // Files changed
-        const filesText = `${stats.files}f`;
-        ink(...COLORS.files).write(filesText, { x: sx, y: statsY }, false, undefined, false, FONT);
-        sx += text.width(filesText + " ", FONT);
-        
-        // Mini bar chart
-        const { addW, delW } = statsBar(stats.additions, stats.deletions, 35);
-        if (addW > 0) {
-          ink(...COLORS.additions, 180).box(sx, statsY + 2, addW, 4);
-        }
-        if (delW > 0) {
-          ink(...COLORS.deletions, 180).box(sx + addW, statsY + 2, delW, 4);
-        }
-        
-        // File names preview (Row 4)
-        if (stats.fileList?.length > 0) {
-          const fileY = statsY + rowHeight;
-          let fx = 4;
-          const maxFileWidth = w - 8;
-          
-          for (const f of stats.fileList.slice(0, 3)) {
-            const statusChar = f.status === "added" ? "+" : (f.status === "removed" ? "-" : "~");
-            const statusColor = f.status === "added" ? COLORS.additions : 
-                               (f.status === "removed" ? COLORS.deletions : COLORS.files);
-            
-            const fileStr = `${statusChar}${f.name.slice(0, 12)}`;
-            if (fx + text.width(fileStr, FONT) > maxFileWidth) break;
-            
-            ink(...statusColor, 150).write(fileStr, { x: fx, y: fileY }, false, undefined, false, FONT);
-            fx += text.width(fileStr + " ", FONT);
-          }
-        }
-      } else if (statsFetching.has(commit.fullSha)) {
-        // Loading indicator for stats
-        const loadDots = ".".repeat((floor(frameCount / 8) % 4));
-        ink(80, 80, 100).write(`loading${loadDots}`, { x: 4, y: statsY }, false, undefined, false, FONT);
-      } else {
-        // Placeholder
-        ink(50, 50, 60).write("···", { x: 4, y: statsY }, false, undefined, false, FONT);
-      }
-    }
-    
-    // Subtle separator with gradient
+    // Subtle separator
     const sepY = y + commitHeight - 1;
-    for (let sx = 4; sx < w - 4; sx++) {
-      const alpha = 20 + sin(sx * 0.1) * 10;
-      ink(35, 38, 50, alpha).box(sx, sepY, 1, 1);
-    }
+    ink(30, 30, 42).line(4, sepY, w - 4, sepY);
     
     y += commitHeight;
   }
   
   // Loading more indicator at bottom
   if (loadingMore) {
-    const loadDots = ".".repeat((floor(frameCount / 10) % 4));
-    ink(150, 150, 180).write(`Loading more${loadDots}`, { x: 4, y: h - bottomMargin - rowHeight - 4 }, false, undefined, false, FONT);
+    ink(150, 150, 180).write("Loading more...", { x: 4, y: h - bottomMargin - rowHeight - 2 }, false, undefined, false, FONT);
   }
   
   unmask(); // End masking
   
-  // 📜 Scroll bar (ornate version)
+  // 📜 Scroll bar (outside mask so it's always visible)
   if (totalScrollHeight > chatHeight) {
-    // Track
-    ink(25, 28, 35).box(w - 4, topMargin, 3, chatHeight);
+    ink(40, 40, 50).box(w - 2, topMargin, 2, chatHeight); // Backdrop
     
-    // Decorative track edges
-    ink(40, 45, 55).line(w - 5, topMargin, w - 5, topMargin + chatHeight);
-    ink(40, 45, 55).line(w - 1, topMargin, w - 1, topMargin + chatHeight);
-    
-    const segHeight = max(8, floor((chatHeight / totalScrollHeight) * chatHeight));
+    const segHeight = max(4, floor((chatHeight / totalScrollHeight) * chatHeight));
     const scrollRatio = scroll / max(1, totalScrollHeight - chatHeight);
     const boxY = topMargin + floor(scrollRatio * (chatHeight - segHeight));
     
-    // Thumb with glow
-    const thumbColor = autoScroll ? COLORS.additions : [200, 150, 255];
-    const thumbGlow = 50 + sin(pulsePhase * 2) * 30;
-    ink(thumbColor[0], thumbColor[1], thumbColor[2], thumbGlow).box(w - 6, boxY - 1, 7, segHeight + 2);
-    ink(...thumbColor).box(w - 4, boxY, 3, segHeight);
+    ink(autoScroll ? [100, 255, 150] : [255, 150, 200]).box(w - 2, boxY, 2, segHeight);
   }
   
-  // ═══════════════════════════════════════════════════════════
-  // Footer area (ornate status bar)
-  // ═══════════════════════════════════════════════════════════
-  const footerY = h - bottomMargin + 3;
+  // Footer area (below mask)
+  const footerY = h - bottomMargin + 2;
   const sinceLastFetch = Date.now() - lastFetch;
   const nextPoll = Math.max(0, Math.ceil((POLL_INTERVAL - sinceLastFetch) / 1000));
   
@@ -608,41 +348,27 @@ function paint({ wipe, ink, screen, line, text, box, typeface, num, needsPaint, 
   const delayProgress = loadTime > 0 ? Math.min(1, sinceLoad / autoScrollDelay) : 0;
   const waitingToScroll = loadTime > 0 && !autoScroll && delayProgress < 1;
   
-  // Left section: playback state
   if (waitingToScroll) {
-    // Progress bar during delay
-    const barWidth = 24;
+    // Show progress bar during delay
+    const barWidth = 40;
     const barX = 4;
-    ink(30, 32, 40).box(barX, footerY, barWidth, 7);
+    ink(40, 40, 50).box(barX, footerY, barWidth, 7);
     ink(100, 200, 150).box(barX, footerY, Math.floor(barWidth * delayProgress), 7);
-    ink(60, 65, 80).box(barX, footerY, barWidth, 7, "outline");
   } else {
-    // Auto-scroll indicator with icon
-    const playIcon = autoScroll ? "►" : "║║";
-    const playColor = autoScroll ? COLORS.additions : [100, 100, 120];
-    ink(...playColor).write(playIcon, { x: 4, y: footerY }, false, undefined, false, FONT);
+    // Auto-scroll indicator
+    const autoLabel = autoScroll ? ">" : "||";
+    ink(autoScroll ? [100, 255, 150] : [100, 100, 120]).write(autoLabel, { x: 4, y: footerY }, false, undefined, false, FONT);
   }
   
-  // Poll countdown with subtle animation
-  const pollAlpha = 150 + sin(pulsePhase + nextPoll * 0.2) * 50;
-  ink(80, 85, 105, pollAlpha).write(`${nextPoll}s`, { x: waitingToScroll ? 32 : 20, y: footerY }, false, undefined, false, FONT);
+  // Poll countdown
+  ink(80, 80, 100).write(`${nextPoll}s`, { x: waitingToScroll ? 50 : 16, y: footerY }, false, undefined, false, FONT);
   
-  // Center: view toggle hint
-  const toggleHint = showDetailedView ? "[d]etail" : "[d]etail";
-  const hintX = floor(w / 2) - floor(text.width(toggleHint, FONT) / 2);
-  ink(60, 65, 80).write(toggleHint, { x: hintX, y: footerY }, false, undefined, false, FONT);
-  
-  // Right section: commit count
+  // Commit count / loading status
   const countText = hasMoreCommits ? `${commits.length}+` : `${commits.length}`;
-  const countX = w - text.width(countText, FONT) - 4;
-  ink(100, 105, 130).write(countText, { x: countX, y: footerY }, false, undefined, false, FONT);
+  ink(80, 80, 100).write(countText, { x: w - text.width(countText, FONT) - 4, y: footerY }, false, undefined, false, FONT);
   
-  // Stats cache indicator
-  const cacheText = `${statsCache.size}★`;
-  ink(60, 80, 60).write(cacheText, { x: countX - text.width(cacheText + " ", FONT), y: footerY }, false, undefined, false, FONT);
-  
-  // Keep painting for animations
-  if (autoScroll || waitingToScroll || statsFetching.size > 0) needsPaint();
+  // Keep painting for auto-scroll or delay progress
+  if (autoScroll || waitingToScroll) needsPaint();
 }
 
 function act({ event: e, screen, store, jump }) {
@@ -659,13 +385,13 @@ function act({ event: e, screen, store, jump }) {
   // Keyboard controls
   if (e.is("keyboard:down:arrowup") || e.is("keyboard:down:k")) {
     autoScroll = false;
-    scroll -= rowHeight * 4;
+    scroll -= rowHeight * 2;
     boundScroll();
   }
   
   if (e.is("keyboard:down:arrowdown") || e.is("keyboard:down:j")) {
     autoScroll = false;
-    scroll += rowHeight * 4;
+    scroll += rowHeight * 2;
     boundScroll();
     loadMoreIfNeeded();
   }
@@ -681,35 +407,14 @@ function act({ event: e, screen, store, jump }) {
     loadMoreIfNeeded();
   }
   
-  // Page up/down
-  if (e.is("keyboard:down:pageup")) {
-    autoScroll = false;
-    scroll -= chatHeight * 0.8;
-    boundScroll();
-  }
-  
-  if (e.is("keyboard:down:pagedown")) {
-    autoScroll = false;
-    scroll += chatHeight * 0.8;
-    boundScroll();
-    loadMoreIfNeeded();
-  }
-  
   // Toggle auto-scroll with Space
   if (e.is("keyboard:down: ")) {
     autoScroll = !autoScroll;
     if (autoScroll) scroll = 0; // Reset to top when enabling
   }
   
-  // Toggle detailed view with D
-  if (e.is("keyboard:down:d")) {
-    showDetailedView = !showDetailedView;
-    needsLayout = true;
-  }
-  
   // Refresh on R
   if (e.is("keyboard:down:r")) {
-    statsCache.clear();
     fetchCommits(1, false);
   }
   
@@ -749,15 +454,12 @@ function leave() {
     clearInterval(pollTimer);
     pollTimer = null;
   }
-  // Clear caches
-  statsCache.clear();
-  statsFetching.clear();
 }
 
 function meta() {
   return {
     title: "Commits",
-    desc: "╔═══════════════════════════════════════╗\n║ Live GitHub commit feed with stats    ║\n║ +additions -deletions • files changed ║\n╚═══════════════════════════════════════╝",
+    desc: "Live GitHub commit feed for aesthetic-computer",
   };
 }
 
