@@ -51,38 +51,6 @@ function paint($) {
       timestampHover: [255, 240, 120], // Bright golden yellow on hover
     }
   });
-  
-  // 🏷️ Draw animated "laer-klokken" label with shadow and character-by-character color cycling
-  // (Styled like prompt HUD corner label)
-  const labelText = "laer-klokken";
-  const labelX = 6;
-  const labelY = 2;
-  const charWidth = 4; // MatrixChunky8 char width
-  const frame = $.help?.repeat || 0;
-  
-  // Warm color palette for animation (matching theme)
-  const colors = [
-    [255, 180, 100], // Warm orange
-    [255, 200, 140], // Peachy
-    [255, 160, 120], // Coral
-    [255, 220, 180], // Warm beige
-    [220, 150, 100], // Soft peach
-    [255, 140, 100], // Tangerine
-  ];
-  
-  // Draw each character with shadow and cycling color
-  for (let i = 0; i < labelText.length; i++) {
-    const char = labelText[i];
-    const charX = labelX + i * charWidth;
-    
-    // Shadow (1px right and down)
-    $.ink(0, 0, 0, 200).write(char, { x: charX + 1, y: labelY + 1 }, false, undefined, false, "MatrixChunky8");
-    
-    // Main character with cycling color based on position and frame
-    const colorIndex = (i + Math.floor(frame / 8)) % colors.length;
-    const color = colors[colorIndex] || [255, 180, 100]; // Fallback color
-    $.ink(color[0], color[1], color[2]).write(char, { x: charX, y: labelY }, false, undefined, false, "MatrixChunky8");
-  }
 }
 
 function act($) {
