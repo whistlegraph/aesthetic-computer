@@ -559,7 +559,7 @@
         </div>
         <button id="piece-ff1-copy" class="piece-ff1-copy" title="Copy FF1 CLI command">
           <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="ff1-icon">
-          <span class="ff1-cmd">ff1 chat "display ..."</span>
+          <span class="ff1-cmd">ff1 play ...</span>
         </button>
       </div>
     </div>
@@ -898,9 +898,24 @@
   </script>
   
   <script>
-    // Get density from URL params
+    // Calculate smart default density based on screen resolution
+    // 4K (3840x2160+) → density 8 (larger pixels for viewing distance)
+    // 1440p (2560x1440) → density 4
+    // 1080p and below → density 2 (sharper for close viewing)
+    function getSmartDensity() {
+      const screenWidth = window.screen.width * (window.devicePixelRatio || 1);
+      const screenHeight = window.screen.height * (window.devicePixelRatio || 1);
+      const maxDim = Math.max(screenWidth, screenHeight);
+      
+      if (maxDim >= 3840) return 8;  // 4K+
+      if (maxDim >= 2560) return 4;  // 1440p / QHD
+      if (maxDim >= 1920) return 2;  // 1080p
+      return 1;                       // Lower res
+    }
+    
+    // Get density from URL params, fallback to smart density
     const urlParams = new URLSearchParams(window.location.search);
-    let densityParam = parseInt(urlParams.get('density')) || 8;
+    let densityParam = parseInt(urlParams.get('density')) || getSmartDensity();
     
     // Set CSS custom property for density-based sizing
     document.documentElement.style.setProperty('--density', densityParam);
@@ -917,12 +932,10 @@
       }
     });
     
-    // Boot animation is now handled by the iframe's acBootCanvas with device mode
-    // (black background, white/gray bars, density scaling)
-    
-    // Default display parameters for FF1 and 4K displays
+    // Default display parameters for FF1 and display devices
+    // (getSmartDensity is defined earlier in the density setup script)
     const DEVICE_DEFAULTS = {
-      density: 8,     // Higher density = larger pixels (8x8 screen pixels per AC pixel)
+      density: getSmartDensity(), // Smart density based on screen resolution
       device: true,   // Device mode - auto-enables audio, combines tv+nogap+noauth
       tv: true,       // Non-interactive TV mode
       nogap: true,    // Borderless / no gap
@@ -1173,10 +1186,21 @@
       // DP-1 items have a 'source' field with the display URL
       let itemUrl = item.source || item.url || '';
       
-      // If it's a device.kidlisp.com URL, use it directly (already has display params)
-      // Otherwise, build the URL ourselves
-      if (!itemUrl.includes('device.kidlisp.com')) {
-        // It's a raw URL, add display params
+      // Always convert to aesthetic.computer URL for the iframe
+      // device.kidlisp.com URLs should NOT be used directly - they'd load another device.html!
+      if (itemUrl.includes('device.kidlisp.com')) {
+        // Extract the code from device.kidlisp.com URL and convert to aesthetic.computer
+        const deviceMatch = itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9_-]+)/i);
+        if (deviceMatch) {
+          const code = deviceMatch[1];
+          itemUrl = `${aestheticUrl}/${code}?${buildDisplayParams()}`;
+        }
+      } else if (!itemUrl.includes('aesthetic.computer')) {
+        // It's some other URL, add display params
+        const separator = itemUrl.includes('?') ? '&' : '?';
+        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+      } else {
+        // It's already aesthetic.computer, ensure display params
         const separator = itemUrl.includes('?') ? '&' : '?';
         itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
       }
@@ -1197,6 +1221,12 @@
       
       // Try to extract codeId from URL for source display
       const codeMatch = itemUrl.match(/\/(\$[a-z0-9]+)/i) || itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9]+)/i);
+      
+      // Clear previous piece info before loading new
+      document.getElementById('piece-handle').textContent = '';
+      document.getElementById('piece-hits').textContent = '';
+      document.getElementById('piece-when').textContent = '';
+      
       if (codeMatch) {
         let extractedCodeId = codeMatch[1];
         if (!extractedCodeId.startsWith('$')) extractedCodeId = '$' + extractedCodeId;
@@ -1204,8 +1234,6 @@
       } else {
         // Clear source display for non-kidlisp items
         document.getElementById('source-code-inner').innerHTML = '';
-        document.getElementById('piece-handle').textContent = '';
-        document.getElementById('piece-hits').textContent = '';
       }
       
       // Set timer to advance to next item
@@ -1420,51 +1448,76 @@
       }
     }
     
-    // Setup the FF1 CLI copy button for single pieces
-    function setupFF1CopyButton(pieceCodeId) {
+    // Track current FF1 CLI command (shared between single and playlist modes)
+    let currentFF1Command = '';
+    let ff1ButtonInitialized = false;
+    
+    // Initialize FF1 button click handler (only once)
+    function initFF1Button() {
+      if (ff1ButtonInitialized) return;
+      
       const copyBtn = document.getElementById('piece-ff1-copy');
       const ff1Module = document.getElementById('ff1-module');
       if (!copyBtn) return;
       
-      // Build the device URL for the CLI command (official FF1 CLI format)
-      const cleanCode = pieceCodeId.startsWith('$') ? pieceCodeId.slice(1) : pieceCodeId;
-      const deviceUrl = `https://device.kidlisp.com/${cleanCode}`;
-      const cliCmd = `ff1 chat "display ${deviceUrl}"`;
-      
-      // Update button text to show the actual command
-      const cmdSpan = copyBtn.querySelector('.ff1-cmd');
-      if (cmdSpan) {
-        cmdSpan.textContent = cliCmd;
-        cmdSpan.title = cliCmd;
-      }
-      
-      // Handle click to copy
       copyBtn.addEventListener('click', async () => {
+        if (!currentFF1Command) return;
+        
+        const cmdSpan = copyBtn.querySelector('.ff1-cmd');
         try {
-          await navigator.clipboard.writeText(cliCmd);
+          await navigator.clipboard.writeText(currentFF1Command);
           if (ff1Module) ff1Module.classList.add('copied');
           if (cmdSpan) cmdSpan.textContent = 'Copied!';
           
           setTimeout(() => {
             if (ff1Module) ff1Module.classList.remove('copied');
-            if (cmdSpan) cmdSpan.textContent = cliCmd;
+            if (cmdSpan) cmdSpan.textContent = currentFF1Command;
           }, 2000);
         } catch (e) {
           console.error('📺 Failed to copy:', e);
-          // Fallback: show alert with the command
-          alert('FF1 CLI Command:\n\n' + cliCmd);
+          alert('FF1 CLI Command:\n\n' + currentFF1Command);
         }
       });
       
-      console.log('📺 FF1 copy button setup with command:', cliCmd);
+      ff1ButtonInitialized = true;
+    }
+    
+    // Setup the FF1 CLI copy button for single pieces
+    function setupFF1CopyButton(pieceCodeId) {
+      // Skip if we're in slideshow mode - playlist setup handles FF1 button
+      if (slideshowMode) return;
+      
+      initFF1Button();
+      
+      const copyBtn = document.getElementById('piece-ff1-copy');
+      if (!copyBtn) return;
+      
+      // Hide playlist header (not in playlist mode)
+      const playlistHeader = document.getElementById('ff1-playlist-header');
+      if (playlistHeader) playlistHeader.classList.remove('visible');
+      
+      // Build the device URL for the CLI command (official FF1 CLI format)
+      const cleanCode = pieceCodeId.startsWith('$') ? pieceCodeId.slice(1) : pieceCodeId;
+      const deviceUrl = `https://device.kidlisp.com/${cleanCode}`;
+      currentFF1Command = `ff1 play "${deviceUrl}"`;
+      
+      // Update button text to show the actual command
+      const cmdSpan = copyBtn.querySelector('.ff1-cmd');
+      if (cmdSpan) {
+        cmdSpan.textContent = currentFF1Command;
+        cmdSpan.title = currentFF1Command;
+      }
+      
+      console.log('📺 FF1 copy button setup with command:', currentFF1Command);
     }
     
     // Setup the FF1 CLI copy button for slideshow/playlist mode
     // Shows the slideshow URL instead of individual piece URLs
     // Also shows playlist title/position inside the FF1 module
     function setupFF1CopyButtonForPlaylist() {
+      initFF1Button();
+      
       const copyBtn = document.getElementById('piece-ff1-copy');
-      const ff1Module = document.getElementById('ff1-module');
       const playlistHeader = document.getElementById('ff1-playlist-header');
       if (!copyBtn) return;
       
@@ -1482,7 +1535,8 @@
         // Fall back to full playlist_url encoded
         slideshowUrl = `https://device.kidlisp.com/?playlist_url=${encodeURIComponent(playlistUrl)}`;
       }
-      const cliCmd = `ff1 chat "display ${slideshowUrl}"`;
+      const cliCmd = `ff1 play "${slideshowUrl}"`;
+      currentFF1Command = cliCmd;
       
       // Update button text to show the actual command
       const cmdSpan = copyBtn.querySelector('.ff1-cmd');
@@ -1490,24 +1544,6 @@
         cmdSpan.textContent = cliCmd;
         cmdSpan.title = cliCmd;
       }
-      
-      // Handle click to copy
-      copyBtn.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(cliCmd);
-          if (ff1Module) ff1Module.classList.add('copied');
-          if (cmdSpan) cmdSpan.textContent = 'Copied!';
-          
-          setTimeout(() => {
-            if (ff1Module) ff1Module.classList.remove('copied');
-            if (cmdSpan) cmdSpan.textContent = cliCmd;
-          }, 2000);
-        } catch (e) {
-          console.error('📺 Failed to copy:', e);
-          // Fallback: show alert with the command
-          alert('FF1 CLI Command:\n\n' + cliCmd);
-        }
-      });
       
       console.log('📺 FF1 copy button setup for playlist with command:', cliCmd);
     }
