@@ -59,6 +59,9 @@
       overflow: hidden;
       background: #000;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      /* UI scale for DOM elements - independent of piece rendering density */
+      /* Default to 8 for good visibility on FF1/device displays */
+      --ui-scale: 8;
     }
     
     #display-iframe {
@@ -93,12 +96,12 @@
     /* Source code display - top left */
     #source-code {
       position: absolute;
-      top: calc(var(--density, 8) * 4px);
-      left: calc(var(--density, 8) * 4px);
-      right: calc(var(--density, 8) * 4px);
-      bottom: calc(var(--density, 8) * 24px);
+      top: calc(var(--ui-scale, 8) * 4px);
+      left: calc(var(--ui-scale, 8) * 4px);
+      right: calc(var(--ui-scale, 8) * 4px);
+      bottom: calc(var(--ui-scale, 8) * 24px);
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--density, 8) * 2.5px);
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
       line-height: 1.5;
       color: #fff;
       overflow: hidden;
@@ -114,6 +117,44 @@
       /* For scrolling long code */
     }
     
+    /* Boot status indicator - shows loading messages during scramble */
+    #boot-status {
+      position: absolute;
+      top: calc(var(--ui-scale, 8) * 4px);
+      left: calc(var(--ui-scale, 8) * 4px);
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: calc(var(--ui-scale, 8) * 2px);
+      color: rgba(100, 255, 100, 0.9);
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.8);
+      z-index: 17;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      white-space: nowrap;
+    }
+    
+    #boot-status.visible {
+      opacity: 1;
+    }
+    
+    #boot-status.fading {
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    
+    /* Hide UI elements during scramble animation - only show code and FF1 module */
+    #source-overlay.scrambling #qr-wrap,
+    #source-overlay.scrambling #piece-handle,
+    #source-overlay.scrambling #piece-hits,
+    #source-overlay.scrambling #piece-when {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    #source-overlay.scrambling .ff1-module {
+      opacity: 1;
+    }
+    
     #source-code-inner.scrolling {
       animation: codeScroll var(--scroll-duration, 12s) ease-in-out infinite;
       animation-delay: 2s;
@@ -127,8 +168,8 @@
     /* QR code and label - bottom right (like give.aesthetic.computer) */
     #qr-wrap {
       position: absolute;
-      bottom: calc(var(--density, 8) * 4px);
-      right: calc(var(--density, 8) * 4px);
+      bottom: calc(var(--ui-scale, 8) * 4px);
+      right: calc(var(--ui-scale, 8) * 4px);
       display: flex;
       flex-direction: column;
       align-items: flex-end;
@@ -137,12 +178,12 @@
     
     #code-label {
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--density, 8) * 2.5px);
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
       font-weight: 400;
       color: #fff;
       background: #000;
-      padding: calc(var(--density, 8) * 0.25px) calc(var(--density, 8) * 0.5px);
-      padding-bottom: calc(var(--density, 8) * 0.75px); /* Extra space below label */
+      padding: calc(var(--ui-scale, 8) * 0.25px) calc(var(--ui-scale, 8) * 0.5px);
+      padding-bottom: calc(var(--ui-scale, 8) * 0.75px); /* Extra space below label */
       line-height: 1;
       text-transform: none; /* Keep original case */
     }
@@ -157,10 +198,12 @@
     
     #qr-container {
       background: #fff;
-      padding: calc(var(--density, 8) * 0.25px);
+      padding: calc(var(--ui-scale, 8) * 0.25px);
       line-height: 0;
-      width: calc(var(--density, 8) * 10px);
-      height: calc(var(--density, 8) * 10px);
+      width: calc(var(--ui-scale, 8) * 10px);
+      height: calc(var(--ui-scale, 8) * 10px);
+      /* Gray offset hard shadow like disk.mjs pixel-rendered QR codes */
+      box-shadow: calc(var(--ui-scale, 8) * 0.5px) calc(var(--ui-scale, 8) * 0.5px) 0 rgba(64, 64, 64, 0.8);
     }
     
     #qr-container svg {
@@ -173,13 +216,13 @@
     /* Handle and hits info - bottom left (device replaces disk.mjs overlay) */
     #piece-info {
       position: absolute;
-      bottom: calc(var(--density, 8) * 4px);
-      left: calc(var(--density, 8) * 4px);
+      bottom: calc(var(--ui-scale, 8) * 4px);
+      left: calc(var(--ui-scale, 8) * 4px);
       display: flex;
       flex-direction: column;
       align-items: flex-start;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--density, 8) * 2.5px);
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
       line-height: 1.4;
       z-index: 16;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
@@ -206,12 +249,12 @@
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: calc(var(--density, 8) * 0.3px);
-      margin-top: calc(var(--density, 8) * 0.75px);
-      padding: calc(var(--density, 8) * 0.5px) calc(var(--density, 8) * 0.8px);
+      gap: calc(var(--ui-scale, 8) * 0.3px);
+      margin-top: calc(var(--ui-scale, 8) * 0.75px);
+      padding: calc(var(--ui-scale, 8) * 0.5px) calc(var(--ui-scale, 8) * 0.8px);
       background: rgba(0, 0, 0, 0.6);
       border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: calc(var(--density, 8) * 0.5px);
+      border-radius: calc(var(--ui-scale, 8) * 0.5px);
       pointer-events: auto;
     }
     
@@ -219,9 +262,9 @@
     .ff1-playlist-header {
       display: none;
       width: 100%;
-      padding-bottom: calc(var(--density, 8) * 0.3px);
+      padding-bottom: calc(var(--ui-scale, 8) * 0.3px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-      margin-bottom: calc(var(--density, 8) * 0.2px);
+      margin-bottom: calc(var(--ui-scale, 8) * 0.2px);
     }
     
     .ff1-playlist-header.visible {
@@ -231,7 +274,7 @@
     .ff1-playlist-title {
       color: rgba(255, 255, 255, 0.9);
       font-family: 'Noto Sans Mono', monospace;
-      font-size: calc(var(--density, 8) * 1.4px);
+      font-size: calc(var(--ui-scale, 8) * 1.4px);
       font-weight: bold;
       line-height: 1.2;
     }
@@ -239,23 +282,23 @@
     .ff1-playlist-position {
       color: rgba(255, 215, 0, 0.9);
       font-family: 'Noto Sans Mono', monospace;
-      font-size: calc(var(--density, 8) * 1.2px);
-      margin-top: calc(var(--density, 8) * 0.15px);
+      font-size: calc(var(--ui-scale, 8) * 1.2px);
+      margin-top: calc(var(--ui-scale, 8) * 0.15px);
     }
     
     /* FF1 CLI copy button inside module */
     .piece-ff1-copy {
       display: flex;
       align-items: center;
-      gap: calc(var(--density, 8) * 0.5px);
+      gap: calc(var(--ui-scale, 8) * 0.5px);
       margin: 0;
-      padding: calc(var(--density, 8) * 0.25px) 0;
+      padding: calc(var(--ui-scale, 8) * 0.25px) 0;
       background: transparent;
       border: none;
       border-radius: 0;
       color: rgba(255, 255, 255, 0.9);
       font-family: 'Noto Sans Mono', monospace;
-      font-size: calc(var(--density, 8) * 1.5px);
+      font-size: calc(var(--ui-scale, 8) * 1.5px);
       cursor: pointer;
       transition: all 0.15s ease;
       pointer-events: auto;
@@ -277,7 +320,7 @@
     }
     
     .piece-ff1-copy .ff1-icon {
-      height: calc(var(--density, 8) * 1.5px);
+      height: calc(var(--ui-scale, 8) * 1.5px);
       width: auto;
       filter: invert(1);
     }
@@ -412,13 +455,13 @@
       top: 0;
       right: 0;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--density, 8) * 1.5px);
+      font-size: calc(var(--ui-scale, 8) * 1.5px);
       color: lime;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
       z-index: 99999;
       pointer-events: none;
       text-align: right;
-      padding: calc(var(--density, 8) * 0.5px);
+      padding: calc(var(--ui-scale, 8) * 0.5px);
     }
 
     /* Playlist info overlay - DEPRECATED, now consolidated into bottom-left piece-info */
@@ -543,6 +586,7 @@
   
   <!-- KidLisp source overlay with syntax highlighting and QR -->
   <div id="source-overlay">
+    <div id="boot-status"></div>
     <div id="source-code"><div id="source-code-inner"></div></div>
     <div id="qr-wrap">
       <div id="code-label"></div>
@@ -648,6 +692,20 @@
       let pendingHighlightedHtml = null;
       let decodeResolver = null;
       let waitingForDecode = false;
+      let currentBootMessage = ''; // Current boot message to weave into scramble
+      
+      // Expose setter for boot message
+      window.setBootMessage = function(msg) {
+        // Clean up the message
+        if (msg?.startsWith?.('ready:')) {
+          currentBootMessage = '';  // Clear on ready
+        } else if (msg?.includes?.('(')) {
+          // Strip timing info
+          currentBootMessage = msg.replace(/\s*\([^)]+\)\s*/g, '').toLowerCase();
+        } else {
+          currentBootMessage = (msg || '').toLowerCase();
+        }
+      };
       
       // Scramble a character (preserve whitespace)
       function getScrambledChar(original) {
@@ -655,12 +713,57 @@
         return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
       }
       
-      // Build scrambled version of source
+      // Build scrambled version of source, weaving boot message throughout
       function buildScrambledText(source) {
-        return source.split('').map(char => {
+        const chars = source.split('');
+        const result = chars.map(char => {
           if (char === '\n' || char === ' ' || char === '\t') return char;
           return getScrambledChar(char);
-        }).join('');
+        });
+        
+        // Weave boot message into MULTIPLE random lines for visibility
+        if (currentBootMessage && currentBootMessage.length > 0) {
+          // Find all newline positions
+          const lines = [];
+          let lineStart = 0;
+          for (let i = 0; i < result.length; i++) {
+            if (result[i] === '\n') {
+              if (i - lineStart > currentBootMessage.length + 4) {
+                lines.push({ start: lineStart, end: i });
+              }
+              lineStart = i + 1;
+            }
+          }
+          // Add last line if long enough
+          if (result.length - lineStart > currentBootMessage.length + 4) {
+            lines.push({ start: lineStart, end: result.length });
+          }
+          
+          // Insert message into multiple lines (every 2-4 lines for good coverage)
+          if (lines.length > 0) {
+            // Shuffle lines for random distribution
+            const shuffled = [...lines].sort(() => Math.random() - 0.5);
+            // Insert into ~30-50% of lines
+            const insertCount = Math.max(1, Math.floor(shuffled.length * (0.3 + Math.random() * 0.2)));
+            
+            for (let n = 0; n < insertCount; n++) {
+              const line = shuffled[n];
+              const lineLength = line.end - line.start;
+              // Random position within line (not at edges)
+              const insertPos = line.start + Math.floor(Math.random() * (lineLength - currentBootMessage.length - 2)) + 1;
+              
+              // Insert the boot message
+              for (let i = 0; i < currentBootMessage.length; i++) {
+                const targetIdx = insertPos + i;
+                if (targetIdx < result.length && result[targetIdx] !== '\n') {
+                  result[targetIdx] = currentBootMessage[i];
+                }
+              }
+            }
+          }
+        }
+        
+        return result.join('');
       }
       
       // Show scrambled placeholder immediately on page load with continuous animation
@@ -670,7 +773,11 @@
       let eagerSource = null; // Will be set from eager fetch
       (function showInitialScramble() {
         const inner = document.getElementById('source-code-inner');
+        const overlay = document.getElementById('source-overlay');
         if (!inner) return;
+        
+        // Add scrambling class to hide QR/stats during initial load
+        if (overlay) overlay.classList.add('scrambling');
         
         // Check if eager fetch completed - use that source for scrambling
         if (window.__eagerSourceFetch) {
@@ -712,15 +819,22 @@
           cancelAnimationFrame(scrambleAnimationFrame);
           scrambleAnimationFrame = null;
         }
+        // Remove scrambling class to show QR/stats
+        const overlay = document.getElementById('source-overlay');
+        if (overlay) overlay.classList.remove('scrambling');
       };
       
       // Start scramble animation - keeps scrambling until signaled
       window.startScrambleAnimation = function(source, highlightedHtml) {
         const inner = document.getElementById('source-code-inner');
+        const overlay = document.getElementById('source-overlay');
         if (!inner || !source) return;
         
         // Stop the initial placeholder scramble
         stopInitialScramble();
+        
+        // Add scrambling class to hide QR/stats during scramble
+        if (overlay) overlay.classList.add('scrambling');
         
         pendingSource = source;
         pendingHighlightedHtml = highlightedHtml;
@@ -861,6 +975,10 @@
           });
         }
         
+        // Remove scrambling class to show QR/stats
+        const overlay = document.getElementById('source-overlay');
+        if (overlay) overlay.classList.remove('scrambling');
+        
         isScrambling = false;
         pendingSource = null;
         pendingHighlightedHtml = null;
@@ -881,16 +999,42 @@
         finalize();
       };
       
+      // Boot status display (disabled - now using inline weaving into scramble)
+      let lastBootMessage = '';
+      let bootStatusTimeout = null;
+      
+      function updateBootStatus(msg) {
+        // Boot status is now shown inline in the scrambled text
+        // Keep this function but don't show the overlay
+        return;
+      }
+      
+      function hideBootStatus() {
+        // No-op - overlay not used
+        return;
+      }
+      
       // Listen for boot-log messages from iframe
       window.addEventListener('message', (e) => {
         if (e.data?.type === 'boot-log') {
           const msg = e.data.message;
           console.log('📺 Boot log:', msg);
           
+          // Update the boot status display
+          updateBootStatus(msg);
+          
+          // Also feed the boot message to the scramble animation
+          window.setBootMessage?.(msg);
+          
           // Signal decode when piece starts running
           // "loaded" is sent when the piece finishes loading
           if (msg === 'loaded' || msg === 'running boot' || msg?.includes?.('running')) {
             window.signalDecode?.();
+          }
+          
+          // Hide boot status when piece is fully ready
+          if (msg?.startsWith?.('ready:')) {
+            setTimeout(hideBootStatus, 500);
           }
         }
       });
@@ -900,31 +1044,36 @@
   <script>
     // Calculate smart default density based on screen resolution
     // 4K (3840x2160+) → density 8 (larger pixels for viewing distance)
-    // 1440p (2560x1440) → density 4
-    // 1080p and below → density 2 (sharper for close viewing)
+    // Everything else → density 4 (good default for most displays)
     function getSmartDensity() {
       const screenWidth = window.screen.width * (window.devicePixelRatio || 1);
       const screenHeight = window.screen.height * (window.devicePixelRatio || 1);
       const maxDim = Math.max(screenWidth, screenHeight);
       
       if (maxDim >= 3840) return 8;  // 4K+
-      if (maxDim >= 2560) return 4;  // 1440p / QHD
-      if (maxDim >= 1920) return 2;  // 1080p
-      return 1;                       // Lower res
+      return 4;                       // Default for all other resolutions
     }
     
     // Get density from URL params, fallback to smart density
     const urlParams = new URLSearchParams(window.location.search);
     let densityParam = parseInt(urlParams.get('density')) || getSmartDensity();
     
-    // Set CSS custom property for density-based sizing
+    // Set CSS custom property for density-based sizing (for piece rendering)
     document.documentElement.style.setProperty('--density', densityParam);
+    
+    // Set UI scale to a fixed value for consistent DOM element sizing
+    // UI elements (text, QR, labels) should be consistently sized regardless of piece density
+    const uiScale = 8; // Fixed at 8 for good visibility on FF1/devices
+    document.documentElement.style.setProperty('--ui-scale', uiScale);
     
     // Listen for density changes from iframe (Cmd+/- keyboard controls)
     window.addEventListener('message', (e) => {
-      if (e.data?.type === 'ac:density-change' && typeof e.data.density === 'number') {
+      // Accept both message formats: 'ac:density-change' (new) and 'ac-density-change' (legacy)
+      if ((e.data?.type === 'ac:density-change' || e.data?.type === 'ac-density-change') && typeof e.data.density === 'number') {
         densityParam = e.data.density;
         document.documentElement.style.setProperty('--density', densityParam);
+        // Also update --ui-scale to match so DOM elements scale with density changes
+        document.documentElement.style.setProperty('--ui-scale', densityParam);
         // Update progress bar height (0.5x density for thin line)
         const progressBar = document.getElementById('progress-bar');
         if (progressBar) progressBar.style.height = `${Math.max(1, Math.round(0.5 * densityParam))}px`;
@@ -1101,10 +1250,10 @@
         addLog(`iframe error: ${e.message || 'unknown'}`, 'error');
       });
       
-      // Always start playlist progress bar (visible indicator of time remaining)
+      // Progress bar will be started when piece is ready (not on iframe load)
+      // See window.addEventListener('message', ...) for boot-log 'ready' handler
       console.log('📺 Playlist mode:', isPlaylist, 'duration:', playlistDuration);
-      console.log('📺 Starting progress bar...');
-      startProgressBar();
+      console.log('📺 Waiting for piece ready before starting progress bar...');
       
       // Fetch and display KidLisp source code with syntax highlighting
       fetchAndDisplaySource(codeId);
@@ -1178,6 +1327,9 @@
       
       console.log('📺 Playing item', slideshowIndex + 1, '/', slideshowPlaylist.items.length, ':', item.title);
       
+      // Reset progress bar flag for new piece
+      progressBarStarted = false;
+      
       // Update position display in FF1 module
       const playlistPosition = document.getElementById('ff1-playlist-position');
       if (playlistPosition) playlistPosition.textContent = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
@@ -1216,8 +1368,10 @@
         clearTimeout(slideshowTimer);
       }
       
-      // Start progress bar for this item
-      startSlideshowProgressBar(duration);
+      // Progress bar will be started when piece is ready (not immediately)
+      // Store duration for when ready message arrives
+      window.pendingSlideshowDuration = duration;
+      console.log('📺 Waiting for piece ready before starting slideshow progress bar...');
       
       // Try to extract codeId from URL for source display
       const codeMatch = itemUrl.match(/\/(\$[a-z0-9]+)/i) || itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9]+)/i);
@@ -1745,9 +1899,31 @@
     
     // Track if piece has changed (for auto-reload logic)
     let pieceHasChanged = false;
+    let progressBarStarted = false;
+    
     window.addEventListener('message', (e) => {
-      // Listen for boot-log, ready, or any paint frame as sign piece is running
-      if (e.data?.type === 'boot-log' || e.data?.type === 'ready' || e.data?.type === 'ac:fps-report') {
+      // Listen for boot-log ready message to start progress bar
+      if (e.data?.type === 'boot-log') {
+        const msg = e.data.message;
+        // Start progress bar when piece is fully ready (after black screen / loading)
+        // "ready: ..." is the final boot message indicating piece is running
+        if (msg?.startsWith?.('ready:') && !progressBarStarted) {
+          progressBarStarted = true;
+          console.log('📺 Piece ready, starting progress bar now');
+          
+          // Check if we're in slideshow mode with a pending duration
+          if (window.pendingSlideshowDuration) {
+            startSlideshowProgressBar(window.pendingSlideshowDuration);
+            window.pendingSlideshowDuration = null;
+          } else if (!slideshowMode) {
+            // Single piece mode
+            startProgressBar();
+          }
+        }
+        pieceHasChanged = true;
+      }
+      // Also mark as changed on other activity signals
+      if (e.data?.type === 'ready' || e.data?.type === 'ac:fps-report') {
         pieceHasChanged = true;
       }
     });

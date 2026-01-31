@@ -3972,6 +3972,60 @@
       box-shadow: 0 1px 2px rgba(79, 70, 229, 0.3);
     }
 
+    /* Play on TV card (first item in Top Hits) */
+    .play-on-tv-card {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: linear-gradient(135deg, rgba(79, 70, 229, 0.15) 0%, rgba(124, 58, 237, 0.1) 100%);
+      transition: all 0.2s ease;
+    }
+    
+    .play-on-tv-card:hover {
+      background: linear-gradient(135deg, rgba(79, 70, 229, 0.25) 0%, rgba(124, 58, 237, 0.18) 100%);
+    }
+    
+    .play-on-tv-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: white;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(79, 70, 229, 0.4);
+    }
+    
+    .play-on-tv-content {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .play-on-tv-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    
+    .play-on-tv-subtitle {
+      font-size: 11px;
+      color: var(--text-secondary);
+      opacity: 0.8;
+    }
+    
+    .play-on-tv-arrow {
+      font-size: 16px;
+      color: var(--text-secondary);
+      opacity: 0.6;
+    }
+
     /* Jukebox Panel Styles */
     #jukebox-content {
       padding: 0;
@@ -4954,6 +5008,9 @@
       flex: 1;
       min-width: 0;
       position: relative;
+      /* Prevent text descenders and shadows from being clipped */
+      padding-bottom: 4px;
+      margin-bottom: -4px;
       /* Monaco-style sharp text shadow for depth */
       text-shadow: 
         0 1px 1px rgba(0, 0, 0, 0.5),
@@ -9223,7 +9280,6 @@
             <div class="list-subtab" data-subtab="recent">Recent</div>
             <div class="list-subtab" data-subtab="history">History</div>
             <div class="list-subtab" data-subtab="keeps">Keeps</div>
-            <button class="slideshow-icon-btn" id="slideshow-btn" title="Play Top 100 as slideshow">▶</button>
           </div>
           <!-- List sub-contents -->
           <div class="list-subcontent" id="examples-subcontent">
@@ -20595,7 +20651,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
     let currentCursorWord = null;
     
     // Helper function to syntax highlight KidLisp code for Learn docs
-    function highlightKidlispCode(code, isSignature = false) {
+    function highlightKidlispCodeForLearn(code, isSignature = false) {
       // Escape HTML first
       const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       
@@ -20749,12 +20805,12 @@ s("ape_breaks_3").loopAt(2)</textarea>
       const doc = KIDLISP_DOCS[word];
       
       // Syntax highlight the signature
-      const signatureHtml = doc.signature ? highlightKidlispCode(doc.signature, true) : '';
+      const signatureHtml = doc.signature ? highlightKidlispCodeForLearn(doc.signature, true) : '';
       
       // Syntax highlight each example
       const examplesHtml = doc.examples && doc.examples.length > 0
         ? `<div class="learn-doc-examples-title">Examples</div>
-           ${doc.examples.map(ex => `<div class="learn-doc-example" data-example="${encodeURIComponent(ex)}">${highlightKidlispCode(ex)}</div>`).join('')}`
+           ${doc.examples.map(ex => `<div class="learn-doc-example" data-example="${encodeURIComponent(ex)}">${highlightKidlispCodeForLearn(ex)}</div>`).join('')}`
         : '';
       
       // Color map for doc name coloring
@@ -21066,23 +21122,21 @@ s("ape_breaks_3").loopAt(2)</textarea>
     // Opens the Top 100 playlist on device.kidlisp.com in a new tab
     // ═══════════════════════════════════════════════════════════════════════════
     
-    function initSlideshowButton() {
-      const slideshowBtn = document.getElementById('slideshow-btn');
-      if (!slideshowBtn) return;
+    function initPlayOnTvCard() {
+      // This will be called after renderCodeList adds the card
+      const playOnTvCard = document.querySelector('.play-on-tv-card');
+      if (!playOnTvCard) return;
       
-      slideshowBtn.addEventListener('click', () => {
+      playOnTvCard.addEventListener('click', () => {
         // Use nice short URL path
         const deviceUrl = 'https://device.kidlisp.com/slideshow/top100';
         
-        console.log('🎬 Opening slideshow:', deviceUrl);
+        console.log('📺 Opening slideshow:', deviceUrl);
         
         // Open in new tab/window (fullscreen for best effect)
         window.open(deviceUrl, '_blank');
       });
     }
-    
-    // Initialize slideshow button on load
-    initSlideshowButton();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SHARED CODE LIST COMPONENT
@@ -21515,6 +21569,26 @@ s("ape_breaks_3").loopAt(2)</textarea>
       }
       
       listEl.innerHTML = '';
+      
+      // Add "Play on your TV" card as first item for Top Hits (examples-list)
+      if (listId === 'examples-list') {
+        const playOnTvCard = document.createElement('div');
+        playOnTvCard.className = 'play-on-tv-card';
+        playOnTvCard.innerHTML = `
+          <div class="play-on-tv-icon">▶</div>
+          <div class="play-on-tv-content">
+            <div class="play-on-tv-title">Play on your TV</div>
+            <div class="play-on-tv-subtitle">Watch Top Hits as a slideshow</div>
+          </div>
+          <div class="play-on-tv-arrow">→</div>
+        `;
+        playOnTvCard.addEventListener('click', () => {
+          const deviceUrl = 'https://device.kidlisp.com/slideshow/top100';
+          console.log('📺 Opening slideshow:', deviceUrl);
+          window.open(deviceUrl, '_blank');
+        });
+        listEl.appendChild(playOnTvCard);
+      }
       
       // Process items with optional owner grouping
       let processedItems = items;
