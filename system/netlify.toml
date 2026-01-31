@@ -6,6 +6,12 @@ command = "rm -f public/index.html && echo $COMMIT_REF > public/.commit-ref" # W
 # command = "bash ./github-discord.sh"
 # command = "echo 'Building...'"
 
+# Disable Netlify's post-processing that can cause /:splat redirect issues
+[build.processing]
+skip_processing = false
+[build.processing.html]
+pretty_urls = false
+
 [functions]
 node_bundler = "esbuild"
 directory = "netlify/functions"
@@ -404,13 +410,6 @@ from = "/api/ff1/*"
 to = "/.netlify/functions/ff1-:splat"
 status = 200
 
-# Normalize accidental double slashes in paths (e.g., //kidlisp.com)
-[[redirects]]
-from = "//*"
-to = "/:splat"
-status = 301
-force = true
-
 # Serve type/font assets locally (allow dev edits to BDF files)
 # This must come BEFORE the general /assets/* proxy below
 # force = true ensures this takes precedence over the /assets/* rule
@@ -804,6 +803,11 @@ from = "https://news.aesthetic.computer"
 to = "/.netlify/functions/news"
 status = 200
 force = true
+[[redirects]]
+from = "https://news.aesthetic.computer/"
+to = "/.netlify/functions/news"
+status = 200
+force = true
 # News API routes for subdomain (must be before /* catch-all)
 [[redirects]]
 from = "https://news.aesthetic.computer/api/news"
@@ -826,6 +830,11 @@ force = true
 
 [[redirects]]
 from = "/news.aesthetic.computer"
+to = "/.netlify/functions/news"
+status = 200
+force = true
+[[redirects]]
+from = "/news.aesthetic.computer/"
 to = "/.netlify/functions/news"
 status = 200
 force = true
