@@ -3077,33 +3077,6 @@ kill %1 2>/dev/null"
             
             # Send to FF1 directly
             curl -s --connect-timeout 5 -X POST -H 'Content-Type: application/json' "http://$ff1_ip:$ff1_port/api/cast" -d "$playlist_payload"
-        case info '*'
-            set -l topic_id (echo $ff1_data | jq -r '.topicId // "not set"')
-            echo "🖼️ FF1 Art Computer"
-            echo "   IP: $ff1_ip"
-            echo "   Port: $ff1_port"
-            echo "   Device ID: "(echo $ff1_data | jq -r '.deviceId')
-            echo "   Topic ID: $topic_id"
-            echo ""
-            echo "Commands:"
-            echo "  ac-ff1                        - Show this help"
-            echo "  ac-ff1 scan                   - Find FF1 via mDNS"
-            echo "  ac-ff1 ping                   - Check if FF1 is responding"  
-            echo "  ac-ff1 cast \$mtz              - Cast KidLisp piece (auto device.kidlisp.com)"
-            echo "  ac-ff1 cast \$mtz --perf       - Cast with FPS/performance HUD"
-            echo "  ac-ff1 cast ceo               - Cast regular piece (auto ?device param)"
-            echo "  ac-ff1 cast <url>             - Cast any URL"
-            echo "  ac-ff1 top                    - Cast Top KidLisp Hits playlist"
-            echo "  ac-ff1 colors                 - Cast KidLisp Colors playlist"
-            echo "  ac-ff1 chords                 - Cast KidLisp Chords playlist"
-            echo "  ac-ff1 playlist [options]     - Push dynamic KidLisp playlist"
-            echo "  ac-ff1 tunnel                 - Create SSH tunnel for local dev"
-            echo "  ac-ff1 logs                   - Stream remote console logs (requires ?socklogs)"
-            echo ""
-            echo "Playlist options:"
-            echo "  --limit=N     Number of items (default: 10)"
-            echo "  --duration=S  Seconds per item (default: 60)"
-            echo "  --handle=H    Filter by user handle"
         case logs
             # Stream remote console logs from devices with ?socklogs enabled
             echo "👁️ Connecting to session-server for remote logs..."
@@ -3111,15 +3084,21 @@ kill %1 2>/dev/null"
             echo "   Press Ctrl+C to stop"
             echo ""
             
-            # Determine session server URL
+            # Determine session server URL - use local if available, else production
             set -l session_url "wss://session.aesthetic.computer/socklogs?role=viewer"
-            if test -n "$NETLIFY_DEV"
+            set -l websocat_opts ""
+            # Check if local session server is running
+            if nc -z localhost 8889 2>/dev/null
                 set session_url "wss://localhost:8889/socklogs?role=viewer"
+                set websocat_opts "-k" # Skip cert verification for local dev
+                echo "📡 Using local session server (localhost:8889)"
+            else
+                echo "📡 Using production session server"
             end
             
             # Use websocat if available, otherwise fall back to node script
             if command -v websocat >/dev/null 2>&1
-                websocat "$session_url" 2>/dev/null | while read -l line
+                websocat $websocat_opts "$session_url" 2>/dev/null | while read -l line
                     set -l json $line
                     set -l type (echo $json | jq -r '.type // ""' 2>/dev/null)
                     if test "$type" = "log"
@@ -3163,6 +3142,33 @@ kill %1 2>/dev/null"
                 echo "⚠️ websocat not installed. Install with: cargo install websocat"
                 echo "   Or run: npm install -g wscat && wscat -c '$session_url'"
             end
+        case info '*'
+            set -l topic_id (echo $ff1_data | jq -r '.topicId // "not set"')
+            echo "🖼️ FF1 Art Computer"
+            echo "   IP: $ff1_ip"
+            echo "   Port: $ff1_port"
+            echo "   Device ID: "(echo $ff1_data | jq -r '.deviceId')
+            echo "   Topic ID: $topic_id"
+            echo ""
+            echo "Commands:"
+            echo "  ac-ff1                        - Show this help"
+            echo "  ac-ff1 scan                   - Find FF1 via mDNS"
+            echo "  ac-ff1 ping                   - Check if FF1 is responding"  
+            echo "  ac-ff1 cast \$mtz              - Cast KidLisp piece (auto device.kidlisp.com)"
+            echo "  ac-ff1 cast \$mtz --perf       - Cast with FPS/performance HUD"
+            echo "  ac-ff1 cast ceo               - Cast regular piece (auto ?device param)"
+            echo "  ac-ff1 cast <url>             - Cast any URL"
+            echo "  ac-ff1 top                    - Cast Top KidLisp Hits playlist"
+            echo "  ac-ff1 colors                 - Cast KidLisp Colors playlist"
+            echo "  ac-ff1 chords                 - Cast KidLisp Chords playlist"
+            echo "  ac-ff1 playlist [options]     - Push dynamic KidLisp playlist"
+            echo "  ac-ff1 tunnel                 - Create SSH tunnel for local dev"
+            echo "  ac-ff1 logs                   - Stream remote console logs (requires ?socklogs)"
+            echo ""
+            echo "Playlist options:"
+            echo "  --limit=N     Number of items (default: 10)"
+            echo "  --duration=S  Seconds per item (default: 60)"
+            echo "  --handle=H    Filter by user handle"
     end
 end
 
