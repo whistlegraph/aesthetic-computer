@@ -59,6 +59,9 @@
       overflow: hidden;
       background: #000;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      /* UI scale for DOM elements - independent of piece rendering density */
+      /* Default to 10 for good visibility on FF1/device displays */
+      --ui-scale: 10;
     }
     
     #display-iframe {
@@ -81,7 +84,8 @@
       right: 0;
       bottom: 0;
       z-index: 15;
-      pointer-events: none;
+      pointer-events: auto;
+      touch-action: manipulation;
       transition: opacity 0.5s ease;
     }
     
@@ -93,25 +97,81 @@
     /* Source code display - top left */
     #source-code {
       position: absolute;
-      top: calc(var(--density, 8) * 4px);
-      left: calc(var(--density, 8) * 4px);
-      right: calc(var(--density, 8) * 4px);
-      bottom: calc(var(--density, 8) * 24px);
+      top: calc(var(--ui-scale, 8) * 3px);
+      left: calc(var(--ui-scale, 8) * 3px);
+      right: calc(var(--ui-scale, 8) * 3px);
+      bottom: calc(var(--ui-scale, 8) * 22px);
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--density, 8) * 2.5px);
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
       line-height: 1.5;
       color: #fff;
       overflow: hidden;
-      /* Sharp shadow like kidlisp.com monaco editor */
-      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+      /* Harsh shadow matching stats for visibility on complex animations */
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
       white-space: pre-wrap;
       word-break: break-word;
       -webkit-mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
       mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
+      transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
     
     #source-code-inner {
       /* For scrolling long code */
+      transition: opacity 0.25s ease;
+    }
+    
+    /* Hide UI elements during scramble animation - only show code */
+    #qr-wrap,
+    #piece-handle,
+    #piece-hits,
+    #piece-when,
+    .ff1-module {
+      transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    
+    #source-overlay.scrambling #qr-wrap,
+    #source-overlay.scrambling #piece-handle,
+    #source-overlay.scrambling #piece-hits,
+    #source-overlay.scrambling #piece-when,
+    #source-overlay.scrambling .ff1-module {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    /* Slide animations for overlay elements during playback */
+    /* QR slides to bottom-right corner */
+    #source-overlay.slid-out #qr-wrap,
+    #source-overlay.tap-hidden #qr-wrap {
+      transform: translate(120%, 120%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    /* Stats slide to bottom-left corner */
+    #source-overlay.slid-out #piece-info,
+    #source-overlay.tap-hidden #piece-info {
+      transform: translate(-120%, 120%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    /* Source code slides to top-left corner */
+    #source-overlay.slid-out #source-code,
+    #source-overlay.tap-hidden #source-code {
+      transform: translate(-50%, -120%);
+      opacity: 0;
+    }
+    
+    /* Hover override - when user hovers, reveal all elements even if slid-out */
+    #source-overlay.slid-out.hover-reveal #qr-wrap,
+    #source-overlay.slid-out.hover-reveal #piece-info,
+    #source-overlay.slid-out.hover-reveal #source-code,
+    #source-overlay.tap-hidden.hover-reveal #qr-wrap,
+    #source-overlay.tap-hidden.hover-reveal #piece-info,
+    #source-overlay.tap-hidden.hover-reveal #source-code {
+      transform: translate(0, 0);
+      opacity: 1;
+      pointer-events: auto;
     }
     
     #source-code-inner.scrolling {
@@ -127,24 +187,39 @@
     /* QR code and label - bottom right (like give.aesthetic.computer) */
     #qr-wrap {
       position: absolute;
-      bottom: calc(var(--density, 8) * 4px);
-      right: calc(var(--density, 8) * 4px);
+      bottom: calc(var(--ui-scale, 8) * 3px);
+      right: calc(var(--ui-scale, 8) * 3px);
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      z-index: 16;
+      z-index: 24;
+      pointer-events: auto;
+      cursor: pointer;
+      transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      padding-right: calc(var(--ui-scale, 8) * 0.5px);
+      padding-bottom: calc(var(--ui-scale, 8) * 0.5px);
+    }
+    
+    #qr-wrap:hover {
+      transform: scale(1.08);
+    }
+    
+    #qr-wrap:active {
+      transform: scale(0.98);
     }
     
     #code-label {
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--density, 8) * 2.5px);
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
       font-weight: 400;
       color: #fff;
       background: #000;
-      padding: calc(var(--density, 8) * 0.25px) calc(var(--density, 8) * 0.5px);
-      padding-bottom: calc(var(--density, 8) * 0.75px); /* Extra space below label */
+      padding: calc(var(--ui-scale, 8) * 0.25px) calc(var(--ui-scale, 8) * 0.5px);
+      padding-bottom: calc(var(--ui-scale, 8) * 0.75px); /* Extra space below label */
       line-height: 1;
       text-transform: none; /* Keep original case */
+      /* Gray offset shadow matching QR container */
+      box-shadow: calc(var(--ui-scale, 8) * 0.5px) calc(var(--ui-scale, 8) * 0.5px) 0 rgba(64, 64, 64, 0.8);
     }
     
     #code-label .code-dollar {
@@ -157,10 +232,12 @@
     
     #qr-container {
       background: #fff;
-      padding: calc(var(--density, 8) * 0.25px);
+      padding: calc(var(--ui-scale, 8) * 0.25px);
       line-height: 0;
-      width: calc(var(--density, 8) * 10px);
-      height: calc(var(--density, 8) * 10px);
+      width: calc(var(--ui-scale, 8) * 10px);
+      height: calc(var(--ui-scale, 8) * 10px);
+      /* Gray offset hard shadow like disk.mjs pixel-rendered QR codes */
+      box-shadow: calc(var(--ui-scale, 8) * 0.5px) calc(var(--ui-scale, 8) * 0.5px) 0 rgba(64, 64, 64, 0.8);
     }
     
     #qr-container svg {
@@ -173,16 +250,17 @@
     /* Handle and hits info - bottom left (device replaces disk.mjs overlay) */
     #piece-info {
       position: absolute;
-      bottom: calc(var(--density, 8) * 4px);
-      left: calc(var(--density, 8) * 4px);
+      bottom: calc(var(--ui-scale, 8) * 3px);
+      left: calc(var(--ui-scale, 8) * 3px);
       display: flex;
       flex-direction: column;
       align-items: flex-start;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--density, 8) * 2.5px);
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
       line-height: 1.4;
       z-index: 16;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+      transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
     
     #piece-handle {
@@ -200,51 +278,123 @@
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
-    /* FF1 CLI copy button in piece-info */
+    /* FF1 module - self-contained box for FF1 cast functionality */
+    /* In playlist mode, includes title and position; always includes copy button */
+    .ff1-module {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+      margin-top: 0;
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      pointer-events: auto;
+      transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      position: relative;
+      z-index: 10;
+    }
+
+    .ff1-module.overlap-fade {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .ff1-module.overlap-fade .ff1-playlist-title,
+    .ff1-module.overlap-fade .ff1-playlist-position,
+    .ff1-module.overlap-fade .piece-ff1-copy .ff1-cmd {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: block;
+      max-width: 100%;
+    }
+    
+    /* Playlist header inside FF1 module (only shown in slideshow mode) */
+    .ff1-playlist-header {
+      display: none;
+      width: 100%;
+      padding-bottom: calc(var(--ui-scale, 8) * 0.3px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      margin-bottom: calc(var(--ui-scale, 8) * 0.2px);
+    }
+    
+    .ff1-playlist-header.visible {
+      display: block;
+    }
+    
+    .ff1-playlist-title {
+      color: rgba(255, 255, 255, 0.9);
+      font-family: 'Noto Sans Mono', monospace;
+      font-size: calc(var(--ui-scale, 8) * 2px);
+      font-weight: bold;
+      line-height: 1.2;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+    }
+    
+    .ff1-playlist-position {
+      color: rgba(255, 215, 0, 0.9);
+      font-family: 'Noto Sans Mono', monospace;
+      font-size: calc(var(--ui-scale, 8) * 1.8px);
+      margin-top: calc(var(--ui-scale, 8) * 0.15px);
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+    }
+    
+    /* FF1 CLI copy button inside module */
     .piece-ff1-copy {
       display: flex;
       align-items: center;
-      gap: calc(var(--density, 8) * 0.5px);
-      margin-top: calc(var(--density, 8) * 1px);
-      padding: calc(var(--density, 8) * 0.4px) calc(var(--density, 8) * 0.8px);
-      background: rgba(0, 0, 0, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: calc(var(--density, 8) * 0.5px);
+      gap: calc(var(--ui-scale, 8) * 0.5px);
+      margin: 0;
+      padding: calc(var(--ui-scale, 8) * 0.25px) 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
       color: rgba(255, 255, 255, 0.9);
       font-family: 'Noto Sans Mono', monospace;
-      font-size: calc(var(--density, 8) * 1.5px);
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
       cursor: pointer;
       transition: all 0.15s ease;
       pointer-events: auto;
-      text-shadow: none;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+      width: 100%;
     }
     
     .piece-ff1-copy:hover {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: rgba(255, 255, 255, 0.4);
+      opacity: 0.8;
     }
     
     .piece-ff1-copy:active {
-      transform: scale(0.97);
+      transform: scale(0.98);
     }
     
-    .piece-ff1-copy.copied {
-      background: rgba(0, 200, 100, 0.3);
-      border-color: rgba(0, 200, 100, 0.6);
+    .ff1-module.copied .piece-ff1-copy {
+      color: rgba(100, 255, 100, 0.9);
+    }
+
+    .ff1-module.overlap-fade {
+      opacity: 1;
     }
     
     .piece-ff1-copy .ff1-icon {
-      height: calc(var(--density, 8) * 1.5px);
+      height: calc(var(--ui-scale, 8) * 3px);
       width: auto;
-      filter: invert(1);
+      margin-right: calc(var(--ui-scale, 8) * 0.5px);
+      filter: invert(1) drop-shadow(1px 1px 0 #000) drop-shadow(-1px -1px 0 #000) drop-shadow(1px -1px 0 #000) drop-shadow(-1px 1px 0 #000) drop-shadow(2px 2px 0 #000);
     }
     
     .piece-ff1-copy .ff1-cmd {
       color: rgba(255, 255, 255, 0.8);
-      max-width: calc(var(--density, 8) * 30px);
-      overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .piece-ff1-copy .ff1-quote {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .piece-ff1-copy .ff1-url {
+      color: cyan;
     }
     
     /* KidLisp syntax highlighting */
@@ -264,6 +414,27 @@
     .hl-fade-sep { color: mediumseagreen; }
     .hl-fade-dir { color: cyan; }
     .hl-fade-colon { color: lime; }
+
+    /* Scramble coloring: start white, then transition to target color */
+    .scramble-char {
+      color: #fff;
+      transition: color 4s ease var(--color-delay, 0s);
+    }
+
+    #source-code-inner.scramble-coloring .scramble-char {
+      color: var(--target-color, #fff);
+    }
+
+    /* Hide overlay until boot starts (avoid initial flicker) */
+    body.booting #source-overlay {
+      opacity: 0;
+    }
+
+    /* Reduce ghosting during scramble */
+    #source-overlay.scrambling #source-code,
+    #source-overlay.scrambling #source-code .scramble-char {
+      text-shadow: none;
+    }
     
     /* Rainbow animation */
     @keyframes rainbowCycle {
@@ -351,10 +522,29 @@
       z-index: 100;
       margin: 0;
       padding: 0;
+      transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      opacity: 0;
     }
 
     #progress-bar.visible {
       display: block;
+    }
+
+    #progress-bar.fading-in {
+      opacity: 1;
+      transition: opacity 2s ease;
+    }
+    
+    #progress-bar.hidden-mid {
+      opacity: 0;
+    }
+
+    #progress-bar.force-visible {
+      opacity: 1 !important;
+    }
+
+    #progress-bar.force-hidden {
+      opacity: 0 !important;
     }
 
     #progress-fill {
@@ -362,7 +552,17 @@
       width: 0%;
       /* White fill over black background - looks like it's filling in */
       background: #fff;
-      transition: width 0.25s linear;
+      transition: width 0.25s linear, background-color 0.2s ease;
+    }
+    
+    /* Blinking red at end */
+    @keyframes blinkRed {
+      0%, 50% { background: #ff3333; }
+      51%, 100% { background: #990000; }
+    }
+    
+    #progress-fill.ending {
+      animation: blinkRed 0.5s ease-in-out infinite;
     }
 
     /* FPS meter - top right (hidden by default) */
@@ -372,88 +572,28 @@
       top: 0;
       right: 0;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--density, 8) * 1.5px);
+      font-size: calc(var(--ui-scale, 8) * 1.5px);
       color: lime;
       text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
       z-index: 99999;
       pointer-events: none;
       text-align: right;
-      padding: calc(var(--density, 8) * 0.5px);
+      padding: calc(var(--ui-scale, 8) * 0.5px);
     }
 
-    /* Playlist info display - top right during slideshow mode */
+    /* Playlist info overlay - DEPRECATED, now consolidated into bottom-left piece-info */
     #playlist-info {
-      display: none;
-      position: fixed;
-      top: calc(var(--density, 8) * 2px);
-      right: calc(var(--density, 8) * 2px);
-      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: calc(var(--density, 8) * 2px);
-      color: rgba(255, 255, 255, 0.8);
-      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-      z-index: 99;
-      pointer-events: none;
-      text-align: right;
-      padding: calc(var(--density, 8) * 1px);
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: calc(var(--density, 8) * 0.5px);
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
+      display: none !important; /* Hidden - all info moved to bottom-left piece-info */
     }
     
     #playlist-info.visible {
-      display: block;
+      display: none !important;
     }
     
-    #playlist-title {
-      font-weight: bold;
-      margin-bottom: calc(var(--density, 8) * 0.5px);
-    }
-    
-    #playlist-position {
-      color: rgba(255, 215, 0, 0.9);
-    }
-    
-    /* FF1 cast button */
+    #playlist-title,
+    #playlist-position,
     #ff1-cast-btn {
-      display: flex;
-      align-items: center;
-      gap: calc(var(--density, 8) * 0.75px);
-      margin-top: calc(var(--density, 8) * 1px);
-      padding: calc(var(--density, 8) * 0.5px) calc(var(--density, 8) * 1px);
-      background: rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: calc(var(--density, 8) * 0.5px);
-      color: white;
-      font-size: calc(var(--density, 8) * 1.5px);
-      cursor: pointer;
-      transition: all 0.15s ease;
-      pointer-events: auto;
-    }
-    
-    #ff1-cast-btn:hover {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: rgba(255, 255, 255, 0.5);
-    }
-    
-    #ff1-cast-btn:active {
-      transform: scale(0.95);
-    }
-    
-    #ff1-cast-btn.copied {
-      background: rgba(0, 200, 100, 0.3);
-      border-color: rgba(0, 200, 100, 0.6);
-    }
-    
-    #ff1-cast-btn .ff1-logo {
-      height: calc(var(--density, 8) * 2px);
-      width: auto;
-      filter: invert(1);
-    }
-    
-    #ff1-cast-btn .ff1-text {
-      font-family: 'Noto Sans Mono', monospace;
+      display: none !important; /* Unused - bottom-left handles this now */
     }
 
     /* ═══════════════════════════════════════════════════════════════════════════
@@ -509,10 +649,29 @@
         max-width: calc(100% - var(--mobile-qr-total-width)); /* Prevent overlap with QR */
       }
       
-      /* FF1 copy button - compact on mobile */
-      .piece-ff1-copy {
+      /* FF1 module - compact on mobile */
+      .ff1-module {
         margin-top: 6px;
         padding: 4px 8px;
+        gap: 3px;
+      }
+      
+      .ff1-playlist-header {
+        padding-bottom: 3px;
+        margin-bottom: 2px;
+      }
+      
+      .ff1-playlist-title {
+        font-size: 9px;
+      }
+      
+      .ff1-playlist-position {
+        font-size: 8px;
+      }
+      
+      /* FF1 copy button - compact on mobile */
+      .piece-ff1-copy {
+        padding: 2px 0;
         font-size: 9px;
         gap: 4px;
       }
@@ -522,61 +681,7 @@
       }
       
       .piece-ff1-copy .ff1-cmd {
-        max-width: 150px;
-      }
-      
-      /* Playlist info - compact layout for mobile slideshow */
-      #playlist-info {
-        top: var(--mobile-spacing);
-        right: var(--mobile-spacing);
-        left: var(--mobile-spacing); /* Full width on mobile */
-        padding: var(--mobile-spacing);
-        font-size: 12px;
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--mobile-spacing);
-      }
-      
-      #playlist-info.visible {
-        display: flex;
-      }
-      
-      #playlist-title {
-        font-size: 12px;
-        margin-bottom: 0;
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      
-      #playlist-position {
-        font-size: 11px;
-        white-space: nowrap;
-      }
-      
-      /* FF1 button - compact single button on mobile */
-      #ff1-cast-btn {
-        gap: 6px;
-        margin-top: 0;
-        padding: 6px 10px;
-        font-size: 11px;
-        border-radius: 4px;
-        width: 100%;
-        justify-content: center;
-        order: 3; /* Put button on its own row */
-        flex-basis: 100%;
-      }
-      
-      #ff1-cast-btn .ff1-logo {
-        height: 14px;
-      }
-      
-      #ff1-cast-btn .ff1-text {
-        font-size: 11px;
+        /* Full command always visible */
       }
       
       /* Progress bar - thinner on mobile */
@@ -597,7 +702,7 @@
   <!-- Boot animation now handled by iframe's acBootCanvas with device mode -->
   
   <!-- KidLisp source overlay with syntax highlighting and QR -->
-  <div id="source-overlay">
+  <div id="source-overlay" class="scrambling">
     <div id="source-code"><div id="source-code-inner"></div></div>
     <div id="qr-wrap">
       <div id="code-label"></div>
@@ -607,10 +712,16 @@
       <div id="piece-handle"></div>
       <div id="piece-hits"></div>
       <div id="piece-when"></div>
-      <button id="piece-ff1-copy" class="piece-ff1-copy" title="Copy FF1 CLI command">
-        <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="ff1-icon">
-        <span class="ff1-cmd">ac-ff1 cast ...</span>
-      </button>
+      <div id="ff1-module" class="ff1-module">
+        <div id="ff1-playlist-header" class="ff1-playlist-header">
+          <div id="ff1-playlist-title" class="ff1-playlist-title"></div>
+          <div id="ff1-playlist-position" class="ff1-playlist-position"></div>
+        </div>
+        <button id="piece-ff1-copy" class="piece-ff1-copy" title="Copy FF1 CLI command">
+          <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="ff1-icon">
+          <span class="ff1-cmd">ff1 play ...</span>
+        </button>
+      </div>
     </div>
   </div>
   
@@ -628,7 +739,8 @@
   <!-- FPS meter for performance comparison -->
   <div id="fps-meter">FPS: --</div>
   
-  <!-- Playlist info overlay for slideshow mode -->
+  <!-- DEPRECATED: Playlist info overlay - kept for backwards compatibility but hidden via CSS -->
+  <!-- All playlist/slideshow info is now in the #ff1-module inside #piece-info -->
   <div id="playlist-info">
     <div id="playlist-title"></div>
     <div id="playlist-position"></div>
@@ -687,55 +799,268 @@
   <script>
     // 🔓 KidLisp Scramble/Decode Animation for Device Mode
     // Shows scrambled code during boot, reveals when piece starts running
+    // Each character has its own rhythm seeded by its original source character
     (function() {
-      const SCRAMBLE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789(),-=+*/<>:;\"\'.!?@#$%^&_~`[]{}|';
+      const SCRAMBLE_CHARS_LOWER = 'abcdefghijklmnopqrstuvwxyz';
+      const SCRAMBLE_CHARS_UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const SCRAMBLE_CHARS_OTHER = '0123456789(),-=+*/<>:;\"\'.!?@#$%^&_~`[]{}|';
       
       let isScrambling = false;
       let scrambleAnimationFrame = null;
+      let scrambleIntervalId = null;
+      const SCRAMBLE_FPS = 12; // Slower base rate (12fps)
+      const SCRAMBLE_INTERVAL = 1000 / SCRAMBLE_FPS;
       let pendingSource = null;
       let pendingHighlightedHtml = null;
       let decodeResolver = null;
       let waitingForDecode = false;
+      let currentBootMessage = ''; // Current boot message to weave into scramble
+      let scrambleColorTimeout = null;
+
+      // Detect slideshow/playlist mode early to skip legacy initial scramble
+      const scrambleParams = new URLSearchParams(window.location.search);
+      const hasPlaylist = !!(scrambleParams.get('playlist_url') || scrambleParams.get('slideshow'));
       
-      // Scramble a character (preserve whitespace)
-      function getScrambledChar(original) {
-        if (original === '\n' || original === ' ' || original === '\t') return original;
-        return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+      const HL_COLOR_MAP = {
+        'hl-comment': '#6272a4',
+        'hl-string': 'orange',
+        'hl-number': 'lime',
+        'hl-keyword': 'pink',
+        'hl-api': 'cyan',
+        'hl-timing': '#ffb86c',
+        'hl-paren': '#888',
+        'hl-code-ref': 'limegreen',
+        'hl-code-id': 'lime',
+        'hl-paint-ref': 'magenta',
+        'hl-paint-id': 'orange',
+        'hl-fade-sep': 'mediumseagreen',
+        'hl-fade-dir': 'cyan',
+        'hl-fade-colon': 'lime',
+      };
+      
+      // Per-character state for seeded rhythms
+      let charStates = []; // { lastChange: timestamp, interval: ms, currentChar: string }
+      let charColors = []; // Per-character target colors based on syntax highlight
+      let globalTick = 0;
+
+      function scheduleScrambleColoring(inner) {
+        if (!inner) return;
+        inner.classList.remove('scramble-coloring');
+        if (scrambleColorTimeout) {
+          clearTimeout(scrambleColorTimeout);
+        }
+        scrambleColorTimeout = setTimeout(() => {
+          inner.classList.add('scramble-coloring');
+        }, 0);
       }
       
-      // Build scrambled version of source
-      function buildScrambledText(source) {
-        return source.split('').map(char => {
-          if (char === '\n' || char === ' ' || char === '\t') return char;
-          return getScrambledChar(char);
-        }).join('');
+      // Expose setter for boot message
+      window.setBootMessage = function(msg) {
+        // Clean up the message
+        if (msg?.startsWith?.('ready:')) {
+          currentBootMessage = '';  // Clear on ready
+        } else if (msg?.includes?.('(')) {
+          // Strip timing info
+          currentBootMessage = msg.replace(/\s*\([^)]+\)\s*/g, '').toLowerCase();
+        } else {
+          currentBootMessage = (msg || '').toLowerCase();
+        }
+      };
+      
+      // Get a seeded "random" value from a character (deterministic per char)
+      function charSeed(char) {
+        return char.charCodeAt(0);
+      }
+      
+      function escapeHtmlChar(char) {
+        if (char === '&') return '&amp;';
+        if (char === '<') return '&lt;';
+        if (char === '>') return '&gt;';
+        return char;
+      }
+      
+      function buildColorMapFromHighlightedHtml(highlightedHtml) {
+        if (!highlightedHtml) return [];
+        const temp = document.createElement('div');
+        temp.innerHTML = highlightedHtml;
+        const colors = [];
+        const walker = document.createTreeWalker(temp, NodeFilter.SHOW_TEXT, null);
+        let node = walker.nextNode();
+        while (node) {
+          let color = null;
+          let el = node.parentElement;
+          while (el) {
+            if (!color && el.classList?.contains('hl-color')) {
+              const style = el.getAttribute('style') || '';
+              const match = style.match(/color\s*:\s*([^;]+)/i);
+              if (match) color = match[1];
+            }
+            if (!color && el.classList) {
+              for (const cls of el.classList) {
+                if (HL_COLOR_MAP[cls]) {
+                  color = HL_COLOR_MAP[cls];
+                  break;
+                }
+              }
+            }
+            if (color) break;
+            el = el.parentElement;
+          }
+          const text = node.textContent || '';
+          for (let i = 0; i < text.length; i++) {
+            colors.push(color);
+          }
+          node = walker.nextNode();
+        }
+        return colors;
+      }
+      
+      // Scramble a character (preserve whitespace and casing)
+      function getScrambledChar(original) {
+        if (original === '\n' || original === ' ' || original === '\t') return original;
+        // Preserve casing
+        if (original >= 'a' && original <= 'z') {
+          return SCRAMBLE_CHARS_LOWER[Math.floor(Math.random() * SCRAMBLE_CHARS_LOWER.length)];
+        }
+        if (original >= 'A' && original <= 'Z') {
+          return SCRAMBLE_CHARS_UPPER[Math.floor(Math.random() * SCRAMBLE_CHARS_UPPER.length)];
+        }
+        // For numbers and symbols, use other chars
+        return SCRAMBLE_CHARS_OTHER[Math.floor(Math.random() * SCRAMBLE_CHARS_OTHER.length)];
+      }
+      
+      // Initialize per-character states from source
+      function initCharStates(source, highlightedHtml) {
+        const chars = source.split('');
+        charColors = buildColorMapFromHighlightedHtml(highlightedHtml);
+        if (charColors.length !== chars.length) {
+          charColors = new Array(chars.length).fill(null);
+        }
+        charStates = chars.map((char, idx) => {
+          if (char === '\n' || char === ' ' || char === '\t') {
+            return { isWhitespace: true, char: char };
+          }
+          // Seed interval from character code: range 100ms to 600ms
+          const seed = charSeed(char);
+          const interval = 100 + ((seed * 7 + idx * 3) % 500);
+          return {
+            isWhitespace: false,
+            original: char,
+            currentChar: getScrambledChar(char),
+            interval: interval,
+            lastChange: performance.now() - Math.random() * interval, // Stagger start times
+            tickOffset: (seed + idx) % 20, // Phase offset for visual variety
+            color: charColors[idx] || null,
+          };
+        });
+      }
+      
+      // Build scrambled HTML using per-character rhythm and syntax colors
+      function buildScrambledTextWithRhythm(source) {
+        const now = performance.now();
+        globalTick++;
+        
+        // Initialize states if needed
+        if (charStates.length !== source.length) {
+          initCharStates(source, pendingHighlightedHtml);
+        }
+        
+        const result = charStates.map((state, idx) => {
+          if (state.isWhitespace) return escapeHtmlChar(state.char);
+          
+          // Check if this character should change based on its own rhythm
+          const elapsed = now - state.lastChange;
+          if (elapsed >= state.interval) {
+            state.currentChar = getScrambledChar(state.original);
+            state.lastChange = now;
+          }
+          
+          const char = escapeHtmlChar(state.currentChar);
+          const colorDelayMs = 200 + ((state.original.charCodeAt(0) * 5 + idx * 7) % 1800);
+          const colorDelay = (colorDelayMs / 1000).toFixed(2);
+          const colorStyle = state.color
+            ? ` style="--target-color: ${state.color}; --color-delay: ${colorDelay}s;"`
+            : ` style="--color-delay: ${colorDelay}s;"`;
+          return `<span class="scramble-char"${colorStyle}>${char}</span>`;
+        });
+        
+        // Weave boot message into random positions
+        if (currentBootMessage && currentBootMessage.length > 0) {
+          // Find all line boundaries
+          const lines = [];
+          let lineStart = 0;
+          for (let i = 0; i < result.length; i++) {
+            if (result[i] === '\n') {
+              if (i - lineStart > currentBootMessage.length + 4) {
+                lines.push({ start: lineStart, end: i });
+              }
+              lineStart = i + 1;
+            }
+          }
+          if (result.length - lineStart > currentBootMessage.length + 4) {
+            lines.push({ start: lineStart, end: result.length });
+          }
+          
+          // Insert into ~30% of lines
+          if (lines.length > 0) {
+            const shuffled = [...lines].sort(() => Math.random() - 0.5);
+            const insertCount = Math.max(1, Math.floor(shuffled.length * 0.3));
+            
+            for (let n = 0; n < insertCount; n++) {
+              const line = shuffled[n];
+              const lineLength = line.end - line.start;
+              const insertPos = line.start + Math.floor(Math.random() * (lineLength - currentBootMessage.length - 2)) + 1;
+              
+              for (let i = 0; i < currentBootMessage.length; i++) {
+                const targetIdx = insertPos + i;
+                if (targetIdx < result.length && result[targetIdx] !== '\n') {
+                  result[targetIdx] = currentBootMessage[i];
+                }
+              }
+            }
+          }
+        }
+        
+        return result.join('');
       }
       
       // Show scrambled placeholder immediately on page load with continuous animation
-      // Uses eager-fetched source for correct length
+      // Uses eager-fetched source for correct length, with per-character rhythm
       let initialScrambleFrame = null;
       let initialScrambleActive = true;
       let eagerSource = null; // Will be set from eager fetch
+      let lastScrambleRenderTime = 0;
       (function showInitialScramble() {
         const inner = document.getElementById('source-code-inner');
+        const overlay = document.getElementById('source-overlay');
         if (!inner) return;
+        if (hasPlaylist) return;
+        document.body.classList.add('booting');
+        
+        // Add scrambling class to hide QR/stats during initial load
+        if (overlay) overlay.classList.add('scrambling');
+        scheduleScrambleColoring(inner);
         
         // Check if eager fetch completed - use that source for scrambling
         if (window.__eagerSourceFetch) {
           window.__eagerSourceFetch.then(data => {
             if (data?.source && initialScrambleActive) {
               eagerSource = data.source;
+              initCharStates(eagerSource, null); // Initialize per-character rhythms
               console.log('🚀 Eager source ready for scramble:', eagerSource.length, 'chars');
             }
           });
         }
         
-        // Continuous scramble animation until real source loads
+        // Use requestAnimationFrame for smoother per-character updates
         function animateInitialScramble() {
           if (!initialScrambleActive) return;
           // Use eager source if available, otherwise show nothing (waiting)
-          if (eagerSource) {
-            inner.textContent = buildScrambledText(eagerSource);
+          const now = performance.now();
+          if (eagerSource && now - lastScrambleRenderTime >= 33) {
+            inner.innerHTML = buildScrambledTextWithRhythm(eagerSource);
+            document.body.classList.remove('booting');
+            lastScrambleRenderTime = now;
           }
           initialScrambleFrame = requestAnimationFrame(animateInitialScramble);
         }
@@ -749,6 +1074,7 @@
           cancelAnimationFrame(initialScrambleFrame);
           initialScrambleFrame = null;
         }
+        document.body.classList.remove('booting');
       }
       
       // Global stop function for slideshow mode to cancel any scramble
@@ -760,34 +1086,62 @@
           cancelAnimationFrame(scrambleAnimationFrame);
           scrambleAnimationFrame = null;
         }
+        if (scrambleIntervalId) {
+          clearInterval(scrambleIntervalId);
+          scrambleIntervalId = null;
+        }
+        // Remove scrambling class to show QR/stats
+        const overlay = document.getElementById('source-overlay');
+        if (overlay) overlay.classList.remove('scrambling');
+        const inner = document.getElementById('source-code-inner');
+        if (inner) inner.classList.remove('scramble-coloring');
       };
       
       // Start scramble animation - keeps scrambling until signaled
       window.startScrambleAnimation = function(source, highlightedHtml) {
         const inner = document.getElementById('source-code-inner');
+        const overlay = document.getElementById('source-overlay');
         if (!inner || !source) return;
         
         // Stop the initial placeholder scramble
         stopInitialScramble();
+        
+        // Add scrambling class to hide QR/stats during scramble
+        if (overlay) overlay.classList.add('scrambling');
+        scheduleScrambleColoring(inner);
         
         pendingSource = source;
         pendingHighlightedHtml = highlightedHtml;
         isScrambling = true;
         waitingForDecode = true;
         
-        console.log('📺 Starting scramble animation...');
+        // Initialize per-character rhythms for the source
+        initCharStates(source, highlightedHtml);
         
-        // Scramble loop
+        console.log('📺 Starting scramble animation with per-character rhythm...');
+        
+        // Use requestAnimationFrame for smooth per-character rhythm updates
+        let lastScrambleFrameTime = 0;
         function scrambleLoop() {
           if (!isScrambling || !waitingForDecode) return;
           
-          // Show scrambled plain text (no highlighting during scramble)
-          inner.textContent = buildScrambledText(pendingSource);
+          const now = performance.now();
+          // Show scrambled plain text with per-character rhythm (throttled to ~30fps)
+          if (now - lastScrambleFrameTime >= 33) {
+            inner.innerHTML = buildScrambledTextWithRhythm(pendingSource);
+            lastScrambleFrameTime = now;
+          }
           
           scrambleAnimationFrame = requestAnimationFrame(scrambleLoop);
         }
-        
         scrambleLoop();
+
+        // Start color transition after a short delay (start whiter)
+        setTimeout(() => {
+          if (isScrambling && waitingForDecode) {
+            inner.classList.add('scramble-coloring');
+          }
+        }, 600);
         
         // Return promise that resolves when decode is triggered
         return new Promise(resolve => {
@@ -805,12 +1159,16 @@
         if (scrambleAnimationFrame) {
           cancelAnimationFrame(scrambleAnimationFrame);
         }
+        if (scrambleIntervalId) {
+          clearInterval(scrambleIntervalId);
+          scrambleIntervalId = null;
+        }
         
         // Start reveal animation
         revealCode();
       };
       
-      // Reveal animation - progressively show real code
+      // Reveal animation - characters reveal individually based on their seeded timing
       function revealCode() {
         const inner = document.getElementById('source-code-inner');
         if (!inner || !pendingSource) {
@@ -819,18 +1177,25 @@
         }
         
         const chars = pendingSource.split('');
-        const settled = new Array(chars.length).fill(false);
-        const scrambleCounts = new Array(chars.length).fill(0);
-        let currentRevealIndex = 0;
-        let lastRevealTime = 0;
         const revealStartTime = performance.now();
+        const revealDuration = 800; // Total reveal time in ms
+
+        // Keep scramble coloring active during reveal to avoid white flash
+        inner.classList.add('scramble-coloring');
         
-        // Animation settings
-        const revealDuration = 400; // Total reveal time in ms
-        const scrambleIterations = 1; // Scrambles before settling
-        const minCharDelay = 1;
+        // Each character has a reveal time based on its seed
+        const revealTimes = chars.map((char, idx) => {
+          if (char === '\n' || char === ' ' || char === '\t') return 0; // Whitespace reveals instantly
+          const seed = char.charCodeAt(0);
+          // Stagger reveals: seed determines when in the reveal window this char appears
+          // Mix in position for variety, but keep some randomness
+          const positionFactor = idx / chars.length;
+          const seedFactor = (seed % 100) / 100;
+          // Combine: mostly position-based (left to right feel) with seed variation
+          return (positionFactor * 0.7 + seedFactor * 0.3) * revealDuration;
+        });
         
-        const charDelay = Math.max(minCharDelay, Math.floor(revealDuration / (chars.length * scrambleIterations)));
+        const settled = new Array(chars.length).fill(false);
         
         function animateReveal() {
           if (!isScrambling) {
@@ -847,25 +1212,38 @@
             return;
           }
           
-          // Reveal next character
-          if (now - lastRevealTime >= charDelay && currentRevealIndex < chars.length) {
-            scrambleCounts[currentRevealIndex]++;
-            
-            if (scrambleCounts[currentRevealIndex] >= scrambleIterations) {
-              settled[currentRevealIndex] = true;
-              currentRevealIndex++;
-              lastRevealTime = now;
+          // Build current HTML - each char reveals at its own time
+          const currentHtml = chars.map((char, i) => {
+            if (char === '\n' || char === ' ' || char === '\t') return escapeHtmlChar(char);
+
+            const targetColor = charColors[i] || null;
+            const colorDelayMs = 200 + ((char.charCodeAt(0) * 5 + i * 7) % 1800);
+            const colorDelay = (colorDelayMs / 1000).toFixed(2);
+            const colorStyle = targetColor
+              ? ` style="--target-color: ${targetColor}; --color-delay: ${colorDelay}s;"`
+              : ` style="--color-delay: ${colorDelay}s;"`;
+
+            // Check if this character should be revealed yet
+            if (elapsed >= revealTimes[i]) {
+              settled[i] = true;
+              return `<span class="scramble-char"${colorStyle}>${escapeHtmlChar(char)}</span>`;
             }
-          }
-          
-          // Build current text
-          const currentText = chars.map((char, i) => {
-            if (settled[i]) return char;
-            if (char === '\n' || char === ' ' || char === '\t') return char;
-            return getScrambledChar(char);
+
+            // Still scrambling - use the charStates rhythm if available
+            if (charStates[i] && !charStates[i].isWhitespace) {
+              const state = charStates[i];
+              const stateElapsed = now - state.lastChange;
+              if (stateElapsed >= state.interval) {
+                state.currentChar = getScrambledChar(state.original);
+                state.lastChange = now;
+              }
+              return `<span class="scramble-char"${colorStyle}>${escapeHtmlChar(state.currentChar)}</span>`;
+            }
+
+            return `<span class="scramble-char"${colorStyle}>${escapeHtmlChar(getScrambledChar(char))}</span>`;
           }).join('');
-          
-          inner.textContent = currentText;
+
+          inner.innerHTML = currentHtml;
           
           // Check if done
           if (settled.every(s => s)) {
@@ -885,7 +1263,12 @@
         const codeEl = document.getElementById('source-code');
         
         if (inner && pendingHighlightedHtml) {
+          // Crossfade into highlighted code to avoid a white flash
+          inner.style.opacity = '0';
           inner.innerHTML = pendingHighlightedHtml;
+          requestAnimationFrame(() => {
+            inner.style.opacity = '1';
+          });
           
           // Setup scrolling for long code
           requestAnimationFrame(() => {
@@ -908,6 +1291,10 @@
             el.style.setProperty('--timing-duration', clampedDuration + 's');
           });
         }
+        
+        // Remove scrambling class to show QR/stats
+        const overlay = document.getElementById('source-overlay');
+        if (overlay) overlay.classList.remove('scrambling');
         
         isScrambling = false;
         pendingSource = null;
@@ -935,6 +1322,9 @@
           const msg = e.data.message;
           console.log('📺 Boot log:', msg);
           
+          // Feed the boot message to the scramble animation (woven into text)
+          window.setBootMessage?.(msg);
+          
           // Signal decode when piece starts running
           // "loaded" is sent when the piece finishes loading
           if (msg === 'loaded' || msg === 'running boot' || msg?.includes?.('running')) {
@@ -946,31 +1336,48 @@
   </script>
   
   <script>
-    // Get density from URL params
-    const urlParams = new URLSearchParams(window.location.search);
-    let densityParam = parseInt(urlParams.get('density')) || 8;
+    // Calculate smart default density based on screen resolution
+    // 4K (3840x2160+) → density 8 (larger pixels for viewing distance)
+    // Everything else → density 4 (good default for most displays)
+    function getSmartDensity() {
+      const screenWidth = window.screen.width * (window.devicePixelRatio || 1);
+      const screenHeight = window.screen.height * (window.devicePixelRatio || 1);
+      const maxDim = Math.max(screenWidth, screenHeight);
+      
+      if (maxDim >= 3840) return 8;  // 4K+
+      return 4;                       // Default for all other resolutions
+    }
     
-    // Set CSS custom property for density-based sizing
+    // Get density from URL params, fallback to smart density
+    const urlParams = new URLSearchParams(window.location.search);
+    let densityParam = parseInt(urlParams.get('density')) || getSmartDensity();
+    
+    // Set CSS custom property for density-based sizing (for piece rendering)
     document.documentElement.style.setProperty('--density', densityParam);
+    
+    // Set UI scale to a fixed value for consistent DOM element sizing
+    // UI elements (text, QR, labels) should be consistently sized regardless of piece density
+    const uiScale = 10; // Fixed at 10 for better visibility on FF1/devices
+    document.documentElement.style.setProperty('--ui-scale', uiScale);
     
     // Listen for density changes from iframe (Cmd+/- keyboard controls)
     window.addEventListener('message', (e) => {
-      if (e.data?.type === 'ac:density-change' && typeof e.data.density === 'number') {
+      // Accept both message formats: 'ac:density-change' (new) and 'ac-density-change' (legacy)
+      if ((e.data?.type === 'ac:density-change' || e.data?.type === 'ac-density-change') && typeof e.data.density === 'number') {
         densityParam = e.data.density;
         document.documentElement.style.setProperty('--density', densityParam);
-        // Update progress bar height (0.5x density for thin line)
+        // Keep --ui-scale fixed (do not tie to density changes)
+        // Update progress bar height (1.5x density for medium thickness)
         const progressBar = document.getElementById('progress-bar');
-        if (progressBar) progressBar.style.height = `${Math.max(1, Math.round(0.5 * densityParam))}px`;
+        if (progressBar) progressBar.style.height = `${Math.max(2, Math.round(1.5 * densityParam))}px`;
         console.log('📺 Density updated from iframe:', densityParam);
       }
     });
     
-    // Boot animation is now handled by the iframe's acBootCanvas with device mode
-    // (black background, white/gray bars, density scaling)
-    
-    // Default display parameters for FF1 and 4K displays
+    // Default display parameters for FF1 and display devices
+    // (getSmartDensity is defined earlier in the density setup script)
     const DEVICE_DEFAULTS = {
-      density: 8,     // Higher density = larger pixels (8x8 screen pixels per AC pixel)
+      density: getSmartDensity(), // Smart density based on screen resolution
       device: true,   // Device mode - auto-enables audio, combines tv+nogap+noauth
       tv: true,       // Non-interactive TV mode
       nogap: true,    // Borderless / no gap
@@ -1136,10 +1543,10 @@
         addLog(`iframe error: ${e.message || 'unknown'}`, 'error');
       });
       
-      // Always start playlist progress bar (visible indicator of time remaining)
+      // Progress bar will be started when piece is ready (not on iframe load)
+      // See window.addEventListener('message', ...) for boot-log 'ready' handler
       console.log('📺 Playlist mode:', isPlaylist, 'duration:', playlistDuration);
-      console.log('📺 Starting progress bar...');
-      startProgressBar();
+      console.log('📺 Waiting for piece ready before starting progress bar...');
       
       // Fetch and display KidLisp source code with syntax highlighting
       fetchAndDisplaySource(codeId);
@@ -1156,35 +1563,14 @@
     async function initSlideshow() {
       console.log('📺 Initializing slideshow mode with URL:', playlistUrl);
       
-      // Show playlist info overlay
-      const playlistInfo = document.getElementById('playlist-info');
-      const playlistTitle = document.getElementById('playlist-title');
-      const playlistPosition = document.getElementById('playlist-position');
-      const ff1CastBtn = document.getElementById('ff1-cast-btn');
+      // Get the FF1 module elements (playlist info is now inside the FF1 module)
+      const playlistTitle = document.getElementById('ff1-playlist-title');
+      const playlistPosition = document.getElementById('ff1-playlist-position');
       
-      playlistTitle.textContent = 'Loading playlist...';
-      playlistInfo.classList.add('visible');
+      if (playlistTitle) playlistTitle.textContent = 'Loading playlist...';
       
-      // Setup FF1 cast button
-      ff1CastBtn.addEventListener('click', async () => {
-        // Build the FF1 CLI displayPlaylist command
-        const cmd = `ff1 displayPlaylist --url "${playlistUrl}"`;
-        
-        try {
-          await navigator.clipboard.writeText(cmd);
-          ff1CastBtn.classList.add('copied');
-          ff1CastBtn.querySelector('.ff1-text').textContent = 'Copied!';
-          
-          setTimeout(() => {
-            ff1CastBtn.classList.remove('copied');
-            ff1CastBtn.querySelector('.ff1-text').textContent = 'Copy FF1 Command';
-          }, 2000);
-        } catch (e) {
-          console.error('Failed to copy:', e);
-          // Fallback: show the command in an alert
-          alert('FF1 CLI Command:\n\n' + cmd);
-        }
-      });
+      // Setup FF1 copy button for playlist mode (also shows playlist header)
+      setupFF1CopyButtonForPlaylist();
       
       try {
         // Fetch the DP-1 playlist
@@ -1201,8 +1587,8 @@
           return;
         }
         
-        // Update playlist title
-        playlistTitle.textContent = slideshowPlaylist.title || 'Untitled Playlist';
+        // Update playlist title in FF1 module
+        if (playlistTitle) playlistTitle.textContent = slideshowPlaylist.title || 'Untitled Playlist';
         
         // Clamp start index to valid range
         if (slideshowIndex >= slideshowPlaylist.items.length) {
@@ -1234,18 +1620,33 @@
       
       console.log('📺 Playing item', slideshowIndex + 1, '/', slideshowPlaylist.items.length, ':', item.title);
       
-      // Update position display
-      const playlistPosition = document.getElementById('playlist-position');
-      playlistPosition.textContent = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
+      // Reset progress bar flag for new piece
+      progressBarStarted = false;
+      
+      // Update position display in FF1 module
+      const playlistPosition = document.getElementById('ff1-playlist-position');
+      if (playlistPosition) playlistPosition.textContent = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
       
       // Get the source URL from the item
       // DP-1 items have a 'source' field with the display URL
       let itemUrl = item.source || item.url || '';
       
-      // If it's a device.kidlisp.com URL, use it directly (already has display params)
-      // Otherwise, build the URL ourselves
-      if (!itemUrl.includes('device.kidlisp.com')) {
-        // It's a raw URL, add display params
+      // Always convert to aesthetic.computer URL for the iframe
+      // device.kidlisp.com URLs should NOT be used directly - they'd load another device.html!
+      if (itemUrl.includes('device.kidlisp.com')) {
+        // Extract the code from device.kidlisp.com URL and convert to aesthetic.computer
+        const deviceMatch = itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9_-]+)/i);
+        if (deviceMatch) {
+          const rawCode = deviceMatch[1];
+          const code = rawCode.startsWith('$') ? rawCode : `$${rawCode}`;
+          itemUrl = `${aestheticUrl}/${code}?${buildDisplayParams()}`;
+        }
+      } else if (!itemUrl.includes('aesthetic.computer')) {
+        // It's some other URL, add display params
+        const separator = itemUrl.includes('?') ? '&' : '?';
+        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+      } else {
+        // It's already aesthetic.computer, ensure display params
         const separator = itemUrl.includes('?') ? '&' : '?';
         itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
       }
@@ -1261,11 +1662,19 @@
         clearTimeout(slideshowTimer);
       }
       
-      // Start progress bar for this item
-      startSlideshowProgressBar(duration);
+      // Progress bar will be started when piece is ready (not immediately)
+      // Store duration for when ready message arrives
+      window.pendingSlideshowDuration = duration;
+      console.log('📺 Waiting for piece ready before starting slideshow progress bar...');
       
       // Try to extract codeId from URL for source display
       const codeMatch = itemUrl.match(/\/(\$[a-z0-9]+)/i) || itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9]+)/i);
+      
+      // Clear previous piece info before loading new
+      document.getElementById('piece-handle').textContent = '';
+      document.getElementById('piece-hits').textContent = '';
+      document.getElementById('piece-when').textContent = '';
+      
       if (codeMatch) {
         let extractedCodeId = codeMatch[1];
         if (!extractedCodeId.startsWith('$')) extractedCodeId = '$' + extractedCodeId;
@@ -1273,8 +1682,6 @@
       } else {
         // Clear source display for non-kidlisp items
         document.getElementById('source-code-inner').innerHTML = '';
-        document.getElementById('piece-handle').textContent = '';
-        document.getElementById('piece-hits').textContent = '';
       }
       
       // Set timer to advance to next item
@@ -1287,14 +1694,20 @@
     function startSlideshowProgressBar(duration) {
       const progressBar = document.getElementById('progress-bar');
       const progressFill = document.getElementById('progress-fill');
+      const overlay = document.getElementById('source-overlay');
       
-      // Set height based on density
-      const barHeight = Math.max(1, Math.round(0.5 * densityParam));
+      // Set height based on density (1.5x for medium thickness)
+      const barHeight = Math.max(2, Math.round(1.5 * densityParam));
       progressBar.style.height = `${barHeight}px`;
       progressBar.classList.add('visible');
+      progressBar.classList.add('fading-in');
       
-      // Reset progress
+      // Reset progress and clear any ending state
       progressFill.style.width = '0%';
+      progressFill.classList.remove('ending');
+      progressBar.classList.remove('hidden-mid');
+      setTimeout(() => progressBar.classList.remove('fading-in'), 2000);
+      if (overlay) overlay.classList.remove('slid-out');
       
       const startTime = Date.now();
       const durationMs = duration * 1000;
@@ -1302,7 +1715,39 @@
       function updateProgress() {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(100, (elapsed / durationMs) * 100);
+        currentProgressPercent = progress;
         progressFill.style.width = `${progress}%`;
+        
+        // Slide overlay elements based on progress:
+        // First 1/6 (0-16.7%): show elements
+        // Middle 4/6 (16.7%-83.3%): slide off
+        // Last 1/6 (83.3%-100%): bring back
+        if (overlay) {
+          const shouldSlideOut = progress > 16.67 && progress < 83.33;
+          if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
+            overlay.classList.add('slid-out');
+          } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
+            overlay.classList.remove('slid-out');
+          }
+        }
+        
+        // Hide progress bar during middle section (same timing as slide out)
+        const shouldHideBar = progress > 16.67 && progress < 83.33;
+        if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
+          progressBar.classList.add('hidden-mid');
+        } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
+          progressBar.classList.remove('hidden-mid');
+        }
+        
+        // Blink red towards the end (last 10%)
+        const shouldBlink = progress > 90;
+        if (shouldBlink && !progressFill.classList.contains('ending')) {
+          progressFill.classList.add('ending');
+        } else if (!shouldBlink && progressFill.classList.contains('ending')) {
+          progressFill.classList.remove('ending');
+        }
+
+        updateFF1Overlap();
         
         if (progress < 100) {
           requestAnimationFrame(updateProgress);
@@ -1373,6 +1818,7 @@
         // Stop any running scramble animation
         if (window.stopScrambleAnimation) window.stopScrambleAnimation();
         inner.innerHTML = highlightedHtml;
+        document.body.classList.remove('booting');
         // Reset scrolling classes
         inner.classList.remove('scrolling');
         inner.style.removeProperty('--scroll-distance');
@@ -1420,6 +1866,7 @@
       console.log('📺 generateQRAndLabel called with:', displayCode);
       const labelEl = document.getElementById('code-label');
       const qrContainer = document.getElementById('qr-container');
+      const qrWrap = document.getElementById('qr-wrap');
       
       // Build label with colored $ and code
       if (labelEl) {
@@ -1430,9 +1877,16 @@
       }
       
       // Generate QR code pointing to kidlisp.com (NOT aesthetic.computer)
+      const qrUrl = `https://kidlisp.com/${displayCode}`;
+      
+      // Make QR wrap clickable to open the URL
+      if (qrWrap) {
+        qrWrap.onclick = () => window.open(qrUrl, '_blank');
+        qrWrap.title = qrUrl;
+      }
+      
       if (qrContainer && typeof qrcode !== 'undefined') {
         try {
-          const qrUrl = `https://kidlisp.com/${displayCode}`;
           console.log('📺 Generating QR for:', qrUrl);
           const qrGen = qrcode(0, 'L');
           qrGen.addData(qrUrl);
@@ -1487,44 +1941,148 @@
         whenEl.textContent = formatted;
         console.log('📺 When:', formatted);
       }
+
+      // Re-check overlap after stats update
+      requestAnimationFrame(updateFF1Overlap);
+    }
+
+    function updateFF1Overlap() {
+      const ff1Module = document.getElementById('ff1-module');
+      const qrWrap = document.getElementById('qr-wrap');
+      if (!ff1Module || !qrWrap) return;
+
+      const ff1Rect = ff1Module.getBoundingClientRect();
+      const qrRect = qrWrap.getBoundingClientRect();
+      const uiScaleValue = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale')) || 10;
+      const margin = Math.max(12, uiScaleValue * 1.5);
+
+      const expanded = {
+        left: qrRect.left - margin,
+        right: qrRect.right + margin,
+        top: qrRect.top - margin,
+        bottom: qrRect.bottom + margin,
+      };
+
+      const overlap = !(
+        ff1Rect.right < expanded.left ||
+        ff1Rect.left > expanded.right ||
+        ff1Rect.bottom < expanded.top ||
+        ff1Rect.top > expanded.bottom
+      );
+
+      ff1Module.classList.toggle('overlap-fade', overlap);
+    }
+
+    window.addEventListener('resize', () => requestAnimationFrame(updateFF1Overlap));
+    
+    // Track current FF1 CLI command (shared between single and playlist modes)
+    let currentFF1Command = '';
+    let ff1ButtonInitialized = false;
+    
+    // Initialize FF1 button click handler (only once)
+    function formatFF1Command(cmd) {
+      const match = cmd.match(/ff1 play\s+"(.+)"/i);
+      if (!match) return cmd;
+      const url = match[1]
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      return `ff1 play <span class="ff1-quote">"</span><span class="ff1-url">${url}</span><span class="ff1-quote">"</span>`;
+    }
+
+    function initFF1Button() {
+      if (ff1ButtonInitialized) return;
+      
+      const copyBtn = document.getElementById('piece-ff1-copy');
+      const ff1Module = document.getElementById('ff1-module');
+      if (!copyBtn) return;
+      
+      copyBtn.addEventListener('click', async () => {
+        if (!currentFF1Command) return;
+        
+        const cmdSpan = copyBtn.querySelector('.ff1-cmd');
+        try {
+          await navigator.clipboard.writeText(currentFF1Command);
+          if (ff1Module) ff1Module.classList.add('copied');
+          if (cmdSpan) cmdSpan.textContent = 'COPIED TO CLIPBOARD';
+          
+          setTimeout(() => {
+            if (ff1Module) ff1Module.classList.remove('copied');
+            if (cmdSpan) cmdSpan.innerHTML = formatFF1Command(currentFF1Command);
+          }, 2000);
+        } catch (e) {
+          console.error('📺 Failed to copy:', e);
+          alert('FF1 CLI Command:\n\n' + currentFF1Command);
+        }
+      });
+      
+      ff1ButtonInitialized = true;
     }
     
     // Setup the FF1 CLI copy button for single pieces
     function setupFF1CopyButton(pieceCodeId) {
+      // Skip if we're in slideshow mode - playlist setup handles FF1 button
+      if (slideshowMode) return;
+      
+      initFF1Button();
+      
       const copyBtn = document.getElementById('piece-ff1-copy');
       if (!copyBtn) return;
       
-      // Build the device URL for the CLI command
+      // Hide playlist header (not in playlist mode)
+      const playlistHeader = document.getElementById('ff1-playlist-header');
+      if (playlistHeader) playlistHeader.classList.remove('visible');
+      
+      // Build the device URL for the CLI command (official FF1 CLI format)
       const cleanCode = pieceCodeId.startsWith('$') ? pieceCodeId.slice(1) : pieceCodeId;
       const deviceUrl = `https://device.kidlisp.com/${cleanCode}`;
-      const cliCmd = `ac-ff1 cast ${deviceUrl}`;
+      currentFF1Command = `ff1 play "${deviceUrl}"`;
       
       // Update button text to show the actual command
       const cmdSpan = copyBtn.querySelector('.ff1-cmd');
       if (cmdSpan) {
-        cmdSpan.textContent = cliCmd;
+        cmdSpan.innerHTML = formatFF1Command(currentFF1Command);
+        cmdSpan.title = currentFF1Command;
+      }
+      
+      console.log('📺 FF1 copy button setup with command:', currentFF1Command);
+    }
+    
+    // Setup the FF1 CLI copy button for slideshow/playlist mode
+    // Shows the slideshow URL instead of individual piece URLs
+    // Also shows playlist title/position inside the FF1 module
+    function setupFF1CopyButtonForPlaylist() {
+      initFF1Button();
+      
+      const copyBtn = document.getElementById('piece-ff1-copy');
+      const playlistHeader = document.getElementById('ff1-playlist-header');
+      if (!copyBtn) return;
+      
+      // Show the playlist header inside the FF1 module
+      if (playlistHeader) {
+        playlistHeader.classList.add('visible');
+      }
+      
+      // Build the slideshow URL for the CLI command (official FF1 CLI format)
+      // Use the short path if we're in a known playlist, otherwise use full URL
+      let slideshowUrl;
+      if (slideshowShortcut) {
+        slideshowUrl = `https://device.kidlisp.com/slideshow/${slideshowShortcut}`;
+      } else {
+        // Fall back to full playlist_url encoded
+        slideshowUrl = `https://device.kidlisp.com/?playlist_url=${encodeURIComponent(playlistUrl)}`;
+      }
+      const cliCmd = `ff1 play "${slideshowUrl}"`;
+      currentFF1Command = cliCmd;
+      
+      // Update button text to show the actual command
+      const cmdSpan = copyBtn.querySelector('.ff1-cmd');
+      if (cmdSpan) {
+        cmdSpan.innerHTML = formatFF1Command(cliCmd);
         cmdSpan.title = cliCmd;
       }
       
-      // Handle click to copy
-      copyBtn.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(cliCmd);
-          copyBtn.classList.add('copied');
-          if (cmdSpan) cmdSpan.textContent = 'Copied!';
-          
-          setTimeout(() => {
-            copyBtn.classList.remove('copied');
-            if (cmdSpan) cmdSpan.textContent = cliCmd;
-          }, 2000);
-        } catch (e) {
-          console.error('📺 Failed to copy:', e);
-          // Fallback: show alert with the command
-          alert('FF1 CLI Command:\n\n' + cliCmd);
-        }
-      });
-      
-      console.log('📺 FF1 copy button setup with command:', cliCmd);
+      console.log('📺 FF1 copy button setup for playlist with command:', cliCmd);
     }
     
     // KidLisp syntax highlighter (matches kidlisp.com/give.aesthetic.computer)
@@ -1709,24 +2267,49 @@
     const progressBar = document.getElementById('progress-bar');
     const progressFill = document.getElementById('progress-fill');
     let progressStartTime = null;
+    let currentProgressPercent = 0;
     
     function startProgressBar() {
       console.log('📺 startProgressBar called, densityParam:', densityParam);
-      // Set height based on density (0.5x for thin line, min 1px)
-      const barHeight = Math.max(1, Math.round(0.5 * densityParam));
+      // Set height based on density (1.5x for medium thickness, min 2px)
+      const barHeight = Math.max(2, Math.round(1.5 * densityParam));
       console.log('📺 Progress bar height:', barHeight);
       progressBar.style.height = `${barHeight}px`;
       progressBar.classList.add('visible');
+      progressBar.classList.add('fading-in');
       console.log('📺 Progress bar visible class added');
       progressStartTime = Date.now();
       updateProgressBar();
+      setTimeout(() => progressBar.classList.remove('fading-in'), 2000);
     }
     
     // Track if piece has changed (for auto-reload logic)
     let pieceHasChanged = false;
+    let progressBarStarted = false;
+    
     window.addEventListener('message', (e) => {
-      // Listen for boot-log, ready, or any paint frame as sign piece is running
-      if (e.data?.type === 'boot-log' || e.data?.type === 'ready' || e.data?.type === 'ac:fps-report') {
+      // Listen for boot-log ready message to start progress bar
+      if (e.data?.type === 'boot-log') {
+        const msg = e.data.message;
+        // Start progress bar when piece is fully ready (after black screen / loading)
+        // "ready: ..." is the final boot message indicating piece is running
+        if (msg?.startsWith?.('ready:') && !progressBarStarted) {
+          progressBarStarted = true;
+          console.log('📺 Piece ready, starting progress bar now');
+          
+          // Check if we're in slideshow mode with a pending duration
+          if (window.pendingSlideshowDuration) {
+            startSlideshowProgressBar(window.pendingSlideshowDuration);
+            window.pendingSlideshowDuration = null;
+          } else if (!slideshowMode) {
+            // Single piece mode
+            startProgressBar();
+          }
+        }
+        pieceHasChanged = true;
+      }
+      // Also mark as changed on other activity signals
+      if (e.data?.type === 'ready' || e.data?.type === 'ac:fps-report') {
         pieceHasChanged = true;
       }
     });
@@ -1736,25 +2319,47 @@
       
       const elapsed = (Date.now() - progressStartTime) / 1000;
       const progress = Math.min(100, (elapsed / playlistDuration) * 100);
+      currentProgressPercent = progress;
       progressFill.style.width = `${progress}%`;
+      
+      // Slide overlay elements based on progress:
+      // First 1/6 (0-16.7%): show elements
+      // Middle 4/6 (16.7%-83.3%): slide off
+      // Last 1/6 (83.3%-100%): bring back
+      const overlay = document.getElementById('source-overlay');
+      if (overlay) {
+        const shouldSlideOut = progress > 16.67 && progress < 83.33;
+        if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
+          overlay.classList.add('slid-out');
+        } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
+          overlay.classList.remove('slid-out');
+        }
+      }
+      
+      // Hide progress bar during middle section (same timing as slide out)
+      const shouldHideBar = progress > 16.67 && progress < 83.33;
+      if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
+        progressBar.classList.add('hidden-mid');
+      } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
+        progressBar.classList.remove('hidden-mid');
+      }
+      
+      // Blink red towards the end (last 10%)
+      const shouldBlink = progress > 90;
+      if (shouldBlink && !progressFill.classList.contains('ending')) {
+        progressFill.classList.add('ending');
+      } else if (!shouldBlink && progressFill.classList.contains('ending')) {
+        progressFill.classList.remove('ending');
+      }
+
+      updateFF1Overlap();
       
       if (progress < 100) {
         requestAnimationFrame(updateProgressBar);
       } else {
-        // Progress bar complete - check if we should reload
-        // Wait 2 seconds after progress bar completes
-        setTimeout(() => {
-          if (!pieceHasChanged) {
-            console.log('📺 Page stuck - reloading after progress bar timeout');
-            reloadPiece();
-          } else {
-            // Reset for next cycle and restart progress bar
-            pieceHasChanged = false;
-            progressStartTime = Date.now();
-            progressFill.style.width = '0%';
-            requestAnimationFrame(updateProgressBar);
-          }
-        }, 2000);
+        // Progress bar complete - just refresh the page
+        console.log('📺 Progress bar complete - refreshing page');
+        window.location.reload();
       }
     }
     
@@ -1767,6 +2372,46 @@
       iframe.src = iframe.src.replace(/&t=\d+/, '') + '&t=' + Date.now();
       requestAnimationFrame(updateProgressBar);
     }
+    
+    // Tap-to-toggle UI: tap empty space to hide/show overlay elements
+    (function setupTapToggle() {
+      const overlay = document.getElementById('source-overlay');
+      if (!overlay) return;
+
+      const isInteractiveTarget = (target) => {
+        return !!target?.closest?.(
+          'a, button, #qr-wrap, #piece-info, #ff1-module, #piece-ff1-copy, #progress-bar, #fps-meter'
+        );
+      };
+
+      function applyManualHidden() {
+        overlay.classList.add('tap-hidden');
+        overlay.classList.remove('hover-reveal');
+        progressBar.classList.add('force-hidden');
+        progressBar.classList.remove('force-visible');
+        updateFF1Overlap();
+      }
+
+      function applyManualVisible() {
+        overlay.classList.remove('tap-hidden');
+        overlay.classList.add('hover-reveal');
+        progressBar.classList.add('force-visible');
+        progressBar.classList.remove('force-hidden');
+        progressBar.classList.remove('hidden-mid');
+        updateFF1Overlap();
+      }
+
+      document.body.addEventListener('pointerdown', (e) => {
+        if (isInteractiveTarget(e.target)) return;
+        if (overlay.classList.contains('scrambling')) return;
+
+        if (overlay.classList.contains('tap-hidden')) {
+          applyManualVisible();
+        } else {
+          applyManualHidden();
+        }
+      });
+    })();
     
     // Start the app
     init();
