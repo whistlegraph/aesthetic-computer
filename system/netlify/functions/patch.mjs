@@ -1,7 +1,7 @@
-// patch.mjs - Admin-only endpoint for spawning GitHub Copilot PR agents
+// patch.mjs - Admin-only endpoint for spawning GitHub Copilot coding agents
 // 2026.02.01
 //
-// POST /api/patch - Spawn a Claude Opus 4.5 PR agent with the given prompt
+// POST /api/patch - Spawn a GitHub Copilot coding agent with the given prompt
 // Requires authentication and admin privileges (@jeffrey only)
 //
 // Request body:
