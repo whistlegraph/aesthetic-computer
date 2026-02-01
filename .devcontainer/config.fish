@@ -2913,10 +2913,11 @@ kill %1 2>/dev/null"
                 end
             else
                 # Regular aesthetic.computer piece - add &device if has query, else ?device
+                # Also add density=1 by default for FF1 4K display to prevent slow rendering
                 if string match -q '*?*' $input
-                    set url "https://aesthetic.computer/$input&device"
+                    set url "https://aesthetic.computer/$input&device&density=1"
                 else
-                    set url "https://aesthetic.computer/$input?device"
+                    set url "https://aesthetic.computer/$input?device&density=1"
                 end
                 # Add perf param if requested
                 if test "$use_perf" = true
