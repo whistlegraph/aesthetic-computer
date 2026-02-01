@@ -129,6 +129,9 @@ export const commandDescriptions = {
   "r8dio:web": "Open R8dio.dk website",
   "r8Dio:web": "Open R8dio.dk website",
   "radio:web": "Open R8dio.dk website",
+  
+  // 🤖 Admin Commands
+  patch: "Spawn a PR agent (admin only)",
 };
 
 // Get a description for a command, with fallback
