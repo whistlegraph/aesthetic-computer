@@ -12391,12 +12391,8 @@
           // Only log on final frame attempt
           const isLastFrame = frameNum === totalFrames - 1;
           if (!valid && isLastFrame) {
-            console.error(
-              `%c🚨 WEBP DUD DETECTED: $${code} - ${reason} (checked ${totalFrames} frames)`,
-              'color: red; font-size: 16px; font-weight: bold;'
-            );
-            console.error(`%cFix in oven or kidlisp.mjs compiler!`, 'color: red; font-size: 12px;');
-            console.table(samples.slice(0, 10)); // Show first 10 samples
+            // Log as warning (not error) since these are filtered correctly
+            console.warn(`⚠️ KidLisp dud filtered: $${code} - ${reason}`);
           }
           
           resolve({ valid, reason, samples, code, maxColorDiff });

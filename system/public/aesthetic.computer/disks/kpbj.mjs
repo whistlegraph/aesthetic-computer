@@ -1,14 +1,10 @@
-// r8dio, 2024.12.04
-// 📻 R8dio.dk live stream player
-// Stream: https://s3.radio.co/s7cd1ffe2f/listen
+// kpbj, 2026.02.01
+// 📻 KPBJ.FM live stream player - Sun Valley Community Radio
+// Stream: https://kpbj.hasnoskills.com/listen/kpbj_test_station/radio.mp3
 
 /* #region 🏁 TODO
-  - [x] Add visualizer via BIOS streaming API
-  - [x] Show current program info
-  - [x] Fix iOS Safari visualization (use time-domain fallback)
-  - [x] Add QR code linking to prompt.ac/r8dio
-  - [x] Add pressed state for play button
-  - [x] Refactor to use shared radio.mjs lib
+  - [ ] Test on mobile/iOS
+  - [ ] Add metadata fetching if AzuraCast API is available
   + Done
 #endregion */
 
@@ -34,73 +30,73 @@ import {
   stopPlayback,
 } from "../lib/radio.mjs";
 
-// R8dio Configuration
+// KPBJ Configuration
 const CONFIG = {
-  streamUrl: "https://s3.radio.co/s7cd1ffe2f/listen",
-  streamId: "r8dio-stream",
-  metadataUrl: "https://public.radio.co/stations/s7cd1ffe2f/status",
-  qrUrl: "https://prompt.ac/r8dio",
+  streamUrl: "https://kpbj.hasnoskills.com/listen/kpbj_test_station/radio.mp3",
+  streamId: "kpbj-stream",
+  metadataUrl: null, // Could be: "https://kpbj.hasnoskills.com/api/nowplaying/kpbj_test_station"
+  qrUrl: "https://prompt.ac/kpbj",
 };
 
-// R8dio Theme - Purple/pink Danish aesthetic
+// KPBJ Theme - Sun Valley mountain/nature aesthetic
 const THEME = {
-  // Background - dark purple tint
-  bg: [25, 20, 35],
+  // Background - deep mountain blue
+  bg: [20, 30, 45],
   
   // Title
-  title: [255, 200, 220],
-  titleText: "\\pink\\r\\magenta\\8D\\pink\\io\\reset\\",
-  subtitle: [150, 120, 160],
-  subtitleText: "Danmarks snakke-radio",
+  title: [255, 200, 140],
+  titleText: "\\yellow\\K\\orange\\P\\yellow\\B\\orange\\J\\reset\\",
+  subtitle: [160, 140, 120],
+  subtitleText: "Sun Valley Community Radio",
   
-  // Visualizer bar color gradient (purple to pink to white)
+  // Visualizer bar color gradient (sunrise over mountains)
   barColor: (t) => ({
-    r: Math.floor(120 + t * 135),
-    g: Math.floor(60 + t * 100),
-    b: Math.floor(180 + t * 75),
+    r: Math.floor(200 + t * 55),
+    g: Math.floor(100 + t * 100),
+    b: Math.floor(60 + t * 80),
   }),
-  baseLine: [80, 60, 100],
+  baseLine: [80, 70, 60],
   
   // Button
-  buttonBg: [50, 40, 70],
-  buttonHover: [80, 60, 100],
-  buttonOutline: [100, 80, 120],
-  buttonHoverOutline: [140, 100, 160],
-  buttonPressed: [30, 25, 45],
-  buttonPressedOutline: [70, 50, 90],
+  buttonBg: [60, 50, 40],
+  buttonHover: [80, 70, 55],
+  buttonOutline: [120, 100, 80],
+  buttonHoverOutline: [160, 130, 100],
+  buttonPressed: [30, 25, 20],
+  buttonPressedOutline: [70, 60, 50],
   
   // Icon
-  icon: [200, 180, 220],
-  iconHover: [255, 220, 255],
-  iconPressed: [150, 130, 170],
+  icon: [200, 170, 130],
+  iconHover: [255, 220, 170],
+  iconPressed: [150, 130, 100],
   
   // Spinner
   spinnerColor: (brightness) => ({
     r: Math.floor(100 + brightness * 155),
-    g: Math.floor(80 + brightness * 140),
-    b: Math.floor(160 + brightness * 95),
+    g: Math.floor(80 + brightness * 120),
+    b: Math.floor(40 + brightness * 90),
   }),
   
   // Volume slider
-  volTrack: [50, 40, 70],
-  volFill: [150, 120, 180],
-  volFillHover: [180, 140, 220],
-  volHandle: [200, 180, 220],
-  volHandleHover: [255, 220, 255],
-  volText: [100, 80, 120],
+  volTrack: [60, 50, 40],
+  volFill: [180, 130, 80],
+  volFillHover: [220, 160, 100],
+  volHandle: [200, 170, 130],
+  volHandleHover: [255, 220, 170],
+  volText: [120, 100, 80],
   
   // QR code
-  qrFg: [200, 180, 220],
-  qrBg: [40, 30, 55],
-  qrOutline: [100, 80, 120],
-  qrLabel: [150, 120, 160],
+  qrFg: [220, 180, 140],
+  qrBg: [35, 45, 60],
+  qrOutline: [100, 90, 70],
+  qrLabel: [160, 140, 120],
   
   // Status
   statusError: [255, 100, 100],
   statusLoading: [255, 200, 100],
   statusLive: [100, 255, 150],
   statusPaused: [150, 150, 150],
-  trackText: [180, 150, 200],
+  trackText: [180, 160, 130],
 };
 
 // State
@@ -176,10 +172,9 @@ function leave({ send }) {
 
 function meta() {
   return {
-    title: "r8Dio",
-    desc: "Listen to R8dio.dk live - Danmarks snakke-radio",
+    title: "KPBJ",
+    desc: "Listen to KPBJ.FM - Sun Valley Community Radio",
   };
 }
 
 export { boot, paint, sim, act, receive, leave, meta };
-
