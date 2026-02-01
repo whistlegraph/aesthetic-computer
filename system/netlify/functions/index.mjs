@@ -1027,7 +1027,9 @@ async function fun(event, context) {
           // Density param for scaling (default 1, FF1 uses 8 for 4K)
           var densityMatch=qs.match(/density=(\d+)/);var densityParam=densityMatch?parseInt(densityMatch[1]):1;
           var isLightMode=window.matchMedia&&window.matchMedia('(prefers-color-scheme:light)').matches;
-          var SCL=1,targetSCL=3,W=Math.ceil(window.innerWidth/SCL),H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;
+          // Device mode with density=1 uses lower targetSCL for performance
+          var baseTargetSCL=3;var targetSCL=isDeviceMode&&densityParam===1?1:baseTargetSCL;
+          var SCL=1,W=Math.ceil(window.innerWidth/SCL),H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;
           function updateScale(newSCL){SCL=newSCL;W=Math.ceil(window.innerWidth/SCL);H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;x.imageSmoothingEnabled=false;for(var k in scrollYs)scrollYs[k]=0;}
           window.addEventListener('resize',function(){W=Math.ceil(window.innerWidth/SCL);H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;x.imageSmoothingEnabled=false;});
           var PM=7,HH=8,CW=80,CHW=1.8,LH=4,FNT=3;
@@ -1094,13 +1096,17 @@ async function fun(event, context) {
             // File cycling - swap displayed files periodically as boot progresses
             var now=performance.now();if(files.length>1&&now-lastFileSwap>FILE_SWAP_INTERVAL){lastFileSwap=now;displayFileIdx=(displayFileIdx+1)%files.length;for(var k in scrollYs)scrollYs[k]=0;}
             // KidLisp simplified mode: colored bars + logs only (or device mode: black/white)
-            if(isKidlisp||isDeviceMode){var klBg=isDeviceMode?'#000000':(isLightMode?'rgba(247,247,247,0.95)':'rgba(42,37,32,0.95)');x.fillStyle=klBg;x.fillRect(0,0,W,H);if(!isDeviceMode){x.globalAlpha=isLightMode?0.015:0.03;x.fillStyle=isLightMode?'#888':'#000';for(var yy=0;yy<H;yy+=3*S)x.fillRect(0,yy,W,S);}x.globalAlpha=1;var klCols=getKidlispCols();var dS=isDeviceMode?densityParam:1;var embedPad=isKidlisp?8*S*dS:0;
-              if(f%15===0&&KIDLISP_BARS.length<40){var bci=Math.floor(Math.random()*klCols.length);KIDLISP_BARS.push({x:Math.random()*W,y:H+5*S*dS,w:(30+Math.random()*80)*S*dS,h:(2+Math.random()*3)*S*dS,ci:bci,s:(0.5+Math.random()*1.5)*S*dS,a:isDeviceMode?(0.6+Math.random()*0.4):(0.3+Math.random()*0.3)});}
+            if(isKidlisp||isDeviceMode){var klBg=isDeviceMode?'#000000':(isLightMode?'rgba(247,247,247,0.95)':'rgba(42,37,32,0.95)');x.fillStyle=klBg;x.fillRect(0,0,W,H);if(!isDeviceMode){x.globalAlpha=isLightMode?0.015:0.03;x.fillStyle=isLightMode?'#888':'#000';for(var yy=0;yy<H;yy+=3*S)x.fillRect(0,yy,W,S);}x.globalAlpha=1;var klCols=getKidlispCols();var dS=isDeviceMode?Math.max(1,densityParam):1;var embedPad=isKidlisp?8*S*dS:0;
+              // In device mode with density=1, use simpler/fewer bars for performance
+              var barFreq=isDeviceMode&&densityParam===1?30:15;var maxBars=isDeviceMode&&densityParam===1?20:40;
+              if(f%barFreq===0&&KIDLISP_BARS.length<maxBars){var bci=Math.floor(Math.random()*klCols.length);KIDLISP_BARS.push({x:Math.random()*W,y:H+5*S*dS,w:(30+Math.random()*80)*S*dS,h:(2+Math.random()*3)*S*dS,ci:bci,s:(0.5+Math.random()*1.5)*S*dS,a:isDeviceMode?(0.6+Math.random()*0.4):(0.3+Math.random()*0.3)});}
               for(var bi=KIDLISP_BARS.length-1;bi>=0;bi--){var b=KIDLISP_BARS[bi];b.y-=b.s;if(b.y<-10*S*dS){KIDLISP_BARS.splice(bi,1);continue;}var fade=b.a*(1-(H-b.y)/H*0.5);x.globalAlpha=fade;var bc=klCols[b.ci%klCols.length];x.fillStyle='rgb('+bc[0]+','+bc[1]+','+bc[2]+')';x.beginPath();x.roundRect(b.x,b.y,b.w,b.h,b.h/2);x.fill();}
               x.globalAlpha=1;
-              // Device mode: show centered initialization text
-              if(isDeviceMode){var initText='initializing...';var initFS=6*S*dS;x.font='bold '+initFS+'px monospace';var initW=x.measureText(initText).width;var initX=(W-initW)/2;var initY=H/2;var initPulse=0.5+Math.sin(f*0.1)*0.3;x.globalAlpha=initPulse;x.fillStyle='rgb(255,255,255)';x.fillText(initText,initX,initY);x.globalAlpha=1;}
-              x.font=(4*S*dS)+'px monospace';var logY=8*S*dS+embedPad;for(var li=0;li<lines.length&&li<10;li++){var ln=lines[li],ly=logY+li*4*S*dS,la=Math.max(0.3,1-li*0.08),lc=klCols[li%klCols.length];var tw=x.measureText(ln.text).width;var logX=6*S*dS;var textX=10*S*dS;x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.beginPath();x.roundRect(logX,ly-3*S*dS,tw+8*S*dS,4*S*dS,2*S*dS);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.fillText(ln.text,textX,ly);}
+              // Device mode: show centered initialization text (larger font for low density)
+              if(isDeviceMode){var initText='initializing...';var initFS=densityParam===1?Math.max(24,Math.floor(H/20)):6*S*dS;x.font='bold '+initFS+'px monospace';var initW=x.measureText(initText).width;var initX=(W-initW)/2;var initY=H/2;var initPulse=0.5+Math.sin(f*0.1)*0.3;x.globalAlpha=initPulse;x.fillStyle='rgb(255,255,255)';x.fillText(initText,initX,initY);x.globalAlpha=1;}
+              // Device mode low density: larger text for readability
+              var logFS=densityParam===1&&isDeviceMode?Math.max(14,Math.floor(H/60)):4*S*dS;
+              x.font=logFS+'px monospace';var logY=(densityParam===1&&isDeviceMode?Math.floor(H/20):8*S*dS)+embedPad;var logSpacing=densityParam===1&&isDeviceMode?Math.floor(logFS*1.5):4*S*dS;for(var li=0;li<lines.length&&li<10;li++){var ln=lines[li],ly=logY+li*logSpacing,la=Math.max(0.3,1-li*0.08),lc=klCols[li%klCols.length];var tw=x.measureText(ln.text).width;var logX=densityParam===1&&isDeviceMode?20:6*S*dS;var textX=densityParam===1&&isDeviceMode?30:10*S*dS;var pillH=densityParam===1&&isDeviceMode?Math.floor(logFS*1.2):4*S*dS;var pillR=densityParam===1&&isDeviceMode?6:2*S*dS;x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.beginPath();x.roundRect(logX,ly-pillH*0.7,tw+20,pillH,pillR);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.fillText(ln.text,textX,ly);}
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
             // Light mode: warm sandy/tan/cream tones (matching kidlisp.com & AC light theme); Dark mode: deep moody colors
             var BGCOLS=isLightMode?['#fcf7c5','#f5f0c0','#fffacd','#f5ebe0','#e8e3b0','#f0ebd0','#fcf5c8','#f5ecd0']:['#2d2020','#202d24','#20202d','#2d2820','#28202d','#202d2d','#2d2028','#242d20'];
