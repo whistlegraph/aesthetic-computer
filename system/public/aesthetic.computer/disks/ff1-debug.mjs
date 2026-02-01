@@ -1,59 +1,29 @@
-// FF1 Debug Console, 2026.2.1.21.45.06.836
-// A diagnostic piece that captures and displays console logs on the FF1 display
-// Cast this to FF1 to see what's happening in the browser
+// FF1 Debug Console, 2026.2.1.22.15
+// A diagnostic piece that displays system info and test patterns on FF1
+// Cast this to FF1 to verify the display is working
 
 let logs = [];
 const MAX_LOGS = 50;
-const originalConsole = {};
+let bootTime;
+let frameCount = 0;
 
-export function boot({ params }) {
-  // Hijack console methods to capture logs
-  ['log', 'warn', 'error', 'info', 'debug'].forEach(method => {
-    originalConsole[method] = console[method];
-    console[method] = (...args) => {
-      const timestamp = new Date().toISOString().substr(11, 12);
-      const message = args.map(a => {
-        try {
-          return typeof a === 'object' ? JSON.stringify(a) : String(a);
-        } catch {
-          return String(a);
-        }
-      }).join(' ');
-      
-      logs.unshift({ timestamp, method, message });
-      if (logs.length > MAX_LOGS) logs.pop();
-      
-      // Still call original
-      originalConsole[method](...args);
-    };
-  });
-
-  // Capture errors
-  window.addEventListener('error', (e) => {
-    const timestamp = new Date().toISOString().substr(11, 12);
-    logs.unshift({ timestamp, method: 'ERROR', message: `${e.message} at ${e.filename}:${e.lineno}` });
-    if (logs.length > MAX_LOGS) logs.pop();
-  });
-
-  // Capture unhandled promise rejections  
-  window.addEventListener('unhandledrejection', (e) => {
-    const timestamp = new Date().toISOString().substr(11, 12);
-    logs.unshift({ timestamp, method: 'REJECT', message: String(e.reason) });
-    if (logs.length > MAX_LOGS) logs.pop();
-  });
-
-  // Log some initial diagnostics
-  console.log('🔍 FF1 Debug Console started');
-  console.log('📍 Location:', window.location.href);
-  console.log('📐 Screen:', window.screen.width, 'x', window.screen.height);
-  console.log('🖥️ Window:', window.innerWidth, 'x', window.innerHeight);
-  console.log('📊 DPR:', window.devicePixelRatio);
-  console.log('🕐 Time:', new Date().toISOString());
+export function boot({ params, screen, net }) {
+  bootTime = Date.now();
   
-  // Try to get system info
-  if (navigator.userAgent) console.log('🌐 UA:', navigator.userAgent);
+  // Add initial diagnostics as log entries
+  addLog('info', '🔍 FF1 Debug Console started');
+  addLog('info', `📐 Screen: ${screen.width} x ${screen.height}`);
+  addLog('info', `🎨 Density param: ${params.density || 'default'}`);
+  addLog('info', `📱 Device mode: ${params.device || 'false'}`);
+  addLog('info', `🕐 Boot time: ${new Date().toISOString()}`);
   
   return { logs };
+}
+
+function addLog(method, message) {
+  const timestamp = new Date().toISOString().substr(11, 12);
+  logs.unshift({ timestamp, method, message });
+  if (logs.length > MAX_LOGS) logs.pop();
 }
 
 export function paint({ ink, wipe, screen, params }) {
@@ -96,25 +66,37 @@ export function paint({ ink, wipe, screen, params }) {
     ink(color).write(msg, { x: padding + 170, y });
   });
   
-  // Instructions at bottom
-  ink("gray").write("Press R to refresh diagnostics | ESC to exit", { 
+  // Frame count and uptime at bottom
+  const uptime = Math.floor((Date.now() - bootTime) / 1000);
+  ink("gray").write(`Frame: ${frameCount} | Uptime: ${uptime}s`, { 
     x: padding, 
     y: screen.height - padding - lineHeight 
   });
 }
 
-export function act({ event: e, jump }) {
+export function sim() {
+  frameCount++;
+  
+  // Add periodic status updates
+  if (frameCount % 300 === 0) { // Every ~5 seconds at 60fps
+    addLog('info', `⏱️ Frame ${frameCount} | ${Math.floor((Date.now() - bootTime) / 1000)}s uptime`);
+  }
+}
+
+export function act({ event: e, jump, screen }) {
   if (e.is("keyboard:down:r")) {
-    console.log('🔄 Refreshing diagnostics...');
-    console.log('📐 Screen:', window.screen.width, 'x', window.screen.height);
-    console.log('🖥️ Window:', window.innerWidth, 'x', window.innerHeight);
-    console.log('📊 DPR:', window.devicePixelRatio);
-    console.log('🕐 Time:', new Date().toISOString());
-    console.log('📍 Location:', window.location.href);
+    addLog('info', '🔄 Manual refresh triggered');
+    addLog('info', `📐 Screen: ${screen.width} x ${screen.height}`);
+    addLog('info', `🕐 Time: ${new Date().toISOString()}`);
   }
   
   if (e.is("keyboard:down:escape")) {
     jump("prompt");
+  }
+  
+  // Log touch/click events
+  if (e.is("touch")) {
+    addLog('debug', `👆 Touch at ${e.x}, ${e.y}`);
   }
 }
 
