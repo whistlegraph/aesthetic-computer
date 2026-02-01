@@ -625,6 +625,100 @@ async function areFramesIdentical(frames) {
 }
 
 /**
+ * Check if frames have uniform/solid color content (a "dud" animation)
+ * This catches pieces that are just solid wipe colors with no actual visual content
+ * @param {Buffer[]} frames - Array of PNG frame buffers
+ * @returns {Promise<{ isUniform: boolean, color?: string, reason?: string }>}
+ */
+async function isUniformColorContent(frames) {
+  if (frames.length === 0) return { isUniform: false };
+  
+  try {
+    const sharp = (await import('sharp')).default;
+    
+    // Sample multiple frames across the animation
+    const sampleIndices = [
+      0,
+      Math.floor(frames.length / 4),
+      Math.floor(frames.length / 2),
+      Math.floor(frames.length * 3 / 4),
+      frames.length - 1
+    ].filter((v, i, arr) => arr.indexOf(v) === i && v < frames.length);
+    
+    // Grid sample points (like give page's validateWebpImage)
+    const gridSize = 5;
+    
+    for (const frameIdx of sampleIndices) {
+      const frame = frames[frameIdx];
+      
+      // Sample at a consistent size for analysis
+      const sampleSize = 64;
+      const { data, info } = await sharp(frame)
+        .resize(sampleSize, sampleSize, { fit: 'fill' })
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      
+      const channels = info.channels;
+      
+      // Generate sample points in a grid pattern
+      const samplePoints = [];
+      const gap = Math.floor(sampleSize / gridSize);
+      for (let gx = 0; gx < gridSize; gx++) {
+        for (let gy = 0; gy < gridSize; gy++) {
+          samplePoints.push({
+            x: Math.min(gap / 2 + gx * gap, sampleSize - 1),
+            y: Math.min(gap / 2 + gy * gap, sampleSize - 1)
+          });
+        }
+      }
+      
+      // Sample pixel colors
+      let firstColor = null;
+      let maxColorDiff = 0;
+      
+      for (const pt of samplePoints) {
+        const idx = (Math.floor(pt.y) * sampleSize + Math.floor(pt.x)) * channels;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        
+        if (firstColor === null) {
+          firstColor = { r, g, b };
+        } else {
+          const colorDiff = Math.abs(r - firstColor.r) + Math.abs(g - firstColor.g) + Math.abs(b - firstColor.b);
+          maxColorDiff = Math.max(maxColorDiff, colorDiff);
+        }
+      }
+      
+      // If this frame has variance, the animation is not uniform
+      if (maxColorDiff >= 30) {
+        return { isUniform: false };
+      }
+    }
+    
+    // All sampled frames have uniform color - this is a dud
+    // Get the color from the first frame for reporting
+    const { data } = await sharp(frames[0])
+      .resize(1, 1, { fit: 'fill' })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    
+    const hex = `#${data[0].toString(16).padStart(2, '0')}${data[1].toString(16).padStart(2, '0')}${data[2].toString(16).padStart(2, '0')}`;
+    
+    console.log(`   ⚠️ Uniform color content detected: ${hex}`);
+    return { 
+      isUniform: true, 
+      color: hex,
+      reason: `UNIFORM_COLOR:${hex}`
+    };
+    
+  } catch (error) {
+    console.error('⚠️ Failed to check uniform color:', error.message);
+    return { isUniform: false }; // Assume not uniform if check fails
+  }
+}
+
+/**
  * Check if a frame is blank (all black, all transparent, or nearly uniform)
  * Uses sharp to analyze the image efficiently
  */
@@ -1611,6 +1705,15 @@ export async function grabPiece(piece, options = {}) {
           const frozenError = 'Animation is frozen - all captured frames are identical';
           recordFrozenPiece(piece, frozenError, frozenPreviewUrl);
           throw new Error(frozenError);
+        }
+        
+        // Check for uniform color content (solid color "dud" images)
+        const uniformCheck = await isUniformColorContent(capturedFrames);
+        if (uniformCheck.isUniform) {
+          // Record as frozen/dud piece
+          const dudError = `Animation is a dud - ${uniformCheck.reason}`;
+          recordFrozenPiece(piece, dudError, null);
+          throw new Error(dudError);
         }
         
         activeGrabs.get(grabId).status = 'encoding';

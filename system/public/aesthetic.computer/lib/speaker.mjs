@@ -290,8 +290,9 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
       // Update properties of an existing sound, if found.
       if (msg.type === "update") {
-        // console.log("📻 Got sound update!", msg.data);
-        this.#running[msg.data.id]?.update(msg.data.properties);
+        const soundInstance = this.#running[msg.data.id];
+        console.log(`📻 SPEAKER update: id=${msg.data.id}, found=${!!soundInstance}, props=${JSON.stringify(msg.data.properties)}`);
+        soundInstance?.update(msg.data.properties);
         return;
       }
 
