@@ -2708,6 +2708,58 @@ async function halt($, text) {
     flashColor = res.status === 200 ? "lime" : "red";
     makeFlash($, true);
     return true;
+  } else if (text.startsWith("patch ") || text === "patch") {
+    // 🤖 Admin-only command to spawn a Claude Opus 4.5 PR agent
+    // Usage: `patch <prompt/instruction for the PR agent>`
+    const prompt = text.replace(/^patch\s*/, "").trim();
+    
+    if (!prompt) {
+      notice("ENTER A PROMPT", ["yellow", "red"]);
+      flashColor = [255, 128, 0];
+      makeFlash($);
+      return true;
+    }
+
+    if (!user) {
+      notice("LOGIN REQUIRED", ["yellow", "red"]);
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      return true;
+    }
+
+    notice("SPAWNING AGENT...", ["cyan", "blue"]);
+    progressBar = 0.1; // Show some initial progress
+
+    try {
+      const res = await net.userRequest("POST", "/patch", { prompt });
+      
+      if (res && res.success) {
+        progressBar = 1;
+        flashColor = [0, 255, 0];
+        notice("AGENT SPAWNED", ["lime", "green"]);
+        
+        // If we got a URL, offer to open it
+        if (res.data?.url) {
+          console.log("🤖 PR Agent issue:", res.data.url);
+          setTimeout(() => {
+            notice(`#${res.data.jobId?.replace("issue-", "")}`, ["cyan", "blue"]);
+          }, 1500);
+        }
+      } else {
+        progressBar = -1;
+        flashColor = [255, 0, 0];
+        const msg = res?.message || "ERROR";
+        notice(msg.toUpperCase().substring(0, 20), ["yellow", "red"]);
+      }
+    } catch (err) {
+      progressBar = -1;
+      flashColor = [255, 0, 0];
+      console.error("🔴 Patch error:", err);
+      notice("FAILED", ["yellow", "red"]);
+    }
+    
+    makeFlash($, true);
+    return true;
   } else if ((text === "ul" || text === "upload") && store["painting"]) {
     if (!navigator.onLine) {
       flashColor = [255, 0, 0];
