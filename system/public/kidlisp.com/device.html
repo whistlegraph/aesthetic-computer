@@ -1362,10 +1362,10 @@
       const maxDim = Math.max(screenWidth, screenHeight);
       
       // Base scale of 10 works well for retina (dpr=2) displays
-      // For native 4K (dpr=1, width >= 3840), use 8x scale for proper visibility
-      if (dpr === 1 && maxDim >= 3840) return 80;  // 4K native - 8x scale
-      if (dpr === 1 && maxDim >= 2560) return 40;  // 1440p native - 4x scale
-      return 10;                                    // Default for retina/scaled displays
+      // For native 4K (dpr=1, width >= 3840), use 12x scale for proper visibility
+      if (dpr === 1 && maxDim >= 3840) return 120;  // 4K native - 12x scale
+      if (dpr === 1 && maxDim >= 2560) return 60;   // 1440p native - 6x scale
+      return 10;                                     // Default for retina/scaled displays
     }
     
     // Get density from URL params, fallback to smart density
