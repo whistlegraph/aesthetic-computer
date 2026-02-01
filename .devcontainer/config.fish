@@ -2858,17 +2858,20 @@ kill %1 2>/dev/null"
                 echo "Examples:"
                 echo "  ac-ff1 cast \$mtz             # KidLisp → device.kidlisp.com/mtz"
                 echo "  ac-ff1 cast \$mtz --perf      # With FPS/performance HUD"
+                echo "  ac-ff1 cast \$mtz --socklogs  # Enable remote console logging"
                 echo "  ac-ff1 cast ceo              # Regular → aesthetic.computer/ceo?device"
                 echo "  ac-ff1 cast https://example.com/art.html"
                 echo ""
                 echo "Options:"
                 echo "  --perf       Enable KidLisp performance/FPS HUD overlay"
+                echo "  --socklogs   Enable remote console logs (view with: ac-ff1 logs)"
                 echo "  --relay      Use cloud relay (requires API key)"
                 return 1
             end
             set -l input $argv[2]
             set -l use_relay false
             set -l use_perf false
+            set -l use_socklogs false
             
             # Parse flags
             for arg in $argv[3..-1]
@@ -2877,6 +2880,8 @@ kill %1 2>/dev/null"
                         set use_relay true
                     case '--perf'
                         set use_perf true
+                    case '--socklogs'
+                        set use_socklogs true
                 end
             end
             
@@ -2900,16 +2905,41 @@ kill %1 2>/dev/null"
                         set url "$url?perf"
                     end
                 end
+                # Add socklogs param if requested
+                if test "$use_socklogs" = true
+                    if string match -q '*?*' $url
+                        set url "$url&socklogs"
+                    else
+                        set url "$url?socklogs"
+                    end
+                end
             else if string match -rq '^\$' $input
                 # KidLisp piece (starts with $) - use device.kidlisp.com
                 # Keep the $ prefix - device.kidlisp.com passes it to aesthetic.computer
                 set -l code_id $input
+                set -l params ""
                 if test "$use_perf" = true
-                    set url "https://device.kidlisp.com/$code_id?perf=true"
-                    echo "🎨 KidLisp piece detected (perf mode)"
+                    set params "perf=true"
+                end
+                if test "$use_socklogs" = true
+                    if test -n "$params"
+                        set params "$params&socklogs"
+                    else
+                        set params "socklogs"
+                    end
+                end
+                if test -n "$params"
+                    set url "https://device.kidlisp.com/$code_id?$params"
                 else
                     set url "https://device.kidlisp.com/$code_id"
+                end
+                if test "$use_perf" = true
+                    echo "🎨 KidLisp piece detected (perf mode)"
+                else
                     echo "🎨 KidLisp piece detected"
+                end
+                if test "$use_socklogs" = true
+                    echo "🔌 Remote logging enabled - run 'ac-ff1 logs' to view"
                 end
             else
                 # Regular aesthetic.computer piece - add &device if has query, else ?device
@@ -3068,11 +3098,71 @@ kill %1 2>/dev/null"
             echo "  ac-ff1 chords                 - Cast KidLisp Chords playlist"
             echo "  ac-ff1 playlist [options]     - Push dynamic KidLisp playlist"
             echo "  ac-ff1 tunnel                 - Create SSH tunnel for local dev"
+            echo "  ac-ff1 logs                   - Stream remote console logs (requires ?socklogs)"
             echo ""
             echo "Playlist options:"
             echo "  --limit=N     Number of items (default: 10)"
             echo "  --duration=S  Seconds per item (default: 60)"
             echo "  --handle=H    Filter by user handle"
+        case logs
+            # Stream remote console logs from devices with ?socklogs enabled
+            echo "👁️ Connecting to session-server for remote logs..."
+            echo "   Cast with: ac-ff1 cast \$code --socklogs"
+            echo "   Press Ctrl+C to stop"
+            echo ""
+            
+            # Determine session server URL
+            set -l session_url "wss://session.aesthetic.computer/socklogs?role=viewer"
+            if test -n "$NETLIFY_DEV"
+                set session_url "wss://localhost:8889/socklogs?role=viewer"
+            end
+            
+            # Use websocat if available, otherwise fall back to node script
+            if command -v websocat >/dev/null 2>&1
+                websocat "$session_url" 2>/dev/null | while read -l line
+                    set -l json $line
+                    set -l type (echo $json | jq -r '.type // ""' 2>/dev/null)
+                    if test "$type" = "log"
+                        set -l level (echo $json | jq -r '.level // "info"' 2>/dev/null)
+                        set -l msg (echo $json | jq -r '.message // ""' 2>/dev/null)
+                        set -l device (echo $json | jq -r '.deviceId // "unknown"' 2>/dev/null)
+                        set -l ts (echo $json | jq -r '.timestamp // 0' 2>/dev/null)
+                        set -l time_str (date -d "@"(math $ts / 1000) "+%H:%M:%S" 2>/dev/null; or echo "??:??:??")
+                        
+                        # Color based on level
+                        switch $level
+                            case error
+                                set_color red
+                            case warn
+                                set_color yellow
+                            case debug
+                                set_color brblack
+                            case '*'
+                                set_color normal
+                        end
+                        printf "[%s] %s [%s] %s\n" $time_str $device (string upper $level) $msg
+                        set_color normal
+                    else if test "$type" = "status"
+                        set -l device_count (echo $json | jq -r '.devices | length' 2>/dev/null)
+                        set_color cyan
+                        echo "📱 $device_count device(s) connected"
+                        set_color normal
+                    else if test "$type" = "device-connected"
+                        set -l device (echo $json | jq -r '.deviceId // "unknown"' 2>/dev/null)
+                        set_color green
+                        echo "📱 Device connected: $device"
+                        set_color normal
+                    else if test "$type" = "device-disconnected"
+                        set -l device (echo $json | jq -r '.deviceId // "unknown"' 2>/dev/null)
+                        set_color red
+                        echo "📱 Device disconnected: $device"
+                        set_color normal
+                    end
+                end
+            else
+                echo "⚠️ websocat not installed. Install with: cargo install websocat"
+                echo "   Or run: npm install -g wscat && wscat -c '$session_url'"
+            end
     end
 end
 
