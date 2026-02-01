@@ -140,6 +140,38 @@ chatManager.setPresenceResolver(getHandlesOnPiece);
 import { filter } from "./filter.mjs"; // Profanity filtering.
 import { ChatManager } from "./chat-manager.mjs"; // Multi-instance chat support.
 
+// *** SockLogs - Remote console log forwarding from devices ***
+// Devices with ?socklogs param send logs via WebSocket
+// Viewers (CLI or web) can subscribe to see device logs in real-time
+const socklogsDevices = new Map(); // deviceId -> { ws, lastLog, logCount }
+const socklogsViewers = new Set(); // Set of viewer WebSockets
+
+function socklogsBroadcast(deviceId, logEntry) {
+  const message = JSON.stringify({
+    type: 'log',
+    deviceId,
+    ...logEntry,
+    serverTime: Date.now()
+  });
+  for (const viewer of socklogsViewers) {
+    if (viewer.readyState === WebSocket.OPEN) {
+      viewer.send(message);
+    }
+  }
+}
+
+function socklogsStatus() {
+  return {
+    devices: Array.from(socklogsDevices.entries()).map(([id, info]) => ({
+      deviceId: id,
+      logCount: info.logCount,
+      lastLog: info.lastLog,
+      connectedAt: info.connectedAt
+    })),
+    viewerCount: socklogsViewers.size
+  };
+}
+
 import { createClient } from "redis";
 const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 const dev = process.env.NODE_ENV === "development";
@@ -1397,6 +1429,94 @@ wss.on("connection", (ws, req) => {
   if (chatManager.isChatHost(host)) {
     log('💬 Chat client connection from:', host);
     chatManager.handleConnection(ws, req);
+    return; // Don't process as a game client
+  }
+  
+  // Route socklogs connections - devices sending logs and viewers subscribing
+  if (req.url.startsWith('/socklogs')) {
+    const urlParams = new URL(req.url, 'http://localhost').searchParams;
+    const role = urlParams.get('role') || 'device'; // 'device' or 'viewer'
+    const deviceId = urlParams.get('deviceId') || `device-${Date.now()}`;
+    
+    if (role === 'viewer') {
+      // Viewer wants to see logs from devices
+      log('👁️ SockLogs viewer connected');
+      socklogsViewers.add(ws);
+      
+      // Send current status
+      ws.send(JSON.stringify({
+        type: 'status',
+        ...socklogsStatus()
+      }));
+      
+      ws.on('close', () => {
+        log('👁️ SockLogs viewer disconnected');
+        socklogsViewers.delete(ws);
+      });
+      
+      ws.on('error', (err) => {
+        error('👁️ SockLogs viewer error:', err);
+        socklogsViewers.delete(ws);
+      });
+    } else {
+      // Device sending logs
+      log(`📱 SockLogs device connected: ${deviceId}`);
+      socklogsDevices.set(deviceId, {
+        ws,
+        logCount: 0,
+        lastLog: null,
+        connectedAt: Date.now()
+      });
+      
+      // Notify viewers of new device
+      for (const viewer of socklogsViewers) {
+        if (viewer.readyState === WebSocket.OPEN) {
+          viewer.send(JSON.stringify({
+            type: 'device-connected',
+            deviceId,
+            status: socklogsStatus()
+          }));
+        }
+      }
+      
+      ws.on('message', (data) => {
+        try {
+          const msg = JSON.parse(data.toString());
+          if (msg.type === 'log') {
+            const device = socklogsDevices.get(deviceId);
+            if (device) {
+              device.logCount++;
+              device.lastLog = Date.now();
+            }
+            socklogsBroadcast(deviceId, msg);
+          }
+        } catch (e) {
+          error('📱 SockLogs parse error:', e);
+        }
+      });
+      
+      ws.on('close', () => {
+        log(`📱 SockLogs device disconnected: ${deviceId}`);
+        socklogsDevices.delete(deviceId);
+        
+        // Notify viewers
+        for (const viewer of socklogsViewers) {
+          if (viewer.readyState === WebSocket.OPEN) {
+            viewer.send(JSON.stringify({
+              type: 'device-disconnected',
+              deviceId,
+              status: socklogsStatus()
+            }));
+          }
+        }
+      });
+      
+      ws.on('error', (err) => {
+        error(`📱 SockLogs device error (${deviceId}):`, err);
+        socklogsDevices.delete(deviceId);
+      });
+    }
+    
     return; // Don't process as a game client
   }
   

@@ -1423,6 +1423,115 @@
     const errorScreen = document.getElementById('error-screen');
     const errorText = document.getElementById('error-text');
     
+    // ══════════════════════════════════════════════════════════════════════════
+    // SOCKLOGS - Remote console log forwarding via WebSocket
+    // When ?socklogs is present, hijack console and send logs to session-server
+    // Use 'ac-ff1 logs' to view logs from CLI
+    // ══════════════════════════════════════════════════════════════════════════
+    const socklogsEnabled = params.has('socklogs');
+    let socklogsWs = null;
+    let socklogsQueue = []; // Buffer logs before connection established
+    const socklogsDeviceId = `ff1-${Date.now().toString(36)}`; // Unique device ID
+    
+    if (socklogsEnabled) {
+      console.log('🔌 SockLogs enabled - connecting to session-server...');
+      const sessionUrl = dev 
+        ? 'wss://localhost:8889/socklogs?role=device&deviceId=' + socklogsDeviceId
+        : 'wss://session.aesthetic.computer/socklogs?role=device&deviceId=' + socklogsDeviceId;
+      
+      try {
+        socklogsWs = new WebSocket(sessionUrl);
+        
+        socklogsWs.onopen = () => {
+          console.log('🔌 SockLogs connected:', socklogsDeviceId);
+          // Flush queued logs
+          for (const entry of socklogsQueue) {
+            socklogsWs.send(JSON.stringify(entry));
+          }
+          socklogsQueue = [];
+        };
+        
+        socklogsWs.onclose = () => {
+          console.log('🔌 SockLogs disconnected');
+          socklogsWs = null;
+        };
+        
+        socklogsWs.onerror = (e) => {
+          console.warn('🔌 SockLogs error:', e);
+        };
+        
+        // Hijack console methods
+        const originalConsole = {};
+        ['log', 'warn', 'error', 'info', 'debug'].forEach(method => {
+          originalConsole[method] = console[method].bind(console);
+          console[method] = (...args) => {
+            // Call original
+            originalConsole[method](...args);
+            
+            // Format message
+            const message = args.map(a => {
+              try {
+                return typeof a === 'object' ? JSON.stringify(a) : String(a);
+              } catch {
+                return String(a);
+              }
+            }).join(' ');
+            
+            const entry = {
+              type: 'log',
+              level: method,
+              message,
+              timestamp: Date.now(),
+              url: window.location.href
+            };
+            
+            // Send or queue
+            if (socklogsWs?.readyState === WebSocket.OPEN) {
+              socklogsWs.send(JSON.stringify(entry));
+            } else {
+              socklogsQueue.push(entry);
+              if (socklogsQueue.length > 100) socklogsQueue.shift(); // Limit queue
+            }
+          };
+        });
+        
+        // Capture errors
+        window.addEventListener('error', (e) => {
+          const entry = {
+            type: 'log',
+            level: 'error',
+            message: `[UNCAUGHT] ${e.message} at ${e.filename}:${e.lineno}`,
+            timestamp: Date.now(),
+            url: window.location.href
+          };
+          if (socklogsWs?.readyState === WebSocket.OPEN) {
+            socklogsWs.send(JSON.stringify(entry));
+          } else {
+            socklogsQueue.push(entry);
+          }
+        });
+        
+        // Capture unhandled promise rejections
+        window.addEventListener('unhandledrejection', (e) => {
+          const entry = {
+            type: 'log',
+            level: 'error',
+            message: `[UNHANDLED REJECTION] ${e.reason}`,
+            timestamp: Date.now(),
+            url: window.location.href
+          };
+          if (socklogsWs?.readyState === WebSocket.OPEN) {
+            socklogsWs.send(JSON.stringify(entry));
+          } else {
+            socklogsQueue.push(entry);
+          }
+        });
+        
+      } catch (e) {
+        console.warn('🔌 SockLogs setup failed:', e);
+      }
+    }
+    
     // Boot logging (console only, no DOM log)
     function addLog(msg, type = 'info') {
       console.log(`[${type.toUpperCase()}] ${msg}`);
