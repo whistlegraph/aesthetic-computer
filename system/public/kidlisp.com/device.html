@@ -1352,20 +1352,23 @@
       return 4;                       // Default for all other resolutions
     }
     
-    // Calculate smart UI scale based on screen resolution and pixel ratio
-    // On 4K devices with devicePixelRatio=1, DOM elements appear tiny without scaling
-    // On retina laptops with devicePixelRatio=2, the browser already scales things
-    function getSmartUIScale() {
+    // Calculate smart UI scale based on density and screen characteristics
+    // UI scale should be proportional to density for visual consistency
+    // On native 4K (dpr=1), we need extra scaling since browser doesn't auto-scale
+    function getSmartUIScale(density) {
       const dpr = window.devicePixelRatio || 1;
       const screenWidth = window.screen.width;
       const screenHeight = window.screen.height;
       const maxDim = Math.max(screenWidth, screenHeight);
       
-      // Base scale of 10 works well for retina (dpr=2) displays
-      // For native 4K (dpr=1, width >= 3840), use 12x scale for proper visibility
-      if (dpr === 1 && maxDim >= 3840) return 120;  // 4K native - 12x scale
-      if (dpr === 1 && maxDim >= 2560) return 60;   // 1440p native - 6x scale
-      return 10;                                     // Default for retina/scaled displays
+      // Base multiplier: density * 1.5 gives good proportional sizing
+      // Then adjust for native resolution displays where dpr=1
+      const baseScale = density * 1.5;
+      
+      // For native 4K/high-res with dpr=1, apply additional multiplier
+      if (dpr === 1 && maxDim >= 3840) return Math.round(baseScale * 10);  // 4K native
+      if (dpr === 1 && maxDim >= 2560) return Math.round(baseScale * 5);   // 1440p native
+      return Math.round(baseScale);                                         // Retina/scaled displays
     }
     
     // Get density from URL params, fallback to smart density
@@ -1375,11 +1378,11 @@
     // Set CSS custom property for density-based sizing (for piece rendering)
     document.documentElement.style.setProperty('--density', densityParam);
     
-    // Set UI scale dynamically based on screen characteristics
-    // UI elements (text, QR, labels) need to be larger on native 4K displays
-    const uiScale = parseInt(urlParams.get('ui_scale')) || getSmartUIScale();
+    // Set UI scale - can be explicit via ?ui_scale=X or derived from density
+    // UI scale is proportional to density for visual consistency
+    const uiScale = parseInt(urlParams.get('ui_scale')) || getSmartUIScale(densityParam);
     document.documentElement.style.setProperty('--ui-scale', uiScale);
-    console.log('📺 UI Scale:', uiScale, '(dpr=' + (window.devicePixelRatio || 1) + ', screen=' + window.screen.width + 'x' + window.screen.height + ')');
+    console.log('📺 UI Scale:', uiScale, '(density=' + densityParam + ', dpr=' + (window.devicePixelRatio || 1) + ', screen=' + window.screen.width + 'x' + window.screen.height + ')');
     
     // Listen for density changes from iframe (Cmd+/- keyboard controls)
     window.addEventListener('message', (e) => {
@@ -1387,11 +1390,13 @@
       if ((e.data?.type === 'ac:density-change' || e.data?.type === 'ac-density-change') && typeof e.data.density === 'number') {
         densityParam = e.data.density;
         document.documentElement.style.setProperty('--density', densityParam);
-        // Keep --ui-scale fixed (do not tie to density changes)
+        // Update UI scale proportionally when density changes
+        const newUiScale = getSmartUIScale(densityParam);
+        document.documentElement.style.setProperty('--ui-scale', newUiScale);
         // Update progress bar height (1.5x density for medium thickness)
         const progressBar = document.getElementById('progress-bar');
         if (progressBar) progressBar.style.height = `${Math.max(2, Math.round(1.5 * densityParam))}px`;
-        console.log('📺 Density updated from iframe:', densityParam);
+        console.log('📺 Density updated from iframe:', densityParam, '→ UI Scale:', newUiScale);
       }
     });
     
