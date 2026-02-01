@@ -468,7 +468,7 @@ async function fetchNewsHeadlines() {
   
   newsFetchPromise = (async () => {
     try {
-      const response = await fetch("https://news.aesthetic.computer/api?path=posts&limit=1&sort=new");
+      const response = await fetch("https://news.aesthetic.computer/api/news/posts?limit=1&sort=new");
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       
@@ -1941,8 +1941,10 @@ function paint(
     needsPaint();
   }
   
-  //  News ticker (top right, always visible) - hide when modal is open
-  if (!client.connecting && !modalPainting && !messageCopyModal) {
+  // 📰 News ticker (top right, visible by default) - hide when modal is open
+  // Use options.showNews to control visibility (defaults to true)
+  const showNews = options?.showNews !== false;
+  if (showNews && !client.connecting && !modalPainting && !messageCopyModal) {
     paintNewsTicker({ ink, screen, text, hud }, theme);
     needsPaint();
   }

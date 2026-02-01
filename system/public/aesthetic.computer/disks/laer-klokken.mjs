@@ -26,6 +26,7 @@ function paint($) {
   // Custom warm color theme for laer-klokken chat
   chat.paint($, { 
     otherChat: client.system,
+    showNews: true, // 📰 Enable news ticker
     // r8dioPlayer removed per community request
     theme: {
       background: [180, 100, 60], // Warm terracotta/rust background
