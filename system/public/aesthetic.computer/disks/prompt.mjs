@@ -2709,8 +2709,8 @@ async function halt($, text) {
     makeFlash($, true);
     return true;
   } else if (text.startsWith("patch ") || text === "patch") {
-    // 🤖 Admin-only command to spawn a Claude Opus 4.5 PR agent
-    // Usage: `patch <prompt/instruction for the PR agent>`
+    // 🤖 Admin-only command to spawn a GitHub Copilot coding agent
+    // Usage: `patch <prompt/instruction for the agent>`
     const prompt = text.replace(/^patch\s*/, "").trim();
     
     if (!prompt) {

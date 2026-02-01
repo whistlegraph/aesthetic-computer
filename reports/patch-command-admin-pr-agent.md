@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `patch` command is an admin-only feature that allows authorized users (specifically @jeffrey) to spawn Claude Opus 4.5 PR agents directly from the aesthetic.computer web client.
+The `patch` command is an admin-only feature that allows authorized users (specifically @jeffrey) to spawn GitHub Copilot coding agents directly from the aesthetic.computer web client.
 
 ## Architecture
 
