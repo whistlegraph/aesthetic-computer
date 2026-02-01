@@ -177,7 +177,7 @@ function paint({ wipe, ink, screen, line, text, typeface, num, needsPaint, mask,
     const agoX = 4 + text.width(`!${tape.id} `, FONT);
     ink(100, 100, 130).write(ago, { x: agoX, y }, false, undefined, false, FONT);
 
-    // Handle/owner (if available)
+    // Handle/owner (if available, truncated for display)
     if (tape.owner) {
       const handleX = agoX + text.width(ago + " ", FONT);
       ink(180, 150, 255).write(tape.owner.slice(0, 12), { x: handleX, y }, false, undefined, false, FONT);
@@ -185,7 +185,7 @@ function paint({ wipe, ink, screen, line, text, typeface, num, needsPaint, mask,
 
     // Second line: title or "Tape {CODE}"
     const msgY = y + rowHeight;
-    const charWidth = 4;
+    const charWidth = 4; // MatrixChunky8 character width
     const maxChars = Math.floor((w - 8) / charWidth);
     const title = tape.title || `Tape ${tape.id.toUpperCase()}`;
     ink(200, 200, 220).write(title.slice(0, maxChars), { x: 4, y: msgY }, false, undefined, false, FONT);
@@ -303,8 +303,7 @@ function act({ event: e, screen, store, jump }) {
 }
 
 function sim({ store }) {
-  // Decay the hue
-  if (hue > 0) hue = Math.max(0, hue - 0.5);
+  // Animation tick (hue is incremented in paint for smooth background)
 }
 
 function meta() {
