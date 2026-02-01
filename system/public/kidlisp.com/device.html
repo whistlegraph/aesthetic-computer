@@ -1362,9 +1362,9 @@
       const maxDim = Math.max(screenWidth, screenHeight);
       
       // Base scale of 10 works well for retina (dpr=2) displays
-      // For native 4K (dpr=1, width >= 3840), use 4x scale for proper visibility
-      if (dpr === 1 && maxDim >= 3840) return 40;  // 4K native - 4x scale
-      if (dpr === 1 && maxDim >= 2560) return 24;  // 1440p native - 2.4x scale
+      // For native 4K (dpr=1, width >= 3840), use 8x scale for proper visibility
+      if (dpr === 1 && maxDim >= 3840) return 80;  // 4K native - 8x scale
+      if (dpr === 1 && maxDim >= 2560) return 40;  // 1440p native - 4x scale
       return 10;                                    // Default for retina/scaled displays
     }
     
