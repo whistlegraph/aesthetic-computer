@@ -1435,9 +1435,11 @@
     
     if (socklogsEnabled) {
       console.log('🔌 SockLogs enabled - connecting to session-server...');
+      // TODO: Once SSL is configured on production origin, this will work via Cloudflare
+      // For now, socklogs only works in local dev mode
       const sessionUrl = dev 
         ? 'wss://localhost:8889/socklogs?role=device&deviceId=' + socklogsDeviceId
-        : 'wss://session.aesthetic.computer/socklogs?role=device&deviceId=' + socklogsDeviceId;
+        : 'wss://session-server.aesthetic.computer/socklogs?role=device&deviceId=' + socklogsDeviceId;
       
       try {
         socklogsWs = new WebSocket(sessionUrl);

@@ -3085,7 +3085,8 @@ kill %1 2>/dev/null"
             echo ""
             
             # Determine session server URL - use local if available, else production
-            set -l session_url "wss://session.aesthetic.computer/socklogs?role=viewer"
+            # Production uses direct IP since Cloudflare SSL isn't configured for WebSocket origin
+            set -l session_url "ws://157.245.134.225:8889/socklogs?role=viewer"
             set -l websocat_opts ""
             # Check if local session server is running
             if nc -z localhost 8889 2>/dev/null
@@ -3093,7 +3094,7 @@ kill %1 2>/dev/null"
                 set websocat_opts "-k" # Skip cert verification for local dev
                 echo "📡 Using local session server (localhost:8889)"
             else
-                echo "📡 Using production session server"
+                echo "📡 Using production session server (direct IP)"
             end
             
             # Use websocat if available, otherwise fall back to node script
