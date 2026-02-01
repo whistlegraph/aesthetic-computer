@@ -88,15 +88,17 @@ export default class Synth {
       // this.#sampleStartIndex = options.startSample;
       // this.#sampleEndIndex = options.endSample;
       // Check the bounds of the sample data.
+      // Note: sampleData can be { channels: [[...], [...]] } or a flat Float32Array
+      const sampleLength = this.#sampleData.channels?.[0]?.length ?? this.#sampleData.length;
       this.#sampleStartIndex = clamp(
         options.startSample,
         0,
-        this.#sampleData.length - 1,
+        sampleLength - 1,
       );
       this.#sampleEndIndex = clamp(
         options.endSample,
         0,
-        this.#sampleData.length - 1,
+        sampleLength - 1,
       );
 
       this.#sampleIndex =
@@ -390,22 +392,25 @@ export default class Synth {
 
     // Shift sample speed incrementally.
     if (typeof shift === "number") {
+      const oldSpeed = this.#sampleSpeed;
       this.#sampleSpeed += shift;
-      // console.log("New sample speed:", this.#sampleSpeed, this.#sampleIndex, this.#sampleEndIndex);
+      console.log(`🔊 SYNTH shift: old=${oldSpeed.toFixed(4)}, shift=${shift.toFixed(4)}, new=${this.#sampleSpeed.toFixed(4)}, index=${this.#sampleIndex}, start=${this.#sampleStartIndex}, end=${this.#sampleEndIndex}`);
     }
 
     if (typeof sampleSpeed === "number") {
+      console.log(`🔊 SYNTH sampleSpeed: setting to ${sampleSpeed}`);
       this.#sampleSpeed = sampleSpeed;
     }
 
     if (typeof samplePosition === "number" && this.#sampleData) {
-      this.#sampleIndex = floor(samplePosition * this.#sampleData.channels[0].length);
+      const len = this.#sampleData.channels?.[0]?.length ?? this.#sampleData.length;
+      this.#sampleIndex = floor(samplePosition * len);
     }
 
     // 🔄 Live buffer swap - update sample data while maintaining playback position
     if (sampleData && this.type === "sample") {
-      const oldLength = this.#sampleData?.channels?.[0]?.length || 1;
-      const newLength = sampleData.channels?.[0]?.length || sampleData.length || 1;
+      const oldLength = this.#sampleData?.channels?.[0]?.length ?? this.#sampleData?.length ?? 1;
+      const newLength = sampleData.channels?.[0]?.length ?? sampleData.length ?? 1;
       const progress = this.#sampleIndex / oldLength; // 0 to 1 progress
       this.#sampleData = sampleData;
       // Recalculate indices for new buffer length

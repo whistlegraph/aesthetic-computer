@@ -1422,6 +1422,181 @@ function initSubmitFormConstraints() {
   updateConstraints();
 }
 
+// ===== YouTube Timecode Integration =====
+let youtubePlayer = null;
+let youtubePlayerReady = false;
+
+function initYouTubePlayer() {
+  const embed = document.querySelector('.news-youtube-embed[data-youtube-id]');
+  if (!embed) return;
+  
+  const youtubeId = embed.dataset.youtubeId;
+  if (!youtubeId) return;
+  
+  console.log('[news] Initializing YouTube player for:', youtubeId);
+  
+  // Load YouTube IFrame API
+  if (!window.YT) {
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+    console.log('[news] Loading YouTube IFrame API');
+  } else if (window.YT.Player) {
+    // API already loaded
+    createPlayer();
+  }
+  
+  // Set up callback for when API is ready
+  window.onYouTubeIframeAPIReady = createPlayer;
+  
+  function createPlayer() {
+    const iframe = document.getElementById('youtube-player');
+    if (!iframe) {
+      console.log('[news] No youtube-player iframe found');
+      return;
+    }
+    
+    console.log('[news] Creating YouTube player from iframe');
+    
+    try {
+      youtubePlayer = new YT.Player('youtube-player', {
+        events: {
+          onReady: (event) => {
+            console.log('[news] YouTube player ready');
+            youtubePlayerReady = true;
+            updateTimecodeButton();
+          },
+          onStateChange: updateTimecodeButton
+        }
+      });
+    } catch (e) {
+      console.error('[news] Failed to create YouTube player:', e);
+    }
+  }
+}
+
+function formatTime(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function parseTimecode(str) {
+  // Parse "1:23" or "1:23:45" to seconds
+  const parts = str.split(':').map(Number);
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  } else if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  return 0;
+}
+
+function updateTimecodeButton() {
+  const btn = document.getElementById('insert-timecode-btn');
+  if (!btn || !youtubePlayerReady || !youtubePlayer) return;
+  
+  try {
+    const time = youtubePlayer.getCurrentTime?.() || 0;
+    btn.textContent = `@ ${formatTime(time)}`;
+  } catch (e) {
+    // Player not ready
+  }
+}
+
+function setupTimecodeButton() {
+  const btn = document.getElementById('insert-timecode-btn');
+  const textarea = document.querySelector('#news-comment-form textarea[name="text"]');
+  if (!btn || !textarea) return;
+  
+  // Update button time periodically
+  setInterval(updateTimecodeButton, 1000);
+  
+  btn.addEventListener('click', () => {
+    if (!youtubePlayerReady || !youtubePlayer) {
+      alert('Video player not ready');
+      return;
+    }
+    
+    try {
+      const time = youtubePlayer.getCurrentTime?.() || 0;
+      const timecode = formatTime(time);
+      
+      // Insert at cursor position or append
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = textarea.value;
+      const insertion = `[${timecode}] `;
+      
+      textarea.value = text.substring(0, start) + insertion + text.substring(end);
+      textarea.selectionStart = textarea.selectionEnd = start + insertion.length;
+      textarea.focus();
+    } catch (e) {
+      console.error('Failed to get video time:', e);
+    }
+  });
+}
+
+function linkifyTimecodes(container) {
+  // Only if there's a YouTube player on the page
+  const embed = document.querySelector('.news-youtube-embed[data-youtube-id]');
+  if (!embed) return;
+  
+  const commentBodies = container.querySelectorAll('.news-comment-body');
+  commentBodies.forEach(body => {
+    // Match [0:00] or [1:23:45] patterns
+    const html = body.innerHTML;
+    const linked = html.replace(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g, (match, time) => {
+      return `<a href="#" class="news-timecode-link" data-timecode="${time}">${match}</a>`;
+    });
+    if (linked !== html) {
+      body.innerHTML = linked;
+    }
+  });
+  
+  // Add click handlers
+  container.querySelectorAll('.news-timecode-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const timecode = link.dataset.timecode;
+      if (youtubePlayerReady && youtubePlayer && timecode) {
+        const seconds = parseTimecode(timecode);
+        youtubePlayer.seekTo(seconds, true);
+        youtubePlayer.playVideo();
+        
+        // Scroll video into view
+        embed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  });
+}
+
+// Initialize YouTube features
+document.addEventListener('DOMContentLoaded', () => {
+  initYouTubePlayer();
+  setupTimecodeButton();
+  linkifyTimecodes(document);
+});
+
+// Also handle SPA navigation
+const origRenderPageContent = window.renderPageContent;
+if (typeof origRenderPageContent === 'function') {
+  window.renderPageContent = function(...args) {
+    const result = origRenderPageContent.apply(this, args);
+    // Re-init after page content changes
+    setTimeout(() => {
+      initYouTubePlayer();
+      setupTimecodeButton();
+      linkifyTimecodes(document);
+    }, 100);
+    return result;
+  };
+}
+
 // Notify VS Code we're ready to receive session
 if (isInVSCode()) {
   window.parent?.postMessage({ type: 'news:ready' }, '*');

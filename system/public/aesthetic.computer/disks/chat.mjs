@@ -197,7 +197,8 @@ let messageCopyModal = null;
 
 // 📰 News ticker system
 let newsHeadlines = []; // Array of { title, code, user } from news.aesthetic.computer
-let newsTickerText = "Report a story"; // Default/fallback text
+let newsTickerText = "Report a story"; // Default/fallback text for headlines row
+let newsActivityText = ""; // Second row: recent activity/comments
 let newsTickerBounds = null; // { x, y, w, h } for click detection
 let newsTickerHovered = false; // Hover state for visual feedback
 let newsFetchPromise = null; // Track fetch to avoid duplicate requests
@@ -468,29 +469,51 @@ async function fetchNewsHeadlines() {
   
   newsFetchPromise = (async () => {
     try {
-      const response = await fetch("https://news.aesthetic.computer/api/news/posts?limit=1&sort=new");
+      const response = await fetch("https://news.aesthetic.computer/api/news/posts?limit=10&sort=new");
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       
       if (data.posts && data.posts.length > 0) {
-        const latest = data.posts[0];
-        newsHeadlines = [{
-          title: latest.title,
-          code: latest.code,
-          user: latest.user,
-          commentCount: latest.commentCount ?? 0,
-        }];
-        // Create scrolling ticker text from the newest headline
-        const count = latest.commentCount ?? 0;
-        newsTickerText = `${latest.title} · ${count} comment${count === 1 ? "" : "s"}`;
+        // Store all headlines
+        newsHeadlines = data.posts.map(post => ({
+          title: post.title,
+          code: post.code,
+          user: post.user,
+          commentCount: post.commentCount ?? 0,
+          score: post.score ?? 0,
+        }));
+        
+        // Row 1: Headlines with star separator - show ALL headlines
+        newsTickerText = newsHeadlines.map(h => h.title).join(" ★ ");
+        
+        // Row 2: Activity info - comment counts, scores, engagement
+        const totalComments = newsHeadlines.reduce((sum, h) => sum + (h.commentCount || 0), 0);
+        const totalScore = newsHeadlines.reduce((sum, h) => sum + (h.score || 0), 0);
+        const storiesWithComments = newsHeadlines.filter(h => h.commentCount > 0);
+        
+        // Build activity text
+        const activityParts = [];
+        activityParts.push(`${newsHeadlines.length} stories`);
+        if (totalComments > 0) {
+          activityParts.push(`${totalComments} comments`);
+        }
+        if (totalScore > 0) {
+          activityParts.push(`${totalScore} votes`);
+        }
+        // Add a call to action
+        activityParts.push("Submit yours!");
+        
+        newsActivityText = activityParts.join(" · ");
       } else {
         newsHeadlines = [];
-        newsTickerText = "Report a story";
+        newsTickerText = "No stories yet — be the first to report!";
+        newsActivityText = "Submit a story at news.aesthetic.computer";
       }
     } catch (err) {
       console.warn("📰 Failed to fetch news:", err.message);
       newsHeadlines = [];
       newsTickerText = "Report a story";
+      newsActivityText = "news.aesthetic.computer";
     }
     newsFetchPromise = null;
   })();
@@ -1026,17 +1049,38 @@ function paint(
                           message.layout.hoveredPaintingIndex === codeIdx;
         
         // Calculate how much of the preview is visible (clipped by mask bounds)
+        const visibleLeft = Math.max(previewX, 0);
+        const visibleRight = Math.min(previewX + previewSize, screen.width);
         const visibleTop = Math.max(previewY, effectiveTopMargin);
         const visibleBottom = Math.min(previewY + previewSize, screen.height - bottomMargin);
+        const visibleWidth = visibleRight - visibleLeft;
         const visibleHeight = visibleBottom - visibleTop;
         
         // Only render if there's visible area
-        if (visibleHeight > 0) {
-          // Adjust crop if preview is partially above the mask
+        if (visibleWidth > 0 && visibleHeight > 0) {
+          // Adjust render position and crop for all boundaries
+          let renderX = floor(previewX);
           let renderY = floor(previewY);
+          let renderCropX = floor(cropX);
           let renderCropY = floor(cropY);
+          let renderCropW = floor(cropW);
           let renderCropH = floor(cropH);
           
+          // Clip at left if needed
+          if (previewX < 0) {
+            const clipAmount = -previewX;
+            renderX = 0;
+            renderCropX = floor(cropX + clipAmount);
+            renderCropW = floor(cropW - clipAmount);
+          }
+          
+          // Clip at right if needed
+          if (previewX + previewSize > screen.width) {
+            const clipAmount = (previewX + previewSize) - screen.width;
+            renderCropW = floor(cropW - clipAmount);
+          }
+          
+          // Clip at top if needed
           if (previewY < effectiveTopMargin) {
             const clipAmount = effectiveTopMargin - previewY;
             renderY = effectiveTopMargin;
@@ -1044,24 +1088,25 @@ function paint(
             renderCropH = floor(cropH - clipAmount);
           }
           
-          // Also clip at bottom if needed
+          // Clip at bottom if needed
           if (previewY + previewSize > screen.height - bottomMargin) {
             const clipAmount = (previewY + previewSize) - (screen.height - bottomMargin);
             renderCropH = floor(cropH - clipAmount);
           }
           
-          // Ensure crop height is valid
-          if (renderCropH > 0 && renderCropY >= 0 && renderCropY < imgHeight) {
+          // Ensure crop dimensions are valid
+          if (renderCropW > 0 && renderCropH > 0 && renderCropX >= 0 && renderCropY >= 0 && 
+              renderCropX < imgWidth && renderCropY < imgHeight) {
             // Paste with crop at 1:1 scale (no width/height scale)
             paste(
               painting,
-              floor(previewX),
+              renderX,
               renderY,
               { 
                 crop: {
-                  x: floor(cropX),
+                  x: renderCropX,
                   y: renderCropY,
-                  w: floor(cropW),
+                  w: Math.min(renderCropW, imgWidth - renderCropX),
                   h: Math.min(renderCropH, imgHeight - renderCropY)
                 }
               }
@@ -1069,6 +1114,14 @@ function paint(
           }
         }
         
+        // Draw a subtle border around the preview
+        const borderAlpha = isHovered ? 255 : 150;
+        ink(100, 100, 120, borderAlpha).box(previewX, previewY, previewSize, previewSize, "outline");
+        
+        // Reserve space for the painting preview
+        previewX += previewSize + 4;
+      } else {
+        // Show loading indicator only when NOT cached
         // Get loading progress (0-1)
         const progress = paintingLoadProgress.get(code) || 0;
         
@@ -1119,18 +1172,18 @@ function paint(
         const dotRadius = 12;
         const numDots = 8;
         
-        for (let i = 0; i < numDots; i++) {
-          const angle = (help.repeat * 0.05 + (i / numDots) * Math.PI * 2);
+        for (let di = 0; di < numDots; di++) {
+          const angle = (help.repeat * 0.05 + (di / numDots) * Math.PI * 2);
           const dotX = Math.floor(centerX + Math.cos(angle) * dotRadius);
           const dotY = Math.floor(centerY + Math.sin(angle) * dotRadius);
           
           // Fade dots based on position in circle
-          const dotAlpha = Math.floor(100 + ((i / numDots) * 155));
+          const dotAlpha = Math.floor(100 + ((di / numDots) * 155));
           ink(150, 150, 180, dotAlpha).box(dotX - 1, dotY - 1, 2, 2);
         }
         
-        // Reserve space for loading preview (no gap)
-        previewX += 64;
+        // Reserve space for loading preview
+        previewX += loadingW + 4;
       }
     }
   }
@@ -1179,11 +1232,22 @@ function paint(
         
         const isHovered = message.layout.hoveredYoutube === videoId;
         
+        const visibleLeft = Math.max(previewX, 0);
+        const visibleRight = Math.min(previewX + previewW, screen.width);
         const visibleTop = Math.max(previewY, effectiveTopMargin);
         const visibleBottom = Math.min(previewY + previewH, screen.height - bottomMargin);
+        const visibleWidth = visibleRight - visibleLeft;
         const visibleHeight = visibleBottom - visibleTop;
         
-        if (visibleHeight > 0 && imgWidth > 0 && imgHeight > 0) {
+        if (visibleHeight > 0 && visibleWidth > 0 && imgWidth > 0 && imgHeight > 0) {
+          // Calculate clip amounts for crop
+          let clipLeft = 0, clipTop = 0, clipRight = 0, clipBottom = 0;
+          
+          if (previewX < 0) clipLeft = -previewX;
+          if (previewY < effectiveTopMargin) clipTop = effectiveTopMargin - previewY;
+          if (previewX + previewW > screen.width) clipRight = (previewX + previewW) - screen.width;
+          if (previewY + previewH > screen.height - bottomMargin) clipBottom = (previewY + previewH) - (screen.height - bottomMargin);
+          
           if (!Object.hasOwn(cached, "previewPainting")) {
             cached.previewPainting = buildScaledPreview(
               thumbnail,
@@ -1195,8 +1259,16 @@ function paint(
           if (cached.previewPainting) {
             paste(
               cached.previewPainting,
-              floor(previewX),
-              floor(previewY)
+              floor(previewX + clipLeft),
+              floor(previewY + clipTop),
+              {
+                crop: {
+                  x: floor(clipLeft),
+                  y: floor(clipTop),
+                  w: floor(previewW - clipLeft - clipRight),
+                  h: floor(previewH - clipTop - clipBottom)
+                }
+              }
             );
           } else {
             // Fallback if preview cache fails
@@ -1207,20 +1279,25 @@ function paint(
             if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
               paste(
                 thumbnail,
-                floor(previewX),
-                floor(previewY),
+                floor(previewX + clipLeft),
+                floor(previewY + clipTop),
                 scaleFactor
               );
             }
           }
         }
         
-        // Red YouTube-style border
-        if (isHovered) {
-          ink(255, 50, 50).box(previewX, previewY, previewW, previewH, "outline");
-        } else {
-          const blinkAlpha = Math.floor(100 + (Math.sin(help.repeat * 0.15) + 1) * 50);
-          ink(255, 80, 80, blinkAlpha).box(previewX, previewY, previewW, previewH, "outline");
+        // Red YouTube-style border - only draw visible portion
+        const borderClipLeft = Math.max(0, effectiveTopMargin - previewY);
+        const borderClipTop = Math.max(0, effectiveTopMargin - previewY);
+        const borderClipBottom = Math.max(0, (previewY + previewH) - (screen.height - bottomMargin));
+        if (previewY + previewH > effectiveTopMargin && previewY < screen.height - bottomMargin) {
+          if (isHovered) {
+            ink(255, 50, 50).box(previewX, Math.max(previewY, effectiveTopMargin), previewW, Math.min(previewH, (screen.height - bottomMargin) - Math.max(previewY, effectiveTopMargin)), "outline");
+          } else {
+            const blinkAlpha = Math.floor(100 + (Math.sin(help.repeat * 0.15) + 1) * 50);
+            ink(255, 80, 80, blinkAlpha).box(previewX, Math.max(previewY, effectiveTopMargin), previewW, Math.min(previewH, (screen.height - bottomMargin) - Math.max(previewY, effectiveTopMargin)), "outline");
+          }
         }
         
         previewX += previewW + 4;
@@ -1278,76 +1355,120 @@ function paint(
         });
       }
       
-      if (cached && cached.imageData && !cached.failed) {
-        hasAnimatingOg = true;
-        const { imageData, title, siteName } = cached;
+      if (cached && !cached.failed) {
+        const { imageData, faviconData, title, siteName } = cached;
+        const hasImage = imageData || faviconData;
         
-        // OG previews use standard preview size
-        const previewW = LINK_PREVIEW_WIDTH;
-        const previewH = LINK_PREVIEW_HEIGHT;
+        if (hasImage) {
+          hasAnimatingOg = true;
+          
+          // Use OG image if available, otherwise use favicon
+          const displayImage = imageData || faviconData;
+          const isFavicon = !imageData && faviconData;
+          
+          // OG previews use standard preview size, favicons are smaller
+          const previewW = isFavicon ? 32 : LINK_PREVIEW_WIDTH;
+          const previewH = isFavicon ? 32 : LINK_PREVIEW_HEIGHT;
         
-        const imgWidth = imageData.width || imageData.w || 320;
-        const imgHeight = imageData.height || imageData.h || 180;
+          const imgWidth = displayImage.width || displayImage.w || (isFavicon ? 32 : 320);
+          const imgHeight = displayImage.height || displayImage.h || (isFavicon ? 32 : 180);
         
-        const isHovered = message.layout.hoveredOgUrl === url;
+          const isHovered = message.layout.hoveredOgUrl === url;
         
-        const visibleTop = Math.max(previewY, effectiveTopMargin);
-        const visibleBottom = Math.min(previewY + previewH, screen.height - bottomMargin);
-        const visibleHeight = visibleBottom - visibleTop;
+          const visibleLeft = Math.max(previewX, 0);
+          const visibleRight = Math.min(previewX + previewW, screen.width);
+          const visibleTop = Math.max(previewY, effectiveTopMargin);
+          const visibleBottom = Math.min(previewY + previewH, screen.height - bottomMargin);
+          const visibleWidth = visibleRight - visibleLeft;
+          const visibleHeight = visibleBottom - visibleTop;
         
-        if (visibleHeight > 0 && imgWidth > 0 && imgHeight > 0) {
-          if (!Object.hasOwn(cached, "previewPainting")) {
-            cached.previewPainting = buildScaledPreview(
-              imageData,
-              previewW,
-              previewH,
-              api,
-            );
-          }
-          if (cached.previewPainting) {
-            paste(
-              cached.previewPainting,
-              floor(previewX),
-              floor(previewY)
-            );
-          } else {
-            // Fallback if preview cache fails
-            const scaleX = previewW / imgWidth;
-            const scaleY = previewH / imgHeight;
-            const scaleFactor = Math.min(scaleX, scaleY);
+          if (visibleHeight > 0 && visibleWidth > 0 && imgWidth > 0 && imgHeight > 0) {
+            // Calculate clip amounts
+            let clipLeft = 0, clipTop = 0, clipRight = 0, clipBottom = 0;
+          
+            if (previewX < 0) clipLeft = -previewX;
+            if (previewY < effectiveTopMargin) clipTop = effectiveTopMargin - previewY;
+            if (previewX + previewW > screen.width) clipRight = (previewX + previewW) - screen.width;
+            if (previewY + previewH > screen.height - bottomMargin) clipBottom = (previewY + previewH) - (screen.height - bottomMargin);
+          
+            // For favicons, just paste directly (they're small)
+            if (isFavicon) {
+              // Draw a background box for favicon
+              ink(40, 40, 50, 200).box(previewX - 2, previewY - 2, previewW + 4, previewH + 4);
+              paste(displayImage, floor(previewX), floor(previewY));
+            } else {
+              if (!Object.hasOwn(cached, "previewPainting")) {
+                cached.previewPainting = buildScaledPreview(
+                  displayImage,
+                  previewW,
+                  previewH,
+                  api,
+                );
+              }
+              if (cached.previewPainting) {
+                paste(
+                  cached.previewPainting,
+                  floor(previewX + clipLeft),
+                  floor(previewY + clipTop),
+                  {
+                    crop: {
+                      x: floor(clipLeft),
+                      y: floor(clipTop),
+                      w: floor(previewW - clipLeft - clipRight),
+                      h: floor(previewH - clipTop - clipBottom)
+                    }
+                  }
+                );
+              } else {
+                // Fallback if preview cache fails
+                const scaleX = previewW / imgWidth;
+                const scaleY = previewH / imgHeight;
+                const scaleFactor = Math.min(scaleX, scaleY);
             
-            if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
-              // Center the image if it doesn't fill the space
-              const scaledW = imgWidth * scaleFactor;
-              const scaledH = imgHeight * scaleFactor;
-              const offsetX = (previewW - scaledW) / 2;
-              const offsetY = (previewH - scaledH) / 2;
+                if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
+                  // Center the image if it doesn't fill the space
+                  const scaledW = imgWidth * scaleFactor;
+                  const scaledH = imgHeight * scaleFactor;
+                  const offsetX = (previewW - scaledW) / 2;
+                  const offsetY = (previewH - scaledH) / 2;
               
-              paste(
-                imageData,
-                floor(previewX + offsetX),
-                floor(previewY + offsetY),
-                scaleFactor
-              );
+                  paste(
+                    displayImage,
+                    floor(previewX + offsetX + clipLeft),
+                    floor(previewY + offsetY + clipTop),
+                    scaleFactor
+                  );
+                }
+              }
             }
           }
-        }
         
-        // Cyan border for OG links (matching URL color)
-        if (isHovered) {
-          ink(0, 255, 255).box(previewX, previewY, previewW, previewH, "outline");
-        } else {
-          const blinkAlpha = Math.floor(100 + (Math.sin(help.repeat * 0.15) + 1) * 50);
-          ink(0, 200, 200, blinkAlpha).box(previewX, previewY, previewW, previewH, "outline");
-        }
+          // Border color - cyan for OG links, slightly different for favicons
+          const borderColor = isFavicon ? [100, 200, 200] : [0, 200, 200];
+          const hoverBorderColor = isFavicon ? [150, 255, 255] : [0, 255, 255];
+          
+          if (previewY + previewH > effectiveTopMargin && previewY < screen.height - bottomMargin) {
+            const borderY = Math.max(previewY, effectiveTopMargin);
+            const borderH = Math.min(previewH, (screen.height - bottomMargin) - borderY);
+            if (isHovered) {
+              ink(...hoverBorderColor).box(previewX, borderY, previewW, borderH, "outline");
+            } else {
+              const blinkAlpha = Math.floor(100 + (Math.sin(help.repeat * 0.15) + 1) * 50);
+              ink(...borderColor, blinkAlpha).box(previewX, borderY, previewW, borderH, "outline");
+            }
+          }
         
-        // Draw title below the preview if we have space
-        if (title && previewY + previewH + 10 < screen.height - bottomMargin) {
-          const truncatedTitle = title.length > 20 ? title.slice(0, 18) + "…" : title;
-          ink(150, 150, 180).write(truncatedTitle, { x: previewX, y: previewY + previewH + 2 }, undefined, undefined, false, "MatrixChunky8");
-        }
+          // Draw title/site name below the preview
+          const captionY = previewY + previewH + 2;
+          if (captionY < screen.height - bottomMargin - 8) {
+            const captionText = title || siteName || new URL(url).hostname;
+            const maxLen = isFavicon ? 15 : 20;
+            const truncatedCaption = captionText.length > maxLen ? captionText.slice(0, maxLen - 1) + "…" : captionText;
+            ink(150, 150, 180).write(truncatedCaption, { x: previewX, y: captionY }, undefined, undefined, false, "MatrixChunky8");
+          }
         
-        previewX += previewW + 4;
+          previewX += previewW + 4;
+        }
       }
     }
   }
@@ -1551,21 +1672,15 @@ function paint(
       presenceText = chatterCount + " online";
     }
     
-    // Draw presence counter flush left (over HUD label area) without overlapping tickers
+    // Draw presence counter flush left at x=6 (aligned with HUD label "laer-klokken")
     const onlineFgColor = theme?.timestamp || 160;
-    const hudLabelOffset = 6;
-    const labelInfo = hud?.currentLabel?.() || {};
-    const qrSize = labelInfo.qrSize || 0;
-    const leftPad = labelInfo.leftPad || 0;
-    const labelX = labelInfo.btn?.box?.x ?? hudLabelOffset;
-    const qrOffset = qrSize > 0 ? (qrSize + 4) : 0;
-    const basePresenceX = Math.max(hudLabelOffset, labelX + leftPad + qrOffset);
+    const presenceX = 6; // Flush left, same as HUD label position
     const tickerLeftEdge = screen.width - 230; // Reserve space for News/r8Dio
     let displayPresenceText = presenceText;
     let presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
 
     // If it would overlap the ticker area, show truncated list with ellipsis
-    if (basePresenceX + presenceWidth > tickerLeftEdge) {
+    if (presenceX + presenceWidth > tickerLeftEdge) {
       // Try progressively shorter versions
       if (hereCount > 0) {
         // First try showing just first 3 handles
@@ -1575,7 +1690,7 @@ function paint(
         presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
         
         // If still too wide, just show count
-        if (basePresenceX + presenceWidth > tickerLeftEdge) {
+        if (presenceX + presenceWidth > tickerLeftEdge) {
           displayPresenceText = `${hereCount} here`;
           presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
         }
@@ -1587,7 +1702,7 @@ function paint(
         presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
         
         // If still too wide, just show count
-        if (basePresenceX + presenceWidth > tickerLeftEdge) {
+        if (presenceX + presenceWidth > tickerLeftEdge) {
           displayPresenceText = `${onlineCount} online`;
           presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
         }
@@ -1597,13 +1712,13 @@ function paint(
     }
 
     // Final guard: if still too wide, drop to just the count
-    if (basePresenceX + presenceWidth > tickerLeftEdge) {
+    if (presenceX + presenceWidth > tickerLeftEdge) {
       displayPresenceText = String(hereCount > 0 ? hereCount : (onlineCount > 0 ? onlineCount : chatterCount));
     }
 
     ink(onlineFgColor).write(displayPresenceText, {
-      x: basePresenceX,
-      top: 13, // Align with News ticker vertically
+      x: presenceX,
+      top: 13, // Below the HUD label row
     }, false, undefined, false, "MatrixChunky8");
   }
 
@@ -3484,6 +3599,8 @@ async function loadOgPreview(url, preload) {
     
     // If there's an og:image, load it
     let imageData = null;
+    let faviconData = null;
+    
     if (data.image) {
       try {
         const loaded = await preload(data.image);
@@ -3493,12 +3610,35 @@ async function loadOgPreview(url, preload) {
       }
     }
     
+    // If no OG image or it failed, try to load favicon as fallback
+    if (!imageData && data.favicon) {
+      try {
+        const loaded = await preload(data.favicon);
+        faviconData = loaded?.img || loaded;
+      } catch (favErr) {
+        console.warn(`Failed to load favicon for ${url}:`, favErr);
+      }
+    }
+    
+    // If still no image, try common favicon paths
+    if (!imageData && !faviconData) {
+      try {
+        const urlObj = new URL(url);
+        const defaultFavicon = `${urlObj.origin}/favicon.ico`;
+        const loaded = await preload(defaultFavicon);
+        faviconData = loaded?.img || loaded;
+      } catch (defaultFavErr) {
+        // Ignore - no favicon available
+      }
+    }
+    
     const result = {
       url,
       title: data.title,
       description: data.description,
       image: data.image,
       imageData,
+      faviconData, // Fallback favicon
       siteName: data.siteName,
       favicon: data.favicon,
     };
@@ -3511,8 +3651,27 @@ async function loadOgPreview(url, preload) {
     return result;
   } catch (err) {
     console.warn(`Failed to load OG preview for ${url}:`, err);
-    // Cache a minimal result to avoid repeated failed requests
-    const result = { url, title: null, image: null, imageData: null, failed: true };
+    
+    // Try to load just the favicon as a fallback
+    let faviconData = null;
+    try {
+      const urlObj = new URL(url);
+      const defaultFavicon = `${urlObj.origin}/favicon.ico`;
+      const loaded = await preload(defaultFavicon);
+      faviconData = loaded?.img || loaded;
+    } catch (favErr) {
+      // No favicon either
+    }
+    
+    // Cache result with favicon fallback
+    const result = { 
+      url, 
+      title: null, 
+      image: null, 
+      imageData: null, 
+      faviconData, // May have favicon even if OG failed
+      failed: !faviconData // Only mark as fully failed if no favicon either
+    };
     ogPreviewCache.set(url, result);
     ogLoadQueue.delete(url);
     return result;
@@ -3823,10 +3982,10 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
     // 🔗 OG preview URLs (non-YouTube, non-sensitive URLs)
     const urlElements = parsedElements.filter(el => el.type === "url" && !el.sensitive);
     const ogUrls = urlElements.map(el => el.text);
-    // Check which URLs have loaded OG data with images
+    // Check which URLs have loaded OG data with images OR favicon fallbacks
     const ogUrlsWithPreviews = ogUrls.filter(url => {
       const cached = ogPreviewCache.get(url) || (globalOgPreviewCache && globalOgPreviewCache.get(url));
-      return cached && cached.imageData && !cached.failed;
+      return cached && (cached.imageData || cached.faviconData) && !cached.failed;
     });
     
     // 🎨 Move up for painting previews FIRST (before positioning this message)
@@ -3842,9 +4001,10 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
       y -= previewHeight;
     }
     
-    // 🔗 Move up for OG link previews
+    // 🔗 Move up for OG link previews (including favicon fallbacks)
+    // Include extra space for title caption (10px)
     if (ogUrlsWithPreviews.length > 0) {
-      const previewHeight = 74;
+      const previewHeight = 84; // 74px + 10px for caption
       y -= previewHeight;
     }
 
@@ -4159,37 +4319,48 @@ function generateDynamicColorMessage(message, theme) {
   
   return colorCodedMessage;
 }
-// 📰 News ticker with scrolling text, "News" label, and @handle highlighting
+// 📰 News ticker with TWO ROWS: headlines on top, activity/stats below
 // Now fetches from news.aesthetic.computer API (see fetchNewsHeadlines)
 
 function paintNewsTicker($, theme) {
   const { ink, screen, text, hud } = $;
   const tickerCharWidth = 4; // MatrixChunky8 char width
   const tickerHeight = 8;
-  const tickerPadding = 3;
+  const rowSpacing = 2; // Gap between rows
   const rightMargin = 0; // Flush right, no margin
   
   // "News" prefix styling - uniform width with r8Dio label
   const newsPrefix = "News";
   const uniformLabelWidth = 28; // Fixed width to match both labels
   
-  // Ticker dimensions
+  // Ticker dimensions - TWO ROWS
   const tickerMaxWidth = 180;
   const tickerRight = screen.width - rightMargin;
-  const tickerY = 2; // Align with top of QR code
+  const tickerY = 2; // Top row Y position
+  const row2Y = tickerY + tickerHeight + rowSpacing; // Second row Y
+  const totalTickerHeight = (tickerHeight * 2) + rowSpacing + 4; // Both rows + padding
   
   // Use dynamic news text (fetched from API or fallback)
   const displayText = newsTickerText || "Report a story";
+  const activityText = newsActivityText || "news.aesthetic.computer";
   
   // Seamless loop with separator (always scroll, even for fallback text)
   const hasNews = newsHeadlines.length > 0;
-  const separator = "   ~   ";
+  const separator = "   ★   ";
   const loopText = displayText + separator;
   const loopWidth = loopText.length * tickerCharWidth;
   
+  // Activity row loop (scrolls in opposite direction for visual interest)
+  const activitySeparator = "   ·   ";
+  const activityLoopText = activityText + activitySeparator;
+  const activityLoopWidth = activityLoopText.length * tickerCharWidth;
+  
   // Scroll animation (always scroll, slower for fallback text)
-  const scrollSpeed = hasNews ? 0.4 : 0.25;
+  const scrollSpeed = hasNews ? 0.5 : 0.25;
   const scrollOffset = (performance.now() * scrollSpeed / 16) % loopWidth;
+  // Activity scrolls opposite direction at slower speed
+  const activityScrollSpeed = 0.3;
+  const activityScrollOffset = (performance.now() * activityScrollSpeed / 16) % activityLoopWidth;
   
   // Calculate HUD label right edge to avoid overlap
   // HUD label starts at x=6 and has width from hud.currentLabel()
@@ -4217,6 +4388,7 @@ function paintNewsTicker($, theme) {
     (Array.isArray(theme.handle) ? theme.handle : [255, 150, 200]) : [255, 150, 200];
   const textColor = theme?.messageText ? 
     (Array.isArray(theme.messageText) ? theme.messageText : [200, 200, 200]) : [200, 200, 200];
+  const dimTextColor = [150, 150, 160]; // Dimmer for activity row
   
   // "News" label - magenta background with white text (like aesthetic.news banner)
   const newsBgColor = newsTickerHovered ? [200, 50, 150] : [180, 40, 130]; // Bright magenta
@@ -4228,30 +4400,34 @@ function paintNewsTicker($, theme) {
   // Calculate actual scrolling area width based on position
   const actualTickerWidth = scrollAreaRight - scrollAreaLeft;
   
-  // Store bounds for click detection (entire ticker area including "News" label)
+  // Store bounds for click detection (entire ticker area including "News" label, both rows)
   const totalWidth = uniformLabelWidth + actualTickerWidth + 1;
   newsTickerBounds = {
     x: newsBgX,
     y: tickerY - 2,
     w: totalWidth,
-    h: tickerHeight + 4,
+    h: totalTickerHeight,
   };
   
-  // Draw "News" label background (extend 1px right to touch scroll area)
-  ink(...newsBgColor, 230).box(newsBgX, tickerY - 2, uniformLabelWidth + 1, tickerHeight + 4);
-  // Center "News" text in label area
+  // Draw "News" label background - spans both rows
+  ink(...newsBgColor, 230).box(newsBgX, tickerY - 2, uniformLabelWidth + 1, totalTickerHeight);
+  // Center "News" text vertically in label area
+  const newsTextY = tickerY + Math.floor((totalTickerHeight - tickerHeight - 4) / 2);
   const newsTextX = newsBgX + Math.floor((uniformLabelWidth - newsPrefix.length * tickerCharWidth) / 2);
-  ink(...newsFgColor).write(newsPrefix, { x: newsTextX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+  ink(...newsFgColor).write(newsPrefix, { x: newsTextX, y: newsTextY }, undefined, undefined, false, "MatrixChunky8");
   
-  // Draw scrolling ticker background (use actual width)
-  ink(...scrollBgColor, 200).box(scrollAreaLeft, tickerY - 2, actualTickerWidth + 1, tickerHeight + 4);
+  // Draw scrolling ticker background for both rows (use actual width)
+  ink(...scrollBgColor, 200).box(scrollAreaLeft, tickerY - 2, actualTickerWidth + 1, totalTickerHeight);
+  
+  // Draw subtle separator line between rows
+  ink(80, 50, 70, 150).box(scrollAreaLeft, row2Y - 1, actualTickerWidth, 1);
   
   // Draw hover underline indicator (shows it's clickable)
   if (newsTickerHovered) {
-    ink(255, 255, 255, 180).box(newsBgX, tickerY + tickerHeight + 1, totalWidth, 1);
+    ink(255, 255, 255, 180).box(newsBgX, tickerY + totalTickerHeight - 1, totalWidth, 1);
   }
   
-  // Parse text for @handles to highlight
+  // Parse text for @handles to highlight (row 1)
   const handleRegex = /@[\w]+/g;
   const handles = [];
   let match;
@@ -4259,7 +4435,7 @@ function paintNewsTicker($, theme) {
     handles.push({ start: match.index, end: match.index + match[0].length, text: match[0] });
   }
   
-  // Draw seamless looping text with handle highlighting (manual clipping for performance)
+  // ROW 1: Draw seamless looping HEADLINES with handle highlighting
   for (let copy = 0; copy < 3; copy++) {
     const baseX = scrollAreaLeft - scrollOffset + (copy * loopWidth);
     
@@ -4273,6 +4449,21 @@ function paintNewsTicker($, theme) {
         const charColor = isHandle ? handleColor : textColor;
         
         ink(...charColor).write(loopText[i], { x: Math.round(charX), y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+      }
+    }
+  }
+  
+  // ROW 2: Draw ACTIVITY text (scrolls opposite direction)
+  for (let copy = 0; copy < 3; copy++) {
+    // Scroll right-to-left (opposite of row 1)
+    const baseX = scrollAreaRight + activityScrollOffset - activityLoopWidth + (copy * activityLoopWidth);
+    
+    for (let i = 0; i < activityLoopText.length; i++) {
+      const charX = baseX + i * tickerCharWidth;
+      
+      // Manual clip: only draw if within scroll area bounds
+      if (charX >= scrollAreaLeft && charX + tickerCharWidth <= scrollAreaRight) {
+        ink(...dimTextColor).write(activityLoopText[i], { x: Math.round(charX), y: row2Y }, undefined, undefined, false, "MatrixChunky8");
       }
     }
   }

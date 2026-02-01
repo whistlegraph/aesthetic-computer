@@ -136,10 +136,21 @@ function getLayoutMetrics(screen, { hasBitmap = false, isRecording = false, patC
       bitmapBtnY = bitmapY + bitmapSize + BITMAP_BTN_GAP;
     } else {
       // Bitmap overlaid in bottom-right corner (portrait/narrow mode)
-      bitmapSize = min(BITMAP_MAX_SIZE, max(BITMAP_MIN_SIZE, floor(screen.width * 0.35)));
+      // Calculate record button dimensions first to avoid overlap
+      const recordBtnW = isCompact ? 52 : 68;
+      const recordBtnRightEdge = BITMAP_MARGIN + recordBtnW + BITMAP_MARGIN;
+      
+      // Calculate available width for bitmap (avoiding record button)
+      const availableBitmapWidth = screen.width - recordBtnRightEdge - BITMAP_MARGIN;
+      bitmapSize = min(BITMAP_MAX_SIZE, max(BITMAP_MIN_SIZE, floor(min(screen.width * 0.35, availableBitmapWidth))));
       bitmapColumnW = 0; // No column, overlaid
       bitmapX = screen.width - bitmapSize - BITMAP_MARGIN;
-      bitmapY = screen.height - bottomBar - bitmapSize - BITMAP_BTN_HEIGHT * 2 - BITMAP_BTN_GAP * 2 - BITMAP_MARGIN;
+      
+      // Calculate total bitmap UI height (bitmap + 2 buttons + gaps)
+      const totalBitmapUIHeight = bitmapSize + BITMAP_BTN_HEIGHT * 2 + BITMAP_BTN_GAP * 3;
+      
+      // Position bitmap UI so buttons stay above bottom bar
+      bitmapY = max(topBar + BITMAP_MARGIN, screen.height - bottomBar - totalBitmapUIHeight);
       bitmapBtnW = bitmapSize;
       bitmapBtnY = bitmapY + bitmapSize + BITMAP_BTN_GAP;
     }
@@ -148,7 +159,9 @@ function getLayoutMetrics(screen, { hasBitmap = false, isRecording = false, patC
   // Calculate strip button dimensions
   const stripAreaW = max(MIN_STRIP_WIDTH, screen.width - bitmapColumnW);
   const stripAreaH = availableHeight;
-  const stripH = max(MIN_STRIP_HEIGHT, floor(stripAreaH / patCount));
+  // Ensure strips fit within available height (even with MIN_STRIP_HEIGHT, may need to shrink)
+  const idealStripH = floor(stripAreaH / patCount);
+  const stripH = max(MIN_STRIP_HEIGHT, min(idealStripH, floor(stripAreaH / patCount)));
   const stripX = 0;
   const stripY = topBar;
   
@@ -441,11 +454,16 @@ async function boot({
     }
   }
 
-  getSampleData(sampleId).then((data) => {
-    if (bitmapLoaded) return;
-    sampleData = data;
-    // console.log("🔴 Sample Data:", sampleData);
-  });
+  // Only fetch sample data if we have a valid sampleId
+  if (sampleId) {
+    getSampleData(sampleId).then((data) => {
+      if (bitmapLoaded) return;
+      sampleData = data;
+      // console.log("🔴 Sample Data:", sampleData);
+    }).catch((err) => {
+      console.warn("🔴 Failed to get sample data:", err);
+    });
+  }
 }
 
 function sim({ sound, api, screen, kidlisp, painting }) {
@@ -660,105 +678,33 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     btn.paint(() => {
       ink(btn.down ? "white" : "cyan").box(btn.box); // Paint box a teal color.
       ink("black").box(btn.box, "out"); // Outline in black.
-      // const prog = (1 - sounds[index].from)
-      // console.log("need from:", sounds[index].options.from);
-      // const prog = sounds[index]?.options.from || 0; // / progressions[index];
-
-      let prog = 0;
-      if (sounds[index]?.options.speed < 0) {
-        prog = sounds[index].options.from;
-      } else if (sounds[index]?.options.speed > 0) {
-        prog = sounds[index].options.from;
-      }
 
       let options = sounds[index]?.options;
 
-      if (options) {
-        // console.log(
-        //   "From:",
-        //   options.from,
-        //   "To:",
-        //   options.to,
-        //   "Speed:",
-        //   sounds[index]?.options.speed,
-        // );
+      // Debug: Log needle state periodically
+      if (index === 0 && Math.random() < 0.02) {
+        console.log(`🟠 NEEDLE[${index}]: prog=${progressions[index]}, options=${JSON.stringify(options)}, sound=${!!sounds[index]}`);
+      }
 
-        const space = prog * btn.box.h;
-        const negative = btn.box.h - space;
-        let startY, height;
-
-        if (options.speed > 0 || !options.speed) {
-          // startY = btn.box.y;
-          // console.log(options.to, options.from);
-          // startY = btn.box.y + (1 - options.to) * btn.box.h;
-          height = (1 - options.from) * btn.box.h;
-          height = btn.box.h;
-          startY = btn.box.y;
+      // Render playback needle within this button's box (old working logic)
+      if (options && progressions[index] !== undefined) {
+        let y;
+        const progress = progressions[index];
+        const speed = options.speed ?? 1;
+        const to = options.to ?? 1;
+        // Check direction based on speed
+        if (speed > 0 || !speed) {
+          // Forward playback: needle moves from bottom to top of button
+          y = btn.box.y + (1 - progress) * btn.box.h;
         } else {
-          startY = btn.box.y + (1 - options.to) * btn.box.h;
-          height = options.to * btn.box.h;
+          // Reverse playback: adjust for backwards movement
+          y = btn.box.y + (1 - to * progress) * btn.box.h;
         }
-
-        // console.log(
-        //   "StartY",
-        //   startY,
-        //   "Height",
-        //   height,
-        //   "From:",
-        //   options.from,
-        //   "To:",
-        //   options.to,
-        // );
-
-        if (progressions[index]) {
-          ink("magenta").line(
-            0,
-            startY /* + 2*/,
-            layout.stripW,
-            startY /* + 2*/,
-          );
-          // console.log(startY);
-
-          // ink("green", 64).box(
-          //   btn.box.x,
-          //   startY, // btn.box.y + btn.box.h,
-          //   btn.box.w,
-          //   height,
-          //   // -btn.box.h * prog - progressions[index] * negative, // progressions[index],
-          // );
-
-          let y;
-          let basey;
-          const originaly = layout.topBar; // Use layout-based top bar height
-          if (options.speed > 0 || !options.speed) {
-            basey = floor(
-              originaly + (1 - options.from) * (btn.box.h * btns.length),
-            ); // btn.box.y + (1 - options.from) * btn.box.h;
-
-            y =
-              btn.box.y +
-              /* (1 - options.from) */ 1 *
-                (1 - progressions[index]) *
-                btn.box.h;
-
-            // console.log(basey);
-            //y =
-            //  btn.box.y +
-            //  (1 - options.from / (1 - progressions[index])) * btn.box.h;
-          } else {
-            basey = btn.box.y + (1 - options.to) * btn.box.h;
-            y = btn.box.y + (1 - options.to * progressions[index]) * btn.box.h;
-          }
-
-          ink("orange").line(0, y, layout.stripW, y);
-          ink("blue").line(0, basey, layout.stripW, basey);
-          // ink("lime").line(0, 100, btn.box.x + btn.box.w, 100);
-
-          // const y =
-          // btn.box.y + btn.box.h * (1 - prog) - progressions[index] * negative;
-          // const y = btn.box.y + btn.box.h * (1 - progressions[index]);
-          // ink("red").line(0, y, btn.box.x + btn.box.w, y);
-        }
+        // Keep the needle inside the visible box
+        const minY = btn.box.y + 1;
+        const maxY = btn.box.y + btn.box.h - 2;
+        y = Math.max(minY, Math.min(maxY, y));
+        ink("orange").line(0, y, btn.box.x + btn.box.w, y);
       }
 
       ink("black").write(
@@ -809,12 +755,11 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     ink("black").write("pat", btn.box.x + 6, btn.box.y + 6);
   });
 
-  // Only show loop button if NOT in KidLisp mode
-  if (!kidlispActive) {
+  // Only show loop button if NOT in KidLisp mode AND there's a bitmap
+  if (!kidlispActive && bitmapPreview?.pixels?.length) {
     bitmapLoopButton?.paint((btn) => {
-      const hasBitmap = !!bitmapPreview?.pixels?.length;
       const label = bitmapLooping ? "Stop" : "Loop";
-      const bg = hasBitmap ? (bitmapLooping ? "magenta" : "purple") : "gray";
+      const bg = bitmapLooping ? "magenta" : "purple";
       ink(bg, btn.down ? 200 : 120).box(btn.box);
       ink("black").box(btn.box, "out");
       ink("white").write(
@@ -825,12 +770,11 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     });
   }
 
-  // Only show paint button if NOT in KidLisp mode
-  if (!kidlispActive) {
+  // Only show paint button if NOT in KidLisp mode AND there's a bitmap
+  if (!kidlispActive && bitmapPreview?.pixels?.length) {
     bitmapPaintButton?.paint((btn) => {
-      const hasBitmap = !!bitmapPreview?.pixels?.length;
       const label = "Paint";
-      const bg = hasBitmap ? "lime" : "gray";
+      const bg = "lime";
       ink(bg, btn.down ? 200 : 120).box(btn.box);
       ink("black").box(btn.box, "out");
       ink("black").write(
@@ -1080,29 +1024,17 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, sys
 
           // if (e.pointer === btn.downPointer) {
           if (abs(e.delta.y) > 0) {
-            // 🎮 Exponential scrub sensitivity (like game controller acceleration)
-            // Small movements = fine control, large movements = fast scrub
-            const rawDelta = -e.delta.y;
-            const sign = rawDelta >= 0 ? 1 : -1;
-            const absDelta = abs(rawDelta);
+            // Simple scrub: shift speed based on drag delta (old working logic)
+            const shiftAmount = 0.03 * -e.delta.y;
+            const snd = sounds[index];
             
-            // Apply exponential curve: slower at low values, faster at high values
-            // Formula: output = sign * (abs^exponent) * scale
-            // Exponent > 1 makes small values even smaller, large values larger
-            const exponent = 1.8; // Higher = more dramatic curve (1.0 = linear)
-            const baseScale = 0.015; // Base sensitivity multiplier
-            const minThreshold = 0.5; // Ignore tiny movements below this
+            console.log(`🎚️ SCRUB[${index}]: delta.y=${e.delta.y.toFixed(2)}, shift=${shiftAmount.toFixed(4)}, sound=${!!snd}, options=${JSON.stringify(snd?.options)}`);
             
-            let scaledDelta = 0;
-            if (absDelta > minThreshold) {
-              // Normalize to 0-1 range, apply curve, then scale back
-              const normalized = absDelta / 50; // Assume max reasonable delta is ~50px
-              const curved = Math.pow(normalized, exponent);
-              scaledDelta = sign * curved * 50 * baseScale;
-            }
-            
-            if (scaledDelta !== 0) {
-              sounds[index]?.update({ shift: scaledDelta });
+            if (snd) {
+              snd.update({ shift: shiftAmount });
+              console.log(`🎚️ SCRUB[${index}]: sent shift update`);
+            } else {
+              console.log(`🎚️ SCRUB[${index}]: NO SOUND to update!`);
             }
           }
           // }
@@ -1327,18 +1259,29 @@ function layoutBitmapUI(screen) {
   const hasBitmap = !!(bitmapPreview?.pixels?.length);
   const layout = getCachedLayout(screen, { hasBitmap, patCount: pats });
   
-  // Loop button
-  bitmapLoopButton.box.w = layout.bitmapBtnW || layout.bitmapSize || 80;
-  bitmapLoopButton.box.h = BITMAP_BTN_HEIGHT;
-  bitmapLoopButton.box.x = layout.bitmapX;
-  bitmapLoopButton.box.y = layout.bitmapBtnY;
+  // Only position bitmap buttons when there's actually a bitmap to show
+  if (hasBitmap && layout.bitmapSize > 0) {
+    // Loop button
+    bitmapLoopButton.box.w = layout.bitmapBtnW || layout.bitmapSize || 80;
+    bitmapLoopButton.box.h = BITMAP_BTN_HEIGHT;
+    bitmapLoopButton.box.x = layout.bitmapX;
+    bitmapLoopButton.box.y = layout.bitmapBtnY;
 
-  // Paint button (above loop button)
-  if (bitmapPaintButton) {
-    bitmapPaintButton.box.w = bitmapLoopButton.box.w;
-    bitmapPaintButton.box.h = BITMAP_BTN_HEIGHT;
-    bitmapPaintButton.box.x = bitmapLoopButton.box.x;
-    bitmapPaintButton.box.y = bitmapLoopButton.box.y + BITMAP_BTN_HEIGHT + BITMAP_BTN_GAP;
+    // Paint button (below loop button)
+    if (bitmapPaintButton) {
+      bitmapPaintButton.box.w = bitmapLoopButton.box.w;
+      bitmapPaintButton.box.h = BITMAP_BTN_HEIGHT;
+      bitmapPaintButton.box.x = bitmapLoopButton.box.x;
+      bitmapPaintButton.box.y = bitmapLoopButton.box.y + BITMAP_BTN_HEIGHT + BITMAP_BTN_GAP;
+    }
+  } else {
+    // Move buttons off-screen when no bitmap
+    bitmapLoopButton.box.x = -1000;
+    bitmapLoopButton.box.y = -1000;
+    if (bitmapPaintButton) {
+      bitmapPaintButton.box.x = -1000;
+      bitmapPaintButton.box.y = -1000;
+    }
   }
 }
 

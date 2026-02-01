@@ -4555,20 +4555,19 @@
       background: var(--jukebox-accent-hover, #1ed760) !important;
     }
     
-    /* Strudel play controls - different style */
+/* Strudel play controls - compact inline style */
     .strudel-transport {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 12px;
-      padding: 16px 0;
+      gap: 8px;
+      flex-shrink: 0;
     }
-    
+
     .strudel-btn {
-      width: 48px;
-      height: 48px;
+      width: 36px;
+      height: 36px;
       border: 2px solid var(--jukebox-accent, #ffcc00);
-      border-radius: 8px;
+      border-radius: 6px;
       background: transparent;
       color: var(--jukebox-accent, #ffcc00);
       cursor: pointer;
@@ -4576,7 +4575,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 14px;
     }
     
     .strudel-btn:hover:not(:disabled) {
@@ -9676,22 +9675,18 @@
           
           <!-- Strudel subcontent -->
           <div class="jukebox-subcontent hidden" id="strudel-subcontent">
-            <div class="jukebox-controls-area">
-              <!-- Strudel Status -->
-              <div class="jukebox-now-playing">
-                <span class="jukebox-track-name" id="strudel-status">Ready</span>
-              </div>
-              
-              <!-- Strudel Transport Controls -->
-              <div class="strudel-transport">
-                <button class="strudel-btn" id="strudel-play" title="Play (Ctrl+Enter)">▶</button>
-                <button class="strudel-btn" id="strudel-stop" title="Stop" disabled>⏹</button>
-              </div>
-              
-              <!-- Volume -->
-              <div class="jukebox-volume">
-                <span>🔊</span>
-                <input type="range" id="strudel-volume" min="0" max="100" value="70">
+            <div class="jukebox-controls-area" style="padding: 8px 12px; gap: 8px;">
+              <!-- Compact control row: play/stop, status, volume -->
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="strudel-transport">
+                  <button class="strudel-btn" id="strudel-play" title="Play (Ctrl+Enter)">▶</button>
+                  <button class="strudel-btn" id="strudel-stop" title="Stop" disabled>⏹</button>
+                </div>
+                <span id="strudel-status" style="font-size: 12px; color: var(--jukebox-text-dim); flex-shrink: 0;">Ready</span>
+                <div class="jukebox-volume" style="margin-left: auto;">
+                  <span style="font-size: 12px;">🔊</span>
+                  <input type="range" id="strudel-volume" min="0" max="100" value="70">
+                </div>
               </div>
               
               <!-- Preset Patterns -->
@@ -9703,8 +9698,8 @@
                 <button class="strudel-preset" data-code="s('ape_breaks_3').loopAt(2).chop(8)">c_robo</button>
               </div>
               
-              <!-- Audio Meters (for Strudel) -->
-              <div class="jukebox-meters">
+              <!-- Audio Meters (for Strudel) - compact -->
+              <div class="jukebox-meters" style="gap: 4px;">
                 <div class="jukebox-meter-row">
                   <span class="jukebox-meter-label">amp</span>
                   <div class="jukebox-meter-bar"><div class="jukebox-meter-fill" id="strudel-amp-meter"></div></div>
@@ -19649,6 +19644,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
         jukeboxTab.classList.add('active');
         jukeboxContent.classList.remove('hidden');
         expandReferencePanelOnMobile();
+        
+        // Eager load Strudel when Music tab is clicked (not just when playing)
+        if (typeof loadStrudel === 'function') {
+          loadStrudel().catch(err => console.warn('🌀 Strudel preload failed:', err));
+        }
       });
       
       // List sub-tab click handlers
@@ -25147,6 +25147,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
     // PLUS continuous audio analysis for real-time amplitude streaming to KidLisp
     
     let strudelLoaded = false;
+    let strudelLoading = false; // Track in-progress loading to prevent duplicates
     let strudelPlaying = false;
     let strudelAudioContext = null;
     let strudelRepl = null; // Store reference to Strudel repl for stop functionality
@@ -25297,36 +25298,64 @@ s("ape_breaks_3").loopAt(2)</textarea>
     
     async function loadStrudel() {
       if (strudelLoaded) return true;
+      if (strudelLoading) {
+        // Wait for current load to complete
+        while (strudelLoading) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+        return strudelLoaded;
+      }
+      
+      strudelLoading = true;
       document.getElementById('strudel-status').textContent = 'Loading Strudel...';
       
       try {
-        // Load @strudel/web from CDN
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://unpkg.com/@strudel/web@1.3.0';
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
+        // Check if script is already loaded to prevent duplicate core warnings
+        const existingScript = document.querySelector('script[src*="@strudel/web"]');
+        if (!existingScript) {
+          // Load @strudel/web from CDN
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/@strudel/web@1.3.0';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        } else if (!window.initStrudel) {
+          // Script exists but not fully loaded, wait for it
+          await new Promise((resolve) => {
+            const check = setInterval(() => {
+              if (window.initStrudel) {
+                clearInterval(check);
+                resolve();
+              }
+            }, 50);
+          });
+        }
         
-        // Initialize Strudel with sample loading - returns the repl
-        // Loads both default dirt-samples AND c_robo's sample library
-        strudelRepl = await window.initStrudel({
-          prebake: () => Promise.all([
-            window.samples('github:tidalcycles/dirt-samples'),
-            window.samples('https://cc.oooooooooooooooo.cc/strudel.json', 'https://cc.oooooooooooooooo.cc'),
-          ]),
-        });
+        // Only initialize if not already initialized
+        if (!strudelRepl && window.initStrudel) {
+          // Initialize Strudel with sample loading - returns the repl
+          // Loads both default dirt-samples AND c_robo's sample library
+          strudelRepl = await window.initStrudel({
+            prebake: () => Promise.all([
+              window.samples('github:tidalcycles/dirt-samples'),
+              window.samples('https://cc.oooooooooooooooo.cc/strudel.json', 'https://cc.oooooooooooooooo.cc'),
+            ]),
+          });
+        }
         
         // Get Strudel's AudioContext (still needed for audio output)
         strudelAudioContext = window.getAudioContext?.();
         
         console.log('🌀 Strudel: Loaded with scheduler-based beat detection + c_robo samples (cc.oooooooooooooooo.cc)');
         strudelLoaded = true;
+        strudelLoading = false;
         document.getElementById('strudel-status').textContent = 'Ready (+ c_robo samples)';
         return true;
       } catch (err) {
         console.error('Failed to load Strudel:', err);
+        strudelLoading = false;
         document.getElementById('strudel-status').textContent = 'Failed to load';
         return false;
       }
@@ -25370,7 +25399,9 @@ s("ape_breaks_3").loopAt(2)</textarea>
         strudelPlaying = true;
         document.getElementById('strudel-play').disabled = true;
         document.getElementById('strudel-stop').disabled = false;
-        document.getElementById('strudel-status').textContent = 'Playing';
+        const statusEl = document.getElementById('strudel-status');
+        statusEl.textContent = '▶ Playing';
+        statusEl.style.color = 'var(--jukebox-accent)';
         
         // Evaluate and play the pattern
         await window.evaluate(code, true);
@@ -25380,7 +25411,9 @@ s("ape_breaks_3").loopAt(2)</textarea>
       } catch (err) {
         strudelPlaying = false;
         console.error('Strudel error:', err);
-        document.getElementById('strudel-status').textContent = `Error: ${err.message}`;
+        const statusEl = document.getElementById('strudel-status');
+        statusEl.textContent = `Error: ${err.message}`;
+        statusEl.style.color = '#f87171';
         document.getElementById('strudel-play').disabled = false;
         document.getElementById('strudel-stop').disabled = true;
       }
@@ -25414,7 +25447,9 @@ s("ape_breaks_3").loopAt(2)</textarea>
       strudelPlaying = false;
       document.getElementById('strudel-play').disabled = false;
       document.getElementById('strudel-stop').disabled = true;
-      document.getElementById('strudel-status').textContent = 'Stopped';
+      const statusEl = document.getElementById('strudel-status');
+      statusEl.textContent = 'Stopped';
+      statusEl.style.color = 'var(--jukebox-text-dim)';
       const strudelAmpMeter = document.getElementById('strudel-amp-meter');
       const strudelAmpValue = document.getElementById('strudel-amp-value');
       const strudelKickIndicator = document.getElementById('strudel-kick-indicator');

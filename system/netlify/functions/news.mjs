@@ -23,6 +23,29 @@ function parseKidlispUrl(url) {
   } catch { return null; }
 }
 
+// Detect YouTube URLs and extract video ID
+function parseYouTubeUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    // youtube.com/watch?v=VIDEO_ID
+    if (u.hostname.includes('youtube.com') && u.pathname === '/watch') {
+      return u.searchParams.get('v');
+    }
+    // youtu.be/VIDEO_ID
+    if (u.hostname === 'youtu.be') {
+      const match = u.pathname.match(/^\/([a-zA-Z0-9_-]+)/);
+      return match ? match[1] : null;
+    }
+    // youtube.com/embed/VIDEO_ID
+    if (u.hostname.includes('youtube.com') && u.pathname.startsWith('/embed/')) {
+      const match = u.pathname.match(/^\/embed\/([a-zA-Z0-9_-]+)/);
+      return match ? match[1] : null;
+    }
+    return null;
+  } catch { return null; }
+}
+
 function escapeHtml(value = "") {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -318,59 +341,78 @@ async function renderItemPage(database, basePath, code) {
               <a href="${atLinks.pdsLs}" target="_blank" rel="noopener" title="View on ATProto (${atLinks.uri})">🔗 AT</a>
             </span>` : '';
 
+  // Check for YouTube embed
+  const youtubeId = parseYouTubeUrl(hydratedPost.url);
+  const youtubeEmbedHtml = youtubeId ? `
+      <div class="news-youtube-embed" data-youtube-id="${youtubeId}">
+        <iframe 
+          id="youtube-player"
+          src="https://www.youtube.com/embed/${youtubeId}?enablejsapi=1" 
+          title="YouTube video" 
+          frameborder="0" 
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+          allowfullscreen>
+        </iframe>
+      </div>` : '';
+
+  // Check for KidLisp preview
+  const kidlispCode = parseKidlispUrl(hydratedPost.url);
+  const kidlispPreviewHtml = kidlispCode ? `
+      <div class="news-kidlisp-preview" data-kidlisp-code="${kidlispCode}">
+        <a href="${escapeHtml(hydratedPost.url)}" target="_blank" rel="noreferrer" class="news-kidlisp-link">
+          <img src="https://oven.aesthetic.computer/grab/webp/320/320/$${kidlispCode}?duration=4000&fps=8&quality=80&density=1" alt="KidLisp preview" class="news-kidlisp-webp" loading="lazy" />
+          <span class="news-kidlisp-badge">▶ $${kidlispCode}</span>
+        </a>
+      </div>` : '';
+
+  const hasMedia = youtubeId || kidlispCode;
+
   const body = `
   ${header(basePath)}
   <main class="news-main">
-    <table class="news-item-table" border="0" cellpadding="0" cellspacing="0">
-      <tr class="news-item-row">
-        <td valign="top" class="news-item-vote">
-          <form data-news-action="vote" method="post" action="/api/news/vote">
-            <input type="hidden" name="itemType" value="post" />
-            <input type="hidden" name="itemId" value="${hydratedPost.code}" />
-            <input type="hidden" name="dir" value="1" />
-            <button type="submit" class="news-vote-btn">▲</button>
-          </form>
-        </td>
-        <td class="news-item-content">
-          <span class="news-item-title">
-            <a href="${url || '#'}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${postTitle}</a>
-            ${displayUrl ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${displayUrl}</a>)</span>` : ""}
-          </span>
-          <div class="news-item-meta">
-            ${hydratedPost.score || 0} points by ${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}${atLinkHtml}
-            <form class="news-admin-delete" data-news-action="delete" data-item-type="post" data-item-id="${hydratedPost.code}" data-handle="${escapeHtml(hydratedPost.handle?.replace('@', '') || '')}" method="post" action="/api/news/delete" style="display:none;">
-              <input type="hidden" name="itemType" value="post" />
-              <input type="hidden" name="itemId" value="${hydratedPost.code}" />
-              <button type="submit" class="news-delete-btn" title="Delete post">
-                <svg class="news-x-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
-                </svg>
-              </button>
-            </form>
-          </div>
-        </td>
-      </tr>
-    </table>
-    ${(() => {
-      // Check if this is a KidLisp URL and add preview
-      const kidlispCode = parseKidlispUrl(hydratedPost.url);
-      if (kidlispCode) {
-        const ovenUrl = `https://oven.aesthetic.computer/grab/webp/320/320/$${kidlispCode}?duration=4000&fps=8&quality=80&density=1`;
-        return `
-    <div class="news-kidlisp-preview" data-kidlisp-code="${kidlispCode}">
-      <a href="${escapeHtml(hydratedPost.url)}" target="_blank" rel="noreferrer" class="news-kidlisp-link">
-        <img src="${ovenUrl}" alt="KidLisp preview" class="news-kidlisp-webp" loading="lazy" />
-        <span class="news-kidlisp-badge">▶ $${kidlispCode}</span>
-      </a>
-    </div>`;
-      }
-      return '';
-    })()}
+    <div class="news-item-header${hasMedia ? ' has-media' : ''}">
+      <div class="news-item-info">
+        <table class="news-item-table" border="0" cellpadding="0" cellspacing="0">
+          <tr class="news-item-row">
+            <td valign="top" class="news-item-vote">
+              <form data-news-action="vote" method="post" action="/api/news/vote">
+                <input type="hidden" name="itemType" value="post" />
+                <input type="hidden" name="itemId" value="${hydratedPost.code}" />
+                <input type="hidden" name="dir" value="1" />
+                <button type="submit" class="news-vote-btn">▲</button>
+              </form>
+            </td>
+            <td class="news-item-content">
+              <span class="news-item-title">
+                <a href="${url || '#'}" ${url ? 'target="_blank" rel="noreferrer"' : ""}>${postTitle}</a>
+                ${displayUrl ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${displayUrl}</a>)</span>` : ""}
+              </span>
+              <div class="news-item-meta">
+                ${hydratedPost.score || 0} points by ${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}${atLinkHtml}
+                <form class="news-admin-delete" data-news-action="delete" data-item-type="post" data-item-id="${hydratedPost.code}" data-handle="${escapeHtml(hydratedPost.handle?.replace('@', '') || '')}" method="post" action="/api/news/delete" style="display:none;">
+                  <input type="hidden" name="itemType" value="post" />
+                  <input type="hidden" name="itemId" value="${hydratedPost.code}" />
+                  <button type="submit" class="news-delete-btn" title="Delete post">
+                    <svg class="news-x-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
+                    </svg>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    ${youtubeEmbedHtml}${kidlispPreviewHtml}
     ${hydratedPost.text ? `<div class="news-text">${escapeHtml(hydratedPost.text)}</div>` : ""}
-    <form id="news-comment-form" class="news-comment-form" data-news-action="comment" method="post" action="/api/news/comment">
+    <form id="news-comment-form" class="news-comment-form" data-news-action="comment" method="post" action="/api/news/comment"${youtubeId ? ` data-youtube-id="${youtubeId}"` : ''}>
       <input type="hidden" name="postCode" value="${escapeHtml(code)}" />
       <textarea name="text" rows="6" cols="80"></textarea>
-      <button type="submit" data-i18n="respond">Respond</button>
+      <div class="news-comment-actions">
+        <button type="submit" data-i18n="respond">Respond</button>
+        ${youtubeId ? `<button type="button" id="insert-timecode-btn" class="news-timecode-btn" title="Insert current video time">@ 0:00</button>` : ''}
+      </div>
     </form>
     <div class="news-comments">
       ${commentsHtml || ''}
