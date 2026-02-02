@@ -49,7 +49,7 @@
  * - Swing timing: Each symbol = 1/16 beat offset (small, musical adjustments)
  * - Relative octave: + (one octave up) - (one octave down) ++ (two up) -- (two down)
  * - Struck mode: ^ (toggle between held and struck notes) - STICKY: applies to following notes until changed
- * - Waveform types: {sine} {sawtooth} {saw} {square} {triangle} {noise-white} {sample} {stample} {custom} {bubble} - persists until changed
+ * - Waveform types: {sine} {sawtooth} {saw} {square} {triangle} {noise-white} {sample} {stample} {say} {custom} {bubble} - persists until changed
  * - Volume control: {0.5} (volume only) or {square:0.3} (type and volume) - persists until changed
  * - Hz shift: {100hz} {-50hz} {50hz&} (frequency shift in Hz, & for cumulative) - persists until changed
  * - Speech synthesis: "text" (quoted text for speech synthesis with random voice selection)
@@ -94,6 +94,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
   let globalDurationModifier = null; // Sticky duration modifier (e.g., "..." or "," or null)
   let isStruck = false; // Sticky struck mode flag (when ^ is used)
   let currentStampleCode = null; // Painting code for stample loading (e.g., "abc123" from {#abc123})
+  let currentSayText = null; // Speech text for {say} mode or {"text"} syntax
 
   // Helper function to apply sticky duration modifier if no local modifier is present
   function applyStickyDurationModifier(baseDuration, hasLocalModifier) {
@@ -146,6 +147,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
           struck: isStruck,
           toneShift: currentToneShift,
           stampleCode: currentStampleCode,
+          sayText: currentSayText,
           isSpeech: true
         };
         
@@ -165,8 +167,31 @@ export function parseMelody(melodyString, startingOctave = 4) {
         const content = melodyString.substring(i + 1, endBrace);
         const contentLower = content.toLowerCase();
         
+        // Check for say/speech syntax - support multiple quote styles for URL compatibility
+        // {"hello"} or {'hello'} or {`hello`} or {"hello":0.5}
+        const quoteChar = content[0];
+        const isQuoted = (quoteChar === '"' || quoteChar === "'" || quoteChar === '`') && content.includes(quoteChar, 1);
+        
+        if (isQuoted) {
+          // Parse speech text with any quote style
+          const closingQuote = content.indexOf(quoteChar, 1);
+          const speechText = content.slice(1, closingQuote);
+          const afterQuote = content.slice(closingQuote + 1);
+          
+          if (afterQuote.startsWith(':')) {
+            const volume = parseFloat(afterQuote.slice(1));
+            if (!isNaN(volume) && volume >= 0 && volume <= 1) {
+              currentVolume = volume;
+            }
+          }
+          
+          // Set waveType to say and store the speech text
+          currentWaveType = 'say';
+          currentSayText = speechText;
+          console.log(`🗣️ Parsed say text: "${speechText}"${afterQuote.startsWith(':') ? ` vol:${currentVolume}` : ''}`);
+        }
         // Check for painting code syntax like {#abc123} or {#abc123:0.5}
-        if (content.startsWith('#')) {
+        else if (content.startsWith('#')) {
           // Parse painting code reference for stample loading
           const colonIndex = content.indexOf(':');
           let paintingCode, volumeStr;
@@ -185,6 +210,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
           // Set waveType to stample and store the painting code
           currentWaveType = 'stample';
           currentStampleCode = paintingCode;
+          currentSayText = null; // Clear say text when switching
           console.log(`🎵 Parsed painting code stample: #${paintingCode}${volumeStr ? `:${volumeStr}` : ''}`);
         }
         // Check for Hz shift syntax like {100hz} or {-50hz} or {50hz&} for cumulative
@@ -211,9 +237,10 @@ export function parseMelody(melodyString, startingOctave = 4) {
           const [waveType, volumeStr] = contentLower.split(':');
           // Handle 'saw' as shorthand for 'sawtooth'
           const normalizedWaveType = waveType === 'saw' ? 'sawtooth' : waveType;
-          if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'stample', 'custom', 'bubble'].includes(normalizedWaveType)) {
+          if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'stample', 'say', 'custom', 'bubble'].includes(normalizedWaveType)) {
             currentWaveType = normalizedWaveType;
             currentStampleCode = null; // Clear stample code when switching to explicit waveform
+            if (normalizedWaveType !== 'say') currentSayText = null; // Clear say text when switching away from say
           }
           const volume = parseFloat(volumeStr);
           if (!isNaN(volume) && volume >= 0 && volume <= 1) {
@@ -227,13 +254,17 @@ export function parseMelody(melodyString, startingOctave = 4) {
             currentVolume = volume;
           }
         }
-        // Check for waveform-only syntax like {sine} or {saw}
-        else if (['sine', 'sawtooth', 'saw', 'square', 'triangle', 'noise-white', 'sample', 'stample', 'custom', 'bubble'].includes(contentLower)) {
+        // Check for waveform-only syntax like {sine} or {saw} or {say}
+        else if (['sine', 'sawtooth', 'saw', 'square', 'triangle', 'noise-white', 'sample', 'stample', 'say', 'custom', 'bubble'].includes(contentLower)) {
           // Handle 'saw' as shorthand for 'sawtooth'
           currentWaveType = contentLower === 'saw' ? 'sawtooth' : contentLower;
           // Clear stample code when switching to default stample or other waveforms
           if (contentLower !== 'stample' && contentLower !== 'sample') {
             currentStampleCode = null;
+          }
+          // Clear say text when switching away from say
+          if (contentLower !== 'say') {
+            currentSayText = null;
           }
         }
         
@@ -345,7 +376,8 @@ export function parseMelody(melodyString, startingOctave = 4) {
             volume: currentVolume, 
             struck: isStruck, 
             toneShift: currentToneShift,
-            stampleCode: currentStampleCode 
+            stampleCode: currentStampleCode,
+            sayText: currentSayText // Speech text for {say} waveform type
           };
           
           // Only add sonicDuration if it's different from duration
@@ -459,7 +491,8 @@ export function parseMelody(melodyString, startingOctave = 4) {
             volume: currentVolume, 
             struck: isStruck, 
             toneShift: currentToneShift,
-            stampleCode: currentStampleCode 
+            stampleCode: currentStampleCode,
+            sayText: currentSayText 
           };
           
           // Only add sonicDuration if it's different from duration
@@ -493,7 +526,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
             // Handle as standalone rest dash - use comma logic now
             let commas = relativeModifier.length;
             let duration = 2 * Math.pow(2, commas); // - = half (2.0), -- = whole (4.0), etc.
-            notes.push({ note: 'rest', octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift, stampleCode: currentStampleCode });
+            notes.push({ note: 'rest', octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift, stampleCode: currentStampleCode, sayText: currentSayText });
             continue;
           } else {
             // Invalid syntax, skip
@@ -610,7 +643,8 @@ export function parseMelody(melodyString, startingOctave = 4) {
         volume: currentVolume, 
         struck: isStruck, 
         toneShift: currentToneShift,
-        stampleCode: currentStampleCode 
+        stampleCode: currentStampleCode,
+        sayText: currentSayText 
       };
       
       // Only add sonicDuration if it's different from duration
@@ -662,7 +696,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         duration = applyStickyDurationModifier(duration, false);
       }
       
-      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift, stampleCode: currentStampleCode });
+      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift, stampleCode: currentStampleCode, sayText: currentSayText });
     }
     // Handle spaces as separators (ignore them, don't treat as rests)
     else if (char === ' ') {
@@ -682,7 +716,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
       let duration = 2 * Math.pow(2, dashes);
       i = tempI; // Move index past all the dashes
       
-      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift, stampleCode: currentStampleCode });
+      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift, stampleCode: currentStampleCode, sayText: currentSayText });
     }
     // Handle measure separators (optional, for readability)
     else if (char === '|') {
@@ -1446,5 +1480,53 @@ export function extractStampleCodes(melodyState) {
   }
   
   return codes;
+}
+
+/**
+ * Extract all unique say texts from a melody state (for preloading TTS).
+ * 
+ * @param {Object} melodyState - The parsed melody state object
+ * @returns {Set<string>} Set of unique say text strings
+ */
+export function extractSayTexts(melodyState) {
+  const texts = new Set();
+  
+  if (!melodyState) return texts;
+  
+  // Helper to extract sayText from a notes array
+  const extractFromNotes = (notes) => {
+    if (!notes || !Array.isArray(notes)) return;
+    for (const note of notes) {
+      if (note.sayText) {
+        texts.add(note.sayText);
+      }
+    }
+  };
+  
+  // Single track
+  if (melodyState.type === 'single' && melodyState.notes) {
+    extractFromNotes(melodyState.notes);
+  }
+  // Parallel tracks
+  else if ((melodyState.type === 'parallel' || melodyState.type === 'multi') && melodyState.tracks) {
+    for (const track of melodyState.tracks) {
+      extractFromNotes(track);
+    }
+  }
+  // Sequential melody
+  else if (melodyState.type === 'sequential' && melodyState.sequences) {
+    for (const seq of melodyState.sequences) {
+      if (seq.tracks) {
+        for (const track of seq.tracks) {
+          extractFromNotes(track);
+        }
+      }
+      if (seq.notes) {
+        extractFromNotes(seq.notes);
+      }
+    }
+  }
+  
+  return texts;
 }
 
