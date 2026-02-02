@@ -1051,43 +1051,18 @@ function paint(
                                    previewX < screen.width;
         
         if (isPartiallyVisible) {
-          // Calculate how much to clip from each edge for mask boundaries
-          const clipTop = Math.max(0, maskTop - previewY);
-          const clipBottom = Math.max(0, (previewY + previewSize) - maskBottom);
-          const clipLeft = Math.max(0, -previewX);
-          const clipRight = Math.max(0, (previewX + previewSize) - screen.width);
-          
-          // Calculate the visible render dimensions
-          const renderW = previewSize - clipLeft - clipRight;
-          const renderH = previewSize - clipTop - clipBottom;
-          
-          // Adjust render position to where the visible portion should be drawn
-          const renderX = floor(previewX + clipLeft);
-          const renderY = floor(previewY + clipTop);
-          
-          // The source crop needs to:
-          // 1. Start at the Ken Burns position
-          // 2. Add the clip offset (so we're showing the correct portion of the preview)
-          // 3. Be limited to both the render size AND the source image bounds
-          const srcCropX = kenBurnsCropX + clipLeft;
-          const srcCropY = kenBurnsCropY + clipTop;
-          // The crop size should be exactly the render size (what we want to show),
-          // but also can't exceed the source image bounds
-          const srcCropW = Math.min(renderW, Math.max(0, imgWidth - srcCropX));
-          const srcCropH = Math.min(renderH, Math.max(0, imgHeight - srcCropY));
-          
-          if (renderW > 0 && renderH > 0 && srcCropW > 0 && srcCropH > 0 &&
-              srcCropX >= 0 && srcCropY >= 0 && srcCropX < imgWidth && srcCropY < imgHeight) {
+          // Render at natural position with Ken Burns crop - mask will clip outside visible area
+          if (kenBurnsCropW > 0 && kenBurnsCropH > 0) {
             paste(
               painting,
-              renderX,
-              renderY,
+              floor(previewX),
+              floor(previewY),
               { 
                 crop: {
-                  x: srcCropX,
-                  y: srcCropY,
-                  w: srcCropW,
-                  h: srcCropH
+                  x: kenBurnsCropX,
+                  y: kenBurnsCropY,
+                  w: kenBurnsCropW,
+                  h: kenBurnsCropH
                 }
               }
             );
@@ -1218,22 +1193,12 @@ function paint(
         
         const isHovered = message.layout.hoveredYoutube === videoId;
         
-        const visibleLeft = Math.max(previewX, 0);
-        const visibleRight = Math.min(previewX + previewW, screen.width);
+        // Check if preview is at least partially visible
         const visibleTop = Math.max(previewY, effectiveTopMargin);
         const visibleBottom = Math.min(previewY + previewH, screen.height - bottomMargin);
-        const visibleWidth = visibleRight - visibleLeft;
         const visibleHeight = visibleBottom - visibleTop;
         
-        if (visibleHeight > 0 && visibleWidth > 0 && imgWidth > 0 && imgHeight > 0) {
-          // Calculate clip amounts for crop
-          let clipLeft = 0, clipTop = 0, clipRight = 0, clipBottom = 0;
-          
-          if (previewX < 0) clipLeft = -previewX;
-          if (previewY < effectiveTopMargin) clipTop = effectiveTopMargin - previewY;
-          if (previewX + previewW > screen.width) clipRight = (previewX + previewW) - screen.width;
-          if (previewY + previewH > screen.height - bottomMargin) clipBottom = (previewY + previewH) - (screen.height - bottomMargin);
-          
+        if (visibleHeight > 0 && imgWidth > 0 && imgHeight > 0) {
           if (!Object.hasOwn(cached, "previewPainting")) {
             cached.previewPainting = buildScaledPreview(
               thumbnail,
@@ -1243,19 +1208,8 @@ function paint(
             );
           }
           if (cached.previewPainting) {
-            paste(
-              cached.previewPainting,
-              floor(previewX + clipLeft),
-              floor(previewY + clipTop),
-              {
-                crop: {
-                  x: floor(clipLeft),
-                  y: floor(clipTop),
-                  w: floor(previewW - clipLeft - clipRight),
-                  h: floor(previewH - clipTop - clipBottom)
-                }
-              }
-            );
+            // Render at natural position - mask will clip what's outside visible area
+            paste(cached.previewPainting, floor(previewX), floor(previewY));
           } else {
             // Fallback if preview cache fails
             const scaleX = previewW / imgWidth;
@@ -1263,12 +1217,7 @@ function paint(
             const scaleFactor = Math.min(scaleX, scaleY);
             
             if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
-              paste(
-                thumbnail,
-                floor(previewX + clipLeft),
-                floor(previewY + clipTop),
-                scaleFactor
-              );
+              paste(thumbnail, floor(previewX), floor(previewY), scaleFactor);
             }
           }
         }
@@ -1369,14 +1318,6 @@ function paint(
           const visibleHeight = visibleBottom - visibleTop;
         
           if (visibleHeight > 0 && visibleWidth > 0 && imgWidth > 0 && imgHeight > 0) {
-            // Calculate clip amounts
-            let clipLeft = 0, clipTop = 0, clipRight = 0, clipBottom = 0;
-          
-            if (previewX < 0) clipLeft = -previewX;
-            if (previewY < effectiveTopMargin) clipTop = effectiveTopMargin - previewY;
-            if (previewX + previewW > screen.width) clipRight = (previewX + previewW) - screen.width;
-            if (previewY + previewH > screen.height - bottomMargin) clipBottom = (previewY + previewH) - (screen.height - bottomMargin);
-          
             // For favicons, just paste directly (they're small)
             if (isFavicon) {
               // Draw a background box for favicon
@@ -1392,19 +1333,8 @@ function paint(
                 );
               }
               if (cached.previewPainting) {
-                paste(
-                  cached.previewPainting,
-                  floor(previewX + clipLeft),
-                  floor(previewY + clipTop),
-                  {
-                    crop: {
-                      x: floor(clipLeft),
-                      y: floor(clipTop),
-                      w: floor(previewW - clipLeft - clipRight),
-                      h: floor(previewH - clipTop - clipBottom)
-                    }
-                  }
-                );
+                // Render at natural position - mask will clip outside visible area
+                paste(cached.previewPainting, floor(previewX), floor(previewY));
               } else {
                 // Fallback if preview cache fails
                 const scaleX = previewW / imgWidth;
@@ -1418,12 +1348,7 @@ function paint(
                   const offsetX = (previewW - scaledW) / 2;
                   const offsetY = (previewH - scaledH) / 2;
               
-                  paste(
-                    displayImage,
-                    floor(previewX + offsetX + clipLeft),
-                    floor(previewY + offsetY + clipTop),
-                    scaleFactor
-                  );
+                  paste(displayImage, floor(previewX + offsetX), floor(previewY + offsetY), scaleFactor);
                 }
               }
             }
