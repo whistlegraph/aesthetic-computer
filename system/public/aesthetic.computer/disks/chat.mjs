@@ -35,8 +35,7 @@ const { max, floor, ceil } = Math;
 import { isKidlispSource, tokenize, KidLisp } from "../lib/kidlisp.mjs";
 import { parseMessageElements as parseMessageElementsShared } from "../lib/chat-highlighting.mjs";
 import { getCommandDescription, isPromptOnlyCommand } from "../lib/prompt-commands.mjs";
-import { FUNDING_MODE, showFundingEffectsFlag, getRecoveryTicker } from "./prompt.mjs";
-import { paintGiveButton, actGiveButton, clearGiveButton, paintRecoveryTicker } from "../lib/give-button.mjs";
+import { FUNDING_MODE } from "./prompt.mjs";
 import { createHandleAutocomplete } from "../lib/autocomplete.mjs";
 import { iOS } from "../lib/platform.mjs";
 
@@ -469,41 +468,39 @@ async function fetchNewsHeadlines() {
   
   newsFetchPromise = (async () => {
     try {
-      const response = await fetch("https://news.aesthetic.computer/api/news/posts?limit=10&sort=new");
+      // Fetch all posts with recent comments
+      const response = await fetch("https://news.aesthetic.computer/api/news/posts?limit=10&sort=new&includeRecentComments=2");
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       
       if (data.posts && data.posts.length > 0) {
-        // Store all headlines
+        // Store all headlines with comments
         newsHeadlines = data.posts.map(post => ({
           title: post.title,
           code: post.code,
           user: post.user,
           commentCount: post.commentCount ?? 0,
           score: post.score ?? 0,
+          recentComments: post.recentComments || [],
         }));
         
-        // Row 1: Headlines with star separator - show ALL headlines
+        // Row 1: ALL Headlines with star separator
         newsTickerText = newsHeadlines.map(h => h.title).join(" ★ ");
         
-        // Row 2: Activity info - comment counts, scores, engagement
-        const totalComments = newsHeadlines.reduce((sum, h) => sum + (h.commentCount || 0), 0);
-        const totalScore = newsHeadlines.reduce((sum, h) => sum + (h.score || 0), 0);
-        const storiesWithComments = newsHeadlines.filter(h => h.commentCount > 0);
+        // Row 2: Recent comment snippets from all stories
+        const commentSnippets = newsHeadlines.flatMap(h => 
+          (h.recentComments || []).map(c => {
+            const handle = c.handle || 'anon';
+            const text = (c.text || '').slice(0, 40);
+            return `${handle}: "${text}${c.text?.length > 40 ? '…' : ''}"`;
+          })
+        );
         
-        // Build activity text
-        const activityParts = [];
-        activityParts.push(`${newsHeadlines.length} stories`);
-        if (totalComments > 0) {
-          activityParts.push(`${totalComments} comments`);
+        if (commentSnippets.length > 0) {
+          newsActivityText = commentSnippets.slice(0, 6).join(" · ");
+        } else {
+          newsActivityText = `${newsHeadlines.length} stories · Submit yours!`;
         }
-        if (totalScore > 0) {
-          activityParts.push(`${totalScore} votes`);
-        }
-        // Add a call to action
-        activityParts.push("Submit yours!");
-        
-        newsActivityText = activityParts.join(" · ");
       } else {
         newsHeadlines = [];
         newsTickerText = "No stories yet — be the first to report!";
@@ -692,9 +689,6 @@ function paint(
         
         ink(color[0], color[1], color[2]).write(line, { center: "x", y: finalY }, undefined, undefined, false, typefaceName);
       }
-      
-      // 💸 GIVE button in top-right
-      paintGiveButton({ screen, ink, ui: api.ui }, { paddingTop: 8, paddingRight: 12 });
     } else {
       // Normal connecting message
       ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
@@ -1664,9 +1658,22 @@ function paint(
       presenceText = chatterCount + " online";
     }
     
-    // Draw presence counter flush left at x=6 (aligned with HUD label "laer-klokken")
+    // Get HUD label dimensions to position below it
+    const hudLabel = hud?.currentLabel?.();
+    const hudLabelBox = hudLabel?.btn?.box;
+    const hudLabelHeight = hudLabelBox?.h ?? 10;
+    
+    // QR code size from HUD label (if present, e.g., in laer-klokken)
+    // QR is rendered inside the HUD buffer, so we need its pixel width
+    const qrSize = hudLabel?.qrSize ?? 0; // Cells = pixels (1:1)
+    const qrTotalWidth = qrSize > 0 ? qrSize + 6 : 0; // QR + 2px border + 4px gap
+    
+    // Position presence text under the HUD label, shifted right by QR width
+    // HUD label starts at x=6 (default offset)
+    const presenceX = 6 + qrTotalWidth;
+    const presenceY = hudLabelHeight + 4; // Just below the HUD label
+    
     const onlineFgColor = theme?.timestamp || 160;
-    const presenceX = 6; // Flush left, same as HUD label position
     const tickerLeftEdge = screen.width - 230; // Reserve space for News/r8Dio
     let displayPresenceText = presenceText;
     let presenceWidth = text.width(displayPresenceText, "MatrixChunky8");
@@ -1710,7 +1717,7 @@ function paint(
 
     ink(onlineFgColor).write(displayPresenceText, {
       x: presenceX,
-      top: 13, // Below the HUD label row
+      top: presenceY,
     }, false, undefined, false, "MatrixChunky8");
   }
 
@@ -2035,20 +2042,7 @@ function paint(
     needsPaint();
   }
   
-  // 💸 GIVE button + recovery ticker in yikes mode (when connected, not just connecting)
-  if (showFundingEffectsFlag && !client.connecting) {
-    // Position with even margins: 10px from right edge, centered in top bar (topMargin=30)
-    const btn = paintGiveButton({ screen, ink, ui: api.ui }, { paddingTop: 7, paddingRight: 10, theme });
-    const btnBox = btn?.btn?.box;
-    
-    // Paint news ticker to the left of GIVE button
-    if (btnBox && !input.canType) {
-      paintRecoveryTicker({ ink, screen }, getRecoveryTicker(), btnBox, theme);
-    }
-    needsPaint();
-  }
-  
-  // 📰 News ticker (top right, visible by default) - hide when modal is open
+  //  News ticker (top right, visible by default) - hide when modal is open
   // Use options.showNews to control visibility (defaults to true)
   const showNews = options?.showNews !== false;
   if (showNews && !client.connecting && !modalPainting && !messageCopyModal) {
@@ -2106,16 +2100,6 @@ function act(
   // Calculate dynamic bottom margin based on selected font
   const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
   const bottomMargin = getBottomMargin(selectedFontConfig, typeface.blockHeight);
-  
-  // 💸 GIVE button interaction in funding mode (both connecting and yikes connected mode)
-  if ((FUNDING_MODE && client.connecting) || (showFundingEffectsFlag && !client.connecting)) {
-    actGiveButton(e, {
-      downSound: () => beep(),
-      pushSound: () => beep(),
-      cancelSound: () => beep(),
-      jump,
-    });
-  }
 
   // 📺 YouTube modal intercepts all events (prevent click-through)
   if (youtubeModalOpen) {
