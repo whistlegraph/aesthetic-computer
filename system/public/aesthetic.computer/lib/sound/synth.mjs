@@ -78,6 +78,17 @@ export default class Synth {
       this.#sampleData = options.buffer;
       this.sampleLabel = options.label; // Track the label for live buffer updates
 
+      console.log("🎤 SYNTH sample init:", {
+        hasBuffer: !!options.buffer,
+        bufferType: typeof options.buffer,
+        hasChannels: !!options.buffer?.channels,
+        channelsLength: options.buffer?.channels?.length,
+        channel0Length: options.buffer?.channels?.[0]?.length,
+        label: options.label,
+        speed: options.speed,
+        loop: options.loop
+      });
+
       this.#sampleSpeed = options.speed || 1;
       this.#sampleLoop = options.loop || false;
 
@@ -248,6 +259,12 @@ export default class Synth {
       // 🚩 TODO: Also add pink and brownian noise.
     } else if (this.type === "sample") {
       const bufferData = this.#sampleData.channels[0];
+
+      // Log at various points to verify playback continues
+      const idx = floor(this.#sampleIndex);
+      if (idx === 0 || idx === 100 || idx === 1000 || idx === 5000 || idx === 10000) {
+        console.log("🎤 SYNTH sample at index:", idx, "value:", bufferData?.[idx], "speed:", this.#sampleSpeed, "vol:", this.volume);
+      }
 
       // const index = floor(this.#sampleIndex);
       // let nextIndex;

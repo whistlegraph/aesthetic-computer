@@ -139,6 +139,7 @@ import {
   mutateMelodyTrack,
   noteToTone,
   extractStampleCodes,
+  extractSayTexts,
 } from "../lib/melody-parser.mjs";
 import { convertNotepatNotation } from "../lib/notepat-convert.mjs";
 import { getNoteColor } from "../lib/note-colors.mjs";
@@ -422,6 +423,32 @@ function preloadMelodySpeech(melodyState, speak, num, help) {
   console.log(`🗣️ Speech enabled! Requested ${uniqueSpeechTexts.length * 2} speech samples for caching.`);
 }
 
+// Preload say texts for {say} waveform type (pitched speech samples)
+function preloadSayTexts(melodyState, speak, num) {
+  if (!melodyState || !speak) return;
+  
+  const sayTexts = extractSayTexts(melodyState);
+  
+  if (sayTexts.size === 0) return;
+  
+  console.log(`🗣️ Preloading ${sayTexts.size} say samples for {say} waveform...`);
+  
+  sayTexts.forEach(text => {
+    // Skip if already queued
+    if (sayCacheQueue.has(text)) return;
+    sayCacheQueue.add(text);
+    
+    // Trigger silent fetch to cache the speech using plain text (no SSML)
+    // This ensures a single cached audio that we can pitch-shift via playback speed
+    speak(text, "female:18", "cloud", {
+      volume: 0, // Silent generation for caching
+      skipCompleted: true,
+    });
+    
+    console.log(`🗣️ Preloading say text: "${text}"`);
+  });
+}
+
 // Helper functions for managing per-track cumulative Hz states
 function getCumulativeState(trackId) {
   if (!cumulativeHzStates.has(trackId)) {
@@ -529,6 +556,12 @@ const FLOATING_HZ_FADE_START = 0.7; // When to start fading (70% through duratio
 // Speech caching system for instant playback
 let speechEnabled = false; // Flag to indicate if speech is available in the melody
 let speechCache = new Set(); // Track which speech samples are cached as SFX
+
+// Say waveform caching - tracks which say texts have been queued for caching
+const sayCacheQueue = new Set();
+// References needed for say waveform caching
+let speakRef = null;
+let numRef = null;
 
 // Helper function to get current note index for synchronization
 function getCurrentNoteIndex(melodyState, trackIndex = 0) {
@@ -844,6 +877,10 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
     // Store references for lazy loading
     netPreload = net?.preload;
     soundRef = sound;
+    
+    // Store speak and num references for say waveform caching
+    speakRef = speak;
+    numRef = num;
 
     // Preload fallback sound for stample mode (like toss and notepat do)
     if (net?.preload) {
@@ -1197,6 +1234,7 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
   // Preload speech for instant playback if speak function is available
   if (speak && melodyState) {
     preloadMelodySpeech(melodyState, speak, num, help);
+    preloadSayTexts(melodyState, speak, num); // Preload {say} waveform texts
   }
 
   // Cache melody to API for QR shortcode (fire and forget, don't block boot)
@@ -4441,7 +4479,8 @@ function createManagedSound(
   toneShift = 0, // New parameter for Hz pitch shift
   screen = null, // Screen object for floating displays
   trackIndex = 0, // Track index for floating display positioning
-  stampleCode = null, // NEW: Painting code for stample loading (e.g., "abc123" from {#abc123})
+  stampleCode = null, // Painting code for stample loading (e.g., "abc123" from {#abc123})
+  sayText = null, // Text for say waveform (e.g., "hello" from {"hello"})
 ) {
   // Prevent new sounds from being created after leave() is called
   if (isLeavingPiece) {
@@ -4602,6 +4641,27 @@ function createManagedSound(
         toneShift: toneShift,
       });
     }
+  } else if (waveType === "say" && sayText) {
+    // Handle say waveform type - plays cached speech at the note's pitch
+    // Use PLAIN text (not SSML with random prosody) so we get consistent caching
+    // Pitch is applied via playback speed, not TTS prosody
+    
+    // Get frequency for pitch adjustment
+    const baseFreq = sound.freq(tone);
+    const finalFreq = baseFreq + (toneShift || 0);
+    
+    // Use speak function with pitch option - this uses speakAPI.playSfx directly in bios
+    // which has access to the speech cache (sound.play goes through worker and can't access it)
+    if (speakRef) {
+      speakRef(sayText, "female:18", "cloud", {
+        volume: volume,
+        pitch: finalFreq, // Pitch in Hz - speech.mjs will convert to speed
+        loop: false, // Speech samples should play once, not loop
+        skipCompleted: true,
+      });
+    }
+    
+    console.log(`🗣️ SAY: "${sayText}" @ ${tone} (${Math.round(finalFreq)}Hz) vol:${volume.toFixed(2)} ${struck ? 'struck' : 'held'}`);
   } else {
     // Use normal synth for all other waveform types
     synthInstance = sound.synth({
@@ -5590,6 +5650,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
         struck,
         toneShift,
         stampleCode,
+        sayText,
       } = noteData;
 
       // Debug: Log toneShift value and handle cumulative Hz shifts
@@ -5690,6 +5751,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             screen, // Pass screen for floating displays
             0, // Track index 0 for single track
             stampleCode, // Painting code for stample waveform
+            sayText, // Text for say waveform
           );
 
           // Add note to history buffer for visual timeline
@@ -6313,6 +6375,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                 struck,
                 toneShift,
                 stampleCode,
+                sayText,
               } = noteData;
 
               // Handle cumulative Hz shifts for parallel tracks
@@ -6420,6 +6483,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     screen, // Pass screen for floating displays
                     trackIndex, // Pass actual track index for positioning
                     stampleCode, // Painting code for stample waveform
+                    sayText, // Text for say waveform
                   );
 
                   // Add note to history buffer for visual timeline
@@ -6584,7 +6648,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           if (seqState.nextNoteTargetTime > 0 && currentTimeMs >= seqState.nextNoteTargetTime) {
             const noteData = seqState.notes[seqState.index];
             if (noteData) {
-              const { note, octave: noteOctave, duration, sonicDuration, waveType, volume, struck, toneShift, stampleCode } = noteData;
+              const { note, octave: noteOctave, duration, sonicDuration, waveType, volume, struck, toneShift, stampleCode, sayText } = noteData;
               
               if (note !== "rest") {
                 let tone = noteOctave ? `${noteOctave}${note.toUpperCase()}` : `${octave}${note.toUpperCase()}`;
@@ -6607,6 +6671,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     screen,
                     0,
                     stampleCode, // Painting code for stample waveform
+                    sayText, // Text for say waveform
                   );
                   
                   // Track count is 1 for single-track sequence
@@ -6666,7 +6731,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             if (trackState.nextNoteTargetTime > 0 && currentTimeMs >= trackState.nextNoteTargetTime) {
               const noteData = trackState.track[trackState.noteIndex];
               if (noteData) {
-                const { note, octave: noteOctave, duration, sonicDuration, waveType, volume, struck, toneShift, stampleCode } = noteData;
+                const { note, octave: noteOctave, duration, sonicDuration, waveType, volume, struck, toneShift, stampleCode, sayText } = noteData;
                 
                 if (note !== "rest") {
                   let tone = noteOctave ? `${noteOctave}${note.toUpperCase()}` : `${octave}${note.toUpperCase()}`;
@@ -6689,6 +6754,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                       screen,
                       trackIndex,
                       stampleCode, // Painting code for stample waveform
+                      sayText, // Text for say waveform
                     );
                     
                     // Track count from parallel sequence state

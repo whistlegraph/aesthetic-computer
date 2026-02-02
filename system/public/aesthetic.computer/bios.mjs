@@ -3619,11 +3619,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //          decoding all the sounds after an initial tap.
 
   async function playSfx(id, soundData, options, completed) {
+    console.log("🎵 BIOS playSfx called:", { id: id?.substring?.(0, 50), soundData: soundData?.substring?.(0, 50), options, hasAudioContext: !!audioContext });
     
     if (audioContext) {
       
       if (sfxCancel.includes(id)) {
-        // console.log("🎵 BIOS playSfx cancelled for:", id);
+        console.log("🎵 BIOS playSfx cancelled for:", id);
         sfxCancel.length = 0;
         return;
       }
@@ -3641,9 +3642,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Instantly decode the audio before playback if it hasn't been already.
-      if (debug && logs.sound) console.log("🎵 BIOS attempting to decode sfx:", soundData);
+      console.log("🎵 BIOS attempting to decode sfx:", soundData?.substring?.(0, 50), "current type:", typeof sfx[soundData]);
       await decodeSfx(soundData);
-      if (debug && logs.sound) console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData]);
+      console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData], "isAudioBuffer:", sfx[soundData] instanceof AudioBuffer);
 
       if (sfx[soundData] instanceof ArrayBuffer) {
         console.log("🎵 BIOS sfx still ArrayBuffer, returning early");
@@ -3651,8 +3652,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       if (!sfx[soundData]) {
-        // console.log("🎵 BIOS sfx not found after decode, queuing:", soundData);
-        // `console.log("🎵 BIOS sfx not found, queuing:", soundData);
+        console.log("🎵 BIOS sfx not found after decode, queuing:", soundData?.substring?.(0, 50));
         // Queue the sound effect to be played once it's loaded
         pendingSfxQueue.push({
           id,
@@ -3669,21 +3669,48 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         channels.push(sfx[soundData].getChannelData(i)); // Get raw Float32Array.
       }
 
+      // 🔇 Silent sample detection - check if audio is essentially empty/corrupted
+      const channelData = channels[0];
+      if (channelData && channelData.length > 100) {
+        let maxAmplitude = 0;
+        // Check samples throughout the buffer (not just the beginning)
+        const checkPoints = [100, 500, 1000, 2000, 5000, 10000, channelData.length / 2];
+        for (const idx of checkPoints) {
+          if (idx < channelData.length) {
+            maxAmplitude = Math.max(maxAmplitude, Math.abs(channelData[Math.floor(idx)]));
+          }
+        }
+        
+        // If max amplitude is below threshold, this sample is effectively silent
+        if (maxAmplitude < 0.001) {
+          console.warn("🔇 BIOS detected silent/corrupted sample:", soundData?.substring?.(0, 50), "maxAmplitude:", maxAmplitude);
+          // Clear the bad cache entry so it can be re-fetched
+          delete sfx[soundData];
+          // Also clear from speakAPI cache and mark for cache bust if it's a speech sample
+          if (soundData.startsWith("speech:") && speakAPI.sfx) {
+            delete speakAPI.sfx[soundData];
+            // Track labels that need server cache bust
+            speakAPI.bustCache = speakAPI.bustCache || new Set();
+            speakAPI.bustCache.add(soundData);
+            console.log("🔇 Cleared speech cache for:", soundData, "(marked for server bust)");
+          }
+          return; // Don't play silence
+        }
+      }
+
       const sample = {
         channels,
         sampleRate: sfx[soundData].sampleRate,
         length: sfx[soundData].length,
       };
 
-      if (debug && logs.sound) {
-        console.log("🎵 BIOS sample prepared:", {
-          soundData,
-          sampleChannels: sample.channels.length,
-          sampleRate: sample.sampleRate,
-          length: sample.length,
-          triggerSoundAvailable: !!triggerSound
-        });
-      }
+      console.log("🎵 BIOS sample prepared:", {
+        soundData: soundData?.substring?.(0, 50),
+        sampleChannels: sample.channels.length,
+        sampleRate: sample.sampleRate,
+        length: sample.length,
+        triggerSoundAvailable: !!triggerSound
+      });
 
       // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
       //          keep being sent on every playthrough. 25.02.15.08.22
@@ -3699,6 +3726,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const basePitch = options?.basePitch || 440; // Default to A4
         speed = options.pitch / basePitch;
       }
+
+      console.log("🎵 BIOS about to call triggerSound:", {
+        id: id?.substring?.(0, 30),
+        speed,
+        volume: options?.volume,
+        pan: options?.pan,
+        loop: options?.loop,
+        sfxLoadedForData: !!sfxLoaded[soundData]
+      });
 
       const playResult = triggerSound?.({
         id,
@@ -3721,11 +3757,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // decay: 0,
       });
 
-      // console.log("🎵 BIOS triggerSound result:", {
-      //   id,
-      //   playResult,
-      //   playResultType: typeof playResult
-      // });
+      console.log("🎵 BIOS triggerSound result:", {
+        id: id?.substring?.(0, 30),
+        playResult,
+        playResultType: typeof playResult
+      });
 
       sfxPlaying[id] = playResult;
 

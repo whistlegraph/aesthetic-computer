@@ -65,27 +65,64 @@ function speak(words, voice, mode = "local", opts = {}) {
 
     synth.speak(utterance);
   } else if (mode === "cloud") {
-    const label = `speech:${voice} - ${words}`;
+    const label = `speech:${voice}:${opts.provider || "openai"} - ${words}`;
 
     // Trigger speech playback.
     function play() {
       console.log("🗣️", label);
       const id = label + "_" + performance.now(); // An id for this sample.
+      
+      // Calculate speed from pitch if provided (frequency in Hz)
+      // Assumes sample's base pitch is around 200Hz for speech
+      let speed = opts.reverse ? -1 : 1;
+      if (isFinite(opts.pitch)) {
+        const basePitch = opts.basePitch || 200; // Speech base frequency ~200Hz
+        speed = opts.pitch / basePitch;
+      } else if (isFinite(opts.speed)) {
+        speed = opts.speed;
+      }
+      
+      const vol = isFinite(opts.volume) ? opts.volume : 1;
+      console.log("🗣️ playSfx:", { speed, vol, pitch: opts.pitch });
+      
       speakAPI.playSfx(
         id,
         label,
-        { speed: opts.reverse ? -1 : 1, pan: opts.pan, volume: opts.volume },
+        { speed, pan: opts.pan, volume: vol, loop: opts.loop },
         () => {
           if (!opts.skipCompleted) window.acSEND({ type: "speech:completed" });
         },
       );
     }
 
-    // Add the label to the sfx library.
-    // if (!speakAPI.sfx[label]) {
+    // Clear a specific cache entry (useful for corrupted samples)
+    function clearCache(labelToClear) {
+      if (speakAPI.sfx[labelToClear]) {
+        delete speakAPI.sfx[labelToClear];
+        console.log("🗣️ Cleared cache for:", labelToClear);
+      }
+    }
+
+    // Check local cache first (in-memory, survives until page reload)
+    // Skip local cache if bust option is set or if this label was marked for bust
+    const needsBust = opts.bust || speakAPI.bustCache?.has(label);
+    if (needsBust) {
+      speakAPI.bustCache?.delete(label); // Clear the bust flag after using it
+      console.log("🧹 Cache bust for:", label);
+    }
+    
+    if (speakAPI.sfx[label] && !needsBust) {
+      console.log("🗣️ Local cache hit:", label);
+      play();
+      return;
+    }
+
+    // Fetch from server (which has its own CDN cache)
     const payload = {
       from: words,
       voice: voice,
+      provider: opts.provider || "openai", // "openai" (default) or "google"
+      bust: needsBust, // Force regenerate on server if marked
     };
 
     function fetchSpeech() {
@@ -108,7 +145,8 @@ function speak(words, voice, mode = "local", opts = {}) {
           if (res.status === 200) {
             // console.log("🗣️ Speech response:", res);
             const blob = await res.blob(); // Convert the response to a Blob.
-            speakAPI.sfx[label] ||= await blob.arrayBuffer();
+            speakAPI.sfx[label] = await blob.arrayBuffer(); // Cache locally
+            console.log("🗣️ Cached locally:", label);
             play();
           } else {
             console.log("🗣️ Speech fetch failure, retrying...", res.status);
@@ -127,9 +165,6 @@ function speak(words, voice, mode = "local", opts = {}) {
     }
 
     fetchSpeech();
-    // } else {
-    // play(); // Or play it again if it's already present.
-    // }
   }
 }
 
