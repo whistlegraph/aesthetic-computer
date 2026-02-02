@@ -327,8 +327,7 @@
     .ff1-playlist-header {
       display: none;
       width: 100%;
-      padding-bottom: calc(var(--ui-scale, 8) * 0.3px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      padding-bottom: 0;
       margin-bottom: calc(var(--ui-scale, 8) * 0.2px);
     }
     
@@ -339,17 +338,17 @@
     .ff1-playlist-title {
       color: rgba(255, 255, 255, 0.9);
       font-family: 'Noto Sans Mono', monospace;
-      font-size: calc(var(--ui-scale, 8) * 2px);
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
       font-weight: bold;
-      line-height: 1.2;
+      line-height: 1.4;
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
     .ff1-playlist-position {
       color: rgba(255, 215, 0, 0.9);
       font-family: 'Noto Sans Mono', monospace;
-      font-size: calc(var(--ui-scale, 8) * 1.8px);
-      margin-top: calc(var(--ui-scale, 8) * 0.15px);
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
+      margin-top: 0;
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
@@ -721,14 +720,14 @@
       <div id="qr-container"></div>
     </div>
     <div id="piece-info">
+      <div id="ff1-playlist-header" class="ff1-playlist-header">
+        <div id="ff1-playlist-title" class="ff1-playlist-title"></div>
+        <div id="ff1-playlist-position" class="ff1-playlist-position"></div>
+      </div>
       <div id="piece-handle"></div>
       <div id="piece-hits"></div>
       <div id="piece-when"></div>
       <div id="ff1-module" class="ff1-module">
-        <div id="ff1-playlist-header" class="ff1-playlist-header">
-          <div id="ff1-playlist-title" class="ff1-playlist-title"></div>
-          <div id="ff1-playlist-position" class="ff1-playlist-position"></div>
-        </div>
         <button id="piece-ff1-copy" class="piece-ff1-copy" title="Copy FF1 CLI command">
           <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="ff1-icon">
           <span class="ff1-cmd">ff1 play ...</span>
