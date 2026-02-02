@@ -744,7 +744,7 @@
   <div id="fps-meter">FPS: --</div>
   
   <!-- DEPRECATED: Playlist info overlay - kept for backwards compatibility but hidden via CSS -->
-  <!-- All playlist/slideshow info is now in the #ff1-module inside #piece-info -->
+  <!-- All playlist info is now in the #ff1-module inside #piece-info -->
   <div id="playlist-info">
     <div id="playlist-title"></div>
     <div id="playlist-position"></div>
@@ -1548,7 +1548,7 @@
       addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
     };
     
-    // Known playlist shortcuts (for nice URLs like /slideshow/top100)
+    // Known playlist shortcuts (for nice URLs like /playlist/top100)
     const KNOWN_PLAYLISTS = {
       'top100': '6e53465e-976f-4e93-89ff-c58b6d434fa7',
       'colors': '4b872517-e4d8-4433-af8b-a9a4a8204cc9',
@@ -1556,25 +1556,25 @@
     };
     const FEED_URL = 'https://feed.aesthetic.computer';
     
-    // Parse codeId or slideshow path:
+    // Parse codeId or playlist path:
     // device.kidlisp.com/codeId
-    // device.kidlisp.com/slideshow/top100 (short playlist URL)
+    // device.kidlisp.com/playlist/top100 (short playlist URL)
     // localhost:8888/kidlisp.com/device/codeId
     // localhost:8888/device.kidlisp.com/codeId
     let codeId = null;
-    let slideshowShortcut = null;  // Will be set if using /slideshow/xxx path
+    let slideshowShortcut = null;  // Will be set if using /playlist/xxx path
     const pathParts = pathname.split('/').filter(p => p);
     
     if (hostname === 'device.kidlisp.com') {
-      // Production: device.kidlisp.com/codeId or /slideshow/top100
-      if (pathParts[0] === 'slideshow' && pathParts[1]) {
+      // Production: device.kidlisp.com/codeId or /playlist/top100
+      if (pathParts[0] === 'playlist' && pathParts[1]) {
         slideshowShortcut = pathParts[1].toLowerCase();
       } else {
         codeId = pathParts[0] || null;
       }
     } else if (pathname.startsWith('/device.kidlisp.com/')) {
-      // Local dev: localhost:8888/device.kidlisp.com/codeId or /slideshow/top100
-      if (pathParts[1] === 'slideshow' && pathParts[2]) {
+      // Local dev: localhost:8888/device.kidlisp.com/codeId or /playlist/top100
+      if (pathParts[1] === 'playlist' && pathParts[2]) {
         slideshowShortcut = pathParts[2].toLowerCase();
       } else {
         codeId = pathParts[1] || null;
@@ -1606,14 +1606,14 @@
     // Slideshow mode params (for full DP-1 playlist client)
     // playlist_url: URL to a DP-1 playlist JSON (e.g., feed.aesthetic.computer/api/v1/playlists/{id})
     // start_index: Which item to start from (0-based, default 0)
-    // OR use short path: /slideshow/top100, /slideshow/colors, /slideshow/chords
+    // OR use short path: /playlist/top100, /playlist/colors, /playlist/chords
     let playlistUrl = params.get('playlist_url');
     const startIndex = parseInt(params.get('start_index')) || 0;
     
     // Resolve slideshow shortcut to full playlist URL
     if (slideshowShortcut && KNOWN_PLAYLISTS[slideshowShortcut]) {
       playlistUrl = `${FEED_URL}/api/v1/playlists/${KNOWN_PLAYLISTS[slideshowShortcut]}`;
-      console.log('📺 Resolved slideshow shortcut:', slideshowShortcut, '→', playlistUrl);
+      console.log('📺 Resolved playlist shortcut:', slideshowShortcut, '→', playlistUrl);
     }
     
     // Flag to indicate we're in slideshow mode (skip scramble animation)
@@ -2200,11 +2200,11 @@
         playlistHeader.classList.add('visible');
       }
       
-      // Build the slideshow URL for the CLI command (official FF1 CLI format)
+      // Build the playlist URL for the CLI command (official FF1 CLI format)
       // Use the short path if we're in a known playlist, otherwise use full URL
       let slideshowUrl;
       if (slideshowShortcut) {
-        slideshowUrl = `https://device.kidlisp.com/slideshow/${slideshowShortcut}`;
+        slideshowUrl = `https://device.kidlisp.com/playlist/${slideshowShortcut}`;
       } else {
         // Fall back to full playlist_url encoded
         slideshowUrl = `https://device.kidlisp.com/?playlist_url=${encodeURIComponent(playlistUrl)}`;
