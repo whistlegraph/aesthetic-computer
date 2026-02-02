@@ -527,6 +527,29 @@ from = "https://www.digitpain.com/*"
 to = "https://digitpain.com/:splat"
 status = 301
 force = true
+
+# justanothersystem.org - Stretched paintings by Jeffrey Alan Scudder
+[[redirects]]
+from = "https://justanothersystem.org"
+to = "/justanothersystem.org/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://justanothersystem.org/*"
+to = "/justanothersystem.org/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.justanothersystem.org"
+to = "https://justanothersystem.org"
+status = 301
+force = true
+[[redirects]]
+from = "https://www.justanothersystem.org/*"
+to = "https://justanothersystem.org/:splat"
+status = 301
+force = true
+
 [[redirects]]
 from = "https://builds.false.work/api/register-build"
 to = "/.netlify/functions/register-build"
