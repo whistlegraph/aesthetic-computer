@@ -970,11 +970,13 @@ function paint(
     const message = client.messages[i];
     if (!message.layout?.paintingCodes) continue;
     
+    // Preview position: 4px gap below message text, then 64px image, then 6px padding = 74px total
     const previewY = message.layout.y + message.layout.height + 4; // 4px gap above image
-    const previewHeight = 68; // 64px + 4px padding (top/bottom)
+    const previewHeight = 64; // Actual image size
+    const previewTotalHeight = 74; // Total reserved space (4px gap + 64px + 6px bottom padding)
     
     // Only process if the PREVIEW is visible (not just the message)
-    if (previewY + previewHeight < effectiveTopMargin) continue; // Preview is above visible area
+    if (previewY + previewTotalHeight < effectiveTopMargin) continue; // Preview is above visible area
     if (previewY > screen.height - bottomMargin) continue; // Preview is below visible area
     
     let previewX = message.layout.x; // Start from left margin
@@ -1159,10 +1161,11 @@ function paint(
     // YouTube previews appear after painting previews (if any)
     const paintingOffset = message.layout.paintingCodes ? 74 : 0;
     const previewY = message.layout.y + message.layout.height + 4 + paintingOffset;
-    const previewHeight = 68;
+    const previewHeight = 68; // Actual thumbnail size
+    const previewTotalHeight = 74; // Total reserved space
     
     // Only process if visible
-    if (previewY + previewHeight < effectiveTopMargin) continue;
+    if (previewY + previewTotalHeight < effectiveTopMargin) continue;
     if (previewY > screen.height - bottomMargin) continue;
     
     let previewX = message.layout.x;
@@ -1268,10 +1271,11 @@ function paint(
     const paintingOffset = message.layout.paintingCodes ? 74 : 0;
     const youtubeOffset = message.layout.youtubeVideoIds ? 74 : 0;
     const previewY = message.layout.y + message.layout.height + 4 + paintingOffset + youtubeOffset;
-    const previewHeight = 68;
+    const previewHeight = 68; // Actual preview size
+    const previewTotalHeight = 84; // Total reserved space (includes 10px caption)
     
     // Only process if visible
-    if (previewY + previewHeight < effectiveTopMargin) continue;
+    if (previewY + previewTotalHeight < effectiveTopMargin) continue;
     if (previewY > screen.height - bottomMargin) continue;
     
     let previewX = message.layout.x;
