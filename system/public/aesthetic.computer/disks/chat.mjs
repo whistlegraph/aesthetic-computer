@@ -1664,8 +1664,10 @@ function paint(
     const hudLabelHeight = hudLabelBox?.h ?? 10;
     
     // QR code size from HUD label (if present, e.g., in laer-klokken)
-    // QR is rendered inside the HUD buffer, so we need its pixel width
-    const qrSize = hudLabel?.qrSize ?? 0; // Cells = pixels (1:1)
+    // Only use qrSize if it's from actual QR cells (not animation state fallback)
+    // QR cells length is typically 21-29 for URLs, hudAnimationState.qrSize is 80
+    const rawQrSize = hudLabel?.qrSize ?? 0;
+    const qrSize = rawQrSize > 0 && rawQrSize < 50 ? rawQrSize : 0; // Filter out animation default (80)
     const qrTotalWidth = qrSize > 0 ? qrSize + 6 : 0; // QR + 2px border + 4px gap
     
     // Position presence text under the HUD label, shifted right by QR width
