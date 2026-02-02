@@ -484,8 +484,8 @@ async function fetchNewsHeadlines() {
           recentComments: post.recentComments || [],
         }));
         
-        // Row 1: ALL Headlines with star separator
-        newsTickerText = newsHeadlines.map(h => h.title).join(" ★ ");
+        // Row 1: ALL Headlines with dash separator (MatrixChunky8 compatible)
+        newsTickerText = newsHeadlines.map(h => h.title).join(" - ");
         
         // Row 2: Recent comment snippets from all stories
         const commentSnippets = newsHeadlines.flatMap(h => 
@@ -4322,7 +4322,7 @@ function paintNewsTicker($, theme) {
   
   // Seamless loop with separator (always scroll, even for fallback text)
   const hasNews = newsHeadlines.length > 0;
-  const separator = "   ★   ";
+  const separator = "   -   ";
   const loopText = displayText + separator;
   const loopWidth = loopText.length * tickerCharWidth;
   
