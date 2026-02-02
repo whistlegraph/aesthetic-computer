@@ -5,6 +5,8 @@
 set SERVER "root@157.245.134.225"
 set SSH_KEY "$HOME/.ssh/session_server"
 set REPO_PATH "/home/aesthetic-computer"
+# fnm setup required for node/npm/pm2 access
+set FNM_SETUP 'export PATH="/root/.local/share/fnm:$PATH" && eval "$(fnm env)"'
 
 echo "🚀 Deploying session server to production..."
 echo ""
@@ -19,10 +21,10 @@ if test $status -ne 0
     exit 1
 end
 
-# Step 2: Install dependencies (skip if node_modules exists)
+# Step 2: Install dependencies
 echo ""
-echo "📦 Step 2/4: Checking dependencies..."
-ssh -i $SSH_KEY $SERVER "cd $REPO_PATH/session-server && if [ ! -d node_modules ]; then echo 'Installing...'; npm install; else echo 'Dependencies already installed'; fi"
+echo "📦 Step 2/4: Installing dependencies..."
+ssh -i $SSH_KEY $SERVER "$FNM_SETUP && cd $REPO_PATH/session-server && npm install"
 
 if test $status -ne 0
     echo ""
@@ -30,10 +32,10 @@ if test $status -ne 0
     exit 1
 end
 
-# Step 3: Restart service
+# Step 3: Restart service with pm2
 echo ""
-echo "🔄 Step 3/4: Restarting session server..."
-ssh -i $SSH_KEY $SERVER "pkill -f 'node.*session.mjs' && sleep 2 && cd $REPO_PATH/session-server && nohup node session.mjs > /tmp/session-server.log 2>&1 &"
+echo "🔄 Step 3/4: Restarting session server via pm2..."
+ssh -i $SSH_KEY $SERVER "$FNM_SETUP && pm2 restart session"
 
 if test $status -ne 0
     echo ""
@@ -44,13 +46,17 @@ end
 # Step 4: Show logs
 echo ""
 echo "📊 Step 4/4: Checking server status..."
-sleep 3
-ssh -i $SSH_KEY $SERVER "ps aux | grep 'session.mjs' | grep -v grep && echo '' && tail -20 /tmp/session-server.log"
+sleep 2
+ssh -i $SSH_KEY $SERVER "$FNM_SETUP && pm2 list && echo '' && pm2 logs session --lines 15 --nostream"
 
 echo ""
 echo "✅ Deployment complete!"
 echo ""
 echo "📡 Test the endpoints:"
-echo "   curl -k https://session-server.aesthetic.computer/build-stream \\"
+echo "   # WebSocket socklogs"
+echo "   websocat 'wss://session-server.aesthetic.computer/socklogs?role=viewer'"
+echo ""
+echo "   # HTTP build-stream"
+echo "   curl https://session-server.aesthetic.computer/build-stream \\"
 echo "     --header 'Content-Type: application/json' \\"
 echo "     --data '{\"line\": \"Test message\"}'"
