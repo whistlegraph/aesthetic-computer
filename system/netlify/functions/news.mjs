@@ -110,24 +110,25 @@ function isSubdomainRequest(event) {
   return host.startsWith("news.aesthetic.computer");
 }
 
-function layout({ title, body, assetBase }) {
+function layout({ title, body, assetBase, assetOrigin }) {
+  const origin = assetOrigin || "";
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(title)}</title>
-    <link rel="icon" href="https://aesthetic.computer${assetBase}/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="${origin}${assetBase}/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css">
-    <link rel="stylesheet" href="https://aesthetic.computer${assetBase}/main.css" />
+    <link rel="stylesheet" href="${origin}${assetBase}/main.css" />
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
   </head>
   <body>
     <div class="news-wrapper">
       ${body}
     </div>
-    <script src="https://aesthetic.computer${assetBase}/client.js" defer></script>
+    <script src="${origin}${assetBase}/client.js" defer></script>
   </body>
 </html>`;
 }
@@ -184,14 +185,13 @@ function footer() {
 function renderPostRow(post, idx, basePath) {
   const title = escapeHtml(post.title || "(untitled)");
   const url = post.url ? escapeHtml(post.url) : "";
-  // Show full URL path, not just TLD
+  // Show URL with reasonable truncation for homepage list
   const displayUrl = post.url ? (() => {
     try {
       const u = new URL(post.url);
-      // Show host + pathname (truncate if too long)
       let path = u.hostname.replace(/^www\./, "") + u.pathname;
       if (path.endsWith("/")) path = path.slice(0, -1);
-      if (path.length > 50) path = path.slice(0, 47) + "...";
+      if (path.length > 40) path = path.slice(0, 37) + "...";
       return path;
     } catch { return ""; }
   })() : "";
@@ -213,7 +213,6 @@ function renderPostRow(post, idx, basePath) {
         ${displayUrl ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${displayUrl}</a>)</span>` : ""}
       </div>
       <div class="news-meta">
-        <span>${post.score || 0} points</span>
         <span>by ${renderHandle(post.handle)}</span>
         <span><a href="${itemUrl}">${formatDate(post.when)}</a></span>
         <span><a href="${itemUrl}">${post.commentCount || 0} comments</a></span>
@@ -323,13 +322,12 @@ async function renderItemPage(database, basePath, code) {
   const postTitle = escapeHtml(hydratedPost.title || "(untitled)");
   const pageTitle = `${hydratedPost.title || "(untitled)"} | Aesthetic News`;
   const url = hydratedPost.url ? escapeHtml(hydratedPost.url) : "";
-  // Show full URL path, not just TLD
+  // Show full URL
   const displayUrl = hydratedPost.url ? (() => {
     try {
       const u = new URL(hydratedPost.url);
       let path = u.hostname.replace(/^www\./, "") + u.pathname;
       if (path.endsWith("/")) path = path.slice(0, -1);
-      if (path.length > 60) path = path.slice(0, 57) + "...";
       return path;
     } catch { return ""; }
   })() : "";
@@ -345,14 +343,15 @@ async function renderItemPage(database, basePath, code) {
   const youtubeId = parseYouTubeUrl(hydratedPost.url);
   const youtubeEmbedHtml = youtubeId ? `
       <div class="news-youtube-embed" data-youtube-id="${youtubeId}">
+        <a href="https://www.youtube.com/watch?v=${youtubeId}" target="_blank" rel="noopener" class="news-youtube-fallback">
+          <img src="https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg" alt="YouTube video thumbnail" class="news-youtube-thumb" />
+        </a>
         <iframe 
           id="youtube-player"
-          src="https://www.youtube.com/embed/${youtubeId}?enablejsapi=1" 
-          title="YouTube video" 
-          frameborder="0" 
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-          allowfullscreen>
-        </iframe>
+          src="https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&modestbranding=1&rel=0&playsinline=1"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+        ></iframe>
       </div>` : '';
 
   // Check for KidLisp preview
@@ -366,11 +365,15 @@ async function renderItemPage(database, basePath, code) {
       </div>` : '';
 
   const hasMedia = youtubeId || kidlispCode;
+  const mediaHtml = youtubeEmbedHtml || kidlispPreviewHtml;
 
   const body = `
   ${header(basePath)}
+  ${hasMedia ? `<div class="news-hero-media">
+    ${mediaHtml}
+  </div>` : ''}
   <main class="news-main">
-    <div class="news-item-header${hasMedia ? ' has-media' : ''}">
+    <div class="news-item-header">
       <div class="news-item-info">
         <table class="news-item-table" border="0" cellpadding="0" cellspacing="0">
           <tr class="news-item-row">
@@ -388,7 +391,7 @@ async function renderItemPage(database, basePath, code) {
                 ${displayUrl ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${displayUrl}</a>)</span>` : ""}
               </span>
               <div class="news-item-meta">
-                ${hydratedPost.score || 0} points by ${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}${atLinkHtml}
+                ${atLinkHtml}
                 <form class="news-admin-delete" data-news-action="delete" data-item-type="post" data-item-id="${hydratedPost.code}" data-handle="${escapeHtml(hydratedPost.handle?.replace('@', '') || '')}" method="post" action="/api/news/delete" style="display:none;">
                   <input type="hidden" name="itemType" value="post" />
                   <input type="hidden" name="itemId" value="${hydratedPost.code}" />
@@ -404,19 +407,22 @@ async function renderItemPage(database, basePath, code) {
         </table>
       </div>
     </div>
-    ${youtubeEmbedHtml}${kidlispPreviewHtml}
-    ${hydratedPost.text ? `<div class="news-text">${escapeHtml(hydratedPost.text)}</div>` : ""}
-    <form id="news-comment-form" class="news-comment-form" data-news-action="comment" method="post" action="/api/news/comment"${youtubeId ? ` data-youtube-id="${youtubeId}"` : ''}>
-      <input type="hidden" name="postCode" value="${escapeHtml(code)}" />
-      <textarea name="text" rows="6" cols="80"></textarea>
-      <div class="news-comment-actions">
-        <button type="submit" data-i18n="respond">Respond</button>
-        ${youtubeId ? `<button type="button" id="insert-timecode-btn" class="news-timecode-btn" title="Insert current video time">@ 0:00</button>` : ''}
-      </div>
-    </form>
+    ${hydratedPost.text ? `
+    <div class="news-op-text">
+      <div class="news-op-meta">${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}</div>
+      <div class="news-op-body">${escapeHtml(hydratedPost.text)}</div>
+    </div>` : ""}
     <div class="news-comments">
       ${commentsHtml || ''}
     </div>
+    <form id="news-comment-form" class="news-comment-form" data-news-action="comment" method="post" action="/api/news/comment"${youtubeId ? ` data-youtube-id="${youtubeId}"` : ''}>
+      <input type="hidden" name="postCode" value="${escapeHtml(code)}" />
+      <textarea name="text" rows="4" placeholder="Write a comment..."></textarea>
+      <div class="news-comment-actions">
+        ${youtubeId ? `<button type="button" id="insert-timecode-btn" class="news-timecode-btn" title="Insert current video time">@ 0:00</button>` : ''}
+        <button type="submit" data-i18n="respond">Respond</button>
+      </div>
+    </form>
   </main>
   ${footer()}`;
   
@@ -476,6 +482,9 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
 
     const basePath = isSubdomainRequest(event) ? "" : "/news.aesthetic.computer";
     const assetBase = "/news.aesthetic.computer";
+    const host = event.headers?.host || "";
+    const isLocalHost = host.includes("localhost") || host.startsWith("127.0.0.1") || host.startsWith("0.0.0.0");
+    const assetOrigin = dev || isLocalHost ? "" : "https://aesthetic.computer";
     const route = parseRoute(event);
     console.log("[news] Route debug:", { path: event.path, queryStringParameters: event.queryStringParameters, parsedRoute: route });
     let title = "Aesthetic News";
@@ -504,7 +513,7 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
         body = `${header(basePath)}<main class="news-main"><p>Page not found.</p></main>${footer()}`;
       }
 
-      const html = layout({ title, body, assetBase });
+      const html = layout({ title, body, assetBase, assetOrigin });
       await database.disconnect();
       return respondFn(200, html, { "Content-Type": "text/html" });
     } catch (error) {

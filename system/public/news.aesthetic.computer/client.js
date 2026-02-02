@@ -1425,6 +1425,8 @@ function initSubmitFormConstraints() {
 // ===== YouTube Timecode Integration =====
 let youtubePlayer = null;
 let youtubePlayerReady = false;
+let timecodeInterval = null;
+let isSandboxedMode = false;
 
 function initYouTubePlayer() {
   const embed = document.querySelector('.news-youtube-embed[data-youtube-id]');
@@ -1433,46 +1435,84 @@ function initYouTubePlayer() {
   const youtubeId = embed.dataset.youtubeId;
   if (!youtubeId) return;
   
+  // Reset state
+  youtubePlayer = null;
+  youtubePlayerReady = false;
+  
+  // Check if we're in a sandboxed environment (VS Code webview)
+  isSandboxedMode = window.frameElement?.sandbox || 
+                    document.featurePolicy && !document.featurePolicy.allowsFeature('autoplay');
+  
+  if (isSandboxedMode) {
+    console.log('[news] Sandboxed environment detected, showing YouTube fallback');
+    embed.classList.add('sandboxed');
+    // Hide timecode button in sandbox mode
+    const timecodeBtn = document.getElementById('insert-timecode-btn');
+    if (timecodeBtn) timecodeBtn.style.display = 'none';
+    // Fallback is now a link, no extra handling needed - it gracefully degrades
+    return;
+  }
+  
   console.log('[news] Initializing YouTube player for:', youtubeId);
   
   // Load YouTube IFrame API
-  if (!window.YT) {
+  if (!window.YT || !window.YT.Player) {
     const tag = document.createElement('script');
     tag.src = 'https://www.youtube.com/iframe_api';
     document.head.appendChild(tag);
     console.log('[news] Loading YouTube IFrame API');
-  } else if (window.YT.Player) {
+    
+    // Set up callback for when API is ready
+    window.onYouTubeIframeAPIReady = () => {
+      console.log('[news] YouTube API ready');
+      createPlayer(youtubeId);
+    };
+  } else {
     // API already loaded
-    createPlayer();
+    createPlayer(youtubeId);
+  }
+}
+
+function createPlayer(youtubeId) {
+  const container = document.querySelector('.news-youtube-embed[data-youtube-id]');
+  if (!container) {
+    console.log('[news] No YouTube container found');
+    return;
   }
   
-  // Set up callback for when API is ready
-  window.onYouTubeIframeAPIReady = createPlayer;
+  // Find the existing iframe
+  const iframe = container.querySelector('iframe');
+  if (!iframe) {
+    console.log('[news] No YouTube iframe found');
+    return;
+  }
   
-  function createPlayer() {
-    const iframe = document.getElementById('youtube-player');
-    if (!iframe) {
-      console.log('[news] No youtube-player iframe found');
-      return;
-    }
-    
-    console.log('[news] Creating YouTube player from iframe');
-    
-    try {
-      youtubePlayer = new YT.Player('youtube-player', {
-        events: {
-          onReady: (event) => {
-            console.log('[news] YouTube player ready');
-            youtubePlayerReady = true;
-            updateTimecodeButton();
-          },
-          onStateChange: updateTimecodeButton
+  console.log('[news] Creating YouTube player for:', youtubeId);
+  
+  try {
+    // Use the existing iframe with the API
+    youtubePlayer = new YT.Player(iframe, {
+      events: {
+        onReady: (event) => {
+          console.log('[news] YouTube player ready!');
+          youtubePlayerReady = true;
+          updateTimecodeButton();
+          startTimecodeUpdater();
+        },
+        onStateChange: (event) => {
+          console.log('[news] YouTube state:', event.data);
+          updateTimecodeButton();
         }
-      });
-    } catch (e) {
-      console.error('[news] Failed to create YouTube player:', e);
-    }
+      }
+    });
+  } catch (e) {
+    console.error('[news] Failed to create YouTube player:', e);
   }
+}
+
+function startTimecodeUpdater() {
+  if (timecodeInterval) clearInterval(timecodeInterval);
+  timecodeInterval = setInterval(updateTimecodeButton, 500);
 }
 
 function formatTime(seconds) {
@@ -1513,12 +1553,9 @@ function setupTimecodeButton() {
   const textarea = document.querySelector('#news-comment-form textarea[name="text"]');
   if (!btn || !textarea) return;
   
-  // Update button time periodically
-  setInterval(updateTimecodeButton, 1000);
-  
   btn.addEventListener('click', () => {
     if (!youtubePlayerReady || !youtubePlayer) {
-      alert('Video player not ready');
+      alert('Video player not ready yet - try again in a moment');
       return;
     }
     
@@ -1546,11 +1583,18 @@ function linkifyTimecodes(container) {
   const embed = document.querySelector('.news-youtube-embed[data-youtube-id]');
   if (!embed) return;
   
+  const youtubeId = embed.dataset.youtubeId;
+  
   const commentBodies = container.querySelectorAll('.news-comment-body');
   commentBodies.forEach(body => {
     // Match [0:00] or [1:23:45] patterns
     const html = body.innerHTML;
     const linked = html.replace(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g, (match, time) => {
+      if (isSandboxedMode) {
+        // In sandbox mode, link directly to YouTube with timestamp
+        const seconds = parseTimecode(time);
+        return `<a href="https://www.youtube.com/watch?v=${youtubeId}&t=${seconds}s" target="_blank" rel="noopener" class="news-timecode-link">${match}</a>`;
+      }
       return `<a href="#" class="news-timecode-link" data-timecode="${time}">${match}</a>`;
     });
     if (linked !== html) {
@@ -1558,21 +1602,74 @@ function linkifyTimecodes(container) {
     }
   });
   
-  // Add click handlers
-  container.querySelectorAll('.news-timecode-link').forEach(link => {
+  // Add click handlers (only for non-sandbox mode)
+  if (!isSandboxedMode) {
+    container.querySelectorAll('.news-timecode-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const timecode = link.dataset.timecode;
+        if (youtubePlayerReady && youtubePlayer && timecode) {
+          const seconds = parseTimecode(timecode);
+          youtubePlayer.seekTo(seconds, true);
+          youtubePlayer.playVideo();
+          
+          // Scroll video into view
+          embed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    });
+  }
+}
+
+// Syntax highlight AC commands in backticks or single quotes (e.g., `list`, 'give')
+function highlightACCommands(container) {
+  const commentBodies = container.querySelectorAll('.news-comment-body, .news-op-body');
+  commentBodies.forEach(body => {
+    const html = body.innerHTML;
+    // Match text in backticks: `command` or single quotes: 'command'
+    // For single quotes, require word boundary before to avoid contractions like "I'll"
+    // Only highlight the content, not the quotes themselves
+    const highlighted = html
+      .replace(/`([^`]+)`/g, (match, cmd) => {
+        const trimmed = cmd.trim();
+        return `\`<a href="#" class="news-ac-command" data-ac-cmd="${trimmed}">${cmd}</a>\``;
+      })
+      .replace(/(?:^|[\s\(\[\{])'([^']+)'/g, (match, cmd) => {
+        const trimmed = cmd.trim();
+        // Check if it starts with whitespace/bracket
+        const prefix = match.startsWith("'") ? '' : match[0];
+        return `${prefix}'<a href="#" class="news-ac-command" data-ac-cmd="${trimmed}">${cmd}</a>'`;
+      });
+    if (highlighted !== html) {
+      body.innerHTML = highlighted;
+    }
+  });
+  
+  // Add click handlers for AC commands
+  container.querySelectorAll('.news-ac-command').forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
-      const timecode = link.dataset.timecode;
-      if (youtubePlayerReady && youtubePlayer && timecode) {
-        const seconds = parseTimecode(timecode);
-        youtubePlayer.seekTo(seconds, true);
-        youtubePlayer.playVideo();
-        
-        // Scroll video into view
-        embed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const cmd = link.dataset.acCmd;
+      if (cmd) {
+        showACModal(cmd);
       }
     });
   });
+}
+
+// Show modal with AC piece preview
+function showACModal(cmd) {
+  // Remove $ prefix if present for the URL
+  const piece = cmd.startsWith('$') ? cmd.slice(1) : cmd;
+  const acUrl = `https://aesthetic.computer/${piece}`;
+  
+  // Reuse the existing modal system
+  openModal(acUrl);
+}
+
+// Hero media (no collapse functionality)
+function setupHeroToggle() {
+  // Hero media now shows below header, no toggle needed
 }
 
 // Initialize YouTube features
@@ -1580,6 +1677,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initYouTubePlayer();
   setupTimecodeButton();
   linkifyTimecodes(document);
+  highlightACCommands(document);
+  setupHeroToggle();
 });
 
 // Also handle SPA navigation
@@ -1592,6 +1691,8 @@ if (typeof origRenderPageContent === 'function') {
       initYouTubePlayer();
       setupTimecodeButton();
       linkifyTimecodes(document);
+      highlightACCommands(document);
+      setupHeroToggle();
     }, 100);
     return result;
   };
