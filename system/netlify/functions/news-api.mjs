@@ -179,17 +179,26 @@ export function createHandler({
           const docs = await posts.find({ status: { $ne: "dead" } }).sort(sort).limit(limit).toArray();
           const withCounts = await attachCommentCounts(docs, comments);
           
-          // Optionally include recent comments for each post
+          // Optionally include recent comments for each post (with hydrated handles)
           if (includeRecentComments > 0) {
+            const handles = database.db.collection("@handles");
             for (const post of withCounts) {
               const recentComments = await comments
                 .find({ postCode: post.code, status: { $ne: "dead" } })
                 .sort({ when: -1 })
                 .limit(includeRecentComments)
                 .toArray();
+              
+              // Hydrate handles: look up user subs in @handles collection
+              const userSubs = recentComments.map(c => c.user).filter(Boolean);
+              const handleDocs = userSubs.length > 0 
+                ? await handles.find({ _id: { $in: userSubs } }).toArray()
+                : [];
+              const handleMap = new Map(handleDocs.map(h => [h._id, h.handle]));
+              
               post.recentComments = recentComments.map(c => ({
                 text: c.text,
-                handle: c.handle,
+                handle: c.user ? (handleMap.get(c.user) || 'anon') : 'anon',
                 when: c.when,
               }));
             }
