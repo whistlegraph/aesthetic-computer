@@ -1223,18 +1223,13 @@ function paint(
               paste(thumbnail, floor(previewX), floor(previewY), scaleFactor);
             }
           }
-        }
-        
-        // Red YouTube-style border - only draw visible portion
-        const borderClipLeft = Math.max(0, effectiveTopMargin - previewY);
-        const borderClipTop = Math.max(0, effectiveTopMargin - previewY);
-        const borderClipBottom = Math.max(0, (previewY + previewH) - (screen.height - bottomMargin));
-        if (previewY + previewH > effectiveTopMargin && previewY < screen.height - bottomMargin) {
+          
+          // Red YouTube-style border - only draw when visible
           if (isHovered) {
-            ink(255, 50, 50).box(previewX, Math.max(previewY, effectiveTopMargin), previewW, Math.min(previewH, (screen.height - bottomMargin) - Math.max(previewY, effectiveTopMargin)), "outline");
+            ink(255, 50, 50).box(previewX, floor(previewY), previewW, previewH, "outline");
           } else {
             const blinkAlpha = Math.floor(100 + (Math.sin(help.repeat * 0.15) + 1) * 50);
-            ink(255, 80, 80, blinkAlpha).box(previewX, Math.max(previewY, effectiveTopMargin), previewW, Math.min(previewH, (screen.height - bottomMargin) - Math.max(previewY, effectiveTopMargin)), "outline");
+            ink(255, 80, 80, blinkAlpha).box(previewX, floor(previewY), previewW, previewH, "outline");
           }
         }
         
