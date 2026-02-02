@@ -143,6 +143,18 @@ external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 
+[functions.stretched-paintings]
+# justanothersystem.org - Stretched paintings CRUD API (admin: @jeffrey only)
+external_node_modules = ["mongodb", "mongodb-connection-string-url", "nanoid", "@aws-sdk/client-s3", "@aws-sdk/s3-request-presigner"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "ART_KEY", "ART_SECRET", "ART_ENDPOINT", "ART_SPACE_NAME", "DO_SPACES_KEY", "DO_SPACES_SECRET"]
+
+[functions.jas-tags]
+# justanothersystem.org - Tags/labels CRUD API (admin: @jeffrey only)
+external_node_modules = ["mongodb", "mongodb-connection-string-url", "nanoid"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+
 [functions.ff1-pair]
 external_node_modules = ["redis"]
 included_files = ["backend/**/*.mjs"]
@@ -507,9 +519,21 @@ from = "https://whistlegraph.com/*"
 to = "https://trio.whistlegraph.com/:splat"
 status = 301
 force = true
+# jas.life - Jeffrey's CV/portfolio
+# Local dev: https://localhost:8888/jas.life/
+[[redirects]]
+from = "/jas.life"
+to = "/jas.life/"
+status = 200
+force = true
+[[redirects]]
+from = "/jas.life/*"
+to = "/jas.life/:splat"
+status = 200
+force = true
 [[redirects]]
 from = "https://jas.life/*"
-to = "/digitpain.com/:splat"
+to = "/jas.life/:splat"
 status = 200
 force = true
 [[redirects]]
@@ -517,18 +541,62 @@ from = "https://www.jas.life/*"
 to = "https://jas.life/:splat"
 status = 301
 force = true
+# digitpain.com - redirect to jas.life (deprecated)
 [[redirects]]
 from = "https://digitpain.com/*"
-to = "/digitpain.com/:splat"
-status = 200
+to = "https://jas.life/:splat"
+status = 301
 force = true
 [[redirects]]
 from = "https://www.digitpain.com/*"
-to = "https://digitpain.com/:splat"
+to = "https://jas.life/:splat"
 status = 301
 force = true
 
 # justanothersystem.org - Stretched paintings by Jeffrey Alan Scudder
+# API routes first (before catch-all)
+[[redirects]]
+from = "https://justanothersystem.org/api/stretched-paintings"
+to = "/.netlify/functions/stretched-paintings"
+status = 200
+force = true
+[[redirects]]
+from = "https://justanothersystem.org/api/stretched-paintings/*"
+to = "/.netlify/functions/stretched-paintings/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.justanothersystem.org/api/stretched-paintings"
+to = "/.netlify/functions/stretched-paintings"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.justanothersystem.org/api/stretched-paintings/*"
+to = "/.netlify/functions/stretched-paintings/:splat"
+status = 200
+force = true
+# JAS Tags API
+[[redirects]]
+from = "https://justanothersystem.org/api/tags"
+to = "/.netlify/functions/jas-tags"
+status = 200
+force = true
+[[redirects]]
+from = "https://justanothersystem.org/api/tags/*"
+to = "/.netlify/functions/jas-tags/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.justanothersystem.org/api/tags"
+to = "/.netlify/functions/jas-tags"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.justanothersystem.org/api/tags/*"
+to = "/.netlify/functions/jas-tags/:splat"
+status = 200
+force = true
+# Static content routes
 [[redirects]]
 from = "https://justanothersystem.org"
 to = "/justanothersystem.org/index.html"
@@ -821,6 +889,18 @@ to = "/kidlisp.com/device.html"
 status = 200
 force = true
 
+# Top subdomain for kidlisp.com - top.kidlisp.com (alias for top100 playlist)
+[[redirects]]
+from = "https://top.kidlisp.com"
+to = "/kidlisp.com/device.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://top.kidlisp.com/*"
+to = "/kidlisp.com/device.html"
+status = 200
+force = true
+
 [[redirects]]
 from = "https://news.aesthetic.computer"
 to = "/.netlify/functions/news"
@@ -956,6 +1036,14 @@ status = 200
 [[redirects]]
 from = "/api/shop"
 to = "/.netlify/functions/shop"
+status = 200
+[[redirects]]
+from = "/api/stretched-paintings"
+to = "/.netlify/functions/stretched-paintings"
+status = 200
+[[redirects]]
+from = "/api/jas-tags"
+to = "/.netlify/functions/jas-tags"
 status = 200
 [[redirects]]
 from = "/api/piece-hit"

@@ -24,6 +24,12 @@
       const pathParts = pathname.split('/').filter(p => p);
       let codeId = null;
       
+      // top.kidlisp.com is an alias for the top100 playlist - no eager fetch needed
+      if (hostname === 'top.kidlisp.com') {
+        // Playlist mode - no single codeId to fetch
+        return;
+      }
+      
       if (hostname === 'device.kidlisp.com') {
         codeId = pathParts[0] || null;
       } else if (pathname.startsWith('/device.kidlisp.com/')) {
@@ -51,6 +57,8 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
     }
     
     html, body {
@@ -1559,13 +1567,21 @@
     // Parse codeId or playlist path:
     // device.kidlisp.com/codeId
     // device.kidlisp.com/playlist/top100 (short playlist URL)
+    // top.kidlisp.com (alias for top100 playlist)
     // localhost:8888/kidlisp.com/device/codeId
     // localhost:8888/device.kidlisp.com/codeId
+    // localhost:8888/top.kidlisp.com (local dev for top.kidlisp.com)
     let codeId = null;
     let slideshowShortcut = null;  // Will be set if using /playlist/xxx path
     const pathParts = pathname.split('/').filter(p => p);
     
-    if (hostname === 'device.kidlisp.com') {
+    if (hostname === 'top.kidlisp.com') {
+      // top.kidlisp.com is an alias for device.kidlisp.com/playlist/top100
+      slideshowShortcut = 'top100';
+    } else if (pathname.startsWith('/top.kidlisp.com')) {
+      // Local dev: localhost:8888/top.kidlisp.com → top100 playlist
+      slideshowShortcut = 'top100';
+    } else if (hostname === 'device.kidlisp.com') {
       // Production: device.kidlisp.com/codeId or /playlist/top100
       if (pathParts[0] === 'playlist' && pathParts[1]) {
         slideshowShortcut = pathParts[1].toLowerCase();
@@ -2203,7 +2219,10 @@
       // Build the playlist URL for the CLI command (official FF1 CLI format)
       // Use the short path if we're in a known playlist, otherwise use full URL
       let slideshowUrl;
-      if (slideshowShortcut) {
+      if (slideshowShortcut === 'top100') {
+        // top.kidlisp.com is the nice alias for the top100 playlist
+        slideshowUrl = `https://top.kidlisp.com`;
+      } else if (slideshowShortcut) {
         slideshowUrl = `https://device.kidlisp.com/playlist/${slideshowShortcut}`;
       } else {
         // Fall back to full playlist_url encoded
