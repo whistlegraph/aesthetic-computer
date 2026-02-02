@@ -4326,7 +4326,7 @@ function paintNewsTicker($, theme) {
   const loopText = displayText + separator;
   const loopWidth = loopText.length * tickerCharWidth;
   
-  // Activity row loop (scrolls in opposite direction for visual interest)
+  // Activity row loop (scrolls same direction as headlines, but slower)
   const activitySeparator = "   ·   ";
   const activityLoopText = activityText + activitySeparator;
   const activityLoopWidth = activityLoopText.length * tickerCharWidth;
@@ -4334,8 +4334,8 @@ function paintNewsTicker($, theme) {
   // Scroll animation (always scroll, slower for fallback text)
   const scrollSpeed = hasNews ? 0.5 : 0.25;
   const scrollOffset = (performance.now() * scrollSpeed / 16) % loopWidth;
-  // Activity scrolls opposite direction at slower speed
-  const activityScrollSpeed = 0.3;
+  // Activity scrolls same direction as headlines, but slower
+  const activityScrollSpeed = 0.25;
   const activityScrollOffset = (performance.now() * activityScrollSpeed / 16) % activityLoopWidth;
   
   // Calculate HUD label right edge to avoid overlap
@@ -4429,10 +4429,10 @@ function paintNewsTicker($, theme) {
     }
   }
   
-  // ROW 2: Draw ACTIVITY text (scrolls opposite direction)
+  // ROW 2: Draw ACTIVITY text (scrolls same direction as row 1, but slower)
   for (let copy = 0; copy < 3; copy++) {
-    // Scroll right-to-left (opposite of row 1)
-    const baseX = scrollAreaRight + activityScrollOffset - activityLoopWidth + (copy * activityLoopWidth);
+    // Scroll left-to-right (same as row 1)
+    const baseX = scrollAreaLeft - activityScrollOffset + (copy * activityLoopWidth);
     
     for (let i = 0; i < activityLoopText.length; i++) {
       const charX = baseX + i * tickerCharWidth;
