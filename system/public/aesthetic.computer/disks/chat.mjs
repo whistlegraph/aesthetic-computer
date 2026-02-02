@@ -1357,15 +1357,12 @@ function paint(
           const borderColor = isFavicon ? [100, 200, 200] : [0, 200, 200];
           const hoverBorderColor = isFavicon ? [150, 255, 255] : [0, 255, 255];
           
-          if (previewY + previewH > effectiveTopMargin && previewY < screen.height - bottomMargin) {
-            const borderY = Math.max(previewY, effectiveTopMargin);
-            const borderH = Math.min(previewH, (screen.height - bottomMargin) - borderY);
-            if (isHovered) {
-              ink(...hoverBorderColor).box(previewX, borderY, previewW, borderH, "outline");
-            } else {
-              const blinkAlpha = Math.floor(100 + (Math.sin(help.repeat * 0.15) + 1) * 50);
-              ink(...borderColor, blinkAlpha).box(previewX, borderY, previewW, borderH, "outline");
-            }
+          // Draw border at natural position - mask will clip outside visible area
+          if (isHovered) {
+            ink(...hoverBorderColor).box(previewX, floor(previewY), previewW, previewH, "outline");
+          } else {
+            const blinkAlpha = Math.floor(100 + (Math.sin(help.repeat * 0.15) + 1) * 50);
+            ink(...borderColor, blinkAlpha).box(previewX, floor(previewY), previewW, previewH, "outline");
           }
         
           // Draw title/site name below the preview
