@@ -7352,8 +7352,19 @@ async function load(
     const moduleLoadErrorTime = performance.now();
     // console.log(`⏰ Module load error caught at ${moduleLoadErrorTime}ms`);
     console.log("🟡 Error loading mjs module:", err);
-    // Look for lisp files if the mjs file is not found, but only if we weren't already trying to load a .lisp file
-    if (fullUrl && !fullUrl.includes('.lisp')) {
+    
+    // Determine if this was a fetch failure (404/403) vs a module import/compile error
+    // Only try .lisp fallback if:
+    // 1. We weren't already trying to load a .lisp file
+    // 2. The error suggests the file wasn't found (not a JS syntax/import error)
+    const isFetchError = err.message === "404" || err.message === "403";
+    const isModuleImportError = err.toString().includes("Failed to fetch dynamically imported module") ||
+                                err.toString().includes("Unexpected token") ||
+                                err.toString().includes("SyntaxError") ||
+                                err.toString().includes("Cannot use import");
+    
+    // If the .mjs file was fetched but failed to import (JS error), don't try .lisp
+    if (fullUrl && !fullUrl.includes('.lisp') && isFetchError && !isModuleImportError) {
       try {
         fullUrl = fullUrl.replace(".mjs", ".lisp");
         let response;
@@ -7411,15 +7422,23 @@ async function load(
         return false;
       }
     } else {
-      // If we were already trying to load a .lisp file and it failed, just propagate the error
-      console.error(
-        `😡 "${path}" load failure:`,
-        err,
-        "💾 First load:",
-        firstLoad,
-      );
+      // Module import/compile error - the .mjs file exists but has errors
+      // Don't try .lisp fallback, just show the error
+      if (isModuleImportError) {
+        console.error(
+          `😡 "${path}" module import failed (JS error in the piece):`,
+          err,
+        );
+      } else {
+        console.error(
+          `😡 "${path}" load failure:`,
+          err,
+          "💾 First load:",
+          firstLoad,
+        );
+      }
       loadFailure = err;
-      $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
+      $commonApi.net.loadFailureText = err.message + "\n" + (sourceCode || "");
       loading = false;
 
       // Only return a 404 if the error type is correct.

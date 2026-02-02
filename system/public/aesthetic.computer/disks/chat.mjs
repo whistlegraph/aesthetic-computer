@@ -1036,87 +1036,79 @@ function paint(
         const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
         const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
         
-        // Calculate crop position in source pixels
-        const cropX = Math.max(0, Math.min(maxPanX * panX, imgWidth - previewSize));
-        const cropY = Math.max(0, Math.min(maxPanY * panY, imgHeight - previewSize));
-        
-        // Ensure crop dimensions don't exceed image bounds
-        const cropW = Math.min(previewSize, imgWidth - cropX);
-        const cropH = Math.min(previewSize, imgHeight - cropY);
+        // Calculate crop position in source pixels (for Ken Burns animation)
+        const kenBurnsCropX = floor(Math.max(0, Math.min(maxPanX * panX, imgWidth - previewSize)));
+        const kenBurnsCropY = floor(Math.max(0, Math.min(maxPanY * panY, imgHeight - previewSize)));
+        const kenBurnsCropW = Math.min(previewSize, imgWidth - kenBurnsCropX);
+        const kenBurnsCropH = Math.min(previewSize, imgHeight - kenBurnsCropY);
         
         // Check if this preview is being hovered
         const isHovered = message.layout.hoveredPainting === code && 
                           message.layout.hoveredPaintingIndex === codeIdx;
         
-        // Calculate how much of the preview is visible (clipped by mask bounds)
-        const visibleLeft = Math.max(previewX, 0);
-        const visibleRight = Math.min(previewX + previewSize, screen.width);
-        const visibleTop = Math.max(previewY, effectiveTopMargin);
-        const visibleBottom = Math.min(previewY + previewSize, screen.height - bottomMargin);
-        const visibleWidth = visibleRight - visibleLeft;
-        const visibleHeight = visibleBottom - visibleTop;
+        // Calculate visible bounds (what portion of the preview is within the mask area)
+        const maskTop = effectiveTopMargin;
+        const maskBottom = screen.height - bottomMargin;
         
-        // Only render if there's visible area
-        if (visibleWidth > 0 && visibleHeight > 0) {
-          // Adjust render position and crop for all boundaries
-          let renderX = floor(previewX);
-          let renderY = floor(previewY);
-          let renderCropX = floor(cropX);
-          let renderCropY = floor(cropY);
-          let renderCropW = floor(cropW);
-          let renderCropH = floor(cropH);
+        // Check if preview is at least partially visible
+        const isPartiallyVisible = previewY + previewSize > maskTop && 
+                                   previewY < maskBottom &&
+                                   previewX + previewSize > 0 &&
+                                   previewX < screen.width;
+        
+        if (isPartiallyVisible) {
+          // Calculate how much to clip from each edge for mask boundaries
+          const clipTop = Math.max(0, maskTop - previewY);
+          const clipBottom = Math.max(0, (previewY + previewSize) - maskBottom);
+          const clipLeft = Math.max(0, -previewX);
+          const clipRight = Math.max(0, (previewX + previewSize) - screen.width);
           
-          // Clip at left if needed
-          if (previewX < 0) {
-            const clipAmount = -previewX;
-            renderX = 0;
-            renderCropX = floor(cropX + clipAmount);
-            renderCropW = floor(cropW - clipAmount);
-          }
+          // Calculate the visible render dimensions
+          const renderW = previewSize - clipLeft - clipRight;
+          const renderH = previewSize - clipTop - clipBottom;
           
-          // Clip at right if needed
-          if (previewX + previewSize > screen.width) {
-            const clipAmount = (previewX + previewSize) - screen.width;
-            renderCropW = floor(cropW - clipAmount);
-          }
+          // Adjust render position to where the visible portion should be drawn
+          const renderX = floor(previewX + clipLeft);
+          const renderY = floor(previewY + clipTop);
           
-          // Clip at top if needed
-          if (previewY < effectiveTopMargin) {
-            const clipAmount = effectiveTopMargin - previewY;
-            renderY = effectiveTopMargin;
-            renderCropY = floor(cropY + clipAmount);
-            renderCropH = floor(cropH - clipAmount);
-          }
+          // The source crop needs to:
+          // 1. Start at the Ken Burns position
+          // 2. Add the clip offset (so we're showing the correct portion of the preview)
+          // 3. Be limited to both the render size AND the source image bounds
+          const srcCropX = kenBurnsCropX + clipLeft;
+          const srcCropY = kenBurnsCropY + clipTop;
+          // The crop size should be exactly the render size (what we want to show),
+          // but also can't exceed the source image bounds
+          const srcCropW = Math.min(renderW, Math.max(0, imgWidth - srcCropX));
+          const srcCropH = Math.min(renderH, Math.max(0, imgHeight - srcCropY));
           
-          // Clip at bottom if needed
-          if (previewY + previewSize > screen.height - bottomMargin) {
-            const clipAmount = (previewY + previewSize) - (screen.height - bottomMargin);
-            renderCropH = floor(cropH - clipAmount);
-          }
-          
-          // Ensure crop dimensions are valid
-          if (renderCropW > 0 && renderCropH > 0 && renderCropX >= 0 && renderCropY >= 0 && 
-              renderCropX < imgWidth && renderCropY < imgHeight) {
-            // Paste with crop at 1:1 scale (no width/height scale)
+          if (renderW > 0 && renderH > 0 && srcCropW > 0 && srcCropH > 0 &&
+              srcCropX >= 0 && srcCropY >= 0 && srcCropX < imgWidth && srcCropY < imgHeight) {
             paste(
               painting,
               renderX,
               renderY,
               { 
                 crop: {
-                  x: renderCropX,
-                  y: renderCropY,
-                  w: Math.min(renderCropW, imgWidth - renderCropX),
-                  h: Math.min(renderCropH, imgHeight - renderCropY)
+                  x: srcCropX,
+                  y: srcCropY,
+                  w: srcCropW,
+                  h: srcCropH
                 }
               }
             );
           }
         }
         
-        // Draw a subtle border around the preview
+        // Draw border only for the visible portion
         const borderAlpha = isHovered ? 255 : 150;
-        ink(100, 100, 120, borderAlpha).box(previewX, previewY, previewSize, previewSize, "outline");
+        const borderTop = Math.max(previewY, effectiveTopMargin);
+        const borderBottom = Math.min(previewY + previewSize, screen.height - bottomMargin);
+        const borderLeft = Math.max(previewX, 0);
+        const borderRight = Math.min(previewX + previewSize, screen.width);
+        if (borderBottom > borderTop && borderRight > borderLeft) {
+          ink(100, 100, 120, borderAlpha).box(borderLeft, borderTop, borderRight - borderLeft, borderBottom - borderTop, "outline");
+        }
         
         // Reserve space for the painting preview
         previewX += previewSize + 4;

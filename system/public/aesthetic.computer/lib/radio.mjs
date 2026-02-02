@@ -16,6 +16,9 @@ export function createRadioState(config) {
     streamId: config.streamId,
     metadataUrl: config.metadataUrl || null,
     qrUrl: config.qrUrl,
+    qrLabel: config.qrLabel || config.qrUrl.replace("https://", ""),
+    websiteUrl: config.websiteUrl || null,
+    websiteLabel: config.websiteLabel || null,
     
     // Playback state
     isPlaying: false,
@@ -452,8 +455,8 @@ export function drawVolumeSlider(ctx, state, theme, layout, pen) {
 
 // Draw QR code - positioned in bottom right corner
 export function drawQRCode(ctx, state, theme, layout) {
-  const { ink, box } = ctx;
-  const { qrX, qrY, qrScale, qrSize } = layout;
+  const { ink, box, write } = ctx;
+  const { qrX, qrY, qrScale, qrSize, screenWidth, screenHeight } = layout;
   
   if (!state.qrCells) return;
   
@@ -471,6 +474,26 @@ export function drawQRCode(ctx, state, theme, layout) {
   
   // Outline
   ink(...theme.qrOutline).box(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2, "outline");
+  
+  // QR label below - "prompt.ac/r8dio" etc.
+  if (state.qrLabel) {
+    const labelY = qrY + qrSize + 4;
+    // Right-align label under QR code
+    ink(...theme.qrLabel).write(state.qrLabel, { x: qrX + qrSize, y: labelY, right: true }, undefined, undefined, false, "MatrixChunky8");
+  }
+}
+
+// Draw website link - bottom left corner
+export function drawWebsiteLink(ctx, state, theme, layout) {
+  const { ink, write } = ctx;
+  const { screenHeight, isSmall } = layout;
+  
+  if (!state.websiteLabel) return;
+  
+  const linkY = screenHeight - (isSmall ? 8 : 12);
+  const linkX = isSmall ? 4 : 8;
+  
+  ink(...theme.qrLabel).write(state.websiteLabel, { x: linkX, y: linkY }, undefined, undefined, false, "MatrixChunky8");
 }
 
 // Draw status text - centered
