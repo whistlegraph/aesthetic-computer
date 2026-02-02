@@ -2662,8 +2662,8 @@ function getWebViewContent(webview: any, slug: string) {
       path = "";
     }
 
-    let cspFrameSrc = "frame-src https://news.aesthetic.computer https://localhost:8888";
-    let cspChildSrc = "child-src https://news.aesthetic.computer https://localhost:8888";
+    let cspFrameSrc = "frame-src https://news.aesthetic.computer https://localhost:8888 https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com";
+    let cspChildSrc = "child-src https://news.aesthetic.computer https://localhost:8888 https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com";
     if (isCodespaces && codespacesDomain) {
       const codespaceWildcard = `https://*.${codespacesDomain}`;
       cspFrameSrc += ` ${codespaceWildcard}`;
@@ -2706,7 +2706,7 @@ function getWebViewContent(webview: any, slug: string) {
         </style>
       </head>
       <body>
-        <iframe id="news" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}${path}${param}"></iframe>
+        <iframe id="news" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation" allow="clipboard-write; clipboard-read; autoplay; encrypted-media; fullscreen; accelerometer; gyroscope; picture-in-picture" src="${iframeProtocol}${iframeUrl}${path}${param}"></iframe>
         <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
           const newsIframe = document.getElementById('news');

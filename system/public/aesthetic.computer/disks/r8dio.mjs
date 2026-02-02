@@ -27,6 +27,7 @@ import {
   drawPlayButton,
   drawVolumeSlider,
   drawQRCode,
+  drawWebsiteLink,
   drawStatus,
   drawTitle,
   handleInteraction,
@@ -40,6 +41,9 @@ const CONFIG = {
   streamId: "r8dio-stream",
   metadataUrl: "https://public.radio.co/stations/s7cd1ffe2f/status",
   qrUrl: "https://prompt.ac/r8dio",
+  qrLabel: "prompt.ac/r8dio",
+  websiteUrl: "https://r8dio.dk",
+  websiteLabel: "r8dio.dk",
 };
 
 // R8dio Theme - Purple/pink Danish aesthetic
@@ -132,6 +136,7 @@ function paint({ wipe, ink, screen, pen, help, box, line, write }) {
   drawPlayButton(ctx, state, THEME, layout, pen, help);
   drawVolumeSlider(ctx, state, THEME, layout, pen);
   drawQRCode(ctx, state, THEME, layout);
+  drawWebsiteLink(ctx, state, THEME, layout);
   drawStatus(ctx, state, THEME, layout, help);
 }
 

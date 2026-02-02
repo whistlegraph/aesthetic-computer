@@ -23,6 +23,7 @@ import {
   drawPlayButton,
   drawVolumeSlider,
   drawQRCode,
+  drawWebsiteLink,
   drawStatus,
   drawTitle,
   handleInteraction,
@@ -36,6 +37,9 @@ const CONFIG = {
   streamId: "kpbj-stream",
   metadataUrl: null, // Could be: "https://kpbj.hasnoskills.com/api/nowplaying/kpbj_test_station"
   qrUrl: "https://prompt.ac/kpbj",
+  qrLabel: "prompt.ac/kpbj",
+  websiteUrl: "https://kpbj.fm",
+  websiteLabel: "kpbj.fm",
 };
 
 // KPBJ Theme - Sun Valley mountain/nature aesthetic
@@ -128,6 +132,7 @@ function paint({ wipe, ink, screen, pen, help, box, line, write }) {
   drawPlayButton(ctx, state, THEME, layout, pen, help);
   drawVolumeSlider(ctx, state, THEME, layout, pen);
   drawQRCode(ctx, state, THEME, layout);
+  drawWebsiteLink(ctx, state, THEME, layout);
   drawStatus(ctx, state, THEME, layout, help);
 }
 
