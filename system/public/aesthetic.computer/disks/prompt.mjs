@@ -160,7 +160,7 @@ let unitickerTooltipVisible = false; // Whether to show the "Enter code" tooltip
 // "critical" = full lockdown (chat offline, all alerts)
 // "yikes" = chat works, but keep $ effect, GIVE button, emotional face
 // "off" = normal operation
-export const FUNDING_SEVERITY = "off";
+export const FUNDING_SEVERITY = "yikes";
 
 // Legacy export for backwards compatibility
 export const FUNDING_MODE = FUNDING_SEVERITY === "critical";
@@ -4277,7 +4277,7 @@ function paint($) {
     giveBtnParticles = []; // Clear particles when button hidden
   }
 
-  // 📢 AD MODE button in top-right corner when funding is off (replace GIVE button)
+  //  AD MODE button in top-right corner when funding is off (replace GIVE button)
   // DISABLED for now - toggle back on by removing the `false &&` below
   if (false && !showFundingEffects && showLoginCurtain) {
     const now = Date.now();
