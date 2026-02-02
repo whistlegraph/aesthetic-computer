@@ -175,7 +175,8 @@ export function createHandler({
           const limit = Math.min(parseInt(event.queryStringParameters?.limit || "30", 10), 100);
           const sort = event.queryStringParameters?.sort === "new" ? { when: -1 } : { score: -1, when: -1 };
           const includeRecentComments = parseInt(event.queryStringParameters?.includeRecentComments || "0", 10);
-          const docs = await posts.find({ status: "live" }).sort(sort).limit(limit).toArray();
+          // Match news.mjs: show all posts except "dead" (includes live, pending-toll, etc.)
+          const docs = await posts.find({ status: { $ne: "dead" } }).sort(sort).limit(limit).toArray();
           const withCounts = await attachCommentCounts(docs, comments);
           
           // Optionally include recent comments for each post
