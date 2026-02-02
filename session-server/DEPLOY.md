@@ -3,32 +3,43 @@
 ## Production Server
 - **Host**: session-server.aesthetic.computer (157.245.134.225)
 - **User**: root
-- **Path**: `/root/aesthetic-computer/session-server`
+- **Path**: `/home/aesthetic-computer/session-server`
+- **Node**: Managed via `fnm` (Fast Node Manager)
+- **Process**: `pm2` (name: `session`)
 
-## Deploy from Local Machine
+## Deploy from DevContainer
 
-Since the production server requires specific SSH keys not in the dev container, deploy from your local machine where you have SSH access:
+The SSH key for the session server is available in the dev container at `~/.ssh/session_server`:
 
 ```bash
-# One-liner deployment (run from your local terminal)
-ssh root@157.245.134.225 "cd /root/aesthetic-computer && git pull origin main && cd session-server && npm install && pm2 restart session-server && pm2 logs session-server --lines 20 --nostream"
+# One-liner deployment
+ssh -i ~/.ssh/session_server root@157.245.134.225 'export PATH="/root/.local/share/fnm:$PATH" && eval "$(fnm env)" && cd /home/aesthetic-computer && git pull origin main && cd session-server && npm install && pm2 restart session && pm2 logs session --lines 20 --nostream'
+```
+
+Or use the fish function (recommended):
+```fish
+ac-deploy-session
 ```
 
 ## What This Does
 
 1. ✅ SSH into production server
-2. ✅ Pull latest code from GitHub main branch
-3. ✅ Install any new npm dependencies
-4. ✅ Restart session server process with pm2
-5. ✅ Show last 20 log lines to verify deployment
+2. ✅ Load fnm environment (for node/npm/pm2)
+3. ✅ Pull latest code from GitHub main branch
+4. ✅ Install any new npm dependencies
+5. ✅ Restart session server process with pm2
+6. ✅ Show last 20 log lines to verify deployment
 
 ## Verify Deployment
 
-After deploying, test the new endpoints:
+After deploying, test the endpoints:
 
 ```bash
-# Test build-stream endpoint (from local machine)
-curl -k -X POST https://session-server.aesthetic.computer/build-stream \
+# Test socklogs WebSocket endpoint
+websocat "wss://session-server.aesthetic.computer/socklogs?role=viewer"
+
+# Test build-stream endpoint
+curl -X POST https://session-server.aesthetic.computer/build-stream \
   --header "Content-Type: application/json" \
   --data '{"line": "🔨 Test deployment"}'
 
@@ -39,14 +50,17 @@ curl -k -X POST https://session-server.aesthetic.computer/build-stream \
 ## Monitor Production
 
 ```bash
+# Set up fnm first for any pm2 commands
+FNM='export PATH="/root/.local/share/fnm:$PATH" && eval "$(fnm env)"'
+
 # View live logs
-ssh root@157.245.134.225 "pm2 logs session-server"
+ssh -i ~/.ssh/session_server root@157.245.134.225 "$FNM && pm2 logs session"
 
 # Check process status  
-ssh root@157.245.134.225 "pm2 status"
+ssh -i ~/.ssh/session_server root@157.245.134.225 "$FNM && pm2 status"
 
 # Restart if needed
-ssh root@157.245.134.225 "pm2 restart session-server"
+ssh -i ~/.ssh/session_server root@157.245.134.225 "$FNM && pm2 restart session"
 ```
 
 ## Local Testing (Already Verified ✅)
