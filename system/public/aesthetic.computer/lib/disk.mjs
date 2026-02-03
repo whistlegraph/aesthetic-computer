@@ -12317,7 +12317,15 @@ async function makeFrame({ data: { type, content } }) {
             }
             
             // 🧬 GOL Transition: Start transition when first piece paint happens
-            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && !golTransition.active && $api.screen?.pixels) {
+            // Skip for KidLisp pieces - they have their own rendering that conflicts
+            const isKidLispPiece = currentPath && (
+              lisp.isKidlispSource(currentPath) || 
+              currentPath === "(...)" || 
+              currentPath.includes("$") ||
+              currentPath.endsWith('.lisp')
+            );
+            
+            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && !golTransition.active && $api.screen?.pixels && !isKidLispPiece) {
               const screenW = $api.screen.width;
               const screenH = $api.screen.height;
               const overlayW = golTransition.width;
