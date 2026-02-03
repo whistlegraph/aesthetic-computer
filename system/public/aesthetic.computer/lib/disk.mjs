@@ -1078,21 +1078,35 @@ let lastPaintOut = undefined; // Store last paintOut to preserve correct noPaint
 let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
-// 🧬 GOL Transition: overlay pixels → fades to reveal piece underneath
-// DCT-style compression artifact transition (JPEG/MPEG vibes)
+// 🎬 Piece Transition System
+// Two transition types available: "drip" (default, fast) and "bubble-wrap" (organic, slower)
+// Set to "none" to disable transitions entirely (fast cut)
+const TRANSITION_TYPE = "none"; // "none", "drip" or "bubble-wrap"
+
+// 🧬 Piece Transition State: overlay pixels → fades to reveal piece underneath
 // Captures the OUTGOING piece's pixels when transitioning between pieces
-let golTransition = {
+let pieceTransition = {
   active: false,
+  phase: "loading",    // "loading" (slow, reach ~50%) or "revealing" (fast, finish)
   overlayPixels: null, // The captured frame that overlays on top (from outgoing piece)
-  blockData: null,     // Per-block compression data
-  blockSize: 8,        // Classic DCT block size
   generation: 0,
-  maxGenerations: 30,  // ~0.5s at 60fps - WOOSH
+  maxGenerations: 60,  // Total frames for full transition
   width: 0,
   height: 0,
+  // Drip-specific state (per-column y-offset) - BLINDS STYLE
+  dripOffsets: null,   // Int16Array of column y-offsets (positive = distance moved)
+  dripSpeeds: null,    // Float32Array of per-column speeds
+  dripDirections: null, // Int8Array: 1 = down, -1 = up (alternating blinds)
+  targetOffset: 0,     // Target offset for loading phase (~50% of height)
+  // Bubble-wrap-specific state
+  blockData: null,     // Per-block data for bubble-wrap
+  blockSize: 8,
   blocksX: 0,
   blocksY: 0,
 };
+
+// 🧬 Legacy alias for backwards compatibility
+const golTransition = pieceTransition;
 
 // 🧬 Scale overlay pixels to match new resolution (nearest-neighbor)
 function scaleOverlayPixels(srcPixels, srcWidth, srcHeight, dstWidth, dstHeight) {
@@ -1117,25 +1131,145 @@ function scaleOverlayPixels(srcPixels, srcWidth, srcHeight, dstWidth, dstHeight)
   return dstPixels;
 }
 
-// 🧬 Biological morphing transition - organic flowing displacement
+// ═══════════════════════════════════════════════════════════════════════════
+// 🪟 BLINDS TRANSITION - Alternating up/down strips (FAST & PERFORMANT)
+// ═══════════════════════════════════════════════════════════════════════════
 
-// 🧬 Initialize transition - per-pixel dissolve with organic noise
-function initGOLCells(width, height) {
-  golTransition.blockSize = 1; // Per-pixel
-  golTransition.blocksX = width;
-  golTransition.blocksY = height;
-  golTransition.blockData = null; // Not needed for per-pixel
+// Initialize blinds transition - alternating columns slide up/down
+function initDripTransition(width, height) {
+  pieceTransition.dripOffsets = new Int16Array(width);
+  pieceTransition.dripSpeeds = new Float32Array(width);
+  pieceTransition.dripDirections = new Int8Array(width);
+  pieceTransition.maxGenerations = 30; // Faster!
+  pieceTransition.phase = "loading";
+  pieceTransition.targetOffset = Math.floor(height * 0.35); // ~35% during loading (less wait)
+  
+  // Initialize per-column state - alternating directions like blinds
+  for (let x = 0; x < width; x++) {
+    pieceTransition.dripOffsets[x] = 0; // Start at 0 (overlay fully in place)
+    // Alternate: even columns slide DOWN, odd columns slide UP
+    pieceTransition.dripDirections[x] = (x % 2 === 0) ? 1 : -1;
+    // Faster speed during loading phase
+    pieceTransition.dripSpeeds[x] = 4 + Math.random() * 3; // 4-7 pixels per frame
+  }
 }
 
-// 🧬 Step function
-function golStep(screenPixels) {
-  golTransition.generation++;
-  return golTransition.generation < golTransition.maxGenerations;
+// Signal that piece is loaded - switch to fast reveal phase
+function transitionPieceLoaded() {
+  if (pieceTransition.active && pieceTransition.phase === "loading") {
+    pieceTransition.phase = "revealing";
+    // Boost speeds for the reveal phase - FAST!
+    for (let x = 0; x < pieceTransition.dripSpeeds.length; x++) {
+      pieceTransition.dripSpeeds[x] = 10 + Math.random() * 8; // 10-18 pixels per frame
+    }
+    console.log("🎬 Transition: Piece loaded! Switching to reveal phase");
+  }
 }
 
-// 🧬 Apply biological chunky smoothie morph - pixels get blended and scrambled
-function applyGOLOverlay(screenPixels) {
-  const { overlayPixels, width, height, generation, maxGenerations } = golTransition;
+// Step blinds transition - advance each column's offset
+function dripStep() {
+  pieceTransition.generation++;
+  const { dripOffsets, dripSpeeds, dripDirections, height, phase, targetOffset } = pieceTransition;
+  
+  let allDone = true;
+  
+  for (let x = 0; x < dripOffsets.length; x++) {
+    const currentOffset = dripOffsets[x];
+    
+    if (phase === "loading") {
+      // Loading phase: slowly move toward target (~45%)
+      if (currentOffset < targetOffset) {
+        dripOffsets[x] += dripSpeeds[x];
+        // Clamp to target during loading
+        if (dripOffsets[x] > targetOffset) {
+          dripOffsets[x] = targetOffset;
+        }
+        allDone = false;
+      }
+    } else {
+      // Revealing phase: accelerate to completion
+      if (currentOffset < height) {
+        dripOffsets[x] += dripSpeeds[x];
+        // Add acceleration (gravity/momentum)
+        dripSpeeds[x] += 0.3;
+        allDone = false;
+      }
+    }
+  }
+  
+  // During loading phase, never report "done" - wait for reveal
+  if (phase === "loading") {
+    return true; // Keep running
+  }
+  
+  return !allDone && pieceTransition.generation < pieceTransition.maxGenerations;
+}
+
+// Apply blinds overlay - alternating columns slide up/down to reveal new frame
+function applyDripOverlay(screenPixels) {
+  const { overlayPixels, dripOffsets, dripDirections, width, height } = pieceTransition;
+  if (!overlayPixels || !screenPixels || !dripOffsets || !dripDirections) return;
+  
+  for (let x = 0; x < width; x++) {
+    const offset = Math.max(0, dripOffsets[x] | 0);
+    const direction = dripDirections[x];
+    
+    if (offset >= height) continue; // Column fully slid off
+    
+    const visibleRows = height - offset;
+    
+    if (direction > 0) {
+      // SLIDE DOWN - overlay moves down, reveals new frame from TOP
+      for (let y = 0; y < visibleRows; y++) {
+        const srcY = y;              // Read from top of overlay
+        const dstY = y + offset;     // Write shifted down
+        const srcIdx = (srcY * width + x) * 4;
+        const dstIdx = (dstY * width + x) * 4;
+        
+        screenPixels[dstIdx] = overlayPixels[srcIdx];
+        screenPixels[dstIdx + 1] = overlayPixels[srcIdx + 1];
+        screenPixels[dstIdx + 2] = overlayPixels[srcIdx + 2];
+        screenPixels[dstIdx + 3] = overlayPixels[srcIdx + 3];
+      }
+    } else {
+      // SLIDE UP - overlay moves up, reveals new frame from BOTTOM
+      for (let y = 0; y < visibleRows; y++) {
+        const srcY = offset + y;     // Read from bottom portion of overlay
+        const dstY = y;              // Write shifted up
+        const srcIdx = (srcY * width + x) * 4;
+        const dstIdx = (dstY * width + x) * 4;
+        
+        screenPixels[dstIdx] = overlayPixels[srcIdx];
+        screenPixels[dstIdx + 1] = overlayPixels[srcIdx + 1];
+        screenPixels[dstIdx + 2] = overlayPixels[srcIdx + 2];
+        screenPixels[dstIdx + 3] = overlayPixels[srcIdx + 3];
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🫧 BUBBLE-WRAP TRANSITION - Organic morphing dissolve (DEPRECATED: slower)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Initialize bubble-wrap transition - per-pixel dissolve with organic noise
+function initBubbleWrapCells(width, height) {
+  pieceTransition.blockSize = 1; // Per-pixel
+  pieceTransition.blocksX = width;
+  pieceTransition.blocksY = height;
+  pieceTransition.blockData = null;
+  pieceTransition.maxGenerations = 30; // Slower for organic feel
+}
+
+// Step bubble-wrap transition
+function bubbleWrapStep(screenPixels) {
+  pieceTransition.generation++;
+  return pieceTransition.generation < pieceTransition.maxGenerations;
+}
+
+// Apply bubble-wrap overlay - chunky biological smoothie morph
+function applyBubbleWrapOverlay(screenPixels) {
+  const { overlayPixels, width, height, generation, maxGenerations } = pieceTransition;
   if (!overlayPixels || !screenPixels) return;
   
   // Progress 0-1
@@ -1221,6 +1355,39 @@ function applyGOLOverlay(screenPixels) {
       screenPixels[i + 1] = g;
       screenPixels[i + 2] = b;
     }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎬 UNIFIED TRANSITION API - Dispatches to drip, bubble-wrap, or none
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Initialize transition based on current type
+function initGOLCells(width, height) {
+  if (TRANSITION_TYPE === "none") return; // No transition
+  if (TRANSITION_TYPE === "drip") {
+    initDripTransition(width, height);
+  } else {
+    initBubbleWrapCells(width, height);
+  }
+}
+
+// Step transition
+function golStep(screenPixels) {
+  if (TRANSITION_TYPE === "none") return false; // Immediately done
+  if (TRANSITION_TYPE === "drip") {
+    return dripStep();
+  } else {
+    return bubbleWrapStep(screenPixels);
+  }
+}
+
+// Apply transition overlay
+function applyGOLOverlay(screenPixels) {
+  if (TRANSITION_TYPE === "drip") {
+    applyDripOverlay(screenPixels);
+  } else {
+    applyBubbleWrapOverlay(screenPixels);
   }
 }
 
@@ -8761,7 +8928,7 @@ async function load(
     shouldSkipPaint = false;
     pieceFrameCount = 0;
     
-    // 🧬 GOL Transition: Capture CURRENT screen pixels BEFORE clearing
+    // 🎬 Piece Transition: Capture CURRENT screen pixels BEFORE clearing
     // This enables piece-to-piece morphing transitions (not just noise16→piece)
     // Check if buffer is valid (not detached from transfer to main thread)
     try {
@@ -8770,20 +8937,20 @@ async function load(
         golTransition.overlayPixels = new Uint8ClampedArray(screen.pixels);
         golTransition.width = screen.width;
         golTransition.height = screen.height;
-        console.log("🧬 GOL: Captured outgoing piece pixels for transition", screen.width, "x", screen.height);
+        
+        // Initialize and START transition immediately (loading phase)
+        initGOLCells(golTransition.width, golTransition.height);
+        golTransition.generation = 0;
+        golTransition.active = true;
+        console.log(`🎬 Transition: Started ${TRANSITION_TYPE} (loading phase)`, screen.width, "x", screen.height);
       }
     } catch (e) {
       // Buffer may be detached if pixels were transferred - skip transition
-      console.log("🧬 GOL: Could not capture pixels (buffer detached), skipping transition");
+      console.log("🎬 Transition: Could not capture pixels (buffer detached), skipping");
       golTransition.overlayPixels = null;
     }
     
-    // Reset GOL transition state (overlayPixels now captured above)
-    golTransition.active = false;
-    golTransition.cells = null;
-    golTransition.nextCells = null;
-    golTransition.smearBuffer = null;
-    golTransition.generation = 0;
+    // Note: transition state is now set above when starting
     
     // 🧹 Clear screen buffer when loading a new piece to prevent stale pixels
     // This fixes the blank screen issue when backspacing from kidlisp to prompt
@@ -12308,7 +12475,7 @@ async function makeFrame({ data: { type, content } }) {
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
             
-            // 🧬 GOL Transition: Also capture noise16 frame as fallback (for initial page load)
+            // 🎬 Piece Transition: Also capture noise16 frame as fallback (for initial page load)
             if (paint === defaults.paint && $api.screen?.pixels) {
               // Capture the noise16 state in case no piece was running before (initial load)
               golTransition.overlayPixels = new Uint8ClampedArray($api.screen.pixels);
@@ -12316,7 +12483,7 @@ async function makeFrame({ data: { type, content } }) {
               golTransition.height = $api.screen.height;
             }
             
-            // 🧬 GOL Transition: Start transition when first piece paint happens
+            // 🎬 Piece Transition: When first piece paint happens, switch to reveal phase
             // Skip for KidLisp pieces - they have their own rendering that conflicts
             const isKidLispPiece = currentPath && (
               lisp.isKidlispSource(currentPath) || 
@@ -12325,7 +12492,7 @@ async function makeFrame({ data: { type, content } }) {
               currentPath.endsWith('.lisp')
             );
             
-            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && !golTransition.active && $api.screen?.pixels && !isKidLispPiece) {
+            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && $api.screen?.pixels && !isKidLispPiece) {
               const screenW = $api.screen.width;
               const screenH = $api.screen.height;
               const overlayW = golTransition.width;
@@ -12333,7 +12500,7 @@ async function makeFrame({ data: { type, content } }) {
               
               // If dimensions differ, scale the overlay to match the new screen
               if (screenW !== overlayW || screenH !== overlayH) {
-                console.log(`🧬 GOL: Scaling overlay from ${overlayW}x${overlayH} to ${screenW}x${screenH}`);
+                console.log(`🎬 Transition: Scaling overlay from ${overlayW}x${overlayH} to ${screenW}x${screenH}`);
                 golTransition.overlayPixels = scaleOverlayPixels(
                   golTransition.overlayPixels, 
                   overlayW, overlayH, 
@@ -12341,13 +12508,24 @@ async function makeFrame({ data: { type, content } }) {
                 );
                 golTransition.width = screenW;
                 golTransition.height = screenH;
+                // Re-initialize with new dimensions if needed
+                if (golTransition.active) {
+                  initGOLCells(screenW, screenH);
+                }
               }
               
-              // Initialize GOL cells - starts with all alive (showing overlay), seeded dead spots
-              initGOLCells(golTransition.width, golTransition.height);
-              golTransition.generation = 0;
-              golTransition.active = true;
-              console.log("🧬 GOL: Started overlay transition!", golTransition.width, "x", golTransition.height);
+              // If transition was already started during load, switch to reveal phase
+              // Otherwise start it now (fallback for cases where capture didn't happen)
+              if (golTransition.active) {
+                transitionPieceLoaded(); // Switch from loading to reveal phase
+              } else {
+                // Fallback: start transition now if it wasn't started during load
+                initGOLCells(golTransition.width, golTransition.height);
+                golTransition.generation = 0;
+                golTransition.active = true;
+                golTransition.phase = "revealing"; // Skip loading, go straight to reveal
+                console.log(`🎬 Transition: Started ${TRANSITION_TYPE} (direct reveal)`, golTransition.width, "x", golTransition.height);
+              }
             }
             
             // Log first piece paint
@@ -12495,28 +12673,34 @@ async function makeFrame({ data: { type, content } }) {
 
         painting.paint(true);
         
-        // 🧬 GOL Transition: Step the GOL and apply overlay AFTER painting.paint() executes
-        // This ensures the noise overlay is composited on TOP of the piece's rendered frame
+        // 🎬 Piece Transition: Step and apply overlay AFTER painting.paint() executes
+        // This ensures the overlay is composited on TOP of the piece's rendered frame
         if (golTransition.active && screen?.pixels) {
           // Check dimensions still match
           if (screen.width !== golTransition.width || screen.height !== golTransition.height) {
-            console.warn("🧬 GOL: Screen dimensions changed! Aborting transition.");
+            console.warn("🎬 Transition: Screen dimensions changed! Aborting.");
             golTransition.active = false;
             golTransition.overlayPixels = null;
             golTransition.blockData = null;
+            golTransition.dripOffsets = null;
+            golTransition.dripSpeeds = null;
+            golTransition.dripDirections = null;
           } else {
-            // Step the GOL (pass screen pixels for smear sampling)
+            // Step the transition
             const stillActive = golStep(screen.pixels);
             
-            // Apply noise overlay on top of piece's paint
+            // Apply overlay on top of piece's paint
             applyGOLOverlay(screen.pixels);
             
             // End transition when complete
             if (!stillActive) {
-              console.log("🧬 GOL: Transition complete!");
+              console.log(`🎬 Transition: ${TRANSITION_TYPE} complete!`);
               golTransition.active = false;
               golTransition.overlayPixels = null;
               golTransition.blockData = null;
+              golTransition.dripOffsets = null;
+              golTransition.dripSpeeds = null;
+              golTransition.dripDirections = null;
             }
           }
         }
