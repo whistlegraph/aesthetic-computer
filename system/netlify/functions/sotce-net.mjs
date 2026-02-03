@@ -2133,6 +2133,8 @@ export const handler = async (event, context) => {
             #chat-messages div.message div.message-content .page-link {
               font-weight: bold;
               cursor: pointer;
+              text-decoration: none;
+              display: inline;
             }
             #chat-messages div.message div.message-content .diary-link {
               color: rgb(180, 120, 80);
@@ -3306,6 +3308,7 @@ export const handler = async (event, context) => {
             let cachedGateStatus = null;
             
             async function gate(status, user, subscription) {
+              console.log("🚪 gate() called with status:", status);
               // If gate already exists with same status, just return it (fast path)
               if (cachedGateCurtain && cachedGateStatus === status && document.body.contains(cachedGateCurtain)) {
                 console.log("🚪 Reusing cached gate!");
@@ -3689,7 +3692,12 @@ export const handler = async (event, context) => {
                 "click",
                 () => {
                   if (!cookieWrapper.classList.contains("interactive")) return;
+                  const enterStart = performance.now();
+                  console.log("🌻 Gate cookie click - ENTERING garden");
+                  
                   curtain.classList.add("hidden");
+                  console.log("  curtain.hidden:", (performance.now() - enterStart).toFixed(2), "ms");
+                  
                   cookieWrapper.classList.remove("interactive");
 
                   const garden = document.querySelector("#garden");
@@ -3697,6 +3705,16 @@ export const handler = async (event, context) => {
                   if (garden) {
                     document.documentElement.classList.add("garden");
                     garden.classList.remove("hidden");
+                    console.log("  garden.visible:", (performance.now() - enterStart).toFixed(2), "ms");
+                    
+                    // Track when layout/paint actually completes
+                    requestAnimationFrame(() => {
+                      console.log("  RAF 1:", (performance.now() - enterStart).toFixed(2), "ms");
+                      requestAnimationFrame(() => {
+                        console.log("  RAF 2 (paint):", (performance.now() - enterStart).toFixed(2), "ms");
+                      });
+                    });
+                    
                     updatePath("/");
                   } else {
                     // Only show chat for subscribed users and admins
@@ -3824,6 +3842,21 @@ export const handler = async (event, context) => {
               // Cache the curtain for fast re-entry
               cachedGateCurtain = curtain;
               cachedGateStatus = status;
+              
+              // Debug: Watch for unexpected hidden class changes
+              const hiddenObserver = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                  if (mutation.attributeName === 'class') {
+                    const hadHidden = mutation.oldValue?.includes('hidden');
+                    const hasHidden = curtain.classList.contains('hidden');
+                    if (hadHidden !== hasHidden) {
+                      console.log("🚪 Curtain hidden changed:", hadHidden, "→", hasHidden);
+                      console.trace("Stack trace for hidden change:");
+                    }
+                  }
+                }
+              });
+              hiddenObserver.observe(curtain, { attributes: true, attributeOldValue: true, attributeFilter: ['class'] });
               
               return curtain;
             }
@@ -4049,9 +4082,12 @@ export const handler = async (event, context) => {
               // }
 
               // ❓ Ask - Submit a question (editor-style like /write)
-              const askButton = cel("button");
-              askButton.id = "ask-button";
-              askButton.innerText = subscription?.admin ? "respond" : "ask";
+              // Only show ask/respond button in dev mode for now
+              const askButton = dev ? cel("button") : null;
+              if (askButton) {
+                askButton.id = "ask-button";
+                askButton.innerText = subscription?.admin ? "respond" : "ask";
+              }
 
               async function openAskEditor() {
                 scrollMemory = wrapper.scrollTop;
@@ -4296,7 +4332,7 @@ export const handler = async (event, context) => {
                   editorPlacemat.remove();
                   nav.remove();
                   linesLeft.remove();
-                  askButton.classList.remove("deactivated");
+                  askButton?.classList.remove("deactivated");
                   wrapper.scrollTop = scrollMemory;
                   computePageLayout?.();
                   updatePath("/");
@@ -4357,7 +4393,7 @@ export const handler = async (event, context) => {
                 const scale = goalWidth / baseWidth;
                 askPage.style.transform = "scale(" + scale + ")";
 
-                askButton.classList.add("deactivated");
+                askButton?.classList.add("deactivated");
                 updatePath("/ask");
                 words.focus();
               }
@@ -4627,7 +4663,7 @@ export const handler = async (event, context) => {
                   editorPlacemat.remove();
                   nav.remove();
                   linesLeft.remove();
-                  askButton.classList.remove("deactivated");
+                  askButton?.classList.remove("deactivated");
                   wrapper.scrollTop = scrollMemory;
                   computePageLayout?.();
                   updatePath("/");
@@ -4680,21 +4716,23 @@ export const handler = async (event, context) => {
                 const baseWidth = 100 * 8;
                 const goalWidth = respondPage.parentElement.clientWidth;
                 const scale = goalWidth / baseWidth;
-                respondPage.style.transform = "scale(" + scale + ")";
+                respondPage.style.transform = "scale(" + scale + \")";
 
-                askButton.classList.add("deactivated");
+                askButton?.classList.add("deactivated");
                 updatePath("/respond");
               }
 
-              // Set button handler based on admin status
-              if (subscription?.admin) {
-                askButton.onclick = openRespondEditor;
-              } else {
-                askButton.onclick = openAskEditor;
+              // Set button handler based on admin status (only if askButton exists)
+              if (askButton) {
+                if (subscription?.admin) {
+                  askButton.onclick = openRespondEditor;
+                } else {
+                  askButton.onclick = openAskEditor;
+                }
               }
 
-              // Auto-open /ask route
-              if (path === "/ask") {
+              // Auto-open /ask route (only in dev mode)
+              if (dev && path === "/ask") {
                 const observer = new MutationObserver((mutationsList, observer) => {
                   for (const mutation of mutationsList) {
                     if (mutation.type === "childList" && Array.from(mutation.addedNodes).includes(g)) {
@@ -4711,7 +4749,7 @@ export const handler = async (event, context) => {
                 }
               }
 
-              topBar.appendChild(askButton);
+              if (askButton) topBar.appendChild(askButton);
 
               // 🪷 write-a-page - Create compose form.
               if (subscription?.admin) {
@@ -5396,11 +5434,13 @@ export const handler = async (event, context) => {
                 }
                 
                 // Create all page wrappers (placeholders first)
+                const placeholderStart = performance.now();
                 for (let i = 1; i <= totalPages; i++) {
                   const pw = createPlaceholder(i);
                   pageWrappers[i] = pw;
                   binding.appendChild(pw);
                 }
+                console.log("📖 Created", totalPages, "placeholders in", (performance.now() - placeholderStart).toFixed(2), "ms");
                 
                 // Render initially loaded pages
                 if (pageIndex) {
@@ -5485,6 +5525,7 @@ export const handler = async (event, context) => {
                 g.loadedPages = loadedPages;
 
                 computePageLayout = function (e) {
+                  const layoutStart = performance.now();
                   // Relational scroll wip - 24.09.25.17.43
                   // const bindingRect = binding.getBoundingClientRect();
                   // if (
@@ -5557,14 +5598,18 @@ export const handler = async (event, context) => {
                     askEditorPage.style.transform = "scale(" + scale + ")";
                   }
 
+                  const queryStart = performance.now();
                   // Only process VISIBLE pages (+ small buffer) for performance
                   const allPages = document.querySelectorAll(
                     "#garden article.page",
                   );
+                  const queryTime = performance.now() - queryStart;
                   
                   const wrapperRect = wrapper.getBoundingClientRect();
                   const viewportBuffer = wrapperRect.height * 1.5; // Process pages within 1.5x viewport
 
+                  const pagesStart = performance.now();
+                  let processedPages = 0;
                   let scale;
                   allPages.forEach((page) => {
                     // Skip pages that are far off-screen
@@ -5581,6 +5626,7 @@ export const handler = async (event, context) => {
                     
                     // Only do expensive text processing for visible pages
                     if (!isNearViewport) return;
+                    processedPages++;
 
                     // Check to see if the last line of the page needs
                     // justification or not.
@@ -5611,10 +5657,13 @@ export const handler = async (event, context) => {
                       }
                     }
                   });
+                  const pagesTime = performance.now() - pagesStart;
 
+                  const earsStart = performance.now();
                   const ears = document.querySelectorAll(
                     "#garden .page-wrapper div.ear",
                   );
+                  let processedEars = 0;
 
                   ears.forEach((ear) => {
                     // Skip ears far off-screen
@@ -5622,6 +5671,7 @@ export const handler = async (event, context) => {
                     const isNearViewport = earRect.bottom > wrapperRect.top - viewportBuffer && 
                                           earRect.top < wrapperRect.bottom + viewportBuffer;
                     if (!isNearViewport) return;
+                    processedEars++;
                     
                     ear.style = "";
                     const earStyle = window.getComputedStyle(ear);
@@ -5634,6 +5684,15 @@ export const handler = async (event, context) => {
                     ear.style.top = "calc(100% - " + roundedW + "px + 0.12em)";
                     ear.style.left = "calc(100% - " + roundedW + "px + 0.12em)";
                   });
+                  const earsTime = performance.now() - earsStart;
+                  
+                  const layoutTime = performance.now() - layoutStart;
+                  if (layoutTime > 10) {
+                    console.log("📐 computePageLayout:", layoutTime.toFixed(1), "ms",
+                      "| query:", queryTime.toFixed(1), "ms",
+                      "| pages:", pagesTime.toFixed(1), "ms (" + processedPages + "/" + allPages.length + " processed)",
+                      "| ears:", earsTime.toFixed(1), "ms (" + processedEars + "/" + ears.length + ")");
+                  }
                 };
 
                 // Adjust width of '#top-bar' for scrollbar appearance.
@@ -5681,68 +5740,46 @@ export const handler = async (event, context) => {
 
               cookieMenu.onclick = function () {
                 const perfStart = performance.now();
-                console.log("🍪 Cookie click START");
+                console.log("🍪 Garden cookie click - CLOSING garden, OPENING gate");
                 
-                let t0 = performance.now();
                 scrollMemory = wrapper.scrollTop;
-                console.log("  scrollMemory:", (performance.now() - t0).toFixed(2), "ms");
-                
-                t0 = performance.now();
                 gateCurtain.classList.remove("hidden");
-                console.log("  gateCurtain.classList.remove('hidden'):", (performance.now() - t0).toFixed(2), "ms");
-                console.log("  gateCurtain element:", gateCurtain.id, "in DOM:", document.body.contains(gateCurtain));
-                
-                t0 = performance.now();
                 g.classList.add("hidden");
-                console.log("  g.classList.add('hidden'):", (performance.now() - t0).toFixed(2), "ms");
-                
-                t0 = performance.now();
                 document.body.classList.add("pages-hidden");
-                console.log("  body.classList.add:", (performance.now() - t0).toFixed(2), "ms");
-                
-                t0 = performance.now();
                 document.documentElement.classList.remove("garden");
-                console.log("  html.classList.remove:", (performance.now() - t0).toFixed(2), "ms");
-                
-                t0 = performance.now();
                 curtainCookie.classList.add("interactive");
-                console.log("  curtainCookie.classList.add:", (performance.now() - t0).toFixed(2), "ms");
-                
-                t0 = performance.now();
                 updatePath("/gate");
-                console.log("  updatePath:", (performance.now() - t0).toFixed(2), "ms");
                 
-                console.log("🍪 Cookie click TOTAL:", (performance.now() - perfStart).toFixed(2), "ms");
+                console.log("🍪 Classes updated:", (performance.now() - perfStart).toFixed(2), "ms");
                 
-                // Check gate state
-                const gateCheck = document.getElementById("gate");
-                const curtainCheck = document.getElementById("gate-curtain");
-                console.log("  #gate in DOM:", !!gateCheck, "visibility:", gateCheck ? getComputedStyle(gateCheck).visibility : "N/A");
-                console.log("  #gate-curtain in DOM:", !!curtainCheck, "visibility:", curtainCheck ? getComputedStyle(curtainCheck).visibility : "N/A");
-                
-                // Track frames
+                // Track frames to see when paint actually happens
                 requestAnimationFrame(() => {
                   console.log("🍪 RAF 1:", (performance.now() - perfStart).toFixed(2), "ms");
                   requestAnimationFrame(() => {
-                    console.log("🍪 RAF 2:", (performance.now() - perfStart).toFixed(2), "ms");
+                    console.log("🍪 RAF 2 (paint):", (performance.now() - perfStart).toFixed(2), "ms");
                   });
                 });
                 
-                // Track visibility over time
+                // Track visibility over time to catch delayed changes
                 let checkCount = 0;
                 const trackVisibility = () => {
                   checkCount++;
                   const elapsed = (performance.now() - perfStart).toFixed(0);
                   const gc = document.getElementById("gate-curtain");
-                  const ge = document.getElementById("gate");
-                  if (gc && ge) {
+                  if (gc) {
                     const gcVis = getComputedStyle(gc).visibility;
-                    const geVis = getComputedStyle(ge).visibility;
-                    console.log("🍪 @" + elapsed + "ms - curtain: " + gcVis + ", gate: " + geVis + ", curtain.hidden: " + gc.classList.contains("hidden"));
+                    const hasHidden = gc.classList.contains("hidden");
+                    // Only log if state changed or at key intervals
+                    if (checkCount === 1 || checkCount === 3 || checkCount === 10 || hasHidden) {
+                      console.log("🍪 @" + elapsed + "ms - curtain visibility: " + gcVis + ", .hidden: " + hasHidden);
+                    }
+                    if (hasHidden && checkCount > 1) {
+                      console.log("⚠️ Curtain was re-hidden at " + elapsed + "ms - investigate what caused this!");
+                    }
                   }
-                  if (checkCount < 20) setTimeout(trackVisibility, 500);
+                  if (checkCount < 20 && !gc?.classList.contains("hidden")) setTimeout(trackVisibility, 500);
                 };
-                trackVisibility();
+                setTimeout(trackVisibility, 16); // Check after first frame
               };
 
               if (showGate) curtainCookie.classList.add("interactive");
@@ -5759,6 +5796,8 @@ export const handler = async (event, context) => {
                   cookieMenu.style.maskImage = "url(" + dataUrl + ")";
 
                   document.getElementById("garden")?.remove(); // Remove old gardens.
+                  const gardenBuildStart = performance.now();
+                  console.log("🌻 Garden build starting...");
                   const observer = new MutationObserver(
                     (mutationsList, observer) => {
                       for (let mutation of mutationsList) {
@@ -5766,6 +5805,7 @@ export const handler = async (event, context) => {
                           mutation.type === "childList" &&
                           mutation.addedNodes.length > 0
                         ) {
+                          console.log("🌻 MutationObserver triggered:", (performance.now() - gardenBuildStart).toFixed(2), "ms");
                           const checkWidthSettled = (previousWidth) => {
                             const currentWidth = parseInt(
                               window.getComputedStyle(wrapper).width,
@@ -5776,12 +5816,9 @@ export const handler = async (event, context) => {
                               g.scrollHeight > 0 ||
                               showGate
                             ) {
-                              //console.log(
-                              //  "🟢 Computing page layout...",
-                              //  performance.now(),
-                              //);
+                              console.log("🌻 Width settled, computing layout:", (performance.now() - gardenBuildStart).toFixed(2), "ms");
                               computePageLayout?.();
-                              // console.log("🟩 Done", performance.now());
+                              console.log("🌻 Layout computed:", (performance.now() - gardenBuildStart).toFixed(2), "ms");
                               // TODO:    ^ This takes awhile and the spinner could hold until the initial
                               //            computation is done. 24.10.16.07.06
 
@@ -5968,8 +6005,10 @@ export const handler = async (event, context) => {
                   );
                   observer.observe(wrapper, { childList: true });
 
+                  console.log("🌻 Appending garden to DOM...", (performance.now() - gardenBuildStart).toFixed(2), "ms");
                   g.classList.add("faded");
                   wrapper.appendChild(g);
+                  console.log("🌻 Garden appended:", (performance.now() - gardenBuildStart).toFixed(2), "ms");
                   if (!showGate) {
                     document.documentElement.classList.add("garden");
                   }
