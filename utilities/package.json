@@ -7,6 +7,7 @@
     "ac-pack": "node ac-pack.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.981.0",
     "archiver": "^7.0.1"
   },
   "keywords": [
