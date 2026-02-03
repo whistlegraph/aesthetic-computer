@@ -89,6 +89,7 @@ const COMMAND_CATEGORIES = {
   "💰 Wallet": ["tezos", "keep"],
   "👤 Account": ["me", "handle", "delete-erase-and-forget-me"],
   "🤖 Companions": ["bro", "sis", "gf", "bf", "bb"],
+  "🔗 Links": ["github", "gh", "gmail", "agc", "ucla-syllabus"],
 };
 
 // State

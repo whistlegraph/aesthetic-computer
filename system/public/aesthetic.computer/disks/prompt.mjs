@@ -3148,6 +3148,11 @@ async function halt($, text) {
     if (!openExternalFromIframe(githubUrl)) jump(githubUrl);
     makeFlash($);
     return true;
+  } else if (text.toLowerCase() === "agc") {
+    const agcUrl = "https://acg.media.mit.edu/";
+    if (!openExternalFromIframe(agcUrl)) jump(agcUrl);
+    makeFlash($);
+    return true;
   } else if (text.toLowerCase() === "gmail") {
     jump("https://gmail.com");
     makeFlash($);
@@ -5841,24 +5846,39 @@ function paint($) {
         // 🎯 Draw "Enter [code]" tooltip below hovered or auto-selected item (scrolls with it)
         if (displayItem && !unitickerButton.down) {
           // Generate contextual tooltip text based on item type and docs
-          let tooltipText;
+          let tooltipPrefix, tooltipCode, tooltipSuffix;
           const doc = tooltipDocs?.[displayItem.code];
           if (doc?.desc) {
             // Use doc description with action prefix
-            tooltipText = `Enter '${displayItem.code}' to ${doc.desc.toLowerCase().replace(/\.$/, '')}`;
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = `' to ${doc.desc.toLowerCase().replace(/\.$/, '')}`;
           } else if (displayItem.type === 'kidlisp') {
-            tooltipText = `Enter '${displayItem.code}' to run`;
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to run";
           } else if (displayItem.type === 'painting') {
-            tooltipText = `Enter '${displayItem.code}' to view`;
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to view";
           } else if (displayItem.type === 'tape') {
-            tooltipText = `Enter '${displayItem.code}' to listen`;
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to listen";
           } else if (displayItem.type === 'commit') {
-            tooltipText = `Enter '${displayItem.code}' to browse`;
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to browse";
           } else if (displayItem.type === 'stats') {
-            tooltipText = `Enter '${displayItem.code}' to browse`;
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to browse";
           } else {
-            tooltipText = `Enter '${displayItem.code}'`;
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "'";
           }
+          const tooltipText = tooltipPrefix + tooltipCode + tooltipSuffix;
           const tooltipWidth = $.text.box(tooltipText, undefined, undefined, undefined, undefined, tickerFont).box.width;
           const tooltipHeight = 10;
           const tooltipPadding = 3;
@@ -5876,8 +5896,22 @@ function paint($) {
           ink([10, 10, 20, Math.round(220 * alphaMultiplier)]).box(tooltipX, tooltipY, tooltipWidth + tooltipPadding * 2, tooltipHeight + tooltipPadding * 2);
           ink(tooltipBgColor).box(tooltipX, tooltipY, tooltipWidth + tooltipPadding * 2, tooltipHeight + tooltipPadding * 2, "inline");
 
-          // Draw tooltip text (slightly dimmer for auto-selected)
-          ink([255, 255, 255, Math.round(255 * alphaMultiplier)]).write(tooltipText, { x: tooltipX + tooltipPadding, y: tooltipY + tooltipPadding + 1 }, undefined, undefined, false, tickerFont);
+          // Draw tooltip text with syntax highlighting for the quoted code
+          const textY = tooltipY + tooltipPadding + 1;
+          let textX = tooltipX + tooltipPadding;
+          const baseAlpha = Math.round(255 * alphaMultiplier);
+          const dimAlpha = Math.round(180 * alphaMultiplier);
+          
+          // Draw prefix in dimmer white
+          ink([255, 255, 255, dimAlpha]).write(tooltipPrefix, { x: textX, y: textY }, undefined, undefined, false, tickerFont);
+          textX += $.text.box(tooltipPrefix, undefined, undefined, undefined, undefined, tickerFont).box.width;
+          
+          // Draw code in bright highlight color (use item's color for consistency)
+          ink([...displayItem.color, baseAlpha]).write(tooltipCode, { x: textX, y: textY }, undefined, undefined, false, tickerFont);
+          textX += $.text.box(tooltipCode, undefined, undefined, undefined, undefined, tickerFont).box.width;
+          
+          // Draw suffix in dimmer white
+          ink([255, 255, 255, dimAlpha]).write(tooltipSuffix, { x: textX, y: textY }, undefined, undefined, false, tickerFont);
 
           // Draw small arrow pointing up to the item
           const arrowX = displayItemX + (displayItemWidth / 2);
