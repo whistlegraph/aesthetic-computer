@@ -1117,28 +1117,14 @@ function scaleOverlayPixels(srcPixels, srcWidth, srcHeight, dstWidth, dstHeight)
   return dstPixels;
 }
 
-// 🧬 Chunky MPEG-style transition - performant, nearest neighbor, clutch
+// 🧬 Biological morphing transition - organic flowing displacement
 
-// 🧬 Initialize transition - 8x8 blocks
+// 🧬 Initialize transition - per-pixel dissolve with organic noise
 function initGOLCells(width, height) {
-  const bs = 8;
-  golTransition.blockSize = bs;
-  const blocksX = Math.ceil(width / bs);
-  const blocksY = Math.ceil(height / bs);
-  
-  // Per-block: [revealTime, quantShift]
-  const blockData = new Uint8Array(blocksX * blocksY * 2);
-  
-  for (let i = 0; i < blocksX * blocksY; i++) {
-    // Reveal time 0-255 (will compare against progress*255)
-    blockData[i * 2] = Math.random() * 200 + 28 | 0;
-    // Quantization bit shift 2-5
-    blockData[i * 2 + 1] = 2 + (Math.random() * 4 | 0);
-  }
-  
-  golTransition.blockData = blockData;
-  golTransition.blocksX = blocksX;
-  golTransition.blocksY = blocksY;
+  golTransition.blockSize = 1; // Per-pixel
+  golTransition.blocksX = width;
+  golTransition.blocksY = height;
+  golTransition.blockData = null; // Not needed for per-pixel
 }
 
 // 🧬 Step function
@@ -1147,74 +1133,67 @@ function golStep(screenPixels) {
   return golTransition.generation < golTransition.maxGenerations;
 }
 
-// 🧬 Apply chunky nearest-neighbor block transition with heavy quantization
+// 🧬 Apply biological flowing morph transition
 function applyGOLOverlay(screenPixels) {
-  const { overlayPixels, blockData, blocksX, blocksY, blockSize: bs, width, height, generation, maxGenerations } = golTransition;
-  if (!overlayPixels || !blockData || !screenPixels) return;
+  const { overlayPixels, width, height, generation, maxGenerations } = golTransition;
+  if (!overlayPixels || !screenPixels) return;
   
-  // Progress as 0-255 integer
-  const progress = (generation / maxGenerations * 255) | 0;
-  // Corruption peaks mid-transition - STRONG
-  const corruption = (Math.sin(generation / maxGenerations * Math.PI) * 200 + 55) | 0;
+  // Progress 0-1
+  const progress = generation / maxGenerations;
+  // Eased for smooth start/end
+  const eased = progress < 0.5 
+    ? 2 * progress * progress 
+    : 1 - Math.pow(-2 * progress + 2, 2) / 2;
   
-  for (let by = 0; by < blocksY; by++) {
-    const rowStart = by * blocksX;
-    const startY = by * bs;
-    const endY = startY + bs > height ? height : startY + bs;
+  // Time offset for animated noise
+  const t = generation * 0.08;
+  
+  // Displacement peaks mid-transition
+  const dispPeak = Math.sin(progress * Math.PI);
+  const maxDisp = dispPeak * 12;
+  
+  for (let y = 0; y < height; y++) {
+    const rowOff = y * width;
     
-    for (let bx = 0; bx < blocksX; bx++) {
-      const bi = (rowStart + bx) * 2;
-      const revealTime = blockData[bi];
-      const qShift = blockData[bi + 1] + 1; // Extra shift for chunkier quantization
+    for (let x = 0; x < width; x++) {
+      const i = (rowOff + x) * 4;
       
-      // Smooth blend between old and new
-      const diff = progress - revealTime;
-      // blend: 0=old, 256=new, with soft transition zone
-      let blend = diff < -30 ? 0 : diff > 30 ? 256 : ((diff + 30) * 256 / 60) | 0;
-      const invBlend = 256 - blend;
+      // Organic noise for per-pixel dissolve threshold
+      const n1 = Math.sin(x * 0.03 + t) * Math.cos(y * 0.025 + t * 0.7);
+      const n2 = Math.sin(x * 0.07 + y * 0.05 - t * 0.5) * 0.4;
+      const n3 = Math.cos(x * 0.015 - y * 0.02 + t * 0.3) * 0.3;
+      const noise = (n1 + n2 + n3) * 0.5 + 0.5; // 0-1
       
-      const startX = bx * bs;
-      const endX = startX + bs > width ? width : startX + bs;
+      // Per-pixel blend with organic variation
+      const threshold = eased * 1.4 - 0.2;
+      const edge = 0.25;
+      let blend = (threshold - noise * 0.8) / edge;
+      blend = blend < 0 ? 0 : blend > 1 ? 1 : blend;
       
-      // Sample block center for quantized color from BOTH frames
-      const cx = (startX + endX) >> 1;
-      const cy = (startY + endY) >> 1;
-      const ci = (cy * width + cx) * 4;
+      // Flowing displacement based on noise
+      const dispX = (Math.sin(x * 0.04 + y * 0.02 + t * 1.2) - 0.5) * maxDisp * (1 - blend);
+      const dispY = (Math.cos(x * 0.03 - y * 0.04 + t * 0.9) - 0.5) * maxDisp * (1 - blend);
       
-      // Quantize colors from both old and new (heavy posterization)
-      const oldQr = (overlayPixels[ci] >> qShift) << qShift;
-      const oldQg = (overlayPixels[ci + 1] >> qShift) << qShift;
-      const oldQb = (overlayPixels[ci + 2] >> qShift) << qShift;
-      const newQr = (screenPixels[ci] >> qShift) << qShift;
-      const newQg = (screenPixels[ci + 1] >> qShift) << qShift;
-      const newQb = (screenPixels[ci + 2] >> qShift) << qShift;
+      // Sample old frame with displacement
+      let sx = (x + dispX) | 0;
+      let sy = (y + dispY) | 0;
+      sx = sx < 0 ? 0 : sx >= width ? width - 1 : sx;
+      sy = sy < 0 ? 0 : sy >= height ? height - 1 : sy;
+      const si = (sy * width + sx) * 4;
       
-      // Blended quantized block color
-      const qr = (oldQr * invBlend + newQr * blend) >> 8;
-      const qg = (oldQg * invBlend + newQg * blend) >> 8;
-      const qb = (oldQb * invBlend + newQb * blend) >> 8;
+      // Get colors
+      const oldR = overlayPixels[si];
+      const oldG = overlayPixels[si + 1];
+      const oldB = overlayPixels[si + 2];
+      const newR = screenPixels[i];
+      const newG = screenPixels[i + 1];
+      const newB = screenPixels[i + 2];
       
-      // Strong quantization throughout - corruption controls intensity
-      const qAmount = corruption;
-      const pAmount = 256 - qAmount;
-      
-      // Fill block with quantized chunky color
-      for (let y = startY; y < endY; y++) {
-        const rowOff = y * width;
-        for (let x = startX; x < endX; x++) {
-          const i = (rowOff + x) * 4;
-          
-          // Blend source pixels
-          const r = (overlayPixels[i] * invBlend + screenPixels[i] * blend) >> 8;
-          const g = (overlayPixels[i + 1] * invBlend + screenPixels[i + 1] * blend) >> 8;
-          const b = (overlayPixels[i + 2] * invBlend + screenPixels[i + 2] * blend) >> 8;
-          
-          // Mix actual with quantized block color
-          screenPixels[i] = (r * pAmount + qr * qAmount) >> 8;
-          screenPixels[i + 1] = (g * pAmount + qg * qAmount) >> 8;
-          screenPixels[i + 2] = (b * pAmount + qb * qAmount) >> 8;
-        }
-      }
+      // Smooth biological morph
+      const inv = 1 - blend;
+      screenPixels[i] = oldR * inv + newR * blend;
+      screenPixels[i + 1] = oldG * inv + newG * blend;
+      screenPixels[i + 2] = oldB * inv + newB * blend;
     }
   }
 }
