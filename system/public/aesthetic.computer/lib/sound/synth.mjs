@@ -42,6 +42,9 @@ export default class Synth {
   #sampleStartIndex = 0;
   #sampleSpeed = 0.25;
   #sampleLoop = false;
+  #preserveDuration = false; // If true, pitch shift without changing duration
+  #targetDurationSamples = 0; // Original duration in samples when preserving
+  #playedSamples = 0; // Track how many samples we've output
 
   #up = false; // Specific to `square`.
   #step = 0;
@@ -86,11 +89,17 @@ export default class Synth {
         channel0Length: options.buffer?.channels?.[0]?.length,
         label: options.label,
         speed: options.speed,
-        loop: options.loop
+        loop: options.loop,
+        preserveDuration: options.preserveDuration,
       });
 
       this.#sampleSpeed = options.speed || 1;
       this.#sampleLoop = options.loop || false;
+      this.#preserveDuration = options.preserveDuration || false;
+
+      if (this.#preserveDuration) {
+        console.log("🎤 SYNTH preserveDuration enabled - will loop pitched sample to fill original duration");
+      }
 
       // console.log("Speed:", this.#sampleSpeed);
 
@@ -113,7 +122,15 @@ export default class Synth {
       );
 
       this.#sampleIndex =
-        this.#sampleSpeed < 0 ? this.#sampleEndIndex : this.#sampleStartIndex;    } else if (type === "custom") {
+        this.#sampleSpeed < 0 ? this.#sampleEndIndex : this.#sampleStartIndex;
+      
+      // When preserving duration, calculate how many output samples we need
+      // to match the original unpitched duration
+      if (this.#preserveDuration) {
+        this.#targetDurationSamples = this.#sampleEndIndex - this.#sampleStartIndex;
+        this.#playedSamples = 0;
+      }
+    } else if (type === "custom") {
       this.#frequency = options.tone || 440; // Default frequency for custom waveforms
       
       // Handle generator function (could be a string from postMessage)
@@ -266,23 +283,30 @@ export default class Synth {
         console.log("🎤 SYNTH sample at index:", idx, "value:", bufferData?.[idx], "speed:", this.#sampleSpeed, "vol:", this.volume);
       }
 
-      // const index = floor(this.#sampleIndex);
-      // let nextIndex;
-
-      // if (this.#sampleSpeed > 0) {
-      //   nextIndex = min(index + 1, bufferData.length - 1);
-      // } else {
-      //   nextIndex = max(index - 1, 0);
-      // }
-
-      // const t = this.#sampleIndex - index;
-      // value = (1 - t) * bufferData[index] + t * bufferData[nextIndex];
-
       value = bufferData[floor(this.#sampleIndex)];
 
       this.#sampleIndex += this.#sampleSpeed;
-      // Handle looping and stopping
-      if (this.#sampleLoop) {
+      
+      // Handle preserveDuration mode: pitch shift without time stretch
+      // Loop the pitched sample to fill the original duration
+      if (this.#preserveDuration) {
+        this.#playedSamples++;
+        
+        // Loop the sample when it reaches the end (for pitch > 1, sample ends early)
+        if (this.#sampleIndex >= this.#sampleEndIndex) {
+          this.#sampleIndex = this.#sampleStartIndex;
+        } else if (this.#sampleIndex < this.#sampleStartIndex) {
+          this.#sampleIndex = this.#sampleEndIndex - 1;
+        }
+        
+        // Stop when we've played enough samples to match original duration
+        if (this.#playedSamples >= this.#targetDurationSamples) {
+          this.playing = false;
+          return 0;
+        }
+      }
+      // Handle looping and stopping (normal mode)
+      else if (this.#sampleLoop) {
         if (this.#sampleIndex > this.#sampleEndIndex) {
           // Calculate the range length for proper modulo operation
           const rangeLength = this.#sampleEndIndex - this.#sampleStartIndex;
@@ -294,13 +318,12 @@ export default class Synth {
           this.#sampleIndex = this.#sampleEndIndex - (undershoot % rangeLength); // Loop backwards. ⬅️
         }
       } else {
-        // console.log(this.#sampleIndex, this.#sampleEndIndex);
+        // Normal mode: stop when sample ends
         if (
           this.#sampleIndex >= this.#sampleEndIndex ||
           this.#sampleIndex < 0
         ) {
           this.playing = false;
-          // console.log("🛑 Sample finished.", this.#sampleIndex, this.#sampleEndIndex);
           return 0;
         }
       }
