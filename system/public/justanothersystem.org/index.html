@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Just Another System — Stretched Paintings by Jeffrey Alan Scudder</title>
+  <meta name="author" content="Jeffrey Alan Scudder">
+  <meta name="description" content="Stretched paintings on canvas and linen by Jeffrey Alan Scudder. A painting practice.">
+  <link rel="icon" href="https://aesthetic.computer/aesthetic.computer/favicon.ico">
+  
+  <!-- Social sharing meta tags -->
+  <meta property="og:title" content="Just Another System — Stretched Paintings" />
+  <meta property="og:description" content="Stretched paintings on canvas and linen by Jeffrey Alan Scudder. A painting practice." />
+  <meta property="og:url" content="https://justanothersystem.org" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Just Another System — Stretched Paintings" />
+  <meta name="twitter:description" content="Stretched paintings on canvas and linen by Jeffrey Alan Scudder. A painting practice." />
+  <meta name="twitter:site" content="@whistlegraph" />
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+    
+    :root {
+      --bg: #faf9f6;
+      --fg: #1a1a1a;
+      --dim: #666;
+      --accent: #333;
+      --border: #ddd;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0a0a0a;
+        --fg: #f0f0f0;
+        --dim: #888;
+        --accent: #ccc;
+        --border: #333;
+      }
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'IBM Plex Mono', monospace;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      line-height: 1.7;
+      font-size: 14px;
+    }
+    
+    .page {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 4rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.01em;
+    }
+    
+    .subtitle {
+      color: var(--dim);
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+    
+    .byline {
+      font-size: 0.85rem;
+      color: var(--dim);
+    }
+    
+    .byline a {
+      color: var(--fg);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .byline a:hover {
+      border-color: var(--fg);
+    }
+    
+    /* Intro section */
+    .intro {
+      margin-bottom: 3rem;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    .intro p {
+      margin-bottom: 1rem;
+      color: var(--fg);
+    }
+    
+    /* Gallery grid */
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 2rem;
+      margin-bottom: 3rem;
+    }
+    
+    .painting {
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+    
+    .painting img {
+      width: 100%;
+      display: block;
+      aspect-ratio: 1;
+      object-fit: cover;
+    }
+    
+    .painting-info {
+      padding: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    
+    .painting-title {
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+    
+    .painting-details {
+      font-size: 0.8rem;
+      color: var(--dim);
+    }
+    
+    /* Coming soon placeholder */
+    .coming-soon {
+      text-align: center;
+      padding: 4rem 2rem;
+      border: 1px dashed var(--border);
+      color: var(--dim);
+    }
+    
+    .coming-soon h2 {
+      font-size: 1.1rem;
+      font-weight: 400;
+      margin-bottom: 0.5rem;
+    }
+    
+    /* Footer */
+    footer {
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--dim);
+    }
+    
+    footer a {
+      color: var(--dim);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    footer a:hover {
+      color: var(--fg);
+      border-color: var(--fg);
+    }
+    
+    /* Contact */
+    .contact {
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Just Another System</h1>
+      <p class="subtitle">Stretched Paintings on Canvas & Linen</p>
+      <p class="byline">by <a href="https://digitpain.com">Jeffrey Alan Scudder</a></p>
+    </header>
+    
+    <section class="intro">
+      <p>
+        A painting practice exploring stretched canvas and linen as substrate.
+        Each work exists as a physical object—a system unto itself.
+      </p>
+    </section>
+    
+    <section class="gallery">
+      <div class="coming-soon">
+        <h2>Paintings Coming Soon</h2>
+        <p>Check back for updates to this collection.</p>
+      </div>
+    </section>
+    
+    <footer>
+      <p>&copy; 2026 Jeffrey Alan Scudder</p>
+      <p class="contact">
+        <a href="mailto:jeffrey@aesthetic.computer">Contact</a> · 
+        <a href="https://aesthetic.computer">Aesthetic Computer</a> · 
+        <a href="https://digitpain.com">digitpain.com</a>
+      </p>
+    </footer>
+  </div>
+</body>
+</html>
