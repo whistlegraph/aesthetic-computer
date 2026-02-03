@@ -1356,13 +1356,13 @@ body {
   }
   
   .header-login-btn {
-    padding: 4px 8px;
-    font-size: 8pt;
-    line-height: 10px;
+    padding: 8px 10px;
+    font-size: 9pt;
+    line-height: 12px;
   }
   
   .header-user-menu {
-    padding: 4px 8px;
+    padding: 8px 10px;
   }
   
   .news-main {
@@ -1370,8 +1370,8 @@ body {
   }
   
   .news-row {
-    grid-template-columns: 20px 1fr;
-    gap: 4px;
+    grid-template-columns: 20px 16px 1fr;
+    gap: 3px;
   }
   
   .news-rank { font-size: 10pt; }

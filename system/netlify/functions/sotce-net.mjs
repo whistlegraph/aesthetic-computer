@@ -263,12 +263,15 @@ export const handler = async (event, context) => {
 
   const MAX_LINES = 19;
 
-  // 🏠 Home, Chat
+  // 🏠 Home, Chat, Page Routes
   if (
     (path === "/" ||
       path === "/chat" ||
       path === "/gate" ||
-      path === "/write") &&
+      path === "/write" ||
+      path === "/ask" ||
+      path.match(/^\/page\/\d+$/) ||
+      path.match(/^\/q\/\d+$/)) &&
     method === "get"
   ) {
     const miniBreakpoint = 245;
@@ -352,15 +355,7 @@ export const handler = async (event, context) => {
               --max-lines: ${MAX_LINES};
             }
 
-            @supports (-webkit-touch-callout: none) and
-              (not (overflow: -moz-hidden-unscrollable)) {
-              ::-webkit-scrollbar {
-                width: 8px;
-              }
-              ::-webkit-scrollbar-thumb {
-                background: rgba(255, 190, 215, 1);
-              }
-            }
+            /* Using default browser scrollbars */
 
             html,
             body {
@@ -541,6 +536,7 @@ export const handler = async (event, context) => {
               overflow-y: scroll;
               -webkit-overflow-scrolling: touch;
               touch-action: pan-y;
+              scroll-snap-type: y proximity;
             }
             body.reloading::after {
               content: "";
@@ -697,7 +693,8 @@ export const handler = async (event, context) => {
             #write-a-page,
             #pages-button,
             /*#chat-enter,*/
-            #chat-button {
+            #chat-button,
+            #ask-button {
               color: black;
               background: var(--button-background);
               padding: 0.35em;
@@ -718,9 +715,186 @@ export const handler = async (event, context) => {
             textarea {
               -webkit-tap-highlight-color: transparent;
             }
-            #chat-button {
+            #chat-button,
+            #ask-button {
               /* display: none; */
               margin-left: 1em;
+            }
+            /* Ask Editor - reuses #editor styles with ask-specific additions */
+            #ask-editor {
+              position: relative;
+              width: 100%;
+              min-height: 100.1%;
+              top: 0;
+              left: 0;
+              border: none;
+              z-index: 4;
+              padding: 0;
+              display: flex;
+            }
+            #ask-editor-form {
+              padding-top: 100px;
+              padding-bottom: 72px;
+              padding-left: 16px;
+              padding-right: 16px;
+              box-sizing: border-box;
+              margin: 0 auto auto auto;
+            }
+            #ask-editor-page {
+              aspect-ratio: 4 / 5;
+              background-color: rgb(240, 248, 255);
+              border: calc(max(1px, 0.1em)) solid black;
+              box-sizing: border-box;
+              left: 0;
+              padding: 1em;
+              position: absolute;
+              top: 0;
+              transform-origin: top left;
+              width: calc(100px * 8);
+              font-family: var(--page-font), serif;
+              font-size: calc(2.78px * 8);
+            }
+            #ask-editor-page .ask-title {
+              position: absolute;
+              top: calc(6.5% + 1.5em);
+              left: 0;
+              width: 100%;
+              text-align: center;
+              color: black;
+              opacity: 0.6;
+              font-size: 90%;
+            }
+            #ask-editor-page .ask-date {
+              position: absolute;
+              top: 6.5%;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              color: black;
+            }
+            #ask-editor-page .ask-number {
+              position: absolute;
+              bottom: 6.5%;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              color: black;
+            }
+            #ask-editor-page #ask-words-wrapper {
+              position: relative;
+              touch-action: none;
+              margin-top: 15%;
+              height: calc(var(--line-height) * 5);
+            }
+            #ask-editor-page #ask-words-wrapper::before {
+              content: "";
+              background: rgb(235, 245, 255);
+              width: 2em;
+              height: 100%;
+              display: block;
+              position: absolute;
+              top: 0;
+              left: 0;
+              z-index: 101;
+            }
+            #ask-editor-page #ask-words-wrapper::after {
+              content: "";
+              background: rgb(235, 245, 255);
+              width: 2em;
+              height: 100%;
+              display: block;
+              position: absolute;
+              top: 0;
+              right: 0;
+              z-index: 101;
+            }
+            #ask-editor-page textarea {
+              border: none;
+              font-family: var(--page-font), serif;
+              font-size: 100%;
+              resize: none;
+              display: block;
+              background: rgb(235, 245, 255);
+              padding: 0 2em;
+              text-indent: 0em;
+              text-align: justify;
+              line-height: var(--line-height);
+              height: calc(var(--line-height) * 5);
+              width: 100%;
+              overflow: hidden;
+              position: relative;
+              hyphens: auto;
+              -webkit-hyphens: auto;
+              overflow-wrap: break-word;
+              caret-color: rgb(50, 100, 180);
+            }
+            #ask-editor-page textarea:focus {
+              outline: none;
+            }
+            #ask-chars-left {
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              padding-top: 1.5em;
+              padding-bottom: 1.5em;
+              z-index: 6;
+              background: linear-gradient(
+                to bottom,
+                rgb(220 235 250 / 70%) 25%,
+                transparent 100%
+              );
+            }
+            #nav-ask-editor {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              padding-top: 1em;
+              justify-content: space-between;
+              width: 100%;
+              padding-left: 1em;
+              padding-right: 1em;
+              box-sizing: border-box;
+              display: flex;
+              z-index: 5;
+              background: linear-gradient(
+                to top,
+                rgb(207 255 195 / 50%) 25%,
+                transparent 100%
+              );
+            }
+            #asks-list {
+              margin-top: 20%;
+              padding: 0 2em;
+              max-height: calc(var(--line-height) * 8);
+              overflow-y: auto;
+            }
+            #asks-list h3 {
+              margin: 0 0 0.5em 0;
+              font-weight: normal;
+              font-size: 90%;
+              opacity: 0.6;
+            }
+            .ask-item {
+              padding: 0.5em 0;
+              border-bottom: 1px solid var(--pink-border);
+              font-size: 90%;
+            }
+            .ask-item:last-child {
+              border-bottom: none;
+            }
+            .ask-item.answered {
+              background: rgba(203, 238, 161, 0.3);
+              padding-left: 0.5em;
+              padding-right: 0.5em;
+              margin-left: -0.5em;
+              margin-right: -0.5em;
+            }
+            .ask-item .ask-status {
+              font-size: 80%;
+              opacity: 0.6;
+              margin-top: 0.25em;
             }
             #pages-button {
               position: fixed;
@@ -777,14 +951,16 @@ export const handler = async (event, context) => {
             #write-a-page:hover,
             /*#chat-enter:hover,*/
             #pages-button:hover,
-            #chat-button:hover {
+            #chat-button:hover,
+            #ask-button:hover {
               background: var(--button-background-highlight);
             }
             nav button:active,
             #write-a-page:active,
             /*#chat-enter:active,*/
             #pages-button:active,
-            #chat-button:active {
+            #chat-button:active,
+            #ask-button:active {
               filter: none; /* drop-shadow(
                         -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
                       ); */
@@ -818,6 +994,211 @@ export const handler = async (event, context) => {
             nav button.negative:active {
               background: rgb(255, 161, 186);
             }
+            nav button.ask-toggle {
+              background: rgb(220, 235, 250);
+              border-color: rgb(130, 170, 210);
+              font-size: 90%;
+            }
+            nav button.ask-toggle:hover {
+              background: rgb(200, 225, 250);
+            }
+            nav button.ask-toggle:active {
+              background: rgb(190, 215, 245);
+            }
+            nav button.pending-toggle {
+              background: rgb(255, 235, 220);
+              border-color: rgb(200, 150, 100);
+              font-size: 90%;
+            }
+            nav button.pending-toggle:hover {
+              background: rgb(255, 225, 200);
+            }
+            nav button.pending-toggle:active {
+              background: rgb(255, 215, 190);
+            }
+            /* Respond view within ask editor (admin) */
+            .respond-view {
+              padding: 1em 2em;
+              height: 100%;
+              overflow-y: auto;
+              box-sizing: border-box;
+            }
+            .respond-view .respond-counter {
+              font-size: 80%;
+              opacity: 0.6;
+              text-align: center;
+              margin-bottom: 0.5em;
+            }
+            .respond-view .respond-handle {
+              font-size: 90%;
+              opacity: 0.8;
+              margin-bottom: 0.5em;
+              color: rgb(180, 72, 135);
+            }
+            .respond-view .respond-question-text {
+              font-size: 100%;
+              line-height: var(--line-height);
+              text-align: justify;
+              hyphens: auto;
+              -webkit-hyphens: auto;
+              padding: 0.5em;
+              background: rgba(255, 240, 220, 0.5);
+              border-left: 3px solid rgb(200, 150, 100);
+              margin-bottom: 1em;
+            }
+            .respond-view .respond-label {
+              font-size: 90%;
+              opacity: 0.8;
+              margin-bottom: 0.5em;
+              color: rgb(100, 150, 180);
+            }
+            .respond-view .respond-textarea {
+              border: none;
+              font-family: var(--page-font), serif;
+              font-size: 100%;
+              resize: none;
+              display: block;
+              background: rgb(245, 250, 255);
+              padding: 0.5em;
+              text-align: justify;
+              line-height: var(--line-height);
+              height: calc(var(--line-height) * 8);
+              width: 100%;
+              overflow: hidden;
+              hyphens: auto;
+              -webkit-hyphens: auto;
+              overflow-wrap: break-word;
+              caret-color: rgb(50, 100, 180);
+              box-sizing: border-box;
+            }
+            .respond-view .respond-textarea:focus {
+              outline: none;
+            }
+            .respond-nav-btns {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 0.5em;
+            }
+            .respond-nav-btn {
+              font-size: 90%;
+              padding: 0.25em 0.5em;
+            }
+            .respond-nav-btn:disabled {
+              opacity: 0.4;
+              cursor: not-allowed;
+            }
+
+            /* 📝 Respond Editor Page Styles (Admin) */
+            #respond-editor {
+              position: fixed;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              z-index: 6;
+              box-sizing: border-box;
+              margin: 0 auto auto auto;
+            }
+            #respond-editor-page {
+              aspect-ratio: 4 / 5;
+              background-color: rgb(255, 250, 245);
+              border: calc(max(1px, 0.1em)) solid black;
+              box-sizing: border-box;
+              left: 0;
+              padding: 1em;
+              position: absolute;
+              top: 0;
+              transform-origin: top left;
+              width: calc(100px * 8);
+              font-family: var(--page-font), serif;
+              font-size: calc(2.78px * 8);
+            }
+            #respond-editor-page .respond-question-section {
+              margin-top: 4%;
+              padding: 0 2em;
+            }
+            #respond-editor-page .respond-counter {
+              font-size: 80%;
+              opacity: 0.6;
+              text-align: center;
+              margin-bottom: 0.25em;
+            }
+            #respond-editor-page .respond-handle {
+              font-size: 90%;
+              opacity: 0.8;
+              margin-bottom: 0.25em;
+              color: rgb(180, 72, 135);
+            }
+            #respond-editor-page .respond-question-text {
+              font-size: 100%;
+              line-height: var(--line-height);
+              text-align: justify;
+              hyphens: auto;
+              -webkit-hyphens: auto;
+              padding: 0.5em;
+              background: rgba(255, 240, 220, 0.5);
+              border-left: 3px solid rgb(200, 150, 100);
+              margin-bottom: 0.5em;
+            }
+            #respond-editor-page .respond-response-section {
+              padding: 0 2em;
+            }
+            #respond-editor-page .respond-label {
+              font-size: 90%;
+              opacity: 0.8;
+              margin-bottom: 0.25em;
+              color: rgb(100, 150, 180);
+            }
+            #respond-editor-page #respond-words-wrapper {
+              position: relative;
+            }
+            #respond-editor-page .respond-textarea {
+              border: none;
+              font-family: var(--page-font), serif;
+              font-size: 100%;
+              resize: none;
+              display: block;
+              background: transparent;
+              padding: 0;
+              text-align: justify;
+              line-height: var(--line-height);
+              height: calc(var(--line-height) * 12);
+              width: 100%;
+              overflow: hidden;
+              hyphens: auto;
+              -webkit-hyphens: auto;
+              overflow-wrap: break-word;
+              caret-color: rgb(50, 100, 180);
+              box-sizing: border-box;
+            }
+            #respond-editor-page .respond-textarea:focus {
+              outline: none;
+            }
+            #respond-lines-left {
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              padding-top: 1.5em;
+              padding-bottom: 1.5em;
+              z-index: 6;
+              background: linear-gradient(
+                to bottom,
+                rgb(255 250 245 / 70%) 25%,
+                transparent 100%
+              );
+            }
+            #nav-respond-editor {
+              background: linear-gradient(
+                to top,
+                rgb(255 245 235 / 50%) 25%,
+                transparent 100%
+              );
+            }
+            #nav-respond-editor button:disabled {
+              opacity: 0.4;
+              cursor: not-allowed;
+            }
 
             #garden {
               box-sizing: border-box;
@@ -826,10 +1207,27 @@ export const handler = async (event, context) => {
               opacity: 1;
               background-color: var(--garden-background);
             }
+            
+            #garden.hidden {
+              display: none !important;
+            }
 
             #garden.faded,
             #gate.faded {
               opacity: 0;
+            }
+            
+            .page-placeholder {
+              width: 100%;
+              height: 100%;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              background: rgba(255,255,255,0.5);
+              border: 1px dashed rgba(0,0,0,0.2);
+              box-sizing: border-box;
+              font-size: 0.8em;
+              color: rgba(0,0,0,0.4);
             }
 
             #nopages {
@@ -884,10 +1282,18 @@ export const handler = async (event, context) => {
             }*/
             #editor-lines-left {
               position: fixed;
-              top: 1.5em;
+              top: 0;
               left: 0;
               width: 100%;
               text-align: center;
+              padding-top: 1.5em;
+              padding-bottom: 1.5em;
+              z-index: 6;
+              background: linear-gradient(
+                to bottom,
+                rgb(255 245 245 / 70%) 25%,
+                transparent 100%
+              );
             }
             .lines-left-loads {
               color: black;
@@ -944,6 +1350,8 @@ export const handler = async (event, context) => {
               margin-bottom: 1em;
               box-sizing: border-box;
               position: relative;
+              scroll-snap-align: start;
+              scroll-margin-top: 100px;
             }
 
             #garden article.page,
@@ -972,6 +1380,43 @@ export const handler = async (event, context) => {
               width: 100%;
               text-align: center;
               color: black;
+            }
+            
+            #garden article.page div.page-number:hover {
+              color: rgb(180, 120, 80);
+              text-decoration: underline;
+            }
+            
+            /* Page number tooltip with scrolling ticker */
+            #page-number-tooltip {
+              position: fixed;
+              background: rgba(40, 30, 25, 0.95);
+              color: #f5e6d3;
+              padding: 0.5em 1em;
+              border-radius: 0.5em;
+              font-size: 12px;
+              max-width: 200px;
+              white-space: nowrap;
+              overflow: hidden;
+              pointer-events: none;
+              z-index: 1000;
+              opacity: 0;
+              transition: opacity 0.15s ease;
+              transform: translate(-50%, -100%);
+              margin-top: -8px;
+              border: 1px solid rgba(200, 150, 100, 0.3);
+              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            }
+            #page-number-tooltip.visible {
+              opacity: 1;
+            }
+            #page-number-tooltip .ticker {
+              display: inline-block;
+              animation: ticker-scroll 8s linear infinite;
+            }
+            @keyframes ticker-scroll {
+              0% { transform: translateX(100%); }
+              100% { transform: translateX(-100%); }
             }
 
             #garden article.page div.page-title,
@@ -1039,7 +1484,7 @@ export const handler = async (event, context) => {
               position: fixed;
               top: 0;
               left: 0;
-              width: 100vw;
+              width: 100%;
               height: 100vh;
               /* overflow: hidden; */
               background: color-mix(
@@ -1433,31 +1878,25 @@ export const handler = async (event, context) => {
             }
             #cookie-menu {
               position: absolute;
+              top: 0;
+              left: 0;
               width: 100%;
               height: 100%;
               user-select: none;
               -webkit-user-select: none;
               cursor: pointer;
-              transition: 0.2s ease-out transform;
               background-color: var(--pink-border);
-              /* background-color: var(--spinner-background); */
-              /* mask-image: url("${assetPath}cookie-open.png"); */
-              /* filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35)); */
-              mask-size: cover;
+              mask-size: 100% 100%;
+              mask-position: center;
+              mask-repeat: no-repeat;
+              -webkit-mask-size: 100% 100%;
+              -webkit-mask-position: center;
+              -webkit-mask-repeat: no-repeat;
               -webkit-tap-highlight-color: transparent;
               touch-action: none;
               pointer-events: all;
-            }
-            #cookie-menu-wrapper:hover {
-              transform: scale(0.97);
-            }
-            #cookie-menu-wrapper:active {
-              transform: scale(0.94);
-              transition: 0.13s ease-out transform;
-            }
-            #cookie-menu-wrapper.nogarden {
-              filter: drop-shadow(0px -6px 6px var(--background-color))
-                drop-shadow(4px -14px 0px var(--background-color));
+              /* Apply drop shadow here instead of wrapper to avoid transform artifacts */
+              filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.25));
             }
             #cookie-menu-wrapper {
               position: absolute;
@@ -1465,15 +1904,37 @@ export const handler = async (event, context) => {
               right: 0.25em;
               width: 90px;
               height: 90px;
-              filter: drop-shadow(0px -6px 6px var(--garden-background))
-                drop-shadow(4px -14px 0px var(--garden-background));
               z-index: 2;
+              cursor: pointer;
+              -webkit-tap-highlight-color: transparent;
+              /* Promote to GPU layer */
+              transform: translateZ(0);
+              backface-visibility: hidden;
+            }
+            #cookie-menu-wrapper:hover #cookie-menu {
+              transform: scale(0.97);
+              transition: transform 0.2s ease-out;
+            }
+            #cookie-menu-wrapper #cookie-menu {
+              transition: transform 0.15s ease-in;
+            }
+            #cookie-menu-wrapper:active #cookie-menu {
+              transform: scale(0.94);
+              transition: transform 0.13s ease-out;
+            }
+            #cookie-menu-wrapper.nogarden #cookie-menu {
+              /* Different shadow color when not in garden */
+              filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.25));
             }
             #cookie-menu-img {
-              /* Used in lieu of a mask for now. */
+              /* Used to generate the mask dynamically */
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
               visibility: hidden;
-              width: 60px;
-              height: 60px;
+              pointer-events: none;
             }
             @media (max-width: ${miniBreakpoint}px) {
               #cookie-menu-wrapper {
@@ -1572,7 +2033,7 @@ export const handler = async (event, context) => {
               z-index: 2; /* This may be wrong. 24.11.05.22.43 */
               width: 100%;
               height: 100%;
-              --chat-input-height: 2em;
+              --chat-input-height: 2.65em;
               --chat-enter-width: 5em;
               --chat-input-border-color: rgb(130, 100, 100);
               /* --chat-input-border-color: var(--chat-input-bar-background); */
@@ -1630,9 +2091,9 @@ export const handler = async (event, context) => {
               margin-top: auto;
             }
             #chat-messages div.message {
-              border-bottom: 1.5px solid rgba(0, 0, 0, 0.15);
+              border-bottom: 1.5px solid rgba(0, 0, 0, var(--msg-border-opacity, 0.15));
               box-sizing: border-box;
-              padding: 0.25em;
+              padding: 0.25em 0.5em;
               line-height: 1.25em;
               /* font-size: 85%; */
             }
@@ -1669,8 +2130,60 @@ export const handler = async (event, context) => {
             #chat-messages div.message div.message-content .handle-mention:hover {
               text-decoration: underline;
             }
+            #chat-messages div.message div.message-content .page-link {
+              font-weight: bold;
+              cursor: pointer;
+            }
+            #chat-messages div.message div.message-content .diary-link {
+              color: rgb(180, 120, 80);
+            }
+            #chat-messages div.message div.message-content .question-link {
+              color: rgb(80, 140, 200);
+            }
+            #chat-messages div.message div.message-content .page-link:hover {
+              text-decoration: none;
+              opacity: 0.7;
+            }
+            #page-preview {
+              position: fixed;
+              width: 120px;
+              aspect-ratio: 4 / 5;
+              background: white;
+              border: 1px solid rgba(0,0,0,0.3);
+              box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+              pointer-events: none;
+              z-index: 1000;
+              padding: 8px;
+              box-sizing: border-box;
+              font-size: 6px;
+              line-height: 1.3;
+              overflow: hidden;
+              opacity: 0;
+              transition: opacity 0.15s ease;
+              transform: translate(-50%, -100%);
+            }
+            #page-preview.visible {
+              opacity: 1;
+            }
+            #page-preview .preview-title {
+              font-weight: bold;
+              margin-bottom: 4px;
+              font-size: 5px;
+              opacity: 0.6;
+            }
+            #page-preview .preview-content {
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            #page-preview .preview-number {
+              position: absolute;
+              bottom: 4px;
+              right: 6px;
+              font-size: 5px;
+              opacity: 0.5;
+            }
             #chat-messages div.message div.message-when {
-              opacity: 0.15;
+              opacity: var(--msg-when-opacity, 0.15);
               display: inline-block;
               font-size: 75%;
               padding-left: 0.5em;
@@ -1689,7 +2202,7 @@ export const handler = async (event, context) => {
               overflow: hidden;
               border-top: 2px solid rgba(0, 0, 0, 0.1);
               padding-bottom: 1em;
-              padding-top: 2px;
+              padding-top: 0.35em;
               padding-left: 0.5em;
               padding-right: 0.5em;
               gap: 0.5em;
@@ -1699,11 +2212,43 @@ export const handler = async (event, context) => {
               opacity: 0.5;
             }
             #chat-handle {
-              height: 100%;
-              line-height: var(--chat-input-height);
+              display: flex;
+              align-items: center;
               font-weight: bold;
-              padding: 0 0.25em;
-              vertical-align: center;
+              padding: 0;
+              margin-left: 0;
+            }
+            #chat-input-container {
+              flex: 1;
+              height: var(--chat-input-height);
+              display: flex;
+              align-items: center;
+              border-radius: 0.5em;
+              border: 0.205em solid var(--pink-border);
+              box-sizing: border-box;
+              background: white;
+              position: relative;
+              overflow: hidden;
+              filter: drop-shadow(-0.065em 0.065em 0.065em rgb(80, 80, 80));
+            }
+            #chat-input-container .monaco-editor {
+              position: absolute !important;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+            }
+            #chat-input-container .monaco-editor .view-lines {
+              padding-left: 0.5em !important;
+              padding-top: 0.2em !important;
+            }
+            #chat-input-container .monaco-editor .cursors-layer {
+              padding-left: 0.5em !important;
+              padding-top: 0.2em !important;
+            }
+            #chat-input-container .monaco-editor,
+            #chat-input-container .monaco-editor .view-line {
+              font-family: var(--page-font), sans-serif !important;
             }
             #chat-input {
               flex: 1;
@@ -1724,15 +2269,15 @@ export const handler = async (event, context) => {
               align-items: center;
               justify-content: center;
               min-width: var(--chat-enter-width);
-              height: 100%;
               font-size: 100%;
               padding: 0.35em 0.75em;
-              border: 2px solid black;
+              border: 0.205em solid var(--pink-border);
               box-sizing: border-box;
               color: black;
               background-color: var(--button-background);
               cursor: pointer;
-              border-radius: 0;
+              border-radius: 0.5em;
+              filter: drop-shadow(-0.065em 0.065em 0.065em rgb(80, 80, 80));
               user-select: none;
               -webkit-user-select: none;
               -webkit-tap-highlight-color: transparent;
@@ -1743,6 +2288,7 @@ export const handler = async (event, context) => {
             }
             #chat-enter:active {
               background-color: yellow;
+              filter: drop-shadow(-0.03em 0.03em 0.03em rgb(80, 80, 80));
             }
             #chat-autocomplete {
               position: absolute;
@@ -1831,6 +2377,7 @@ export const handler = async (event, context) => {
             src="/aesthetic.computer/dep/auth0-spa-js.production.js"
           ></script>
           <script src="https://js.stripe.com/v3/"></script>
+          <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.min.js"></script>
           ${!dev ? analyticsScript : ""}
         </head>
         <body>
@@ -1899,6 +2446,22 @@ export const handler = async (event, context) => {
             const chat = new Chat(dev, undefined, function disconnect() {
               chatDisconnected.classList.remove("hidden");
             });
+            
+            // Global chat button reference (set when garden renders)
+            let chatButtonRef = null;
+            
+            // Helper to open chat with optional prefilled message
+            function openChatWithMessage(message) {
+              if (chatButtonRef) {
+                chatButtonRef.click();
+                if (message) {
+                  setTimeout(() => {
+                    chatInput.value = message;
+                    chatInput.focus();
+                  }, 100);
+                }
+              }
+            }
 
             chat.connect("sotce"); // Connect to 'sotce' chat.
 
@@ -1918,12 +2481,87 @@ export const handler = async (event, context) => {
             const chatMessages = cel("div"); // Scrolling panel for messages.
             chatMessages.id = "chat-messages";
             
-            // Event delegation for clicking @mentions in message content
+            // Event delegation for clicking @mentions and page links in message content
             chatMessages.addEventListener("click", (e) => {
               if (e.target.classList.contains("handle-mention")) {
                 const handle = e.target.innerText;
                 chatInput.value = chatInput.value + handle + " ";
                 chatInput.focus();
+              }
+              // Handle page link clicks (navigate within SPA)
+              if (e.target.classList.contains("page-link")) {
+                e.preventDefault();
+                const href = e.target.getAttribute("href");
+                // Close chat and navigate to page
+                const chatPagesBtn = document.getElementById("pages-button");
+                if (chatPagesBtn) chatPagesBtn.click(); // Close chat via pages button
+                updatePath(href);
+                // Scroll to target page
+                const pageMatch = href.match(/^\\/page\\/(\\d+)$/);
+                const qMatch = href.match(/^\\/q\\/(\\d+)$/);
+                if (pageMatch) {
+                  const targetPage = document.getElementById("page-" + pageMatch[1]);
+                  if (targetPage) targetPage.scrollIntoView({ block: "start", behavior: "smooth" });
+                } else if (qMatch) {
+                  const targetQ = document.getElementById("q-" + qMatch[1]);
+                  if (targetQ) targetQ.scrollIntoView({ block: "start", behavior: "smooth" });
+                }
+              }
+            });
+            
+            // Page preview tooltip on hover
+            const pagePreview = cel("div");
+            pagePreview.id = "page-preview";
+            document.body.appendChild(pagePreview);
+            
+            let previewTimeout;
+            chatMessages.addEventListener("mouseover", async (e) => {
+              if (e.target.classList.contains("page-link")) {
+                const href = e.target.getAttribute("href");
+                const pageMatch = href.match(/^\\/page\\/(\\d+)$/);
+                if (pageMatch) {
+                  const pageNum = parseInt(pageMatch[1], 10);
+                  clearTimeout(previewTimeout);
+                  
+                  // Position preview above the link
+                  const rect = e.target.getBoundingClientRect();
+                  pagePreview.style.left = (rect.left + rect.width / 2) + "px";
+                  pagePreview.style.top = (rect.top - 8) + "px";
+                  
+                  // Try to get page content from cache or DOM
+                  const pageEl = document.getElementById("page-" + pageNum);
+                  if (pageEl && pageEl.dataset.loaded === "true") {
+                    const words = pageEl.querySelector(".words");
+                    const title = pageEl.querySelector(".page-title");
+                    if (words && title) {
+                      pagePreview.innerHTML = 
+                        '<div class="preview-title">' + title.innerText + '</div>' +
+                        '<div class="preview-content">' + words.innerText.slice(0, 200) + '</div>' +
+                        '<div class="preview-number">-' + pageNum + '-</div>';
+                      pagePreview.classList.add("visible");
+                    }
+                  } else {
+                    // Try from cache
+                    const cached = await getCachedPage(pageNum);
+                    if (cached) {
+                      const opts = { weekday: "long", month: "long", day: "numeric" };
+                      const previewDate = new Date(cached.when).toLocaleDateString("en-US", opts);
+                      pagePreview.innerHTML = 
+                        '<div class="preview-title">' + previewDate + '</div>' +
+                        '<div class="preview-content">' + cached.words.slice(0, 200) + '</div>' +
+                        '<div class="preview-number">-' + pageNum + '-</div>';
+                      pagePreview.classList.add("visible");
+                    }
+                  }
+                }
+              }
+            });
+            
+            chatMessages.addEventListener("mouseout", (e) => {
+              if (e.target.classList.contains("page-link")) {
+                previewTimeout = setTimeout(() => {
+                  pagePreview.classList.remove("visible");
+                }, 100);
               }
             });
 
@@ -1973,7 +2611,7 @@ export const handler = async (event, context) => {
               second: "numeric",
             });
 
-            // Auto-link URLs and highlight @handles in text
+            // Auto-link URLs, highlight @handles, and link page references in text
             function linkifyText(text) {
               const urlRegex = new RegExp('(https?:\\\\/\\\\/[^\\\\s<>"\\']+)', 'gi');
               let result = text.replace(urlRegex, (url) => {
@@ -1984,12 +2622,20 @@ export const handler = async (event, context) => {
               // Highlight @handles
               const handleRegex = new RegExp('(@[a-zA-Z0-9_.-]+)', 'g');
               result = result.replace(handleRegex, '<span class="handle-mention">$1</span>');
+              // Link diary page references like -5-
+              const diaryPageRegex = new RegExp('-(\\\\d+)-', 'g');
+              result = result.replace(diaryPageRegex, '<a href="/page/$1" class="page-link diary-link">-$1-</a>');
+              // Link question references like *3*
+              const questionRegex = new RegExp('\\\\*(\\\\d+)\\\\*', 'g');
+              result = result.replace(questionRegex, '<a href="/q/$1" class="page-link question-link">*$1*</a>');
               return result;
             }
 
             function chatAddMessage(text, handle, when, count) {
               const msg = cel("div");
               msg.classList.add("message");
+              msg.dataset.when = when; // Store timestamp for recency calculations
+              
               const by = cel("div");
               by.classList.add("message-author");
               const txt = cel("div");
@@ -2021,6 +2667,31 @@ export const handler = async (event, context) => {
               while (chatMessages.children.length > 500) {
                 chatMessages.removeChild(chatMessages.firstChild);
               }
+              // Update position-based fading for all messages
+              updateMessageFading();
+            }
+            
+            // Update opacity of borders and timestamps based on position from bottom
+            // Most recent 30 messages are visible, then fade out slowly
+            function updateMessageFading() {
+              const messages = chatMessages.querySelectorAll(".message");
+              const total = messages.length;
+              const fadeStart = 30; // Start fading after this many messages from bottom
+              const fadeLength = 20; // Fade over this many messages
+              
+              messages.forEach((msg, i) => {
+                const posFromBottom = total - 1 - i;
+                let opacity;
+                if (posFromBottom < fadeStart) {
+                  opacity = 0.15; // Full opacity for recent messages
+                } else {
+                  const fadeProgress = (posFromBottom - fadeStart) / fadeLength;
+                  opacity = Math.max(0, 0.15 * (1 - fadeProgress));
+                }
+                msg.style.setProperty('--msg-border-opacity', opacity.toFixed(3));
+                const whenEl = msg.querySelector(".message-when");
+                if (whenEl) whenEl.style.opacity = opacity.toFixed(3);
+              });
             }
 
             function chatAddEmpty() {
@@ -2059,11 +2730,42 @@ export const handler = async (event, context) => {
             chatHandle.id = "chat-handle";
             chatHandle.innerText = "nohandle";
 
-            const chatInput = cel("input"); // Input element.
-            chatInput.id = "chat-input";
-            chatInput.type = "text";
-            chatInput.autocomplete = "off";
-            chatInput.maxLength = 128;
+            // 🎹 Monaco-based chat input for syntax highlighting
+            const chatInputContainer = cel("div");
+            chatInputContainer.id = "chat-input-container";
+            
+            let chatEditor = null; // Will be set after Monaco loads
+            let chatEditorReady = false;
+            
+            // Helper to get/set chat input value (works with both Monaco and fallback)
+            const chatInput = {
+              get value() {
+                if (chatEditor) return chatEditor.getValue();
+                const fallback = document.querySelector("#chat-input-fallback");
+                return fallback ? fallback.value : "";
+              },
+              set value(val) {
+                if (chatEditor) {
+                  chatEditor.setValue(val);
+                } else {
+                  const fallback = document.querySelector("#chat-input-fallback");
+                  if (fallback) fallback.value = val;
+                }
+              },
+              focus() {
+                if (chatEditor) chatEditor.focus();
+                else document.querySelector("#chat-input-fallback")?.focus();
+              }
+            };
+            
+            // Create fallback input until Monaco loads
+            const chatInputFallback = cel("input");
+            chatInputFallback.id = "chat-input-fallback";
+            chatInputFallback.type = "text";
+            chatInputFallback.autocomplete = "off";
+            chatInputFallback.maxLength = 128;
+            chatInputFallback.style.cssText = "width:100%;height:100%;border:none;padding:0.35em 0.5em;font-size:100%;box-sizing:border-box;";
+            chatInputContainer.appendChild(chatInputFallback);
 
             const chatEnter = cel("button"); // Enter button.
             chatEnter.innerText = "Enter";
@@ -2124,8 +2826,9 @@ export const handler = async (event, context) => {
               chatInput.focus();
             }
             
-            chatInput.addEventListener("input", (e) => {
-              const val = chatInput.value;
+            // Fallback input event listeners (used before Monaco loads)
+            chatInputFallback.addEventListener("input", (e) => {
+              const val = chatInputFallback.value;
               const atPos = val.lastIndexOf("@");
               if (atPos !== -1 && atPos === val.length - 1 || 
                   (atPos !== -1 && !val.slice(atPos).includes(" "))) {
@@ -2136,17 +2839,17 @@ export const handler = async (event, context) => {
               }
             });
             
-            chatInput.addEventListener("keydown", (e) => {
+            chatInputFallback.addEventListener("keydown", (e) => {
               if (!chatAutocomplete.classList.contains("visible")) return;
               
               if (e.key === "ArrowDown") {
                 e.preventDefault();
                 autocompleteIndex = Math.min(autocompleteIndex + 1, autocompleteMatches.length - 1);
-                showAutocomplete(chatInput.value.slice(chatInput.value.lastIndexOf("@") + 1));
+                showAutocomplete(chatInputFallback.value.slice(chatInputFallback.value.lastIndexOf("@") + 1));
               } else if (e.key === "ArrowUp") {
                 e.preventDefault();
                 autocompleteIndex = Math.max(autocompleteIndex - 1, 0);
-                showAutocomplete(chatInput.value.slice(chatInput.value.lastIndexOf("@") + 1));
+                showAutocomplete(chatInputFallback.value.slice(chatInputFallback.value.lastIndexOf("@") + 1));
               } else if (e.key === "Enter" && autocompleteIndex >= 0) {
                 e.preventDefault();
                 insertHandle(autocompleteMatches[autocompleteIndex]);
@@ -2158,17 +2861,166 @@ export const handler = async (event, context) => {
               }
             });
             
-            chatInput.addEventListener("blur", () => {
+            chatInputFallback.addEventListener("blur", () => {
               setTimeout(hideAutocomplete, 150); // Delay to allow click on autocomplete
             });
 
             chatInputBar.appendChild(chatHandle);
-            chatInputBar.appendChild(chatInput);
+            chatInputBar.appendChild(chatInputContainer);
             chatInputBar.appendChild(chatAutocomplete);
             chatInputBar.appendChild(chatEnter);
 
             chatInterface.appendChild(chatMessages);
             chatInterface.appendChild(chatInputBar);
+            
+            // 🎹 Initialize Monaco Editor for chat input
+            require.config({ 
+              paths: { 
+                vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs'
+              }
+            });
+            
+            require(['vs/editor/editor.main'], function() {
+              // Register sotce-chat language with syntax highlighting
+              monaco.languages.register({ id: 'sotce-chat' });
+              
+              monaco.languages.setMonarchTokensProvider('sotce-chat', {
+                tokenizer: {
+                  root: [
+                    [/-\\d+-/, 'page-link'],      // Page references like -1-
+                    [/\\*\\d+\\*/, 'question-link'], // Question references like *1*
+                    [/@[a-zA-Z0-9_-]+/, 'handle'], // Handles like @user
+                    [/./, 'text']
+                  ]
+                }
+              });
+              
+              // Define sotce-chat theme (light)
+              monaco.editor.defineTheme('sotce-chat-light', {
+                base: 'vs',
+                inherit: true,
+                rules: [
+                  { token: 'text', foreground: '333333' },
+                  { token: 'page-link', foreground: 'ff69b4', fontStyle: 'bold' },      // Hot pink for pages
+                  { token: 'question-link', foreground: '9b59b6', fontStyle: 'bold' },  // Purple for questions
+                  { token: 'handle', foreground: 'c85078', fontStyle: 'bold' }          // Pink for handles
+                ],
+                colors: {
+                  'editor.background': '#ffffff',
+                  'editor.foreground': '#333333',
+                  'editorCursor.foreground': '#ff69b4',
+                  'editor.lineHighlightBackground': '#ffffff00',
+                  'editor.selectionBackground': '#ff69b444',
+                }
+              });
+              
+              // Remove the fallback input
+              chatInputFallback.remove();
+              
+              // Create Monaco editor
+              chatEditor = monaco.editor.create(chatInputContainer, {
+                value: '',
+                language: 'sotce-chat',
+                theme: 'sotce-chat-light',
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                fontSize: 16,
+                fontFamily: 'Helvetica, sans-serif',
+                lineNumbers: 'off',
+                glyphMargin: false,
+                folding: false,
+                lineDecorationsWidth: 0,
+                lineNumbersMinChars: 0,
+                renderLineHighlight: 'none',
+                overviewRulerLanes: 0,
+                scrollbar: {
+                  vertical: 'hidden',
+                  horizontal: 'hidden',
+                  handleMouseWheel: false
+                },
+                automaticLayout: true,
+                wordWrap: 'off',
+                cursorStyle: 'line',
+                cursorBlinking: 'blink',
+                padding: { top: 4, bottom: 4 },
+                hover: { enabled: false },
+                parameterHints: { enabled: false },
+                quickSuggestions: false,
+                suggestOnTriggerCharacters: false,
+                codeLens: false,
+                lightbulb: { enabled: 'off' },
+                contextmenu: false,
+                accessibilitySupport: 'off',
+                renderWhitespace: 'none',
+                links: false,
+                matchBrackets: 'never',
+                occurrencesHighlight: 'off',
+                selectionHighlight: false,
+                find: { addExtraSpaceOnTop: false, autoFindInSelection: 'never' },
+              });
+              
+              // Handle Enter key for sending
+              chatEditor.addCommand(monaco.KeyCode.Enter, () => {
+                chatEnter.click();
+              });
+              
+              // Handle Escape to blur
+              chatEditor.addCommand(monaco.KeyCode.Escape, () => {
+                chatEditor.getContainerDomNode().blur();
+              });
+              
+              // Character limit (128)
+              chatEditor.onDidChangeModelContent(() => {
+                const text = chatEditor.getValue();
+                if (text.length > 128) {
+                  chatEditor.setValue(text.slice(0, 128));
+                  // Move cursor to end
+                  const model = chatEditor.getModel();
+                  chatEditor.setPosition({ lineNumber: 1, column: 129 });
+                }
+                // Collapse to single line (remove newlines)
+                if (text.includes('\\n')) {
+                  chatEditor.setValue(text.replace(/\\n/g, ' '));
+                }
+                
+                // Handle autocomplete for @mentions
+                const val = text;
+                const atPos = val.lastIndexOf("@");
+                if (atPos !== -1 && atPos === val.length - 1 || 
+                    (atPos !== -1 && !val.slice(atPos).includes(" "))) {
+                  const query = val.slice(atPos + 1);
+                  showAutocomplete(query);
+                } else {
+                  hideAutocomplete();
+                }
+              });
+              
+              // Arrow key navigation for autocomplete
+              chatEditor.addCommand(monaco.KeyCode.DownArrow, () => {
+                if (chatAutocomplete.classList.contains("visible")) {
+                  autocompleteIndex = Math.min(autocompleteIndex + 1, autocompleteMatches.length - 1);
+                  showAutocomplete(chatInput.value.slice(chatInput.value.lastIndexOf("@") + 1));
+                } else {
+                  // Default behavior - do nothing special for single line
+                }
+              });
+              
+              chatEditor.addCommand(monaco.KeyCode.UpArrow, () => {
+                if (chatAutocomplete.classList.contains("visible")) {
+                  autocompleteIndex = Math.max(autocompleteIndex - 1, 0);
+                  showAutocomplete(chatInput.value.slice(chatInput.value.lastIndexOf("@") + 1));
+                }
+              });
+              
+              chatEditor.addCommand(monaco.KeyCode.Tab, () => {
+                if (chatAutocomplete.classList.contains("visible") && autocompleteMatches.length > 0) {
+                  insertHandle(autocompleteMatches[autocompleteIndex >= 0 ? autocompleteIndex : 0]);
+                }
+              });
+              
+              chatEditorReady = true;
+              console.log("🎹 Monaco chat editor ready");
+            });
 
             // 🥬 Send a message to chat.
             async function chatSend(text) {
@@ -2213,11 +3065,12 @@ export const handler = async (event, context) => {
               if (e.key === "Enter") chatEnter.click();
             }
 
-            chatInput.addEventListener("focus", () => {
+            // Fallback input Enter key handling (before Monaco)
+            chatInputFallback.addEventListener("focus", () => {
               window.addEventListener("keydown", chatEnterKeyListener);
             });
 
-            chatInput.addEventListener("blur", () => {
+            chatInputFallback.addEventListener("blur", () => {
               window.removeEventListener("keydown", chatEnterKeyListener);
             });
 
@@ -2448,8 +3301,23 @@ export const handler = async (event, context) => {
             const maxLines = ${MAX_LINES};
 
             // #region 🥀 gate&garden
+            // Cache gate elements to avoid recreation
+            let cachedGateCurtain = null;
+            let cachedGateStatus = null;
+            
             async function gate(status, user, subscription) {
-              if (gating) return;
+              // If gate already exists with same status, just return it (fast path)
+              if (cachedGateCurtain && cachedGateStatus === status && document.body.contains(cachedGateCurtain)) {
+                console.log("🚪 Reusing cached gate!");
+                return cachedGateCurtain;
+              }
+              
+              if (gating) {
+                // Return existing curtain if available
+                const existing = document.getElementById("gate-curtain");
+                if (existing) return existing;
+                return;
+              }
               gating = true;
               let message,
                 buttons = [],
@@ -2919,17 +3787,17 @@ export const handler = async (event, context) => {
 
               curtain.appendChild(g);
 
+              const imageSrc = asset(
+                status === "subscribed" ? "cookie-open.png" : "cookie.png",
+              );
+              img.src = imageSrc;
+
               const imageLoadPromise = new Promise((resolve) => {
-                img.onload = function () {
+                const handleImageReady = () => {
                   document.getElementById("gate-curtain")?.remove(); // Rid old curtain.
                   const checkObscurity = setInterval(() => {
                     if (!curtain.classList.contains("obscured")) {
                       g.classList.remove("faded");
-                      // Check to see if the chat is connected.
-                      // Commented out to hide chat interface for logged-out users
-                      // if (!subscription && !chat.system.connecting) {
-                      //   chatInterface.classList.remove("hidden");
-                      // }
                       clearInterval(checkObscurity);
                     }
                   }, 10);
@@ -2939,16 +3807,24 @@ export const handler = async (event, context) => {
                     email.onclick = (e) =>
                       resend(e, status === "unverified" ? undefined : "change");
                   }
-                  resolve(); // Resolve the promise once the image is loaded.
+                  resolve();
                 };
+                
+                // If image is already cached/complete, fire immediately
+                if (img.complete && img.naturalWidth > 0) {
+                  handleImageReady();
+                } else {
+                  img.onload = handleImageReady;
+                }
               });
 
-              img.src = asset(
-                status === "subscribed" ? "cookie-open.png" : "cookie.png",
-              );
-
-              await imageLoadPromise; // Wait for the image to load.
+              await imageLoadPromise;
               gating = false;
+              
+              // Cache the curtain for fast re-entry
+              cachedGateCurtain = curtain;
+              cachedGateStatus = status;
+              
               return curtain;
             }
 
@@ -2975,6 +3851,26 @@ export const handler = async (event, context) => {
               g.appendChild(topBar);
 
               g.id = "garden";
+              
+              // 🏷️ Page number tooltip with scrolling ticker
+              const pageNumberTooltip = cel("div");
+              pageNumberTooltip.id = "page-number-tooltip";
+              document.body.appendChild(pageNumberTooltip);
+              
+              let tooltipTimeout = null;
+              function showPageNumberTooltip(e, content, pageIndex) {
+                if (tooltipTimeout) clearTimeout(tooltipTimeout);
+                const rect = e.target.getBoundingClientRect();
+                pageNumberTooltip.style.left = (rect.left + rect.width / 2) + "px";
+                pageNumberTooltip.style.top = rect.top + "px";
+                pageNumberTooltip.innerHTML = '<span class="ticker">' + (content || "Page " + pageIndex) + '</span>';
+                pageNumberTooltip.classList.add("visible");
+              }
+              function hidePageNumberTooltip() {
+                tooltipTimeout = setTimeout(() => {
+                  pageNumberTooltip.classList.remove("visible");
+                }, 100);
+              }
 
               if (!showGate) g.classList.add("obscured");
               if (showGate) {
@@ -3137,6 +4033,7 @@ export const handler = async (event, context) => {
               const chatButton = cel("button");
               chatButton.id = "chat-button";
               chatButton.innerText = "chat";
+              chatButtonRef = chatButton; // Set global reference
 
               chatButton.onclick = function () {
                 chatInterface.classList.remove("hidden");
@@ -3150,6 +4047,671 @@ export const handler = async (event, context) => {
 
               topBar.appendChild(chatButton);
               // }
+
+              // ❓ Ask - Submit a question (editor-style like /write)
+              const askButton = cel("button");
+              askButton.id = "ask-button";
+              askButton.innerText = subscription?.admin ? "respond" : "ask";
+
+              async function openAskEditor() {
+                scrollMemory = wrapper.scrollTop;
+
+                veil();
+                const asksRes = await userRequest("GET", "/sotce-net/asks");
+                unveil({ instant: true });
+
+                const askEditor = cel("div");
+                askEditor.id = "ask-editor";
+
+                const editorPlacemat = cel("div");
+                editorPlacemat.id = "editor-placemat";
+
+                const form = cel("form");
+                form.id = "ask-editor-form";
+
+                const pageWrapper = cel("div");
+                pageWrapper.id = "editor-page-wrapper";
+
+                const askPage = cel("div");
+                askPage.id = "ask-editor-page";
+
+                // Match the binding style width
+                const binding = document.getElementById("binding");
+                if (binding) form.style.width = binding.style.width;
+
+                // Date at top (like diary pages)
+                const askDate = cel("div");
+                askDate.classList.add("ask-date");
+                askDate.innerText = dateTitle(new Date());
+
+                // Title below date
+                const askTitle = cel("div");
+                askTitle.classList.add("ask-title");
+                const userHandle = window.sotceHandle || "@you";
+                askTitle.innerText = userHandle + " asks @amelia";
+
+                const wordsWrapper = cel("div");
+                wordsWrapper.id = "ask-words-wrapper";
+
+                const words = cel("textarea");
+                words.placeholder = "Your question...";
+
+                const linesLeft = cel("div");
+                linesLeft.id = "ask-chars-left";
+                const maxAskLines = 5;
+                linesLeft.innerText = maxAskLines + " lines left";
+
+                let lastValidValue = "";
+                words.addEventListener("input", () => {
+                  // Line-based limit like diary pages
+                  const wordsStyle = window.getComputedStyle(words);
+                  const lineHeight = parseFloat(wordsStyle.lineHeight);
+                  
+                  let measurement = askPage.querySelector("#ask-measurement");
+                  if (!measurement) {
+                    measurement = document.createElement("div");
+                    measurement.id = "ask-measurement";
+                    measurement.style.cssText = "position:absolute;z-index:-1;pointer-events:none;visibility:hidden;white-space:pre-wrap;text-align:justify;hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word;";
+                    measurement.style.width = words.clientWidth + "px";
+                    measurement.style.font = wordsStyle.font;
+                    measurement.style.fontSize = wordsStyle.fontSize;
+                    measurement.style.lineHeight = wordsStyle.lineHeight;
+                    measurement.style.padding = wordsStyle.padding;
+                    askPage.appendChild(measurement);
+                  }
+                  
+                  measurement.style.width = words.clientWidth + "px";
+                  measurement.textContent = words.value || " ";
+                  if (words.value.endsWith("\\n")) measurement.textContent += " ";
+                  
+                  const contentHeight = measurement.scrollHeight;
+                  let lineCount = Math.round(contentHeight / lineHeight);
+                  if (lineCount === 1 && words.value.length === 0) lineCount = 0;
+                  
+                  const cursorPosition = words.selectionStart;
+                  if (lineCount > maxAskLines) {
+                    words.value = lastValidValue;
+                    words.setSelectionRange(Math.max(0, cursorPosition - 1), Math.max(0, cursorPosition - 1));
+                    lineCount = maxAskLines;
+                  } else {
+                    lastValidValue = words.value;
+                  }
+                  
+                  const remaining = maxAskLines - Math.min(lineCount, maxAskLines);
+                  linesLeft.innerText = remaining + " line" + (remaining !== 1 ? "s" : "") + " left";
+                  
+                  linesLeft.classList.remove("lines-left-few", "lines-left-little", "lines-left-lots", "lines-left-loads");
+                  if (remaining === 0) {
+                    linesLeft.classList.add("lines-left-few");
+                  } else if (remaining <= 1) {
+                    linesLeft.classList.add("lines-left-little");
+                  } else if (remaining <= 3) {
+                    linesLeft.classList.add("lines-left-lots");
+                  } else {
+                    linesLeft.classList.add("lines-left-loads");
+                  }
+                });
+
+                wordsWrapper.appendChild(words);
+                askPage.appendChild(askDate);
+                askPage.appendChild(askTitle);
+                askPage.appendChild(wordsWrapper);
+
+                // My asks list (shown by swapping page content)
+                let asksData = asksRes.status === 200 ? asksRes.asks : [];
+
+                // Question number at bottom with asterisks
+                const askNumber = cel("div");
+                askNumber.classList.add("ask-number");
+                const nextAskNum = asksData.length + 1;
+                askNumber.innerText = "*" + nextAskNum + "*";
+                askPage.appendChild(askNumber);
+                let showingAsks = false;
+
+                // Create asks list container (initially hidden)
+                const asksListPage = cel("div");
+                asksListPage.id = "asks-list-page";
+                asksListPage.style.cssText = "display:none;padding:1em 2em;height:100%;overflow-y:auto;box-sizing:border-box;";
+
+                function updateMyAsksLink() {
+                  const count = asksData ? asksData.length : 0;
+                  if (showingAsks) {
+                    myAsksBtn.innerText = "close";
+                    myAsksBtn.style.display = "block";
+                  } else if (count > 0) {
+                    myAsksBtn.innerText = "my questions (" + count + ")";
+                    myAsksBtn.style.display = "block";
+                  } else {
+                    myAsksBtn.style.display = "none";
+                  }
+                }
+
+                function renderAsksList() {
+                  asksListPage.innerHTML = "";
+
+                  const title = cel("h2");
+                  title.innerText = "My Questions";
+                  title.style.cssText = "margin:0 0 1em 0;text-align:center;font-weight:normal;";
+                  asksListPage.appendChild(title);
+
+                  if (!asksData || asksData.length === 0) {
+                    const empty = cel("p");
+                    empty.innerText = "No questions yet.";
+                    empty.style.cssText = "opacity:0.6;text-align:center;";
+                    asksListPage.appendChild(empty);
+                  } else {
+                    asksData.forEach((ask) => {
+                      const item = cel("div");
+                      item.classList.add("ask-item");
+                      if (ask.state === "answered") item.classList.add("answered");
+
+                      const q = cel("div");
+                      q.innerText = ask.question;
+
+                      const statusRow = cel("div");
+                      statusRow.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:0.25em;";
+
+                      const status = cel("span");
+                      status.classList.add("ask-status");
+                      const whenDate = new Date(ask.when).toLocaleDateString("en-US", {
+                        month: "short", day: "numeric", year: "numeric"
+                      });
+                      status.innerText = (ask.state === "pending" ? "Pending" : "Answered") + " - " + whenDate;
+
+                      statusRow.appendChild(status);
+
+                      item.appendChild(q);
+                      item.appendChild(statusRow);
+                      asksListPage.appendChild(item);
+                    });
+                  }
+                }
+
+                function toggleAsksView() {
+                  showingAsks = !showingAsks;
+                  if (showingAsks) {
+                    renderAsksList();
+                    askPage.style.display = "none";
+                    asksListPage.style.display = "block";
+                    linesLeft.style.display = "none";
+                  } else {
+                    askPage.style.display = "block";
+                    asksListPage.style.display = "none";
+                    linesLeft.style.display = "block";
+                  }
+                  updateMyAsksLink();
+                }
+
+                function toggleAsksView() {
+                  showingAsks = !showingAsks;
+                  if (showingAsks) {
+                    renderAsksList();
+                    askPage.style.display = "none";
+                    asksListPage.style.display = "block";
+                    linesLeft.style.display = "none";
+                  } else {
+                    askPage.style.display = "block";
+                    asksListPage.style.display = "none";
+                    linesLeft.style.display = "block";
+                  }
+                  updateMyAsksLink();
+                }
+
+                pageWrapper.appendChild(askPage);
+                pageWrapper.appendChild(asksListPage);
+                form.appendChild(pageWrapper);
+
+                // Nav buttons (like page editor)
+                const nav = cel("nav");
+                nav.id = "nav-ask-editor";
+                nav.style.width = topBar.style.width;
+
+                const cancelBtn = cel("button");
+                cancelBtn.innerText = "nevermind";
+
+                const myAsksBtn = cel("button");
+                const initialCount = asksData ? asksData.length : 0;
+                myAsksBtn.innerText = "my questions (" + initialCount + ")";
+                myAsksBtn.classList.add("ask-toggle");
+                if (initialCount === 0) myAsksBtn.style.display = "none";
+                myAsksBtn.onclick = (e) => {
+                  e.preventDefault();
+                  toggleAsksView();
+                };
+
+                const submitBtn = cel("button");
+                submitBtn.type = "submit";
+                submitBtn.setAttribute("form", form.id);
+                submitBtn.innerText = "ask";
+                submitBtn.classList.add("positive");
+
+                nav.appendChild(cancelBtn);
+                nav.appendChild(myAsksBtn);
+                nav.appendChild(submitBtn);
+
+                function closeAskEditor() {
+                  document.body.classList.remove("pages-hidden");
+                  document.documentElement.classList.remove("editing");
+                  askEditor.remove();
+                  editorPlacemat.remove();
+                  nav.remove();
+                  linesLeft.remove();
+                  askButton.classList.remove("deactivated");
+                  wrapper.scrollTop = scrollMemory;
+                  computePageLayout?.();
+                  updatePath("/");
+                }
+
+                cancelBtn.onclick = (e) => {
+                  e.preventDefault();
+                  if (words.value.length > 0) {
+                    if (!confirm("Discard your question?")) return;
+                  }
+                  closeAskEditor();
+                };
+
+                form.addEventListener("submit", async (e) => {
+                  e.preventDefault();
+
+                  // Handle ask mode (user submitting a question)
+                  const question = words.value.trim();
+                  if (!question) {
+                    alert("Please enter a question.");
+                    return;
+                  }
+                  veil();
+                  const res = await userRequest("POST", "/sotce-net/ask", { question });
+                  unveil({ instant: true });
+                  if (res.status === 200) {
+                    words.value = "";
+                    lastValidValue = "";
+                    linesLeft.innerText = maxAskLines + " lines left";
+                    linesLeft.classList.remove("lines-left-few", "lines-left-little");
+                    // Refresh the list
+                    const newAsks = await userRequest("GET", "/sotce-net/asks");
+                    if (newAsks.status === 200) {
+                      asksData = newAsks.asks;
+                      updateMyAsksLink();
+                    }
+                  } else {
+                    alert("Error: " + (res.message || "Could not submit question."));
+                  }
+                });
+
+                const scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
+                submitBtn.style.marginRight = scrollbarWidth / 1.5 + "px";
+
+                askEditor.appendChild(form);
+                askEditor.appendChild(linesLeft);
+                g.appendChild(nav);
+
+                document.documentElement.classList.add("editing");
+
+                g.appendChild(editorPlacemat);
+                g.appendChild(askEditor);
+                document.body.classList.add("pages-hidden");
+
+                // Scale the page
+                const baseWidth = 100 * 8;
+                const goalWidth = askPage.parentElement.clientWidth;
+                const scale = goalWidth / baseWidth;
+                askPage.style.transform = "scale(" + scale + ")";
+
+                askButton.classList.add("deactivated");
+                updatePath("/ask");
+                words.focus();
+              }
+
+              // 📝 Respond Editor - Admin only, page-style editor for responding to questions
+              async function openRespondEditor() {
+                scrollMemory = wrapper.scrollTop;
+
+                veil();
+                const pendingRes = await userRequest("GET", "/sotce-net/asks/pending");
+                unveil({ instant: true });
+
+                let pendingData = pendingRes.status === 200 ? pendingRes.asks || [] : [];
+                let currentPendingIndex = 0;
+
+                const respondEditor = cel("div");
+                respondEditor.id = "respond-editor";
+
+                const editorPlacemat = cel("div");
+                editorPlacemat.id = "editor-placemat";
+
+                const form = cel("form");
+                form.id = "respond-editor-form";
+
+                const pageWrapper = cel("div");
+                pageWrapper.id = "editor-page-wrapper";
+
+                const respondPage = cel("div");
+                respondPage.id = "respond-editor-page";
+
+                // Match the binding style width
+                const binding = document.getElementById("binding");
+                if (binding) form.style.width = binding.style.width;
+
+                // Lines left indicator
+                const linesLeft = cel("div");
+                linesLeft.id = "respond-lines-left";
+                const maxRespondLines = 20;
+
+                let lastValidValue = "";
+                let responseWords = null;
+
+                function renderRespondPage() {
+                  respondPage.innerHTML = "";
+
+                  if (!pendingData || pendingData.length === 0) {
+                    const empty = cel("p");
+                    empty.innerText = "No pending questions.";
+                    empty.style.cssText = "opacity:0.6;text-align:center;margin-top:40%;";
+                    respondPage.appendChild(empty);
+                    linesLeft.style.display = "none";
+                    return;
+                  }
+
+                  const question = pendingData[currentPendingIndex];
+
+                  // Date at top (like diary pages)
+                  const pageDate = cel("div");
+                  pageDate.classList.add("page-title");
+                  pageDate.innerText = dateTitle(new Date());
+                  respondPage.appendChild(pageDate);
+
+                  // Question section (top half)
+                  const questionSection = cel("div");
+                  questionSection.classList.add("respond-question-section");
+
+                  // Counter
+                  const counter = cel("div");
+                  counter.classList.add("respond-counter");
+                  counter.innerText = (currentPendingIndex + 1) + " / " + pendingData.length;
+                  questionSection.appendChild(counter);
+
+                  // Handle
+                  const handle = cel("div");
+                  handle.classList.add("respond-handle");
+                  handle.innerText = (question.handle || "@anonymous") + " asks:";
+                  questionSection.appendChild(handle);
+
+                  // Question text
+                  const questionText = cel("div");
+                  questionText.classList.add("respond-question-text");
+                  questionText.innerText = question.question;
+                  questionSection.appendChild(questionText);
+
+                  respondPage.appendChild(questionSection);
+
+                  // Response section (bottom half)
+                  const responseSection = cel("div");
+                  responseSection.classList.add("respond-response-section");
+
+                  const responseLabel = cel("div");
+                  responseLabel.classList.add("respond-label");
+                  responseLabel.innerText = "@amelia responds:";
+                  responseSection.appendChild(responseLabel);
+
+                  const wordsWrapper = cel("div");
+                  wordsWrapper.id = "respond-words-wrapper";
+
+                  responseWords = cel("textarea");
+                  responseWords.classList.add("respond-textarea");
+                  responseWords.placeholder = "Your response...";
+
+                  responseWords.addEventListener("input", () => {
+                    const wordsStyle = window.getComputedStyle(responseWords);
+                    const lineHeight = parseFloat(wordsStyle.lineHeight);
+                    
+                    let measurement = respondPage.querySelector("#respond-measurement");
+                    if (!measurement) {
+                      measurement = document.createElement("div");
+                      measurement.id = "respond-measurement";
+                      measurement.style.cssText = "position:absolute;z-index:-1;pointer-events:none;visibility:hidden;white-space:pre-wrap;text-align:justify;hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word;";
+                      measurement.style.width = responseWords.clientWidth + "px";
+                      measurement.style.font = wordsStyle.font;
+                      measurement.style.fontSize = wordsStyle.fontSize;
+                      measurement.style.lineHeight = wordsStyle.lineHeight;
+                      measurement.style.padding = wordsStyle.padding;
+                      respondPage.appendChild(measurement);
+                    }
+                    
+                    measurement.style.width = responseWords.clientWidth + "px";
+                    measurement.textContent = responseWords.value || " ";
+                    if (responseWords.value.endsWith("\\n")) measurement.textContent += " ";
+                    
+                    const contentHeight = measurement.scrollHeight;
+                    let lineCount = Math.round(contentHeight / lineHeight);
+                    if (lineCount === 1 && responseWords.value.length === 0) lineCount = 0;
+                    
+                    const cursorPosition = responseWords.selectionStart;
+                    if (lineCount > maxRespondLines) {
+                      responseWords.value = lastValidValue;
+                      responseWords.setSelectionRange(Math.max(0, cursorPosition - 1), Math.max(0, cursorPosition - 1));
+                      lineCount = maxRespondLines;
+                    } else {
+                      lastValidValue = responseWords.value;
+                    }
+                    
+                    const remaining = maxRespondLines - Math.min(lineCount, maxRespondLines);
+                    linesLeft.innerText = remaining + " line" + (remaining !== 1 ? "s" : "") + " left";
+                    
+                    linesLeft.classList.remove("lines-left-few", "lines-left-little", "lines-left-lots", "lines-left-loads");
+                    if (remaining === 0) {
+                      linesLeft.classList.add("lines-left-few");
+                    } else if (remaining <= 3) {
+                      linesLeft.classList.add("lines-left-little");
+                    } else if (remaining <= 8) {
+                      linesLeft.classList.add("lines-left-lots");
+                    } else {
+                      linesLeft.classList.add("lines-left-loads");
+                    }
+                  });
+
+                  wordsWrapper.appendChild(responseWords);
+                  responseSection.appendChild(wordsWrapper);
+                  respondPage.appendChild(responseSection);
+
+                  // Page number at bottom
+                  const pageNumber = cel("div");
+                  pageNumber.classList.add("page-number");
+                  pageNumber.innerText = "- " + (currentPendingIndex + 1) + " -";
+                  respondPage.appendChild(pageNumber);
+
+                  linesLeft.style.display = "block";
+                  linesLeft.innerText = maxRespondLines + " lines left";
+                  linesLeft.classList.remove("lines-left-few", "lines-left-little", "lines-left-lots");
+                  linesLeft.classList.add("lines-left-loads");
+
+                  lastValidValue = "";
+
+                  // Focus the textarea
+                  setTimeout(() => responseWords?.focus(), 100);
+                }
+
+                renderRespondPage();
+
+                pageWrapper.appendChild(respondPage);
+                form.appendChild(pageWrapper);
+
+                // Nav buttons
+                const nav = cel("nav");
+                nav.id = "nav-respond-editor";
+                nav.style.width = topBar.style.width;
+
+                const rejectBtn = cel("button");
+                rejectBtn.innerText = "reject";
+                rejectBtn.classList.add("negative");
+
+                const prevBtn = cel("button");
+                prevBtn.innerText = "← prev";
+                
+                const nextBtn = cel("button");
+                nextBtn.innerText = "next →";
+
+                const submitBtn = cel("button");
+                submitBtn.type = "submit";
+                submitBtn.setAttribute("form", form.id);
+                submitBtn.innerText = "respond";
+                submitBtn.classList.add("positive");
+
+                function updateNavButtons() {
+                  prevBtn.disabled = currentPendingIndex === 0;
+                  nextBtn.disabled = !pendingData || currentPendingIndex >= pendingData.length - 1;
+                  if (!pendingData || pendingData.length === 0) {
+                    rejectBtn.disabled = true;
+                    submitBtn.disabled = true;
+                  } else {
+                    rejectBtn.disabled = false;
+                    submitBtn.disabled = false;
+                  }
+                }
+
+                updateNavButtons();
+
+                prevBtn.onclick = (e) => {
+                  e.preventDefault();
+                  if (currentPendingIndex > 0) {
+                    if (responseWords?.value?.length > 0 && !confirm("Discard your response and go to previous?")) return;
+                    currentPendingIndex--;
+                    renderRespondPage();
+                    updateNavButtons();
+                  }
+                };
+
+                nextBtn.onclick = (e) => {
+                  e.preventDefault();
+                  if (currentPendingIndex < pendingData.length - 1) {
+                    if (responseWords?.value?.length > 0 && !confirm("Discard your response and go to next?")) return;
+                    currentPendingIndex++;
+                    renderRespondPage();
+                    updateNavButtons();
+                  }
+                };
+
+                rejectBtn.onclick = async (e) => {
+                  e.preventDefault();
+                  if (!pendingData || pendingData.length === 0) return;
+                  if (!confirm("Reject this question?")) return;
+
+                  const question = pendingData[currentPendingIndex];
+                  veil();
+                  const res = await userRequest("POST", "/sotce-net/ask/" + question._id + "/reject");
+                  unveil({ instant: true });
+
+                  if (res.status === 200) {
+                    pendingData.splice(currentPendingIndex, 1);
+                    if (currentPendingIndex >= pendingData.length && pendingData.length > 0) {
+                      currentPendingIndex = pendingData.length - 1;
+                    }
+                    renderRespondPage();
+                    updateNavButtons();
+                    if (pendingData.length === 0) {
+                      closeRespondEditor();
+                    }
+                  } else {
+                    alert("Error: " + (res.message || "Could not reject question."));
+                  }
+                };
+
+                nav.appendChild(rejectBtn);
+                nav.appendChild(prevBtn);
+                nav.appendChild(nextBtn);
+                nav.appendChild(submitBtn);
+
+                function closeRespondEditor() {
+                  document.body.classList.remove("pages-hidden");
+                  document.documentElement.classList.remove("editing");
+                  respondEditor.remove();
+                  editorPlacemat.remove();
+                  nav.remove();
+                  linesLeft.remove();
+                  askButton.classList.remove("deactivated");
+                  wrapper.scrollTop = scrollMemory;
+                  computePageLayout?.();
+                  updatePath("/");
+                }
+
+                form.addEventListener("submit", async (e) => {
+                  e.preventDefault();
+                  if (!pendingData || pendingData.length === 0) return;
+
+                  const answer = responseWords?.value?.trim();
+                  if (!answer) {
+                    alert("Please enter a response.");
+                    return;
+                  }
+
+                  const question = pendingData[currentPendingIndex];
+                  veil();
+                  const res = await userRequest("POST", "/sotce-net/ask/" + question._id + "/respond", { answer });
+                  unveil({ instant: true });
+
+                  if (res.status === 200) {
+                    pendingData.splice(currentPendingIndex, 1);
+                    if (currentPendingIndex >= pendingData.length && pendingData.length > 0) {
+                      currentPendingIndex = pendingData.length - 1;
+                    }
+                    renderRespondPage();
+                    updateNavButtons();
+                    if (pendingData.length === 0) {
+                      closeRespondEditor();
+                    }
+                  } else {
+                    alert("Error: " + (res.message || "Could not submit response."));
+                  }
+                });
+
+                const scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
+                submitBtn.style.marginRight = scrollbarWidth / 1.5 + "px";
+
+                respondEditor.appendChild(form);
+                respondEditor.appendChild(linesLeft);
+                g.appendChild(nav);
+
+                document.documentElement.classList.add("editing");
+
+                g.appendChild(editorPlacemat);
+                g.appendChild(respondEditor);
+                document.body.classList.add("pages-hidden");
+
+                // Scale the page
+                const baseWidth = 100 * 8;
+                const goalWidth = respondPage.parentElement.clientWidth;
+                const scale = goalWidth / baseWidth;
+                respondPage.style.transform = "scale(" + scale + ")";
+
+                askButton.classList.add("deactivated");
+                updatePath("/respond");
+              }
+
+              // Set button handler based on admin status
+              if (subscription?.admin) {
+                askButton.onclick = openRespondEditor;
+              } else {
+                askButton.onclick = openAskEditor;
+              }
+
+              // Auto-open /ask route
+              if (path === "/ask") {
+                const observer = new MutationObserver((mutationsList, observer) => {
+                  for (const mutation of mutationsList) {
+                    if (mutation.type === "childList" && Array.from(mutation.addedNodes).includes(g)) {
+                      openAskEditor();
+                      observer.disconnect();
+                      break;
+                    }
+                  }
+                });
+                observer.observe(wrapper, { childList: true, subtree: true });
+                if (wrapper.contains(g)) {
+                  openAskEditor();
+                  observer.disconnect();
+                }
+              }
+
+              topBar.appendChild(askButton);
 
               // 🪷 write-a-page - Create compose form.
               if (subscription?.admin) {
@@ -3462,10 +5024,7 @@ export const handler = async (event, context) => {
 
                   const pageNumber = cel("div");
                   pageNumber.classList.add("page-number");
-                  pageNumber.innerHTML =
-                    "<span class='fleuron'>h</span> " +
-                    (subscription.pages.length + 1) +
-                    " <span class='fleuron'>g</span>";
+                  pageNumber.innerText = "- " + (subscription.pages.length + 1) + " -";
 
                   editorPage.appendChild(pageTitle);
                   editorPage.appendChild(pageNumber);
@@ -3559,6 +5118,8 @@ export const handler = async (event, context) => {
                     );
                     if (res.status === 200) {
                       console.log("🪧 Written:", res);
+                      // Clear cache since new page was added
+                      await clearPageCache();
                       // close();
                       unveil({ instant: true });
                       window.location.reload();
@@ -3633,72 +5194,84 @@ export const handler = async (event, context) => {
                 topBar.appendChild(writeButton);
               }
 
-              if (subscription.pages) {
-                let pages = subscription.pages;
-                // console.log("🗞️ Pages retrieved:", pages);
+              // 📦 Cache management
+              const totalPages = subscription.totalPages || 0;
+              const lastModified = subscription.lastModified;
+              const loadedPagesData = subscription.pages || [];
+              const pageIndex = subscription.pageIndex; // If loading specific page
+              
+              // Check cache validity
+              const cacheMeta = await getCacheMeta();
+              const cacheValid = cacheMeta && 
+                cacheMeta.totalPages === totalPages && 
+                cacheMeta.lastModified === lastModified;
+              
+              if (!cacheValid && cacheMeta) {
+                console.log("📦 Cache invalidated, clearing...");
+                await clearPageCache();
+              }
+              
+              // Update cache meta
+              if (totalPages > 0) {
+                await setCacheMeta(totalPages, lastModified);
+              }
+              
+              // Cache the loaded pages
+              for (const page of loadedPagesData) {
+                const idx = pageIndex || (totalPages - loadedPagesData.length + loadedPagesData.indexOf(page) + 1);
+                await setCachedPage(idx, page);
+              }
 
-                // const MOCKUP_PAGES = false;
-                // if (MOCKUP_PAGES) {
-                //   pages = [
-                //     {
-                //       when: new Date().toString(),
-                //       words: "Mockup.",
-                //       handle: "amelia",
-                //       _id: "mockup-id",
-                //     },
-                //   ];
-                // }
-
+              if (totalPages > 0 || loadedPagesData.length > 0) {
                 const binding = cel("div");
                 binding.id = "binding";
                 binding.classList.add("hidden");
-
-                if (pages.length === 0) {
-                  const nopages = cel("div");
-                  nopages.id = "nopages";
-                  nopages.innerText = "Nothing is written";
-                  g.appendChild(nopages);
-                }
-
-                pages.forEach((page, index) => {
-                  const pageWrapper = cel("div");
-                  pageWrapper.classList.add("page-wrapper");
+                
+                // Track which pages are loaded
+                const loadedPages = new Set();
+                const pageWrappers = {};
+                
+                // Helper to render a full page
+                function renderFullPage(page, index) {
+                  const pageWrapper = pageWrappers[index];
+                  if (!pageWrapper || pageWrapper.dataset.loaded === "true") return;
+                  
+                  pageWrapper.dataset.loaded = "true";
+                  pageWrapper.innerHTML = ""; // Clear placeholder
+                  loadedPages.add(index);
 
                   const pageEl = cel("article");
                   pageEl.classList.add("page");
-
-                  // 🖌️ Grab design template from the page record or use
-                  //    the default.
                   pageEl.classList.add("page-style-a");
 
                   const pageTitle = cel("div");
                   pageTitle.classList.add("page-title");
-
                   pageTitle.innerText = dateTitle(page.when);
 
                   const pageNumber = cel("div");
                   pageNumber.classList.add("page-number");
-                  pageNumber.innerHTML =
-                    "<span class='fleuron'>h</span> " +
-                    (index + 1) +
-                    " <span class='fleuron'>g</span>";
+                  pageNumber.innerText = "- " + index + " -";
+                  pageNumber.style.cursor = "pointer";
+                  pageNumber.dataset.pageIndex = index;
+                  pageNumber.dataset.pageContent = page.content?.substring(0, 200) || "";
+                  pageNumber.onclick = (e) => {
+                    e.stopPropagation();
+                    openChatWithMessage("-" + index + "- ");
+                  };
 
                   const ear = cel("div");
                   ear.classList.add("ear");
 
-                  // 📐 Ear / Touch
+                  // 📐 Ear / Touch (simplified for now)
                   const leave = () => {
                     ear.classList.remove("hover");
                     ear.classList.remove("active");
-                    // alert("leave");
                   };
 
                   ear.addEventListener("pointerenter", () => {
                     if (!ear.classList.contains("hover")) {
                       ear.classList.add("hover");
-                      ear.addEventListener("pointerleave", leave, {
-                        once: true,
-                      });
+                      ear.addEventListener("pointerleave", leave, { once: true });
                     }
                   });
 
@@ -3706,31 +5279,11 @@ export const handler = async (event, context) => {
                     e.preventDefault();
                     ear.classList.remove("hover");
                     ear.classList.add("active");
-
-                    window.addEventListener(
-                      "pointerup",
-                      (e) => {
-                        ear.removeEventListener("pointerleave", leave);
-                        const elementUnderPointer = document.elementFromPoint(
-                          e.clientX,
-                          e.clientY,
-                        );
-                        if (elementUnderPointer !== ear) leave();
-                      },
-                      { once: true },
-                    );
-                  });
-
-                  ear.addEventListener("pointermove", () => {
-                    if (
-                      !ear.classList.contains("active") &&
-                      !ear.classList.contains("hover")
-                    ) {
-                      ear.classList.add("hover");
-                      ear.addEventListener("pointerleave", leave, {
-                        once: true,
-                      });
-                    }
+                    window.addEventListener("pointerup", (e) => {
+                      ear.removeEventListener("pointerleave", leave);
+                      const elementUnderPointer = document.elementFromPoint(e.clientX, e.clientY);
+                      if (elementUnderPointer !== ear) leave();
+                    }, { once: true });
                   });
 
                   ear.onclick = async (e) => {
@@ -3739,122 +5292,54 @@ export const handler = async (event, context) => {
                       ear.classList.remove("reverse");
                       pageEl.classList.remove("reverse");
                       pageWrapper.classList.remove("reverse");
-                      setTimeout(function () {
-                        ear.classList.remove("active");
-                      }, 150);
+                      setTimeout(() => ear.classList.remove("active"), 150);
                       return;
                     }
 
                     const author = page.handle ? "@" + page.handle : "Unknown";
-
-                    // Parse the timestamp from page.when
                     const date = new Date(page.when);
-
-                    // Format the date
-                    const dateOptions = {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    };
-
-                    const formattedDate = date.toLocaleDateString(
-                      "en-US",
-                      dateOptions,
-                    );
-
-                    // Format the time
-                    const timeOptions = {
-                      hour: "numeric",
-                      minute: "numeric",
-                      hour12: true,
-                    };
-                    const formattedTime = date.toLocaleTimeString(
-                      "en-US",
-                      timeOptions,
-                    );
-
-                    // Generate a back section with stats, controls, and exports.
-
                     const backpage = cel("div");
                     backpage.classList.add("backpage");
-
+                    
                     const byline = cel("div");
                     byline.innerText = "Written by " + author;
                     byline.classList.add("byline");
-
                     backpage.appendChild(byline);
-
-                    //backpage.innerText =
-                    //  "Written by " +
-                    //  author +
-                    //  "\\n" +
-                    //  "From " +
-                    //  formattedDate +
-                    //  " at " +
-                    //  formattedTime;
 
                     // Touches
                     veil();
                     let touches = [];
-                    const res = await userRequest(
-                      "POST",
-                      "/sotce-net/touch-a-page",
-                      { _id: page._id },
-                    );
-                    if (res.status === 200) {
-                      // console.log("💁 Page touched:", res);
-                      // console.log("🖐️ Touches for page:", res.body.touches);
-                      touches = res.touches;
-                    } else {
-                      console.error("💁 Page touch:", res);
-                    }
-
+                    const res = await userRequest("POST", "/sotce-net/touch-a-page", { _id: page._id });
+                    if (res.status === 200) touches = res.touches;
                     unveil({ instant: true });
 
-                    let touchedBy;
-                    if (touches.length === 0) {
-                      touchedBy = "";
-                    } else if (touches.length === 1) {
-                      touchedBy = touches[0] + " touched this page.";
-                    } else if (touches.length === 2) {
-                      touchedBy =
-                        touches[0] +
-                        " and " +
-                        touches[1] +
-                        " touched this page.";
-                    } else if (touches.length > 2) {
+                    let touchedBy = "";
+                    if (touches.length === 1) touchedBy = touches[0] + " touched this page.";
+                    else if (touches.length === 2) touchedBy = touches[0] + " and " + touches[1] + " touched this page.";
+                    else if (touches.length > 2) {
                       const lastTouch = touches.pop();
-                      touchedBy =
-                        touches.join(", ") +
-                        ", and " +
-                        lastTouch +
-                        " touched this page.";
+                      touchedBy = touches.join(", ") + ", and " + lastTouch + " touched this page.";
                     }
 
                     const touchesEl = cel("p");
-                    touchesEl.innerHTML = touchedBy;
+                    touchesEl.classList.add("touches");
+                    if (touchedBy) touchesEl.innerText = touchedBy;
 
                     // Allow crumple page action for admin users.
                     if (subscription.admin) {
                       const crumplePage = cel("a");
-
                       crumplePage.innerText = "crumple this page";
                       crumplePage.href = "";
-
                       crumplePage.classList.add("crumple-this-page");
-
                       crumplePage.onclick = async (e) => {
                         e.preventDefault();
                         if (!confirm("💣 Unpublish this page?")) return;
                         veil();
-                        const res = await userRequest(
-                          "POST",
-                          "/sotce-net/write-a-page",
-                          { draft: "crumple", _id: page._id },
-                        );
+                        const res = await userRequest("POST", "/sotce-net/write-a-page", { draft: "crumple", _id: page._id });
                         if (res.status === 200) {
                           console.log("🪧 Page crumpled:", res);
+                          // Clear cache since pages changed
+                          await clearPageCache();
                           unveil({ instant: true });
                           window.location.reload();
                         } else {
@@ -3863,100 +5348,19 @@ export const handler = async (event, context) => {
                           unveil({ instant: true });
                         }
                       };
-
                       backpage.appendChild(crumplePage);
                     }
 
-                    const share = cel("a");
-                    share.innerText = "share this page";
-                    share.classList.add("share-this-page");
-                    share.href = "";
-
-                    share.onclick = async (e) => {
-                      e.preventDefault();
-                      alert("😃 Coming soon.");
-                    };
-
-                    const print = cel("a");
-                    print.innerText = "print this page";
-                    print.classList.add("print-this-page");
-                    print.href = "";
-
-                    print.onclick = async (e) => {
-                      e.preventDefault();
-                      // Grab presentational html content from page and insert it
-                      // into '#print-page'.
-                      const printPageWrapper = cel("div");
-                      printPageWrapper.id = "print-page-wrapper";
-
-                      const printPage = cel("div");
-                      printPage.id = "print-page";
-
-                      const pageWrapper = cel("div");
-                      pageWrapper.classList.add("page-wrapper");
-
-                      const article = cel("article");
-                      article.classList.add("page", "page-style-a");
-
-                      const title = cel("div");
-                      title.classList.add("page-title");
-                      title.innerHTML = pageTitle.innerHTML;
-
-                      const content = cel("p");
-                      content.classList.add(...wordsEl.classList);
-                      content.innerHTML = wordsEl.innerHTML;
-                      content.style = wordsEl.style;
-
-                      const num = cel("div");
-                      num.classList.add("page-number");
-                      num.innerHTML = pageNumber.innerHTML;
-
-                      article.appendChild(title);
-                      article.appendChild(content);
-                      article.appendChild(num);
-                      printPage.appendChild(article);
-                      printPageWrapper.appendChild(printPage);
-                      wrapper.appendChild(printPageWrapper);
-
-                      document.documentElement.classList.add("printing");
-
-                      // const scale = 812 / article.clientWidth;
-                      const scale = 800 / article.clientWidth;
-                      //            ^ Just shy of the 8.5in. CSS pixel value.
-                      article.style.transform = "scale(" + scale + ")";
-                      // Attach the events
-                      //window.addEventListener('beforeprint', () => {
-                      //  // console.log("Before print.");
-                      //  // wrapper.removeChild(printPage);
-                      //}, { once: true });
-
-                      function closePrint() {
-                        wrapper.removeChild(printPageWrapper);
-                        document.documentElement.classList.remove("printing");
-                      }
-
-                      // printPageWrapper.onclick = closePrint;
-
-                      window.addEventListener("afterprint", closePrint, {
-                        once: true,
-                      });
-
-                      window.print();
-                      // setTimeout(() => {
-                      // }, 500);
-                    };
-
-                    /* if (!iOS) */ backpage.appendChild(print);
-                    // backpage.appendChild(share);
+                    const print = cel("button");
+                    print.innerText = "Print";
+                    print.onclick = () => window.print();
+                    backpage.appendChild(print);
+                    backpage.appendChild(touchesEl);
 
                     ear.classList.add("reverse");
                     pageEl.classList.add("reverse");
                     pageWrapper.classList.add("reverse");
-
-                    // ear.classList.remove("hover");
                     ear.classList.remove("active");
-
-                    backpage.appendChild(touchesEl);
 
                     pageWrapper.querySelector(".backpage")?.remove();
                     pageWrapper.appendChild(backpage);
@@ -3971,13 +5375,114 @@ export const handler = async (event, context) => {
                   pageEl.appendChild(pageNumber);
                   pageWrapper.appendChild(pageEl);
                   pageWrapper.appendChild(ear);
-
-                  binding.appendChild(pageWrapper);
-                });
-
-                // console.log("📚 Rendered pages...");
-
+                }
+                
+                // Create placeholder for unloaded page
+                function createPlaceholder(index) {
+                  const pageWrapper = cel("div");
+                  pageWrapper.classList.add("page-wrapper");
+                  pageWrapper.dataset.pageNumber = index;
+                  pageWrapper.dataset.pageType = "diary";
+                  pageWrapper.dataset.loaded = "false";
+                  pageWrapper.id = "page-" + index;
+                  
+                  // Simple loading placeholder
+                  const placeholder = cel("div");
+                  placeholder.classList.add("page-placeholder");
+                  placeholder.innerHTML = "<span class='loading-dots'>Loading</span>";
+                  pageWrapper.appendChild(placeholder);
+                  
+                  return pageWrapper;
+                }
+                
+                // Create all page wrappers (placeholders first)
+                for (let i = 1; i <= totalPages; i++) {
+                  const pw = createPlaceholder(i);
+                  pageWrappers[i] = pw;
+                  binding.appendChild(pw);
+                }
+                
+                // Render initially loaded pages
+                if (pageIndex) {
+                  // Single page loaded
+                  if (loadedPagesData[0]) renderFullPage(loadedPagesData[0], pageIndex);
+                } else {
+                  // Last N pages loaded
+                  const startIdx = totalPages - loadedPagesData.length + 1;
+                  loadedPagesData.forEach((page, i) => {
+                    renderFullPage(page, startIdx + i);
+                  });
+                }
+                
+                // Lazy load function
+                async function loadPage(index) {
+                  if (loadedPages.has(index) || !pageWrappers[index]) return;
+                  
+                  // Try cache first
+                  let pageData = await getCachedPage(index);
+                  
+                  if (!pageData) {
+                    // Fetch from server
+                    const response = await subscribed({ pageNumber: index, limit: 1 });
+                    if (response?.pages?.[0]) {
+                      pageData = response.pages[0];
+                      await setCachedPage(index, pageData);
+                    }
+                  }
+                  
+                  if (pageData) {
+                    renderFullPage(pageData, index);
+                    computePageLayout?.();
+                  }
+                }
+                
+                // Lazy load multiple pages (for batch loading on scroll)
+                async function loadPagesRange(startIdx, endIdx) {
+                  const toLoad = [];
+                  for (let i = startIdx; i <= endIdx; i++) {
+                    if (!loadedPages.has(i) && pageWrappers[i]) toLoad.push(i);
+                  }
+                  if (toLoad.length === 0) return;
+                  
+                  // Try cache first
+                  const cached = await getCachedPages(startIdx, endIdx);
+                  const cachedSet = new Set(cached.map((_, i) => startIdx + i));
+                  
+                  for (const page of cached) {
+                    const idx = startIdx + cached.indexOf(page);
+                    if (page) renderFullPage(page, idx);
+                  }
+                  
+                  // Fetch uncached from server
+                  const uncached = toLoad.filter(i => !cachedSet.has(i));
+                  if (uncached.length > 0) {
+                    // Batch fetch - get a range
+                    const minIdx = Math.min(...uncached);
+                    const maxIdx = Math.max(...uncached);
+                    const offset = totalPages - maxIdx;
+                    const limit = maxIdx - minIdx + 1;
+                    
+                    const response = await subscribed({ offset, limit });
+                    if (response?.pages) {
+                      const fetchedStartIdx = totalPages - offset - response.pages.length + 1;
+                      response.pages.forEach((page, i) => {
+                        const idx = fetchedStartIdx + i;
+                        setCachedPage(idx, page);
+                        renderFullPage(page, idx);
+                      });
+                    }
+                  }
+                  
+                  computePageLayout?.();
+                }
+                
                 g.appendChild(binding);
+                
+                // Store lazy load function for use by scroll handler
+                g.loadPagesRange = loadPagesRange;
+                g.loadPage = loadPage;
+                g.totalPages = totalPages;
+                g.loadedPages = loadedPages;
 
                 computePageLayout = function (e) {
                   // Relational scroll wip - 24.09.25.17.43
@@ -4040,22 +5545,47 @@ export const handler = async (event, context) => {
                     editorPage.style.transform = "scale(" + scale + ")";
                   }
 
+                  // Set the size of the ask editor if it's open.
+                  const askEditorForm = document.getElementById("ask-editor-form");
+                  const askEditorPage = document.getElementById("ask-editor-page");
+
+                  if (askEditorForm) {
+                    askEditorForm.style.width = binding.style.width;
+                    const baseWidth = 100 * 8;
+                    const goalWidth = askEditorPage.parentElement.clientWidth;
+                    const scale = goalWidth / baseWidth;
+                    askEditorPage.style.transform = "scale(" + scale + ")";
+                  }
+
+                  // Only process VISIBLE pages (+ small buffer) for performance
                   const allPages = document.querySelectorAll(
                     "#garden article.page",
                   );
+                  
+                  const wrapperRect = wrapper.getBoundingClientRect();
+                  const viewportBuffer = wrapperRect.height * 1.5; // Process pages within 1.5x viewport
 
                   let scale;
                   allPages.forEach((page) => {
+                    // Skip pages that are far off-screen
+                    const pageRect = page.getBoundingClientRect();
+                    const isNearViewport = pageRect.bottom > wrapperRect.top - viewportBuffer && 
+                                          pageRect.top < wrapperRect.bottom + viewportBuffer;
+                    
                     if (!scale) {
                       const baseWidth = 100 * 8;
                       const goalWidth = page.parentElement.clientWidth;
                       scale = goalWidth / baseWidth;
                     }
                     page.style.transform = "scale(" + scale + ")";
+                    
+                    // Only do expensive text processing for visible pages
+                    if (!isNearViewport) return;
 
                     // Check to see if the last line of the page needs
                     // justification or not.
                     const words = page.querySelector(".words");
+                    if (!words) return;
                     const wcs = window.getComputedStyle(words);
                     const lineCount = round(
                       words.clientHeight / parseFloat(wcs.lineHeight),
@@ -4087,6 +5617,12 @@ export const handler = async (event, context) => {
                   );
 
                   ears.forEach((ear) => {
+                    // Skip ears far off-screen
+                    const earRect = ear.getBoundingClientRect();
+                    const isNearViewport = earRect.bottom > wrapperRect.top - viewportBuffer && 
+                                          earRect.top < wrapperRect.bottom + viewportBuffer;
+                    if (!isNearViewport) return;
+                    
                     ear.style = "";
                     const earStyle = window.getComputedStyle(ear);
                     const computedWidth = parseFloat(earStyle.width);
@@ -4112,13 +5648,14 @@ export const handler = async (event, context) => {
 
                 let previousBodyHeight = document.body.clientHeight;
 
-                window.addEventListener("resize", function resizeEvent(e) {
+                function resizeHandler(e) {
                   if (!document.body.contains(binding)) {
-                    window.removeEventListener(resizeEvent);
+                    window.removeEventListener("resize", resizeHandler);
                   } else {
                     computePageLayout(e);
                   }
-                });
+                }
+                window.addEventListener("resize", resizeHandler);
               }
 
               const cookieMenuWrapper = cel("div");
@@ -4143,13 +5680,69 @@ export const handler = async (event, context) => {
                 gateCurtain.querySelector("#cookie-wrapper");
 
               cookieMenu.onclick = function () {
+                const perfStart = performance.now();
+                console.log("🍪 Cookie click START");
+                
+                let t0 = performance.now();
                 scrollMemory = wrapper.scrollTop;
+                console.log("  scrollMemory:", (performance.now() - t0).toFixed(2), "ms");
+                
+                t0 = performance.now();
                 gateCurtain.classList.remove("hidden");
+                console.log("  gateCurtain.classList.remove('hidden'):", (performance.now() - t0).toFixed(2), "ms");
+                console.log("  gateCurtain element:", gateCurtain.id, "in DOM:", document.body.contains(gateCurtain));
+                
+                t0 = performance.now();
                 g.classList.add("hidden");
+                console.log("  g.classList.add('hidden'):", (performance.now() - t0).toFixed(2), "ms");
+                
+                t0 = performance.now();
                 document.body.classList.add("pages-hidden");
+                console.log("  body.classList.add:", (performance.now() - t0).toFixed(2), "ms");
+                
+                t0 = performance.now();
                 document.documentElement.classList.remove("garden");
+                console.log("  html.classList.remove:", (performance.now() - t0).toFixed(2), "ms");
+                
+                t0 = performance.now();
                 curtainCookie.classList.add("interactive");
+                console.log("  curtainCookie.classList.add:", (performance.now() - t0).toFixed(2), "ms");
+                
+                t0 = performance.now();
                 updatePath("/gate");
+                console.log("  updatePath:", (performance.now() - t0).toFixed(2), "ms");
+                
+                console.log("🍪 Cookie click TOTAL:", (performance.now() - perfStart).toFixed(2), "ms");
+                
+                // Check gate state
+                const gateCheck = document.getElementById("gate");
+                const curtainCheck = document.getElementById("gate-curtain");
+                console.log("  #gate in DOM:", !!gateCheck, "visibility:", gateCheck ? getComputedStyle(gateCheck).visibility : "N/A");
+                console.log("  #gate-curtain in DOM:", !!curtainCheck, "visibility:", curtainCheck ? getComputedStyle(curtainCheck).visibility : "N/A");
+                
+                // Track frames
+                requestAnimationFrame(() => {
+                  console.log("🍪 RAF 1:", (performance.now() - perfStart).toFixed(2), "ms");
+                  requestAnimationFrame(() => {
+                    console.log("🍪 RAF 2:", (performance.now() - perfStart).toFixed(2), "ms");
+                  });
+                });
+                
+                // Track visibility over time
+                let checkCount = 0;
+                const trackVisibility = () => {
+                  checkCount++;
+                  const elapsed = (performance.now() - perfStart).toFixed(0);
+                  const gc = document.getElementById("gate-curtain");
+                  const ge = document.getElementById("gate");
+                  if (gc && ge) {
+                    const gcVis = getComputedStyle(gc).visibility;
+                    const geVis = getComputedStyle(ge).visibility;
+                    console.log("🍪 @" + elapsed + "ms - curtain: " + gcVis + ", gate: " + geVis + ", curtain.hidden: " + gc.classList.contains("hidden"));
+                  }
+                  if (checkCount < 20) setTimeout(trackVisibility, 500);
+                };
+                trackVisibility();
               };
 
               if (showGate) curtainCookie.classList.add("interactive");
@@ -4192,9 +5785,162 @@ export const handler = async (event, context) => {
                               // TODO:    ^ This takes awhile and the spinner could hold until the initial
                               //            computation is done. 24.10.16.07.06
 
-                              wrapper.scrollTop =
-                                wrapper.scrollHeight - wrapper.clientHeight;
+                              // Check if we need to scroll to a specific page.
+                              const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
+                              const qMatch = path.match(/^\\/q\\/(\\d+)$/);
+                              
+                              if (pageMatch) {
+                                const pageNum = parseInt(pageMatch[1], 10);
+                                const targetPage = document.getElementById("page-" + pageNum);
+                                if (targetPage) {
+                                  targetPage.scrollIntoView({ block: "start" });
+                                } else {
+                                  // Page not found, scroll to bottom
+                                  wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
+                                }
+                              } else if (qMatch) {
+                                const qNum = parseInt(qMatch[1], 10);
+                                const targetQ = document.getElementById("q-" + qNum);
+                                if (targetQ) {
+                                  targetQ.scrollIntoView({ block: "start" });
+                                } else {
+                                  // Question not found, scroll to bottom
+                                  wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
+                                }
+                              } else {
+                                // Default: scroll to bottom (most recent)
+                                wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
+                              }
+                              
                               g.classList.remove("faded");
+                              
+                              // Set up IntersectionObserver to update URL as user scrolls
+                              const pageObserver = new IntersectionObserver((entries) => {
+                                entries.forEach((entry) => {
+                                  if (entry.isIntersecting) {
+                                    const pageWrapper = entry.target;
+                                    const pageNum = pageWrapper.dataset.pageNumber;
+                                    const pageType = pageWrapper.dataset.pageType;
+                                    
+                                    if (pageNum && pageType) {
+                                      const newPath = pageType === "diary" 
+                                        ? "/page/" + pageNum 
+                                        : "/q/" + pageNum;
+                                      
+                                      // Only update if different from current path
+                                      if (window.location.pathname !== newPath) {
+                                        updatePath(newPath);
+                                        // Update document title
+                                        document.title = pageType === "diary"
+                                          ? "sotce.net - page " + pageNum
+                                          : "sotce.net - question " + pageNum;
+                                      }
+                                    }
+                                  }
+                                });
+                              }, {
+                                root: wrapper,
+                                threshold: 0.5 // Trigger when 50% of page is visible
+                              });
+                              
+                              // Observe all page wrappers
+                              document.querySelectorAll("#garden .page-wrapper").forEach((pw) => {
+                                pageObserver.observe(pw);
+                              });
+                              
+                              // Tap navigation: top half = prev page, bottom half = next page
+                              // Also: clicking on any page snaps to it
+                              let currentVisiblePage = null;
+                              
+                              const updateCurrentPage = () => {
+                                const pages = document.querySelectorAll("#garden .page-wrapper");
+                                const wrapperRect = wrapper.getBoundingClientRect();
+                                const centerY = wrapperRect.top + wrapperRect.height / 2;
+                                
+                                for (const page of pages) {
+                                  const rect = page.getBoundingClientRect();
+                                  if (rect.top <= centerY && rect.bottom >= centerY) {
+                                    currentVisiblePage = page;
+                                    break;
+                                  }
+                                }
+                              };
+                              
+                              let scrollTimeout;
+                              let isLoadingPages = false;
+                              wrapper.addEventListener("scroll", () => {
+                                updateCurrentPage();
+                                
+                                // Lazy load pages when scrolling near unloaded content
+                                if (g.loadPagesRange && !isLoadingPages) {
+                                  const visibleTop = wrapper.scrollTop;
+                                  const viewportHeight = wrapper.clientHeight;
+                                  
+                                  // Check for unloaded pages in visible area + buffer
+                                  const buffer = viewportHeight * 2;
+                                  const pageWrappers = document.querySelectorAll("#garden .page-wrapper");
+                                  const toLoad = [];
+                                  
+                                  pageWrappers.forEach((pw) => {
+                                    if (pw.dataset.loaded === "false") {
+                                      const rect = pw.getBoundingClientRect();
+                                      const wrapperRect = wrapper.getBoundingClientRect();
+                                      const relativeTop = rect.top - wrapperRect.top;
+                                      
+                                      // Check if within visible area + buffer
+                                      if (relativeTop < viewportHeight + buffer && relativeTop + rect.height > -buffer) {
+                                        toLoad.push(parseInt(pw.dataset.pageNumber, 10));
+                                      }
+                                    }
+                                  });
+                                  
+                                  if (toLoad.length > 0) {
+                                    isLoadingPages = true;
+                                    const minPage = Math.min(...toLoad);
+                                    const maxPage = Math.max(...toLoad);
+                                    g.loadPagesRange(minPage, maxPage).finally(() => {
+                                      isLoadingPages = false;
+                                    });
+                                  }
+                                }
+                              }, { passive: true });
+                              updateCurrentPage();
+                              
+                              g.addEventListener("click", (e) => {
+                                // Check if clicking on a page (not interactive elements)
+                                const clickedPage = e.target.closest(".page-wrapper");
+                                const isInteractive = e.target.closest("a, button, input, textarea, .ear");
+                                
+                                if (isInteractive) return;
+                                
+                                // If clicked on a page, snap to that page
+                                if (clickedPage) {
+                                  clickedPage.scrollIntoView({ block: "start", behavior: "smooth" });
+                                  return;
+                                }
+                                
+                                // Otherwise use top/bottom half navigation
+                                const wrapperRect = wrapper.getBoundingClientRect();
+                                const clickY = e.clientY - wrapperRect.top;
+                                const halfHeight = wrapperRect.height / 2;
+                                
+                                const pages = Array.from(document.querySelectorAll("#garden .page-wrapper"));
+                                if (pages.length === 0) return;
+                                
+                                updateCurrentPage();
+                                const currentIndex = currentVisiblePage ? pages.indexOf(currentVisiblePage) : -1;
+                                
+                                if (clickY < halfHeight) {
+                                  // Top half: go to previous page
+                                  const prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+                                  pages[prevIndex].scrollIntoView({ block: "start", behavior: "smooth" });
+                                } else {
+                                  // Bottom half: go to next page  
+                                  const nextIndex = currentIndex < pages.length - 1 ? currentIndex + 1 : pages.length - 1;
+                                  pages[nextIndex].scrollIntoView({ block: "start", behavior: "smooth" });
+                                }
+                              });
+                              
                               //g.addEventListener(
                               //  "transitionend",
                               //  () => {
@@ -4462,7 +6208,20 @@ export const handler = async (event, context) => {
                 } else {
                   // The user's email is verified...
 
-                  let entered = await subscribed();
+                  // Determine pagination based on path
+                  const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
+                  const subscribeOptions = {};
+                  
+                  if (pageMatch) {
+                    // Loading a specific page - just fetch that one
+                    subscribeOptions.pageNumber = parseInt(pageMatch[1], 10);
+                    subscribeOptions.limit = 1;
+                  } else {
+                    // Default: just load last few pages, lazy load rest
+                    subscribeOptions.limit = 3;
+                  }
+
+                  let entered = await subscribed(subscribeOptions);
                   let times = 0;
 
                   while (
@@ -4470,7 +6229,7 @@ export const handler = async (event, context) => {
                     !entered?.subscribed &&
                     times < 3
                   ) {
-                    entered = await subscribed();
+                    entered = await subscribed(subscribeOptions);
                     times += 1;
                   }
 
@@ -4597,13 +6356,125 @@ export const handler = async (event, context) => {
               }
             }
 
+            // 📦 IndexedDB Page Cache
+            const PAGE_CACHE_DB = "sotce-page-cache";
+            const PAGE_CACHE_STORE = "pages";
+            const PAGE_META_STORE = "meta";
+            
+            async function openPageCache() {
+              return new Promise((resolve, reject) => {
+                const request = indexedDB.open(PAGE_CACHE_DB, 1);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result);
+                request.onupgradeneeded = (e) => {
+                  const db = e.target.result;
+                  if (!db.objectStoreNames.contains(PAGE_CACHE_STORE)) {
+                    db.createObjectStore(PAGE_CACHE_STORE, { keyPath: "pageIndex" });
+                  }
+                  if (!db.objectStoreNames.contains(PAGE_META_STORE)) {
+                    db.createObjectStore(PAGE_META_STORE, { keyPath: "key" });
+                  }
+                };
+              });
+            }
+            
+            async function getCachedPage(pageIndex) {
+              try {
+                const db = await openPageCache();
+                return new Promise((resolve, reject) => {
+                  const tx = db.transaction(PAGE_CACHE_STORE, "readonly");
+                  const store = tx.objectStore(PAGE_CACHE_STORE);
+                  const request = store.get(pageIndex);
+                  request.onsuccess = () => resolve(request.result?.data || null);
+                  request.onerror = () => resolve(null);
+                });
+              } catch { return null; }
+            }
+            
+            async function setCachedPage(pageIndex, pageData) {
+              try {
+                const db = await openPageCache();
+                return new Promise((resolve) => {
+                  const tx = db.transaction(PAGE_CACHE_STORE, "readwrite");
+                  const store = tx.objectStore(PAGE_CACHE_STORE);
+                  store.put({ pageIndex, data: pageData });
+                  tx.oncomplete = () => resolve(true);
+                  tx.onerror = () => resolve(false);
+                });
+              } catch { return false; }
+            }
+            
+            async function getCachedPages(startIndex, endIndex) {
+              try {
+                const db = await openPageCache();
+                return new Promise((resolve) => {
+                  const tx = db.transaction(PAGE_CACHE_STORE, "readonly");
+                  const store = tx.objectStore(PAGE_CACHE_STORE);
+                  const pages = [];
+                  const request = store.openCursor();
+                  request.onsuccess = (e) => {
+                    const cursor = e.target.result;
+                    if (cursor) {
+                      if (cursor.value.pageIndex >= startIndex && cursor.value.pageIndex <= endIndex) {
+                        pages.push(cursor.value);
+                      }
+                      cursor.continue();
+                    } else {
+                      resolve(pages.sort((a, b) => a.pageIndex - b.pageIndex).map(p => p.data));
+                    }
+                  };
+                  request.onerror = () => resolve([]);
+                });
+              } catch { return []; }
+            }
+            
+            async function getCacheMeta() {
+              try {
+                const db = await openPageCache();
+                return new Promise((resolve) => {
+                  const tx = db.transaction(PAGE_META_STORE, "readonly");
+                  const store = tx.objectStore(PAGE_META_STORE);
+                  const request = store.get("meta");
+                  request.onsuccess = () => resolve(request.result || null);
+                  request.onerror = () => resolve(null);
+                });
+              } catch { return null; }
+            }
+            
+            async function setCacheMeta(totalPages, lastModified) {
+              try {
+                const db = await openPageCache();
+                return new Promise((resolve) => {
+                  const tx = db.transaction(PAGE_META_STORE, "readwrite");
+                  const store = tx.objectStore(PAGE_META_STORE);
+                  store.put({ key: "meta", totalPages, lastModified });
+                  tx.oncomplete = () => resolve(true);
+                  tx.onerror = () => resolve(false);
+                });
+              } catch { return false; }
+            }
+            
+            async function clearPageCache() {
+              try {
+                const db = await openPageCache();
+                return new Promise((resolve) => {
+                  const tx = db.transaction([PAGE_CACHE_STORE, PAGE_META_STORE], "readwrite");
+                  tx.objectStore(PAGE_CACHE_STORE).clear();
+                  tx.objectStore(PAGE_META_STORE).clear();
+                  tx.oncomplete = () => resolve(true);
+                  tx.onerror = () => resolve(false);
+                });
+              } catch { return false; }
+            }
+
             // Check the subscription status of the logged in user.
-            async function subscribed() {
+            async function subscribed(options = {}) {
               if (!user) return false;
+              const body = { retrieve: "everything", ...options };
               const response = await userRequest(
                 "POST",
                 "/sotce-net/subscribed",
-                { retrieve: "everything" },
+                body,
               );
 
               if (response.status === 200) {
@@ -4957,16 +6828,57 @@ export const handler = async (event, context) => {
         if (isAdmin) out.admin = isAdmin;
         shell.log("🔴 Admin:", isAdmin);
 
-        // 📓 Recent Pages
+        // 📓 Recent Pages (with pagination support)
         const database = await connect();
         const pages = database.db.collection("sotce-pages");
-        const retrievedPages = await pages
-          .aggregate([
-            { $match: { state: "published" } }, // Ensure pages are published
-            { $sort: { when: 1 } }, // Sort by the 'when' field
-            { $limit: 1000 }, // Limit to 1000 results
-          ])
-          .toArray();
+        
+        // Pagination parameters
+        const requestedPage = body.pageNumber; // Specific page number (1-indexed)
+        const limit = body.limit || 5; // Default to 5 pages per request
+        const offset = body.offset || 0; // For loading older pages
+        const metaOnly = body.metaOnly; // Only return page count and last modified
+        
+        // Always get total count and last modified for cache validation
+        const totalCount = await pages.countDocuments({ state: "published" });
+        const lastModifiedDoc = await pages.findOne(
+          { state: "published" },
+          { sort: { updatedAt: -1 }, projection: { updatedAt: 1, when: 1 } }
+        );
+        out.totalPages = totalCount;
+        out.lastModified = lastModifiedDoc?.updatedAt || lastModifiedDoc?.when || null;
+        
+        if (metaOnly) {
+          await database.disconnect();
+          return respond(200, out);
+        }
+        
+        let retrievedPages;
+        
+        if (requestedPage !== undefined) {
+          // Fetch a specific page by its index (1-indexed)
+          retrievedPages = await pages
+            .aggregate([
+              { $match: { state: "published" } },
+              { $sort: { when: 1 } },
+              { $skip: requestedPage - 1 },
+              { $limit: 1 },
+            ])
+            .toArray();
+          out.pageIndex = requestedPage;
+        } else {
+          // Fetch latest pages (from the end), with optional offset for loading older
+          retrievedPages = await pages
+            .aggregate([
+              { $match: { state: "published" } },
+              { $sort: { when: -1 } }, // Newest first
+              { $skip: offset },
+              { $limit: limit },
+            ])
+            .toArray();
+          // Reverse to maintain chronological order
+          retrievedPages.reverse();
+          out.hasMore = offset + limit < totalCount;
+        }
 
         // Add a 'handle' field to each page record.
         const subsToHandles = {}; // Cache handles on this go around.
@@ -4979,11 +6891,11 @@ export const handler = async (event, context) => {
           page.handle = handle;
         }
 
-        out.pages = retrievedPages; //isAdmin ? retrievedPages : [];
+        out.pages = retrievedPages;
         await database.disconnect();
 
         // TODO: 👤 'Handled' pages filtered by user..
-        shell.log("🫐 Retrieved:", performance.now());
+        shell.log("🫐 Retrieved:", retrievedPages.length, "pages", performance.now());
       }
       return respond(200, out);
     } else {
@@ -5298,6 +7210,181 @@ export const handler = async (event, context) => {
     const deleted = await deleteUser(sub, "sotce");
     shell.log("❌ Deleted user registration:", deleted, user.email);
     return respond(200, { result: "Deleted!" }); // Successful account deletion.
+  } else if (path === "/ask" && method === "post") {
+    // ❓ Submit a question
+    const user = await authorize(event.headers, "sotce");
+    if (!user) return respond(401, { message: "Unauthorized." });
+
+    const subscription = await subscribed(user);
+    if (!subscription || subscription.status !== "active") {
+      return respond(403, { message: "Subscription required." });
+    }
+
+    const body = JSON.parse(event.body);
+    const question = body.question?.trim();
+
+    if (!question || question.length === 0) {
+      return respond(400, { message: "Question cannot be empty." });
+    }
+
+    if (question.length > 500) {
+      return respond(400, { message: "Question too long (max 500 chars)." });
+    }
+
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+
+    const handle = await handleFor(user.sub, "sotce");
+
+    const insertion = await asks.insertOne({
+      user: user.sub,
+      handle: handle || null,
+      question,
+      when: new Date(),
+      state: "pending",
+    });
+
+    await database.disconnect();
+    shell.log("❓ Question submitted:", insertion.insertedId);
+    return respond(200, { _id: insertion.insertedId });
+  } else if (path === "/asks" && method === "get") {
+    // ❓ Get user's own questions
+    const user = await authorize(event.headers, "sotce");
+    if (!user) return respond(401, { message: "Unauthorized." });
+
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+
+    const userAsks = await asks.find({ user: user.sub })
+      .sort({ when: -1 })
+      .limit(50)
+      .toArray();
+
+    await database.disconnect();
+    return respond(200, { asks: userAsks });
+  } else if (path === "/asks/pending" && method === "get") {
+    // ❓ Get pending questions (admin only)
+    const user = await authorize(event.headers, "sotce");
+    const isAdmin = await hasAdmin(user, "sotce");
+    if (!user || !isAdmin) return respond(401, { message: "Unauthorized." });
+
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+
+    const pending = await asks.find({ state: "pending" })
+      .sort({ when: 1 })
+      .limit(100)
+      .toArray();
+
+    await database.disconnect();
+    return respond(200, { asks: pending });
+  } else if (path.match(/^\/ask\/[a-f0-9]+\/respond$/) && method === "post") {
+    // ❓ Respond to a question (admin only)
+    const user = await authorize(event.headers, "sotce");
+    const isAdmin = await hasAdmin(user, "sotce");
+    if (!user || !isAdmin) return respond(401, { message: "Unauthorized." });
+
+    const askId = path.split("/")[2];
+    if (!askId) return respond(400, { message: "Missing question ID." });
+
+    const { answer } = JSON.parse(event.body || "{}");
+    if (!answer || !answer.trim()) {
+      return respond(400, { message: "Response cannot be empty." });
+    }
+    if (answer.length > 2000) {
+      return respond(400, { message: "Response too long (max 2000 chars)." });
+    }
+
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+
+    // Find the question
+    const question = await asks.findOne({ _id: new ObjectId(askId) });
+    if (!question) {
+      await database.disconnect();
+      return respond(404, { message: "Question not found." });
+    }
+
+    // Update the question with the answer
+    const result = await asks.updateOne(
+      { _id: new ObjectId(askId) },
+      {
+        $set: {
+          state: "answered",
+          answer: answer.trim(),
+          answeredBy: user.sub,
+          answeredAt: new Date().toISOString(),
+        },
+      }
+    );
+
+    await database.disconnect();
+
+    if (result.modifiedCount === 0) {
+      return respond(500, { message: "Could not save response." });
+    }
+
+    shell.log("❓ Question answered:", askId, "by", user.email);
+    return respond(200, { success: true, askId });
+  } else if (path.match(/^\/ask\/[a-f0-9]+\/reject$/) && method === "post") {
+    // ❓ Reject a question (admin only)
+    const user = await authorize(event.headers, "sotce");
+    const isAdmin = await hasAdmin(user, "sotce");
+    if (!user || !isAdmin) return respond(401, { message: "Unauthorized." });
+
+    const askId = path.split("/")[2];
+    if (!askId) return respond(400, { message: "Missing question ID." });
+
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+
+    // Find the question
+    const question = await asks.findOne({ _id: new ObjectId(askId) });
+    if (!question) {
+      await database.disconnect();
+      return respond(404, { message: "Question not found." });
+    }
+
+    // Update the question state to rejected
+    const result = await asks.updateOne(
+      { _id: new ObjectId(askId) },
+      {
+        $set: {
+          state: "rejected",
+          rejectedBy: user.sub,
+          rejectedAt: new Date().toISOString(),
+        },
+      }
+    );
+
+    await database.disconnect();
+
+    if (result.modifiedCount === 0) {
+      return respond(500, { message: "Could not reject question." });
+    }
+
+    shell.log("❓ Question rejected:", askId, "by", user.email);
+    return respond(200, { success: true, askId });
+  // NOTE: Question deletion disabled - once asked, questions are permanent
+  // } else if (path.startsWith("/ask/") && method === "delete") {
+  //   // ❓ Delete a pending question
+  //   const user = await authorize(event.headers, "sotce");
+  //   if (!user) return respond(401, { message: "Unauthorized." });
+  //   const askId = path.replace("/ask/", "");
+  //   if (!askId) return respond(400, { message: "Missing question ID." });
+  //   const database = await connect();
+  //   const asks = database.db.collection("sotce-asks");
+  //   const result = await asks.deleteOne({
+  //     _id: new ObjectId(askId),
+  //     user: user.sub,
+  //     state: "pending"
+  //   });
+  //   await database.disconnect();
+  //   if (result.deletedCount === 0) {
+  //     return respond(404, { message: "Question not found or already answered." });
+  //   }
+  //   shell.log("❓ Question deleted:", askId);
+  //   return respond(200, { deleted: true });
   } else if (path === "/privacy-policy" && method === "get") {
     const subscribers = await getActiveSubscriptionCount(productId);
 
@@ -5346,30 +7433,31 @@ export const handler = async (event, context) => {
         <body>
           <h1>Sotce Net's Privacy Policy</h1>
           <p>
-            Sotce Net keeps pages on a remote server so they can be shared
-            with and viewed by subscribers.
+            Sotce Net keeps pages on a server for subscribers to read.
           </p>
           <p>
-            Sotce Net allows you to associate an email with a
-            <code>@handle</code> to represent your identity.
+            You can associate an email with a <code>@handle</code> to represent your identity.
           </p>
           <p>
-            Sotce Net does not sell or exchange any user data with third
-            parties.
+            We use cookies and third-party services for login, analytics, and payments.
           </p>
           <p>
-            Sotce Net is brought to you by the partnership of <code><a href="https://sotce.com">Sotce</a></code> and
-            <code><a href="https://aesthetic.computer/privacy-policy">Aesthetic Computer</code>.</a>
+            We federate handles with <code><a href="https://aesthetic.computer/privacy-policy">Aesthetic Computer</a></code> — same email means shared <code>@handle</code>.
+          </p>
+          <p>
+            We do not sell your data.
+          </p>
+          <p>
+            Delete your account from the settings page. Write to <code>mail@sotce.net</code> with questions.
+          </p>
+          <p>
+            Brought to you by <code><a href="https://sotce.com">Sotce</a></code> and <code><a href="https://aesthetic.computer">Aesthetic Computer</a></code>.
           </p>
           ${subscribers > 0 ? "<p>Sotce Net has <code>" + subscribers + "</code> active subscriber" + (subscribers > 1 ? "s" : "") + ".</p>" : ""}
-          <p>
-            For more information write to <code>mail@sotce.net</code> to
-            communicate with the author.
-          </p>
           <a href="${dev ? "/sotce-net" : "/"}"><img width="128" src="${assetPath + "cookie.png"}" /></a>
           <br />
           <br />
-          <sub>Edited on September 25, 2024</sub>
+          <sub>February 2026</sub>
         </body>
       </html>
     `;
