@@ -1319,12 +1319,35 @@ async function fun(event, context) {
               x.font=Math.floor(3*S)+'px monospace';x.fillStyle='#ff8888';x.fillText(utcT,tX,Math.floor(tYbase+10*S));
               // Boot log lines - BRIGHT (with GIVE mode joke injection)
               var logStartY=Math.floor(tYbase+15*S);x.font=Math.floor(4*S)+'px monospace';
-              // Dynamic counters based on boot time - these update every frame and loop
+              // Dynamic counters based on boot time - randomized jumpy values
               var bootSec=(now-bootStart)/1000;
-              var moneyCount=Math.floor(bootSec*60000)%300001;
+              var moneyHundreds=300+Math.floor(Math.sin(f*0.3)*50+Math.cos(f*0.7)*30);
+              var moneyThousands=Math.floor(Math.abs(Math.sin(f*0.5)*500+Math.cos(f*0.2)*400+Math.sin(f*1.3)*99));
+              var moneyCount=Math.abs(moneyHundreds)*1000+moneyThousands;
               var moneyStr='$'+moneyCount.toLocaleString();
-              var yearsCount=33+Math.floor(bootSec*0.8)%5;
-              var giveJokes=[{text:'LOSING '+moneyStr+'_'},{text:"USING @jeffrey's LIFE: "+yearsCount+" YEARS OLD_"}];
+              var ageYears=33+Math.abs(Math.floor(Math.sin(f*0.2)*2+Math.cos(f*0.5)*2))%5;
+              var ageDays=Math.abs(Math.floor(Math.sin(f*0.4)*180+Math.cos(f*0.8)*180))%365;
+              var ageHours=Math.abs(Math.floor(Math.sin(f*0.6)*12+Math.cos(f*1.1)*12))%24;
+              var ageMins=Math.abs(Math.floor(Math.sin(f*0.9)*30+Math.cos(f*1.4)*30))%60;
+              var ageStr=ageYears+'y '+ageDays+'d '+ageHours+'h '+ageMins+'m';
+              var giveJokes=[{text:'SPENDING '+moneyStr+'_'},{text:"USING @jeffrey's LIFE: "+ageStr+' OLD_'}];
+              // Flying number particles from money display
+              if(!window.moneyParticles)window.moneyParticles=[];
+              var mp=window.moneyParticles;
+              // Spawn new particles every few frames
+              if(f%3===0&&mp.length<60){
+                var digits=['$','0','1','2','3','4','5','6','7','8','9','0','0','0'];
+                mp.push({x:tX+Math.random()*80*S,y:logStartY,vx:(Math.random()-0.5)*6*S,vy:-Math.random()*4*S-2*S,char:digits[Math.floor(Math.random()*digits.length)],life:1,rot:(Math.random()-0.5)*0.5,rotV:(Math.random()-0.5)*0.15,size:3+Math.random()*3});}
+              // Update and draw particles
+              x.font='bold '+Math.floor(4*S)+'px monospace';
+              for(var mpi=mp.length-1;mpi>=0;mpi--){
+                var p=mp[mpi];p.x+=p.vx;p.y+=p.vy;p.vy+=0.15*S;p.rot+=p.rotV;p.life-=0.02;
+                if(p.life<=0||p.y>H){mp.splice(mpi,1);continue;}
+                x.save();x.translate(p.x,p.y);x.rotate(p.rot);
+                x.font='bold '+Math.floor(p.size*S)+'px monospace';
+                var pHue=(f*5+mpi*30)%360;x.globalAlpha=p.life*0.8;
+                x.fillStyle='hsl('+pHue+',100%,70%)';x.fillText(p.char,0,0);
+                x.restore();}
               // Always show joke logs at top, then real logs
               var allLogs=giveJokes.concat(lines);
               for(var li=0;li<allLogs.length&&li<8;li++){
