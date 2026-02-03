@@ -166,7 +166,7 @@ const UNITICKER_IDLE_THRESHOLD = 120; // 2 seconds at 60fps before auto-selectin
 
 // 💸 FUNDING SEVERITY: Controls funding mode features
 // "critical" = full lockdown (chat offline, all alerts)
-// "yikes" = chat works, but keep $ effect, GIVE button, emotional face
+// "yikes" = chat works, GIVE button shows, but no $ replacement
 // "off" = normal operation
 export const FUNDING_SEVERITY = "yikes";
 
@@ -174,12 +174,12 @@ export const FUNDING_SEVERITY = "yikes";
 export const FUNDING_MODE = FUNDING_SEVERITY === "critical";
 
 // Helper flags
-const showFundingEffects = FUNDING_SEVERITY !== "off"; // $ replacement, GIVE button, face
+const showFundingEffects = FUNDING_SEVERITY !== "off"; // GIVE button, face (no longer includes $ replacement)
 const isCriticalFunding = FUNDING_SEVERITY === "critical"; // Full lockdown mode
 
 // Set global flags for disk.mjs
 if (typeof globalThis !== "undefined") {
-  globalThis.AC_FUNDING_MODE = showFundingEffects; // $ replacement active for both critical and yikes
+  globalThis.AC_FUNDING_MODE = false; // $ replacement disabled - only GIVE button and boot screen active
   globalThis.AC_CHAT_DISABLED = isCriticalFunding; // Only block chat in critical mode
 }
 
