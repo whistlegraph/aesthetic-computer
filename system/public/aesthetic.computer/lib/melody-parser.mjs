@@ -186,9 +186,10 @@ export function parseMelody(melodyString, startingOctave = 4) {
           }
           
           // Set waveType to say and store the speech text
+          // This makes subsequent notes play the speech at their pitch
           currentWaveType = 'say';
           currentSayText = speechText;
-          console.log(`🗣️ Parsed say text: "${speechText}"${afterQuote.startsWith(':') ? ` vol:${currentVolume}` : ''}`);
+          console.log(`🗣️ Parsed {say}: "${speechText}" - following notes will play speech at note pitch`);
         }
         // Check for painting code syntax like {#abc123} or {#abc123:0.5}
         else if (content.startsWith('#')) {
@@ -846,6 +847,12 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
   
   // Split the melody string by whitespace to get individual groups
   const groups = processedMelodyString.split(/\s+/).filter(group => group.length > 0);
+  
+  console.log("🎵 MELODY PARSER: Splitting melody into groups:", { 
+    original: processedMelodyString, 
+    groups: groups,
+    groupCount: groups.length 
+  });
   
   // If no groups or only one group, treat as single track
   if (groups.length <= 1) {
