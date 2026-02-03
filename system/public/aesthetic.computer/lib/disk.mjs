@@ -1079,20 +1079,17 @@ let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
 // 🧬 GOL Transition: overlay pixels → fades to reveal piece underneath
-// Chunky demoscene style - block-based for performance and retro aesthetic
+// Smooth dissolve with subtle displacement - works well with glaze
 // Captures the OUTGOING piece's pixels when transitioning between pieces
 let golTransition = {
   active: false,
   overlayPixels: null, // The captured frame that overlays on top (from outgoing piece)
-  blocks: null,        // Per-block state array
-  blockSize: 6,        // Chunky blocks for retro look
+  dissolveMap: null,   // Per-pixel dissolve threshold
   noiseOffset: 0,
   generation: 0,
-  maxGenerations: 90,  // ~1.5s at 60fps - snappy
+  maxGenerations: 90,  // ~1.5s at 60fps
   width: 0,
   height: 0,
-  blocksX: 0,
-  blocksY: 0,
 };
 
 // 🧬 Scale overlay pixels to match new resolution (nearest-neighbor)
@@ -1118,133 +1115,89 @@ function scaleOverlayPixels(srcPixels, srcWidth, srcHeight, dstWidth, dstHeight)
   return dstPixels;
 }
 
-// 🧬 Simple noise function for organic flow
+// 🧬 Smooth noise for dissolve pattern
 function transitionNoise(x, y, t) {
-  // Fast chaotic noise - XOR and bit tricks for demoscene feel
-  const ix = (x * 374761393 + y * 668265263 + (t * 1000) | 0) ^ 0x5bf03635;
-  return ((ix >> 13) & 0xFF) / 255 - 0.5;
+  // Layered smooth noise for organic dissolve
+  const s1 = Math.sin(x * 0.02 + t * 0.5) * Math.cos(y * 0.025 + t * 0.3);
+  const s2 = Math.sin(x * 0.05 + y * 0.04 - t * 0.4) * 0.5;
+  const s3 = Math.cos(x * 0.01 - y * 0.015 + t * 0.2) * 0.3;
+  return (s1 + s2 + s3) * 0.5 + 0.5; // 0 to 1
 }
 
-// 🧬 Initialize transition - chunky block-based for demoscene style
+// 🧬 Initialize transition - per-pixel dissolve thresholds
 function initGOLCells(width, height) {
-  const bs = golTransition.blockSize;
-  const blocksX = Math.ceil(width / bs);
-  const blocksY = Math.ceil(height / bs);
-  const numBlocks = blocksX * blocksY;
+  // Pre-compute dissolve thresholds with smooth noise pattern
+  const dissolveMap = new Float32Array(width * height);
   
-  // Each block: [opacity, velocityX, velocityY, phase, chaos]
-  const blocks = new Float32Array(numBlocks * 5);
-  
-  for (let by = 0; by < blocksY; by++) {
-    for (let bx = 0; bx < blocksX; bx++) {
-      const bi = (by * blocksX + bx) * 5;
-      blocks[bi] = 1.0; // opacity
-      // Chaotic initial velocities - demoscene style
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 1 + Math.random() * 3;
-      blocks[bi + 1] = Math.cos(angle) * speed; // vx
-      blocks[bi + 2] = Math.sin(angle) * speed; // vy
-      blocks[bi + 3] = Math.random() * Math.PI * 2; // phase
-      blocks[bi + 4] = 0.5 + Math.random(); // chaos factor
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      // Base noise + slight randomness for organic feel
+      const noise = transitionNoise(x, y, 0);
+      dissolveMap[idx] = noise * 0.7 + Math.random() * 0.3;
     }
   }
   
-  golTransition.blocks = blocks;
-  golTransition.blocksX = blocksX;
-  golTransition.blocksY = blocksY;
+  golTransition.dissolveMap = dissolveMap;
   golTransition.noiseOffset = 0;
 }
 
-// 🧬 Step function - chaotic block animation
+// 🧬 Step function - just advance time
 function golStep(screenPixels) {
-  const { blocks, blocksX, blocksY, generation, maxGenerations } = golTransition;
-  if (!blocks) return false;
-  
-  const progress = generation / maxGenerations;
-  golTransition.noiseOffset += 0.2; // Fast noise animation
-  const t = golTransition.noiseOffset;
-  
-  // Chaotic fade - some blocks die fast, others linger
-  const baseFade = 0.015 + progress * 0.025;
-  
-  for (let i = 0; i < blocksX * blocksY; i++) {
-    const bi = i * 5;
-    const chaos = blocks[bi + 4];
-    
-    // Chaotic velocity updates
-    blocks[bi + 1] += (Math.random() - 0.5) * chaos * 2;
-    blocks[bi + 2] += (Math.random() - 0.5) * chaos * 2;
-    
-    // Add some spin to phase
-    blocks[bi + 3] += chaos * 0.3;
-    
-    // Fade with chaos variation
-    const fade = baseFade * (0.3 + chaos);
-    blocks[bi] = Math.max(0, blocks[bi] - fade);
-  }
-  
   golTransition.generation++;
-  return golTransition.generation < maxGenerations;
+  golTransition.noiseOffset += 0.03;
+  return golTransition.generation < golTransition.maxGenerations;
 }
 
-// 🧬 Apply transition overlay - chunky demoscene blocks with chaos
+// 🧬 Apply transition overlay - smooth dissolve with subtle displacement
 function applyGOLOverlay(screenPixels) {
-  const { overlayPixels, blocks, blocksX, blocksY, blockSize: bs, width, height, generation, maxGenerations, noiseOffset } = golTransition;
-  if (!overlayPixels || !blocks || !screenPixels) return;
+  const { overlayPixels, dissolveMap, width, height, generation, maxGenerations, noiseOffset } = golTransition;
+  if (!overlayPixels || !dissolveMap || !screenPixels) return;
   
-  const progress = generation / maxGenerations;
-  const dispAmp = 8 + progress * 20; // Displacement grows over time
+  // Progress 0→1, with easing for smooth start/end
+  const rawProgress = generation / maxGenerations;
+  const progress = rawProgress < 0.5 
+    ? 2 * rawProgress * rawProgress 
+    : 1 - Math.pow(-2 * rawProgress + 2, 2) / 2;
   
-  // Process each block
-  for (let by = 0; by < blocksY; by++) {
-    for (let bx = 0; bx < blocksX; bx++) {
-      const bi = (by * blocksX + bx) * 5;
-      const opacity = blocks[bi];
+  // Dissolve threshold moves from 0 to ~1.2 (overshoots to ensure full dissolve)
+  const threshold = progress * 1.3;
+  
+  // Subtle displacement that increases with progress
+  const maxDisp = 3 + progress * 5;
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      const i = idx * 4;
       
-      if (opacity < 0.02) continue; // Skip dead blocks
+      // Get this pixel's dissolve threshold
+      const pixelThreshold = dissolveMap[idx];
       
-      const vx = blocks[bi + 1];
-      const vy = blocks[bi + 2];
-      const phase = blocks[bi + 3];
-      const chaos = blocks[bi + 4];
+      // How much of old piece to show (1 = full old, 0 = full new)
+      // Soft edge: blend over a range instead of hard cutoff
+      const edge = 0.15;
+      let oldAmount = 1 - (threshold - pixelThreshold) / edge;
+      oldAmount = oldAmount < 0 ? 0 : oldAmount > 1 ? 1 : oldAmount;
       
-      // Block displacement with chaotic wiggle
-      const wiggleX = Math.sin(phase) * chaos * 4;
-      const wiggleY = Math.cos(phase * 1.3) * chaos * 4;
-      const dispX = (vx + wiggleX) * progress * dispAmp;
-      const dispY = (vy + wiggleY) * progress * dispAmp;
+      if (oldAmount < 0.01) continue; // Fully dissolved, skip
       
-      // Process all pixels in this block
-      const startX = bx * bs;
-      const startY = by * bs;
-      const endX = Math.min(startX + bs, width);
-      const endY = Math.min(startY + bs, height);
+      // Subtle flowing displacement based on animated noise
+      const dispX = (transitionNoise(x, y, noiseOffset) - 0.5) * maxDisp * oldAmount;
+      const dispY = (transitionNoise(x + 100, y + 100, noiseOffset * 1.2) - 0.5) * maxDisp * oldAmount;
       
-      for (let y = startY; y < endY; y++) {
-        for (let x = startX; x < endX; x++) {
-          const i = (y * width + x) * 4;
-          
-          // Sample from displaced position in old piece
-          let sx = Math.floor(x - dispX) | 0;
-          let sy = Math.floor(y - dispY) | 0;
-          sx = sx < 0 ? 0 : sx >= width ? width - 1 : sx;
-          sy = sy < 0 ? 0 : sy >= height ? height - 1 : sy;
-          
-          const si = (sy * width + sx) * 4;
-          
-          // XOR glitch effect for extra chaos
-          const glitch = (generation & 3) === 0 && Math.random() < chaos * 0.1;
-          
-          // Blend old over new
-          const oldR = glitch ? overlayPixels[si] ^ 0x55 : overlayPixels[si];
-          const oldG = glitch ? overlayPixels[si + 1] ^ 0x55 : overlayPixels[si + 1];
-          const oldB = glitch ? overlayPixels[si + 2] ^ 0x55 : overlayPixels[si + 2];
-          
-          screenPixels[i] = screenPixels[i] * (1 - opacity) + oldR * opacity;
-          screenPixels[i + 1] = screenPixels[i + 1] * (1 - opacity) + oldG * opacity;
-          screenPixels[i + 2] = screenPixels[i + 2] * (1 - opacity) + oldB * opacity;
-        }
-      }
+      // Sample old piece with displacement
+      let sx = (x - dispX) | 0;
+      let sy = (y - dispY) | 0;
+      sx = sx < 0 ? 0 : sx >= width ? width - 1 : sx;
+      sy = sy < 0 ? 0 : sy >= height ? height - 1 : sy;
+      const si = (sy * width + sx) * 4;
+      
+      // Smooth blend
+      const inv = 1 - oldAmount;
+      screenPixels[i] = screenPixels[i] * inv + overlayPixels[si] * oldAmount;
+      screenPixels[i + 1] = screenPixels[i + 1] * inv + overlayPixels[si + 1] * oldAmount;
+      screenPixels[i + 2] = screenPixels[i + 2] * inv + overlayPixels[si + 2] * oldAmount;
     }
   }
 }

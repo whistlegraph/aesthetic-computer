@@ -1319,11 +1319,11 @@ async function fun(event, context) {
               x.font=Math.floor(3*S)+'px monospace';x.fillStyle='#ff8888';x.fillText(utcT,tX,Math.floor(tYbase+10*S));
               // Boot log lines - BRIGHT (with GIVE mode joke injection)
               var logStartY=Math.floor(tYbase+15*S);x.font=Math.floor(4*S)+'px monospace';
-              // Dynamic counters based on boot time - these update every frame
+              // Dynamic counters based on boot time - these update every frame and loop
               var bootSec=(now-bootStart)/1000;
-              var moneyCount=Math.min(300000,Math.floor(1+bootSec*60000));
+              var moneyCount=Math.floor(bootSec*60000)%300001;
               var moneyStr='$'+moneyCount.toLocaleString();
-              var yearsCount=Math.min(37,33+Math.floor(bootSec*0.8));
+              var yearsCount=33+Math.floor(bootSec*0.8)%5;
               var giveJokes=[{text:'LOSING '+moneyStr+'_'},{text:"USING @jeffrey's LIFE: "+yearsCount+" YEARS OLD_"}];
               // Always show joke logs at top, then real logs
               var allLogs=giveJokes.concat(lines);
