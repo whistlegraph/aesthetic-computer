@@ -1079,17 +1079,20 @@ let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
 // 🧬 GOL Transition: overlay pixels → fades to reveal piece underneath
-// Smooth dissolve with subtle displacement - works well with glaze
+// Blocky lush dissolve - chunky but smooth, like melting tiles
 // Captures the OUTGOING piece's pixels when transitioning between pieces
 let golTransition = {
   active: false,
   overlayPixels: null, // The captured frame that overlays on top (from outgoing piece)
-  dissolveMap: null,   // Per-pixel dissolve threshold
+  dissolveMap: null,   // Per-block dissolve threshold
+  blockSize: 4,        // Size of dissolve blocks
   noiseOffset: 0,
   generation: 0,
-  maxGenerations: 90,  // ~1.5s at 60fps
+  maxGenerations: 100, // ~1.7s at 60fps
   width: 0,
   height: 0,
+  blocksX: 0,
+  blocksY: 0,
 };
 
 // 🧬 Scale overlay pixels to match new resolution (nearest-neighbor)
@@ -1115,89 +1118,122 @@ function scaleOverlayPixels(srcPixels, srcWidth, srcHeight, dstWidth, dstHeight)
   return dstPixels;
 }
 
-// 🧬 Smooth noise for dissolve pattern
-function transitionNoise(x, y, t) {
-  // Layered smooth noise for organic dissolve
-  const s1 = Math.sin(x * 0.02 + t * 0.5) * Math.cos(y * 0.025 + t * 0.3);
-  const s2 = Math.sin(x * 0.05 + y * 0.04 - t * 0.4) * 0.5;
-  const s3 = Math.cos(x * 0.01 - y * 0.015 + t * 0.2) * 0.3;
-  return (s1 + s2 + s3) * 0.5 + 0.5; // 0 to 1
-}
+// 🧬 DCT-style compression artifact transition (JPEG/MPEG vibes)
 
-// 🧬 Initialize transition - per-pixel dissolve thresholds
+// 🧬 Initialize transition - 8x8 DCT blocks like classic video codecs
 function initGOLCells(width, height) {
-  // Pre-compute dissolve thresholds with smooth noise pattern
-  const dissolveMap = new Float32Array(width * height);
+  const bs = 8; // Classic DCT block size
+  golTransition.blockSize = bs;
+  const blocksX = Math.ceil(width / bs);
+  const blocksY = Math.ceil(height / bs);
   
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      // Base noise + slight randomness for organic feel
-      const noise = transitionNoise(x, y, 0);
-      dissolveMap[idx] = noise * 0.7 + Math.random() * 0.3;
+  // Per-block: [updateTime, quantLevel, frozen, avgR, avgG, avgB]
+  const blockData = new Float32Array(blocksX * blocksY * 6);
+  
+  for (let by = 0; by < blocksY; by++) {
+    for (let bx = 0; bx < blocksX; bx++) {
+      const bi = (by * blocksX + bx) * 6;
+      // Staggered update times - some blocks "freeze" longer (like I-frame vs P-frame)
+      blockData[bi] = Math.random() * 0.7 + (bx + by) % 3 * 0.1;
+      // Quantization level varies per block (more = blockier colors)
+      blockData[bi + 1] = 2 + Math.floor(Math.random() * 6);
+      // Whether block is "frozen" on old frame
+      blockData[bi + 2] = 1; // Start frozen
+      // Average colors (computed later)
+      blockData[bi + 3] = 0;
+      blockData[bi + 4] = 0;
+      blockData[bi + 5] = 0;
     }
   }
   
-  golTransition.dissolveMap = dissolveMap;
-  golTransition.noiseOffset = 0;
+  golTransition.blockData = blockData;
+  golTransition.blocksX = blocksX;
+  golTransition.blocksY = blocksY;
 }
 
-// 🧬 Step function - just advance time
+// 🧬 Step function - advance compression sim
 function golStep(screenPixels) {
   golTransition.generation++;
-  golTransition.noiseOffset += 0.03;
   return golTransition.generation < golTransition.maxGenerations;
 }
 
-// 🧬 Apply transition overlay - smooth dissolve with subtle displacement
+// 🧬 Apply MPEG-style macroblock corruption transition
 function applyGOLOverlay(screenPixels) {
-  const { overlayPixels, dissolveMap, width, height, generation, maxGenerations, noiseOffset } = golTransition;
-  if (!overlayPixels || !dissolveMap || !screenPixels) return;
+  const { overlayPixels, blockData, blocksX, blocksY, blockSize: bs, width, height, generation, maxGenerations } = golTransition;
+  if (!overlayPixels || !blockData || !screenPixels) return;
   
-  // Progress 0→1, with easing for smooth start/end
-  const rawProgress = generation / maxGenerations;
-  const progress = rawProgress < 0.5 
-    ? 2 * rawProgress * rawProgress 
-    : 1 - Math.pow(-2 * rawProgress + 2, 2) / 2;
+  const progress = generation / maxGenerations;
+  // Corruption peaks in middle of transition
+  const corruption = Math.sin(progress * Math.PI) * 0.8;
+  // How many blocks have "updated" to new frame
+  const updateThreshold = progress * 1.2;
   
-  // Dissolve threshold moves from 0 to ~1.2 (overshoots to ensure full dissolve)
-  const threshold = progress * 1.3;
-  
-  // Subtle displacement that increases with progress
-  const maxDisp = 3 + progress * 5;
-  
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      const i = idx * 4;
+  for (let by = 0; by < blocksY; by++) {
+    for (let bx = 0; bx < blocksX; bx++) {
+      const bi = (by * blocksX + bx) * 6;
+      const blockUpdateTime = blockData[bi];
+      const quantLevel = blockData[bi + 1];
       
-      // Get this pixel's dissolve threshold
-      const pixelThreshold = dissolveMap[idx];
+      // Has this block "received" the new frame data yet?
+      const updated = updateThreshold > blockUpdateTime;
+      // Source pixels: old or new based on update status
+      const srcPixels = updated ? screenPixels : overlayPixels;
       
-      // How much of old piece to show (1 = full old, 0 = full new)
-      // Soft edge: blend over a range instead of hard cutoff
-      const edge = 0.15;
-      let oldAmount = 1 - (threshold - pixelThreshold) / edge;
-      oldAmount = oldAmount < 0 ? 0 : oldAmount > 1 ? 1 : oldAmount;
+      const startX = bx * bs;
+      const startY = by * bs;
+      const endX = Math.min(startX + bs, width);
+      const endY = Math.min(startY + bs, height);
       
-      if (oldAmount < 0.01) continue; // Fully dissolved, skip
+      // Calculate block average color (simulates DCT averaging at low quality)
+      let avgR = 0, avgG = 0, avgB = 0, count = 0;
+      for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
+          const si = (y * width + x) * 4;
+          avgR += srcPixels[si];
+          avgG += srcPixels[si + 1];
+          avgB += srcPixels[si + 2];
+          count++;
+        }
+      }
+      avgR /= count; avgG /= count; avgB /= count;
       
-      // Subtle flowing displacement based on animated noise
-      const dispX = (transitionNoise(x, y, noiseOffset) - 0.5) * maxDisp * oldAmount;
-      const dispY = (transitionNoise(x + 100, y + 100, noiseOffset * 1.2) - 0.5) * maxDisp * oldAmount;
+      // Quantize the average (posterize colors like JPEG at low quality)
+      const q = quantLevel + corruption * 8;
+      avgR = Math.round(avgR / q) * q;
+      avgG = Math.round(avgG / q) * q;
+      avgB = Math.round(avgB / q) * q;
       
-      // Sample old piece with displacement
-      let sx = (x - dispX) | 0;
-      let sy = (y - dispY) | 0;
-      sx = sx < 0 ? 0 : sx >= width ? width - 1 : sx;
-      sy = sy < 0 ? 0 : sy >= height ? height - 1 : sy;
-      const si = (sy * width + sx) * 4;
+      // How much to show the blocky average vs actual pixels
+      // More corruption = more visible macroblocks
+      const blockiness = corruption * (0.4 + Math.random() * 0.3);
       
-      // Smooth blend
-      const inv = 1 - oldAmount;
-      screenPixels[i] = screenPixels[i] * inv + overlayPixels[si] * oldAmount;
-      screenPixels[i + 1] = screenPixels[i + 1] * inv + overlayPixels[si + 1] * oldAmount;
-      screenPixels[i + 2] = screenPixels[i + 2] * inv + overlayPixels[si + 2] * oldAmount;
+      // Apply to all pixels in block
+      for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
+          const i = (y * width + x) * 4;
+          const si = (y * width + x) * 4;
+          
+          // Get source pixel
+          const srcR = srcPixels[si];
+          const srcG = srcPixels[si + 1];
+          const srcB = srcPixels[si + 2];
+          
+          // Blend between actual and blocky average
+          const inv = 1 - blockiness;
+          screenPixels[i] = srcR * inv + avgR * blockiness;
+          screenPixels[i + 1] = srcG * inv + avgG * blockiness;
+          screenPixels[i + 2] = srcB * inv + avgB * blockiness;
+          
+          // Add slight color channel offset at block edges (chroma bleeding)
+          if (corruption > 0.2 && (x === startX || y === startY)) {
+            screenPixels[i] = Math.min(255, screenPixels[i] + corruption * 20);
+            screenPixels[i + 2] = Math.max(0, screenPixels[i + 2] - corruption * 15);
+          }
+        }
+      }
+    }
+  }
+}
     }
   }
 }

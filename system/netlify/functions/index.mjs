@@ -1110,7 +1110,7 @@ async function fun(event, context) {
           // File cycling - rotate through different files as boot progresses
           var displayFileIdx=0,lastFileSwap=0,FILE_SWAP_INTERVAL=3000;
           var lastSCL=1;
-          function anim(){if(!run||!c)return;f++;lb*=0.94;touchGlitch*=0.92;var chaos=0.3+bp*0.4+lb*0.3+touchGlitch*0.5;var t=f*0.05;
+          function anim(){if(!run||!c)return;f++;var sf=Math.floor(f*0.5);lb*=0.94;touchGlitch*=0.92;var chaos=0.3+bp*0.4+lb*0.3+touchGlitch*0.5;var t=sf*0.05;
             // Error flash decay (slower than connection flash)
             if(errorFlash>0)errorFlash*=0.96;
             // Connection flash decay
@@ -1149,45 +1149,52 @@ async function fun(event, context) {
               var revealElapsed=(now-fontRevealTime)/1000;
               // Characters reveal at ~30 chars/sec with bling
               var charsRevealed=Math.floor(revealElapsed*30);
-              // Dark red-tinted background with blinking
-              var bgBlink=Math.floor(f*0.15)%3;
-              var bgRed=bgBlink===0?'#180000':(bgBlink===1?'#0a0000':'#100000');
-              x.fillStyle=bgRed;x.fillRect(0,0,W,H);
-              // Red pulse flash overlay
-              if(Math.floor(f*0.1)%8===0){x.globalAlpha=0.15;x.fillStyle='#ff0000';x.fillRect(0,0,W,H);}
+              // Blue/black background with yellow/red flickers
+              var bgPhase=Math.floor(sf*0.2)%12;
+              var bgCol=bgPhase<4?'#000011':(bgPhase<7?'#001133':(bgPhase<9?'#000022':'#000000'));
+              // Occasional yellow/red flicker
+              if(Math.floor(sf*0.3)%17===0)bgCol='#221100';
+              if(Math.floor(sf*0.25)%23===0)bgCol='#110000';
+              if(Math.floor(sf*0.4)%31===0)bgCol='#181800';
+              x.fillStyle=bgCol;x.fillRect(0,0,W,H);
+              // Color flash overlays
+              if(Math.floor(sf*0.1)%8===0){x.globalAlpha=0.12;x.fillStyle='#0066ff';x.fillRect(0,0,W,H);}
+              if(Math.floor(sf*0.15)%11===0){x.globalAlpha=0.1;x.fillStyle='#ffff00';x.fillRect(0,0,W,H);}
+              if(Math.floor(sf*0.12)%13===0){x.globalAlpha=0.08;x.fillStyle='#ff0000';x.fillRect(0,0,W,H);}
+              x.globalAlpha=1;
               // ========== CHAOTIC WOBBLY RAYS FROM TOP RIGHT ==========
-              var rayOriginX=W+Math.floor(Math.sin(f*0.07)*15*S);var rayOriginY=Math.floor(Math.cos(f*0.09)*10*S);
+              var rayOriginX=W+Math.floor(Math.sin(sf*0.07)*15*S);var rayOriginY=Math.floor(Math.cos(sf*0.09)*10*S);
               var numRays=18;
               x.save();
               for(var ri=0;ri<numRays;ri++){
                 // Chaotic wobbling angles
                 var baseAngle=Math.PI*0.5+Math.PI*0.6*(ri/numRays);
-                var wobble1=Math.sin(f*0.08+ri*1.3)*0.25;
-                var wobble2=Math.cos(f*0.11+ri*0.7)*0.15;
-                var wobble3=Math.sin(f*0.05+ri*2.1)*0.1;
+                var wobble1=Math.sin(sf*0.08+ri*1.3)*0.25;
+                var wobble2=Math.cos(sf*0.11+ri*0.7)*0.15;
+                var wobble3=Math.sin(sf*0.05+ri*2.1)*0.1;
                 var rayAngle=baseAngle+wobble1+wobble2+wobble3;
                 // Erratic length
-                var rayLen=Math.floor((40+60*Math.sin(f*0.06+ri*1.1)+30*Math.cos(f*0.13+ri*0.6))*S);
+                var rayLen=Math.floor((40+60*Math.sin(sf*0.06+ri*1.1)+30*Math.cos(sf*0.13+ri*0.6))*S);
                 // Jagged gradient
                 var grad=x.createLinearGradient(rayOriginX,rayOriginY,
                   rayOriginX+Math.cos(rayAngle)*rayLen,rayOriginY+Math.sin(rayAngle)*rayLen);
-                var rayHue=(340+ri*20+f*3+Math.sin(f*0.2+ri)*40)%360;
-                var rayAlpha=0.08+Math.sin(f*0.15+ri*0.9)*0.08+Math.random()*0.04;
+                var rayHue=(340+ri*20+sf*3+Math.sin(sf*0.2+ri)*40)%360;
+                var rayAlpha=0.08+Math.sin(sf*0.15+ri*0.9)*0.08+Math.random()*0.04;
                 grad.addColorStop(0,'hsla('+rayHue+',100%,75%,'+rayAlpha+')');
-                grad.addColorStop(0.3+Math.sin(f*0.1)*0.2,'hsla('+((rayHue+30)%360)+',90%,65%,'+(rayAlpha*0.6)+')');
+                grad.addColorStop(0.3+Math.sin(sf*0.1)*0.2,'hsla('+((rayHue+30)%360)+',90%,65%,'+(rayAlpha*0.6)+')');
                 grad.addColorStop(1,'hsla('+rayHue+',70%,50%,0)');
                 x.globalAlpha=1;x.fillStyle=grad;
                 // Draw as wobbly curved path
-                var raySpread=0.06+Math.sin(f*0.12+ri)*0.04;
+                var raySpread=0.06+Math.sin(sf*0.12+ri)*0.04;
                 x.beginPath();
                 x.moveTo(rayOriginX,rayOriginY);
                 // Add control points for wobble
-                var cp1x=rayOriginX+Math.cos(rayAngle)*rayLen*0.5+Math.sin(f*0.2+ri)*10*S;
-                var cp1y=rayOriginY+Math.sin(rayAngle)*rayLen*0.5+Math.cos(f*0.15+ri)*8*S;
+                var cp1x=rayOriginX+Math.cos(rayAngle)*rayLen*0.5+Math.sin(sf*0.2+ri)*10*S;
+                var cp1y=rayOriginY+Math.sin(rayAngle)*rayLen*0.5+Math.cos(sf*0.15+ri)*8*S;
                 x.quadraticCurveTo(cp1x,cp1y,rayOriginX+Math.cos(rayAngle-raySpread)*rayLen,rayOriginY+Math.sin(rayAngle-raySpread)*rayLen);
                 x.lineTo(rayOriginX+Math.cos(rayAngle+raySpread)*rayLen,rayOriginY+Math.sin(rayAngle+raySpread)*rayLen);
-                var cp2x=rayOriginX+Math.cos(rayAngle)*rayLen*0.5-Math.sin(f*0.18+ri)*8*S;
-                var cp2y=rayOriginY+Math.sin(rayAngle)*rayLen*0.5-Math.cos(f*0.22+ri)*6*S;
+                var cp2x=rayOriginX+Math.cos(rayAngle)*rayLen*0.5-Math.sin(sf*0.18+ri)*8*S;
+                var cp2y=rayOriginY+Math.sin(rayAngle)*rayLen*0.5-Math.cos(sf*0.22+ri)*6*S;
                 x.quadraticCurveTo(cp2x,cp2y,rayOriginX,rayOriginY);
                 x.closePath();x.fill();}
               x.restore();
@@ -1195,7 +1202,7 @@ async function fun(event, context) {
               var codeFS=Math.floor(7*S);x.font=fontReady?'bold '+codeFS+'px YWFTProcessing-Bold, monospace':'bold '+codeFS+'px monospace';
               var codeLineH=Math.floor(codeFS*1.3);
               // Blinking intensity
-              var codeBlink=0.4+Math.sin(f*0.2)*0.15+Math.sin(f*0.33)*0.1;
+              var codeBlink=0.4+Math.sin(sf*0.2)*0.15+Math.sin(sf*0.33)*0.1;
               // Use real loaded files if available, fall back to srcF
               var useFiles=files.length>0;
               var allCodeToks=[];
@@ -1210,19 +1217,19 @@ async function fun(event, context) {
               var codeCols=[{x:0,speed:2.5,alpha:0.55},{x:Math.floor(W*0.35),speed:1.8,alpha:0.45},{x:Math.floor(W*0.7),speed:3,alpha:0.5}];
               for(var cc=0;cc<codeCols.length;cc++){
                 var col=codeCols[cc];
-                var colCodeY=Math.floor(-((f*col.speed)%(allCodeToks.length*codeLineH)));
+                var colCodeY=Math.floor(-((sf*col.speed)%(allCodeToks.length*codeLineH)));
                 x.globalAlpha=col.alpha*codeBlink;
                 for(var ci=0;ci<allCodeToks.length*2;ci++){
                   var srcLine=allCodeToks[ci%allCodeToks.length];var codeX=col.x+Math.floor(5*S);
                   var lineY=Math.floor(colCodeY+ci*codeLineH);if(lineY<-codeFS||lineY>H+codeFS)continue;
                   // Add horizontal jitter per line
-                  var lineJitter=Math.floor(Math.sin(f*0.1+ci*0.5)*5*S);
+                  var lineJitter=Math.floor(Math.sin(sf*0.1+ci*0.5)*5*S);
                   for(var ti=0;ti<srcLine.length;ti++){
                     var tok=srcLine[ti];
                     // BRIGHTER colors with red emphasis
                     var tokCol=tok[1]==='kw'?'#ff2222':(tok[1]==='str'?'#22ff22':(tok[1]==='num'?'#ffff00':(tok[1]==='dollar'?'#00ff00':(tok[1]==='give'?'#ff00ff':'#ff4444'))));
                     // Flash certain tokens red
-                    if((tok[1]==='kw'||tok[1]==='give')&&Math.floor(f*0.3+ci+ti)%4===0)tokCol='#ffffff';
+                    if((tok[1]==='kw'||tok[1]==='give')&&Math.floor(sf*0.3+ci+ti)%4===0)tokCol='#ffffff';
                     x.fillStyle=tokCol;x.fillText(tok[0],codeX+lineJitter,lineY);codeX+=Math.floor(x.measureText(tok[0]).width);}}}
               x.globalAlpha=1;
               // ========== SCATTERED LARGE "GIVE" TEXT (only when font ready) ==========
@@ -1231,11 +1238,11 @@ async function fun(event, context) {
               var giveScatterFS=Math.floor(Math.min(W,H)*0.12);
               x.font='bold '+giveScatterFS+'px YWFTProcessing-Bold, monospace';
               for(var gs=0;gs<giveScatterCount;gs++){
-                var gsX=Math.floor((Math.sin(gs*2.3+f*0.02)*0.4+0.5)*W-giveScatterFS);
-                var gsY=Math.floor((Math.cos(gs*1.7+f*0.015)*0.35+0.5)*H);
-                var gsRot=(Math.sin(gs*1.1+f*0.03)-0.5)*0.3;
-                var gsHue=(f*2+gs*60)%360;
-                var gsAlpha=0.12+Math.sin(f*0.1+gs)*0.06;
+                var gsX=Math.floor((Math.sin(gs*2.3+sf*0.02)*0.4+0.5)*W-giveScatterFS);
+                var gsY=Math.floor((Math.cos(gs*1.7+sf*0.015)*0.35+0.5)*H);
+                var gsRot=(Math.sin(gs*1.1+sf*0.03)-0.5)*0.3;
+                var gsHue=(sf*2+gs*60)%360;
+                var gsAlpha=0.12+Math.sin(sf*0.1+gs)*0.06;
                 x.save();x.translate(gsX,gsY);x.rotate(gsRot);
                 x.globalAlpha=gsAlpha;x.fillStyle='hsl('+gsHue+',100%,50%)';
                 x.fillText('GIVE',0,0);
@@ -1254,7 +1261,7 @@ async function fun(event, context) {
               ];
               for(var mr=0;mr<marqueeRows.length;mr++){
                 var row=marqueeRows[mr];
-                var baseX=((f*row.speed*row.dir*S)%(W*2));
+                var baseX=((sf*row.speed*row.dir*S)%(W*2));
                 if(row.dir>0)baseX=-W+baseX;else baseX=W-baseX;
                 // Draw each character with color variation
                 var charX=baseX;
@@ -1262,9 +1269,9 @@ async function fun(event, context) {
                   var mch=marqueeText[mci];
                   var mchW=x.measureText(mch).width;
                   // Color varies per character
-                  var mHue=(mci*25+f*2+mr*60)%360;
+                  var mHue=(mci*25+sf*2+mr*60)%360;
                   var mCol='hsl('+mHue+',100%,70%)';
-                  x.globalAlpha=0.12+Math.sin(f*0.02+mci*0.3+mr)*0.05;
+                  x.globalAlpha=0.12+Math.sin(sf*0.02+mci*0.3+mr)*0.05;
                   x.fillStyle=mCol;
                   x.fillText(mch,charX,row.y);
                   charX+=mchW;
@@ -1274,9 +1281,9 @@ async function fun(event, context) {
                 for(var mci=0;mci<marqueeText.length;mci++){
                   var mch=marqueeText[mci];
                   var mchW=x.measureText(mch).width;
-                  var mHue=(mci*25+f*2+mr*60)%360;
+                  var mHue=(mci*25+sf*2+mr*60)%360;
                   var mCol='hsl('+mHue+',100%,70%)';
-                  x.globalAlpha=0.12+Math.sin(f*0.02+mci*0.3+mr)*0.05;
+                  x.globalAlpha=0.12+Math.sin(sf*0.02+mci*0.3+mr)*0.05;
                   x.fillStyle=mCol;
                   x.fillText(mch,charX,row.y);
                   charX+=mchW;
@@ -1286,19 +1293,19 @@ async function fun(event, context) {
               // ========== PALS LOGO TOP LEFT - CRISP PIXEL VERSION ==========
               var lS=Math.floor(28*S),lX=Math.floor(5*S),lY=Math.floor(5*S);
               // Pulsing glow rings (pixel snapped)
-              for(var gr=3;gr>=0;gr--){var glowSize=Math.floor(lS+(gr*8+Math.sin(f*0.2+gr)*4)*S);
+              for(var gr=3;gr>=0;gr--){var glowSize=Math.floor(lS+(gr*8+Math.sin(sf*0.2+gr)*4)*S);
                 x.globalAlpha=0.15-gr*0.03;x.fillStyle=['#ff0000','#ffff00','#ff00ff','#00ffff'][gr%4];
                 x.fillRect(Math.floor(lX-(glowSize-lS)/2),Math.floor(lY-(glowSize-lS)/2),glowSize,glowSize);}
               // Chromatic split trails - CRISP
               x.imageSmoothingEnabled=false;var logoImg=imgFullLoaded?imgFull:img;
-              var logoShake=Math.floor(Math.sin(f*0.3)*3*S);
+              var logoShake=Math.floor(Math.sin(sf*0.3)*3*S);
               // Ghostly chromatic trails behind
               x.globalAlpha=0.25;x.filter='hue-rotate(-60deg) saturate(2)';
               x.drawImage(logoImg,lX-Math.floor(5*S)+logoShake,lY-Math.floor(3*S),lS,lS);
               x.filter='hue-rotate(60deg) saturate(2)';
               x.drawImage(logoImg,lX+Math.floor(5*S)-logoShake,lY+Math.floor(3*S),lS,lS);
               x.filter='hue-rotate(180deg) saturate(1.5)';x.globalAlpha=0.2;
-              x.drawImage(logoImg,lX+Math.floor(Math.sin(f*0.15)*3*S),lY+Math.floor(Math.cos(f*0.12)*3*S),lS,lS);
+              x.drawImage(logoImg,lX+Math.floor(Math.sin(sf*0.15)*3*S),lY+Math.floor(Math.cos(sf*0.12)*3*S),lS,lS);
               // Clean solid logo on top - SHARP AND CLEAR
               x.filter='none';
               x.imageSmoothingEnabled=false;
@@ -1308,7 +1315,7 @@ async function fun(event, context) {
               var tX=Math.floor(lX+lS+4*S),tYbase=Math.floor(lY+S);
               x.font='bold '+Math.floor(4*S)+'px monospace';
               // "aesthetic.computer" title with alarm colors
-              var titlePulse=Math.floor(f*0.2)%2===0;
+              var titlePulse=Math.floor(sf*0.2)%2===0;
               x.globalAlpha=0.9;x.fillStyle=titlePulse?'#ff6666':'#ffffff';
               x.fillText('Aesthetic.Computer',tX,tYbase);
               // Boot timer
@@ -1321,21 +1328,21 @@ async function fun(event, context) {
               var logStartY=Math.floor(tYbase+15*S);x.font=Math.floor(4*S)+'px monospace';
               // Dynamic counters based on boot time - randomized jumpy values
               var bootSec=(now-bootStart)/1000;
-              var moneyHundreds=300+Math.floor(Math.sin(f*0.3)*50+Math.cos(f*0.7)*30);
-              var moneyThousands=Math.floor(Math.abs(Math.sin(f*0.5)*500+Math.cos(f*0.2)*400+Math.sin(f*1.3)*99));
+              var moneyHundreds=300+Math.floor(Math.sin(sf*0.3)*50+Math.cos(sf*0.7)*30);
+              var moneyThousands=Math.floor(Math.abs(Math.sin(sf*0.5)*500+Math.cos(sf*0.2)*400+Math.sin(sf*1.3)*99));
               var moneyCount=Math.abs(moneyHundreds)*1000+moneyThousands;
               var moneyStr='$'+moneyCount.toLocaleString();
-              var ageYears=33+Math.abs(Math.floor(Math.sin(f*0.2)*2+Math.cos(f*0.5)*2))%5;
-              var ageDays=Math.abs(Math.floor(Math.sin(f*0.4)*180+Math.cos(f*0.8)*180))%365;
-              var ageHours=Math.abs(Math.floor(Math.sin(f*0.6)*12+Math.cos(f*1.1)*12))%24;
-              var ageMins=Math.abs(Math.floor(Math.sin(f*0.9)*30+Math.cos(f*1.4)*30))%60;
+              var ageYears=33+Math.abs(Math.floor(Math.sin(sf*0.2)*2+Math.cos(sf*0.5)*2))%5;
+              var ageDays=Math.abs(Math.floor(Math.sin(sf*0.4)*180+Math.cos(sf*0.8)*180))%365;
+              var ageHours=Math.abs(Math.floor(Math.sin(sf*0.6)*12+Math.cos(sf*1.1)*12))%24;
+              var ageMins=Math.abs(Math.floor(Math.sin(sf*0.9)*30+Math.cos(sf*1.4)*30))%60;
               var ageStr=ageYears+'y '+ageDays+'d '+ageHours+'h '+ageMins+'m';
               var giveJokes=[{text:'SPENDING '+moneyStr+'_'},{text:"USING @jeffrey's LIFE: "+ageStr+' OLD_'}];
               // Flying number particles from money display
               if(!window.moneyParticles)window.moneyParticles=[];
               var mp=window.moneyParticles;
               // Spawn new particles every few frames
-              if(f%3===0&&mp.length<60){
+              if(sf%3===0&&mp.length<60){
                 var digits=['$','0','1','2','3','4','5','6','7','8','9','0','0','0'];
                 mp.push({x:tX+Math.random()*80*S,y:logStartY,vx:(Math.random()-0.5)*6*S,vy:-Math.random()*4*S-2*S,char:digits[Math.floor(Math.random()*digits.length)],life:1,rot:(Math.random()-0.5)*0.5,rotV:(Math.random()-0.5)*0.15,size:3+Math.random()*3});}
               // Update and draw particles
@@ -1345,7 +1352,7 @@ async function fun(event, context) {
                 if(p.life<=0||p.y>H){mp.splice(mpi,1);continue;}
                 x.save();x.translate(p.x,p.y);x.rotate(p.rot);
                 x.font='bold '+Math.floor(p.size*S)+'px monospace';
-                var pHue=(f*5+mpi*30)%360;x.globalAlpha=p.life*0.8;
+                var pHue=(sf*5+mpi*30)%360;x.globalAlpha=p.life*0.8;
                 x.fillStyle='hsl('+pHue+',100%,70%)';x.fillText(p.char,0,0);
                 x.restore();}
               // Always show joke logs at top, then real logs
@@ -1364,9 +1371,9 @@ async function fun(event, context) {
               // Currency text reveals after headline+button (chars 37+)
               var currRevealed=Math.max(0,charsRevealed-37);
               for(var ci=0;ci<Math.min(currCount,Math.floor(currRevealed/2));ci++){
-                var cxBase=Math.floor(W*0.2+(Math.sin(ci*1.3)*0.3+0.3)*W*0.6+Math.floor(Math.sin(f*0.03+ci)*30*S));
+                var cxBase=Math.floor(W*0.2+(Math.sin(ci*1.3)*0.3+0.3)*W*0.6+Math.floor(Math.sin(sf*0.03+ci)*30*S));
                 var cyBase=H+80*S;var cySpeed=(1.0+((ci*7)%10)*0.2)*S;
-                var cyPos=Math.floor(cyBase-((f*cySpeed+ci*60)%(H+150*S)));
+                var cyPos=Math.floor(cyBase-((sf*cySpeed+ci*60)%(H+150*S)));
                 var cFS=Math.floor(Math.max(4,(5+Math.sin(ci*0.7)*4))*S);
                 x.font='bold '+cFS+'px YWFTProcessing-Bold, monospace';
                 // Draw each character with jitter
@@ -1377,52 +1384,53 @@ async function fun(event, context) {
                   var cchW=x.measureText(cch).width;
                   var cchJX=Math.floor((Math.random()-0.5)*3*S);
                   var cchJY=Math.floor((Math.random()-0.5)*3*S);
-                  var cHue=(cci*30+f*3+ci*20)%360;
-                  x.globalAlpha=0.7+Math.sin(f*0.25+ci+cci*0.2)*0.25;
+                  var cHue=(cci*30+sf*3+ci*20)%360;
+                  x.globalAlpha=0.7+Math.sin(sf*0.25+ci+cci*0.2)*0.25;
                   x.fillStyle='hsl('+cHue+',100%,70%)';
                   x.fillText(cch,currX+cchJX,cyPos+cchJY);
                   currX+=cchW;}}
               } // end fontReady for currency
-              // ========== FLICKERING HEADLINE - CRISP PIXEL ==========
+              // ========== FLICKERING HEADLINE - MULTILINE CRISP PIXEL ==========
               if(fontReady){
-              var msgs=['TIME TO GROW','HELP AC THRIVE'];
-              // Irregular flicker using noise-like pattern (slower, unpredictable)
-              var flickerNoise=Math.sin(f*0.04)+Math.sin(f*0.067)*0.7+Math.sin(f*0.023)*0.5;
-              var mainText=msgs[flickerNoise>0.3?0:1];
-              var giveFS=Math.floor(Math.min(H*0.11, W/(mainText.length*0.7)));
-              x.font='bold '+giveFS+'px YWFTProcessing-Bold, monospace';
-              var giveW=x.measureText(mainText).width;
-              var giveX=Math.floor((W-giveW)/2);var giveY=Math.floor(H*0.42);
-              // Draw headline letter by letter with jitter + REVEAL
-              var hlX=giveX;
-              var hlRevealed=Math.min(mainText.length,charsRevealed);
-              for(var hi=0;hi<hlRevealed;hi++){
-                var hlCh=mainText[hi];
-                var hlJX=Math.floor((Math.random()-0.5)*3*S);
-                var hlJY=Math.floor((Math.random()-0.5)*3*S);
-                var hlChW=x.measureText(hlCh).width;
-                // Bling flash when just revealed
-                var hlAge=charsRevealed-hi;
-                var hlBling=hlAge<3?1:0;
-                if(hlBling){
-                  x.globalAlpha=0.8;x.fillStyle='#ffffff';
-                  x.fillText(hlCh,hlX+hlJX,giveY+hlJY);}
-                // Black outline
-                x.globalAlpha=0.6;x.fillStyle='#000000';
-                x.fillText(hlCh,hlX+Math.floor(4*S)+hlJX,giveY+Math.floor(4*S)+hlJY);
-                // Red/cyan chromatic split
-                x.globalAlpha=0.5;x.fillStyle='#ff0000';
-                x.fillText(hlCh,hlX-Math.floor(3*S)+hlJX,giveY-Math.floor(2*S)+hlJY);
-                x.fillStyle='#00ffff';
-                x.fillText(hlCh,hlX+Math.floor(3*S)+hlJX,giveY+Math.floor(2*S)+hlJY);
-                // Main text - color shifts per letter
-                var colShift=(Math.sin(f*0.05+hi*0.3)+1)*0.5;
-                var giveR=255;
-                var giveG=Math.floor(colShift*255);
-                var giveB=Math.floor((1-colShift)*128);
-                x.globalAlpha=1;x.fillStyle='rgb('+giveR+','+giveG+','+giveB+')';
-                x.fillText(hlCh,hlX+hlJX,giveY+hlJY);
-                hlX+=hlChW;
+              var hlLines=["IT'S TIME","TO GROW","INTO","SOMETHING","NEW"];
+              // Flickering between line groups
+              var flickerNoise=Math.sin(sf*0.02)+Math.sin(sf*0.033)*0.7+Math.sin(sf*0.012)*0.5;
+              var showSet=flickerNoise>0.3?0:1;
+              var linesToShow=showSet===0?["IT'S TIME","TO GROW"]:["INTO","SOMETHING","NEW"];
+              var longestLine=0;for(var lli=0;lli<linesToShow.length;lli++){if(linesToShow[lli].length>longestLine)longestLine=linesToShow[lli].length;}
+              var giveFS=Math.floor(Math.min(H*0.14, W/(longestLine*0.65)));
+              var lineH=giveFS*1.1;
+              var totalH=linesToShow.length*lineH;
+              var startY=Math.floor(H*0.66)-totalH/2;
+              for(var lineIdx=0;lineIdx<linesToShow.length;lineIdx++){
+                var lineText=linesToShow[lineIdx];
+                x.font='bold '+giveFS+'px YWFTProcessing-Bold, monospace';
+                var lineW=x.measureText(lineText).width;
+                var lineX=Math.floor((W-lineW)/2);
+                var lineY=Math.floor(startY+lineIdx*lineH);
+                var hlX=lineX;
+                for(var hi=0;hi<lineText.length;hi++){
+                  var hlCh=lineText[hi];
+                  var hlJX=Math.floor((Math.random()-0.5)*2*S);
+                  var hlJY=Math.floor((Math.random()-0.5)*2*S);
+                  var hlChW=x.measureText(hlCh).width;
+                  // Black outline
+                  x.globalAlpha=0.6;x.fillStyle='#000000';
+                  x.fillText(hlCh,hlX+Math.floor(3*S)+hlJX,lineY+Math.floor(3*S)+hlJY);
+                  // Red/cyan chromatic split
+                  x.globalAlpha=0.4;x.fillStyle='#ff0000';
+                  x.fillText(hlCh,hlX-Math.floor(2*S)+hlJX,lineY-Math.floor(S)+hlJY);
+                  x.fillStyle='#00ffff';
+                  x.fillText(hlCh,hlX+Math.floor(2*S)+hlJX,lineY+Math.floor(S)+hlJY);
+                  // Main text - color shifts per letter
+                  var colShift=(Math.sin(sf*0.025+hi*0.3+lineIdx)+1)*0.5;
+                  var giveR=255;
+                  var giveG=Math.floor(colShift*255);
+                  var giveB=Math.floor((1-colShift)*128);
+                  x.globalAlpha=1;x.fillStyle='rgb('+giveR+','+giveG+','+giveB+')';
+                  x.fillText(hlCh,hlX+hlJX,lineY+hlJY);
+                  hlX+=hlChW;
+                }
               }
               } // end fontReady for headline
               // (messages now flicker as main text above)
@@ -1459,6 +1467,8 @@ async function fun(event, context) {
               // Reset font for main text
               x.font='bold '+btnFS+'px YWFTProcessing-Bold, monospace';
               var curX=startX;
+              // 'give' is at index 7-10 in "ENTER 'give' ON PROMPT"
+              var giveStart=7,giveEnd=10;
               for(var li=0;li<btnRevealed;li++){
                 var ch=btnT[li];
                 var chW=x.measureText(ch).width;
@@ -1469,6 +1479,8 @@ async function fun(event, context) {
                 var letterJitterX=Math.floor(Math.sin(f*0.15+li*0.8)*2*S+(Math.random()-0.5)*S);
                 var letterJitterY=Math.floor(Math.sin(f*0.12+li*1.2)*3*S+Math.cos(f*0.09+li)*2*S);
                 var letterHue=(f*4+li*25)%360;
+                // Check if this is part of 'give'
+                var isGive=li>=giveStart&&li<=giveEnd;
                 if(btnBling){
                   x.globalAlpha=0.9;x.fillStyle='#ffffff';
                   x.fillText(ch,curX+letterJitterX,baseY+letterJitterY);}
@@ -1476,12 +1488,18 @@ async function fun(event, context) {
                 x.globalAlpha=0.5;x.fillStyle='#000000';
                 x.fillText(ch,curX+letterJitterX+Math.floor(2*S),baseY+letterJitterY+Math.floor(2*S));
                 // Chromatic split
-                x.globalAlpha=0.4;x.fillStyle='#ff0000';
+                x.globalAlpha=0.4;x.fillStyle=isGive?'#00ff00':'#ff0000';
                 x.fillText(ch,curX+letterJitterX-Math.floor(S),baseY+letterJitterY);
-                x.fillStyle='#00ffff';
+                x.fillStyle=isGive?'#80ff80':'#00ffff';
                 x.fillText(ch,curX+letterJitterX+Math.floor(S),baseY+letterJitterY);
-                // Main letter - color shifting per letter
-                x.globalAlpha=1;x.fillStyle='hsl('+letterHue+',100%,85%)';
+                // Main letter - 'give' is flashy lime green, others rainbow
+                if(isGive){
+                  var giveFlash=0.7+Math.sin(f*0.3+li)*0.3;
+                  var giveG=Math.floor(200+Math.sin(f*0.4+li)*55);
+                  x.globalAlpha=1;x.fillStyle='rgb('+Math.floor(80+Math.sin(f*0.5)*40)+','+giveG+','+Math.floor(50+Math.sin(f*0.6)*30)+')';
+                }else{
+                  x.globalAlpha=1;x.fillStyle='hsl('+letterHue+',100%,85%)';
+                }
                 x.fillText(ch,curX+letterJitterX,baseY+letterJitterY);
                 curX+=Math.floor(chW);}
               } // end fontReady for button
