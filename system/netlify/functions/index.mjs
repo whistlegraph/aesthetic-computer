@@ -89,9 +89,8 @@ async function fun(event, context) {
   // Serve specific kidlisp.com pages before the catch-all
   // /kidlisp.com/device* → device.html (FF1 optimized display)
   // /device.kidlisp.com/* → device.html (local dev path for device.kidlisp.com)
-  // /top.kidlisp.com/* → device.html (alias for top100 playlist)
   // /kidlisp.com/pj* → pj.html (PJ mode)
-  if (event.path.startsWith("/kidlisp.com/device") || event.path.startsWith("/device.kidlisp.com") || event.path.startsWith("/top.kidlisp.com")) {
+  if (event.path.startsWith("/kidlisp.com/device") || event.path.startsWith("/device.kidlisp.com")) {
     try {
       const htmlContent = await fs.readFile(
         path.join(process.cwd(), "public/kidlisp.com/device.html"),
@@ -1568,7 +1567,7 @@ async function fun(event, context) {
               if(errorMode&&Math.random()<0.3){var gy=Math.random()*H|0,gh=(S*3+Math.random()*S*8)|0;x.globalAlpha=0.6;x.fillStyle='rgb(255,0,0)';x.fillRect(0,gy,W,gh);}
               x.globalCompositeOperation='source-over';}
             // Touch interaction visual feedback - ripple effect
-            if(touchGlitch>0.05){var rippleR=(1-touchGlitch)*100*S+10*S;x.globalAlpha=touchGlitch*0.3;x.strokeStyle=isLightMode?'rgb(100,60,140)':'rgb(200,150,255)';x.lineWidth=2*S;x.beginPath();x.arc(touchX*W,touchY*H,rippleR,0,Math.PI*2);x.stroke();x.globalAlpha=1;}
+            if(touchGlitch>0.05){var rippleR=Math.max(1,(1-touchGlitch)*100*S+10*S);x.globalAlpha=touchGlitch*0.3;x.strokeStyle=isLightMode?'rgb(100,60,140)':'rgb(200,150,255)';x.lineWidth=2*S;x.beginPath();x.arc(touchX*W,touchY*H,rippleR,0,Math.PI*2);x.stroke();x.globalAlpha=1;}
             x.globalAlpha=1;requestAnimationFrame(anim);}anim();
           var obj={log:add,hide:function(){run=false;c.remove();},setHandle:setH,addFile:addFile,netPulse:netPulse,setSessionConnected:setConn,setErrorMode:setErrorMode};Object.defineProperty(obj,'motd',{get:function(){return motd;},set:function(v){motd=v;motdStart=performance.now();}});Object.defineProperty(obj,'motdHandle',{get:function(){return motdHandle;},set:function(v){motdHandle=v||'';}});return obj;})();
           window.acBOOT_LOG_CANVAS=function(m){if(window.acBootCanvas&&window.acBootCanvas.log)window.acBootCanvas.log(m);};
