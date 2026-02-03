@@ -1001,6 +1001,8 @@ async function fun(event, context) {
             }
           })();
         </script>
+        <!-- Preload the YWFT Processing font for instant boot animation -->
+        <link rel="preload" href="/type/webfonts/ywft-processing-bold.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
         <link
           rel="stylesheet"
           crossorigin="anonymous"
@@ -1042,6 +1044,8 @@ async function fun(event, context) {
           var PAGECOLS=isKidlisp?(isLightMode?['#f5e8d0','#f0e0c0','#f5e0d0','#f0e8c8','#f5e4c8','#f0dcc0','#f5e0c8','#f0e4d0']:['#2d1a0d','#3d2810','#2d2010','#3d3010','#2d2a10','#3d2a08','#2d1810','#3d2010']):(isLightMode?['#fcf7c5','#f5f0c0','#fffacd','#f5ebe0','#e8e3b0','#f0ebd0','#e8dcc8','#fcf5c8']:['#0d1a2d','#0d2d1a','#2d0d1a','#1a0d2d','#1a2d0d','#2d1a0d','#0d1a1a','#1a1a2d']);
           var files=[],scrollYs={},bootStart=performance.now(),motd='',motdHandle='',motdStart=0;
           var lines=[],lc=0,mL=10,lastLog=performance.now(),lb=0,bp=0;
+          // Eagerly load the YWFT Processing font as soon as possible
+          try{document.fonts.load('bold 16px YWFTProcessing-Bold').then(function(){console.log('[BOOT] ✅ Font loaded: YWFTProcessing-Bold');window.acFontReadyTime=performance.now();}).catch(function(){});}catch(e){}
           var tinyPng='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABWUlEQVR4nN2Ru0pDQRCGg3fUzk5bEVS0ELxVwQsYTRBvJ5ed3VgZVBB8g1Q+gCDIzq6IluclUktmT1Kk8mWUWT2RTcBep1nmZ//vn53NZP5XOWU3ndTlOIoHe/UE8MxJM8s9SdxuVR9nAnMneph0Up+25esECSwEAGFK3gh4SwIvnDQ5UrgXAN5v7kcJ9HUjWx/iKZwyJ6RsxMkEWPzSTY7A5psVsxaYG+fPYyTNFZ8+qaaHSRjhzcpGrSou+knKdprH70t2Ci+Z7qS56wIAj9M7DPkJskcBIAG96gHKzKdv/X5vkU+/E7B5AtxI4GnBKasSpXf5brBIqulxB/qQjZzO4/uxwe68qZep7l6EXmKNQemv+GIzE5vKHKTL87owpbbCOQK9wj1Jvc59prcSwAqnd6J4hM0pgGGsf9TrA32mACD0Pu/Dp1bNcqJ01gMEFkjYrV/Nf7s+AS1XxDy7PXOrAAAAAElFTkSuQmCC',img=new Image(),imgFull=new Image(),imgFullLoaded=!1;img.src=tinyPng;imgFull.onload=function(){imgFullLoaded=!0};imgFull.src='/purple-pals.svg';
           // A/B Test: "GIVE" variant - 100% for testing (change back to 0.20 for production)
           // Force with ?give=true or ?abtest=give, disable with ?give=false
@@ -1163,7 +1167,7 @@ async function fun(event, context) {
               x.globalAlpha=1;
               // ========== CHAOTIC WOBBLY RAYS FROM TOP RIGHT ==========
               var rayOriginX=W+Math.floor(Math.sin(sf*0.07)*15*S);var rayOriginY=Math.floor(Math.cos(sf*0.09)*10*S);
-              var numRays=18;
+              var numRays=12; // Reduced from 18
               x.save();
               for(var ri=0;ri<numRays;ri++){
                 // Chaotic wobbling angles
@@ -1233,7 +1237,7 @@ async function fun(event, context) {
               x.globalAlpha=1;
               // ========== SCATTERED LARGE "GIVE" TEXT (only when font ready) ==========
               if(fontReady){
-              var giveScatterCount=8;
+              var giveScatterCount=5; // Reduced from 8
               var giveScatterFS=Math.floor(Math.min(W,H)*0.12);
               x.font='bold '+giveScatterFS+'px YWFTProcessing-Bold, monospace';
               for(var gs=0;gs<giveScatterCount;gs++){
@@ -1340,9 +1344,9 @@ async function fun(event, context) {
               // Flying number particles from money display
               if(!window.moneyParticles)window.moneyParticles=[];
               var mp=window.moneyParticles;
-              // Spawn new particles every few frames
-              if(sf%3===0&&mp.length<60){
-                var digits=['$','0','1','2','3','4','5','6','7','8','9','0','0','0'];
+              // Spawn new particles every few frames (reduced rate)
+              if(sf%5===0&&mp.length<30){
+                var digits=['$','0','1','5','9'];
                 mp.push({x:tX+Math.random()*80*S,y:logStartY,vx:(Math.random()-0.5)*6*S,vy:-Math.random()*4*S-2*S,char:digits[Math.floor(Math.random()*digits.length)],life:1,rot:(Math.random()-0.5)*0.5,rotV:(Math.random()-0.5)*0.15,size:3+Math.random()*3});}
               // Update and draw particles
               x.font='bold '+Math.floor(4*S)+'px monospace';
@@ -1365,8 +1369,8 @@ async function fun(event, context) {
               x.globalAlpha=1;
               // ========== CURRENCY SYMBOLS FLYING UP (CRISP) ==========
               if(fontReady){
-              var currencies=['GIVE $5','GIVE $10','GIVE $25','GIVE $50','GIVE $100','GIVE €20','GIVE £15','GIVE 0.01 ETH','GIVE 5 TEZ','GIVE $1','GIVE ₿0.001','GIVE $500','GIVE 100 DKK','GIVE 50 TEZ','GIVE 250 DKK','GIVE 10 TEZ'];
-              var currCount=35;
+              var currencies=['GIVE $5','GIVE $10','GIVE $25','GIVE $50','GIVE $100','GIVE €20','GIVE £15','GIVE 0.01 ETH','GIVE 5 TEZ','GIVE $1','GIVE ₿0.001','GIVE $500'];
+              var currCount=18; // Reduced from 35
               // Currency text reveals after headline+button (chars 37+)
               var currRevealed=Math.max(0,charsRevealed-37);
               for(var ci=0;ci<Math.min(currCount,Math.floor(currRevealed/2));ci++){
@@ -1375,19 +1379,12 @@ async function fun(event, context) {
                 var cyPos=Math.floor(cyBase-((sf*cySpeed+ci*60)%(H+150*S)));
                 var cFS=Math.floor(Math.max(4,(5+Math.sin(ci*0.7)*4))*S);
                 x.font='bold '+cFS+'px YWFTProcessing-Bold, monospace';
-                // Draw each character with jitter
+                // Draw whole string (faster than per-character)
                 var currText=currencies[ci%currencies.length];
-                var currX=cxBase;
-                for(var cci=0;cci<currText.length;cci++){
-                  var cch=currText[cci];
-                  var cchW=x.measureText(cch).width;
-                  var cchJX=Math.floor((Math.random()-0.5)*3*S);
-                  var cchJY=Math.floor((Math.random()-0.5)*3*S);
-                  var cHue=(cci*30+sf*3+ci*20)%360;
-                  x.globalAlpha=0.7+Math.sin(sf*0.25+ci+cci*0.2)*0.25;
-                  x.fillStyle='hsl('+cHue+',100%,70%)';
-                  x.fillText(cch,currX+cchJX,cyPos+cchJY);
-                  currX+=cchW;}}
+                var cHue=(ci*50+sf*3)%360;
+                x.globalAlpha=0.7+Math.sin(sf*0.25+ci)*0.25;
+                x.fillStyle='hsl('+cHue+',100%,70%)';
+                x.fillText(currText,cxBase,cyPos);}
               } // end fontReady for currency
               // ========== SEQUENTIAL WORD HIGHLIGHT HEADLINE ==========
               if(fontReady){
@@ -1447,25 +1444,16 @@ async function fun(event, context) {
                     var hlJY=Math.floor((Math.random()-0.5)*2*S);
                     var hlChW=x.measureText(hlCh).width;
                     if(isHighlighted){
-                      // HIGHLIGHTED WORD - strong color with glow and pulse
+                      // HIGHLIGHTED WORD - strong color with subtle glow
                       var pulse=0.7+Math.sin(now*0.015)*0.3;
-                      // Glow layers
-                      for(var gl=3;gl>=1;gl--){
-                        x.globalAlpha=0.3*pulse/gl;
-                        x.fillStyle='rgb('+activeColor[0]+','+activeColor[1]+','+activeColor[2]+')';
-                        var glOff=gl*2*S;
-                        x.fillText(hlCh,hlX-glOff+hlJX,lineY+hlJY);
-                        x.fillText(hlCh,hlX+glOff+hlJX,lineY+hlJY);
-                        x.fillText(hlCh,hlX+hlJX,lineY-glOff+hlJY);
-                        x.fillText(hlCh,hlX+hlJX,lineY+glOff+hlJY);
-                      }
+                      // Single glow layer (was 3)
+                      x.globalAlpha=0.4*pulse;
+                      x.fillStyle='rgb('+activeColor[0]+','+activeColor[1]+','+activeColor[2]+')';
+                      x.fillText(hlCh,hlX-Math.floor(3*S)+hlJX,lineY+hlJY);
+                      x.fillText(hlCh,hlX+Math.floor(3*S)+hlJX,lineY+hlJY);
                       // Main highlighted char
                       x.globalAlpha=1;
                       x.fillStyle='rgb('+activeColor[0]+','+activeColor[1]+','+activeColor[2]+')';
-                      x.fillText(hlCh,hlX+hlJX,lineY+hlJY);
-                      // White core for extra pop
-                      x.globalAlpha=0.5*pulse;
-                      x.fillStyle='#ffffff';
                       x.fillText(hlCh,hlX+hlJX,lineY+hlJY);
                     }else{
                       // Non-highlighted - dimmer with subtle color shift
@@ -1490,9 +1478,13 @@ async function fun(event, context) {
               // (messages now flicker as main text above)
               // ========== TEXT-SHAPED GLOW BUTTON ==========
               if(fontReady){
-              var btnW=Math.floor(Math.min(W*0.9, 420*S));var btnH=Math.floor(H*0.14);var btnX=Math.floor((W-btnW)/2);var btnY=Math.floor(H-btnH-12*S);
+              // Landscape: wider button, larger font. Portrait: constrained for vertical.
+              var aspectRatio=W/H;
+              var extremeLandscape=aspectRatio>2; // Ultra-wide (21:9 or wider)
+              var btnMaxW=isLandscape?Math.min(W*0.95, extremeLandscape?900*S:600*S):Math.min(W*0.9, 420*S);
+              var btnW=Math.floor(btnMaxW);var btnH=Math.floor(H*0.14);var btnX=Math.floor((W-btnW)/2);var btnY=Math.floor(H-btnH-12*S);
               // "ENTER 'give' ON PROMPT" - TEXT-SHAPED GLOW + letter by letter
-              var btnFS=Math.floor(Math.min(btnH*0.45, btnW*0.085));
+              var btnFS=extremeLandscape?Math.floor(Math.min(btnH*0.7, btnW*0.06)):isLandscape?Math.floor(Math.min(btnH*0.55, btnW*0.05)):Math.floor(Math.min(btnH*0.45, btnW*0.085));
               x.font='bold '+btnFS+'px YWFTProcessing-Bold, monospace';
               var btnT="ENTER 'give' ON PROMPT";
               var totalW=0;for(var ti=0;ti<btnT.length;ti++)totalW+=x.measureText(btnT[ti]).width;
