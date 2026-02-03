@@ -434,7 +434,7 @@ function preloadMelodySpeech(melodyState, speak, num, help) {
 }
 
 // Preload say texts for {say} waveform type (pitched speech samples)
-// Returns a promise that resolves when all samples are loaded
+// Returns an array of promises that resolve when all samples are loaded
 async function preloadSayTexts(melodyState, speak, num) {
   if (!melodyState || !speak) return [];
   
@@ -451,26 +451,21 @@ async function preloadSayTexts(melodyState, speak, num) {
     if (sayCacheQueue.has(text)) return;
     sayCacheQueue.add(text);
     
-    // Create a promise that resolves when the sample is loaded
-    const loadPromise = new Promise((resolve) => {
-      // Trigger fetch to cache the speech using plain text (no SSML)
-      // This ensures a single cached audio that we can pitch-shift via playback speed
-      speak(text, "female:18", "cloud", {
-        volume: 0, // Silent generation for caching
-        skipCompleted: true,
-      });
-      
-      // Resolve after a reasonable time for loading
-      // TODO: Replace with actual load completion callback from speech system
-      setTimeout(() => {
-        loadingState.samplesLoaded++;
-        console.log(`🗣️ Loaded say text: "${text}" (${loadingState.samplesLoaded}/${loadingState.samplesNeeded})`);
-        resolve(text);
-      }, 1500); // Give 1.5s for each sample to load
+    // Use preloadOnly mode to get a promise that resolves when cached
+    const loadPromise = speak(text, "female:18", "cloud", {
+      preloadOnly: true, // Returns promise, resolves when cached, doesn't play
     });
     
-    loadPromises.push(loadPromise);
-    console.log(`🗣️ Preloading say text: "${text}"`);
+    if (loadPromise) {
+      // Wrap to update loading state when done
+      const trackedPromise = loadPromise.then((label) => {
+        loadingState.samplesLoaded++;
+        console.log(`🗣️ Loaded say text: "${text}" (${loadingState.samplesLoaded}/${loadingState.samplesNeeded})`);
+        return label;
+      });
+      loadPromises.push(trackedPromise);
+      console.log(`🗣️ Preloading say text: "${text}"`);
+    }
   });
   
   return loadPromises;
