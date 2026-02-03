@@ -2190,6 +2190,30 @@ function paint({
                 );
                 isCurrentlyPlayingNote =
                   noteCharData.noteIndex === currentPlayingIndex;
+              } else if (
+                melodyState &&
+                melodyState.type === "sequential" &&
+                melodyState.currentSequenceState
+              ) {
+                // For sequential melodies, only highlight notes in the current sequence
+                // AND only if this note is the currently playing one
+                if (noteCharData.isInCurrentSequence) {
+                  const seqState = melodyState.currentSequenceState;
+                  if (seqState.type === "single" && seqState.notes) {
+                    // Single track within sequence
+                    const totalNotes = seqState.notes.length;
+                    const currentPlayingIndex = (seqState.index - 1 + totalNotes) % totalNotes;
+                    isCurrentlyPlayingNote = noteCharData.noteIndex === currentPlayingIndex;
+                  } else if (seqState.type === "parallel" && seqState.trackStates) {
+                    // Parallel tracks within sequence
+                    const trackState = seqState.trackStates[noteCharData.trackIndex];
+                    if (trackState && trackState.track) {
+                      const totalNotes = trackState.track.length;
+                      const currentPlayingIndex = (trackState.noteIndex - 1 + totalNotes) % totalNotes;
+                      isCurrentlyPlayingNote = noteCharData.noteIndex === currentPlayingIndex;
+                    }
+                  }
+                }
               }
             }
 
@@ -3593,16 +3617,23 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
       struck,
       sequenceTrackCount, // Track count for this note's sequence
       sayText, // Text for say waveform display
+      sequenceIndex: noteSequenceIndex, // Which sequence this note belongs to
     } = historyItem;
 
+    // Get current sequence index from melodyState for comparison
+    const currentSeqIndex = melodyState?.currentSequence ?? null;
+    
     // Determine if this is a history note (from a previous section)
     // History notes should use their OWN sequenceTrackCount for proper layout
     // Current/future notes use the current trackCount
     const isHistoryNote = endTime < musicalTimeReference;
     
-    // A note should also be treated as "from different section" if its trackIndex
-    // exceeds the current section's track count (e.g., track 1 note when current section has 1 track)
-    const isFromDifferentSection = trackIndex >= trackCount;
+    // A note is from a different section if:
+    // 1. Its trackIndex exceeds the current section's track count, OR
+    // 2. It's a sequential melody and the note's sequence index doesn't match current sequence
+    const isFromDifferentTrackCount = trackIndex >= trackCount;
+    const isFromDifferentSequence = (noteSequenceIndex !== null && currentSeqIndex !== null && noteSequenceIndex !== currentSeqIndex);
+    const isFromDifferentSection = isFromDifferentTrackCount || isFromDifferentSequence;
     
     // For history notes OR notes from different sections, use their own track count
     // This shows how the previous section was laid out visually
@@ -4070,6 +4101,7 @@ function addNoteToHistory(
   struck = false,
   sequenceTrackCount = null, // Track count for this note's sequence
   sayText = null, // Text for say waveform display
+  sequenceIndex = null, // Which sequence (section) this note belongs to
 ) {
   const historyItem = {
     note: note,
@@ -4083,6 +4115,7 @@ function addNoteToHistory(
     struck: struck,
     sequenceTrackCount: sequenceTrackCount, // Store track count for rendering
     sayText: sayText, // Store say text for display in note bars
+    sequenceIndex: sequenceIndex, // Store sequence index for proper playing detection
   };
 
   historyBuffer.push(historyItem);
@@ -4725,6 +4758,7 @@ function createManagedSound(
       speakRef(sayText, "female:18", "cloud", {
         volume: volume,
         pitch: finalFreq, // Pitch in Hz - speech.mjs will convert to speed
+        preserveDuration: true, // Pitch shift without time stretch - loops sample to fill duration
         loop: false, // Speech samples should play once, not loop
         skipCompleted: true,
       });
@@ -5768,6 +5802,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           struck,
           1, // Single track section
           noteData.text, // Speech text for display
+          null, // No sequence index for single track
         );
         
         // Flash green for special character (speech)
@@ -5839,6 +5874,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             struck,
             1, // Single track section
             sayText, // Text for say waveform display
+            null, // No sequence index for single track
           );
 
           // Increment total notes played for persistent white note history
@@ -5865,6 +5901,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           false,
           struck,
           1, // Single track section
+          null, // No say text for rest
+          null, // No sequence index for single track
         );
       }
 
@@ -6506,6 +6544,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   struck,
                   melodyState.trackStates.length, // Track count for this parallel section
                   noteData.text, // Speech text for display
+                  null, // No sequence index for parallel tracks
                 );
                 
                 // Flash green for special character (speech)
@@ -6580,6 +6619,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     struck,
                     melodyState.trackStates.length, // Track count for this parallel section
                     sayText, // Text for say waveform display
+                    null, // No sequence index for parallel tracks
                   );
 
                   totalNotesPlayed++;
@@ -6603,6 +6643,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   false,
                   struck,
                   melodyState.trackStates.length, // Track count for this parallel section
+                  null, // No say text for rest
+                  null, // No sequence index for parallel tracks
                 );
               }
 
@@ -6756,8 +6798,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     sayText, // Text for say waveform
                   );
                   
-                  // Track count is 1 for single-track sequence
-                  addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, 0, waveType || "sine", volume || 0.8, false, struck, 1, sayText);
+                  // Track count is 1 for single-track sequence, include sequence index for proper playing detection
+                  addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, 0, waveType || "sine", volume || 0.8, false, struck, 1, sayText, melodyState.currentSequence);
                   totalNotesPlayed++;
                 } catch (error) {
                   console.error(`✗ Sequential single ${tone} - ${error}`);
@@ -6840,9 +6882,9 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                       sayText, // Text for say waveform
                     );
                     
-                    // Track count from parallel sequence state
+                    // Track count from parallel sequence state, include sequence index for proper playing detection
                     const seqTrackCount = seqState.trackStates.length;
-                    addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, trackIndex, waveType || "sine", volume || 0.8, false, struck, seqTrackCount, sayText);
+                    addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, trackIndex, waveType || "sine", volume || 0.8, false, struck, seqTrackCount, sayText, melodyState.currentSequence);
                     totalNotesPlayed++;
                   } catch (error) {
                     console.error(`✗ Sequential parallel track ${trackIndex + 1} ${tone} - ${error}`);

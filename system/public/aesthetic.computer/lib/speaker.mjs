@@ -527,6 +527,8 @@ class SpeakerProcessor extends AudioWorkletProcessor {
               id: msg.data.id?.substring?.(0, 50),
               duration: duration,
               volume: msg.data.volume ?? 1,
+              speed: synthOptions.speed,
+              preserveDuration: synthOptions.preserveDuration,
               queueLengthBefore: this.#queue.length
             });
           }

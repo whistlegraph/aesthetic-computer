@@ -6,6 +6,9 @@ const synth = window.speechSynthesis;
 
 const speakAPI = {}; // Will get `audioContext` and `playSfx`;
 
+// Track in-flight fetches to prevent duplicate requests
+const pendingFetches = new Map(); // label -> Promise
+
 let voices = [];
 
 import { utf8ToBase64 } from "./helpers.mjs";
@@ -95,12 +98,18 @@ function speak(words, voice, mode = "local", opts = {}) {
       }
       
       const vol = isFinite(opts.volume) ? opts.volume : 1;
-      console.log("🗣️ playSfx:", { speed: speed.toFixed(3), vol, pitch: opts.pitch });
+      console.log("🗣️ playSfx:", { speed: speed.toFixed(3), vol, pitch: opts.pitch, preserveDuration: opts.preserveDuration });
       
       speakAPI.playSfx(
         id,
         label,
-        { speed, pan: opts.pan, volume: vol, loop: opts.loop },
+        { 
+          speed, 
+          pan: opts.pan, 
+          volume: vol, 
+          loop: opts.loop,
+          preserveDuration: opts.preserveDuration, // Pitch shift without time stretch
+        },
         () => {
           if (!opts.skipCompleted) window.acSEND({ type: "speech:completed" });
         },
@@ -132,6 +141,18 @@ function speak(words, voice, mode = "local", opts = {}) {
       play();
       return;
     }
+    
+    // Check if there's already a pending fetch for this label
+    if (pendingFetches.has(label)) {
+      console.log("🗣️ Fetch already pending for:", label);
+      const existingPromise = pendingFetches.get(label);
+      if (opts.preloadOnly) {
+        return existingPromise;
+      }
+      // Wait for existing fetch to complete, then play
+      existingPromise.then(() => play());
+      return;
+    }
 
     // Fetch from server (which has its own CDN cache)
     const payload = {
@@ -141,9 +162,14 @@ function speak(words, voice, mode = "local", opts = {}) {
       bust: needsBust, // Force regenerate on server if marked
     };
 
-    function fetchSpeech() {
+    // Create a promise that resolves when the fetch completes
+    let fetchResolve;
+    const fetchPromise = new Promise(resolve => { fetchResolve = resolve; });
+    pendingFetches.set(label, fetchPromise);
+
+    function fetchSpeech(retryCount = 0) {
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout to 15s
       const host = ``; //window.acDEBUG
       // ? `` // Just use current host, via `netlify.toml`.
       // : "https://ai.aesthetic.computer";
@@ -157,26 +183,40 @@ function speak(words, voice, mode = "local", opts = {}) {
         signal: controller.signal,
       })
         .then(async (res) => {
-          clearTimeout(id);
+          clearTimeout(timeoutId);
           if (res.status === 200) {
             // console.log("🗣️ Speech response:", res);
             const blob = await res.blob(); // Convert the response to a Blob.
             speakAPI.sfx[label] = await blob.arrayBuffer(); // Cache locally
             console.log("🗣️ Cached locally:", label);
+            pendingFetches.delete(label);
+            fetchResolve(label);
             play();
           } else {
-            console.log("🗣️ Speech fetch failure, retrying...", res.status);
-            setTimeout(() => {
-              fetchSpeech();
-            }, 1000);
+            console.log("🗣️ Speech fetch failure, status:", res.status, "retry:", retryCount);
+            if (retryCount < 3) {
+              setTimeout(() => {
+                fetchSpeech(retryCount + 1);
+              }, 1000 * (retryCount + 1)); // Exponential backoff
+            } else {
+              console.error("🗣️ Max retries reached for:", label);
+              pendingFetches.delete(label);
+              fetchResolve(null); // Resolve with null on failure
+            }
           }
         })
         .catch((err) => {
-          clearTimeout(id);
-          console.error("🗣️ Speech fetch failure, retrying...", err);
-          setTimeout(() => {
-            fetchSpeech();
-          }, 1000);
+          clearTimeout(timeoutId);
+          console.error("🗣️ Speech fetch error:", err.name, "retry:", retryCount);
+          if (retryCount < 3 && err.name !== 'AbortError') {
+            setTimeout(() => {
+              fetchSpeech(retryCount + 1);
+            }, 1000 * (retryCount + 1)); // Exponential backoff
+          } else {
+            console.error("🗣️ Giving up on:", label, "after", retryCount, "retries");
+            pendingFetches.delete(label);
+            fetchResolve(null); // Resolve with null on failure
+          }
         });
     }
 

@@ -80,6 +80,23 @@ const PINATA_API_URL = 'https://api.pinata.cloud';
 // IPFS gateway for serving content
 const IPFS_GATEWAY = 'https://ipfs.aesthetic.computer';
 
+// App Store Screenshot Presets (Google Play requirements)
+// All dimensions meet the 16:9 or 9:16 aspect ratio requirement
+// Phone screenshots need 1080px minimum for promotion eligibility
+export const APP_SCREENSHOT_PRESETS = {
+  // Phone screenshots (9:16 portrait, meets 1080px promotion requirement)
+  'phone-portrait': { width: 1080, height: 1920, label: 'Phone Portrait', category: 'phone' },
+  'phone-landscape': { width: 1920, height: 1080, label: 'Phone Landscape', category: 'phone' },
+  
+  // 7-inch tablet (9:16 portrait, 320-3840px range)
+  'tablet7-portrait': { width: 1200, height: 1920, label: '7" Tablet Portrait', category: 'tablet7' },
+  'tablet7-landscape': { width: 1920, height: 1200, label: '7" Tablet Landscape', category: 'tablet7' },
+  
+  // 10-inch tablet (9:16 portrait, 1080-7680px range for 10" tablets)
+  'tablet10-portrait': { width: 1600, height: 2560, label: '10" Tablet Portrait', category: 'tablet10' },
+  'tablet10-landscape': { width: 2560, height: 1600, label: '10" Tablet Landscape', category: 'tablet10' },
+};
+
 // Reusable browser instance
 let browser = null;
 let browserLaunchPromise = null;

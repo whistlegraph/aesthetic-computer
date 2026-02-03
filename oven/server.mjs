@@ -10,7 +10,8 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS } from './grabber.mjs';
+import archiver from 'archiver';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -1683,6 +1684,478 @@ app.get('/kidlisp-backdrop', async (req, res) => {
     addServerLog('error', '❌', `Backdrop error: ${error.message}`);
     res.status(500).json({ error: 'Failed to generate backdrop', message: error.message });
   }
+});
+
+// =============================================================================
+// App Store Screenshots - Generate screenshots for Google Play / App Store
+// =============================================================================
+
+// App screenshots dashboard
+app.get('/app-screenshots', (req, res) => {
+  const piece = req.query.piece || 'prompt';
+  const presets = Object.entries(APP_SCREENSHOT_PRESETS);
+  
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>📱 App Store Screenshots - Oven</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: monospace;
+      font-size: 14px;
+      background: #0a0a12;
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1em;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #333;
+      margin-bottom: 20px;
+    }
+    h1 { color: #88ff88; font-size: 1.5em; }
+    .controls {
+      display: flex;
+      gap: 1em;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    input, select, button {
+      font-family: monospace;
+      font-size: 14px;
+      padding: 8px 12px;
+      border: 1px solid #444;
+      background: #1a1a2e;
+      color: #fff;
+      border-radius: 4px;
+    }
+    button {
+      cursor: pointer;
+      background: #2a2a4e;
+    }
+    button:hover { background: #3a3a5e; border-color: #88ff88; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #226622; border-color: #88ff88; }
+    .btn-primary:hover { background: #338833; }
+    
+    .requirements {
+      background: #1a1a2e;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border: 1px solid #333;
+    }
+    .requirements h3 { color: #ffaa00; margin-bottom: 10px; }
+    .requirements ul { list-style: none; }
+    .requirements li { margin: 5px 0; padding-left: 20px; position: relative; }
+    .requirements li::before { content: '✓'; position: absolute; left: 0; color: #88ff88; }
+    
+    .category { margin-bottom: 30px; }
+    .category h2 {
+      color: #ffaa00;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #333;
+    }
+    .screenshots {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .screenshot {
+      background: #1a1a2e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .screenshot:hover { border-color: #88ff88; }
+    .screenshot-preview {
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      position: relative;
+    }
+    .screenshot-preview img {
+      max-width: 100%;
+      max-height: 300px;
+      object-fit: contain;
+    }
+    .screenshot-preview .loading {
+      position: absolute;
+      color: #888;
+    }
+    .screenshot-preview .error {
+      color: #ff4444;
+      padding: 20px;
+      text-align: center;
+    }
+    .screenshot-info {
+      padding: 15px;
+    }
+    .screenshot-info h4 { margin-bottom: 8px; }
+    .screenshot-info .dims {
+      color: #888;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    .screenshot-info .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .screenshot-info .actions a, .screenshot-info .actions button {
+      font-size: 12px;
+      padding: 6px 10px;
+      text-decoration: none;
+      color: #88ccff;
+    }
+    .status {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #2a2a4e;
+      padding: 15px 20px;
+      border-radius: 8px;
+      border: 1px solid #444;
+      display: none;
+    }
+    .status.show { display: block; }
+    .status.success { border-color: #88ff88; }
+    .status.error { border-color: #ff4444; }
+    
+    .back-link {
+      color: #88ccff;
+      text-decoration: none;
+      margin-bottom: 20px;
+      display: inline-block;
+    }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <a href="/" class="back-link">← Back to Oven Dashboard</a>
+  
+  <header>
+    <h1>📱 App Store Screenshots</h1>
+    <div class="controls">
+      <label>Piece: <input type="text" id="piece-input" value="${piece}" placeholder="prompt"></label>
+      <button onclick="changePiece()">Load</button>
+      <button onclick="regenerateAll()" class="btn-primary">🔄 Regenerate All</button>
+      <button onclick="downloadZip()" class="btn-primary">📦 Download ZIP</button>
+    </div>
+  </header>
+  
+  <div class="requirements">
+    <h3>📋 Google Play Requirements</h3>
+    <ul>
+      <li>PNG or JPEG, max 8MB each</li>
+      <li>16:9 or 9:16 aspect ratio</li>
+      <li>Phone: 320-3840px per side, 1080px min for promotion</li>
+      <li>7" Tablet: 320-3840px per side</li>
+      <li>10" Tablet: 1080-7680px per side</li>
+      <li>2-8 screenshots per category required</li>
+    </ul>
+  </div>
+  
+  <div class="category">
+    <h2>📱 Phone Screenshots</h2>
+    <div class="screenshots">
+      ${presets.filter(([k, v]) => v.category === 'phone').map(([key, preset]) => `
+        <div class="screenshot" data-preset="${key}">
+          <div class="screenshot-preview">
+            <span class="loading">Loading...</span>
+            <img src="/app-screenshots/${key}/${piece}.png" 
+                 alt="${preset.label}" 
+                 onload="this.previousElementSibling.style.display='none'"
+                 onerror="this.style.display='none'; this.previousElementSibling.className='error'; this.previousElementSibling.textContent='Failed to load'">
+          </div>
+          <div class="screenshot-info">
+            <h4>${preset.label}</h4>
+            <div class="dims">${preset.width} × ${preset.height}px</div>
+            <div class="actions">
+              <a href="/app-screenshots/${key}/${piece}.png" download="${piece}-${key}.png">⬇️ Download</a>
+              <button onclick="regenerate('${key}')">🔄 Regenerate</button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+  
+  <div class="category">
+    <h2>📱 7-inch Tablet Screenshots</h2>
+    <div class="screenshots">
+      ${presets.filter(([k, v]) => v.category === 'tablet7').map(([key, preset]) => `
+        <div class="screenshot" data-preset="${key}">
+          <div class="screenshot-preview">
+            <span class="loading">Loading...</span>
+            <img src="/app-screenshots/${key}/${piece}.png" 
+                 alt="${preset.label}" 
+                 onload="this.previousElementSibling.style.display='none'"
+                 onerror="this.style.display='none'; this.previousElementSibling.className='error'; this.previousElementSibling.textContent='Failed to load'">
+          </div>
+          <div class="screenshot-info">
+            <h4>${preset.label}</h4>
+            <div class="dims">${preset.width} × ${preset.height}px</div>
+            <div class="actions">
+              <a href="/app-screenshots/${key}/${piece}.png" download="${piece}-${key}.png">⬇️ Download</a>
+              <button onclick="regenerate('${key}')">🔄 Regenerate</button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+  
+  <div class="category">
+    <h2>📱 10-inch Tablet Screenshots</h2>
+    <div class="screenshots">
+      ${presets.filter(([k, v]) => v.category === 'tablet10').map(([key, preset]) => `
+        <div class="screenshot" data-preset="${key}">
+          <div class="screenshot-preview">
+            <span class="loading">Loading...</span>
+            <img src="/app-screenshots/${key}/${piece}.png" 
+                 alt="${preset.label}" 
+                 onload="this.previousElementSibling.style.display='none'"
+                 onerror="this.style.display='none'; this.previousElementSibling.className='error'; this.previousElementSibling.textContent='Failed to load'">
+          </div>
+          <div class="screenshot-info">
+            <h4>${preset.label}</h4>
+            <div class="dims">${preset.width} × ${preset.height}px</div>
+            <div class="actions">
+              <a href="/app-screenshots/${key}/${piece}.png" download="${piece}-${key}.png">⬇️ Download</a>
+              <button onclick="regenerate('${key}')">🔄 Regenerate</button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+  
+  <div id="status" class="status"></div>
+  
+  <script>
+    const currentPiece = '${piece}';
+    
+    function showStatus(msg, type = 'info') {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status show ' + type;
+      setTimeout(() => el.className = 'status', 3000);
+    }
+    
+    function changePiece() {
+      const piece = document.getElementById('piece-input').value.trim() || 'prompt';
+      window.location.href = '/app-screenshots?piece=' + encodeURIComponent(piece);
+    }
+    
+    document.getElementById('piece-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') changePiece();
+    });
+    
+    async function regenerate(preset) {
+      showStatus('Regenerating ' + preset + '...');
+      try {
+        const res = await fetch('/app-screenshots/' + preset + '/' + currentPiece + '.png?force=true');
+        if (res.ok) {
+          // Reload the image
+          const card = document.querySelector('[data-preset="' + preset + '"]');
+          const img = card.querySelector('img');
+          img.src = img.src.split('?')[0] + '?t=' + Date.now();
+          showStatus('✅ ' + preset + ' regenerated!', 'success');
+        } else {
+          showStatus('❌ Failed to regenerate', 'error');
+        }
+      } catch (err) {
+        showStatus('❌ ' + err.message, 'error');
+      }
+    }
+    
+    async function regenerateAll() {
+      const presets = ${JSON.stringify(Object.keys(APP_SCREENSHOT_PRESETS))};
+      showStatus('Regenerating all screenshots...');
+      
+      for (const preset of presets) {
+        showStatus('Regenerating ' + preset + '...');
+        try {
+          await fetch('/app-screenshots/' + preset + '/' + currentPiece + '.png?force=true');
+        } catch (err) {
+          console.error('Failed:', preset, err);
+        }
+      }
+      
+      showStatus('✅ All screenshots regenerated! Reloading...', 'success');
+      setTimeout(() => window.location.reload(), 1000);
+    }
+    
+    function downloadZip() {
+      showStatus('Preparing ZIP download...');
+      window.location.href = '/app-screenshots/download/' + currentPiece;
+    }
+  </script>
+</body>
+</html>`);
+});
+
+// Individual app screenshot endpoint
+app.get('/app-screenshots/:preset/:piece.png', async (req, res) => {
+  const { preset, piece } = req.params;
+  const force = req.query.force === 'true';
+  
+  const presetConfig = APP_SCREENSHOT_PRESETS[preset];
+  if (!presetConfig) {
+    return res.status(400).json({ 
+      error: 'Invalid preset', 
+      valid: Object.keys(APP_SCREENSHOT_PRESETS) 
+    });
+  }
+  
+  const { width, height } = presetConfig;
+  
+  try {
+    addServerLog('capture', '📱', `App screenshot: ${piece} (${preset} ${width}×${height})`);
+    
+    const { cdnUrl, fromCache, buffer } = await getCachedOrGenerate(
+      'app-screenshots', 
+      `${piece}-${preset}`, 
+      width, 
+      height, 
+      async () => {
+        const result = await grabPiece(piece, {
+          format: 'png',
+          width,
+          height,
+          density: 1,
+          skipCache: force,
+        });
+        
+        if (!result.success) throw new Error(result.error);
+        
+        // Handle cached result (cdnUrl but no buffer)
+        if (result.cached && result.cdnUrl && !result.buffer) {
+          const response = await fetch(result.cdnUrl);
+          if (!response.ok) throw new Error(`Failed to fetch cached screenshot: ${response.status}`);
+          return Buffer.from(await response.arrayBuffer());
+        }
+        
+        return result.buffer;
+      }
+    );
+    
+    if (fromCache && cdnUrl && !force) {
+      res.setHeader('X-Cache', 'HIT');
+      res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days
+      return res.redirect(302, cdnUrl);
+    }
+    
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('X-Cache', 'MISS');
+    res.setHeader('X-Screenshot-Preset', preset);
+    res.setHeader('X-Screenshot-Dimensions', `${width}x${height}`);
+    res.send(buffer);
+    
+  } catch (error) {
+    console.error('App screenshot error:', error);
+    addServerLog('error', '❌', `App screenshot failed: ${piece} ${preset} - ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Bulk ZIP download endpoint
+app.get('/app-screenshots/download/:piece', async (req, res) => {
+  const { piece } = req.params;
+  const presets = Object.entries(APP_SCREENSHOT_PRESETS);
+  
+  addServerLog('info', '📦', `Generating ZIP for ${piece} (${presets.length} screenshots)`);
+  
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${piece}-app-screenshots.zip"`);
+  
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  archive.pipe(res);
+  
+  for (const [presetKey, preset] of presets) {
+    try {
+      const { cdnUrl, buffer } = await getCachedOrGenerate(
+        'app-screenshots',
+        `${piece}-${presetKey}`,
+        preset.width,
+        preset.height,
+        async () => {
+          const result = await grabPiece(piece, {
+            format: 'png',
+            width: preset.width,
+            height: preset.height,
+            density: 1,
+          });
+          
+          if (!result.success) throw new Error(result.error);
+          
+          if (result.cached && result.cdnUrl && !result.buffer) {
+            const response = await fetch(result.cdnUrl);
+            if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
+            return Buffer.from(await response.arrayBuffer());
+          }
+          
+          return result.buffer;
+        }
+      );
+      
+      // Get buffer from CDN if we only have URL
+      let imageBuffer = buffer;
+      if (!imageBuffer && cdnUrl) {
+        const response = await fetch(cdnUrl);
+        if (response.ok) {
+          imageBuffer = Buffer.from(await response.arrayBuffer());
+        }
+      }
+      
+      if (imageBuffer) {
+        const filename = `${preset.category}/${piece}-${presetKey}.png`;
+        archive.append(imageBuffer, { name: filename });
+        addServerLog('success', '✅', `Added to ZIP: ${filename}`);
+      }
+    } catch (err) {
+      console.error(`Failed to add ${presetKey} to ZIP:`, err);
+      addServerLog('error', '❌', `ZIP: Failed ${presetKey} - ${err.message}`);
+    }
+  }
+  
+  archive.finalize();
+});
+
+// JSON API for app screenshots status
+app.get('/api/app-screenshots/:piece', async (req, res) => {
+  const { piece } = req.params;
+  const screenshots = {};
+  
+  for (const [key, preset] of Object.entries(APP_SCREENSHOT_PRESETS)) {
+    screenshots[key] = {
+      ...preset,
+      url: `/app-screenshots/${key}/${piece}.png`,
+      downloadUrl: `/app-screenshots/${key}/${piece}.png?download=true`,
+    };
+  }
+  
+  res.json({
+    piece,
+    presets: screenshots,
+    zipUrl: `/app-screenshots/download/${piece}`,
+    dashboardUrl: `/app-screenshots?piece=${piece}`,
+  });
 });
 
 // 404 handler
