@@ -1263,6 +1263,13 @@ app.get('/icon/:size/:piece.png', async (req, res) => {
         density: 1,
       });
       if (!result.success) throw new Error(result.error);
+      // Handle case where grabPiece returns from its own cache (cdnUrl but no buffer)
+      if (result.cached && result.cdnUrl && !result.buffer) {
+        // Fetch the buffer from the CDN URL
+        const response = await fetch(result.cdnUrl);
+        if (!response.ok) throw new Error(`Failed to fetch cached icon: ${response.status}`);
+        return Buffer.from(await response.arrayBuffer());
+      }
       return result.buffer;
     });
     
@@ -1309,6 +1316,12 @@ app.get('/icon/:size/:piece.webp', async (req, res) => {
         fps: fps,
       });
       if (!result.success) throw new Error(result.error);
+      // Handle case where grabPiece returns from its own cache (cdnUrl but no buffer)
+      if (result.cached && result.cdnUrl && !result.buffer) {
+        const response = await fetch(result.cdnUrl);
+        if (!response.ok) throw new Error(`Failed to fetch cached icon: ${response.status}`);
+        return Buffer.from(await response.arrayBuffer());
+      }
       return result.buffer;
     }, 'webp');
     
@@ -1347,6 +1360,12 @@ app.get('/preview/:size/:piece.png', async (req, res) => {
         density: 1,
       });
       if (!result.success) throw new Error(result.error);
+      // Handle case where grabPiece returns from its own cache (cdnUrl but no buffer)
+      if (result.cached && result.cdnUrl && !result.buffer) {
+        const response = await fetch(result.cdnUrl);
+        if (!response.ok) throw new Error(`Failed to fetch cached preview: ${response.status}`);
+        return Buffer.from(await response.arrayBuffer());
+      }
       return result.buffer;
     });
     

@@ -61,7 +61,7 @@ async function fetchHandles(append = false) {
     
     const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : "";
     const response = await fetch(
-      `/handles?limit=${HANDLES_PER_PAGE}${searchParam}`
+      `/api/handles?limit=${HANDLES_PER_PAGE}${searchParam}`
     );
     
     if (!response.ok) {
@@ -70,7 +70,8 @@ async function fetchHandles(append = false) {
     
     const data = await response.json();
     
-    handles = data.handles || [];
+    // Ensure handles are strings (not objects)
+    handles = (data.handles || []).map(h => typeof h === 'string' ? h : (h?.handle || String(h)));
     totalCount = data.count || handles.length;
     
     lastFetch = Date.now();
