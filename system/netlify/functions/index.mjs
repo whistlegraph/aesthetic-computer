@@ -1092,8 +1092,8 @@ async function fun(event, context) {
           function setH(h){uH=h;hST=performance.now();}
           function setConn(c){if(c&&!sessionConnected){connFlash=1;connFlashStart=performance.now();}sessionConnected=c;}
           // Error mode state - flashes red when fatal boot errors occur
-          var errorMode=false,errorFlash=0,errorMsg='';
-          function setErrorMode(on,msg){errorMode=on;if(on){errorFlash=1;errorMsg=msg||'boot error';}else{errorFlash=0;errorMsg='';}}
+          var errorMode=false,errorFlash=0,errorMsg='',errorStartTime=0;
+          function setErrorMode(on,msg){errorMode=on;if(on){errorFlash=1;errorMsg=msg||'boot error';errorStartTime=performance.now();}else{errorFlash=0;errorMsg='';errorStartTime=0;}}
           // Touch/mouse interaction - yanks and glitches the animation
           var touchGlitch=0,touchX=0,touchY=0,lastTouch=0;
           c.style.pointerEvents='auto';c.style.touchAction='manipulation';
@@ -1610,11 +1610,46 @@ async function fun(event, context) {
             // Connection status VHS tint
             if(!sessionConnected){x.globalCompositeOperation='screen';x.globalAlpha=0.15+Math.sin(t*3)*0.06;x.fillStyle='rgb('+(255+Math.sin(t*7)*20|0)+','+(60+Math.cos(t*5)*30|0)+','+(100+Math.sin(t*9)*40|0)+')';x.fillRect(0,0,W,H);x.globalCompositeOperation='source-over';}
             if(connFlash>0.01){x.globalCompositeOperation='screen';x.globalAlpha=connFlash*0.6;x.fillStyle='rgb(80,255,180)';x.fillRect(0,0,W,H);x.globalCompositeOperation='source-over';}
-            // Error mode - intense red flash with glitch effect
-            if(errorMode||errorFlash>0.01){x.globalCompositeOperation='screen';var errA=errorMode?0.4+Math.sin(t*8)*0.2:errorFlash*0.5;x.globalAlpha=errA;x.fillStyle='rgb(255,'+(40+Math.sin(t*12)*30|0)+','+(60+Math.cos(t*9)*40|0)+')';x.fillRect(0,0,W,H);
-              // Extra glitch lines in error mode
-              if(errorMode&&Math.random()<0.3){var gy=Math.random()*H|0,gh=(S*3+Math.random()*S*8)|0;x.globalAlpha=0.6;x.fillStyle='rgb(255,0,0)';x.fillRect(0,gy,W,gh);}
-              x.globalCompositeOperation='source-over';}
+            // Error mode - SHUTDOWN/CRASH effect with giant X then blackout
+            if(errorMode||errorFlash>0.01){
+              var errElapsed=errorStartTime?(performance.now()-errorStartTime)/1000:0;
+              // Phase 1 (0-0.5s): Giant red X appears with intense flash
+              // Phase 2 (0.5-1.0s): X stays, screen starts fading to black  
+              // Phase 3 (1.0-1.5s): Full blackout before refresh
+              if(errorMode&&errElapsed>1.0){
+                // Phase 3: Black out completely
+                x.globalCompositeOperation='source-over';x.globalAlpha=1;x.fillStyle='rgb(0,0,0)';x.fillRect(0,0,W,H);
+              }else if(errorMode&&errElapsed>0.5){
+                // Phase 2: X with fading to black
+                var blackFade=(errElapsed-0.5)/0.5;
+                x.globalCompositeOperation='source-over';x.globalAlpha=blackFade*0.9;x.fillStyle='rgb(0,0,0)';x.fillRect(0,0,W,H);
+                // Draw X on top
+                x.globalAlpha=1-blackFade*0.7;
+                var xSize=Math.min(W,H)*0.7,xThick=Math.max(8*S,xSize*0.12),cx=W/2,cy=H/2;
+                x.strokeStyle='rgb(255,0,0)';x.lineWidth=xThick;x.lineCap='round';
+                x.beginPath();x.moveTo(cx-xSize/2,cy-xSize/2);x.lineTo(cx+xSize/2,cy+xSize/2);x.stroke();
+                x.beginPath();x.moveTo(cx+xSize/2,cy-xSize/2);x.lineTo(cx-xSize/2,cy+xSize/2);x.stroke();
+              }else{
+                // Phase 1: Intense red flash + X appears
+                x.globalCompositeOperation='screen';var errA=errorMode?0.4+Math.sin(t*8)*0.2:errorFlash*0.5;x.globalAlpha=errA;x.fillStyle='rgb(255,'+(40+Math.sin(t*12)*30|0)+','+(60+Math.cos(t*9)*40|0)+')';x.fillRect(0,0,W,H);
+                // Glitch lines
+                if(errorMode&&Math.random()<0.3){var gy=Math.random()*H|0,gh=(S*3+Math.random()*S*8)|0;x.globalAlpha=0.6;x.fillStyle='rgb(255,0,0)';x.fillRect(0,gy,W,gh);}
+                x.globalCompositeOperation='source-over';
+                // Draw giant X - grows in over 0.3s
+                if(errorMode){
+                  var xGrow=Math.min(1,errElapsed/0.3);
+                  var xSize=Math.min(W,H)*0.7*xGrow,xThick=Math.max(8*S,xSize*0.12),cx=W/2,cy=H/2;
+                  var xShake=8*S*(1-errElapsed*2);
+                  cx+=Math.sin(t*20)*xShake;cy+=Math.cos(t*17)*xShake;
+                  x.globalAlpha=0.9+Math.sin(t*15)*0.1;
+                  x.strokeStyle='rgb(255,'+(20+Math.sin(t*25)*20|0)+',0)';x.lineWidth=xThick;x.lineCap='round';
+                  x.shadowColor='rgb(255,0,0)';x.shadowBlur=20*S;
+                  x.beginPath();x.moveTo(cx-xSize/2,cy-xSize/2);x.lineTo(cx+xSize/2,cy+xSize/2);x.stroke();
+                  x.beginPath();x.moveTo(cx+xSize/2,cy-xSize/2);x.lineTo(cx-xSize/2,cy+xSize/2);x.stroke();
+                  x.shadowBlur=0;
+                }
+              }
+              x.globalCompositeOperation='source-over';x.globalAlpha=1;}
             // Touch interaction visual feedback - ripple effect
             if(touchGlitch>0.05){var rippleR=(1-touchGlitch)*100*S+10*S;x.globalAlpha=touchGlitch*0.3;x.strokeStyle=isLightMode?'rgb(100,60,140)':'rgb(200,150,255)';x.lineWidth=2*S;x.beginPath();x.arc(touchX*W,touchY*H,rippleR,0,Math.PI*2);x.stroke();x.globalAlpha=1;}
             x.globalAlpha=1;requestAnimationFrame(anim);}anim();
