@@ -67,8 +67,18 @@ function speak(words, voice, mode = "local", opts = {}) {
   } else if (mode === "cloud") {
     const label = `speech:${voice}:${opts.provider || "openai"} - ${words}`;
 
+    // For preload-only mode, return a promise that resolves when cached
+    let preloadResolve = null;
+    const preloadPromise = opts.preloadOnly ? new Promise(resolve => { preloadResolve = resolve; }) : null;
+
     // Trigger speech playback.
     function play() {
+      // If preload-only, just resolve the promise without playing
+      if (opts.preloadOnly) {
+        if (preloadResolve) preloadResolve(label);
+        return;
+      }
+      
       console.log("🗣️", label);
       const id = label + "_" + performance.now(); // An id for this sample.
       
@@ -167,6 +177,9 @@ function speak(words, voice, mode = "local", opts = {}) {
     }
 
     fetchSpeech();
+    
+    // Return promise for preload-only mode
+    if (preloadPromise) return preloadPromise;
   }
 }
 
