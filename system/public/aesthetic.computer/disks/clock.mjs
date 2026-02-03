@@ -3592,6 +3592,7 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
       isMutation,
       struck,
       sequenceTrackCount, // Track count for this note's sequence
+      sayText, // Text for say waveform display
     } = historyItem;
 
     // Determine if this is a history note (from a previous section)
@@ -3978,10 +3979,21 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
                 }
               }
               
-              ink(labelColor).write(note.toUpperCase(), {
-                x: labelX,
+              // Display sayText if present (for say waveform), otherwise show note name
+              const displayText = sayText ? `"${sayText}"` : note.toUpperCase();
+              
+              // For sayText, use a smaller scale and center differently if text is long
+              const textScale = sayText ? 0.6 : 0.8;
+              const charWidth = 6 * textScale;
+              const textWidth = displayText.length * charWidth;
+              const textX = sayText 
+                ? Math.round(trackCenterX - textWidth / 2) // Center sayText
+                : labelX; // Original positioning for note names
+              
+              ink(labelColor).write(displayText, {
+                x: textX,
                 y: labelY,
-                scale: 0.8,
+                scale: textScale,
               });
             }
           }
@@ -4057,6 +4069,7 @@ function addNoteToHistory(
   isMutation = false,
   struck = false,
   sequenceTrackCount = null, // Track count for this note's sequence
+  sayText = null, // Text for say waveform display
 ) {
   const historyItem = {
     note: note,
@@ -4069,6 +4082,7 @@ function addNoteToHistory(
     isMutation: isMutation,
     struck: struck,
     sequenceTrackCount: sequenceTrackCount, // Store track count for rendering
+    sayText: sayText, // Store say text for display in note bars
   };
 
   historyBuffer.push(historyItem);
@@ -5753,6 +5767,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           false, // Not a mutation
           struck,
           1, // Single track section
+          noteData.text, // Speech text for display
         );
         
         // Flash green for special character (speech)
@@ -5823,6 +5838,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             false, // Not a mutation (mutations are added separately)
             struck,
             1, // Single track section
+            sayText, // Text for say waveform display
           );
 
           // Increment total notes played for persistent white note history
@@ -6489,6 +6505,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   false, // Not a mutation
                   struck,
                   melodyState.trackStates.length, // Track count for this parallel section
+                  noteData.text, // Speech text for display
                 );
                 
                 // Flash green for special character (speech)
@@ -6562,6 +6579,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     false, // Not a mutation (mutations are added separately)
                     struck,
                     melodyState.trackStates.length, // Track count for this parallel section
+                    sayText, // Text for say waveform display
                   );
 
                   totalNotesPlayed++;
@@ -6739,7 +6757,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   );
                   
                   // Track count is 1 for single-track sequence
-                  addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, 0, waveType || "sine", volume || 0.8, false, struck, 1);
+                  addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, 0, waveType || "sine", volume || 0.8, false, struck, 1, sayText);
                   totalNotesPlayed++;
                 } catch (error) {
                   console.error(`✗ Sequential single ${tone} - ${error}`);
@@ -6753,6 +6771,10 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
               // Advance to next note
               const oldIndex = seqState.index;
               seqState.index = (seqState.index + 1) % seqState.notes.length;
+              
+              // CRITICAL: Update nextNoteTargetTime BEFORE checking sequence advance
+              // This ensures advanceSequence gets the correct continuation time
+              seqState.nextNoteTargetTime = seqState.nextNoteTargetTime + (noteData.duration * melodyState.baseTempo);
               
               // Check if we completed a cycle
               if (oldIndex === seqState.notes.length - 1 && seqState.index === 0) {
@@ -6768,9 +6790,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   melodyState.currentSequenceState.hasCompletedOneCycle = false;
                 }
               }
-              
-              // Calculate next note time
-              seqState.nextNoteTargetTime = seqState.nextNoteTargetTime + (noteData.duration * melodyState.baseTempo);
             }
           }
         } else if (seqState.type === "parallel" && seqState.trackStates) {
@@ -6823,7 +6842,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     
                     // Track count from parallel sequence state
                     const seqTrackCount = seqState.trackStates.length;
-                    addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, trackIndex, waveType || "sine", volume || 0.8, false, struck, seqTrackCount);
+                    addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, trackIndex, waveType || "sine", volume || 0.8, false, struck, seqTrackCount, sayText);
                     totalNotesPlayed++;
                   } catch (error) {
                     console.error(`✗ Sequential parallel track ${trackIndex + 1} ${tone} - ${error}`);
