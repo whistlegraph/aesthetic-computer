@@ -521,6 +521,16 @@ class SpeakerProcessor extends AudioWorkletProcessor {
             pan: msg.data.pan || 0,
           });
 
+          // 🔊 Debug: Log when sample synth is created
+          if (msg.data.type === "sample") {
+            console.log("🔊 SPEAKER creating sample synth:", {
+              id: msg.data.id?.substring?.(0, 50),
+              duration: duration,
+              volume: msg.data.volume ?? 1,
+              queueLengthBefore: this.#queue.length
+            });
+          }
+
           // if (duration === Infinity && msg.data.id > -1n) {
           this.#running[msg.data.id] = sound; // Index by the unique id.
           // }
@@ -720,6 +730,24 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         // For now, all sounds are maxed out and mixing happens by dividing by the total length.
         const amplitude = instrument.next(s); // this.#queue.length;
 
+        // 🔊 Debug: Log sample instrument output at key points
+        if (instrument.type === "sample" && s === 0 && this._sampleDebugCounter === undefined) {
+          this._sampleDebugCounter = 0;
+        }
+        if (instrument.type === "sample" && s === 0) {
+          this._sampleDebugCounter = (this._sampleDebugCounter || 0) + 1;
+          if (this._sampleDebugCounter % 100 === 1) { // Log every ~100 blocks (~0.3 sec)
+            console.log("🔊 SPEAKER sample output:", {
+              queueLength: this.#queue.length,
+              instrumentType: instrument.type,
+              amplitude: amplitude,
+              pan: instrument._pan || 0,
+              playing: instrument.playing,
+              vstEnabled: this.#vstBridgeEnabled
+            });
+          }
+        }
+
         output[0][s] += instrument.pan(0, amplitude);
         output[1][s] += instrument.pan(1, amplitude);
 
@@ -799,6 +827,11 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
       // 🎛️ VST Bridge Mode - collect samples for native plugin
       if (this.#vstBridgeEnabled) {
+        // Log once when VST mode starts affecting output
+        if (!this._vstModeWarningLogged) {
+          console.warn("⚠️ VST Bridge Mode is ACTIVE - Web Audio output is silenced!");
+          this._vstModeWarningLogged = true;
+        }
         this.#vstSampleBuffer.left.push(output[0][s]);
         this.#vstSampleBuffer.right.push(output[1][s]);
         

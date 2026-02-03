@@ -375,6 +375,18 @@ export default class Synth {
 
     let out = value * this.volume;
 
+    // 🔊 Debug: Log sample output periodically
+    if (this.type === "sample" && this.#progress % 4800 === 0) { // Every ~0.1 sec at 48kHz
+      console.log("🔊 SYNTH sample final output:", {
+        progress: this.#progress,
+        value: value,
+        volume: this.volume,
+        out: out,
+        playing: this.playing,
+        fading: this.fading
+      });
+    }
+
     // ➰💀 "Fade 2 kill." - 25.02.15.00.14
     if (this.fading) {
       if (this.fadeProgress < this.fadeDuration) {
