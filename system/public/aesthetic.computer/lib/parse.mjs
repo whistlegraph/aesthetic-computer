@@ -18,6 +18,7 @@ const LEGITIMATE_PARAMS = [
   "vscode",
   "nogap",
   "nolabel",
+  "noboot",
   "density",
   "zoom",
   "duration",

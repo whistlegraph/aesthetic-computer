@@ -864,12 +864,17 @@ class TextButton {
     scheme = [0, 255, 255, 0],
     hoverScheme = [255, 0, 0, 255],
     disabledScheme = [64, 127, 127, 64],
+    rolloverScheme = null, // Optional: used when mouse is over but not pressed
   ) {
     let s;
     if (this.btn.disabled) {
       s = disabledScheme;
+    } else if (this.btn.down) {
+      s = hoverScheme;
+    } else if (this.btn.over && rolloverScheme) {
+      s = rolloverScheme;
     } else {
-      s = this.btn.down ? hoverScheme : scheme;
+      s = scheme;
     }
 
     $.ink(s[0])
@@ -979,13 +984,18 @@ class TextButtonSmall {
     $,
     scheme = [[0, 64, 0], [0, 140, 0], 255, [0, 64, 0]],      // [fill, outline, text, fill]
     hoverScheme = [[0, 100, 0], [0, 180, 0], 255, [0, 100, 0]], // hover/down
-    disabledScheme = [[32, 32, 32], [64, 64, 64], 80, [32, 32, 32]]
+    disabledScheme = [[32, 32, 32], [64, 64, 64], 80, [32, 32, 32]],
+    rolloverScheme = null, // Optional: used when mouse is over but not pressed
   ) {
     let s;
     if (this.btn.disabled) {
       s = disabledScheme;
+    } else if (this.btn.down) {
+      s = hoverScheme;
+    } else if (this.btn.over && rolloverScheme) {
+      s = rolloverScheme;
     } else {
-      s = this.btn.down ? hoverScheme : scheme;
+      s = scheme;
     }
     
     $.ink(s[0])
