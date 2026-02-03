@@ -24,12 +24,6 @@
       const pathParts = pathname.split('/').filter(p => p);
       let codeId = null;
       
-      // top.kidlisp.com is an alias for the top100 playlist - no eager fetch needed
-      if (hostname === 'top.kidlisp.com') {
-        // Playlist mode - no single codeId to fetch
-        return;
-      }
-      
       if (hostname === 'device.kidlisp.com') {
         codeId = pathParts[0] || null;
       } else if (pathname.startsWith('/device.kidlisp.com/')) {
@@ -57,8 +51,6 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
     }
     
     html, body {
@@ -327,7 +319,8 @@
     .ff1-playlist-header {
       display: none;
       width: 100%;
-      padding-bottom: 0;
+      padding-bottom: calc(var(--ui-scale, 8) * 0.3px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
       margin-bottom: calc(var(--ui-scale, 8) * 0.2px);
     }
     
@@ -338,17 +331,17 @@
     .ff1-playlist-title {
       color: rgba(255, 255, 255, 0.9);
       font-family: 'Noto Sans Mono', monospace;
-      font-size: calc(var(--ui-scale, 8) * 2.5px);
+      font-size: calc(var(--ui-scale, 8) * 2px);
       font-weight: bold;
-      line-height: 1.4;
+      line-height: 1.2;
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
     .ff1-playlist-position {
       color: rgba(255, 215, 0, 0.9);
       font-family: 'Noto Sans Mono', monospace;
-      font-size: calc(var(--ui-scale, 8) * 2.5px);
-      margin-top: 0;
+      font-size: calc(var(--ui-scale, 8) * 1.8px);
+      margin-top: calc(var(--ui-scale, 8) * 0.15px);
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
     }
     
@@ -720,14 +713,14 @@
       <div id="qr-container"></div>
     </div>
     <div id="piece-info">
-      <div id="ff1-playlist-header" class="ff1-playlist-header">
-        <div id="ff1-playlist-title" class="ff1-playlist-title"></div>
-        <div id="ff1-playlist-position" class="ff1-playlist-position"></div>
-      </div>
       <div id="piece-handle"></div>
       <div id="piece-hits"></div>
       <div id="piece-when"></div>
       <div id="ff1-module" class="ff1-module">
+        <div id="ff1-playlist-header" class="ff1-playlist-header">
+          <div id="ff1-playlist-title" class="ff1-playlist-title"></div>
+          <div id="ff1-playlist-position" class="ff1-playlist-position"></div>
+        </div>
         <button id="piece-ff1-copy" class="piece-ff1-copy" title="Copy FF1 CLI command">
           <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="ff1-icon">
           <span class="ff1-cmd">ff1 play ...</span>
@@ -1566,21 +1559,13 @@
     // Parse codeId or playlist path:
     // device.kidlisp.com/codeId
     // device.kidlisp.com/playlist/top100 (short playlist URL)
-    // top.kidlisp.com (alias for top100 playlist)
     // localhost:8888/kidlisp.com/device/codeId
     // localhost:8888/device.kidlisp.com/codeId
-    // localhost:8888/top.kidlisp.com (local dev for top.kidlisp.com)
     let codeId = null;
     let slideshowShortcut = null;  // Will be set if using /playlist/xxx path
     const pathParts = pathname.split('/').filter(p => p);
     
-    if (hostname === 'top.kidlisp.com') {
-      // top.kidlisp.com is an alias for device.kidlisp.com/playlist/top100
-      slideshowShortcut = 'top100';
-    } else if (pathname.startsWith('/top.kidlisp.com')) {
-      // Local dev: localhost:8888/top.kidlisp.com → top100 playlist
-      slideshowShortcut = 'top100';
-    } else if (hostname === 'device.kidlisp.com') {
+    if (hostname === 'device.kidlisp.com') {
       // Production: device.kidlisp.com/codeId or /playlist/top100
       if (pathParts[0] === 'playlist' && pathParts[1]) {
         slideshowShortcut = pathParts[1].toLowerCase();
@@ -2218,10 +2203,7 @@
       // Build the playlist URL for the CLI command (official FF1 CLI format)
       // Use the short path if we're in a known playlist, otherwise use full URL
       let slideshowUrl;
-      if (slideshowShortcut === 'top100') {
-        // top.kidlisp.com is the nice alias for the top100 playlist
-        slideshowUrl = `https://top.kidlisp.com`;
-      } else if (slideshowShortcut) {
+      if (slideshowShortcut) {
         slideshowUrl = `https://device.kidlisp.com/playlist/${slideshowShortcut}`;
       } else {
         // Fall back to full playlist_url encoded
