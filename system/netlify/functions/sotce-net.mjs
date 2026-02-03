@@ -1384,7 +1384,6 @@ export const handler = async (event, context) => {
             
             #garden article.page div.page-number:hover {
               color: rgb(180, 120, 80);
-              text-decoration: underline;
             }
             
             /* Page number tooltip with scrolling ticker */
@@ -3704,8 +3703,10 @@ export const handler = async (event, context) => {
 
                   if (garden) {
                     document.documentElement.classList.add("garden");
+                    console.log("  [SYNC] Before removing hidden from garden");
                     garden.classList.remove("hidden");
                     console.log("  garden.visible:", (performance.now() - enterStart).toFixed(2), "ms");
+                    console.log("  [SYNC] After removing hidden, before RAF");
                     
                     // Track when layout/paint actually completes
                     requestAnimationFrame(() => {
@@ -3715,7 +3716,9 @@ export const handler = async (event, context) => {
                       });
                     });
                     
+                    console.log("  [SYNC] After RAF scheduled, before updatePath");
                     updatePath("/");
+                    console.log("  [SYNC] After updatePath, handler done:", (performance.now() - enterStart).toFixed(2), "ms");
                   } else {
                     // Only show chat for subscribed users and admins
                     if (status === "subscribed" || subscription?.admin) {
@@ -5852,7 +5855,12 @@ export const handler = async (event, context) => {
                               g.classList.remove("faded");
                               
                               // Set up IntersectionObserver to update URL as user scrolls
+                              let ioCallCount = 0;
                               const pageObserver = new IntersectionObserver((entries) => {
+                                ioCallCount++;
+                                if (ioCallCount <= 3 || ioCallCount % 50 === 0) {
+                                  console.log("📍 IntersectionObserver callback #" + ioCallCount + " with", entries.length, "entries");
+                                }
                                 entries.forEach((entry) => {
                                   if (entry.isIntersecting) {
                                     const pageWrapper = entry.target;
