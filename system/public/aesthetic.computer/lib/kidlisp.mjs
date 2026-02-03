@@ -1332,6 +1332,18 @@ function isChaoticSource(source) {
     reasons.push('no recognizable words');
   }
   
+  // Short input with no parentheses that's not a valid color/function name
+  // e.g., just "kidlisp" or "hello" or "test" - should trigger chaos mode
+  if (openParens === 0 && closeParens === 0 && trimmed.length > 0) {
+    // Check if the entire input is a single recognized word (color or function)
+    const isValidShorthand = KIDLISP_VOCABULARY.has(trimmed.toLowerCase());
+    if (!isValidShorthand) {
+      // Not a valid single-word shorthand, and no parentheses = invalid KidLisp
+      chaosScore += 0.6;
+      reasons.push('no parentheses and not a valid color/function name');
+    }
+  }
+  
   // No parentheses at all in longer input (valid KidLisp usually has parens)
   if (openParens === 0 && closeParens === 0 && trimmed.length > 20) {
     // Check if it's just a color name or simple expression
