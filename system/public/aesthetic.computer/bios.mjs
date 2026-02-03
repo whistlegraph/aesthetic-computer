@@ -12261,7 +12261,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       
       // 🎨 Force a reframe only if coming from a GPU piece (WebGPU canvas was visible)
-      // This prevents breaking the GOL transition on normal disk loads
+      // This prevents breaking the piece transition on normal disk loads
       if (needsGPUCleanup) {
         needsReframe = true;
       }
