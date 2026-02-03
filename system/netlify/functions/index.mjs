@@ -1390,46 +1390,93 @@ async function fun(event, context) {
                   x.fillText(cch,currX+cchJX,cyPos+cchJY);
                   currX+=cchW;}}
               } // end fontReady for currency
-              // ========== FLICKERING HEADLINE - MULTILINE CRISP PIXEL ==========
+              // ========== SEQUENTIAL WORD HIGHLIGHT HEADLINE ==========
               if(fontReady){
-              var hlLines=["IT'S TIME","TO GROW","INTO","SOMETHING","NEW"];
-              // Flickering between line groups
-              var flickerNoise=Math.sin(sf*0.02)+Math.sin(sf*0.033)*0.7+Math.sin(sf*0.012)*0.5;
-              var showSet=flickerNoise>0.3?0:1;
+              var hlWords=["IT'S","TIME","TO","GROW","INTO","SOMETHING","NEW"];
+              // Word highlight cycles every ~0.8 seconds per word
+              var wordCycleTime=800; // ms per word
+              var cyclePos=Math.floor(now/wordCycleTime)%hlWords.length;
+              // Always show "IT'S TIME TO GROW" first, then "INTO SOMETHING NEW"
+              var showSet=(cyclePos<4)?0:1;
               var linesToShow=showSet===0?["IT'S TIME","TO GROW"]:["INTO","SOMETHING","NEW"];
+              // Which word in the current set should be highlighted?
+              var highlightWordIdx=showSet===0?cyclePos:(cyclePos-4);
+              // Map to actual words in linesToShow (line 0 has 2 words, line 1 has 1-2 words)
+              var wordsInSet=showSet===0?["IT'S","TIME","TO","GROW"]:["INTO","SOMETHING","NEW"];
+              var highlightWord=wordsInSet[highlightWordIdx];
               var longestLine=0;for(var lli=0;lli<linesToShow.length;lli++){if(linesToShow[lli].length>longestLine)longestLine=linesToShow[lli].length;}
               var giveFS=Math.floor(Math.min(H*0.14, W/(longestLine*0.65)));
               var lineH=giveFS*1.1;
               var totalH=linesToShow.length*lineH;
               var startY=Math.floor(H*0.60)-totalH/2;
+              // Strong highlight colors that cycle
+              var hlColors=[
+                [255,255,0],   // yellow
+                [0,255,255],   // cyan
+                [255,0,255],   // magenta
+                [0,255,0],     // green
+                [255,128,0],   // orange
+                [128,255,255], // light cyan
+                [255,128,255]  // pink
+              ];
+              var activeColor=hlColors[cyclePos%hlColors.length];
               for(var lineIdx=0;lineIdx<linesToShow.length;lineIdx++){
                 var lineText=linesToShow[lineIdx];
+                var lineWords=lineText.split(' ');
                 x.font='bold '+giveFS+'px YWFTProcessing-Bold, monospace';
                 var lineW=x.measureText(lineText).width;
                 var lineX=Math.floor((W-lineW)/2);
                 var lineY=Math.floor(startY+lineIdx*lineH);
                 var hlX=lineX;
-                for(var hi=0;hi<lineText.length;hi++){
-                  var hlCh=lineText[hi];
-                  var hlJX=Math.floor((Math.random()-0.5)*2*S);
-                  var hlJY=Math.floor((Math.random()-0.5)*2*S);
-                  var hlChW=x.measureText(hlCh).width;
-                  // Black outline
-                  x.globalAlpha=0.6;x.fillStyle='#000000';
-                  x.fillText(hlCh,hlX+Math.floor(3*S)+hlJX,lineY+Math.floor(3*S)+hlJY);
-                  // Red/cyan chromatic split
-                  x.globalAlpha=0.4;x.fillStyle='#ff0000';
-                  x.fillText(hlCh,hlX-Math.floor(2*S)+hlJX,lineY-Math.floor(S)+hlJY);
-                  x.fillStyle='#00ffff';
-                  x.fillText(hlCh,hlX+Math.floor(2*S)+hlJX,lineY+Math.floor(S)+hlJY);
-                  // Main text - color shifts per letter
-                  var colShift=(Math.sin(sf*0.025+hi*0.3+lineIdx)+1)*0.5;
-                  var giveR=255;
-                  var giveG=Math.floor(colShift*255);
-                  var giveB=Math.floor((1-colShift)*128);
-                  x.globalAlpha=1;x.fillStyle='rgb('+giveR+','+giveG+','+giveB+')';
-                  x.fillText(hlCh,hlX+hlJX,lineY+hlJY);
-                  hlX+=hlChW;
+                var wordStart=0;
+                for(var wi=0;wi<lineWords.length;wi++){
+                  var word=lineWords[wi];
+                  var isHighlighted=(word===highlightWord);
+                  var wordEnd=wordStart+word.length;
+                  // Draw each character
+                  for(var ci=0;ci<word.length;ci++){
+                    var hlCh=word[ci];
+                    var hlJX=Math.floor((Math.random()-0.5)*2*S);
+                    var hlJY=Math.floor((Math.random()-0.5)*2*S);
+                    var hlChW=x.measureText(hlCh).width;
+                    if(isHighlighted){
+                      // HIGHLIGHTED WORD - strong color with glow and pulse
+                      var pulse=0.7+Math.sin(now*0.015)*0.3;
+                      // Glow layers
+                      for(var gl=3;gl>=1;gl--){
+                        x.globalAlpha=0.3*pulse/gl;
+                        x.fillStyle='rgb('+activeColor[0]+','+activeColor[1]+','+activeColor[2]+')';
+                        var glOff=gl*2*S;
+                        x.fillText(hlCh,hlX-glOff+hlJX,lineY+hlJY);
+                        x.fillText(hlCh,hlX+glOff+hlJX,lineY+hlJY);
+                        x.fillText(hlCh,hlX+hlJX,lineY-glOff+hlJY);
+                        x.fillText(hlCh,hlX+hlJX,lineY+glOff+hlJY);
+                      }
+                      // Main highlighted char
+                      x.globalAlpha=1;
+                      x.fillStyle='rgb('+activeColor[0]+','+activeColor[1]+','+activeColor[2]+')';
+                      x.fillText(hlCh,hlX+hlJX,lineY+hlJY);
+                      // White core for extra pop
+                      x.globalAlpha=0.5*pulse;
+                      x.fillStyle='#ffffff';
+                      x.fillText(hlCh,hlX+hlJX,lineY+hlJY);
+                    }else{
+                      // Non-highlighted - dimmer with subtle color shift
+                      x.globalAlpha=0.4;x.fillStyle='#000000';
+                      x.fillText(hlCh,hlX+Math.floor(2*S)+hlJX,lineY+Math.floor(2*S)+hlJY);
+                      x.globalAlpha=0.7;
+                      var dimR=180+Math.floor(Math.sin(sf*0.02+ci*0.2)*40);
+                      x.fillStyle='rgb('+dimR+','+Math.floor(dimR*0.6)+','+Math.floor(dimR*0.4)+')';
+                      x.fillText(hlCh,hlX+hlJX,lineY+hlJY);
+                    }
+                    hlX+=hlChW;
+                  }
+                  // Add space between words
+                  if(wi<lineWords.length-1){
+                    var spaceW=x.measureText(' ').width;
+                    hlX+=spaceW;
+                  }
+                  wordStart=wordEnd+1;
                 }
               }
               } // end fontReady for headline
