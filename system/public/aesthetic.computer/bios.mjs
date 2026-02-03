@@ -3769,11 +3769,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           to: isFinite(options?.to) ? options.to : 1,
           speed,
           loop: options?.loop || false,
+          preserveDuration: options?.preserveDuration || false, // Pitch shift without time stretch
         },
         volume: isFinite(options?.volume) ? options.volume : 1,
         pan: isFinite(options?.pan) ? options.pan : 0,
         // options: { buffer: sample },
-        // ⏰ TODO: If duration / 'beats' is not specified then use speed.
+        // ⏰ TODO: If duration / 'not specified then use speed.
         // beats: undefined, // ((sample.length / sample.sampleRate) * sound.bpm / 60),
         // attack: 0, // 🩷 TODO: These should have saner defaults.
         // decay: 0,
