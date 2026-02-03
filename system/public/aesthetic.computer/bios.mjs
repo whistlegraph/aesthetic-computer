@@ -1247,7 +1247,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Capture the current frame content
       if (freezeFrameGlaze) {
-        Glaze.freeze(ffCtx);
+        // Try Glaze.freeze, fallback to standard capture if it fails
+        if (!Glaze.freeze(ffCtx)) {
+          // Glaze capture failed, use fallback
+          if (imageData && imageData.data && imageData.data.buffer && imageData.data.buffer.byteLength > 0) {
+            try {
+              ffCtx.putImageData(imageData, 0, 0);
+            } catch (e) {
+              const webglCompositeIsActive = webglBlitter?.isReady() && webglCompositeCanvas.style.display !== "none";
+              const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
+              if (freezeSource) ffCtx.drawImage(freezeSource, 0, 0);
+            }
+          }
+        }
         freezeFrameGlaze = false;
       } else {
         // Best approach: use imageData directly if available (avoids WebGL readback issues)
@@ -1792,7 +1804,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             // Capture current frame to freeze frame canvas
             if (freezeFrameGlaze) {
-              Glaze.freeze(ffCtx);
+              // Try Glaze.freeze, fallback to standard capture if it fails
+              if (!Glaze.freeze(ffCtx)) {
+                // Glaze capture failed, use fallback
+                try {
+                  ffCtx.putImageData(imageData, 0, 0);
+                } catch (e) {
+                  const webglCompositeIsActive = webglBlitter?.isReady() && webglCompositeCanvas.style.display !== "none";
+                  const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
+                  if (freezeSource) ffCtx.drawImage(freezeSource, 0, 0);
+                }
+              }
             } else {
               try {
                 ffCtx.putImageData(imageData, 0, 0);
@@ -1800,7 +1822,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 // Fallback to canvas copy
                 const webglCompositeIsActive = webglBlitter?.isReady() && webglCompositeCanvas.style.display !== "none";
                 const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
-                ffCtx.drawImage(freezeSource, 0, 0);
+                if (freezeSource) ffCtx.drawImage(freezeSource, 0, 0);
               }
             }
             

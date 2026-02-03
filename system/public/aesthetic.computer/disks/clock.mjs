@@ -3539,7 +3539,6 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
       isMutation,
       struck,
       sequenceTrackCount, // Track count for this note's sequence
-      sayText, // Text content for say waveforms
     } = historyItem;
 
     // Determine if this is a history note (from a previous section)
@@ -3926,66 +3925,11 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
                 }
               }
               
-              // Determine label text: use sayText if available, otherwise use note letter
-              // For say waveforms, show the spoken text; for regular notes, show note name
-              const labelText = sayText ? sayText : note.toUpperCase();
-              
-              // Adaptive font sizing: use smaller scale if text won't fit
-              // MatrixChunky8 chars are ~6px wide at scale 1, default font is ~6px
-              const charWidthAtScale1 = 6;
-              const charHeightAtScale1 = 8;
-              const textWidthNeeded = labelText.length * charWidthAtScale1;
-              const availableWidth = barWidth - 4; // Leave 2px margin on each side
-              const availableHeight = actualBarHeight - 4; // Leave 2px margin top/bottom
-              
-              // Calculate optimal scale based on both width and height constraints
-              let labelScale = 1.0;
-              let useSmallFont = false;
-              
-              if (textWidthNeeded > availableWidth || charHeightAtScale1 > availableHeight) {
-                // Text doesn't fit at full size - try scaling down
-                const scaleForWidth = availableWidth / textWidthNeeded;
-                const scaleForHeight = availableHeight / charHeightAtScale1;
-                labelScale = Math.min(scaleForWidth, scaleForHeight, 1.0);
-                
-                // If scaled below 0.5, switch to smaller font (MatrixChunky8 at scale 1)
-                if (labelScale < 0.5) {
-                  useSmallFont = true;
-                  // MatrixChunky8 has smaller chars, recalculate scale
-                  const smallCharWidth = 5; // MatrixChunky8 is narrower
-                  const smallTextWidth = labelText.length * smallCharWidth;
-                  labelScale = Math.min(availableWidth / smallTextWidth, availableHeight / 7, 1.0);
-                }
-                
-                // Don't render if scale is too small to be readable
-                if (labelScale < 0.25) {
-                  labelScale = 0; // Skip rendering
-                }
-              }
-              
-              // Only render if we have a reasonable scale
-              if (labelScale > 0) {
-                // Calculate centered position
-                const effectiveCharWidth = useSmallFont ? 5 : charWidthAtScale1;
-                const effectiveTextWidth = labelText.length * effectiveCharWidth * labelScale;
-                const centeredLabelX = Math.round(trackCenterX - effectiveTextWidth / 2);
-                const centeredLabelY = Math.round(actualBarStartY + actualBarHeight / 2 - (charHeightAtScale1 * labelScale) / 2);
-                
-                if (useSmallFont) {
-                  // Use MatrixChunky8 for longer text
-                  ink(labelColor).write(labelText, {
-                    x: centeredLabelX,
-                    y: centeredLabelY,
-                    size: labelScale,
-                  }, undefined, undefined, false, "MatrixChunky8");
-                } else {
-                  ink(labelColor).write(labelText, {
-                    x: centeredLabelX,
-                    y: centeredLabelY,
-                    scale: labelScale,
-                  });
-                }
-              }
+              ink(labelColor).write(note.toUpperCase(), {
+                x: labelX,
+                y: labelY,
+                scale: 0.8,
+              });
             }
           }
 
@@ -4060,7 +4004,6 @@ function addNoteToHistory(
   isMutation = false,
   struck = false,
   sequenceTrackCount = null, // Track count for this note's sequence
-  sayText = null, // Text for say waveform
 ) {
   const historyItem = {
     note: note,
@@ -4073,7 +4016,6 @@ function addNoteToHistory(
     isMutation: isMutation,
     struck: struck,
     sequenceTrackCount: sequenceTrackCount, // Store track count for rendering
-    sayText: sayText, // Store say text for display
   };
 
   historyBuffer.push(historyItem);
@@ -4204,7 +4146,6 @@ function getFutureNotes(
         volume: noteData.volume || 0.8,
         isMutation: false,
         struck: noteData.struck || false,
-        sayText: noteData.sayText || null, // Add sayText for display
       });
 
       predictTime += noteDuration;
@@ -4247,7 +4188,6 @@ function getFutureNotes(
           volume: noteData.volume || 0.8,
           isMutation: false,
           struck: noteData.struck || false,
-          sayText: noteData.sayText || null, // Add sayText for display
         });
 
         predictTime += noteDuration;
@@ -4315,7 +4255,6 @@ function getFutureNotesSequential(
         struck: noteData.struck || false,
         sequenceIndex: currentSeqIndex,
         sequenceTrackCount: seqTrackCount,
-        sayText: noteData.sayText || null, // Add sayText for display
       });
       
       predictTime += noteDuration;
@@ -4362,7 +4301,6 @@ function getFutureNotesSequential(
           struck: noteData.struck || false,
           sequenceIndex: currentSeqIndex,
           sequenceTrackCount: seqTrackCount,
-          sayText: noteData.sayText || null, // Add sayText for display
         });
         
         trackTime += noteDuration;
@@ -5758,7 +5696,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           false, // Not a mutation
           struck,
           1, // Single track section
-          noteData.text, // Say text for display
         );
         
         // Flash green for special character (speech)
@@ -5829,7 +5766,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             false, // Not a mutation (mutations are added separately)
             struck,
             1, // Single track section
-            sayText, // Say text for display
           );
 
           // Increment total notes played for persistent white note history
@@ -5856,7 +5792,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           false,
           struck,
           1, // Single track section
-          null, // No say text for rests
         );
       }
 
@@ -6490,7 +6425,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   false, // Not a mutation
                   struck,
                   melodyState.trackStates.length, // Track count for this parallel section
-                  noteData.text, // Say text for display
                 );
                 
                 // Flash green for special character (speech)
@@ -6564,7 +6498,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     false, // Not a mutation (mutations are added separately)
                     struck,
                     melodyState.trackStates.length, // Track count for this parallel section
-                    sayText, // Say text for display
                   );
 
                   totalNotesPlayed++;
@@ -6588,7 +6521,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   false,
                   struck,
                   melodyState.trackStates.length, // Track count for this parallel section
-                  null, // No say text for rests
                 );
               }
 
@@ -6743,7 +6675,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   );
                   
                   // Track count is 1 for single-track sequence
-                  addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, 0, waveType || "sine", volume || 0.8, false, struck, 1, sayText);
+                  addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, 0, waveType || "sine", volume || 0.8, false, struck, 1);
                   totalNotesPlayed++;
                 } catch (error) {
                   console.error(`✗ Sequential single ${tone} - ${error}`);
@@ -6827,7 +6759,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     
                     // Track count from parallel sequence state
                     const seqTrackCount = seqState.trackStates.length;
-                    addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, trackIndex, waveType || "sine", volume || 0.8, false, struck, seqTrackCount, sayText);
+                    addNoteToHistory(note, noteOctave || octave, currentTimeMs, synthDuration, trackIndex, waveType || "sine", volume || 0.8, false, struck, seqTrackCount);
                     totalNotesPlayed++;
                   } catch (error) {
                     console.error(`✗ Sequential parallel track ${trackIndex + 1} ${tone} - ${error}`);

@@ -1078,194 +1078,174 @@ let lastPaintOut = undefined; // Store last paintOut to preserve correct noPaint
 let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
-// 🧬 GOL Transition: noise16 overlay → fades to reveal piece underneath
-// Uses actual Conway's Game of Life rules with pixel smearing/bubbling effect
+// 🧬 GOL Transition: overlay pixels → fades to reveal piece underneath
+// Chunky demoscene style - block-based for performance and retro aesthetic
+// Captures the OUTGOING piece's pixels when transitioning between pieces
 let golTransition = {
   active: false,
-  overlayPixels: null, // The noise16 frame that overlays on top
-  cells: null,         // Uint8Array: 0 = dead (transparent), 1 = alive (show overlay)
-  nextCells: null,     // Double buffer for GOL update
-  smearBuffer: null,   // Uint8ClampedArray: smeared/pulled pixel colors
+  overlayPixels: null, // The captured frame that overlays on top (from outgoing piece)
+  blocks: null,        // Per-block state array
+  blockSize: 6,        // Chunky blocks for retro look
+  noiseOffset: 0,
   generation: 0,
-  maxGenerations: 240, // ~4s at 60fps - visible transition
+  maxGenerations: 90,  // ~1.5s at 60fps - snappy
   width: 0,
   height: 0,
+  blocksX: 0,
+  blocksY: 0,
 };
 
-// 🧬 Initialize GOL cells - start with ALL alive (full noise coverage)
-function initGOLCells(width, height) {
-  const cells = new Uint8Array(width * height);
-  const nextCells = new Uint8Array(width * height);
+// 🧬 Scale overlay pixels to match new resolution (nearest-neighbor)
+function scaleOverlayPixels(srcPixels, srcWidth, srcHeight, dstWidth, dstHeight) {
+  const dstPixels = new Uint8ClampedArray(dstWidth * dstHeight * 4);
+  const xRatio = srcWidth / dstWidth;
+  const yRatio = srcHeight / dstHeight;
   
-  // Start with ALL cells alive (100% noise overlay)
-  cells.fill(1);
-  
-  // Seed very few dead cells (~0.1%) - just enough to start the cascade
-  const seedCount = Math.floor(width * height * 0.001);
-  for (let i = 0; i < seedCount; i++) {
-    const x = Math.floor(Math.random() * width);
-    const y = Math.floor(Math.random() * height);
-    cells[y * width + x] = 0;
-  }
-  
-  golTransition.cells = cells;
-  golTransition.nextCells = nextCells;
-  golTransition.smearBuffer = new Uint8ClampedArray(width * height * 4);
-}
-
-// 🧬 GOL step function - aggressive death, weird patterns
-function golStep(screenPixels) {
-  const { cells, nextCells, smearBuffer, overlayPixels, generation, maxGenerations, width, height } = golTransition;
-  if (!cells || !nextCells) return false;
-  
-  const progress = generation / maxGenerations;
-  
-  // Gentler death pressure - slower reveal
-  const deathPressure = progress * progress * 0.12;
-  
-  // Spontaneous death kicks in gradually
-  const spontaneousDeath = progress * 0.02;
-  
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      const alive = cells[idx];
+  for (let y = 0; y < dstHeight; y++) {
+    for (let x = 0; x < dstWidth; x++) {
+      const srcX = Math.floor(x * xRatio);
+      const srcY = Math.floor(y * yRatio);
+      const srcIdx = (srcY * srcWidth + srcX) * 4;
+      const dstIdx = (y * dstWidth + x) * 4;
       
-      // Count live neighbors
-      let liveNeighbors = 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          const nx = (x + dx + width) % width;
-          const ny = (y + dy + height) % height;
-          if (cells[ny * width + nx]) liveNeighbors++;
-        }
-      }
-      
-      // Modified Conway rules - aggressive death for faster transition
-      if (alive) {
-        // Live cell dies more easily
-        if (liveNeighbors < 2 || liveNeighbors > 3) {
-          nextCells[idx] = 0; // Classic underpop/overpop death
-        } else if (Math.random() < deathPressure + spontaneousDeath) {
-          nextCells[idx] = 0; // Random death from pressure
-        } else {
-          nextCells[idx] = 1; // Survives
-        }
-      } else {
-        // Dead cell: birth with 3 neighbors, but birth rate decreases over time
-        if (liveNeighbors === 3 && Math.random() > progress * 0.7) {
-          nextCells[idx] = 1; // Birth (suppressed late in transition)
-        } else {
-          nextCells[idx] = 0; // Stays dead
-        }
-      }
-      
-      // 🎨 Pixel smearing: when a cell dies, sample and blend nearby piece pixels
-      if (alive && !nextCells[idx] && screenPixels) {
-        // Cell is dying - pull colors from piece underneath with smear
-        const i = idx * 4;
-        
-        // Sample piece pixel and nearby neighbors for smear effect
-        let r = 0, g = 0, b = 0, samples = 0;
-        for (let sy = -2; sy <= 2; sy++) {
-          for (let sx = -2; sx <= 2; sx++) {
-            const weight = 1 / (1 + Math.abs(sx) + Math.abs(sy)); // Center weighted
-            const snx = (x + sx + width) % width;
-            const sny = (y + sy + height) % height;
-            const si = (sny * width + snx) * 4;
-            r += screenPixels[si] * weight;
-            g += screenPixels[si + 1] * weight;
-            b += screenPixels[si + 2] * weight;
-            samples += weight;
-          }
-        }
-        
-        // Store smeared color
-        smearBuffer[i] = r / samples;
-        smearBuffer[i + 1] = g / samples;
-        smearBuffer[i + 2] = b / samples;
-        smearBuffer[i + 3] = 255;
-      }
+      dstPixels[dstIdx] = srcPixels[srcIdx];
+      dstPixels[dstIdx + 1] = srcPixels[srcIdx + 1];
+      dstPixels[dstIdx + 2] = srcPixels[srcIdx + 2];
+      dstPixels[dstIdx + 3] = srcPixels[srcIdx + 3];
     }
   }
   
-  // Swap buffers
-  golTransition.cells = nextCells;
-  golTransition.nextCells = cells;
+  return dstPixels;
+}
+
+// 🧬 Simple noise function for organic flow
+function transitionNoise(x, y, t) {
+  // Fast chaotic noise - XOR and bit tricks for demoscene feel
+  const ix = (x * 374761393 + y * 668265263 + (t * 1000) | 0) ^ 0x5bf03635;
+  return ((ix >> 13) & 0xFF) / 255 - 0.5;
+}
+
+// 🧬 Initialize transition - chunky block-based for demoscene style
+function initGOLCells(width, height) {
+  const bs = golTransition.blockSize;
+  const blocksX = Math.ceil(width / bs);
+  const blocksY = Math.ceil(height / bs);
+  const numBlocks = blocksX * blocksY;
+  
+  // Each block: [opacity, velocityX, velocityY, phase, chaos]
+  const blocks = new Float32Array(numBlocks * 5);
+  
+  for (let by = 0; by < blocksY; by++) {
+    for (let bx = 0; bx < blocksX; bx++) {
+      const bi = (by * blocksX + bx) * 5;
+      blocks[bi] = 1.0; // opacity
+      // Chaotic initial velocities - demoscene style
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1 + Math.random() * 3;
+      blocks[bi + 1] = Math.cos(angle) * speed; // vx
+      blocks[bi + 2] = Math.sin(angle) * speed; // vy
+      blocks[bi + 3] = Math.random() * Math.PI * 2; // phase
+      blocks[bi + 4] = 0.5 + Math.random(); // chaos factor
+    }
+  }
+  
+  golTransition.blocks = blocks;
+  golTransition.blocksX = blocksX;
+  golTransition.blocksY = blocksY;
+  golTransition.noiseOffset = 0;
+}
+
+// 🧬 Step function - chaotic block animation
+function golStep(screenPixels) {
+  const { blocks, blocksX, blocksY, generation, maxGenerations } = golTransition;
+  if (!blocks) return false;
+  
+  const progress = generation / maxGenerations;
+  golTransition.noiseOffset += 0.2; // Fast noise animation
+  const t = golTransition.noiseOffset;
+  
+  // Chaotic fade - some blocks die fast, others linger
+  const baseFade = 0.015 + progress * 0.025;
+  
+  for (let i = 0; i < blocksX * blocksY; i++) {
+    const bi = i * 5;
+    const chaos = blocks[bi + 4];
+    
+    // Chaotic velocity updates
+    blocks[bi + 1] += (Math.random() - 0.5) * chaos * 2;
+    blocks[bi + 2] += (Math.random() - 0.5) * chaos * 2;
+    
+    // Add some spin to phase
+    blocks[bi + 3] += chaos * 0.3;
+    
+    // Fade with chaos variation
+    const fade = baseFade * (0.3 + chaos);
+    blocks[bi] = Math.max(0, blocks[bi] - fade);
+  }
   
   golTransition.generation++;
-  
-  // Count live cells
-  let liveCount = 0;
-  for (let i = 0; i < nextCells.length; i++) {
-    if (nextCells[i]) liveCount++;
-  }
-  
-  // End when very few cells left or max generations reached
-  return liveCount > 10 && golTransition.generation < maxGenerations;
+  return golTransition.generation < maxGenerations;
 }
 
-// 🧬 Apply GOL overlay - composites with smearing/bubbling effect
+// 🧬 Apply transition overlay - chunky demoscene blocks with chaos
 function applyGOLOverlay(screenPixels) {
-  const { overlayPixels, cells, smearBuffer, width, height, generation, maxGenerations } = golTransition;
-  if (!overlayPixels || !cells || !screenPixels) {
-    console.warn("🧬 GOL applyOverlay: missing data");
-    return;
-  }
+  const { overlayPixels, blocks, blocksX, blocksY, blockSize: bs, width, height, generation, maxGenerations, noiseOffset } = golTransition;
+  if (!overlayPixels || !blocks || !screenPixels) return;
   
   const progress = generation / maxGenerations;
-  let aliveCount = 0;
-  let deadCount = 0;
+  const dispAmp = 8 + progress * 20; // Displacement grows over time
   
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      const i = idx * 4;
-      const alive = cells[idx];
+  // Process each block
+  for (let by = 0; by < blocksY; by++) {
+    for (let bx = 0; bx < blocksX; bx++) {
+      const bi = (by * blocksX + bx) * 5;
+      const opacity = blocks[bi];
       
-      if (alive) {
-        aliveCount++;
-        // Cell alive - show FULL noise overlay early, blend edges only later
-        let deadNeighbors = 0;
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            if (dx === 0 && dy === 0) continue;
-            const nx = (x + dx + width) % width;
-            const ny = (y + dy + height) % height;
-            if (!cells[ny * width + nx]) deadNeighbors++;
-          }
+      if (opacity < 0.02) continue; // Skip dead blocks
+      
+      const vx = blocks[bi + 1];
+      const vy = blocks[bi + 2];
+      const phase = blocks[bi + 3];
+      const chaos = blocks[bi + 4];
+      
+      // Block displacement with chaotic wiggle
+      const wiggleX = Math.sin(phase) * chaos * 4;
+      const wiggleY = Math.cos(phase * 1.3) * chaos * 4;
+      const dispX = (vx + wiggleX) * progress * dispAmp;
+      const dispY = (vy + wiggleY) * progress * dispAmp;
+      
+      // Process all pixels in this block
+      const startX = bx * bs;
+      const startY = by * bs;
+      const endX = Math.min(startX + bs, width);
+      const endY = Math.min(startY + bs, height);
+      
+      for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
+          const i = (y * width + x) * 4;
+          
+          // Sample from displaced position in old piece
+          let sx = Math.floor(x - dispX) | 0;
+          let sy = Math.floor(y - dispY) | 0;
+          sx = sx < 0 ? 0 : sx >= width ? width - 1 : sx;
+          sy = sy < 0 ? 0 : sy >= height ? height - 1 : sy;
+          
+          const si = (sy * width + sx) * 4;
+          
+          // XOR glitch effect for extra chaos
+          const glitch = (generation & 3) === 0 && Math.random() < chaos * 0.1;
+          
+          // Blend old over new
+          const oldR = glitch ? overlayPixels[si] ^ 0x55 : overlayPixels[si];
+          const oldG = glitch ? overlayPixels[si + 1] ^ 0x55 : overlayPixels[si + 1];
+          const oldB = glitch ? overlayPixels[si + 2] ^ 0x55 : overlayPixels[si + 2];
+          
+          screenPixels[i] = screenPixels[i] * (1 - opacity) + oldR * opacity;
+          screenPixels[i + 1] = screenPixels[i + 1] * (1 - opacity) + oldG * opacity;
+          screenPixels[i + 2] = screenPixels[i + 2] * (1 - opacity) + oldB * opacity;
         }
-        
-        // Only blend at edges, and only after progress > 0.2
-        const edgeFactor = deadNeighbors / 8;
-        const blendStart = Math.max(0, progress - 0.2) / 0.8; // Ramps 0→1 from 20% to 100%
-        const bubbleBlend = edgeFactor * 0.4 * blendStart;
-        
-        // Show noise (with edge blending toward piece later on)
-        screenPixels[i] = overlayPixels[i] * (1 - bubbleBlend) + screenPixels[i] * bubbleBlend;
-        screenPixels[i + 1] = overlayPixels[i + 1] * (1 - bubbleBlend) + screenPixels[i + 1] * bubbleBlend;
-        screenPixels[i + 2] = overlayPixels[i + 2] * (1 - bubbleBlend) + screenPixels[i + 2] * bubbleBlend;
-      } else {
-        deadCount++;
-        // Cell dead - show piece with smear effect bleeding in
-        // Recently dead cells use smear buffer, old dead cells show clean piece
-        const smearStrength = Math.max(0, 1 - (progress * 2)); // Smear fades over time
-        
-        if (smearStrength > 0.01 && smearBuffer[i + 3] > 0) {
-          // Blend smeared color with actual piece
-          screenPixels[i] = smearBuffer[i] * smearStrength + screenPixels[i] * (1 - smearStrength);
-          screenPixels[i + 1] = smearBuffer[i + 1] * smearStrength + screenPixels[i + 1] * (1 - smearStrength);
-          screenPixels[i + 2] = smearBuffer[i + 2] * smearStrength + screenPixels[i + 2] * (1 - smearStrength);
-        }
-        // else: piece pixel already correct, leave it
       }
     }
-  }
-  
-  // Log stats every 30 generations
-  if (generation % 30 === 0) {
-    console.log(`🧬 GOL: gen ${generation}/${maxGenerations}, alive: ${aliveCount}, dead: ${deadCount}, progress: ${(progress * 100).toFixed(1)}%`);
   }
 }
 
@@ -8806,10 +8786,28 @@ async function load(
     shouldSkipPaint = false;
     pieceFrameCount = 0;
     
-    // 🧬 Reset GOL transition state (but keep overlayPixels - it's the captured noise16!)
+    // 🧬 GOL Transition: Capture CURRENT screen pixels BEFORE clearing
+    // This enables piece-to-piece morphing transitions (not just noise16→piece)
+    // Check if buffer is valid (not detached from transfer to main thread)
+    try {
+      if (screen?.pixels && screen.width > 0 && screen.height > 0 && 
+          screen.pixels.buffer && !screen.pixels.buffer.detached && screen.pixels.byteLength > 0) {
+        golTransition.overlayPixels = new Uint8ClampedArray(screen.pixels);
+        golTransition.width = screen.width;
+        golTransition.height = screen.height;
+        console.log("🧬 GOL: Captured outgoing piece pixels for transition", screen.width, "x", screen.height);
+      }
+    } catch (e) {
+      // Buffer may be detached if pixels were transferred - skip transition
+      console.log("🧬 GOL: Could not capture pixels (buffer detached), skipping transition");
+      golTransition.overlayPixels = null;
+    }
+    
+    // Reset GOL transition state (overlayPixels now captured above)
     golTransition.active = false;
-    // golTransition.overlayPixels preserved - it's the captured noise16 before piece loads
-    golTransition.revealMap = null;
+    golTransition.cells = null;
+    golTransition.nextCells = null;
+    golTransition.smearBuffer = null;
     golTransition.generation = 0;
     
     // 🧹 Clear screen buffer when loading a new piece to prevent stale pixels
@@ -12335,9 +12333,9 @@ async function makeFrame({ data: { type, content } }) {
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
             
-            // 🧬 GOL Transition: Capture noise16 frame AFTER defaults.paint runs
+            // 🧬 GOL Transition: Also capture noise16 frame as fallback (for initial page load)
             if (paint === defaults.paint && $api.screen?.pixels) {
-              // Continuously capture the noise16 state - we want the LAST frame before piece loads
+              // Capture the noise16 state in case no piece was running before (initial load)
               golTransition.overlayPixels = new Uint8ClampedArray($api.screen.pixels);
               golTransition.width = $api.screen.width;
               golTransition.height = $api.screen.height;
@@ -12345,17 +12343,28 @@ async function makeFrame({ data: { type, content } }) {
             
             // 🧬 GOL Transition: Start transition when first piece paint happens
             if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && !golTransition.active && $api.screen?.pixels) {
-              // Check dimensions match
-              if ($api.screen.width === golTransition.width && $api.screen.height === golTransition.height) {
-                // Initialize GOL cells - starts with all alive (showing noise), seeded dead spots
-                initGOLCells(golTransition.width, golTransition.height);
-                golTransition.generation = 0;
-                golTransition.active = true;
-                console.log("🧬 GOL: Started overlay transition!", golTransition.width, "x", golTransition.height);
-              } else {
-                console.warn("🧬 GOL: Dimension mismatch on start, skipping transition");
-                golTransition.overlayPixels = null;
+              const screenW = $api.screen.width;
+              const screenH = $api.screen.height;
+              const overlayW = golTransition.width;
+              const overlayH = golTransition.height;
+              
+              // If dimensions differ, scale the overlay to match the new screen
+              if (screenW !== overlayW || screenH !== overlayH) {
+                console.log(`🧬 GOL: Scaling overlay from ${overlayW}x${overlayH} to ${screenW}x${screenH}`);
+                golTransition.overlayPixels = scaleOverlayPixels(
+                  golTransition.overlayPixels, 
+                  overlayW, overlayH, 
+                  screenW, screenH
+                );
+                golTransition.width = screenW;
+                golTransition.height = screenH;
               }
+              
+              // Initialize GOL cells - starts with all alive (showing overlay), seeded dead spots
+              initGOLCells(golTransition.width, golTransition.height);
+              golTransition.generation = 0;
+              golTransition.active = true;
+              console.log("🧬 GOL: Started overlay transition!", golTransition.width, "x", golTransition.height);
             }
             
             // Log first piece paint
