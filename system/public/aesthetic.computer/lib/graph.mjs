@@ -2154,6 +2154,12 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
              const scaleX = cW / targetW;
              const scaleY = cH / targetH;
              
+             // Apply pan translation to mask bounds for proper clipping
+             const maskX = activeMask ? activeMask.x + panTranslation.x : 0;
+             const maskY = activeMask ? activeMask.y + panTranslation.y : 0;
+             const maskW = activeMask ? activeMask.width : width;
+             const maskH = activeMask ? activeMask.height : height;
+             
              // Pre-calculate bounds
              const startY = Math.max(0, -destY);
              const endY = Math.min(targetH, height - destY);
@@ -2167,6 +2173,15 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
                  
                  for (let dx = startX; dx < endX; dx++) {
                      const destColX = destX + dx;
+                     
+                     // Check if destination pixel is within mask
+                     if (activeMask) {
+                       if (destColX < maskX || destColX >= maskX + maskW ||
+                           destRowY < maskY || destRowY >= maskY + maskH) {
+                         continue; // Skip pixels outside mask
+                       }
+                     }
+                     
                      const srcX = Math.floor(dx * scaleX);
                      const srcIdx = (srcY * cW + srcX) * 4;
                      const destIdx = destRowStart + destColX * 4;
