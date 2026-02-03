@@ -1700,7 +1700,18 @@ async function fun(event, context) {
             // Touch interaction visual feedback - ripple effect
             if(touchGlitch>0.05){var rippleR=(1-touchGlitch)*100*S+10*S;x.globalAlpha=touchGlitch*0.3;x.strokeStyle=isLightMode?'rgb(100,60,140)':'rgb(200,150,255)';x.lineWidth=2*S;x.beginPath();x.arc(touchX*W,touchY*H,rippleR,0,Math.PI*2);x.stroke();x.globalAlpha=1;}
             x.globalAlpha=1;requestAnimationFrame(anim);}anim();
-          var obj={log:add,hide:function(){run=false;c.remove();},setHandle:setH,addFile:addFile,netPulse:netPulse,setSessionConnected:setConn,setErrorMode:setErrorMode};Object.defineProperty(obj,'motd',{get:function(){return motd;},set:function(v){motd=v;motdStart=performance.now();}});Object.defineProperty(obj,'motdHandle',{get:function(){return motdHandle;},set:function(v){motdHandle=v||'';}});return obj;})();
+          // GIVE variant minimum display time: ensure full word cycle (7 words × 800ms = 5600ms)
+          var giveMinDuration=giveVariant?5600:0;
+          var bootStartedAt=performance.now();
+          var obj={log:add,hide:function(){
+            var elapsed=performance.now()-bootStartedAt;
+            if(giveVariant&&elapsed<giveMinDuration){
+              // Delay hide until minimum duration reached
+              setTimeout(function(){run=false;c.remove();},giveMinDuration-elapsed);
+            }else{
+              run=false;c.remove();
+            }
+          },setHandle:setH,addFile:addFile,netPulse:netPulse,setSessionConnected:setConn,setErrorMode:setErrorMode};Object.defineProperty(obj,'motd',{get:function(){return motd;},set:function(v){motd=v;motdStart=performance.now();}});Object.defineProperty(obj,'motdHandle',{get:function(){return motdHandle;},set:function(v){motdHandle=v||'';}});return obj;})();
           window.acBOOT_LOG_CANVAS=function(m){if(window.acBootCanvas&&window.acBootCanvas.log)window.acBootCanvas.log(m);};
           window.acBOOT_ADD_FILE=function(n,s){if(window.acBootCanvas&&window.acBootCanvas.addFile)window.acBootCanvas.addFile(n,s);};
           window.acBOOT_NET_PULSE=function(){if(window.acBootCanvas&&window.acBootCanvas.netPulse)window.acBootCanvas.netPulse();};
