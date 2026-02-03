@@ -386,8 +386,8 @@ function boot({
               left: calc(50% - calc(${cssWidth}px / 2));
               width: ${cssWidth}px;
               height: ${cssHeight}px;
-              background: yellow;
-              opacity: 0.25;
+              opacity: 0;
+              pointer-events: auto;
               object-fit: contain;
               image-rendering: pixelated;
               -webkit-user-select: all;
