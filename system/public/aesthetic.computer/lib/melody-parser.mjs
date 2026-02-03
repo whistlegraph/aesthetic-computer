@@ -846,7 +846,34 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
   }
   
   // Split the melody string by whitespace to get individual groups
-  const groups = processedMelodyString.split(/\s+/).filter(group => group.length > 0);
+  // BUT don't split on spaces inside {} braces (e.g., {"hello world"}ceg stays as one group)
+  const groups = [];
+  let currentGroup = '';
+  let braceDepth = 0;
+  
+  for (let i = 0; i < processedMelodyString.length; i++) {
+    const char = processedMelodyString[i];
+    
+    if (char === '{') {
+      braceDepth++;
+      currentGroup += char;
+    } else if (char === '}') {
+      braceDepth--;
+      currentGroup += char;
+    } else if (/\s/.test(char) && braceDepth === 0) {
+      // Space outside braces - group boundary
+      if (currentGroup.length > 0) {
+        groups.push(currentGroup);
+        currentGroup = '';
+      }
+    } else {
+      currentGroup += char;
+    }
+  }
+  // Push final group
+  if (currentGroup.length > 0) {
+    groups.push(currentGroup);
+  }
   
   console.log("🎵 MELODY PARSER: Splitting melody into groups:", { 
     original: processedMelodyString, 
