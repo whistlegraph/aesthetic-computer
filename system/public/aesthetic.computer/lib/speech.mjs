@@ -73,17 +73,19 @@ function speak(words, voice, mode = "local", opts = {}) {
       const id = label + "_" + performance.now(); // An id for this sample.
       
       // Calculate speed from pitch if provided (frequency in Hz)
-      // Assumes sample's base pitch is around 200Hz for speech
+      // For musical pitch shifting, we use C4 (261.63Hz) as the base pitch
+      // so that note pitches directly correspond to playback speed ratios
       let speed = opts.reverse ? -1 : 1;
       if (isFinite(opts.pitch)) {
-        const basePitch = opts.basePitch || 200; // Speech base frequency ~200Hz
+        const basePitch = opts.basePitch || 261.63; // C4 - middle C as musical reference
         speed = opts.pitch / basePitch;
+        console.log("🗣️ Pitch shift:", { pitch: opts.pitch, basePitch, speed: speed.toFixed(3) });
       } else if (isFinite(opts.speed)) {
         speed = opts.speed;
       }
       
       const vol = isFinite(opts.volume) ? opts.volume : 1;
-      console.log("🗣️ playSfx:", { speed, vol, pitch: opts.pitch });
+      console.log("🗣️ playSfx:", { speed: speed.toFixed(3), vol, pitch: opts.pitch });
       
       speakAPI.playSfx(
         id,

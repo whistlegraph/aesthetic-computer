@@ -207,6 +207,16 @@ let cachedClockCode = null; // Short code for QR display after caching to API
 let cachedClockAuthor = null; // Author handle for byline display (e.g., "@handle" or null for anon)
 let octaveFlashTime = 0; // Track when octave changed for flash effect
 
+// Loading state system - wait for samples before playback
+let loadingState = {
+  isLoading: false,
+  samplesNeeded: 0,
+  samplesLoaded: 0,
+  readyToPlay: true, // Start true for melodies without samples
+  loadStartTime: 0,
+  pendingPromises: [],
+};
+
 // Enhanced melody state for simultaneous tracks
 let melodyTracks = null; // Will store parsed simultaneous tracks
 let melodyState = null;
@@ -424,29 +434,46 @@ function preloadMelodySpeech(melodyState, speak, num, help) {
 }
 
 // Preload say texts for {say} waveform type (pitched speech samples)
-function preloadSayTexts(melodyState, speak, num) {
-  if (!melodyState || !speak) return;
+// Returns a promise that resolves when all samples are loaded
+async function preloadSayTexts(melodyState, speak, num) {
+  if (!melodyState || !speak) return [];
   
   const sayTexts = extractSayTexts(melodyState);
   
-  if (sayTexts.size === 0) return;
+  if (sayTexts.size === 0) return [];
   
   console.log(`🗣️ Preloading ${sayTexts.size} say samples for {say} waveform...`);
+  
+  const loadPromises = [];
   
   sayTexts.forEach(text => {
     // Skip if already queued
     if (sayCacheQueue.has(text)) return;
     sayCacheQueue.add(text);
     
-    // Trigger silent fetch to cache the speech using plain text (no SSML)
-    // This ensures a single cached audio that we can pitch-shift via playback speed
-    speak(text, "female:18", "cloud", {
-      volume: 0, // Silent generation for caching
-      skipCompleted: true,
+    // Create a promise that resolves when the sample is loaded
+    const loadPromise = new Promise((resolve) => {
+      // Trigger fetch to cache the speech using plain text (no SSML)
+      // This ensures a single cached audio that we can pitch-shift via playback speed
+      speak(text, "female:18", "cloud", {
+        volume: 0, // Silent generation for caching
+        skipCompleted: true,
+      });
+      
+      // Resolve after a reasonable time for loading
+      // TODO: Replace with actual load completion callback from speech system
+      setTimeout(() => {
+        loadingState.samplesLoaded++;
+        console.log(`🗣️ Loaded say text: "${text}" (${loadingState.samplesLoaded}/${loadingState.samplesNeeded})`);
+        resolve(text);
+      }, 1500); // Give 1.5s for each sample to load
     });
     
+    loadPromises.push(loadPromise);
     console.log(`🗣️ Preloading say text: "${text}"`);
   });
+  
+  return loadPromises;
 }
 
 // Helper functions for managing per-track cumulative Hz states
@@ -1234,7 +1261,27 @@ async function boot({ ui, clock, params, colon, hud, screen, typeface, api, spea
   // Preload speech for instant playback if speak function is available
   if (speak && melodyState) {
     preloadMelodySpeech(melodyState, speak, num, help);
-    preloadSayTexts(melodyState, speak, num); // Preload {say} waveform texts
+    
+    // Preload {say} waveform texts and wait for them to load
+    const sayLoadPromises = await preloadSayTexts(melodyState, speak, num);
+    
+    if (sayLoadPromises.length > 0) {
+      loadingState.isLoading = true;
+      loadingState.readyToPlay = false;
+      loadingState.samplesNeeded = sayLoadPromises.length;
+      loadingState.samplesLoaded = 0;
+      loadingState.loadStartTime = performance.now();
+      loadingState.pendingPromises = sayLoadPromises;
+      
+      console.log(`🗣️ Waiting for ${sayLoadPromises.length} say samples to load...`);
+      
+      // Wait for all samples to finish loading
+      await Promise.all(sayLoadPromises);
+      
+      loadingState.isLoading = false;
+      loadingState.readyToPlay = true;
+      console.log(`🗣️ All say samples loaded! Ready to play.`);
+    }
   }
 
   // Cache melody to API for QR shortcode (fire and forget, don't block boot)
@@ -1447,6 +1494,17 @@ function paint({
     if (typeof hud !== "undefined" && hud.label) {
       // Check if melody timing has started (based on whether first synth has fired)
       const melodyTimingStarted = hasFirstSynthFired;
+
+      // Show loading indicator if samples are still loading
+      if (!loadingState.readyToPlay && loadingState.isLoading) {
+        const loadProgress = loadingState.samplesNeeded > 0 
+          ? `${loadingState.samplesLoaded}/${loadingState.samplesNeeded}`
+          : "...";
+        const loadingStr = `\\yellow\\clock \\white\\Loading samples ${loadProgress}`;
+        hud.supportsInlineColor = true;
+        hud.label(loadingStr, undefined, 0, `clock Loading samples ${loadProgress}`);
+        return; // Skip the rest of the HUD rendering while loading
+      }
 
       // Provide "clock" prefix plus melody content - let disk.mjs handle all coloring
       let previewStringDecorative = "";
@@ -4650,6 +4708,8 @@ function createManagedSound(
     const baseFreq = sound.freq(tone);
     const finalFreq = baseFreq + (toneShift || 0);
     
+    console.log(`🗣️ SAY createManagedSound: waveType=${waveType}, sayText="${sayText}", tone=${tone}, freq=${Math.round(finalFreq)}Hz`);
+    
     // Use speak function with pitch option - this uses speakAPI.playSfx directly in bios
     // which has access to the speech cache (sound.play goes through worker and can't access it)
     if (speakRef) {
@@ -4659,6 +4719,8 @@ function createManagedSound(
         loop: false, // Speech samples should play once, not loop
         skipCompleted: true,
       });
+    } else {
+      console.error("🗣️ SAY ERROR: speakRef is not set!");
     }
     
     console.log(`🗣️ SAY: "${sayText}" @ ${tone} (${Math.round(finalFreq)}Hz) vol:${volume.toFixed(2)} ${struck ? 'struck' : 'held'}`);
@@ -5978,6 +6040,13 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
         "trackStates:", melodyState.trackStates?.length,
         "tracks:", melodyState.tracks?.length);
     }
+    
+    // Block playback until samples are ready
+    if (!loadingState.readyToPlay) {
+      // Still loading samples - don't start playback yet
+      return;
+    }
+    
     if (hasContent) {
       if (melodyState.type === "single") {
         // Single track timing - use simple direct timing
