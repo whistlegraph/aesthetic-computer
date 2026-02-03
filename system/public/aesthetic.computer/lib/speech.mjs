@@ -125,6 +125,10 @@ function speak(words, voice, mode = "local", opts = {}) {
     
     if (speakAPI.sfx[label] && !needsBust) {
       console.log("🗣️ Local cache hit:", label);
+      // For preloadOnly, immediately resolve since already cached
+      if (opts.preloadOnly) {
+        return Promise.resolve(label);
+      }
       play();
       return;
     }
