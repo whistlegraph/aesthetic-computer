@@ -2036,7 +2036,7 @@ app.get('/app-screenshots/:preset/:piece.png', async (req, res) => {
           format: 'png',
           width,
           height,
-          density: 1,
+          density: 4, // Pixel art look - render at 1/4 res then scale up
           skipCache: force,
         });
         
@@ -2099,7 +2099,7 @@ app.get('/app-screenshots/download/:piece', async (req, res) => {
             format: 'png',
             width: preset.width,
             height: preset.height,
-            density: 1,
+            density: 4, // Pixel art look - render at 1/4 res then scale up
           });
           
           if (!result.success) throw new Error(result.error);
