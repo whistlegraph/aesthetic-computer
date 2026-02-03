@@ -1401,7 +1401,7 @@ async function fun(event, context) {
               var giveFS=Math.floor(Math.min(H*0.14, W/(longestLine*0.65)));
               var lineH=giveFS*1.1;
               var totalH=linesToShow.length*lineH;
-              var startY=Math.floor(H*0.66)-totalH/2;
+              var startY=Math.floor(H*0.60)-totalH/2;
               for(var lineIdx=0;lineIdx<linesToShow.length;lineIdx++){
                 var lineText=linesToShow[lineIdx];
                 x.font='bold '+giveFS+'px YWFTProcessing-Bold, monospace';
