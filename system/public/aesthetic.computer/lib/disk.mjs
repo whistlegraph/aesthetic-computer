@@ -1133,7 +1133,7 @@ function golStep(screenPixels) {
   return golTransition.generation < golTransition.maxGenerations;
 }
 
-// 🧬 Apply biological flowing morph transition
+// 🧬 Apply biological chunky smoothie morph - pixels get blended and scrambled
 function applyGOLOverlay(screenPixels) {
   const { overlayPixels, width, height, generation, maxGenerations } = golTransition;
   if (!overlayPixels || !screenPixels) return;
@@ -1146,54 +1146,80 @@ function applyGOLOverlay(screenPixels) {
     : 1 - Math.pow(-2 * progress + 2, 2) / 2;
   
   // Time offset for animated noise
-  const t = generation * 0.08;
+  const t = generation * 0.1;
   
-  // Displacement peaks mid-transition
+  // Displacement peaks mid-transition - CHUNKY
   const dispPeak = Math.sin(progress * Math.PI);
-  const maxDisp = dispPeak * 12;
+  const maxDisp = dispPeak * 16;
+  
+  // Block size for chunky feel
+  const bs = 4;
   
   for (let y = 0; y < height; y++) {
     const rowOff = y * width;
+    // Quantize y for chunky blocks
+    const qy = (y / bs | 0) * bs;
     
     for (let x = 0; x < width; x++) {
       const i = (rowOff + x) * 4;
+      // Quantize x for chunky blocks
+      const qx = (x / bs | 0) * bs;
       
-      // Organic noise for per-pixel dissolve threshold
-      const n1 = Math.sin(x * 0.03 + t) * Math.cos(y * 0.025 + t * 0.7);
-      const n2 = Math.sin(x * 0.07 + y * 0.05 - t * 0.5) * 0.4;
-      const n3 = Math.cos(x * 0.015 - y * 0.02 + t * 0.3) * 0.3;
-      const noise = (n1 + n2 + n3) * 0.5 + 0.5; // 0-1
+      // Organic noise at block resolution for chunky dissolve
+      const n1 = Math.sin(qx * 0.05 + t) * Math.cos(qy * 0.04 + t * 0.7);
+      const n2 = Math.sin(qx * 0.09 + qy * 0.07 - t * 0.6) * 0.5;
+      const n3 = Math.cos(qx * 0.02 - qy * 0.03 + t * 0.4) * 0.4;
+      const noise = (n1 + n2 + n3) * 0.5 + 0.5;
       
-      // Per-pixel blend with organic variation
-      const threshold = eased * 1.4 - 0.2;
-      const edge = 0.25;
-      let blend = (threshold - noise * 0.8) / edge;
+      // Per-block blend with organic variation
+      const threshold = eased * 1.5 - 0.25;
+      const edge = 0.3;
+      let blend = (threshold - noise * 0.85) / edge;
       blend = blend < 0 ? 0 : blend > 1 ? 1 : blend;
       
-      // Flowing displacement based on noise
-      const dispX = (Math.sin(x * 0.04 + y * 0.02 + t * 1.2) - 0.5) * maxDisp * (1 - blend);
-      const dispY = (Math.cos(x * 0.03 - y * 0.04 + t * 0.9) - 0.5) * maxDisp * (1 - blend);
+      // SMOOTHIE: chaotic displacement that samples from BOTH frames
+      const swirl = Math.sin(qx * 0.06 + qy * 0.04 + t * 1.5) * maxDisp;
+      const churn = Math.cos(qx * 0.05 - qy * 0.07 + t * 1.2) * maxDisp;
       
-      // Sample old frame with displacement
-      let sx = (x + dispX) | 0;
-      let sy = (y + dispY) | 0;
-      sx = sx < 0 ? 0 : sx >= width ? width - 1 : sx;
-      sy = sy < 0 ? 0 : sy >= height ? height - 1 : sy;
-      const si = (sy * width + sx) * 4;
+      // Sample old frame with swirling displacement
+      let ox = (x + swirl) | 0;
+      let oy = (y + churn) | 0;
+      ox = ox < 0 ? 0 : ox >= width ? width - 1 : ox;
+      oy = oy < 0 ? 0 : oy >= height ? height - 1 : oy;
+      const oi = (oy * width + ox) * 4;
       
-      // Get colors
-      const oldR = overlayPixels[si];
-      const oldG = overlayPixels[si + 1];
-      const oldB = overlayPixels[si + 2];
-      const newR = screenPixels[i];
-      const newG = screenPixels[i + 1];
-      const newB = screenPixels[i + 2];
+      // Sample new frame with OPPOSITE swirl - mixing!
+      let nx = (x - churn * 0.7) | 0;
+      let ny = (y + swirl * 0.6) | 0;
+      nx = nx < 0 ? 0 : nx >= width ? width - 1 : nx;
+      ny = ny < 0 ? 0 : ny >= height ? height - 1 : ny;
+      const ni = (ny * width + nx) * 4;
       
-      // Smooth biological morph
+      // Get swirled colors from both
+      const oldR = overlayPixels[oi];
+      const oldG = overlayPixels[oi + 1];
+      const oldB = overlayPixels[oi + 2];
+      const newR = screenPixels[ni];
+      const newG = screenPixels[ni + 1];
+      const newB = screenPixels[ni + 2];
+      
+      // Chunky biological blend - smoothie mix!
       const inv = 1 - blend;
-      screenPixels[i] = oldR * inv + newR * blend;
-      screenPixels[i + 1] = oldG * inv + newG * blend;
-      screenPixels[i + 2] = oldB * inv + newB * blend;
+      let r = oldR * inv + newR * blend;
+      let g = oldG * inv + newG * blend;
+      let b = oldB * inv + newB * blend;
+      
+      // Extra chaos: sometimes swap channels mid-transition
+      if (dispPeak > 0.5 && ((qx + qy + generation) & 7) === 0) {
+        const tmp = r;
+        r = g;
+        g = b;
+        b = tmp;
+      }
+      
+      screenPixels[i] = r;
+      screenPixels[i + 1] = g;
+      screenPixels[i + 2] = b;
     }
   }
 }
