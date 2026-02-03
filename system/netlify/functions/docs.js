@@ -1714,8 +1714,8 @@ export async function handler(event, context) {
       },
       handles: {
         sig: "handles",
-        desc: "A directory of user handles.",
-        done: false,
+        desc: "Browse all user handles.",
+        done: true,
       },
       ul: {
         sig: "ul",
@@ -2269,6 +2269,11 @@ export async function handler(event, context) {
         ],
         examples: ["clock cdefg", "clock:0.5 {square}cdefgab", "clock (ceg) (dfa)", "clock ^cdefg"],
         done: true
+      },
+      commits: {
+        sig: "commits",
+        desc: "Browse the live commit history.",
+        done: true,
       },
       crop: {
         sig: "crop",

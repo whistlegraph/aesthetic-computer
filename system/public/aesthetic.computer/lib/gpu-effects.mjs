@@ -320,7 +320,9 @@ void main() {
 // SHARPEN SHADER - Unsharp mask convolution
 // =========================================================================
 const SHARPEN_FRAGMENT_SHADER = `#version 300 es
-precision highp float;
+// Use mediump for better compatibility with low-end mobile GPUs (e.g. Unihertz Jelly)
+// Sharpen doesn't need highp - it's just texture sampling and simple math
+precision mediump float;
 
 uniform sampler2D u_texture;
 uniform vec2 u_resolution;
@@ -1016,6 +1018,27 @@ export function gpuSharpen(pixels, width, height, strength = 1, mask = null) {
     
     // Read back pixels (flip Y)
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
+    
+    // Sanity check: if readback is all zeros but input wasn't, GPU likely failed
+    // Check a sample of pixels to detect blank/corrupted output (for low-end GPUs like Unihertz Jelly)
+    let hasNonZero = false;
+    const sampleStep = Math.max(1, Math.floor(readbackBuffer.length / 100)); // Check ~100 samples
+    for (let i = 0; i < readbackBuffer.length && !hasNonZero; i += sampleStep) {
+      if (readbackBuffer[i] !== 0) hasNonZero = true;
+    }
+    
+    // Check if input had non-zero pixels (sample the same way)
+    let inputHadData = false;
+    for (let i = 0; i < pixels.length && !inputHadData; i += sampleStep) {
+      if (pixels[i] !== 0) inputHadData = true;
+    }
+    
+    if (inputHadData && !hasNonZero) {
+      console.warn('🎮 GPU Sharpen: Output appears blank - falling back to CPU');
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return false;
+    }
+    
     const rowSize = width * 4;
     for (let y = 0; y < height; y++) {
       const srcRow = (height - 1 - y) * rowSize;

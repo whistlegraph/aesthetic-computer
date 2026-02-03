@@ -1016,8 +1016,8 @@ async function fun(event, context) {
           window.acBootCanvas=(function(){var c=document.getElementById('boot-canvas');if(!c)return{};
           // Check for noboot param - skip all boot animation for clean device display
           var qs=location.search||'';var params=new URLSearchParams(qs);
-          console.log('[BOOT] noboot check:', params.get('noboot'), 'qs:', qs);
-          if(params.get('noboot')==='true'){console.log('[BOOT] noboot=true - hiding boot canvas');c.style.display='none';return{hide:function(){},log:function(){},netPulse:function(){},addFile:function(){},setHandle:function(){},setSessionConnected:function(){},setErrorMode:function(){}};}
+          console.log('[BOOT] noboot check:', params.get('noboot'), params.has('noboot'), 'qs:', qs);
+          if(params.has('noboot')||params.get('noboot')==='true'){console.log('[BOOT] noboot - hiding boot canvas');c.style.display='none';return{hide:function(){},log:function(){},netPulse:function(){},addFile:function(){},setHandle:function(){},setSessionConnected:function(){},setErrorMode:function(){}};}
           var x=c.getContext('2d',{willReadFrequently:true});x.imageSmoothingEnabled=false;
           // Detect kidlisp.com iframe context and system light/dark mode for themed boot animation
           // Also detect based on nolabel/nogap query params which indicate embedded preview mode
@@ -1037,11 +1037,27 @@ async function fun(event, context) {
           // KidLisp theme: warm orange/yellow tones vs AC purple/pink, with light mode variants
           // AC Light mode: warm browns/greens/purples on sandy background (matching VS Code AC Light theme)
           var SYN=isKidlisp?(isLightMode?{kw:[180,100,20],fn:[160,120,20],str:[180,80,40],num:[40,140,40],cmt:[80,130,60],op:[80,60,40],tp:[180,120,40],vr:[140,100,20]}:{kw:[255,180,80],fn:[255,220,100],str:[255,160,120],num:[180,255,180],cmt:[120,180,120],op:[240,240,200],tp:[255,200,120],vr:[255,230,150]}):(isLightMode?{kw:[107,43,107],fn:[0,100,0],str:[139,69,19],num:[0,100,0],cmt:[107,142,35],op:[40,30,90],tp:[0,128,128],vr:[56,122,223]}:{kw:[197,134,192],fn:[220,220,170],str:[206,145,120],num:[181,206,168],cmt:[106,153,85],op:[212,212,212],tp:[78,201,176],vr:[156,220,254]});
+          // GIVE variant syntax colors - green $ signs and red/yellow GIVE text
+          var GIVE_SYN={kw:[255,100,100],fn:[255,200,100],str:[255,150,150],num:[100,255,100],cmt:[255,255,100],op:[255,255,255],tp:[255,200,100],vr:[255,180,180],dollar:[50,255,50],give:[255,50,50]};
           var COLS={'.mjs':isLightMode?'#e8dcc8':'#1e3a5f','.js':isLightMode?'#dce8d0':'#2d4a3e','.lisp':isKidlisp?(isLightMode?'#e0d0a0':'#3d3020'):(isLightMode?'#e8d8e0':'#3d2a4a'),default:isKidlisp?(isLightMode?'#f0e8d0':'#2a2010'):(isLightMode?'#f5ebe0':'#1a2433')};
           var PAGECOLS=isKidlisp?(isLightMode?['#f5e8d0','#f0e0c0','#f5e0d0','#f0e8c8','#f5e4c8','#f0dcc0','#f5e0c8','#f0e4d0']:['#2d1a0d','#3d2810','#2d2010','#3d3010','#2d2a10','#3d2a08','#2d1810','#3d2010']):(isLightMode?['#fcf7c5','#f5f0c0','#fffacd','#f5ebe0','#e8e3b0','#f0ebd0','#e8dcc8','#fcf5c8']:['#0d1a2d','#0d2d1a','#2d0d1a','#1a0d2d','#1a2d0d','#2d1a0d','#0d1a1a','#1a1a2d']);
           var files=[],scrollYs={},bootStart=performance.now(),motd='',motdHandle='',motdStart=0;
           var lines=[],lc=0,mL=10,lastLog=performance.now(),lb=0,bp=0;
           var tinyPng='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABWUlEQVR4nN2Ru0pDQRCGg3fUzk5bEVS0ELxVwQsYTRBvJ5ed3VgZVBB8g1Q+gCDIzq6IluclUktmT1Kk8mWUWT2RTcBep1nmZ//vn53NZP5XOWU3ndTlOIoHe/UE8MxJM8s9SdxuVR9nAnMneph0Up+25esECSwEAGFK3gh4SwIvnDQ5UrgXAN5v7kcJ9HUjWx/iKZwyJ6RsxMkEWPzSTY7A5psVsxaYG+fPYyTNFZ8+qaaHSRjhzcpGrSou+knKdprH70t2Ci+Z7qS56wIAj9M7DPkJskcBIAG96gHKzKdv/X5vkU+/E7B5AtxI4GnBKasSpXf5brBIqulxB/qQjZzO4/uxwe68qZep7l6EXmKNQemv+GIzE5vKHKTL87owpbbCOQK9wj1Jvc59prcSwAqnd6J4hM0pgGGsf9TrA32mACD0Pu/Dp1bNcqJ01gMEFkjYrV/Nf7s+AS1XxDy7PXOrAAAAAElFTkSuQmCC',img=new Image(),imgFull=new Image(),imgFullLoaded=!1;img.src=tinyPng;imgFull.onload=function(){imgFullLoaded=!0};imgFull.src='/purple-pals.svg';
+          // A/B Test: "GIVE" variant - 100% for testing (change back to 0.20 for production)
+          // Force with ?give=true or ?abtest=give, disable with ?give=false
+          var giveForced=params.get('give')==='true'||params.get('abtest')==='give';
+          var giveDisabled=params.get('give')==='false';
+          var giveVariant=!isKidlisp&&!isDeviceMode&&!giveDisabled&&(giveForced||Math.random()<1.0);
+          if(giveVariant)console.log('[BOOT] 🎁 A/B Test: GIVE variant active - showing donation CTA');
+          var giveUrl='give.aesthetic.computer';var giveMsg='HELP AC THRIVE';
+          var giveFlyBys=[],giveLastSpawn=0,GIVE_SPAWN_INTERVAL=2500;
+          // HIGH CONTRAST black bg with bright red/white/yellow - very clear and alarming
+          var GIVE_COLORS=['#ff0000','#ffffff','#ffff00','#ff0000','#ffffff','#ffff00'];
+          var GIVE_BG_COLOR='#000000';
+          function spawnGiveFlyBy(S){var dir=Math.random()>0.5?1:-1;var startX=dir>0?-W*0.4:W*1.4;var yPos=H*0.2+Math.random()*H*0.35;var speed=(0.8+Math.random()*1.2)*S*dir;var text=Math.random()>0.4?giveUrl:'GIVE';var scale=1.5+Math.random()*1.5;giveFlyBys.push({x:startX,y:yPos,text:text,speed:speed,rot:0,scale:scale,col:GIVE_COLORS[Math.floor(Math.random()*GIVE_COLORS.length)],life:1,trail:[]});}
+          // GIVE mode fake "source code" with $$ and GIVE
+          var giveCodeLines=['// GIVE GIVE GIVE','$$$$ GIVE $$$$','function GIVE() {','  return $$$;','}','// $$ SUPPORT $$','GIVE.now();','$$$ DONATE $$$','const $ = GIVE;','// aesthetic.computer','GIVE GIVE GIVE','$$.support();','await GIVE();','// HELP US GROW','$$$$$$$$$$','GIVE(); GIVE();','$ $ $ $ $ $ $','// THANK YOU','GIVE.aesthetic','$$ GIVE $$ GIVE'];
           var uH=null,hST=0,run=true,f=0,netAct=0,shCan=document.createElement('canvas'),shCtx=shCan.getContext('2d'),shF=0;
           var sessionConnected=false,connFlash=0,connFlashStart=0;
           var KWS=['import','export','const','let','function','async','await','return','from','if','else','for','while','class','new','this','var','try','catch'];
@@ -1053,8 +1069,15 @@ async function fun(event, context) {
               continue;}
             var next=line?line+' '+w:w;if(next.length<=maxChars){line=next;}else{if(line)lines.push(line);line=w;}}
           if(line)lines.push(line);return lines;}
-          function tok(ln){var r=[],i=0,s=ln;while(i<s.length){if(s.slice(i,i+2)==='//'){ r.push([s.slice(i),'cmt']);break;}var fk=false;for(var k=0;k<KWS.length;k++){var kw=KWS[k];if(s.slice(i,i+kw.length)===kw){var nc=s[i+kw.length]||'';if(!/[a-zA-Z0-9_]/.test(nc)){r.push([kw,'kw']);i+=kw.length;fk=true;break;}}}if(fk)continue;var ch=s[i];if(ch==='"'||ch==="'"||ch==='\`'){var q=ch,j=i+1;while(j<s.length&&s[j]!==q){if(s[j]==='\\\\')j++;j++;}r.push([s.slice(i,j+1),'str']);i=j+1;continue;}if(/[0-9]/.test(ch)){var j=i;while(/[0-9.]/.test(s[j]))j++;r.push([s.slice(i,j),'num']);i=j;continue;}if(/[a-zA-Z_$]/.test(ch)){var j=i;while(/[a-zA-Z0-9_$]/.test(s[j]))j++;var w=s.slice(i,j);r.push([w,s[j]==='('?'fn':'vr']);i=j;continue;}r.push([ch,'op']);i++;}return r;}
-          var scrollSpds={};function addFile(name,src){if(isKidlisp)return;if(shownFiles[name])return;shownFiles[name]=true;netAct=1;var ls=src.split('\\n').slice(0,100),ext=(name.match(/\\.[^.]+$/)||[''])[0];var toks=ls.map(tok);fileQ.push({name:name,toks:toks});files.push({name:name,lines:ls,ext:ext,toks:toks,total:ls.length,cH:(ls.length+3)*LH});scrollYs[name]=0;scrollSpds[name]=2+Math.floor(Math.random()*5);}
+          function tok(ln){var r=[],i=0,s=ln||'';while(i<s.length){if(s.slice(i,i+2)==='//'){ r.push([s.slice(i),'cmt']);break;}
+            // GIVE mode: recognize $ and GIVE as special tokens
+            if(s[i]==='$'){var j=i;while(j<s.length&&s[j]==='$')j++;r.push([s.slice(i,j),'dollar']);i=j;continue;}
+            if(s.slice(i,i+4)==='GIVE'&&!/[a-zA-Z0-9_]/.test(s[i+4]||'')){r.push(['GIVE','give']);i+=4;continue;}
+            var fk=false;for(var k=0;k<KWS.length;k++){var kw=KWS[k];if(s.slice(i,i+kw.length)===kw){var nc=s[i+kw.length]||'';if(!/[a-zA-Z0-9_]/.test(nc)){r.push([kw,'kw']);i+=kw.length;fk=true;break;}}}if(fk)continue;var ch=s[i];if(ch==='"'||ch==="'"||ch==='\`'){var q=ch,j=i+1;while(j<s.length&&s[j]!==q){if(s[j]==='\\\\')j++;j++;}r.push([s.slice(i,j+1),'str']);i=j+1;continue;}if(/[0-9]/.test(ch)){var j=i;while(j<s.length&&/[0-9.]/.test(s[j]))j++;r.push([s.slice(i,j),'num']);i=j;continue;}if(/[a-zA-Z_]/.test(ch)){var j=i;while(j<s.length&&/[a-zA-Z0-9_]/.test(s[j]))j++;var w=s.slice(i,j);r.push([w,s[j]==='('?'fn':'vr']);i=j;continue;}r.push([ch,'op']);i++;}return r;}
+          var scrollSpds={};function addFile(name,src){if(isKidlisp)return;if(shownFiles[name])return;shownFiles[name]=true;netAct=1;var ls=src.split('\\n').slice(0,100),ext=(name.match(/\\.[^.]+$/)||[''])[0];var toks=ls.map(tok);
+            // In GIVE variant, inject GIVE/$$ lines throughout
+            if(giveVariant){var injected=[];for(var li=0;li<toks.length;li++){injected.push(toks[li]);if(Math.random()<0.4){var gLine=giveCodeLines[Math.floor(Math.random()*giveCodeLines.length)];injected.push(tok(gLine));}}toks=injected;}
+            fileQ.push({name:name,toks:toks});files.push({name:name,lines:ls,ext:ext,toks:toks,total:ls.length,cH:(ls.length+3)*LH});scrollYs[name]=0;scrollSpds[name]=2+Math.floor(Math.random()*5);}
           function netPulse(){netAct=Math.min(1,netAct+0.5);}
           function add(m){var now=performance.now(),dt=now-lastLog;lastLog=now;lb=Math.min(1,500/Math.max(50,dt))*0.5+0.5;if(lines.length>0)lines[0].text=lines[0].text.replace(/_$/,'');lines.unshift({text:m+'_',time:now,burst:lb});if(lines.length>mL)lines.pop();lc++;bp=Math.min(1,lc/25);}
           var KIDLISP_BARS=[];
@@ -1077,6 +1100,9 @@ async function fun(event, context) {
           function handleInteraction(ex,ey){touchGlitch=Math.min(1.5,touchGlitch+0.4);touchX=ex/W;touchY=ey/H;lastTouch=performance.now();
             // Add some extra chaos when touched
             lb=Math.min(1,lb+0.3);bp=Math.min(1,bp+0.1);}
+          // GIVE variant click handler - tap anywhere opens give.aesthetic.computer
+          var giveOpened=false;
+          c.addEventListener('click',function(e){if(giveVariant&&!giveOpened){giveOpened=true;window.open('https://give.aesthetic.computer','_blank');}});
           c.addEventListener('touchstart',function(e){e.preventDefault();var t=e.touches[0];if(t)handleInteraction(t.clientX/SCL,t.clientY/SCL);},{passive:false});
           c.addEventListener('touchmove',function(e){e.preventDefault();var t=e.touches[0];if(t)handleInteraction(t.clientX/SCL,t.clientY/SCL);},{passive:false});
           c.addEventListener('mousedown',function(e){handleInteraction(e.clientX/SCL,e.clientY/SCL);});
@@ -1109,6 +1135,366 @@ async function fun(event, context) {
               var logFS=densityParam===1&&isDeviceMode?Math.max(14,Math.floor(H/60)):4*S*dS;
               x.font=logFS+'px monospace';var logY=(densityParam===1&&isDeviceMode?Math.floor(H/20):8*S*dS)+embedPad;var logSpacing=densityParam===1&&isDeviceMode?Math.floor(logFS*1.5):4*S*dS;for(var li=0;li<lines.length&&li<10;li++){var ln=lines[li],ly=logY+li*logSpacing,la=Math.max(0.3,1-li*0.08),lc=klCols[li%klCols.length];var tw=x.measureText(ln.text).width;var logX=densityParam===1&&isDeviceMode?20:6*S*dS;var textX=densityParam===1&&isDeviceMode?30:10*S*dS;var pillH=densityParam===1&&isDeviceMode?Math.floor(logFS*1.2):4*S*dS;var pillR=densityParam===1&&isDeviceMode?6:2*S*dS;x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.beginPath();x.roundRect(logX,ly-pillH*0.7,tw+20,pillH,pillR);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.fillText(ln.text,textX,ly);}
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
+            // GIVE variant: HIGH ALERT SIREN MODE - keep logo/logs, add alarm effects
+            if(giveVariant){
+              var now=performance.now();
+              // CRISP NEAREST-NEIGHBOR MODE
+              x.imageSmoothingEnabled=false;
+              x.imageSmoothingQuality='low';
+              // Check if processing font is loaded and track when it became ready
+              var fontReady=false;
+              try{fontReady=document.fonts.check('bold 12px YWFTProcessing-Bold');}catch(e){fontReady=true;}
+              if(fontReady&&!window.acFontReadyTime)window.acFontReadyTime=now;
+              var fontRevealTime=window.acFontReadyTime||now;
+              var revealElapsed=(now-fontRevealTime)/1000;
+              // Characters reveal at ~30 chars/sec with bling
+              var charsRevealed=Math.floor(revealElapsed*30);
+              // Dark red-tinted background with blinking
+              var bgBlink=Math.floor(f*0.15)%3;
+              var bgRed=bgBlink===0?'#180000':(bgBlink===1?'#0a0000':'#100000');
+              x.fillStyle=bgRed;x.fillRect(0,0,W,H);
+              // Red pulse flash overlay
+              if(Math.floor(f*0.1)%8===0){x.globalAlpha=0.15;x.fillStyle='#ff0000';x.fillRect(0,0,W,H);}
+              // ========== CHAOTIC WOBBLY RAYS FROM TOP RIGHT ==========
+              var rayOriginX=W+Math.floor(Math.sin(f*0.07)*15*S);var rayOriginY=Math.floor(Math.cos(f*0.09)*10*S);
+              var numRays=18;
+              x.save();
+              for(var ri=0;ri<numRays;ri++){
+                // Chaotic wobbling angles
+                var baseAngle=Math.PI*0.5+Math.PI*0.6*(ri/numRays);
+                var wobble1=Math.sin(f*0.08+ri*1.3)*0.25;
+                var wobble2=Math.cos(f*0.11+ri*0.7)*0.15;
+                var wobble3=Math.sin(f*0.05+ri*2.1)*0.1;
+                var rayAngle=baseAngle+wobble1+wobble2+wobble3;
+                // Erratic length
+                var rayLen=Math.floor((40+60*Math.sin(f*0.06+ri*1.1)+30*Math.cos(f*0.13+ri*0.6))*S);
+                // Jagged gradient
+                var grad=x.createLinearGradient(rayOriginX,rayOriginY,
+                  rayOriginX+Math.cos(rayAngle)*rayLen,rayOriginY+Math.sin(rayAngle)*rayLen);
+                var rayHue=(340+ri*20+f*3+Math.sin(f*0.2+ri)*40)%360;
+                var rayAlpha=0.08+Math.sin(f*0.15+ri*0.9)*0.08+Math.random()*0.04;
+                grad.addColorStop(0,'hsla('+rayHue+',100%,75%,'+rayAlpha+')');
+                grad.addColorStop(0.3+Math.sin(f*0.1)*0.2,'hsla('+((rayHue+30)%360)+',90%,65%,'+(rayAlpha*0.6)+')');
+                grad.addColorStop(1,'hsla('+rayHue+',70%,50%,0)');
+                x.globalAlpha=1;x.fillStyle=grad;
+                // Draw as wobbly curved path
+                var raySpread=0.06+Math.sin(f*0.12+ri)*0.04;
+                x.beginPath();
+                x.moveTo(rayOriginX,rayOriginY);
+                // Add control points for wobble
+                var cp1x=rayOriginX+Math.cos(rayAngle)*rayLen*0.5+Math.sin(f*0.2+ri)*10*S;
+                var cp1y=rayOriginY+Math.sin(rayAngle)*rayLen*0.5+Math.cos(f*0.15+ri)*8*S;
+                x.quadraticCurveTo(cp1x,cp1y,rayOriginX+Math.cos(rayAngle-raySpread)*rayLen,rayOriginY+Math.sin(rayAngle-raySpread)*rayLen);
+                x.lineTo(rayOriginX+Math.cos(rayAngle+raySpread)*rayLen,rayOriginY+Math.sin(rayAngle+raySpread)*rayLen);
+                var cp2x=rayOriginX+Math.cos(rayAngle)*rayLen*0.5-Math.sin(f*0.18+ri)*8*S;
+                var cp2y=rayOriginY+Math.sin(rayAngle)*rayLen*0.5-Math.cos(f*0.22+ri)*6*S;
+                x.quadraticCurveTo(cp2x,cp2y,rayOriginX,rayOriginY);
+                x.closePath();x.fill();}
+              x.restore();
+              // ========== EXTREME SCROLLING CODE - SUPER BRIGHT, BLINKING RED ==========
+              var codeFS=Math.floor(7*S);x.font=fontReady?'bold '+codeFS+'px YWFTProcessing-Bold, monospace':'bold '+codeFS+'px monospace';
+              var codeLineH=Math.floor(codeFS*1.3);
+              // Blinking intensity
+              var codeBlink=0.4+Math.sin(f*0.2)*0.15+Math.sin(f*0.33)*0.1;
+              // Multiple columns of code scrolling at different speeds - MUCH BRIGHTER
+              var codeCols=[{x:0,speed:2.5,alpha:0.55},{x:Math.floor(W*0.35),speed:1.8,alpha:0.45},{x:Math.floor(W*0.7),speed:3,alpha:0.5}];
+              for(var cc=0;cc<codeCols.length;cc++){
+                var col=codeCols[cc];
+                var colCodeY=Math.floor(-((f*col.speed)%(srcF.length*codeLineH)));
+                x.globalAlpha=col.alpha*codeBlink;
+                for(var ci=0;ci<srcF.length*3;ci++){
+                  var srcLine=srcF[ci%srcF.length];var codeX=col.x+Math.floor(5*S);
+                  var lineY=Math.floor(colCodeY+ci*codeLineH);if(lineY<-codeFS||lineY>H+codeFS)continue;
+                  // Add horizontal jitter per line
+                  var lineJitter=Math.floor(Math.sin(f*0.1+ci*0.5)*5*S);
+                  for(var ti=0;ti<srcLine.length;ti++){
+                    var tok=srcLine[ti];
+                    // BRIGHTER colors with red emphasis
+                    var tokCol=tok[1]==='kw'?'#ff2222':(tok[1]==='str'?'#22ff22':(tok[1]==='num'?'#ffff00':(tok[1]==='dollar'?'#00ff00':(tok[1]==='give'?'#ff00ff':'#ff4444'))));
+                    // Flash certain tokens red
+                    if((tok[1]==='kw'||tok[1]==='give')&&Math.floor(f*0.3+ci+ti)%4===0)tokCol='#ffffff';
+                    x.fillStyle=tokCol;x.fillText(tok[0],codeX+lineJitter,lineY);codeX+=Math.floor(x.measureText(tok[0]).width);}}}
+              x.globalAlpha=1;
+              // ========== SCATTERED LARGE "GIVE" TEXT (only when font ready) ==========
+              if(fontReady){
+              var giveScatterCount=8;
+              var giveScatterFS=Math.floor(Math.min(W,H)*0.12);
+              x.font='bold '+giveScatterFS+'px YWFTProcessing-Bold, monospace';
+              for(var gs=0;gs<giveScatterCount;gs++){
+                var gsX=Math.floor((Math.sin(gs*2.3+f*0.02)*0.4+0.5)*W-giveScatterFS);
+                var gsY=Math.floor((Math.cos(gs*1.7+f*0.015)*0.35+0.5)*H);
+                var gsRot=(Math.sin(gs*1.1+f*0.03)-0.5)*0.3;
+                var gsHue=(f*2+gs*60)%360;
+                var gsAlpha=0.12+Math.sin(f*0.1+gs)*0.06;
+                x.save();x.translate(gsX,gsY);x.rotate(gsRot);
+                x.globalAlpha=gsAlpha;x.fillStyle='hsl('+gsHue+',100%,50%)';
+                x.fillText('GIVE',0,0);
+                x.restore();}
+              } // end fontReady for scattered GIVE
+              // ========== SCROLLING "GIVE.AESTHETIC.COMPUTER" MARQUEES ==========
+              if(fontReady){
+              var marqueeText='GIVE.AESTHETIC.COMPUTER';
+              var marqueeFS=Math.floor(16*S);
+              x.font='bold '+marqueeFS+'px YWFTProcessing-Bold, monospace';
+              // Fewer rows, giant ghostly projections
+              var marqueeRows=[
+                {y:Math.floor(H*0.25),speed:1.2,dir:1},
+                {y:Math.floor(H*0.6),speed:0.9,dir:-1},
+                {y:Math.floor(H*0.9),speed:1.5,dir:1}
+              ];
+              for(var mr=0;mr<marqueeRows.length;mr++){
+                var row=marqueeRows[mr];
+                var baseX=((f*row.speed*row.dir*S)%(W*2));
+                if(row.dir>0)baseX=-W+baseX;else baseX=W-baseX;
+                // Draw each character with color variation
+                var charX=baseX;
+                for(var mci=0;mci<marqueeText.length;mci++){
+                  var mch=marqueeText[mci];
+                  var mchW=x.measureText(mch).width;
+                  // Color varies per character
+                  var mHue=(mci*25+f*2+mr*60)%360;
+                  var mCol='hsl('+mHue+',100%,70%)';
+                  x.globalAlpha=0.12+Math.sin(f*0.02+mci*0.3+mr)*0.05;
+                  x.fillStyle=mCol;
+                  x.fillText(mch,charX,row.y);
+                  charX+=mchW;
+                }
+                // Second copy for seamless
+                charX=baseX+(row.dir>0?W*1.5:-W*1.5);
+                for(var mci=0;mci<marqueeText.length;mci++){
+                  var mch=marqueeText[mci];
+                  var mchW=x.measureText(mch).width;
+                  var mHue=(mci*25+f*2+mr*60)%360;
+                  var mCol='hsl('+mHue+',100%,70%)';
+                  x.globalAlpha=0.12+Math.sin(f*0.02+mci*0.3+mr)*0.05;
+                  x.fillStyle=mCol;
+                  x.fillText(mch,charX,row.y);
+                  charX+=mchW;
+                }}
+              } // end fontReady for marquee
+              x.globalAlpha=1;
+              // ========== PALS LOGO TOP LEFT - CRISP PIXEL VERSION ==========
+              var lS=Math.floor(28*S),lX=Math.floor(5*S),lY=Math.floor(5*S);
+              // Pulsing glow rings (pixel snapped)
+              for(var gr=3;gr>=0;gr--){var glowSize=Math.floor(lS+(gr*8+Math.sin(f*0.2+gr)*4)*S);
+                x.globalAlpha=0.15-gr*0.03;x.fillStyle=['#ff0000','#ffff00','#ff00ff','#00ffff'][gr%4];
+                x.fillRect(Math.floor(lX-(glowSize-lS)/2),Math.floor(lY-(glowSize-lS)/2),glowSize,glowSize);}
+              // Chromatic split trails - CRISP
+              x.imageSmoothingEnabled=false;var logoImg=imgFullLoaded?imgFull:img;
+              var logoShake=Math.floor(Math.sin(f*0.3)*3*S);
+              x.globalAlpha=0.4;x.filter='hue-rotate(-60deg) saturate(2)';
+              x.drawImage(logoImg,lX-Math.floor(4*S)+logoShake,lY-Math.floor(2*S),lS,lS);
+              x.filter='hue-rotate(60deg) saturate(2)';
+              x.drawImage(logoImg,lX+Math.floor(4*S)-logoShake,lY+Math.floor(2*S),lS,lS);
+              x.filter='none';x.globalAlpha=1;
+              x.drawImage(logoImg,lX+Math.floor(Math.sin(f*0.15)*2*S),lY+Math.floor(Math.cos(f*0.12)*2*S),lS,lS);
+              // Clean solid logo on top
+              x.globalAlpha=1;x.filter='none';
+              x.drawImage(logoImg,lX,lY,lS,lS);
+              // ========== BRIGHT BOOT LOGS TOP LEFT ==========
+              var tX=Math.floor(lX+lS+4*S),tYbase=Math.floor(lY+S);
+              x.font='bold '+Math.floor(4*S)+'px monospace';
+              // "aesthetic.computer" title with alarm colors
+              var titlePulse=Math.floor(f*0.2)%2===0;
+              x.globalAlpha=0.9;x.fillStyle=titlePulse?'#ff6666':'#ffffff';
+              x.fillText('Aesthetic.Computer',tX,tYbase);
+              // Boot timer
+              var sec=(now-bootStart)/1000;var secT=sec.toFixed(2)+'s';
+              x.fillStyle='#ffff00';x.fillText(secT,tX,Math.floor(tYbase+5*S));
+              // UTC time
+              var d=new Date(),utcT=d.getUTCHours().toString().padStart(2,'0')+':'+d.getUTCMinutes().toString().padStart(2,'0')+':'+d.getUTCSeconds().toString().padStart(2,'0')+' UTC';
+              x.font=Math.floor(3*S)+'px monospace';x.fillStyle='#ff8888';x.fillText(utcT,tX,Math.floor(tYbase+10*S));
+              // Boot log lines - BRIGHT (with GIVE mode joke injection)
+              var logStartY=Math.floor(tYbase+15*S);x.font=Math.floor(4*S)+'px monospace';
+              // Dynamic counters based on boot time
+              var bootSec=sec;
+              var moneyCount=Math.min(300000,Math.floor(bootSec*50000));
+              var moneyStr='$'+moneyCount.toLocaleString();
+              var yearsCount=Math.min(37,33+Math.floor(bootSec));
+              var giveJokes=['LOSING '+moneyStr+'_',"USING @jeffrey's LIFE: "+yearsCount+" YEARS OLD_"];
+              // Interleave joke logs with real logs
+              var allLogs=[];
+              for(var lj=0;lj<lines.length;lj++){
+                allLogs.push(lines[lj]);
+                if(lj%2===1&&lj<giveJokes.length*2){allLogs.push({text:giveJokes[Math.floor(lj/2)%giveJokes.length]});}
+              }
+              // Always show at least one joke if few logs
+              if(lines.length<3){for(var jk=0;jk<giveJokes.length;jk++)allLogs.push({text:giveJokes[jk]});}
+              for(var li=0;li<allLogs.length&&li<8;li++){
+                var logY=Math.floor(logStartY+li*4*S);if(logY>H*0.5)break;
+                var logAlpha=Math.max(0.5,1-li*0.06);
+                var logCol=['#ff0000','#ffff00','#ff8888','#88ffff','#ff88ff','#88ff88'][li%6];
+                x.globalAlpha=logAlpha;x.fillStyle=logCol;
+                x.fillText(allLogs[li].text,tX,logY);}
+              x.globalAlpha=1;
+              // ========== CURRENCY SYMBOLS FLYING UP (CRISP) ==========
+              if(fontReady){
+              var currencies=['GIVE $5','GIVE $10','GIVE $25','GIVE $50','GIVE $100','GIVE €20','GIVE £15','GIVE 0.01 ETH','GIVE 5 TEZ','GIVE $1','GIVE ₿0.001','GIVE $500','GIVE 100 DKK','GIVE 50 TEZ','GIVE 250 DKK','GIVE 10 TEZ'];
+              var currCount=35;
+              // Currency text reveals after headline+button (chars 37+)
+              var currRevealed=Math.max(0,charsRevealed-37);
+              for(var ci=0;ci<Math.min(currCount,Math.floor(currRevealed/2));ci++){
+                var cxBase=Math.floor(W*0.2+(Math.sin(ci*1.3)*0.3+0.3)*W*0.6+Math.floor(Math.sin(f*0.03+ci)*30*S));
+                var cyBase=H+80*S;var cySpeed=(1.0+((ci*7)%10)*0.2)*S;
+                var cyPos=Math.floor(cyBase-((f*cySpeed+ci*60)%(H+150*S)));
+                var cFS=Math.floor(Math.max(4,(5+Math.sin(ci*0.7)*4))*S);
+                x.font='bold '+cFS+'px YWFTProcessing-Bold, monospace';
+                // Draw each character with jitter
+                var currText=currencies[ci%currencies.length];
+                var currX=cxBase;
+                for(var cci=0;cci<currText.length;cci++){
+                  var cch=currText[cci];
+                  var cchW=x.measureText(cch).width;
+                  var cchJX=Math.floor((Math.random()-0.5)*3*S);
+                  var cchJY=Math.floor((Math.random()-0.5)*3*S);
+                  var cHue=(cci*30+f*3+ci*20)%360;
+                  x.globalAlpha=0.7+Math.sin(f*0.25+ci+cci*0.2)*0.25;
+                  x.fillStyle='hsl('+cHue+',100%,70%)';
+                  x.fillText(cch,currX+cchJX,cyPos+cchJY);
+                  currX+=cchW;}}
+              } // end fontReady for currency
+              // ========== FLICKERING HEADLINE - CRISP PIXEL ==========
+              if(fontReady){
+              var msgs=['TIME TO GROW','HELP AC THRIVE'];
+              // Irregular flicker using noise-like pattern (slower, unpredictable)
+              var flickerNoise=Math.sin(f*0.04)+Math.sin(f*0.067)*0.7+Math.sin(f*0.023)*0.5;
+              var mainText=msgs[flickerNoise>0.3?0:1];
+              var giveFS=Math.floor(Math.min(H*0.11, W/(mainText.length*0.7)));
+              x.font='bold '+giveFS+'px YWFTProcessing-Bold, monospace';
+              var giveW=x.measureText(mainText).width;
+              var giveX=Math.floor((W-giveW)/2);var giveY=Math.floor(H*0.42);
+              // Draw headline letter by letter with jitter + REVEAL
+              var hlX=giveX;
+              var hlRevealed=Math.min(mainText.length,charsRevealed);
+              for(var hi=0;hi<hlRevealed;hi++){
+                var hlCh=mainText[hi];
+                var hlJX=Math.floor((Math.random()-0.5)*3*S);
+                var hlJY=Math.floor((Math.random()-0.5)*3*S);
+                var hlChW=x.measureText(hlCh).width;
+                // Bling flash when just revealed
+                var hlAge=charsRevealed-hi;
+                var hlBling=hlAge<3?1:0;
+                if(hlBling){
+                  x.globalAlpha=0.8;x.fillStyle='#ffffff';
+                  x.fillText(hlCh,hlX+hlJX,giveY+hlJY);}
+                // Black outline
+                x.globalAlpha=0.6;x.fillStyle='#000000';
+                x.fillText(hlCh,hlX+Math.floor(4*S)+hlJX,giveY+Math.floor(4*S)+hlJY);
+                // Red/cyan chromatic split
+                x.globalAlpha=0.5;x.fillStyle='#ff0000';
+                x.fillText(hlCh,hlX-Math.floor(3*S)+hlJX,giveY-Math.floor(2*S)+hlJY);
+                x.fillStyle='#00ffff';
+                x.fillText(hlCh,hlX+Math.floor(3*S)+hlJX,giveY+Math.floor(2*S)+hlJY);
+                // Main text - color shifts per letter
+                var colShift=(Math.sin(f*0.05+hi*0.3)+1)*0.5;
+                var giveR=255;
+                var giveG=Math.floor(colShift*255);
+                var giveB=Math.floor((1-colShift)*128);
+                x.globalAlpha=1;x.fillStyle='rgb('+giveR+','+giveG+','+giveB+')';
+                x.fillText(hlCh,hlX+hlJX,giveY+hlJY);
+                hlX+=hlChW;
+              }
+              } // end fontReady for headline
+              // (messages now flicker as main text above)
+              // ========== TEXT-SHAPED GLOW BUTTON ==========
+              if(fontReady){
+              var btnW=Math.floor(Math.min(W*0.9, 420*S));var btnH=Math.floor(H*0.14);var btnX=Math.floor((W-btnW)/2);var btnY=Math.floor(H-btnH-12*S);
+              // "ENTER 'give' ON PROMPT" - TEXT-SHAPED GLOW + letter by letter
+              var btnFS=Math.floor(Math.min(btnH*0.45, btnW*0.085));
+              x.font='bold '+btnFS+'px YWFTProcessing-Bold, monospace';
+              var btnT="ENTER 'give' ON PROMPT";
+              var totalW=0;for(var ti=0;ti<btnT.length;ti++)totalW+=x.measureText(btnT[ti]).width;
+              var startX=Math.floor((W-totalW)/2);
+              var baseY=Math.floor(btnY+btnH*0.62);
+              // Button chars revealed after headline
+              var btnCharsRevealed=Math.max(0,charsRevealed-15);
+              var btnRevealed=Math.min(btnT.length,btnCharsRevealed);
+              // ===== TEXT-SHAPED GLOW LAYERS =====
+              for(var glLayer=6;glLayer>=1;glLayer--){
+                var glowSpread=Math.floor(glLayer*3*S);
+                var glowHue=(f*3+glLayer*40)%360;
+                x.globalAlpha=0.15-glLayer*0.02;
+                x.font='bold '+(btnFS+glowSpread)+'px YWFTProcessing-Bold, monospace';
+                var glowTotalW=0;for(var gti=0;gti<btnRevealed;gti++)glowTotalW+=x.measureText(btnT[gti]).width;
+                var glowStartX=Math.floor((W-glowTotalW)/2);
+                var glowCurX=glowStartX;
+                for(var gli=0;gli<btnRevealed;gli++){
+                  var glCh=btnT[gli];
+                  var glChW=x.measureText(glCh).width;
+                  var glJitterX=Math.floor(Math.sin(f*0.15+gli*0.8)*2*S);
+                  var glJitterY=Math.floor(Math.sin(f*0.12+gli*1.2)*3*S);
+                  x.fillStyle='hsl('+glowHue+',100%,60%)';
+                  x.fillText(glCh,glowCurX+glJitterX,baseY+glJitterY);
+                  glowCurX+=Math.floor(glChW);}}
+              // Reset font for main text
+              x.font='bold '+btnFS+'px YWFTProcessing-Bold, monospace';
+              var curX=startX;
+              for(var li=0;li<btnRevealed;li++){
+                var ch=btnT[li];
+                var chW=x.measureText(ch).width;
+                // Bling flash on newly revealed
+                var btnAge=btnCharsRevealed-li;
+                var btnBling=btnAge<3?1:0;
+                // Per-letter jitter and wave
+                var letterJitterX=Math.floor(Math.sin(f*0.15+li*0.8)*2*S+(Math.random()-0.5)*S);
+                var letterJitterY=Math.floor(Math.sin(f*0.12+li*1.2)*3*S+Math.cos(f*0.09+li)*2*S);
+                var letterHue=(f*4+li*25)%360;
+                if(btnBling){
+                  x.globalAlpha=0.9;x.fillStyle='#ffffff';
+                  x.fillText(ch,curX+letterJitterX,baseY+letterJitterY);}
+                // Shadow
+                x.globalAlpha=0.5;x.fillStyle='#000000';
+                x.fillText(ch,curX+letterJitterX+Math.floor(2*S),baseY+letterJitterY+Math.floor(2*S));
+                // Chromatic split
+                x.globalAlpha=0.4;x.fillStyle='#ff0000';
+                x.fillText(ch,curX+letterJitterX-Math.floor(S),baseY+letterJitterY);
+                x.fillStyle='#00ffff';
+                x.fillText(ch,curX+letterJitterX+Math.floor(S),baseY+letterJitterY);
+                // Main letter - color shifting per letter
+                x.globalAlpha=1;x.fillStyle='hsl('+letterHue+',100%,85%)';
+                x.fillText(ch,curX+letterJitterX,baseY+letterJitterY);
+                curX+=Math.floor(chW);}
+              } // end fontReady for button
+              // ========== HEAVY COPY-PASTE GLITCHING ==========
+              // Occasional screen flash
+              if(Math.floor(f*0.08)%12===0){x.globalAlpha=0.1;x.fillStyle='#ffffff';x.fillRect(0,0,W,H);}
+              try{
+                // Multiple copy-paste glitches per frame
+                var numGlitches=1+Math.floor(Math.random()*3);
+                for(var cpg=0;cpg<numGlitches;cpg++){
+                  if(Math.random()<0.5){
+                    // Horizontal slice copy-paste
+                    var cpY=Math.floor(Math.random()*H*0.9);
+                    var cpH=Math.floor(5+Math.random()*40)*S;
+                    var cpShiftX=Math.floor((Math.random()-0.5)*40*S);
+                    var cpShiftY=Math.floor((Math.random()-0.5)*60*S);
+                    if(cpY+cpH<H&&cpY>0&&cpY+cpShiftY>0&&cpY+cpShiftY+cpH<H){
+                      var cpData=x.getImageData(0,cpY,W,cpH);
+                      x.putImageData(cpData,cpShiftX,cpY+cpShiftY);}}
+                  if(Math.random()<0.4){
+                    // Vertical slice copy-paste
+                    var cpX=Math.floor(Math.random()*W*0.9);
+                    var cpW=Math.floor(10+Math.random()*50)*S;
+                    var cpVShiftX=Math.floor((Math.random()-0.5)*30*S);
+                    var cpVShiftY=Math.floor((Math.random()-0.5)*20*S);
+                    if(cpX+cpW<W&&cpX>0&&cpX+cpVShiftX>0&&cpX+cpVShiftX+cpW<W){
+                      var cpVData=x.getImageData(cpX,0,cpW,H);
+                      x.putImageData(cpVData,cpX+cpVShiftX,cpVShiftY);}}
+                  if(Math.random()<0.3){
+                    // Block copy-paste
+                    var blkX=Math.floor(Math.random()*W*0.7);
+                    var blkY=Math.floor(Math.random()*H*0.7);
+                    var blkW=Math.floor(30+Math.random()*80)*S;
+                    var blkH=Math.floor(20+Math.random()*60)*S;
+                    var blkDX=Math.floor((Math.random()-0.5)*100*S);
+                    var blkDY=Math.floor((Math.random()-0.5)*80*S);
+                    if(blkX+blkW<W&&blkY+blkH<H&&blkX+blkDX>0&&blkY+blkDY>0&&blkX+blkDX+blkW<W&&blkY+blkDY+blkH<H){
+                      var blkData=x.getImageData(blkX,blkY,blkW,blkH);
+                      x.putImageData(blkData,blkX+blkDX,blkY+blkDY);}}}
+              }catch(e){}
+              x.globalAlpha=1;requestAnimationFrame(anim);return;
+            }
+            // Normal boot rendering (non-GIVE mode)
             // Light mode: warm sandy/tan/cream tones (matching kidlisp.com & AC light theme); Dark mode: deep moody colors
             var BGCOLS=isLightMode?['#fcf7c5','#f5f0c0','#fffacd','#f5ebe0','#e8e3b0','#f0ebd0','#fcf5c8','#f5ecd0']:['#2d2020','#202d24','#20202d','#2d2820','#28202d','#202d2d','#2d2028','#242d20'];
             var sHH=HH*S;
