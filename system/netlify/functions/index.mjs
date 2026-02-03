@@ -1057,7 +1057,7 @@ async function fun(event, context) {
           var GIVE_BG_COLOR='#000000';
           function spawnGiveFlyBy(S){var dir=Math.random()>0.5?1:-1;var startX=dir>0?-W*0.4:W*1.4;var yPos=H*0.2+Math.random()*H*0.35;var speed=(0.8+Math.random()*1.2)*S*dir;var text=Math.random()>0.4?giveUrl:'GIVE';var scale=1.5+Math.random()*1.5;giveFlyBys.push({x:startX,y:yPos,text:text,speed:speed,rot:0,scale:scale,col:GIVE_COLORS[Math.floor(Math.random()*GIVE_COLORS.length)],life:1,trail:[]});}
           // GIVE mode fake "source code" with $$ and GIVE
-          var giveCodeLines=['// GIVE GIVE GIVE','$$$$ GIVE $$$$','function GIVE() {','  return $$$;','}','// $$ SUPPORT $$','GIVE.now();','$$$ DONATE $$$','const $ = GIVE;','// aesthetic.computer','GIVE GIVE GIVE','$$.support();','await GIVE();','// HELP US GROW','$$$$$$$$$$','GIVE(); GIVE();','$ $ $ $ $ $ $','// THANK YOU','GIVE.aesthetic','$$ GIVE $$ GIVE'];
+          var giveCodeLines=['// GIVE GIVE GIVE','$$$$ GIVE $$$$','function GIVE() {','  return $$$;','}','// $$ SUPPORT $$','GIVE.now();','$$$ GIVE $$$','const $ = GIVE;','// aesthetic.computer','GIVE GIVE GIVE','$$.support();','await GIVE();','// HELP US GROW','$$$$$$$$$$','GIVE(); GIVE();','$ $ $ $ $ $ $','// THANK YOU','GIVE.aesthetic','$$ GIVE $$ GIVE'];
           var uH=null,hST=0,run=true,f=0,netAct=0,shCan=document.createElement('canvas'),shCtx=shCan.getContext('2d'),shF=0;
           var sessionConnected=false,connFlash=0,connFlashStart=0;
           var KWS=['import','export','const','let','function','async','await','return','from','if','else','for','while','class','new','this','var','try','catch'];
@@ -1191,19 +1191,29 @@ async function fun(event, context) {
                 x.quadraticCurveTo(cp2x,cp2y,rayOriginX,rayOriginY);
                 x.closePath();x.fill();}
               x.restore();
-              // ========== EXTREME SCROLLING CODE - SUPER BRIGHT, BLINKING RED ==========
+              // ========== EXTREME SCROLLING CODE - ACTUAL LOADING FILES ==========
               var codeFS=Math.floor(7*S);x.font=fontReady?'bold '+codeFS+'px YWFTProcessing-Bold, monospace':'bold '+codeFS+'px monospace';
               var codeLineH=Math.floor(codeFS*1.3);
               // Blinking intensity
               var codeBlink=0.4+Math.sin(f*0.2)*0.15+Math.sin(f*0.33)*0.1;
+              // Use real loaded files if available, fall back to srcF
+              var useFiles=files.length>0;
+              var allCodeToks=[];
+              if(useFiles){
+                for(var ufi=0;ufi<files.length;ufi++){
+                  var uFile=files[ufi];
+                  for(var uli=0;uli<uFile.toks.length;uli++){allCodeToks.push(uFile.toks[uli]);}
+                }
+              }else{allCodeToks=srcF;}
+              if(allCodeToks.length===0)allCodeToks=srcF;
               // Multiple columns of code scrolling at different speeds - MUCH BRIGHTER
               var codeCols=[{x:0,speed:2.5,alpha:0.55},{x:Math.floor(W*0.35),speed:1.8,alpha:0.45},{x:Math.floor(W*0.7),speed:3,alpha:0.5}];
               for(var cc=0;cc<codeCols.length;cc++){
                 var col=codeCols[cc];
-                var colCodeY=Math.floor(-((f*col.speed)%(srcF.length*codeLineH)));
+                var colCodeY=Math.floor(-((f*col.speed)%(allCodeToks.length*codeLineH)));
                 x.globalAlpha=col.alpha*codeBlink;
-                for(var ci=0;ci<srcF.length*3;ci++){
-                  var srcLine=srcF[ci%srcF.length];var codeX=col.x+Math.floor(5*S);
+                for(var ci=0;ci<allCodeToks.length*2;ci++){
+                  var srcLine=allCodeToks[ci%allCodeToks.length];var codeX=col.x+Math.floor(5*S);
                   var lineY=Math.floor(colCodeY+ci*codeLineH);if(lineY<-codeFS||lineY>H+codeFS)continue;
                   // Add horizontal jitter per line
                   var lineJitter=Math.floor(Math.sin(f*0.1+ci*0.5)*5*S);
@@ -1282,14 +1292,17 @@ async function fun(event, context) {
               // Chromatic split trails - CRISP
               x.imageSmoothingEnabled=false;var logoImg=imgFullLoaded?imgFull:img;
               var logoShake=Math.floor(Math.sin(f*0.3)*3*S);
-              x.globalAlpha=0.4;x.filter='hue-rotate(-60deg) saturate(2)';
-              x.drawImage(logoImg,lX-Math.floor(4*S)+logoShake,lY-Math.floor(2*S),lS,lS);
+              // Ghostly chromatic trails behind
+              x.globalAlpha=0.25;x.filter='hue-rotate(-60deg) saturate(2)';
+              x.drawImage(logoImg,lX-Math.floor(5*S)+logoShake,lY-Math.floor(3*S),lS,lS);
               x.filter='hue-rotate(60deg) saturate(2)';
-              x.drawImage(logoImg,lX+Math.floor(4*S)-logoShake,lY+Math.floor(2*S),lS,lS);
-              x.filter='none';x.globalAlpha=1;
-              x.drawImage(logoImg,lX+Math.floor(Math.sin(f*0.15)*2*S),lY+Math.floor(Math.cos(f*0.12)*2*S),lS,lS);
-              // Clean solid logo on top
-              x.globalAlpha=1;x.filter='none';
+              x.drawImage(logoImg,lX+Math.floor(5*S)-logoShake,lY+Math.floor(3*S),lS,lS);
+              x.filter='hue-rotate(180deg) saturate(1.5)';x.globalAlpha=0.2;
+              x.drawImage(logoImg,lX+Math.floor(Math.sin(f*0.15)*3*S),lY+Math.floor(Math.cos(f*0.12)*3*S),lS,lS);
+              // Clean solid logo on top - SHARP AND CLEAR
+              x.filter='none';
+              x.imageSmoothingEnabled=false;
+              x.globalAlpha=1;
               x.drawImage(logoImg,lX,lY,lS,lS);
               // ========== BRIGHT BOOT LOGS TOP LEFT ==========
               var tX=Math.floor(lX+lS+4*S),tYbase=Math.floor(lY+S);
@@ -1306,20 +1319,14 @@ async function fun(event, context) {
               x.font=Math.floor(3*S)+'px monospace';x.fillStyle='#ff8888';x.fillText(utcT,tX,Math.floor(tYbase+10*S));
               // Boot log lines - BRIGHT (with GIVE mode joke injection)
               var logStartY=Math.floor(tYbase+15*S);x.font=Math.floor(4*S)+'px monospace';
-              // Dynamic counters based on boot time
-              var bootSec=sec;
-              var moneyCount=Math.min(300000,Math.floor(bootSec*50000));
+              // Dynamic counters based on boot time - these update every frame
+              var bootSec=(now-bootStart)/1000;
+              var moneyCount=Math.min(300000,Math.floor(1+bootSec*60000));
               var moneyStr='$'+moneyCount.toLocaleString();
-              var yearsCount=Math.min(37,33+Math.floor(bootSec));
-              var giveJokes=['LOSING '+moneyStr+'_',"USING @jeffrey's LIFE: "+yearsCount+" YEARS OLD_"];
-              // Interleave joke logs with real logs
-              var allLogs=[];
-              for(var lj=0;lj<lines.length;lj++){
-                allLogs.push(lines[lj]);
-                if(lj%2===1&&lj<giveJokes.length*2){allLogs.push({text:giveJokes[Math.floor(lj/2)%giveJokes.length]});}
-              }
-              // Always show at least one joke if few logs
-              if(lines.length<3){for(var jk=0;jk<giveJokes.length;jk++)allLogs.push({text:giveJokes[jk]});}
+              var yearsCount=Math.min(37,33+Math.floor(bootSec*0.8));
+              var giveJokes=[{text:'LOSING '+moneyStr+'_'},{text:"USING @jeffrey's LIFE: "+yearsCount+" YEARS OLD_"}];
+              // Always show joke logs at top, then real logs
+              var allLogs=giveJokes.concat(lines);
               for(var li=0;li<allLogs.length&&li<8;li++){
                 var logY=Math.floor(logStartY+li*4*S);if(logY>H*0.5)break;
                 var logAlpha=Math.max(0.5,1-li*0.06);
