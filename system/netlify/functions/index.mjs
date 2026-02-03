@@ -368,11 +368,15 @@ async function fun(event, context) {
   };
 
   // Load and pre-process a piece's source code, then run it's `meta` function.
+  // NOTE: We always return 200 for HTML responses so the client-side SPA can
+  // handle routing (including displaying the 404 disk for unknown pieces).
+  // This ensures proper behavior for embeds, link previews, and crawlers.
   let statusCode = 200,
     sourceCode,
     language = "javascript", // Might switch to 'lisp' if necessary.
     module,
-    fromHandle = false;
+    fromHandle = false,
+    pieceNotFound = false; // Track if piece wasn't found (for logging only)
 
   try {
     // Externally hosted pieces always start with @.
@@ -391,7 +395,7 @@ async function fun(event, context) {
         }
 
         if (handledPiece?.code !== 200) {
-          statusCode = 404;
+          pieceNotFound = true;
           // return respond(statusCode, `Content not found: ${path}`);
         } else {
           sourceCode = handledPiece.data;
@@ -470,13 +474,13 @@ async function fun(event, context) {
                   errLisp,
                 );
                 console.log(`🔍 DEBUG: Both .mjs and .lisp failed for ${basePath}`);
-                statusCode = 404;
+                pieceNotFound = true;
                 // return respond(statusCode, `Content not found: ${path}`);
               }
             }
           } catch (err) {
             console.error("📃 Error:", err);
-            statusCode = 404;
+            pieceNotFound = true;
             // return respond(statusCode, `Content not found: ${path}`);
             // throw err;
           }
@@ -489,7 +493,7 @@ async function fun(event, context) {
         console.log("📥 Attempting to load piece from anon:", anonUrl);
         const externalPiece = await getPage(anonUrl);
         sourceCode = externalPiece.data;
-        if (externalPiece?.code !== 200) statusCode = 404;
+        if (externalPiece?.code !== 200) pieceNotFound = true;
       }
     }
 
@@ -1728,11 +1732,12 @@ async function fun(event, context) {
   // 🌸 Cute compact log
   const _ms = Date.now() - _startTime;
   const _path = event.path === "/" ? "🏠" : event.path.slice(0, 20);
-  console.log(`✨ ${_path} ${meta?.title || "~"} ${_ms}ms`);
+  const _status = pieceNotFound ? "❓" : "✨";
+  console.log(`${_status} ${_path} ${meta?.title || "~"} ${_ms}ms`);
 
   // 📊 Track piece hit (fire-and-forget, don't block response)
-  // Skip hit tracking in dev mode
-  if (!dev && statusCode === 200 && parsed?.text && !previewOrIcon) {
+  // Skip hit tracking in dev mode and for pieces that weren't found
+  if (!dev && !pieceNotFound && parsed?.text && !previewOrIcon) {
     const pieceType = parsed.path?.startsWith("@") ? "user" : "system";
     trackPieceHit(parsed.text, pieceType).catch(() => {});
   }
