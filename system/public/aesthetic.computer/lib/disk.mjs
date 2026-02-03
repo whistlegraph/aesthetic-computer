@@ -1079,16 +1079,15 @@ let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
 // 🧬 GOL Transition: overlay pixels → fades to reveal piece underneath
-// Chunky demoscene style - block-based for performance and retro aesthetic
+// DCT-style compression artifact transition (JPEG/MPEG vibes)
 // Captures the OUTGOING piece's pixels when transitioning between pieces
 let golTransition = {
   active: false,
   overlayPixels: null, // The captured frame that overlays on top (from outgoing piece)
-  blocks: null,        // Per-block state array
-  blockSize: 6,        // Chunky blocks for retro look
-  noiseOffset: 0,
+  blockData: null,     // Per-block compression data
+  blockSize: 8,        // Classic DCT block size
   generation: 0,
-  maxGenerations: 90,  // ~1.5s at 60fps - snappy
+  maxGenerations: 30,  // ~0.5s at 60fps - WOOSH
   width: 0,
   height: 0,
   blocksX: 0,
@@ -1118,133 +1117,109 @@ function scaleOverlayPixels(srcPixels, srcWidth, srcHeight, dstWidth, dstHeight)
   return dstPixels;
 }
 
-// 🧬 Simple noise function for organic flow
-function transitionNoise(x, y, t) {
-  // Fast chaotic noise - XOR and bit tricks for demoscene feel
-  const ix = (x * 374761393 + y * 668265263 + (t * 1000) | 0) ^ 0x5bf03635;
-  return ((ix >> 13) & 0xFF) / 255 - 0.5;
-}
+// 🧬 Biological morphing transition - organic flowing displacement
 
-// 🧬 Initialize transition - chunky block-based for demoscene style
+// 🧬 Initialize transition - per-pixel dissolve with organic noise
 function initGOLCells(width, height) {
-  const bs = golTransition.blockSize;
-  const blocksX = Math.ceil(width / bs);
-  const blocksY = Math.ceil(height / bs);
-  const numBlocks = blocksX * blocksY;
-  
-  // Each block: [opacity, velocityX, velocityY, phase, chaos]
-  const blocks = new Float32Array(numBlocks * 5);
-  
-  for (let by = 0; by < blocksY; by++) {
-    for (let bx = 0; bx < blocksX; bx++) {
-      const bi = (by * blocksX + bx) * 5;
-      blocks[bi] = 1.0; // opacity
-      // Chaotic initial velocities - demoscene style
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 1 + Math.random() * 3;
-      blocks[bi + 1] = Math.cos(angle) * speed; // vx
-      blocks[bi + 2] = Math.sin(angle) * speed; // vy
-      blocks[bi + 3] = Math.random() * Math.PI * 2; // phase
-      blocks[bi + 4] = 0.5 + Math.random(); // chaos factor
-    }
-  }
-  
-  golTransition.blocks = blocks;
-  golTransition.blocksX = blocksX;
-  golTransition.blocksY = blocksY;
-  golTransition.noiseOffset = 0;
+  golTransition.blockSize = 1; // Per-pixel
+  golTransition.blocksX = width;
+  golTransition.blocksY = height;
+  golTransition.blockData = null; // Not needed for per-pixel
 }
 
-// 🧬 Step function - chaotic block animation
+// 🧬 Step function
 function golStep(screenPixels) {
-  const { blocks, blocksX, blocksY, generation, maxGenerations } = golTransition;
-  if (!blocks) return false;
-  
-  const progress = generation / maxGenerations;
-  golTransition.noiseOffset += 0.2; // Fast noise animation
-  const t = golTransition.noiseOffset;
-  
-  // Chaotic fade - some blocks die fast, others linger
-  const baseFade = 0.015 + progress * 0.025;
-  
-  for (let i = 0; i < blocksX * blocksY; i++) {
-    const bi = i * 5;
-    const chaos = blocks[bi + 4];
-    
-    // Chaotic velocity updates
-    blocks[bi + 1] += (Math.random() - 0.5) * chaos * 2;
-    blocks[bi + 2] += (Math.random() - 0.5) * chaos * 2;
-    
-    // Add some spin to phase
-    blocks[bi + 3] += chaos * 0.3;
-    
-    // Fade with chaos variation
-    const fade = baseFade * (0.3 + chaos);
-    blocks[bi] = Math.max(0, blocks[bi] - fade);
-  }
-  
   golTransition.generation++;
-  return golTransition.generation < maxGenerations;
+  return golTransition.generation < golTransition.maxGenerations;
 }
 
-// 🧬 Apply transition overlay - chunky demoscene blocks with chaos
+// 🧬 Apply biological chunky smoothie morph - pixels get blended and scrambled
 function applyGOLOverlay(screenPixels) {
-  const { overlayPixels, blocks, blocksX, blocksY, blockSize: bs, width, height, generation, maxGenerations, noiseOffset } = golTransition;
-  if (!overlayPixels || !blocks || !screenPixels) return;
+  const { overlayPixels, width, height, generation, maxGenerations } = golTransition;
+  if (!overlayPixels || !screenPixels) return;
   
+  // Progress 0-1
   const progress = generation / maxGenerations;
-  const dispAmp = 8 + progress * 20; // Displacement grows over time
+  // Eased for smooth start/end
+  const eased = progress < 0.5 
+    ? 2 * progress * progress 
+    : 1 - Math.pow(-2 * progress + 2, 2) / 2;
   
-  // Process each block
-  for (let by = 0; by < blocksY; by++) {
-    for (let bx = 0; bx < blocksX; bx++) {
-      const bi = (by * blocksX + bx) * 5;
-      const opacity = blocks[bi];
+  // Time offset for animated noise
+  const t = generation * 0.1;
+  
+  // Displacement peaks mid-transition - CHUNKY
+  const dispPeak = Math.sin(progress * Math.PI);
+  const maxDisp = dispPeak * 16;
+  
+  // Block size for chunky feel
+  const bs = 4;
+  
+  for (let y = 0; y < height; y++) {
+    const rowOff = y * width;
+    // Quantize y for chunky blocks
+    const qy = (y / bs | 0) * bs;
+    
+    for (let x = 0; x < width; x++) {
+      const i = (rowOff + x) * 4;
+      // Quantize x for chunky blocks
+      const qx = (x / bs | 0) * bs;
       
-      if (opacity < 0.02) continue; // Skip dead blocks
+      // Organic noise at block resolution for chunky dissolve
+      const n1 = Math.sin(qx * 0.05 + t) * Math.cos(qy * 0.04 + t * 0.7);
+      const n2 = Math.sin(qx * 0.09 + qy * 0.07 - t * 0.6) * 0.5;
+      const n3 = Math.cos(qx * 0.02 - qy * 0.03 + t * 0.4) * 0.4;
+      const noise = (n1 + n2 + n3) * 0.5 + 0.5;
       
-      const vx = blocks[bi + 1];
-      const vy = blocks[bi + 2];
-      const phase = blocks[bi + 3];
-      const chaos = blocks[bi + 4];
+      // Per-block blend with organic variation
+      const threshold = eased * 1.5 - 0.25;
+      const edge = 0.3;
+      let blend = (threshold - noise * 0.85) / edge;
+      blend = blend < 0 ? 0 : blend > 1 ? 1 : blend;
       
-      // Block displacement with chaotic wiggle
-      const wiggleX = Math.sin(phase) * chaos * 4;
-      const wiggleY = Math.cos(phase * 1.3) * chaos * 4;
-      const dispX = (vx + wiggleX) * progress * dispAmp;
-      const dispY = (vy + wiggleY) * progress * dispAmp;
+      // SMOOTHIE: chaotic displacement that samples from BOTH frames
+      const swirl = Math.sin(qx * 0.06 + qy * 0.04 + t * 1.5) * maxDisp;
+      const churn = Math.cos(qx * 0.05 - qy * 0.07 + t * 1.2) * maxDisp;
       
-      // Process all pixels in this block
-      const startX = bx * bs;
-      const startY = by * bs;
-      const endX = Math.min(startX + bs, width);
-      const endY = Math.min(startY + bs, height);
+      // Sample old frame with swirling displacement
+      let ox = (x + swirl) | 0;
+      let oy = (y + churn) | 0;
+      ox = ox < 0 ? 0 : ox >= width ? width - 1 : ox;
+      oy = oy < 0 ? 0 : oy >= height ? height - 1 : oy;
+      const oi = (oy * width + ox) * 4;
       
-      for (let y = startY; y < endY; y++) {
-        for (let x = startX; x < endX; x++) {
-          const i = (y * width + x) * 4;
-          
-          // Sample from displaced position in old piece
-          let sx = Math.floor(x - dispX) | 0;
-          let sy = Math.floor(y - dispY) | 0;
-          sx = sx < 0 ? 0 : sx >= width ? width - 1 : sx;
-          sy = sy < 0 ? 0 : sy >= height ? height - 1 : sy;
-          
-          const si = (sy * width + sx) * 4;
-          
-          // XOR glitch effect for extra chaos
-          const glitch = (generation & 3) === 0 && Math.random() < chaos * 0.1;
-          
-          // Blend old over new
-          const oldR = glitch ? overlayPixels[si] ^ 0x55 : overlayPixels[si];
-          const oldG = glitch ? overlayPixels[si + 1] ^ 0x55 : overlayPixels[si + 1];
-          const oldB = glitch ? overlayPixels[si + 2] ^ 0x55 : overlayPixels[si + 2];
-          
-          screenPixels[i] = screenPixels[i] * (1 - opacity) + oldR * opacity;
-          screenPixels[i + 1] = screenPixels[i + 1] * (1 - opacity) + oldG * opacity;
-          screenPixels[i + 2] = screenPixels[i + 2] * (1 - opacity) + oldB * opacity;
-        }
+      // Sample new frame with OPPOSITE swirl - mixing!
+      let nx = (x - churn * 0.7) | 0;
+      let ny = (y + swirl * 0.6) | 0;
+      nx = nx < 0 ? 0 : nx >= width ? width - 1 : nx;
+      ny = ny < 0 ? 0 : ny >= height ? height - 1 : ny;
+      const ni = (ny * width + nx) * 4;
+      
+      // Get swirled colors from both
+      const oldR = overlayPixels[oi];
+      const oldG = overlayPixels[oi + 1];
+      const oldB = overlayPixels[oi + 2];
+      const newR = screenPixels[ni];
+      const newG = screenPixels[ni + 1];
+      const newB = screenPixels[ni + 2];
+      
+      // Chunky biological blend - smoothie mix!
+      const inv = 1 - blend;
+      let r = oldR * inv + newR * blend;
+      let g = oldG * inv + newG * blend;
+      let b = oldB * inv + newB * blend;
+      
+      // Extra chaos: sometimes swap channels mid-transition
+      if (dispPeak > 0.5 && ((qx + qy + generation) & 7) === 0) {
+        const tmp = r;
+        r = g;
+        g = b;
+        b = tmp;
       }
+      
+      screenPixels[i] = r;
+      screenPixels[i + 1] = g;
+      screenPixels[i + 2] = b;
     }
   }
 }
@@ -12342,7 +12317,15 @@ async function makeFrame({ data: { type, content } }) {
             }
             
             // 🧬 GOL Transition: Start transition when first piece paint happens
-            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && !golTransition.active && $api.screen?.pixels) {
+            // Skip for KidLisp pieces - they have their own rendering that conflicts
+            const isKidLispPiece = currentPath && (
+              lisp.isKidlispSource(currentPath) || 
+              currentPath === "(...)" || 
+              currentPath.includes("$") ||
+              currentPath.endsWith('.lisp')
+            );
+            
+            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && !golTransition.active && $api.screen?.pixels && !isKidLispPiece) {
               const screenW = $api.screen.width;
               const screenH = $api.screen.height;
               const overlayW = golTransition.width;
@@ -12520,9 +12503,7 @@ async function makeFrame({ data: { type, content } }) {
             console.warn("🧬 GOL: Screen dimensions changed! Aborting transition.");
             golTransition.active = false;
             golTransition.overlayPixels = null;
-            golTransition.cells = null;
-            golTransition.nextCells = null;
-            golTransition.smearBuffer = null;
+            golTransition.blockData = null;
           } else {
             // Step the GOL (pass screen pixels for smear sampling)
             const stillActive = golStep(screen.pixels);
@@ -12535,9 +12516,7 @@ async function makeFrame({ data: { type, content } }) {
               console.log("🧬 GOL: Transition complete!");
               golTransition.active = false;
               golTransition.overlayPixels = null;
-              golTransition.cells = null;
-              golTransition.nextCells = null;
-              golTransition.smearBuffer = null;
+              golTransition.blockData = null;
             }
           }
         }

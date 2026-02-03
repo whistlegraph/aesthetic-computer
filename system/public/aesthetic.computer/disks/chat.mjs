@@ -1053,7 +1053,7 @@ function paint(
                                    previewX < screen.width;
         
         if (isPartiallyVisible) {
-          // Render at natural position with Ken Burns crop - mask will clip outside visible area
+          // Render at natural position with Ken Burns crop - force output to previewSize
           if (kenBurnsCropW > 0 && kenBurnsCropH > 0) {
             paste(
               painting,
@@ -1065,7 +1065,10 @@ function paint(
                   y: kenBurnsCropY,
                   w: kenBurnsCropW,
                   h: kenBurnsCropH
-                }
+                },
+                // Force output dimensions to match previewSize regardless of crop size
+                width: previewSize,
+                height: previewSize
               }
             );
           }

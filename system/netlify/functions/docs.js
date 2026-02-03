@@ -2307,6 +2307,32 @@ export async function handler(event, context) {
         desc: "Delete your account.",
         done: false,
       },
+      // 🔗 External Links
+      github: {
+        sig: "github",
+        desc: "Open the AC GitHub repo.",
+        done: true,
+      },
+      gh: {
+        sig: "gh",
+        desc: "Open the AC GitHub repo.",
+        done: true,
+      },
+      gmail: {
+        sig: "gmail",
+        desc: "Open Gmail.",
+        done: true,
+      },
+      agc: {
+        sig: "agc",
+        desc: "Open ACG at MIT Media Lab.",
+        done: true,
+      },
+      "ucla-syllabus": {
+        sig: "ucla-syllabus",
+        desc: "Open the UCLA syllabus.",
+        done: true,
+      },
       demo: {
         sig: "demo",
         desc: "Watch a demo of AC.",
