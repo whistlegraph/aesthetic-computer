@@ -1079,16 +1079,15 @@ let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
 // 🧬 GOL Transition: overlay pixels → fades to reveal piece underneath
-// Blocky lush dissolve - chunky but smooth, like melting tiles
+// DCT-style compression artifact transition (JPEG/MPEG vibes)
 // Captures the OUTGOING piece's pixels when transitioning between pieces
 let golTransition = {
   active: false,
   overlayPixels: null, // The captured frame that overlays on top (from outgoing piece)
-  dissolveMap: null,   // Per-block dissolve threshold
-  blockSize: 4,        // Size of dissolve blocks
-  noiseOffset: 0,
+  blockData: null,     // Per-block compression data
+  blockSize: 8,        // Classic DCT block size
   generation: 0,
-  maxGenerations: 100, // ~1.7s at 60fps
+  maxGenerations: 30,  // ~0.5s at 60fps - WOOSH
   width: 0,
   height: 0,
   blocksX: 0,
@@ -1118,32 +1117,23 @@ function scaleOverlayPixels(srcPixels, srcWidth, srcHeight, dstWidth, dstHeight)
   return dstPixels;
 }
 
-// 🧬 DCT-style compression artifact transition (JPEG/MPEG vibes)
+// 🧬 Chunky MPEG-style transition - performant, nearest neighbor, clutch
 
-// 🧬 Initialize transition - 8x8 DCT blocks like classic video codecs
+// 🧬 Initialize transition - 8x8 blocks
 function initGOLCells(width, height) {
-  const bs = 8; // Classic DCT block size
+  const bs = 8;
   golTransition.blockSize = bs;
   const blocksX = Math.ceil(width / bs);
   const blocksY = Math.ceil(height / bs);
   
-  // Per-block: [updateTime, quantLevel, frozen, avgR, avgG, avgB]
-  const blockData = new Float32Array(blocksX * blocksY * 6);
+  // Per-block: [revealTime, quantShift]
+  const blockData = new Uint8Array(blocksX * blocksY * 2);
   
-  for (let by = 0; by < blocksY; by++) {
-    for (let bx = 0; bx < blocksX; bx++) {
-      const bi = (by * blocksX + bx) * 6;
-      // Staggered update times - some blocks "freeze" longer (like I-frame vs P-frame)
-      blockData[bi] = Math.random() * 0.7 + (bx + by) % 3 * 0.1;
-      // Quantization level varies per block (more = blockier colors)
-      blockData[bi + 1] = 2 + Math.floor(Math.random() * 6);
-      // Whether block is "frozen" on old frame
-      blockData[bi + 2] = 1; // Start frozen
-      // Average colors (computed later)
-      blockData[bi + 3] = 0;
-      blockData[bi + 4] = 0;
-      blockData[bi + 5] = 0;
-    }
+  for (let i = 0; i < blocksX * blocksY; i++) {
+    // Reveal time 0-255 (will compare against progress*255)
+    blockData[i * 2] = Math.random() * 200 + 28 | 0;
+    // Quantization bit shift 2-5
+    blockData[i * 2 + 1] = 2 + (Math.random() * 4 | 0);
   }
   
   golTransition.blockData = blockData;
@@ -1151,89 +1141,80 @@ function initGOLCells(width, height) {
   golTransition.blocksY = blocksY;
 }
 
-// 🧬 Step function - advance compression sim
+// 🧬 Step function
 function golStep(screenPixels) {
   golTransition.generation++;
   return golTransition.generation < golTransition.maxGenerations;
 }
 
-// 🧬 Apply MPEG-style macroblock corruption transition
+// 🧬 Apply chunky nearest-neighbor block transition with heavy quantization
 function applyGOLOverlay(screenPixels) {
   const { overlayPixels, blockData, blocksX, blocksY, blockSize: bs, width, height, generation, maxGenerations } = golTransition;
   if (!overlayPixels || !blockData || !screenPixels) return;
   
-  const progress = generation / maxGenerations;
-  // Corruption peaks in middle of transition
-  const corruption = Math.sin(progress * Math.PI) * 0.8;
-  // How many blocks have "updated" to new frame
-  const updateThreshold = progress * 1.2;
+  // Progress as 0-255 integer
+  const progress = (generation / maxGenerations * 255) | 0;
+  // Corruption peaks mid-transition - STRONG
+  const corruption = (Math.sin(generation / maxGenerations * Math.PI) * 200 + 55) | 0;
   
   for (let by = 0; by < blocksY; by++) {
+    const rowStart = by * blocksX;
+    const startY = by * bs;
+    const endY = startY + bs > height ? height : startY + bs;
+    
     for (let bx = 0; bx < blocksX; bx++) {
-      const bi = (by * blocksX + bx) * 6;
-      const blockUpdateTime = blockData[bi];
-      const quantLevel = blockData[bi + 1];
+      const bi = (rowStart + bx) * 2;
+      const revealTime = blockData[bi];
+      const qShift = blockData[bi + 1] + 1; // Extra shift for chunkier quantization
       
-      // Has this block "received" the new frame data yet?
-      const updated = updateThreshold > blockUpdateTime;
-      // Source pixels: old or new based on update status
-      const srcPixels = updated ? screenPixels : overlayPixels;
+      // Smooth blend between old and new
+      const diff = progress - revealTime;
+      // blend: 0=old, 256=new, with soft transition zone
+      let blend = diff < -30 ? 0 : diff > 30 ? 256 : ((diff + 30) * 256 / 60) | 0;
+      const invBlend = 256 - blend;
       
       const startX = bx * bs;
-      const startY = by * bs;
-      const endX = Math.min(startX + bs, width);
-      const endY = Math.min(startY + bs, height);
+      const endX = startX + bs > width ? width : startX + bs;
       
-      // Calculate block average color (simulates DCT averaging at low quality)
-      let avgR = 0, avgG = 0, avgB = 0, count = 0;
+      // Sample block center for quantized color from BOTH frames
+      const cx = (startX + endX) >> 1;
+      const cy = (startY + endY) >> 1;
+      const ci = (cy * width + cx) * 4;
+      
+      // Quantize colors from both old and new (heavy posterization)
+      const oldQr = (overlayPixels[ci] >> qShift) << qShift;
+      const oldQg = (overlayPixels[ci + 1] >> qShift) << qShift;
+      const oldQb = (overlayPixels[ci + 2] >> qShift) << qShift;
+      const newQr = (screenPixels[ci] >> qShift) << qShift;
+      const newQg = (screenPixels[ci + 1] >> qShift) << qShift;
+      const newQb = (screenPixels[ci + 2] >> qShift) << qShift;
+      
+      // Blended quantized block color
+      const qr = (oldQr * invBlend + newQr * blend) >> 8;
+      const qg = (oldQg * invBlend + newQg * blend) >> 8;
+      const qb = (oldQb * invBlend + newQb * blend) >> 8;
+      
+      // Strong quantization throughout - corruption controls intensity
+      const qAmount = corruption;
+      const pAmount = 256 - qAmount;
+      
+      // Fill block with quantized chunky color
       for (let y = startY; y < endY; y++) {
+        const rowOff = y * width;
         for (let x = startX; x < endX; x++) {
-          const si = (y * width + x) * 4;
-          avgR += srcPixels[si];
-          avgG += srcPixels[si + 1];
-          avgB += srcPixels[si + 2];
-          count++;
+          const i = (rowOff + x) * 4;
+          
+          // Blend source pixels
+          const r = (overlayPixels[i] * invBlend + screenPixels[i] * blend) >> 8;
+          const g = (overlayPixels[i + 1] * invBlend + screenPixels[i + 1] * blend) >> 8;
+          const b = (overlayPixels[i + 2] * invBlend + screenPixels[i + 2] * blend) >> 8;
+          
+          // Mix actual with quantized block color
+          screenPixels[i] = (r * pAmount + qr * qAmount) >> 8;
+          screenPixels[i + 1] = (g * pAmount + qg * qAmount) >> 8;
+          screenPixels[i + 2] = (b * pAmount + qb * qAmount) >> 8;
         }
       }
-      avgR /= count; avgG /= count; avgB /= count;
-      
-      // Quantize the average (posterize colors like JPEG at low quality)
-      const q = quantLevel + corruption * 8;
-      avgR = Math.round(avgR / q) * q;
-      avgG = Math.round(avgG / q) * q;
-      avgB = Math.round(avgB / q) * q;
-      
-      // How much to show the blocky average vs actual pixels
-      // More corruption = more visible macroblocks
-      const blockiness = corruption * (0.4 + Math.random() * 0.3);
-      
-      // Apply to all pixels in block
-      for (let y = startY; y < endY; y++) {
-        for (let x = startX; x < endX; x++) {
-          const i = (y * width + x) * 4;
-          const si = (y * width + x) * 4;
-          
-          // Get source pixel
-          const srcR = srcPixels[si];
-          const srcG = srcPixels[si + 1];
-          const srcB = srcPixels[si + 2];
-          
-          // Blend between actual and blocky average
-          const inv = 1 - blockiness;
-          screenPixels[i] = srcR * inv + avgR * blockiness;
-          screenPixels[i + 1] = srcG * inv + avgG * blockiness;
-          screenPixels[i + 2] = srcB * inv + avgB * blockiness;
-          
-          // Add slight color channel offset at block edges (chroma bleeding)
-          if (corruption > 0.2 && (x === startX || y === startY)) {
-            screenPixels[i] = Math.min(255, screenPixels[i] + corruption * 20);
-            screenPixels[i + 2] = Math.max(0, screenPixels[i + 2] - corruption * 15);
-          }
-        }
-      }
-    }
-  }
-}
     }
   }
 }
@@ -12509,9 +12490,7 @@ async function makeFrame({ data: { type, content } }) {
             console.warn("🧬 GOL: Screen dimensions changed! Aborting transition.");
             golTransition.active = false;
             golTransition.overlayPixels = null;
-            golTransition.cells = null;
-            golTransition.nextCells = null;
-            golTransition.smearBuffer = null;
+            golTransition.blockData = null;
           } else {
             // Step the GOL (pass screen pixels for smear sampling)
             const stillActive = golStep(screen.pixels);
@@ -12524,9 +12503,7 @@ async function makeFrame({ data: { type, content } }) {
               console.log("🧬 GOL: Transition complete!");
               golTransition.active = false;
               golTransition.overlayPixels = null;
-              golTransition.cells = null;
-              golTransition.nextCells = null;
-              golTransition.smearBuffer = null;
+              golTransition.blockData = null;
             }
           }
         }

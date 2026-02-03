@@ -1398,14 +1398,22 @@ async function fun(event, context) {
               var cyclePos=Math.floor(now/wordCycleTime)%hlWords.length;
               // Always show "IT'S TIME TO GROW" first, then "INTO SOMETHING NEW"
               var showSet=(cyclePos<4)?0:1;
-              var linesToShow=showSet===0?["IT'S TIME","TO GROW"]:["INTO","SOMETHING","NEW"];
+              // Landscape mode (W > H): single line, Portrait: split lines
+              var isLandscape=W>H;
+              var linesToShow;
+              if(isLandscape){
+                linesToShow=showSet===0?["IT'S TIME TO GROW"]:["INTO SOMETHING NEW"];
+              }else{
+                linesToShow=showSet===0?["IT'S TIME","TO GROW"]:["INTO","SOMETHING","NEW"];
+              }
               // Which word in the current set should be highlighted?
               var highlightWordIdx=showSet===0?cyclePos:(cyclePos-4);
               // Map to actual words in linesToShow (line 0 has 2 words, line 1 has 1-2 words)
               var wordsInSet=showSet===0?["IT'S","TIME","TO","GROW"]:["INTO","SOMETHING","NEW"];
               var highlightWord=wordsInSet[highlightWordIdx];
               var longestLine=0;for(var lli=0;lli<linesToShow.length;lli++){if(linesToShow[lli].length>longestLine)longestLine=linesToShow[lli].length;}
-              var giveFS=Math.floor(Math.min(H*0.14, W/(longestLine*0.65)));
+              // Landscape: use more width, Portrait: constrain by height
+              var giveFS=isLandscape?Math.floor(Math.min(H*0.18, W/(longestLine*0.58))):Math.floor(Math.min(H*0.14, W/(longestLine*0.65)));
               var lineH=giveFS*1.1;
               var totalH=linesToShow.length*lineH;
               var startY=Math.floor(H*0.60)-totalH/2;
