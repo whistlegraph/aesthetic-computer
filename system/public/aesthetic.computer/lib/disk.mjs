@@ -12538,6 +12538,12 @@ async function makeFrame({ data: { type, content } }) {
             // Only signal once when piece has a custom paint function (not defaults.paint)
             if (pieceFrameCount === 1 && paint !== defaults.paint) {
               send({ type: "piece-paint-ready" });
+              // 🔥 Global signal for Puppeteer/Oven to detect piece is ready for screenshot
+              if (typeof window !== "undefined") {
+                window.acPieceReady = true;
+                window.acPieceReadyTime = Date.now();
+                console.log("🟢 acPieceReady = true (first paint complete)");
+              }
             }
             
             // TODO: Remove old embedded layer rendering - using simplified approach now

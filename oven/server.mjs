@@ -577,6 +577,10 @@ app.get('/', (req, res) => {
 <body>
   <header>
     <a href="/" class="logo">🔥 oven</a>
+    <nav style="display:flex;gap:1em;font-size:0.85em;">
+      <a href="/app-screenshots?piece=prompt" style="color:#88f;text-decoration:none;">📱 App Screenshots</a>
+      <a href="/kidlisp-og/preview" style="color:#88f;text-decoration:none;">🖼️ OG Images</a>
+    </nav>
     <div class="status">
       <div class="status-dot" id="ws-dot"></div>
       <span id="ws-text">Connecting...</span>
@@ -1796,11 +1800,26 @@ app.get('/app-screenshots', (req, res) => {
       color: #888;
       text-align: center;
       padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .screenshot-preview .loading .preview-img {
+      width: 80px;
+      height: 80px;
+      image-rendering: pixelated;
+      border: 1px solid #333;
+      margin-bottom: 8px;
+      display: none;
     }
     .screenshot-preview .loading .progress-text {
-      font-size: 12px;
+      font-size: 11px;
       margin-top: 8px;
       color: #88ff88;
+      font-family: monospace;
+      max-width: 150px;
+      word-break: break-word;
     }
     .screenshot-preview .loading .progress-bar {
       width: 80%;
@@ -1897,7 +1916,8 @@ app.get('/app-screenshots', (req, res) => {
         <div class="screenshot" data-preset="${key}">
           <div class="screenshot-preview">
             <span class="loading" data-loading="${key}">
-              🔥 Loading...
+              <img class="preview-img" alt="preview">
+              <span class="loading-text">🔥 Loading...</span>
               <div class="progress-text" data-progress-text="${key}"></div>
               <div class="progress-bar"><div class="progress-bar-fill" data-progress-bar="${key}"></div></div>
             </span>
@@ -1927,7 +1947,8 @@ app.get('/app-screenshots', (req, res) => {
         <div class="screenshot" data-preset="${key}">
           <div class="screenshot-preview">
             <span class="loading" data-loading="${key}">
-              🔥 Loading...
+              <img class="preview-img" alt="preview">
+              <span class="loading-text">🔥 Loading...</span>
               <div class="progress-text" data-progress-text="${key}"></div>
               <div class="progress-bar"><div class="progress-bar-fill" data-progress-bar="${key}"></div></div>
             </span>
@@ -1957,7 +1978,8 @@ app.get('/app-screenshots', (req, res) => {
         <div class="screenshot" data-preset="${key}">
           <div class="screenshot-preview">
             <span class="loading" data-loading="${key}">
-              🔥 Loading...
+              <img class="preview-img" alt="preview">
+              <span class="loading-text">🔥 Loading...</span>
               <div class="progress-text" data-progress-text="${key}"></div>
               <div class="progress-bar"><div class="progress-bar-fill" data-progress-bar="${key}"></div></div>
             </span>
@@ -2003,39 +2025,51 @@ app.get('/app-screenshots', (req, res) => {
     
     async function regenerate(preset) {
       showStatus('Regenerating ' + preset + '... (this takes ~30s)');
+      console.log('🔄 Starting regeneration for:', preset);
       
       // Show loading indicator and hide current image
       const card = document.querySelector('[data-preset="' + preset + '"]');
-      const img = card.querySelector('img');
+      const img = card.querySelector('[data-img]');
       const loading = card.querySelector('.loading');
-      const progressText = card.querySelector('.progress-text');
-      const progressBar = card.querySelector('.progress-bar-fill');
       
       img.style.display = 'none';
-      loading.style.display = 'block';
-      loading.innerHTML = '🔄 Regenerating...<div class="progress-text"></div><div class="progress-bar"><div class="progress-bar-fill" style="width:0%"></div></div>';
+      loading.style.display = 'flex';
+      loading.innerHTML = '<img class="preview-img" alt="preview"><span class="loading-text">🔄 Regenerating...</span><div class="progress-text"></div><div class="progress-bar"><div class="progress-bar-fill" style="width:0%"></div></div>';
+      
+      const startTime = Date.now();
       
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout
         
-        const res = await fetch('/app-screenshots/' + preset + '/' + currentPiece + '.png?force=true', {
-          signal: controller.signal
+        console.log('📡 Fetching with force=true...');
+        const res = await fetch('/app-screenshots/' + preset + '/' + currentPiece + '.png?force=true&t=' + Date.now(), {
+          signal: controller.signal,
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' }
         });
         clearTimeout(timeoutId);
         
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log('📡 Response received after ' + elapsed + 's, status:', res.status);
+        
         if (res.ok) {
           // Force reload the image with cache-busting
-          img.src = '/app-screenshots/' + preset + '/' + currentPiece + '.png?t=' + Date.now();
+          const newSrc = '/app-screenshots/' + preset + '/' + currentPiece + '.png?t=' + Date.now();
+          console.log('🖼️ Setting new image src:', newSrc);
+          img.src = newSrc;
           img.style.display = 'block';
           loading.style.display = 'none';
-          showStatus('✅ ' + preset + ' regenerated!', 'success');
+          showStatus('✅ ' + preset + ' regenerated in ' + elapsed + 's!', 'success');
         } else {
           const error = await res.text();
+          console.error('❌ Regeneration failed:', res.status, error);
           loading.innerHTML = '❌ Failed: ' + (error || res.status);
           showStatus('❌ Failed to regenerate: ' + res.status, 'error');
         }
       } catch (err) {
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.error('❌ Regeneration error after ' + elapsed + 's:', err);
         if (err.name === 'AbortError') {
           loading.innerHTML = '⏱️ Timeout - still processing?';
           showStatus('⏱️ Request timed out - try refreshing', 'error');
@@ -2147,11 +2181,18 @@ app.get('/app-screenshots', (req, res) => {
               if (el.style.display !== 'none') {
                 const progressText = el.querySelector('.progress-text');
                 const progressBar = el.querySelector('.progress-bar-fill');
+                const previewImg = el.querySelector('.preview-img');
+                
                 if (progressText && data.progress.stageDetail) {
                   progressText.textContent = data.progress.stageDetail;
                 }
                 if (progressBar && data.progress.percent) {
                   progressBar.style.width = data.progress.percent + '%';
+                }
+                // Display streaming preview if available
+                if (previewImg && data.progress.previewFrame) {
+                  previewImg.src = 'data:image/jpeg;base64,' + data.progress.previewFrame;
+                  previewImg.style.display = 'block';
                 }
               }
             });
@@ -2162,17 +2203,19 @@ app.get('/app-screenshots', (req, res) => {
       }
     }
     
-    function updateProgressUI(preset, stage, percent, detail) {
+    function updateProgressUI(preset, stage, percent, detail, previewFrame) {
       const loading = document.querySelector('[data-loading="' + preset + '"]');
       if (!loading || loading.style.display === 'none') return;
       
       const progressText = loading.querySelector('.progress-text');
       const progressBar = loading.querySelector('.progress-bar-fill');
+      const previewImg = loading.querySelector('.preview-img');
       
       // Map stage to friendly text
       const stageText = {
         'loading': '🚀 Loading piece...',
         'waiting-content': '⏳ Waiting for render...',
+        'settling': '⏸️ Settling...',
         'capturing': '📸 Capturing...',
         'encoding': '🔄 Processing...',
         'uploading': '☁️ Uploading...',
@@ -2185,11 +2228,16 @@ app.get('/app-screenshots', (req, res) => {
       if (progressBar && percent != null) {
         progressBar.style.width = percent + '%';
       }
+      // Show streaming preview
+      if (previewImg && previewFrame) {
+        previewImg.src = 'data:image/jpeg;base64,' + previewFrame;
+        previewImg.style.display = 'block';
+      }
     }
     
     // Start WebSocket and polling
     connectWebSocket();
-    const pollInterval = setInterval(pollProgress, 500);
+    const pollInterval = setInterval(pollProgress, 150); // Poll fast for smooth previews
     
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
@@ -2229,7 +2277,8 @@ app.get('/app-screenshots/:preset/:piece.png', async (req, res) => {
           format: 'png',
           width,
           height,
-          density: 4, // Pixel art look - render at 1/4 res then scale up
+          density: 4, // Pixel art - larger art pixels (4x)
+          viewportScale: 1, // Capture at exact output size
           skipCache: force,
         });
         
@@ -2256,8 +2305,9 @@ app.get('/app-screenshots/:preset/:piece.png', async (req, res) => {
     
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Content-Length', buffer.length);
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.setHeader('X-Cache', 'MISS');
+    // When force=true, prevent caching
+    res.setHeader('Cache-Control', force ? 'no-store, no-cache, must-revalidate' : 'public, max-age=86400');
+    res.setHeader('X-Cache', force ? 'REGENERATED' : 'MISS');
     res.setHeader('X-Screenshot-Preset', preset);
     res.setHeader('X-Screenshot-Dimensions', `${width}x${height}`);
     res.send(buffer);
@@ -2294,7 +2344,8 @@ app.get('/app-screenshots/download/:piece', async (req, res) => {
             format: 'png',
             width: preset.width,
             height: preset.height,
-            density: 4, // Pixel art look - render at 1/4 res then scale up
+            density: 4, // Pixel art - larger art pixels (4x)
+            viewportScale: 1, // Capture at exact output size
           });
           
           if (!result.success) throw new Error(result.error);
