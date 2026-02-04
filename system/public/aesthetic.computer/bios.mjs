@@ -4039,9 +4039,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Try to use WebSocket module loader for the fallback import (avoids HTTP proxy issues)
         let module;
         const loader = window.acModuleLoader;
-        if (isLocalhost && loader?.connected && loader.blobUrls?.has('lib/disk.mjs')) {
-          // Use already-loaded blob URL from WebSocket bundle
-          const blobUrl = loader.blobUrls.get('lib/disk.mjs');
+        let blobUrl = null;
+        if (isLocalhost && loader?.loadWithDeps) {
+          try {
+            if (!loader.connected && loader.connecting) {
+              await Promise.race([
+                loader.connecting,
+                new Promise(resolve => setTimeout(resolve, 400))
+              ]);
+            }
+            blobUrl = loader.blobUrls?.get('lib/disk.mjs') || await loader.loadWithDeps('lib/disk.mjs', 5000);
+          } catch (err) {
+            blobUrl = null;
+          }
+        }
+        if (blobUrl && blobUrl.startsWith('blob:')) {
           module = await import(blobUrl);
         } else {
           // Fall back to HTTP import
