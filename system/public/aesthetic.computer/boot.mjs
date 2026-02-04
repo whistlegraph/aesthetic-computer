@@ -696,44 +696,61 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBu
   const retryDelay = isLocalhost ? 300 : IMPORT_RETRY_DELAY;
   let triedWs = false;
 
-  const tryLoadViaWs = async () => {
-    if (!loader?.loadWithDeps) return null;
-    triedWs = true;
-    try {
-      // Wait briefly if a connection attempt is in flight
-      if (!loader.connected && loader.connecting) {
-        await Promise.race([
-          loader.connecting,
-          new Promise(resolve => setTimeout(resolve, 400))
-        ]);
-      }
-      if (!loader.connected) return null;
-      // Extract relative path from modulePath (remove ./ prefix and cache bust)
-      const relativePath = modulePath.replace(/^\.\//, '').split('?')[0];
-      const blobUrl = await loader.loadWithDeps(relativePath, 5000);
-      if (blobUrl && blobUrl.startsWith('blob:')) {
-        return await import(blobUrl);
-      }
-    } catch (err) {
-      // Silent fallback to HTTP
-    }
-    return null;
+  const waitForWsConnection = async () => {
+    if (!loader?.connecting) return;
+    await Promise.race([
+      loader.connecting,
+      new Promise(resolve => setTimeout(resolve, 400))
+    ]);
   };
 
-  // Try WebSocket module loader with dependency bundling first
-  if (useWsBundle) {
-    const wsModule = await tryLoadViaWs();
-    if (wsModule) return wsModule;
+  const tryLoadViaWs = async () => {
+    if (!loader?.loadWithDeps) throw new Error('ws-unavailable');
+    triedWs = true;
+    await waitForWsConnection();
+    if (!loader.connected) throw new Error('ws-not-connected');
+    const relativePath = modulePath.replace(/^\.\//, '').split('?')[0];
+    const blobUrl = await loader.loadWithDeps(relativePath, 5000);
+    if (blobUrl && blobUrl.startsWith('blob:')) {
+      return await import(blobUrl);
+    }
+    throw new Error('ws-missing-blob');
+  };
+
+  const tryLoadViaHttp = async () => import(modulePath);
+
+  const raceToSuccess = async (promises) => new Promise((resolve, reject) => {
+    let pending = promises.length;
+    let lastErr = null;
+    for (const promise of promises) {
+      promise.then(resolve).catch((err) => {
+        lastErr = err;
+        pending -= 1;
+        if (pending === 0) reject(lastErr);
+      });
+    }
+  });
+
+  // Parallel paths on localhost or when explicitly requested
+  if (useWsBundle || isLocalhost) {
+    try {
+      return await raceToSuccess([tryLoadViaWs(), tryLoadViaHttp()]);
+    } catch (err) {
+      // Fall through to retry loop
+    }
   } else if (loader?.connected) {
     // Opportunistic WS load even if boot decided not to wait
-    const wsModule = await tryLoadViaWs();
-    if (wsModule) return wsModule;
+    try {
+      return await tryLoadViaWs();
+    } catch (err) {
+      // Fall through to HTTP
+    }
   }
   
   // Standard HTTP import with retry
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const module = await import(modulePath);
+      const module = await tryLoadViaHttp();
       return module;
     } catch (err) {
       const isNetworkError = err.message?.includes('net::ERR_') || 
@@ -743,8 +760,11 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBu
                              err.message?.includes('Content-Length');
       
       if (isNetworkError && !triedWs) {
-        const wsModule = await tryLoadViaWs();
-        if (wsModule) return wsModule;
+        try {
+          return await tryLoadViaWs();
+        } catch (wsErr) {
+          // Continue to retry loop
+        }
       }
 
       if (attempt < retries && isNetworkError) {
