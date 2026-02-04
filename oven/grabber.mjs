@@ -255,18 +255,33 @@ async function processGrabQueue() {
   if (grabRunning || grabQueue.length === 0) return;
   
   grabRunning = true;
-  const { fn, resolve, reject } = grabQueue.shift();
+  const { fn, resolve, reject, metadata } = grabQueue.shift();
+  
+  console.log(`📋 Processing queue item: ${metadata?.piece || 'unknown'} (${grabQueue.length} remaining)`);
   
   try {
     const result = await fn();
     resolve(result);
   } catch (error) {
+    console.error(`❌ Queue item failed: ${metadata?.piece || 'unknown'} - ${error.message}`);
+    
+    // If it's a browser connection error, try to reset the browser
+    if (error.message.includes('Connection closed') || 
+        error.message.includes('disconnected') ||
+        error.message.includes('Target closed')) {
+      console.log('🔄 Browser connection lost, resetting browser...');
+      browser = null;
+    }
+    
     reject(error);
   } finally {
     grabRunning = false;
     // Process next item after a small delay to let resources settle
     if (grabQueue.length > 0) {
-      setTimeout(processGrabQueue, 100);
+      // Longer delay if browser needs to restart
+      const delay = browser === null ? 500 : 100;
+      console.log(`📋 Next queue item in ${delay}ms (${grabQueue.length} remaining)`);
+      setTimeout(processGrabQueue, delay);
     }
   }
 }
@@ -1029,8 +1044,19 @@ function serverLog(type, icon, msg) {
  * Get or launch the shared browser instance
  */
 async function getBrowser() {
-  if (browser && browser.isConnected()) {
-    return browser;
+  // Check if existing browser is still usable
+  if (browser) {
+    try {
+      if (browser.isConnected()) {
+        return browser;
+      } else {
+        console.log('⚠️ Browser disconnected, will relaunch...');
+        browser = null;
+      }
+    } catch (e) {
+      console.log('⚠️ Browser check failed, will relaunch:', e.message);
+      browser = null;
+    }
   }
   
   // Prevent multiple simultaneous launches
@@ -1054,7 +1080,7 @@ async function getBrowser() {
     browser = await puppeteer.launch({
       headless: 'new',
       executablePath,
-      protocolTimeout: 60000,  // 60s timeout for CDP protocol calls
+      protocolTimeout: 120000,  // 120s timeout for CDP protocol calls (increased)
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -1064,8 +1090,20 @@ async function getBrowser() {
         '--use-gl=swiftshader',
         '--enable-unsafe-webgl',
         '--window-size=800,800',
+        // Stability flags
+        '--disable-gpu-sandbox',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
       ],
     });
+    
+    // Set up disconnect handler for automatic cleanup
+    browser.on('disconnected', () => {
+      console.log('⚠️ Browser disconnected unexpectedly');
+      browser = null;
+    });
+    
     console.log('✅ Browser ready');
     return browser;
   })();
