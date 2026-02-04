@@ -58,6 +58,149 @@ export { addServerLog };
 // Log server startup
 addServerLog('info', '🔥', 'Oven server starting...');
 
+// ===== SHARED PROGRESS UI COMPONENTS =====
+// Shared CSS for progress indicators across all oven dashboards
+const PROGRESS_UI_CSS = `
+  /* Oven Progress UI - shared across all dashboards */
+  .oven-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.85);
+    color: #888;
+    text-align: center;
+    padding: 10px;
+    z-index: 10;
+  }
+  .oven-loading .preview-img {
+    width: 80px;
+    height: 80px;
+    image-rendering: pixelated;
+    border: 1px solid #333;
+    margin-bottom: 8px;
+    display: none;
+    background: #111;
+  }
+  .oven-loading .loading-text {
+    font-size: 12px;
+    color: #fff;
+  }
+  .oven-loading .progress-text {
+    font-size: 11px;
+    margin-top: 8px;
+    color: #88ff88;
+    font-family: monospace;
+    max-width: 150px;
+    word-break: break-word;
+  }
+  .oven-loading .progress-bar {
+    width: 80%;
+    max-width: 150px;
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    margin: 8px auto 0;
+    overflow: hidden;
+  }
+  .oven-loading .progress-bar-fill {
+    height: 100%;
+    background: #88ff88;
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+  .oven-loading.error {
+    color: #f44;
+  }
+  .oven-loading.success {
+    color: #4f4;
+  }
+`;
+
+// Shared JavaScript for progress polling and UI updates
+const PROGRESS_UI_JS = `
+  // Shared progress state
+  let progressPollInterval = null;
+  
+  // Update any loading indicator with progress data
+  function updateOvenLoadingUI(container, data, queueInfo) {
+    if (!container) return;
+    
+    const loadingText = container.querySelector('.loading-text');
+    const progressText = container.querySelector('.progress-text');
+    const progressBar = container.querySelector('.progress-bar-fill');
+    const previewImg = container.querySelector('.preview-img');
+    
+    // Check if item is in queue and get position
+    let queuePosition = null;
+    if (queueInfo && queueInfo.length > 0 && data.piece) {
+      const queueItem = queueInfo.find(q => q.piece === data.piece);
+      if (queueItem) {
+        queuePosition = queueItem.position;
+      }
+    }
+    
+    // Map stage to friendly text
+    const stageText = {
+      'loading': '🚀 Loading piece...',
+      'waiting-content': '⏳ Waiting for render...',
+      'settling': '⏸️ Settling...',
+      'capturing': '📸 Capturing...',
+      'encoding': '🔄 Processing...',
+      'uploading': '☁️ Uploading...',
+      'queued': queuePosition ? '⏳ In queue (#' + queuePosition + ')...' : '⏳ In queue...',
+    };
+    
+    if (loadingText && data.stage) {
+      loadingText.textContent = stageText[data.stage] || data.stage;
+    }
+    if (progressText && data.stageDetail) {
+      progressText.textContent = data.stageDetail;
+    }
+    if (progressBar && data.percent != null) {
+      progressBar.style.width = data.percent + '%';
+    }
+    // Show streaming preview
+    if (previewImg && data.previewFrame) {
+      previewImg.src = 'data:image/jpeg;base64,' + data.previewFrame;
+      previewImg.style.display = 'block';
+    }
+  }
+  
+  // Create loading HTML structure
+  function createOvenLoadingHTML(initialText = '🔥 Loading...') {
+    return '<img class="preview-img" alt="preview">' +
+           '<span class="loading-text">' + initialText + '</span>' +
+           '<div class="progress-text"></div>' +
+           '<div class="progress-bar"><div class="progress-bar-fill"></div></div>';
+  }
+  
+  // Start polling /grab-status for progress updates
+  function startProgressPolling(callback, intervalMs = 150) {
+    stopProgressPolling();
+    progressPollInterval = setInterval(async () => {
+      try {
+        const res = await fetch('/grab-status');
+        const data = await res.json();
+        if (callback && data.progress) {
+          callback(data);
+        }
+      } catch (err) {
+        // Ignore polling errors
+      }
+    }, intervalMs);
+  }
+  
+  function stopProgressPolling() {
+    if (progressPollInterval) {
+      clearInterval(progressPollInterval);
+      progressPollInterval = null;
+    }
+  }
+`;
+
 // Parse JSON bodies
 app.use(express.json());
 
@@ -572,6 +715,8 @@ app.get('/', (req, res) => {
     
     .frozen-item-actions .clear-btn { color: #4f4; border-color: #4f4; }
     .frozen-item-actions .clear-btn:hover { background: #4f4; color: #000; }
+    
+    ${PROGRESS_UI_CSS}
   </style>
 </head>
 <body>
@@ -627,6 +772,14 @@ app.get('/', (req, res) => {
       <a href="https://aesthetic.computer/prompt" style="margin-left:auto;color:#666;text-decoration:none;font-size:0.85em;" title="Back to prompt">← prompt</a>
     </form>
     <div id="capture-status" style="display:none;margin-top:0.5em;font-size:0.85em;"></div>
+    <div id="capture-preview" style="display:none;margin-top:0.5em;position:relative;height:100px;background:#0a0a0a;border-radius:4px;overflow:hidden;">
+      <div class="oven-loading" style="position:relative;height:100%;">
+        <img class="preview-img" alt="preview">
+        <span class="loading-text">🔥 Loading...</span>
+        <div class="progress-text"></div>
+        <div class="progress-bar"><div class="progress-bar-fill"></div></div>
+      </div>
+    </div>
   </div>
   
   <div class="stats">
@@ -683,6 +836,19 @@ app.get('/', (req, res) => {
     let activityLog = []; // Store activity entries
     const MAX_LOG_ENTRIES = 200;
     let activityCollapsed = false;
+    
+    // HTML escape helper
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+    
+    ${PROGRESS_UI_JS}
     
     // Activity log functions
     function addLogEntry(type, icon, msg) {
@@ -885,32 +1051,56 @@ app.get('/', (req, res) => {
       captureBtn.textContent = '⏳ Capturing...';
       captureBtn.style.opacity = '0.5';
       
-      statusEl.style.display = 'block';
-      statusEl.style.color = '#fa0';
-      statusEl.textContent = '🔥 Starting capture...';
+      // Show progress preview
+      const previewEl = document.getElementById('capture-preview');
+      const loadingEl = previewEl.querySelector('.oven-loading');
+      previewEl.style.display = 'block';
+      statusEl.style.display = 'none';
+      
+      // Start polling for progress updates
+      const pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch('/grab-status');
+          const data = await res.json();
+          if (data.progress && data.progress.piece) {
+            // Check if this is our capture
+            if (data.progress.piece === piece || data.progress.piece === '$' + piece) {
+              updateOvenLoadingUI(loadingEl, data.progress, data.queue);
+            }
+          }
+        } catch (e) {}
+      }, 150);
+      
       addLogEntry('capture', '📸', 'Manual capture started: ' + piece + ' (' + width + '×' + height + ' ' + format + ')');
       
       try {
         const url = '/grab/' + format + '/' + width + '/' + height + '/' + encodeURIComponent(piece) + 
           '?duration=' + (duration * 1000);
         
-        statusEl.textContent = '📸 Capturing ' + piece + ' (' + width + '×' + height + ' ' + format + ', ' + duration + 's)...';
-        
         const response = await fetch(url);
+        clearInterval(pollInterval);
+        
         if (response.ok) {
+          statusEl.style.display = 'block';
           statusEl.style.color = '#4f4';
           statusEl.textContent = '✅ Capture complete! Check the grid below.';
+          previewEl.style.display = 'none';
           addLogEntry('success', '✅', 'Capture complete: ' + piece);
           setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
         } else {
           const err = await response.json();
+          statusEl.style.display = 'block';
           statusEl.style.color = '#f44';
           statusEl.textContent = '❌ ' + (err.error || 'Capture failed');
+          previewEl.style.display = 'none';
           addLogEntry('error', '❌', 'Capture failed: ' + piece + ' - ' + (err.error || 'Unknown error'));
         }
       } catch (err) {
+        clearInterval(pollInterval);
+        statusEl.style.display = 'block';
         statusEl.style.color = '#f44';
         statusEl.textContent = '❌ ' + err.message;
+        previewEl.style.display = 'none';
         addLogEntry('error', '❌', 'Capture error: ' + err.message);
       } finally {
         // Unlock the form
@@ -2160,6 +2350,13 @@ app.get('/app-screenshots', (req, res) => {
         if (data.progress && data.progress.piece) {
           const piece = data.progress.piece;
           if (piece === currentPiece || piece === '$' + currentPiece) {
+            // Check queue position for this piece
+            let queuePosition = null;
+            if (data.queue && data.queue.length > 0) {
+              const queueItem = data.queue.find(q => q.piece === piece);
+              if (queueItem) queuePosition = queueItem.position;
+            }
+            
             // Find matching preset by checking dimensions in active grabs
             if (data.active && data.active.length > 0) {
               const activeGrab = data.active.find(g => 
@@ -2169,7 +2366,7 @@ app.get('/app-screenshots', (req, res) => {
                 for (const [preset, config] of Object.entries(${JSON.stringify(APP_SCREENSHOT_PRESETS)})) {
                   if (activeGrab.dimensions.width === config.width && 
                       activeGrab.dimensions.height === config.height) {
-                    updateProgressUI(preset, data.progress.stage, data.progress.percent, data.progress.stageDetail);
+                    updateProgressUI(preset, data.progress.stage, data.progress.percent, data.progress.stageDetail, null, queuePosition);
                     break;
                   }
                 }
@@ -2203,7 +2400,7 @@ app.get('/app-screenshots', (req, res) => {
       }
     }
     
-    function updateProgressUI(preset, stage, percent, detail, previewFrame) {
+    function updateProgressUI(preset, stage, percent, detail, previewFrame, queuePosition) {
       const loading = document.querySelector('[data-loading="' + preset + '"]');
       if (!loading || loading.style.display === 'none') return;
       
@@ -2219,7 +2416,7 @@ app.get('/app-screenshots', (req, res) => {
         'capturing': '📸 Capturing...',
         'encoding': '🔄 Processing...',
         'uploading': '☁️ Uploading...',
-        'queued': '⏳ In queue...',
+        'queued': queuePosition ? '⏳ In queue (#' + queuePosition + ')...' : '⏳ In queue...',
       };
       
       if (progressText) {
