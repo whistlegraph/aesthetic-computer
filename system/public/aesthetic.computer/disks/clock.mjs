@@ -4750,7 +4750,11 @@ function createManagedSound(
     const baseFreq = sound.freq(tone);
     const finalFreq = baseFreq + (toneShift || 0);
     
-    console.log(`🗣️ SAY createManagedSound: waveType=${waveType}, sayText="${sayText}", tone=${tone}, freq=${Math.round(finalFreq)}Hz`);
+    // Use actualDuration (in ms) for time stretching - this is the real note length
+    // Don't use synthDuration as it's in seconds for struck notes or infinite for held notes
+    const sayTargetDuration = actualDuration; // Already in ms with minimum 50ms enforced
+    
+    console.log(`🗣️ SAY createManagedSound: waveType=${waveType}, sayText="${sayText}", tone=${tone}, freq=${Math.round(finalFreq)}Hz, targetDuration=${sayTargetDuration}ms`);
     
     // Use speak function with pitch option - this uses speakAPI.playSfx directly in bios
     // which has access to the speech cache (sound.play goes through worker and can't access it)
@@ -4758,7 +4762,7 @@ function createManagedSound(
       speakRef(sayText, "female:18", "cloud", {
         volume: volume,
         pitch: finalFreq, // Pitch in Hz - speech.mjs will convert to speed
-        preserveDuration: true, // Pitch shift without time stretch - loops sample to fill duration
+        targetDuration: sayTargetDuration, // Time stretch to fit note duration (ms), then pitch shift
         loop: false, // Speech samples should play once, not loop
         skipCompleted: true,
       });
@@ -4766,7 +4770,7 @@ function createManagedSound(
       console.error("🗣️ SAY ERROR: speakRef is not set!");
     }
     
-    console.log(`🗣️ SAY: "${sayText}" @ ${tone} (${Math.round(finalFreq)}Hz) vol:${volume.toFixed(2)} ${struck ? 'struck' : 'held'}`);
+    console.log(`🗣️ SAY: "${sayText}" @ ${tone} (${Math.round(finalFreq)}Hz) targetDuration:${sayTargetDuration}ms vol:${volume.toFixed(2)} ${struck ? 'struck' : 'held'}`);
   } else {
     // Use normal synth for all other waveform types
     synthInstance = sound.synth({
@@ -6207,6 +6211,19 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
 
         // Check if it's time to play the next note using direct timing
         if (nextNoteTargetTime > 0 && currentTimeMs >= nextNoteTargetTime) {
+          // CRITICAL: Don't play notes until all samples are loaded (for {say} waveform)
+          if (!loadingState.readyToPlay) {
+            // Only log once per second to avoid spam
+            if (!loadingState.lastWaitLog || performance.now() - loadingState.lastWaitLog > 1000) {
+              console.log("🗣️ Waiting for samples...", loadingState.samplesLoaded, "/", loadingState.samplesNeeded);
+              loadingState.lastWaitLog = performance.now();
+            }
+            // Skip this note timing - defer until samples are ready
+            // Adjust target time to prevent timing drift while waiting
+            nextNoteTargetTime = currentTimeMs + 50; // Check again in 50ms
+            return; // Exit early - don't play notes yet
+          }
+          
           const timingGap = currentTimeMs - nextNoteTargetTime;
 
           // CRITICAL: Get the current note data BEFORE calling bleep (which advances the index)
@@ -6480,6 +6497,18 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             trackState.nextNoteTargetTime > 0 &&
             currentTimeMs >= trackState.nextNoteTargetTime
           ) {
+            // CRITICAL: Don't play notes until all samples are loaded (for {say} waveform)
+            if (!loadingState.readyToPlay) {
+              // Only log once per second to avoid spam
+              if (!loadingState.lastWaitLogParallel || performance.now() - loadingState.lastWaitLogParallel > 1000) {
+                console.log("🗣️ Parallel: Waiting for samples...", loadingState.samplesLoaded, "/", loadingState.samplesNeeded);
+                loadingState.lastWaitLogParallel = performance.now();
+              }
+              // Skip this note timing - defer until samples are ready
+              // Adjust target time to prevent timing drift while waiting
+              trackState.nextNoteTargetTime = currentTimeMs + 50; // Check again in 50ms
+              return; // Exit early - don't play notes yet
+            }
             const noteData = trackState.track[trackState.noteIndex];
             if (noteData) {
               // Play the note

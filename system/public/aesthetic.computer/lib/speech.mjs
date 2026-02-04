@@ -82,7 +82,7 @@ function speak(words, voice, mode = "local", opts = {}) {
         return;
       }
       
-      console.log("🗣️", label);
+      console.log("🗣️ SPEECH play() called for:", label);
       const id = label + "_" + performance.now(); // An id for this sample.
       
       // Calculate speed from pitch if provided (frequency in Hz)
@@ -98,7 +98,12 @@ function speak(words, voice, mode = "local", opts = {}) {
       }
       
       const vol = isFinite(opts.volume) ? opts.volume : 1;
-      console.log("🗣️ playSfx:", { speed: speed.toFixed(3), vol, pitch: opts.pitch, preserveDuration: opts.preserveDuration });
+      console.log("🗣️ SPEECH calling playSfx:", { id: id.substring(0, 50), label: label.substring(0, 50), speed: speed.toFixed(3), vol, targetDuration: opts.targetDuration, hasPlasSfx: !!speakAPI.playSfx });
+      
+      if (!speakAPI.playSfx) {
+        console.error("🗣️ SPEECH ERROR: speakAPI.playSfx is not set!");
+        return;
+      }
       
       speakAPI.playSfx(
         id,
@@ -108,7 +113,7 @@ function speak(words, voice, mode = "local", opts = {}) {
           pan: opts.pan, 
           volume: vol, 
           loop: opts.loop,
-          preserveDuration: opts.preserveDuration, // Pitch shift without time stretch
+          targetDuration: opts.targetDuration, // Time stretch to target duration, then pitch shift
         },
         () => {
           if (!opts.skipCompleted) window.acSEND({ type: "speech:completed" });
@@ -132,11 +137,43 @@ function speak(words, voice, mode = "local", opts = {}) {
       console.log("🧹 Cache bust for:", label);
     }
     
-    if (speakAPI.sfx[label] && !needsBust) {
-      console.log("🗣️ Local cache hit:", label);
+    // Check if sample is cached AND fully decoded (AudioBuffer, not ArrayBuffer)
+    // ArrayBuffer means fetch completed but decode hasn't finished yet
+    const cachedSample = speakAPI.sfx[label];
+    const isFullyDecoded = cachedSample && !(cachedSample instanceof ArrayBuffer);
+    
+    if (isFullyDecoded && !needsBust) {
+      console.log("🗣️ Local cache hit (decoded):", label);
       // For preloadOnly, immediately resolve since already cached
       if (opts.preloadOnly) {
         return Promise.resolve(label);
+      }
+      play();
+      return;
+    }
+    
+    // If sample exists but is still ArrayBuffer (being decoded), just call play()
+    // bios.mjs decodeSfx will properly wait if decode is already in progress
+    if (cachedSample && cachedSample instanceof ArrayBuffer) {
+      console.log("🗣️ Sample cached as ArrayBuffer, triggering decode via play():", label);
+      if (opts.preloadOnly) {
+        // For preload, we need to wait for decode - call play which triggers decode
+        // but we'll return a promise that resolves when done
+        play(); // This triggers the decode
+        // Return promise that resolves when no longer ArrayBuffer
+        return new Promise((resolve) => {
+          const checkDecoded = () => {
+            const sample = speakAPI.sfx[label];
+            if (sample && !(sample instanceof ArrayBuffer)) {
+              resolve(label);
+            } else if (sample) {
+              setTimeout(checkDecoded, 20);
+            } else {
+              resolve(null);
+            }
+          };
+          setTimeout(checkDecoded, 10);
+        });
       }
       play();
       return;
@@ -187,10 +224,13 @@ function speak(words, voice, mode = "local", opts = {}) {
           if (res.status === 200) {
             // console.log("🗣️ Speech response:", res);
             const blob = await res.blob(); // Convert the response to a Blob.
-            speakAPI.sfx[label] = await blob.arrayBuffer(); // Cache locally
-            console.log("🗣️ Cached locally:", label);
+            speakAPI.sfx[label] = await blob.arrayBuffer(); // Cache locally as ArrayBuffer
+            console.log("🗣️ Cached locally (ArrayBuffer):", label);
             pendingFetches.delete(label);
             fetchResolve(label);
+            
+            // Play immediately - bios.mjs playSfx will handle decode waiting
+            // Multiple concurrent calls will properly wait for decode in bios.mjs
             play();
           } else {
             console.log("🗣️ Speech fetch failure, status:", res.status, "retry:", retryCount);

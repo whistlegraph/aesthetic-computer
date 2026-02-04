@@ -928,20 +928,26 @@ async function uploadToSpaces(buffer, cacheKey, contentType = 'image/png') {
  * Get cached image or generate and cache
  * Uses git version in cache key for automatic invalidation on code changes
  * @param {string} ext - File extension (default: 'png')
+ * @param {boolean} skipCache - Skip cache lookup (default: false)
  * @returns {{ cdnUrl: string, fromCache: boolean, buffer?: Buffer }}
  */
-export async function getCachedOrGenerate(type, piece, width, height, generateFn, ext = 'png') {
+export async function getCachedOrGenerate(type, piece, width, height, generateFn, ext = 'png', skipCache = false) {
   // Include git version in cache key for automatic invalidation
   const shortVersion = GIT_VERSION.slice(0, 8);
   const cacheKey = `${type}/${piece}-${width}x${height}-${shortVersion}.${ext}`;
   const mimeType = ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/png';
   
-  // Check cache first
-  const cachedUrl = await checkSpacesCache(cacheKey);
-  if (cachedUrl) {
-    console.log(`✅ Cache hit: ${cacheKey}`);
-    serverLog('info', '💾', `Cache hit: ${piece} (${width}×${height})`);
-    return { cdnUrl: cachedUrl, fromCache: true };
+  // Check cache first (unless skipCache is true)
+  if (!skipCache) {
+    const cachedUrl = await checkSpacesCache(cacheKey);
+    if (cachedUrl) {
+      console.log(`✅ Cache hit: ${cacheKey}`);
+      serverLog('info', '💾', `Cache hit: ${piece} (${width}×${height})`);
+      return { cdnUrl: cachedUrl, fromCache: true };
+    }
+  } else {
+    console.log(`⚡ Force regenerate: ${cacheKey}`);
+    serverLog('capture', '⚡', `Force regenerate: ${piece} (${width}×${height})`);
   }
   
   // Generate fresh

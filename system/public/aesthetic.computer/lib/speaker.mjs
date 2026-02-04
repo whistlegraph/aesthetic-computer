@@ -3,7 +3,8 @@
 // import * as sine from "./sound/sine.js";
 import { volume } from "./sound/volume.mjs";
 import { checkPackMode } from "./pack-mode.mjs";
-import Synth from "./sound/synth.mjs";
+// Cache bust: Feb 4, 2026 - fixed _fillCustomBuffer for AudioWorklet compatibility
+import Synth from "./sound/synth.mjs?v=20260204";
 import Bubble from "./sound/bubble.mjs";
 import { lerp, within, clamp } from "./num.mjs";
 
