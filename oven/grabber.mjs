@@ -1216,11 +1216,11 @@ async function captureFrames(piece, options = {}) {
       });
     }
     
-    // Settle time: let the piece run before capturing
-    // For stills (single frame), wait longer to let animations stabilize
+    // Settle time: let the piece run a bit more after ready signal
+    // For stills, wait longer to let animations stabilize
     // For animations, just a small buffer
     const isStill = frames === 1;
-    const settleTime = isKidLisp ? 500 : (isStill ? 1000 : 200); // KidLisp already waited, others: 1s stills (reduced from 3s), 200ms animations
+    const settleTime = isStill ? 500 : 200; // 500ms for stills, 200ms for animations
     console.log(`   ${isStill ? '⏳ Settling for still capture' : '⏳ Brief settle'}... (${settleTime}ms)`);
     
     // Send preview before settling
