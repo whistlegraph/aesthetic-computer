@@ -1794,6 +1794,28 @@ app.get('/app-screenshots', (req, res) => {
     .screenshot-preview .loading {
       position: absolute;
       color: #888;
+      text-align: center;
+      padding: 10px;
+    }
+    .screenshot-preview .loading .progress-text {
+      font-size: 12px;
+      margin-top: 8px;
+      color: #88ff88;
+    }
+    .screenshot-preview .loading .progress-bar {
+      width: 80%;
+      max-width: 150px;
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+      margin: 8px auto 0;
+      overflow: hidden;
+    }
+    .screenshot-preview .loading .progress-bar-fill {
+      height: 100%;
+      background: #88ff88;
+      width: 0%;
+      transition: width 0.3s ease;
     }
     .screenshot-preview .error {
       color: #ff4444;
@@ -1874,11 +1896,16 @@ app.get('/app-screenshots', (req, res) => {
       ${presets.filter(([k, v]) => v.category === 'phone').map(([key, preset]) => `
         <div class="screenshot" data-preset="${key}">
           <div class="screenshot-preview">
-            <span class="loading">Loading...</span>
+            <span class="loading" data-loading="${key}">
+              🔥 Loading...
+              <div class="progress-text" data-progress-text="${key}"></div>
+              <div class="progress-bar"><div class="progress-bar-fill" data-progress-bar="${key}"></div></div>
+            </span>
             <img src="/app-screenshots/${key}/${piece}.png" 
-                 alt="${preset.label}" 
+                 alt="${preset.label}"
+                 data-img="${key}"
                  onload="this.previousElementSibling.style.display='none'"
-                 onerror="this.style.display='none'; this.previousElementSibling.className='error'; this.previousElementSibling.textContent='Failed to load'">
+                 onerror="this.style.display='none'; this.previousElementSibling.innerHTML='❌ Failed to load'">
           </div>
           <div class="screenshot-info">
             <h4>${preset.label}</h4>
@@ -1899,11 +1926,16 @@ app.get('/app-screenshots', (req, res) => {
       ${presets.filter(([k, v]) => v.category === 'tablet7').map(([key, preset]) => `
         <div class="screenshot" data-preset="${key}">
           <div class="screenshot-preview">
-            <span class="loading">Loading...</span>
+            <span class="loading" data-loading="${key}">
+              🔥 Loading...
+              <div class="progress-text" data-progress-text="${key}"></div>
+              <div class="progress-bar"><div class="progress-bar-fill" data-progress-bar="${key}"></div></div>
+            </span>
             <img src="/app-screenshots/${key}/${piece}.png" 
-                 alt="${preset.label}" 
+                 alt="${preset.label}"
+                 data-img="${key}"
                  onload="this.previousElementSibling.style.display='none'"
-                 onerror="this.style.display='none'; this.previousElementSibling.className='error'; this.previousElementSibling.textContent='Failed to load'">
+                 onerror="this.style.display='none'; this.previousElementSibling.innerHTML='❌ Failed to load'">
           </div>
           <div class="screenshot-info">
             <h4>${preset.label}</h4>
@@ -1924,11 +1956,16 @@ app.get('/app-screenshots', (req, res) => {
       ${presets.filter(([k, v]) => v.category === 'tablet10').map(([key, preset]) => `
         <div class="screenshot" data-preset="${key}">
           <div class="screenshot-preview">
-            <span class="loading">Loading...</span>
+            <span class="loading" data-loading="${key}">
+              🔥 Loading...
+              <div class="progress-text" data-progress-text="${key}"></div>
+              <div class="progress-bar"><div class="progress-bar-fill" data-progress-bar="${key}"></div></div>
+            </span>
             <img src="/app-screenshots/${key}/${piece}.png" 
-                 alt="${preset.label}" 
+                 alt="${preset.label}"
+                 data-img="${key}"
                  onload="this.previousElementSibling.style.display='none'"
-                 onerror="this.style.display='none'; this.previousElementSibling.className='error'; this.previousElementSibling.textContent='Failed to load'">
+                 onerror="this.style.display='none'; this.previousElementSibling.innerHTML='❌ Failed to load'">
           </div>
           <div class="screenshot-info">
             <h4>${preset.label}</h4>
@@ -2003,6 +2040,135 @@ app.get('/app-screenshots', (req, res) => {
       showStatus('Preparing ZIP download...');
       window.location.href = '/app-screenshots/download/' + currentPiece;
     }
+    
+    // WebSocket for real-time progress updates
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    let ws = null;
+    let reconnectAttempts = 0;
+    
+    function connectWebSocket() {
+      ws = new WebSocket(protocol + '//' + location.host + '/ws');
+      
+      ws.onopen = () => {
+        console.log('📡 WebSocket connected');
+        reconnectAttempts = 0;
+      };
+      
+      ws.onclose = () => {
+        console.log('📡 WebSocket disconnected, reconnecting...');
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+        reconnectAttempts++;
+        setTimeout(connectWebSocket, delay);
+      };
+      
+      ws.onerror = () => ws.close();
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          // Check if there's active grab progress for our piece
+          if (data.grabs && data.grabs.active) {
+            const activeGrab = data.grabs.active.find(g => 
+              g.piece === currentPiece || g.piece === '$' + currentPiece
+            );
+            
+            if (activeGrab) {
+              // Find which preset this matches (by dimensions)
+              for (const [preset, config] of Object.entries(${JSON.stringify(APP_SCREENSHOT_PRESETS)})) {
+                if (activeGrab.dimensions && 
+                    activeGrab.dimensions.width === config.width && 
+                    activeGrab.dimensions.height === config.height) {
+                  updateProgressUI(preset, activeGrab.status, null);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error('WebSocket parse error:', err);
+        }
+      };
+    }
+    
+    // Poll for detailed progress since grabs report to /grab-status
+    async function pollProgress() {
+      try {
+        const res = await fetch('/grab-status');
+        const data = await res.json();
+        
+        if (data.progress && data.progress.piece) {
+          const piece = data.progress.piece;
+          if (piece === currentPiece || piece === '$' + currentPiece) {
+            // Find matching preset by checking dimensions in active grabs
+            if (data.active && data.active.length > 0) {
+              const activeGrab = data.active.find(g => 
+                g.piece === currentPiece || g.piece === '$' + currentPiece
+              );
+              if (activeGrab && activeGrab.dimensions) {
+                for (const [preset, config] of Object.entries(${JSON.stringify(APP_SCREENSHOT_PRESETS)})) {
+                  if (activeGrab.dimensions.width === config.width && 
+                      activeGrab.dimensions.height === config.height) {
+                    updateProgressUI(preset, data.progress.stage, data.progress.percent, data.progress.stageDetail);
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // Fallback: update all visible loading indicators with generic progress
+            document.querySelectorAll('.loading[data-loading]').forEach(el => {
+              if (el.style.display !== 'none') {
+                const progressText = el.querySelector('.progress-text');
+                const progressBar = el.querySelector('.progress-bar-fill');
+                if (progressText && data.progress.stageDetail) {
+                  progressText.textContent = data.progress.stageDetail;
+                }
+                if (progressBar && data.progress.percent) {
+                  progressBar.style.width = data.progress.percent + '%';
+                }
+              }
+            });
+          }
+        }
+      } catch (err) {
+        // Ignore polling errors
+      }
+    }
+    
+    function updateProgressUI(preset, stage, percent, detail) {
+      const loading = document.querySelector('[data-loading="' + preset + '"]');
+      if (!loading || loading.style.display === 'none') return;
+      
+      const progressText = loading.querySelector('.progress-text');
+      const progressBar = loading.querySelector('.progress-bar-fill');
+      
+      // Map stage to friendly text
+      const stageText = {
+        'loading': '🚀 Loading piece...',
+        'waiting-content': '⏳ Waiting for render...',
+        'capturing': '📸 Capturing...',
+        'encoding': '🔄 Processing...',
+        'uploading': '☁️ Uploading...',
+        'queued': '⏳ In queue...',
+      };
+      
+      if (progressText) {
+        progressText.textContent = detail || stageText[stage] || stage || '';
+      }
+      if (progressBar && percent != null) {
+        progressBar.style.width = percent + '%';
+      }
+    }
+    
+    // Start WebSocket and polling
+    connectWebSocket();
+    const pollInterval = setInterval(pollProgress, 500);
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      clearInterval(pollInterval);
+      if (ws) ws.close();
+    });
   </script>
 </body>
 </html>`);
