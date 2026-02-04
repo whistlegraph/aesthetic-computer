@@ -3755,6 +3755,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         volume: options?.volume,
         pan: options?.pan,
         loop: options?.loop,
+        targetDuration: options?.targetDuration,
         sfxLoadedForData: !!sfxLoaded[soundData]
       });
 
@@ -3769,7 +3770,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           to: isFinite(options?.to) ? options.to : 1,
           speed,
           loop: options?.loop || false,
-          preserveDuration: options?.preserveDuration || false, // Pitch shift without time stretch
+          targetDuration: options?.targetDuration || 0, // Time stretch to target duration (ms), then pitch shift
         },
         volume: isFinite(options?.volume) ? options.volume : 1,
         pan: isFinite(options?.pan) ? options.pan : 0,
@@ -20243,11 +20244,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   async function decodeSfx(sound) {
     // console.log("🎵 BIOS decodeSfx called for:", sound, "type:", typeof sfx[sound]);
     
-    // If sound is already being decoded, wait a bit and return
+    // If sound is already being decoded, wait for it to complete
     if (decodingInProgress.has(sound)) {
-      // console.log("🎵 BIOS decodeSfx already in progress for:", sound);
-      // Wait a moment and check again
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // console.log("🎵 BIOS decodeSfx already in progress, waiting for:", sound);
+      // Wait for decode to complete (poll until no longer in progress)
+      while (decodingInProgress.has(sound)) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      // console.log("🎵 BIOS decodeSfx wait complete for:", sound, "type:", typeof sfx[sound]);
       return sfx[sound];
     }
 

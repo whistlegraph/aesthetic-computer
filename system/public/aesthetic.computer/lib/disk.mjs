@@ -1156,7 +1156,7 @@ function initDripTransition(width, height) {
 
 // Signal that piece is loaded - switch to fast reveal phase
 function transitionPieceLoaded() {
-  if (pieceTransition.active && pieceTransition.phase === "loading") {
+  if (pieceTransition.active && pieceTransition.phase === "loading" && pieceTransition.dripSpeeds) {
     pieceTransition.phase = "revealing";
     // Boost speeds for the reveal phase - FAST!
     for (let x = 0; x < pieceTransition.dripSpeeds.length; x++) {

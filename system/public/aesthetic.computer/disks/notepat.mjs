@@ -7,6 +7,7 @@ import {
   isBlackKey,
 } from "../lib/note-colors.mjs";
 import { drawMiniControllerDiagram } from "../lib/gamepad-diagram.mjs";
+import { detectChord } from "../lib/chord-detection.mjs";
 
 /* 📝 Notes 
    - [] Make `slide` work with `composite`.
@@ -3181,6 +3182,35 @@ function paint({
         );
 
         x += boxW + 2;
+      }
+      
+      // 🎵 Chord Detection Display - show detected chord after active notes
+      const chord = detectChord(activeNotes);
+      if (chord && x + 20 < listRight) {
+        const chordText = chord.name;
+        const chordTextW = chordText.length * matrixGlyphMetrics.width;
+        const chordBoxW = chordTextW + 6;
+        const chordX = x + 4;
+        
+        if (chordX + chordBoxW < listRight) {
+          // Get color from root note of the chord
+          const rootNote = chord.root.toLowerCase();
+          const chordColor = getCachedColor(rootNote, num);
+          const chordTextColor = getContrastingTextColor(chordColor);
+          const chordOutline = darkenColor(chordColor, 0.6);
+          
+          // Draw chord pill with slightly different style (rounded feel via color)
+          ink(chordColor[0], chordColor[1], chordColor[2], 240).box(chordX, listY, chordBoxW, listHeight);
+          ink(chordOutline[0], chordOutline[1], chordOutline[2], 255).box(chordX, listY, chordBoxW, listHeight, "outline");
+          ink(chordTextColor[0], chordTextColor[1], chordTextColor[2]).write(
+            chordText,
+            { x: chordX + 3, y: listY },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8",
+          );
+        }
       }
     }
   }
