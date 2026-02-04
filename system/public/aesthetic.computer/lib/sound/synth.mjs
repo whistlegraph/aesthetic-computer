@@ -46,6 +46,12 @@ export default class Synth {
   #targetDurationSamples = 0; // Original duration in samples when preserving
   #playedSamples = 0; // Track how many samples we've output
   
+  // Time stretch + pitch shift fields
+  #timeStretchEnabled = false; // If true, stretch sample to targetDuration, then pitch shift
+  #targetDurationMs = 0; // Target duration in milliseconds (for time stretch mode)
+  #timeStretchRatio = 1; // How much to stretch/compress time (>1 = slower, <1 = faster)
+  #outputSamplesNeeded = 0; // How many output samples to produce
+  
   // Granular pitch shifting fields
   #grainSize = 2048; // Size of each grain in samples (~46ms at 44100Hz)
   #grainOverlap = 4; // Number of overlapping grains (more = smoother)
@@ -131,8 +137,50 @@ export default class Synth {
       this.#sampleIndex =
         this.#sampleSpeed < 0 ? this.#sampleEndIndex : this.#sampleStartIndex;
       
+      // Time stretch + pitch shift mode: stretch to target duration, then pitch shift
+      // This is for speech synthesis where we want the sample to fit the note's duration
+      if (options.targetDuration > 0) {
+        this.#timeStretchEnabled = true;
+        this.#targetDurationMs = options.targetDuration;
+        
+        // Calculate how many output samples we need
+        const sampleRate = options.sampleRate || 44100;
+        this.#outputSamplesNeeded = Math.floor((this.#targetDurationMs / 1000) * sampleRate);
+        
+        // Calculate the time stretch ratio
+        // sourceSamples / outputSamples = how fast we read through source
+        const sourceSamples = this.#sampleEndIndex - this.#sampleStartIndex;
+        this.#timeStretchRatio = sourceSamples / this.#outputSamplesNeeded;
+        
+        // Minimum duration check - avoid stretching too much
+        const minDurationMs = 50; // 50ms minimum
+        if (this.#targetDurationMs < minDurationMs) {
+          console.log(`🎤 SYNTH: Target duration ${this.#targetDurationMs}ms too short, clamping to ${minDurationMs}ms`);
+          this.#targetDurationMs = minDurationMs;
+          this.#outputSamplesNeeded = Math.floor((this.#targetDurationMs / 1000) * sampleRate);
+          this.#timeStretchRatio = sourceSamples / this.#outputSamplesNeeded;
+        }
+        
+        console.log("🎤 SYNTH timeStretch enabled:", {
+          targetDurationMs: this.#targetDurationMs,
+          sourceSamples,
+          outputSamplesNeeded: this.#outputSamplesNeeded,
+          timeStretchRatio: this.#timeStretchRatio.toFixed(3),
+          pitchShiftSpeed: this.#sampleSpeed.toFixed(3),
+        });
+        
+        // Setup granular for combined time stretch + pitch shift
+        this.#playedSamples = 0;
+        this.#sourcePosition = this.#sampleStartIndex;
+        this.#grains = [];
+        this.#grainPhase = 0;
+        
+        // Adjust grain size based on source sample length
+        this.#grainSize = Math.min(2048, Math.floor(sourceSamples / 8));
+        this.#grainSize = Math.max(256, this.#grainSize);
+      }
       // When preserving duration, set up granular pitch shifting
-      if (this.#preserveDuration) {
+      else if (this.#preserveDuration) {
         this.#targetDurationSamples = this.#sampleEndIndex - this.#sampleStartIndex;
         this.#playedSamples = 0;
         this.#sourcePosition = this.#sampleStartIndex;
@@ -164,7 +212,7 @@ export default class Synth {
       }
 
       // Pre-fill the buffer with initial data
-      this.#fillCustomBuffer();
+      this._fillCustomBuffer();
     } else if (type === "noise-white") {
       this.#frequency = options.tone; // Use the tone parameter for filtering
       // Initialize filter state variables for resonant filter
@@ -303,9 +351,9 @@ export default class Synth {
         // Granular synthesis: mix overlapping grains
         const grainSpacing = this.#grainSize / this.#grainOverlap;
         
-        // Spawn new grain when needed
+        // Spawn new grain when needed (but only if source material remains)
         this.#grainPhase++;
-        if (this.#grainPhase >= grainSpacing) {
+        if (this.#grainPhase >= grainSpacing && this.#sourcePosition < this.#sampleEndIndex) {
           this.#grainPhase = 0;
           
           // Create a new grain starting at current source position
@@ -329,22 +377,22 @@ export default class Synth {
           
           // Read from source at pitched rate
           const sourceIdx = grain.sourceStart + (grain.position * this.#sampleSpeed);
-          const clampedIdx = this.#sampleStartIndex + 
-            ((sourceIdx - this.#sampleStartIndex) % (this.#sampleEndIndex - this.#sampleStartIndex));
           
-          // Handle wraparound for negative or out-of-bounds
-          let readIdx = clampedIdx;
-          if (readIdx < this.#sampleStartIndex) {
-            readIdx = this.#sampleEndIndex - (this.#sampleStartIndex - readIdx);
-          }
-          if (readIdx >= this.#sampleEndIndex) {
-            readIdx = this.#sampleStartIndex + (readIdx - this.#sampleEndIndex);
+          // Skip this grain's contribution if it's past the end of source material
+          // (no looping - just let grains fade out naturally)
+          if (sourceIdx >= this.#sampleEndIndex || sourceIdx < this.#sampleStartIndex) {
+            // Grain has exhausted source material - let it die naturally
+            grain.position++;
+            if (grain.position < this.#grainSize) {
+              activeGrains.push(grain);
+            }
+            continue;
           }
           
           // Linear interpolation for smoother pitch shifting
-          const idx0 = floor(readIdx);
-          const idx1 = idx0 + 1 < this.#sampleEndIndex ? idx0 + 1 : this.#sampleStartIndex;
-          const frac = readIdx - idx0;
+          const idx0 = floor(sourceIdx);
+          const idx1 = idx0 + 1 < this.#sampleEndIndex ? idx0 + 1 : idx0;
+          const frac = sourceIdx - idx0;
           const sample0 = bufferData[idx0] || 0;
           const sample1 = bufferData[idx1] || 0;
           const interpolatedSample = sample0 + frac * (sample1 - sample0);
@@ -365,8 +413,86 @@ export default class Synth {
         // Normalize by overlap count to prevent clipping
         value /= (this.#grainOverlap / 2);
         
-        // Stop when we've played enough samples to match original duration
-        if (this.#playedSamples >= this.#targetDurationSamples) {
+        // Stop when all grains are done OR we've reached target duration
+        if (this.#grains.length === 0 && this.#sourcePosition >= this.#sampleEndIndex) {
+          this.playing = false;
+          return 0;
+        }
+      }
+      // Time stretch + pitch shift mode: stretch sample to fill target duration, then pitch shift
+      else if (this.#timeStretchEnabled) {
+        this.#playedSamples++;
+        
+        // Granular synthesis: mix overlapping grains
+        const grainSpacing = this.#grainSize / this.#grainOverlap;
+        
+        // Spawn new grain when needed
+        this.#grainPhase++;
+        if (this.#grainPhase >= grainSpacing && this.#sourcePosition < this.#sampleEndIndex) {
+          this.#grainPhase = 0;
+          
+          // Create a new grain starting at current source position
+          this.#grains.push({
+            sourceStart: this.#sourcePosition,
+            position: 0, // Position within grain (0 to grainSize)
+          });
+        }
+        
+        // Advance source position based on time stretch ratio
+        // timeStretchRatio < 1 = stretching (slower source read = longer output)
+        // timeStretchRatio > 1 = compressing (faster source read = shorter output)
+        this.#sourcePosition += this.#timeStretchRatio;
+        
+        // Mix all active grains
+        value = 0;
+        const activeGrains = [];
+        
+        for (const grain of this.#grains) {
+          // Calculate envelope (Hann window for smooth crossfade)
+          const grainProgress = grain.position / this.#grainSize;
+          const envelope = 0.5 * (1 - Math.cos(2 * Math.PI * grainProgress));
+          
+          // Read from source at pitch-shifted rate within the grain
+          // Time stretch is handled by #sourcePosition advancement
+          // Pitch shift is handled by reading grains at a different rate
+          const sourceIdx = grain.sourceStart + (grain.position * this.#sampleSpeed);
+          
+          // Skip this grain's contribution if it's past the end of source material
+          if (sourceIdx >= this.#sampleEndIndex || sourceIdx < this.#sampleStartIndex) {
+            grain.position++;
+            if (grain.position < this.#grainSize) {
+              activeGrains.push(grain);
+            }
+            continue;
+          }
+          
+          // Linear interpolation for smoother playback
+          const idx0 = floor(sourceIdx);
+          const idx1 = idx0 + 1 < this.#sampleEndIndex ? idx0 + 1 : idx0;
+          const frac = sourceIdx - idx0;
+          const sample0 = bufferData[idx0] || 0;
+          const sample1 = bufferData[idx1] || 0;
+          const interpolatedSample = sample0 + frac * (sample1 - sample0);
+          
+          value += interpolatedSample * envelope;
+          
+          // Advance grain position
+          grain.position++;
+          
+          // Keep grain if still active
+          if (grain.position < this.#grainSize) {
+            activeGrains.push(grain);
+          }
+        }
+        
+        this.#grains = activeGrains;
+        
+        // Normalize by overlap count to prevent clipping
+        value /= (this.#grainOverlap / 2);
+        
+        // Stop when we've output enough samples OR source is exhausted and grains done
+        if (this.#playedSamples >= this.#outputSamplesNeeded || 
+            (this.#grains.length === 0 && this.#sourcePosition >= this.#sampleEndIndex)) {
           this.playing = false;
           return 0;
         }
@@ -396,13 +522,14 @@ export default class Synth {
           ) {
             this.playing = false;
             return 0;
+          }
         }
       }
     } else if (this.type === "custom") {
       // 🎨 Custom Waveform Generation
       // Ensure buffer has data available
       if (this.#customBuffer.length === 0) {
-        this.#fillCustomBuffer();
+        this._fillCustomBuffer();
       }
       
       // Get the next value from our buffer
@@ -414,7 +541,7 @@ export default class Synth {
       
       // Refill buffer if it's running low
       if (this.#customBuffer.length < this.#customBufferSize / 4) {
-        this.#fillCustomBuffer();
+        this._fillCustomBuffer();
       }
     }
 
@@ -600,7 +727,8 @@ export default class Synth {
   }
 
   // Fill the custom buffer with generated waveform data
-  #fillCustomBuffer() {
+  // Note: Using underscore convention instead of # private method for AudioWorklet compatibility
+  _fillCustomBuffer() {
     if (!this.#customGenerator) return;
     
     try {

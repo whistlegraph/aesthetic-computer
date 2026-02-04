@@ -2002,20 +2002,47 @@ app.get('/app-screenshots', (req, res) => {
     });
     
     async function regenerate(preset) {
-      showStatus('Regenerating ' + preset + '...');
+      showStatus('Regenerating ' + preset + '... (this takes ~30s)');
+      
+      // Show loading indicator and hide current image
+      const card = document.querySelector('[data-preset="' + preset + '"]');
+      const img = card.querySelector('img');
+      const loading = card.querySelector('.loading');
+      const progressText = card.querySelector('.progress-text');
+      const progressBar = card.querySelector('.progress-bar-fill');
+      
+      img.style.display = 'none';
+      loading.style.display = 'block';
+      loading.innerHTML = '🔄 Regenerating...<div class="progress-text"></div><div class="progress-bar"><div class="progress-bar-fill" style="width:0%"></div></div>';
+      
       try {
-        const res = await fetch('/app-screenshots/' + preset + '/' + currentPiece + '.png?force=true');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+        
+        const res = await fetch('/app-screenshots/' + preset + '/' + currentPiece + '.png?force=true', {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
         if (res.ok) {
-          // Reload the image
-          const card = document.querySelector('[data-preset="' + preset + '"]');
-          const img = card.querySelector('img');
-          img.src = img.src.split('?')[0] + '?t=' + Date.now();
+          // Force reload the image with cache-busting
+          img.src = '/app-screenshots/' + preset + '/' + currentPiece + '.png?t=' + Date.now();
+          img.style.display = 'block';
+          loading.style.display = 'none';
           showStatus('✅ ' + preset + ' regenerated!', 'success');
         } else {
-          showStatus('❌ Failed to regenerate', 'error');
+          const error = await res.text();
+          loading.innerHTML = '❌ Failed: ' + (error || res.status);
+          showStatus('❌ Failed to regenerate: ' + res.status, 'error');
         }
       } catch (err) {
-        showStatus('❌ ' + err.message, 'error');
+        if (err.name === 'AbortError') {
+          loading.innerHTML = '⏱️ Timeout - still processing?';
+          showStatus('⏱️ Request timed out - try refreshing', 'error');
+        } else {
+          loading.innerHTML = '❌ ' + err.message;
+          showStatus('❌ ' + err.message, 'error');
+        }
       }
     }
     
@@ -2190,7 +2217,7 @@ app.get('/app-screenshots/:preset/:piece.png', async (req, res) => {
   const { width, height } = presetConfig;
   
   try {
-    addServerLog('capture', '📱', `App screenshot: ${piece} (${preset} ${width}×${height})`);
+    addServerLog('capture', '📱', `App screenshot: ${piece} (${preset} ${width}×${height}${force ? ' FORCE' : ''})`);
     
     const { cdnUrl, fromCache, buffer } = await getCachedOrGenerate(
       'app-screenshots', 
@@ -2216,7 +2243,9 @@ app.get('/app-screenshots/:preset/:piece.png', async (req, res) => {
         }
         
         return result.buffer;
-      }
+      },
+      'png',  // ext
+      force   // skipCache - pass force flag to skip CDN cache
     );
     
     if (fromCache && cdnUrl && !force) {
