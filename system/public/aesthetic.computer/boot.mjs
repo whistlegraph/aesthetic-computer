@@ -691,23 +691,43 @@ const IMPORT_MAX_RETRIES = 3;
 const IMPORT_RETRY_DELAY = 1500;
 
 async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBundle = false) {
-  // Try WebSocket module loader with dependency bundling first
   const loader = window.acModuleLoader;
-  if (useWsBundle && loader?.connected && loader.loadWithDeps) {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const retryDelay = isLocalhost ? 300 : IMPORT_RETRY_DELAY;
+  let triedWs = false;
+
+  const tryLoadViaWs = async () => {
+    if (!loader?.loadWithDeps) return null;
+    triedWs = true;
     try {
+      // Wait briefly if a connection attempt is in flight
+      if (!loader.connected && loader.connecting) {
+        await Promise.race([
+          loader.connecting,
+          new Promise(resolve => setTimeout(resolve, 400))
+        ]);
+      }
+      if (!loader.connected) return null;
       // Extract relative path from modulePath (remove ./ prefix and cache bust)
-      let relativePath = modulePath.replace(/^\.\//, '').split('?')[0];
-      
-      // Load module with all dependencies via WebSocket (5s timeout for bundles)
+      const relativePath = modulePath.replace(/^\.\//, '').split('?')[0];
       const blobUrl = await loader.loadWithDeps(relativePath, 5000);
-      
       if (blobUrl && blobUrl.startsWith('blob:')) {
-        const module = await import(blobUrl);
-        return module;
+        return await import(blobUrl);
       }
     } catch (err) {
       // Silent fallback to HTTP
     }
+    return null;
+  };
+
+  // Try WebSocket module loader with dependency bundling first
+  if (useWsBundle) {
+    const wsModule = await tryLoadViaWs();
+    if (wsModule) return wsModule;
+  } else if (loader?.connected) {
+    // Opportunistic WS load even if boot decided not to wait
+    const wsModule = await tryLoadViaWs();
+    if (wsModule) return wsModule;
   }
   
   // Standard HTTP import with retry
@@ -722,9 +742,14 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBu
                              err.message?.includes('NetworkError') ||
                              err.message?.includes('Content-Length');
       
+      if (isNetworkError && !triedWs) {
+        const wsModule = await tryLoadViaWs();
+        if (wsModule) return wsModule;
+      }
+
       if (attempt < retries && isNetworkError) {
         bootLog(`⚠️ module load failed - retry ${attempt}/${retries}`);
-        await new Promise(resolve => setTimeout(resolve, IMPORT_RETRY_DELAY));
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
       } else {
         throw err;
       }
