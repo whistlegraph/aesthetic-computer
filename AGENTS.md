@@ -62,6 +62,37 @@ The devcontainer provides these `ac-*` commands (defined in `.devcontainer/confi
 - `ac-repl` — Start KidLisp REPL.
 - `ac-emacs-restart` — Restart Emacs daemon.
 
+## Emacs Terminal Buffers
+The development environment uses Emacs with multiple named terminal buffers (eat terminals). When the user refers to these by name or nickname, use the Emacs MCP tools (`mcp_emacs_*`) instead of `run_in_terminal`:
+
+- `🐟-fishy` or "fishy" — Main fish shell terminal for general commands
+- `🩸-artery` or "artery" — Artery service logs
+- `💳-stripe-print` — Stripe print logs
+- `🤖-chat-system` — Chat system logs
+- `📋-session` — Session server logs
+- `🌐-site` — Site/web server logs
+- `🔴-redis` — Redis logs
+- `🖼️-views` — Views logs
+- `🤖-llm` — LLM service logs
+- `💥-crash-diary` — Crash logs
+- `📊-top` — System monitoring (top)
+- `🧪-kidlisp` — KidLisp test runner
+- `📦-media` — Media service logs
+- `🔥-oven` — Oven service logs
+- `🔖-bookmarks` — Bookmarks
+- `⏰-chat-clock` — Chat clock logs
+- `🧠-chat-sotce` — Sotce chat logs
+- `🎫-stripe-ticket` — Stripe ticket logs
+- `⚡-url` — URL service logs
+- `🚇-tunnel` — Tunnel logs
+
+**Usage**: When asked to run commands in "fishy" or any named terminal, use:
+1. `mcp_emacs_emacs_switch_buffer` to switch to the buffer
+2. `mcp_emacs_emacs_send_keys` to send the command
+3. Send a newline character to execute
+
+Emacs tabs can be switched with `(tab-bar-select-tab N)` via `mcp_emacs_execute_emacs_lisp`.
+
 ## Coding Style & Naming Conventions
 - JavaScript/TypeScript modules use ESM (`.mjs`); prefer 2-space indentation and trailing commas.  
 - Run Prettier where available (`npx prettier --write <files>`); respect existing file conventions (some legacy scripts mix shell/Fish).  
