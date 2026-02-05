@@ -326,7 +326,6 @@
       display: none;
       width: 100%;
       padding-bottom: calc(var(--ui-scale, 8) * 0.3px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
       margin-bottom: calc(var(--ui-scale, 8) * 0.2px);
     }
     
@@ -1598,6 +1597,8 @@
     // localhost:8888/top.kidlisp.com
     let codeId = null;
     let slideshowShortcut = null;  // Will be set if using /playlist/xxx path
+    let handleFilter = null;  // Filter playlist by @handle (e.g., top.kidlisp.com/@jeffrey)
+    let anonFilter = false;   // Filter to anonymous pieces only (top.kidlisp.com/anon)
     const pathParts = pathname.split('/').filter(p => p);
     
     console.log('📺 Routing debug:', { hostname, pathname, pathParts });
@@ -1605,10 +1606,27 @@
     // top.kidlisp.com auto-loads top100 playlist
     if (hostname === 'top.kidlisp.com') {
       slideshowShortcut = 'top100';
+      // Check for handle filter: top.kidlisp.com/@jeffrey
+      if (pathParts[0] && pathParts[0].startsWith('@')) {
+        handleFilter = pathParts[0]; // e.g., "@jeffrey"
+        console.log('📺 Handle filter:', handleFilter);
+      } else if (pathParts[0] === 'anon') {
+        anonFilter = true;
+        console.log('📺 Anonymous filter enabled');
+      }
       console.log('📺 Matched top.kidlisp.com, set slideshowShortcut:', slideshowShortcut);
     } else if (pathname.startsWith('/top.kidlisp.com')) {
       // Local dev: localhost:8888/top.kidlisp.com
       slideshowShortcut = 'top100';
+      // Check for handle filter in local dev path
+      const topParts = pathname.replace('/top.kidlisp.com', '').split('/').filter(p => p);
+      if (topParts[0] && topParts[0].startsWith('@')) {
+        handleFilter = topParts[0];
+        console.log('📺 Handle filter (local dev):', handleFilter);
+      } else if (topParts[0] === 'anon') {
+        anonFilter = true;
+        console.log('📺 Anonymous filter enabled (local dev)');
+      }
     } else if (hostname === 'device.kidlisp.com') {
       // Production: device.kidlisp.com/codeId or /playlist/top100
       if (pathParts[0] === 'playlist' && pathParts[1]) {
@@ -1655,10 +1673,16 @@
     const startIndex = parseInt(params.get('start_index')) || 0;
     
     // Resolve slideshow shortcut to full playlist URL
-    console.log('📺 Before playlist resolution:', { slideshowShortcut, KNOWN_PLAYLISTS, hasKey: slideshowShortcut ? KNOWN_PLAYLISTS[slideshowShortcut] : null });
-    if (slideshowShortcut && KNOWN_PLAYLISTS[slideshowShortcut]) {
+    // If handle or anon filter is active, we'll build a dynamic playlist from the API instead
+    const usesDynamicPlaylist = handleFilter || anonFilter;
+    console.log('📺 Before playlist resolution:', { slideshowShortcut, KNOWN_PLAYLISTS, handleFilter, anonFilter, usesDynamicPlaylist });
+    if (slideshowShortcut && KNOWN_PLAYLISTS[slideshowShortcut] && !usesDynamicPlaylist) {
       playlistUrl = `${FEED_URL}/api/v1/playlists/${KNOWN_PLAYLISTS[slideshowShortcut]}`;
       console.log('📺 Resolved playlist shortcut:', slideshowShortcut, '→', playlistUrl);
+    } else if (usesDynamicPlaylist) {
+      // Mark as dynamic playlist - will be built in initSlideshow
+      playlistUrl = 'dynamic';
+      console.log('📺 Dynamic playlist mode:', handleFilter ? `handle=${handleFilter}` : 'anon');
     }
     
     // Flag to indicate we're in slideshow mode (skip scramble animation)
@@ -1742,6 +1766,50 @@
     // Fetches playlist from playlist_url and auto-advances through items
     // ═══════════════════════════════════════════════════════════════════════════
     
+    // Build a DP-1 playlist dynamically from the store-kidlisp API
+    async function buildDynamicPlaylist() {
+      const apiBase = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+      let apiUrl = `${apiBase}/api/store-kidlisp?recent=true&sort=hits&limit=100`;
+      
+      if (handleFilter) {
+        apiUrl += `&handle=${encodeURIComponent(handleFilter)}`;
+      }
+      
+      console.log('📺 Fetching dynamic playlist from:', apiUrl);
+      const response = await fetch(apiUrl);
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      
+      const data = await response.json();
+      let pieces = data.recent || [];
+      
+      // For anon filter, keep only pieces with no handle
+      if (anonFilter) {
+        pieces = pieces.filter(p => !p.handle);
+      }
+      
+      if (pieces.length === 0) {
+        throw new Error(handleFilter ? `No pieces found for ${handleFilter}` : 'No anonymous pieces found');
+      }
+      
+      const duration = 24;
+      const filterLabel = handleFilter || 'anonymous';
+      const dateFormatted = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      
+      return {
+        dpVersion: '1.1.0',
+        title: `Top ${pieces.length} by ${filterLabel} as of ${dateFormatted}`,
+        summary: handleFilter ? `Top KidLisp pieces by ${handleFilter}` : 'Top anonymous KidLisp pieces',
+        items: pieces.map((p, i) => ({
+          title: `$${p.code}`,
+          source: `https://device.kidlisp.com/$${p.code}`,
+          duration,
+          license: 'open',
+          provenance: { type: 'offChainURI' },
+        })),
+        defaults: { display: { scaling: 'fit', background: '#000000', margin: '0%' }, license: 'open', duration }
+      };
+    }
+    
     async function initSlideshow() {
       console.log('📺 Initializing slideshow mode with URL:', playlistUrl);
       
@@ -1755,13 +1823,17 @@
       setupFF1CopyButtonForPlaylist();
       
       try {
-        // Fetch the DP-1 playlist
-        const response = await fetch(playlistUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch playlist: ${response.status}`);
+        if (usesDynamicPlaylist) {
+          // Build playlist dynamically from store-kidlisp API
+          slideshowPlaylist = await buildDynamicPlaylist();
+        } else {
+          // Fetch the DP-1 playlist from feed server
+          const response = await fetch(playlistUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch playlist: ${response.status}`);
+          }
+          slideshowPlaylist = await response.json();
         }
-        
-        slideshowPlaylist = await response.json();
         console.log('📺 Playlist loaded:', slideshowPlaylist.title, 'with', slideshowPlaylist.items?.length, 'items');
         
         if (!slideshowPlaylist.items || slideshowPlaylist.items.length === 0) {
@@ -2260,7 +2332,11 @@
       // Build the playlist URL for the CLI command (official FF1 CLI format)
       // Use nice short subdomain URLs when available, otherwise use full URL
       let slideshowUrl;
-      if (slideshowShortcut === 'top100') {
+      if (handleFilter) {
+        slideshowUrl = `https://top.kidlisp.com/${handleFilter}`;
+      } else if (anonFilter) {
+        slideshowUrl = 'https://top.kidlisp.com/anon';
+      } else if (slideshowShortcut === 'top100') {
         slideshowUrl = 'https://top.kidlisp.com';
       } else if (slideshowShortcut) {
         slideshowUrl = `https://device.kidlisp.com/playlist/${slideshowShortcut}`;
