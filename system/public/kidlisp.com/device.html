@@ -1367,15 +1367,24 @@
       
       // Device subdomains (device.kidlisp.com, top.kidlisp.com) are typically
       // displayed on 4K TVs/displays viewed from a distance - use larger UI
-      // FF1 reports CSS pixels (1920x1200) not physical 4K, so we boost based on hostname
+      // BUT only if the screen is actually 4K resolution
       const isDeviceSubdomain = hostname === 'device.kidlisp.com' || 
                                 hostname === 'top.kidlisp.com' ||
                                 window.location.pathname.startsWith('/device.kidlisp.com') ||
                                 window.location.pathname.startsWith('/top.kidlisp.com');
       
-      if (isDeviceSubdomain) {
-        // FF1/device mode: 4x multiplier for comfortable TV viewing distance
+      // Check if this is a 4K-class display (3840x2160 or similar)
+      // FF1 reports CSS pixels 1920x1200 which is 4K scaled by dpr=2
+      // Native 4K would be 3840+ with dpr=1
+      const is4KDisplay = (maxDim >= 3840 && dpr === 1) || 
+                          (maxDim >= 1920 && screenHeight >= 1080 && dpr >= 2);
+      
+      if (isDeviceSubdomain && is4KDisplay) {
+        // FF1/device mode on 4K: 4x multiplier for comfortable TV viewing distance
         return Math.round(baseScale * 4);
+      } else if (isDeviceSubdomain) {
+        // Device subdomain but NOT 4K (e.g., laptop testing) - use 2x for readability
+        return Math.round(baseScale * 2);
       }
       
       // For native 4K/high-res with dpr=1, apply additional multiplier
