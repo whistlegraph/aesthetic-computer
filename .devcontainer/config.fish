@@ -3076,10 +3076,14 @@ function ac-ff1 --description "Control FF1 Art Computer (direct network access)"
             
             # Build URL from input - auto-detect KidLisp ($) vs regular pieces
             set -l url
+            # Auto-prepend https:// for domain-like inputs (e.g., top.kidlisp.com)
+            if string match -rq '\.[a-z]{2,}(/|$)' $input; and not string match -q 'http*' $input
+                set input "https://$input"
+            end
             if string match -q 'http*' $input
                 # Already a full URL
-                # Don't add &device for device.kidlisp.com (already device-optimized)
-                if string match -q '*device.kidlisp.com*' $input
+                # Don't add &device for device/top.kidlisp.com (already device-optimized)
+                if string match -q '*device.kidlisp.com*' $input; or string match -q '*top.kidlisp.com*' $input
                     set url $input
                 else if string match -q '*?*' $input
                     set url "$input&device"

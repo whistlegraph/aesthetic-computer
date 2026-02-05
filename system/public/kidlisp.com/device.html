@@ -1389,8 +1389,8 @@
         // FF1/device mode on 4K: 4x multiplier for comfortable TV viewing distance
         return Math.round(baseScale * 4);
       } else if (isDeviceSubdomain) {
-        // Device subdomain but NOT 4K (e.g., laptop testing) - use 2x for readability
-        return Math.round(baseScale * 2);
+        // Device subdomain but NOT 4K (e.g., laptop or 1080p TV) - use base scale, no multiplier
+        return Math.round(baseScale);
       }
       
       // For native 4K/high-res with dpr=1, apply additional multiplier
