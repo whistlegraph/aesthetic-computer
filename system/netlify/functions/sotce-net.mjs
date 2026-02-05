@@ -5011,10 +5011,12 @@ export const handler = async (event, context) => {
               }
 
               // Set button handler based on admin status
-              if (subscription?.admin) {
-                askButton.onclick = openRespondEditor;
-              } else {
-                askButton.onclick = openAskEditor;
+              if (askButton) {
+                if (subscription?.admin) {
+                  askButton.onclick = openRespondEditor;
+                } else {
+                  askButton.onclick = openAskEditor;
+                }
               }
 
               // Auto-open /ask route for non-admins
