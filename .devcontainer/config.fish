@@ -2754,6 +2754,34 @@ function ac-electron-reload --description "Reload all Electron windows (dev mode
     echo "✅ Reload triggered"
 end
 
+# 🎸 Ableton M4L Console Tunnel
+# Listen for console.log/error/warn from M4L devices via UDP
+
+function ac-ableton-tunnel --description "Listen for Ableton M4L device console logs"
+    set -l port 7777
+    set -l host "jas@host.docker.internal"
+    
+    echo "🎸 AC Ableton Console Tunnel"
+    echo "   Listening for M4L device logs on UDP port $port..."
+    echo "   (Ctrl+C to stop)"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Run nc on the Mac via SSH to listen for UDP messages
+    # Max sends to 127.0.0.1:7777 on the Mac
+    ssh -o StrictHostKeyChecking=no -t $host "nc -lu $port" 2>/dev/null
+end
+
+function ac-ableton-tunnel-simple --description "Simple UDP listener (run on Mac directly)"
+    echo "🎸 AC Ableton Console (Simple Mode)"
+    echo "   Run this on your Mac (not in devcontainer):"
+    echo ""
+    echo "   nc -lu 7777"
+    echo ""
+    echo "   Or with formatting:"
+    echo "   nc -lu 7777 | while read line; do echo \"\$(date '+%H:%M:%S') \$line\"; done"
+end
+
 # 🖥️ Machine Info / SSH Helpers
 # Read machine configs from vault/machines.json
 

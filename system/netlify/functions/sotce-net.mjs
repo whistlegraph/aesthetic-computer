@@ -5055,7 +5055,7 @@ export const handler = async (event, context) => {
                 }
               }
 
-              topBar.appendChild(askButton);
+              if (askButton) topBar.appendChild(askButton);
 
               // 🪷 write-a-page - Create compose form.
               if (subscription?.admin) {

@@ -1,142 +1,285 @@
 // Pedal, 2026.2.05
-// Audio effect pedal for Ableton Live - receives audio, processes, outputs.
+// Audio effect pedal for Ableton Live - processes incoming audio through Web Audio effects.
 
 /* 📝 Notes
-  - [] This is a filter-style effect where audio passes through
-  - [] FFT visualization of input audio from Ableton
-  - [] Envelope-triggered synth sounds mixed with dry signal
-  - [] Dry/wet control for mixing original and processed audio
+  - Audio samples streamed from Max via acSample() calls
+  - Samples processed through BIOS effects chain (filter, delay)
+  - Processed audio output goes back to Ableton via jweb~ audio outputs
   
   Technical Architecture:
-  - Max/M4L sends FFT data and envelope via executejavascript
-  - Web Audio generates sounds based on analysis
-  - jweb~ outputs the web-generated audio
-  - Dry signal passes through Max directly (for quality)
+  - Max streams samples at ~1kHz via executejavascript -> window.acSample(l, r)
+  - Samples collected into buffers, played through ScriptProcessorNode
+  - BIOS effects chain processes the audio
+  - jweb~ captures Web Audio output -> plugout~
 */
 
 // === State ===
 let dawMode = false;
+let isEffectMode = false; // effect=1 query param means we receive samples
 let dawSynced = false;
 let dawBpm = 120;
 let dawPlaying = false;
 
-// FFT analysis data from Max
-let fftBins = new Float32Array(64); // 64 bins from pfft~
-let fftSmoothed = new Float32Array(64);
-const FFT_SMOOTHING = 0.85;
+// Incoming sample buffer (ring buffer for streaming)
+const SAMPLE_BUFFER_SIZE = 4096;
+let sampleBufferL = new Float32Array(SAMPLE_BUFFER_SIZE);
+let sampleBufferR = new Float32Array(SAMPLE_BUFFER_SIZE);
+let sampleWriteIndex = 0;
+let sampleReadIndex = 0;
+let samplesReceived = 0;
+let sampleBufferReady = false;
 
-// Envelope data from Max
+// Effect parameters (sent to BIOS)
+let effectMode = "lowpass"; // passthrough, lowpass, highpass, echo
+const effectModes = ["passthrough", "lowpass", "highpass", "echo"];
+let effectModeIndex = 1;
+
+// Filter parameters
+let filterCutoff = 2000; // Hz
+let filterQ = 1.0;
+
+// Delay parameters  
+let delayTime = 0.25; // seconds
+let delayFeedback = 0.4;
+let wetMix = 0.3;
+
+// Effect resend timer
+let lastEffectSendAt = 0;
+
+// Envelope data from Max (for visualization)
 let envelope = {
   peakL: 0,
   peakR: 0,
-  rmsL: 0,
-  rmsR: 0,
 };
 let envelopeSmoothed = {
   peakL: 0,
   peakR: 0,
-  rmsL: 0,
-  rmsR: 0,
 };
-const ENV_SMOOTHING = 0.9;
-const ENV_ATTACK = 0.3;
-
-// Effect state
-let effectMode = "visualizer"; // visualizer, envelope-synth, freeze, gate
-const effectModes = ["visualizer", "envelope-synth", "freeze", "gate"];
-let effectModeIndex = 0;
-
-// Synth state for envelope-synth mode
-let lastTriggerTime = 0;
-let triggerThreshold = 0.3;
-let triggerCooldown = 100; // ms
+const ENV_SMOOTHING = 0.85;
+const ENV_ATTACK = 0.4;
 
 // Visual state
 let peakHistory = [];
 const PEAK_HISTORY_LENGTH = 100;
-let flash = false;
-let flashIntensity = 0;
+
+// Stats
+let hasBooted = false;
+let peakReceiveCount = 0;
+let effectMessagesSent = 0;
+let lastEffectAck = null;
+let testToneActive = false;
+
+// Worker send function
+let sendToBios = null;
+
+// UI Buttons
+let modeBtn = null;
+let cutoffUpBtn = null;
+let cutoffDownBtn = null;
+let paramBtn = null;
+let wetSlider = null;
+let testToneBtn = null;
 
 // === Boot ===
-function boot({ sound, query, hud }) {
+function boot({ query, hud, send, ui, screen }) {
   dawMode = query?.daw === "1" || query?.daw === 1;
-  
-  console.log("🎸 Pedal boot - DAW mode:", dawMode);
-  
+  isEffectMode = query?.effect === "1" || query?.effect === 1;
+  sendToBios = send;
+
   if (dawMode) {
-    hud.label("pedal");
+    // Default to an obvious echo in DAW mode so the effect is clearly audible.
+    effectMode = "echo";
+    effectModeIndex = effectModes.indexOf("echo");
+    delayTime = 0.6;
+    delayFeedback = 0.6;
+    wetMix = 0.75;
   }
+  
+  // Set up sample receiving from Max
+  if (isEffectMode && typeof window !== "undefined") {
+    // Global function that Max calls via executejavascript
+    window.acSample = (l, r) => {
+      // Write to ring buffer
+      sampleBufferL[sampleWriteIndex] = l;
+      sampleBufferR[sampleWriteIndex] = r;
+      sampleWriteIndex = (sampleWriteIndex + 1) % SAMPLE_BUFFER_SIZE;
+      samplesReceived++;
+      
+      // Mark buffer ready once we have enough samples
+      if (!sampleBufferReady && samplesReceived > 256) {
+        sampleBufferReady = true;
+        console.log("🎸 Sample buffer ready, starting playback");
+        // Tell BIOS to start the sample playback source
+        send({ type: "pedal:start-sample-source" });
+      }
+    };
+    
+    // Global function for reading samples (called from BIOS AudioWorklet)
+    window.acReadSamples = (count) => {
+      const outputL = new Float32Array(count);
+      const outputR = new Float32Array(count);
+      
+      for (let i = 0; i < count; i++) {
+        outputL[i] = sampleBufferL[sampleReadIndex];
+        outputR[i] = sampleBufferR[sampleReadIndex];
+        sampleReadIndex = (sampleReadIndex + 1) % SAMPLE_BUFFER_SIZE;
+      }
+      
+      return { left: outputL, right: outputR };
+    };
+    
+    console.log("🎸 Effect mode enabled - waiting for samples from Max");
+  }
+  
+  if (!hasBooted) {
+    console.log("🎸 Pedal boot - DAW mode:", dawMode);
+    hasBooted = true;
+  }
+  
+  // Avoid HUD label so top-left stays clear for buttons.
+  
+  // Build UI buttons
+  buildButtons({ ui, screen });
+  
+  // Send initial effect state to BIOS after a short delay
+  setTimeout(() => updateBiosEffect(), 100);
   
   // Initialize peak history
   for (let i = 0; i < PEAK_HISTORY_LENGTH; i++) {
     peakHistory.push(0);
   }
-  
-  // Set up window functions for M4L communication
-  setupMaxBridge();
 }
 
-// === Max for Live Bridge ===
-function setupMaxBridge() {
-  // In worker context, window doesn't exist - use globalThis
-  const global = typeof window !== "undefined" ? window : globalThis;
+// Build UI buttons
+function buildButtons({ ui, screen }) {
+  const w = screen.width;
+  const h = screen.height;
+  const compact = h < 200;
   
-  // FFT data receiver (called from Max via executejavascript)
-  global.acPedalFFT = function(...bins) {
-    if (bins.length > 0) {
-      for (let i = 0; i < Math.min(bins.length, fftBins.length); i++) {
-        fftBins[i] = bins[i];
+  if (compact) {
+    // === COMPACT LAYOUT (DAW mode) ===
+    // Row 1: [MODE] [SLIDER----------] [TEST]
+    // Row 2: [-][param][+]
+    const btnH = 14;
+    const row1Y = 14; // Push down to avoid HUD label
+    const row2Y = row1Y + btnH + 2;
+    
+    // Mode button (left, offset from corner)
+    const modeW = 32;
+    modeBtn = new ui.Button(32, row1Y, modeW, btnH);
+    
+    // Test button (right)
+    const testW = 20;
+    testToneBtn = new ui.Button(w - testW - 2, row1Y, testW, btnH);
+    
+    // Slider (middle, between mode and test)
+    const sliderX = 32 + modeW + 4;
+    const sliderW = w - sliderX - testW - 6;
+    wetSlider = new ui.Slider(sliderX, row1Y + 2, sliderW, btnH - 4, { min: 0, max: 1, value: wetMix });
+    
+    // Row 2: [-][value][+]
+    const stepW = 20;
+    const paramW = 40;
+    const r2Total = stepW + paramW + stepW + 4;
+    const r2X = Math.round((w - r2Total) / 2);
+    
+    cutoffDownBtn = new ui.Button(r2X, row2Y, stepW, btnH);
+    paramBtn = new ui.Button(r2X + stepW + 2, row2Y, paramW, btnH);
+    cutoffUpBtn = new ui.Button(r2X + stepW + 2 + paramW + 2, row2Y, stepW, btnH);
+    
+  } else {
+    // === NORMAL LAYOUT ===
+    const btnHeight = 16;
+    const btnY = 4;
+    const btnGap = 4;
+
+    const modeW = 70;
+    const stepW = 24;
+    const paramW = 60;
+    const totalW = modeW + stepW + stepW + paramW + btnGap * 3;
+    const startX = Math.max(32, Math.round((w - totalW) / 2));
+
+    // Mode button (cycles through effect modes)
+    modeBtn = new ui.Button(startX, btnY, modeW, btnHeight);
+
+    // Cutoff/param down button
+    cutoffDownBtn = new ui.Button(startX + modeW + btnGap, btnY, stepW, btnHeight);
+
+    // Cutoff/param up button
+    cutoffUpBtn = new ui.Button(startX + modeW + btnGap + stepW + btnGap, btnY, stepW, btnHeight);
+
+    // Parameter display button (shows current value)
+    paramBtn = new ui.Button(startX + modeW + btnGap + stepW + btnGap + stepW + btnGap, btnY, paramW, btnHeight);
+
+    // Dry/Wet slider (centered)
+    const sliderW = Math.min(160, w - 40);
+    const sliderH = 10;
+    const sliderX = Math.round((w - sliderW) / 2);
+    const sliderY = Math.round(h * 0.75);
+    wetSlider = new ui.Slider(sliderX, sliderY, sliderW, sliderH, { min: 0, max: 1, value: wetMix });
+    
+    // Test tone button (bottom right, in status bar area)
+    testToneBtn = new ui.Button(w - 40, h - 18, 36, 14);
+  }
+}
+
+// Send current effect parameters to BIOS
+function updateBiosEffect() {
+  // Compute filter parameters
+  let filterType = "lowpass";
+  let filterFreq = 20000; // No filtering by default
+
+  if (effectMode === "lowpass") {
+    filterType = "lowpass";
+    filterFreq = filterCutoff;
+  } else if (effectMode === "highpass") {
+    filterType = "highpass";
+    filterFreq = filterCutoff;
+  } else if (effectMode === "passthrough") {
+    filterType = "lowpass";
+    filterFreq = 20000; // Wide open
+  }
+
+  const isEcho = effectMode === "echo";
+  const delayWet = isEcho ? wetMix : 0;
+  const delayMs = delayTime * 1000; // Convert to ms for Max
+  
+  // Send to Max (for native DSP processing)
+  if (typeof window !== "undefined" && window.max?.outlet) {
+    window.max.outlet("effect", "filter", filterType, filterFreq);
+    window.max.outlet("effect", "delay", delayMs);
+    window.max.outlet("effect", "wet", delayWet);
+    window.max.outlet("effect", "feedback", delayFeedback);
+  }
+  
+  // Also send to BIOS (for local testing without Max)
+  if (sendToBios) {
+    sendToBios({
+      type: "pedal:effect",
+      content: {
+        filterType,
+        filterFreq,
+        filterQ,
+        delayTime,
+        delayFeedback,
+        wetMix: delayWet,
       }
-    }
-  };
+    });
+  }
   
-  // Envelope data receiver
-  global.acPedalEnvelope = function(peakL, peakR, rmsL, rmsR) {
-    envelope.peakL = peakL || 0;
-    envelope.peakR = peakR || 0;
-    envelope.rmsL = rmsL || 0;
-    envelope.rmsR = rmsR || 0;
-  };
-  
-  // Peak-only receiver (simpler, lower overhead)
-  global.acPedalPeak = function(peak) {
-    envelope.peakL = peak;
-    envelope.peakR = peak;
-  };
-  
-  // Effect mode control
-  global.acPedalMode = function(mode) {
-    if (effectModes.includes(mode)) {
-      effectMode = mode;
-      effectModeIndex = effectModes.indexOf(mode);
-    }
-  };
-  
-  // Trigger threshold control
-  global.acPedalThreshold = function(threshold) {
-    triggerThreshold = Math.max(0, Math.min(1, threshold));
-  };
-  
-  console.log("🎸 Max bridge functions registered on", typeof window !== "undefined" ? "window" : "globalThis");
+  effectMessagesSent++;
+  console.log(`🎸 Effect update #${effectMessagesSent}: ${effectMode}, cutoff=${filterFreq}Hz, wet=${delayWet}`);
 }
 
 // === Sim ===
 function sim({ sound }) {
-  // Smooth FFT data
-  for (let i = 0; i < fftBins.length; i++) {
-    fftSmoothed[i] = fftSmoothed[i] * FFT_SMOOTHING + fftBins[i] * (1 - FFT_SMOOTHING);
-  }
-  
-  // Smooth envelope with attack/release
-  const envKeys = ["peakL", "peakR", "rmsL", "rmsR"];
-  for (const key of envKeys) {
+  // Smooth envelope values
+  for (const key of ["peakL", "peakR"]) {
     const target = envelope[key];
     const current = envelopeSmoothed[key];
     if (target > current) {
-      // Attack (fast)
       envelopeSmoothed[key] = current * ENV_ATTACK + target * (1 - ENV_ATTACK);
     } else {
-      // Release (slow)
       envelopeSmoothed[key] = current * ENV_SMOOTHING + target * (1 - ENV_SMOOTHING);
     }
   }
@@ -153,173 +296,340 @@ function sim({ sound }) {
     dawBpm = sound.daw.bpm;
     dawPlaying = sound.daw?.playing ?? false;
   }
-  
-  // Flash decay
-  if (flash) {
-    flashIntensity *= 0.85;
-    if (flashIntensity < 0.01) {
-      flash = false;
-      flashIntensity = 0;
-    }
-  }
-  
-  // === Effect Processing ===
-  if (effectMode === "envelope-synth") {
-    processEnvelopeSynth(sound);
-  }
-}
 
-// === Envelope-triggered synth ===
-function processEnvelopeSynth(sound) {
-  const now = performance.now();
-  const peak = Math.max(envelopeSmoothed.peakL, envelopeSmoothed.peakR);
-  
-  // Trigger on threshold crossing (with cooldown)
-  if (peak > triggerThreshold && now - lastTriggerTime > triggerCooldown) {
-    lastTriggerTime = now;
-    
-    // Trigger a synth note based on FFT content
-    const dominantBin = findDominantBin();
-    const freq = binToFreq(dominantBin);
-    
-    sound.synth({
-      type: "sine",
-      tone: freq,
-      duration: 0.1 + peak * 0.2,
-      volume: peak * 0.3,
-      attack: 0.01,
-      decay: 0.8,
-      pan: (envelope.peakL - envelope.peakR) * 0.5, // Pan based on stereo balance
-    });
-    
-    // Visual feedback
-    flash = true;
-    flashIntensity = peak;
+  // Keep BIOS in sync in DAW mode (helps when audio init is late)
+  if (dawMode && performance.now() - lastEffectSendAt > 1500) {
+    updateBiosEffect();
+    lastEffectSendAt = performance.now();
   }
-}
-
-// Find the dominant FFT bin
-function findDominantBin() {
-  let maxVal = 0;
-  let maxBin = 0;
-  for (let i = 2; i < fftSmoothed.length - 2; i++) { // Skip DC and very high
-    if (fftSmoothed[i] > maxVal) {
-      maxVal = fftSmoothed[i];
-      maxBin = i;
-    }
-  }
-  return maxBin;
-}
-
-// Convert FFT bin to approximate frequency
-function binToFreq(bin) {
-  const sampleRate = 48000;
-  const fftSize = 2048; // Typical pfft~ size
-  const nyquist = sampleRate / 2;
-  const binWidth = nyquist / (fftSize / 2);
-  return Math.max(100, Math.min(2000, bin * binWidth)); // Clamp to musical range
 }
 
 // === Paint ===
-function paint({ wipe, ink, screen, line }) {
-  const { width, height } = screen;
-  const cx = width / 2;
-  const cy = height / 2;
+function paint({ wipe, ink, screen, line, box, write }) {
+  const w = screen.width;
+  const h = screen.height;
   
-  // Background - darker when no audio
-  const bgLevel = Math.floor(10 + envelopeSmoothed.peakL * 20);
-  wipe(bgLevel, bgLevel, bgLevel + 5);
+  // Compact mode for short heights (like DAW embeds)
+  const compact = h < 200;
   
-  // Flash overlay
-  if (flash) {
-    const flashAlpha = Math.floor(flashIntensity * 100);
-    ink(255, 255, 255, flashAlpha).box(0, 0, width, height);
-  }
+  // Background
+  const bgBrightness = effectMode === "passthrough" ? 40 : 20;
+  wipe(bgBrightness);
   
-  // === FFT Spectrum Visualization ===
-  const fftHeight = height * 0.4;
-  const fftY = height - fftHeight - 20;
-  const barWidth = width / fftSmoothed.length;
+  // Mode colors
+  const modeColors = {
+    passthrough: [80, 80, 80],
+    lowpass: [60, 60, 200],
+    highpass: [200, 60, 60],
+    echo: [60, 200, 60],
+  };
   
-  for (let i = 0; i < fftSmoothed.length; i++) {
-    const val = fftSmoothed[i];
-    const barHeight = val * fftHeight;
-    const x = i * barWidth;
+  if (compact) {
+    // === COMPACT LAYOUT (DAW mode, short height) ===
+    // Single row: [MODE] [SLIDER-------] [TEST]
+    const btnH = 14;
+    const row1Y = 2;
+    const row2Y = row1Y + btnH + 2;
     
-    // Color based on frequency (low=red, mid=green, high=blue)
-    const hue = (i / fftSmoothed.length) * 0.7; // 0 to 0.7 (red to blue)
-    const r = Math.floor(255 * (1 - hue));
-    const g = Math.floor(255 * Math.sin(hue * Math.PI));
-    const b = Math.floor(255 * hue);
+    // Mode button
+    modeBtn?.paint((btn) => {
+      ink(...(modeColors[effectMode] || [100, 100, 100])).box(btn.box);
+      const label = effectMode === "echo" ? "ECHO" : effectMode.slice(0, 4).toUpperCase();
+      ink(255).write(label, { x: btn.box.x + 2, y: btn.box.y + 3 });
+    });
     
-    ink(r, g, b, 200).box(x, fftY + fftHeight - barHeight, barWidth - 1, barHeight);
-  }
-  
-  // === Waveform History ===
-  const waveY = height * 0.3;
-  const waveHeight = height * 0.2;
-  
-  ink(100, 200, 100, 150);
-  for (let i = 1; i < peakHistory.length; i++) {
-    const x1 = ((i - 1) / peakHistory.length) * width;
-    const x2 = (i / peakHistory.length) * width;
-    const y1 = waveY + (1 - peakHistory[i - 1]) * waveHeight;
-    const y2 = waveY + (1 - peakHistory[i]) * waveHeight;
-    line(x1, y1, x2, y2);
-  }
-  
-  // === Level Meters ===
-  const meterWidth = 20;
-  const meterHeight = height * 0.6;
-  const meterY = height * 0.2;
-  
-  // Left meter
-  ink(40, 40, 50).box(10, meterY, meterWidth, meterHeight);
-  const leftLevel = envelopeSmoothed.peakL * meterHeight;
-  ink(50, 200, 100).box(10, meterY + meterHeight - leftLevel, meterWidth, leftLevel);
-  
-  // Right meter
-  ink(40, 40, 50).box(width - 30, meterY, meterWidth, meterHeight);
-  const rightLevel = envelopeSmoothed.peakR * meterHeight;
-  ink(50, 200, 100).box(width - 30, meterY + meterHeight - rightLevel, meterWidth, rightLevel);
-  
-  // Threshold line (for envelope-synth mode)
-  if (effectMode === "envelope-synth") {
-    const threshY = meterY + meterHeight * (1 - triggerThreshold);
-    ink(255, 100, 100, 150).line(10, threshY, width - 10, threshY);
-  }
-  
-  // === Status Text ===
-  ink(200, 200, 200).write(`MODE: ${effectMode.toUpperCase()}`, { x: 10, y: 15 });
-  ink(200, 200, 200).write(`BPM: ${dawBpm}`, { x: 10, y: 30 });
-  
-  if (dawSynced) {
-    ink(100, 255, 100).write(dawPlaying ? "▶ PLAYING" : "⏸ STOPPED", { x: width - 80, y: 15 });
+    // Dry/Wet slider (most of the width)
+    if (wetSlider) {
+      const { x, y, w: sw, h: sh } = wetSlider.box;
+      const t = wetSlider.normalized;
+      ink(40).box(x, y, sw, sh);
+      ink(0, 180, 200).box(x, y, Math.floor(sw * t), sh);
+      ink(220).box(x + Math.floor(sw * t) - 1, y, 3, sh);
+    }
+    
+    // Test button
+    testToneBtn?.paint((btn) => {
+      ink(testToneActive ? [0, 200, 100] : [60, 60, 60]).box(btn.box);
+      ink(255).write(testToneActive ? "■" : "▶", { x: btn.box.x + 4, y: btn.box.y + 3 });
+    });
+    
+    // +/- buttons
+    cutoffDownBtn?.paint((btn) => {
+      ink(60).box(btn.box);
+      ink(255).write("-", { x: btn.box.x + 5, y: btn.box.y + 3 });
+    });
+    cutoffUpBtn?.paint((btn) => {
+      ink(60).box(btn.box);
+      ink(255).write("+", { x: btn.box.x + 5, y: btn.box.y + 3 });
+    });
+    
+    // Param display
+    paramBtn?.paint((btn) => {
+      ink(40).box(btn.box);
+      let txt = effectMode === "echo" ? `${Math.round(wetMix*100)}%` : `${Math.round(filterCutoff)}`;
+      ink(200).write(txt, { x: btn.box.x + 2, y: btn.box.y + 3 });
+    });
+    
+    // Waveform in remaining space
+    const waveY = row2Y + btnH + 2;
+    const waveH = h - waveY - 14;
+    if (waveH > 10) {
+      ink(25).box(0, waveY, w, waveH);
+      ink(0, 200, 100);
+      for (let i = 1; i < PEAK_HISTORY_LENGTH; i++) {
+        const x1 = ((i - 1) / PEAK_HISTORY_LENGTH) * w;
+        const x2 = (i / PEAK_HISTORY_LENGTH) * w;
+        const p1 = Math.sqrt(peakHistory[i - 1] || 0);
+        const p2 = Math.sqrt(peakHistory[i] || 0);
+        const y1 = waveY + (1 - p1) * waveH;
+        const y2 = waveY + (1 - p2) * waveH;
+        line(x1, y1, x2, y2);
+      }
+    }
+    
+    // Status line at bottom
+    ink(dawMode ? [0, 180, 80] : [180, 80, 0]).write(
+      dawMode ? "DAW" : "LOC", { x: 2, y: h - 10 }
+    );
+    ink(120).write(`FX:${effectMessagesSent}`, { x: 30, y: h - 10 });
+    
   } else {
-    ink(255, 255, 100).write("NO DAW", { x: width - 60, y: 15 });
+    // === NORMAL LAYOUT (taller screens) ===
+    
+    // Mode button
+    modeBtn?.paint((btn) => {
+      ink(...(modeColors[effectMode] || [100, 100, 100])).box(btn.box);
+      const modeLabel = effectMode === "echo" ? "ECHO" : effectMode.slice(0, 6).toUpperCase();
+      ink(255).write(modeLabel, { x: btn.box.x + 4, y: btn.box.y + 4 });
+    });
+    
+    // Down button
+    cutoffDownBtn?.paint((btn) => {
+      ink(70).box(btn.box);
+      ink(255).write("-", { x: btn.box.x + 8, y: btn.box.y + 4 });
+    });
+    
+    // Up button
+    cutoffUpBtn?.paint((btn) => {
+      ink(70).box(btn.box);
+      ink(255).write("+", { x: btn.box.x + 8, y: btn.box.y + 4 });
+    });
+    
+    // Parameter display
+    paramBtn?.paint((btn) => {
+      ink(50).box(btn.box);
+      let paramText = "";
+      if (effectMode === "lowpass" || effectMode === "highpass") {
+        paramText = `${Math.round(filterCutoff)}Hz`;
+      } else if (effectMode === "echo") {
+        paramText = `${Math.round(wetMix * 100)}%`;
+      } else {
+        paramText = "---";
+      }
+      ink(255).write(paramText, { x: btn.box.x + 4, y: btn.box.y + 4 });
+    });
+    
+    // Waveform
+    const waveH = h * 0.3;
+    const waveY = 28;
+    ink(25).box(0, waveY, w, waveH);
+    ink(0, 200, 100);
+    for (let i = 1; i < PEAK_HISTORY_LENGTH; i++) {
+      const x1 = ((i - 1) / PEAK_HISTORY_LENGTH) * w;
+      const x2 = (i / PEAK_HISTORY_LENGTH) * w;
+      const p1 = Math.sqrt(peakHistory[i - 1] || 0);
+      const p2 = Math.sqrt(peakHistory[i] || 0);
+      const y1 = waveY + (1 - p1) * waveH;
+      const y2 = waveY + (1 - p2) * waveH;
+      line(x1, y1, x2, y2);
+    }
+    
+    // Peak Meter
+    const meterH = h * 0.08;
+    const meterY = h * 0.55;
+    const meterW = w * 0.8;
+    const meterX = w * 0.1;
+    ink(60).box(meterX, meterY, meterW, meterH);
+    const peakColor = envelopeSmoothed.peakL > 0.8 ? [255, 50, 50] : [0, 255, 100];
+    ink(...peakColor).box(meterX, meterY, meterW * envelopeSmoothed.peakL, meterH);
+
+    // Dry/Wet Slider
+    if (wetSlider) {
+      const { x, y, w: sw, h: sh } = wetSlider.box;
+      const t = wetSlider.normalized;
+      ink(50).box(x, y, sw, sh);
+      ink(0, 180, 200).box(x, y, Math.floor(sw * t), sh);
+      ink(220).box(x + Math.floor(sw * t) - 2, y - 2, 4, sh + 4);
+      ink(160).write("DRY", { x: x - 24, y: y - 1 });
+      ink(160).write("WET", { x: x + sw + 4, y: y - 1 });
+    }
+    
+    // Status bar
+    const statusY = h - 16;
+    ink(30).box(0, statusY, w, 16);
+    ink(dawMode ? [0, 200, 100] : [200, 100, 0]).write(
+      dawMode ? "DAW" : "LOCAL", { x: 4, y: statusY + 3 }
+    );
+    ink(150).write(`FX:${effectMessagesSent} PK:${peakReceiveCount}`, { x: 50, y: statusY + 3 });
+    
+    // Test button
+    testToneBtn?.paint((btn) => {
+      ink(testToneActive ? [0, 200, 100] : [80, 80, 80]).box(btn.box);
+      ink(255).write(testToneActive ? "OFF" : "TEST", { x: btn.box.x + 2, y: btn.box.y + 3 });
+    });
   }
-  
-  // Instructions
-  ink(120, 120, 130).write("TAP: cycle modes", { x: 10, y: height - 10 });
 }
 
 // === Act ===
 function act({ event }) {
-  if (event.is("touch") || event.is("keyboard:down:space")) {
-    // Cycle through effect modes
+  // Dry/Wet slider (scrub)
+  wetSlider?.act(event, {
+    change: (slider) => {
+      if (effectMode !== "echo") {
+        effectMode = "echo";
+        effectModeIndex = effectModes.indexOf("echo");
+      }
+      wetMix = slider.value;
+      updateBiosEffect();
+    },
+  });
+
+  // Mode button - cycle through effect modes
+  modeBtn?.act(event, () => {
     effectModeIndex = (effectModeIndex + 1) % effectModes.length;
     effectMode = effectModes[effectModeIndex];
     console.log("🎸 Effect mode:", effectMode);
+    updateBiosEffect();
+  });
+  
+  // Down button - decrease parameter
+  cutoffDownBtn?.act(event, () => {
+    if (effectMode === "lowpass" || effectMode === "highpass") {
+      filterCutoff = Math.max(20, filterCutoff / 1.2);
+      updateBiosEffect();
+    } else if (effectMode === "echo") {
+      wetMix = Math.max(0, wetMix - 0.1);
+      wetSlider?.setValue(wetMix);
+      updateBiosEffect();
+    }
+  });
+  
+  // Up button - increase parameter
+  cutoffUpBtn?.act(event, () => {
+    if (effectMode === "lowpass" || effectMode === "highpass") {
+      filterCutoff = Math.min(20000, filterCutoff * 1.2);
+      updateBiosEffect();
+    } else if (effectMode === "echo") {
+      wetMix = Math.min(1.0, wetMix + 0.1);
+      wetSlider?.setValue(wetMix);
+      updateBiosEffect();
+    }
+  });
+
+  // Cycle through effect modes with space
+  if (event.is("keyboard:down: ")) {
+    effectModeIndex = (effectModeIndex + 1) % effectModes.length;
+    effectMode = effectModes[effectModeIndex];
+    console.log("🎸 Effect mode:", effectMode);
+    updateBiosEffect();
   }
   
+  // Adjust filter cutoff with up/down
   if (event.is("keyboard:down:up")) {
-    triggerThreshold = Math.min(1, triggerThreshold + 0.05);
-    console.log("🎸 Threshold:", triggerThreshold.toFixed(2));
+    if (effectMode === "lowpass" || effectMode === "highpass") {
+      filterCutoff = Math.min(20000, filterCutoff * 1.2);
+      updateBiosEffect();
+    } else if (effectMode === "echo") {
+      wetMix = Math.min(1.0, wetMix + 0.1);
+      wetSlider?.setValue(wetMix);
+      updateBiosEffect();
+    }
   }
   
   if (event.is("keyboard:down:down")) {
-    triggerThreshold = Math.max(0, triggerThreshold - 0.05);
-    console.log("🎸 Threshold:", triggerThreshold.toFixed(2));
+    if (effectMode === "lowpass" || effectMode === "highpass") {
+      filterCutoff = Math.max(20, filterCutoff / 1.2);
+      updateBiosEffect();
+    } else if (effectMode === "echo") {
+      wetMix = Math.max(0, wetMix - 0.1);
+      wetSlider?.setValue(wetMix);
+      updateBiosEffect();
+    }
+  }
+  
+  // Adjust delay time/feedback with left/right
+  if (event.is("keyboard:down:left")) {
+    if (effectMode === "echo") {
+      delayTime = Math.max(0.01, delayTime - 0.05);
+      updateBiosEffect();
+    }
+  }
+  
+  if (event.is("keyboard:down:right")) {
+    if (effectMode === "echo") {
+      delayTime = Math.min(2.0, delayTime + 0.05);
+      updateBiosEffect();
+    }
+  }
+  
+  // Test tone button - toggle a test sound
+  testToneBtn?.act(event, () => {
+    testToneActive = !testToneActive;
+    if (testToneActive) {
+      // Play a test tone via sound system
+      sendToBios?.({
+        type: "sound-effect",
+        content: {
+          type: "sine",
+          tone: 440,
+          duration: 10000, // 10 seconds
+          attack: 0.01,
+          decay: 0.1,
+          volume: 0.3,
+        }
+      });
+      console.log("🎸 Test tone ON");
+    } else {
+      // Kill all sounds
+      sendToBios?.({ type: "sound:kill" });
+      console.log("🎸 Test tone OFF");
+    }
+  });
+  
+  // T key also toggles test tone
+  if (event.is("keyboard:down:t")) {
+    testToneActive = !testToneActive;
+    if (testToneActive) {
+      sendToBios?.({
+        type: "sound-effect", 
+        content: {
+          type: "sine",
+          tone: 440,
+          duration: 10000,
+          attack: 0.01,
+          decay: 0.1,
+          volume: 0.3,
+        }
+      });
+    } else {
+      sendToBios?.({ type: "sound:kill" });
+    }
+  }
+}
+
+// === Receive (messages from main thread / M4L) ===
+function receive(event) {
+  if (event.type === "pedal:peak") {
+    envelope.peakL = event.peak;
+    envelope.peakR = event.peak;
+    peakReceiveCount++;
+    // Log occasionally to confirm data flow
+    if (peakReceiveCount <= 3 || peakReceiveCount % 100 === 0) {
+      console.log("🎸 Peak:", event.peak?.toFixed(3), "count:", peakReceiveCount);
+    }
+  } else if (event.type === "pedal:envelope") {
+    envelope.peakL = event.peakL || 0;
+    envelope.peakR = event.peakR || 0;
   }
 }
 
@@ -331,4 +641,4 @@ function meta() {
   };
 }
 
-export { boot, sim, paint, act, meta };
+export { boot, sim, paint, act, receive, meta };
