@@ -2427,6 +2427,7 @@ export const handler = async (event, context) => {
               background: var(--chat-input-bar-background);
               min-height: var(--chat-input-height);
               display: flex;
+              align-items: center;
               flex-shrink: 0;
               overflow: hidden;
               border-top: 2px solid rgba(0, 0, 0, 0.1);
@@ -3069,7 +3070,10 @@ export const handler = async (event, context) => {
               const val = chatInput.value;
               const atPos = val.lastIndexOf("@");
               if (atPos !== -1) {
-                chatInput.value = val.slice(0, atPos) + handle + " ";
+                const newVal = val.slice(0, atPos) + handle + " ";
+                chatInput.value = newVal;
+                // Set cursor to end of input
+                chatInput.setSelectionRange(newVal.length, newVal.length);
               }
               hideAutocomplete();
               chatInput.focus();
