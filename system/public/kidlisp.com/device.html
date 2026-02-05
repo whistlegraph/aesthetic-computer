@@ -2494,8 +2494,10 @@
           if (window.pendingSlideshowDuration) {
             startSlideshowProgressBar(window.pendingSlideshowDuration);
             window.pendingSlideshowDuration = null;
+          } else if (!slideshowMode) {
+            // Single piece mode: 60 second progress bar, then soft restart
+            startProgressBar();
           }
-          // Single piece mode: no progress bar (plays forever)
         }
         pieceHasChanged = true;
       }
@@ -2550,9 +2552,9 @@
       if (progress < 100) {
         requestAnimationFrame(updateProgressBar);
       } else {
-        // Progress bar complete - just refresh the page
-        console.log('📺 Progress bar complete - refreshing page');
-        window.location.reload();
+        // Progress bar complete - soft reload for smooth restart
+        console.log('📺 Progress bar complete - restarting piece');
+        reloadPiece();
       }
     }
     
@@ -2562,6 +2564,7 @@
       pieceHasChanged = false;
       progressStartTime = Date.now();
       progressFill.style.width = '0%';
+      progressFill.classList.remove('ending'); // Reset red blink state
       iframe.src = iframe.src.replace(/&t=\d+/, '') + '&t=' + Date.now();
       requestAnimationFrame(updateProgressBar);
     }
