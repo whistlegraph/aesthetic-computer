@@ -2471,11 +2471,11 @@ export const handler = async (event, context) => {
             }
             #chat-input-container .monaco-editor .view-lines {
               padding-left: 0.5em !important;
-              padding-top: 0.35em !important;
+              padding-top: 0.5em !important;
             }
             #chat-input-container .monaco-editor .cursors-layer {
               padding-left: 0.5em !important;
-              padding-top: 0.35em !important;
+              padding-top: 0.5em !important;
             }
             #chat-input-container .monaco-editor,
             #chat-input-container .monaco-editor .view-line {

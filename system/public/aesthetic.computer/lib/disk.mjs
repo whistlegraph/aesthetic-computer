@@ -7228,6 +7228,10 @@ async function load(
       if (slug && slug.startsWith("$") && slug.length > 1) {
         const cacheId = slug.slice(1); // Remove $ prefix
         
+        // Clear author/hits immediately to prevent stale data showing during load
+        currentHUDAuthor = null;
+        currentHUDHits = null;
+        
         // First check if we have this in objktKidlispCodes (offline bundle)
         const globalScope = (function () {
           if (typeof window !== 'undefined') return window;
