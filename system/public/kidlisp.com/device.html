@@ -270,6 +270,12 @@
     #piece-handle {
       color: rgb(255, 107, 157);
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+    
+    #piece-handle:hover {
+      opacity: 0.7;
     }
     
     #piece-hits {
@@ -2093,10 +2099,20 @@
       if (handleEl) {
         if (data.handle) {
           handleEl.textContent = data.handle;
+          handleEl.style.color = 'rgb(255, 107, 157)';
+          handleEl.style.cursor = 'pointer';
+          handleEl.onclick = () => {
+            // Open aesthetic.computer chat with handle prefilled
+            window.open(`https://aesthetic.computer/prompt~${encodeURIComponent('@' + data.handle)}`, '_blank');
+          };
+          handleEl.title = `Chat with ${data.handle}`;
           console.log('📺 Handle:', data.handle);
         } else {
           handleEl.textContent = 'anonymous';
           handleEl.style.color = 'rgb(150, 150, 150)';
+          handleEl.style.cursor = 'default';
+          handleEl.onclick = null;
+          handleEl.title = '';
           console.log('📺 Handle: anonymous');
         }
       }
