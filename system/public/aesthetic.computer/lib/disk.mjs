@@ -2649,6 +2649,10 @@ const $commonApi = {
   penLock: () => {
     send({ type: "pen:lock" });
   },
+  // Send a message to BIOS (for effect control, etc.)
+  send: (msg) => {
+    send(msg);
+  },
   chat: chatClient.system,
   dark: undefined, // If we are in dark mode.
   theme: {
@@ -4148,6 +4152,7 @@ const $commonApi = {
   },
   ui: {
     Button: ui.Button,
+    Slider: ui.Slider,
     TextButton: ui.TextButton,
     TextButtonSmall: ui.TextButtonSmall,
     TextInput: TextInput,
@@ -9210,8 +9215,8 @@ let pendingExportEvents = [];
 // TODO: Try to remove as many API calls from here as possible.
 
 async function makeFrame({ data: { type, content } }) {
-  // DEBUG: Log all DAW-related messages
-  if (type?.startsWith?.("daw:")) {
+  // DEBUG: Log ALL messages starting with "pedal:" or "daw:"
+  if (type?.startsWith?.("pedal:") || type?.startsWith?.("daw:")) {
     console.log("🎹🎹🎹 makeFrame received:", type, content);
   }
   
@@ -9444,6 +9449,23 @@ async function makeFrame({ data: { type, content } }) {
   if (type === "daw:samplerate") {
     // Store in persistent state (survives frame updates)
     persistentDawState.sampleRate = content.rate;
+    return;
+  }
+
+  // 🎸 Pedal messages (for audio effect visualization)
+  if (type === "pedal:peak") {
+    // Forward to the piece's receive function if it exists
+    if (typeof receive === "function") {
+      receive({ type: "pedal:peak", peak: content.peak });
+    }
+    return;
+  }
+
+  if (type === "pedal:envelope") {
+    // Forward to the piece's receive function if it exists
+    if (typeof receive === "function") {
+      receive({ type: "pedal:envelope", ...content });
+    }
     return;
   }
 
