@@ -1903,7 +1903,8 @@
         // First 1/6 (0-16.7%): show elements
         // Middle 4/6 (16.7%-83.3%): slide off
         // Last 1/6 (83.3%-100%): bring back
-        if (overlay) {
+        // DISABLED for top.kidlisp.com - always show UI
+        if (overlay && !isTopPlaylist) {
           const shouldSlideOut = progress > 16.67 && progress < 83.33;
           if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
             overlay.classList.add('slid-out');
@@ -1913,7 +1914,8 @@
         }
         
         // Hide progress bar during middle section (same timing as slide out)
-        const shouldHideBar = progress > 16.67 && progress < 83.33;
+        // DISABLED for top.kidlisp.com - always show progress bar
+        const shouldHideBar = !isTopPlaylist && progress > 16.67 && progress < 83.33;
         if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
           progressBar.classList.add('hidden-mid');
         } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
@@ -2517,8 +2519,9 @@
       // First 1/6 (0-16.7%): show elements
       // Middle 4/6 (16.7%-83.3%): slide off
       // Last 1/6 (83.3%-100%): bring back
+      // DISABLED for top.kidlisp.com - always show UI
       const overlay = document.getElementById('source-overlay');
-      if (overlay) {
+      if (overlay && !isTopPlaylist) {
         const shouldSlideOut = progress > 16.67 && progress < 83.33;
         if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
           overlay.classList.add('slid-out');
@@ -2528,7 +2531,8 @@
       }
       
       // Hide progress bar during middle section (same timing as slide out)
-      const shouldHideBar = progress > 16.67 && progress < 83.33;
+      // DISABLED for top.kidlisp.com - always show progress bar
+      const shouldHideBar = !isTopPlaylist && progress > 16.67 && progress < 83.33;
       if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
         progressBar.classList.add('hidden-mid');
       } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
