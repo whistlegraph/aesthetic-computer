@@ -17,6 +17,25 @@
   const iframe = document.getElementById("aesthetic");
 
   iframe.classList.add("visible");
+  
+  // ♻️ Iframe ready state tracking (declared early for message handler access)
+  let readyTimeout = null;
+  let loadTimeout = null;
+  let refreshCount = 0;
+  let isReady = false;
+  const maxRefreshAttempts = 5;
+  
+  // Helper to clear all pending timeouts
+  function clearAllTimeouts() {
+    if (readyTimeout) {
+      clearTimeout(readyTimeout);
+      readyTimeout = null;
+    }
+    if (loadTimeout) {
+      clearTimeout(loadTimeout);
+      loadTimeout = null;
+    }
+  }
 
   // Handle messages sent from the extension to the webview AND from the iframe
   window.addEventListener("message", (event) => {
@@ -116,8 +135,10 @@
         break;
       }
       case "ready": {
+        if (isReady) break; // Already handled, ignore duplicate ready messages
         console.log("🫐 ✅ Received ready message, clearing timeout");
-        clearTimeout(readyTimeout);
+        clearAllTimeouts();
+        isReady = true;
         break;
       }
       default: {
@@ -134,16 +155,20 @@
     iframe.contentWindow.postMessage({ type: "aesthetic-parent:focused" }, "*");
   });
 
-  // ♻️ Refresh the iframe's src url until it loads successfully.
-  let readyTimeout = setTimeout(refresh, 5000);
-  let refreshCount = 0;
-  const maxRefreshAttempts = 5; // Increased retry attempts
+  // ♻️ Start the refresh timeout cycle
+  readyTimeout = setTimeout(refresh, 5000);
 
   function refresh() {
+    if (isReady) {
+      // Already ready, don't refresh
+      return;
+    }
     refreshCount++;
     if (refreshCount > maxRefreshAttempts) {
       console.log("🫐 Max refresh attempts reached, assuming ready");
       clearTimeout(readyTimeout);
+      readyTimeout = null;
+      isReady = true; // Prevent further refreshes
       return;
     }
     console.log(`🫐 Awaiting... (attempt ${refreshCount}/${maxRefreshAttempts})`);
@@ -167,12 +192,14 @@
   
   // Also listen for iframe load event as a fallback
   iframe.addEventListener('load', () => {
+    if (isReady) return; // Already handled
     console.log("🫐 Iframe loaded");
     // Give the iframe content a bit of time to initialize and send ready message
-    setTimeout(() => {
-      if (readyTimeout) {
-        console.log("🫐 Clearing timeout after iframe load");
-        clearTimeout(readyTimeout);
+    loadTimeout = setTimeout(() => {
+      if (!isReady && readyTimeout) {
+        console.log("🫐 Clearing timeout after iframe load (fallback)");
+        clearAllTimeouts();
+        isReady = true;
       }
     }, 2000);
   });
