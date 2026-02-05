@@ -255,6 +255,7 @@ void main() {
 // =========================================================================
 // BLUR SHADER - Separable Gaussian blur (horizontal pass)
 // Simple version - no Y flipping, handled in readback
+// Uses fixed loop bound (15) for WebGL ES compatibility - some GPUs don't support dynamic loop bounds
 // =========================================================================
 const BLUR_H_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
@@ -274,7 +275,9 @@ void main() {
   float texelX = 1.0 / u_resolution.x;
   int radius = u_kernelSize / 2;
   
-  for (int i = 0; i < u_kernelSize; i++) {
+  // Fixed loop bound for WebGL ES compatibility (max kernel size is 15)
+  for (int i = 0; i < 15; i++) {
+    if (i >= u_kernelSize) break;
     float offset = float(i - radius);
     vec2 sampleUV = v_texCoord + vec2(offset * texelX, 0.0);
     sampleUV.x = clamp(sampleUV.x, 0.0, 1.0);
@@ -287,6 +290,7 @@ void main() {
 // =========================================================================
 // BLUR SHADER - Separable Gaussian blur (vertical pass)
 // Simple version - no Y flipping, handled in readback
+// Uses fixed loop bound (15) for WebGL ES compatibility - some GPUs don't support dynamic loop bounds
 // =========================================================================
 const BLUR_V_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
@@ -306,7 +310,9 @@ void main() {
   float texelY = 1.0 / u_resolution.y;
   int radius = u_kernelSize / 2;
   
-  for (int i = 0; i < u_kernelSize; i++) {
+  // Fixed loop bound for WebGL ES compatibility (max kernel size is 15)
+  for (int i = 0; i < 15; i++) {
+    if (i >= u_kernelSize) break;
     float offset = float(i - radius);
     vec2 sampleUV = v_texCoord + vec2(0.0, offset * texelY);
     sampleUV.y = clamp(sampleUV.y, 0.0, 1.0);

@@ -1360,14 +1360,26 @@
       const screenWidth = window.screen.width;
       const screenHeight = window.screen.height;
       const maxDim = Math.max(screenWidth, screenHeight);
+      const hostname = window.location.hostname;
       
       // Base multiplier: density * 1.5 gives good proportional sizing
-      // Then adjust for native resolution displays where dpr=1
       const baseScale = density * 1.5;
       
+      // Device subdomains (device.kidlisp.com, top.kidlisp.com) are typically
+      // displayed on 4K TVs/displays viewed from a distance - use larger UI
+      // FF1 reports CSS pixels (1920x1200) not physical 4K, so we boost based on hostname
+      const isDeviceSubdomain = hostname === 'device.kidlisp.com' || 
+                                hostname === 'top.kidlisp.com' ||
+                                window.location.pathname.startsWith('/device.kidlisp.com') ||
+                                window.location.pathname.startsWith('/top.kidlisp.com');
+      
+      if (isDeviceSubdomain) {
+        // FF1/device mode: 4x multiplier for comfortable TV viewing distance
+        return Math.round(baseScale * 4);
+      }
+      
       // For native 4K/high-res with dpr=1, apply additional multiplier
-      // FF1 and 4K TVs need larger UI for viewing distance
-      if (dpr === 1 && maxDim >= 3840) return Math.round(baseScale * 20);  // 4K native (2x larger)
+      if (dpr === 1 && maxDim >= 3840) return Math.round(baseScale * 20);  // 4K native
       if (dpr === 1 && maxDim >= 2560) return Math.round(baseScale * 10);  // 1440p native
       return Math.round(baseScale);                                         // Retina/scaled displays
     }
@@ -1544,6 +1556,10 @@
     const dev = hostname === 'localhost' || hostname === 'local.aesthetic.computer';
     const aestheticUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
     
+    // Check if this is an FF1/device subdomain (top.kidlisp.com, device.kidlisp.com)
+    const isDeviceSubdomain = hostname === 'device.kidlisp.com' || hostname === 'top.kidlisp.com';
+    const isTopPlaylist = hostname === 'top.kidlisp.com' || pathname.startsWith('/top.kidlisp.com');
+    
     const logDevice = (...args) => {
       console.log('📺 DEVICE:', ...args);
       addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
@@ -1560,13 +1576,24 @@
     // Parse codeId or playlist path:
     // device.kidlisp.com/codeId
     // device.kidlisp.com/playlist/top100 (short playlist URL)
+    // top.kidlisp.com (auto-loads top100 playlist)
     // localhost:8888/kidlisp.com/device/codeId
     // localhost:8888/device.kidlisp.com/codeId
+    // localhost:8888/top.kidlisp.com
     let codeId = null;
     let slideshowShortcut = null;  // Will be set if using /playlist/xxx path
     const pathParts = pathname.split('/').filter(p => p);
     
-    if (hostname === 'device.kidlisp.com') {
+    console.log('📺 Routing debug:', { hostname, pathname, pathParts });
+    
+    // top.kidlisp.com auto-loads top100 playlist
+    if (hostname === 'top.kidlisp.com') {
+      slideshowShortcut = 'top100';
+      console.log('📺 Matched top.kidlisp.com, set slideshowShortcut:', slideshowShortcut);
+    } else if (pathname.startsWith('/top.kidlisp.com')) {
+      // Local dev: localhost:8888/top.kidlisp.com
+      slideshowShortcut = 'top100';
+    } else if (hostname === 'device.kidlisp.com') {
       // Production: device.kidlisp.com/codeId or /playlist/top100
       if (pathParts[0] === 'playlist' && pathParts[1]) {
         slideshowShortcut = pathParts[1].toLowerCase();
@@ -1612,6 +1639,7 @@
     const startIndex = parseInt(params.get('start_index')) || 0;
     
     // Resolve slideshow shortcut to full playlist URL
+    console.log('📺 Before playlist resolution:', { slideshowShortcut, KNOWN_PLAYLISTS, hasKey: slideshowShortcut ? KNOWN_PLAYLISTS[slideshowShortcut] : null });
     if (slideshowShortcut && KNOWN_PLAYLISTS[slideshowShortcut]) {
       playlistUrl = `${FEED_URL}/api/v1/playlists/${KNOWN_PLAYLISTS[slideshowShortcut]}`;
       console.log('📺 Resolved playlist shortcut:', slideshowShortcut, '→', playlistUrl);

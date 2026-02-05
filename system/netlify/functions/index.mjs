@@ -89,8 +89,11 @@ async function fun(event, context) {
   // Serve specific kidlisp.com pages before the catch-all
   // /kidlisp.com/device* → device.html (FF1 optimized display)
   // /device.kidlisp.com/* → device.html (local dev path for device.kidlisp.com)
+  // /top.kidlisp.com/* → device.html (local dev path for top.kidlisp.com - auto-loads top100)
   // /kidlisp.com/pj* → pj.html (PJ mode)
-  if (event.path.startsWith("/kidlisp.com/device") || event.path.startsWith("/device.kidlisp.com")) {
+  if (event.path.startsWith("/kidlisp.com/device") || 
+      event.path.startsWith("/device.kidlisp.com") ||
+      event.path.startsWith("/top.kidlisp.com")) {
     try {
       const htmlContent = await fs.readFile(
         path.join(process.cwd(), "public/kidlisp.com/device.html"),

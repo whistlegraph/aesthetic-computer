@@ -5468,7 +5468,7 @@ function form(
     background: backgroundColor3D,
   },
 ) {  // Exit silently if no forms are present.
-  if (forms === undefined || forms?.length === 0) return;
+  if (forms == null || forms?.length === 0) return;
 
   if (cpu === true) {
     if (formReframing) {
@@ -8930,24 +8930,27 @@ async function load(
     
     // 🎬 Piece Transition: Capture CURRENT screen pixels BEFORE clearing
     // This enables piece-to-piece morphing transitions (not just noise16→piece)
-    // Check if buffer is valid (not detached from transfer to main thread)
-    try {
-      if (screen?.pixels && screen.width > 0 && screen.height > 0 && 
-          screen.pixels.buffer && !screen.pixels.buffer.detached && screen.pixels.byteLength > 0) {
-        golTransition.overlayPixels = new Uint8ClampedArray(screen.pixels);
-        golTransition.width = screen.width;
-        golTransition.height = screen.height;
-        
-        // Initialize and START transition immediately (loading phase)
-        initGOLCells(golTransition.width, golTransition.height);
-        golTransition.generation = 0;
-        golTransition.active = true;
-        console.log(`🎬 Transition: Started ${TRANSITION_TYPE} (loading phase)`, screen.width, "x", screen.height);
+    // Skip entirely if TRANSITION_TYPE is "none"
+    if (TRANSITION_TYPE !== "none") {
+      // Check if buffer is valid (not detached from transfer to main thread)
+      try {
+        if (screen?.pixels && screen.width > 0 && screen.height > 0 && 
+            screen.pixels.buffer && !screen.pixels.buffer.detached && screen.pixels.byteLength > 0) {
+          golTransition.overlayPixels = new Uint8ClampedArray(screen.pixels);
+          golTransition.width = screen.width;
+          golTransition.height = screen.height;
+          
+          // Initialize and START transition immediately (loading phase)
+          initGOLCells(golTransition.width, golTransition.height);
+          golTransition.generation = 0;
+          golTransition.active = true;
+          console.log(`🎬 Transition: Started ${TRANSITION_TYPE} (loading phase)`, screen.width, "x", screen.height);
+        }
+      } catch (e) {
+        // Buffer may be detached if pixels were transferred - skip transition
+        console.log("🎬 Transition: Could not capture pixels (buffer detached), skipping");
+        golTransition.overlayPixels = null;
       }
-    } catch (e) {
-      // Buffer may be detached if pixels were transferred - skip transition
-      console.log("🎬 Transition: Could not capture pixels (buffer detached), skipping");
-      golTransition.overlayPixels = null;
     }
     
     // Note: transition state is now set above when starting
@@ -12492,7 +12495,8 @@ async function makeFrame({ data: { type, content } }) {
               currentPath.endsWith('.lisp')
             );
             
-            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && $api.screen?.pixels && !isKidLispPiece) {
+            // Skip transitions entirely if TRANSITION_TYPE is "none"
+            if (TRANSITION_TYPE !== "none" && pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && $api.screen?.pixels && !isKidLispPiece) {
               const screenW = $api.screen.width;
               const screenH = $api.screen.height;
               const overlayW = golTransition.width;
