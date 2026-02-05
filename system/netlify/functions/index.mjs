@@ -650,10 +650,8 @@ async function fun(event, context) {
             
             function send(msg) {
               if (dawSend) {
-                console.log("🎹 HTML send() forwarding to bios:", msg.type);
                 dawSend(msg);
               } else {
-                console.log("🎹 HTML send() queueing (no bios yet):", msg.type);
                 dawQueue.push(msg);
               }
             }
@@ -748,6 +746,16 @@ async function fun(event, context) {
                 });
                 target.dispatchEvent(pointerEvent);
               }
+            };
+            
+            // 🎸 Pedal peak data receiver (for audio effect visualization)
+            window.acPedalPeak = function(peak) {
+              send({ type: "pedal:peak", content: { peak: peak } });
+            };
+            
+            // 🎸 Pedal envelope data receiver (L/R peaks and RMS)
+            window.acPedalEnvelope = function(peakL, peakR, rmsL, rmsR) {
+              send({ type: "pedal:envelope", content: { peakL: peakL, peakR: peakR, rmsL: rmsL, rmsR: rmsR } });
             };
             
             // Called by bios.mjs to connect the message queue
@@ -1015,7 +1023,7 @@ async function fun(event, context) {
       </head>
       <body class="native-cursor" ${lanHost ? " data-lan-host=" + lanHost : ""}>
         <!-- Boot Canvas - VHS style with floating code pages -->
-        <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;pointer-events:none;margin:0;padding:0;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
+        <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;z-index:99999;pointer-events:none;margin:0;padding:0;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
         <script>
           window.acBootCanvas=(function(){var c=document.getElementById('boot-canvas');if(!c)return{};
           // Check for noboot param - skip all boot animation for clean device display
@@ -1034,9 +1042,14 @@ async function fun(event, context) {
           var isLightMode=window.matchMedia&&window.matchMedia('(prefers-color-scheme:light)').matches;
           // Device mode with density=1 uses lower targetSCL for performance
           var baseTargetSCL=3;var targetSCL=isDeviceMode&&densityParam===1?1:baseTargetSCL;
-          var SCL=1,W=Math.ceil(window.innerWidth/SCL),H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;
-          function updateScale(newSCL){SCL=newSCL;W=Math.ceil(window.innerWidth/SCL);H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;x.imageSmoothingEnabled=false;for(var k in scrollYs)scrollYs[k]=0;}
-          window.addEventListener('resize',function(){W=Math.ceil(window.innerWidth/SCL);H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;x.imageSmoothingEnabled=false;});
+          // Use visualViewport API for accurate sizing on iOS (avoids browser chrome issues)
+          function getViewportSize(){var vv=window.visualViewport;return{w:vv?vv.width:window.innerWidth,h:vv?vv.height:window.innerHeight};}
+          var vp=getViewportSize();var SCL=1,W=Math.ceil(vp.w/SCL),H=Math.ceil(vp.h/SCL);c.width=W;c.height=H;
+          function updateCanvasSize(){var vp=getViewportSize();W=Math.ceil(vp.w/SCL);H=Math.ceil(vp.h/SCL);c.width=W;c.height=H;c.style.width=vp.w+'px';c.style.height=vp.h+'px';x.imageSmoothingEnabled=false;}
+          function updateScale(newSCL){SCL=newSCL;updateCanvasSize();for(var k in scrollYs)scrollYs[k]=0;}
+          window.addEventListener('resize',updateCanvasSize);
+          if(window.visualViewport){window.visualViewport.addEventListener('resize',updateCanvasSize);window.visualViewport.addEventListener('scroll',updateCanvasSize);}
+          updateCanvasSize();
           var PM=7,HH=8,CW=80,CHW=1.8,LH=4,FNT=3;
           // KidLisp theme: warm orange/yellow tones vs AC purple/pink, with light mode variants
           // AC Light mode: warm browns/greens/purples on sandy background (matching VS Code AC Light theme)
@@ -1106,6 +1119,8 @@ async function fun(event, context) {
           function handleInteraction(ex,ey){touchGlitch=Math.min(1.5,touchGlitch+0.4);touchX=ex/W;touchY=ey/H;lastTouch=performance.now();
             // Add some extra chaos when touched
             lb=Math.min(1,lb+0.3);bp=Math.min(1,bp+0.1);}
+          // GIVE variant - tap interaction is cosmetic only (no navigation to give.aesthetic.computer)
+          var giveOpened=false;
           c.addEventListener('touchstart',function(e){e.preventDefault();var t=e.touches[0];if(t)handleInteraction(t.clientX/SCL,t.clientY/SCL);},{passive:false});
           c.addEventListener('touchmove',function(e){e.preventDefault();var t=e.touches[0];if(t)handleInteraction(t.clientX/SCL,t.clientY/SCL);},{passive:false});
           c.addEventListener('mousedown',function(e){handleInteraction(e.clientX/SCL,e.clientY/SCL);});

@@ -92,21 +92,16 @@ let frozenUrlPath = null;
 // Called from boot() to connect the send function
 function _dawConnectSend(sendFunc, updateMetronome) {
   if (window.acDawConnect) {
-    console.log("🎹 _dawConnectSend called, sendFunc:", sendFunc?.toString?.().substring(0, 100));
     // Wrap sendFunc to also update metronome and capture sample rate
     const wrappedSend = (msg) => {
-      console.log("🎹 BIOS wrappedSend called:", msg.type);
       if (msg.type === "daw:tempo" && updateMetronome) {
         updateMetronome(msg.content.bpm);
       }
       // 🎹 Capture DAW sample rate for AudioContext creation
       if (msg.type === "daw:samplerate" && msg.content?.samplerate) {
         _dawSampleRate = msg.content.samplerate;
-        console.log("🎹 BIOS captured DAW sample rate:", _dawSampleRate);
       }
-      console.log("🎹 Calling sendFunc now...");
       sendFunc(msg);
-      console.log("🎹 sendFunc returned for:", msg.type);
     };
     window.acDawConnect(wrappedSend);
   }
@@ -2849,6 +2844,41 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     console.log('🔬 BIOS: Exposed __bios_sound_telemetry on window');
   }
 
+  // 🎸 M4L Console Forwarding (for Ableton integration debugging)
+  // When running in jweb~, forward console.log/error/warn to Max via max.outlet
+  if (typeof window !== 'undefined' && window.max?.outlet) {
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    
+    console.log = (...args) => {
+      originalLog(...args);
+      try { window.max.outlet("log", args.map(a => String(a)).join(" ")); } catch {}
+    };
+    
+    console.error = (...args) => {
+      originalError(...args);
+      try { window.max.outlet("error", args.map(a => String(a)).join(" ")); } catch {}
+    };
+    
+    console.warn = (...args) => {
+      originalWarn(...args);
+      try { window.max.outlet("warn", args.map(a => String(a)).join(" ")); } catch {}
+    };
+    
+    // Catch uncaught errors - DISABLED for now due to noise from jweb~ CORS issues
+    // window.addEventListener?.("error", (e) => {
+    //   try { window.max.outlet("error", `Uncaught: ${e.message} at ${e.filename}:${e.lineno}`); } catch {}
+    // });
+    
+    // 🎸 Stub for M4L sample receiver (pedal.mjs will override this)
+    // This prevents "Script error" spam before pedal's setupMaxBridge runs
+    window.acSample = window.acSample || function() {};
+    window.acPedalPeak = window.acPedalPeak || function() {};
+    
+    console.log("🎸 BIOS: M4L console forwarding enabled");
+  }
+
   // TODO: Eventually this would be replaced with a more dynamic system.
 
   const backgroundTrackURLs = [
@@ -3505,8 +3535,114 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           return new URLSearchParams(window.location.search).get('vst') === 'true';
         };
 
-        speakerProcessor.connect(sfxStreamGain); // Connect to the mediaStream.
-        speakerProcessor.connect(speakerGain);
+        // 🎸 Pedal Effect Chain (for DAW mode audio processing)
+        // Create effect nodes that can be dynamically enabled/controlled
+        let pedalFilter = null;
+        let pedalDelay = null;
+        let pedalDelayGain = null;
+        let pedalDryGain = null;
+        let pedalWetGain = null;
+        let pedalEffectsEnabled = false;
+        
+        // Initialize pedal effects (but don't connect yet)
+        function initPedalEffects() {
+          const forceStereo = (node) => {
+            node.channelCount = 2;
+            node.channelCountMode = "explicit";
+            node.channelInterpretation = "speakers";
+          };
+
+          // Biquad filter (lowpass/highpass)
+          pedalFilter = audioContext.createBiquadFilter();
+          forceStereo(pedalFilter);
+          pedalFilter.type = "lowpass";
+          pedalFilter.frequency.value = 20000; // Start with no filtering
+          pedalFilter.Q.value = 1.0;
+          
+          // Delay effect
+          pedalDelay = audioContext.createDelay(2.0); // Max 2 second delay
+          forceStereo(pedalDelay);
+          pedalDelay.delayTime.value = 0.25;
+          
+          pedalDelayGain = audioContext.createGain();
+          forceStereo(pedalDelayGain);
+          pedalDelayGain.gain.value = 0.4; // Feedback amount
+          
+          // Dry/Wet mix
+          pedalDryGain = audioContext.createGain();
+          forceStereo(pedalDryGain);
+          pedalDryGain.gain.value = 1.0;
+          
+          pedalWetGain = audioContext.createGain();
+          forceStereo(pedalWetGain);
+          pedalWetGain.gain.value = 0.0; // Start dry
+          
+          console.log("🎸 Pedal effects initialized");
+        }
+        
+        // Enable effects and insert into signal chain
+        function enablePedalEffects() {
+          if (pedalEffectsEnabled) return;
+          if (!pedalFilter) initPedalEffects();
+          
+          // Disconnect speaker from destinations
+          speakerProcessor.disconnect();
+          
+          // New chain: speakerProcessor -> filter -> dry/wet split -> destinations
+          speakerProcessor.connect(pedalFilter);
+          
+          // Dry path
+          pedalFilter.connect(pedalDryGain);
+          pedalDryGain.connect(sfxStreamGain);
+          pedalDryGain.connect(speakerGain);
+          
+          // Wet path (delay)
+          pedalFilter.connect(pedalDelay);
+          pedalDelay.connect(pedalDelayGain);
+          pedalDelayGain.connect(pedalDelay); // Feedback loop
+          pedalDelay.connect(pedalWetGain);
+          pedalWetGain.connect(sfxStreamGain);
+          pedalWetGain.connect(speakerGain);
+          
+          pedalEffectsEnabled = true;
+          console.log("🎸 Pedal effects enabled in audio chain");
+        }
+        
+        // Set pedal effect parameters
+        window.acPedalSetEffect = function(params) {
+          if (!pedalEffectsEnabled) enablePedalEffects();
+          
+          if (params.filterType) {
+            pedalFilter.type = params.filterType; // "lowpass", "highpass", "bandpass"
+          }
+          if (params.filterFreq !== undefined) {
+            pedalFilter.frequency.setValueAtTime(params.filterFreq, audioContext.currentTime);
+          }
+          if (params.filterQ !== undefined) {
+            pedalFilter.Q.setValueAtTime(params.filterQ, audioContext.currentTime);
+          }
+          if (params.delayTime !== undefined) {
+            pedalDelay.delayTime.setValueAtTime(params.delayTime, audioContext.currentTime);
+          }
+          if (params.delayFeedback !== undefined) {
+            pedalDelayGain.gain.setValueAtTime(params.delayFeedback, audioContext.currentTime);
+          }
+          if (params.wetMix !== undefined) {
+            pedalWetGain.gain.setValueAtTime(params.wetMix, audioContext.currentTime);
+            pedalDryGain.gain.setValueAtTime(1.0 - params.wetMix, audioContext.currentTime);
+          }
+        };
+        
+        // Auto-enable pedal effects if ?daw parameter is present
+        const hasDawParam = new URLSearchParams(window.location.search).has("daw");
+        if (hasDawParam) {
+          initPedalEffects();
+          enablePedalEffects();
+        } else {
+          // Normal mode - direct connection
+          speakerProcessor.connect(sfxStreamGain); // Connect to the mediaStream.
+          speakerProcessor.connect(speakerGain);
+        }
         console.log("🔊 Speaker processor connected to audio graph!");
 
         applyMasterVolume(masterVolume);
@@ -4846,12 +4982,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🔊 Debug log messages from worker (visible in console tunnel)
+    if (type === "debug:log") {
+      console.log("🔊 WORKER LOG:", content?.msg);
+      return;
+    }
+
+    // 🎸 Pedal effect control messages from worker
+    if (type === "pedal:effect") {
+      if (window.acPedalSetEffect) {
+        window.acPedalSetEffect(content);
+      }
+      return;
+    }
+
     // 🔍 Debug state from pieces for CDP automation
     if (type === "debug:state") {
       window.acPieceState = content;
       return;
     }
-    
+
     // 🎹 DAW phase update - auto-resume AudioContext once for DAW mode
     if (type === "daw:phase:ack" && !dawAudioResumed) {
       if (audioContext && audioContext.state === "suspended") {
