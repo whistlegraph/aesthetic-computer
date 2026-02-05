@@ -1106,9 +1106,6 @@ async function fun(event, context) {
           function handleInteraction(ex,ey){touchGlitch=Math.min(1.5,touchGlitch+0.4);touchX=ex/W;touchY=ey/H;lastTouch=performance.now();
             // Add some extra chaos when touched
             lb=Math.min(1,lb+0.3);bp=Math.min(1,bp+0.1);}
-          // GIVE variant click handler - tap anywhere opens give.aesthetic.computer
-          var giveOpened=false;
-          c.addEventListener('click',function(e){if(giveVariant&&!giveOpened){giveOpened=true;window.open('https://give.aesthetic.computer','_blank');}});
           c.addEventListener('touchstart',function(e){e.preventDefault();var t=e.touches[0];if(t)handleInteraction(t.clientX/SCL,t.clientY/SCL);},{passive:false});
           c.addEventListener('touchmove',function(e){e.preventDefault();var t=e.touches[0];if(t)handleInteraction(t.clientX/SCL,t.clientY/SCL);},{passive:false});
           c.addEventListener('mousedown',function(e){handleInteraction(e.clientX/SCL,e.clientY/SCL);});

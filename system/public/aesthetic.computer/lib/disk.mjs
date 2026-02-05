@@ -7260,11 +7260,10 @@ async function load(
             currentOriginalCodeId = slug; // Keep the full $code format
             console.log("✅ Successfully loaded cached code:", cacheId, `(${sourceToRun.length} chars)`);
             
-            // 👤 Fetch author metadata in background (don't block loading)
+            // 👤 Fetch author metadata in background (for logging only)
             fetchKidlispMetadata(cacheId).then(meta => {
               if (meta) {
-                currentHUDAuthor = meta.handle;
-                currentHUDHits = meta.hits;
+                // Note: author/hits are fetched but not displayed for KidLisp pieces
                 console.log(`👤 Author: ${meta.handle || 'anonymous'}, Hits: ${meta.hits}`);
               }
             }).catch(err => {
