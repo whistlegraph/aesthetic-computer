@@ -1366,8 +1366,9 @@
       const baseScale = density * 1.5;
       
       // For native 4K/high-res with dpr=1, apply additional multiplier
-      if (dpr === 1 && maxDim >= 3840) return Math.round(baseScale * 10);  // 4K native
-      if (dpr === 1 && maxDim >= 2560) return Math.round(baseScale * 5);   // 1440p native
+      // FF1 and 4K TVs need larger UI for viewing distance
+      if (dpr === 1 && maxDim >= 3840) return Math.round(baseScale * 20);  // 4K native (2x larger)
+      if (dpr === 1 && maxDim >= 2560) return Math.round(baseScale * 10);  // 1440p native
       return Math.round(baseScale);                                         // Retina/scaled displays
     }
     
