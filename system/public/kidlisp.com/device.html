@@ -1903,8 +1903,8 @@
         // First 1/6 (0-16.7%): show elements
         // Middle 4/6 (16.7%-83.3%): slide off
         // Last 1/6 (83.3%-100%): bring back
-        // DISABLED for top.kidlisp.com - always show UI
-        if (overlay && !isTopPlaylist) {
+        // DISABLED for device subdomains - always show UI
+        if (overlay && !isDeviceSubdomain) {
           const shouldSlideOut = progress > 16.67 && progress < 83.33;
           if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
             overlay.classList.add('slid-out');
@@ -1914,8 +1914,8 @@
         }
         
         // Hide progress bar during middle section (same timing as slide out)
-        // DISABLED for top.kidlisp.com - always show progress bar
-        const shouldHideBar = !isTopPlaylist && progress > 16.67 && progress < 83.33;
+        // DISABLED for device subdomains - always show progress bar
+        const shouldHideBar = !isDeviceSubdomain && progress > 16.67 && progress < 83.33;
         if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
           progressBar.classList.add('hidden-mid');
         } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
@@ -2494,10 +2494,8 @@
           if (window.pendingSlideshowDuration) {
             startSlideshowProgressBar(window.pendingSlideshowDuration);
             window.pendingSlideshowDuration = null;
-          } else if (!slideshowMode) {
-            // Single piece mode
-            startProgressBar();
           }
+          // Single piece mode: no progress bar (plays forever)
         }
         pieceHasChanged = true;
       }
@@ -2519,9 +2517,9 @@
       // First 1/6 (0-16.7%): show elements
       // Middle 4/6 (16.7%-83.3%): slide off
       // Last 1/6 (83.3%-100%): bring back
-      // DISABLED for top.kidlisp.com - always show UI
+      // DISABLED for device subdomains - always show UI
       const overlay = document.getElementById('source-overlay');
-      if (overlay && !isTopPlaylist) {
+      if (overlay && !isDeviceSubdomain) {
         const shouldSlideOut = progress > 16.67 && progress < 83.33;
         if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
           overlay.classList.add('slid-out');
@@ -2531,8 +2529,8 @@
       }
       
       // Hide progress bar during middle section (same timing as slide out)
-      // DISABLED for top.kidlisp.com - always show progress bar
-      const shouldHideBar = !isTopPlaylist && progress > 16.67 && progress < 83.33;
+      // DISABLED for device subdomains - always show progress bar
+      const shouldHideBar = !isDeviceSubdomain && progress > 16.67 && progress < 83.33;
       if (shouldHideBar && !progressBar.classList.contains('hidden-mid')) {
         progressBar.classList.add('hidden-mid');
       } else if (!shouldHideBar && progressBar.classList.contains('hidden-mid')) {
