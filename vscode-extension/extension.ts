@@ -829,6 +829,74 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // 🔧 Dev Mode for Welcome Panel (uses `local` flag - load from local server instead of embedded JS)
   const WELCOME_DEV_URL = 'http://localhost:5555/dev.html';
+  let welcomeDevServerAvailable = false;
+  let welcomeDevServerCheckInterval: NodeJS.Timeout | undefined;
+
+  // Check if the Welcome dev server (localhost:5555) is available
+  async function checkWelcomeDevServer(): Promise<boolean> {
+    try {
+      const http = await import("http");
+      return new Promise((resolve) => {
+        const req = http.request(
+          {
+            hostname: "localhost",
+            port: 5555,
+            path: "/",
+            method: "HEAD",
+            timeout: 1000,
+          },
+          (res) => {
+            resolve(true);
+            res.resume();
+          }
+        );
+        req.on("error", () => resolve(false));
+        req.on("timeout", () => {
+          req.destroy();
+          resolve(false);
+        });
+        req.end();
+      });
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Start polling for Welcome dev server availability
+  function startWelcomeDevServerCheck() {
+    if (welcomeDevServerCheckInterval) {
+      clearInterval(welcomeDevServerCheckInterval);
+    }
+    
+    // Check immediately
+    checkWelcomeDevServer().then((available) => {
+      const wasAvailable = welcomeDevServerAvailable;
+      welcomeDevServerAvailable = available;
+      if (available && !wasAvailable && welcomePanel) {
+        console.log("✅ Welcome dev server is now available - switching to live reload mode");
+        welcomePanel.webview.postMessage({ command: 'devServerAvailable' });
+      }
+    });
+    
+    // Then check every 2 seconds
+    welcomeDevServerCheckInterval = setInterval(async () => {
+      const wasAvailable = welcomeDevServerAvailable;
+      welcomeDevServerAvailable = await checkWelcomeDevServer();
+      
+      if (welcomeDevServerAvailable && !wasAvailable && welcomePanel) {
+        console.log("✅ Welcome dev server is now available - switching to live reload mode");
+        welcomePanel.webview.postMessage({ command: 'devServerAvailable' });
+      }
+    }, 2000);
+  }
+
+  // Stop polling for Welcome dev server
+  function stopWelcomeDevServerCheck() {
+    if (welcomeDevServerCheckInterval) {
+      clearInterval(welcomeDevServerCheckInterval);
+      welcomeDevServerCheckInterval = undefined;
+    }
+  }
 
   // Helper function to generate Welcome Panel HTML from shared process-tree.js
   // Helper function to detect current VS Code theme kind
@@ -851,78 +919,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   function getWelcomePanelHtml(webview: vscode.Webview, devMode: boolean = false): string {
     const theme = getVSCodeThemeKind();
     
-    // Dev mode: load from local server via iframe with live reload support
-    if (devMode) {
-      return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src http://localhost:5555; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: ${theme === 'light' ? '#fcf7c5' : '#181318'}; height: 100vh; overflow: hidden; }
-    iframe { width: 100%; height: 100%; border: none; }
-  </style>
-</head>
-<body>
-  <iframe id="dev-frame" src="${WELCOME_DEV_URL}?theme=${theme}"></iframe>
-  <script>
-    const vscode = acquireVsCodeApi();
-    const frame = document.getElementById('dev-frame');
-    let retryInterval = null;
-    
-    // Auto-retry when server unavailable
-    function startAutoRetry() {
-      if (retryInterval) return;
-      retryInterval = setInterval(() => {
-        frame.src = frame.src.split('?')[0] + '?theme=${theme}&t=' + Date.now();
-      }, 2000);
-    }
-    
-    function stopAutoRetry() {
-      if (retryInterval) {
-        clearInterval(retryInterval);
-        retryInterval = null;
-      }
-    }
-    
-    // Detect iframe load success/failure
-    frame.onload = () => {
-      try {
-        const doc = frame.contentDocument || frame.contentWindow?.document;
-        if (doc && doc.body) {
-          const text = doc.body.innerText || '';
-          if (text.includes('refused') || text.includes('ERR_')) {
-            startAutoRetry();
-          } else {
-            stopAutoRetry();
-          }
-        }
-      } catch (e) {
-        // Cross-origin = server is running
-        stopAutoRetry();
-      }
-    };
-    
-    frame.onerror = () => startAutoRetry();
-    
-    // Listen for messages from extension and forward to iframe
-    window.addEventListener('message', (e) => {
-      if (e.data?.command === 'reload') {
-        frame.src = frame.src.split('?')[0] + '?theme=${theme}&t=' + Date.now();
-      } else if (e.data?.command === 'astUpdate') {
-        frame.contentWindow?.postMessage(e.data, '*');
-      }
-    });
-  </script>
-</body>
-</html>`;
-    }
-    
-    // Production mode: use embedded JS with theme support
-    const csp = `default-src 'none'; style-src 'unsafe-inline'; img-src ${webview.cspSource} https: data:; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src ws://127.0.0.1:7890 wss://localhost:8889;`;
-    
     // Color schemes from color-schemes.js (embedded for production)
     const darkColors = {
       bg: '#181318', bgAlt: '#141214', fg: '#ffffffcc', fgBright: '#ffffff', fgMuted: '#555555',
@@ -933,6 +929,95 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       accent: '#387adf', accentBright: '#006400', statusOnline: '#006400', labelInfo: '#806060'
     };
     const c = theme === 'light' ? lightColors : darkColors;
+    
+    // In dev mode, we show embedded content first, then switch to iframe when dev server is available
+    // This ensures the 3D view loads immediately even during devcontainer boot
+    const csp = devMode
+      ? `default-src 'none'; frame-src http://localhost:5555; style-src 'unsafe-inline'; img-src ${webview.cspSource} https: data:; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src ws://127.0.0.1:7890 wss://localhost:8889;`
+      : `default-src 'none'; style-src 'unsafe-inline'; img-src ${webview.cspSource} https: data:; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src ws://127.0.0.1:7890 wss://localhost:8889;`;
+    
+    // Dev mode indicator badge
+    const devBadge = devMode ? `
+    <div class="dev-badge" id="dev-badge">
+      <span class="dev-icon">🔧</span>
+      <span class="dev-text">DEV</span>
+      <span class="dev-status" id="dev-status">embedded</span>
+    </div>` : '';
+    
+    const devBadgeStyles = devMode ? `
+    .dev-badge {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: ${theme === 'light' ? 'rgba(40, 30, 90, 0.9)' : 'rgba(168, 112, 144, 0.9)'};
+      color: ${theme === 'light' ? '#fcf7c5' : '#fff'};
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      pointer-events: none;
+    }
+    .dev-badge .dev-icon { font-size: 12px; }
+    .dev-badge .dev-status {
+      color: ${theme === 'light' ? '#a0d0a0' : '#90e090'};
+      font-weight: normal;
+    }
+    .dev-badge.live-reload .dev-status { color: #70ff70; }
+    #dev-frame {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      z-index: 300;
+    }
+    #dev-frame.active { display: block; }
+    #embedded-content { display: block; }
+    #embedded-content.hidden { display: none; }
+    ` : '';
+    
+    const devScript = devMode ? `
+    // Dev mode: switch to iframe when dev server becomes available
+    (function() {
+      const devFrame = document.getElementById('dev-frame');
+      const embeddedContent = document.getElementById('embedded-content');
+      const devBadge = document.getElementById('dev-badge');
+      const devStatus = document.getElementById('dev-status');
+      const theme = '${theme}';
+      
+      function switchToLiveReload() {
+        console.log('🔧 Switching to live reload mode');
+        devFrame.src = '${WELCOME_DEV_URL}?theme=' + theme;
+        devFrame.classList.add('active');
+        embeddedContent.classList.add('hidden');
+        devBadge.classList.add('live-reload');
+        devStatus.textContent = 'live reload';
+      }
+      
+      // Listen for message from extension that dev server is available
+      window.addEventListener('message', (event) => {
+        const message = event.data;
+        if (message.command === 'devServerAvailable' && !devFrame.classList.contains('active')) {
+          switchToLiveReload();
+        } else if (message.command === 'astUpdate') {
+          // Forward AST updates to iframe if active, or handle locally
+          if (devFrame.classList.contains('active')) {
+            devFrame.contentWindow?.postMessage(message, '*');
+          } else if (window.ASTTreeViz) {
+            console.log('🌳 AST update received:', message.files?.length, 'files');
+            window.ASTTreeViz.updateASTVisualization(message.files);
+          }
+        }
+      });
+    })();
+    ` : '';
     
     return `<!DOCTYPE html>
 <html lang="en">
@@ -963,22 +1048,28 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     .proc-label .icon { font-size: 18px; display: block; line-height: 1; }
     .proc-label .name { font-size: 10px; margin-top: 2px; font-weight: bold; letter-spacing: 0.3px; }
     .proc-label .info { font-size: 8px; color: ${c.labelInfo}; margin-top: 1px; }
+    ${devBadgeStyles}
   </style>
 </head>
 <body data-theme="${theme}">
-  <canvas id="canvas"></canvas>
-  <div class="hud title"><div class="status-dot" id="status-dot"></div><span>Aesthetic<span class="dot">.</span>Computer Architecture</span></div>
-  <div class="hud stats"><div><span class="val" id="uptime">—</span></div><div><span class="val" id="cpus">—</span> cpus</div></div>
-  <div class="hud center"><div class="count" id="process-count">0</div><div>processes</div></div>
-  <div class="hud mem"><span id="mem-text">— / —</span> MB</div>
-  <div id="labels" class="label-container"></div>
+  ${devMode ? '<iframe id="dev-frame"></iframe>' : ''}
+  <div id="embedded-content">
+    <canvas id="canvas"></canvas>
+    <div class="hud title"><div class="status-dot" id="status-dot"></div><span>Aesthetic<span class="dot">.</span>Computer Architecture</span></div>
+    <div class="hud stats"><div><span class="val" id="uptime">—</span></div><div><span class="val" id="cpus">—</span> cpus</div></div>
+    <div class="hud center"><div class="count" id="process-count">0</div><div>processes</div></div>
+    <div class="hud mem"><span id="mem-text">— / —</span> MB</div>
+    <div id="labels" class="label-container"></div>
+  </div>
+  ${devBadge}
   <script>${PROCESS_TREE_JS}</script>
   <script>${AST_TREE_JS}</script>
   <script>
-    // Listen for AST updates from extension
+    // Listen for AST updates from extension (production mode)
     (function() {
       const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : null;
       window.vscodeApi = vscode;
+      ${devMode ? '' : `
       window.addEventListener('message', (event) => {
         const message = event.data;
         if (message.command === 'astUpdate' && window.ASTTreeViz) {
@@ -986,9 +1077,11 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
           window.ASTTreeViz.updateASTVisualization(message.files);
         }
       });
+      `}
       console.log('🔌 AST message handler ready');
     })();
   </script>
+  ${devMode ? `<script>${devScript}</script>` : ''}
 </body>
 </html>`;
   }
@@ -1070,10 +1163,17 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
     welcomePanel.onDidDispose(() => {
       welcomePanel = null;
+      // Stop dev server polling when panel is closed
+      stopWelcomeDevServerCheck();
     });
 
     // Generate welcome panel HTML using shared process-tree.js (uses `local` flag for dev mode)
     welcomePanel.webview.html = getWelcomePanelHtml(welcomePanel.webview, local);
+    
+    // In dev mode, start checking for the dev server and switch to live reload when available
+    if (local) {
+      startWelcomeDevServerCheck();
+    }
     
     // Send initial AST data after panel is created
     setTimeout(() => {
@@ -1094,7 +1194,17 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   // Refresh welcome panel (called when local mode is toggled or theme changes)
   function refreshWelcomePanel() {
     if (welcomePanel) {
+      // Regenerate the HTML with the new local mode state
       welcomePanel.webview.html = getWelcomePanelHtml(welcomePanel.webview, local);
+      
+      // Start or stop dev server checking based on local mode
+      if (local) {
+        welcomeDevServerAvailable = false; // Reset until we confirm
+        startWelcomeDevServerCheck();
+      } else {
+        stopWelcomeDevServerCheck();
+        welcomeDevServerAvailable = false;
+      }
     }
   }
 
