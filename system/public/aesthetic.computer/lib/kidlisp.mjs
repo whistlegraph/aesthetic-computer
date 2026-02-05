@@ -5201,15 +5201,38 @@ class KidLisp {
             }
             
             // 🎯 FIX: Also paste embedded layers on top of burned buffer
-            if (this.embeddedLayers) {
+            // 🚀 GPU OPTIMIZATION: Batch all embedded layers for single GPU composite pass
+            if (this.embeddedLayers && this.embeddedLayers.length > 0) {
+              const layersForComposite = [];
               for (let i = 0, len = this.embeddedLayers.length; i < len; i++) {
                 const embeddedLayer = this.embeddedLayers[i];
                 if (embeddedLayer.buffer && embeddedLayer.buffer.pixels) {
+                  layersForComposite.push({
+                    pixels: embeddedLayer.buffer.pixels,
+                    width: embeddedLayer.buffer.width,
+                    height: embeddedLayer.buffer.height,
+                    x: typeof embeddedLayer.x === "number" ? Math.round(embeddedLayer.x) : 0,
+                    y: typeof embeddedLayer.y === "number" ? Math.round(embeddedLayer.y) : 0,
+                    alpha: typeof embeddedLayer.alpha === "number" ? embeddedLayer.alpha : 255
+                  });
+                }
+              }
+              
+              if (layersForComposite.length > 0 && $.compositeLayers) {
+                try {
+                  $.compositeLayers(layersForComposite);
+                } catch (error) {
+                  console.warn(`⚠️ Error in batch composite (burn path), falling back:`, error.message);
+                  for (let i = 0; i < layersForComposite.length; i++) {
+                    const layer = layersForComposite[i];
+                    this.pasteWithAlpha($, { pixels: layer.pixels, width: layer.width, height: layer.height }, layer.x, layer.y, layer.alpha);
+                  }
+                }
+              } else if (layersForComposite.length > 0) {
+                for (let i = 0; i < layersForComposite.length; i++) {
+                  const layer = layersForComposite[i];
                   try {
-                    const alpha = typeof embeddedLayer.alpha === "number" ? embeddedLayer.alpha : 255;
-                    const destX = typeof embeddedLayer.x === "number" ? Math.round(embeddedLayer.x) : 0;
-                    const destY = typeof embeddedLayer.y === "number" ? Math.round(embeddedLayer.y) : 0;
-                    this.pasteWithAlpha($, embeddedLayer.buffer, destX, destY, alpha);
+                    this.pasteWithAlpha($, { pixels: layer.pixels, width: layer.width, height: layer.height }, layer.x, layer.y, layer.alpha);
                   } catch (error) {
                     console.warn(`⚠️ Error pasting embedded layer ${i} (burn path):`, error.message, error.stack);
                   }
@@ -5260,19 +5283,42 @@ class KidLisp {
             }
 
             // Step 3: Paste embedded layers last so they sit above everything
-            if (this.embeddedLayers) {
+            // 🚀 GPU OPTIMIZATION: Batch all embedded layers for single GPU composite pass
+            if (this.embeddedLayers && this.embeddedLayers.length > 0) {
+              // Build layer array for GPU compositing
+              const layersForComposite = [];
               for (let i = 0, len = this.embeddedLayers.length; i < len; i++) {
                 const embeddedLayer = this.embeddedLayers[i];
                 if (embeddedLayer.buffer && embeddedLayer.buffer.pixels) {
+                  layersForComposite.push({
+                    pixels: embeddedLayer.buffer.pixels,
+                    width: embeddedLayer.buffer.width,
+                    height: embeddedLayer.buffer.height,
+                    x: typeof embeddedLayer.x === "number" ? Math.round(embeddedLayer.x) : 0,
+                    y: typeof embeddedLayer.y === "number" ? Math.round(embeddedLayer.y) : 0,
+                    alpha: typeof embeddedLayer.alpha === "number" ? embeddedLayer.alpha : 255
+                  });
+                }
+              }
+              
+              // Try GPU batch composite (falls back to CPU internally if unavailable)
+              if (layersForComposite.length > 0 && $.compositeLayers) {
+                try {
+                  $.compositeLayers(layersForComposite);
+                } catch (error) {
+                  console.warn(`⚠️ Error in batch composite, falling back to individual pastes:`, error.message);
+                  // Fallback: paste each layer individually
+                  for (let i = 0; i < layersForComposite.length; i++) {
+                    const layer = layersForComposite[i];
+                    this.pasteWithAlpha($, { pixels: layer.pixels, width: layer.width, height: layer.height }, layer.x, layer.y, layer.alpha);
+                  }
+                }
+              } else if (layersForComposite.length > 0) {
+                // No compositeLayers available, use individual pastes
+                for (let i = 0; i < layersForComposite.length; i++) {
+                  const layer = layersForComposite[i];
                   try {
-                    // Check if alpha blending is used
-                    const alpha = typeof embeddedLayer.alpha === "number" ? embeddedLayer.alpha : 255;
-                    
-                    // Force integer coordinates to avoid sub-pixel indexing issues
-                    // Handle explicit 0 values (0 is falsy, so we need to check specifically)
-                    const destX = typeof embeddedLayer.x === "number" ? Math.round(embeddedLayer.x) : 0;
-                    const destY = typeof embeddedLayer.y === "number" ? Math.round(embeddedLayer.y) : 0;
-                    this.pasteWithAlpha($, embeddedLayer.buffer, destX, destY, alpha);
+                    this.pasteWithAlpha($, { pixels: layer.pixels, width: layer.width, height: layer.height }, layer.x, layer.y, layer.alpha);
                   } catch (error) {
                     console.warn(`⚠️ Error pasting embedded layer ${i}:`, error.message, error.stack);
                   }
@@ -5283,14 +5329,77 @@ class KidLisp {
 
           // 🎯 STEP 4: Execute post-composite commands (zoom/scroll/contrast that should affect entire composite)
           // These run AFTER embedded layers are composited, so they affect the full result
+          // 🚀 GPU OPTIMIZATION: Batch compatible effects (zoom/scroll/contrast/brightness) into ONE GPU pass
           if (this.postCompositeCommands && this.postCompositeCommands.length > 0) {
-            this.postCompositeCommands.forEach((cmd, i) => {
+            // Separate batchable effects from non-batchable
+            const batchableEffects = { zoom: 1.0, scrollX: 0, scrollY: 0, contrast: 1.0, brightness: 0 };
+            const nonBatchableCommands = [];
+            let hasBatchable = false;
+            
+            for (const cmd of this.postCompositeCommands) {
+              switch (cmd.name) {
+                case 'zoom':
+                  // Extract zoom scale from args
+                  if (cmd.args && cmd.args.length > 0) {
+                    const scale = parseFloat(cmd.args[0]) || 1.0;
+                    batchableEffects.zoom *= scale;  // Multiply zooms together
+                    hasBatchable = true;
+                  }
+                  break;
+                case 'scroll':
+                  // Extract dx, dy from args
+                  if (cmd.args && cmd.args.length >= 2) {
+                    batchableEffects.scrollX += parseFloat(cmd.args[0]) || 0;
+                    batchableEffects.scrollY += parseFloat(cmd.args[1]) || 0;
+                    hasBatchable = true;
+                  }
+                  break;
+                case 'contrast':
+                  // Extract contrast level from args
+                  if (cmd.args && cmd.args.length > 0) {
+                    const level = parseFloat(cmd.args[0]) || 1.0;
+                    batchableEffects.contrast *= level;  // Multiply contrasts together
+                    hasBatchable = true;
+                  }
+                  break;
+                // spin, smoothspin, suck, blur, sharpen, invert are NOT batchable (different shaders)
+                default:
+                  nonBatchableCommands.push(cmd);
+                  break;
+              }
+            }
+            
+            // Execute batched effects first (single GPU pass)
+            if (hasBatchable && $.batchedEffects) {
+              try {
+                $.batchedEffects(batchableEffects);
+              } catch (err) {
+                console.error('Error executing batched effects:', err);
+                // Fallback: execute individually
+                if (batchableEffects.zoom !== 1.0) $.zoom?.(batchableEffects.zoom);
+                if (batchableEffects.scrollX !== 0 || batchableEffects.scrollY !== 0) {
+                  $.scroll?.(batchableEffects.scrollX, batchableEffects.scrollY);
+                }
+                if (batchableEffects.contrast !== 1.0) $.contrast?.(batchableEffects.contrast);
+              }
+            } else if (hasBatchable) {
+              // No batchedEffects available, execute individually
+              if (batchableEffects.zoom !== 1.0) $.zoom?.(batchableEffects.zoom);
+              if (batchableEffects.scrollX !== 0 || batchableEffects.scrollY !== 0) {
+                $.scroll?.(batchableEffects.scrollX, batchableEffects.scrollY);
+              }
+              if (batchableEffects.contrast !== 1.0) $.contrast?.(batchableEffects.contrast);
+            }
+            
+            // Execute non-batchable commands (spin, blur, sharpen, etc.)
+            nonBatchableCommands.forEach((cmd, i) => {
               try {
                 cmd.func();
               } catch (err) {
                 console.error(`Error executing post-composite command ${cmd.name}:`, err);
               }
             });
+            
             this.postCompositeCommands = [];
           }
 

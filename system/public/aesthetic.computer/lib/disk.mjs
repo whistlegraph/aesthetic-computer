@@ -6018,6 +6018,8 @@ const $paintApiUnwrapped = {
     }
   }, // TODO: Should this be renamed to set?
   flood: graph.flood,
+  compositeLayers: graph.compositeLayers,  // GPU-accelerated multi-layer compositing
+  batchedEffects: graph.batchedEffects,    // GPU-accelerated batched effects (zoom+scroll+contrast+brightness in one pass)
   point: function () {
     const out = graph.point(...arguments);
     twoDCommands.push(["point", ...out]);
