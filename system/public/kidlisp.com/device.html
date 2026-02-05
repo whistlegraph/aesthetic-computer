@@ -2257,9 +2257,11 @@
       }
       
       // Build the playlist URL for the CLI command (official FF1 CLI format)
-      // Use the short path if we're in a known playlist, otherwise use full URL
+      // Use nice short subdomain URLs when available, otherwise use full URL
       let slideshowUrl;
-      if (slideshowShortcut) {
+      if (slideshowShortcut === 'top100') {
+        slideshowUrl = 'https://top.kidlisp.com';
+      } else if (slideshowShortcut) {
         slideshowUrl = `https://device.kidlisp.com/playlist/${slideshowShortcut}`;
       } else {
         // Fall back to full playlist_url encoded
