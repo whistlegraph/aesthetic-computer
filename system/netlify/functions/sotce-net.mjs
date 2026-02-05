@@ -535,6 +535,10 @@ export const handler = async (event, context) => {
               opacity: 0.5;
             }
 
+            html.editing #garden-canvas {
+              display: none;
+            }
+
             html.editing body {
               /* background: var(--editor-placemat-background); */
             }
