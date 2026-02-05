@@ -227,6 +227,8 @@ let atWindow: any;
 let welcomePanel: vscode.WebviewPanel | null = null;
 let localServerCheckInterval: NodeJS.Timeout | undefined;
 let provider: AestheticViewProvider;
+let lastWebviewRefreshAt = 0; // Debounce webview refreshes
+const WEBVIEW_REFRESH_DEBOUNCE_MS = 10000; // Minimum 10s between auto-refreshes
 
 // Check if the local server is available
 async function checkLocalServer(): Promise<boolean> {
@@ -270,18 +272,29 @@ function startLocalServerCheck() {
     clearInterval(localServerCheckInterval);
   }
   
+  // Helper to refresh all webviews with debouncing
+  function refreshAllWebviews() {
+    const now = Date.now();
+    if (now - lastWebviewRefreshAt < WEBVIEW_REFRESH_DEBOUNCE_MS) {
+      console.log("⏳ Skipping webview refresh (debounced)");
+      return;
+    }
+    lastWebviewRefreshAt = now;
+    console.log("✅ Local server is now available");
+    // Refresh webviews when server becomes available
+    if (provider) provider.refreshWebview();
+    refreshWebWindow();
+    refreshKidLispWindow();
+    refreshNewsWindow();
+    refreshAtWindow();
+  }
+
   // Check immediately
   checkLocalServer().then((available) => {
     const wasAvailable = localServerAvailable;
     localServerAvailable = available;
     if (available && !wasAvailable) {
-      console.log("✅ Local server is now available");
-      // Refresh webviews when server becomes available
-      if (provider) provider.refreshWebview();
-      refreshWebWindow();
-      refreshKidLispWindow();
-      refreshNewsWindow();
-      refreshAtWindow();
+      refreshAllWebviews();
     }
   });
   
@@ -291,13 +304,7 @@ function startLocalServerCheck() {
     localServerAvailable = await checkLocalServer();
     
     if (localServerAvailable && !wasAvailable) {
-      console.log("✅ Local server is now available");
-      // Refresh webviews when server becomes available
-      if (provider) provider.refreshWebview();
-      refreshWebWindow();
-      refreshKidLispWindow();
-      refreshNewsWindow();
-      refreshAtWindow();
+      refreshAllWebviews();
     } else if (!localServerAvailable && wasAvailable) {
       console.log("⏳ Local server disconnected - waiting for reconnect...");
       // Don't immediately show waiting screen - server may come back quickly during hot reload

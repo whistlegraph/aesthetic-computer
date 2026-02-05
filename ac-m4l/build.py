@@ -31,6 +31,500 @@ M4L_HEADER = b"ampf\x04\x00\x00\x00iiiimeta\x04\x00\x00\x00\x00\x00\x00\x00ptch"
 def generate_patcher(device: dict, defaults: dict, production: bool = False) -> dict:
     """Generate a complete M4L patcher for a device."""
     
+    # Check if this is an effect device (has audio input)
+    is_effect = device.get("type") == "effect"
+    
+    if is_effect:
+        return generate_effect_patcher(device, defaults, production)
+    else:
+        return generate_instrument_patcher(device, defaults, production)
+
+def generate_effect_patcher(device: dict, defaults: dict, production: bool = False) -> dict:
+    """Generate a M4L Audio Effect patcher with audio input."""
+    
+    piece = device["piece"]
+    width = device.get("width", 400)
+    height = device.get("height", 250)
+    description = device.get("description", f"Aesthetic Computer {piece} Effect")
+    density = defaults.get("density", 1.5)
+    latency = defaults.get("latency", 32.0)
+    
+    # Build URL
+    if production:
+        base_url = "https://aesthetic.computer"
+    else:
+        base_url = defaults.get("baseUrl", "https://localhost:8888")
+    
+    url = f"{base_url}/{piece}?daw=1&density={density}&nogap&width={width}&height={height}"
+    
+    return {
+        "patcher": {
+            "fileversion": 1,
+            "appversion": {
+                "major": 9,
+                "minor": 0,
+                "revision": 7,
+                "architecture": "x64",
+                "modernui": 1
+            },
+            "classnamespace": "box",
+            "rect": [134.0, 174.0, 640.0, 480.0],
+            "openrect": [0.0, 0.0, float(width), float(height)],
+            "openinpresentation": 1,
+            "gridsize": [15.0, 15.0],
+            "enablehscroll": 0,
+            "enablevscroll": 0,
+            "devicewidth": float(width),
+            "description": description,
+            "boxes": [
+                # plugin~ 2 - receive stereo audio from Ableton
+                {
+                    "box": {
+                        "id": "obj-plugin",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 2,
+                        "outlettype": ["signal", "signal"],
+                        "patching_rect": [10.0, 50.0, 65.0, 22.0],
+                        "text": "plugin~ 2"
+                    }
+                },
+                # Mix L+R to mono for simpler analysis
+                {
+                    "box": {
+                        "id": "obj-mono-mix",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": ["signal"],
+                        "patching_rect": [10.0, 80.0, 35.0, 22.0],
+                        "text": "+~"
+                    }
+                },
+                # Scale mono mix by 0.5
+                {
+                    "box": {
+                        "id": "obj-mono-scale",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": ["signal"],
+                        "patching_rect": [10.0, 105.0, 45.0, 22.0],
+                        "text": "*~ 0.5"
+                    }
+                },
+                # peakamp~ mono - amplitude envelope (100ms window)
+                {
+                    "box": {
+                        "id": "obj-peak",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": ["float"],
+                        "patching_rect": [10.0, 130.0, 85.0, 22.0],
+                        "text": "peakamp~ 100"
+                    }
+                },
+                # Throttle peak messages to 30fps (33ms)
+                {
+                    "box": {
+                        "id": "obj-peak-throttle",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [10.0, 155.0, 70.0, 22.0],
+                        "text": "speedlim 33"
+                    }
+                },
+                # Format peak as simple JS call (single value, no commas)
+                {
+                    "box": {
+                        "id": "obj-peak-sprintf",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [10.0, 180.0, 280.0, 22.0],
+                        "text": "sprintf executejavascript window.acPedalPeak(%f)"
+                    }
+                },
+                # Dry signal gain (left)
+                {
+                    "box": {
+                        "id": "obj-dry-gainL",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": ["signal"],
+                        "patching_rect": [10.0, 180.0, 45.0, 22.0],
+                        "text": "*~ 1."
+                    }
+                },
+                # Dry signal gain (right)
+                {
+                    "box": {
+                        "id": "obj-dry-gainR",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": ["signal"],
+                        "patching_rect": [70.0, 180.0, 45.0, 22.0],
+                        "text": "*~ 1."
+                    }
+                },
+                # jweb~ - the main web view with audio output
+                {
+                    "box": {
+                        "disablefind": 0,
+                        "id": "obj-jweb",
+                        "latency": latency,
+                        "maxclass": "jweb~",
+                        "numinlets": 1,
+                        "numoutlets": 3,
+                        "outlettype": ["signal", "signal", ""],
+                        "patching_rect": [200.0, 50.0, 320.0, 240.0],
+                        "presentation": 1,
+                        "presentation_rect": [0.0, 0.0, float(width + 1), float(height + 1)],
+                        "rendermode": 1,
+                        "url": url
+                    }
+                },
+                # Wet signal gain (left)
+                {
+                    "box": {
+                        "id": "obj-wet-gainL",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": ["signal"],
+                        "patching_rect": [200.0, 300.0, 50.0, 22.0],
+                        "text": "*~ 0.5"
+                    }
+                },
+                # Wet signal gain (right)
+                {
+                    "box": {
+                        "id": "obj-wet-gainR",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": ["signal"],
+                        "patching_rect": [270.0, 300.0, 50.0, 22.0],
+                        "text": "*~ 0.5"
+                    }
+                },
+                # Mix dry + wet (left)
+                {
+                    "box": {
+                        "id": "obj-mixL",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": ["signal"],
+                        "patching_rect": [10.0, 350.0, 35.0, 22.0],
+                        "text": "+~"
+                    }
+                },
+                # Mix dry + wet (right)
+                {
+                    "box": {
+                        "id": "obj-mixR",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": ["signal"],
+                        "patching_rect": [70.0, 350.0, 35.0, 22.0],
+                        "text": "+~"
+                    }
+                },
+                # plugout~ - send stereo audio back to Ableton
+                {
+                    "box": {
+                        "id": "obj-out",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 2,
+                        "outlettype": ["signal", "signal"],
+                        "patching_rect": [10.0, 400.0, 85.0, 22.0],
+                        "text": "plugout~"
+                    }
+                },
+                # live.thisdevice - triggers on device load
+                {
+                    "box": {
+                        "id": "obj-thisdevice",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 3,
+                        "outlettype": ["bang", "int", "int"],
+                        "patching_rect": [350.0, 300.0, 85.0, 22.0],
+                        "text": "live.thisdevice"
+                    }
+                },
+                # Debug: print when device loads
+                {
+                    "box": {
+                        "id": "obj-load-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [350.0, 330.0, 100.0, 22.0],
+                        "text": "print [AC-EFFECT-LOADED]"
+                    }
+                },
+                # Route 'ready' messages from jweb~ to trigger Live API sync
+                {
+                    "box": {
+                        "id": "obj-ready-route",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 2,
+                        "outlettype": ["", ""],
+                        "patching_rect": [530.0, 80.0, 60.0, 22.0],
+                        "text": "route ready"
+                    }
+                },
+                # Debug: print when page is ready
+                {
+                    "box": {
+                        "id": "obj-ready-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [530.0, 110.0, 90.0, 22.0],
+                        "text": "print [AC-READY]"
+                    }
+                },
+                # Message to send getid to live.path
+                {
+                    "box": {
+                        "id": "obj-getid-msg",
+                        "maxclass": "message",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [530.0, 140.0, 40.0, 22.0],
+                        "text": "getid"
+                    }
+                },
+                # Tempo: live.path to get live_set id
+                {
+                    "box": {
+                        "id": "obj-tempo-path",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 3,
+                        "outlettype": ["", "", ""],
+                        "patching_rect": [530.0, 170.0, 100.0, 22.0],
+                        "text": "live.path live_set"
+                    }
+                },
+                # Delay + bang to trigger initial value output from observers
+                {
+                    "box": {
+                        "id": "obj-init-delay",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": ["bang"],
+                        "patching_rect": [530.0, 200.0, 60.0, 22.0],
+                        "text": "delay 100"
+                    }
+                },
+                # Tempo: observer
+                {
+                    "box": {
+                        "id": "obj-tempo-observer",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 3,
+                        "outlettype": ["", "", ""],
+                        "patching_rect": [530.0, 230.0, 130.0, 22.0],
+                        "text": "live.observer tempo"
+                    }
+                },
+                # Tempo: sprintf to format the JS command
+                {
+                    "box": {
+                        "id": "obj-tempo-sprintf",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [530.0, 260.0, 280.0, 22.0],
+                        "text": "sprintf executejavascript window.acDawTempo(%f)"
+                    }
+                },
+                # Transport: observer
+                {
+                    "box": {
+                        "id": "obj-transport-observer",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 3,
+                        "outlettype": ["", "", ""],
+                        "patching_rect": [530.0, 290.0, 150.0, 22.0],
+                        "text": "live.observer is_playing"
+                    }
+                },
+                # Transport: sprintf
+                {
+                    "box": {
+                        "id": "obj-transport-sprintf",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [530.0, 320.0, 290.0, 22.0],
+                        "text": "sprintf executejavascript window.acDawTransport(%d)"
+                    }
+                },
+                # Sample rate: adstatus sr
+                {
+                    "box": {
+                        "id": "obj-samplerate-adstatus",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [530.0, 350.0, 65.0, 22.0],
+                        "text": "adstatus sr"
+                    }
+                },
+                # Filter out "clear" messages
+                {
+                    "box": {
+                        "id": "obj-samplerate-filter",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 2,
+                        "outlettype": ["", ""],
+                        "patching_rect": [530.0, 380.0, 55.0, 22.0],
+                        "text": "sel clear"
+                    }
+                },
+                # Sample rate: sprintf
+                {
+                    "box": {
+                        "id": "obj-samplerate-sprintf",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [530.0, 410.0, 300.0, 22.0],
+                        "text": "sprintf executejavascript window.acDawSamplerate(%d)"
+                    }
+                },
+                # Activate message to auto-resume AudioContext
+                {
+                    "box": {
+                        "id": "obj-activate-msg",
+                        "maxclass": "message",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [600.0, 140.0, 60.0, 22.0],
+                        "text": "activate 1"
+                    }
+                },
+                # Debug: print jweb messages
+                {
+                    "box": {
+                        "id": "obj-jweb-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [530.0, 50.0, 100.0, 22.0],
+                        "text": "print [AC-JWEB]"
+                    }
+                }
+            ],
+            "lines": [
+                # Audio input: plugin~ -> mono mix (for analysis)
+                {"patchline": {"destination": ["obj-mono-mix", 0], "source": ["obj-plugin", 0]}},
+                {"patchline": {"destination": ["obj-mono-mix", 1], "source": ["obj-plugin", 1]}},
+                
+                # Mono mix -> scale -> peakamp -> throttle -> sprintf -> jweb
+                {"patchline": {"destination": ["obj-mono-scale", 0], "source": ["obj-mono-mix", 0]}},
+                {"patchline": {"destination": ["obj-peak", 0], "source": ["obj-mono-scale", 0]}},
+                {"patchline": {"destination": ["obj-peak-throttle", 0], "source": ["obj-peak", 0]}},
+                {"patchline": {"destination": ["obj-peak-sprintf", 0], "source": ["obj-peak-throttle", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-peak-sprintf", 0]}},
+                
+                # Audio input: plugin~ -> dry gain (pass-through)
+                {"patchline": {"destination": ["obj-dry-gainL", 0], "source": ["obj-plugin", 0]}},
+                {"patchline": {"destination": ["obj-dry-gainR", 0], "source": ["obj-plugin", 1]}},
+                
+                # jweb~ signal outputs -> wet gain
+                {"patchline": {"destination": ["obj-wet-gainL", 0], "source": ["obj-jweb", 0]}},
+                {"patchline": {"destination": ["obj-wet-gainR", 0], "source": ["obj-jweb", 1]}},
+                
+                # Dry + Wet mix
+                {"patchline": {"destination": ["obj-mixL", 0], "source": ["obj-dry-gainL", 0]}},
+                {"patchline": {"destination": ["obj-mixL", 1], "source": ["obj-wet-gainL", 0]}},
+                {"patchline": {"destination": ["obj-mixR", 0], "source": ["obj-dry-gainR", 0]}},
+                {"patchline": {"destination": ["obj-mixR", 1], "source": ["obj-wet-gainR", 0]}},
+                
+                # Mix -> plugout~
+                {"patchline": {"destination": ["obj-out", 0], "source": ["obj-mixL", 0]}},
+                {"patchline": {"destination": ["obj-out", 1], "source": ["obj-mixR", 0]}},
+                
+                # jweb messages routing
+                {"patchline": {"destination": ["obj-ready-route", 0], "source": ["obj-jweb", 2]}},
+                {"patchline": {"destination": ["obj-jweb-print", 0], "source": ["obj-jweb", 2]}},
+                
+                # Ready -> getid + activate
+                {"patchline": {"destination": ["obj-ready-print", 0], "source": ["obj-ready-route", 0]}},
+                {"patchline": {"destination": ["obj-getid-msg", 0], "source": ["obj-ready-route", 0]}},
+                {"patchline": {"destination": ["obj-activate-msg", 0], "source": ["obj-ready-route", 0]}},
+                
+                # Activate -> jweb
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-activate-msg", 0]}},
+                
+                # Device load print
+                {"patchline": {"destination": ["obj-load-print", 0], "source": ["obj-thisdevice", 0]}},
+                
+                # getid -> live.path
+                {"patchline": {"destination": ["obj-tempo-path", 0], "source": ["obj-getid-msg", 0]}},
+                
+                # live.path -> observers
+                {"patchline": {"destination": ["obj-tempo-observer", 1], "source": ["obj-tempo-path", 0]}},
+                {"patchline": {"destination": ["obj-transport-observer", 1], "source": ["obj-tempo-path", 0]}},
+                {"patchline": {"destination": ["obj-init-delay", 0], "source": ["obj-tempo-path", 0]}},
+                
+                # Delay -> bang observers
+                {"patchline": {"destination": ["obj-tempo-observer", 0], "source": ["obj-init-delay", 0]}},
+                {"patchline": {"destination": ["obj-transport-observer", 0], "source": ["obj-init-delay", 0]}},
+                {"patchline": {"destination": ["obj-samplerate-adstatus", 0], "source": ["obj-init-delay", 0]}},
+                
+                # Tempo observer -> sprintf -> jweb
+                {"patchline": {"destination": ["obj-tempo-sprintf", 0], "source": ["obj-tempo-observer", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-tempo-sprintf", 0]}},
+                
+                # Transport observer -> sprintf -> jweb
+                {"patchline": {"destination": ["obj-transport-sprintf", 0], "source": ["obj-transport-observer", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-transport-sprintf", 0]}},
+                
+                # Sample rate -> filter -> sprintf -> jweb
+                {"patchline": {"destination": ["obj-samplerate-filter", 0], "source": ["obj-samplerate-adstatus", 0]}},
+                {"patchline": {"destination": ["obj-samplerate-sprintf", 0], "source": ["obj-samplerate-filter", 1]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-samplerate-sprintf", 0]}}
+            ],
+            "dependency_cache": [],
+            "latency": 0,
+            "is_mpe": 0,
+            "external_mpe_tuning_enabled": 0,
+            "minimum_live_version": "",
+            "minimum_max_version": "",
+            "platform_compatibility": 0,
+            "autosave": 0
+        }
+    }
+
+def generate_instrument_patcher(device: dict, defaults: dict, production: bool = False) -> dict:
+    """Generate a complete M4L patcher for a device."""
+    
     piece = device["piece"]
     width = device.get("width", 400)
     height = device.get("height", 169)
@@ -681,12 +1175,15 @@ def build_amxd(patcher: dict, output_amxd: Path) -> int:
     
     return os.path.getsize(output_amxd)
 
-def install_to_ableton(amxd_path: Path, remote_host: str = None) -> None:
+def install_to_ableton(amxd_path: Path, remote_host: str = None, is_effect: bool = False) -> None:
     """Copy .amxd to Ableton User Library."""
+    
+    # Use correct folder based on device type
+    folder_type = "Audio Effects/Max Audio Effect" if is_effect else "Instruments/Max Instrument"
     
     if remote_host:
         # Remote install via SSH - use single quotes around the whole remote path
-        dest = f"/Users/jas/Music/Ableton/User Library/Presets/Instruments/Max Instrument/{amxd_path.name}"
+        dest = f"/Users/jas/Music/Ableton/User Library/Presets/{folder_type}/{amxd_path.name}"
         # Escape single quotes in dest path and wrap in single quotes for shell
         escaped_dest = dest.replace("'", "'\\''")
         cmd = f"scp '{amxd_path}' '{remote_host}:{escaped_dest}'"
@@ -697,7 +1194,7 @@ def install_to_ableton(amxd_path: Path, remote_host: str = None) -> None:
             print(f"   ❌ Failed to install (exit code {result})")
     else:
         # Local install
-        user_library = Path.home() / "Music" / "Ableton" / "User Library" / "Presets" / "Instruments" / "Max Instrument"
+        user_library = Path.home() / "Music" / "Ableton" / "User Library" / "Presets" / folder_type.replace("/", os.sep)
         
         if not user_library.exists():
             print(f"   ⚠️  Ableton User Library not found at: {user_library}")
@@ -766,10 +1263,14 @@ def main():
         original_name = device["name"]
         piece = device["piece"]
         has_custom_url = device.get("url") or device.get("devUrl") or device.get("prodUrl")
+        is_effect = device.get("type") == "effect"
         
         # Filter if specified
         if device_filter and device_filter not in piece.lower() and device_filter not in original_name.lower():
             continue
+        
+        # Use different emoji for effect vs instrument devices
+        device_emoji = "🎸" if is_effect else "🟪"
         
         # Handle custom URL devices (like kidlisp.com) vs piece-based devices
         if has_custom_url:
@@ -779,15 +1280,16 @@ def main():
             safe_piece = piece.replace("/", "-")
             filename = f"{original_name}.amxd"
         elif production:
-            display_name = f"AC 🟪 {piece} (aesthetic.computer)"
-            filename = f"AC 🟪 {piece} (aesthetic.computer).amxd"
+            display_name = f"AC {device_emoji} {piece} (aesthetic.computer)"
+            filename = f"AC {device_emoji} {piece} (aesthetic.computer).amxd"
         else:
             # Extract host from URL for cleaner display
             url_host = base_url.replace("https://", "").replace("http://", "")
-            display_name = f"AC 🟪 {piece} ({url_host})"
-            filename = f"AC 🟪 {piece} ({url_host}).amxd"
+            display_name = f"AC {device_emoji} {piece} ({url_host})"
+            filename = f"AC {device_emoji} {piece} ({url_host}).amxd"
         
-        print(f"\n🔧 {display_name}")
+        device_type_str = "Effect" if is_effect else "Instrument"
+        print(f"\n🔧 {display_name} [{device_type_str}]")
         
         # Generate patcher with updated name
         device_copy = device.copy()
@@ -802,7 +1304,7 @@ def main():
         
         # Install if requested
         if install:
-            install_to_ableton(output_path, remote)
+            install_to_ableton(output_path, remote, is_effect=is_effect)
     
     print(f"\n{'=' * 40}")
     print(f"✨ Built {len(built)} device(s)")
