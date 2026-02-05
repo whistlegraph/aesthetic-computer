@@ -330,29 +330,170 @@ export const handler = async (event, context) => {
                 font-style: normal;
             }
 
+            /*
+             * 🎨 SOTCE-NET THEME SYSTEM
+             * ========================
+             * Light mode: Pink/cream paper aesthetic (original)
+             * Dark mode: Warm brown/sepia tones (cozy evening read)
+             * 
+             * Theme colors are defined in :root and @media (prefers-color-scheme: dark)
+             * Canvas colors are passed via CSS custom properties and read in JS
+             */
+            
             :root {
+              /* === Light Mode (Default) === */
               -webkit-locale: "en";
+              
+              /* Page/Background Colors */
               --background-color: #FFD1DC;
+              --garden-background: #FFD1DC;
+              --chat-background: rgb(240, 235, 230);
+              --chat-input-bar-background: rgb(255, 240, 235);
+              --backpage-color: rgb(250, 250, 250);
+              --backpage-color-translucent: rgba(250, 250, 250, 0.8);
+              --editor-placemat-background: rgba(255, 255, 255, 0.5);
+              --editor-placemat-background-opaque: rgb(255, 255, 255);
+              
+              /* Card/Paper Colors (for canvas) */
+              --card-background: #f8f4ec;
+              --card-back-background: #f0ebe0;
+              --card-border: #d4c8b8;
+              --card-ear: #e8e0d0;
+              --card-ear-hover: #FFD1DC;
+              --card-text: #000000;
+              --card-text-muted: #666666;
+              --card-text-dim: #999999;
+              --card-text-faint: #aaaaaa;
+              
+              /* UI Colors */
               --pink-border: rgb(255, 190, 215);
               --button-background: rgb(255, 235, 183);
               --button-background-highlight: rgb(255, 245, 170);
+              --button-text: black;
               --spinner-background: rgb(255, 147, 191);
-              --backpage-color: rgb(250, 250, 250);
-              --backpage-color-translucent: rgba(250, 250, 250, 0.8);
               --destructive-red: rgb(200, 0, 0);
-              /* --line-height: 1.68em; */
+              
+              /* Chat Colors */
+              --chat-text: rgb(50, 50, 50);
+              --chat-handle: rgb(200, 80, 120);
+              --chat-link: rgb(80, 120, 200);
+              --chat-link-hover: rgb(60, 100, 180);
+              --chat-diary-link: rgb(180, 120, 80);
+              --chat-question-link: rgb(80, 140, 200);
+              --chat-timestamp: rgba(0, 0, 0, 0.4);
+              --chat-message-border: rgba(0, 0, 0, 0.15);
+              --chat-input-bg: white;
+              --chat-input-text: black;
+              --chat-input-border: rgb(130, 100, 100);
+              --chat-autocomplete-bg: white;
+              --chat-autocomplete-selected: var(--button-background-highlight);
+              --chat-shadow: rgb(80, 80, 80);
+              
+              /* Gate/Text Colors */
+              --gate-text: black;
+              --button-active-bg: rgb(255, 248, 165);
+              --positive-bg: rgb(203, 238, 161);
+              --positive-border: rgb(114, 203, 80);
+              --positive-hover: rgb(199, 252, 136);
+              --positive-active: rgb(210, 252, 146);
+              --negative-bg: rgb(255, 154, 168);
+              --negative-border: rgb(255, 87, 87);
+              --negative-hover: rgb(255, 171, 171);
+              --negative-active: rgb(255, 161, 186);
+              
+              /* Link Color */
+              --link-color: rgb(80, 100, 180);
+              
+              /* Typography */
               --line-height: 1.76em;
-              /* --garden-background: rgb(187, 251, 254); // #bbfbfe; */
-              --garden-background: #FFD1DC;
-              /*--chat-background: rgb(255, 230, 225);*/ /* rgb(240, 235, 230); */
-              --chat-background: /*rgb(202, 218, 228);*/ rgb(240, 235, 230);
-              --chat-input-bar-background: rgb(255, 240, 235); /* rgb(240, 235, 230); */
-              /* --font-page: serif; */
-              --editor-placemat-background: rgba(255, 255, 255, 0.5);
-              --editor-placemat-background-opaque: rgb(255, 255, 255);
-              /* --page-font: "EB Garamond"; */
-              --page-font: "Helvetica"; /* "Carlito"; */ /* "Calibri"; */ /* "Inter"; */
+              --page-font: "Helvetica";
               --max-lines: ${MAX_LINES};
+            }
+
+            /* === Dark Mode === */
+            @media (prefers-color-scheme: dark) {
+              :root {
+                /* Page/Background Colors - deep rose/plum evening */
+                --background-color: #2d1f2a;
+                --garden-background: #2d1f2a;
+                --chat-background: #231a20;
+                --chat-input-bar-background: #2a1f26;
+                --backpage-color: #1e171b;
+                --backpage-color-translucent: rgba(30, 23, 27, 0.8);
+                --editor-placemat-background: rgba(35, 26, 32, 0.5);
+                --editor-placemat-background-opaque: #231a20;
+                
+                /* Card/Paper Colors - olive/sage tinted parchment */
+                --card-background: #3a3832;
+                --card-back-background: #33322c;
+                --card-border: #5a5548;
+                --card-ear: #4a4840;
+                --card-ear-hover: #8a5070;
+                --card-text: #ece8de;
+                --card-text-muted: #b0a898;
+                --card-text-dim: #908878;
+                --card-text-faint: #706858;
+                
+                /* UI Colors - olive-purple tones */
+                --pink-border: #a06080;
+                --button-background: #4a4550;
+                --button-background-highlight: #5a5560;
+                --button-text: #e8e0f0;
+                --spinner-background: #7a5068;
+                --destructive-red: rgb(200, 70, 80);
+                
+                /* Chat Colors - warm evening tones */
+                --chat-text: #ddd5cc;
+                --chat-handle: #d88aa0;
+                --chat-link: #7ab0e0;
+                --chat-link-hover: #9ac8f0;
+                --chat-diary-link: #d0a070;
+                --chat-question-link: #70b0d8;
+                --chat-timestamp: rgba(255, 255, 255, 0.35);
+                --chat-message-border: rgba(255, 255, 255, 0.1);
+                --chat-input-bg: #2a2420;
+                --chat-input-text: #e8e0d8;
+                --chat-input-border: #5a4a50;
+                --chat-autocomplete-bg: #3a3030;
+                --chat-autocomplete-selected: #5a4a40;
+                --chat-shadow: rgba(0, 0, 0, 0.4);
+                
+                /* Gate/Text Colors */
+                --gate-text: #e8e0d8;
+                --button-active-bg: #6a6050;
+                --positive-bg: #3a5030;
+                --positive-border: #4a7040;
+                --positive-hover: #4a6040;
+                --positive-active: #5a7050;
+                --negative-bg: #5a3038;
+                --negative-border: #7a4048;
+                --negative-hover: #6a3a42;
+                --negative-active: #5a3540;
+                
+                /* Link Color */
+                --link-color: #8ab0e0;
+              }
+            }
+
+            /* Dark mode scrollbars */
+            @media (prefers-color-scheme: dark) {
+              * {
+                scrollbar-color: #5a5060 #2a2028;
+              }
+              ::-webkit-scrollbar {
+                width: 10px;
+                height: 10px;
+              }
+              ::-webkit-scrollbar-track {
+                background: #2a2028;
+              }
+              ::-webkit-scrollbar-thumb {
+                background: #5a5060;
+                border-radius: 5px;
+              }
+              ::-webkit-scrollbar-thumb:hover {
+                background: #6a6070;
+              }
             }
 
             /* Using default browser scrollbars */
@@ -427,6 +568,15 @@ export const handler = async (event, context) => {
               /* height: 100%; */
               /* overflow: hidden; */
               overscroll-behavior-y: none; /* prevent pull-to-refresh for Chrome 63+ */
+              color: var(--gate-text);
+            }
+            
+            a {
+              color: var(--link-color);
+            }
+            
+            a:hover {
+              opacity: 0.8;
             }
 
             /* prevent pull-to-refresh for Safari 16+ */
@@ -538,6 +688,10 @@ export const handler = async (event, context) => {
               touch-action: pan-y;
               scroll-snap-type: y proximity;
             }
+            /* When garden is visible, wrapper shouldn't scroll - binding handles it */
+            #wrapper:has(#garden:not(.hidden)) {
+              overflow: hidden;
+            }
             body.reloading::after {
               content: "";
               position: fixed;
@@ -644,6 +798,11 @@ export const handler = async (event, context) => {
               filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35));
               pointer-events: none;
             }
+            @media (prefers-color-scheme: dark) {
+              #gate #cookie {
+                filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.5)) brightness(0.85);
+              }
+            }
             #gate #cookie-wrapper {
               position: relative;
               /* z-index: 1000; */
@@ -668,6 +827,7 @@ export const handler = async (event, context) => {
               text-align: center;
               user-select: none;
               -webkit-user-select: none;
+              color: var(--gate-text);
             }
             #gate h2 {
               font-weight: normal;
@@ -677,6 +837,7 @@ export const handler = async (event, context) => {
               padding-bottom: 1em;
               user-select: none;
               -webkit-user-select: none;
+              color: var(--gate-text);
             }
             #gate #nav-high {
               margin-top: -0.5em;
@@ -695,12 +856,12 @@ export const handler = async (event, context) => {
             /*#chat-enter,*/
             #chat-button,
             #ask-button {
-              color: black;
+              color: var(--button-text);
               background: var(--button-background);
               padding: 0.35em;
               font-size: 100%;
               border: 0.205em solid var(--pink-border);
-              filter: drop-shadow(-0.065em 0.065em 0.065em rgb(80, 80, 80));
+              filter: drop-shadow(-0.065em 0.065em 0.065em var(--chat-shadow));
               border-radius: 0.5em;
               cursor: pointer;
               user-select: none;
@@ -964,7 +1125,7 @@ export const handler = async (event, context) => {
               filter: none; /* drop-shadow(
                         -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
                       ); */
-              background: rgb(255, 248, 165);
+              background: var(--button-active-bg);
               transform: translate(-2px, 2px);
             }
             #write-a-page {
@@ -975,24 +1136,24 @@ export const handler = async (event, context) => {
               font-weight: normal;
             }
             nav button.positive {
-              background: rgb(203, 238, 161);
-              border-color: rgb(114, 203, 80);
+              background: var(--positive-bg);
+              border-color: var(--positive-border);
             }
             nav button.positive:hover {
-              background: rgb(199, 252, 136);
+              background: var(--positive-hover);
             }
             nav button.positive:active {
-              background: rgb(210, 252, 146);
+              background: var(--positive-active);
             }
             nav button.negative {
-              background: rgb(255 154 168);
-              border-color: rgb(255, 87, 87);
+              background: var(--negative-bg);
+              border-color: var(--negative-border);
             }
             nav button.negative:hover {
-              background: rgb(255, 171, 171);
+              background: var(--negative-hover);
             }
             nav button.negative:active {
-              background: rgb(255, 161, 186);
+              background: var(--negative-active);
             }
             nav button.ask-toggle {
               background: rgb(220, 235, 250);
@@ -1208,6 +1369,14 @@ export const handler = async (event, context) => {
               background-color: var(--garden-background);
             }
             
+            #garden-canvas {
+              display: block;
+              width: 100%;
+              height: calc(100vh - 72px);
+              margin-top: 72px;
+              background-color: var(--garden-background);
+            }
+            
             #garden.hidden {
               display: none !important;
             }
@@ -1242,14 +1411,24 @@ export const handler = async (event, context) => {
               text-align: center;
             }
             #binding {
-              padding-top: 100px;
+              /* FYP-style: binding is the scroll container */
+              height: 100vh;
+              overflow-y: scroll;
+              scroll-snap-type: y mandatory;
+              scroll-behavior: smooth; /* Animate snap from current position */
+              -webkit-overflow-scrolling: touch;
+              overscroll-behavior: contain;
               padding-left: 16px;
               padding-right: 16px;
-              padding-bottom: 16px;
-              margin-bottom: 8px;
               margin-left: auto;
               margin-right: auto;
               box-sizing: border-box;
+              /* Hide scrollbar but keep scroll functionality */
+              scrollbar-width: none; /* Firefox */
+              -ms-overflow-style: none; /* IE/Edge */
+            }
+            #binding::-webkit-scrollbar {
+              display: none; /* Chrome/Safari/Opera */
             }
             #editor-form {
               padding-top: 100px;
@@ -1344,14 +1523,60 @@ export const handler = async (event, context) => {
             }
 
             #garden div.page-wrapper {
-              /* background-color: yellow; */
+              /* FYP-style: full viewport height, one page at a time */
+              width: 100%;
+              height: 100vh;
+              min-height: 100vh;
+              box-sizing: border-box;
+              scroll-snap-align: center;
+              scroll-snap-stop: always;
+              /* Flexbox to center the page-container vertically */
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding-top: 72px; /* header offset at mobile */
+            }
+            @media (min-width: ${miniBreakpoint}px) {
+              #garden div.page-wrapper {
+                padding-top: 100px; /* header offset at desktop */
+              }
+            }
+            
+            #garden div.page-wrapper .page-container {
               width: 100%;
               aspect-ratio: 4 / 5;
-              margin-bottom: 1em;
-              box-sizing: border-box;
               position: relative;
-              scroll-snap-align: start;
-              scroll-margin-top: 100px;
+            }
+            /* Grab cursor for dragging anywhere */
+            #garden {
+              cursor: grab;
+            }
+            #garden:active {
+              cursor: grabbing;
+            }
+            /* Keep pointer on interactive elements */
+            #garden .page-number,
+            #garden .ear,
+            #garden a,
+            #garden button {
+              cursor: pointer;
+            }
+            
+            /* Drag direction indicators */
+            #garden.drag-up .page-container {
+              border-top: 4px solid #4CAF50; /* green = will go up/prev */
+            }
+            #garden.drag-down .page-container {
+              border-bottom: 4px solid #2196F3; /* blue = will go down/next */
+            }
+            #garden.drag-snap .page-container {
+              /* no indicator = will snap back */
+            }
+            
+            /* Smooth scroll behavior */
+            #binding {
+              scroll-behavior: smooth;
+              transition: transform 0.15s ease-out;
             }
 
             #garden article.page,
@@ -1376,8 +1601,8 @@ export const handler = async (event, context) => {
             #editor-page div.page-number {
               position: absolute;
               bottom: 5%;
-              left: 0;
-              width: 100%;
+              left: 50%;
+              transform: translateX(-50%);
               text-align: center;
               color: black;
             }
@@ -1802,7 +2027,7 @@ export const handler = async (event, context) => {
 
             #email {
               position: relative;
-              color: black;
+              color: var(--link-color);
             }
             #email.admin::after,
             .crumple-this-page::after {
@@ -1819,15 +2044,15 @@ export const handler = async (event, context) => {
               right: -1.75em;
             }
             #email:hover {
-              color: maroon;
+              color: var(--chat-handle);
             }
             #email:active {
               -webkit-tap-highlight-color: transparent;
-              color: darkgreen;
+              color: var(--positive-border);
             }
             #delete-account,
             #privacy-policy {
-              color: black;
+              color: var(--link-color);
               position: absolute;
               font-size: 80%;
               bottom: -15%;
@@ -1838,7 +2063,7 @@ export const handler = async (event, context) => {
             }
 
             #subscriber-count {
-              color: black;
+              color: var(--gate-text);
               position: absolute;
               font-size: 80%;
               bottom: -15%;
@@ -1865,10 +2090,10 @@ export const handler = async (event, context) => {
               /* 'width' and 'left' value calculated in js 'genSubscribeButton' */
             }
             #privacy-policy:hover {
-              color: rgb(0, 0, 200);
+              color: var(--chat-link-hover);
             }
             #privacy-policy:active {
-              color: blue;
+              color: var(--chat-link);
             }
             #logout-wrapper,
             #imnew-wrapper,
@@ -2090,7 +2315,7 @@ export const handler = async (event, context) => {
               margin-top: auto;
             }
             #chat-messages div.message {
-              border-bottom: 1.5px solid rgba(0, 0, 0, var(--msg-border-opacity, 0.15));
+              border-bottom: 1.5px solid var(--chat-message-border);
               box-sizing: border-box;
               padding: 0.25em 0.5em;
               line-height: 1.25em;
@@ -2099,7 +2324,7 @@ export const handler = async (event, context) => {
             #chat-messages div.message div.message-author {
               font-weight: bold;
               display: inline-block;
-              color: rgb(200, 80, 120); /* pink for handles */
+              color: var(--chat-handle);
               padding-right: 0.25em;
               user-select: text;
               cursor: pointer;
@@ -2109,20 +2334,20 @@ export const handler = async (event, context) => {
             }
             #chat-messages div.message div.message-content {
               display: inline-block;
-              color: rgb(50, 50, 50);
+              color: var(--chat-text);
               user-select: text;
               word-wrap: break-word;
               max-width: calc(100% - 0.5em);
             }
             #chat-messages div.message div.message-content a {
-              color: rgb(80, 120, 200); /* blue for links */
+              color: var(--chat-link);
               text-decoration: underline;
             }
             #chat-messages div.message div.message-content a:hover {
-              color: rgb(60, 100, 180);
+              color: var(--chat-link-hover);
             }
             #chat-messages div.message div.message-content .handle-mention {
-              color: rgb(200, 80, 120);
+              color: var(--chat-handle);
               font-weight: bold;
               cursor: pointer;
             }
@@ -2136,10 +2361,10 @@ export const handler = async (event, context) => {
               display: inline;
             }
             #chat-messages div.message div.message-content .diary-link {
-              color: rgb(180, 120, 80);
+              color: var(--chat-diary-link);
             }
             #chat-messages div.message div.message-content .question-link {
-              color: rgb(80, 140, 200);
+              color: var(--chat-question-link);
             }
             #chat-messages div.message div.message-content .page-link:hover {
               text-decoration: none;
@@ -2149,9 +2374,10 @@ export const handler = async (event, context) => {
               position: fixed;
               width: 120px;
               aspect-ratio: 4 / 5;
-              background: white;
-              border: 1px solid rgba(0,0,0,0.3);
-              box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+              background: var(--card-background);
+              color: var(--chat-text);
+              border: 1px solid var(--card-border);
+              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
               pointer-events: none;
               z-index: 1000;
               padding: 8px;
@@ -2184,14 +2410,16 @@ export const handler = async (event, context) => {
               opacity: 0.5;
             }
             #chat-messages div.message div.message-when {
-              opacity: var(--msg-when-opacity, 0.15);
+              color: var(--chat-timestamp);
+              opacity: 1;
               display: inline-block;
               font-size: 75%;
               padding-left: 0.5em;
               transition: opacity 0.15s ease;
             }
             #chat-messages div.message:hover div.message-when {
-              opacity: 0.5;
+              opacity: 1;
+              color: var(--chat-text);
             }
             #chat-input-bar {
               /* width: 100%; */ /* Set in JavaScript */
@@ -2218,6 +2446,7 @@ export const handler = async (event, context) => {
               font-weight: bold;
               padding: 0;
               margin-left: 0;
+              color: var(--chat-handle);
             }
             #chat-input-container {
               flex: 1;
@@ -2227,10 +2456,10 @@ export const handler = async (event, context) => {
               border-radius: 0.5em;
               border: 0.205em solid var(--pink-border);
               box-sizing: border-box;
-              background: white;
+              background: var(--chat-input-bg);
               position: relative;
               overflow: hidden;
-              filter: drop-shadow(-0.065em 0.065em 0.065em rgb(80, 80, 80));
+              filter: drop-shadow(-0.065em 0.065em 0.065em var(--chat-shadow));
             }
             #chat-input-container .monaco-editor {
               position: absolute !important;
@@ -2241,11 +2470,11 @@ export const handler = async (event, context) => {
             }
             #chat-input-container .monaco-editor .view-lines {
               padding-left: 0.5em !important;
-              padding-top: 0.2em !important;
+              padding-top: 0.35em !important;
             }
             #chat-input-container .monaco-editor .cursors-layer {
               padding-left: 0.5em !important;
-              padding-top: 0.2em !important;
+              padding-top: 0.35em !important;
             }
             #chat-input-container .monaco-editor,
             #chat-input-container .monaco-editor .view-line {
@@ -2260,7 +2489,8 @@ export const handler = async (event, context) => {
               box-sizing: border-box;
               font-size: 100%;
               padding: 0.35em 0.5em;
-              background: white;
+              background: var(--chat-input-bg);
+              color: var(--chat-input-text);
             }
             #chat-input:focus {
               outline: none;
@@ -2274,11 +2504,11 @@ export const handler = async (event, context) => {
               padding: 0.35em 0.75em;
               border: 0.205em solid var(--pink-border);
               box-sizing: border-box;
-              color: black;
+              color: var(--button-text);
               background-color: var(--button-background);
               cursor: pointer;
               border-radius: 0.5em;
-              filter: drop-shadow(-0.065em 0.065em 0.065em rgb(80, 80, 80));
+              filter: drop-shadow(-0.065em 0.065em 0.065em var(--chat-shadow));
               user-select: none;
               -webkit-user-select: none;
               -webkit-tap-highlight-color: transparent;
@@ -2288,14 +2518,14 @@ export const handler = async (event, context) => {
               background-color: var(--button-background-highlight);
             }
             #chat-enter:active {
-              background-color: yellow;
-              filter: drop-shadow(-0.03em 0.03em 0.03em rgb(80, 80, 80));
+              background-color: var(--button-background-highlight);
+              filter: drop-shadow(-0.03em 0.03em 0.03em var(--chat-shadow));
             }
             #chat-autocomplete {
               position: absolute;
               bottom: calc(100% + 0.25em);
               left: 0;
-              background: white;
+              background: var(--chat-autocomplete-bg);
               border: 0.205em solid var(--pink-border);
               border-radius: 0.5em;
               max-height: 150px;
@@ -2310,14 +2540,14 @@ export const handler = async (event, context) => {
             #chat-autocomplete .autocomplete-item {
               padding: 0.5em 0.75em;
               cursor: pointer;
-              color: rgb(200, 80, 120);
+              color: var(--chat-handle);
               font-weight: bold;
               -webkit-tap-highlight-color: transparent;
               touch-action: manipulation;
             }
             #chat-autocomplete .autocomplete-item:hover,
             #chat-autocomplete .autocomplete-item.selected {
-              background: var(--button-background-highlight);
+              background: var(--chat-autocomplete-selected);
             }
             @media (hover: none) {
               #chat-autocomplete .autocomplete-item:active {
@@ -2459,6 +2689,8 @@ export const handler = async (event, context) => {
                   setTimeout(() => {
                     chatInput.value = message;
                     chatInput.focus();
+                    // Move cursor to end of input
+                    chatInput.setSelectionRange(message.length, message.length);
                   }, 100);
                 }
               }
@@ -2756,6 +2988,22 @@ export const handler = async (event, context) => {
               focus() {
                 if (chatEditor) chatEditor.focus();
                 else document.querySelector("#chat-input-fallback")?.focus();
+              },
+              setSelectionRange(start, end) {
+                if (chatEditor) {
+                  // Monaco: set cursor position at end
+                  const model = chatEditor.getModel();
+                  if (model) {
+                    const pos = model.getPositionAt(end);
+                    chatEditor.setPosition(pos);
+                    chatEditor.revealPosition(pos);
+                  }
+                } else {
+                  const fallback = document.querySelector("#chat-input-fallback");
+                  if (fallback && fallback.setSelectionRange) {
+                    fallback.setSelectionRange(start, end);
+                  }
+                }
               }
             };
             
@@ -2915,6 +3163,29 @@ export const handler = async (event, context) => {
                 }
               });
               
+              // Define sotce-chat theme (dark)
+              monaco.editor.defineTheme('sotce-chat-dark', {
+                base: 'vs-dark',
+                inherit: true,
+                rules: [
+                  { token: 'text', foreground: 'e8e0d8' },
+                  { token: 'page-link', foreground: 'd88aa0', fontStyle: 'bold' },      // Dusty pink for pages
+                  { token: 'question-link', foreground: 'b08ac0', fontStyle: 'bold' },  // Soft purple for questions
+                  { token: 'handle', foreground: 'd88aa0', fontStyle: 'bold' }          // Dusty pink for handles
+                ],
+                colors: {
+                  'editor.background': '#2a2420',
+                  'editor.foreground': '#e8e0d8',
+                  'editorCursor.foreground': '#d88aa0',
+                  'editor.lineHighlightBackground': '#2a242000',
+                  'editor.selectionBackground': '#d88aa044',
+                }
+              });
+              
+              // Detect system theme preference
+              const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+              const initialTheme = prefersDark ? 'sotce-chat-dark' : 'sotce-chat-light';
+              
               // Remove the fallback input
               chatInputFallback.remove();
               
@@ -2922,7 +3193,7 @@ export const handler = async (event, context) => {
               chatEditor = monaco.editor.create(chatInputContainer, {
                 value: '',
                 language: 'sotce-chat',
-                theme: 'sotce-chat-light',
+                theme: initialTheme,
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
                 fontSize: 16,
@@ -2958,6 +3229,12 @@ export const handler = async (event, context) => {
                 occurrencesHighlight: 'off',
                 selectionHighlight: false,
                 find: { addExtraSpaceOnTop: false, autoFindInSelection: 'never' },
+              });
+              
+              // Listen for system theme changes and update Monaco
+              window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                const newTheme = e.matches ? 'sotce-chat-dark' : 'sotce-chat-light';
+                monaco.editor.setTheme(newTheme);
               });
               
               // Handle Enter key for sending
@@ -4719,23 +4996,21 @@ export const handler = async (event, context) => {
                 const baseWidth = 100 * 8;
                 const goalWidth = respondPage.parentElement.clientWidth;
                 const scale = goalWidth / baseWidth;
-                respondPage.style.transform = "scale(" + scale + \")";
+                respondPage.style.transform = "scale(" + scale + ")";
 
                 askButton?.classList.add("deactivated");
                 updatePath("/respond");
               }
 
-              // Set button handler based on admin status (only if askButton exists)
-              if (askButton) {
-                if (subscription?.admin) {
-                  askButton.onclick = openRespondEditor;
-                } else {
-                  askButton.onclick = openAskEditor;
-                }
+              // Set button handler based on admin status
+              if (subscription?.admin) {
+                askButton.onclick = openRespondEditor;
+              } else {
+                askButton.onclick = openAskEditor;
               }
 
-              // Auto-open /ask route (only in dev mode)
-              if (dev && path === "/ask") {
+              // Auto-open /ask route for non-admins
+              if (!subscription?.admin && path === "/ask") {
                 const observer = new MutationObserver((mutationsList, observer) => {
                   for (const mutation of mutationsList) {
                     if (mutation.type === "childList" && Array.from(mutation.addedNodes).includes(g)) {
@@ -4752,7 +5027,25 @@ export const handler = async (event, context) => {
                 }
               }
 
-              if (askButton) topBar.appendChild(askButton);
+              // Auto-open /respond route for admins
+              if (subscription?.admin && path === "/respond") {
+                const observer = new MutationObserver((mutationsList, observer) => {
+                  for (const mutation of mutationsList) {
+                    if (mutation.type === "childList" && Array.from(mutation.addedNodes).includes(g)) {
+                      openRespondEditor();
+                      observer.disconnect();
+                      break;
+                    }
+                  }
+                });
+                observer.observe(wrapper, { childList: true, subtree: true });
+                if (wrapper.contains(g)) {
+                  openRespondEditor();
+                  observer.disconnect();
+                }
+              }
+
+              topBar.appendChild(askButton);
 
               // 🪷 write-a-page - Create compose form.
               if (subscription?.admin) {
@@ -5263,7 +5556,850 @@ export const handler = async (event, context) => {
                 await setCachedPage(idx, page);
               }
 
-              if (totalPages > 0 || loadedPagesData.length > 0) {
+              // 🎨 CANVAS-BASED PAGE RENDERING (single page + transitions)
+              const USE_CANVAS_GARDEN = true; // Feature flag
+              
+              if (USE_CANVAS_GARDEN && (totalPages > 0 || loadedPagesData.length > 0)) {
+                console.log("🎨 Using Canvas garden renderer (single page mode)");
+                
+                const canvas = cel("canvas");
+                canvas.id = "garden-canvas";
+                const ctx = canvas.getContext("2d");
+                
+                // State
+                let currentPageIndex = totalPages;
+                let displayedPageIndex = totalPages;
+                let transitionProgress = 0; // 0 = showing current, 1 = showing next
+                let transitionDirection = 0; // -1 = prev, 0 = none, 1 = next
+                let transitionTarget = null;
+                let textFadeIn = 1; // 0 to 1, fades in text when page becomes current
+                const pageCache = new Map();
+                let cardWidth = 0;
+                let cardHeight = 0;
+                let cardX = 0;
+                let cardY = 0;
+                let dpr = window.devicePixelRatio || 1;
+                
+                // Drag state
+                let isDragging = false;
+                let dragStartY = 0;
+                let dragDelta = 0;
+                
+                // Hover state for debug boxes
+                let hoverEar = false;
+                let hoverPageNum = false;
+                
+                // Card flip animation state (full 3D card flip)
+                let isFlipping = false;
+                let flipProgress = 0; // 0 = front showing, 1 = back showing
+                let flipDirection = 1; // 1 = flipping to back, -1 = flipping to front
+                let showingBack = false; // Whether the back of the card is currently displayed
+                
+                // Touch data cache for showing who touched each page
+                const touchCache = new Map(); // pageId -> { touches: [...], fetching: false }
+                
+                // Determine starting page from URL
+                const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
+                if (pageMatch) {
+                  const requestedPage = parseInt(pageMatch[1], 10);
+                  if (requestedPage >= 1 && requestedPage <= totalPages) {
+                    currentPageIndex = requestedPage;
+                    displayedPageIndex = requestedPage;
+                  }
+                }
+                
+                // Cache initially loaded pages
+                if (pageIndex && loadedPagesData[0]) {
+                  pageCache.set(pageIndex, loadedPagesData[0]);
+                  currentPageIndex = pageIndex;
+                  displayedPageIndex = pageIndex;
+                } else {
+                  const startIdx = totalPages - loadedPagesData.length + 1;
+                  loadedPagesData.forEach((page, i) => {
+                    pageCache.set(startIdx + i, page);
+                  });
+                }
+                
+                // 🎨 Theme colors reader - gets CSS custom properties for canvas rendering
+                function getThemeColors() {
+                  const style = getComputedStyle(document.documentElement);
+                  return {
+                    gardenBackground: style.getPropertyValue('--garden-background').trim() || '#FFD1DC',
+                    cardBackground: style.getPropertyValue('--card-background').trim() || '#f8f4ec',
+                    cardBackBackground: style.getPropertyValue('--card-back-background').trim() || '#f0ebe0',
+                    cardBorder: style.getPropertyValue('--card-border').trim() || '#d4c8b8',
+                    cardEar: style.getPropertyValue('--card-ear').trim() || '#e8e0d0',
+                    cardEarHover: style.getPropertyValue('--card-ear-hover').trim() || '#FFD1DC',
+                    cardText: style.getPropertyValue('--card-text').trim() || '#000000',
+                    cardTextMuted: style.getPropertyValue('--card-text-muted').trim() || '#666666',
+                    cardTextDim: style.getPropertyValue('--card-text-dim').trim() || '#999999',
+                    cardTextFaint: style.getPropertyValue('--card-text-faint').trim() || '#aaaaaa',
+                  };
+                }
+                
+                // Cache theme colors (update on system theme change)
+                let themeColors = getThemeColors();
+                
+                // Listen for system theme changes
+                if (window.matchMedia) {
+                  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                    themeColors = getThemeColors();
+                  });
+                }
+                
+                // Resize canvas to fill container
+                function resizeCanvas() {
+                  const topBarHeight = 72;
+                  const bottomPadding = 32;
+                  const w = window.innerWidth;
+                  const h = window.innerHeight - topBarHeight;
+                  dpr = window.devicePixelRatio || 1;
+                  
+                  canvas.width = w * dpr;
+                  canvas.height = h * dpr;
+                  canvas.style.width = w + "px";
+                  canvas.style.height = h + "px";
+                  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                  
+                  // Compute card dimensions (4:5 aspect ratio, centered)
+                  const maxWidth = 600;
+                  const sidePadding = 32;
+                  const availableWidth = w - sidePadding * 2;
+                  const availableHeight = h - bottomPadding;
+                  
+                  // Calculate size to fit in viewport while maintaining 4:5 ratio
+                  cardWidth = Math.min(availableWidth, maxWidth);
+                  cardHeight = cardWidth * (5/4);
+                  
+                  // If too tall, scale down
+                  if (cardHeight > availableHeight) {
+                    cardHeight = availableHeight;
+                    cardWidth = cardHeight * (4/5);
+                  }
+                  
+                  // Center horizontally and vertically
+                  cardX = (w - cardWidth) / 2;
+                  cardY = (h - cardHeight) / 2;
+                  
+                  console.log("🎨 Canvas resized:", w, "x", h, "card:", cardWidth, "x", cardHeight);
+                }
+                
+                // Fetch page data (with deduplication)
+                const fetchingPages = new Set();
+                async function fetchPage(idx) {
+                  if (pageCache.has(idx)) return pageCache.get(idx);
+                  if (fetchingPages.has(idx)) return null;
+                  
+                  fetchingPages.add(idx);
+                  try {
+                    let pageData = await getCachedPage(idx);
+                    if (!pageData) {
+                      const response = await subscribed({ pageNumber: idx, limit: 1 });
+                      if (response?.pages?.[0]) {
+                        pageData = response.pages[0];
+                        await setCachedPage(idx, pageData);
+                      }
+                    }
+                    if (pageData) pageCache.set(idx, pageData);
+                    return pageData;
+                  } finally {
+                    fetchingPages.delete(idx);
+                  }
+                }
+                
+                // Prefetch nearby pages
+                function prefetchPages(centerIdx) {
+                  [centerIdx - 1, centerIdx, centerIdx + 1].forEach(idx => {
+                    if (idx >= 1 && idx <= totalPages && !pageCache.has(idx)) {
+                      fetchPage(idx);
+                    }
+                  });
+                }
+                
+                // Text wrapping helper - handles newlines and word wrap
+                function wrapText(text, maxWidth, fontSize) {
+                  const paragraphs = (text || "").split("\\n");
+                  const lines = [];
+                  
+                  for (const paragraph of paragraphs) {
+                    if (paragraph.trim() === "") {
+                      // Empty line / paragraph break
+                      lines.push("");
+                      continue;
+                    }
+                    
+                    const words = paragraph.split(" ");
+                    let currentLine = "";
+                    
+                    for (const word of words) {
+                      const testLine = currentLine ? currentLine + " " + word : word;
+                      const metrics = ctx.measureText(testLine);
+                      if (metrics.width > maxWidth && currentLine) {
+                        lines.push(currentLine);
+                        currentLine = word;
+                      } else {
+                        currentLine = testLine;
+                      }
+                    }
+                    if (currentLine) lines.push(currentLine);
+                  }
+                  return lines;
+                }
+                
+                // Render a single page at position (ghost = blank card, textOpacity for fade)
+                function renderPage(pageData, idx, offsetY = 0, ghost = false, textOpacity = 1) {
+                  const x = cardX;
+                  const y = cardY + offsetY;
+                  const w = cardWidth;
+                  const h = cardHeight;
+                  
+                  // Font metrics needed for layout - scale proportionally with no minimum
+                  const fontSize = (w / 600) * 17;
+                  const em = fontSize;
+                  
+                  // Card background (themed)
+                  ctx.fillStyle = themeColors.cardBackground;
+                  ctx.fillRect(x, y, w, h);
+                  
+                  // Border (themed)
+                  ctx.strokeStyle = themeColors.cardBorder;
+                  ctx.lineWidth = 1;
+                  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                  
+                  // Ear (corner fold) - 8% width (always show, even on ghost)
+                  const earSize = w * 0.08;
+                  
+                  // Draw ear (themed)
+                  ctx.fillStyle = hoverEar && offsetY === 0 ? themeColors.cardEarHover : themeColors.cardEar;
+                  ctx.beginPath();
+                  ctx.moveTo(x + w - earSize, y + h);
+                  ctx.lineTo(x + w, y + h - earSize);
+                  ctx.lineTo(x + w, y + h);
+                  ctx.closePath();
+                  ctx.fill();
+                  ctx.strokeStyle = themeColors.cardBorder;
+                  ctx.stroke();
+                  
+                  // Debug box for ear when hovering (themed)
+                  if (hoverEar && offsetY === 0) {
+                    ctx.strokeStyle = themeColors.cardEarHover;
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x + w - earSize, y + h - earSize, earSize, earSize);
+                  }
+                  
+                  // Ghost mode = blank card, no text
+                  if (ghost) return;
+                  
+                  if (!pageData) {
+                    ctx.fillStyle = themeColors.cardTextDim;
+                    ctx.font = "16px Helvetica, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Loading...", x + w/2, y + h/2);
+                    ctx.textAlign = "left";
+                    return;
+                  }
+                  
+                  // Font metrics already defined at top of function
+                  const lineHeight = fontSize * 1.76; // --line-height: 1.76em
+                  const padding = em * 2; // padding: 0 2em
+                  const textWidth = w - padding * 2;
+                  const maxLines = 19; // --max-lines: 19
+                  
+                  // Text color with opacity for fade-in (themed)
+                  const baseColor = themeColors.cardText;
+                  let textColor;
+                  if (textOpacity < 1) {
+                    // Parse hex color and add alpha
+                    const r = parseInt(baseColor.slice(1, 3), 16);
+                    const g = parseInt(baseColor.slice(3, 5), 16);
+                    const b = parseInt(baseColor.slice(5, 7), 16);
+                    textColor = \`rgba(\${r}, \${g}, \${b}, \${textOpacity})\`;
+                  } else {
+                    textColor = baseColor;
+                  }
+                  
+                  // Date title - CENTERED at top: 6.5%
+                  const title = dateTitle(pageData.when);
+                  const titleY = y + h * 0.065 + fontSize;
+                  ctx.fillStyle = textColor;
+                  ctx.font = fontSize + "px Helvetica, sans-serif";
+                  ctx.textAlign = "center";
+                  ctx.fillText(title, x + w/2, titleY);
+                  
+                  // Body text - margin-top: 15%
+                  ctx.fillStyle = textColor;
+                  ctx.font = fontSize + "px Helvetica, sans-serif";
+                  ctx.textAlign = "left";
+                  
+                  const lines = wrapText(pageData.words, textWidth, fontSize);
+                  const textStartY = y + h * 0.15 + fontSize;
+                  
+                  for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
+                    const line = lines[i];
+                    if (line === "") {
+                      // Empty line for paragraph break
+                      continue;
+                    }
+                    ctx.fillText(line, x + padding, textStartY + i * lineHeight);
+                  }
+                  
+                  // Page number - centered at bottom with margin
+                  ctx.fillStyle = textColor;
+                  ctx.font = fontSize + "px monospace";
+                  ctx.textAlign = "center";
+                  const pageNumY = y + h - em * 2;
+                  ctx.fillText("- " + idx + " -", x + w/2, pageNumY);
+                  
+                  // Debug box for page number when hovering (themed)
+                  if (hoverPageNum && offsetY === 0) {
+                    const pageNumText = "- " + idx + " -";
+                    const textMetrics = ctx.measureText(pageNumText);
+                    const boxWidth = textMetrics.width + em;
+                    const boxHeight = em * 1.5;
+                    ctx.strokeStyle = themeColors.cardEarHover;
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x + w/2 - boxWidth/2, pageNumY - em, boxWidth, boxHeight);
+                  }
+                  
+                  ctx.textAlign = "left";
+                }
+                
+                // Render the back of a card (touch info only, positioned top-left at body text position)
+                function renderCardBack(pageData, idx) {
+                  const x = cardX;
+                  const y = cardY;
+                  const w = cardWidth;
+                  const h = cardHeight;
+                  
+                  // Font metrics (same as front)
+                  const fontSize = (w / 600) * 17;
+                  const em = fontSize;
+                  const lineHeight = fontSize * 1.76;
+                  const padding = em * 2;
+                  
+                  // Card back background (themed)
+                  ctx.fillStyle = themeColors.cardBackBackground;
+                  ctx.fillRect(x, y, w, h);
+                  
+                  // Border (themed)
+                  ctx.strokeStyle = themeColors.cardBorder;
+                  ctx.lineWidth = 1;
+                  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                  
+                  // Ear on back (bottom-left, mirrored, themed)
+                  const earSize = w * 0.08;
+                  ctx.fillStyle = hoverEar ? themeColors.cardEarHover : themeColors.cardEar;
+                  ctx.beginPath();
+                  ctx.moveTo(x + earSize, y + h);
+                  ctx.lineTo(x, y + h - earSize);
+                  ctx.lineTo(x, y + h);
+                  ctx.closePath();
+                  ctx.fill();
+                  ctx.strokeStyle = themeColors.cardBorder;
+                  ctx.stroke();
+                  
+                  if (!pageData) return;
+                  
+                  // Body text position (same as front - margin-top: 15%)
+                  const textStartY = y + h * 0.15 + fontSize;
+                  const textWidth = w - padding * 2;
+                  
+                  // Touches section - top left, at body text position
+                  const pageId = pageData._id;
+                  const touchData = touchCache.get(pageId);
+                  
+                  ctx.font = fontSize + "px Helvetica, sans-serif";
+                  ctx.textAlign = "left";
+                  
+                  let textY = textStartY;
+                  
+                  if (touchData?.fetching) {
+                    ctx.fillStyle = themeColors.cardTextDim;
+                    ctx.fillText("Loading...", x + padding, textY);
+                  } else if (touchData?.touches && touchData.touches.length > 0) {
+                    ctx.fillStyle = themeColors.cardTextMuted;
+                    const touches = touchData.touches;
+                    let touchedBy = "";
+                    if (touches.length === 1) {
+                      touchedBy = touches[0] + " touched this page.";
+                    } else if (touches.length === 2) {
+                      touchedBy = touches[0] + " and " + touches[1] + " touched this page.";
+                    } else {
+                      const lastTouch = touches[touches.length - 1];
+                      const others = touches.slice(0, -1);
+                      touchedBy = others.join(", ") + ", and " + lastTouch + " touched this page.";
+                    }
+                    
+                    // Word wrap touch text
+                    const words = touchedBy.split(" ");
+                    let line = "";
+                    for (const word of words) {
+                      const testLine = line ? line + " " + word : word;
+                      if (ctx.measureText(testLine).width > textWidth && line) {
+                        ctx.fillText(line, x + padding, textY);
+                        textY += lineHeight;
+                        line = word;
+                      } else {
+                        line = testLine;
+                      }
+                    }
+                    if (line) ctx.fillText(line, x + padding, textY);
+                  } else {
+                    ctx.fillStyle = themeColors.cardTextFaint;
+                    ctx.fillText("No one has touched this page yet.", x + padding, textY);
+                  }
+                }
+                
+                // Main render function
+                function render() {
+                  const w = canvas.width / dpr;
+                  const h = canvas.height / dpr;
+                  
+                  // Clear with garden background color (themed)
+                  ctx.fillStyle = themeColors.gardenBackground;
+                  ctx.fillRect(0, 0, w, h);
+                  
+                  const pageData = pageCache.get(displayedPageIndex);
+                  
+                  // Handle card flip animation with 3D perspective (no zoom, just rotation)
+                  if (isFlipping || showingBack) {
+                    // Calculate rotation angle (0 to PI)
+                    const angle = flipProgress * Math.PI;
+                    const isFrontVisible = flipProgress < 0.5;
+                    
+                    const centerX = cardX + cardWidth / 2;
+                    
+                    // When showing back, render the front first (semi-transparent)
+                    if (!isFrontVisible) {
+                      ctx.save();
+                      ctx.globalAlpha = 0.15; // Semi-transparent front showing through
+                      
+                      // Front face scale (it's on the "back" side now)
+                      const frontAngle = angle - Math.PI;
+                      const frontScaleX = Math.abs(Math.cos(frontAngle));
+                      
+                      ctx.translate(centerX, 0);
+                      ctx.scale(frontScaleX, 1);
+                      ctx.translate(-centerX, 0);
+                      
+                      if (frontScaleX > 0.01) {
+                        renderPage(pageData, displayedPageIndex, 0, false, 1);
+                      }
+                      ctx.restore();
+                    }
+                    
+                    // Render the main visible side
+                    ctx.save();
+                    
+                    // Simple horizontal scale to simulate Y-axis rotation (no zoom)
+                    const scaleX = Math.abs(Math.cos(angle));
+                    
+                    ctx.translate(centerX, 0);
+                    ctx.scale(scaleX, 1);
+                    ctx.translate(-centerX, 0);
+                    
+                    // Only render if card has some width
+                    if (scaleX > 0.01) {
+                      if (isFrontVisible) {
+                        renderPage(pageData, displayedPageIndex, 0, false, 1);
+                      } else {
+                        renderCardBack(pageData, displayedPageIndex);
+                      }
+                    }
+                    
+                    ctx.restore();
+                    
+                    // Fetch current page if not cached
+                    if (!pageData) fetchPage(displayedPageIndex);
+                    return;
+                  }
+                  
+                  if (transitionDirection !== 0 && transitionTarget !== null) {
+                    // Animating transition - current keeps text, incoming is ghost until it lands
+                    const slideDistance = cardHeight + 40;
+                    
+                    if (transitionDirection > 0) {
+                      // Going to higher page (next) - current slides up, next comes from below
+                      renderPage(pageData, displayedPageIndex, -transitionProgress * slideDistance, false, 1); // current keeps text
+                      renderPage(null, transitionTarget, (1 - transitionProgress) * slideDistance, true, 0); // incoming is ghost
+                    } else {
+                      // Going to lower page (prev) - current slides down, prev comes from above
+                      renderPage(pageData, displayedPageIndex, transitionProgress * slideDistance, false, 1); // current keeps text
+                      renderPage(null, transitionTarget, -(1 - transitionProgress) * slideDistance, true, 0); // incoming is ghost
+                    }
+                  } else if (isDragging && Math.abs(dragDelta) > 0) {
+                    // Dragging - current keeps text, incoming page is ghost/wireframe
+                    const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                    if (nextIdx >= 1 && nextIdx <= totalPages) {
+                      const slideDistance = cardHeight + 40;
+                      const progress = Math.min(1, Math.abs(dragDelta) / slideDistance);
+                      
+                      if (dragDelta > 0) {
+                        renderPage(pageData, displayedPageIndex, -progress * slideDistance, false, 1); // current keeps text
+                        renderPage(null, nextIdx, (1 - progress) * slideDistance, true, 0); // incoming ghost
+                      } else {
+                        renderPage(pageData, displayedPageIndex, progress * slideDistance, false, 1); // current keeps text
+                        renderPage(null, nextIdx, -(1 - progress) * slideDistance, true, 0); // incoming ghost
+                      }
+                    } else {
+                      // At boundary - just offset current page with resistance
+                      renderPage(pageData, displayedPageIndex, -dragDelta * 0.3);
+                    }
+                  } else {
+                    // Static - show current page with text (fade in if just arrived)
+                    renderPage(pageData, displayedPageIndex, 0, false, textFadeIn);
+                  }
+                  
+                  // Fetch current page if not cached
+                  if (!pageData) fetchPage(displayedPageIndex);
+                }
+                
+                // Animation update
+                function update() {
+                  if (transitionDirection !== 0 && transitionTarget !== null) {
+                    transitionProgress += 0.12; // Animation speed
+                    
+                    if (transitionProgress >= 1) {
+                      // Transition complete
+                      displayedPageIndex = transitionTarget;
+                      currentPageIndex = transitionTarget;
+                      transitionProgress = 0;
+                      transitionDirection = 0;
+                      transitionTarget = null;
+                      textFadeIn = 0; // Start fade-in for new page text
+                      updatePath("/page/" + currentPageIndex);
+                      prefetchPages(currentPageIndex);
+                    }
+                  }
+                  
+                  // Fade in text when static
+                  if (transitionDirection === 0 && textFadeIn < 1) {
+                    textFadeIn = Math.min(1, textFadeIn + 0.08);
+                  }
+                  
+                  // Card flip animation
+                  if (isFlipping) {
+                    flipProgress += 0.04 * flipDirection; // Smooth flip speed
+                    if (flipProgress >= 1) {
+                      flipProgress = 1;
+                      isFlipping = false;
+                      showingBack = true;
+                      // Card is now showing back - it stays there until user clicks again
+                    } else if (flipProgress <= 0) {
+                      flipProgress = 0;
+                      isFlipping = false;
+                      showingBack = false;
+                      flipDirection = 1;
+                    }
+                  }
+                }
+                
+                // Animation loop
+                let running = true;
+                function loop() {
+                  if (!running) return;
+                  update();
+                  render();
+                  requestAnimationFrame(loop);
+                }
+                
+                // Go to a specific page with animation
+                function goToPage(targetIdx, startProgress = 0) {
+                  if (targetIdx < 1 || targetIdx > totalPages) return;
+                  if (targetIdx === displayedPageIndex) return;
+                  if (transitionDirection !== 0) return; // Already animating
+                  if (isFlipping || showingBack) return; // Don't change pages while flipped
+                  
+                  transitionDirection = targetIdx > displayedPageIndex ? 1 : -1;
+                  transitionTarget = targetIdx;
+                  transitionProgress = startProgress; // Start from where drag left off
+                  prefetchPages(targetIdx);
+                }
+                
+                // Input handling
+                canvas.addEventListener("pointerdown", (e) => {
+                  if (transitionDirection !== 0) return; // Don't drag during animation
+                  if (isFlipping || showingBack) return; // Don't drag when flipped
+                  
+                  isDragging = true;
+                  dragStartY = e.clientY;
+                  dragDelta = 0;
+                  
+                  canvas.setPointerCapture(e.pointerId);
+                  canvas.style.cursor = "grabbing";
+                  e.preventDefault();
+                });
+                
+                canvas.addEventListener("pointermove", (e) => {
+                  if (!isDragging) return;
+                  dragDelta = dragStartY - e.clientY;
+                  
+                  // Prefetch the page we might be going to
+                  const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                  if (nextIdx >= 1 && nextIdx <= totalPages && !pageCache.has(nextIdx)) {
+                    fetchPage(nextIdx);
+                  }
+                });
+                
+                canvas.addEventListener("pointerup", (e) => {
+                  if (!isDragging) return;
+                  isDragging = false;
+                  canvas.releasePointerCapture(e.pointerId);
+                  canvas.style.cursor = "grab";
+                  
+                  const threshold = cardHeight * 0.2; // 20% of card height to trigger
+                  const slideDistance = cardHeight + 40;
+                  const currentProgress = Math.min(1, Math.abs(dragDelta) / slideDistance);
+                  
+                  if (Math.abs(dragDelta) > threshold) {
+                    // Commit to page change - continue from current drag position
+                    const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                    if (nextIdx >= 1 && nextIdx <= totalPages) {
+                      goToPage(nextIdx, currentProgress);
+                    }
+                  }
+                  // If threshold not met, render() will snap back automatically
+                  dragDelta = 0;
+                });
+                
+                canvas.addEventListener("pointercancel", (e) => {
+                  if (!isDragging) return;
+                  isDragging = false;
+                  canvas.releasePointerCapture(e.pointerId);
+                  canvas.style.cursor = "grab";
+                  dragDelta = 0;
+                });
+                
+                // Keyboard navigation
+                document.addEventListener("keydown", (e) => {
+                  if (!document.body.contains(canvas)) return;
+                  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+                  if (transitionDirection !== 0) return;
+                  if (isFlipping || showingBack) return; // Don't navigate when flipped
+                  
+                  if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+                    e.preventDefault();
+                    goToPage(currentPageIndex - 1);
+                  } else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+                    e.preventDefault();
+                    goToPage(currentPageIndex + 1);
+                  }
+                });
+                
+                // Click detection for ear and page number
+                canvas.addEventListener("click", (e) => {
+                  if (Math.abs(dragDelta) > 5) return; // Was dragging
+                  
+                  const rect = canvas.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  
+                  // Check if click is within card bounds
+                  if (x < cardX || x > cardX + cardWidth) return;
+                  if (y < cardY || y > cardY + cardHeight) return;
+                  
+                  const localX = x - cardX;
+                  const localY = y - cardY;
+                  
+                  // Font metrics for hit detection (must match hover)
+                  const baseFontSize = (cardWidth / 600) * 17;
+                  const em = Math.max(10, baseFontSize);
+                  const earSize = cardWidth * 0.08;
+                  
+                  // Check ear region - depends on which side of card is showing
+                  // Front: bottom-right, Back: bottom-left (mirrored)
+                  const earHit = showingBack
+                    ? (localX < earSize && localY > cardHeight - earSize)
+                    : (localX > cardWidth - earSize && localY > cardHeight - earSize);
+                  
+                  if (earHit) {
+                    console.log("🎨 Ear clicked on page", displayedPageIndex, showingBack ? "(back)" : "(front)");
+                    
+                    // If showing front, flip to back and touch the page
+                    if (!showingBack && !isFlipping) {
+                      isFlipping = true;
+                      flipProgress = 0;
+                      flipDirection = 1;
+                      
+                      // Touch the page (send to database)
+                      const pageData = pageCache.get(displayedPageIndex);
+                      if (pageData?._id) {
+                        const pageId = pageData._id;
+                        // Mark as fetching
+                        touchCache.set(pageId, { touches: [], fetching: true });
+                        
+                        // Make API call to touch the page
+                        userRequest("POST", "/sotce-net/touch-a-page", { _id: pageId })
+                          .then(res => {
+                            if (res.status === 200) {
+                              touchCache.set(pageId, { touches: res.touches || [], fetching: false });
+                            } else {
+                              touchCache.set(pageId, { touches: [], fetching: false });
+                            }
+                          })
+                          .catch(err => {
+                            console.error("Touch error:", err);
+                            touchCache.set(pageId, { touches: [], fetching: false });
+                          });
+                      }
+                    }
+                    // If showing back, flip back to front
+                    else if (showingBack && !isFlipping) {
+                      isFlipping = true;
+                      flipProgress = 1;
+                      flipDirection = -1;
+                    }
+                    return;
+                  }
+                  
+                  // Check page number region (must match hover detection) - only on front
+                  if (!showingBack) {
+                    const pageNumTop = cardHeight - em * 3;
+                    const pageNumBottom = cardHeight - em * 0.5;
+                    if (localY > pageNumTop && localY < pageNumBottom) {
+                      console.log("🎨 Page number clicked:", displayedPageIndex);
+                      openChatWithMessage("-" + displayedPageIndex + "- ");
+                      return;
+                    }
+                  }
+                });
+                
+                // Hover cursor changes for ear and page number
+                canvas.addEventListener("mousemove", (e) => {
+                  if (isDragging) {
+                    hoverEar = false;
+                    hoverPageNum = false;
+                    return;
+                  }
+                  
+                  const rect = canvas.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  
+                  // Check if within card bounds
+                  if (x < cardX || x > cardX + cardWidth || y < cardY || y > cardY + cardHeight) {
+                    canvas.style.cursor = showingBack ? "default" : "grab";
+                    hoverEar = false;
+                    hoverPageNum = false;
+                    return;
+                  }
+                  
+                  const localX = x - cardX;
+                  const localY = y - cardY;
+                  
+                  // Font metrics for hit detection
+                  const baseFontSize = (cardWidth / 600) * 17;
+                  const em = Math.max(10, baseFontSize);
+                  const earSize = cardWidth * 0.08;
+                  
+                  // Check ear region - depends on which side is showing
+                  const earHit = showingBack
+                    ? (localX < earSize && localY > cardHeight - earSize)
+                    : (localX > cardWidth - earSize && localY > cardHeight - earSize);
+                  
+                  if (earHit) {
+                    canvas.style.cursor = "pointer";
+                    hoverEar = true;
+                    hoverPageNum = false;
+                    return;
+                  }
+                  
+                  // Check page number region (only on front)
+                  if (!showingBack) {
+                    const pageNumTop = cardHeight - em * 3;
+                    const pageNumBottom = cardHeight - em * 0.5;
+                    if (localY > pageNumTop && localY < pageNumBottom) {
+                      canvas.style.cursor = "pointer";
+                      hoverPageNum = true;
+                      hoverEar = false;
+                      return;
+                    }
+                  }
+                  
+                  hoverEar = false;
+                  hoverPageNum = false;
+                  canvas.style.cursor = showingBack ? "default" : "grab";
+                });
+                
+                // Reset hover state when leaving canvas
+                canvas.addEventListener("mouseleave", () => {
+                  hoverEar = false;
+                  hoverPageNum = false;
+                  canvas.style.cursor = "grab";
+                });
+                
+                // Touch support for hover highlight (show on touch start, hide on touch end)
+                canvas.addEventListener("touchstart", (e) => {
+                  if (e.touches.length !== 1) return;
+                  const touch = e.touches[0];
+                  const rect = canvas.getBoundingClientRect();
+                  const x = touch.clientX - rect.left;
+                  const y = touch.clientY - rect.top;
+                  
+                  if (x < cardX || x > cardX + cardWidth || y < cardY || y > cardY + cardHeight) return;
+                  
+                  const localX = x - cardX;
+                  const localY = y - cardY;
+                  
+                  const baseFontSize = (cardWidth / 600) * 17;
+                  const em = Math.max(10, baseFontSize);
+                  const earSize = cardWidth * 0.08;
+                  
+                  // Check ear region - depends on which side is showing
+                  const earHit = showingBack
+                    ? (localX < earSize && localY > cardHeight - earSize)
+                    : (localX > cardWidth - earSize && localY > cardHeight - earSize);
+                  
+                  if (earHit) {
+                    hoverEar = true;
+                    hoverPageNum = false;
+                  } else if (!showingBack) {
+                    const pageNumTop = cardHeight - em * 3;
+                    const pageNumBottom = cardHeight - em * 0.5;
+                    if (localY > pageNumTop && localY < pageNumBottom) {
+                      hoverPageNum = true;
+                      hoverEar = false;
+                    }
+                  }
+                }, { passive: true });
+                
+                canvas.addEventListener("touchend", () => {
+                  // Small delay so user sees the highlight before it disappears
+                  setTimeout(() => {
+                    hoverEar = false;
+                    hoverPageNum = false;
+                  }, 100);
+                }, { passive: true });
+                
+                // Expose for external use
+                g.goToPage = goToPage;
+                g.totalPages = totalPages;
+                g.getCurrentPage = () => currentPageIndex;
+                
+                // Cleanup
+                const observer = new MutationObserver(() => {
+                  if (!document.body.contains(canvas)) {
+                    running = false;
+                    observer.disconnect();
+                  }
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+                
+                // Initialize
+                g.appendChild(canvas);
+                resizeCanvas();
+                prefetchPages(currentPageIndex);
+                
+                window.addEventListener("resize", resizeCanvas);
+                loop();
+                
+                computePageLayout = function() {
+                  resizeCanvas();
+                };
+                
+                canvas.style.touchAction = "none";
+                canvas.style.cursor = "grab";
+              } else if (totalPages > 0 || loadedPagesData.length > 0) {
                 const binding = cel("div");
                 binding.id = "binding";
                 binding.classList.add("hidden");
@@ -5418,114 +6554,533 @@ export const handler = async (event, context) => {
                   pageWrapper.appendChild(ear);
                 }
                 
-                // Create placeholder for unloaded page
-                function createPlaceholder(index) {
+                // 📖 VIRTUALIZED PAGE SYSTEM - Only 3 pages in DOM at a time, scroll-based
+                let currentPageIndex = totalPages; // Start at most recent page
+                const pageCache = new Map(); // Cache page data by index
+                const renderedPages = new Map(); // Track which page indices are currently in DOM
+                
+                // Determine starting page from URL
+                const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
+                if (pageMatch) {
+                  const requestedPage = parseInt(pageMatch[1], 10);
+                  if (requestedPage >= 1 && requestedPage <= totalPages) {
+                    currentPageIndex = requestedPage;
+                  }
+                }
+                
+                // Cache initially loaded pages
+                if (pageIndex && loadedPagesData[0]) {
+                  pageCache.set(pageIndex, loadedPagesData[0]);
+                  currentPageIndex = pageIndex;
+                } else {
+                  const startIdx = totalPages - loadedPagesData.length + 1;
+                  loadedPagesData.forEach((page, i) => {
+                    pageCache.set(startIdx + i, page);
+                  });
+                }
+                
+                // Create a page wrapper element
+                function createPageWrapper(index) {
                   const pageWrapper = cel("div");
                   pageWrapper.classList.add("page-wrapper");
                   pageWrapper.dataset.pageNumber = index;
                   pageWrapper.dataset.pageType = "diary";
                   pageWrapper.dataset.loaded = "false";
                   pageWrapper.id = "page-" + index;
-                  
-                  // Simple loading placeholder
-                  const placeholder = cel("div");
-                  placeholder.classList.add("page-placeholder");
-                  placeholder.innerHTML = "<span class='loading-dots'>Loading</span>";
-                  pageWrapper.appendChild(placeholder);
-                  
                   return pageWrapper;
                 }
                 
-                // Create all page wrappers (placeholders first)
-                const placeholderStart = performance.now();
-                for (let i = 1; i <= totalPages; i++) {
-                  const pw = createPlaceholder(i);
-                  pageWrappers[i] = pw;
-                  binding.appendChild(pw);
-                }
-                console.log("📖 Created", totalPages, "placeholders in", (performance.now() - placeholderStart).toFixed(2), "ms");
-                
-                // Render initially loaded pages
-                if (pageIndex) {
-                  // Single page loaded
-                  if (loadedPagesData[0]) renderFullPage(loadedPagesData[0], pageIndex);
-                } else {
-                  // Last N pages loaded
-                  const startIdx = totalPages - loadedPagesData.length + 1;
-                  loadedPagesData.forEach((page, i) => {
-                    renderFullPage(page, startIdx + i);
-                  });
-                }
-                
-                // Lazy load function
-                async function loadPage(index) {
-                  if (loadedPages.has(index) || !pageWrappers[index]) return;
+                // Render page content into a wrapper
+                async function renderPageContent(pageWrapper, pageIdx) {
+                  if (!pageWrapper || pageIdx < 1 || pageIdx > totalPages) return;
+                  if (pageWrapper.dataset.loaded === "true") return;
                   
-                  // Try cache first
-                  let pageData = await getCachedPage(index);
+                  // Show loading state only if wrapper is offscreen
+                  const wrapperRect = pageWrapper.getBoundingClientRect();
+                  const bindingRect = binding.getBoundingClientRect();
+                  const isVisible = wrapperRect.bottom > bindingRect.top && wrapperRect.top < bindingRect.bottom;
+                  if (!isVisible && pageWrapper.childElementCount === 0) {
+                    pageWrapper.innerHTML = "<div class='page-container'><div class='page-placeholder'><span class='loading-dots'>Loading</span></div></div>";
+                  }
+                  
+                  // Check memory cache first
+                  let pageData = pageCache.get(pageIdx);
                   
                   if (!pageData) {
-                    // Fetch from server
-                    const response = await subscribed({ pageNumber: index, limit: 1 });
-                    if (response?.pages?.[0]) {
-                      pageData = response.pages[0];
-                      await setCachedPage(index, pageData);
+                    // Try IndexedDB cache
+                    pageData = await getCachedPage(pageIdx);
+                    
+                    if (!pageData) {
+                      // Fetch from server
+                      const response = await subscribed({ pageNumber: pageIdx, limit: 1 });
+                      if (response?.pages?.[0]) {
+                        pageData = response.pages[0];
+                        await setCachedPage(pageIdx, pageData);
+                      }
+                    }
+                    
+                    if (pageData) {
+                      pageCache.set(pageIdx, pageData);
                     }
                   }
                   
                   if (pageData) {
-                    renderFullPage(pageData, index);
-                    computePageLayout?.();
+                    pageWrapper.innerHTML = "";
+                    pageWrapper.dataset.loaded = "true";
+                    
+                    const page = pageData;
+                    const pageEl = cel("article");
+                    pageEl.classList.add("page");
+                    pageEl.classList.add("page-style-a");
+
+                    const pageTitle = cel("div");
+                    pageTitle.classList.add("page-title");
+                    pageTitle.innerText = dateTitle(page.when);
+
+                    const pageNumber = cel("div");
+                    pageNumber.classList.add("page-number");
+                    pageNumber.innerText = "- " + pageIdx + " -";
+                    pageNumber.style.cursor = "pointer";
+                    pageNumber.onclick = (e) => {
+                      e.stopPropagation();
+                      openChatWithMessage("-" + pageIdx + "- ");
+                    };
+                    
+                    // Page flip ear
+                    const ear = cel("div");
+                    ear.classList.add("ear");
+                    
+                    // Ear hover/active states
+                    const leave = () => {
+                      ear.classList.remove("hover");
+                      ear.classList.remove("active");
+                    };
+                    
+                    ear.addEventListener("pointerenter", () => {
+                      if (!ear.classList.contains("hover")) {
+                        ear.classList.add("hover");
+                        ear.addEventListener("pointerleave", leave, { once: true });
+                      }
+                    });
+                    
+                    ear.addEventListener("pointerdown", (e) => {
+                      e.preventDefault();
+                      ear.classList.remove("hover");
+                      ear.classList.add("active");
+                      window.addEventListener("pointerup", (upE) => {
+                        ear.removeEventListener("pointerleave", leave);
+                        const elementUnderPointer = document.elementFromPoint(upE.clientX, upE.clientY);
+                        if (elementUnderPointer !== ear) leave();
+                      }, { once: true });
+                    });
+                    
+                    ear.onclick = async () => {
+                      if (ear.classList.contains("reverse")) {
+                        ear.classList.remove("reverse");
+                        pageEl.classList.remove("reverse");
+                        pageWrapper.classList.remove("reverse");
+                        return;
+                      }
+                      
+                      // Flip to backpage
+                      veil();
+                      let touches = [];
+                      const res = await userRequest("POST", "/sotce-net/touch", { pageId: page._id });
+                      if (res.status === 200) touches = res.touches;
+                      unveil({ instant: true });
+
+                      let touchedBy = "";
+                      if (touches.length === 1) touchedBy = touches[0] + " touched this page.";
+                      else if (touches.length === 2) touchedBy = touches[0] + " and " + touches[1] + " touched this page.";
+                      else if (touches.length > 2) {
+                        const lastTouch = touches.pop();
+                        touchedBy = touches.join(", ") + ", and " + lastTouch + " touched this page.";
+                      }
+
+                      const backpage = cel("article");
+                      backpage.classList.add("page", "backpage");
+
+                      const touchesEl = cel("p");
+                      touchesEl.classList.add("touches");
+                      if (touchedBy) touchesEl.innerText = touchedBy;
+
+                      if (subscription.admin) {
+                        const crumplePage = cel("a");
+                        crumplePage.innerText = "crumple this page";
+                        crumplePage.href = "";
+                        crumplePage.classList.add("crumple-this-page");
+                        crumplePage.onclick = async (e) => {
+                          e.preventDefault();
+                          if (!confirm("💣 Unpublish this page?")) return;
+                          veil();
+                          const res = await userRequest("POST", "/sotce-net/write-a-page", { draft: "crumple", _id: page._id });
+                          if (res.status === 200) {
+                            await clearPageCache();
+                            unveil({ instant: true });
+                            window.location.reload();
+                          } else {
+                            alert("☠️ There was a problem crumpling this page.");
+                            unveil({ instant: true });
+                          }
+                        };
+                        backpage.appendChild(crumplePage);
+                      }
+
+                      const print = cel("button");
+                      print.innerText = "Print";
+                      print.onclick = () => window.print();
+                      backpage.appendChild(print);
+                      backpage.appendChild(touchesEl);
+
+                      ear.classList.add("reverse");
+                      pageEl.classList.add("reverse");
+                      pageWrapper.classList.add("reverse");
+                      ear.classList.remove("active");
+
+                      // Add backpage to the page-container
+                      const container = pageWrapper.querySelector(".page-container");
+                      container.querySelector(".backpage")?.remove();
+                      container.appendChild(backpage);
+                    };
+
+                    const wordsEl = cel("p");
+                    wordsEl.classList.add("words");
+                    wordsEl.innerText = page.words;
+
+                    pageEl.appendChild(pageTitle);
+                    pageEl.appendChild(wordsEl);
+                    pageEl.appendChild(pageNumber);
+                    
+                    // Wrap page in container for centering
+                    const pageContainer = cel("div");
+                    pageContainer.classList.add("page-container");
+                    pageContainer.appendChild(pageEl);
+                    pageContainer.appendChild(ear);
+                    pageWrapper.appendChild(pageContainer);
                   }
                 }
                 
-                // Lazy load multiple pages (for batch loading on scroll)
-                async function loadPagesRange(startIdx, endIdx) {
-                  const toLoad = [];
-                  for (let i = startIdx; i <= endIdx; i++) {
-                    if (!loadedPages.has(i) && pageWrappers[i]) toLoad.push(i);
-                  }
-                  if (toLoad.length === 0) return;
+                // Update which pages are in the DOM based on current page
+                // Keep 5 pages in DOM for smoother rapid navigation
+                async function updateVisiblePages(centerIdx, skipScroll = false) {
+                  const pagesToShow = [centerIdx - 2, centerIdx - 1, centerIdx, centerIdx + 1, centerIdx + 2].filter(i => i >= 1 && i <= totalPages);
                   
-                  // Try cache first
-                  const cached = await getCachedPages(startIdx, endIdx);
-                  const cachedSet = new Set(cached.map((_, i) => startIdx + i));
+                  // Get viewport bounds to check what's visible
+                  const viewportTop = binding.scrollTop;
+                  const viewportBottom = viewportTop + binding.clientHeight;
                   
-                  for (const page of cached) {
-                    const idx = startIdx + cached.indexOf(page);
-                    if (page) renderFullPage(page, idx);
-                  }
-                  
-                  // Fetch uncached from server
-                  const uncached = toLoad.filter(i => !cachedSet.has(i));
-                  if (uncached.length > 0) {
-                    // Batch fetch - get a range
-                    const minIdx = Math.min(...uncached);
-                    const maxIdx = Math.max(...uncached);
-                    const offset = totalPages - maxIdx;
-                    const limit = maxIdx - minIdx + 1;
-                    
-                    const response = await subscribed({ offset, limit });
-                    if (response?.pages) {
-                      const fetchedStartIdx = totalPages - offset - response.pages.length + 1;
-                      response.pages.forEach((page, i) => {
-                        const idx = fetchedStartIdx + i;
-                        setCachedPage(idx, page);
-                        renderFullPage(page, idx);
-                      });
+                  // Remove pages that shouldn't be visible AND are off-screen
+                  for (const [idx, wrapper] of renderedPages) {
+                    if (!pagesToShow.includes(idx)) {
+                      // Only remove if completely off-screen
+                      const wrapperTop = wrapper.offsetTop;
+                      const wrapperBottom = wrapperTop + wrapper.clientHeight;
+                      const isVisible = wrapperBottom > viewportTop && wrapperTop < viewportBottom;
+                      
+                      if (!isVisible) {
+                        wrapper.remove();
+                        renderedPages.delete(idx);
+                      }
                     }
                   }
                   
-                  computePageLayout?.();
+                  // Add/update pages that should be visible
+                  for (const idx of pagesToShow) {
+                    if (!renderedPages.has(idx)) {
+                      const wrapper = createPageWrapper(idx);
+                      renderedPages.set(idx, wrapper);
+                      
+                      // Insert in correct order
+                      const existingWrappers = Array.from(binding.querySelectorAll(".page-wrapper"));
+                      const insertBefore = existingWrappers.find(w => parseInt(w.dataset.pageNumber) > idx);
+                      if (insertBefore) {
+                        binding.insertBefore(wrapper, insertBefore);
+                      } else {
+                        binding.appendChild(wrapper);
+                      }
+                      
+                      await renderPageContent(wrapper, idx);
+                    }
+                  }
+                  
+                  // IMPORTANT: After DOM changes, scroll to center page (instant, no animation)
+                  if (!skipScroll) {
+                    const centerWrapper = document.getElementById("page-" + centerIdx);
+                    if (centerWrapper) {
+                      centerWrapper.scrollIntoView({ block: "center", behavior: "auto" });
+                    }
+                  }
+                  
+                  // Prefetch data for pages further ahead (cache only, don't render)
+                  const prefetchRange = [centerIdx - 4, centerIdx - 3, centerIdx + 3, centerIdx + 4].filter(i => i >= 1 && i <= totalPages);
+                  for (const idx of prefetchRange) {
+                    if (!pageCache.has(idx)) {
+                      // Async prefetch without awaiting
+                      (async () => {
+                        let pageData = await getCachedPage(idx);
+                        if (!pageData) {
+                          const response = await subscribed({ pageNumber: idx, limit: 1 });
+                          if (response?.pages?.[0]) {
+                            pageData = response.pages[0];
+                            await setCachedPage(idx, pageData);
+                          }
+                        }
+                        if (pageData) pageCache.set(idx, pageData);
+                      })();
+                    }
+                  }
+                  // Update URL
+                  updatePath("/page/" + centerIdx);
+                  currentPageIndex = centerIdx;
                 }
                 
-                g.appendChild(binding);
+                // Initial render - show 3 pages around current
+                console.log("📖 Virtualized scroll view: starting at page", currentPageIndex, "of", totalPages);
+                await updateVisiblePages(currentPageIndex, true); // skipScroll=true, we'll do it manually
                 
-                // Store lazy load function for use by scroll handler
-                g.loadPagesRange = loadPagesRange;
-                g.loadPage = loadPage;
+                // Scroll to current page after initial render
+                setTimeout(() => {
+                  const currentWrapper = document.getElementById("page-" + currentPageIndex);
+                  if (currentWrapper) {
+                    currentWrapper.scrollIntoView({ block: "center", behavior: "auto" });
+                  }
+                }, 50);
+                
+                // Handle scroll to update visible pages
+                // #binding is now the scroll container (FYP-style)
+                let isAnimating = false;
+                let animationTimeout;
+                let scrollTimeout;
+                let isUpdating = false;
+                binding.addEventListener("scroll", () => {
+                  if (isUpdating || isDragging || isAnimating) return; // Skip during drag/animation
+                  
+                  clearTimeout(scrollTimeout);
+                  scrollTimeout = setTimeout(async () => {
+                    if (isDragging) return; // Double-check
+                    
+                    // Find which page is centered in viewport
+                    const bindingCenter = binding.scrollTop + binding.clientHeight / 2;
+                    
+                    let closestPage = currentPageIndex;
+                    let closestDistance = Infinity;
+                    
+                    for (const [idx, pageWrapper] of renderedPages) {
+                      const elCenter = pageWrapper.offsetTop + pageWrapper.clientHeight / 2;
+                      const distance = Math.abs(elCenter - bindingCenter);
+                      
+                      if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestPage = idx;
+                      }
+                    }
+                    
+                    if (closestPage !== currentPageIndex) {
+                      isUpdating = true;
+                      await updateVisiblePages(closestPage, true); // skipScroll - user scrolled here
+                      computePageLayout?.();
+                      isUpdating = false;
+                    }
+                  }, 150);
+                }, { passive: true });
+                
+                // Keyboard navigation
+                document.addEventListener("keydown", (e) => {
+                  if (!document.body.contains(binding)) return;
+                  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+                  
+                  if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+                    e.preventDefault();
+                    if (currentPageIndex > 1) {
+                      animateToPage(currentPageIndex - 1, "keyboard-prev");
+                    }
+                  } else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+                    e.preventDefault();
+                    if (currentPageIndex < totalPages) {
+                      animateToPage(currentPageIndex + 1, "keyboard-next");
+                    }
+                  }
+                });
+                
+                // Drag-to-scroll anywhere in garden (FYP-like swipe)
+                let isDragging = false;
+                let dragStartY = 0;
+                let dragStartScrollTop = 0;
+                let dragStartPageIndex = 0;
+                let dragVelocity = 0;
+                let lastDragY = 0;
+                let lastDragTime = 0;
+
+                async function animateToPage(targetPage, reason = "") {
+                  if (!targetPage) return;
+                  isAnimating = true;
+                  clearTimeout(animationTimeout);
+
+                  const targetWrapper = document.getElementById("page-" + targetPage);
+                  if (targetWrapper) {
+                    if (reason) console.log("🧭 animateToPage:", reason, "->", targetPage);
+                    targetWrapper.scrollIntoView({ block: "center", behavior: "smooth" });
+                  } else {
+                    console.log("🧭 animateToPage: WARNING missing wrapper for", targetPage);
+                  }
+
+                  animationTimeout = setTimeout(async () => {
+                    await updateVisiblePages(targetPage, true);
+                    computePageLayout?.();
+                    isAnimating = false;
+                  }, 400);
+                }
+                
+                g.addEventListener("pointerdown", (e) => {
+                  // Don't drag on interactive elements
+                  if (e.target.closest(".ear, .page-number, a, button, input, textarea")) return;
+                  if (isAnimating) return;
+                  
+                  // Figure out which page we're ACTUALLY on based on scroll position
+                  const bindingCenter = binding.scrollTop + binding.clientHeight / 2;
+                  let actualPage = currentPageIndex;
+                  let closestDistance = Infinity;
+                  
+                  for (const [idx, pageWrapper] of renderedPages) {
+                    const elCenter = pageWrapper.offsetTop + pageWrapper.clientHeight / 2;
+                    const distance = Math.abs(elCenter - bindingCenter);
+                    if (distance < closestDistance) {
+                      closestDistance = distance;
+                      actualPage = idx;
+                    }
+                  }
+                  
+                  // Use actual scroll position, not potentially stale currentPageIndex
+                  isDragging = true;
+                  dragStartY = e.clientY;
+                  dragStartScrollTop = binding.scrollTop;
+                  dragStartPageIndex = actualPage;
+                  lastDragY = e.clientY;
+                  lastDragTime = Date.now();
+                  dragVelocity = 0;
+                  
+                  console.log("🖐️ Drag START:", {
+                    clientY: e.clientY,
+                    scrollTop: binding.scrollTop,
+                    bindingCenter,
+                    currentPageIndex,
+                    actualPage,
+                    dragStartPageIndex,
+                    renderedPages: [...renderedPages.keys()],
+                  });
+                  
+                  // Disable smooth scroll and snap during drag
+                  binding.style.scrollBehavior = "auto";
+                  binding.style.scrollSnapType = "none";
+                  g.setPointerCapture(e.pointerId);
+                  e.preventDefault();
+                });
+                
+                g.addEventListener("pointermove", (e) => {
+                  if (!isDragging) return;
+                  
+                  const deltaY = dragStartY - e.clientY;
+                  binding.scrollTop = dragStartScrollTop + deltaY;
+                  
+                  // Calculate velocity for momentum
+                  const now = Date.now();
+                  const dt = now - lastDragTime;
+                  if (dt > 0) {
+                    dragVelocity = (lastDragY - e.clientY) / dt;
+                  }
+                  lastDragY = e.clientY;
+                  lastDragTime = now;
+                  
+                  // Visual feedback - show which direction we'll go
+                  const threshold = 100;
+                  g.classList.remove("drag-up", "drag-down", "drag-snap");
+                  if (deltaY > threshold && dragStartPageIndex < totalPages) {
+                    g.classList.add("drag-up"); // Will go to higher page number (drag up)
+                  } else if (deltaY < -threshold && dragStartPageIndex > 1) {
+                    g.classList.add("drag-down"); // Will go to lower page number (drag down)
+                  } else {
+                    g.classList.add("drag-snap"); // Will snap back
+                  }
+                });
+                
+                g.addEventListener("pointerup", async (e) => {
+                  if (!isDragging) return;
+                  isDragging = false;
+                  
+                  g.releasePointerCapture(e.pointerId);
+                  // Re-enable smooth scroll and snap
+                  binding.style.scrollBehavior = "smooth";
+                  binding.style.scrollSnapType = "y mandatory";
+                  
+                  // Clear visual indicator
+                  g.classList.remove("drag-up", "drag-down", "drag-snap");
+                  
+                  const totalDrag = dragStartY - e.clientY;
+                  const threshold = 100; // Minimum drag to trigger page change (increased from 50)
+                  
+                  console.log("🖐️ Drag release:", {
+                    dragStartY,
+                    endY: e.clientY,
+                    totalDrag,
+                    velocity: dragVelocity,
+                    dragStartPageIndex,
+                    currentPageIndex,
+                    totalPages,
+                    direction: totalDrag > 0 ? "UP (finger moved up)" : "DOWN (finger moved down)"
+                  });
+                  
+                  // Determine target page based on drag distance/velocity
+                  let targetPage = dragStartPageIndex;
+                  
+                  // Physics: combine distance and velocity
+                  // velocity is in px/ms, so scale it up
+                  const velocityBoost = dragVelocity * 100; // Convert to more usable scale
+                  const effectiveDistance = totalDrag + velocityBoost;
+                  
+                  console.log("🖐️ Physics:", {
+                    totalDrag,
+                    velocityRaw: dragVelocity,
+                    velocityBoost,
+                    effectiveDistance,
+                    threshold,
+                    willTrigger: Math.abs(effectiveDistance) > threshold
+                  });
+                  
+                  if (Math.abs(effectiveDistance) > threshold) {
+                    if (effectiveDistance > 0 && dragStartPageIndex < totalPages) {
+                      // Dragged up - go to higher page number
+                      targetPage = dragStartPageIndex + 1;
+                    } else if (effectiveDistance < 0 && dragStartPageIndex > 1) {
+                      // Dragged down - go to lower page number
+                      targetPage = dragStartPageIndex - 1;
+                    }
+                  }
+                  
+                  console.log("🖐️ -> Target page:", targetPage, "(from", dragStartPageIndex, ")");
+                  
+                  await animateToPage(targetPage, "drag-release");
+                });
+                
+                g.addEventListener("pointercancel", async (e) => {
+                  if (!isDragging) return;
+                  isDragging = false;
+                  g.releasePointerCapture(e.pointerId);
+                  g.classList.remove("drag-up", "drag-down", "drag-snap");
+                  binding.style.scrollBehavior = "smooth";
+                  binding.style.scrollSnapType = "y mandatory";
+                  // Snap back to current
+                  await animateToPage(currentPageIndex, "pointer-cancel");
+                });
+                
+                // Expose for external use
+                g.goToPage = async (idx) => {
+                  await updateVisiblePages(idx, true); // skipScroll - we'll animate
+                  await animateToPage(idx, "goToPage");
+                };
                 g.totalPages = totalPages;
-                g.loadedPages = loadedPages;
+                g.getCurrentPage = () => currentPageIndex;
+                
+                g.appendChild(binding);
 
                 computePageLayout = function (e) {
                   const layoutStart = performance.now();
@@ -5822,178 +7377,9 @@ export const handler = async (event, context) => {
                               console.log("🌻 Width settled, computing layout:", (performance.now() - gardenBuildStart).toFixed(2), "ms");
                               computePageLayout?.();
                               console.log("🌻 Layout computed:", (performance.now() - gardenBuildStart).toFixed(2), "ms");
-                              // TODO:    ^ This takes awhile and the spinner could hold until the initial
-                              //            computation is done. 24.10.16.07.06
-
-                              // Check if we need to scroll to a specific page.
-                              const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
-                              const qMatch = path.match(/^\\/q\\/(\\d+)$/);
-                              
-                              if (pageMatch) {
-                                const pageNum = parseInt(pageMatch[1], 10);
-                                const targetPage = document.getElementById("page-" + pageNum);
-                                if (targetPage) {
-                                  targetPage.scrollIntoView({ block: "start" });
-                                } else {
-                                  // Page not found, scroll to bottom
-                                  wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
-                                }
-                              } else if (qMatch) {
-                                const qNum = parseInt(qMatch[1], 10);
-                                const targetQ = document.getElementById("q-" + qNum);
-                                if (targetQ) {
-                                  targetQ.scrollIntoView({ block: "start" });
-                                } else {
-                                  // Question not found, scroll to bottom
-                                  wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
-                                }
-                              } else {
-                                // Default: scroll to bottom (most recent)
-                                wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
-                              }
                               
                               g.classList.remove("faded");
-                              
-                              // Set up IntersectionObserver to update URL as user scrolls
-                              let ioCallCount = 0;
-                              const pageObserver = new IntersectionObserver((entries) => {
-                                ioCallCount++;
-                                if (ioCallCount <= 3 || ioCallCount % 50 === 0) {
-                                  console.log("📍 IntersectionObserver callback #" + ioCallCount + " with", entries.length, "entries");
-                                }
-                                entries.forEach((entry) => {
-                                  if (entry.isIntersecting) {
-                                    const pageWrapper = entry.target;
-                                    const pageNum = pageWrapper.dataset.pageNumber;
-                                    const pageType = pageWrapper.dataset.pageType;
-                                    
-                                    if (pageNum && pageType) {
-                                      const newPath = pageType === "diary" 
-                                        ? "/page/" + pageNum 
-                                        : "/q/" + pageNum;
-                                      
-                                      // Only update if different from current path
-                                      if (window.location.pathname !== newPath) {
-                                        updatePath(newPath);
-                                        // Update document title
-                                        document.title = pageType === "diary"
-                                          ? "sotce.net - page " + pageNum
-                                          : "sotce.net - question " + pageNum;
-                                      }
-                                    }
-                                  }
-                                });
-                              }, {
-                                root: wrapper,
-                                threshold: 0.5 // Trigger when 50% of page is visible
-                              });
-                              
-                              // Observe all page wrappers
-                              document.querySelectorAll("#garden .page-wrapper").forEach((pw) => {
-                                pageObserver.observe(pw);
-                              });
-                              
-                              // Tap navigation: top half = prev page, bottom half = next page
-                              // Also: clicking on any page snaps to it
-                              let currentVisiblePage = null;
-                              
-                              const updateCurrentPage = () => {
-                                const pages = document.querySelectorAll("#garden .page-wrapper");
-                                const wrapperRect = wrapper.getBoundingClientRect();
-                                const centerY = wrapperRect.top + wrapperRect.height / 2;
-                                
-                                for (const page of pages) {
-                                  const rect = page.getBoundingClientRect();
-                                  if (rect.top <= centerY && rect.bottom >= centerY) {
-                                    currentVisiblePage = page;
-                                    break;
-                                  }
-                                }
-                              };
-                              
-                              let scrollTimeout;
-                              let isLoadingPages = false;
-                              wrapper.addEventListener("scroll", () => {
-                                updateCurrentPage();
-                                
-                                // Lazy load pages when scrolling near unloaded content
-                                if (g.loadPagesRange && !isLoadingPages) {
-                                  const visibleTop = wrapper.scrollTop;
-                                  const viewportHeight = wrapper.clientHeight;
-                                  
-                                  // Check for unloaded pages in visible area + buffer
-                                  const buffer = viewportHeight * 2;
-                                  const pageWrappers = document.querySelectorAll("#garden .page-wrapper");
-                                  const toLoad = [];
-                                  
-                                  pageWrappers.forEach((pw) => {
-                                    if (pw.dataset.loaded === "false") {
-                                      const rect = pw.getBoundingClientRect();
-                                      const wrapperRect = wrapper.getBoundingClientRect();
-                                      const relativeTop = rect.top - wrapperRect.top;
-                                      
-                                      // Check if within visible area + buffer
-                                      if (relativeTop < viewportHeight + buffer && relativeTop + rect.height > -buffer) {
-                                        toLoad.push(parseInt(pw.dataset.pageNumber, 10));
-                                      }
-                                    }
-                                  });
-                                  
-                                  if (toLoad.length > 0) {
-                                    isLoadingPages = true;
-                                    const minPage = Math.min(...toLoad);
-                                    const maxPage = Math.max(...toLoad);
-                                    g.loadPagesRange(minPage, maxPage).finally(() => {
-                                      isLoadingPages = false;
-                                    });
-                                  }
-                                }
-                              }, { passive: true });
-                              updateCurrentPage();
-                              
-                              g.addEventListener("click", (e) => {
-                                // Check if clicking on a page (not interactive elements)
-                                const clickedPage = e.target.closest(".page-wrapper");
-                                const isInteractive = e.target.closest("a, button, input, textarea, .ear");
-                                
-                                if (isInteractive) return;
-                                
-                                // If clicked on a page, snap to that page
-                                if (clickedPage) {
-                                  clickedPage.scrollIntoView({ block: "start", behavior: "smooth" });
-                                  return;
-                                }
-                                
-                                // Otherwise use top/bottom half navigation
-                                const wrapperRect = wrapper.getBoundingClientRect();
-                                const clickY = e.clientY - wrapperRect.top;
-                                const halfHeight = wrapperRect.height / 2;
-                                
-                                const pages = Array.from(document.querySelectorAll("#garden .page-wrapper"));
-                                if (pages.length === 0) return;
-                                
-                                updateCurrentPage();
-                                const currentIndex = currentVisiblePage ? pages.indexOf(currentVisiblePage) : -1;
-                                
-                                if (clickY < halfHeight) {
-                                  // Top half: go to previous page
-                                  const prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
-                                  pages[prevIndex].scrollIntoView({ block: "start", behavior: "smooth" });
-                                } else {
-                                  // Bottom half: go to next page  
-                                  const nextIndex = currentIndex < pages.length - 1 ? currentIndex + 1 : pages.length - 1;
-                                  pages[nextIndex].scrollIntoView({ block: "start", behavior: "smooth" });
-                                }
-                              });
-                              
-                              //g.addEventListener(
-                              //  "transitionend",
-                              //  () => {
                               resolve(g);
-
-                              // },
-                              // { once: true },
-                              //);
                             } else {
                               requestAnimationFrame(() =>
                                 checkWidthSettled(currentWidth),
