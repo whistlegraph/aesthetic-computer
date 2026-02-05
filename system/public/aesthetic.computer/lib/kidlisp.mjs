@@ -1334,7 +1334,8 @@ function isChaoticSource(source) {
   
   // Short input with no parentheses that's not a valid color/function name
   // e.g., just "kidlisp" or "hello" or "test" - should trigger chaos mode
-  if (openParens === 0 && closeParens === 0 && trimmed.length > 0) {
+  // BUT: Skip this check if source contains commas (comma-separated KidLisp syntax)
+  if (openParens === 0 && closeParens === 0 && trimmed.length > 0 && !source.includes(',')) {
     // Check if the entire input is a single recognized word (color or function)
     const isValidShorthand = KIDLISP_VOCABULARY.has(trimmed.toLowerCase());
     if (!isValidShorthand) {
@@ -1345,7 +1346,8 @@ function isChaoticSource(source) {
   }
   
   // No parentheses at all in longer input (valid KidLisp usually has parens)
-  if (openParens === 0 && closeParens === 0 && trimmed.length > 20) {
+  // BUT: Skip this check if source contains commas (comma-separated KidLisp syntax)
+  if (openParens === 0 && closeParens === 0 && trimmed.length > 20 && !source.includes(',')) {
     // Check if it's just a color name or simple expression
     if (!KIDLISP_VOCABULARY.has(trimmed.toLowerCase())) {
       chaosScore += 0.3;
