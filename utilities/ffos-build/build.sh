@@ -253,6 +253,18 @@ SYSLINUX
       echo "Installed and enabled AC Config Server"
     fi
     
+    # Install AC Setup TUI (boot-time WiFi + piece configuration)
+    echo "=== Installing AC Setup TUI ==="
+    mkdir -p "$PROFILE/airootfs/opt/ac/bin"
+    if [ -f /work/overlays/ac-setup/ac-setup.py ]; then
+      cp /work/overlays/ac-setup/ac-setup.py "$PROFILE/airootfs/opt/ac/bin/ac-setup"
+      chmod +x "$PROFILE/airootfs/opt/ac/bin/ac-setup"
+      # Add to PATH via symlink
+      mkdir -p "$PROFILE/airootfs/usr/local/bin"
+      ln -sf /opt/ac/bin/ac-setup "$PROFILE/airootfs/usr/local/bin/ac-setup"
+      echo "Installed AC Setup TUI"
+    fi
+    
     echo "=== Installing systemd service files ==="
     # Install system-level services
     mkdir -p "$PROFILE/airootfs/etc/systemd/system"
@@ -440,12 +452,19 @@ if [ "$(tty)" = "/dev/tty1" ]; then
     # Start feral system services (user-level)
     systemctl --user start feral-sys-monitord.service 2>/dev/null || true
 
-    # Start the AC kiosk
-    systemctl --user start aesthetic-kiosk.service 2>/dev/null || true
-
-    echo "Aesthetic Computer OS booted."
-    echo "Logs:  ~/.logs/"
-    echo "State: ~/.state/"
+    # Run setup TUI on first boot, or if setup not complete
+    if [ ! -f ~/.state/setup-done ]; then
+        echo ""
+        echo "Running first-time setup..."
+        sleep 1
+        /opt/ac/bin/ac-setup
+    else
+        # Setup done, start kiosk directly
+        systemctl --user start aesthetic-kiosk.service 2>/dev/null || true
+        echo "Aesthetic Computer OS booted."
+        echo ""
+        echo "Run 'ac-setup' to reconfigure WiFi or piece."
+    fi
 fi
 BASHPROFILE
 chown feralfile:feralfile /home/feralfile/.bash_profile
