@@ -194,6 +194,16 @@ jobs:
           mkdir -p "$PROFILE/airootfs/home"
           rsync -a /work/ffos-user/users/ "$PROFILE/airootfs/home/"
 
+          # Install AC launcher UI (QR code boot screen)
+          echo "=== Installing AC launcher UI ==="
+          OVERLAYS="$GITHUB_WORKSPACE/utilities/ffos-build/overlays"
+          mkdir -p "$PROFILE/airootfs/opt/ac/ui/launcher"
+          if [ -d "$OVERLAYS/launcher-ui" ]; then
+            rsync -a "$OVERLAYS/launcher-ui/" "$PROFILE/airootfs/opt/ac/ui/launcher/"
+            echo "Installed launcher UI to /opt/ac/ui/launcher/"
+          fi
+          echo "dev" > "$PROFILE/airootfs/opt/ac/version"
+
       - name: Install systemd services and hardening
         run: |
           PROFILE=/work/archiso-profile
