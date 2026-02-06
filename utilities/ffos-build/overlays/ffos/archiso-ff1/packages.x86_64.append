@@ -18,5 +18,8 @@ pipewire
 pipewire-pulse
 wireplumber
 
-# Python for AC Config Server
+# Python for AC Config Server + Setup TUI
 python
+
+# Console font for nicer terminal appearance
+terminus-font
