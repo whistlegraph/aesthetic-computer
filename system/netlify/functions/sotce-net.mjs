@@ -110,6 +110,8 @@ export const handler = async (event, context) => {
   let path = event.path;
   if (path.startsWith("/sotce-net"))
     path = path.replace("/sotce-net", "/").replace("//", "/");
+  if (path.startsWith("/sotce.net"))
+    path = path.replace("/sotce.net", "/").replace("//", "/");
 
   const key = dev ? SOTCE_STRIPE_API_TEST_PRIV_KEY : SOTCE_STRIPE_API_PRIV_KEY;
   const assetPath = dev
