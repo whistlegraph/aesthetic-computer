@@ -467,7 +467,7 @@ const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
-  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale'
+  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale', 'solo'
 ];
 
 // Auth0 parameters that need to be temporarily processed but then removed
@@ -1118,6 +1118,10 @@ const perf = perfParam === true || perfParam === "true";
 const autoScaleParam = params.has("auto-scale") || location.search.includes("auto-scale");
 const autoScale = autoScaleParam === true || autoScaleParam === "true";
 
+// Check for solo parameter (locks piece in place, prevents navigation away)
+const soloParam = params.has("solo") || location.search.includes("solo");
+const solo = soloParam === true || soloParam === "true";
+
 // Note: zoom parameter is available but not automatically applied to avoid text rendering issues
 // It's passed to the boot function for selective use
 
@@ -1138,7 +1142,7 @@ if (window.acVSCODE) {
 
 // Pass the parameters directly without stripping them
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale, solo }, debug);
 
 // Start processing any early kidlisp messages that arrived before boot completed
 processEarlyKidlispQueue();

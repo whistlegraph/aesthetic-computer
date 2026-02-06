@@ -759,6 +759,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   if (resolution.nolabel === true) preservedParams.nolabel = "true";
   if (resolution.tv === true) preservedParams.tv = "true";
   if (resolution.device === true) preservedParams.device = "true";
+  if (resolution.solo === true) preservedParams.solo = "true";
   if (resolution.highlight) preservedParams.highlight = resolution.highlight === true ? "true" : resolution.highlight;
   
   // Only preserve density/zoom/duration if they were actually in the URL (not from localStorage)
@@ -13257,6 +13258,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       if (preservedParams.duration) {
         currentUrl.searchParams.set("duration", preservedParams.duration);
+      }
+      if (preservedParams.solo) {
+        currentUrl.searchParams.set("solo", preservedParams.solo);
       }
 
       // Update the URL and reload

@@ -192,6 +192,20 @@ async function fun(event, context) {
 
   let slug = event.path.slice(1) || "prompt";
 
+  // Solo mode: trailing `|` is syntactic sugar for ?solo
+  // e.g., /notepat| → /notepat?solo (302 redirect)
+  if (slug.endsWith("|")) {
+    const cleanSlug = slug.slice(0, -1);
+    const existingParams = event.queryStringParameters || {};
+    const paramStr = Object.entries({ ...existingParams, solo: "true" })
+      .map(([k, v]) => v === "true" ? k : `${k}=${v}`)
+      .join("&");
+    return {
+      statusCode: 302,
+      headers: { Location: `/${cleanSlug}?${paramStr}` },
+    };
+  }
+
   // Handle direct requests to /disks/ paths (static asset requests)
   if (slug.startsWith("disks/")) {
     // For direct disk file requests, strip the "disks/" prefix
