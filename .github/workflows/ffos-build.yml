@@ -218,6 +218,17 @@ jobs:
             echo "Installed and enabled AC Config Server"
           fi
 
+          # Install AC Setup TUI (boot-time WiFi + piece configuration)
+          echo "=== Installing AC Setup TUI ==="
+          mkdir -p "$PROFILE/airootfs/opt/ac/bin"
+          if [ -f "$OVERLAYS/ac-setup/ac-setup.py" ]; then
+            cp "$OVERLAYS/ac-setup/ac-setup.py" "$PROFILE/airootfs/opt/ac/bin/ac-setup"
+            chmod +x "$PROFILE/airootfs/opt/ac/bin/ac-setup"
+            mkdir -p "$PROFILE/airootfs/usr/local/bin"
+            ln -sf /opt/ac/bin/ac-setup "$PROFILE/airootfs/usr/local/bin/ac-setup"
+            echo "Installed AC Setup TUI"
+          fi
+
       - name: Install systemd services and hardening
         run: |
           PROFILE=/work/archiso-profile
@@ -358,8 +369,18 @@ jobs:
               export XDG_RUNTIME_DIR="/run/user/$(id -u)"
               systemctl --user daemon-reload 2>/dev/null || true
               systemctl --user start feral-sys-monitord.service 2>/dev/null || true
-              systemctl --user start aesthetic-kiosk.service 2>/dev/null || true
-              echo "Aesthetic Computer OS booted."
+              
+              # Run setup TUI on first boot
+              if [ ! -f ~/.state/setup-done ]; then
+                  echo ""
+                  echo "Running first-time setup..."
+                  sleep 1
+                  /opt/ac/bin/ac-setup
+              else
+                  systemctl --user start aesthetic-kiosk.service 2>/dev/null || true
+                  echo "Aesthetic Computer OS booted."
+                  echo "Run 'ac-setup' to reconfigure."
+              fi
           fi
           BASHPROFILE
           chown feralfile:feralfile /home/feralfile/.bash_profile
