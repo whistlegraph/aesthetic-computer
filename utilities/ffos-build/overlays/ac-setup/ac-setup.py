@@ -13,7 +13,6 @@ import json
 import time
 import sys
 import random
-import threading
 
 STATE_DIR = os.path.expanduser("~/.state")
 CONFIG_FILE = os.path.join(STATE_DIR, "ac-config.json")
@@ -33,26 +32,11 @@ PIECES = [
     ("freaky-flowers", "Freaky Flowers — generative art"),
 ]
 
-# Matrix characters (mix of katakana-like and symbols)
-MATRIX_CHARS = "ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789⬡◇◈♦✧∴∵"
+# Matrix characters - ASCII only for terminal compatibility
+MATRIX_CHARS = "0123456789ABCDEFabcdef@#$%&*+=<>[]{}|~"
 
-# Purple/Pink color palette (256 color mode indices, darkest to brightest)
-PURPLE_PINK_PALETTE = [
-    53,   # Dark purple
-    54,   # Purple
-    55,   # Medium purple
-    91,   # Magenta-purple
-    127,  # Pink-purple
-    128,  # Medium pink
-    129,  # Pink
-    135,  # Light pink
-    164,  # Bright magenta
-    170,  # Light magenta
-    171,  # Very light pink
-    177,  # Pale pink
-    213,  # Bright pink
-    219,  # Lightest pink
-]
+# Check if we have 256-color support
+HAS_256_COLORS = False
 
 class MatrixRain:
     """Matrix rain effect with purple/pink colors."""
@@ -66,19 +50,22 @@ class MatrixRain:
     
     def _init_drops(self):
         """Initialize matrix rain drops."""
-        num_drops = self.width // 2
+        # Fewer drops for cleaner look
+        num_drops = max(5, self.width // 4)
         for _ in range(num_drops):
             self.drops.append(self._create_drop())
     
     def _create_drop(self, col=None):
         """Create a new drop."""
+        # Pre-generate the character for this drop (don't change every frame)
+        char = random.choice(MATRIX_CHARS)
         return {
-            'col': col if col is not None else random.randint(0, self.width - 1),
-            'row': random.uniform(-20, 0),
-            'speed': random.uniform(0.3, 1.2),
-            'char_idx': random.randint(0, len(MATRIX_CHARS) - 1),
-            'brightness': random.randint(8, 13),  # Index into palette
-            'length': random.randint(5, 15),
+            'col': col if col is not None else random.randint(0, max(0, self.width - 1)),
+            'row': random.uniform(-15, -1),
+            'speed': random.uniform(0.2, 0.6),  # Slower speeds
+            'char': char,
+            'brightness': random.randint(0, 4),  # Simpler brightness range
+            'length': random.randint(4, 12),
         }
     
     def update(self):
@@ -92,25 +79,24 @@ class MatrixRain:
             # Move drop down
             drop['row'] += drop['speed']
             
-            # Change character occasionally
-            if random.random() < 0.1:
-                drop['char_idx'] = (drop['char_idx'] + 1) % len(MATRIX_CHARS)
+            # Occasionally change character (less frequently)
+            if random.random() < 0.02:
+                drop['char'] = random.choice(MATRIX_CHARS)
             
             # Reset if off screen
             if drop['row'] - drop['length'] > self.height:
                 col = drop['col']
-                drop.update(self._create_drop(col))
-                drop['row'] = random.uniform(-10, 0)
+                new_drop = self._create_drop(col)
+                drop.update(new_drop)
             
             # Draw drop trail
             head_row = int(drop['row'])
             for i in range(drop['length']):
                 y = head_row - i
                 if 0 <= y < self.height and 0 <= drop['col'] < self.width:
-                    # Fade brightness along trail
-                    brightness = max(0, drop['brightness'] - i)
-                    char = MATRIX_CHARS[(drop['char_idx'] + i) % len(MATRIX_CHARS)]
-                    self.grid[y][drop['col']] = (char, brightness)
+                    # Fade brightness along trail (head is brightest)
+                    brightness = max(0, 4 - (i * 4 // drop['length']))
+                    self.grid[y][drop['col']] = (drop['char'], brightness)
     
     def resize(self, height, width):
         """Resize the matrix."""
@@ -118,7 +104,7 @@ class MatrixRain:
         self.width = width
         self.grid = [[None for _ in range(width)] for _ in range(height)]
         # Adjust number of drops
-        target_drops = width // 2
+        target_drops = max(5, width // 4)
         while len(self.drops) < target_drops:
             self.drops.append(self._create_drop())
         while len(self.drops) > target_drops:
@@ -261,20 +247,39 @@ def center_text(win, y, text, attr=0):
 
 def init_colors():
     """Initialize color pairs for matrix rain."""
+    global HAS_256_COLORS
+    
     curses.start_color()
     curses.use_default_colors()
     
-    # Create color pairs for the purple/pink palette
-    for i, color in enumerate(PURPLE_PINK_PALETTE):
+    # Check if we have 256-color support
+    HAS_256_COLORS = curses.COLORS >= 256
+    
+    if HAS_256_COLORS:
+        # Purple/pink gradient for 256-color terminals
+        # Pair 10-14: dark to bright purple/pink
         try:
-            curses.init_pair(i + 10, color, -1)  # Start at pair 10 to avoid conflicts
+            curses.init_pair(10, 53, -1)   # Dark purple
+            curses.init_pair(11, 91, -1)   # Purple
+            curses.init_pair(12, 129, -1)  # Pink
+            curses.init_pair(13, 177, -1)  # Light pink
+            curses.init_pair(14, 219, -1)  # Bright pink/white
         except:
-            pass
+            HAS_256_COLORS = False
+    
+    if not HAS_256_COLORS:
+        # Fallback for 8/16 color terminals
+        # Use magenta shades
+        curses.init_pair(10, curses.COLOR_BLACK, -1)
+        curses.init_pair(11, curses.COLOR_MAGENTA, -1)
+        curses.init_pair(12, curses.COLOR_MAGENTA, -1)
+        curses.init_pair(13, curses.COLOR_WHITE, -1)
+        curses.init_pair(14, curses.COLOR_WHITE, -1)
     
     # UI color pairs
-    curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
-    curses.init_pair(2, curses.COLOR_CYAN, curses.COLOR_BLACK)
-    curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
+    curses.init_pair(1, curses.COLOR_WHITE, -1)
+    curses.init_pair(2, curses.COLOR_CYAN, -1)
+    curses.init_pair(3, curses.COLOR_MAGENTA, -1)
 
 def draw_matrix(win, matrix):
     """Draw the matrix rain background."""
@@ -285,11 +290,10 @@ def draw_matrix(win, matrix):
             cell = matrix.grid[y][x]
             if cell:
                 char, brightness = cell
-                color_pair = curses.color_pair(brightness + 10)
+                # Map brightness (0-4) to color pairs (10-14)
+                color_pair = curses.color_pair(10 + brightness)
                 try:
-                    # Use ASCII fallback for half-width katakana
-                    display_char = char if ord(char) < 128 else random.choice("0123456789ABCDEF@#$%&*")
-                    win.addstr(y, x, display_char, color_pair)
+                    win.addch(y, x, char, color_pair)
                 except curses.error:
                     pass
 
@@ -307,23 +311,28 @@ def menu_select(stdscr, title, items, selected=0, matrix=None):
     visible_items = menu_h - 4
     scroll_offset = 0
     last_update = time.time()
+    frame_time = 0.1  # 10 FPS - slower, smoother animation
     
     stdscr.nodelay(True)  # Non-blocking input for animation
+    stdscr.timeout(50)    # 50ms timeout for getch()
     
     while True:
-        # Update and draw matrix background
+        now = time.time()
+        
+        # Update matrix less frequently
+        if matrix and (now - last_update) >= frame_time:
+            matrix.update()
+            last_update = now
+        
+        # Clear and draw
+        stdscr.erase()
+        
+        # Draw matrix background
         if matrix:
-            now = time.time()
-            if now - last_update > 0.05:  # 20 FPS
-                matrix.update()
-                last_update = now
-            stdscr.erase()
             draw_matrix(stdscr, matrix)
-        else:
-            stdscr.clear()
         
         # Header (with bright color)
-        center_text(stdscr, 1, "⬡ AESTHETIC COMPUTER", curses.A_BOLD | curses.color_pair(3))
+        center_text(stdscr, 1, "* AESTHETIC COMPUTER *", curses.A_BOLD | curses.color_pair(14))
         
         # Draw menu box (solid background)
         draw_box(stdscr, menu_y, menu_x, menu_h, menu_w, title)
@@ -358,15 +367,15 @@ def menu_select(stdscr, title, items, selected=0, matrix=None):
         # Scroll indicators
         try:
             if scroll_offset > 0:
-                stdscr.addstr(menu_y + 1, menu_x + menu_w - 3, "↑")
+                stdscr.addstr(menu_y + 1, menu_x + menu_w - 3, "^")
             if scroll_offset + visible_items < len(items):
-                stdscr.addstr(menu_y + menu_h - 2, menu_x + menu_w - 3, "↓")
+                stdscr.addstr(menu_y + menu_h - 2, menu_x + menu_w - 3, "v")
         except curses.error:
             pass
         
         # Footer
         try:
-            stdscr.addstr(h - 2, 2, "↑↓ Navigate  Enter Select  q Quit", curses.A_DIM)
+            stdscr.addstr(h - 2, 2, "Up/Down Navigate  Enter Select  q Quit", curses.A_DIM)
         except curses.error:
             pass
         
@@ -374,7 +383,6 @@ def menu_select(stdscr, title, items, selected=0, matrix=None):
         
         key = stdscr.getch()
         if key == -1:  # No input, continue animation
-            time.sleep(0.016)
             continue
         elif key == curses.KEY_UP and selected > 0:
             selected -= 1
@@ -386,9 +394,11 @@ def menu_select(stdscr, title, items, selected=0, matrix=None):
             selected = len(items) - 1
         elif key in (curses.KEY_ENTER, 10, 13):
             stdscr.nodelay(False)
+            stdscr.timeout(-1)
             return selected
         elif key in (ord('q'), ord('Q'), 27):  # q or Escape
             stdscr.nodelay(False)
+            stdscr.timeout(-1)
             return -1
         elif key == curses.KEY_RESIZE:
             h, w = stdscr.getmaxyx()
@@ -411,25 +421,28 @@ def text_input(stdscr, title, prompt, hidden=False, matrix=None):
     
     text = ""
     last_update = time.time()
+    frame_time = 0.1
+    
     stdscr.nodelay(True)
+    stdscr.timeout(50)
     
     while True:
-        # Update and draw matrix background
-        if matrix:
-            now = time.time()
-            if now - last_update > 0.05:
-                matrix.update()
-                last_update = now
-            stdscr.erase()
-            draw_matrix(stdscr, matrix)
-        else:
-            stdscr.clear()
+        now = time.time()
         
-        center_text(stdscr, 1, "⬡ AESTHETIC COMPUTER", curses.A_BOLD | curses.color_pair(3))
+        # Update matrix less frequently
+        if matrix and (now - last_update) >= frame_time:
+            matrix.update()
+            last_update = now
+        
+        stdscr.erase()
+        if matrix:
+            draw_matrix(stdscr, matrix)
+        
+        center_text(stdscr, 1, "* AESTHETIC COMPUTER *", curses.A_BOLD | curses.color_pair(14))
         
         draw_box(stdscr, box_y, box_x, box_h, box_w, title)
         try:
-            stdscr.addstr(box_y + 2, box_x + 2, prompt)
+            stdscr.addstr(box_y + 2, box_x + 2, prompt[:box_w - 4])
         except curses.error:
             pass
         
@@ -451,15 +464,16 @@ def text_input(stdscr, title, prompt, hidden=False, matrix=None):
         
         key = stdscr.getch()
         if key == -1:
-            time.sleep(0.016)
             continue
         elif key in (curses.KEY_ENTER, 10, 13):
             curses.curs_set(0)
             stdscr.nodelay(False)
+            stdscr.timeout(-1)
             return text
         elif key == 27:  # Escape
             curses.curs_set(0)
             stdscr.nodelay(False)
+            stdscr.timeout(-1)
             return None
         elif key in (curses.KEY_BACKSPACE, 127, 8):
             text = text[:-1]
@@ -479,23 +493,24 @@ def show_message(stdscr, title, message, wait=True, matrix=None):
     
     last_update = time.time()
     show_start = time.time()
+    frame_time = 0.1
     
-    if not wait:
-        stdscr.nodelay(True)
+    stdscr.nodelay(True)
+    stdscr.timeout(50)
     
     while True:
-        # Update and draw matrix background
-        if matrix:
-            now = time.time()
-            if now - last_update > 0.05:
-                matrix.update()
-                last_update = now
-            stdscr.erase()
-            draw_matrix(stdscr, matrix)
-        else:
-            stdscr.clear()
+        now = time.time()
         
-        center_text(stdscr, 1, "⬡ AESTHETIC COMPUTER", curses.A_BOLD | curses.color_pair(3))
+        # Update matrix less frequently
+        if matrix and (now - last_update) >= frame_time:
+            matrix.update()
+            last_update = now
+        
+        stdscr.erase()
+        if matrix:
+            draw_matrix(stdscr, matrix)
+        
+        center_text(stdscr, 1, "* AESTHETIC COMPUTER *", curses.A_BOLD | curses.color_pair(14))
         draw_box(stdscr, box_y, box_x, box_h, box_w, title)
         
         # Word wrap message
@@ -511,9 +526,9 @@ def show_message(stdscr, title, message, wait=True, matrix=None):
         if line:
             lines.append(line)
         
-        for i, line in enumerate(lines[:box_h - 4]):
+        for i, ln in enumerate(lines[:box_h - 4]):
             try:
-                stdscr.addstr(box_y + 2 + i, box_x + 2, line)
+                stdscr.addstr(box_y + 2 + i, box_x + 2, ln)
             except curses.error:
                 pass
         
@@ -525,17 +540,19 @@ def show_message(stdscr, title, message, wait=True, matrix=None):
         
         stdscr.refresh()
         
+        key = stdscr.getch()
+        
         if wait:
-            key = stdscr.getch()
             if key != -1:
+                stdscr.nodelay(False)
+                stdscr.timeout(-1)
                 return
-            time.sleep(0.016)
         else:
             # Non-waiting: show for 1.5 seconds with animation
-            if time.time() - show_start > 1.5:
+            if now - show_start > 1.5:
                 stdscr.nodelay(False)
+                stdscr.timeout(-1)
                 return
-            time.sleep(0.016)
 
 def wifi_setup(stdscr, matrix=None):
     """WiFi selection and connection."""
@@ -553,11 +570,11 @@ def wifi_setup(stdscr, matrix=None):
     for net in networks:
         ssid = net["ssid"]
         signal = net["signal"]
-        lock = "🔒" if net["security"] else "  "
-        connected = " ✓" if ssid == current else ""
+        lock = "[*]" if net["security"] else "   "
+        connected = " <" if ssid == current else ""
         items.append(f"{ssid} {lock} ({signal}%){connected}")
     
-    items.append("─" * 30)
+    items.append("-" * 30)
     items.append("Skip WiFi setup")
     
     selected = menu_select(stdscr, "Select WiFi Network", items, matrix=matrix)
@@ -592,7 +609,7 @@ def piece_setup(stdscr, matrix=None):
     items = []
     selected_idx = 0
     for i, (code, desc) in enumerate(PIECES):
-        marker = " ✓" if code == current_piece else ""
+        marker = " <" if code == current_piece else ""
         items.append(f"{desc}{marker}")
         if code == current_piece:
             selected_idx = i
@@ -618,9 +635,9 @@ def main_menu(stdscr, matrix=None):
         items = [
             f"WiFi Setup        [{current_wifi or 'Not connected'}]",
             f"Select Piece      [{current_piece}]",
-            "─" * 40,
+            "-" * 40,
             "Start Aesthetic Computer",
-            "─" * 40,
+            "-" * 40,
             "Exit to Shell",
         ]
         
@@ -643,36 +660,39 @@ def show_welcome_screen(stdscr, matrix):
     """Show animated welcome screen with matrix rain."""
     h, w = stdscr.getmaxyx()
     last_update = time.time()
+    frame_time = 0.1
+    
     stdscr.nodelay(True)
+    stdscr.timeout(50)
     
     while True:
-        # Update matrix
         now = time.time()
-        if now - last_update > 0.05:
+        
+        # Update matrix less frequently
+        if (now - last_update) >= frame_time:
             matrix.update()
             last_update = now
         
         stdscr.erase()
         draw_matrix(stdscr, matrix)
         
-        # Draw centered welcome text with glow effect
-        title = "⬡ AESTHETIC COMPUTER"
+        # Draw centered welcome text
+        title = "* AESTHETIC COMPUTER *"
         subtitle = "Boot Setup"
         prompt = "Press any key to begin..."
         
         # Draw title with bright color
-        center_text(stdscr, h // 2 - 3, title, curses.A_BOLD | curses.color_pair(13))
-        center_text(stdscr, h // 2 - 1, subtitle, curses.color_pair(11))
-        center_text(stdscr, h // 2 + 2, prompt, curses.A_DIM | curses.color_pair(10))
+        center_text(stdscr, h // 2 - 3, title, curses.A_BOLD | curses.color_pair(14))
+        center_text(stdscr, h // 2 - 1, subtitle, curses.color_pair(12))
+        center_text(stdscr, h // 2 + 2, prompt, curses.A_DIM)
         
         stdscr.refresh()
         
         key = stdscr.getch()
         if key != -1:
             stdscr.nodelay(False)
+            stdscr.timeout(-1)
             return
-        
-        time.sleep(0.016)
 
 def run_setup(stdscr):
     """Run the setup wizard."""
