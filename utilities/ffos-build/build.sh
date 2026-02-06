@@ -393,6 +393,7 @@ done
 usermod -aG seat feralfile 2>/dev/null || true
 usermod -aG audio feralfile 2>/dev/null || true
 usermod -aG video feralfile 2>/dev/null || true
+usermod -aG render feralfile 2>/dev/null || true
 usermod -aG input feralfile 2>/dev/null || true
 usermod -aG bluetooth feralfile 2>/dev/null || true
 
