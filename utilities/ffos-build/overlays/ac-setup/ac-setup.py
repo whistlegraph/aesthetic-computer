@@ -320,8 +320,11 @@ def center_text(win, y, text, attr=0):
     except curses.error:
         pass
 
+# Purple background color (256-color index 53 = dark purple)
+PURPLE_BG = 53
+
 def init_colors():
-    """Initialize color pairs for matrix rain."""
+    """Initialize color pairs for matrix rain with purple background."""
     global HAS_256_COLORS
     
     curses.start_color()
@@ -331,30 +334,38 @@ def init_colors():
     HAS_256_COLORS = curses.COLORS >= 256
     
     if HAS_256_COLORS:
-        # Purple/pink gradient for 256-color terminals
-        # Pair 10-14: dark to bright purple/pink
+        # Purple/pink gradient for 256-color terminals with purple background
+        # Pair 10-14: dark to bright purple/pink on purple bg
         try:
-            curses.init_pair(10, 53, -1)   # Dark purple
-            curses.init_pair(11, 91, -1)   # Purple
-            curses.init_pair(12, 129, -1)  # Pink
-            curses.init_pair(13, 177, -1)  # Light pink
-            curses.init_pair(14, 219, -1)  # Bright pink/white
+            curses.init_pair(10, 53, PURPLE_BG)   # Dark purple on purple
+            curses.init_pair(11, 91, PURPLE_BG)   # Purple on purple
+            curses.init_pair(12, 129, PURPLE_BG)  # Pink on purple
+            curses.init_pair(13, 177, PURPLE_BG)  # Light pink on purple
+            curses.init_pair(14, 219, PURPLE_BG)  # Bright pink/white on purple
+            # Background color pair
+            curses.init_pair(20, 255, PURPLE_BG)  # White on purple (for bg fill)
         except:
             HAS_256_COLORS = False
     
     if not HAS_256_COLORS:
         # Fallback for 8/16 color terminals
-        # Use magenta shades
-        curses.init_pair(10, curses.COLOR_BLACK, -1)
-        curses.init_pair(11, curses.COLOR_MAGENTA, -1)
-        curses.init_pair(12, curses.COLOR_MAGENTA, -1)
-        curses.init_pair(13, curses.COLOR_WHITE, -1)
-        curses.init_pair(14, curses.COLOR_WHITE, -1)
+        # Use magenta shades on magenta background
+        curses.init_pair(10, curses.COLOR_BLACK, curses.COLOR_MAGENTA)
+        curses.init_pair(11, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
+        curses.init_pair(12, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
+        curses.init_pair(13, curses.COLOR_WHITE, curses.COLOR_MAGENTA)
+        curses.init_pair(14, curses.COLOR_WHITE, curses.COLOR_MAGENTA)
+        curses.init_pair(20, curses.COLOR_WHITE, curses.COLOR_MAGENTA)
     
-    # UI color pairs
-    curses.init_pair(1, curses.COLOR_WHITE, -1)
-    curses.init_pair(2, curses.COLOR_CYAN, -1)
-    curses.init_pair(3, curses.COLOR_MAGENTA, -1)
+    # UI color pairs (with purple background for 256-color)
+    if HAS_256_COLORS:
+        curses.init_pair(1, 255, PURPLE_BG)  # White on purple
+        curses.init_pair(2, 87, PURPLE_BG)   # Cyan on purple
+        curses.init_pair(3, 201, PURPLE_BG)  # Bright magenta on purple
+    else:
+        curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_MAGENTA)
+        curses.init_pair(2, curses.COLOR_CYAN, curses.COLOR_MAGENTA)
+        curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
 
 def draw_matrix(win, matrix):
     """Draw the matrix rain background."""
@@ -895,6 +906,9 @@ def run_setup(stdscr):
     """Run the setup wizard."""
     # Initialize colors for matrix rain
     init_colors()
+    
+    # Set purple background
+    stdscr.bkgd(' ', curses.color_pair(20))
     
     # Get screen size and create matrix
     h, w = stdscr.getmaxyx()
