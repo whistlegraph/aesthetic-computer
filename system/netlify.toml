@@ -832,10 +832,21 @@ from = "https://kidlisp.com"
 to = "https://aesthetic.computer/kidlisp.com/"
 status = 200
 force = true
-# FF1 API routes - kidlisp.com/api/ff1/*
+# API routes - kidlisp.com/api/*
 [[redirects]]
 from = "https://kidlisp.com/api/ff1/*"
 to = "https://aesthetic.computer/api/ff1/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://kidlisp.com/api/*"
+to = "https://aesthetic.computer/api/:splat"
+status = 200
+force = true
+# Keeps index page
+[[redirects]]
+from = "https://kidlisp.com/keeps"
+to = "/kidlisp.com/keeps.html"
 status = 200
 force = true
 [[redirects]]
@@ -848,10 +859,21 @@ from = "https://www.kidlisp.com"
 to = "https://aesthetic.computer/kidlisp.com/"
 status = 200
 force = true
-# FF1 API routes - www.kidlisp.com/api/ff1/*
+# API routes - www.kidlisp.com/api/*
 [[redirects]]
 from = "https://www.kidlisp.com/api/ff1/*"
 to = "https://aesthetic.computer/api/ff1/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.kidlisp.com/api/*"
+to = "https://aesthetic.computer/api/:splat"
+status = 200
+force = true
+# Keeps index page
+[[redirects]]
+from = "https://www.kidlisp.com/keeps"
+to = "/kidlisp.com/keeps.html"
 status = 200
 force = true
 [[redirects]]

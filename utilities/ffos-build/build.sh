@@ -165,6 +165,11 @@ PKGBUILD
     # Fix: ensure packages.x86_64 ends with a newline before appending overlays
     echo "=== Ensuring packages.x86_64 has proper line endings ==="
     printf "\n" >> "$PROFILE/packages.x86_64"
+
+    # Replace PulseAudio with PipeWire (our overlay ships pipewire + pipewire-pulse)
+    echo "=== Replacing pulseaudio with pipewire ==="
+    sed -i '/^pulseaudio$/d' "$PROFILE/packages.x86_64"
+    sed -i '/^pulseaudio-bluetooth$/d' "$PROFILE/packages.x86_64"
     
     # Apply FFOS overlays if present (additional packages, etc.)
     if [ -d /work/overlays/ffos/archiso-ff1 ]; then
@@ -179,7 +184,7 @@ PKGBUILD
     
     # Add BIOS boot support (for older systems or if UEFI fails)
     # Modify profiledef.sh to include both UEFI and BIOS boot modes
-    sed -i "s/bootmodes=.*/bootmodes=('bios.syslinux.mbr' 'bios.syslinux.eltorito' 'uefi-x64.systemd-boot.esp' 'uefi-x64.systemd-boot.eltorito')/" "$PROFILE/profiledef.sh"
+    sed -i "s/bootmodes=.*/bootmodes=('bios.syslinux' 'uefi.systemd-boot')/" "$PROFILE/profiledef.sh"
     
     # FIX: Change squashfs compression from xz to zstd to prevent corruption
     # xz with 1M dict can cause corruption on memory-constrained GitHub runners

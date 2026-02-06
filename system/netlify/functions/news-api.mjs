@@ -15,31 +15,6 @@ const MAX_TITLE = 200;
 const MAX_TEXT = 5000;
 const RATE_LIMIT_HOURS = 24; // Users can only post once per 24 hours
 
-// "Aesthetic Network" domains - links to these are free to post
-const AESTHETIC_NETWORK_DOMAINS = [
-  "aesthetic.computer",
-  "prompt.ac", 
-  "kidlisp.com",
-  "sotce.net",
-  "false.work",
-  "whistlegraph.com",
-  "digitpain.com",
-  "jas.life",
-];
-
-// Check if a URL is within the Aesthetic Network (free to post)
-function isAestheticNetwork(url) {
-  if (!url) return true; // No URL = text-only post = free
-  try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    return AESTHETIC_NETWORK_DOMAINS.some(domain => 
-      hostname === domain || hostname.endsWith(`.${domain}`)
-    );
-  } catch {
-    return false;
-  }
-}
-
 function parseBody(event) {
   if (!event.body) return {};
   const contentType = event.headers?.["content-type"] || event.headers?.["Content-Type"] || "";
@@ -161,6 +136,66 @@ export function createHandler({
       return respondFn(204, "");
     }
 
+    // Unfurl endpoint doesn't need the database
+    if (event.httpMethod === "GET" && route === "unfurl") {
+      const targetUrl = event.queryStringParameters?.url;
+      if (!targetUrl) {
+        return respondFn(400, { error: "Missing 'url' parameter" });
+      }
+      try {
+        const normalizedUrl = normalizeUrl(targetUrl);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(normalizedUrl, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'AestheticNewsBot/1.0 (+https://news.aesthetic.computer)',
+            'Accept': 'text/html',
+          },
+          redirect: 'follow',
+        });
+        clearTimeout(timeout);
+        if (!res.ok) {
+          return respondFn(200, { title: '', error: 'Could not fetch URL' });
+        }
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('text/html')) {
+          return respondFn(200, { title: '', error: 'Not an HTML page' });
+        }
+        // Read only the first 32KB to find the title
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let html = '';
+        while (html.length < 32768) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          html += decoder.decode(value, { stream: true });
+          // Early exit if we've found </head> or </title>
+          if (html.includes('</head>') || html.includes('</title>')) break;
+        }
+        reader.cancel().catch(() => {});
+        
+        // Try og:title first, then <title>
+        let title = '';
+        const ogMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)
+          || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+        if (ogMatch) {
+          title = ogMatch[1];
+        } else {
+          const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+          if (titleMatch) title = titleMatch[1];
+        }
+        // Decode HTML entities
+        title = title.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#x27;/g, "'").replace(/&#x2F;/g, '/').trim();
+        return respondFn(200, { title });
+      } catch (e) {
+        if (e.name === 'AbortError') {
+          return respondFn(200, { title: '', error: 'Request timed out' });
+        }
+        return respondFn(200, { title: '', error: 'Failed to fetch URL' });
+      }
+    }
+
     let database;
     try {
       database = await connectFn();
@@ -175,7 +210,7 @@ export function createHandler({
           const limit = Math.min(parseInt(event.queryStringParameters?.limit || "30", 10), 100);
           const sort = event.queryStringParameters?.sort === "new" ? { when: -1 } : { score: -1, when: -1 };
           const includeRecentComments = parseInt(event.queryStringParameters?.includeRecentComments || "0", 10);
-          // Match news.mjs: show all posts except "dead" (includes live, pending-toll, etc.)
+          // Show all posts except "dead"
           const docs = await posts.find({ status: { $ne: "dead" } }).sort(sort).limit(limit).toArray();
           const withCounts = await attachCommentCounts(docs, comments);
           
@@ -263,9 +298,6 @@ export function createHandler({
             }
           }
 
-          // Check if URL requires troll toll (external links)
-          const needsToll = url && !isAestheticNetwork(url) && !isAdmin;
-
           const shortCode = await generateUniqueCodeFn(posts, { mode: "random" });
           const now = new Date();
           const code = shortCode; // e.g., "icd" (no prefix sigil, like paintings)
@@ -279,47 +311,33 @@ export function createHandler({
             updated: now,
             score: 1,
             commentCount: 0,
-            status: needsToll ? "pending-toll" : "live",
-            tollRequired: needsToll,
+            status: "live",
           };
 
           const insertResult = await posts.insertOne(doc);
           const postId = insertResult.insertedId.toString();
-          
-          // Only create initial vote if post is live
-          if (!needsToll) {
-            await votes.insertOne({
-              itemType: "post",
-              itemId: code,
-              user: user.sub,
-              when: now,
-            });
-            
-            // Sync to ATProto PDS using the user's account (non-blocking)
-            createNewsOnAtproto(database, user.sub, {
-              headline: title,
-              body: text || null,
-              link: url || null,
-              when: now,
-            }, postId).then(atprotoResult => {
-              if (atprotoResult.rkey) {
-                posts.updateOne(
-                  { code },
-                  { $set: { atproto: { rkey: atprotoResult.rkey, uri: atprotoResult.uri, did: atprotoResult.did } } }
-                ).catch(e => console.error('Failed to save ATProto rkey:', e));
-              }
-            }).catch(e => console.error('ATProto sync error:', e));
-          }
 
-          // If toll required, return special response
-          if (needsToll) {
-            return respondFn(402, { 
-              tollRequired: true, 
-              code,
-              message: "🧌 External links require a Troll Toll ($2) to post.",
-              checkoutUrl: `/api/news/toll`,
-            });
-          }
+          await votes.insertOne({
+            itemType: "post",
+            itemId: code,
+            user: user.sub,
+            when: now,
+          });
+
+          // Sync to ATProto PDS using the user's account (non-blocking)
+          createNewsOnAtproto(database, user.sub, {
+            headline: title,
+            body: text || null,
+            link: url || null,
+            when: now,
+          }, postId).then(atprotoResult => {
+            if (atprotoResult.rkey) {
+              posts.updateOne(
+                { code },
+                { $set: { atproto: { rkey: atprotoResult.rkey, uri: atprotoResult.uri, did: atprotoResult.did } } }
+              ).catch(e => console.error('Failed to save ATProto rkey:', e));
+            }
+          }).catch(e => console.error('ATProto sync error:', e));
 
           const redirectTo = `${resolveBasePath(event)}/item/${code}`;
           if (wantsHtml(event)) {

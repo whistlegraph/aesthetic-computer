@@ -46,9 +46,10 @@ def generate_effect_patcher(device: dict, defaults: dict, production: bool = Fal
     """Generate a M4L Audio Effect patcher that streams audio to AC Web Audio.
     
     Architecture:
-    - plugin~ receives stereo audio from Ableton
-    - snapshot~ captures samples at high rate (~1kHz batched)
-    - Samples sent to jweb~ via executejavascript
+    - plugin~ receives stereo audio from Ableton  
+    - record~ writes to circular buffer~ at full 44.1kHz
+    - metro triggers js to read chunks from buffer~
+    - js sends sample arrays to jweb~ via executejavascript
     - AC's Web Audio engine processes with effects
     - jweb~ audio output goes to plugout~
     """
@@ -67,6 +68,11 @@ def generate_effect_patcher(device: dict, defaults: dict, production: bool = Fal
         base_url = defaults.get("baseUrl", "https://localhost:8888")
     
     url = f"{base_url}/{piece}?daw=1&density={density}&nogap&width={width}&height={height}&effect=1"
+    
+    # Buffer size in samples (4096 samples = ~93ms at 44.1kHz)
+    BUFFER_SIZE = 4096
+    # Chunk read interval in ms (11.6ms = 512 samples at 44.1kHz)
+    READ_INTERVAL = 12
     
     return {
         "patcher": {
@@ -101,44 +107,55 @@ def generate_effect_patcher(device: dict, defaults: dict, production: bool = Fal
                     }
                 },
                 
-                # === SAMPLE CAPTURE ===
-                # snapshot~ for left channel
+                # === CIRCULAR BUFFERS ===
                 {
                     "box": {
-                        "id": "obj-snap-L",
+                        "id": "obj-buf-L",
                         "maxclass": "newobj",
-                        "numinlets": 2,
-                        "numoutlets": 1,
-                        "outlettype": ["float"],
-                        "patching_rect": [10.0, 50.0, 75.0, 22.0],
-                        "text": "snapshot~ 1"
+                        "numinlets": 1,
+                        "numoutlets": 2,
+                        "outlettype": ["float", "bang"],
+                        "patching_rect": [10.0, 40.0, 120.0, 22.0],
+                        "text": f"buffer~ ac-audio-L {BUFFER_SIZE}"
                     }
                 },
-                # snapshot~ for right channel
                 {
                     "box": {
-                        "id": "obj-snap-R",
+                        "id": "obj-buf-R",
                         "maxclass": "newobj",
-                        "numinlets": 2,
-                        "numoutlets": 1,
-                        "outlettype": ["float"],
-                        "patching_rect": [100.0, 50.0, 75.0, 22.0],
-                        "text": "snapshot~ 1"
+                        "numinlets": 1,
+                        "numoutlets": 2,
+                        "outlettype": ["float", "bang"],
+                        "patching_rect": [140.0, 40.0, 120.0, 22.0],
+                        "text": f"buffer~ ac-audio-R {BUFFER_SIZE}"
                     }
                 },
-                # metro to trigger snapshots - 1ms for ~1kHz
+                
+                # === RECORD TO BUFFERS (circular/looping) ===
                 {
                     "box": {
-                        "id": "obj-metro",
+                        "id": "obj-rec-L",
                         "maxclass": "newobj",
-                        "numinlets": 2,
+                        "numinlets": 3,
                         "numoutlets": 1,
-                        "outlettype": ["bang"],
-                        "patching_rect": [200.0, 10.0, 55.0, 22.0],
-                        "text": "metro 1"
+                        "outlettype": ["signal"],
+                        "patching_rect": [10.0, 70.0, 110.0, 22.0],
+                        "text": "record~ ac-audio-L 1"
                     }
                 },
-                # loadbang to start metro
+                {
+                    "box": {
+                        "id": "obj-rec-R",
+                        "maxclass": "newobj",
+                        "numinlets": 3,
+                        "numoutlets": 1,
+                        "outlettype": ["signal"],
+                        "patching_rect": [140.0, 70.0, 110.0, 22.0],
+                        "text": "record~ ac-audio-R 1"
+                    }
+                },
+                
+                # === START RECORDING ON LOAD ===
                 {
                     "box": {
                         "id": "obj-loadbang",
@@ -146,32 +163,56 @@ def generate_effect_patcher(device: dict, defaults: dict, production: bool = Fal
                         "numinlets": 1,
                         "numoutlets": 1,
                         "outlettype": ["bang"],
-                        "patching_rect": [200.0, -20.0, 60.0, 22.0],
+                        "patching_rect": [280.0, 10.0, 60.0, 22.0],
                         "text": "loadbang"
                     }
                 },
-                # pack L and R samples
                 {
                     "box": {
-                        "id": "obj-pack",
-                        "maxclass": "newobj",
+                        "id": "obj-rec-on",
+                        "maxclass": "message",
                         "numinlets": 2,
                         "numoutlets": 1,
                         "outlettype": [""],
-                        "patching_rect": [10.0, 90.0, 60.0, 22.0],
-                        "text": "pack 0. 0."
+                        "patching_rect": [280.0, 40.0, 55.0, 22.0],
+                        "text": "loop 1, 1"
                     }
                 },
-                # Format as JS call for sample streaming
+                
+                # === METRO FOR READING CHUNKS ===
                 {
                     "box": {
-                        "id": "obj-sprintf-sample",
+                        "id": "obj-metro",
                         "maxclass": "newobj",
                         "numinlets": 2,
                         "numoutlets": 1,
+                        "outlettype": ["bang"],
+                        "patching_rect": [350.0, 40.0, 65.0, 22.0],
+                        "text": f"metro {READ_INTERVAL}"
+                    }
+                },
+                {
+                    "box": {
+                        "id": "obj-start-msg",
+                        "maxclass": "message",
+                        "numinlets": 2,
+                        "numoutlets": 1,
                         "outlettype": [""],
-                        "patching_rect": [10.0, 120.0, 350.0, 22.0],
-                        "text": "sprintf executejavascript \\\"window.acSample&&window.acSample(%f\\,%f)\\\""
+                        "patching_rect": [350.0, 70.0, 35.0, 22.0],
+                        "text": "start"
+                    }
+                },
+                
+                # === JS BUFFER READER ===
+                {
+                    "box": {
+                        "id": "obj-js",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [350.0, 100.0, 110.0, 22.0],
+                        "text": "js buffer-reader.js"
                     }
                 },
                 
@@ -371,25 +412,25 @@ def generate_effect_patcher(device: dict, defaults: dict, production: bool = Fal
                 }
             ],
             "lines": [
-                # === SAMPLE STREAMING TO JWEB~ ===
-                # plugin~ -> snapshot~
-                {"patchline": {"destination": ["obj-snap-L", 0], "source": ["obj-plugin", 0]}},
-                {"patchline": {"destination": ["obj-snap-R", 0], "source": ["obj-plugin", 1]}},
+                # === AUDIO TO CIRCULAR BUFFERS ===
+                # plugin~ -> record~ (writes at full sample rate)
+                {"patchline": {"destination": ["obj-rec-L", 0], "source": ["obj-plugin", 0]}},
+                {"patchline": {"destination": ["obj-rec-R", 0], "source": ["obj-plugin", 1]}},
                 
-                # loadbang -> metro
+                # === START RECORDING ON LOAD ===
+                # loadbang -> "loop 1, 1" -> record~ (enable looping and start)
+                {"patchline": {"destination": ["obj-rec-on", 0], "source": ["obj-loadbang", 0]}},
+                {"patchline": {"destination": ["obj-rec-L", 0], "source": ["obj-rec-on", 0]}},
+                {"patchline": {"destination": ["obj-rec-R", 0], "source": ["obj-rec-on", 0]}},
+                
+                # === START METRO AND JS ON LOAD ===
                 {"patchline": {"destination": ["obj-metro", 0], "source": ["obj-loadbang", 0]}},
+                {"patchline": {"destination": ["obj-start-msg", 0], "source": ["obj-loadbang", 0]}},
+                {"patchline": {"destination": ["obj-js", 0], "source": ["obj-start-msg", 0]}},
                 
-                # metro -> snapshot~ trigger
-                {"patchline": {"destination": ["obj-snap-L", 0], "source": ["obj-metro", 0]}},
-                {"patchline": {"destination": ["obj-snap-R", 0], "source": ["obj-metro", 0]}},
-                
-                # snapshot~ -> pack
-                {"patchline": {"destination": ["obj-pack", 0], "source": ["obj-snap-L", 0]}},
-                {"patchline": {"destination": ["obj-pack", 1], "source": ["obj-snap-R", 0]}},
-                
-                # pack -> sprintf -> jweb~ (stream samples to AC)
-                {"patchline": {"destination": ["obj-sprintf-sample", 0], "source": ["obj-pack", 0]}},
-                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-sprintf-sample", 0]}},
+                # === METRO -> JS -> JWEB~ ===
+                {"patchline": {"destination": ["obj-js", 0], "source": ["obj-metro", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-js", 0]}},
                 
                 # === PEAK VISUALIZATION ===
                 {"patchline": {"destination": ["obj-mono-mix", 0], "source": ["obj-plugin", 0]}},
@@ -422,7 +463,9 @@ def generate_effect_patcher(device: dict, defaults: dict, production: bool = Fal
                 # Device load
                 {"patchline": {"destination": ["obj-print", 0], "source": ["obj-thisdevice", 0]}}
             ],
-            "dependency_cache": [],
+            "dependency_cache": [
+                {"name": "buffer-reader.js", "bootpath": "~/Documents/Max 8/Packages/aesthetic-computer/javascript"}
+            ],
             "latency": 0,
             "is_mpe": 0,
             "external_mpe_tuning_enabled": 0,

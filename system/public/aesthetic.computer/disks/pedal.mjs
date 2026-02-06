@@ -97,24 +97,40 @@ function boot({ query, hud, send, ui, screen }) {
   
   // Set up sample receiving from Max
   if (isEffectMode && typeof window !== "undefined") {
-    // Global function that Max calls via executejavascript
-    window.acSample = (l, r) => {
-      // Write to ring buffer
-      sampleBufferL[sampleWriteIndex] = l;
-      sampleBufferR[sampleWriteIndex] = r;
-      sampleWriteIndex = (sampleWriteIndex + 1) % SAMPLE_BUFFER_SIZE;
-      samplesReceived++;
+    // Global function for BATCHED samples from Max (128 samples at a time)
+    window.acSampleBatch = (leftArray, rightArray) => {
+      // Write batch to ring buffer
+      for (let i = 0; i < leftArray.length; i++) {
+        sampleBufferL[sampleWriteIndex] = leftArray[i];
+        sampleBufferR[sampleWriteIndex] = rightArray[i];
+        sampleWriteIndex = (sampleWriteIndex + 1) % SAMPLE_BUFFER_SIZE;
+      }
+      samplesReceived += leftArray.length;
       
       // Mark buffer ready once we have enough samples
-      if (!sampleBufferReady && samplesReceived > 256) {
+      if (!sampleBufferReady && samplesReceived > 512) {
         sampleBufferReady = true;
-        console.log("🎸 Sample buffer ready, starting playback");
+        console.log("🎸 Sample buffer ready (" + samplesReceived + " samples), starting playback");
         // Tell BIOS to start the sample playback source
         send({ type: "pedal:start-sample-source" });
       }
     };
     
-    // Global function for reading samples (called from BIOS AudioWorklet)
+    // Legacy single-sample function (kept for compatibility)
+    window.acSample = (l, r) => {
+      sampleBufferL[sampleWriteIndex] = l;
+      sampleBufferR[sampleWriteIndex] = r;
+      sampleWriteIndex = (sampleWriteIndex + 1) % SAMPLE_BUFFER_SIZE;
+      samplesReceived++;
+      
+      if (!sampleBufferReady && samplesReceived > 256) {
+        sampleBufferReady = true;
+        console.log("🎸 Sample buffer ready, starting playback");
+        send({ type: "pedal:start-sample-source" });
+      }
+    };
+    
+    // Global function for reading samples (called from BIOS ScriptProcessorNode)
     window.acReadSamples = (count) => {
       const outputL = new Float32Array(count);
       const outputR = new Float32Array(count);
@@ -128,7 +144,7 @@ function boot({ query, hud, send, ui, screen }) {
       return { left: outputL, right: outputR };
     };
     
-    console.log("🎸 Effect mode enabled - waiting for samples from Max");
+    console.log("🎸 Effect mode enabled - waiting for batched samples from Max");
   }
   
   if (!hasBooted) {
@@ -137,7 +153,6 @@ function boot({ query, hud, send, ui, screen }) {
   }
   
   // Avoid HUD label so top-left stays clear for buttons.
-  
   // Build UI buttons
   buildButtons({ ui, screen });
   
