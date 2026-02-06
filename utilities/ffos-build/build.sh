@@ -227,6 +227,16 @@ SYSLINUX
     mkdir -p "$PROFILE/airootfs/home"
     rsync -a /work/ffos-user/users/ "$PROFILE/airootfs/home/"
     
+    # Install AC launcher UI (QR code boot screen)
+    echo "=== Installing AC launcher UI ==="
+    mkdir -p "$PROFILE/airootfs/opt/ac/ui/launcher"
+    if [ -d /work/overlays/launcher-ui ]; then
+      rsync -a /work/overlays/launcher-ui/ "$PROFILE/airootfs/opt/ac/ui/launcher/"
+      echo "Installed launcher UI to /opt/ac/ui/launcher/"
+      ls -la "$PROFILE/airootfs/opt/ac/ui/launcher/"
+    fi
+    echo "dev" > "$PROFILE/airootfs/opt/ac/version"
+    
     echo "=== Installing systemd service files ==="
     # Install system-level services
     mkdir -p "$PROFILE/airootfs/etc/systemd/system"
