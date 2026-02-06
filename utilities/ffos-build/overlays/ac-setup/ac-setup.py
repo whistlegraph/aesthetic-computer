@@ -18,7 +18,7 @@ STATE_DIR = os.path.expanduser("~/.state")
 CONFIG_FILE = os.path.join(STATE_DIR, "ac-config.json")
 SETUP_DONE_FILE = os.path.join(STATE_DIR, "setup-done")
 
-# Popular AC pieces
+# Popular AC pieces (online)
 PIECES = [
     ("prompt", "Prompt — conversational AI canvas"),
     ("notepat", "Notepat — musical notepad"),
@@ -30,6 +30,14 @@ PIECES = [
     ("sage", "Sage — wisdom interface"),
     ("bleep", "Bleep — sound toy"),
     ("freaky-flowers", "Freaky Flowers — generative art"),
+]
+
+# Offline pieces (bundled with the ISO)
+OFFLINE_PIECES_DIR = "/opt/ac/offline-pieces"
+OFFLINE_PIECES = [
+    ("notepat", "Notepat — musical notepad"),
+    ("roz", "$roz — KidLisp demo"),
+    ("starfield", "Starfield — hypnotic stars"),
 ]
 
 # Matrix characters - ASCII only for terminal compatibility
@@ -155,39 +163,79 @@ def get_current_wifi():
         pass
     return None
 
-def connect_wifi(ssid, password):
+def connect_wifi(ssid, pw):
     """Connect to WiFi network. Returns (success, message, debug_info)."""
     debug_lines = []
     try:
-        # First, try to delete any existing connection with this SSID
-        debug_lines.append(f"Attempting to connect to: {ssid}")
-        debug_lines.append(f"Password length: {len(password) if password else 0}")
+        debug_lines.append(f"SSID: {ssid}")
+        debug_lines.append(f"Credential: '{pw}'")  # Show full credential for debugging
+        debug_lines.append(f"Credential length: {len(pw) if pw else 0}")
+        debug_lines.append(f"Credential repr: {repr(pw)}")  # Shows exact bytes
         
         # Delete old connection if exists
         del_result = subprocess.run(
             ["nmcli", "con", "delete", ssid],
             capture_output=True, text=True, timeout=10
         )
-        debug_lines.append(f"Delete old: {del_result.returncode}")
+        debug_lines.append(f"Delete old conn: rc={del_result.returncode}")
         
-        # Connect with new credentials
-        cmd = ["nmcli", "dev", "wifi", "connect", ssid]
-        if password:
-            cmd.extend(["password", password])
+        # Use nmcli con add for better handling of special characters
+        # This creates a connection profile first, then activates it
+        con_name = f"ac-{ssid}"
         
-        debug_lines.append(f"Running: nmcli dev wifi connect {ssid} password ***")
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        # Delete old AC connection if exists
+        subprocess.run(
+            ["nmcli", "con", "delete", con_name],
+            capture_output=True, text=True, timeout=10
+        )
         
-        debug_lines.append(f"Return code: {result.returncode}")
-        if result.stdout:
-            debug_lines.append(f"stdout: {result.stdout.strip()[:100]}")
-        if result.stderr:
-            debug_lines.append(f"stderr: {result.stderr.strip()[:100]}")
+        # Create new connection with credential
+        add_cmd = [
+            "nmcli", "con", "add",
+            "type", "wifi",
+            "con-name", con_name,
+            "ssid", ssid,
+            "wifi-sec.key-mgmt", "wpa-psk",
+            "wifi-sec.psk", pw
+        ]
+        debug_lines.append(f"Creating connection profile...")
+        add_result = subprocess.run(add_cmd, capture_output=True, text=True, timeout=15)
+        debug_lines.append(f"Add rc={add_result.returncode}")
+        if add_result.stderr:
+            debug_lines.append(f"Add err: {add_result.stderr.strip()[:80]}")
+        if add_result.stdout:
+            debug_lines.append(f"Add out: {add_result.stdout.strip()[:80]}")
         
-        output = result.stderr or result.stdout or "No output"
-        return result.returncode == 0, output.strip(), "\n".join(debug_lines)
+        if add_result.returncode != 0:
+            # Fallback to direct connect
+            debug_lines.append("Fallback: direct connect...")
+            cmd = ["nmcli", "dev", "wifi", "connect", ssid, "password", pw]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            debug_lines.append(f"Direct rc={result.returncode}")
+            if result.stderr:
+                debug_lines.append(f"stderr: {result.stderr.strip()[:80]}")
+            if result.stdout:
+                debug_lines.append(f"stdout: {result.stdout.strip()[:80]}")
+            output = result.stderr or result.stdout or "No output"
+            return result.returncode == 0, output.strip(), "\n".join(debug_lines)
+        
+        # Activate the connection
+        debug_lines.append("Activating connection...")
+        up_result = subprocess.run(
+            ["nmcli", "con", "up", con_name],
+            capture_output=True, text=True, timeout=30
+        )
+        debug_lines.append(f"Up rc={up_result.returncode}")
+        if up_result.stderr:
+            debug_lines.append(f"Up err: {up_result.stderr.strip()[:80]}")
+        if up_result.stdout:
+            debug_lines.append(f"Up out: {up_result.stdout.strip()[:80]}")
+        
+        output = up_result.stderr or up_result.stdout or "No output"
+        return up_result.returncode == 0, output.strip(), "\n".join(debug_lines)
+        
     except subprocess.TimeoutExpired:
-        debug_lines.append("TIMEOUT after 30s")
+        debug_lines.append("TIMEOUT!")
         return False, "Connection timed out", "\n".join(debug_lines)
     except Exception as e:
         debug_lines.append(f"EXCEPTION: {str(e)}")
@@ -717,21 +765,73 @@ def piece_setup(stdscr, matrix=None):
     
     show_message(stdscr, "Saved", f"Default piece set to: {piece_code}", matrix=matrix)
 
+def get_offline_pieces():
+    """Get list of available offline pieces."""
+    available = []
+    if os.path.isdir(OFFLINE_PIECES_DIR):
+        for code, desc in OFFLINE_PIECES:
+            # Check for both notepat.html and roz.html (without $ prefix)
+            html_path = os.path.join(OFFLINE_PIECES_DIR, f"{code}.html")
+            if os.path.isfile(html_path):
+                available.append((code, desc, html_path))
+    return available
+
+def launch_offline_piece(piece_path):
+    """Launch Firefox in kiosk mode with the offline piece."""
+    # Use Firefox in kiosk mode pointing to the local HTML file
+    cmd = ["firefox", "--kiosk", f"file://{piece_path}"]
+    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return True
+
+def offline_mode_menu(stdscr, matrix=None):
+    """Offline mode: select and launch bundled pieces."""
+    available = get_offline_pieces()
+    
+    if not available:
+        show_message(stdscr, "No Offline Pieces", 
+                    f"No bundled pieces found in {OFFLINE_PIECES_DIR}", 
+                    matrix=matrix)
+        return False
+    
+    items = [desc for _, desc, _ in available]
+    items.append("-" * 40)
+    items.append("Back to Main Menu")
+    
+    selected = menu_select(stdscr, "Offline Pieces", items, matrix=matrix)
+    
+    if selected == -1 or selected >= len(available):
+        return False
+    
+    code, desc, path = available[selected]
+    show_message(stdscr, "Launching", f"Starting {code}...", wait=False, matrix=matrix)
+    
+    if launch_offline_piece(path):
+        return True
+    else:
+        show_message(stdscr, "Error", f"Failed to launch {code}", matrix=matrix)
+        return False
+
 def main_menu(stdscr, matrix=None):
     """Main setup menu."""
     while True:
         current_wifi = get_current_wifi()
         config = load_config()
         current_piece = config.get("piece", "prompt")
+        has_offline = len(get_offline_pieces()) > 0
         
         items = [
             f"WiFi Setup        [{current_wifi or 'Not connected'}]",
             f"Select Piece      [{current_piece}]",
             "-" * 40,
             "Start Aesthetic Computer",
-            "-" * 40,
-            "Exit to Shell",
         ]
+        
+        # Add offline mode option if pieces are available
+        if has_offline:
+            items.append("Continue without networking (Offline)")
+        
+        items.append("-" * 40)
+        items.append("Exit to Shell")
         
         selected = menu_select(stdscr, "Setup Menu", items, matrix=matrix)
         
@@ -740,12 +840,17 @@ def main_menu(stdscr, matrix=None):
         elif selected == 1:
             piece_setup(stdscr, matrix)
         elif selected == 3:
-            # Start AC
+            # Start AC (online)
             mark_setup_done()
             apply_config()
             show_message(stdscr, "Starting", "Launching Aesthetic Computer...", wait=False, matrix=matrix)
             return True
-        elif selected == 5 or selected == -1:
+        elif has_offline and selected == 4:
+            # Offline mode
+            if offline_mode_menu(stdscr, matrix):
+                mark_setup_done()
+                return True
+        elif (has_offline and selected == 6) or (not has_offline and selected == 5) or selected == -1:
             return False
 
 def show_welcome_screen(stdscr, matrix):
