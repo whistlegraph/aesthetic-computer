@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Aesthetic Computer Device Config Server
-A simple HTTP server for configuring WiFi and default piece.
-Runs on port 8888.
+A simple HTTP/HTTPS server for configuring WiFi and default piece.
+Runs on port 8888 (HTTP) or 8889 (HTTPS).
 """
 
 import http.server
@@ -12,10 +12,16 @@ import subprocess
 import urllib.parse
 import socket
 import html
+import ssl
+import sys
 
 PORT = 8888
+SSL_PORT = 8889
 STATE_DIR = os.path.expanduser("~/.state")
 CONFIG_FILE = os.path.join(STATE_DIR, "ac-config.json")
+CERT_DIR = "/opt/ac-ssl"
+CERT_FILE = os.path.join(CERT_DIR, "localhost.pem")
+KEY_FILE = os.path.join(CERT_DIR, "localhost-key.pem")
 
 def get_ip():
     """Get the device's IP address."""
@@ -361,8 +367,28 @@ class ConfigHandler(http.server.BaseHTTPRequestHandler):
 def main():
     os.makedirs(STATE_DIR, exist_ok=True)
     
-    server = http.server.HTTPServer(("0.0.0.0", PORT), ConfigHandler)
-    print(f"AC Config Server running on http://{get_ip()}:{PORT}")
+    use_ssl = "--ssl" in sys.argv or "-s" in sys.argv
+    port = SSL_PORT if use_ssl else PORT
+    
+    server = http.server.HTTPServer(("0.0.0.0", port), ConfigHandler)
+    
+    if use_ssl:
+        # Check if certs exist
+        if not os.path.exists(CERT_FILE) or not os.path.exists(KEY_FILE):
+            print(f"SSL certificates not found at {CERT_DIR}")
+            print("Falling back to HTTP...")
+            use_ssl = False
+            port = PORT
+            server = http.server.HTTPServer(("0.0.0.0", port), ConfigHandler)
+        else:
+            # Wrap with SSL
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(CERT_FILE, KEY_FILE)
+            server.socket = context.wrap_socket(server.socket, server_side=True)
+            print(f"AC Config Server (HTTPS) running on https://{get_ip()}:{port}")
+    
+    if not use_ssl:
+        print(f"AC Config Server (HTTP) running on http://{get_ip()}:{port}")
     
     try:
         server.serve_forever()
