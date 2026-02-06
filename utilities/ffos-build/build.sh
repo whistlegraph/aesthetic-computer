@@ -237,6 +237,22 @@ SYSLINUX
     fi
     echo "dev" > "$PROFILE/airootfs/opt/ac/version"
     
+    # Install AC Config Server (WiFi + piece configuration)
+    echo "=== Installing AC Config Server ==="
+    mkdir -p "$PROFILE/airootfs/opt/ac/config-server"
+    if [ -d /work/overlays/ac-config-server ]; then
+      cp /work/overlays/ac-config-server/ac-config-server.py "$PROFILE/airootfs/opt/ac/config-server/"
+      chmod +x "$PROFILE/airootfs/opt/ac/config-server/ac-config-server.py"
+      # Install user service
+      mkdir -p "$PROFILE/airootfs/home/feralfile/.config/systemd/user"
+      cp /work/overlays/ac-config-server/ac-config-server.service "$PROFILE/airootfs/home/feralfile/.config/systemd/user/"
+      # Enable it
+      mkdir -p "$PROFILE/airootfs/home/feralfile/.config/systemd/user/default.target.wants"
+      ln -sf "/home/feralfile/.config/systemd/user/ac-config-server.service" \
+         "$PROFILE/airootfs/home/feralfile/.config/systemd/user/default.target.wants/ac-config-server.service"
+      echo "Installed and enabled AC Config Server"
+    fi
+    
     echo "=== Installing systemd service files ==="
     # Install system-level services
     mkdir -p "$PROFILE/airootfs/etc/systemd/system"

@@ -123,10 +123,11 @@
       const qrSize = Math.floor(minEdge * 0.4);
       document.getElementById('qrcode').innerHTML = '';
 
-      // QR encodes a URL that can be used to configure/cast to this device
+      // QR encodes the local config server URL (port 8888)
+      // User scans this from their phone to configure WiFi + piece
       const qrData = ip
-        ? `https://aesthetic.computer/connect?ip=${ip}&host=${hostname}`
-        : `https://aesthetic.computer/connect?host=${hostname}`;
+        ? `http://${ip}:8888`
+        : `http://${hostname}.local:8888`;
 
       new QRCode(document.getElementById('qrcode'), {
         text: qrData,

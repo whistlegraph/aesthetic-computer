@@ -204,6 +204,20 @@ jobs:
           fi
           echo "dev" > "$PROFILE/airootfs/opt/ac/version"
 
+          # Install AC Config Server (WiFi + piece configuration)
+          echo "=== Installing AC Config Server ==="
+          mkdir -p "$PROFILE/airootfs/opt/ac/config-server"
+          if [ -d "$OVERLAYS/ac-config-server" ]; then
+            cp "$OVERLAYS/ac-config-server/ac-config-server.py" "$PROFILE/airootfs/opt/ac/config-server/"
+            chmod +x "$PROFILE/airootfs/opt/ac/config-server/ac-config-server.py"
+            mkdir -p "$PROFILE/airootfs/home/feralfile/.config/systemd/user"
+            cp "$OVERLAYS/ac-config-server/ac-config-server.service" "$PROFILE/airootfs/home/feralfile/.config/systemd/user/"
+            mkdir -p "$PROFILE/airootfs/home/feralfile/.config/systemd/user/default.target.wants"
+            ln -sf "/home/feralfile/.config/systemd/user/ac-config-server.service" \
+               "$PROFILE/airootfs/home/feralfile/.config/systemd/user/default.target.wants/ac-config-server.service"
+            echo "Installed and enabled AC Config Server"
+          fi
+
       - name: Install systemd services and hardening
         run: |
           PROFILE=/work/archiso-profile
