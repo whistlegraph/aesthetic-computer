@@ -561,12 +561,6 @@ async function handleFormSubmit(form, endpoint) {
   });
   const data = await res.json().catch(() => null);
   
-  // Handle troll toll (402 Payment Required)
-  if (res.status === 402 && data?.tollRequired) {
-    handleTrollToll(data, form);
-    return;
-  }
-  
   // Handle rate limit (429 Too Many Requests)
   if (res.status === 429) {
     showFormMessage(form, data?.error || "Rate limit exceeded. Please wait before posting again.");
@@ -587,53 +581,6 @@ async function handleFormSubmit(form, endpoint) {
   }
 }
 
-// Handle troll toll - redirect to Stripe checkout
-async function handleTrollToll(data, form) {
-  const { code, message } = data;
-  
-  // Show troll toll message
-  showFormMessage(form, message, false);
-  
-  // Create toll payment button
-  let tollBtn = form.querySelector('.news-toll-btn');
-  if (!tollBtn) {
-    tollBtn = document.createElement('button');
-    tollBtn.type = 'button';
-    tollBtn.className = 'news-toll-btn';
-    tollBtn.textContent = '🧌 Pay Troll Toll ($2)';
-    form.appendChild(tollBtn);
-  }
-  tollBtn.style.display = 'block';
-  
-  tollBtn.onclick = async () => {
-    tollBtn.disabled = true;
-    tollBtn.textContent = 'Redirecting to checkout...';
-    
-    try {
-      const res = await fetch('/api/news/toll', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${acToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ postCode: code }),
-      });
-      const result = await res.json();
-      if (result.url) {
-        window.location.href = result.url;
-      } else {
-        showFormMessage(form, result.error || 'Failed to create checkout');
-        tollBtn.disabled = false;
-        tollBtn.textContent = '🧌 Pay Troll Toll ($2)';
-      }
-    } catch (err) {
-      showFormMessage(form, 'Failed to start checkout');
-      tollBtn.disabled = false;
-      tollBtn.textContent = '🧌 Pay Troll Toll ($2)';
-    }
-  };
-}
-
 function initForms() {
   document.querySelectorAll("form[data-news-action]").forEach((form) => {
     const action = form.getAttribute("data-news-action");
@@ -644,7 +591,8 @@ function initForms() {
       } else if (action === "comment") {
         handleCommentSubmit(form);
       } else if (action === "vote") {
-        handleFormSubmit(form, "/api/news/vote");
+        // Voting disabled
+        e.preventDefault();
       } else if (action === "delete") {
         handleDeleteSubmit(form);
       }
@@ -1327,6 +1275,82 @@ function initSubmitFormConstraints() {
   // Expose clearDraft for use after successful submit
   form.clearDraft = clearDraft;
   
+  // ===== Auto-fetch title from URL =====
+  const autoTitleStatus = document.getElementById('news-auto-title-status');
+  let unfurlController = null;
+  let lastUnfurledUrl = '';
+  let headlineManuallyEdited = false;
+  
+  // Track if user has manually typed in the headline
+  headlineInput.addEventListener('input', () => {
+    // If the headline differs from the last auto-filled value, mark as manually edited
+    if (headlineInput.dataset.autoTitle && headlineInput.value !== headlineInput.dataset.autoTitle) {
+      headlineManuallyEdited = true;
+    }
+  });
+  
+  async function unfurlUrl(url) {
+    if (!url || url === lastUnfurledUrl) return;
+    // Only unfurl valid-looking URLs
+    try { new URL(url); } catch { return; }
+    
+    lastUnfurledUrl = url;
+    
+    // Cancel any in-flight request
+    if (unfurlController) unfurlController.abort();
+    unfurlController = new AbortController();
+    
+    if (autoTitleStatus) {
+      autoTitleStatus.textContent = 'Fetching title…';
+      autoTitleStatus.className = 'news-auto-title-status loading';
+    }
+    
+    try {
+      const res = await fetch(`/api/news/unfurl?url=${encodeURIComponent(url)}`, {
+        signal: unfurlController.signal,
+      });
+      const data = await res.json();
+      if (data.title && !headlineManuallyEdited) {
+        headlineInput.value = data.title;
+        headlineInput.dataset.autoTitle = data.title;
+        headlineInput.dispatchEvent(new Event('input', { bubbles: true }));
+        if (autoTitleStatus) {
+          autoTitleStatus.textContent = '';
+          autoTitleStatus.className = 'news-auto-title-status';
+        }
+      } else if (!data.title) {
+        if (autoTitleStatus) {
+          autoTitleStatus.textContent = '';
+          autoTitleStatus.className = 'news-auto-title-status';
+        }
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        if (autoTitleStatus) {
+          autoTitleStatus.textContent = '';
+          autoTitleStatus.className = 'news-auto-title-status';
+        }
+      }
+    }
+  }
+  
+  let unfurlTimeout;
+  urlInput.addEventListener('input', () => {
+    clearTimeout(unfurlTimeout);
+    const url = urlInput.value.trim();
+    if (url && url.startsWith('http')) {
+      unfurlTimeout = setTimeout(() => unfurlUrl(url), 600);
+    }
+  });
+  
+  // Also unfurl on paste (immediately, no debounce)
+  urlInput.addEventListener('paste', () => {
+    setTimeout(() => {
+      const url = urlInput.value.trim();
+      if (url && url.startsWith('http')) unfurlUrl(url);
+    }, 50);
+  });
+  
   // Add error message elements
   function getOrCreateError(input, id) {
     let err = document.getElementById(id);
@@ -1376,7 +1400,7 @@ function initSubmitFormConstraints() {
     submitBtn.disabled = !isValid;
     
     if (eitherOr) {
-      eitherOr.classList.toggle('has-content', hasUrl || hasText);
+      eitherOr.classList.toggle('has-content', hasText);
     }
   }
   

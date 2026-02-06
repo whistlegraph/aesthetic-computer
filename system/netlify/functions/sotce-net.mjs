@@ -270,6 +270,7 @@ export const handler = async (event, context) => {
       path === "/gate" ||
       path === "/write" ||
       path === "/ask" ||
+      path === "/respond" ||
       path.match(/^\/page\/\d+$/) ||
       path.match(/^\/q\/\d+$/)) &&
     method === "get"
@@ -533,10 +534,19 @@ export const handler = async (event, context) => {
             html.editing #garden #top-bar {
               z-index: 4;
               opacity: 0.5;
+              pointer-events: none;
             }
 
             html.editing #garden-canvas {
               display: none;
+            }
+
+            /* Disable grab cursor in editing mode */
+            html.editing #garden {
+              cursor: default;
+            }
+            html.editing #garden:active {
+              cursor: default;
             }
 
             html.editing body {
@@ -859,7 +869,8 @@ export const handler = async (event, context) => {
             #pages-button,
             /*#chat-enter,*/
             #chat-button,
-            #ask-button {
+            #ask-button,
+            #respond-button {
               color: var(--button-text);
               background: var(--button-background);
               padding: 0.35em;
@@ -881,9 +892,17 @@ export const handler = async (event, context) => {
               -webkit-tap-highlight-color: transparent;
             }
             #chat-button,
-            #ask-button {
+            #ask-button,
+            #respond-button {
               /* display: none; */
               margin-left: 1em;
+            }
+            @keyframes chat-unread-pulse {
+              0%, 100% { border-color: var(--pink-border); }
+              50% { border-color: var(--chat-handle); }
+            }
+            #chat-button.has-unread {
+              animation: chat-unread-pulse 1.5s ease-in-out infinite;
             }
             /* Ask Editor - reuses #editor styles with ask-specific additions */
             #ask-editor {
@@ -950,10 +969,11 @@ export const handler = async (event, context) => {
               touch-action: none;
               margin-top: 15%;
               height: calc(var(--line-height) * 5);
+              background: rgb(235, 245, 255);
             }
             #ask-editor-page #ask-words-wrapper::before {
               content: "";
-              background: rgb(235, 245, 255);
+              background: rgb(200, 220, 255);
               width: 2em;
               height: 100%;
               display: block;
@@ -964,7 +984,7 @@ export const handler = async (event, context) => {
             }
             #ask-editor-page #ask-words-wrapper::after {
               content: "";
-              background: rgb(235, 245, 255);
+              background: rgb(200, 220, 255);
               width: 2em;
               height: 100%;
               display: block;
@@ -973,13 +993,51 @@ export const handler = async (event, context) => {
               right: 0;
               z-index: 101;
             }
+            #ask-editor-page #ask-highlights {
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              padding: 0 2em;
+              box-sizing: border-box;
+              font-family: var(--page-font), serif;
+              font-size: 100%;
+              line-height: var(--line-height);
+              text-align: justify;
+              hyphens: auto;
+              -webkit-hyphens: auto;
+              overflow-wrap: break-word;
+              white-space: pre-wrap;
+              pointer-events: none;
+              color: black;
+              z-index: 99;
+            }
+            #ask-editor-page #ask-highlights .handle-hl {
+              color: var(--chat-handle);
+            }
+            #ask-answer-space {
+              position: relative;
+              margin-top: 0.5em;
+              border-top: 1px dashed rgba(0, 0, 0, 0.15);
+              padding: 0 2em;
+              box-sizing: border-box;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: rgba(0, 0, 0, 0.2);
+              font-style: italic;
+              font-size: 85%;
+              transition: height 0.2s ease;
+              overflow: hidden;
+            }
             #ask-editor-page textarea {
               border: none;
               font-family: var(--page-font), serif;
               font-size: 100%;
               resize: none;
               display: block;
-              background: rgb(235, 245, 255);
+              background: transparent;
+              color: transparent;
               padding: 0 2em;
               text-indent: 0em;
               text-align: justify;
@@ -988,6 +1046,7 @@ export const handler = async (event, context) => {
               width: 100%;
               overflow: hidden;
               position: relative;
+              z-index: 100;
               hyphens: auto;
               -webkit-hyphens: auto;
               overflow-wrap: break-word;
@@ -1022,7 +1081,7 @@ export const handler = async (event, context) => {
               padding-right: 1em;
               box-sizing: border-box;
               display: flex;
-              z-index: 5;
+              z-index: 7;
               background: linear-gradient(
                 to top,
                 rgb(207 255 195 / 50%) 25%,
@@ -1072,6 +1131,7 @@ export const handler = async (event, context) => {
               margin-top: 1em;
               /* transition: 0.25s filter; */
             }
+            #respond-button.deactivated,
             #write-a-page.deactivated {
               pointer-events: none;
               /* filter: saturate(0.5); */
@@ -1117,7 +1177,8 @@ export const handler = async (event, context) => {
             /*#chat-enter:hover,*/
             #pages-button:hover,
             #chat-button:hover,
-            #ask-button:hover {
+            #ask-button:hover,
+            #respond-button:hover {
               background: var(--button-background-highlight);
             }
             nav button:active,
@@ -1125,7 +1186,8 @@ export const handler = async (event, context) => {
             /*#chat-enter:active,*/
             #pages-button:active,
             #chat-button:active,
-            #ask-button:active {
+            #ask-button:active,
+            #respond-button:active {
               filter: none; /* drop-shadow(
                         -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
                       ); */
@@ -1255,11 +1317,21 @@ export const handler = async (event, context) => {
 
             /* 📝 Respond Editor Page Styles (Admin) */
             #respond-editor {
-              position: fixed;
-              top: 50%;
-              left: 50%;
-              transform: translate(-50%, -50%);
-              z-index: 6;
+              position: relative;
+              width: 100%;
+              min-height: 100.1%;
+              top: 0;
+              left: 0;
+              border: none;
+              z-index: 4;
+              padding: 0;
+              display: flex;
+            }
+            #respond-editor-form {
+              padding-top: 100px;
+              padding-bottom: 72px;
+              padding-left: 16px;
+              padding-right: 16px;
               box-sizing: border-box;
               margin: 0 auto auto auto;
             }
@@ -1338,6 +1410,15 @@ export const handler = async (event, context) => {
             #respond-editor-page .respond-textarea:focus {
               outline: none;
             }
+            #respond-editor-page .page-number {
+              position: absolute;
+              bottom: 5%;
+              left: 50%;
+              transform: translateX(-50%);
+              text-align: center;
+              color: black;
+              font-style: italic;
+            }
             #respond-lines-left {
               position: fixed;
               top: 0;
@@ -1354,6 +1435,17 @@ export const handler = async (event, context) => {
               );
             }
             #nav-respond-editor {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              padding-top: 1em;
+              justify-content: space-between;
+              width: 100%;
+              padding-left: 1em;
+              padding-right: 1em;
+              box-sizing: border-box;
+              display: flex;
+              z-index: 7;
               background: linear-gradient(
                 to top,
                 rgb(255 245 235 / 50%) 25%,
@@ -1502,7 +1594,7 @@ export const handler = async (event, context) => {
               padding-right: 1em;
               box-sizing: border-box;
               display: flex;
-              z-index: 5;
+              z-index: 7;
             }
 
             .page *::selection,
@@ -3134,7 +3226,8 @@ export const handler = async (event, context) => {
             require.config({ 
               paths: { 
                 vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs'
-              }
+              },
+              ignoreDuplicateModules: ['vs/editor/editor.main']
             });
             
             require(['vs/editor/editor.main'], function() {
@@ -3364,6 +3457,8 @@ export const handler = async (event, context) => {
               chatInterface.classList.add("hidden");
               chatInterface.classList.add("inaccessible");
               updatePath("/");
+              // Mark chat as read on close too
+              localStorage.setItem("sotce-chat-last-seen", new Date().toISOString());
             });
 
             // 🤖 Respond to every chat message...
@@ -3389,6 +3484,18 @@ export const handler = async (event, context) => {
                 });
 
                 if (chat.system.messages.length === 0) chatAddEmpty();
+
+                // Check for unread messages
+                const lastSeen = localStorage.getItem("sotce-chat-last-seen");
+                if (lastSeen && chat.system.messages.length > 0) {
+                  const lastMsg = chat.system.messages[chat.system.messages.length - 1];
+                  if (lastMsg.when && new Date(lastMsg.when) > new Date(lastSeen)) {
+                    chatButtonRef?.classList.add("has-unread");
+                  }
+                } else if (!lastSeen && chat.system.messages.length > 0) {
+                  // First visit ever — mark as unread so they discover chat
+                  chatButtonRef?.classList.add("has-unread");
+                }
 
                 const gateCurtain = document.querySelector("#gate-curtain");
                 const garden = document.querySelector("#garden");
@@ -3424,6 +3531,10 @@ export const handler = async (event, context) => {
                 }
                 chatAddMessage(msg.text, msg.from, msg.when, msg.count);
                 chatScrollToBottom({ always: false });
+                // If chat is hidden, mark unread
+                if (chatInterface.classList.contains("hidden")) {
+                  chatButtonRef?.classList.add("has-unread");
+                }
                 // sound.play(messageSfx);
                 return;
               }
@@ -4364,17 +4475,26 @@ export const handler = async (event, context) => {
                 if (window.sotceHandle) {
                   chatHandle.innerText = window.sotceHandle;
                 }
+                // Mark chat as read
+                chatButton.classList.remove("has-unread");
+                localStorage.setItem("sotce-chat-last-seen", new Date().toISOString());
               };
 
               topBar.appendChild(chatButton);
               // }
 
-              // ❓ Ask - Submit a question (editor-style like /write)
-              // Only show ask/respond button in dev mode for now
-              const askButton = dev ? cel("button") : null;
+              // ❓ Ask + Respond buttons
+              const askButton = (dev || subscription?.admin) ? cel("button") : null;
               if (askButton) {
                 askButton.id = "ask-button";
-                askButton.innerText = subscription?.admin ? "respond" : "ask";
+                askButton.innerText = "ask";
+              }
+
+              const respondButton = subscription?.admin ? cel("button") : null;
+              if (respondButton) {
+                respondButton.id = "respond-button";
+                respondButton.innerText = "respond";
+                respondButton.style.marginLeft = "1em";
               }
 
               async function openAskEditor() {
@@ -4417,15 +4537,29 @@ export const handler = async (event, context) => {
                 const wordsWrapper = cel("div");
                 wordsWrapper.id = "ask-words-wrapper";
 
+                // Highlights overlay for @handle coloring
+                const highlights = cel("div");
+                highlights.id = "ask-highlights";
+
                 const words = cel("textarea");
-                words.placeholder = "Your question...";
+                words.value = "Dear @amelia, ";
+                words.placeholder = "Dear @amelia,";
+
+                function updateHighlights() {
+                  highlights.innerHTML = words.value
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/@[a-zA-Z0-9_-]+/g, '<span class="handle-hl">$&</span>');
+                  if (highlights.innerHTML.endsWith("\\n")) highlights.innerHTML += " ";
+                }
+                updateHighlights();
 
                 const linesLeft = cel("div");
                 linesLeft.id = "ask-chars-left";
                 const maxAskLines = 5;
                 linesLeft.innerText = maxAskLines + " lines left";
 
-                let lastValidValue = "";
+                let lastValidValue = words.value;
                 words.addEventListener("input", () => {
                   // Line-based limit like diary pages
                   const wordsStyle = window.getComputedStyle(words);
@@ -4474,12 +4608,38 @@ export const handler = async (event, context) => {
                   } else {
                     linesLeft.classList.add("lines-left-loads");
                   }
+
+                  // Update handle highlighting
+                  updateHighlights();
+
+                  // Update answer space height based on remaining lines
+                  if (typeof updateAnswerSpace === "function") updateAnswerSpace(remaining);
                 });
 
+                wordsWrapper.appendChild(highlights);
                 wordsWrapper.appendChild(words);
                 askPage.appendChild(askDate);
                 askPage.appendChild(askTitle);
                 askPage.appendChild(wordsWrapper);
+
+                // Answer space indicator
+                const answerSpace = cel("div");
+                answerSpace.id = "ask-answer-space";
+                answerSpace.innerText = "Space for answer...";
+                // Total answer lines = maxAskLines worth of visual space
+                function updateAnswerSpace(questionLinesRemaining) {
+                  const answerLines = questionLinesRemaining;
+                  answerSpace.style.height = "calc(var(--line-height) * " + Math.max(answerLines, 0) + ")";
+                  if (answerLines <= 0) {
+                    answerSpace.innerText = "";
+                  } else if (answerLines <= 1) {
+                    answerSpace.innerText = "Little space for answer";
+                  } else {
+                    answerSpace.innerText = "Space for answer...";
+                  }
+                }
+                updateAnswerSpace(maxAskLines);
+                askPage.appendChild(answerSpace);
 
                 // My asks list (shown by swapping page content)
                 let asksData = asksRes.status === 200 ? asksRes.asks : [];
@@ -4540,7 +4700,10 @@ export const handler = async (event, context) => {
                       const whenDate = new Date(ask.when).toLocaleDateString("en-US", {
                         month: "short", day: "numeric", year: "numeric"
                       });
-                      status.innerText = (ask.state === "pending" ? "Pending" : "Answered") + " - " + whenDate;
+                      let statusText = "Pending";
+                      if (ask.state === "answered") statusText = "Answered";
+                      else if (ask.draftStartedAt) statusText = "Draft started";
+                      status.innerText = statusText + " - " + whenDate;
 
                       statusRow.appendChild(status);
 
@@ -4621,6 +4784,7 @@ export const handler = async (event, context) => {
                   nav.remove();
                   linesLeft.remove();
                   askButton?.classList.remove("deactivated");
+                  respondButton?.classList.remove("deactivated");
                   wrapper.scrollTop = scrollMemory;
                   computePageLayout?.();
                   updatePath("/");
@@ -4682,8 +4846,11 @@ export const handler = async (event, context) => {
                 askPage.style.transform = "scale(" + scale + ")";
 
                 askButton?.classList.add("deactivated");
+                respondButton?.classList.add("deactivated");
                 updatePath("/ask");
                 words.focus();
+                words.selectionStart = words.selectionEnd = words.value.length;
+                words.dispatchEvent(new Event("input"));
               }
 
               // 📝 Respond Editor - Admin only, page-style editor for responding to questions
@@ -4783,6 +4950,10 @@ export const handler = async (event, context) => {
                   responseWords = cel("textarea");
                   responseWords.classList.add("respond-textarea");
                   responseWords.placeholder = "Your response...";
+                  // Pre-populate with saved draft if any
+                  if (question.draftAnswer) {
+                    responseWords.value = question.draftAnswer;
+                  }
 
                   responseWords.addEventListener("input", () => {
                     const wordsStyle = window.getComputedStyle(responseWords);
@@ -4864,9 +5035,8 @@ export const handler = async (event, context) => {
                 nav.id = "nav-respond-editor";
                 nav.style.width = topBar.style.width;
 
-                const rejectBtn = cel("button");
-                rejectBtn.innerText = "reject";
-                rejectBtn.classList.add("negative");
+                const nevermindBtn = cel("button");
+                nevermindBtn.innerText = "nevermind";
 
                 const prevBtn = cel("button");
                 prevBtn.innerText = "← prev";
@@ -4884,62 +5054,52 @@ export const handler = async (event, context) => {
                   prevBtn.disabled = currentPendingIndex === 0;
                   nextBtn.disabled = !pendingData || currentPendingIndex >= pendingData.length - 1;
                   if (!pendingData || pendingData.length === 0) {
-                    rejectBtn.disabled = true;
                     submitBtn.disabled = true;
                   } else {
-                    rejectBtn.disabled = false;
                     submitBtn.disabled = false;
                   }
                 }
 
                 updateNavButtons();
 
-                prevBtn.onclick = (e) => {
+                // Auto-save current draft to server
+                async function saveDraft() {
+                  if (!pendingData || pendingData.length === 0) return;
+                  const question = pendingData[currentPendingIndex];
+                  const draft = responseWords?.value?.trim() || "";
+                  if (draft || question.draftAnswer) {
+                    await userRequest("POST", "/sotce-net/ask/" + question._id + "/save-draft", { draft });
+                    question.draftAnswer = draft; // Update local cache
+                  }
+                }
+
+                prevBtn.onclick = async (e) => {
                   e.preventDefault();
                   if (currentPendingIndex > 0) {
-                    if (responseWords?.value?.length > 0 && !confirm("Discard your response and go to previous?")) return;
+                    await saveDraft();
                     currentPendingIndex--;
                     renderRespondPage();
                     updateNavButtons();
                   }
                 };
 
-                nextBtn.onclick = (e) => {
+                nextBtn.onclick = async (e) => {
                   e.preventDefault();
                   if (currentPendingIndex < pendingData.length - 1) {
-                    if (responseWords?.value?.length > 0 && !confirm("Discard your response and go to next?")) return;
+                    await saveDraft();
                     currentPendingIndex++;
                     renderRespondPage();
                     updateNavButtons();
                   }
                 };
 
-                rejectBtn.onclick = async (e) => {
+                nevermindBtn.onclick = async (e) => {
                   e.preventDefault();
-                  if (!pendingData || pendingData.length === 0) return;
-                  if (!confirm("Reject this question?")) return;
-
-                  const question = pendingData[currentPendingIndex];
-                  veil();
-                  const res = await userRequest("POST", "/sotce-net/ask/" + question._id + "/reject");
-                  unveil({ instant: true });
-
-                  if (res.status === 200) {
-                    pendingData.splice(currentPendingIndex, 1);
-                    if (currentPendingIndex >= pendingData.length && pendingData.length > 0) {
-                      currentPendingIndex = pendingData.length - 1;
-                    }
-                    renderRespondPage();
-                    updateNavButtons();
-                    if (pendingData.length === 0) {
-                      closeRespondEditor();
-                    }
-                  } else {
-                    alert("Error: " + (res.message || "Could not reject question."));
-                  }
+                  await saveDraft();
+                  closeRespondEditor();
                 };
 
-                nav.appendChild(rejectBtn);
+                nav.appendChild(nevermindBtn);
                 nav.appendChild(prevBtn);
                 nav.appendChild(nextBtn);
                 nav.appendChild(submitBtn);
@@ -4952,6 +5112,7 @@ export const handler = async (event, context) => {
                   nav.remove();
                   linesLeft.remove();
                   askButton?.classList.remove("deactivated");
+                  respondButton?.classList.remove("deactivated");
                   wrapper.scrollTop = scrollMemory;
                   computePageLayout?.();
                   updatePath("/");
@@ -5007,20 +5168,20 @@ export const handler = async (event, context) => {
                 respondPage.style.transform = "scale(" + scale + ")";
 
                 askButton?.classList.add("deactivated");
+                respondButton?.classList.add("deactivated");
                 updatePath("/respond");
               }
 
-              // Set button handler based on admin status
+              // Set button handlers
               if (askButton) {
-                if (subscription?.admin) {
-                  askButton.onclick = openRespondEditor;
-                } else {
-                  askButton.onclick = openAskEditor;
-                }
+                askButton.onclick = openAskEditor;
+              }
+              if (respondButton) {
+                respondButton.onclick = openRespondEditor;
               }
 
-              // Auto-open /ask route for non-admins
-              if (!subscription?.admin && path === "/ask") {
+              // Auto-open /ask route
+              if (path === "/ask") {
                 const observer = new MutationObserver((mutationsList, observer) => {
                   for (const mutation of mutationsList) {
                     if (mutation.type === "childList" && Array.from(mutation.addedNodes).includes(g)) {
@@ -5056,6 +5217,7 @@ export const handler = async (event, context) => {
               }
 
               if (askButton) topBar.appendChild(askButton);
+              if (respondButton) topBar.appendChild(respondButton);
 
               // 🪷 write-a-page - Create compose form.
               if (subscription?.admin) {
@@ -5598,6 +5760,10 @@ export const handler = async (event, context) => {
                 // Hover state for debug boxes
                 let hoverEar = false;
                 let hoverPageNum = false;
+                let hoverHandle = null; // Which handle is hovered on the back
+                
+                // Hit boxes for @handles on card back
+                let handleHitBoxes = []; // [{handle, x, y, w, h}]
                 
                 // Card flip animation state (full 3D card flip)
                 let isFlipping = false;
@@ -5927,7 +6093,6 @@ export const handler = async (event, context) => {
                     ctx.fillStyle = themeColors.cardTextDim;
                     ctx.fillText("Loading...", x + padding, textY);
                   } else if (touchData?.touches && touchData.touches.length > 0) {
-                    ctx.fillStyle = themeColors.cardTextMuted;
                     const touches = touchData.touches;
                     let touchedBy = "";
                     if (touches.length === 1) {
@@ -5940,20 +6105,51 @@ export const handler = async (event, context) => {
                       touchedBy = others.join(", ") + ", and " + lastTouch + " touched this page.";
                     }
                     
-                    // Word wrap touch text
-                    const words = touchedBy.split(" ");
+                    // Word wrap touch text, tracking @handle positions for hit testing
+                    handleHitBoxes = [];
+                    const allWords = touchedBy.split(" ");
                     let line = "";
-                    for (const word of words) {
-                      const testLine = line ? line + " " + word : word;
-                      if (ctx.measureText(testLine).width > textWidth && line) {
-                        ctx.fillText(line, x + padding, textY);
-                        textY += lineHeight;
-                        line = word;
-                      } else {
-                        line = testLine;
+                    let lineWords = [];
+                    
+                    function flushLine(lineStr, lineY, wordsInLine) {
+                      // Measure each word to find @handle positions
+                      let cursorX = x + padding;
+                      for (const lw of wordsInLine) {
+                        const wordWidth = ctx.measureText(lw).width;
+                        const spaceWidth = ctx.measureText(" ").width;
+                        if (lw.startsWith("@")) {
+                          // Draw handle in pink
+                          ctx.fillStyle = "rgb(200, 80, 120)";
+                          ctx.fillText(lw, cursorX, lineY);
+                          ctx.fillStyle = themeColors.cardTextMuted;
+                          handleHitBoxes.push({
+                            handle: lw,
+                            x: cursorX,
+                            y: lineY - fontSize,
+                            w: wordWidth,
+                            h: fontSize * 1.4
+                          });
+                        } else {
+                          ctx.fillText(lw, cursorX, lineY);
+                        }
+                        cursorX += wordWidth + spaceWidth;
                       }
                     }
-                    if (line) ctx.fillText(line, x + padding, textY);
+                    
+                    ctx.fillStyle = themeColors.cardTextMuted;
+                    for (const word of allWords) {
+                      const testLine = line ? line + " " + word : word;
+                      if (ctx.measureText(testLine).width > textWidth && line) {
+                        flushLine(line, textY, lineWords);
+                        textY += lineHeight;
+                        line = word;
+                        lineWords = [word];
+                      } else {
+                        line = testLine;
+                        lineWords.push(word);
+                      }
+                    }
+                    if (line) flushLine(line, textY, lineWords);
                   } else {
                     ctx.fillStyle = themeColors.cardTextFaint;
                     ctx.fillText("No one has touched this page yet.", x + padding, textY);
@@ -6272,6 +6468,19 @@ export const handler = async (event, context) => {
                       return;
                     }
                   }
+                  
+                  // Check handle hit boxes on back
+                  if (showingBack && handleHitBoxes.length > 0) {
+                    const absX = e.clientX - rect.left;
+                    const absY = e.clientY - rect.top;
+                    for (const hb of handleHitBoxes) {
+                      if (absX >= hb.x && absX <= hb.x + hb.w && absY >= hb.y && absY <= hb.y + hb.h) {
+                        console.log("🎨 Handle clicked:", hb.handle);
+                        openChatWithMessage(hb.handle + " ");
+                        return;
+                      }
+                    }
+                  }
                 });
                 
                 // Hover cursor changes for ear and page number
@@ -6328,6 +6537,19 @@ export const handler = async (event, context) => {
                   
                   hoverEar = false;
                   hoverPageNum = false;
+                  hoverHandle = null;
+                  
+                  // Check handle hit boxes on back
+                  if (showingBack && handleHitBoxes.length > 0) {
+                    for (const hb of handleHitBoxes) {
+                      if (x >= hb.x && x <= hb.x + hb.w && y >= hb.y && y <= hb.y + hb.h) {
+                        canvas.style.cursor = "pointer";
+                        hoverHandle = hb.handle;
+                        return;
+                      }
+                    }
+                  }
+                  
                   canvas.style.cursor = showingBack ? "default" : "grab";
                 });
                 
@@ -6395,16 +6617,32 @@ export const handler = async (event, context) => {
                 });
                 observer.observe(document.body, { childList: true, subtree: true });
                 
+                // Create hidden binding reference for editors (matches DOM mode structure)
+                const binding = cel("div");
+                binding.id = "binding";
+                binding.style.cssText = "position:absolute;pointer-events:none;opacity:0;";
+                g.appendChild(binding);
+                
                 // Initialize
                 g.appendChild(canvas);
                 resizeCanvas();
                 prefetchPages(currentPageIndex);
                 
-                window.addEventListener("resize", resizeCanvas);
+                // Update binding size when canvas resizes
+                function updateBindingSize() {
+                  binding.style.width = cardWidth + "px";
+                }
+                
+                window.addEventListener("resize", () => {
+                  resizeCanvas();
+                  updateBindingSize();
+                });
+                updateBindingSize();
                 loop();
                 
                 computePageLayout = function() {
                   resizeCanvas();
+                  updateBindingSize();
                 };
                 
                 canvas.style.touchAction = "none";
@@ -8701,6 +8939,7 @@ export const handler = async (event, context) => {
     const userAsks = await asks.find({ user: user.sub })
       .sort({ when: -1 })
       .limit(50)
+      .project({ draftAnswer: 0 }) // Don't expose draft answers to users
       .toArray();
 
     await database.disconnect();
@@ -8768,6 +9007,44 @@ export const handler = async (event, context) => {
     }
 
     shell.log("❓ Question answered:", askId, "by", user.email);
+    return respond(200, { success: true, askId });
+  } else if (path.match(/^\/ask\/[a-f0-9]+\/save-draft$/) && method === "post") {
+    // ❓ Save a draft response (admin only) - also marks draftStartedAt
+    const user = await authorize(event.headers, "sotce");
+    const isAdmin = await hasAdmin(user, "sotce");
+    if (!user || !isAdmin) return respond(401, { message: "Unauthorized." });
+
+    const askId = path.split("/")[2];
+    if (!askId) return respond(400, { message: "Missing question ID." });
+
+    const { draft } = JSON.parse(event.body || "{}");
+
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+
+    const question = await asks.findOne({ _id: new ObjectId(askId) });
+    if (!question) {
+      await database.disconnect();
+      return respond(404, { message: "Question not found." });
+    }
+
+    const updateFields = {
+      draftLastEditedAt: new Date().toISOString(),
+    };
+    if (!question.draftStartedAt) {
+      updateFields.draftStartedAt = new Date().toISOString();
+    }
+    if (draft !== undefined) {
+      updateFields.draftAnswer = draft;
+    }
+
+    await asks.updateOne(
+      { _id: new ObjectId(askId) },
+      { $set: updateFields }
+    );
+
+    await database.disconnect();
+    shell.log("❓ Draft saved for:", askId, "by", user.email);
     return respond(200, { success: true, askId });
   } else if (path.match(/^\/ask\/[a-f0-9]+\/reject$/) && method === "post") {
     // ❓ Reject a question (admin only)

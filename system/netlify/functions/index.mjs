@@ -1063,11 +1063,11 @@ async function fun(event, context) {
           // Eagerly load the YWFT Processing font as soon as possible
           try{document.fonts.load('bold 16px YWFTProcessing-Bold').then(function(){console.log('[BOOT] ✅ Font loaded: YWFTProcessing-Bold');window.acFontReadyTime=performance.now();}).catch(function(){});}catch(e){}
           var tinyPng='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABWUlEQVR4nN2Ru0pDQRCGg3fUzk5bEVS0ELxVwQsYTRBvJ5ed3VgZVBB8g1Q+gCDIzq6IluclUktmT1Kk8mWUWT2RTcBep1nmZ//vn53NZP5XOWU3ndTlOIoHe/UE8MxJM8s9SdxuVR9nAnMneph0Up+25esECSwEAGFK3gh4SwIvnDQ5UrgXAN5v7kcJ9HUjWx/iKZwyJ6RsxMkEWPzSTY7A5psVsxaYG+fPYyTNFZ8+qaaHSRjhzcpGrSou+knKdprH70t2Ci+Z7qS56wIAj9M7DPkJskcBIAG96gHKzKdv/X5vkU+/E7B5AtxI4GnBKasSpXf5brBIqulxB/qQjZzO4/uxwe68qZep7l6EXmKNQemv+GIzE5vKHKTL87owpbbCOQK9wj1Jvc59prcSwAqnd6J4hM0pgGGsf9TrA32mACD0Pu/Dp1bNcqJ01gMEFkjYrV/Nf7s+AS1XxDy7PXOrAAAAAElFTkSuQmCC',img=new Image(),imgFull=new Image(),imgFullLoaded=!1;img.src=tinyPng;imgFull.onload=function(){imgFullLoaded=!0};imgFull.src='/purple-pals.svg';
-          // A/B Test: "GIVE" variant - 100% for testing (change back to 0.20 for production)
+          // A/B Test: "GIVE" variant - DISABLED (promo over)
           // Force with ?give=true or ?abtest=give, disable with ?give=false
           var giveForced=params.get('give')==='true'||params.get('abtest')==='give';
           var giveDisabled=params.get('give')==='false';
-          var giveVariant=!isKidlisp&&!isDeviceMode&&!giveDisabled&&(giveForced||Math.random()<1.0);
+          var giveVariant=!isKidlisp&&!isDeviceMode&&!giveDisabled&&(giveForced||false);
           if(giveVariant)console.log('[BOOT] 🎁 A/B Test: GIVE variant active - showing donation CTA');
           var giveUrl='give.aesthetic.computer';var giveMsg='HELP AC THRIVE';
           var giveFlyBys=[],giveLastSpawn=0,GIVE_SPAWN_INTERVAL=2500;
