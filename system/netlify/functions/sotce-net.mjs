@@ -4767,14 +4767,15 @@ export const handler = async (event, context) => {
               topBar.appendChild(chatButton);
               // }
 
-              // ❓ Ask + Respond buttons (admin only: @amelia and @jeffrey)
-              const askButton = subscription?.admin ? cel("button") : null;
+              // ❓ Ask + Respond buttons
+              const isJeffrey = window.sotceHandle === "@jeffrey";
+              const askButton = (subscription?.admin && isJeffrey) ? cel("button") : null;
               if (askButton) {
                 askButton.id = "ask-button";
                 askButton.innerText = "ask";
               }
 
-              const respondButton = subscription?.admin ? cel("button") : null;
+              const respondButton = (subscription?.admin && isJeffrey) ? cel("button") : null;
               if (respondButton) {
                 respondButton.id = "respond-button";
                 respondButton.innerText = "respond";
