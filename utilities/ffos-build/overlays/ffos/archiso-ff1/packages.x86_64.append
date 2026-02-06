@@ -1,3 +1,31 @@
-# Additional firmware for ThinkPad X1 Nano
+# Additional firmware for ThinkPad X1 Nano + Chromebooks (Yoga 11e etc.)
 sof-firmware
 alsa-firmware
+
+# Chromebook / older laptop support
+linux-firmware
+xf86-video-intel
+libva-intel-driver
+
+# Wayland compositor for kiosk mode
+cage
+wlroots0.18
+wlr-randr
+xorg-xwayland
+
+# Networking robustness
+networkmanager
+iwd
+wpa_supplicant
+dhcpcd
+
+# System essentials for reliable boot
+dbus
+polkit
+seatd
+bash
+
+# Audio support
+pipewire
+pipewire-pulse
+wireplumber
