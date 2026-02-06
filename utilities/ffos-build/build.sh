@@ -256,15 +256,174 @@ SYSLINUX
     echo "feralfile:x:1000:" >> "$PROFILE/airootfs/etc/group"
     echo "feralfile:!:19000:0:99999:7:::" >> "$PROFILE/airootfs/etc/shadow"
     
+    # === HARDENING: Auto-login feralfile on TTY1 ===
+    echo "=== Configuring auto-login for feralfile user ==="
+    mkdir -p "$PROFILE/airootfs/etc/systemd/system/getty@tty1.service.d"
+    cat > "$PROFILE/airootfs/etc/systemd/system/getty@tty1.service.d/autologin.conf" << 'AUTOLOGIN'
+[Service]
+ExecStart=
+ExecStart=-/usr/bin/agetty --noclear --autologin feralfile %I $TERM
+AUTOLOGIN
+    
+    # === HARDENING: Override feral-sys-monitord to be resilient ===
+    # The upstream service uses Type=notify and hard-depends on D-Bus session bus.
+    # On non-Radxa hardware (Chromebooks, etc.) the session bus may not be ready
+    # in time. Override to Type=simple and add a pre-check for the bus socket.
+    echo "=== Creating hardened feral-sys-monitord service override ==="
+    if [ -f "$PROFILE/airootfs/etc/systemd/system/feral-sys-monitord.service" ]; then
+      cat > "$PROFILE/airootfs/etc/systemd/system/feral-sys-monitord.service" << 'SYSMON'
+[Unit]
+Description=Feral File System Monitord (hardened)
+After=network.target dbus.service systemd-logind.service user@1000.service
+Wants=dbus.service user@1000.service
+StartLimitBurst=10
+StartLimitIntervalSec=300
+
+[Service]
+Type=simple
+User=feralfile
+Group=feralfile
+Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
+Environment="XDG_RUNTIME_DIR=/run/user/1000"
+ExecStartPre=/bin/bash -c 'n=0; while [ $n -lt 60 ]; do [ -S /run/user/1000/bus ] && exit 0; n=$((n+1)); sleep 1; done; echo WARN: D-Bus session bus not found after 60s >&2'
+ExecStart=/usr/bin/feral-sys-monitord
+Restart=always
+RestartSec=5
+StandardOutput=append:/home/feralfile/.logs/sys-monitord.log
+StandardError=append:/home/feralfile/.logs/sys-monitord.log
+
+[Install]
+WantedBy=multi-user.target
+SYSMON
+      echo "Overwrote feral-sys-monitord.service with hardened version"
+    fi
+    
+    # === HARDENING: Also override if it was installed from systemd-services dir ===
+    # Create the same override for the user-level version (if bind-mounted)
+    mkdir -p "$PROFILE/airootfs/home/feralfile/systemd-services"
+    if [ -f "$PROFILE/airootfs/home/feralfile/systemd-services/feral-sys-monitord.service" ]; then
+      cp "$PROFILE/airootfs/etc/systemd/system/feral-sys-monitord.service" \
+         "$PROFILE/airootfs/home/feralfile/systemd-services/feral-sys-monitord.service"
+      echo "Also updated user-level systemd-services copy"
+    fi
+    
+    # === HARDENING: Enable system-level presets ===
+    mkdir -p "$PROFILE/airootfs/etc/systemd/system-preset"
+    cat > "$PROFILE/airootfs/etc/systemd/system-preset/90-ac-hardened.preset" << 'PRESET'
+enable sshd.service
+enable bluetooth.service
+enable NetworkManager.service
+enable systemd-networkd.service
+enable systemd-resolved.service
+enable seatd.service
+enable getty@tty1.service
+PRESET
+    echo "Added hardened system presets"
+    
+    # === HARDENING: Expanded customize_airootfs.sh ===
     # Set proper permissions via customize script
     cat > "$PROFILE/airootfs/root/customize_airootfs.sh" << 'CUSTOMIZE'
 #!/bin/bash
-# Create logs directory
+set -e
+
+echo "=== AC Hardened customize_airootfs.sh ==="
+
+# Create logs and state directories
 mkdir -p /home/feralfile/.logs
+mkdir -p /home/feralfile/.state
+mkdir -p /home/feralfile/.config
+
+# Set ownership
 chown -R feralfile:feralfile /home/feralfile
-# Enable lingering for user services
+
+# Enable lingering for user services (critical for D-Bus session bus at boot)
 mkdir -p /var/lib/systemd/linger
 touch /var/lib/systemd/linger/feralfile
+
+# Ensure D-Bus is properly configured for session bus
+mkdir -p /run/user/1000
+chown feralfile:feralfile /run/user/1000
+chmod 700 /run/user/1000
+
+# Create polkit rule so feralfile can manage NetworkManager
+mkdir -p /etc/polkit-1/rules.d
+cat > /etc/polkit-1/rules.d/90-nmcli-feralfile.rules << 'POLKIT'
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager") === 0 &&
+        subject.user === "feralfile") {
+        return polkit.Result.YES;
+    }
+});
+POLKIT
+
+# Enable critical system services
+systemctl enable NetworkManager.service 2>/dev/null || true
+systemctl enable sshd.service 2>/dev/null || true
+systemctl enable seatd.service 2>/dev/null || true
+systemctl enable bluetooth.service 2>/dev/null || true
+systemctl enable getty@tty1.service 2>/dev/null || true
+systemctl enable systemd-resolved.service 2>/dev/null || true
+
+# Enable feral services (system-level)
+for svc in feral-controld feral-sys-monitord feral-watchdog feral-setupd; do
+  if [ -f "/etc/systemd/system/${svc}.service" ]; then
+    systemctl enable "${svc}.service" 2>/dev/null || true
+  fi
+done
+
+# Add feralfile to required groups
+usermod -aG seat feralfile 2>/dev/null || true
+usermod -aG audio feralfile 2>/dev/null || true
+usermod -aG video feralfile 2>/dev/null || true
+usermod -aG input feralfile 2>/dev/null || true
+usermod -aG bluetooth feralfile 2>/dev/null || true
+
+# Setup .bash_profile for auto-start on TTY1
+cat > /home/feralfile/.bash_profile << 'BASHPROFILE'
+# AC Hardened boot profile
+if [ "$(tty)" = "/dev/tty1" ]; then
+    # Ensure directories exist
+    mkdir -p /home/feralfile/.logs
+    mkdir -p /home/feralfile/.state
+
+    # Wait for systemd user session to be ready
+    echo "Waiting for user session..."
+    for i in $(seq 1 30); do
+        if [ -S "/run/user/$(id -u)/bus" ]; then
+            echo "D-Bus session bus ready"
+            break
+        fi
+        sleep 1
+    done
+
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+    export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+
+    # Reload user daemons
+    systemctl --user daemon-reload 2>/dev/null || true
+
+    # Start feral system services (user-level)
+    systemctl --user start feral-sys-monitord.service 2>/dev/null || true
+
+    # Start the AC kiosk
+    systemctl --user start aesthetic-kiosk.service 2>/dev/null || true
+
+    echo "Aesthetic Computer OS booted."
+    echo "Logs:  ~/.logs/"
+    echo "State: ~/.state/"
+fi
+BASHPROFILE
+chown feralfile:feralfile /home/feralfile/.bash_profile
+
+# Set hostname
+echo "aesthetic-computer" > /etc/hostname
+
+# Set locale
+echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+locale-gen 2>/dev/null || true
+echo "LANG=en_US.UTF-8" > /etc/locale.conf
+
+echo "=== customize_airootfs.sh complete ==="
 CUSTOMIZE
     chmod +x "$PROFILE/airootfs/root/customize_airootfs.sh"
     
