@@ -6028,6 +6028,7 @@ export const handler = async (event, context) => {
                 let transitionProgress = 0; // 0 = showing current, 1 = showing next
                 let transitionDirection = 0; // -1 = prev, 0 = none, 1 = next
                 let transitionTarget = null;
+                let transitionSlow = false; // true when arrow keys triggered the transition
                 let textFadeIn = 1; // 0 to 1, fades in text when page becomes current
                 const pageCache = new Map();
                 let cardWidth = 0;
@@ -6505,31 +6506,33 @@ export const handler = async (event, context) => {
                   }
                   
                   if (transitionDirection !== 0 && transitionTarget !== null) {
-                    // Animating transition - current keeps text, incoming is ghost until it lands
+                    // Animating transition - both pages show text (pre-rendered)
                     const slideDistance = cardHeight + 40;
+                    const incomingData = pageCache.get(transitionTarget) || null;
                     
                     if (transitionDirection > 0) {
                       // Going to higher page (next) - current slides up, next comes from below
-                      renderPage(pageData, displayedPageIndex, -transitionProgress * slideDistance, false, 1); // current keeps text
-                      renderPage(null, transitionTarget, (1 - transitionProgress) * slideDistance, true, 0); // incoming is ghost
+                      renderPage(pageData, displayedPageIndex, -transitionProgress * slideDistance, false, 1);
+                      renderPage(incomingData, transitionTarget, (1 - transitionProgress) * slideDistance, false, 1);
                     } else {
                       // Going to lower page (prev) - current slides down, prev comes from above
-                      renderPage(pageData, displayedPageIndex, transitionProgress * slideDistance, false, 1); // current keeps text
-                      renderPage(null, transitionTarget, -(1 - transitionProgress) * slideDistance, true, 0); // incoming is ghost
+                      renderPage(pageData, displayedPageIndex, transitionProgress * slideDistance, false, 1);
+                      renderPage(incomingData, transitionTarget, -(1 - transitionProgress) * slideDistance, false, 1);
                     }
                   } else if (isDragging && Math.abs(dragDelta) > 0) {
-                    // Dragging - current keeps text, incoming page is ghost/wireframe
+                    // Dragging - both pages show text (pre-rendered)
                     const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
                     if (nextIdx >= 1 && nextIdx <= totalPages) {
                       const slideDistance = cardHeight + 40;
                       const progress = Math.min(1, Math.abs(dragDelta) / slideDistance);
+                      const nextData = pageCache.get(nextIdx) || null;
                       
                       if (dragDelta > 0) {
-                        renderPage(pageData, displayedPageIndex, -progress * slideDistance, false, 1); // current keeps text
-                        renderPage(null, nextIdx, (1 - progress) * slideDistance, true, 0); // incoming ghost
+                        renderPage(pageData, displayedPageIndex, -progress * slideDistance, false, 1);
+                        renderPage(nextData, nextIdx, (1 - progress) * slideDistance, false, 1);
                       } else {
-                        renderPage(pageData, displayedPageIndex, progress * slideDistance, false, 1); // current keeps text
-                        renderPage(null, nextIdx, -(1 - progress) * slideDistance, true, 0); // incoming ghost
+                        renderPage(pageData, displayedPageIndex, progress * slideDistance, false, 1);
+                        renderPage(nextData, nextIdx, -(1 - progress) * slideDistance, false, 1);
                       }
                     } else {
                       // At boundary - just offset current page with resistance
@@ -6547,7 +6550,7 @@ export const handler = async (event, context) => {
                 // Animation update
                 function update() {
                   if (transitionDirection !== 0 && transitionTarget !== null) {
-                    transitionProgress += 0.12; // Animation speed
+                    transitionProgress += transitionSlow ? 0.045 : 0.12; // Slower for arrow keys
                     
                     if (transitionProgress >= 1) {
                       // Transition complete
@@ -6556,7 +6559,8 @@ export const handler = async (event, context) => {
                       transitionProgress = 0;
                       transitionDirection = 0;
                       transitionTarget = null;
-                      textFadeIn = 0; // Start fade-in for new page text
+                      transitionSlow = false;
+                      textFadeIn = 1; // Text already visible, no fade needed
                       updatePath("/page/" + currentPageIndex);
                       prefetchPages(currentPageIndex);
                     }
@@ -6594,12 +6598,13 @@ export const handler = async (event, context) => {
                 }
                 
                 // Go to a specific page with animation
-                function goToPage(targetIdx, startProgress = 0) {
+                function goToPage(targetIdx, startProgress = 0, slow = false) {
                   if (targetIdx < 1 || targetIdx > totalPages) return;
                   if (targetIdx === displayedPageIndex) return;
                   if (transitionDirection !== 0) return; // Already animating
                   if (isFlipping || showingBack) return; // Don't change pages while flipped
                   
+                  transitionSlow = slow;
                   transitionDirection = targetIdx > displayedPageIndex ? 1 : -1;
                   transitionTarget = targetIdx;
                   transitionProgress = startProgress; // Start from where drag left off
@@ -6669,10 +6674,10 @@ export const handler = async (event, context) => {
                   
                   if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
                     e.preventDefault();
-                    goToPage(currentPageIndex - 1);
+                    goToPage(currentPageIndex - 1, 0, true);
                   } else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
                     e.preventDefault();
-                    goToPage(currentPageIndex + 1);
+                    goToPage(currentPageIndex + 1, 0, true);
                   }
                 });
                 

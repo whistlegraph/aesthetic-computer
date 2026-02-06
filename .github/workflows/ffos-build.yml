@@ -347,6 +347,11 @@ jobs:
           mkdir -p /home/feralfile/.logs /home/feralfile/.state /home/feralfile/.config
           chown -R feralfile:feralfile /home/feralfile
 
+          # Ensure AC binaries are executable
+          chmod +x /opt/ac/bin/* 2>/dev/null || true
+          chmod +x /opt/ac/config-server/*.py 2>/dev/null || true
+          chmod +x /home/feralfile/scripts/*.sh 2>/dev/null || true
+
           mkdir -p /var/lib/systemd/linger
           touch /var/lib/systemd/linger/feralfile
 
