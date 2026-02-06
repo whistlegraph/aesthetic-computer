@@ -271,6 +271,35 @@ SYSLINUX
     chmod 644 "$PROFILE/airootfs/opt/ac-ssl/localhost.pem"
     chmod 600 "$PROFILE/airootfs/opt/ac-ssl/localhost-key.pem"
     
+    # Download offline piece bundles from production API
+    echo "=== Downloading offline piece bundles ==="
+    mkdir -p "$PROFILE/airootfs/opt/ac/offline-pieces"
+    
+    # List of pieces to bundle: notepat (JS), roz (KidLisp $roz), starfield (JS)
+    OFFLINE_PIECES="notepat:piece starfield:piece roz:code"
+    
+    for entry in $OFFLINE_PIECES; do
+      piece_name="${entry%%:*}"
+      piece_type="${entry##*:}"
+      
+      if [ "$piece_type" = "code" ]; then
+        url="https://aesthetic.computer/api/bundle-html?code=${piece_name}"
+      else
+        url="https://aesthetic.computer/api/bundle-html?piece=${piece_name}"
+      fi
+      
+      echo "Downloading ${piece_name} bundle..."
+      if curl -f -L -o "$PROFILE/airootfs/opt/ac/offline-pieces/${piece_name}.html" "$url" 2>/dev/null; then
+        echo "  ✓ Downloaded ${piece_name}.html"
+        ls -lh "$PROFILE/airootfs/opt/ac/offline-pieces/${piece_name}.html"
+      else
+        echo "  ✗ Failed to download ${piece_name} bundle (will skip)"
+      fi
+    done
+    
+    echo "Offline pieces:"
+    ls -la "$PROFILE/airootfs/opt/ac/offline-pieces/" 2>/dev/null || echo "  (none)"
+    
     # Install AC Setup TUI (boot-time WiFi + piece configuration)
     echo "=== Installing AC Setup TUI ==="
     mkdir -p "$PROFILE/airootfs/opt/ac/bin"

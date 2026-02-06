@@ -9,6 +9,8 @@ RUN pacman -Syu --noconfirm \
   jq \
   go \
   rust \
+  curl \
+  openssl \
   && pacman -Scc --noconfirm
 
 # mkarchiso requires root for chroot mount operations

@@ -665,26 +665,29 @@ export const handler = async (event, context) => {
                 background-color: #3a3832 !important;
                 border-color: #5a5548 !important;
               }
-              #respond-editor-page .respond-question-section .respond-counter {
-                color: #b0a898 !important;
+              #respond-editor-page .respond-date {
+                color: #ece8de !important;
               }
-              #respond-editor-page .respond-handle {
-                color: #d88aa0 !important;
+              #respond-editor-page .respond-title {
+                color: #d8c8b8 !important;
+              }
+              #respond-editor-page .respond-question-section .respond-counter {
+                color: #d8c8b8 !important;
               }
               #respond-editor-page .respond-question-text {
-                background: rgba(51, 50, 44, 0.6) !important;
-                border-left-color: #5a5548 !important;
-                color: #ece8de !important;
+                background: rgba(60, 55, 50, 0.8) !important;
+                border-left-color: #7a6a5a !important;
+                color: #f5f0e8 !important;
               }
               #respond-editor-page .respond-label {
-                color: #7ab0e0 !important;
+                color: #a0d0f0 !important;
               }
               #respond-editor-page .respond-textarea {
-                color: #ece8de !important;
-                caret-color: #d88aa0 !important;
+                color: #f5f0e8 !important;
+                caret-color: #e8a0b8 !important;
               }
               #respond-editor-page .page-number {
-                color: #b0a898 !important;
+                color: #d8c8b8 !important;
               }
               #respond-lines-left {
                 background: linear-gradient(
@@ -1628,8 +1631,26 @@ export const handler = async (event, context) => {
               font-family: var(--page-font), serif;
               font-size: calc(2.78px * 8);
             }
+            #respond-editor-page .respond-date {
+              position: absolute;
+              top: 6.5%;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              color: black;
+            }
+            #respond-editor-page .respond-title {
+              position: absolute;
+              top: calc(6.5% + 1.5em);
+              left: 0;
+              width: 100%;
+              text-align: center;
+              color: black;
+              opacity: 0.6;
+              font-size: 90%;
+            }
             #respond-editor-page .respond-question-section {
-              margin-top: 4%;
+              margin-top: 15%;
               padding: 0 2em;
             }
             #respond-editor-page .respond-counter {
@@ -1691,12 +1712,11 @@ export const handler = async (event, context) => {
             }
             #respond-editor-page .page-number {
               position: absolute;
-              bottom: 5%;
-              left: 50%;
-              transform: translateX(-50%);
+              bottom: 6.5%;
+              left: 0;
+              width: 100%;
               text-align: center;
               color: black;
-              font-style: italic;
             }
             #respond-lines-left {
               position: fixed;
@@ -5191,27 +5211,29 @@ export const handler = async (event, context) => {
 
                   const question = pendingData[currentPendingIndex];
 
-                  // Date at top (like diary pages)
+                  // Date at top (centered, matching ask page)
                   const pageDate = cel("div");
-                  pageDate.classList.add("page-title");
+                  pageDate.classList.add("respond-date");
                   pageDate.innerText = dateTitle(new Date());
                   respondPage.appendChild(pageDate);
 
-                  // Question section (top half)
+                  // Title below date (centered, matching ask page)
+                  const pageTitle = cel("div");
+                  pageTitle.classList.add("respond-title");
+                  pageTitle.innerText = (question.handle || "@anonymous") + " asks @amelia";
+                  respondPage.appendChild(pageTitle);
+
+                  // Question section
                   const questionSection = cel("div");
                   questionSection.classList.add("respond-question-section");
 
-                  // Counter
+                  // Counter (only show if multiple questions)
                   const counter = cel("div");
                   counter.classList.add("respond-counter");
-                  counter.innerText = (currentPendingIndex + 1) + " / " + pendingData.length;
+                  if (pendingData.length > 1) {
+                    counter.innerText = (currentPendingIndex + 1) + " / " + pendingData.length;
+                  }
                   questionSection.appendChild(counter);
-
-                  // Handle
-                  const handle = cel("div");
-                  handle.classList.add("respond-handle");
-                  handle.innerText = (question.handle || "@anonymous") + " asks:";
-                  questionSection.appendChild(handle);
 
                   // Question text
                   const questionText = cel("div");
@@ -5337,8 +5359,12 @@ export const handler = async (event, context) => {
                 submitBtn.classList.add("positive");
 
                 function updateNavButtons() {
-                  prevBtn.disabled = currentPendingIndex === 0;
-                  nextBtn.disabled = !pendingData || currentPendingIndex >= pendingData.length - 1;
+                  const hasPrev = currentPendingIndex > 0;
+                  const hasNext = pendingData && currentPendingIndex < pendingData.length - 1;
+                  prevBtn.disabled = !hasPrev;
+                  nextBtn.disabled = !hasNext;
+                  prevBtn.style.display = (pendingData && pendingData.length > 1) ? "" : "none";
+                  nextBtn.style.display = (pendingData && pendingData.length > 1) ? "" : "none";
                   if (!pendingData || pendingData.length === 0) {
                     submitBtn.disabled = true;
                   } else {
