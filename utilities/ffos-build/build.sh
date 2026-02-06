@@ -407,6 +407,10 @@ chown -R feralfile:feralfile /home/feralfile
 # Ensure scripts are executable
 chmod +x /home/feralfile/scripts/*.sh 2>/dev/null || true
 
+# Ensure AC binaries are executable
+chmod +x /opt/ac/bin/* 2>/dev/null || true
+chmod +x /opt/ac/config-server/*.py 2>/dev/null || true
+
 # Enable lingering for user services (critical for D-Bus session bus at boot)
 mkdir -p /var/lib/systemd/linger
 touch /var/lib/systemd/linger/feralfile
