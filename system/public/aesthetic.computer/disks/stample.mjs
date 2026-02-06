@@ -91,8 +91,6 @@ const sfxToKey = Object.fromEntries(
   Object.entries(keyToSfx).map(([key, index]) => [index, Number(key)]),
 );
 
-const { floor } = Math;
-
 async function boot({
   net: { preload },
   sound: { microphone, getSampleData, enabled, registerSample, sampleRate },
