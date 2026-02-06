@@ -235,7 +235,7 @@ SYSLINUX
       echo "Installed launcher UI to /opt/ac/ui/launcher/"
       ls -la "$PROFILE/airootfs/opt/ac/ui/launcher/"
     fi
-    echo "dev" > "$PROFILE/airootfs/opt/ac/version"
+    echo "1.0.1" > "$PROFILE/airootfs/opt/ac/version"
     
     # Install AC Config Server (WiFi + piece configuration)
     echo "=== Installing AC Config Server ==="

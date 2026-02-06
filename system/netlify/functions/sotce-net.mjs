@@ -675,12 +675,17 @@ export const handler = async (event, context) => {
                 color: #d8c8b8 !important;
               }
               #respond-editor-page .respond-question-text {
-                background: rgba(60, 55, 50, 0.8) !important;
-                border-left-color: #7a6a5a !important;
                 color: #f5f0e8 !important;
               }
-              #respond-editor-page .respond-label {
-                color: #a0d0f0 !important;
+              #respond-editor-page .respond-separator {
+                border-top-color: rgba(255, 255, 255, 0.12) !important;
+              }
+              #respond-editor-page #respond-words-wrapper {
+                background: #33322c !important;
+              }
+              #respond-editor-page #respond-words-wrapper::before,
+              #respond-editor-page #respond-words-wrapper::after {
+                background: #2e2d28 !important;
               }
               #respond-editor-page .respond-textarea {
                 color: #f5f0e8 !important;
@@ -1671,22 +1676,42 @@ export const handler = async (event, context) => {
               text-align: justify;
               hyphens: auto;
               -webkit-hyphens: auto;
-              padding: 0.5em;
-              background: rgba(255, 240, 220, 0.5);
-              border-left: 3px solid rgb(200, 150, 100);
-              margin-bottom: 0.5em;
+              padding: 0;
+            }
+            #respond-editor-page .respond-separator {
+              border: none;
+              border-top: 1px dashed rgba(0, 0, 0, 0.2);
+              margin: 0.5em 0;
             }
             #respond-editor-page .respond-response-section {
-              padding: 0 2em;
-            }
-            #respond-editor-page .respond-label {
-              font-size: 90%;
-              opacity: 0.8;
-              margin-bottom: 0.25em;
-              color: rgb(100, 150, 180);
+              padding: 0;
             }
             #respond-editor-page #respond-words-wrapper {
               position: relative;
+              touch-action: none;
+              background: rgb(245, 240, 230);
+            }
+            #respond-editor-page #respond-words-wrapper::before {
+              content: "";
+              background: rgb(220, 200, 180);
+              width: 2em;
+              height: 100%;
+              display: block;
+              position: absolute;
+              top: 0;
+              left: 0;
+              z-index: 101;
+            }
+            #respond-editor-page #respond-words-wrapper::after {
+              content: "";
+              background: rgb(220, 200, 180);
+              width: 2em;
+              height: 100%;
+              display: block;
+              position: absolute;
+              top: 0;
+              right: 0;
+              z-index: 101;
             }
             #respond-editor-page .respond-textarea {
               border: none;
@@ -1695,10 +1720,10 @@ export const handler = async (event, context) => {
               resize: none;
               display: block;
               background: transparent;
-              padding: 0;
+              padding: 0 2em;
               text-align: justify;
               line-height: var(--line-height);
-              height: calc(var(--line-height) * 12);
+              height: calc(var(--line-height) * 12); /* Default, overridden dynamically */
               width: 100%;
               overflow: hidden;
               hyphens: auto;
@@ -1706,6 +1731,8 @@ export const handler = async (event, context) => {
               overflow-wrap: break-word;
               caret-color: rgb(50, 100, 180);
               box-sizing: border-box;
+              position: relative;
+              z-index: 100;
             }
             #respond-editor-page .respond-textarea:focus {
               outline: none;
@@ -5192,7 +5219,8 @@ export const handler = async (event, context) => {
                 // Lines left indicator
                 const linesLeft = cel("div");
                 linesLeft.id = "respond-lines-left";
-                const maxRespondLines = 20;
+                const totalPageLines = 19; // Max lines available for question + answer
+                let maxRespondLines = 12; // Will be calculated per question
 
                 let lastValidValue = "";
                 let responseWords = null;
@@ -5243,14 +5271,14 @@ export const handler = async (event, context) => {
 
                   respondPage.appendChild(questionSection);
 
-                  // Response section (bottom half)
+                  // Horizontal separator between question and response
+                  const separator = cel("hr");
+                  separator.classList.add("respond-separator");
+                  respondPage.appendChild(separator);
+
+                  // Response section
                   const responseSection = cel("div");
                   responseSection.classList.add("respond-response-section");
-
-                  const responseLabel = cel("div");
-                  responseLabel.classList.add("respond-label");
-                  responseLabel.innerText = "@amelia responds:";
-                  responseSection.appendChild(responseLabel);
 
                   const wordsWrapper = cel("div");
                   wordsWrapper.id = "respond-words-wrapper";
@@ -5316,21 +5344,37 @@ export const handler = async (event, context) => {
                   responseSection.appendChild(wordsWrapper);
                   respondPage.appendChild(responseSection);
 
-                  // Page number at bottom
+                  // Question number at bottom (with asterisks to denote questions)
                   const pageNumber = cel("div");
                   pageNumber.classList.add("page-number");
-                  pageNumber.innerText = "- " + (currentPendingIndex + 1) + " -";
+                  pageNumber.innerText = "*" + (currentPendingIndex + 1) + "*";
                   respondPage.appendChild(pageNumber);
 
+                  // Calculate how many lines the question takes, then set response lines
+                  setTimeout(() => {
+                    const qStyle = window.getComputedStyle(questionText);
+                    const qLineHeight = parseFloat(qStyle.lineHeight);
+                    const qHeight = questionText.scrollHeight;
+                    const questionLines = Math.ceil(qHeight / qLineHeight);
+                    
+                    // Available lines = total - question lines (minimum 5 for response)
+                    maxRespondLines = Math.max(5, totalPageLines - questionLines);
+                    
+                    // Update textarea height to match
+                    responseWords.style.height = "calc(var(--line-height) * " + maxRespondLines + ")";
+                    wordsWrapper.style.height = "calc(var(--line-height) * " + maxRespondLines + ")";
+                    
+                    linesLeft.innerText = maxRespondLines + " lines left";
+                    linesLeft.classList.remove("lines-left-few", "lines-left-little", "lines-left-lots");
+                    linesLeft.classList.add("lines-left-loads");
+                    
+                    responseWords?.focus();
+                  }, 50);
+
                   linesLeft.style.display = "block";
-                  linesLeft.innerText = maxRespondLines + " lines left";
-                  linesLeft.classList.remove("lines-left-few", "lines-left-little", "lines-left-lots");
-                  linesLeft.classList.add("lines-left-loads");
+                  linesLeft.innerText = "...";
 
                   lastValidValue = "";
-
-                  // Focus the textarea
-                  setTimeout(() => responseWords?.focus(), 100);
                 }
 
                 renderRespondPage();
@@ -9256,7 +9300,7 @@ export const handler = async (event, context) => {
     const userAsks = await asks.find({ user: user.sub })
       .sort({ when: -1 })
       .limit(50)
-      .project({ draftAnswer: 0 }) // Don't expose draft answers to users
+      .project({ draftAnswer: 0, answer: 0, answeredBy: 0 }) // Don't expose answers to users yet
       .toArray();
 
     await database.disconnect();
