@@ -134,10 +134,17 @@ let login, // A login button in the center of the display.
   walletBtn, // Tezos wallet button (shown when connected)
   giveBtn, // GIVE button for funding mode (top-right)
   adBtn, // AD button for non-funding mode (top-right)
+  shopBtn, // SHOP button for products (top-right)
   commitBtn, // Commit hash button (navigates to commits piece)
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
 let adBtnParticles = []; // Sparkle particles for AD button
 let adBtnHue = 0; // Color cycling for AD button
+let shopBtnParticles = []; // Sparkle particles for SHOP button
+let shopBtnHue = 0; // Color cycling for SHOP button
+
+// 🎰 Top-right button random selection: "give", "ad", or "shop" (~1/3 each)
+const TOP_RIGHT_BTN_CHOICES = ["give", "ad", "shop"];
+const topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length)];
 let resendVerificationText;
 let ellipsisTicker;
 let chatTicker; // Ticker instance for chat messages
@@ -168,7 +175,7 @@ const UNITICKER_IDLE_THRESHOLD = 120; // 2 seconds at 60fps before auto-selectin
 // "critical" = full lockdown (chat offline, all alerts)
 // "yikes" = chat works, GIVE button shows, but no $ replacement
 // "off" = normal operation
-export const FUNDING_SEVERITY = "yikes";
+export const FUNDING_SEVERITY = "off";
 
 // Legacy export for backwards compatibility
 export const FUNDING_MODE = FUNDING_SEVERITY === "critical";
@@ -4084,8 +4091,8 @@ function paint($) {
   // Calculate MOTD offset (do this before book rendering so it's always available)
   let motdXOffset = 0;
 
-  // 💸 GIVE button in top-right corner during funding effects (critical or yikes)
-  if (showFundingEffects && showLoginCurtain) {
+  // 💸 GIVE button in top-right corner (randomly shown ~1/3 of loads)
+  if (topRightBtnChoice === "give" && showLoginCurtain) {
     // Sync GIVE button with emotional face - angry = GIVE UP, others = currencies
     const now = Date.now();
 
@@ -4319,9 +4326,8 @@ function paint($) {
     giveBtnParticles = []; // Clear particles when button hidden
   }
 
-  //  AD MODE button in top-right corner when funding is off (replace GIVE button)
-  // DISABLED for now - toggle back on by removing the `false &&` below
-  if (false && !showFundingEffects && showLoginCurtain) {
+  //  AD MODE button in top-right corner (randomly shown ~1/3 of loads)
+  if (topRightBtnChoice === "ad" && showLoginCurtain) {
     const now = Date.now();
     
     // Cycle through catchy ad phrases
@@ -4473,7 +4479,176 @@ function paint($) {
     adBtnParticles = []; // Clear particles when button hidden
   }
 
-  // 📦 Paint product (book or record) in top-right corner (only on login curtain)
+  // � SHOP button in top-right corner (randomly shown ~1/3 of loads)
+  if (topRightBtnChoice === "shop" && showLoginCurtain) {
+    const now = Date.now();
+
+    // Cycle through shop phrases
+    const shopPhrases = [
+      "SHOP ✦",
+      "★ SHOP ★",
+      "BUY ART!",
+      "AC SHOP",
+      "NEW ITEMS",
+      "MERCH ✦",
+    ];
+    const phraseIndex = Math.floor(now / 2500) % shopPhrases.length;
+    const shopBtnText = shopPhrases[phraseIndex];
+
+    // Position the button in top-right (same as GIVE/AD)
+    const btnPaddingTop = 8;
+    const btnPaddingRight = 10;
+    const charWidth = 6;
+    const btnWidth = shopBtnText.length * charWidth + 8;
+    const btnHeight = 19;
+    const shopBtnY = btnPaddingTop;
+    const shopBtnX = screen.width - btnWidth - btnPaddingRight;
+
+    if (!shopBtn) {
+      shopBtn = new $.ui.TextButton(shopBtnText, { x: shopBtnX, y: shopBtnY });
+    } else {
+      shopBtn.reposition({ x: shopBtnX, y: shopBtnY }, shopBtnText);
+    }
+
+    // Warm hue cycling (golds, oranges, greens)
+    shopBtnHue = (shopBtnHue + 0.7) % 360;
+
+    const hslToRgb = (h, s, l) => {
+      h /= 360; s /= 100; l /= 100;
+      let r, g, b;
+      if (s === 0) { r = g = b = l; }
+      else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    };
+
+    const btnBox = shopBtn?.btn?.box;
+
+    if (btnBox) {
+      const isDown = shopBtn.btn.down;
+      const isHover = shopBtn.btn.over && !isDown;
+      const t = performance.now() / 1000;
+
+      // Gentle floating effect
+      const float = Math.sin(t * 1.8) * 1.5;
+      const floatY = btnBox.y + float;
+
+      // Warm gold/green tones
+      const bgHue = (shopBtnHue + 40) % 360; // Shift into warm range
+      let bgColor;
+      if (isDown) {
+        bgColor = hslToRgb(bgHue, 90, 40);
+      } else if (isHover) {
+        const hoverPulse = Math.sin(t * 6) * 0.5 + 0.5;
+        bgColor = hslToRgb(bgHue, 95, 55 + hoverPulse * 15);
+      } else {
+        bgColor = hslToRgb(bgHue, 85, 50);
+      }
+
+      ink(...bgColor).box(btnBox.x, floatY, btnBox.w, btnBox.h, "fill");
+
+      if (isHover) {
+        const outlineHue = (bgHue + 180) % 360;
+        const outlineColor = hslToRgb(outlineHue, 100, 80);
+        ink(...outlineColor).box(btnBox.x - 1, floatY - 1, btnBox.w + 2, btnBox.h + 2, "outline");
+        ink(255, 255, 255).box(btnBox.x, floatY, btnBox.w, btnBox.h, "outline");
+      } else {
+        ink(255, 255, 255, 180).box(btnBox.x, floatY, btnBox.w, btnBox.h, "outline");
+      }
+
+      // Draw text with color variation per character
+      const chars = shopBtnText.split('');
+      const textStartX = btnBox.x + 4;
+      const textY = floatY + 4;
+
+      chars.forEach((char, i) => {
+        const letterHue = (shopBtnHue + i * 40) % 360;
+        const letterColor = hslToRgb(letterHue, 100, isDown ? 85 : (isHover ? 95 : 90));
+        const shimmer = Math.sin(t * 4 + i * 0.6) * 0.5;
+        const x = textStartX + i * charWidth + shimmer;
+        ink(...letterColor).write(char, { x: Math.round(x), y: Math.round(textY) });
+      });
+
+      // Sparkle particles (medium intensity)
+      if (Math.random() < (isHover ? 0.25 : 0.1)) {
+        const sparkleHue = (shopBtnHue + 90) % 360;
+        const sparkleColor = hslToRgb(sparkleHue, 90, 70);
+
+        const edge = Math.floor(Math.random() * 4);
+        let px, py, vx, vy;
+
+        switch (edge) {
+          case 0:
+            px = btnBox.x + Math.random() * btnBox.w;
+            py = floatY;
+            vx = (Math.random() - 0.5) * 1.5;
+            vy = -Math.random() * 1.5 - 0.5;
+            break;
+          case 1:
+            px = btnBox.x + btnBox.w;
+            py = floatY + Math.random() * btnBox.h;
+            vx = Math.random() * 1.5 + 0.5;
+            vy = (Math.random() - 0.5) * 1.5;
+            break;
+          case 2:
+            px = btnBox.x + Math.random() * btnBox.w;
+            py = floatY + btnBox.h;
+            vx = (Math.random() - 0.5) * 1.5;
+            vy = Math.random() * 1.5 + 0.5;
+            break;
+          case 3:
+            px = btnBox.x;
+            py = floatY + Math.random() * btnBox.h;
+            vx = -Math.random() * 1.5 - 0.5;
+            vy = (Math.random() - 0.5) * 1.5;
+            break;
+        }
+
+        shopBtnParticles.push({
+          x: px, y: py, vx: vx, vy: vy,
+          life: 1.0,
+          color: sparkleColor,
+          size: Math.random() < 0.2 ? 2 : 1,
+        });
+      }
+    }
+
+    // Update and draw sparkle particles
+    shopBtnParticles = shopBtnParticles.filter(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.94;
+      p.vy *= 0.94;
+      p.life -= 0.025;
+
+      if (p.life > 0) {
+        const alpha = Math.floor(p.life * 255);
+        ink(...p.color, alpha).box(Math.round(p.x), Math.round(p.y), p.size, p.size);
+      }
+
+      return p.life > 0;
+    });
+
+    $.needsPaint();
+  } else {
+    shopBtn = null;
+    shopBtnParticles = [];
+  }
+
+  // �📦 Paint product (book or record) in top-right corner (only on login curtain)
   // Hide carousel when prompt is editable or has text
   // DISABLED: products carousel
   // const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
@@ -7849,7 +8024,19 @@ function act({
     });
   }
 
-  // 📦 Commit button - navigate to commits piece
+  // � SHOP button - navigate to shop
+  if (shopBtn && !shopBtn.btn.disabled) {
+    shopBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        jump("out:https://shop.aesthetic.computer");
+      },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  // �📦 Commit button - navigate to commits piece
   if (commitBtn && !commitBtn.btn.disabled) {
     commitBtn.btn.act(e, {
       down: () => downSound(),

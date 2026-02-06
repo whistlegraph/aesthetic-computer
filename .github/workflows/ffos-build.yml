@@ -159,13 +159,18 @@ jobs:
           cp -r /work/ffos/archiso-ff1 "$PROFILE"
           printf "\n" >> "$PROFILE/packages.x86_64"
 
+          # Replace PulseAudio with PipeWire (our overlay ships pipewire + pipewire-pulse)
+          echo "=== Replacing pulseaudio with pipewire ==="
+          sed -i '/^pulseaudio$/d' "$PROFILE/packages.x86_64"
+          sed -i '/^pulseaudio-bluetooth$/d' "$PROFILE/packages.x86_64"
+
           if [ -f "$OVERLAYS/ffos/archiso-ff1/packages.x86_64.append" ]; then
             echo "=== Appending overlay packages ==="
             cat "$OVERLAYS/ffos/archiso-ff1/packages.x86_64.append" >> "$PROFILE/packages.x86_64"
           fi
 
           # Add BIOS + UEFI boot support
-          sed -i "s/bootmodes=.*/bootmodes=('bios.syslinux.mbr' 'bios.syslinux.eltorito' 'uefi-x64.systemd-boot.esp' 'uefi-x64.systemd-boot.eltorito')/" "$PROFILE/profiledef.sh"
+          sed -i "s/bootmodes=.*/bootmodes=('bios.syslinux' 'uefi.systemd-boot')/" "$PROFILE/profiledef.sh"
 
           # Use zstd compression (avoids xz corruption on CI runners)
           sed -i "s/airootfs_image_tool_options=.*/airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '19' '-b' '1M')/" "$PROFILE/profiledef.sh"

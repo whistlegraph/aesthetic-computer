@@ -3633,6 +3633,36 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         };
         
+        // Connect a custom audio source to the pedal effects chain
+        // Used by M4L effect mode to route incoming samples through effects
+        window.acPedalConnectSource = function(sourceNode) {
+          if (!pedalEffectsEnabled) {
+            initPedalEffects();
+            enablePedalEffects();
+          }
+          
+          // In effect mode, disconnect speakerProcessor since we only want external audio
+          // (the speakerProcessor is AC's internal audio which we don't want to mix in)
+          try {
+            speakerProcessor.disconnect();
+          } catch (e) {
+            // Already disconnected
+          }
+          
+          // Connect the source to the pedal filter (start of effects chain)
+          sourceNode.connect(pedalFilter);
+          console.log("🎸 External source connected to pedal effects chain (internal audio muted)");
+        };
+        
+        // Get the output destinations for M4L sample source
+        // (bypasses speakerProcessor entirely)
+        window.acPedalGetOutputNodes = function() {
+          return {
+            sfxStreamGain: sfxStreamGain,
+            speakerGain: speakerGain
+          };
+        };
+        
         // Auto-enable pedal effects if ?daw parameter is present
         const hasDawParam = new URLSearchParams(window.location.search).has("daw");
         if (hasDawParam) {
@@ -4992,6 +5022,48 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "pedal:effect") {
       if (window.acPedalSetEffect) {
         window.acPedalSetEffect(content);
+      }
+      return;
+    }
+    
+    // 🎸 Start sample source for M4L effect mode
+    if (type === "pedal:start-sample-source") {
+      if (audioContext && window.acReadSamples) {
+        console.log("🎸 Starting sample source from Max...");
+        
+        // Create a ScriptProcessorNode to read from the ring buffer
+        const BUFFER_SIZE = 256; // Small for low latency
+        const sampleProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 0, 2);
+        
+        sampleProcessor.onaudioprocess = (e) => {
+          const outputL = e.outputBuffer.getChannelData(0);
+          const outputR = e.outputBuffer.getChannelData(1);
+          
+          // Read samples from the disk's ring buffer
+          const samples = window.acReadSamples(BUFFER_SIZE);
+          if (samples) {
+            outputL.set(samples.left);
+            outputR.set(samples.right);
+          }
+        };
+        
+        // Connect through the pedal effects chain if available
+        if (window.acPedalConnectSource) {
+          window.acPedalConnectSource(sampleProcessor);
+        } else {
+          // Fallback: connect directly to output
+          const outputs = window.acPedalGetOutputNodes?.();
+          if (outputs) {
+            sampleProcessor.connect(outputs.sfxStreamGain);
+            sampleProcessor.connect(outputs.speakerGain);
+          } else {
+            // Last resort: connect to sfxStreamGain and speakerGain directly
+            sampleProcessor.connect(sfxStreamGain);
+            sampleProcessor.connect(speakerGain);
+          }
+        }
+        
+        console.log("🎸 Sample source connected to audio output");
       }
       return;
     }

@@ -53,15 +53,19 @@
       box-sizing: border-box;
     }
     
+    html {
+      /* UI scale for DOM elements - independent of piece rendering density */
+      /* Default to 20 for good visibility on FF1/device displays (increased for 4K TVs) */
+      /* Set on html only so JS override on documentElement propagates to body via inheritance */
+      --ui-scale: 20;
+    }
+
     html, body {
       width: 100%;
       height: 100%;
       overflow: hidden;
       background: #000;
       font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-      /* UI scale for DOM elements - independent of piece rendering density */
-      /* Default to 20 for good visibility on FF1/device displays (increased for 4K TVs) */
-      --ui-scale: 20;
     }
     
     #display-iframe {
@@ -740,6 +744,7 @@
   </div>
   
   <iframe id="display-iframe"></iframe>
+  <iframe id="display-iframe-b" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:#000;z-index:0;visibility:hidden;"></iframe>
   
   <!-- YouTube-style progress bar for playlist mode -->
   <div id="progress-bar">
@@ -1389,8 +1394,9 @@
         // FF1/device mode on 4K: 4x multiplier for comfortable TV viewing distance
         return Math.round(baseScale * 4);
       } else if (isDeviceSubdomain) {
-        // Device subdomain but NOT 4K (e.g., laptop or 1080p TV) - use base scale, no multiplier
-        return Math.round(baseScale);
+        // Device subdomain but NOT 4K (e.g., laptop or 1080p TV)
+        // density=4,dpr=2 → scale ~6
+        return Math.max(2, Math.round(baseScale));
       }
       
       // For native 4K/high-res with dpr=1, apply additional multiplier
@@ -1447,7 +1453,12 @@
     const hostname = window.location.hostname;
     
     // UI elements
-    const iframe = document.getElementById('display-iframe');
+    const iframeA = document.getElementById('display-iframe');
+    const iframeB = document.getElementById('display-iframe-b');
+    let iframe = iframeA;  // Active iframe reference (swaps during playlist transitions)
+    let preloadIframe = iframeB;  // Hidden preload iframe
+    let preloadedUrl = null;  // URL currently preloaded in the hidden iframe
+    let preloadReady = false;  // Whether the preloaded iframe has fired 'ready'
     const errorScreen = document.getElementById('error-screen');
     const errorText = document.getElementById('error-text');
     
@@ -1663,7 +1674,7 @@
     
     // Playlist mode params (for DP-1 playlist progress bar)
     const isPlaylist = params.get('playlist') === 'true';
-    const playlistDuration = parseInt(params.get('duration')) || 60; // seconds
+    const playlistDuration = parseInt(params.get('duration')) || 120; // seconds
     
     // Slideshow mode params (for full DP-1 playlist client)
     // playlist_url: URL to a DP-1 playlist JSON (e.g., feed.aesthetic.computer/api/v1/playlists/{id})
@@ -1791,7 +1802,7 @@
         throw new Error(handleFilter ? `No pieces found for ${handleFilter}` : 'No anonymous pieces found');
       }
       
-      const duration = 24;
+      const duration = 120;
       const filterLabel = handleFilter || 'anonymous';
       const dateFormatted = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       
@@ -1861,6 +1872,67 @@
       }
     }
     
+    // Convert a playlist item to an iframe-loadable URL
+    function resolveItemUrl(item) {
+      let itemUrl = item.source || item.url || '';
+      // Always convert to aesthetic.computer URL for the iframe
+      // device.kidlisp.com URLs should NOT be used directly - they'd load another device.html!
+      if (itemUrl.includes('device.kidlisp.com')) {
+        const deviceMatch = itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9_-]+)/i);
+        if (deviceMatch) {
+          const rawCode = deviceMatch[1];
+          const code = rawCode.startsWith('$') ? rawCode : `$${rawCode}`;
+          itemUrl = `${aestheticUrl}/${code}?${buildDisplayParams()}`;
+        }
+      } else if (!itemUrl.includes('aesthetic.computer')) {
+        const separator = itemUrl.includes('?') ? '&' : '?';
+        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+      } else {
+        const separator = itemUrl.includes('?') ? '&' : '?';
+        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+      }
+      return itemUrl;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DOUBLE-BUFFERED IFRAME PRELOADING
+    // Preloads the next playlist item in a hidden iframe so transitions
+    // are instant (no black screen flash between pieces).
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function preloadNextItem() {
+      if (!slideshowPlaylist || !slideshowPlaylist.items) return;
+      const nextIndex = (slideshowIndex + 1) % slideshowPlaylist.items.length;
+      const nextItem = slideshowPlaylist.items[nextIndex];
+      if (!nextItem) return;
+
+      const nextUrl = resolveItemUrl(nextItem);
+      // Don't re-preload if already preloading the same URL
+      if (preloadedUrl === nextUrl) return;
+
+      preloadReady = false;
+      preloadedUrl = nextUrl;
+      preloadIframe.src = nextUrl;
+      console.log('📺 Preloading next item in hidden iframe:', nextIndex + 1, nextItem.title);
+    }
+
+    // Swap the active and preload iframes (instant visual cut)
+    function swapIframes() {
+      // Hide active, show preloaded
+      iframe.style.zIndex = '0';
+      iframe.style.visibility = 'hidden';
+      preloadIframe.style.zIndex = '1';
+      preloadIframe.style.visibility = 'visible';
+
+      // Swap references
+      const tmp = iframe;
+      iframe = preloadIframe;
+      preloadIframe = tmp;
+      preloadedUrl = null;
+      preloadReady = false;
+      console.log('📺 Iframes swapped — new active:', iframe.id);
+    }
+
     function playCurrentItem() {
       if (!slideshowPlaylist || !slideshowPlaylist.items) return;
       
@@ -1881,35 +1953,20 @@
       const playlistPosition = document.getElementById('ff1-playlist-position');
       if (playlistPosition) playlistPosition.textContent = `${slideshowIndex + 1} / ${slideshowPlaylist.items.length}`;
       
-      // Get the source URL from the item
-      // DP-1 items have a 'source' field with the display URL
-      let itemUrl = item.source || item.url || '';
+      const itemUrl = resolveItemUrl(item);
       
-      // Always convert to aesthetic.computer URL for the iframe
-      // device.kidlisp.com URLs should NOT be used directly - they'd load another device.html!
-      if (itemUrl.includes('device.kidlisp.com')) {
-        // Extract the code from device.kidlisp.com URL and convert to aesthetic.computer
-        const deviceMatch = itemUrl.match(/device\.kidlisp\.com\/(\$?[a-z0-9_-]+)/i);
-        if (deviceMatch) {
-          const rawCode = deviceMatch[1];
-          const code = rawCode.startsWith('$') ? rawCode : `$${rawCode}`;
-          itemUrl = `${aestheticUrl}/${code}?${buildDisplayParams()}`;
-        }
-      } else if (!itemUrl.includes('aesthetic.computer')) {
-        // It's some other URL, add display params
-        const separator = itemUrl.includes('?') ? '&' : '?';
-        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+      // Check if this piece is already preloaded in the hidden iframe
+      if (preloadedUrl === itemUrl) {
+        // Instant swap — no loading, no black screen
+        console.log('📺 Using preloaded iframe for instant cut');
+        swapIframes();
       } else {
-        // It's already aesthetic.computer, ensure display params
-        const separator = itemUrl.includes('?') ? '&' : '?';
-        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+        // First item or cache miss — load directly into active iframe
+        iframe.src = itemUrl;
       }
       
-      // Load the item in the iframe
-      iframe.src = itemUrl;
-      
       // Get duration from item or playlist defaults
-      const duration = item.duration || slideshowPlaylist.defaults?.duration || 24;
+      const duration = item.duration || slideshowPlaylist.defaults?.duration || 120;
       
       // Clear any existing timer
       if (slideshowTimer) {
@@ -1937,6 +1994,10 @@
         // Clear source display for non-kidlisp items
         document.getElementById('source-code-inner').innerHTML = '';
       }
+      
+      // Start preloading the NEXT item in the hidden iframe
+      // (wait a few seconds so we don't compete for bandwidth with the current piece)
+      setTimeout(() => preloadNextItem(), 3000);
       
       // Set timer to advance to next item
       slideshowTimer = setTimeout(() => {
@@ -2565,17 +2626,26 @@
         const msg = e.data.message;
         // Start progress bar when piece is fully ready (after black screen / loading)
         // "ready: ..." is the final boot message indicating piece is running
-        if (msg?.startsWith?.('ready:') && !progressBarStarted) {
-          progressBarStarted = true;
-          console.log('📺 Piece ready, starting progress bar now');
+        if (msg?.startsWith?.('ready:')) {
+          // Determine if this ready came from the active iframe or the preload iframe
+          const fromPreload = slideshowMode && e.source === preloadIframe.contentWindow;
           
-          // Check if we're in slideshow mode with a pending duration
-          if (window.pendingSlideshowDuration) {
-            startSlideshowProgressBar(window.pendingSlideshowDuration);
-            window.pendingSlideshowDuration = null;
-          } else if (!slideshowMode) {
-            // Single piece mode: 60 second progress bar, then soft restart
-            startProgressBar();
+          if (fromPreload) {
+            // The preloaded piece is ready — mark it so swap can be instant
+            preloadReady = true;
+            console.log('📺 Preloaded piece is ready (hidden iframe)');
+          } else if (!progressBarStarted) {
+            progressBarStarted = true;
+            console.log('📺 Piece ready, starting progress bar now');
+            
+            // Check if we're in slideshow mode with a pending duration
+            if (window.pendingSlideshowDuration) {
+              startSlideshowProgressBar(window.pendingSlideshowDuration);
+              window.pendingSlideshowDuration = null;
+            } else if (!slideshowMode) {
+              // Single piece mode: 120 second progress bar, then soft restart
+              startProgressBar();
+            }
           }
         }
         pieceHasChanged = true;
