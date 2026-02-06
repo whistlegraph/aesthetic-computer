@@ -497,6 +497,281 @@ export const handler = async (event, context) => {
               }
             }
 
+            /* Dark mode: DOM editor overrides (ask, respond, write-a-page) */
+            @media (prefers-color-scheme: dark) {
+              /* === Write-a-Page Editor === */
+              #garden article.page,
+              #editor-page,
+              #print-page article.page {
+                background-color: #3a3832 !important;
+                border-color: #5a5548 !important;
+              }
+              #garden article.page div.page-number,
+              #editor-page div.page-number,
+              #garden article.page div.page-title,
+              #editor-page div.page-title {
+                color: #b0a898 !important;
+              }
+              #garden #editor textarea {
+                background: #3a3832 !important;
+                caret-color: #d88aa0 !important;
+              }
+              #garden #editor #words-wrapper::before,
+              #garden #editor #words-wrapper::after {
+                background: #33322c !important;
+              }
+              #garden #editor #words-wrapper.invisible.hover {
+                background: rgba(90, 85, 72, 0.25) !important;
+              }
+              #garden #editor #words-wrapper.invisible.active {
+                background: rgba(90, 85, 72, 0.15) !important;
+              }
+              #garden #editor #words-wrapper.invisible.hover::after {
+                background: rgba(90, 85, 72, 0.5) !important;
+              }
+              #garden #editor #words-wrapper.invisible.active::after {
+                background: rgba(100, 95, 72, 0.6) !important;
+              }
+              #editor-lines-left {
+                background: linear-gradient(
+                  to bottom,
+                  rgba(45, 31, 42, 0.85) 25%,
+                  transparent 100%
+                ) !important;
+              }
+              #nav-editor {
+                background: linear-gradient(
+                  to top,
+                  rgba(45, 31, 42, 0.8) 25%,
+                  transparent 100%
+                ) !important;
+              }
+              .lines-left-loads {
+                color: #b0a898 !important;
+              }
+              /* Backpage */
+              #garden .page-wrapper .backpage {
+                background: rgba(30, 23, 27, 0.9) !important;
+                border-color: #5a5548 !important;
+                color: #ece8de !important;
+              }
+              .crumple-this-page {
+                color: #b0a898 !important;
+              }
+              .share-this-page {
+                color: #b0a898 !important;
+              }
+              #garden .page-wrapper div.ear.hover,
+              #garden .page-wrapper div.ear.active {
+                border-color: #5a5548 !important;
+              }
+              #garden .page-wrapper div.ear.active::after {
+                background: #3a3832 !important;
+              }
+              #garden .page-wrapper div.ear.reverse.hover::after,
+              #garden .page-wrapper div.ear.reverse.active::after {
+                background: #3a3832 !important;
+              }
+
+              /* === Ask Editor === */
+              #ask-editor-page {
+                background-color: #3a3832 !important;
+                border-color: #5a5548 !important;
+              }
+              #ask-editor-page .ask-title,
+              #ask-editor-page .ask-date,
+              #ask-editor-page .ask-number {
+                color: #b0a898 !important;
+              }
+              #ask-editor-page #ask-words-wrapper {
+                background: #33322c !important;
+              }
+              #ask-editor-page #ask-words-wrapper::before,
+              #ask-editor-page #ask-words-wrapper::after {
+                background: #2e2d28 !important;
+              }
+              #ask-editor-page #ask-highlights {
+                color: #ece8de !important;
+              }
+              #ask-editor-page textarea {
+                caret-color: #d88aa0 !important;
+              }
+              #ask-answer-space {
+                border-top-color: rgba(255, 255, 255, 0.08) !important;
+                color: rgba(176, 168, 152, 0.35) !important;
+              }
+              /* My Questions page (inside ask editor) */
+              #asks-list-page {
+                color: #ece8de !important;
+              }
+              #asks-list-page h2 {
+                color: #ece8de !important;
+              }
+              #asks-list-page .ask-item {
+                color: #ece8de !important;
+                border-bottom-color: rgba(90, 85, 72, 0.4) !important;
+              }
+              #asks-list-page .ask-status {
+                color: #b0a898 !important;
+              }
+              #asks-list-page .ask-item.answered {
+                background: rgba(74, 112, 64, 0.2) !important;
+              }
+              #asks-list-page p {
+                color: #b0a898 !important;
+              }
+              /* Ask toggle ("my questions") + pending toggle buttons */
+              nav button.ask-toggle {
+                background: var(--button-background) !important;
+                border-color: var(--pink-border) !important;
+                color: var(--button-text) !important;
+              }
+              nav button.ask-toggle:hover {
+                background: var(--button-background-highlight) !important;
+              }
+              nav button.ask-toggle:active {
+                background: var(--button-active-bg) !important;
+              }
+              nav button.pending-toggle {
+                background: #4a3a30 !important;
+                border-color: #7a5a40 !important;
+                color: #e8d0b8 !important;
+              }
+              nav button.pending-toggle:hover {
+                background: #5a4a3a !important;
+              }
+              nav button.pending-toggle:active {
+                background: #6a5a4a !important;
+              }
+              #ask-chars-left {
+                background: linear-gradient(
+                  to bottom,
+                  rgba(45, 31, 42, 0.85) 25%,
+                  transparent 100%
+                ) !important;
+              }
+              #nav-ask-editor {
+                background: linear-gradient(
+                  to top,
+                  rgba(45, 31, 42, 0.8) 25%,
+                  transparent 100%
+                ) !important;
+              }
+
+              /* === Respond Editor === */
+              #respond-editor-page {
+                background-color: #3a3832 !important;
+                border-color: #5a5548 !important;
+              }
+              #respond-editor-page .respond-question-section .respond-counter {
+                color: #b0a898 !important;
+              }
+              #respond-editor-page .respond-handle {
+                color: #d88aa0 !important;
+              }
+              #respond-editor-page .respond-question-text {
+                background: rgba(51, 50, 44, 0.6) !important;
+                border-left-color: #5a5548 !important;
+                color: #ece8de !important;
+              }
+              #respond-editor-page .respond-label {
+                color: #7ab0e0 !important;
+              }
+              #respond-editor-page .respond-textarea {
+                color: #ece8de !important;
+                caret-color: #d88aa0 !important;
+              }
+              #respond-editor-page .page-number {
+                color: #b0a898 !important;
+              }
+              #respond-lines-left {
+                background: linear-gradient(
+                  to bottom,
+                  rgba(45, 31, 42, 0.85) 25%,
+                  transparent 100%
+                ) !important;
+              }
+              #nav-respond-editor {
+                background: linear-gradient(
+                  to top,
+                  rgba(45, 31, 42, 0.8) 25%,
+                  transparent 100%
+                ) !important;
+              }
+
+              /* === Page placeholder (empty pages in garden) === */
+              .page-placeholder {
+                background: rgba(58, 56, 50, 0.5);
+                border-color: rgba(90, 85, 72, 0.3);
+                color: rgba(176, 168, 152, 0.4);
+              }
+
+              /* === Ask list items inside ask editor === */
+              #asks-list h3 {
+                color: #b0a898 !important;
+              }
+              .ask-item {
+                color: #ece8de !important;
+              }
+              .ask-item.answered {
+                background: rgba(74, 112, 64, 0.25) !important;
+              }
+
+              /* === Prompt / back button on editor overlay === */
+              #prompt {
+                color: #b0a898 !important;
+              }
+              #prompt:hover {
+                color: #d88aa0 !important;
+              }
+
+              /* === Garden page text (rendered pages in scroll view) === */
+              #garden article.page .words,
+              #print-page article.page .words {
+                color: #ece8de !important;
+              }
+              #garden article.page div.page-number:hover {
+                color: #d0a070 !important;
+              }
+
+              /* === Write-a-page: textarea text + measurement overlay === */
+              #garden #editor textarea {
+                color: #ece8de !important;
+              }
+              #editor-measurement {
+                color: #ece8de !important;
+              }
+
+              /* === Respond view (non-admin user respond) === */
+              .respond-view .respond-handle {
+                color: #d88aa0 !important;
+              }
+              .respond-view .respond-question-text {
+                background: rgba(51, 50, 44, 0.6) !important;
+                border-left-color: #5a5548 !important;
+                color: #ece8de !important;
+              }
+              .respond-view .respond-label {
+                color: #7ab0e0 !important;
+              }
+              .respond-view .respond-textarea {
+                background: #33322c !important;
+                color: #ece8de !important;
+                caret-color: #d88aa0 !important;
+              }
+
+              /* === Lines-left counter text colors === */
+              .lines-left-lots {
+                color: #7ab07a !important;
+              }
+              .lines-left-little {
+                color: #d0a060 !important;
+              }
+              .lines-left-few {
+                color: #d07060 !important;
+              }
+            }
+
             /* Using default browser scrollbars */
 
             html,
@@ -891,10 +1166,12 @@ export const handler = async (event, context) => {
             textarea {
               -webkit-tap-highlight-color: transparent;
             }
-            #chat-button,
+            #chat-button {
+              /* display: none; */
+              margin-left: 1em;
+            }
             #ask-button,
             #respond-button {
-              /* display: none; */
               margin-left: 1em;
             }
             @keyframes chat-unread-pulse {
@@ -1651,11 +1928,17 @@ export const handler = async (event, context) => {
               cursor: grabbing;
             }
             /* Keep pointer on interactive elements */
-            #garden .page-number,
+            #garden > #binding .page-number,
             #garden .ear,
             #garden a,
             #garden button {
               cursor: pointer;
+            }
+            /* Editor page numbers are not interactive */
+            #editor-page .page-number,
+            #ask-editor-page .ask-number,
+            #respond-editor-page .page-number {
+              cursor: default !important;
             }
             
             /* Drag direction indicators */
@@ -2817,6 +3100,7 @@ export const handler = async (event, context) => {
                 const handle = e.target.innerText;
                 chatInput.value = chatInput.value + handle + " ";
                 chatInput.focus();
+                chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
               }
               // Handle page link clicks (navigate within SPA)
               if (e.target.classList.contains("page-link")) {
@@ -4483,8 +4767,8 @@ export const handler = async (event, context) => {
               topBar.appendChild(chatButton);
               // }
 
-              // ❓ Ask + Respond buttons
-              const askButton = (dev || subscription?.admin) ? cel("button") : null;
+              // ❓ Ask + Respond buttons (admin only: @amelia and @jeffrey)
+              const askButton = subscription?.admin ? cel("button") : null;
               if (askButton) {
                 askButton.id = "ask-button";
                 askButton.innerText = "ask";
@@ -4494,7 +4778,6 @@ export const handler = async (event, context) => {
               if (respondButton) {
                 respondButton.id = "respond-button";
                 respondButton.innerText = "respond";
-                respondButton.style.marginLeft = "1em";
               }
 
               async function openAskEditor() {
