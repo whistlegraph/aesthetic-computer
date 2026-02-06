@@ -253,6 +253,24 @@ SYSLINUX
       echo "Installed and enabled AC Config Server"
     fi
     
+    # Install SSL certificates (for HTTPS on config server)
+    echo "=== Installing SSL certificates ==="
+    mkdir -p "$PROFILE/airootfs/opt/ac-ssl"
+    # Generate self-signed certs if not provided in overlays
+    if [ -f /work/overlays/ac-ssl/localhost.pem ] && [ -f /work/overlays/ac-ssl/localhost-key.pem ]; then
+      cp /work/overlays/ac-ssl/localhost.pem "$PROFILE/airootfs/opt/ac-ssl/"
+      cp /work/overlays/ac-ssl/localhost-key.pem "$PROFILE/airootfs/opt/ac-ssl/"
+      echo "Installed SSL certificates from overlays"
+    else
+      echo "Generating self-signed SSL certificates..."
+      openssl req -x509 -newkey rsa:2048 -keyout "$PROFILE/airootfs/opt/ac-ssl/localhost-key.pem" \
+        -out "$PROFILE/airootfs/opt/ac-ssl/localhost.pem" -days 365 -nodes \
+        -subj "/CN=localhost/O=Aesthetic Computer/C=US"
+      echo "Generated self-signed SSL certificates"
+    fi
+    chmod 644 "$PROFILE/airootfs/opt/ac-ssl/localhost.pem"
+    chmod 600 "$PROFILE/airootfs/opt/ac-ssl/localhost-key.pem"
+    
     # Install AC Setup TUI (boot-time WiFi + piece configuration)
     echo "=== Installing AC Setup TUI ==="
     mkdir -p "$PROFILE/airootfs/opt/ac/bin"
@@ -298,6 +316,13 @@ SYSLINUX
     echo "feralfile:x:1000:1000:Feral File:/home/feralfile:/bin/bash" >> "$PROFILE/airootfs/etc/passwd"
     echo "feralfile:x:1000:" >> "$PROFILE/airootfs/etc/group"
     echo "feralfile:!:19000:0:99999:7:::" >> "$PROFILE/airootfs/etc/shadow"
+    
+    # Configure console font for nicer terminal appearance (setup TUI)
+    echo "=== Configuring console font ==="
+    if [ -f /work/overlays/vconsole.conf ]; then
+      cp /work/overlays/vconsole.conf "$PROFILE/airootfs/etc/vconsole.conf"
+      echo "Installed vconsole.conf with terminus font"
+    fi
     
     # === HARDENING: Auto-login feralfile on TTY1 ===
     echo "=== Configuring auto-login for feralfile user ==="

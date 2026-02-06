@@ -218,6 +218,24 @@ jobs:
             echo "Installed and enabled AC Config Server"
           fi
 
+          # Install SSL certificates (for HTTPS on config server)
+          echo "=== Installing SSL certificates ==="
+          mkdir -p "$PROFILE/airootfs/opt/ac-ssl"
+          # Generate self-signed certs if not provided in overlays
+          if [ -f "$OVERLAYS/ac-ssl/localhost.pem" ] && [ -f "$OVERLAYS/ac-ssl/localhost-key.pem" ]; then
+            cp "$OVERLAYS/ac-ssl/localhost.pem" "$PROFILE/airootfs/opt/ac-ssl/"
+            cp "$OVERLAYS/ac-ssl/localhost-key.pem" "$PROFILE/airootfs/opt/ac-ssl/"
+            echo "Installed SSL certificates from overlays"
+          else
+            echo "Generating self-signed SSL certificates..."
+            openssl req -x509 -newkey rsa:2048 -keyout "$PROFILE/airootfs/opt/ac-ssl/localhost-key.pem" \
+              -out "$PROFILE/airootfs/opt/ac-ssl/localhost.pem" -days 365 -nodes \
+              -subj "/CN=localhost/O=Aesthetic Computer/C=US"
+            echo "Generated self-signed SSL certificates"
+          fi
+          chmod 644 "$PROFILE/airootfs/opt/ac-ssl/localhost.pem"
+          chmod 600 "$PROFILE/airootfs/opt/ac-ssl/localhost-key.pem"
+
           # Install AC Setup TUI (boot-time WiFi + piece configuration)
           echo "=== Installing AC Setup TUI ==="
           mkdir -p "$PROFILE/airootfs/opt/ac/bin"
@@ -262,6 +280,13 @@ jobs:
           echo "feralfile:x:1000:1000:Feral File:/home/feralfile:/bin/bash" >> "$PROFILE/airootfs/etc/passwd"
           echo "feralfile:x:1000:" >> "$PROFILE/airootfs/etc/group"
           echo "feralfile:!:19000:0:99999:7:::" >> "$PROFILE/airootfs/etc/shadow"
+
+          echo "=== Configuring console font ==="
+          OVERLAYS="$GITHUB_WORKSPACE/utilities/ffos-build/overlays"
+          if [ -f "$OVERLAYS/vconsole.conf" ]; then
+            cp "$OVERLAYS/vconsole.conf" "$PROFILE/airootfs/etc/vconsole.conf"
+            echo "Installed vconsole.conf with terminus font"
+          fi
 
           echo "=== Auto-login feralfile on TTY1 ==="
           mkdir -p "$PROFILE/airootfs/etc/systemd/system/getty@tty1.service.d"
