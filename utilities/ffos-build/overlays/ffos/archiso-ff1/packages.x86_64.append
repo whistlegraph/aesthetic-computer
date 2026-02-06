@@ -17,3 +17,6 @@ dhcpcd
 pipewire
 pipewire-pulse
 wireplumber
+
+# Python for AC Config Server
+python
