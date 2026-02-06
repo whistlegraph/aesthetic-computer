@@ -351,6 +351,9 @@ mkdir -p /home/feralfile/.config
 # Set ownership
 chown -R feralfile:feralfile /home/feralfile
 
+# Ensure scripts are executable
+chmod +x /home/feralfile/scripts/*.sh 2>/dev/null || true
+
 # Enable lingering for user services (critical for D-Bus session bus at boot)
 mkdir -p /var/lib/systemd/linger
 touch /var/lib/systemd/linger/feralfile
