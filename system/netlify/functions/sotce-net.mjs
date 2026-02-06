@@ -368,6 +368,11 @@ export const handler = async (event, context) => {
               --card-text-dim: #999999;
               --card-text-faint: #aaaaaa;
               
+              /* Question Card Colors (bluish) */
+              --question-card-background: #e8f0f8;
+              --question-card-border: #b8c8d8;
+              --question-card-ear: #d0e0f0;
+              
               /* UI Colors */
               --pink-border: rgb(255, 190, 215);
               --button-background: rgb(255, 235, 183);
@@ -436,6 +441,11 @@ export const handler = async (event, context) => {
                 --card-text-muted: #b0a898;
                 --card-text-dim: #908878;
                 --card-text-faint: #706858;
+                
+                /* Question Card Colors (darker blue) */
+                --question-card-background: #2a3442;
+                --question-card-border: #4a5a6a;
+                --question-card-ear: #3a4a5a;
                 
                 /* UI Colors - olive-purple tones */
                 --pink-border: #a06080;
@@ -577,20 +587,20 @@ export const handler = async (event, context) => {
 
               /* === Ask Editor === */
               #ask-editor-page {
-                background-color: #3a3832 !important;
-                border-color: #5a5548 !important;
+                background-color: #2a3442 !important;
+                border-color: #3a4a5a !important;
               }
               #ask-editor-page .ask-title,
               #ask-editor-page .ask-date,
               #ask-editor-page .ask-number {
-                color: #b0a898 !important;
+                color: #98a8b8 !important;
               }
               #ask-editor-page #ask-words-wrapper {
-                background: #33322c !important;
+                background: #243340 !important;
               }
               #ask-editor-page #ask-words-wrapper::before,
               #ask-editor-page #ask-words-wrapper::after {
-                background: #2e2d28 !important;
+                background: #1e2d3a !important;
               }
               #ask-editor-page #ask-highlights {
                 color: #ece8de !important;
@@ -648,44 +658,44 @@ export const handler = async (event, context) => {
               #ask-chars-left {
                 background: linear-gradient(
                   to bottom,
-                  rgba(45, 31, 42, 0.85) 25%,
+                  rgba(26, 42, 56, 0.85) 25%,
                   transparent 100%
                 ) !important;
               }
               #nav-ask-editor {
                 background: linear-gradient(
                   to top,
-                  rgba(45, 31, 42, 0.8) 25%,
+                  rgba(26, 42, 56, 0.8) 25%,
                   transparent 100%
                 ) !important;
               }
 
               /* === Respond Editor === */
               #respond-editor-page {
-                background-color: #3a3832 !important;
-                border-color: #5a5548 !important;
+                background-color: #2a3442 !important;
+                border-color: #3a4a5a !important;
               }
               #respond-editor-page .respond-date {
-                color: #ece8de !important;
+                color: #e0e8f0 !important;
               }
               #respond-editor-page .respond-title {
-                color: #d8c8b8 !important;
+                color: #b8c8d8 !important;
               }
               #respond-editor-page .respond-question-section .respond-counter {
-                color: #d8c8b8 !important;
+                color: #b8c8d8 !important;
               }
               #respond-editor-page .respond-question-text {
-                color: #f5f0e8 !important;
+                color: #e8f0f5 !important;
               }
               #respond-editor-page .respond-separator {
                 border-top-color: rgba(255, 255, 255, 0.12) !important;
               }
               #respond-editor-page #respond-words-wrapper {
-                background: #33322c !important;
+                background: #243340 !important;
               }
               #respond-editor-page #respond-words-wrapper::before,
               #respond-editor-page #respond-words-wrapper::after {
-                background: #2e2d28 !important;
+                background: #1e2d3a !important;
               }
               #respond-editor-page .respond-textarea {
                 color: #f5f0e8 !important;
@@ -697,14 +707,14 @@ export const handler = async (event, context) => {
               #respond-lines-left {
                 background: linear-gradient(
                   to bottom,
-                  rgba(45, 31, 42, 0.85) 25%,
+                  rgba(26, 42, 56, 0.85) 25%,
                   transparent 100%
                 ) !important;
               }
               #nav-respond-editor {
                 background: linear-gradient(
                   to top,
-                  rgba(45, 31, 42, 0.8) 25%,
+                  rgba(26, 42, 56, 0.8) 25%,
                   transparent 100%
                 ) !important;
               }
@@ -725,6 +735,17 @@ export const handler = async (event, context) => {
               }
               .ask-item.answered {
                 background: rgba(74, 112, 64, 0.25) !important;
+              }
+              .ask-item.answered:hover {
+                background: rgba(74, 112, 64, 0.4) !important;
+              }
+              .ask-item button.take-back {
+                background: rgba(200, 80, 80, 0.15) !important;
+                border-color: rgba(200, 80, 80, 0.3) !important;
+                color: rgb(220, 120, 120) !important;
+              }
+              .ask-item button.take-back:hover {
+                background: rgba(200, 80, 80, 0.3) !important;
               }
 
               /* === Prompt / back button on editor overlay === */
@@ -1362,18 +1383,23 @@ export const handler = async (event, context) => {
               bottom: 0;
               left: 0;
               padding-top: 1em;
-              justify-content: space-between;
               width: 100%;
               padding-left: 1em;
               padding-right: 1em;
               box-sizing: border-box;
               display: flex;
+              justify-content: space-between;
               z-index: 7;
               background: linear-gradient(
                 to top,
-                rgb(207 255 195 / 50%) 25%,
+                rgb(220 235 250 / 50%) 25%,
                 transparent 100%
               );
+            }
+            #nav-ask-editor .nav-center {
+              position: absolute;
+              left: 50%;
+              transform: translateX(-50%);
             }
             #asks-list {
               margin-top: 20%;
@@ -1388,7 +1414,7 @@ export const handler = async (event, context) => {
               opacity: 0.6;
             }
             .ask-item {
-              padding: 0.5em 0;
+              padding: 0.75em 0.5em;
               border-bottom: 1px solid var(--pink-border);
               font-size: 90%;
             }
@@ -1397,15 +1423,33 @@ export const handler = async (event, context) => {
             }
             .ask-item.answered {
               background: rgba(203, 238, 161, 0.3);
-              padding-left: 0.5em;
-              padding-right: 0.5em;
               margin-left: -0.5em;
               margin-right: -0.5em;
+              cursor: pointer;
+              transition: background 0.15s ease;
+            }
+            .ask-item.answered:hover {
+              background: rgba(203, 238, 161, 0.5);
             }
             .ask-item .ask-status {
-              font-size: 80%;
-              opacity: 0.6;
-              margin-top: 0.25em;
+              font-size: 75%;
+              opacity: 0.45;
+              text-transform: lowercase;
+              font-style: italic;
+            }
+            .ask-item button.take-back {
+              display: block;
+              margin-top: 0.4em;
+              font-size: 75%;
+              padding: 0.2em 0.7em;
+              background: rgba(180, 60, 60, 0.1);
+              border: 1px solid rgba(180, 60, 60, 0.3);
+              color: rgb(160, 50, 50);
+              cursor: pointer;
+              transition: background 0.15s ease;
+            }
+            .ask-item button.take-back:hover {
+              background: rgba(180, 60, 60, 0.2);
             }
             #pages-button {
               position: fixed;
@@ -1624,7 +1668,7 @@ export const handler = async (event, context) => {
             }
             #respond-editor-page {
               aspect-ratio: 4 / 5;
-              background-color: rgb(255, 250, 245);
+              background-color: rgb(240, 248, 255);
               border: calc(max(1px, 0.1em)) solid black;
               box-sizing: border-box;
               left: 0;
@@ -1756,7 +1800,7 @@ export const handler = async (event, context) => {
               z-index: 6;
               background: linear-gradient(
                 to bottom,
-                rgb(255 250 245 / 70%) 25%,
+                rgb(220 235 250 / 70%) 25%,
                 transparent 100%
               );
             }
@@ -1774,7 +1818,7 @@ export const handler = async (event, context) => {
               z-index: 7;
               background: linear-gradient(
                 to top,
-                rgb(255 245 235 / 50%) 25%,
+                rgb(220 235 250 / 50%) 25%,
                 transparent 100%
               );
             }
@@ -3119,7 +3163,13 @@ export const handler = async (event, context) => {
                     chatInput.value = message;
                     chatInput.focus();
                     // Move cursor to end of input
-                    chatInput.setSelectionRange(message.length, message.length);
+                    const len = message.length;
+                    chatInput.setSelectionRange(len, len);
+                    // Force focus again after a tick to ensure cursor is visible
+                    requestAnimationFrame(() => {
+                      chatInput.focus();
+                      chatInput.setSelectionRange(len, len);
+                    });
                   }, 100);
                 }
               }
@@ -4275,7 +4325,7 @@ export const handler = async (event, context) => {
                         // Check to see if the user has a subscription here, before rendering a subscribe button.
                         user.email_verified = u.email_verified;
                         user.sub = u.sub; // Add sub to user.
-                        const entered = await subscribed();
+                        const entered = await subscribed({ limit: 100 }); // Load more pages for feed
                         if (entered) {
                           status = "subscribed";
                           subscription = entered;
@@ -4818,11 +4868,7 @@ export const handler = async (event, context) => {
 
               // ❓ Ask + Respond buttons
               const isJeffrey = window.sotceHandle === "@jeffrey";
-              const askButton = (subscription?.admin && isJeffrey) ? cel("button") : null;
-              if (askButton) {
-                askButton.id = "ask-button";
-                askButton.innerText = "ask";
-              }
+              const askButton = null; // Ask button removed for admins
 
               const respondButton = (subscription?.admin && isJeffrey) ? cel("button") : null;
               if (respondButton) {
@@ -4861,12 +4907,6 @@ export const handler = async (event, context) => {
                 askDate.classList.add("ask-date");
                 askDate.innerText = dateTitle(new Date());
 
-                // Title below date
-                const askTitle = cel("div");
-                askTitle.classList.add("ask-title");
-                const userHandle = window.sotceHandle || "@you";
-                askTitle.innerText = userHandle + " asks @amelia";
-
                 const wordsWrapper = cel("div");
                 wordsWrapper.id = "ask-words-wrapper";
 
@@ -4875,7 +4915,9 @@ export const handler = async (event, context) => {
                 highlights.id = "ask-highlights";
 
                 const words = cel("textarea");
-                words.value = "Dear @amelia, ";
+                // Restore draft if available, otherwise use default
+                const savedDraft = localStorage.getItem("sotce-ask-draft");
+                words.value = savedDraft || "Dear @amelia, ";
                 words.placeholder = "Dear @amelia,";
 
                 function updateHighlights() {
@@ -4944,35 +4986,12 @@ export const handler = async (event, context) => {
 
                   // Update handle highlighting
                   updateHighlights();
-
-                  // Update answer space height based on remaining lines
-                  if (typeof updateAnswerSpace === "function") updateAnswerSpace(remaining);
                 });
 
                 wordsWrapper.appendChild(highlights);
                 wordsWrapper.appendChild(words);
                 askPage.appendChild(askDate);
-                askPage.appendChild(askTitle);
                 askPage.appendChild(wordsWrapper);
-
-                // Answer space indicator
-                const answerSpace = cel("div");
-                answerSpace.id = "ask-answer-space";
-                answerSpace.innerText = "Space for answer...";
-                // Total answer lines = maxAskLines worth of visual space
-                function updateAnswerSpace(questionLinesRemaining) {
-                  const answerLines = questionLinesRemaining;
-                  answerSpace.style.height = "calc(var(--line-height) * " + Math.max(answerLines, 0) + ")";
-                  if (answerLines <= 0) {
-                    answerSpace.innerText = "";
-                  } else if (answerLines <= 1) {
-                    answerSpace.innerText = "Little space for answer";
-                  } else {
-                    answerSpace.innerText = "Space for answer...";
-                  }
-                }
-                updateAnswerSpace(maxAskLines);
-                askPage.appendChild(answerSpace);
 
                 // My asks list (shown by swapping page content)
                 let asksData = asksRes.status === 200 ? asksRes.asks : [];
@@ -4993,7 +5012,7 @@ export const handler = async (event, context) => {
                 function updateMyAsksLink() {
                   const count = asksData ? asksData.length : 0;
                   if (showingAsks) {
-                    myAsksBtn.innerText = "close";
+                    myAsksBtn.innerText = "back";
                     myAsksBtn.style.display = "block";
                   } else if (count > 0) {
                     myAsksBtn.innerText = "my questions (" + count + ")";
@@ -5006,15 +5025,10 @@ export const handler = async (event, context) => {
                 function renderAsksList() {
                   asksListPage.innerHTML = "";
 
-                  const title = cel("h2");
-                  title.innerText = "My Questions";
-                  title.style.cssText = "margin:0 0 1em 0;text-align:center;font-weight:normal;";
-                  asksListPage.appendChild(title);
-
                   if (!asksData || asksData.length === 0) {
                     const empty = cel("p");
                     empty.innerText = "No questions yet.";
-                    empty.style.cssText = "opacity:0.6;text-align:center;";
+                    empty.style.cssText = "opacity:0.6;text-align:center;margin-top:2em;";
                     asksListPage.appendChild(empty);
                   } else {
                     asksData.forEach((ask) => {
@@ -5022,26 +5036,64 @@ export const handler = async (event, context) => {
                       item.classList.add("ask-item");
                       if (ask.state === "answered") item.classList.add("answered");
 
-                      const q = cel("div");
-                      q.innerText = ask.question;
-
-                      const statusRow = cel("div");
-                      statusRow.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:0.25em;";
-
-                      const status = cel("span");
-                      status.classList.add("ask-status");
                       const whenDate = new Date(ask.when).toLocaleDateString("en-US", {
-                        month: "short", day: "numeric", year: "numeric"
+                        weekday: "long", month: "long", day: "numeric"
                       });
-                      let statusText = "Pending";
-                      if (ask.state === "answered") statusText = "Answered";
-                      else if (ask.draftStartedAt) statusText = "Draft started";
-                      status.innerText = statusText + " - " + whenDate;
 
-                      statusRow.appendChild(status);
+                      const dateLine = cel("div");
+                      dateLine.classList.add("ask-status");
+                      if (ask.state === "answered") {
+                        dateLine.innerText = "Answered · " + whenDate;
+                      } else if (ask.draftStartedAt) {
+                        dateLine.innerText = "Being answered · " + whenDate;
+                      } else {
+                        dateLine.innerText = "Asked " + whenDate;
+                      }
+                      item.appendChild(dateLine);
 
+                      const q = cel("div");
+                      q.style.cssText = "margin-top:0.25em;";
+                      q.innerText = ask.question;
                       item.appendChild(q);
-                      item.appendChild(statusRow);
+
+                      // "take back" button for pending questions without a draft
+                      if (ask.state === "pending" && !ask.draftStartedAt) {
+                        const deleteBtn = cel("button");
+                        deleteBtn.innerText = "take back";
+                        deleteBtn.classList.add("take-back");
+                        deleteBtn.onclick = async (e) => {
+                          e.stopPropagation();
+                          if (!confirm("Take back this question?")) return;
+                          veil();
+                          const res = await userRequest("DELETE", "/sotce-net/ask/" + ask._id);
+                          unveil({ instant: true });
+                          if (res.status === 200) {
+                            asksData = asksData.filter(a => a._id !== ask._id);
+                            renderAsksList();
+                            updateMyAsksLink();
+                          } else {
+                            alert(res.message || "Could not delete.");
+                          }
+                        };
+                        item.appendChild(deleteBtn);
+                      }
+                      
+                      // Make answered questions clickable to navigate to them
+                      if (ask.state === "answered" && window.feedItems) {
+                        const feedItem = window.feedItems.find(fi => fi.type === "question" && fi._id?.toString() === ask._id?.toString());
+                        if (feedItem && feedItem.questionNumber) {
+                          item.onclick = () => {
+                            // Save draft if there's text
+                            if (words.value.trim()) {
+                              localStorage.setItem("sotce-ask-draft", words.value);
+                            }
+                            closeAskEditor();
+                            // Navigate to the question
+                            location.href = "/q/" + feedItem.questionNumber;
+                          };
+                        }
+                      }
+                      
                       asksListPage.appendChild(item);
                     });
                   }
@@ -5054,25 +5106,16 @@ export const handler = async (event, context) => {
                     askPage.style.display = "none";
                     asksListPage.style.display = "block";
                     linesLeft.style.display = "none";
+                    // Hide ask and nevermind buttons in list view
+                    cancelBtn.style.display = "none";
+                    submitBtn.style.display = "none";
                   } else {
                     askPage.style.display = "block";
                     asksListPage.style.display = "none";
                     linesLeft.style.display = "block";
-                  }
-                  updateMyAsksLink();
-                }
-
-                function toggleAsksView() {
-                  showingAsks = !showingAsks;
-                  if (showingAsks) {
-                    renderAsksList();
-                    askPage.style.display = "none";
-                    asksListPage.style.display = "block";
-                    linesLeft.style.display = "none";
-                  } else {
-                    askPage.style.display = "block";
-                    asksListPage.style.display = "none";
-                    linesLeft.style.display = "block";
+                    // Show ask and nevermind buttons
+                    cancelBtn.style.display = "";
+                    submitBtn.style.display = "";
                   }
                   updateMyAsksLink();
                 }
@@ -5092,7 +5135,7 @@ export const handler = async (event, context) => {
                 const myAsksBtn = cel("button");
                 const initialCount = asksData ? asksData.length : 0;
                 myAsksBtn.innerText = "my questions (" + initialCount + ")";
-                myAsksBtn.classList.add("ask-toggle");
+                myAsksBtn.classList.add("ask-toggle", "nav-center");
                 if (initialCount === 0) myAsksBtn.style.display = "none";
                 myAsksBtn.onclick = (e) => {
                   e.preventDefault();
@@ -5125,8 +5168,9 @@ export const handler = async (event, context) => {
 
                 cancelBtn.onclick = (e) => {
                   e.preventDefault();
-                  if (words.value.length > 0) {
-                    if (!confirm("Discard your question?")) return;
+                  if (words.value.trim()) {
+                    // Save draft to localStorage
+                    localStorage.setItem("sotce-ask-draft", words.value);
                   }
                   closeAskEditor();
                 };
@@ -5146,14 +5190,17 @@ export const handler = async (event, context) => {
                   if (res.status === 200) {
                     words.value = "";
                     lastValidValue = "";
+                    localStorage.removeItem("sotce-ask-draft"); // Clear saved draft
                     linesLeft.innerText = maxAskLines + " lines left";
                     linesLeft.classList.remove("lines-left-few", "lines-left-little");
-                    // Refresh the list
+                    // Refresh the list and jump to my questions view
                     const newAsks = await userRequest("GET", "/sotce-net/asks");
                     if (newAsks.status === 200) {
                       asksData = newAsks.asks;
-                      updateMyAsksLink();
                     }
+                    // Jump to asks list view
+                    if (!showingAsks) toggleAsksView();
+                    else { renderAsksList(); updateMyAsksLink(); }
                   } else {
                     alert("Error: " + (res.message || "Could not submit question."));
                   }
@@ -5244,12 +5291,6 @@ export const handler = async (event, context) => {
                   pageDate.classList.add("respond-date");
                   pageDate.innerText = dateTitle(new Date());
                   respondPage.appendChild(pageDate);
-
-                  // Title below date (centered, matching ask page)
-                  const pageTitle = cel("div");
-                  pageTitle.classList.add("respond-title");
-                  pageTitle.innerText = (question.handle || "@anonymous") + " asks @amelia";
-                  respondPage.appendChild(pageTitle);
 
                   // Question section
                   const questionSection = cel("div");
@@ -6060,7 +6101,51 @@ export const handler = async (event, context) => {
               const totalPages = subscription.totalPages || 0;
               const lastModified = subscription.lastModified;
               const loadedPagesData = subscription.pages || [];
+              const loadedQuestionsData = subscription.questions || [];
+              const totalQuestions = subscription.totalQuestions || 0;
               const pageIndex = subscription.pageIndex; // If loading specific page
+              
+              // Build combined feed: pages + answered questions, sorted by date
+              const feedItems = [];
+              
+              // Add pages with type marker
+              const pageStartNum = totalPages - loadedPagesData.length + 1;
+              loadedPagesData.forEach((page, idx) => {
+                feedItems.push({
+                  ...page,
+                  type: "page",
+                  pageNumber: pageStartNum + idx,
+                  sortDate: new Date(page.when || page.updatedAt)
+                });
+              });
+              
+              // Add questions with type marker
+              let questionNum = 1;
+              for (const q of loadedQuestionsData) {
+                feedItems.push({
+                  ...q,
+                  type: "question", 
+                  questionNumber: questionNum++,
+                  sortDate: new Date(q.answeredAt)
+                });
+              }
+              
+              // Sort combined feed by date (newest last for chronological order)
+              feedItems.sort((a, b) => a.sortDate - b.sortDate);
+              
+              // Assign feed indices (1-indexed)
+              feedItems.forEach((item, i) => {
+                item.feedIndex = i + 1;
+              });
+              
+              const totalFeedItems = totalPages + totalQuestions;
+              
+              // Expose feedItems globally for ask editor to access
+              window.feedItems = feedItems;
+              
+              console.log("📦 Feed built:", feedItems.length, "items (", totalPages, "pages +", totalQuestions, "questions)");
+              console.log("📦 loadedPagesData.length:", loadedPagesData.length, "loadedQuestionsData.length:", loadedQuestionsData.length);
+              console.log("📦 First few feed items:", feedItems.slice(0, 5).map(i => ({ type: i.type, feedIndex: i.feedIndex, pageNumber: i.pageNumber, questionNumber: i.questionNumber, sortDate: i.sortDate })));
               
               // Check cache validity
               const cacheMeta = await getCacheMeta();
@@ -6078,7 +6163,7 @@ export const handler = async (event, context) => {
                 await setCacheMeta(totalPages, lastModified);
               }
               
-              // Cache the loaded pages
+              // Cache the loaded pages (by page number for backwards compat)
               for (const page of loadedPagesData) {
                 const idx = pageIndex || (totalPages - loadedPagesData.length + loadedPagesData.indexOf(page) + 1);
                 await setCachedPage(idx, page);
@@ -6087,22 +6172,30 @@ export const handler = async (event, context) => {
               // 🎨 CANVAS-BASED PAGE RENDERING (single page + transitions)
               const USE_CANVAS_GARDEN = true; // Feature flag
               
-              if (USE_CANVAS_GARDEN && (totalPages > 0 || loadedPagesData.length > 0)) {
+              if (USE_CANVAS_GARDEN && (totalFeedItems > 0 || feedItems.length > 0)) {
                 console.log("🎨 Using Canvas garden renderer (single page mode)");
                 
                 const canvas = cel("canvas");
                 canvas.id = "garden-canvas";
                 const ctx = canvas.getContext("2d");
                 
-                // State
-                let currentPageIndex = totalPages;
-                let displayedPageIndex = totalPages;
+                // Build a feed-index to item map for easy lookup
+                const feedItemMap = new Map();
+                feedItems.forEach(item => feedItemMap.set(item.feedIndex, item));
+                
+                // Total items is just the loaded items for now (not totalFeedItems which includes unfetched items)
+                const loadedFeedCount = feedItems.length;
+                console.log("📊 Feed counts: loaded =", loadedFeedCount, "total (pages + questions) =", totalFeedItems);
+                
+                // State - using feed indices (1 to loadedFeedCount)
+                let currentPageIndex = loadedFeedCount; // Start at most recent loaded item
+                let displayedPageIndex = loadedFeedCount;
                 let transitionProgress = 0; // 0 = showing current, 1 = showing next
                 let transitionDirection = 0; // -1 = prev, 0 = none, 1 = next
                 let transitionTarget = null;
                 let transitionSlow = false; // true when arrow keys triggered the transition
                 let textFadeIn = 1; // 0 to 1, fades in text when page becomes current
-                const pageCache = new Map();
+                const pageCache = new Map(); // Cache by feed index
                 let cardWidth = 0;
                 let cardHeight = 0;
                 let cardX = 0;
@@ -6131,27 +6224,36 @@ export const handler = async (event, context) => {
                 // Touch data cache for showing who touched each page
                 const touchCache = new Map(); // pageId -> { touches: [...], fetching: false }
                 
-                // Determine starting page from URL
+                // Determine starting position from URL
                 const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
+                const questionMatch = path.match(/^\\/q\\/(\\d+)$/);
                 if (pageMatch) {
-                  const requestedPage = parseInt(pageMatch[1], 10);
-                  if (requestedPage >= 1 && requestedPage <= totalPages) {
-                    currentPageIndex = requestedPage;
-                    displayedPageIndex = requestedPage;
+                  const requestedPageNum = parseInt(pageMatch[1], 10);
+                  // Find feed item with this page number
+                  const feedItem = feedItems.find(item => item.type === "page" && item.pageNumber === requestedPageNum);
+                  if (feedItem) {
+                    currentPageIndex = feedItem.feedIndex;
+                    displayedPageIndex = feedItem.feedIndex;
+                    console.log("📍 URL requested page", requestedPageNum, "-> feed index", feedItem.feedIndex);
+                  }
+                } else if (questionMatch) {
+                  const requestedQNum = parseInt(questionMatch[1], 10);
+                  // Find feed item with this question number
+                  const feedItem = feedItems.find(item => item.type === "question" && item.questionNumber === requestedQNum);
+                  if (feedItem) {
+                    currentPageIndex = feedItem.feedIndex;
+                    displayedPageIndex = feedItem.feedIndex;
+                    console.log("📍 URL requested question", requestedQNum, "-> feed index", feedItem.feedIndex);
                   }
                 }
                 
-                // Cache initially loaded pages
-                if (pageIndex && loadedPagesData[0]) {
-                  pageCache.set(pageIndex, loadedPagesData[0]);
-                  currentPageIndex = pageIndex;
-                  displayedPageIndex = pageIndex;
-                } else {
-                  const startIdx = totalPages - loadedPagesData.length + 1;
-                  loadedPagesData.forEach((page, i) => {
-                    pageCache.set(startIdx + i, page);
-                  });
-                }
+                // Cache feed items by feed index
+                console.log("🗃️ Caching", feedItems.length, "feed items:");
+                feedItems.forEach(item => {
+                  console.log("  -", item.feedIndex, ":", item.type, item.type === "question" ? item.question?.slice(0, 30) + "..." : item.when);
+                  pageCache.set(item.feedIndex, item);
+                });
+                console.log("🗃️ pageCache size after init:", pageCache.size);
                 
                 // 🎨 Theme colors reader - gets CSS custom properties for canvas rendering
                 function getThemeColors() {
@@ -6167,6 +6269,9 @@ export const handler = async (event, context) => {
                     cardTextMuted: style.getPropertyValue('--card-text-muted').trim() || '#666666',
                     cardTextDim: style.getPropertyValue('--card-text-dim').trim() || '#999999',
                     cardTextFaint: style.getPropertyValue('--card-text-faint').trim() || '#aaaaaa',
+                    questionCardBackground: style.getPropertyValue('--question-card-background').trim() || '#e8f0f8',
+                    questionCardBorder: style.getPropertyValue('--question-card-border').trim() || '#b8c8d8',
+                    questionCardEar: style.getPropertyValue('--question-card-ear').trim() || '#d0e0f0',
                   };
                 }
                 
@@ -6220,14 +6325,18 @@ export const handler = async (event, context) => {
                 // Fetch page data (with deduplication)
                 const fetchingPages = new Set();
                 async function fetchPage(idx) {
+                  console.log("📥 fetchPage called for idx:", idx, "inCache:", pageCache.has(idx));
                   if (pageCache.has(idx)) return pageCache.get(idx);
                   if (fetchingPages.has(idx)) return null;
                   
                   fetchingPages.add(idx);
                   try {
                     let pageData = await getCachedPage(idx);
+                    console.log("📥 IndexedDB cache result for idx:", idx, "found:", !!pageData);
                     if (!pageData) {
+                      console.log("📥 Fetching from server, pageNumber:", idx);
                       const response = await subscribed({ pageNumber: idx, limit: 1 });
+                      console.log("📥 Server response:", response?.pages?.length, "pages");
                       if (response?.pages?.[0]) {
                         pageData = response.pages[0];
                         await setCachedPage(idx, pageData);
@@ -6240,10 +6349,10 @@ export const handler = async (event, context) => {
                   }
                 }
                 
-                // Prefetch nearby pages
+                // Prefetch nearby feed items
                 function prefetchPages(centerIdx) {
                   [centerIdx - 1, centerIdx, centerIdx + 1].forEach(idx => {
-                    if (idx >= 1 && idx <= totalPages && !pageCache.has(idx)) {
+                    if (idx >= 1 && idx <= loadedFeedCount && !pageCache.has(idx)) {
                       fetchPage(idx);
                     }
                   });
@@ -6290,28 +6399,33 @@ export const handler = async (event, context) => {
                   const fontSize = (w / 600) * 17;
                   const em = fontSize;
                   
-                  // Card background (themed)
-                  ctx.fillStyle = themeColors.cardBackground;
+                  // Determine if this is a question card for different coloring
+                  const isQuestion = pageData?.type === "question";
+                  
+                  // Card background (themed - blue for questions)
+                  ctx.fillStyle = isQuestion ? themeColors.questionCardBackground : themeColors.cardBackground;
                   ctx.fillRect(x, y, w, h);
                   
-                  // Border (themed)
-                  ctx.strokeStyle = themeColors.cardBorder;
+                  // Border (themed - blue for questions)
+                  ctx.strokeStyle = isQuestion ? themeColors.questionCardBorder : themeColors.cardBorder;
                   ctx.lineWidth = 1;
                   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
                   
-                  // Ear (corner fold) - 8% width (always show, even on ghost)
-                  const earSize = w * 0.08;
-                  
-                  // Draw ear (themed)
-                  ctx.fillStyle = hoverEar && offsetY === 0 ? themeColors.cardEarHover : themeColors.cardEar;
-                  ctx.beginPath();
-                  ctx.moveTo(x + w - earSize, y + h);
-                  ctx.lineTo(x + w, y + h - earSize);
-                  ctx.lineTo(x + w, y + h);
-                  ctx.closePath();
-                  ctx.fill();
-                  ctx.strokeStyle = themeColors.cardBorder;
-                  ctx.stroke();
+                  // Ear (corner fold) - 8% width - only for diary pages, not Q&A
+                  if (!isQuestion) {
+                    const earSize = w * 0.08;
+                    
+                    // Draw ear (themed)
+                    ctx.fillStyle = hoverEar && offsetY === 0 ? themeColors.cardEarHover : themeColors.cardEar;
+                    ctx.beginPath();
+                    ctx.moveTo(x + w - earSize, y + h);
+                    ctx.lineTo(x + w, y + h - earSize);
+                    ctx.lineTo(x + w, y + h);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.strokeStyle = themeColors.cardBorder;
+                    ctx.stroke();
+                  }
                   
                   // Debug box for ear when hovering (themed)
                   if (hoverEar && offsetY === 0) {
@@ -6351,47 +6465,100 @@ export const handler = async (event, context) => {
                     textColor = baseColor;
                   }
                   
-                  // Date title - CENTERED at top: 6.5%
-                  const title = dateTitle(pageData.when);
-                  const titleY = y + h * 0.065 + fontSize;
-                  ctx.fillStyle = textColor;
-                  ctx.font = fontSize + "px Helvetica, sans-serif";
-                  ctx.textAlign = "center";
-                  ctx.fillText(title, x + w/2, titleY);
-                  
-                  // Body text - margin-top: 15%
-                  ctx.fillStyle = textColor;
-                  ctx.font = fontSize + "px Helvetica, sans-serif";
-                  ctx.textAlign = "left";
-                  
-                  const lines = wrapText(pageData.words, textWidth, fontSize);
-                  const textStartY = y + h * 0.15 + fontSize;
-                  
-                  for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
-                    const line = lines[i];
-                    if (line === "") {
-                      // Empty line for paragraph break
-                      continue;
+                  // Different rendering for questions vs pages (isQuestion already defined at top)
+                  if (isQuestion) {
+                    // QUESTION RENDERING
+                    // Header: question text (smaller, italic)
+                    const headerY = y + h * 0.065 + fontSize;
+                    ctx.fillStyle = textColor;
+                    ctx.font = "italic " + (fontSize * 0.9) + "px Helvetica, sans-serif";
+                    ctx.textAlign = "left";
+                    
+                    // Wrap question text for header
+                    const questionLines = wrapText(pageData.question, textWidth, fontSize * 0.9);
+                    const maxHeaderLines = 3; // Limit header to 3 lines
+                    
+                    for (let i = 0; i < Math.min(questionLines.length, maxHeaderLines); i++) {
+                      ctx.fillText(questionLines[i], x + padding, headerY + i * (fontSize * 1.5));
                     }
-                    ctx.fillText(line, x + padding, textStartY + i * lineHeight);
-                  }
-                  
-                  // Page number - centered at bottom with margin
-                  ctx.fillStyle = textColor;
-                  ctx.font = fontSize + "px monospace";
-                  ctx.textAlign = "center";
-                  const pageNumY = y + h - em * 2;
-                  ctx.fillText("- " + idx + " -", x + w/2, pageNumY);
-                  
-                  // Debug box for page number when hovering (themed)
-                  if (hoverPageNum && offsetY === 0) {
-                    const pageNumText = "- " + idx + " -";
-                    const textMetrics = ctx.measureText(pageNumText);
-                    const boxWidth = textMetrics.width + em;
-                    const boxHeight = em * 1.5;
-                    ctx.strokeStyle = themeColors.cardEarHover;
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(x + w/2 - boxWidth/2, pageNumY - em, boxWidth, boxHeight);
+                    
+                    // Body: answer text - starts lower to accommodate question header
+                    ctx.fillStyle = textColor;
+                    ctx.font = fontSize + "px Helvetica, sans-serif";
+                    ctx.textAlign = "left";
+                    
+                    const answerStartY = y + h * 0.20 + fontSize; // Start a bit lower
+                    const answerLines = wrapText(pageData.answer || "", textWidth, fontSize);
+                    
+                    for (let i = 0; i < Math.min(answerLines.length, maxLines - 2); i++) {
+                      const line = answerLines[i];
+                      if (line === "") continue;
+                      ctx.fillText(line, x + padding, answerStartY + i * lineHeight);
+                    }
+                    
+                    // Page number with asterisk format: *N* (use questionNumber)
+                    ctx.fillStyle = textColor;
+                    ctx.font = fontSize + "px monospace";
+                    ctx.textAlign = "center";
+                    const pageNumY = y + h - em * 2;
+                    const displayNum = pageData.questionNumber || idx;
+                    const pageNumText = "*" + displayNum + "*";
+                    ctx.fillText(pageNumText, x + w/2, pageNumY);
+                    
+                    // Debug box for page number when hovering (themed)
+                    if (hoverPageNum && offsetY === 0) {
+                      const textMetrics = ctx.measureText(pageNumText);
+                      const boxWidth = textMetrics.width + em;
+                      const boxHeight = em * 1.5;
+                      ctx.strokeStyle = themeColors.cardEarHover;
+                      ctx.lineWidth = 2;
+                      ctx.strokeRect(x + w/2 - boxWidth/2, pageNumY - em, boxWidth, boxHeight);
+                    }
+                  } else {
+                    // PAGE RENDERING (diary pages)
+                    // Date title - CENTERED at top: 6.5%
+                    const title = dateTitle(pageData.when);
+                    const titleY = y + h * 0.065 + fontSize;
+                    ctx.fillStyle = textColor;
+                    ctx.font = fontSize + "px Helvetica, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText(title, x + w/2, titleY);
+                    
+                    // Body text - margin-top: 15%
+                    ctx.fillStyle = textColor;
+                    ctx.font = fontSize + "px Helvetica, sans-serif";
+                    ctx.textAlign = "left";
+                    
+                    const lines = wrapText(pageData.words, textWidth, fontSize);
+                    const textStartY = y + h * 0.15 + fontSize;
+                    
+                    for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
+                      const line = lines[i];
+                      if (line === "") {
+                        // Empty line for paragraph break
+                        continue;
+                      }
+                      ctx.fillText(line, x + padding, textStartY + i * lineHeight);
+                    }
+                    
+                    // Page number - centered at bottom with margin (use pageNumber)
+                    ctx.fillStyle = textColor;
+                    ctx.font = fontSize + "px monospace";
+                    ctx.textAlign = "center";
+                    const pageNumY = y + h - em * 2;
+                    const displayNum = pageData.pageNumber || idx;
+                    ctx.fillText("- " + displayNum + " -", x + w/2, pageNumY);
+                    
+                    // Debug box for page number when hovering (themed)
+                    if (hoverPageNum && offsetY === 0) {
+                      const pageNumText = "- " + displayNum + " -";
+                      const textMetrics = ctx.measureText(pageNumText);
+                      const boxWidth = textMetrics.width + em;
+                      const boxHeight = em * 1.5;
+                      ctx.strokeStyle = themeColors.cardEarHover;
+                      ctx.lineWidth = 2;
+                      ctx.strokeRect(x + w/2 - boxWidth/2, pageNumY - em, boxWidth, boxHeight);
+                    }
                   }
                   
                   ctx.textAlign = "left";
@@ -6514,6 +6681,7 @@ export const handler = async (event, context) => {
                 }
                 
                 // Main render function
+                let lastLoggedIdx = -1;
                 function render() {
                   const w = canvas.width / dpr;
                   const h = canvas.height / dpr;
@@ -6523,6 +6691,10 @@ export const handler = async (event, context) => {
                   ctx.fillRect(0, 0, w, h);
                   
                   const pageData = pageCache.get(displayedPageIndex);
+                  if (displayedPageIndex !== lastLoggedIdx) {
+                    console.log("🎨 Rendering idx:", displayedPageIndex, "hasData:", !!pageData, "type:", pageData?.type, "cacheSize:", pageCache.size);
+                    lastLoggedIdx = displayedPageIndex;
+                  }
                   
                   // Handle card flip animation with 3D perspective (no zoom, just rotation)
                   if (isFlipping || showingBack) {
@@ -6592,9 +6764,9 @@ export const handler = async (event, context) => {
                       renderPage(incomingData, transitionTarget, -(1 - transitionProgress) * slideDistance, false, 1);
                     }
                   } else if (isDragging && Math.abs(dragDelta) > 0) {
-                    // Dragging - both pages show text (pre-rendered)
+                    // Dragging - both feed items show text (pre-rendered)
                     const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
-                    if (nextIdx >= 1 && nextIdx <= totalPages) {
+                    if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
                       const slideDistance = cardHeight + 40;
                       const progress = Math.min(1, Math.abs(dragDelta) / slideDistance);
                       const nextData = pageCache.get(nextIdx) || null;
@@ -6633,7 +6805,15 @@ export const handler = async (event, context) => {
                       transitionTarget = null;
                       transitionSlow = false;
                       textFadeIn = 1; // Text already visible, no fade needed
-                      updatePath("/page/" + currentPageIndex);
+                      // Update URL based on item type (question vs page)
+                      const currentItem = pageCache.get(currentPageIndex);
+                      if (currentItem?.type === "question") {
+                        const qNum = currentItem.questionNumber || currentPageIndex;
+                        updatePath("/q/" + qNum);
+                      } else {
+                        const pNum = currentItem?.pageNumber || currentPageIndex;
+                        updatePath("/page/" + pNum);
+                      }
                       prefetchPages(currentPageIndex);
                     }
                   }
@@ -6669,9 +6849,9 @@ export const handler = async (event, context) => {
                   requestAnimationFrame(loop);
                 }
                 
-                // Go to a specific page with animation
+                // Go to a specific feed item with animation
                 function goToPage(targetIdx, startProgress = 0, slow = false) {
-                  if (targetIdx < 1 || targetIdx > totalPages) return;
+                  if (targetIdx < 1 || targetIdx > loadedFeedCount) return;
                   if (targetIdx === displayedPageIndex) return;
                   if (transitionDirection !== 0) return; // Already animating
                   if (isFlipping || showingBack) return; // Don't change pages while flipped
@@ -6701,9 +6881,9 @@ export const handler = async (event, context) => {
                   if (!isDragging) return;
                   dragDelta = dragStartY - e.clientY;
                   
-                  // Prefetch the page we might be going to
+                  // Prefetch the feed item we might be going to
                   const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
-                  if (nextIdx >= 1 && nextIdx <= totalPages && !pageCache.has(nextIdx)) {
+                  if (nextIdx >= 1 && nextIdx <= loadedFeedCount && !pageCache.has(nextIdx)) {
                     fetchPage(nextIdx);
                   }
                 });
@@ -6721,7 +6901,7 @@ export const handler = async (event, context) => {
                   if (Math.abs(dragDelta) > threshold) {
                     // Commit to page change - continue from current drag position
                     const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
-                    if (nextIdx >= 1 && nextIdx <= totalPages) {
+                    if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
                       goToPage(nextIdx, currentProgress);
                     }
                   }
@@ -6824,8 +7004,14 @@ export const handler = async (event, context) => {
                     const pageNumTop = cardHeight - em * 3;
                     const pageNumBottom = cardHeight - em * 0.5;
                     if (localY > pageNumTop && localY < pageNumBottom) {
-                      console.log("🎨 Page number clicked:", displayedPageIndex);
-                      openChatWithMessage("-" + displayedPageIndex + "- ");
+                      const pageData = pageCache.get(displayedPageIndex);
+                      const isQuestion = pageData?.type === "question";
+                      const displayNum = isQuestion ? (pageData?.questionNumber || displayedPageIndex) : (pageData?.pageNumber || displayedPageIndex);
+                      const pageRef = isQuestion 
+                        ? "*" + displayNum + "* " 
+                        : "-" + displayNum + "- ";
+                      console.log("🎨 Page number clicked:", displayNum, "type:", pageData?.type);
+                      openChatWithMessage(pageRef);
                       return;
                     }
                   }
@@ -8251,17 +8437,15 @@ export const handler = async (event, context) => {
                   // The user's email is verified...
 
                   // Determine pagination based on path
-                  const pageMatch = path.match(/^\\/page\\/(\\d+)$/);
+                  const pageMatchUrl = path.match(/^\\/page\\/(\\d+)$/);
+                  const questionMatchUrl = path.match(/^\\/q\\/(\\d+)$/);
                   const subscribeOptions = {};
                   
-                  if (pageMatch) {
-                    // Loading a specific page - just fetch that one
-                    subscribeOptions.pageNumber = parseInt(pageMatch[1], 10);
-                    subscribeOptions.limit = 1;
-                  } else {
-                    // Default: just load last few pages, lazy load rest
-                    subscribeOptions.limit = 3;
-                  }
+                  // Always load plenty of pages for the feed - don't set pageNumber
+                  // which would limit server to just that one page
+                  subscribeOptions.limit = 100;
+                  
+                  console.log("📄 subscribeOptions:", subscribeOptions, "for path:", path);
 
                   let entered = await subscribed(subscribeOptions);
                   let times = 0;
@@ -8876,9 +9060,11 @@ export const handler = async (event, context) => {
         
         // Pagination parameters
         const requestedPage = body.pageNumber; // Specific page number (1-indexed)
-        const limit = body.limit || 5; // Default to 5 pages per request
+        const limit = Math.min(body.limit || 5, 500); // Default to 5, max 500 pages per request
         const offset = body.offset || 0; // For loading older pages
         const metaOnly = body.metaOnly; // Only return page count and last modified
+        
+        shell.log("📄 Pagination: requestedPage=", requestedPage, "limit=", limit, "offset=", offset);
         
         // Always get total count and last modified for cache validation
         const totalCount = await pages.countDocuments({ state: "published" });
@@ -8934,10 +9120,34 @@ export const handler = async (event, context) => {
         }
 
         out.pages = retrievedPages;
+
+        // ❓ Also fetch answered questions to mix into the feed
+        const asks = database.db.collection("sotce-asks");
+        const answeredQuestions = await asks
+          .find({ state: "answered" })
+          .sort({ answeredAt: -1 })
+          .limit(50) // Reasonable limit for now
+          .project({ draftAnswer: 0, draftStartedAt: 0, draftLastEditedAt: 0 })
+          .toArray();
+        
+        // Add handles to questions
+        for (const q of answeredQuestions) {
+          let handle = subsToHandles[q.user];
+          if (!handle) {
+            handle = await handleFor(q.user, "sotce");
+            if (handle) subsToHandles[q.user] = handle;
+          }
+          q.handle = handle;
+          q.type = "question"; // Mark as question for client-side rendering
+        }
+        
+        out.questions = answeredQuestions;
+        out.totalQuestions = await asks.countDocuments({ state: "answered" });
+
         await database.disconnect();
 
         // TODO: 👤 'Handled' pages filtered by user..
-        shell.log("🫐 Retrieved:", retrievedPages.length, "pages", performance.now());
+        shell.log("🫐 Retrieved:", retrievedPages.length, "pages,", answeredQuestions.length, "questions", performance.now());
       }
       return respond(200, out);
     } else {
@@ -9276,11 +9486,8 @@ export const handler = async (event, context) => {
     const database = await connect();
     const asks = database.db.collection("sotce-asks");
 
-    const handle = await handleFor(user.sub, "sotce");
-
     const insertion = await asks.insertOne({
       user: user.sub,
-      handle: handle || null,
       question,
       when: new Date(),
       state: "pending",
@@ -9361,11 +9568,26 @@ export const handler = async (event, context) => {
       }
     );
 
-    await database.disconnect();
-
     if (result.modifiedCount === 0) {
+      await database.disconnect();
       return respond(500, { message: "Could not save response." });
     }
+
+    // Create a published page with the Q&A
+    const pages = database.db.collection("sotce-pages");
+    const askerHandle = question.handle || "@anonymous";
+    const pageWords = `${askerHandle} asks @amelia\n\n${question.question}\n\n---\n\n@amelia responds\n\n${answer.trim()}`;
+    
+    await pages.insertOne({
+      user: user.sub,
+      words: pageWords,
+      when: new Date(),
+      state: "published",
+      questionId: askId, // Link back to the question
+      isQA: true, // Mark as Q&A page
+    });
+
+    await database.disconnect();
 
     shell.log("❓ Question answered:", askId, "by", user.email);
     return respond(200, { success: true, askId });
@@ -9446,26 +9668,50 @@ export const handler = async (event, context) => {
 
     shell.log("❓ Question rejected:", askId, "by", user.email);
     return respond(200, { success: true, askId });
-  // NOTE: Question deletion disabled - once asked, questions are permanent
-  // } else if (path.startsWith("/ask/") && method === "delete") {
-  //   // ❓ Delete a pending question
-  //   const user = await authorize(event.headers, "sotce");
-  //   if (!user) return respond(401, { message: "Unauthorized." });
-  //   const askId = path.replace("/ask/", "");
-  //   if (!askId) return respond(400, { message: "Missing question ID." });
-  //   const database = await connect();
-  //   const asks = database.db.collection("sotce-asks");
-  //   const result = await asks.deleteOne({
-  //     _id: new ObjectId(askId),
-  //     user: user.sub,
-  //     state: "pending"
-  //   });
-  //   await database.disconnect();
-  //   if (result.deletedCount === 0) {
-  //     return respond(404, { message: "Question not found or already answered." });
-  //   }
-  //   shell.log("❓ Question deleted:", askId);
-  //   return respond(200, { deleted: true });
+  } else if (path === "/asks/clear-all" && method === "delete") {
+    // ❓ Clear all questions (admin only) - for development/reset
+    const user = await authorize(event.headers, "sotce");
+    const isAdmin = await hasAdmin(user, "sotce");
+    if (!user || !isAdmin) return respond(401, { message: "Unauthorized." });
+
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+    
+    const result = await asks.deleteMany({});
+    
+    await database.disconnect();
+    shell.log("❓ All questions cleared:", result.deletedCount, "by", user.email);
+    return respond(200, { success: true, deletedCount: result.deletedCount });
+  } else if (path.match(/^\/ask\/[a-f0-9]+$/) && method === "delete") {
+    // ❓ Delete own pending question (only if no draft started by @amelia)
+    const user = await authorize(event.headers, "sotce");
+    if (!user) return respond(401, { message: "Unauthorized." });
+    const askId = path.replace("/ask/", "");
+    if (!askId) return respond(400, { message: "Missing question ID." });
+    const database = await connect();
+    const asks = database.db.collection("sotce-asks");
+    // Only allow deletion if: owned by user, still pending, and no draft started
+    const question = await asks.findOne({ _id: new ObjectId(askId) });
+    if (!question) {
+      await database.disconnect();
+      return respond(404, { message: "Question not found." });
+    }
+    if (question.user !== user.sub) {
+      await database.disconnect();
+      return respond(403, { message: "Not your question." });
+    }
+    if (question.state !== "pending") {
+      await database.disconnect();
+      return respond(400, { message: "Cannot delete — already answered." });
+    }
+    if (question.draftStartedAt) {
+      await database.disconnect();
+      return respond(400, { message: "Cannot delete — @amelia has started drafting a response." });
+    }
+    const result = await asks.deleteOne({ _id: new ObjectId(askId) });
+    await database.disconnect();
+    shell.log("❓ Question deleted:", askId, "by", user.sub);
+    return respond(200, { deleted: true });
   } else if (path === "/privacy-policy" && method === "get") {
     const subscribers = await getActiveSubscriptionCount(productId);
 
