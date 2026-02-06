@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aesthetic Computer</title>
+  <script src="js/qrcode.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #000; color: #fff;
+      font-family: monospace;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      cursor: none; user-select: none;
+      overflow: hidden;
+    }
+
+    /* Logo / boot screen */
+    #bootScreen {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1.5rem;
+    }
+    #bootScreen .title {
+      font-size: clamp(24px, 3vw, 64px);
+      letter-spacing: 0.15em;
+      color: #888;
+    }
+    #bootScreen .status {
+      font-size: clamp(14px, 1.2vw, 24px);
+      color: #555;
+    }
+
+    /* QR / setup screen */
+    #qrScreen {
+      display: none;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1rem;
+    }
+    #qrcode img {
+      max-width: 45vh; max-height: 45vh;
+      width: auto; height: auto;
+    }
+    #qrLabel {
+      font-size: clamp(14px, 1.5vw, 28px);
+      color: #888;
+      text-align: center;
+      max-width: 80vw;
+    }
+    #deviceInfo {
+      position: fixed; bottom: 1.5rem;
+      font-size: clamp(10px, 1vw, 16px);
+      color: #444;
+    }
+
+    /* Ready screen */
+    #readyScreen {
+      display: none;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1rem;
+    }
+    #readyScreen .msg {
+      font-size: clamp(16px, 2vw, 36px);
+      color: #888;
+    }
+
+    .hidden { display: none !important; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    .pulsing { animation: pulse 2s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+
+  <!-- Boot screen (shown first) -->
+  <div id="bootScreen">
+    <div class="title">AESTHETIC COMPUTER</div>
+    <div class="status pulsing" id="bootStatus">Initializing...</div>
+  </div>
+
+  <!-- QR code screen -->
+  <div id="qrScreen">
+    <div id="qrcode"></div>
+    <div id="qrLabel">Scan to connect</div>
+  </div>
+
+  <!-- Ready screen -->
+  <div id="readyScreen">
+    <div class="msg">Connected — loading...</div>
+  </div>
+
+  <!-- Device info (always visible at bottom) -->
+  <div id="deviceInfo"></div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const step = params.get('step') || 'boot';
+    const hostname = params.get('hostname') || 'unknown';
+    const ip = params.get('ip') || '';
+    const version = params.get('version') || 'dev';
+    const acUrl = params.get('url') || 'https://aesthetic.computer?tv=true&nogap=true&nolabel=true';
+
+    // Device info footer
+    const info = [hostname, ip, `v${version}`].filter(Boolean).join(' · ');
+    document.getElementById('deviceInfo').textContent = info;
+
+    function showScreen(id) {
+      ['bootScreen', 'qrScreen', 'readyScreen'].forEach(s => {
+        document.getElementById(s).style.display = 'none';
+      });
+      document.getElementById(id).style.display = 'flex';
+    }
+
+    function showQR() {
+      const minEdge = Math.min(window.innerWidth, window.innerHeight);
+      const qrSize = Math.floor(minEdge * 0.4);
+      document.getElementById('qrcode').innerHTML = '';
+
+      // QR encodes a URL that can be used to configure/cast to this device
+      const qrData = ip
+        ? `https://aesthetic.computer/connect?ip=${ip}&host=${hostname}`
+        : `https://aesthetic.computer/connect?host=${hostname}`;
+
+      new QRCode(document.getElementById('qrcode'), {
+        text: qrData,
+        width: qrSize,
+        height: qrSize,
+        colorDark: '#ffffff',
+        colorLight: '#000000',
+        correctLevel: QRCode.CorrectLevel.L,
+      });
+
+      const label = ip
+        ? `Scan to connect — or visit ${ip}:8888`
+        : `Scan to connect to ${hostname}`;
+      document.getElementById('qrLabel').textContent = label;
+      showScreen('qrScreen');
+    }
+
+    function showReady() {
+      showScreen('readyScreen');
+      // Navigate to AC after a brief moment
+      setTimeout(() => {
+        window.location.replace(acUrl);
+      }, 1500);
+    }
+
+    // Boot flow
+    if (step === 'qr') {
+      showQR();
+    } else if (step === 'ready') {
+      showReady();
+    } else {
+      // Default: boot → check network → show QR or proceed
+      showScreen('bootScreen');
+      document.getElementById('bootStatus').textContent = 'Checking network...';
+
+      setTimeout(() => {
+        if (navigator.onLine) {
+          document.getElementById('bootStatus').textContent = 'Network connected';
+          setTimeout(() => showQR(), 800);
+        } else {
+          document.getElementById('bootStatus').textContent = 'No network — showing setup QR';
+          setTimeout(() => showQR(), 800);
+          // When we come online, auto-transition
+          window.addEventListener('online', () => {
+            document.getElementById('qrLabel').textContent = 'Connected! Loading...';
+            setTimeout(() => showReady(), 2000);
+          });
+        }
+      }, 1500);
+    }
+
+    // Resize handler for QR
+    window.addEventListener('resize', () => {
+      if (document.getElementById('qrScreen').style.display !== 'none') {
+        showQR();
+      }
+    });
+
+    // CDP control (for external navigation commands)
+    window.handleCDPRequest = function({ command, params }) {
+      if (command === 'navigate') {
+        window.location.replace(params.url);
+        return { ok: true };
+      }
+      if (command === 'navigateWhenOnline') {
+        if (navigator.onLine) {
+          window.location.replace(params.url);
+        } else {
+          window.addEventListener('online', () => window.location.replace(params.url));
+        }
+        return { ok: true };
+      }
+      return { ok: false, error: `Unknown: ${command}` };
+    };
+  </script>
+</body>
+</html>
