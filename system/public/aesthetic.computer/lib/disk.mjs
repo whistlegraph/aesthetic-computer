@@ -631,6 +631,7 @@ let PREVIEW_OR_ICON; // Whether we are in preview or icon mode. (From boot.)
 let VSCODE; // Whether we are running the vscode extesion or not. (From boot.)
 let TV_MODE = false; // Whether running in TV mode (disables touch/keyboard input)
 let DEVICE_MODE = false; // Whether running in device mode (device.kidlisp.com - skip HUD overlays)
+let SOLO_MODE = false; // Whether running in solo mode (prevents navigating away from piece)
 let HIGHLIGHT_MODE = false; // Whether HUD highlighting is enabled
 let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
 let PERF_MODE = false; // Whether to show KidLisp performance/FPS HUD
@@ -2685,6 +2686,11 @@ const $commonApi = {
 
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
+
+    if (SOLO_MODE) {
+      console.log("🔒 Jump blocked: solo mode active");
+      return;
+    }
 
     if (leaving) {
       console.log("🚪🐴 Jump cancelled, already leaving...");
@@ -9257,6 +9263,7 @@ async function makeFrame({ data: { type, content } }) {
     
     TV_MODE = content.resolution?.tv === true;
     DEVICE_MODE = content.resolution?.device === true;
+    SOLO_MODE = content.resolution?.solo === true;
     
     // Parse highlight parameter
     const highlightParam = content.resolution?.highlight;
@@ -10813,6 +10820,7 @@ async function makeFrame({ data: { type, content } }) {
         // ⛈️ Jump back to the `prompt` from anywhere..
         if (
           !getPackMode() && // Disable navigation keys in OBJKT mode
+          !SOLO_MODE && // Disable navigation keys in solo mode
           (data.key === "`" ||
             data.key === "Enter" ||
             data.key === "Backspace" ||
@@ -11788,6 +11796,9 @@ async function makeFrame({ data: { type, content } }) {
                 });
               },
               push: (btn) => {
+                // Block HUD label navigation in solo mode
+                if (SOLO_MODE) return;
+
                 const fallbackShareWidth = tf.blockWidth * "share ".length;
                 const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
                 
@@ -14203,19 +14214,21 @@ async function makeFrame({ data: { type, content } }) {
                 });
               } else {
                 // Corner QR: make it tappable to go fullscreen
-                send({
-                  type: "button:hitbox:add",
-                  content: {
-                    label: "qr-corner",
-                    box: {
-                      x: startX + hudAnimationState.qrSlideOffset.x,
-                      y: startY + hudAnimationState.qrSlideOffset.y,
-                      w: overlayWidth,
-                      h: overlayHeight
-                    },
-                    message: "qr-corner-tap"
-                  }
-                });
+                if (!SOLO_MODE) {
+                  send({
+                    type: "button:hitbox:add",
+                    content: {
+                      label: "qr-corner",
+                      box: {
+                        x: startX + hudAnimationState.qrSlideOffset.x,
+                        y: startY + hudAnimationState.qrSlideOffset.y,
+                        w: overlayWidth,
+                        h: overlayHeight
+                      },
+                      message: "qr-corner-tap"
+                    }
+                  });
+                }
               }
 
             } else {
@@ -14634,19 +14647,21 @@ async function makeFrame({ data: { type, content } }) {
                 });
               } else {
                 // Corner QR: make it tappable to go fullscreen
-                send({
-                  type: "button:hitbox:add",
-                  content: {
-                    label: "qr-corner",
-                    box: {
-                      x: startX + hudAnimationState.qrSlideOffset.x,
-                      y: startY + hudAnimationState.qrSlideOffset.y,
-                      w: overlayWidth || qrData.width,
-                      h: overlayHeight || qrData.height
-                    },
-                    message: "qr-corner-tap"
-                  }
-                });
+                if (!SOLO_MODE) {
+                  send({
+                    type: "button:hitbox:add",
+                    content: {
+                      label: "qr-corner",
+                      box: {
+                        x: startX + hudAnimationState.qrSlideOffset.x,
+                        y: startY + hudAnimationState.qrSlideOffset.y,
+                        w: overlayWidth || qrData.width,
+                        h: overlayHeight || qrData.height
+                      },
+                      message: "qr-corner-tap"
+                    }
+                  });
+                }
               }
 
             }
