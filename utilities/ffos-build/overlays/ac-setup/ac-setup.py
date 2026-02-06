@@ -156,15 +156,42 @@ def get_current_wifi():
     return None
 
 def connect_wifi(ssid, password):
-    """Connect to WiFi network."""
+    """Connect to WiFi network. Returns (success, message, debug_info)."""
+    debug_lines = []
     try:
+        # First, try to delete any existing connection with this SSID
+        debug_lines.append(f"Attempting to connect to: {ssid}")
+        debug_lines.append(f"Password length: {len(password) if password else 0}")
+        
+        # Delete old connection if exists
+        del_result = subprocess.run(
+            ["nmcli", "con", "delete", ssid],
+            capture_output=True, text=True, timeout=10
+        )
+        debug_lines.append(f"Delete old: {del_result.returncode}")
+        
+        # Connect with new credentials
         cmd = ["nmcli", "dev", "wifi", "connect", ssid]
         if password:
             cmd.extend(["password", password])
+        
+        debug_lines.append(f"Running: nmcli dev wifi connect {ssid} password ***")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        return result.returncode == 0, result.stderr or result.stdout
+        
+        debug_lines.append(f"Return code: {result.returncode}")
+        if result.stdout:
+            debug_lines.append(f"stdout: {result.stdout.strip()[:100]}")
+        if result.stderr:
+            debug_lines.append(f"stderr: {result.stderr.strip()[:100]}")
+        
+        output = result.stderr or result.stdout or "No output"
+        return result.returncode == 0, output.strip(), "\n".join(debug_lines)
+    except subprocess.TimeoutExpired:
+        debug_lines.append("TIMEOUT after 30s")
+        return False, "Connection timed out", "\n".join(debug_lines)
     except Exception as e:
-        return False, str(e)
+        debug_lines.append(f"EXCEPTION: {str(e)}")
+        return False, str(e), "\n".join(debug_lines)
 
 def load_config():
     """Load saved config."""
@@ -554,6 +581,69 @@ def show_message(stdscr, title, message, wait=True, matrix=None):
                 stdscr.timeout(-1)
                 return
 
+def show_debug_message(stdscr, title, message, debug, matrix=None):
+    """Show a larger message box with debug info for troubleshooting."""
+    curses.curs_set(0)
+    h, w = stdscr.getmaxyx()
+    
+    # Larger box to show debug info
+    box_w = min(70, w - 4)
+    box_h = min(18, h - 4)
+    box_y = (h - box_h) // 2
+    box_x = (w - box_w) // 2
+    
+    last_update = time.time()
+    frame_time = 0.1
+    
+    stdscr.nodelay(True)
+    stdscr.timeout(50)
+    
+    while True:
+        now = time.time()
+        
+        if matrix and (now - last_update) >= frame_time:
+            matrix.update()
+            last_update = now
+        
+        stdscr.erase()
+        if matrix:
+            draw_matrix(stdscr, matrix)
+        
+        center_text(stdscr, 1, "* AESTHETIC COMPUTER *", curses.A_BOLD | curses.color_pair(14))
+        draw_box(stdscr, box_y, box_x, box_h, box_w, title)
+        
+        # Show error message
+        try:
+            stdscr.addstr(box_y + 2, box_x + 2, f"Error: {message[:box_w - 6]}", curses.A_BOLD)
+        except curses.error:
+            pass
+        
+        # Show debug lines
+        debug_lines = debug.split("\n")
+        try:
+            stdscr.addstr(box_y + 4, box_x + 2, "Debug info:", curses.A_DIM)
+        except curses.error:
+            pass
+        
+        for i, ln in enumerate(debug_lines[:box_h - 8]):
+            try:
+                stdscr.addstr(box_y + 5 + i, box_x + 2, ln[:box_w - 4], curses.A_DIM)
+            except curses.error:
+                pass
+        
+        try:
+            stdscr.addstr(h - 2, 2, "Press any key to continue", curses.A_DIM)
+        except curses.error:
+            pass
+        
+        stdscr.refresh()
+        
+        key = stdscr.getch()
+        if key != -1:
+            stdscr.nodelay(False)
+            stdscr.timeout(-1)
+            return
+
 def wifi_setup(stdscr, matrix=None):
     """WiFi selection and connection."""
     show_message(stdscr, "WiFi Setup", "Scanning for networks...", wait=False, matrix=matrix)
@@ -587,18 +677,20 @@ def wifi_setup(stdscr, matrix=None):
     
     password = ""
     if needs_password:
-        password = text_input(stdscr, "WiFi Password", f"Password for '{ssid}':", hidden=True, matrix=matrix)
+        # Show password while typing for easier entry on kiosk
+        password = text_input(stdscr, "WiFi Password", f"Password for '{ssid}':", hidden=False, matrix=matrix)
         if password is None:
             return False
     
     show_message(stdscr, "Connecting", f"Connecting to {ssid}...", wait=False, matrix=matrix)
-    success, msg = connect_wifi(ssid, password)
+    success, msg, debug = connect_wifi(ssid, password)
     
     if success:
         show_message(stdscr, "Success!", f"Connected to {ssid}", matrix=matrix)
         return True
     else:
-        show_message(stdscr, "Failed", f"Could not connect: {msg[:40]}", matrix=matrix)
+        # Show detailed debug info on failure
+        show_debug_message(stdscr, "Connection Failed", msg, debug, matrix=matrix)
         return False
 
 def piece_setup(stdscr, matrix=None):
