@@ -10,7 +10,7 @@ async function testStampleLoads() {
     const stamplePath = new URL(
       "../system/public/aesthetic.computer/disks/stample.mjs",
       import.meta.url
-    ).pathname;
+    );
     
     await import(stamplePath);
     
