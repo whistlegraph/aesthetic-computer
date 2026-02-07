@@ -632,6 +632,21 @@ export const handler = async (event, context) => {
               #asks-list-page p {
                 color: #b0a898 !important;
               }
+              /* Blue ask/respond buttons in dark mode */
+              #ask-button,
+              #respond-button {
+                background: rgba(50, 80, 120, 0.6) !important;
+                border-color: rgba(100, 150, 200, 0.5) !important;
+                color: var(--button-text) !important;
+              }
+              #ask-button:hover,
+              #respond-button:hover {
+                background: rgba(60, 95, 140, 0.7) !important;
+              }
+              #ask-button:active,
+              #respond-button:active {
+                background: rgba(70, 105, 150, 0.8) !important;
+              }
               /* Ask toggle ("my questions") + pending toggle buttons */
               nav button.ask-toggle {
                 background: var(--button-background) !important;
@@ -1210,6 +1225,16 @@ export const handler = async (event, context) => {
             #ask-button,
             #respond-button {
               margin-left: 1em;
+              background: rgb(220, 235, 250) !important;
+              border-color: rgb(130, 170, 210) !important;
+            }
+            #ask-button:hover,
+            #respond-button:hover {
+              background: rgb(200, 225, 250) !important;
+            }
+            #ask-button:active,
+            #respond-button:active {
+              background: rgb(190, 215, 245) !important;
             }
             @keyframes chat-unread-pulse {
               0%, 100% { border-color: var(--pink-border); }
@@ -4931,9 +4956,13 @@ export const handler = async (event, context) => {
 
               // ❓ Ask + Respond buttons
               const isJeffrey = window.sotceHandle === "@jeffrey";
-              const askButton = null; // Ask button removed for admins
+              const askButton = isJeffrey ? cel("button") : null;
+              if (askButton) {
+                askButton.id = "ask-button";
+                askButton.innerText = "ask";
+              }
 
-              const respondButton = (subscription?.admin && isJeffrey) ? cel("button") : null;
+              const respondButton = isJeffrey ? cel("button") : null;
               if (respondButton) {
                 respondButton.id = "respond-button";
                 respondButton.innerText = "respond";
