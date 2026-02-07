@@ -1811,12 +1811,11 @@ export const handler = async (event, context) => {
               position: fixed;
               top: 0;
               right: 0;
-              padding-top: 1.6em;
+              padding-top: 1.5em;
               padding-right: 1em;
-              z-index: 7;
-              font-size: 75%;
-              opacity: 0.6;
-              color: rgb(180, 72, 135);
+              z-index: 8;
+              font-size: 80%;
+              color: rgb(200, 80, 120);
               font-family: sans-serif;
             }
             #nav-respond-editor {
