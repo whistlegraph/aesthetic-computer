@@ -12866,6 +12866,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.addEventListener("pointerdown", activateSound, { once: true });
       }
 
+      // ⏱️ Enable background sim ticks for pieces that export `background: true`
+      // (e.g. clock.mjs — keeps audio scheduling alive when tab/lid is hidden)
+      Loop.setBackgroundEnabled(!!content.background);
+
       } catch (err) {
         console.error("🛑 BIOS disk-loaded handler error:", err);
       } finally {
