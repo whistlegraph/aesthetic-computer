@@ -372,6 +372,7 @@ export const handler = async (event, context) => {
               --question-card-background: #e8f0f8;
               --question-card-border: #b8c8d8;
               --question-card-ear: #d0e0f0;
+              --question-answer-text: rgb(0, 155, 145);
               
               /* UI Colors */
               --pink-border: rgb(255, 190, 215);
@@ -446,6 +447,7 @@ export const handler = async (event, context) => {
                 --question-card-background: #2a3442;
                 --question-card-border: #4a5a6a;
                 --question-card-ear: #3a4a5a;
+                --question-answer-text: rgb(80, 220, 210);
                 
                 /* UI Colors - olive-purple tones */
                 --pink-border: #a06080;
@@ -636,12 +638,13 @@ export const handler = async (event, context) => {
               #ask-button,
               #respond-button {
                 background: #2a3442 !important;
-                border-color: #3a4a5a !important;
+                border-color: rgb(0, 190, 175) !important;
                 color: #98a8b8 !important;
               }
               #ask-button:hover,
               #respond-button:hover {
                 background: #324050 !important;
+                border-color: rgb(0, 220, 200) !important;
               }
               #ask-button:active,
               #respond-button:active {
@@ -652,6 +655,7 @@ export const handler = async (event, context) => {
                 background: var(--button-background) !important;
                 border-color: var(--pink-border) !important;
                 color: var(--button-text) !important;
+                font-size: 100% !important;
               }
               nav button.ask-toggle:hover {
                 background: var(--button-background-highlight) !important;
@@ -671,6 +675,13 @@ export const handler = async (event, context) => {
                 background: #6a5a4a !important;
               }
               #ask-chars-left {
+                background: linear-gradient(
+                  to bottom,
+                  rgba(26, 42, 56, 0.85) 25%,
+                  transparent 100%
+                ) !important;
+              }
+              #asks-top-veil {
                 background: linear-gradient(
                   to bottom,
                   rgba(26, 42, 56, 0.85) 25%,
@@ -1239,13 +1250,13 @@ export const handler = async (event, context) => {
               margin-left: 1em;
             }
             @keyframes new-button-pulse {
-              0%, 100% { border-color: rgb(130, 170, 210); background: rgb(220, 235, 250); }
-              50% { border-color: rgb(180, 140, 200); background: rgb(240, 225, 250); }
+              0%, 100% { border-color: rgb(160, 185, 180); background: rgb(228, 242, 240); color: rgb(0, 120, 110); }
+              50% { border-color: rgb(170, 130, 190); background: rgb(240, 228, 248); color: rgb(80, 40, 110); }
             }
             @media (prefers-color-scheme: dark) {
               @keyframes new-button-pulse {
-                0%, 100% { border-color: #3a4a5a; background: #2a3442; }
-                50% { border-color: #5a4a6a; background: #3a2a4a; }
+                0%, 100% { border-color: rgb(55, 95, 90); background: #2a3442; color: rgb(80, 210, 195); }
+                50% { border-color: #5a4a6a; background: #3a2a4a; color: #c8a8e0; }
               }
             }
             #ask-button,
@@ -1417,6 +1428,21 @@ export const handler = async (event, context) => {
               outline: none;
             }
             #ask-chars-left {
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              text-align: center;
+              padding-top: 1.5em;
+              padding-bottom: 1.5em;
+              z-index: 6;
+              background: linear-gradient(
+                to bottom,
+                rgb(220 235 250 / 70%) 25%,
+                transparent 100%
+              );
+            }
+            #asks-top-veil {
               position: fixed;
               top: 0;
               left: 0;
@@ -1659,7 +1685,7 @@ export const handler = async (event, context) => {
             nav button.ask-toggle {
               background: rgb(220, 235, 250);
               border-color: rgb(130, 170, 210);
-              font-size: 90%;
+              font-size: 100%;
             }
             nav button.ask-toggle:hover {
               background: rgb(200, 225, 250);
@@ -3468,11 +3494,12 @@ export const handler = async (event, context) => {
               const handleRegex = new RegExp('(@[a-zA-Z0-9_.-]+)', 'g');
               result = result.replace(handleRegex, '<span class="handle-mention">$1</span>');
               // Link diary page references like -5-
+              const linkPrefix = dev ? "/sotce-net" : "";
               const diaryPageRegex = new RegExp('-(\\\\d+)-', 'g');
-              result = result.replace(diaryPageRegex, '<a href="/page/$1" class="page-link diary-link">-$1-</a>');
+              result = result.replace(diaryPageRegex, '<a href="' + linkPrefix + '/page/$1" class="page-link diary-link">-$1-</a>');
               // Link question references like *3*
               const questionRegex = new RegExp('\\\\*(\\\\d+)\\\\*', 'g');
-              result = result.replace(questionRegex, '<a href="/q/$1" class="page-link question-link">*$1*</a>');
+              result = result.replace(questionRegex, '<a href="' + linkPrefix + '/q/$1" class="page-link question-link">*$1*</a>');
               return result;
             }
 
@@ -4005,6 +4032,13 @@ export const handler = async (event, context) => {
               updatePath("/");
               // Mark chat as read on close too
               localStorage.setItem("sotce-chat-last-seen", new Date().toISOString());
+              // Restore garden/gate visibility
+              const gardenEl = document.getElementById("garden");
+              const gateEl = document.getElementById("gate-curtain");
+              if (gardenEl) gardenEl.style.visibility = "";
+              if (gateEl) gateEl.style.visibility = "";
+              // Trigger layout update for canvas/editors
+              setTimeout(() => computePageLayout?.(), 50);
             });
 
             // 🤖 Respond to every chat message...
@@ -5024,6 +5058,13 @@ export const handler = async (event, context) => {
                 // Mark chat as read
                 chatButton.classList.remove("has-unread");
                 localStorage.setItem("sotce-chat-last-seen", new Date().toISOString());
+                // Hide garden/gate behind chat so they don't bleed through on mobile keyboard
+                const gardenEl = document.getElementById("garden");
+                const gateEl = document.getElementById("gate-curtain");
+                if (gardenEl) gardenEl.style.visibility = "hidden";
+                if (gateEl) gateEl.style.visibility = "hidden";
+                // Trigger layout update for canvas/editors
+                setTimeout(() => computePageLayout?.(), 50);
               };
 
               topBar.appendChild(chatButton);
@@ -5181,10 +5222,14 @@ export const handler = async (event, context) => {
                     myAsksBtn.innerText = "back";
                     myAsksBtn.style.display = "block";
                   } else if (count > 0) {
-                    myAsksBtn.innerText = "my questions (" + count + ")";
+                    myAsksBtn.innerText = "my questions";
                     myAsksBtn.style.display = "block";
                   } else {
                     myAsksBtn.style.display = "none";
+                  }
+                  // Update veil text with dark mode support
+                  if (asksTopVeil) {
+                    asksTopVeil.innerText = showingAsks ? "my questions" : "";
                   }
                 }
 
@@ -5255,7 +5300,7 @@ export const handler = async (event, context) => {
                             }
                             closeAskEditor();
                             // Navigate to the question
-                            location.href = "/q/" + feedItem.questionNumber;
+                            location.href = (dev ? "/sotce-net" : "") + "/q/" + feedItem.questionNumber;
                           };
                         }
                       }
@@ -5272,13 +5317,16 @@ export const handler = async (event, context) => {
                     askPage.style.display = "none";
                     asksListPage.style.display = "block";
                     linesLeft.style.display = "none";
-                    // Hide ask and nevermind buttons in list view
-                    cancelBtn.style.display = "none";
+                    // Show top gradient veil for list view
+                    asksTopVeil.style.display = "block";
+                    // Show nevermind (to exit editor) and hide ask button in list view
+                    cancelBtn.style.display = "";
                     submitBtn.style.display = "none";
                   } else {
                     askPage.style.display = "block";
                     asksListPage.style.display = "none";
                     linesLeft.style.display = "block";
+                    asksTopVeil.style.display = "none";
                     // Show ask and nevermind buttons
                     cancelBtn.style.display = "";
                     submitBtn.style.display = "";
@@ -5290,6 +5338,12 @@ export const handler = async (event, context) => {
                 pageWrapper.appendChild(asksListPage);
                 form.appendChild(pageWrapper);
 
+                // Top gradient veil for "my questions" list view
+                const asksTopVeil = cel("div");
+                asksTopVeil.id = "asks-top-veil";
+                asksTopVeil.style.display = "none";
+                asksTopVeil.innerText = "my questions";
+
                 // Nav buttons (like page editor)
                 const nav = cel("nav");
                 nav.id = "nav-ask-editor";
@@ -5300,7 +5354,7 @@ export const handler = async (event, context) => {
 
                 const myAsksBtn = cel("button");
                 const initialCount = asksData ? asksData.length : 0;
-                myAsksBtn.innerText = "my questions (" + initialCount + ")";
+                myAsksBtn.innerText = "my questions";
                 myAsksBtn.classList.add("ask-toggle", "nav-center");
                 if (initialCount === 0) myAsksBtn.style.display = "none";
                 myAsksBtn.onclick = (e) => {
@@ -5325,6 +5379,7 @@ export const handler = async (event, context) => {
                   editorPlacemat.remove();
                   nav.remove();
                   linesLeft.remove();
+                  asksTopVeil.remove();
                   askButton?.classList.remove("deactivated");
                   respondButton?.classList.remove("deactivated");
                   wrapper.scrollTop = scrollMemory;
@@ -5377,6 +5432,7 @@ export const handler = async (event, context) => {
 
                 askEditor.appendChild(form);
                 askEditor.appendChild(linesLeft);
+                askEditor.appendChild(asksTopVeil);
                 g.appendChild(nav);
 
                 document.documentElement.classList.add("editing");
@@ -6410,8 +6466,8 @@ export const handler = async (event, context) => {
                 
                 // Hit boxes for @handles on card back
                 let handleHitBoxes = []; // [{handle, x, y, w, h}]
-                // Hit boxes for @handles on question card front (in question/answer text)
-                let frontHandleHitBoxes = []; // [{handle, x, y, w, h}]
+                // Hit boxes for interactive tokens on card front (handles, page links, question links)
+                let frontHitBoxes = []; // [{type, value, x, y, w, h}]
                 
                 // Card flip animation state (full 3D card flip)
                 let isFlipping = false;
@@ -6470,6 +6526,10 @@ export const handler = async (event, context) => {
                     questionCardBackground: style.getPropertyValue('--question-card-background').trim() || '#e8f0f8',
                     questionCardBorder: style.getPropertyValue('--question-card-border').trim() || '#b8c8d8',
                     questionCardEar: style.getPropertyValue('--question-card-ear').trim() || '#d0e0f0',
+                    questionAnswerText: style.getPropertyValue('--question-answer-text').trim() || 'rgb(0, 155, 145)',
+                    diaryLinkColor: style.getPropertyValue('--chat-diary-link').trim() || 'rgb(180, 120, 80)',
+                    questionLinkColor: style.getPropertyValue('--chat-question-link').trim() || 'rgb(80, 140, 200)',
+                    handleColor: style.getPropertyValue('--chat-handle').trim() || 'rgb(200, 80, 120)',
                   };
                 }
                 
@@ -6557,9 +6617,28 @@ export const handler = async (event, context) => {
                 }
                 
                 // Text wrapping helper - handles newlines and word wrap
-                function wrapText(text, maxWidth, fontSize) {
+                // IMPORTANT: font parameter is required — sets ctx.font for accurate measurement
+                function wrapText(text, maxWidth, font) {
+                  if (font) ctx.font = font; // Set font BEFORE measuring
                   const paragraphs = (text || "").split("\\n");
                   const lines = [];
+                  
+                  // Helper: break a single word into chunks that fit maxWidth
+                  function breakLongWord(word) {
+                    const parts = [];
+                    let start = 0;
+                    while (start < word.length) {
+                      let end = start + 1;
+                      while (end <= word.length && ctx.measureText(word.slice(start, end)).width <= maxWidth) {
+                        end++;
+                      }
+                      if (end > start + 1) end--; // Back up one char
+                      if (end === start) end = start + 1; // At least one char
+                      parts.push(word.slice(start, end));
+                      start = end;
+                    }
+                    return parts;
+                  }
                   
                   for (const paragraph of paragraphs) {
                     if (paragraph.trim() === "") {
@@ -6572,6 +6651,21 @@ export const handler = async (event, context) => {
                     let currentLine = "";
                     
                     for (const word of words) {
+                      // Check if a single word exceeds maxWidth
+                      if (ctx.measureText(word).width > maxWidth) {
+                        // Flush current line first
+                        if (currentLine) {
+                          lines.push(currentLine);
+                          currentLine = "";
+                        }
+                        // Break the long word into fitting chunks
+                        const parts = breakLongWord(word);
+                        for (let p = 0; p < parts.length - 1; p++) {
+                          lines.push(parts[p]);
+                        }
+                        currentLine = parts[parts.length - 1];
+                        continue;
+                      }
                       const testLine = currentLine ? currentLine + " " + word : word;
                       const metrics = ctx.measureText(testLine);
                       if (metrics.width > maxWidth && currentLine) {
@@ -6593,8 +6687,8 @@ export const handler = async (event, context) => {
                   const w = cardWidth;
                   const h = cardHeight;
                   
-                  // Font metrics needed for layout - scale proportionally with no minimum
-                  const fontSize = (w / 600) * 17;
+                  // Font metrics needed for layout - scale proportionally with minimum for mobile readability
+                  const fontSize = Math.max((w / 600) * 17, 11);
                   const em = fontSize;
                   
                   // Determine if this is a question card for different coloring
@@ -6603,6 +6697,12 @@ export const handler = async (event, context) => {
                   // Card background (themed - blue for questions)
                   ctx.fillStyle = isQuestion ? themeColors.questionCardBackground : themeColors.cardBackground;
                   ctx.fillRect(x, y, w, h);
+                  
+                  // Clip to card bounds so text never overflows
+                  ctx.save();
+                  ctx.beginPath();
+                  ctx.rect(x, y, w, h);
+                  ctx.clip();
                   
                   // Border (themed - blue for questions)
                   ctx.strokeStyle = isQuestion ? themeColors.questionCardBorder : themeColors.cardBorder;
@@ -6633,7 +6733,7 @@ export const handler = async (event, context) => {
                   }
                   
                   // Ghost mode = blank card, no text
-                  if (ghost) return;
+                  if (ghost) { ctx.restore(); return; }
                   
                   if (!pageData) {
                     ctx.fillStyle = themeColors.cardTextDim;
@@ -6641,6 +6741,7 @@ export const handler = async (event, context) => {
                     ctx.textAlign = "center";
                     ctx.fillText("Loading...", x + w/2, y + h/2);
                     ctx.textAlign = "left";
+                    ctx.restore();
                     return;
                   }
                   
@@ -6663,102 +6764,132 @@ export const handler = async (event, context) => {
                     textColor = baseColor;
                   }
                   
+                  // Helper: draw a line with @handles, -N- page refs, *N* question refs highlighted
+                  function drawLineWithHighlights(line, lineX, lineY, baseFont, baseTextColor) {
+                    const lineColor = baseTextColor || textColor;
+                    // Combined regex: @handles, -N- diary links, *N* question links
+                    const tokenRegex = new RegExp("(@[a-zA-Z0-9_.-]+)|(-(\\\\d+)-)|(\\\\*(\\\\d+)\\\\*)", "g");
+                    let match;
+                    let lastIndex = 0;
+                    let cursorX = lineX;
+                    
+                    while ((match = tokenRegex.exec(line)) !== null) {
+                      // Draw text before token
+                      const before = line.slice(lastIndex, match.index);
+                      if (before) {
+                        ctx.fillStyle = lineColor;
+                        ctx.font = baseFont;
+                        ctx.fillText(before, cursorX, lineY);
+                        cursorX += ctx.measureText(before).width;
+                      }
+                      
+                      const token = match[0];
+                      let color, hitType, hitValue;
+                      
+                      if (match[1]) {
+                        // @handle
+                        color = themeColors.handleColor;
+                        hitType = "handle";
+                        hitValue = match[1];
+                      } else if (match[2]) {
+                        // -N- diary link
+                        color = themeColors.diaryLinkColor;
+                        hitType = "page";
+                        hitValue = match[3]; // the number
+                      } else if (match[4]) {
+                        // *N* question link
+                        color = themeColors.questionLinkColor;
+                        hitType = "question";
+                        hitValue = match[5]; // the number
+                      }
+                      
+                      ctx.fillStyle = color;
+                      ctx.font = baseFont;
+                      ctx.fillText(token, cursorX, lineY);
+                      const tokenWidth = ctx.measureText(token).width;
+                      
+                      // Track hit box for click detection (only for current page, not transitioning ones)
+                      if (offsetY === 0) {
+                        frontHitBoxes.push({
+                          type: hitType,
+                          value: hitValue,
+                          x: cursorX,
+                          y: lineY - fontSize,
+                          w: tokenWidth,
+                          h: fontSize * 1.4
+                        });
+                      }
+                      cursorX += tokenWidth;
+                      lastIndex = match.index + token.length;
+                    }
+                    // Draw remaining text
+                    const remaining = line.slice(lastIndex);
+                    if (remaining) {
+                      ctx.fillStyle = lineColor;
+                      ctx.font = baseFont;
+                      ctx.fillText(remaining, cursorX, lineY);
+                    }
+                  }
+                  
                   // Different rendering for questions vs pages (isQuestion already defined at top)
                   if (isQuestion) {
-                    // Helper: draw a line with @handles in pink
-                    function drawLineWithHandles(line, lineX, lineY, baseFont, pinkColor) {
-                      const handleRegex = /@[a-zA-Z0-9_-]+/g;
-                      let match;
-                      let lastIndex = 0;
-                      let cursorX = lineX;
-                      
-                      while ((match = handleRegex.exec(line)) !== null) {
-                        // Draw text before handle
-                        const before = line.slice(lastIndex, match.index);
-                        if (before) {
-                          ctx.fillStyle = textColor;
-                          ctx.font = baseFont;
-                          ctx.fillText(before, cursorX, lineY);
-                          cursorX += ctx.measureText(before).width;
-                        }
-                        // Draw handle in pink
-                        const handle = match[0];
-                        ctx.fillStyle = pinkColor;
-                        ctx.font = baseFont;
-                        ctx.fillText(handle, cursorX, lineY);
-                        const handleWidth = ctx.measureText(handle).width;
-                        // Track hit box for click detection
-                        if (offsetY === 0) {
-                          frontHandleHitBoxes.push({
-                            handle: handle,
-                            x: cursorX,
-                            y: lineY - fontSize,
-                            w: handleWidth,
-                            h: fontSize * 1.4
-                          });
-                        }
-                        cursorX += handleWidth;
-                        lastIndex = match.index + handle.length;
-                      }
-                      // Draw remaining text
-                      const remaining = line.slice(lastIndex);
-                      if (remaining) {
-                        ctx.fillStyle = textColor;
-                        ctx.font = baseFont;
-                        ctx.fillText(remaining, cursorX, lineY);
-                      }
-                    }
-                    
-                    // Clear front handle hit boxes (rebuilt each frame)
-                    if (offsetY === 0) frontHandleHitBoxes = [];
-                    
-                    const pinkHandleColor = "rgb(200, 80, 120)";
+                    // Clear front hit boxes (rebuilt each frame)
+                    if (offsetY === 0) frontHitBoxes = [];
                     
                     // QUESTION RENDERING
-                    // Header: question text (smaller, italic)
-                    const headerY = y + h * 0.065 + fontSize;
-                    const headerFont = "italic " + (fontSize * 0.9) + "px Helvetica, sans-serif";
+                    // Date title at top (same as diary pages)
+                    const qDate = pageData.answeredAt || pageData.sortDate;
+                    if (qDate) {
+                      const qTitle = dateTitle(qDate);
+                      const qTitleY = y + h * 0.065 + fontSize;
+                      ctx.fillStyle = textColor;
+                      ctx.font = fontSize + "px Helvetica, sans-serif";
+                      ctx.textAlign = "center";
+                      ctx.fillText(qTitle, x + w/2, qTitleY);
+                      ctx.textAlign = "left";
+                    }
+                    
+                    // Header: question text (smaller, regular weight)
+                    const headerY = y + h * 0.15 + fontSize;
+                    const headerFont = (fontSize * 0.9) + "px Helvetica, sans-serif";
+                    ctx.font = headerFont; // Set font BEFORE measuring for correct wrapping
                     ctx.textAlign = "left";
                     
-                    // Wrap question text for header
-                    const questionLines = wrapText(pageData.question, textWidth, fontSize * 0.9);
+                    // Wrap question text for header (pass font for accurate measurement)
+                    const questionLines = wrapText(pageData.question, textWidth, headerFont);
                     const maxHeaderLines = 3; // Limit header to 3 lines
                     
                     for (let i = 0; i < Math.min(questionLines.length, maxHeaderLines); i++) {
-                      drawLineWithHandles(questionLines[i], x + padding, headerY + i * (fontSize * 1.5), headerFont, pinkHandleColor);
+                      drawLineWithHighlights(questionLines[i], x + padding, headerY + i * (fontSize * 1.5), headerFont);
                     }
                     
-                    // Body: answer text - starts lower to accommodate question header
+                    // Body: answer text - starts after question header
                     const bodyFont = fontSize + "px Helvetica, sans-serif";
+                    ctx.font = bodyFont; // Set font BEFORE measuring for correct wrapping
                     ctx.textAlign = "left";
                     
-                    const answerStartY = y + h * 0.20 + fontSize; // Start a bit lower
-                    const answerLines = wrapText(pageData.answer || "", textWidth, fontSize);
+                    const usedHeaderLines = Math.min(questionLines.length, maxHeaderLines);
+                    
+                    const answerStartY = headerY + usedHeaderLines * (fontSize * 1.5) + fontSize; // Start answer after question
+                    const answerLines = wrapText(pageData.answer || "", textWidth, bodyFont);
+                    
+                    // Answer text in bright teal
+                    const answerColor = themeColors.questionAnswerText || "rgb(0, 155, 145)";
                     
                     for (let i = 0; i < Math.min(answerLines.length, maxLines - 2); i++) {
                       const line = answerLines[i];
                       if (line === "") continue;
-                      drawLineWithHandles(line, x + padding, answerStartY + i * lineHeight, bodyFont, pinkHandleColor);
+                      drawLineWithHighlights(line, x + padding, answerStartY + i * lineHeight, bodyFont, answerColor);
                     }
                     
                     // Page number with asterisk format: *N* (use questionNumber)
-                    ctx.fillStyle = textColor;
+                    ctx.fillStyle = (hoverPageNum && offsetY === 0) ? themeColors.cardEarHover : textColor;
                     ctx.font = fontSize + "px monospace";
                     ctx.textAlign = "center";
                     const pageNumY = y + h - em * 2;
                     const displayNum = pageData.questionNumber || idx;
                     const pageNumText = "*" + displayNum + "*";
                     ctx.fillText(pageNumText, x + w/2, pageNumY);
-                    
-                    // Debug box for page number when hovering (themed)
-                    if (hoverPageNum && offsetY === 0) {
-                      const textMetrics = ctx.measureText(pageNumText);
-                      const boxWidth = textMetrics.width + em;
-                      const boxHeight = em * 1.5;
-                      ctx.strokeStyle = themeColors.cardEarHover;
-                      ctx.lineWidth = 2;
-                      ctx.strokeRect(x + w/2 - boxWidth/2, pageNumY - em, boxWidth, boxHeight);
-                    }
                   } else {
                     // PAGE RENDERING (diary pages)
                     // Date title - CENTERED at top: 6.5%
@@ -6769,12 +6900,16 @@ export const handler = async (event, context) => {
                     ctx.textAlign = "center";
                     ctx.fillText(title, x + w/2, titleY);
                     
+                    // Clear front hit boxes (rebuilt each frame) — for diary pages too
+                    if (offsetY === 0) frontHitBoxes = [];
+                    
                     // Body text - margin-top: 15%
+                    const pageBodyFont = fontSize + "px Helvetica, sans-serif";
                     ctx.fillStyle = textColor;
-                    ctx.font = fontSize + "px Helvetica, sans-serif";
+                    ctx.font = pageBodyFont;
                     ctx.textAlign = "left";
                     
-                    const lines = wrapText(pageData.words, textWidth, fontSize);
+                    const lines = wrapText(pageData.words, textWidth, pageBodyFont);
                     const textStartY = y + h * 0.15 + fontSize;
                     
                     for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
@@ -6783,30 +6918,20 @@ export const handler = async (event, context) => {
                         // Empty line for paragraph break
                         continue;
                       }
-                      ctx.fillText(line, x + padding, textStartY + i * lineHeight);
+                      drawLineWithHighlights(line, x + padding, textStartY + i * lineHeight, pageBodyFont);
                     }
                     
                     // Page number - centered at bottom with margin (use pageNumber)
-                    ctx.fillStyle = textColor;
+                    ctx.fillStyle = (hoverPageNum && offsetY === 0) ? themeColors.cardEarHover : textColor;
                     ctx.font = fontSize + "px monospace";
                     ctx.textAlign = "center";
                     const pageNumY = y + h - em * 2;
                     const displayNum = pageData.pageNumber || idx;
                     ctx.fillText("- " + displayNum + " -", x + w/2, pageNumY);
-                    
-                    // Debug box for page number when hovering (themed)
-                    if (hoverPageNum && offsetY === 0) {
-                      const pageNumText = "- " + displayNum + " -";
-                      const textMetrics = ctx.measureText(pageNumText);
-                      const boxWidth = textMetrics.width + em;
-                      const boxHeight = em * 1.5;
-                      ctx.strokeStyle = themeColors.cardEarHover;
-                      ctx.lineWidth = 2;
-                      ctx.strokeRect(x + w/2 - boxWidth/2, pageNumY - em, boxWidth, boxHeight);
-                    }
                   }
                   
                   ctx.textAlign = "left";
+                  ctx.restore(); // Remove card clip region
                 }
                 
                 // Render the back of a card (touch info only, positioned top-left at body text position)
@@ -6816,8 +6941,8 @@ export const handler = async (event, context) => {
                   const w = cardWidth;
                   const h = cardHeight;
                   
-                  // Font metrics (same as front)
-                  const fontSize = (w / 600) * 17;
+                  // Font metrics (same as front - with minimum for mobile readability)
+                  const fontSize = Math.max((w / 600) * 17, 11);
                   const em = fontSize;
                   const lineHeight = fontSize * 1.76;
                   const padding = em * 2;
@@ -7131,6 +7256,13 @@ export const handler = async (event, context) => {
                   if (!isDragging) return;
                   dragDelta = dragStartY - e.clientY;
                   
+                  // Clamp at boundaries – small rubber-band only
+                  const maxRubber = 40;
+                  const atStart = displayedPageIndex <= 1 && dragDelta < 0;
+                  const atEnd = displayedPageIndex >= loadedFeedCount && dragDelta > 0;
+                  if (atStart) dragDelta = Math.max(dragDelta, -maxRubber);
+                  if (atEnd) dragDelta = Math.min(dragDelta, maxRubber);
+                  
                   // Prefetch the feed item we might be going to
                   const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
                   if (nextIdx >= 1 && nextIdx <= loadedFeedCount && !pageCache.has(nextIdx)) {
@@ -7197,6 +7329,14 @@ export const handler = async (event, context) => {
                   // Accumulate wheel delta into dragDelta (like pointer drag)
                   const sensitivity = 1.5;
                   wheelDelta += e.deltaY * sensitivity;
+                  
+                  // Clamp at boundaries – allow only a small rubber-band offset
+                  const maxRubber = 40; // pixels of visual give at edges
+                  const atStart = displayedPageIndex <= 1 && wheelDelta < 0;
+                  const atEnd = displayedPageIndex >= loadedFeedCount && wheelDelta > 0;
+                  if (atStart) wheelDelta = Math.max(wheelDelta, -maxRubber);
+                  if (atEnd) wheelDelta = Math.min(wheelDelta, maxRubber);
+                  
                   dragDelta = wheelDelta;
                   isWheelScrolling = true;
                   
@@ -7256,7 +7396,11 @@ export const handler = async (event, context) => {
                     ? (localX < earSize && localY > cardHeight - earSize)
                     : (localX > cardWidth - earSize && localY > cardHeight - earSize);
                   
-                  if (earHit) {
+                  // Skip ear interactions for question cards (no doggy ear)
+                  const clickedItem = pageCache.get(displayedPageIndex);
+                  const clickedIsQuestion = clickedItem?.type === "question";
+                  
+                  if (earHit && !clickedIsQuestion) {
                     console.log("🎨 Ear clicked on page", displayedPageIndex, showingBack ? "(back)" : "(front)");
                     
                     // If showing front, flip to back and touch the page
@@ -7296,14 +7440,34 @@ export const handler = async (event, context) => {
                     return;
                   }
                   
-                  // Check @handle hit boxes on question card front
-                  if (!showingBack && frontHandleHitBoxes.length > 0) {
+                  // Check interactive token hit boxes on card front
+                  if (!showingBack && frontHitBoxes.length > 0) {
                     const absX = e.clientX - rect.left;
                     const absY = e.clientY - rect.top;
-                    for (const hb of frontHandleHitBoxes) {
+                    for (const hb of frontHitBoxes) {
                       if (absX >= hb.x && absX <= hb.x + hb.w && absY >= hb.y && absY <= hb.y + hb.h) {
-                        console.log("🎨 Handle clicked on question card:", hb.handle);
-                        openChatWithMessage(hb.handle + " ");
+                        if (hb.type === "handle") {
+                          console.log("🎨 Handle clicked:", hb.value);
+                          openChatWithMessage(hb.value + " ");
+                        } else if (hb.type === "page") {
+                          console.log("🎨 Page link clicked:", hb.value);
+                          const targetFeedItem = feedItems.find(fi => fi.type === "page" && fi.pageNumber === parseInt(hb.value, 10));
+                          if (targetFeedItem) {
+                            currentPageIndex = targetFeedItem.feedIndex;
+                            displayedPageIndex = targetFeedItem.feedIndex;
+                            textFadeIn = 0;
+                            updatePath("/page/" + hb.value);
+                          }
+                        } else if (hb.type === "question") {
+                          console.log("🎨 Question link clicked:", hb.value);
+                          const targetFeedItem = feedItems.find(fi => fi.type === "question" && fi.questionNumber === parseInt(hb.value, 10));
+                          if (targetFeedItem) {
+                            currentPageIndex = targetFeedItem.feedIndex;
+                            displayedPageIndex = targetFeedItem.feedIndex;
+                            textFadeIn = 0;
+                            updatePath("/q/" + hb.value);
+                          }
+                        }
                         return;
                       }
                     }
@@ -7373,18 +7537,34 @@ export const handler = async (event, context) => {
                     ? (localX < earSize && localY > cardHeight - earSize)
                     : (localX > cardWidth - earSize && localY > cardHeight - earSize);
                   
-                  if (earHit) {
+                  // Skip ear hover for question cards (no doggy ear)
+                  const hoveredItem = pageCache.get(displayedPageIndex);
+                  const hoveredIsQuestion = hoveredItem?.type === "question";
+                  
+                  if (earHit && !hoveredIsQuestion) {
                     canvas.style.cursor = "pointer";
                     hoverEar = true;
                     hoverPageNum = false;
                     return;
                   }
                   
-                  // Check page number region (only on front)
+                  // Check page number region (only on front) - only the number text, not full width
                   if (!showingBack) {
                     const pageNumTop = cardHeight - em * 3;
                     const pageNumBottom = cardHeight - em * 0.5;
-                    if (localY > pageNumTop && localY < pageNumBottom) {
+                    // Measure the page number text width to limit hit area
+                    const hovItem = pageCache.get(displayedPageIndex);
+                    ctx.font = baseFontSize + "px monospace";
+                    let pnText;
+                    if (hovItem?.type === "question") {
+                      pnText = "*" + (hovItem.questionNumber || displayedPageIndex) + "*";
+                    } else {
+                      pnText = "- " + (hovItem?.pageNumber || displayedPageIndex) + " -";
+                    }
+                    const pnWidth = ctx.measureText(pnText).width + em;
+                    const pnLeft = (cardWidth - pnWidth) / 2;
+                    const pnRight = pnLeft + pnWidth;
+                    if (localY > pageNumTop && localY < pageNumBottom && localX > pnLeft && localX < pnRight) {
                       canvas.style.cursor = "pointer";
                       hoverPageNum = true;
                       hoverEar = false;
@@ -7407,9 +7587,9 @@ export const handler = async (event, context) => {
                     }
                   }
                   
-                  // Check @handle hit boxes on question card front
-                  if (!showingBack && frontHandleHitBoxes.length > 0) {
-                    for (const hb of frontHandleHitBoxes) {
+                  // Check interactive token hit boxes on card front
+                  if (!showingBack && frontHitBoxes.length > 0) {
+                    for (const hb of frontHitBoxes) {
                       if (x >= hb.x && x <= hb.x + hb.w && y >= hb.y && y <= hb.y + hb.h) {
                         canvas.style.cursor = "pointer";
                         return;
@@ -7500,9 +7680,39 @@ export const handler = async (event, context) => {
                   binding.style.width = cardWidth + "px";
                 }
                 
+                // Re-scale any open editor pages (ask, respond, write)
+                function rescaleEditors() {
+                  const baseWidth = 100 * 8;
+                  const editors = [
+                    { form: "editor-form", page: "editor-page" },
+                    { form: "ask-editor-form", page: "ask-editor-page" },
+                    { form: "respond-editor-form", page: "respond-editor-page" },
+                  ];
+                  for (const { form, page } of editors) {
+                    const formEl = document.getElementById(form);
+                    const pageEl = document.getElementById(page);
+                    if (formEl && pageEl) {
+                      formEl.style.width = cardWidth + "px";
+                      const goalWidth = pageEl.parentElement.clientWidth;
+                      const scale = goalWidth / baseWidth;
+                      pageEl.style.transform = "scale(" + scale + ")";
+                    }
+                  }
+                  // Also update nav widths
+                  const topBar = document.getElementById("top-bar");
+                  if (topBar) {
+                    const navIds = ["nav-editor", "nav-ask-editor", "nav-respond-editor"];
+                    for (const id of navIds) {
+                      const navEl = document.getElementById(id);
+                      if (navEl) navEl.style.width = topBar.style.width;
+                    }
+                  }
+                }
+                
                 window.addEventListener("resize", () => {
                   resizeCanvas();
                   updateBindingSize();
+                  rescaleEditors();
                 });
                 updateBindingSize();
                 loop();
@@ -7510,6 +7720,8 @@ export const handler = async (event, context) => {
                 computePageLayout = function() {
                   resizeCanvas();
                   updateBindingSize();
+                  // Re-scale any open editor pages
+                  rescaleEditors();
                 };
                 
                 canvas.style.touchAction = "none";
@@ -9387,9 +9599,11 @@ export const handler = async (event, context) => {
         shell.log("📄 Pagination: requestedPage=", requestedPage, "limit=", limit, "offset=", offset);
         
         // Always get total count and last modified for cache validation
-        const totalCount = await pages.countDocuments({ state: "published" });
+        // Exclude Q&A pages (isQA: true) — those are shown as question cards from sotce-asks
+        const pageFilter = { state: "published", isQA: { $ne: true } };
+        const totalCount = await pages.countDocuments(pageFilter);
         const lastModifiedDoc = await pages.findOne(
-          { state: "published" },
+          pageFilter,
           { sort: { updatedAt: -1 }, projection: { updatedAt: 1, when: 1 } }
         );
         out.totalPages = totalCount;
@@ -9406,7 +9620,7 @@ export const handler = async (event, context) => {
           // Fetch a specific page by its index (1-indexed)
           retrievedPages = await pages
             .aggregate([
-              { $match: { state: "published" } },
+              { $match: pageFilter },
               { $sort: { when: 1 } },
               { $skip: requestedPage - 1 },
               { $limit: 1 },
@@ -9417,7 +9631,7 @@ export const handler = async (event, context) => {
           // Fetch latest pages (from the end), with optional offset for loading older
           retrievedPages = await pages
             .aggregate([
-              { $match: { state: "published" } },
+              { $match: pageFilter },
               { $sort: { when: -1 } }, // Newest first
               { $skip: offset },
               { $limit: limit },
@@ -9905,19 +10119,8 @@ export const handler = async (event, context) => {
       return respond(500, { message: "Could not save response." });
     }
 
-    // Create a published page with the Q&A
-    const pages = database.db.collection("sotce-pages");
-    const askerHandle = question.handle || "@anonymous";
-    const pageWords = `${askerHandle} asks @amelia\n\n${question.question}\n\n---\n\n@amelia responds\n\n${answer.trim()}`;
-    
-    await pages.insertOne({
-      user: user.sub,
-      words: pageWords,
-      when: new Date(),
-      state: "published",
-      questionId: askId, // Link back to the question
-      isQA: true, // Mark as Q&A page
-    });
+    // NOTE: No separate page is created — answered questions live only in
+    // sotce-asks and get swizzled into the feed client-side alongside diary pages.
 
     await database.disconnect();
 
