@@ -2953,6 +2953,18 @@ export const handler = async (event, context) => {
             #chat-input-container .monaco-editor .view-line {
               font-family: var(--page-font), sans-serif !important;
             }
+            /* Hide Monaco's mobile keyboard toggle button (SVG keyboard icon) */
+            #chat-input-container .monaco-editor .iPadShowKeyboard,
+            #chat-input-container .monaco-editor .codicon-keyboard,
+            #chat-input-container .monaco-editor .monaco-editor-overlaymessage,
+            #chat-input-container .monaco-editor .accessibilityHelpWidget {
+              display: none !important;
+            }
+            /* Ensure Monaco's hidden textarea is accessible for mobile keyboard */
+            #chat-input-container .monaco-editor .inputarea {
+              opacity: 0 !important;
+              font-size: 16px !important; /* Prevents iOS zoom on focus */
+            }
             #chat-input {
               flex: 1;
               height: 100%;
@@ -3713,6 +3725,17 @@ export const handler = async (event, context) => {
                 occurrencesHighlight: 'off',
                 selectionHighlight: false,
                 find: { addExtraSpaceOnTop: false, autoFindInSelection: 'never' },
+              });
+              
+              // Mobile: ensure tapping chat input opens native keyboard
+              chatInputContainer.addEventListener('touchend', (e) => {
+                if (chatEditor) {
+                  e.preventDefault();
+                  chatEditor.focus();
+                  // Also explicitly focus the hidden textarea Monaco uses
+                  const textarea = chatInputContainer.querySelector('.inputarea');
+                  if (textarea) textarea.focus();
+                }
               });
               
               // Listen for system theme changes and update Monaco
