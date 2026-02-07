@@ -632,21 +632,6 @@ export const handler = async (event, context) => {
               #asks-list-page p {
                 color: #b0a898 !important;
               }
-              /* Blue ask/respond buttons in dark mode */
-              #ask-button,
-              #respond-button {
-                background: rgba(50, 80, 120, 0.6) !important;
-                border-color: rgba(100, 150, 200, 0.5) !important;
-                color: var(--button-text) !important;
-              }
-              #ask-button:hover,
-              #respond-button:hover {
-                background: rgba(60, 95, 140, 0.7) !important;
-              }
-              #ask-button:active,
-              #respond-button:active {
-                background: rgba(70, 105, 150, 0.8) !important;
-              }
               /* Ask toggle ("my questions") + pending toggle buttons */
               nav button.ask-toggle {
                 background: var(--button-background) !important;
@@ -1225,16 +1210,6 @@ export const handler = async (event, context) => {
             #ask-button,
             #respond-button {
               margin-left: 1em;
-              background: rgb(220, 235, 250) !important;
-              border-color: rgb(130, 170, 210) !important;
-            }
-            #ask-button:hover,
-            #respond-button:hover {
-              background: rgb(200, 225, 250) !important;
-            }
-            #ask-button:active,
-            #respond-button:active {
-              background: rgb(190, 215, 245) !important;
             }
             @keyframes chat-unread-pulse {
               0%, 100% { border-color: var(--pink-border); }
@@ -1838,15 +1813,14 @@ export const handler = async (event, context) => {
             #respond-asked-by {
               position: fixed;
               top: 0;
-              right: 0;
+              left: 0;
               padding-top: 1.5em;
-              padding-right: 1em;
+              padding-left: 1em;
               z-index: 8;
               color: black;
             }
             #respond-asked-by .asked-by-handle {
               color: rgb(200, 80, 120);
-              cursor: pointer;
             }
             #nav-respond-editor {
               position: fixed;
@@ -4957,13 +4931,9 @@ export const handler = async (event, context) => {
 
               // ❓ Ask + Respond buttons
               const isJeffrey = window.sotceHandle === "@jeffrey";
-              const askButton = isJeffrey ? cel("button") : null;
-              if (askButton) {
-                askButton.id = "ask-button";
-                askButton.innerText = "ask";
-              }
+              const askButton = null; // Ask button removed for admins
 
-              const respondButton = isJeffrey ? cel("button") : null;
+              const respondButton = (subscription?.admin && isJeffrey) ? cel("button") : null;
               if (respondButton) {
                 respondButton.id = "respond-button";
                 respondButton.innerText = "respond";
@@ -5387,15 +5357,6 @@ export const handler = async (event, context) => {
                   if (question.handle) {
                     askedBy.innerHTML = "asked by <span class='asked-by-handle'>@" + question.handle + "</span>";
                     askedBy.style.display = "block";
-                    // Make @handle clickable to open chat
-                    const handleSpan = askedBy.querySelector(".asked-by-handle");
-                    if (handleSpan) {
-                      handleSpan.addEventListener("click", async (e) => {
-                        e.stopPropagation();
-                        closeRespondEditor();
-                        openChatWithMessage("@" + question.handle + " ");
-                      });
-                    }
                   } else {
                     askedBy.innerText = "asked anonymously";
                     askedBy.style.display = "block";
@@ -8177,18 +8138,6 @@ export const handler = async (event, context) => {
                     const goalWidth = askEditorPage.parentElement.clientWidth;
                     const scale = goalWidth / baseWidth;
                     askEditorPage.style.transform = "scale(" + scale + ")";
-                  }
-
-                  // Set the size of the respond editor if it's open.
-                  const respondEditorForm = document.getElementById("respond-editor-form");
-                  const respondEditorPage = document.getElementById("respond-editor-page");
-
-                  if (respondEditorForm) {
-                    respondEditorForm.style.width = binding.style.width;
-                    const baseWidth = 100 * 8;
-                    const goalWidth = respondEditorPage.parentElement.clientWidth;
-                    const scale = goalWidth / baseWidth;
-                    respondEditorPage.style.transform = "scale(" + scale + ")";
                   }
 
                   const queryStart = performance.now();
