@@ -1634,9 +1634,16 @@ end
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
 
 function aesthetic
-    # Kill any existing emacs processes first to ensure clean slate
-    # (prevents issues when emacs crashed and tabs don't reinitialize properly)
-    ac-emacs-kill
+    # Only kill emacs if it's a zombie (running but unresponsive).
+    # If it's healthy (e.g. pre-started by entry.fish), keep it for faster connect.
+    if pgrep -f "emacs.*daemon" >/dev/null 2>&1
+        if not timeout 3 emacsclient -e t >/dev/null 2>&1
+            echo "⚠️  Emacs daemon is unresponsive (zombie) — restarting..."
+            ac-emacs-kill
+        else
+            echo "✅ Reusing healthy emacs daemon"
+        end
+    end
     
     # Check if --no-wait flag is passed
     if test "$argv[1]" = "--no-wait"
