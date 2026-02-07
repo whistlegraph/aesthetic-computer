@@ -952,8 +952,13 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, sys
           // sounds[index] = sound.play(sampleId, { from, to, loop });
 
           // TODO: Figure out a cool attack and decay on these.
-          // console.log("Playing sound index:", index);
-          if (sound.microphone.connected) sound.microphone.disconnect();
+          // Only disconnect mic if actively recording to avoid destroying
+          // the mic connection on every strip press (which forced the user
+          // to reconnect before they could record again).
+          if (sound.microphone.recording) {
+            sound.microphone.cut().catch(() => {}); // Discard the partial recording.
+            micRecordButtonLabel = "Record";
+          }
         },
 
         over: (btn) => {
@@ -968,31 +973,17 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, sys
           // btn.actions.up(btn);
         },
         up: (btn, opts) => {
-          // if (downs[note]) return false;
-          //if (btn.box.contains(e.dragBox)) {
-          //if (
-          //  btn.downPointer === 0 ||
-          //  (e.pointer === btn.downPointer && btn.box.contains(e))
-          //) {
-
-          if (e.pointer === btn.downPointer || opts?.keyboard) {
-            sounds[index]?.kill(0.1);
-            delete btnSounds[index];
-            return true;
-          } else {
-            return false;
-          }
-
-          // return true;
-          //} else {
-          // return e.pointer !== btn.downPointer;
-          //}
-          //}
-          // console.log("Killing sound index:", index, sounds[index]);
+          // Always kill the sound and release the button to prevent stuck states.
+          // Previously, returning false on pointer mismatch left btn.down=true permanently.
+          sounds[index]?.kill(0.1);
+          sounds[index] = undefined; // Clear dead ref so sim() doesn't poll it.
+          delete btnSounds[index];
+          return true;
         },
         cancel: (btn) => {
           // Kill the sound when button is cancelled (e.g., mouse leaves screen)
           sounds[index]?.kill(0.1);
+          sounds[index] = undefined;
           delete btnSounds[index];
           anyDown = false;
         },
@@ -1168,6 +1159,10 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, sys
     micRecordButtonLabel = "Record";
   }
 
+  if (e.is("microphone-disconnect")) {
+    micRecordButtonLabel = "Connect";
+  }
+
   if (e.is("keyboard:down") || e.is("keyboard:up")) {
     const index = keyToSfx[e.key];
     if (index !== undefined && btns[btns.length - 1 - index]) {
@@ -1231,7 +1226,21 @@ function act({ event: e, sound, pens, screen, ui, notice, beep, store, jump, sys
   }
 }
 
-export { boot, paint, act, sim };
+function leave({ sound }) {
+  // Clean up all playing sounds to avoid orphaned audio on piece transitions.
+  sounds.forEach((snd, i) => {
+    snd?.kill?.(0.05);
+    sounds[i] = undefined;
+  });
+  sounds.length = 0;
+  bitmapLoopSound?.kill?.(0.05);
+  bitmapLoopSound = null;
+  bitmapPlaySound?.kill?.(0.05);
+  bitmapPlaySound = null;
+  bitmapLooping = false;
+}
+
+export { boot, paint, act, sim, leave };
 
 // 📚 Library
 
