@@ -1838,14 +1838,15 @@ export const handler = async (event, context) => {
             #respond-asked-by {
               position: fixed;
               top: 0;
-              left: 0;
+              right: 0;
               padding-top: 1.5em;
-              padding-left: 1em;
+              padding-right: 1em;
               z-index: 8;
               color: black;
             }
             #respond-asked-by .asked-by-handle {
               color: rgb(200, 80, 120);
+              cursor: pointer;
             }
             #nav-respond-editor {
               position: fixed;
@@ -5386,6 +5387,15 @@ export const handler = async (event, context) => {
                   if (question.handle) {
                     askedBy.innerHTML = "asked by <span class='asked-by-handle'>@" + question.handle + "</span>";
                     askedBy.style.display = "block";
+                    // Make @handle clickable to open chat
+                    const handleSpan = askedBy.querySelector(".asked-by-handle");
+                    if (handleSpan) {
+                      handleSpan.addEventListener("click", async (e) => {
+                        e.stopPropagation();
+                        closeRespondEditor();
+                        openChatWithMessage("@" + question.handle + " ");
+                      });
+                    }
                   } else {
                     askedBy.innerText = "asked anonymously";
                     askedBy.style.display = "block";
@@ -8167,6 +8177,18 @@ export const handler = async (event, context) => {
                     const goalWidth = askEditorPage.parentElement.clientWidth;
                     const scale = goalWidth / baseWidth;
                     askEditorPage.style.transform = "scale(" + scale + ")";
+                  }
+
+                  // Set the size of the respond editor if it's open.
+                  const respondEditorForm = document.getElementById("respond-editor-form");
+                  const respondEditorPage = document.getElementById("respond-editor-page");
+
+                  if (respondEditorForm) {
+                    respondEditorForm.style.width = binding.style.width;
+                    const baseWidth = 100 * 8;
+                    const goalWidth = respondEditorPage.parentElement.clientWidth;
+                    const scale = goalWidth / baseWidth;
+                    respondEditorPage.style.transform = "scale(" + scale + ")";
                   }
 
                   const queryStart = performance.now();
