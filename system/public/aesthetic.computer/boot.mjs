@@ -1250,6 +1250,9 @@ async function setupAuth0Client() {
 // Call this function at the desired point in your application
 // 🚀 Only load Auth0 if user likely has an auth session (or is doing OAuth callback)
 if (!sandboxed && !skipAuth) {
+  // 🛡️ Track whether session:started was sent in the auth flow
+  // Hoisted so .catch() can use it as a fallback
+  let _authSessionSent = false;
   window.acAuthTiming.auth0ScriptLoadStart = performance.now();
   bootLog("loading auth0 script");
   loadAuth0Script()
@@ -1353,6 +1356,12 @@ if (!sandboxed && !skipAuth) {
           if (!pickedUpSession) {
             if (window.parent)
               window.parent.postMessage({ type: "logout" }, "*");
+            // 🛡️ Still send session:started so disk.mjs can proceed with loading
+            _authSessionSent = true;
+            window.acDISK_SEND({
+              type: "session:started",
+              content: { user: null },
+            });
             return;
           }
 
@@ -1363,6 +1372,7 @@ if (!sandboxed && !skipAuth) {
           };
           // Will get passed to the first message by the piece runner.
           // console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
+          _authSessionSent = true;
           window.acDISK_SEND({
             type: "session:started",
             content: { user: window.acUSER },
@@ -1486,6 +1496,7 @@ if (!sandboxed && !skipAuth) {
         }
         window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
         window.acAuthTiming.sessionStartedSent = performance.now();
+        _authSessionSent = true;
         window.acDISK_SEND({
           type: "session:started",
           content: { user: window.acUSER },
@@ -1493,6 +1504,7 @@ if (!sandboxed && !skipAuth) {
       } else if (!pickedUpSession) {
         // console.log("🗝️ Not authenticated.");
         window.acAuthTiming.sessionStartedSent = performance.now();
+        _authSessionSent = true;
         window.acDISK_SEND({
           type: "session:started",
           content: { user: null },
@@ -1505,10 +1517,28 @@ if (!sandboxed && !skipAuth) {
       bootLog(`auth0 complete (${Math.round(totalAuthTime)}ms total auth time)`);
       // Log full summary to console for debugging
       console.log(window.acAuthTiming.summary());
+    } else {
+      // 🛡️ Auth block was skipped (window.auth0 missing, sandboxed, or previewOrIcon)
+      // Still need to send session:started so disk.mjs can proceed
+      if (!_authSessionSent) {
+        _authSessionSent = true;
+        window.acDISK_SEND({
+          type: "session:started",
+          content: { user: null },
+        });
+      }
     }
   })
   .catch((error) => {
     console.error("Failed to load Auth0 script:", error);
+    // 🛡️ Always send session:started even on auth failure so disk.mjs can proceed
+    if (!_authSessionSent) {
+      _authSessionSent = true;
+      window.acDISK_SEND({
+        type: "session:started",
+        content: { user: null },
+      });
+    }
   });
 } else {
   // Auth0 disabled in OBJKT mode

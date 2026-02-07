@@ -9630,6 +9630,7 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "microphone-disconnect") {
     microphone.connected = false;
+    actAlerts.push("microphone-disconnect");
     return;
   }
 
@@ -14947,6 +14948,21 @@ async function makeFrame({ data: { type, content } }) {
         console.log("🕷️ SPIDER: Calling loadAfterPreamble now!");
       }
       loadAfterPreamble?.(); // Start loading after the first disk if necessary.
+    }
+
+    // 🛡️ Safety net: if session:started was never received (auth failure, network issue,
+    // or race condition in boot.mjs), force-proceed after ~2 seconds (120 frames at 60fps)
+    // to prevent the system from being stuck on noise16 forever.
+    if (
+      paintCount > 120n &&
+      !sessionStarted &&
+      !PREVIEW_OR_ICON &&
+      !$commonApi.net.sandboxed &&
+      loadAfterPreamble
+    ) {
+      console.warn("⚠️ session:started not received after 120 frames — proceeding without auth");
+      sessionStarted = true;
+      loadAfterPreamble?.();
     }
 
     // soundClear?.();
