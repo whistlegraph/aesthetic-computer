@@ -632,6 +632,21 @@ export const handler = async (event, context) => {
               #asks-list-page p {
                 color: #b0a898 !important;
               }
+              /* Blue ask/respond buttons in dark mode */
+              #ask-button,
+              #respond-button {
+                background: #2a3442 !important;
+                border-color: #3a4a5a !important;
+                color: #98a8b8 !important;
+              }
+              #ask-button:hover,
+              #respond-button:hover {
+                background: #324050 !important;
+              }
+              #ask-button:active,
+              #respond-button:active {
+                background: #3a4a5a !important;
+              }
               /* Ask toggle ("my questions") + pending toggle buttons */
               nav button.ask-toggle {
                 background: var(--button-background) !important;
@@ -747,11 +762,23 @@ export const handler = async (event, context) => {
               }
               .ask-item button.take-back {
                 background: rgba(200, 80, 80, 0.15) !important;
-                border-color: rgba(200, 80, 80, 0.3) !important;
+                border-color: rgba(200, 80, 80, 0.35) !important;
                 color: rgb(220, 120, 120) !important;
+                filter: drop-shadow(-0.04em 0.04em 0.04em rgba(200, 80, 80, 0.12)) !important;
               }
               .ask-item button.take-back:hover {
-                background: rgba(200, 80, 80, 0.3) !important;
+                background: rgba(200, 80, 80, 0.25) !important;
+                border-color: rgba(200, 80, 80, 0.5) !important;
+              }
+              .ask-item button.take-back:active {
+                background: rgba(200, 80, 80, 0.35) !important;
+              }
+              #asks-list-page {
+                background: rgba(40, 35, 45, 0.65) !important;
+                border-color: rgba(90, 85, 72, 0.4) !important;
+                box-shadow:
+                  0 1px 4px rgba(0, 0, 0, 0.2),
+                  0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
               }
 
               /* === Prompt / back button on editor overlay === */
@@ -1419,6 +1446,46 @@ export const handler = async (event, context) => {
               font-size: 90%;
               opacity: 0.6;
             }
+            #asks-list-page {
+              background: rgba(255, 255, 255, 0.55);
+              border: 0.16em solid var(--pink-border);
+              border-radius: 0.75em;
+              margin: 0.75em;
+              padding: 1em !important;
+              box-shadow:
+                0 1px 4px rgba(0, 0, 0, 0.06),
+                0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+              backdrop-filter: blur(6px);
+              -webkit-backdrop-filter: blur(6px);
+            }
+            @media (prefers-color-scheme: dark) {
+              #asks-list-page {
+                background: rgba(40, 35, 45, 0.65) !important;
+                box-shadow:
+                  0 1px 4px rgba(0, 0, 0, 0.2),
+                  0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+              }
+            }
+            #asks-list-page .ask-item {
+              padding: 0.75em 0.6em;
+              border-bottom: 1px solid rgba(180, 140, 160, 0.2);
+              font-size: 90%;
+            }
+            #asks-list-page .ask-item:last-child {
+              border-bottom: none;
+            }
+            #asks-list-page .ask-item.answered {
+              background: rgba(203, 238, 161, 0.2);
+              border-radius: 0.4em;
+              margin: 0.2em -0.3em;
+              padding-left: 0.9em;
+              padding-right: 0.9em;
+              cursor: pointer;
+              transition: background 0.15s ease;
+            }
+            #asks-list-page .ask-item.answered:hover {
+              background: rgba(203, 238, 161, 0.4);
+            }
             .ask-item {
               padding: 0.75em 0.5em;
               border-bottom: 1px solid var(--pink-border);
@@ -1445,17 +1512,28 @@ export const handler = async (event, context) => {
             }
             .ask-item button.take-back {
               display: block;
-              margin-top: 0.4em;
-              font-size: 75%;
-              padding: 0.2em 0.7em;
-              background: rgba(180, 60, 60, 0.1);
-              border: 1px solid rgba(180, 60, 60, 0.3);
+              margin-top: 0.5em;
+              font-size: 78%;
+              padding: 0.35em 0.85em;
+              background: rgba(180, 60, 60, 0.08);
+              border: 0.16em solid rgba(180, 60, 60, 0.35);
               color: rgb(160, 50, 50);
               cursor: pointer;
-              transition: background 0.15s ease;
+              transition: background 0.15s ease, transform 0.1s ease, filter 0.1s ease;
+              border-radius: 0.5em;
+              filter: drop-shadow(-0.04em 0.04em 0.04em rgba(120, 40, 40, 0.15));
+              user-select: none;
+              -webkit-user-select: none;
+              -webkit-tap-highlight-color: transparent;
             }
             .ask-item button.take-back:hover {
-              background: rgba(180, 60, 60, 0.2);
+              background: rgba(180, 60, 60, 0.15);
+              border-color: rgba(180, 60, 60, 0.5);
+            }
+            .ask-item button.take-back:active {
+              background: rgba(180, 60, 60, 0.22);
+              transform: translate(-1px, 1px);
+              filter: drop-shadow(-0.02em 0.02em 0.02em rgba(120, 40, 40, 0.1));
             }
             #pages-button {
               position: fixed;
@@ -3076,6 +3154,8 @@ export const handler = async (event, context) => {
             }
             #chat.hidden {
               opacity: 0;
+              pointer-events: none;
+              display: none;
             }
             #chat.inaccessible #chat-input-bar {
               display: none;
@@ -5070,7 +5150,7 @@ export const handler = async (event, context) => {
                 // Create asks list container (initially hidden)
                 const asksListPage = cel("div");
                 asksListPage.id = "asks-list-page";
-                asksListPage.style.cssText = "display:none;padding:1em 2em;height:100%;overflow-y:auto;box-sizing:border-box;";
+                asksListPage.style.cssText = "display:none;padding:1.25em 1em;height:100%;overflow-y:auto;box-sizing:border-box;";
 
                 function updateMyAsksLink() {
                   const count = asksData ? asksData.length : 0;
@@ -6905,8 +6985,8 @@ export const handler = async (event, context) => {
                       renderPage(pageData, displayedPageIndex, transitionProgress * slideDistance, false, 1);
                       renderPage(incomingData, transitionTarget, -(1 - transitionProgress) * slideDistance, false, 1);
                     }
-                  } else if (isDragging && Math.abs(dragDelta) > 0) {
-                    // Dragging - both feed items show text (pre-rendered)
+                  } else if ((isDragging || isWheelScrolling) && Math.abs(dragDelta) > 0) {
+                    // Dragging or wheel scrolling - both feed items show text (pre-rendered)
                     const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
                     if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
                       const slideDistance = cardHeight + 40;
@@ -7014,6 +7094,11 @@ export const handler = async (event, context) => {
                   dragStartY = e.clientY;
                   dragDelta = 0;
                   
+                  // Cancel any pending wheel scroll
+                  isWheelScrolling = false;
+                  wheelDelta = 0;
+                  clearTimeout(wheelIdleTimer);
+                  
                   canvas.setPointerCapture(e.pointerId);
                   canvas.style.cursor = "grabbing";
                   e.preventDefault();
@@ -7076,26 +7161,49 @@ export const handler = async (event, context) => {
                   }
                 });
                 
-                // Scroll wheel navigation
-                let wheelCooldown = false;
+                // Scroll wheel navigation (incremental, drag-like)
+                let wheelDelta = 0;
+                let wheelIdleTimer = null;
+                let isWheelScrolling = false;
                 canvas.addEventListener("wheel", (e) => {
                   if (!document.body.contains(canvas)) return;
                   if (transitionDirection !== 0) return;
                   if (isFlipping || showingBack) return;
-                  if (wheelCooldown) return;
-                  
-                  // Determine direction: deltaY > 0 means scroll down (next page)
-                  if (Math.abs(e.deltaY) < 10) return; // Ignore tiny movements
                   e.preventDefault();
                   
-                  wheelCooldown = true;
-                  setTimeout(() => { wheelCooldown = false; }, 400);
+                  // Accumulate wheel delta into dragDelta (like pointer drag)
+                  const sensitivity = 1.5;
+                  wheelDelta += e.deltaY * sensitivity;
+                  dragDelta = wheelDelta;
+                  isWheelScrolling = true;
                   
-                  if (e.deltaY > 0) {
-                    goToPage(currentPageIndex + 1, 0, true);
-                  } else {
-                    goToPage(currentPageIndex - 1, 0, true);
+                  // Prefetch the page we might be going to
+                  const nextIdx = dragDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                  if (nextIdx >= 1 && nextIdx <= loadedFeedCount && !pageCache.has(nextIdx)) {
+                    fetchPage(nextIdx);
                   }
+                  
+                  // Reset idle timer - commit page change when scrolling stops
+                  clearTimeout(wheelIdleTimer);
+                  wheelIdleTimer = setTimeout(() => {
+                    if (!isWheelScrolling) return;
+                    isWheelScrolling = false;
+                    
+                    const threshold = cardHeight * 0.2;
+                    const slideDistance = cardHeight + 40;
+                    const currentProgress = Math.min(1, Math.abs(wheelDelta) / slideDistance);
+                    
+                    if (Math.abs(wheelDelta) > threshold) {
+                      const nextIdx = wheelDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                      if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
+                        dragDelta = 0;
+                        goToPage(nextIdx, currentProgress, true);
+                      }
+                    }
+                    
+                    wheelDelta = 0;
+                    dragDelta = 0;
+                  }, 120);
                 }, { passive: false });
                 
                 // Click detection for ear and page number
