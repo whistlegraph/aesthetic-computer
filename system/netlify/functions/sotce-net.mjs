@@ -2745,7 +2745,7 @@ export const handler = async (event, context) => {
               width: 100%;
               height: 100%;
               height: 100dvh;
-              --chat-input-height: 2.65em;
+              --chat-input-height: 2.25em;
               --chat-enter-width: 5em;
               --chat-input-border-color: rgb(130, 100, 100);
               /* --chat-input-border-color: var(--chat-input-bar-background); */
@@ -2959,11 +2959,11 @@ export const handler = async (event, context) => {
             }
             #chat-input-container .monaco-editor .view-lines {
               padding-left: 0.5em !important;
-              padding-top: 0.5em !important;
+              padding-top: 0.25em !important;
             }
             #chat-input-container .monaco-editor .cursors-layer {
               padding-left: 0.5em !important;
-              padding-top: 0.5em !important;
+              padding-top: 0.25em !important;
             }
             #chat-input-container .monaco-editor,
             #chat-input-container .monaco-editor .view-line {
