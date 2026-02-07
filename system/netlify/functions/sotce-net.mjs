@@ -304,7 +304,7 @@ export const handler = async (event, context) => {
           />
           <meta
             name="viewport"
-            content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+            content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
           />
           <!--<link
             href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=block"
@@ -2729,6 +2729,7 @@ export const handler = async (event, context) => {
               z-index: 2; /* This may be wrong. 24.11.05.22.43 */
               width: 100%;
               height: 100%;
+              height: 100dvh;
               --chat-input-height: 2.65em;
               --chat-enter-width: 5em;
               --chat-input-border-color: rgb(130, 100, 100);
@@ -2963,6 +2964,7 @@ export const handler = async (event, context) => {
             /* Ensure Monaco's hidden textarea is accessible for mobile keyboard */
             #chat-input-container .monaco-editor .inputarea {
               opacity: 0 !important;
+              height: 1em !important;
               font-size: 16px !important; /* Prevents iOS zoom on focus */
             }
             #chat-input {
@@ -3728,15 +3730,35 @@ export const handler = async (event, context) => {
               });
               
               // Mobile: ensure tapping chat input opens native keyboard
-              chatInputContainer.addEventListener('touchend', (e) => {
+              chatInputContainer.addEventListener('touchend', () => {
                 if (chatEditor) {
-                  e.preventDefault();
                   chatEditor.focus();
                   // Also explicitly focus the hidden textarea Monaco uses
                   const textarea = chatInputContainer.querySelector('.inputarea');
-                  if (textarea) textarea.focus();
+                  if (textarea) {
+                    textarea.style.position = 'absolute';
+                    textarea.style.top = '0';
+                    textarea.style.left = '0';
+                    textarea.focus();
+                  }
                 }
               });
+              
+              // Mobile: adjust chat height when virtual keyboard opens/closes
+              if (window.visualViewport) {
+                const adjustForKeyboard = () => {
+                  const vv = window.visualViewport;
+                  const chatEl = document.getElementById('chat');
+                  if (chatEl) {
+                    chatEl.style.height = vv.height + 'px';
+                    // Scroll messages to bottom so input stays visible
+                    const msgs = document.getElementById('chat-messages');
+                    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+                  }
+                };
+                window.visualViewport.addEventListener('resize', adjustForKeyboard);
+                window.visualViewport.addEventListener('scroll', adjustForKeyboard);
+              }
               
               // Listen for system theme changes and update Monaco
               window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
