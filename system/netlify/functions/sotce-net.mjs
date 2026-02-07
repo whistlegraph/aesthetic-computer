@@ -7330,12 +7330,19 @@ export const handler = async (event, context) => {
                   const sensitivity = 1.5;
                   wheelDelta += e.deltaY * sensitivity;
                   
-                  // Clamp at boundaries – allow only a small rubber-band offset
+                  // Cap to one page of visual travel so the card can't fly off screen
+                  const slideDistance = cardHeight + 40;
                   const maxRubber = 40; // pixels of visual give at edges
                   const atStart = displayedPageIndex <= 1 && wheelDelta < 0;
                   const atEnd = displayedPageIndex >= loadedFeedCount && wheelDelta > 0;
-                  if (atStart) wheelDelta = Math.max(wheelDelta, -maxRubber);
-                  if (atEnd) wheelDelta = Math.min(wheelDelta, maxRubber);
+                  if (atStart) {
+                    wheelDelta = Math.max(wheelDelta, -maxRubber);
+                  } else if (atEnd) {
+                    wheelDelta = Math.min(wheelDelta, maxRubber);
+                  } else {
+                    // Mid-feed: clamp to one slideDistance so card never leaves the viewport
+                    wheelDelta = Math.max(-slideDistance, Math.min(slideDistance, wheelDelta));
+                  }
                   
                   dragDelta = wheelDelta;
                   isWheelScrolling = true;
