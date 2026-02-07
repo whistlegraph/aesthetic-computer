@@ -712,6 +712,9 @@ export const handler = async (event, context) => {
                 ) !important;
               }
               #respond-asked-by {
+                color: #b0a898 !important;
+              }
+              #respond-asked-by .asked-by-handle {
                 color: #d88aa0 !important;
               }
               #nav-respond-editor {
@@ -1810,13 +1813,14 @@ export const handler = async (event, context) => {
             #respond-asked-by {
               position: fixed;
               top: 0;
-              right: 0;
+              left: 0;
               padding-top: 1.5em;
-              padding-right: 1em;
+              padding-left: 1em;
               z-index: 8;
-              font-size: 80%;
+              color: black;
+            }
+            #respond-asked-by .asked-by-handle {
               color: rgb(200, 80, 120);
-              font-family: sans-serif;
             }
             #nav-respond-editor {
               position: fixed;
@@ -5351,7 +5355,7 @@ export const handler = async (event, context) => {
 
                   // Update asked-by indicator
                   if (question.handle) {
-                    askedBy.innerText = "asked by @" + question.handle;
+                    askedBy.innerHTML = "asked by <span class='asked-by-handle'>@" + question.handle + "</span>";
                     askedBy.style.display = "block";
                   } else {
                     askedBy.innerText = "asked anonymously";
@@ -7071,6 +7075,28 @@ export const handler = async (event, context) => {
                     goToPage(currentPageIndex + 1, 0, true);
                   }
                 });
+                
+                // Scroll wheel navigation
+                let wheelCooldown = false;
+                canvas.addEventListener("wheel", (e) => {
+                  if (!document.body.contains(canvas)) return;
+                  if (transitionDirection !== 0) return;
+                  if (isFlipping || showingBack) return;
+                  if (wheelCooldown) return;
+                  
+                  // Determine direction: deltaY > 0 means scroll down (next page)
+                  if (Math.abs(e.deltaY) < 10) return; // Ignore tiny movements
+                  e.preventDefault();
+                  
+                  wheelCooldown = true;
+                  setTimeout(() => { wheelCooldown = false; }, 400);
+                  
+                  if (e.deltaY > 0) {
+                    goToPage(currentPageIndex + 1, 0, true);
+                  } else {
+                    goToPage(currentPageIndex - 1, 0, true);
+                  }
+                }, { passive: false });
                 
                 // Click detection for ear and page number
                 canvas.addEventListener("click", (e) => {
