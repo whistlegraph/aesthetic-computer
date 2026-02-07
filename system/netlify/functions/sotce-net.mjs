@@ -638,13 +638,13 @@ export const handler = async (event, context) => {
               #ask-button,
               #respond-button {
                 background: #2a3442 !important;
-                border-color: rgb(0, 190, 175) !important;
+                border-color: rgb(0, 140, 128) !important;
                 color: #98a8b8 !important;
               }
               #ask-button:hover,
               #respond-button:hover {
                 background: #324050 !important;
-                border-color: rgb(0, 220, 200) !important;
+                border-color: rgb(0, 170, 155) !important;
               }
               #ask-button:active,
               #respond-button:active {
@@ -1250,12 +1250,12 @@ export const handler = async (event, context) => {
               margin-left: 1em;
             }
             @keyframes new-button-pulse {
-              0%, 100% { border-color: rgb(160, 185, 180); background: rgb(228, 242, 240); color: rgb(0, 120, 110); }
+              0%, 100% { border-color: rgb(175, 195, 190); background: rgb(228, 242, 240); color: rgb(0, 120, 110); }
               50% { border-color: rgb(170, 130, 190); background: rgb(240, 228, 248); color: rgb(80, 40, 110); }
             }
             @media (prefers-color-scheme: dark) {
               @keyframes new-button-pulse {
-                0%, 100% { border-color: rgb(55, 95, 90); background: #2a3442; color: rgb(80, 210, 195); }
+                0%, 100% { border-color: rgb(45, 80, 75); background: #2a3442; color: rgb(80, 210, 195); }
                 50% { border-color: #5a4a6a; background: #3a2a4a; color: #c8a8e0; }
               }
             }
