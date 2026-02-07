@@ -6503,8 +6503,8 @@ export const handler = async (event, context) => {
                   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
                   
                   // Ear (corner fold) - 8% width - only for diary pages, not Q&A
+                  const earSize = w * 0.08;
                   if (!isQuestion) {
-                    const earSize = w * 0.08;
                     
                     // Draw ear (themed)
                     ctx.fillStyle = hoverEar && offsetY === 0 ? themeColors.cardEarHover : themeColors.cardEar;
