@@ -1238,6 +1238,26 @@ export const handler = async (event, context) => {
             #respond-button {
               margin-left: 1em;
             }
+            @keyframes new-button-pulse {
+              0%, 100% { border-color: rgb(130, 170, 210); background: rgb(220, 235, 250); }
+              50% { border-color: rgb(180, 140, 200); background: rgb(240, 225, 250); }
+            }
+            @media (prefers-color-scheme: dark) {
+              @keyframes new-button-pulse {
+                0%, 100% { border-color: #3a4a5a; background: #2a3442; }
+                50% { border-color: #5a4a6a; background: #3a2a4a; }
+              }
+            }
+            #ask-button,
+            #respond-button {
+              animation: new-button-pulse 2.5s ease-in-out infinite;
+            }
+            #ask-button:hover,
+            #respond-button:hover,
+            #ask-button:active,
+            #respond-button:active {
+              animation: none;
+            }
             @keyframes chat-unread-pulse {
               0%, 100% { border-color: var(--pink-border); }
               50% { border-color: var(--chat-handle); }
