@@ -749,7 +749,42 @@ sudo chmod 777 /home/me/.waiter
 sudo chmod +w /home/me
 echo "✅ Container ready signal created (.waiter)"
 
-# 🩸 Setup SSH tunnel for CDP (Chrome DevTools Protocol) to host
+# � Pre-start the emacs daemon so it's ready for the VS Code task
+# The "💻 Aesthetic" task (runOn: folderOpen) may not always auto-start after
+# devcontainer rebuilds. Pre-starting emacs here ensures it's always available
+# so `ac-aesthetic` / `aesthetic-now` connects instantly when run manually.
+log_step "PHASE 12b: Pre-starting emacs daemon"
+set -l emacs_config /home/me/aesthetic-computer/dotfiles/dot_config/emacs.el
+if test -f $emacs_config
+    if not pgrep -f "emacs.*daemon" >/dev/null
+        log_info "Starting emacs daemon in background..."
+        set -l emacs_log_dir /home/me/.emacs-logs
+        mkdir -p $emacs_log_dir 2>/dev/null
+        set -l emacs_ts (date +%Y%m%d_%H%M%S)
+        set -l emacs_log $emacs_log_dir/daemon_$emacs_ts.log
+        command emacs -q --daemon -l $emacs_config > $emacs_log 2>&1 &
+        disown
+        # Wait briefly for daemon to become responsive
+        set -l emacs_wait 0
+        while test $emacs_wait -lt 30
+            if timeout 3 emacsclient -e t >/dev/null 2>&1
+                log_ok "Emacs daemon started and responsive"
+                break
+            end
+            sleep 2
+            set emacs_wait (math "$emacs_wait + 2")
+        end
+        if test $emacs_wait -ge 30
+            log_warn "Emacs daemon started but not yet responsive (will continue in background)"
+        end
+    else
+        log_ok "Emacs daemon already running"
+    end
+else
+    log_warn "Emacs config not found at $emacs_config, skipping daemon start"
+end
+
+# �🩸 Setup SSH tunnel for CDP (Chrome DevTools Protocol) to host
 # This allows artery-tui to control VS Code on the host machine
 if test -n "$HOST_IP"; or test (uname -s) != "Linux"
     # Kill any existing CDP tunnels
