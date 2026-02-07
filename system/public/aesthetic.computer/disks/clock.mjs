@@ -7060,4 +7060,5 @@ function buildOctaveButtons({ screen, ui, typeface, system }) {
 }
 
 // Export piece functions for disk.mjs to find
-export { boot, paint, sim, act, leave };
+const background = true; // ⏱️ Keep sim() running when page is hidden (lid closed)
+export { boot, paint, sim, act, leave, background };

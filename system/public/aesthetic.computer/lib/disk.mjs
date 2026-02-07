@@ -641,6 +641,7 @@ let loopPaused = false; // Whether the main loop is paused (sent from bios)
 let debug = false; // This can be overwritten on boot.
 let nopaintPerf = false; // Performance panel for nopaint system debugging (disabled by default)
 let visible = true; // Is aesthetic.computer visibly rendering or not?
+let pieceBackground = false; // Does the current piece want background sim ticks?
 
 // 🎯 Global KidLisp Instance - Single source of truth for all KidLisp operations
 let globalKidLispInstance = null;
@@ -8904,6 +8905,10 @@ async function load(
       
       receive = module.receive || defaults.receive; // Handle messages from BIOS
       
+      // ⏱️ Background mode: pieces can export `background = true` to keep sim()
+      // running when the page is hidden (e.g. clock.mjs for audio scheduling)
+      pieceBackground = !!module.background;
+      
       // 🎨 AUTO-DETECT BRUSH FUNCTIONS: If a piece exports a brush or lift function, automatically use nopaint system
       system = module.system || (module.brush || module.lift ? "nopaint" : null);
       
@@ -9140,6 +9145,7 @@ async function load(
       text: slug,
       pieceCount: $commonApi.pieceCount,
       pieceHasSound: true, // TODO: Make this an export flag for pieces that don't want to enable the sound engine. 23.07.01.16.40
+      background: pieceBackground, // ⏱️ Piece wants sim() to keep running when hidden
       // 📓 Could also disable the sound engine if the flag is false on a subsequent piece, but that would never really make practical sense?
       fromHistory,
       alias,
@@ -9866,7 +9872,8 @@ async function makeFrame({ data: { type, content } }) {
     
     // Reset KidLisp timing state when becoming visible again
     // This prevents animation "catch up" after tab was hidden
-    if (content === true && visible === false && globalKidLispInstance) {
+    // Skip reset for pieces with background mode — they kept running while hidden.
+    if (content === true && visible === false && globalKidLispInstance && !pieceBackground) {
       // Becoming visible - reset timing expressions
       globalKidLispInstance.lastSecondExecutions = {};
       globalKidLispInstance.instantTriggersExecuted = {};
