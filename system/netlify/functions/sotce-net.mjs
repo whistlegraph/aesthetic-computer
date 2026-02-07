@@ -6294,6 +6294,7 @@ export const handler = async (event, context) => {
                 let isDragging = false;
                 let dragStartY = 0;
                 let dragDelta = 0;
+                let wasDragging = false; // Persists until click event, prevents tap-on-release
                 
                 // Hover state for debug boxes
                 let hoverEar = false;
@@ -7028,6 +7029,7 @@ export const handler = async (event, context) => {
                 canvas.addEventListener("pointerup", (e) => {
                   if (!isDragging) return;
                   isDragging = false;
+                  wasDragging = Math.abs(dragDelta) > 5;
                   canvas.releasePointerCapture(e.pointerId);
                   canvas.style.cursor = "grab";
                   
@@ -7072,7 +7074,8 @@ export const handler = async (event, context) => {
                 
                 // Click detection for ear and page number
                 canvas.addEventListener("click", (e) => {
-                  if (Math.abs(dragDelta) > 5) return; // Was dragging
+                  if (wasDragging) { wasDragging = false; return; } // Was scrolling
+                  wasDragging = false;
                   
                   const rect = canvas.getBoundingClientRect();
                   const x = e.clientX - rect.left;
