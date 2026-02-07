@@ -5030,10 +5030,13 @@ export const handler = async (event, context) => {
               // }
 
               // ❓ Ask + Respond buttons
-              const isJeffrey = window.sotceHandle === "@jeffrey";
-              const askButton = null; // Ask button removed for admins
+              const askButton = subscription?.subscribed ? cel("button") : null;
+              if (askButton) {
+                askButton.id = "ask-button";
+                askButton.innerText = "ask";
+              }
 
-              const respondButton = (subscription?.admin && isJeffrey) ? cel("button") : null;
+              const respondButton = subscription?.admin ? cel("button") : null;
               if (respondButton) {
                 respondButton.id = "respond-button";
                 respondButton.innerText = "respond";
