@@ -711,6 +711,9 @@ export const handler = async (event, context) => {
                   transparent 100%
                 ) !important;
               }
+              #respond-asked-by {
+                color: #d88aa0 !important;
+              }
               #nav-respond-editor {
                 background: linear-gradient(
                   to top,
@@ -1803,6 +1806,18 @@ export const handler = async (event, context) => {
                 rgb(220 235 250 / 70%) 25%,
                 transparent 100%
               );
+            }
+            #respond-asked-by {
+              position: fixed;
+              top: 0;
+              right: 0;
+              padding-top: 1.6em;
+              padding-right: 1em;
+              z-index: 7;
+              font-size: 75%;
+              opacity: 0.6;
+              color: rgb(180, 72, 135);
+              font-family: sans-serif;
             }
             #nav-respond-editor {
               position: fixed;
@@ -5312,6 +5327,10 @@ export const handler = async (event, context) => {
                 const linesLeft = cel("div");
                 linesLeft.id = "respond-lines-left";
                 const totalPageLines = 19; // Max lines available for question + answer
+
+                // Asked by indicator (top right)
+                const askedBy = cel("div");
+                askedBy.id = "respond-asked-by";
                 let maxRespondLines = 12; // Will be calculated per question
 
                 let lastValidValue = "";
@@ -5331,6 +5350,15 @@ export const handler = async (event, context) => {
 
                   const question = pendingData[currentPendingIndex];
 
+                  // Update asked-by indicator
+                  if (question.handle) {
+                    askedBy.innerText = "asked by @" + question.handle;
+                    askedBy.style.display = "block";
+                  } else {
+                    askedBy.innerText = "asked anonymously";
+                    askedBy.style.display = "block";
+                  }
+
                   // Date at top (centered, matching ask page)
                   const pageDate = cel("div");
                   pageDate.classList.add("respond-date");
@@ -5349,10 +5377,24 @@ export const handler = async (event, context) => {
                   }
                   questionSection.appendChild(counter);
 
-                  // Question text
+                  // Question text (with @handles as tappable pink links)
                   const questionText = cel("div");
                   questionText.classList.add("respond-question-text");
-                  questionText.innerText = question.question;
+                  // Render question with @handles as tappable pink spans
+                  questionText.innerHTML = question.question
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/@[a-zA-Z0-9_-]+/g, '<span class="respond-handle-link" style="color: rgb(200, 80, 120); cursor: pointer; font-style: normal;">$&</span>');
+                  // Make @handle spans tappable → save draft and jump to chat
+                  questionText.querySelectorAll(".respond-handle-link").forEach(span => {
+                    span.addEventListener("click", async (e) => {
+                      e.stopPropagation();
+                      const handle = span.textContent;
+                      await saveDraft();
+                      closeRespondEditor();
+                      openChatWithMessage(handle + " ");
+                    });
+                  });
                   questionSection.appendChild(questionText);
 
                   respondPage.appendChild(questionSection);
@@ -5553,6 +5595,7 @@ export const handler = async (event, context) => {
                   editorPlacemat.remove();
                   nav.remove();
                   linesLeft.remove();
+                  askedBy.remove();
                   askButton?.classList.remove("deactivated");
                   respondButton?.classList.remove("deactivated");
                   wrapper.scrollTop = scrollMemory;
@@ -5595,6 +5638,7 @@ export const handler = async (event, context) => {
 
                 respondEditor.appendChild(form);
                 respondEditor.appendChild(linesLeft);
+                respondEditor.appendChild(askedBy);
                 g.appendChild(nav);
 
                 document.documentElement.classList.add("editing");
@@ -6259,6 +6303,8 @@ export const handler = async (event, context) => {
                 
                 // Hit boxes for @handles on card back
                 let handleHitBoxes = []; // [{handle, x, y, w, h}]
+                // Hit boxes for @handles on question card front (in question/answer text)
+                let frontHandleHitBoxes = []; // [{handle, x, y, w, h}]
                 
                 // Card flip animation state (full 3D card flip)
                 let isFlipping = false;
@@ -6512,11 +6558,59 @@ export const handler = async (event, context) => {
                   
                   // Different rendering for questions vs pages (isQuestion already defined at top)
                   if (isQuestion) {
+                    // Helper: draw a line with @handles in pink
+                    function drawLineWithHandles(line, lineX, lineY, baseFont, pinkColor) {
+                      const handleRegex = /@[a-zA-Z0-9_-]+/g;
+                      let match;
+                      let lastIndex = 0;
+                      let cursorX = lineX;
+                      
+                      while ((match = handleRegex.exec(line)) !== null) {
+                        // Draw text before handle
+                        const before = line.slice(lastIndex, match.index);
+                        if (before) {
+                          ctx.fillStyle = textColor;
+                          ctx.font = baseFont;
+                          ctx.fillText(before, cursorX, lineY);
+                          cursorX += ctx.measureText(before).width;
+                        }
+                        // Draw handle in pink
+                        const handle = match[0];
+                        ctx.fillStyle = pinkColor;
+                        ctx.font = baseFont;
+                        ctx.fillText(handle, cursorX, lineY);
+                        const handleWidth = ctx.measureText(handle).width;
+                        // Track hit box for click detection
+                        if (offsetY === 0) {
+                          frontHandleHitBoxes.push({
+                            handle: handle,
+                            x: cursorX,
+                            y: lineY - fontSize,
+                            w: handleWidth,
+                            h: fontSize * 1.4
+                          });
+                        }
+                        cursorX += handleWidth;
+                        lastIndex = match.index + handle.length;
+                      }
+                      // Draw remaining text
+                      const remaining = line.slice(lastIndex);
+                      if (remaining) {
+                        ctx.fillStyle = textColor;
+                        ctx.font = baseFont;
+                        ctx.fillText(remaining, cursorX, lineY);
+                      }
+                    }
+                    
+                    // Clear front handle hit boxes (rebuilt each frame)
+                    if (offsetY === 0) frontHandleHitBoxes = [];
+                    
+                    const pinkHandleColor = "rgb(200, 80, 120)";
+                    
                     // QUESTION RENDERING
                     // Header: question text (smaller, italic)
                     const headerY = y + h * 0.065 + fontSize;
-                    ctx.fillStyle = textColor;
-                    ctx.font = "italic " + (fontSize * 0.9) + "px Helvetica, sans-serif";
+                    const headerFont = "italic " + (fontSize * 0.9) + "px Helvetica, sans-serif";
                     ctx.textAlign = "left";
                     
                     // Wrap question text for header
@@ -6524,12 +6618,11 @@ export const handler = async (event, context) => {
                     const maxHeaderLines = 3; // Limit header to 3 lines
                     
                     for (let i = 0; i < Math.min(questionLines.length, maxHeaderLines); i++) {
-                      ctx.fillText(questionLines[i], x + padding, headerY + i * (fontSize * 1.5));
+                      drawLineWithHandles(questionLines[i], x + padding, headerY + i * (fontSize * 1.5), headerFont, pinkHandleColor);
                     }
                     
                     // Body: answer text - starts lower to accommodate question header
-                    ctx.fillStyle = textColor;
-                    ctx.font = fontSize + "px Helvetica, sans-serif";
+                    const bodyFont = fontSize + "px Helvetica, sans-serif";
                     ctx.textAlign = "left";
                     
                     const answerStartY = y + h * 0.20 + fontSize; // Start a bit lower
@@ -6538,7 +6631,7 @@ export const handler = async (event, context) => {
                     for (let i = 0; i < Math.min(answerLines.length, maxLines - 2); i++) {
                       const line = answerLines[i];
                       if (line === "") continue;
-                      ctx.fillText(line, x + padding, answerStartY + i * lineHeight);
+                      drawLineWithHandles(line, x + padding, answerStartY + i * lineHeight, bodyFont, pinkHandleColor);
                     }
                     
                     // Page number with asterisk format: *N* (use questionNumber)
@@ -7044,6 +7137,19 @@ export const handler = async (event, context) => {
                     return;
                   }
                   
+                  // Check @handle hit boxes on question card front
+                  if (!showingBack && frontHandleHitBoxes.length > 0) {
+                    const absX = e.clientX - rect.left;
+                    const absY = e.clientY - rect.top;
+                    for (const hb of frontHandleHitBoxes) {
+                      if (absX >= hb.x && absX <= hb.x + hb.w && absY >= hb.y && absY <= hb.y + hb.h) {
+                        console.log("🎨 Handle clicked on question card:", hb.handle);
+                        openChatWithMessage(hb.handle + " ");
+                        return;
+                      }
+                    }
+                  }
+                  
                   // Check page number region (must match hover detection) - only on front
                   if (!showingBack) {
                     const pageNumTop = cardHeight - em * 3;
@@ -7137,6 +7243,16 @@ export const handler = async (event, context) => {
                       if (x >= hb.x && x <= hb.x + hb.w && y >= hb.y && y <= hb.y + hb.h) {
                         canvas.style.cursor = "pointer";
                         hoverHandle = hb.handle;
+                        return;
+                      }
+                    }
+                  }
+                  
+                  // Check @handle hit boxes on question card front
+                  if (!showingBack && frontHandleHitBoxes.length > 0) {
+                    for (const hb of frontHandleHitBoxes) {
+                      if (x >= hb.x && x <= hb.x + hb.w && y >= hb.y && y <= hb.y + hb.h) {
+                        canvas.style.cursor = "pointer";
                         return;
                       }
                     }
@@ -9531,8 +9647,12 @@ export const handler = async (event, context) => {
     const database = await connect();
     const asks = database.db.collection("sotce-asks");
 
+    // Look up the user's handle to store with the question
+    const askerHandle = await handleFor(user.sub, "sotce");
+
     const insertion = await asks.insertOne({
       user: user.sub,
+      handle: askerHandle || null,
       question,
       when: new Date(),
       state: "pending",
@@ -9570,6 +9690,14 @@ export const handler = async (event, context) => {
       .sort({ when: 1 })
       .limit(100)
       .toArray();
+
+    // Resolve handles for questions that don't have one stored
+    for (const q of pending) {
+      if (!q.handle && q.user) {
+        const h = await handleFor(q.user, "sotce");
+        if (h) q.handle = h;
+      }
+    }
 
     await database.disconnect();
     return respond(200, { asks: pending });
