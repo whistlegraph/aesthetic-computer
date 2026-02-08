@@ -1258,45 +1258,85 @@
   let reconnectAttempts = 0;
   let lastConnectTime = 0;
   
+  // Connection log messages for the corner indicator
+  const connectionLog = [];
+  const MAX_LOG_LINES = 6;
+  
+  function addConnectionLog(msg) {
+    const now = new Date();
+    const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+    connectionLog.push({ ts, msg });
+    if (connectionLog.length > MAX_LOG_LINES) connectionLog.shift();
+  }
+  
   function updateConnectionUI() {
     const dot = document.getElementById('status-dot');
-    let overlay = document.getElementById('connection-overlay');
+    let indicator = document.getElementById('connection-indicator');
     
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.id = 'connection-overlay';
-      overlay.style.cssText = `
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: ${scheme.ui.overlay}; z-index: 500; pointer-events: none;
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.id = 'connection-indicator';
+      indicator.style.cssText = `
+        position: fixed; top: 50px; left: 12px;
+        max-width: 280px;
+        padding: 8px 10px;
+        background: ${scheme.ui.shadow};
+        border-radius: 6px;
+        border: 1px solid ${scheme.foregroundMuted}30;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        z-index: 500; pointer-events: none;
         transition: opacity 0.5s ease;
+        font-family: monospace;
+        font-size: 10px;
+        line-height: 1.5;
       `;
-      document.body.appendChild(overlay);
+      document.body.appendChild(indicator);
     }
     
     if (connectionState === 'connected') {
       dot?.classList.add('online');
-      overlay.style.opacity = '0';
-      setTimeout(() => { if (connectionState === 'connected') overlay.style.display = 'none'; }, 500);
+      addConnectionLog('connected ✓');
+      // Show briefly then fade out
+      indicator.style.opacity = '1';
+      renderConnectionIndicator(indicator);
+      setTimeout(() => { indicator.style.opacity = '0'; }, 2000);
+      setTimeout(() => { if (connectionState === 'connected') indicator.style.display = 'none'; }, 2500);
     } else {
       dot?.classList.remove('online');
-      overlay.style.display = 'flex';
-      overlay.style.opacity = '1';
+      indicator.style.display = 'block';
+      indicator.style.opacity = '1';
       
-      const statusText = connectionState === 'connecting' 
-        ? `Connecting to process server...` 
-        : `Waiting for process server (attempt ${reconnectAttempts})`;
-      const subText = reconnectAttempts > 3 
-        ? 'Server may still be starting up...' 
-        : 'ws://127.0.0.1:7890';
+      if (connectionState === 'connecting') {
+        addConnectionLog(`connecting... (attempt ${reconnectAttempts})`);
+      } else {
+        addConnectionLog(`waiting to reconnect (attempt ${reconnectAttempts})`);
+      }
       
-      overlay.innerHTML = `
-        <div style="font-size: 48px; margin-bottom: 16px;">${connectionState === 'connecting' ? '🔄' : '⏳'}</div>
-        <div style="font-size: 16px; color: ${scheme.foregroundBright}; margin-bottom: 8px;">${statusText}</div>
-        <div style="font-size: 12px; color: ${scheme.foregroundMuted};">${subText}</div>
-        ${reconnectAttempts > 5 ? `<button onclick="location.reload()" style="margin-top: 16px; padding: 8px 16px; background: ${scheme.accent}; border: none; border-radius: 4px; color: ${scheme.foregroundBright}; cursor: pointer; pointer-events: auto;">🔄 Refresh Page</button>` : ''}
-      `;
+      renderConnectionIndicator(indicator);
     }
+  }
+  
+  function renderConnectionIndicator(indicator) {
+    const stateColor = connectionState === 'connected' ? (scheme.statusOnline || '#0f0')
+                     : connectionState === 'connecting' ? (scheme.accent || '#ff69b4')
+                     : (scheme.foregroundMuted || '#555');
+    const stateIcon = connectionState === 'connected' ? '●'
+                    : connectionState === 'connecting' ? '◌'
+                    : '○';
+    
+    const logHtml = connectionLog.map(l => 
+      `<div style="color: ${scheme.foregroundMuted}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span style="color: ${scheme.foregroundMuted}80;">${l.ts}</span> ${l.msg}</div>`
+    ).join('');
+    
+    indicator.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+        <span style="color: ${stateColor}; font-size: 8px;">${stateIcon}</span>
+        <span style="color: ${scheme.foreground || '#fff'}; font-size: 10px; font-weight: bold;">process server</span>
+      </div>
+      ${logHtml}
+      ${reconnectAttempts > 5 ? `<button onclick="location.reload()" style="margin-top: 6px; padding: 3px 8px; background: ${scheme.accent}; border: none; border-radius: 3px; color: ${scheme.foregroundBright}; cursor: pointer; pointer-events: auto; font-size: 9px; font-family: monospace;">↻ refresh</button>` : ''}
+    `;
   }
   
   function connectWS() {
