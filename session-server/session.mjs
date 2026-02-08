@@ -992,7 +992,9 @@ function getFullStatus() {
   // Get chat status with recent messages
   const chatStatus = chatManager.getStatus();
   const chatWithMessages = chatStatus.map(instance => {
-    const recentMessages = instance.messages > 0 
+    // Don't expose sotce chat messages — it's a paid subscriber network.
+    const isSotce = instance.name === "chat-sotce";
+    const recentMessages = (!isSotce && instance.messages > 0)
       ? chatManager.getRecentMessages(instance.host, 5)
       : [];
     return {
@@ -1213,10 +1215,7 @@ fastify.get("/", async (request, reply) => {
         <h2>🕐 chat-clock</h2>
         <div id="chat-clock-messages"></div>
       </div>
-      <div class="section" id="chat-sotce-section">
-        <h2>🌸 chat-sotce</h2>
-        <div id="chat-sotce-messages"></div>
-      </div>
+
     </div>
   </div>
   
