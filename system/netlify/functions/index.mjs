@@ -267,6 +267,11 @@ async function fun(event, context) {
     event.path.length <= 1
   ) {
     slug = "wg~m2w2";
+  } else if (
+    (event.headers["host"] === "notepat.com" || event.headers["host"] === "www.notepat.com") &&
+    event.path.length <= 1
+  ) {
+    slug = "notepat";
   }
 
   // Handle kidlisp:code URL pattern and convert to $code format
@@ -1051,6 +1056,8 @@ async function fun(event, context) {
           if(!isKidlisp&&window.self!==window.top){if(qs.indexOf('nolabel')>=0&&qs.indexOf('nogap')>=0)isKidlisp=true;}
           // Device mode: FF1/display device with black background and white/gray bars
           var isDeviceMode=qs.indexOf('device=true')>=0;
+          // Notepat.com: piano-themed boot animation
+          var isNotepat=location.hostname==='notepat.com'||location.hostname==='www.notepat.com';
           // Density param for scaling (default 1, FF1 uses 8 for 4K)
           var densityMatch=qs.match(/density=(\d+)/);var densityParam=densityMatch?parseInt(densityMatch[1]):1;
           var isLightMode=window.matchMedia&&window.matchMedia('(prefers-color-scheme:light)').matches;
@@ -1107,13 +1114,17 @@ async function fun(event, context) {
             if(s[i]==='$'){var j=i;while(j<s.length&&s[j]==='$')j++;r.push([s.slice(i,j),'dollar']);i=j;continue;}
             if(s.slice(i,i+4)==='GIVE'&&!/[a-zA-Z0-9_]/.test(s[i+4]||'')){r.push(['GIVE','give']);i+=4;continue;}
             var fk=false;for(var k=0;k<KWS.length;k++){var kw=KWS[k];if(s.slice(i,i+kw.length)===kw){var nc=s[i+kw.length]||'';if(!/[a-zA-Z0-9_]/.test(nc)){r.push([kw,'kw']);i+=kw.length;fk=true;break;}}}if(fk)continue;var ch=s[i];if(ch==='"'||ch==="'"||ch==='\`'){var q=ch,j=i+1;while(j<s.length&&s[j]!==q){if(s[j]==='\\\\')j++;j++;}r.push([s.slice(i,j+1),'str']);i=j+1;continue;}if(/[0-9]/.test(ch)){var j=i;while(j<s.length&&/[0-9.]/.test(s[j]))j++;r.push([s.slice(i,j),'num']);i=j;continue;}if(/[a-zA-Z_]/.test(ch)){var j=i;while(j<s.length&&/[a-zA-Z0-9_]/.test(s[j]))j++;var w=s.slice(i,j);r.push([w,s[j]==='('?'fn':'vr']);i=j;continue;}r.push([ch,'op']);i++;}return r;}
-          var scrollSpds={};function addFile(name,src){if(isKidlisp)return;if(shownFiles[name])return;shownFiles[name]=true;netAct=1;var ls=src.split('\\n').slice(0,100),ext=(name.match(/\\.[^.]+$/)||[''])[0];var toks=ls.map(tok);
+          var scrollSpds={};function addFile(name,src){if(isKidlisp||isNotepat)return;if(shownFiles[name])return;shownFiles[name]=true;netAct=1;var ls=src.split('\\n').slice(0,100),ext=(name.match(/\\.[^.]+$/)||[''])[0];var toks=ls.map(tok);
             // In GIVE variant, inject GIVE/$$ lines throughout
             if(giveVariant){var injected=[];for(var li=0;li<toks.length;li++){injected.push(toks[li]);if(Math.random()<0.4){var gLine=giveCodeLines[Math.floor(Math.random()*giveCodeLines.length)];injected.push(tok(gLine));}}toks=injected;}
             fileQ.push({name:name,toks:toks});files.push({name:name,lines:ls,ext:ext,toks:toks,total:ls.length,cH:(ls.length+3)*LH});scrollYs[name]=0;scrollSpds[name]=2+Math.floor(Math.random()*5);}
           function netPulse(){netAct=Math.min(1,netAct+0.5);}
           function add(m){var now=performance.now(),dt=now-lastLog;lastLog=now;lb=Math.min(1,500/Math.max(50,dt))*0.5+0.5;if(lines.length>0)lines[0].text=lines[0].text.replace(/_$/,'');lines.unshift({text:m+'_',time:now,burst:lb});if(lines.length>mL)lines.pop();lc++;bp=Math.min(1,lc/25);}
           var KIDLISP_BARS=[];
+          // 🎹 Notepat piano boot animation state
+          var NP_KEYS=[];var NP_PARTICLES=[];var NP_LAST_KEY=0;var NP_KEY_INTERVAL=120;
+          var NP_NOTE_NAMES=['C','D','E','F','G','A','B'];
+          var NP_KEY_COLS=[[255,107,157],[78,205,196],[255,217,61],[149,225,211],[255,154,162],[170,150,218],[112,214,255],[255,183,77]];
           // Theme-aware KidLisp colors - darker/more saturated for light mode
           var KIDLISP_COLS_DARK=[[255,107,107],[78,205,196],[255,230,109],[149,225,211],[243,129,129],[170,150,218],[112,214,255]];
           var KIDLISP_COLS_LIGHT=[[200,60,60],[30,140,130],[180,150,40],[50,150,130],[180,70,70],[100,80,160],[40,130,190]];
@@ -1154,6 +1165,63 @@ async function fun(event, context) {
             var baseShk=0.5+Math.sin(t*2)*0.3,shk=baseShk+chaos*chaos*4+lb*3+touchGlitch*8,sx=(Math.random()-0.5)*shk+touchDx,sy=(Math.random()-0.5)*shk+touchDy;
             // File cycling - swap displayed files periodically as boot progresses
             var now=performance.now();if(files.length>1&&now-lastFileSwap>FILE_SWAP_INTERVAL){lastFileSwap=now;displayFileIdx=(displayFileIdx+1)%files.length;for(var k in scrollYs)scrollYs[k]=0;}
+            // 🎹 Notepat.com piano boot animation
+            if(isNotepat){
+              var npBg=isLightMode?'#f8f6f0':'#0a0a12';x.fillStyle=npBg;x.fillRect(0,0,W,H);
+              // Subtle scan lines
+              x.globalAlpha=isLightMode?0.02:0.04;x.fillStyle=isLightMode?'#888':'#000';for(var yy=0;yy<H;yy+=2*S)x.fillRect(0,yy,W,S);x.globalAlpha=1;
+              // Draw piano keyboard at bottom ~30% of screen
+              var pianoY=Math.floor(H*0.62);var pianoH=H-pianoY;var totalWhite=14;var kW=Math.floor(W/totalWhite);
+              // White keys
+              for(var ki=0;ki<totalWhite;ki++){var kx=ki*kW;var isPressed=false;
+                for(var nki=NP_KEYS.length-1;nki>=0;nki--){if(NP_KEYS[nki].idx===ki&&NP_KEYS[nki].white){isPressed=true;break;}}
+                var wKeyCol=isLightMode?(isPressed?'#e8e0d8':'#faf8f4'):(isPressed?'#2a2a3a':'#e8e4de');
+                x.fillStyle=wKeyCol;x.fillRect(kx+S,pianoY,kW-2*S,pianoH);
+                // Key border
+                x.strokeStyle=isLightMode?'#ccc':'#333';x.lineWidth=S;x.strokeRect(kx+S,pianoY,kW-2*S,pianoH);
+                // Glow on pressed keys
+                if(isPressed){for(var nki=NP_KEYS.length-1;nki>=0;nki--){if(NP_KEYS[nki].idx===ki&&NP_KEYS[nki].white){var nk=NP_KEYS[nki];var glA=nk.life*0.3;x.globalAlpha=glA;var gc=NP_KEY_COLS[nk.ci%NP_KEY_COLS.length];x.fillStyle='rgb('+gc[0]+','+gc[1]+','+gc[2]+')';x.fillRect(kx+S,pianoY,kW-2*S,pianoH);x.globalAlpha=1;break;}}}
+              }
+              // Black keys (pentatonic pattern: 2, 3 grouped)
+              var blackPattern=[1,1,0,1,1,1,0];var bkW=Math.floor(kW*0.6);var bkH=Math.floor(pianoH*0.6);
+              for(var ki=0;ki<totalWhite-1;ki++){var bp2=blackPattern[ki%7];if(!bp2)continue;var bkx=ki*kW+kW-Math.floor(bkW/2);
+                var isBPressed=false;for(var nki=NP_KEYS.length-1;nki>=0;nki--){if(NP_KEYS[nki].idx===ki&&!NP_KEYS[nki].white){isBPressed=true;break;}}
+                var bKeyCol=isLightMode?(isBPressed?'#1a1a2a':'#222'):(isBPressed?'#3a3a5a':'#1a1a1a');
+                x.fillStyle=bKeyCol;x.fillRect(bkx,pianoY,bkW,bkH);
+                if(isBPressed){for(var nki=NP_KEYS.length-1;nki>=0;nki--){if(NP_KEYS[nki].idx===ki&&!NP_KEYS[nki].white){var nk2=NP_KEYS[nki];var glA2=nk2.life*0.4;x.globalAlpha=glA2;var gc2=NP_KEY_COLS[nk2.ci%NP_KEY_COLS.length];x.fillStyle='rgb('+gc2[0]+','+gc2[1]+','+gc2[2]+')';x.fillRect(bkx,pianoY,bkW,bkH);x.globalAlpha=1;break;}}}
+              }
+              // Spawn new key presses randomly
+              if(now-NP_LAST_KEY>NP_KEY_INTERVAL){NP_LAST_KEY=now;NP_KEY_INTERVAL=80+Math.random()*200;
+                var isWhite=Math.random()>0.3;var idx=Math.floor(Math.random()*totalWhite);var ci=Math.floor(Math.random()*NP_KEY_COLS.length);
+                NP_KEYS.push({idx:idx,white:isWhite,life:1,ci:ci,born:now});
+                // Spawn rising particles from the key
+                var pkx=isWhite?(idx*kW+kW/2):(idx*kW+kW);var pky=pianoY;
+                for(var pi=0;pi<3+Math.floor(Math.random()*4);pi++){
+                  NP_PARTICLES.push({x:pkx+(Math.random()-0.5)*kW*0.5,y:pky,vy:-(1+Math.random()*3)*S,vx:(Math.random()-0.5)*1.5*S,life:1,ci:ci,sz:(1.5+Math.random()*2.5)*S});
+                }
+              }
+              // Update and draw particles (rising notes/sparkles)
+              for(var pi=NP_PARTICLES.length-1;pi>=0;pi--){var p=NP_PARTICLES[pi];p.x+=p.vx;p.y+=p.vy;p.vy*=0.99;p.life-=0.012;
+                if(p.life<=0){NP_PARTICLES.splice(pi,1);continue;}
+                var pc=NP_KEY_COLS[p.ci%NP_KEY_COLS.length];x.globalAlpha=p.life*0.7;x.fillStyle='rgb('+pc[0]+','+pc[1]+','+pc[2]+')';
+                // Draw as small rounded rect (like a mini note)
+                var psz=p.sz*p.life;x.beginPath();x.roundRect(p.x-psz/2,p.y-psz/2,psz,psz*0.7,psz*0.2);x.fill();
+              }
+              x.globalAlpha=1;
+              // Update key presses (fade out)
+              for(var nki=NP_KEYS.length-1;nki>=0;nki--){NP_KEYS[nki].life-=0.02;if(NP_KEYS[nki].life<=0)NP_KEYS.splice(nki,1);}
+              // "notepat" text centered above keyboard
+              var npFS=Math.floor(12*S);x.font='bold '+npFS+'px monospace';var npTxt='notepat';var npTW=x.measureText(npTxt).width;var npTX=(W-npTW)/2;var npTY=pianoY-12*S;
+              // Subtle pulsing glow behind text
+              var npPulse=0.15+Math.sin(f*0.06)*0.08;x.globalAlpha=npPulse;x.fillStyle=isLightMode?'rgba(255,107,157,0.3)':'rgba(78,205,196,0.25)';x.beginPath();x.roundRect(npTX-8*S,npTY-npFS*0.8,npTW+16*S,npFS*1.4,4*S);x.fill();
+              x.globalAlpha=0.9;x.fillStyle=isLightMode?'#333':'#e8e4de';x.fillText(npTxt,npTX,npTY);
+              // ".com" superscript
+              var comFS=Math.floor(6*S);x.font=comFS+'px monospace';x.fillStyle=isLightMode?'#0891b2':'#4ecdc4';x.fillText('.com',npTX+npTW+2*S,npTY-npFS*0.35);
+              x.globalAlpha=1;
+              // Boot log messages (top-left, like kidlisp)
+              var npLogFS=4*S;x.font=npLogFS+'px monospace';var npLogY=8*S;
+              for(var li=0;li<lines.length&&li<8;li++){var ln=lines[li],ly=npLogY+li*5*S,la=Math.max(0.3,1-li*0.1);var lc2=NP_KEY_COLS[li%NP_KEY_COLS.length];x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc2[0]+','+lc2[1]+','+lc2[2]+')';var tw=x.measureText(ln.text).width;x.beginPath();x.roundRect(4*S,ly-npLogFS*0.7,tw+12*S,npLogFS*1.1,2*S);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc2[0]+','+lc2[1]+','+lc2[2]+')';x.fillText(ln.text,6*S,ly);}
+              x.globalAlpha=1;requestAnimationFrame(anim);return;}
             // KidLisp simplified mode: colored bars + logs only (or device mode: black/white)
             if(isKidlisp||isDeviceMode){var klBg=isDeviceMode?'#000000':(isLightMode?'rgba(247,247,247,0.95)':'rgba(42,37,32,0.95)');x.fillStyle=klBg;x.fillRect(0,0,W,H);if(!isDeviceMode){x.globalAlpha=isLightMode?0.015:0.03;x.fillStyle=isLightMode?'#888':'#000';for(var yy=0;yy<H;yy+=3*S)x.fillRect(0,yy,W,S);}x.globalAlpha=1;var klCols=getKidlispCols();var dS=isDeviceMode?Math.max(1,densityParam):1;var embedPad=isKidlisp?8*S*dS:0;
               // In device mode with density=1, use simpler/fewer bars for performance

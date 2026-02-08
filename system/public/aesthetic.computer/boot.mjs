@@ -880,6 +880,8 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
 } else if (
   window.location.hostname === "aesthetic.computer" ||
   window.location.hostname.endsWith(".ac") ||
+  window.location.hostname === "notepat.com" ||
+  window.location.hostname === "www.notepat.com" ||
   window.location.hostname === "m2w2.whistlegraph.com" ||
   window.acPACK_MODE // Disable debug mode in OBJKT packages
 ) {
@@ -911,6 +913,12 @@ if (
   location.hostname === "www.wipppps.world"
 ) {
   window.acSTARTING_PIECE = "wipppps";
+}
+if (
+  location.hostname === "notepat.com" ||
+  location.hostname === "www.notepat.com"
+) {
+  window.acSTARTING_PIECE = "notepat";
 }
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
