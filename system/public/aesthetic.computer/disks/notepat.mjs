@@ -909,6 +909,10 @@ let dawPlaying = false; // Transport playing state from DAW
 // 🌐 Branded domain mode (notepat.com — pushes top bar piano right for .com superscript)
 let dotComMode = false;
 
+// 🎨 KidLisp background visual (activated via `notepat $roz` etc.)
+let kidlispBackground = null; // e.g. "$roz" — the $code to render behind the UI
+let kidlispBgEnabled = false;
+
 const trail = {};
 
 // 🎹 Piano roll history - pixel timeline of held notes
@@ -1236,6 +1240,14 @@ async function boot({
   }
 
   // qrcells = qr("https://prompt.ac/notepat", { errorCorrectLevel: 2 }).modules;
+
+  // 🎨 KidLisp background: parse $code param (e.g. `notepat $roz`)
+  const dollarParam = params.find((p) => p.startsWith("$"));
+  if (dollarParam) {
+    kidlispBackground = dollarParam; // e.g. "$roz"
+    kidlispBgEnabled = true;
+    hud.label(`notepat ${dollarParam}`);
+  }
 
   if (params[0] === "piano") {
     toneVolume = params[1] || 0.5;
@@ -2637,8 +2649,21 @@ function paint({
     }
   }
   
+  // 🎨 KidLisp background: forward amplitude + render
+  if (kidlispBgEnabled) {
+    api.updateKidLispAudio({
+      amp: amplitude * 10,
+      notes: active.length,
+    });
+  }
+
   // 🎨 Fullscreen visualizer mode - draw bars as background behind everything
-  if (visualizerFullscreen && !recitalMode) {
+  if (kidlispBgEnabled && kidlispBackground && !paintPictureOverlay) {
+    const bgPainting = api.kidlisp(
+      0, 0, screen.width, screen.height, kidlispBackground,
+    );
+    if (!bgPainting) wipe(bg); // Fallback while $code is loading
+  } else if (visualizerFullscreen && !recitalMode) {
     wipe(0); // Black background first
     sound.paint.bars(
       api,
