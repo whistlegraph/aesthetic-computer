@@ -41,7 +41,11 @@ function onTimerWorkerTick(e) {
   if (e.data.type !== "tick" || paused || !backgroundMode) return;
   // Drive a sim-only frame (no render).
   const now = performance.now();
-  const delta = now - lastNow;
+  const rawDelta = now - lastNow;
+  // Clamp delta: the main thread only wakes ~1/sec when hidden.
+  // Cap to 50ms so we produce at most ~6 sim ticks per wake-up,
+  // avoiding massive bursts that confuse piece timing heuristics.
+  const delta = Math.min(rawDelta, 50);
   updateTime += delta;
   lastNow = now;
 
