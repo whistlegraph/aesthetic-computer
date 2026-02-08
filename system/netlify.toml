@@ -598,12 +598,32 @@ to = "/.netlify/functions/jas-tags/:splat"
 status = 200
 force = true
 [[redirects]]
+from = "https://justanothersystem.org/api/jas-tags"
+to = "/.netlify/functions/jas-tags"
+status = 200
+force = true
+[[redirects]]
+from = "https://justanothersystem.org/api/jas-tags/*"
+to = "/.netlify/functions/jas-tags/:splat"
+status = 200
+force = true
+[[redirects]]
 from = "https://www.justanothersystem.org/api/tags"
 to = "/.netlify/functions/jas-tags"
 status = 200
 force = true
 [[redirects]]
 from = "https://www.justanothersystem.org/api/tags/*"
+to = "/.netlify/functions/jas-tags/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.justanothersystem.org/api/jas-tags"
+to = "/.netlify/functions/jas-tags"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.justanothersystem.org/api/jas-tags/*"
 to = "/.netlify/functions/jas-tags/:splat"
 status = 200
 force = true
