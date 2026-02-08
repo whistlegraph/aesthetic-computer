@@ -5490,13 +5490,31 @@ export const handler = async (event, context) => {
                 linesLeft.id = "respond-lines-left";
                 const totalPageLines = 19; // Max lines available for question + answer
 
-                // Asked by indicator (top right)
+                // Asked by indicator (top left)
                 const askedBy = cel("div");
                 askedBy.id = "respond-asked-by";
                 let maxRespondLines = 12; // Will be calculated per question
 
                 let lastValidValue = "";
                 let responseWords = null;
+
+                // Relative time helper (e.g. "3 days ago")
+                function timeAgo(date) {
+                  const now = new Date();
+                  const d = (typeof date === "string") ? new Date(date) : date;
+                  const seconds = Math.floor((now - d) / 1000);
+                  if (seconds < 60) return "just now";
+                  const minutes = Math.floor(seconds / 60);
+                  if (minutes < 60) return minutes + (minutes === 1 ? " minute ago" : " minutes ago");
+                  const hours = Math.floor(minutes / 60);
+                  if (hours < 24) return hours + (hours === 1 ? " hour ago" : " hours ago");
+                  const days = Math.floor(hours / 24);
+                  if (days < 30) return days + (days === 1 ? " day ago" : " days ago");
+                  const months = Math.floor(days / 30);
+                  if (months < 12) return months + (months === 1 ? " month ago" : " months ago");
+                  const years = Math.floor(months / 12);
+                  return years + (years === 1 ? " year ago" : " years ago");
+                }
 
                 function renderRespondPage() {
                   respondPage.innerHTML = "";
@@ -5511,13 +5529,14 @@ export const handler = async (event, context) => {
                   }
 
                   const question = pendingData[currentPendingIndex];
+                  const ago = question.when ? " " + timeAgo(question.when) : "";
 
-                  // Update asked-by indicator
+                  // Update asked-by indicator with relative time
                   if (question.handle) {
-                    askedBy.innerHTML = "asked by <span class='asked-by-handle'>@" + question.handle + "</span>";
+                    askedBy.innerHTML = "asked by <span class='asked-by-handle'>@" + question.handle + "</span>" + ago;
                     askedBy.style.display = "block";
                   } else {
-                    askedBy.innerText = "asked anonymously";
+                    askedBy.innerText = "asked anonymously" + ago;
                     askedBy.style.display = "block";
                   }
 
@@ -5682,6 +5701,10 @@ export const handler = async (event, context) => {
 
                 const prevBtn = cel("button");
                 prevBtn.innerText = "← prev";
+
+                const navCounter = cel("span");
+                navCounter.id = "respond-nav-counter";
+                navCounter.style.cssText = "opacity:0.6;font-size:0.85em;align-self:center;white-space:nowrap;";
                 
                 const nextBtn = cel("button");
                 nextBtn.innerText = "next →";
@@ -5699,6 +5722,10 @@ export const handler = async (event, context) => {
                   nextBtn.disabled = !hasNext;
                   prevBtn.style.display = (pendingData && pendingData.length > 1) ? "" : "none";
                   nextBtn.style.display = (pendingData && pendingData.length > 1) ? "" : "none";
+                  navCounter.style.display = (pendingData && pendingData.length > 1) ? "" : "none";
+                  if (pendingData && pendingData.length > 1) {
+                    navCounter.innerText = (currentPendingIndex + 1) + " / " + pendingData.length;
+                  }
                   if (!pendingData || pendingData.length === 0) {
                     submitBtn.disabled = true;
                   } else {
@@ -5747,6 +5774,7 @@ export const handler = async (event, context) => {
 
                 nav.appendChild(nevermindBtn);
                 nav.appendChild(prevBtn);
+                nav.appendChild(navCounter);
                 nav.appendChild(nextBtn);
                 nav.appendChild(submitBtn);
 
@@ -6371,12 +6399,10 @@ export const handler = async (event, context) => {
               });
               
               // Add questions with type marker
-              let questionNum = 1;
               for (const q of loadedQuestionsData) {
                 feedItems.push({
                   ...q,
                   type: "question", 
-                  questionNumber: questionNum++,
                   sortDate: new Date(q.answeredAt)
                 });
               }
@@ -6384,9 +6410,13 @@ export const handler = async (event, context) => {
               // Sort combined feed by date (newest last for chronological order)
               feedItems.sort((a, b) => a.sortDate - b.sortDate);
               
-              // Assign feed indices (1-indexed)
+              // Assign feed indices (1-indexed) and question numbers (chronological)
+              let questionNum = 1;
               feedItems.forEach((item, i) => {
                 item.feedIndex = i + 1;
+                if (item.type === "question") {
+                  item.questionNumber = questionNum++;
+                }
               });
               
               const totalFeedItems = totalPages + totalQuestions;
@@ -6849,9 +6879,9 @@ export const handler = async (event, context) => {
                       ctx.textAlign = "left";
                     }
                     
-                    // Header: question text (smaller, regular weight)
+                    // Header: question text (same size as answer)
                     const headerY = y + h * 0.15 + fontSize;
-                    const headerFont = (fontSize * 0.9) + "px Helvetica, sans-serif";
+                    const headerFont = fontSize + "px Helvetica, sans-serif";
                     ctx.font = headerFont; // Set font BEFORE measuring for correct wrapping
                     ctx.textAlign = "left";
                     
