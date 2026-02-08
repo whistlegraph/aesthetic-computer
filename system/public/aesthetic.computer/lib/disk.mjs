@@ -1688,6 +1688,7 @@ let currentPath,
   currentHUDQRCells = null, // Cached QR code cells
   currentHUDAuthor = null, // @handle of the author for KidLisp pieces
   currentHUDHits = null, // Hit count for KidLisp pieces
+  currentHUDSuperscript = null, // Custom superscript text (e.g. ".com") shown after label in cyan
   forceTinyHudLabel = false, // Force MatrixChunky8 font for HUD label (set via hud.tinyLabel())
   qrOverlayCache = new Map(), // Cache for QR overlays to prevent regeneration every frame
   hudLabelCache = null; // Cache for HUD label to prevent regeneration every frame
@@ -3275,6 +3276,10 @@ const $commonApi = {
     // 🔤 Force MatrixChunky8 (tiny) font for HUD label
     tinyLabel: (enabled = true) => {
       forceTinyHudLabel = enabled;
+    },
+    // ✨ Set a custom superscript (e.g. ".com") to display after the label in cyan
+    superscript: (text) => {
+      currentHUDSuperscript = text || null;
     },
     currentStatusColor: () => currentHUDStatusColor,
     currentLabel: () => ({ 
@@ -9096,6 +9101,7 @@ async function load(
   currentHUDLeftPad = 0;
     currentHUDQR = null; // Reset QR code when loading new piece
     currentHUDQRCells = null;
+    currentHUDSuperscript = null; // Reset custom superscript
     forceTinyHudLabel = false; // Reset tiny label flag
     // currentPromptButton = undefined;
 
@@ -11850,6 +11856,15 @@ async function makeFrame({ data: { type, content } }) {
                   decay: 0.5,
                   volume: 0.15,
                 });
+
+                // 🌐 Custom domain redirect: if on a branded .com domain (e.g. notepat.com),
+                // tapping the HUD label navigates to aesthetic.computer instead of prompt.
+                if (currentHUDSuperscript === ".com" && typeof window !== "undefined" &&
+                    window.location?.hostname?.endsWith("notepat.com")) {
+                  window.location.href = "https://aesthetic.computer";
+                  return;
+                }
+
                 if (!labelBack) {
                   // Only clear prompt text when leaving NON-kidlisp pieces by tapping HUD
                   // For inline kidlisp prompts, preserve the content so user can continue editing
@@ -13046,6 +13061,11 @@ async function makeFrame({ data: { type, content } }) {
         const lanBadgePadding = showLanBadge ? 10 : 0; // Space for letter + margin
         w += lanBadgePadding;
         
+        // ✨ Custom superscript (e.g. ".com") - add width for text
+        const showCustomSuperscript = !!currentHUDSuperscript;
+        const customSuperscriptPadding = showCustomSuperscript ? (currentHUDSuperscript.length * 5 + 3) : 0;
+        w += customSuperscriptPadding;
+        
         // 📱 HUD QR code - generate cells and calculate width
         let hudQRSize = 0;
         let hudQRPadding = 0;
@@ -13205,7 +13225,22 @@ async function makeFrame({ data: { type, content } }) {
               // wordWrap defaults to true when bounds is set, enabling character wrapping
             });
 
-            // 📡 LAN Badge Superscript - draw device letter after the text
+            // ✨ Custom Superscript (e.g. ".com") - draw after the text in cyan
+            if (showCustomSuperscript) {
+              const firstLine = text?.split('\n')[0] || text;
+              const firstLineWidth = cachedAPI.text.width(
+                stripColorCodes(firstLine),
+                selectedTypeface
+              );
+              
+              const superscriptX = hudTextX + firstLineWidth + 2;
+              const superscriptY = 0;
+              
+              $.ink(0, 220, 255); // Bright cyan
+              $.write(currentHUDSuperscript, { x: superscriptX, y: superscriptY }, undefined, undefined, false, "MatrixChunky8");
+            }
+
+            // 📡 LAN Badge Superscript - draw device letter after the text (+ custom superscript offset)
             if (showLanBadge) {
               const deviceLetter = devIdentity.letter || 
                 (devIdentity.name ? devIdentity.name.charAt(0).toUpperCase() : null) ||
@@ -13218,8 +13253,8 @@ async function makeFrame({ data: { type, content } }) {
                 selectedTypeface
               );
               
-              // Position superscript to the right of first line, vertically at top
-              const superscriptX = hudTextX + firstLineWidth + 2; // 2px gap after text
+              // Position superscript to the right of first line (after custom superscript if present)
+              const superscriptX = hudTextX + firstLineWidth + 2 + customSuperscriptPadding;
               const superscriptY = 0; // Top of the line (superscript position)
               
               // Draw letter in cyan using MatrixChunky8

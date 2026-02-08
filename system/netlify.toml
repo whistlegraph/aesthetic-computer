@@ -854,6 +854,28 @@ to = "/give.aesthetic.computer/:splat"
 status = 200
 force = true
 
+# 🎹 notepat.com — proxies to aesthetic.computer/notepat (preserves notepat.com in URL bar)
+[[redirects]]
+from = "https://notepat.com"
+to = "https://aesthetic.computer/notepat"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.notepat.com"
+to = "https://aesthetic.computer/notepat"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.notepat.com/*"
+to = "https://aesthetic.computer/notepat"
+status = 200
+force = true
+[[redirects]]
+from = "https://notepat.com/*"
+to = "https://aesthetic.computer/notepat"
+status = 200
+force = true
+
 [[redirects]]
 from = "https://kidlisp.com"
 to = "https://aesthetic.computer/kidlisp.com/"

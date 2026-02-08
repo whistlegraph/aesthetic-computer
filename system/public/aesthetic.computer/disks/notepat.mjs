@@ -1128,6 +1128,9 @@ async function boot({
   autopatHud = hud;
   autopatTypeface = typeface;
 
+  // ✨ Show ".com" superscript in the HUD corner label (notepat.com branding)
+  hud.superscript(".com");
+
   // 🎹 Check if we're in DAW mode (loaded from Ableton M4L)
   dawMode = query?.daw === "1" || query?.daw === 1 || query?.daw === true;
   console.log("🎹 Notepat: dawMode =", dawMode, "query.daw =", query?.daw, typeof query?.daw);
