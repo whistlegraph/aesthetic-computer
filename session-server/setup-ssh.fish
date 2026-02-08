@@ -34,6 +34,7 @@ else
     echo "    User root" >> $SSH_CONFIG
     echo "    IdentityFile ~/.ssh/session_server" >> $SSH_CONFIG
     echo "    IdentitiesOnly yes" >> $SSH_CONFIG
+    echo "    StrictHostKeyChecking accept-new" >> $SSH_CONFIG
     echo "✅ Added session-server to SSH config"
 end
 
