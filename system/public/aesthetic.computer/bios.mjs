@@ -644,9 +644,15 @@ let diskSendsConsumed = false;
 // Store original URL parameters for refresh functionality
 let preservedParams = {};
 
-window.acDISK_SEND = function (message) {
-  !diskSendsConsumed ? diskSends.push(message) : window.acSEND(message);
-};
+// Guard: When WS + HTTP module imports race (importWithRetry), both module
+// instances execute top-level code.  The second overwrites window.acDISK_SEND
+// with its own diskSends array while boot() uses the first module's
+// consumeDiskSends — splitting the queue so session:started never arrives.
+if (!window.acDISK_SEND) {
+  window.acDISK_SEND = function (message) {
+    !diskSendsConsumed ? diskSends.push(message) : window.acSEND(message);
+  };
+}
 
 // 🔊 Master volume control (for desktop app sliders, etc.)
 // NOTE: These must be at module scope so window.AC.setMasterVolume works before boot()
@@ -686,10 +692,14 @@ function applyMasterVolume(nextValue) {
 }
 
 window.AC = window.AC || {};
-window.AC.setMasterVolume = (value) => applyMasterVolume(value);
-window.AC.getMasterVolume = () => masterVolume;
-window.acSetMasterVolume = window.AC.setMasterVolume;
-window.acGetMasterVolume = window.AC.getMasterVolume;
+// Guard module-scoped closures against duplicate-instance overwrite (same race as acDISK_SEND)
+if (!window.AC._biosGuarded) {
+  window.AC._biosGuarded = true;
+  window.AC.setMasterVolume = (value) => applyMasterVolume(value);
+  window.AC.getMasterVolume = () => masterVolume;
+  window.acSetMasterVolume = window.AC.setMasterVolume;
+  window.acGetMasterVolume = window.AC.getMasterVolume;
+}
 
 // 🔍 CDP Debug State - Expose piece state for browser automation
 // Pieces can call `_send({ type: "debug:state", content: {...} })` to update this
