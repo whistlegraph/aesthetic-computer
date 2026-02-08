@@ -2048,6 +2048,65 @@ function brightness(adjustment = 0) {
   graphPerf.track("brightness-cpu", cpuTime);
 }
 
+// Invert RGB colors (255 - value) while preserving alpha
+function invert() {
+  const invertStart = performance.now();
+  
+  // Determine the area to adjust (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    const maskX = activeMask.x + panTranslation.x;
+    const maskY = activeMask.y + panTranslation.y;
+    minX = Math.max(0, Math.floor(maskX));
+    minY = Math.max(0, Math.floor(maskY));
+    maxX = Math.min(width, Math.floor(maskX + activeMask.width));
+    maxY = Math.min(height, Math.floor(maskY + activeMask.height));
+  }
+
+  // 🚀 TRY GPU INVERT FIRST
+  if (gpuContrastEnabled && gpuSpinAvailable && gpuSpinModule && pixels && width && height) {
+    const mask = activeMask ? {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY
+    } : null;
+    
+    const result = gpuSpinModule.gpuInvert?.(pixels, width, height, mask);
+    if (result) {
+      const invertTime = performance.now() - invertStart;
+      graphPerf.track("invert-gpu", invertTime);
+      return;
+    }
+    // GPU failed, fall back to CPU
+  }
+
+  // 💻 CPU FALLBACK
+  const cpuStart = performance.now();
+
+  // Apply invert to each pixel (RGB channels only, preserve alpha)
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const idx = (y * width + x) * 4;
+      
+      // Skip transparent pixels
+      if (pixels[idx + 3] === 0) continue;
+      
+      // Invert RGB channels (255 - value)
+      pixels[idx] = 255 - pixels[idx];         // R
+      pixels[idx + 1] = 255 - pixels[idx + 1]; // G
+      pixels[idx + 2] = 255 - pixels[idx + 2]; // B
+      // Alpha channel stays unchanged
+    }
+  }
+  
+  const cpuTime = performance.now() - cpuStart;
+  graphPerf.track("invert-cpu", cpuTime);
+}
+
 // Copies pixels from a source buffer to the active buffer and returns
 // the source buffer.
 // TODO: Add dirty rectangle support here...
@@ -8852,6 +8911,7 @@ export {
   resize,
   contrast,
   brightness,
+  invert,
   paste,
   stamp,
   steal,
