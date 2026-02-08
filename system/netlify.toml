@@ -146,14 +146,14 @@ included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.stretched-paintings]
 # justanothersystem.org - Stretched paintings CRUD API (admin: @jeffrey only)
 node_bundler = "esbuild"
-external_node_modules = ["mongodb", "mongodb-connection-string-url", "nanoid", "@aws-sdk/client-s3", "@aws-sdk/s3-request-presigner"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url", "@aws-sdk/client-s3", "@aws-sdk/s3-request-presigner"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "ART_KEY", "ART_SECRET", "ART_ENDPOINT", "ART_SPACE_NAME", "DO_SPACES_KEY", "DO_SPACES_SECRET"]
 
 [functions.jas-tags]
 # justanothersystem.org - Tags/labels CRUD API (admin: @jeffrey only)
 node_bundler = "esbuild"
-external_node_modules = ["mongodb", "mongodb-connection-string-url", "nanoid"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 
