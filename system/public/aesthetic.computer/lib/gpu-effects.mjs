@@ -5,6 +5,7 @@
 let gl = null;
 let spinProgram = null;
 let compositeProgram = null;
+let invertProgram = null;  // Invert shader program
 let floodSeedProgram = null;  // Flood fill seed initialization
 let floodJFAProgram = null;   // Flood fill Jump Flooding Algorithm pass
 let floodFillProgram = null;  // Flood fill final color application
@@ -26,6 +27,7 @@ let vao = null;
 // Cached uniform locations to avoid getUniformLocation calls every frame
 let spinUniforms = null;
 let compositeUniforms = null;
+let invertUniforms = null;  // Invert shader uniforms
 let blurHUniforms = null;
 let blurVUniforms = null;
 let sharpenUniforms = null;
@@ -258,6 +260,47 @@ void main() {
   }
   
   fragColor = color;
+}`;
+
+// =========================================================================
+// INVERT SHADER - Simple RGB inversion (255 - value) while preserving alpha
+// Uses gl_FragCoord and texelFetch for pixel-perfect addressing
+// =========================================================================
+const INVERT_FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+
+uniform sampler2D u_texture;
+uniform vec2 u_resolution;
+uniform vec4 u_bounds;  // minX, minY, maxX, maxY
+
+in vec2 v_texCoord;
+out vec4 fragColor;
+
+void main() {
+  int destX = int(gl_FragCoord.x);
+  int destY = int(gl_FragCoord.y);
+  
+  int minX = int(u_bounds.x);
+  int minY = int(u_bounds.y);
+  int maxX = int(u_bounds.z);
+  int maxY = int(u_bounds.w);
+  
+  // Check if outside working area
+  if (destX < minX || destX >= maxX || destY < minY || destY >= maxY) {
+    fragColor = texelFetch(u_texture, ivec2(destX, destY), 0);
+    return;
+  }
+  
+  vec4 color = texelFetch(u_texture, ivec2(destX, destY), 0);
+  
+  // Skip transparent pixels
+  if (color.a == 0.0) {
+    fragColor = color;
+    return;
+  }
+  
+  // Invert RGB channels (1.0 - value), preserve alpha
+  fragColor = vec4(1.0 - color.r, 1.0 - color.g, 1.0 - color.b, color.a);
 }`;
 
 // =========================================================================
@@ -713,6 +756,20 @@ function initWebGL2(width, height) {
       return false;
     }
     
+    // Compile invert program
+    const invertVert = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
+    const invertFrag = compileShader(gl, gl.FRAGMENT_SHADER, INVERT_FRAGMENT_SHADER);
+    if (!invertVert || !invertFrag) return false;
+    
+    invertProgram = gl.createProgram();
+    gl.attachShader(invertProgram, invertVert);
+    gl.attachShader(invertProgram, invertFrag);
+    gl.linkProgram(invertProgram);
+    if (!gl.getProgramParameter(invertProgram, gl.LINK_STATUS)) {
+      console.error('🎮 GPU Effects: Invert program link failed:', gl.getProgramInfoLog(invertProgram));
+      return false;
+    }
+    
     // Compile blur horizontal program
     const blurHVert = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
     const blurHFrag = compileShader(gl, gl.FRAGMENT_SHADER, BLUR_H_FRAGMENT_SHADER);
@@ -773,6 +830,12 @@ function initWebGL2(width, height) {
       u_contrast: gl.getUniformLocation(compositeProgram, 'u_contrast'),
       u_brightness: gl.getUniformLocation(compositeProgram, 'u_brightness'),
       u_texture: gl.getUniformLocation(compositeProgram, 'u_texture'),
+    };
+    
+    invertUniforms = {
+      u_resolution: gl.getUniformLocation(invertProgram, 'u_resolution'),
+      u_bounds: gl.getUniformLocation(invertProgram, 'u_bounds'),
+      u_texture: gl.getUniformLocation(invertProgram, 'u_texture'),
     };
     
     blurHUniforms = {
@@ -1316,6 +1379,55 @@ export function gpuBrightness(pixels, width, height, adjustment = 0, mask = null
 }
 
 /**
+ * GPU-accelerated invert (255 - RGB value, preserve alpha)
+ * @param {Uint8ClampedArray} pixels - Source/destination pixel buffer
+ * @param {number} width - Buffer width
+ * @param {number} height - Buffer height
+ * @param {Object|null} mask - Optional mask bounds {x, y, width, height}
+ * @returns {boolean}
+ */
+export function gpuInvert(pixels, width, height, mask = null) {
+  if (!initialized || !gl || !invertProgram) return false;
+  
+  try {
+    ensureResources(width, height);
+    
+    // Upload texture (Y-flip happens here)
+    uploadPixels(pixels, width, height);
+    
+    // Set up render target
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.viewport(0, 0, width, height);
+    
+    // Use invert program
+    gl.useProgram(invertProgram);
+    
+    // Set uniforms
+    gl.uniform2f(invertUniforms.u_resolution, width, height);
+    
+    // Set bounds (mask or full screen)
+    const bounds = mask ? [mask.x, mask.y, mask.x + mask.width, mask.y + mask.height] : [0, 0, width, height];
+    gl.uniform4f(invertUniforms.u_bounds, bounds[0], bounds[1], bounds[2], bounds[3]);
+    
+    // Bind texture
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(invertUniforms.u_texture, 0);
+    
+    // Draw
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    
+    // Read back pixels (Y-flip happens here too)
+    renderAndReadback(pixels, width, height);
+    
+    return true;
+  } catch (e) {
+    console.error('🎮 GPU Invert: Render failed:', e);
+    return false;
+  }
+}
+
+/**
  * Check if GPU effects are available
  */
 export function isGpuEffectsAvailable() {
@@ -1852,6 +1964,7 @@ export function cleanupGpuEffects() {
     if (texCoordBuffer) gl.deleteBuffer(texCoordBuffer);
     if (spinProgram) gl.deleteProgram(spinProgram);
     if (compositeProgram) gl.deleteProgram(compositeProgram);
+    if (invertProgram) gl.deleteProgram(invertProgram);
     if (blurHProgram) gl.deleteProgram(blurHProgram);
     if (blurVProgram) gl.deleteProgram(blurVProgram);
     if (sharpenProgram) gl.deleteProgram(sharpenProgram);
@@ -1883,6 +1996,7 @@ export default {
   gpuScroll,
   gpuContrast,
   gpuBrightness,
+  gpuInvert,
   gpuBlur,
   gpuSharpen,
   gpuFlood,
