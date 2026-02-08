@@ -6218,7 +6218,15 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
         }
 
         // Check if it's time to play the next note using direct timing
-        if (nextNoteTargetTime > 0 && currentTimeMs >= nextNoteTargetTime) {
+        // Use a while loop so a single sim tick can catch up multiple missed
+        // notes when the page is hidden and sim() fires infrequently.
+        let notesCaughtUp = 0;
+        const MAX_CATCHUP_NOTES = 64; // Safety cap to prevent infinite loops
+        while (
+          nextNoteTargetTime > 0 &&
+          currentTimeMs >= nextNoteTargetTime &&
+          notesCaughtUp < MAX_CATCHUP_NOTES
+        ) {
           // CRITICAL: Don't play notes until all samples are loaded (for {say} waveform)
           if (!loadingState.readyToPlay) {
             // Only log once per second to avoid spam
@@ -6229,7 +6237,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             // Skip this note timing - defer until samples are ready
             // Adjust target time to prevent timing drift while waiting
             nextNoteTargetTime = currentTimeMs + 50; // Check again in 50ms
-            return; // Exit early - don't play notes yet
+            break; // Exit catch-up loop - don't play notes yet
           }
           
           const timingGap = currentTimeMs - nextNoteTargetTime;
@@ -6239,6 +6247,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
 
           bleep(time);
           anyTrackPlayed = true;
+          notesCaughtUp++;
 
           // Calculate next note target time using the note we just played (not the next note)
           if (currentNoteData) {
@@ -6249,6 +6258,8 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             // CRITICAL FIX: Use sequential timing like parallel tracks
             // Each note should start exactly when the previous note ends, not based on current time
             nextNoteTargetTime = nextNoteTargetTime + noteDuration;
+          } else {
+            break; // No note data, exit catch-up loop
           }
         }
 
@@ -6501,9 +6512,13 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           }
 
           // Check if it's time to play the next note in this track
-          if (
+          // Use a while loop so we can catch up multiple missed notes when
+          // the page is hidden and sim() fires infrequently.
+          let parallelCatchup = 0;
+          while (
             trackState.nextNoteTargetTime > 0 &&
-            currentTimeMs >= trackState.nextNoteTargetTime
+            currentTimeMs >= trackState.nextNoteTargetTime &&
+            parallelCatchup < 64
           ) {
             // CRITICAL: Don't play notes until all samples are loaded (for {say} waveform)
             if (!loadingState.readyToPlay) {
@@ -6515,7 +6530,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
               // Skip this note timing - defer until samples are ready
               // Adjust target time to prevent timing drift while waiting
               trackState.nextNoteTargetTime = currentTimeMs + 50; // Check again in 50ms
-              return; // Exit early - don't play notes yet
+              break; // Exit catch-up loop - don't play notes yet
             }
             const noteData = trackState.track[trackState.noteIndex];
             if (noteData) {
@@ -6784,8 +6799,11 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
               if (trackIndex === 0 && note !== "rest") {
 
               }
+            } else {
+              break; // No note data, exit catch-up loop
             }
-          }
+            parallelCatchup++;
+          } // end while (parallel catch-up loop)
         });
 
         if (anyTrackPlayed) {
@@ -6805,10 +6823,12 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             seqState.hasCompletedOneCycle = false;
           }
           
-          // Check if it's time to play next note
-          if (seqState.nextNoteTargetTime > 0 && currentTimeMs >= seqState.nextNoteTargetTime) {
+          // Check if it's time to play next note — while loop for background catch-up
+          let seqSingleCatchup = 0;
+          while (seqState.nextNoteTargetTime > 0 && currentTimeMs >= seqState.nextNoteTargetTime && seqSingleCatchup < 64) {
             const noteData = seqState.notes[seqState.index];
-            if (noteData) {
+            if (!noteData) break;
+            {
               const { note, octave: noteOctave, duration, sonicDuration, waveType, volume, struck, toneShift, stampleCode, sayText } = noteData;
               
               if (note !== "rest") {
@@ -6870,6 +6890,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                 }
               }
             }
+            seqSingleCatchup++;
           }
         } else if (seqState.type === "parallel" && seqState.trackStates) {
           // Handle parallel tracks within current sequence
@@ -6889,10 +6910,12 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
               allTracksCompleted = false;
             }
             
-            // Check if it's time to play next note
-            if (trackState.nextNoteTargetTime > 0 && currentTimeMs >= trackState.nextNoteTargetTime) {
+            // Check if it's time to play next note — while loop for background catch-up
+            let seqParallelCatchup = 0;
+            while (trackState.nextNoteTargetTime > 0 && currentTimeMs >= trackState.nextNoteTargetTime && seqParallelCatchup < 64) {
               const noteData = trackState.track[trackState.noteIndex];
-              if (noteData) {
+              if (!noteData) break;
+              {
                 const { note, octave: noteOctave, duration, sonicDuration, waveType, volume, struck, toneShift, stampleCode, sayText } = noteData;
                 
                 if (note !== "rest") {
@@ -6942,6 +6965,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                 // Calculate next note time
                 trackState.nextNoteTargetTime = trackState.nextNoteTargetTime + (noteData.duration * melodyState.baseTempo);
               }
+              seqParallelCatchup++;
             }
           });
           
