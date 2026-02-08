@@ -2055,6 +2055,19 @@ let noPaint = false;
 let labelBack = false;
 let hiccupTimeout; // Prevent multiple hiccups from being triggered at once.
 
+// 🌐 Check if running on a branded .com domain (e.g. notepat.com) and redirect to aesthetic.computer
+function redirectIfBrandedDomain() {
+  if (typeof window === "undefined") return false;
+  const host = window.location?.hostname;
+  if (!host) return false;
+  // Match notepat.com or www.notepat.com (add more branded domains here as needed)
+  if (host === "notepat.com" || host === "www.notepat.com") {
+    window.location.href = "https://aesthetic.computer";
+    return true;
+  }
+  return false;
+}
+
 let storeRetrievalResolutions = {},
   storeDeletionResolutions = {};
 
@@ -10898,6 +10911,10 @@ async function makeFrame({ data: { type, content } }) {
           });
 
           send({ type: "keyboard:unlock" });
+
+          // 🌐 Branded domain: Escape/backtick/Enter navigates to aesthetic.computer
+          if (data.key !== "Backspace" && redirectIfBrandedDomain()) return;
+
           if (!labelBack || data.key === "Backspace" || data.key === "Escape") {
             let promptSlug = "prompt";
             if (data.key === "Backspace") {
@@ -11857,13 +11874,8 @@ async function makeFrame({ data: { type, content } }) {
                   volume: 0.15,
                 });
 
-                // 🌐 Custom domain redirect: if on a branded .com domain (e.g. notepat.com),
-                // tapping the HUD label navigates to aesthetic.computer instead of prompt.
-                if (currentHUDSuperscript === ".com" && typeof window !== "undefined" &&
-                    window.location?.hostname?.endsWith("notepat.com")) {
-                  window.location.href = "https://aesthetic.computer";
-                  return;
-                }
+                // 🌐 Branded domain: tapping HUD label navigates to aesthetic.computer
+                if (redirectIfBrandedDomain()) return;
 
                 if (!labelBack) {
                   // Only clear prompt text when leaving NON-kidlisp pieces by tapping HUD

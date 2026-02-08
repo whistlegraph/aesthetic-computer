@@ -523,7 +523,8 @@ function getMiniPianoBlackKeyHeight(isCompact) {
 function getTopBarPianoMetrics(screen) {
   const topPianoY = 3;
   const topPianoHeight = 15;
-  const topPianoStartX = 54;
+  // Push piano right when .com superscript is shown to avoid overlap with HUD label
+  const topPianoStartX = dotComMode ? 75 : 54;
   const availableWidth = Math.max(0, screen.width - topPianoStartX);
 
   const fullWidth = Math.min(140, Math.floor(availableWidth * 0.5));
@@ -905,6 +906,9 @@ let dawSynced = false; // True when receiving valid DAW data
 let dawBpm = null; // BPM from DAW
 let dawPlaying = false; // Transport playing state from DAW
 
+// 🌐 Branded domain mode (notepat.com — pushes top bar piano right for .com superscript)
+let dotComMode = false;
+
 const trail = {};
 
 // 🎹 Piano roll history - pixel timeline of held notes
@@ -1130,6 +1134,7 @@ async function boot({
 
   // ✨ Show ".com" superscript in the HUD corner label (notepat.com branding)
   hud.superscript(".com");
+  dotComMode = true;
 
   // 🎹 Check if we're in DAW mode (loaded from Ableton M4L)
   dawMode = query?.daw === "1" || query?.daw === 1 || query?.daw === true;
@@ -2683,7 +2688,8 @@ function paint({
 
   // 🎹 Draw mini piano strip in top bar (not in recital mode or fullscreen modes)
   // Store piano end position for visualizer to use
-  let topBarPianoEndX = 54; // Default if piano not shown
+  const topBarDefaultX = dotComMode ? 75 : 54;
+  let topBarPianoEndX = topBarDefaultX; // Default if piano not shown
   if (!recitalMode && !visualizerFullscreen && !paintPictureOverlay && !projector) {
     const metrics = getTopBarPianoMetrics(screen);
     if (metrics && !metrics.hidden) {
@@ -5506,8 +5512,9 @@ function act({
   // Only in visualizer area (between piano end and waveBtn), not on piano keys
   if (e.is("touch") && e.y < TOP_BAR_BOTTOM && !projector && !paintPictureOverlay && !recitalMode) {
     // Check that tap is in the visualizer area (after piano, before waveBtn)
-    const topPianoWidth = Math.min(140, Math.floor((screen.width - 54) * 0.5));
-    const topPianoEndX = 54 + topPianoWidth;
+    const topBarBase = dotComMode ? 75 : 54;
+    const topPianoWidth = Math.min(140, Math.floor((screen.width - topBarBase) * 0.5));
+    const topPianoEndX = topBarBase + topPianoWidth;
     const vizLeft = topPianoEndX; // Start after piano
     const vizRight = waveBtn?.box?.x || screen.width;
     if (e.x >= vizLeft && e.x <= vizRight) {
