@@ -4976,6 +4976,14 @@ function handleStandbyResume() {
 
     // If a large time gap is detected, we likely returned from standby
     if (timeDelta > STANDBY_THRESHOLD) {
+      // ⏱️ In background mode, gaps are expected — the main thread is throttled
+      // to ~1 wake-up/sec when the page is hidden. Don't clear sounds;
+      // the UTC-based melody timing will catch up naturally.
+      if (background) {
+        lastFrameTime = now;
+        return false;
+      }
+
       // Clear all hanging sounds
       clearAllSounds();
 
