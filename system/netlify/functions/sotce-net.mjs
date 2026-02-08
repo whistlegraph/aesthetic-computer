@@ -6489,6 +6489,10 @@ export const handler = async (event, context) => {
                 let dragDelta = 0;
                 let wasDragging = false; // Persists until click event, prevents tap-on-release
                 
+                // Pending wheel direction — tracks scroll intent during animations
+                // so continuous scrolling isn't lost when a transition is playing
+                let pendingWheelDirection = 0; // -1, 0, or 1
+                
                 // Hover state for debug boxes
                 let hoverEar = false;
                 let hoverPageNum = false;
@@ -7184,6 +7188,32 @@ export const handler = async (event, context) => {
                     }
                   } else {
                     // Static - show current page with text (fade in if just arrived)
+                    // Also render adjacent page edges peeking from above/below
+                    // to hint that there's more content to scroll through.
+                    const peekAmount = 24; // px of adjacent card visible
+                    const slideDistance = cardHeight + 40;
+                    const peekOffset = slideDistance - peekAmount;
+                    const peekAlpha = 0.35;
+                    
+                    // Previous page peek (above)
+                    if (displayedPageIndex > 1) {
+                      const prevData = pageCache.get(displayedPageIndex - 1) || null;
+                      ctx.save();
+                      ctx.globalAlpha = peekAlpha;
+                      renderPage(prevData, displayedPageIndex - 1, -peekOffset, true, 0);
+                      ctx.restore();
+                    }
+                    
+                    // Next page peek (below)
+                    if (displayedPageIndex < loadedFeedCount) {
+                      const nextData = pageCache.get(displayedPageIndex + 1) || null;
+                      ctx.save();
+                      ctx.globalAlpha = peekAlpha;
+                      renderPage(nextData, displayedPageIndex + 1, peekOffset, true, 0);
+                      ctx.restore();
+                    }
+                    
+                    // Current page (main, on top)
                     renderPage(pageData, displayedPageIndex, 0, false, textFadeIn);
                   }
                   
@@ -7215,6 +7245,16 @@ export const handler = async (event, context) => {
                         updatePath("/page/" + pNum);
                       }
                       prefetchPages(currentPageIndex);
+                      
+                      // If user kept scrolling during the animation, continue
+                      // to the next page immediately for fluid browsing.
+                      if (pendingWheelDirection !== 0) {
+                        const nextIdx = currentPageIndex + pendingWheelDirection;
+                        pendingWheelDirection = 0;
+                        if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
+                          goToPage(nextIdx);
+                        }
+                      }
                     }
                   }
                   
@@ -7275,6 +7315,7 @@ export const handler = async (event, context) => {
                   // Cancel any pending wheel scroll
                   isWheelScrolling = false;
                   wheelDelta = 0;
+                  pendingWheelDirection = 0;
                   clearTimeout(wheelIdleTimer);
                   
                   canvas.setPointerCapture(e.pointerId);
@@ -7352,9 +7393,15 @@ export const handler = async (event, context) => {
                 let isWheelScrolling = false;
                 canvas.addEventListener("wheel", (e) => {
                   if (!document.body.contains(canvas)) return;
-                  if (transitionDirection !== 0) return;
                   if (isFlipping || showingBack) return;
                   e.preventDefault();
+                  
+                  // During animation, track scroll direction so we can
+                  // continue to the next page when the transition finishes.
+                  if (transitionDirection !== 0) {
+                    pendingWheelDirection = e.deltaY > 0 ? 1 : -1;
+                    return;
+                  }
                   
                   // Accumulate wheel delta into dragDelta (like pointer drag)
                   const sensitivity = 1.5;
@@ -7397,7 +7444,7 @@ export const handler = async (event, context) => {
                       const nextIdx = wheelDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
                       if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
                         dragDelta = 0;
-                        goToPage(nextIdx, currentProgress, true);
+                        goToPage(nextIdx, currentProgress);
                       }
                     }
                     
