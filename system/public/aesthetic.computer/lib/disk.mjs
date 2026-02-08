@@ -14969,6 +14969,15 @@ async function makeFrame({ data: { type, content } }) {
     ) {
       console.warn("⚠️ session:started not received after 120 frames — proceeding without auth");
       sessionStarted = true;
+      // Try to recover handle from localStorage even without full auth
+      const cachedHandle = store["handle"];
+      if (cachedHandle && !HANDLE) {
+        HANDLE = "@" + cachedHandle;
+        window.acHANDLE = HANDLE;
+        if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+        send({ type: "handle", content: HANDLE });
+        console.log(`🔐 Recovered cached handle: ${HANDLE}`);
+      }
       loadAfterPreamble?.();
     }
 
@@ -15002,8 +15011,10 @@ async function handle(retryCount = 0) {
   const RETRY_DELAYS = [500, 1000, 2000]; // Exponential backoff
 
   if (USER) {
+    // Fast path: use handle already fetched by boot.mjs (via /user?withHandle=true)
+    const bootHandle = USER.handle;
     // TODO: Check to see if this is in localStorage or not...
-    const storedHandle = store["handle"]; // || (await store.retrieve("handle"));
+    const storedHandle = bootHandle || store["handle"]; // || (await store.retrieve("handle"));
 
     // console.log("Stored handle...", storedHandle);
 
@@ -15015,6 +15026,7 @@ async function handle(retryCount = 0) {
       if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
       send({ type: "handle", content: HANDLE });
       store["handle:received"] = true;
+      if (bootHandle) store["handle"] = bootHandle; // Cache boot-fetched handle
       // console.log("Retrieved handle from store:", storedHandle);
       return; // Leave early if a stored handle was found.
     }

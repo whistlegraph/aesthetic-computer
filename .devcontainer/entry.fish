@@ -139,6 +139,30 @@ else
     log_warn "Vault env not found at $vault_env"
 end
 
+# --- Setup session-server SSH key from vault ---
+set -l ss_key_src ~/aesthetic-computer-vault/session-server/session_server
+set -l ss_key_dst ~/.ssh/session_server
+if test -f $ss_key_src; and not test -f $ss_key_dst
+    mkdir -p ~/.ssh
+    cp $ss_key_src $ss_key_dst
+    cp "$ss_key_src.pub" "$ss_key_dst.pub"
+    chmod 600 $ss_key_dst
+    chmod 644 "$ss_key_dst.pub"
+    # Add SSH config entry if missing
+    if not grep -q "Host session-server" ~/.ssh/config 2>/dev/null
+        echo "" >> ~/.ssh/config
+        echo "Host session-server" >> ~/.ssh/config
+        echo "    HostName 157.245.134.225" >> ~/.ssh/config
+        echo "    User root" >> ~/.ssh/config
+        echo "    IdentityFile ~/.ssh/session_server" >> ~/.ssh/config
+        echo "    IdentitiesOnly yes" >> ~/.ssh/config
+        echo "    StrictHostKeyChecking accept-new" >> ~/.ssh/config
+    end
+    log_ok "Session-server SSH key installed"
+else if not test -f $ss_key_src
+    log_warn "Session-server SSH key not found in vault"
+end
+
 log_step "PHASE 2: Checking for fast reload path"
 
 # Fast path for VS Code "Reload Window" - if .waiter exists and key processes running, skip setup
