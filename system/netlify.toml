@@ -867,12 +867,12 @@ status = 200
 force = true
 [[redirects]]
 from = "https://www.notepat.com/*"
-to = "https://aesthetic.computer/notepat"
+to = "https://aesthetic.computer/:splat"
 status = 200
 force = true
 [[redirects]]
 from = "https://notepat.com/*"
-to = "https://aesthetic.computer/notepat"
+to = "https://aesthetic.computer/:splat"
 status = 200
 force = true
 
