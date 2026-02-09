@@ -1385,7 +1385,29 @@
       const maxDim = Math.max(screenWidth, screenHeight);
       const hostname = window.location.hostname;
       
-      // Base multiplier: density * 1.5 gives good proportional sizing
+      // Hardcoded optimal UI scales for common TV/display resolutions
+      // Format: [width, height, dpr] → uiScale
+      const resolutionMap = [
+        // 4K displays
+        { w: 3840, h: 2160, dpr: 1, scale: 20 },  // 4K native (e.g., F1 FF1)
+        { w: 1920, h: 1200, dpr: 2, scale: 20 },  // 4K scaled (e.g., MacBook 16")
+        { w: 1920, h: 1080, dpr: 2, scale: 24 },  // 1080p scaled to 4K-like (e.g., FF1 in some configs)
+        // 1080p displays
+        { w: 1920, h: 1080, dpr: 1, scale: 12 },  // 1080p native
+        { w: 1366, h: 768, dpr: 1, scale: 8 },    // 1366x768 laptop
+        { w: 1440, h: 900, dpr: 1, scale: 10 },   // 1440x900 laptop
+        // Mobile/portrait
+        { w: 800, h: 1280, dpr: 1, scale: 6 },    // Standard portrait phone
+      ];
+      
+      // Try to find an exact or close match
+      for (const entry of resolutionMap) {
+        if (screenWidth === entry.w && screenHeight === entry.h && dpr === entry.dpr) {
+          return entry.scale;  // Exact match
+        }
+      }
+      
+      // Fallback to proportional calculation
       const baseScale = density * 1.5;
       
       // Device subdomains (device.kidlisp.com, top.kidlisp.com) are typically
@@ -1403,8 +1425,9 @@
                           (maxDim >= 1920 && screenHeight >= 1080 && dpr >= 2);
       
       if (isDeviceSubdomain && is4KDisplay) {
-        // FF1/device mode on 4K: 4x multiplier for comfortable TV viewing distance
-        return Math.round(baseScale * 4);
+        // FF1/device mode on 4K: 2x multiplier for comfortable TV viewing distance
+        // (density=4 → baseScale=6 → scale≈12, close to default 20 which already works for 4K)
+        return Math.round(baseScale * 2);
       } else if (isDeviceSubdomain) {
         // Device subdomain but NOT 4K (e.g., laptop or 1080p TV)
         // density=4,dpr=2 → scale ~6
