@@ -49,6 +49,11 @@ objkt/output
 system/public/assets/*
 !system/public/assets/.gitkeep
 
+# aesthetic ants runtime (logs, runs, test output - not part of the score)
+ants/*.log
+ants/runs/
+ants/test-*.txt
+
 # ignore offline index.html
 system/public/index.html
 
