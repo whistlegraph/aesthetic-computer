@@ -90,7 +90,7 @@ function sim({ num }) {
     // Steer toward strongest pheromone.
     if (sC >= sL && sC >= sR) {
       // Go straight — slight random wander.
-      ant.angle += (num.random() - 0.5) * WANDER_STRENGTH * 0.5;
+      ant.angle += (num.rand() - 0.5) * WANDER_STRENGTH * 0.5;
     } else if (sL > sR) {
       ant.angle -= WANDER_STRENGTH;
     } else if (sR > sL) {
@@ -98,7 +98,7 @@ function sim({ num }) {
     }
 
     // Random wander on top.
-    ant.angle += (num.random() - 0.5) * WANDER_STRENGTH;
+    ant.angle += (num.rand() - 0.5) * WANDER_STRENGTH;
 
     // Move forward.
     ant.x += Math.cos(ant.angle) * ANT_SPEED;
