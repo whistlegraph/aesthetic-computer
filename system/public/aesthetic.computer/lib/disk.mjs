@@ -12592,9 +12592,19 @@ async function makeFrame({ data: { type, content } }) {
           if (shouldPaint) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
-            
+
+            // 🎪 Apply bumper offset if enabled - push piece content down
+            if (bumperConfig.enabled && bumperConfig.height > 0) {
+              $api.pan(0, bumperConfig.height);
+            }
+
             // Always call paint() - piece paints underneath, GOL overlays on top
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
+
+            // 🎪 Remove bumper offset after painting
+            if (bumperConfig.enabled && bumperConfig.height > 0) {
+              $api.unpan();
+            }
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
             
