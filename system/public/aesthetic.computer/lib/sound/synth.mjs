@@ -94,7 +94,7 @@ export default class Synth {
       this.#sampleData = options.buffer;
       this.sampleLabel = options.label; // Track the label for live buffer updates
 
-      console.log("🎤 SYNTH sample init:", {
+      /*console.log("🎤 SYNTH sample init:", {
         hasBuffer: !!options.buffer,
         bufferType: typeof options.buffer,
         hasChannels: !!options.buffer?.channels,
@@ -104,14 +104,14 @@ export default class Synth {
         speed: options.speed,
         loop: options.loop,
         preserveDuration: options.preserveDuration,
-      });
+      });*/
 
       this.#sampleSpeed = options.speed || 1;
       this.#sampleLoop = options.loop || false;
       this.#preserveDuration = options.preserveDuration || false;
 
       if (this.#preserveDuration) {
-        console.log("🎤 SYNTH preserveDuration enabled - granular pitch shift (no time stretch)");
+        // console.log("🎤 SYNTH preserveDuration enabled - granular pitch shift (no time stretch)");
       }
 
       // console.log("Speed:", this.#sampleSpeed);
@@ -155,19 +155,19 @@ export default class Synth {
         // Minimum duration check - avoid stretching too much
         const minDurationMs = 50; // 50ms minimum
         if (this.#targetDurationMs < minDurationMs) {
-          console.log(`🎤 SYNTH: Target duration ${this.#targetDurationMs}ms too short, clamping to ${minDurationMs}ms`);
+          // console.log(`🎤 SYNTH: Target duration ${this.#targetDurationMs}ms too short, clamping to ${minDurationMs}ms`);
           this.#targetDurationMs = minDurationMs;
           this.#outputSamplesNeeded = Math.floor((this.#targetDurationMs / 1000) * sampleRate);
           this.#timeStretchRatio = sourceSamples / this.#outputSamplesNeeded;
         }
         
-        console.log("🎤 SYNTH timeStretch enabled:", {
+        /*console.log("🎤 SYNTH timeStretch enabled:", {
           targetDurationMs: this.#targetDurationMs,
           sourceSamples,
           outputSamplesNeeded: this.#outputSamplesNeeded,
           timeStretchRatio: this.#timeStretchRatio.toFixed(3),
           pitchShiftSpeed: this.#sampleSpeed.toFixed(3),
-        });
+        });*/
         
         // Setup granular for combined time stretch + pitch shift
         this.#playedSamples = 0;
@@ -339,10 +339,10 @@ export default class Synth {
       const bufferData = this.#sampleData.channels[0];
 
       // Log at various points to verify playback continues
-      const idx = floor(this.#sampleIndex);
-      if (idx === 0 || idx === 100 || idx === 1000 || idx === 5000 || idx === 10000) {
-        console.log("🎤 SYNTH sample at index:", idx, "value:", bufferData?.[idx], "speed:", this.#sampleSpeed, "vol:", this.volume);
-      }
+      // const idx = floor(this.#sampleIndex);
+      // if (idx === 0 || idx === 100 || idx === 1000 || idx === 5000 || idx === 10000) {
+      //   console.log("🎤 SYNTH sample at index:", idx, "value:", bufferData?.[idx], "speed:", this.#sampleSpeed, "vol:", this.volume);
+      // }
 
       // Handle preserveDuration mode: GRANULAR pitch shift without time stretch
       if (this.#preserveDuration) {
@@ -597,16 +597,9 @@ export default class Synth {
     let out = value * this.volume;
 
     // 🔊 Debug: Log sample output periodically
-    if (this.type === "sample" && this.#progress % 4800 === 0) { // Every ~0.1 sec at 48kHz
-      console.log("🔊 SYNTH sample final output:", {
-        progress: this.#progress,
-        value: value,
-        volume: this.volume,
-        out: out,
-        playing: this.playing,
-        fading: this.fading
-      });
-    }
+    // if (this.type === "sample" && this.#progress % 4800 === 0) {
+    //   console.log("🔊 SYNTH sample final output:", { progress: this.#progress, value, volume: this.volume, out, playing: this.playing, fading: this.fading });
+    // }
 
     // ➰💀 "Fade 2 kill." - 25.02.15.00.14
     if (this.fading) {
@@ -644,11 +637,11 @@ export default class Synth {
     if (typeof shift === "number") {
       const oldSpeed = this.#sampleSpeed;
       this.#sampleSpeed += shift;
-      console.log(`🔊 SYNTH shift: old=${oldSpeed.toFixed(4)}, shift=${shift.toFixed(4)}, new=${this.#sampleSpeed.toFixed(4)}, index=${this.#sampleIndex}, start=${this.#sampleStartIndex}, end=${this.#sampleEndIndex}`);
+      // console.log(`🔊 SYNTH shift: old=${oldSpeed.toFixed(4)}, shift=${shift.toFixed(4)}, new=${this.#sampleSpeed.toFixed(4)}, index=${this.#sampleIndex}, start=${this.#sampleStartIndex}, end=${this.#sampleEndIndex}`);
     }
 
     if (typeof sampleSpeed === "number") {
-      console.log(`🔊 SYNTH sampleSpeed: setting to ${sampleSpeed}`);
+      // console.log(`🔊 SYNTH sampleSpeed: setting to ${sampleSpeed}`);
       this.#sampleSpeed = sampleSpeed;
     }
 
