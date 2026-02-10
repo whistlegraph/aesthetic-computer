@@ -657,9 +657,9 @@ export const handler = stream(async (event, context) => {
           : `https://aesthetic.computer/api/bundle-html?code=${pieceName}&format=json`;
         
         // Add timeout to prevent function from hanging if bundle-html is slow
-        // Bundle generation can take 15-25s on cold starts due to SWC minification
+        // Bundle generation can take 15-30s on cold starts due to SWC minification
         const bundleController = new AbortController();
-        const bundleTimeout = setTimeout(() => bundleController.abort(), 20000); // 20 second timeout
+        const bundleTimeout = setTimeout(() => bundleController.abort(), 40000); // 40 second timeout
         
         console.log(`🪙 KEEP: Fetching bundle from ${bundleUrl}...`);
         const bundleStartTime = Date.now();
@@ -672,7 +672,7 @@ export const handler = stream(async (event, context) => {
           const elapsed = ((Date.now() - bundleStartTime) / 1000).toFixed(1);
           console.error(`🪙 KEEP: Bundle fetch failed after ${elapsed}s:`, fetchErr.message);
           if (fetchErr.name === "AbortError") {
-            throw new Error("Bundle generation timed out (>20s). The server may be cold-starting. Please try again in a moment.");
+            throw new Error("Bundle generation timed out (>40s). The server may be cold-starting. Please try again in a moment.");
           }
           throw fetchErr;
         }
