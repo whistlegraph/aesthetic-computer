@@ -2061,7 +2061,7 @@ function redirectIfBrandedDomain() {
   if (!hostname) return false;
   // Match notepat.com or www.notepat.com (add more branded domains here as needed)
   if (hostname === "notepat.com" || hostname === "www.notepat.com") {
-    send({ type: "web", content: { url: "https://aesthetic.computer/prompt", blank: false } });
+    send({ type: "web", content: { url: "https://aesthetic.computer", blank: false } });
     return true;
   }
   return false;
@@ -4510,8 +4510,8 @@ async function processMessage(msg) {
     // 👰‍♀️ Update the user handle if it changed.
     const newHandle = msg.split(":").pop();
     HANDLE = "@" + newHandle;
-    window.acHANDLE = HANDLE; // Expose for UDP identity
-    if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+    if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
+    if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
     send({ type: "handle", content: HANDLE });
     store["handle:received"] = true;
     store["handle"] = newHandle;
@@ -10732,10 +10732,10 @@ async function makeFrame({ data: { type, content } }) {
       // The piece's paint() will fill correct content on next frame
       screen.pixels = new Uint8ClampedArray(content.width * content.height * 4);
       
-      if ($commonApi.rec.presenting && (oldWidth !== content.width || oldHeight !== content.height)) {
-        console.log('📐 REFRAME: Worker dimensions updated', oldWidth, 'x', oldHeight, '→', content.width, 'x', content.height);
-        console.log('   Buffer:', oldBufferSize, '→', screen.pixels.length, '| Expected:', content.width * content.height * 4);
-      }
+      // if ($commonApi.rec.presenting && (oldWidth !== content.width || oldHeight !== content.height)) {
+      //   console.log('📐 REFRAME: Worker dimensions updated', oldWidth, 'x', oldHeight, '→', content.width, 'x', content.height);
+      //   console.log('   Buffer:', oldBufferSize, '→', screen.pixels.length, '| Expected:', content.width * content.height * 4);
+      // }
     }
 
     // Only trigger a reframe event if we have already passed `boot` (painted
@@ -12666,7 +12666,7 @@ async function makeFrame({ data: { type, content } }) {
               if (typeof window !== "undefined") {
                 window.acPieceReady = true;
                 window.acPieceReadyTime = Date.now();
-                console.log("🟢 acPieceReady = true (first paint complete)");
+                // console.log("🟢 acPieceReady = true (first paint complete)");
               }
             }
             
@@ -15093,8 +15093,8 @@ async function makeFrame({ data: { type, content } }) {
       const cachedHandle = store["handle"];
       if (cachedHandle && !HANDLE) {
         HANDLE = "@" + cachedHandle;
-        window.acHANDLE = HANDLE;
-        if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+        if (typeof window !== 'undefined') window.acHANDLE = HANDLE;
+        if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
         send({ type: "handle", content: HANDLE });
         console.log(`🔐 Recovered cached handle: ${HANDLE}`);
       }
@@ -15142,8 +15142,8 @@ async function handle(retryCount = 0) {
       const newHandle = "@" + storedHandle;
       if (HANDLE === newHandle) return;
       HANDLE = "@" + storedHandle;
-      window.acHANDLE = HANDLE; // Expose for UDP identity
-      if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+      if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
+      if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
       send({ type: "handle", content: HANDLE });
       store["handle:received"] = true;
       if (bootHandle) store["handle"] = bootHandle; // Cache boot-fetched handle

@@ -9084,7 +9084,7 @@ class KidLisp {
         }
 
         const soundEnabled = api.sound?.enabled?.() || false;
-        console.log("� SPEAKER: First call this frame, sound enabled:", soundEnabled);
+        // console.log("🔈 SPEAKER: First call this frame, sound enabled:", soundEnabled);
 
         // Cache the result
         this.speakerCache.result = soundEnabled;

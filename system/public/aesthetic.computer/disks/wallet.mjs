@@ -10,8 +10,8 @@
 
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
-// Current Keeps contract (mainnet staging v3)
-const KEEPS_CONTRACT = "KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi";
+// Current Keeps contract (mainnet staging v4)
+const KEEPS_CONTRACT = "KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W";
 const KEEPS_NETWORK = "mainnet";
 // TODO: Set to false when switching to production mainnet contract
 const KEEPS_STAGING = true;
