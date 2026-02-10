@@ -2057,12 +2057,11 @@ let hiccupTimeout; // Prevent multiple hiccups from being triggered at once.
 
 // 🌐 Check if running on a branded .com domain (e.g. notepat.com) and redirect to aesthetic.computer
 function redirectIfBrandedDomain() {
-  if (typeof window === "undefined") return false;
-  const host = window.location?.hostname;
-  if (!host) return false;
+  const { hostname } = getSafeUrlParts();
+  if (!hostname) return false;
   // Match notepat.com or www.notepat.com (add more branded domains here as needed)
-  if (host === "notepat.com" || host === "www.notepat.com") {
-    window.location.href = "https://aesthetic.computer";
+  if (hostname === "notepat.com" || hostname === "www.notepat.com") {
+    send({ type: "web", content: { url: "https://aesthetic.computer/prompt", blank: false } });
     return true;
   }
   return false;
