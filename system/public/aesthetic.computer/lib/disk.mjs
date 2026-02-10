@@ -10684,10 +10684,10 @@ async function makeFrame({ data: { type, content } }) {
       // The piece's paint() will fill correct content on next frame
       screen.pixels = new Uint8ClampedArray(content.width * content.height * 4);
       
-      if ($commonApi.rec.presenting && (oldWidth !== content.width || oldHeight !== content.height)) {
-        console.log('📐 REFRAME: Worker dimensions updated', oldWidth, 'x', oldHeight, '→', content.width, 'x', content.height);
-        console.log('   Buffer:', oldBufferSize, '→', screen.pixels.length, '| Expected:', content.width * content.height * 4);
-      }
+      // if ($commonApi.rec.presenting && (oldWidth !== content.width || oldHeight !== content.height)) {
+      //   console.log('📐 REFRAME: Worker dimensions updated', oldWidth, 'x', oldHeight, '→', content.width, 'x', content.height);
+      //   console.log('   Buffer:', oldBufferSize, '→', screen.pixels.length, '| Expected:', content.width * content.height * 4);
+      // }
     }
 
     // Only trigger a reframe event if we have already passed `boot` (painted
@@ -12618,7 +12618,7 @@ async function makeFrame({ data: { type, content } }) {
               if (typeof window !== "undefined") {
                 window.acPieceReady = true;
                 window.acPieceReadyTime = Date.now();
-                console.log("🟢 acPieceReady = true (first paint complete)");
+                // console.log("🟢 acPieceReady = true (first paint complete)");
               }
             }
             
