@@ -23,8 +23,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const TOKEN_FILE = join(process.env.HOME, '.ac-token');
 
-// Contract address
-const CONTRACT_ADDRESS = "KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc";
+// Contract address - Ghostnet v3
+const CONTRACT_ADDRESS = "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K";
 const NETWORK = "ghostnet";
 const KEEP_FEE = 5; // XTZ
 
