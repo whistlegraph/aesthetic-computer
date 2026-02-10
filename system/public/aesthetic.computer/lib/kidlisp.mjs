@@ -7103,31 +7103,21 @@ class KidLisp {
           // );
         }
 
-        // 🛡️ Skip drawing if KidLisp hasn't explicitly set an ink color yet
-        // This prevents external/system calls from drawing with undefined colors
-        // before the KidLisp program has a chance to set its own ink state
-        if (!this.inkStateSet) {
+        // 🎨 Use random ink color if not explicitly set
+        // If KidLisp hasn't set an ink color, use a fresh random color for each draw
+        const useRandomInk = !this.inkStateSet;
+        if (useRandomInk) {
+          // Generate a new random ink color for this draw call
+          const randomColor = [
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256)
+          ];
+          api.ink?.(...randomColor);
+
           if (kidlispInkLoggingEnabled()) {
-            // Capture detailed stack trace
-            let stackLines = [];
-            try {
-              const stack = new Error().stack?.split('\n') || [];
-              for (let i = 1; i < Math.min(stack.length, 12); i++) {
-                const line = stack[i]?.trim();
-                if (line) {
-                  // Extract function name and file
-                  const match = line.match(/at\s+(\S+)\s+\(([^)]+)\)/);
-                  if (match) {
-                    const [, func, location] = match;
-                    const file = location.split('/').pop().split('?')[0];
-                    stackLines.push(`${func}@${file}`);
-                  }
-                }
-              }
-            } catch (e) {}
-            console.log(`${kidlispInkLogPrefix()}⏭️ KidLisp line SKIPPED (no ink)\nStack: ${stackLines.slice(0, 6).join(' → ')}`);
+            console.log(`${kidlispInkLogPrefix()}🎨 line: Using random ink [${randomColor.join(', ')}]`);
           }
-          return;
         }
 
         // Check if we should defer this command
@@ -7240,7 +7230,17 @@ class KidLisp {
         if (processedArgs.length === 4 && processedArgs.every(a => typeof a === 'number')) {
           processedArgs.push(this.fillMode ? "fill" : "outline");
         }
-        
+
+        // 🎨 Use random ink color if not explicitly set
+        if (!this.inkStateSet) {
+          const randomColor = [
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256)
+          ];
+          api.ink?.(...randomColor);
+        }
+
         const drawBox = () => {
           api.box(...processedArgs);
         };
@@ -7278,7 +7278,17 @@ class KidLisp {
           circleArgs.push(this.fillMode);
         }
         // If args.length >= 4, explicit mode is provided, use it as-is
-        
+
+        // 🎨 Use random ink color if not explicitly set
+        if (!this.inkStateSet) {
+          const randomColor = [
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256)
+          ];
+          api.ink?.(...randomColor);
+        }
+
         const drawCircle = () => {
           api.circle(...circleArgs);
         };
@@ -7339,6 +7349,16 @@ class KidLisp {
           triArgs.push(this.fillMode ? "fill" : "outline");
         }
 
+        // 🎨 Use random ink color if not explicitly set
+        if (!this.inkStateSet) {
+          const randomColor = [
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256)
+          ];
+          api.ink?.(...randomColor);
+        }
+
         const drawTri = () => {
           api.tri(...triArgs);
         };
@@ -7365,9 +7385,30 @@ class KidLisp {
         // Flood fill at coordinates with optional color
         // Usage: (flood x y) or (flood x y color)
         if (args.length >= 2) {
-          const x = args[0];
-          const y = args[1];
+          // Handle undefined (?) values with contextual logic for random coordinates
+          let x = args[0];
+          let y = args[1];
+
+          if (x === undefined) {
+            x = Math.floor(this.seededRandom() * (api.screen?.width || 256));
+          }
+          if (y === undefined) {
+            y = Math.floor(this.seededRandom() * (api.screen?.height || 256));
+          }
+
           const fillColor = args[2]; // Optional color, defaults to current ink
+
+          // 🎨 Use random ink color if not explicitly set
+          const useRandomInk = !this.inkStateSet && fillColor === undefined;
+          if (useRandomInk) {
+            // Generate a new random ink color for this draw call
+            const randomColor = [
+              Math.floor(this.seededRandom() * 256),
+              Math.floor(this.seededRandom() * 256),
+              Math.floor(this.seededRandom() * 256)
+            ];
+            api.ink?.(...randomColor);
+          }
 
           const performFlood = () => {
             if (fillColor !== undefined) {
