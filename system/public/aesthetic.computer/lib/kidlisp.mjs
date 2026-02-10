@@ -1334,7 +1334,8 @@ function isChaoticSource(source) {
   
   // Short input with no parentheses that's not a valid color/function name
   // e.g., just "kidlisp" or "hello" or "test" - should trigger chaos mode
-  if (openParens === 0 && closeParens === 0 && trimmed.length > 0) {
+  // BUT: Skip this check if source contains commas (comma-separated KidLisp syntax)
+  if (openParens === 0 && closeParens === 0 && trimmed.length > 0 && !source.includes(',')) {
     // Check if the entire input is a single recognized word (color or function)
     const isValidShorthand = KIDLISP_VOCABULARY.has(trimmed.toLowerCase());
     if (!isValidShorthand) {
@@ -1345,7 +1346,8 @@ function isChaoticSource(source) {
   }
   
   // No parentheses at all in longer input (valid KidLisp usually has parens)
-  if (openParens === 0 && closeParens === 0 && trimmed.length > 20) {
+  // BUT: Skip this check if source contains commas (comma-separated KidLisp syntax)
+  if (openParens === 0 && closeParens === 0 && trimmed.length > 20 && !source.includes(',')) {
     // Check if it's just a color name or simple expression
     if (!KIDLISP_VOCABULARY.has(trimmed.toLowerCase())) {
       chaosScore += 0.3;
@@ -5199,15 +5201,38 @@ class KidLisp {
             }
             
             // 🎯 FIX: Also paste embedded layers on top of burned buffer
-            if (this.embeddedLayers) {
+            // 🚀 GPU OPTIMIZATION: Batch all embedded layers for single GPU composite pass
+            if (this.embeddedLayers && this.embeddedLayers.length > 0) {
+              const layersForComposite = [];
               for (let i = 0, len = this.embeddedLayers.length; i < len; i++) {
                 const embeddedLayer = this.embeddedLayers[i];
                 if (embeddedLayer.buffer && embeddedLayer.buffer.pixels) {
+                  layersForComposite.push({
+                    pixels: embeddedLayer.buffer.pixels,
+                    width: embeddedLayer.buffer.width,
+                    height: embeddedLayer.buffer.height,
+                    x: typeof embeddedLayer.x === "number" ? Math.round(embeddedLayer.x) : 0,
+                    y: typeof embeddedLayer.y === "number" ? Math.round(embeddedLayer.y) : 0,
+                    alpha: typeof embeddedLayer.alpha === "number" ? embeddedLayer.alpha : 255
+                  });
+                }
+              }
+              
+              if (layersForComposite.length > 0 && $.compositeLayers) {
+                try {
+                  $.compositeLayers(layersForComposite);
+                } catch (error) {
+                  console.warn(`⚠️ Error in batch composite (burn path), falling back:`, error.message);
+                  for (let i = 0; i < layersForComposite.length; i++) {
+                    const layer = layersForComposite[i];
+                    this.pasteWithAlpha($, { pixels: layer.pixels, width: layer.width, height: layer.height }, layer.x, layer.y, layer.alpha);
+                  }
+                }
+              } else if (layersForComposite.length > 0) {
+                for (let i = 0; i < layersForComposite.length; i++) {
+                  const layer = layersForComposite[i];
                   try {
-                    const alpha = typeof embeddedLayer.alpha === "number" ? embeddedLayer.alpha : 255;
-                    const destX = typeof embeddedLayer.x === "number" ? Math.round(embeddedLayer.x) : 0;
-                    const destY = typeof embeddedLayer.y === "number" ? Math.round(embeddedLayer.y) : 0;
-                    this.pasteWithAlpha($, embeddedLayer.buffer, destX, destY, alpha);
+                    this.pasteWithAlpha($, { pixels: layer.pixels, width: layer.width, height: layer.height }, layer.x, layer.y, layer.alpha);
                   } catch (error) {
                     console.warn(`⚠️ Error pasting embedded layer ${i} (burn path):`, error.message, error.stack);
                   }
@@ -5258,19 +5283,42 @@ class KidLisp {
             }
 
             // Step 3: Paste embedded layers last so they sit above everything
-            if (this.embeddedLayers) {
+            // 🚀 GPU OPTIMIZATION: Batch all embedded layers for single GPU composite pass
+            if (this.embeddedLayers && this.embeddedLayers.length > 0) {
+              // Build layer array for GPU compositing
+              const layersForComposite = [];
               for (let i = 0, len = this.embeddedLayers.length; i < len; i++) {
                 const embeddedLayer = this.embeddedLayers[i];
                 if (embeddedLayer.buffer && embeddedLayer.buffer.pixels) {
+                  layersForComposite.push({
+                    pixels: embeddedLayer.buffer.pixels,
+                    width: embeddedLayer.buffer.width,
+                    height: embeddedLayer.buffer.height,
+                    x: typeof embeddedLayer.x === "number" ? Math.round(embeddedLayer.x) : 0,
+                    y: typeof embeddedLayer.y === "number" ? Math.round(embeddedLayer.y) : 0,
+                    alpha: typeof embeddedLayer.alpha === "number" ? embeddedLayer.alpha : 255
+                  });
+                }
+              }
+              
+              // Try GPU batch composite (falls back to CPU internally if unavailable)
+              if (layersForComposite.length > 0 && $.compositeLayers) {
+                try {
+                  $.compositeLayers(layersForComposite);
+                } catch (error) {
+                  console.warn(`⚠️ Error in batch composite, falling back to individual pastes:`, error.message);
+                  // Fallback: paste each layer individually
+                  for (let i = 0; i < layersForComposite.length; i++) {
+                    const layer = layersForComposite[i];
+                    this.pasteWithAlpha($, { pixels: layer.pixels, width: layer.width, height: layer.height }, layer.x, layer.y, layer.alpha);
+                  }
+                }
+              } else if (layersForComposite.length > 0) {
+                // No compositeLayers available, use individual pastes
+                for (let i = 0; i < layersForComposite.length; i++) {
+                  const layer = layersForComposite[i];
                   try {
-                    // Check if alpha blending is used
-                    const alpha = typeof embeddedLayer.alpha === "number" ? embeddedLayer.alpha : 255;
-                    
-                    // Force integer coordinates to avoid sub-pixel indexing issues
-                    // Handle explicit 0 values (0 is falsy, so we need to check specifically)
-                    const destX = typeof embeddedLayer.x === "number" ? Math.round(embeddedLayer.x) : 0;
-                    const destY = typeof embeddedLayer.y === "number" ? Math.round(embeddedLayer.y) : 0;
-                    this.pasteWithAlpha($, embeddedLayer.buffer, destX, destY, alpha);
+                    this.pasteWithAlpha($, { pixels: layer.pixels, width: layer.width, height: layer.height }, layer.x, layer.y, layer.alpha);
                   } catch (error) {
                     console.warn(`⚠️ Error pasting embedded layer ${i}:`, error.message, error.stack);
                   }
@@ -5281,14 +5329,77 @@ class KidLisp {
 
           // 🎯 STEP 4: Execute post-composite commands (zoom/scroll/contrast that should affect entire composite)
           // These run AFTER embedded layers are composited, so they affect the full result
+          // 🚀 GPU OPTIMIZATION: Batch compatible effects (zoom/scroll/contrast/brightness) into ONE GPU pass
           if (this.postCompositeCommands && this.postCompositeCommands.length > 0) {
-            this.postCompositeCommands.forEach((cmd, i) => {
+            // Separate batchable effects from non-batchable
+            const batchableEffects = { zoom: 1.0, scrollX: 0, scrollY: 0, contrast: 1.0, brightness: 0 };
+            const nonBatchableCommands = [];
+            let hasBatchable = false;
+            
+            for (const cmd of this.postCompositeCommands) {
+              switch (cmd.name) {
+                case 'zoom':
+                  // Extract zoom scale from args
+                  if (cmd.args && cmd.args.length > 0) {
+                    const scale = parseFloat(cmd.args[0]) || 1.0;
+                    batchableEffects.zoom *= scale;  // Multiply zooms together
+                    hasBatchable = true;
+                  }
+                  break;
+                case 'scroll':
+                  // Extract dx, dy from args
+                  if (cmd.args && cmd.args.length >= 2) {
+                    batchableEffects.scrollX += parseFloat(cmd.args[0]) || 0;
+                    batchableEffects.scrollY += parseFloat(cmd.args[1]) || 0;
+                    hasBatchable = true;
+                  }
+                  break;
+                case 'contrast':
+                  // Extract contrast level from args
+                  if (cmd.args && cmd.args.length > 0) {
+                    const level = parseFloat(cmd.args[0]) || 1.0;
+                    batchableEffects.contrast *= level;  // Multiply contrasts together
+                    hasBatchable = true;
+                  }
+                  break;
+                // spin, smoothspin, suck, blur, sharpen, invert are NOT batchable (different shaders)
+                default:
+                  nonBatchableCommands.push(cmd);
+                  break;
+              }
+            }
+            
+            // Execute batched effects first (single GPU pass)
+            if (hasBatchable && $.batchedEffects) {
+              try {
+                $.batchedEffects(batchableEffects);
+              } catch (err) {
+                console.error('Error executing batched effects:', err);
+                // Fallback: execute individually
+                if (batchableEffects.zoom !== 1.0) $.zoom?.(batchableEffects.zoom);
+                if (batchableEffects.scrollX !== 0 || batchableEffects.scrollY !== 0) {
+                  $.scroll?.(batchableEffects.scrollX, batchableEffects.scrollY);
+                }
+                if (batchableEffects.contrast !== 1.0) $.contrast?.(batchableEffects.contrast);
+              }
+            } else if (hasBatchable) {
+              // No batchedEffects available, execute individually
+              if (batchableEffects.zoom !== 1.0) $.zoom?.(batchableEffects.zoom);
+              if (batchableEffects.scrollX !== 0 || batchableEffects.scrollY !== 0) {
+                $.scroll?.(batchableEffects.scrollX, batchableEffects.scrollY);
+              }
+              if (batchableEffects.contrast !== 1.0) $.contrast?.(batchableEffects.contrast);
+            }
+            
+            // Execute non-batchable commands (spin, blur, sharpen, etc.)
+            nonBatchableCommands.forEach((cmd, i) => {
               try {
                 cmd.func();
               } catch (err) {
                 console.error(`Error executing post-composite command ${cmd.name}:`, err);
               }
             });
+            
             this.postCompositeCommands = [];
           }
 
@@ -6992,31 +7103,21 @@ class KidLisp {
           // );
         }
 
-        // 🛡️ Skip drawing if KidLisp hasn't explicitly set an ink color yet
-        // This prevents external/system calls from drawing with undefined colors
-        // before the KidLisp program has a chance to set its own ink state
-        if (!this.inkStateSet) {
+        // 🎨 Use random ink color if not explicitly set
+        // If KidLisp hasn't set an ink color, use a fresh random color for each draw
+        const useRandomInk = !this.inkStateSet;
+        if (useRandomInk) {
+          // Generate a new random ink color for this draw call
+          const randomColor = [
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256)
+          ];
+          api.ink?.(...randomColor);
+
           if (kidlispInkLoggingEnabled()) {
-            // Capture detailed stack trace
-            let stackLines = [];
-            try {
-              const stack = new Error().stack?.split('\n') || [];
-              for (let i = 1; i < Math.min(stack.length, 12); i++) {
-                const line = stack[i]?.trim();
-                if (line) {
-                  // Extract function name and file
-                  const match = line.match(/at\s+(\S+)\s+\(([^)]+)\)/);
-                  if (match) {
-                    const [, func, location] = match;
-                    const file = location.split('/').pop().split('?')[0];
-                    stackLines.push(`${func}@${file}`);
-                  }
-                }
-              }
-            } catch (e) {}
-            console.log(`${kidlispInkLogPrefix()}⏭️ KidLisp line SKIPPED (no ink)\nStack: ${stackLines.slice(0, 6).join(' → ')}`);
+            console.log(`${kidlispInkLogPrefix()}🎨 line: Using random ink [${randomColor.join(', ')}]`);
           }
-          return;
         }
 
         // Check if we should defer this command
@@ -7129,7 +7230,17 @@ class KidLisp {
         if (processedArgs.length === 4 && processedArgs.every(a => typeof a === 'number')) {
           processedArgs.push(this.fillMode ? "fill" : "outline");
         }
-        
+
+        // 🎨 Use random ink color if not explicitly set
+        if (!this.inkStateSet) {
+          const randomColor = [
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256)
+          ];
+          api.ink?.(...randomColor);
+        }
+
         const drawBox = () => {
           api.box(...processedArgs);
         };
@@ -7167,7 +7278,17 @@ class KidLisp {
           circleArgs.push(this.fillMode);
         }
         // If args.length >= 4, explicit mode is provided, use it as-is
-        
+
+        // 🎨 Use random ink color if not explicitly set
+        if (!this.inkStateSet) {
+          const randomColor = [
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256)
+          ];
+          api.ink?.(...randomColor);
+        }
+
         const drawCircle = () => {
           api.circle(...circleArgs);
         };
@@ -7228,6 +7349,16 @@ class KidLisp {
           triArgs.push(this.fillMode ? "fill" : "outline");
         }
 
+        // 🎨 Use random ink color if not explicitly set
+        if (!this.inkStateSet) {
+          const randomColor = [
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256)
+          ];
+          api.ink?.(...randomColor);
+        }
+
         const drawTri = () => {
           api.tri(...triArgs);
         };
@@ -7254,9 +7385,30 @@ class KidLisp {
         // Flood fill at coordinates with optional color
         // Usage: (flood x y) or (flood x y color)
         if (args.length >= 2) {
-          const x = args[0];
-          const y = args[1];
+          // Handle undefined (?) values with contextual logic for random coordinates
+          let x = args[0];
+          let y = args[1];
+
+          if (x === undefined) {
+            x = Math.floor(this.seededRandom() * (api.screen?.width || 256));
+          }
+          if (y === undefined) {
+            y = Math.floor(this.seededRandom() * (api.screen?.height || 256));
+          }
+
           const fillColor = args[2]; // Optional color, defaults to current ink
+
+          // 🎨 Use random ink color if not explicitly set
+          const useRandomInk = !this.inkStateSet && fillColor === undefined;
+          if (useRandomInk) {
+            // Generate a new random ink color for this draw call
+            const randomColor = [
+              Math.floor(this.seededRandom() * 256),
+              Math.floor(this.seededRandom() * 256),
+              Math.floor(this.seededRandom() * 256)
+            ];
+            api.ink?.(...randomColor);
+          }
 
           const performFlood = () => {
             if (fillColor !== undefined) {

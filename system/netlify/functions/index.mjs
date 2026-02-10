@@ -89,9 +89,11 @@ async function fun(event, context) {
   // Serve specific kidlisp.com pages before the catch-all
   // /kidlisp.com/device* → device.html (FF1 optimized display)
   // /device.kidlisp.com/* → device.html (local dev path for device.kidlisp.com)
-  // /top.kidlisp.com/* → device.html (alias for top100 playlist)
+  // /top.kidlisp.com/* → device.html (local dev path for top.kidlisp.com - auto-loads top100)
   // /kidlisp.com/pj* → pj.html (PJ mode)
-  if (event.path.startsWith("/kidlisp.com/device") || event.path.startsWith("/device.kidlisp.com") || event.path.startsWith("/top.kidlisp.com")) {
+  if (event.path.startsWith("/kidlisp.com/device") || 
+      event.path.startsWith("/device.kidlisp.com") ||
+      event.path.startsWith("/top.kidlisp.com")) {
     try {
       const htmlContent = await fs.readFile(
         path.join(process.cwd(), "public/kidlisp.com/device.html"),
@@ -190,6 +192,20 @@ async function fun(event, context) {
 
   let slug = event.path.slice(1) || "prompt";
 
+  // Solo mode: trailing `|` is syntactic sugar for ?solo
+  // e.g., /notepat| → /notepat?solo (302 redirect)
+  if (slug.endsWith("|")) {
+    const cleanSlug = slug.slice(0, -1);
+    const existingParams = event.queryStringParameters || {};
+    const paramStr = Object.entries({ ...existingParams, solo: "true" })
+      .map(([k, v]) => v === "true" ? k : `${k}=${v}`)
+      .join("&");
+    return {
+      statusCode: 302,
+      headers: { Location: `/${cleanSlug}?${paramStr}` },
+    };
+  }
+
   // Handle direct requests to /disks/ paths (static asset requests)
   if (slug.startsWith("disks/")) {
     // For direct disk file requests, strip the "disks/" prefix
@@ -251,6 +267,11 @@ async function fun(event, context) {
     event.path.length <= 1
   ) {
     slug = "wg~m2w2";
+  } else if (
+    (event.headers["host"] === "notepat.com" || event.headers["host"] === "www.notepat.com") &&
+    event.path.length <= 1
+  ) {
+    slug = "notepat";
   }
 
   // Handle kidlisp:code URL pattern and convert to $code format
@@ -648,10 +669,8 @@ async function fun(event, context) {
             
             function send(msg) {
               if (dawSend) {
-                console.log("🎹 HTML send() forwarding to bios:", msg.type);
                 dawSend(msg);
               } else {
-                console.log("🎹 HTML send() queueing (no bios yet):", msg.type);
                 dawQueue.push(msg);
               }
             }
@@ -746,6 +765,16 @@ async function fun(event, context) {
                 });
                 target.dispatchEvent(pointerEvent);
               }
+            };
+            
+            // 🎸 Pedal peak data receiver (for audio effect visualization)
+            window.acPedalPeak = function(peak) {
+              send({ type: "pedal:peak", content: { peak: peak } });
+            };
+            
+            // 🎸 Pedal envelope data receiver (L/R peaks and RMS)
+            window.acPedalEnvelope = function(peakL, peakR, rmsL, rmsR) {
+              send({ type: "pedal:envelope", content: { peakL: peakL, peakR: peakR, rmsL: rmsL, rmsR: rmsR } });
             };
             
             // Called by bios.mjs to connect the message queue
@@ -1002,6 +1031,8 @@ async function fun(event, context) {
             }
           })();
         </script>
+        <!-- Preload the YWFT Processing font for instant boot animation -->
+        <link rel="preload" href="/type/webfonts/ywft-processing-bold.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
         <link
           rel="stylesheet"
           crossorigin="anonymous"
@@ -1011,13 +1042,13 @@ async function fun(event, context) {
       </head>
       <body class="native-cursor" ${lanHost ? " data-lan-host=" + lanHost : ""}>
         <!-- Boot Canvas - VHS style with floating code pages -->
-        <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;pointer-events:none;margin:0;padding:0;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
+        <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;z-index:99999;pointer-events:none;margin:0;padding:0;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
         <script>
           window.acBootCanvas=(function(){var c=document.getElementById('boot-canvas');if(!c)return{};
           // Check for noboot param - skip all boot animation for clean device display
           var qs=location.search||'';var params=new URLSearchParams(qs);
-          console.log('[BOOT] noboot check:', params.get('noboot'), 'qs:', qs);
-          if(params.get('noboot')==='true'){console.log('[BOOT] noboot=true - hiding boot canvas');c.style.display='none';return{hide:function(){},log:function(){},netPulse:function(){},addFile:function(){},setHandle:function(){},setSessionConnected:function(){},setErrorMode:function(){}};}
+          console.log('[BOOT] noboot check:', params.get('noboot'), params.has('noboot'), 'qs:', qs);
+          if(params.has('noboot')||params.get('noboot')==='true'){console.log('[BOOT] noboot - hiding boot canvas');c.style.display='none';return{hide:function(){},log:function(){},netPulse:function(){},addFile:function(){},setHandle:function(){},setSessionConnected:function(){},setErrorMode:function(){}};}
           var x=c.getContext('2d',{willReadFrequently:true});x.imageSmoothingEnabled=false;
           // Detect kidlisp.com iframe context and system light/dark mode for themed boot animation
           // Also detect based on nolabel/nogap query params which indicate embedded preview mode
@@ -1025,23 +1056,48 @@ async function fun(event, context) {
           if(!isKidlisp&&window.self!==window.top){if(qs.indexOf('nolabel')>=0&&qs.indexOf('nogap')>=0)isKidlisp=true;}
           // Device mode: FF1/display device with black background and white/gray bars
           var isDeviceMode=qs.indexOf('device=true')>=0;
+          // Notepat.com: piano-themed boot animation
+          var isNotepat=location.hostname==='notepat.com'||location.hostname==='www.notepat.com';
           // Density param for scaling (default 1, FF1 uses 8 for 4K)
           var densityMatch=qs.match(/density=(\d+)/);var densityParam=densityMatch?parseInt(densityMatch[1]):1;
           var isLightMode=window.matchMedia&&window.matchMedia('(prefers-color-scheme:light)').matches;
           // Device mode with density=1 uses lower targetSCL for performance
           var baseTargetSCL=3;var targetSCL=isDeviceMode&&densityParam===1?1:baseTargetSCL;
-          var SCL=1,W=Math.ceil(window.innerWidth/SCL),H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;
-          function updateScale(newSCL){SCL=newSCL;W=Math.ceil(window.innerWidth/SCL);H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;x.imageSmoothingEnabled=false;for(var k in scrollYs)scrollYs[k]=0;}
-          window.addEventListener('resize',function(){W=Math.ceil(window.innerWidth/SCL);H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;x.imageSmoothingEnabled=false;});
+          // Use visualViewport API for accurate sizing on iOS (avoids browser chrome issues)
+          function getViewportSize(){var vv=window.visualViewport;return{w:vv?vv.width:window.innerWidth,h:vv?vv.height:window.innerHeight};}
+          var vp=getViewportSize();var SCL=1,W=Math.ceil(vp.w/SCL),H=Math.ceil(vp.h/SCL);c.width=W;c.height=H;
+          function updateCanvasSize(){var vp=getViewportSize();W=Math.ceil(vp.w/SCL);H=Math.ceil(vp.h/SCL);c.width=W;c.height=H;c.style.width=vp.w+'px';c.style.height=vp.h+'px';x.imageSmoothingEnabled=false;}
+          function updateScale(newSCL){SCL=newSCL;updateCanvasSize();for(var k in scrollYs)scrollYs[k]=0;}
+          window.addEventListener('resize',updateCanvasSize);
+          if(window.visualViewport){window.visualViewport.addEventListener('resize',updateCanvasSize);window.visualViewport.addEventListener('scroll',updateCanvasSize);}
+          updateCanvasSize();
           var PM=7,HH=8,CW=80,CHW=1.8,LH=4,FNT=3;
           // KidLisp theme: warm orange/yellow tones vs AC purple/pink, with light mode variants
           // AC Light mode: warm browns/greens/purples on sandy background (matching VS Code AC Light theme)
           var SYN=isKidlisp?(isLightMode?{kw:[180,100,20],fn:[160,120,20],str:[180,80,40],num:[40,140,40],cmt:[80,130,60],op:[80,60,40],tp:[180,120,40],vr:[140,100,20]}:{kw:[255,180,80],fn:[255,220,100],str:[255,160,120],num:[180,255,180],cmt:[120,180,120],op:[240,240,200],tp:[255,200,120],vr:[255,230,150]}):(isLightMode?{kw:[107,43,107],fn:[0,100,0],str:[139,69,19],num:[0,100,0],cmt:[107,142,35],op:[40,30,90],tp:[0,128,128],vr:[56,122,223]}:{kw:[197,134,192],fn:[220,220,170],str:[206,145,120],num:[181,206,168],cmt:[106,153,85],op:[212,212,212],tp:[78,201,176],vr:[156,220,254]});
+          // GIVE variant syntax colors - green $ signs and red/yellow GIVE text
+          var GIVE_SYN={kw:[255,100,100],fn:[255,200,100],str:[255,150,150],num:[100,255,100],cmt:[255,255,100],op:[255,255,255],tp:[255,200,100],vr:[255,180,180],dollar:[50,255,50],give:[255,50,50]};
           var COLS={'.mjs':isLightMode?'#e8dcc8':'#1e3a5f','.js':isLightMode?'#dce8d0':'#2d4a3e','.lisp':isKidlisp?(isLightMode?'#e0d0a0':'#3d3020'):(isLightMode?'#e8d8e0':'#3d2a4a'),default:isKidlisp?(isLightMode?'#f0e8d0':'#2a2010'):(isLightMode?'#f5ebe0':'#1a2433')};
           var PAGECOLS=isKidlisp?(isLightMode?['#f5e8d0','#f0e0c0','#f5e0d0','#f0e8c8','#f5e4c8','#f0dcc0','#f5e0c8','#f0e4d0']:['#2d1a0d','#3d2810','#2d2010','#3d3010','#2d2a10','#3d2a08','#2d1810','#3d2010']):(isLightMode?['#fcf7c5','#f5f0c0','#fffacd','#f5ebe0','#e8e3b0','#f0ebd0','#e8dcc8','#fcf5c8']:['#0d1a2d','#0d2d1a','#2d0d1a','#1a0d2d','#1a2d0d','#2d1a0d','#0d1a1a','#1a1a2d']);
           var files=[],scrollYs={},bootStart=performance.now(),motd='',motdHandle='',motdStart=0;
           var lines=[],lc=0,mL=10,lastLog=performance.now(),lb=0,bp=0;
+          // Eagerly load the YWFT Processing font as soon as possible
+          try{document.fonts.load('bold 16px YWFTProcessing-Bold').then(function(){console.log('[BOOT] ✅ Font loaded: YWFTProcessing-Bold');window.acFontReadyTime=performance.now();}).catch(function(){});}catch(e){}
           var tinyPng='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABWUlEQVR4nN2Ru0pDQRCGg3fUzk5bEVS0ELxVwQsYTRBvJ5ed3VgZVBB8g1Q+gCDIzq6IluclUktmT1Kk8mWUWT2RTcBep1nmZ//vn53NZP5XOWU3ndTlOIoHe/UE8MxJM8s9SdxuVR9nAnMneph0Up+25esECSwEAGFK3gh4SwIvnDQ5UrgXAN5v7kcJ9HUjWx/iKZwyJ6RsxMkEWPzSTY7A5psVsxaYG+fPYyTNFZ8+qaaHSRjhzcpGrSou+knKdprH70t2Ci+Z7qS56wIAj9M7DPkJskcBIAG96gHKzKdv/X5vkU+/E7B5AtxI4GnBKasSpXf5brBIqulxB/qQjZzO4/uxwe68qZep7l6EXmKNQemv+GIzE5vKHKTL87owpbbCOQK9wj1Jvc59prcSwAqnd6J4hM0pgGGsf9TrA32mACD0Pu/Dp1bNcqJ01gMEFkjYrV/Nf7s+AS1XxDy7PXOrAAAAAElFTkSuQmCC',img=new Image(),imgFull=new Image(),imgFullLoaded=!1;img.src=tinyPng;imgFull.onload=function(){imgFullLoaded=!0};imgFull.src='/purple-pals.svg';
+          // A/B Test: "GIVE" variant - DISABLED (promo over)
+          // Force with ?give=true or ?abtest=give, disable with ?give=false
+          var giveForced=params.get('give')==='true'||params.get('abtest')==='give';
+          var giveDisabled=params.get('give')==='false';
+          var giveVariant=!isKidlisp&&!isDeviceMode&&!giveDisabled&&(giveForced||false);
+          if(giveVariant)console.log('[BOOT] 🎁 A/B Test: GIVE variant active - showing donation CTA');
+          var giveUrl='give.aesthetic.computer';var giveMsg='HELP AC THRIVE';
+          var giveFlyBys=[],giveLastSpawn=0,GIVE_SPAWN_INTERVAL=2500;
+          // HIGH CONTRAST black bg with bright red/white/yellow - very clear and alarming
+          var GIVE_COLORS=['#ff0000','#ffffff','#ffff00','#ff0000','#ffffff','#ffff00'];
+          var GIVE_BG_COLOR='#000000';
+          function spawnGiveFlyBy(S){var dir=Math.random()>0.5?1:-1;var startX=dir>0?-W*0.4:W*1.4;var yPos=H*0.2+Math.random()*H*0.35;var speed=(0.8+Math.random()*1.2)*S*dir;var text=Math.random()>0.4?giveUrl:'GIVE';var scale=1.5+Math.random()*1.5;giveFlyBys.push({x:startX,y:yPos,text:text,speed:speed,rot:0,scale:scale,col:GIVE_COLORS[Math.floor(Math.random()*GIVE_COLORS.length)],life:1,trail:[]});}
+          // GIVE mode fake "source code" with $$ and GIVE
+          var giveCodeLines=['// GIVE GIVE GIVE','$$$$ GIVE $$$$','function GIVE() {','  return $$$;','}','// $$ SUPPORT $$','GIVE.now();','$$$ GIVE $$$','const $ = GIVE;','// aesthetic.computer','GIVE GIVE GIVE','$$.support();','await GIVE();','// HELP US GROW','$$$$$$$$$$','GIVE(); GIVE();','$ $ $ $ $ $ $','// THANK YOU','GIVE.aesthetic','$$ GIVE $$ GIVE'];
           var uH=null,hST=0,run=true,f=0,netAct=0,shCan=document.createElement('canvas'),shCtx=shCan.getContext('2d'),shF=0;
           var sessionConnected=false,connFlash=0,connFlashStart=0;
           var KWS=['import','export','const','let','function','async','await','return','from','if','else','for','while','class','new','this','var','try','catch'];
@@ -1053,11 +1109,22 @@ async function fun(event, context) {
               continue;}
             var next=line?line+' '+w:w;if(next.length<=maxChars){line=next;}else{if(line)lines.push(line);line=w;}}
           if(line)lines.push(line);return lines;}
-          function tok(ln){var r=[],i=0,s=ln;while(i<s.length){if(s.slice(i,i+2)==='//'){ r.push([s.slice(i),'cmt']);break;}var fk=false;for(var k=0;k<KWS.length;k++){var kw=KWS[k];if(s.slice(i,i+kw.length)===kw){var nc=s[i+kw.length]||'';if(!/[a-zA-Z0-9_]/.test(nc)){r.push([kw,'kw']);i+=kw.length;fk=true;break;}}}if(fk)continue;var ch=s[i];if(ch==='"'||ch==="'"||ch==='\`'){var q=ch,j=i+1;while(j<s.length&&s[j]!==q){if(s[j]==='\\\\')j++;j++;}r.push([s.slice(i,j+1),'str']);i=j+1;continue;}if(/[0-9]/.test(ch)){var j=i;while(/[0-9.]/.test(s[j]))j++;r.push([s.slice(i,j),'num']);i=j;continue;}if(/[a-zA-Z_$]/.test(ch)){var j=i;while(/[a-zA-Z0-9_$]/.test(s[j]))j++;var w=s.slice(i,j);r.push([w,s[j]==='('?'fn':'vr']);i=j;continue;}r.push([ch,'op']);i++;}return r;}
-          var scrollSpds={};function addFile(name,src){if(isKidlisp)return;if(shownFiles[name])return;shownFiles[name]=true;netAct=1;var ls=src.split('\\n').slice(0,100),ext=(name.match(/\\.[^.]+$/)||[''])[0];var toks=ls.map(tok);fileQ.push({name:name,toks:toks});files.push({name:name,lines:ls,ext:ext,toks:toks,total:ls.length,cH:(ls.length+3)*LH});scrollYs[name]=0;scrollSpds[name]=2+Math.floor(Math.random()*5);}
+          function tok(ln){var r=[],i=0,s=ln||'';while(i<s.length){if(s.slice(i,i+2)==='//'){ r.push([s.slice(i),'cmt']);break;}
+            // GIVE mode: recognize $ and GIVE as special tokens
+            if(s[i]==='$'){var j=i;while(j<s.length&&s[j]==='$')j++;r.push([s.slice(i,j),'dollar']);i=j;continue;}
+            if(s.slice(i,i+4)==='GIVE'&&!/[a-zA-Z0-9_]/.test(s[i+4]||'')){r.push(['GIVE','give']);i+=4;continue;}
+            var fk=false;for(var k=0;k<KWS.length;k++){var kw=KWS[k];if(s.slice(i,i+kw.length)===kw){var nc=s[i+kw.length]||'';if(!/[a-zA-Z0-9_]/.test(nc)){r.push([kw,'kw']);i+=kw.length;fk=true;break;}}}if(fk)continue;var ch=s[i];if(ch==='"'||ch==="'"||ch==='\`'){var q=ch,j=i+1;while(j<s.length&&s[j]!==q){if(s[j]==='\\\\')j++;j++;}r.push([s.slice(i,j+1),'str']);i=j+1;continue;}if(/[0-9]/.test(ch)){var j=i;while(j<s.length&&/[0-9.]/.test(s[j]))j++;r.push([s.slice(i,j),'num']);i=j;continue;}if(/[a-zA-Z_]/.test(ch)){var j=i;while(j<s.length&&/[a-zA-Z0-9_]/.test(s[j]))j++;var w=s.slice(i,j);r.push([w,s[j]==='('?'fn':'vr']);i=j;continue;}r.push([ch,'op']);i++;}return r;}
+          var scrollSpds={};function addFile(name,src){if(isKidlisp||isNotepat)return;if(shownFiles[name])return;shownFiles[name]=true;netAct=1;var ls=src.split('\\n').slice(0,100),ext=(name.match(/\\.[^.]+$/)||[''])[0];var toks=ls.map(tok);
+            // In GIVE variant, inject GIVE/$$ lines throughout
+            if(giveVariant){var injected=[];for(var li=0;li<toks.length;li++){injected.push(toks[li]);if(Math.random()<0.4){var gLine=giveCodeLines[Math.floor(Math.random()*giveCodeLines.length)];injected.push(tok(gLine));}}toks=injected;}
+            fileQ.push({name:name,toks:toks});files.push({name:name,lines:ls,ext:ext,toks:toks,total:ls.length,cH:(ls.length+3)*LH});scrollYs[name]=0;scrollSpds[name]=2+Math.floor(Math.random()*5);}
           function netPulse(){netAct=Math.min(1,netAct+0.5);}
           function add(m){var now=performance.now(),dt=now-lastLog;lastLog=now;lb=Math.min(1,500/Math.max(50,dt))*0.5+0.5;if(lines.length>0)lines[0].text=lines[0].text.replace(/_$/,'');lines.unshift({text:m+'_',time:now,burst:lb});if(lines.length>mL)lines.pop();lc++;bp=Math.min(1,lc/25);}
           var KIDLISP_BARS=[];
+          // 🎹 Notepat piano boot animation state
+          var NP_KEYS=[];var NP_PARTICLES=[];var NP_LAST_KEY=0;var NP_KEY_INTERVAL=120;
+          var NP_NOTE_NAMES=['C','D','E','F','G','A','B'];
+          var NP_KEY_COLS=[[255,107,157],[78,205,196],[255,217,61],[149,225,211],[255,154,162],[170,150,218],[112,214,255],[255,183,77]];
           // Theme-aware KidLisp colors - darker/more saturated for light mode
           var KIDLISP_COLS_DARK=[[255,107,107],[78,205,196],[255,230,109],[149,225,211],[243,129,129],[170,150,218],[112,214,255]];
           var KIDLISP_COLS_LIGHT=[[200,60,60],[30,140,130],[180,150,40],[50,150,130],[180,70,70],[100,80,160],[40,130,190]];
@@ -1069,14 +1136,16 @@ async function fun(event, context) {
           function setH(h){uH=h;hST=performance.now();}
           function setConn(c){if(c&&!sessionConnected){connFlash=1;connFlashStart=performance.now();}sessionConnected=c;}
           // Error mode state - flashes red when fatal boot errors occur
-          var errorMode=false,errorFlash=0,errorMsg='';
-          function setErrorMode(on,msg){errorMode=on;if(on){errorFlash=1;errorMsg=msg||'boot error';}else{errorFlash=0;errorMsg='';}}
+          var errorMode=false,errorFlash=0,errorMsg='',errorStartTime=0;
+          function setErrorMode(on,msg){errorMode=on;if(on){errorFlash=1;errorMsg=msg||'boot error';errorStartTime=performance.now();}else{errorFlash=0;errorMsg='';errorStartTime=0;}}
           // Touch/mouse interaction - yanks and glitches the animation
           var touchGlitch=0,touchX=0,touchY=0,lastTouch=0;
           c.style.pointerEvents='auto';c.style.touchAction='manipulation';
           function handleInteraction(ex,ey){touchGlitch=Math.min(1.5,touchGlitch+0.4);touchX=ex/W;touchY=ey/H;lastTouch=performance.now();
             // Add some extra chaos when touched
             lb=Math.min(1,lb+0.3);bp=Math.min(1,bp+0.1);}
+          // GIVE variant - tap interaction is cosmetic only (no navigation to give.aesthetic.computer)
+          var giveOpened=false;
           c.addEventListener('touchstart',function(e){e.preventDefault();var t=e.touches[0];if(t)handleInteraction(t.clientX/SCL,t.clientY/SCL);},{passive:false});
           c.addEventListener('touchmove',function(e){e.preventDefault();var t=e.touches[0];if(t)handleInteraction(t.clientX/SCL,t.clientY/SCL);},{passive:false});
           c.addEventListener('mousedown',function(e){handleInteraction(e.clientX/SCL,e.clientY/SCL);});
@@ -1084,7 +1153,7 @@ async function fun(event, context) {
           // File cycling - rotate through different files as boot progresses
           var displayFileIdx=0,lastFileSwap=0,FILE_SWAP_INTERVAL=3000;
           var lastSCL=1;
-          function anim(){if(!run||!c)return;f++;lb*=0.94;touchGlitch*=0.92;var chaos=0.3+bp*0.4+lb*0.3+touchGlitch*0.5;var t=f*0.05;
+          function anim(){if(!run||!c)return;f++;var sf=Math.floor(f*0.5);lb*=0.94;touchGlitch*=0.92;var chaos=0.3+bp*0.4+lb*0.3+touchGlitch*0.5;var t=sf*0.05;
             // Error flash decay (slower than connection flash)
             if(errorFlash>0)errorFlash*=0.96;
             // Connection flash decay
@@ -1096,6 +1165,63 @@ async function fun(event, context) {
             var baseShk=0.5+Math.sin(t*2)*0.3,shk=baseShk+chaos*chaos*4+lb*3+touchGlitch*8,sx=(Math.random()-0.5)*shk+touchDx,sy=(Math.random()-0.5)*shk+touchDy;
             // File cycling - swap displayed files periodically as boot progresses
             var now=performance.now();if(files.length>1&&now-lastFileSwap>FILE_SWAP_INTERVAL){lastFileSwap=now;displayFileIdx=(displayFileIdx+1)%files.length;for(var k in scrollYs)scrollYs[k]=0;}
+            // 🎹 Notepat.com piano boot animation
+            if(isNotepat){
+              var npBg=isLightMode?'#f8f6f0':'#0a0a12';x.fillStyle=npBg;x.fillRect(0,0,W,H);
+              // Subtle scan lines
+              x.globalAlpha=isLightMode?0.02:0.04;x.fillStyle=isLightMode?'#888':'#000';for(var yy=0;yy<H;yy+=2*S)x.fillRect(0,yy,W,S);x.globalAlpha=1;
+              // Draw piano keyboard at bottom ~30% of screen
+              var pianoY=Math.floor(H*0.62);var pianoH=H-pianoY;var totalWhite=14;var kW=Math.floor(W/totalWhite);
+              // White keys
+              for(var ki=0;ki<totalWhite;ki++){var kx=ki*kW;var isPressed=false;
+                for(var nki=NP_KEYS.length-1;nki>=0;nki--){if(NP_KEYS[nki].idx===ki&&NP_KEYS[nki].white){isPressed=true;break;}}
+                var wKeyCol=isLightMode?(isPressed?'#e8e0d8':'#faf8f4'):(isPressed?'#2a2a3a':'#e8e4de');
+                x.fillStyle=wKeyCol;x.fillRect(kx+S,pianoY,kW-2*S,pianoH);
+                // Key border
+                x.strokeStyle=isLightMode?'#ccc':'#333';x.lineWidth=S;x.strokeRect(kx+S,pianoY,kW-2*S,pianoH);
+                // Glow on pressed keys
+                if(isPressed){for(var nki=NP_KEYS.length-1;nki>=0;nki--){if(NP_KEYS[nki].idx===ki&&NP_KEYS[nki].white){var nk=NP_KEYS[nki];var glA=nk.life*0.3;x.globalAlpha=glA;var gc=NP_KEY_COLS[nk.ci%NP_KEY_COLS.length];x.fillStyle='rgb('+gc[0]+','+gc[1]+','+gc[2]+')';x.fillRect(kx+S,pianoY,kW-2*S,pianoH);x.globalAlpha=1;break;}}}
+              }
+              // Black keys (pentatonic pattern: 2, 3 grouped)
+              var blackPattern=[1,1,0,1,1,1,0];var bkW=Math.floor(kW*0.6);var bkH=Math.floor(pianoH*0.6);
+              for(var ki=0;ki<totalWhite-1;ki++){var bp2=blackPattern[ki%7];if(!bp2)continue;var bkx=ki*kW+kW-Math.floor(bkW/2);
+                var isBPressed=false;for(var nki=NP_KEYS.length-1;nki>=0;nki--){if(NP_KEYS[nki].idx===ki&&!NP_KEYS[nki].white){isBPressed=true;break;}}
+                var bKeyCol=isLightMode?(isBPressed?'#1a1a2a':'#222'):(isBPressed?'#3a3a5a':'#1a1a1a');
+                x.fillStyle=bKeyCol;x.fillRect(bkx,pianoY,bkW,bkH);
+                if(isBPressed){for(var nki=NP_KEYS.length-1;nki>=0;nki--){if(NP_KEYS[nki].idx===ki&&!NP_KEYS[nki].white){var nk2=NP_KEYS[nki];var glA2=nk2.life*0.4;x.globalAlpha=glA2;var gc2=NP_KEY_COLS[nk2.ci%NP_KEY_COLS.length];x.fillStyle='rgb('+gc2[0]+','+gc2[1]+','+gc2[2]+')';x.fillRect(bkx,pianoY,bkW,bkH);x.globalAlpha=1;break;}}}
+              }
+              // Spawn new key presses randomly
+              if(now-NP_LAST_KEY>NP_KEY_INTERVAL){NP_LAST_KEY=now;NP_KEY_INTERVAL=80+Math.random()*200;
+                var isWhite=Math.random()>0.3;var idx=Math.floor(Math.random()*totalWhite);var ci=Math.floor(Math.random()*NP_KEY_COLS.length);
+                NP_KEYS.push({idx:idx,white:isWhite,life:1,ci:ci,born:now});
+                // Spawn rising particles from the key
+                var pkx=isWhite?(idx*kW+kW/2):(idx*kW+kW);var pky=pianoY;
+                for(var pi=0;pi<3+Math.floor(Math.random()*4);pi++){
+                  NP_PARTICLES.push({x:pkx+(Math.random()-0.5)*kW*0.5,y:pky,vy:-(1+Math.random()*3)*S,vx:(Math.random()-0.5)*1.5*S,life:1,ci:ci,sz:(1.5+Math.random()*2.5)*S});
+                }
+              }
+              // Update and draw particles (rising notes/sparkles)
+              for(var pi=NP_PARTICLES.length-1;pi>=0;pi--){var p=NP_PARTICLES[pi];p.x+=p.vx;p.y+=p.vy;p.vy*=0.99;p.life-=0.012;
+                if(p.life<=0){NP_PARTICLES.splice(pi,1);continue;}
+                var pc=NP_KEY_COLS[p.ci%NP_KEY_COLS.length];x.globalAlpha=p.life*0.7;x.fillStyle='rgb('+pc[0]+','+pc[1]+','+pc[2]+')';
+                // Draw as small rounded rect (like a mini note)
+                var psz=p.sz*p.life;x.beginPath();x.roundRect(p.x-psz/2,p.y-psz/2,psz,psz*0.7,psz*0.2);x.fill();
+              }
+              x.globalAlpha=1;
+              // Update key presses (fade out)
+              for(var nki=NP_KEYS.length-1;nki>=0;nki--){NP_KEYS[nki].life-=0.02;if(NP_KEYS[nki].life<=0)NP_KEYS.splice(nki,1);}
+              // "notepat" text centered above keyboard
+              var npFS=Math.floor(12*S);x.font='bold '+npFS+'px monospace';var npTxt='notepat';var npTW=x.measureText(npTxt).width;var npTX=(W-npTW)/2;var npTY=pianoY-12*S;
+              // Subtle pulsing glow behind text
+              var npPulse=0.15+Math.sin(f*0.06)*0.08;x.globalAlpha=npPulse;x.fillStyle=isLightMode?'rgba(255,107,157,0.3)':'rgba(78,205,196,0.25)';x.beginPath();x.roundRect(npTX-8*S,npTY-npFS*0.8,npTW+16*S,npFS*1.4,4*S);x.fill();
+              x.globalAlpha=0.9;x.fillStyle=isLightMode?'#333':'#e8e4de';x.fillText(npTxt,npTX,npTY);
+              // ".com" superscript
+              var comFS=Math.floor(6*S);x.font=comFS+'px monospace';x.fillStyle=isLightMode?'#0891b2':'#4ecdc4';x.fillText('.com',npTX+npTW+2*S,npTY-npFS*0.35);
+              x.globalAlpha=1;
+              // Boot log messages (top-left, like kidlisp)
+              var npLogFS=4*S;x.font=npLogFS+'px monospace';var npLogY=8*S;
+              for(var li=0;li<lines.length&&li<8;li++){var ln=lines[li],ly=npLogY+li*5*S,la=Math.max(0.3,1-li*0.1);var lc2=NP_KEY_COLS[li%NP_KEY_COLS.length];x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc2[0]+','+lc2[1]+','+lc2[2]+')';var tw=x.measureText(ln.text).width;x.beginPath();x.roundRect(4*S,ly-npLogFS*0.7,tw+12*S,npLogFS*1.1,2*S);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc2[0]+','+lc2[1]+','+lc2[2]+')';x.fillText(ln.text,6*S,ly);}
+              x.globalAlpha=1;requestAnimationFrame(anim);return;}
             // KidLisp simplified mode: colored bars + logs only (or device mode: black/white)
             if(isKidlisp||isDeviceMode){var klBg=isDeviceMode?'#000000':(isLightMode?'rgba(247,247,247,0.95)':'rgba(42,37,32,0.95)');x.fillStyle=klBg;x.fillRect(0,0,W,H);if(!isDeviceMode){x.globalAlpha=isLightMode?0.015:0.03;x.fillStyle=isLightMode?'#888':'#000';for(var yy=0;yy<H;yy+=3*S)x.fillRect(0,yy,W,S);}x.globalAlpha=1;var klCols=getKidlispCols();var dS=isDeviceMode?Math.max(1,densityParam):1;var embedPad=isKidlisp?8*S*dS:0;
               // In device mode with density=1, use simpler/fewer bars for performance
@@ -1109,6 +1235,457 @@ async function fun(event, context) {
               var logFS=densityParam===1&&isDeviceMode?Math.max(14,Math.floor(H/60)):4*S*dS;
               x.font=logFS+'px monospace';var logY=(densityParam===1&&isDeviceMode?Math.floor(H/20):8*S*dS)+embedPad;var logSpacing=densityParam===1&&isDeviceMode?Math.floor(logFS*1.5):4*S*dS;for(var li=0;li<lines.length&&li<10;li++){var ln=lines[li],ly=logY+li*logSpacing,la=Math.max(0.3,1-li*0.08),lc=klCols[li%klCols.length];var tw=x.measureText(ln.text).width;var logX=densityParam===1&&isDeviceMode?20:6*S*dS;var textX=densityParam===1&&isDeviceMode?30:10*S*dS;var pillH=densityParam===1&&isDeviceMode?Math.floor(logFS*1.2):4*S*dS;var pillR=densityParam===1&&isDeviceMode?6:2*S*dS;x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.beginPath();x.roundRect(logX,ly-pillH*0.7,tw+20,pillH,pillR);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.fillText(ln.text,textX,ly);}
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
+            // GIVE variant: HIGH ALERT SIREN MODE - keep logo/logs, add alarm effects
+            if(giveVariant){
+              var now=performance.now();
+              // CRISP NEAREST-NEIGHBOR MODE
+              x.imageSmoothingEnabled=false;
+              x.imageSmoothingQuality='low';
+              // Check if processing font is loaded and track when it became ready
+              var fontReady=false;
+              try{fontReady=document.fonts.check('bold 12px YWFTProcessing-Bold');}catch(e){fontReady=true;}
+              if(fontReady&&!window.acFontReadyTime)window.acFontReadyTime=now;
+              var fontRevealTime=window.acFontReadyTime||now;
+              var revealElapsed=(now-fontRevealTime)/1000;
+              // Characters reveal at ~30 chars/sec with bling
+              var charsRevealed=Math.floor(revealElapsed*30);
+              // Blue/black background with yellow/red flickers
+              var bgPhase=Math.floor(sf*0.2)%12;
+              var bgCol=bgPhase<4?'#000011':(bgPhase<7?'#001133':(bgPhase<9?'#000022':'#000000'));
+              // Occasional yellow/red flicker
+              if(Math.floor(sf*0.3)%17===0)bgCol='#221100';
+              if(Math.floor(sf*0.25)%23===0)bgCol='#110000';
+              if(Math.floor(sf*0.4)%31===0)bgCol='#181800';
+              x.fillStyle=bgCol;x.fillRect(0,0,W,H);
+              // Color flash overlays
+              if(Math.floor(sf*0.1)%8===0){x.globalAlpha=0.12;x.fillStyle='#0066ff';x.fillRect(0,0,W,H);}
+              if(Math.floor(sf*0.15)%11===0){x.globalAlpha=0.1;x.fillStyle='#ffff00';x.fillRect(0,0,W,H);}
+              if(Math.floor(sf*0.12)%13===0){x.globalAlpha=0.08;x.fillStyle='#ff0000';x.fillRect(0,0,W,H);}
+              x.globalAlpha=1;
+              // ========== CHAOTIC WOBBLY RAYS FROM TOP RIGHT ==========
+              var rayOriginX=W+Math.floor(Math.sin(sf*0.07)*15*S);var rayOriginY=Math.floor(Math.cos(sf*0.09)*10*S);
+              var numRays=12; // Reduced from 18
+              x.save();
+              for(var ri=0;ri<numRays;ri++){
+                // Chaotic wobbling angles
+                var baseAngle=Math.PI*0.5+Math.PI*0.6*(ri/numRays);
+                var wobble1=Math.sin(sf*0.08+ri*1.3)*0.25;
+                var wobble2=Math.cos(sf*0.11+ri*0.7)*0.15;
+                var wobble3=Math.sin(sf*0.05+ri*2.1)*0.1;
+                var rayAngle=baseAngle+wobble1+wobble2+wobble3;
+                // Erratic length
+                var rayLen=Math.floor((40+60*Math.sin(sf*0.06+ri*1.1)+30*Math.cos(sf*0.13+ri*0.6))*S);
+                // Jagged gradient
+                var grad=x.createLinearGradient(rayOriginX,rayOriginY,
+                  rayOriginX+Math.cos(rayAngle)*rayLen,rayOriginY+Math.sin(rayAngle)*rayLen);
+                var rayHue=(340+ri*20+sf*3+Math.sin(sf*0.2+ri)*40)%360;
+                var rayAlpha=0.08+Math.sin(sf*0.15+ri*0.9)*0.08+Math.random()*0.04;
+                grad.addColorStop(0,'hsla('+rayHue+',100%,75%,'+rayAlpha+')');
+                grad.addColorStop(0.3+Math.sin(sf*0.1)*0.2,'hsla('+((rayHue+30)%360)+',90%,65%,'+(rayAlpha*0.6)+')');
+                grad.addColorStop(1,'hsla('+rayHue+',70%,50%,0)');
+                x.globalAlpha=1;x.fillStyle=grad;
+                // Draw as wobbly curved path
+                var raySpread=0.06+Math.sin(sf*0.12+ri)*0.04;
+                x.beginPath();
+                x.moveTo(rayOriginX,rayOriginY);
+                // Add control points for wobble
+                var cp1x=rayOriginX+Math.cos(rayAngle)*rayLen*0.5+Math.sin(sf*0.2+ri)*10*S;
+                var cp1y=rayOriginY+Math.sin(rayAngle)*rayLen*0.5+Math.cos(sf*0.15+ri)*8*S;
+                x.quadraticCurveTo(cp1x,cp1y,rayOriginX+Math.cos(rayAngle-raySpread)*rayLen,rayOriginY+Math.sin(rayAngle-raySpread)*rayLen);
+                x.lineTo(rayOriginX+Math.cos(rayAngle+raySpread)*rayLen,rayOriginY+Math.sin(rayAngle+raySpread)*rayLen);
+                var cp2x=rayOriginX+Math.cos(rayAngle)*rayLen*0.5-Math.sin(sf*0.18+ri)*8*S;
+                var cp2y=rayOriginY+Math.sin(rayAngle)*rayLen*0.5-Math.cos(sf*0.22+ri)*6*S;
+                x.quadraticCurveTo(cp2x,cp2y,rayOriginX,rayOriginY);
+                x.closePath();x.fill();}
+              x.restore();
+              // ========== EXTREME SCROLLING CODE - ACTUAL LOADING FILES ==========
+              var codeFS=Math.floor(7*S);x.font=fontReady?'bold '+codeFS+'px YWFTProcessing-Bold, monospace':'bold '+codeFS+'px monospace';
+              var codeLineH=Math.floor(codeFS*1.3);
+              // Blinking intensity
+              var codeBlink=0.4+Math.sin(sf*0.2)*0.15+Math.sin(sf*0.33)*0.1;
+              // Use real loaded files if available, fall back to srcF
+              var useFiles=files.length>0;
+              var allCodeToks=[];
+              if(useFiles){
+                for(var ufi=0;ufi<files.length;ufi++){
+                  var uFile=files[ufi];
+                  for(var uli=0;uli<uFile.toks.length;uli++){allCodeToks.push(uFile.toks[uli]);}
+                }
+              }else{allCodeToks=srcF;}
+              if(allCodeToks.length===0)allCodeToks=srcF;
+              // Multiple columns of code scrolling at different speeds - MUCH BRIGHTER
+              var codeCols=[{x:0,speed:2.5,alpha:0.55},{x:Math.floor(W*0.35),speed:1.8,alpha:0.45},{x:Math.floor(W*0.7),speed:3,alpha:0.5}];
+              for(var cc=0;cc<codeCols.length;cc++){
+                var col=codeCols[cc];
+                var colCodeY=Math.floor(-((sf*col.speed)%(allCodeToks.length*codeLineH)));
+                x.globalAlpha=col.alpha*codeBlink;
+                for(var ci=0;ci<allCodeToks.length*2;ci++){
+                  var srcLine=allCodeToks[ci%allCodeToks.length];var codeX=col.x+Math.floor(5*S);
+                  var lineY=Math.floor(colCodeY+ci*codeLineH);if(lineY<-codeFS||lineY>H+codeFS)continue;
+                  // Add horizontal jitter per line
+                  var lineJitter=Math.floor(Math.sin(sf*0.1+ci*0.5)*5*S);
+                  for(var ti=0;ti<srcLine.length;ti++){
+                    var tok=srcLine[ti];
+                    // BRIGHTER colors with red emphasis
+                    var tokCol=tok[1]==='kw'?'#ff2222':(tok[1]==='str'?'#22ff22':(tok[1]==='num'?'#ffff00':(tok[1]==='dollar'?'#00ff00':(tok[1]==='give'?'#ff00ff':'#ff4444'))));
+                    // Flash certain tokens red
+                    if((tok[1]==='kw'||tok[1]==='give')&&Math.floor(sf*0.3+ci+ti)%4===0)tokCol='#ffffff';
+                    x.fillStyle=tokCol;x.fillText(tok[0],codeX+lineJitter,lineY);codeX+=Math.floor(x.measureText(tok[0]).width);}}}
+              x.globalAlpha=1;
+              // ========== SCATTERED LARGE "GIVE" TEXT (only when font ready) ==========
+              if(fontReady){
+              var giveScatterCount=5; // Reduced from 8
+              var giveScatterFS=Math.floor(Math.min(W,H)*0.12);
+              x.font='bold '+giveScatterFS+'px YWFTProcessing-Bold, monospace';
+              for(var gs=0;gs<giveScatterCount;gs++){
+                var gsX=Math.floor((Math.sin(gs*2.3+sf*0.02)*0.4+0.5)*W-giveScatterFS);
+                var gsY=Math.floor((Math.cos(gs*1.7+sf*0.015)*0.35+0.5)*H);
+                var gsRot=(Math.sin(gs*1.1+sf*0.03)-0.5)*0.3;
+                var gsHue=(sf*2+gs*60)%360;
+                var gsAlpha=0.12+Math.sin(sf*0.1+gs)*0.06;
+                x.save();x.translate(gsX,gsY);x.rotate(gsRot);
+                x.globalAlpha=gsAlpha;x.fillStyle='hsl('+gsHue+',100%,50%)';
+                x.fillText('GIVE',0,0);
+                x.restore();}
+              } // end fontReady for scattered GIVE
+              // ========== SCROLLING "GIVE.AESTHETIC.COMPUTER" MARQUEES ==========
+              if(fontReady){
+              var marqueeText='GIVE.AESTHETIC.COMPUTER';
+              var marqueeFS=Math.floor(16*S);
+              x.font='bold '+marqueeFS+'px YWFTProcessing-Bold, monospace';
+              // Fewer rows, giant ghostly projections
+              var marqueeRows=[
+                {y:Math.floor(H*0.25),speed:1.2,dir:1},
+                {y:Math.floor(H*0.6),speed:0.9,dir:-1},
+                {y:Math.floor(H*0.9),speed:1.5,dir:1}
+              ];
+              for(var mr=0;mr<marqueeRows.length;mr++){
+                var row=marqueeRows[mr];
+                var baseX=((sf*row.speed*row.dir*S)%(W*2));
+                if(row.dir>0)baseX=-W+baseX;else baseX=W-baseX;
+                // Draw each character with color variation
+                var charX=baseX;
+                for(var mci=0;mci<marqueeText.length;mci++){
+                  var mch=marqueeText[mci];
+                  var mchW=x.measureText(mch).width;
+                  // Color varies per character
+                  var mHue=(mci*25+sf*2+mr*60)%360;
+                  var mCol='hsl('+mHue+',100%,70%)';
+                  x.globalAlpha=0.12+Math.sin(sf*0.02+mci*0.3+mr)*0.05;
+                  x.fillStyle=mCol;
+                  x.fillText(mch,charX,row.y);
+                  charX+=mchW;
+                }
+                // Second copy for seamless
+                charX=baseX+(row.dir>0?W*1.5:-W*1.5);
+                for(var mci=0;mci<marqueeText.length;mci++){
+                  var mch=marqueeText[mci];
+                  var mchW=x.measureText(mch).width;
+                  var mHue=(mci*25+sf*2+mr*60)%360;
+                  var mCol='hsl('+mHue+',100%,70%)';
+                  x.globalAlpha=0.12+Math.sin(sf*0.02+mci*0.3+mr)*0.05;
+                  x.fillStyle=mCol;
+                  x.fillText(mch,charX,row.y);
+                  charX+=mchW;
+                }}
+              } // end fontReady for marquee
+              x.globalAlpha=1;
+              // ========== PALS LOGO TOP LEFT - CRISP PIXEL VERSION ==========
+              var lS=Math.floor(28*S),lX=Math.floor(5*S),lY=Math.floor(5*S);
+              // Pulsing glow rings (pixel snapped)
+              for(var gr=3;gr>=0;gr--){var glowSize=Math.floor(lS+(gr*8+Math.sin(sf*0.2+gr)*4)*S);
+                x.globalAlpha=0.15-gr*0.03;x.fillStyle=['#ff0000','#ffff00','#ff00ff','#00ffff'][gr%4];
+                x.fillRect(Math.floor(lX-(glowSize-lS)/2),Math.floor(lY-(glowSize-lS)/2),glowSize,glowSize);}
+              // Chromatic split trails - CRISP
+              x.imageSmoothingEnabled=false;var logoImg=imgFullLoaded?imgFull:img;
+              var logoShake=Math.floor(Math.sin(sf*0.3)*3*S);
+              // Ghostly chromatic trails behind
+              x.globalAlpha=0.25;x.filter='hue-rotate(-60deg) saturate(2)';
+              x.drawImage(logoImg,lX-Math.floor(5*S)+logoShake,lY-Math.floor(3*S),lS,lS);
+              x.filter='hue-rotate(60deg) saturate(2)';
+              x.drawImage(logoImg,lX+Math.floor(5*S)-logoShake,lY+Math.floor(3*S),lS,lS);
+              x.filter='hue-rotate(180deg) saturate(1.5)';x.globalAlpha=0.2;
+              x.drawImage(logoImg,lX+Math.floor(Math.sin(sf*0.15)*3*S),lY+Math.floor(Math.cos(sf*0.12)*3*S),lS,lS);
+              // Clean solid logo on top - SHARP AND CLEAR
+              x.filter='none';
+              x.imageSmoothingEnabled=false;
+              x.globalAlpha=1;
+              x.drawImage(logoImg,lX,lY,lS,lS);
+              // ========== BRIGHT BOOT LOGS TOP LEFT ==========
+              var tX=Math.floor(lX+lS+4*S),tYbase=Math.floor(lY+S);
+              x.font='bold '+Math.floor(4*S)+'px monospace';
+              // "aesthetic.computer" title with alarm colors
+              var titlePulse=Math.floor(sf*0.2)%2===0;
+              x.globalAlpha=0.9;x.fillStyle=titlePulse?'#ff6666':'#ffffff';
+              x.fillText('Aesthetic.Computer',tX,tYbase);
+              // Boot timer
+              var sec=(now-bootStart)/1000;var secT=sec.toFixed(2)+'s';
+              x.fillStyle='#ffff00';x.fillText(secT,tX,Math.floor(tYbase+5*S));
+              // UTC time
+              var d=new Date(),utcT=d.getUTCHours().toString().padStart(2,'0')+':'+d.getUTCMinutes().toString().padStart(2,'0')+':'+d.getUTCSeconds().toString().padStart(2,'0')+' UTC';
+              x.font=Math.floor(3*S)+'px monospace';x.fillStyle='#ff8888';x.fillText(utcT,tX,Math.floor(tYbase+10*S));
+              // Boot log lines - BRIGHT (with GIVE mode joke injection)
+              var logStartY=Math.floor(tYbase+15*S);x.font=Math.floor(4*S)+'px monospace';
+              // Dynamic counters based on boot time - randomized jumpy values
+              var bootSec=(now-bootStart)/1000;
+              var moneyHundreds=300+Math.floor(Math.sin(sf*0.3)*50+Math.cos(sf*0.7)*30);
+              var moneyThousands=Math.floor(Math.abs(Math.sin(sf*0.5)*500+Math.cos(sf*0.2)*400+Math.sin(sf*1.3)*99));
+              var moneyCount=Math.abs(moneyHundreds)*1000+moneyThousands;
+              var moneyStr='$'+moneyCount.toLocaleString();
+              var ageYears=33+Math.abs(Math.floor(Math.sin(sf*0.2)*2+Math.cos(sf*0.5)*2))%5;
+              var ageDays=Math.abs(Math.floor(Math.sin(sf*0.4)*180+Math.cos(sf*0.8)*180))%365;
+              var ageHours=Math.abs(Math.floor(Math.sin(sf*0.6)*12+Math.cos(sf*1.1)*12))%24;
+              var ageMins=Math.abs(Math.floor(Math.sin(sf*0.9)*30+Math.cos(sf*1.4)*30))%60;
+              var ageStr=ageYears+'y '+ageDays+'d '+ageHours+'h '+ageMins+'m';
+              var giveJokes=[{text:'SPENDING '+moneyStr+'_'},{text:"USING @jeffrey's LIFE: "+ageStr+' OLD_'}];
+              // Flying number particles from money display
+              if(!window.moneyParticles)window.moneyParticles=[];
+              var mp=window.moneyParticles;
+              // Spawn new particles every few frames (reduced rate)
+              if(sf%5===0&&mp.length<30){
+                var digits=['$','0','1','5','9'];
+                mp.push({x:tX+Math.random()*80*S,y:logStartY,vx:(Math.random()-0.5)*6*S,vy:-Math.random()*4*S-2*S,char:digits[Math.floor(Math.random()*digits.length)],life:1,rot:(Math.random()-0.5)*0.5,rotV:(Math.random()-0.5)*0.15,size:3+Math.random()*3});}
+              // Update and draw particles
+              x.font='bold '+Math.floor(4*S)+'px monospace';
+              for(var mpi=mp.length-1;mpi>=0;mpi--){
+                var p=mp[mpi];p.x+=p.vx;p.y+=p.vy;p.vy+=0.15*S;p.rot+=p.rotV;p.life-=0.02;
+                if(p.life<=0||p.y>H){mp.splice(mpi,1);continue;}
+                x.save();x.translate(p.x,p.y);x.rotate(p.rot);
+                x.font='bold '+Math.floor(p.size*S)+'px monospace';
+                var pHue=(sf*5+mpi*30)%360;x.globalAlpha=p.life*0.8;
+                x.fillStyle='hsl('+pHue+',100%,70%)';x.fillText(p.char,0,0);
+                x.restore();}
+              // Always show joke logs at top, then real logs
+              var allLogs=giveJokes.concat(lines);
+              for(var li=0;li<allLogs.length&&li<8;li++){
+                var logY=Math.floor(logStartY+li*4*S);if(logY>H*0.5)break;
+                var logAlpha=Math.max(0.5,1-li*0.06);
+                var logCol=['#ff0000','#ffff00','#ff8888','#88ffff','#ff88ff','#88ff88'][li%6];
+                x.globalAlpha=logAlpha;x.fillStyle=logCol;
+                x.fillText(allLogs[li].text,tX,logY);}
+              x.globalAlpha=1;
+              // ========== CURRENCY SYMBOLS FLYING UP (CRISP) ==========
+              if(fontReady){
+              var currencies=['GIVE $5','GIVE $10','GIVE $25','GIVE $50','GIVE $100','GIVE €20','GIVE £15','GIVE 0.01 ETH','GIVE 5 TEZ','GIVE $1','GIVE ₿0.001','GIVE $500'];
+              var currCount=18; // Reduced from 35
+              // Currency text reveals after headline+button (chars 37+)
+              var currRevealed=Math.max(0,charsRevealed-37);
+              for(var ci=0;ci<Math.min(currCount,Math.floor(currRevealed/2));ci++){
+                var cxBase=Math.floor(W*0.2+(Math.sin(ci*1.3)*0.3+0.3)*W*0.6+Math.floor(Math.sin(sf*0.03+ci)*30*S));
+                var cyBase=H+80*S;var cySpeed=(1.0+((ci*7)%10)*0.2)*S;
+                var cyPos=Math.floor(cyBase-((sf*cySpeed+ci*60)%(H+150*S)));
+                var cFS=Math.floor(Math.max(4,(5+Math.sin(ci*0.7)*4))*S);
+                x.font='bold '+cFS+'px YWFTProcessing-Bold, monospace';
+                // Draw whole string (faster than per-character)
+                var currText=currencies[ci%currencies.length];
+                var cHue=(ci*50+sf*3)%360;
+                x.globalAlpha=0.7+Math.sin(sf*0.25+ci)*0.25;
+                x.fillStyle='hsl('+cHue+',100%,70%)';
+                x.fillText(currText,cxBase,cyPos);}
+              } // end fontReady for currency
+              // ========== SEQUENTIAL WORD HIGHLIGHT HEADLINE ==========
+              if(fontReady){
+              var hlWords=["IT'S","TIME","TO","GROW","INTO","SOMETHING","NEW"];
+              // Word highlight cycles every ~0.8 seconds per word
+              var wordCycleTime=800; // ms per word
+              var cyclePos=Math.floor(now/wordCycleTime)%hlWords.length;
+              // Always show "IT'S TIME TO GROW" first, then "INTO SOMETHING NEW"
+              var showSet=(cyclePos<4)?0:1;
+              // Landscape mode (W > H): single line, Portrait: split lines
+              var isLandscape=W>H;
+              var linesToShow;
+              if(isLandscape){
+                linesToShow=showSet===0?["IT'S TIME TO GROW"]:["INTO SOMETHING NEW"];
+              }else{
+                linesToShow=showSet===0?["IT'S TIME","TO GROW"]:["INTO","SOMETHING","NEW"];
+              }
+              // Which word in the current set should be highlighted?
+              var highlightWordIdx=showSet===0?cyclePos:(cyclePos-4);
+              // Map to actual words in linesToShow (line 0 has 2 words, line 1 has 1-2 words)
+              var wordsInSet=showSet===0?["IT'S","TIME","TO","GROW"]:["INTO","SOMETHING","NEW"];
+              var highlightWord=wordsInSet[highlightWordIdx];
+              var longestLine=0;for(var lli=0;lli<linesToShow.length;lli++){if(linesToShow[lli].length>longestLine)longestLine=linesToShow[lli].length;}
+              // Landscape: use more width, Portrait: constrain by height
+              var giveFS=isLandscape?Math.floor(Math.min(H*0.18, W/(longestLine*0.58))):Math.floor(Math.min(H*0.14, W/(longestLine*0.65)));
+              var lineH=giveFS*1.1;
+              var totalH=linesToShow.length*lineH;
+              var startY=Math.floor(H*0.60)-totalH/2;
+              // Strong highlight colors that cycle
+              var hlColors=[
+                [255,255,0],   // yellow
+                [0,255,255],   // cyan
+                [255,0,255],   // magenta
+                [0,255,0],     // green
+                [255,128,0],   // orange
+                [128,255,255], // light cyan
+                [255,128,255]  // pink
+              ];
+              var activeColor=hlColors[cyclePos%hlColors.length];
+              for(var lineIdx=0;lineIdx<linesToShow.length;lineIdx++){
+                var lineText=linesToShow[lineIdx];
+                var lineWords=lineText.split(' ');
+                x.font='bold '+giveFS+'px YWFTProcessing-Bold, monospace';
+                var lineW=x.measureText(lineText).width;
+                var lineX=Math.floor((W-lineW)/2);
+                var lineY=Math.floor(startY+lineIdx*lineH);
+                var hlX=lineX;
+                var wordStart=0;
+                for(var wi=0;wi<lineWords.length;wi++){
+                  var word=lineWords[wi];
+                  var isHighlighted=(word===highlightWord);
+                  var wordEnd=wordStart+word.length;
+                  // Draw each character
+                  for(var ci=0;ci<word.length;ci++){
+                    var hlCh=word[ci];
+                    var hlJX=Math.floor((Math.random()-0.5)*2*S);
+                    var hlJY=Math.floor((Math.random()-0.5)*2*S);
+                    var hlChW=x.measureText(hlCh).width;
+                    if(isHighlighted){
+                      // HIGHLIGHTED WORD - strong color with subtle glow
+                      var pulse=0.7+Math.sin(now*0.015)*0.3;
+                      // Single glow layer (was 3)
+                      x.globalAlpha=0.4*pulse;
+                      x.fillStyle='rgb('+activeColor[0]+','+activeColor[1]+','+activeColor[2]+')';
+                      x.fillText(hlCh,hlX-Math.floor(3*S)+hlJX,lineY+hlJY);
+                      x.fillText(hlCh,hlX+Math.floor(3*S)+hlJX,lineY+hlJY);
+                      // Main highlighted char
+                      x.globalAlpha=1;
+                      x.fillStyle='rgb('+activeColor[0]+','+activeColor[1]+','+activeColor[2]+')';
+                      x.fillText(hlCh,hlX+hlJX,lineY+hlJY);
+                    }else{
+                      // Non-highlighted - dimmer with subtle color shift
+                      x.globalAlpha=0.4;x.fillStyle='#000000';
+                      x.fillText(hlCh,hlX+Math.floor(2*S)+hlJX,lineY+Math.floor(2*S)+hlJY);
+                      x.globalAlpha=0.7;
+                      var dimR=180+Math.floor(Math.sin(sf*0.02+ci*0.2)*40);
+                      x.fillStyle='rgb('+dimR+','+Math.floor(dimR*0.6)+','+Math.floor(dimR*0.4)+')';
+                      x.fillText(hlCh,hlX+hlJX,lineY+hlJY);
+                    }
+                    hlX+=hlChW;
+                  }
+                  // Add space between words
+                  if(wi<lineWords.length-1){
+                    var spaceW=x.measureText(' ').width;
+                    hlX+=spaceW;
+                  }
+                  wordStart=wordEnd+1;
+                }
+              }
+              } // end fontReady for headline
+              // (messages now flicker as main text above)
+              // ========== TEXT-SHAPED GLOW BUTTON ==========
+              if(fontReady){
+              // Landscape: wider button, larger font. Portrait: constrained for vertical.
+              var aspectRatio=W/H;
+              var extremeLandscape=aspectRatio>2; // Ultra-wide (21:9 or wider)
+              var btnMaxW=isLandscape?Math.min(W*0.95, extremeLandscape?900*S:600*S):Math.min(W*0.9, 420*S);
+              var btnW=Math.floor(btnMaxW);var btnH=Math.floor(H*0.14);var btnX=Math.floor((W-btnW)/2);var btnY=Math.floor(H-btnH-12*S);
+              // "ENTER 'give' ON PROMPT" - TEXT-SHAPED GLOW + letter by letter
+              var btnFS=extremeLandscape?Math.floor(Math.min(btnH*0.7, btnW*0.06)):isLandscape?Math.floor(Math.min(btnH*0.55, btnW*0.05)):Math.floor(Math.min(btnH*0.45, btnW*0.085));
+              x.font='bold '+btnFS+'px YWFTProcessing-Bold, monospace';
+              var btnT="ENTER 'give' ON PROMPT";
+              var totalW=0;for(var ti=0;ti<btnT.length;ti++)totalW+=x.measureText(btnT[ti]).width;
+              var startX=Math.floor((W-totalW)/2);
+              var baseY=Math.floor(btnY+btnH*0.62);
+              // Button chars revealed after headline
+              var btnCharsRevealed=Math.max(0,charsRevealed-15);
+              var btnRevealed=Math.min(btnT.length,btnCharsRevealed);
+              // ===== TEXT-SHAPED GLOW LAYERS =====
+              for(var glLayer=6;glLayer>=1;glLayer--){
+                var glowSpread=Math.floor(glLayer*3*S);
+                var glowHue=(f*3+glLayer*40)%360;
+                x.globalAlpha=0.15-glLayer*0.02;
+                x.font='bold '+(btnFS+glowSpread)+'px YWFTProcessing-Bold, monospace';
+                var glowTotalW=0;for(var gti=0;gti<btnRevealed;gti++)glowTotalW+=x.measureText(btnT[gti]).width;
+                var glowStartX=Math.floor((W-glowTotalW)/2);
+                var glowCurX=glowStartX;
+                for(var gli=0;gli<btnRevealed;gli++){
+                  var glCh=btnT[gli];
+                  var glChW=x.measureText(glCh).width;
+                  var glJitterX=Math.floor(Math.sin(f*0.15+gli*0.8)*2*S);
+                  var glJitterY=Math.floor(Math.sin(f*0.12+gli*1.2)*3*S);
+                  x.fillStyle='hsl('+glowHue+',100%,60%)';
+                  x.fillText(glCh,glowCurX+glJitterX,baseY+glJitterY);
+                  glowCurX+=Math.floor(glChW);}}
+              // Reset font for main text
+              x.font='bold '+btnFS+'px YWFTProcessing-Bold, monospace';
+              var curX=startX;
+              // 'give' is at index 7-10 in "ENTER 'give' ON PROMPT"
+              var giveStart=7,giveEnd=10;
+              for(var li=0;li<btnRevealed;li++){
+                var ch=btnT[li];
+                var chW=x.measureText(ch).width;
+                // Bling flash on newly revealed
+                var btnAge=btnCharsRevealed-li;
+                var btnBling=btnAge<3?1:0;
+                // Per-letter jitter and wave
+                var letterJitterX=Math.floor(Math.sin(f*0.15+li*0.8)*2*S+(Math.random()-0.5)*S);
+                var letterJitterY=Math.floor(Math.sin(f*0.12+li*1.2)*3*S+Math.cos(f*0.09+li)*2*S);
+                var letterHue=(f*4+li*25)%360;
+                // Check if this is part of 'give'
+                var isGive=li>=giveStart&&li<=giveEnd;
+                if(btnBling){
+                  x.globalAlpha=0.9;x.fillStyle='#ffffff';
+                  x.fillText(ch,curX+letterJitterX,baseY+letterJitterY);}
+                // Shadow
+                x.globalAlpha=0.5;x.fillStyle='#000000';
+                x.fillText(ch,curX+letterJitterX+Math.floor(2*S),baseY+letterJitterY+Math.floor(2*S));
+                // Chromatic split
+                x.globalAlpha=0.4;x.fillStyle=isGive?'#00ff00':'#ff0000';
+                x.fillText(ch,curX+letterJitterX-Math.floor(S),baseY+letterJitterY);
+                x.fillStyle=isGive?'#80ff80':'#00ffff';
+                x.fillText(ch,curX+letterJitterX+Math.floor(S),baseY+letterJitterY);
+                // Main letter - 'give' is flashy lime green, others rainbow
+                if(isGive){
+                  var giveFlash=0.7+Math.sin(f*0.3+li)*0.3;
+                  var giveG=Math.floor(200+Math.sin(f*0.4+li)*55);
+                  x.globalAlpha=1;x.fillStyle='rgb('+Math.floor(80+Math.sin(f*0.5)*40)+','+giveG+','+Math.floor(50+Math.sin(f*0.6)*30)+')';
+                }else{
+                  x.globalAlpha=1;x.fillStyle='hsl('+letterHue+',100%,85%)';
+                }
+                x.fillText(ch,curX+letterJitterX,baseY+letterJitterY);
+                curX+=Math.floor(chW);}
+              } // end fontReady for button
+              // ========== HEAVY COPY-PASTE GLITCHING ==========
+              // Occasional screen flash
+              if(Math.floor(f*0.08)%12===0){x.globalAlpha=0.1;x.fillStyle='#ffffff';x.fillRect(0,0,W,H);}
+              try{
+                // Multiple copy-paste glitches per frame
+                var numGlitches=1+Math.floor(Math.random()*3);
+                for(var cpg=0;cpg<numGlitches;cpg++){
+                  if(Math.random()<0.5){
+                    // Horizontal slice copy-paste
+                    var cpY=Math.floor(Math.random()*H*0.9);
+                    var cpH=Math.floor(5+Math.random()*40)*S;
+                    var cpShiftX=Math.floor((Math.random()-0.5)*40*S);
+                    var cpShiftY=Math.floor((Math.random()-0.5)*60*S);
+                    if(cpY+cpH<H&&cpY>0&&cpY+cpShiftY>0&&cpY+cpShiftY+cpH<H){
+                      var cpData=x.getImageData(0,cpY,W,cpH);
+                      x.putImageData(cpData,cpShiftX,cpY+cpShiftY);}}
+                  if(Math.random()<0.4){
+                    // Vertical slice copy-paste
+                    var cpX=Math.floor(Math.random()*W*0.9);
+                    var cpW=Math.floor(10+Math.random()*50)*S;
+                    var cpVShiftX=Math.floor((Math.random()-0.5)*30*S);
+                    var cpVShiftY=Math.floor((Math.random()-0.5)*20*S);
+                    if(cpX+cpW<W&&cpX>0&&cpX+cpVShiftX>0&&cpX+cpVShiftX+cpW<W){
+                      var cpVData=x.getImageData(cpX,0,cpW,H);
+                      x.putImageData(cpVData,cpX+cpVShiftX,cpVShiftY);}}
+                  if(Math.random()<0.3){
+                    // Block copy-paste
+                    var blkX=Math.floor(Math.random()*W*0.7);
+                    var blkY=Math.floor(Math.random()*H*0.7);
+                    var blkW=Math.floor(30+Math.random()*80)*S;
+                    var blkH=Math.floor(20+Math.random()*60)*S;
+                    var blkDX=Math.floor((Math.random()-0.5)*100*S);
+                    var blkDY=Math.floor((Math.random()-0.5)*80*S);
+                    if(blkX+blkW<W&&blkY+blkH<H&&blkX+blkDX>0&&blkY+blkDY>0&&blkX+blkDX+blkW<W&&blkY+blkDY+blkH<H){
+                      var blkData=x.getImageData(blkX,blkY,blkW,blkH);
+                      x.putImageData(blkData,blkX+blkDX,blkY+blkDY);}}}
+              }catch(e){}
+              x.globalAlpha=1;requestAnimationFrame(anim);return;
+            }
+            // Normal boot rendering (non-GIVE mode)
             // Light mode: warm sandy/tan/cream tones (matching kidlisp.com & AC light theme); Dark mode: deep moody colors
             var BGCOLS=isLightMode?['#fcf7c5','#f5f0c0','#fffacd','#f5ebe0','#e8e3b0','#f0ebd0','#fcf5c8','#f5ecd0']:['#2d2020','#202d24','#20202d','#2d2820','#28202d','#202d2d','#2d2028','#242d20'];
             var sHH=HH*S;
@@ -1176,13 +1753,48 @@ async function fun(event, context) {
             // Connection status VHS tint
             if(!sessionConnected){x.globalCompositeOperation='screen';x.globalAlpha=0.15+Math.sin(t*3)*0.06;x.fillStyle='rgb('+(255+Math.sin(t*7)*20|0)+','+(60+Math.cos(t*5)*30|0)+','+(100+Math.sin(t*9)*40|0)+')';x.fillRect(0,0,W,H);x.globalCompositeOperation='source-over';}
             if(connFlash>0.01){x.globalCompositeOperation='screen';x.globalAlpha=connFlash*0.6;x.fillStyle='rgb(80,255,180)';x.fillRect(0,0,W,H);x.globalCompositeOperation='source-over';}
-            // Error mode - intense red flash with glitch effect
-            if(errorMode||errorFlash>0.01){x.globalCompositeOperation='screen';var errA=errorMode?0.4+Math.sin(t*8)*0.2:errorFlash*0.5;x.globalAlpha=errA;x.fillStyle='rgb(255,'+(40+Math.sin(t*12)*30|0)+','+(60+Math.cos(t*9)*40|0)+')';x.fillRect(0,0,W,H);
-              // Extra glitch lines in error mode
-              if(errorMode&&Math.random()<0.3){var gy=Math.random()*H|0,gh=(S*3+Math.random()*S*8)|0;x.globalAlpha=0.6;x.fillStyle='rgb(255,0,0)';x.fillRect(0,gy,W,gh);}
-              x.globalCompositeOperation='source-over';}
+            // Error mode - SHUTDOWN/CRASH effect with giant X then blackout
+            if(errorMode||errorFlash>0.01){
+              var errElapsed=errorStartTime?(performance.now()-errorStartTime)/1000:0;
+              // Phase 1 (0-0.5s): Giant red X appears with intense flash
+              // Phase 2 (0.5-1.0s): X stays, screen starts fading to black  
+              // Phase 3 (1.0-1.5s): Full blackout before refresh
+              if(errorMode&&errElapsed>1.0){
+                // Phase 3: Black out completely
+                x.globalCompositeOperation='source-over';x.globalAlpha=1;x.fillStyle='rgb(0,0,0)';x.fillRect(0,0,W,H);
+              }else if(errorMode&&errElapsed>0.5){
+                // Phase 2: X with fading to black
+                var blackFade=(errElapsed-0.5)/0.5;
+                x.globalCompositeOperation='source-over';x.globalAlpha=blackFade*0.9;x.fillStyle='rgb(0,0,0)';x.fillRect(0,0,W,H);
+                // Draw X on top
+                x.globalAlpha=1-blackFade*0.7;
+                var xSize=Math.min(W,H)*0.7,xThick=Math.max(8*S,xSize*0.12),cx=W/2,cy=H/2;
+                x.strokeStyle='rgb(255,0,0)';x.lineWidth=xThick;x.lineCap='round';
+                x.beginPath();x.moveTo(cx-xSize/2,cy-xSize/2);x.lineTo(cx+xSize/2,cy+xSize/2);x.stroke();
+                x.beginPath();x.moveTo(cx+xSize/2,cy-xSize/2);x.lineTo(cx-xSize/2,cy+xSize/2);x.stroke();
+              }else{
+                // Phase 1: Intense red flash + X appears
+                x.globalCompositeOperation='screen';var errA=errorMode?0.4+Math.sin(t*8)*0.2:errorFlash*0.5;x.globalAlpha=errA;x.fillStyle='rgb(255,'+(40+Math.sin(t*12)*30|0)+','+(60+Math.cos(t*9)*40|0)+')';x.fillRect(0,0,W,H);
+                // Glitch lines
+                if(errorMode&&Math.random()<0.3){var gy=Math.random()*H|0,gh=(S*3+Math.random()*S*8)|0;x.globalAlpha=0.6;x.fillStyle='rgb(255,0,0)';x.fillRect(0,gy,W,gh);}
+                x.globalCompositeOperation='source-over';
+                // Draw giant X - grows in over 0.3s
+                if(errorMode){
+                  var xGrow=Math.min(1,errElapsed/0.3);
+                  var xSize=Math.min(W,H)*0.7*xGrow,xThick=Math.max(8*S,xSize*0.12),cx=W/2,cy=H/2;
+                  var xShake=8*S*(1-errElapsed*2);
+                  cx+=Math.sin(t*20)*xShake;cy+=Math.cos(t*17)*xShake;
+                  x.globalAlpha=0.9+Math.sin(t*15)*0.1;
+                  x.strokeStyle='rgb(255,'+(20+Math.sin(t*25)*20|0)+',0)';x.lineWidth=xThick;x.lineCap='round';
+                  x.shadowColor='rgb(255,0,0)';x.shadowBlur=20*S;
+                  x.beginPath();x.moveTo(cx-xSize/2,cy-xSize/2);x.lineTo(cx+xSize/2,cy+xSize/2);x.stroke();
+                  x.beginPath();x.moveTo(cx+xSize/2,cy-xSize/2);x.lineTo(cx-xSize/2,cy+xSize/2);x.stroke();
+                  x.shadowBlur=0;
+                }
+              }
+              x.globalCompositeOperation='source-over';x.globalAlpha=1;}
             // Touch interaction visual feedback - ripple effect
-            if(touchGlitch>0.05){var rippleR=(1-touchGlitch)*100*S+10*S;x.globalAlpha=touchGlitch*0.3;x.strokeStyle=isLightMode?'rgb(100,60,140)':'rgb(200,150,255)';x.lineWidth=2*S;x.beginPath();x.arc(touchX*W,touchY*H,rippleR,0,Math.PI*2);x.stroke();x.globalAlpha=1;}
+            if(touchGlitch>0.05){var rippleR=Math.max(1,(1-touchGlitch)*100*S+10*S);x.globalAlpha=touchGlitch*0.3;x.strokeStyle=isLightMode?'rgb(100,60,140)':'rgb(200,150,255)';x.lineWidth=2*S;x.beginPath();x.arc(touchX*W,touchY*H,rippleR,0,Math.PI*2);x.stroke();x.globalAlpha=1;}
             x.globalAlpha=1;requestAnimationFrame(anim);}anim();
           var obj={log:add,hide:function(){run=false;c.remove();},setHandle:setH,addFile:addFile,netPulse:netPulse,setSessionConnected:setConn,setErrorMode:setErrorMode};Object.defineProperty(obj,'motd',{get:function(){return motd;},set:function(v){motd=v;motdStart=performance.now();}});Object.defineProperty(obj,'motdHandle',{get:function(){return motdHandle;},set:function(v){motdHandle=v||'';}});return obj;})();
           window.acBOOT_LOG_CANVAS=function(m){if(window.acBootCanvas&&window.acBootCanvas.log)window.acBootCanvas.log(m);};

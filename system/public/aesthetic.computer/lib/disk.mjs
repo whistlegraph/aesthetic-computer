@@ -631,6 +631,7 @@ let PREVIEW_OR_ICON; // Whether we are in preview or icon mode. (From boot.)
 let VSCODE; // Whether we are running the vscode extesion or not. (From boot.)
 let TV_MODE = false; // Whether running in TV mode (disables touch/keyboard input)
 let DEVICE_MODE = false; // Whether running in device mode (device.kidlisp.com - skip HUD overlays)
+let SOLO_MODE = false; // Whether running in solo mode (prevents navigating away from piece)
 let HIGHLIGHT_MODE = false; // Whether HUD highlighting is enabled
 let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
 let PERF_MODE = false; // Whether to show KidLisp performance/FPS HUD
@@ -640,6 +641,7 @@ let loopPaused = false; // Whether the main loop is paused (sent from bios)
 let debug = false; // This can be overwritten on boot.
 let nopaintPerf = false; // Performance panel for nopaint system debugging (disabled by default)
 let visible = true; // Is aesthetic.computer visibly rendering or not?
+let pieceBackground = false; // Does the current piece want background sim ticks?
 
 // 🎯 Global KidLisp Instance - Single source of truth for all KidLisp operations
 let globalKidLispInstance = null;
@@ -1078,194 +1080,316 @@ let lastPaintOut = undefined; // Store last paintOut to preserve correct noPaint
 let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
-// 🧬 GOL Transition: noise16 overlay → fades to reveal piece underneath
-// Uses actual Conway's Game of Life rules with pixel smearing/bubbling effect
-let golTransition = {
+// 🎬 Piece Transition System
+// Two transition types available: "drip" (default, fast) and "bubble-wrap" (organic, slower)
+// Set to "none" to disable transitions entirely (fast cut)
+const TRANSITION_TYPE = "none"; // "none", "drip" or "bubble-wrap"
+
+// 🧬 Piece Transition State: overlay pixels → fades to reveal piece underneath
+// Captures the OUTGOING piece's pixels when transitioning between pieces
+let pieceTransition = {
   active: false,
-  overlayPixels: null, // The noise16 frame that overlays on top
-  cells: null,         // Uint8Array: 0 = dead (transparent), 1 = alive (show overlay)
-  nextCells: null,     // Double buffer for GOL update
-  smearBuffer: null,   // Uint8ClampedArray: smeared/pulled pixel colors
+  phase: "loading",    // "loading" (slow, reach ~50%) or "revealing" (fast, finish)
+  overlayPixels: null, // The captured frame that overlays on top (from outgoing piece)
   generation: 0,
-  maxGenerations: 240, // ~4s at 60fps - visible transition
+  maxGenerations: 60,  // Total frames for full transition
   width: 0,
   height: 0,
+  // Drip-specific state (per-column y-offset) - BLINDS STYLE
+  dripOffsets: null,   // Int16Array of column y-offsets (positive = distance moved)
+  dripSpeeds: null,    // Float32Array of per-column speeds
+  dripDirections: null, // Int8Array: 1 = down, -1 = up (alternating blinds)
+  targetOffset: 0,     // Target offset for loading phase (~50% of height)
+  // Bubble-wrap-specific state
+  blockData: null,     // Per-block data for bubble-wrap
+  blockSize: 8,
+  blocksX: 0,
+  blocksY: 0,
 };
 
-// 🧬 Initialize GOL cells - start with ALL alive (full noise coverage)
+// 🧬 Legacy alias for backwards compatibility
+const golTransition = pieceTransition;
+
+// 🧬 Scale overlay pixels to match new resolution (nearest-neighbor)
+function scaleOverlayPixels(srcPixels, srcWidth, srcHeight, dstWidth, dstHeight) {
+  const dstPixels = new Uint8ClampedArray(dstWidth * dstHeight * 4);
+  const xRatio = srcWidth / dstWidth;
+  const yRatio = srcHeight / dstHeight;
+  
+  for (let y = 0; y < dstHeight; y++) {
+    for (let x = 0; x < dstWidth; x++) {
+      const srcX = Math.floor(x * xRatio);
+      const srcY = Math.floor(y * yRatio);
+      const srcIdx = (srcY * srcWidth + srcX) * 4;
+      const dstIdx = (y * dstWidth + x) * 4;
+      
+      dstPixels[dstIdx] = srcPixels[srcIdx];
+      dstPixels[dstIdx + 1] = srcPixels[srcIdx + 1];
+      dstPixels[dstIdx + 2] = srcPixels[srcIdx + 2];
+      dstPixels[dstIdx + 3] = srcPixels[srcIdx + 3];
+    }
+  }
+  
+  return dstPixels;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🪟 BLINDS TRANSITION - Alternating up/down strips (FAST & PERFORMANT)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Initialize blinds transition - alternating columns slide up/down
+function initDripTransition(width, height) {
+  pieceTransition.dripOffsets = new Int16Array(width);
+  pieceTransition.dripSpeeds = new Float32Array(width);
+  pieceTransition.dripDirections = new Int8Array(width);
+  pieceTransition.maxGenerations = 30; // Faster!
+  pieceTransition.phase = "loading";
+  pieceTransition.targetOffset = Math.floor(height * 0.35); // ~35% during loading (less wait)
+  
+  // Initialize per-column state - alternating directions like blinds
+  for (let x = 0; x < width; x++) {
+    pieceTransition.dripOffsets[x] = 0; // Start at 0 (overlay fully in place)
+    // Alternate: even columns slide DOWN, odd columns slide UP
+    pieceTransition.dripDirections[x] = (x % 2 === 0) ? 1 : -1;
+    // Faster speed during loading phase
+    pieceTransition.dripSpeeds[x] = 4 + Math.random() * 3; // 4-7 pixels per frame
+  }
+}
+
+// Signal that piece is loaded - switch to fast reveal phase
+function transitionPieceLoaded() {
+  if (pieceTransition.active && pieceTransition.phase === "loading" && pieceTransition.dripSpeeds) {
+    pieceTransition.phase = "revealing";
+    // Boost speeds for the reveal phase - FAST!
+    for (let x = 0; x < pieceTransition.dripSpeeds.length; x++) {
+      pieceTransition.dripSpeeds[x] = 10 + Math.random() * 8; // 10-18 pixels per frame
+    }
+    console.log("🎬 Transition: Piece loaded! Switching to reveal phase");
+  }
+}
+
+// Step blinds transition - advance each column's offset
+function dripStep() {
+  pieceTransition.generation++;
+  const { dripOffsets, dripSpeeds, dripDirections, height, phase, targetOffset } = pieceTransition;
+  
+  let allDone = true;
+  
+  for (let x = 0; x < dripOffsets.length; x++) {
+    const currentOffset = dripOffsets[x];
+    
+    if (phase === "loading") {
+      // Loading phase: slowly move toward target (~45%)
+      if (currentOffset < targetOffset) {
+        dripOffsets[x] += dripSpeeds[x];
+        // Clamp to target during loading
+        if (dripOffsets[x] > targetOffset) {
+          dripOffsets[x] = targetOffset;
+        }
+        allDone = false;
+      }
+    } else {
+      // Revealing phase: accelerate to completion
+      if (currentOffset < height) {
+        dripOffsets[x] += dripSpeeds[x];
+        // Add acceleration (gravity/momentum)
+        dripSpeeds[x] += 0.3;
+        allDone = false;
+      }
+    }
+  }
+  
+  // During loading phase, never report "done" - wait for reveal
+  if (phase === "loading") {
+    return true; // Keep running
+  }
+  
+  return !allDone && pieceTransition.generation < pieceTransition.maxGenerations;
+}
+
+// Apply blinds overlay - alternating columns slide up/down to reveal new frame
+function applyDripOverlay(screenPixels) {
+  const { overlayPixels, dripOffsets, dripDirections, width, height } = pieceTransition;
+  if (!overlayPixels || !screenPixels || !dripOffsets || !dripDirections) return;
+  
+  for (let x = 0; x < width; x++) {
+    const offset = Math.max(0, dripOffsets[x] | 0);
+    const direction = dripDirections[x];
+    
+    if (offset >= height) continue; // Column fully slid off
+    
+    const visibleRows = height - offset;
+    
+    if (direction > 0) {
+      // SLIDE DOWN - overlay moves down, reveals new frame from TOP
+      for (let y = 0; y < visibleRows; y++) {
+        const srcY = y;              // Read from top of overlay
+        const dstY = y + offset;     // Write shifted down
+        const srcIdx = (srcY * width + x) * 4;
+        const dstIdx = (dstY * width + x) * 4;
+        
+        screenPixels[dstIdx] = overlayPixels[srcIdx];
+        screenPixels[dstIdx + 1] = overlayPixels[srcIdx + 1];
+        screenPixels[dstIdx + 2] = overlayPixels[srcIdx + 2];
+        screenPixels[dstIdx + 3] = overlayPixels[srcIdx + 3];
+      }
+    } else {
+      // SLIDE UP - overlay moves up, reveals new frame from BOTTOM
+      for (let y = 0; y < visibleRows; y++) {
+        const srcY = offset + y;     // Read from bottom portion of overlay
+        const dstY = y;              // Write shifted up
+        const srcIdx = (srcY * width + x) * 4;
+        const dstIdx = (dstY * width + x) * 4;
+        
+        screenPixels[dstIdx] = overlayPixels[srcIdx];
+        screenPixels[dstIdx + 1] = overlayPixels[srcIdx + 1];
+        screenPixels[dstIdx + 2] = overlayPixels[srcIdx + 2];
+        screenPixels[dstIdx + 3] = overlayPixels[srcIdx + 3];
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🫧 BUBBLE-WRAP TRANSITION - Organic morphing dissolve (DEPRECATED: slower)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Initialize bubble-wrap transition - per-pixel dissolve with organic noise
+function initBubbleWrapCells(width, height) {
+  pieceTransition.blockSize = 1; // Per-pixel
+  pieceTransition.blocksX = width;
+  pieceTransition.blocksY = height;
+  pieceTransition.blockData = null;
+  pieceTransition.maxGenerations = 30; // Slower for organic feel
+}
+
+// Step bubble-wrap transition
+function bubbleWrapStep(screenPixels) {
+  pieceTransition.generation++;
+  return pieceTransition.generation < pieceTransition.maxGenerations;
+}
+
+// Apply bubble-wrap overlay - chunky biological smoothie morph
+function applyBubbleWrapOverlay(screenPixels) {
+  const { overlayPixels, width, height, generation, maxGenerations } = pieceTransition;
+  if (!overlayPixels || !screenPixels) return;
+  
+  // Progress 0-1
+  const progress = generation / maxGenerations;
+  // Eased for smooth start/end
+  const eased = progress < 0.5 
+    ? 2 * progress * progress 
+    : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+  
+  // Time offset for animated noise
+  const t = generation * 0.1;
+  
+  // Displacement peaks mid-transition - CHUNKY
+  const dispPeak = Math.sin(progress * Math.PI);
+  const maxDisp = dispPeak * 16;
+  
+  // Block size for chunky feel
+  const bs = 4;
+  
+  for (let y = 0; y < height; y++) {
+    const rowOff = y * width;
+    // Quantize y for chunky blocks
+    const qy = (y / bs | 0) * bs;
+    
+    for (let x = 0; x < width; x++) {
+      const i = (rowOff + x) * 4;
+      // Quantize x for chunky blocks
+      const qx = (x / bs | 0) * bs;
+      
+      // Organic noise at block resolution for chunky dissolve
+      const n1 = Math.sin(qx * 0.05 + t) * Math.cos(qy * 0.04 + t * 0.7);
+      const n2 = Math.sin(qx * 0.09 + qy * 0.07 - t * 0.6) * 0.5;
+      const n3 = Math.cos(qx * 0.02 - qy * 0.03 + t * 0.4) * 0.4;
+      const noise = (n1 + n2 + n3) * 0.5 + 0.5;
+      
+      // Per-block blend with organic variation
+      const threshold = eased * 1.5 - 0.25;
+      const edge = 0.3;
+      let blend = (threshold - noise * 0.85) / edge;
+      blend = blend < 0 ? 0 : blend > 1 ? 1 : blend;
+      
+      // SMOOTHIE: chaotic displacement that samples from BOTH frames
+      const swirl = Math.sin(qx * 0.06 + qy * 0.04 + t * 1.5) * maxDisp;
+      const churn = Math.cos(qx * 0.05 - qy * 0.07 + t * 1.2) * maxDisp;
+      
+      // Sample old frame with swirling displacement
+      let ox = (x + swirl) | 0;
+      let oy = (y + churn) | 0;
+      ox = ox < 0 ? 0 : ox >= width ? width - 1 : ox;
+      oy = oy < 0 ? 0 : oy >= height ? height - 1 : oy;
+      const oi = (oy * width + ox) * 4;
+      
+      // Sample new frame with OPPOSITE swirl - mixing!
+      let nx = (x - churn * 0.7) | 0;
+      let ny = (y + swirl * 0.6) | 0;
+      nx = nx < 0 ? 0 : nx >= width ? width - 1 : nx;
+      ny = ny < 0 ? 0 : ny >= height ? height - 1 : ny;
+      const ni = (ny * width + nx) * 4;
+      
+      // Get swirled colors from both
+      const oldR = overlayPixels[oi];
+      const oldG = overlayPixels[oi + 1];
+      const oldB = overlayPixels[oi + 2];
+      const newR = screenPixels[ni];
+      const newG = screenPixels[ni + 1];
+      const newB = screenPixels[ni + 2];
+      
+      // Chunky biological blend - smoothie mix!
+      const inv = 1 - blend;
+      let r = oldR * inv + newR * blend;
+      let g = oldG * inv + newG * blend;
+      let b = oldB * inv + newB * blend;
+      
+      // Extra chaos: sometimes swap channels mid-transition
+      if (dispPeak > 0.5 && ((qx + qy + generation) & 7) === 0) {
+        const tmp = r;
+        r = g;
+        g = b;
+        b = tmp;
+      }
+      
+      screenPixels[i] = r;
+      screenPixels[i + 1] = g;
+      screenPixels[i + 2] = b;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎬 UNIFIED TRANSITION API - Dispatches to drip, bubble-wrap, or none
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Initialize transition based on current type
 function initGOLCells(width, height) {
-  const cells = new Uint8Array(width * height);
-  const nextCells = new Uint8Array(width * height);
-  
-  // Start with ALL cells alive (100% noise overlay)
-  cells.fill(1);
-  
-  // Seed very few dead cells (~0.1%) - just enough to start the cascade
-  const seedCount = Math.floor(width * height * 0.001);
-  for (let i = 0; i < seedCount; i++) {
-    const x = Math.floor(Math.random() * width);
-    const y = Math.floor(Math.random() * height);
-    cells[y * width + x] = 0;
+  if (TRANSITION_TYPE === "none") return; // No transition
+  if (TRANSITION_TYPE === "drip") {
+    initDripTransition(width, height);
+  } else {
+    initBubbleWrapCells(width, height);
   }
-  
-  golTransition.cells = cells;
-  golTransition.nextCells = nextCells;
-  golTransition.smearBuffer = new Uint8ClampedArray(width * height * 4);
 }
 
-// 🧬 GOL step function - aggressive death, weird patterns
+// Step transition
 function golStep(screenPixels) {
-  const { cells, nextCells, smearBuffer, overlayPixels, generation, maxGenerations, width, height } = golTransition;
-  if (!cells || !nextCells) return false;
-  
-  const progress = generation / maxGenerations;
-  
-  // Gentler death pressure - slower reveal
-  const deathPressure = progress * progress * 0.12;
-  
-  // Spontaneous death kicks in gradually
-  const spontaneousDeath = progress * 0.02;
-  
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      const alive = cells[idx];
-      
-      // Count live neighbors
-      let liveNeighbors = 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          const nx = (x + dx + width) % width;
-          const ny = (y + dy + height) % height;
-          if (cells[ny * width + nx]) liveNeighbors++;
-        }
-      }
-      
-      // Modified Conway rules - aggressive death for faster transition
-      if (alive) {
-        // Live cell dies more easily
-        if (liveNeighbors < 2 || liveNeighbors > 3) {
-          nextCells[idx] = 0; // Classic underpop/overpop death
-        } else if (Math.random() < deathPressure + spontaneousDeath) {
-          nextCells[idx] = 0; // Random death from pressure
-        } else {
-          nextCells[idx] = 1; // Survives
-        }
-      } else {
-        // Dead cell: birth with 3 neighbors, but birth rate decreases over time
-        if (liveNeighbors === 3 && Math.random() > progress * 0.7) {
-          nextCells[idx] = 1; // Birth (suppressed late in transition)
-        } else {
-          nextCells[idx] = 0; // Stays dead
-        }
-      }
-      
-      // 🎨 Pixel smearing: when a cell dies, sample and blend nearby piece pixels
-      if (alive && !nextCells[idx] && screenPixels) {
-        // Cell is dying - pull colors from piece underneath with smear
-        const i = idx * 4;
-        
-        // Sample piece pixel and nearby neighbors for smear effect
-        let r = 0, g = 0, b = 0, samples = 0;
-        for (let sy = -2; sy <= 2; sy++) {
-          for (let sx = -2; sx <= 2; sx++) {
-            const weight = 1 / (1 + Math.abs(sx) + Math.abs(sy)); // Center weighted
-            const snx = (x + sx + width) % width;
-            const sny = (y + sy + height) % height;
-            const si = (sny * width + snx) * 4;
-            r += screenPixels[si] * weight;
-            g += screenPixels[si + 1] * weight;
-            b += screenPixels[si + 2] * weight;
-            samples += weight;
-          }
-        }
-        
-        // Store smeared color
-        smearBuffer[i] = r / samples;
-        smearBuffer[i + 1] = g / samples;
-        smearBuffer[i + 2] = b / samples;
-        smearBuffer[i + 3] = 255;
-      }
-    }
+  if (TRANSITION_TYPE === "none") return false; // Immediately done
+  if (TRANSITION_TYPE === "drip") {
+    return dripStep();
+  } else {
+    return bubbleWrapStep(screenPixels);
   }
-  
-  // Swap buffers
-  golTransition.cells = nextCells;
-  golTransition.nextCells = cells;
-  
-  golTransition.generation++;
-  
-  // Count live cells
-  let liveCount = 0;
-  for (let i = 0; i < nextCells.length; i++) {
-    if (nextCells[i]) liveCount++;
-  }
-  
-  // End when very few cells left or max generations reached
-  return liveCount > 10 && golTransition.generation < maxGenerations;
 }
 
-// 🧬 Apply GOL overlay - composites with smearing/bubbling effect
+// Apply transition overlay
 function applyGOLOverlay(screenPixels) {
-  const { overlayPixels, cells, smearBuffer, width, height, generation, maxGenerations } = golTransition;
-  if (!overlayPixels || !cells || !screenPixels) {
-    console.warn("🧬 GOL applyOverlay: missing data");
-    return;
-  }
-  
-  const progress = generation / maxGenerations;
-  let aliveCount = 0;
-  let deadCount = 0;
-  
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      const i = idx * 4;
-      const alive = cells[idx];
-      
-      if (alive) {
-        aliveCount++;
-        // Cell alive - show FULL noise overlay early, blend edges only later
-        let deadNeighbors = 0;
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            if (dx === 0 && dy === 0) continue;
-            const nx = (x + dx + width) % width;
-            const ny = (y + dy + height) % height;
-            if (!cells[ny * width + nx]) deadNeighbors++;
-          }
-        }
-        
-        // Only blend at edges, and only after progress > 0.2
-        const edgeFactor = deadNeighbors / 8;
-        const blendStart = Math.max(0, progress - 0.2) / 0.8; // Ramps 0→1 from 20% to 100%
-        const bubbleBlend = edgeFactor * 0.4 * blendStart;
-        
-        // Show noise (with edge blending toward piece later on)
-        screenPixels[i] = overlayPixels[i] * (1 - bubbleBlend) + screenPixels[i] * bubbleBlend;
-        screenPixels[i + 1] = overlayPixels[i + 1] * (1 - bubbleBlend) + screenPixels[i + 1] * bubbleBlend;
-        screenPixels[i + 2] = overlayPixels[i + 2] * (1 - bubbleBlend) + screenPixels[i + 2] * bubbleBlend;
-      } else {
-        deadCount++;
-        // Cell dead - show piece with smear effect bleeding in
-        // Recently dead cells use smear buffer, old dead cells show clean piece
-        const smearStrength = Math.max(0, 1 - (progress * 2)); // Smear fades over time
-        
-        if (smearStrength > 0.01 && smearBuffer[i + 3] > 0) {
-          // Blend smeared color with actual piece
-          screenPixels[i] = smearBuffer[i] * smearStrength + screenPixels[i] * (1 - smearStrength);
-          screenPixels[i + 1] = smearBuffer[i + 1] * smearStrength + screenPixels[i + 1] * (1 - smearStrength);
-          screenPixels[i + 2] = smearBuffer[i + 2] * smearStrength + screenPixels[i + 2] * (1 - smearStrength);
-        }
-        // else: piece pixel already correct, leave it
-      }
-    }
-  }
-  
-  // Log stats every 30 generations
-  if (generation % 30 === 0) {
-    console.log(`🧬 GOL: gen ${generation}/${maxGenerations}, alive: ${aliveCount}, dead: ${deadCount}, progress: ${(progress * 100).toFixed(1)}%`);
+  if (TRANSITION_TYPE === "drip") {
+    applyDripOverlay(screenPixels);
+  } else {
+    applyBubbleWrapOverlay(screenPixels);
   }
 }
 
@@ -1564,6 +1688,7 @@ let currentPath,
   currentHUDQRCells = null, // Cached QR code cells
   currentHUDAuthor = null, // @handle of the author for KidLisp pieces
   currentHUDHits = null, // Hit count for KidLisp pieces
+  currentHUDSuperscript = null, // Custom superscript text (e.g. ".com") shown after label in cyan
   forceTinyHudLabel = false, // Force MatrixChunky8 font for HUD label (set via hud.tinyLabel())
   qrOverlayCache = new Map(), // Cache for QR overlays to prevent regeneration every frame
   hudLabelCache = null; // Cache for HUD label to prevent regeneration every frame
@@ -1929,6 +2054,18 @@ let booted = false;
 let noPaint = false;
 let labelBack = false;
 let hiccupTimeout; // Prevent multiple hiccups from being triggered at once.
+
+// 🌐 Check if running on a branded .com domain (e.g. notepat.com) and redirect to aesthetic.computer
+function redirectIfBrandedDomain() {
+  const { hostname } = getSafeUrlParts();
+  if (!hostname) return false;
+  // Match notepat.com or www.notepat.com (add more branded domains here as needed)
+  if (hostname === "notepat.com" || hostname === "www.notepat.com") {
+    send({ type: "web", content: { url: "https://aesthetic.computer/prompt", blank: false } });
+    return true;
+  }
+  return false;
+}
 
 let storeRetrievalResolutions = {},
   storeDeletionResolutions = {};
@@ -2527,6 +2664,10 @@ const $commonApi = {
   penLock: () => {
     send({ type: "pen:lock" });
   },
+  // Send a message to BIOS (for effect control, etc.)
+  send: (msg) => {
+    send(msg);
+  },
   chat: chatClient.system,
   dark: undefined, // If we are in dark mode.
   theme: {
@@ -2559,6 +2700,11 @@ const $commonApi = {
 
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
+
+    if (SOLO_MODE) {
+      console.log("🔒 Jump blocked: solo mode active");
+      return;
+    }
 
     if (leaving) {
       console.log("🚪🐴 Jump cancelled, already leaving...");
@@ -3142,6 +3288,10 @@ const $commonApi = {
     // 🔤 Force MatrixChunky8 (tiny) font for HUD label
     tinyLabel: (enabled = true) => {
       forceTinyHudLabel = enabled;
+    },
+    // ✨ Set a custom superscript (e.g. ".com") to display after the label in cyan
+    superscript: (text) => {
+      currentHUDSuperscript = text || null;
     },
     currentStatusColor: () => currentHUDStatusColor,
     currentLabel: () => ({ 
@@ -4026,6 +4176,7 @@ const $commonApi = {
   },
   ui: {
     Button: ui.Button,
+    Slider: ui.Slider,
     TextButton: ui.TextButton,
     TextButtonSmall: ui.TextButtonSmall,
     TextInput: TextInput,
@@ -5346,7 +5497,7 @@ function form(
     background: backgroundColor3D,
   },
 ) {  // Exit silently if no forms are present.
-  if (forms === undefined || forms?.length === 0) return;
+  if (forms == null || forms?.length === 0) return;
 
   if (cpu === true) {
     if (formReframing) {
@@ -5896,6 +6047,8 @@ const $paintApiUnwrapped = {
     }
   }, // TODO: Should this be renamed to set?
   flood: graph.flood,
+  compositeLayers: graph.compositeLayers,  // GPU-accelerated multi-layer compositing
+  batchedEffects: graph.batchedEffects,    // GPU-accelerated batched effects (zoom+scroll+contrast+brightness in one pass)
   point: function () {
     const out = graph.point(...arguments);
     twoDCommands.push(["point", ...out]);
@@ -7106,6 +7259,10 @@ async function load(
       if (slug && slug.startsWith("$") && slug.length > 1) {
         const cacheId = slug.slice(1); // Remove $ prefix
         
+        // Clear author/hits immediately to prevent stale data showing during load
+        currentHUDAuthor = null;
+        currentHUDHits = null;
+        
         // First check if we have this in objktKidlispCodes (offline bundle)
         const globalScope = (function () {
           if (typeof window !== 'undefined') return window;
@@ -7132,11 +7289,10 @@ async function load(
             currentOriginalCodeId = slug; // Keep the full $code format
             console.log("✅ Successfully loaded cached code:", cacheId, `(${sourceToRun.length} chars)`);
             
-            // 👤 Fetch author metadata in background (don't block loading)
+            // 👤 Fetch author metadata in background (for logging only)
             fetchKidlispMetadata(cacheId).then(meta => {
               if (meta) {
-                currentHUDAuthor = meta.handle;
-                currentHUDHits = meta.hits;
+                // Note: author/hits are fetched but not displayed for KidLisp pieces
                 console.log(`👤 Author: ${meta.handle || 'anonymous'}, Hits: ${meta.hits}`);
               }
             }).catch(err => {
@@ -8766,6 +8922,10 @@ async function load(
       
       receive = module.receive || defaults.receive; // Handle messages from BIOS
       
+      // ⏱️ Background mode: pieces can export `background = true` to keep sim()
+      // running when the page is hidden (e.g. clock.mjs for audio scheduling)
+      pieceBackground = !!module.background;
+      
       // 🎨 AUTO-DETECT BRUSH FUNCTIONS: If a piece exports a brush or lift function, automatically use nopaint system
       system = module.system || (module.brush || module.lift ? "nopaint" : null);
       
@@ -8806,11 +8966,32 @@ async function load(
     shouldSkipPaint = false;
     pieceFrameCount = 0;
     
-    // 🧬 Reset GOL transition state (but keep overlayPixels - it's the captured noise16!)
-    golTransition.active = false;
-    // golTransition.overlayPixels preserved - it's the captured noise16 before piece loads
-    golTransition.revealMap = null;
-    golTransition.generation = 0;
+    // 🎬 Piece Transition: Capture CURRENT screen pixels BEFORE clearing
+    // This enables piece-to-piece morphing transitions (not just noise16→piece)
+    // Skip entirely if TRANSITION_TYPE is "none"
+    if (TRANSITION_TYPE !== "none") {
+      // Check if buffer is valid (not detached from transfer to main thread)
+      try {
+        if (screen?.pixels && screen.width > 0 && screen.height > 0 && 
+            screen.pixels.buffer && !screen.pixels.buffer.detached && screen.pixels.byteLength > 0) {
+          golTransition.overlayPixels = new Uint8ClampedArray(screen.pixels);
+          golTransition.width = screen.width;
+          golTransition.height = screen.height;
+          
+          // Initialize and START transition immediately (loading phase)
+          initGOLCells(golTransition.width, golTransition.height);
+          golTransition.generation = 0;
+          golTransition.active = true;
+          console.log(`🎬 Transition: Started ${TRANSITION_TYPE} (loading phase)`, screen.width, "x", screen.height);
+        }
+      } catch (e) {
+        // Buffer may be detached if pixels were transferred - skip transition
+        console.log("🎬 Transition: Could not capture pixels (buffer detached), skipping");
+        golTransition.overlayPixels = null;
+      }
+    }
+    
+    // Note: transition state is now set above when starting
     
     // 🧹 Clear screen buffer when loading a new piece to prevent stale pixels
     // This fixes the blank screen issue when backspacing from kidlisp to prompt
@@ -8932,6 +9113,7 @@ async function load(
   currentHUDLeftPad = 0;
     currentHUDQR = null; // Reset QR code when loading new piece
     currentHUDQRCells = null;
+    currentHUDSuperscript = null; // Reset custom superscript
     forceTinyHudLabel = false; // Reset tiny label flag
     // currentPromptButton = undefined;
 
@@ -8981,6 +9163,7 @@ async function load(
       text: slug,
       pieceCount: $commonApi.pieceCount,
       pieceHasSound: true, // TODO: Make this an export flag for pieces that don't want to enable the sound engine. 23.07.01.16.40
+      background: pieceBackground, // ⏱️ Piece wants sim() to keep running when hidden
       // 📓 Could also disable the sound engine if the flag is false on a subsequent piece, but that would never really make practical sense?
       fromHistory,
       alias,
@@ -9062,8 +9245,8 @@ let pendingExportEvents = [];
 // TODO: Try to remove as many API calls from here as possible.
 
 async function makeFrame({ data: { type, content } }) {
-  // DEBUG: Log all DAW-related messages
-  if (type?.startsWith?.("daw:")) {
+  // DEBUG: Log ALL messages starting with "pedal:" or "daw:"
+  if (type?.startsWith?.("pedal:") || type?.startsWith?.("daw:")) {
     console.log("🎹🎹🎹 makeFrame received:", type, content);
   }
   
@@ -9104,6 +9287,7 @@ async function makeFrame({ data: { type, content } }) {
     
     TV_MODE = content.resolution?.tv === true;
     DEVICE_MODE = content.resolution?.device === true;
+    SOLO_MODE = content.resolution?.solo === true;
     
     // Parse highlight parameter
     const highlightParam = content.resolution?.highlight;
@@ -9299,6 +9483,23 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 🎸 Pedal messages (for audio effect visualization)
+  if (type === "pedal:peak") {
+    // Forward to the piece's receive function if it exists
+    if (typeof receive === "function") {
+      receive({ type: "pedal:peak", peak: content.peak });
+    }
+    return;
+  }
+
+  if (type === "pedal:envelope") {
+    // Forward to the piece's receive function if it exists
+    if (typeof receive === "function") {
+      receive({ type: "pedal:envelope", ...content });
+    }
+    return;
+  }
+
   // Update the logged in user after initialization.
   if (type === "session:started") {
     // console.log("🟢 Session starting...");
@@ -9453,6 +9654,7 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "microphone-disconnect") {
     microphone.connected = false;
+    actAlerts.push("microphone-disconnect");
     return;
   }
 
@@ -9688,7 +9890,8 @@ async function makeFrame({ data: { type, content } }) {
     
     // Reset KidLisp timing state when becoming visible again
     // This prevents animation "catch up" after tab was hidden
-    if (content === true && visible === false && globalKidLispInstance) {
+    // Skip reset for pieces with background mode — they kept running while hidden.
+    if (content === true && visible === false && globalKidLispInstance && !pieceBackground) {
       // Becoming visible - reset timing expressions
       globalKidLispInstance.lastSecondExecutions = {};
       globalKidLispInstance.instantTriggersExecuted = {};
@@ -10643,6 +10846,7 @@ async function makeFrame({ data: { type, content } }) {
         // ⛈️ Jump back to the `prompt` from anywhere..
         if (
           !getPackMode() && // Disable navigation keys in OBJKT mode
+          !SOLO_MODE && // Disable navigation keys in solo mode
           (data.key === "`" ||
             data.key === "Enter" ||
             data.key === "Backspace" ||
@@ -10706,6 +10910,10 @@ async function makeFrame({ data: { type, content } }) {
           });
 
           send({ type: "keyboard:unlock" });
+
+          // 🌐 Branded domain: Escape/backtick/Enter navigates to aesthetic.computer
+          if (data.key !== "Backspace" && redirectIfBrandedDomain()) return;
+
           if (!labelBack || data.key === "Backspace" || data.key === "Escape") {
             let promptSlug = "prompt";
             if (data.key === "Backspace") {
@@ -11618,6 +11826,9 @@ async function makeFrame({ data: { type, content } }) {
                 });
               },
               push: (btn) => {
+                // Block HUD label navigation in solo mode
+                if (SOLO_MODE) return;
+
                 const fallbackShareWidth = tf.blockWidth * "share ".length;
                 const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
                 
@@ -11661,6 +11872,10 @@ async function makeFrame({ data: { type, content } }) {
                   decay: 0.5,
                   volume: 0.15,
                 });
+
+                // 🌐 Branded domain: tapping HUD label navigates to aesthetic.computer
+                if (redirectIfBrandedDomain()) return;
+
                 if (!labelBack) {
                   // Only clear prompt text when leaving NON-kidlisp pieces by tapping HUD
                   // For inline kidlisp prompts, preserve the content so user can continue editing
@@ -12335,26 +12550,57 @@ async function makeFrame({ data: { type, content } }) {
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
             
-            // 🧬 GOL Transition: Capture noise16 frame AFTER defaults.paint runs
+            // 🎬 Piece Transition: Also capture noise16 frame as fallback (for initial page load)
             if (paint === defaults.paint && $api.screen?.pixels) {
-              // Continuously capture the noise16 state - we want the LAST frame before piece loads
+              // Capture the noise16 state in case no piece was running before (initial load)
               golTransition.overlayPixels = new Uint8ClampedArray($api.screen.pixels);
               golTransition.width = $api.screen.width;
               golTransition.height = $api.screen.height;
             }
             
-            // 🧬 GOL Transition: Start transition when first piece paint happens
-            if (pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && !golTransition.active && $api.screen?.pixels) {
-              // Check dimensions match
-              if ($api.screen.width === golTransition.width && $api.screen.height === golTransition.height) {
-                // Initialize GOL cells - starts with all alive (showing noise), seeded dead spots
+            // 🎬 Piece Transition: When first piece paint happens, switch to reveal phase
+            // Skip for KidLisp pieces - they have their own rendering that conflicts
+            const isKidLispPiece = currentPath && (
+              lisp.isKidlispSource(currentPath) || 
+              currentPath === "(...)" || 
+              currentPath.includes("$") ||
+              currentPath.endsWith('.lisp')
+            );
+            
+            // Skip transitions entirely if TRANSITION_TYPE is "none"
+            if (TRANSITION_TYPE !== "none" && pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && $api.screen?.pixels && !isKidLispPiece) {
+              const screenW = $api.screen.width;
+              const screenH = $api.screen.height;
+              const overlayW = golTransition.width;
+              const overlayH = golTransition.height;
+              
+              // If dimensions differ, scale the overlay to match the new screen
+              if (screenW !== overlayW || screenH !== overlayH) {
+                console.log(`🎬 Transition: Scaling overlay from ${overlayW}x${overlayH} to ${screenW}x${screenH}`);
+                golTransition.overlayPixels = scaleOverlayPixels(
+                  golTransition.overlayPixels, 
+                  overlayW, overlayH, 
+                  screenW, screenH
+                );
+                golTransition.width = screenW;
+                golTransition.height = screenH;
+                // Re-initialize with new dimensions if needed
+                if (golTransition.active) {
+                  initGOLCells(screenW, screenH);
+                }
+              }
+              
+              // If transition was already started during load, switch to reveal phase
+              // Otherwise start it now (fallback for cases where capture didn't happen)
+              if (golTransition.active) {
+                transitionPieceLoaded(); // Switch from loading to reveal phase
+              } else {
+                // Fallback: start transition now if it wasn't started during load
                 initGOLCells(golTransition.width, golTransition.height);
                 golTransition.generation = 0;
                 golTransition.active = true;
-                console.log("🧬 GOL: Started overlay transition!", golTransition.width, "x", golTransition.height);
-              } else {
-                console.warn("🧬 GOL: Dimension mismatch on start, skipping transition");
-                golTransition.overlayPixels = null;
+                golTransition.phase = "revealing"; // Skip loading, go straight to reveal
+                console.log(`🎬 Transition: Started ${TRANSITION_TYPE} (direct reveal)`, golTransition.width, "x", golTransition.height);
               }
             }
             
@@ -12368,6 +12614,12 @@ async function makeFrame({ data: { type, content } }) {
             // Only signal once when piece has a custom paint function (not defaults.paint)
             if (pieceFrameCount === 1 && paint !== defaults.paint) {
               send({ type: "piece-paint-ready" });
+              // 🔥 Global signal for Puppeteer/Oven to detect piece is ready for screenshot
+              if (typeof window !== "undefined") {
+                window.acPieceReady = true;
+                window.acPieceReadyTime = Date.now();
+                console.log("🟢 acPieceReady = true (first paint complete)");
+              }
             }
             
             // TODO: Remove old embedded layer rendering - using simplified approach now
@@ -12503,32 +12755,34 @@ async function makeFrame({ data: { type, content } }) {
 
         painting.paint(true);
         
-        // 🧬 GOL Transition: Step the GOL and apply overlay AFTER painting.paint() executes
-        // This ensures the noise overlay is composited on TOP of the piece's rendered frame
+        // 🎬 Piece Transition: Step and apply overlay AFTER painting.paint() executes
+        // This ensures the overlay is composited on TOP of the piece's rendered frame
         if (golTransition.active && screen?.pixels) {
           // Check dimensions still match
           if (screen.width !== golTransition.width || screen.height !== golTransition.height) {
-            console.warn("🧬 GOL: Screen dimensions changed! Aborting transition.");
+            console.warn("🎬 Transition: Screen dimensions changed! Aborting.");
             golTransition.active = false;
             golTransition.overlayPixels = null;
-            golTransition.cells = null;
-            golTransition.nextCells = null;
-            golTransition.smearBuffer = null;
+            golTransition.blockData = null;
+            golTransition.dripOffsets = null;
+            golTransition.dripSpeeds = null;
+            golTransition.dripDirections = null;
           } else {
-            // Step the GOL (pass screen pixels for smear sampling)
+            // Step the transition
             const stillActive = golStep(screen.pixels);
             
-            // Apply noise overlay on top of piece's paint
+            // Apply overlay on top of piece's paint
             applyGOLOverlay(screen.pixels);
             
             // End transition when complete
             if (!stillActive) {
-              console.log("🧬 GOL: Transition complete!");
+              console.log(`🎬 Transition: ${TRANSITION_TYPE} complete!`);
               golTransition.active = false;
               golTransition.overlayPixels = null;
-              golTransition.cells = null;
-              golTransition.nextCells = null;
-              golTransition.smearBuffer = null;
+              golTransition.blockData = null;
+              golTransition.dripOffsets = null;
+              golTransition.dripSpeeds = null;
+              golTransition.dripDirections = null;
             }
           }
         }
@@ -12818,6 +13072,11 @@ async function makeFrame({ data: { type, content } }) {
         const lanBadgePadding = showLanBadge ? 10 : 0; // Space for letter + margin
         w += lanBadgePadding;
         
+        // ✨ Custom superscript (e.g. ".com") - add width for text
+        const showCustomSuperscript = !!currentHUDSuperscript;
+        const customSuperscriptPadding = showCustomSuperscript ? (currentHUDSuperscript.length * 5 + 3) : 0;
+        w += customSuperscriptPadding;
+        
         // 📱 HUD QR code - generate cells and calculate width
         let hudQRSize = 0;
         let hudQRPadding = 0;
@@ -12977,7 +13236,22 @@ async function makeFrame({ data: { type, content } }) {
               // wordWrap defaults to true when bounds is set, enabling character wrapping
             });
 
-            // 📡 LAN Badge Superscript - draw device letter after the text
+            // ✨ Custom Superscript (e.g. ".com") - draw after the text in cyan
+            if (showCustomSuperscript) {
+              const firstLine = text?.split('\n')[0] || text;
+              const firstLineWidth = cachedAPI.text.width(
+                stripColorCodes(firstLine),
+                selectedTypeface
+              );
+              
+              const superscriptX = hudTextX + firstLineWidth + 2;
+              const superscriptY = 0;
+              
+              $.ink(0, 220, 255); // Bright cyan
+              $.write(currentHUDSuperscript, { x: superscriptX, y: superscriptY }, undefined, undefined, false, "MatrixChunky8");
+            }
+
+            // 📡 LAN Badge Superscript - draw device letter after the text (+ custom superscript offset)
             if (showLanBadge) {
               const deviceLetter = devIdentity.letter || 
                 (devIdentity.name ? devIdentity.name.charAt(0).toUpperCase() : null) ||
@@ -12990,8 +13264,8 @@ async function makeFrame({ data: { type, content } }) {
                 selectedTypeface
               );
               
-              // Position superscript to the right of first line, vertically at top
-              const superscriptX = hudTextX + firstLineWidth + 2; // 2px gap after text
+              // Position superscript to the right of first line (after custom superscript if present)
+              const superscriptX = hudTextX + firstLineWidth + 2 + customSuperscriptPadding;
               const superscriptY = 0; // Top of the line (superscript position)
               
               // Draw letter in cyan using MatrixChunky8
@@ -13994,19 +14268,21 @@ async function makeFrame({ data: { type, content } }) {
                 });
               } else {
                 // Corner QR: make it tappable to go fullscreen
-                send({
-                  type: "button:hitbox:add",
-                  content: {
-                    label: "qr-corner",
-                    box: {
-                      x: startX + hudAnimationState.qrSlideOffset.x,
-                      y: startY + hudAnimationState.qrSlideOffset.y,
-                      w: overlayWidth,
-                      h: overlayHeight
-                    },
-                    message: "qr-corner-tap"
-                  }
-                });
+                if (!SOLO_MODE) {
+                  send({
+                    type: "button:hitbox:add",
+                    content: {
+                      label: "qr-corner",
+                      box: {
+                        x: startX + hudAnimationState.qrSlideOffset.x,
+                        y: startY + hudAnimationState.qrSlideOffset.y,
+                        w: overlayWidth,
+                        h: overlayHeight
+                      },
+                      message: "qr-corner-tap"
+                    }
+                  });
+                }
               }
 
             } else {
@@ -14425,19 +14701,21 @@ async function makeFrame({ data: { type, content } }) {
                 });
               } else {
                 // Corner QR: make it tappable to go fullscreen
-                send({
-                  type: "button:hitbox:add",
-                  content: {
-                    label: "qr-corner",
-                    box: {
-                      x: startX + hudAnimationState.qrSlideOffset.x,
-                      y: startY + hudAnimationState.qrSlideOffset.y,
-                      w: overlayWidth || qrData.width,
-                      h: overlayHeight || qrData.height
-                    },
-                    message: "qr-corner-tap"
-                  }
-                });
+                if (!SOLO_MODE) {
+                  send({
+                    type: "button:hitbox:add",
+                    content: {
+                      label: "qr-corner",
+                      box: {
+                        x: startX + hudAnimationState.qrSlideOffset.x,
+                        y: startY + hudAnimationState.qrSlideOffset.y,
+                        w: overlayWidth || qrData.width,
+                        h: overlayHeight || qrData.height
+                      },
+                      message: "qr-corner-tap"
+                    }
+                  });
+                }
               }
 
             }
@@ -14725,6 +15003,30 @@ async function makeFrame({ data: { type, content } }) {
       loadAfterPreamble?.(); // Start loading after the first disk if necessary.
     }
 
+    // 🛡️ Safety net: if session:started was never received (auth failure, network issue,
+    // or race condition in boot.mjs), force-proceed after ~2 seconds (120 frames at 60fps)
+    // to prevent the system from being stuck on noise16 forever.
+    if (
+      paintCount > 120n &&
+      !sessionStarted &&
+      !PREVIEW_OR_ICON &&
+      !$commonApi.net.sandboxed &&
+      loadAfterPreamble
+    ) {
+      console.warn("⚠️ session:started not received after 120 frames — proceeding without auth");
+      sessionStarted = true;
+      // Try to recover handle from localStorage even without full auth
+      const cachedHandle = store["handle"];
+      if (cachedHandle && !HANDLE) {
+        HANDLE = "@" + cachedHandle;
+        window.acHANDLE = HANDLE;
+        if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
+        send({ type: "handle", content: HANDLE });
+        console.log(`🔐 Recovered cached handle: ${HANDLE}`);
+      }
+      loadAfterPreamble?.();
+    }
+
     // soundClear?.();
 
     // ***Frame State Reset***
@@ -14755,8 +15057,10 @@ async function handle(retryCount = 0) {
   const RETRY_DELAYS = [500, 1000, 2000]; // Exponential backoff
 
   if (USER) {
+    // Fast path: use handle already fetched by boot.mjs (via /user?withHandle=true)
+    const bootHandle = USER.handle;
     // TODO: Check to see if this is in localStorage or not...
-    const storedHandle = store["handle"]; // || (await store.retrieve("handle"));
+    const storedHandle = bootHandle || store["handle"]; // || (await store.retrieve("handle"));
 
     // console.log("Stored handle...", storedHandle);
 
@@ -14768,6 +15072,7 @@ async function handle(retryCount = 0) {
       if (window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
       send({ type: "handle", content: HANDLE });
       store["handle:received"] = true;
+      if (bootHandle) store["handle"] = bootHandle; // Cache boot-fetched handle
       // console.log("Retrieved handle from store:", storedHandle);
       return; // Leave early if a stored handle was found.
     }

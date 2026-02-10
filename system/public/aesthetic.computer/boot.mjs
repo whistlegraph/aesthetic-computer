@@ -467,7 +467,7 @@ const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
-  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale'
+  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale', 'solo'
 ];
 
 // Auth0 parameters that need to be temporarily processed but then removed
@@ -691,29 +691,66 @@ const IMPORT_MAX_RETRIES = 3;
 const IMPORT_RETRY_DELAY = 1500;
 
 async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBundle = false) {
-  // Try WebSocket module loader with dependency bundling first
   const loader = window.acModuleLoader;
-  if (useWsBundle && loader?.connected && loader.loadWithDeps) {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const retryDelay = isLocalhost ? 300 : IMPORT_RETRY_DELAY;
+  let triedWs = false;
+
+  const waitForWsConnection = async () => {
+    if (!loader?.connecting) return;
+    await Promise.race([
+      loader.connecting,
+      new Promise(resolve => setTimeout(resolve, 400))
+    ]);
+  };
+
+  const tryLoadViaWs = async () => {
+    if (!loader?.loadWithDeps) throw new Error('ws-unavailable');
+    triedWs = true;
+    await waitForWsConnection();
+    if (!loader.connected) throw new Error('ws-not-connected');
+    const relativePath = modulePath.replace(/^\.\//, '').split('?')[0];
+    const blobUrl = await loader.loadWithDeps(relativePath, 5000);
+    if (blobUrl && blobUrl.startsWith('blob:')) {
+      return await import(blobUrl);
+    }
+    throw new Error('ws-missing-blob');
+  };
+
+  const tryLoadViaHttp = async () => import(modulePath);
+
+  const raceToSuccess = async (promises) => new Promise((resolve, reject) => {
+    let pending = promises.length;
+    let lastErr = null;
+    for (const promise of promises) {
+      promise.then(resolve).catch((err) => {
+        lastErr = err;
+        pending -= 1;
+        if (pending === 0) reject(lastErr);
+      });
+    }
+  });
+
+  // Parallel paths on localhost or when explicitly requested
+  if (useWsBundle || isLocalhost) {
     try {
-      // Extract relative path from modulePath (remove ./ prefix and cache bust)
-      let relativePath = modulePath.replace(/^\.\//, '').split('?')[0];
-      
-      // Load module with all dependencies via WebSocket (5s timeout for bundles)
-      const blobUrl = await loader.loadWithDeps(relativePath, 5000);
-      
-      if (blobUrl && blobUrl.startsWith('blob:')) {
-        const module = await import(blobUrl);
-        return module;
-      }
+      return await raceToSuccess([tryLoadViaWs(), tryLoadViaHttp()]);
     } catch (err) {
-      // Silent fallback to HTTP
+      // Fall through to retry loop
+    }
+  } else if (loader?.connected) {
+    // Opportunistic WS load even if boot decided not to wait
+    try {
+      return await tryLoadViaWs();
+    } catch (err) {
+      // Fall through to HTTP
     }
   }
   
   // Standard HTTP import with retry
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const module = await import(modulePath);
+      const module = await tryLoadViaHttp();
       return module;
     } catch (err) {
       const isNetworkError = err.message?.includes('net::ERR_') || 
@@ -722,9 +759,17 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBu
                              err.message?.includes('NetworkError') ||
                              err.message?.includes('Content-Length');
       
+      if (isNetworkError && !triedWs) {
+        try {
+          return await tryLoadViaWs();
+        } catch (wsErr) {
+          // Continue to retry loop
+        }
+      }
+
       if (attempt < retries && isNetworkError) {
         bootLog(`⚠️ module load failed - retry ${attempt}/${retries}`);
-        await new Promise(resolve => setTimeout(resolve, IMPORT_RETRY_DELAY));
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
       } else {
         throw err;
       }
@@ -835,6 +880,8 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
 } else if (
   window.location.hostname === "aesthetic.computer" ||
   window.location.hostname.endsWith(".ac") ||
+  window.location.hostname === "notepat.com" ||
+  window.location.hostname === "www.notepat.com" ||
   window.location.hostname === "m2w2.whistlegraph.com" ||
   window.acPACK_MODE // Disable debug mode in OBJKT packages
 ) {
@@ -866,6 +913,12 @@ if (
   location.hostname === "www.wipppps.world"
 ) {
   window.acSTARTING_PIECE = "wipppps";
+}
+if (
+  location.hostname === "notepat.com" ||
+  location.hostname === "www.notepat.com"
+) {
+  window.acSTARTING_PIECE = "notepat";
 }
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
@@ -1073,6 +1126,10 @@ const perf = perfParam === true || perfParam === "true";
 const autoScaleParam = params.has("auto-scale") || location.search.includes("auto-scale");
 const autoScale = autoScaleParam === true || autoScaleParam === "true";
 
+// Check for solo parameter (locks piece in place, prevents navigation away)
+const soloParam = params.has("solo") || location.search.includes("solo");
+const solo = soloParam === true || soloParam === "true";
+
 // Note: zoom parameter is available but not automatically applied to avoid text rendering issues
 // It's passed to the boot function for selective use
 
@@ -1093,7 +1150,7 @@ if (window.acVSCODE) {
 
 // Pass the parameters directly without stripping them
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale, solo }, debug);
 
 // Start processing any early kidlisp messages that arrived before boot completed
 processEarlyKidlispQueue();
@@ -1201,6 +1258,9 @@ async function setupAuth0Client() {
 // Call this function at the desired point in your application
 // 🚀 Only load Auth0 if user likely has an auth session (or is doing OAuth callback)
 if (!sandboxed && !skipAuth) {
+  // 🛡️ Track whether session:started was sent in the auth flow
+  // Hoisted so .catch() can use it as a fallback
+  let _authSessionSent = false;
   window.acAuthTiming.auth0ScriptLoadStart = performance.now();
   bootLog("loading auth0 script");
   loadAuth0Script()
@@ -1304,6 +1364,12 @@ if (!sandboxed && !skipAuth) {
           if (!pickedUpSession) {
             if (window.parent)
               window.parent.postMessage({ type: "logout" }, "*");
+            // 🛡️ Still send session:started so disk.mjs can proceed with loading
+            _authSessionSent = true;
+            window.acDISK_SEND({
+              type: "session:started",
+              content: { user: null },
+            });
             return;
           }
 
@@ -1314,6 +1380,7 @@ if (!sandboxed && !skipAuth) {
           };
           // Will get passed to the first message by the piece runner.
           // console.log("🌻 Picked up session!", window.acTOKEN, window.acUSER);
+          _authSessionSent = true;
           window.acDISK_SEND({
             type: "session:started",
             content: { user: window.acUSER },
@@ -1437,6 +1504,7 @@ if (!sandboxed && !skipAuth) {
         }
         window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
         window.acAuthTiming.sessionStartedSent = performance.now();
+        _authSessionSent = true;
         window.acDISK_SEND({
           type: "session:started",
           content: { user: window.acUSER },
@@ -1444,6 +1512,7 @@ if (!sandboxed && !skipAuth) {
       } else if (!pickedUpSession) {
         // console.log("🗝️ Not authenticated.");
         window.acAuthTiming.sessionStartedSent = performance.now();
+        _authSessionSent = true;
         window.acDISK_SEND({
           type: "session:started",
           content: { user: null },
@@ -1456,10 +1525,28 @@ if (!sandboxed && !skipAuth) {
       bootLog(`auth0 complete (${Math.round(totalAuthTime)}ms total auth time)`);
       // Log full summary to console for debugging
       console.log(window.acAuthTiming.summary());
+    } else {
+      // 🛡️ Auth block was skipped (window.auth0 missing, sandboxed, or previewOrIcon)
+      // Still need to send session:started so disk.mjs can proceed
+      if (!_authSessionSent) {
+        _authSessionSent = true;
+        window.acDISK_SEND({
+          type: "session:started",
+          content: { user: null },
+        });
+      }
     }
   })
   .catch((error) => {
     console.error("Failed to load Auth0 script:", error);
+    // 🛡️ Always send session:started even on auth failure so disk.mjs can proceed
+    if (!_authSessionSent) {
+      _authSessionSent = true;
+      window.acDISK_SEND({
+        type: "session:started",
+        content: { user: null },
+      });
+    }
   });
 } else {
   // Auth0 disabled in OBJKT mode

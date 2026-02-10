@@ -1480,8 +1480,29 @@ class TextInput {
       this.scheme["dark"] ||
       this.scheme;
 
-    if (!clear && this.pal.background !== undefined)
+    // Check if mouse is hovering over the prompt frame
+    const pen = $.pen;
+    const isHovering = pen && 
+      pen.x >= frame.x && 
+      pen.x < frame.x + frame.width && 
+      pen.y >= frame.y && 
+      pen.y < frame.y + frame.height;
+
+    if (!clear && this.pal.background !== undefined) {
       $.ink(this.pal.background).box(frame); // Paint bg.
+      
+      // Add subtle hover glow effect on the prompt area
+      if (isHovering && this.canType) {
+        const glowColor = this.pal.promptHover || 
+          ($.dark ? [100, 80, 150, 30] : [180, 150, 220, 40]);
+        $.ink(glowColor).box(frame.x, frame.y, frame.width, frame.height);
+        
+        // Draw a subtle inner border highlight
+        const borderColor = this.pal.promptHoverBorder ||
+          ($.dark ? [150, 100, 200, 80] : [140, 100, 180, 60]);
+        $.ink(borderColor).box(frame.x, frame.y, frame.width, frame.height, "inline");
+      }
+    }
     const ti = this;
     const prompt = this.#prompt;
 
@@ -1775,12 +1796,14 @@ class TextInput {
     }
 
     // Build custom color schemes for the `ui.TextButton`s if they were defined.
-    let btnScheme, btnHvrScheme;
+    let btnScheme, btnHvrScheme, btnRolloverScheme;
     const pal = this.pal;
     if (pal.btn && pal.btnTxt)
       btnScheme = [pal.btn, pal.btnTxt, pal.btnTxt, pal.btn];
     if (pal.btnHvr && pal.btnHvrTxt)
       btnHvrScheme = [pal.btnHvr, pal.btnHvrTxt, pal.btnHvrTxt, pal.btnHvr];
+    if (pal.btnRollover && pal.btnRolloverTxt)
+      btnRolloverScheme = [pal.btnRollover, pal.btnRolloverTxt, pal.btnRolloverTxt, pal.btnRollover];
 
     // Enter Button
     if (!this.enter.btn.disabled) {
@@ -1802,7 +1825,7 @@ class TextInput {
     if (!this.enter.btn.disabled) {
       this.enter.reposition({ right: 6, bottom: 6, screen: frame });
       $.layer(2);
-      this.enter.paint($, btnScheme, btnHvrScheme);
+      this.enter.paint($, btnScheme, btnHvrScheme, undefined, btnRolloverScheme);
       $.layer(1);
     }
 
@@ -1815,6 +1838,8 @@ class TextInput {
         { ink: $.ink },
         this.#copyPasteScheme || btnScheme,
         btnHvrScheme,
+        undefined,
+        btnRolloverScheme,
       );
       $.layer(1);
     }
@@ -1828,6 +1853,8 @@ class TextInput {
         { ink: $.ink },
         this.#copyPasteScheme || btnScheme,
         btnHvrScheme,
+        undefined,
+        btnRolloverScheme,
       );
       $.layer(1);
     }

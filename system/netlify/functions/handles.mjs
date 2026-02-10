@@ -39,7 +39,10 @@ export async function handler(event) {
 
     return respond(200, {
       handles: handles
-        .map((doc) => doc.handle)
+        .map((doc) => {
+          const h = doc.handle;
+          return typeof h === "string" ? h : (h?.handle || null);
+        })
         .filter((h) => h && typeof h === "string"), // Filter out null/undefined/non-strings
       count: handles.length,
     });
