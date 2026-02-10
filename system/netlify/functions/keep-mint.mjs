@@ -27,8 +27,8 @@ if (dev) {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
 
-// Configuration - Mainnet staging contract by default
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi";
+// Configuration - Mainnet v4 contract by default
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W";
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const OVEN_URL = process.env.OVEN_URL || "https://oven.aesthetic.computer";
 const OVEN_FALLBACK_URL = "https://oven.aesthetic.computer"; // Always available fallback

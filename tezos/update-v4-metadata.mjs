@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Update v3 contract metadata to mark as deprecated
+ * Update v4 contract metadata
  */
 
 import { TezosToolkit } from '@taquito/taquito';
@@ -13,8 +13,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// V3 staging contract
-const V3_CONTRACT = 'KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi';
+// V4 staging contract
+const V4_CONTRACT = 'KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W';
 
 // Load staging wallet credentials
 const stagingEnvPath = path.join(__dirname, 'staging/.env');
@@ -37,14 +37,14 @@ const tezos = new TezosToolkit('https://mainnet.api.tez.ie');
 tezos.setProvider({ signer: new InMemorySigner(stagingKey) });
 
 console.log('\n╔══════════════════════════════════════════════════════════════╗');
-console.log('║  📝 Update v3 Contract Metadata                              ║');
+console.log('║  📝 Update v4 Contract Metadata                              ║');
 console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
-console.log(`📍 Contract: ${V3_CONTRACT}`);
+console.log(`📍 Contract: ${V4_CONTRACT}`);
 console.log(`👤 Admin: ${stagingAddress}\n`);
 
 // Read new metadata
-const metadataJson = JSON.parse(fs.readFileSync('/tmp/v3-alpha-metadata.json', 'utf8'));
+const metadataJson = JSON.parse(fs.readFileSync('/tmp/v4-metadata.json', 'utf8'));
 const metadataString = JSON.stringify(metadataJson);
 const metadataBytes = Buffer.from(metadataString, 'utf8').toString('hex');
 
@@ -56,7 +56,7 @@ console.log();
 console.log('📤 Calling set_contract_metadata...');
 
 try {
-  const contract = await tezos.contract.at(V3_CONTRACT);
+  const contract = await tezos.contract.at(V4_CONTRACT);
 
   // Call set_contract_metadata with [{ key: "content", value: bytes }]
   const op = await contract.methods.set_contract_metadata([{
